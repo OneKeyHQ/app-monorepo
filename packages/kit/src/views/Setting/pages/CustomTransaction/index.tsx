@@ -34,6 +34,7 @@ function CustomTxDataLearnMoreButton({
   });
   return (
     <Button
+      testID="setting-custom-tx-data-help-link-btn"
       flex={1}
       textAlign="left"
       justifyContent="flex-start"
@@ -78,6 +79,7 @@ function CustomTransaction() {
               })}
             >
               <Switch
+                testID="setting-intl-switch"
                 size={ESwitchSize.small}
                 value={settings.isCustomNonceEnabled}
                 onChange={async (value) => {
@@ -103,6 +105,7 @@ function CustomTransaction() {
               })}
             >
               <Switch
+                testID="setting-switch"
                 size={ESwitchSize.small}
                 value={settings.isCustomTxMessageEnabled}
                 onChange={async (value) => {

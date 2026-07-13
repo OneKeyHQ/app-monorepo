@@ -21,16 +21,14 @@ import {
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import type { IIconProps } from '@onekeyhq/components/src/primitives';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/AppUpdate';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import type { IPublicBackupData } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
-// TODO: Move lightning utils to shared module
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { ERestoreResult } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
+import { ERestoreResult } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -44,6 +42,7 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import BackupListLoading from '../../components/BackupListLoading';
 import { useDeleteBackupDialog } from '../../components/useDeleteBackupDialog';
 import { useRestorePasswordVerifyDialog } from '../../components/useResotrePasswordVerify';
+import { CloudBackupTestIDs } from '../../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -220,7 +219,11 @@ export default function Detail() {
 
   const renderHeaderRight = useCallback(
     () => (
-      <HeaderIconButton icon="DotVerOutline" onPress={showDeleteActionList} />
+      <HeaderIconButton
+        icon="DotVerOutline"
+        onPress={showDeleteActionList}
+        testID={CloudBackupTestIDs.headerMenuBtn}
+      />
     ),
     [showDeleteActionList],
   );
@@ -338,6 +341,7 @@ export default function Detail() {
           <SegmentControl
             fullWidth
             value={segmentValue}
+            testID={CloudBackupTestIDs.segmentControl}
             onChange={(v) => {
               setSegmentValue(v as number);
             }}
@@ -458,6 +462,7 @@ export default function Detail() {
           loading={submitLoading}
           disabled={!diffData || diffData.notOnDeviceSectionList.length <= 0}
           onPress={handlerImport}
+          testID={CloudBackupTestIDs.importBtn}
         >
           {intl.formatMessage({ id: ETranslations.global_import })}
         </Button>

@@ -162,6 +162,7 @@ const PreSwapTipInfo = ({
 
       {quoteShowTip.showCheckbox ? (
         <Checkbox
+          testID="swap-checkbox"
           value={checked}
           onChange={handleCheckboxChange}
           label={quoteShowTip.checkboxLabel}
@@ -175,11 +176,13 @@ const PreSwapTipInfo = ({
             variant="secondary"
             size="medium"
             onPress={handleCancel}
+            testID="swap-btn"
           >
             {intl.formatMessage({ id: ETranslations.global_cancel })}
           </Button>
         ) : null}
         <Button
+          testID="swap-btn"
           flex={1}
           variant="destructive"
           size="medium"

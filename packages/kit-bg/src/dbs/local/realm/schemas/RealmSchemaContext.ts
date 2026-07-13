@@ -15,6 +15,18 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
 
   public verifyString!: string;
 
+  public localPasswordKdfUpgraded?: boolean;
+
+  public localPasswordKdfUpgradedTargetIterations?: number;
+
+  public localPasswordKdfUpgradeLastScannedCredentialId?: string;
+
+  public localSecretEnvelopeCredentialMigrated?: boolean;
+
+  public localSecretEnvelopeCredentialMigratedTargetVersion?: number;
+
+  public localSecretEnvelopeCredentialMigrationLastScannedCredentialId?: string;
+
   public networkOrderChanged?: boolean;
 
   public backupUUID!: string;
@@ -33,6 +45,24 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
       nextHD: 'int',
       nextWalletNo: 'int',
       verifyString: 'string',
+      localPasswordKdfUpgraded: { type: 'bool', default: false },
+      localPasswordKdfUpgradedTargetIterations: { type: 'int', default: 0 },
+      localPasswordKdfUpgradeLastScannedCredentialId: {
+        type: 'string',
+        default: '',
+      },
+      localSecretEnvelopeCredentialMigrated: {
+        type: 'bool',
+        default: false,
+      },
+      localSecretEnvelopeCredentialMigratedTargetVersion: {
+        type: 'int',
+        default: 0,
+      },
+      localSecretEnvelopeCredentialMigrationLastScannedCredentialId: {
+        type: 'string',
+        default: '',
+      },
       networkOrderChanged: { type: 'bool', default: false },
       backupUUID: { type: 'string', default: '' },
       nextSignatureMessageId: { type: 'int', default: 1 },
@@ -47,6 +77,18 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
       nextHD: this.nextHD,
       nextWalletNo: this.nextWalletNo,
       verifyString: this.verifyString,
+      localPasswordKdfUpgraded: this.localPasswordKdfUpgraded || false,
+      localPasswordKdfUpgradedTargetIterations:
+        this.localPasswordKdfUpgradedTargetIterations || 0,
+      localPasswordKdfUpgradeLastScannedCredentialId:
+        this.localPasswordKdfUpgradeLastScannedCredentialId || '',
+      localSecretEnvelopeCredentialMigrated:
+        this.localSecretEnvelopeCredentialMigrated || false,
+      localSecretEnvelopeCredentialMigratedTargetVersion:
+        this.localSecretEnvelopeCredentialMigratedTargetVersion || 0,
+      localSecretEnvelopeCredentialMigrationLastScannedCredentialId:
+        this.localSecretEnvelopeCredentialMigrationLastScannedCredentialId ||
+        '',
       networkOrderChanged: this.networkOrderChanged || false,
       backupUUID: this.backupUUID,
       nextSignatureMessageId: this.nextSignatureMessageId,

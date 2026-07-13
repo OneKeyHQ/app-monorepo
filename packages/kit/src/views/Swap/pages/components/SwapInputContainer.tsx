@@ -1,7 +1,6 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
 import {
   InputAccessoryView,
   Keyboard,
@@ -11,8 +10,6 @@ import {
 
 import {
   Button,
-  Dialog,
-  SizableText,
   XStack,
   YStack,
   useIsKeyboardShown,
@@ -23,6 +20,7 @@ import {
   useRateDifferenceAtom,
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
+  useSwapInitialSelectedTokensSyncedAtom,
   useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -30,26 +28,30 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
+  useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
-  ESwapRateDifferenceUnit,
   ESwapTabSwitchType,
   SwapAmountInputAccessoryViewID,
   SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
+import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapColdStartDisplayTokens } from '../../hooks/useSwapColdStartDisplayTokens';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
+import { SwapTestIDs } from '../../testIDs';
+import { getSwapTokenDisplayFiatValue } from '../../utils/swapDisplayFiatValue';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
 import SwapInputActions from './SwapInputActions';
@@ -99,6 +101,7 @@ export function PercentageStageOnKeyboard({
           />
         ))}
         <Button
+          testID="swap-stage-list-to-show-btn"
           icon="KeyboardDownOutline"
           flex={1}
           h="$10"
@@ -123,6 +126,7 @@ interface ISwapInputContainerProps {
   amountValue: string;
   onSelectToken: (type: ESwapDirectionType) => void;
   balance: string;
+  balanceLoading?: boolean;
   address?: string;
   inputLoading?: boolean;
   selectTokenLoading?: boolean;
@@ -141,26 +145,25 @@ const SwapInputContainer = ({
   onBalanceMaxPress,
   onSelectPercentageStage,
   balance,
+  balanceLoading,
 }: ISwapInputContainerProps) => {
   useSwapSelectedTokenInfo({
     token,
     type: direction,
   });
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const [alerts] = useSwapAlertsAtom();
-  const intl = useIntl();
   const { address, accountInfo } = useSwapAddressInfo(direction);
   const [rateDifference] = useRateDifferenceAtom();
   const amountPrice = useMemo(() => {
-    if (!token?.price) return '0.0';
-    const tokenPriceBN = new BigNumber(token.price ?? 0);
-    const tokenFiatValueBN = new BigNumber(amountValue ?? 0).multipliedBy(
-      tokenPriceBN,
-    );
-    return tokenFiatValueBN.isNaN()
-      ? '0.0'
-      : tokenFiatValueBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed();
-  }, [amountValue, token?.price]);
+    return getSwapTokenDisplayFiatValue({
+      token,
+      amount: amountValue ?? '',
+      targetCurrency: settingsPersistAtom.currencyInfo.id,
+      currencyMap,
+    });
+  }, [amountValue, currencyMap, settingsPersistAtom.currencyInfo.id, token]);
 
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -168,7 +171,53 @@ const SwapInputContainer = ({
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
+  const [initialSelectedTokensSynced] =
+    useSwapInitialSelectedTokensSyncedAtom();
+  const {
+    displayFromToken,
+    displayToToken,
+    isInitialFromTokenSelectionPending,
+    isInitialToTokenSelectionPending,
+  } = useSwapColdStartDisplayTokens({
+    fromToken,
+    initialSelectedTokensSynced,
+    swapType: swapTypeSwitch,
+    toToken,
+  });
+  const tokenSelectorDisplayToken =
+    (token?.symbol ? token : undefined) ??
+    (direction === ESwapDirectionType.FROM ? displayFromToken : displayToToken);
+  const isInitialTokenSelectionPending =
+    direction === ESwapDirectionType.FROM
+      ? isInitialFromTokenSelectionPending
+      : isInitialToTokenSelectionPending;
   const [, setInAppNotification] = useInAppNotificationAtom();
+  const tokenSelectorMinWidth = platformEnv.isNative ? 112 : 132;
+  const showTokenSelectorSkeleton =
+    !tokenSelectorDisplayToken?.symbol &&
+    (selectTokenLoading || isInitialTokenSelectionPending);
+  const displayBalance = useMemo(() => {
+    if (balance) {
+      return balance;
+    }
+    if (
+      !token?.balanceParsed ||
+      !token.accountAddress ||
+      !address ||
+      !equalsIgnoreCase(token.accountAddress, address)
+    ) {
+      return '';
+    }
+    const cachedBalanceBN = new BigNumber(token.balanceParsed);
+    return cachedBalanceBN.isNaN() ? '' : cachedBalanceBN.toFixed();
+  }, [address, balance, token?.accountAddress, token?.balanceParsed]);
+  const showBalanceSkeleton = useMemo(
+    () =>
+      Boolean(
+        token && address && !displayBalance && (balanceLoading || !balance),
+      ),
+    [address, balance, balanceLoading, displayBalance, token],
+  );
 
   const fromInputHasError = useMemo(() => {
     const accountError =
@@ -198,74 +247,21 @@ const SwapInputContainer = ({
     fromTokenAmount,
     fromToken,
   ]);
-  const onRateDifferencePress = useCallback(() => {
-    Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.swap_page_price_impact_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.swap_page_price_impact_content_1,
-      }),
-      renderContent: (
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.swap_page_price_impact_content_2,
-          })}
-        </SizableText>
-      ),
-      showCancelButton: false,
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.global_ok,
-      }),
-    });
-  }, [intl]);
   const valueMoreComponent = useMemo(() => {
     if (
       rateDifference &&
       direction === ESwapDirectionType.TO &&
       swapTypeSwitch !== ESwapTabSwitchType.LIMIT
     ) {
-      let color = '$textSubdued';
-      if (inputLoading) {
-        color = '$textPlaceholder';
-      }
-      if (rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE) {
-        color = '$textCritical';
-      }
-      if (rateDifference.unit === ESwapRateDifferenceUnit.POSITIVE) {
-        color = '$textSuccess';
-      }
       return (
-        <XStack alignItems="center">
-          <SizableText size="$bodySm" color={color}>
-            (
-          </SizableText>
-          <SizableText
-            size="$bodySm"
-            color={color}
-            cursor="pointer"
-            onPress={onRateDifferencePress}
-            {...(rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE && {
-              textDecorationLine: 'underline',
-              textDecorationStyle: 'dotted',
-            })}
-          >
-            {rateDifference.value}
-          </SizableText>
-          <SizableText size="$bodySm" color={color}>
-            )
-          </SizableText>
-        </XStack>
+        <SwapRateDifferenceText
+          loading={inputLoading}
+          rateDifference={rateDifference}
+        />
       );
     }
     return null;
-  }, [
-    direction,
-    inputLoading,
-    onRateDifferencePress,
-    rateDifference,
-    swapTypeSwitch,
-  ]);
+  }, [direction, inputLoading, rateDifference, swapTypeSwitch]);
 
   const [percentageInputStageShow, setPercentageInputStageShow] =
     useState(false);
@@ -342,6 +338,8 @@ const SwapInputContainer = ({
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
         <SwapAccountAddressContainer
           type={direction}
+          displayToken={tokenSelectorDisplayToken}
+          networkLoading={showTokenSelectorSkeleton}
           onClickNetwork={onSelectToken}
         />
         <SwapInputActions
@@ -361,10 +359,15 @@ const SwapInputContainer = ({
           fromInputHasError.accountError || fromInputHasError.hasBalanceError
         }
         balanceProps={{
-          value: balance,
+          value: displayBalance,
+          loading: showBalanceSkeleton,
           onPress:
             direction === ESwapDirectionType.FROM
               ? onBalanceMaxPress
+              : undefined,
+          testID:
+            direction === ESwapDirectionType.FROM
+              ? SwapTestIDs.maxButton
               : undefined,
         }}
         valueProps={{
@@ -394,11 +397,21 @@ const SwapInputContainer = ({
           autoComplete: 'off',
           onFocus: onFromInputFocus,
           onBlur: onFromInputBlur,
+          testID:
+            direction === ESwapDirectionType.FROM
+              ? SwapTestIDs.fromAmountInput
+              : SwapTestIDs.toAmountInput,
         }}
         tokenSelectorTriggerProps={{
-          loading: selectTokenLoading,
-          selectedTokenImageUri: token?.logoURI,
-          selectedTokenSymbol: token?.symbol,
+          testID:
+            direction === ESwapDirectionType.FROM
+              ? SwapTestIDs.fromTokenSelector
+              : SwapTestIDs.toTokenSelector,
+          minWidth: tokenSelectorMinWidth,
+          justifyContent: 'flex-end',
+          loading: showTokenSelectorSkeleton,
+          selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
+          selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
           onPress: () => {
             onSelectToken(direction);
           },

@@ -6,6 +6,7 @@ export type { ICommandSchema } from './registry';
 
 // Common primitives
 export {
+  btcAddressType,
   chainId,
   ethAddress,
   humanAmount,
@@ -24,6 +25,8 @@ export {
 } from './auth-schema';
 
 // Transfer
+export { signInputSchema, signOutputSchema } from './sign-schema';
+export type { ISignInput } from './sign-schema';
 export {
   transferDryRunOutputSchema,
   transferInputSchema,
@@ -35,7 +38,9 @@ export type { ITransferOptions } from './transfer-schema';
 // Balance
 export {
   balanceAllOutputSchema,
+  balanceBtcDerivedOutputSchema,
   balanceInputSchema,
+  balanceOutputSchema,
   balanceTokenOutputSchema,
 } from './balance-schema';
 
@@ -45,8 +50,19 @@ export {
   walletHistoryOutputSchema,
 } from './wallet-history-schema';
 
-// Import / Logout / Status / Version
-export { importInputSchema, importOutputSchema } from './import-schema';
+// Wallet group
+export {
+  walletAddressInputSchema,
+  walletAddressOutputSchema,
+  walletAddressTypesInputSchema,
+  walletAddressTypesOutputSchema,
+} from './wallet-schemas';
+
+// Logout / Status / Version
+export {
+  getAddressInputSchema,
+  getAddressOutputSchema,
+} from './get-address-schema';
 export { logoutInputSchema, logoutOutputSchema } from './logout-schema';
 export { statusInputSchema, statusOutputSchema } from './status-schema';
 export { versionInputSchema, versionOutputSchema } from './version-schema';

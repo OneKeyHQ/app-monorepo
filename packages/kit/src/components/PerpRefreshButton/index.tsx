@@ -34,6 +34,7 @@ export function PerpRefreshButton(props: IPerpRefreshButtonProps) {
 
   return (
     <IconButton
+      testID="perp-refresh-button-actions-icon-btn"
       loading={loading}
       disabled={!canRefresh}
       icon="RefreshCwOutline"

@@ -188,6 +188,7 @@ function WalletActionExchange(props?: {
     <XStack gap="$5" flexWrap="wrap">
       {sortedExchanges.map((config) => (
         <Button
+          testID="home-help-link-btn"
           key={config.id}
           size="small"
           variant="tertiary"

@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
+import { SendTestIDs } from '../../testIDs';
 
 import TxFeeContainer from './TxFeeContainer';
 
@@ -323,10 +324,12 @@ function SendConfirmActionsContainer(props: IProps) {
     <Page.Footer disableKeyboardAnimation>
       <Page.FooterActions
         confirmButtonProps={{
+          testID: SendTestIDs.confirmButton,
           disabled: isSubmitDisabled,
           loading: sendTxStatus.isSubmitting,
         }}
         cancelButtonProps={{
+          testID: SendTestIDs.cancelButton,
           disabled: sendTxStatus.isSubmitting,
         }}
         onConfirmText={

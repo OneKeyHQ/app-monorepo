@@ -1,4 +1,4 @@
-import { memo, useContext, useEffect, useMemo, useState } from 'react';
+import { memo, useContext, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,13 +14,13 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useMarketBasicConfig } from '../../../hooks/useMarketBasicConfig';
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
 import { usePerpsColumns } from './hooks/usePerpsColumns';
+import { useSyncedMarketPerpsCategory } from './hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from './MarketPerpsCategorySelector';
 
 import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
@@ -42,21 +42,11 @@ function MarketPerpsTokenListImpl({
   const intl = useIntl();
   const { md } = useMedia();
 
-  const { perpsCategories } = useMarketBasicConfig();
-
-  const initialCategoryId = useMemo(
-    () => perpsCategories[0]?.categoryId ?? '',
-    [perpsCategories],
-  );
-  const [selectedCategoryId, setSelectedCategoryId] =
-    useState(initialCategoryId);
-
-  // Sync when categories load asynchronously after initial render
-  useEffect(() => {
-    if (!selectedCategoryId && initialCategoryId) {
-      setSelectedCategoryId(initialCategoryId);
-    }
-  }, [initialCategoryId, selectedCategoryId]);
+  const {
+    perpsCategories: categoryTabs,
+    selectedCategoryId,
+    handleSelectCategory,
+  } = useSyncedMarketPerpsCategory();
 
   const { tokens, isLoading, hasRealTimeData } = useMarketPerpsTokenList({
     selectedCategoryId,
@@ -66,21 +56,12 @@ function MarketPerpsTokenListImpl({
 
   const handleTokenPress = navigateToPerps;
 
-  const categoryTabs = useMemo(
-    () =>
-      perpsCategories.map((c) => ({
-        tabId: c.categoryId,
-        name: c.name,
-      })),
-    [perpsCategories],
-  );
-
   const CategorySelector = useMemo(
     () => (
       <MarketPerpsCategorySelector
         categories={categoryTabs}
         selectedCategoryId={selectedCategoryId}
-        onSelectCategory={setSelectedCategoryId}
+        onSelectCategory={handleSelectCategory}
         containerStyle={{
           px: '$4',
           pt: '$3',
@@ -88,7 +69,7 @@ function MarketPerpsTokenListImpl({
         }}
       />
     ),
-    [categoryTabs, selectedCategoryId],
+    [categoryTabs, handleSelectCategory, selectedCategoryId],
   );
 
   const showSkeleton = Boolean(isLoading) && tokens.length === 0;
@@ -142,6 +123,23 @@ function MarketPerpsTokenListImpl({
     perpsColumns,
   ]);
 
+  let integratedContentPaddingBottom = tabBarHeight;
+  if (platformEnv.isNativeAndroid) {
+    integratedContentPaddingBottom = listContainerProps?.paddingBottom ?? 104;
+  } else if (webTabIntegrated) {
+    integratedContentPaddingBottom =
+      listContainerProps?.paddingBottom ?? tabBarHeight;
+  }
+
+  const tableContentContainerStyle = tabIntegrated
+    ? {
+        paddingTop: 8 + (platformEnv.isNative ? 150 : 0),
+        paddingBottom: integratedContentPaddingBottom,
+      }
+    : {
+        paddingBottom: platformEnv.isNativeAndroid ? 104 : tabBarHeight,
+      };
+
   return (
     <Stack flex={1} width="100%">
       {portalContent}
@@ -164,20 +162,7 @@ function MarketPerpsTokenListImpl({
             />
           ) : (
             <Table<IMarketPerpsToken>
-              contentContainerStyle={
-                tabIntegrated
-                  ? {
-                      paddingTop: 8 + (platformEnv.isNative ? 150 : 0),
-                      paddingBottom: platformEnv.isNativeAndroid
-                        ? (listContainerProps?.paddingBottom ?? 104)
-                        : tabBarHeight,
-                    }
-                  : {
-                      paddingBottom: platformEnv.isNativeAndroid
-                        ? 104
-                        : tabBarHeight,
-                    }
-              }
+              contentContainerStyle={tableContentContainerStyle}
               stickyHeader
               showHeader={!useDesktopPortal}
               tabIntegrated={tabIntegrated}

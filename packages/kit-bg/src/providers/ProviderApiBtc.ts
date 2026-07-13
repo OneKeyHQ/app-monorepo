@@ -5,7 +5,14 @@ import BigNumber from 'bignumber.js';
 import { Psbt } from 'bitcoinjs-lib';
 import { isEmpty, isNil } from 'lodash';
 
-import { getInputsToSignFromPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import {
+  getInputsToSignFromPsbt,
+  getSignPsbtOptionsForPsbtIndex,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import {
+  parseHexContext,
+  validateAppName,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc/deriveContextHash';
 import {
   decodedPsbt as decodedPsbtFN,
   formatPsbtHex,
@@ -34,6 +41,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   BtcDappUniSetChainTypes,
   EBtcDappUniSetChainTypeEnum,
+  type IDeriveContextHashParams,
   type IPushPsbtParams,
   type ISendBitcoinParams,
   type ISignMessageParams,
@@ -151,6 +159,7 @@ class ProviderApiBtc extends ProviderApiBase {
   // Provider API
   @providerApiMethod()
   public async requestAccounts(request: IJsBridgeMessagePayload) {
+    this.tryFocusPendingApprovalWindow(request);
     return this.semaphore.runExclusive(async () => {
       defaultLogger.discovery.dapp.dappRequest({ request });
       await this.checkIfEnableConnect();
@@ -502,6 +511,81 @@ class ProviderApiBtc extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  public async deriveContextHash(
+    request: IJsBridgeMessagePayload,
+    params: IDeriveContextHashParams,
+  ): Promise<string> {
+    // request.data is logged and folded into the modal route's $sourceInfo —
+    // strip the inline params before any logging/openModal call.
+    const sanitizedData = ((): unknown => {
+      const data = request.data as
+        | { method?: unknown; id?: unknown }
+        | undefined;
+      if (!data || typeof data !== 'object') return undefined;
+      return {
+        method: data.method,
+        ...(data.id !== undefined ? { id: data.id } : {}),
+        params: '[redacted]',
+      };
+    })();
+    const sanitizedRequest: IJsBridgeMessagePayload = {
+      ...request,
+      data: sanitizedData,
+    };
+
+    defaultLogger.discovery.dapp.dappRequest({ request: sanitizedRequest });
+    await this.checkIfEnableConnect();
+
+    if (
+      !params ||
+      typeof params.appName !== 'string' ||
+      typeof params.context !== 'string'
+    ) {
+      throw web3Errors.rpc.invalidParams(
+        'deriveContextHash requires { appName: string, context: string }',
+      );
+    }
+    try {
+      validateAppName(params.appName);
+      parseHexContext(params.context);
+    } catch (e) {
+      throw web3Errors.rpc.invalidParams(
+        e instanceof Error ? e.message : String(e),
+      );
+    }
+
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, walletId, address } = {} } =
+      accountsInfo[0] ?? {};
+    if (!accountId || !networkId || !walletId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: 'Can not get account',
+      });
+    }
+
+    // Only HD wallets have a recoverable master seed; everything else fails fast.
+    if (!accountUtils.isHdWallet({ walletId })) {
+      throw web3Errors.rpc.methodNotSupported();
+    }
+
+    const nonce =
+      await this.backgroundApi.serviceDApp.stageDeriveContextHashRequest({
+        accountId,
+        networkId,
+        walletId,
+        address: address ?? '',
+        appName: params.appName,
+        context: params.context,
+      });
+
+    return this.backgroundApi.serviceDApp.openDeriveContextHashModal({
+      request: sanitizedRequest,
+      nonce,
+    });
+  }
+
+  @providerApiMethod()
   public async sendInscription() {
     throw web3Errors.rpc.methodNotSupported();
   }
@@ -623,12 +707,24 @@ class ProviderApiBtc extends ProviderApiBase {
     const result: string[] = [];
 
     for (let i = 0; i < psbtHexs.length; i += 1) {
+      // UniSat-compatible `signPsbts` passes `options` as an array (one entry
+      // per psbt), while OneKey/legacy callers pass a single shared object.
+      // Extract per-psbt options for the array form so `toSignInputs`,
+      // `isBtcWalletProvider` and `autoFinalized` are not lost. Losing them
+      // makes `getInputsToSignFromPsbt` skip script-path inputs (e.g. Babylon
+      // staking, whose input address differs from the account address),
+      // yielding an empty `inputsToSign` that throws in `buildDecodedPsbtTx`
+      // and hangs the confirm page on an infinite loading skeleton.
+      const optionsForCurrentPsbt = getSignPsbtOptionsForPsbtIndex({
+        options,
+        index: i,
+      });
       const formattedPsbtHex = formatPsbtHex(psbtHexs[i]);
       const psbt = Psbt.fromHex(formattedPsbtHex, { network: psbtNetwork });
       const respPsbtHex = await this._signPsbt(request, {
         psbt,
         psbtNetwork,
-        options,
+        options: optionsForCurrentPsbt,
       });
       result.push(respPsbtHex);
     }

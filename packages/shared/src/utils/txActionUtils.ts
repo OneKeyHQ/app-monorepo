@@ -12,6 +12,7 @@ import type {
   IDecodedTxActionUnknown,
 } from '@onekeyhq/shared/types/tx';
 import {
+  EApproveType,
   EDecodedTxActionType,
   EDecodedTxDirection,
 } from '@onekeyhq/shared/types/tx';
@@ -63,6 +64,39 @@ export function getDisplayedActions({ decodedTx }: { decodedTx: IDecodedTx }) {
   return (
     (outputActions && outputActions.length ? outputActions : actions) || []
   );
+}
+
+// collect every address that appears in a decoded tx's asset-transfer
+// actions (transfer from/to plus raw UTXO inputs/outputs). Callers that
+// already hold a decoded tx use this to tell vaults which addresses a
+// history detail request actually involves (btc find-address narrowing).
+export function collectDecodedTxInvolvedAddresses({
+  decodedTx,
+}: {
+  decodedTx: IDecodedTx;
+}): string[] {
+  const addresses = new Set<string>();
+  const add = (address: string | undefined) => {
+    if (address) {
+      addresses.add(address);
+    }
+  };
+  for (const action of decodedTx.actions ?? []) {
+    const transfer = action.assetTransfer;
+    if (transfer) {
+      transfer.sends.forEach((send) => {
+        add(send.from);
+        add(send.to);
+      });
+      transfer.receives.forEach((receive) => {
+        add(receive.from);
+        add(receive.to);
+      });
+      transfer.utxoFrom?.forEach((utxo) => add(utxo.address));
+      transfer.utxoTo?.forEach((utxo) => add(utxo.address));
+    }
+  }
+  return Array.from(addresses);
 }
 
 export function mergeAssetTransferActions(actions: IDecodedTxAction[]) {
@@ -307,6 +341,10 @@ export function convertNetworkToSignatureConfirmNetwork({
   };
 }
 
+function getUniqueAddresses(addresses: string[]) {
+  return Array.from(new Set(addresses.filter(Boolean)));
+}
+
 function convertAssetTransferActionToSignatureConfirmComponent({
   action,
   unsignedTx,
@@ -388,15 +426,23 @@ function convertAssetTransferActionToSignatureConfirmComponent({
     components.push(receiveAddressComponent);
   }
 
-  if (action.to) {
-    let showInteractWithContract = false;
+  let showInteractWithContract = false;
 
-    if (isInternalSwap) {
-      showInteractWithContract = true;
-    } else if (isInternalStake) {
-      showInteractWithContract = !isUTXO;
-    }
+  if (isInternalSwap) {
+    showInteractWithContract = true;
+  } else if (isInternalStake) {
+    showInteractWithContract = !isUTXO;
+  }
 
+  const toAddresses = showInteractWithContract
+    ? getUniqueAddresses(action.to ? [action.to] : [])
+    : getUniqueAddresses(action.sends.map((send) => send.to));
+
+  const addressComponents = toAddresses.length
+    ? toAddresses
+    : getUniqueAddresses(action.to ? [action.to] : []);
+
+  addressComponents.forEach((address) => {
     const toAddressComponent: IDisplayComponentAddress = {
       type: EParseTxComponentType.Address,
       label: showInteractWithContract
@@ -406,14 +452,14 @@ function convertAssetTransferActionToSignatureConfirmComponent({
         : appLocale.intl.formatMessage({
             id: ETranslations.global_to,
           }),
-      address: action.to,
+      address,
       tags: [],
       isNavigable: showInteractWithContract,
       highlight: !showInteractWithContract,
     };
 
     components.push(toAddressComponent);
-  }
+  });
 
   return components;
 }
@@ -427,7 +473,12 @@ function convertTokenApproveActionToSignatureConfirmComponent({
   isMultiTxs?: boolean;
   networkId: string;
 }) {
-  const isRevoke = new BigNumber(action.amount).isZero();
+  // Only absolute `approve(spender, 0)` is a revoke. `increaseAllowance(spender, 0)`
+  // and `increaseApproval(spender, 0)` are no-op increments, not revocations.
+  // Treat undefined approveType as absolute approve for legacy chains that don't tag it.
+  const isAbsoluteApprove =
+    !action.approveType || action.approveType === EApproveType.Approve;
+  const isRevoke = isAbsoluteApprove && new BigNumber(action.amount).isZero();
   let approveLabel = '';
 
   if (isMultiTxs) {
@@ -462,6 +513,8 @@ function convertTokenApproveActionToSignatureConfirmComponent({
     isEditable: !isRevoke && !isMultiTxs,
     isInfiniteAmount: action.isInfiniteAmount,
     networkId,
+    approveType: action.approveType,
+    spender: action.spender,
   };
 
   const spenderComponent: IDisplayComponentAddress | null = isMultiTxs
@@ -697,7 +750,11 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
       action.type === EDecodedTxActionType.TOKEN_APPROVE &&
       action.tokenApprove
     ) {
-      const isRevoke = new BigNumber(action.tokenApprove.amount).isZero();
+      const isAbsoluteApprove =
+        !action.tokenApprove.approveType ||
+        action.tokenApprove.approveType === EApproveType.Approve;
+      const isRevoke =
+        isAbsoluteApprove && new BigNumber(action.tokenApprove.amount).isZero();
 
       return isRevoke
         ? appLocale.intl.formatMessage({

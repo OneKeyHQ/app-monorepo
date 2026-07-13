@@ -41,6 +41,7 @@ function PageProvider({
   scrollProps = { showsVerticalScrollIndicator: false },
   safeAreaEnabled = true,
   fullPage,
+  testID,
   onMounted,
   onUnmounted,
   onClose,
@@ -76,7 +77,11 @@ function PageProvider({
       {redirect ? null : (
         <PageContext.Provider value={value}>
           <>
-            <PageContainer lazyLoad={lazyLoad} fullPage={fullPage}>
+            <PageContainer
+              lazyLoad={lazyLoad}
+              fullPage={fullPage}
+              testID={testID}
+            >
               {children}
             </PageContainer>
             <PagePortal pagePortalId={pagePortalId} />

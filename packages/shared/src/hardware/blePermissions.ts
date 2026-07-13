@@ -10,6 +10,8 @@ import {
 } from '../modules3rdParty/react-native-permissions';
 import platformEnv from '../platformEnv';
 
+import bleManagerInstance from './bleManager';
+
 export async function openBLESettings() {
   if (platformEnv.isNativeIOS) {
     await Linking.openURL('App-Prefs:Bluetooth');
@@ -20,6 +22,14 @@ export async function openBLESettings() {
 
 export async function openBLEPermissionsSettings() {
   await openSettings();
+}
+
+export async function checkBLEState() {
+  if (!platformEnv.isNative) {
+    return true;
+  }
+  const state = await bleManagerInstance.checkState();
+  return state === 'on';
 }
 
 export async function checkBLEPermissions() {

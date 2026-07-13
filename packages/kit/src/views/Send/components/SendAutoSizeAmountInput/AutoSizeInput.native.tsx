@@ -1,4 +1,10 @@
-import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import {
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { AutoSizeInputView } from '@onekeyfe/react-native-auto-size-input';
 import {
@@ -45,6 +51,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       inlineTokenSymbol,
       inlinePrefixGapPx,
       inlineSuffixGapPx,
+      fontFamily,
       onChangeText,
       placeholder,
       editable,
@@ -60,6 +67,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     ref,
   ) => {
     const nativeInputRef = useRef<IAutoSizeNativeRef | null>(null);
+    const [mostRecentEventCount, setMostRecentEventCount] = useState(0);
 
     useImperativeHandle(
       ref,
@@ -85,13 +93,14 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     }, [currencyLabel, inlineTokenSymbol]);
 
     return (
-      <Stack width="100%" alignItems="center" py="$1">
+      <Stack width="100%" alignItems="center" py="$1" overflow="hidden">
         <AutoSizeInputView
           contentCentered
           style={{
             width: '100%',
             height: 64,
           }}
+          mostRecentEventCount={mostRecentEventCount}
           text={value}
           placeholder={placeholder ?? '0'}
           prefix={currencyLabel ?? ''}
@@ -99,6 +108,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           fontSize={maxFontSize}
           minFontSize={minFontSize}
           textAlign={autoSizeTextAlign}
+          fontFamily={fontFamily}
           fontWeight="500"
           editable={editable ?? true}
           keyboardType={mapAutoSizeKeyboardType(keyboardType ?? 'decimal-pad')}
@@ -115,7 +125,10 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           showBorder={false}
           inputBackgroundColor={backgroundColor}
           contentAutoWidth
-          onChangeText={wrapNitroCallback(onChangeText)}
+          onChangeText={wrapNitroCallback((text) => {
+            setMostRecentEventCount((eventCount) => eventCount + 1);
+            onChangeText(text);
+          })}
           onFocus={
             wrapNitroCallback(() => {
               onFocus?.({} as never);

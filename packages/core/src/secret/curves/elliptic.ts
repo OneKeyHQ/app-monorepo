@@ -3,12 +3,18 @@ import BigNumber from 'bignumber.js';
 import elliptic from 'elliptic';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import RN_QUICK_CRYPTO from '@onekeyhq/shared/src/modules3rdParty/react-native-quick-crypto';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { parse256 } from '../bip32';
 
 import type { IBaseCurve, ICurveForKD } from './base';
 
 type IEllipticBasePoint = elliptic.curve.base.BasePoint;
+type IQuickCryptoCurveName = 'secp256k1' | 'prime256v1';
+type IQuickCryptoSetPrivateKeyInput = Parameters<
+  ReturnType<typeof RN_QUICK_CRYPTO.createECDH>['setPrivateKey']
+>[0];
 
 function checkBufferIsNotEmpty(buff: Buffer) {
   if (buff?.length === 0) {
@@ -16,10 +22,45 @@ function checkBufferIsNotEmpty(buff: Buffer) {
   }
 }
 
+function canUseQuickCryptoEC(): boolean {
+  return Boolean(platformEnv.isNative) && !platformEnv.isJest;
+}
+
+function compressPublicKey(publicKey: Buffer): Buffer {
+  if (publicKey.length === 33 && (publicKey[0] === 2 || publicKey[0] === 3)) {
+    return publicKey;
+  }
+  if (publicKey.length !== 65 || publicKey[0] !== 4) {
+    throw new OneKeyLocalError('Invalid public key.');
+  }
+
+  const compressedPublicKey = Buffer.alloc(33);
+  compressedPublicKey[0] = publicKey[64] & 1 ? 3 : 2;
+  publicKey.copy(compressedPublicKey, 1, 1, 33);
+  return compressedPublicKey;
+}
+
+function publicFromPrivateByQuickCrypto({
+  curveName,
+  privateKey,
+}: {
+  curveName: IQuickCryptoCurveName;
+  privateKey: Buffer;
+}): Buffer {
+  const ecdh = RN_QUICK_CRYPTO.createECDH(curveName);
+  ecdh.setPrivateKey(privateKey as unknown as IQuickCryptoSetPrivateKeyInput);
+  return compressPublicKey(
+    Buffer.from(ecdh.getPublicKey() as unknown as Uint8Array),
+  );
+}
+
 class EllipticECWrapper implements ICurveForKD {
   groupOrder: BigNumber;
 
-  constructor(private curve: elliptic.ec) {
+  constructor(
+    private curve: elliptic.ec,
+    private quickCryptoCurveName?: IQuickCryptoCurveName,
+  ) {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     this.groupOrder = new BigNumber(curve.n!.toString());
   }
@@ -48,6 +89,13 @@ class EllipticECWrapper implements ICurveForKD {
 
   publicFromPrivate(privateKey: Buffer): Buffer {
     checkBufferIsNotEmpty(privateKey);
+
+    if (this.quickCryptoCurveName && canUseQuickCryptoEC()) {
+      return publicFromPrivateByQuickCrypto({
+        curveName: this.quickCryptoCurveName,
+        privateKey,
+      });
+    }
 
     return Buffer.from(
       this.curve.keyFromPrivate(privateKey).getPublic().encodeCompressed(),
@@ -146,9 +194,14 @@ class EllipticEDDSAWrapper implements IBaseCurve {
 const secp256k1: ICurveForKD = new EllipticECWrapper(
   // eslint-disable-next-line new-cap
   new elliptic.ec('secp256k1'),
+  'secp256k1',
 );
 // eslint-disable-next-line new-cap
-const nistp256: ICurveForKD = new EllipticECWrapper(new elliptic.ec('p256'));
+const nistp256: ICurveForKD = new EllipticECWrapper(
+  // eslint-disable-next-line new-cap
+  new elliptic.ec('p256'),
+  'prime256v1',
+);
 const ed25519: IBaseCurve = new EllipticEDDSAWrapper(
   // eslint-disable-next-line new-cap
   new elliptic.eddsa('ed25519'),

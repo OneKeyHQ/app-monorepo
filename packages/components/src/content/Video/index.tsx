@@ -1,21 +1,63 @@
-import { useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import type { ForwardedRef } from 'react';
 
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 
-import type { IVideoProps } from './type';
+import type { IVideoProps, IVideoRef } from './type';
 
-export function Video(rawProps: IVideoProps) {
+function VideoComponent(rawProps: IVideoProps, ref: ForwardedRef<IVideoRef>) {
   const [
-    { source, repeat, resizeMode, rate, muted, onProgress, ...props },
+    {
+      source,
+      repeat,
+      resizeMode,
+      rate,
+      muted,
+      paused,
+      onEnd,
+      onProgress,
+      ...props
+    },
     style,
   ] = usePropsAndStyle(rawProps);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      resume: () => {
+        if (videoRef.current) {
+          void videoRef.current.play().catch(() => {
+            // Autoplay may be blocked by the browser — silently ignore.
+          });
+        }
+      },
+      seek: (time: number) => {
+        if (videoRef.current) {
+          videoRef.current.currentTime = time;
+        }
+      },
+    }),
+    [],
+  );
 
   useEffect(() => {
     if (videoRef.current && rate !== undefined) {
       videoRef.current.playbackRate = rate;
     }
   }, [rate]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (paused && !video.paused) {
+      video.pause();
+    } else if (!paused && video.paused) {
+      void video.play().catch(() => {
+        // Autoplay may be blocked by the browser — silently ignore.
+      });
+    }
+  }, [paused]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -52,11 +94,14 @@ export function Video(rawProps: IVideoProps) {
       muted={muted}
       style={style as any}
       {...(props as any)}
+      {...(onEnd ? { onEnded: () => onEnd() } : undefined)}
       src={typeof source === 'string' ? source : source?.uri}
       loop={repeat}
     />
   );
 }
+
+export const Video = forwardRef<IVideoRef, IVideoProps>(VideoComponent);
 
 export type * from './type';
 export * from './enum';

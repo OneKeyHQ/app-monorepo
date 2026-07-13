@@ -4,15 +4,36 @@ import platformEnv from '../platformEnv';
 import { syncStorage } from '../storage/instance/syncStorageInstance';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
-import { EAppUpdateStatus, EUpdateFileType } from './type';
+import { EAppUpdateStatus, EUpdateFileType, EUpdateStrategy } from './type';
 
 import type { IAppUpdateInfo, IResolvedUpdateDecision } from './type';
 
 export * from './utils';
 export * from './type';
 
+/**
+ * Strategies that auto-download in the background without user confirmation
+ * (silent / seamless). Lives in `shared` so kit-bg services can gate
+ * auto-download decisions on it without importing from `kit`. The kit-side
+ * `updateStrategy.ts` re-exports this so UI callers keep their import path.
+ */
+export const isAutoUpdateStrategy = (updateStrategy: EUpdateStrategy) =>
+  updateStrategy === EUpdateStrategy.silent ||
+  updateStrategy === EUpdateStrategy.seamless;
+export {
+  type IFeaturedItem,
+  type IFeaturedChangelog,
+  hasFeaturedChangelog,
+  isAllowedFeaturedHref,
+  normalizeFeaturedChangelog,
+} from './featuredChangelog';
+
 const APP_VERSION = platformEnv.version ?? '1.0.0';
-const APP_BUNDLE_VERSION = platformEnv.bundleVersion ?? '1';
+// '0' sentinel mirrors the iOS Info.plist / Android Gradle / Desktop
+// build fallbacks: a clearly identifiable "BUNDLE_VERSION not injected"
+// marker that won't collide with any real CI-computed value (which is
+// seconds-since-2026-01-01, so always > 1M).
+const APP_BUNDLE_VERSION = platformEnv.bundleVersion ?? '0';
 
 export function encodeBundleVersionForDisplay(version: string): string {
   // BUNDLE_VERSION is seconds since 2026-01-01T00:00:00Z epoch, base36 encode for short display
@@ -315,6 +336,14 @@ export const markWhatsNewShown = (isJsBundleUpdate?: boolean): void => {
     bundleVersions: versions,
     isJsBundleUpdate,
   });
+};
+
+// Dev/testing helper: wipe the "what's new shown" marker so the post-update
+// changelog dialog can be re-triggered on the next launch without bumping the
+// app version. Production code never calls this — the marker is meant to be
+// sticky per version/bundle.
+export const clearWhatsNewShown = (): void => {
+  syncStorage.delete(EAppSyncStorageKeys.onekey_whats_new_shown);
 };
 
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {

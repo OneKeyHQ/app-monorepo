@@ -8,6 +8,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import { useProps } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { AdCornerBadge } from '../../content/AdCornerBadge';
 import { useHoverOpacity } from '../../hooks/useHoverOpacity';
 import { type IRenderPaginationParams, Swiper } from '../../layouts';
 import { Image, SizableText, Stack, XStack } from '../../primitives';
@@ -32,6 +33,7 @@ export interface IBannerData {
   imgUrl?: string;
   theme?: 'dark' | 'light' | string;
   bannerId?: string;
+  isAd?: boolean;
   imgSource?: IImageProps['source'];
   imgResizeMode?: IImageProps['resizeMode'];
   $gtMd?: IBannerData;
@@ -82,6 +84,8 @@ function BannerItem<T extends IBannerData>({
           resizeMode={item.imgResizeMode}
         />
       ) : null}
+
+      {item.isAd ? <AdCornerBadge badgeSize="lg" placement="top-left" /> : null}
 
       <Stack position="absolute" {...itemTitleContainerStyle}>
         {// TODO：Lokalise processes \n as \\n when handling translations

@@ -2,6 +2,7 @@ import { keccak256 } from '@ethersproject/keccak256';
 import TronWeb from 'tronweb';
 
 import { decryptAsync, uncompressPublicKey } from '@onekeyhq/core/src/secret';
+import { TRON_MESSAGE_PREFIX } from '@onekeyhq/shared/src/consts/chainConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -24,8 +25,6 @@ import {
   type IUnsignedTxPro,
 } from '../../types';
 import { ECoreApiExportedSecretKeyType } from '../../types';
-
-import { TRON_MESSAGE_PREFIX } from './constants';
 
 import type { IEncodedTxTron } from './types';
 import type { ISigner } from '../../base/ChainSigner';
@@ -90,9 +89,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      return (await decryptAsync({ password, data: privateKeyRaw })).toString(
-        'hex',
-      );
+      return (
+        await decryptAsync({
+          password,
+          data: privateKeyRaw,
+          kdfBackend: query.kdfBackend,
+          enablePbkdf2Cache: query.enablePbkdf2Cache,
+        })
+      ).toString('hex');
     }
     throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }

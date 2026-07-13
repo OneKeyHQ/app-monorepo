@@ -91,6 +91,7 @@ export function useShareActions(referralQrCodeUrl?: string) {
             actionsAlign: 'left',
             actions: (
               <Button
+                testID="perp-open-photo-library-btn"
                 variant="tertiary"
                 size="small"
                 onPress={openPhotoLibrary}

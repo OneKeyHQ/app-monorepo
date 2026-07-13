@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react';
 import { Spinner, Stack, XStack, YStack } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useProcessingTokenStateAtom } from '../../states/jotai/contexts/tokenList';
@@ -30,6 +31,10 @@ export type ITokenListItemProps = {
   showNetworkIcon?: boolean;
   withAggregateBadge?: boolean;
   showProcessingState?: boolean;
+  // Caller-supplied scene prefix so this shared component produces unique
+  // selectors per scene (Home, AssetList, TokenSelector, ...) instead of
+  // always emitting `home-token-item-*` regardless of context.
+  testIDPrefix?: string;
 } & Omit<IListItemProps, 'onPress'>;
 
 function BasicTokenListItem(props: ITokenListItemProps) {
@@ -47,8 +52,17 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     showNetworkIcon,
     withAggregateBadge,
     showProcessingState,
+    testIDPrefix,
     ...rest
   } = props;
+
+  // Use networkId + symbol so multi-network duplicates (e.g. USDC on Ethereum
+  // vs Polygon) get distinct selectors. Fall back to `$key` when either
+  // component is missing — `$key` is the canonical unique token identifier.
+  const resolvedTestIDPrefix = testIDPrefix ?? 'home-token-item';
+  const networkIdPart = token.networkId ?? 'any';
+  const symbolPart = token.symbol ?? token.$key ?? 'unknown';
+  const resolvedTestID = `${resolvedTestIDPrefix}-${networkIdPart}-${symbolPart}`;
 
   const [processingTokenState] = useProcessingTokenStateAtom();
 
@@ -61,6 +75,8 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     showProcessingState &&
     processingTokenState.isProcessing &&
     processingTokenState.token?.$key !== token.$key;
+
+  const showDeFiReceiptTokenBadge = isTokenSelectorDappToken(token);
 
   const renderFirstColumn = useCallback(() => {
     if (!tableLayout && !isTokenSelector) {
@@ -88,6 +104,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
               isAllNetworks={isAllNetworks}
               networkId={token.networkId}
               withNetwork={withNetwork}
+              showDeFiReceiptTokenBadge={showDeFiReceiptTokenBadge}
               textProps={{
                 size: '$bodyLgMedium',
                 flexShrink: 0,
@@ -135,6 +152,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             isAllNetworks={isAllNetworks}
             networkId={token.networkId}
             withNetwork={withNetwork}
+            showDeFiReceiptTokenBadge={showDeFiReceiptTokenBadge}
             textProps={{
               size: '$bodyLgMedium',
               flexShrink: 0,
@@ -165,6 +183,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     isTokenSelector,
     showNetworkIcon,
     withAggregateBadge,
+    showDeFiReceiptTokenBadge,
   ]);
 
   const renderSecondColumn = useCallback(() => {
@@ -275,6 +294,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
   return (
     <ListItem
       key={token.name}
+      testID={resolvedTestID}
       userSelect="none"
       onPress={() => {
         onPress?.(token);

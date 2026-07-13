@@ -1,3 +1,5 @@
+import type { ESwapAnalyticsCategory } from '@onekeyhq/shared/types/swap/types';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
@@ -27,10 +29,18 @@ export class CreateOrderScene extends BaseScene {
     fromAddress,
     toAddress,
     orderId,
+    orderType,
+    tradeSide,
+    stockTokenSymbol,
+    stockTokenAddress,
   }: {
     status: ESwapEventAPIStatus;
     message?: string;
     swapType: string;
+    orderType?: ESwapAnalyticsCategory;
+    tradeSide?: string;
+    stockTokenSymbol?: string;
+    stockTokenAddress?: string;
     slippage: string;
     router?: string;
     quoteToTokenAmount?: string;
@@ -60,6 +70,10 @@ export class CreateOrderScene extends BaseScene {
       message,
       isFirstTime,
       swapType,
+      orderType,
+      tradeSide,
+      stockTokenSymbol,
+      stockTokenAddress,
       sourceChain,
       receivedChain,
       sourceTokenSymbol,

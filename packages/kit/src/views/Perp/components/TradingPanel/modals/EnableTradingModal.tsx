@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Dialog,
@@ -13,19 +15,26 @@ import { usePerpsActiveAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jot
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
+import { getTradingButtonStyleProps } from '../../../utils/styleUtils';
 import {
   CONTEXTUAL_ARTICLE_IDS,
   buildHelpUrl,
   openGuideUrl,
 } from '../../Guide/perpGuideData';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../../PerpDialogLayout';
 
 interface IEnableTradingContentProps {
   onClose?: () => void;
 }
 
 function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [accountStatus] = usePerpsActiveAccountStatusAtom();
+  const buttonStyleProps = getTradingButtonStyleProps('long');
 
   const isAgentNotReady = useMemo(
     () => !accountStatus?.details?.agentOk || !accountStatus?.canTrade,
@@ -51,20 +60,20 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
 
   const buttonText = useMemo(() => {
     if (loading) {
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.transfer_transfer_server_status_connecting,
       });
     }
-    return appLocale.intl.formatMessage({
+    return intl.formatMessage({
       id: ETranslations.perp_trade_button_enable_trading,
     });
-  }, [loading]);
+  }, [loading, intl]);
 
   return (
     <YStack gap="$4" p="$1">
       <YStack gap="$3">
         <SizableText size="$bodyMd" color="$textSubdued">
-          {appLocale.intl.formatMessage({
+          {intl.formatMessage({
             id: ETranslations.perp_enable_trading_desc,
           })}
         </SizableText>
@@ -89,7 +98,7 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
             color="$textSubdued"
             hoverStyle={{ color: '$text' }}
           >
-            {appLocale.intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.perp_guide_article_introduction,
             })}
           </SizableText>
@@ -97,17 +106,18 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
       </YStack>
 
       <Button
+        testID="perp-btn"
         variant="primary"
-        size="medium"
+        size={PERP_DIALOG_BUTTON_SIZE}
         disabled={loading || !isAgentNotReady}
         loading={loading}
         onPress={handleEnableTrading}
-        bg="#18794E"
-        hoverStyle={{ bg: '$green8' }}
-        pressStyle={{ bg: '$green8' }}
-        color="$textOnColor"
+        {...buttonStyleProps}
+        childrenAsText={false}
       >
-        {buttonText}
+        <SizableText size="$bodyMdMedium" color={buttonStyleProps.textColor}>
+          {buttonText}
+        </SizableText>
       </Button>
     </YStack>
   );
@@ -115,6 +125,8 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
 
 export function showEnableTradingDialog() {
   const dialogInstance = Dialog.show({
+    // Called from jotai action without React context; safe at invocation time
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.perp_trade_button_enable_trading,
     }),
@@ -125,6 +137,7 @@ export function showEnableTradingDialog() {
         }}
       />
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();

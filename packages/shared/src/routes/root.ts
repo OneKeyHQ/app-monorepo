@@ -9,6 +9,8 @@ export enum ERootRoutes {
 
   Onboarding = 'onboarding',
 
+  WebView = 'RootWebView',
+
   Gallery = 'gallery',
 
   NotFound = 'NotFound',

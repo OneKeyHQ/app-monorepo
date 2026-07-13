@@ -232,6 +232,7 @@ export function FirmwareUpdateErrorV2({
         message={typeof errorMessage === 'string' ? errorMessage : ''}
       />
       <Button
+        testID="firmware-update-btn"
         size="medium"
         variant="primary"
         alignSelf="flex-start"

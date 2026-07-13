@@ -287,6 +287,7 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
           })}
         </SizableText>
         <Button
+          testID="bulk-send-btn"
           size="small"
           variant="tertiary"
           icon="DownloadOutline"
@@ -307,6 +308,7 @@ type IShowUploadCSVDialogParams = {
 
 function showUploadCSVDialog(params?: IShowUploadCSVDialogParams) {
   return Dialog.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.wallet_bulk_send_upload_title,
     }),

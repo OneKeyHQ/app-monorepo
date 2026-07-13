@@ -60,6 +60,7 @@ function TaskQueueController<T>(props: IProps<T>) {
       mb="$4"
     >
       <IconButton
+        testID="signature-confirm-icon-btn"
         icon="ChevronLeftSmallSolid"
         size="medium"
         variant="tertiary"
@@ -82,6 +83,7 @@ function TaskQueueController<T>(props: IProps<T>) {
         )}
       </SizableText>
       <IconButton
+        testID="signature-confirm-icon-btn"
         icon="ChevronRightSmallSolid"
         size="medium"
         variant="tertiary"

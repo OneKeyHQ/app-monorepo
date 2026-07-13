@@ -50,7 +50,9 @@ import {
   InfoItem,
   InfoItemGroup,
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
+import { getLimitOrderDisplayAmounts } from '../../components/LimitOrderCard.utils';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
+import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import LimitOrderCancelDialog from '../components/LimitOrderCancelDialog';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -64,22 +66,35 @@ const LimitOrderDetailModal = () => {
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { orderId, orderItem } = route.params ?? {};
   const [cancelLoading, setCancelLoading] = useState(false);
-  const [{ swapLimitOrders }] = useInAppNotificationAtom();
+  const [{ swapLimitOrders, swapLimitOrdersAccountIdKey }] =
+    useInAppNotificationAtom();
+  const { shouldShowSwapLimitOrders } = useSwapLimitOrdersLocalDataVisibility(
+    swapLimitOrdersAccountIdKey,
+  );
   const [orderItemState, setOrderItemState] = useState(orderItem);
   const limitOrderUpdate = useMemo(
-    () => swapLimitOrders?.find((item) => item.orderId === orderId),
-    [swapLimitOrders, orderId],
+    () =>
+      shouldShowSwapLimitOrders
+        ? swapLimitOrders?.find((item) => item.orderId === orderId)
+        : undefined,
+    [shouldShowSwapLimitOrders, swapLimitOrders, orderId],
   );
   const { gtMd } = useMedia();
   const intl = useIntl();
   useEffect(() => {
+    if (!shouldShowSwapLimitOrders) {
+      if (orderItemState) {
+        setOrderItemState(undefined);
+      }
+      return;
+    }
     if (
       limitOrderUpdate &&
       JSON.stringify(limitOrderUpdate) !== JSON.stringify(orderItemState)
     ) {
       setOrderItemState(limitOrderUpdate);
     }
-  }, [limitOrderUpdate, orderItem, orderItemState]);
+  }, [limitOrderUpdate, orderItemState, shouldShowSwapLimitOrders]);
 
   const decimalsAmount = useMemo(
     () => ({
@@ -89,8 +104,22 @@ const LimitOrderDetailModal = () => {
       toAmount: new BigNumber(orderItemState?.toAmount ?? '0').shiftedBy(
         -(orderItemState?.toTokenInfo?.decimals ?? 0),
       ),
+      ...getLimitOrderDisplayAmounts({
+        executedBuyAmount: orderItemState?.executedBuyAmount,
+        executedSellAmount: orderItemState?.executedSellAmount,
+        fromAmount: orderItemState?.fromAmount,
+        fromTokenInfo: {
+          decimals: orderItemState?.fromTokenInfo?.decimals ?? 0,
+        },
+        toAmount: orderItemState?.toAmount,
+        toTokenInfo: {
+          decimals: orderItemState?.toTokenInfo?.decimals ?? 0,
+        },
+      }),
     }),
     [
+      orderItemState?.executedBuyAmount,
+      orderItemState?.executedSellAmount,
       orderItemState?.fromAmount,
       orderItemState?.fromTokenInfo?.decimals,
       orderItemState?.toAmount,
@@ -134,8 +163,8 @@ const LimitOrderDetailModal = () => {
       isNative: !!orderItemState?.toTokenInfo.isNative,
       price: orderItemState?.toTokenInfo?.price ?? '0',
     };
-    const fromAmount = decimalsAmount.fromAmount.toFixed();
-    const toAmount = decimalsAmount.toAmount.toFixed();
+    const fromAmount = decimalsAmount.displayFromAmount.toFixed();
+    const toAmount = decimalsAmount.displayToAmount.toFixed();
     return (
       <>
         <AssetItem
@@ -167,8 +196,8 @@ const LimitOrderDetailModal = () => {
       </>
     );
   }, [
-    decimalsAmount.fromAmount,
-    decimalsAmount.toAmount,
+    decimalsAmount.displayFromAmount,
+    decimalsAmount.displayToAmount,
     orderItemState?.fromTokenInfo.isNative,
     orderItemState?.fromTokenInfo.logoURI,
     orderItemState?.fromTokenInfo.name,
@@ -227,6 +256,9 @@ const LimitOrderDetailModal = () => {
   );
 
   const renderLimitOrderStatus = useCallback(() => {
+    if (!shouldShowSwapLimitOrders) {
+      return null;
+    }
     const { status } = orderItemState ?? {};
     let label = intl.formatMessage({
       id: ETranslations.Limit_order_status_open,
@@ -273,6 +305,7 @@ const LimitOrderDetailModal = () => {
           </SizableText>
           {status === ESwapLimitOrderStatus.OPEN ? (
             <Button
+              testID="swap-btn"
               variant="primary"
               size="small"
               onPress={() => {
@@ -293,7 +326,13 @@ const LimitOrderDetailModal = () => {
       );
     }
     return null;
-  }, [intl, orderItemState, cancelLoading, onCancel]);
+  }, [
+    intl,
+    orderItemState,
+    cancelLoading,
+    onCancel,
+    shouldShowSwapLimitOrders,
+  ]);
 
   const renderLimitOrderExpiry = useCallback(() => {
     const { createdAt, expiredAt } = orderItemState ?? {};
@@ -551,6 +590,9 @@ const LimitOrderDetailModal = () => {
 
   const getPayAddressAccountInfos = usePromiseResult(
     async () => {
+      if (!shouldShowSwapLimitOrders) {
+        return undefined;
+      }
       if (orderItemState?.networkId && orderItemState?.payAddress) {
         const res =
           await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
@@ -562,12 +604,19 @@ const LimitOrderDetailModal = () => {
         }
       }
     },
-    [orderItemState?.networkId, orderItemState?.payAddress],
+    [
+      orderItemState?.networkId,
+      orderItemState?.payAddress,
+      shouldShowSwapLimitOrders,
+    ],
     {},
   );
 
   const getReceiveAddressAccountInfos = usePromiseResult(
     async () => {
+      if (!shouldShowSwapLimitOrders) {
+        return undefined;
+      }
       if (orderItemState?.networkId && orderItemState?.receiveAddress) {
         const res =
           await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
@@ -579,12 +628,16 @@ const LimitOrderDetailModal = () => {
         }
       }
     },
-    [orderItemState?.networkId, orderItemState?.receiveAddress],
+    [
+      orderItemState?.networkId,
+      orderItemState?.receiveAddress,
+      shouldShowSwapLimitOrders,
+    ],
     {},
   );
 
   const renderLimitOrderDetails = useCallback(() => {
-    if (!orderItemState) {
+    if (!shouldShowSwapLimitOrders || !orderItemState) {
       return null;
     }
     return (
@@ -702,6 +755,7 @@ const LimitOrderDetailModal = () => {
     surplus,
     getPayAddressAccountInfos.result?.accountId,
     getReceiveAddressAccountInfos.result?.accountId,
+    shouldShowSwapLimitOrders,
   ]);
 
   return (

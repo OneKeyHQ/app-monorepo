@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Checkbox,
-  Divider,
   SegmentControl,
   SizableText,
   Skeleton,
@@ -322,6 +321,7 @@ const ApyChartComponent = ({
 
           {showUnderlyingApyToggle ? (
             <Checkbox
+              testID="earn-checkbox"
               value={showUnderlyingApy}
               onChange={(value) => setShowUnderlyingApy(Boolean(value))}
               label={intl.formatMessage({
@@ -452,7 +452,6 @@ const ApyChartComponent = ({
             showPriceScale
             showHorzGridLines
           />
-          <Divider mt="$8" />
         </YStack>
       ) : null}
     </YStack>

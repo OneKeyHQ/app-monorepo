@@ -6,9 +6,10 @@
  * - Runs Detox Release (no Metro).
  */
 
-const { spawn } = require('child_process');
 const os = require('os');
 const path = require('path');
+
+const { runReleaseJob } = require('./lib/releaseJob');
 
 function main() {
   const repoRoot = path.join(__dirname, '..', '..');
@@ -19,26 +20,18 @@ function main() {
   const args = process.argv.slice(2);
   if (!args.includes('--headless')) args.push('--headless');
 
-  const child = spawn(
-    process.execPath,
-    ['development/perf-ci/run-ios-perf-detox.js', ...args],
-    {
-      cwd: repoRoot,
-      env: {
-        ...process.env,
-        DETOX_CONFIGURATION: 'ios.sim.release',
-        PERF_USE_METRO: '0',
-        PERF_SESSIONS_DIR: sessionsDir,
-        PERF_SERVER_URL: serverUrl,
-        PERF_SERVER_ONESHOT: process.env.PERF_SERVER_ONESHOT || '1',
-      },
-      stdio: 'inherit',
+  runReleaseJob({
+    repoRoot,
+    script: 'development/perf-ci/run-ios-perf-detox.js',
+    args,
+    env: {
+      DETOX_CONFIGURATION: 'ios.sim.release',
+      PERF_USE_METRO: '0',
+      PERF_SESSIONS_DIR: sessionsDir,
+      PERF_SERVER_URL: serverUrl,
+      PERF_SERVER_ONESHOT: process.env.PERF_SERVER_ONESHOT || '1',
     },
-  );
-
-  child.on('close', (code) =>
-    process.exit(code === null || code === undefined ? 2 : code),
-  );
+  });
 }
 
 main();

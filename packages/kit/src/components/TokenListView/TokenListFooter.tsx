@@ -8,7 +8,6 @@ import {
   Button,
   Icon,
   IconButton,
-  NumberSizeableText,
   Popover,
   SizableText,
   Stack,
@@ -16,10 +15,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import {
-  useSettingsPersistAtom,
-  useSettingsValuePersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -30,22 +27,27 @@ import {
   EModalAssetListRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
-  useAggregateTokensListMapAtom,
-  useAggregateTokensMapAtom,
-  useFlattenAggregateTokensMapAtom,
-  useRiskyTokenListAtom,
-  useRiskyTokenListMapAtom,
+  useListStructureAtom,
+  useRiskyListFrameAtom,
   useSearchKeyAtom,
-  useSmallBalanceTokenListAtom,
-  useSmallBalanceTokenListMapAtom,
-  useSmallBalanceTokensFiatValueAtom,
 } from '../../states/jotai/contexts/tokenList';
+import { useTokenListContextData } from '../../states/jotai/contexts/tokenList/atoms';
+import { useHomeTokenListOwnerKey } from '../../states/jotai/contexts/tokenList/cells';
+import {
+  aggCell,
+  cell,
+  meta,
+  subcell,
+} from '../../states/jotai/contexts/tokenList/cells/projection';
+import { Currency } from '../Currency';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
@@ -80,33 +82,66 @@ function TokenListFooter(props: IProps) {
     },
   } = useActiveAccount({ num: 0 });
 
-  const [settings] = useSettingsPersistAtom();
-
   const [{ hideValue }] = useSettingsValuePersistAtom();
 
-  const { allAggregateTokenMap } = useTokenListViewContext();
+  const { allAggregateTokenMap, ownedAggregateTokenListMap } =
+    useTokenListViewContext();
 
-  const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
+  // cells home pipeline: the footer runs under the HOME tokenList provider whose
+  // per-store cells are live + BG-fed after the Phase-2 cutover. The small-
+  // balance rows/total/modal params are rebuilt from `listStructure` + the
+  // per-key cells instead of the legacy whole-map atoms (full-delete PR-4).
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const store = useTokenListContextData().store!;
 
-  const [smallBalanceTokenListMap] = useSmallBalanceTokenListMapAtom();
+  const [listStructure] = useListStructureAtom();
+  const currentOwnerKey = useHomeTokenListOwnerKey();
 
-  const [smallBalanceTokensFiatValue] = useSmallBalanceTokensFiatValueAtom();
-
-  const [riskyTokenList] = useRiskyTokenListAtom();
-
-  const [riskyTokenListMap] = useRiskyTokenListMapAtom();
+  // Risky tokens ride the dedicated BG risky frame (design §R0/§R1): the home
+  // structure/valuation frames are risk-blind, so the footer reads the FULL
+  // idempotent snapshot ({ riskyTokens, riskyMap }) landed by the receive shell.
+  const [
+    { riskyTokens, riskyMap: riskyTokenListMap, ownerKey: riskyOwnerKey },
+  ] = useRiskyListFrameAtom();
 
   const [searchKey] = useSearchKeyAtom();
 
-  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+  const {
+    smallBalanceIds,
+    nonZeroIds,
+    smallBalanceFiatValue: smallBalanceTokensFiatValue,
+    generation: listStructureGeneration,
+  } = listStructure;
 
-  const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
-  const [nestedAggregateTokensMap] = useAggregateTokensMapAtom();
+  // Reconstruct the small-balance rows from the home meta cells. Each row is an
+  // `IAccountToken` ({ $key, ...meta }); same shape the legacy
+  // `smallBalanceTokenListAtom.smallBalanceTokens` carried. Memoized on the
+  // structure generation so a pure fiat tick does not rebuild the rows.
+  const smallBalanceTokens = useMemo<IAccountToken[]>(() => {
+    const rows: IAccountToken[] = [];
+    for (const id of smallBalanceIds) {
+      const metaValue = store.get(meta(store, id));
+      if (metaValue) {
+        rows.push({ $key: id, ...metaValue });
+      }
+    }
+    return rows;
+    // listStructureGeneration is the structure identity; smallBalanceIds is
+    // captured at the same generation. store is stable for the provider.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store, listStructureGeneration]);
 
-  const { smallBalanceTokens, keys: smallBalanceTokenKeys } =
-    smallBalanceTokenList;
+  // `keys` is only a change/identity token downstream (used as the modal's
+  // list-version string), so the joined small-balance ids are sufficient.
+  const smallBalanceTokenKeys = useMemo(
+    () => smallBalanceIds.join('_'),
+    [smallBalanceIds],
+  );
 
-  const { riskyTokens, keys: riskyTokenKeys } = riskyTokenList;
+  // nonZeroIds membership replaces the per-token `balance > 0` filter (the
+  // producer computed nonZeroIds agg-aware, so the aggregate balance fallback
+  // for the small-balance/main hideZero filter is subsumed).
+  const nonZeroIdsSet = useMemo(() => new Set(nonZeroIds), [nonZeroIds]);
 
   const isSearchMode = searchKey.length >= SEARCH_KEY_MIN_LENGTH;
   const helpText = useMemo(
@@ -125,23 +160,17 @@ function TokenListFooter(props: IProps) {
     let resultTokens = smallBalanceTokens;
 
     if (hideZeroBalanceTokens) {
-      resultTokens = resultTokens.filter((token) => {
-        const tokenBalance = new BigNumber(
-          smallBalanceTokenListMap[token.$key]?.balance ??
-            aggregateTokensMap[token.$key]?.balance ??
-            0,
-        );
-
-        if (tokenBalance.gt(0)) {
-          return true;
-        }
-
-        return false;
-      });
+      // hideZero = membership in the producer-computed nonZeroIds (agg-aware).
+      resultTokens = resultTokens.filter((token) =>
+        nonZeroIdsSet.has(token.$key),
+      );
     }
 
     if (hideDeFiMarkedTokens) {
-      resultTokens = resultTokens.filter((token) => !token.defiMarked);
+      // `dappName` lives on the meta cell (reconstructed onto the row above).
+      resultTokens = resultTokens.filter(
+        (token) => !isTokenSelectorDappToken(token),
+      );
     }
 
     return resultTokens;
@@ -149,17 +178,21 @@ function TokenListFooter(props: IProps) {
     smallBalanceTokens,
     hideZeroBalanceTokens,
     hideDeFiMarkedTokens,
-    smallBalanceTokenListMap,
-    aggregateTokensMap,
+    nonZeroIdsSet,
   ]);
 
   const filteredRiskyTokens = useMemo(() => {
+    if (riskyOwnerKey !== currentOwnerKey) {
+      return [];
+    }
+
     if (hideZeroBalanceTokens) {
       return riskyTokens.filter((token) => {
+        // Risky tokens are NOT in the home cells structure/cells (the producer
+        // never pushes them), so the flatten-aggregate balance fallback is dead
+        // for risky ids — resolve balance from riskyTokenListMap only.
         const tokenBalance = new BigNumber(
-          riskyTokenListMap[token.$key]?.balance ??
-            aggregateTokensMap[token.$key]?.balance ??
-            0,
+          riskyTokenListMap[token.$key]?.balance ?? 0,
         );
 
         if (tokenBalance.gt(0)) {
@@ -171,15 +204,54 @@ function TokenListFooter(props: IProps) {
     }
     return riskyTokens;
   }, [
+    riskyOwnerKey,
+    currentOwnerKey,
     riskyTokens,
     hideZeroBalanceTokens,
     riskyTokenListMap,
-    aggregateTokensMap,
   ]);
 
   const handleOnPressLowValueTokens = useCallback(() => {
     if (!account || !network || !wallet || smallBalanceTokens.length === 0)
       return;
+
+    // Reconstruct the modal Records lazily from the home cells AT TAP TIME
+    // (full-delete PR-4). These MUST be shape-exact: the modal feeds them into
+    // its own isolated store via refresh*, and a wrong shape renders blank
+    // balances.
+
+    // map: Record<$key, ITokenFiat> for the small-balance ids — aggregate ids
+    // resolve through the derived aggCell, normal ids through cell.
+    const smallBalanceTokenListMap: Record<string, ITokenFiat> = {};
+    for (const id of smallBalanceIds) {
+      const aggregate = isAgg(id, store.get(meta(store, id)));
+      const fiat = store.get(aggregate ? aggCell(store, id) : cell(store, id));
+      if (fiat) {
+        smallBalanceTokenListMap[id] = fiat;
+      }
+    }
+
+    // nested aggregate fiat map: Record<aggKey, Record<networkId, ITokenFiat>>
+    // for the aggregate small-balance ids, read from the per-network sub-cells
+    // by their structure membership.
+    const nestedAggregateTokensMap: Record<
+      string,
+      Record<string, ITokenFiat>
+    > = {};
+    for (const id of smallBalanceIds) {
+      if (isAgg(id, store.get(meta(store, id)))) {
+        const members = listStructure.aggMembership[id] ?? [];
+        const byNet: Record<string, ITokenFiat> = {};
+        for (const net of members) {
+          const fiat = store.get(subcell(store, id, net));
+          if (fiat) {
+            byNet[net] = fiat;
+          }
+        }
+        nestedAggregateTokensMap[id] = byNet;
+      }
+    }
+
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.TokenList,
       params: {
@@ -197,7 +269,9 @@ function TokenListFooter(props: IProps) {
         deriveInfo,
         hideValue,
         isAllNetworks: network.isAllNetworks,
-        aggregateTokensListMap,
+        // owner-scoped aggregate sub-token metadata (home-filled context),
+        // NOT the global allAggregateTokenMap.
+        aggregateTokensListMap: ownedAggregateTokenListMap,
         aggregateTokensMap: nestedAggregateTokensMap,
         accountAddress: account.address,
         allAggregateTokenMap,
@@ -209,17 +283,18 @@ function TokenListFooter(props: IProps) {
     network,
     wallet,
     smallBalanceTokens.length,
+    smallBalanceIds,
+    store,
+    listStructure.aggMembership,
     navigation,
     intl,
     helpText,
     filteredSmallBalanceTokens,
     smallBalanceTokenKeys,
-    smallBalanceTokenListMap,
     deriveType,
     deriveInfo,
     hideValue,
-    aggregateTokensListMap,
-    nestedAggregateTokensMap,
+    ownedAggregateTokenListMap,
     allAggregateTokenMap,
   ]);
 
@@ -234,7 +309,10 @@ function TokenListFooter(props: IProps) {
         indexedAccountId: indexedAccount?.id,
         tokenList: {
           tokens: filteredRiskyTokens,
-          keys: riskyTokenKeys,
+          // `keys` is dead on the risky path — RiskTokenManager only consumes
+          // { tokens, map } (design §R1 red-team C-F5). Any stable non-empty
+          // value suffices; the precise keys-string is not required.
+          keys: 'risky',
           map: riskyTokenListMap,
         },
         deriveType,
@@ -251,7 +329,6 @@ function TokenListFooter(props: IProps) {
     navigation,
     indexedAccount?.id,
     filteredRiskyTokens,
-    riskyTokenKeys,
     riskyTokenListMap,
     deriveType,
     deriveInfo,
@@ -368,6 +445,7 @@ function TokenListFooter(props: IProps) {
                 })}
                 renderTrigger={
                   <IconButton
+                    testID="token-list-footer-help-btn"
                     size="small"
                     variant="tertiary"
                     icon="QuestionmarkOutline"
@@ -398,14 +476,14 @@ function TokenListFooter(props: IProps) {
             justifyContent="center"
             alignItems="flex-end"
           >
-            <NumberSizeableText
+            <Currency
               size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
               formatter="value"
-              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              sourceCurrency="usd"
               textAlign="right"
             >
               {smallBalanceTokensFiatValue}
-            </NumberSizeableText>
+            </Currency>
           </Stack>
         </ListItem>
       ) : null}
@@ -451,6 +529,7 @@ function TokenListFooter(props: IProps) {
             {intl.formatMessage({ id: ETranslations.add_token_instruction })}
           </SizableText>
           <Button
+            testID="token-list-footer-add-token-btn"
             size="small"
             variant="tertiary"
             onPress={handleOnPressManageTokens}

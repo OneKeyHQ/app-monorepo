@@ -6,10 +6,14 @@ import BaseProcess from './BaseProcess';
 
 import type { IStatus } from './BaseProcess';
 
+export const BRIDGE_SUPPORTED_SYSTEMS = ['linux-arm64', 'linux-x64'];
+
 class BridgeProcess extends BaseProcess {
   constructor() {
     super('bridge', 'onekeyd', {
       startupThrottleTime: 3,
+      supportedSystems: BRIDGE_SUPPORTED_SYSTEMS,
+      unsupportedSystemLogLevel: 'info',
     });
   }
 

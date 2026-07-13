@@ -3,17 +3,20 @@ import {
   type ISwapReviewStepTexts,
   buildSwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
+import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
+import { getSwapExecutionTypeFromQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/swapTypeUtils';
+import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IFetchQuoteResult,
   ISwapApproveTransaction,
+  ISwapPreSwapData,
   ISwapStep,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapApproveTransactionStatus,
   ESwapStepType,
-  ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { isEncodedTxMatch } from './marketEncodedTxUtils';
@@ -34,6 +37,7 @@ export function buildMarketReviewState({
   quoteResult,
   shouldFallback,
   slippage,
+  rateDifference,
   texts,
 }: {
   accountId?: string;
@@ -45,6 +49,7 @@ export function buildMarketReviewState({
   quoteResult?: IFetchQuoteResult;
   shouldFallback?: boolean;
   slippage?: number;
+  rateDifference?: ISwapPreSwapData['rateDifference'];
   texts: ISwapReviewStepTexts;
 }) {
   const reviewState = buildSwapReviewState({
@@ -58,12 +63,13 @@ export function buildMarketReviewState({
     fromTokenAmount,
     toTokenAmount,
     quoteResult,
-    swapType: ESwapTabSwitchType.SWAP,
+    swapType: getSwapExecutionTypeFromQuoteResult(quoteResult),
     shouldFallback,
     // Old Market tx confirm supported fee editing for wrap/swap,
     // so preview prebuild should stay enabled for every path.
     supportPreBuild: true,
     slippage,
+    rateDifference,
     texts,
   });
 
@@ -75,6 +81,31 @@ export function buildMarketReviewState({
   }
 
   return reviewState;
+}
+
+export function buildMarketReviewRateDifference({
+  quoteResult,
+  swapInfo,
+  defaultTokenCurrency,
+  currencyMap,
+}: {
+  quoteResult?: Pick<IFetchQuoteResult, 'instantRate'>;
+  swapInfo?: {
+    sender?: { token?: Pick<ISwapToken, 'price' | 'currency'> };
+    receiver?: { token?: Pick<ISwapToken, 'price' | 'currency'> };
+  };
+  defaultTokenCurrency?: string;
+  currencyMap?: Record<string, ICurrencyItem>;
+}): ISwapPreSwapData['rateDifference'] {
+  return buildSwapRateDifference({
+    fromTokenPrice: swapInfo?.sender?.token?.price,
+    toTokenPrice: swapInfo?.receiver?.token?.price,
+    fromTokenCurrency: swapInfo?.sender?.token?.currency,
+    toTokenCurrency: swapInfo?.receiver?.token?.currency,
+    defaultTokenCurrency,
+    currencyMap,
+    instantRate: quoteResult?.instantRate,
+  });
 }
 
 export function findMarketTxConfirmFeeInfo({

@@ -30,6 +30,7 @@ export default function useOperationDialog() {
             >
               <Dialog.FormField name="agree">
                 <Checkbox
+                  testID="lite-card-show-backup-overwritten-dialog-checkbox"
                   label={intl.formatMessage({
                     id: ETranslations.global_i_understand,
                   })}
@@ -66,7 +67,12 @@ export default function useOperationDialog() {
               }}
             >
               <Dialog.FormField name="reset">
-                <Input autoFocus flex={1} placeholder="RESET" />
+                <Input
+                  autoFocus
+                  flex={1}
+                  placeholder="RESET"
+                  testID="lite-card-show-reset-warning-dialog-input"
+                />
               </Dialog.FormField>
             </Dialog.Form>
           ),

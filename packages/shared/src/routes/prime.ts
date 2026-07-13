@@ -1,7 +1,5 @@
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 
-// eslint-disable-next-line import-js/order
-import type { EOnboardingV2KeylessWalletCreationMode } from './onboardingv2';
 import type {
   IE2EESocketUserInfo,
   IPrimeTransferData,
@@ -23,8 +21,8 @@ export enum EPrimePages {
   PrimeTransfer = 'PrimeTransfer',
   PrimeTransferPreview = 'PrimeTransferPreview',
   OneKeyId = 'OneKeyId',
-  KeylessWallet = 'KeylessWallet',
   PrimeMyOrders = 'PrimeMyOrders',
+  OneKeyIdProfileEdit = 'OneKeyIdProfileEdit',
 }
 
 export enum EPrimeFeatures {
@@ -39,6 +37,8 @@ export enum EPrimeFeatures {
   DAppTranslate = 'DAppTranslate',
   BlockaidSiteScan = 'BlockaidSiteScan',
   ExtendedHistory = 'ExtendedHistory',
+  ReceiveRiskMonitoring = 'ReceiveRiskMonitoring',
+  AddressRiskCheck = 'AddressRiskCheck',
 }
 
 export type IPrimeParamList = {
@@ -58,8 +58,7 @@ export type IPrimeParamList = {
   [EPrimePages.PrimeFeatures]: {
     selectedFeature?: EPrimeFeatures;
     selectedSubscriptionPeriod?: ISubscriptionPeriod;
-    showAllFeatures?: boolean;
-    serverUserInfo?: IPrimeServerUserInfo;
+    networkId?: string;
   };
   [EPrimePages.PrimeDeleteAccount]: undefined;
   [EPrimePages.PrimeTransfer]: IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.cross_device_transfer];
@@ -73,8 +72,6 @@ export type IPrimeParamList = {
     transferData: IPrimeTransferData;
   };
   [EPrimePages.OneKeyId]: undefined;
-  [EPrimePages.KeylessWallet]: {
-    mode?: EOnboardingV2KeylessWalletCreationMode;
-  };
   [EPrimePages.PrimeMyOrders]: undefined;
+  [EPrimePages.OneKeyIdProfileEdit]: undefined;
 };

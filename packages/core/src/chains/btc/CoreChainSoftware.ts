@@ -24,7 +24,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IXprvtValidation,
@@ -35,12 +34,13 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
   BaseBip32KeyDeriver,
+  batchGetPrivateKeys,
   batchGetPublicKeys,
   decryptAsync,
   encryptAsync,
-  mnemonicFromEntropyAsync,
   mnemonicToSeedAsync,
   secp256k1,
+  seedFromHdCredentialAsync,
   verify,
 } from '../../secret';
 import { EAddressEncodings, ECoreApiExportedSecretKeyType } from '../../types';
@@ -64,6 +64,11 @@ import {
   validateBtcXpub,
 } from './sdkBtc';
 import { isTaprootInput } from './sdkBtc/bip371';
+import {
+  DERIVE_CONTEXT_HASH_BIP32_PATH,
+  deriveContextHash,
+  parseHexContext,
+} from './sdkBtc/deriveContextHash';
 import { buildPsbt } from './sdkBtc/providerUtils';
 
 import type { IGetAddressFromXpubResult } from './sdkBtc';
@@ -84,6 +89,7 @@ import type {
   ICoreApiSignTxPayload,
   ICoreApiValidateXprvtParams,
   ICoreApiValidateXpubParams,
+  ICoreCredentialsInfo,
   ICurveName,
   IEncodedTx,
   ISignedTxPro,
@@ -254,7 +260,12 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
             .fill(
               Buffer.concat([
                 Buffer.from([0]),
-                await decryptAsync({ password, data: privateKeyRaw }),
+                await decryptAsync({
+                  password,
+                  data: privateKeyRaw,
+                  kdfBackend: query.kdfBackend,
+                  enablePbkdf2Cache: query.enablePbkdf2Cache,
+                }),
               ]),
               45,
               78,
@@ -263,7 +274,12 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       }
       if (credentials.imported) {
         return bs58check.encode(
-          await decryptAsync({ password, data: privateKeyRaw }),
+          await decryptAsync({
+            password,
+            data: privateKeyRaw,
+            kdfBackend: query.kdfBackend,
+            enablePbkdf2Cache: query.enablePbkdf2Cache,
+          }),
         );
       }
     }
@@ -301,8 +317,13 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
   // root fingerprint
   async buildXfpFromMnemonic({ mnemonic }: { mnemonic: string }) {
     const seed = await mnemonicToSeedAsync({ mnemonic });
+    return this.buildXfpFromSeed({ seed });
+  }
+
+  async buildXfpFromSeed({ seed }: { seed: Buffer | string }) {
+    const seedBuffer = bufferUtils.toBuffer(seed);
     const bip32 = getBitcoinBip32();
-    const root = bip32.fromSeed(seed, getBtcForkNetwork('btc'));
+    const root = bip32.fromSeed(seedBuffer, getBtcForkNetwork('btc'));
 
     // const child = root.deriveHardened(0);  // derive path m/0'
     const child = root;
@@ -318,9 +339,6 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     // 4236794462
     const fingerprintBuf = ripemd160Buf.slice(0, 4);
     const fingerprintHex = bufferUtils.bytesToHex(fingerprintBuf);
-    // const fingerprintInt = fingerprintBuf.readUInt32BE(0);
-    const fingerprintInt = numberUtils.hexToDecimal(fingerprintHex);
-    const fingerprintHexCheck = numberUtils.numberToHex(fingerprintInt);
 
     const taprootChild = root.derivePath(BTC_FIRST_TAPROOT_PATH);
     const firstTaprootXpub = taprootChild.neutered().toBase58();
@@ -328,14 +346,6 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     const fullXfp = accountUtils.buildFullXfp({
       xfp: fingerprintHex,
       firstTaprootXpub,
-    });
-
-    console.log('generateXfpFromMnemonic', {
-      fulXfp: fullXfp,
-      firstTaprootXpub,
-      fingerprintHex,
-      fingerprintInt,
-      fingerprintHexCheck,
     });
 
     if (!fullXfp) {
@@ -499,10 +509,14 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     privateKeys,
     password,
     relPaths,
+    kdfBackend,
+    enablePbkdf2Cache,
   }: {
     privateKeys: ICoreApiPrivateKeysMap;
     password: string;
     relPaths?: string[];
+    kdfBackend?: ICoreApiSignBasePayload['kdfBackend'];
+    enablePbkdf2Cache?: ICoreApiSignBasePayload['enablePbkdf2Cache'];
   }): Promise<ICoreApiPrivateKeysMap> {
     const deriver = new BaseBip32KeyDeriver(
       Buffer.from('Bitcoin seed'),
@@ -514,6 +528,8 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     const xprv: Buffer = await decryptAsync({
       password,
       data: bufferUtils.toBuffer(privateKey),
+      kdfBackend,
+      enablePbkdf2Cache,
     });
     const startKey: {
       chainCode: Buffer;
@@ -547,7 +563,12 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
 
       // TODO use dbAccountAddresses save fullPath/relPath key
       privateKeys[relPath] = bufferUtils.bytesToHex(
-        await encryptAsync({ password, data: cache[relPath].key }),
+        await encryptAsync({
+          password,
+          data: cache[relPath].key,
+          kdfBackend,
+          enablePbkdf2Cache,
+        }),
       );
     }
     return privateKeys;
@@ -768,7 +789,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
-    const { password, relPaths } = payload;
+    const { password, relPaths, kdfBackend, enablePbkdf2Cache } = payload;
     const isImported = !!payload.credentials.imported;
     const privateKeys = await this.baseGetPrivateKeys({
       payload,
@@ -779,9 +800,67 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         privateKeys,
         password,
         relPaths,
+        kdfBackend,
+        enablePbkdf2Cache,
       });
     }
     return privateKeys;
+  }
+
+  async deriveContextHashBtc(payload: {
+    credentials: ICoreCredentialsInfo;
+    password: string;
+    appName: string;
+    canonicalNetworkName: string;
+    connectedPubkey: string;
+    context: string;
+  }): Promise<string> {
+    const {
+      credentials,
+      password,
+      appName,
+      canonicalNetworkName,
+      connectedPubkey,
+      context,
+    } = payload;
+    if (!credentials.hd) {
+      throw new OneKeyLocalError('deriveContextHash requires an HD credential');
+    }
+    if (connectedPubkey.length !== 66 || !/^[0-9a-f]+$/.test(connectedPubkey)) {
+      throw new OneKeyLocalError(
+        'connectedPubkey must be a 66-char lowercase hex compressed SEC1 pubkey',
+      );
+    }
+    const pathComponents = DERIVE_CONTEXT_HASH_BIP32_PATH.split('/');
+    const relPath = pathComponents.pop() as string;
+    const prefix = pathComponents.join('/');
+    const keys = await batchGetPrivateKeys(
+      curveName,
+      credentials.hd,
+      password,
+      prefix,
+      [relPath],
+    );
+    const encryptedKey = keys[0]?.extendedKey.key;
+    if (!encryptedKey) {
+      throw new OneKeyLocalError('BIP-32 derivation produced no private key');
+    }
+    const ikmBuf = await decryptAsync({ password, data: encryptedKey });
+    const ikm = new Uint8Array(ikmBuf);
+    const pubkeyBytes = Uint8Array.from(Buffer.from(connectedPubkey, 'hex'));
+    const contextBytes = parseHexContext(context);
+    try {
+      return deriveContextHash(
+        ikm,
+        appName,
+        canonicalNetworkName,
+        pubkeyBytes,
+        contextBytes,
+      );
+    } finally {
+      ikm.fill(0);
+      ikmBuf.fill(0);
+    }
   }
 
   override async getAddressFromPrivate(
@@ -846,6 +925,9 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       indexes,
       networkInfo: { networkChainCode },
       addressEncoding,
+      hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
     } = query;
 
     // template:  "m/49'/0'/$$INDEX$$'/0/0"
@@ -869,6 +951,9 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       password,
       prefix: pathPrefix, // m/49'/0'
       relPaths, // 0'   1'
+      hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
     });
     defaultLogger.account.accountCreatePerf.batchGetPublicKeysBtcDone();
 
@@ -888,18 +973,24 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       ] as typeof network.bip32) || network.bip32;
 
     defaultLogger.account.accountCreatePerf.mnemonicFromEntropy();
-    const mnemonic = await mnemonicFromEntropyAsync({
+    const seed = await seedFromHdCredentialAsync({
       hdCredential,
       password,
+      hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
     });
     defaultLogger.account.accountCreatePerf.mnemonicFromEntropyDone();
 
-    defaultLogger.account.accountCreatePerf.mnemonicToSeed();
-    const seed = await mnemonicToSeedAsync({ mnemonic });
-    defaultLogger.account.accountCreatePerf.mnemonicToSeedDone();
-
     defaultLogger.account.accountCreatePerf.seedToRootBip32();
     const root = getBitcoinBip32().fromSeed(seed);
+    const rootFingerprintHex = bufferUtils.bytesToHex(
+      crypto
+        .createHash('ripemd160')
+        .update(crypto.createHash('sha256').update(root.publicKey).digest())
+        .digest()
+        .slice(0, 4),
+    );
     defaultLogger.account.accountCreatePerf.seedToRootBip32Done();
 
     const xpubBuffers = [
@@ -960,6 +1051,10 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
             hdCredential,
             password,
             path,
+            hdCredentialCacheScopeId,
+            kdfBackend,
+            enablePbkdf2Cache,
+            rootFingerprintHex,
           },
         });
         defaultLogger.account.accountCreatePerf.xpubToSegwitDone();
@@ -1081,11 +1176,6 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       signers,
       payload,
     });
-
-    if (process.env.NODE_ENV !== 'production') {
-      const buildPsbtHex = psbt.toHex();
-      console.log('BTC buildPsbtHex:', buildPsbtHex);
-    }
 
     // eslint-disable-next-line no-plusplus
     for (let i = 0; i < encodedTx.inputs.length; ++i) {

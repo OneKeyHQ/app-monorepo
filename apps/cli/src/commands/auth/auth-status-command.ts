@@ -1,6 +1,7 @@
-import { AuthManager } from '../../core/auth/auth-manager';
 import { AppError } from '../../errors';
 import { presentAuthStatus } from '../../output/auth-presenters';
+
+import { CliAuthManager } from './_internal/cli-auth-manager';
 
 import type { ResolvedAuthSession } from '../../core/auth/auth-types';
 import type { OutputFormatter } from '../../output';
@@ -13,7 +14,7 @@ export async function executeAuthStatusCommand(params: {
   output: OutputFormatter;
   authManager?: IAuthStatusReader;
 }): Promise<void> {
-  const { output, authManager = new AuthManager() } = params;
+  const { output, authManager = new CliAuthManager() } = params;
 
   try {
     const status = await authManager.getStatus();

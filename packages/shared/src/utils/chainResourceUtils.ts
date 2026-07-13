@@ -3,7 +3,7 @@ import { md5 } from 'js-md5';
 import {
   TRON_SOURCE_FLAG_MAINNET,
   TRON_SOURCE_FLAG_TESTNET,
-} from '@onekeyhq/core/src/chains/tron/constants';
+} from '@onekeyhq/shared/src/consts/chainConsts';
 
 function buildTronClaimResourceParams({
   accountAddress,

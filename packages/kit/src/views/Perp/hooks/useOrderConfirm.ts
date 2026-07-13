@@ -1,19 +1,52 @@
 import { useCallback } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import {
+  useActiveTradeInstrumentAtom,
   useHyperliquidActions,
+  usePerpsActivePositionAtom,
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  SCALE_ORDER_MAX_COUNT,
+  SCALE_ORDER_MIN_COUNT,
+  SCALE_ORDER_MIN_NOTIONAL,
+  buildScaleOrderLegs,
+  getReduceOnlyOrderGuardError,
+  getReduceOnlyPositionSnapshotError,
+  getScaleOrderReferencePrice,
+  getScaleOrderSizeSkew,
+  normalizeScaleOrderCount,
+  validateScaleOrderLegs,
+} from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import {
+  type IPerpsMarketDataFreshness,
+  shouldBlockPerpsTradingForMarketData,
+} from '../utils/perpsMarketDataFreshness';
+import { resolveTpSlTriggerPx } from '../utils/resolveTpSlTriggerPx';
+import { getScaleOrderValidationErrorMessage } from '../utils/scaleOrderValidation';
+
 import { useOrderPrice } from './useOrderPrice';
+import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
+import { useTradingCalculationsForSide } from './useTradingCalculationsForSide';
 import { useTradingPrice } from './useTradingPrice';
+
+const TWAP_MIN_DURATION_MINUTES = 5;
+const TWAP_MAX_DURATION_MINUTES = 1440;
+const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
+const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
 
 interface IUseOrderConfirmOptions {
   onSuccess?: () => void;
@@ -25,21 +58,43 @@ export interface IUseOrderConfirmReturn {
   handleConfirm: (overrideSide?: 'long' | 'short') => Promise<void>;
 }
 
-export function useOrderConfirm(
-  options?: IUseOrderConfirmOptions,
-): IUseOrderConfirmReturn {
+function useOrderConfirmWithMarketDataFreshness({
+  marketDataFreshness,
+  ...options
+}: IUseOrderConfirmOptions & {
+  marketDataFreshness: IPerpsMarketDataFreshness;
+}): IUseOrderConfirmReturn {
+  const intl = useIntl();
   const [formData] = useTradingFormAtom();
-  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const [activePositionsValue] = usePerpsActivePositionAtom();
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
+  const shouldBlockForMarketData =
+    shouldBlockPerpsTradingForMarketData(marketDataFreshness);
 
   const longOrderPrice = useOrderPrice('long');
   const shortOrderPrice = useOrderPrice('short');
+  const longCalculations = useTradingCalculationsForSide('long');
+  const shortCalculations = useTradingCalculationsForSide('short');
 
   const handleConfirm = useCallback(
     async (overrideSide?: 'long' | 'short') => {
-      if (activeAsset?.assetId === undefined) {
+      if (shouldBlockForMarketData) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.perp_offline,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.perps_offline_moblie,
+          }),
+        });
+        return;
+      }
+
+      if (activeTradeInstrument?.assetId === undefined) {
         Toast.error({
           title: 'Order Failed',
           message: 'Token information not available',
@@ -52,6 +107,17 @@ export function useOrderConfirm(
         : { ...formData };
 
       const side = formDataSnapshot.side;
+
+      if (
+        activeTradeInstrument.mode === 'spot' &&
+        formDataSnapshot.orderMode === 'trigger'
+      ) {
+        Toast.error({
+          title: 'Order Failed',
+          message: 'Trigger orders are not supported in spot mode',
+        });
+        return;
+      }
 
       // Trigger mode: validate, snapshot, and submit (no TP/SL, no standard price validation)
       if (formDataSnapshot.orderMode === 'trigger') {
@@ -94,9 +160,269 @@ export function useOrderConfirm(
         hyperliquidActions.current.resetTradingForm();
         try {
           await hyperliquidActions.current.submitOrder({
-            assetId: activeAsset.assetId,
+            assetId: activeTradeInstrument.assetId,
             formData: formDataSnapshot,
             price: '0', // not used for trigger orders
+          });
+          options?.onSuccess?.();
+        } catch (error) {
+          options?.onError?.(error);
+        }
+        return;
+      }
+
+      if (formDataSnapshot.orderMode === 'scale') {
+        const referencePrice = getScaleOrderReferencePrice({
+          lowerPrice: formDataSnapshot.scaleLowerPrice,
+          upperPrice: formDataSnapshot.scaleUpperPrice,
+        });
+        if (!referencePrice.isFinite() || referencePrice.lte(0)) {
+          Toast.error({
+            title: 'Order Failed',
+            message: intl.formatMessage({
+              id: ETranslations.perp_scale_price_range_required__msg,
+            }),
+          });
+          return;
+        }
+        if (
+          new BigNumber(formDataSnapshot.scaleLowerPrice ?? 0).eq(
+            formDataSnapshot.scaleUpperPrice ?? 0,
+          )
+        ) {
+          Toast.error({
+            title: 'Order Failed',
+            message: intl.formatMessage({
+              id: ETranslations.perp_scale_price_range_same__msg,
+            }),
+          });
+          return;
+        }
+        const orderCount = normalizeScaleOrderCount(
+          formDataSnapshot.scaleOrderCount ?? 0,
+        );
+        if (
+          orderCount < SCALE_ORDER_MIN_COUNT ||
+          orderCount > SCALE_ORDER_MAX_COUNT
+        ) {
+          Toast.error({
+            title: 'Order Failed',
+            message: intl.formatMessage(
+              {
+                id: ETranslations.perp_scale_order_count_range__msg,
+              },
+              {
+                min: SCALE_ORDER_MIN_COUNT,
+                max: SCALE_ORDER_MAX_COUNT,
+              },
+            ),
+          });
+          return;
+        }
+        const scaleSize =
+          side === 'long'
+            ? longCalculations.computedSizeForSide
+            : shortCalculations.computedSizeForSide;
+        if (!scaleSize.isFinite() || scaleSize.lte(0)) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Order size is required',
+          });
+          return;
+        }
+        const isSpotOrder = activeTradeInstrument.mode === 'spot';
+        const szDecimals = isSpotOrder
+          ? (activeTradeInstrument.universe?.baseSzDecimals ?? 2)
+          : (activeTradeInstrument.universe?.szDecimals ?? 2);
+        const scaleLegs = buildScaleOrderLegs({
+          totalSize: scaleSize.toFixed(),
+          lowerPrice: formDataSnapshot.scaleLowerPrice ?? '',
+          upperPrice: formDataSnapshot.scaleUpperPrice ?? '',
+          orderCount,
+          szDecimals,
+          side,
+          sizeSkew: getScaleOrderSizeSkew(
+            formDataSnapshot.scaleSizeDistribution,
+          ),
+          assetType: isSpotOrder ? 'spot' : 'perp',
+        });
+        const scaleValidation = validateScaleOrderLegs({ legs: scaleLegs });
+        if (!scaleValidation.isValid) {
+          Toast.error({
+            title: 'Order Failed',
+            message: getScaleOrderValidationErrorMessage({
+              intl,
+              validation: scaleValidation,
+              fallback: 'Invalid scale order',
+            }),
+          });
+          return;
+        }
+        if (!isSpotOrder && formDataSnapshot.scaleReduceOnly) {
+          const snapshotError = getReduceOnlyPositionSnapshotError({
+            reduceOnly: formDataSnapshot.scaleReduceOnly,
+            accountAddress: currentUser?.accountAddress,
+            positionsAccountAddress: activePositionsValue.accountAddress,
+          });
+          if (snapshotError) {
+            Toast.error({
+              title: 'Order Failed',
+              message: snapshotError,
+            });
+            return;
+          }
+          const position = activePositionsValue.activePositions.find(
+            (pos) => pos.position.coin === activeTradeInstrument.coin,
+          )?.position;
+          const reduceOnlyError = getReduceOnlyOrderGuardError({
+            reduceOnly: formDataSnapshot.scaleReduceOnly,
+            side,
+            size: scaleSize,
+            positionSize: position?.szi,
+            missingPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_scale_reduce_only_opposite_position_required__msg,
+            }),
+            exceedsPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_scale_reduce_only_size_exceeds_position__msg,
+            }),
+          });
+          if (reduceOnlyError) {
+            Toast.error({
+              title: 'Order Failed',
+              message: reduceOnlyError,
+            });
+            return;
+          }
+        }
+
+        const effectiveFormData = {
+          ...formDataSnapshot,
+          type: 'limit' as const,
+          price: referencePrice.toFixed(),
+          bboPriceMode: null,
+          hasTpsl: false,
+          scaleReduceOnly: isSpotOrder
+            ? false
+            : formDataSnapshot.scaleReduceOnly,
+        };
+
+        hyperliquidActions.current.resetTradingForm();
+        try {
+          await hyperliquidActions.current.submitOrder({
+            assetId: activeTradeInstrument.assetId,
+            formData: effectiveFormData,
+            price: referencePrice.toFixed(),
+          });
+          options?.onSuccess?.();
+        } catch (error) {
+          options?.onError?.(error);
+        }
+        return;
+      }
+
+      if (formDataSnapshot.orderMode === 'twap') {
+        const duration = Number(formDataSnapshot.twapDurationMinutes ?? 0);
+        if (
+          !Number.isInteger(duration) ||
+          duration < TWAP_MIN_DURATION_MINUTES ||
+          duration > TWAP_MAX_DURATION_MINUTES
+        ) {
+          Toast.error({
+            title: 'Order Failed',
+            message: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
+          });
+          return;
+        }
+        const isSpotOrder = activeTradeInstrument.mode === 'spot';
+        const twapSize =
+          side === 'long'
+            ? longCalculations.computedSizeForSide
+            : shortCalculations.computedSizeForSide;
+        if (!twapSize.isFinite() || twapSize.lte(0)) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Order size is required',
+          });
+          return;
+        }
+        if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Market price is not available. Please try again.',
+          });
+          return;
+        }
+        const estimatedSlices = Math.max(
+          1,
+          Math.ceil((duration * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
+        );
+        const averageSliceNotional = twapSize
+          .multipliedBy(midPriceBN)
+          .dividedBy(estimatedSlices);
+        if (
+          !averageSliceNotional.isFinite() ||
+          averageSliceNotional.lt(TWAP_MIN_ORDER_NOTIONAL)
+        ) {
+          Toast.error({
+            title: 'Order Failed',
+            message: intl.formatMessage({
+              id: ETranslations.perp_twap_small_slice__msg,
+            }),
+          });
+          return;
+        }
+        if (!isSpotOrder && formDataSnapshot.twapReduceOnly) {
+          const snapshotError = getReduceOnlyPositionSnapshotError({
+            reduceOnly: formDataSnapshot.twapReduceOnly,
+            accountAddress: currentUser?.accountAddress,
+            positionsAccountAddress: activePositionsValue.accountAddress,
+          });
+          if (snapshotError) {
+            Toast.error({
+              title: 'Order Failed',
+              message: snapshotError,
+            });
+            return;
+          }
+          const position = activePositionsValue.activePositions.find(
+            (pos) => pos.position.coin === activeTradeInstrument.coin,
+          )?.position;
+          const reduceOnlyError = getReduceOnlyOrderGuardError({
+            reduceOnly: formDataSnapshot.twapReduceOnly,
+            side,
+            size: twapSize,
+            positionSize: position?.szi,
+            missingPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_twap_reduce_only_opposite_position_required__msg,
+            }),
+            exceedsPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_twap_reduce_only_size_exceeds_position__msg,
+            }),
+          });
+          if (reduceOnlyError) {
+            Toast.error({
+              title: 'Order Failed',
+              message: reduceOnlyError,
+            });
+            return;
+          }
+        }
+
+        const effectiveFormData = {
+          ...formDataSnapshot,
+          type: 'market' as const,
+          price: '',
+          bboPriceMode: null,
+          hasTpsl: false,
+          twapReduceOnly: isSpotOrder ? false : formDataSnapshot.twapReduceOnly,
+        };
+
+        hyperliquidActions.current.resetTradingForm();
+        try {
+          await hyperliquidActions.current.submitOrder({
+            assetId: activeTradeInstrument.assetId,
+            formData: effectiveFormData,
+            price: midPrice || '0',
           });
           options?.onSuccess?.();
         } catch (error) {
@@ -126,6 +452,12 @@ export function useOrderConfirm(
           return;
         }
         effectivePrice = midPrice;
+      } else if (activeTradeInstrument.mode === 'spot') {
+        const szDec = activeTradeInstrument.universe?.baseSzDecimals ?? 0;
+        effectivePrice = formatSpotPriceToValid(
+          orderPrice.price.toFixed(),
+          szDec,
+        );
       } else {
         effectivePrice = formatPriceToSignificantDigits(orderPrice.price);
       }
@@ -144,66 +476,30 @@ export function useOrderConfirm(
         slType,
         leverage = 1,
       } = formDataSnapshot;
-      const leverageBN = new BigNumber(leverage);
-      if (formDataSnapshot.hasTpsl && (tpValue || slValue)) {
-        const entryPrice =
+      const { tpTriggerPx, slTriggerPx } = resolveTpSlTriggerPx({
+        hasTpsl: formDataSnapshot.hasTpsl,
+        tpType,
+        tpValue,
+        slType,
+        slValue,
+        referencePrice:
           effectiveFormData.type === 'market'
             ? midPriceBN
-            : new BigNumber(effectiveFormData.price || '0');
-
-        let calculatedTpTriggerPx: BigNumber | null = null;
-        let calculatedSlTriggerPx: BigNumber | null = null;
-
-        if (tpValue) {
-          const _tpValue = new BigNumber(tpValue);
-          if (tpType === 'price') {
-            calculatedTpTriggerPx = _tpValue;
-          }
-          if (tpType === 'percentage' && entryPrice.gt(0)) {
-            const percentChange = entryPrice
-              .multipliedBy(_tpValue)
-              .dividedBy(100)
-              .dividedBy(leverageBN);
-            const tpPrice =
-              side === 'long'
-                ? entryPrice.plus(percentChange)
-                : entryPrice.minus(percentChange);
-            calculatedTpTriggerPx = tpPrice;
-          }
-        }
-
-        if (slValue) {
-          const _slValue = new BigNumber(slValue);
-          if (slType === 'price') {
-            calculatedSlTriggerPx = _slValue;
-          }
-          if (slType === 'percentage' && entryPrice.gt(0)) {
-            const percentChange = entryPrice
-              .multipliedBy(_slValue)
-              .dividedBy(100)
-              .dividedBy(leverageBN);
-            const slPrice =
-              side === 'long'
-                ? entryPrice.minus(percentChange)
-                : entryPrice.plus(percentChange);
-            calculatedSlTriggerPx = slPrice;
-          }
-        }
-
+            : new BigNumber(effectiveFormData.price || '0'),
+        side,
+        leverage,
+      });
+      if (tpTriggerPx !== undefined || slTriggerPx !== undefined) {
         effectiveFormData = {
           ...effectiveFormData,
-          tpTriggerPx: calculatedTpTriggerPx
-            ? formatPriceToSignificantDigits(calculatedTpTriggerPx)
-            : '',
-          slTriggerPx: calculatedSlTriggerPx
-            ? formatPriceToSignificantDigits(calculatedSlTriggerPx)
-            : '',
+          tpTriggerPx: tpTriggerPx ?? '',
+          slTriggerPx: slTriggerPx ?? '',
         };
       }
 
       try {
         await hyperliquidActions.current.submitOrder({
-          assetId: activeAsset.assetId,
+          assetId: activeTradeInstrument.assetId,
           formData: effectiveFormData,
           price:
             effectiveFormData.type === 'market'
@@ -219,12 +515,18 @@ export function useOrderConfirm(
     [
       midPrice,
       midPriceBN,
-      activeAsset.assetId,
+      activeTradeInstrument,
+      activePositionsValue,
+      currentUser?.accountAddress,
       formData,
       hyperliquidActions,
       options,
+      longCalculations.computedSizeForSide,
       longOrderPrice,
+      shortCalculations.computedSizeForSide,
       shortOrderPrice,
+      intl,
+      shouldBlockForMarketData,
     ],
   );
 
@@ -233,3 +535,15 @@ export function useOrderConfirm(
     handleConfirm,
   };
 }
+
+export function useOrderConfirm(
+  options?: IUseOrderConfirmOptions,
+): IUseOrderConfirmReturn {
+  const marketDataFreshness = usePerpsMarketDataFreshness();
+  return useOrderConfirmWithMarketDataFreshness({
+    ...options,
+    marketDataFreshness,
+  });
+}
+
+export { useOrderConfirmWithMarketDataFreshness };

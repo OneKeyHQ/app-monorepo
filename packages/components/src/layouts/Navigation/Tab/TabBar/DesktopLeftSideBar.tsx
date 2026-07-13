@@ -1,10 +1,13 @@
 import type { ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Tooltip } from '@onekeyhq/components/src/actions';
-import type { IActionListSection } from '@onekeyhq/components/src/actions';
+import { LazyPopover, LazyTooltip } from '@onekeyhq/components/src/actions';
+import type {
+  IActionListSection,
+  IPopoverProps,
+} from '@onekeyhq/components/src/actions';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
@@ -13,7 +16,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
-import { TMPopover, useTheme } from '@onekeyhq/components/src/shared/tamagui';
+import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { MIN_SIDEBAR_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -72,7 +75,36 @@ function DesktopWinSidebarTop() {
   );
 }
 
-function TabItemView({
+type ITabItemOptions = BottomTabNavigationOptions & {
+  actionList?: IActionListSection[];
+  tabbarOnPress?: () => void;
+  onPressWhenSelected?: () => void;
+  trackId?: string;
+  collapseTabBarLabel?: string;
+  hideOnTabBar?: boolean;
+};
+
+// React Navigation rebuilds the `descriptors[].options` object on every
+// navigator render, but the individual field references (tabBarIcon,
+// tabBarLabel, ...) come from the static screenOptions config so they stay
+// stable. Shallow-compare only the fields the items actually read so memo
+// can short-circuit the 8+ sidebar items whose isActive didn't flip.
+function areTabOptionsEqual(a: ITabItemOptions, b: ITabItemOptions) {
+  if (a === b) return true;
+  return (
+    a.tabBarIcon === b.tabBarIcon &&
+    a.tabBarLabel === b.tabBarLabel &&
+    a.tabBarStyle === b.tabBarStyle &&
+    a.actionList === b.actionList &&
+    a.tabbarOnPress === b.tabbarOnPress &&
+    a.onPressWhenSelected === b.onPressWhenSelected &&
+    a.trackId === b.trackId &&
+    a.collapseTabBarLabel === b.collapseTabBarLabel &&
+    a.hideOnTabBar === b.hideOnTabBar
+  );
+}
+
+function BasicTabItemView({
   isActive,
   route,
   onPress,
@@ -83,14 +115,7 @@ function TabItemView({
   route: NavigationState['routes'][0];
   onPress: () => void;
   onPressOut?: () => void;
-  options: BottomTabNavigationOptions & {
-    actionList?: IActionListSection[];
-    tabbarOnPress?: () => void;
-    onPressWhenSelected?: () => void;
-    trackId?: string;
-    collapseTabBarLabel?: string;
-    hideOnTabBar?: boolean;
-  };
+  options: ITabItemOptions;
 }) {
   useEffect(() => {
     // @ts-expect-error
@@ -183,6 +208,16 @@ function TabItemView({
 
   return contentMemo;
 }
+
+const TabItemView = memo(
+  BasicTabItemView,
+  (prev, next) =>
+    prev.isActive === next.isActive &&
+    prev.route === next.route &&
+    prev.onPress === next.onPress &&
+    prev.onPressOut === next.onPressOut &&
+    areTabOptionsEqual(prev.options, next.options),
+);
 
 const isRouteActive = (
   route: NavigationState['routes'][0],
@@ -281,7 +316,7 @@ function SidebarBottomItem({
   );
 
   return (
-    <Tooltip
+    <LazyTooltip
       placement="right"
       renderTrigger={renderTriggerMemo}
       renderContent={label}
@@ -434,87 +469,120 @@ function OverflowMoreButton({
   useEffect(() => () => clearTimer(), [clearTimer]);
 
   const moreLabel = intl.formatMessage({ id: ETranslations.global_more });
+  const overflowPopoverPanelProps = useMemo<
+    IPopoverProps['floatingPanelProps']
+  >(
+    () => ({
+      trapFocus: false,
+      unstyled: true,
+      w: 200,
+      p: 0,
+      bg: '$bg',
+      borderRadius: '$3',
+      enterStyle: ENTER_EXIT_STYLE,
+      exitStyle: ENTER_EXIT_STYLE,
+      animation: OVERFLOW_ANIMATION,
+      animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
+      onHoverIn: handleContentHoverIn,
+      onHoverOut: handleHoverOut,
+      '$platform-web': PLATFORM_WEB_SHADOW_STYLE,
+    }),
+    [handleContentHoverIn, handleHoverOut],
+  );
+
+  const overflowPopoverTrigger = useMemo(
+    () => (
+      <YStack
+        w="100%"
+        ai="center"
+        gap="$0.5"
+        pt={6}
+        pb={6}
+        onHoverIn={handleHoverIn}
+        onHoverOut={handleHoverOut}
+      >
+        <DesktopTabItem
+          isContainerHovered={isHovered || isOpen}
+          selected={isAnyOverflowActive}
+          tabBarStyle={TAB_BAR_STYLE_WIDTH_40}
+          icon={isAnyOverflowActive ? 'DotHorSolid' : 'DotHorOutline'}
+          label=""
+          showTooltip={false}
+          testID="tab-more"
+        />
+        <SizableText
+          size="$bodyXsMedium"
+          cursor="default"
+          color="$text"
+          textAlign="center"
+          numberOfLines={1}
+        >
+          {moreLabel}
+        </SizableText>
+      </YStack>
+    ),
+    [
+      handleHoverIn,
+      handleHoverOut,
+      isAnyOverflowActive,
+      isHovered,
+      isOpen,
+      moreLabel,
+    ],
+  );
+
+  const overflowPopoverContent = useMemo(
+    () => (
+      <YStack p="$1">
+        {overflowRoutes.map((route) => {
+          const currentFocusedRouteName = state.routes[state.index]?.name;
+          const isActive = isRouteActive(
+            route,
+            currentFocusedRouteName,
+            extraConfig?.name,
+          );
+          const { options } = descriptors[route.key];
+
+          return (
+            <OverflowMenuItemWithHandler
+              key={route.key}
+              route={route}
+              isActive={isActive}
+              options={options}
+              handleTabPress={handleTabPress}
+              setIsOpen={setIsOpen}
+            />
+          );
+        })}
+      </YStack>
+    ),
+    [
+      descriptors,
+      extraConfig?.name,
+      handleTabPress,
+      overflowRoutes,
+      state.index,
+      state.routes,
+    ],
+  );
 
   return (
-    <TMPopover
+    <LazyPopover
+      title={moreLabel}
+      showHeader={false}
+      usingSheet={false}
       offset={8}
       placement="right-start"
       open={isOpen}
       onOpenChange={handlePopoverOpenChange}
-    >
-      <TMPopover.Trigger asChild>
-        <YStack
-          w="100%"
-          ai="center"
-          gap="$0.5"
-          pt={6}
-          pb={6}
-          onHoverIn={handleHoverIn}
-          onHoverOut={handleHoverOut}
-        >
-          <DesktopTabItem
-            isContainerHovered={isHovered || isOpen}
-            selected={isAnyOverflowActive}
-            tabBarStyle={TAB_BAR_STYLE_WIDTH_40}
-            icon={isAnyOverflowActive ? 'DotHorSolid' : 'DotHorOutline'}
-            label=""
-            showTooltip={false}
-            testID="tab-more"
-          />
-          <SizableText
-            size="$bodyXsMedium"
-            cursor="default"
-            color="$text"
-            textAlign="center"
-            numberOfLines={1}
-          >
-            {moreLabel}
-          </SizableText>
-        </YStack>
-      </TMPopover.Trigger>
-      <TMPopover.Content
-        trapFocus={false}
-        unstyled
-        w={200}
-        p={0}
-        bg="$bg"
-        borderRadius="$3"
-        enterStyle={ENTER_EXIT_STYLE}
-        exitStyle={ENTER_EXIT_STYLE}
-        animation={OVERFLOW_ANIMATION}
-        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-        onHoverIn={handleContentHoverIn}
-        onHoverOut={handleHoverOut}
-        $platform-web={PLATFORM_WEB_SHADOW_STYLE}
-      >
-        <YStack p="$1">
-          {overflowRoutes.map((route) => {
-            const currentFocusedRouteName = state.routes[state.index]?.name;
-            const isActive = isRouteActive(
-              route,
-              currentFocusedRouteName,
-              extraConfig?.name,
-            );
-            const { options } = descriptors[route.key];
-
-            return (
-              <OverflowMenuItemWithHandler
-                key={route.key}
-                route={route}
-                isActive={isActive}
-                options={options}
-                handleTabPress={handleTabPress}
-                setIsOpen={setIsOpen}
-              />
-            );
-          })}
-        </YStack>
-      </TMPopover.Content>
-    </TMPopover>
+      renderTrigger={overflowPopoverTrigger}
+      floatingPanelProps={overflowPopoverPanelProps}
+      renderContent={overflowPopoverContent}
+    />
   );
 }
 
-function VisibleTabItemView({
+function BasicVisibleTabItemView({
   route,
   isActive,
   options,
@@ -522,14 +590,7 @@ function VisibleTabItemView({
 }: {
   route: NavigationState['routes'][0];
   isActive: boolean;
-  options: BottomTabNavigationOptions & {
-    actionList?: IActionListSection[];
-    tabbarOnPress?: () => void;
-    onPressWhenSelected?: () => void;
-    trackId?: string;
-    collapseTabBarLabel?: string;
-    hideOnTabBar?: boolean;
-  };
+  options: ITabItemOptions;
   handleTabPress: (
     route: NavigationState['routes'][0],
     isActive: boolean,
@@ -559,6 +620,15 @@ function VisibleTabItemView({
     />
   );
 }
+
+const VisibleTabItemView = memo(
+  BasicVisibleTabItemView,
+  (prev, next) =>
+    prev.isActive === next.isActive &&
+    prev.route === next.route &&
+    prev.handleTabPress === next.handleTabPress &&
+    areTabOptionsEqual(prev.options, next.options),
+);
 
 export function DesktopLeftSideBar({
   navigation,

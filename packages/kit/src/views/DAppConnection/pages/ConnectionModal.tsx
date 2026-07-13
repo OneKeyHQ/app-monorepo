@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -18,6 +19,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
+import { isAccountIdDeactivatedBotWallet } from '../../../utils/botWalletAccountUtils';
+import { shouldWarnBotWalletInteract } from '../../../utils/botWalletStatusUtils';
+import { showBotWalletDeactivatedWarningDialog } from '../../../utils/botWalletWarningDialog';
 import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
 import { DAppRequestedPermissionContent } from '../components/DAppRequestContent';
 import { DAppRequestedDappList } from '../components/DAppRequestContent/DAppRequestedDappList';
@@ -26,6 +30,7 @@ import {
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
+import { DAppConnectionTestIDs } from '../testIDs';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
@@ -36,9 +41,11 @@ import type { IHandleAccountChanged } from '../hooks/useHandleAccountChanged';
 function ConnectionModal() {
   const intl = useIntl();
   const { serviceDApp } = backgroundApiProxy;
-  const { $sourceInfo, keylessAutoConnectNonce } = useDappQuery<{
-    keylessAutoConnectNonce?: string;
-  }>();
+  const { $sourceInfo, keylessAutoConnectNonce, preselectKeylessProvider } =
+    useDappQuery<{
+      keylessAutoConnectNonce?: string;
+      preselectKeylessProvider?: EOAuthSocialLoginProvider;
+    }>();
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
@@ -126,6 +133,20 @@ function ConnectionModal() {
         });
         return;
       }
+      const isDeactivatedBotWallet = await isAccountIdDeactivatedBotWallet({
+        accountId: selectedAccount.account.id,
+      });
+      if (
+        shouldWarnBotWalletInteract({
+          isBotWallet: isDeactivatedBotWallet,
+          isBotWalletDeactivated: isDeactivatedBotWallet,
+        })
+      ) {
+        const confirmed = await showBotWalletDeactivatedWarningDialog();
+        if (!confirmed) {
+          return;
+        }
+      }
       const {
         wallet,
         account,
@@ -163,6 +184,18 @@ function ConnectionModal() {
           storageType: 'injectedProvider',
           accountSelectorNum: connectedAccountInfo.num,
         });
+        // updateConnectionSession does not propagate the new account up to
+        // the home selector the way saveConnectionSession does. For the
+        // keyless-preselect entry (Continue with Google/Apple over an
+        // already-connected origin) we must mirror that propagation: under
+        // AlwaysUsePrimaryAccount mode, the next eth_accounts call runs
+        // alignPrimaryAccountToHomeAccount and would otherwise reverse our
+        // switch back to the previously-connected non-keyless account.
+        if (preselectKeylessProvider) {
+          await serviceDApp.syncDappAccountIfPrimaryMode({
+            origin: $sourceInfo.origin,
+          });
+        }
       } else {
         await serviceDApp.saveConnectionSession({
           origin: $sourceInfo?.origin,
@@ -206,11 +239,15 @@ function ConnectionModal() {
       connectedAccountInfo,
       keylessAutoConnectNonce,
       notifyKeylessWebConnectSuccess,
+      preselectKeylessProvider,
     ],
   );
 
   return (
-    <DappOpenModalPage dappApprove={dappApprove}>
+    <DappOpenModalPage
+      dappApprove={dappApprove}
+      testID={DAppConnectionTestIDs.ConnectionModal}
+    >
       <>
         <Page.Header headerShown={false} />
         <Page.Body>
@@ -225,6 +262,7 @@ function ConnectionModal() {
             <DAppAccountListStandAloneItem
               handleAccountChanged={handleAccountChanged}
               onConnectedAccountInfoChanged={setConnectedAccountInfo}
+              preselectKeylessProvider={preselectKeylessProvider}
             />
             <DAppRequestedPermissionContent />
             <DAppRequestedDappList origins={urlSecurityInfo?.dapp?.origins} />
@@ -238,6 +276,10 @@ function ConnectionModal() {
             onCancel={() => dappApprove.reject()}
             confirmButtonProps={{
               disabled: confirmDisabled,
+              testID: DAppConnectionTestIDs.ConnectionApproveButton,
+            }}
+            cancelButtonProps={{
+              testID: DAppConnectionTestIDs.ConnectionRejectButton,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}

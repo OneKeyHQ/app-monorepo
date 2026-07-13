@@ -113,6 +113,10 @@ export function handleAuthCommandDiscoveryFallback(argv: string[]): boolean {
   }
 
   if (!AUTH_SUBCOMMANDS.has(subcommand)) {
+    if (!json && !quiet) {
+      return false;
+    }
+
     return emitAuthDiscoveryError(
       output,
       new AppError(
@@ -129,7 +133,7 @@ export function handleAuthCommandDiscoveryFallback(argv: string[]): boolean {
 export function registerAuthCommands(program: Command): void {
   const auth = program
     .command('auth')
-    .description('Authenticate with a mnemonic or OneKey App Bot Wallet');
+    .description('Authenticate with OneKey App Bot Wallet');
 
   registerAuthLoginCommand(auth);
   registerAuthLogoutCommand(auth);

@@ -56,6 +56,8 @@ function BaseSortableCell(
         <XStack w="100%" alignItems="center">
           <AnimatePresence exitBeforeEnter>
             {isEditing ? (
+              // Internal sortable-cell delete handle.
+              // oxlint-disable-next-line onekey/require-testid
               <IconButton
                 onPress={onDeletePress}
                 icon="MinusCircleSolid"
@@ -72,6 +74,8 @@ function BaseSortableCell(
           {/* Don't use `Stack.onLongPress` as it will only be called after `onPressOut` */}
           <AnimatePresence exitBeforeEnter>
             {isEditing ? (
+              // Internal sortable-cell drag handle.
+              // oxlint-disable-next-line onekey/require-testid
               <IconButton
                 icon="MenuOutline"
                 onPressIn={drag}

@@ -13,6 +13,7 @@ import {
   Page,
   Spinner,
   Stack,
+  resetOnboardingModal,
   usePreventRemove,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
@@ -27,11 +28,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { buildWalletCreatedAtISOString } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -39,10 +40,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 
 function FinalizeWalletSetupPage({
@@ -82,8 +81,15 @@ function FinalizeWalletSetupPage({
   const {
     activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
+  const createdWalletRef = useRef(wallet);
 
   const actions = useAccountSelectorActions();
+  useEffect(() => {
+    if (wallet?.id) {
+      createdWalletRef.current = wallet;
+    }
+  }, [wallet]);
+
   const steps: Record<EFinalizeWalletSetupSteps, string> = {
     [EFinalizeWalletSetupSteps.CreatingWallet]: intl.formatMessage({
       id: ETranslations.onboarding_finalize_creating_wallet,
@@ -97,6 +103,7 @@ function FinalizeWalletSetupPage({
     [EFinalizeWalletSetupSteps.Ready]: intl.formatMessage({
       id: ETranslations.onboarding_finalize_ready,
     }),
+    [EFinalizeWalletSetupSteps.ConnectingDevice]: '', // Hardware-only pre-step, not shown in v1
   };
 
   const created = useRef(false);
@@ -124,11 +131,12 @@ function FinalizeWalletSetupPage({
                 setCurrentStep(EFinalizeWalletSetupSteps.Ready);
                 return;
               }
-              await actions.current.createHDWallet({
+              const createdWalletResult = await actions.current.createHDWallet({
                 mnemonic,
                 isWalletBackedUp,
                 isKeylessWallet,
               });
+              createdWalletRef.current = createdWalletResult.wallet;
             },
           });
           created.current = true;
@@ -175,10 +183,8 @@ function FinalizeWalletSetupPage({
   const closePage = useCallback(() => {
     closePageCalled.current = true;
     void backgroundApiProxy.serviceHardware.clearForceTransportType();
-    navigation.navigate(ERootRoutes.Main, undefined, {
-      pop: true,
-    });
-  }, [navigation]);
+    resetOnboardingModal();
+  }, []);
 
   useEffect(() => {
     const fn = (
@@ -206,8 +212,39 @@ function FinalizeWalletSetupPage({
   }, [popPage]);
 
   const handleWalletSetupReadyInner = useCallback(async () => {
+    const referralWallet = createdWalletRef.current ?? wallet;
+    const referralWalletId = referralWallet?.id;
+    // Report wallet creation time to server before checking bind status
+    // so the server has the record when evaluating the 14-day window
+    if (referralWalletId) {
+      const walletCreatedAt = buildWalletCreatedAtISOString();
+      try {
+        await backgroundApiProxy.serviceReferralCode.cacheWalletCreationRecordTimestamp(
+          {
+            walletId: referralWalletId,
+            walletCreatedAt,
+          },
+        );
+        const info =
+          await backgroundApiProxy.serviceReferralCode.getReferralCodeWalletInfo(
+            { walletId: referralWalletId },
+          );
+        if (info) {
+          await backgroundApiProxy.serviceReferralCode.recordWalletCreation([
+            {
+              address: info.address,
+              networkId: info.networkId,
+              walletCreatedAt,
+            },
+          ]);
+        }
+      } catch {
+        // Startup migration will retry with the cached creation timestamp.
+      }
+    }
+
     const needBondReferralCode = await getReferralCodeBondStatus({
-      walletId: wallet?.id,
+      walletId: referralWalletId,
       skipIfTimeout: true,
     });
 
@@ -347,7 +384,7 @@ function FinalizeWalletSetupPage({
           onConfirm={() => {
             closePage();
             bindWalletInviteCode({
-              wallet,
+              wallet: createdWalletRef.current ?? wallet,
             });
           }}
           onCancelText={intl.formatMessage({

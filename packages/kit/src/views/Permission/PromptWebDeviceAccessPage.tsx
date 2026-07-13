@@ -16,6 +16,8 @@ import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDe
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { PermissionTestIDs } from './testIDs';
+
 export default function PromptWebDeviceAccessPage() {
   const intl = useIntl();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -131,6 +133,7 @@ export default function PromptWebDeviceAccessPage() {
 
         {/* Button */}
         <Button
+          testID={PermissionTestIDs.grantAccessBtn}
           variant="primary"
           size="small"
           onPress={handleGrantAccess}

@@ -11,9 +11,11 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import { useBannerData } from '../../hooks/useBannerData';
 import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
+import { DiscoveryTestIDs } from '../../testIDs';
 
 import { DashboardBanner } from './Banner';
 import { BookmarksSection } from './BookmarksSection';
@@ -25,8 +27,10 @@ import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 function DashboardContent({
   onScroll,
+  tabId,
 }: {
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  tabId?: string;
 }) {
   const isFocused = useIsFocused();
 
@@ -39,16 +43,16 @@ function DashboardContent({
   } = usePromiseResult(
     async () => {
       try {
-        const result = await pRetry(
+        return await pRetry(
           () =>
             backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData(),
           {
             retries: 3,
           },
         );
-        return result;
       } catch (error) {
         console.error(error);
+        return undefined;
       } finally {
         setIsRefreshing(false);
       }
@@ -58,6 +62,7 @@ function DashboardContent({
       watchLoading: true,
       checkIsFocused: false,
       revalidateOnReconnect: true,
+      swrKey: swrKeys.discoveryHomePageData(),
     },
   );
 
@@ -83,6 +88,7 @@ function DashboardContent({
     [],
     {
       watchLoading: true,
+      swrKey: swrKeys.discoveryHomeBookmarks(),
     },
   );
 
@@ -107,11 +113,15 @@ function DashboardContent({
   const hasTrending =
     homePageData?.trending && homePageData.trending.length > 0;
   const showDiveInDescription = !hasBookmarks && !hasTrending;
+  const isInitialLoading = Boolean(
+    (isLoading && !homePageData) || bookmarksData === undefined,
+  );
 
   const content = useMemo(
     () => (
       <>
         <Welcome
+          tabId={tabId}
           banner={
             hasActiveBanners ? (
               <View
@@ -123,7 +133,7 @@ function DashboardContent({
                 <DashboardBanner
                   key="Banner"
                   banners={homePageData?.banners || []}
-                  isLoading={isLoading}
+                  isLoading={isInitialLoading}
                 />
               </View>
             ) : null
@@ -132,7 +142,7 @@ function DashboardContent({
         />
 
         <Stack alignItems="center">
-          {!isLoading && showDiveInDescription ? (
+          {!isInitialLoading && showDiveInDescription ? (
             <DiveInContent onReload={refresh} />
           ) : (
             <>
@@ -146,7 +156,7 @@ function DashboardContent({
                 <ReviewControl>
                   <TrendingSection
                     data={homePageData?.trending || []}
-                    isLoading={!!isLoading}
+                    isLoading={isInitialLoading}
                   />
                 </ReviewControl>
               </Stack>
@@ -158,16 +168,18 @@ function DashboardContent({
     [
       hasActiveBanners,
       homePageData,
-      isLoading,
+      isInitialLoading,
       showDiveInDescription,
       refresh,
       hasBookmarks,
+      tabId,
     ],
   );
 
   if (platformEnv.isNative) {
     return (
       <ScrollView
+        testID={DiscoveryTestIDs.dashboardPage}
         height="100%"
         onScroll={isFocused ? (onScroll as any) : undefined}
         scrollEventThrottle={16}
@@ -181,7 +193,7 @@ function DashboardContent({
   }
 
   return (
-    <ScrollView>
+    <ScrollView testID={DiscoveryTestIDs.dashboardPage}>
       <Page.Container padded={false}>{content}</Page.Container>
     </ScrollView>
   );

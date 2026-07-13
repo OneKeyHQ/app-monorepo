@@ -22,11 +22,17 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSortAtom,
+  useSwapQuoteCurrentEventProviderKeysAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventTotalCountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSortedQuoteListAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  buildSwapManualProviderSelectionIntent,
+  buildSwapQuoteProviderKey,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -38,6 +44,7 @@ import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.cons
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProviderListItem from '../../components/SwapProviderListItem';
+import { SwapTestIDs } from '../../testIDs';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -70,10 +77,31 @@ const SwapProviderSelectModal = () => {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const [, setSwapManualSelect] = useSwapManualSelectQuoteProvidersAtom();
+  const [manualSelectQuoteProvider, setSwapManualSelect] =
+    useSwapManualSelectQuoteProvidersAtom();
   const [providerSort, setProviderSort] = useSwapProviderSortAtom();
   const [settingsPersist] = useSettingsPersistAtom();
   const [currentSelectQuote] = useSwapQuoteCurrentSelectAtom();
+  const selectedProviderInfo =
+    currentSelectQuote?.info ?? manualSelectQuoteProvider?.info;
+  const selectedProviderKey = selectedProviderInfo
+    ? `${selectedProviderInfo.provider}-${selectedProviderInfo.providerName}`
+    : undefined;
+  const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [currentEventProviderKeys] = useSwapQuoteCurrentEventProviderKeysAtom();
+  const currentEventProviderKeySet = useMemo(
+    () => new Set(currentEventProviderKeys),
+    [currentEventProviderKeys],
+  );
+  const quoteListForDisplay = useMemo(
+    () =>
+      quoteEventTotalCount.count > 0
+        ? swapSortedList.filter((item) =>
+            currentEventProviderKeySet.has(buildSwapQuoteProviderKey(item)),
+          )
+        : swapSortedList,
+    [currentEventProviderKeySet, quoteEventTotalCount.count, swapSortedList],
+  );
 
   const onSelectSortChange = useCallback(
     (value: ESwapProviderSort) => {
@@ -108,10 +136,10 @@ const SwapProviderSelectModal = () => {
     [intl],
   );
   const sectionData = useMemo(() => {
-    const availableList = swapSortedList.filter(
+    const availableList = quoteListForDisplay.filter(
       (item) => item.toAmount && !item.limit?.min && !item.limit?.max,
     );
-    const unavailableList = swapSortedList.filter(
+    const unavailableList = quoteListForDisplay.filter(
       (item) => !item.toAmount || item.limit?.min || item.limit?.max,
     );
     return [
@@ -136,17 +164,17 @@ const SwapProviderSelectModal = () => {
           ]
         : []),
     ];
-  }, [intl, swapSortedList]);
+  }, [intl, quoteListForDisplay]);
   const onSelectQuote = useCallback(
     (item: IFetchQuoteResult) => {
-      setSwapManualSelect(item);
+      setSwapManualSelect(buildSwapManualProviderSelectionIntent(item));
       defaultLogger.swap.providerChange.providerChange({
-        changeFrom: currentSelectQuote?.info.provider ?? '-',
+        changeFrom: selectedProviderInfo?.provider ?? '-',
         changeTo: item.info.provider,
       });
       navigation.pop();
     },
-    [navigation, setSwapManualSelect, currentSelectQuote?.info.provider],
+    [navigation, setSwapManualSelect, selectedProviderInfo?.provider],
   );
   const renderItem = useCallback(
     ({ item }: { item: IFetchQuoteResult; index: number }) => {
@@ -166,8 +194,21 @@ const SwapProviderSelectModal = () => {
           }
         }
       }
+      const selected = Boolean(
+        item.info.provider === selectedProviderInfo?.provider &&
+        item.info.providerName === selectedProviderInfo?.providerName,
+      );
+      const selectedByManual = Boolean(
+        item.info.provider === manualSelectQuoteProvider?.info.provider &&
+        item.info.providerName === manualSelectQuoteProvider?.info.providerName,
+      );
+      const autoOpenRoute = Boolean(selected && item.openRouterInfo);
+      const autoOpenRouteTrigger = selectedByManual
+        ? manualSelectQuoteProvider
+        : selectedProviderKey;
       return (
         <SwapProviderListItem
+          testID={SwapTestIDs.providerItem(item.info.providerName)}
           onPress={
             !disabled
               ? () => {
@@ -175,10 +216,10 @@ const SwapProviderSelectModal = () => {
                 }
               : undefined
           }
-          selected={Boolean(
-            item.info.provider === currentSelectQuote?.info.provider &&
-            item.info.providerName === currentSelectQuote?.info.providerName,
-          )}
+          selected={selected}
+          autoOpenRoute={autoOpenRoute}
+          autoOpenRouteTrigger={autoOpenRouteTrigger}
+          routeCollapseTrigger={selectedProviderKey}
           fromTokenAmount={fromTokenAmount.value}
           fromToken={fromToken}
           toToken={toToken}
@@ -189,11 +230,13 @@ const SwapProviderSelectModal = () => {
       );
     },
     [
-      currentSelectQuote?.info.provider,
-      currentSelectQuote?.info.providerName,
       fromToken,
       fromTokenAmount,
+      manualSelectQuoteProvider,
       onSelectQuote,
+      selectedProviderKey,
+      selectedProviderInfo?.provider,
+      selectedProviderInfo?.providerName,
       settingsPersist.currencyInfo.symbol,
       toToken,
     ],
@@ -207,6 +250,7 @@ const SwapProviderSelectModal = () => {
         })}
         renderTrigger={
           <IconButton
+            testID="swap-right-info-component-icon-btn"
             variant="tertiary"
             size="medium"
             icon="InfoCircleOutline"
@@ -272,6 +316,7 @@ const SwapProviderSelectModal = () => {
           if (type === ESwapProviderStatus.AVAILABLE) {
             return (
               <Select
+                testID="swap-select"
                 title={intl.formatMessage({
                   id: ETranslations.provider_sort_title,
                 })}
@@ -280,6 +325,7 @@ const SwapProviderSelectModal = () => {
                 value={providerSort}
                 renderTrigger={({ value, label, placeholder }) => (
                   <Button
+                    testID="swap-btn"
                     mt="$1"
                     alignSelf="flex-start"
                     variant="tertiary"

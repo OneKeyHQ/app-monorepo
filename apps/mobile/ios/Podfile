@@ -12,6 +12,25 @@ require File.join(File.dirname(`node --print "require.resolve('react-native-perm
 require 'json'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 
+# JuiceboxSdk 0.3.2 points its artifacts submodule at an SSH URL. CocoaPods
+# invokes `git submodule update` directly, so pass a scoped Git config through
+# the environment before any pods are downloaded.
+def add_git_config_env(key, value)
+  git_config_count = ENV.fetch('GIT_CONFIG_COUNT', '0').to_i
+  (0...git_config_count).each do |index|
+    return if ENV["GIT_CONFIG_KEY_#{index}"] == key && ENV["GIT_CONFIG_VALUE_#{index}"] == value
+  end
+
+  ENV["GIT_CONFIG_KEY_#{git_config_count}"] = key
+  ENV["GIT_CONFIG_VALUE_#{git_config_count}"] = value
+  ENV['GIT_CONFIG_COUNT'] = (git_config_count + 1).to_s
+end
+
+add_git_config_env(
+  'url.https://github.com/juicebox-systems/.insteadOf',
+  'git@github.com:juicebox-systems/'
+)
+
 ENV['RCT_NEW_ARCH_ENABLED'] = '1'
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] = podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
 
@@ -25,13 +44,13 @@ def installGo()
   go_version = `which go 2>/dev/null && go version 2>/dev/null`.strip
   if go_version.empty?
     puts "Go is not installed. Installing Go..."
-    
+
     # Detect system architecture
     arch = `uname -m`.strip
     os = `uname -s`.strip.downcase
 
     go_version = "1.24.0"
-    
+
     if os == "darwin"
       if arch == "arm64"
         go_url = "https://go.dev/dl/go#{go_version}.darwin-arm64.tar.gz"
@@ -42,24 +61,24 @@ def installGo()
       puts "Unsupported operating system: #{os}"
       return
     end
-    
+
     # Download and install Go
     go_tmp_dir = File.join(__dir__, "go-install")
     puts "go_tmp_dir: #{go_tmp_dir}"
     FileUtils.mkdir_p(go_tmp_dir) unless Dir.exist?(go_tmp_dir)
-    
+
     go_tar_path = File.join(go_tmp_dir, "go.tar.gz")
     puts "Downloading Go from #{go_url}..."
     system("curl -L -o '#{go_tar_path}' '#{go_url}'")
-    
+
     # Extract Go to /usr/local (requires sudo) or to local directory
     go_install_dir = File.join(go_tmp_dir, "go")
     system("cd '#{go_tmp_dir}' && tar -xzf go.tar.gz")
-    
+
     # Set Go environment variables for this session
     ENV['GOROOT'] = go_install_dir
     ENV['PATH'] = "#{go_install_dir}/bin:#{ENV['PATH']}"
-    
+
     puts "Go installed successfully to #{go_install_dir}"
     puts "Note: You may need to add #{go_install_dir}/bin to your PATH permanently"
   else
@@ -114,7 +133,9 @@ target 'OneKeyWallet' do
   pod 'EMASCurl', :modular_headers => true
 
   # Use patched TOCropViewController with rotation crop-box shrink fix (OK-51551)
-  pod 'TOCropViewController', :podspec => 'https://raw.githubusercontent.com/OneKeyHQ/app-modules/main/native-views/TOCropViewController/TOCropViewController.podspec'
+  pod 'TOCropViewController',
+      :git => 'https://github.com/OneKeyHQ/app-modules.git',
+      :commit => '782d84097b16539c38f065cd94d7f01789a2a894'
 
   # Manually add RNGoogleSignin pod (expo-module.config.json only includes the Expo adapter, not the TurboModule)
   # pod 'RNGoogleSignin', :path => '../../../node_modules/@react-native-google-signin/google-signin'
@@ -161,15 +182,6 @@ target 'OneKeyWallet' do
       end
     end
     installer.pods_project.targets.each do |target|
-      # https://github.com/mockingbot/react-native-zip-archive/issues/307
-      # error: /node_modules/react-native-zip-archive/ios/RNZipArchive.m unsupported option '-G' for target 'arm64-apple-ios14.0-simulator'
-      if target.name == 'RNZipArchive'
-        target.source_build_phase.files.each do |file|
-          if file.settings && file.settings['COMPILER_FLAGS']
-            file.settings['COMPILER_FLAGS'] = ''
-          end
-        end
-      end
 
       # Fix JuiceboxSdkFfi module not found error for RNJuiceboxSdk
       if target.name == 'RNJuiceboxSdk'

@@ -117,6 +117,49 @@ async function resetForPasskeyReEnroll(): Promise<void> {
   }
 }
 
+// Read every key resetForPasskeyReEnroll would delete, so a failed re-enroll
+// can restore them. Only keys that currently exist are captured.
+async function snapshotForPasskeyReEnroll(): Promise<
+  Array<readonly [string, string]>
+> {
+  const encryptedKeys = await getEncryptedSecureKeys();
+  const keys = [
+    ...new Set([
+      ...encryptedKeys,
+      PRF_CREDENTIAL_ID_KEY,
+      PRF_SALT_KEY,
+      WRAPPED_MASTER_KEY_KEY,
+      PRF_CREDENTIAL_TRANSPORTS_KEY,
+    ]),
+  ];
+  const entries = await Promise.all(
+    keys.map(
+      async (key) => [key, await webStorage.getItem(key, undefined)] as const,
+    ),
+  );
+  return entries.filter(
+    (entry): entry is readonly [string, string] => entry[1] !== null,
+  );
+}
+
+async function restoreForPasskeyReEnroll(
+  snapshot: Array<readonly [string, string]>,
+): Promise<void> {
+  await Promise.all(
+    snapshot.map(([key, value]) => webStorage.setItem(key, value, undefined)),
+  );
+  // A failed re-enroll may have already cached a NEW master key in bg. Without
+  // clearing it, getMasterKey() would hit that stale cache instead of
+  // unwrapping the restored wrapped key, so getSecureItem() would decrypt with
+  // the wrong key and biometric unlock would still fail. Clear it so the first
+  // read after rollback goes through the restored storage state. (review)
+  try {
+    await appGlobals.$backgroundApiProxy.servicePassword.clearCachedPrfMasterKey();
+  } catch {
+    // background not ready
+  }
+}
+
 // Authenticate and get PRF key
 // Returns { prfKey, isNewCredential } to indicate if a new credential was created
 async function getPrfKey(options?: {
@@ -287,7 +330,10 @@ const storage: ISecureStorage = {
       );
     }
 
-    const masterKey = await getMasterKey();
+    const masterKey = await getMasterKey({
+      allowDiscoverable: false,
+      allowNewRegistration: false,
+    });
     if (!masterKey) {
       throw new OneKeyLocalError(
         'Failed to authenticate with WebAuthn for secure storage',
@@ -332,6 +378,18 @@ const storage: ISecureStorage = {
 
   async resetForPasskeyReEnroll(): Promise<void> {
     await resetForPasskeyReEnroll();
+  },
+
+  async snapshotForPasskeyReEnroll(): Promise<
+    Array<readonly [string, string]>
+  > {
+    return snapshotForPasskeyReEnroll();
+  },
+
+  async restoreForPasskeyReEnroll(
+    snapshot: Array<readonly [string, string]>,
+  ): Promise<void> {
+    await restoreForPasskeyReEnroll(snapshot);
   },
 
   async supportSecureStorageWithoutInteraction(): Promise<boolean> {

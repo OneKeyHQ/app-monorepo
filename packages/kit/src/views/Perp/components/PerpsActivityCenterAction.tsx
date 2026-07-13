@@ -184,7 +184,11 @@ export function PerpsActivityCenterAction({
         width: isDesktop ? 384 : undefined,
       }}
       renderTrigger={
-        <HeaderIconButton title={undefined} icon="GiftOutline" size={size} />
+        <HeaderIconButton
+          title={activityCenterTitle}
+          icon="GiftOutline"
+          size={size}
+        />
       }
       renderContent={({ closePopover }) => (
         <YStack mb="$2">

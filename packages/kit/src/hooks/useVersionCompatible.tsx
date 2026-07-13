@@ -7,7 +7,7 @@ import { Dialog } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
+import { useAppUpdateInfo } from '../components/AppUpdate';
 
 export const useVersionCompatible = () => {
   const intl = useIntl();

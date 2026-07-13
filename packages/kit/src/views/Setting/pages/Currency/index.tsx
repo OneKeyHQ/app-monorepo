@@ -15,16 +15,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-export type ICurrencyType = 'crypto' | 'fiat' | 'popular';
-
-export type ICurrencyItem = {
-  id: string;
-  unit: string;
-  name: string;
-  type: ICurrencyType[];
-  value: string;
-};
+import type { ICurrencyItem } from '@onekeyhq/shared/types';
 
 type ISectionItem = {
   title: string;

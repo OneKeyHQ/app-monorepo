@@ -19,7 +19,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IApproveInfo,
   ITransferInfo,
@@ -114,7 +118,9 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   } = useBulkSendAmountsInputContext();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
-  const shouldHideMaxMode = !isOneToMany && hasDuplicateSenders;
+  const shouldShowMaxMode = isOneToMany
+    ? !tokenInfo?.isNative
+    : !hasDuplicateSenders;
 
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -418,17 +424,18 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
     try {
       // Resolve Max mode amounts from sender balances
-      const resolvedTransfersInfo = isMaxMode
-        ? effectiveTransfersInfo.map((transfer) => ({
-            ...transfer,
-            amount: senderBalances[transfer.from] ?? '0',
-          }))
-        : effectiveTransfersInfo;
+      const resolvedTransfersInfo =
+        !isOneToMany && isMaxMode
+          ? effectiveTransfersInfo.map((transfer) => ({
+              ...transfer,
+              amount: senderBalances[transfer.from] ?? '0',
+            }))
+          : effectiveTransfersInfo;
 
       // Recalculate totals for Max mode
       let finalTotalTokenAmount = effectiveTotalTokenAmount;
       let finalTotalFiatAmount = effectiveTotalFiatAmount;
-      if (isMaxMode && tokenDetails?.price) {
+      if (!isOneToMany && isMaxMode && tokenDetails?.price) {
         const { totalTokenAmount: maxTotal, totalFiatAmount: maxFiat } =
           calculateTotalAmounts({
             transfersInfo: resolvedTransfersInfo,
@@ -463,7 +470,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         transfersInfo: resolvedTransfersInfo,
         bulkSendMode,
         isInModal,
-        isMaxMode,
+        isMaxMode: !isOneToMany && isMaxMode,
         totalTokenAmount: finalTotalTokenAmount,
         totalFiatAmount: finalTotalFiatAmount,
       });
@@ -487,6 +494,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     senderAccountIdMap,
     getEffectiveData,
     navigateToReviewOrInterval,
+    isOneToMany,
   ]);
 
   // Main submit dispatcher
@@ -567,7 +575,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
     // Desktop non-OneToMany: also check interval validity (inline editing has no confirm gate)
     const hasIntervalError =
-      !isOneToMany && !!validateIntervalSettings(intervalSettings);
+      !isOneToMany && !!validateIntervalSettings(intervalSettings, intl);
 
     return !isAmountValid || isInsufficientBalance || hasIntervalError;
   }, [
@@ -588,6 +596,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isInPreviewMode,
     amountInputMode,
     intervalSettings,
+    intl,
   ]);
 
   const confirmButtonText = useMemo(() => {
@@ -624,16 +633,16 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   ]);
 
   const handleMaxPress = useCallback(() => {
-    if (!tokenInfo) return;
+    if (!tokenInfo || (isOneToMany && tokenInfo.isNative)) return;
     if (amountInputMode !== EAmountInputMode.Specified) return;
 
-    // Non-OneToMany: toggle Max mode (send full balance per sender)
+    // Non-OneToMany: toggle Max mode (send full token balance per sender)
     if (!isOneToMany) {
       setIsMaxMode(!isMaxMode);
       return;
     }
 
-    // OneToMany: calculate max amount per address from balance
+    // OneToMany token transfer: calculate max token amount per address from balance
     const balance = tokenDetails?.balanceParsed ?? '0';
     if (!balance || transfersInfo.length === 0) return;
     const maxAmountPerAddress = new BigNumber(balance)
@@ -769,7 +778,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
                 rangePreviewAmounts={previewState.rangePreviewAmounts}
                 onMaxPress={
                   amountInputMode === EAmountInputMode.Specified &&
-                  !shouldHideMaxMode
+                  shouldShowMaxMode
                     ? handleMaxPress
                     : undefined
                 }
@@ -804,6 +813,8 @@ function BulkSendAmountsInputContent({
   hasDuplicateSenders: _hasDuplicateSendersProp,
 }: IBulkSendAmountsInputRouteParams) {
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const hasCustomAmounts = useMemo(
     () =>
       (receivers?.some((r) => r.amount !== undefined && r.amount !== '') ||
@@ -869,7 +880,7 @@ function BulkSendAmountsInputContent({
 
   // Dynamically compute whether there are duplicate sender addresses
   const hasDuplicateSenders = useMemo(() => {
-    if (bulkSendMode !== EBulkSendMode.ManyToMany) return false;
+    if (bulkSendMode === EBulkSendMode.OneToMany) return false;
     const senderAddresses = transfersInfo.map((t) => t.from);
     return new Set(senderAddresses).size !== senderAddresses.length;
   }, [bulkSendMode, transfersInfo]);
@@ -905,19 +916,37 @@ function BulkSendAmountsInputContent({
     [EAmountInputMode.Custom]: { ...defaultModeData },
   });
 
-  const matchedTokenDetails = useMemo(
-    () =>
-      isBulkSendTokenDetailsMatched(
+  // fetchTokensDetails responses (and the route-param initial details) are
+  // normalized to USD basis for caching (tagged currency:'usd'), while this
+  // page does fiat math with tokenDetails.price and renders the results under
+  // settings.currencyInfo.symbol. Convert once here, before the value enters
+  // the context, so every consumer (TableLayout / AmountInput / AmountPreview
+  // and the max-mode totals) sees display-currency values.
+  const matchedTokenDetails = useMemo(() => {
+    if (
+      !isBulkSendTokenDetailsMatched(
         {
           networkId,
           tokenInfo,
         },
         tokenDetails,
-      )
-        ? tokenDetails
-        : undefined,
-    [networkId, tokenInfo, tokenDetails],
-  );
+      ) ||
+      !tokenDetails
+    ) {
+      return undefined;
+    }
+    return convertTokenFiatToCurrency({
+      tokenFiat: tokenDetails,
+      targetCurrency: settings.currencyInfo.id,
+      currencyMap,
+    });
+  }, [
+    networkId,
+    tokenInfo,
+    tokenDetails,
+    settings.currencyInfo.id,
+    currencyMap,
+  ]);
 
   useEffect(() => {
     setTokenDetails(sanitizedInitialTokenDetails);
@@ -1149,6 +1178,7 @@ function BulkSendAmountsInputContent({
       minTransferAmount,
       tokenSymbol: tokenInfo.symbol,
       tokenDecimals: tokenInfo.decimals,
+      intl,
     });
 
     return error ? { rangeError: error } : {};
@@ -1161,6 +1191,7 @@ function BulkSendAmountsInputContent({
     matchedTokenDetails?.balanceParsed,
     tokenInfo.decimals,
     tokenInfo.symbol,
+    intl,
   ]);
 
   const validateCustomTransfers = useCallback(

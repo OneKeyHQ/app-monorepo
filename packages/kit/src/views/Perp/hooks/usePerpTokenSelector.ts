@@ -9,6 +9,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
+import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -48,6 +49,7 @@ function normalizeSearchQuery(query: string) {
 
 export function usePerpTokenSelector() {
   const [searchQuery, setSearchQueryInternal] = useState('');
+  const searchQueryRef = useRef(searchQuery);
   const actions = useHyperliquidActions();
   const [{ assetsByDex, query: filteredQuery }] =
     usePerpsAllAssetsFilteredAtom();
@@ -57,6 +59,7 @@ export function usePerpTokenSelector() {
   const tokenSearchAliasesRef = useRef<ITokenSearchAliases | undefined>(
     undefined,
   );
+  searchQueryRef.current = searchQuery;
 
   const refreshAllAssets = useCallback(async () => {
     const [{ universesByDex }, tokenSearchAliases] = await Promise.all([
@@ -67,7 +70,7 @@ export function usePerpTokenSelector() {
     tokenSearchAliasesRef.current = tokenSearchAliases;
     actions.current.updateAllAssetsFiltered({
       allAssetsByDex: allAssetsRef.current,
-      query: '',
+      query: searchQueryRef.current,
       tokenSearchAliases,
     });
   }, [actions]);
@@ -161,7 +164,8 @@ export function usePerpTokenSelector() {
   );
 
   useEffect(() => {
-    const activeTab = selectorConfig?.activeTab ?? 'all';
+    const activeTab =
+      selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
 

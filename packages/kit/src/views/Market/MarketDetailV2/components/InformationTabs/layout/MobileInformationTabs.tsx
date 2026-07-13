@@ -2,12 +2,8 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  HeaderScrollGestureWrapper,
-  Tabs,
-  YStack,
-  useTabContainerWidth,
-} from '@onekeyhq/components';
+import { HeaderScrollGestureWrapper, Tabs, YStack } from '@onekeyhq/components';
+import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -19,6 +15,7 @@ import {
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
+import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
 import { Portfolio } from '../components/Portfolio';
 import { TransactionsHistory } from '../components/TransactionsHistory';
@@ -69,16 +66,18 @@ export function MobileInformationTabs({
   portfolioData,
   isRefreshing,
   tokenLogoUrl,
+  scrollEnabled = true,
 }: {
   renderHeader: CollapsibleProps['renderHeader'];
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
   tokenLogoUrl?: string;
+  scrollEnabled?: boolean;
 }) {
   const intl = useIntl();
-  const { tokenAddress, networkId, tokenDetail, isNative } = useTokenDetail();
-  const { handleTabChange } = useBottomTabAnalytics();
+  const { tokenAddress, networkId, tokenDetail, isNative, isStockToken } =
+    useTokenDetail();
   const { accountAddress } = useNetworkAccountAddress(networkId);
 
   const holdersTabName = useMemo(() => {
@@ -103,6 +102,7 @@ export function MobileInformationTabs({
     const shouldShowHoldersTab = !isNative && isHoldersTabSupported(networkId);
     // BTC network doesn't show transactions tab
     const shouldShowTransactionsTab = !isBTCNetwork;
+    const shouldShowLiquidityPoolsTab = !isNative && !isStockToken;
 
     const items = [
       shouldShowTransactionsTab && (
@@ -116,6 +116,7 @@ export function MobileInformationTabs({
             tokenAddress={tokenAddress}
             networkId={networkId}
             onScrollEnd={onScrollEnd}
+            scrollEnabled={scrollEnabled}
           />
         </Tabs.Tab>
       ),
@@ -130,11 +131,34 @@ export function MobileInformationTabs({
           isRefreshing={!!isRefreshing}
           accountAddress={accountAddress}
           tokenLogoUrl={tokenLogoUrl}
+          scrollEnabled={scrollEnabled}
         />
       </Tabs.Tab>,
+      shouldShowLiquidityPoolsTab && (
+        <Tabs.Tab
+          key="liquidityPools"
+          name={intl.formatMessage({
+            id: ETranslations.global_liquidity,
+          })}
+        >
+          <Tabs.ScrollView scrollEnabled={scrollEnabled}>
+            <TokenLiquidityPools
+              showTitle={false}
+              variant="mobile"
+              px="$0"
+              pt="$0"
+              pb="$20"
+            />
+          </Tabs.ScrollView>
+        </Tabs.Tab>
+      ),
       shouldShowHoldersTab && (
         <Tabs.Tab key="holders" name={holdersTabName}>
-          <Holders tokenAddress={tokenAddress} networkId={networkId} />
+          <Holders
+            tokenAddress={tokenAddress}
+            networkId={networkId}
+            scrollEnabled={scrollEnabled}
+          />
         </Tabs.Tab>
       ),
     ].filter(Boolean);
@@ -151,14 +175,19 @@ export function MobileInformationTabs({
     isNative,
     isBTCNetwork,
     tokenLogoUrl,
+    isStockToken,
+    scrollEnabled,
   ]);
+
+  const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
+  const { handleTabChange } = useBottomTabAnalytics(tabKeys);
 
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <MobileInformationTabsHeader {...props} />;
   }, []);
 
   // Generate unique key based on tabs composition
-  const tabsKey = useMemo(() => tabs.map((tab) => tab.key).join('-'), [tabs]);
+  const tabsKey = useMemo(() => tabKeys.join('-'), [tabKeys]);
 
   // Hide entire component if no networkId
   if (!networkId) {

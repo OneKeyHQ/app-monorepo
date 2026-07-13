@@ -32,6 +32,7 @@ import {
   getOnChainHistoryTxAssetInfo,
   getOnChainHistoryTxStatus,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   buildTxActionDirection,
@@ -146,6 +147,13 @@ export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
 };
 export type IKeyringMapKey = IDBWalletType;
+export type IKeyringMap = Record<
+  IKeyringMapKey,
+  typeof KeyringBase | undefined
+> & {
+  hwLedger?: typeof KeyringBase | undefined;
+  hwTrezor?: typeof KeyringBase | undefined;
+};
 
 if (platformEnv.isExtensionUi) {
   throw new OneKeyLocalError(
@@ -374,15 +382,22 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     const client = await this.backgroundApi.serviceToken.getClient(
       EServiceEndpointEnum.Wallet,
     );
+    const walletTypeHeader =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId: params.accountId,
+        walletId: params.walletId,
+      });
+    const headers: Record<string, string> = {
+      ...walletTypeHeader,
+      ...(params.requestCurrency
+        ? { 'x-onekey-request-currency': params.requestCurrency }
+        : {}),
+    };
     const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
       '/wallet/v1/account/token/search',
-      omit(params, ['walletId', 'accountId', 'signal']),
+      omit(params, ['walletId', 'accountId', 'signal', 'requestCurrency']),
       {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId: params.accountId,
-            walletId: params.walletId,
-          }),
+        headers,
         signal: params.signal ?? undefined,
       },
     );
@@ -409,7 +424,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   keyring!: KeyringBase;
 
-  abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBase | undefined>;
+  abstract keyringMap: IKeyringMap;
 
   async init(config: IVaultInitConfig) {
     await this.initKeyring(config);
@@ -553,6 +568,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     accountId: string;
     networkId: string;
     accountAddress: string;
+    // set on history detail requests whose caller already holds the decoded
+    // tx, so overrides (btc find-address) can narrow their extra params
+    txInvolvedAddresses?: string[];
   }) {
     return Promise.resolve({});
   }
@@ -738,6 +756,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         tokens,
         nfts,
       });
+      const isPrivateSendHistory =
+        onChainHistoryTx.isPrivateSend === true ||
+        onChainHistoryTx.type === EOnChainHistoryTxType.PrivateSend;
 
       const decodedTx: IDecodedTx = {
         txid: onChainHistoryTx.tx,
@@ -749,6 +770,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         actions: [action],
 
         riskyLevel: onChainHistoryTx.riskLevel,
+
+        kytRiskLevel: resolveKytDisplayLevel(onChainHistoryTx.kyt),
+        kyt: onChainHistoryTx.kyt,
 
         status: getOnChainHistoryTxStatus(onChainHistoryTx.status),
 
@@ -766,9 +790,16 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           onChainHistoryTx,
         }),
         payload: {
-          type: onChainHistoryTx.type,
+          type: isPrivateSendHistory
+            ? EOnChainHistoryTxType.PrivateSend
+            : onChainHistoryTx.type,
           value: onChainHistoryTx.value,
-          label: onChainHistoryTx.label,
+          label: isPrivateSendHistory
+            ? EOnChainHistoryTxType.PrivateSend
+            : onChainHistoryTx.label,
+          ...(onChainHistoryTx.privateSend
+            ? { privateSend: onChainHistoryTx.privateSend }
+            : {}),
         },
       };
 
@@ -1060,6 +1091,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         isNFT: false,
         isNative: swapSendToken.isNative,
         networkId: swapInfo.sender.accountInfo.networkId,
+        price: swapSendToken.price,
       },
       {
         from: '',
@@ -1072,6 +1104,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         isNFT: false,
         isNative: swapReceiveToken.isNative,
         networkId: swapInfo.receiver.accountInfo.networkId,
+        price: swapReceiveToken.price,
       },
     ];
 
@@ -1093,6 +1126,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
             isNFT: false,
             isNative: feeInfo.token.isNative,
             networkId: swapInfo.sender.accountInfo.networkId,
+            price: feeInfo.token.price,
           });
         }
       });
@@ -1376,7 +1410,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IFetchServerAccountDetailsParams,
   ): Promise<IFetchServerAccountDetailsResponse> {
     const queryParams = {
-      ...omit(params, ['accountId', 'signal']),
+      ...omit(params, ['accountId', 'signal', 'queryByAddressOnly']),
     };
 
     const client = await this.backgroundApi.serviceAccountProfile.getClient(
@@ -1423,7 +1457,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
     const { serviceToken, serviceAccountProfile } = this.backgroundApi;
-    const { requestApiParams, flag, signal, accountId } = params;
+    const { requestApiParams, flag, signal, accountId, requestCurrency } =
+      params;
     if (requestApiParams.contractList) {
       requestApiParams.contractList = requestApiParams.contractList.filter(
         (contract): contract is string =>
@@ -1431,13 +1466,20 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       );
     }
     const client = await serviceToken.getClient(EServiceEndpointEnum.Wallet);
+    const walletTypeHeader = await serviceAccountProfile._getWalletTypeHeader({
+      accountId,
+    });
+    const headers: Record<string, string> = {
+      ...walletTypeHeader,
+      ...(requestCurrency
+        ? { 'x-onekey-request-currency': requestCurrency }
+        : {}),
+    };
     const resp = await client.post<{
       data: IFetchAccountTokensResp;
     }>(`/wallet/v1/account/token/list?flag=${flag || ''}`, requestApiParams, {
       signal,
-      headers: await serviceAccountProfile._getWalletTypeHeader({
-        accountId,
-      }),
+      headers,
     });
     return resp;
   }
@@ -1507,14 +1549,26 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
-    const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
+    // POST so array params (btc find-address accountAddressArray) travel
+    // in the JSON body; the server accepts POST on this endpoint.
+    const resp = await client.post<{ data: IFetchHistoryTxDetailsResp }>(
       '/wallet/v1/account/history/detail',
+      rest,
       {
-        params: rest,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
+        headers: {
+          ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+            {
+              accountId,
+            },
+          )),
+          // Authenticate this request only so the server can attach per-user
+          // KYT risk data, without authenticating the whole shared wallet client.
+          // Watch-only accounts are excluded from KYT: withhold the token so the
+          // server never enrols their addresses (no queue / no data / no push).
+          ...(accountUtils.isWatchingAccount({ accountId })
+            ? {}
+            : await this.backgroundApi.serviceGas.getOneKeyIdAuthHeaders()),
+        },
       },
     );
     return resp;

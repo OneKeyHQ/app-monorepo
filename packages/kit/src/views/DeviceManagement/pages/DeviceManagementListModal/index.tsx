@@ -31,15 +31,20 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
+import { DeviceManagementTestIDs } from '../../testIDs';
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
+import { canOpenDeviceManagementDetails } from '../DeviceDetailsModal/utils';
 import { DeviceGuideView } from '../DeviceGuideModal/DeviceGuideView';
 
 import SectionHeader from './SectionHeader';
@@ -65,10 +70,16 @@ function DeviceListItem({
   isConnected,
 }: {
   item: IDeviceManagementListItem;
-  onPress: (wallet: IHwQrWalletWithDevice['wallet']) => void;
+  onPress: (item: IDeviceManagementListItem) => void;
   isConnected: boolean;
 }) {
   const { gtMd } = useMedia();
+  const vendorProfile = getVendorProfile(
+    item.device?.vendor ?? EHardwareVendor.onekey,
+  );
+  const isThirdParty = vendorProfile.isThirdParty;
+  const canShowFirmwareVersion = vendorProfile.supportsFirmwareVersionDisplay;
+  const canOpenDetails = canOpenDeviceManagementDetails(item.device?.vendor);
   const walletAvatarProps: IWalletAvatarProps = {
     img: item.wallet.avatarInfo?.img,
     wallet: item.wallet,
@@ -241,7 +252,9 @@ function DeviceListItem({
             >
               {item.wallet.name}
             </SizableText>
-            {item.isQrWallet ? null : <VerifiedBadge isVerified={isVerified} />}
+            {item.isQrWallet || isThirdParty ? null : (
+              <VerifiedBadge isVerified={isVerified} />
+            )}
           </XStack>
           {bleName ? (
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -250,10 +263,11 @@ function DeviceListItem({
           ) : null}
         </YStack>
       )}
-      onPress={() => onPress(item.wallet)}
-      drillIn
+      onPress={canOpenDetails ? () => onPress(item) : undefined}
+      drillIn={canOpenDetails}
+      testID={DeviceManagementTestIDs.deviceListItem}
     >
-      {renderItemText}
+      {canShowFirmwareVersion ? renderItemText : null}
     </ListItem>
   );
 }
@@ -300,21 +314,48 @@ function DeviceManagementV2ListWeb() {
         });
 
       for (const item of devices) {
-        const firmwareTypeBadge = await deviceUtils.getFirmwareType({
-          features: item.device?.featuresInfo,
-        });
-        const deviceVersion = await deviceUtils.getDeviceVersion({
-          device: item.device,
-          features: item.device?.featuresInfo,
-        });
-        const deviceDetectStatus = detectStatus?.[item.device?.connectId ?? ''];
-        const shouldUpdate = deviceDetectStatus?.hasUpgrade;
-        const updateVersionDisplay = deviceDetectStatus?.toVersion;
         item.isQrWallet = accountUtils.isQrWallet({
           walletId: item.wallet.id,
         });
+
+        const vendorProfile = getVendorProfile(
+          item.device?.vendor ?? EHardwareVendor.onekey,
+        );
+        if (!vendorProfile.supportsFirmwareVersionDisplay) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+
+        const firmwareTypeBadge = vendorProfile.isThirdParty
+          ? thirdPartyDeviceUtils.getFirmwareType({
+              features: item.device?.featuresInfo,
+            })
+          : await deviceUtils.getFirmwareType({
+              features: item.device?.featuresInfo,
+            });
+        const deviceVersion = vendorProfile.isThirdParty
+          ? thirdPartyDeviceUtils.getDeviceVersion({
+              device: item.device,
+              features: item.device?.featuresInfo,
+            })
+          : await deviceUtils.getDeviceVersion({
+              device: item.device,
+              features: item.device?.featuresInfo,
+            });
+        const deviceDetectStatus = detectStatus?.[item.device?.connectId ?? ''];
+        const shouldUpdate = vendorProfile.supportsFirmwareUpdate
+          ? deviceDetectStatus?.hasUpgrade
+          : false;
+        const updateVersionDisplay = vendorProfile.supportsFirmwareUpdate
+          ? deviceDetectStatus?.toVersion
+          : undefined;
         item.firmwareTypeBadge = firmwareTypeBadge;
-        item.firmwareVersionDisplay = `v${
+        const firmwareTypeLabel =
+          deviceUtils.getFirmwareTypeLabelByFirmwareType({
+            firmwareType: firmwareTypeBadge,
+            displayFormat: 'withSpace',
+          });
+        item.firmwareVersionDisplay = `${firmwareTypeLabel}v${
           deviceVersion.firmwareVersion ?? '-'
         }`;
         item.shouldUpdate = shouldUpdate;
@@ -363,10 +404,11 @@ function DeviceManagementV2ListWeb() {
   }, [refreshHwQrWalletList]);
 
   const onWalletPressed = useCallback(
-    (wallet: IHwQrWalletWithDevice['wallet']) => {
-      if (wallet.id) {
+    (item: IDeviceManagementListItem) => {
+      if (item.wallet.id) {
         pushToDeviceDetail({
-          walletId: wallet.id,
+          walletId: item.wallet.id,
+          initialDeviceVendor: item.device?.vendor,
         });
       }
     },
@@ -488,6 +530,7 @@ function DeviceManagementV2ListWeb() {
             confirmButtonProps={{
               icon: 'PlusSmallOutline',
               variant: 'secondary',
+              testID: DeviceManagementTestIDs.addNewDeviceBtn,
             }}
           />
         </Page.Footer>

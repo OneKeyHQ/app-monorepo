@@ -42,12 +42,6 @@ export type IBackupData = {
   appVersion: string;
 };
 
-export enum ERestoreResult {
-  SUCCESS = 'success',
-  WRONG_PASSWORD = 'wrong_password',
-  UNKNOWN_ERROR = 'unknown_error',
-}
-
 type IHasVersion = {
   version: number;
 };

@@ -1,27 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
-import Animated, {
+import { range } from 'lodash';
+import { type IntlShape, useIntl } from 'react-intl';
+import {
   Easing,
-  useAnimatedProps,
   useSharedValue,
+  withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { scheduleOnRN } from 'react-native-worklets';
-import { useThrottledCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   Button,
-  Image,
+  Dialog,
+  Icon,
   LinearGradient,
-  Page,
   SizableText,
   XStack,
   YStack,
+  resetOnboardingModal,
+  useMedia,
   useTheme,
 } from '@onekeyhq/components';
 import {
@@ -32,7 +31,10 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -40,74 +42,64 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { buildWalletCreatedAtISOString } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
+import type { ICheckWalletBindStatusResponse } from '@onekeyhq/shared/src/referralCode/type';
 import {
   type EOnboardingPagesV2,
-  ERootRoutes,
   type IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
+import {
+  EHardwareVendor,
+  type IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../../states/jotai/contexts/accountSelector';
+import { ensureLedgerCoreAppsReady } from '../../../provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
-import { OnboardingLayout } from '../components/OnboardingLayout';
+import {
+  flushPendingExistingWalletSwitchToast,
+  setExistingWalletSwitchToastDeferred,
+} from '../../../utils/toastExistingWalletSwitch';
+import { OnboardingPage } from '../components/Layout';
+import {
+  type IShowOnboardingInviteCodeDialog,
+  useShowOnboardingInviteCodeDialog,
+} from '../components/OnboardingInviteCodeDialog';
+import { OrbShader } from '../components/OrbShader';
 import {
   useConnectDeviceError,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
-
-import MatrixBackground from './MatrixBackground';
+import { OnboardingTestIDs } from '../testIDs';
+import {
+  getForceTransportType,
+  getHardwareCommunicationTypeString,
+  trackHardwareWalletConnection,
+} from '../utils';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
+// Tail-cutoff for the bind-status prefetch in `handleLetsGo`. Short enough
+// that an unhealthy referral backend never strands the user on this page;
+// long enough that a healthy backend with a mild blip still gets through.
+const REFERRAL_CHECK_TIMEOUT_MS = 1500;
 
-// React Navigation's default Android screen transition is ~300ms.
-// Deferring worklet-heavy operations by this amount prevents a collision
-// between outgoing screen cleanup and incoming animated props registration,
-// which can trigger SIGSEGV in Value::~Value on Fabric/New Architecture.
-const NAVIGATION_TRANSITION_SETTLE_MS = 300;
-
-type IStepData = { pathData: string; title: string } | null;
-
-// Regular wallet setup steps
-const STEPS_DATA: Partial<Record<EFinalizeWalletSetupSteps, IStepData>> = {
-  [EFinalizeWalletSetupSteps.CreatingWallet]: {
-    pathData:
-      'M7 12V35C7 38.3138 9.6863 41 13 41H35C38.3138 41 41 38.3138 41 35V23C41 19.6863 38.3138 17 35 17H33M7 12C7 14.7614 9.23858 17 12 17H33M7 12C7 9.23858 9.23858 7 12 7H28.6666C31.06 7 33 8.9401 33 11.3333V17M35 29C35 31.2091 33.2091 33 31 33C28.7909 33 27 31.2091 27 29C27 26.7909 28.7909 25 31 25C33.2091 25 35 26.7909 35 29Z',
-    title: appLocale.intl.formatMessage({
-      id: ETranslations.onboarding_finalize_creating_wallet,
-    }),
-  },
-  [EFinalizeWalletSetupSteps.GeneratingAccounts]: {
-    pathData:
-      'M31.9971 13C31.9971 17.4183 28.4153 21 23.9971 21C19.5788 21 15.9971 17.4183 15.9971 13C15.9971 8.58172 19.5788 5 23.9971 5C28.4153 5 31.9971 8.58172 31.9971 13ZM23.9974 25C17.3083 25 12.1116 28.9362 9.58956 34.6762C8.17334 37.8996 11.0262 41 14.5469 41H33.4478C36.9686 41 39.8214 37.8996 38.4052 34.6762C35.883 28.9362 30.6864 25 23.9974 25Z',
-    title: appLocale.intl.formatMessage({
-      id: ETranslations.onboarding_finalize_generating_accounts,
-    }),
-  },
-  [EFinalizeWalletSetupSteps.EncryptingData]: {
-    pathData:
-      'M31 19V12C31 8.134 27.866 5 24 5C20.134 5 17 8.134 17 12V19M24 28V34M15 43H33C36.3138 43 39 40.3138 39 37V25C39 21.6862 36.3138 19 33 19H15C11.6863 19 9 21.6862 9 25V37C9 40.3138 11.6863 43 15 43Z',
-    title: appLocale.intl.formatMessage({
-      id: ETranslations.onboarding_finalize_encrypting_data,
-    }),
-  },
-  [EFinalizeWalletSetupSteps.Ready]: null,
-};
+const POPUP_LAYERED_SHADOW =
+  'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)';
 
 const fixErrorString = (errorMessage: string) => {
   if (errorMessage.toLowerCase() === 'no wallet creation strategy') {
@@ -115,35 +107,166 @@ const fixErrorString = (errorMessage: string) => {
   }
   return errorMessage;
 };
+
+function stringifyOptionalFailureField(value: unknown) {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value) {
+    return String(value);
+  }
+  return undefined;
+}
+
+function getTrezorConnectFailureDebugPayload(payload: unknown) {
+  const failure =
+    payload && typeof payload === 'object'
+      ? (payload as {
+          code?: unknown;
+          error?: unknown;
+          message?: unknown;
+          params?: unknown;
+        })
+      : undefined;
+  const errorText = stringifyOptionalFailureField(failure?.error);
+  const messageText = stringifyOptionalFailureField(failure?.message);
+  return {
+    code: failure?.code,
+    error: errorText,
+    message: messageText,
+    params: failure?.params,
+    raw: failure ? undefined : String(payload),
+  };
+}
+
+function getTrezorConnectFailureMessage(payload: unknown) {
+  const failure = getTrezorConnectFailureDebugPayload(payload);
+  return failure.error || failure.message;
+}
+
+function getTrezorConnectFailureError(
+  payload: unknown,
+  vendor: EHardwareVendor,
+  intl: IntlShape,
+) {
+  const failure =
+    payload && typeof payload === 'object'
+      ? (payload as {
+          code?: unknown;
+          error?: unknown;
+          params?: unknown;
+        })
+      : undefined;
+  if (typeof failure?.code === 'number' && typeof failure.error === 'string') {
+    return convertThirdPartyDeviceError(
+      {
+        code: failure.code,
+        error: failure.error,
+        params: failure.params,
+      },
+      { vendor },
+    );
+  }
+  const failureMessage = getTrezorConnectFailureMessage(payload);
+  if (failureMessage) {
+    return new OneKeyLocalError(failureMessage);
+  }
+  return new OneKeyLocalError({
+    message: intl.formatMessage({
+      id: ETranslations.trezor_connect_failed_before_wallet_creation__msg,
+    }),
+  });
+}
+
+// EncryptingData is declared in the enum but never emitted; fall back to the
+// CreatingWallet copy so the UI has something to show if it ever appears.
+const STEP_MESSAGE_IDS: Record<EFinalizeWalletSetupSteps, ETranslations> = {
+  [EFinalizeWalletSetupSteps.ConnectingDevice]:
+    ETranslations.connecting_your_device,
+  [EFinalizeWalletSetupSteps.CreatingWallet]:
+    ETranslations.onboarding_finalize_creating_wallet,
+  [EFinalizeWalletSetupSteps.GeneratingAccounts]:
+    ETranslations.onboarding_finalize_generating_accounts,
+  [EFinalizeWalletSetupSteps.EncryptingData]:
+    ETranslations.onboarding_finalize_creating_wallet,
+  [EFinalizeWalletSetupSteps.Ready]: ETranslations.your_wallet_is_ready,
+};
+
+function StepTextSwap({ text }: { text: string }) {
+  return (
+    <YStack w="100%" h={32} position="relative" overflow="hidden">
+      <AnimatePresence>
+        <SizableText
+          key={text}
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          size="$heading2xl"
+          textAlign="center"
+          animation="medium"
+          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+          enterStyle={{ opacity: 0, y: 16 }}
+          exitStyle={{ opacity: 0, y: -16 }}
+        >
+          {text}
+        </SizableText>
+      </AnimatePresence>
+    </YStack>
+  );
+}
+
+// Invisible child of `<OnboardingPage>` whose only job is to call
+// `useShowOnboardingInviteCodeDialog()` from a position where `PageContext`
+// is available, so `useInPageDialog` can capture the page's `pagePortalId`.
+// Without this, the hook captures `pagePortalId = undefined` and falls back
+// to `FULL_WINDOW_OVERLAY_PORTAL` on iOS, which is rendered above the
+// signature-confirm modal pushed by Apply.
+function OnboardingInviteCodeDialogBridge({
+  bridgeRef,
+}: {
+  bridgeRef: React.MutableRefObject<IShowOnboardingInviteCodeDialog | null>;
+}) {
+  const show = useShowOnboardingInviteCodeDialog();
+  useEffect(() => {
+    bridgeRef.current = show;
+    return () => {
+      if (bridgeRef.current === show) {
+        bridgeRef.current = null;
+      }
+    };
+  }, [show, bridgeRef]);
+  return null;
+}
+
 function FinalizeWalletSetupPage({
   route,
 }: IPageScreenProps<
   IOnboardingParamListV2,
   EOnboardingPagesV2.FinalizeWalletSetup
 >) {
-  const {
-    activeAccount: { wallet: _wallet },
-  } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const theme = useTheme();
-  const bgAppColor = theme.bgApp.val;
-  const borderDisabledColor = theme.borderDisabled.val;
-  const borderActiveColor = theme.borderActive.val;
-  const neutral1Color = theme.neutral1.val;
-  const neutral4Color = theme.neutral4.val;
+
   const [setupError, setSetupError] = useState<
     | {
         messageId: ETranslations;
       }
     | undefined
   >(undefined);
+  const [
+    isWalletCreationReadyForReferralCheck,
+    setIsWalletCreationReadyForReferralCheck,
+  ] = useState(false);
+  const [isWalletCreationRecordHandled, setIsWalletCreationRecordHandled] =
+    useState(false);
 
   const created = useRef(false);
+  const createdWalletRef = useRef<IDBWallet | undefined>(undefined);
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
-  const keylessPackSetId = route?.params?.keylessPackSetId;
   const deviceData = route?.params?.deviceData;
+  const ledgerTabValue = route?.params?.tabValue;
   const isFirmwareVerified = route?.params?.isFirmwareVerified;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
   const isKeylessWallet = route?.params?.isKeylessWallet;
@@ -151,119 +274,141 @@ function FinalizeWalletSetupPage({
   const shouldAutoResetKeylessPinAfterRestore =
     route?.params?.shouldAutoResetKeylessPinAfterRestore;
 
-  const initialStep = EFinalizeWalletSetupSteps.CreatingWallet;
+  // Hardware path starts with "Connecting to device" because connectDevice()
+  // runs before the backend wallet creation pipeline emits any events.
+  const initialStep = route?.params?.deviceData
+    ? EFinalizeWalletSetupSteps.ConnectingDevice
+    : EFinalizeWalletSetupSteps.CreatingWallet;
 
   const [currentStep, setCurrentStep] =
     useState<EFinalizeWalletSetupSteps>(initialStep);
-  const progress = useSharedValue(0);
-  const pathLength = 150;
 
-  // 队列管理
-  const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([initialStep]);
-  const isProcessing = useRef(false);
-
-  const animatedProps = useAnimatedProps(() => {
-    // oxlint-disable-next-line @cspell/spellchecker
-    const strokeDashoffset = pathLength * (1 - progress.value);
-
-    return {
-      // oxlint-disable-next-line @cspell/spellchecker
-      strokeDashoffset,
-
-      // oxlint-disable-next-line @cspell/spellchecker
-      strokeDasharray: pathLength,
-    };
-  });
+  const stepQueue = useRef<EFinalizeWalletSetupSteps[]>([]);
 
   const closePageCalled = useRef(false);
+  // Prefetched referral bind-status check started the moment the Ready step
+  // fires. Reading off this ref in `handleLetsGo` avoids paying the network
+  // round-trip after the user clicks Enter wallet — by then it's usually
+  // already resolved, so the button feels instant.
+  const referralCheckPromiseRef = useRef<
+    Promise<ICheckWalletBindStatusResponse | undefined>
+  >(Promise.resolve(undefined));
 
   const closePage = useCallback(() => {
     closePageCalled.current = true;
     void backgroundApiProxy.serviceHardware.clearForceTransportType();
-    navigation.navigate(ERootRoutes.Main, undefined, {
-      pop: true,
-    });
-  }, [navigation]);
-
-  const isFirstCreateWallet = useRef(false);
-  const readIsFirstCreateWallet = async () => {
-    const { isOnboardingDone } =
-      await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
-    isFirstCreateWallet.current = !isOnboardingDone;
-  };
+    resetOnboardingModal();
+  }, []);
 
   const {
     setPendingKeylessAutoConnectWalletId,
     openKeylessAutoConnectDappModal,
   } = useKeylessWebFlowAutoConnectDapp();
+  // The show function captures `pagePortalId` at hook-call time via
+  // `usePageContext()` inside `useInPageDialog`. This call site sits OUTSIDE
+  // the `<OnboardingPage>` (= `<Page>`) wrapper rendered below, so the
+  // context is empty and the dialog would fall back to
+  // `FULL_WINDOW_OVERLAY_PORTAL` on iOS — which sits above the signature
+  // confirm modal and re-introduces the occlusion that 176b3c556c set out
+  // to fix. Defer the hook to a bridge component mounted inside
+  // `<OnboardingPage>` (Page context is available there); the ref carries
+  // the captured callback back here so `handleLetsGo` can invoke it.
+  const showInviteCodeDialogRef =
+    useRef<IShowOnboardingInviteCodeDialog | null>(null);
+  const readyReferralCheckHandledRef = useRef(false);
 
-  const handleWalletSetupReadyInner = useCallback(async () => {
-    setTimeout(() => {
+  // Hold the "existing wallet switched" toast until the user confirms with
+  // Enter wallet, so it doesn't pop over the setup progress animation.
+  useEffect(() => {
+    setExistingWalletSwitchToastDeferred(true);
+    return () => {
+      // Flush before releasing so the toast still fires if the page was
+      // dismissed without Enter wallet (hardware back, app kill, etc.);
+      // the setter would otherwise drop the pending result.
+      flushPendingExistingWalletSwitchToast();
+      setExistingWalletSwitchToastDeferred(false);
+    };
+  }, []);
+
+  // Ready state waits for the user's Let's-go press instead of auto-closing.
+  // The 600ms delay gives the page-dismiss animation time to finish before
+  // the auto-connect dapp modal appears on top of the next (Main) screen.
+  // Before closing, check referral bind status; if the wallet is still
+  // eligible to bind a referral code, show the onboarding invite code dialog
+  // and defer the close flow to its onDone callback.
+  const handleLetsGo = useCallback(async () => {
+    if (closePageCalled.current) return;
+
+    const createdWallet = createdWalletRef.current;
+
+    const proceedToWallet = () => {
       closePage();
-      setTimeout(() => {
+      flushPendingExistingWalletSwitchToast();
+      void (async () => {
+        await timerUtils.wait(600);
         void openKeylessAutoConnectDappModal();
-      }, 600);
-    }, 1000);
+      })();
+    };
+
+    if (createdWallet) {
+      try {
+        // Await the prefetched promise. If it already resolved while the
+        // user was lingering on the success page, this returns immediately
+        // (instant Enter wallet). The tail-cutoff only kicks in when the
+        // backend is genuinely unhealthy — in which case skipping the
+        // dialog is the right call; the user can still bind from Settings.
+        const checkResp = await createTimeoutPromise<
+          ICheckWalletBindStatusResponse | undefined
+        >({
+          asyncFunc: () => referralCheckPromiseRef.current,
+          timeout: REFERRAL_CHECK_TIMEOUT_MS,
+          timeoutResult: undefined,
+        });
+
+        if (checkResp) {
+          const isBound =
+            checkResp.data || checkResp.reason === 'already_bound';
+          const isExpired = checkResp.reason === 'exceeded_bind_window';
+
+          if (!isBound && !isExpired) {
+            showInviteCodeDialogRef.current?.({
+              wallet: createdWallet,
+              onDone: proceedToWallet,
+            });
+            return;
+          }
+        }
+      } catch {
+        // Server unreachable / unexpected error — skip dialog, fall through
+        // to the original close flow so onboarding still completes.
+      }
+    }
+
+    proceedToWallet();
   }, [closePage, openKeylessAutoConnectDappModal]);
 
-  const handleWalletSetupReady = useThrottledCallback(
-    handleWalletSetupReadyInner,
-    500,
-    { leading: true, trailing: false },
+  const processNextStep = useCallback(() => {
+    while (stepQueue.current.length > 0) {
+      const nextStep = stepQueue.current.shift();
+      if (nextStep) {
+        setCurrentStep(nextStep);
+      }
+    }
+  }, []);
+
+  const goNextStep = useCallback(
+    (step: EFinalizeWalletSetupSteps) => {
+      if (!stepQueue.current.includes(step)) {
+        stepQueue.current.push(step);
+      }
+      processNextStep();
+    },
+    [processNextStep],
   );
 
-  const changeIdProgress = useCallback((value: boolean) => {
-    isProcessing.current = value;
-  }, []);
-
-  const stepQueueIndex = useRef<number>(0);
-  const processNextStep = useCallback(() => {
-    if (isProcessing.current || stepQueue.current.length === 0) {
-      return;
-    }
-    isProcessing.current = true;
-    const nextStep = stepQueue.current[stepQueueIndex.current];
-    if (!nextStep) {
-      setTimeout(() => {
-        isProcessing.current = false;
-        void processNextStep();
-      }, 250);
-      return;
-    }
-    if (nextStep === EFinalizeWalletSetupSteps.Ready) {
-      setTimeout(() => {
-        void handleWalletSetupReady();
-      }, 150);
-      return;
-    }
-    setCurrentStep(nextStep);
-    setTimeout(() => {
-      stepQueueIndex.current += 1;
-      progress.value = 0;
-      progress.value = withTiming(
-        1,
-        {
-          duration: 2000,
-          easing: Easing.linear,
-        },
-        (finished) => {
-          if (finished) {
-            scheduleOnRN(setCurrentStep, nextStep);
-            scheduleOnRN(changeIdProgress, false);
-            scheduleOnRN(processNextStep);
-          }
-        },
-      );
-    }, 150);
-  }, [changeIdProgress, handleWalletSetupReady, progress]);
-
-  const goNextStep = useCallback((step: EFinalizeWalletSetupSteps) => {
-    if (!stepQueue.current.includes(step)) {
-      stepQueue.current.push(step);
-    }
-  }, []);
-
   const actions = useAccountSelectorActions();
+  const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const createWallet = useCallback(async () => {
@@ -275,20 +420,11 @@ function FinalizeWalletSetupPage({
             isOverrideWallet: boolean | undefined;
           }
         | undefined;
-      // **** hd wallet case
       if (mnemonic && !created.current) {
         await withPromptPasswordVerify({
           run: async () => {
             if (mnemonicType === EMnemonicType.TON) {
-              // TODO check TON case
-              // **** TON mnemonic case
-              // Create TON imported account when mnemonicType is TON
               await actions.current.createTonImportedWallet({ mnemonic });
-              goNextStep(EFinalizeWalletSetupSteps.EncryptingData);
-              await timerUtils.wait(2200);
-              goNextStep(EFinalizeWalletSetupSteps.GeneratingAccounts);
-              await timerUtils.wait(2200);
-              goNextStep(EFinalizeWalletSetupSteps.Ready);
               return;
             }
             const shouldRunAutoReset =
@@ -299,6 +435,14 @@ function FinalizeWalletSetupPage({
               isKeylessWallet,
               keylessDetailsInfo,
             });
+            // `isOverrideWallet` is set by serviceAccount when the same-hash
+            // dedup branch ran — i.e. the mnemonic matches an existing
+            // wallet. The invite-code dialog is a setup ritual for first-
+            // time creation only, so skip the bind check on re-imports.
+            // Mirrors the HW branch's `existingWalletIds` filter.
+            if (!hdWalletCreatedResult.isOverrideWallet) {
+              createdWalletRef.current = hdWalletCreatedResult.wallet;
+            }
             if (shouldRunAutoReset) {
               void (async () => {
                 try {
@@ -318,11 +462,8 @@ function FinalizeWalletSetupPage({
                   ) {
                     return;
                   }
-                  const [token, refreshToken, pin] = await Promise.all([
-                    refreshResult.accessToken,
-                    refreshResult.refreshToken,
-                    getKeylessOnboardingPin(),
-                  ]);
+                  const { accessToken: token, refreshToken } = refreshResult;
+                  const pin = await getKeylessOnboardingPin();
                   if (!token || !pin || !refreshToken) {
                     console.error(
                       'Skip keyless auto reset pin: missing onboarding token or pin.',
@@ -346,14 +487,6 @@ function FinalizeWalletSetupPage({
               })();
             }
 
-            // const { wallet: createdWallet } =
-            //   await actions.current.createHDWallet({
-            //     mnemonic,
-            //     isWalletBackedUp,
-            //     isKeylessWallet,
-            //     keylessDetailsInfo,
-            //   });
-            // Track keyless wallet creation success
             if (isKeylessWallet && keylessDetailsInfo) {
               defaultLogger.account.wallet.walletAdded({
                 status: 'success',
@@ -383,18 +516,230 @@ function FinalizeWalletSetupPage({
         });
         created.current = true;
       } else if (deviceData && isFirmwareVerified !== undefined) {
-        await connectDevice(deviceData.device as SearchDevice);
-        await createHWWallet({
-          device: deviceData.device as SearchDevice,
-          isFirmwareVerified,
-        });
-      } else if (keylessPackSetId && !created.current) {
-        // Create keyless wallet
-        // await actions.current.createKeylessWallet({
-        //   packSetId: keylessPackSetId,
-        // });
-        created.current = true;
+        const { wallets: walletsBeforeCreate } =
+          await backgroundApiProxy.serviceAccount.getWallets({
+            nestedHiddenWallets: false,
+          });
+        const existingWalletIds = new Set(
+          walletsBeforeCreate.map((walletItem) => walletItem.id),
+        );
+        if (deviceData.vendor) {
+          // Third-party vendor device (e.g., Ledger): call
+          // createHWWalletWithoutHidden directly to avoid the
+          // onSelectAddWalletType path which would push another
+          // FinalizeWalletSetup page on top of this one.
+          //
+          // Analytics: this branch is the real Ledger creation site —
+          // the useDeviceConnect tracking calls never reach Ledger because
+          // verifyHardware/onSelectAddWalletType are bypassed. Mirror the
+          // OneKey-side `addWalletStarted` + success/failure tracking here.
+          let thirdPartyDevice = deviceData.device as SearchDevice;
+          if (deviceData.vendor === EHardwareVendor.ledger) {
+            const ledgerConnectId = thirdPartyDevice?.connectId ?? '';
+            const ensureResult = await ensureLedgerCoreAppsReady({
+              connectId: ledgerConnectId,
+            });
+            if (!ensureResult.ok) {
+              throw (
+                ensureResult.error ??
+                new OneKeyLocalError({
+                  message: intl.formatMessage({
+                    id: ETranslations.hardware_third_party_no_app_installed_on_device,
+                  }),
+                })
+              );
+            }
+          }
+
+          // Resolve the per-session transport from the tabValue passed by the
+          // Ledger entry points. Mirrors the OneKey pattern in useDeviceConnect
+          // (`forceTransportType || hardwareTransportType`) so the analytics
+          // event reflects the channel actually used for this connection, not
+          // the stale persisted setting.
+          //
+          // The resolver calls background services (devSetting / setting) over
+          // IPC and can fail. Per-session attribution is an analytics nice-to-
+          // have; it must not block Ledger wallet creation or suppress the
+          // walletAdded failure event. Fall back to the persisted setting on
+          // any error so the create + tracking pipeline runs unconditionally.
+          let forceTransportType: EHardwareTransportType | undefined;
+          if (ledgerTabValue) {
+            try {
+              forceTransportType = await getForceTransportType(ledgerTabValue);
+            } catch (transportResolveError) {
+              defaultLogger.hardware.sdkLog.log(
+                `[3rdPartyHW] getForceTransportType failed; falling back to persisted hardwareTransportType: ${
+                  (transportResolveError as Error)?.message ??
+                  String(transportResolveError)
+                }`,
+              );
+            }
+          }
+          const resolvedTransportType =
+            forceTransportType || hardwareTransportType;
+          defaultLogger.account.wallet.addWalletStarted({
+            addMethod: 'ConnectHWWallet',
+            details: {
+              hardwareWalletType: 'Standard',
+              communication: getHardwareCommunicationTypeString(
+                resolvedTransportType,
+              ),
+              vendor: deviceData.vendor,
+            },
+            isSoftwareWalletOnlyUser,
+          });
+          try {
+            let featuresForCreate = {
+              device_id: thirdPartyDevice?.deviceId || '',
+              vendor: deviceData.vendor,
+            } as IOneKeyDeviceFeatures;
+            if (
+              deviceData.vendor === EHardwareVendor.trezor &&
+              thirdPartyDevice.connectId
+            ) {
+              const connected =
+                await backgroundApiProxy.serviceThirdPartyHardware.connectDevice(
+                  {
+                    vendor: deviceData.vendor,
+                    connectId: thirdPartyDevice.connectId,
+                  },
+                );
+              const connectedFeatures = connected.success
+                ? connected.payload.features
+                : undefined;
+              const connectedDeviceId =
+                connected.success &&
+                (connected.payload.deviceId ||
+                  (typeof connectedFeatures?.device_id === 'string'
+                    ? connectedFeatures.device_id
+                    : ''));
+              if (!connected.success) {
+                throw getTrezorConnectFailureError(
+                  connected.payload,
+                  deviceData.vendor,
+                  intl,
+                );
+              }
+              if (!connectedDeviceId) {
+                throw new OneKeyLocalError({
+                  message: intl.formatMessage({
+                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  }),
+                });
+              }
+              // Device has no seed yet — block creation and prompt the user to
+              // set it up first (we can't drive third-party device setup).
+              if (connectedFeatures?.initialized === false) {
+                await trackHardwareWalletConnection({
+                  status: 'failure',
+                  deviceType: thirdPartyDevice.deviceType,
+                  hardwareTransportType: resolvedTransportType,
+                  isSoftwareWalletOnlyUser,
+                  vendor: deviceData.vendor,
+                });
+                navigation.pop();
+                Dialog.show({
+                  title: intl.formatMessage({
+                    id: ETranslations.trezor_device_not_initialized__title,
+                  }),
+                  description: intl.formatMessage({
+                    id: ETranslations.trezor_device_not_initialized__desc,
+                  }),
+                  showCancelButton: false,
+                  onConfirmText: intl.formatMessage({
+                    id: ETranslations.global_i_got_it,
+                  }),
+                });
+                return;
+              }
+              featuresForCreate = {
+                ...connectedFeatures,
+                device_id: connectedDeviceId,
+              } as IOneKeyDeviceFeatures;
+              const rawThirdPartyDevice = (
+                thirdPartyDevice as SearchDevice & {
+                  raw?: Record<string, unknown>;
+                }
+              ).raw;
+              thirdPartyDevice = {
+                ...thirdPartyDevice,
+                connectId: connected.payload.connectId,
+                deviceId: connectedDeviceId,
+                name:
+                  thirdPartyDevice.name ||
+                  connected.payload.label ||
+                  connected.payload.modelName ||
+                  connected.payload.model ||
+                  'Trezor',
+                raw: {
+                  ...rawThirdPartyDevice,
+                  vendorRaw: connected.payload.raw,
+                },
+                vendorModel: connected.payload.model,
+                vendorModelName: connected.payload.modelName,
+              } as SearchDevice;
+            }
+            await actions.current.createHWWalletWithoutHidden({
+              device: thirdPartyDevice,
+              hideCheckingDeviceLoading: true,
+              features: featuresForCreate,
+              isFirmwareVerified: true,
+              defaultIsTemp: true,
+              vendor: deviceData.vendor,
+            });
+            await trackHardwareWalletConnection({
+              status: 'success',
+              deviceType: thirdPartyDevice.deviceType,
+              hardwareTransportType: resolvedTransportType,
+              isSoftwareWalletOnlyUser,
+              vendor: deviceData.vendor,
+            });
+            // After a reset the same device re-onboards with a new device_id;
+            // mark the stale wallet deprecated so only the current one lights
+            // up. Trezor-specific dedup, matched on the device's transport
+            // connect ids (same key set as the connection-status light).
+            if (deviceData.vendor === EHardwareVendor.trezor) {
+              await actions.current.updateTrezorWalletsDeprecatedStatus({
+                connectId: thirdPartyDevice.connectId ?? '',
+                deviceId: thirdPartyDevice.deviceId ?? '',
+              });
+            }
+          } catch (createError) {
+            await trackHardwareWalletConnection({
+              status: 'failure',
+              deviceType: thirdPartyDevice.deviceType,
+              hardwareTransportType: resolvedTransportType,
+              isSoftwareWalletOnlyUser,
+              vendor: deviceData.vendor,
+            });
+            throw createError;
+          }
+        } else {
+          goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
+          await connectDevice(deviceData.device as SearchDevice);
+          await createHWWallet({
+            device: deviceData.device as SearchDevice,
+            isFirmwareVerified,
+          });
+        }
+        const { wallets: walletsAfterCreate } =
+          await backgroundApiProxy.serviceAccount.getWallets({
+            nestedHiddenWallets: false,
+          });
+        const createdWallet =
+          walletsAfterCreate.find(
+            (walletItem) =>
+              !existingWalletIds.has(walletItem.id) &&
+              !accountUtils.isHwHiddenWallet({ wallet: walletItem }),
+          ) ??
+          walletsAfterCreate.find(
+            (walletItem) => !existingWalletIds.has(walletItem.id),
+          );
+        if (createdWallet) {
+          createdWalletRef.current = createdWallet;
+        }
       }
+      setIsWalletCreationReadyForReferralCheck(true);
     } catch (error) {
       console.error('createWallet error:', error);
       const hardwareError = error as {
@@ -415,55 +760,32 @@ function FinalizeWalletSetupPage({
     mnemonic,
     deviceData,
     isFirmwareVerified,
-    keylessPackSetId,
     mnemonicType,
     actions,
     isWalletBackedUp,
     isKeylessWallet,
     keylessDetailsInfo,
     shouldAutoResetKeylessPinAfterRestore,
-    goNextStep,
     connectDevice,
     createHWWallet,
     setPendingKeylessAutoConnectWalletId,
+    goNextStep,
+    hardwareTransportType,
+    isSoftwareWalletOnlyUser,
+    ledgerTabValue,
+    intl,
+    navigation,
   ]);
 
-  const unmountedRef = useRef(false);
-  useEffect(
-    () => () => {
-      unmountedRef.current = true;
-    },
-    [],
-  );
-
   useEffect(() => {
-    // Defer animation start until after navigation transition completes.
-    // This prevents a triple-worklet collision (HeightTransition cleanup +
-    // screen transition + AnimatedPath mount) that can cause SIGSEGV in
-    // worklets::SerializableObject::toJSValue → facebook::jsi::Value::~Value
-    // on Android with Fabric/New Architecture.
-    void timerUtils.setTimeoutPromised(() => {
-      if (!unmountedRef.current) {
-        processNextStep();
-      }
-    }, NAVIGATION_TRANSITION_SETTLE_MS);
-    if (!unmountedRef.current) {
-      void createWallet();
-    }
+    void createWallet();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (currentStep === EFinalizeWalletSetupSteps.CreatingWallet) {
-      void readIsFirstCreateWallet();
-    }
-  }, [currentStep]);
 
   useEffect(() => {
     const fn = (
       event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupStep],
     ) => {
-      console.log('FinalizeWalletSetupStep', event.step);
       goNextStep(event.step);
     };
 
@@ -484,244 +806,390 @@ function FinalizeWalletSetupPage({
   const retrySetup = useCallback(() => {
     setSetupError(undefined);
     setCurrentStep(initialStep);
-    stepQueueIndex.current = 0;
-    setTimeout(() => {
-      void createWallet();
-    });
+    stepQueue.current = [];
+    createdWalletRef.current = undefined;
+    readyReferralCheckHandledRef.current = false;
+    referralCheckPromiseRef.current = Promise.resolve(undefined);
+    setIsWalletCreationReadyForReferralCheck(false);
+    setIsWalletCreationRecordHandled(false);
+    // Reset the dedup guard so a retry triggered after a late, post-success
+    // error (e.g. a hardware-connect event firing after a non-hardware
+    // wallet was already created) can re-enter the create-wallet branch
+    // instead of being short-circuited.
+    created.current = false;
+    void createWallet();
   }, [createWallet, initialStep]);
 
-  const currentStepData =
-    STEPS_DATA[currentStep] ||
-    STEPS_DATA[EFinalizeWalletSetupSteps.EncryptingData];
+  const { gtMd } = useMedia();
+  const theme = useTheme();
 
-  const svgMask = (
-    <Svg
-      height="100%"
-      width="100%"
-      style={{
-        position: 'absolute',
-        inset: 0,
-      }}
+  const isReady = currentStep === EFinalizeWalletSetupSteps.Ready;
+  const stepText = intl.formatMessage({ id: STEP_MESSAGE_IDS[currentStep] });
+
+  useEffect(() => {
+    // Hardware wallet creation may emit Ready before the post-create wallet
+    // lookup has stored createdWalletRef.
+    if (
+      !isReady ||
+      setupError ||
+      !isWalletCreationReadyForReferralCheck ||
+      readyReferralCheckHandledRef.current
+    ) {
+      return;
+    }
+    readyReferralCheckHandledRef.current = true;
+    // Unblock the Enter wallet button immediately. The record persistence
+    // below is best-effort (the startup migration retries with the cached
+    // timestamp) and the server-side call can hang for ~10s if referral
+    // endpoints are unhealthy — gating the CTA on it would strand the user.
+    setIsWalletCreationRecordHandled(true);
+
+    const createdWallet = createdWalletRef.current;
+    if (!createdWallet) return;
+
+    // Single round-trip shared by the record-write below and the bind-status
+    // prefetch — both want the same { address, networkId } for this wallet.
+    const walletInfoPromise =
+      backgroundApiProxy.serviceReferralCode.getReferralCodeWalletInfo({
+        walletId: createdWallet.id,
+      });
+
+    // Best-effort record write. Startup migration retries from the cached
+    // creation timestamp if this fails (network down, backend hiccup, etc.).
+    void (async () => {
+      try {
+        const walletCreatedAt = buildWalletCreatedAtISOString();
+        await backgroundApiProxy.serviceReferralCode.cacheWalletCreationRecordTimestamp(
+          {
+            walletId: createdWallet.id,
+            walletCreatedAt,
+          },
+        );
+        const info = await walletInfoPromise;
+        if (info) {
+          await backgroundApiProxy.serviceReferralCode.recordWalletCreation([
+            {
+              address: info.address,
+              networkId: info.networkId,
+              walletCreatedAt,
+            },
+          ]);
+        }
+      } catch {
+        // Best-effort; startup migration will retry.
+      }
+    })();
+
+    // Prefetch bind status so the user's Enter wallet click feels instant.
+    // By the time they finish the success animation, this is usually done.
+    referralCheckPromiseRef.current = (async () => {
+      try {
+        const info = await walletInfoPromise;
+        if (!info) return undefined;
+        return await backgroundApiProxy.serviceReferralCode.checkWalletBindStatus(
+          {
+            address: info.address,
+            networkId: info.networkId,
+          },
+        );
+      } catch {
+        return undefined;
+      }
+    })();
+  }, [isReady, isWalletCreationReadyForReferralCheck, setupError]);
+
+  // Breathe up to 0.8 during active steps; on Ready fade to a faint hold
+  // (0.15) so the orb visibly "settles" before the user taps Enter wallet.
+  const orbIntensity = useSharedValue(0);
+  useEffect(() => {
+    if (isReady) {
+      orbIntensity.value = withTiming(0.15, { duration: 600 });
+      return;
+    }
+    orbIntensity.value = withRepeat(
+      withTiming(0.8, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+  }, [isReady, orbIntensity]);
+
+  // Release the shader canvas ~1s after Ready so the GPU isn't running a
+  // per-frame noise pass while the user lingers on the success badge.
+  const [isOrbMounted, setIsOrbMounted] = useState(true);
+  useEffect(() => {
+    if (!isReady) {
+      setIsOrbMounted(true);
+      return undefined;
+    }
+    const timeout = setTimeout(() => setIsOrbMounted(false), 1000);
+    return () => clearTimeout(timeout);
+  }, [isReady]);
+
+  const orbSize = 160;
+  const isReadyActionVisible = isReady && isWalletCreationRecordHandled;
+
+  const [isExtensionTopRightVisible, setIsExtensionTopRightVisible] =
+    useState(false);
+  useEffect(() => {
+    if (!platformEnv.isExtension || !isReadyActionVisible || setupError) {
+      setIsExtensionTopRightVisible(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    void (async () => {
+      try {
+        // chrome.action.getUserSettings (Chrome 91+) reports whether the
+        // extension is already pinned to the toolbar. If pinned, the hint
+        // is redundant. Older Chrome / non-Chrome → fall through and show
+        // the hint as before.
+        const settings = await chrome.action?.getUserSettings?.();
+        if (cancelled) {
+          return;
+        }
+        if (settings?.isOnToolbar) {
+          return;
+        }
+      } catch {
+        // Permission / version edge cases — show the hint anyway.
+      }
+      if (cancelled) {
+        return;
+      }
+      timeout = setTimeout(() => {
+        if (!cancelled) {
+          setIsExtensionTopRightVisible(true);
+        }
+      }, 1000);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [isReadyActionVisible, setupError]);
+
+  const enterWalletTransitionProps = {
+    opacity: isReadyActionVisible ? 1 : 0,
+    pointerEvents: isReadyActionVisible ? ('auto' as const) : ('none' as const),
+    ...(!platformEnv.isNative && {
+      animation: 'quick' as const,
+      animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
+    }),
+  };
+
+  const enterWalletButton = (
+    <Button
+      testID={OnboardingTestIDs.finalizeSetupEnterWalletBtn}
+      variant="primary"
+      size="large"
+      onPress={handleLetsGo}
+      iconAfter="ArrowRightOutline"
+      animation="quick"
+      animateOnly={['opacity']}
+      enterStyle={{ opacity: 0 }}
+      {...(gtMd ? { minWidth: 240 } : { w: '100%' as const })}
     >
-      <Defs>
-        <RadialGradient
-          id="finalize-grad"
-          cx="50%"
-          cy="50%"
-          {...(platformEnv.isNative && {
-            rx: '60%',
-            ry: '30%',
-          })}
-        >
-          <Stop offset="0%" stopColor={bgAppColor} stopOpacity="0" />
-          <Stop offset="50%" stopColor={bgAppColor} stopOpacity="0.5" />
-          <Stop offset="100%" stopColor={bgAppColor} stopOpacity="1" />
-        </RadialGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill="url(#finalize-grad)" />
-    </Svg>
+      {intl.formatMessage({ id: ETranslations.enter_wallet })}
+    </Button>
   );
 
   return (
-    <Page>
-      <OnboardingLayout>
-        <OnboardingLayout.Header
-          showBackButton={false}
-          showLanguageSelector={false}
-        />
-        <OnboardingLayout.Body constrained={false} scrollable={false}>
-          {setupError ? (
-            <YStack
-              gap="$4"
-              alignSelf="center"
-              w="100%"
-              maxWidth="$96"
-              h="100%"
-              justifyContent="center"
-            >
-              <SizableText size="$heading2xl">
-                🤔{' '}
-                {intl.formatMessage({
-                  id: ETranslations.failed_to_create_wallet,
-                })}
-              </SizableText>
-              <SizableText size="$bodyLg">
-                {intl.formatMessage({
-                  id: setupError.messageId,
-                  defaultMessage: setupError.messageId,
-                })}
-              </SizableText>
-              <XStack gap="$2.5" mt="$4">
-                <Button
-                  flex={1}
-                  variant="primary"
-                  size="large"
-                  onPress={retrySetup}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.global_retry,
-                  })}
-                </Button>
-                <Button flex={1} size="large" onPress={closePage}>
-                  {intl.formatMessage({
-                    id: ETranslations.global_exit,
-                  })}
-                </Button>
-              </XStack>
-            </YStack>
-          ) : null}
-          {!setupError && currentStepData ? (
-            <YStack w="100%" h="100%">
-              <YStack
-                position="absolute"
-                left="50%"
-                top="50%"
-                x="-50%"
-                y="-50%"
-                opacity={0.15}
-              >
-                <MatrixBackground />
-                {!platformEnv.isNativeAndroid ? svgMask : null}
-              </YStack>
-              {platformEnv.isNativeAndroid ? svgMask : null}
-              <YStack
-                animation="quick"
-                animateOnly={ANIMATE_ONLY_OPACITY}
-                enterStyle={{
-                  opacity: 0,
-                }}
+    <OnboardingPage
+      testID={OnboardingTestIDs.finalizeSetupPage}
+      headerBack={false}
+      showLanguageSelector={false}
+      enterAnimation={false}
+    >
+      <OnboardingInviteCodeDialogBridge bridgeRef={showInviteCodeDialogRef} />
+      <YStack flex={1}>
+        {platformEnv.isExtension && isExtensionTopRightVisible ? (
+          <YStack
+            gap="$4"
+            zIndex={10}
+            top="$4"
+            right="$4"
+            style={{ position: 'fixed' }}
+            borderRadius="$4"
+            p="$4"
+            bg="$bg"
+            width="$72"
+            $platform-web={{
+              boxShadow: POPUP_LAYERED_SHADOW,
+            }}
+            enterStyle={{
+              y: '$-2',
+              opacity: 0,
+            }}
+            animation="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+          >
+            <SizableText>
+              {intl.formatMessage({
+                id: ETranslations.onboarding_ext_popup_text,
+              })}
+            </SizableText>
+            <XStack gap="$2" position="relative">
+              <XStack
                 flex={1}
+                py="$2"
+                px="$4"
+                borderRadius="$full"
+                bg="$bgStrong"
+                justifyContent="space-between"
                 alignItems="center"
-                justifyContent="center"
-                gap="$6"
               >
-                <YStack w="$16" h="$16">
-                  <Image
-                    position="absolute"
-                    $theme-dark={{
-                      opacity: 0.5,
-                    }}
-                    bottom={0}
-                    left="50%"
-                    x="-50%"
-                    y="50%"
-                    // eslint-disable-next-line @typescript-eslint/no-require-imports
-                    source={require('@onekeyhq/kit/assets/onboarding/tiny-shadow-illus.png')}
-                    w={87}
-                    h={49}
-                  />
+                {range(6).map((index) => (
                   <YStack
-                    w="100%"
-                    h="100%"
-                    bg="$bg"
-                    borderRadius="$2"
-                    borderCurve="continuous"
-                    alignItems="center"
-                    justifyContent="center"
-                    $platform-web={{
-                      boxShadow:
-                        '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 2px rgba(0, 0, 0, 0.10), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
-                    }}
-                    $theme-dark={{
-                      borderWidth: StyleSheet.hairlineWidth,
-                      borderColor: '$borderSubdued',
-                    }}
-                    $platform-native={{
-                      borderWidth: StyleSheet.hairlineWidth,
-                      borderColor: '$borderSubdued',
-                    }}
-                    $platform-android={{ elevation: 1 }}
-                    $platform-ios={{
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.2,
-                      shadowRadius: 1,
-                    }}
-                  >
-                    <LinearGradient
-                      colors={[neutral1Color, neutral4Color]}
-                      start={{ x: 1, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      w="$14"
-                      h="$14"
-                      borderRadius="$1"
-                      borderCurve="continuous"
-                      alignItems="center"
-                      justifyContent="center"
-                      borderWidth={1}
-                      borderColor="$borderSubdued"
-                    >
-                      <AnimatePresence exitBeforeEnter initial={false}>
-                        <YStack
-                          key={`icon-${currentStep}`}
-                          animation="quick"
-                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                          enterStyle={{
-                            y: 4,
-                            opacity: 0,
-                          }}
-                          exitStyle={{
-                            y: -4,
-                            opacity: 0,
-                          }}
-                        >
-                          <Svg width="48" height="48" viewBox="0 0 48 48">
-                            <Path
-                              d={currentStepData.pathData}
-                              stroke={borderDisabledColor}
-                              strokeWidth="2"
-                              fill="none"
-                            />
-
-                            <AnimatedPath
-                              d={currentStepData.pathData}
-                              stroke={borderActiveColor}
-                              fill="none"
-                              stroke-width="2"
-                              stroke-linecap="square"
-                              stroke-linejoin="round"
-                              animatedProps={animatedProps}
-                            />
-                          </Svg>
-                        </YStack>
-                      </AnimatePresence>
-                    </LinearGradient>
-                  </YStack>
-                </YStack>
-                <AnimatePresence exitBeforeEnter initial={false}>
-                  <SizableText
-                    key={`title-${currentStep}`}
-                    size="$heading2xl"
-                    textAlign="center"
-                    animation="quick"
-                    animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                    enterStyle={{
-                      y: 8,
-                      opacity: 0,
-                      filter: 'blur(4px)',
-                    }}
-                    exitStyle={{
-                      y: -8,
-                      opacity: 0,
-                      filter: 'blur(4px)',
-                    }}
-                  >
-                    {currentStepData?.title || ''}
-                  </SizableText>
-                </AnimatePresence>
+                    key={index}
+                    w="$4"
+                    h="$4"
+                    borderWidth={1.5}
+                    borderColor="$iconDisabled"
+                    borderStyle="dashed"
+                    borderRadius="$full"
+                  />
+                ))}
+              </XStack>
+              <YStack p="$2" borderRadius="$full" bg="$bgStrong">
+                <Icon name="PuzzleOutline" color="$iconActive" size="$5" />
               </YStack>
+              <LinearGradient
+                colors={[theme.bg.val, `${theme.bg.val}00`]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                }}
+                pointerEvents="none"
+              />
+            </XStack>
+            <XStack
+              px="$4"
+              py="$3"
+              bg="$neutral2"
+              borderRadius="$3"
+              $platform-web={{
+                boxShadow: POPUP_LAYERED_SHADOW,
+              }}
+              gap="$2"
+              alignItems="center"
+            >
+              <Icon name="OnekeyBrand" />
+              <SizableText flex={1} size="$bodyLgMedium">
+                OneKey
+              </SizableText>
+              <Icon name="ThumbtackSolid" size="$5" color="$iconInfo" />
+            </XStack>
+          </YStack>
+        ) : null}
+        {setupError ? (
+          <YStack flex={1} justifyContent="center" alignItems="center" gap="$7">
+            <SizableText size="$heading5xl" fontWeight={600}>
+              {intl.formatMessage({
+                id: ETranslations.failed_to_create_wallet,
+              })}
+            </SizableText>
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              maxWidth={620}
+              pl="$3"
+              borderLeftWidth={1}
+              borderLeftColor="$borderSubdued"
+            >
+              {intl.formatMessage({
+                id: setupError.messageId,
+                defaultMessage: setupError.messageId,
+              })}
+            </SizableText>
+            <XStack gap="$2.5" mt="$4" maxWidth={420}>
+              <Button
+                testID={OnboardingTestIDs.finalizeSetupRetryBtn}
+                flex={1}
+                variant="primary"
+                size="large"
+                onPress={retrySetup}
+              >
+                {intl.formatMessage({ id: ETranslations.global_retry })}
+              </Button>
+              <Button
+                testID={OnboardingTestIDs.finalizeSetupExitBtn}
+                flex={1}
+                size="large"
+                onPress={closePage}
+              >
+                {intl.formatMessage({ id: ETranslations.global_exit })}
+              </Button>
+            </XStack>
+          </YStack>
+        ) : (
+          <>
+            <YStack
+              flex={1}
+              justifyContent="center"
+              alignItems="center"
+              gap="$8"
+            >
+              <YStack w={orbSize} h={orbSize} position="relative">
+                <YStack
+                  position="absolute"
+                  inset={0}
+                  animation="medium"
+                  animateOnly={ANIMATE_ONLY_OPACITY}
+                  opacity={isReady ? 0 : 1}
+                >
+                  {isOrbMounted ? (
+                    <OrbShader
+                      intensity={orbIntensity}
+                      paused={isReady}
+                      autoRotate
+                      size={orbSize}
+                    />
+                  ) : null}
+                </YStack>
+                <YStack
+                  position="absolute"
+                  left="20%"
+                  top="20%"
+                  bottom="20%"
+                  right="20%"
+                  borderRadius={orbSize / 2}
+                  bg="$brand10"
+                  alignItems="center"
+                  justifyContent="center"
+                  animation="medium"
+                  animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                  opacity={isReady ? 1 : 0}
+                  scale={isReady ? 1 : 0.7}
+                >
+                  <Icon name="CheckmarkSolid" size="$8" color="$bgApp" />
+                </YStack>
+              </YStack>
+              <StepTextSwap text={stepText} />
+              {gtMd ? (
+                <YStack mt="$4" minHeight={48} {...enterWalletTransitionProps}>
+                  {enterWalletButton}
+                </YStack>
+              ) : null}
             </YStack>
-          ) : null}
-        </OnboardingLayout.Body>
-        <OnboardingLayout.Footer>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.do_not_exit_app_during_setup,
-            })}
-          </SizableText>
-        </OnboardingLayout.Footer>
-      </OnboardingLayout>
-    </Page>
+            {!gtMd ? (
+              <YStack pb="$5" {...enterWalletTransitionProps}>
+                {enterWalletButton}
+              </YStack>
+            ) : null}
+          </>
+        )}
+      </YStack>
+    </OnboardingPage>
   );
 }
 

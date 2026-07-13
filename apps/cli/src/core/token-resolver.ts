@@ -9,6 +9,8 @@ import type { IResolvedToken } from '../types';
 
 /** Valid EVM address: 0x followed by exactly 40 hex characters */
 const EVM_ADDRESS_RE = /^0x[a-f0-9]{40}$/i;
+/** Valid-looking Solana mint/account address: base58, typically 32 bytes. */
+const SOL_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 /** V2 Market Search API raw response item — aligned with IMarketSearchV2Token */
 interface IMarketSearchItem {
@@ -81,6 +83,23 @@ function mapSearchItemToResolved(
   };
 }
 
+function isContractAddressInput(input: string, networkId: string): boolean {
+  if (EVM_ADDRESS_RE.test(input)) return true;
+  if (networkId === 'sol--101') return SOL_ADDRESS_RE.test(input);
+  return false;
+}
+
+function contractAddressMatches(
+  itemAddress: string,
+  input: string,
+  networkId: string,
+): boolean {
+  if (networkId === 'sol--101') {
+    return itemAddress === input;
+  }
+  return itemAddress.toLowerCase() === input.toLowerCase();
+}
+
 /**
  * Pick the best match from candidates: prefer communityRecognized, then highest liquidity.
  */
@@ -108,7 +127,7 @@ async function searchAndResolve(
   input: string,
   networkId: string,
 ): Promise<IResolvedToken> {
-  const isContractAddress = EVM_ADDRESS_RE.test(input);
+  const isContractAddress = isContractAddressInput(input, networkId);
 
   let rawResults: unknown;
   try {
@@ -142,8 +161,8 @@ async function searchAndResolve(
   const onChain = results.filter((t) => t.network === networkId);
 
   if (isContractAddress) {
-    const addressMatches = onChain.filter(
-      (t) => t.address.toLowerCase() === input.toLowerCase(),
+    const addressMatches = onChain.filter((t) =>
+      contractAddressMatches(t.address, input, networkId),
     );
     if (addressMatches.length === 0) {
       return buildDegradedResult(input, networkId);

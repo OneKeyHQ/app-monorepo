@@ -6,7 +6,7 @@
 //    mutation must use static require() calls generated at compile time
 //
 // Transforms:
-// - jest.mock('mod', factory) -> globalThis.__harness_mock_module__(require('mod'), factory)
+// - jest.mock('mod', factory) -> globalThis.__harness_mock_module_id__(require.resolveWeak('mod'), factory)
 // - jest.mock('mod')          -> (removed, auto-mock not supported)
 // - jest.requireActual('x')   -> require('x')
 // - jest.requireMock('x')     -> require('x')
@@ -51,63 +51,46 @@ module.exports = function ({ types: t }) {
             return;
           }
 
-          // jest.mock('module', factory) ->
-          // globalThis.__harness_mock_module__(
-          //   (function(){try{return require('module')}catch(e){console.warn('...',String(e));return {}}})(),
-          //   factory
-          // )
-          // The try-catch prevents crashes when native modules fail to load
-          // (e.g. after an app restart when the native bridge isn't fully ready).
-          // Failures are logged via console.warn so they remain visible.
-          const safeRequire = t.callExpression(
-            t.functionExpression(
-              null,
-              [],
-              t.blockStatement([
-                t.tryStatement(
-                  t.blockStatement([
-                    t.returnStatement(
-                      t.callExpression(t.identifier('require'), [args[0]]),
-                    ),
-                  ]),
-                  t.catchClause(
-                    t.identifier('_e'),
-                    t.blockStatement([
-                      t.expressionStatement(
-                        t.callExpression(
-                          t.memberExpression(
-                            t.identifier('console'),
-                            t.identifier('warn'),
-                          ),
-                          [
-                            t.stringLiteral(
-                              '[babel-plugin-jest-compat] require() failed for mock:',
-                            ),
-                            t.callExpression(t.identifier('String'), [
-                              t.identifier('_e'),
-                            ]),
-                          ],
-                        ),
-                      ),
-                      t.returnStatement(t.objectExpression([])),
-                    ]),
-                  ),
-                ),
-              ]),
+          const moduleId = t.callExpression(
+            t.memberExpression(
+              t.identifier('require'),
+              t.identifier('resolveWeak'),
             ),
-            [],
+            [args[0]],
           );
-          path.replaceWith(
-            t.expressionStatement(
-              t.callExpression(
-                t.memberExpression(
-                  t.identifier('globalThis'),
-                  t.identifier('__harness_mock_module__'),
-                ),
-                [safeRequire, args[1]],
+          const mockCall = t.expressionStatement(
+            t.callExpression(
+              t.memberExpression(
+                t.identifier('globalThis'),
+                t.identifier('__harness_mock_module_id__'),
               ),
+              [moduleId, args[1]],
             ),
           );
+          const mockStatement =
+            args[0].value === 'crypto'
+              ? t.blockStatement([
+                  mockCall,
+                  t.expressionStatement(
+                    t.callExpression(
+                      t.memberExpression(
+                        t.identifier('globalThis'),
+                        t.identifier('__harness_mock_actual_module_id__'),
+                      ),
+                      // Clone the AST nodes for the second usage. Babel's AST
+                      // is a tree, not a DAG; sharing the same `moduleId` /
+                      // `args[1]` references in two sibling call expressions
+                      // breaks subsequent visitors that mutate one and corrupts
+                      // generated output / source maps.
+                      [t.cloneNode(moduleId, true), t.cloneNode(args[1], true)],
+                    ),
+                  ),
+                ])
+              : mockCall;
+          // Match Jest's mock hoisting semantics so modules imported above a
+          // jest.mock() call still observe the mocked implementation.
+          mockStatement._blockHoist = 3;
+          path.replaceWith(mockStatement);
         } else {
           // jest.mock('module') without factory -> remove (auto-mock not supported).
           // Warn at build time so developers know this mock is silently dropped.
@@ -135,11 +118,32 @@ module.exports = function ({ types: t }) {
           return;
         }
 
-        // jest.requireActual('module') -> require('module')
+        // jest.requireActual('module') -> globalThis.__harness_require_actual__(require.resolveWeak('module'))
         if (t.isIdentifier(callee.property, { name: 'requireActual' })) {
-          path.replaceWith(
-            t.callExpression(t.identifier('require'), path.node.arguments),
-          );
+          const firstArg = path.node.arguments[0];
+          if (t.isStringLiteral(firstArg)) {
+            path.replaceWith(
+              t.callExpression(
+                t.memberExpression(
+                  t.identifier('globalThis'),
+                  t.identifier('__harness_require_actual__'),
+                ),
+                [
+                  t.callExpression(
+                    t.memberExpression(
+                      t.identifier('require'),
+                      t.identifier('resolveWeak'),
+                    ),
+                    [firstArg],
+                  ),
+                ],
+              ),
+            );
+          } else {
+            path.replaceWith(
+              t.callExpression(t.identifier('require'), path.node.arguments),
+            );
+          }
           return;
         }
 

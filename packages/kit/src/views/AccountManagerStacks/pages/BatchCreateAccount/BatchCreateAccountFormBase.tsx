@@ -10,9 +10,9 @@ import {
   SizableText,
   Stack,
   XStack,
-  useForm,
   useMedia,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -86,6 +86,7 @@ function AdvancedSettingsFormField({
             </SizableText>
           </Stack>
           <IconButton
+            testID="account-manager-text-icon-btn"
             icon={
               collapse ? 'ChevronDownSmallOutline' : 'ChevronTopSmallOutline'
             }
@@ -146,6 +147,7 @@ function AdvancedSettingsFormField({
             }}
           >
             <Input
+              testID="account-manager-value-num-input"
               secureTextEntry={false}
               placeholder={intl.formatMessage({
                 id: ETranslations.global_serial_number_start,

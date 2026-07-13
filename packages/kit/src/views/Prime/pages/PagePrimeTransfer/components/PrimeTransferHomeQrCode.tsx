@@ -160,6 +160,7 @@ export function PrimeTransferHomeQrCode() {
           </Stack>
         ) : (
           <Button
+            testID="prime-btn"
             variant="tertiary"
             icon="RefreshCwOutline"
             size="small"

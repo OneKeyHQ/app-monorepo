@@ -47,7 +47,11 @@ export function GetStarted({
 
         <View position="absolute" left="$5" top={top}>
           <Page.Close>
-            <IconButton icon="CrossedLargeOutline" variant="tertiary" />
+            <IconButton
+              icon="CrossedLargeOutline"
+              variant="tertiary"
+              testID="onboarding-icon-btn"
+            />
           </Page.Close>
         </View>
       </Page.Body>

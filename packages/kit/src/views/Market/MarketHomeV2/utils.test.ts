@@ -1,5 +1,8 @@
+import { TIME_RANGE_TO_API_MAP } from './types';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
+  isMarketStockCategory,
+  isMarketStockCategoryById,
   parseValueToNumber,
   shouldHideSpotExtendedStats,
   validateLiquidityInput,
@@ -356,5 +359,58 @@ describe('Spot Category Extended Stats Visibility Tests', () => {
       'holders',
       'tokenAge',
     ]);
+  });
+});
+
+describe('Market Stock Category Detection Tests', () => {
+  test('detects stock category from explicit metadata', () => {
+    expect(
+      isMarketStockCategory({
+        id: 'equities',
+        name: 'Equities',
+        isStockCategory: true,
+      }),
+    ).toBe(true);
+  });
+
+  test('detects stock category from API id or name', () => {
+    expect(isMarketStockCategory({ id: 'stock', name: 'Stocks' })).toBe(true);
+    expect(
+      isMarketStockCategory({ id: 'tokenized_stocks', name: 'Tokenized' }),
+    ).toBe(true);
+    expect(isMarketStockCategory({ id: 'equities', name: 'Stocks' })).toBe(
+      true,
+    );
+  });
+
+  test('detects stock category from Chinese category name', () => {
+    expect(isMarketStockCategory({ id: 'equities', name: '股票' })).toBe(true);
+  });
+
+  test('does not mark regular spot categories as stock', () => {
+    expect(isMarketStockCategory({ id: 'trending', name: 'Trending' })).toBe(
+      false,
+    );
+    expect(
+      isMarketStockCategory({ id: 'x_mentioned', name: 'X Mentioned' }),
+    ).toBe(false);
+  });
+
+  test('resolves stock category by id from category list', () => {
+    const categories = [
+      { id: 'trending', name: 'Trending' },
+      { id: 'stock', name: 'Stocks' },
+    ];
+
+    expect(isMarketStockCategoryById(categories, 'stock')).toBe(true);
+    expect(isMarketStockCategoryById(categories, 'trending')).toBe(false);
+    expect(isMarketStockCategoryById(categories, 'missing')).toBe(false);
+    expect(isMarketStockCategoryById(undefined, 'stock')).toBe(false);
+  });
+});
+
+describe('Market Home API Defaults', () => {
+  test('maps the default one-hour range to the seed-compatible API timeframe', () => {
+    expect(TIME_RANGE_TO_API_MAP['1h']).toBe('2');
   });
 });

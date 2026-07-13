@@ -1,0 +1,130 @@
+name: 04-bundle-architecture-check
+
+on:
+  schedule:
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  bundle-architecture:
+    name: Bundle Architecture Analysis
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          check-latest: true
+          scope: '@onekeyhq'
+
+      - name: Write bundle architecture AI prompt
+        run: |
+          mkdir -p ci-ai
+          node .github/scripts/ciFailureIssue.js prompt bundle-architecture > ci-ai/bundle-architecture-ai-prompt.md || \
+            echo "AI prompt generation failed; inspect the failed step log and bundle architecture logs." > ci-ai/bundle-architecture-ai-prompt.md
+
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      - name: Build union graph and allocation reports
+        env:
+          ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
+          UNION_BUILD: 'true'
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        working-directory: apps/mobile
+        run: |
+          mkdir -p ../../ci-ai
+          set +e
+          node scripts/unionBuild.js \
+            --platform ios \
+            --common-bundle-output dist-ci/common.jsbundle \
+            --common-sourcemap-output dist-ci/common.jsbundle.map \
+            --main-bundle-output dist-ci/main.jsbundle \
+            --main-sourcemap-output dist-ci/main.jsbundle.map \
+            --background-bundle-output dist-ci/background.bundle.js \
+            --background-sourcemap-output dist-ci/background.bundle.map \
+            --assets-dest dist-ci/assets \
+            2>&1 | tee ../../ci-ai/bundle-architecture-union-build.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+
+      - name: Run architecture check
+        working-directory: apps/mobile
+        run: |
+          mkdir -p ../../ci-ai
+          set +e
+          node scripts/check-bundle-architecture.js 2>&1 | tee ../../ci-ai/bundle-architecture-check.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+
+      - name: Upload allocation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allocation-reports
+          path: |
+            ci-ai/bundle-architecture-ai-prompt.md
+            ci-ai/bundle-architecture-*.log
+            apps/mobile/dist/allocation-report-*.json
+            apps/mobile/dist/segment-manifest*.json
+          if-no-files-found: warn
+
+      - name: Explain bundle architecture failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`allocation-reports\`"
+            echo "- Open: \`bundle-architecture-check.log\`, \`bundle-architecture-union-build.log\`, and \`bundle-architecture-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download allocation-reports and inspect bundle-architecture-check.log"
+
+  notify-failure:
+    name: Notify on Failure
+    runs-on: ubuntu-24.04
+    needs: bundle-architecture
+    if: failure() && github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {
+              ciFailureConfigs,
+              upsertCiFailureIssue,
+            } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/ciFailureIssue`);
+
+            await upsertCiFailureIssue({
+              github,
+              context,
+              config: ciFailureConfigs['bundle-architecture'],
+            });

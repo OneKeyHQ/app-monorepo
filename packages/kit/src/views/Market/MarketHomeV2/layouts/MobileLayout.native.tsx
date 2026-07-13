@@ -5,29 +5,26 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { RefObject } from 'react';
 
-import {
-  IconButton,
-  Tabs,
-  XStack,
-  YStack,
-  useTabContainerWidth,
-} from '@onekeyhq/components';
+import { IconButton, Tabs, XStack, YStack } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
+import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useMarketBasicConfig } from '../../hooks/useMarketBasicConfig';
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
-import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList';
+import { useSyncedMarketPerpsCategory } from '../components/MarketPerpsList/hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
+import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList/MobileMarketPerpsFlatList';
 import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
 import {
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
@@ -35,15 +32,32 @@ import {
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
+import { isMarketStockCategoryById } from '../utils';
 
-import { useMarketTabsLogic } from './hooks';
+import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
+import {
+  getDefaultMarketStockCategoryId,
+  getMarketStockCategoryRequestParam,
+} from './marketStockCategoryUtils';
+import { shouldIgnoreProgrammaticSettlingTab } from './marketTabChangeGuards';
+import { shouldIgnoreStalePagerTabChange } from './marketTabSelectionGuards';
+import {
+  MARKET_MOBILE_COLUMN_HEADER_HEIGHT,
+  getMarketMobileSecondaryHeaderHeight,
+} from './mobileLayoutUtils';
 
 import type {
   ILiquidityFilter,
+  IMarketCategoryItem,
   IMarketFilterBarProps,
   IMarketHomeTabValue,
 } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
+import type {
+  PageScrollStateChangedNativeEvent,
+  PagerViewOnPageSelectedEvent,
+  PagerViewProps,
+} from 'react-native-pager-view';
 
 interface IMobileLayoutProps {
   filterBarProps: IMarketFilterBarProps;
@@ -51,6 +65,7 @@ interface IMobileLayoutProps {
   liquidityFilter?: ILiquidityFilter;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
   tabsRef?: RefObject<ITabContainerRef | null>;
+  isFocused?: boolean;
   nestedPager?: boolean;
 }
 
@@ -62,6 +77,11 @@ interface ITabBarDynamicContext {
   isWatchlistEmpty: boolean;
   isTokenCacheReady: boolean;
   onEditWatchlist: () => void;
+  getSpotCategoryIdByTabName: (tabName: string) => string | undefined;
+  stockDataCategoryMap: Record<string, boolean>;
+  stockCategories: IMarketCategoryItem[];
+  selectedStockCategoryId: string;
+  onSelectStockCategory: (categoryId: string) => void;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
@@ -69,19 +89,24 @@ interface ITabBarDynamicContext {
 }
 
 const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
+const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 
 interface IMarketHomeTabBarProps extends TabBarProps<string> {
   watchlistTabName: string;
-  spotTabName: string;
   perpsTabName: string;
 }
 
-const MARKET_ANDROID_SECONDARY_HEADER_HEIGHT = 85;
-const MARKET_ANDROID_SPOT_SECONDARY_HEADER_HEIGHT = 120;
+const MARKET_TAB_CHANGE_TARGET_GUARD_MS = platformEnv.isNativeIOS ? 1000 : 350;
+const MARKET_TAB_SYNC_JUMP_DEFER_MS = platformEnv.isNativeIOS ? 180 : 0;
+const MARKET_TAB_USER_DRAG_ACCEPT_MS = platformEnv.isNativeIOS ? 700 : 350;
+const MARKET_TAB_SYNC_USER_DRAG_DEFER_MS = platformEnv.isNativeIOS ? 1200 : 500;
+const MARKET_TAB_ITEM_PRESS_GUARD_MS = MARKET_TAB_USER_DRAG_ACCEPT_MS;
+const MARKET_TAB_ITEM_PRESS_IDLE_GUARD_MS = platformEnv.isNativeIOS ? 180 : 120;
+const MARKET_TAB_PROGRAMMATIC_SETTLE_GUARD_MS = 500;
+type IMarketPagerProps = Omit<PagerViewProps, 'onPageScroll' | 'initialPage'>;
 
 function MarketHomeTabBar({
   watchlistTabName,
-  spotTabName,
   perpsTabName,
   ...tabBarProps
 }: IMarketHomeTabBarProps) {
@@ -89,23 +114,34 @@ function MarketHomeTabBar({
   const { activeTabName } = ctx;
   const currentFocusedTabName = activeTabName || tabBarProps.tabNames[0] || '';
   const showWatchlistSubHeader = currentFocusedTabName === watchlistTabName;
-  const showSpotSubHeader = currentFocusedTabName === spotTabName;
+  const currentSpotCategoryId = ctx.getSpotCategoryIdByTabName(
+    currentFocusedTabName,
+  );
+  const showSpotSubHeader = Boolean(currentSpotCategoryId);
+  const currentSpotCategoryHasStockData = Boolean(
+    currentSpotCategoryId &&
+    (isMarketStockCategoryById(
+      ctx.filterBarProps.categories,
+      currentSpotCategoryId,
+    ) ||
+      ctx.stockDataCategoryMap[currentSpotCategoryId]),
+  );
+  const showSpotFilterBar = Boolean(
+    currentSpotCategoryId && !currentSpotCategoryHasStockData,
+  );
+  const showStockCategorySelector = Boolean(
+    currentSpotCategoryId &&
+    isMarketStockCategoryById(
+      ctx.filterBarProps.categories,
+      currentSpotCategoryId,
+    ) &&
+    ctx.stockCategories.length > 0,
+  );
+  const hasSpotSecondaryControls =
+    showSpotFilterBar || showStockCategorySelector;
+  const showCompactSpotSubHeader =
+    showSpotSubHeader && !hasSpotSecondaryControls;
   const showPerpsSubHeader = currentFocusedTabName === perpsTabName;
-  const fixedSecondaryHeaderHeight = useMemo(() => {
-    if (!platformEnv.isNativeAndroid) {
-      return undefined;
-    }
-
-    if (showWatchlistSubHeader && ctx.isWatchlistEmpty) {
-      return 0;
-    }
-
-    if (showSpotSubHeader) {
-      return MARKET_ANDROID_SPOT_SECONDARY_HEADER_HEIGHT;
-    }
-
-    return MARKET_ANDROID_SECONDARY_HEADER_HEIGHT;
-  }, [ctx.isWatchlistEmpty, showSpotSubHeader, showWatchlistSubHeader]);
 
   const renderWatchlistSubHeaderContent = useCallback(
     () => (
@@ -118,12 +154,13 @@ function MarketHomeTabBar({
               containerStyle={{
                 px: '$5',
                 pt: '$3',
-                pb: '$2',
+                pb: '$1',
               }}
             />
           </XStack>
           {ctx.isTokenCacheReady ? (
             <IconButton
+              testID="market-render-watchlist-sub-header-content-icon-btn"
               icon="PencilOutline"
               size="small"
               variant="tertiary"
@@ -145,11 +182,37 @@ function MarketHomeTabBar({
   const renderSpotSubHeaderContent = useCallback(
     () => (
       <>
-        <MarketFilterBarSmall {...ctx.filterBarProps} />
+        {showSpotFilterBar ? (
+          <MarketFilterBarSmall
+            selectedNetworkId={ctx.filterBarProps.selectedNetworkId}
+            timeRange={ctx.filterBarProps.timeRange}
+            onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
+            onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
+          />
+        ) : null}
+        {showStockCategorySelector ? (
+          <MarketStockCategorySelector
+            categories={ctx.stockCategories}
+            selectedCategoryId={ctx.selectedStockCategoryId}
+            onSelectCategory={ctx.onSelectStockCategory}
+            containerStyle={{
+              px: '$5',
+              pt: '$3',
+              pb: '$1',
+            }}
+          />
+        ) : null}
         <MarketListColumnHeader />
       </>
     ),
-    [ctx.filterBarProps],
+    [
+      ctx.filterBarProps,
+      ctx.onSelectStockCategory,
+      ctx.selectedStockCategoryId,
+      ctx.stockCategories,
+      showSpotFilterBar,
+      showStockCategorySelector,
+    ],
   );
 
   const renderPerpsSubHeaderContent = useCallback(
@@ -162,7 +225,7 @@ function MarketHomeTabBar({
           containerStyle={{
             px: '$5',
             pt: '$3',
-            pb: '$2',
+            pb: '$1',
           }}
         />
         <MarketListColumnHeader />
@@ -172,11 +235,18 @@ function MarketHomeTabBar({
   );
 
   return (
-    <YStack bg="$bgApp">
-      <Tabs.TabBar {...tabBarProps} />
+    <YStack pointerEvents="box-none">
+      <YStack bg="$bgApp">
+        <Tabs.TabBar
+          {...tabBarProps}
+          directTabPressAnimation
+          directTabPressAnimationMode="instant"
+        />
+      </YStack>
       <YStack
-        height={fixedSecondaryHeaderHeight}
+        height={getMarketMobileSecondaryHeaderHeight()}
         overflow={platformEnv.isNativeAndroid ? 'hidden' : undefined}
+        pointerEvents="box-none"
         position="relative"
       >
         <YStack
@@ -188,6 +258,9 @@ function MarketHomeTabBar({
               ? 'relative'
               : 'absolute'
           }
+          height="100%"
+          bg="$bgApp"
+          justifyContent="flex-end"
           top={0}
           left={0}
           right={0}
@@ -198,6 +271,13 @@ function MarketHomeTabBar({
         <YStack
           display={showSpotSubHeader ? 'flex' : 'none'}
           position={showSpotSubHeader ? 'relative' : 'absolute'}
+          height={
+            showCompactSpotSubHeader
+              ? MARKET_MOBILE_COLUMN_HEADER_HEIGHT
+              : '100%'
+          }
+          bg="$bgApp"
+          justifyContent="flex-end"
           top={0}
           left={0}
           right={0}
@@ -209,6 +289,9 @@ function MarketHomeTabBar({
         <YStack
           display={showPerpsSubHeader ? 'flex' : 'none'}
           position={showPerpsSubHeader ? 'relative' : 'absolute'}
+          height="100%"
+          bg="$bgApp"
+          justifyContent="flex-end"
           top={0}
           left={0}
           right={0}
@@ -227,18 +310,25 @@ function MobileLayoutComponent({
   selectedNetworkId,
   onTabChange,
   tabsRef,
+  isFocused = true,
   nestedPager = false,
 }: IMobileLayoutProps) {
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
   const isTokenCacheReady = useIsWatchlistTokenCacheReady();
   const {
     watchlistTabName,
-    spotTabName,
+    spotTabItems,
     perpsTabName,
     showPerpsTab,
     handleTabChange,
-    selectedTab,
-  } = useMarketTabsLogic(onTabChange);
+    getSpotCategoryIdByTabName,
+    selectedTabName,
+    isTabSelectionInFlight,
+  } = useMarketTabsLogic(onTabChange, {
+    spotCategories: filterBarProps.categories,
+    selectedSpotCategory: filterBarProps.selectedCategory,
+    onSpotCategoryChange: filterBarProps.onCategoryChange,
+  });
 
   const tabBarHeight = useTabBarHeight();
   const tabContainerWidth = useTabContainerWidth() as number | undefined;
@@ -251,49 +341,203 @@ function MobileLayoutComponent({
   // Watchlist category filter state
   const [watchlistFilter, setWatchlistFilter] =
     useState<IWatchlistFilterType>('all');
-
-  // Perps category state (lifted from MobileMarketPerpsFlatList)
-  const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
-
-  const perpsCategories = useMemo(
-    () =>
-      rawPerpsCategories.map((c) => ({
-        tabId: c.categoryId,
-        name: c.name,
-      })),
-    [rawPerpsCategories],
+  const stockCategories =
+    filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
+  const [selectedStockCategoryId, setSelectedStockCategoryId] = useState(
+    getDefaultMarketStockCategoryId(stockCategories),
   );
-
-  const initialCategoryId = useMemo(
-    () => perpsCategories[0]?.tabId ?? '',
-    [perpsCategories],
-  );
-  const [selectedCategoryId, setSelectedCategoryId] =
-    useState(initialCategoryId);
-
   useEffect(() => {
-    if (!selectedCategoryId && initialCategoryId) {
-      setSelectedCategoryId(initialCategoryId);
+    if (stockCategories.length === 0) {
+      if (selectedStockCategoryId !== 'all') {
+        setSelectedStockCategoryId('all');
+      }
+      return;
     }
-  }, [initialCategoryId, selectedCategoryId]);
 
-  const initialTabName = useMemo(() => {
-    if (selectedTab === 'watchlist') return watchlistTabName;
-    if (selectedTab === 'perps' && showPerpsTab) return perpsTabName;
-    return spotTabName;
-  }, [selectedTab, watchlistTabName, spotTabName, perpsTabName, showPerpsTab]);
-  const [activeTabName, setActiveTabName] = useState(initialTabName);
+    if (
+      !stockCategories.some(
+        (category) => category.id === selectedStockCategoryId,
+      )
+    ) {
+      setSelectedStockCategoryId(
+        getDefaultMarketStockCategoryId(stockCategories),
+      );
+    }
+  }, [selectedStockCategoryId, stockCategories]);
+  const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
+    Record<string, boolean>
+  >({});
+  const handleStockDataChange = useCallback(
+    (categoryId: string, isStockData: boolean) => {
+      setStockDataCategoryMap((prev) => {
+        if (prev[categoryId] === isStockData) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [categoryId]: isStockData,
+        };
+      });
+    },
+    [],
+  );
+
+  const { perpsCategories, selectedCategoryId, handleSelectCategory } =
+    useSyncedMarketPerpsCategory();
+
+  const expectedTabChangeTargetRef = useRef<string | undefined>(undefined);
+  const expectedTabChangeTargetStartedAtRef = useRef(0);
+  const lastPagerDraggingAtRef = useRef(0);
+  const isPagerUserDraggingRef = useRef(false);
+  const lastPagerUserDragEndedAtRef = useRef(0);
+  const pagerScrollStateRef = useRef('idle');
+  const lastAcceptedTabChangeNameRef = useRef<string | undefined>(undefined);
+  const lastProgrammaticAcceptedTabRef = useRef<
+    | {
+        tabName: string;
+        acceptedAt: number;
+      }
+    | undefined
+  >(undefined);
+  const expectedTabChangeTargetTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const clearExpectedTabChangeTargetTimer = useCallback(() => {
+    if (expectedTabChangeTargetTimerRef.current) {
+      clearTimeout(expectedTabChangeTargetTimerRef.current);
+      expectedTabChangeTargetTimerRef.current = undefined;
+    }
+  }, []);
+  const clearExpectedTabChangeTarget = useCallback(() => {
+    clearExpectedTabChangeTargetTimer();
+    expectedTabChangeTargetRef.current = undefined;
+    expectedTabChangeTargetStartedAtRef.current = 0;
+  }, [clearExpectedTabChangeTargetTimer]);
+  const scheduleExpectedTabChangeTargetClear = useCallback(
+    (tabName: string, delayMs: number) => {
+      clearExpectedTabChangeTargetTimer();
+      const tryClearExpectedTabChangeTarget = () => {
+        if (expectedTabChangeTargetRef.current !== tabName) {
+          expectedTabChangeTargetTimerRef.current = undefined;
+          return;
+        }
+
+        if (pagerScrollStateRef.current !== 'idle') {
+          expectedTabChangeTargetTimerRef.current = setTimeout(
+            tryClearExpectedTabChangeTarget,
+            100,
+          );
+          return;
+        }
+
+        expectedTabChangeTargetRef.current = undefined;
+        expectedTabChangeTargetStartedAtRef.current = 0;
+        expectedTabChangeTargetTimerRef.current = undefined;
+      };
+      expectedTabChangeTargetTimerRef.current = setTimeout(
+        tryClearExpectedTabChangeTarget,
+        delayMs,
+      );
+    },
+    [clearExpectedTabChangeTargetTimer],
+  );
+  const markExpectedTabChangeTarget = useCallback(
+    (tabName: string) => {
+      clearExpectedTabChangeTarget();
+      expectedTabChangeTargetRef.current = tabName;
+      expectedTabChangeTargetStartedAtRef.current = Date.now();
+      lastAcceptedTabChangeNameRef.current = undefined;
+      lastProgrammaticAcceptedTabRef.current = undefined;
+      scheduleExpectedTabChangeTargetClear(
+        tabName,
+        MARKET_TAB_CHANGE_TARGET_GUARD_MS,
+      );
+    },
+    [clearExpectedTabChangeTarget, scheduleExpectedTabChangeTargetClear],
+  );
+  const shouldDeferPageSync = useCallback(
+    ({ targetTabName }: { targetTabName: string; currentTabName: string }) => {
+      // A locally-initiated tab selection is still round-tripping through the
+      // bg-synced atom; `selectedTabName` derived from the stale UI mirror
+      // must not drive a pager jump, or it reverts the user's tap (OK-57367).
+      // Keep deferring until the atom echoes the selection back.
+      if (isTabSelectionInFlight()) {
+        return true;
+      }
+
+      const now = Date.now();
+      const lastPagerDraggingAt = lastPagerDraggingAtRef.current;
+      const pagerDragElapsedMs =
+        lastPagerDraggingAt > 0 ? now - lastPagerDraggingAt : undefined;
+      const isRecentPagerDrag =
+        pagerDragElapsedMs !== undefined &&
+        pagerDragElapsedMs < MARKET_TAB_SYNC_USER_DRAG_DEFER_MS;
+      const shouldDeferForUserPager =
+        isPagerUserDraggingRef.current || isRecentPagerDrag;
+
+      if (shouldDeferForUserPager) {
+        return true;
+      }
+
+      if (
+        platformEnv.isNativeAndroid &&
+        pagerScrollStateRef.current !== 'idle'
+      ) {
+        return true;
+      }
+
+      if (expectedTabChangeTargetRef.current !== targetTabName) {
+        return false;
+      }
+
+      const startedAt = expectedTabChangeTargetStartedAtRef.current;
+      if (platformEnv.isNativeAndroid && startedAt > 0) {
+        return true;
+      }
+      return startedAt > 0 && now - startedAt < MARKET_TAB_SYNC_JUMP_DEFER_MS;
+    },
+    [isTabSelectionInFlight],
+  );
+
+  useEffect(
+    () => () => {
+      clearExpectedTabChangeTarget();
+    },
+    [clearExpectedTabChangeTarget],
+  );
+
+  const {
+    activeTabName,
+    cancelPageSync,
+    requestPageSync,
+    setActiveTabName,
+    tabsRef: currentTabsRef,
+  } = useSyncedMarketTab(selectedTabName, tabsRef, isFocused, {
+    onBeforeJumpToTab: markExpectedTabChangeTarget,
+    shouldDeferPageSync,
+  });
+  const setActiveTabNameRef = useRef(setActiveTabName);
+  setActiveTabNameRef.current = setActiveTabName;
+  const handleTabChangeRef = useRef(handleTabChange);
+  handleTabChangeRef.current = handleTabChange;
+  const latestTabStateRef = useRef({
+    activeTabName,
+    selectedTabName,
+  });
+  latestTabStateRef.current = {
+    activeTabName,
+    selectedTabName,
+  };
   const useNativeHeaderAnimation = platformEnv.isNativeAndroid
     ? !nestedPager
     : false;
 
-  useEffect(() => {
-    setActiveTabName(initialTabName);
-  }, [initialTabName]);
-
   const containerProps = useMemo(
     () => ({
       allowHeaderOverscroll: true,
+      headerContainerStyle: {
+        backgroundColor: 'transparent',
+      },
       // NOTE: renderHeader must never return a 0-height tree after it had
       // a positive height, because react-native-collapsible-tab-view's
       // useLayoutHeight guard ignores 0-height re-layouts once a positive
@@ -327,23 +571,211 @@ function MobileLayoutComponent({
 
   // Stable renderTabBar — reads dynamic values from context, not props.
   const renderTabBar = useCallback(
-    (tabBarProps: TabBarProps<string>) => (
-      <MarketHomeTabBar
-        {...tabBarProps}
-        watchlistTabName={watchlistTabName}
-        spotTabName={spotTabName}
-        perpsTabName={perpsTabName}
-      />
-    ),
-    [watchlistTabName, spotTabName, perpsTabName],
+    (tabBarProps: TabBarProps<string>) => {
+      const handleTabPress = (name: string) => {
+        markExpectedTabChangeTarget(name);
+        tabBarProps.onTabPress?.(name);
+      };
+
+      return (
+        <MarketHomeTabBar
+          {...tabBarProps}
+          onTabPress={handleTabPress}
+          watchlistTabName={watchlistTabName}
+          perpsTabName={perpsTabName}
+        />
+      );
+    },
+    [markExpectedTabChangeTarget, perpsTabName, watchlistTabName],
   );
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
-      setActiveTabName(tabName);
-      handleTabChange(tabName);
+      const now = Date.now();
+      const latestTabState = latestTabStateRef.current;
+      const focusedTab = currentTabsRef.current?.getFocusedTab();
+      const expectedTabName = expectedTabChangeTargetRef.current;
+      const expectedTabNameStartedAt =
+        expectedTabChangeTargetStartedAtRef.current;
+      const lastPagerDraggingAt = lastPagerDraggingAtRef.current;
+      const pagerDragElapsedMs =
+        lastPagerDraggingAt > 0 ? now - lastPagerDraggingAt : undefined;
+      const isRecentPagerDrag =
+        pagerDragElapsedMs !== undefined &&
+        pagerDragElapsedMs < MARKET_TAB_USER_DRAG_ACCEPT_MS;
+      const wasDraggedAfterExpectedTab =
+        expectedTabNameStartedAt > 0 &&
+        lastPagerDraggingAt > expectedTabNameStartedAt;
+
+      if (
+        shouldIgnoreStalePagerTabChange({
+          expectedTabName,
+          incomingTabName: tabName,
+          selectedTabName: latestTabState.selectedTabName,
+          isRecentPagerDrag,
+        })
+      ) {
+        requestPageSync();
+        return;
+      }
+
+      const lastProgrammaticAcceptedTab =
+        lastProgrammaticAcceptedTabRef.current;
+      const programmaticAcceptedElapsedMs = lastProgrammaticAcceptedTab
+        ? now - lastProgrammaticAcceptedTab.acceptedAt
+        : undefined;
+      const shouldIgnoreSettlingTab = shouldIgnoreProgrammaticSettlingTab({
+        expectedTabName,
+        incomingTabName: tabName,
+        lastProgrammaticAcceptedTabName: lastProgrammaticAcceptedTab?.tabName,
+        programmaticAcceptedElapsedMs,
+        programmaticSettleGuardMs: MARKET_TAB_PROGRAMMATIC_SETTLE_GUARD_MS,
+        isRecentPagerDrag,
+        wasDraggedAfterExpectedTab,
+      });
+
+      if (shouldIgnoreSettlingTab && lastProgrammaticAcceptedTab) {
+        const acceptedTabName = lastProgrammaticAcceptedTab.tabName;
+        const shouldRequestPageSync =
+          acceptedTabName === latestTabState.selectedTabName &&
+          focusedTab !== acceptedTabName;
+        if (shouldRequestPageSync) {
+          requestPageSync();
+        }
+        return;
+      }
+
+      if (expectedTabName && tabName !== expectedTabName) {
+        if (
+          focusedTab === tabName &&
+          (isRecentPagerDrag || wasDraggedAfterExpectedTab)
+        ) {
+          clearExpectedTabChangeTarget();
+        } else {
+          return;
+        }
+      }
+
+      if (!expectedTabName && focusedTab && focusedTab !== tabName) {
+        return;
+      }
+
+      if (
+        tabName === lastAcceptedTabChangeNameRef.current &&
+        latestTabState.activeTabName === tabName
+      ) {
+        if (expectedTabName && tabName === expectedTabName) {
+          clearExpectedTabChangeTarget();
+        }
+        return;
+      }
+
+      if (expectedTabName && tabName === expectedTabName) {
+        lastProgrammaticAcceptedTabRef.current = {
+          tabName,
+          acceptedAt: now,
+        };
+        clearExpectedTabChangeTarget();
+      }
+      lastAcceptedTabChangeNameRef.current = tabName;
+      setActiveTabNameRef.current(tabName);
+      handleTabChangeRef.current(tabName);
     },
-    [handleTabChange],
+    [clearExpectedTabChangeTarget, currentTabsRef, requestPageSync],
+  );
+
+  const handlePagerScrollStateChanged = useCallback(
+    (event: PageScrollStateChangedNativeEvent) => {
+      const { pageScrollState } = event.nativeEvent;
+      const wasPagerUserDragging = isPagerUserDraggingRef.current;
+      const now = Date.now();
+      pagerScrollStateRef.current = pageScrollState;
+
+      if (pageScrollState === 'dragging') {
+        isPagerUserDraggingRef.current = true;
+        lastProgrammaticAcceptedTabRef.current = undefined;
+        lastPagerDraggingAtRef.current = now;
+        clearExpectedTabChangeTarget();
+        cancelPageSync();
+      } else if (pageScrollState === 'idle' && wasPagerUserDragging) {
+        isPagerUserDraggingRef.current = false;
+        lastPagerUserDragEndedAtRef.current = now;
+      }
+    },
+    [cancelPageSync, clearExpectedTabChangeTarget],
+  );
+  const tabNames = useMemo(
+    () => [
+      watchlistTabName,
+      ...spotTabItems.map((item) => item.tabName),
+      ...(showPerpsTab ? [perpsTabName] : []),
+    ],
+    [perpsTabName, showPerpsTab, spotTabItems, watchlistTabName],
+  );
+
+  const handlePagerPageSelected = useCallback(
+    (event: PagerViewOnPageSelectedEvent) => {
+      const { position } = event.nativeEvent;
+      const positionTabName = tabNames[position];
+      const focusedTab = currentTabsRef.current?.getFocusedTab();
+      const expectedTabName = expectedTabChangeTargetRef.current;
+      const expectedTabNameStartedAt =
+        expectedTabChangeTargetStartedAtRef.current;
+      const lastPagerDraggingAt = lastPagerDraggingAtRef.current;
+      const wasDraggedAfterExpectedTab =
+        expectedTabNameStartedAt > 0 &&
+        lastPagerDraggingAt > expectedTabNameStartedAt;
+
+      const selectedTabNameFromPage = positionTabName || focusedTab;
+      if (
+        expectedTabName &&
+        selectedTabNameFromPage &&
+        selectedTabNameFromPage !== expectedTabName &&
+        wasDraggedAfterExpectedTab
+      ) {
+        clearExpectedTabChangeTarget();
+      }
+    },
+    [clearExpectedTabChangeTarget, currentTabsRef, tabNames],
+  );
+  const shouldSuppressItemPress = useCallback(() => {
+    const now = Date.now();
+    const pagerDragElapsedMs =
+      lastPagerDraggingAtRef.current > 0
+        ? now - lastPagerDraggingAtRef.current
+        : undefined;
+    const pagerIdleElapsedMs =
+      lastPagerUserDragEndedAtRef.current > 0
+        ? now - lastPagerUserDragEndedAtRef.current
+        : undefined;
+
+    if (isPagerUserDraggingRef.current) {
+      return true;
+    }
+
+    if (
+      pagerIdleElapsedMs !== undefined &&
+      pagerIdleElapsedMs < MARKET_TAB_ITEM_PRESS_IDLE_GUARD_MS
+    ) {
+      return true;
+    }
+
+    if (
+      pagerDragElapsedMs !== undefined &&
+      pagerDragElapsedMs < MARKET_TAB_ITEM_PRESS_GUARD_MS
+    ) {
+      return true;
+    }
+
+    return false;
+  }, []);
+  const pagerProps = useMemo<IMarketPagerProps>(
+    () => ({
+      ...(nestedPager ? { nestedScrollEnabled: true } : {}),
+      onPageScrollStateChanged: handlePagerScrollStateChanged,
+      onPageSelected: handlePagerPageSelected,
+    }),
+    [handlePagerPageSelected, handlePagerScrollStateChanged, nestedPager],
   );
   const dynamicCtx = useMemo<ITabBarDynamicContext>(
     () => ({
@@ -353,9 +785,14 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       onEditWatchlist: openMarketWatchlistEditDialog,
+      getSpotCategoryIdByTabName,
+      stockDataCategoryMap,
+      stockCategories,
+      selectedStockCategoryId,
+      onSelectStockCategory: setSelectedStockCategoryId,
       perpsCategories,
       selectedCategoryId,
-      onSelectCategory: setSelectedCategoryId,
+      onSelectCategory: handleSelectCategory,
       activeTabName,
     }),
     [
@@ -364,49 +801,80 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       openMarketWatchlistEditDialog,
+      getSpotCategoryIdByTabName,
+      stockDataCategoryMap,
+      stockCategories,
+      selectedStockCategoryId,
       perpsCategories,
       selectedCategoryId,
+      handleSelectCategory,
       activeTabName,
     ],
   );
+
+  const tabElements = [
+    <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+      <MobileMarketWatchlistFlatList
+        selectedFilter={watchlistFilter}
+        listContainerProps={listContainerProps}
+        shouldSuppressItemPress={shouldSuppressItemPress}
+      />
+    </Tabs.Tab>,
+    ...spotTabItems.map((item) => {
+      const isStockCategory = isMarketStockCategoryById(
+        filterBarProps.categories,
+        item.categoryId,
+      );
+      const hasCompactHeader =
+        (isStockCategory || Boolean(stockDataCategoryMap[item.categoryId])) &&
+        !(isStockCategory && stockCategories.length > 0);
+
+      return (
+        <Tabs.Tab key={item.categoryId} name={item.tabName}>
+          <MobileMarketTokenFlatList
+            networkId={selectedNetworkId}
+            selectedCategory={item.categoryId}
+            stockCategory={
+              isStockCategory
+                ? getMarketStockCategoryRequestParam(selectedStockCategoryId)
+                : undefined
+            }
+            timeRange={filterBarProps.timeRange}
+            hasCompactHeader={hasCompactHeader}
+            listContainerProps={listContainerProps}
+            onStockDataChange={handleStockDataChange}
+            shouldSuppressItemPress={shouldSuppressItemPress}
+          />
+        </Tabs.Tab>
+      );
+    }),
+    ...(showPerpsTab
+      ? [
+          <Tabs.Tab key={perpsTabName} name={perpsTabName}>
+            <MobileMarketPerpsFlatList
+              selectedCategoryId={selectedCategoryId}
+              listContainerProps={listContainerProps}
+              shouldSuppressItemPress={shouldSuppressItemPress}
+            />
+          </Tabs.Tab>,
+        ]
+      : []),
+  ];
 
   return (
     <TabBarDynamicContext.Provider value={dynamicCtx}>
       <Tabs.Container
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ref={tabsRef as any}
+        ref={currentTabsRef as any}
         width={platformEnv.isNative ? tabContainerWidth : undefined}
         renderTabBar={renderTabBar}
-        initialTabName={initialTabName}
+        initialTabName={selectedTabName}
         onTabChange={onTabChangeHandler}
         useNativeHeaderAnimation={useNativeHeaderAnimation}
-        pagerProps={
-          nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
-        }
+        pagerProps={pagerProps}
         {...containerProps}
       >
-        <Tabs.Tab name={watchlistTabName}>
-          <MobileMarketWatchlistFlatList
-            selectedFilter={watchlistFilter}
-            listContainerProps={listContainerProps}
-          />
-        </Tabs.Tab>
-        <Tabs.Tab name={spotTabName}>
-          <MobileMarketTokenFlatList
-            networkId={selectedNetworkId}
-            selectedCategory={filterBarProps.selectedCategory}
-            timeRange={filterBarProps.timeRange}
-            listContainerProps={listContainerProps}
-          />
-        </Tabs.Tab>
-        {showPerpsTab ? (
-          <Tabs.Tab name={perpsTabName}>
-            <MobileMarketPerpsFlatList
-              selectedCategoryId={selectedCategoryId}
-              listContainerProps={listContainerProps}
-            />
-          </Tabs.Tab>
-        ) : null}
+        {tabElements}
       </Tabs.Container>
     </TabBarDynamicContext.Provider>
   );

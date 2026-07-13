@@ -24,6 +24,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { ReceiveTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -93,6 +94,7 @@ function ReceiveInvoice() {
     return (
       <>
         <Stack
+          testID={ReceiveTestIDs.InvoiceQRCode}
           borderRadius="$3"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
@@ -116,6 +118,7 @@ function ReceiveInvoice() {
           borderCurve="continuous"
         >
           <SizableText
+            testID={ReceiveTestIDs.InvoiceText}
             numberOfLines={3}
             textAlign="center"
             size="$bodyLg"
@@ -126,14 +129,19 @@ function ReceiveInvoice() {
             {paymentRequest}
           </SizableText>
         </ConfirmHighlighter>
-        <Button mt="$5" icon="Copy3Outline" onPress={handleCopyInvoice}>
+        <Button
+          testID={ReceiveTestIDs.CopyInvoiceButton}
+          mt="$5"
+          icon="Copy3Outline"
+          onPress={handleCopyInvoice}
+        >
           {intl.formatMessage({ id: ETranslations.global_copy })}
         </Button>
       </>
     );
   }, [account, handleCopyInvoice, intl, network, paymentRequest]);
   return (
-    <Page>
+    <Page testID={ReceiveTestIDs.ReceiveInvoicePage}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.lightning_invoice })}
       />

@@ -1,4 +1,7 @@
-import { HYPERLIQUID_EXPLORER_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  HYPERLIQUID_EXPLORER_URL,
+  HYPERLIQUID_TOKEN_EXPLORER_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   openUrlExternal,
@@ -57,6 +60,34 @@ export const openTransactionDetailsUrl = async ({
   }
 };
 
+export const openBlockExplorerUrl = async ({
+  networkId,
+  blockHeight,
+  openInExternal,
+}: {
+  networkId?: string;
+  blockHeight?: string;
+  openInExternal?: boolean;
+}) => {
+  if (!networkId || !blockHeight) {
+    return;
+  }
+  const params = {
+    networkId,
+    param: blockHeight,
+    type: 'block' as const,
+  };
+  const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
+  if (!url) {
+    return;
+  }
+  if (openInExternal ?? platformEnv.isDesktop) {
+    openUrlExternal(url);
+  } else {
+    openUrlInApp(url);
+  }
+};
+
 export const openTokenDetailsUrl = async ({
   networkId,
   tokenAddress,
@@ -91,6 +122,23 @@ export const openHyperLiquidExplorerUrl = async ({
 }) => {
   if (address) {
     const url = `${HYPERLIQUID_EXPLORER_URL}${address}`;
+    if (openInExternal ?? platformEnv.isDesktop) {
+      openUrlExternal(url);
+    } else {
+      openUrlInApp(url);
+    }
+  }
+};
+
+export const openHyperLiquidTokenExplorerUrl = async ({
+  tokenId,
+  openInExternal,
+}: {
+  tokenId?: string;
+  openInExternal?: boolean;
+}) => {
+  if (tokenId) {
+    const url = `${HYPERLIQUID_TOKEN_EXPLORER_URL}${tokenId}`;
     if (openInExternal ?? platformEnv.isDesktop) {
       openUrlExternal(url);
     } else {

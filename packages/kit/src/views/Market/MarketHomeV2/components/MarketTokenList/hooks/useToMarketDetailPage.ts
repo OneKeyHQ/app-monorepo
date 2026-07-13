@@ -1,14 +1,17 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   ESplitViewType,
   rootNavigationRef,
+  useMedia,
   useSplitViewType,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
+import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -19,9 +22,12 @@ import {
   ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-interface IMarketToken {
+import type { IMarketToken as IMarketHomeToken } from '../MarketTokenData';
+
+interface IMarketToken extends Partial<IMarketHomeToken> {
   tokenAddress: string;
   networkId: string;
   symbol: string;
@@ -39,6 +45,10 @@ interface IUseToDetailPageOptions {
    * Where the navigation originated from
    */
   from?: EEnterWay;
+  /**
+   * Controls whether the detail page displays the favorite/watchlist button.
+   */
+  showFavoriteButton?: boolean;
 }
 
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
@@ -46,9 +56,48 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const tokenDetailActions = useTokenDetailActions();
   const splitViewType = useSplitViewType();
+  const media = useMedia();
+  const preloadLayout =
+    media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
+
+  useEffect(() => {
+    void preloadMarketDetailV2Page();
+  }, []);
+
+  const preparePreviewTokenDetail = useCallback(
+    (item: IMarketToken) => {
+      const previewAddress = item.address ?? item.tokenAddress;
+
+      if (
+        (!previewAddress && !item.isNative) ||
+        !item.name ||
+        typeof item.decimals !== 'number'
+      ) {
+        tokenDetailActions.current.clearTokenDetail();
+        return;
+      }
+
+      const tokenDetailPreview = buildMarketTokenDetailPreview({
+        ...(item as IMarketHomeToken),
+        address: previewAddress,
+        networkId: item.networkId,
+        symbol: item.symbol,
+        isNative: item.isNative,
+      });
+
+      prewarmMarketTokenImages(tokenDetailPreview);
+      tokenDetailActions.current.prepareTokenDetailPreview(tokenDetailPreview);
+    },
+    [tokenDetailActions],
+  );
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
+      const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
+        includeBodyModules: true,
+        includeHeavyModules: true,
+        layout: preloadLayout,
+      });
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: item.networkId,
       });
@@ -58,6 +107,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         network: shortCode || item.networkId,
         isNative: item.isNative,
         from: options?.from,
+        ...(typeof options?.showFavoriteButton === 'boolean'
+          ? { showFavoriteButton: options.showFavoriteButton }
+          : undefined),
       };
 
       // Check if in extension popup/side panel
@@ -65,35 +117,29 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
       ) {
-        // Open in expand tab for extension popup/side panel
-        // Use path format to match the rewrite pattern: /market/token/:network/:tokenAddress
-        const path = `/market/token/${params.network}/${params.tokenAddress}`;
-
         // Determine the appropriate enter source
         const enterSource = platformEnv.isExtensionUiPopup
           ? EEnterWay.ExtensionPopup
           : EEnterWay.ExtensionSidePanel;
 
-        await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-          path,
-          params: {
-            isNative: params.isNative,
-            from: params.from || enterSource,
-          },
+        const { default: backgroundApiProxy } =
+          await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
+        await backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
+          ...params,
+          from: params.from || enterSource,
         });
+        closeExtensionPopupAfterExpandTabOpen();
       } else if (options?.switchToMarketTabFirst) {
-        // Clear token detail before navigation
-        tokenDetailActions.current.clearTokenDetail();
+        preparePreviewTokenDetail(item);
 
-        // First switch to the appropriate tab to highlight it
         const targetTab = platformEnv.isNative
           ? ETabRoutes.Discovery
           : ETabRoutes.Market;
-        navigation.switchTab(targetTab);
 
-        // Then navigate to detail page using rootNavigationRef
-        // because the current navigation context is from modal, not from the target tab
-        setTimeout(() => {
+        if (platformEnv.isNative) {
+          await marketDetailShellPreloadPromise;
+          // Navigate directly to the nested detail route to avoid briefly
+          // revealing the Discovery root page before entering Market detail.
           rootNavigationRef.current?.navigate(ERootRoutes.Main, {
             screen: targetTab,
             params: {
@@ -101,10 +147,24 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
               params,
             },
           });
-        }, 500);
+        } else {
+          // First switch to the appropriate tab to highlight it
+          navigation.switchTab(targetTab);
+
+          // Then navigate to detail page using rootNavigationRef
+          // because the current navigation context is from modal, not from the target tab
+          setTimeout(() => {
+            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+              screen: targetTab,
+              params: {
+                screen: ETabMarketRoutes.MarketDetailV2,
+                params,
+              },
+            });
+          }, 500);
+        }
       } else {
-        // Clear token detail before navigation
-        tokenDetailActions.current.clearTokenDetail();
+        preparePreviewTokenDetail(item);
 
         // Clean existing token detail pages in tablet split view mode before pushing new one
         if (splitViewType !== ESplitViewType.UNKNOWN) {
@@ -115,14 +175,19 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           );
         }
 
+        if (platformEnv.isNative) {
+          await marketDetailShellPreloadPromise;
+        }
         navigation.push(ETabMarketRoutes.MarketDetailV2, params);
       }
     },
     [
       navigation,
-      tokenDetailActions,
+      preparePreviewTokenDetail,
       options?.switchToMarketTabFirst,
       options?.from,
+      options?.showFavoriteButton,
+      preloadLayout,
       splitViewType,
     ],
   );

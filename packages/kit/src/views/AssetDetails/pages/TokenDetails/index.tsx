@@ -71,6 +71,8 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import { AssetDetailsTestIDs } from '../../testIDs';
+
 import {
   TokenDetailsContext,
   useTokenDetailsContext,
@@ -342,6 +344,7 @@ function TokenDetailsView() {
               {!token.address ? null : (
                 <XStack gap="$3" alignItems="center">
                   <Button
+                    testID="asset-details-btn"
                     size="small"
                     variant="tertiary"
                     onPress={() => copyText(token.address)}
@@ -372,6 +375,7 @@ function TokenDetailsView() {
                     </XStack>
                   </Button>
                   <IconButton
+                    testID={AssetDetailsTestIDs.openExplorerBtn}
                     title={intl.formatMessage({
                       id: ETranslations.global_view_in_blockchain_explorer,
                     })}
@@ -415,7 +419,12 @@ function TokenDetailsView() {
             snapPoints: [92],
             snapPointsMode: 'percent',
           }}
-          renderTrigger={<HeaderIconButton icon="InfoCircleOutline" />}
+          renderTrigger={
+            <HeaderIconButton
+              testID={AssetDetailsTestIDs.headerInfoBtn}
+              icon="InfoCircleOutline"
+            />
+          }
           renderContent={renderAggregateTokens}
           floatingPanelProps={{
             width: 320,
@@ -456,7 +465,12 @@ function TokenDetailsView() {
     return isEmpty(sections) ? null : (
       <ActionList
         title={intl.formatMessage({ id: ETranslations.global_more })}
-        renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
+        renderTrigger={
+          <HeaderIconButton
+            testID={AssetDetailsTestIDs.headerMoreBtn}
+            icon="DotHorOutline"
+          />
+        }
         sections={sections}
       />
     );

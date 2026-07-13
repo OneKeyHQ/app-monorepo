@@ -43,6 +43,7 @@ export function ShareButton({
   if (useIconButton) {
     return (
       <IconButton
+        testID="market-url-icon-btn"
         icon="ShareOutline"
         variant="tertiary"
         size={(size as IIconButtonProps['size']) || 'medium'}
@@ -54,7 +55,12 @@ export function ShareButton({
   // If size is provided, use InteractiveIcon for consistency with other small buttons
   if (size) {
     return (
-      <InteractiveIcon icon="ShareOutline" onPress={handleShare} size={size} />
+      <InteractiveIcon
+        icon="ShareOutline"
+        onPress={handleShare}
+        size={size}
+        testID="market-url-icon"
+      />
     );
   }
 

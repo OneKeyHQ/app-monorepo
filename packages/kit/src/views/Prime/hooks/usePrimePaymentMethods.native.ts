@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import PurchasesReactNative, { LOG_LEVEL } from 'react-native-purchases';
+import PurchasesReactNative, {
+  INTRO_ELIGIBILITY_STATUS,
+  LOG_LEVEL,
+} from 'react-native-purchases';
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -14,7 +17,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -30,7 +32,10 @@ import type {
   ISubscriptionPeriod,
   IUsePrimePayment,
 } from './usePrimePaymentTypes';
-import type { CustomerInfo } from '@revenuecat/purchases-typescript-internal';
+import type {
+  CustomerInfo,
+  PurchasesPackage,
+} from '@revenuecat/purchases-typescript-internal';
 
 void (async () => {
   if (process.env.NODE_ENV !== 'production') {
@@ -39,6 +44,38 @@ void (async () => {
     await PurchasesReactNative.setProxyURL('https://api.rc-backup.com/');
   }
 })();
+
+async function getIOSIntroEligibleProductIds(
+  nativePackages: PurchasesPackage[],
+): Promise<ReadonlySet<string> | undefined> {
+  if (!platformEnv.isNativeIOS) {
+    return undefined;
+  }
+
+  const productIds = nativePackages.map(({ product }) => product.identifier);
+  if (!productIds.length) {
+    return new Set();
+  }
+
+  try {
+    const eligibilityByProductId =
+      await PurchasesReactNative.checkTrialOrIntroductoryPriceEligibility(
+        productIds,
+      );
+
+    return new Set(
+      productIds.filter(
+        (productId) =>
+          eligibilityByProductId[productId]?.status ===
+          INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_ELIGIBLE,
+      ),
+    );
+  } catch {
+    // RevenueCat recommends showing non-intro pricing when eligibility is
+    // unknown to avoid misleading users.
+    return new Set();
+  }
+}
 
 export function usePrimePaymentMethods(): IUsePrimePayment {
   const [isPaymentReady, setIsPaymentReady] = useState(false);
@@ -171,21 +208,27 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     }
     const offerings = await PurchasesReactNative.getOfferings();
     const packages: IPackage[] = [];
+    const availablePackages = offerings.current?.availablePackages || [];
+    const iosIntroEligibleProductIds =
+      await getIOSIntroEligibleProductIds(availablePackages);
 
-    offerings.current?.availablePackages.forEach((p) => {
-      // eslint-disable-next-line prefer-const
-      let { subscriptionPeriod, pricePerYear, pricePerMonth } = p.product;
-
-      if (platformEnv.isNativeAndroid) {
-        pricePerYear = new BigNumber(pricePerYear || 0)
-          .div(1_000_000)
-          .toNumber();
-        pricePerMonth = new BigNumber(pricePerMonth || 0)
-          .div(1_000_000)
-          .toNumber();
-      }
+    availablePackages.forEach((p) => {
+      const { subscriptionPeriod } = p.product;
+      const pricePerYear = primePaymentUtils.normalizeNativePrice(
+        p.product.pricePerYear || 0,
+      );
+      const pricePerMonth = primePaymentUtils.normalizeNativePrice(
+        p.product.pricePerMonth || 0,
+      );
 
       const currencyCode = p.product.currencyCode || '';
+
+      const canShowFreeTrial = iosIntroEligibleProductIds
+        ? iosIntroEligibleProductIds.has(p.product.identifier)
+        : true;
+      const freeTrial = canShowFreeTrial
+        ? primePaymentUtils.extractNativeFreeTrial(p.product)
+        : undefined;
 
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
@@ -206,6 +249,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
             : pricePerYear || 0,
           currencyCode,
         ),
+        freeTrial,
       });
     });
 
@@ -269,31 +313,16 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           );
           await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
 
-          // Track successful subscription
-          const planType = subscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
+          const rawPrice =
+            subscriptionPeriod === 'P1Y'
+              ? offering.product.pricePerYear
+              : offering.product.pricePerMonth;
+          const amount = primePaymentUtils.normalizeNativePrice(rawPrice || 0);
 
-          // Get actual price based on subscription period
-          let amount = 0;
-          if (subscriptionPeriod === 'P1Y') {
-            amount = platformEnv.isNativeAndroid
-              ? new BigNumber(offering.product.pricePerYear || 0)
-                  .div(1_000_000)
-                  .toNumber()
-              : offering.product.pricePerYear || 0;
-          } else {
-            amount = platformEnv.isNativeAndroid
-              ? new BigNumber(offering.product.pricePerMonth || 0)
-                  .div(1_000_000)
-                  .toNumber()
-              : offering.product.pricePerMonth || 0;
-          }
-
-          const currency = offering.product.currencyCode || 'USD';
-
-          defaultLogger.prime.subscription.primeSubscribeSuccess({
-            planType,
+          primePaymentUtils.trackPrimeSubscriptionSuccess({
             amount,
-            currency,
+            currency: offering.product.currencyCode,
+            subscriptionPeriod,
             featureName,
           });
 

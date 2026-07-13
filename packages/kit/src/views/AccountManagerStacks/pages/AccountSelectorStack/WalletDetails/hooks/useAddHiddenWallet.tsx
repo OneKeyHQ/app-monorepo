@@ -19,7 +19,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
@@ -148,6 +148,7 @@ function AddHiddenWalletDialogContent() {
               </SizableText>
             </YStack>
             <Switch
+              testID="account-manager-switch"
               size={ESwitchSize.small}
               value={settings.showAddHiddenInWalletSidebar}
               onChange={(value) => {
@@ -217,13 +218,15 @@ export function useAddHiddenWallet() {
   );
 
   const createQrHiddenWallet = useCallback(
-    async ({ wallet: _wallet }: { wallet?: IDBWallet }) => {
+    async ({ wallet }: { wallet?: IDBWallet }) => {
+      const vendor = wallet?.associatedDeviceInfo?.vendor;
       try {
         defaultLogger.account.wallet.addWalletStarted({
           addMethod: 'ConnectHWWallet',
           details: {
             hardwareWalletType: 'Hidden',
             communication: 'QRCode',
+            vendor,
           },
           isSoftwareWalletOnlyUser: false,
         });
@@ -243,6 +246,7 @@ export function useAddHiddenWallet() {
             hardwareWalletType: 'Hidden',
             communication: 'QRCode',
             deviceType: EDeviceType.Pro,
+            vendor,
           },
           isSoftwareWalletOnlyUser: false,
         });
@@ -255,6 +259,7 @@ export function useAddHiddenWallet() {
             hardwareWalletType: 'Hidden',
             communication: 'QRCode',
             deviceType: EDeviceType.Pro,
+            vendor,
           },
           isSoftwareWalletOnlyUser: false,
         });

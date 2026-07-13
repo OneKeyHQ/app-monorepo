@@ -12,6 +12,7 @@ import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   isDualScreenDevice,
   useDualScreenWidth,
+  useIsSplitViewLayoutDisabled,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -89,17 +90,19 @@ const useNativeTabContainerWidth = isDualScreenDevice()
   : () => {
       const isTablet = isNativeTablet();
       const isLandscape = useIsSplitView();
+      const isSplitViewLayoutDisabled = useIsSplitViewLayoutDisabled();
       const { width } = useWindowDimensions();
       const isIpadModalPage = useIsIpadModalPage();
       const ipadModalPageWidth = useIPadModalPageWidth();
       if (isIpadModalPage) {
         return ipadModalPageWidth || 640;
       }
-      if (isTablet && isLandscape) {
+      if (isTablet && isLandscape && !isSplitViewLayoutDisabled) {
         // In landscape split view, use half of the screen width
         return width / 2;
       }
-      // In portrait or non-tablet, use full screen width
+      // In portrait, non-tablet, or when the user opted out of split view,
+      // use full screen width.
       return width;
     };
 

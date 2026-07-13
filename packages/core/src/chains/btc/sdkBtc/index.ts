@@ -17,6 +17,10 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import {
+  isTaprootAddress,
+  isTaprootPath,
+} from '@onekeyhq/shared/src/utils/btcUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
   IAddressValidation,
@@ -36,7 +40,10 @@ import { EAddressEncodings } from '../../../types';
 import { toXOnly } from './bip371';
 import { getBtcForkNetwork } from './networks';
 
-import type { IBip32ExtendedKey } from '../../../secret';
+import type {
+  IBip32ExtendedKey,
+  IHdCredentialDecryptCacheParams,
+} from '../../../secret';
 import type {
   ICoreApiSignAccount,
   ICurveName,
@@ -137,21 +144,13 @@ export const loadOPReturn = (
   return buffer.slice(0, opReturnSizeLimit);
 };
 
-export const isTaprootPath = (pathPrefix: string) =>
-  pathPrefix.startsWith(`m/86'/`);
-export const isNativeSegwitPath = (pathPrefix: string) =>
-  pathPrefix.startsWith(`m/84'/`);
-
-// oxlint-disable-next-line @cspell/spellchecker
-// Taproot addresses start with 'bc1p' on mainnet
-
-// oxlint-disable-next-line @cspell/spellchecker
-// Taproot addresses start with 'tb1p' on testnet
-export const isTaprootAddress = (address: string): boolean =>
-  address.startsWith('bc1p') || address.startsWith('tb1p');
-
-export const isNativeSegwitAddress = (address: string): boolean =>
-  address.startsWith('bc1q') || address.startsWith('tb1q');
+// Re-export from shared for backward compatibility
+export {
+  isTaprootPath,
+  isNativeSegwitPath,
+  isTaprootAddress,
+  isNativeSegwitAddress,
+} from '@onekeyhq/shared/src/utils/btcUtils';
 
 export function scriptPkToAddress(
   scriptPk: string | Buffer,
@@ -228,6 +227,23 @@ export function getInputsToSignFromPsbt({
     }
   });
   return inputsToSign;
+}
+
+// UniSat-compatible `signPsbts` passes `options` as an array (one entry per
+// psbt); OneKey/legacy callers pass a single shared options object. Return the
+// options that apply to the psbt at `index` for both shapes. Dropping the
+// per-psbt entry (e.g. by reusing the whole array as a single object) loses
+// `toSignInputs` / `isBtcWalletProvider` / `autoFinalized`, which makes
+// `getInputsToSignFromPsbt` skip script-path inputs whose address differs from
+// the account (e.g. Babylon staking) and yields an empty `inputsToSign`.
+export function getSignPsbtOptionsForPsbtIndex({
+  options,
+  index,
+}: {
+  options: ISignPsbtOptions | ISignPsbtOptions[] | undefined;
+  index: number;
+}): ISignPsbtOptions | undefined {
+  return Array.isArray(options) ? options[index] : options;
 }
 
 export function isBRC20Token(tokenAddress?: string) {
@@ -515,7 +531,8 @@ export async function buildBtcXpubSegwitAsync({
     hdCredential: string;
     password: string;
     path: string;
-  };
+    rootFingerprintHex?: string;
+  } & IHdCredentialDecryptCacheParams;
 }) {
   let xpubSegwit = xpub;
   if (encoding === EAddressEncodings.P2TR) {
@@ -525,12 +542,26 @@ export async function buildBtcXpubSegwitAsync({
     // https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md
     // https://github.com/trezor/blockbook/blob/master/docs/api.md#get-xpub
     if (hdAccountPayload) {
-      const { curveName, hdCredential, password, path } = hdAccountPayload;
-      const rootFingerprint = await generateRootFingerprintHexAsync({
+      const {
         curveName,
         hdCredential,
         password,
-      });
+        path,
+        hdCredentialCacheScopeId,
+        kdfBackend,
+        enablePbkdf2Cache,
+        rootFingerprintHex,
+      } = hdAccountPayload;
+      const rootFingerprint =
+        rootFingerprintHex ??
+        (await generateRootFingerprintHexAsync({
+          curveName,
+          hdCredential,
+          password,
+          hdCredentialCacheScopeId,
+          kdfBackend,
+          enablePbkdf2Cache,
+        }));
       const fingerprint = Number(
         Buffer.from(rootFingerprint, 'hex').readUInt32BE(0) || 0,
       )

@@ -16,6 +16,11 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import ServiceBase from '../ServiceBase';
 
+import {
+  logHyperLiquidApiFailure,
+  requestLoggedHyperLiquidTransport,
+} from './utils/logHyperLiquidApiFailure';
+
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 @backgroundClass()
@@ -401,14 +406,22 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
 
     // Use SDK's HttpTransport to make the request
     const transport = new HttpTransport();
-    const result = await transport.request<{
+    const result = await requestLoggedHyperLiquidTransport<{
       status: string;
       response?: unknown;
-    }>('exchange', {
-      action,
-      signature,
-      nonce,
-    });
+    }>(
+      transport,
+      'exchange',
+      {
+        action,
+        signature,
+        nonce,
+      },
+      {
+        action: action.type,
+        extra: { source: 'ServiceHyperliquidReferral' },
+      },
+    );
 
     defaultLogger.perp.hyperliquid.referralBindingStep({
       step: 'complete',
@@ -570,7 +583,17 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
         user: userAddress,
       });
       return result?.role ?? 'missing';
-    } catch {
+    } catch (error) {
+      await logHyperLiquidApiFailure({
+        endpoint: 'info',
+        action: 'userRole',
+        request: {
+          type: 'userRole',
+          user: userAddress,
+        },
+        error,
+        extra: { source: 'ServiceHyperliquidReferral' },
+      });
       return 'missing';
     }
   }
@@ -604,6 +627,16 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
         cumVlm: result?.cumVlm ?? '0',
       };
     } catch (error) {
+      await logHyperLiquidApiFailure({
+        endpoint: 'info',
+        action: 'referral',
+        request: {
+          type: 'referral',
+          user: userAddress,
+        },
+        error,
+        extra: { source: 'ServiceHyperliquidReferral' },
+      });
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       defaultLogger.perp.hyperliquid.referralConditionCheck({

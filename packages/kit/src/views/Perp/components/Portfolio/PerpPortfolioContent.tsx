@@ -5,9 +5,11 @@ import { useIntl } from 'react-intl';
 import Svg, { Circle } from 'react-native-svg';
 
 import {
+  ActionList,
   Button,
   DashText,
   Divider,
+  Icon,
   SegmentControl,
   SizableText,
   Skeleton,
@@ -18,26 +20,34 @@ import {
 } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { usePerpsActivePositionLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import {
+  usePerpsActiveAccountAtom,
   usePerpsActiveAccountMmrAtom,
   usePerpsComputedAccountValueAtom,
+  useSpotPairDisplayMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   formatChartUsdPrice,
   formatPerpsCompactUsd,
   formatPerpsUsd,
   getHyperliquidTokenImageUrl,
   getPerpsValueColor,
+  getSpotTokenDisplayName,
+  isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
+import { usePerpsActivePositionsByAddress } from '../../hooks/usePerpsActivePositionsByAddress';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
+import { PERP_DIALOG_BUTTON_SIZE } from '../PerpDialogLayout';
 
 import {
   type IPortfolioChartType,
+  type IPortfolioPnlType,
   type IPortfolioTimePeriod,
   usePerpPortfolioData,
 } from './usePerpPortfolioData';
@@ -54,6 +64,8 @@ const WIN_RATE_TOOLTIP_MAP: Record<IPortfolioTimePeriod, ETranslations> = {
   month: ETranslations.perp_portfolio_win_rate_tooltip_month__desc,
   allTime: ETranslations.perp_portfolio_win_rate_tooltip_all_time__desc,
 };
+
+const MOBILE_TIME_PERIOD_ITEM_MIN_WIDTH = 30;
 
 // Time period and chart type options are built inside the component using intl
 
@@ -99,16 +111,44 @@ const CHART_HEIGHT_DESKTOP = 480;
 const CHART_HEIGHT_MOBILE = 260;
 const HOVER_TOOLTIP_WIDTH = 148;
 const CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
+const CHART_AREA_FILL_ALPHA = 0.1;
 
-function gaugeColor(pct: number): string {
-  if (pct <= GAUGE_SAFE_THRESHOLD) return COLOR_SAFE;
+type IPortfolioPalette = {
+  positive: string;
+  negative: string;
+  caution: string;
+};
+
+function colorWithAlpha(color: string, alpha: number) {
+  const normalized = color.trim();
+  const percentage = Math.round(alpha * 100);
+  const hex = normalized.startsWith('#') ? normalized.slice(1) : normalized;
+  const fullHex =
+    hex.length === 3
+      ? hex
+          .split('')
+          .map((c) => `${c}${c}`)
+          .join('')
+      : hex;
+  if (fullHex.length !== 6) {
+    return `color-mix(in srgb, ${normalized} ${percentage}%, transparent)`;
+  }
+
+  const r = parseInt(fullHex.slice(0, 2), 16);
+  const g = parseInt(fullHex.slice(2, 4), 16);
+  const b = parseInt(fullHex.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function gaugeColor(pct: number, palette: IPortfolioPalette): string {
+  if (pct <= GAUGE_SAFE_THRESHOLD) return palette.positive;
   if (pct <= GAUGE_CAUTION_THRESHOLD) return COLOR_CAUTION;
-  return COLOR_DANGER;
+  return palette.negative;
 }
 
 // Margin Used gauge: green/yellow only (no red — high utilization ≠ liquidation risk)
-function marginUsedGaugeColor(pct: number): string {
-  if (pct <= GAUGE_SAFE_THRESHOLD) return COLOR_SAFE;
+function marginUsedGaugeColor(pct: number, palette: IPortfolioPalette): string {
+  if (pct <= GAUGE_SAFE_THRESHOLD) return palette.positive;
   return COLOR_CAUTION;
 }
 
@@ -117,7 +157,7 @@ function computeAccountHealthRisk(
   mmrPct: number,
   leverageX: number,
   marginUsedPct: number,
-): { level: 'safe' | 'caution' | 'danger'; color: string } {
+): { level: 'safe' | 'caution' | 'danger' } {
   let mmrScore = 2;
   if (mmrPct <= 30) mmrScore = 0;
   else if (mmrPct <= 60) mmrScore = 1;
@@ -132,9 +172,24 @@ function computeAccountHealthRisk(
 
   const total = mmrScore * 3 + levScore * 2 + marginScore * 1;
 
-  if (total >= 6) return { level: 'danger', color: COLOR_DANGER };
-  if (total >= 3) return { level: 'caution', color: COLOR_CAUTION };
-  return { level: 'safe', color: COLOR_SAFE };
+  if (total >= 6) return { level: 'danger' };
+  if (total >= 3) return { level: 'caution' };
+  return { level: 'safe' };
+}
+
+function getAccountHealthColor(
+  level: 'safe' | 'caution' | 'danger',
+  palette: IPortfolioPalette,
+) {
+  if (level === 'danger') return palette.negative;
+  if (level === 'caution') return palette.caution;
+  return palette.positive;
+}
+
+function getAccountHealthTextColor(level: 'safe' | 'caution' | 'danger') {
+  if (level === 'danger') return COLOR_DANGER;
+  if (level === 'caution') return COLOR_CAUTION;
+  return COLOR_SAFE;
 }
 
 function SemiCircleGauge({
@@ -155,7 +210,7 @@ function SemiCircleGauge({
   color?: string;
 }) {
   const theme = useTheme();
-  const arcColor = color ?? theme.textSuccess?.val ?? '#30a46c';
+  const arcColor = color ?? theme.bgAccent?.val ?? '#31E72F';
   const trackColor = theme.bgStrong?.val ?? '#333';
 
   const radius = (size - strokeWidth) / 2;
@@ -225,7 +280,17 @@ function PerpPortfolioContentComponent({
   isMobile = false,
 }: IPerpPortfolioContentProps) {
   const intl = useIntl();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const theme = useTheme();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
+  const portfolioPalette = useMemo(
+    () => ({
+      positive: theme.bgAccent?.val ?? '#31E72F',
+      negative: theme.bgCriticalStrong?.val ?? '#EF4444',
+      caution: COLOR_CAUTION,
+    }),
+    [theme.bgAccent?.val, theme.bgCriticalStrong?.val],
+  );
 
   const timePeriodOptions = useMemo(
     () => [
@@ -274,12 +339,119 @@ function PerpPortfolioContentComponent({
     ],
     [intl],
   );
+  const pnlTypeOptions = useMemo(() => {
+    const allLabel = intl.formatMessage({
+      id: ETranslations.global_all,
+    });
+    const perpsLabel = intl.formatMessage({
+      id: ETranslations.global_perp,
+    });
+    const spotLabel = intl.formatMessage({
+      id: ETranslations.dexmarket_spot,
+    });
+    return [
+      {
+        label: allLabel,
+        value: 'all' as IPortfolioPnlType,
+      },
+      {
+        label: perpsLabel,
+        value: 'perps' as IPortfolioPnlType,
+      },
+      {
+        label: spotLabel,
+        value: 'spot' as IPortfolioPnlType,
+      },
+    ];
+  }, [intl]);
+  const [activeAccount] = usePerpsActiveAccountAtom();
   const [mmrData] = usePerpsActiveAccountMmrAtom();
-  const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const positionsLength = usePerpsActivePositionsByAddress(
+    activeAccount?.accountAddress,
+  ).length;
 
-  const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('allTime');
+  const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('day');
   const [chartType, setChartType] =
     useState<IPortfolioChartType>('accountValue');
+  const [pnlType, setPnlType] = useState<IPortfolioPnlType>('all');
+  const handlePnlTypeChange = useCallback(
+    (nextPnlType: IPortfolioPnlType) => {
+      if (nextPnlType === pnlType) return;
+      if (platformEnv.isNative) {
+        void deferHeavyWorkUntilUIIdle({ minFrames: 1 }).then(() => {
+          setPnlType(nextPnlType);
+        });
+        return;
+      }
+      setPnlType(nextPnlType);
+    },
+    [pnlType],
+  );
+  const selectedPnlTypeLabel = useMemo(
+    () =>
+      pnlTypeOptions.find((item) => item.value === pnlType)?.label ??
+      intl.formatMessage({
+        id: ETranslations.perp_portfolio_chart_type_pnl,
+      }),
+    [intl, pnlType, pnlTypeOptions],
+  );
+  const pnlTypeActionItems = useMemo(
+    () =>
+      pnlTypeOptions.map((option) => ({
+        label: option.label,
+        onPress: () => {
+          handlePnlTypeChange(option.value);
+        },
+        extra:
+          option.value === pnlType ? (
+            <Icon name="CheckLargeOutline" size="$5" color="$iconActive" />
+          ) : undefined,
+      })),
+    [handlePnlTypeChange, pnlType, pnlTypeOptions],
+  );
+  const mobileChartTypeOptions = useMemo(
+    () =>
+      chartTypeOptions.map((option) => ({
+        ...option,
+        label: (
+          <XStack height={20} alignItems="center" justifyContent="center">
+            <SizableText
+              size="$bodySmMedium"
+              color={chartType === option.value ? '$textInverse' : '$text'}
+              textAlign="center"
+              numberOfLines={1}
+            >
+              {option.label}
+            </SizableText>
+          </XStack>
+        ),
+      })),
+    [chartType, chartTypeOptions],
+  );
+  const mobileTimePeriodOptions = useMemo(
+    () =>
+      timePeriodOptions.map((option) => ({
+        ...option,
+        label: (
+          <XStack
+            height={20}
+            minWidth={MOBILE_TIME_PERIOD_ITEM_MIN_WIDTH}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <SizableText
+              size="$bodySmMedium"
+              color={timePeriod === option.value ? '$text' : '$textSubdued'}
+              textAlign="center"
+              numberOfLines={1}
+            >
+              {option.label}
+            </SizableText>
+          </XStack>
+        ),
+      })),
+    [timePeriod, timePeriodOptions],
+  );
 
   const [hoverData, setHoverData] = useState<{
     time: number;
@@ -288,23 +460,26 @@ function PerpPortfolioContentComponent({
     y: number;
   } | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const activityType: IPortfolioPnlType = chartType === 'pnl' ? pnlType : 'all';
 
   const {
     chartData,
     fillsStats,
     netDeposits,
     accountSummary,
-    totalPnl,
+    pnlTotals,
     isLoading,
-  } = usePerpPortfolioData(timePeriod);
+  } = usePerpPortfolioData(timePeriod, activityType);
   const [computedValue] = usePerpsComputedAccountValueAtom();
+  const [spotPairDisplayMap] = useSpotPairDisplayMapAtom();
 
   const chartSeriesData = useMemo((): IMarketTokenChart => {
     if (!chartData) return [];
-    return chartType === 'accountValue'
-      ? chartData.accountValueHistory
-      : chartData.pnlHistory;
-  }, [chartData, chartType]);
+    if (chartType === 'accountValue') return chartData.accountValueHistory;
+    if (pnlType === 'perps') return chartData.perpsPnlHistory;
+    if (pnlType === 'spot') return chartData.nonPerpsPnlHistory;
+    return chartData.pnlHistory;
+  }, [chartData, chartType, pnlType]);
 
   const accountValue = formatPerpsUsd(
     parseFloat(computedValue?.accountValue ?? '0'),
@@ -319,7 +494,17 @@ function PerpPortfolioContentComponent({
   const unrealizedPnl = formatPerpsUsd(unrealizedPnlRaw, true);
   const unrealizedColor = getPerpsValueColor(unrealizedPnlRaw);
 
-  const totalPnlVal = totalPnl ?? fillsStats.realizedPnl;
+  let fallbackPnlVal = fillsStats.realizedPnl;
+  if (chartType === 'pnl') {
+    if (pnlType === 'perps') {
+      fallbackPnlVal = fillsStats.realizedPnl - fillsStats.spotRealizedPnl;
+    } else if (pnlType === 'spot') {
+      fallbackPnlVal = fillsStats.spotRealizedPnl;
+    }
+  }
+  const selectedPnlVal =
+    chartType === 'pnl' ? pnlTotals[pnlType] : pnlTotals.all;
+  const totalPnlVal = selectedPnlVal ?? fallbackPnlVal;
   const realizedPnl = formatPerpsUsd(totalPnlVal, true);
   const realizedColor = getPerpsValueColor(totalPnlVal);
   const totalPnlTooltip = intl.formatMessage({
@@ -329,15 +514,45 @@ function PerpPortfolioContentComponent({
     id: WIN_RATE_TOOLTIP_MAP[timePeriod],
   });
 
-  const vlm = chartData?.vlm
-    ? formatPerpsCompactUsd(parseFloat(chartData.vlm))
-    : '--';
+  const vlm = useMemo(() => {
+    if (activityType !== 'all') {
+      if (fillsStats.totalTrades > 0) {
+        return formatPerpsCompactUsd(fillsStats.volumeUsd);
+      }
+      return '--';
+    }
+    if (chartData?.vlm) {
+      return formatPerpsCompactUsd(parseFloat(chartData.vlm));
+    }
+    return '--';
+  }, [
+    activityType,
+    chartData?.vlm,
+    fillsStats.totalTrades,
+    fillsStats.volumeUsd,
+  ]);
 
   const winRateVal =
     fillsStats.winRate !== null ? formatPercent(fillsStats.winRate) : '--';
   const winRateClr = getPerpsValueColor(
     fillsStats.winRate !== null ? fillsStats.winRate - 50 : null,
   );
+
+  const mostTradedTokenDisplayName = useMemo(() => {
+    const coin = fillsStats.mostTraded;
+    if (!coin) return null;
+
+    if (isSpotInstrument(coin)) {
+      const mapped = spotPairDisplayMap[coin];
+      if (mapped) return mapped;
+      if (coin.includes('/')) {
+        const [baseName] = coin.split('/');
+        return getSpotTokenDisplayName(baseName);
+      }
+    }
+
+    return parseDexCoin(coin).displayName;
+  }, [fillsStats.mostTraded, spotPairDisplayMap]);
 
   // Account Health computed values
   const leverageRaw = useMemo(() => {
@@ -375,6 +590,13 @@ function PerpPortfolioContentComponent({
         marginUsedGaugePct,
       ),
     [marginPercentRaw, leverageRaw, marginUsedGaugePct],
+  );
+  const accountHealthColor = getAccountHealthColor(
+    accountHealthRisk.level,
+    portfolioPalette,
+  );
+  const accountHealthTextColor = getAccountHealthTextColor(
+    accountHealthRisk.level,
   );
   const accountHealthText = useMemo(() => {
     switch (accountHealthRisk.level) {
@@ -462,35 +684,159 @@ function PerpPortfolioContentComponent({
   // ─── Chart ──────────────────────────────────────────────────────────────────
   const chartHeight = isMobile ? CHART_HEIGHT_MOBILE : CHART_HEIGHT_DESKTOP;
   const isPnl = chartType === 'pnl';
+  const chartTooltipLabel =
+    chartType === 'accountValue'
+      ? intl.formatMessage({
+          id: ETranslations.perp_portfolio_chart_type_value,
+        })
+      : selectedPnlTypeLabel;
 
   const baselineOptions = useMemo(
     (): BaselineSeriesPartialOptions => ({
       baseValue: { type: 'price', price: 0 },
-      topLineColor: COLOR_SAFE,
-      topFillColor1: 'rgba(48, 164, 108, 0.24)',
-      topFillColor2: 'rgba(48, 164, 108, 0.0)',
-      bottomLineColor: COLOR_DANGER,
-      bottomFillColor1: 'rgba(229, 72, 77, 0.0)',
-      bottomFillColor2: 'rgba(229, 72, 77, 0.24)',
+      topLineColor: portfolioPalette.positive,
+      topFillColor1: colorWithAlpha(
+        portfolioPalette.positive,
+        CHART_AREA_FILL_ALPHA,
+      ),
+      topFillColor2: colorWithAlpha(
+        portfolioPalette.positive,
+        CHART_AREA_FILL_ALPHA,
+      ),
+      bottomLineColor: portfolioPalette.negative,
+      bottomFillColor1: colorWithAlpha(
+        portfolioPalette.negative,
+        CHART_AREA_FILL_ALPHA,
+      ),
+      bottomFillColor2: colorWithAlpha(
+        portfolioPalette.negative,
+        CHART_AREA_FILL_ALPHA,
+      ),
     }),
-    [],
+    [portfolioPalette.negative, portfolioPalette.positive],
   );
+
+  const pnlTypeSelectorTrigger = (
+    <XStack
+      testID="perp-portfolio-pnl-type-selector"
+      alignItems="center"
+      gap="$1"
+      py="$1"
+      userSelect="none"
+      cursor="pointer"
+    >
+      <SizableText
+        size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+        color="$text"
+        numberOfLines={1}
+        maxWidth={isMobile ? '$24' : undefined}
+      >
+        {selectedPnlTypeLabel}
+      </SizableText>
+      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+    </XStack>
+  );
+
+  let pnlTypeSelector: React.ReactNode = null;
+  if (isPnl) {
+    pnlTypeSelector = (
+      <ActionList
+        title={intl.formatMessage({
+          id: ETranslations.perp_portfolio_chart_type_pnl,
+        })}
+        placement="bottom-start"
+        items={pnlTypeActionItems}
+        floatingPanelProps={{ width: '$48' }}
+        renderTrigger={pnlTypeSelectorTrigger}
+      />
+    );
+  }
 
   const chartPanel = (
     <YStack flex={1} gap="$3">
       {/* Controls */}
-      <XStack justifyContent="space-between" alignItems="center">
-        <SegmentControl
-          value={chartType}
-          onChange={handleChartTypeChange}
-          options={chartTypeOptions}
-        />
-        <SegmentControl
-          value={timePeriod}
-          onChange={handleTimePeriodChange}
-          options={timePeriodOptions}
-        />
-      </XStack>
+      {isMobile ? (
+        <YStack gap="$2">
+          <XStack
+            width="100%"
+            justifyContent="space-between"
+            alignItems="center"
+            gap="$2"
+            flexWrap="wrap"
+          >
+            <XStack alignItems="center" gap="$2" flexShrink={1}>
+              <SegmentControl
+                h={28}
+                value={chartType}
+                onChange={handleChartTypeChange}
+                options={mobileChartTypeOptions}
+                segmentControlItemStyleProps={{
+                  px: '$2.5',
+                  py: '$1',
+                }}
+              />
+              {pnlTypeSelector}
+            </XStack>
+            <SegmentControl
+              h={28}
+              value={timePeriod}
+              onChange={handleTimePeriodChange}
+              options={mobileTimePeriodOptions}
+              flexShrink={0}
+              slotBackgroundColor="$transparent"
+              activeBackgroundColor="$bgActive"
+              activeTextColor="$text"
+              inactiveTextColor="$textSubdued"
+              segmentControlItemStyleProps={{
+                h: 28,
+                minWidth: MOBILE_TIME_PERIOD_ITEM_MIN_WIDTH,
+                px: '$1.5',
+                py: '$0',
+                borderRadius: '$full',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            />
+          </XStack>
+        </YStack>
+      ) : (
+        <YStack gap="$2">
+          <XStack
+            justifyContent="space-between"
+            alignItems="center"
+            gap="$2"
+            flexWrap="wrap"
+          >
+            <XStack alignItems="center" gap="$3">
+              <SegmentControl
+                value={chartType}
+                onChange={handleChartTypeChange}
+                options={chartTypeOptions}
+              />
+              {pnlTypeSelector}
+            </XStack>
+            <SegmentControl
+              h={32}
+              value={timePeriod}
+              onChange={handleTimePeriodChange}
+              options={timePeriodOptions}
+              slotBackgroundColor="$transparent"
+              activeBackgroundColor="$bgActive"
+              activeTextColor="$text"
+              inactiveTextColor="$textSubdued"
+              segmentControlItemStyleProps={{
+                h: 32,
+                minWidth: 36,
+                py: '$0',
+                px: '$3.5',
+                borderRadius: '$full',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            />
+          </XStack>
+        </YStack>
+      )}
 
       {/* Chart — negative mr shifts chart right so plot area aligns with controls */}
       {isLoading ? (
@@ -527,13 +873,7 @@ function PerpPortfolioContentComponent({
                 </SizableText>
                 <XStack justifyContent="space-between" alignItems="center">
                   <SizableText size="$bodyXs" color="$textSubdued">
-                    {chartType === 'accountValue'
-                      ? intl.formatMessage({
-                          id: ETranslations.perp_portfolio_chart_type_value,
-                        })
-                      : intl.formatMessage({
-                          id: ETranslations.perp_portfolio_chart_type_pnl,
-                        })}
+                    {chartTooltipLabel}
                   </SizableText>
                   <SizableText size="$bodySmMedium" color="$text">
                     {formatPerpsUsd(hoverData.price)}
@@ -546,18 +886,27 @@ function PerpPortfolioContentComponent({
             data={chartSeriesData}
             height={chartHeight}
             onHover={handleHover}
-            lineColor="#2EAA40"
-            topColor="#2EAA4026"
-            bottomColor="#2EAA4000"
+            lineColor={portfolioPalette.positive}
+            secondaryLineData={isPnl ? undefined : chartSeriesData}
+            secondaryLineColor={portfolioPalette.positive}
+            secondaryLineWidth={3}
+            topColor={colorWithAlpha(
+              portfolioPalette.positive,
+              CHART_AREA_FILL_ALPHA,
+            )}
+            bottomColor={colorWithAlpha(portfolioPalette.positive, 0)}
             lineWidth={3}
             showPriceScale
-            showHorzGridLines
+            showHorzGridLines={isPnl}
             priceScaleMargins={CHART_PRICE_SCALE_MARGINS}
+            priceScaleEntireTextOnly={!isPnl}
             priceFormatter={formatChartUsdPrice}
             fontSize={11}
-            seriesType={isPnl ? 'baseline' : 'area'}
+            seriesType={isPnl ? 'baseline' : 'dotted-area'}
             baselineOptions={isPnl ? baselineOptions : undefined}
-            showLastValue
+            showLastValue={isPnl}
+            showLastPointMarker={isPnl ? undefined : false}
+            pulseLastPoint={!isPnl}
           />
         </YStack>
       )}
@@ -565,7 +914,7 @@ function PerpPortfolioContentComponent({
       {/* P&L + Win Rate summary */}
       <SectionBlock>
         <XStack alignItems="center">
-          <YStack flex={1} gap="$0.5">
+          <YStack flex={1} minWidth={0} gap="$0.5">
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_unrealized_pnl,
@@ -575,16 +924,15 @@ function PerpPortfolioContentComponent({
               size="$headingSm"
               color={unrealizedColor}
               numberOfLines={1}
-              adjustsFontSizeToFit
+              minWidth={0}
             >
               {unrealizedPnl}
             </SizableText>
           </YStack>
-          <YStack flex={1} gap="$0.5" alignItems="center">
+          <YStack flex={1} minWidth={0} gap="$0.5" alignItems="center">
             <DashText
               size="$bodyXs"
               color="$textDisabled"
-              dashColor="$textDisabled"
               dashThickness={0.5}
               tooltip={totalPnlTooltip}
             >
@@ -596,12 +944,14 @@ function PerpPortfolioContentComponent({
               size="$headingSm"
               color={realizedColor}
               numberOfLines={1}
-              adjustsFontSizeToFit
+              minWidth={0}
+              maxWidth="100%"
+              textAlign="center"
             >
               {realizedPnl}
             </SizableText>
           </YStack>
-          <YStack flex={1} gap="$0.5" alignItems="flex-end">
+          <YStack flex={1} minWidth={0} gap="$0.5" alignItems="flex-end">
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_open_positions,
@@ -623,15 +973,13 @@ function PerpPortfolioContentComponent({
   const portfolioButtons = (
     <XStack gap="$2">
       <Button
+        testID="perp-portfolio-buttons-btn"
         flex={1}
         borderRadius="$full"
-        size="medium"
-        bg="$brand8"
-        hoverStyle={{ bg: '$brand9' }}
-        pressStyle={{ bg: '$brand10' }}
-        color="$textOnColor"
-        iconColor="$iconOnColor"
+        size={PERP_DIALOG_BUTTON_SIZE}
+        variant="accent"
         icon="DownloadOutline"
+        disabled={isDepositDisabled}
         onPress={() => showDepositWithdrawModal('deposit')}
       >
         {intl.formatMessage({
@@ -639,9 +987,10 @@ function PerpPortfolioContentComponent({
         })}
       </Button>
       <Button
+        testID="perp-portfolio-buttons-btn"
         flex={1}
         borderRadius="$full"
-        size="medium"
+        size={PERP_DIALOG_BUTTON_SIZE}
         variant="secondary"
         icon="AlignTopOutline"
         onPress={() => showDepositWithdrawModal('withdraw')}
@@ -718,11 +1067,11 @@ function PerpPortfolioContentComponent({
                 width={6}
                 height={6}
                 borderRadius="$full"
-                bg={accountHealthRisk.color}
+                bg={accountHealthColor}
               />
               <SizableText
                 size="$bodyXs"
-                color={accountHealthRisk.color}
+                color={accountHealthTextColor}
                 textTransform="uppercase"
                 letterSpacing={1.2}
               >
@@ -736,7 +1085,7 @@ function PerpPortfolioContentComponent({
             percentage={leverageGaugePct}
             label={intl.formatMessage({ id: ETranslations.perp_leverage })}
             value={leverageText}
-            color={gaugeColor(leverageGaugePct)}
+            color={gaugeColor(leverageGaugePct, portfolioPalette)}
           />
           <SemiCircleGauge
             percentage={marginUsedGaugePct}
@@ -747,7 +1096,6 @@ function PerpPortfolioContentComponent({
               <DashText
                 size="$bodyXs"
                 color="$textDisabled"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
                 textTransform="uppercase"
                 letterSpacing={0.8}
@@ -761,7 +1109,7 @@ function PerpPortfolioContentComponent({
               </DashText>
             }
             value={marginUsedText}
-            color={marginUsedGaugeColor(marginUsedGaugePct)}
+            color={marginUsedGaugeColor(marginUsedGaugePct, portfolioPalette)}
           />
           <SemiCircleGauge
             percentage={marginPercentRaw}
@@ -770,7 +1118,6 @@ function PerpPortfolioContentComponent({
               <DashText
                 size="$bodyXs"
                 color="$textDisabled"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
                 textTransform="uppercase"
                 letterSpacing={0.8}
@@ -782,7 +1129,7 @@ function PerpPortfolioContentComponent({
               </DashText>
             }
             value={marginPercentText}
-            color={gaugeColor(marginPercentRaw)}
+            color={gaugeColor(marginPercentRaw, portfolioPalette)}
           />
         </XStack>
       </SectionBlock>
@@ -802,26 +1149,30 @@ function PerpPortfolioContentComponent({
               {vlm}
             </SizableText>
           </YStack>
-          {fillsStats.mostTraded ? (
-            <YStack gap="$0.5" alignItems="flex-end">
-              <SizableText size="$bodyXs" color="$textDisabled">
-                {intl.formatMessage({
-                  id: ETranslations.perp_portfolio_most_traded,
-                })}
-              </SizableText>
+          <YStack gap="$0.5" alignItems="flex-end">
+            <SizableText size="$bodyXs" color="$textDisabled">
+              {intl.formatMessage({
+                id: ETranslations.perp_portfolio_most_traded,
+              })}
+            </SizableText>
+            {mostTradedTokenDisplayName ? (
               <XStack gap="$1.5" alignItems="center">
                 <Token
                   size="xxs"
                   tokenImageUri={getHyperliquidTokenImageUrl(
-                    parseDexCoin(fillsStats.mostTraded).displayName,
+                    mostTradedTokenDisplayName,
                   )}
                 />
                 <SizableText size="$headingSm" color="$text">
-                  {parseDexCoin(fillsStats.mostTraded).displayName}
+                  {mostTradedTokenDisplayName}
                 </SizableText>
               </XStack>
-            </YStack>
-          ) : null}
+            ) : (
+              <SizableText size="$headingSm" color="$text">
+                --
+              </SizableText>
+            )}
+          </YStack>
         </XStack>
         <Divider />
         {/* Fees + Deposits — compact row */}
@@ -840,7 +1191,6 @@ function PerpPortfolioContentComponent({
             <DashText
               size="$bodyXs"
               color="$textDisabled"
-              dashColor="$textDisabled"
               dashThickness={0.5}
               tooltip={intl.formatMessage({
                 id: ETranslations.perp_portfolio_net_deposits_tooltip,
@@ -879,7 +1229,6 @@ function PerpPortfolioContentComponent({
               <DashText
                 size="$bodyXs"
                 color="$textDisabled"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
                 tooltip={winRateTooltip}
               >
@@ -895,7 +1244,6 @@ function PerpPortfolioContentComponent({
               <DashText
                 size="$bodyXs"
                 color="$textDisabled"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
                 tooltip={intl.formatMessage({
                   id: ETranslations.perp_portfolio_profit_factor_tooltip,
@@ -920,13 +1268,13 @@ function PerpPortfolioContentComponent({
               <>
                 <XStack
                   flex={winRateProgress}
-                  bg="$green9"
+                  bg={portfolioPalette.positive}
                   borderTopLeftRadius="$full"
                   borderBottomLeftRadius="$full"
                 />
                 <XStack
                   flex={100 - winRateProgress}
-                  bg="$red9"
+                  bg={portfolioPalette.negative}
                   borderTopRightRadius="$full"
                   borderBottomRightRadius="$full"
                 />
@@ -940,7 +1288,7 @@ function PerpPortfolioContentComponent({
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({ id: ETranslations.perp_portfolio_avg_win })}
             </SizableText>
-            <SizableText size="$bodyMdMedium" color="$green11">
+            <SizableText size="$bodyMdMedium" color="$text">
               {formatPerpsUsd(fillsStats.avgWin, true)}
             </SizableText>
           </YStack>
@@ -950,7 +1298,7 @@ function PerpPortfolioContentComponent({
                 id: ETranslations.perp_portfolio_avg_loss,
               })}
             </SizableText>
-            <SizableText size="$bodyMdMedium" color="$red11">
+            <SizableText size="$bodyMdMedium" color="$text">
               {formatPerpsUsd(fillsStats.avgLoss, true)}
             </SizableText>
           </YStack>

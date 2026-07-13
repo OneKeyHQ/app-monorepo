@@ -11,10 +11,12 @@ import { vaultFactory } from '../vaults/factory';
 import BackgroundApiBase from './BackgroundApiBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
+import type ServiceHyperliquidCache from '../services/ServiceHyperLiquid/ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
 import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
+import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   constructor() {
@@ -152,6 +154,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceAddressRiskCheck() {
+    const Service =
+      require('../services/ServiceAddressRiskCheck') as typeof import('../services/ServiceAddressRiskCheck');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceAddressRiskCheck', { value });
+    return value;
+  }
+
   get serviceSend() {
     const ServiceSend =
       require('../services/ServiceSend') as typeof import('../services/ServiceSend');
@@ -189,6 +201,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceToken', { value });
+    return value;
+  }
+
+  get serviceTokenViewModel() {
+    const ServiceTokenViewModel =
+      require('../services/ServiceTokenViewModel') as typeof import('../services/ServiceTokenViewModel');
+    const value = new ServiceTokenViewModel.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceTokenViewModel', { value });
     return value;
   }
 
@@ -459,6 +481,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceHardwareUI', { value });
+    return value;
+  }
+
+  get serviceThirdPartyHardware(): ServiceThirdPartyHardware {
+    const Service =
+      require('../services/ServiceThirdPartyHardware') as typeof import('../services/ServiceThirdPartyHardware');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceThirdPartyHardware', { value });
     return value;
   }
 
@@ -769,6 +801,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceHyperliquid', { value });
+    return value;
+  }
+
+  get serviceHyperliquidCache(): ServiceHyperliquidCache {
+    const Service =
+      require('../services/ServiceHyperLiquid/ServiceHyperliquidCache') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidCache');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHyperliquidCache', { value });
     return value;
   }
 

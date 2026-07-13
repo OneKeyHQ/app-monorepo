@@ -8,9 +8,6 @@ export const KEYLESS_SYNC_SIGNATURE_HEADER = 'x-onekey-keyless-sync-signature';
 /** Encryption context identifier */
 export const KEYLESS_SYNC_ENCRYPTION_CONTEXT = 'onekey-keyless-cloud-sync-v1';
 
-/** Signature message validity period (5 minutes) */
-export const KEYLESS_SYNC_SIGN_MESSAGE_EXPIRY_MS = 5 * 60 * 1000;
-
 /** Keyless pwdHash prefix */
 export const KEYLESS_PWDHASH_PREFIX = 'keyless-';
 

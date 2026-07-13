@@ -31,6 +31,8 @@ export enum EDAppConnectionModal {
   RiskWhiteListModal = 'RiskWhiteListModal',
   // Clipboard Permission
   ClipboardPermissionModal = 'ClipboardPermissionModal',
+  // BTC deriveContextHash
+  DeriveContextHashModal = 'DeriveContextHashModal',
 }
 
 export type IDAppConnectionModalParamList = {
@@ -82,5 +84,9 @@ export type IDAppConnectionModalParamList = {
   [EDAppConnectionModal.ClipboardPermissionModal]: {
     clipboardType: 'read' | 'write';
     textNonce?: string;
+  };
+  // appName/context kept in ServiceDApp's in-memory store, not the route.
+  [EDAppConnectionModal.DeriveContextHashModal]: {
+    nonce: string;
   };
 };

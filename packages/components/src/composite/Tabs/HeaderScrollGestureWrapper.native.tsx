@@ -20,6 +20,7 @@ const REFRESH_THRESHOLD = 80;
 
 export function HeaderScrollGestureWrapper({
   children,
+  disabled = false,
   onRefresh,
   disableMomentum = false,
   panActiveOffsetY = [-10, 10],
@@ -31,6 +32,8 @@ export function HeaderScrollGestureWrapper({
   horizontalSwipeVelocityThreshold = 0,
   simultaneousWithNativeGesture = false,
   cancelChildTouches = true,
+  onGestureActiveChange,
+  excludeBottomEdgeHeight = 0,
 }: PropsWithChildren<IHeaderScrollGestureWrapperProps>) {
   const tabsContext = useContext(CollapsibleTabContext);
   const refMap = tabsContext?.refMap;
@@ -41,18 +44,22 @@ export function HeaderScrollGestureWrapper({
   const startScrollY = useSharedValue(0);
   const targetScrollY = useSharedValue(0);
   const containerWidth = useSharedValue(0);
+  const containerHeight = useSharedValue(0);
   const isGestureEnabled = useSharedValue(true);
+  const hasNotifiedGestureActive = useSharedValue(false);
   const [measuredWidth, setMeasuredWidth] = useState(0);
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
       const layoutWidth = event.nativeEvent.layout.width;
+      const layoutHeight = event.nativeEvent.layout.height;
       containerWidth.value = layoutWidth;
+      containerHeight.value = layoutHeight;
       setMeasuredWidth((currentWidth) =>
         currentWidth === layoutWidth ? currentWidth : layoutWidth,
       );
     },
-    [containerWidth],
+    [containerHeight, containerWidth],
   );
 
   useAnimatedReaction(
@@ -76,24 +83,41 @@ export function HeaderScrollGestureWrapper({
       safeExcludeRightEdgeRatio > 0 && measuredWidth > 0
         ? measuredWidth * safeExcludeRightEdgeRatio
         : 0;
+    const safeExcludeBottomEdgeHeight = Math.max(0, excludeBottomEdgeHeight);
     const gestureHitSlop =
-      excludedRightEdgeWidth > 0
+      excludedRightEdgeWidth > 0 || safeExcludeBottomEdgeHeight > 0
         ? {
-            right: -excludedRightEdgeWidth,
+            ...(excludedRightEdgeWidth > 0
+              ? { right: -excludedRightEdgeWidth }
+              : {}),
+            ...(safeExcludeBottomEdgeHeight > 0
+              ? { bottom: -safeExcludeBottomEdgeHeight }
+              : {}),
           }
         : undefined;
-    const shouldIgnoreByStartX = (x: number) => {
+    const shouldIgnoreByStartPoint = (x: number, y: number) => {
       'worklet';
 
-      if (safeExcludeRightEdgeRatio <= 0 || containerWidth.value <= 0) {
-        return false;
+      if (safeExcludeRightEdgeRatio > 0 && containerWidth.value > 0) {
+        const excludedStartX =
+          containerWidth.value * (1 - safeExcludeRightEdgeRatio);
+        if (x >= excludedStartX) {
+          return true;
+        }
       }
-      const excludedStartX =
-        containerWidth.value * (1 - safeExcludeRightEdgeRatio);
-      return x >= excludedStartX;
+
+      if (
+        safeExcludeBottomEdgeHeight > 0 &&
+        containerHeight.value > safeExcludeBottomEdgeHeight
+      ) {
+        return y >= containerHeight.value - safeExcludeBottomEdgeHeight;
+      }
+
+      return false;
     };
 
     let verticalPanGesture = Gesture.Pan()
+      .enabled(!disabled)
       .activeOffsetY(panActiveOffsetY)
       .failOffsetX(panFailOffsetX);
 
@@ -101,17 +125,23 @@ export function HeaderScrollGestureWrapper({
       verticalPanGesture = verticalPanGesture.hitSlop(gestureHitSlop);
     }
 
+    verticalPanGesture =
+      verticalPanGesture.cancelsTouchesInView(cancelChildTouches);
     verticalPanGesture = verticalPanGesture
-      .cancelsTouchesInView(cancelChildTouches)
       .onStart((e) => {
         'worklet';
 
-        isGestureEnabled.value = !shouldIgnoreByStartX(e.x);
+        isGestureEnabled.value = !shouldIgnoreByStartPoint(e.x, e.y);
         if (!isGestureEnabled.value) {
+          hasNotifiedGestureActive.value = false;
           return;
         }
         cancelAnimation(targetScrollY);
         startScrollY.value = scrollYCurrent?.value ?? 0;
+        if (onGestureActiveChange) {
+          hasNotifiedGestureActive.value = true;
+          runOnJS(onGestureActiveChange)(true);
+        }
       })
       .onUpdate((e) => {
         'worklet';
@@ -140,6 +170,10 @@ export function HeaderScrollGestureWrapper({
       .onFinalize(() => {
         'worklet';
 
+        if (hasNotifiedGestureActive.value && onGestureActiveChange) {
+          runOnJS(onGestureActiveChange)(false);
+        }
+        hasNotifiedGestureActive.value = false;
         isGestureEnabled.value = true;
       });
 
@@ -151,6 +185,7 @@ export function HeaderScrollGestureWrapper({
     }
 
     let horizontalPanGesture = Gesture.Pan()
+      .enabled(!disabled)
       .activeOffsetX([-10, 10])
       .failOffsetY([-10, 10]);
 
@@ -158,12 +193,13 @@ export function HeaderScrollGestureWrapper({
       horizontalPanGesture = horizontalPanGesture.hitSlop(gestureHitSlop);
     }
 
+    horizontalPanGesture =
+      horizontalPanGesture.cancelsTouchesInView(cancelChildTouches);
     horizontalPanGesture = horizontalPanGesture
-      .cancelsTouchesInView(cancelChildTouches)
       .onStart((e) => {
         'worklet';
 
-        isGestureEnabled.value = !shouldIgnoreByStartX(e.x);
+        isGestureEnabled.value = !shouldIgnoreByStartPoint(e.x, e.y);
       })
       .onEnd((e) => {
         'worklet';
@@ -205,15 +241,20 @@ export function HeaderScrollGestureWrapper({
     panActiveOffsetY,
     panFailOffsetX,
     excludeRightEdgeRatio,
+    excludeBottomEdgeHeight,
     scrollScale,
     onHorizontalSwipe,
     horizontalSwipeThreshold,
     horizontalSwipeVelocityThreshold,
     simultaneousWithNativeGesture,
     cancelChildTouches,
+    onGestureActiveChange,
+    disabled,
+    containerHeight,
     containerWidth,
     measuredWidth,
     isGestureEnabled,
+    hasNotifiedGestureActive,
   ]);
 
   return (

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsAccountScopedActivePositions } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsAccountScopedOpenOrdersByCoin } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsAccountScopedOpenOrdersByCoin';
 import {
-  usePerpsActiveOpenOrdersAtom,
-  usePerpsActivePositionAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+  usePerpsCustomSettingsAtom,
+  useSpotActiveOpenOrdersAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { SPOT_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { MESSAGE_TYPES } from '../constants/messageTypes';
 import { buildAllLinesForSymbol } from '../utils/lineBuilder';
@@ -128,10 +131,12 @@ export function useChartLines({
   webRef,
   isReady,
 }: IUseChartLinesParams): IUseChartLinesReturn {
-  const [{ activePositions, accountAddress: positionsAccountAddress }] =
-    usePerpsActivePositionAtom();
-  const [{ openOrdersByCoin, accountAddress: ordersAccountAddress }] =
-    usePerpsActiveOpenOrdersAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const perpsPositions = usePerpsAccountScopedActivePositions();
+  const perpsOpenOrders = usePerpsAccountScopedOpenOrdersByCoin(symbol);
+  const [
+    { openOrders: spotOpenOrders, accountAddress: spotOrdersAccountAddress },
+  ] = useSpotActiveOpenOrdersAtom();
   const [{ showChartLines }] = usePerpsCustomSettingsAtom();
   const normalizedUserAddress = useMemo(
     () => normalizeAddress(userAddress),
@@ -169,27 +174,54 @@ export function useChartLines({
   }, []);
 
   const currentPositions = useMemo(() => {
-    if (
-      !normalizedUserAddress ||
-      normalizeAddress(positionsAccountAddress) !== normalizedUserAddress
-    ) {
+    if (!normalizedUserAddress) {
       return [];
     }
 
-    return activePositions;
-  }, [activePositions, normalizedUserAddress, positionsAccountAddress]);
+    return perpsPositions;
+  }, [normalizedUserAddress, perpsPositions]);
 
   // Get orders for current symbol
   const currentOrders = useMemo(() => {
-    if (
-      !normalizedUserAddress ||
-      normalizeAddress(ordersAccountAddress) !== normalizedUserAddress
-    ) {
+    if (!normalizedUserAddress) {
       return [];
     }
 
-    return openOrdersByCoin[symbol] || [];
-  }, [normalizedUserAddress, openOrdersByCoin, ordersAccountAddress, symbol]);
+    if (activeTradeInstrument.mode === 'spot') {
+      if (
+        normalizeAddress(spotOrdersAccountAddress) !== normalizedUserAddress
+      ) {
+        return [];
+      }
+      // Match against the chart `symbol`; only trust activeTradeInstrument's
+      // `@index`/pair aliases while it still points at this chart's symbol, so a
+      // drifted panel asset can't draw another pair's lines here (OK-56900).
+      const aliases = new Set<string>([symbol]);
+      if (activeTradeInstrument.coin === symbol) {
+        if (activeTradeInstrument.universe?.name) {
+          aliases.add(activeTradeInstrument.universe.name);
+        }
+        if (typeof activeTradeInstrument.assetId === 'number') {
+          aliases.add(
+            `@${activeTradeInstrument.assetId - SPOT_ASSET_ID_OFFSET}`,
+          );
+        }
+      }
+      return spotOpenOrders.filter((order) => aliases.has(order.coin));
+    }
+
+    return perpsOpenOrders;
+  }, [
+    activeTradeInstrument.mode,
+    activeTradeInstrument.coin,
+    activeTradeInstrument.assetId,
+    activeTradeInstrument.universe,
+    normalizedUserAddress,
+    perpsOpenOrders,
+    spotOpenOrders,
+    spotOrdersAccountAddress,
+    symbol,
+  ]);
 
   // Build current lines (returns empty if showChartLines is disabled)
   const currentLines = useMemo(() => {
@@ -213,9 +245,7 @@ export function useChartLines({
 
   // Send full sync
   const sendLinesSync = useCallback(() => {
-    if (!webRef.current || !isReady) {
-      return;
-    }
+    if (!webRef.current || !isReady) return;
 
     webRef.current.sendMessageViaInjectedScript({
       type: MESSAGE_TYPES.PERPS_TV_LINES_SYNC,
@@ -226,7 +256,6 @@ export function useChartLines({
       },
     });
 
-    // Update prev lines reference
     prevLinesRef.current = new Map(currentLines.map((line) => [line.id, line]));
   }, [webRef, isReady, symbol, currentLines]);
 
@@ -432,22 +461,28 @@ export function useChartLines({
     clearPendingPnlUpdates,
   ]);
 
-  // Handle lines update (incremental)
   useEffect(() => {
     if (!isReady || !userAddress) {
       return;
     }
 
-    // If no previous lines, do full sync
     if (prevLinesRef.current.size === 0 && currentLines.length > 0) {
       sendLinesSync();
       return;
     }
 
-    // Compute and send diff
     const patch = computeLinesDiff(prevLinesRef.current, currentLines);
-    patch.symbol = symbol;
-    sendLinesPatch(patch);
+    const hasStructuralChange = patch.add.length > 0 || patch.remove.length > 0;
+
+    if (hasStructuralChange) {
+      sendLinesSync();
+      return;
+    }
+
+    if (patch.update.length > 0) {
+      patch.symbol = symbol;
+      sendLinesPatch(patch);
+    }
   }, [
     currentLines,
     isReady,

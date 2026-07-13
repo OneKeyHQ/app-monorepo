@@ -6,6 +6,7 @@ import {
   Badge,
   Icon,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
   useMedia,
@@ -15,6 +16,7 @@ import {
   useCurrentWalletIdAtom,
   useDeviceMetaStateAtom,
   useDeviceMetaStaticAtom,
+  useRefreshSettledAtom,
   useWalletWithDeviceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { WalletRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRename';
@@ -57,13 +59,40 @@ function DeviceWalletRenameButton({
   return <WalletRenameButton wallet={wallet} editable textSize={textSize} />;
 }
 
-function DeviceBasicInfo() {
+function DeviceBasicInfoHeaderSkeleton({ avatarSize }: { avatarSize: number }) {
+  return (
+    <YStack gap="$4" flex={1} w="100%">
+      <XStack pt={10} h={100} gap="$4" ai="center">
+        <XStack w={80} ai="center" jc="center">
+          <Skeleton w={avatarSize} h={avatarSize} radius="round" />
+        </XStack>
+        <YStack gap="$3" pb="$1.5">
+          <Skeleton w={160} h="$7" radius={8} />
+          <Skeleton w={100} h="$4" radius={4} />
+          <XStack gap="$2">
+            <Skeleton w={72} h="$5" radius={4} />
+            <Skeleton w={80} h="$5" radius={4} />
+          </XStack>
+        </YStack>
+      </XStack>
+    </YStack>
+  );
+}
+
+function DeviceBasicInfo({
+  showFirmwareVersion = true,
+  showDeviceVerification = true,
+}: {
+  showFirmwareVersion?: boolean;
+  showDeviceVerification?: boolean;
+}) {
   const intl = useIntl();
   const { gtMd } = useMedia();
 
   const [currentWalletId] = useCurrentWalletIdAtom();
   const [deviceMetaStatic] = useDeviceMetaStaticAtom();
   const [deviceMetaState] = useDeviceMetaStateAtom();
+  const [refreshSettled] = useRefreshSettledAtom();
 
   const isQrWallet = accountUtils.isQrWallet({ walletId: currentWalletId });
 
@@ -91,6 +120,13 @@ function DeviceBasicInfo() {
     }),
     [],
   );
+
+  // Skeleton only while the first refresh is still in flight. Once settled,
+  // fall through to the real (possibly degraded) header so a missing
+  // featuresInfo / build error never sticks on an exit-less skeleton.
+  if (!isQrWallet && !deviceMetaState.isReady && !refreshSettled) {
+    return <DeviceBasicInfoHeaderSkeleton avatarSize={avatarSize} />;
+  }
 
   const status = deviceMetaState.isVerified
     ? verificationStatus.success
@@ -123,30 +159,32 @@ function DeviceBasicInfo() {
               {deviceMetaStatic.deviceName}
             </SizableText>
           ) : null}
-          {isQrWallet ? null : (
+          {isQrWallet || !showFirmwareVersion ? null : (
             <XStack mt="$4" gap="$2">
               <Badge badgeSize="sm" badgeType="default">
                 {deviceMetaStatic.firmwareVersionDisplay}
               </Badge>
-              <Badge
-                badgeSize="sm"
-                badgeType={deviceVerifiedBadge.verifiedBadgeType}
-                userSelect="none"
-              >
-                <XStack ai="center" gap="$1.5">
-                  <Icon
-                    name={deviceVerifiedBadge.verifiedBadgeIconName}
-                    color={deviceVerifiedBadge.verifiedBadgeIconColor}
-                    size="$4"
-                  />
-                  <SizableText
-                    size="$bodySmMedium"
-                    color={deviceVerifiedBadge.verifiedBadgeTextColor}
-                  >
-                    {deviceVerifiedBadge.verifiedBadgeText}
-                  </SizableText>
-                </XStack>
-              </Badge>
+              {showDeviceVerification ? (
+                <Badge
+                  badgeSize="sm"
+                  badgeType={deviceVerifiedBadge.verifiedBadgeType}
+                  userSelect="none"
+                >
+                  <XStack ai="center" gap="$1.5">
+                    <Icon
+                      name={deviceVerifiedBadge.verifiedBadgeIconName}
+                      color={deviceVerifiedBadge.verifiedBadgeIconColor}
+                      size="$4"
+                    />
+                    <SizableText
+                      size="$bodySmMedium"
+                      color={deviceVerifiedBadge.verifiedBadgeTextColor}
+                    >
+                      {deviceVerifiedBadge.verifiedBadgeText}
+                    </SizableText>
+                  </XStack>
+                </Badge>
+              ) : null}
             </XStack>
           )}
         </YStack>

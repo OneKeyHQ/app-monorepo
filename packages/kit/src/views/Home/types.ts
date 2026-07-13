@@ -336,3 +336,7 @@ export type IOverviewTokenDetailListItem = {
 };
 
 export const PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH = 400;
+
+export const STICKY_TOP_OFFSET = 64;
+export const LIST_END_FADE_PX = 24;
+export const OVERVIEW_TOP_N = 10;

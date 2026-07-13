@@ -6,6 +6,7 @@ import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
 import { useBannerData } from '../../hooks/useBannerData';
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
+import { DiscoveryTestIDs } from '../../testIDs';
 
 export function DashboardBanner({
   banners,
@@ -51,6 +52,7 @@ export function DashboardBanner({
 
   return (
     <Stack
+      testID={DiscoveryTestIDs.bannerCarousel}
       h={120}
       w="100%"
       $gtSm={{

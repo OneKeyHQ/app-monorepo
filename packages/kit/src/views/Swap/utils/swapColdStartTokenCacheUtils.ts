@@ -1,0 +1,966 @@
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import {
+  buildSwapSelectedTokensColdStartAccountKey,
+  buildSwapSelectedTokensColdStartContext,
+  isSwapColdStartAllNetworkContextNetworkId,
+  isSwapSelectedTokensColdStartContextMatched,
+} from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import {
+  swapBridgeDefaultTokenConfigs,
+  swapBridgeDefaultTokenExtraConfigs,
+  swapDefaultSetTokens,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type {
+  ISwapInitParams,
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+
+export {
+  buildSwapSelectedTokensColdStartAccountKey,
+  buildSwapSelectedTokensColdStartContext,
+  isSwapColdStartAllNetworkContextNetworkId,
+  isSwapSelectedTokensColdStartContextMatched,
+};
+
+export const SWAP_COLD_START_HOME_SCENE_NAME =
+  'home' as EAccountSelectorSceneName;
+
+type ISwapSelectedAccountKeySource = {
+  walletId?: string;
+  indexedAccountId?: string;
+  othersWalletAccountId?: string;
+  deriveType?: string;
+};
+
+type ISwapHomeSelectedAccountForDefaults = ISwapSelectedAccountKeySource & {
+  networkId?: string;
+};
+
+type ISwapAmountInputState = {
+  value?: string;
+  isInput?: boolean;
+};
+
+function hasSwapUserInputAmount({
+  fromTokenAmount,
+  toTokenAmount,
+}: {
+  fromTokenAmount?: ISwapAmountInputState;
+  toTokenAmount?: ISwapAmountInputState;
+}) {
+  return Boolean(
+    (fromTokenAmount?.isInput && fromTokenAmount.value) ||
+    (toTokenAmount?.isInput && toTokenAmount.value),
+  );
+}
+
+export function shouldPreserveSwapUserInputAmountOnAccountSwitch({
+  fromTokenAmount,
+  hasImportParams,
+  toTokenAmount,
+}: {
+  fromTokenAmount?: ISwapAmountInputState;
+  hasImportParams?: boolean;
+  toTokenAmount?: ISwapAmountInputState;
+}) {
+  return Boolean(
+    !hasImportParams &&
+    hasSwapUserInputAmount({
+      fromTokenAmount,
+      toTokenAmount,
+    }),
+  );
+}
+
+export function shouldPreserveSwapUserInputOnAccountSwitch({
+  fromTokenAmount,
+  hasImportParams,
+  hasSelectedTokens,
+  toTokenAmount,
+}: {
+  fromTokenAmount?: ISwapAmountInputState;
+  hasImportParams?: boolean;
+  hasSelectedTokens: boolean;
+  toTokenAmount?: ISwapAmountInputState;
+}) {
+  return Boolean(
+    hasSelectedTokens &&
+    shouldPreserveSwapUserInputAmountOnAccountSwitch({
+      fromTokenAmount,
+      hasImportParams,
+      toTokenAmount,
+    }),
+  );
+}
+
+export function buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount(
+  selectedAccount?: ISwapSelectedAccountKeySource,
+) {
+  // Delegate to the single shared key builder so the persisted selected-account
+  // key always matches the runtime active-account key. othersWalletAccountId is a
+  // DB account id, so it maps to dbAccount.id (which the shared builder resolves
+  // before account.id).
+  return buildSwapSelectedTokensColdStartAccountKey({
+    wallet: selectedAccount?.walletId
+      ? { id: selectedAccount.walletId }
+      : undefined,
+    indexedAccount: selectedAccount?.indexedAccountId
+      ? { id: selectedAccount.indexedAccountId }
+      : undefined,
+    dbAccount: selectedAccount?.othersWalletAccountId
+      ? { id: selectedAccount.othersWalletAccountId }
+      : undefined,
+    deriveType: selectedAccount?.deriveType,
+  });
+}
+
+export function isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount({
+  cachedContext,
+  selectedAccount,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext;
+  selectedAccount?: IAccountSelectorSelectedAccount;
+}) {
+  if (!cachedContext || !selectedAccount?.networkId) {
+    return undefined;
+  }
+
+  const accountKey =
+    buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount(
+      selectedAccount,
+    );
+  if (!accountKey) {
+    return undefined;
+  }
+
+  return (
+    cachedContext.accountKey === accountKey &&
+    cachedContext.networkId === selectedAccount.networkId
+  );
+}
+
+function buildSwapSelectedTokensColdStartOwnerKeyFromSelectedAccount(
+  selectedAccount?: ISwapSelectedAccountKeySource,
+) {
+  const walletId = selectedAccount?.walletId ?? '';
+  const accountId =
+    selectedAccount?.indexedAccountId ??
+    selectedAccount?.othersWalletAccountId ??
+    '';
+
+  if (!walletId && !accountId) {
+    return undefined;
+  }
+
+  return [walletId, accountId].join('|');
+}
+
+function buildSwapSelectedTokensColdStartOwnerKeyFromContext(
+  cachedContext?: ISwapSelectedTokensColdStartContext,
+) {
+  const [walletId = '', accountId = ''] =
+    cachedContext?.accountKey.split('|') ?? [];
+
+  if (!walletId && !accountId) {
+    return undefined;
+  }
+
+  return [walletId, accountId].join('|');
+}
+
+function isSelectedAccountOwnerMatchedIgnoringDeriveType(
+  accountA?: IAccountSelectorSelectedAccount,
+  accountB?: IAccountSelectorSelectedAccount,
+) {
+  const accountKeyA =
+    buildSwapSelectedTokensColdStartOwnerKeyFromSelectedAccount(accountA);
+  const accountKeyB =
+    buildSwapSelectedTokensColdStartOwnerKeyFromSelectedAccount(accountB);
+  return Boolean(accountKeyA && accountKeyA === accountKeyB);
+}
+
+function isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType({
+  cachedContext,
+  selectedAccount,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext;
+  selectedAccount?: IAccountSelectorSelectedAccount;
+}) {
+  const cachedOwnerKey =
+    buildSwapSelectedTokensColdStartOwnerKeyFromContext(cachedContext);
+  const selectedOwnerKey =
+    buildSwapSelectedTokensColdStartOwnerKeyFromSelectedAccount(
+      selectedAccount,
+    );
+  return Boolean(
+    cachedOwnerKey && selectedOwnerKey && cachedOwnerKey === selectedOwnerKey,
+  );
+}
+
+function isHomeMainAccountUpdate({
+  eventPayload,
+}: {
+  eventPayload: {
+    sceneName: EAccountSelectorSceneName;
+    num: number;
+  };
+}) {
+  return (
+    eventPayload.sceneName === SWAP_COLD_START_HOME_SCENE_NAME &&
+    eventPayload.num === 0
+  );
+}
+
+function shouldResetSelectedTokensForAllNetworkHome({
+  cachedContext,
+  selectedAccount,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext;
+  selectedAccount?: IAccountSelectorSelectedAccount;
+}) {
+  if (!isSwapColdStartAllNetworkContextNetworkId(selectedAccount?.networkId)) {
+    return false;
+  }
+
+  return (
+    !cachedContext ||
+    !isSwapColdStartAllNetworkContextNetworkId(cachedContext.networkId)
+  );
+}
+
+export function shouldClearSwapSelectedTokensOnHomeAccountUpdate({
+  cachedContext,
+  eventPayload,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext;
+  eventPayload: {
+    selectedAccount?: IAccountSelectorSelectedAccount;
+    sceneName: EAccountSelectorSceneName;
+    num: number;
+  };
+}) {
+  if (!isHomeMainAccountUpdate({ eventPayload })) {
+    return false;
+  }
+
+  // No cached context means there are no restored cold-start tokens to protect.
+  if (!cachedContext) {
+    return false;
+  }
+
+  // Home account was cleared/reset (disconnect, wallet removed, back to a default
+  // empty account): the new selected account has no network or no resolvable
+  // account key, so the restored tokens no longer belong to any active account
+  // and must be dropped. Treat this as an explicit mismatch rather than letting
+  // the matcher return undefined (which would leave stale tokens behind).
+  const { selectedAccount } = eventPayload;
+  const accountKey =
+    buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount(
+      selectedAccount,
+    );
+  if (!selectedAccount?.networkId || !accountKey) {
+    return true;
+  }
+
+  return (
+    isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount({
+      cachedContext,
+      selectedAccount,
+    }) === false
+  );
+}
+
+export function shouldHandleSwapColdStartHomeAccountUpdate({
+  cachedContext,
+  eventPayload,
+  hasSelectedTokens,
+  initialSelectedTokensSynced,
+  preserveSelectedTokens,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext;
+  eventPayload: {
+    selectedAccount?: IAccountSelectorSelectedAccount;
+    sceneName: EAccountSelectorSceneName;
+    num: number;
+  };
+  hasSelectedTokens?: boolean;
+  initialSelectedTokensSynced: boolean;
+  preserveSelectedTokens?: boolean;
+}) {
+  if (preserveSelectedTokens) {
+    return false;
+  }
+
+  if (initialSelectedTokensSynced) {
+    return false;
+  }
+
+  if (
+    hasSelectedTokens &&
+    shouldResetSelectedTokensForAllNetworkHome({
+      cachedContext,
+      selectedAccount: eventPayload.selectedAccount,
+    })
+  ) {
+    return true;
+  }
+
+  if (
+    hasSelectedTokens &&
+    isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType(
+      {
+        cachedContext,
+        selectedAccount: eventPayload.selectedAccount,
+      },
+    )
+  ) {
+    return false;
+  }
+
+  return shouldClearSwapSelectedTokensOnHomeAccountUpdate({
+    cachedContext,
+    eventPayload,
+  });
+}
+
+function getDefaultSelectedTokensSwapType({
+  fromToken,
+  toToken,
+}: {
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+}) {
+  if (
+    fromToken?.networkId &&
+    toToken?.networkId &&
+    fromToken.networkId !== toToken.networkId
+  ) {
+    return ESwapTabSwitchType.BRIDGE;
+  }
+
+  return ESwapTabSwitchType.SWAP;
+}
+
+function getBridgeDefaultToTokenForFromToken(fromToken?: ISwapToken) {
+  if (!fromToken) {
+    return undefined;
+  }
+
+  let defaultToToken: ISwapToken | undefined;
+  swapBridgeDefaultTokenConfigs.some((config) => {
+    const matchedToken = config.fromTokens.find((token) =>
+      equalTokenNoCaseSensitive({
+        token1: {
+          networkId: token.networkId,
+          contractAddress: token.contractAddress,
+        },
+        token2: {
+          networkId: fromToken.networkId,
+          contractAddress: fromToken.contractAddress,
+        },
+      }),
+    );
+    if (matchedToken) {
+      defaultToToken = config.toTokenDefaultMatch;
+    }
+    return Boolean(matchedToken);
+  });
+
+  if (defaultToToken) {
+    return defaultToToken;
+  }
+
+  return fromToken.networkId ===
+    swapBridgeDefaultTokenExtraConfigs.mainNetDefaultToTokenConfig.networkId
+    ? swapBridgeDefaultTokenExtraConfigs.mainNetDefaultToTokenConfig
+        .defaultToToken
+    : swapBridgeDefaultTokenExtraConfigs.defaultToToken;
+}
+
+function shouldUseBridgeDefaultToToken({
+  homeNetworkId,
+  preferredSwapType,
+}: {
+  homeNetworkId?: string;
+  preferredSwapType?: ESwapTabSwitchType;
+}) {
+  return (
+    preferredSwapType === ESwapTabSwitchType.BRIDGE &&
+    !isSwapColdStartAllNetworkContextNetworkId(homeNetworkId)
+  );
+}
+
+export function getSwapDefaultToTokenForSwapType({
+  fromToken,
+  homeNetworkId,
+  preferredSwapType,
+  toToken,
+}: {
+  fromToken?: ISwapToken;
+  homeNetworkId?: string;
+  preferredSwapType?: ESwapTabSwitchType;
+  toToken?: ISwapToken;
+}) {
+  if (
+    preferredSwapType === ESwapTabSwitchType.LIMIT ||
+    preferredSwapType === ESwapTabSwitchType.STOCK
+  ) {
+    return toToken;
+  }
+
+  if (
+    shouldUseBridgeDefaultToToken({
+      homeNetworkId,
+      preferredSwapType,
+    })
+  ) {
+    return getBridgeDefaultToTokenForFromToken(fromToken);
+  }
+
+  return toToken ?? getBridgeDefaultToTokenForFromToken(fromToken);
+}
+
+export function buildSwapDefaultSelectedTokensForNetwork({
+  networkId,
+  swapType: preferredSwapType,
+}: {
+  networkId?: string;
+  swapType?: ESwapTabSwitchType;
+}) {
+  if (!networkId || preferredSwapType === ESwapTabSwitchType.STOCK) {
+    return undefined;
+  }
+
+  const defaultTokens = swapDefaultSetTokens[networkId];
+  const useLimitDefaults = preferredSwapType === ESwapTabSwitchType.LIMIT;
+  const fromToken = useLimitDefaults
+    ? defaultTokens?.limitFromToken
+    : defaultTokens?.fromToken;
+  const toToken = getSwapDefaultToTokenForSwapType({
+    fromToken,
+    homeNetworkId: networkId,
+    preferredSwapType,
+    toToken: useLimitDefaults
+      ? defaultTokens?.limitToToken
+      : defaultTokens?.toToken,
+  });
+  if (!fromToken && !toToken) {
+    return undefined;
+  }
+
+  return {
+    fromToken,
+    toToken,
+    swapType: useLimitDefaults
+      ? ESwapTabSwitchType.LIMIT
+      : getDefaultSelectedTokensSwapType({ fromToken, toToken }),
+  };
+}
+
+export function buildSwapDefaultLimitSelectedTokens() {
+  const defaultLimitNetworkId = Object.keys(swapDefaultSetTokens).find(
+    (networkId) => {
+      const defaultTokenSet = swapDefaultSetTokens[networkId];
+      return Boolean(
+        defaultTokenSet?.limitFromToken && defaultTokenSet?.limitToToken,
+      );
+    },
+  );
+
+  return buildSwapDefaultSelectedTokensForNetwork({
+    networkId: defaultLimitNetworkId,
+    swapType: ESwapTabSwitchType.LIMIT,
+  });
+}
+
+export function getSwapSelectedTokensColdStartContextNetworkId({
+  accountNetworkId,
+  fromTokenNetworkId,
+}: {
+  accountNetworkId?: string;
+  fromTokenNetworkId?: string;
+}) {
+  if (
+    accountNetworkId &&
+    isSwapColdStartAllNetworkContextNetworkId(accountNetworkId)
+  ) {
+    return accountNetworkId;
+  }
+
+  return fromTokenNetworkId ?? accountNetworkId;
+}
+
+export function buildSwapDefaultSelectedTokensFromHomeAccount({
+  homeSelectedAccount,
+  swapType: preferredSwapType,
+  now = Date.now(),
+}: {
+  homeSelectedAccount?: ISwapHomeSelectedAccountForDefaults;
+  swapType?: ESwapTabSwitchType;
+  now?: number;
+}) {
+  const accountKey =
+    buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount(
+      homeSelectedAccount,
+    );
+  const homeNetworkId = homeSelectedAccount?.networkId;
+  if (!accountKey || !homeNetworkId) {
+    return undefined;
+  }
+
+  if (preferredSwapType === ESwapTabSwitchType.STOCK) {
+    return undefined;
+  }
+  const selectedTokens = buildSwapDefaultSelectedTokensForNetwork({
+    networkId: homeNetworkId,
+    swapType: preferredSwapType,
+  });
+  if (!selectedTokens) {
+    return undefined;
+  }
+  const { fromToken, toToken, swapType } = selectedTokens;
+
+  const contextNetworkId = getSwapSelectedTokensColdStartContextNetworkId({
+    accountNetworkId: homeNetworkId,
+    fromTokenNetworkId: fromToken?.networkId,
+  });
+  if (!contextNetworkId) {
+    return undefined;
+  }
+
+  return {
+    fromToken,
+    toToken,
+    context: {
+      accountKey,
+      networkId: contextNetworkId,
+      swapType,
+      updatedAt: now,
+    },
+    swapType,
+  };
+}
+
+export function getSelectedTokensColdStartChannelSupport({
+  swapType,
+  fromToken,
+  toToken,
+  swapNetworks,
+}: {
+  swapType: ESwapTabSwitchType;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  swapNetworks: ISwapNetwork[];
+}) {
+  if (
+    swapType !== ESwapTabSwitchType.LIMIT &&
+    swapType !== ESwapTabSwitchType.STOCK
+  ) {
+    return true;
+  }
+
+  const selectedTokenNetworkId = fromToken?.networkId ?? toToken?.networkId;
+  if (!selectedTokenNetworkId) {
+    return true;
+  }
+
+  if (!swapNetworks.length) {
+    return undefined;
+  }
+
+  const selectedTokenNetwork = swapNetworks.find(
+    (net) => net.networkId === selectedTokenNetworkId,
+  );
+  if (!selectedTokenNetwork) {
+    return true;
+  }
+
+  if (swapType === ESwapTabSwitchType.LIMIT) {
+    return Boolean(selectedTokenNetwork?.supportLimit);
+  }
+  return Boolean(selectedTokenNetwork?.supportStock);
+}
+
+export function getSwapTokenSupportTypes({
+  token,
+  swapNetworks,
+}: {
+  token?: ISwapToken;
+  swapNetworks: ISwapNetwork[];
+}) {
+  const supportNet = swapNetworks.find(
+    (net) => net.networkId === token?.networkId,
+  );
+  const supportTypes: ESwapTabSwitchType[] = [];
+  if (!supportNet) {
+    return supportTypes;
+  }
+
+  if (supportNet.supportSingleSwap) {
+    supportTypes.push(ESwapTabSwitchType.SWAP);
+  }
+  if (supportNet.supportCrossChainSwap) {
+    supportTypes.push(ESwapTabSwitchType.BRIDGE);
+  }
+  if (supportNet.supportLimit) {
+    supportTypes.push(ESwapTabSwitchType.LIMIT);
+  }
+  if (supportNet.supportStock) {
+    supportTypes.push(ESwapTabSwitchType.STOCK);
+  }
+
+  return supportTypes;
+}
+
+export function isSwapTokenSupportedBySwapType({
+  token,
+  swapNetworks,
+  swapType,
+}: {
+  token?: ISwapToken;
+  swapNetworks: ISwapNetwork[];
+  swapType?: ESwapTabSwitchType;
+}) {
+  return Boolean(
+    swapType &&
+    getSwapTokenSupportTypes({ token, swapNetworks }).includes(swapType),
+  );
+}
+
+function isSelectedAccountMatched(
+  accountA?: IAccountSelectorSelectedAccount,
+  accountB?: IAccountSelectorSelectedAccount,
+) {
+  return (
+    accountA?.walletId === accountB?.walletId &&
+    accountA?.indexedAccountId === accountB?.indexedAccountId &&
+    accountA?.othersWalletAccountId === accountB?.othersWalletAccountId &&
+    accountA?.networkId === accountB?.networkId &&
+    accountA?.deriveType === accountB?.deriveType
+  );
+}
+
+function isSelectedAccountOwnerMatched(
+  accountA?: IAccountSelectorSelectedAccount,
+  accountB?: IAccountSelectorSelectedAccount,
+) {
+  const accountKeyA =
+    buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount(accountA);
+  const accountKeyB =
+    buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount(accountB);
+  return Boolean(accountKeyA && accountKeyA === accountKeyB);
+}
+
+export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+  cachedContext,
+  hasSelectedTokens,
+  homeSelectedAccount,
+  initialSelectedTokensSynced,
+  preserveSelectedTokens,
+  swapSelectedAccount,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext;
+  hasSelectedTokens: boolean;
+  homeSelectedAccount?: IAccountSelectorSelectedAccount;
+  initialSelectedTokensSynced?: boolean;
+  preserveSelectedTokens?: boolean;
+  swapSelectedAccount?: IAccountSelectorSelectedAccount;
+}) {
+  if (!hasSelectedTokens) {
+    return false;
+  }
+
+  if (preserveSelectedTokens) {
+    return false;
+  }
+
+  if (
+    initialSelectedTokensSynced &&
+    isSelectedAccountOwnerMatchedIgnoringDeriveType(
+      homeSelectedAccount,
+      swapSelectedAccount,
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    shouldResetSelectedTokensForAllNetworkHome({
+      cachedContext,
+      selectedAccount: homeSelectedAccount,
+    })
+  ) {
+    return true;
+  }
+
+  const isMatched =
+    isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount({
+      cachedContext,
+      selectedAccount: homeSelectedAccount,
+    });
+  if (isMatched === true) {
+    return false;
+  }
+
+  const isSameOwnerAllNetworksHome =
+    isSwapColdStartAllNetworkContextNetworkId(homeSelectedAccount?.networkId) &&
+    isSelectedAccountOwnerMatched(homeSelectedAccount, swapSelectedAccount);
+  if (
+    isSameOwnerAllNetworksHome &&
+    (!cachedContext ||
+      isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount({
+        cachedContext,
+        selectedAccount: swapSelectedAccount,
+      }) === true)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+export function getSwapSelectedTokensHomeAccountSyncAction({
+  cachedContext,
+  hasSelectedTokens,
+  homeSelectedAccount,
+  initialSelectedTokensSynced,
+  preserveSelectedTokens,
+  swapSelectedAccount,
+  swapType,
+  now,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext;
+  hasSelectedTokens: boolean;
+  homeSelectedAccount?: IAccountSelectorSelectedAccount;
+  initialSelectedTokensSynced?: boolean;
+  preserveSelectedTokens?: boolean;
+  swapSelectedAccount?: IAccountSelectorSelectedAccount;
+  swapType: ESwapTabSwitchType;
+  now?: number;
+}):
+  | {
+      type: 'preserve';
+    }
+  | {
+      type: 'replace-with-defaults';
+      defaultTokens: NonNullable<
+        ReturnType<typeof buildSwapDefaultSelectedTokensFromHomeAccount>
+      >;
+    }
+  | {
+      type: 'clear';
+    } {
+  if (swapType === ESwapTabSwitchType.STOCK) {
+    return { type: 'preserve' };
+  }
+
+  const shouldClearSelectedTokens =
+    shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+      cachedContext,
+      hasSelectedTokens,
+      homeSelectedAccount,
+      initialSelectedTokensSynced,
+      preserveSelectedTokens,
+      swapSelectedAccount,
+    });
+  if (!shouldClearSelectedTokens) {
+    return { type: 'preserve' };
+  }
+
+  const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+    homeSelectedAccount,
+    swapType,
+    now,
+  });
+  if (defaultTokens) {
+    return { type: 'replace-with-defaults', defaultTokens };
+  }
+
+  return { type: 'clear' };
+}
+
+export function shouldSkipSwapDefaultSelectedTokenSync({
+  hasImportParams,
+  hasSelectedTokens,
+  initialSelectedTokensSynced,
+}: {
+  hasImportParams: boolean;
+  hasSelectedTokens: boolean;
+  initialSelectedTokensSynced: boolean;
+}) {
+  return initialSelectedTokensSynced && !hasImportParams && hasSelectedTokens;
+}
+
+function buildSwapInitTokenConsumptionKey(token?: ISwapToken) {
+  if (!token) {
+    return '';
+  }
+
+  return [
+    token.networkId ?? '',
+    token.contractAddress ?? '',
+    token.isNative ? 'native' : 'token',
+    token.symbol ?? '',
+  ].join(':');
+}
+
+export function buildSwapInitParamsConsumptionKey(params?: ISwapInitParams) {
+  if (
+    !params?.fromAmount &&
+    !params?.importFromToken &&
+    !params?.importToToken &&
+    !params?.importNetworkId
+  ) {
+    return undefined;
+  }
+
+  return [
+    params.fromAmount ?? '',
+    buildSwapInitTokenConsumptionKey(params.importFromToken),
+    buildSwapInitTokenConsumptionKey(params.importToToken),
+    params.importNetworkId ?? '',
+    params.swapTabSwitchType ?? '',
+    params.swapSource ?? '',
+  ].join('|');
+}
+
+export function shouldMarkSwapInitialSelectedTokensSynced({
+  hasSelectedTokens,
+  hasSyncedSwapSelectedAccountFromHomeStorage,
+  selectedTokensColdStartContextValid,
+}: {
+  hasSelectedTokens: boolean;
+  hasSyncedSwapSelectedAccountFromHomeStorage: boolean;
+  selectedTokensColdStartContextValid: boolean | undefined;
+}) {
+  return Boolean(
+    hasSelectedTokens &&
+    hasSyncedSwapSelectedAccountFromHomeStorage &&
+    selectedTokensColdStartContextValid === true,
+  );
+}
+
+export function isSwapSelectedTokensColdStartContextValidForAccountNetworkSync({
+  activeAccount,
+  fromToken,
+  preserveSelectedTokens,
+  selectedTokensColdStartContext,
+  toToken,
+}: {
+  activeAccount?: Parameters<
+    typeof buildSwapSelectedTokensColdStartContext
+  >[0]['activeAccount'];
+  fromToken?: ISwapToken;
+  preserveSelectedTokens?: boolean;
+  selectedTokensColdStartContext?: ISwapSelectedTokensColdStartContext;
+  toToken?: ISwapToken;
+}) {
+  if (!fromToken && !toToken) {
+    return true;
+  }
+  if (preserveSelectedTokens) {
+    return true;
+  }
+  if (!selectedTokensColdStartContext) {
+    return true;
+  }
+
+  const currentContext = buildSwapSelectedTokensColdStartContext({
+    activeAccount,
+    networkId: getSwapSelectedTokensColdStartContextNetworkId({
+      accountNetworkId: activeAccount?.network?.id,
+      fromTokenNetworkId: fromToken?.networkId,
+    }),
+  });
+  if (!currentContext) {
+    return false;
+  }
+
+  return isSwapSelectedTokensColdStartContextMatched({
+    cachedContext: selectedTokensColdStartContext,
+    currentContext,
+  });
+}
+
+export function shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+  cachedContext,
+  eventPayload,
+  hasSelectedTokens,
+  initialSelectedTokensSynced,
+  swapActiveNetworkId,
+  swapSelectedAccount,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext;
+  eventPayload: {
+    selectedAccount?: IAccountSelectorSelectedAccount;
+    sceneName: EAccountSelectorSceneName;
+    num: number;
+  };
+  hasSelectedTokens: boolean;
+  initialSelectedTokensSynced?: boolean;
+  swapActiveNetworkId?: string;
+  swapSelectedAccount?: IAccountSelectorSelectedAccount;
+}) {
+  if (!isHomeMainAccountUpdate({ eventPayload })) {
+    return false;
+  }
+
+  if (!eventPayload.selectedAccount?.networkId) {
+    return false;
+  }
+
+  if (hasSelectedTokens) {
+    if (
+      initialSelectedTokensSynced &&
+      isSelectedAccountOwnerMatchedIgnoringDeriveType(
+        eventPayload.selectedAccount,
+        swapSelectedAccount,
+      )
+    ) {
+      return false;
+    }
+
+    return (
+      isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount({
+        cachedContext,
+        selectedAccount: eventPayload.selectedAccount,
+      }) !== true
+    );
+  }
+
+  if (
+    swapActiveNetworkId &&
+    swapActiveNetworkId !== eventPayload.selectedAccount.networkId
+  ) {
+    return true;
+  }
+
+  return !isSelectedAccountMatched(
+    eventPayload.selectedAccount,
+    swapSelectedAccount,
+  );
+}
+
+export function buildSwapSelectedAccountSyncedFromHome({
+  homeSelectedAccount,
+  swapSelectedAccount,
+}: {
+  homeSelectedAccount: IAccountSelectorSelectedAccount;
+  swapSelectedAccount: IAccountSelectorSelectedAccount;
+}): IAccountSelectorSelectedAccount {
+  return {
+    ...swapSelectedAccount,
+    walletId: homeSelectedAccount.walletId,
+    indexedAccountId: homeSelectedAccount.indexedAccountId,
+    othersWalletAccountId: homeSelectedAccount.othersWalletAccountId,
+    focusedWallet: homeSelectedAccount.focusedWallet,
+    networkId: homeSelectedAccount.networkId,
+    deriveType:
+      homeSelectedAccount.deriveType ?? swapSelectedAccount.deriveType,
+  };
+}

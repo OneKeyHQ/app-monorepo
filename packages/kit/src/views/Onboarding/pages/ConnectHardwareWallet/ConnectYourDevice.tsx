@@ -48,7 +48,7 @@ import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -264,6 +264,7 @@ function ConnectByQrCode() {
       </SizableText>
       <TutorialsList tutorials={tutorials} mb="$5" w="100%" maxWidth="$96" />
       <Button
+        testID="onboarding-tutorials-btn"
         variant="primary"
         $md={
           {
@@ -653,7 +654,12 @@ function AnimationView({
           bg="$gray3"
           alignItems="center"
         >
-          <Button size="small" variant="tertiary" onPress={handleHelperPress}>
+          <Button
+            size="small"
+            variant="tertiary"
+            onPress={handleHelperPress}
+            testID="onboarding-handle-helper-press-btn"
+          >
             {intl.formatMessage({
               id: ETranslations.troubleshooting_show_helper_cta_label,
             })}
@@ -880,6 +886,7 @@ function ConnectByUSBOrBLE({
             })}
           </SizableText>
           <Button
+            testID="onboarding-btn"
             mx="auto"
             size="large"
             variant="primary"
@@ -1270,6 +1277,7 @@ export function ConnectYourDevicePage() {
                   renderContent: (
                     <XStack gap="$2.5">
                       <Button
+                        testID="onboarding-package-alert-dialog-btn"
                         flex={1}
                         size="large"
                         $gtMd={{ size: 'medium' } as any}
@@ -1280,6 +1288,7 @@ export function ConnectYourDevicePage() {
                         })}
                       </Button>
                       <Button
+                        testID="onboarding-package-alert-dialog-btn"
                         flex={1}
                         variant="primary"
                         size="large"

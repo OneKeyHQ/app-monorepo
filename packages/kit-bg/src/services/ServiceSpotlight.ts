@@ -60,6 +60,7 @@ class ServiceSpotlight extends ServiceBase {
         [ESpotlightTour.allNetworksInfo]: 0,
         [ESpotlightTour.earnRewardHistory]: 0,
         [ESpotlightTour.showDevelopmentBuildWarningDialog]: 0,
+        [ESpotlightTour.splitViewFirstPrompt]: 0,
       },
     });
   }

@@ -29,6 +29,9 @@ export function PrimeMasterPasswordInvalidDialog() {
       <Dialog.Footer
         showCancelButton
         showConfirmButton={false}
+        cancelButtonProps={{
+          testID: 'prime-login-master-password-invalid-dismiss-btn',
+        }}
         onCancelText="Got it"
         onCancel={async () => {
           //

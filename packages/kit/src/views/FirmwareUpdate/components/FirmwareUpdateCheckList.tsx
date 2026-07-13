@@ -10,10 +10,11 @@ import {
   useFirmwareUpdateWorkflowRunningAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmware';
+import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmwareVersions';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalFirmwareUpdateRoutes } from '@onekeyhq/shared/src/routes';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -21,6 +22,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { FirmwareUpdateTestIDs } from '../testIDs';
 
 export function FirmwareUpdateCheckList({
   result,
@@ -41,77 +43,70 @@ export function FirmwareUpdateCheckList({
     [],
   );
 
-  const [checkValueList, setCheckValueList] = useState([
-    {
-      label: intl.formatMessage({
-        id: ETranslations.update_i_have_backed_up_my_recovery_phrase,
-      }),
-      emoji: '✅',
-      value: false,
-    },
-    {
-      label: intl.formatMessage({
-        id: platformEnv.isNative
-          ? ETranslations.update_device_connected_via_bluetooth
-          : ETranslations.update_device_connected_via_usb,
-      }),
-      emoji: platformEnv.isNative ? '📲' : '🔌',
-      value: false,
-    },
-    // {
-    //   label: intl.formatMessage({
-    //     id: ETranslations.update_device_fully_charged,
-    //   }),
-    //   emoji: '🔋',
-    //   value: false,
-    // },
-    ...(platformEnv.isNative
-      ? []
-      : [
-          {
-            label: intl.formatMessage({
-              id: ETranslations.update_only_one_device_connected,
-            }),
-            emoji: '📱',
-            value: false,
-          },
-          {
-            label: intl.formatMessage({
-              id: ETranslations.update_all_other_apps_closed,
-            }),
-            emoji: '🆗',
-            value: false,
-          },
-        ]),
-  ]);
-  const onCheckChanged = useCallback(
-    (checkValue: { value: boolean }) => {
-      if (!isMountedRef.current) return;
-      checkValue.value = !checkValue.value;
-      setCheckValueList([...checkValueList]);
-    },
-    [checkValueList],
+  const checkItems = useMemo(
+    () => [
+      {
+        id: 'backup',
+        label: intl.formatMessage({
+          id: ETranslations.update_i_have_backed_up_my_recovery_phrase,
+        }),
+        emoji: '✅',
+      },
+      {
+        id: 'connection',
+        label: intl.formatMessage({
+          id: platformEnv.isNative
+            ? ETranslations.update_device_connected_via_bluetooth
+            : ETranslations.update_device_connected_via_usb,
+        }),
+        emoji: platformEnv.isNative ? '📲' : '🔌',
+      },
+      ...(platformEnv.isNative
+        ? []
+        : [
+            {
+              id: 'single-device',
+              label: intl.formatMessage({
+                id: ETranslations.update_only_one_device_connected,
+              }),
+              emoji: '📱',
+            },
+            {
+              id: 'apps-closed',
+              label: intl.formatMessage({
+                id: ETranslations.update_all_other_apps_closed,
+              }),
+              emoji: '🆗',
+            },
+          ]),
+    ],
+    [intl],
   );
+  const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
+  const onCheckChanged = useCallback((id: string) => {
+    if (!isMountedRef.current) return;
+    setCheckedMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
   const isAllChecked = useMemo(
-    () => checkValueList.every((x) => x.value),
-    [checkValueList],
+    () => checkItems.every((item) => checkedMap[item.id]),
+    [checkItems, checkedMap],
   );
 
   return (
     <Stack>
       <Stack>
-        {checkValueList.map((checkValue) => (
-          <Checkbox
-            key={checkValue.label}
-            value={checkValue.value}
-            label={
-              checkValue.value
-                ? `${checkValue.label} ${checkValue.emoji}`
-                : checkValue.label
-            }
-            onChange={() => onCheckChanged(checkValue)}
-          />
-        ))}
+        {checkItems.map((item) => {
+          const checked = !!checkedMap[item.id];
+          return (
+            <Checkbox
+              key={item.id}
+              value={checked}
+              testID={FirmwareUpdateTestIDs.checklistCheckbox}
+              label={checked ? `${item.label} ${item.emoji}` : item.label}
+              onChange={() => onCheckChanged(item.id)}
+            />
+          );
+        })}
       </Stack>
       <Dialog.Footer
         confirmButtonProps={{
@@ -126,6 +121,7 @@ export function FirmwareUpdateCheckList({
                   });
 
                 const updateFirmwareInfo = result?.updateInfos?.firmware;
+                let shouldResetWorkflowRunningInUi = true;
                 try {
                   await dialog.close();
 
@@ -156,26 +152,33 @@ export function FirmwareUpdateCheckList({
                       result,
                     });
                     setWorkflowIsRunning(true);
-                    await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflowV2(
-                      {
-                        backuped: true,
-                        usbConnected: true,
-                        releaseResult: result,
-                      },
-                    );
-                  } else {
-                    navigation.push(EModalFirmwareUpdateRoutes.Install, {
-                      result,
-                    });
-                    setWorkflowIsRunning(true);
-                    await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
-                      {
-                        backuped: true,
-                        usbConnected: true,
-                        releaseResult: result,
-                      },
+                    const { backgroundTaskStarted } =
+                      await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflowV2(
+                        {
+                          backuped: true,
+                          usbConnected: true,
+                          releaseResult: result,
+                        },
+                      );
+                    if (backgroundTaskStarted) {
+                      shouldResetWorkflowRunningInUi = false;
+                      return;
+                    }
+                    throw new OneKeyLocalError(
+                      'Firmware update background task failed to start',
                     );
                   }
+                  navigation.push(EModalFirmwareUpdateRoutes.Install, {
+                    result,
+                  });
+                  setWorkflowIsRunning(true);
+                  await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
+                    {
+                      backuped: true,
+                      usbConnected: true,
+                      releaseResult: result,
+                    },
+                  );
 
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
@@ -224,7 +227,9 @@ export function FirmwareUpdateCheckList({
                     errorMessage: err?.message,
                   });
                 } finally {
-                  setWorkflowIsRunning(false);
+                  if (shouldResetWorkflowRunningInUi) {
+                    setWorkflowIsRunning(false);
+                  }
                 }
               }
             : undefined

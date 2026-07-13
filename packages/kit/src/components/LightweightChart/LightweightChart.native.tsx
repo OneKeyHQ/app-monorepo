@@ -8,8 +8,18 @@ import { Stack } from '@onekeyhq/components';
 import { useChartConfig } from './hooks/useChartConfig';
 import { generateChartHTML } from './utils/htmlTemplate';
 
-import type { IChartMessage, ILightweightChartProps } from './types';
+import type {
+  IChartMessage,
+  ILightweightChartConfig,
+  ILightweightChartProps,
+} from './types';
 import type { WebViewMessageEvent } from 'react-native-webview';
+
+function buildStaticWebViewSource(config: ILightweightChartConfig) {
+  return {
+    html: generateChartHTML(config),
+  };
+}
 
 export function LightweightChart({
   data,
@@ -17,6 +27,7 @@ export function LightweightChart({
   lineColor,
   topColor,
   bottomColor,
+  textSubduedColor,
   secondaryLineData,
   secondaryLineColor,
   secondaryLineWidth,
@@ -24,11 +35,16 @@ export function LightweightChart({
   showPriceScale,
   showHorzGridLines,
   priceScaleMargins,
+  priceScaleEntireTextOnly,
   priceFormatter,
+  priceFormatterTickStep,
   fontSize,
   seriesType,
   baselineOptions,
   showLastValue,
+  showLastPointMarker,
+  showTimeScale,
+  useTimeScaleTickMarkWithoutUnit,
   onHover,
 }: ILightweightChartProps) {
   const webViewRef = useRef<WebView>(null);
@@ -39,6 +55,7 @@ export function LightweightChart({
     lineColor,
     topColor,
     bottomColor,
+    textSubduedColor,
     secondaryLineData,
     secondaryLineColor,
     secondaryLineWidth,
@@ -46,18 +63,23 @@ export function LightweightChart({
     showPriceScale,
     showHorzGridLines,
     priceScaleMargins,
+    priceScaleEntireTextOnly,
     priceFormatter,
+    priceFormatterTickStep,
     fontSize,
     seriesType,
     baselineOptions,
+    showLastValue,
+    showLastPointMarker,
+    showTimeScale,
+    useTimeScaleTickMarkWithoutUnit,
   });
   const nativeConfig = useMemo(
     () => ({ ...chartConfig, showLastValue: !!showLastValue }),
     [chartConfig, showLastValue],
   );
-  const htmlContent = useMemo(
-    () => generateChartHTML(nativeConfig),
-    [nativeConfig],
+  const [webViewSource] = useState(() =>
+    buildStaticWebViewSource(nativeConfig),
   );
 
   const handleMessage = useCallback(
@@ -93,38 +115,26 @@ export function LightweightChart({
     if (webViewReady && webViewRef.current) {
       const updateScript = `
         (function() {
-          const newConfig = ${JSON.stringify(chartConfig)};
-          if (window.series && window.chart) {
-            window.series.setData(newConfig.data);
-            if (Array.isArray(newConfig.secondaryLineData) && newConfig.secondaryLineData.length > 0) {
-              if (!window.secondarySeries) {
-                window.secondarySeries = window.chart.addLineSeries({
-                  color: newConfig.secondaryLineColor || '#0177E5',
-                  lineWidth: newConfig.secondaryLineWidth ?? 2,
-                  priceLineVisible: false,
-                  lastValueVisible: false,
-                  crosshairMarkerVisible: false,
-                });
-              }
-              window.secondarySeries.setData(newConfig.secondaryLineData);
-            } else if (window.secondarySeries) {
-              window.secondarySeries.setData([]);
-            }
-            window.chart.timeScale().fitContent();
+          const newConfig = ${JSON.stringify(nativeConfig)};
+          if (typeof window.applyChartConfig === 'function') {
+            window.applyChartConfig(newConfig);
           }
         })();
         true;
       `;
       webViewRef.current.injectJavaScript(updateScript);
     }
-  }, [chartConfig, webViewReady]);
+  }, [nativeConfig, webViewReady]);
 
   return (
     <Stack position="relative" height={height} width="100%">
       <View style={{ flex: 1 }}>
         <WebView
           ref={webViewRef}
-          source={{ html: htmlContent }}
+          source={webViewSource}
+          onLoadStart={() => {
+            setWebViewReady(false);
+          }}
           onMessage={handleMessage}
           scrollEnabled={false}
           showsVerticalScrollIndicator={false}

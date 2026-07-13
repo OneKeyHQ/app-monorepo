@@ -12,6 +12,7 @@ import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
+import type ServiceAddressRiskCheck from '../services/ServiceAddressRiskCheck';
 import type ServiceAllNetwork from '../services/ServiceAllNetwork';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppCleanup from '../services/ServiceAppCleanup';
@@ -41,6 +42,7 @@ import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
+import type ServiceHyperliquidCache from '../services/ServiceHyperLiquid/ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
 import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
@@ -82,7 +84,9 @@ import type ServiceSignatureConfirm from '../services/ServiceSignatureConfirm';
 import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
+import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
@@ -116,297 +120,396 @@ class BackgroundApiProxy
     },
   });
 
-  walletConnect = this._createProxyService(
-    'walletConnect',
-  ) as ProviderApiWalletConnect;
-
-  servicePromise = this._createProxyService('servicePromise') as ServicePromise;
-
-  servicePassword = this._createProxyService(
-    'servicePassword',
-  ) as ServicePassword;
-
-  serviceWebviewPerp = this._createProxyService(
-    'serviceWebviewPerp',
-  ) as ServiceWebviewPerp;
-
-  serviceDevSetting = this._createProxyService(
-    'serviceDevSetting',
-  ) as ServiceDevSetting;
-
-  serviceSetting = this._createProxyService('serviceSetting') as ServiceSetting;
-
-  serviceNetwork = this._createProxyService('serviceNetwork') as ServiceNetwork;
-
-  serviceAccount = this._createProxyService('serviceAccount') as ServiceAccount;
-
-  serviceAccountSelector = this._createProxyService(
-    'serviceAccountSelector',
-  ) as ServiceAccountSelector;
-
-  serviceApp = this._createProxyService('serviceApp') as ServiceApp;
-
-  serviceSend = this._createProxyService('serviceSend') as ServiceSend;
-
-  serviceSwap = this._createProxyService('serviceSwap') as ServiceSwap;
-
-  serviceToken = this._createProxyService('serviceToken') as ServiceToken;
-
-  serviceNFT = this._createProxyService('serviceNFT') as ServiceNFT;
-
-  serviceAppCleanup = this._createProxyService(
-    'serviceAppCleanup',
-  ) as ServiceAppCleanup;
-
-  serviceHistory = this._createProxyService('serviceHistory') as ServiceHistory;
-
-  serviceTransaction = this._createProxyService(
-    'serviceTransaction',
-  ) as ServiceTransaction;
-
-  serviceDeFi = this._createProxyService('serviceDeFi') as ServiceDeFi;
-
-  serviceValidator = this._createProxyService(
-    'serviceValidator',
-  ) as ServiceValidator;
-
-  serviceScanQRCode = this._createProxyService(
-    'serviceScanQRCode',
-  ) as ServiceScanQRCode;
-
-  serviceCloudBackup = this._createProxyService(
-    'serviceCloudBackup',
-  ) as ServiceCloudBackup;
-
-  serviceCloudBackupV2 = this._createProxyService(
-    'serviceCloudBackupV2',
-  ) as ServiceCloudBackupV2;
-
-  serviceLiteCardMnemonic = this._createProxyService(
-    'serviceLiteCardMnemonic',
-  ) as ServiceLiteCardMnemonic;
-
-  serviceNameResolver = this._createProxyService(
-    'serviceNameResolver',
-  ) as ServiceNameResolver;
-
-  serviceGas = this._createProxyService('serviceGas') as ServiceGas;
-
-  serviceDiscovery = this._createProxyService(
-    'serviceDiscovery',
-  ) as ServiceDiscovery;
-
-  serviceDemo = this._createProxyService('serviceDemo') as ServiceDemo;
-
-  serviceV4Migration = this._createProxyService(
-    'serviceV4Migration',
-  ) as ServiceV4Migration;
-
-  serviceDApp = this._createProxyService('serviceDApp') as ServiceDApp;
-
-  serviceDappSide = this._createProxyService(
-    'serviceDappSide',
-  ) as ServiceDappSide;
-
-  serviceWalletConnect = this._createProxyService(
-    'serviceWalletConnect',
-  ) as ServiceWalletConnect;
-
-  serviceNotification = this._createProxyService(
-    'serviceNotification',
-  ) as ServiceNotification;
-
-  servicePrime = this._createProxyService('servicePrime') as ServicePrime;
-
-  serviceMasterPassword = this._createProxyService(
-    'serviceMasterPassword',
-  ) as ServiceMasterPassword;
-
-  servicePrimeCloudSync = this._createProxyService(
-    'servicePrimeCloudSync',
-  ) as ServicePrimeCloudSync;
-
-  serviceKeylessCloudSync = this._createProxyService(
-    'serviceKeylessCloudSync',
-  ) as ServiceKeylessCloudSync;
-
-  serviceQrWallet = this._createProxyService(
-    'serviceQrWallet',
-  ) as ServiceQrWallet;
-
-  serviceAccountProfile = this._createProxyService(
-    'serviceAccountProfile',
-  ) as ServiceAccountProfile;
-
-  serviceFreshAddress = this._createProxyService(
-    'serviceFreshAddress',
-  ) as ServiceFreshAddress;
-
-  serviceBatchCreateAccount = this._createProxyService(
-    'serviceBatchCreateAccount',
-  ) as ServiceBatchCreateAccount;
-
-  serviceAllNetwork = this._createProxyService(
-    'serviceAllNetwork',
-  ) as ServiceAllNetwork;
-
-  serviceOnboarding = this._createProxyService(
-    'serviceOnboarding',
-  ) as ServiceOnboarding;
-
-  // serviceCronJob = this._createProxyService('serviceCronJob') as ServiceCronJob;
-
-  serviceBootstrap = this._createProxyService(
-    'serviceBootstrap',
-  ) as ServiceBootstrap;
-
-  serviceHardware = this._createProxyService(
-    'serviceHardware',
-  ) as ServiceHardware;
-
-  serviceHardwareUI = this._createProxyService(
-    'serviceHardwareUI',
-  ) as ServiceHardwareUI;
-
-  serviceFirmwareUpdate = this._createProxyService(
-    'serviceFirmwareUpdate',
-  ) as ServiceFirmwareUpdate;
-
-  serviceAddressBook = this._createProxyService(
-    'serviceAddressBook',
-  ) as ServiceAddressBook;
-
-  serviceAppUpdate = this._createProxyService(
-    'serviceAppUpdate',
-  ) as ServiceAppUpdate;
-
-  servicePendingInstallTask = this._createProxyService(
-    'servicePendingInstallTask',
-  ) as ServicePendingInstallTask;
-
-  serviceSpotlight = this._createProxyService(
-    'serviceSpotlight',
-  ) as ServiceSpotlight;
-
-  serviceMarket = this._createProxyService('serviceMarket') as ServiceMarket;
-
-  serviceMarketV2 = this._createProxyService(
-    'serviceMarketV2',
-  ) as ServiceMarketV2;
-
-  serviceMarketWS = this._createProxyService(
-    'serviceMarketWS',
-  ) as ServiceMarketWS;
-
-  serviceE2E = this._createProxyService('serviceE2E') as ServiceE2E;
-
-  serviceLightning = this._createProxyService(
-    'serviceLightning',
-  ) as ServiceLightning;
-
-  serviceLogger = this._createProxyService('serviceLogger') as ServiceLogger;
-
-  serviceContextMenu = this._createProxyService(
-    'serviceContextMenu',
-  ) as ServiceContextMenu;
-
-  serviceFiatCrypto = this._createProxyService(
-    'serviceFiatCrypto',
-  ) as ServiceFiatCrypto;
-
-  serviceSignature = this._createProxyService(
-    'serviceSignature',
-  ) as ServiceSignature;
-
-  serviceNostr = this._createProxyService('serviceNostr') as ServiceNostr;
-
-  serviceUniversalSearch = this._createProxyService(
-    'serviceUniversalSearch',
-  ) as ServiceUniversalSearch;
-
-  serviceStaking = this._createProxyService('serviceStaking') as ServiceStaking;
-
-  serviceExplorer = this._createProxyService(
-    'serviceExplorer',
-  ) as ServiceExplorer;
-
-  serviceCustomToken = this._createProxyService(
-    'serviceCustomToken',
-  ) as ServiceCustomToken;
-
-  serviceCustomRpc = this._createProxyService(
-    'serviceCustomRpc',
-  ) as ServiceCustomRpc;
-
-  serviceSignatureConfirm = this._createProxyService(
-    'serviceSignatureConfirm',
-  ) as ServiceSignatureConfirm;
-
-  serviceReferralCode = this._createProxyService(
-    'serviceReferralCode',
-  ) as ServiceReferralCode;
-
-  serviceDBBackup = this._createProxyService(
-    'serviceDBBackup',
-  ) as ServiceDBBackup;
-
-  servicePrimeTransfer = this._createProxyService(
-    'servicePrimeTransfer',
-  ) as ServicePrimeTransfer;
-
-  serviceWalletBanner = this._createProxyService(
-    'serviceWalletBanner',
-  ) as ServiceWalletBanner;
-
-  serviceApproval = this._createProxyService(
-    'serviceApproval',
-  ) as ServiceApproval;
-
-  serviceInternalSignAndVerify = this._createProxyService(
-    'serviceInternalSignAndVerify',
-  ) as ServiceInternalSignAndVerify;
-
-  serviceHyperliquid = this._createProxyService(
-    'serviceHyperliquid',
-  ) as ServiceHyperliquid;
-
-  serviceHyperliquidExchange = this._createProxyService(
-    'serviceHyperliquidExchange',
-  ) as ServiceHyperliquidExchange;
-
-  serviceHyperliquidReferral = this._createProxyService(
-    'serviceHyperliquidReferral',
-  ) as ServiceHyperliquidReferral;
-
-  serviceHyperliquidWallet = this._createProxyService(
-    'serviceHyperliquidWallet',
-  ) as ServiceHyperliquidWallet;
-
-  serviceHyperliquidSubscription = this._createProxyService(
-    'serviceHyperliquidSubscription',
-  ) as ServiceHyperliquidSubscription;
-
-  serviceWalletStatus = this._createProxyService(
-    'serviceWalletStatus',
-  ) as ServiceWalletStatus;
-
-  serviceKeylessWallet = this._createProxyService(
-    'serviceKeylessWallet',
-  ) as ServiceKeylessWallet;
-
-  serviceIpTable = this._createProxyService('serviceIpTable') as ServiceIpTable;
-
-  serviceNetworkDoctor = this._createProxyService(
-    'serviceNetworkDoctor',
-  ) as ServiceNetworkDoctor;
-
-  serviceOneKeyID = this._createProxyService(
-    'serviceOneKeyID',
-  ) as ServiceOneKeyID;
-
-  serviceRookieGuide = this._createProxyService(
-    'serviceRookieGuide',
-  ) as ServiceRookieGuide;
+  private readonly proxyServices = new Map<string, unknown>();
+
+  private getProxyService<T>(serviceName: string): T {
+    let service = this.proxyServices.get(serviceName);
+    if (!service) {
+      service = this._createProxyService(serviceName);
+      this.proxyServices.set(serviceName, service);
+    }
+    return service as T;
+  }
+
+  get walletConnect(): ProviderApiWalletConnect {
+    return this.getProxyService<ProviderApiWalletConnect>('walletConnect');
+  }
+
+  get servicePromise(): ServicePromise {
+    return this.getProxyService<ServicePromise>('servicePromise');
+  }
+
+  get servicePassword(): ServicePassword {
+    return this.getProxyService<ServicePassword>('servicePassword');
+  }
+
+  get serviceWebviewPerp(): ServiceWebviewPerp {
+    return this.getProxyService<ServiceWebviewPerp>('serviceWebviewPerp');
+  }
+
+  get serviceDevSetting(): ServiceDevSetting {
+    return this.getProxyService<ServiceDevSetting>('serviceDevSetting');
+  }
+
+  get serviceSetting(): ServiceSetting {
+    return this.getProxyService<ServiceSetting>('serviceSetting');
+  }
+
+  get serviceAddressRiskCheck(): ServiceAddressRiskCheck {
+    return this.getProxyService<ServiceAddressRiskCheck>(
+      'serviceAddressRiskCheck',
+    );
+  }
+
+  get serviceNetwork(): ServiceNetwork {
+    return this.getProxyService<ServiceNetwork>('serviceNetwork');
+  }
+
+  get serviceAccount(): ServiceAccount {
+    return this.getProxyService<ServiceAccount>('serviceAccount');
+  }
+
+  get serviceAccountSelector(): ServiceAccountSelector {
+    return this.getProxyService<ServiceAccountSelector>(
+      'serviceAccountSelector',
+    );
+  }
+
+  get serviceApp(): ServiceApp {
+    return this.getProxyService<ServiceApp>('serviceApp');
+  }
+
+  get serviceSend(): ServiceSend {
+    return this.getProxyService<ServiceSend>('serviceSend');
+  }
+
+  get serviceSwap(): ServiceSwap {
+    return this.getProxyService<ServiceSwap>('serviceSwap');
+  }
+
+  get serviceToken(): ServiceToken {
+    return this.getProxyService<ServiceToken>('serviceToken');
+  }
+
+  get serviceTokenViewModel(): ServiceTokenViewModel {
+    return this.getProxyService<ServiceTokenViewModel>('serviceTokenViewModel');
+  }
+
+  get serviceNFT(): ServiceNFT {
+    return this.getProxyService<ServiceNFT>('serviceNFT');
+  }
+
+  get serviceAppCleanup(): ServiceAppCleanup {
+    return this.getProxyService<ServiceAppCleanup>('serviceAppCleanup');
+  }
+
+  get serviceHistory(): ServiceHistory {
+    return this.getProxyService<ServiceHistory>('serviceHistory');
+  }
+
+  get serviceTransaction(): ServiceTransaction {
+    return this.getProxyService<ServiceTransaction>('serviceTransaction');
+  }
+
+  get serviceDeFi(): ServiceDeFi {
+    return this.getProxyService<ServiceDeFi>('serviceDeFi');
+  }
+
+  get serviceValidator(): ServiceValidator {
+    return this.getProxyService<ServiceValidator>('serviceValidator');
+  }
+
+  get serviceScanQRCode(): ServiceScanQRCode {
+    return this.getProxyService<ServiceScanQRCode>('serviceScanQRCode');
+  }
+
+  get serviceCloudBackup(): ServiceCloudBackup {
+    return this.getProxyService<ServiceCloudBackup>('serviceCloudBackup');
+  }
+
+  get serviceCloudBackupV2(): ServiceCloudBackupV2 {
+    return this.getProxyService<ServiceCloudBackupV2>('serviceCloudBackupV2');
+  }
+
+  get serviceLiteCardMnemonic(): ServiceLiteCardMnemonic {
+    return this.getProxyService<ServiceLiteCardMnemonic>(
+      'serviceLiteCardMnemonic',
+    );
+  }
+
+  get serviceNameResolver(): ServiceNameResolver {
+    return this.getProxyService<ServiceNameResolver>('serviceNameResolver');
+  }
+
+  get serviceGas(): ServiceGas {
+    return this.getProxyService<ServiceGas>('serviceGas');
+  }
+
+  get serviceDiscovery(): ServiceDiscovery {
+    return this.getProxyService<ServiceDiscovery>('serviceDiscovery');
+  }
+
+  get serviceDemo(): ServiceDemo {
+    return this.getProxyService<ServiceDemo>('serviceDemo');
+  }
+
+  get serviceV4Migration(): ServiceV4Migration {
+    return this.getProxyService<ServiceV4Migration>('serviceV4Migration');
+  }
+
+  get serviceDApp(): ServiceDApp {
+    return this.getProxyService<ServiceDApp>('serviceDApp');
+  }
+
+  get serviceDappSide(): ServiceDappSide {
+    return this.getProxyService<ServiceDappSide>('serviceDappSide');
+  }
+
+  get serviceWalletConnect(): ServiceWalletConnect {
+    return this.getProxyService<ServiceWalletConnect>('serviceWalletConnect');
+  }
+
+  get serviceNotification(): ServiceNotification {
+    return this.getProxyService<ServiceNotification>('serviceNotification');
+  }
+
+  get servicePrime(): ServicePrime {
+    return this.getProxyService<ServicePrime>('servicePrime');
+  }
+
+  get serviceMasterPassword(): ServiceMasterPassword {
+    return this.getProxyService<ServiceMasterPassword>('serviceMasterPassword');
+  }
+
+  get servicePrimeCloudSync(): ServicePrimeCloudSync {
+    return this.getProxyService<ServicePrimeCloudSync>('servicePrimeCloudSync');
+  }
+
+  get serviceKeylessCloudSync(): ServiceKeylessCloudSync {
+    return this.getProxyService<ServiceKeylessCloudSync>(
+      'serviceKeylessCloudSync',
+    );
+  }
+
+  get serviceQrWallet(): ServiceQrWallet {
+    return this.getProxyService<ServiceQrWallet>('serviceQrWallet');
+  }
+
+  get serviceAccountProfile(): ServiceAccountProfile {
+    return this.getProxyService<ServiceAccountProfile>('serviceAccountProfile');
+  }
+
+  get serviceFreshAddress(): ServiceFreshAddress {
+    return this.getProxyService<ServiceFreshAddress>('serviceFreshAddress');
+  }
+
+  get serviceBatchCreateAccount(): ServiceBatchCreateAccount {
+    return this.getProxyService<ServiceBatchCreateAccount>(
+      'serviceBatchCreateAccount',
+    );
+  }
+
+  get serviceAllNetwork(): ServiceAllNetwork {
+    return this.getProxyService<ServiceAllNetwork>('serviceAllNetwork');
+  }
+
+  get serviceOnboarding(): ServiceOnboarding {
+    return this.getProxyService<ServiceOnboarding>('serviceOnboarding');
+  }
+
+  // serviceCronJob remains intentionally absent.
+
+  get serviceBootstrap(): ServiceBootstrap {
+    return this.getProxyService<ServiceBootstrap>('serviceBootstrap');
+  }
+
+  get serviceHardware(): ServiceHardware {
+    return this.getProxyService<ServiceHardware>('serviceHardware');
+  }
+
+  get serviceHardwareUI(): ServiceHardwareUI {
+    return this.getProxyService<ServiceHardwareUI>('serviceHardwareUI');
+  }
+
+  get serviceThirdPartyHardware(): ServiceThirdPartyHardware {
+    return this.getProxyService<ServiceThirdPartyHardware>(
+      'serviceThirdPartyHardware',
+    );
+  }
+
+  get serviceFirmwareUpdate(): ServiceFirmwareUpdate {
+    return this.getProxyService<ServiceFirmwareUpdate>('serviceFirmwareUpdate');
+  }
+
+  get serviceAddressBook(): ServiceAddressBook {
+    return this.getProxyService<ServiceAddressBook>('serviceAddressBook');
+  }
+
+  get serviceAppUpdate(): ServiceAppUpdate {
+    return this.getProxyService<ServiceAppUpdate>('serviceAppUpdate');
+  }
+
+  get servicePendingInstallTask(): ServicePendingInstallTask {
+    return this.getProxyService<ServicePendingInstallTask>(
+      'servicePendingInstallTask',
+    );
+  }
+
+  get serviceSpotlight(): ServiceSpotlight {
+    return this.getProxyService<ServiceSpotlight>('serviceSpotlight');
+  }
+
+  get serviceMarket(): ServiceMarket {
+    return this.getProxyService<ServiceMarket>('serviceMarket');
+  }
+
+  get serviceMarketV2(): ServiceMarketV2 {
+    return this.getProxyService<ServiceMarketV2>('serviceMarketV2');
+  }
+
+  get serviceMarketWS(): ServiceMarketWS {
+    return this.getProxyService<ServiceMarketWS>('serviceMarketWS');
+  }
+
+  get serviceE2E(): ServiceE2E {
+    return this.getProxyService<ServiceE2E>('serviceE2E');
+  }
+
+  get serviceLightning(): ServiceLightning {
+    return this.getProxyService<ServiceLightning>('serviceLightning');
+  }
+
+  get serviceLogger(): ServiceLogger {
+    return this.getProxyService<ServiceLogger>('serviceLogger');
+  }
+
+  get serviceContextMenu(): ServiceContextMenu {
+    return this.getProxyService<ServiceContextMenu>('serviceContextMenu');
+  }
+
+  get serviceFiatCrypto(): ServiceFiatCrypto {
+    return this.getProxyService<ServiceFiatCrypto>('serviceFiatCrypto');
+  }
+
+  get serviceSignature(): ServiceSignature {
+    return this.getProxyService<ServiceSignature>('serviceSignature');
+  }
+
+  get serviceNostr(): ServiceNostr {
+    return this.getProxyService<ServiceNostr>('serviceNostr');
+  }
+
+  get serviceUniversalSearch(): ServiceUniversalSearch {
+    return this.getProxyService<ServiceUniversalSearch>(
+      'serviceUniversalSearch',
+    );
+  }
+
+  get serviceStaking(): ServiceStaking {
+    return this.getProxyService<ServiceStaking>('serviceStaking');
+  }
+
+  get serviceExplorer(): ServiceExplorer {
+    return this.getProxyService<ServiceExplorer>('serviceExplorer');
+  }
+
+  get serviceCustomToken(): ServiceCustomToken {
+    return this.getProxyService<ServiceCustomToken>('serviceCustomToken');
+  }
+
+  get serviceCustomRpc(): ServiceCustomRpc {
+    return this.getProxyService<ServiceCustomRpc>('serviceCustomRpc');
+  }
+
+  get serviceSignatureConfirm(): ServiceSignatureConfirm {
+    return this.getProxyService<ServiceSignatureConfirm>(
+      'serviceSignatureConfirm',
+    );
+  }
+
+  get serviceReferralCode(): ServiceReferralCode {
+    return this.getProxyService<ServiceReferralCode>('serviceReferralCode');
+  }
+
+  get serviceDBBackup(): ServiceDBBackup {
+    return this.getProxyService<ServiceDBBackup>('serviceDBBackup');
+  }
+
+  get servicePrimeTransfer(): ServicePrimeTransfer {
+    return this.getProxyService<ServicePrimeTransfer>('servicePrimeTransfer');
+  }
+
+  get serviceWalletBanner(): ServiceWalletBanner {
+    return this.getProxyService<ServiceWalletBanner>('serviceWalletBanner');
+  }
+
+  get serviceApproval(): ServiceApproval {
+    return this.getProxyService<ServiceApproval>('serviceApproval');
+  }
+
+  get serviceInternalSignAndVerify(): ServiceInternalSignAndVerify {
+    return this.getProxyService<ServiceInternalSignAndVerify>(
+      'serviceInternalSignAndVerify',
+    );
+  }
+
+  get serviceHyperliquid(): ServiceHyperliquid {
+    return this.getProxyService<ServiceHyperliquid>('serviceHyperliquid');
+  }
+
+  get serviceHyperliquidCache(): ServiceHyperliquidCache {
+    return this.getProxyService<ServiceHyperliquidCache>(
+      'serviceHyperliquidCache',
+    );
+  }
+
+  get serviceHyperliquidExchange(): ServiceHyperliquidExchange {
+    return this.getProxyService<ServiceHyperliquidExchange>(
+      'serviceHyperliquidExchange',
+    );
+  }
+
+  get serviceHyperliquidReferral(): ServiceHyperliquidReferral {
+    return this.getProxyService<ServiceHyperliquidReferral>(
+      'serviceHyperliquidReferral',
+    );
+  }
+
+  get serviceHyperliquidWallet(): ServiceHyperliquidWallet {
+    return this.getProxyService<ServiceHyperliquidWallet>(
+      'serviceHyperliquidWallet',
+    );
+  }
+
+  get serviceHyperliquidSubscription(): ServiceHyperliquidSubscription {
+    return this.getProxyService<ServiceHyperliquidSubscription>(
+      'serviceHyperliquidSubscription',
+    );
+  }
+
+  get serviceWalletStatus(): ServiceWalletStatus {
+    return this.getProxyService<ServiceWalletStatus>('serviceWalletStatus');
+  }
+
+  get serviceKeylessWallet(): ServiceKeylessWallet {
+    return this.getProxyService<ServiceKeylessWallet>('serviceKeylessWallet');
+  }
+
+  get serviceIpTable(): ServiceIpTable {
+    return this.getProxyService<ServiceIpTable>('serviceIpTable');
+  }
+
+  get serviceNetworkDoctor(): ServiceNetworkDoctor {
+    return this.getProxyService<ServiceNetworkDoctor>('serviceNetworkDoctor');
+  }
+
+  get serviceOneKeyID(): ServiceOneKeyID {
+    return this.getProxyService<ServiceOneKeyID>('serviceOneKeyID');
+  }
+
+  get serviceRookieGuide(): ServiceRookieGuide {
+    return this.getProxyService<ServiceRookieGuide>('serviceRookieGuide');
+  }
 }
 
 export default BackgroundApiProxy;

@@ -5,6 +5,7 @@ import { OffscreenApiProxyBase } from '../OffscreenApiProxyBase';
 import type { IOffscreenApi } from './IOffscreenApi';
 import type OffscreenApiAdaSdk from '../OffscreenApiAdaSdk';
 import type OffscreenApiKaspaSdk from '../OffscreenApiKaspaSdk';
+import type OffscreenApiThirdPartyHardware from '../OffscreenApiThirdPartyHardware';
 import type { LowLevelCoreApi } from '@onekeyfe/hd-core';
 
 class OffscreenApiProxy extends OffscreenApiProxyBase implements IOffscreenApi {
@@ -28,6 +29,14 @@ class OffscreenApiProxy extends OffscreenApiProxyBase implements IOffscreenApi {
 
   kaspaSdk: OffscreenApiKaspaSdk = this._createProxyModule(
     'kaspaSdk',
+    undefined,
+    {
+      asyncThenSupport: true,
+    },
+  );
+
+  thirdPartyHardware: OffscreenApiThirdPartyHardware = this._createProxyModule(
+    'thirdPartyHardware',
     undefined,
     {
       asyncThenSupport: true,

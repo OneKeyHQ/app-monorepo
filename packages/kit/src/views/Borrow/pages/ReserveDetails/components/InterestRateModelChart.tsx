@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@tamagui/core';
-import { createChart } from 'lightweight-charts';
 
 import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import type { ILightweightChartTheme } from '@onekeyhq/kit/src/components/LightweightChart/types';
@@ -9,6 +8,7 @@ import {
   createAreaSeriesOptions,
   createChartOptions,
 } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartOptions';
+import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 
 import {
   CHART_HEIGHT,
@@ -32,8 +32,19 @@ import type {
   BusinessDay,
   IChartApi,
   ISeriesApi,
+  Time,
   UTCTimestamp,
 } from 'lightweight-charts';
+
+const getChartLib = createLazySdkLoader(() => import('lightweight-charts'));
+
+function getSeriesValue(seriesData: unknown): number | undefined {
+  if (seriesData && typeof seriesData === 'object' && 'value' in seriesData) {
+    const value = seriesData.value;
+    return typeof value === 'number' ? value : Number(value);
+  }
+  return undefined;
+}
 
 export function InterestRateModelChart({
   borrowCurve,
@@ -60,9 +71,9 @@ export function InterestRateModelChart({
 
   const handleCrosshairMove = useCallback(
     (param: {
-      time?: UTCTimestamp | BusinessDay;
+      time?: Time;
       point?: { x: number; y: number };
-      seriesPrices?: Map<ISeriesApi<'Area'>, number>;
+      seriesData?: Map<unknown, unknown>;
     }) => {
       if (
         param.time &&
@@ -70,8 +81,12 @@ export function InterestRateModelChart({
         supplySeriesRef.current &&
         borrowSeriesRef.current
       ) {
-        const supplyPrice = param.seriesPrices?.get(supplySeriesRef.current);
-        const borrowPrice = param.seriesPrices?.get(borrowSeriesRef.current);
+        const supplyPrice = getSeriesValue(
+          param.seriesData?.get(supplySeriesRef.current),
+        );
+        const borrowPrice = getSeriesValue(
+          param.seriesData?.get(borrowSeriesRef.current),
+        );
 
         if (supplyPrice !== undefined && borrowPrice !== undefined) {
           const timeValue =
@@ -108,13 +123,12 @@ export function InterestRateModelChart({
       bottomColor: string,
     ): ILightweightChartTheme => ({
       bgColor: 'transparent',
-      textColor: theme.text?.val || '#000000',
       textSubduedColor: theme.textSubdued?.val || '#666666',
       lineColor,
       topColor,
       bottomColor,
     }),
-    [theme.text?.val, theme.textSubdued?.val],
+    [theme.textSubdued?.val],
   );
 
   const supplyTheme = useMemo(
@@ -169,109 +183,116 @@ export function InterestRateModelChart({
       return undefined;
     }
 
+    let cancelled = false;
+    let resizeObserver: ResizeObserver | undefined;
+    let chart: IChartApi | undefined;
+
     const container = chartContainerRef.current;
 
-    // Create chart with custom time scale formatter and grid lines
-    const baseOptions = createChartOptions(supplyTheme, true);
-    const chart = createChart(container, {
-      ...baseOptions,
-      width: container.clientWidth,
-      height: CHART_HEIGHT,
-      grid: {
-        vertLines: {
-          visible: false,
-        },
-        horzLines: {
-          visible: true,
-          color: theme.borderSubdued?.val || '#E5E5EA',
-          style: 2,
-        },
-      },
-      rightPriceScale: {
-        ...baseOptions.rightPriceScale,
-        borderVisible: false,
-      },
-      timeScale: {
-        ...baseOptions.timeScale,
-        tickMarkFormatter: (time: UTCTimestamp | BusinessDay) => {
-          const timeValue = typeof time === 'number' ? time : Number(time);
-          const util = convertTimeToUtilization(timeValue);
-          return `${Math.round(util * 100)}%`;
-        },
-      },
-    });
+    void getChartLib().then(({ AreaSeries, createChart }) => {
+      if (cancelled) return;
 
-    // Add supply series
-    const supplySeries = chart.addAreaSeries(
-      createAreaSeriesOptions(supplyTheme, 2),
-    );
-    supplySeries.setData(chartData.supplyData);
-    supplySeriesRef.current = supplySeries;
-
-    // Add borrow series
-    const borrowSeries = chart.addAreaSeries(
-      createAreaSeriesOptions(borrowTheme, 2),
-    );
-    borrowSeries.setData(chartData.borrowData);
-    borrowSeriesRef.current = borrowSeries;
-
-    // Subscribe to crosshair move for tooltip
-    chart.subscribeCrosshairMove((param) => {
-      handleCrosshairMove({
-        time: param.time,
-        point: param.point,
-        seriesPrices: param.seriesPrices as
-          | Map<ISeriesApi<'Area'>, number>
-          | undefined,
+      // Create chart with custom time scale formatter and grid lines
+      const baseOptions = createChartOptions(supplyTheme, true);
+      chart = createChart(container, {
+        ...baseOptions,
+        width: container.clientWidth,
+        height: CHART_HEIGHT,
+        grid: {
+          vertLines: {
+            visible: false,
+          },
+          horzLines: {
+            visible: true,
+            color: theme.borderSubdued?.val || '#E5E5EA',
+            style: 2,
+          },
+        },
+        rightPriceScale: {
+          ...baseOptions.rightPriceScale,
+          borderVisible: false,
+        },
+        timeScale: {
+          ...baseOptions.timeScale,
+          tickMarkFormatter: (time: UTCTimestamp | BusinessDay) => {
+            const timeValue = typeof time === 'number' ? time : Number(time);
+            const util = convertTimeToUtilization(timeValue);
+            return `${Math.round(util * 100)}%`;
+          },
+        },
       });
-    });
 
-    // Calculate current utilization vertical line x coordinate
-    const currentUtilTime = utilizationRatio
-      ? convertUtilizationToTime(
-          normalizeUtilization(parseFloat(utilizationRatio)),
-        )
-      : null;
+      // Add supply series
+      const supplySeries = chart.addSeries(
+        AreaSeries,
+        createAreaSeriesOptions(supplyTheme, 2),
+      );
+      supplySeries.setData(chartData.supplyData);
+      supplySeriesRef.current = supplySeries;
 
-    const updateVerticalLinePosition = () => {
-      if (currentUtilTime !== null) {
-        const xCoord = chart
-          .timeScale()
-          .timeToCoordinate(currentUtilTime as UTCTimestamp);
-        setVerticalLineX(xCoord);
-      } else {
-        setVerticalLineX(null);
-      }
-    };
+      // Add borrow series
+      const borrowSeries = chart.addSeries(
+        AreaSeries,
+        createAreaSeriesOptions(borrowTheme, 2),
+      );
+      borrowSeries.setData(chartData.borrowData);
+      borrowSeriesRef.current = borrowSeries;
 
-    // Update position after chart is ready
-    chart
-      .timeScale()
-      .subscribeVisibleTimeRangeChange(updateVerticalLinePosition);
+      // Subscribe to crosshair move for tooltip
+      chart.subscribeCrosshairMove((param) => {
+        handleCrosshairMove({
+          time: param.time,
+          point: param.point,
+          seriesData: param.seriesData,
+        });
+      });
 
-    chartRef.current = chart;
+      // Calculate current utilization vertical line x coordinate
+      const currentUtilTime = utilizationRatio
+        ? convertUtilizationToTime(
+            normalizeUtilization(parseFloat(utilizationRatio)),
+          )
+        : null;
 
-    chart.timeScale().fitContent();
+      const localChart = chart;
+      const updateVerticalLinePosition = () => {
+        if (currentUtilTime !== null) {
+          const xCoord = localChart
+            .timeScale()
+            .timeToCoordinate(currentUtilTime as UTCTimestamp);
+          setVerticalLineX(xCoord);
+        } else {
+          setVerticalLineX(null);
+        }
+      };
 
-    // Initial position update after fitContent
-    requestAnimationFrame(updateVerticalLinePosition);
-
-    // Handle resize
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (entries.length === 0 || entries[0].target !== container) return;
-      const { width: newWidth } = entries[0].contentRect;
-      chart.applyOptions({ width: newWidth });
-      updateVerticalLinePosition();
-    });
-
-    resizeObserver.observe(container);
-
-    return () => {
+      // Update position after chart is ready
       chart
         .timeScale()
-        .unsubscribeVisibleTimeRangeChange(updateVerticalLinePosition);
-      resizeObserver.disconnect();
-      chart.remove();
+        .subscribeVisibleTimeRangeChange(updateVerticalLinePosition);
+
+      chartRef.current = chart;
+
+      chart.timeScale().fitContent();
+
+      // Initial position update after fitContent
+      requestAnimationFrame(updateVerticalLinePosition);
+
+      // Handle resize
+      resizeObserver = new ResizeObserver((entries) => {
+        if (entries.length === 0 || entries[0].target !== container) return;
+        const { width: newWidth } = entries[0].contentRect;
+        localChart.applyOptions({ width: newWidth });
+        updateVerticalLinePosition();
+      });
+
+      resizeObserver.observe(container);
+    });
+
+    return () => {
+      cancelled = true;
+      resizeObserver?.disconnect();
+      chart?.remove();
       chartRef.current = null;
       supplySeriesRef.current = null;
       borrowSeriesRef.current = null;

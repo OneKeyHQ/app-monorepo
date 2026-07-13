@@ -28,6 +28,7 @@ import SwapProLimitPriceValue from './SwapProLimitPriceValue';
 import { SwapProSlippageSetting } from './SwapProSlippageSetting';
 import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
 
+import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 import type { ITradeType } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 
 interface ISwapProTradingPanelProps {
@@ -35,7 +36,6 @@ interface ISwapProTradingPanelProps {
   balanceLoading: boolean;
   configLoading: boolean;
   supportSpeedSwap: boolean;
-  onlySupportCrossChain: boolean;
   isMev: boolean;
   onSwapProActionClick: () => void;
   hasEnoughBalance: boolean;
@@ -44,11 +44,11 @@ interface ISwapProTradingPanelProps {
   onBalanceMax: () => void;
   onSelectPercentageStage: (stage: number) => void;
   limitPriceUseMarketPrice: { value: string; change: boolean };
+  marketPresetSettings?: IMarketPresetSettingsState;
 }
 
 const SwapProTradingPanel = ({
   supportSpeedSwap,
-  onlySupportCrossChain,
   swapProConfig,
   balanceLoading,
   isMev,
@@ -60,6 +60,7 @@ const SwapProTradingPanel = ({
   limitPriceUseMarketPrice,
   hasEnoughBalance,
   cleanInputAmount,
+  marketPresetSettings,
 }: ISwapProTradingPanelProps) => {
   const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
@@ -107,6 +108,13 @@ const SwapProTradingPanel = ({
     },
     [setSwapProDirection, swapProDirection],
   );
+  const showSwapProSlippageSetting =
+    swapProTradeType === ESwapProTradeType.MARKET &&
+    (!marketPresetSettings ||
+      (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
+  const isMarketPresetActionDisabled =
+    swapProTradeType === ESwapProTradeType.MARKET &&
+    !!marketPresetSettings?.isLoading;
 
   useSwapProActionsQuote();
 
@@ -144,7 +152,7 @@ const SwapProTradingPanel = ({
           defaultLimitTokens={swapProConfig.defaultLimitTokens}
         />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
-        {swapProTradeType === ESwapProTradeType.MARKET ? (
+        {showSwapProSlippageSetting ? (
           <SwapProSlippageSetting isMEV={isMev} />
         ) : null}
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
@@ -209,7 +217,7 @@ const SwapProTradingPanel = ({
         hasEnoughBalance={hasEnoughBalance}
         balanceLoading={balanceLoading}
         supportSpeedSwap={supportSpeedSwap}
-        onlySupportCrossChain={onlySupportCrossChain}
+        isActionDisabled={isMarketPresetActionDisabled}
       />
     </YStack>
   );

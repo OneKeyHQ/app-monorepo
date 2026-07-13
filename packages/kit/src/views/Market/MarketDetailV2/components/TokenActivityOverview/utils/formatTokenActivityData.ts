@@ -7,7 +7,14 @@ function toNumberOrUndefined(
   if (value === undefined || value === null) {
     return undefined;
   }
-  return Number(value);
+
+  const normalizedValue = typeof value === 'string' ? value.trim() : value;
+  if (normalizedValue === '') {
+    return undefined;
+  }
+
+  const numericValue = Number(normalizedValue);
+  return Number.isFinite(numericValue) ? numericValue : undefined;
 }
 
 export function formatTokenActivityData(

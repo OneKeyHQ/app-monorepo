@@ -27,6 +27,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       allowpopups,
       isSpinnerLoading,
       displayProgressBar,
+      disableBridge,
+      partition,
       onDidStartLoading,
       onDidStartNavigation,
       onDidFinishLoad,
@@ -139,6 +141,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           src={src}
           onSrcChange={onSrcChange}
           receiveHandler={receiveHandler}
+          disableBridge={disableBridge}
+          partition={partition}
           // Warning: any string work, any bool not work
           // @ts-expect-error
           allowpopups={allowpopups.toString()}
@@ -146,7 +150,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
             // we can resize desktop to vertical only in DEV env currently
             undefined
           }
-          onDidStartLoading={() => innerOnDidStartLoading}
+          onDidStartLoading={innerOnDidStartLoading}
           onDidStartNavigation={onDidStartNavigation}
           onDidFinishLoad={onDidFinishLoad}
           onLoadEnd={onLoadEnd}

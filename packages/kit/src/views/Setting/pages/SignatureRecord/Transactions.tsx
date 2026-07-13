@@ -288,6 +288,7 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
           </SizableText>
           {!vaultSettings.hideBlockExplorer ? (
             <IconButton
+              testID="setting-on-press-icon-btn"
               variant="tertiary"
               title={
                 item.hash

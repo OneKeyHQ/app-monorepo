@@ -26,6 +26,11 @@ import { settingsAtom } from '../states/jotai/atoms';
 import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
+import {
+  isAccountSelectorHomeSyncSourceScene,
+  isAccountSelectorHomeSyncTargetScene,
+  shouldSyncAccountSelectorHomeAndSwapScenes,
+} from './utils/accountSelectorHomeSyncUtils';
 
 import type {
   IDBAccount,
@@ -62,34 +67,120 @@ class ServiceAccountSelector extends ServiceBase {
     sceneUrl?: string;
     num: number;
   }) {
-    const syncScenes: {
-      sceneName: EAccountSelectorSceneName;
-      num: number;
-    }[] = [
-      {
-        sceneName: EAccountSelectorSceneName.home,
-        num: 0,
-      },
-      {
-        sceneName: EAccountSelectorSceneName.swap,
-        num: 0,
-      },
-    ];
-
     const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
-    if (!swapToAnotherAccountSwitchOn) {
-      syncScenes.push({
-        sceneName: EAccountSelectorSceneName.swap,
-        num: 1,
-      });
+    return isAccountSelectorHomeSyncTargetScene({
+      scene: { sceneName, sceneUrl, num },
+      swapToAnotherAccountSwitchOn,
+    });
+  }
+
+  @backgroundMethod()
+  async shouldSyncWithHomeSource(params: {
+    sceneName: EAccountSelectorSceneName;
+    sceneUrl?: string;
+    num: number;
+  }) {
+    return isAccountSelectorHomeSyncSourceScene(params);
+  }
+
+  @backgroundMethod()
+  async shouldSyncHomeAndSwapSelectedAccount({
+    sourceScene,
+    targetScene,
+  }: {
+    sourceScene: {
+      sceneName: EAccountSelectorSceneName;
+      sceneUrl?: string;
+      num: number;
+    };
+    targetScene: {
+      sceneName: EAccountSelectorSceneName;
+      sceneUrl?: string;
+      num: number;
+    };
+  }) {
+    const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
+    return shouldSyncAccountSelectorHomeAndSwapScenes({
+      sourceScene,
+      targetScene,
+      swapToAnotherAccountSwitchOn,
+    });
+  }
+
+  @backgroundMethod()
+  public async fixOthersWalletAccountNetworkPair({
+    selectedAccount,
+    source,
+  }: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+    source?: string;
+  }): Promise<IAccountSelectorSelectedAccount> {
+    const { walletId, networkId, othersWalletAccountId } = selectedAccount;
+    if (
+      !walletId ||
+      !networkId ||
+      !othersWalletAccountId ||
+      !accountUtils.isOthersWallet({ walletId }) ||
+      networkUtils.isAllNetwork({ networkId })
+    ) {
+      return selectedAccount;
     }
 
-    return syncScenes.some((item) =>
-      accountSelectorUtils.isEqualAccountSelectorScene({
-        scene1: item,
-        scene2: { sceneName, sceneUrl, num },
-      }),
-    );
+    let dbAccount: IDBAccount | undefined;
+    try {
+      dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId: othersWalletAccountId,
+      });
+    } catch {
+      return selectedAccount;
+    }
+
+    if (!dbAccount) {
+      return selectedAccount;
+    }
+
+    try {
+      if (
+        accountUtils.isAccountCompatibleWithNetwork({
+          account: dbAccount,
+          networkId,
+        })
+      ) {
+        return selectedAccount;
+      }
+    } catch {
+      // Fall through to compatible-network resolution below.
+    }
+
+    let fixedNetworkId: string | undefined;
+    try {
+      fixedNetworkId = accountUtils.getAccountCompatibleNetwork({
+        account: dbAccount,
+        networkId,
+      });
+    } catch {
+      return selectedAccount;
+    }
+
+    if (!fixedNetworkId || fixedNetworkId === networkId) {
+      return selectedAccount;
+    }
+
+    defaultLogger.accountSelector.listData.fixOthersWalletAccountNetworkPair({
+      source,
+      walletId,
+      networkId,
+      fixedNetworkId,
+      accountImpl: dbAccount.impl,
+      accountCreateAtNetwork: dbAccount.createAtNetwork,
+      accountNetworksCount: dbAccount.networks?.length,
+    });
+
+    return {
+      ...selectedAccount,
+      networkId: fixedNetworkId,
+      deriveType: selectedAccount.deriveType || 'default',
+    };
   }
 
   @backgroundMethod()
@@ -104,35 +195,43 @@ class ServiceAccountSelector extends ServiceBase {
         num: 0,
       });
     if (homeData) {
+      const fixedHomeData = await this.fixOthersWalletAccountNetworkPair({
+        selectedAccount: homeData,
+        source: 'mergeHomeDataToSwapMap:home',
+      });
       // eslint-disable-next-line no-param-reassign
       swapMap = cloneDeep(swapMap || {});
 
-      const updateSwapMap = (num: number) => {
+      const updateSwapMap = async (num: number) => {
         if (!swapMap) {
           return;
         }
         const swapDataMerged = accountSelectorUtils.buildMergedSelectedAccount({
           data: swapMap[num],
-          mergedByData: homeData,
+          mergedByData: fixedHomeData,
         });
         if (swapDataMerged) {
           const usedNetworkId =
             // swapDataMerged.networkId ??
             // swapMap[num]?.networkId ??
-            homeData?.networkId;
-          swapMap[num] = swapDataMerged;
-          if (swapMap && swapMap[num]) {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            swapMap[num].networkId = usedNetworkId;
-          }
+            fixedHomeData?.networkId;
+          const fixedSwapDataMerged =
+            await this.fixOthersWalletAccountNetworkPair({
+              selectedAccount: {
+                ...swapDataMerged,
+                networkId: usedNetworkId,
+              },
+              source: `mergeHomeDataToSwapMap:${num}`,
+            });
+          swapMap[num] = fixedSwapDataMerged;
         }
       };
 
-      updateSwapMap(0);
+      await updateSwapMap(0);
 
       const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
       if (!swapToAnotherAccountSwitchOn) {
-        updateSwapMap(1);
+        await updateSwapMap(1);
       }
     }
     return swapMap;
@@ -226,20 +325,22 @@ class ServiceAccountSelector extends ServiceBase {
         console.error(e);
       }
 
-      if (deriveType) {
-        if ((indexedAccountId && wallet) || othersWalletAccountId) {
-          try {
-            const r = await serviceAccount.getNetworkAccount({
-              indexedAccountId,
-              accountId: othersWalletAccountId,
-              deriveType,
-              networkId,
-            });
-            account = r;
-          } catch (e) {
-            // account may not compatible with network
-            console.error(e);
-          }
+      const canQueryIndexedNetworkAccount = Boolean(
+        deriveType && indexedAccountId && wallet,
+      );
+      const canQueryOthersNetworkAccount = Boolean(othersWalletAccountId);
+      if (canQueryIndexedNetworkAccount || canQueryOthersNetworkAccount) {
+        try {
+          const r = await serviceAccount.getNetworkAccount({
+            indexedAccountId,
+            accountId: othersWalletAccountId,
+            deriveType: deriveType || 'default',
+            networkId,
+          });
+          account = r;
+        } catch (e) {
+          // account may not compatible with network
+          console.error(e);
         }
       }
 
@@ -260,7 +361,7 @@ class ServiceAccountSelector extends ServiceBase {
       networkId && networkUtils.isAllNetwork({ networkId }),
     );
 
-    if (dbAccountId && !isAllNetwork) {
+    if (dbAccountId && (!isAllNetwork || othersWalletAccountId)) {
       try {
         const r = await serviceAccount.getDBAccount({
           accountId: dbAccountId,
@@ -421,7 +522,7 @@ class ServiceAccountSelector extends ServiceBase {
 
     const selectedAccountFixed: IAccountSelectorSelectedAccount = {
       othersWalletAccountId: isOthersWallet
-        ? activeAccount?.account?.id
+        ? activeAccount?.account?.id || activeAccount?.dbAccount?.id
         : undefined,
       indexedAccountId: activeAccount?.indexedAccount?.id,
       deriveType: activeAccount?.deriveType,
@@ -986,10 +1087,21 @@ class ServiceAccountSelector extends ServiceBase {
       await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
         accounts,
       });
+    // Compound-key shape consumed by `calculateAccountTotalValue`; the
+    // per-address `getAllNetworkAccountsValue` would yield Record<networkId,
+    // worth> and silently miss every compound-key lookup downstream. The
+    // batched form folds N storage reads into one (the SimpleDb entity has
+    // caching disabled, so the per-account form paid a fresh
+    // deserialization per row — a 50-row selector batch turned into 50
+    // reads).
     const accountsValue =
-      await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
+      await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch(
         {
-          accounts,
+          accounts: accounts.map((a) => ({
+            accountId: a.accountId,
+            accountAddress: a.accountAddress,
+            xpub: a.xpub,
+          })),
         },
       );
     return { accountsValue, accountsDeFiOverview };

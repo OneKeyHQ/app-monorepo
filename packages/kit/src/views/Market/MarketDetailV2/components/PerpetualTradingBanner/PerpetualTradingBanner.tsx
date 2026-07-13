@@ -12,6 +12,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBannerClosePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -64,6 +68,10 @@ export function PerpetualTradingBanner({
         await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
           coin: hlTicker,
         });
+        appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
+          mode: 'perp',
+          coin: hlTicker,
+        });
       } catch (error) {
         console.error('Failed to change active asset:', error);
       }
@@ -101,6 +109,7 @@ export function PerpetualTradingBanner({
           </SizableText>
         </XStack>
         <IconButton
+          testID="market-title-icon-btn"
           icon="CrossedSmallOutline"
           size="small"
           variant="tertiary"

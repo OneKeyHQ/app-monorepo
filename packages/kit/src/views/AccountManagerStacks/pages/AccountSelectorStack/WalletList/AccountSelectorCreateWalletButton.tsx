@@ -5,6 +5,7 @@ import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/us
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
+import { AccountManagerTestIDs } from '../../../testIDs';
 
 export function AccountSelectorCreateWalletButton() {
   const intl = useIntl();
@@ -25,7 +26,7 @@ export function AccountSelectorCreateWalletButton() {
         }}
         icon="PlusLargeOutline"
         p="$2"
-        testID="add-wallet"
+        testID={AccountManagerTestIDs.addWalletButton}
         variant="primary"
       />
       <SizableText textAlign="center" size="$bodySm" mt="$1">

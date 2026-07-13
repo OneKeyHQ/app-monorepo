@@ -5,9 +5,10 @@ import { useIntl } from 'react-intl';
 import {
   ActionList,
   IconButton,
-  Tooltip,
+  LazyTooltip,
 } from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
+import { useNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo';
 import {
   Icon,
   Image,
@@ -80,6 +81,24 @@ function BasicDesktopTabItemImage({
   avatarSrc?: string;
   selected?: boolean;
 }) {
+  const { isRawInternetReachable } = useNetInfo(Boolean(avatarSrc));
+  const previousInternetReachableRef = useRef(isRawInternetReachable);
+  const [imageReloadVersion, setImageReloadVersion] = useState(0);
+
+  useEffect(() => {
+    if (
+      previousInternetReachableRef.current === false &&
+      isRawInternetReachable === true
+    ) {
+      setImageReloadVersion((version) => version + 1);
+    }
+    previousInternetReachableRef.current = isRawInternetReachable;
+  }, [isRawInternetReachable]);
+
+  const imageKey = useMemo(
+    () => `${avatarSrc ?? ''}:${imageReloadVersion}`,
+    [avatarSrc, imageReloadVersion],
+  );
   const fallbackElement = useMemo(
     () => (
       <Image.Fallback bg="$bgSidebar" delayMs={180}>
@@ -94,6 +113,7 @@ function BasicDesktopTabItemImage({
   );
   return (
     <Image
+      key={imageKey}
       borderRadius="$1"
       size="$4.5"
       m="$px"
@@ -210,11 +230,11 @@ export function DesktopTabItem(
   );
   const defaultCloseButtonTitle = useMemo(
     () => (
-      <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
+      <LazyTooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
         {intl.formatMessage({
           id: ETranslations.global_close,
         })}
-      </Tooltip.Text>
+      </LazyTooltip.Text>
     ),
     [intl],
   );
@@ -257,7 +277,7 @@ export function DesktopTabItem(
               <Stack
                 width="$2.5"
                 height="$2.5"
-                bg="$iconInfo"
+                bg="$bgAccent"
                 borderRadius="$full"
                 position="absolute"
                 right={-3}
@@ -352,7 +372,7 @@ export function DesktopTabItem(
       style={tabBarStyle as ViewStyle}
     >
       {platformEnv.isDesktop && shortcutKey && showTooltip ? (
-        <Tooltip
+        <LazyTooltip
           shortcutKey={shortcutKey}
           renderTrigger={trigger}
           renderContent={label}

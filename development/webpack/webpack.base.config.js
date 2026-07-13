@@ -8,10 +8,18 @@ const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const webpack = require('webpack');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 
+const { readOneKeyBootstrapDataCode } = require('../htmlBootstrapData');
+const { resolveCommitSha } = require('../utils/resolveCommitSha');
+
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
 const { createResolveExtensions } = require('./utils');
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
+
+const COMMIT_SHA = resolveCommitSha();
+
+const CANVASKIT_WASM_TEST =
+  /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -47,6 +55,7 @@ const baseResolve = ({ platform, configName, basePath }) => ({
   alias: {
     'react-native$': 'react-native-web',
     'react-native-aes-crypto': false,
+    'react-native-cloud-fs': false,
     'react-native/Libraries/Components/View/ViewStylePropTypes$':
       'react-native-web/dist/exports/View/ViewStylePropTypes',
     'react-native/Libraries/EventEmitter/RCTDeviceEventEmitter$':
@@ -73,6 +82,7 @@ const baseResolve = ({ platform, configName, basePath }) => ({
       basePath,
       '../../node_modules/@react-aria/utils/src/index.ts',
     ),
+    'bn.js$': require.resolve('bn.js'),
   },
   fallback: {
     'crypto':
@@ -82,6 +92,7 @@ const baseResolve = ({ platform, configName, basePath }) => ({
     https: false,
     http: false,
     net: false,
+    dgram: false,
     zlib: false,
     tls: false,
     child_process: false,
@@ -102,6 +113,8 @@ const basePlugins = [
       env: {
         ONEKEY_PROXY: JSON.stringify(ONEKEY_PROXY),
         NODE_ENV: JSON.stringify(NODE_ENV),
+        DESKTOP_E2E_MODE: JSON.stringify(process.env.DESKTOP_E2E_MODE || ''),
+        E2E_MODE: JSON.stringify(process.env.E2E_MODE || ''),
         TAMAGUI_TARGET: JSON.stringify('web'),
         PERF_MONITOR_ENABLED: JSON.stringify(
           process.env.PERF_MONITOR_ENABLED || '',
@@ -112,6 +125,7 @@ const basePlugins = [
         PERF_FUNCTION_WARN_MS: JSON.stringify(
           process.env.PERF_FUNCTION_WARN_MS || '',
         ),
+        GITHUB_SHA: JSON.stringify(COMMIT_SHA),
       },
     },
   }),
@@ -203,6 +217,11 @@ module.exports = ({ platform, basePath, configName }) => {
               encoding: 'utf-8',
             },
           ),
+          onekeyBootstrapDataCode: readOneKeyBootstrapDataCode({
+            basePath,
+            isDev,
+            platform,
+          }),
           WEB_PUBLIC_URL: PUBLIC_URL || '/',
           WEB_TITLE: platform,
           NO_SCRIPT:
@@ -262,8 +281,21 @@ module.exports = ({ platform, basePath, configName }) => {
         },
         {
           'oneOf': [
+            // cspell:ignore emscripten Skia skia's
+            // Canvaskit ships a prebuilt wasm loaded at runtime by emscripten;
+            // emit it as a URL asset so react-native-skia's LoadSkiaWeb can
+            // fetch it via locateFile (see OrbShader.tsx). Must come before
+            // the generic .wasm rule and must be excluded there — otherwise
+            // both rules match and webpack tries to parse the wasm as a
+            // module. Mirrors the same rule in rspack.base.config.ts.
+            {
+              test: CANVASKIT_WASM_TEST,
+              type: 'asset/resource',
+              generator: { filename: 'static/canvaskit/[name][ext]' },
+            },
             {
               test: /\.wasm$/,
+              exclude: CANVASKIT_WASM_TEST,
               type: 'webassembly/async',
             },
             {
@@ -320,9 +352,6 @@ module.exports = ({ platform, basePath, configName }) => {
                 // // keystonehq
                 // /(@?keystonehq).*\.(c|m)?(ts|js)x?$/,
 
-                /* web-embed on  */
-                /react-router/,
-                /turbo-stream/,
                 // @react-aria packages
                 /(@?react-aria).*\.(c|m)?(ts|js)x?$/,
               ],

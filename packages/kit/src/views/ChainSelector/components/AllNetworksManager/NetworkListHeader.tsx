@@ -6,6 +6,7 @@ import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { ChainSelectorTestIDs } from '../../testIDs';
 import ChainSelectorTooltip from '../ChainSelectorTooltip';
 import DottedLine from '../DottedLine';
 
@@ -108,6 +109,7 @@ function NetworkListHeader() {
             size="media"
             variant="tertiary"
             onPress={handleToggleAll}
+            testID={ChainSelectorTestIDs.allNetworksToggleAllBtn}
           >
             {isAllNetworksEnabled
               ? intl.formatMessage({ id: ETranslations.global_deselect_all })

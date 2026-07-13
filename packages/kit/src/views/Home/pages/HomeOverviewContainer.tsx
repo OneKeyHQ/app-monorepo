@@ -6,16 +6,22 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   IconButton,
+  PROPORTIONAL_NUMS,
   Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   settingsValuePersistAtom,
+  useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -27,7 +33,10 @@ import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { calculateAccountTokensValue } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  calculateAccountTokensValue,
+  calculateAccountTotalValue,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -46,17 +55,35 @@ import {
 } from '../../../states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { convertFiat } from '../../../utils/fiatConvert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
+import { HomeTestIDs } from '../testIDs';
 
 // Grace period (ms) after an account switch during which the previous
 // balance is shown as a placeholder to avoid a skeleton flash.
 const BALANCE_REUSE_GRACE_MS = 180;
 
+const HOME_OVERVIEW_REFRESH_TABS = [
+  EHomeTab.TOKENS,
+  EHomeTab.NFT,
+  EHomeTab.HISTORY,
+  EHomeTab.DEFI,
+] as const;
+
+type IHomeOverviewRefreshTab = (typeof HOME_OVERVIEW_REFRESH_TABS)[number];
+
+function isHomeOverviewRefreshTab(
+  type: EHomeTab,
+): type is IHomeOverviewRefreshTab {
+  return HOME_OVERVIEW_REFRESH_TABS.includes(type as IHomeOverviewRefreshTab);
+}
+
 function HomeOverviewContainer() {
   const num = 0;
-  const {
-    activeAccount: { account, network, wallet, deriveInfoItems, vaultSettings },
-  } = useActiveAccount({ num });
+  const { activeAccount } = useActiveAccount({ num });
+  const { account, network, wallet, deriveInfoItems, vaultSettings } =
+    activeAccount;
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
   const handleResourceDetailsOnPress = useCallback(() => {
     if (resourceDialogInstance.current) return;
@@ -76,7 +103,9 @@ function HomeOverviewContainer() {
   const [isRefreshingDeFiList, setIsRefreshingDeFiList] = useState(false);
   const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
 
-  const listRefreshKey = useRef('');
+  const listRefreshKeys = useRef<
+    Partial<Record<IHomeOverviewRefreshTab, string>>
+  >({});
 
   const [accountWorth] = useAccountWorthAtom();
   const [accountDeFiOverview] = useAccountDeFiOverviewAtom();
@@ -86,6 +115,16 @@ function HomeOverviewContainer() {
     useLastConfirmedOverviewBalanceAtom();
   const [overviewTokenCacheState] = useOverviewTokenCacheStateAtom();
   const [overviewDeFiDataState] = useOverviewDeFiDataStateAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  // Mirrors `currencyMap` so background effects can read the latest rates
+  // without being reactive to every periodic rate refresh — putting
+  // `currencyMap` directly in a worth-persist effect's deps would re-fire
+  // SimpleDB writes every time rates poll, even when the underlying worth
+  // hasn't changed.
+  const currencyMapRef = useRef(currencyMap);
+  useEffect(() => {
+    currencyMapRef.current = currencyMap;
+  }, [currencyMap]);
   const {
     updateAccountOverviewState,
     updateAccountWorth,
@@ -93,6 +132,54 @@ function HomeOverviewContainer() {
   } = useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
+  const { isPerpsSupported: isPerpsEnabled } = useHomeWalletTabSupport({
+    network,
+  });
+
+  const { result: perpsNetWorthUsd } = usePromiseResult<string | undefined>(
+    async () => {
+      if (!isPerpsEnabled) return undefined;
+      const accountId = account?.id;
+      const indexedAccountId = account?.indexedAccountId;
+      if (!accountId && !indexedAccountId) return undefined;
+
+      const deriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_NETWORK_ID,
+        });
+      if (!deriveType) return undefined;
+
+      let address = '';
+      try {
+        const acc = await backgroundApiProxy.serviceAccount.getNetworkAccount({
+          accountId: indexedAccountId ? undefined : accountId,
+          indexedAccountId,
+          deriveType,
+          networkId: PERPS_NETWORK_ID,
+        });
+        address = acc?.addressDetail?.normalizedAddress || acc?.address || '';
+      } catch {
+        return undefined;
+      }
+
+      if (!address) return undefined;
+
+      const snapshot =
+        await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+          { address },
+        );
+
+      return snapshot?.netWorthUsd;
+    },
+    [account?.id, account?.indexedAccountId, isPerpsEnabled],
+    {
+      swrKey:
+        account?.id || account?.indexedAccountId
+          ? `home-overview-perps-worth:${account?.indexedAccountId ?? account?.id}`
+          : undefined,
+      pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
+    },
+  );
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -100,6 +187,71 @@ function HomeOverviewContainer() {
     }
     return false;
   }, [wallet]);
+
+  // Bypass token-cache/DeFi-ready gating during the first ~500ms after cold-start
+  // mount: if we have a locally-cached `lastConfirmedOverviewBalance.latest`,
+  // show it immediately. Empirically, waiting for BG to flip hasCache/isReady
+  // costs ~300ms on real device and contributes most of the Window-2 gap from
+  // canDismissSplash=true to Balance displayed. After the window expires, the
+  // original gate logic (BALANCE_REUSE_GRACE_MS + hasPositiveCurrentOwnerSignal)
+  // takes over for account-switch scenarios.
+  //
+  // Gated on the session-level `__onekeyBalanceDisplayed` flag (set on the
+  // first balance render) so the fast path only fires on the actual cold-start
+  // mount, not on every fresh mount triggered by Tabs.Container remount during
+  // network/account switches — otherwise the previous owner's `.latest` value
+  // briefly leaks into the new owner's overview.
+  const isFirstColdStartMountRef = useRef(
+    !(globalThis as any).__onekeyBalanceDisplayed,
+  );
+  useEffect(() => {
+    const t = setTimeout(() => {
+      isFirstColdStartMountRef.current = false;
+    }, 500);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Synchronously read the MMKV-hydrated atom snapshot to compute the effective
+  // owner key on first render. accountSelector atoms are ColdStartCache-backed,
+  // so the snapshot at bootstrap contains the last known selected account.
+  // Without this, currentOverviewOwnerKey is '' for 1-3 React commits while the
+  // accountSelector atom propagates to HomeOverview, and
+  // lastConfirmedOverviewBalance.byOwner[''] returns undefined — delaying the
+  // first balance display.
+  const bootstrapOwnerKey = useMemo(() => {
+    try {
+      const snap = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
+        | Record<string, unknown>
+        | undefined;
+      if (!snap) return '';
+      // Read from activeAccountsAtom (not selectedAccountsAtom): byOwner keys
+      // are built via buildOverviewOwnerKey(account.id, network.id) where
+      // account.id is the fully-derived form (e.g. "hd-1--0000/0"), while
+      // selectedAccountsAtom only exposes indexedAccountId ("hd-1--0"). Using
+      // the latter would never match any byOwner entry, making the first-frame
+      // balance fast-path dead code. activeAccountsAtom is ColdStartCache-
+      // backed so its snapshot is present at bootstrap; see SplashProvider
+      // hasBalanceCacheInSnapshot() for the mirrored lookup.
+      const activeKey = Object.keys(snap).find(
+        (key) =>
+          key.includes('accountSelector@home') &&
+          key.includes('ctx:activeAccountsAtom'),
+      );
+      if (!activeKey) return '';
+      const raw = snap[activeKey];
+      if (!raw || typeof raw !== 'object') return '';
+      // activeAccountsAtom shape: { '<num>': { account: { id }, network: { id }, ... } }
+      // Home scene uses num=0 by convention.
+      const atZero = (raw as Record<string, any>)['0'];
+      if (!atZero || typeof atZero !== 'object') return '';
+      const accountId: string | undefined = atZero.account?.id;
+      const networkId: string | undefined = atZero.network?.id;
+      if (!accountId || !networkId) return '';
+      return buildOverviewOwnerKey(accountId, networkId);
+    } catch {
+      return '';
+    }
+  }, []);
 
   useEffect(() => {
     perfMark('Home:overview:mount');
@@ -151,6 +303,51 @@ function HomeOverviewContainer() {
   ]);
 
   useEffect(() => {
+    const refreshStateSetters: Record<
+      IHomeOverviewRefreshTab,
+      (isRefreshing: boolean) => void
+    > = {
+      [EHomeTab.TOKENS]: setIsRefreshingTokenList,
+      [EHomeTab.NFT]: setIsRefreshingNftList,
+      [EHomeTab.HISTORY]: setIsRefreshingHistoryList,
+      [EHomeTab.DEFI]: setIsRefreshingDeFiList,
+    };
+
+    const syncWorthRefreshingState = () => {
+      setIsRefreshingWorth(
+        HOME_OVERVIEW_REFRESH_TABS.some((refreshType) =>
+          Boolean(listRefreshKeys.current[refreshType]),
+        ),
+      );
+    };
+
+    const updateRefreshState = ({
+      refreshType,
+      isRefreshing,
+      key,
+    }: {
+      refreshType: IHomeOverviewRefreshTab;
+      isRefreshing: boolean;
+      key: string;
+    }) => {
+      if (isRefreshing) {
+        listRefreshKeys.current[refreshType] = key;
+        refreshStateSetters[refreshType](true);
+        return true;
+      }
+
+      if (
+        listRefreshKeys.current[refreshType] &&
+        listRefreshKeys.current[refreshType] !== key
+      ) {
+        return false;
+      }
+
+      delete listRefreshKeys.current[refreshType];
+      refreshStateSetters[refreshType](false);
+      return true;
+    };
+
     const fn = ({
       isRefreshing,
       type,
@@ -163,35 +360,27 @@ function HomeOverviewContainer() {
       networkId: string;
     }) => {
       const key = `${accountId}-${networkId}`;
-      if (
-        !isRefreshing &&
-        listRefreshKey.current &&
-        listRefreshKey.current !== key
-      ) {
-        return;
-      }
-
-      listRefreshKey.current = key;
+      let didUpdateState = false;
 
       if (type === EHomeTab.ALL) {
-        setIsRefreshingTokenList(isRefreshing);
-        setIsRefreshingNftList(isRefreshing);
-        setIsRefreshingHistoryList(isRefreshing);
-        setIsRefreshingWorth(isRefreshing);
-        setIsRefreshingDeFiList(isRefreshing);
+        HOME_OVERVIEW_REFRESH_TABS.forEach((refreshType) => {
+          didUpdateState =
+            updateRefreshState({ refreshType, isRefreshing, key }) ||
+            didUpdateState;
+        });
+      } else if (isHomeOverviewRefreshTab(type)) {
+        didUpdateState = updateRefreshState({
+          refreshType: type,
+          isRefreshing,
+          key,
+        });
+      }
+
+      if (!didUpdateState) {
         return;
       }
 
-      if (type === EHomeTab.TOKENS) {
-        setIsRefreshingTokenList(isRefreshing);
-      } else if (type === EHomeTab.NFT) {
-        setIsRefreshingNftList(isRefreshing);
-      } else if (type === EHomeTab.HISTORY) {
-        setIsRefreshingHistoryList(isRefreshing);
-      } else if (type === EHomeTab.DEFI) {
-        setIsRefreshingDeFiList(isRefreshing);
-      }
-      setIsRefreshingWorth(isRefreshing);
+      syncWorthRefreshingState();
       if (isRefreshing) {
         perfMark(`Home:refresh:start:${type}`, {
           refreshType: type,
@@ -212,6 +401,15 @@ function HomeOverviewContainer() {
   }, []);
 
   useEffect(() => {
+    listRefreshKeys.current = {};
+    setIsRefreshingWorth(false);
+    setIsRefreshingTokenList(false);
+    setIsRefreshingNftList(false);
+    setIsRefreshingHistoryList(false);
+    setIsRefreshingDeFiList(false);
+  }, [account?.id, account?.indexedAccountId, network?.id, wallet?.id]);
+
+  useEffect(() => {
     const updateAccountValue = async () => {
       if (
         account &&
@@ -220,13 +418,20 @@ function HomeOverviewContainer() {
         (account.id === accountWorth.accountId ||
           account.indexedAccountId === accountWorth.accountId)
       ) {
-        const allWorth = Object.values(accountWorth.worth).reduce(
-          (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-          '0',
-        );
+        const allWorth = Object.values(accountWorth.worth)
+          .reduce<BigNumber>((acc, cur) => acc.plus(cur), new BigNumber(0))
+          .toFixed();
+        // Threshold is "_USD" so compare in USD basis. currencyMap is read
+        // via the ref so periodic rate refreshes don't re-trigger this effect.
+        const allWorthUsd = convertFiat({
+          value: allWorth,
+          sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
+          targetCurrency: USD_CURRENCY_ID,
+          currencyMap: currencyMapRef.current,
+        });
 
         if (
-          new BigNumber(allWorth).gt(
+          new BigNumber(allWorthUsd).gt(
             SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD,
           )
         ) {
@@ -238,37 +443,51 @@ function HomeOverviewContainer() {
           });
           appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
         }
-        let accountValueId = '';
-        if (accountUtils.isOthersAccount({ accountId: account.id })) {
-          accountValueId = account.id;
+        const isOthers = accountUtils.isOthersAccount({
+          accountId: account.id,
+        });
+        // Logical account id for the active value atom & rookie guide: matches
+        // the keying convention used by the account selector (indexedAccountId
+        // for HD/HW, account.id for Others).
+        const accountValueId = isOthers
+          ? account.id
+          : (account.indexedAccountId as string);
 
-          if (network.isAllNetworks || account.createAtNetwork === network.id) {
+        // ServiceAccountProfile.convertMapToUsd uses this tag to reverse the
+        // conversion back to USD before persisting — passing the wrong tag
+        // here would re-divide a USD value by a foreign rate and corrupt the
+        // accountValue SimpleDB.
+        const accountWorthCurrency =
+          accountWorth.currency ?? settings.currencyInfo.id;
+        if (isOthers) {
+          if (
+            account.createAtNetwork &&
+            (network.isAllNetworks || account.createAtNetwork === network.id)
+          ) {
             void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
               accountId: accountValueId,
+              networkAccountId: account.id,
+              networkId: account.createAtNetwork,
               value: accountWorth.createAtNetworkWorth,
-              currency: settings.currencyInfo.id,
+              currency: accountWorthCurrency,
               shouldUpdateActiveAccountValue: true,
             });
           }
-        } else {
-          accountValueId = account.indexedAccountId as string;
-        }
-
-        if (
-          !accountUtils.isOthersAccount({ accountId: account.id }) &&
-          !network.isAllNetworks
-        ) {
+        } else if (!network.isAllNetworks) {
+          const singleNetworkValue =
+            accountWorth.worth[
+              accountUtils.buildAccountValueKey({
+                accountId: account.id,
+                networkId: network.id,
+              })
+            ];
           void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
             {
               accountId: accountValueId,
-              value:
-                accountWorth.worth[
-                  accountUtils.buildAccountValueKey({
-                    accountId: account.id,
-                    networkId: network.id,
-                  })
-                ],
-              currency: settings.currencyInfo.id,
+              networkAccountId: account.id,
+              networkId: network.id,
+              value: singleNetworkValue ?? '0',
+              currency: accountWorthCurrency,
             },
           );
         }
@@ -277,7 +496,8 @@ function HomeOverviewContainer() {
           {
             accountId: accountValueId,
             value: accountWorth.worth,
-            currency: settings.currencyInfo.id,
+            currency: accountWorthCurrency,
+            updateAll: accountWorth.updateAll,
           },
         );
       }
@@ -301,7 +521,10 @@ function HomeOverviewContainer() {
   const handleRefreshWorth = useCallback(() => {
     if (isRefreshingWorth) return;
     setIsRefreshingWorth(true);
-    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, {
+      isManualRefresh: true,
+      refreshSource: 'home-header',
+    });
     defaultLogger.account.wallet.walletManualRefresh();
   }, [isRefreshingWorth]);
 
@@ -319,6 +542,7 @@ function HomeOverviewContainer() {
         variant="tertiary"
         loading={isLoading}
         onPress={handleRefreshWorth}
+        testID="wallet-refresh-manually"
         trackID="wallet-refresh-manually"
       />
     );
@@ -338,11 +562,12 @@ function HomeOverviewContainer() {
       networkId: network?.id ?? '',
       deriveInfoItems,
       indexedAccountId: account?.indexedAccountId,
+      intl,
       onClose: () => {
         balanceDialogInstance.current = null;
       },
     });
-  }, [account, network, deriveInfoItems]);
+  }, [account, network, deriveInfoItems, intl]);
 
   const currentWorthKey = useMemo(() => {
     if (!account?.id || !network?.id || network.isAllNetworks) {
@@ -420,6 +645,8 @@ function HomeOverviewContainer() {
     overviewDeFiDataState.ownerKey,
   ]);
 
+  // Returns a USD-basis string. DeFi data arrives in display currency from
+  // DeFiListBlock, so it's converted back to USD here before summing.
   const resolvedBalanceString = useMemo(() => {
     const isAllNetworks = !!network?.isAllNetworks;
 
@@ -442,21 +669,42 @@ function HomeOverviewContainer() {
             mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
           })
         : '0';
+    const tokenWorthUsd = convertFiat({
+      value: tokenWorth,
+      sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
+      targetCurrency: USD_CURRENCY_ID,
+      currencyMap,
+    });
 
-    const deFiWorth =
+    const deFiWorthRaw =
       !isAllNetworks || isCurrentAccountDeFiReady
         ? (accountDeFiOverview.netWorth ?? 0)
         : 0;
+    const deFiWorthUsd = convertFiat({
+      value: deFiWorthRaw,
+      sourceCurrency: accountDeFiOverview.currency || settings.currencyInfo.id,
+      targetCurrency: USD_CURRENCY_ID,
+      currencyMap,
+    });
+    const perpsWorthUsd = isPerpsEnabled ? (perpsNetWorthUsd ?? '0') : '0';
 
-    return new BigNumber(tokenWorth).plus(deFiWorth).toFixed();
+    return calculateAccountTotalValue({
+      tokensValue: tokenWorthUsd,
+      deFiNetWorth: new BigNumber(deFiWorthUsd).plus(perpsWorthUsd).toFixed(),
+    });
   }, [
     account?.id,
     network?.id,
     accountWorth,
     accountDeFiOverview.netWorth,
+    accountDeFiOverview.currency,
+    currencyMap,
     isCurrentAccountDeFiReady,
     isCurrentAccountWorthReady,
+    isPerpsEnabled,
     network?.isAllNetworks,
+    perpsNetWorthUsd,
+    settings.currencyInfo.id,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
@@ -489,6 +737,7 @@ function HomeOverviewContainer() {
           ...prev.byOwner,
           [currentOverviewOwnerKey]: resolvedBalanceString,
         },
+        currency: USD_CURRENCY_ID,
       }));
     }
   }, [
@@ -498,8 +747,21 @@ function HomeOverviewContainer() {
     setLastConfirmedOverviewBalance,
   ]);
 
-  const currentConfirmedBalance =
-    lastConfirmedOverviewBalance.byOwner[currentOverviewOwnerKey];
+  const effectiveOwnerKey = currentOverviewOwnerKey || bootstrapOwnerKey;
+  // Pre-migration hydrate has no currency tag; values were written in the
+  // user's then-active display currency.
+  const lastConfirmedCurrency =
+    lastConfirmedOverviewBalance.currency ?? settings.currencyInfo.id;
+  const rawCurrentConfirmedBalance =
+    lastConfirmedOverviewBalance.byOwner[effectiveOwnerKey];
+  const currentConfirmedBalance = rawCurrentConfirmedBalance
+    ? convertFiat({
+        value: rawCurrentConfirmedBalance,
+        sourceCurrency: lastConfirmedCurrency,
+        targetCurrency: USD_CURRENCY_ID,
+        currencyMap,
+      })
+    : undefined;
   const isCurrentTokenCacheStateMatched =
     overviewTokenCacheState.ownerKey === currentOverviewOwnerKey;
   const isCurrentDeFiDataStateMatched =
@@ -512,17 +774,21 @@ function HomeOverviewContainer() {
     if (currentConfirmedBalance || !lastConfirmedOverviewBalance.latest) {
       return false;
     }
-
+    if (isWalletNotBackedUp) {
+      return false;
+    }
+    // First-mount fast path: see comment on isFirstColdStartMountRef.
+    if (isFirstColdStartMountRef.current) {
+      return true;
+    }
     const hasPositiveCurrentOwnerSignal =
       (isCurrentTokenCacheStateMatched &&
         overviewTokenCacheState.hasCache === true) ||
       (isCurrentDeFiDataStateMatched && overviewDeFiDataState.isReady === true);
-
     if (!hasPositiveCurrentOwnerSignal) {
       return false;
     }
-
-    return !reuseLatestBalanceGraceExpired && !isWalletNotBackedUp;
+    return !reuseLatestBalanceGraceExpired;
   }, [
     currentConfirmedBalance,
     isWalletNotBackedUp,
@@ -541,13 +807,20 @@ function HomeOverviewContainer() {
     !!currentConfirmedBalance &&
     !isCurrentAllNetworksBalanceFullyReady;
 
+  const lastConfirmedLatestUsd =
+    canReuseLatestDisplayedBalance && lastConfirmedOverviewBalance.latest
+      ? convertFiat({
+          value: lastConfirmedOverviewBalance.latest,
+          sourceCurrency: lastConfirmedCurrency,
+          targetCurrency: USD_CURRENCY_ID,
+          currencyMap,
+        })
+      : undefined;
   const displayBalanceString = shouldHoldCurrentConfirmedBalance
     ? currentConfirmedBalance
     : (resolvedBalanceString ??
       currentConfirmedBalance ??
-      (canReuseLatestDisplayedBalance
-        ? lastConfirmedOverviewBalance.latest
-        : undefined));
+      lastConfirmedLatestUsd);
 
   const balancePayload = useMemo(
     () => ({
@@ -556,7 +829,14 @@ function HomeOverviewContainer() {
     }),
     [currentOverviewOwnerKey, displayBalanceString],
   );
-  const debouncedBalancePayload = useDebounce(balancePayload, 100);
+  // leading:true fires immediately so a fresh balance isn't held back by
+  // the 100ms tail; trailing:true preserves the de-duplication on rapid
+  // back-to-back updates. This removes up to 100ms of cold-start latency
+  // on the balance display path.
+  const debouncedBalancePayload = useDebounce(balancePayload, 100, {
+    leading: true,
+    trailing: true,
+  });
 
   const numberFormatter: INumberFormatProps = {
     formatter: 'value',
@@ -616,13 +896,88 @@ function HomeOverviewContainer() {
 
   const renderedBalanceString = displayBalanceString ?? debouncedBalanceString;
 
+  // The single USD → display-currency conversion point; a currency switch
+  // reflows the visible balance without touching cached state.
+  const renderedBalanceStringDisplay = useMemo(() => {
+    if (renderedBalanceString === undefined || renderedBalanceString === null) {
+      return renderedBalanceString;
+    }
+    return convertFiat({
+      value: renderedBalanceString,
+      sourceCurrency: USD_CURRENCY_ID,
+      targetCurrency: settings.currencyInfo.id,
+      currencyMap,
+    });
+  }, [renderedBalanceString, settings.currencyInfo.id, currencyMap]);
+
+  // Track when balance is first displayed
+  const balanceReady =
+    !showSkeleton &&
+    renderedBalanceString !== null &&
+    renderedBalanceString !== undefined;
+  useEffect(() => {
+    if (balanceReady && !(globalThis as any).__onekeyBalanceDisplayed) {
+      (globalThis as any).__onekeyBalanceDisplayed = true;
+      appEventBus.emit(EAppEventBusNames.HomePageReady, undefined);
+      // Best-effort: persist the on-screen balance to lastConfirmedOverviewBalance
+      // so the NEXT cold start's fast-path (Lever 1 in HomeOverviewContainer) can
+      // reuse it without waiting for isCurrentAllNetworksBalanceFullyReady — which
+      // often never turns true before the user kills the app in AllNetworks mode.
+      // The existing fully-ready-gated useEffect above still runs for progressive
+      // updates; this one just guarantees we capture the first-displayed value.
+      try {
+        const balanceToPersist = renderedBalanceString;
+        if (
+          balanceToPersist !== undefined &&
+          balanceToPersist !== null &&
+          currentOverviewOwnerKey
+        ) {
+          setLastConfirmedOverviewBalance((prev) => ({
+            latest: balanceToPersist,
+            byOwner: {
+              ...prev.byOwner,
+              [currentOverviewOwnerKey]: balanceToPersist,
+            },
+            currency: USD_CURRENCY_ID,
+          }));
+        }
+      } catch {
+        /* persistence is best-effort — never break HomePageReady emission */
+      }
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { NativeLogger: NL, LogLevel: LL } =
+          require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+        const jsEntry: number =
+          (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || 0;
+        if (jsEntry) {
+          NL.write(
+            LL.Info,
+            `[StartupTiming] Balance displayed (+${Date.now() - jsEntry}ms)`,
+          );
+        }
+      } catch {
+        /* NativeLogger may not be available */
+      }
+    }
+  }, [
+    balanceReady,
+    currentOverviewOwnerKey,
+    renderedBalanceString,
+    setLastConfirmedOverviewBalance,
+  ]);
+
   return (
-    <YStack gap="$2.5" alignItems="flex-start">
+    <YStack
+      gap="$2.5"
+      alignItems="flex-start"
+      testID={HomeTestIDs.walletOverview}
+    >
       <YStack w="100%" gap="$2">
         {showSkeleton ? (
           <Skeleton.Heading5Xl />
         ) : (
-          <XStack alignItems="center" gap="$3">
+          <XStack alignItems="center" gap="$3" h={48}>
             <XStack
               flexShrink={1}
               borderRadius="$3"
@@ -645,6 +1000,7 @@ function HomeOverviewContainer() {
                 outlineStyle: 'solid',
               }}
               onPress={handleBalanceOnPress}
+              testID={HomeTestIDs.totalBalance}
             >
               <NumberSizeableTextWrapper
                 hideValue
@@ -654,9 +1010,12 @@ function HomeOverviewContainer() {
                 fontSize={48}
                 lineHeight={48}
                 fontWeight={500}
+                // Large hero balance reads better with the font's natural
+                // proportional figures than equal-width tabular ones.
+                fontVariant={PROPORTIONAL_NUMS}
                 {...numberFormatter}
               >
-                {renderedBalanceString ?? '0'}
+                {renderedBalanceStringDisplay ?? '0'}
               </NumberSizeableTextWrapper>
             </XStack>
             {refreshButton}
@@ -665,6 +1024,7 @@ function HomeOverviewContainer() {
       </YStack>
       {vaultSettings?.hasFrozenBalance ? (
         <Button
+          testID="home-btn"
           onPress={handleBalanceDetailsOnPress}
           variant="tertiary"
           size="small"
@@ -677,6 +1037,7 @@ function HomeOverviewContainer() {
       ) : undefined}
       {isWalletNotBackedUp && vaultSettings?.hasResource ? (
         <Button
+          testID="home-btn"
           onPress={handleResourceDetailsOnPress}
           variant="tertiary"
           size="small"

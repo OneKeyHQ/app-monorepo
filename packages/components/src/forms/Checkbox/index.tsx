@@ -49,6 +49,7 @@ function RawCheckbox({
   defaultChecked,
   isUncontrolled,
   shouldStopPropagation,
+  testID,
   ...checkboxProps
 }: ICheckboxProps) {
   const [innerValue, setInnerValue] = useState(defaultChecked);
@@ -85,6 +86,7 @@ function RawCheckbox({
       onPress={onPress}
       ai="flex-start"
       flexShrink={1}
+      testID={testID}
       {...containerProps}
     >
       <YStack

@@ -8,6 +8,7 @@ import type useDappApproveAction from '../../../hooks/useDappApproveAction';
 type IProps = PropsWithChildren<{
   dappApprove: ReturnType<typeof useDappApproveAction>;
   onClose?: (extra?: { flag?: string }) => void;
+  testID?: string;
 }>;
 
 export function useDappCloseHandler(
@@ -26,11 +27,11 @@ export function useDappCloseHandler(
   return handleOnClose;
 }
 
-function DappOpenModalPage({ children, onClose, dappApprove }: IProps) {
+function DappOpenModalPage({ children, onClose, dappApprove, testID }: IProps) {
   const handleOnClose = useDappCloseHandler(dappApprove, onClose);
 
   return (
-    <Page scrollEnabled onClose={handleOnClose}>
+    <Page scrollEnabled onClose={handleOnClose} testID={testID}>
       <Page.Header headerShown={false} />
       {children}
     </Page>

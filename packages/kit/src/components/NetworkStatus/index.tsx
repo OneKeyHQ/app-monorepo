@@ -36,25 +36,40 @@ export function NetworkStatus() {
   // Determine network status based on current tab
   const isConnected = useMemo(() => {
     if (isInPerpRoute) {
-      return Boolean(perpsNetworkStatus?.connected);
+      return perpsNetworkStatus?.connected !== false;
     }
     return isInternetReachable !== false;
   }, [isInPerpRoute, perpsNetworkStatus?.connected, isInternetReachable]);
 
-  // Show ping latency in badge label when on Perp tab
   const label = useMemo(() => {
+    if (isInPerpRoute && perpsNetworkStatus?.connected === true) {
+      return intl.formatMessage({ id: ETranslations.perp_online });
+    }
+    return undefined;
+  }, [isInPerpRoute, perpsNetworkStatus?.connected, intl]);
+
+  const monoLabel = useMemo(() => {
     if (
       isInPerpRoute &&
-      isConnected &&
+      perpsNetworkStatus?.connected === true &&
       perpsNetworkStatus?.pingMs !== null &&
       perpsNetworkStatus?.pingMs !== undefined
     ) {
-      return `${intl.formatMessage({ id: ETranslations.perp_online })} ${perpsNetworkStatus.pingMs}ms`;
+      return `${perpsNetworkStatus.pingMs}ms`;
     }
     return undefined;
-  }, [isInPerpRoute, isConnected, perpsNetworkStatus?.pingMs, intl]);
+  }, [
+    isInPerpRoute,
+    perpsNetworkStatus?.connected,
+    perpsNetworkStatus?.pingMs,
+  ]);
 
   return (
-    <NetworkStatusBadge connected={isConnected} badgeSize="sm" label={label} />
+    <NetworkStatusBadge
+      connected={isConnected}
+      badgeSize="sm"
+      label={label}
+      monoLabel={monoLabel}
+    />
   );
 }

@@ -17,23 +17,32 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
+
 const LimitOrderOpenItem = ({
   storeName,
 }: {
   storeName: EJotaiContextStoreNames;
 }) => {
-  const [{ swapLimitOrders, swapLimitOrdersLoading }] =
-    useInAppNotificationAtom();
+  const [
+    { swapLimitOrders, swapLimitOrdersAccountIdKey, swapLimitOrdersLoading },
+  ] = useInAppNotificationAtom();
+  const { shouldShowSwapLimitOrders } = useSwapLimitOrdersLocalDataVisibility(
+    swapLimitOrdersAccountIdKey,
+  );
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const openLimitOrder = useMemo(
-    () =>
-      swapLimitOrders.filter(
-        (order) => order.status === ESwapLimitOrderStatus.OPEN,
-      ),
-    [swapLimitOrders],
-  );
+  const openLimitOrder = useMemo(() => {
+    if (!shouldShowSwapLimitOrders) {
+      return [];
+    }
+    return swapLimitOrders.filter(
+      (order) =>
+        order.status === ESwapLimitOrderStatus.OPEN ||
+        order.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
+    );
+  }, [shouldShowSwapLimitOrders, swapLimitOrders]);
   const [swapType] = useSwapTypeSwitchAtom();
   return openLimitOrder.length > 0 && swapType === ESwapTabSwitchType.LIMIT ? (
     <XStack

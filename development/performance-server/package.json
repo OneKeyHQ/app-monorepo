@@ -11,7 +11,7 @@
     "build:css": "tailwindcss -i ./public/input.css -o ./public/style.css --minify"
   },
   "dependencies": {
-    "ws": "^8.14.2"
+    "ws": "^8.20.1"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.1"

@@ -1,3 +1,4 @@
+/* eslint-disable onekey/no-app-locale-main-thread -- low-level cropper utility consumed via callbacks */
 import {
   openCropper as nativeOpenCropper,
   openPicker as nativeOpenPicker,
@@ -27,9 +28,11 @@ const openPicker: IOpenPickerFunc = async (params) => {
     forceJpg: true,
     includeBase64: true,
     sortOrder: 'desc',
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     cropperChooseText: appLocale.intl.formatMessage({
       id: ETranslations.global_confirm,
     }),
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     cropperCancelText: appLocale.intl.formatMessage({
       id: ETranslations.global_cancel,
     }),
@@ -60,9 +63,11 @@ const openCropImage = async (
     forceJpg: true,
     includeBase64: true,
     sortOrder: 'desc',
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     cropperChooseText: appLocale.intl.formatMessage({
       id: ETranslations.global_confirm,
     }),
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     cropperCancelText: appLocale.intl.formatMessage({
       id: ETranslations.global_cancel,
     }),

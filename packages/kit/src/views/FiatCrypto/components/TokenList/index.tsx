@@ -31,6 +31,7 @@ import type {
   IFiatCryptoType,
 } from '@onekeyhq/shared/types/fiatCrypto';
 
+import { FiatCryptoTestIDs } from '../../testIDs';
 import { useGetNetwork } from '../NetworkContainer';
 import { TokenDataContext } from '../TokenDataContainer';
 
@@ -182,6 +183,7 @@ const ListItemFiatToken = ({
     ({ disableDefaultBehavior }: { disableDefaultBehavior?: boolean }) => {
       return (
         <ListItem
+          testID={FiatCryptoTestIDs.tokenListItem}
           userSelect="none"
           onPress={disableDefaultBehavior ? () => {} : handlePress}
         >
@@ -261,6 +263,7 @@ export function TokenList({
     <Stack flex={1}>
       <Stack px="$5" pb="$4">
         <SearchBar
+          testID={FiatCryptoTestIDs.tokenSearchBar}
           placeholder={intl.formatMessage({
             id: ETranslations.global_search_tokens,
           })}
@@ -281,6 +284,7 @@ export function TokenList({
           ))
         ) : (
           <ListView
+            testID={FiatCryptoTestIDs.tokenList}
             useFlashList
             estimatedItemSize={72}
             data={data}

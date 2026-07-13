@@ -35,11 +35,17 @@ export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';
 export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
-export const PERPS_CAMPAIGN_HELP_LINK = 'https://campaign.onekey.so/perps-s1';
+export const CREATOR_PROGRAM_URL = 'https://creator.onekey.so/';
 export const COIN_CONTROL_HELP_LINK =
   'https://help.onekey.so/articles/13050014';
 export const HARDWARE_TROUBLESHOOTING_URL =
   'https://help.onekey.so/articles/13183743';
+// "How to install the OneKey app on Linux" — covers installing host udev rules,
+// shown to sandboxed (flatpak/snap) users who cannot auto-install them.
+export const LINUX_UDEV_HELP_URL = 'https://help.onekey.so/articles/11461181';
+export const TREZOR_TROUBLESHOOTING_URL = 'https://trezor.io/support';
+export const RECEIVE_RISK_MONITORING_HELP_LINK =
+  'https://help.onekey.so/articles/15338240-how-to-use-onekey-incoming-transfer-risk-monitoring-kyt';
 
 export const FRESH_ADDRESS_LEARN_MORE_URL =
   'https://help.onekey.so/articles/12620219';
@@ -56,6 +62,7 @@ export const TWITTER_FOLLOW_URL_CN =
   'https://x.com/intent/follow?screen_name=OneKeyCN';
 export const GITHUB_URL = 'https://github.com/OneKeyHQ';
 export const ONEKEY_URL = 'https://onekey.so';
+export const ONEKEY_TEST_URL = 'https://onekeytest.com';
 export const ONEKEY_BLOCK_EXPLORER_URL = 'https://tx.onekey.so';
 export const ONEKEY_BLOCK_EXPLORER_TEST_URL = 'https://tx.onekeytest.com';
 
@@ -72,6 +79,10 @@ export const WEB_APP_URL_DEV = 'https://app.onekeytest.com';
 
 export function getWebAppUrl(env: IEndpointEnv): string {
   return env === 'prod' ? 'app.onekey.so' : 'app.onekeytest.com';
+}
+
+export function getOneKeyWebUrl(env: IEndpointEnv): string {
+  return env === 'prod' ? ONEKEY_URL : ONEKEY_TEST_URL;
 }
 
 export function buildReferralUrl({
@@ -140,6 +151,8 @@ export const SUPPORT_URL = 'https://help.onekey.so/hc/requests/new';
 export const SWAP_FAQ_HELP_URL = 'https://help.onekey.so/articles/13608266';
 
 export const HYPERLIQUID_EXPLORER_URL = 'https://hypurrscan.io/address/';
+export const HYPERLIQUID_TOKEN_EXPLORER_URL =
+  'https://app.hyperliquid.xyz/explorer/token/';
 
 export const DESKTOP_ICLOUD_CONTAINER_ID = 'iCloud.so.onekey.wallet';
 

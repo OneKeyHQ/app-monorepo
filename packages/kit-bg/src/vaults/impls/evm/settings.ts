@@ -23,6 +23,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   IStakingConfig,
   IStakingFlowConfig,
@@ -41,6 +42,7 @@ export type IAccountDeriveInfoMapEvm = IAccountDeriveInfoMapBase & {
   default: IAccountDeriveInfo;
   // etcNative: IAccountDeriveInfo;
   ledgerLive: IAccountDeriveInfo;
+  ledgerLegacy: IAccountDeriveInfo;
 };
 export type IAccountDeriveTypesEvm = keyof IAccountDeriveInfoMapEvm;
 
@@ -157,6 +159,27 @@ const stakingConfig: IStakingConfig = {
       [EEarnProviderEnum.Pendle]: {
         supportedSymbols: [],
         configs: {},
+      },
+      [EEarnProviderEnum.Native]: {
+        supportedSymbols: ['WETH', 'USDT'],
+        configs: {
+          WETH: {
+            enabled: true,
+            tokenAddress: EthereumWETH,
+            displayProfit: true,
+            stakingWithApprove: true,
+            withdrawWithTx: true,
+            claimWithTx: true,
+          },
+          USDT: {
+            enabled: true,
+            tokenAddress: EthereumUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+            withdrawWithTx: true,
+            claimWithTx: true,
+          },
+        },
       },
       [EEarnProviderEnum.Falcon]: {
         supportedSymbols: ['USDf'],
@@ -331,6 +354,14 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
     coinType: COINTYPE_ETH,
     desc: `m/44'/60'/*'/0/0`,
   },
+  ledgerLegacy: {
+    namePrefix: 'EVM Ledger Legacy',
+    label: 'Ledger Legacy',
+    idSuffix: 'LedgerLegacy', // hd-1--m/44'/60'/0'/0--LedgerLegacy
+    template: `m/44'/${COINTYPE_ETH}'/0'/${INDEX_PLACEHOLDER}`,
+    coinType: COINTYPE_ETH,
+    desc: `m/44'/60'/0'/*`,
+  },
 };
 
 const settings: IVaultSettings = {
@@ -343,6 +374,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: true,
   watchingAccountEnabled: true,
   qrAccountEnabled: true,
+
+  supportedThirdPartyVendors: [EHardwareVendor.ledger, EHardwareVendor.trezor],
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,

@@ -1,17 +1,30 @@
 import { secureWipe } from './crypto-utils';
 
+export type ISecureCacheKey = `${string}:${string}`;
+
 interface ICacheEntry {
   value: Buffer;
   timerId: ReturnType<typeof setTimeout>;
 }
 
-const DEFAULT_TTL_MS = 1_800_000; // 30 minutes
+export const SESSION_MEMO_TTL_MS = 60 * 60 * 1000;
+
+export function createSecureCacheKey(
+  walletId: string,
+  keyId: string,
+): ISecureCacheKey {
+  return `${walletId}:${keyId}`;
+}
 
 export class SecureCache {
   private cache = new Map<string, ICacheEntry>();
 
-  set(key: string, value: Buffer, ttlMs: number = DEFAULT_TTL_MS): void {
-    const effectiveTtl = ttlMs <= 0 ? DEFAULT_TTL_MS : ttlMs;
+  set(
+    key: ISecureCacheKey,
+    value: Buffer,
+    ttlMs: number = SESSION_MEMO_TTL_MS,
+  ): void {
+    const effectiveTtl = ttlMs <= 0 ? SESSION_MEMO_TTL_MS : ttlMs;
     this.delete(key);
 
     const timerId: ReturnType<typeof setTimeout> = setTimeout(() => {
@@ -24,16 +37,16 @@ export class SecureCache {
     this.cache.set(key, { value, timerId });
   }
 
-  get(key: string): Buffer | null {
+  get(key: ISecureCacheKey): Buffer | null {
     const entry = this.cache.get(key);
     return entry ? entry.value : null;
   }
 
-  has(key: string): boolean {
+  has(key: ISecureCacheKey): boolean {
     return this.cache.has(key);
   }
 
-  delete(key: string): void {
+  delete(key: ISecureCacheKey): void {
     const entry = this.cache.get(key);
     if (entry) {
       secureWipe(entry.value);

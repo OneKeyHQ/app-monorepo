@@ -39,11 +39,11 @@ import {
   SizableText,
   Stack,
   XStack,
-  useForm,
   useIsKeyboardShown,
   useKeyboardEvent,
   useMedia,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useRecoveryPhraseProtected from '@onekeyhq/kit/src/hooks/useRecoveryPhraseProtected';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -89,6 +89,7 @@ function WordItem({
   return (
     <Stack position="relative">
       <Button
+        testID="onboarding-handle-press-btn"
         size="small"
         ref={buttonRef}
         onPress={handlePress}
@@ -558,6 +559,7 @@ export function PhaseInputArea({
           <XStack px="$5" pb="$2" pt="$2" justifyContent="space-between">
             {showPhraseLengthSelector ? (
               <Select
+                testID="onboarding-handle-change-phrase-length-select"
                 title={intl.formatMessage({
                   id: ETranslations.select_recovery_phrase_length,
                 })}

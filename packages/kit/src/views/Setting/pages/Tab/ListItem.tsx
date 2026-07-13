@@ -43,7 +43,7 @@ export function TabSettingsListItem({
     <BaseListItem py="$3" px="$5" mx={0} borderRadius={0} {...props}>
       {children}
       {showDot ? (
-        <Stack width="$2" height="$2" bg="$iconInfo" borderRadius="$full" />
+        <Stack width="$2" height="$2" bg="$bgAccent" borderRadius="$full" />
       ) : null}
     </BaseListItem>
   );
@@ -82,11 +82,13 @@ export function TabSettingsListGrid({
       icon: item.icon as IKeyOfIcons,
       onPress: item?.onPress,
       badgeProps: item?.badgeProps,
+      testID: item?.testID,
       titleProps,
       iconProps,
     })
   ) : (
     <TabSettingsListItem
+      testID={item?.testID}
       py="$3"
       px="$5"
       mx={0}

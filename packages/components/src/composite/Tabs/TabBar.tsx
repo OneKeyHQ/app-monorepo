@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { StyleSheet, View } from 'react-native';
 import Animated, {
@@ -8,27 +15,37 @@ import Animated, {
   runOnJS,
   useAnimatedReaction,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 import { useThrottledCallback } from 'use-debounce';
 
 import { Divider } from '../../content';
 import { ListView, ScrollView } from '../../layouts';
 import { GradientMask, SizableText, XStack, YStack } from '../../primitives';
-import { useTheme } from '../../shared/tamagui';
+import { getConfig, useTheme } from '../../shared/tamagui';
+import { getFontToken } from '../../utils/getFontSize';
 import { fs } from '../../utils/scale';
+import { webFontFamily } from '../../utils/webFontFamily';
 
-import type { IListViewRef } from '../../layouts';
-import type { ISizableTextProps, IYStackProps } from '../../primitives';
+import type { IListViewRef, IScrollViewProps } from '../../layouts';
+import type {
+  ISizableTextProps,
+  IXStackProps,
+  IYStackProps,
+} from '../../primitives';
 import type {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  TextStyle,
 } from 'react-native';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 import type { SharedValue } from 'react-native-reanimated';
 
 type IItemLayout = { x: number; width: number };
+type IReadonlySharedValue<T> = { readonly value: T };
 
 const TAB_HOVER_STYLE = { bg: '$bgHover' } as const;
 const TAB_PRESS_STYLE = { bg: '$bgActive' } as const;
@@ -38,8 +55,17 @@ const PILL_SCROLL_CONTENT_STYLE = {
   px: '$pagePadding',
   py: '$2',
 } as const;
+const TEXT_SCROLL_CONTENT_STYLE = {
+  px: '$2.5',
+  py: '$2',
+} as const;
+const DIRECT_TAB_PRESS_ANIMATION_DURATION = 220;
+const DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT = 900;
+const DIRECT_TAB_PRESS_SETTLE_TIMEOUT = 450;
+const DIRECT_TAB_PRESS_MIN_INTERVAL = 600;
 
-export type ITabBarVariant = 'default' | 'pill';
+export type ITabBarVariant = 'default' | 'pill' | 'text';
+export type IDirectTabPressAnimationMode = 'timing' | 'instant';
 
 const animatedTextStyles = StyleSheet.create({
   text: {
@@ -50,18 +76,23 @@ const animatedTextStyles = StyleSheet.create({
   },
 });
 
-function AnimatedPillText({
+function AnimatedTabBarItemText({
   name,
   index: tabIndex,
   indexDecimal,
+  variant = 'pill',
+  isFocused,
 }: {
   name: string;
   index: number;
-  indexDecimal: SharedValue<number>;
+  indexDecimal: IReadonlySharedValue<number>;
+  variant?: Exclude<ITabBarVariant, 'default'>;
+  isFocused?: boolean;
 }) {
   const theme = useTheme();
-  const activeColor = theme.textInverse.val;
-  const inactiveColor = theme.text.val;
+  const isTextVariant = variant === 'text';
+  const activeColor = isTextVariant ? theme.text.val : theme.textInverse.val;
+  const inactiveColor = isTextVariant ? theme.textSubdued.val : theme.text.val;
 
   const animatedColorStyle = useAnimatedStyle(() => {
     const color = interpolateColor(
@@ -72,9 +103,47 @@ function AnimatedPillText({
     return { color };
   });
 
+  // Text variant labels are fixed at 18px; only the weight moves between
+  // inactive (medium) and focused (semibold). The pill variant keeps its
+  // static $bodyLgMedium label and animates color only. Resolving the native
+  // face from the weight keeps this animated path in sync with the
+  // SizableText fallback path rendering the same tab.
+  const baseTextStyle = useMemo(() => {
+    // Native maps weights to explicit faces (e.g. Roobert-SemiBold); web has
+    // no face map and uses the family stack with a CSS font-weight.
+    const faceMap = getConfig().fontsParsed.$body?.face as
+      | Partial<Record<number, { normal?: string }>>
+      | undefined;
+
+    let fontSize: number;
+    let lineHeight: number;
+    let fontWeightValue: number;
+    if (isTextVariant) {
+      fontSize = fs(18);
+      lineHeight = fs(24);
+      fontWeightValue = isFocused ? 600 : 500;
+    } else {
+      const token = getFontToken('$bodyLgMedium');
+      if (!token || typeof token !== 'object') {
+        return animatedTextStyles.text;
+      }
+      fontSize = token.fontSize;
+      lineHeight = token.lineHeight;
+      fontWeightValue = Number(token.fontWeight ?? 500);
+    }
+
+    const faceFamily = faceMap?.[fontWeightValue]?.normal;
+    return {
+      fontSize,
+      lineHeight,
+      fontWeight: String(fontWeightValue) as TextStyle['fontWeight'],
+      fontFamily: faceFamily ?? webFontFamily,
+    } as const;
+  }, [isTextVariant, isFocused]);
+
   const combinedStyle = useMemo(
-    () => [animatedTextStyles.text, animatedColorStyle],
-    [animatedColorStyle],
+    () => [baseTextStyle, animatedColorStyle],
+    [baseTextStyle, animatedColorStyle],
   );
 
   return (
@@ -95,20 +164,27 @@ export function TabBarItem({
   animatedPillIndicator,
   indexDecimal,
   index: tabIndex,
+  testID,
 }: ITabBarItemProps) {
   const handlePress = useCallback(() => {
     onPress(name);
   }, [name, onPress]);
+
+  // Hover state for the text variant: no background change on hover, only
+  // the label color moves to $text. (Cannot use group/$group-hover here —
+  // on web `group` emits `container-type: inline-size`, which collapses the
+  // content-sized item width to zero.)
+  const [isHovered, setIsHovered] = useState(false);
+  const handleHoverIn = useCallback(() => setIsHovered(true), []);
+  const handleHoverOut = useCallback(() => setIsHovered(false), []);
 
   const resolvedTextSize = textSize ?? '$bodyLgMedium';
 
   if (variant === 'pill') {
     // When animatedPillIndicator is active, the sliding background is rendered
     // by AnimatedPillIndicator — items should be transparent so it shows through.
-    let pillBg: string = '$bgStrong';
-    if (animatedPillIndicator) {
-      pillBg = 'transparent';
-    } else if (isFocused) {
+    let pillBg: string = 'transparent';
+    if (!animatedPillIndicator && isFocused) {
       pillBg = '$bgPrimary';
     }
 
@@ -119,6 +195,7 @@ export function TabBarItem({
 
     return (
       <YStack
+        testID={testID}
         ai="center"
         jc="center"
         px="$3.5"
@@ -139,7 +216,7 @@ export function TabBarItem({
         {...(isFocused ? focusedTabStyle : undefined)}
       >
         {useAnimatedText ? (
-          <AnimatedPillText
+          <AnimatedTabBarItemText
             name={name}
             index={tabIndex}
             indexDecimal={indexDecimal}
@@ -157,8 +234,56 @@ export function TabBarItem({
     );
   }
 
+  if (variant === 'text') {
+    // Text variant animates per-item color only — there is no indicator, so
+    // indexDecimal/index alone are enough (no readiness gate needed: both
+    // $text and $textSubdued are visible without a background from frame one).
+    const useAnimatedText =
+      indexDecimal !== undefined && tabIndex !== undefined;
+
+    return (
+      <YStack
+        testID={testID}
+        ai="center"
+        jc="center"
+        px="$2.5"
+        py="$1.5"
+        key={name}
+        onPress={handlePress}
+        // The animated label never reads hover state — skip the setState churn.
+        onHoverIn={useAnimatedText ? undefined : handleHoverIn}
+        onHoverOut={useAnimatedText ? undefined : handleHoverOut}
+        cursor="default"
+        {...tabItemStyle}
+        {...(isFocused ? focusedTabStyle : undefined)}
+      >
+        {useAnimatedText ? (
+          <AnimatedTabBarItemText
+            variant="text"
+            name={name}
+            index={tabIndex}
+            indexDecimal={indexDecimal}
+            isFocused={isFocused}
+          />
+        ) : (
+          // Text tabs are fixed at 18px ($headingLg); only the weight moves
+          // between inactive (medium) and focused (semibold).
+          <SizableText
+            size="$headingLg"
+            fontWeight={isFocused ? '600' : '500'}
+            color={isFocused || isHovered ? '$text' : '$textSubdued'}
+            userSelect="none"
+          >
+            {name}
+          </SizableText>
+        )}
+      </YStack>
+    );
+  }
+
   return (
     <YStack
+      testID={testID}
       h={44}
       // minWidth={52}
       ai="center"
@@ -203,7 +328,7 @@ function AnimatedTabBarItem({
 }: {
   name: string;
   index: number;
-  indexDecimal: SharedValue<number>;
+  indexDecimal: IReadonlySharedValue<number>;
   onPress: (name: string) => void;
   tabItemStyle?: IYStackProps;
   focusedTabStyle?: IYStackProps;
@@ -264,7 +389,7 @@ function AnimatedIndicator({
   indexDecimal,
   itemsLayout,
 }: {
-  indexDecimal: SharedValue<number>;
+  indexDecimal: IReadonlySharedValue<number>;
   itemsLayout: IItemLayout[];
 }) {
   const theme = useTheme();
@@ -346,7 +471,7 @@ function AnimatedPillTabBarItem({
 }: {
   name: string;
   index: number;
-  indexDecimal: SharedValue<number>;
+  indexDecimal: IReadonlySharedValue<number>;
   onPress: (name: string) => void;
   onItemLayout?: (index: number, layout: IItemLayout) => void;
 }) {
@@ -404,7 +529,7 @@ function AnimatedPillIndicator({
   indexDecimal,
   itemsLayout,
 }: {
-  indexDecimal: SharedValue<number>;
+  indexDecimal: IReadonlySharedValue<number>;
   itemsLayout: IItemLayout[];
 }) {
   const theme = useTheme();
@@ -500,6 +625,8 @@ function AnimatedPillIndicator({
 export interface ITabBarProps extends TabBarProps<string> {
   containerStyle?: IYStackProps;
   renderToolbar?: ({ focusedTab }: { focusedTab: string }) => React.ReactNode;
+  directTabPressAnimation?: boolean;
+  directTabPressAnimationMode?: IDirectTabPressAnimationMode;
 }
 
 export interface ITabBarItemProps {
@@ -513,21 +640,27 @@ export interface ITabBarItemProps {
   // When true, the pill background is handled by AnimatedPillIndicator,
   // so TabBarItem should not render its own background color.
   animatedPillIndicator?: boolean;
-  // Provided when animatedPillIndicator is true for UI-thread text color.
+  // Provided for UI-thread text color: when animatedPillIndicator is true
+  // (pill variant) or when the text variant animates per-item color.
   indexDecimal?: SharedValue<number>;
   index?: number;
+  testID?: string;
 }
 
 const PILL_GRADIENT_THRESHOLD = 2;
 
-function PillTabBarContent({
+function ScrollableTabBarContent({
   tabItems,
   pillIndicator,
   renderToolbar,
+  contentContainerStyle,
+  itemsGap,
 }: {
   tabItems: React.ReactNode;
   pillIndicator?: React.ReactNode;
   renderToolbar?: React.ReactNode;
+  contentContainerStyle: IScrollViewProps['contentContainerStyle'];
+  itemsGap: IXStackProps['gap'];
 }) {
   const [showLeft, setShowLeft] = useState(false);
   const [showRight, setShowRight] = useState(false);
@@ -582,9 +715,9 @@ function PillTabBarContent({
           onScroll={handleScroll}
           onLayout={handleLayout}
           onContentSizeChange={handleContentSizeChange}
-          contentContainerStyle={PILL_SCROLL_CONTENT_STYLE}
+          contentContainerStyle={contentContainerStyle}
         >
-          <XStack position="relative" gap="$2" ai="center">
+          <XStack position="relative" gap={itemsGap} ai="center">
             {pillIndicator}
             {tabItems}
           </XStack>
@@ -616,6 +749,8 @@ export function TabBar({
   scrollable = false,
   variant = 'default',
   textSize,
+  directTabPressAnimation = false,
+  directTabPressAnimationMode = 'timing',
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
   tabNames: string[];
@@ -628,9 +763,19 @@ export function TabBar({
   variant?: ITabBarVariant;
   textSize?: ISizableTextProps['size'];
   indexDecimal?: SharedValue<number>;
+  directTabPressAnimation?: boolean;
+  directTabPressAnimationMode?: IDirectTabPressAnimationMode;
 }) {
   const listViewRef = useRef<IListViewRef<string>>(null);
   const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const directTabPressTimerId = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const directTabPressSettleTimerId = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const directTabPressResyncCountRef = useRef(0);
+  const directTabPressLastAcceptedAtRef = useRef(0);
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   const [itemsLayout, setItemsLayout] = useState<IItemLayout[]>([]);
   const itemsLayoutRef = useRef<Map<number, IItemLayout>>(new Map());
@@ -641,6 +786,21 @@ export function TabBar({
     !scrollable &&
     !renderItem &&
     !textSize;
+  // Native pagers can report intermediate focused tabs while a tab press
+  // settles. Keep this opt-in because it decouples the tab bar indicator from
+  // the pager state during that short window.
+  const useDirectTabPressAnimation =
+    directTabPressAnimation && useAnimatedDefault;
+  const displayIndexDecimal = useSharedValue(indexDecimal?.value ?? 0);
+  const directTabPressTargetIndex = useSharedValue(-1);
+  const directTabPressStartedAt = useSharedValue(0);
+  const directTabPressReachedAt = useSharedValue(0);
+  const animatedDefaultIndexDecimal = useDerivedValue(() => {
+    if (useDirectTabPressAnimation && directTabPressTargetIndex.value >= 0) {
+      return displayIndexDecimal.value;
+    }
+    return indexDecimal?.value ?? 0;
+  });
 
   const useAnimatedPill =
     !!indexDecimal &&
@@ -653,6 +813,12 @@ export function TabBar({
   // provided — only the text rendering needs the guard.
   const useAnimatedPillIndicator =
     !!indexDecimal && variant === 'pill' && !scrollable;
+
+  // Text variant has no indicator, so animated color is item-local and safe
+  // even with a custom renderItem (props are forwarded to TabBarItem).
+  // !textSize because the animated text style hardcodes fs(16).
+  const useAnimatedTextColor =
+    !!indexDecimal && variant === 'text' && !scrollable && !textSize;
 
   const handleItemLayout = useCallback(
     (index: number, layout: IItemLayout) => {
@@ -694,8 +860,154 @@ export function TabBar({
     [tabNames],
   );
 
+  const clearDirectTabPressTimer = useCallback(() => {
+    if (directTabPressTimerId.current) {
+      clearTimeout(directTabPressTimerId.current);
+      directTabPressTimerId.current = null;
+    }
+  }, []);
+
+  const clearDirectTabPressSettleTimer = useCallback(() => {
+    if (directTabPressSettleTimerId.current) {
+      clearTimeout(directTabPressSettleTimerId.current);
+      directTabPressSettleTimerId.current = null;
+    }
+  }, []);
+
+  const resetDirectTabPressState = useCallback(() => {
+    directTabPressResyncCountRef.current = 0;
+    directTabPressTargetIndex.value = -1;
+    directTabPressStartedAt.value = 0;
+    directTabPressReachedAt.value = 0;
+  }, [
+    directTabPressReachedAt,
+    directTabPressStartedAt,
+    directTabPressTargetIndex,
+  ]);
+
+  const scheduleDirectTabPressSettleReset = useCallback(
+    (targetIndex: number) => {
+      clearDirectTabPressTimer();
+      clearDirectTabPressSettleTimer();
+      directTabPressSettleTimerId.current = setTimeout(() => {
+        directTabPressSettleTimerId.current = null;
+        if (directTabPressTargetIndex.value !== targetIndex) {
+          return;
+        }
+
+        const tabName = tabNames[targetIndex] ?? focusedTab.value;
+        const focusedIndex = tabNames.findIndex(
+          (name) => name === focusedTab.value,
+        );
+        const indexDecimalValue = indexDecimal?.value;
+        const isIndexSettled =
+          indexDecimalValue === undefined ||
+          Math.abs(indexDecimalValue - targetIndex) < 0.001;
+
+        if (
+          (focusedIndex !== targetIndex || !isIndexSettled) &&
+          directTabPressResyncCountRef.current < 1
+        ) {
+          directTabPressResyncCountRef.current += 1;
+          directTabPressReachedAt.value = Date.now();
+          displayIndexDecimal.value = targetIndex;
+          onTabPress(tabName);
+          scheduleDirectTabPressSettleReset(targetIndex);
+          return;
+        }
+
+        resetDirectTabPressState();
+        setCurrentTab(tabName);
+      }, DIRECT_TAB_PRESS_SETTLE_TIMEOUT);
+    },
+    [
+      clearDirectTabPressSettleTimer,
+      clearDirectTabPressTimer,
+      displayIndexDecimal,
+      directTabPressReachedAt,
+      directTabPressTargetIndex,
+      focusedTab,
+      indexDecimal,
+      onTabPress,
+      resetDirectTabPressState,
+      tabNames,
+    ],
+  );
+
+  useEffect(
+    () => () => {
+      clearDirectTabPressTimer();
+      clearDirectTabPressSettleTimer();
+    },
+    [clearDirectTabPressSettleTimer, clearDirectTabPressTimer],
+  );
+
   const handleTabPress = useThrottledCallback((name: string) => {
-    tabClickCount = Date.now();
+    const now = Date.now();
+    if (
+      useDirectTabPressAnimation &&
+      now - directTabPressLastAcceptedAtRef.current <
+        DIRECT_TAB_PRESS_MIN_INTERVAL
+    ) {
+      return;
+    }
+    if (useDirectTabPressAnimation) {
+      directTabPressLastAcceptedAtRef.current = now;
+    }
+
+    clearDirectTabPressTimer();
+    clearDirectTabPressSettleTimer();
+    directTabPressResyncCountRef.current = 0;
+    const targetIndex = tabNames.findIndex((tabName) => tabName === name);
+    const focusedIndex = tabNames.findIndex(
+      (tabName) => tabName === focusedTab.value,
+    );
+    const currentTabIndex = tabNames.findIndex(
+      (tabName) => tabName === currentTab,
+    );
+    const currentIndex =
+      useDirectTabPressAnimation && currentTabIndex >= 0
+        ? currentTabIndex
+        : focusedIndex;
+    const shouldHoldDirectPress =
+      useDirectTabPressAnimation &&
+      indexDecimal &&
+      targetIndex >= 0 &&
+      currentIndex >= 0 &&
+      targetIndex !== currentIndex &&
+      (directTabPressAnimationMode === 'instant' ||
+        Math.abs(targetIndex - currentIndex) > 1);
+    const shouldAnimateDirectPress =
+      shouldHoldDirectPress &&
+      directTabPressAnimationMode === 'timing' &&
+      Math.abs(targetIndex - currentIndex) > 1;
+
+    if (shouldHoldDirectPress) {
+      directTabPressResyncCountRef.current = 0;
+      directTabPressTargetIndex.value = targetIndex;
+      directTabPressStartedAt.value = now;
+      directTabPressReachedAt.value = 0;
+      if (shouldAnimateDirectPress) {
+        displayIndexDecimal.value = indexDecimal.value;
+        displayIndexDecimal.value = withTiming(targetIndex, {
+          duration: DIRECT_TAB_PRESS_ANIMATION_DURATION,
+        });
+      } else {
+        displayIndexDecimal.value = targetIndex;
+      }
+      directTabPressTimerId.current = setTimeout(() => {
+        directTabPressTimerId.current = null;
+        if (directTabPressTargetIndex.value !== targetIndex) {
+          return;
+        }
+        clearDirectTabPressSettleTimer();
+        resetDirectTabPressState();
+        setCurrentTab(focusedTab.value);
+      }, DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT);
+    } else if (useDirectTabPressAnimation) {
+      resetDirectTabPressState();
+    }
+    tabClickCount = now;
     setCurrentTab(name);
     scrollToTab(name);
     onTabPress(name);
@@ -704,7 +1016,25 @@ export function TabBar({
   useAnimatedReaction(
     () => focusedTab.value,
     (result, previous) => {
-      if (Date.now() - tabClickCount < 300) {
+      const targetIndex = directTabPressTargetIndex.value;
+      const resultIndex = tabNames.findIndex((tabName) => tabName === result);
+      const directElapsedMs = Date.now() - directTabPressStartedAt.value;
+      const reachedAt = directTabPressReachedAt.value;
+      const settleElapsedMs = reachedAt > 0 ? Date.now() - reachedAt : 0;
+      const shouldHoldDirectTarget =
+        useDirectTabPressAnimation &&
+        targetIndex >= 0 &&
+        resultIndex >= 0 &&
+        resultIndex !== targetIndex &&
+        (directElapsedMs < DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT ||
+          (reachedAt > 0 && settleElapsedMs < DIRECT_TAB_PRESS_SETTLE_TIMEOUT));
+
+      if (shouldHoldDirectTarget) {
+        return;
+      }
+
+      const tabClickElapsedMs = Date.now() - tabClickCount;
+      if (tabClickElapsedMs < 300) {
         return;
       }
       if (result !== previous && previous) {
@@ -714,18 +1044,79 @@ export function TabBar({
         }
       }
     },
+    [
+      directTabPressStartedAt,
+      directTabPressReachedAt,
+      directTabPressTargetIndex,
+      scrollable,
+      tabNames,
+      useDirectTabPressAnimation,
+    ],
+  );
+
+  useAnimatedReaction(
+    () => {
+      if (!indexDecimal) {
+        return null;
+      }
+      return indexDecimal.value;
+    },
+    (result) => {
+      if (result === null) {
+        return;
+      }
+
+      if (!useDirectTabPressAnimation) {
+        return;
+      }
+
+      const targetIndex = directTabPressTargetIndex.value;
+      if (targetIndex < 0) {
+        return;
+      }
+
+      const hasReachedTarget = Math.abs(result - targetIndex) < 0.001;
+      const hasTimedOut =
+        Date.now() - directTabPressStartedAt.value >
+        DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT;
+
+      if (hasReachedTarget && directTabPressReachedAt.value <= 0) {
+        directTabPressReachedAt.value = Date.now();
+        runOnJS(scheduleDirectTabPressSettleReset)(targetIndex);
+        return;
+      }
+
+      if (hasTimedOut) {
+        directTabPressTargetIndex.value = -1;
+        directTabPressStartedAt.value = 0;
+        directTabPressReachedAt.value = 0;
+        runOnJS(clearDirectTabPressTimer)();
+        runOnJS(clearDirectTabPressSettleTimer)();
+      }
+    },
+    [
+      clearDirectTabPressSettleTimer,
+      clearDirectTabPressTimer,
+      directTabPressStartedAt,
+      directTabPressReachedAt,
+      directTabPressTargetIndex,
+      indexDecimal,
+      scheduleDirectTabPressSettleReset,
+      useDirectTabPressAnimation,
+    ],
   );
 
   const isPill = variant === 'pill';
+  const isText = variant === 'text';
 
   const tabItems = useMemo(() => {
-    if (useAnimatedDefault && indexDecimal) {
+    if (useAnimatedDefault && animatedDefaultIndexDecimal) {
       return tabNames.map((name, index) => (
         <AnimatedTabBarItem
           key={name}
           name={name}
           index={index}
-          indexDecimal={indexDecimal}
+          indexDecimal={animatedDefaultIndexDecimal}
           isFocused={currentTab === name}
           onPress={handleTabPress}
           tabItemStyle={tabItemStyle}
@@ -746,8 +1137,16 @@ export function TabBar({
         />
       ));
     }
+    // Only activate animated pill text/bg on items once the pill indicator
+    // background is ready (all items have reported layout).  Before that,
+    // the focused tab would get textInverse (white) color with no dark
+    // background behind it, making the label invisible on cold start.
+    const pillIndicatorReady = itemsLayout.length === tabNames.length;
+    const hasAnimatedIndicator =
+      useAnimatedPillIndicator && !!renderItem && pillIndicatorReady;
+    const shouldPassAnimatedProps =
+      hasAnimatedIndicator || useAnimatedTextColor;
     return tabNames.map((name, index) => {
-      const hasAnimatedIndicator = useAnimatedPillIndicator && !!renderItem;
       const itemNode = renderItem ? (
         renderItem(
           {
@@ -759,8 +1158,8 @@ export function TabBar({
             variant,
             textSize,
             animatedPillIndicator: hasAnimatedIndicator,
-            indexDecimal: hasAnimatedIndicator ? indexDecimal : undefined,
-            index: hasAnimatedIndicator ? index : undefined,
+            indexDecimal: shouldPassAnimatedProps ? indexDecimal : undefined,
+            index: shouldPassAnimatedProps ? index : undefined,
           },
           index,
         )
@@ -774,6 +1173,8 @@ export function TabBar({
           focusedTabStyle={focusedTabStyle}
           variant={variant}
           textSize={textSize}
+          indexDecimal={useAnimatedTextColor ? indexDecimal : undefined}
+          index={useAnimatedTextColor ? index : undefined}
         />
       );
       // Wrap with onLayout to collect layout data for animated pill indicator
@@ -791,17 +1192,25 @@ export function TabBar({
           </View>
         );
       }
+      // renderItem output may lack a key (ITabBarItemProps has no key field),
+      // so key it here to keep the mapped array keyed by tab name.
+      if (renderItem) {
+        return <Fragment key={name}>{itemNode}</Fragment>;
+      }
       return itemNode;
     });
   }, [
     useAnimatedDefault,
     useAnimatedPill,
     useAnimatedPillIndicator,
+    useAnimatedTextColor,
+    animatedDefaultIndexDecimal,
     indexDecimal,
     currentTab,
     focusedTabStyle,
     handleTabPress,
     handleItemLayout,
+    itemsLayout,
     renderItem,
     tabItemStyle,
     tabNames,
@@ -827,16 +1236,22 @@ export function TabBar({
     if (scrollable) {
       return null;
     }
-    if (isPill) {
+    // Text variant reuses the pill scroll container (horizontal ScrollView +
+    // gradient masks + toolbar row); pillIndicator is already null for it.
+    if (isPill || isText) {
       return (
-        <PillTabBarContent
+        <ScrollableTabBarContent
           tabItems={tabItems}
           pillIndicator={pillIndicator}
           renderToolbar={renderToolbar?.({ focusedTab: currentTab })}
+          contentContainerStyle={
+            isText ? TEXT_SCROLL_CONTENT_STYLE : PILL_SCROLL_CONTENT_STYLE
+          }
+          itemsGap={isText ? undefined : '$2'}
         />
       );
     }
-    if (useAnimatedDefault && indexDecimal) {
+    if (useAnimatedDefault && animatedDefaultIndexDecimal) {
       return (
         <>
           <XStack ai="center" jc="space-between">
@@ -844,7 +1259,7 @@ export function TabBar({
               {tabItems}
               {itemsLayout.length === tabNames.length ? (
                 <AnimatedIndicator
-                  indexDecimal={indexDecimal}
+                  indexDecimal={animatedDefaultIndexDecimal}
                   itemsLayout={itemsLayout}
                 />
               ) : null}
@@ -866,12 +1281,13 @@ export function TabBar({
     );
   }, [
     useAnimatedDefault,
-    indexDecimal,
+    animatedDefaultIndexDecimal,
     itemsLayout,
     tabNames.length,
     currentTab,
     divider,
     isPill,
+    isText,
     pillIndicator,
     renderToolbar,
     scrollable,

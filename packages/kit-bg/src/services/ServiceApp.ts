@@ -1,5 +1,3 @@
-import RNRestart from 'react-native-restart';
-
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
@@ -15,6 +13,9 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { appRestart } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
+import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -58,22 +59,15 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async restartApp() {
-    defaultLogger.setting.page.restartApp();
-    if (platformEnv.isNative) {
-      RNRestart.restart();
-      return;
-    }
-    if (platformEnv.isDesktop) {
-      return globalThis.desktopApiProxy?.system?.reload?.();
-    }
-    // restartApp() MUST be called from background in Ext, UI reload will close whole Browser
-    if (platformEnv.isExtensionBackground) {
-      return chrome.runtime.reload();
-    }
-    if (platformEnv.isRuntimeBrowser) {
-      return globalThis?.location?.reload?.();
-    }
+  async restartApp(opts: { mode?: EAppRestartMode; reason?: string } = {}) {
+    // restartApp() MUST be called from background in Ext, UI reload will close
+    // whole Browser. The platform-specific routing (desktopApi reload,
+    // chrome.runtime.reload, location.reload, BackgroundThread.restart for
+    // native) lives inside `appRestart` so this method stays uniform.
+    await appRestart({
+      mode: opts.mode ?? EAppRestartMode.All,
+      reason: opts.reason ?? 'serviceApp.restartApp',
+    });
   }
 
   private async resetData() {
@@ -103,6 +97,47 @@ class ServiceApp extends ServiceBase {
       console.error('syncStorage.clear() error');
     }
     defaultLogger.setting.page.clearDataStep('syncStorage-clearAll');
+
+    // Clean jotai MMKV per-key storage (separate instance from syncStorage)
+    if (platformEnv.isNative) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { default: jotaiMMKV } =
+          require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
+        jotaiMMKV.clearAll();
+      } catch {
+        console.error('jotaiMMKV.clearAll() error');
+      }
+      defaultLogger.setting.page.clearDataStep('jotaiMMKV-clearAll');
+    }
+
+    // Clean cold-start cache MMKV (contextAtom snapshot + SWR cache).
+    // On native this is a synchronous MMKV wipe; on web/desktop the facade's
+    // clearAll() schedules an async IDB clear, so we additionally await the
+    // dedicated helper to ensure the IDB store is fully wiped before reload.
+    try {
+      if (platformEnv.isWeb || platformEnv.isDesktop) {
+        // On web/desktop, coldStartCacheStorage.clearAll() only fires a
+        // fire-and-forget resetColdStartCache(); calling it alongside the
+        // awaitable helper spawns two concurrent resets that share a single
+        // isClearing latch, so the first one's finally releases the lock while
+        // the second is still mid-wipe — letting external writes resurrect
+        // data before db.clear lands. Use only the awaitable path here.
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { awaitColdStartCacheCleared } =
+          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
+        await awaitColdStartCacheCleared();
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { coldStartCacheStorage } =
+          require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+        coldStartCacheStorage.clearAll();
+      }
+    } catch {
+      console.error('coldStartCacheStorage.clearAll() error');
+    }
+    defaultLogger.setting.page.clearDataStep('coldStartCache-clearAll');
+
     await timerUtils.wait(100);
 
     try {
@@ -302,7 +337,14 @@ class ServiceApp extends ServiceBase {
       await timerUtils.wait(600);
     }
 
-    await this.restartApp();
+    // resetData wipes localDb / appStorage / v4 db — the background runtime
+    // is now holding stale state and bundle moduleIds may have re-keyed via
+    // OTA. mode=All forces both runtimes cold so nothing reads from the
+    // dead state.
+    await this.restartApp({
+      mode: EAppRestartMode.All,
+      reason: 'auth.resetData',
+    });
   }
 
   @backgroundMethod()
@@ -319,6 +361,34 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async openExtensionExpandTab(routeInfo: IOpenUrlRouteInfo) {
     return extUtils.openExpandTab(routeInfo);
+  }
+
+  @backgroundMethod()
+  async openExtensionMarketTokenDetail(params: {
+    tokenAddress: string;
+    network: string;
+    isNative?: boolean;
+    from?: EEnterWay;
+    showFavoriteButton?: boolean;
+  }) {
+    const { tokenAddress, network, isNative, from, showFavoriteButton } =
+      params;
+    const routeParams: IOpenUrlRouteInfo['params'] = {};
+
+    if (typeof isNative === 'boolean') {
+      routeParams.isNative = isNative;
+    }
+    if (from) {
+      routeParams.from = from;
+    }
+    if (typeof showFavoriteButton === 'boolean') {
+      routeParams.showFavoriteButton = showFavoriteButton;
+    }
+
+    return extUtils.openExpandTab({
+      path: `/market/token/${network}/${tokenAddress}`,
+      params: routeParams,
+    });
   }
 
   @backgroundMethod()

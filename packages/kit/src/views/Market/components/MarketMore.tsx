@@ -83,6 +83,7 @@ function BasicMarketMore({
       title=""
       renderTrigger={
         <IconButton
+          testID="market-icon-btn"
           title={intl.formatMessage({ id: ETranslations.global_more })}
           icon="DotVerSolid"
           variant="tertiary"

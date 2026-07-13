@@ -3,14 +3,12 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Divider, XStack } from '@onekeyhq/components';
-import type {
-  IPerpsActiveAssetAtom,
-  IPerpsActiveAssetCtxAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { Divider, Icon, SizableText, XStack } from '@onekeyhq/components';
+import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePerpsTradingPreferencesAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  formatHlSize,
   formatWithPrecision,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -22,13 +20,22 @@ import { TradingFormInput } from './TradingFormInput';
 
 import type { ISide } from '../selectors/TradeSideToggle';
 
+type ISizeInputUnit = 'token' | 'usd' | 'margin';
+
+export type ISizeInputDisplayValueChangePayload = {
+  inputMode: ISizeInputUnit;
+  displayValue: string;
+  tokenValue: string;
+};
+
 interface ISizeInputProps {
   value: string;
   side: ISide;
   symbol: string;
   onChange: (value: string) => void;
+  onDisplayValueChange?: (payload: ISizeInputDisplayValueChangePayload) => void;
   activeAsset: IPerpsActiveAssetAtom;
-  activeAssetCtx: IPerpsActiveAssetCtxAtom;
+  isAssetCtxReady: boolean;
   referencePrice: string;
   sizeInputMode: EPerpsSizeInputMode;
   sliderPercent: number;
@@ -38,15 +45,17 @@ interface ISizeInputProps {
   label?: string;
   isMobile?: boolean;
   leverage: number;
+  allowMarginInput?: boolean;
 }
 
 export const SizeInput = memo(
   ({
     value,
     onChange,
+    onDisplayValueChange,
     symbol,
     activeAsset,
-    activeAssetCtx,
+    isAssetCtxReady,
     referencePrice,
     sizeInputMode,
     sliderPercent,
@@ -57,19 +66,26 @@ export const SizeInput = memo(
     label,
     isMobile = false,
     leverage,
+    allowMarginInput = true,
   }: ISizeInputProps) => {
     const intl = useIntl();
     const szDecimals = activeAsset?.universe?.szDecimals ?? 2;
-    const isDisabled = disabled || !activeAssetCtx || !activeAsset;
+    const isDisabled = disabled || !isAssetCtxReady || !activeAsset;
 
     const [tradingPreferences, setTradingPreferences] =
       usePerpsTradingPreferencesAtom();
-    const inputMode = tradingPreferences.sizeInputUnit ?? 'usd';
+    const rawInputMode: ISizeInputUnit =
+      tradingPreferences.sizeInputUnit ?? 'usd';
+    const inputMode: ISizeInputUnit =
+      !allowMarginInput && rawInputMode === 'margin' ? 'usd' : rawInputMode;
     const setInputMode = useCallback(
       (mode: 'token' | 'usd' | 'margin') => {
-        setTradingPreferences((prev) => ({ ...prev, sizeInputUnit: mode }));
+        setTradingPreferences((prev) => ({
+          ...prev,
+          sizeInputUnit: !allowMarginInput && mode === 'margin' ? 'usd' : mode,
+        }));
       },
-      [setTradingPreferences],
+      [allowMarginInput, setTradingPreferences],
     );
 
     const [tokenAmount, setTokenAmount] = useState('');
@@ -80,6 +96,9 @@ export const SizeInput = memo(
     const prevValueRef = useRef(value);
     const prevPriceRef = useRef(referencePrice);
     const prevLeverageRef = useRef(leverage);
+    const preserveRawInputOnEmptyValueRef = useRef<'usd' | 'margin' | null>(
+      null,
+    );
 
     const isSliderMode = sizeInputMode === 'slider';
 
@@ -94,23 +113,32 @@ export const SizeInput = memo(
     const leverageBN = useMemo(() => new BigNumber(leverage || 1), [leverage]);
 
     // Helper: Calculate USD from Token
+    // Use ROUND_DOWN to match HL website behavior (truncate, never round up).
     const calcUsdFromToken = useCallback(
       (tokenValue: string) => {
         if (!hasValidPrice) return '';
         const tokenBN = new BigNumber(tokenValue);
         if (!tokenBN.isFinite()) return '';
-        return formatWithPrecision(tokenBN.multipliedBy(priceBN), 2, true);
+        return formatWithPrecision(
+          tokenBN.multipliedBy(priceBN),
+          2,
+          true,
+          BigNumber.ROUND_DOWN,
+        );
       },
       [hasValidPrice, priceBN],
     );
 
     // Helper: Calculate Token from USD
+    // Wire-safe size MUST be floor-truncated to szDecimals (HL lot size rule),
+    // otherwise we may submit a size whose actual notional exceeds the user's
+    // typed USD amount (root cause of the "input $10 → estimate $10.44" bug).
     const calcTokenFromUsd = useCallback(
       (usdValue: string) => {
         if (!hasValidPrice) return '';
         const usdBN = new BigNumber(usdValue);
         if (!usdBN.isFinite()) return '';
-        return formatWithPrecision(usdBN.dividedBy(priceBN), szDecimals, true);
+        return formatHlSize(usdBN.dividedBy(priceBN), szDecimals);
       },
       [hasValidPrice, priceBN, szDecimals],
     );
@@ -121,7 +149,7 @@ export const SizeInput = memo(
         const tokenBN = new BigNumber(tokenValue);
         if (!tokenBN.isFinite()) return '';
         const marginValue = tokenBN.multipliedBy(priceBN).dividedBy(leverageBN);
-        return formatWithPrecision(marginValue, 2, true);
+        return formatWithPrecision(marginValue, 2, true, BigNumber.ROUND_DOWN);
       },
       [hasValidPrice, priceBN, leverageBN],
     );
@@ -132,7 +160,7 @@ export const SizeInput = memo(
         const marginBN = new BigNumber(marginValue);
         if (!marginBN.isFinite()) return '';
         const tokenValue = marginBN.multipliedBy(leverageBN).dividedBy(priceBN);
-        return formatWithPrecision(tokenValue, szDecimals, true);
+        return formatHlSize(tokenValue, szDecimals);
       },
       [hasValidPrice, priceBN, leverageBN, szDecimals],
     );
@@ -163,9 +191,29 @@ export const SizeInput = memo(
       prevValueRef.current = value;
 
       if (!value) {
+        const preserveRawInputMode = preserveRawInputOnEmptyValueRef.current;
+        preserveRawInputOnEmptyValueRef.current = null;
+
+        if (
+          isUserTyping &&
+          ((preserveRawInputMode === 'usd' &&
+            inputMode === 'usd' &&
+            usdAmount) ||
+            (preserveRawInputMode === 'margin' &&
+              inputMode === 'margin' &&
+              marginAmount))
+        ) {
+          return;
+        }
+
         setUsdAmount('');
         setMarginAmount('');
         setIsUserTyping(false);
+        onDisplayValueChange?.({
+          inputMode,
+          displayValue: '',
+          tokenValue: '',
+        });
         return;
       }
 
@@ -183,7 +231,16 @@ export const SizeInput = memo(
           if (usdValue) setUsdAmount(usdValue);
         }
       }
-    }, [value, inputMode, isUserTyping, calcUsdFromToken, calcMarginFromToken]);
+    }, [
+      value,
+      inputMode,
+      isUserTyping,
+      usdAmount,
+      marginAmount,
+      calcUsdFromToken,
+      calcMarginFromToken,
+      onDisplayValueChange,
+    ]);
 
     // Effect: Leverage change handling
     useEffect(() => {
@@ -306,16 +363,35 @@ export const SizeInput = memo(
 
         if (inputMode === 'token') {
           setTokenAmount(newValue);
+          onDisplayValueChange?.({
+            inputMode,
+            displayValue: newValue,
+            tokenValue: newValue,
+          });
           onChange(newValue);
         } else if (inputMode === 'usd') {
           setUsdAmount(newValue);
           const tokenValue = calcTokenFromUsd(newValue);
+          preserveRawInputOnEmptyValueRef.current =
+            newValue && !tokenValue ? 'usd' : null;
           setTokenAmount(tokenValue);
+          onDisplayValueChange?.({
+            inputMode,
+            displayValue: newValue,
+            tokenValue,
+          });
           onChange(tokenValue);
         } else {
           setMarginAmount(newValue);
           const tokenValue = calcTokenFromMargin(newValue);
+          preserveRawInputOnEmptyValueRef.current =
+            newValue && !tokenValue ? 'margin' : null;
           setTokenAmount(tokenValue);
+          onDisplayValueChange?.({
+            inputMode,
+            displayValue: newValue,
+            tokenValue,
+          });
           onChange(tokenValue);
         }
       },
@@ -323,6 +399,7 @@ export const SizeInput = memo(
         isSliderMode,
         inputMode,
         onChange,
+        onDisplayValueChange,
         calcTokenFromUsd,
         calcTokenFromMargin,
         onRequestManualMode,
@@ -338,25 +415,38 @@ export const SizeInput = memo(
         setInputMode(mode);
         setIsUserTyping(false);
 
+        let displayValue = '';
         if (mode === 'usd' && tokenAmount) {
           const usdValue = calcUsdFromToken(tokenAmount);
           if (usdValue) setUsdAmount(usdValue);
+          displayValue = usdValue || usdAmount;
           const marginValue = calcMarginFromToken(tokenAmount);
           if (marginValue) setMarginAmount(marginValue);
         } else if (mode === 'token' && tokenAmount) {
+          displayValue = tokenAmount;
           const marginValue = calcMarginFromToken(tokenAmount);
           if (marginValue) setMarginAmount(marginValue);
         } else if (mode === 'margin' && tokenAmount) {
           const marginValue = calcMarginFromToken(tokenAmount);
           if (marginValue) setMarginAmount(marginValue);
+          displayValue = marginValue || marginAmount;
         }
+
+        onDisplayValueChange?.({
+          inputMode: mode,
+          displayValue,
+          tokenValue: tokenAmount,
+        });
       },
       [
         inputMode,
         tokenAmount,
+        usdAmount,
+        marginAmount,
         calcUsdFromToken,
         calcMarginFromToken,
         onRequestManualMode,
+        onDisplayValueChange,
         setInputMode,
       ],
     );
@@ -388,19 +478,48 @@ export const SizeInput = memo(
         id: ETranslations.perp_orderbook_size,
       });
     }, [label, intl, inputMode]);
+    const tokenFallbackLabel = useMemo(
+      () =>
+        intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_approval_token_fallback,
+        }),
+      [intl],
+    );
 
     const customSuffix = useMemo(
       () => (
         <XStack alignItems="center" gap="$2">
           {isMobile ? <Divider vertical h={24} /> : null}
-          <SizeInputModeSelector
-            value={inputMode}
-            onChange={handleModeChange}
-            tokenSymbol={symbol || ''}
-          />
+          {isDisabled ? (
+            <XStack alignItems="center" gap="$1" userSelect="none">
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                {inputMode === 'token' ? symbol || tokenFallbackLabel : 'USD'}
+              </SizableText>
+              <Icon
+                name="ChevronDownSmallOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+            </XStack>
+          ) : (
+            <SizeInputModeSelector
+              value={inputMode}
+              onChange={handleModeChange}
+              tokenSymbol={symbol || ''}
+              allowMarginInput={allowMarginInput}
+            />
+          )}
         </XStack>
       ),
-      [inputMode, handleModeChange, symbol, isMobile],
+      [
+        allowMarginInput,
+        handleModeChange,
+        inputMode,
+        isDisabled,
+        isMobile,
+        symbol,
+        tokenFallbackLabel,
+      ],
     );
 
     const displayValue = useMemo(() => {
@@ -425,6 +544,7 @@ export const SizeInput = memo(
         error={error}
         validator={validator}
         customSuffix={customSuffix}
+        showAddOnsWhenDisabled
         onFocus={onRequestManualMode}
         isMobile={isMobile}
         keyboardType="decimal-pad"

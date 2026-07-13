@@ -50,7 +50,7 @@ export const ActionField = ({
   // Use prop if provided, otherwise use context, fallback to default
   const swapConfig = swapConfigProp ?? contextSwapConfig ?? defaultSwapConfig;
 
-  const { handleSwap, handleBridge, handleReceive } = useSupplyActions({
+  const { handleSwap, handleReceive } = useSupplyActions({
     accountId,
     walletId,
     networkId,
@@ -61,7 +61,6 @@ export const ActionField = ({
   const labels = useMemo(
     () => ({
       swap: intl.formatMessage({ id: ETranslations.global_swap }),
-      bridge: intl.formatMessage({ id: ETranslations.swap_page_bridge }),
       receive: intl.formatMessage({ id: ETranslations.global_receive }),
     }),
     [intl],
@@ -69,7 +68,7 @@ export const ActionField = ({
 
   const actionItems = useMemo(() => {
     const items: {
-      icon: 'SwitchHorOutline' | 'BridgeOutline' | 'ArrowBottomOutline';
+      icon: 'SwitchHorOutline' | 'ArrowBottomOutline';
       label: string;
       onPress: () => void;
     }[] = [];
@@ -84,16 +83,6 @@ export const ActionField = ({
       });
     }
 
-    if (swapConfig.isSupportCrossChain) {
-      items.push({
-        icon: 'BridgeOutline',
-        label: labels.bridge,
-        onPress: () => {
-          void handleBridge?.(item);
-        },
-      });
-    }
-
     items.push({
       icon: 'ArrowBottomOutline',
       label: labels.receive,
@@ -103,11 +92,12 @@ export const ActionField = ({
     });
 
     return items;
-  }, [swapConfig, handleSwap, handleBridge, handleReceive, item, labels]);
+  }, [swapConfig, handleSwap, handleReceive, item, labels]);
 
   return (
     <XStack gap="$2" alignItems="center" justifyContent="flex-end">
       <Button
+        testID="borrow-btn"
         size="small"
         variant="secondary"
         disabled={disabled}
@@ -121,7 +111,12 @@ export const ActionField = ({
         <ActionList
           title=""
           renderTrigger={
-            <IconButton icon="DotVerOutline" size="small" variant="tertiary" />
+            <IconButton
+              icon="DotVerOutline"
+              size="small"
+              variant="tertiary"
+              testID="borrow-icon-btn"
+            />
           }
           items={actionItems}
         />

@@ -16,10 +16,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSettingRoutes,
+  ESettingsTabNames,
+} from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-
-import { ESettingsTabNames } from '../../../Setting/pages/Tab/config';
 
 export function BTCFreshAddressProvider() {
   const intl = useIntl();
@@ -77,6 +79,7 @@ export function BTCFreshAddressProvider() {
         renderContent: (
           <YStack mt="$-1.5">
             <Button
+              testID="home-reset-ref-btn"
               icon="QuestionmarkOutline"
               size="small"
               variant="tertiary"

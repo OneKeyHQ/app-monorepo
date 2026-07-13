@@ -5,6 +5,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
+import { FirmwareUpdateTestIDs } from '../testIDs';
 
 import { FirmwareChangeLogContentView } from './FirmwareChangeLogView';
 import { FirmwareUpdateBaseMessageView } from './FirmwareUpdateBaseMessageView';
@@ -41,6 +42,9 @@ export function FirmwareUpdateDone({
                 actions.restartOnboarding({ deviceType: result?.deviceType })
             : () => actions.closeUpdateModal()
         }
+        confirmButtonProps={{
+          testID: FirmwareUpdateTestIDs.doneConfirmBtn,
+        }}
       />
     </Stack>
   );

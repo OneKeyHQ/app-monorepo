@@ -208,7 +208,11 @@ export function ShowToasterClose({ children }: PropsWithChildren) {
   const handleClose = useCallback(() => {
     void close();
   }, [close]);
-  return <Trigger onPress={handleClose}>{children}</Trigger>;
+  return (
+    // testID flows through children supplied by the caller.
+    // oxlint-disable-next-line onekey/require-testid
+    <Trigger onPress={handleClose}>{children}</Trigger>
+  );
 }
 
 export const ShowCustom = BasicShowToaster;

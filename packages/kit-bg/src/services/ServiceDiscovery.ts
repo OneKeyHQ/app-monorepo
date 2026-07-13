@@ -29,6 +29,11 @@ import {
   promiseAllSettledEnhanced,
 } from '@onekeyhq/shared/src/utils/promiseUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
+import {
+  prefixOf,
+  swrCacheNamespaces,
+  swrCacheUtils,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
@@ -48,6 +53,27 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
+  _clearDiscoveryHomeBookmarksSwr({
+    invalidatePrefetch = false,
+    refreshMountedViews = false,
+  }: {
+    invalidatePrefetch?: boolean;
+    refreshMountedViews?: boolean;
+  } = {}) {
+    swrCacheUtils.removeByPrefix(
+      prefixOf(swrCacheNamespaces.discoveryHomeBookmarks),
+    );
+    swrCacheUtils.flushNow();
+    if (refreshMountedViews) {
+      appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
+    } else if (invalidatePrefetch) {
+      appEventBus.emit(
+        EAppEventBusNames.InvalidateDiscoveryHomeBookmarksPrefetch,
+        undefined,
+      );
+    }
+  }
+
   @backgroundMethod()
   async fetchHistoryData(page = 1, pageSize = 15) {
     const start = (page - 1) * pageSize;
@@ -266,13 +292,22 @@ class ServiceDiscovery extends ServiceBase {
       | {
           generateIcon?: boolean;
           sliceCount?: number;
+          keyword?: string;
         }
       | undefined,
   ): Promise<IBrowserBookmark[]> {
-    const { generateIcon, sliceCount } = options ?? {};
+    const { generateIcon, sliceCount, keyword } = options ?? {};
     const data =
       await this.backgroundApi.simpleDb.browserBookmarks.getRawData();
     let dataSource = data?.data ?? [];
+    if (keyword) {
+      const fuse = buildFuse(dataSource, { keys: ['title', 'url'] });
+      dataSource = fuse.search(keyword).map((i) => ({
+        ...i.item,
+        titleMatch: i.matches?.find((v) => v.key === 'title'),
+        urlMatch: i.matches?.find((v) => v.key === 'url'),
+      }));
+    }
     if (isNumber(sliceCount)) {
       dataSource = dataSource.slice(0, sliceCount);
     }
@@ -332,7 +367,7 @@ class ServiceDiscovery extends ServiceBase {
     let dataSource: IBrowserHistory[] = data?.data ?? [];
     if (keyword) {
       const fuse = buildFuse(dataSource, { keys: ['title', 'url'] });
-      dataSource = fuse.search(options?.keyword ?? 'uniswap').map((i) => ({
+      dataSource = fuse.search(keyword).map((i) => ({
         ...i.item,
         titleMatch: i.matches?.find((v) => v.key === 'title'),
         urlMatch: i.matches?.find((v) => v.key === 'url'),
@@ -362,8 +397,9 @@ class ServiceDiscovery extends ServiceBase {
       simpleDb.browserHistory.clearRawData(),
       simpleDb.dappConnection.clearRawData(),
       simpleDb.browserRiskWhiteList.clearRawData(),
-      this._isUrlExistInRiskWhiteList.clear(),
     ]);
+    this._isUrlExistInRiskWhiteList.clear();
+    this._clearDiscoveryHomeBookmarksSwr({ refreshMountedViews: true });
   }
 
   @backgroundMethod()
@@ -402,7 +438,6 @@ class ServiceDiscovery extends ServiceBase {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
     let syncItems: IDBCloudSyncItem[] = [];
     if (!skipSaveLocalSyncItem) {
-      const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
       syncItems = (
         await Promise.all(
           bookmarks.map(async (bookmark) => {
@@ -410,7 +445,7 @@ class ServiceDiscovery extends ServiceBase {
               syncCredential:
                 await syncManagers.browserBookmark.getSyncCredential(),
               dbRecord: bookmark,
-              dataTime: now,
+              dataTime: undefined,
               isDeleted: isRemove,
             });
           }),
@@ -420,29 +455,31 @@ class ServiceDiscovery extends ServiceBase {
 
     let savedSuccess = false;
 
+    const saveBookmarks = async () => {
+      if (isRemove) {
+        await this.backgroundApi.simpleDb.browserBookmarks.removeBookmarks({
+          urls: bookmarks.map((i) => i.url),
+        });
+      } else {
+        // Save the updated bookmarks
+        await this.backgroundApi.simpleDb.browserBookmarks.saveBookmarks({
+          bookmarks,
+        });
+      }
+
+      savedSuccess = true;
+    };
+
     await this.backgroundApi.localDb.addAndUpdateSyncItems({
       items: syncItems,
-      fn: async () => {
-        if (isRemove) {
-          await this.backgroundApi.simpleDb.browserBookmarks.removeBookmarks({
-            urls: bookmarks.map((i) => i.url),
-          });
-        } else {
-          // Save the updated bookmarks
-          await this.backgroundApi.simpleDb.browserBookmarks.saveBookmarks({
-            bookmarks,
-          });
-        }
-
-        savedSuccess = true;
-      },
+      fn: saveBookmarks,
     });
 
-    if (!skipEventEmit) {
-      setTimeout(() => {
-        // Trigger bookmark list refresh after building bookmark data
-        appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
-      }, 200);
+    if (savedSuccess) {
+      this._clearDiscoveryHomeBookmarksSwr({
+        invalidatePrefetch: true,
+        refreshMountedViews: !skipEventEmit,
+      });
     }
 
     if (savedSuccess && !isRemove) {

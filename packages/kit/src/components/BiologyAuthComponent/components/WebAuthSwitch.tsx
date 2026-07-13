@@ -15,6 +15,7 @@ const WebAuthSwitch = ({
 }: IWebAuthSwitchProps) =>
   isSupport ? (
     <Switch
+      testID="web-auth-switch"
       size={ESwitchSize.small}
       value={isWebAuthEnable}
       onChange={onChange}

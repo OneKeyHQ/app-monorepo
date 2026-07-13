@@ -1,7 +1,12 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { RefreshControl, ScrollView } from 'react-native';
+import {
+  type LayoutChangeEvent,
+  RefreshControl,
+  ScrollView,
+} from 'react-native';
 
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import {
@@ -12,28 +17,55 @@ import {
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import {
+  usePerpsAbstractionModeAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAccountSummaryAtom,
+  usePerpsPendingInfoPanelTabAtom,
+  usePerpsSpotBalancesAtom,
+  useSpotActiveOpenOrdersAtom,
+  useSpotBalancesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveOpenOrdersLengthAtom,
-  usePerpsActivePositionLengthAtom,
+  usePerpsActiveOpenOrdersAtom,
+  usePerpsActivePositionAtom,
+  usePerpsActiveTwapOrdersAtom,
+  useTradeRouteViewStateAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
+import { SpotBalanceList } from '../components/OrderInfoPanel/List/SpotBalanceList';
 import { PerpMobileNetworkAlert } from '../components/PerpMobileNetworkAlert';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
+import { usePerpsAccountScopedCacheAddress } from '../hooks/usePerpsAccountScopedCacheAddress';
+import { isHyperLiquidUnifiedAccountMode } from '../utils';
+import { getPerpsAccountScopedListData } from '../utils/accountScopedData';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../utils/mobileLayoutTrace';
 
 export enum ETabName {
   Positions = 'Positions',
   OpenOrders = 'OpenOrders',
+  Balances = 'Balances',
   SwapProOpenOrders = 'SwapProOpenOrders',
   SwapOrderHistory = 'SwapOrderHistory',
 }
@@ -42,11 +74,13 @@ const tabNameToTranslationKey: Record<
   ETabName,
   | ETranslations.perp_position_title
   | ETranslations.perp_open_orders_title
+  | ETranslations.perp_holdings_tokens
   | ETranslations.Limit_open_order
   | ETranslations.Limit_order_history
 > = {
   [ETabName.Positions]: ETranslations.perp_position_title,
   [ETabName.OpenOrders]: ETranslations.perp_open_orders_title,
+  [ETabName.Balances]: ETranslations.perp_holdings_tokens,
   [ETabName.SwapProOpenOrders]: ETranslations.Limit_open_order,
   [ETabName.SwapOrderHistory]: ETranslations.Limit_order_history,
 };
@@ -64,6 +98,10 @@ export const TabBarItem = memo(
     tabCount?: string;
   }) => {
     const intl = useIntl();
+    const tabTitle = intl.formatMessage({
+      id: tabNameToTranslationKey[name],
+    });
+    const displayTitle = `${tabTitle}${tabCount ? ` ${tabCount}` : ''}`;
 
     return (
       <DebugRenderTracker
@@ -77,10 +115,8 @@ export const TabBarItem = memo(
           onPress={() => onPress(name)}
           mb={-2}
         >
-          <SizableText size="$bodyMdMedium">
-            {`${intl.formatMessage({
-              id: tabNameToTranslationKey[name],
-            })}${tabCount ? ` ${tabCount}` : ''}`}
+          <SizableText size="$bodyMdMedium" pr="$0.5">
+            {displayTitle}
           </SizableText>
         </XStack>
       </DebugRenderTracker>
@@ -92,12 +128,59 @@ TabBarItem.displayName = 'TabBarItem';
 
 export function PerpMobileLayout() {
   const tabBarHeight = useScrollContentTabBarOffset();
-  const [activeTab, setActiveTab] = useState<ETabName>(ETabName.Positions);
+  const [tradeRouteViewState] = useTradeRouteViewStateAtom();
+  const [pendingInfoPanelTab, setPendingInfoPanelTab] =
+    usePerpsPendingInfoPanelTabAtom();
+  const [activeTab, setActiveTab] = useState<ETabName>(
+    tradeRouteViewState.infoPanelTab === 'Balances'
+      ? ETabName.Balances
+      : ETabName.Positions,
+  );
   const [refreshing, setRefreshing] = useState(false);
+  const layoutRectsRef = useRef<
+    Record<string, IPerpsMobileLayoutTraceRect | undefined>
+  >({});
+  const contentHeightRef = useRef<number | undefined>(undefined);
 
   const navigation =
     useAppNavigation<IModalNavigationProp<IModalPerpParamList>>();
   const actions = useHyperliquidActions();
+
+  useEffect(() => {
+    setActiveTab(
+      tradeRouteViewState.infoPanelTab === 'Balances'
+        ? ETabName.Balances
+        : ETabName.Positions,
+    );
+  }, [tradeRouteViewState.infoPanelTab]);
+
+  useEffect(() => {
+    if (!pendingInfoPanelTab) {
+      return;
+    }
+    setActiveTab(
+      pendingInfoPanelTab === 'Balances'
+        ? ETabName.Balances
+        : ETabName.Positions,
+    );
+    actions.current.setTradeRouteViewState({
+      infoPanelTab: pendingInfoPanelTab,
+    });
+    void setPendingInfoPanelTab(undefined);
+  }, [actions, pendingInfoPanelTab, setPendingInfoPanelTab]);
+
+  useEffect(() => {
+    const handler = (payload: { tab: 'Positions' | 'Balances' }) => {
+      setActiveTab(
+        payload.tab === 'Balances' ? ETabName.Balances : ETabName.Positions,
+      );
+      actions.current.setTradeRouteViewState({ infoPanelTab: payload.tab });
+    };
+    appEventBus.on(EAppEventBusNames.PerpSwitchInfoPanelTab, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PerpSwitchInfoPanelTab, handler);
+    };
+  }, [actions]);
 
   const handleViewTpslOrders = useCallback(() => {
     setActiveTab(ETabName.OpenOrders);
@@ -113,13 +196,72 @@ export function PerpMobileLayout() {
     setRefreshing(true);
     try {
       await actions.current.refreshAllPerpsData();
+      await actions.current.loadTwapData();
     } finally {
       setRefreshing(false);
     }
   }, [actions]);
 
-  const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
-  const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
+  const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
+  const [positionsState] = usePerpsActivePositionAtom();
+  const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
+  const [{ balances, isLoaded: isSpotBalancesLoaded }] = useSpotBalancesAtom();
+  const [cachedSpotBalances] = usePerpsSpotBalancesAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const accountScopedAddress = usePerpsAccountScopedCacheAddress();
+  const [abstractionMode] = usePerpsAbstractionModeAtom();
+  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
+    abstractionMode,
+    currentUser?.accountAddress,
+  );
+  const currentUserAddress = accountScopedAddress;
+  const positionsLength = getPerpsAccountScopedListData({
+    activeAccountAddress: currentUserAddress,
+    dataAccountAddress: positionsState.accountAddress,
+    data: positionsState.activePositions,
+  }).length;
+  const openOrdersLength =
+    getPerpsAccountScopedListData({
+      activeAccountAddress: currentUserAddress,
+      dataAccountAddress: perpOpenOrdersState.accountAddress,
+      data: perpOpenOrdersState.openOrders.filter(
+        (order) => !isSpotInstrument(order.coin),
+      ),
+    }).length +
+    getPerpsAccountScopedListData({
+      activeAccountAddress: currentUserAddress,
+      dataAccountAddress: spotOpenOrdersState.accountAddress,
+      data: spotOpenOrdersState.openOrders,
+    }).length +
+    getPerpsAccountScopedListData({
+      activeAccountAddress: currentUserAddress,
+      dataAccountAddress: twapOrdersState.accountAddress,
+      data: twapOrdersState.twapOrders,
+    }).length;
+  const shouldUseCachedSpotBalances =
+    !isSpotBalancesLoaded &&
+    Boolean(currentUserAddress) &&
+    cachedSpotBalances?.accountAddress?.toLowerCase() ===
+      currentUserAddress?.toLowerCase();
+  const displayBalances = shouldUseCachedSpotBalances
+    ? (cachedSpotBalances?.balances ?? balances)
+    : balances;
+
+  const holdingsCount = useMemo(() => {
+    const nonUsdcSpotCount = displayBalances.filter(
+      (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
+    ).length;
+    const hasSpotUsdc = displayBalances.some(
+      (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
+    );
+    const hasPerpsUsdc =
+      !isUnifiedAccountMode &&
+      !!accountSummary?.totalRawUsd &&
+      new BigNumber(accountSummary.totalRawUsd).gt(0);
+    return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
+  }, [accountSummary?.totalRawUsd, displayBalances, isUnifiedAccountMode]);
 
   const positionsTabCount = useMemo(() => {
     if (positionsLength > 0) {
@@ -134,27 +276,130 @@ export function PerpMobileLayout() {
     }
     return '';
   }, [openOrdersLength]);
+
+  const holdingsTabCount = useMemo(() => {
+    if (holdingsCount > 0) {
+      return `(${holdingsCount})`;
+    }
+    return '';
+  }, [holdingsCount]);
+
+  const handleTraceLayout = useCallback(
+    (name: string, event: LayoutChangeEvent) => {
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (
+        isPerpsMobileLayoutTraceRectChanged(layoutRectsRef.current[name], rect)
+      ) {
+        tracePerpsMobileLayout(`perpTab.${name}.layout`, {
+          rect,
+          activeTab,
+          isUnifiedAccountMode,
+          openOrdersLength,
+          positionsLength,
+          holdingsCount,
+        });
+        layoutRectsRef.current[name] = rect;
+      }
+    },
+    [
+      activeTab,
+      holdingsCount,
+      isUnifiedAccountMode,
+      openOrdersLength,
+      positionsLength,
+    ],
+  );
+
+  const handleContentSizeChange = useCallback(
+    (_width: number, height: number) => {
+      const roundedHeight = Math.round(height * 100) / 100;
+      const prevHeight = contentHeightRef.current;
+      if (
+        prevHeight === undefined ||
+        Math.abs(prevHeight - roundedHeight) > 0.5
+      ) {
+        tracePerpsMobileLayout('perpTab.scrollContent.height', {
+          height: roundedHeight,
+          prevHeight,
+          delta:
+            prevHeight === undefined ? undefined : roundedHeight - prevHeight,
+          activeTab,
+          tabBarHeight,
+        });
+        contentHeightRef.current = roundedHeight;
+      }
+    },
+    [activeTab, tabBarHeight],
+  );
+
+  const handleScrollViewportLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      handleTraceLayout('scrollViewport', event);
+    },
+    [handleTraceLayout],
+  );
+
+  useEffect(() => {
+    tracePerpsMobileLayout('perpTab.counts.state', {
+      activeTab,
+      openOrdersLength,
+      positionsLength,
+      holdingsCount,
+      isUnifiedAccountMode,
+      hasPerpsAccountSummary: Boolean(accountSummary),
+      spotBalancesLength: balances.length,
+    });
+  }, [
+    accountSummary,
+    activeTab,
+    balances.length,
+    holdingsCount,
+    isUnifiedAccountMode,
+    openOrdersLength,
+    positionsLength,
+  ]);
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}
       contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarHeight }}
       showsVerticalScrollIndicator={false}
       stickyHeaderIndices={[1]}
+      onLayout={handleScrollViewportLayout}
+      onContentSizeChange={handleContentSizeChange}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
-      <YStack>
+      <YStack onLayout={(event) => handleTraceLayout('alerts', event)}>
         <PerpTips />
         <PerpMobileNetworkAlert />
       </YStack>
 
-      <PerpTickerBar />
-      <XStack gap="$2.5" px="$4" pb="$4">
-        <YStack flexBasis="35%" flexShrink={1}>
+      <YStack onLayout={(event) => handleTraceLayout('tickerBar', event)}>
+        <PerpTickerBar />
+      </YStack>
+      <XStack
+        gap="$3"
+        px="$4"
+        pb="$4"
+        onLayout={(event) => handleTraceLayout('firstScreenGrid', event)}
+      >
+        {/* flexBasis 0: Tamagui web expands flex={n} with flexBasis auto, letting columns collapse */}
+        <YStack
+          flex={35}
+          flexBasis={0}
+          minWidth={0}
+          onLayout={(event) => handleTraceLayout('orderBookColumn', event)}
+        >
           <PerpOrderBook />
         </YStack>
-        <YStack flexBasis="65%" flexShrink={1}>
+        <YStack
+          flex={65}
+          flexBasis={0}
+          minWidth={0}
+          onLayout={(event) => handleTraceLayout('tradingPanelColumn', event)}
+        >
           <PerpTradingPanel isMobile />
         </YStack>
       </XStack>
@@ -166,6 +411,7 @@ export function PerpMobileLayout() {
         alignItems="center"
         pr="$4"
         pl="$4"
+        onLayout={(event) => handleTraceLayout('positionsTabBar', event)}
       >
         <XStack gap="$5">
           <TabBarItem
@@ -180,8 +426,15 @@ export function PerpMobileLayout() {
             onPress={setActiveTab}
             tabCount={openOrdersTabCount}
           />
+          <TabBarItem
+            name={ETabName.Balances}
+            isFocused={activeTab === ETabName.Balances}
+            onPress={setActiveTab}
+            tabCount={holdingsTabCount}
+          />
         </XStack>
         <IconButton
+          testID="perp-icon-btn"
           variant="tertiary"
           size="small"
           borderRadius="$full"
@@ -189,10 +442,14 @@ export function PerpMobileLayout() {
           onPress={handleViewTradesHistory}
         />
       </XStack>
-      <YStack flex={1}>
+      <YStack
+        flex={1}
+        onLayout={(event) => handleTraceLayout('tabContent', event)}
+      >
         <YStack
           display={activeTab === ETabName.Positions ? 'flex' : 'none'}
           flex={1}
+          onLayout={(event) => handleTraceLayout('positionsPanel', event)}
         >
           <PerpPositionsList
             handleViewTpslOrders={handleViewTpslOrders}
@@ -204,8 +461,16 @@ export function PerpMobileLayout() {
         <YStack
           display={activeTab === ETabName.OpenOrders ? 'flex' : 'none'}
           flex={1}
+          onLayout={(event) => handleTraceLayout('openOrdersPanel', event)}
         >
           <PerpOpenOrdersList isMobile useTabsList={false} disableListScroll />
+        </YStack>
+        <YStack
+          display={activeTab === ETabName.Balances ? 'flex' : 'none'}
+          flex={1}
+          onLayout={(event) => handleTraceLayout('balancesPanel', event)}
+        >
+          <SpotBalanceList isMobile useTabsList={false} disableListScroll />
         </YStack>
       </YStack>
     </ScrollView>

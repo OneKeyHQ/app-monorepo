@@ -1,4 +1,6 @@
 {
-  "compilerOptions": {},
+  "compilerOptions": {
+    "types": ["node", "chrome", "jest", "web", "w3c-web-usb", "w3c-web-hid"]
+  },
   "extends": "expo/tsconfig.base"
 }

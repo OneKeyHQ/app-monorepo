@@ -24,6 +24,7 @@ import type {
   IQrWalletAirGapAccountsInfo,
 } from '@onekeyhq/shared/types/account';
 import type {
+  EHardwareVendor,
   IDeviceHomeScreen,
   IHardwareGetPubOrAddressExtraInfo,
   IOneKeyDeviceFeatures,
@@ -68,6 +69,12 @@ export type IDBContext = {
   nextHD: number; // HD wallet counter: used to generate HD wallet ID (hd-{nextHD}) and default wallet name (Wallet {nextHD})
   nextWalletNo: number; // Global wallet number counter: used for sorting and displaying all wallet types (HD/HW/QR use auto-increment, Imported/Watching/External/Keyless use fixed numbers)
   verifyString: string;
+  localPasswordKdfUpgraded?: boolean;
+  localPasswordKdfUpgradedTargetIterations?: number;
+  localPasswordKdfUpgradeLastScannedCredentialId?: string;
+  localSecretEnvelopeCredentialMigrated?: boolean;
+  localSecretEnvelopeCredentialMigratedTargetVersion?: number;
+  localSecretEnvelopeCredentialMigrationLastScannedCredentialId?: string;
   networkOrderChanged?: boolean;
   backupUUID: string; // deprecated
   nextSignatureMessageId: number;
@@ -76,6 +83,7 @@ export type IDBContext = {
 };
 export type IDBApiGetContextOptions = {
   verifyPassword?: string;
+  skipLazyUpgrade?: boolean;
 };
 
 // ---------------------------------------------- credential
@@ -110,7 +118,7 @@ export type IDBExportedCredential =
 export type IDBCredentialBase = {
   id: string;
   // type: 'imported' | 'hd';
-  credential: IBip39RevealableSeedEncryptHex;
+  credential: string;
 };
 // ---------------------------------------------- wallet
 export type IDBWalletId =
@@ -193,12 +201,6 @@ export type IDBCreateHDWalletParams = {
   overrideWalletId?: string;
   applyRestoreSyncPolicy?: boolean;
 };
-export type IDBCreateKeylessWalletParams = {
-  password: string;
-  packSetId: string;
-  name?: string;
-  avatar?: IAvatarInfo;
-};
 export type IDBCreateHwWalletParamsBase = {
   name?: string;
   device: Omit<SearchDevice, 'commType'>;
@@ -209,11 +211,16 @@ export type IDBCreateHwWalletParamsBase = {
   defaultIsTemp?: boolean;
   isMockedStandardHwWallet?: boolean;
   isAttachPinMode?: boolean;
+  vendor?: EHardwareVendor;
 };
 export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;
   xfp?: string;
   getFirstEvmAddressFn?: () => Promise<string | null>;
+  /** Returning anything other than `'match'` forces a fresh dbDeviceId. */
+  verifySeedMatchFn?: (
+    matchedDevice: IDBDevice,
+  ) => Promise<'match' | 'mismatch' | 'unknown'>;
   fillingXfpByCallingSdk?: boolean;
   transportType?: EHardwareTransportType; // Transport type used for this connection
 };
@@ -314,6 +321,9 @@ export type IDBUtxoAccount = IDBBaseAccount & {
   // oxlint-disable-next-line @cspell/spellchecker
   addresses: Record<string, string>; // { "0/0": "xxxx" }
   customAddresses?: Record<string, string>; // for btc dynamic custom address
+  // btc find-address feature: user-claimed off-gap receive addresses
+  // local-only field, MUST NOT be added to any cloud sync payload
+  findAddresses?: Record<string, string>; // { "0/100": "xxxx" }
 };
 export type IDBVariantAccount = IDBBaseAccount & {
   pub: string;
@@ -371,9 +381,27 @@ export type IDBAddAccountDerivationParams = {
 };
 
 // ---------------------------------------------- device
+/**
+ * One Trezor THP pairing credential blob. Opaque to the host (shipped back to
+ * the device verbatim on the next handshake) — mirrors `TrezorThpCredentials`
+ * from @onekeyfe/hwk-trezor-core. Persisted per-device in device settings so it
+ * dies with the device record on "forget device".
+ */
+export type ITrezorThpCredential = Record<string, unknown>;
 export type IDBDeviceSettings = {
   inputPinOnSoftware?: boolean;
   inputPinOnSoftwareSupport?: boolean;
+  chainFingerprints?: Record<string, string>;
+  // Trezor THP pairing credentials for THIS device (autoconnect without
+  // re-pairing). Lives here so "forget device" clears it automatically.
+  thpCredentials?: ITrezorThpCredential[];
+  vendor?: EHardwareVendor;
+  /** Third-party device model id from SDK (e.g. 'nanoX'). Used for avatar mapping. */
+  vendorModel?: string;
+  /** Third-party device human-readable model name (e.g. 'Ledger Nano X'). */
+  vendorModelName?: string;
+  /** Third-party firmware version captured at connect time. */
+  vendorFirmwareVersion?: string;
 };
 export type IDBDevice = IDBBaseObjectWithName & {
   features: string; // TODO rename to featuresRaw
@@ -397,6 +425,9 @@ export type IDBDevice = IDBBaseObjectWithName & {
   // New fields for USB/BLE connection support
   usbConnectId?: string; // USB connection ID (serial number)
   bleConnectId?: string; // BLE connection ID (MAC address)
+
+  // Runtime field — populated by refillDeviceInfo() from settings.vendor, not a DB column
+  vendor?: EHardwareVendor;
 };
 export type IDBUpdateDeviceSettingsParams = {
   dbDeviceId: string;

@@ -26,8 +26,10 @@ export const Tabs = {
 
 export type { ITabContainerRef, ITabContainerProps } from './Container';
 export type { ITabBarVariant, ITabBarItemProps } from './TabBar';
+export type { IGetWebRowHeight, IWebRowHeightInfo } from './List';
 export * from './hooks';
 
 export { startViewTransition } from './utils';
 export { CollapsibleTabContext } from './CollapsibleTabContext';
 export { HeaderScrollGestureWrapper } from './HeaderScrollGestureWrapper';
+export { useFocusedTab } from './useFocusedTab';

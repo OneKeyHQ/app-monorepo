@@ -49,6 +49,8 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import { WalletAddressTestIDs } from '../../testIDs';
+
 const DeriveTypesAddressContent = createContext<{
   network?: IServerNetwork;
   refreshLocalData?: () => void;
@@ -228,6 +230,7 @@ const DeriveTypesAddressItem = ({
 
   return (
     <ListItem
+      testID={`${WalletAddressTestIDs.deriveTypeItem}-${item.deriveType}`}
       title={item.deriveInfo.label}
       subtitle={subtitle}
       renderAvatar={

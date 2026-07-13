@@ -9,13 +9,16 @@ import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { navigateToNotificationDetailByLocalParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import {
-  openUrlExternal,
-  openUrlInApp,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
+  ETabRoutes,
+  type IWebViewPageParams,
+} from '@onekeyhq/shared/src/routes';
+import {
+  type INotificationPageNavigationEvent,
+  navigateToNotificationDetailByLocalParams,
+  registerNotificationPageNavigationProcessor,
+} from '@onekeyhq/shared/src/utils/notificationsUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ENotificationViewDialogActionType,
@@ -23,16 +26,19 @@ import {
 } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useReferFriends } from '../../../hooks/useReferFriends';
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useBrowserAction } from '../../../states/jotai/contexts/discovery';
-import { DiscoveryBrowserProviderMirror } from '../../../views/Discovery/components/DiscoveryBrowserProviderMirror';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
+import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 
 import { executeNotificationCommand } from './commandRegistry';
 import { useInitialNotification } from './hooks';
+import {
+  NotificationHandlerDiscoveryProvider,
+  useNotificationDappNavigation,
+} from './NotificationDappNavigation';
 
 function BaseNotificationHandlerContainer() {
   const { showFallbackUpdateDialog } = useVersionCompatible();
@@ -57,7 +63,8 @@ function BaseNotificationHandlerContainer() {
     [],
   );
 
-  const browserAction = useBrowserAction().current;
+  const handleShowNotificationDappNavigation =
+    useNotificationDappNavigation(navigation);
 
   useEffect(() => {
     const handleShowFallbackUpdateDialog = ({
@@ -96,7 +103,7 @@ function BaseNotificationHandlerContainer() {
               }
               break;
             case ENotificationViewDialogActionType.openInApp:
-              openUrlInApp(payload as string);
+              openWebView({ url: payload as string, source: 'notification' });
               break;
             case ENotificationViewDialogActionType.openInBrowser:
               openUrlExternal(payload as string);
@@ -114,20 +121,7 @@ function BaseNotificationHandlerContainer() {
     const handleShowNotificationPageNavigation = async ({
       payload: payloadObj,
       extras,
-    }: {
-      payload: {
-        screen: string;
-        params: Record<string, any>;
-      };
-      extras?: {
-        params?: {
-          coin?: string;
-          type?: string;
-          [key: string]: any;
-        };
-        [key: string]: any;
-      };
-    }) => {
+    }: INotificationPageNavigationEvent) => {
       const localParams = getLocalParams();
 
       const isPerpNavigation =
@@ -148,6 +142,13 @@ function BaseNotificationHandlerContainer() {
           await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
             coin: perpToken,
           });
+          // Notify an already-mounted Perp page (via PerpsGlobalEffects) to
+          // switch its active instrument; without this the coin switch is a
+          // no-op when the Perp page was already opened (banner deep-link case).
+          appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
+            mode: 'perp',
+            coin: perpToken,
+          });
         } catch (error) {
           console.error('Failed to change perps active asset:', error);
         }
@@ -163,30 +164,25 @@ function BaseNotificationHandlerContainer() {
         showFallbackUpdateDialog(null);
       });
     };
-    const handleShowNotificationDappNavigation = (url: string) => {
-      if (platformEnv.isNative || platformEnv.isDesktop) {
-        browserAction.handleOpenWebSite({
-          webSite: {
-            url,
-            title: '',
-            logo: undefined,
-            sortIndex: undefined,
-          },
-          navigation,
-          useCurrentWindow: false,
-          tabId: '',
-        });
-      } else {
-        openUrlExternal(url);
-      }
+    const handleShowNotificationInWebViewOverlay = (
+      params: IWebViewPageParams,
+    ) => {
+      openWebView(params);
     };
-    appEventBus.on(
-      EAppEventBusNames.ShowNotificationPageNavigation,
-      handleShowNotificationPageNavigation,
-    );
+    // Durable registration: drains any intent buffered before this UI mounted
+    // (cold-start safe), instead of a transient appEventBus.on that drops
+    // events emitted before the handler was registered.
+    const unregisterPageNavigationProcessor =
+      registerNotificationPageNavigationProcessor(
+        handleShowNotificationPageNavigation,
+      );
     appEventBus.on(
       EAppEventBusNames.ShowNotificationInDappPage,
       handleShowNotificationDappNavigation,
+    );
+    appEventBus.on(
+      EAppEventBusNames.ShowNotificationInWebViewOverlay,
+      handleShowNotificationInWebViewOverlay,
     );
 
     const handleExecuteCommand = ({
@@ -216,13 +212,14 @@ function BaseNotificationHandlerContainer() {
         EAppEventBusNames.ShowNotificationViewDialog,
         handleShowNotificationViewDialog,
       );
-      appEventBus.off(
-        EAppEventBusNames.ShowNotificationPageNavigation,
-        handleShowNotificationPageNavigation,
-      );
+      unregisterPageNavigationProcessor();
       appEventBus.off(
         EAppEventBusNames.ShowNotificationInDappPage,
         handleShowNotificationDappNavigation,
+      );
+      appEventBus.off(
+        EAppEventBusNames.ShowNotificationInWebViewOverlay,
+        handleShowNotificationInWebViewOverlay,
       );
       appEventBus.off(
         EAppEventBusNames.ExecuteNotificationCommand,
@@ -230,9 +227,8 @@ function BaseNotificationHandlerContainer() {
       );
     };
   }, [
-    browserAction,
     getLocalParams,
-    navigation,
+    handleShowNotificationDappNavigation,
     showFallbackUpdateDialog,
     toInviteRewardPage,
     openHardwareSalesOrderDetail,
@@ -251,9 +247,9 @@ export function NotificationHandlerContainer() {
   );
   return (
     <AccountSelectorProviderMirror config={config} enabledNum={[0]}>
-      <DiscoveryBrowserProviderMirror>
+      <NotificationHandlerDiscoveryProvider>
         <BaseNotificationHandlerContainer />
-      </DiscoveryBrowserProviderMirror>
+      </NotificationHandlerDiscoveryProvider>
     </AccountSelectorProviderMirror>
   );
 }

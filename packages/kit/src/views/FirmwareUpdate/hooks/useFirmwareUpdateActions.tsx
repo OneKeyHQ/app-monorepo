@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { StackActions } from '@react-navigation/routers';
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
@@ -20,9 +19,10 @@ import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/devi
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { FirmwareUpdateCheckList } from '../components/FirmwareUpdateCheckList';
+import { getTargetFirmwareTypeLabel } from '../utils';
 
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
-import type { EDeviceType } from '@onekeyfe/hd-shared';
+import type { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 export function useFirmwareUpdateActions() {
   const intl = useIntl();
@@ -76,7 +76,7 @@ export function useFirmwareUpdateActions() {
   appGlobals.$$appEventBus.emit('ShowFirmwareUpdateForce',{ connectId: '3383' })
   */
   const openChangeLogModal = useCallback(
-    ({
+    async ({
       connectId,
       firmwareType,
       baseReleaseInfo,
@@ -98,6 +98,16 @@ export function useFirmwareUpdateActions() {
           window.close();
         }
         return;
+      }
+
+      if (connectId) {
+        try {
+          await backgroundApiProxy.serviceHardware.checkDeviceReachableForFirmwareUpdate(
+            { connectId },
+          );
+        } catch {
+          return;
+        }
       }
 
       if (rootNavigationRef.current) {
@@ -167,7 +177,7 @@ export function useFirmwareUpdateActions() {
         // Only open modal if USB preparation succeeded (finalConnectId is defined)
         // If undefined, it means USB is not available and a dialog was already shown
         if (finalConnectId !== undefined) {
-          openChangeLogModal({ connectId: finalConnectId });
+          await openChangeLogModal({ connectId: finalConnectId });
         }
       };
 
@@ -224,7 +234,7 @@ export function useFirmwareUpdateActions() {
         }),
         dismissOnOverlayPress: false,
         onConfirm: async () => {
-          openChangeLogModal({ connectId });
+          await openChangeLogModal({ connectId });
         },
         onConfirmText: intl.formatMessage({
           id: ETranslations.update_update_now,
@@ -239,36 +249,21 @@ export function useFirmwareUpdateActions() {
       let title;
 
       const updateFirmwareInfo = result?.updateInfos?.firmware;
-      if (
-        updateFirmwareInfo &&
-        updateFirmwareInfo?.fromFirmwareType &&
-        updateFirmwareInfo?.toFirmwareType &&
+      const isSwitchingFirmwareType =
+        updateFirmwareInfo?.fromFirmwareType !== undefined &&
+        updateFirmwareInfo?.toFirmwareType !== undefined &&
         updateFirmwareInfo.toFirmwareType !==
-          updateFirmwareInfo.fromFirmwareType &&
-        updateFirmwareInfo.toFirmwareType === EFirmwareType.BitcoinOnly
-      ) {
+          updateFirmwareInfo.fromFirmwareType;
+      if (isSwitchingFirmwareType) {
         title = intl.formatMessage(
           {
             id: ETranslations.device_checklist_switch_firmware_type,
           },
           {
-            type: 'Bitcoin-only',
-          },
-        );
-      } else if (
-        updateFirmwareInfo &&
-        updateFirmwareInfo?.fromFirmwareType &&
-        updateFirmwareInfo?.toFirmwareType &&
-        updateFirmwareInfo.toFirmwareType !==
-          updateFirmwareInfo.fromFirmwareType &&
-        updateFirmwareInfo.toFirmwareType === EFirmwareType.Universal
-      ) {
-        title = intl.formatMessage(
-          {
-            id: ETranslations.device_checklist_switch_firmware_type,
-          },
-          {
-            type: 'Universal',
+            type: getTargetFirmwareTypeLabel({
+              firmwareType: updateFirmwareInfo.toFirmwareType,
+              intl,
+            }),
           },
         );
       } else {

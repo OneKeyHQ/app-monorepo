@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Divider,
+  Icon,
   SizableText,
   Stack,
   XStack,
@@ -20,6 +21,7 @@ import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
+  type IDecodedTx,
   type IDecodedTxActionAssetTransfer,
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
@@ -35,6 +37,7 @@ import { NetworkAvatar } from '../NetworkAvatar';
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 import { Token } from '../Token';
 
+import { MAX_DISPLAYED_TRANSFERS, formatTransferOverflowLabel } from './consts';
 import { TxActionCommonListView } from './TxActionCommon';
 import { TxActionSwapInfo } from './TxActionSwapInfo';
 
@@ -46,6 +49,114 @@ type ITransferBlock = {
   transfersInfo: IDecodedTxTransferInfo[];
   direction: EDecodedTxDirection;
 };
+
+type IPrivateSendCreateTokenAccountFee = {
+  amount?: string;
+  symbol?: string;
+};
+
+function isSendLikeHistoryTxType(type?: EOnChainHistoryTxType) {
+  return (
+    type === EOnChainHistoryTxType.Send ||
+    type === EOnChainHistoryTxType.PrivateSend
+  );
+}
+
+function getPrivateSendCreateTokenAccountFee(decodedTx: IDecodedTx) {
+  const createTokenAccountFee = (
+    decodedTx.extraInfo as
+      | { createTokenAccountFee?: IPrivateSendCreateTokenAccountFee }
+      | null
+      | undefined
+  )?.createTokenAccountFee;
+  const feeAmountBN = new BigNumber(createTokenAccountFee?.amount ?? '');
+  if (
+    feeAmountBN.isNaN() ||
+    !feeAmountBN.isFinite() ||
+    !feeAmountBN.isGreaterThan(0)
+  ) {
+    return undefined;
+  }
+  return createTokenAccountFee;
+}
+
+function getPositiveNumberValue(value?: string) {
+  const valueBN = new BigNumber(value ?? '');
+  return valueBN.isNaN() || !valueBN.isFinite() || !valueBN.isGreaterThan(0)
+    ? undefined
+    : valueBN;
+}
+
+function getPrivateSendNativePriceFromFee(decodedTx: IDecodedTx) {
+  const totalFeeInNativeBN = getPositiveNumberValue(decodedTx.totalFeeInNative);
+  const totalFeeFiatValueBN = getPositiveNumberValue(
+    decodedTx.totalFeeFiatValue,
+  );
+  if (!totalFeeInNativeBN || !totalFeeFiatValueBN) {
+    return undefined;
+  }
+
+  return totalFeeFiatValueBN.div(totalFeeInNativeBN).toFixed();
+}
+
+function hasPrivateSendCreateTokenAccountFeeTransfer({
+  transfers,
+  createTokenAccountFee,
+}: {
+  transfers: IDecodedTxTransferInfo[];
+  createTokenAccountFee: IPrivateSendCreateTokenAccountFee;
+}) {
+  return transfers.some((transfer) => {
+    const amountBN = new BigNumber(transfer.amount ?? '');
+    const feeAmountBN = new BigNumber(createTokenAccountFee.amount ?? '');
+    return (
+      transfer.isNative &&
+      !amountBN.isNaN() &&
+      !feeAmountBN.isNaN() &&
+      amountBN.isEqualTo(feeAmountBN)
+    );
+  });
+}
+
+function buildPrivateSendDisplaySends({
+  decodedTx,
+  sends,
+  networkLogoURI,
+}: {
+  decodedTx: IDecodedTx;
+  sends: IDecodedTxTransferInfo[];
+  networkLogoURI?: string;
+}) {
+  const createTokenAccountFee = getPrivateSendCreateTokenAccountFee(decodedTx);
+  if (!createTokenAccountFee) {
+    return sends;
+  }
+  if (
+    hasPrivateSendCreateTokenAccountFeeTransfer({
+      transfers: sends,
+      createTokenAccountFee,
+    })
+  ) {
+    return sends;
+  }
+  const nativePrice = getPrivateSendNativePriceFromFee(decodedTx);
+  return [
+    ...sends,
+    {
+      from: decodedTx.signer || decodedTx.owner,
+      to: '',
+      tokenIdOnNetwork: '',
+      icon: networkLogoURI ?? '',
+      name: createTokenAccountFee.symbol ?? '',
+      symbol: createTokenAccountFee.symbol ?? '',
+      amount: createTokenAccountFee.amount ?? '',
+      isNFT: false,
+      isNative: true,
+      networkId: decodedTx.networkId,
+      price: nativePrice,
+    },
+  ];
+}
 
 function getTxActionTransferInfo(
   props: ITxActionProps & { isUTXO?: boolean; intl: IntlShape },
@@ -79,22 +190,37 @@ function getTxActionTransferInfo(
     !isEmpty(sends) &&
     sends[0]?.tokenIdOnNetwork === receives[0]?.tokenIdOnNetwork;
 
+  // Drop EVM mint/burn sentinels (zero address) so protocol interactions
+  // like Aave Borrow (debt-token mint) or wrap/burn flows don't end up with
+  // an ambiguous endpoint set. The literal is harmless on non-EVM chains
+  // (their addresses can't collide with this 20-byte hex form).
+  const isZeroAddress = (addr?: string) =>
+    !!addr &&
+    addr.toLowerCase() === '0x0000000000000000000000000000000000000000';
+
   if (!isEmpty(sends) && isEmpty(receives)) {
-    const targets = uniq(map(sends, 'to'));
+    const targets = uniq(
+      map(sends, 'to').filter((addr) => !isZeroAddress(addr)),
+    );
     if (targets.length === 1) {
       [transferTarget] = targets;
     } else {
       transferTarget = to;
     }
   } else if (isEmpty(sends) && !isEmpty(receives)) {
-    const targets = uniq(map(receives, 'from'));
+    const targets = uniq(
+      map(receives, 'from').filter((addr) => !isZeroAddress(addr)),
+    );
     if (targets.length === 1) {
       [transferTarget] = targets;
     } else {
-      transferTarget = from;
+      // Fall back to the contract being interacted with (e.g. Aave Pool).
+      // `from` here is the user's own address and never the right
+      // counterparty in a receive-only tx; only use it if `to` is empty.
+      transferTarget = to || from;
     }
   } else if (isUTXO) {
-    if (type === EOnChainHistoryTxType.Send) {
+    if (isSendLikeHistoryTxType(type)) {
       const filteredReceives = receives.filter((receive) => !receive.isOwn);
       transferTarget =
         filteredReceives.length > 1
@@ -289,12 +415,20 @@ function buildExpandedTransferView({
   receives = [],
   hideValue,
   currencySymbol,
+  intl,
 }: {
   sends?: IDecodedTxTransferInfo[];
   receives?: IDecodedTxTransferInfo[];
   hideValue?: boolean;
   currencySymbol?: string;
+  intl: IntlShape;
 }) {
+  // INVARIANT: each transfer line is a single fixed-height row — the token icon
+  // (xs) and the amount/fiat texts share one horizontal XStack and are all
+  // numberOfLines={1}, so a line never wraps. TxHistoryListView relies on this
+  // (CHANGE_LINE_HEIGHT) to pin an exact fast-path row height without
+  // CellMeasurer. If you make a line wrap or stack vertically, update
+  // CHANGE_LINE_HEIGHT in TxHistoryListView/index.tsx accordingly.
   const renderTransferLine = (
     transfer: IDecodedTxTransferInfo,
     prefix: string,
@@ -341,10 +475,62 @@ function buildExpandedTransferView({
     );
   };
 
+  // Cap the rendered lines for the whole tx (receives + sends combined). A tx
+  // that moves many assets at once (e.g. thousands of NFTs) would otherwise
+  // render one line per transfer and freeze the UI. Slice the data to the first
+  // MAX_DISPLAYED_TRANSFERS *before* mapping so we never build the thousands of
+  // throwaway rows, and show a single "+N" overflow line for the rest.
+  // getTransferChangeLineCount in TxHistoryListView mirrors this cap so the row
+  // height stays bounded.
+  // Order sends before receives to match the detail page (transfersToRender),
+  // so the cap hides the same items on the list row and the detail page.
+  const combinedTransfers = [...sends, ...receives];
+  // Only collapse into a "+N" row when it hides 2+ transfers — showing a single
+  // trailing transfer is cheaper than a "+1" row that hides it, and it keeps the
+  // overflow count >= 2 so the plural-only "+N assets" label stays grammatically
+  // correct. Rendered lines stay min(total, MAX_DISPLAYED_TRANSFERS + 1) either
+  // way, which getTransferChangeLineCount mirrors for the row height.
+  const visibleCount =
+    combinedTransfers.length > MAX_DISPLAYED_TRANSFERS + 1
+      ? MAX_DISPLAYED_TRANSFERS
+      : combinedTransfers.length;
+  const overflowTransfers = combinedTransfers.slice(visibleCount);
+  const overflowCount = overflowTransfers.length;
+  // Match the overflow chip's corner to what it summarizes: NFT images use a
+  // rounded square ($2), fungible tokens use a circle ($full).
+  const overflowIsNFT =
+    overflowCount > 0 && overflowTransfers.every((t) => t.isNFT);
+
   return (
     <>
-      {receives.map((t) => renderTransferLine(t, 'r', '$textSuccess'))}
-      {sends.map((t) => renderTransferLine(t, 's', '$text'))}
+      {combinedTransfers
+        .slice(0, visibleCount)
+        .map((t, index) =>
+          index < sends.length
+            ? renderTransferLine(t, 's', '$text')
+            : renderTransferLine(t, 'r', '$textSuccess'),
+        )}
+      {overflowCount > 0 ? (
+        <XStack key="transfer-overflow" alignItems="center" gap="$1">
+          <Stack
+            w="$5"
+            h="$5"
+            borderRadius={overflowIsNFT ? '$2' : '$full'}
+            bg="$bgStrong"
+            justifyContent="center"
+            alignItems="center"
+          >
+            <Icon name="DotHorOutline" size="$4" color="$iconSubdued" />
+          </Stack>
+          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+            {formatTransferOverflowLabel({
+              count: overflowCount,
+              isNFT: overflowIsNFT,
+              intl,
+            })}
+          </SizableText>
+        </XStack>
+      ) : null}
     </>
   );
 }
@@ -356,12 +542,14 @@ function TxActionTransferListView(props: ITxActionProps) {
     componentProps,
     showIcon,
     replaceType,
+    displayStatus,
     hideValue,
     compact,
   } = props;
   const { networkId, payload, nativeAmount, actions, networkLogoURI } =
     decodedTx;
   const { type } = payload ?? {};
+  const isPrivateSend = type === EOnChainHistoryTxType.PrivateSend;
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
@@ -387,12 +575,23 @@ function TxActionTransferListView(props: ITxActionProps) {
     intl,
     isUTXO,
   });
+  const privateSendDisplaySends = isPrivateSend
+    ? buildPrivateSendDisplaySends({
+        decodedTx,
+        sends,
+        networkLogoURI,
+      })
+    : sends;
+  const isSendLikeHistory = isSendLikeHistoryTxType(type);
+  const descriptionTarget = isPrivateSend
+    ? (payload?.privateSend?.originalRecipient ?? '')
+    : transferTarget;
   const description = {
     prefix: '',
     children: accountUtils.shortenAddress({
-      address: transferTarget,
+      address: descriptionTarget,
     }),
-    originalAddress: transferTarget,
+    originalAddress: descriptionTarget,
   };
 
   const avatar: ITxActionCommonListViewProps['avatar'] = {
@@ -410,8 +609,20 @@ function TxActionTransferListView(props: ITxActionProps) {
   if (tableLayout) {
     const currencySymbol = settings.currencyInfo.symbol;
 
-    if (!isEmpty(sends) && isEmpty(receives)) {
+    if (isPrivateSend) {
       change = buildExpandedTransferView({
+        intl,
+        sends: groupTransfersByToken(privateSendDisplaySends),
+        hideValue,
+        currencySymbol,
+      });
+      avatar.fallbackIcon = 'ArrowTopOutline';
+      title = intl.formatMessage({
+        id: ETranslations.private_send_private_send,
+      });
+    } else if (!isEmpty(sends) && isEmpty(receives)) {
+      change = buildExpandedTransferView({
+        intl,
         sends: groupTransfersByToken(sends),
         hideValue,
         currencySymbol,
@@ -420,6 +631,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       title = intl.formatMessage({ id: ETranslations.global_send });
     } else if (isEmpty(sends) && !isEmpty(receives)) {
       change = buildExpandedTransferView({
+        intl,
         receives: groupTransfersByToken(receives),
         hideValue,
         currencySymbol,
@@ -427,10 +639,11 @@ function TxActionTransferListView(props: ITxActionProps) {
       avatar.fallbackIcon = 'ArrowBottomOutline';
       title = intl.formatMessage({ id: ETranslations.global_receive });
     } else if (vaultSettings?.isUtxo) {
-      if (type === EOnChainHistoryTxType.Send) {
+      if (isSendLikeHistory) {
         const tokens = uniq(map(sends, 'tokenIdOnNetwork'));
         if (tokens.length > 1) {
           change = buildExpandedTransferView({
+            intl,
             sends: groupTransfersByToken(sends),
             hideValue,
             currencySymbol,
@@ -438,6 +651,7 @@ function TxActionTransferListView(props: ITxActionProps) {
         } else {
           const amountBN = new BigNumber(nativeAmount ?? 0).abs();
           change = buildExpandedTransferView({
+            intl,
             sends: [{ ...sends[0], amount: amountBN.toFixed() }],
             hideValue,
             currencySymbol,
@@ -449,6 +663,7 @@ function TxActionTransferListView(props: ITxActionProps) {
         const tokens = uniq(map(receives, 'tokenIdOnNetwork'));
         if (tokens.length > 1) {
           change = buildExpandedTransferView({
+            intl,
             receives: groupTransfersByToken(receives),
             hideValue,
             currencySymbol,
@@ -456,6 +671,7 @@ function TxActionTransferListView(props: ITxActionProps) {
         } else {
           const amountBN = new BigNumber(nativeAmount ?? 0).abs();
           change = buildExpandedTransferView({
+            intl,
             receives: [{ ...receives[0], amount: amountBN.toFixed() }],
             hideValue,
             currencySymbol,
@@ -466,6 +682,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       }
     } else {
       change = buildExpandedTransferView({
+        intl,
         sends: groupTransfersByToken(sends),
         receives: groupTransfersByToken(receives),
         hideValue,
@@ -475,16 +692,29 @@ function TxActionTransferListView(props: ITxActionProps) {
     }
 
     // swap / staking icon overrides
-    if (actions[0]?.assetTransfer?.isInternalSwap) {
+    if (!isPrivateSend && actions[0]?.assetTransfer?.isInternalSwap) {
       avatar.fallbackIcon = 'SwitchHorOutline';
-    } else if (actions[0]?.assetTransfer?.isInternalStaking) {
+    } else if (!isPrivateSend && actions[0]?.assetTransfer?.isInternalStaking) {
       avatar.fallbackIcon = 'CoinsOutline';
     }
 
     changeDescription = null;
   } else {
     const isStackedLayout = !tableLayout;
-    if (!isEmpty(sends) && isEmpty(receives)) {
+    if (isPrivateSend) {
+      const changeInfo = buildTransferChangeInfo({
+        changePrefix: '-',
+        transfers: privateSendDisplaySends,
+        intl,
+      });
+      change = changeInfo.change;
+      changeSymbol = changeInfo.changeSymbol;
+      changeDescription = changeInfo.changeDescription;
+      avatar.src = sendNFTIcon || sendTokenIcon;
+      title = intl.formatMessage({
+        id: ETranslations.private_send_private_send,
+      });
+    } else if (!isEmpty(sends) && isEmpty(receives)) {
       const changeInfo = buildTransferChangeInfo({
         changePrefix: '-',
         transfers: sends,
@@ -507,7 +737,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       avatar.src = receiveNFTIcon || receiveTokenIcon;
       title = intl.formatMessage({ id: ETranslations.global_receive });
     } else if (vaultSettings?.isUtxo) {
-      if (type === EOnChainHistoryTxType.Send) {
+      if (isSendLikeHistory) {
         const changeInfo = buildTransferChangeInfo({
           changePrefix: '-',
           transfers: sends,
@@ -625,7 +855,11 @@ function TxActionTransferListView(props: ITxActionProps) {
     );
   }
 
-  if (!isPending && label) {
+  if (isPrivateSend) {
+    title = intl.formatMessage({
+      id: ETranslations.private_send_private_send,
+    });
+  } else if (!isPending && label) {
     title = label;
   }
 
@@ -650,10 +884,16 @@ function TxActionTransferListView(props: ITxActionProps) {
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       showIcon={showIcon}
       replaceType={replaceType}
-      status={decodedTx.status}
+      status={displayStatus ?? decodedTx.status}
       networkId={networkId}
       networkLogoURI={networkLogoURI}
       riskyLevel={decodedTx.riskyLevel}
+      kytRiskLevel={
+        // Hide the KYT risk badge for watch-only accounts.
+        accountUtils.isWatchingAccount({ accountId: decodedTx.accountId })
+          ? undefined
+          : decodedTx.kytRiskLevel
+      }
       compact={compact}
       {...componentProps}
     />

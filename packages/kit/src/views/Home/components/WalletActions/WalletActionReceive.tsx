@@ -1,22 +1,22 @@
 import type { ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import { Toast } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-  useTokenListStateAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useTokenListStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IWalletActionBaseParams } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/walletActions';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { HomeTestIDs } from '../../testIDs';
 
 import { RawActions } from './RawActions';
 
@@ -26,9 +26,11 @@ function WalletActionReceive({
   customization,
   renderTrigger,
   source,
+  variant,
   sameModal,
   useSelector,
   showButtonStyle,
+  highlighted,
 }: {
   customization?: IActionCustomization;
   renderTrigger?: (props: {
@@ -36,10 +38,13 @@ function WalletActionReceive({
     disabled: boolean;
   }) => ReactElement;
   source?: IWalletActionBaseParams['source'];
+  variant?: IWalletActionBaseParams['variant'];
   sameModal?: boolean;
   useSelector?: boolean;
   showButtonStyle?: boolean;
+  highlighted?: boolean;
 } = {}) {
+  const intl = useIntl();
   const {
     activeAccount: {
       network,
@@ -50,29 +55,17 @@ function WalletActionReceive({
     },
   } = useActiveAccount({ num: 0 });
 
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
+  const {
+    tokens: allTokens,
+    keys: allTokensKeys,
+    map,
+  } = useHomeTokenListSnapshot();
   const [tokenListState] = useTokenListStateAtom();
-  const isBotWallet = useMemo(
-    () => accountUtils.isBotWallet({ walletId: wallet?.id }),
-    [wallet?.id],
-  );
-  const { result: isBotWalletDeactivatedResult } = usePromiseResult(
-    async () => {
-      if (!wallet?.id || !isBotWallet) {
-        return false;
-      }
-
-      return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
-        walletId: wallet.id,
-      });
-    },
-    [wallet?.id, isBotWallet],
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
     {
-      checkIsFocused: false,
+      walletId: wallet?.id,
     },
   );
-  const isBotWalletDeactivated = !!isBotWalletDeactivatedResult;
 
   const isReceiveDisabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING) {
@@ -90,8 +83,8 @@ function WalletActionReceive({
     walletId: wallet?.id ?? '',
     indexedAccountId: indexedAccount?.id ?? '',
     tokens: {
-      data: allTokens.tokens,
-      keys: allTokens.keys,
+      data: allTokens,
+      keys: allTokensKeys,
       map,
     },
     tokenListState,
@@ -106,9 +99,7 @@ function WalletActionReceive({
         isBotWalletDeactivated,
       })
     ) {
-      Toast.error({
-        title: '该钱包已停用，无法接收资产',
-      });
+      showBotWalletDisabledToast('receive');
       return;
     }
 
@@ -123,6 +114,7 @@ function WalletActionReceive({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: source ?? 'homePage',
+      variant,
       isSoftwareWalletOnlyUser,
     });
     if (customization?.onPress) {
@@ -142,6 +134,7 @@ function WalletActionReceive({
     isBotWallet,
     isBotWalletDeactivated,
     source,
+    variant,
     isSoftwareWalletOnlyUser,
     customization,
     handleOnReceive,
@@ -160,11 +153,17 @@ function WalletActionReceive({
     <RawActions.Receive
       disabled={customization?.disabled ?? isReceiveDisabled}
       allowPressWhenDisabled={isBotWalletDeactivated}
+      highlighted={Boolean(highlighted && !isReceiveDisabled)}
       onPress={handleReceiveOnPress}
-      label={customization?.label}
+      label={
+        customization?.labelId
+          ? intl.formatMessage({ id: customization.labelId })
+          : undefined
+      }
       icon={customization?.icon}
       showButtonStyle={showButtonStyle}
       trackID="wallet-receive"
+      testID={HomeTestIDs.receiveButton}
     />
   );
 }

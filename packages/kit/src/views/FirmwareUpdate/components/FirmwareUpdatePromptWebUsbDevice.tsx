@@ -9,6 +9,8 @@ import type { IFirmwareUpdateStepInfo } from '@onekeyhq/kit-bg/src/states/jotai/
 import { useFirmwareUpdateStepInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { FirmwareUpdateTestIDs } from '../testIDs';
+
 export function FirmwareUpdatePromptWebUsbDevice({
   previousStepInfo,
   requestType = 'bootloader',
@@ -60,6 +62,7 @@ export function FirmwareUpdatePromptWebUsbDevice({
         loading={isConnecting}
         disabled={isConnecting}
         onPress={handleGrantAccess}
+        testID={FirmwareUpdateTestIDs.grantUsbAccessBtn}
       >
         {intl.formatMessage({ id: ETranslations.device_grant_usb_access })}
       </Button>

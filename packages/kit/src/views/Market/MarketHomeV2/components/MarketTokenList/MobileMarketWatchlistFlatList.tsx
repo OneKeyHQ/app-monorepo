@@ -33,6 +33,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
+import { getMarketEmptyWatchlistContainerProps } from '../../layouts/mobileLayoutUtils';
 import { MarketRecommendList } from '../MarketRecommendList';
 
 import { InlineActionBar } from './components/InlineActionBar';
@@ -50,6 +51,7 @@ interface IMobileMarketWatchlistFlatListProps {
   listContainerProps: {
     paddingBottom: number;
   };
+  shouldSuppressItemPress?: () => boolean;
 }
 
 const EMPTY_DATA: IMarketToken[] = [];
@@ -63,6 +65,7 @@ const SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET = 4;
 function MobileMarketWatchlistFlatListImpl({
   selectedFilter = 'all',
   listContainerProps,
+  shouldSuppressItemPress,
 }: IMobileMarketWatchlistFlatListProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
@@ -253,16 +256,22 @@ function MobileMarketWatchlistFlatListImpl({
         <TokenListItem
           item={item}
           onPress={() => {
+            clearMenuTimer();
+            if (shouldSuppressItemPress?.()) {
+              gestureRef.current.consumeNextPress = false;
+              resetGestureSession();
+              return;
+            }
             if (gestureRef.current.consumeNextPress) {
               gestureRef.current.consumeNextPress = false;
               return;
             }
-            clearMenuTimer();
             if (item.perpsCoin) {
               navigateToPerps(item.perpsCoin);
               return;
             }
             void toMarketDetailPage({
+              ...item,
               symbol: item.symbol,
               tokenAddress: item.address,
               networkId: item.networkId,
@@ -354,6 +363,7 @@ function MobileMarketWatchlistFlatListImpl({
       handleShowContextMenu,
       navigateToPerps,
       resetGestureSession,
+      shouldSuppressItemPress,
       toMarketDetailPage,
     ],
   );
@@ -382,7 +392,7 @@ function MobileMarketWatchlistFlatListImpl({
   const tabBarHeight = useScrollContentTabBarOffset();
   const contentContainerStyle = useMemo(
     () => ({
-      ...(platformEnv.isNative ? {} : { paddingTop: 8 }),
+      ...(platformEnv.isNative ? {} : { paddingTop: 4 }),
       paddingBottom: platformEnv.isNativeAndroid
         ? listContainerProps.paddingBottom
         : tabBarHeight,
@@ -400,8 +410,11 @@ function MobileMarketWatchlistFlatListImpl({
       <Tabs.ScrollView>
         <Stack
           {...(platformEnv.isNative ? null : { justifyContent: 'center' })}
+          {...getMarketEmptyWatchlistContainerProps({
+            isNativeAndroid: Boolean(platformEnv.isNativeAndroid),
+            isWeb: Boolean(platformEnv.isWeb),
+          })}
           alignItems="center"
-          paddingTop="$8"
         >
           <MarketRecommendList
             maxSize={8}

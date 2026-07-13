@@ -11,7 +11,6 @@
 "NSBluetoothPeripheralUsageDescription" = "Bluetoothを使用して 、OneKey ハードウェア デバイスを接続する";
 "NSCameraUsageDescription" = "カメラを使用して 、QR コードをスキャンする";
 "NSFaceIDUsageDescription" = "Face ID を使用して、ウォレットの認証とロック解除を行う";
-"NSMicrophoneUsageDescription" = "マイクを使用して、ビデオを録画する";
 "NSPhotoLibraryAddUsageDescription" = "フォトライブラリを使用して画像を保存する";
 "NSPhotoLibraryUsageDescription" = "フォト ライブラリを使用して、 QR 画像を読み取る";
 "NSLocalNetworkUsageDescription" = "このアプリは、使用しているネットワーク上のデバイスを検出して接続できるようになります。";

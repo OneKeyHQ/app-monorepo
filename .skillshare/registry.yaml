@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/runkids/skillshare/main/schemas/registry.schema.json
-skills:
-
-    - name: vercel-react-best-practices
-      source: https://github.com/vercel-labs/agent-skills/tree/main/skills/react-best-practices
-
-    - name: react-native-best-practices
-      source: https://github.com/callstackincubator/agent-skills/tree/main/skills/react-native-best-practices
-

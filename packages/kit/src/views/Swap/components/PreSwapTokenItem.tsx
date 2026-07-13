@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import {
   Icon,
   NumberSizeableText,
@@ -9,17 +7,27 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { Token } from '../../../components/Token';
+import { getSwapTokenDisplayFiatValue } from '../utils/swapDisplayFiatValue';
+
+import {
+  type ISwapRateDifference,
+  SwapRateDifferenceText,
+} from './SwapRateDifferenceText';
 
 interface IPreSwapTokenItemProps {
   token?: ISwapToken;
   amount: string;
   loading?: boolean;
   isFloating?: boolean;
+  rateDifference?: ISwapRateDifference;
 }
 
 const PreSwapTokenItem = ({
@@ -27,13 +35,18 @@ const PreSwapTokenItem = ({
   amount,
   loading,
   isFloating,
+  rateDifference,
 }: IPreSwapTokenItemProps) => {
-  const fiatValue = useMemo(() => {
-    return token?.price && amount
-      ? new BigNumber(token?.price ?? 0).multipliedBy(amount).toFixed()
-      : '0';
-  }, [token?.price, amount]);
   const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const fiatValue = useMemo(() => {
+    return getSwapTokenDisplayFiatValue({
+      token,
+      amount,
+      targetCurrency: settings.currencyInfo.id,
+      currencyMap,
+    });
+  }, [amount, currencyMap, settings.currencyInfo.id, token]);
   const networkImageUri = useMemo(() => {
     if (token?.networkLogoURI) {
       return token.networkLogoURI;
@@ -72,17 +85,24 @@ const PreSwapTokenItem = ({
                 {amount}
               </NumberSizeableText>
             </XStack>
-            <NumberSizeableText
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="value"
-              formatterOptions={{
-                currency: settings.currencyInfo.symbol,
-              }}
-              numberOfLines={1}
-            >
-              {fiatValue}
-            </NumberSizeableText>
+            <XStack alignItems="center" gap="$1">
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="value"
+                formatterOptions={{
+                  currency: settings.currencyInfo.symbol,
+                }}
+                numberOfLines={1}
+              >
+                {fiatValue}
+              </NumberSizeableText>
+              <SwapRateDifferenceText
+                loading={loading}
+                rateDifference={rateDifference}
+                size="$bodyMd"
+              />
+            </XStack>
           </>
         )}
       </YStack>

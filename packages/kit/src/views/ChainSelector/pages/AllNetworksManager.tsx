@@ -28,6 +28,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { AllNetworksManagerContext } from '../components/AllNetworksManager/AllNetworksManagerContext';
 import NetworksSectionList from '../components/AllNetworksManager/NetworksSectionList';
 import { useFindNetworksWithoutAccount } from '../hooks/useFindNetworksWithoutAccount';
+import { ChainSelectorTestIDs } from '../testIDs';
 
 import type { IServerNetworkMatch } from '../types';
 import type { RouteProp } from '@react-navigation/core';
@@ -237,6 +238,7 @@ function AllNetworksManager() {
       await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
         enabledNetworks: networksState.enabledNetworks,
         disabledNetworks: networksState.disabledNetworks,
+        cacheContext: { walletId, accountId },
       });
 
       appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
@@ -298,6 +300,7 @@ function AllNetworksManager() {
           <Page.FooterActions
             onConfirmText={confirmButtonText}
             confirmButtonProps={{
+              testID: ChainSelectorTestIDs.allNetworksConfirmBtn,
               loading: isCreatingEnabledAddresses,
               disabled: (() => {
                 if (enabledNetworks.length <= 0) {

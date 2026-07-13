@@ -1,8 +1,13 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IBatchCheckWalletV2Item } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 
@@ -20,13 +25,54 @@ type IWalletWithValidInfo = {
   walletInfo: IReferralCodeWalletInfo;
 };
 
-function buildWalletBoundKey(networkId: string, address: string): string {
-  const normalizedAddress =
+export type IWalletReferralBindListStatus =
+  | 'bound'
+  | 'bindable'
+  | 'expired'
+  | 'unknown';
+
+export type IWalletWithReferralBindStatus = {
+  wallet: IDBWallet;
+  isBound: boolean;
+  bindable?: boolean;
+  reason?: string;
+  status: IWalletReferralBindListStatus;
+};
+
+function getWalletReferralBindListStatus({
+  isBound,
+  bindable,
+  reason,
+}: {
+  isBound: boolean;
+  bindable?: boolean;
+  reason?: string;
+}): IWalletReferralBindListStatus {
+  if (isBound) {
+    return 'bound';
+  }
+  if (reason === 'exceeded_bind_window') {
+    return 'expired';
+  }
+  if (bindable !== true) {
+    return 'unknown';
+  }
+  return 'bindable';
+}
+
+function getNormalizedAddress({
+  networkId,
+  address,
+}: {
+  networkId: string;
+  address: string;
+}) {
+  return (
     normalizeTokenContractAddress({
       networkId,
       contractAddress: address,
-    }) || address;
-  return `${networkId}:${normalizedAddress}`;
+    }) || address
+  );
 }
 
 export function useFetchWalletsWithBoundStatus() {
@@ -38,11 +84,27 @@ export function useFetchWalletsWithBoundStatus() {
     });
 
     // Filter valid wallets (HD and hardware wallets)
-    const validWallets = wallets.filter(
+    const baseValidWallets = wallets.filter(
       (w) =>
         (accountUtils.isHdWallet({ walletId: w.id }) ||
           accountUtils.isHwWallet({ walletId: w.id })) &&
         !accountUtils.isHwHiddenWallet({ wallet: w }),
+    );
+
+    // Exclude deactivated Bot Wallets — referral binding requires receiving
+    // signed messages and is not allowed on deactivated wallets.
+    const deactivationFlags = await Promise.all(
+      baseValidWallets.map(async (w) => {
+        if (!accountUtils.isBotWallet({ walletId: w.id })) {
+          return false;
+        }
+        return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
+          walletId: w.id,
+        });
+      }),
+    );
+    const validWallets = baseValidWallets.filter(
+      (_, index) => !deactivationFlags[index],
     );
 
     // Early return if no valid wallets
@@ -68,71 +130,80 @@ export function useFetchWalletsWithBoundStatus() {
     }
 
     // Build batch check items with normalized addresses
-    const batchCheckItems = walletsWithInfo.map((item) => {
-      const { networkId, address } = item.walletInfo;
-      return {
-        address:
-          normalizeTokenContractAddress({
-            networkId,
-            contractAddress: address,
-          }) || address,
-        networkId,
-      };
-    });
+    const batchCheckItems = walletsWithInfo.map((item) => ({
+      address: getNormalizedAddress(item.walletInfo),
+      networkId: item.walletInfo.networkId,
+    }));
 
-    // Batch check all wallets' bound status via API
-    let batchResult: Record<string, boolean> = {};
+    // The V2 API is authoritative because it carries both bound and bind-window status.
+    let batchV2Result: Record<string, IBatchCheckWalletV2Item> = {};
+    let didFetchStatus = false;
     try {
-      batchResult =
-        await backgroundApiProxy.serviceReferralCode.batchCheckWalletsBoundReferralCode(
+      batchV2Result =
+        await backgroundApiProxy.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2(
           batchCheckItems,
         );
-      console.log(
-        '===>>> batchCheckWalletsBoundReferralCode result:',
-        batchResult,
-      );
-    } catch (error) {
-      console.log(
-        '===>>> batchCheckWalletsBoundReferralCode error, treating all as not bound:',
-        error,
-      );
+      didFetchStatus = true;
+    } catch {
+      // Treat missing V2 status as unknown instead of using legacy local state.
     }
 
-    // Build result and update local database
+    // Build UI-only status; do not update local binding data here.
     const walletsWithBoundStatus = await Promise.all(
       walletsWithInfo.map(async (item) => {
-        const key = buildWalletBoundKey(
-          item.walletInfo.networkId,
-          item.walletInfo.address,
+        const normalizedAddress = getNormalizedAddress(item.walletInfo);
+        const v2Item =
+          batchV2Result[`${item.walletInfo.networkId}:${normalizedAddress}`];
+        if (!didFetchStatus || !v2Item) {
+          const fallbackStatus: IWalletWithReferralBindStatus = {
+            wallet: item.wallet,
+            isBound: false,
+            status: 'unknown',
+          };
+          return fallbackStatus;
+        }
+
+        const isBound = Boolean(
+          v2Item.bound || v2Item.reason === 'already_bound',
         );
-        const isBound = batchResult[key] ?? false;
+        const isExpired = v2Item.reason === 'exceeded_bind_window';
+        const bindable = !isBound && !isExpired;
+        const bindWindowReason = isBound ? undefined : v2Item.reason;
 
-        // Update local database
-        await backgroundApiProxy.serviceReferralCode.setWalletReferralCode({
-          walletId: item.wallet.id,
-          referralCodeInfo: {
-            walletId: item.wallet.id,
-            address: item.walletInfo.address,
-            networkId: item.walletInfo.networkId,
-            pubkey: item.walletInfo.pubkey ?? '',
-            isBound,
-          },
-        });
-
-        return {
+        const itemResult: IWalletWithReferralBindStatus = {
           wallet: item.wallet,
           isBound,
+          bindable,
+          reason: bindWindowReason,
+          status: getWalletReferralBindListStatus({
+            isBound,
+            bindable,
+            reason: bindWindowReason,
+          }),
         };
+        return itemResult;
       }),
     );
-
     return walletsWithBoundStatus;
   }, [getReferralCodeWalletInfo]);
 
-  const { result: walletsWithStatus, isLoading } = usePromiseResult(
+  const {
+    result: walletsWithStatus,
+    isLoading,
+    run: refreshWalletsWithStatus,
+  } = usePromiseResult(fetchWalletsWithBoundStatus, [
     fetchWalletsWithBoundStatus,
-    [fetchWalletsWithBoundStatus],
-  );
+  ]);
+
+  // Bot wallet activate/deactivate emits WalletUpdate; refresh so the
+  // referral binding picker excludes/includes the wallet without requiring
+  // a navigation reload.
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refreshWalletsWithStatus);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refreshWalletsWithStatus);
+    };
+  }, [refreshWalletsWithStatus]);
 
   return {
     walletsWithStatus,

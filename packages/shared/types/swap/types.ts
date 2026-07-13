@@ -19,6 +19,7 @@ import type {
 } from '@onekeyhq/shared/src/eventSource';
 
 import type {
+  IEstimateGasResp,
   IFeeAlgo,
   IFeeCkb,
   IFeeDot,
@@ -26,8 +27,10 @@ import type {
   IFeeSui,
   IFeeTron,
   IFeeUTXO,
+  IGasAccountQuote,
   IGasEIP1559,
   IGasLegacy,
+  IGasPayer,
 } from '../fee';
 import type { EMessageTypesEth } from '../message';
 import type { IToken } from '../token';
@@ -43,6 +46,8 @@ export enum EWrappedType {
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
   LIMIT = 'Limit', // TODO
+  PRIVATE_SEND = 'PrivateSend',
+  STOCK = 'Stock',
   ALL = 'All',
 }
 
@@ -50,6 +55,8 @@ export enum ESwapTabSwitchType {
   SWAP = 'swap',
   BRIDGE = 'bridge',
   LIMIT = 'limit',
+  PRIVATE_SEND = 'privateSend',
+  STOCK = 'stock',
 }
 
 export enum ESwapDirectionType {
@@ -87,6 +94,30 @@ export enum ESwapSource {
   PERP = 'perp',
 }
 
+export enum ESwapAnalyticsCategory {
+  SWAP = 'Swap',
+  BRIDGE = 'Bridge',
+  LIMIT = 'Limit',
+  STOCK = 'Stock',
+}
+
+export enum ESwapAnalyticsEnterFrom {
+  HOME_TAB = 'homeTab',
+  TOKEN_DETAIL = 'tokenDetail',
+  MARKET = 'market',
+  EARN = 'earn',
+  OTHERS = 'others',
+}
+
+export enum EStockTradeAlertType {
+  MIN_AMOUNT = 'minAmount',
+  MAX_AMOUNT = 'maxAmount',
+  REGION_RESTRICTED = 'regionRestricted',
+  MARKET_CLOSED = 'marketClosed',
+  UNKNOWN = 'unknown',
+  OTHER = 'other',
+}
+
 export enum ESwapSelectTokenSource {
   NORMAL_SELECT = 'normal_select',
   POPULAR_SELECT = 'popular_select',
@@ -112,12 +143,20 @@ export enum ETokenRiskLevel {
   SCAM = 1002,
 }
 
+export interface IMarketPresetTokenContext {
+  networkId: string;
+  contractAddress: string;
+  isNative?: boolean;
+}
+
 export interface ISwapInitParams {
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
   fromAmount?: string;
+  marketPresetToken?: IMarketPresetTokenContext;
+  swapSource?: ESwapSource;
 }
 
 // token & network
@@ -128,6 +167,8 @@ export interface ISwapNetworkBase {
   supportCrossChainSwap?: boolean;
   supportSingleSwap?: boolean;
   supportLimit?: boolean;
+  supportPrivateSend?: boolean;
+  supportStock?: boolean;
 }
 
 export interface ISwapNetwork extends ISwapNetworkBase {
@@ -135,6 +176,8 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   symbol: string;
   shortcode?: string;
   logoURI?: string;
+  backendIndex?: boolean;
+  isDeFiEnabled?: boolean;
   isAllNetworks?: boolean;
 }
 
@@ -142,6 +185,7 @@ export interface ISwapTokenBase {
   fiatValue?: string;
   balanceParsed?: string;
   price?: string;
+  currency?: string;
   networkId: string;
   contractAddress: string;
   isNative?: boolean;
@@ -150,6 +194,8 @@ export interface ISwapTokenBase {
   name?: string;
   logoURI?: string;
   speedSwapDefaultAmount?: number[];
+  supportProtocol?: boolean;
+  isStock?: boolean;
 }
 
 export interface IFreeFeeTokenItem {
@@ -204,6 +250,8 @@ export interface IFetchTokensParams {
   accountId?: string;
   onlyAccountTokens?: boolean;
   isAllNetworkFetchAccountTokens?: boolean;
+  lpToken?: boolean;
+  currency?: string;
 }
 
 export interface IFetchTokenListParams {
@@ -217,6 +265,7 @@ export interface IFetchTokenListParams {
   keywords?: string;
   skipReservationValue?: boolean;
   onlyAccountTokens?: boolean;
+  lpToken?: boolean;
 }
 
 export interface IFetchTokenDetailParams {
@@ -234,6 +283,7 @@ export interface ISwapAutoSlippageSuggestedValue {
   value: number;
   from: string;
   to: string;
+  eventId: string;
 }
 
 // quote
@@ -487,6 +537,13 @@ export interface ISwapGasInfo {
   feeAlgo?: IFeeAlgo;
   feeDot?: IFeeDot;
   feeBudget?: IFeeSui;
+  // Gas Account sponsorship result carried over from the estimate-fee response,
+  // so the preview UI (sponsored badge) and the send path (broadcast quoteId)
+  // can read it from the same gasInfo snapshot.
+  megafuelEligible?: IEstimateGasResp['megafuelEligible'];
+  payer?: IGasPayer;
+  gasAccountEligible?: boolean;
+  gasAccountQuote?: IGasAccountQuote;
 }
 export interface ISwapPreSwapData {
   fromToken?: ISwapToken;
@@ -499,9 +556,14 @@ export interface ISwapPreSwapData {
   swapBuildLoading?: boolean;
   estimateNetworkFeeLoading?: boolean;
   stepBeforeActionsLoading?: boolean;
+  stepBeforeActionsError?: boolean;
   providerInfo?: IFetchQuoteInfo;
   isHWAndExBatchTransfer?: boolean;
   slippage?: number;
+  rateDifference?: {
+    value: string;
+    unit: ESwapRateDifferenceUnit;
+  };
   swapType?: ESwapTabSwitchType;
   unSupportSlippage?: boolean;
   swapBuildResultData?: {
@@ -516,7 +578,11 @@ export interface ISwapPreSwapData {
   supportPreBuild?: boolean;
   allowanceResult?: IAllowanceResult;
   netWorkFee?: {
-    gasInfos?: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[];
+    gasInfos?: {
+      encodeTx: IEncodedTx;
+      gasInfo: ISwapGasInfo;
+      txSize?: number;
+    }[];
     gasFeeFiatValue?: string;
   };
 }
@@ -556,7 +622,8 @@ export interface IFetchQuoteResult {
   instantRate?: string;
   allowanceResult?: IAllowanceResult;
   approvedInfo?: IApprovedInfo;
-  estimatedTime?: string;
+  estimatedTime?: string | number; // legacy provider value, in seconds
+  estTime?: string | number; // server computed value, in minutes
   isBest?: boolean;
   receivedBest?: boolean;
   minGasCost?: boolean;
@@ -564,11 +631,18 @@ export interface IFetchQuoteResult {
   isWrapped?: boolean;
   unSupportReceiveAddressDifferent?: boolean;
   routesData?: IQuoteRoutePath[];
+  openRouterInfo?: boolean;
   quoteExtraData?: IQuoteExtraData;
   autoSuggestedSlippage?: number;
   unSupportSlippage?: boolean;
   fromTokenInfo: ISwapTokenBase;
   toTokenInfo: ISwapTokenBase;
+  // Backend hint (returned in both quote and build-tx responses) that this
+  // provider/route is a candidate for OneKey Gas Account sponsorship. It is a
+  // pre-check only: the client forwards it as `gasAccountEnabled` to
+  // estimate-fee, and the real eligibility is decided by estimate-fee's
+  // `gasAccountEligible` response.
+  gasAccountEnabled?: boolean;
   quoteResultCtx?: any;
   cowSwapQuoteResult?: any;
   kind?: ESwapQuoteKind;
@@ -606,6 +680,7 @@ export interface IFetchQuoteResult {
   isAntiMEV?: boolean;
   tokenMetadata?: ISwapTokenMetadata;
   quoteShowTip?: IQuoteTip;
+  valueDropPercent?: number;
   gasLimit?: number;
   slippage?: number;
   providerDisableBatchTransfer?: boolean;
@@ -681,13 +756,15 @@ export interface ISwapState {
   noConnectWallet?: boolean;
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
+  isWaitingAutoSlippage?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {
   isApproved: boolean;
   allowanceTarget: string;
   shouldApproveAmount: string;
-  approvedAmount: string;
+  // sic — backend spelling. Value is already decimal-parsed, not raw wei.
+  approveAmounted: string;
   shouldResetApprove?: boolean;
 }
 
@@ -916,6 +993,7 @@ export enum ESwapTxHistoryStatus {
   SUCCESS = 'success',
   FAILED = 'failed',
   PENDING = 'pending',
+  DEPOSIT_SUCCESS = 'depositSuccess',
   CANCELED = 'canceled',
   CANCELING = 'canceling',
   PARTIALLY_FILLED = 'partiallyFilled',
@@ -932,6 +1010,7 @@ export interface IFetchSwapTxHistoryStatusResponse {
   state: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
+  stateDetail?: string;
   crossChainReceiveTxHash?: string;
   gasFee?: string;
   gasFeeFiatValue?: string;
@@ -952,12 +1031,18 @@ export interface ISwapCheckSupportResponse {
 }
 
 export interface ISwapTxHistory {
+  protocol?: EProtocolOfExchange;
   status: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
+  stateDetail?: string;
   swapOrderHash?: ISwapOrderHash;
   ctx?: any;
   currency?: string;
+  currencyId?: string;
+  // Timestamp at which this item was archived ("read") by the Swap history
+  // preview module. Presence = read; absence = unread. Value is never compared.
+  previewReadAt?: number;
   accountInfo: {
     sender: {
       accountId?: string;
@@ -1049,12 +1134,20 @@ export interface IFetchLimitOrderRes {
   };
 }
 
+export type ISwapProPresetConfig = {
+  isEnabled?: boolean;
+  priorityFee?: boolean;
+  min?: string | number;
+  max?: string | number;
+};
+
 export interface ISwapProSpeedConfig {
   slippage: number;
   spenderAddress: string;
   defaultTokens: ISwapTokenBase[];
   defaultLimitTokens: ISwapTokenBase[];
   swapMevNetConfig: string[];
+  preset?: ISwapProPresetConfig;
 }
 export interface ISpeedSwapConfig {
   provider: string;
@@ -1077,6 +1170,13 @@ export interface IFetchSpeedCheckResult {
   };
   fromTokenInfo?: ISwapTokenBase;
   toTokenInfo?: ISwapTokenBase;
+}
+
+export interface IFetchUSMarketStatusResult {
+  open: boolean;
+  session: 'PRE_MARKET' | 'REGULAR' | 'POST_MARKET' | 'OVERNIGHT' | 'CLOSED';
+  reason: string | null;
+  unavailable?: boolean;
 }
 
 export enum ESwapLimitOrderStatus {

@@ -60,11 +60,13 @@ export function createSignalCleanupHandler({
   exitCode,
   runCleanup = runActiveAuthFlowCleanup,
   clearSecureCache = () => secureCache.clearAll(),
+  disposeHardwareSdk,
   exit = (code: number) => process.exit(code),
 }: {
   exitCode: number;
   runCleanup?: () => Promise<void>;
   clearSecureCache?: () => void;
+  disposeHardwareSdk?: () => Promise<void>;
   exit?: (code: number) => void;
 }): () => void {
   let isExiting = false;
@@ -82,10 +84,14 @@ export function createSignalCleanupHandler({
         await runCleanup();
       } catch {
         // Cleanup is best-effort during signal-driven shutdown.
-      } finally {
-        clearSecureCache();
-        exit(exitCode);
       }
+      try {
+        await disposeHardwareSdk?.();
+      } catch {
+        // Hardware SDK dispose is best-effort; USB handles leak otherwise.
+      }
+      clearSecureCache();
+      exit(exitCode);
     })();
   };
 }

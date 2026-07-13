@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useLayoutEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { MotiView } from 'moti';
@@ -19,6 +19,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import type {
   IFetchQuoteResult,
   ISwapToken,
@@ -42,6 +43,9 @@ export type ISwapProviderListItemProps = {
   toToken?: ISwapToken;
   selected?: boolean;
   disabled?: boolean;
+  autoOpenRoute?: boolean;
+  autoOpenRouteTrigger?: unknown;
+  routeCollapseTrigger?: unknown;
 } & IListItemProps;
 const SwapProviderListItem = ({
   providerResult,
@@ -51,9 +55,13 @@ const SwapProviderListItem = ({
   toToken,
   selected,
   disabled,
+  autoOpenRoute,
+  autoOpenRouteTrigger,
+  routeCollapseTrigger,
   ...rest
 }: ISwapProviderListItemProps) => {
   const intl = useIntl();
+  const { estTime, estimatedTime } = providerResult;
   const networkFeeComponent = useMemo(() => {
     if (providerResult.fee?.estimatedFeeFiatValue) {
       return (
@@ -88,20 +96,8 @@ const SwapProviderListItem = ({
   }, [currencySymbol, intl, providerResult.fee?.estimatedFeeFiatValue]);
 
   const estimatedTimeComponent = useMemo(() => {
-    if (providerResult.estimatedTime) {
-      const timeInSeconds = new BigNumber(providerResult.estimatedTime);
-      const oneMinuteInSeconds = new BigNumber(60);
-      let displayTime;
-      if (timeInSeconds.isLessThan(oneMinuteInSeconds)) {
-        displayTime = '< 1min';
-      } else {
-        // Divide by 60 and round up to the nearest whole number
-        const timeInMinutes = timeInSeconds
-          .dividedBy(60)
-          .integerValue(BigNumber.ROUND_UP)
-          .toNumber();
-        displayTime = `${timeInMinutes}min`;
-      }
+    const displayTime = formatSwapQuoteDuration({ estTime, estimatedTime });
+    if (displayTime) {
       return (
         <XStack gap="$1" alignItems="center">
           <Tooltip
@@ -128,7 +124,7 @@ const SwapProviderListItem = ({
       );
     }
     return null;
-  }, [intl, providerResult.estimatedTime]);
+  }, [estTime, estimatedTime, intl]);
 
   const protocolFeeComponent = useMemo(
     () => (
@@ -216,7 +212,20 @@ const SwapProviderListItem = ({
     toToken?.symbol,
   ]);
 
-  const [routeOpen, setRouteOpen] = useState(false);
+  const providerKey = `${providerResult.info.provider}-${providerResult.info.providerName}`;
+  const [routeOpen, setRouteOpen] = useState(Boolean(autoOpenRoute));
+
+  useLayoutEffect(() => {
+    if (autoOpenRoute) {
+      setRouteOpen(true);
+    }
+  }, [autoOpenRoute, autoOpenRouteTrigger, providerKey]);
+
+  useLayoutEffect(() => {
+    if (!autoOpenRoute) {
+      setRouteOpen(false);
+    }
+  }, [autoOpenRoute, providerKey, routeCollapseTrigger]);
 
   const routeContent = useMemo<IRouteRows>(() => {
     const routeRows: IRouteRows =
@@ -252,15 +261,12 @@ const SwapProviderListItem = ({
 
   const routeComponents = useMemo(() => {
     const routesData = providerResult.routesData;
-    if (providerResult.protocolNoRouterInfo) {
-      return (
-        <SizableText size="$bodySm" color="$textSubdued" mt="$3.5">
-          {providerResult.protocolNoRouterInfo}
-        </SizableText>
-      );
-    }
-    if (!routesData?.[0]?.subRoutes?.[0]?.length) {
-      return (
+    const hasRouteData = Boolean(routesData?.[0]?.subRoutes?.[0]?.length);
+    let routeContentComponent = null;
+    if (hasRouteData) {
+      routeContentComponent = <SwapRoutePaths routeContent={routeContent} />;
+    } else if (!providerResult.protocolNoRouterInfo) {
+      routeContentComponent = (
         <SizableText size="$bodySm" color="$textSubdued" mt="$3.5">
           {intl.formatMessage({
             id: ETranslations.provider_route_no_information,
@@ -268,7 +274,16 @@ const SwapProviderListItem = ({
         </SizableText>
       );
     }
-    return <SwapRoutePaths routeContent={routeContent} />;
+    return (
+      <Stack>
+        {routeContentComponent}
+        {providerResult.protocolNoRouterInfo ? (
+          <SizableText size="$bodySm" color="$textSubdued" mt="$3.5">
+            {providerResult.protocolNoRouterInfo}
+          </SizableText>
+        ) : null}
+      </Stack>
+    );
   }, [
     intl,
     providerResult.protocolNoRouterInfo,

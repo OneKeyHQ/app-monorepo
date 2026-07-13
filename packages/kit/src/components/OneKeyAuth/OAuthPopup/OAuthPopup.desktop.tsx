@@ -341,9 +341,11 @@ export class OAuthPopup extends OAuthPopupBase {
         try {
           // Show waiting dialog
           waitingDialog = Dialog.show({
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
             title: appLocale.intl.formatMessage({
               id: ETranslations.logging_you_in,
             }),
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
             description: appLocale.intl.formatMessage({
               id: ETranslations.logging_you_in_desc,
             }),

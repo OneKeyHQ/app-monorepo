@@ -38,6 +38,7 @@ function HeaderBackButton({
   isModelScreen,
   isRootScreen,
   isOnboardingScreen,
+  isWebViewScreen,
   canGoBack,
   renderLeft,
   ...props
@@ -47,7 +48,9 @@ function HeaderBackButton({
     canGoBack?: boolean;
   }) {
   const showCloseButton =
-    (isModelScreen || isOnboardingScreen) && !isRootScreen && !canGoBack;
+    (isModelScreen || isOnboardingScreen || isWebViewScreen) &&
+    !isRootScreen &&
+    !canGoBack;
   const showBackButton = canGoBack || showCloseButton;
 
   const renderBackButton = () => {

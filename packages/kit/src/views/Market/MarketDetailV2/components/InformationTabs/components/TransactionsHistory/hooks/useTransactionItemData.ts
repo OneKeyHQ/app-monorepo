@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatRelativeTimeAbbr } from '@onekeyhq/shared/src/utils/dateUtils';
 import type {
   IMarketTokenDetail,
   IMarketTokenTransaction,
@@ -40,8 +39,6 @@ function fillTokenSymbolIfMissing(
 export function useTransactionItemData({ item }: IUseTransactionItemDataProps) {
   const intl = useIntl();
   const { tokenDetail, tokenAddress } = useTokenDetail();
-
-  const formattedTime = formatRelativeTimeAbbr(item.timestamp);
 
   const isBuy = item.type === 'buy';
 
@@ -87,6 +84,5 @@ export function useTransactionItemData({ item }: IUseTransactionItemDataProps) {
     typeText,
     price: basePrice,
     value,
-    formattedTime,
   };
 }

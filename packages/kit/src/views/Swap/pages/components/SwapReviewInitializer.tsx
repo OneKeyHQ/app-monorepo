@@ -12,20 +12,27 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
+import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import {
   ESwapNetworkFeeLevel,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { getVisibleSwapTabSwitchType } from '../../utils/swapTypeUtils';
+
 import type { ISwapReviewState } from '../../utils/swapReviewState';
 
 type ISwapReviewInitializerProps = {
   children?: ReactNode;
+  defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
+  defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   reviewState: ISwapReviewState;
 };
 
 export function SwapReviewInitializer({
   children,
+  defaultNetworkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
+  defaultCustomPriorityFee,
   reviewState,
 }: ISwapReviewInitializerProps) {
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -42,7 +49,8 @@ export function SwapReviewInitializer({
 
   useEffect(() => {
     setSwapTypeSwitch(
-      reviewState.preSwapData.swapType ?? ESwapTabSwitchType.SWAP,
+      getVisibleSwapTabSwitchType(reviewState.preSwapData.swapType) ??
+        ESwapTabSwitchType.SWAP,
     );
     setSwapSelectFromToken(reviewState.preSwapData.fromToken);
     setSwapSelectToToken(reviewState.preSwapData.toToken);
@@ -63,7 +71,8 @@ export function SwapReviewInitializer({
     });
     setSwapBuildTxFetching(false);
     setSwapStepNetFeeLevel({
-      networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+      networkFeeLevel: defaultNetworkFeeLevel,
+      customPriorityFee: defaultCustomPriorityFee,
     });
 
     return () => {
@@ -90,6 +99,8 @@ export function SwapReviewInitializer({
       });
     };
   }, [
+    defaultCustomPriorityFee,
+    defaultNetworkFeeLevel,
     reviewState.preSwapData,
     reviewState.quoteResult,
     reviewState.steps,

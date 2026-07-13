@@ -80,7 +80,7 @@ export function NetworkStatusBadge({
       borderRadius="$full"
       pl="$2"
       px="$3"
-      gap="$1.5"
+      gap={monoLabel ? '$0.5' : '$1.5'}
       cursor="default"
     >
       {indicatorElement}
@@ -90,7 +90,7 @@ export function NetworkStatusBadge({
           size="$bodySmMedium"
           fontFamily="$monoRegular"
           fontVariant={fontVariant}
-          minWidth={40}
+          width={40}
           textAlign="right"
         >
           {monoLabel}

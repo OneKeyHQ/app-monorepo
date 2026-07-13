@@ -1,0 +1,1 @@
+require('./apps/mobile/background');

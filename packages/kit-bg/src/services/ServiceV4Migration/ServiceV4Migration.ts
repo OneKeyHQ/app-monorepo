@@ -9,6 +9,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { v4CoinTypeToNetworkId } from '@onekeyhq/shared/src/consts/v4CoinTypeToNetworkId';
 import {
   COINTYPE_CFX,
   COINTYPE_COSMOS,
@@ -27,11 +28,13 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+import type {
+  IV4MigrationBackupSectionData,
+  IV4MigrationBackupSectionDataItem,
+} from '@onekeyhq/shared/types/v4Migration';
 
 import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { v4CoinTypeToNetworkId } from '../../migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4PresetNetworkIds } from '../../migrations/v4ToV5Migration/v4data/networkIds';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
@@ -69,8 +72,6 @@ import ServiceBase from '../ServiceBase';
 import type { IDBIndexedAccount } from '../../dbs/local/types';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type {
-  IV4MigrationBackupSectionData,
-  IV4MigrationBackupSectionDataItem,
   IV4MigrationPayload,
   IV4OnAccountMigrated,
   IV4OnWalletMigrated,

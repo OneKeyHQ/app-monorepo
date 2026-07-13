@@ -1,8 +1,10 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import type { IMemoizeeOptions } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { VaultBase, VaultBaseChainOnly } from './VaultBase';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -44,8 +46,34 @@ export class VaultFactory {
     if (!this.backgroundApi) {
       throw new OneKeyLocalError('backgroundApi not set yet');
     }
+
+    // Resolve walletId from accountId if needed
+    const walletId =
+      opt.walletId ||
+      (opt.accountId
+        ? accountUtils.getWalletIdFromAccountId({
+            accountId: opt.accountId,
+          })
+        : '');
+
+    // Resolve hardware vendor for hw wallets
+    let hardwareVendor = opt.hardwareVendor;
+    if (walletId.startsWith('hw-') && !hardwareVendor) {
+      try {
+        const device =
+          await this.backgroundApi?.serviceAccount.getWalletDeviceSafe({
+            walletId,
+          });
+        hardwareVendor =
+          (device?.vendor as EHardwareVendor) ?? EHardwareVendor.onekey;
+      } catch {
+        hardwareVendor = EHardwareVendor.onekey;
+      }
+    }
+
     const options: IVaultOptions = {
       ...opt,
+      hardwareVendor,
       backgroundApi: this.backgroundApi,
     };
     const vault: VaultBase = await this.vaultCreator(options);

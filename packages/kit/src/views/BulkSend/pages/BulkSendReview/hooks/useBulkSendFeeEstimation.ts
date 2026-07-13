@@ -208,6 +208,7 @@ export function useBulkSendFeeEstimation({
             encodedTx,
             accountAddress,
             transfersInfo: unsignedTxs[0].transfersInfo,
+            scenario: 'send',
           });
 
           // Handle 5-level EIP1559 fees

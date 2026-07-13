@@ -31,6 +31,7 @@ function EmptySearch({
       button={
         manageTokenEnabled ? (
           <Button
+            testID="empty-intl-btn"
             mt="$6"
             size="medium"
             variant="primary"

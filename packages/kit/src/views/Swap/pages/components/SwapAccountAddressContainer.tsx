@@ -3,12 +3,12 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  AnimatePresence,
   Image,
   SizableText,
+  Skeleton,
+  Stack,
   XStack,
 } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -18,14 +18,20 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapAccountAddressContainerProps {
   type: ESwapDirectionType;
+  displayToken?: ISwapToken;
+  networkLoading?: boolean;
   onClickNetwork?: (type: ESwapDirectionType) => void;
 }
 const SwapAccountAddressContainer = ({
   type,
+  displayToken,
+  networkLoading,
   onClickNetwork,
 }: ISwapAccountAddressContainerProps) => {
   const intl = useIntl();
@@ -36,50 +42,57 @@ const SwapAccountAddressContainer = ({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { activeAccount: activeToAccount } = useActiveAccount({ num: 1 });
   const networkComponent = useMemo(() => {
+    const token =
+      displayToken ?? (type === ESwapDirectionType.FROM ? fromToken : toToken);
     const networkInfo = swapSupportAllNetwork.find(
-      (net) =>
-        net.networkId ===
-        (type === ESwapDirectionType.FROM
-          ? fromToken?.networkId
-          : toToken?.networkId),
+      (net) => net.networkId === token?.networkId,
     );
+    const localNetworkInfo = token?.networkId
+      ? networkUtils.getLocalNetworkInfo(token.networkId)
+      : undefined;
+    const networkName = networkInfo?.name ?? localNetworkInfo?.name;
+    const networkLogoURI =
+      networkInfo?.logoURI ??
+      token?.networkLogoURI ??
+      localNetworkInfo?.logoURI;
 
-    return (
-      <AnimatePresence>
-        {networkInfo ? (
-          <XStack
-            key="network-component"
-            animation="quick"
-            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-            enterStyle={{
-              opacity: 0,
-              x: 8,
-            }}
-            exitStyle={{
-              opacity: 0,
-              x: 4,
-            }}
-            gap="$1"
-            alignItems="center"
-            cursor="pointer"
-            onPress={() => {
-              onClickNetwork?.(type);
-            }}
-          >
-            <Image w={16} h={16} source={{ uri: networkInfo.logoURI }} />
-            <SizableText size="$bodyMd" color="$text">
-              {networkInfo.name}
-            </SizableText>
-          </XStack>
-        ) : null}
-      </AnimatePresence>
-    );
+    if (networkName) {
+      return (
+        <XStack
+          key="network-component"
+          gap="$1"
+          alignItems="center"
+          cursor="pointer"
+          onPress={() => {
+            onClickNetwork?.(type);
+          }}
+        >
+          {networkLogoURI ? (
+            <Image w={16} h={16} source={{ uri: networkLogoURI }} />
+          ) : null}
+          <SizableText size="$bodyMd" color="$text">
+            {networkName}
+          </SizableText>
+        </XStack>
+      );
+    }
+
+    return networkLoading ? (
+      <XStack key="network-component" gap="$1" alignItems="center">
+        <Skeleton w={16} h={16} radius="round" />
+        <Stack py="$1">
+          <Skeleton h="$3" w="$16" />
+        </Stack>
+      </XStack>
+    ) : null;
   }, [
+    displayToken,
+    networkLoading,
     swapSupportAllNetwork,
     onClickNetwork,
     type,
-    fromToken?.networkId,
-    toToken?.networkId,
+    fromToken,
+    toToken,
   ]);
 
   return (

@@ -29,10 +29,10 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePrevious } from '../../hooks/usePrevious';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
-  useAccountSelectorActions,
   useAccountSelectorStorageReadyAtom,
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -111,7 +111,7 @@ function DeriveTypeSelectorTriggerBaseView({
       {() => (
         <Select
           offset={offset}
-          testID={testID}
+          testID={testID ?? 'account-selector-derive-type-select'}
           items={items}
           floatingPanelProps={{
             width: '$78',
@@ -320,6 +320,7 @@ export function DeriveTypeSelectorTriggerForDapp({
       placement="bottom-end"
       renderTrigger={({ onPress }) => (
         <IconButton
+          testID="account-selector-derive-type-trigger-btn"
           onPress={onPress}
           icon="BranchesOutline"
           variant="tertiary"

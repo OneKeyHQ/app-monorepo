@@ -16,6 +16,7 @@ import { AddressBadge } from '@onekeyhq/kit/src/components/AddressBadge';
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import { BaseInput } from '@onekeyhq/kit/src/components/BaseInput';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { SwapTestIDs } from '@onekeyhq/kit/src/views/Swap/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -258,6 +259,7 @@ export function SwapIncognitoRecipientInput({
           alignItems="center"
         >
           <IconButton
+            testID={SwapTestIDs.incognitoRecipientPickerButton}
             variant="tertiary"
             size="small"
             icon="PeopleCircleOutline"

@@ -83,6 +83,7 @@ type IProps = {
   confirmText?: string;
   offset?: PopoverProps['offset'];
   refreshOnOpen?: boolean;
+  testID?: string;
 };
 
 const StrongText = (chunks: (string | ReactElement)[]) => (
@@ -191,6 +192,13 @@ function AddressTypeSelectorContent(
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: indexedAccountId,
           });
+          // Hardware wallets open the Enter PIN / Passphrase dialog during
+          // createAddress. Close this popover first so its Tamagui default
+          // z-index (150_000) does not hide those dialogs (z-index 100_000).
+          // Software wallets keep the popover open to show inline loading.
+          if (accountUtils.isHwWallet({ walletId })) {
+            closePopover();
+          }
           const createAddressResult = await createAddress({
             selectAfterCreate: false,
             num: 0,
@@ -301,6 +309,7 @@ function AddressTypeSelectorContent(
       {doubleConfirm ? (
         <XStack px="$2" pb="$2">
           <Button
+            testID="address-type-selector-btn"
             flex={1}
             size="medium"
             variant="primary"
@@ -401,6 +410,7 @@ const SelectorTitle = ({
         ) : null}
       </XStack>
       <IconButton
+        testID="address-type-selector-icon-btn"
         $gtMd={{
           display: 'none',
         }}
@@ -431,6 +441,7 @@ function AddressTypeSelector(props: IProps) {
     doubleConfirm,
     offset,
     refreshOnOpen = false,
+    testID,
   } = props;
 
   const { network } = useAccountData({
@@ -653,6 +664,7 @@ function AddressTypeSelector(props: IProps) {
           <AddressTypeSelectorTrigger
             activeDeriveInfo={activeDeriveInfo}
             disableSelector={isSelectorDisabled}
+            testID={testID}
           />
         ))
       : null;
@@ -666,7 +678,10 @@ function AddressTypeSelector(props: IProps) {
       showHeader={false}
       renderTrigger={
         renderSelectorTrigger ?? (
-          <AddressTypeSelectorTrigger activeDeriveInfo={activeDeriveInfo} />
+          <AddressTypeSelectorTrigger
+            activeDeriveInfo={activeDeriveInfo}
+            testID={testID}
+          />
         )
       }
       renderContent={renderContent}

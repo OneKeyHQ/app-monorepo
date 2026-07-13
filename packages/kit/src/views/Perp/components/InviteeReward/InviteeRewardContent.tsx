@@ -43,6 +43,7 @@ function NoWalletEmptyState() {
         })}
       />
       <Button
+        testID="perp-to-on-boarding-page-btn"
         mt="$5"
         onPress={() => {
           void toOnBoardingPage();
@@ -130,6 +131,7 @@ export async function showInviteeRewardDialog(
   const walletAddress = selectedAccount?.accountAddress ?? '';
 
   const dialogInTabRef = dialogInTab.show({
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.perps_trade_reward,
     }),

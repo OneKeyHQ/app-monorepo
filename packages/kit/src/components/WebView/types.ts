@@ -95,6 +95,22 @@ export interface IInpageProviderWebViewProps
    * @description Whitelisted origins that may request camera or microphone access.
    */
   mediaPermissionWhitelist?: string[];
+  /** Disable OneKey inpage provider injection and bridge connection.
+   * Use for content-only WebViews (e.g. WebView overlay from deeplink/notification)
+   * that must not be treated as DApp pages.
+   * - Native: skips injectedNativeCode (overrides useInjectedNativeCode to false)
+   * - Desktop: skips preload script and backgroundApiProxy.connectBridge()
+   */
+  disableBridge?: boolean;
+  /** @platform desktop
+   * @description Electron <webview> partition string. Defaults to the shared
+   * Discovery / wallet partition. Overlay pages opened from deeplink /
+   * notification use a dedicated partition so the desktop main process can
+   * tag the contents id at `web-contents-created` time — before any
+   * navigation event can fire — and apply the strict overlay URL policy in
+   * `will-redirect` / `will-navigate` without renderer registration races.
+   */
+  partition?: string;
 }
 
 export type IWebViewRef = {
@@ -108,6 +124,7 @@ export type IElectronWebView = {
   openDevTools: () => void;
   getURL: () => string;
   getTitle: () => string;
+  getWebContentsId: () => number;
   src: string;
   addEventListener: (name: string, callback: unknown) => void;
   removeEventListener: (name: string, callback: unknown) => void;

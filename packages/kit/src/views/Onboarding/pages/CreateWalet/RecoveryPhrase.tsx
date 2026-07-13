@@ -17,10 +17,6 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import {
-  ensureSensitiveTextEncoded,
-  generateMnemonic,
-} from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -28,6 +24,7 @@ import useRecoveryPhraseProtected from '@onekeyhq/kit/src/hooks/useRecoveryPhras
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -88,7 +85,7 @@ export function RecoveryPhrase() {
         encodedText: routeMnemonic,
       });
     }
-    return generateMnemonic();
+    return backgroundApiProxy.serviceAccount.generateMnemonic();
   }, [route.params.mnemonic]);
   const phrases = useMemo(
     () => mnemonic.split(' ').filter(Boolean),

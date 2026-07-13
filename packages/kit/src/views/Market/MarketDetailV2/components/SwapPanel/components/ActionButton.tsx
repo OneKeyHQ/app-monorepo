@@ -39,6 +39,7 @@ import type { GestureResponderEvent } from 'react-native';
 export interface IActionButtonProps extends IButtonProps {
   tradeType: ITradeType;
   supportSpeedSwap?: boolean;
+  onlySupportCrossChain?: boolean;
   amount: string;
   token?: IToken;
   paymentToken?: IToken;
@@ -47,8 +48,10 @@ export interface IActionButtonProps extends IButtonProps {
   isWrapped?: boolean;
   actionToken?: ISwapToken;
   actionOtherToken?: ISwapToken;
-  onlySupportCrossChain?: boolean;
   onSwapAction?: () => void;
+  // Hard-disable that wins over the no-amount "enter amount" re-enable below
+  // (e.g. stock market closed — trading is impossible regardless of input).
+  forceDisabled?: boolean;
 }
 
 export function ActionButton({
@@ -66,6 +69,7 @@ export function ActionButton({
   onlySupportCrossChain,
   actionToken,
   onSwapAction,
+  forceDisabled,
   ...otherProps
 }: IActionButtonProps) {
   const [hasClickedWithoutAmount, setHasClickedWithoutAmount] = useState(false);
@@ -80,9 +84,12 @@ export function ActionButton({
     num: 0,
     showConnectWalletModalInDappMode: true,
   });
+  const paymentTokenNetworkId =
+    tradeType === ESwapDirection.BUY ? paymentToken?.networkId : undefined;
   const { price: paymentTokenPrice } = usePaymentTokenPrice(
     tradeType === ESwapDirection.BUY ? paymentToken : undefined,
-    networkId,
+    paymentTokenNetworkId,
+    currencyInfo.id,
   );
   const [createAddressLoading, setCreateAddressLoading] = useState(false);
   const actionText =
@@ -100,7 +107,17 @@ export function ActionButton({
     }
 
     if (tradeType === ESwapDirection.BUY) {
-      const buyPrice = paymentTokenPrice ?? new BigNumber(token?.price || '0');
+      const fallbackCurrency = paymentToken?.currency ?? token?.currency;
+      const canUseFallbackPrice =
+        !fallbackCurrency || fallbackCurrency === currencyInfo.id;
+      const buyPrice =
+        paymentTokenPrice ??
+        (canUseFallbackPrice
+          ? new BigNumber(paymentToken?.price || token?.price || '0')
+          : undefined);
+      if (!buyPrice) {
+        return undefined;
+      }
       if (!buyPrice.isFinite() || buyPrice.isNaN() || !buyPrice.gt(0)) {
         return undefined;
       }
@@ -115,7 +132,11 @@ export function ActionButton({
     return amountBN.multipliedBy(sellPrice).toNumber();
   }, [
     tradeType,
+    currencyInfo.id,
+    paymentToken?.currency,
+    paymentToken?.price,
     paymentTokenPrice,
+    token?.currency,
     token?.price,
     amount,
     isValidAmount,
@@ -135,6 +156,13 @@ export function ActionButton({
           ? ESwapTabSwitchType.BRIDGE
           : ESwapTabSwitchType.SWAP,
         swapSource: ESwapSource.MARKET,
+        marketPresetToken: actionToken
+          ? {
+              networkId: actionToken.networkId,
+              contractAddress: actionToken.contractAddress,
+              isNative: actionToken.isNative,
+            }
+          : undefined,
       },
     });
   }, [
@@ -220,8 +248,9 @@ export function ActionButton({
   const noAccount =
     !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
 
-  // Disable button if insufficient balance
-  const shouldDisable = isInsufficientBalance;
+  const shouldJumpToSwap =
+    !supportSpeedSwap || (isInsufficientBalance && !isWrapped);
+  const shouldDisable = isInsufficientBalance && !shouldJumpToSwap;
   const displayAmountFormatted = numberFormat(displayAmount, tokenFormatter);
 
   let buttonText = `${actionText} ${displayAmountFormatted} `;
@@ -279,7 +308,7 @@ export function ActionButton({
     isButtonDisabled = false;
   }
 
-  if (!supportSpeedSwap) {
+  if (shouldJumpToSwap) {
     shouldUseColoredStyle = true;
   }
 
@@ -289,28 +318,23 @@ export function ActionButton({
     isButtonDisabled = false;
   }
 
-  const buttonStyleProps = shouldUseColoredStyle
+  // Hard-disable (e.g. stock market closed) blocks order submission only — it
+  // must NOT block wallet/address setup. Keep the "Connect" / "Create address"
+  // branches clickable so the user can still finish setup while the market is
+  // closed (handlePress routes those to connect/createAddress, not submit).
+  const isSetupAction =
+    noAccount || Boolean(shouldCreateAddress?.result) || createAddressLoading;
+  if (forceDisabled && !isSetupAction) {
+    isButtonDisabled = true;
+    shouldUseColoredStyle = false;
+  }
+
+  const buttonStyleProps: IButtonProps = shouldUseColoredStyle
     ? {
-        bg:
-          tradeType === ESwapDirection.BUY
-            ? '$buttonSuccess'
-            : '$buttonCritical',
-        color: '$textOnColor',
-        borderColor:
-          tradeType === ESwapDirection.BUY
-            ? '$buttonSuccess'
-            : '$buttonCritical',
-        shadowOpacity: 0,
-        elevation: 0,
-        hoverStyle: {
-          opacity: 0.9,
-        },
-        pressStyle: {
-          opacity: 0.8,
-        },
+        variant: tradeType === ESwapDirection.BUY ? 'accent' : 'destructive',
       }
     : {
-        variant: 'primary' as const,
+        variant: 'primary',
       };
 
   const handlePress = useCallback(
@@ -319,7 +343,7 @@ export function ActionButton({
         showAccountSelector();
         return;
       }
-      if (!supportSpeedSwap) {
+      if (shouldJumpToSwap) {
         handleJumpToSwapAction();
         return;
       }
@@ -362,6 +386,13 @@ export function ActionButton({
         return;
       }
 
+      // Hard-disable (e.g. stock market closed): never submit an order. Every
+      // setup branch above has already returned, so this guards only the
+      // submission path (defense-in-depth on top of the disabled button).
+      if (forceDisabled) {
+        return;
+      }
+
       // Log swap action before executing - with error protection
       try {
         onSwapAction?.();
@@ -373,13 +404,14 @@ export function ActionButton({
       void onPress?.(event);
     },
     [
-      supportSpeedSwap,
+      shouldJumpToSwap,
       hasAmount,
       hasClickedWithoutAmount,
       noAccount,
       createAddressLoading,
       shouldCreateAddress?.result,
       onPress,
+      forceDisabled,
       handleJumpToSwapAction,
       showAccountSelector,
       createAddress,
@@ -393,6 +425,7 @@ export function ActionButton({
 
   return (
     <Button
+      testID="market-btn"
       size={gtMd ? 'medium' : 'large'}
       disabled={isButtonDisabled}
       onPress={handlePress}

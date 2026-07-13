@@ -37,8 +37,7 @@ export function useCheckWalletReferralCodeBound({
         wallet = await backgroundApiProxy.serviceAccount.getWallet({
           walletId,
         });
-      } catch (error) {
-        console.error('Failed to get wallet:', error);
+      } catch {
         return { shouldBound: false, isSupported: false };
       }
 
@@ -55,23 +54,7 @@ export function useCheckWalletReferralCodeBound({
       // Wallet is supported (HD or non-hidden, non-mocked hardware wallet)
       const isSupported = true;
 
-      // Check local database
-      const referralCodeInfo =
-        await backgroundApiProxy.serviceReferralCode.getWalletReferralCode({
-          walletId,
-        });
-
-      if (!referralCodeInfo) {
-        // No local record, check with server
-        // getReferralCodeBondStatus will save the result to local DB
-        const shouldBound = await getReferralCodeBondStatus({ walletId });
-        return { shouldBound, isSupported };
-      }
-
-      // Has local record, check if binding is needed
-      const shouldBound = Boolean(
-        referralCodeInfo.walletId && !referralCodeInfo.isBound,
-      );
+      const shouldBound = await getReferralCodeBondStatus({ walletId });
       return { shouldBound, isSupported };
     },
     [walletId, getReferralCodeBondStatus],

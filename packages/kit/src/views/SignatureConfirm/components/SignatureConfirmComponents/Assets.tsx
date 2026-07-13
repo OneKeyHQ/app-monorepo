@@ -15,6 +15,7 @@ import {
 import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { useTokenApproveAllowance } from '@onekeyhq/kit/src/hooks/useTokenApproveAllowance';
 import {
   useDecodedTxsAtom,
   useSignatureConfirmActions,
@@ -32,6 +33,7 @@ import {
   type IDisplayComponentNFT,
   type IDisplayComponentToken,
 } from '@onekeyhq/shared/types/signatureConfirm';
+import { EApproveType } from '@onekeyhq/shared/types/tx';
 
 import { showApproveEditor } from '../ApproveEditor';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
@@ -329,6 +331,28 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
   const [{ isBuildingDecodedTxs }] = useDecodedTxsAtom();
   const intl = useIntl();
 
+  const isIncrease =
+    component.approveType === EApproveType.IncreaseAllowance ||
+    component.approveType === EApproveType.IncreaseApproval;
+
+  const { allowanceParsed: currentAllowanceParsed } = useTokenApproveAllowance({
+    enabled: isIncrease,
+    accountId,
+    networkId,
+    tokenAddress: token.info.address,
+    spender: component.spender,
+  });
+
+  const finalAllowanceParsed = useMemo(() => {
+    if (!isIncrease || !currentAllowanceParsed) return null;
+    const deltaBN = new BigNumber(component.amountParsed);
+    // Non-finite delta (e.g. increaseAllowance(MaxUint256)) cannot be summed
+    // into a meaningful absolute value — fall through so the display can
+    // render the increment with explicit "+" semantics instead.
+    if (!deltaBN.isFinite()) return null;
+    return new BigNumber(currentAllowanceParsed).plus(deltaBN).toFixed();
+  }, [component.amountParsed, currentAllowanceParsed, isIncrease]);
+
   useEffect(() => {
     updateTokenApproveInfo({
       originalAllowance: component.amountParsed,
@@ -346,17 +370,45 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
     [editable, component.isEditable],
   );
 
+  const displayedAmount = useMemo(() => {
+    const amountBN = new BigNumber(component.amountParsed);
+    // For increase variants, MaxUint256 means "increase by MaxUint256",
+    // not "set allowance to unlimited". Render the delta with explicit "+"
+    // so the increment semantics are preserved and never collapse into the
+    // absolute-unlimited copy used by `approve(MaxUint256)`.
+    if (isIncrease) {
+      if (!amountBN.isFinite()) {
+        return `+${intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_amount_un_limit,
+        })}`;
+      }
+      if (finalAllowanceParsed) {
+        return new BigNumber(finalAllowanceParsed).toFixed();
+      }
+      // Allowance lookup not ready — render the delta with "+" prefix so it
+      // cannot be misread as the absolute approve amount.
+      return `+${amountBN.toFixed()}`;
+    }
+    // Absolute approve: MaxUint256 / non-finite => unlimited.
+    if (component.isInfiniteAmount || !amountBN.isFinite()) {
+      return intl.formatMessage({
+        id: ETranslations.swap_page_provider_approve_amount_un_limit,
+      });
+    }
+    return amountBN.toFixed();
+  }, [
+    component.amountParsed,
+    component.isInfiniteAmount,
+    finalAllowanceParsed,
+    intl,
+    isIncrease,
+  ]);
+
   return (
     <SignatureAssetDetailItem
       isLoading={isBuildingDecodedTxs}
       label={component.label}
-      amount={
-        component.isInfiniteAmount
-          ? intl.formatMessage({
-              id: ETranslations.swap_page_provider_approve_amount_un_limit,
-            })
-          : new BigNumber(component.amountParsed).toFixed()
-      }
+      amount={displayedAmount}
       symbol={component.token.info.symbol}
       tokenProps={{
         tokenImageUri: component.token.info.logoURI,
@@ -379,6 +431,9 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
           tokenAddress: token.info.address,
           balanceParsed: component.balanceParsed,
           approveInfo,
+          approveType: component.approveType,
+          spender: component.spender,
+          currentAllowanceParsed: currentAllowanceParsed ?? undefined,
         });
       }}
       showNetwork={component.showNetwork ?? showNetwork}

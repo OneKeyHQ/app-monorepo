@@ -158,6 +158,7 @@ export function PairDetailDialog({
           <SizableText size="$bodyMd">{pairName}</SizableText>
         </XStack>
         <IconButton
+          testID="market-icon-btn"
           variant="tertiary"
           color="$iconSubdued"
           icon="OpenOutline"

@@ -172,6 +172,7 @@ function useReceiveToken({
           tokens,
           tokenListState,
           searchAll: true,
+          showDeFiTokenSwitch: true,
           closeAfterSelect: false,
           footerTipText: intl.formatMessage({
             id: ETranslations.receive_token_list_footer_text,

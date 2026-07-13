@@ -8,6 +8,8 @@ import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
+import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
@@ -19,11 +21,15 @@ import {
   type EApproveType,
   EInternalDappEnum,
   EInternalStakingAction,
+  type IEarnClaimType,
   type IEarnPermit2ApproveSignData,
+  type IEarnStakeType,
+  type IEarnWithdrawType,
   type IStakeTxResponse,
   type IStakeTxStakefishExitBroadcast,
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { useShowClaimEstimateGasAlert } from '../components/EstimateNetworkFee';
@@ -33,10 +39,19 @@ const createStakeInfoWithOrderId = ({
   orderId,
 }: {
   stakingInfo: IStakingInfo | undefined;
-  orderId: string;
-}): IStakingInfo => ({
-  ...(stakingInfo as IStakingInfo),
-  orderId,
+  orderId?: string;
+}): IStakingInfo | undefined =>
+  stakingInfo
+    ? {
+        ...stakingInfo,
+        ...(orderId ? { orderId } : undefined),
+      }
+    : undefined;
+
+const getEarnOrderTrackingInfo = (stakingInfo?: IStakingInfo) => ({
+  stakingLabel: stakingInfo?.label,
+  stakingProtocol: stakingInfo?.protocol,
+  stakingTags: stakingInfo?.tags,
 });
 
 type ITxConfirmResult =
@@ -48,51 +63,6 @@ type ITxConfirmResult =
       status: 'cancel';
     };
 
-const waitForTxFinalStatus = async ({
-  accountId,
-  networkId,
-  txid,
-  signal,
-  maxAttempts = 24,
-  intervalMs = timerUtils.getTimeDurationMs({ seconds: 5 }),
-}: {
-  accountId: string;
-  networkId: string;
-  txid: string;
-  signal?: AbortSignal;
-  maxAttempts?: number;
-  intervalMs?: number;
-}) => {
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    if (signal?.aborted) {
-      return undefined;
-    }
-
-    const txDetailsResp =
-      await backgroundApiProxy.serviceHistory.fetchTxDetails({
-        accountId,
-        networkId,
-        txid,
-      });
-    const txStatus = txDetailsResp?.data?.status;
-
-    if (
-      txStatus === EOnChainHistoryTxStatus.Success ||
-      txStatus === EOnChainHistoryTxStatus.Failed
-    ) {
-      return txStatus;
-    }
-
-    if (attempt < maxAttempts - 1) {
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, intervalMs);
-      });
-    }
-  }
-
-  return undefined;
-};
-
 const handleStakeSuccess = async ({
   data,
   stakeInfo,
@@ -100,21 +70,18 @@ const handleStakeSuccess = async ({
   onSuccess,
 }: {
   data: ISendTxOnSuccessData[];
-  stakeInfo: IStakingInfo;
+  stakeInfo?: IStakingInfo;
   networkId: string;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
 }) => {
-  if (
-    Array.isArray(data) &&
-    data.length === 1 &&
-    data[0].signedTx?.txid &&
-    stakeInfo.orderId
-  ) {
+  const orderTx = Array.isArray(data) ? data[data.length - 1] : undefined;
+  if (orderTx?.signedTx?.txid && stakeInfo?.orderId) {
     await backgroundApiProxy.serviceStaking.addEarnOrder({
       orderId: stakeInfo.orderId,
       networkId,
-      txId: data[0].signedTx.txid,
-      status: data[0].decodedTx.status,
+      txId: orderTx.signedTx.txid,
+      status: orderTx.decodedTx.status,
+      ...getEarnOrderTrackingInfo(stakeInfo),
     });
   }
   onSuccess?.(data);
@@ -131,6 +98,54 @@ export function useUniversalStake({
     accountId,
     networkId,
   });
+  const intl = useIntl();
+  const waitForTxConfirmResult = useCallback(
+    async ({
+      encodedTx,
+      stakingInfo,
+      approvesInfo,
+      useFeeInTx,
+      feeInfoEditable,
+    }: {
+      encodedTx?: IEncodedTx;
+      stakingInfo?: IStakingInfo;
+      approvesInfo?: IApproveInfo[];
+      useFeeInTx?: boolean;
+      feeInfoEditable?: boolean;
+    }): Promise<ITxConfirmResult> =>
+      new Promise((resolve, reject) => {
+        let settled = false;
+
+        const resolveOnce = (result: ITxConfirmResult) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          resolve(result);
+        };
+
+        const rejectOnce = (error: unknown) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          reject(error);
+        };
+
+        void navigationToTxConfirm({
+          encodedTx,
+          stakingInfo,
+          approvesInfo,
+          useFeeInTx,
+          feeInfoEditable,
+          onSuccess: (data) => resolveOnce({ status: 'success', data }),
+          onFail: (error) => rejectOnce(error),
+          onCancel: () => resolveOnce({ status: 'cancel' }),
+        }).catch((error) => rejectOnce(error));
+      }),
+    [navigationToTxConfirm],
+  );
+
   return useCallback(
     async ({
       amount,
@@ -147,9 +162,13 @@ export function useUniversalStake({
       outputTokenAddress,
       slippage,
       effectiveApy,
+      stakeType,
+      postWrapStakeToken,
+      postWrapApproveSpenderAddress,
       stakingInfo,
       onSuccess,
       onFail,
+      onStepChange,
       // Stakefish specific param
       validatorPublicKey,
     }: {
@@ -169,75 +188,294 @@ export function useUniversalStake({
       outputTokenAddress?: string;
       slippage?: number;
       effectiveApy?: string | number;
+      stakeType?: IEarnStakeType;
+      postWrapStakeToken?: IToken;
+      postWrapApproveSpenderAddress?: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      onStepChange?: (
+        step: number,
+        options?: { shouldShowPostWrapApproveStep?: boolean },
+      ) => void;
       // Stakefish specific param
       validatorPublicKey?: string;
     }) => {
-      const stakeTx =
-        await backgroundApiProxy.serviceStaking.buildStakeTransaction({
-          amount,
-          networkId,
-          accountId,
-          symbol,
-          term,
-          provider,
-          feeRate,
-          protocolVault,
-          approveType,
-          permitSignature,
-          unsignedMessage,
-          message,
-          inputTokenAddress,
-          outputTokenAddress,
-          slippage,
-          effectiveApy,
-          // Stakefish specific param
-          validatorPublicKey,
+      const buildStakeConfirmPayload = async ({
+        confirmStakeType = stakeType,
+        confirmInputTokenAddress = inputTokenAddress,
+        confirmStakingInfo = stakingInfo,
+      }: {
+        confirmStakeType?: IEarnStakeType;
+        confirmInputTokenAddress?: string;
+        confirmStakingInfo?: IStakingInfo;
+      } = {}) => {
+        const stakeTx =
+          await backgroundApiProxy.serviceStaking.buildStakeTransaction({
+            amount,
+            networkId,
+            accountId,
+            symbol,
+            term,
+            provider,
+            feeRate,
+            protocolVault,
+            approveType,
+            permitSignature,
+            unsignedMessage,
+            message,
+            inputTokenAddress: confirmInputTokenAddress,
+            outputTokenAddress,
+            slippage,
+            effectiveApy,
+            stakeType: confirmStakeType,
+            // Stakefish specific param
+            validatorPublicKey,
+          });
+
+        const encodedTx =
+          await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+            networkId,
+            accountId,
+            tx: stakeTx.tx,
+            internalDappType: EInternalDappEnum.Staking,
+            stakingAction: EInternalStakingAction.Stake,
+          });
+
+        let useFeeInTx;
+        let feeInfoEditable;
+        if (
+          networkUtils.isBTCNetwork(networkId) &&
+          (encodedTx as IEncodedTxBtc).fee
+        ) {
+          useFeeInTx = true;
+          feeInfoEditable = false;
+        }
+
+        const stakeInfoWithOrderId = createStakeInfoWithOrderId({
+          stakingInfo: confirmStakingInfo,
+          orderId: stakeTx.orderId,
         });
 
-      const encodedTx =
-        await backgroundApiProxy.serviceStaking.buildInternalDappTx({
-          networkId,
-          accountId,
-          tx: stakeTx.tx,
-          internalDappType: EInternalDappEnum.Staking,
-          stakingAction: EInternalStakingAction.Stake,
+        return {
+          encodedTx,
+          stakeInfoWithOrderId,
+          useFeeInTx,
+          feeInfoEditable,
+        };
+      };
+
+      if (stakeType === 'wrap') {
+        if (!postWrapStakeToken?.address || !postWrapApproveSpenderAddress) {
+          throw new OneKeyLocalError(
+            'Native wrap staking requires wrapped token approval config',
+          );
+        }
+
+        const wrapConfirmPayload = await buildStakeConfirmPayload({
+          confirmStakeType: 'wrap',
+          confirmStakingInfo: undefined,
         });
 
-      let useFeeInTx;
-      let feeInfoEditable;
-      if (
-        networkUtils.isBTCNetwork(networkId) &&
-        (encodedTx as IEncodedTxBtc).fee
-      ) {
-        useFeeInTx = true;
-        feeInfoEditable = false;
+        let wrapConfirmResult: ITxConfirmResult;
+        try {
+          wrapConfirmResult = await waitForTxConfirmResult({
+            encodedTx: wrapConfirmPayload.encodedTx,
+            stakingInfo: wrapConfirmPayload.stakeInfoWithOrderId,
+            useFeeInTx: wrapConfirmPayload.useFeeInTx,
+            feeInfoEditable: wrapConfirmPayload.feeInfoEditable,
+          });
+        } catch (error) {
+          onFail?.(error as Error);
+          return;
+        }
+
+        if (wrapConfirmResult.status !== 'success') {
+          return;
+        }
+
+        await handleStakeSuccess({
+          data: wrapConfirmResult.data,
+          stakeInfo: wrapConfirmPayload.stakeInfoWithOrderId,
+          networkId,
+        });
+
+        const wrapTxId =
+          wrapConfirmResult.data[0]?.signedTx?.txid ??
+          wrapConfirmResult.data[0]?.decodedTx?.txid;
+        if (!wrapTxId) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_failed,
+            }),
+          });
+          return;
+        }
+
+        const wrapStatus = await waitForTxFinalStatus({
+          accountId,
+          networkId,
+          txid: wrapTxId,
+        });
+        if (wrapStatus !== EOnChainHistoryTxStatus.Success) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_failed,
+            }),
+          });
+          return;
+        }
+
+        const postWrapStakingInfo = stakingInfo
+          ? {
+              ...stakingInfo,
+              send: stakingInfo.send
+                ? {
+                    ...stakingInfo.send,
+                    token: postWrapStakeToken,
+                  }
+                : undefined,
+            }
+          : undefined;
+
+        const amountBN = new BigNumber(amount);
+        const fetchPostWrapAllowance = async () => {
+          const allowanceInfo =
+            await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+              accountId,
+              networkId,
+              spenderAddress: postWrapApproveSpenderAddress,
+              tokenAddress: postWrapStakeToken.address,
+            });
+          return new BigNumber(allowanceInfo.allowanceParsed || '0');
+        };
+        const waitForPostWrapAllowance = async ({
+          maxAttempts = 15,
+          intervalMs = 2000,
+        }: {
+          maxAttempts?: number;
+          intervalMs?: number;
+        } = {}) => {
+          if (amountBN.isNaN() || amountBN.lte(0)) {
+            return true;
+          }
+
+          for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+            try {
+              const latestAllowanceBN = await fetchPostWrapAllowance();
+              if (
+                !latestAllowanceBN.isNaN() &&
+                latestAllowanceBN.gte(amountBN)
+              ) {
+                return true;
+              }
+            } catch {
+              // Keep polling; a transient allowance read should not abort the
+              // post-approve stake step.
+            }
+
+            if (attempt < maxAttempts - 1) {
+              await timerUtils.wait(intervalMs);
+            }
+          }
+
+          return false;
+        };
+
+        const allowanceBN = await fetchPostWrapAllowance();
+        const shouldApprovePostWrapStake =
+          !amountBN.isNaN() && !allowanceBN.isNaN() && allowanceBN.lt(amountBN);
+        onStepChange?.(2, {
+          shouldShowPostWrapApproveStep: shouldApprovePostWrapStake,
+        });
+
+        await timerUtils.wait(150);
+
+        if (shouldApprovePostWrapStake) {
+          const account = await backgroundApiProxy.serviceAccount.getAccount({
+            accountId,
+            networkId,
+          });
+
+          let approveConfirmResult: ITxConfirmResult;
+          try {
+            approveConfirmResult = await waitForTxConfirmResult({
+              approvesInfo: [
+                {
+                  owner: account.address,
+                  spender: postWrapApproveSpenderAddress,
+                  amount,
+                  tokenInfo: postWrapStakeToken,
+                },
+              ],
+            });
+          } catch (error) {
+            onFail?.(error as Error);
+            return;
+          }
+
+          if (approveConfirmResult.status !== 'success') {
+            return;
+          }
+
+          await timerUtils.wait(150);
+
+          const allowanceReady = await waitForPostWrapAllowance();
+          if (!allowanceReady) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_failed,
+              }),
+            });
+            return;
+          }
+
+          onStepChange?.(3);
+        }
+
+        const normalConfirmPayload = await buildStakeConfirmPayload({
+          confirmStakeType: 'normal',
+          confirmInputTokenAddress: postWrapStakeToken.address,
+          confirmStakingInfo: postWrapStakingInfo,
+        });
+
+        await navigationToTxConfirm({
+          encodedTx: normalConfirmPayload.encodedTx,
+          stakingInfo: normalConfirmPayload.stakeInfoWithOrderId,
+          onSuccess: async (data) => {
+            await handleStakeSuccess({
+              data,
+              stakeInfo: normalConfirmPayload.stakeInfoWithOrderId,
+              networkId,
+              onSuccess,
+            });
+          },
+          onFail,
+          useFeeInTx: normalConfirmPayload.useFeeInTx,
+          feeInfoEditable: normalConfirmPayload.feeInfoEditable,
+        });
+        return;
       }
 
-      const stakeInfoWithOrderId = createStakeInfoWithOrderId({
-        stakingInfo,
-        orderId: stakeTx.orderId,
-      });
+      const stakeConfirmPayload = await buildStakeConfirmPayload();
 
       await navigationToTxConfirm({
-        encodedTx,
-        stakingInfo: stakeInfoWithOrderId,
+        encodedTx: stakeConfirmPayload.encodedTx,
+        stakingInfo: stakeConfirmPayload.stakeInfoWithOrderId,
         onSuccess: async (data) => {
           await handleStakeSuccess({
             data,
-            stakeInfo: stakeInfoWithOrderId,
+            stakeInfo: stakeConfirmPayload.stakeInfoWithOrderId,
             networkId,
             onSuccess,
           });
         },
         onFail,
-        useFeeInTx,
-        feeInfoEditable,
+        useFeeInTx: stakeConfirmPayload.useFeeInTx,
+        feeInfoEditable: stakeConfirmPayload.feeInfoEditable,
       });
     },
-    [accountId, networkId, navigationToTxConfirm],
+    [accountId, intl, networkId, navigationToTxConfirm, waitForTxConfirmResult],
   );
 }
 
@@ -311,6 +549,7 @@ export function useUniversalWithdraw({
       withdrawAll,
       slippage,
       effectiveApy,
+      withdrawType,
       stakingInfo,
       onSuccess,
       onFail,
@@ -333,6 +572,7 @@ export function useUniversalWithdraw({
       withdrawAll: boolean;
       slippage?: number;
       effectiveApy?: string | number;
+      withdrawType?: IEarnWithdrawType;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -393,6 +633,7 @@ export function useUniversalWithdraw({
             inputTokenAddress,
             outputTokenAddress,
             effectiveApy,
+            withdrawType,
             signature: signHash,
             deadline,
           });
@@ -413,6 +654,7 @@ export function useUniversalWithdraw({
               useEthenaCooldown: true,
               slippage,
               effectiveApy,
+              withdrawType,
             });
           const unstakeEncodedTx =
             await backgroundApiProxy.serviceStaking.buildInternalDappTx({
@@ -472,6 +714,7 @@ export function useUniversalWithdraw({
             ethenaPath: true,
             slippage,
             effectiveApy,
+            withdrawType,
           });
         const swapEncodedTx =
           await backgroundApiProxy.serviceStaking.buildInternalDappTx({
@@ -567,6 +810,7 @@ export function useUniversalWithdraw({
             message: withdrawMessage,
             slippage,
             effectiveApy,
+            withdrawType,
           });
       }
 
@@ -660,6 +904,7 @@ export function useUniversalClaim({
       amount,
       provider,
       claimTokenAddress,
+      claimType,
       protocolVault,
       vault,
       symbol,
@@ -672,6 +917,7 @@ export function useUniversalClaim({
       symbol: string;
       provider: string;
       claimTokenAddress?: string;
+      claimType?: IEarnClaimType;
       protocolVault?: string;
       stakingInfo?: IStakingInfo;
       vault: string;
@@ -694,6 +940,7 @@ export function useUniversalClaim({
             amount: normalizedAmount,
             identity,
             claimTokenAddress,
+            claimType,
             vault,
           });
         const encodedTx =

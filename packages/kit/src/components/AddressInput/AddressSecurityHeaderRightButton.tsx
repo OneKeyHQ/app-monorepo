@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import type { IHyperlinkTextProps } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HyperlinkText } from '../HyperlinkText';
 
@@ -107,6 +108,6 @@ function AddressSecurityHeaderRightButton() {
   );
 }
 
-export const renderAddressSecurityHeaderRightButton = () => (
-  <AddressSecurityHeaderRightButton />
-);
+export const renderAddressSecurityHeaderRightButton = platformEnv.isWebDappMode
+  ? undefined
+  : () => <AddressSecurityHeaderRightButton />;

@@ -2,7 +2,6 @@ import type {
   IPrimeTransferData,
   IPrimeTransferPublicData,
 } from '../../types/prime/primeTransferTypes';
-import type { ICloudKeyPack } from '../keylessWallet/keylessWalletTypes';
 import type {
   IAppleCloudKitRecord,
   ICloudKitAccountStatusName,
@@ -15,6 +14,12 @@ import type {
 export enum ECloudBackupProviderType {
   iCloud = 'iCloud',
   GoogleDrive = 'GoogleDrive',
+}
+
+export enum ERestoreResult {
+  SUCCESS = 'success',
+  WRONG_PASSWORD = 'wrong_password',
+  UNKNOWN_ERROR = 'unknown_error',
 }
 
 export type IBackupCloudServerData = {
@@ -59,10 +64,6 @@ export type IBackupDataEncryptedPayload = Omit<
   privateDataEncrypted: string; // base64 string
 };
 
-export type ICloudBackupKeylessWalletPayload = {
-  cloudKeyPack: ICloudKeyPack;
-};
-
 export type IBackupDataManifestItem = Omit<
   IPrimeTransferPublicData,
   'walletDetails'
@@ -72,12 +73,6 @@ export type IBackupDataManifestItem = Omit<
 };
 
 export type IBackupDataManifest = {
-  keylessWallets?: {
-    [packSetId: string]: {
-      recordID: string;
-      fileName: string;
-    };
-  };
   items: IBackupDataManifestItem[];
   total: number;
   backupPasswordVerify?: IBackupDataPasswordVerify;

@@ -21,14 +21,23 @@ concurrency:
 
 env:
   YARN_ENABLE_GLOBAL_CACHE: true
+  JEST_SHARD_TOTAL: 3
+  JEST_COVERAGE_THRESHOLD_JSON: '{"statements":10,"branches":35,"functions":10}'
+
+permissions:
+  contents: read
+  packages: read
 
 jobs:
   unittest:
+    name: Unit Tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-24.04
 
     strategy:
+      fail-fast: false
       matrix:
         node-version: [24.x]
+        shard: [1, 2, 3]
 
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +53,12 @@ jobs:
           check-latest: true
           scope: '@onekeyhq'
 
+      - name: Write unit test AI prompt
+        run: |
+          mkdir -p ci-ai
+          node .github/scripts/ciFailureIssue.js prompt unittest > ci-ai/unittest-ai-prompt.md || \
+            echo "AI prompt generation failed; inspect the failed step log and jest shard log." > ci-ai/unittest-ai-prompt.md
+
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
@@ -57,17 +72,92 @@ jobs:
 
       - name: Run Tests
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn test --coverage
+          mkdir -p ci-ai
+          set +e
+          yarn test \
+            --coverage \
+            --shard="${{ matrix.shard }}/${JEST_SHARD_TOTAL}" \
+            --coverageDirectory=coverage/shard-${{ matrix.shard }} \
+            --coverageReporters=text \
+            --coverageReporters=lcov \
+            --coverageReporters=json-summary \
+            --coverageReporters=json \
+            --coverageThreshold='{}' \
+            2>&1 | tee ci-ai/jest-shard-${{ matrix.shard }}.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
 
       - name: Upload Test Report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-report-${{ env.BUILD_NUMBER }}-${{ github.sha }}
+          name: test-report-${{ github.sha }}-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }}
           path: test-report.html
+
+      - name: Upload Coverage Shard
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report-${{ github.sha }}-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }}
+          path: coverage/shard-${{ matrix.shard }}/
+          if-no-files-found: error
+
+      - name: Upload unit test AI diagnostics
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ci-ai-unittest-diagnostics-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }}
+          path: |
+            ci-ai/unittest-ai-prompt.md
+            ci-ai/jest-shard-${{ matrix.shard }}.log
+            test-report.html
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Explain unit test failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`ci-ai-unittest-diagnostics-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }}\`"
+            echo "- Open: \`jest-shard-${{ matrix.shard }}.log\`, \`test-report.html\`, and \`unittest-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download ci-ai-unittest-diagnostics-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }} and inspect jest-shard-${{ matrix.shard }}.log"
+
+  coverage:
+    name: unittest (24.x)
+    runs-on: ubuntu-24.04
+    needs: unittest
+    if: always()
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check unit test shards
+        run: |
+          if [ "${{ needs.unittest.result }}" != "success" ]; then
+            echo "::error::Unit test shard matrix result: ${{ needs.unittest.result }}"
+            exit 1
+          fi
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          check-latest: true
+
+      - name: Download Coverage Shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-report-${{ github.sha }}-shard-*
+          path: coverage-shards
+
+      - name: Merge Coverage Reports
+        run: |
+          node development/scripts/merge-jest-coverage.js coverage-shards coverage "${JEST_SHARD_TOTAL}"
 
       - name: Upload Coverage Report
         uses: actions/upload-artifact@v4
@@ -75,4 +165,3 @@ jobs:
         with:
           name: coverage-report-${{ github.sha }}
           path: coverage/
-

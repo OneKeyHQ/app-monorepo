@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { isEmpty, uniqBy } from 'lodash';
+import { isEmpty, unionBy, uniqBy } from 'lodash';
 
 import {
+  onVisibilityStateChange,
   useMedia,
   useScrollContentTabBarOffset,
   useTabIsRefreshingFocused,
@@ -11,7 +12,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   useCurrencyPersistAtom,
-  useNotificationsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
+  type IAppEventBusPayload,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -29,6 +30,8 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -38,15 +41,44 @@ import { NotificationEnableAlert } from '../../../components/NotificationEnableA
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
+import {
+  getTokensTabLastState,
+  runAfterTokensDone,
+} from '../../../hooks/useRunAfterTokensDone';
 import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   ProviderJotaiContextHistoryList,
   useHistoryListActions,
 } from '../../../states/jotai/contexts/historyList';
-import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
+import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendHistory';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
+
+import { buildTokenRefreshPlanAfterHistory } from './historyTokenRefreshGate';
+import {
+  FrozenTopHistoryScrollObserver,
+  useFrozenTopHistoryData,
+} from './hooks/useFrozenTopHistoryData';
+import { useHistoryListLoadMore } from './hooks/useHistoryListLoadMore';
+
+type ITokenRefreshAccount = {
+  accountId: string;
+  networkId: string;
+};
+
+type IPendingTokenRefreshAfterTokensDone = {
+  accounts: ITokenRefreshAccount[];
+  accountId: string;
+  networkId: string;
+  matchNetworkId: boolean;
+  cleanup?: () => void;
+};
+
+const getTokenRefreshAccountKey = (account: ITokenRefreshAccount) =>
+  `${account.accountId}::${account.networkId}`;
 
 function TxHistoryListContainer(
   params:
@@ -64,16 +96,23 @@ function TxHistoryListContainer(
 
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
+  // Outer-route focus: false when user is on Market/Swap (Home tab inactive),
+  // when a modal is presented above Home, or when the app is locked. Combined
+  // below with `isFocused` (inner Home-tab) so app-resume only refreshes when
+  // the user is actually looking at this list.
+  const isRouteFocused = useRouteIsFocused();
 
   const {
     updateSearchKey,
     updateAddressesInfo,
     initAddressesInfoDataFromStorage,
-    setHasMoreOnChainHistory,
   } = useHistoryListActions().current;
   const { updateAllNetworksState } = useAccountOverviewActions().current;
 
-  const [allTokenListMap] = useAllTokenListMapAtom();
+  // Full home fiat map (PULLed from the BG VM, refreshed on each home structure
+  // frame). Feeds ONLY the empty-history-state receive action (B2: not the
+  // history rows). Replaces the deleted `allTokenListMapAtom`.
+  const { map: allTokenListMap } = useHomeTokenListSnapshot();
 
   const [historyData, setHistoryData] = useState<IAccountHistoryTx[]>([]);
 
@@ -81,8 +120,6 @@ function TxHistoryListContainer(
     initialized: false,
     isRefreshing: false,
   });
-
-  const [notificationAlertOpacity, setNotificationAlertOpacity] = useState(0);
 
   const refreshAllNetworksHistory = useRef(false);
 
@@ -101,7 +138,6 @@ function TxHistoryListContainer(
 
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
-  const [{ txHistoryAlertDismissed }] = useNotificationsAtom();
 
   const updateHistoryData = useCallback(
     (txs: IAccountHistoryTx[]) => {
@@ -111,7 +147,7 @@ function TxHistoryListContainer(
 
         for (let i = 0; i < txs.length; i += 1) {
           const tx = txs[i];
-          if (tx.decodedTx.status !== EDecodedTxStatus.Pending) {
+          if (getHistoryTxDisplayStatus(tx) !== EDecodedTxStatus.Pending) {
             tempLimit += 1;
           }
           tempTxs.push(tx);
@@ -131,6 +167,40 @@ function TxHistoryListContainer(
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
     deriveInfoItems.length > 1 &&
     vaultSettings?.mergeDeriveAssetsEnabled;
+
+  const isAllNetworksList = !!network?.isAllNetworks;
+  // Disable load-more for All Networks (server doesn't paginate the aggregate)
+  // and for preview lists that already enforce a fixed limit (e.g. Home
+  // recent-history block). Merge-derive chains (BTC/LTC) now route through
+  // ServiceHistory.fetchAccountHistoryForMergeDerive so they participate too.
+  const loadMoreEnabled = !isAllNetworksList && !limit && !plainMode;
+  const handleLoadMoreAddressMap = useCallback(
+    (addressMap: Record<string, IAddressBadge>) => {
+      updateAddressesInfo({ data: addressMap });
+    },
+    [updateAddressesInfo],
+  );
+  const {
+    appendedTxs,
+    hasMore: loadMoreHasMore,
+    isLoadingMore,
+    loadMore,
+    reset: resetLoadMore,
+    onFirstPageResponse,
+  } = useHistoryListLoadMore({
+    enabled: loadMoreEnabled,
+    accountId: account?.id ?? '',
+    networkId: network?.id ?? '',
+    filterScam: settings.isFilterScamHistoryEnabled,
+    filterLowValue: settings.isFilterLowValueHistoryEnabled,
+    excludeTestNetwork: true,
+    sourceCurrency: settings.currencyInfo.id,
+    currencyMap,
+    limit,
+    mergeDerive: mergeDeriveAddressData,
+    indexedAccountId: indexedAccount?.id ?? '',
+    onAddressMap: handleLoadMoreAddressMap,
+  });
 
   const handleHistoryItemPress = useCallback(
     async (history: IAccountHistoryTx) => {
@@ -153,6 +223,16 @@ function TxHistoryListContainer(
         }
       }
 
+      const openedPrivateSendHistory = await maybeOpenPrivateSendHistoryDetail({
+        historyTx: history,
+        navigation,
+        accountId: history.decodedTx.accountId,
+        accountAddress: account.address,
+        network,
+        currencySymbol: settings.currencyInfo.symbol,
+      });
+      if (openedPrivateSendHistory) return;
+
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.HistoryDetails,
         params: {
@@ -163,134 +243,305 @@ function TxHistoryListContainer(
         },
       });
     },
-    [account, navigation, network],
+    [account, navigation, network, settings.currencyInfo.symbol],
   );
 
   const isManualRefresh = useRef(false);
+  // App resume should force the backend history fetch without joining the
+  // AccountDataUpdate token refresh cycle.
+  const forceHistoryRefresh = useRef(false);
+  const pendingTokenRefreshAfterTokensDoneRef = useRef<
+    IPendingTokenRefreshAfterTokensDone | undefined
+  >(undefined);
+  const emitRefreshTokenList = useCallback(
+    (accounts: ITokenRefreshAccount[]) => {
+      if (accounts.length > 0) {
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+          accounts,
+        });
+      }
+    },
+    [],
+  );
+  const stopPendingTokenRefreshAfterTokensDone = useCallback(
+    ({ clearAccounts }: { clearAccounts: boolean }) => {
+      const pending = pendingTokenRefreshAfterTokensDoneRef.current;
+      pending?.cleanup?.();
+      if (!pending) return;
+      if (clearAccounts) {
+        pendingTokenRefreshAfterTokensDoneRef.current = undefined;
+      } else {
+        pending.cleanup = undefined;
+      }
+    },
+    [],
+  );
+  const clearPendingTokenRefreshAfterTokensDone = useCallback(() => {
+    stopPendingTokenRefreshAfterTokensDone({ clearAccounts: true });
+  }, [stopPendingTokenRefreshAfterTokensDone]);
+  const suspendPendingTokenRefreshAfterTokensDone = useCallback(() => {
+    stopPendingTokenRefreshAfterTokensDone({ clearAccounts: false });
+  }, [stopPendingTokenRefreshAfterTokensDone]);
+  const registerPendingTokenRefreshAfterTokensDone = useCallback(
+    ({
+      accounts,
+      accountId,
+      networkId,
+    }: {
+      accounts: ITokenRefreshAccount[];
+      accountId: string;
+      networkId: string;
+    }) => {
+      if (accounts.length === 0) return;
+      pendingTokenRefreshAfterTokensDoneRef.current?.cleanup?.();
+      const pending: IPendingTokenRefreshAfterTokensDone = {
+        accounts,
+        accountId,
+        networkId,
+        matchNetworkId: !networkUtils.isAllNetwork({
+          networkId,
+        }),
+      };
+      pending.cleanup = runAfterTokensDone({
+        accountId,
+        networkId,
+        matchAccountId: true,
+        matchNetworkId: pending.matchNetworkId,
+        fallbackDelayMs: POLLING_DEBOUNCE_INTERVAL,
+        retryDelayMs: POLLING_DEBOUNCE_INTERVAL,
+        deferWhileRefreshing: true,
+        onRun: () => {
+          if (pendingTokenRefreshAfterTokensDoneRef.current === pending) {
+            pendingTokenRefreshAfterTokensDoneRef.current = undefined;
+          }
+          emitRefreshTokenList(pending.accounts);
+        },
+      });
+      pendingTokenRefreshAfterTokensDoneRef.current = pending;
+    },
+    [emitRefreshTokenList],
+  );
+  const rearmPendingTokenRefreshAfterTokensDone = useCallback(() => {
+    const pending = pendingTokenRefreshAfterTokensDoneRef.current;
+    if (!pending || pending.cleanup) return;
+    registerPendingTokenRefreshAfterTokensDone({
+      accounts: pending.accounts,
+      accountId: pending.accountId,
+      networkId: pending.networkId,
+    });
+  }, [registerPendingTokenRefreshAfterTokensDone]);
+
+  // Stable identity tuple shared by the init guard and request-id effect so
+  // they can't drift on what counts as an identity change.
+  const identityKey = useMemo(
+    () =>
+      [
+        account?.id ?? '',
+        indexedAccount?.id ?? '',
+        network?.id ?? '',
+        wallet?.id ?? '',
+        mergeDeriveAddressData ? '1' : '0',
+      ].join('|'),
+    [
+      account?.id,
+      indexedAccount?.id,
+      mergeDeriveAddressData,
+      network?.id,
+      wallet?.id,
+    ],
+  );
+
+  // Monotonic request id; bumped on identity change AND at the start of every
+  // `run()` body (before any early return) so older in-flight fetches can't
+  // outlive an identity switch.
+  const fetchRequestIdRef = useRef(0);
   const { run } = usePromiseResult(
     async () => {
-      if (!network) return;
+      fetchRequestIdRef.current += 1;
+      const requestId = fetchRequestIdRef.current;
+      suspendPendingTokenRefreshAfterTokensDone();
+      const isManualRefreshForThisRun = isManualRefresh.current;
+      const forceHistoryRefreshForThisRun =
+        isManualRefreshForThisRun || forceHistoryRefresh.current;
+      const isCurrentRequest = () => fetchRequestIdRef.current === requestId;
 
-      let accountId = account?.id ?? '';
+      let emittedTrue = false;
+      let refreshAccountId = '';
+      let refreshNetworkId = '';
 
-      if (mergeDeriveAddressData) {
-        accountId = indexedAccount?.id ?? '';
-      } else if (!account) return;
+      try {
+        if (!network) return;
 
-      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-        isRefreshing: true,
-        type: EHomeTab.HISTORY,
-        accountId,
-        networkId: network.id,
-      });
+        let accountId = account?.id ?? '';
 
-      let r: {
-        allAccounts: IAllNetworkAccountInfo[];
-        txs: IAccountHistoryTx[];
-        accountsWithChangedTxs: {
-          accountId: string;
-          networkId: string;
-        }[];
-        addressMap?: Record<string, IAddressBadge>;
-        hasMoreOnChainHistory?: boolean;
-      } = {
-        allAccounts: [],
-        txs: [],
-        accountsWithChangedTxs: [],
-        addressMap: {},
-        hasMoreOnChainHistory: false,
-      };
+        if (mergeDeriveAddressData) {
+          accountId = indexedAccount?.id ?? '';
+        } else if (!account) return;
 
-      if (mergeDeriveAddressData) {
-        let hasMoreOnChainHistory = false;
-        const { networkAccounts } =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-            {
-              networkId: network.id,
-              indexedAccountId: indexedAccount?.id ?? '',
-              excludeEmptyAccount: true,
-            },
-          );
-        const resp = await Promise.all(
-          networkAccounts.map((networkAccount) =>
-            backgroundApiProxy.serviceHistory.fetchAccountHistory({
-              accountId: networkAccount.account?.id ?? '',
-              networkId: network.id,
-              isManualRefresh: isManualRefresh.current,
-              filterScam: settings.isFilterScamHistoryEnabled,
-              filterLowValue: settings.isFilterLowValueHistoryEnabled,
-              sourceCurrency: settings.currencyInfo.id,
-              currencyMap,
-              limit,
-            }),
-          ),
-        );
+        refreshNetworkId = network.id;
+        refreshAccountId = accountId;
 
-        resp.forEach((item) => {
-          r.txs = [...r.txs, ...item.txs];
-          r.allAccounts = [...r.allAccounts, ...item.allAccounts];
-          r.accountsWithChangedTxs = [
+        let r: {
+          allAccounts: IAllNetworkAccountInfo[];
+          txs: IAccountHistoryTx[];
+          accountsWithChangedTxs: {
+            accountId: string;
+            networkId: string;
+          }[];
+          accountsWithCompletedDeFiPortfolioTxs: {
+            accountId: string;
+            networkId: string;
+          }[];
+          addressMap?: Record<string, IAddressBadge>;
+          hasMoreOnChainHistory?: boolean;
+          next?: string;
+          isIndexer?: boolean;
+        } = {
+          allAccounts: [],
+          txs: [],
+          accountsWithChangedTxs: [],
+          accountsWithCompletedDeFiPortfolioTxs: [],
+          addressMap: {},
+          hasMoreOnChainHistory: false,
+          next: undefined,
+          isIndexer: false,
+        };
+        let aggregatedHasMoreOnChainHistory = false;
+
+        emittedTrue = true;
+        appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+          isRefreshing: true,
+          type: EHomeTab.HISTORY,
+          accountId: refreshAccountId,
+          networkId: refreshNetworkId,
+        });
+
+        if (mergeDeriveAddressData) {
+          // ServiceHistory does the per-deriveType fan-out, dedupe, sort, and
+          // cursor bookkeeping; we receive a single aggregate response shaped
+          // identically to the single-deriveType branch, so the rest of the
+          // function can treat both paths the same.
+          r =
+            await backgroundApiProxy.serviceHistory.fetchAccountHistoryForMergeDerive(
+              {
+                indexedAccountId: indexedAccount?.id ?? '',
+                networkId: network.id,
+                isManualRefresh: forceHistoryRefreshForThisRun,
+                filterScam: settings.isFilterScamHistoryEnabled,
+                filterLowValue: settings.isFilterLowValueHistoryEnabled,
+                excludeTestNetwork: true,
+                sourceCurrency: settings.currencyInfo.id,
+                currencyMap,
+                limit,
+              },
+            );
+          aggregatedHasMoreOnChainHistory = !!r.hasMoreOnChainHistory;
+        } else {
+          r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+            accountId,
+            networkId: network.id,
+            isManualRefresh: forceHistoryRefreshForThisRun,
+            filterScam: settings.isFilterScamHistoryEnabled,
+            filterLowValue: settings.isFilterLowValueHistoryEnabled,
+            excludeTestNetwork: true,
+            sourceCurrency: settings.currencyInfo.id,
+            currencyMap,
+            limit,
+          });
+          aggregatedHasMoreOnChainHistory = !!r.hasMoreOnChainHistory;
+        }
+
+        // Skip every state write past this point if a newer fetch already
+        // took over — a stale body would clobber the new identity's data.
+        if (!isCurrentRequest()) {
+          return;
+        }
+
+        updateAddressesInfo({
+          data: r.addressMap ?? {},
+        });
+        onFirstPageResponse({
+          txs: r.txs,
+          next: r.next,
+          hasMore: aggregatedHasMoreOnChainHistory,
+          isIndexer: r.isIndexer,
+        });
+
+        updateAllNetworksState({
+          visibleCount: uniqBy(r.allAccounts, 'networkId').length,
+        });
+
+        setHistoryState({
+          initialized: true,
+          isRefreshing: false,
+        });
+        updateHistoryData(r.txs);
+
+        const accountsToPlanTokenRefresh = uniqBy(
+          [
+            ...(pendingTokenRefreshAfterTokensDoneRef.current?.accounts ?? []),
             ...r.accountsWithChangedTxs,
-            ...item.accountsWithChangedTxs,
-          ];
-          r.addressMap = { ...r.addressMap, ...item.addressMap };
-          if (item.hasMoreOnChainHistory) {
-            hasMoreOnChainHistory = true;
-          }
+          ],
+          getTokenRefreshAccountKey,
+        );
+        clearPendingTokenRefreshAfterTokensDone();
+        const tokenRefreshPlan = buildTokenRefreshPlanAfterHistory({
+          accounts: accountsToPlanTokenRefresh,
+          lastTokensTabState: getTokensTabLastState(),
+          tokenRefreshScope: {
+            accountId: refreshAccountId,
+            networkId: refreshNetworkId,
+            includesAllAccountsInNetwork: !!mergeDeriveAddressData,
+          },
         });
 
-        r.txs = r.txs
-          .toSorted(
-            (b, a) =>
-              (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
-              (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
-          )
-          .slice(0, HISTORY_PAGE_SIZE);
-        setHasMoreOnChainHistory(hasMoreOnChainHistory);
-        updateAddressesInfo({
-          data: r.addressMap ?? {},
-        });
-      } else {
-        r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-          accountId,
-          networkId: network.id,
-          isManualRefresh: isManualRefresh.current,
-          filterScam: settings.isFilterScamHistoryEnabled,
-          filterLowValue: settings.isFilterLowValueHistoryEnabled,
-          excludeTestNetwork: true,
-          sourceCurrency: settings.currencyInfo.id,
-          currencyMap,
-          limit,
-        });
-        setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
-        updateAddressesInfo({
-          data: r.addressMap ?? {},
-        });
+        emitRefreshTokenList(tokenRefreshPlan.accountsToRefreshNow);
+
+        if (tokenRefreshPlan.accountsToRefreshAfterTokensDone.length > 0) {
+          const tokensDoneScope = tokenRefreshPlan.tokensDoneScope ?? {
+            accountId: refreshAccountId,
+            networkId: refreshNetworkId,
+          };
+          registerPendingTokenRefreshAfterTokensDone({
+            accounts: tokenRefreshPlan.accountsToRefreshAfterTokensDone,
+            accountId: tokensDoneScope.accountId,
+            networkId: tokensDoneScope.networkId,
+          });
+        }
+        if (r.accountsWithCompletedDeFiPortfolioTxs.length > 0) {
+          void Promise.all(
+            r.accountsWithCompletedDeFiPortfolioTxs.map(
+              ({
+                accountId: completedAccountId,
+                networkId: completedNetworkId,
+              }) =>
+                backgroundApiProxy.serviceDeFi.refreshAccountDeFiPositionsAfterAction(
+                  {
+                    accountId: completedAccountId,
+                    networkId: completedNetworkId,
+                  },
+                ),
+            ),
+          ).catch(console.error);
+        }
+      } finally {
+        // Must clear unconditionally — otherwise the next polling tick would
+        // be wrongly treated as a manual refresh.
+        isManualRefresh.current = false;
+        forceHistoryRefresh.current = false;
+        if (emittedTrue) {
+          appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+            isRefreshing: false,
+            type: EHomeTab.HISTORY,
+            accountId: refreshAccountId,
+            networkId: refreshNetworkId,
+          });
+        }
+        if (isCurrentRequest()) {
+          rearmPendingTokenRefreshAfterTokensDone();
+          setIsHeaderRefreshing(false);
+        }
       }
-
-      updateAllNetworksState({
-        visibleCount: uniqBy(r.allAccounts, 'networkId').length,
-      });
-
-      setHistoryState({
-        initialized: true,
-        isRefreshing: false,
-      });
-      setIsHeaderRefreshing(false);
-      updateHistoryData(r.txs);
-
-      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-        isRefreshing: false,
-        type: EHomeTab.HISTORY,
-        accountId,
-        networkId: network.id,
-      });
-      if (r.accountsWithChangedTxs.length > 0) {
-        appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-          accounts: r.accountsWithChangedTxs,
-        });
-      }
-      isManualRefresh.current = false;
     },
     [
       network,
@@ -304,23 +555,44 @@ function TxHistoryListContainer(
       settings.isFilterLowValueHistoryEnabled,
       settings.currencyInfo.id,
       currencyMap,
-      setHasMoreOnChainHistory,
       limit,
       updateHistoryData,
+      onFirstPageResponse,
+      clearPendingTokenRefreshAfterTokensDone,
+      emitRefreshTokenList,
+      registerPendingTokenRefreshAfterTokensDone,
+      rearmPendingTokenRefreshAfterTokensDone,
+      suspendPendingTokenRefreshAfterTokensDone,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
+      revalidateOnFocus: true,
     },
   );
 
+  // Owner of the current `initHistoryState`. `null` means no valid identity
+  // (initial mount or transition); async reads bail when this no longer
+  // matches their captured identity.
+  const lastInitIdentityRef = useRef<string | null>(null);
+  // Bumped on every `initHistoryState` launch so a same-identity rerun (e.g.
+  // filter/currency change) supersedes any older slow read.
+  const initRequestIdRef = useRef(0);
   useEffect(() => {
-    const initHistoryState = async (
-      accountId: string,
-      networkId: string,
-      indexedAccountId: string | undefined,
-    ) => {
+    const initHistoryState = async ({
+      accountId,
+      networkId,
+      indexedAccountId,
+      capturedIdentity,
+      requestId,
+    }: {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
+      capturedIdentity: string;
+      requestId: number;
+    }) => {
       let accountHistoryTxs: IAccountHistoryTx[] = [];
 
       if (mergeDeriveAddressData) {
@@ -366,6 +638,15 @@ function TxHistoryListContainer(
           });
       }
 
+      // Bail if a faster identity switch or a newer same-identity rerun took
+      // ownership during the await — stale rows must not clobber fresh state.
+      if (
+        lastInitIdentityRef.current !== capturedIdentity ||
+        initRequestIdRef.current !== requestId
+      ) {
+        return;
+      }
+
       if (!isEmpty(accountHistoryTxs)) {
         updateHistoryData(accountHistoryTxs);
         setHistoryState({
@@ -373,6 +654,10 @@ function TxHistoryListContainer(
           isRefreshing: false,
         });
       } else {
+        // No local cache — drop stale rows so the skeleton shows instead of
+        // the previous identity's data while the first-page fetch is in
+        // flight. Same-reference short-circuit avoids a redundant render.
+        setHistoryData((prev) => (prev.length === 0 ? prev : []));
         setHistoryState({
           initialized: false,
           isRefreshing: true,
@@ -383,11 +668,22 @@ function TxHistoryListContainer(
       refreshAllNetworksHistory.current = false;
     };
     if ((account?.id || mergeDeriveAddressData) && network?.id && wallet?.id) {
-      void initHistoryState(
-        account?.id ?? '',
-        network.id,
-        indexedAccount?.id ?? '',
-      );
+      // Rerun on every dep change so the local cache view stays in sync with
+      // the latest filter inputs; older runs bail via the guards above.
+      lastInitIdentityRef.current = identityKey;
+      initRequestIdRef.current += 1;
+      const requestId = initRequestIdRef.current;
+      void initHistoryState({
+        accountId: account?.id ?? '',
+        networkId: network.id,
+        indexedAccountId: indexedAccount?.id ?? '',
+        capturedIdentity: identityKey,
+        requestId,
+      });
+    } else {
+      // Identity went invalid — release ownership so the prior identity's
+      // awaiting init bails out instead of writing into the new state.
+      lastInitIdentityRef.current = null;
     }
   }, [
     account?.id,
@@ -401,19 +697,113 @@ function TxHistoryListContainer(
     wallet?.id,
     settings.currencyInfo.id,
     currencyMap,
-    limit,
+    identityKey,
   ]);
+
+  // Invalidate in-flight `run()` synchronously on identity change — covers the
+  // ~1s `usePromiseResult` debounce window where the runner-body bump can't.
+  useEffect(() => {
+    fetchRequestIdRef.current += 1;
+    clearPendingTokenRefreshAfterTokensDone();
+  }, [clearPendingTokenRefreshAfterTokensDone, identityKey]);
+
+  useEffect(
+    () => () => clearPendingTokenRefreshAfterTokensDone(),
+    [clearPendingTokenRefreshAfterTokensDone],
+  );
 
   useEffect(() => {
     if (isHeaderRefreshing) {
+      resetLoadMore();
       void run();
     }
-  }, [isHeaderRefreshing, run]);
+  }, [isHeaderRefreshing, run, resetLoadMore]);
+
+  // Drop load-more cursor on identity change; first-page fetch re-seeds it.
+  useEffect(() => {
+    resetLoadMore();
+  }, [
+    account?.id,
+    network?.id,
+    indexedAccount?.id,
+    mergeDeriveAddressData,
+    settings.isFilterScamHistoryEnabled,
+    settings.isFilterLowValueHistoryEnabled,
+    settings.currencyInfo.id,
+    resetLoadMore,
+  ]);
+
+  const combinedHistoryData = useMemo(
+    () =>
+      appendedTxs.length
+        ? unionBy([...historyData, ...appendedTxs], (tx) => tx.id)
+        : historyData,
+    [historyData, appendedTxs],
+  );
+
+  // OK-57070: freeze top-of-list growth while the user is scrolled away from
+  // the top. A background refresh that prepends new rows would otherwise shift
+  // the viewport and make the native SectionList jitter (it has no exact
+  // item layout). Held rows merge in automatically once the user scrolls back
+  // near the top. Pass-through on web/desktop and for preview / plain lists.
+  // The tab scenario (full wallet-history tab, not RecentHistory's
+  // plainMode+limit preview) also gates the scroll observer mount below.
+  const isFrozenTopTabScenario = !plainMode && !limit;
+  const frozenTopEnabled =
+    isFocused && isRouteFocused && isFrozenTopTabScenario;
+  // Freeze identity: the shared `identityKey` tuple plus the history filter
+  // toggles (which swap the visible row set with heavy id overlap). When it
+  // changes the hook drops its frozen baseline so the new stream renders live.
+  const frozenTopIdentityKey = useMemo(
+    () =>
+      [
+        identityKey,
+        settings.isFilterScamHistoryEnabled ? '1' : '0',
+        settings.isFilterLowValueHistoryEnabled ? '1' : '0',
+      ].join('|'),
+    [
+      identityKey,
+      settings.isFilterScamHistoryEnabled,
+      settings.isFilterLowValueHistoryEnabled,
+    ],
+  );
+  const { displayedHistoryData, onAwayFromTopChange } = useFrozenTopHistoryData(
+    combinedHistoryData,
+    frozenTopEnabled,
+    frozenTopIdentityKey,
+  );
+
+  const lastVisibilityRefreshAtRef = useRef(0);
+  const handleRefreshOnVisibilityActive = useCallback(() => {
+    const now = Date.now();
+    if (
+      now - lastVisibilityRefreshAtRef.current <
+      POLLING_INTERVAL_FOR_HISTORY
+    ) {
+      return;
+    }
+    lastVisibilityRefreshAtRef.current = now;
+    forceHistoryRefresh.current = true;
+    void run({ alwaysSetState: true });
+  }, [run]);
 
   useEffect(() => {
-    const refresh = () => {
+    const removeSubscription = onVisibilityStateChange((visible) => {
+      if (visible && isFocused && isRouteFocused) {
+        handleRefreshOnVisibilityActive();
+      }
+    });
+    return removeSubscription;
+  }, [handleRefreshOnVisibilityActive, isFocused, isRouteFocused]);
+
+  useEffect(() => {
+    const refresh = (
+      payload?: IAppEventBusPayload[EAppEventBusNames.AccountDataUpdate],
+    ) => {
       if (isFocused) {
-        isManualRefresh.current = true;
+        if (payload?.isManualRefresh) {
+          isManualRefresh.current = true;
+        }
         void run();
       }
     };
@@ -449,67 +839,60 @@ function TxHistoryListContainer(
     void initAddressesInfoDataFromStorage();
   }, [initAddressesInfoDataFromStorage]);
 
-  const ListComponentRef = useRef(null);
-
-  const recomputeLayout = useCallback(() => {
-    if (!platformEnv.isNative) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      (ListComponentRef.current as any)?.recomputeLayout?.();
-    }
-  }, []);
-
-  const listHeaderComponent = useMemo(() => {
-    if (!historyState.initialized) {
-      return null;
-    }
-    return (
-      <NotificationEnableAlert
-        opacity={notificationAlertOpacity}
-        setOpacity={setNotificationAlertOpacity}
-        scene="txHistory"
-        recomputeLayout={recomputeLayout}
-      />
-    );
-  }, [
-    notificationAlertOpacity,
-    setNotificationAlertOpacity,
-    historyState.initialized,
-    recomputeLayout,
-  ]);
-
   const tabBarHeight = useScrollContentTabBarOffset();
 
+  // On native, the Alert renders inside the list header so it sits below the
+  // sticky TabBar and scrolls with the list. On web, the same Alert renders
+  // via Tabs.Container's `renderSubHeader` slot so its height changes cannot
+  // invalidate the virtualized list's CellMeasurer cache mid-scroll.
+  const listHeaderComponent = useMemo(
+    () =>
+      platformEnv.isNative ? (
+        <NotificationEnableAlert scene="txHistory" />
+      ) : null,
+    [],
+  );
+
   return (
-    <TxHistoryListView
-      ref={ListComponentRef}
-      key={`tx-history-${txHistoryAlertDismissed ? 'dismissed' : 'shown'}`}
-      plainMode={plainMode}
-      isTabFocused={isFocused}
-      showIcon
-      inTabList
-      hideValue
-      onRefresh={onHomePageRefresh}
-      data={historyData ?? []}
-      onPressHistory={handleHistoryItemPress}
-      showHeader
-      showFooter
-      walletId={wallet?.id}
-      accountId={account?.id}
-      networkId={network?.id}
-      indexedAccountId={indexedAccount?.id}
-      initialized={historyState.initialized}
-      tableLayout={tableLayout ?? media.gtMd}
-      listViewStyleProps={{
-        contentContainerStyle: {
-          mt: '$3',
-          pb: tabBarHeight,
-        },
-      }}
-      tokenMap={allTokenListMap}
-      emptyTitle={emptyTitle}
-      emptyDescription={emptyDescription}
-      ListHeaderComponent={listHeaderComponent}
-    />
+    <>
+      {isFrozenTopTabScenario ? (
+        <FrozenTopHistoryScrollObserver
+          enabled={frozenTopEnabled}
+          onAwayFromTopChange={onAwayFromTopChange}
+        />
+      ) : null}
+      <TxHistoryListView
+        plainMode={plainMode}
+        isTabFocused={isFocused}
+        showIcon
+        inTabList
+        hideValue
+        onRefresh={onHomePageRefresh}
+        data={displayedHistoryData}
+        onPressHistory={handleHistoryItemPress}
+        showHeader
+        showFooter
+        walletId={wallet?.id}
+        accountId={account?.id}
+        networkId={network?.id}
+        indexedAccountId={indexedAccount?.id}
+        initialized={historyState.initialized}
+        tableLayout={tableLayout ?? media.gtMd}
+        listViewStyleProps={{
+          contentContainerStyle: {
+            mt: '$3',
+            pb: tabBarHeight,
+          },
+        }}
+        tokenMap={allTokenListMap}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+        ListHeaderComponent={listHeaderComponent}
+        onEndReached={loadMoreEnabled ? loadMore : undefined}
+        isLoadingMore={isLoadingMore}
+        hasMore={loadMoreHasMore}
+      />
+    </>
   );
 }
 

@@ -74,6 +74,71 @@ export const useSwapLimitRate = () => {
     swapProTradeType,
     swapTypeSwitchValue,
   ]);
+  const isLimitPriceUseRateForSelectedPair = useMemo(() => {
+    if (!limitPriceUseRate.fromToken || !limitPriceUseRate.toToken) {
+      return false;
+    }
+    return (
+      equalTokenNoCaseSensitive({
+        token1: limitPriceUseRate.fromToken,
+        token2: fromSelectToken,
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: limitPriceUseRate.toToken,
+        token2: toSelectToken,
+      })
+    );
+  }, [
+    fromSelectToken,
+    limitPriceUseRate.fromToken,
+    limitPriceUseRate.toToken,
+    toSelectToken,
+  ]);
+  const hasLimitPriceUseRate = useMemo(
+    () =>
+      Boolean(
+        limitPriceUseRate.fromToken ||
+        limitPriceUseRate.toToken ||
+        limitPriceUseRate.rate ||
+        limitPriceUseRate.reverseRate ||
+        limitPriceUseRate.inputRate,
+      ),
+    [
+      limitPriceUseRate.fromToken,
+      limitPriceUseRate.inputRate,
+      limitPriceUseRate.rate,
+      limitPriceUseRate.reverseRate,
+      limitPriceUseRate.toToken,
+    ],
+  );
+  const canUseLimitPriceMarketPrice = useMemo(() => {
+    const rateBN = new BigNumber(limitPriceMarketPrice.rate ?? 0);
+    if (
+      rateBN.isNaN() ||
+      !rateBN.isFinite() ||
+      rateBN.lte(0) ||
+      !limitPriceMarketPrice.fromToken ||
+      !limitPriceMarketPrice.toToken
+    ) {
+      return false;
+    }
+    return (
+      equalTokenNoCaseSensitive({
+        token1: limitPriceMarketPrice.fromToken,
+        token2: fromSelectToken,
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: limitPriceMarketPrice.toToken,
+        token2: toSelectToken,
+      })
+    );
+  }, [
+    fromSelectToken,
+    limitPriceMarketPrice.fromToken,
+    limitPriceMarketPrice.rate,
+    limitPriceMarketPrice.toToken,
+    toSelectToken,
+  ]);
   const fromSelectTokenRef = useRef<ISwapToken | undefined>(fromSelectToken);
   const toSelectTokenRef = useRef<ISwapToken | undefined>(toSelectToken);
   if (fromSelectTokenRef.current !== fromSelectToken) {
@@ -196,6 +261,9 @@ export const useSwapLimitRate = () => {
 
   const onSetMarketPrice = useCallback(
     (percentage: number) => {
+      if (!canUseLimitPriceMarketPrice) {
+        return;
+      }
       const percentageBN = new BigNumber(1 + percentage / 100);
       const rateBN = new BigNumber(
         limitPriceMarketPrice.rate ?? '0',
@@ -220,7 +288,12 @@ export const useSwapLimitRate = () => {
           : formatRate.toFixed(),
       }));
     },
-    [setLimitPriceUseRate, limitPriceMarketPrice, limitPriceSetReverse],
+    [
+      canUseLimitPriceMarketPrice,
+      setLimitPriceUseRate,
+      limitPriceMarketPrice,
+      limitPriceSetReverse,
+    ],
   );
 
   const onChangeReverse = useCallback(
@@ -272,19 +345,20 @@ export const useSwapLimitRate = () => {
   ]);
 
   useEffect(() => {
-    if (
-      !limitPriceMarketPrice.rate ||
-      checkWrappedTokenPair({
-        fromToken: fromSelectToken,
-        toToken: toSelectToken,
-      })
-    ) {
+    const isWrappedTokenPair = checkWrappedTokenPair({
+      fromToken: fromSelectToken,
+      toToken: toSelectToken,
+    });
+    const shouldClearStaleLimitPrice =
+      hasLimitPriceUseRate && !isLimitPriceUseRateForSelectedPair;
+    if (isWrappedTokenPair || shouldClearStaleLimitPrice) {
       setLimitPriceUseRate({});
       setLimitPriceSetReverse(false);
     }
   }, [
     fromSelectToken,
-    limitPriceMarketPrice.rate,
+    hasLimitPriceUseRate,
+    isLimitPriceUseRateForSelectedPair,
     setLimitPriceSetReverse,
     setLimitPriceUseRate,
     toSelectToken,
@@ -312,6 +386,7 @@ export const useSwapLimitRate = () => {
     onSetMarketPrice,
     onChangeReverse,
     limitPriceSetReverse,
+    canUseLimitPriceMarketPrice,
     limitPriceUseRate,
     limitPriceMarketPrice,
     fromTokenInfo: fromSelectToken,

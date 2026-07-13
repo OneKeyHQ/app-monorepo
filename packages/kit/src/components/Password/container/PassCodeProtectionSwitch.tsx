@@ -1,6 +1,6 @@
 import type { ISwitchProps } from '@onekeyhq/components';
 import { Switch } from '@onekeyhq/components';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 
 /**
  * PassCodeProtectionSwitch component
@@ -18,6 +18,7 @@ const PassCodeProtectionSwitch = ({
 
   return (
     <Switch
+      testID="password-pass-code-protection-switch-switch"
       value={enablePasswordErrorProtection}
       onChange={(value: boolean) => {
         onTransition?.(async () => {

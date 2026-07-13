@@ -16,6 +16,8 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
+import { StakingTestIDs } from '../../testIDs';
+
 import { AlertSection } from './AlertSection';
 
 type IStakedValueInfoProps = {
@@ -53,7 +55,10 @@ function StakedValueInfo({
     if (shouldRegisterBeforeStake) {
       return (
         <XStack gap="$2">
-          <Button {...registerButtonProps}>
+          <Button
+            {...registerButtonProps}
+            testID={StakingTestIDs.stakedValueRegisterBtn}
+          >
             {intl.formatMessage({ id: ETranslations.earn_register })}
           </Button>
         </XStack>
@@ -61,10 +66,16 @@ function StakedValueInfo({
     }
     return (
       <XStack gap="$2">
-        <Button {...withdrawButtonProps}>
+        <Button
+          {...withdrawButtonProps}
+          testID={StakingTestIDs.stakedValueWithdrawBtn}
+        >
           {intl.formatMessage({ id: ETranslations.global_withdraw })}
         </Button>
-        <Button {...stakeButtonProps}>
+        <Button
+          {...stakeButtonProps}
+          testID={StakingTestIDs.stakedValueStakeBtn}
+        >
           {intl.formatMessage({ id: ETranslations.earn_deposit })}
         </Button>
       </XStack>
@@ -78,7 +89,7 @@ function StakedValueInfo({
     registerButtonProps,
   ]);
   return (
-    <YStack gap="$8">
+    <YStack gap="$8" testID={StakingTestIDs.stakedValue}>
       <YStack>
         <SizableText size="$headingLg" pt="$2">
           {intl.formatMessage({ id: ETranslations.earn_staked_value })}
@@ -90,6 +101,7 @@ function StakedValueInfo({
             color={value === 0 ? '$textDisabled' : '$text'}
             formatter="value"
             formatterOptions={{ currency }}
+            testID={StakingTestIDs.stakedValueAmount}
           >
             {value || 0}
           </NumberSizeableText>
@@ -100,6 +112,7 @@ function StakedValueInfo({
           formatter="balance"
           color="$textSubdued"
           formatterOptions={{ tokenSymbol }}
+          testID={StakingTestIDs.stakedValueTokenAmount}
         >
           {stakedNumber || 0}
         </NumberSizeableText>

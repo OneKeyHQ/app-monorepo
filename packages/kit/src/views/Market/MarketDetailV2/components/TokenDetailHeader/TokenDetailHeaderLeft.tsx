@@ -34,6 +34,7 @@ interface ITokenDetailHeaderLeftProps {
   networkLogoUri?: string;
   showMediaAndSecurity?: boolean;
   isNative?: boolean;
+  showFavoriteButton?: boolean;
 }
 
 export function TokenDetailHeaderLeft({
@@ -42,6 +43,7 @@ export function TokenDetailHeaderLeft({
   networkLogoUri,
   showMediaAndSecurity = true,
   isNative = false,
+  showFavoriteButton = true,
 }: ITokenDetailHeaderLeftProps) {
   const { md } = useMedia();
 
@@ -72,17 +74,18 @@ export function TokenDetailHeaderLeft({
 
   const { website, twitter } = extraData || {};
 
-  const marketStar = networkId ? (
-    <MarketStarV2
-      chainId={networkId}
-      contractAddress={address}
-      size="small"
-      customIconSize="$4"
-      from={EWatchlistFrom.Detail}
-      tokenSymbol={symbol}
-      isNative={isNative}
-    />
-  ) : null;
+  const marketStar =
+    showFavoriteButton && networkId ? (
+      <MarketStarV2
+        chainId={networkId}
+        contractAddress={address}
+        size="small"
+        customIconSize="$4"
+        from={EWatchlistFrom.Detail}
+        tokenSymbol={symbol}
+        isNative={isNative}
+      />
+    ) : null;
 
   const shareButton = networkId ? (
     <ShareButton
@@ -130,13 +133,14 @@ export function TokenDetailHeaderLeft({
                 communityRecognized={communityRecognized}
                 stock={stock}
                 showAllInTrigger
+                noTruncateSubtitle
               />
             ) : (
               <>
                 <StockSourceLogo stock={stock} />
                 {communityRecognized ? <CommunityRecognizedBadge /> : null}
                 {stock?.subtitle ? (
-                  <SubtitleBadge subtitle={stock.subtitle} />
+                  <SubtitleBadge subtitle={stock.subtitle} noTruncate />
                 ) : null}
                 {stock ? <StockIsOpenBadge stock={stock} /> : null}
               </>
@@ -162,6 +166,7 @@ export function TokenDetailHeaderLeft({
                 </SizableText>
 
                 <InteractiveIcon
+                  testID="market-icon"
                   icon="Copy3Outline"
                   size="$4"
                   onPress={handleCopyAddress}
@@ -187,6 +192,7 @@ export function TokenDetailHeaderLeft({
                     <XStack gap="$2" ai="center">
                       {website ? (
                         <InteractiveIcon
+                          testID="market-icon"
                           icon="GlobusOutline"
                           onPress={handleOpenWebsite}
                           size="$4"
@@ -195,6 +201,7 @@ export function TokenDetailHeaderLeft({
 
                       {twitter ? (
                         <InteractiveIcon
+                          testID="market-icon"
                           icon="Xbrand"
                           onPress={handleOpenTwitter}
                           size="$4"
@@ -203,6 +210,7 @@ export function TokenDetailHeaderLeft({
 
                       {address ? (
                         <InteractiveIcon
+                          testID="market-icon"
                           icon="SearchOutline"
                           onPress={handleOpenXSearch}
                           size="$4"

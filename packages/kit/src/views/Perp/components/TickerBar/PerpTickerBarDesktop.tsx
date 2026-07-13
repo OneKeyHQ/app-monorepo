@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 
 import { isString } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -7,46 +7,188 @@ import {
   DashText,
   DebugRenderTracker,
   Divider,
-  NumberSizeableText,
+  IconButton,
   ScrollView,
   SizableText,
   SkeletonContainer,
   Tooltip,
   XStack,
   YStack,
-  useMedia,
+  useClipboard,
 } from '@onekeyhq/components';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsAllAssetCtxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSpotActiveAssetAtom,
+  useSpotActiveAssetCtxAtom,
+  useSpotExternalMarketCapsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
+  formatLocalizedNumberString,
+  numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  formatAssetCtx,
+  getSpotMarketCapValue,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  PERP_LAYOUT_CONFIG,
+  XYZ_ASSET_ID_OFFSET,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
+import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
 import { FavoriteButton } from '../TokenSelector/PerpTokenSelectorRow';
 
-function useTickerBarIsLoading() {
-  const { isReady, hasError } = usePerpSession();
+// Medium-weight (500) data values — the heading tokens' 600 reads too heavy
+// for a dense stat strip of tabular digits, while plain 400 gets lost against
+// the subdued labels at this size.
+const TICKER_BAR_STAT_VALUE_TEXT_PROPS = {
+  size: '$bodySmMedium',
+} as const;
+
+const TICKER_BAR_STAT_LABEL_VALUE_GAP = 5;
+const TICKER_BAR_STAT_DASH_LABEL_VALUE_GAP = 4;
+const TICKER_BAR_PRICE_SECTION_WIDTH = 90;
+const TICKER_BAR_WIDE_PRICE_SECTION_WIDTH = 120;
+const TICKER_BAR_SPOT_PRICE_SECTION_WIDTH = 168;
+const TICKER_BAR_WIDE_MARK_PRICE_LENGTH = 8;
+const TICKER_BAR_WIDE_CHANGE_DISPLAY_LENGTH = 15;
+
+function isValidPerpFormattedCtx(
+  ctx: ReturnType<typeof formatAssetCtx> | undefined,
+) {
+  const markPriceNumber = Number.parseFloat(ctx?.markPrice ?? '0');
+  return Number.isFinite(markPriceNumber) && markPriceNumber > 0;
+}
+
+function useTickerBarPerpAssetCtx() {
+  const [activeAsset] = usePerpsActiveAssetAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
+
+  const resolved = useMemo(() => {
+    if (
+      assetCtx?.coin === activeAsset.coin &&
+      isValidPerpFormattedCtx(assetCtx.ctx)
+    ) {
+      return {
+        assetCtx,
+        source: 'active' as const,
+      };
+    }
+
+    if (activeAsset.assetId === undefined) {
+      return {
+        assetCtx,
+        source: 'empty' as const,
+      };
+    }
+
+    const dexIndex = activeAsset.assetId >= XYZ_ASSET_ID_OFFSET ? 1 : 0;
+    const ctxIndex =
+      dexIndex === 1
+        ? activeAsset.assetId - XYZ_ASSET_ID_OFFSET
+        : activeAsset.assetId;
+    const cachedCtx = allAssetCtxs.assetCtxsByDex?.[dexIndex]?.[ctxIndex];
+    const formattedCachedCtx = cachedCtx
+      ? formatAssetCtx(cachedCtx)
+      : undefined;
+    if (!isValidPerpFormattedCtx(formattedCachedCtx)) {
+      return {
+        assetCtx,
+        source: 'empty' as const,
+      };
+    }
+
+    return {
+      assetCtx: {
+        coin: activeAsset.coin,
+        assetId: activeAsset.assetId,
+        ctx: formattedCachedCtx,
+      },
+      source: 'allDexsAssetCtxs' as const,
+    };
+  }, [activeAsset.assetId, activeAsset.coin, allAssetCtxs, assetCtx]);
+
+  useEffect(() => {
+    if (resolved.source === 'allDexsAssetCtxs') {
+      markPerpsColdStartPerfOnce('ui_ticker_bar_all_dexs_ctx_ready', {
+        coin: resolved.assetCtx.coin,
+        markPrice: resolved.assetCtx.ctx?.markPrice,
+      });
+    }
+  }, [resolved]);
+
+  return resolved.assetCtx;
+}
+
+function formatTickerBarChange24hDisplay({
+  change24h,
+  change24hPercent,
+}: {
+  change24h?: string;
+  change24hPercent?: string | number;
+}) {
+  const changeValue = change24h || '0';
+  const signedChangeValue =
+    changeValue.startsWith('-') || changeValue === '0'
+      ? changeValue
+      : `+${changeValue}`;
+  const percentText = numberFormat(String(change24hPercent || 0), {
+    formatter: 'priceChange',
+    formatterOptions: {
+      showPlusMinusSigns: true,
+    },
+  });
+  return `${signedChangeValue} (${percentText})`;
+}
+
+function useTickerBarIsLoading() {
+  const { currentToken } = usePerpSession();
+  const [tradingMode] = useTradingModeAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const isSpot = tradingMode === 'spot';
+  if (isSpot) {
+    // Spot: only loading if spot ctx hasn't arrived yet.
+    // Don't gate on isReady (perps WS connection state) — spot data
+    // flows through the same WS but isReady can be temporarily false
+    // during mode transitions while the spot subscription is active.
+    return !spotAssetCtx?.ctx;
+  }
   const { markPrice } = assetCtx?.ctx || {
     markPrice: '0',
   };
-  return !isReady || hasError || parseFloat(markPrice) === 0;
+  const markPriceNumber = Number.parseFloat(markPrice);
+  return (
+    assetCtx?.coin !== currentToken ||
+    !Number.isFinite(markPriceNumber) ||
+    markPriceNumber === 0
+  );
 }
 
 const TickerBarMarkPriceView = memo(
   ({
     formattedMarkPrice,
     isLoading,
+    tooltipContentId,
   }: {
     formattedMarkPrice: string;
     isLoading: boolean;
+    tooltipContentId: ETranslations;
   }) => {
     const intl = useIntl();
     return (
@@ -59,14 +201,20 @@ const TickerBarMarkPriceView = memo(
           <Tooltip
             placement="top"
             renderTrigger={
-              <SizableText size="$headingXl" cursor="help">
+              <SizableText
+                size="$headingMd"
+                fontWeight="500"
+                cursor="help"
+                lineHeight={20}
+                numberOfLines={1}
+              >
                 {formattedMarkPrice}
               </SizableText>
             }
             renderContent={
               <SizableText size="$bodySm">
                 {intl.formatMessage({
-                  id: ETranslations.perp_mark_price_tooltip,
+                  id: tooltipContentId,
                 })}
               </SizableText>
             }
@@ -79,62 +227,83 @@ const TickerBarMarkPriceView = memo(
 TickerBarMarkPriceView.displayName = 'TickerBarMarkPriceView';
 
 function TickerBarMarkPrice() {
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const formattedMarkPrice = assetCtx?.ctx?.markPrice || '';
+  const [tradingMode] = useTradingModeAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const isSpot = tradingMode === 'spot';
+  const formattedMarkPrice = formatLocalizedNumberString(
+    (isSpot ? spotAssetCtx?.ctx?.markPrice : assetCtx?.ctx?.markPrice) || '',
+  );
   const isLoading = useTickerBarIsLoading();
+  useEffect(() => {
+    if (!isLoading && formattedMarkPrice) {
+      markPerpsColdStartPerfOnce('ui_ticker_bar_mark_price_ready', {
+        mode: tradingMode,
+        price: formattedMarkPrice,
+      });
+    }
+  }, [formattedMarkPrice, isLoading, tradingMode]);
   return (
     <TickerBarMarkPriceView
       formattedMarkPrice={formattedMarkPrice}
       isLoading={isLoading}
+      tooltipContentId={
+        isSpot
+          ? ETranslations.perp_spot_reference_price__desc
+          : ETranslations.perp_mark_price_tooltip
+      }
     />
   );
 }
 
-const TickerBarChange24hPercentView = memo(
+const TickerBarChange24hView = memo(
   ({
-    change24hPercent,
+    changeDisplay,
     isLoading,
-    gtMd,
   }: {
-    change24hPercent: number;
+    changeDisplay: string;
     isLoading: boolean;
-    gtMd: boolean;
   }) => (
     <DebugRenderTracker
-      name="TickerBarChange24hPercent"
+      name="TickerBarChange24h"
       position="bottom-right"
       offsetY={10}
     >
-      <SkeletonContainer isLoading={isLoading} width={50} height={16}>
-        <NumberSizeableText
-          size={gtMd ? '$headingXs' : '$bodySmMedium'}
-          fontSize={gtMd ? undefined : 10}
-          mt={gtMd ? undefined : '$-2'}
-          color={change24hPercent >= 0 ? '$green11' : '$red11'}
-          formatter="priceChange"
-          formatterOptions={{
-            showPlusMinusSigns: true,
-          }}
+      <SkeletonContainer isLoading={isLoading} width={120} height={16}>
+        <SizableText
+          size="$bodyXs"
+          textTransform="none"
+          fontWeight="600"
+          letterSpacing={0.2}
+          lineHeight={12}
+          color={changeDisplay.trim().startsWith('-') ? '$red11' : '$green11'}
+          numberOfLines={1}
         >
-          {change24hPercent}
-        </NumberSizeableText>
+          {changeDisplay}
+        </SizableText>
       </SkeletonContainer>
     </DebugRenderTracker>
   ),
 );
-TickerBarChange24hPercentView.displayName = 'TickerBarChange24hPercentView';
+TickerBarChange24hView.displayName = 'TickerBarChange24hView';
 
-export function TickerBarChange24hPercent() {
-  const { gtMd } = useMedia();
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const change24hPercent = assetCtx?.ctx?.change24hPercent || 0;
+export function TickerBarChange24h() {
+  const [tradingMode] = useTradingModeAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const displayCtx = tradingMode === 'spot' ? spotAssetCtx?.ctx : assetCtx?.ctx;
+  const changeDisplay = useMemo(() => {
+    return formatTickerBarChange24hDisplay({
+      change24h: displayCtx?.change24h,
+      change24hPercent: displayCtx?.change24hPercent,
+    });
+  }, [displayCtx?.change24h, displayCtx?.change24hPercent]);
   const isLoading = useTickerBarIsLoading();
 
   return (
-    <TickerBarChange24hPercentView
-      change24hPercent={change24hPercent}
+    <TickerBarChange24hView
+      changeDisplay={changeDisplay}
       isLoading={isLoading}
-      gtMd={gtMd}
     />
   );
 }
@@ -150,13 +319,13 @@ const TickerBarOraclePriceView = memo(
     const intl = useIntl();
     return (
       <DebugRenderTracker name="TickerBarOraclePrice">
-        <YStack>
+        <YStack gap={TICKER_BAR_STAT_DASH_LABEL_VALUE_GAP}>
           <Tooltip
             renderTrigger={
               <DashText
                 size="$bodySm"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
+                dashSpacing={0}
                 color="$textSubdued"
                 cursor="help"
               >
@@ -175,7 +344,9 @@ const TickerBarOraclePriceView = memo(
             placement="top"
           />
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText size="$headingXs">{formattedOraclePrice}</SizableText>
+            <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}>
+              {formattedOraclePrice}
+            </SizableText>
           </SkeletonContainer>
         </YStack>
       </DebugRenderTracker>
@@ -185,8 +356,10 @@ const TickerBarOraclePriceView = memo(
 TickerBarOraclePriceView.displayName = 'TickerBarOraclePriceView';
 
 function TickerBarOraclePrice() {
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const formattedOraclePrice = assetCtx?.ctx?.oraclePrice || '';
+  const assetCtx = useTickerBarPerpAssetCtx();
+  const formattedOraclePrice = formatLocalizedNumberString(
+    assetCtx?.ctx?.oraclePrice || '',
+  );
   const isLoading = useTickerBarIsLoading();
 
   return (
@@ -208,14 +381,16 @@ const TickerBar24hVolumeView = memo(
     const intl = useIntl();
     return (
       <DebugRenderTracker name="TickerBar24hVolume">
-        <YStack>
+        <YStack gap={TICKER_BAR_STAT_LABEL_VALUE_GAP}>
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.perp_token_bar_24h_Volume,
             })}
           </SizableText>
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText size="$headingXs">${formattedVolume24h}</SizableText>
+            <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}>
+              ${formattedVolume24h}
+            </SizableText>
           </SkeletonContainer>
         </YStack>
       </DebugRenderTracker>
@@ -225,8 +400,13 @@ const TickerBar24hVolumeView = memo(
 TickerBar24hVolumeView.displayName = 'TickerBar24hVolumeView';
 
 function TickerBar24hVolume() {
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const volume24h = assetCtx?.ctx?.volume24h || '0';
+  const [tradingMode] = useTradingModeAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const isSpot = tradingMode === 'spot';
+  const volume24h = isSpot
+    ? spotAssetCtx?.ctx?.volume24h || '0'
+    : assetCtx?.ctx?.volume24h || '0';
   const formattedVolume24h = formatDisplayNumber(
     NUMBER_FORMATTER.marketCap(volume24h.toString()),
   );
@@ -253,14 +433,14 @@ const TickerBarOpenInterestView = memo(
     const intl = useIntl();
     return (
       <DebugRenderTracker name="TickerBarOpenInterest">
-        <YStack>
+        <YStack gap={TICKER_BAR_STAT_DASH_LABEL_VALUE_GAP}>
           <Tooltip
             renderTrigger={
               <DashText
                 size="$bodySm"
                 color="$textSubdued"
-                dashColor="$textDisabled"
                 dashThickness={0.5}
+                dashSpacing={0}
                 cursor="help"
               >
                 {intl.formatMessage({
@@ -278,7 +458,7 @@ const TickerBarOpenInterestView = memo(
             placement="top"
           />
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText size="$headingXs">
+            <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}>
               ${formattedOpenInterest}
             </SizableText>
           </SkeletonContainer>
@@ -290,7 +470,7 @@ const TickerBarOpenInterestView = memo(
 TickerBarOpenInterestView.displayName = 'TickerBarOpenInterestView';
 
 function TickerBarOpenInterest() {
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
   const { openInterest = '0', markPrice = '0' } = assetCtx?.ctx || {};
   const formattedOpenInterest = formatDisplayNumber(
     NUMBER_FORMATTER.marketCap(
@@ -309,6 +489,134 @@ function TickerBarOpenInterest() {
   );
 }
 
+const TickerBarMarketCapView = memo(
+  ({
+    formattedMarketCap,
+    isLoading,
+  }: {
+    formattedMarketCap: string;
+    isLoading: boolean;
+  }) => {
+    const intl = useIntl();
+    return (
+      <DebugRenderTracker name="TickerBarMarketCap">
+        <YStack gap={TICKER_BAR_STAT_LABEL_VALUE_GAP}>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.global_market_cap,
+            })}
+          </SizableText>
+          <SkeletonContainer isLoading={isLoading} width={80} height={16}>
+            <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}>
+              {formattedMarketCap === '--'
+                ? formattedMarketCap
+                : `$${formattedMarketCap}`}
+            </SizableText>
+          </SkeletonContainer>
+        </YStack>
+      </DebugRenderTracker>
+    );
+  },
+);
+TickerBarMarketCapView.displayName = 'TickerBarMarketCapView';
+
+function TickerBarMarketCap() {
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
+  const marketCap = getSpotMarketCapValue(
+    spotAssetCtx?.ctx,
+    spotAssetCtx?.baseName ?? spotAssetCtx?.coin,
+    spotMarketCaps,
+  );
+  const formattedMarketCap = marketCap
+    ? formatDisplayNumber(NUMBER_FORMATTER.marketCap(marketCap))
+    : undefined;
+  const isLoading = useTickerBarIsLoading();
+
+  return (
+    <TickerBarMarketCapView
+      formattedMarketCap={
+        isString(formattedMarketCap) ? formattedMarketCap : '--'
+      }
+      isLoading={isLoading}
+    />
+  );
+}
+
+const TickerBarSpotContractView = memo(
+  ({ contract, isLoading }: { contract?: string; isLoading: boolean }) => {
+    const intl = useIntl();
+    const { copyText } = useClipboard();
+    const shortenedContract = contract
+      ? `${contract.slice(0, 6)}...${contract.slice(-4)}`
+      : '--';
+
+    return (
+      <DebugRenderTracker name="TickerBarSpotContract">
+        <YStack gap={TICKER_BAR_STAT_LABEL_VALUE_GAP}>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.global_contract,
+            })}
+          </SizableText>
+          <SkeletonContainer isLoading={isLoading} width={120} height={16}>
+            <XStack gap="$1" alignItems="center">
+              <SizableText
+                {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
+                fontFamily="$monoRegular"
+                color="$text"
+                numberOfLines={1}
+              >
+                {shortenedContract}
+              </SizableText>
+              {contract ? (
+                <>
+                  <IconButton
+                    testID={PerpTestIDs.TickerBarCopyContractButton}
+                    size="small"
+                    variant="tertiary"
+                    icon="Copy3Outline"
+                    iconProps={{ size: '$3', color: '$iconSubdued' }}
+                    onPress={() => {
+                      copyText(contract);
+                    }}
+                  />
+                  <IconButton
+                    testID={PerpTestIDs.TickerBarOpenContractButton}
+                    size="small"
+                    variant="tertiary"
+                    icon="OpenOutline"
+                    iconProps={{ size: '$3', color: '$iconSubdued' }}
+                    onPress={() => {
+                      void openHyperLiquidTokenExplorerUrl({
+                        tokenId: contract,
+                      });
+                    }}
+                  />
+                </>
+              ) : null}
+            </XStack>
+          </SkeletonContainer>
+        </YStack>
+      </DebugRenderTracker>
+    );
+  },
+);
+TickerBarSpotContractView.displayName = 'TickerBarSpotContractView';
+
+function TickerBarSpotContract() {
+  const [spotAsset] = useSpotActiveAssetAtom();
+  const { tokenContractMap } = useSpotMetaMaps();
+  const isLoading = useTickerBarIsLoading();
+  const contract =
+    tokenContractMap[spotAsset?.universe?.baseName ?? ''] ||
+    tokenContractMap[spotAsset?.coin ?? ''];
+
+  return (
+    <TickerBarSpotContractView contract={contract} isLoading={isLoading} />
+  );
+}
+
 function TickerBarFundingRateCountdown() {
   const countdown = useFundingCountdown();
   return (
@@ -317,12 +625,7 @@ function TickerBarFundingRateCountdown() {
       position="bottom-right"
       offsetX={10}
     >
-      <SizableText
-        size="$headingXs"
-        color="$text"
-        fontFamily="$monoRegular"
-        fontVariant={['tabular-nums']}
-      >
+      <SizableText {...TICKER_BAR_STAT_VALUE_TEXT_PROPS} color="$text">
         {countdown}
       </SizableText>
     </DebugRenderTracker>
@@ -354,22 +657,23 @@ const TickerBarFundingRateView = memo(
     const intl = useIntl();
     return (
       <DebugRenderTracker name="TickerBarFundingRate">
-        <YStack>
+        <YStack gap={TICKER_BAR_STAT_LABEL_VALUE_GAP}>
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.perp_token_bar_Funding,
             })}
           </SizableText>
           <SkeletonContainer isLoading={isLoading} width={120} height={16}>
-            <XStack alignItems="center" gap="$2">
+            <XStack alignItems="baseline" gap="$2">
               <Tooltip
+                hovering
                 renderTrigger={
-                  <XStack alignItems="center" gap="$2">
+                  <XStack alignItems="baseline" gap="$2">
                     <DashText
-                      size="$headingXs"
+                      {...TICKER_BAR_STAT_VALUE_TEXT_PROPS}
                       color={fundingRate >= 0 ? '$green11' : '$red11'}
-                      dashColor="$textDisabled"
                       dashThickness={0.5}
+                      dashSpacing={0}
                       cursor="help"
                     >
                       {`${fundingRatePercent}%`}
@@ -384,22 +688,12 @@ const TickerBarFundingRateView = memo(
                         justifyContent="space-between"
                         alignItems="center"
                       >
-                        <SizableText
-                          size="$headingXs"
-                          fontFamily="$monoRegular"
-                          fontVariant={['tabular-nums']}
-                          color="$textSubdued"
-                        >
+                        <SizableText size="$bodySm" color="$textSubdued">
                           {intl.formatMessage({
                             id: ETranslations.perps_fee_rate_projection,
                           })}
                         </SizableText>
-                        <SizableText
-                          size="$headingXs"
-                          fontFamily="$monoRegular"
-                          fontVariant={['tabular-nums']}
-                          color="$textSubdued"
-                        >
+                        <SizableText size="$bodySm" color="$textSubdued">
                           {intl.formatMessage({
                             id: ETranslations.perp_position_funding,
                           })}
@@ -411,28 +705,17 @@ const TickerBarFundingRateView = memo(
                           alignItems="center"
                         >
                           <XStack gap="$1" alignItems="center">
-                            <SizableText
-                              size="$headingXs"
-                              fontFamily="$monoRegular"
-                              fontVariant={['tabular-nums']}
-                            >
+                            <SizableText size="$bodySm">
                               {intl.formatMessage({
                                 id: ETranslations.perps_hourly,
                               })}
                             </SizableText>
-                            <SizableText
-                              size="$headingXs"
-                              fontFamily="$monoRegular"
-                              fontVariant={['tabular-nums']}
-                              color="$textSubdued"
-                            >
+                            <SizableText size="$bodySm" color="$textSubdued">
                               ({countdown})
                             </SizableText>
                           </XStack>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {hourlyFundingRate}%
@@ -442,19 +725,13 @@ const TickerBarFundingRateView = memo(
                           justifyContent="space-between"
                           alignItems="center"
                         >
-                          <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
-                          >
+                          <SizableText size="$bodySm">
                             {intl.formatMessage({
                               id: ETranslations.earn_daily,
                             })}
                           </SizableText>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {dailyFundingRate}%
@@ -464,19 +741,13 @@ const TickerBarFundingRateView = memo(
                           justifyContent="space-between"
                           alignItems="center"
                         >
-                          <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
-                          >
+                          <SizableText size="$bodySm">
                             {intl.formatMessage({
                               id: ETranslations.earn_weekly,
                             })}
                           </SizableText>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {weeklyFundingRate}%
@@ -486,19 +757,13 @@ const TickerBarFundingRateView = memo(
                           justifyContent="space-between"
                           alignItems="center"
                         >
-                          <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
-                          >
+                          <SizableText size="$bodySm">
                             {intl.formatMessage({
                               id: ETranslations.earn_monthly,
                             })}
                           </SizableText>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {monthlyFundingRate}%
@@ -508,19 +773,13 @@ const TickerBarFundingRateView = memo(
                           justifyContent="space-between"
                           alignItems="center"
                         >
-                          <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
-                          >
+                          <SizableText size="$bodySm">
                             {intl.formatMessage({
                               id: ETranslations.earn_annually,
                             })}
                           </SizableText>
                           <SizableText
-                            size="$headingXs"
-                            fontFamily="$monoRegular"
-                            fontVariant={['tabular-nums']}
+                            size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
                           >
                             {annualizedFundingRate}%
@@ -530,11 +789,7 @@ const TickerBarFundingRateView = memo(
                     </YStack>
                     <Divider />
                     <YStack gap="$2" justifyContent="space-between">
-                      <SizableText
-                        size="$headingXs"
-                        fontVariant={['tabular-nums']}
-                        color="$textSubdued"
-                      >
+                      <SizableText size="$bodySm" color="$textSubdued">
                         {intl.formatMessage({
                           id: ETranslations.perp_trades_history_direction,
                         })}
@@ -575,7 +830,7 @@ const TickerBarFundingRateView = memo(
                     </YStack>
                     <Divider />
                     <YStack gap="$2">
-                      <SizableText size="$headingXs" color="$textSubdued">
+                      <SizableText size="$bodySm" color="$textSubdued">
                         {intl.formatMessage({
                           id: ETranslations.perp_funding_rate_tip0,
                         })}
@@ -632,7 +887,36 @@ function TickerBarFundingRate() {
 }
 
 function PerpTickerBarDesktop() {
-  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [tradingMode] = useTradingModeAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
+  const isSpot = tradingMode === 'spot';
+  const marketDataGap = useMemo(() => (isSpot ? '$6' : '$6'), [isSpot]);
+  const priceSectionWidth = useMemo(() => {
+    if (isSpot) {
+      return TICKER_BAR_SPOT_PRICE_SECTION_WIDTH;
+    }
+
+    const formattedMarkPrice = formatLocalizedNumberString(
+      assetCtx?.ctx?.markPrice || '',
+    );
+    const changeDisplay = formatTickerBarChange24hDisplay({
+      change24h: assetCtx?.ctx?.change24h,
+      change24hPercent: assetCtx?.ctx?.change24hPercent,
+    });
+    const needsWidePriceSection =
+      formattedMarkPrice.length > TICKER_BAR_WIDE_MARK_PRICE_LENGTH ||
+      changeDisplay.length > TICKER_BAR_WIDE_CHANGE_DISPLAY_LENGTH;
+
+    return needsWidePriceSection
+      ? TICKER_BAR_WIDE_PRICE_SECTION_WIDTH
+      : TICKER_BAR_PRICE_SECTION_WIDTH;
+  }, [
+    assetCtx?.ctx?.change24h,
+    assetCtx?.ctx?.change24hPercent,
+    assetCtx?.ctx?.markPrice,
+    isSpot,
+  ]);
   const content = (
     <XStack
       bg="$bgApp"
@@ -643,19 +927,28 @@ function PerpTickerBarDesktop() {
       pr="$3"
       alignItems="center"
       justifyContent="flex-start"
-      gap="$6"
+      gap="$5"
       h={PERP_LAYOUT_CONFIG.desktop.tickerBarHeight}
     >
-      <XStack gap="$4" alignItems="center">
-        <XStack gap="$2" alignItems="center">
-          <FavoriteButton coin={activeAsset.coin} iconSize="$4" />
+      <XStack gap="$3" alignItems="center" minWidth={0} flexShrink={1}>
+        <XStack gap="$2" alignItems="center" minWidth={0} flexShrink={1}>
+          <FavoriteButton
+            coin={activeTradeInstrument.coin}
+            iconSize="$4"
+            isSpot={isSpot}
+          />
           <PerpTokenSelector />
         </XStack>
 
-        <XStack alignItems="center" width={140} gap="$1.5" cursor="default">
+        <YStack
+          alignItems="flex-start"
+          width={priceSectionWidth}
+          flexShrink={0}
+          cursor="default"
+        >
           <TickerBarMarkPrice />
-          <TickerBarChange24hPercent />
-        </XStack>
+          <TickerBarChange24h />
+        </YStack>
       </XStack>
 
       {/* Right: Market Data */}
@@ -663,16 +956,18 @@ function PerpTickerBarDesktop() {
         cursor="default"
         horizontal
         flex={1}
+        minWidth={0}
         contentContainerStyle={{
-          gap: '$8',
+          gap: marketDataGap,
           alignItems: 'center',
           justifyContent: 'flex-start',
         }}
       >
-        <TickerBarOraclePrice />
+        {isSpot ? null : <TickerBarOraclePrice />}
+        {isSpot ? null : <TickerBarFundingRate />}
         <TickerBar24hVolume />
-        <TickerBarOpenInterest />
-        <TickerBarFundingRate />
+        {isSpot ? <TickerBarMarketCap /> : <TickerBarOpenInterest />}
+        {isSpot ? <TickerBarSpotContract /> : null}
       </ScrollView>
     </XStack>
   );

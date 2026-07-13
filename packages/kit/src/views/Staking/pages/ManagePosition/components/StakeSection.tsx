@@ -40,10 +40,16 @@ import {
   buildBorrowTag,
   buildStakeTokenUniqueKey,
   normalizeStakeTokenAddress,
+  resolveNativeEarnProtocolSymbol,
+  resolveNativeEarnStakeRequestSymbol,
+  resolveNativeEarnStakeType,
   resolveStakeTokenAddress,
 } from '../../../utils/utils';
 
-import type { IManagePositionProtocolSwitchConfig } from './ManagePositionContent';
+import type {
+  IManagePositionFooterAction,
+  IManagePositionProtocolSwitchConfig,
+} from './ManagePositionContent';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
 export const StakeSection = ({
@@ -54,7 +60,9 @@ export const StakeSection = ({
   isDisabled,
   onSuccess,
   beforeFooter,
+  footerActionOverride,
   showApyDetail,
+  suppressPlatformBonus,
   isInModalContext,
   fallbackTokenImageUri,
   protocolSwitchConfig,
@@ -78,7 +86,9 @@ export const StakeSection = ({
   isDisabled?: boolean;
   onSuccess?: () => void;
   beforeFooter?: ReactElement | null;
+  footerActionOverride?: IManagePositionFooterAction;
   showApyDetail?: boolean;
+  suppressPlatformBonus?: boolean;
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
@@ -105,9 +115,32 @@ export const StakeSection = ({
     [protocolInfo?.provider],
   );
   const isPendleProvider = useIsPendleProvider(providerName);
+  const isNativeProvider = useMemo(
+    () => earnUtils.isNativeProvider({ providerName }),
+    [providerName],
+  );
+  const borrowProviderDisplayName = useMemo(() => {
+    if (
+      protocolInfo?.providerDetail.name &&
+      protocolInfo.providerDetail.name !== providerName
+    ) {
+      return protocolInfo.providerDetail.name;
+    }
+    return earnUtils.getEarnProviderName({
+      providerName,
+    });
+  }, [protocolInfo?.providerDetail.name, providerName]);
   const [selectedStakeAsset, setSelectedStakeAsset] = useState<
     IEarnTokenItem | undefined
   >(undefined);
+  const stakeAssetsSymbol = useMemo(
+    () =>
+      resolveNativeEarnProtocolSymbol({
+        isNativeProvider,
+        protocolSymbol: protocolInfo?.symbol,
+      }),
+    [isNativeProvider, protocolInfo?.symbol],
+  );
   const borrowApiCtx = useBorrowApiParams({
     useBorrowApi,
     networkId,
@@ -126,9 +159,9 @@ export const StakeSection = ({
     async () => {
       if (
         !hasRequiredData ||
-        !isPendleProvider ||
+        !(isPendleProvider || isNativeProvider) ||
         !accountId ||
-        !protocolInfo?.symbol
+        !stakeAssetsSymbol
       ) {
         return undefined;
       }
@@ -136,19 +169,20 @@ export const StakeSection = ({
         accountId,
         networkId,
         provider: providerName,
-        symbol: protocolInfo.symbol,
-        vault: protocolInfo.vault || undefined,
+        symbol: stakeAssetsSymbol,
+        vault: protocolInfo?.vault || undefined,
         action: 'stake',
       });
     },
     [
       hasRequiredData,
       isPendleProvider,
+      isNativeProvider,
       accountId,
       networkId,
       providerName,
-      protocolInfo?.symbol,
       protocolInfo?.vault,
+      stakeAssetsSymbol,
     ],
     {
       watchLoading: true,
@@ -216,16 +250,46 @@ export const StakeSection = ({
       effectiveStakeTokenInfo?.token.isNative,
     ],
   );
+  const nativeWrappedStakeAsset = useMemo(() => {
+    if (!isNativeProvider) {
+      return undefined;
+    }
+    return selectableStakeAssets.find(
+      (asset) =>
+        !asset.info.isNative && asset.info.symbol.toUpperCase() === 'WETH',
+    );
+  }, [isNativeProvider, selectableStakeAssets]);
+  const nativeStakeType = useMemo(
+    () =>
+      resolveNativeEarnStakeType({
+        isNativeProvider,
+        vaultSymbol: stakeAssetsSymbol,
+        tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
+      }),
+    [
+      effectiveStakeTokenInfo?.token?.isNative,
+      isNativeProvider,
+      stakeAssetsSymbol,
+    ],
+  );
   const stakeRequestSymbol = useMemo(
     () =>
-      protocolInfo?.symbol ||
-      tokenInfo?.token.symbol ||
-      effectiveStakeTokenInfo?.token.symbol ||
-      '',
+      resolveNativeEarnStakeRequestSymbol({
+        isNativeProvider,
+        protocolSymbol: stakeAssetsSymbol || protocolInfo?.symbol,
+        tokenSymbol:
+          effectiveStakeTokenInfo?.token.symbol || tokenInfo?.token.symbol,
+        tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
+        wrappedTokenSymbol: nativeWrappedStakeAsset?.info.symbol,
+      }),
     [
-      protocolInfo?.symbol,
-      tokenInfo?.token.symbol,
+      effectiveStakeTokenInfo?.token?.isNative,
       effectiveStakeTokenInfo?.token.symbol,
+      isNativeProvider,
+      nativeWrappedStakeAsset?.info.symbol,
+      protocolInfo?.symbol,
+      stakeAssetsSymbol,
+      tokenInfo?.token.symbol,
     ],
   );
   const approveSpenderAddress = useMemo(
@@ -275,7 +339,7 @@ export const StakeSection = ({
   }, [selectedStakeAsset?.info, effectiveStakeTokenInfo?.token]);
 
   const handleOpenStakeTokenSelector = useCallback(() => {
-    if (!accountId || !protocolInfo?.symbol) return;
+    if (!accountId || !stakeAssetsSymbol) return;
     const currentAddress = selectedStakeAsset?.info?.isNative
       ? 'native'
       : selectedStakeAsset?.info?.address;
@@ -285,8 +349,8 @@ export const StakeSection = ({
         networkId,
         accountId,
         provider: providerName,
-        symbol: protocolInfo.symbol,
-        vault: protocolInfo.vault || undefined,
+        symbol: stakeAssetsSymbol,
+        vault: protocolInfo?.vault || undefined,
         action: 'stake' as const,
         currentTokenAddress: currentAddress,
         onSelect: (item: IEarnTokenItem) => {
@@ -298,14 +362,17 @@ export const StakeSection = ({
     accountId,
     networkId,
     providerName,
-    protocolInfo?.symbol,
     protocolInfo?.vault,
     selectedStakeAsset?.info,
     navigation,
+    stakeAssetsSymbol,
   ]);
 
   const stakeTokenSelectorTriggerProps = useMemo(() => {
-    if (!isPendleProvider || !selectableStakeAssets.length) {
+    if (
+      !(isPendleProvider || isNativeProvider) ||
+      !selectableStakeAssets.length
+    ) {
       return undefined;
     }
 
@@ -318,6 +385,7 @@ export const StakeSection = ({
     };
   }, [
     isPendleProvider,
+    isNativeProvider,
     selectableStakeAssets.length,
     handleOpenStakeTokenSelector,
   ]);
@@ -407,6 +475,71 @@ export const StakeSection = ({
   const handleBorrowSupply = useUniversalBorrowSupply({ accountId, networkId });
   const handleBorrowBorrow = useUniversalBorrowBorrow({ accountId, networkId });
 
+  const borrowSupplyApproveToken = useMemo<IToken | undefined>(() => {
+    const token = tokenInfo?.token as IToken | undefined;
+    if (!token) {
+      return undefined;
+    }
+    if (protocolInfo?.approveAsset) {
+      return {
+        ...token,
+        address: protocolInfo.approveAsset,
+        isNative: false,
+        networkId,
+      };
+    }
+    return token;
+  }, [networkId, protocolInfo?.approveAsset, tokenInfo?.token]);
+
+  const borrowSupplyApproveTarget = useMemo(() => {
+    if (
+      !useBorrowApi ||
+      borrowAction !== 'supply' ||
+      !protocolInfo?.approve?.approveTarget ||
+      !borrowSupplyApproveToken ||
+      borrowSupplyApproveToken.isNative
+    ) {
+      return undefined;
+    }
+    return {
+      accountId,
+      networkId,
+      spenderAddress: protocolInfo.approve.approveTarget,
+      token: borrowSupplyApproveToken,
+    };
+  }, [
+    accountId,
+    borrowAction,
+    borrowSupplyApproveToken,
+    networkId,
+    protocolInfo?.approve?.approveTarget,
+    useBorrowApi,
+  ]);
+
+  const { result: borrowSupplyAllowanceResult } = usePromiseResult(
+    async () => {
+      if (!borrowSupplyApproveTarget) {
+        return undefined;
+      }
+      const { allowanceParsed } =
+        await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+          accountId,
+          networkId,
+          spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            approveType: EApproveType.Legacy,
+            approveSpenderAddress: borrowSupplyApproveTarget.spenderAddress,
+          }),
+          tokenAddress: borrowSupplyApproveTarget.token.address,
+        });
+
+      return { allowanceParsed };
+    },
+    [accountId, borrowSupplyApproveTarget, networkId],
+    {
+      watchLoading: true,
+    },
+  );
+
   const onConfirm = useCallback(
     async ({
       amount,
@@ -416,10 +549,13 @@ export const StakeSection = ({
       message,
       effectiveApy,
       validatorPubkey,
+      stakeType: confirmStakeType,
+      onStepChange,
     }: IApproveConfirmFnParams) => {
       if (!hasRequiredData) return;
 
       const token = effectiveStakeTokenInfo?.token as IToken;
+      const effectiveStakeType = confirmStakeType ?? nativeStakeType;
 
       if (borrowApiCtx.isBorrow) return;
 
@@ -435,6 +571,14 @@ export const StakeSection = ({
         outputTokenAddress: receiveInputConfig?.tokenAddress ?? '',
         slippage: pendleSlippage,
         effectiveApy,
+        stakeType: effectiveStakeType,
+        postWrapStakeToken:
+          effectiveStakeType === 'wrap'
+            ? nativeWrappedStakeAsset?.info
+            : undefined,
+        postWrapApproveSpenderAddress:
+          effectiveStakeType === 'wrap' ? approveSpenderAddress : undefined,
+        onStepChange,
         stakingInfo: {
           label: isPendleProvider ? EEarnLabels.Buy : EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({
@@ -447,7 +591,7 @@ export const StakeSection = ({
         // TODO: remove term after babylon remove term
         term: undefined,
         feeRate: Number(btcFeeRate) > 0 ? Number(btcFeeRate) : undefined,
-        protocolVault: earnUtils.isVaultBasedProvider({
+        protocolVault: earnUtils.shouldSendEarnProtocolVault({
           providerName,
         })
           ? protocolInfo?.vault
@@ -507,6 +651,9 @@ export const StakeSection = ({
       borrowApiCtx.isBorrow,
       pendleSlippage,
       isPendleProvider,
+      nativeStakeType,
+      nativeWrappedStakeAsset?.info,
+      approveSpenderAddress,
     ],
   );
 
@@ -546,9 +693,7 @@ export const StakeSection = ({
           ? {
               label:
                 action === 'borrow' ? EEarnLabels.Borrow : EEarnLabels.Supply,
-              protocol: earnUtils.getEarnProviderName({
-                providerName: provider,
-              }),
+              protocol: borrowProviderDisplayName,
               protocolLogoURI: protocolInfo?.providerDetail.logoURI,
               ...(action === 'borrow'
                 ? { receive: { token, amount } }
@@ -563,6 +708,7 @@ export const StakeSection = ({
     },
     [
       borrowApiCtx,
+      borrowProviderDisplayName,
       handleBorrowBorrow,
       handleBorrowSupply,
       hasRequiredData,
@@ -615,6 +761,7 @@ export const StakeSection = ({
         }}
         isInModalContext={isInModalContext}
         beforeFooter={beforeFooter}
+        footerActionOverride={footerActionOverride}
         protocolSwitchConfig={protocolSwitchConfig}
       />
     );
@@ -637,6 +784,11 @@ export const StakeSection = ({
           tokenSymbol={tokenInfo?.token.symbol}
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
           onConfirm={onBorrowConfirm}
+          approveTarget={borrowSupplyApproveTarget}
+          currentAllowance={
+            borrowSupplyAllowanceResult?.allowanceParsed ??
+            protocolInfo?.approve?.allowance
+          }
           tokenInfo={tokenInfo}
           isDisabled={isDisabled}
           borrowMarketAddress={
@@ -681,8 +833,18 @@ export const StakeSection = ({
             spenderAddress: approveSpenderAddress,
             token: effectiveStakeTokenInfo?.token,
           }}
+          postWrapApproveTarget={
+            nativeStakeType === 'wrap'
+              ? {
+                  spenderAddress: approveSpenderAddress,
+                  token: nativeWrappedStakeAsset?.info,
+                }
+              : undefined
+          }
           beforeFooter={beforeFooter}
+          footerActionOverride={footerActionOverride}
           showApyDetail={showApyDetail}
+          suppressPlatformBonus={suppressPlatformBonus}
           isInModalContext={isInModalContext}
           protocolSwitchConfig={protocolSwitchConfig}
           ongoingValidator={ongoingValidator}
@@ -696,6 +858,7 @@ export const StakeSection = ({
           requestSymbol={stakeRequestSymbol}
           transactionInputTokenAddress={selectedStakeTokenAddress}
           transactionOutputTokenAddress={receiveInputConfig?.tokenAddress ?? ''}
+          stakeType={nativeStakeType}
           isQuoteExpired={isQuoteExpired}
           onQuoteReset={onQuoteReset}
           refreshKey={refreshKey}

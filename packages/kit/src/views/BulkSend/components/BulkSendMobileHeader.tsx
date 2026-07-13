@@ -51,6 +51,7 @@ export function useBulkSendMobileHeader({
     () =>
       onChangeBulkSendMode ? (
         <IconButton
+          testID="bulk-send-render-header-right-icon-btn"
           icon="SwitchHorOutline"
           variant="tertiary"
           onPress={onChangeBulkSendMode}

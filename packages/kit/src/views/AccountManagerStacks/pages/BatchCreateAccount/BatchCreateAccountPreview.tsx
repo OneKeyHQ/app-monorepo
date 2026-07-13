@@ -850,6 +850,7 @@ function BatchCreateAccountPreviewPage({
               </SizableText>
               <XStack justifyContent="center">
                 <Button
+                  testID="account-manager-btn"
                   width="auto"
                   variant="primary"
                   onPress={() => {
@@ -1002,6 +1003,7 @@ function BatchCreateAccountPreviewPage({
           >
             <Stack>
               <Checkbox
+                testID="account-manager-checkbox"
                 onChange={(val) => {
                   selectCheckBox({
                     val,
@@ -1036,6 +1038,7 @@ function BatchCreateAccountPreviewPage({
             </Stack>
             <Stack flex={1} />
             <IconButton
+              testID="account-manager-state-icon-btn"
               icon="SliderThreeOutline"
               mr="$3"
               borderRadius="$2"

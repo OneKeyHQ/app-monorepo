@@ -4,8 +4,13 @@ import {
   memo,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
 } from 'react';
+
+import { useAtomValue } from 'jotai';
+import { selectAtom } from 'jotai/utils';
+import { useIntl } from 'react-intl';
 
 import {
   DebugRenderTracker,
@@ -14,29 +19,43 @@ import {
   SizableText,
   SkeletonContainer,
   Stack,
-  Tooltip,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { SubtitleText } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
-  usePerpsAllAssetsFilteredAtom,
-  usePerpsTokenSearchAliasesAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpTokenFavoritesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+  type ISpotAssetCtxEntry,
+  spotAssetCtxsMapAtom,
+  usePerpTokenFavoritesPersistAtom,
+  usePerpsFavoritesOrderPersistAtom,
+  useSpotExternalMarketCapsAtom,
+  useSpotTokenFavoritesPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
+  formatLocalizedNumberString,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
+  reconcileTokenSelectorFavoritesOrder,
+  updateTokenSelectorFavoriteCoins,
+} from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
+import {
+  formatSpotPairDisplayName,
+  formatSpotPriceToValid,
+  formatWithPrecision,
   getHyperliquidTokenImageUrl,
-  getTokenSubtitle,
+  getSpotMarketCapValue,
+  getSpotTokenDisplayName,
+  getValidSpotPriceDecimals,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
+import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
 
@@ -44,13 +63,24 @@ interface IPerpTokenSelectorRowProps {
   mockedToken: {
     index: number;
     dexIndex: number;
+    assetId?: number;
+    tokenName?: string;
+    tokenMaxLeverage?: number;
+    tokenSubtitle?: string;
+    spotUniverse?: ISpotUniverse;
   };
   onPress: (name: string) => void;
   isOnModal?: boolean;
   skipMarkRequired?: boolean;
+  desktopLayout?: 'perp' | 'spot' | 'mixed';
 }
 
 interface ITokenSelectorRowContextValue {
+  isSpot?: boolean;
+  desktopLayout?: 'perp' | 'spot' | 'mixed';
+  // Spot favorite key — the HL pair id ("PURR/USDC", "@149"), distinct from
+  // token.name (base name used for image/display lookups).
+  pairCoin?: string;
   token: {
     name: string;
     displayName: string;
@@ -64,6 +94,7 @@ interface ITokenSelectorRowContextValue {
     change24h: string;
     change24hPercent: number;
     fundingRate: string;
+    marketCap?: string;
     volume24h: string;
     openInterest: string;
   };
@@ -74,8 +105,90 @@ interface ITokenSelectorRowContextValue {
 const TokenSelectorRowContext =
   createContext<ITokenSelectorRowContextValue | null>(null);
 
-const DESKTOP_SUBTITLE_MAX_WIDTH = 52;
-const MOBILE_SUBTITLE_MAX_WIDTH = 80;
+const DESKTOP_METRIC_TEXT_LINE_HEIGHT = 16;
+
+function isSpotAssetCtxEntryEqual(
+  a: ISpotAssetCtxEntry | null,
+  b: ISpotAssetCtxEntry | null,
+) {
+  if (a === b) {
+    return true;
+  }
+  if (!a || !b) {
+    return false;
+  }
+  return (
+    a.markPx === b.markPx &&
+    a.prevDayPx === b.prevDayPx &&
+    a.dayNtlVlm === b.dayNtlVlm &&
+    a.circulatingSupply === b.circulatingSupply &&
+    a.totalSupply === b.totalSupply
+  );
+}
+
+function createSpotAssetCtxByPairAtom(pairName: string) {
+  return selectAtom(
+    spotAssetCtxsMapAtom.atom(),
+    (
+      spotPriceMap,
+      prevCtx?: ISpotAssetCtxEntry | null,
+    ): ISpotAssetCtxEntry | null => {
+      const nextCtx = spotPriceMap[pairName] ?? null;
+      if (prevCtx !== undefined && isSpotAssetCtxEntryEqual(prevCtx, nextCtx)) {
+        return prevCtx;
+      }
+      return nextCtx;
+    },
+  );
+}
+
+const spotAssetCtxByPairAtomCache = new Map<
+  string,
+  ReturnType<typeof createSpotAssetCtxByPairAtom>
+>();
+
+function getOrCreateSpotAssetCtxByPairAtom(pairName: string) {
+  let entry = spotAssetCtxByPairAtomCache.get(pairName);
+  if (!entry) {
+    entry = createSpotAssetCtxByPairAtom(pairName);
+    spotAssetCtxByPairAtomCache.set(pairName, entry);
+  }
+  return entry;
+}
+
+function useSpotAssetCtxByPair(pairName: string) {
+  const selectedAtom = useMemo(
+    () => getOrCreateSpotAssetCtxByPairAtom(pairName),
+    [pairName],
+  );
+  return useAtomValue(selectedAtom);
+}
+
+export const SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT = {
+  asset: { flex: 2.2, minWidth: 220 },
+  price: { flex: 1.1, minWidth: 110 },
+  change24h: { flex: 1.5, minWidth: 150 },
+  volume: { flex: 1.1, minWidth: 110 },
+  marketCap: { flex: 1.2, minWidth: 120 },
+} as const;
+
+export const MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT = {
+  asset: { flex: 2, minWidth: 180 },
+  price: { flex: 1, minWidth: 100 },
+  change24h: { flex: 1.25, minWidth: 130 },
+  fundingRate: { flex: 1, minWidth: 100 },
+  volume: { flex: 1, minWidth: 100 },
+  openInterest: { flex: 1.1, minWidth: 110 },
+  marketCap: { flex: 1.1, minWidth: 110 },
+} as const;
+
+function getFlexibleDesktopColumnLayout(
+  desktopLayout?: 'perp' | 'spot' | 'mixed',
+) {
+  return desktopLayout === 'mixed'
+    ? MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT
+    : SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT;
+}
 
 function useTokenSelectorRowContext() {
   const context = useContext(TokenSelectorRowContext);
@@ -103,32 +216,75 @@ export const FavoriteButton = memo(
     coin,
     isMobile,
     iconSize,
+    isSpot,
   }: {
     coin: string;
     isMobile?: boolean;
     iconSize?: string;
+    isSpot?: boolean;
   }) => {
-    const [favorites, setFavorites] = usePerpTokenFavoritesPersistAtom();
-    const isFavorite = favorites.favorites.includes(coin);
+    const [perpFavs, setPerpFavs] = usePerpTokenFavoritesPersistAtom();
+    const [spotFavs, setSpotFavs] = useSpotTokenFavoritesPersistAtom();
+    const [, setFavoritesOrder] = usePerpsFavoritesOrderPersistAtom();
+    const isFavorite = isSpot
+      ? spotFavs.favorites.includes(coin)
+      : perpFavs.favorites.includes(coin);
 
     const handleToggle = useCallback(() => {
-      setFavorites((prev) => {
-        const alreadyFavorite = prev.favorites.includes(coin);
-        void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
+      const mode = isSpot ? 'spot' : 'perp';
+      const action = isFavorite ? 'remove' : 'add';
+      const updateFavorites = (favorites: string[]) =>
+        updateTokenSelectorFavoriteCoins({
+          favorites,
           coin,
-          action: alreadyFavorite ? 'remove' : 'add',
-        });
-        return {
+          action,
+        }).favorites;
+
+      if (isSpot) {
+        setSpotFavs((prev) => ({
           ...prev,
-          favorites: alreadyFavorite
-            ? prev.favorites.filter((f) => f !== coin)
-            : [...prev.favorites, coin],
-        };
+          favorites: updateFavorites(prev.favorites),
+        }));
+      } else {
+        setPerpFavs((prev) => ({
+          ...prev,
+          favorites: updateFavorites(prev.favorites),
+        }));
+      }
+
+      const nextPerpFavorites = isSpot
+        ? perpFavs.favorites
+        : updateFavorites(perpFavs.favorites);
+      const nextSpotFavorites = isSpot
+        ? updateFavorites(spotFavs.favorites)
+        : spotFavs.favorites;
+      setFavoritesOrder((prev) => ({
+        sequence: reconcileTokenSelectorFavoritesOrder({
+          sequence: prev.sequence,
+          perpFavorites: nextPerpFavorites,
+          spotFavorites: nextSpotFavorites,
+        }),
+      }));
+
+      void backgroundApiProxy.serviceHyperliquid.updateTokenSelectorFavorite({
+        mode,
+        coin,
+        action,
       });
-    }, [coin, setFavorites]);
+    }, [
+      coin,
+      isFavorite,
+      isSpot,
+      perpFavs.favorites,
+      setFavoritesOrder,
+      setPerpFavs,
+      setSpotFavs,
+      spotFavs.favorites,
+    ]);
 
     return (
       <IconButton
+        testID="perp-already-favorite-icon-btn"
         icon={isFavorite ? 'StarSolid' : 'StarOutline'}
         variant="tertiary"
         size="small"
@@ -145,63 +301,49 @@ export const FavoriteButton = memo(
 
 FavoriteButton.displayName = 'FavoriteButton';
 
-const SubtitleBadge = memo(
+export const TradingModeBadge = memo(
   ({
-    subtitle,
-    maxWidth,
-    withTooltip,
+    isSpot,
+    px = '$1',
+    bg = '$bgSubdued',
+    color = '$textSubdued',
   }: {
-    subtitle: string;
-    maxWidth: number;
-    withTooltip?: boolean;
+    isSpot: boolean;
+    px?: string | number;
+    bg?: string;
+    color?: string;
   }) => {
-    const badge = (
+    const intl = useIntl();
+
+    return (
       <XStack
         borderRadius="$1"
-        bg="$bgInfo"
+        bg={bg}
         justifyContent="center"
         alignItems="center"
-        px="$1"
-        maxWidth={maxWidth}
-        minWidth={0}
-        overflow="hidden"
-        flexShrink={0}
-        accessibilityLabel={subtitle}
+        px={px}
       >
-        <SizableText
-          fontSize={10}
-          alignSelf="center"
-          color="$textInfo"
-          lineHeight={16}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-          flexShrink={1}
-        >
-          {subtitle}
+        <SizableText color={color} fontSize={10} lineHeight={16}>
+          {isSpot
+            ? intl.formatMessage({
+                id: ETranslations.dexmarket_spot,
+              })
+            : intl.formatMessage({
+                id: ETranslations.perp_label_perp,
+              })}
         </SizableText>
       </XStack>
     );
-
-    if (!withTooltip) {
-      return badge;
-    }
-
-    return (
-      <Tooltip
-        placement="top"
-        hovering
-        renderTrigger={badge}
-        renderContent={subtitle}
-      />
-    );
   },
 );
-SubtitleBadge.displayName = 'SubtitleBadge';
+TradingModeBadge.displayName = 'TradingModeBadge';
 
 // Desktop cell components
 const TokenInfoCellDesktop = memo(() => {
-  const { token } = useTokenSelectorRowContext();
-  const { gtLg } = useMedia();
+  const { token, isSpot, pairCoin, desktopLayout } =
+    useTokenSelectorRowContext();
+  const useFlexibleLayout = isSpot || desktopLayout === 'mixed';
+  const columnLayout = getFlexibleDesktopColumnLayout(desktopLayout);
 
   const content = useMemo(
     () => (
@@ -211,13 +353,15 @@ const TokenInfoCellDesktop = memo(() => {
         offsetY={10}
       >
         <XStack
-          width={180}
+          width={useFlexibleLayout ? undefined : 180}
+          flex={useFlexibleLayout ? columnLayout.asset.flex : undefined}
+          flexBasis={useFlexibleLayout ? 0 : undefined}
+          minWidth={useFlexibleLayout ? columnLayout.asset.minWidth : 180}
           justifyContent="flex-start"
           gap="$1.5"
           alignItems="center"
-          minWidth={0}
         >
-          <FavoriteButton coin={token.name} />
+          <FavoriteButton coin={pairCoin ?? token.name} isSpot={isSpot} />
           <XStack
             gap="$1.5"
             alignItems="center"
@@ -227,44 +371,68 @@ const TokenInfoCellDesktop = memo(() => {
             minWidth={0}
           >
             <Token
-              size="xs"
+              size="sm"
               borderRadius="$full"
-              tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
+              tokenImageUri={getHyperliquidTokenImageUrl(
+                isSpot ? token.name : token.displayName,
+              )}
               fallbackIcon="CryptoCoinOutline"
             />
-            <SizableText size="$bodySmMedium" numberOfLines={1} flexShrink={1}>
-              {token.displayName}
-            </SizableText>
-            <XStack gap="$1" minWidth={0}>
-              <XStack
-                borderRadius="$1"
-                bg="$bgStrong"
-                justifyContent="center"
-                alignItems="center"
-                px="$1.5"
-              >
+            <YStack flex={1} minWidth={0}>
+              <XStack gap="$1" alignItems="center" minWidth={0}>
                 <SizableText
-                  fontSize={10}
-                  alignSelf="center"
-                  color="$textSubdued"
-                  lineHeight={16}
+                  size="$bodySmMedium"
+                  numberOfLines={1}
+                  flexShrink={1}
                 >
-                  {token.maxLeverage}x
+                  {token.displayName}
                 </SizableText>
+                {isSpot ? (
+                  <TradingModeBadge
+                    isSpot
+                    px="$1.5"
+                    bg="$bgStrong"
+                    color="$textSubdued"
+                  />
+                ) : null}
+                {!isSpot && token.maxLeverage > 0 ? (
+                  <XStack
+                    borderRadius="$1"
+                    bg="$bgStrong"
+                    justifyContent="center"
+                    alignItems="center"
+                    px="$1.5"
+                  >
+                    <SizableText
+                      fontSize={10}
+                      alignSelf="center"
+                      color="$textSubdued"
+                      lineHeight={16}
+                    >
+                      {token.maxLeverage}x
+                    </SizableText>
+                  </XStack>
+                ) : null}
               </XStack>
-              {token.subtitle && gtLg ? (
-                <SubtitleBadge
-                  subtitle={token.subtitle}
-                  maxWidth={DESKTOP_SUBTITLE_MAX_WIDTH}
-                  withTooltip
-                />
+              {token.subtitle ? (
+                <SubtitleText subtitle={token.subtitle} maxWidth={120} />
               ) : null}
-            </XStack>
+            </YStack>
           </XStack>
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.subtitle, token.maxLeverage, token.name, gtLg],
+    [
+      token.displayName,
+      token.subtitle,
+      token.maxLeverage,
+      token.name,
+      isSpot,
+      pairCoin,
+      useFlexibleLayout,
+      columnLayout.asset.flex,
+      columnLayout.asset.minWidth,
+    ],
   );
   return content;
 });
@@ -272,7 +440,10 @@ const TokenInfoCellDesktop = memo(() => {
 TokenInfoCellDesktop.displayName = 'TokenInfoCellDesktop';
 
 const TokenPriceCellDesktop = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+  const { assetCtx, isLoading, isSpot, desktopLayout } =
+    useTokenSelectorRowContext();
+  const useFlexibleLayout = isSpot || desktopLayout === 'mixed';
+  const columnLayout = getFlexibleDesktopColumnLayout(desktopLayout);
 
   const content = useMemo(
     () => (
@@ -281,20 +452,45 @@ const TokenPriceCellDesktop = memo(() => {
         name="TokenPriceCellDesktop"
         offsetY={10}
       >
-        <XStack width={110} justifyContent="flex-start">
+        <XStack
+          width={useFlexibleLayout ? undefined : 110}
+          flex={useFlexibleLayout ? columnLayout.price.flex : undefined}
+          flexBasis={useFlexibleLayout ? 0 : undefined}
+          minWidth={useFlexibleLayout ? columnLayout.price.minWidth : 110}
+          justifyContent="flex-start"
+          alignItems="center"
+        >
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
-            <NumberSizeableText
-              formatter="price"
-              size="$bodySmMedium"
-              color="$text"
-            >
-              {assetCtx.markPrice}
-            </NumberSizeableText>
+            {isSpot ? (
+              <SizableText
+                size="$bodySmMedium"
+                color="$text"
+                lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+              >
+                {assetCtx.markPrice}
+              </SizableText>
+            ) : (
+              <NumberSizeableText
+                formatter="price"
+                size="$bodySmMedium"
+                color="$text"
+                lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+              >
+                {assetCtx.markPrice}
+              </NumberSizeableText>
+            )}
           </SkeletonContainer>
         </XStack>
       </DebugRenderTracker>
     ),
-    [assetCtx.markPrice, isLoading],
+    [
+      assetCtx.markPrice,
+      isLoading,
+      isSpot,
+      useFlexibleLayout,
+      columnLayout.price.flex,
+      columnLayout.price.minWidth,
+    ],
   );
   return content;
 });
@@ -302,7 +498,10 @@ const TokenPriceCellDesktop = memo(() => {
 TokenPriceCellDesktop.displayName = 'TokenPriceCellDesktop';
 
 const Token24hChangeCellDesktop = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+  const { assetCtx, isLoading, isSpot, desktopLayout } =
+    useTokenSelectorRowContext();
+  const useFlexibleLayout = isSpot || desktopLayout === 'mixed';
+  const columnLayout = getFlexibleDesktopColumnLayout(desktopLayout);
 
   const content = useMemo(
     () => (
@@ -311,15 +510,24 @@ const Token24hChangeCellDesktop = memo(() => {
         name="Token24hChangeCellDesktop"
         offsetY={10}
       >
-        <XStack width={150} justifyContent="flex-start">
+        <XStack
+          width={useFlexibleLayout ? undefined : 150}
+          flex={useFlexibleLayout ? columnLayout.change24h.flex : undefined}
+          flexBasis={useFlexibleLayout ? 0 : undefined}
+          minWidth={useFlexibleLayout ? columnLayout.change24h.minWidth : 150}
+          justifyContent="flex-start"
+          alignItems="center"
+        >
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText
               size="$bodySm"
               color={assetCtx.change24hPercent > 0 ? '$green11' : '$red11'}
+              lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
             >
               <SizableText
                 size="$bodySm"
                 color={assetCtx.change24hPercent > 0 ? '$green11' : '$red11'}
+                lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
               >
                 {assetCtx.change24h}
               </SizableText>{' '}
@@ -329,6 +537,7 @@ const Token24hChangeCellDesktop = memo(() => {
                 color={assetCtx.change24hPercent > 0 ? '$green11' : '$red11'}
                 formatter="priceChange"
                 formatterOptions={{ showPlusMinusSigns: true }}
+                lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
               >
                 {assetCtx.change24hPercent.toString()}
               </NumberSizeableText>
@@ -337,7 +546,14 @@ const Token24hChangeCellDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [assetCtx.change24h, assetCtx.change24hPercent, isLoading],
+    [
+      assetCtx.change24h,
+      assetCtx.change24hPercent,
+      isLoading,
+      useFlexibleLayout,
+      columnLayout.change24h.flex,
+      columnLayout.change24h.minWidth,
+    ],
   );
   return content;
 });
@@ -345,7 +561,10 @@ const Token24hChangeCellDesktop = memo(() => {
 Token24hChangeCellDesktop.displayName = 'Token24hChangeCellDesktop';
 
 const TokenFundingCellDesktop = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+  const { assetCtx, isLoading, isSpot, desktopLayout } =
+    useTokenSelectorRowContext();
+  const useFlexibleLayout = desktopLayout === 'mixed';
+  const mixedColumnLayout = MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT;
 
   const content = useMemo(
     () => (
@@ -354,16 +573,46 @@ const TokenFundingCellDesktop = memo(() => {
         name="TokenFundingCellDesktop"
         offsetY={10}
       >
-        <XStack width={110} justifyContent="flex-start">
-          <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
-            <SizableText size="$bodySm" color="$text">
-              {(Number(assetCtx.fundingRate) * 100).toFixed(4)}%
+        <XStack
+          width={useFlexibleLayout ? undefined : 110}
+          flex={
+            useFlexibleLayout ? mixedColumnLayout.fundingRate.flex : undefined
+          }
+          flexBasis={useFlexibleLayout ? 0 : undefined}
+          minWidth={
+            useFlexibleLayout
+              ? mixedColumnLayout.fundingRate.minWidth
+              : undefined
+          }
+          justifyContent="flex-start"
+          alignItems="center"
+        >
+          <SkeletonContainer
+            isLoading={!isSpot ? isLoading : false}
+            width="80%"
+            height={16}
+          >
+            <SizableText
+              size="$bodySm"
+              color="$text"
+              lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+            >
+              {isSpot
+                ? '-'
+                : `${(Number(assetCtx.fundingRate) * 100).toFixed(4)}%`}
             </SizableText>
           </SkeletonContainer>
         </XStack>
       </DebugRenderTracker>
     ),
-    [assetCtx.fundingRate, isLoading],
+    [
+      assetCtx.fundingRate,
+      isLoading,
+      isSpot,
+      useFlexibleLayout,
+      mixedColumnLayout.fundingRate.flex,
+      mixedColumnLayout.fundingRate.minWidth,
+    ],
   );
   return content;
 });
@@ -371,7 +620,10 @@ const TokenFundingCellDesktop = memo(() => {
 TokenFundingCellDesktop.displayName = 'TokenFundingCellDesktop';
 
 const TokenVolumeCellDesktop = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+  const { assetCtx, isLoading, isSpot, desktopLayout } =
+    useTokenSelectorRowContext();
+  const useFlexibleLayout = isSpot || desktopLayout === 'mixed';
+  const columnLayout = getFlexibleDesktopColumnLayout(desktopLayout);
 
   const content = useMemo(
     () => (
@@ -380,9 +632,20 @@ const TokenVolumeCellDesktop = memo(() => {
         name="TokenVolumeCellDesktop"
         offsetY={10}
       >
-        <XStack width={110} justifyContent="flex-start">
+        <XStack
+          width={useFlexibleLayout ? undefined : 110}
+          flex={useFlexibleLayout ? columnLayout.volume.flex : undefined}
+          flexBasis={useFlexibleLayout ? 0 : undefined}
+          minWidth={useFlexibleLayout ? columnLayout.volume.minWidth : 110}
+          justifyContent="flex-start"
+          alignItems="center"
+        >
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
-            <SizableText size="$bodySm" color="$text">
+            <SizableText
+              size="$bodySm"
+              color="$text"
+              lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+            >
               $
               {formatDisplayNumber(
                 NUMBER_FORMATTER.marketCap(assetCtx.volume24h),
@@ -392,27 +655,78 @@ const TokenVolumeCellDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [assetCtx.volume24h, isLoading],
+    [
+      assetCtx.volume24h,
+      isLoading,
+      useFlexibleLayout,
+      columnLayout.volume.flex,
+      columnLayout.volume.minWidth,
+    ],
   );
   return content;
 });
 
 TokenVolumeCellDesktop.displayName = 'TokenVolumeCellDesktop';
 
-const TokenOpenInterestCellDesktop = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+const TokenMarketCapCellDesktop = memo(() => {
+  const { assetCtx, isLoading, isSpot, desktopLayout } =
+    useTokenSelectorRowContext();
+  const useFlexibleLayout = isSpot || desktopLayout === 'mixed';
+  const columnLayout = getFlexibleDesktopColumnLayout(desktopLayout);
 
-  const openInterestValue = useMemo(
-    () =>
-      formatDisplayNumber(
-        NUMBER_FORMATTER.marketCap(
-          (
-            Number(assetCtx.openInterest) * Number(assetCtx.markPrice)
-          ).toString(),
-        ),
-      ),
-    [assetCtx.openInterest, assetCtx.markPrice],
+  const content = useMemo(
+    () => (
+      <XStack
+        width={useFlexibleLayout ? undefined : 120}
+        flex={useFlexibleLayout ? columnLayout.marketCap.flex : undefined}
+        flexBasis={useFlexibleLayout ? 0 : undefined}
+        minWidth={useFlexibleLayout ? columnLayout.marketCap.minWidth : 120}
+        justifyContent="flex-start"
+        alignItems="center"
+      >
+        <SkeletonContainer
+          isLoading={isSpot ? isLoading : false}
+          width="80%"
+          height={16}
+        >
+          <SizableText
+            size="$bodySm"
+            color="$text"
+            lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+          >
+            {assetCtx.marketCap ?? '-'}
+          </SizableText>
+        </SkeletonContainer>
+      </XStack>
+    ),
+    [
+      assetCtx.marketCap,
+      isLoading,
+      isSpot,
+      useFlexibleLayout,
+      columnLayout.marketCap.flex,
+      columnLayout.marketCap.minWidth,
+    ],
   );
+  return content;
+});
+
+TokenMarketCapCellDesktop.displayName = 'TokenMarketCapCellDesktop';
+
+const TokenOpenInterestCellDesktop = memo(() => {
+  const { assetCtx, isLoading, isSpot, desktopLayout } =
+    useTokenSelectorRowContext();
+  const useFlexibleLayout = desktopLayout === 'mixed';
+  const mixedColumnLayout = MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT;
+
+  const openInterestDisplay = useMemo(() => {
+    const formatted = formatDisplayNumber(
+      NUMBER_FORMATTER.marketCap(
+        (Number(assetCtx.openInterest) * Number(assetCtx.markPrice)).toString(),
+      ),
+    );
+    return typeof formatted === 'string' ? `$${formatted}` : '-';
+  }, [assetCtx.openInterest, assetCtx.markPrice]);
 
   const content = useMemo(
     () => (
@@ -421,16 +735,44 @@ const TokenOpenInterestCellDesktop = memo(() => {
         name="TokenOpenInterestCellDesktop"
         offsetY={10}
       >
-        <XStack width={120} justifyContent="flex-start">
-          <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
-            <SizableText size="$bodySm" color="$text">
-              ${openInterestValue}
+        <XStack
+          width={useFlexibleLayout ? undefined : 120}
+          flex={
+            useFlexibleLayout ? mixedColumnLayout.openInterest.flex : undefined
+          }
+          flexBasis={useFlexibleLayout ? 0 : undefined}
+          minWidth={
+            useFlexibleLayout
+              ? mixedColumnLayout.openInterest.minWidth
+              : undefined
+          }
+          justifyContent="flex-start"
+          alignItems="center"
+        >
+          <SkeletonContainer
+            isLoading={!isSpot ? isLoading : false}
+            width="80%"
+            height={16}
+          >
+            <SizableText
+              size="$bodySm"
+              color="$text"
+              lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+            >
+              {isSpot ? '-' : openInterestDisplay}
             </SizableText>
           </SkeletonContainer>
         </XStack>
       </DebugRenderTracker>
     ),
-    [openInterestValue, isLoading],
+    [
+      openInterestDisplay,
+      isLoading,
+      isSpot,
+      useFlexibleLayout,
+      mixedColumnLayout.openInterest.flex,
+      mixedColumnLayout.openInterest.minWidth,
+    ],
   );
   return content;
 });
@@ -438,7 +780,7 @@ const TokenOpenInterestCellDesktop = memo(() => {
 TokenOpenInterestCellDesktop.displayName = 'TokenOpenInterestCellDesktop';
 
 const TokenSelectorRowDesktop = memo(() => {
-  const { onPress } = useTokenSelectorRowContext();
+  const { onPress, isSpot, desktopLayout } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -451,22 +793,42 @@ const TokenSelectorRowDesktop = memo(() => {
           onPress={onPress}
           borderRadius="$0"
           justifyContent="flex-start"
+          width="100%"
           hoverStyle={{ bg: '$bgHover' }}
           px="$4"
           py="$3"
+          minHeight={48}
           flex={1}
           cursor="default"
         >
           <TokenInfoCellDesktop />
           <TokenPriceCellDesktop />
           <Token24hChangeCellDesktop />
-          <TokenFundingCellDesktop />
-          <TokenVolumeCellDesktop />
-          <TokenOpenInterestCellDesktop />
+          {desktopLayout === 'mixed' ? (
+            <>
+              <TokenFundingCellDesktop />
+              <TokenVolumeCellDesktop />
+              <TokenOpenInterestCellDesktop />
+              <TokenMarketCapCellDesktop />
+            </>
+          ) : null}
+          {!isSpot && desktopLayout !== 'mixed' ? (
+            <>
+              <TokenFundingCellDesktop />
+              <TokenVolumeCellDesktop />
+              <TokenOpenInterestCellDesktop />
+            </>
+          ) : null}
+          {isSpot && desktopLayout !== 'mixed' ? (
+            <>
+              <TokenVolumeCellDesktop />
+              <TokenMarketCapCellDesktop />
+            </>
+          ) : null}
         </XStack>
       </DebugRenderTracker>
     ),
-    [onPress],
+    [onPress, isSpot, desktopLayout],
   );
   return content;
 });
@@ -475,7 +837,7 @@ TokenSelectorRowDesktop.displayName = 'TokenSelectorRowDesktop';
 
 // Mobile cell components
 const TokenImageMobile = memo(() => {
-  const { token } = useTokenSelectorRowContext();
+  const { token, isSpot, pairCoin } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -485,17 +847,23 @@ const TokenImageMobile = memo(() => {
         offsetY={10}
       >
         <XStack gap="$2" alignItems="center">
-          <FavoriteButton coin={token.name} isMobile />
+          <FavoriteButton
+            coin={pairCoin ?? token.name}
+            isMobile
+            isSpot={isSpot}
+          />
           <Token
             size="lg"
             borderRadius="$full"
-            tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
+            tokenImageUri={getHyperliquidTokenImageUrl(
+              isSpot ? token.name : token.displayName,
+            )}
             fallbackIcon="CryptoCoinOutline"
           />
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.name],
+    [token.displayName, token.name, isSpot, pairCoin],
   );
   return content;
 });
@@ -503,7 +871,7 @@ const TokenImageMobile = memo(() => {
 TokenImageMobile.displayName = 'TokenImageMobile';
 
 const TokenNameMobile = memo(() => {
-  const { token } = useTokenSelectorRowContext();
+  const { token, isSpot } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -513,38 +881,37 @@ const TokenNameMobile = memo(() => {
         offsetY={10}
       >
         <YStack gap="$0">
-          <XStack gap="$1.5" alignItems="center" justifyContent="center">
+          <XStack gap="$1.5" alignItems="center">
             <SizableText size="$bodyMdMedium">{token.displayName}</SizableText>
 
             <XStack gap="$1">
-              <XStack
-                borderRadius="$1"
-                bg="$bgStrong"
-                justifyContent="center"
-                alignItems="center"
-                px="$1.5"
-              >
-                <SizableText
-                  fontSize={10}
-                  alignSelf="center"
-                  color="$textSubdued"
-                  lineHeight={16}
+              {isSpot ? (
+                <TradingModeBadge isSpot px="$1.5" bg="$bgStrong" />
+              ) : null}
+              {!isSpot && token.maxLeverage > 0 ? (
+                <XStack
+                  borderRadius="$1"
+                  bg="$bgStrong"
+                  justifyContent="center"
+                  alignItems="center"
+                  px="$1.5"
                 >
-                  {token.maxLeverage}x
-                </SizableText>
-              </XStack>
-              {token.subtitle ? (
-                <SubtitleBadge
-                  subtitle={token.subtitle}
-                  maxWidth={MOBILE_SUBTITLE_MAX_WIDTH}
-                />
+                  <SizableText
+                    fontSize={10}
+                    alignSelf="center"
+                    color="$textSubdued"
+                    lineHeight={16}
+                  >
+                    {token.maxLeverage}x
+                  </SizableText>
+                </XStack>
               ) : null}
             </XStack>
           </XStack>
         </YStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.subtitle, token.maxLeverage],
+    [token.displayName, token.maxLeverage, isSpot],
   );
   return content;
 });
@@ -552,7 +919,7 @@ const TokenNameMobile = memo(() => {
 TokenNameMobile.displayName = 'TokenNameMobile';
 
 const TokenVolumeMobile = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+  const { assetCtx, isLoading, token } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -561,17 +928,22 @@ const TokenVolumeMobile = memo(() => {
         name="TokenVolumeMobile"
         offsetY={10}
       >
-        <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-          <SizableText size="$bodySm" color="$text">
-            $
-            {formatDisplayNumber(
-              NUMBER_FORMATTER.marketCap(assetCtx.volume24h),
-            )}
-          </SizableText>
-        </SkeletonContainer>
+        <XStack gap="$1" alignItems="center" minWidth={0}>
+          {token.subtitle ? (
+            <SubtitleText subtitle={token.subtitle} maxWidth={120} />
+          ) : null}
+          <SkeletonContainer isLoading={isLoading} width={80} height={16}>
+            <SizableText size="$bodySm" color="$textSubdued">
+              $
+              {formatDisplayNumber(
+                NUMBER_FORMATTER.marketCap(assetCtx.volume24h),
+              )}
+            </SizableText>
+          </SkeletonContainer>
+        </XStack>
       </DebugRenderTracker>
     ),
-    [assetCtx.volume24h, isLoading],
+    [assetCtx.volume24h, isLoading, token.subtitle],
   );
   return content;
 });
@@ -579,7 +951,7 @@ const TokenVolumeMobile = memo(() => {
 TokenVolumeMobile.displayName = 'TokenVolumeMobile';
 
 const TokenPriceMobile = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+  const { assetCtx, isLoading, isSpot } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -594,18 +966,28 @@ const TokenPriceMobile = memo(() => {
           width={100}
           height={16}
         >
-          <NumberSizeableText
-            formatter="price"
-            size="$bodyMdMedium"
-            color="$text"
-            alignSelf="flex-end"
-          >
-            {assetCtx.markPrice}
-          </NumberSizeableText>
+          {isSpot ? (
+            <SizableText
+              size="$bodyMdMedium"
+              color="$text"
+              alignSelf="flex-end"
+            >
+              {assetCtx.markPrice}
+            </SizableText>
+          ) : (
+            <NumberSizeableText
+              formatter="price"
+              size="$bodyMdMedium"
+              color="$text"
+              alignSelf="flex-end"
+            >
+              {assetCtx.markPrice}
+            </NumberSizeableText>
+          )}
         </SkeletonContainer>
       </DebugRenderTracker>
     ),
-    [assetCtx.markPrice, isLoading],
+    [assetCtx.markPrice, isLoading, isSpot],
   );
   return content;
 });
@@ -692,24 +1074,139 @@ const TokenSelectorRowMobile = memo(() => {
 
 TokenSelectorRowMobile.displayName = 'TokenSelectorRowMobile';
 
-const PerpTokenSelectorRow = memo(
+const SpotTokenSelectorRowInner = memo(
+  ({
+    spotUniverse,
+    onPress,
+    isOnModal,
+    desktopLayout,
+  }: {
+    spotUniverse: ISpotUniverse;
+    onPress: (name: string) => void;
+    isOnModal?: boolean;
+    desktopLayout?: 'perp' | 'spot' | 'mixed';
+  }) => {
+    // Use pair name (@107 or PURR/USDC) as key — matches universe.name
+    const ctx = useSpotAssetCtxByPair(spotUniverse.name);
+    const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
+    const markPx = ctx?.markPx || '0';
+    const prevDayPx = Number(ctx?.prevDayPx || 0);
+    const markPxNum = Number(markPx);
+    const priceDecimals = getValidSpotPriceDecimals(
+      markPx,
+      spotUniverse.baseSzDecimals ?? 2,
+    );
+    const change24hPercent =
+      prevDayPx > 0 ? ((markPxNum - prevDayPx) / prevDayPx) * 100 : 0;
+    const change24h =
+      prevDayPx > 0
+        ? formatWithPrecision(markPxNum - prevDayPx, priceDecimals)
+        : '0';
+    const displayMarkPrice = formatSpotPriceToValid(
+      markPx,
+      spotUniverse.baseSzDecimals ?? 2,
+    );
+    const localizedDisplayMarkPrice =
+      formatLocalizedNumberString(displayMarkPrice);
+
+    const handlePress = useMemo(
+      () => () => onPress(spotUniverse.name),
+      [onPress, spotUniverse.name],
+    );
+    const marketCapDisplay = useMemo(() => {
+      if (markPxNum <= 0) {
+        return undefined;
+      }
+      const marketCap = getSpotMarketCapValue(
+        {
+          markPx,
+          circulatingSupply: ctx?.circulatingSupply,
+        },
+        spotUniverse.baseName,
+        spotMarketCaps,
+      );
+      if (!marketCap) {
+        return undefined;
+      }
+      const formatted = formatDisplayNumber(
+        NUMBER_FORMATTER.marketCap(marketCap),
+      );
+      if (typeof formatted !== 'string' || formatted.length === 0) {
+        return undefined;
+      }
+      return `$${formatted}`;
+    }, [
+      ctx?.circulatingSupply,
+      markPx,
+      markPxNum,
+      spotMarketCaps,
+      spotUniverse.baseName,
+    ]);
+
+    const contextValue: ITokenSelectorRowContextValue = useMemo(
+      () => ({
+        isSpot: true,
+        desktopLayout,
+        pairCoin: spotUniverse.name,
+        token: {
+          name: getSpotTokenDisplayName(spotUniverse.baseName),
+          displayName: formatSpotPairDisplayName(
+            spotUniverse.baseName,
+            spotUniverse.quoteName,
+          ),
+          maxLeverage: 0,
+          assetId: spotUniverse.assetId,
+        },
+        assetCtx: {
+          markPrice: localizedDisplayMarkPrice,
+          change24h,
+          change24hPercent,
+          fundingRate: '0',
+          volume24h: ctx?.dayNtlVlm || '0',
+          openInterest: '0',
+          marketCap: marketCapDisplay,
+        },
+        isLoading: !ctx,
+        onPress: handlePress,
+      }),
+      [
+        spotUniverse,
+        localizedDisplayMarkPrice,
+        change24h,
+        change24hPercent,
+        ctx,
+        marketCapDisplay,
+        handlePress,
+        desktopLayout,
+      ],
+    );
+
+    return (
+      <TokenSelectorRowProvider value={contextValue}>
+        {isOnModal ? <TokenSelectorRowMobile /> : <TokenSelectorRowDesktop />}
+      </TokenSelectorRowProvider>
+    );
+  },
+);
+SpotTokenSelectorRowInner.displayName = 'SpotTokenSelectorRowInner';
+
+const PerpTokenSelectorRowPerps = memo(
   ({
     mockedToken,
     onPress,
     isOnModal,
     skipMarkRequired,
+    desktopLayout,
   }: IPerpTokenSelectorRowProps) => {
-    const [filteredAssets] = usePerpsAllAssetsFilteredAtom();
-    const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
-    const tokensByDex = filteredAssets.assetsByDex || [];
-    const assets: IPerpsUniverse[] = tokensByDex[mockedToken.dexIndex] || [];
-    const token: IPerpsUniverse | undefined = assets[mockedToken.index];
-    const tokenName = token?.name ?? '';
-    const tokenAssetId = token?.assetId ?? -1;
-    const tokenMaxLeverage = token?.maxLeverage ?? 0;
+    // Static token data is pre-computed in the parent list and passed via mockedToken.
+    // This avoids subscribing to usePerpsAllAssetsFilteredAtom (150+ subscriptions).
+    const tokenName = mockedToken.tokenName ?? '';
+    const tokenAssetId = mockedToken.assetId ?? -1;
+    const tokenMaxLeverage = mockedToken.tokenMaxLeverage ?? 0;
 
     const { assetCtx, isLoading } = usePerpsAssetCtx({
       assetId: tokenAssetId,
+      dexIndex: mockedToken.dexIndex,
       skipMarkRequired,
     });
 
@@ -721,13 +1218,11 @@ const PerpTokenSelectorRow = memo(
     );
 
     const parsed = useMemo(() => parseDexCoin(tokenName), [tokenName]);
-    const subtitle = useMemo(
-      () => getTokenSubtitle(tokenName, tokenSearchAliases),
-      [tokenName, tokenSearchAliases],
-    );
+    const subtitle = mockedToken.tokenSubtitle;
 
     const contextValue: ITokenSelectorRowContextValue = useMemo(
       () => ({
+        desktopLayout,
         token: {
           name: tokenName,
           displayName: parsed.displayName,
@@ -757,10 +1252,20 @@ const PerpTokenSelectorRow = memo(
         assetCtx,
         isLoading,
         handlePress,
+        desktopLayout,
       ],
     );
 
-    if (!token || token.isDelisted || !assetCtx) {
+    useEffect(() => {
+      if (!isLoading && assetCtx?.markPrice && assetCtx.markPrice !== '0') {
+        markPerpsColdStartPerfOnce('ui_token_selector_perp_row_ready', {
+          tokenName,
+          markPrice: assetCtx.markPrice,
+        });
+      }
+    }, [assetCtx?.markPrice, isLoading, tokenName]);
+
+    if (!tokenName) {
       return null;
     }
 
@@ -771,7 +1276,40 @@ const PerpTokenSelectorRow = memo(
     );
   },
 );
+PerpTokenSelectorRowPerps.displayName = 'PerpTokenSelectorRowPerps';
 
+const PerpTokenSelectorRow = memo(
+  ({
+    mockedToken,
+    onPress,
+    isOnModal,
+    skipMarkRequired,
+    desktopLayout,
+  }: IPerpTokenSelectorRowProps) => {
+    // Spot path: render from spotUniverse data
+    if (mockedToken.spotUniverse) {
+      return (
+        <SpotTokenSelectorRowInner
+          spotUniverse={mockedToken.spotUniverse}
+          onPress={onPress}
+          isOnModal={isOnModal}
+          desktopLayout={desktopLayout}
+        />
+      );
+    }
+
+    // Perps path: existing logic
+    return (
+      <PerpTokenSelectorRowPerps
+        mockedToken={mockedToken}
+        onPress={onPress}
+        isOnModal={isOnModal}
+        skipMarkRequired={skipMarkRequired}
+        desktopLayout={desktopLayout}
+      />
+    );
+  },
+);
 PerpTokenSelectorRow.displayName = 'PerpTokenSelectorRow';
 
 export { PerpTokenSelectorRow };

@@ -37,7 +37,7 @@ function Upgrade() {
 
   const renderContent = useCallback(() => {
     return (
-      <XStack alignItems="center" jc="space-between" gap="$3">
+      <XStack alignItems="center" jc="space-between" gap="$3" width="100%">
         <XStack flex={1} alignItems="center" gap="$3">
           <LinearGradient
             colors={['rgba(58, 222, 0, 0.45)', 'rgba(0, 225, 157, 0.45)']}
@@ -93,6 +93,7 @@ function Upgrade() {
           </YStack>
         </XStack>
         <Button
+          testID="home-btn"
           size="small"
           variant="primary"
           onPress={() => {

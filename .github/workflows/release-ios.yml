@@ -14,11 +14,17 @@ on:
         required: false
         type: boolean
         default: false
+      ENABLE_STARTUP_PROFILE:
+        description: "Build with ONEKEY_STARTUP_PROFILE=1 (forces qa-internal-startup-profile, no store submit, skips simulator). See skill 1k-startup-profile."
+        required: false
+        type: boolean
+        default: false
 
 env:
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
+  ENABLE_STARTUP_PROFILE: ${{ github.event.inputs.ENABLE_STARTUP_PROFILE || 'false' }}
 
 jobs:
   release-ios:
@@ -161,7 +167,11 @@ jobs:
         if: ${{ !github.event.workflow_run }}
         run: |
           cd apps/mobile
-          if [[ "${ONEKEY_ALLOW_SKIP_GPG_VERIFICATION}" == "true" ]]; then
+          if [[ "${ENABLE_STARTUP_PROFILE}" == "true" ]]; then
+            # Profiling build: forces qa-internal-startup-profile (internal IPA
+            # only, never store-submits). See skill 1k-startup-profile.
+            PROFILE="qa-internal-startup-profile"
+          elif [[ "${ONEKEY_ALLOW_SKIP_GPG_VERIFICATION}" == "true" ]]; then
             PROFILE="qa-internal"
           else
             PROFILE="production"
@@ -169,6 +179,7 @@ jobs:
           eas build --profile="${PROFILE}" --platform ios --non-interactive --no-wait
 
       - name: Build Simulator on EAS
+        if: ${{ env.ENABLE_STARTUP_PROFILE != 'true' }}
         run: |
           cd apps/mobile
           eas build --profile=simulator --platform ios --non-interactive --no-wait

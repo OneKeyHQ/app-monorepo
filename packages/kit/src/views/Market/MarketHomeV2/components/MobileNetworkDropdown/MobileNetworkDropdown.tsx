@@ -2,19 +2,16 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  Image,
-  Popover,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
+import { Icon, Image, SizableText, XStack } from '@onekeyhq/components';
+import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useMarketNetworks } from '../../../hooks/useMarketNetworks';
 import {
+  NETWORKS_SEARCH_PANEL_FOCUSED_HEIGHT_REDUCTION,
   NETWORKS_SEARCH_PANEL_MAX_HEIGHT,
   NetworksSearchPanel,
 } from '../MarketTokenListNetworkSelector/NetworksSearchPanel';
@@ -30,6 +27,9 @@ function MobileNetworkDropdownImpl({
 }: IMobileNetworkDropdownProps) {
   const intl = useIntl();
   const { marketNetworks } = useMarketNetworks();
+  const focusedPanelHeightReduction = platformEnv.isNative
+    ? NETWORKS_SEARCH_PANEL_FOCUSED_HEIGHT_REDUCTION
+    : 0;
 
   const selectedNetwork = useMemo(
     () => marketNetworks.find((n) => n.id === selectedNetworkId),
@@ -83,17 +83,23 @@ function MobileNetworkDropdownImpl({
         isOpen={isOpen}
         networks={marketNetworks}
         networkId={selectedNetworkId}
+        focusedPanelHeightReduction={focusedPanelHeightReduction}
         onNetworkSelect={(network) => {
           handleNetworkSelect(network);
           closePopover();
         }}
       />
     ),
-    [marketNetworks, selectedNetworkId, handleNetworkSelect],
+    [
+      focusedPanelHeightReduction,
+      marketNetworks,
+      selectedNetworkId,
+      handleNetworkSelect,
+    ],
   );
 
   return (
-    <Popover
+    <LazyPopover
       title={intl.formatMessage({ id: ETranslations.global_select_network })}
       placement="bottom-start"
       floatingPanelProps={{

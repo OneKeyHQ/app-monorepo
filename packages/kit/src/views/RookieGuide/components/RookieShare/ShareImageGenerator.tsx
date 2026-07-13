@@ -3,6 +3,7 @@ import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 import QRCodeUtil from 'qrcode';
 
 import { Stack } from '@onekeyhq/components';
+import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IRookieShareData,
@@ -11,14 +12,16 @@ import type {
 
 import {
   BACKGROUND_GRADIENT_COLORS,
-  DEFAULT_FOOTER_TEXT,
-  DEFAULT_REFERRAL_LABEL,
   ONEKEY_LOGO_URL,
   getCanvasConfig,
+  resolveFooterCtaText,
 } from './constants';
+
+import type { IRookieShareLocaleText } from './constants';
 
 interface IShareImageGeneratorProps {
   data: IRookieShareData;
+  localeText: IRookieShareLocaleText;
 }
 
 const imageCache = new Map<string, HTMLImageElement>();
@@ -26,7 +29,7 @@ const imageCache = new Map<string, HTMLImageElement>();
 function toCanvasFont(
   size: number,
   weight: string | number = 500,
-  family = 'Poppins, system-ui, -apple-system, sans-serif',
+  family = webFontFamily,
 ): string {
   return `${weight} ${size}px ${family}`;
 }
@@ -48,7 +51,6 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
   });
 }
 
-// Helper function to draw rounded rectangle
 function drawRoundedRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -61,7 +63,6 @@ function drawRoundedRect(
   if (ctx.roundRect) {
     ctx.roundRect(x, y, width, height, radius);
   } else {
-    // Fallback for older browsers
     ctx.moveTo(x + radius, y);
     ctx.lineTo(x + width - radius, y);
     ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
@@ -75,24 +76,52 @@ function drawRoundedRect(
   }
 }
 
-// Helper function to wrap text
 function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
 ): string[] {
-  const words = text.split(' ');
+  const words = text.trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let currentLine = '';
+  const fitsLine = (line: string): boolean =>
+    ctx.measureText(line).width <= maxWidth;
+
+  const breakLongWord = (word: string): string[] => {
+    const brokenLines: string[] = [];
+    let line = '';
+    for (const char of Array.from(word)) {
+      const nextLine = `${line}${char}`;
+      if (ctx.measureText(nextLine).width > maxWidth && line) {
+        brokenLines.push(line);
+        line = char;
+      } else {
+        line = nextLine;
+      }
+    }
+    if (line) {
+      brokenLines.push(line);
+    }
+    return brokenLines;
+  };
 
   for (const word of words) {
     const testLine = currentLine ? `${currentLine} ${word}` : word;
-    const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxWidth && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
+    if (fitsLine(testLine)) {
       currentLine = testLine;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = '';
+      }
+
+      if (fitsLine(word)) {
+        currentLine = word;
+      } else {
+        const brokenWordLines = breakLongWord(word);
+        lines.push(...brokenWordLines.slice(0, -1));
+        currentLine = brokenWordLines[brokenWordLines.length - 1] || '';
+      }
     }
   }
   if (currentLine) {
@@ -101,14 +130,31 @@ function wrapText(
   return lines;
 }
 
+// ctx.letterSpacing is a newer canvas API (Chrome/FF/Safari 16.4+); older
+// engines silently ignore it, which is fine here since the bold-weight code
+// is still legible without the extra tracking.
+function setLetterSpacing(
+  ctx: CanvasRenderingContext2D,
+  spacing: number,
+): void {
+  const anyCtx = ctx as CanvasRenderingContext2D & {
+    letterSpacing?: string;
+  };
+  if ('letterSpacing' in ctx) {
+    anyCtx.letterSpacing = `${spacing}px`;
+  }
+}
+
 const CANVAS_SIZE = 640;
 const CANVAS_CONFIG = getCanvasConfig(CANVAS_SIZE);
 
 export const ShareImageGenerator = forwardRef<
   IRookieShareImageGeneratorRef,
   IShareImageGeneratorProps
->(({ data }, ref) => {
+>(({ data, localeText }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { imageUrl, title, subtitle, footerText, referralCode, referralUrl } =
+    data;
 
   const generate = useCallback(async (): Promise<string> => {
     const canvas = canvasRef.current;
@@ -117,16 +163,21 @@ export const ShareImageGenerator = forwardRef<
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
 
-    const { size, card, badge, fonts, footer, logo, qrCode, spacing } =
-      CANVAS_CONFIG;
+    const {
+      size,
+      card,
+      badge,
+      fonts,
+      footer,
+      logo,
+      qrCode,
+      referralPill,
+      spacing,
+    } = CANVAS_CONFIG;
     canvas.width = size;
     canvas.height = size;
 
-    const { imageUrl, title, subtitle, footerText, referralCode, referralUrl } =
-      data;
-
     try {
-      // 1. Draw background gradient (fallback for wave pattern)
       const gradient = ctx.createLinearGradient(0, 0, size, size);
       BACKGROUND_GRADIENT_COLORS.forEach((color, index) => {
         gradient.addColorStop(
@@ -137,13 +188,11 @@ export const ShareImageGenerator = forwardRef<
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, size, size);
 
-      // Load images in parallel
       const [badgeImg, logoImg] = await Promise.all([
         loadImage(imageUrl),
         loadImage(ONEKEY_LOGO_URL),
       ]);
 
-      // 2. Calculate card height dynamically
       ctx.font = toCanvasFont(fonts.title.size, fonts.title.weight);
       const titleLines = wrapText(ctx, title, fonts.title.maxWidth);
       const titleHeight =
@@ -162,22 +211,19 @@ export const ShareImageGenerator = forwardRef<
 
       const cardContentHeight =
         badge.height +
-        spacing.cardContentGap +
+        spacing.cardBadgeTitleGap +
         titleHeight +
-        (subtitle ? spacing.cardContentGap + subtitleHeight : 0);
+        (subtitle ? spacing.cardTitleSubtitleGap + subtitleHeight : 0);
       const cardHeight = card.padding * 2 + cardContentHeight;
 
-      // Center card vertically (above footer)
       const availableHeight = footer.y;
       const cardY = (availableHeight - cardHeight) / 2;
 
-      // 3. Draw card shadow
       ctx.shadowColor = card.shadowColor;
       ctx.shadowBlur = card.shadowBlur;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = card.shadowOffsetY;
 
-      // 4. Draw card background
       ctx.fillStyle = card.backgroundColor;
       drawRoundedRect(
         ctx,
@@ -189,25 +235,22 @@ export const ShareImageGenerator = forwardRef<
       );
       ctx.fill();
 
-      // Reset shadow
       ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
       ctx.shadowOffsetY = 0;
 
-      // 5. Draw badge image
       if (badgeImg) {
         const badgeX = card.x + (card.width - badge.width) / 2;
         const badgeY = cardY + card.padding;
         ctx.drawImage(badgeImg, badgeX, badgeY, badge.width, badge.height);
       }
 
-      // 6. Draw title
       ctx.fillStyle = fonts.title.color;
       ctx.font = toCanvasFont(fonts.title.size, fonts.title.weight);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       const titleY =
-        cardY + card.padding + badge.height + spacing.cardContentGap;
+        cardY + card.padding + badge.height + spacing.cardBadgeTitleGap;
       titleLines.forEach((line, index) => {
         ctx.fillText(
           line,
@@ -216,11 +259,10 @@ export const ShareImageGenerator = forwardRef<
         );
       });
 
-      // 7. Draw subtitle
       if (subtitle && subtitleLines.length > 0) {
         ctx.fillStyle = fonts.subtitle.color;
         ctx.font = toCanvasFont(fonts.subtitle.size, fonts.subtitle.weight);
-        const subtitleY = titleY + titleHeight + spacing.cardContentGap;
+        const subtitleY = titleY + titleHeight + spacing.cardTitleSubtitleGap;
         subtitleLines.forEach((line, index) => {
           ctx.fillText(
             line,
@@ -230,62 +272,106 @@ export const ShareImageGenerator = forwardRef<
         });
       }
 
-      // 8. Draw footer background
       ctx.fillStyle = footer.backgroundColor;
       ctx.fillRect(0, footer.y, size, footer.height);
+      ctx.fillStyle = footer.borderTopColor;
+      ctx.fillRect(0, footer.y, size, footer.borderTopWidth);
 
-      // 9. Draw logo
       if (logoImg) {
         const logoX = footer.paddingX;
-        const logoY = footer.y + (footer.height - logo.size) / 2;
+        const logoY =
+          footer.y + (footer.height - logo.size) / 2 + logo.footerOffsetY;
         ctx.drawImage(logoImg, logoX, logoY, logo.size, logo.size);
       }
 
-      // 10. Draw footer text
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
       const textX = footer.paddingX + logo.size + spacing.footerLogoTextGap;
-      const footerCenterY = footer.y + footer.height / 2;
-
-      // Footer main text
-      ctx.fillStyle = fonts.footerText.color;
-      ctx.font = toCanvasFont(fonts.footerText.size, fonts.footerText.weight);
-      ctx.fillText(
-        footerText || DEFAULT_FOOTER_TEXT,
-        textX,
-        footerCenterY - spacing.footerTextLineGap,
+      const line1Text = resolveFooterCtaText(
+        referralCode,
+        footerText,
+        localeText,
       );
 
-      // Referral code text
-      ctx.fillStyle = fonts.referralText.color;
-      ctx.font = toCanvasFont(
-        fonts.referralText.size,
-        fonts.referralText.weight,
-      );
-      const referralLabel = referralCode
-        ? `${DEFAULT_REFERRAL_LABEL} ${referralCode}`
-        : DEFAULT_REFERRAL_LABEL;
-      ctx.fillText(
-        referralLabel,
-        textX,
-        footerCenterY + spacing.footerTextLineGap,
-      );
+      const line1Height = fonts.footerCta.size * fonts.footerCta.lineHeight;
+      const codeTextHeight =
+        fonts.referralCode.size * fonts.referralCode.lineHeight;
+      const pillHeight = codeTextHeight + referralPill.paddingY * 2;
+      const footerSubtitleHeight =
+        fonts.referralLabel.size * fonts.referralLabel.lineHeight;
 
-      // 11. Draw QR code
+      const line2Height = referralCode ? pillHeight : footerSubtitleHeight;
+      const blockHeight = line1Height + spacing.footerTextLineGap + line2Height;
+      const blockY = footer.y + (footer.height - blockHeight) / 2;
+
+      ctx.fillStyle = fonts.footerCta.color;
+      ctx.font = toCanvasFont(fonts.footerCta.size, fonts.footerCta.weight);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(line1Text, textX, blockY);
+
+      const line2Y = blockY + line1Height + spacing.footerTextLineGap;
+
+      if (referralCode) {
+        const line2CenterY = line2Y + pillHeight / 2;
+
+        ctx.fillStyle = fonts.referralLabel.color;
+        ctx.font = toCanvasFont(
+          fonts.referralLabel.size,
+          fonts.referralLabel.weight,
+        );
+        ctx.textBaseline = 'middle';
+        ctx.fillText(localeText.referralLabel, textX, line2CenterY);
+        const labelWidth = ctx.measureText(localeText.referralLabel).width;
+
+        const pillX = textX + labelWidth + spacing.footerReferralInlineGap;
+        ctx.font = toCanvasFont(
+          fonts.referralCode.size,
+          fonts.referralCode.weight,
+          fonts.referralCode.monoFontFamily,
+        );
+        setLetterSpacing(ctx, fonts.referralCode.letterSpacing);
+        const codeWidth = ctx.measureText(referralCode).width;
+        const pillWidth = codeWidth + referralPill.paddingX * 2;
+
+        ctx.fillStyle = referralPill.backgroundColor;
+        drawRoundedRect(
+          ctx,
+          pillX,
+          line2Y,
+          pillWidth,
+          pillHeight,
+          referralPill.borderRadius,
+        );
+        ctx.fill();
+
+        ctx.fillStyle = fonts.referralCode.color;
+        ctx.fillText(referralCode, pillX + referralPill.paddingX, line2CenterY);
+        setLetterSpacing(ctx, 0);
+      } else {
+        ctx.fillStyle = fonts.referralLabel.color;
+        ctx.font = toCanvasFont(
+          fonts.referralLabel.size,
+          fonts.referralLabel.weight,
+        );
+        ctx.textBaseline = 'top';
+        ctx.fillText(localeText.downloadSubtitle, textX, line2Y);
+      }
+
       if (referralUrl) {
+        const captionHeight = fonts.qrCaption.size * fonts.qrCaption.lineHeight;
+        const qrBlockHeight =
+          qrCode.size + spacing.qrCaptionGap + captionHeight;
+        const qrCodeY = footer.y + (footer.height - qrBlockHeight) / 2;
         const qrCodeX = size - footer.paddingX - qrCode.size;
-        const qrCodeY = footer.y + (footer.height - qrCode.size) / 2;
 
         try {
           const qrCodeDataUrl = await QRCodeUtil.toDataURL(referralUrl, {
             width: qrCode.size,
             margin: 0,
             color: {
-              dark: '#000000',
+              dark: qrCode.color,
               light: '#FFFFFF',
             },
           });
-
           const qrCodeImg = await loadImage(qrCodeDataUrl);
           if (qrCodeImg) {
             ctx.drawImage(
@@ -301,6 +387,18 @@ export const ShareImageGenerator = forwardRef<
             console.error('Failed to generate QR code:', error);
           }
         }
+
+        ctx.fillStyle = fonts.qrCaption.color;
+        ctx.font = toCanvasFont(fonts.qrCaption.size, fonts.qrCaption.weight);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        setLetterSpacing(ctx, fonts.qrCaption.letterSpacing);
+        ctx.fillText(
+          localeText.qrCaption,
+          qrCodeX + qrCode.size / 2,
+          qrCodeY + qrCode.size + spacing.qrCaptionGap,
+        );
+        setLetterSpacing(ctx, 0);
       }
 
       return canvas.toDataURL('image/png', 1.0);
@@ -310,7 +408,15 @@ export const ShareImageGenerator = forwardRef<
       }
       return '';
     }
-  }, [data]);
+  }, [
+    imageUrl,
+    title,
+    subtitle,
+    footerText,
+    referralCode,
+    referralUrl,
+    localeText,
+  ]);
 
   useImperativeHandle(ref, () => ({ generate }));
 

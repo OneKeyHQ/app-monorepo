@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type {
-  IDragEndParamsWithItem,
   IElement,
   IStackStyle,
   ITableColumn,
@@ -28,6 +27,7 @@ import {
   useMedia,
   usePageWidth,
 } from '@onekeyhq/components';
+import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -1050,6 +1050,7 @@ function BasicMarketHomeList({
         >
           <XStack h="$11" ai="center" justifyContent="space-between">
             <Select
+              testID="market-select"
               items={selectOptions}
               title={intl.formatMessage({ id: ETranslations.market_sort_by })}
               value={mdSortByType}

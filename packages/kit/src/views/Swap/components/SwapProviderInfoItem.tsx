@@ -25,6 +25,7 @@ interface ISwapProviderInfoItemProps {
   showLock?: boolean;
   onPress?: () => void;
   isLoading?: boolean;
+  testID?: string;
   percentageFee?: number;
   percentOriginFee?: number;
 }
@@ -68,12 +69,13 @@ const SwapProviderInfoItem = ({
   showLock: _showLock,
   onPress,
   isLoading,
+  testID,
   percentageFee,
   percentOriginFee,
 }: ISwapProviderInfoItemProps) => {
   const intl = useIntl();
   return (
-    <XStack justifyContent="space-between" alignItems="center">
+    <XStack testID={testID} justifyContent="space-between" alignItems="center">
       <SwapProviderInfoItemTitleContentMemo
         percentageFee={percentageFee}
         percentOriginFee={percentOriginFee}

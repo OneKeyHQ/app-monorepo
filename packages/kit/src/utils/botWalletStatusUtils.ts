@@ -46,6 +46,46 @@ export function shouldHideBotWalletExport({
   return isBotWallet && isBotWalletDeactivated;
 }
 
+export function shouldBlockBotWalletCopyAddress({
+  isBotWallet,
+  isBotWalletDeactivated,
+}: {
+  isBotWallet: boolean;
+  isBotWalletDeactivated: boolean;
+}) {
+  return isBotWallet && isBotWalletDeactivated;
+}
+
+export function shouldBlockBotWalletBeReceiver({
+  isBotWallet,
+  isBotWalletDeactivated,
+}: {
+  isBotWallet: boolean;
+  isBotWalletDeactivated: boolean;
+}) {
+  return isBotWallet && isBotWalletDeactivated;
+}
+
+export function shouldBlockBotWalletReferralAddressDisplay({
+  isBotWallet,
+  isBotWalletDeactivated,
+}: {
+  isBotWallet: boolean;
+  isBotWalletDeactivated: boolean;
+}) {
+  return isBotWallet && isBotWalletDeactivated;
+}
+
+export function shouldWarnBotWalletInteract({
+  isBotWallet,
+  isBotWalletDeactivated,
+}: {
+  isBotWallet: boolean;
+  isBotWalletDeactivated: boolean;
+}) {
+  return isBotWallet && isBotWalletDeactivated;
+}
+
 export function shouldHideBotWalletMnemonicBackupEntry({
   isBotWallet,
 }: {

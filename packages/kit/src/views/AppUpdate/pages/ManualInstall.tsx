@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Image, Page, SizableText, YStack } from '@onekeyhq/components';
-import { useDownloadPackage } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+import { useDownloadPackage } from '@onekeyhq/kit/src/components/AppUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

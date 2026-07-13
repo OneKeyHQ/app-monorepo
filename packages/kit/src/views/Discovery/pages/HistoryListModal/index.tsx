@@ -22,10 +22,12 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
@@ -136,10 +138,13 @@ function HistoryListModal() {
                 });
               }}
             />
-            <Divider vertical mx="$3" />
+            {platformEnv.isNativeIOS26Plus ? null : (
+              <Divider vertical mx="$3" />
+            )}
           </>
         ) : null}
         <Button
+          testID="discovery-btn"
           variant="tertiary"
           size="medium"
           onPress={() => setIsEditing((prev) => !prev)}
@@ -163,7 +168,7 @@ function HistoryListModal() {
   }, 500);
 
   return (
-    <Page lazyLoad>
+    <Page testID={DiscoveryTestIDs.historyListPage} lazyLoad>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.browser_recently_closed,

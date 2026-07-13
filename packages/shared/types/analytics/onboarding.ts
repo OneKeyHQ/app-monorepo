@@ -1,4 +1,5 @@
 import type { IBaseEventPayload } from './base';
+import type { EHardwareVendor } from '../device';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 // Specific parameter details for each add method
@@ -29,6 +30,7 @@ interface IConnectHardwareWalletPayload {
     bootloaderVersion?: string;
   };
   hardwareWalletType: 'Hidden' | 'Standard';
+  vendor?: EHardwareVendor;
 }
 
 export interface IConnectExternalWalletPayload {
@@ -65,6 +67,7 @@ export type IWalletStartedParams =
       details: {
         communication?: IHardwareTransportType;
         hardwareWalletType: 'Hidden' | 'Standard';
+        vendor?: EHardwareVendor;
       };
       isSoftwareWalletOnlyUser: boolean;
     }

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StatusBar } from 'react-native';
-import zxcvbn from 'zxcvbn';
 
 import {
   Button,
@@ -15,12 +14,34 @@ import {
   Stack,
   XStack,
   YStack,
-  useForm,
   useKeyboardEventWithoutNavigation,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+type IZxcvbn = typeof import('zxcvbn');
+
+let zxcvbnPromise: Promise<IZxcvbn> | undefined;
+
+async function loadZxcvbn(): Promise<IZxcvbn> {
+  if (!zxcvbnPromise) {
+    const promise = import('zxcvbn')
+      .then((module) => {
+        const zxcvbnModule = module as { default?: IZxcvbn };
+        return zxcvbnModule.default ?? (module as unknown as IZxcvbn);
+      })
+      .catch((error: unknown) => {
+        if (zxcvbnPromise === promise) {
+          zxcvbnPromise = undefined;
+        }
+        throw error;
+      });
+    zxcvbnPromise = promise;
+  }
+  return zxcvbnPromise;
+}
 
 function PasswordStrengthBar({ score }: { score: number }) {
   const intl = useIntl();
@@ -118,19 +139,18 @@ export function PrimeLoginPasswordDialog({
     minSpecialCharacter: false,
     score: 0, // 0-4
   });
+  const passwordValidateRequestIdRef = useRef(0);
 
   const isValidPassword = useCallback(
-    (password: string) => {
+    async (password: string) => {
+      const requestId = passwordValidateRequestIdRef.current + 1;
+      passwordValidateRequestIdRef.current = requestId;
+
       let minLength = true;
       let minNumberCharacter = true;
       let minLetterCharacter = true;
       let minSpecialCharacter = true;
       let score = 0;
-
-      const zxcvbnUserInputs = [email.split('@')?.[0]].filter(Boolean);
-      // const zxcvbnUserInputs: string[] = [];
-      const result = zxcvbn(password, zxcvbnUserInputs);
-      score = result.score;
 
       if (password.length < 12) {
         minLength = false;
@@ -146,13 +166,23 @@ export function PrimeLoginPasswordDialog({
         minSpecialCharacter = false;
       }
 
-      setPasswordVerifyState({
+      const zxcvbn = await loadZxcvbn();
+      const zxcvbnUserInputs = [email.split('@')?.[0]].filter(Boolean);
+      // const zxcvbnUserInputs: string[] = [];
+      const result = zxcvbn(password, zxcvbnUserInputs);
+      score = result.score;
+
+      const nextPasswordVerifyState = {
         minLength,
         minNumberCharacter,
         minLetterCharacter,
         minSpecialCharacter,
         score,
-      });
+      };
+
+      if (requestId === passwordValidateRequestIdRef.current) {
+        setPasswordVerifyState(nextPasswordVerifyState);
+      }
 
       return (
         minLength &&
@@ -274,6 +304,7 @@ export function PrimeLoginPasswordDialog({
                 !isRegister ? (
                   <XStack>
                     <Button
+                      testID="prime-login-forget-password-btn"
                       size="small"
                       variant="tertiary"
                       onPress={async () => {
@@ -298,8 +329,8 @@ export function PrimeLoginPasswordDialog({
               }
               rules={{
                 validate: isRegister
-                  ? (value) => {
-                      if (!isValidPassword(value)) {
+                  ? async (value) => {
+                      if (!(await isValidPassword(value))) {
                         return false;
                       }
                       return true;
@@ -316,6 +347,7 @@ export function PrimeLoginPasswordDialog({
               }}
             >
               <Input
+                testID="prime-login-password-input"
                 autoFocus
                 allowSecureTextEye
                 placeholder={intl.formatMessage({
@@ -356,6 +388,7 @@ export function PrimeLoginPasswordDialog({
                 }}
               >
                 <Input
+                  testID="prime-login-confirm-password-input"
                   allowSecureTextEye
                   placeholder={intl.formatMessage({
                     id: ETranslations.auth_confirm_password_form_placeholder,
@@ -378,6 +411,7 @@ export function PrimeLoginPasswordDialog({
                   return (
                     <Stack>
                       <Checkbox
+                        testID="prime-container-props-checkbox"
                         label={intl.formatMessage({
                           id: ETranslations.prime_strong_password_desc,
                         })}
@@ -386,6 +420,7 @@ export function PrimeLoginPasswordDialog({
                         value={passwordVerifyState.minLength}
                       />
                       <Checkbox
+                        testID="prime-container-props-checkbox"
                         label={intl.formatMessage({
                           id: ETranslations.prime_password_number,
                         })}
@@ -394,6 +429,7 @@ export function PrimeLoginPasswordDialog({
                         value={passwordVerifyState.minNumberCharacter}
                       />
                       <Checkbox
+                        testID="prime-container-props-checkbox"
                         label={intl.formatMessage({
                           id: ETranslations.prime_password_letter,
                         })}
@@ -402,6 +438,7 @@ export function PrimeLoginPasswordDialog({
                         value={passwordVerifyState.minLetterCharacter}
                       />
                       <Checkbox
+                        testID="prime-container-props-checkbox"
                         label={intl.formatMessage({
                           id: ETranslations.prime_password_special_characters,
                         })}
@@ -423,6 +460,7 @@ export function PrimeLoginPasswordDialog({
           id: ETranslations.global_continue,
         })}
         confirmButtonProps={{
+          testID: 'prime-login-submit-btn',
           disabled: !form.formState.isValid,
         }}
         onConfirm={async ({ preventClose }) => {

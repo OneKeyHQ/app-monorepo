@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
@@ -52,14 +53,48 @@ export type {
 };
 
 const isDev = process.env.NODE_ENV !== 'production';
+type IDesktopDidFailLoadEvent = DidFailLoadEvent & {
+  url?: string;
+};
 
 let preloadJsUrl = '';
+let preloadJsUrlPromise: Promise<string> | undefined;
+const preloadJsUrlListeners = new Set<() => void>();
 
-void globalThis.desktopApiProxy.webview
-  .getPreloadJsContent()
-  .then((url: string) => {
-    preloadJsUrl = url;
+function emitPreloadJsUrlChange() {
+  preloadJsUrlListeners.forEach((listener) => {
+    listener();
   });
+}
+
+function subscribePreloadJsUrl(listener: () => void) {
+  preloadJsUrlListeners.add(listener);
+  return () => {
+    preloadJsUrlListeners.delete(listener);
+  };
+}
+
+function getPreloadJsUrlSnapshot() {
+  return preloadJsUrl;
+}
+
+function getPreloadJsUrl() {
+  if (preloadJsUrl) {
+    return Promise.resolve(preloadJsUrl);
+  }
+  preloadJsUrlPromise ??= globalThis.desktopApiProxy.webview
+    .getPreloadJsContent()
+    .then((url: string) => {
+      preloadJsUrl = url;
+      emitPreloadJsUrlChange();
+      return url;
+    })
+    .catch((error: unknown) => {
+      preloadJsUrlPromise = undefined;
+      throw error;
+    });
+  return preloadJsUrlPromise;
+}
 
 // Used for webview type referencing
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -72,6 +107,8 @@ const DesktopWebView = forwardRef(
       style,
       receiveHandler,
       allowpopups,
+      disableBridge,
+      partition: partitionProp,
       onDidStartLoading,
       onDidStartNavigation,
       onDidFinishLoad,
@@ -92,13 +129,35 @@ const DesktopWebView = forwardRef(
   ) => {
     const [isWebviewReady, setIsWebviewReady] = useState(false);
     const [isDomReady, setIsDomReady] = useState(false);
+    // Parents hold wrapper closures across renders, so dom-ready must be read
+    // from a ref, not a render snapshot.
+    const isDomReadyRef = useRef(false);
+    const updateIsDomReady = useCallback((value: boolean) => {
+      isDomReadyRef.current = value;
+      setIsDomReady(value);
+    }, []);
     const webviewRef = useRef<IElectronWebView | null>(null);
     const pendingScriptsRef = useRef<string[]>([]);
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
     const [devSettings] = useDevSettingsPersistAtom();
     const isUnmountingRef = useRef(false);
+    const resolvedPreloadJsUrl = useSyncExternalStore(
+      subscribePreloadJsUrl,
+      getPreloadJsUrlSnapshot,
+      getPreloadJsUrlSnapshot,
+    );
+    const [preloadJsUrlError, setPreloadJsUrlError] = useState(false);
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
+    const [desktopLoadErrorCode, setDesktopLoadErrorCode] = useState<number>();
+    const lastMainFrameLoadErrorRef = useRef<
+      | {
+          url?: string;
+          errorCode?: number;
+          errorDescription?: string;
+        }
+      | undefined
+    >(undefined);
     const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const clearLoadTimeout = useCallback(() => {
@@ -113,6 +172,7 @@ const DesktopWebView = forwardRef(
       loadTimeoutRef.current = setTimeout(() => {
         if (!isUnmountingRef.current) {
           setDesktopLoadError(true);
+          setDesktopLoadErrorCode(undefined);
         }
       }, WEBVIEW_LOAD_TIMEOUT_MS);
     }, [clearLoadTimeout]);
@@ -134,6 +194,31 @@ const DesktopWebView = forwardRef(
         }
       }
     }, [isDomReady]);
+
+    useEffect(() => {
+      if (disableBridge || preloadJsUrlError || resolvedPreloadJsUrl) {
+        return undefined;
+      }
+
+      let isMounted = true;
+      void getPreloadJsUrl()
+        .then(() => undefined)
+        .catch(() => {
+          if (isMounted) {
+            setPreloadJsUrlError(true);
+          }
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    }, [disableBridge, preloadJsUrlError, resolvedPreloadJsUrl]);
+
+    useEffect(() => {
+      if (resolvedPreloadJsUrl && preloadJsUrlError) {
+        setPreloadJsUrlError(false);
+      }
+    }, [preloadJsUrlError, resolvedPreloadJsUrl]);
 
     // Register event listeners
     useEffect(() => {
@@ -176,7 +261,8 @@ const DesktopWebView = forwardRef(
           }
         };
 
-        const innerHandleDidFailLoad = (event: any) => {
+        const innerHandleDidFailLoad = (event: IDesktopDidFailLoadEvent) => {
+          const failedUrl = event?.validatedURL ?? event?.url;
           if (event.isMainFrame) {
             clearLoadTimeout();
           }
@@ -184,7 +270,13 @@ const DesktopWebView = forwardRef(
             // TODO iframe error also show ErrorView
             //      testing www.163.com
             if (event.isMainFrame) {
+              lastMainFrameLoadErrorRef.current = {
+                url: failedUrl,
+                errorCode: event.errorCode,
+                errorDescription: event.errorDescription,
+              };
               setDesktopLoadError(true);
+              setDesktopLoadErrorCode(event.errorCode);
             }
           }
           onDidFailLoad?.(event);
@@ -205,8 +297,10 @@ const DesktopWebView = forwardRef(
             }
           }
           if (isMainFrame) {
+            lastMainFrameLoadErrorRef.current = undefined;
             setDesktopLoadError(false);
-            setIsDomReady(false);
+            setDesktopLoadErrorCode(undefined);
+            updateIsDomReady(false);
             startLoadTimeout();
           }
           checkGoogleOauth(url);
@@ -216,7 +310,10 @@ const DesktopWebView = forwardRef(
 
         const didFinishLoad = (e: any) => {
           clearLoadTimeout();
-          setDesktopLoadError(false);
+          if (!lastMainFrameLoadErrorRef.current) {
+            setDesktopLoadError(false);
+            setDesktopLoadErrorCode(undefined);
+          }
           onDidFinishLoad?.();
           onLoadEnd?.(e);
         };
@@ -226,10 +323,33 @@ const DesktopWebView = forwardRef(
           onDidStopLoading?.();
         };
 
+        // Server-side HTTP redirects (302 / 301) reach the new URL through
+        // `did-redirect-navigation`. Without an explicit listener the safety
+        // check in `did-start-navigation` may fire too late to abort the
+        // redirected request, so re-run the URL guard and stop the load if
+        // the target is not allowed.
+        const innerHandleDidRedirectNavigation = (
+          event: DidStartNavigationEvent,
+        ) => {
+          const { isMainFrame, url } = event ?? {};
+          if (
+            isMainFrame &&
+            onShouldStartLoadWithRequest &&
+            url &&
+            !onShouldStartLoadWithRequest({ url, isTopFrame: true })
+          ) {
+            webviewRef.current?.stop();
+          }
+        };
+
         webview.addEventListener('did-start-loading', onDidStartLoading);
         webview.addEventListener(
           'did-start-navigation',
           innerHandleDidStartNavigationNavigation,
+        );
+        webview.addEventListener(
+          'did-redirect-navigation',
+          innerHandleDidRedirectNavigation,
         );
         webview.addEventListener('did-finish-load', didFinishLoad);
         webview.addEventListener('did-stop-loading', innerHandleDidStopLoading);
@@ -238,7 +358,7 @@ const DesktopWebView = forwardRef(
         webview.addEventListener('page-favicon-updated', onPageFaviconUpdated);
         webview.addEventListener('new-window', onNewWindow);
         const handleDomReady = (event: Event) => {
-          setIsDomReady(true);
+          updateIsDomReady(true);
           onDomReady?.(event);
         };
 
@@ -250,6 +370,10 @@ const DesktopWebView = forwardRef(
           webview.removeEventListener(
             'did-start-navigation',
             innerHandleDidStartNavigationNavigation,
+          );
+          webview.removeEventListener(
+            'did-redirect-navigation',
+            innerHandleDidRedirectNavigation,
           );
           webview.removeEventListener('did-finish-load', didFinishLoad);
           webview.removeEventListener(
@@ -269,8 +393,12 @@ const DesktopWebView = forwardRef(
         console.error(error);
       }
     }, [
+      // the first run can precede <webview> mount when the preload URL
+      // resolves async, leaving every load listener unregistered.
+      isWebviewReady,
       clearLoadTimeout,
       startLoadTimeout,
+      updateIsDomReady,
       onDidFailLoad,
       onDidFinishLoad,
       onDidStartLoading,
@@ -316,7 +444,9 @@ const DesktopWebView = forwardRef(
       ref as Ref<unknown>,
       (): IWebViewWrapperRef => {
         const wrapper = {
-          innerRef: webviewRef.current,
+          // deferred preload mounts the node after the first create; the
+          // isWebviewReady dep re-snapshots innerRef once it exists.
+          innerRef: isWebviewReady ? webviewRef.current : null,
           jsBridge: jsBridgeHost,
           reload: () => {
             webviewRef.current?.reload();
@@ -328,7 +458,7 @@ const DesktopWebView = forwardRef(
           },
           sendMessageViaInjectedScript: (message: unknown) => {
             const script = createMessageInjectedScript(message);
-            if (!isDomReady || !webviewRef.current) {
+            if (!isDomReadyRef.current || !webviewRef.current) {
               pendingScriptsRef.current.push(script);
               if (pendingScriptsRef.current.length > 50) {
                 console.warn(
@@ -353,18 +483,23 @@ const DesktopWebView = forwardRef(
         jsBridgeHost.webviewWrapper = wrapper;
         return wrapper as IWebViewRef;
       },
-      [isDomReady, jsBridgeHost],
+      // dom-ready is read via isDomReadyRef so a parent holding an old
+      // wrapper still delivers.
+      [isWebviewReady, jsBridgeHost],
     );
 
-    const initWebviewByRef = useCallback(($ref: any) => {
-      webviewRef.current = $ref;
-      setIsDomReady(false);
-      setIsWebviewReady(Boolean($ref));
-    }, []);
+    const initWebviewByRef = useCallback(
+      ($ref: any) => {
+        webviewRef.current = $ref;
+        updateIsDomReady(false);
+        setIsWebviewReady(Boolean($ref));
+      },
+      [updateIsDomReady],
+    );
 
     useEffect(() => {
       const webview = webviewRef.current;
-      if (!webview || !isWebviewReady) {
+      if (!webview || !isWebviewReady || disableBridge) {
         return;
       }
 
@@ -435,20 +570,29 @@ const DesktopWebView = forwardRef(
       return () => {
         webview.removeEventListener('ipc-message', handleMessage);
       };
-    }, [jsBridgeHost, isWebviewReady, src]);
+    }, [jsBridgeHost, isWebviewReady, src, disableBridge]);
 
     useEffect(() => {
       flushPendingScripts();
     }, [flushPendingScripts, isWebviewReady]);
 
-    if (!preloadJsUrl) {
-      return null;
+    if (preloadJsUrlError && !disableBridge) {
+      return (
+        <Stack flex={1} position="relative" bg="$bgApp">
+          <ErrorView
+            onRefresh={() => {
+              setPreloadJsUrlError(false);
+            }}
+          />
+        </Stack>
+      );
     }
 
-    console.log('preloadJsUrl', preloadJsUrl);
-
+    if (!resolvedPreloadJsUrl && !disableBridge) {
+      return null;
+    }
     return (
-      <>
+      <Stack flex={1} position="relative" bg="$bgApp">
         {devSettings?.enabled && devSettings?.settings?.showWebviewDevTools ? (
           <button
             data-testid="webview-dev-tools"
@@ -471,9 +615,9 @@ const DesktopWebView = forwardRef(
         ) : null}
         <webview
           ref={initWebviewByRef}
-          preload={preloadJsUrl}
+          {...(disableBridge ? {} : { preload: resolvedPreloadJsUrl })}
           src={src}
-          partition="persist:onekey"
+          partition={partitionProp ?? 'persist:onekey'}
           style={{
             'width': '100%',
             'height': '100%',
@@ -494,15 +638,26 @@ const DesktopWebView = forwardRef(
           {...props}
         />
         {desktopLoadError ? (
-          <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
+          <Stack
+            position="absolute"
+            top={0}
+            bottom={0}
+            left={0}
+            right={0}
+            zIndex={1}
+            bg="$bgApp"
+          >
             <ErrorView
+              errorCode={desktopLoadErrorCode}
               onRefresh={() => {
+                setDesktopLoadError(false);
+                setDesktopLoadErrorCode(undefined);
                 webviewRef.current?.reload();
               }}
             />
           </Stack>
         ) : null}
-      </>
+      </Stack>
     );
   },
 );

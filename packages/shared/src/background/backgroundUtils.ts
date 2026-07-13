@@ -364,6 +364,8 @@ export type IGlobalEventBusSyncBroadcastParams = {
   $$isFromBgEventBusSyncBroadcast: true;
   type: string;
   payload: any;
+  /** appEventBus nodeId of the originating runtime; used to skip self-echo. */
+  originNodeId?: string;
 };
 
 export const REPLACE_WHOLE_STATE = 'REPLACE_WHOLE_STATE';

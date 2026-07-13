@@ -7,7 +7,6 @@ import {
 import { noop } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsCustomSettingsAtom,
   usePerpsLayoutStateAtom,
@@ -18,7 +17,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { calculateDisplayPriceScale } from '@onekeyhq/shared/src/utils/perpsUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IFill,
   IHex,
@@ -35,36 +33,53 @@ import {
 } from '../constants/messageTypes';
 import { EMarksUpdateOperationEnum } from '../types';
 
+import { getPerpsInteractionOverlayOpenState } from './interactionOverlayState';
+
 import type { IWebViewRef } from '../../../WebView/types';
 import type {
   IGetMarksRequest,
   IGetMarksResponse,
+  ITVChartOrderIntentPayload,
+  ITVChartReadyPayload,
   ITVLineReadyPayload,
   ITVOrderCancelPayload,
+  ITVOrderDraftCreatePayload,
+  ITVOrderPriceUpdatePayload,
   ITradingMark,
 } from '../types';
+
+const DEFAULT_HYPERLIQUID_PRICE_SCALE = 100;
 
 export function usePerpsTradingViewMessageHandler({
   symbol,
   userAddress,
   webRef,
+  onChartReady,
   onChartLinesReady,
   onOrderCancel,
+  onOrderDraftCreate,
+  onOrderPriceUpdate,
+  onChartOrderIntent,
   onTouchScroll,
+  onInteractionOverlayOpenChange,
 }: {
   symbol: string;
   userAddress?: IHex | null;
   webRef: React.RefObject<IWebViewRef | null>;
+  onChartReady?: (payload: ITVChartReadyPayload) => void;
   onChartLinesReady?: (payload: ITVLineReadyPayload) => void;
   onOrderCancel?: (payload: ITVOrderCancelPayload) => void;
+  onOrderDraftCreate?: (payload: ITVOrderDraftCreatePayload) => void;
+  onOrderPriceUpdate?: (payload: ITVOrderPriceUpdatePayload) => void;
+  onChartOrderIntent?: (payload: ITVChartOrderIntentPayload) => void;
   onTouchScroll?: (deltaY: number) => void;
+  onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const marksRequestIdRef = useRef(0);
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
   const [{ showTradeMarks }] = usePerpsCustomSettingsAtom();
   const [, setLayoutState] = usePerpsLayoutStateAtom();
-  const actions = useHyperliquidActions();
 
   // Use refs to maintain stable references for callbacks
   const symbolRef = useRef(symbol);
@@ -270,21 +285,16 @@ export function usePerpsTradingViewMessageHandler({
   const handleGetHyperliquidPriceScale = useCallback(
     async (request: { symbol: string; requestId: string }) => {
       const { symbol: requestSymbol, requestId } = request;
-
-      const getValidMidValue = async () => {
-        return (
-          await actions.current.getMidPrice({
-            coin: requestSymbol,
-          })
-        ).mid;
-      };
-
-      const WAIT_TIMEOUT_MS = timerUtils.getTimeDurationMs({ seconds: 3 });
-      const WAIT_INTERVAL_MS = 200;
-
-      let midValue = await getValidMidValue();
-      let calculatedPriceScale = 100; // default 2 decimal places
+      let midValue: string | undefined;
+      let calculatedPriceScale = DEFAULT_HYPERLIQUID_PRICE_SCALE;
       let persistedPriceScale: number | undefined;
+
+      if (requestSymbol) {
+        midValue =
+          await backgroundApiProxy.serviceHyperliquid.getTradingviewMidPrice(
+            requestSymbol,
+          );
+      }
 
       if (!midValue) {
         try {
@@ -297,17 +307,6 @@ export function usePerpsTradingViewMessageHandler({
             '[MessageHandler] Failed to load stored price scale:',
             error,
           );
-        }
-      }
-
-      if (!midValue && persistedPriceScale === undefined) {
-        const deadline = Date.now() + WAIT_TIMEOUT_MS;
-        while (Date.now() < deadline) {
-          await new Promise((resolve) => setTimeout(resolve, WAIT_INTERVAL_MS));
-          midValue = await getValidMidValue();
-          if (midValue) {
-            break;
-          }
         }
       }
 
@@ -341,7 +340,7 @@ export function usePerpsTradingViewMessageHandler({
         payload: response,
       });
     },
-    [actions, webRef],
+    [webRef],
   );
 
   const customReceiveHandler = useCallback(
@@ -366,13 +365,25 @@ export function usePerpsTradingViewMessageHandler({
             messageData.data as { symbol: string; requestId: string },
           );
           break;
-        case 'tradingview_perpsReady':
+        case PERPS_TV_MESSAGE_METHODS.CHART_READY:
+          onChartReady?.(messageData.data as ITVChartReadyPayload);
+          break;
+        case PERPS_TV_MESSAGE_METHODS.READY:
           // Chart lines iframe is ready to receive data
           onChartLinesReady?.(messageData.data as ITVLineReadyPayload);
           break;
         case 'tradingview_perpsOrderCancel':
           // User clicked cancel button on order line in TradingView chart
           onOrderCancel?.(messageData.data as ITVOrderCancelPayload);
+          break;
+        case PERPS_TV_MESSAGE_METHODS.ORDER_DRAFT_CREATE:
+          onOrderDraftCreate?.(messageData.data as ITVOrderDraftCreatePayload);
+          break;
+        case PERPS_TV_MESSAGE_METHODS.CHART_ORDER_INTENT:
+          onChartOrderIntent?.(messageData.data as ITVChartOrderIntentPayload);
+          break;
+        case PERPS_TV_MESSAGE_METHODS.ORDER_PRICE_UPDATE:
+          onOrderPriceUpdate?.(messageData.data as ITVOrderPriceUpdatePayload);
           break;
         case PERPS_TV_MESSAGE_METHODS.CHART_EXPAND: {
           const expandData = messageData.data as
@@ -392,6 +403,13 @@ export function usePerpsTradingViewMessageHandler({
           }
           break;
         }
+        case 'tradingview_interactionOverlay': {
+          const isOpen = getPerpsInteractionOverlayOpenState(messageData.data);
+          if (typeof isOpen === 'boolean') {
+            onInteractionOverlayOpenChange?.(isOpen);
+          }
+          break;
+        }
         default:
           break;
       }
@@ -399,9 +417,14 @@ export function usePerpsTradingViewMessageHandler({
     [
       handleGetMarks,
       handleGetHyperliquidPriceScale,
+      onChartReady,
       onChartLinesReady,
       onOrderCancel,
+      onOrderDraftCreate,
+      onOrderPriceUpdate,
+      onChartOrderIntent,
       onTouchScroll,
+      onInteractionOverlayOpenChange,
       setLayoutState,
     ],
   );

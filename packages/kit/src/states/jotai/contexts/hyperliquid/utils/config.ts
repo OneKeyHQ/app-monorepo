@@ -1,3 +1,4 @@
+/* eslint-disable onekey/no-app-locale-main-thread -- non-React util consumed by jotai actions */
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
@@ -17,7 +18,7 @@ export const ERROR_MESSAGES: Record<EErrorType, () => string> = {
 
 export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
   [EActionType.PLACE_ORDER]: {
-    loading: t(ETranslations.perp_toast_opening_order),
+    loading: t(ETranslations.perp_toast_placing_order),
     successTitle: t(ETranslations.perp_toast_order_submitted),
   },
 
@@ -78,6 +79,11 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
     successTitle: t(ETranslations.perp_trading_adjust_margin_updated),
   },
 
+  [EActionType.SET_ACCOUNT_MODE]: {
+    loading: t(ETranslations.perp_account_mode_updating__msg),
+    successTitle: t(ETranslations.perp_account_mode_updated__msg),
+  },
+
   [EActionType.SET_POSITION_TPSL]: {
     loading: t(ETranslations.perp_toast_setting_tp_sl),
     successTitle: t(ETranslations.perp_toast_setting_tp_sl_sucess),
@@ -92,6 +98,11 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
         { count },
       ),
     successTitle: t(ETranslations.perp_toast_canceling_order_sucess),
+  },
+
+  [EActionType.MODIFY_ORDER]: {
+    loading: t(ETranslations.perp_toast_modifying_order),
+    successTitle: t(ETranslations.perp_toast_order_modified),
   },
 
   [EActionType.WITHDRAW]: {

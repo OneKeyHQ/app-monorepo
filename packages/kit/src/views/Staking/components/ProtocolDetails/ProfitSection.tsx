@@ -19,6 +19,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { useEarnEventActive } from '../../hooks/useEarnEventActive';
+import { StakingTestIDs } from '../../testIDs';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
 import { GridItem } from './GridItem';
@@ -74,7 +75,7 @@ function ProfitInfo({
   const { isEventActive } = useEarnEventActive(details.provider.eventEndTime);
 
   return (
-    <YStack gap="$6">
+    <YStack gap="$6" testID={StakingTestIDs.profitSection}>
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.global_profit })}
       </SizableText>
@@ -94,7 +95,11 @@ function ProfitInfo({
               })}
             >
               <XStack gap="$1" alignItems="center">
-                <SizableText size="$bodyLgMedium" color="$textSuccess">
+                <SizableText
+                  size="$bodyLgMedium"
+                  color="$textSuccess"
+                  testID={StakingTestIDs.profitApr}
+                >
                   {`${formatApy(apr)}% ${rewardUnit}`}
                 </SizableText>
               </XStack>
@@ -108,7 +113,11 @@ function ProfitInfo({
               })}
             >
               <XStack gap="$1" alignItems="center">
-                <SizableText size="$bodyLgMedium" color="$textSuccess">
+                <SizableText
+                  size="$bodyLgMedium"
+                  color="$textSuccess"
+                  testID={StakingTestIDs.profitApr}
+                >
                   {`${formatApy(
                     isFalconProvider ? aprWithoutFee : apys?.dailyNetApy,
                   )}% ${rewardUnit}`}
@@ -152,6 +161,7 @@ function ProfitInfo({
                   currency: symbol,
                   showPlusMinusSigns: Number(earningsIn24h) >= 0.01,
                 }}
+                testID={StakingTestIDs.profitEarnings24h}
               >
                 {earningsIn24h}
               </NumberSizeableText>
@@ -171,6 +181,7 @@ function ProfitInfo({
                   tokenSymbol: token.info.symbol,
                   showPlusMinusSigns: Number(totalRewardAmount) > 0,
                 }}
+                testID={StakingTestIDs.profitTotalReward}
               >
                 {totalRewardAmount}
               </NumberSizeableText>
@@ -194,6 +205,7 @@ function ProfitInfo({
                     })}
                     renderTrigger={
                       <IconButton
+                        testID="staking-icon-btn"
                         iconColor="$iconSubdued"
                         size="small"
                         icon="InfoCircleOutline"

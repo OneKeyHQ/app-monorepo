@@ -4,10 +4,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
-  useAccountSelectorActions,
   useAccountSelectorSceneInfo,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 
 import { useAccountSelectorAvailableNetworks } from './useAccountSelectorAvailableNetworks';
 

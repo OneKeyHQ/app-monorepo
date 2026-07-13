@@ -14,8 +14,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import type { IV4MigrationImportedCredential } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -414,13 +412,6 @@ const SendGallery = () => (
               </Button>
               <Button
                 onPress={async () => {
-                  const logResult = (r: IV4MigrationImportedCredential) => {
-                    console.log('ExportSecretKeys >>>> ', {
-                      privateKey: r.exportedPrivateKey,
-                      address: r.account.address,
-                    });
-                    console.log(r);
-                  };
                   const accountIds: string[] = [
                     'imported--60--022af46276751943e1447e903076e93d7e47729708d87ac5e2854719a5f1e2ca17',
                     'imported--0--xpub6BthKLEjBd54zLpbuefhkyYTSpfNmLXCHTH2qx68Pk7xK3q15GeEz4y1TXEhwCunAyVFKZhcmjHXGVGsy2e2uf9Dvu3aFuHQpvvg8eBSwRs--',
@@ -437,7 +428,11 @@ const SendGallery = () => (
                             accountId,
                           },
                         );
-                      logResult(r);
+                      console.log('ExportSecretKeys >>>> ', {
+                        accountId,
+                        address: r.account.address,
+                        ok: !!r.exportedPrivateKey,
+                      });
                     } catch (_error) {
                       //
                     }

@@ -1,6 +1,7 @@
 import type { IHex } from './sdk';
 
 export const MAX_DECIMALS_PERP = 6;
+export const MAX_DECIMALS_SPOT = 8;
 export const MAX_SIGNIFICANT_FIGURES = 5;
 export const MAX_PRICE_INTEGER_DIGITS = 12;
 
@@ -31,6 +32,8 @@ export const TERMS_OF_SERVICE_URL =
   'https://help.onekey.so/articles/11461297-user-service-agreement';
 export const PRIVACY_POLICY_URL =
   'https://help.onekey.so/articles/11461298-privacy-policy';
+export const PERPS_IP_RESTRICTION_HELP_URL =
+  'https://help.onekey.so/articles/15533117';
 
 // Multi-DEX support constants
 export const DEX_PREFIXES = ['xyz'] as const;
@@ -39,10 +42,17 @@ export const XYZ_DEX_PREFIX = `${DEX_PREFIXES[0]}${DEX_SEPARATOR}`;
 export const XYZ_ASSET_ID_OFFSET = 110_000;
 export const XYZ_ASSET_ID_LENGTH = `${XYZ_ASSET_ID_OFFSET}`.length;
 
+// Hyperliquid spot assetId = SPOT_ASSET_ID_OFFSET + spotUniverse.index
+export const SPOT_ASSET_ID_OFFSET = 10_000;
+
+// Quantize Date.now() to this window so near-simultaneous callers
+// produce identical memoizee cache keys (e.g. loadTradesHistory).
+export const CACHE_TIME_QUANTIZE_MS = 10_000;
+
 // Token Selector default values
 export const DEFAULT_PERP_TOKEN_SORT_FIELD = 'volume24h';
 export const DEFAULT_PERP_TOKEN_SORT_DIRECTION = 'desc';
-export const DEFAULT_PERP_TOKEN_ACTIVE_TAB = 'all';
+export const DEFAULT_PERP_TOKEN_ACTIVE_TAB = 'perps';
 
 // Perp Layout Configuration
 export const PERP_LAYOUT_CONFIG = {
@@ -55,7 +65,7 @@ export const PERP_LAYOUT_CONFIG = {
   // than total content height, page scrolls vertically; individual modules can
   // still scroll internally.
   desktop: {
-    tickerBarHeight: 54,
+    tickerBarHeight: 60,
     panelHeaderHeight: 38,
     bottomPanelHeaderHeight: 46,
     // Use a height that aligns cleanly with order book row steps to avoid a

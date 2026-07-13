@@ -30,6 +30,7 @@ function AlignPrimaryAccount() {
       <Page.Body>
         <Stack px="$5">
           <Radio
+            testID="setting-set-align-primary-account-mode-radio"
             value={settings.alignPrimaryAccountMode}
             onChange={setAlignPrimaryAccountMode}
             options={[

@@ -3,13 +3,18 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import wordLists from 'bip39/src/wordlists/english.json';
 import { shuffle } from 'lodash';
 
-import type { useForm } from '@onekeyhq/components';
 import { Haptics, useClipboard, useKeyboardEvent } from '@onekeyhq/components';
+import type { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-const isValidWord = (word: string) => wordLists.includes(word);
+// Force the BIP39 JSON module to evaluate synchronously at this module's
+// load time. With split-thread bundles the original `wordLists.includes(...)`
+// deferred evaluation until the first call inside setTimeout, and that
+// timing intermittently caused the invalid-word highlight to drop.
+const wordListSet = new Set(wordLists);
+const isValidWord = (word: string) => wordListSet.has(word);
 
 export const PHRASE_LENGTHS = [12, 15, 18, 21, 24];
 export const useSearchWords = () => {

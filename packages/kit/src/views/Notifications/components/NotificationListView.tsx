@@ -26,6 +26,7 @@ import {
   Tabs,
   XStack,
   YStack,
+  glassBarItem,
   usePopoverContext,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -55,6 +56,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
+import { NotificationsTestIDs } from '../testIDs';
 
 import type { IListItemProps } from '../../../components/ListItem';
 
@@ -69,16 +71,48 @@ const canShowNotificationSettings = (() => {
 })();
 
 function HeaderRight({
-  onClearUnread,
   style,
+  markAllReadTitle,
+  onMarkAllReadPress,
+  onSettingsButtonPress,
+}: {
+  style?: IXStackProps;
+  markAllReadTitle: string;
+  onMarkAllReadPress: () => Promise<void>;
+  onSettingsButtonPress: () => Promise<void>;
+}) {
+  return (
+    <HeaderButtonGroup {...style}>
+      <HeaderIconButton
+        testID={NotificationsTestIDs.markAllReadBtn}
+        icon="BroomOutline"
+        title={markAllReadTitle}
+        onPress={onMarkAllReadPress}
+      />
+      {canShowNotificationSettings ? (
+        <HeaderIconButton
+          testID={NotificationsTestIDs.settingsBtn}
+          icon="SettingsOutline"
+          onPress={onSettingsButtonPress}
+        />
+      ) : null}
+    </HeaderButtonGroup>
+  );
+}
+
+function useNotificationHeaderActions({
+  onMarkAllReadSuccess,
   closePopover,
 }: {
-  onClearUnread: () => void;
-  style?: IXStackProps;
+  onMarkAllReadSuccess: () => void;
   closePopover?: () => Promise<void>;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+
+  const markAllReadTitle = intl.formatMessage({
+    id: ETranslations.global_mark_all_as_confirmation_title_tooltip,
+  });
 
   const handleSettingsButtonPress = useCallback(async () => {
     await closePopover?.();
@@ -89,28 +123,14 @@ function HeaderRight({
 
   const handleMarkAllReadPress = useCallback(async () => {
     await backgroundApiProxy.serviceNotification.markNotificationReadAll();
-    setTimeout(() => {
-      onClearUnread();
-    }, 100);
-  }, [onClearUnread]);
+    onMarkAllReadSuccess();
+  }, [onMarkAllReadSuccess]);
 
-  return (
-    <HeaderButtonGroup {...style}>
-      <HeaderIconButton
-        icon="CheckRadioOutline"
-        title={intl.formatMessage({
-          id: ETranslations.global_mark_all_as_confirmation_title_tooltip,
-        })}
-        onPress={handleMarkAllReadPress}
-      />
-      {canShowNotificationSettings ? (
-        <HeaderIconButton
-          icon="SettingsOutline"
-          onPress={handleSettingsButtonPress}
-        />
-      ) : null}
-    </HeaderButtonGroup>
-  );
+  return {
+    markAllReadTitle,
+    handleMarkAllReadPress,
+    handleSettingsButtonPress,
+  };
 }
 
 function NotificationItem({
@@ -210,6 +230,44 @@ function NotificationItem({
 }
 
 const NotificationItemMemo = memo(NotificationItem);
+
+function markNotificationItemsRead(
+  notifications: INotificationPushMessageListItem[],
+) {
+  return notifications.map((item) =>
+    item.readed ? item : { ...item, readed: true },
+  );
+}
+
+function buildReadedMessageMap(
+  notifications: INotificationPushMessageListItem[],
+) {
+  return notifications.reduce<Record<string, boolean>>((acc, item) => {
+    if (item.msgId) {
+      acc[item.msgId] = true;
+    }
+    return acc;
+  }, {});
+}
+
+function buildUnreadMap(notifications: INotificationPushMessageListItem[]) {
+  return notifications.reduce(
+    (acc, item) => {
+      if (!item.readed) {
+        if (item.topicType === ENotificationPushTopicTypes.accountActivity) {
+          acc[ENotificationPushTopicTypes.accountActivity] += 1;
+        } else if (item.topicType === ENotificationPushTopicTypes.system) {
+          acc[ENotificationPushTopicTypes.system] += 1;
+        }
+      }
+      return acc;
+    },
+    {
+      [ENotificationPushTopicTypes.accountActivity]: 0,
+      [ENotificationPushTopicTypes.system]: 0,
+    },
+  );
+}
 
 function groupNotificationsByDate(
   notifications: INotificationPushMessageListItem[],
@@ -317,6 +375,7 @@ export function NotificationListView({
     { lastReceivedTime, firstTimeGuideOpened, badge },
     setNotificationsData,
   ] = useNotificationsAtom();
+  const [, setReadedMap] = useNotificationsReadedAtom();
 
   const isFirstTimeGuideOpened = useRef(false);
   const listRef = useRef<ISectionListRef<unknown>>(null);
@@ -399,11 +458,13 @@ export function NotificationListView({
     [ENotificationPushTopicTypes.coinPriceAlert]: [],
     [ENotificationPushTopicTypes.system]: [],
   });
+  const messageListMutationVersionRef = useRef(0);
   const { isLoading, run: reFetchList } = usePromiseResult(
     async () => {
       noop(lastReceivedTime);
       const topicType = tabs.find((tab) => tab.name === focusedTab.value)?.id;
       if (!topicType) return;
+      const requestMutationVersion = messageListMutationVersionRef.current;
       const cacheList = cacheListRef.current[topicType];
       setShouldShowMaxAccountLimitWarning(
         topicType !== ENotificationPushTopicTypes.system,
@@ -415,28 +476,12 @@ export function NotificationListView({
           ? undefined
           : [topicType],
       );
+      // Ignore responses from list requests started before mark-all-read completed.
+      if (requestMutationVersion !== messageListMutationVersionRef.current) {
+        return cacheListRef.current[topicType];
+      }
       if (topicType === ENotificationPushTopicTypes.all) {
-        const hasUnreadMap = r.reduce(
-          (acc, item) => {
-            if (!item.readed) {
-              if (
-                item.topicType === ENotificationPushTopicTypes.accountActivity
-              ) {
-                acc[ENotificationPushTopicTypes.accountActivity] += 1;
-              } else if (
-                item.topicType === ENotificationPushTopicTypes.system
-              ) {
-                acc[ENotificationPushTopicTypes.system] += 1;
-              }
-            }
-            return acc;
-          },
-          {
-            [ENotificationPushTopicTypes.accountActivity]: 0,
-            [ENotificationPushTopicTypes.system]: 0,
-          },
-        );
-        setUnreadMap(hasUnreadMap);
+        setUnreadMap(buildUnreadMap(r));
       }
       if (
         (cacheListRef.current[topicType]?.length || 0) === 0 &&
@@ -461,21 +506,83 @@ export function NotificationListView({
 
   const { isVersionCompatible } = useVersionCompatible();
 
-  const handleClearUnread = useCallback(() => {
+  const handleMarkAllReadSuccess = useCallback(() => {
+    messageListMutationVersionRef.current += 1;
+    const allCachedItems = Object.values(cacheListRef.current).flat();
+    const readedMessageMap = buildReadedMessageMap(allCachedItems);
+    cacheListRef.current = {
+      [ENotificationPushTopicTypes.all]: markNotificationItemsRead(
+        cacheListRef.current[ENotificationPushTopicTypes.all],
+      ),
+      [ENotificationPushTopicTypes.accountActivity]: markNotificationItemsRead(
+        cacheListRef.current[ENotificationPushTopicTypes.accountActivity],
+      ),
+      [ENotificationPushTopicTypes.coinPriceAlert]: markNotificationItemsRead(
+        cacheListRef.current[ENotificationPushTopicTypes.coinPriceAlert],
+      ),
+      [ENotificationPushTopicTypes.system]: markNotificationItemsRead(
+        cacheListRef.current[ENotificationPushTopicTypes.system],
+      ),
+    };
+    setResult((prev) => markNotificationItemsRead(prev));
+    setReadedMap((prev) => ({
+      ...prev,
+      ...readedMessageMap,
+    }));
+    setNotificationsData((v) => ({
+      ...v,
+      badge: undefined,
+    }));
     setUnreadMap({
       [ENotificationPushTopicTypes.accountActivity]: 0,
       [ENotificationPushTopicTypes.system]: 0,
     });
-  }, [setUnreadMap]);
+    void reFetchList();
+  }, [reFetchList, setNotificationsData, setReadedMap, setUnreadMap]);
+
+  const {
+    markAllReadTitle,
+    handleMarkAllReadPress,
+    handleSettingsButtonPress,
+  } = useNotificationHeaderActions({
+    onMarkAllReadSuccess: handleMarkAllReadSuccess,
+    closePopover,
+  });
 
   const renderHeaderRight = useCallback(
     () => (
       <HeaderRight
-        onClearUnread={handleClearUnread}
-        closePopover={closePopover}
+        markAllReadTitle={markAllReadTitle}
+        onMarkAllReadPress={handleMarkAllReadPress}
+        onSettingsButtonPress={handleSettingsButtonPress}
       />
     ),
-    [handleClearUnread, closePopover],
+    [handleMarkAllReadPress, handleSettingsButtonPress, markAllReadTitle],
+  );
+
+  const buildNativeHeaderRightItems = useCallback(
+    () => [
+      glassBarItem(
+        <HeaderIconButton
+          testID={NotificationsTestIDs.markAllReadBtn}
+          icon="BroomOutline"
+          title={markAllReadTitle}
+          onPress={handleMarkAllReadPress}
+        />,
+      ),
+      ...(canShowNotificationSettings
+        ? [
+            glassBarItem(
+              <HeaderIconButton
+                testID={NotificationsTestIDs.settingsBtn}
+                icon="SettingsOutline"
+                onPress={handleSettingsButtonPress}
+              />,
+            ),
+          ]
+        : []),
+    ],
+    [handleMarkAllReadPress, handleSettingsButtonPress, markAllReadTitle],
   );
 
   useEffect(() => {
@@ -516,6 +623,7 @@ export function NotificationListView({
                 </XStack>
               ) : null}
               <NotificationItemMemo
+                testID={`${NotificationsTestIDs.notificationItem}-${index}`}
                 key={item.msgId || index}
                 item={item}
                 onPress={async () => {
@@ -649,7 +757,9 @@ export function NotificationListView({
       {showPageHeader ? (
         <Page.Header
           title={intl.formatMessage({ id: ETranslations.global_notifications })}
-          headerRight={renderHeaderRight}
+          {...(platformEnv.isNativeIOS26Plus
+            ? { unstable_headerRightItems: buildNativeHeaderRightItems }
+            : { headerRight: renderHeaderRight })}
         />
       ) : (
         <YStack
@@ -666,8 +776,9 @@ export function NotificationListView({
             </SizableText>
             <HeaderRight
               style={{ flex: 1, justifyContent: 'flex-end' }}
-              onClearUnread={handleClearUnread}
-              closePopover={closePopover}
+              markAllReadTitle={markAllReadTitle}
+              onMarkAllReadPress={handleMarkAllReadPress}
+              onSettingsButtonPress={handleSettingsButtonPress}
             />
           </XStack>
           <Tabs.TabBar

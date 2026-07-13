@@ -6,8 +6,12 @@ import type { IActionListItemProps } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { DiscoveryTestIDs } from '../../testIDs';
 import { ESiteMode, type IMobileBottomOptionsProps } from '../../types';
+
+import { ACTION_LIST_CLOSE_ANIMATION_DELAY_MS } from './useMobileBrowserBottomBarData';
 
 function MobileBrowserBottomOptions({
   children,
@@ -46,9 +50,7 @@ function MobileBrowserBottomOptions({
             }),
             icon: isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => onBookmarkPress(!isBookmark),
-            testID: `action-list-item-${
-              !isBookmark ? 'bookmark' : 'remove-bookmark'
-            }`,
+            testID: DiscoveryTestIDs.tabActionBookmark,
           },
           {
             label: intl.formatMessage({
@@ -58,7 +60,7 @@ function MobileBrowserBottomOptions({
             }),
             icon: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
             onPress: () => onPinnedPress(!isPinned),
-            testID: `action-list-item-${!isPinned ? 'pin' : 'un-pin'}`,
+            testID: DiscoveryTestIDs.tabActionPin(!!isPinned),
           },
           platformEnv.isNativeIOSPad
             ? undefined
@@ -108,7 +110,7 @@ function MobileBrowserBottomOptions({
             label: intl.formatMessage({ id: ETranslations.explore_share }),
             icon: 'ShareOutline',
             onPress: () => onShare(),
-            testID: 'action-list-item-share',
+            testID: DiscoveryTestIDs.browserShareButton,
           },
         ].filter(Boolean) as IActionListItemProps[],
       },
@@ -127,8 +129,12 @@ function MobileBrowserBottomOptions({
                 : ETranslations.explore_close_tab,
             }),
             icon: 'CrossedLargeOutline',
-            onPress: onCloseTab,
-            testID: 'action-list-item-close-tab-in-browser',
+            onPress: async (close: () => void) => {
+              close();
+              await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
+              onCloseTab();
+            },
+            testID: DiscoveryTestIDs.tabActionClose,
           },
           onGoBackHomePage
             ? {

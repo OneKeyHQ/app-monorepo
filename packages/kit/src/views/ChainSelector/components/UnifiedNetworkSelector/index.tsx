@@ -19,10 +19,8 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -40,10 +38,15 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useFindNetworksWithoutAccount } from '../../hooks/useFindNetworksWithoutAccount';
+import { ChainSelectorTestIDs } from '../../testIDs';
 
 import { NetworkContent } from './NetworkContent';
 import PortfolioContent from './PortfolioContent';
@@ -113,23 +116,27 @@ function UnifiedNetworkSelector() {
 
   const [activeTab, setActiveTab] = useState<ITabType>(initialTab);
 
-  // Portfolio tab state (from AllNetworksManager)
+  // Portfolio tab state (from AllNetworksManager).
+  // Seed from the SWR cache synchronously so the first render doesn't flash
+  // the "no results" empty state before the useEffect below copies the
+  // revalidated networkMeta into state. The setter is still needed because
+  // handleAddCustomNetwork updates this locally before persisting to bg.
   const [networksState, setNetworksState] = useState<{
     enabledNetworks: Record<string, boolean>;
     disabledNetworks: Record<string, boolean>;
-  }>({
-    enabledNetworks: {},
-    disabledNetworks: {},
-  });
-
-  const [networks, setNetworks] = useState<{
-    allNetworks: IServerNetworkMatch[];
-    mainNetworks: IServerNetworkMatch[];
-    frequentlyUsedNetworks: IServerNetworkMatch[];
-  }>({
-    allNetworks: [],
-    mainNetworks: [],
-    frequentlyUsedNetworks: [],
+  }>(() => {
+    const cached = swrCacheUtils.get<{
+      allNetworksState: {
+        enabledNetworks: Record<string, boolean>;
+        disabledNetworks: Record<string, boolean>;
+      };
+    }>(swrKeys.unifiedNetworkSelectorMeta({ walletId, accountId }));
+    return (
+      cached?.allNetworksState ?? {
+        enabledNetworks: {},
+        disabledNetworks: {},
+      }
+    );
   });
 
   const enabledNetworksInit = useRef(false);
@@ -151,16 +158,6 @@ function UnifiedNetworkSelector() {
 
   const [searchKey, setSearchKey] = useState('');
 
-  // Network values for portfolio tab
-  const [accountNetworkValues, setAccountNetworkValues] = useState<
-    Record<string, string>
-  >({});
-  const [accountNetworkValueCurrency, setAccountNetworkValueCurrency] =
-    useState<string | undefined>(undefined);
-  const [accountDeFiOverview, setAccountDeFiOverview] = useState<
-    Record<string, { netWorth: number }>
-  >({});
-
   const [_enabledNetworksWithoutAccount, setEnabledNetworksWithoutAccount] =
     useState<
       {
@@ -168,23 +165,6 @@ function UnifiedNetworkSelector() {
         deriveType: IAccountDeriveTypes;
       }[]
     >([]);
-
-  // Update enabled networks when state changes
-  useEffect(() => {
-    const result = networks.mainNetworks.filter((network) =>
-      isEnabledNetworksInAllNetworks({
-        networkId: network.id,
-        enabledNetworks: networksState.enabledNetworks,
-        disabledNetworks: networksState.disabledNetworks,
-        isTestnet: network.isTestnet,
-      }),
-    );
-    setEnabledNetworks(result);
-    if (!enabledNetworksInit.current && networks.allNetworks.length > 0) {
-      setOriginalEnabledNetworks(result);
-      enabledNetworksInit.current = true;
-    }
-  }, [networksState, networks.mainNetworks, networks.allNetworks]);
 
   // Use ref to track activeTab for closures (e.g. onSuccess in navigation)
   const activeTabRef = useRef(activeTab);
@@ -209,80 +189,209 @@ function UnifiedNetworkSelector() {
     [],
   );
 
-  // Load networks data for portfolio tab
-  const { run: refreshPortfolioData } = usePromiseResult(async () => {
-    const [allNetworksState, { networks: allNetworks }] = await Promise.all([
-      backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
-      backgroundApiProxy.serviceNetwork.getAllNetworks(),
-    ]);
-    setNetworksState({
-      enabledNetworks: allNetworksState.enabledNetworks,
-      disabledNetworks: allNetworksState.disabledNetworks,
-    });
+  // Split into two hooks so the list skeleton can hydrate from MMKV on mount
+  // while balances/DeFi stay off the cache (stale money values would mislead
+  // the user more than a short skeleton does).
+  const { result: networkMeta, run: refreshNetworkMeta } = usePromiseResult(
+    async () => {
+      const [allNetworksStateResp, { networks: allNetworks }] =
+        await Promise.all([
+          backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+          backgroundApiProxy.serviceNetwork.getAllNetworks(),
+        ]);
 
-    const compatibleNetworks =
-      await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-        {
-          accountId,
-          walletId,
-          networkIds: allNetworks.map((network) => network.id),
-          excludeTestNetwork: true,
-        },
-      );
-    setNetworks({
-      allNetworks,
-      mainNetworks: compatibleNetworks.mainnetItems,
-      frequentlyUsedNetworks: compatibleNetworks.frequentlyUsedItems,
-    });
-
-    // Fetch network values for portfolio tab
-    const [_accountsValue, _localDeFiOverview] = await Promise.all([
-      backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValue({
-        accounts: [{ accountId: indexedAccountId ?? accountId ?? '' }],
-      }),
-      backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
-        accounts: [
+      const compatibleNetworks =
+        await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
           {
-            accountId: indexedAccountId ?? accountId ?? '',
-            networkId: getNetworkIdsMap().onekeyall,
-            indexedAccountId,
-          },
-        ],
-        networksEnabledOnly: false,
-      }),
-    ]);
-
-    if (_accountsValue[0] || _localDeFiOverview[0]) {
-      const {
-        formattedAccountNetworkValues,
-        accountDeFiOverview: _accountDeFiOverview,
-      } =
-        await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
-          {
-            walletId: accountUtils.getWalletIdFromAccountId({
-              accountId: _accountsValue[0]?.accountId ?? '',
-            }),
-            chainSelectorNetworks: compatibleNetworks,
-            accountNetworkValues: _accountsValue[0]?.value ?? {},
-            localDeFiOverview: _localDeFiOverview[0]?.overview ?? {},
+            accountId,
+            walletId,
+            networkIds: allNetworks.map((network) => network.id),
+            excludeTestNetwork: true,
           },
         );
 
-      setAccountNetworkValues(formattedAccountNetworkValues ?? {});
-      setAccountNetworkValueCurrency(_accountsValue[0]?.currency);
-      setAccountDeFiOverview(_accountDeFiOverview ?? {});
-    }
-  }, [accountId, walletId, indexedAccountId]);
+      return {
+        allNetworksState: {
+          enabledNetworks: allNetworksStateResp.enabledNetworks,
+          disabledNetworks: allNetworksStateResp.disabledNetworks,
+        },
+        allNetworks,
+        compatibleNetworks,
+      };
+    },
+    [accountId, walletId],
+    {
+      swrKey: swrKeys.unifiedNetworkSelectorMeta({ walletId, accountId }),
+    },
+  );
 
-  // Refresh portfolio data when a custom network is added
+  // Derive `networks` straight from the SWR result so the first render
+  // reflects cached data without a frame of empty arrays. Using useMemo
+  // instead of useState+useEffect eliminates the "no results" flash on
+  // Portfolio tab — previously the effect only copied networkMeta into
+  // state after mount, so the first render paint saw empty arrays.
+  //
+  // `networksState` stays as useState (seeded from cache above) because
+  // handleAddCustomNetwork needs a setter to optimistically toggle
+  // enable/disable before the bg round-trip.
+  const networks = useMemo<{
+    allNetworks: IServerNetworkMatch[];
+    mainNetworks: IServerNetworkMatch[];
+    frequentlyUsedNetworks: IServerNetworkMatch[];
+  }>(
+    () => ({
+      allNetworks: networkMeta?.allNetworks ?? [],
+      mainNetworks: networkMeta?.compatibleNetworks.mainnetItems ?? [],
+      frequentlyUsedNetworks:
+        networkMeta?.compatibleNetworks.frequentlyUsedItems ?? [],
+    }),
+    [networkMeta],
+  );
+
+  // Keep networksState in sync with revalidation. The seed above handles
+  // first paint; this effect picks up later updates from the SWR fetch.
+  useEffect(() => {
+    if (!networkMeta) return;
+    setNetworksState(networkMeta.allNetworksState);
+  }, [networkMeta]);
+
+  // Derive the enabled subset from networks + state. Lives after the
+  // `networks` useMemo to keep declaration order clean.
+  useEffect(() => {
+    const result = networks.mainNetworks.filter((network) =>
+      isEnabledNetworksInAllNetworks({
+        networkId: network.id,
+        enabledNetworks: networksState.enabledNetworks,
+        disabledNetworks: networksState.disabledNetworks,
+        isTestnet: network.isTestnet,
+      }),
+    );
+    setEnabledNetworks(result);
+    if (!enabledNetworksInit.current && networks.allNetworks.length > 0) {
+      setOriginalEnabledNetworks(result);
+      enabledNetworksInit.current = true;
+    }
+  }, [networksState, networks.mainNetworks, networks.allNetworks]);
+
+  const compatibleNetworks = networkMeta?.compatibleNetworks;
+
+  // Balances + DeFi: now SWR-cached via the cold-start MMKV instance so the
+  // "networks with assets" (有资产的网络) section is present on the very first
+  // render frame, eliminating the layout jump that happened when this section
+  // popped in only after the async resolved. The request still always fires and
+  // revalidates the cache in place; the cached values are local USD snapshots,
+  // so brief staleness before revalidation is acceptable. Only primitive
+  // (MMKV-serializable) fields are returned — Record<string,string> values, a
+  // currency string, and Record<string,{ netWorth: number }> DeFi overview;
+  // never the IServerNetwork objects from compatibleNetworks. Depends on
+  // compatibleNetworks for the sort step, so meta changes fan out here via the
+  // `compatibleNetworks` dep.
+  const { result: accountValuesResult } = usePromiseResult(
+    async (): Promise<
+      | {
+          accountNetworkValues: Record<string, string>;
+          currency: string | undefined;
+          accountDeFiOverview: Record<string, { netWorth: number }>;
+        }
+      | undefined
+    > => {
+      // Return `undefined` (not an empty object) when we cannot compute a real
+      // result yet. usePromiseResult only writes the swr cache when the result
+      // is `!== undefined`, so this prevents a transient pre-meta run from
+      // overwriting a previously-good cached snapshot (which would bring the
+      // layout jump back on the next cold start). An empty *computed* result
+      // below (account genuinely has no assets) is still returned and cached.
+      if (!compatibleNetworks) {
+        return undefined;
+      }
+      if (!accountId && !indexedAccountId) {
+        return undefined;
+      }
+
+      const [_accountsValue, _localDeFiOverview] = await Promise.all([
+        backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValueByAccountId(
+          { accountId: indexedAccountId ?? accountId ?? '' },
+        ),
+        backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
+          accounts: [
+            {
+              accountId: indexedAccountId ?? accountId ?? '',
+              networkId: getNetworkIdsMap().onekeyall,
+              indexedAccountId,
+            },
+          ],
+          networksEnabledOnly: false,
+        }),
+      ]);
+
+      if (_accountsValue || _localDeFiOverview[0]) {
+        const {
+          formattedAccountNetworkValues,
+          accountDeFiOverview: _accountDeFiOverview,
+        } =
+          await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
+            {
+              walletId: accountUtils.getWalletIdFromAccountId({
+                accountId: _accountsValue?.accountId ?? '',
+              }),
+              chainSelectorNetworks: compatibleNetworks,
+              accountNetworkValues: _accountsValue?.value ?? {},
+              localDeFiOverview: _localDeFiOverview[0]?.overview ?? {},
+            },
+          );
+
+        return {
+          accountNetworkValues: formattedAccountNetworkValues ?? {},
+          currency: _accountsValue?.currency,
+          accountDeFiOverview: _accountDeFiOverview ?? {},
+        };
+      }
+
+      // Defensive: `_accountsValue` is always a truthy object, so this branch
+      // is effectively unreachable, but if it ever is hit we have no data to
+      // compute — return `undefined` to leave the cache untouched.
+      return undefined;
+    },
+    // walletId is kept in deps because it feeds the swrKey: a wallet-scope
+    // change must trigger revalidation. exhaustive-deps only inspects the
+    // callback body (which derives its own walletId from the resolved account)
+    // and therefore flags walletId as unnecessary — suppress that here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [accountId, indexedAccountId, compatibleNetworks, walletId],
+    {
+      swrKey: swrKeys.unifiedNetworkSelectorValues({
+        walletId,
+        accountId,
+        indexedAccountId,
+      }),
+    },
+  );
+
+  // Derive the portfolio values straight from the SWR result so the first
+  // render reflects cached data without a frame of empty objects. Declared
+  // after the usePromiseResult above to keep hook ordering stable.
+  const accountNetworkValues = useMemo(
+    () => accountValuesResult?.accountNetworkValues ?? {},
+    [accountValuesResult],
+  );
+  const accountNetworkValueCurrency = useMemo(
+    () => accountValuesResult?.currency,
+    [accountValuesResult],
+  );
+  const accountDeFiOverview = useMemo(
+    () => accountValuesResult?.accountDeFiOverview ?? {},
+    [accountValuesResult],
+  );
+
+  // Refresh portfolio data when a custom network is added. Meta revalidation
+  // produces a new compatibleNetworks reference, which cascades into the
+  // values hook via its deps — no explicit values refresh needed here.
   useEffect(() => {
     const fn = async () => {
       try {
-        // Use alwaysSetState to bypass the isFocused check, because this
-        // event can fire while the navigation-back animation is still
-        // running (screen not yet focused), which would silently skip
-        // the refresh and leave stale data.
-        await refreshPortfolioData({ alwaysSetState: true });
+        // alwaysSetState bypasses the isFocused guard because this event can
+        // fire while the back-nav animation is still running.
+        await refreshNetworkMeta({ alwaysSetState: true });
       } catch {
         // silently ignore refresh errors
       }
@@ -291,11 +400,11 @@ function UnifiedNetworkSelector() {
     return () => {
       appEventBus.off(EAppEventBusNames.AddedCustomNetwork, fn);
     };
-  }, [refreshPortfolioData]);
+  }, [refreshNetworkMeta]);
 
   // Network tab callbacks
   const handleNetworkPressItem = useCallback(
-    (item: IServerNetwork) => {
+    async (item: IServerNetwork) => {
       if (
         sceneName === EAccountSelectorSceneName.home ||
         sceneName === EAccountSelectorSceneName.homeUrlAccount
@@ -309,27 +418,28 @@ function UnifiedNetworkSelector() {
         });
       }
 
-      void actions.current.updateSelectedAccountNetwork({
-        num,
-        networkId: item.id,
-      });
-
-      // Surgically drop only the ChainSelectorModal route. popStack() triggers
-      // the iOS RNSScreenStack window=NIL retry storm, and resetAboveMainRoute
-      // would also close any parent modal that pushed us here.
-      // See ios-overlay-navigation-freeze.md.
-      resetChainSelectorModal();
+      try {
+        await actions.current.updateSelectedAccountNetwork({
+          num,
+          networkId: item.id,
+        });
+      } finally {
+        // Surgically drop only the ChainSelectorModal route. popStack() triggers
+        // the iOS RNSScreenStack window=NIL retry storm, and resetAboveMainRoute
+        // would also close any parent modal that pushed us here.
+        // See ios-overlay-navigation-freeze.md.
+        resetChainSelectorModal();
+      }
     },
     [actions, num, recordNetworkHistoryEnabled, activeNetwork, sceneName],
   );
 
   const handleAddCustomNetwork = useCallback(() => {
-    navigation.push(EChainSelectorPagesEnum.AddCustomNetwork, {
-      state: 'add',
+    navigation.push(EChainSelectorPagesEnum.ChainListSearch, {
       onSuccess: async (network: IServerNetwork) => {
         if (activeTabRef.current === 'portfolio') {
           // Portfolio tab: enable the new network and persist to backend.
-          // Persist first to avoid race condition: refreshPortfolioData
+          // Persist first to avoid race condition: refreshNetworkMeta
           // (triggered by AddedCustomNetwork event) fetches backend state
           // and overwrites local state. By persisting before the event,
           // the backend already includes the enabled state.
@@ -348,15 +458,16 @@ function UnifiedNetworkSelector() {
           await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
             enabledNetworks: newEnabledNetworks,
             disabledNetworks: newDisabledNetworks,
+            cacheContext: { walletId, accountId },
           });
           appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
         } else {
           // Network tab: select network and close modal (original behavior)
-          handleNetworkPressItem(network);
+          void handleNetworkPressItem(network);
         }
       },
     });
-  }, [navigation, handleNetworkPressItem, networksState]);
+  }, [navigation, handleNetworkPressItem, networksState, walletId, accountId]);
 
   const handleEditCustomNetwork = useCallback(
     async (network: IServerNetwork) => {
@@ -428,6 +539,7 @@ function UnifiedNetworkSelector() {
         await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
           enabledNetworks: networksState.enabledNetworks,
           disabledNetworks: networksState.disabledNetworks,
+          cacheContext: { walletId, accountId },
         });
 
         appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
@@ -501,6 +613,7 @@ function UnifiedNetworkSelector() {
       <HeaderIconButton
         icon="PlusLargeSolid"
         onPress={handleAddCustomNetwork}
+        testID={ChainSelectorTestIDs.unifiedAddNetworkBtn}
         title={intl.formatMessage({
           id: ETranslations.custom_network_add_network_action_text,
         })}
@@ -555,7 +668,12 @@ function UnifiedNetworkSelector() {
 
   return (
     <Page
-      safeAreaEnabled
+      // Page safeAreaEnabled + SectionList contentContainerStyle.paddingBottom
+      // double-counted the home indicator inset (~34px each). Defer
+      // bottom safe area to the list's contentContainerStyle so the
+      // padding lives on the scroll container and doesn't animate
+      // during modal presentation. Matches EditableChainSelector/index.
+      safeAreaEnabled={false}
       onClose={() => {
         if (networkUtils.isAllNetwork({ networkId })) {
           appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
@@ -609,7 +727,6 @@ function UnifiedNetworkSelector() {
                   networkId={networkId}
                   networkIds={networkIds}
                   onPressItem={handleNetworkPressItem}
-                  onAddCustomNetwork={handleAddCustomNetwork}
                   onEditCustomNetwork={handleEditCustomNetwork}
                   searchText={searchKey}
                   setSearchText={setSearchKey}
@@ -654,7 +771,6 @@ function UnifiedNetworkSelector() {
                   networkId={networkId}
                   networkIds={networkIds}
                   onPressItem={handleNetworkPressItem}
-                  onAddCustomNetwork={handleAddCustomNetwork}
                   onEditCustomNetwork={handleEditCustomNetwork}
                   searchText={searchKey}
                   setSearchText={setSearchKey}
@@ -671,7 +787,6 @@ function UnifiedNetworkSelector() {
               networkId={networkId}
               networkIds={networkIds}
               onPressItem={handleNetworkPressItem}
-              onAddCustomNetwork={handleAddCustomNetwork}
               onEditCustomNetwork={handleEditCustomNetwork}
               searchText={searchKey}
               setSearchText={setSearchKey}
@@ -713,14 +828,14 @@ function UnifiedNetworkSelector() {
               variant="primary"
               loading={isCreatingEnabledAddresses}
               disabled={isConfirmDisabled}
-              onPress={async () => {
-                try {
-                  await handlePortfolioDone();
-                } catch {
-                  // error already handled inside handlePortfolioDone
-                }
-              }}
-              testID="page-footer-confirm"
+              // Let rejections stay unhandled so GlobalErrorHandlerContainer
+              // can surface them: DeviceNotOpenedPassphrase (hidden wallet on
+              // a passphrase-disabled device) is excluded from auto-toasts by
+              // design and only shows its "enable passphrase" dialog through
+              // the unhandled-rejection path. handlePortfolioDone resets its
+              // own loading state in a finally block.
+              onPress={handlePortfolioDone}
+              testID={ChainSelectorTestIDs.unifiedPortfolioConfirmBtn}
             >
               {confirmButtonText}
             </Button>

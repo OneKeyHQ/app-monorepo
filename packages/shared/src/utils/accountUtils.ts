@@ -1,3 +1,4 @@
+import { sha256 as sha256ByNoble } from '@noble/hashes/sha256';
 import { isNaN, isNil, isNumber } from 'lodash';
 
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
@@ -17,7 +18,6 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import appCrypto from '../appCrypto';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import {
@@ -25,6 +25,7 @@ import {
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
 } from '../consts/perp';
 import {
+  COINTYPE_ADA,
   COINTYPE_ALLNETWORKS,
   COINTYPE_BTC,
   COINTYPE_ETH,
@@ -46,6 +47,10 @@ import type { IBotWalletParsedId } from '../../types/botWallet';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
 
 const HD_WALLET_HASH_SALT = '4863FBE1-7B9B-4006-91D0-24212CCCC375';
+
+function sha256Buffer(data: Buffer): Buffer {
+  return Buffer.from(sha256ByNoble(data));
+}
 
 function parseBotWalletId(walletId: string): IBotWalletParsedId | undefined {
   if (!walletId.startsWith(BOT_WALLET_ID_PREFIX)) {
@@ -700,6 +705,70 @@ function buildAccountLocalAssetsKey({
   return ((xpub || accountAddress) ?? '').toLowerCase();
 }
 
+// Mirrors each vault's `getXpubFromAccount` precedence so address-keyed storage
+// reads/writes land at the same key. The write path resolves the storage owner
+// via `ServiceAccount.getAccountXpub` (vault-dispatched), so this sync helper —
+// used by the batch readers, the legacy migration and the orphan sweep — MUST
+// return the same owner per chain or values are written and read under
+// different keys (symptom: account selector shows "--" despite a real balance).
+//
+// - Nested-segwit BTC (P2SH-P2WPKH) holds the spendable xpub in `xpubSegwit`;
+//   reading raw `.xpub` instead misses that derive type's worth (see
+//   `BtcVault.getXpubFromAccount`).
+// - Cardano (coinType 1815) has no usable extended-pubkey owner: its account is
+//   identified by the stake address at `addresses['2/0']`, which
+//   `AdaVault.getXpubFromAccount` returns as the "xpub". Returning raw `.xpub`
+//   here landed reads on a key the write path never produced.
+//
+// Accepts any account-shaped object — callers pass IDBAccount / INetworkAccount
+// whose non-UTXO variants don't structurally declare these fields.
+function pickXpubFromDBAccount(account: unknown): string | undefined {
+  if (!account || typeof account !== 'object') return undefined;
+  const a = account as {
+    coinType?: string;
+    xpub?: string;
+    xpubSegwit?: string;
+    addresses?: Record<string, string>;
+  };
+  if (a.coinType === COINTYPE_ADA) {
+    return a.addresses?.['2/0'];
+  }
+  return a.xpubSegwit || a.xpub;
+}
+
+// Returns true if a per-account local-assets storage key still belongs to a
+// valid (non-deleted) owner. Keys built by `buildAccountLocalAssetsKey` /
+// `buildLocalAggregateTokenMapKey` are either `${networkId}_${owner}` (owner =
+// lowercased address / xpub / accountId) or a bare `${owner}` (all-networks
+// aggregate keys with no networkId prefix). networkId uses `--` as its own
+// separator and never contains `_`, so the owner is exactly the substring after
+// the first `_`. Used by the ServiceAppCleanup orphan sweep; the failure mode of
+// over-matching (keeping an orphan) or under-matching (dropping a live cache key)
+// is benign — these maps are pure caches that the normal refresh repopulates —
+// but we still match precisely to avoid needless cache churn on live accounts.
+function isLocalAssetsKeyOwnedBy({
+  key,
+  validOwners,
+}: {
+  key: string;
+  validOwners: Set<string>;
+}): boolean {
+  const lower = key.toLowerCase();
+  // bare owner key (e.g. all-networks aggregate / accountValue.allByAddress)
+  if (validOwners.has(lower)) {
+    return true;
+  }
+  // networkId-prefixed key: owner is everything after the first underscore
+  const underscoreIndex = lower.indexOf('_');
+  if (
+    underscoreIndex >= 0 &&
+    validOwners.has(lower.slice(underscoreIndex + 1))
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function isAccountCompatibleWithNetwork({
   account,
   networkId,
@@ -1115,18 +1184,10 @@ function isEnabledBtcFreshAddress({
   return false;
 }
 
-function buildKeylessWalletId({
-  sharePackSetId,
-}: {
-  sharePackSetId: string;
-}): string {
-  return `${WALLET_TYPE_HD}-keyless-${sharePackSetId}`;
-}
-
 function buildHdWalletHash({ mnemonic }: { mnemonic: string }): string {
   const text = `${mnemonic}--${HD_WALLET_HASH_SALT}`;
   return bufferUtils.bytesToHex(
-    appCrypto.hash.sha256Sync(bufferUtils.toBuffer(text, 'utf8')),
+    sha256Buffer(bufferUtils.toBuffer(text, 'utf8')),
   );
 }
 
@@ -1137,7 +1198,7 @@ async function buildKeylessWalletIdV2({
   ownerId: string;
   xfp: string;
 }): Promise<string> {
-  const hash = await appCrypto.hash.sha256(
+  const hash = sha256Buffer(
     Buffer.from(
       `${ownerId}__E9590EE9-3A3D-43A1-8DE8-886AD1F02786__${xfp}`,
       'utf-8',
@@ -1159,16 +1220,6 @@ function isKeylessWallet({
 function isKeylessAccount({ accountId }: { accountId: string }): boolean {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isKeylessWallet({ walletId });
-}
-
-function getKeylessWalletPackSetId({ walletId }: { walletId: string }): string {
-  const packSetId = walletId.split(`${WALLET_TYPE_HD}-keyless-`)[1];
-  if (!packSetId) {
-    throw new OneKeyLocalError(
-      'getKeylessWalletPackSetId ERROR: packSetId is empty',
-    );
-  }
-  return packSetId;
 }
 
 // ---- Bot Wallet ID utilities ----
@@ -1198,14 +1249,6 @@ function isBotAccount({ accountId }: { accountId: string }): boolean {
 
 // ---- End Bot Wallet ID utilities ----
 
-function buildKeylessDevicePackKey({
-  packSetId,
-}: {
-  packSetId: string;
-}): string {
-  return `OneKey_Keyless__${packSetId}`;
-}
-
 function buildKeylessMnemonicPasswordKey({
   ownerId,
 }: {
@@ -1228,7 +1271,7 @@ async function hashKeylessSocialUserId({
   socialUserId: string;
 }): Promise<string> {
   return bufferUtils.bytesToHex(
-    await appCrypto.hash.sha256(
+    sha256Buffer(
       Buffer.from(
         `${socialUserId}98635F65-A052-4EF1-B84B-AF749D08DCF4`,
         'utf-8',
@@ -1237,14 +1280,26 @@ async function hashKeylessSocialUserId({
   );
 }
 
-const validDeriveTypesList: IAccountDeriveTypes[] = [
+const validDeriveTypesList = [
   'default',
   'ledgerLive',
+  'ledgerLegacy',
   'BIP86',
   'BIP84',
   'BIP44',
   'kaspaOfficial',
-] as const satisfies IAccountDeriveTypes[];
+] as const satisfies readonly IAccountDeriveTypes[];
+
+// Compile-time guard: ensures every IAccountDeriveTypes member is present in
+// validDeriveTypesList above. On failure, TypeScript names the missing
+// member(s) in the error (e.g. "Type 'BIP49' is not assignable to type 'never'").
+type MissingDeriveTypes<T extends readonly IAccountDeriveTypes[]> = Exclude<
+  IAccountDeriveTypes,
+  T[number]
+>;
+const _exhaustiveCheck: never = undefined as MissingDeriveTypes<
+  typeof validDeriveTypesList
+>;
 
 function normalizeDeriveType(
   deriveType: string,
@@ -1300,12 +1355,9 @@ export default {
   URL_ACCOUNT_ID,
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
 
-  getKeylessWalletPackSetId,
-  buildKeylessDevicePackKey,
   buildKeylessMnemonicPasswordKey,
   buildKeylessRefreshTokenKey,
   buildKeylessTokenKey,
-  buildKeylessWalletId,
   buildHdWalletHash,
   buildKeylessWalletIdV2,
   buildAccountValueKey,
@@ -1385,6 +1437,8 @@ export default {
   removePathLastSegment,
   buildHiddenWalletName,
   buildAccountLocalAssetsKey,
+  pickXpubFromDBAccount,
+  isLocalAssetsKeyOwnedBy,
   buildTonMnemonicCredentialId,
   getAccountIdFromTonMnemonicCredentialId,
   buildHyperLiquidAgentCredentialId,

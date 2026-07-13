@@ -4,25 +4,21 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
-import type {
+import {
   EApproveType,
-  IEarnTokenInfo,
-  IEarnWithdrawActionIcon,
-  IProtocolInfo,
-  IStakeProtocolListItem,
+  EManagePositionType,
+  type IEarnTokenInfo,
+  type IEarnWithdrawActionIcon,
+  type IProtocolInfo,
+  type IStakeProtocolListItem,
 } from '@onekeyhq/shared/types/staking';
 
 import { buildLocalTxStatusSyncId } from '../../../utils/utils';
 
-export enum EManagePositionType {
-  Staking = 'staking',
-  Supply = 'supply',
-  Borrow = 'borrow',
-  Withdraw = 'withdraw',
-  Repay = 'repay',
-}
+export { EManagePositionType };
 
 export const useManagePage = ({
   accountId,
@@ -35,6 +31,7 @@ export const useManagePage = ({
   reserveAddress,
   marketAddress,
   revalidateOnFocus = true,
+  undefinedResultIfReRun = false,
 }: {
   accountId: string;
   indexedAccountId: string | undefined;
@@ -46,6 +43,7 @@ export const useManagePage = ({
   reserveAddress?: string;
   marketAddress?: string;
   revalidateOnFocus?: boolean;
+  undefinedResultIfReRun?: boolean;
 }) => {
   const {
     result,
@@ -120,10 +118,24 @@ export const useManagePage = ({
       reserveAddress,
       marketAddress,
     ],
-    { watchLoading: true, revalidateOnFocus },
+    { watchLoading: true, revalidateOnFocus, undefinedResultIfReRun },
   );
 
   const { managePageData, protocolList, earnAccount } = result || {};
+
+  const resolvedProtocolVault = useMemo(() => {
+    if (!earnUtils.shouldSendEarnProtocolVault({ providerName: provider })) {
+      return vault;
+    }
+    if (vault) {
+      return vault;
+    }
+    return protocolList?.find(
+      (item: IStakeProtocolListItem) =>
+        item.provider.name.toLowerCase() === provider.toLowerCase() &&
+        item.network.networkId === networkId,
+    )?.provider.vault;
+  }, [networkId, protocolList, provider, vault]);
 
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
     if (!managePageData) {
@@ -134,20 +146,28 @@ export const useManagePage = ({
 
     const actionData = (() => {
       // Borrow manage-page uses supply/borrow actions for the first tab.
-      if (
-        [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(
-          type,
-        )
-      ) {
+      if (type === EManagePositionType.Withdraw) {
+        return (
+          managePageData.withdraw ??
+          managePageData.supply ??
+          managePageData.deposit
+        );
+      }
+      if (type === EManagePositionType.Supply) {
         return (
           managePageData.supply ??
           managePageData.withdraw ??
           managePageData.deposit
         );
       }
-      if (
-        [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
-      ) {
+      if (type === EManagePositionType.Repay) {
+        return (
+          managePageData.repay ??
+          managePageData.borrow ??
+          managePageData.deposit
+        );
+      }
+      if (type === EManagePositionType.Borrow) {
         return (
           managePageData.borrow ??
           managePageData.repay ??
@@ -173,10 +193,17 @@ export const useManagePage = ({
       price: actionData.data.token.price,
       networkId,
       provider,
-      vault,
+      vault: resolvedProtocolVault,
       accountId,
     };
-  }, [managePageData, networkId, provider, vault, accountId, type]);
+  }, [
+    managePageData,
+    networkId,
+    provider,
+    resolvedProtocolVault,
+    accountId,
+    type,
+  ]);
 
   const protocolInfo: IProtocolInfo | undefined = useMemo(() => {
     if (!managePageData) {
@@ -185,22 +212,46 @@ export const useManagePage = ({
     const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
 
     // Find the matching protocol from protocol list
-    const matchingProtocol = protocolList?.find(
+    const strictMatchingProtocol = protocolList?.find(
       (item: IStakeProtocolListItem) =>
         item.provider.name.toLowerCase() === provider.toLowerCase() &&
         item.network.networkId === networkId &&
-        (!vault || item.provider.vault === vault),
+        (!resolvedProtocolVault ||
+          item.provider.vault === resolvedProtocolVault),
     );
+    const matchingProtocol =
+      strictMatchingProtocol ??
+      protocolList?.find(
+        (item: IStakeProtocolListItem) =>
+          item.provider.name.toLowerCase() === provider.toLowerCase() &&
+          item.network.networkId === networkId,
+      );
 
     // Get withdraw action from managePageData
     const withdrawAction = managePageData.withdraw as
       | IEarnWithdrawActionIcon
       | undefined;
+    let approve: IProtocolInfo['approve'];
+    if (managePageData.approve) {
+      approve = {
+        allowance: managePageData.approve.allowance ?? '0',
+        approveType:
+          (managePageData.approve.approveType as unknown as EApproveType) ??
+          EApproveType.Legacy,
+        approveTarget: managePageData.approve.approveTarget ?? '',
+      };
+    } else if (managePageData.approveTarget) {
+      approve = {
+        allowance: managePageData.borrowAllowance ?? '0',
+        approveType: EApproveType.Legacy,
+        approveTarget: managePageData.approveTarget,
+      };
+    }
 
     return {
       symbol,
       provider,
-      vault,
+      vault: resolvedProtocolVault,
       networkId,
       earnAccount,
       activeBalance:
@@ -237,23 +288,21 @@ export const useManagePage = ({
       needsSetupLut: managePageData.needsSetupLut,
       // supply max balance for supply max button
       maxSupplyBalance: managePageData.supply?.data?.maxBalance,
+      receiptTokenRate:
+        matchingProtocol?.provider.receiptTokenRate ??
+        matchingProtocol?.provider.morphoTokenRate,
+      morphoTokenRate: matchingProtocol?.provider.morphoTokenRate,
       // approve
-      approve: managePageData.approve
-        ? {
-            allowance: managePageData.approve.allowance ?? '0',
-            approveType:
-              (managePageData.approve.approveType as unknown as EApproveType) ??
-              undefined,
-            approveTarget: managePageData.approve.approveTarget ?? undefined,
-          }
-        : undefined,
+      approve,
+      approveAsset: managePageData.approveAsset,
+      withdrawApprove: managePageData.withdrawApprove,
     } as IProtocolInfo;
   }, [
     managePageData,
     protocolList,
     symbol,
     provider,
-    vault,
+    resolvedProtocolVault,
     networkId,
     earnAccount,
   ]);

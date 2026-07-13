@@ -1,3 +1,4 @@
+// cspell:ignore OCDS
 import semver from 'semver';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
@@ -10,8 +11,11 @@ import {
   EPendingInstallTaskAction,
   EPendingInstallTaskStatus,
   EPendingInstallTaskType,
+  EUpdateFileType,
   EUpdateStrategy,
+  isAutoUpdateStrategy,
   isFirstLaunchAfterUpdated,
+  normalizeFeaturedChangelog,
   resolveUpdateDecision,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -20,6 +24,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -29,6 +37,8 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import type { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -67,9 +77,57 @@ const MAX_FAILED_RECOVERY_RETRY = 3;
 const FAILED_RECOVERY_FREEZE_MS = 24 * 60 * 60 * 1000; // 24 h
 const FAILED_RECOVERY_IGNORE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 d
 
+// ---------------------------------------------------------------------------
+// OCDS v1.1 §5.11 — cross-restart download attempt budget
+// ---------------------------------------------------------------------------
+// The in-memory retry loop (updateRetry.ts) bounds attempts WITHIN a single
+// invocation. §5.11 additionally requires a bound that PERSISTS across process
+// restarts, so a permanently-failing object cannot re-spend the full budget on
+// every launch and loop forever (conformance scenario #9). We persist a small
+// counter keyed by the target version to durable MMKV (syncStorage). When the
+// attempt count is exhausted, the download reaches a definitive terminal "gave
+// up" outcome.
+//
+// Persistence is keyed by the target version so a NEW bundle/app release starts
+// with a fresh budget — we never carry a stale give-up into a fresh release.
+//
+// Stored in the onekey-app-setting MMKV instance (syncStorage). The key string
+// is local to this service; the enum cast keeps the typed wrapper happy without
+// editing the shared key enum.
+const DOWNLOAD_ATTEMPT_BUDGET_STORAGE_KEY =
+  'onekey_app_update_download_attempt_budget';
+// Persisted give-up threshold. Distinct from updateRetry's in-memory
+// per-invocation cap: this counts total attempts across relaunches. There is
+// intentionally NO wall-clock deadline — idle time (app closed) must not
+// abandon a still-resumable partial; see evaluateDownloadBudget.
+const DOWNLOAD_PERSISTED_MAX_ATTEMPTS = 8;
+
+interface IDownloadAttemptBudgetRecord {
+  targetKey: string;
+  attemptCount: number;
+  firstAttemptAt: number;
+  nativeRuntimeKey?: string;
+}
+
+export interface IDownloadAttemptBudgetResult {
+  targetKey: string;
+  attemptCount: number;
+  firstAttemptAt: number;
+  // True once the persisted attempt count is exhausted: the caller must stop
+  // retrying and surface a terminal outcome.
+  givenUp: boolean;
+  // Populated when givenUp, for the terminal reason.
+  reason?: 'maxAttempts';
+}
+
 // Exposed for tests only — clears volatile retry counters.
 export function resetFailedRecoveryRetryCount() {
   failedRecoveryRetryCount.clear();
+}
+
+// Exposed for tests only — resets volatile first-launch state.
+export function resetFirstLaunchForTest() {
+  firstLaunch = true;
 }
 
 function normalizeOptionalString(value: unknown): string | undefined {
@@ -95,7 +153,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   private isResetting = false;
 
-  private updateAt = 0;
+  updateAt = 0;
 
   cachedUpdateInfo: IResponseAppUpdateInfo | undefined;
 
@@ -361,11 +419,12 @@ class ServiceAppUpdate extends ServiceBase {
         (data.updateStrategy as unknown) === ''
           ? undefined
           : Number(data.updateStrategy);
+      const responseVersion = normalizeOptionalString(data.version);
       const normalizedData: IResponseAppUpdateInfo = {
         ...data,
         updateStrategy: (normalizedUpdateStrategy ??
           data.updateStrategy) as EUpdateStrategy,
-        version: normalizeOptionalString(data.version),
+        version: responseVersion,
         storeUrl: normalizeOptionalString(data.storeUrl),
         downloadUrl: normalizeOptionalString(data.downloadUrl),
         changeLog: normalizeOptionalString(data.changeLog),
@@ -381,7 +440,20 @@ class ServiceAppUpdate extends ServiceBase {
               signature: normalizeOptionalString(data.jsBundle.signature),
             }
           : undefined,
+        featuredChangelog: normalizeFeaturedChangelog(
+          data.featuredChangelog,
+          responseVersion,
+        ),
       };
+      if (
+        data.featuredChangelog &&
+        !normalizedData.featuredChangelog &&
+        responseVersion
+      ) {
+        defaultLogger.app.appUpdate.log(
+          `featuredChangelog dropped: payload did not normalize to response version ${responseVersion}`,
+        );
+      }
       // Security: Validate updateStrategy is a known enum value
       if (
         normalizedUpdateStrategy !== undefined &&
@@ -452,6 +524,83 @@ class ServiceAppUpdate extends ServiceBase {
   async getUpdateStatus() {
     const appInfo = await appUpdatePersistAtom.get();
     return appInfo.status;
+  }
+
+  // Last time the foreground-resume gate let a caller through. Guards
+  // against AppState 'active' bursts (foreground notifications, route
+  // changes, scene transitions on iOS) hammering the download pipeline.
+  // 30s is short enough that a real user-noticed "still failed" reflects
+  // in the next foreground pass, long enough to swallow the 1-3 'change'
+  // events that fire in quick succession on iOS scene transitions.
+  // Module-scoped on the single ServiceAppUpdate instance so that multiple
+  // useAppUpdateInfo mounts (UpdateReminder + MoreActionButton, etc.)
+  // share one cooldown window — without this, each listener would race
+  // through its own ref-based cooldown and we'd double-fire downloadPackage.
+  private resumeStalledDownloadLastFiredAt = 0;
+
+  /**
+   * Pure query (no atom mutation, no side effects on download timers):
+   * returns the step to resume ('downloadPackage' | 'downloadASC') iff
+   * the caller should now invoke the matching JS hook, or null otherwise.
+   *
+   * Returning a step (rather than a boolean) lets the caller pick the
+   * narrowest recovery: an ASC-only failure must NOT re-trigger
+   * downloadPackage() because that path clears downloadedEvent and
+   * forces a full-package re-download. With foreground/background
+   * churn (and especially a permanent ASC 403/404), that would
+   * repeatedly burn bandwidth and time on a package that was already
+   * successfully downloaded.
+   *
+   * Eligibility deliberately excludes status === downloadPackage /
+   * downloadASC. Those mean a transfer is in flight (or C1's in-flight
+   * retry is mid-backoff) — don't disturb. Verify-failed / install-
+   * failed / final-failed statuses are likewise excluded because they
+   * need a user-facing decision (different signature, different
+   * bundle, etc.) — silent re-download won't help.
+   *
+   * Returning a non-null step *consumes* the cooldown atomically so
+   * that two concurrent foreground-listeners (UpdateReminder +
+   * MoreActionButton) cannot both fire a download on the same
+   * AppState event.
+   */
+  @backgroundMethod()
+  async shouldResumeStalledDownload(): Promise<
+    'downloadPackage' | 'downloadASC' | null
+  > {
+    const now = Date.now();
+    if (now - this.resumeStalledDownloadLastFiredAt < 30_000) {
+      return null;
+    }
+    // Claim the cooldown BEFORE yielding to the event loop. Two AppState
+    // listeners (UpdateReminder + MoreActionButton both mount
+    // useAppUpdateInfo) can race into this method on the same 'active'
+    // event. If we set the timestamp only after the await, both pass the
+    // `now - last < 30_000` check, both reach the eligible check, and
+    // both return a non-null step → double-fire. Claiming first means
+    // the second caller's check fails immediately and bails.
+    const claimedAt = now;
+    this.resumeStalledDownloadLastFiredAt = claimedAt;
+    const { status } = await appUpdatePersistAtom.get();
+    let step: 'downloadPackage' | 'downloadASC' | null = null;
+    if (status === EAppUpdateStatus.downloadPackageFailed) {
+      step = 'downloadPackage';
+    } else if (status === EAppUpdateStatus.downloadASCFailed) {
+      step = 'downloadASC';
+    }
+    if (step === null) {
+      // Release the claim so a subsequent foreground transition that DOES
+      // find an eligible status can pass through promptly instead of
+      // waiting out the full 30s window. Guard against a concurrent
+      // sibling that claimed after us (only release if we still own it).
+      if (this.resumeStalledDownloadLastFiredAt === claimedAt) {
+        this.resumeStalledDownloadLastFiredAt = 0;
+      }
+      return null;
+    }
+    defaultLogger.app.appUpdate.log(
+      `shouldResumeStalledDownload: green-lighting resume from status=${status} → ${step}`,
+    );
+    return step;
   }
 
   static FAILED_STATUSES: EAppUpdateStatus[] = [
@@ -601,6 +750,55 @@ class ServiceAppUpdate extends ServiceBase {
     }));
   }
 
+  /**
+   * Self-heal hook for the failed → resuming race. Native progress events
+   * keep firing while status sits at downloadPackageFailed when the
+   * previous attempt rejected JS-side but native's transfer outlived the
+   * rejection, or the AppState 'active' resume path didn't propagate
+   * cleanly through serviceAppUpdate.downloadPackage. Flipping status
+   * back here lets the UI catch up with reality.
+   *
+   * No-op unless status is exactly downloadPackageFailed — never touches
+   * a healthy in-progress or post-download state. Idempotent against
+   * repeat calls because the second one reads status === downloadPackage
+   * and returns immediately.
+   */
+  @backgroundMethod()
+  async onDownloadProgressHeartbeat(): Promise<void> {
+    // Functional set with a re-check inside the updater closes the
+    // get-then-set window: status may have already advanced to
+    // downloadASC / verifyASC / done by the time we set, and we must
+    // not regress those healthy states back to downloadPackage.
+    let healed = false;
+    await appUpdatePersistAtom.set((prev) => {
+      if (prev.status !== EAppUpdateStatus.downloadPackageFailed) return prev;
+      healed = true;
+      return {
+        ...prev,
+        status: EAppUpdateStatus.downloadPackage,
+        errorText: undefined,
+      };
+    });
+    if (!healed) return;
+    defaultLogger.app.appUpdate.log(
+      'onDownloadProgressHeartbeat: native still progressing while status=failed → healing to downloadPackage',
+    );
+    // Restart the 30-min watchdog so we never get stuck silently when
+    // native progress stalls or the JS download Promise is dead (e.g.,
+    // the previous JS instance was killed and the foreground download
+    // outlived it). Without this, percent could hit 100% but no further
+    // step transitions would ever fire.
+    clearTimeout(downloadTimeoutId);
+    downloadTimeoutId = setTimeout(
+      async () => {
+        await this.downloadPackageFailed({
+          message: ETranslations.update_download_timed_out_check_connection,
+        });
+      },
+      timerUtils.getTimeDurationMs({ minute: 30 }),
+    );
+  }
+
   @backgroundMethod()
   updateErrorText(status: EAppUpdateStatus, errorText: string) {
     void appUpdatePersistAtom.set((prev) => ({
@@ -639,6 +837,176 @@ class ServiceAppUpdate extends ServiceBase {
     defaultLogger.app.error.log(e?.message || errorText);
     this.updateErrorText(EAppUpdateStatus.downloadPackageFailed, errorText);
     this.startFailedRecoveryTimer();
+  }
+
+  // -------------------------------------------------------------------------
+  // OCDS v1.1 §5.11 — persisted cross-restart attempt budget. See the
+  // constants block at the top of this file.
+  // -------------------------------------------------------------------------
+
+  // The typed syncStorage wrapper keys on EAppSyncStorageKeys; the budget uses
+  // a service-local key string, so cast at the single read/write boundary.
+  private get downloadAttemptBudgetStorageKey(): EAppSyncStorageKeys {
+    return DOWNLOAD_ATTEMPT_BUDGET_STORAGE_KEY as EAppSyncStorageKeys;
+  }
+
+  private readDownloadAttemptBudget():
+    | IDownloadAttemptBudgetRecord
+    | undefined {
+    return appStorage.syncStorage.getObject<IDownloadAttemptBudgetRecord>(
+      this.downloadAttemptBudgetStorageKey,
+    );
+  }
+
+  private writeDownloadAttemptBudget(record: IDownloadAttemptBudgetRecord) {
+    appStorage.syncStorage.setObject(
+      this.downloadAttemptBudgetStorageKey,
+      record,
+    );
+  }
+
+  private evaluateDownloadBudget(
+    record: IDownloadAttemptBudgetRecord,
+  ): IDownloadAttemptBudgetResult {
+    // Give up purely on the persisted attempt count. We deliberately do NOT
+    // impose a wall-clock deadline: it would be calendar time measured from the
+    // first attempt, so a user who downloaded part of an update and reopened the
+    // app days later would be denied the (still valid) resume — idle time must
+    // not count against a resumable download. Attempts only ever accrue on real
+    // failures, so the count alone bounds a permanently-failing target without
+    // punishing legitimate idle gaps. `firstAttemptAt` is retained for telemetry.
+    const attemptsExceeded =
+      record.attemptCount >= DOWNLOAD_PERSISTED_MAX_ATTEMPTS;
+    return {
+      targetKey: record.targetKey,
+      attemptCount: record.attemptCount,
+      firstAttemptAt: record.firstAttemptAt,
+      givenUp: attemptsExceeded,
+      reason: attemptsExceeded ? 'maxAttempts' : undefined,
+    };
+  }
+
+  private async getDownloadAttemptNativeRuntimeKey(): Promise<
+    string | undefined
+  > {
+    if (!platformEnv.isDesktop) {
+      return undefined;
+    }
+    const [nativeAppVersionResult, nativeBuildNumberResult] =
+      await Promise.allSettled([
+        BundleUpdate.getNativeAppVersion(),
+        BundleUpdate.getNativeBuildNumber(),
+      ]);
+    const nativeAppVersion =
+      nativeAppVersionResult.status === 'fulfilled'
+        ? nativeAppVersionResult.value
+        : undefined;
+    const nativeBuildNumber =
+      nativeBuildNumberResult.status === 'fulfilled'
+        ? nativeBuildNumberResult.value
+        : undefined;
+    const version = nativeAppVersion || platformEnv.version || 'unknown';
+    const buildNumber =
+      nativeBuildNumber || platformEnv.buildNumber || 'unknown';
+    // Desktop must always write a stable key. Returning undefined here makes a
+    // transient native-info failure ambiguous: a later successful read can
+    // either erase the same runtime's budget or inherit an older runtime's
+    // exhausted budget. Build-time values are stable per installed shell and
+    // provide a conservative fallback when either native getter is unavailable.
+    return `${version}:${buildNumber}`;
+  }
+
+  /**
+   * Read the persisted budget for `targetKey` WITHOUT mutating it. The caller
+   * checks `givenUp` on entry (before starting a download) so a target that
+   * already exhausted its budget on a prior launch is terminal immediately and
+   * never re-spends the in-memory retry budget (OCDS §5.11, scenario #9).
+   *
+   * A record belonging to a DIFFERENT target version is treated as absent: a
+   * new release starts fresh, never inheriting a stale give-up.
+   */
+  @backgroundMethod()
+  public async getDownloadAttemptBudget(params: {
+    targetKey: string;
+  }): Promise<IDownloadAttemptBudgetResult> {
+    const { targetKey } = params;
+    const nativeRuntimeKey = await this.getDownloadAttemptNativeRuntimeKey();
+    const existing = this.readDownloadAttemptBudget();
+    if (
+      !existing ||
+      existing.targetKey !== targetKey ||
+      (nativeRuntimeKey !== undefined &&
+        existing.nativeRuntimeKey !== nativeRuntimeKey)
+    ) {
+      return {
+        targetKey,
+        attemptCount: 0,
+        firstAttemptAt: 0,
+        givenUp: false,
+      };
+    }
+    return this.evaluateDownloadBudget(existing);
+  }
+
+  /**
+   * Increment and persist the attempt counter for `targetKey`, then return the
+   * post-increment budget state. Called once per download attempt. The first
+   * attempt for a target stamps `firstAttemptAt` (retained for telemetry only;
+   * there is no wall-clock deadline). A record for a different target version is
+   * reset rather than carried forward.
+   */
+  @backgroundMethod()
+  public async recordDownloadAttempt(params: {
+    targetKey: string;
+  }): Promise<IDownloadAttemptBudgetResult> {
+    const { targetKey } = params;
+    const nativeRuntimeKey = await this.getDownloadAttemptNativeRuntimeKey();
+    const now = Date.now();
+    const existing = this.readDownloadAttemptBudget();
+    const base: IDownloadAttemptBudgetRecord =
+      existing &&
+      existing.targetKey === targetKey &&
+      (nativeRuntimeKey === undefined ||
+        existing.nativeRuntimeKey === nativeRuntimeKey)
+        ? existing
+        : { targetKey, attemptCount: 0, firstAttemptAt: 0 };
+    const next: IDownloadAttemptBudgetRecord = {
+      targetKey,
+      attemptCount: base.attemptCount + 1,
+      firstAttemptAt: base.firstAttemptAt > 0 ? base.firstAttemptAt : now,
+      nativeRuntimeKey: nativeRuntimeKey ?? base.nativeRuntimeKey,
+    };
+    this.writeDownloadAttemptBudget(next);
+    const result = this.evaluateDownloadBudget(next);
+    if (result.givenUp) {
+      defaultLogger.app.appUpdate.log(
+        `recordDownloadAttempt: budget exhausted target=${targetKey} attempts=${next.attemptCount} reason=${
+          result.reason ?? ''
+        }`,
+      );
+    }
+    return result;
+  }
+
+  /**
+   * Clear the persisted attempt budget. Called on a successful download or
+   * when a new target version supersedes the prior one, so the give-up state
+   * never outlives the target it was recorded for.
+   */
+  @backgroundMethod()
+  public async resetDownloadAttemptBudget(params?: {
+    targetKey?: string;
+  }): Promise<void> {
+    const targetKey = params?.targetKey;
+    if (targetKey) {
+      const existing = this.readDownloadAttemptBudget();
+      // Only clear when the persisted record matches the target being reset,
+      // so an unrelated in-flight target's budget is left intact.
+      if (existing && existing.targetKey !== targetKey) {
+        return;
+      }
+    }
+    appStorage.syncStorage.delete(this.downloadAttemptBudgetStorageKey);
   }
 
   @backgroundMethod()
@@ -681,6 +1049,129 @@ class ServiceAppUpdate extends ServiceBase {
   public async getUpdateInfo() {
     const appInfo = await appUpdatePersistAtom.get();
     return appInfo;
+  }
+
+  /**
+   * OCDS v1.1 §4 / §5.11 — fetch a fresh signed download URL after a
+   * permanent-this-URL (401/403) failure. The download retry loop calls this
+   * ONCE (bounded) when it sees 401/403: re-fetching the release info re-signs
+   * the URL, so a retry against the refreshed URL can succeed where the dead
+   * one could not. Re-reads the (possibly updated) downloadedEvent and returns
+   * the new URLs so the caller can rebuild its download params.
+   *
+   * Returns `{ refreshed: false }` when no fresh URL could be obtained (so the
+   * caller treats the 401/403 as terminal rather than looping).
+   */
+  @backgroundMethod()
+  public async refreshDownloadUrlForRetry(): Promise<{
+    refreshed: boolean;
+    downloadUrl?: string;
+    jsBundleDownloadUrl?: string;
+  }> {
+    const before = await appUpdatePersistAtom.get();
+    const beforeUrl = before.downloadUrl;
+    const beforeBundleUrl = before.jsBundle?.downloadUrl;
+    try {
+      // Re-fetch release info; this re-signs the download URL(s) server-side
+      // and writes them back into the persist atom.
+      //
+      // Must force (`true`): the dead URL refresh fires on a 401/403 download
+      // retry, which can land inside the normal sync throttle window. With
+      // `false`, `isNeedSyncAppUpdateInfo` short-circuits to the cached atom
+      // (reason `skip_sync`) and never re-signs the URL, so `after.downloadUrl`
+      // stays the dead one and the retry gives up as `urlDead`. `true` bypasses
+      // both the sync gate and `getAppLatestInfo`'s 5-min cache so the server
+      // actually re-signs.
+      await this.fetchAppUpdateInfo(true);
+    } catch (e) {
+      defaultLogger.app.appUpdate.log(
+        `refreshDownloadUrlForRetry: fetchAppUpdateInfo failed: ${
+          (e as Error)?.message ?? ''
+        }`,
+      );
+      return { refreshed: false };
+    }
+    const after = await appUpdatePersistAtom.get();
+    const downloadUrl = after.downloadUrl;
+    const jsBundleDownloadUrl = after.jsBundle?.downloadUrl;
+    // "Refreshed" means we actually have a usable HTTPS URL now AND it changed
+    // from the dead one (a re-signed URL differs in its query token).
+    const appUrlRefreshed =
+      !!downloadUrl &&
+      downloadUrl.startsWith('https://') &&
+      downloadUrl !== beforeUrl;
+    const bundleUrlRefreshed =
+      !!jsBundleDownloadUrl &&
+      jsBundleDownloadUrl.startsWith('https://') &&
+      jsBundleDownloadUrl !== beforeBundleUrl;
+    return {
+      refreshed: appUrlRefreshed || bundleUrlRefreshed,
+      downloadUrl,
+      jsBundleDownloadUrl,
+    };
+  }
+
+  // DEV ONLY: seed the app-update atom into an arbitrary scenario so QA can
+  // verify the update prompt (dot / desktop button / reminder) and the
+  // unified click routing without a real server response or downloaded
+  // bundle. For a real end-to-end hot-update (actual download + restart) use
+  // the Dev Bundle Manager instead. `ready` seeds a placeholder
+  // downloadedEvent so the install path is reachable (it will fail to install
+  // a non-existent package — that is expected for a pure UI test).
+  @backgroundMethod()
+  public async devSimulateUpdate(params: {
+    fileType: EUpdateFileType;
+    updateStrategy: EUpdateStrategy;
+    status: EAppUpdateStatus;
+    channel?: 'direct' | 'store';
+  }) {
+    const { fileType, updateStrategy, status, channel = 'direct' } = params;
+    const isJsBundle = fileType === EUpdateFileType.jsBundle;
+    // appShell → bump the app version; jsBundle → keep the app version and
+    // bump only the bundle version, so resolveUpdateDecision picks the
+    // intended file type.
+    const latestVersion = isJsBundle
+      ? platformEnv.version || '1.0.0'
+      : '999.0.0';
+    // Bundle versions are "seconds since 2026-01-01" (already in the tens of
+    // millions). Use a value far above any real bundle so resolveUpdateDecision
+    // returns jsBundleUpgrade (not jsBundleRollback) and isNeedUpdate is true.
+    const jsBundleVersion = isJsBundle ? '9999999999' : undefined;
+    const downloadedEvent: IUpdateDownloadedEvent = {
+      downloadUrl: 'https://localhost/onekey-dev-test',
+      latestVersion,
+      bundleVersion: jsBundleVersion,
+      signature: 'dev-simulated-signature',
+    };
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      updateAt: Date.now(),
+      updateStrategy,
+      status,
+      latestVersion,
+      jsBundleVersion,
+      errorText: undefined,
+      changeLog: '## Dev simulated update\n\n- This is a simulated changelog.',
+      storeUrl:
+        !isJsBundle && channel === 'store'
+          ? 'https://apps.apple.com/app/onekey/id1609559473'
+          : undefined,
+      downloadUrl:
+        !isJsBundle && channel === 'direct'
+          ? 'https://localhost/onekey-dev-test.dmg'
+          : undefined,
+      jsBundle: isJsBundle
+        ? {
+            downloadUrl: 'https://localhost/onekey-dev-test-bundle.zip',
+            fileSize: 1,
+            sha256: 'dev',
+            signature: 'dev-simulated-signature',
+          }
+        : undefined,
+      downloadedEvent:
+        status === EAppUpdateStatus.ready ? downloadedEvent : undefined,
+    }));
+    return appUpdatePersistAtom.get();
   }
 
   @backgroundMethod()
@@ -726,9 +1217,14 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async downloadASC() {
     const { status } = await appUpdatePersistAtom.get();
+    // downloadASCFailed is an explicit retry entry: the package itself is
+    // already on disk (downloadedEvent is intact), only the ASC fetch
+    // tripped. Foreground resume routes here instead of re-running the
+    // full package download.
     if (
       status !== EAppUpdateStatus.downloadPackage &&
-      status !== EAppUpdateStatus.downloadASC
+      status !== EAppUpdateStatus.downloadASC &&
+      status !== EAppUpdateStatus.downloadASCFailed
     ) {
       defaultLogger.app.appUpdate.log(
         `downloadASC: rejected, current status=${status}`,
@@ -736,6 +1232,7 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
     clearTimeout(downloadTimeoutId);
+    clearTimeout(failedRecoveryTimerId);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.downloadASC,
@@ -868,6 +1365,14 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(syncTimerId);
     clearTimeout(downloadTimeoutId);
     clearTimeout(failedRecoveryTimerId);
+    // Full-replace set: every field absent from the object literal becomes
+    // undefined. The explicit values below document fields whose clearing
+    // is load-bearing — most notably lastUpdateDialogShownAt, so that
+    // "Clear update cache" in Settings (which calls this via clearCache)
+    // genuinely re-arms the 24h dialog throttle. We write `0` (not
+    // `undefined`) for that field because the jotai persist layer drops
+    // `undefined` keys during JSON serialization, which would leave the
+    // previous timestamp on disk and silently re-suppress the dialog.
     await appUpdatePersistAtom.set({
       latestVersion: platformEnv.version,
       jsBundleVersion: platformEnv.bundleVersion,
@@ -879,6 +1384,7 @@ class ServiceAppUpdate extends ServiceBase {
       previousAppVersion: undefined,
       isRollbackTarget: undefined,
       downloadedEvent: undefined,
+      lastUpdateDialogShownAt: 0,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
     // Schedule an immediate check so that if a newer version was released
@@ -923,11 +1429,29 @@ class ServiceAppUpdate extends ServiceBase {
     }));
   }
 
+  // Persist the in-flight attemptId so the post-install success event
+  // (fired after app/install relaunch, when JS module memory is gone) can
+  // re-emit the same id as the original softwareUpdateStarted event.
   @backgroundMethod()
-  public async clearLastDialogShownAt() {
+  public async setCurrentUpdateAttemptId(attemptId: string | undefined) {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
-      lastUpdateDialogShownAt: undefined,
+      currentUpdateAttemptId: attemptId,
+    }));
+  }
+
+  @backgroundMethod()
+  public async clearLastDialogShownAt() {
+    // Write `0`, not `undefined`. The jotai persist layer (AsyncStorage on
+    // native, electron-store on desktop) drops `undefined` fields during
+    // serialization — JSON.stringify({a: undefined}) === '{}' — so a
+    // previously-stored timestamp survives the "clear" call. `0` is a real
+    // number that round-trips through persist, and showUpdateDialogUI's
+    // truthy gate (`if (lastUpdateDialogShownAt && now - ... < INTERVAL)`)
+    // still treats it as "never shown".
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      lastUpdateDialogShownAt: 0,
     }));
   }
 
@@ -937,6 +1461,12 @@ class ServiceAppUpdate extends ServiceBase {
     await AppUpdate.clearPackage();
     await BundleUpdate.clearDownload();
     await this.backgroundApi.servicePendingInstallTask.clearPendingInstallTask();
+    // reset() below schedules an immediate fetchAppUpdateInfo(forceUpdate=false)
+    // which would hit getAppLatestInfo's 5-min in-memory cache and replay the
+    // release the user just asked us to clear straight back onto the atom.
+    this.cachedUpdateInfo = undefined;
+    this.updateAt = 0;
+    void this.fetchAppChangeLog.clear();
     await this.reset();
   }
 
@@ -1314,30 +1844,56 @@ class ServiceAppUpdate extends ServiceBase {
         };
       });
 
-      // Auto-trigger silent download for rollback decisions so the user does
-      // not need to manually initiate the update.  The download flow will
-      // eventually call readyToInstall → syncPendingInstallTask → relaunch.
+      // Auto-trigger the background download so the user does not need to
+      // manually initiate the update. Two cases qualify:
+      //   1. jsBundleRollback — always auto-downloaded; a rollback is a
+      //      corrective action, independent of the server-provided strategy.
+      //   2. A normal upgrade (jsBundleUpgrade / appShellUpdate) whose server
+      //      strategy is silent/seamless (isAutoUpdateStrategy). Without this,
+      //      an update discovered mid-session only flips status to `notify`
+      //      and the silent download never starts until the next cold start
+      //      re-runs the once-per-launch first-launch dispatch in
+      //      AppUpdateForeground — i.e. "must restart the app before the
+      //      download begins" (OK-55397). This mirrors that cold-start
+      //      auto-download path so mid-session discovery is handled the same
+      //      way. (Store-based app-shell updates are shipped as `manual` by
+      //      the server, so isAutoUpdateStrategy excludes them here.)
+      // The download flow eventually calls readyToInstall →
+      // syncPendingInstallTask → relaunch.
+      const shouldAutoDownload =
+        decision.decision === 'jsBundleRollback' ||
+        (isAutoUpdateStrategy(releaseInfo.updateStrategy) &&
+          (decision.decision === 'jsBundleUpgrade' ||
+            decision.decision === 'appShellUpdate'));
       if (
-        decision.decision === 'jsBundleRollback' &&
+        shouldAutoDownload &&
         (await appUpdatePersistAtom.get()).status === EAppUpdateStatus.notify
       ) {
-        // Verify target is not frozen/ignored before auto-triggering download
-        const rollbackTargetKey =
-          releaseInfo.version && releaseInfo.jsBundleVersion
+        // Verify target is not frozen/ignored before auto-triggering download.
+        // Mirror the freeze-check target key built above (line ~1442) so the
+        // app-shell fallback to the current bundleVersion stays consistent.
+        const autoDownloadTargetKey =
+          releaseInfo.version &&
+          (releaseInfo.jsBundleVersion ||
+            decision.decision === 'appShellUpdate')
             ? this.getTargetKey({
                 targetAppVersion: releaseInfo.version,
-                targetBundleVersion: releaseInfo.jsBundleVersion,
+                targetBundleVersion:
+                  decision.decision === 'appShellUpdate'
+                    ? releaseInfo.jsBundleVersion ||
+                      String(platformEnv.bundleVersion || '')
+                    : releaseInfo.jsBundleVersion!,
               })
             : null;
-        const rollbackBlocked = rollbackTargetKey
+        const autoDownloadBlocked = autoDownloadTargetKey
           ? await this.shouldSkipTargetByControl(
-              rollbackTargetKey,
+              autoDownloadTargetKey,
               traceId,
               requestSeq,
               false,
             )
           : false;
-        if (!rollbackBlocked) {
+        if (!autoDownloadBlocked) {
           // Use setTimeout to avoid blocking the current fetch flow.
           // Re-check status inside the callback: if the UI hook already
           // called downloadPackage(), status will be 'downloadPackage'
@@ -1349,9 +1905,21 @@ class ServiceAppUpdate extends ServiceBase {
                 return;
               }
               defaultLogger.app.appUpdate.log(
-                'fetchAppUpdateInfo: auto-starting silent download for jsBundleRollback',
+                `fetchAppUpdateInfo: auto-starting silent download for ${decision.decision}`,
               );
-              void this.downloadPackage();
+              // Drive the real transfer via the foreground. The background
+              // cannot pull bytes — the native transfer
+              // (BundleUpdate.downloadBundle, with request headers and
+              // retry/backoff) plus the persist-atom `downloadPackage` flip
+              // both live in the foreground useDownloadPackage hook. Emit a
+              // bg→foreground event so the mounted AppUpdateForeground kicks it
+              // off immediately; the status stays at `notify` until the
+              // foreground hook advances it. Without this, a mid-session
+              // discovery would sit at `notify` until the next cold start —
+              // "detected the server push but never started downloading".
+              appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
+                decision: decision.decision,
+              });
             })();
           }, 0);
         }
@@ -1557,6 +2125,159 @@ class ServiceAppUpdate extends ServiceBase {
         (b.ciBundleVersion || '').toLowerCase().includes(needle),
     );
     return match ? [{ version: currentVersion, bundle: match }] : [];
+  }
+
+  // Statuses that mean an OTA bundle / app-shell update transfer or install
+  // is mid-flight. While in any of these, the bundle prune is skipped so we
+  // never delete a directory that is actively being written / installed.
+  // The native / desktop prune additionally hard-refuses to delete the
+  // current appVersion, so this is a second, conservative belt.
+  static IN_PROGRESS_STATUSES: EAppUpdateStatus[] = [
+    EAppUpdateStatus.downloadPackage,
+    EAppUpdateStatus.downloadASC,
+    EAppUpdateStatus.verifyASC,
+    EAppUpdateStatus.verifyPackage,
+    EAppUpdateStatus.ready,
+  ];
+
+  // Persistent rate-limit window for pruneStaleArtifacts: at most one sweep
+  // per 24h across launches (the per-launch flag only dedupes within a
+  // single process).
+  static PRUNE_STALE_ARTIFACTS_MIN_INTERVAL = 24 * 60 * 60 * 1000;
+
+  // Volatile per-launch debounce: pruneStaleArtifacts is a cold-start idle
+  // sweep that must run at most once per app launch.
+  private hasPrunedStaleArtifactsThisLaunch = false;
+
+  /**
+   * Cold-start idle cleanup of stale download artifacts (called once per
+   * launch from the post-first-render idle hook). Never throws — cleanup
+   * must never crash boot.
+   *
+   * - Bundle: always attempts BundleUpdate.pruneStaleAppVersionBundles()
+   *   (native / desktop self-contained: keeps every artifact whose
+   *   appVersion == running native binary, deletes the rest, hard-refuses
+   *   to delete the current appVersion). Skipped while an OTA
+   *   download/install is in progress.
+   * - APK (Android only): only when there is NO update available
+   *   (status === done and no running pending-install task) do we wipe the
+   *   standalone APK cache. If an update is available / downloading /
+   *   downloaded-pending-install, the apk wipe is skipped so the pending
+   *   package survives.
+   */
+  @backgroundMethod()
+  public async pruneStaleArtifacts(): Promise<void> {
+    if (this.hasPrunedStaleArtifactsThisLaunch) {
+      return;
+    }
+    this.hasPrunedStaleArtifactsThisLaunch = true;
+
+    const appInfo = await appUpdatePersistAtom.get();
+    const { status } = appInfo;
+
+    // Persistent 24h rate-limit (survives relaunch). The per-launch flag above
+    // only dedupes within one process; this caps the sweep to once per day
+    // across cold starts so frequent restarts don't repeatedly hit the disk.
+    const now = Date.now();
+    const lastPrunedAt = appInfo.lastPruneStaleArtifactsAt ?? 0;
+    if (
+      now - lastPrunedAt <
+      ServiceAppUpdate.PRUNE_STALE_ARTIFACTS_MIN_INTERVAL
+    ) {
+      defaultLogger.app.appUpdate.log(
+        `pruneStaleArtifacts: skip — last sweep ${Math.round(
+          (now - lastPrunedAt) / 1000,
+        )}s ago (<24h)`,
+      );
+      return;
+    }
+    // Stamp the attempt up-front so a partial failure still respects the 24h
+    // window — cleanup is best-effort and must not retry every launch.
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      lastPruneStaleArtifactsAt: now,
+    }));
+
+    // An in-progress OTA transfer/install is reflected either in the
+    // app-update status machine or in a running/pending install task.
+    let pendingTaskInProgress = false;
+    try {
+      const pendingTask = await getPendingInstallTask();
+      pendingTaskInProgress = Boolean(
+        pendingTask &&
+        (pendingTask.status === EPendingInstallTaskStatus.pending ||
+          pendingTask.status === EPendingInstallTaskStatus.running ||
+          pendingTask.status ===
+            EPendingInstallTaskStatus.appliedWaitingVerify),
+      );
+    } catch (error) {
+      defaultLogger.app.appUpdate.log(
+        `pruneStaleArtifacts: failed to read pending install task: ${
+          (error as Error)?.message ?? 'unknown'
+        }`,
+      );
+    }
+
+    const bundleUpdateInProgress =
+      ServiceAppUpdate.IN_PROGRESS_STATUSES.includes(status) ||
+      pendingTaskInProgress;
+
+    // --- Bundle prune (all platforms) ---
+    if (bundleUpdateInProgress) {
+      defaultLogger.app.appUpdate.log(
+        `pruneStaleArtifacts: skip bundle prune — update in progress (status=${status}, pendingTask=${String(
+          pendingTaskInProgress,
+        )})`,
+      );
+    } else {
+      try {
+        const deletedDirCount =
+          await BundleUpdate.pruneStaleAppVersionBundles();
+        defaultLogger.app.appUpdate.log(
+          `pruneStaleArtifacts: bundle prune done, deletedDirCount=${deletedDirCount}`,
+        );
+      } catch (error) {
+        // Swallow — cleanup must never crash boot.
+        defaultLogger.app.appUpdate.log(
+          `pruneStaleArtifacts: bundle prune failed: ${
+            (error as Error)?.message ?? 'unknown'
+          }`,
+        );
+      }
+    }
+
+    // --- APK cache wipe (Android only) ---
+    // Only when there is genuinely no update available do we wipe the
+    // standalone APK cache (install-then-dead packages). Any
+    // available / downloading / downloaded-pending-install state keeps the
+    // apks so the pending package is not destroyed.
+    if (!platformEnv.isNativeAndroid) {
+      return;
+    }
+    const noUpdateAvailable =
+      status === EAppUpdateStatus.done && !pendingTaskInProgress;
+    if (!noUpdateAvailable) {
+      defaultLogger.app.appUpdate.log(
+        `pruneStaleArtifacts: skip apk cache wipe — update present (status=${status}, pendingTask=${String(
+          pendingTaskInProgress,
+        )})`,
+      );
+      return;
+    }
+    try {
+      await AppUpdate.clearApkCache();
+      defaultLogger.app.appUpdate.log(
+        'pruneStaleArtifacts: apk cache wiped (no update available)',
+      );
+    } catch (error) {
+      // Swallow — cacheDir may already be reclaimed by the OS, and cleanup
+      // must never crash boot.
+      defaultLogger.app.appUpdate.log(
+        `pruneStaleArtifacts: apk cache wipe failed: ${
+          (error as Error)?.message ?? 'unknown'
+        }`,
+      );
+    }
   }
 }
 

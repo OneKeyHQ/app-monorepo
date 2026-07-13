@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import type { useInPageDialog } from '@onekeyhq/components';
 import { Dialog, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -23,6 +22,7 @@ import type {
   IShareData,
   IShareImageGeneratorRef,
 } from './types';
+import type { IntlShape } from 'react-intl';
 
 interface IShareContentProps {
   data: IShareData;
@@ -33,13 +33,14 @@ interface IShareContentProps {
 function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   const generatorRef = useRef<IShareImageGeneratorRef | null>(null);
   const intl = useIntl();
-  const { side, token, tokenDisplayName } = data;
+  const { side, token, tokenDisplayName, mode } = data;
 
   const [config, setConfig] = useState<IShareConfig>({
     customText: getDefaultShareText({
       side,
       coin: token,
       displayName: tokenDisplayName,
+      mode,
     }),
     stickerIndex: null,
     backgroundIndex: 0,
@@ -212,12 +213,13 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
 
 export function showPositionShareDialog(
   data: IShareData,
+  intl: IntlShape,
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
   const DialogInstance = dialog ?? Dialog;
 
   const dialogInstance = DialogInstance.show({
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.perps_share_position_title,
     }),
     floatingPanelProps: platformEnv.isNative

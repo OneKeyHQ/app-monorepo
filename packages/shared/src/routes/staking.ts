@@ -1,14 +1,14 @@
-import type { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
-
 import type {
   EAvailableAssetsTypeEnum,
   IEarnAvailableAsset,
 } from '../../types/earn';
 import type {
+  EManagePositionType,
   IBorrowAsset,
   IEarnAlert,
   IEarnTokenInfo,
   IEarnTokenItem,
+  IEarnWithdrawType,
   IProtocolInfo,
   IStakeProtocolDetails,
 } from '../../types/staking';
@@ -85,6 +85,7 @@ export type IModalStakingParamList = {
     reserveAddress: string;
     symbol: string;
     logoURI?: string;
+    providerDisplayName?: string;
     providerLogoURI?: string;
     type?: EManagePositionType;
   };
@@ -116,6 +117,7 @@ export type IModalStakingParamList = {
     fromPage?: EModalStakingRoutes.WithdrawOptions;
     onSuccess?: () => void;
     allowPartialWithdraw?: boolean;
+    withdrawType?: IEarnWithdrawType;
   };
   [EModalStakingRoutes.Claim]: IDetailPageInfoParams & {
     amount?: string;

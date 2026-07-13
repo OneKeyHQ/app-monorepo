@@ -17,59 +17,121 @@ import {
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworksSupportMevProtection } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IGasPayer } from '@onekeyhq/shared/types/fee';
+import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 const mevProtectionProviders = getNetworksSupportMevProtection();
 
 const DEFAULT_IMAGE_HEIGHT = 40;
 
-function TxConfirmHeaderRight(props: {
+function isPrivateSendSwapInfo(swapInfo: IUnsignedTxPro['swapInfo']) {
+  const buildResult = swapInfo?.swapBuildResData?.result;
+  return (
+    swapInfo?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+    buildResult?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+    buildResult?.info?.provider === privateSendProvider
+  );
+}
+
+export type ITxConfirmHeaderRightProps = {
   decodedTxs: IDecodedTx[] | undefined;
   unsignedTxs: IUnsignedTxPro[] | undefined;
-}) {
-  const { decodedTxs, unsignedTxs } = props;
+  effectiveFeePayer?: IGasPayer;
+  txFeeInfoInit?: boolean;
+};
+
+export function getTxConfirmMevProtectionProvider({
+  decodedTxs,
+  unsignedTxs,
+  effectiveFeePayer,
+  txFeeInfoInit,
+}: ITxConfirmHeaderRightProps) {
+  const decodedTx = decodedTxs?.[0];
+
+  if (!unsignedTxs) return null;
+
+  // Wait until fee info is initialized before deciding on the badge.
+  // `effectiveFeePayer` defaults to `'user'` and is only updated once the
+  // async fee estimation completes, so rendering the badge earlier would
+  // briefly show MEV for sponsored txs (and could leak the previous tx's
+  // payer in queue mode). Hiding it until init avoids that flicker.
+  if (!txFeeInfoInit) {
+    return null;
+  }
+
+  // Hide the MEV badge whenever the fee is sponsored (gas account or BNB
+  // gas-free / megafuel). Sponsored transactions are relayed through a
+  // sponsor-bound RPC rather than the MEV-protected RPC, so the badge would
+  // be misleading. Only user-paid transactions go through the MEV-protected
+  // RPC and keep the badge.
+  if (effectiveFeePayer === 'gasAccount' || effectiveFeePayer === 'megafuel') {
+    return null;
+  }
+
+  const unsignedTx = unsignedTxs[0];
+  if (!unsignedTx) {
+    return null;
+  }
+
+  const swapTx = find(unsignedTxs, 'swapInfo');
+
+  if (
+    decodedTx?.payload?.privateSend ||
+    isPrivateSendSwapInfo(swapTx?.swapInfo)
+  ) {
+    return null;
+  }
+
+  if (unsignedTx.disableMev) {
+    return null;
+  }
+
+  if (decodedTx?.txDisplay?.mevProtectionProvider) {
+    return decodedTx.txDisplay.mevProtectionProvider;
+  }
+
+  if (swapTx && swapTx.swapInfo) {
+    let isBridge = false;
+
+    try {
+      isBridge =
+        swapTx.swapInfo.sender.accountInfo.networkId !==
+        swapTx.swapInfo.receiver.accountInfo.networkId;
+    } catch (_e) {
+      isBridge = false;
+    }
+
+    if (
+      !isBridge &&
+      mevProtectionProviders[swapTx.swapInfo.receiver.accountInfo.networkId]
+    ) {
+      return mevProtectionProviders[
+        swapTx.swapInfo.receiver.accountInfo.networkId
+      ];
+    }
+  }
+
+  return null;
+}
+
+function TxConfirmHeaderRight(props: ITxConfirmHeaderRightProps) {
+  const { decodedTxs, unsignedTxs, effectiveFeePayer, txFeeInfoInit } = props;
   const intl = useIntl();
   const { gtMd } = useMedia();
   const theme = useThemeName();
 
-  const decodedTx = decodedTxs?.[0];
-
-  const mevProtectionProvider = useMemo(() => {
-    if (!unsignedTxs) return null;
-
-    const unsignedTx = unsignedTxs[0];
-
-    if (unsignedTx.disableMev) {
-      return null;
-    }
-
-    if (decodedTx?.txDisplay?.mevProtectionProvider) {
-      return decodedTx.txDisplay.mevProtectionProvider;
-    }
-
-    const swapTx = find(unsignedTxs, 'swapInfo');
-
-    if (swapTx && swapTx.swapInfo) {
-      let isBridge = false;
-
-      try {
-        isBridge =
-          swapTx.swapInfo.sender.accountInfo.networkId !==
-          swapTx.swapInfo.receiver.accountInfo.networkId;
-      } catch (_e) {
-        isBridge = false;
-      }
-
-      if (
-        !isBridge &&
-        mevProtectionProviders[swapTx.swapInfo.receiver.accountInfo.networkId]
-      ) {
-        return mevProtectionProviders[
-          swapTx.swapInfo.receiver.accountInfo.networkId
-        ];
-      }
-    }
-  }, [unsignedTxs, decodedTx?.txDisplay?.mevProtectionProvider]);
+  const mevProtectionProvider = useMemo(
+    () =>
+      getTxConfirmMevProtectionProvider({
+        decodedTxs,
+        unsignedTxs,
+        effectiveFeePayer,
+        txFeeInfoInit,
+      }),
+    [decodedTxs, unsignedTxs, effectiveFeePayer, txFeeInfoInit],
+  );
 
   const imageUri = useMemo(() => {
     if (!mevProtectionProvider) {
@@ -98,6 +160,10 @@ function TxConfirmHeaderRight(props: {
           });
         }
       });
+    } else {
+      // Reset stale size when the badge is hidden so a later provider with a
+      // different logo does not render with the previous provider's dimensions.
+      setProviderImageSize(undefined);
     }
   }, [imageUri]);
 
@@ -115,6 +181,7 @@ function TxConfirmHeaderRight(props: {
         title={intl.formatMessage({ id: ETranslations.mev_protection_label })}
         renderTrigger={
           <Button
+            testID="signature-confirm-ratio-btn"
             variant="tertiary"
             icon="ShieldCheckDoneSolid"
             iconColor="$iconSuccess"

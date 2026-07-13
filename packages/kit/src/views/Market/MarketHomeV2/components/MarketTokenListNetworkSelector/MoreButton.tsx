@@ -3,8 +3,9 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Popover } from '@onekeyhq/components';
+import { Button } from '@onekeyhq/components';
 import type { IButtonProps, IPopoverProps } from '@onekeyhq/components';
+import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -71,6 +72,7 @@ const MoreButton: FC<IMoreButtonProps> = ({
 
     return (
       <Button
+        testID="market-render-trigger-btn"
         m="$0.5"
         size="small"
         variant="tertiary"
@@ -88,7 +90,7 @@ const MoreButton: FC<IMoreButtonProps> = ({
   };
 
   return (
-    <Popover
+    <LazyPopover
       title={intl.formatMessage({ id: ETranslations.global_select_network })}
       open={isOpen}
       onOpenChange={setIsOpen}

@@ -8,37 +8,161 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  MARKET_DETAIL_MAX_TRANSACTIONS,
+  appendBufferedTransaction,
+  mergeUniqueTransactions,
+} from './transactionBufferUtils';
+
 interface IUseMarketTransactionsProps {
   tokenAddress: string;
   networkId: string;
   normalMode: boolean;
+  enableRealtimePause?: boolean;
 }
 
 const DEFAULT_PAGE_SIZE = 20;
+
+function canLoadMoreWithinCacheLimit({
+  cursor,
+  transactions,
+}: {
+  cursor: string | undefined;
+  transactions: IMarketTokenTransaction[];
+}) {
+  return (
+    Boolean(cursor) && transactions.length < MARKET_DETAIL_MAX_TRANSACTIONS
+  );
+}
 
 export function useMarketTransactions({
   tokenAddress,
   networkId,
   normalMode,
+  enableRealtimePause = false,
 }: IUseMarketTransactionsProps) {
   const [accumulatedTransactions, setAccumulatedTransactions] = useState<
     IMarketTokenTransaction[]
   >([]);
+  const [isRealtimeHovering, setIsRealtimeHovering] = useState(false);
+  const [bufferedTransactions, setBufferedTransactions] = useState<
+    IMarketTokenTransaction[]
+  >([]);
+  const [hasBufferOverflow, setHasBufferOverflow] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const loadTimesRef = useRef(0);
   const accumulatedTransactionsRef = useRef(accumulatedTransactions);
+  const bufferedTransactionsRef = useRef(bufferedTransactions);
+  const isRealtimePausedRef = useRef(false);
+  const enableRealtimePauseRef = useRef(enableRealtimePause);
+  const realtimeHoverOutTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
   const cursorRef = useRef<string | undefined>(undefined);
-  const throttleSetAccumulatedTransactions = useThrottledCallback(
+  const getVisibleTransactions = useCallback(
+    (transactions: IMarketTokenTransaction[]) =>
+      transactions.slice(0, MARKET_DETAIL_MAX_TRANSACTIONS),
+    [],
+  );
+  const updatePaginationState = useCallback(
+    ({
+      cursor,
+      transactions,
+    }: {
+      cursor: string | undefined;
+      transactions: IMarketTokenTransaction[];
+    }) => {
+      const nextHasMore = canLoadMoreWithinCacheLimit({
+        cursor,
+        transactions,
+      });
+      cursorRef.current = nextHasMore ? cursor : undefined;
+      setHasMore(nextHasMore);
+    },
+    [],
+  );
+  const setAccumulatedTransactionsImmediately = useCallback(
     (transactions: IMarketTokenTransaction[]) => {
-      const current = platformEnv.isNative
-        ? transactions.slice(0, 30 + loadTimesRef.current * 30)
-        : transactions;
+      const current = getVisibleTransactions(transactions);
       setAccumulatedTransactions(current);
       accumulatedTransactionsRef.current = current;
+      updatePaginationState({
+        cursor: cursorRef.current,
+        transactions: current,
+      });
     },
+    [getVisibleTransactions, updatePaginationState],
+  );
+  const throttleSetAccumulatedTransactions = useThrottledCallback(
+    setAccumulatedTransactionsImmediately,
     platformEnv.isNative ? 1500 : 50,
   );
+
+  const clearRealtimeHoverOutTimer = useCallback(() => {
+    if (realtimeHoverOutTimerRef.current) {
+      clearTimeout(realtimeHoverOutTimerRef.current);
+      realtimeHoverOutTimerRef.current = undefined;
+    }
+  }, []);
+
+  const clearBufferedTransactions = useCallback(() => {
+    bufferedTransactionsRef.current = [];
+    setBufferedTransactions([]);
+    setHasBufferOverflow(false);
+  }, []);
+
+  const flushBufferedTransactions = useCallback(() => {
+    const buffered = bufferedTransactionsRef.current;
+    if (buffered.length === 0) {
+      return;
+    }
+
+    throttleSetAccumulatedTransactions.cancel();
+    setAccumulatedTransactionsImmediately(
+      mergeUniqueTransactions([
+        ...buffered,
+        ...accumulatedTransactionsRef.current,
+      ]),
+    );
+    clearBufferedTransactions();
+  }, [
+    clearBufferedTransactions,
+    setAccumulatedTransactionsImmediately,
+    throttleSetAccumulatedTransactions,
+  ]);
+
+  const resetRealtimePause = useCallback(() => {
+    clearRealtimeHoverOutTimer();
+    isRealtimePausedRef.current = false;
+    setIsRealtimeHovering(false);
+    clearBufferedTransactions();
+  }, [clearBufferedTransactions, clearRealtimeHoverOutTimer]);
+
+  const disableRealtimePause = useCallback(() => {
+    clearRealtimeHoverOutTimer();
+    isRealtimePausedRef.current = false;
+    setIsRealtimeHovering(false);
+
+    if (bufferedTransactionsRef.current.length > 0) {
+      flushBufferedTransactions();
+      return;
+    }
+
+    clearBufferedTransactions();
+  }, [
+    clearBufferedTransactions,
+    clearRealtimeHoverOutTimer,
+    flushBufferedTransactions,
+  ]);
+
+  useEffect(() => {
+    enableRealtimePauseRef.current = enableRealtimePause;
+    if (!enableRealtimePause) {
+      disableRealtimePause();
+    }
+  }, [disableRealtimePause, enableRealtimePause]);
+
   const {
     result: transactionsData,
     isLoading: isRefreshing,
@@ -66,11 +190,19 @@ export function useMarketTransactions({
 
   // Reset accumulated state when token address or network ID changes
   useEffect(() => {
-    throttleSetAccumulatedTransactions([]);
+    throttleSetAccumulatedTransactions.cancel();
+    setAccumulatedTransactionsImmediately([]);
     setHasMore(true);
     cursorRef.current = undefined;
     loadTimesRef.current = 0;
-  }, [tokenAddress, networkId, throttleSetAccumulatedTransactions]);
+    resetRealtimePause();
+  }, [
+    tokenAddress,
+    networkId,
+    setAccumulatedTransactionsImmediately,
+    throttleSetAccumulatedTransactions,
+    resetRealtimePause,
+  ]);
 
   // Merge new and old data, add new data at the front, and deduplicate
   useEffect(() => {
@@ -83,35 +215,42 @@ export function useMarketTransactions({
       return;
     }
 
-    cursorRef.current = transactionsData?.cursor;
-
     const prev = accumulatedTransactionsRef.current;
-    // Merge new data at the front with existing data
-    const mergedTransactions = [...newTransactions, ...prev].toSorted(
-      (a, b) => b.timestamp - a.timestamp,
-    );
-
-    // Deduplicate by hash
-    const seenHashes = new Set<string>();
-    const uniqueTransactions = mergedTransactions.filter((tx) => {
-      if (seenHashes.has(tx.hash)) {
-        return false;
-      }
-      seenHashes.add(tx.hash);
-      return true;
+    const uniqueTransactions = mergeUniqueTransactions([
+      ...newTransactions,
+      ...prev,
+    ]);
+    const currentTransactions = getVisibleTransactions(uniqueTransactions);
+    accumulatedTransactionsRef.current = currentTransactions;
+    updatePaginationState({
+      cursor: transactionsData?.cursor,
+      transactions: currentTransactions,
     });
 
-    throttleSetAccumulatedTransactions(uniqueTransactions);
-
-    // Update hasMore based on response
-    setHasMore(Boolean(transactionsData?.cursor));
-  }, [throttleSetAccumulatedTransactions, transactionsData]);
+    throttleSetAccumulatedTransactions(currentTransactions);
+  }, [
+    getVisibleTransactions,
+    throttleSetAccumulatedTransactions,
+    transactionsData,
+    updatePaginationState,
+  ]);
 
   const loadMore = useCallback(async (): Promise<void> => {
     if (platformEnv.isNative && loadTimesRef.current > 10) {
       return;
     }
     if (!hasMore || isLoadingMore || isRefreshing) {
+      return;
+    }
+
+    if (
+      accumulatedTransactionsRef.current.length >=
+      MARKET_DETAIL_MAX_TRANSACTIONS
+    ) {
+      updatePaginationState({
+        cursor: undefined,
+        transactions: accumulatedTransactionsRef.current,
+      });
       return;
     }
 
@@ -139,24 +278,19 @@ export function useMarketTransactions({
       }
 
       loadTimesRef.current += 1;
-      cursorRef.current = response.cursor;
       const prev = accumulatedTransactionsRef.current;
-      // Append new data at the end
-      const mergedTransactions = [...prev, ...response.list];
+      const uniqueTransactions = mergeUniqueTransactions([
+        ...prev,
+        ...response.list,
+      ]);
+      const currentTransactions = getVisibleTransactions(uniqueTransactions);
 
-      // Deduplicate by hash
-      const seenHashes = new Set<string>();
-      const uniqueTransactions = mergedTransactions.filter((tx) => {
-        if (seenHashes.has(tx.hash)) {
-          return false;
-        }
-        seenHashes.add(tx.hash);
-        return true;
+      accumulatedTransactionsRef.current = currentTransactions;
+      updatePaginationState({
+        cursor: response.cursor,
+        transactions: currentTransactions,
       });
-
-      throttleSetAccumulatedTransactions(uniqueTransactions);
-
-      setHasMore(Boolean(response.cursor));
+      throttleSetAccumulatedTransactions(currentTransactions);
     } catch (error) {
       console.error('Failed to load more transactions:', error);
     } finally {
@@ -168,37 +302,118 @@ export function useMarketTransactions({
     isRefreshing,
     tokenAddress,
     networkId,
+    getVisibleTransactions,
     throttleSetAccumulatedTransactions,
+    updatePaginationState,
   ]);
 
   const onRefresh = useCallback(async () => {
     await fetchTransactions();
   }, [fetchTransactions]);
 
-  const addNewTransaction = useCallback(
-    (newTransaction: IMarketTokenTransaction) => {
-      const prev = accumulatedTransactionsRef.current;
-      // Check if transaction already exists to avoid duplicates
-      const existingIndex = prev.findIndex(
-        (tx) => tx.hash === newTransaction.hash,
-      );
-
-      if (existingIndex !== -1) {
-        return prev;
+  const addNewTransactions = useCallback(
+    (newTransactions: IMarketTokenTransaction[]) => {
+      if (newTransactions.length === 0) {
+        return;
       }
 
-      // Add new transaction at the beginning and sort by timestamp
-      const updatedTransactions = [newTransaction, ...prev].toSorted(
-        (a, b) => b.timestamp - a.timestamp,
-      );
+      const prev = accumulatedTransactionsRef.current;
 
-      accumulatedTransactionsRef.current = platformEnv.isNative
-        ? updatedTransactions.slice(0, 50 + loadTimesRef.current * 30)
-        : updatedTransactions;
-      throttleSetAccumulatedTransactions(updatedTransactions);
+      if (isRealtimePausedRef.current) {
+        let nextBufferedTransactions = bufferedTransactionsRef.current;
+        let isOverflow = false;
+
+        newTransactions.forEach((transaction) => {
+          const result = appendBufferedTransaction({
+            bufferedTransactions: nextBufferedTransactions,
+            currentTransactions: prev,
+            transaction,
+          });
+          nextBufferedTransactions = result.bufferedTransactions;
+          isOverflow = isOverflow || result.isOverflow;
+        });
+
+        bufferedTransactionsRef.current = nextBufferedTransactions;
+        setBufferedTransactions(nextBufferedTransactions);
+        if (isOverflow) {
+          setHasBufferOverflow(true);
+        }
+        return;
+      }
+
+      const updatedTransactions = mergeUniqueTransactions([
+        ...newTransactions,
+        ...prev,
+      ]);
+      const currentTransactions = getVisibleTransactions(updatedTransactions);
+
+      accumulatedTransactionsRef.current = currentTransactions;
+      updatePaginationState({
+        cursor: cursorRef.current,
+        transactions: currentTransactions,
+      });
+      throttleSetAccumulatedTransactions(currentTransactions);
     },
-    [throttleSetAccumulatedTransactions],
+    [
+      getVisibleTransactions,
+      throttleSetAccumulatedTransactions,
+      updatePaginationState,
+    ],
   );
+
+  const hasTransactions = accumulatedTransactions.length > 0;
+  const isRealtimePauseActive = enableRealtimePause && hasTransactions;
+  const isRealtimePaused = isRealtimePauseActive && isRealtimeHovering;
+
+  useEffect(() => {
+    isRealtimePausedRef.current = isRealtimePaused;
+  }, [isRealtimePaused]);
+
+  useEffect(
+    () => () => {
+      clearRealtimeHoverOutTimer();
+    },
+    [clearRealtimeHoverOutTimer],
+  );
+
+  useEffect(() => {
+    if (!hasTransactions) {
+      resetRealtimePause();
+    }
+  }, [hasTransactions, resetRealtimePause]);
+
+  const pauseRealtimeUpdates = useCallback(() => {
+    if (
+      !enableRealtimePauseRef.current ||
+      accumulatedTransactionsRef.current.length === 0
+    ) {
+      return;
+    }
+    clearRealtimeHoverOutTimer();
+    isRealtimePausedRef.current = true;
+    setIsRealtimeHovering(true);
+  }, [clearRealtimeHoverOutTimer]);
+
+  const resumeRealtimeUpdates = useCallback(() => {
+    if (!enableRealtimePauseRef.current) {
+      return;
+    }
+    clearRealtimeHoverOutTimer();
+    isRealtimePausedRef.current = false;
+    setIsRealtimeHovering(false);
+    flushBufferedTransactions();
+  }, [clearRealtimeHoverOutTimer, flushBufferedTransactions]);
+
+  const handleRealtimePauseHoverOut = useCallback(() => {
+    if (!enableRealtimePauseRef.current) {
+      return;
+    }
+    clearRealtimeHoverOutTimer();
+    realtimeHoverOutTimerRef.current = setTimeout(() => {
+      resumeRealtimeUpdates();
+      realtimeHoverOutTimerRef.current = undefined;
+    }, 200);
+  }, [clearRealtimeHoverOutTimer, resumeRealtimeUpdates]);
 
   return {
     transactions: accumulatedTransactions,
@@ -209,6 +424,17 @@ export function useMarketTransactions({
     hasMore,
     loadMore,
     onRefresh,
-    addNewTransaction,
+    addNewTransactions,
+    bufferedTransactionsCount: bufferedTransactions.length,
+    hasBufferOverflow,
+    isRealtimePaused,
+    isRealtimePauseActive,
+    flushBufferedTransactions,
+    resumeRealtimeUpdates,
+    resetRealtimePause,
+    handleRealtimePauseHoverIn: pauseRealtimeUpdates,
+    handleRealtimePauseHoverOut,
+    handleRealtimePauseTouchStart: pauseRealtimeUpdates,
+    handleRealtimePauseTouchEnd: resumeRealtimeUpdates,
   };
 }

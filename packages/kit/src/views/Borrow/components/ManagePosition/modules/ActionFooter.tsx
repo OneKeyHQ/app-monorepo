@@ -8,6 +8,7 @@ import { Page, YStack } from '@onekeyhq/components';
 import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { BorrowTestIDs } from '../../../testIDs';
 import { showLiquidationRiskDialog } from '../../showLiquidationRiskDialog';
 import { useManagePositionContext } from '../ManagePositionContext';
 
@@ -36,6 +37,8 @@ export function ActionFooter({
     isInsufficientBalance,
     isAmountInvalid,
     isInModalContext: isInModalContextState,
+    shouldApprove,
+    approveLoading,
   } = state;
 
   const {
@@ -45,16 +48,20 @@ export function ActionFooter({
     riskOfLiquidationAlert,
   } = actionResult;
 
-  const { onSubmit, onSelectPercentageStage, setSubmitting } = actions;
+  const { onSubmit, onApprove, onSelectPercentageStage, setSubmitting } =
+    actions;
 
   const isInModalContext = isInModalContextProp ?? isInModalContextState;
 
   // Action label
-  const actionLabel = useMemo(
-    () =>
-      actionLabelProp ?? intl.formatMessage({ id: ACTION_LABEL_MAP[action] }),
-    [actionLabelProp, action, intl],
-  );
+  const actionLabel = useMemo(() => {
+    if (shouldApprove) {
+      return intl.formatMessage({ id: ETranslations.global_approve });
+    }
+    return (
+      actionLabelProp ?? intl.formatMessage({ id: ACTION_LABEL_MAP[action] })
+    );
+  }, [actionLabelProp, action, intl, shouldApprove]);
 
   // Disable state
   // Borrow action doesn't check isInsufficientBalance because it's borrowing from protocol
@@ -97,19 +104,33 @@ export function ActionFooter({
         }
       }
 
+      if (shouldApprove && onApprove) {
+        await onApprove();
+        return;
+      }
+
       setSubmitting(true);
       await onSubmit();
     } finally {
       setSubmitting(false);
     }
-  }, [action, riskOfLiquidationAlert, intl, onSubmit, setSubmitting]);
+  }, [
+    action,
+    riskOfLiquidationAlert,
+    intl,
+    shouldApprove,
+    onApprove,
+    onSubmit,
+    setSubmitting,
+  ]);
 
   const footerContent = (
     <Page.FooterActions
       onConfirmText={actionLabel}
       confirmButtonProps={{
+        testID: BorrowTestIDs.actionConfirmBtn,
         onPress: handleSubmit,
-        loading: submitting || checkAmountLoading,
+        loading: submitting || checkAmountLoading || approveLoading,
         disabled: isButtonDisabled,
       }}
     />

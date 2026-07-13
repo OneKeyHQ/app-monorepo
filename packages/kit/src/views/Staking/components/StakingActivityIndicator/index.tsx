@@ -2,7 +2,14 @@ import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge, Button, IconButton, Stack, XStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Button,
+  IconButton,
+  Stack,
+  XStack,
+  toNoGlassHeaderItems,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -58,6 +65,7 @@ const StakingActivityIndicator = ({
           <PendingIndicator num={num} onPress={onPress} />
           {shareUrl && onShare ? (
             <IconButton
+              testID="staking-header-right-icon-btn"
               icon="ShareOutline"
               variant="tertiary"
               size="medium"
@@ -72,6 +80,7 @@ const StakingActivityIndicator = ({
         <XStack gap="$4" alignItems="center">
           {historyAction && onPress ? (
             <Button
+              testID="staking-header-right-btn"
               variant="tertiary"
               size="medium"
               disabled={historyAction.disabled}
@@ -82,6 +91,7 @@ const StakingActivityIndicator = ({
           ) : null}
           {shareUrl && onShare ? (
             <IconButton
+              testID="staking-icon-btn"
               icon="ShareOutline"
               variant="tertiary"
               size="medium"
@@ -94,9 +104,17 @@ const StakingActivityIndicator = ({
     return null;
   }, [historyAction, num, onPress, shareUrl, onShare]);
   useEffect(() => {
-    appNavigation.setOptions({
-      headerRight,
-    });
+    // This header is multi-child (pending badge / text Button + share icon),
+    // not a single icon button, so on iOS 26 drop the glass capsule — otherwise
+    // it renders as a wide pill with the button's own press style showing
+    // through. toNoGlassHeaderItems returns undefined off iOS 26, so the
+    // classic headerRight is used everywhere else.
+    const noGlassItems = toNoGlassHeaderItems(headerRight);
+    appNavigation.setOptions(
+      noGlassItems
+        ? { headerRight: undefined, unstable_headerRightItems: noGlassItems }
+        : { headerRight },
+    );
   }, [appNavigation, headerRight, num]);
   return null;
 };

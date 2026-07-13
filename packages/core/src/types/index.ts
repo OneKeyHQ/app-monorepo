@@ -4,7 +4,9 @@ import type {
   ISecretPrivateKeyInfo,
   ISecretPublicKeyInfo,
 } from '@onekeyhq/core/src/secret';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
+import type { ECoreApiExportedSecretKeyType } from '@onekeyhq/shared/src/types/coreEnums';
 import type { IHardwareGetPubOrAddressExtraInfo } from '@onekeyhq/shared/types/device';
 
 import type { EAddressEncodings } from './coreEnums';
@@ -36,7 +38,8 @@ export type ICoreApiGetAddressesQueryHdBase = {
   password: string;
   indexes: number[];
   addressEncoding: EAddressEncodings | undefined;
-};
+  hdCredentialCacheScopeId?: string;
+} & IPbkdf2KdfParams;
 export type ICoreApiGetAddressesQueryHdEvm = ICoreApiGetAddressesQueryHdBase;
 export type ICoreApiGetAddressesQueryHdBtc = Omit<
   ICoreApiGetAddressesQueryHdBase,
@@ -97,13 +100,7 @@ export type ICoreApiGetAddressItem = {
 export type ICoreApiGetAddressesResult = {
   addresses: ICoreApiGetAddressItem[];
 };
-export enum ECoreApiExportedSecretKeyType {
-  publicKey = 'publicKey',
-  privateKey = 'privateKey',
-  xpub = 'xpub',
-  xprvt = 'xprvt',
-  mnemonic = 'mnemonic', // TON mnemonic
-}
+export { ECoreApiExportedSecretKeyType } from '@onekeyhq/shared/src/types/coreEnums';
 export type IExportKeyType = 'privateKey' | 'publicKey' | 'mnemonic';
 export type ICoreApiGetExportedSecretKey = ICoreApiSignBasePayload & {
   keyType: ECoreApiExportedSecretKeyType;
@@ -146,7 +143,7 @@ export type ICoreApiSignBasePayload = {
 
   // addressEncoding other derive address
   addressEncoding?: EAddressEncodings;
-};
+} & IPbkdf2KdfParams;
 export type ICoreApiSignBtcExtraInfo = {
   inputAddressesEncodings?: Array<EAddressEncodings | undefined>;
   nonWitnessPrevTxs?: {
@@ -181,7 +178,7 @@ export type ICoreApiGetPrivateKeysMapHdQuery = {
   password: string;
   hdCredential: ICoreHdCredentialEncryptHex;
   relPaths?: string[];
-};
+} & IPbkdf2KdfParams;
 export type ICoreImportedCredential = {
   // rawPrivateKey
   privateKey: string;

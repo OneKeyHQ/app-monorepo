@@ -2,6 +2,7 @@ import type { IModalMarketParamList } from '@onekeyhq/kit/src/views/Market/route
 
 import type { IAccountManagerStacksParamList } from './accountManagerStacks';
 import type { IModalAddressBookParamList } from './addressBook';
+import type { IModalAddressRiskCheckParamList } from './addressRiskCheck';
 import type { IModalApprovalManagementParamList } from './approvalManagement';
 import type { IAppUpdatePagesParamList } from './appUpdate';
 import type { IModalAssetDetailsParamList } from './assetDetails';
@@ -82,6 +83,7 @@ export enum EModalRoutes {
   ApprovalManagementModal = 'ApprovalManagementModal',
   SignAndVerifyModal = 'SignAndVerifyModal',
   NetworkDoctorModal = 'NetworkDoctorModal',
+  AddressRiskCheckModal = 'AddressRiskCheckModal',
 }
 
 export type IModalParamList = {
@@ -127,4 +129,5 @@ export type IModalParamList = {
   [EModalRoutes.SignAndVerifyModal]: IModalSignAndVerifyParamList;
   [EModalRoutes.PerpModal]: IModalPerpParamList;
   [EModalRoutes.NetworkDoctorModal]: IModalNetworkDoctorParamList;
+  [EModalRoutes.AddressRiskCheckModal]: IModalAddressRiskCheckParamList;
 };

@@ -3,7 +3,10 @@ import { PureComponent } from 'react';
 
 import { SafeAreaView, Text } from 'react-native';
 
-import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 
 type IErrorBoundaryProps = {
   children: React.ReactNode;
@@ -27,7 +30,16 @@ class ErrorBoundaryBase extends PureComponent<
     this.props?.onError?.(error, errorInfo?.componentStack || null);
     // eslint-disable-next-line react/no-unused-state
     this.setState({ error });
-    captureException(error);
+    void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
+      ({ captureException, initSentry }) => {
+        initSentry();
+        captureException(error);
+      },
+    );
+    NativeLogger.write(
+      LogLevel.Error,
+      `[ErrorBoundary] ${error?.message || error}\n${errorInfo?.componentStack?.slice(0, 500) || ''}`,
+    );
   }
 
   override render() {

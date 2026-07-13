@@ -13,15 +13,31 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  HISTORY_CONSTS,
+  SEND_TX_SERVER_ERROR_CODES,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyLocalError,
   PendingQueueTooLong,
+  ReplaceTxNonceConsumedError,
 } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  GasAccountSubmitCancelledError,
+  MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
+  abortableWait,
+  getGasAccountErrorCode,
+  getGasAccountRetryAfterSec,
+  isGasAccountSubmitCancelledError,
+  shouldDeepRetryGasAccount,
+} from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
@@ -33,6 +49,7 @@ import type {
   ISendSelectedFeeInfo,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IParseTransactionResp } from '@onekeyhq/shared/types/signatureConfirm';
@@ -65,6 +82,21 @@ import type {
 class ServiceSend extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  // submitId → AbortController for in-flight 90212 retry loops. Registered
+  // when `signAndSendTransaction` enters the gas-account retry branch and
+  // cleared in its `finally`. UI calls `abortGasAccountSubmit` to break the
+  // loop when the user cancels the confirm screen.
+  private gasAccountSubmitAborters: Map<string, AbortController> = new Map();
+
+  @backgroundMethod()
+  public async abortGasAccountSubmit(submitId: string): Promise<void> {
+    const controller = this.gasAccountSubmitAborters.get(submitId);
+    if (controller) {
+      controller.abort();
+      this.gasAccountSubmitAborters.delete(submitId);
+    }
   }
 
   @backgroundMethod()
@@ -160,6 +192,8 @@ class ServiceSend extends ServiceBase {
       signature,
       rawTxType,
       tronResourceRentalInfo,
+      gasAccountUiState,
+      isPrivateSend,
       useDefaultRpc,
     } = params;
 
@@ -212,6 +246,14 @@ class ServiceSend extends ServiceBase {
         disableBroadcast,
         disableAntiMev: signedTx.disableMev,
         hasEnergyRented,
+        ...(isPrivateSend ? { isPrivateSend } : {}),
+        ...(gasAccountUiState?.selectedPayer === 'gasAccount' &&
+        gasAccountUiState.gasAccountQuote?.quoteId
+          ? {
+              quoteId: gasAccountUiState.gasAccountQuote.quoteId,
+              idempotencyKey: gasAccountUiState.idempotencyKey,
+            }
+          : {}),
       },
       {
         timeout: timerUtils.getTimeDurationMs({ seconds: 10 }),
@@ -316,7 +358,12 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async signAndSendTransaction(
-    params: ISendTxBaseParams & ISignTransactionParamsBase,
+    params: ISendTxBaseParams &
+      ISignTransactionParamsBase & {
+        gasAccountUiState?: IBatchSignTransactionParamsBase['gasAccountUiState'];
+        gasAccountSubmitId?: IBatchSignTransactionParamsBase['gasAccountSubmitId'];
+        isPrivateSend?: boolean;
+      },
   ) {
     const {
       networkId,
@@ -325,6 +372,9 @@ class ServiceSend extends ServiceBase {
       signOnly,
       rawTxType,
       tronResourceRentalInfo,
+      gasAccountUiState,
+      gasAccountSubmitId,
+      isPrivateSend,
       useDefaultRpc,
     } = params;
 
@@ -361,7 +411,7 @@ class ServiceSend extends ServiceBase {
         accountId,
       });
 
-      const broadcastTx = async () => {
+      const broadcastOnce = async () => {
         return vault.broadcastTransaction({
           accountId,
           networkId,
@@ -369,19 +419,131 @@ class ServiceSend extends ServiceBase {
           signedTx,
           rawTxType,
           tronResourceRentalInfo,
+          gasAccountUiState,
+          isPrivateSend,
           useDefaultRpc,
         });
       };
 
-      const { txid } = await pRetry(broadcastTx, {
-        retries: vaultSettings.maxRetryBroadcastTxCount ?? 5,
-        minTimeout:
-          vaultSettings.minRetryBroadcastTxInterval ??
-          timerUtils.getTimeDurationMs({ seconds: 3 }),
-        shouldRetry: async (error) => {
-          return vault.checkShouldRetryBroadcastTx(error);
-        },
-      });
+      // 90212 GasAccountAdmissionOverloaded is a transient, idempotent retry
+      // signal. Prime + BFF guarantee that re-sending the same signedTx with
+      // the same quoteId + idempotencyKey will not double-charge or consume
+      // the quote, so we can deep-retry up to N times without re-signing and
+      // without re-estimating. Only engage when the user actually picked the
+      // gas account payer and we have a live quote.
+      const isGasAccountSubmit =
+        gasAccountUiState?.selectedPayer === 'gasAccount' &&
+        !!gasAccountUiState.gasAccountQuote?.quoteId;
+
+      // Register an AbortController against the UI-provided submitId so the
+      // confirm page can break the retry sleep via
+      // `serviceSend.abortGasAccountSubmit(submitId)`. Cleaned up in finally.
+      let abortController: AbortController | undefined;
+      if (isGasAccountSubmit && gasAccountSubmitId) {
+        abortController = new AbortController();
+        this.gasAccountSubmitAborters.set(gasAccountSubmitId, abortController);
+      }
+
+      const broadcastWithGasAccountRetry = async () => {
+        let lastError: unknown;
+        let emittedScheduled = false;
+        const emitClearedIfNeeded = () => {
+          if (emittedScheduled) {
+            appEventBus.emit(
+              EAppEventBusNames.GasAccountSubmitRetryCleared,
+              undefined,
+            );
+          }
+        };
+        try {
+          for (
+            let attempt = 0;
+            attempt <= MAX_GAS_ACCOUNT_RETRY_ATTEMPTS;
+            attempt += 1
+          ) {
+            if (abortController?.signal.aborted) {
+              throw new GasAccountSubmitCancelledError();
+            }
+            try {
+              const result = await broadcastOnce();
+              emitClearedIfNeeded();
+              return result;
+            } catch (error) {
+              if (isGasAccountSubmitCancelledError(error)) {
+                // abortableWait unwound mid-sleep; bubble straight up.
+                emitClearedIfNeeded();
+                throw error;
+              }
+              if (abortController?.signal.aborted) {
+                emitClearedIfNeeded();
+                throw new GasAccountSubmitCancelledError();
+              }
+              lastError = error;
+              const code = getGasAccountErrorCode(error);
+              const retryAfterSec = getGasAccountRetryAfterSec(error);
+              const canRetry =
+                attempt < MAX_GAS_ACCOUNT_RETRY_ATTEMPTS &&
+                shouldDeepRetryGasAccount({ code, retryAfterSec });
+              if (!canRetry) {
+                emitClearedIfNeeded();
+                throw error;
+              }
+              appEventBus.emit(
+                EAppEventBusNames.GasAccountSubmitRetryScheduled,
+                {
+                  attempt: attempt + 1,
+                  maxAttempts: MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
+                  retryAfterSec: retryAfterSec as number,
+                  scheduledAt: Date.now(),
+                },
+              );
+              emittedScheduled = true;
+              await abortableWait(
+                (retryAfterSec as number) * 1000,
+                abortController?.signal,
+              );
+            }
+          }
+          emitClearedIfNeeded();
+          // Structurally unreachable — every loop iteration returns on success
+          // or throws on exhaustion — but TS can't narrow `for` exit, so keep a
+          // typed fallback for the linter.
+          throw lastError instanceof Error
+            ? lastError
+            : new OneKeyLocalError(
+                'Gas account broadcast failed after deep retry.',
+              );
+        } finally {
+          if (gasAccountSubmitId) {
+            this.gasAccountSubmitAborters.delete(gasAccountSubmitId);
+          }
+        }
+      };
+
+      // Gas account submit runs its own bounded deep-retry loop (3 × 90212).
+      // We deliberately bypass the outer pRetry here: vault
+      // checkShouldRetryBroadcastTx returns true for generic transient codes
+      // (EVM 40001 SERVICE_BUSY, SOL BLOCK_HASH_NOT_FOUND, Algo follower-mode)
+      // and would re-enter `broadcastWithGasAccountRetry` with its attempt
+      // counter reset, amplifying the nominal 3-retry budget to
+      // (pRetry.retries × inner.retries) ≈ 24 broadcasts and violating the
+      // product contract with Prime/BFF on retry amplification.
+      const runBroadcast = async () => {
+        if (isGasAccountSubmit) {
+          return broadcastWithGasAccountRetry();
+        }
+        return pRetry(broadcastOnce, {
+          retries: vaultSettings.maxRetryBroadcastTxCount ?? 5,
+          minTimeout:
+            vaultSettings.minRetryBroadcastTxInterval ??
+            timerUtils.getTimeDurationMs({ seconds: 3 }),
+          shouldRetry: async (error) => {
+            return vault.checkShouldRetryBroadcastTx(error);
+          },
+        });
+      };
+
+      const { txid } = await runBroadcast();
       if (!txid) {
         if (vaultSettings.withoutBroadcastTxId) {
           return signedTx;
@@ -453,11 +615,50 @@ class ServiceSend extends ServiceBase {
       transferPayload,
       successfullySentTxs,
       tronResourceRentalInfo,
+      gasAccountUiState,
+      gasAccountSubmitId,
       useDefaultRpc,
     } = params;
 
     const isMultiTxs = unsignedTxs.length > 1;
+    const isPrivateSend = transferPayload?.isPrivateSend === true;
     const vault = await vaultFactory.getVault({ networkId, accountId });
+
+    // A Gas Account quote is bound to a single user tx (payloadHash + locked
+    // nonce). In batch flows every iteration would otherwise reuse the same
+    // quoteId/idempotencyKey. Private Send is also explicitly excluded from
+    // Gas Account, so sponsor state must not be threaded into submit.
+    const effectiveGasAccountUiState =
+      isMultiTxs || isPrivateSend ? undefined : gasAccountUiState;
+    // Only thread the submitId through when we're actually going to engage the
+    // retry loop, to avoid registering a controller for paths that will never
+    // abort it.
+    const effectiveGasAccountSubmitId =
+      isMultiTxs || isPrivateSend ? undefined : gasAccountSubmitId;
+
+    // Replace (speed up / cancel) txs reuse the original pending tx's nonce.
+    // Re-validate that nonce against the on-chain nonce at the last moment
+    // before signing: if the original tx was already confirmed/replaced, abort
+    // and clean up the stale local pending tx instead of broadcasting a doomed
+    // tx (which the backend rejects with code 40024).
+    if (replaceTxInfo && !isMultiTxs) {
+      const replaceTargetNonce = unsignedTxs[0]?.nonce;
+      if (!isNil(replaceTargetNonce)) {
+        const { consumed } = await this.precheckReplaceTxNonceConsumed({
+          accountId,
+          networkId,
+          targetNonce: replaceTargetNonce,
+          useDefaultRpc,
+        });
+        if (consumed) {
+          await this.cleanupStaleReplaceTxAndThrow({
+            accountId,
+            networkId,
+            replaceHistoryId: replaceTxInfo.replaceHistoryId,
+          });
+        }
+      }
+    }
 
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
@@ -471,21 +672,46 @@ class ServiceSend extends ServiceBase {
         if (isMultiTxs && i > 0) {
           unsignedTx = await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
         }
-        const signedTx = signOnly
-          ? await this.signTransaction({
-              unsignedTx,
+        const buildSignedTx = () =>
+          signOnly
+            ? this.signTransaction({
+                unsignedTx,
+                accountId,
+                networkId,
+                signOnly: true,
+              })
+            : this.signAndSendTransaction({
+                unsignedTx,
+                networkId,
+                accountId,
+                signOnly: false,
+                tronResourceRentalInfo,
+                gasAccountUiState: effectiveGasAccountUiState,
+                gasAccountSubmitId: effectiveGasAccountSubmitId,
+                isPrivateSend,
+                useDefaultRpc,
+              });
+        let signedTx: Awaited<ReturnType<typeof buildSignedTx>>;
+        try {
+          signedTx = await buildSignedTx();
+        } catch (error) {
+          // Safety net for the residual race between the pre-broadcast nonce
+          // check and the actual broadcast: the backend rejected the replace
+          // because the nonce is already used. Clean up the stale pending tx and
+          // surface a friendly message instead of the raw backend error.
+          if (
+            replaceTxInfo &&
+            (this.isReplaceTxNonceAlreadyUsedServerError(error) ||
+              this.isReplaceTxNonceAlreadyUsedRpcError(error))
+          ) {
+            await this.cleanupStaleReplaceTxAndThrow({
               accountId,
               networkId,
-              signOnly: true,
-            })
-          : await this.signAndSendTransaction({
-              unsignedTx,
-              networkId,
-              accountId,
-              signOnly: false,
-              tronResourceRentalInfo,
-              useDefaultRpc,
+              replaceHistoryId: replaceTxInfo.replaceHistoryId,
             });
+          }
+          throw error;
+        }
         const decodedTx = await this.buildDecodedTx({
           networkId,
           accountId,
@@ -494,6 +720,41 @@ class ServiceSend extends ServiceBase {
           transferPayload,
           saveToLocalHistory: true,
         });
+        if (isPrivateSend) {
+          decodedTx.payload = {
+            value:
+              transferPayload?.amountToSend ?? decodedTx.payload?.value ?? '',
+            label:
+              decodedTx.payload?.label ?? EOnChainHistoryTxType.PrivateSend,
+            type: EOnChainHistoryTxType.PrivateSend,
+            privateSend: {
+              ...transferPayload?.privateSend,
+              originalRecipient: transferPayload?.originalRecipient,
+            },
+          };
+          decodedTx.actions = decodedTx.actions.map((action) =>
+            action.assetTransfer
+              ? {
+                  ...action,
+                  assetTransfer: {
+                    ...action.assetTransfer,
+                    isInternalSwap: false,
+                  },
+                }
+              : action,
+          );
+          decodedTx.outputActions = decodedTx.outputActions?.map((action) =>
+            action.assetTransfer
+              ? {
+                  ...action,
+                  assetTransfer: {
+                    ...action.assetTransfer,
+                    isInternalSwap: false,
+                  },
+                }
+              : action,
+          );
+        }
 
         const data = {
           signedTx,
@@ -501,14 +762,19 @@ class ServiceSend extends ServiceBase {
           feeInfo: feeInfo?.feeInfo,
           approveInfo: unsignedTx.approveInfo,
         };
+        const hasDeFiActionInfo = Boolean(
+          (unsignedTx.payload as { defiActionInfo?: unknown } | undefined)
+            ?.defiActionInfo,
+        );
 
         // For batch approve+swap/staking: only return the swap/staking tx result
-        // For bulk send (multiple transfer txs): return all results
+        // For bulk send and DeFi portfolio action batches: return all business tx results
         if (
           !isMultiTxs ||
           unsignedTx.swapInfo ||
           unsignedTx.stakingInfo ||
-          unsignedTx.transfersInfo
+          unsignedTx.transfersInfo ||
+          hasDeFiActionInfo
         ) {
           result.push(data);
         }
@@ -596,6 +862,216 @@ class ServiceSend extends ServiceBase {
     }
 
     return nextNonce;
+  }
+
+  // Re-validate a replace (speed up / cancel) tx's reused nonce against the
+  // current on-chain nonce. Returns consumed=true when the target nonce has
+  // already been used on-chain (original tx confirmed/replaced), meaning the
+  // replacement would be rejected (backend code 40024, or a custom RPC node's
+  // `nonce too low`).
+  //
+  // The nonce MUST be read from the same source the broadcast will use: when a
+  // custom RPC is enabled for a built-in network (and the user has not opted
+  // into the default RPC for this send), the tx is broadcast directly to that
+  // node, whose nonce view can diverge from the wallet API. Reading the wallet
+  // API nonce in that case could let the precheck pass while the node rejects
+  // the broadcast with a raw error the backend-40024 catch does not recognize,
+  // leaving the stale local pending uncleaned. Pass `useDefaultRpc` through so
+  // the precheck mirrors the broadcast's RPC choice.
+  //
+  // Fail-open: any error (or non-nonce chain) returns consumed=false so a flaky
+  // pre-check never blocks a legitimate replace; the backend 40024 is the safety
+  // net. NEVER overwrite the nonce here — doing so would turn a replace into a
+  // brand-new transaction.
+  @backgroundMethod()
+  public async precheckReplaceTxNonceConsumed({
+    accountId,
+    networkId,
+    targetNonce,
+    useDefaultRpc,
+  }: {
+    accountId: string;
+    networkId: string;
+    targetNonce: number;
+    useDefaultRpc?: boolean;
+  }): Promise<{ consumed: boolean; onChainNextNonce?: number }> {
+    try {
+      if (isNil(targetNonce)) {
+        return { consumed: false };
+      }
+      const { nonceRequired } =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+      if (!nonceRequired) {
+        return { consumed: false };
+      }
+      const onChainNextNonce = await this.fetchReplaceTxOnChainNextNonce({
+        accountId,
+        networkId,
+        useDefaultRpc,
+      });
+      if (isNil(onChainNextNonce)) {
+        return { consumed: false };
+      }
+      return {
+        consumed: new BigNumber(targetNonce).lt(onChainNextNonce),
+        onChainNextNonce,
+      };
+    } catch {
+      return { consumed: false };
+    }
+  }
+
+  // Read the on-chain nonce for the replace-tx precheck. This precheck needs the
+  // CONFIRMED (latest) on-chain transaction count, NOT a "next usable" nonce:
+  // the replace tx reuses the original pending tx's nonce, so it is only truly
+  // consumed once the chain has confirmed that nonce.
+  //
+  // Source selection:
+  // - Custom RPC enabled on a built-in network (and not bypassed via
+  //   `useDefaultRpc`) -> read from that node so the precheck and the
+  //   broadcast share one nonce view.
+  // - Backend non-indexed networks (backendIndex === false) -> the wallet API
+  //   has no index for these chains and proxies the node with the `pending`
+  //   block tag, which counts the very pending tx being replaced (off-by-one).
+  //   That made the precheck report a still-pending nonce as consumed and
+  //   wrongly drop the pending tx (OK-57049), so the wallet API must NOT be
+  //   used. And unless the broadcast itself goes to the custom RPC (first
+  //   case), there is no trustworthy latest-nonce source either: the custom
+  //   node is disabled, or the user explicitly bypassed it via `useDefaultRpc`
+  //   because it is unusable — a lagging/forked bypassed node could misreport
+  //   a still-replaceable pending as consumed and get it wrongly cleaned up.
+  //   Skip the precheck explicitly (fail-open — broadcast-time backend 40024 /
+  //   node `nonce too low` remains the safety net).
+  // - Otherwise (backend-indexed networks) -> wallet API, whose indexed nonce
+  //   reflects the confirmed count.
+  //
+  // Custom-RPC / network detection is defensive: only a positively
+  // backend-indexed network may use the wallet API. If the index status cannot
+  // be resolved, fail-open instead of risking the non-indexed wallet API's
+  // pending-inclusive nonce false positive.
+  private async fetchReplaceTxOnChainNextNonce({
+    accountId,
+    networkId,
+    useDefaultRpc,
+  }: {
+    accountId: string;
+    networkId: string;
+    useDefaultRpc?: boolean;
+  }): Promise<number | undefined> {
+    let customRpcEnabled = false;
+    try {
+      const customRpcInfo =
+        await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
+          networkId,
+        );
+      customRpcEnabled = Boolean(customRpcInfo?.rpc && customRpcInfo?.enabled);
+    } catch {
+      customRpcEnabled = false;
+    }
+    const broadcastViaCustomRpc = customRpcEnabled && !useDefaultRpc;
+
+    if (!broadcastViaCustomRpc) {
+      try {
+        const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
+          networkId,
+        });
+        if (network?.backendIndex === true) {
+          const { nonce } =
+            await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+              networkId,
+              accountId,
+              withNonce: true,
+            });
+          return isNil(nonce) ? undefined : nonce;
+        }
+
+        // Reaching here means the broadcast does NOT go through the custom RPC
+        // (disabled, or bypassed via `useDefaultRpc`), and the network is not
+        // positively known to be backend-indexed. For non-indexed networks the
+        // wallet API's pending-inclusive nonce is exactly the OK-57049 false
+        // positive; if the index status is missing or failed to load, choose
+        // the same fail-open path and leave cleanup to broadcast-time 40024 /
+        // node `nonce too low`.
+        return undefined;
+      } catch {
+        return undefined;
+      }
+    }
+
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+    const resp = await vault.fetchAccountDetailsByRpc({
+      accountId,
+      networkId,
+      accountAddress,
+      withNonce: true,
+    });
+    const rpcNonce = resp?.data?.data?.nonce;
+    return isNil(rpcNonce) ? undefined : rpcNonce;
+  }
+
+  isReplaceTxNonceAlreadyUsedServerError(error: unknown): boolean {
+    const e = error as { className?: string; code?: number } | undefined;
+    return (
+      e?.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+      e?.code === SEND_TX_SERVER_ERROR_CODES.NONCE_ALREADY_USED
+    );
+  }
+
+  // Custom-RPC counterpart to isReplaceTxNonceAlreadyUsedServerError. When a tx
+  // is broadcast directly to a custom RPC node (built-in network with custom
+  // RPC enabled), an already-consumed replace nonce surfaces as a raw JSON-RPC
+  // error (`nonce too low`) rather than the backend 40024. Treat ONLY genuine
+  // nonce-consumed messages as the cleanup trigger.
+  //
+  // Deliberately excludes `replacement transaction underpriced`: that means the
+  // original tx is STILL pending and only the replacement fee was too low, so
+  // the local pending must NOT be cleaned up.
+  isReplaceTxNonceAlreadyUsedRpcError(error: unknown): boolean {
+    const message = (
+      (error as { message?: string } | undefined)?.message ?? ''
+    ).toLowerCase();
+    if (!message) {
+      return false;
+    }
+    return (
+      message.includes('nonce too low') ||
+      message.includes('nonce is too low') ||
+      message.includes('oldnonce')
+    );
+  }
+
+  buildReplaceTxNonceConsumedError() {
+    return new ReplaceTxNonceConsumedError({
+      message: appLocale.intl.formatMessage({
+        id: ETranslations.global_nonce_error_lower,
+      }),
+    });
+  }
+
+  // Drop the stale local pending tx (its nonce was already consumed on-chain)
+  // and throw the friendly, localized replace-nonce-consumed error. Always
+  // throws — shared by the pre-broadcast nonce check and the backend-40024
+  // safety net so both paths clean up and surface the same message.
+  private async cleanupStaleReplaceTxAndThrow({
+    accountId,
+    networkId,
+    replaceHistoryId,
+  }: {
+    accountId: string;
+    networkId: string;
+    replaceHistoryId?: string;
+  }): Promise<never> {
+    await this.backgroundApi.serviceHistory.resolveStalePendingReplaceTx({
+      accountId,
+      networkId,
+      replaceHistoryId,
+    });
+    throw this.buildReplaceTxNonceConsumedError();
   }
 
   @backgroundMethod()

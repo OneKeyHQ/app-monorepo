@@ -156,6 +156,7 @@ function LiquidityFilterContent({
     <XStack gap="$3">
       {presetValues.slice(startIndex, endIndex).map((preset) => (
         <Button
+          testID="market-render-preset-row-btn"
           flex={1}
           key={preset}
           variant="secondary"
@@ -179,6 +180,7 @@ function LiquidityFilterContent({
         <XStack gap="$2">
           <Stack flex={1} gap="$2">
             <Input
+              testID="market-render-preset-row-input"
               placeholder={intl.formatMessage({
                 id: ETranslations.dexmarket_custom_filters_min,
               })}
@@ -188,6 +190,7 @@ function LiquidityFilterContent({
           </Stack>
           <Stack flex={1} gap="$2">
             <Input
+              testID="market-input"
               placeholder={intl.formatMessage({
                 id: ETranslations.dexmarket_custom_filters_max,
               })}
@@ -205,10 +208,16 @@ function LiquidityFilterContent({
 
       <Stack gap="$6">
         <XStack gap="$2">
-          <Button variant="secondary" flex={1} onPress={handleClear}>
+          <Button
+            variant="secondary"
+            flex={1}
+            onPress={handleClear}
+            testID="market-btn"
+          >
             {intl.formatMessage({ id: ETranslations.global_clear })}
           </Button>
           <Button
+            testID="market-btn"
             variant="primary"
             flex={1}
             onPress={handleApply}

@@ -12,6 +12,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { generateInviteUrlFromTemplate } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { ReferFriendsTestIDs } from '../testIDs';
+
 interface ICreateCodeButtonProps {
   remainingCodes?: number;
   onCodeCreated?: () => void;
@@ -60,6 +62,7 @@ export function CreateCodeButton({
         }),
         actions: (
           <Button
+            testID="refer-friends-invite-url-btn"
             variant="primary"
             size="small"
             onPress={() => {
@@ -87,6 +90,7 @@ export function CreateCodeButton({
 
   return (
     <Button
+      testID={ReferFriendsTestIDs.createCodeBtn}
       size="small"
       variant="tertiary"
       icon="PlusSmallOutline"

@@ -27,6 +27,7 @@ import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
+import { BulkCopyAddressesTestIDs } from '../testIDs';
 
 function ExportAddresses({
   route,
@@ -294,6 +295,7 @@ function ExportAddresses({
           }}
         >
           <Button
+            testID={BulkCopyAddressesTestIDs.copyAddressesBtn}
             variant="secondary"
             onPress={handleCopyAddresses}
             size={gtMd ? 'medium' : 'large'}
@@ -310,6 +312,7 @@ function ExportAddresses({
             })}
           </Button>
           <Button
+            testID={BulkCopyAddressesTestIDs.exportCsvBtn}
             variant="primary"
             onPress={handleExportAddresses}
             size={gtMd ? 'medium' : 'large'}

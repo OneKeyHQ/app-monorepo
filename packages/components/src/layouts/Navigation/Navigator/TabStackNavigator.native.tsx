@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
@@ -82,9 +83,15 @@ const extraScreenOptions = {
 };
 
 const nativeTabScreenOptions = {
-  freezeOnBlur: true,
+  // iOS: disable freezeOnBlur to prevent react-freeze from suspending tab
+  // content when a modal is on top. When frozen, Jotai/React state updates
+  // (e.g. network switch) don't commit until the tab regains focus — but
+  // the unfreeze path on iOS can fail to flush pending commits, leaving
+  // the UI visually stale until a touch forces re-layout.
+  // Android keeps freeze enabled (no observed issue).
+  freezeOnBlur: !platformEnv.isNativeIOS,
   preventsDefault: false,
-  lazy: false,
+  lazy: true,
 };
 
 export function TabStackNavigator<RouteName extends string>({
@@ -101,7 +108,7 @@ export function TabStackNavigator<RouteName extends string>({
   // Listen for HideTabBar events to show/hide the tab bar
   useEffect(() => {
     const handler = (hidden: boolean) => {
-      setTabBarHidden(hidden);
+      setTabBarHidden((prev) => (prev === hidden ? prev : hidden));
     };
     appEventBus.on(EAppEventBusNames.HideTabBar, handler);
     return () => {
@@ -192,13 +199,26 @@ export function TabStackNavigator<RouteName extends string>({
       case ESplitViewType.MAIN:
         return false;
       case ESplitViewType.SUB:
-        return isLandscape;
+        // In landscape the main pane carries the side-rail tab bar, so the
+        // sub pane has no tab bar. In portrait the main pane is collapsed
+        // via display:none and the sub pane is the only visible surface — it
+        // must honor the HideTabBar event the same way the single-pane
+        // layout does, otherwise detail screens like MarketDetail can't hide
+        // the bottom tab bar on iPad portrait.
+        return isLandscape || tabBarHidden;
       default:
         return tabBarHidden;
     }
   }, [tabBarHidden, splitViewType, isLandscape]);
   const tabBarStyle = useMemo(
-    () => ({ backgroundColor: theme.bg.val }),
+    () =>
+      // On iOS 26+ omit backgroundColor so UITabBar renders the system
+      // Liquid Glass material via configureWithDefaultBackground. Setting
+      // appearance.backgroundColor in @onekeyfe/react-native-tab-view would
+      // overwrite the glass material with an opaque fill.
+      platformEnv.isNativeIOS26Plus
+        ? undefined
+        : { backgroundColor: theme.bg.val },
     [theme.bg.val],
   );
 

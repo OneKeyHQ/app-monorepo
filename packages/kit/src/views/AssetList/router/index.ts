@@ -3,7 +3,12 @@ import type { IModalAssetListParamList } from '@onekeyhq/shared/src/routes';
 import { EModalAssetListRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-import { TokenListWithProvider } from '../pages/TokenList';
+
+const TokenListWithProvider = LazyLoadPage(() =>
+  import('../pages/TokenList').then((m) => ({
+    default: m.TokenListWithProvider,
+  })),
+);
 
 const TokenManagerModal = LazyLoadPage(
   () => import('../pages/TokenManagerModal'),

@@ -7,6 +7,7 @@ import { swapProTimeRangeItems } from '@onekeyhq/shared/types/swap/SwapProvider.
 
 import SwapProBuySellInfo from '../../components/SwapProBuySellInfo';
 import SwapProTimeRangeSelector from '../../components/SwapProTimeRangeSelector';
+import { SwapTestIDs } from '../../testIDs';
 
 const SwapProBuySellGroup = ({
   supportSpeedSwap,
@@ -16,7 +17,7 @@ const SwapProBuySellGroup = ({
   const [swapProTokenMarketDetailInfo] = useSwapProTokenMarketDetailInfoAtom();
   const [swapProTimeRange, setSwapProTimeRange] = useSwapProTimeRangeAtom();
   return (
-    <YStack gap="$2">
+    <YStack testID={SwapTestIDs.proBuySellGroup} gap="$2">
       <SwapProBuySellInfo
         supportSpeedSwap={supportSpeedSwap}
         tokenDetailInfo={swapProTokenMarketDetailInfo}

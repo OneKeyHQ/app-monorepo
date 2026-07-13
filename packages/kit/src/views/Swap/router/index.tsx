@@ -5,8 +5,13 @@ import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-import LimitOrderDetailModal from '../pages/modal/LimitOrderDetailModal';
-import SwapHistoryListModal from '../pages/modal/SwapHistoryListModal';
+
+const LimitOrderDetailModal = LazyLoadPage(
+  () => import('../pages/modal/LimitOrderDetailModal'),
+);
+const SwapHistoryListModal = LazyLoadPage(
+  () => import('../pages/modal/SwapHistoryListModal'),
+);
 
 const SwapHistoryDetailModal = LazyLoadPage(
   () => import('../pages/modal/SwapHistoryDetailModal'),
@@ -28,6 +33,9 @@ const SwapMainLandModal = LazyLoadPage(
 );
 const SwapLazyMarketModal = LazyLoadPage(
   () => import('../pages/modal/SwapLazyMarketModal'),
+);
+const SwapKLineModal = LazyLoadPage(
+  () => import('../pages/modal/SwapKLineModal'),
 );
 const SwapProTokenSelectModal = LazyLoad(
   () => import('../pages/modal/SwapProSelectTokenModal'),
@@ -59,7 +67,7 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
   {
     name: EModalSwapRoutes.SwapHistoryList,
     component: SwapHistoryListModal,
-    translationId: ETranslations.Limit_order_history,
+    translationId: ETranslations.swap_history_title,
   },
   {
     name: EModalSwapRoutes.SwapHistoryDetail,
@@ -85,6 +93,11 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
     name: EModalSwapRoutes.SwapLazyMarketModal,
     component: SwapLazyMarketModal,
     translationId: ETranslations.swap_page_swap,
+  },
+  {
+    name: EModalSwapRoutes.SwapKLine,
+    component: SwapKLineModal,
+    translationId: ETranslations.market_chart,
   },
   {
     name: EModalSwapRoutes.SwapProSelectToken,

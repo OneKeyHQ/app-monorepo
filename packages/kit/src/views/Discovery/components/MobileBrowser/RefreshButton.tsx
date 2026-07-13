@@ -4,11 +4,14 @@ import { Animated } from 'react-native';
 
 import { IconButton } from '@onekeyhq/components';
 
+import { DiscoveryTestIDs } from '../../testIDs';
+
 interface IRefreshButtonProps {
   onRefresh: () => void;
+  size?: 'small' | 'medium' | 'large';
 }
 
-function RefreshButton({ onRefresh }: IRefreshButtonProps) {
+function RefreshButton({ onRefresh, size = 'medium' }: IRefreshButtonProps) {
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const handleRefresh = useCallback(() => {
@@ -31,10 +34,10 @@ function RefreshButton({ onRefresh }: IRefreshButtonProps) {
     <Animated.View style={{ transform: [{ rotate: spin }] }}>
       <IconButton
         variant="tertiary"
-        size="medium"
+        size={size}
         icon="RefreshCwOutline"
         onPress={handleRefresh}
-        testID="browser-bar-refresh"
+        testID={DiscoveryTestIDs.browserRefreshButton}
       />
     </Animated.View>
   );

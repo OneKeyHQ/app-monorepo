@@ -296,6 +296,116 @@
   // preventing stale translations from being applied.
   // ============================================================
 
+  // Narrow, deliberate exception to the "only mutate Text.nodeValue" rule:
+  // spinners are isolated <span>s tagged `notranslate` + `translate="no"` +
+  // SPINNER_ATTR so our MutationObserver and page frameworks ignore them.
+  // Always removed before the translated text is written; cleanupAllIndicators()
+  // sweeps stragglers on stop / restore.
+  const SPINNER_ATTR = 'data-onekey-translate-loading';
+  const SPINNER_CLASS = 'notranslate onekey-translate-loading';
+  const SPINNER_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<path d="M12 3a9 9 0 1 0 9 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>' +
+    '</svg>';
+
+  let loadingSpinners = new WeakMap();
+  // Iterable mirror of in-flight spinner spans. Needed because WeakMap can't
+  // be iterated and querySelectorAll doesn't pierce Shadow DOM — spinners we
+  // inserted next to shadow-root text nodes would otherwise leak on cleanup.
+  const activeSpinners = new Set();
+  let spinnerStylesReady = false;
+  let spinnerStylesChecked = false;
+
+  function ensureSpinnerStyles() {
+    if (spinnerStylesChecked) return spinnerStylesReady;
+    spinnerStylesChecked = true;
+    try {
+      const sheet = new globalThis.CSSStyleSheet();
+      sheet.replaceSync(
+        '.onekey-translate-loading{' +
+          'display:inline-flex;align-items:center;justify-content:center;' +
+          'vertical-align:middle;margin:0 4px;' +
+          'width:14px;height:14px;min-width:14px;min-height:14px;' +
+          'font-size:14px;line-height:14px;' +
+          'color:currentColor;opacity:0.6;' +
+          '}' +
+          '.onekey-translate-loading svg{' +
+          'width:14px;height:14px;display:block;' +
+          'animation:onekey-translate-spin 0.8s linear infinite;' +
+          '}' +
+          '@keyframes onekey-translate-spin{to{transform:rotate(360deg)}}',
+      );
+      document.adoptedStyleSheets = [
+        ...(document.adoptedStyleSheets || []),
+        sheet,
+      ];
+      spinnerStylesReady = true;
+    } catch {
+      // Older WebViews without Constructable Stylesheets: skip the spinner.
+    }
+    return spinnerStylesReady;
+  }
+
+  function addLoadingIndicator(node) {
+    if (!ensureSpinnerStyles()) return;
+    const data = nodeStorage.get(node);
+    if (!data) return;
+    if (data.originalText === null) {
+      data.originalText = node.nodeValue;
+    }
+    if (loadingSpinners.has(node)) return;
+    const parent = node.parentNode;
+    if (!parent) return;
+    try {
+      const span = document.createElement('span');
+      span.setAttribute(SPINNER_ATTR, '');
+      span.setAttribute('aria-hidden', 'true');
+      span.setAttribute('translate', 'no');
+      span.className = SPINNER_CLASS;
+      span.innerHTML = SPINNER_SVG;
+      parent.insertBefore(span, node.nextSibling);
+      loadingSpinners.set(node, span);
+      activeSpinners.add(span);
+    } catch {
+      // ignore insertion failures
+    }
+  }
+
+  function removeLoadingIndicator(node) {
+    const span = loadingSpinners.get(node);
+    if (!span) return;
+    try {
+      span.remove();
+    } catch {
+      // ignore
+    }
+    loadingSpinners.delete(node);
+    activeSpinners.delete(span);
+  }
+
+  function cleanupAllIndicators() {
+    activeSpinners.forEach(function (span) {
+      try {
+        span.remove();
+      } catch {
+        // ignore
+      }
+    });
+    activeSpinners.clear();
+    // Drop the WeakMap so re-translate on the same page sees fresh text
+    // nodes; otherwise addLoadingIndicator short-circuits on stale entries.
+    loadingSpinners = new WeakMap();
+  }
+
+  function isSpinnerNode(node) {
+    return !!(
+      node &&
+      node.nodeType === Node.ELEMENT_NODE &&
+      node.hasAttribute &&
+      node.hasAttribute(SPINNER_ATTR)
+    );
+  }
+
   function queueForTranslation(items) {
     for (let i = 0; i < items.length; i += 1) {
       const item = items[i];
@@ -347,6 +457,7 @@
         texts.push(item.text);
       }
       batchMap[item.text].push(entry);
+      addLoadingIndicator(item.node);
     }
 
     translateAPI(texts, sourceLang, targetLang)
@@ -368,12 +479,22 @@
 
             if (isCurrentEntry) {
               applyToNode(entry.node, translated);
+            } else {
+              // Stale entry (node mutated mid-flight). applyToNode skipped,
+              // so clear the spinner explicitly or it will orphan in the DOM.
+              removeLoadingIndicator(entry.node);
             }
           }
         }
       })
       .catch(function (err) {
         console.error('[OneKey Translate] error:', err);
+        for (let j = 0; j < texts.length; j += 1) {
+          const entries = batchMap[texts[j]];
+          for (let k = 0; k < entries.length; k += 1) {
+            removeLoadingIndicator(entries[k].node);
+          }
+        }
       });
 
     if (pendingBatch.length > 0) scheduleBatchSend();
@@ -391,18 +512,20 @@
     const data = nodeStorage.get(textNode);
     if (!data) return;
 
-    // Save original text before first modification
+    removeLoadingIndicator(textNode);
+
     if (data.originalText === null) {
       data.originalText = textNode.nodeValue;
     }
 
-    // No-op: translation returned original text unchanged — leave DOM alone
-    if (translatedText === data.originalText) return;
-
-    const newValue =
-      displayMode === 'bilingual'
-        ? `${data.originalText}\n${translatedText}`
-        : translatedText;
+    let newValue;
+    if (translatedText === data.originalText) {
+      newValue = data.originalText;
+    } else if (displayMode === 'bilingual') {
+      newValue = `${data.originalText}\n${translatedText}`;
+    } else {
+      newValue = translatedText;
+    }
     if (textNode.nodeValue === newValue) return;
 
     // Mark as self-caused mutation so MutationObserver skips it
@@ -536,7 +659,9 @@
           // --- childList: nodes added/removed ---
           for (let j = 0; j < mutation.addedNodes.length; j += 1) {
             const addedNode = mutation.addedNodes[j];
-            if (addedNode.nodeType === Node.ELEMENT_NODE) {
+            if (isSpinnerNode(addedNode)) {
+              // Ignore our own spinner; prevents re-translation feedback loop.
+            } else if (addedNode.nodeType === Node.ELEMENT_NODE) {
               const tag = addedNode.tagName.toUpperCase();
               if (!SKIP_TAGS.has(tag)) {
                 newElements.push(addedNode);
@@ -623,6 +748,10 @@
       clearTimeout(pendingResolvers[id].timer);
       delete pendingResolvers[id];
     });
+    // Clear cache to prevent cross-session bleed when engine/lang changes.
+    translationCache = {};
+    cacheKeys = [];
+    cleanupAllIndicators();
   }
 
   function restoreOriginal() {
@@ -648,8 +777,6 @@
     }
 
     walkAndRestore(document.body);
-    translationCache = {};
-    cacheKeys = [];
   }
 
   globalThis.__onekeyTranslate = {

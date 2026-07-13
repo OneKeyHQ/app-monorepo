@@ -54,7 +54,12 @@ function ConnectWalletContent() {
           ) : (
             <ExternalWalletList impl="evm" />
           )}
-          <TermsAndPrivacy contentContainerProps={{ pb: '$6' }} />
+          <TermsAndPrivacy
+            contentContainerProps={{
+              pb: '$6',
+              $gtMd: { alignSelf: 'center' },
+            }}
+          />
         </Stack>
       </Page.Body>
     </Page>

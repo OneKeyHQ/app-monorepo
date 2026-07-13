@@ -112,11 +112,13 @@ const SwapProLimitPriceSlider = ({
           showBubble={false}
           onChange={handleSliderChange}
           segments={4}
+          snapTapToSegment
           sliderHeight={2}
           centerOrigin
         />
       </XStack>
       <Input
+        testID="swap-input-b-n-input"
         containerProps={{
           flex: 0.4,
           borderWidth: 0,

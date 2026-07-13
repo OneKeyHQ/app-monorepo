@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" webpack serve",
-    "start:rspack": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" rspack serve",
-    "start:proxy": "ONEKEY_PROXY=true yarn start",
+    "start": "cross-env NODE_OPTIONS=\"--max-old-space-size=10240\" rspack serve",
+    "start:webpack": "cross-env NODE_OPTIONS=\"--max-old-space-size=10240\" webpack serve -c ./webpack.config.kill-switch.js",
     "clean": "yarn clean:build",
-    "clean:build": "rimraf ./web-build && rimraf .tamagui && rimraf ./node_modules/.cache",
-    "build": "yarn clean && cross-env NODE_ENV=production webpack build && cp ./web-build/index.html ./web-build/404.html && bash ./postbuild.sh",
-    "build:rspack": "yarn clean && cross-env NODE_ENV=production rspack build && cp ./web-build/index.html ./web-build/404.html && bash ./postbuild.sh",
-    "_folderslint": "yarn folderslint"
+    "clean:build": "rimraf ./web-build && rimraf .generated && rimraf .tamagui && rimraf ./node_modules/.cache",
+    "build": "yarn clean && node ./scripts/fetch-market-home-token-seed.js && cross-env NODE_ENV=production rspack build && cp ./web-build/index.html ./web-build/404.html && bash ./postbuild.sh",
+    "build:webpack": "yarn clean && node ./scripts/fetch-market-home-token-seed.js && cross-env NODE_ENV=production webpack build -c ./webpack.config.kill-switch.js && cp ./web-build/index.html ./web-build/404.html && bash ./postbuild.sh",
+    "stats": "cross-env NODE_ENV=production RSPACK_FULL_STATS=1 rspack build --json=web-build/stats.json",
+    "check:startup-graph-budget": "node scripts/check-startup-graph-budget.js"
   },
   "dependencies": {
     "@onekeyhq/components": "*",
@@ -18,7 +18,7 @@
     "@onekeyhq/shared": "*"
   },
   "devDependencies": {
-    "folderslint": "1.2.0",
+    "@aaroon/workbox-rspack-plugin": "^1.0.1",
     "rimraf": "3.0.2"
   },
   "private": true

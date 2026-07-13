@@ -146,6 +146,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
   const confirmButton = useMemo(
     () => (
       <Button
+        testID="market-confirm-button-btn"
         width="100%"
         size="large"
         disabled={!coingeckoIds.length}

@@ -1,0 +1,20 @@
+diff --git a/node_modules/reflect-metadata/Reflect.js b/node_modules/reflect-metadata/Reflect.js
+index 0c0d77f..a987ccd 100644
+--- a/node_modules/reflect-metadata/Reflect.js
++++ b/node_modules/reflect-metadata/Reflect.js
+@@ -32,7 +32,14 @@ var Reflect;
+         }
+         function makeExporter(target, previous) {
+             return function (key, value) {
+-                Object.defineProperty(target, key, { configurable: true, writable: true, value: value });
++                // OneKey patch: tolerate a Reflect frozen by SES lockdown. inversify no
++                // longer reads metadata off the global Reflect (it uses a module-local
++                // WeakMap; see the @inversifyjs/reflect-metadata-utils patch), so failing
++                // to install these methods is harmless here, whereas the thrown "object is
++                // not extensible" would crash the Ledger DMK on load.
++                try {
++                    Object.defineProperty(target, key, { configurable: true, writable: true, value: value });
++                } catch (_) { /* Reflect frozen under SES lockdown; safe to skip */ }
+                 if (previous)
+                     previous(key, value);
+             };

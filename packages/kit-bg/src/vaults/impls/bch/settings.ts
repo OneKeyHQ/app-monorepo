@@ -24,6 +24,8 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
 
 const settings: IVaultSettings = {
   ...settingsBtc,
+  // Clear inherited [ledger] — Ledger does not support BCH.
+  supportedThirdPartyVendors: undefined,
   accountDeriveInfo,
   impl: IMPL_BCH,
   coinTypeDefault: COINTYPE_BCH,

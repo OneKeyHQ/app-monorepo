@@ -1,3 +1,5 @@
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
+
 export type IWalletActionType =
   | 'send'
   | 'receive'
@@ -9,6 +11,8 @@ export type IWalletActionType =
   | 'earn'
   | 'explorer'
   | 'copy'
+  | 'addressList'
+  | 'coins'
   | 'bulkSend'
   | 'sign'
   | 'reward'
@@ -20,7 +24,7 @@ export type IWalletActionType =
 export type IMoreActionGroupType = 'trading' | 'tools' | 'developer' | 'others';
 
 export interface IActionCustomization {
-  label?: string;
+  labelId?: ETranslations;
   icon?: any;
   disabled?: boolean;
   onPress?: () => void | Promise<void>;

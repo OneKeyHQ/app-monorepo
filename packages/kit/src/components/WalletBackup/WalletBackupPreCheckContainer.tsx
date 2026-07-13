@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   EAppEventBusNames,
   appEventBus,
@@ -11,6 +13,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { showWalletBackupDialog } from './WalletBackupDialog';
 
 function BasicWalletBackupPreCheckContainer() {
+  const intl = useIntl();
   const handler = useCallback(
     async ({
       promiseId,
@@ -31,6 +34,7 @@ function BasicWalletBackupPreCheckContainer() {
         } else {
           showWalletBackupDialog({
             wallet,
+            intl,
           });
           await backgroundApiProxy.servicePromise.rejectCallback({
             id: promiseId,
@@ -44,7 +48,7 @@ function BasicWalletBackupPreCheckContainer() {
         });
       }
     },
-    [],
+    [intl],
   );
 
   useEffect(() => {

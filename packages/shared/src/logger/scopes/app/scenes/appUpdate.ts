@@ -101,6 +101,14 @@ export class AppUpdateScene extends BaseScene {
       status: 'success' | 'failed';
       failedStep?: string;
       errorMessage?: string;
+      // Stable, low-cardinality classification of the failure parsed from
+      // errorMessage by extractUpdateErrorCode. Lets Mixpanel split the
+      // previously opaque "errorMessage" funnel into actionable buckets —
+      // SHA256_FILE_TRUNCATED / SHA256_OOM / SHA256_MISMATCH /
+      // HTTP_416 / NSURL_-1005 / IO_<errno> / … — that match the
+      // SHA256_<reason> payloads emitted by the iOS/Android/Desktop
+      // bundle-update native modules.
+      errorCode?: string;
     },
   ) {
     return params;
@@ -132,10 +140,20 @@ export class AppUpdateScene extends BaseScene {
     return params;
   }
 
+  // Server-side payloads on the per-step funnel events drop free-text
+  // error.message and any local file paths — softwareUpdateResult is the
+  // single sink for failure detail, with sanitized errorMessage +
+  // errorCode at the call site. Per-step events here only need the
+  // success flag + the version coordinates the funnel groups by, so the
+  // payload can never reflect /Users/<name>/, signed CDN URLs, or
+  // OkHttp / NSError messages back to the analytics ingest.
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public endDownload(params: IUpdateDownloadedEvent) {
-    return params;
+    return {
+      latestVersion: params?.latestVersion,
+      bundleVersion: params?.bundleVersion,
+    };
   }
 
   @LogToLocal({ level: 'info' })
@@ -145,8 +163,8 @@ export class AppUpdateScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public endVerifyPackage(success: boolean, error?: Error) {
-    return { success, error: error?.message };
+  public endVerifyPackage(success: boolean, _error?: Error) {
+    return { success };
   }
 
   @LogToLocal({ level: 'info' })
@@ -156,8 +174,8 @@ export class AppUpdateScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public endVerifyASC(success: boolean, error?: Error) {
-    return { success, error: error?.message };
+  public endVerifyASC(success: boolean, _error?: Error) {
+    return { success };
   }
 
   @LogToLocal({ level: 'info' })
@@ -167,8 +185,8 @@ export class AppUpdateScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public endDownloadASC(success: boolean, error?: Error) {
-    return { success, error: error?.message };
+  public endDownloadASC(success: boolean, _error?: Error) {
+    return { success };
   }
 
   @LogToLocal({ level: 'info' })
@@ -178,8 +196,8 @@ export class AppUpdateScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public endInstallPackage(success: boolean, error?: Error) {
-    return { success, error: error?.message };
+  public endInstallPackage(success: boolean, _error?: Error) {
+    return { success };
   }
 
   @LogToLocal({ level: 'info' })

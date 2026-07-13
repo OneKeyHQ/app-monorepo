@@ -46,6 +46,7 @@ export function ConnectToWalletDialogContent({
       </Stack>
       {loading ? null : (
         <Button
+          testID="web-dapp-intl-btn"
           mt="$5"
           variant="primary"
           size="large"

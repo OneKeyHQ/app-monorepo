@@ -11,6 +11,8 @@ import {
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 
+import { DAppConnectionTestIDs } from '../../testIDs';
+
 import { DAppRiskyAlertDetail } from './DAppRiskyAlertDetail';
 
 function DAppRiskyAlert({
@@ -71,6 +73,7 @@ function DAppRiskyAlert({
 
   return (
     <Alert
+      testID={DAppConnectionTestIDs.RiskyAlert}
       fullBleed
       type={riskStyle.type as IAlertType}
       title={urlSecurityInfo?.alert ?? ''}

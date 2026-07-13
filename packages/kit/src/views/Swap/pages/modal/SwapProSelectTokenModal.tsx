@@ -58,6 +58,7 @@ const SwapProSelectTokenPage = ({
   );
   const navigation = useAppNavigation();
   const handleTokenSelect = (token: IMarketToken) => {
+    navigation.popStack();
     void setSwapProSelectToken({
       networkId: token.networkId,
       contractAddress: token.address,
@@ -69,11 +70,11 @@ const SwapProSelectTokenPage = ({
       isNative: token.isNative,
       price: token.price?.toString(),
     });
-    navigation.pop();
   };
   const handleSearchTokenSelect = (
     token: IMarketSearchV2Token & { networkLogoURI: string },
   ) => {
+    navigation.popStack();
     void setSwapProSelectToken({
       networkId: token.network,
       contractAddress: token.address,
@@ -85,7 +86,6 @@ const SwapProSelectTokenPage = ({
       isNative: token.isNative,
       price: token.price?.toString(),
     });
-    navigation.pop();
   };
   return (
     <Page>

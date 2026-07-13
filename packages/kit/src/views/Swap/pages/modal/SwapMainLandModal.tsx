@@ -33,6 +33,7 @@ const SwapMainLandModalPage = () => {
     fromAmount,
     importDeriveType,
     swapSource,
+    marketPresetToken,
   } = route.params ?? {};
   const { activeAccount } = useActiveAccount({
     num: 0,
@@ -78,6 +79,8 @@ const SwapMainLandModalPage = () => {
           importToToken,
           swapTabSwitchType,
           fromAmount,
+          marketPresetToken,
+          swapSource,
         }}
       />
     </Page>

@@ -22,11 +22,12 @@ import type { IAppUpdatePagesParamList } from '@onekeyhq/shared/src/routes';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { HyperlinkText } from '../../../components/HyperlinkText';
 import {
   useAppUpdateInfo,
   useDownloadPackage,
-} from '../../../components/UpdateReminder/hooks';
+} from '../../../components/AppUpdate';
+import { HyperlinkText } from '../../../components/HyperlinkText';
+import { AppUpdateTestIDs } from '../testIDs';
 
 const STEP_INDEX_MAP: Record<EAppUpdateStatus, number> = {
   [EAppUpdateStatus.failed]: -2,
@@ -57,7 +58,7 @@ function RetryButton({ onPress }: IButtonProps) {
   const intl = useIntl();
   return (
     <XStack>
-      <Button onPress={onPress}>
+      <Button testID={AppUpdateTestIDs.retryBtn} onPress={onPress}>
         {intl.formatMessage({ id: ETranslations.global_retry })}
       </Button>
     </XStack>
@@ -71,7 +72,7 @@ function ContactUsButton() {
   }, []);
   return (
     <XStack>
-      <Button onPress={onPress}>
+      <Button testID={AppUpdateTestIDs.contactUsBtn} onPress={onPress}>
         {intl.formatMessage({ id: ETranslations.global_contact_us })}
       </Button>
     </XStack>
@@ -137,6 +138,19 @@ function DownloadVerify({
   const hasError = checkIsError(data.status);
 
   const percent = useDownloadProgress();
+
+  // Self-heal stale failure UI: native progress events imply the download
+  // is actually running. If the atom still says downloadPackageFailed
+  // (race in the AppState 'active' resume path or a previous JS
+  // rejection that outlived the native transfer), nudge bg to flip
+  // status back. percent is integer-bucketed so this fires ~once per
+  // 1% change — the bg method is cheap and a no-op outside the failed
+  // status.
+  useEffect(() => {
+    if (percent > 0 && data.status === EAppUpdateStatus.downloadPackageFailed) {
+      void backgroundApiProxy.serviceAppUpdate.onDownloadProgressHeartbeat();
+    }
+  }, [percent, data.status]);
 
   const renderDownloadError = useCallback(
     () => (

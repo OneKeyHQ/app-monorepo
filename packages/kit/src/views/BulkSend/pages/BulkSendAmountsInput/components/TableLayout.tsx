@@ -20,6 +20,7 @@ import {
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { BulkSendTestIDs } from '@onekeyhq/kit/src/views/BulkSend/testIDs';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -31,11 +32,8 @@ import {
 } from '@onekeyhq/shared/types/bulkSend';
 
 import {
-  INTERVAL_SETTINGS_MAX_SEC_PLACEHOLDER,
-  INTERVAL_SETTINGS_NONE_LABEL,
-  INTERVAL_SETTINGS_SPECIFIED_LABEL,
-  INTERVAL_SETTINGS_TITLE,
   IntervalRangeInputs,
+  useIntervalLabels,
 } from '../../../components/IntervalSettingsContent';
 import {
   BULK_SEND_INTERVAL_MAX_SECONDS,
@@ -55,12 +53,14 @@ const MEDIUM_INPUT_BORDER_RADIUS = getSharedInputStyles({
 
 function IntervalCard() {
   const intl = useIntl();
+  const { title, specifiedLabel, noneLabel, maxSecPlaceholder } =
+    useIntervalLabels();
   const { intervalSettings, setIntervalSettings } =
     useBulkSendAmountsInputContext();
 
   const intervalError = useMemo(
-    () => validateIntervalSettings(intervalSettings),
-    [intervalSettings],
+    () => validateIntervalSettings(intervalSettings, intl),
+    [intervalSettings, intl],
   );
   const shouldShowIntervalError =
     intervalSettings.mode === EIntervalMode.Specified &&
@@ -68,16 +68,10 @@ function IntervalCard() {
 
   const modeOptions = useMemo(
     () => [
-      {
-        label: INTERVAL_SETTINGS_SPECIFIED_LABEL,
-        value: EIntervalMode.Specified,
-      },
-      {
-        label: INTERVAL_SETTINGS_NONE_LABEL,
-        value: EIntervalMode.None,
-      },
+      { label: specifiedLabel, value: EIntervalMode.Specified },
+      { label: noneLabel, value: EIntervalMode.None },
     ],
-    [],
+    [specifiedLabel, noneLabel],
   );
 
   const handleModeChange = useCallback(
@@ -114,10 +108,9 @@ function IntervalCard() {
       p="$5"
     >
       <XStack alignItems="center" justifyContent="space-between">
-        <SizableText size="$bodyLgMedium">
-          {INTERVAL_SETTINGS_TITLE}
-        </SizableText>
+        <SizableText size="$bodyLgMedium">{title}</SizableText>
         <Select
+          testID={BulkSendTestIDs.amountIntervalModeSelect}
           title=""
           value={intervalSettings.mode}
           onChange={handleModeChange}
@@ -125,6 +118,7 @@ function IntervalCard() {
           placement="bottom-end"
           renderTrigger={({ label, onPress }) => (
             <Button
+              testID={BulkSendTestIDs.amountIntervalModeTriggerBtn}
               variant="tertiary"
               size="small"
               iconAfter="ChevronDownSmallOutline"
@@ -142,7 +136,7 @@ function IntervalCard() {
             minSeconds={intervalSettings.minSeconds}
             maxSeconds={intervalSettings.maxSeconds}
             error={shouldShowIntervalError ? intervalError : undefined}
-            maxSecPlaceholder={INTERVAL_SETTINGS_MAX_SEC_PLACEHOLDER}
+            maxSecPlaceholder={maxSecPlaceholder}
             onMinChange={handleMinChange}
             onMaxChange={handleMaxChange}
             inputBackgroundColor="$bg"
@@ -173,6 +167,7 @@ function IntervalCard() {
 
 function IntervalCardOneToMany() {
   const intl = useIntl();
+  const { title, noneLabel } = useIntervalLabels();
 
   return (
     <YStack
@@ -184,16 +179,15 @@ function IntervalCardOneToMany() {
       p="$5"
     >
       <XStack alignItems="center" justifyContent="space-between">
-        <SizableText size="$bodyLgMedium">
-          {INTERVAL_SETTINGS_TITLE}
-        </SizableText>
+        <SizableText size="$bodyLgMedium">{title}</SizableText>
         <Button
+          testID="bulk-send-interval-summary-btn"
           variant="tertiary"
           size="small"
           iconAfter="ChevronDownSmallOutline"
           disabled
         >
-          {INTERVAL_SETTINGS_NONE_LABEL}
+          {noneLabel}
         </Button>
       </XStack>
 
@@ -237,7 +231,9 @@ function AmountCard() {
   const { network } = useAccountData({ networkId });
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
-  const shouldHideMaxMode = !isOneToMany && hasDuplicateSenders;
+  const shouldShowMaxMode = isOneToMany
+    ? !tokenInfo?.isNative
+    : !hasDuplicateSenders;
   const balance = tokenDetails?.balanceParsed ?? '0';
   const minTransferDisplayAmount = useMemo(
     () =>
@@ -468,6 +464,7 @@ function AmountCard() {
         minTransferAmount,
         tokenSymbol: tokenInfo?.symbol,
         tokenDecimals: tokenInfo?.decimals,
+        intl,
       });
       setAmountInputErrors({
         ...amountInputErrorsRef.current,
@@ -505,16 +502,16 @@ function AmountCard() {
 
   // Handle Max button press
   const handleMaxPress = useCallback(() => {
-    if (!tokenInfo) return;
+    if (!tokenInfo || (isOneToMany && tokenInfo.isNative)) return;
     if (amountInputMode !== EAmountInputMode.Specified) return;
 
-    // Non-OneToMany: toggle Max mode (send full balance per sender)
+    // Non-OneToMany: toggle Max mode (send full token balance per sender)
     if (!isOneToMany) {
       setIsMaxMode(!isMaxMode);
       return;
     }
 
-    // OneToMany: calculate max amount per address from balance
+    // OneToMany token transfer: calculate max token amount per address from balance
     if (!balance || transfersInfo.length === 0) return;
     const maxAmountPerAddress = new BigNumber(balance)
       .dividedBy(transfersInfo.length)
@@ -641,6 +638,7 @@ function AmountCard() {
             >
               <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
                 <Input
+                  testID="bulk-send-input"
                   flex={1}
                   value={localRangeMin}
                   onChangeText={handleRangeMinChange}
@@ -699,6 +697,7 @@ function AmountCard() {
             >
               <XStack alignItems="center" px="$3.5" pt="$2.5" pb="$1">
                 <Input
+                  testID="bulk-send-input"
                   flex={1}
                   value={localRangeMax}
                   onChangeText={handleRangeMaxChange}
@@ -777,6 +776,7 @@ function AmountCard() {
           })}
         </SizableText>
         <Select
+          testID="bulk-send-select"
           title=""
           value={amountInputMode}
           onChange={handleModeChange}
@@ -784,6 +784,7 @@ function AmountCard() {
           placement="bottom-end"
           renderTrigger={({ label, onPress }) => (
             <Button
+              testID="bulk-send-btn"
               variant="tertiary"
               size="small"
               iconAfter="ChevronDownSmallOutline"
@@ -833,8 +834,7 @@ function AmountCard() {
         ) : (
           <Stack />
         )}
-        {amountInputMode === EAmountInputMode.Specified &&
-        !shouldHideMaxMode ? (
+        {amountInputMode === EAmountInputMode.Specified && shouldShowMaxMode ? (
           <SizableText
             size="$bodySmMedium"
             color={isMaxMode ? '$textSuccess' : '$textInteractive'}
@@ -1112,6 +1112,7 @@ function TransferInfoListSection() {
                 if (isCustomMode) {
                   return (
                     <Input
+                      testID="bulk-send-input"
                       value={transfer.amount}
                       onChangeText={(value) => handleAmountChange(index, value)}
                       placeholder="0"
@@ -1157,6 +1158,7 @@ function TransferInfoListSection() {
             {/* ACTION */}
             <Stack width={64} alignItems="flex-end">
               <IconButton
+                testID="bulk-send-icon-btn"
                 icon="DeleteOutline"
                 variant="tertiary"
                 size="small"

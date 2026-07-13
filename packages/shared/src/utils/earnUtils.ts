@@ -43,6 +43,8 @@ const isMorphoProvider = createProviderCheck(EEarnProviderEnum.Morpho);
 
 const isPendleProvider = createProviderCheck(EEarnProviderEnum.Pendle);
 
+const isNativeProvider = createProviderCheck(EEarnProviderEnum.Native);
+
 const isListaProvider = createProviderCheck(EEarnProviderEnum.Lista);
 
 const isStakefishProvider = createProviderCheck(EEarnProviderEnum.Stakefish);
@@ -59,6 +61,16 @@ const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
     isPendleProvider({ providerName }) ||
     isListaProvider({ providerName }) ||
     isMomentumProvider({ providerName })
+  );
+};
+
+const shouldSendEarnProtocolVault = ({
+  providerName,
+}: {
+  providerName: string;
+}) => {
+  return (
+    isVaultBasedProvider({ providerName }) || isNativeProvider({ providerName })
   );
 };
 
@@ -87,8 +99,8 @@ function resolveEarnApproveSpenderAddress({
   if (providerKey && providerApproveSpenderOverrides[providerKey]) {
     return providerApproveSpenderOverrides[providerKey];
   }
-  return isVaultBasedProvider({ providerName })
-    ? (protocolVault ?? '')
+  return shouldSendEarnProtocolVault({ providerName })
+    ? (protocolVault ?? backendApproveTarget ?? '')
     : (backendApproveTarget ?? '');
 }
 
@@ -205,11 +217,62 @@ function buildEarnAccountKey({
   return `${accountId || indexAccountId || ''}-${networkId}`;
 }
 
+// Borrow-stack address normalization: the earn server's market/reserve
+// lookups are case-sensitive and its markets list is lowercase, while
+// indexer position data usually carries checksum-cased EVM addresses
+// (test env returns 500 on checksum marketAddress). EVM addresses are
+// case-insensitive by semantics, so lowercase them; base58 (Solana) is
+// case-sensitive and must pass through untouched.
+function normalizeBorrowAddress({
+  networkId,
+  address,
+}: {
+  networkId: string;
+  address: string;
+}): string {
+  if (!networkUtils.isEvmNetwork({ networkId })) {
+    return address;
+  }
+  return address.toLowerCase();
+}
+
+function normalizeBorrowAddressParams<
+  T extends {
+    networkId: string;
+    marketAddress?: string;
+    reserveAddress?: string;
+    collateralReserveAddress?: string;
+  },
+>(params: T): T {
+  if (!networkUtils.isEvmNetwork({ networkId: params.networkId })) {
+    return params;
+  }
+  return {
+    ...params,
+    ...(params.marketAddress
+      ? { marketAddress: params.marketAddress.toLowerCase() }
+      : {}),
+    ...(params.reserveAddress
+      ? { reserveAddress: params.reserveAddress.toLowerCase() }
+      : {}),
+    // repay-with-collateral / setup-LUT / check-amount forward this sibling
+    // reserve too; it comes from the same checksum-cased indexer data, so it
+    // needs the same lowercasing to survive the case-sensitive earn service.
+    ...(params.collateralReserveAddress
+      ? {
+          collateralReserveAddress:
+            params.collateralReserveAddress.toLowerCase(),
+        }
+      : {}),
+  };
+}
+
 export default {
   buildEarnAccountKey,
   getEarnProviderEnumKey,
   isMorphoProvider,
   isPendleProvider,
+  isNativeProvider,
   isListaProvider,
   isLidoProvider,
   isBabylonProvider,
@@ -222,10 +285,13 @@ export default {
   getEarnPermitCacheKey,
   isUSDTonETHNetwork,
   isVaultBasedProvider,
+  shouldSendEarnProtocolVault,
   isValidatorProvider,
   resolveEarnApproveSpenderAddress,
   resolveEarnApproveType,
   resolveEarnAllowanceSpenderAddress,
   convertEarnTokenToIToken,
   extractAmountFromText,
+  normalizeBorrowAddress,
+  normalizeBorrowAddressParams,
 };

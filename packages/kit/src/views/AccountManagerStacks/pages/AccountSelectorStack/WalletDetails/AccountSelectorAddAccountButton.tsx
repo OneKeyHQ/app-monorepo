@@ -9,6 +9,8 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { AccountManagerTestIDs } from '../../../testIDs';
+
 import { useAddAccount } from './hooks/useAddAccount';
 
 export function AccountSelectorAddAccountButton({
@@ -33,7 +35,10 @@ export function AccountSelectorAddAccountButton({
   });
 
   return (
-    <ListItem testID="account-add-account" onPress={handleAddAccount}>
+    <ListItem
+      testID={AccountManagerTestIDs.accountAddAccount}
+      onPress={handleAddAccount}
+    >
       <Stack bg="$bgStrong" borderRadius="$2" p="$1" borderCurve="continuous">
         <Icon name="PlusSmallOutline" />
       </Stack>

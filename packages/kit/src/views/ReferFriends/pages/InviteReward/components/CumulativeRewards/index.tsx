@@ -125,6 +125,7 @@ export function CumulativeRewards({
               </SizableText>
 
               <IconButton
+                testID="refer-friends-icon-btn"
                 icon="ClockTimeHistoryOutline"
                 variant="tertiary"
                 iconProps={{ color: '$iconSubdued' }}
@@ -185,6 +186,7 @@ export function CumulativeRewards({
                     : '**********'}
                 </SizableText>
                 <IconButton
+                  testID="refer-friends-icon-btn"
                   icon={isAddressVisible ? 'EyeOffOutline' : 'EyeOutline'}
                   variant="tertiary"
                   size="small"
@@ -211,6 +213,7 @@ export function CumulativeRewards({
             )}
           </YStack>
           <IconButton
+            testID="refer-friends-new-visibility-icon-btn"
             title={intl.formatMessage({ id: ETranslations.global_edit })}
             variant="tertiary"
             icon="EditOutline"

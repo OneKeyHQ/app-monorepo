@@ -74,6 +74,7 @@ function ReferralLinkItem({
         </Stack>
       </YStack>
       <IconButton
+        testID="refer-friends-icon-btn"
         icon="Copy3Outline"
         variant="tertiary"
         size="small"

@@ -352,6 +352,8 @@ export function Carousel<T>({
             {...(paginationContainerStyle as any)}
           >
             {showPaginationButton ? (
+              // Internal carousel control.
+              // oxlint-disable-next-line onekey/require-testid
               <IconButton
                 icon="ChevronLeftSmallOutline"
                 variant="tertiary"
@@ -374,6 +376,8 @@ export function Carousel<T>({
               })}
             </XStack>
             {showPaginationButton ? (
+              // Internal carousel control.
+              // oxlint-disable-next-line onekey/require-testid
               <IconButton
                 icon="ChevronRightSmallOutline"
                 variant="tertiary"

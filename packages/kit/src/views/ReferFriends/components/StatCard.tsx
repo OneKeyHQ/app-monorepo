@@ -75,6 +75,7 @@ export function StatCard({
         </Stack>
         {showRefreshButton ? (
           <IconButton
+            testID="refer-friends-get-value-size-icon-btn"
             icon="RefreshCcwOutline"
             variant="tertiary"
             size="small"

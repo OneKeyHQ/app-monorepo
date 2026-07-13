@@ -38,6 +38,7 @@ function LiquidationRiskDialogContent({
       </SizableText>
 
       <Checkbox
+        testID="borrow-is-confirm-disabled-checkbox"
         labelContainerProps={{
           flex: 1,
         }}

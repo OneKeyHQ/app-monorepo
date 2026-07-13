@@ -1,0 +1,23 @@
+id: assetdetails-lending-action
+type:
+  - golden
+prompt: "Implement AssetDetails Aave/Morpho withdraw and repay actions. Native iOS must use the correct page/modal host, extension keeps the dialog, approval must hand off cleanly to business confirmation, order status must settle, and the portfolio must refresh. Do it without asking me to map the flow."
+expected:
+  must_include:
+    - "recover live Jira/Slack, current client diff, current server-service-earn ref, and representative action payloads"
+    - "map DeFiProtocolDetails, DeFiProtocolAction, ProtocolPositionActionButton, lazy ProtocolLendingActionDialog content, Borrow approval/withdraw/repay hooks, order settlement, and ServiceDeFi refresh"
+    - "state main route/UI ownership, bg build/order/refresh ownership, storage ownership, serialized JS copies, and independent initialization"
+    - "separate native modal-route/page from extension/desktop dialog while sharing typed business content"
+    - "validate native token, decimals, max or bps, approval, business tx, orderId, tx hash, settle, and immediate plus delayed refresh"
+    - "release duplicate-submit state on success, fail, and cancel"
+    - "provide exact DeFi/Borrow Jest commands and add a lifecycle test when existing resolver tests are insufficient"
+    - "define iOS and extension runtime proof including keyboard, confirmation, order, event, and refreshed position"
+  must_not_include:
+    - "treat a successful build response as completed execution"
+    - "reuse a desktop dialog host as proof for native"
+    - "refresh canceled or failed actions as if positions changed"
+score:
+  pass: 90
+  critical_fail_if:
+    - "omits the main/bg/native-resource/JS-copy/init-order model"
+    - "loses approval or order settlement"

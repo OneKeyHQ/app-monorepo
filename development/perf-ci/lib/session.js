@@ -44,8 +44,21 @@ function pickMarkName(event) {
   return typeof name === 'string' ? name : null;
 }
 
-function findFirstMarkTimestamp({ markLogPath, markName }) {
-  const raw = fs.readFileSync(markLogPath, 'utf8');
+function normalizeFileOffset(value) {
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+}
+
+function getFileSize(filePath) {
+  try {
+    return fs.statSync(filePath).size;
+  } catch {
+    return 0;
+  }
+}
+
+function findFirstMarkTimestamp({ markLogPath, markName, startOffset = 0 }) {
+  const offset = normalizeFileOffset(startOffset);
+  const raw = fs.readFileSync(markLogPath).subarray(offset).toString('utf8');
   for (const rawLine of raw.split('\n')) {
     const line = rawLine.trim();
     if (line) {
@@ -72,7 +85,7 @@ function countJsonlLines(filePath) {
   return n;
 }
 
-function readSessionMetrics({ sessionsDir, sessionId }) {
+function readSessionMetrics({ sessionsDir, sessionId, startOffset = 0 }) {
   const sessionDir = path.join(sessionsDir, sessionId);
 
   const markLogPath = path.join(sessionDir, 'mark.log');
@@ -80,12 +93,14 @@ function readSessionMetrics({ sessionsDir, sessionId }) {
     ? findFirstMarkTimestamp({
         markLogPath,
         markName: 'Home:refresh:start:tokens',
+        startOffset,
       })
     : null;
   const doneMs = fileExists(markLogPath)
     ? findFirstMarkTimestamp({
         markLogPath,
         markName: 'Home:refresh:done:tokens',
+        startOffset,
       })
     : null;
   const spanMs =
@@ -140,9 +155,10 @@ async function waitForMark({
   markName,
   timeoutMs,
   pollIntervalMs = 250,
+  startOffset = 0,
 }) {
   const deadline = Date.now() + timeoutMs;
-  let offset = 0;
+  let offset = normalizeFileOffset(startOffset);
   let pending = '';
 
   while (Date.now() < deadline) {
@@ -191,6 +207,7 @@ module.exports = {
   countJsonlLines,
   ensureSessionsDirWritable,
   findFirstMarkTimestamp,
+  getFileSize,
   listSessionIds,
   pickMarkName,
   pickPayload,

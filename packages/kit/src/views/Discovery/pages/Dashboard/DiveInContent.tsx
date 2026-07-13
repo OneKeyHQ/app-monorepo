@@ -40,7 +40,12 @@ export const DiveInContent = ({ onReload }: IDiveInContentProps) => {
           id: ETranslations.browser_dive_in_description,
         })}
       </SizableText>
-      <Button variant="secondary" size="medium" onPress={onReload}>
+      <Button
+        variant="secondary"
+        size="medium"
+        onPress={onReload}
+        testID="discovery-default-color-btn"
+      >
         {intl.formatMessage({
           id: ETranslations.explore_reload,
         })}

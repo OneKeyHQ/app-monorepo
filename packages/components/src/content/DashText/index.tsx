@@ -1,4 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { type CSSProperties, useCallback, useMemo, useState } from 'react';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Popover } from '../../actions/Popover';
 import { Tooltip } from '../../actions/Tooltip';
@@ -6,6 +8,8 @@ import { useMedia } from '../../hooks/useStyle';
 import { SizableText } from '../../primitives/SizeableText';
 import { XStack, YStack } from '../../primitives/Stack';
 
+import type { IPopoverProps } from '../../actions/Popover';
+import type { ITooltipProps } from '../../actions/Tooltip';
 import type { ISizableTextProps } from '../../primitives';
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -14,28 +18,109 @@ export interface IDashTextProps extends ISizableTextProps {
   dashGap?: number;
   dashColor?: string;
   dashThickness?: number;
+  dashSpacing?: number;
   children: string;
   length?: number;
   /** When set, wraps with Tooltip on desktop and Popover on mobile */
   tooltip?: string;
   /** Title for the mobile Popover sheet. Defaults to children text. */
   tooltipTitle?: string;
+  /** Force tooltip or popover behavior instead of relying on media queries. */
+  tooltipDisplayMode?: 'auto' | 'tooltip' | 'popover';
+  /** Controls the placement used by the tooltip/popover. */
+  tooltipPlacement?: ITooltipProps['placement'];
+  /** Opt into tighter tooltip trigger hit testing when needed. */
+  tooltipTriggerAsChild?: ITooltipProps['triggerAsChild'];
+  /**
+   * Keep the desktop tooltip open while the pointer stays over the trigger or
+   * the tooltip content, instead of relying on the default flicker-prone
+   * open/close behavior.
+   */
+  tooltipHovering?: boolean;
 }
 
 function DashTextCore({
   children,
   dashLength = 3,
   dashGap = 2,
-  dashThickness = 1,
-  dashColor = '$textSubdued',
+  dashThickness = 0.5,
+  dashSpacing = 1,
+  dashColor = '$borderStrong',
   length = 200,
   ...textProps
-}: Omit<IDashTextProps, 'tooltip' | 'tooltipTitle'>) {
+}: Omit<
+  IDashTextProps,
+  | 'tooltip'
+  | 'tooltipTitle'
+  | 'tooltipDisplayMode'
+  | 'tooltipPlacement'
+  | 'tooltipTriggerAsChild'
+>) {
   const [textWidth, setTextWidth] = useState(0);
+  const resolvedDashThickness = platformEnv.isNative
+    ? dashThickness
+    : Math.max(1, dashThickness);
+  const webDashScaleY = platformEnv.isNative
+    ? 1
+    : Math.max(0, Math.min(1, dashThickness));
+  const webDashWrapperStyle = useMemo<CSSProperties | undefined>(
+    () =>
+      platformEnv.isNative
+        ? undefined
+        : {
+            display: 'inline-flex',
+            width: 'fit-content',
+          },
+    [],
+  );
+  const webDashLineStyle = useMemo<CSSProperties | undefined>(
+    () =>
+      platformEnv.isNative
+        ? undefined
+        : {
+            WebkitMaskImage: `repeating-linear-gradient(to right, #000 0 ${dashLength}px, #000 ${dashLength}px, transparent ${dashLength}px, transparent ${
+              dashLength + dashGap
+            }px)`,
+            WebkitMaskPosition: 'left bottom',
+            WebkitMaskRepeat: 'repeat-x',
+            WebkitMaskSize: `${
+              dashLength + dashGap
+            }px ${resolvedDashThickness}px`,
+            maskImage: `repeating-linear-gradient(to right, #000 0 ${dashLength}px, #000 ${dashLength}px, transparent ${dashLength}px, transparent ${
+              dashLength + dashGap
+            }px)`,
+            maskPosition: 'left bottom',
+            maskRepeat: 'repeat-x',
+            maskSize: `${dashLength + dashGap}px ${resolvedDashThickness}px`,
+            transform: `translateZ(0) scaleY(${webDashScaleY})`,
+            transformOrigin: 'top left',
+          },
+    [dashGap, dashLength, resolvedDashThickness, webDashScaleY],
+  );
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     setTextWidth(event.nativeEvent.layout.width);
   }, []);
+
+  if (!platformEnv.isNative) {
+    return (
+      <YStack alignItems="flex-start" style={webDashWrapperStyle}>
+        <SizableText {...textProps} paddingBottom="$0.2">
+          {children}
+        </SizableText>
+        {length > 0 ? (
+          <YStack
+            width="100%"
+            mt={dashSpacing}
+            height={resolvedDashThickness}
+            bg={dashColor}
+            pointerEvents="none"
+            style={webDashLineStyle}
+          />
+        ) : null}
+      </YStack>
+    );
+  }
 
   return (
     <YStack alignItems="flex-start">
@@ -44,34 +129,60 @@ function DashTextCore({
           {children}
         </SizableText>
       </YStack>
-      {textWidth > 0 && length > 0 ? (
+      {length > 0 ? (
         <XStack
           gap={dashGap}
+          height={dashThickness}
           overflow="hidden"
           flexWrap="nowrap"
-          width={textWidth}
+          width={textWidth || 0}
         >
-          {Array.from({ length }, (_, i) => (
-            <YStack
-              key={i}
-              width={dashLength}
-              height={dashThickness}
-              bg={dashColor}
-              flexShrink={0}
-            />
-          ))}
+          {textWidth > 0
+            ? Array.from({ length }, (_, i) => (
+                <YStack
+                  key={i}
+                  width={dashLength}
+                  height={resolvedDashThickness}
+                  bg={dashColor}
+                  flexShrink={0}
+                />
+              ))
+            : null}
         </XStack>
       ) : null}
     </YStack>
   );
 }
 
-export function DashText({ tooltip, tooltipTitle, ...rest }: IDashTextProps) {
+export function DashText({
+  tooltip,
+  tooltipTitle,
+  tooltipDisplayMode = 'auto',
+  tooltipPlacement = 'top',
+  tooltipTriggerAsChild = 'except-style',
+  tooltipHovering,
+  ...rest
+}: IDashTextProps) {
   const { gtMd } = useMedia();
+  let displayMode = tooltipDisplayMode;
+  if (displayMode === 'auto') {
+    displayMode = gtMd ? 'tooltip' : 'popover';
+  }
 
   const trigger = useMemo(
     () => (tooltip ? <DashTextCore {...rest} cursor="help" /> : null),
     [rest, tooltip],
+  );
+
+  // Hovering mode needs a real (non-asChild) trigger element so the Tooltip's
+  // onHoverIn/out handlers receive pointer events; wrap the dashed text.
+  const hoverTrigger = useMemo(
+    () => (
+      <XStack cursor="help">
+        <DashTextCore {...rest} />
+      </XStack>
+    ),
+    [rest],
   );
 
   const popoverContent = useMemo(
@@ -89,12 +200,18 @@ export function DashText({ tooltip, tooltipTitle, ...rest }: IDashTextProps) {
     return <DashTextCore {...rest} />;
   }
 
-  if (gtMd) {
+  if (!platformEnv.isNative && displayMode === 'tooltip') {
     return (
       <Tooltip
-        placement="top"
+        placement={tooltipPlacement as ITooltipProps['placement']}
+        // In hovering mode the open state is driven by explicit onHoverIn/out
+        // handlers, which never fire when the trigger is cloned via asChild.
+        // Wrap the trigger in a Stack and let Tooltip render its own trigger
+        // element (no asChild) so the pointer events reach it.
+        triggerAsChild={tooltipHovering ? undefined : tooltipTriggerAsChild}
+        hovering={tooltipHovering}
         renderContent={tooltip}
-        renderTrigger={trigger}
+        renderTrigger={tooltipHovering ? hoverTrigger : trigger}
       />
     );
   }
@@ -102,6 +219,7 @@ export function DashText({ tooltip, tooltipTitle, ...rest }: IDashTextProps) {
   return (
     <Popover
       title={tooltipTitle ?? rest.children}
+      placement={tooltipPlacement as IPopoverProps['placement']}
       renderTrigger={trigger}
       renderContent={popoverContent}
     />

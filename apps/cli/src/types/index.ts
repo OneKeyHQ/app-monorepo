@@ -1,4 +1,4 @@
-export type IOutputMode = 'agent' | 'human' | 'quiet';
+export type IOutputMode = 'agent' | 'human' | 'quiet' | 'text';
 
 export interface IOutputMetadata {
   duration_ms?: number;
@@ -10,20 +10,15 @@ export interface IOutputMetadata {
 }
 
 export interface ISuccessResponse<T> {
-  status: 'success';
-  api_version: '1';
+  ok: true;
   data: T;
-  metadata: IOutputMetadata;
 }
 
 export interface IErrorResponse {
-  status: 'error';
-  api_version: '1';
+  ok: false;
   error: {
     code: string;
     message: string;
-    suggestion: string;
-    details?: Record<string, unknown>;
   };
 }
 

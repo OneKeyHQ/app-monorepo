@@ -1,3 +1,5 @@
-import SettingListSubModalPage from '../pages/Tab/SettingListSubModal';
+import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
-export const SettingListSubModal = SettingListSubModalPage;
+export const SettingListSubModal = LazyLoadPage(
+  () => import('../pages/Tab/SettingListSubModal'),
+);

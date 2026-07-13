@@ -19,6 +19,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { parseBulkSendAddressLine } from '../addressLineUtils';
+
 import { useBulkSendAddressesInputContext } from './Context';
 
 type IResolvedSelectorAccount = {
@@ -222,7 +224,8 @@ function AssetSelectorTrigger({
         .filter(Boolean);
 
       for (let index = 0; index < nonEmptyLines.length; index += 1) {
-        const address = nonEmptyLines[index].split(',')[0]?.trim();
+        const parsedLine = parseBulkSendAddressLine(nonEmptyLines[index]);
+        const address = parsedLine?.isValid ? parsedLine.address : undefined;
         if (address) {
           const resolvedEntry = resolvedSenderAccountIds[index];
           const resolved = await resolveAccountContextForAddress({
@@ -532,7 +535,7 @@ function AssetSelectorTrigger({
         onPress={handleSelectAsset}
       >
         {media.gtMd ? (
-          <Button size="small" variant="secondary">
+          <Button size="small" variant="secondary" testID="bulk-send-btn">
             {intl.formatMessage({
               id: ETranslations.send_to_contacts_selector_account_title,
             })}

@@ -1,8 +1,9 @@
+import { DescriptionItem } from '@onekeyhq/kit/src/components/DescriptionItem';
+import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
+
 import { CardContainer } from './CardContainer';
 import { CardDivider } from './CardDivider';
 import { CardTitle } from './CardTitle';
-import { DescriptionItem } from './DescriptionItem';
-import { InfoIcon } from './InfoIcon';
 import { TokenValue } from './TokenValue';
 
 export const Card = {

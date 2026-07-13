@@ -7,13 +7,19 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
-import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
+import {
+  BaseMarketTokenPrice,
+  MarketTokenPrice,
+} from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
-import { useTokenDetail } from '../../hooks/useTokenDetail';
+import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
+import { useMarketDetailDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import {
+  MARKET_CAP_FORMATTER,
+  USD_CURRENCY_FORMATTER,
   formatPriceChangeDisplay,
   formatRatioValue,
   formatStatValueWithFormatter,
@@ -33,17 +39,6 @@ function getPriceSizeByValue(price: string) {
   return '$heading3xl';
 }
 
-const marketCapFormatter: INumberFormatProps = {
-  formatter: 'marketCap',
-};
-
-const usdCurrencyFormatter: INumberFormatProps = {
-  formatter: 'marketCap',
-  formatterOptions: {
-    currency: '$',
-  },
-};
-
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
     <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
@@ -55,15 +50,110 @@ function StatRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function HeaderStatRows({
+  isStockToken,
+  stock,
+  btcMetadata,
+  fallback,
+}: {
+  isStockToken: boolean;
+  stock: IMarketTokenDetail['stock'];
+  btcMetadata: ReturnType<typeof useBtcMetadataContext>;
+  fallback: {
+    marketCap: string;
+    liquidity: string;
+    holders: string;
+  };
+}) {
+  const intl = useIntl();
+  if (isStockToken && stock) {
+    return (
+      <>
+        <StatRow
+          label={intl.formatMessage({ id: ETranslations.global_market_cap })}
+          value={formatStatValueWithFormatter(
+            stock.marketCap,
+            USD_CURRENCY_FORMATTER,
+          )}
+        />
+        <StatRow
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_stock_24h_volume,
+          })}
+          value={formatStatValueWithFormatter(
+            stock.assetAnalysis?.volume24h,
+            USD_CURRENCY_FORMATTER,
+          )}
+        />
+        <StatRow
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_stock_pe_ttm,
+          })}
+          value={formatRatioValue(stock.tradingActivity?.peRatio)}
+        />
+      </>
+    );
+  }
+  if (btcMetadata) {
+    return (
+      <>
+        <StatRow
+          label={intl.formatMessage({ id: ETranslations.global_market_cap })}
+          value={formatStatValueWithFormatter(
+            btcMetadata.marketCap,
+            USD_CURRENCY_FORMATTER,
+          )}
+        />
+        <StatRow
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_stock_24h_volume,
+          })}
+          value={formatStatValueWithFormatter(
+            btcMetadata.volume24h,
+            USD_CURRENCY_FORMATTER,
+          )}
+        />
+        <StatRow
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_btc_circulating_supply,
+          })}
+          value={formatStatValueWithFormatter(
+            btcMetadata.circulatingSupply,
+            MARKET_CAP_FORMATTER,
+          )}
+        />
+      </>
+    );
+  }
+  return (
+    <>
+      <StatRow
+        label={intl.formatMessage({ id: ETranslations.global_market_cap })}
+        value={fallback.marketCap}
+      />
+      <StatRow
+        label={intl.formatMessage({ id: ETranslations.global_liquidity })}
+        value={fallback.liquidity}
+      />
+      <StatRow
+        label={intl.formatMessage({ id: ETranslations.dexmarket_holders })}
+        value={fallback.holders}
+      />
+    </>
+  );
+}
+
 export function InformationPanel() {
   const intl = useIntl();
   const currencyInfo = useCurrency();
-  const { tokenDetail, networkId, tokenAddress, isStockToken } =
-    useTokenDetail();
+  const { tokenDetail, networkId, isPreviewTokenDetail, isStockToken } =
+    useMarketDetailDisplayData();
+  const btcMetadata = useBtcMetadataContext();
+  const tokenAddress = tokenDetail?.address;
 
   const { securityData } = useTokenSecurity({
-    tokenAddress,
-    networkId,
+    tokenAddress: tokenAddress ?? '',
+    networkId: networkId ?? '',
   });
 
   if (!tokenDetail) return <InformationPanelSkeleton />;
@@ -84,17 +174,17 @@ export function InformationPanel() {
 
   const formattedMarketCap = formatStatValueWithFormatter(
     marketCap,
-    usdCurrencyFormatter,
+    USD_CURRENCY_FORMATTER,
   );
 
   const formattedLiquidity = formatStatValueWithFormatter(
     liquidity,
-    usdCurrencyFormatter,
+    USD_CURRENCY_FORMATTER,
   );
 
   const formattedHolders = formatStatValueWithFormatter(
     holders,
-    marketCapFormatter,
+    MARKET_CAP_FORMATTER,
   );
 
   const { color: priceChangeColor, display: priceChangeDisplay } =
@@ -111,12 +201,22 @@ export function InformationPanel() {
     >
       <YStack>
         <YStack pointerEvents="none">
-          <MarketTokenPrice
-            size={getPriceSizeByValue(currentPrice)}
-            price={currentPrice}
-            tokenName={name}
-            tokenSymbol={symbol}
-          />
+          {isPreviewTokenDetail ? (
+            <BaseMarketTokenPrice
+              size={getPriceSizeByValue(currentPrice)}
+              price={currentPrice}
+              tokenName={name}
+              tokenSymbol={symbol}
+            />
+          ) : (
+            <MarketTokenPrice
+              size={getPriceSizeByValue(currentPrice)}
+              price={currentPrice}
+              tokenName={name}
+              tokenSymbol={symbol}
+              lastUpdated={tokenDetail.lastUpdated?.toString()}
+            />
+          )}
           {priceConverted ? (
             <NumberSizeableText
               size="$bodySm"
@@ -137,63 +237,22 @@ export function InformationPanel() {
             stock={stock}
             showAllInTrigger
             hideCommunityInTrigger
-            noTruncateSubtitle={isStockToken}
+            noTruncateSubtitle
           />
         </XStack>
       </YStack>
 
       <YStack gap="$1" width="$40" pt="$1">
-        {isStockToken && tokenDetail.stock ? (
-          <>
-            <StatRow
-              label={intl.formatMessage({
-                id: ETranslations.global_market_cap,
-              })}
-              value={formatStatValueWithFormatter(
-                tokenDetail.stock.marketCap,
-                usdCurrencyFormatter,
-              )}
-            />
-            <StatRow
-              label={intl.formatMessage({
-                id: ETranslations.dexmarket_stock_24h_volume,
-              })}
-              value={formatStatValueWithFormatter(
-                tokenDetail.stock.assetAnalysis?.volume24h,
-                usdCurrencyFormatter,
-              )}
-            />
-            <StatRow
-              label={intl.formatMessage({
-                id: ETranslations.dexmarket_stock_pe_ttm,
-              })}
-              value={formatRatioValue(
-                tokenDetail.stock.tradingActivity?.peRatio,
-              )}
-            />
-          </>
-        ) : (
-          <>
-            <StatRow
-              label={intl.formatMessage({
-                id: ETranslations.global_market_cap,
-              })}
-              value={formattedMarketCap}
-            />
-            <StatRow
-              label={intl.formatMessage({
-                id: ETranslations.global_liquidity,
-              })}
-              value={formattedLiquidity}
-            />
-            <StatRow
-              label={intl.formatMessage({
-                id: ETranslations.dexmarket_holders,
-              })}
-              value={formattedHolders}
-            />
-          </>
-        )}
+        <HeaderStatRows
+          isStockToken={Boolean(isStockToken)}
+          stock={stock}
+          btcMetadata={btcMetadata}
+          fallback={{
+            marketCap: formattedMarketCap,
+            liquidity: formattedLiquidity,
+            holders: formattedHolders,
+          }}
+        />
         {networkId && address && securityData ? (
           <XStack gap="$1" ai="center" width="100%" jc="space-between">
             <SizableText

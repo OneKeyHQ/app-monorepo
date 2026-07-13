@@ -27,6 +27,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
+import { ChainSelectorTestIDs } from '../../testIDs';
 import { CELL_HEIGHT, type IServerNetworkMatch } from '../../types';
 
 const ListEmptyComponent = () => {
@@ -46,6 +47,7 @@ type IChainSelectorListViewProps = {
   networkId?: string;
   isOpen?: boolean;
   onPressItem?: (network: IServerNetworkMatch) => void;
+  onSearchFocusChange?: (isFocused: boolean) => void;
   accountNetworkValues?: Record<string, string>;
   accountNetworkValueCurrency?: string;
   hideLowValueNetworkValue?: boolean;
@@ -171,6 +173,7 @@ export const ChainSelectorListView: FC<IChainSelectorListViewProps> = ({
   networkId,
   isOpen,
   onPressItem,
+  onSearchFocusChange,
   accountNetworkValues,
   accountNetworkValueCurrency,
   hideLowValueNetworkValue,
@@ -180,6 +183,12 @@ export const ChainSelectorListView: FC<IChainSelectorListViewProps> = ({
   const onChangeText = useCallback((value: string) => {
     setText(value);
   }, []);
+  const handleSearchFocus = useCallback(() => {
+    onSearchFocusChange?.(true);
+  }, [onSearchFocusChange]);
+  const handleSearchBlur = useCallback(() => {
+    onSearchFocusChange?.(false);
+  }, [onSearchFocusChange]);
 
   const networkFuseSearch = useFuseSearch(networks);
 
@@ -203,9 +212,12 @@ export const ChainSelectorListView: FC<IChainSelectorListViewProps> = ({
     <Stack flex={1} minHeight={0}>
       <Stack px="$5" pb="$2" flexShrink={0}>
         <SearchBar
+          testID={ChainSelectorTestIDs.listViewSearchBar}
           placeholder={intl.formatMessage({ id: ETranslations.global_search })}
           value={text}
           onChangeText={onChangeText}
+          onFocus={handleSearchFocus}
+          onBlur={handleSearchBlur}
         />
       </Stack>
       <Stack flex={1} minHeight={0}>

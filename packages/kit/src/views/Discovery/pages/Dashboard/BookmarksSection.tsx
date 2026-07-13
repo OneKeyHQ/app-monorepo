@@ -18,8 +18,10 @@ import {
   EModalRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
+import { DiscoveryTestIDs } from '../../testIDs';
 
 import { BookmarksSectionItems } from './BookmarksSectionItems';
 import { DashboardSectionHeader } from './DashboardSectionHeader';
@@ -46,6 +48,7 @@ export function BookmarksSection() {
       watchLoading: true,
       checkIsMounted: false,
       checkIsFocused: false,
+      swrKey: swrKeys.discoveryHomeBookmarks(),
     },
   );
 
@@ -103,7 +106,7 @@ export function BookmarksSection() {
   }
 
   return (
-    <Stack minHeight="$40">
+    <Stack minHeight="$40" testID={DiscoveryTestIDs.bookmarksSection}>
       <DashboardSectionHeader>
         <DashboardSectionHeader.Heading selected>
           {intl.formatMessage({ id: ETranslations.explore_bookmarks })}

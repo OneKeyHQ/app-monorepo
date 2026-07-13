@@ -24,6 +24,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ECloudBackupRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
+import { CloudBackupTestIDs } from '../testIDs';
+
 import BackupListLoading from './BackupListLoading';
 
 export default function BackupDeviceList<T>({
@@ -118,6 +120,7 @@ export default function BackupDeviceList<T>({
         };
       }) => (
         <ListItem
+          testID={CloudBackupTestIDs.deviceListItem}
           onPress={() => {
             navigation.pushModal(EModalRoutes.CloudBackupModal, {
               screen: ECloudBackupRoutes.CloudBackupList,

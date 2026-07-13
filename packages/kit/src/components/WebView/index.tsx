@@ -79,6 +79,18 @@ export interface IWebViewProps
    * @description Whitelisted origins that may request camera or microphone access.
    */
   mediaPermissionWhitelist?: string[];
+  /** Disable OneKey inpage provider injection and bridge connection.
+   * Use for content-only WebViews (e.g. WebView overlay from deeplink/notification).
+   * @see IInpageProviderWebViewProps.disableBridge
+   */
+  disableBridge?: boolean;
+  /** Keep customReceiveHandler active, but do not forward messages to background bridge. */
+  skipBackgroundBridge?: boolean;
+  /** @platform desktop
+   * @description Electron <webview> partition string.
+   * @see IInpageProviderWebViewProps.partition
+   */
+  partition?: string;
 }
 
 const WebView: FC<IWebViewProps> = ({
@@ -90,18 +102,24 @@ const WebView: FC<IWebViewProps> = ({
   containerProps,
   webviewDebuggingEnabled,
   pullToRefreshEnabled,
+  skipBackgroundBridge,
   ...rest
 }) => {
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
     async (payload, hostBridge) => {
-      await customReceiveHandler?.(payload, hostBridge);
+      const customResult = await customReceiveHandler?.(payload, hostBridge);
+
+      if (skipBackgroundBridge) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return customResult;
+      }
 
       const result = await backgroundApiProxy.bridgeReceiveHandler(payload);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result;
     },
-    [customReceiveHandler],
+    [customReceiveHandler, skipBackgroundBridge],
   );
   const webviewRef = useRef<IWebViewRef | null>(null);
   const handleWebViewRef = useCallback(
@@ -119,7 +137,12 @@ const WebView: FC<IWebViewProps> = ({
   ) {
     return (
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <Button onPress={() => extUtils.openUrlInTab(src)}>Open</Button>
+        <Button
+          testID="web-view-open-btn"
+          onPress={() => extUtils.openUrlInTab(src)}
+        >
+          Open
+        </Button>
       </Stack>
     );
   }

@@ -6,6 +6,7 @@ export interface IMarketToken {
   decimals: number;
   price: number;
   change24h: number;
+  priceChangeRaw?: string;
   marketCap: number;
   liquidity: number;
   transactions: number;
@@ -16,6 +17,7 @@ export interface IMarketToken {
   tokenImageUris?: string[];
   networkLogoUri: string;
   networkId: string;
+  priceChangeBasePrice?: number;
   firstTradeTime?: number;
   walletInfo?: import('./components/Txns').ITxnsWalletInfo;
   chainId?: string;

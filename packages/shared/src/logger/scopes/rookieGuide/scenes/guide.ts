@@ -54,4 +54,18 @@ export class GuideScene extends BaseScene {
   public error(params: { method: string; error: string }) {
     return params;
   }
+
+  @LogToLocal({ level: 'info' })
+  public hyperliquidReferralResolved(params: {
+    accountId?: string;
+    indexedAccountId?: string;
+    deriveType?: string;
+    eligible?: boolean;
+    reason?: string;
+    address?: string;
+    skipped?: 'no_account' | 'catch_error';
+    catchError?: string;
+  }) {
+    return params;
+  }
 }

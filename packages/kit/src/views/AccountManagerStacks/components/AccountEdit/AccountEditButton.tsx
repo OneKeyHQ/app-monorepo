@@ -14,9 +14,12 @@ import type {
   IDBUtxoAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { AccountManagerTestIDs } from '../../testIDs';
 
 import { AccountCopyButton } from './AccountCopyButton';
 import { AccountExportPrivateKeyButton } from './AccountExportPrivateKeyButton';
@@ -174,6 +177,13 @@ function AccountEditButtonView({
       if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
         showExportPublicKey = false;
       }
+      // Third-party HW (Ledger) — no unified verify-and-confirm public key flow
+      if (
+        wallet?.associatedDeviceInfo?.vendor &&
+        getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty
+      ) {
+        showExportPublicKey = false;
+      }
       return {
         showExportPrivateKey: false,
         showExportPublicKey,
@@ -191,6 +201,7 @@ function AccountEditButtonView({
     isImportedAccount,
     isWatchingAccount,
     wallet?.id,
+    wallet?.associatedDeviceInfo?.vendor,
   ]);
 
   const renderItems = useCallback(
@@ -233,7 +244,7 @@ function AccountEditButtonView({
 
           {exportKeysVisible?.showExportPrivateKey ? (
             <AccountExportPrivateKeyButton
-              testID={`popover-export-private-key-${name}`}
+              testID={AccountManagerTestIDs.exportPrivateKey(name)}
               icon="KeyOutline"
               accountName={name}
               indexedAccount={indexedAccount}
@@ -248,7 +259,7 @@ function AccountEditButtonView({
           ) : null}
           {exportKeysVisible?.showExportPublicKey ? (
             <AccountExportPrivateKeyButton
-              testID={`popover-export-public-key-${name}`}
+              testID={AccountManagerTestIDs.exportPublicKey(name)}
               icon="PasswordOutline"
               accountName={name}
               indexedAccount={indexedAccount}
@@ -263,7 +274,7 @@ function AccountEditButtonView({
           ) : null}
           {exportKeysVisible?.showExportMnemonic ? (
             <AccountExportPrivateKeyButton
-              testID={`popover-export-mnemonic-key-${name}`}
+              testID={AccountManagerTestIDs.exportMnemonicKey(name)}
               icon="Shield2CheckOutline"
               accountName={name}
               indexedAccount={indexedAccount}
@@ -320,7 +331,7 @@ function AccountEditButtonView({
       title={name}
       renderTrigger={
         <ListItem.IconButton
-          testID={`account-item-edit-button-${name}`}
+          testID={AccountManagerTestIDs.accountEditButton(name)}
           icon="DotHorOutline"
         />
       }

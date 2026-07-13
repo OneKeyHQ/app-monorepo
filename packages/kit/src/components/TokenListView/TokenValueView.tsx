@@ -1,15 +1,11 @@
 import { memo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { displayFiatValueOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
-import {
-  useFlattenAggregateTokensMapAtom,
-  useTokenListMapAtom,
-} from '../../states/jotai/contexts/tokenList';
-import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
+import { Currency } from '../Currency';
+
+import { useTokenValueSlice } from './useTokenFiatField';
 
 type IProps = {
   $key: string;
@@ -18,25 +14,23 @@ type IProps = {
 
 function TokenValueView(props: IProps) {
   const { $key, ...rest } = props;
-  const [settings] = useSettingsPersistAtom();
-  const [tokenListMap] = useTokenListMapAtom();
-  const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
-  const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
+  // 方案B: subscribe to the value slice only ({ fiatValue, balanceParsed,
+  // currency }); `has` distinguishes "no fiat" (old `!token`) from a present
+  // token. Seam handled inside the hook.
+  const { has, fiatValue, balanceParsed, currency } = useTokenValueSlice($key);
 
-  const fiatValue = new BigNumber(token?.fiatValue || 0);
-
-  if (!token) {
+  if (!has) {
     return <SizableText {...rest}>-</SizableText>;
   }
 
   return (
-    <NumberSizeableTextWrapper
+    <Currency
       formatter="value"
-      formatterOptions={{ currency: settings.currencyInfo.symbol }}
-      {...rest}
+      sourceCurrency={currency}
+      {...(rest as React.ComponentProps<typeof Currency>)}
     >
-      {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
-    </NumberSizeableTextWrapper>
+      {displayFiatValueOrUnavailable(fiatValue, balanceParsed)}
+    </Currency>
   );
 }
 

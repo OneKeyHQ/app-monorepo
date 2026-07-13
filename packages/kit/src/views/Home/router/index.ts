@@ -3,11 +3,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
+import HomePageContainer from '../pages/HomePageContainer';
 import { urlAccountLandingRewrite } from '../pages/urlAccount/urlAccountUtils';
 
-const HomePageContainer = LazyLoadPage(
-  () => import('../pages/HomePageContainer'),
-);
+// Home tab is eagerly imported — it's always the first screen, lazy-loading
+// only adds a Suspense frame that delays first meaningful paint.
 
 const UrlAccountPageContainer = LazyLoadPage(async () => {
   const { UrlAccountPageContainer: UrlAccountPageContainerModule } =
@@ -25,6 +25,12 @@ const ReferralLanding = LazyLoadPage(async () => {
   const { ReferralLandingPage } =
     await import('../pages/referralLanding/ReferralLandingPage');
   return { default: ReferralLandingPage };
+});
+
+const RedeemBitcoinVoucherLanding = LazyLoadPage(async () => {
+  const { RedeemBitcoinVoucherLandingPage } =
+    await import('../pages/redeemBitcoinVoucher/RedeemBitcoinVoucherLandingPage');
+  return { default: RedeemBitcoinVoucherLandingPage };
 });
 
 const BulkSendAddressesInput = LazyLoadPage(
@@ -56,6 +62,7 @@ export const referralLandingRewrite = '/r/:code/app/:page';
 export const referralLandingRewriteWithoutPage = '/r/:code/app';
 // Rewrite pattern for referral landing with code only: /r/:code
 export const referralLandingRewriteCodeOnly = '/r/:code';
+export const redeemBitcoinVoucherLandingRewrite = '/redeem-bitcoin-voucher';
 
 export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
@@ -84,6 +91,7 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: ReferralLanding,
     rewrite: referralLandingRewrite,
     exact: true,
+    headerShown: false,
   },
   {
     // Referral landing page without page param: /r/:code/app
@@ -92,6 +100,7 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: ReferralLanding,
     rewrite: referralLandingRewriteWithoutPage,
     exact: true,
+    headerShown: false,
   },
   {
     // Referral landing page with code only: /r/:code
@@ -100,6 +109,14 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: ReferralLanding,
     rewrite: referralLandingRewriteCodeOnly,
     exact: true,
+    headerShown: false,
+  },
+  {
+    name: ETabHomeRoutes.TabHomeRedeemBitcoinVoucher,
+    component: RedeemBitcoinVoucherLanding,
+    rewrite: redeemBitcoinVoucherLandingRewrite,
+    exact: true,
+    headerShown: false,
   },
   {
     name: ETabHomeRoutes.TabHomeBulkSendAddressesInput,

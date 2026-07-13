@@ -59,7 +59,12 @@ function ProcessingDialogContent({
   >(undefined);
 
   const isDone = useMemo(
-    () => Boolean(state && state?.progressCurrent === state?.progressTotal),
+    () =>
+      Boolean(
+        state &&
+        !state?.error &&
+        state?.progressCurrent === state?.progressTotal,
+      ),
     [state],
   );
   const isError = useMemo(() => Boolean(state && !!state?.error), [state]);
@@ -230,7 +235,7 @@ function ProcessingDialogContent({
           isFlowEnded
             ? async () => {
                 if (!isCancelled) {
-                  navigation?.popStack();
+                  void navigation?.popStack();
                 }
                 await backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
               }

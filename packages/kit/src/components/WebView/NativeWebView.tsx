@@ -53,10 +53,13 @@ const NativeWebView = forwardRef(
       onLoad,
       onLoadEnd,
       onScroll,
+      style,
+      containerStyle,
       pullToRefreshEnabled = true,
       webviewDebuggingEnabled,
       useGeckoView,
       allowsBackForwardNavigationGestures = true,
+      disableBridge,
       ...props
     }: INativeWebViewProps,
     ref,
@@ -124,17 +127,22 @@ const NativeWebView = forwardRef(
         if (isUnmountingRef.current) return;
 
         const { data, url } = event.nativeEvent;
-        try {
-          const origin = uriUtils.getOriginFromUrl({ url: url || src });
-          if (origin) {
-            jsBridge.receive(data, { origin });
+        // Skip bridge receive when bridge is disabled (content-only overlay).
+        // The injected provider script is also absent in this mode, so this
+        // is a defense-in-depth guard against direct postMessage calls.
+        if (!disableBridge) {
+          try {
+            const origin = uriUtils.getOriginFromUrl({ url: url || src });
+            if (origin) {
+              jsBridge.receive(data, { origin });
+            }
+          } catch (_error) {
+            // noop
           }
-        } catch (_error) {
-          // noop
         }
         onMessage?.(event);
       },
-      [jsBridge, onMessage, src],
+      [disableBridge, jsBridge, onMessage, src],
     );
 
     useImperativeHandle(ref, (): IWebViewWrapperRef => {
@@ -305,7 +313,7 @@ const NativeWebView = forwardRef(
       if (useGeckoView) {
         return (
           <GeckoView
-            style={styles.container}
+            style={[styles.container, style]}
             ref={webviewRef as any}
             injectedJavaScriptBeforeContentLoaded={
               injectedJavaScriptBeforeContentLoaded || ''
@@ -324,7 +332,8 @@ const NativeWebView = forwardRef(
         <WebView
           key={webViewKey}
           cacheEnabled={false}
-          style={styles.container}
+          style={[styles.container, style]}
+          containerStyle={[styles.container, containerStyle]}
           originWhitelist={['*']}
           allowsBackForwardNavigationGestures={
             allowsBackForwardNavigationGestures
@@ -362,6 +371,8 @@ const NativeWebView = forwardRef(
       safeOnLoadEnd,
       safeOnLoadProgress,
       safeOnScroll,
+      style,
+      containerStyle,
       props,
       pullToRefreshEnabled,
       renderError,

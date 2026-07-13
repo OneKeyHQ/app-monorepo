@@ -8,6 +8,12 @@ export enum ETokenListSortType {
   Value = 'value',
 }
 
+export enum ETokenDappType {
+  WalletToken = 'walletToken',
+}
+
+export type ITokenDappType = ETokenDappType | (string & {});
+
 export type IToken = {
   decimals: number;
   name: string;
@@ -34,6 +40,8 @@ export type IToken = {
 
   // for defi
   defiMarked?: boolean;
+  dappName?: string | null;
+  dappType?: ITokenDappType;
 };
 
 export type ITokenFiat = {
@@ -48,6 +56,10 @@ export type ITokenFiat = {
   totalBalanceFiatValue?: string;
   price: number;
   price24h?: number;
+  // Currency id (e.g. 'usd', 'eur') the above fiat fields are stored in.
+  // Internal cache writes normalize to 'usd' so a currency switch can re-render
+  // existing data via client-side conversion instead of clearing the cache.
+  currency?: string;
 };
 
 export enum ECustomTokenStatus {
@@ -90,6 +102,8 @@ export type IFetchAccountTokensParams = {
   blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
   unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
   excludeDeFiMarkedTokens?: boolean;
+  withoutDappToken?: boolean;
+  withoutWalletToken?: boolean;
 };
 
 export type ITokenData = {
@@ -97,6 +111,7 @@ export type ITokenData = {
   keys: string;
   map: Record<string, ITokenFiat>; // key: networkId_tokenAddress
   fiatValue?: string;
+  currency?: string;
 };
 
 export type IFetchAccountTokensResp = {

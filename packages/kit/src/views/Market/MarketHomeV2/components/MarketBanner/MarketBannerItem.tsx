@@ -19,6 +19,7 @@ import {
 
 type IMarketBannerItemProps = {
   item: IMarketBannerItem;
+  isSmallScreen?: boolean;
   onPress?: (item: IMarketBannerItem) => void;
 };
 
@@ -84,7 +85,11 @@ function BannerTokenGroupComponent({ tokenLogos }: { tokenLogos?: string[] }) {
 
 const BannerTokenGroup = memo(BannerTokenGroupComponent);
 
-function MarketBannerItemComponent({ item, onPress }: IMarketBannerItemProps) {
+function MarketBannerItemComponent({
+  item,
+  isSmallScreen,
+  onPress,
+}: IMarketBannerItemProps) {
   const { title, description, backgroundColor, tokenLogos } = item;
   const isPerps = item.type === EMarketBannerType.Perps;
   const bgColor = convertThemeToken(backgroundColor, '$bgSubdued');
@@ -129,16 +134,28 @@ function MarketBannerItemComponent({ item, onPress }: IMarketBannerItemProps) {
         alignItems: 'center',
       }}
     >
-      <YStack gap="$0.5" flex={1} $gtMd={{ flex: 1 }}>
-        <XStack alignItems="center" gap="$1">
+      <YStack
+        gap="$0.5"
+        flex={1}
+        minWidth={0}
+        width="100%"
+        $gtMd={{ flex: 1, width: 'auto' }}
+      >
+        <XStack alignItems="flex-start" gap="$1" minWidth={0} maxWidth="100%">
           <SizableText
             size="$headingSm"
-            numberOfLines={isPerps ? 1 : 2}
+            numberOfLines={isPerps && !isSmallScreen ? 1 : 2}
             flexShrink={1}
+            minWidth={0}
+            ellipsizeMode="tail"
           >
             {title}
           </SizableText>
-          {isPerps ? <LeverageBadge leverage={10} /> : null}
+          {isPerps ? (
+            <Stack flexShrink={0}>
+              <LeverageBadge leverage={10} />
+            </Stack>
+          ) : null}
         </XStack>
         {description ? (
           <SizableText size="$bodyMdMedium" color={descriptionColor}>

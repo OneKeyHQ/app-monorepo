@@ -2,6 +2,7 @@ import { type ComponentProps, useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import type { IYStackProps } from '@onekeyhq/components';
 import {
@@ -9,6 +10,7 @@ import {
   Dialog,
   Divider,
   ESwitchSize,
+  PROPORTIONAL_NUMS,
   SizableText,
   Skeleton,
   Stack,
@@ -17,25 +19,26 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
-import {
-  isTaprootAddress,
-  isTaprootPath,
-} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveInfoItems } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  isTaprootAddress,
+  isTaprootPath,
+} from '@onekeyhq/shared/src/utils/btcUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   openUrlExternal,
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFetchAccountDetailsResp } from '@onekeyhq/shared/types/address';
+
+import type { IntlShape } from 'react-intl';
 
 const detailsBlockStyles: ComponentProps<typeof Stack> = {
   borderRadius: '$2',
@@ -59,6 +62,7 @@ function BalanceDetailsContent({
   mergeDeriveAssetsEnabled?: boolean;
   onClose?: () => void;
 }) {
+  const intl = useIntl();
   const [settings, setSettings] = useSettingsPersistAtom();
   const { result } = usePromiseResult(async () => {
     const [vaultSettings, { networkAccounts: n }] = await Promise.all([
@@ -249,6 +253,7 @@ function BalanceDetailsContent({
         <XStack justifyContent="space-between" alignItems="center">
           <XStack>
             <Button
+              testID="home-render-frozen-balance-btn"
               variant="tertiary"
               iconAfter="QuestionmarkOutline"
               color="$textSubdued"
@@ -261,7 +266,7 @@ function BalanceDetailsContent({
                 }
               }}
             >
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
                 id: ETranslations.balance_detail_protected_ordinals,
               })}
             </Button>
@@ -316,7 +321,7 @@ function BalanceDetailsContent({
             <XStack justifyContent="space-between" alignItems="center">
               <Stack>
                 <SizableText size="$bodyLgMedium" color="$textSubdued">
-                  {appLocale.intl.formatMessage({
+                  {intl.formatMessage({
                     id: ETranslations.balance_detail_frozen_by_inscription,
                   })}
                 </SizableText>
@@ -338,13 +343,14 @@ function BalanceDetailsContent({
                   }}
                 >
                   <SizableText size="$bodyMd" color="$textSubdued">
-                    {appLocale.intl.formatMessage({
+                    {intl.formatMessage({
                       id: ETranslations.open_ordinals_transfer_tutorial_url_message,
                     })}
                   </SizableText>
                 </XStack>
               </Stack>
               <Switch
+                testID="home-switch"
                 size={ESwitchSize.small}
                 value={settings.inscriptionProtection}
                 onChange={(value) => {
@@ -376,6 +382,7 @@ function BalanceDetailsContent({
     settings.inscriptionProtection,
     showDeriveItems,
     whatIsFrozenBalanceUrl,
+    intl,
   ]);
 
   return (
@@ -385,13 +392,13 @@ function BalanceDetailsContent({
           {isLoading ? (
             <Skeleton.Heading3Xl />
           ) : (
-            <SizableText size="$heading3xl">
+            <SizableText size="$heading3xl" fontVariant={PROPORTIONAL_NUMS}>
               {`${overview?.balanceParsed ?? '-'} ${network?.symbol ?? ''}`}
             </SizableText>
           )}
         </Dialog.Title>
         <Dialog.Description>
-          {appLocale.intl.formatMessage({
+          {intl.formatMessage({
             id: ETranslations.balance_detail_spendable,
           })}
         </Dialog.Description>
@@ -400,7 +407,7 @@ function BalanceDetailsContent({
         <YStack {...(detailsBlockStyles as IYStackProps)}>
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyLgMedium" color="$textSubdued">
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
                 id: ETranslations.balance_detail_total,
               })}
             </SizableText>
@@ -456,6 +463,7 @@ export const showBalanceDetailsDialog = ({
   indexedAccountId,
   deriveInfoItems,
   mergeDeriveAssetsEnabled,
+  intl,
   ...dialogProps
 }: IDialogShowProps & {
   accountId: string;
@@ -463,6 +471,7 @@ export const showBalanceDetailsDialog = ({
   indexedAccountId?: string;
   deriveInfoItems?: IAccountDeriveInfoItems[];
   mergeDeriveAssetsEnabled?: boolean;
+  intl: IntlShape;
 }) => {
   const dialogInstance = Dialog.show({
     icon: 'CryptoCoinOutline',
@@ -479,7 +488,7 @@ export const showBalanceDetailsDialog = ({
       />
     ),
     showCancelButton: false,
-    onConfirmText: appLocale.intl.formatMessage({
+    onConfirmText: intl.formatMessage({
       id: ETranslations.global_ok,
     }),
     onConfirm: async ({ close }) => {

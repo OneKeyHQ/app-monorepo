@@ -12,6 +12,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { ChainSelectorTestIDs } from '../../testIDs';
+
 import { EditableChainSelectorContent } from './ChainSelectorContent';
 
 type IEditableChainSelectorProps = {
@@ -27,7 +29,6 @@ type IEditableChainSelectorProps = {
   onPressItem?: (network: IServerNetwork) => void;
   onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
-  onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
   recentNetworksEnabled?: boolean;
   accountNetworkValues: Record<string, string>;
   accountNetworkValueCurrency?: string;
@@ -65,20 +66,19 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
   onPressItem,
   onAddCustomNetwork,
   onEditCustomNetwork,
-  onFrequentlyUsedItemsChange,
   allNetworkItem,
   recentNetworksEnabled = true,
   accountDeFiOverview,
   showAllNetworkInRecentNetworks,
 }) => {
   const intl = useIntl();
-  // const [isEditMode, setIsEditMode] = useState(false);
   const [allNetworksChanged, setAllNetworksChanged] = useState(false);
   const headerRight = useCallback(
     () => (
       <HeaderIconButton
         icon="PlusLargeSolid"
         onPress={() => onAddCustomNetwork?.()}
+        testID={ChainSelectorTestIDs.addCustomNetworkBtn}
         title={intl.formatMessage({
           id: ETranslations.custom_network_add_network_action_text,
         })}
@@ -102,7 +102,6 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
       />
       <Page.Body>
         <EditableChainSelectorContent
-          // isEditMode={isEditMode}
           frequentlyUsedItems={frequentlyUsedItems}
           unavailableItems={unavailableItems}
           accountId={accountId}
@@ -112,10 +111,8 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
           mainnetItems={mainnetItems}
           testnetItems={testnetItems}
           onPressItem={onPressItem}
-          onAddCustomNetwork={onAddCustomNetwork}
           onEditCustomNetwork={onEditCustomNetwork}
           allNetworkItem={allNetworkItem}
-          onFrequentlyUsedItemsChange={onFrequentlyUsedItemsChange}
           setAllNetworksChanged={setAllNetworksChanged}
           recentNetworksEnabled={recentNetworksEnabled}
           accountNetworkValues={accountNetworkValues}

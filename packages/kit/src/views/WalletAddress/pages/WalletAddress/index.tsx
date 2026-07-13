@@ -35,8 +35,10 @@ import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelecto
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useFuseSearch';
 import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
@@ -69,6 +71,8 @@ import {
   type IServerNetwork,
 } from '@onekeyhq/shared/types';
 import { EWalletAddressActionType } from '@onekeyhq/shared/types/address';
+
+import { WalletAddressTestIDs } from '../../testIDs';
 
 import { WalletAddressContext } from './WalletAddressContext';
 
@@ -135,6 +139,16 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     walletId: walletId ?? '',
   });
 
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId,
+    },
+  );
+  const isBotWalletAddressBlocked =
+    isBotWallet &&
+    isBotWalletDeactivated &&
+    actionType !== EWalletAddressActionType.ViewInExplorer;
+
   const subtitle = useMemo(() => {
     if (account) {
       if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
@@ -180,6 +194,11 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
       return;
     }
 
+    if (isBotWalletAddressBlocked) {
+      showBotWalletDisabledToast(account ? 'copyAddress' : 'receive');
+      return;
+    }
+
     if (!account) {
       try {
         setLoading(true);
@@ -215,7 +234,10 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
               id: ETranslations.network_also_enabled,
             }),
           });
-          refreshLocalData();
+          await refreshLocalData({
+            alwaysSetState: true,
+            skipAccountsCache: true,
+          });
         }
       } finally {
         setLoading(false);
@@ -244,7 +266,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
         networkId: network.id,
         deriveInfo: account.deriveInfo,
         onDeriveTypeChange: () => {
-          refreshLocalData({ alwaysSetState: true });
+          void refreshLocalData({ alwaysSetState: true });
         },
       });
     }
@@ -263,6 +285,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     copyAccountAddress,
     isOthersWallet,
     othersWalletAddress,
+    isBotWalletAddressBlocked,
   ]);
 
   const avatar = useMemo(
@@ -292,7 +315,8 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
             primary={
               <XStack alignItems="center" gap="$2">
                 <SizableText size="$bodyLgMedium">{network.name}</SizableText>
-                {networkUtils
+                {!isBotWalletAddressBlocked &&
+                networkUtils
                   .getDefaultDeriveTypeVisibleNetworks()
                   .includes(network.id) ? (
                   <AddressTypeSelector
@@ -303,7 +327,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
                     activeDeriveInfo={account?.deriveInfo}
                     indexedAccountId={indexedAccountId ?? ''}
                     onSelect={async () => {
-                      refreshLocalData();
+                      await refreshLocalData();
                     }}
                     onCreate={async ({ deriveType }) => {
                       const defaultDeriveType =
@@ -313,7 +337,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
                           },
                         );
                       if (deriveType === defaultDeriveType) {
-                        refreshLocalData();
+                        await refreshLocalData();
                       }
                     }}
                   />
@@ -333,6 +357,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
         renderAvatar={avatar}
         onPress={onPress}
         disabled={loading}
+        opacity={isBotWalletAddressBlocked ? 0.5 : 1}
       >
         {loading ? (
           <Stack p="$0.5">
@@ -355,6 +380,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
       refreshLocalData,
       subtitle,
       walletId,
+      isBotWalletAddressBlocked,
     ],
   );
 }
@@ -514,6 +540,7 @@ function WalletAddressContent({
     <Stack flex={1}>
       <Stack px="$5">
         <SearchBar
+          testID={WalletAddressTestIDs.searchBar}
           placeholder={intl.formatMessage({
             id: ETranslations.form_search_network_placeholder,
           })}
@@ -673,10 +700,11 @@ function WalletAddressPageMainView({
       disabledNetworks: {},
       enabledNetworks: {},
     });
+  const skipAccountsCacheForNextRefreshRef = useRef(false);
 
   const {
     result,
-    run: refreshLocalData,
+    run: runRefreshLocalData,
     isLoading,
   } = usePromiseResult(
     async () => {
@@ -785,6 +813,7 @@ function WalletAddressPageMainView({
               includingNotEqualGlobalDeriveTypeAccount ?? false,
             includingDeriveTypeMismatchInDefaultVisibleNetworks:
               includingDeriveTypeMismatchInDefaultVisibleNetworks ?? false,
+            skipCache: skipAccountsCacheForNextRefreshRef.current,
           });
         networksAccount = accountsInfo;
       }
@@ -837,6 +866,32 @@ function WalletAddressPageMainView({
         othersWalletAddress: undefined,
       },
     },
+  );
+
+  // `skipAccountsCacheForNextRefreshRef` is a one-shot side channel: run()
+  // can't forward args into the usePromiseResult callback, so the callback
+  // reads the flag from this ref. Safe because this wrapper is single-flight —
+  // it awaits runRefreshLocalData before the finally clears the flag, so no
+  // concurrent run observes a flag it didn't set.
+  const refreshLocalData = useCallback(
+    async (config?: {
+      alwaysSetState?: boolean;
+      skipAccountsCache?: boolean;
+    }) => {
+      if (config?.skipAccountsCache) {
+        skipAccountsCacheForNextRefreshRef.current = true;
+      }
+      try {
+        await runRefreshLocalData({
+          alwaysSetState: config?.alwaysSetState,
+        });
+      } finally {
+        if (config?.skipAccountsCache) {
+          skipAccountsCacheForNextRefreshRef.current = false;
+        }
+      }
+    },
+    [runRefreshLocalData],
   );
 
   useEffect(() => {

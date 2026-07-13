@@ -32,6 +32,27 @@ const MENU_TRIGGER_BASE_STYLE = {
   fontSize: '13px',
 } as const;
 
+// MenuHamburger only renders on Windows/Linux — macOS uses the native menu bar.
+const MODIFIER_NAMES: Record<string, string> = {
+  CommandOrControl: 'Ctrl',
+  CmdOrCtrl: 'Ctrl',
+  Control: 'Ctrl',
+  Ctrl: 'Ctrl',
+  Command: 'Win',
+  Cmd: 'Win',
+  Super: 'Win',
+  Meta: 'Win',
+  Shift: 'Shift',
+  Alt: 'Alt',
+  Option: 'Alt',
+};
+
+const formatAccelerator = (accelerator: string): string =>
+  accelerator
+    .split('+')
+    .map((t) => MODIFIER_NAMES[t] ?? t)
+    .join('+');
+
 function MenuItemComponent({
   item,
   onClose,
@@ -112,11 +133,7 @@ function MenuItemComponent({
       <span className="desktop-menu-item-label">{item.label}</span>
       {item.accelerator ? (
         <span className="desktop-menu-item-accelerator">
-          {item.accelerator
-            .replace('CmdOrCtrl', '⌘')
-            .replace('Shift', '⇧')
-            .replace('Alt', '⌥')
-            .replace('+', '')}
+          {formatAccelerator(item.accelerator)}
         </span>
       ) : null}
       {hasSubmenu ? (

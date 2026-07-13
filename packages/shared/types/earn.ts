@@ -14,6 +14,7 @@ export enum EEarnProviderEnum {
   Lista = 'Lista',
   Stakefish = 'Stakefish',
   Kamino = 'Kamino',
+  Native = 'Native',
 }
 
 export type ISupportedSymbol =
@@ -163,6 +164,7 @@ export interface IEarnAvailableAsset {
   minAprInfo?: IEarnAvailableAssetAprRangeInfo;
   maxAprInfo?: IEarnAvailableAssetAprRangeInfo;
   bgColor?: string;
+  liquidity?: string;
   icon?: {
     icon: IKeyOfIcons | string;
     color?: ColorTokens;

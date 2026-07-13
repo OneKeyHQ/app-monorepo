@@ -7,9 +7,12 @@ import { ActionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useCopyAddressWithDeriveType } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
+import { shouldBlockBotWalletCopyAddress } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -54,7 +57,21 @@ export function AccountCopyButton({
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const isCopyBlocked = shouldBlockBotWalletCopyAddress({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
+
   const handleCopyAddress = useCallback(async () => {
+    if (isCopyBlocked) {
+      showBotWalletDisabledToast('copyAddress');
+      return;
+    }
     if (
       await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: wallet?.id ?? '',
@@ -135,6 +152,7 @@ export function AccountCopyButton({
     indexedAccount?.id,
     copyAddressWithDeriveType,
     activeAccount?.deriveInfoItems,
+    isCopyBlocked,
   ]);
 
   return (
@@ -144,6 +162,8 @@ export function AccountCopyButton({
       label={intl.formatMessage({ id: ETranslations.global_copy_address })}
       onClose={() => {}}
       onPress={handleCopyAddress}
+      disabled={isCopyBlocked}
+      allowPressWhenDisabled={isCopyBlocked}
     />
   );
 }

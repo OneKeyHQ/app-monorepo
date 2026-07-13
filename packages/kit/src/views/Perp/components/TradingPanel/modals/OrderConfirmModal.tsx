@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -9,58 +9,206 @@ import {
   Checkbox,
   Dialog,
   SizableText,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveAssetAtom,
+  type ITradingFormData,
+  useActiveTradeInstrumentAtom,
+  useHyperliquidActions,
+  useTradingFormAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { inferTpsl, parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
+  getSpotTokenDisplayName,
+  inferTpsl,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
+import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
-  GetTradingButtonStyleProps,
+  getTradingButtonStyleProps,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { getTifLabel } from '../../../utils/timeInForce';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../../PerpDialogLayout';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 
+import type { IEnableTradingWithDepositFallbackResult } from '../../../hooks/useEnableTradingWithDepositFallback';
+import type { IntlShape } from 'react-intl';
+
 const SAVED_FEE_BENCHMARK_RATE = 0.0004;
+
+function formatOrderPriceDisplay({
+  price,
+  isSpot,
+  szDecimals,
+}: {
+  price: string;
+  isSpot: boolean;
+  szDecimals: number;
+}) {
+  const formattedPrice = isSpot
+    ? formatSpotPriceToValid(price, szDecimals)
+    : formatPriceToSignificantDigits(price, szDecimals);
+  return `$${formatLocalizedNumberString(formattedPrice)}`;
+}
 
 interface IOrderConfirmContentProps {
   onClose?: () => void;
   overrideSide?: 'long' | 'short';
+  enableTradingBeforeConfirm?: (
+    context: IOrderConfirmEnableTradingBeforeConfirmContext,
+  ) => Promise<IEnableTradingWithDepositFallbackResult>;
+  enableTradingAccountKey?: string;
+  // Independent (chart-popover) order data. When set, display and submit use
+  // this instead of the global tradingFormAtom; submit bypasses useOrderConfirm.
+  formDataOverride?: ITradingFormData;
+  priceOverride?: string;
+  // Coin the override ticket was built for; submit aborts if the live active
+  // instrument no longer matches (active-asset switch between press and confirm).
+  expectedCoin?: string;
+  // Fired only after a successful override submit (chart popover closes itself).
+  onConfirmSuccess?: () => void;
+}
+
+type IOrderConfirmAccountForKey = {
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+  accountAddress?: string | null;
+};
+
+interface IOrderConfirmEnableTradingBeforeConfirmContext {
+  closeDialog: () => void;
+  shouldIgnoreResult: () => boolean;
+}
+
+function getOrderConfirmAccountKey(account: IOrderConfirmAccountForKey) {
+  const accountId = account.accountId ?? account.indexedAccountId;
+  if (!accountId && !account.accountAddress) {
+    return undefined;
+  }
+  return `${accountId ?? ''}:${account.accountAddress ?? ''}`;
 }
 
 function OrderConfirmContent({
   onClose,
   overrideSide,
+  enableTradingBeforeConfirm,
+  enableTradingAccountKey,
+  formDataOverride,
+  priceOverride,
+  expectedCoin,
+  onConfirmSuccess,
 }: IOrderConfirmContentProps) {
-  const { isSubmitting, handleConfirm: confirmOrder } = useOrderConfirm({
-    onSuccess: () => {
-      onClose?.();
+  const [isPreparingEnableTrading, setIsPreparingEnableTrading] =
+    useState(false);
+  const [perpsAccount] = usePerpsActiveAccountAtom();
+  const currentAccountKey = useMemo(
+    () => getOrderConfirmAccountKey(perpsAccount),
+    [perpsAccount],
+  );
+  const currentAccountKeyRef = useRef(currentAccountKey);
+  const isDialogClosedRef = useRef(false);
+  const closeDialog = useCallback(() => {
+    isDialogClosedRef.current = true;
+    onClose?.();
+  }, [onClose]);
+  const shouldIgnoreEnableTradingResult = useCallback(() => {
+    return Boolean(
+      isDialogClosedRef.current ||
+      (enableTradingAccountKey &&
+        currentAccountKeyRef.current !== enableTradingAccountKey),
+    );
+  }, [enableTradingAccountKey]);
+
+  useEffect(() => {
+    currentAccountKeyRef.current = currentAccountKey;
+  }, [currentAccountKey]);
+
+  useEffect(
+    () => () => {
+      isDialogClosedRef.current = true;
     },
-    onError: () => {
-      onClose?.();
-    },
-  });
+    [],
+  );
+
+  const hyperliquidActions = useHyperliquidActions();
+  const [isOverrideSubmitting, setIsOverrideSubmitting] = useState(false);
+  const { isSubmitting: atomIsSubmitting, handleConfirm: confirmOrder } =
+    useOrderConfirm({
+      onSuccess: () => {
+        closeDialog();
+      },
+      onError: () => {
+        closeDialog();
+      },
+    });
+  const isSubmitting = formDataOverride
+    ? isOverrideSubmitting
+    : atomIsSubmitting;
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
-  const [formData] = useTradingFormAtom();
-  const [selectedSymbol] = usePerpsActiveAssetAtom();
+  const [atomFormData] = useTradingFormAtom();
+  const formData = useMemo(
+    () =>
+      formDataOverride
+        ? {
+            ...formDataOverride,
+            price: priceOverride ?? formDataOverride.price,
+          }
+        : atomFormData,
+    [atomFormData, formDataOverride, priceOverride],
+  );
+  const [activeInstrument] = useActiveTradeInstrumentAtom();
+  const isSpot = activeInstrument.mode === 'spot';
   const effectiveSide = overrideSide || formData.side;
-  const { computedSizeForSide, orderValue } =
-    useTradingCalculationsForSide(effectiveSide);
-  const szDecimals = selectedSymbol?.universe?.szDecimals ?? 2;
+  const {
+    computedSizeForSide: atomComputedSizeForSide,
+    orderValue: atomOrderValue,
+  } = useTradingCalculationsForSide(effectiveSide);
+  // The independent popover holds its own size/price, so calculations derived
+  // from the global atom must be overridden for an accurate confirm display.
+  const computedSizeForSide = useMemo(
+    () =>
+      formDataOverride
+        ? new BigNumber(formDataOverride.size || '0')
+        : atomComputedSizeForSide,
+    [atomComputedSizeForSide, formDataOverride],
+  );
+  const orderValue = useMemo(
+    () =>
+      formDataOverride
+        ? computedSizeForSide.multipliedBy(
+            new BigNumber((priceOverride ?? formDataOverride.price) || '0'),
+          )
+        : atomOrderValue,
+    [atomOrderValue, computedSizeForSide, formDataOverride, priceOverride],
+  );
+  const szDecimals =
+    activeInstrument.mode === 'spot'
+      ? (activeInstrument.universe?.baseSzDecimals ?? 2)
+      : (activeInstrument.universe?.szDecimals ?? 2);
   const actionColor = getTradingSideTextColor(effectiveSide);
 
   const [onekeyFee, setOnekeyFee] = useState<number | undefined>(undefined);
@@ -71,12 +219,18 @@ function OrderConfirmContent({
         setOnekeyFee(fee ?? 0);
       });
   }, []);
-  const buttonStyleProps = GetTradingButtonStyleProps(effectiveSide, false);
+  const buttonStyleProps = getTradingButtonStyleProps(effectiveSide, false);
   const intl = useIntl();
 
   const isTriggerMode = formData.orderMode === 'trigger';
+  const isScaleMode = formData.orderMode === 'scale';
+  const isTwapMode = formData.orderMode === 'twap';
+  const isAlgoOrderMode = isScaleMode || isTwapMode;
   const isLimitTrigger =
     formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
+  const limitTifLabel = getTifLabel(formData.limitTif ?? 'Gtc') ?? 'GTC';
+  const shouldShowStandardLimitTif =
+    !isSpot && !isTriggerMode && !isAlgoOrderMode && formData.type === 'limit';
 
   const { midPriceBN } = useTradingPrice();
 
@@ -95,6 +249,15 @@ function OrderConfirmContent({
         return null;
     }
   }, [isTriggerMode, formData.triggerOrderType, intl]);
+
+  const twapPreview = useMemo(() => {
+    if (!isTwapMode) {
+      return null;
+    }
+    return {
+      minutes: Number(formData.twapDurationMinutes ?? 0),
+    };
+  }, [formData.twapDurationMinutes, isTwapMode]);
 
   const _inferredTpslBadge = useMemo(() => {
     if (!isTriggerMode || !formData.triggerPrice) return null;
@@ -129,29 +292,66 @@ function OrderConfirmContent({
     });
   }, [isTriggerMode, formData.triggerPrice, midPriceBN, effectiveSide, intl]);
 
-  const actionText =
-    effectiveSide === 'long'
-      ? intl.formatMessage({
-          id: ETranslations.perp_trade_long,
-        })
-      : intl.formatMessage({
-          id: ETranslations.perp_trade_short,
-        });
+  const actionText = isSpot
+    ? intl.formatMessage({
+        id:
+          effectiveSide === 'long'
+            ? ETranslations.dexmarket_details_transactions_buy
+            : ETranslations.dexmarket_details_transactions_sell,
+      })
+    : intl.formatMessage({
+        id:
+          effectiveSide === 'long'
+            ? ETranslations.perp_trade_long
+            : ETranslations.perp_trade_short,
+      });
+
+  const orderTypeText = useMemo(() => {
+    if (isScaleMode) {
+      return intl.formatMessage({
+        id: ETranslations.perp_scale_order__title,
+      });
+    }
+    if (isTwapMode) {
+      return intl.formatMessage({
+        id: ETranslations.perp_twap_order__title,
+      });
+    }
+    return actionText;
+  }, [actionText, intl, isScaleMode, isTwapMode]);
+
+  const yesText = intl.formatMessage({ id: ETranslations.perp_yes__title });
+  const noText = intl.formatMessage({ id: ETranslations.perp_no__title });
+  const minuteUnit = intl
+    .formatMessage({ id: ETranslations.Limit_expire_minutes })
+    .toLowerCase();
 
   const sizeDisplay = useMemo(() => {
     const sizeString = computedSizeForSide.toFixed(szDecimals);
-    if (selectedSymbol?.coin) {
-      const parsed = parseDexCoin(selectedSymbol.coin);
-      return `${sizeString} ${parsed.displayName}`;
+    if (activeInstrument?.coin) {
+      // Spot coins use @N format, resolve to display name (e.g. HYPE)
+      const coinDisplay =
+        activeInstrument.mode === 'spot'
+          ? getSpotTokenDisplayName(
+              activeInstrument.universe?.baseName ?? activeInstrument.coin,
+            )
+          : parseDexCoin(activeInstrument.coin).displayName;
+      return `${sizeString} ${coinDisplay}`;
     }
     return sizeString;
-  }, [computedSizeForSide, szDecimals, selectedSymbol?.coin]);
+  }, [
+    computedSizeForSide,
+    szDecimals,
+    activeInstrument?.coin,
+    activeInstrument.mode,
+    activeInstrument.universe,
+  ]);
 
   const priceDisplay = useMemo(() => {
     if (formData.type === 'market' || !formData.price) {
       return (
         <SizableText size="$bodyMdMedium">
-          {appLocale.intl.formatMessage({
+          {intl.formatMessage({
             id: ETranslations.perp_trade_market,
           })}
         </SizableText>
@@ -174,19 +374,34 @@ function OrderConfirmContent({
       );
     }
 
-    return <SizableText size="$bodyMdMedium">$ {formData.price}</SizableText>;
-  }, [formData.type, formData.price, formData.bboPriceMode, intl]);
+    return (
+      <SizableText size="$bodyMdMedium">
+        {formatOrderPriceDisplay({
+          price: formData.price,
+          isSpot,
+          szDecimals,
+        })}
+      </SizableText>
+    );
+  }, [
+    formData.type,
+    formData.price,
+    formData.bboPriceMode,
+    intl,
+    isSpot,
+    szDecimals,
+  ]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
-      return appLocale.intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.perp_trading_button_placing,
       });
     }
-    return appLocale.intl.formatMessage({
+    return intl.formatMessage({
       id: ETranslations.perp_confirm_order,
     });
-  }, [isSubmitting]);
+  }, [isSubmitting, intl]);
 
   const setSkipOrderConfirm = useCallback(
     (value: boolean) => {
@@ -198,10 +413,111 @@ function OrderConfirmContent({
     [perpsCustomSettings, setPerpsCustomSettings],
   );
 
-  const handleConfirm = useCallback(() => {
-    onClose?.();
+  const isConfirmLoading = isSubmitting || isPreparingEnableTrading;
+
+  const submitOverrideOrder = useCallback(async () => {
+    if (!formDataOverride) {
+      return;
+    }
+    if (activeInstrument.assetId === undefined) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_info_not_found__msg,
+        }),
+      });
+      return;
+    }
+    // Active asset may have switched between pressing buy/sell and confirming;
+    // never submit the snapshot ticket against a different live coin. Mirrors
+    // the keyless string submitOrder itself throws (actions.ts) — no i18n key.
+    if (expectedCoin && activeInstrument.coin !== expectedCoin) {
+      Toast.error({
+        title: 'Trading market changed. Please review and submit again.',
+      });
+      closeDialog();
+      return;
+    }
+    setIsOverrideSubmitting(true);
+    try {
+      await hyperliquidActions.current.submitOrder({
+        assetId: activeInstrument.assetId,
+        formData: formDataOverride,
+        price: priceOverride ?? formDataOverride.price,
+      });
+      onConfirmSuccess?.();
+      closeDialog();
+    } catch {
+      // Errors are surfaced via withToast inside submitOrder.
+      closeDialog();
+    } finally {
+      setIsOverrideSubmitting(false);
+    }
+  }, [
+    activeInstrument.assetId,
+    activeInstrument.coin,
+    closeDialog,
+    expectedCoin,
+    formDataOverride,
+    hyperliquidActions,
+    intl,
+    onConfirmSuccess,
+    priceOverride,
+  ]);
+
+  const handleConfirm = useCallback(async () => {
+    if (isConfirmLoading) {
+      return;
+    }
+
+    if (formDataOverride) {
+      await submitOverrideOrder();
+      return;
+    }
+
+    if (enableTradingBeforeConfirm) {
+      if (shouldIgnoreEnableTradingResult()) {
+        closeDialog();
+        return;
+      }
+
+      let result: IEnableTradingWithDepositFallbackResult | undefined;
+      setIsPreparingEnableTrading(true);
+      try {
+        result = await enableTradingBeforeConfirm({
+          closeDialog,
+          shouldIgnoreResult: shouldIgnoreEnableTradingResult,
+        });
+      } finally {
+        if (!isDialogClosedRef.current) {
+          setIsPreparingEnableTrading(false);
+        }
+      }
+
+      if (shouldIgnoreEnableTradingResult()) {
+        if (!isDialogClosedRef.current) {
+          closeDialog();
+        }
+        return;
+      }
+
+      if (!result?.shouldContinue) {
+        closeDialog();
+        return;
+      }
+    }
+
+    closeDialog();
     void confirmOrder(overrideSide);
-  }, [confirmOrder, onClose, overrideSide]);
+  }, [
+    closeDialog,
+    confirmOrder,
+    enableTradingBeforeConfirm,
+    formDataOverride,
+    isConfirmLoading,
+    overrideSide,
+    shouldIgnoreEnableTradingResult,
+    submitOverrideOrder,
+  ]);
 
   const savedFeeDisplay = useMemo(() => {
     if (!orderValue.isFinite() || orderValue.lte(0)) {
@@ -221,34 +537,49 @@ function OrderConfirmContent({
     });
   }, [orderValue]);
 
+  const actionSideLabel = intl.formatMessage({
+    id:
+      effectiveSide === 'long'
+        ? ETranslations.dexmarket_details_transactions_buy
+        : ETranslations.dexmarket_details_transactions_sell,
+  });
+  const actionLabel = isAlgoOrderMode
+    ? orderTypeText
+    : (triggerTypeLabel ?? orderTypeText);
+  const shouldShowActionSide = isAlgoOrderMode || Boolean(triggerTypeLabel);
+  const scaleDistributionLabel =
+    formData.scaleSizeDistribution === 'increasing'
+      ? intl.formatMessage({
+          id: ETranslations.perp_scale_increasing_distribution__action,
+        })
+      : intl.formatMessage({
+          id: ETranslations.perp_scale_fixed_distribution__action,
+        });
+
   return (
     <YStack gap="$4" p="$1">
       {/* Order Details */}
       <YStack gap="$3">
         {/* Action */}
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_order_type,
-            })}
-          </SizableText>
-          {triggerTypeLabel ? (
-            <SizableText size="$bodyMdMedium" color={actionColor}>
-              {triggerTypeLabel}
-              {' /'}{' '}
+        {!isScaleMode ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
-                id:
-                  effectiveSide === 'long'
-                    ? ETranslations.dexmarket_details_transactions_buy
-                    : ETranslations.dexmarket_details_transactions_sell,
+                id: ETranslations.perp_trade_order_type,
               })}
             </SizableText>
-          ) : (
-            <SizableText size="$bodyMdMedium" color={actionColor}>
-              {actionText}
-            </SizableText>
-          )}
-        </XStack>
+            {shouldShowActionSide ? (
+              <SizableText size="$bodyMdMedium" color={actionColor}>
+                {actionLabel}
+                {' /'} {actionSideLabel}
+              </SizableText>
+            ) : (
+              <SizableText size="$bodyMdMedium" color={actionColor}>
+                {actionLabel}
+              </SizableText>
+            )}
+          </XStack>
+        ) : null}
 
         {/* Trigger Price (trigger orders only) */}
         {isTriggerMode && formData.triggerPrice ? (
@@ -259,7 +590,11 @@ function OrderConfirmContent({
               })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
-              $ {formData.triggerPrice}
+              {formatOrderPriceDisplay({
+                price: formData.triggerPrice,
+                isSpot,
+                szDecimals,
+              })}
             </SizableText>
           </XStack>
         ) : null}
@@ -273,7 +608,11 @@ function OrderConfirmContent({
               })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
-              $ {formData.executionPrice}
+              {formatOrderPriceDisplay({
+                price: formData.executionPrice,
+                isSpot,
+                szDecimals,
+              })}
             </SizableText>
           </XStack>
         ) : null}
@@ -287,26 +626,153 @@ function OrderConfirmContent({
               })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
-              {formData.triggerReduceOnly ? 'Yes' : 'No'}
+              {formData.triggerReduceOnly ? yesText : noText}
             </SizableText>
           </XStack>
         ) : null}
 
-        {/* Position Size */}
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {appLocale.intl.formatMessage({
-              id: ETranslations.perp_position_position_size,
-            })}
-          </SizableText>
-          <SizableText size="$bodyMdMedium">{sizeDisplay}</SizableText>
-        </XStack>
+        {isScaleMode ? (
+          <>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_trade_order_type,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium" color={actionColor}>
+                {shouldShowActionSide
+                  ? `${actionLabel} / ${actionSideLabel}`
+                  : actionLabel}
+              </SizableText>
+            </XStack>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_position_size,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">{sizeDisplay}</SizableText>
+            </XStack>
+            {orderValue.isFinite() && orderValue.gt(0) ? (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_trade_order_value,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">
+                  {numberFormat(orderValue.toFixed(2), {
+                    formatter: 'value',
+                    formatterOptions: { currency: '$' },
+                  })}
+                </SizableText>
+              </XStack>
+            ) : null}
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_scale_lower_price_label__title,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
+                {formatOrderPriceDisplay({
+                  price: formData.scaleLowerPrice ?? '0',
+                  isSpot,
+                  szDecimals,
+                })}
+              </SizableText>
+            </XStack>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_scale_upper_price_label__title,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
+                {formatOrderPriceDisplay({
+                  price: formData.scaleUpperPrice ?? '0',
+                  isSpot,
+                  szDecimals,
+                })}
+              </SizableText>
+            </XStack>
+            {isSpot ? null : (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_scale_amount_distribution__title,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">
+                  {scaleDistributionLabel}
+                </SizableText>
+              </XStack>
+            )}
+          </>
+        ) : null}
 
-        {/* Price (standard orders only — trigger orders show trigger/execution price above) */}
-        {!isTriggerMode ? (
+        {isTwapMode && twapPreview ? (
+          <>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_twap_duration__title,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
+                {twapPreview.minutes} {minuteUnit}
+              </SizableText>
+            </XStack>
+          </>
+        ) : null}
+
+        {/* Position Size */}
+        {!isScaleMode ? (
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {appLocale.intl.formatMessage({
+              {intl.formatMessage({
+                id: ETranslations.perp_position_position_size,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">{sizeDisplay}</SizableText>
+          </XStack>
+        ) : null}
+
+        {/* Order Value */}
+        {!isScaleMode && orderValue.isFinite() && orderValue.gt(0) ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_order_value,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              {numberFormat(orderValue.toFixed(2), {
+                formatter: 'value',
+                formatterOptions: { currency: '$' },
+              })}
+            </SizableText>
+          </XStack>
+        ) : null}
+
+        {isTwapMode ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_twap_randomize__title,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              {formData.twapRandomize ? yesText : noText}
+            </SizableText>
+          </XStack>
+        ) : null}
+
+        {/* Price (standard orders only — trigger orders show trigger/execution price above) */}
+        {!isTriggerMode && !isAlgoOrderMode ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
                 id: ETranslations.perp_orderbook_price,
               })}
             </SizableText>
@@ -314,23 +780,36 @@ function OrderConfirmContent({
           </XStack>
         ) : null}
 
+        {shouldShowStandardLimitTif ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_time_in_force__title,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">{limitTifLabel}</SizableText>
+          </XStack>
+        ) : null}
+
         {/* Liquidation Price */}
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {appLocale.intl.formatMessage({
-              id: ETranslations.perp_position_liq_price,
-            })}
-          </SizableText>
-          <SizableText size="$bodyMd">
-            <LiquidationPriceDisplay
-              textSize="$bodyMdMedium"
-              side={effectiveSide}
-            />
-          </SizableText>
-        </XStack>
+        {isSpot || isAlgoOrderMode ? null : (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_position_liq_price,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMd">
+              <LiquidationPriceDisplay
+                textSize="$bodyMdMedium"
+                side={effectiveSide}
+              />
+            </SizableText>
+          </XStack>
+        )}
 
         {/* OneKey Fee */}
-        {onekeyFee === 0 ? (
+        {onekeyFee === 0 && !isTwapMode ? (
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
@@ -360,11 +839,12 @@ function OrderConfirmContent({
         {/* skip order confirm checkbox */}
         <XStack justifyContent="space-between" alignItems="center" gap="$2">
           <Checkbox
+            testID="perp-checkbox"
             labelProps={{
               fontSize: '$bodyMdMedium',
               color: '$textSubdued',
             }}
-            label={appLocale.intl.formatMessage({
+            label={intl.formatMessage({
               id: ETranslations.perp_confirm_not_show,
             })}
             value={perpsCustomSettings.skipOrderConfirm}
@@ -373,16 +853,21 @@ function OrderConfirmContent({
         </XStack>
       </YStack>
 
-      <TradingGuardWrapper>
+      <TradingGuardWrapper
+        bypassEnableTradingGuard={Boolean(enableTradingBeforeConfirm)}
+        buttonSize={PERP_DIALOG_BUTTON_SIZE}
+      >
         <Button
+          testID="perp-btn"
           variant="primary"
-          size="medium"
-          disabled={isSubmitting}
-          loading={isSubmitting}
+          size={PERP_DIALOG_BUTTON_SIZE}
+          disabled={isConfirmLoading}
+          loading={isConfirmLoading}
           onPress={handleConfirm}
           {...buttonStyleProps}
+          childrenAsText={false}
         >
-          <SizableText size="$bodyMdMedium" color="$textOnColor">
+          <SizableText size="$bodyMdMedium" color={buttonStyleProps.textColor}>
             {buttonText}
           </SizableText>
         </Button>
@@ -391,21 +876,54 @@ function OrderConfirmContent({
   );
 }
 
-export function showOrderConfirmDialog(overrideSide?: 'long' | 'short') {
+export function showOrderConfirmDialog({
+  overrideSide,
+  intl,
+  enableTradingBeforeConfirm,
+  enableTradingAccountKey,
+  formData,
+  price,
+  expectedCoin,
+  onConfirmSuccess,
+}: {
+  overrideSide?: 'long' | 'short';
+  intl: IntlShape;
+  enableTradingBeforeConfirm?: (
+    context: IOrderConfirmEnableTradingBeforeConfirmContext,
+  ) => Promise<IEnableTradingWithDepositFallbackResult>;
+  enableTradingAccountKey?: string;
+  // Independent (chart-popover) order data. When provided, the confirm content
+  // displays and submits this instead of the global tradingFormAtom.
+  formData?: ITradingFormData;
+  price?: string;
+  // Coin the override ticket was built for; submit aborts on a live-coin mismatch.
+  expectedCoin?: string;
+  // Fired only after a successful override submit (chart popover closes itself).
+  onConfirmSuccess?: () => void;
+}) {
   const dialogInstance = Dialog.show({
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.perp_confirm_order,
     }),
     renderContent: (
-      <PerpsProviderMirror>
-        <OrderConfirmContent
-          onClose={() => {
-            void dialogInstance.close();
-          }}
-          overrideSide={overrideSide}
-        />
-      </PerpsProviderMirror>
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <OrderConfirmContent
+            onClose={() => {
+              void dialogInstance.close();
+            }}
+            overrideSide={overrideSide}
+            enableTradingBeforeConfirm={enableTradingBeforeConfirm}
+            enableTradingAccountKey={enableTradingAccountKey}
+            formDataOverride={formData}
+            priceOverride={price}
+            expectedCoin={expectedCoin}
+            onConfirmSuccess={onConfirmSuccess}
+          />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();

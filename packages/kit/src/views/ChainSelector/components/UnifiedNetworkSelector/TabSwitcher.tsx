@@ -25,11 +25,11 @@ export function TabSwitcher({ activeTab, onTabChange }: ITabSwitcherProps) {
   const options = useMemo(
     () => [
       {
-        label: intl.formatMessage({ id: ETranslations.global_portfolio }),
+        label: intl.formatMessage({ id: ETranslations.global_all_networks }),
         value: 'portfolio',
       },
       {
-        label: intl.formatMessage({ id: ETranslations.global_network }),
+        label: intl.formatMessage({ id: ETranslations.global_single_network }),
         value: 'network',
       },
     ],

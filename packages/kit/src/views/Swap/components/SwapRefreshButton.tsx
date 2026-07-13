@@ -10,24 +10,37 @@ import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useSwapActionState } from '../hooks/useSwapState';
 
-const SwapRefreshButton = ({
-  refreshAction,
-  disabled,
-}: {
+type ISwapRefreshButtonBaseProps = {
   refreshAction: (manual?: boolean) => void;
   disabled?: boolean;
-}) => {
+  isRefreshQuote: boolean;
+  isLoading: boolean;
+  isFocused?: boolean;
+  autoRefresh?: boolean;
+};
+
+function BasicSwapRefreshButton({
+  refreshAction,
+  disabled,
+  isRefreshQuote,
+  isLoading,
+  isFocused = true,
+  autoRefresh = true,
+}: ISwapRefreshButtonBaseProps) {
   const loadingAnim = useRef(new Animated.Value(0)).current;
   const processAnim = useRef(new Animated.Value(0)).current;
   const processAnimRef = useRef<Animated.CompositeAnimation>(undefined);
   const themeVariant = useThemeVariant();
   const lottieRef = useRef<any>(null);
-  const isFocused = useRouteIsFocused();
-  const { isRefreshQuote, isLoading } = useSwapActionState();
   const isRefreshQuoteRef = useRef(isRefreshQuote);
   if (isRefreshQuoteRef.current !== isRefreshQuote) {
     isRefreshQuoteRef.current = isRefreshQuote;
   }
+  const disabledRef = useRef(disabled);
+  if (disabledRef.current !== disabled) {
+    disabledRef.current = disabled;
+  }
+  const refreshLockedRef = useRef(false);
   const listenerRef = useRef<string | null>(null);
   const isFocusedRef = useRef(isFocused);
   if (isFocusedRef.current !== isFocused) {
@@ -44,7 +57,15 @@ const SwapRefreshButton = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const onRefresh = useCallback(
     debounce((manual?: boolean) => {
-      if (!isFocusedRef.current) return;
+      if (
+        !isFocusedRef.current ||
+        disabledRef.current ||
+        isRefreshQuoteRef.current ||
+        refreshLockedRef.current
+      ) {
+        return;
+      }
+      refreshLockedRef.current = true;
       loadingAnimRef.current.setValue(0);
       Animated.timing(loadingAnimRef.current, {
         toValue: -1,
@@ -53,6 +74,13 @@ const SwapRefreshButton = ({
       }).start((finished) => {
         if (finished) {
           refreshActionRef.current(manual);
+          setTimeout(() => {
+            if (!isRefreshQuoteRef.current) {
+              refreshLockedRef.current = false;
+            }
+          }, 100);
+        } else {
+          refreshLockedRef.current = false;
         }
       });
     }, 10),
@@ -60,6 +88,13 @@ const SwapRefreshButton = ({
   );
 
   useEffect(() => {
+    if (!isRefreshQuote) {
+      refreshLockedRef.current = false;
+    }
+  }, [isRefreshQuote]);
+
+  useEffect(() => {
+    if (!autoRefresh) return undefined;
     if (listenerRef.current) return;
     listenerRef.current = processAnim.addListener(({ value }) => {
       // mobile will trigger twice, so we need to debounce it , when max value
@@ -73,9 +108,13 @@ const SwapRefreshButton = ({
         listenerRef.current = null;
       }
     };
-  }, [onRefresh, processAnim]);
+  }, [autoRefresh, onRefresh, processAnim]);
 
   useEffect(() => {
+    if (!autoRefresh) {
+      processAnimRef.current?.reset();
+      return;
+    }
     // Don't start auto-refresh timer when disabled
     if (disabled) {
       processAnimRef.current?.reset();
@@ -94,7 +133,7 @@ const SwapRefreshButton = ({
       lottieRef.current?.reset();
       processAnimRef.current?.reset();
     }
-  }, [processAnim, isRefreshQuote, disabled]);
+  }, [autoRefresh, processAnim, isRefreshQuote, disabled]);
 
   useEffect(() => {
     if (isFocusedRef.current) {
@@ -107,14 +146,14 @@ const SwapRefreshButton = ({
   }, [isLoading]);
 
   useEffect(() => {
-    if (isFocused) {
+    if (autoRefresh && isFocused && !disabled) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const value = Number((processAnim as any)._value);
       if (value === swapRefreshInterval) {
         onRefresh();
       }
     }
-  }, [isFocused, processAnim, onRefresh]);
+  }, [autoRefresh, disabled, isFocused, processAnim, onRefresh]);
 
   // Control Lottie animation when disabled state changes
   useEffect(() => {
@@ -162,6 +201,28 @@ const SwapRefreshButton = ({
         />
       </Animated.View>
     </XStack>
+  );
+}
+
+export const SwapRefreshButtonBase = memo(BasicSwapRefreshButton);
+
+const SwapRefreshButton = ({
+  refreshAction,
+  disabled,
+}: {
+  refreshAction: (manual?: boolean) => void;
+  disabled?: boolean;
+}) => {
+  const isFocused = useRouteIsFocused();
+  const { isRefreshQuote, isLoading } = useSwapActionState();
+  return (
+    <SwapRefreshButtonBase
+      refreshAction={refreshAction}
+      disabled={disabled}
+      isRefreshQuote={!!isRefreshQuote}
+      isLoading={!!isLoading}
+      isFocused={isFocused}
+    />
   );
 };
 

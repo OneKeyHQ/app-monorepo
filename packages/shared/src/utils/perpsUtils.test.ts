@@ -6,16 +6,58 @@
 import BigNumber from 'bignumber.js';
 
 import {
+  EHyperLiquidAbstractionMode,
+  EPerpsSizeInputMode,
+} from '@onekeyhq/shared/types/hyperliquid/types';
+
+import {
   analyzeOrderBookPrecision,
+  buildPreferredSpotUniverseByBaseNameMap,
   calculateLiquidationPrice,
   calculatePriceScale,
+  calculateSpotBalancesTotalUsd,
+  compareSpotMarketCapValues,
+  computeMaxTradeSize,
   countDecimalPlaces,
+  findTokensByAlias,
+  formatHlPrice,
+  formatHlSize,
   formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
   formatWithPrecision,
   getDisplayPriceScaleDecimals,
+  getHyperliquidTokenImageUrl,
   getMostFrequentDecimalPlaces,
+  getOrderBookSizeDisplaySymbol,
+  getSpotMarketCapValue,
+  getSpotTokenDisplayName,
   getValidPriceDecimals,
+  isHyperLiquidAbstractionModeEnabled,
+  isPredictionMarketInstrument,
+  resolveTradingSizeBN,
 } from './perpsUtils';
+
+describe('findTokensByAlias', () => {
+  /* cspell:disable -- server-provided asset symbols */
+  const aliases = {
+    BTC: { aliases: ['Bitcoin', 'Satoshi', '比特币'] },
+    ZEC: { aliases: ['Zcash', '大零币'] },
+    SKHX: { aliases: ['SK Hynix', '海力士'] },
+    SNDK: { aliases: ['SanDisk', '闪迪'] },
+    SHIB: { aliases: ['Shiba Inu', '柴犬币'] },
+  };
+  /* cspell:enable */
+
+  test('uses prefix matching for short latin alias queries', () => {
+    expect(findTokensByAlias('sh', aliases)).toEqual(['SHIB']);
+    expect(findTokensByAlias('sk', aliases)).toEqual(['SKHX']);
+  });
+
+  test('keeps substring matching for longer latin and non-latin queries', () => {
+    expect(findTokensByAlias('disk', aliases)).toEqual(['SNDK']);
+    expect(findTokensByAlias('特币', aliases)).toEqual(['BTC']);
+  });
+});
 
 describe('getValidPriceDecimals - HyperLiquid Perp Rules', () => {
   // Rule: Integer prices are always allowed, regardless of significant figures
@@ -78,6 +120,254 @@ describe('getDisplayPriceScaleDecimals', () => {
     expect(getDisplayPriceScaleDecimals('0.0012345')).toBe(6);
     expect(getDisplayPriceScaleDecimals('0.0001230')).toBe(6);
     expect(getDisplayPriceScaleDecimals('0.000123456')).toBe(6);
+  });
+});
+
+describe('spot token display helpers', () => {
+  test('maps wrapped Hyperliquid spot symbols to display names', () => {
+    expect(getSpotTokenDisplayName('UETH')).toBe('ETH');
+    expect(getSpotTokenDisplayName('USOL')).toBe('SOL');
+    expect(getSpotTokenDisplayName('UBTC')).toBe('BTC');
+    expect(getSpotTokenDisplayName('HYPE')).toBe('HYPE');
+  });
+
+  test('resolves spot token image url using normalized display symbol', () => {
+    expect(getHyperliquidTokenImageUrl('UETH')).toBe(
+      'https://uni.onekey-asset.com/static/hyperliquid/ETH.png',
+    );
+    expect(getHyperliquidTokenImageUrl('USOL')).toBe(
+      'https://uni.onekey-asset.com/static/hyperliquid/SOL.png',
+    );
+    expect(getHyperliquidTokenImageUrl('USDC')).toBe(
+      'https://uni.onekey-asset.com/static/hyperliquid/USDC.png',
+    );
+  });
+
+  test('formats order book size symbol from spot universe base name', () => {
+    expect(
+      getOrderBookSizeDisplaySymbol({
+        coin: '@107',
+        isSpot: true,
+        spotUniverse: { baseName: 'UETH' },
+      }),
+    ).toBe('ETH');
+    expect(
+      getOrderBookSizeDisplaySymbol({
+        coin: 'HPENGU/USDC',
+        isSpot: true,
+      }),
+    ).toBe('PENGU');
+    expect(
+      getOrderBookSizeDisplaySymbol({
+        coin: 'xyz:NVDA',
+        isSpot: false,
+      }),
+    ).toBe('NVDA');
+  });
+});
+
+describe('isPredictionMarketInstrument', () => {
+  test('recognizes Hyperliquid HIP-4 prediction market aliases', () => {
+    expect(isPredictionMarketInstrument('#12')).toBe(true);
+    expect(isPredictionMarketInstrument('BTC')).toBe(false);
+    expect(isPredictionMarketInstrument('@107')).toBe(false);
+    expect(isPredictionMarketInstrument(undefined)).toBe(false);
+  });
+});
+
+describe('trading size helpers', () => {
+  test('uses direct maxSize for slider sizing without mark/reference price conversion', () => {
+    const maxSize = computeMaxTradeSize({
+      side: 'short',
+      price: '14',
+      markPrice: '20',
+      maxSize: '37.123',
+      maxTradeSzs: ['100', '100'],
+      leverageValue: 5,
+      szDecimals: 2,
+    });
+    expect(maxSize.toFixed()).toBe('37.12');
+
+    const resolvedSize = resolveTradingSizeBN({
+      sizeInputMode: EPerpsSizeInputMode.SLIDER,
+      sizePercent: 50,
+      side: 'short',
+      price: '14',
+      markPrice: '20',
+      maxSize: '37.123',
+      maxTradeSzs: ['100', '100'],
+      leverageValue: 5,
+      szDecimals: 2,
+    });
+    expect(resolvedSize.toFixed()).toBe('18.56');
+  });
+});
+
+describe('calculateSpotBalancesTotalUsd', () => {
+  test('counts non-USDC spot holdings with spot mark prices', () => {
+    const result = calculateSpotBalancesTotalUsd({
+      balances: [
+        {
+          coin: 'USDC',
+          token: 0,
+          total: '236.786521',
+        },
+        {
+          coin: 'BTC',
+          token: 1,
+          total: '0.0040073065',
+        },
+      ],
+      getMarkPrice: (coin) => (coin === 'BTC' ? '62454' : undefined),
+    });
+
+    expect(result.missingPriceCoins).toEqual([]);
+    expect(new BigNumber(result.totalUsd).toFixed(2)).toBe('487.06');
+  });
+
+  test('keeps total unresolved when a positive non-stable token price is missing', () => {
+    const result = calculateSpotBalancesTotalUsd({
+      balances: [
+        {
+          coin: 'USDC',
+          token: 0,
+          total: '236.786521',
+        },
+        {
+          coin: 'BTC',
+          token: 1,
+          total: '0.0040073065',
+        },
+      ],
+      getMarkPrice: () => undefined,
+    });
+
+    expect(result.totalUsd).toBe('236.786521');
+    expect(result.missingPriceCoins).toEqual(['BTC']);
+  });
+});
+
+describe('buildPreferredSpotUniverseByBaseNameMap', () => {
+  test('prefers USDC-quoted universes when the same spot token has multiple quotes', () => {
+    const result = buildPreferredSpotUniverseByBaseNameMap([
+      {
+        baseName: 'UBTC',
+        quoteName: 'USDH',
+        name: '@234',
+      },
+      {
+        baseName: 'UBTC',
+        quoteName: 'USDC',
+        name: '@142',
+      },
+      {
+        baseName: 'KHYPE',
+        quoteName: 'USDH',
+        name: '@250',
+      },
+      {
+        baseName: 'KHYPE',
+        quoteName: 'USDC',
+        name: '@336',
+      },
+      {
+        baseName: 'ONLYUSDH',
+        quoteName: 'USDH',
+        name: '@999',
+      },
+    ]);
+
+    expect(result.UBTC.name).toBe('@142');
+    expect(result.KHYPE.name).toBe('@336');
+    expect(result.ONLYUSDH.name).toBe('@999');
+  });
+});
+
+describe('getSpotMarketCapValue', () => {
+  test('uses circulatingSupply for regular spot market cap', () => {
+    expect(
+      getSpotMarketCapValue({
+        markPx: '1.02',
+        circulatingSupply: '100',
+        totalSupply: '1000',
+      }),
+    ).toBe('102');
+  });
+
+  test('supports formatted active spot ctx with markPrice', () => {
+    expect(
+      getSpotMarketCapValue({
+        markPrice: '0.99',
+        circulatingSupply: '100',
+      }),
+    ).toBe('99');
+  });
+
+  test('uses external market cap override for mapped display symbols', () => {
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '80000',
+          circulatingSupply: '21000000',
+        },
+        'UBTC',
+        { btc: '1690000000000' },
+      ),
+    ).toBe('1690000000000');
+
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '25',
+          circulatingSupply: '100000000000',
+        },
+        'AVAX0',
+        { avax: '15000000000' },
+      ),
+    ).toBe('15000000000');
+  });
+
+  test('falls back to circulatingSupply when override is invalid', () => {
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '2',
+          circulatingSupply: '3',
+        },
+        'UETH',
+        { eth: '0' },
+      ),
+    ).toBe('6');
+  });
+
+  test('suppresses known stablecoin placeholder supplies', () => {
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '1',
+          circulatingSupply: '100000000000',
+        },
+        'USDH',
+      ),
+    ).toBeUndefined();
+    expect(
+      getSpotMarketCapValue(
+        {
+          markPx: '1',
+          circulatingSupply: '184467440737.0587768555',
+        },
+        'USDT0',
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe('compareSpotMarketCapValues', () => {
+  test('keeps unknown market caps last in both sort directions', () => {
+    expect(compareSpotMarketCapValues(undefined, 100, 'asc')).toBe(1);
+    expect(compareSpotMarketCapValues(100, undefined, 'asc')).toBe(-1);
+    expect(compareSpotMarketCapValues(undefined, 100, 'desc')).toBe(1);
+    expect(compareSpotMarketCapValues(100, undefined, 'desc')).toBe(-1);
   });
 });
 
@@ -178,6 +468,42 @@ describe('formatWithPrecision', () => {
     expect(formatWithPrecision(Infinity, 2)).toBe('0');
     expect(formatWithPrecision(NaN, 2)).toBe('0');
     expect(formatWithPrecision(new BigNumber(Infinity), 2)).toBe('0');
+  });
+
+  test('supports explicit rounding mode', () => {
+    expect(formatWithPrecision('123.456', 2, false, BigNumber.ROUND_DOWN)).toBe(
+      '123.45',
+    );
+    expect(formatWithPrecision('123.456', 2, true, BigNumber.ROUND_DOWN)).toBe(
+      '123.45',
+    );
+  });
+});
+
+describe('HyperLiquid wire-safe formatters', () => {
+  test('formatHlSize truncates to szDecimals', () => {
+    expect(formatHlSize('1.23456789', 5)).toBe('1.23456');
+    expect(formatHlSize('1.999', 0)).toBe('1');
+    expect(formatHlSize('0.000009', 5)).toBe('');
+    expect(formatHlSize('abc', 5)).toBe('');
+  });
+
+  test('formatHlPrice applies perp significant figures and decimal limits', () => {
+    expect(formatHlPrice('97123.456', 5, 'perp')).toBe('97123');
+    expect(formatHlPrice('4367.89', 2, 'perp')).toBe('4367.8');
+    expect(formatHlPrice('0.012345678', 0, 'perp')).toBe('0.012345');
+    expect(formatHlPrice('0.001234567', 2, 'perp')).toBe('0.0012');
+    expect(formatHlPrice('123456.789', 2, 'perp')).toBe('123456');
+  });
+
+  test('formatHlPrice applies spot decimal limits', () => {
+    expect(formatHlPrice('60.123456789', 2, 'spot')).toBe('60.123');
+    expect(formatHlPrice('0.00123456789', 2, 'spot')).toBe('0.001234');
+  });
+
+  test('formatSpotPriceToValid truncates instead of rounding up', () => {
+    expect(formatSpotPriceToValid('60.123456789', 2)).toBe('60.123');
+    expect(formatSpotPriceToValid('0.00123456789', 2)).toBe('0.001234');
   });
 });
 
@@ -354,5 +680,36 @@ describe('calculateLiquidationPrice', () => {
     });
 
     expect(liquidationPrice?.toNumber()).toBeCloseTo(25.789_474, 6);
+  });
+});
+
+describe('isHyperLiquidAbstractionModeEnabled', () => {
+  // Guards against dropping PORTFOLIO_MARGIN — that would force-revert PM accounts.
+  it('accepts unified account and portfolio margin', () => {
+    expect(
+      isHyperLiquidAbstractionModeEnabled(
+        EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      ),
+    ).toBe(true);
+    expect(
+      isHyperLiquidAbstractionModeEnabled(
+        EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN,
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects disabled / default / dexAbstraction / unknown', () => {
+    expect(
+      isHyperLiquidAbstractionModeEnabled(EHyperLiquidAbstractionMode.DISABLED),
+    ).toBe(false);
+    expect(
+      isHyperLiquidAbstractionModeEnabled(EHyperLiquidAbstractionMode.DEFAULT),
+    ).toBe(false);
+    expect(
+      isHyperLiquidAbstractionModeEnabled(
+        EHyperLiquidAbstractionMode.DEX_ABSTRACTION,
+      ),
+    ).toBe(false);
+    expect(isHyperLiquidAbstractionModeEnabled(undefined)).toBe(false);
   });
 });

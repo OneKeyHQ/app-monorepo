@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { fetchMarketAllNetworksForPlatform } from './fetchMarketAllNetworksForPlatform';
+import { resolveMarketNetworkFromConfig } from './marketNetworkUtils';
 import { useMarketBasicConfig } from './useMarketBasicConfig';
 
 export function useMarketNetworks() {
@@ -27,9 +28,7 @@ export function useMarketNetworks() {
   const { result: allNetworks = [], isLoading: isServerNetworksLoading } =
     usePromiseResult(
       async () => {
-        const { networks } =
-          await backgroundApiProxy.serviceNetwork.getAllNetworks();
-        return networks;
+        return fetchMarketAllNetworksForPlatform();
       },
       [],
       {
@@ -46,25 +45,22 @@ export function useMarketNetworks() {
     const networkMap = new Map(allNetworks.map((n) => [n.id, n]));
     const networks = networkIds
       .map((networkId) => {
-        const networkInfo = networkMap.get(networkId);
-        if (networkInfo) {
-          return networkInfo;
-        }
-        const fallback = networkUtils.getLocalNetworkInfo(networkId);
-        if (!fallback) {
-          return null;
-        }
         const configInfo = sortedNetworkList.find(
           (item) => item.networkId === networkId,
         );
         if (configInfo) {
-          return {
-            ...fallback,
-            name: configInfo.name ?? fallback.name,
-            logoURI: configInfo.logoUrl ?? fallback.logoURI,
-          };
+          return resolveMarketNetworkFromConfig({
+            configNetwork: configInfo,
+            networkInfo:
+              networkMap.get(networkId) ??
+              networkUtils.getLocalNetworkInfo(networkId),
+          });
         }
-        return fallback;
+        return (
+          networkMap.get(networkId) ??
+          networkUtils.getLocalNetworkInfo(networkId) ??
+          null
+        );
       })
       .filter(Boolean);
 

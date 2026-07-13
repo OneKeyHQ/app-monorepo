@@ -13,6 +13,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
+import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
 import { useDialogPassphraseEnable } from './dialog/DialogPassphraseEnable';
@@ -66,6 +67,7 @@ function DeviceSectionAdvancePassphrase() {
           value={value}
           onChange={onChange}
           disabled={disabled}
+          testID={DeviceManagementTestIDs.passphraseSwitch}
         />
       )}
     </ListItem.StatefulItem>
@@ -104,6 +106,7 @@ function DeviceSectionAdvanceInputPinOnSoftware() {
           value={value}
           onChange={onChange}
           disabled={disabled}
+          testID={DeviceManagementTestIDs.inputPinOnSoftwareSwitch}
         />
       )}
     </ListItem.StatefulItem>

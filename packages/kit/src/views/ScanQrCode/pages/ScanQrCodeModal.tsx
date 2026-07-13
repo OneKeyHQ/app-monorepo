@@ -33,6 +33,7 @@ import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ScanQrCode } from '../components';
+import { ScanQrCodeTestIDs } from '../testIDs';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -58,11 +59,13 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
             onPress={() => navigation.popStack()}
             icon="CrossedLargeOutline"
             variant="destructive"
+            testID={ScanQrCodeTestIDs.debugCloseBtn}
           />
           <Stack flex={1} />
           <IconButton
             onPress={() => onText(inputText)}
             icon="CheckLargeOutline"
+            testID={ScanQrCodeTestIDs.debugConfirmBtn}
           />
         </XStack>
         <XStack>
@@ -74,6 +77,7 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
               placeholder="demo qrcode scan text"
               allowClear
               allowPaste
+              testID={ScanQrCodeTestIDs.debugTextArea}
             />
           </Stack>
         </XStack>
@@ -275,7 +279,7 @@ export default function ScanQrCodeModal() {
         <HeaderIconButton
           onPress={pickImage}
           icon="ImageSquareMountainOutline"
-          testID="scan-open-photo"
+          testID={ScanQrCodeTestIDs.openPhotoBtn}
           title={intl.formatMessage({ id: ETranslations.scan_select_a_photo })}
         />
       ),

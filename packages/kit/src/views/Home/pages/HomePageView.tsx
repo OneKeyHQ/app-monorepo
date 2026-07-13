@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
+  DelayedFreeze,
   Icon,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -14,14 +15,20 @@ import {
   Spinner,
   Stack,
   Tabs,
+  XStack,
   YStack,
+  useFocusedTab,
+  useMedia,
   useScrollContentTabBarOffset,
-  useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
+import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  WALLET_TYPE_HD,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -37,10 +44,12 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
+import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import {
@@ -48,18 +57,29 @@ import {
   useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import {
+  useAccountSelectorStorageInitDoneAtom,
   useActiveAccount,
+  useIsAccountSelectorActiveAccountInitDone,
   useIsAccountSelectorSyncLoading,
 } from '../../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
+import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
+import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
+import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
+import {
+  isWalletListResolvedNoWallet,
+  shouldShowNoWalletContent,
+} from './homePageNoWalletContent';
 import { NFTListContainerWithProvider } from './NFTListContainer';
+import { PerpsContainer } from './PerpsContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
@@ -103,6 +123,18 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
       return children;
     };
 
+function HistoryTabNotificationAlertSlot() {
+  const intl = useIntl();
+  const focusedTab = useFocusedTab();
+  const historyTabName = intl.formatMessage({
+    id: ETranslations.global_history,
+  });
+  if (focusedTab !== historyTabName) {
+    return null;
+  }
+  return <NotificationEnableAlert scene="txHistory" />;
+}
+
 function NoWalletContent({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
   const isSyncLoading = useIsAccountSelectorSyncLoading(0);
   if (isSyncLoading) {
@@ -126,6 +158,36 @@ function NoWalletContent({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
   );
 }
 
+function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
+  return (
+    <Stack flex={1} {...homePageContentMaxWidthSx}>
+      {children}
+    </Stack>
+  );
+}
+
+// Tabs.Container mounts all 4 home tabs (Spot, DeFi, NFT, History) as
+// peer panes in a horizontal scroller, so React reconciles every block
+// on each Wallet unfreeze (or any HomePageView re-render) — including
+// the DeFi / NFT / History trees the user is not currently looking at.
+// Freezing the inactive panes drops that work back to the focused tab
+// only, which is what visibly happens already and matches the
+// freeze-on-blur strategy used at the outer tab-navigator level.
+function FreezeInactiveHomeTab({
+  tabName,
+  children,
+}: {
+  tabName: string;
+  children: React.ReactNode;
+}) {
+  const focusedTab = useFocusedTab();
+  return (
+    <DelayedFreeze freeze={focusedTab ? focusedTab !== tabName : undefined}>
+      {children}
+    </DelayedFreeze>
+  );
+}
+
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onPressHide,
@@ -137,6 +199,8 @@ export function HomePageView({
   const tabBarHeight = useScrollContentTabBarOffset();
   const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { md: isSmallScreen } = useMedia();
   const {
     activeAccount: {
       account,
@@ -147,8 +211,24 @@ export function HomePageView({
       ready,
       device,
       indexedAccount,
+      vaultSettings: cachedVaultSettings,
     },
   } = useActiveAccount({ num: 0 });
+  const [accountSelectorStorageInitDone] =
+    useAccountSelectorStorageInitDoneAtom();
+  const accountSelectorActiveAccountInitDone =
+    useIsAccountSelectorActiveAccountInitDone(0);
+  const { result: walletListResult, run: refreshWalletList } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceAccount.getWallets({
+        ignoreEmptySingletonWalletAccounts: true,
+      }),
+    [],
+    {
+      checkIsFocused: false,
+      watchLoading: false,
+    },
+  );
 
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
@@ -215,29 +295,23 @@ export function HomePageView({
     };
   }, [network, indexedAccount]);
 
-  const { vaultSettings, networkAccounts } = result.result ?? {};
+  const { vaultSettings: fetchedVaultSettings, networkAccounts } =
+    result.result ?? {};
+  // Use cached vaultSettings from activeAccountsAtom (coldStartCache) as
+  // fallback to avoid tab config change on first render.
+  const vaultSettings = fetchedVaultSettings ?? cachedVaultSettings;
 
   const isNFTEnabled =
-    vaultSettings?.NFTEnabled &&
-    networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? '');
+    // All Networks always supports NFT; for single network check vaultSettings
+    network?.isAllNetworks ||
+    (vaultSettings?.NFTEnabled &&
+      networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? ''));
 
-  const [isDeFiEnabled, setIsDeFiEnabled] = useState(true);
-  useEffect(() => {
-    const checkDeFiEnabled = async () => {
-      if (!network?.id) {
-        setIsDeFiEnabled(false);
-        return;
-      }
-      if (networkUtils.isAllNetwork({ networkId: network.id })) {
-        setIsDeFiEnabled(true);
-        return;
-      }
-      const enabledNetworks =
-        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
-      setIsDeFiEnabled(!!enabledNetworks[network.id]);
-    };
-    void checkDeFiEnabled();
-  }, [network?.id]);
+  const {
+    isDeFiSupported: isDeFiEnabled,
+    isPerpsSupported: isPerpsEnabled,
+    perpTabShowWeb,
+  } = useHomeWalletTabSupport({ network });
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -247,6 +321,10 @@ export function HomePageView({
   }, [wallet]);
 
   const isBulkRevokeApprovalEnabled = useMemo(() => {
+    if (wallet?.type === WALLET_TYPE_WATCHING) {
+      return false;
+    }
+
     if (network?.isAllNetworks) {
       if (
         accountUtils.isOthersAccount({
@@ -262,6 +340,7 @@ export function HomePageView({
 
     return networksSupportBulkRevokeApproval[network?.id ?? ''] ?? false;
   }, [
+    wallet?.type,
     network?.isAllNetworks,
     network?.id,
     account?.id,
@@ -356,15 +435,28 @@ export function HomePageView({
     [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
   );
 
+  // Alerts sit outside Tabs.Container (rendered next to TabPageHeader below).
+  // Keeping them inside renderHeader made them scroll through the sticky
+  // TabBar area — a partially-scrolled alert would leave a visible band
+  // between TabPageHeader and the tabs.
   const renderHeader = useCallback(() => {
     return (
-      <>
-        <RiskApprovalAlert />
-        <WatchOnlyAlert />
+      <Stack {...homePageContentMaxWidthSx}>
         <HomeHeaderContainer />
-      </>
+      </Stack>
     );
   }, []);
+
+  // Rendered on web only. On native the equivalent lives inside the history
+  // list's ListHeaderComponent so its height stays inside the list's measurer.
+  const renderSubHeader = useCallback(
+    () => (
+      <Stack {...homePageContentMaxWidthSx}>
+        <HistoryTabNotificationAlertSlot />
+      </Stack>
+    ),
+    [],
+  );
 
   const tabConfigs = useMemo(() => {
     return [
@@ -373,14 +465,30 @@ export function HomePageView({
         name: intl.formatMessage({
           id: ETranslations.dexmarket_spot,
         }),
+        testID: HomeTestIDs.tabPortfolio,
         component: <PortfolioContainerWithProvider />,
       },
+      isPerpsEnabled
+        ? {
+            id: EHomeWalletTab.Perps,
+            name: intl.formatMessage({
+              id: ETranslations.global_perp,
+            }),
+            testID: HomeTestIDs.tabPerps,
+            component: (
+              <HomeTabContentMaxWidth>
+                <PerpsContainer />
+              </HomeTabContentMaxWidth>
+            ),
+          }
+        : undefined,
       isDeFiEnabled
         ? {
             id: EHomeWalletTab.DeFi,
             name: intl.formatMessage({
               id: ETranslations.global_earn,
             }),
+            testID: HomeTestIDs.tabDefi,
             component: <DeFiContainerWithProvider />,
           }
         : undefined,
@@ -390,7 +498,12 @@ export function HomePageView({
             name: intl.formatMessage({
               id: ETranslations.global_nft,
             }),
-            component: <NFTListContainerWithProvider />,
+            testID: HomeTestIDs.tabNFT,
+            component: (
+              <HomeTabContentMaxWidth>
+                <NFTListContainerWithProvider />
+              </HomeTabContentMaxWidth>
+            ),
           }
         : undefined,
       {
@@ -398,32 +511,283 @@ export function HomePageView({
         name: intl.formatMessage({
           id: ETranslations.global_history,
         }),
-        component: <TxHistoryListContainerWithProvider />,
+        testID: HomeTestIDs.tabHistory,
+        component: (
+          <HomeTabContentMaxWidth>
+            <TxHistoryListContainerWithProvider />
+          </HomeTabContentMaxWidth>
+        ),
       },
     ].filter(Boolean);
-  }, [intl, isDeFiEnabled, isNFTEnabled]);
+  }, [intl, isDeFiEnabled, isNFTEnabled, isPerpsEnabled]);
 
-  const handleRenderItem = useCallback((props: ITabBarItemProps) => {
-    return <TabBarItem {...props} />;
+  const pagerTabConfigs = useMemo(
+    () =>
+      tabConfigs.filter(
+        (tab) => !(perpTabShowWeb && tab.id === EHomeWalletTab.Perps),
+      ),
+    [perpTabShowWeb, tabConfigs],
+  );
+
+  const tabBarTabNames = useMemo(
+    () => tabConfigs.map((tab) => tab.name),
+    [tabConfigs],
+  );
+
+  const tabTestIDMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const tab of tabConfigs) {
+      if (tab.testID) {
+        map[tab.name] = tab.testID;
+      }
+    }
+    return map;
+  }, [tabConfigs]);
+
+  const switchToPerpsWebTab = useCallback(() => {
+    navigation.switchTab(ETabRoutes.WebviewPerpTrade);
+  }, [navigation]);
+
+  const handleRenderItem = useCallback(
+    (props: ITabBarItemProps) => {
+      const testID = tabTestIDMap[props.name];
+      const nextTab = tabConfigs.find((tab) => tab.name === props.name);
+      const handlePress = (name: string) => {
+        if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
+          switchToPerpsWebTab();
+          return;
+        }
+        props.onPress(name);
+      };
+      return <TabBarItem {...props} testID={testID} onPress={handlePress} />;
+    },
+    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, tabTestIDMap],
+  );
+
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const portalRefCallback = useCallback((el: HTMLDivElement | null) => {
+    setPortalTarget((prev) => (prev === el ? prev : el));
   }, []);
+
+  const [stickyHost, setStickyHost] = useState<HTMLElement | null>(null);
+  const stickyHostRefCallback = useCallback((el: unknown) => {
+    const next =
+      typeof HTMLElement !== 'undefined' && el instanceof HTMLElement
+        ? el
+        : null;
+    setStickyHost((prev) => (prev === next ? prev : next));
+  }, []);
+
+  const initialTabName = pagerTabConfigs[0]?.name ?? '';
+  const [activeTabName, setActiveTabName] = useState(initialTabName);
+  const initialTabId = pagerTabConfigs[0]?.id;
+  const [activeTabId, setActiveTabId] = useState<EHomeWalletTab | undefined>(
+    initialTabId,
+  );
+  const [mountedHomeTabIds, setMountedHomeTabIds] = useState<
+    Set<EHomeWalletTab>
+  >(() => (initialTabId ? new Set([initialTabId]) : new Set()));
+  const lastDisplayableTabNameRef = useRef(initialTabName);
+
+  useEffect(() => {
+    setActiveTabName((prev) =>
+      pagerTabConfigs.some((tab) => tab.name === prev)
+        ? prev
+        : (pagerTabConfigs[0]?.name ?? ''),
+    );
+    setActiveTabId((prev) =>
+      pagerTabConfigs.some((tab) => tab.id === prev)
+        ? prev
+        : pagerTabConfigs[0]?.id,
+    );
+    const lastDisplayableTab = pagerTabConfigs.find(
+      (tab) => tab.name === lastDisplayableTabNameRef.current,
+    );
+    if (!lastDisplayableTab) {
+      lastDisplayableTabNameRef.current = pagerTabConfigs[0]?.name ?? '';
+    }
+  }, [pagerTabConfigs]);
+
+  useEffect(() => {
+    if (!perpTabShowWeb || activeTabId !== EHomeWalletTab.Perps) {
+      return;
+    }
+    const fallbackTabName = pagerTabConfigs[0]?.name;
+    if (fallbackTabName) {
+      tabsRef.current?.jumpToTab(fallbackTabName);
+    }
+  }, [activeTabId, perpTabShowWeb, pagerTabConfigs]);
+
+  useEffect(() => {
+    if (!activeTabId) {
+      return;
+    }
+    setMountedHomeTabIds((prev) => {
+      if (prev.has(activeTabId)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.add(activeTabId);
+      return next;
+    });
+  }, [activeTabId]);
 
   const renderToolbar = useCallback(
     ({ focusedTab }: { focusedTab: string }) => (
-      <TabHeaderSettings focusedTab={focusedTab} />
+      <XStack alignItems="center" gap="$3" flexShrink={0}>
+        <TabHeaderSettings focusedTab={focusedTab} />
+      </XStack>
     ),
     [],
   );
 
   const renderTabBar = useCallback(
-    (props: any) => (
-      <Tabs.TabBar
-        {...props}
-        variant="pill"
-        renderItem={handleRenderItem}
-        renderToolbar={renderToolbar}
-      />
-    ),
-    [handleRenderItem, renderToolbar],
+    (tabBarProps: any) => {
+      // Design: plain-text tabs on small screens only; pill elsewhere.
+      const tabBarVariant = isSmallScreen ? 'text' : 'pill';
+      const handleTabPress = (name: string) => {
+        const nextTab = tabConfigs.find((tab) => tab.name === name);
+        if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
+          switchToPerpsWebTab();
+          return;
+        }
+        setActiveTabName(nextTab?.name ?? name);
+        setActiveTabId(nextTab?.id);
+        lastDisplayableTabNameRef.current = nextTab?.name ?? name;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        tabBarProps.onTabPress?.(name);
+      };
+
+      if (platformEnv.isNative) {
+        return (
+          <Tabs.TabBar
+            {...tabBarProps}
+            tabNames={tabBarTabNames}
+            indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
+            onTabPress={handleTabPress}
+            variant={tabBarVariant}
+            renderItem={handleRenderItem}
+            renderToolbar={renderToolbar}
+          />
+        );
+      }
+
+      // Outer YStack stays full-width so the sticky bg covers the entire
+      // viewport when the user scrolls the tab bar to the top. The inner Stack
+      // applies the centered max-width so the actual TabBar pills line up with
+      // the rest of the page content blocks.
+      return (
+        <YStack
+          ref={stickyHostRefCallback as any}
+          bg="$bgApp"
+          position={'sticky' as any}
+          top={0}
+          zIndex={10}
+        >
+          <Stack {...homePageContentMaxWidthSx}>
+            <Tabs.TabBar
+              {...tabBarProps}
+              tabNames={tabBarTabNames}
+              indexDecimal={
+                perpTabShowWeb ? undefined : tabBarProps.indexDecimal
+              }
+              onTabPress={handleTabPress}
+              variant={tabBarVariant}
+              renderItem={handleRenderItem}
+              renderToolbar={renderToolbar}
+              containerStyle={{ position: 'relative' as any }}
+            />
+            <div
+              ref={portalRefCallback}
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                zIndex: 1,
+              }}
+            />
+          </Stack>
+        </YStack>
+      );
+    },
+    [
+      portalRefCallback,
+      stickyHostRefCallback,
+      handleRenderItem,
+      renderToolbar,
+      switchToPerpsWebTab,
+      perpTabShowWeb,
+      isSmallScreen,
+      tabConfigs,
+      tabBarTabNames,
+    ],
+  );
+
+  const handleTabChange = useCallback(
+    (data: { tabName: string }) => {
+      const nextTab = tabConfigs.find((tab) => tab.name === data.tabName);
+      if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
+        switchToPerpsWebTab();
+        const fallbackTabName =
+          lastDisplayableTabNameRef.current || pagerTabConfigs[0]?.name;
+        if (fallbackTabName && fallbackTabName !== data.tabName) {
+          tabsRef.current?.jumpToTab(fallbackTabName);
+        }
+        return;
+      }
+      setActiveTabName(nextTab?.name ?? data.tabName);
+      setActiveTabId(nextTab?.id);
+      lastDisplayableTabNameRef.current = nextTab?.name ?? data.tabName;
+    },
+    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, pagerTabConfigs],
+  );
+
+  // When the user switches network while NOT on the wallet (token list) tab,
+  // that tab is frozen (see FreezeInactiveHomeTab) so its own token-list
+  // refresh won't run until the user returns — leaving the always-visible
+  // header worth stuck on the previous network. Proactively refresh the wallet
+  // token list for the new network. The list resolves the request from the
+  // explicit account/network in the payload because its own closures are
+  // frozen on the previous network.
+  const prevNetworkIdRef = useRef(network?.id);
+  useEffect(() => {
+    const nextNetworkId = network?.id;
+    const prevNetworkId = prevNetworkIdRef.current;
+    prevNetworkIdRef.current = nextNetworkId;
+    if (!prevNetworkId || !nextNetworkId || prevNetworkId === nextNetworkId) {
+      return;
+    }
+    if (!activeTabId || activeTabId === EHomeWalletTab.Portfolio) {
+      return;
+    }
+    const accountId = account?.id;
+    if (!accountId) {
+      return;
+    }
+    appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+      accounts: [
+        {
+          accountId,
+          networkId: nextNetworkId,
+          // Provide the fresh indexedAccountId so the frozen token list can
+          // resolve aggregate hidden/custom tokens correctly instead of
+          // falling back to its own (stale) closure.
+          indexedAccountId: indexedAccount?.id,
+        },
+      ],
+      refreshByProvidedAccounts: true,
+    });
+  }, [network?.id, activeTabId, account?.id, indexedAccount?.id]);
+
+  const stickyHeaderCtx = useMemo(
+    () => ({
+      portalTarget,
+      stickyHost,
+      activeTabName,
+      activeTabId,
+    }),
+    [portalTarget, stickyHost, activeTabName, activeTabId],
   );
 
   const tabs = useMemo(() => {
@@ -440,22 +804,57 @@ export function HomePageView({
         </Keyboard.AwareScrollView>
       );
     }
-    const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
-      network?.id ?? ''
-    }-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}`;
+    // Exclude isDeFiEnabled/isNFTEnabled from key to prevent Tabs.Container
+    // from being destroyed and recreated when these values change async.
+    // Tabs render conditionally inside the container instead.
+    //
+    // Also exclude `account?.id` and `network?.id`: for HD wallets the
+    // per-network account.id differs across networks even when the user is
+    // on the same indexedAccount, and including network.id forces a full
+    // remount of Tabs.Container (and the FlashList inside TokenListView) on
+    // every network switch. The remount produces a brief blank frame while
+    // FlashList re-measures, even when the target has cache. Keying on
+    // wallet + indexedAccountId (with account.id as the Others-wallet
+    // fallback, since those have no indexedAccountId) keeps the subtree
+    // mounted across pure network switches — the singleton token-list atoms
+    // are then driven by account/network changes via the per-owner cache
+    // hydration in TokenListBlock.
+    //
+    // Caveat: Others wallets (imported / watching / external) have no
+    // `indexedAccountId`, so they fall back to `account.id`, which IS
+    // network-scoped for those wallet types. Switching networks on an
+    // Others wallet therefore still remounts Tabs.Container — the
+    // optimization here is intentionally HD-only because Others wallets
+    // typically stay pinned to a single network and the cost of the
+    // occasional remount is not worth special-casing.
+    const key = `${wallet?.id ?? ''}-${
+      account?.indexedAccountId ?? account?.id ?? ''
+    }`;
     return (
       <Tabs.Container
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
+        headerHeight={platformEnv.isNative ? 312 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
+        onTabChange={handleTabChange}
+        renderSubHeader={renderSubHeader}
       >
-        {tabConfigs.map((tab) => (
+        {pagerTabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
-            {tab.component}
+            <FreezeInactiveHomeTab tabName={tab.name}>
+              {platformEnv.isNative ||
+              tab.id === EHomeWalletTab.Perps ||
+              activeTabId === tab.id ||
+              mountedHomeTabIds.has(tab.id) ? (
+                tab.component
+              ) : (
+                <Stack flex={1} />
+              )}
+            </FreezeInactiveHomeTab>
           </Tabs.Tab>
         ))}
       </Tabs.Container>
@@ -463,39 +862,70 @@ export function HomePageView({
   }, [
     tabBarHeight,
     tabContainerWidth,
+    wallet?.id,
     account?.id,
     account?.indexedAccountId,
-    isDeFiEnabled,
-    isNFTEnabled,
     isWalletNotBackedUp,
-    network?.id,
     renderHeader,
     renderTabBar,
-    tabConfigs,
+    handleTabChange,
+    renderSubHeader,
+    pagerTabConfigs,
+    activeTabId,
+    mountedHomeTabIds,
   ]);
 
   const handleSwitchWalletHomeTab = useCallback(
     (payload: { id: EHomeWalletTab }) => {
+      if (perpTabShowWeb && payload.id === EHomeWalletTab.Perps) {
+        switchToPerpsWebTab();
+        return;
+      }
       const name = tabConfigs.find((i) => i.id === payload.id)?.name;
       if (name) {
         tabsRef.current?.jumpToTab(name);
       }
     },
-    [tabConfigs],
+    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs],
   );
 
   useEffect(() => {
-    void Icon.prefetch('CloudOffOutline');
+    void Icon.prefetch(
+      'CloudOffOutline',
+      'ArrowTopOutline',
+      'ArrowBottomOutline',
+      'DotHorOutline',
+      'SearchOutline',
+      'BellOutline',
+    );
   }, []);
 
   useEffect(() => {
     const clearCache = async () => {
       await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
     };
+    // Keep the no-wallet gate's wallet list fresh: it feeds
+    // shouldShowNoWalletContent, and a stale mount-time list can hold Home on
+    // the blank fallback after wallets are removed while mounted.
+    const refreshWalletListForNoWalletGate = () => {
+      void refreshWalletList();
+    };
 
     appEventBus.on(EAppEventBusNames.WalletUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AccountUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AddressBookUpdate, clearCache);
+    appEventBus.on(
+      EAppEventBusNames.WalletUpdate,
+      refreshWalletListForNoWalletGate,
+    );
+    appEventBus.on(
+      EAppEventBusNames.AccountUpdate,
+      refreshWalletListForNoWalletGate,
+    );
+    appEventBus.on(
+      EAppEventBusNames.AccountRemove,
+      refreshWalletListForNoWalletGate,
+    );
     appEventBus.on(
       EAppEventBusNames.SwitchWalletHomeTab,
       handleSwitchWalletHomeTab,
@@ -505,15 +935,27 @@ export function HomePageView({
       appEventBus.off(EAppEventBusNames.AccountUpdate, clearCache);
       appEventBus.off(EAppEventBusNames.AddressBookUpdate, clearCache);
       appEventBus.off(
+        EAppEventBusNames.WalletUpdate,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
+        EAppEventBusNames.AccountUpdate,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
+        EAppEventBusNames.AccountRemove,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
         EAppEventBusNames.SwitchWalletHomeTab,
         handleSwitchWalletHomeTab,
       );
     };
-  }, [handleSwitchWalletHomeTab]);
+  }, [handleSwitchWalletHomeTab, refreshWalletList]);
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
-      if (!network?.id) return undefined;
+      if (!network?.id || (!wallet?.id && !account?.id)) return undefined;
       const checkResult =
         await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
           {
@@ -608,12 +1050,13 @@ export function HomePageView({
     tabs,
   ]);
 
-  // Initial heights based on typical header sizes on each platform
+  // Initial heights based on measured header sizes on each platform.
+  // iOS measured: 162 (raw 182 - 20 offset). Must match actual layout
+  // to prevent content shift when onLayout fires.
   const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 143 : 92,
+    platformEnv.isNativeIOS ? 162 : 92,
   );
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    // Use the actual measured height without arbitrary adjustments
     const height = e.nativeEvent.layout.height - 20;
     setTabPageHeight(height);
   }, []);
@@ -622,20 +1065,45 @@ export function HomePageView({
     wallet,
     account,
   });
+  const walletListWalletIds = walletListResult?.wallets.map((item) => item.id);
+  const walletListResolvedNoWallet = isWalletListResolvedNoWallet({
+    wallets: walletListResult?.wallets,
+  });
+  const walletPageContent = useMemo(
+    () =>
+      platformEnv.isNative ? (
+        <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
+      ) : (
+        homePageContent
+      ),
+    [homePageContent],
+  );
+  const activeWalletId = wallet?.id;
+  const activeWalletUnavailable =
+    accountUtils.isWalletDeprecatedOrMocked(wallet);
+  const showNoWalletContent = shouldShowNoWalletContent({
+    hasNoUsableWallet,
+    accountSelectorStorageInitDone,
+    accountSelectorActiveAccountInitDone,
+    walletListResolvedNoWallet,
+    activeWalletUnavailable,
+    activeWalletId,
+    walletListWalletIds,
+  });
 
   const homePage = useMemo(() => {
     if (!ready) {
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 
-    let content = <NoWalletContent tabBarHeight={tabBarHeight} />;
+    let content = <Stack flex={1} />;
+
+    if (showNoWalletContent) {
+      content = <NoWalletContent tabBarHeight={tabBarHeight} />;
+    }
 
     if (!hasNoUsableWallet) {
-      content = platformEnv.isNative ? (
-        <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
-      ) : (
-        homePageContent
-      );
+      content = walletPageContent;
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
     }
     return (
@@ -647,7 +1115,11 @@ export function HomePageView({
             ) : (
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             )}
-            <NetworkAlert />
+            <Stack {...homePageContentMaxWidthSx}>
+              <RiskApprovalAlert />
+              <WatchOnlyAlert />
+              <NetworkAlert />
+            </Stack>
             {content}
             {platformEnv.isNative ? (
               <YStack
@@ -672,14 +1144,21 @@ export function HomePageView({
   }, [
     ready,
     hasNoUsableWallet,
+    showNoWalletContent,
     tabPageHeight,
     sceneName,
     handleTabPageLayout,
-    homePageContent,
+    walletPageContent,
     tabBarHeight,
   ]);
 
   return useMemo(() => {
-    return <Page fullPage>{homePage}</Page>;
-  }, [homePage]);
+    return (
+      <HomeStickyHeaderContext.Provider value={stickyHeaderCtx}>
+        <Page fullPage testID={HomeTestIDs.page}>
+          {homePage}
+        </Page>
+      </HomeStickyHeaderContext.Provider>
+    );
+  }, [homePage, stickyHeaderCtx]);
 }

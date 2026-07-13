@@ -4,11 +4,11 @@ import { useIntl } from 'react-intl';
 
 import { Icon, Popover, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useUrlRiskConfig } from '../../hooks/useUrlRiskConfig';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 
@@ -84,14 +84,12 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
         color="$textSubdued"
         flex={1}
         numberOfLines={1}
-        testID="explore-index-search"
+        testID={DiscoveryTestIDs.searchBar}
       >
         {displayUrl
           ? hiddenHttpsUrl
           : intl.formatMessage({
-              id: platformEnv.isWebDappMode
-                ? ETranslations.global_search
-                : ETranslations.global_search_everything,
+              id: ETranslations.browser_search_dapp_or_enter_url,
             })}
       </SizableText>
     </XStack>

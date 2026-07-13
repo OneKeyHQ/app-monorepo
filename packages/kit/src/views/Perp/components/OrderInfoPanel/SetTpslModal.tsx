@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -16,42 +17,54 @@ import {
   getFontSize,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  useHyperliquidActions,
-  usePerpsActivePositionAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   type EModalPerpRoutes,
   type IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
 import {
   calculateProfitLoss,
-  formatWithPrecision,
+  formatHlSize,
   parseDexCoin,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
+import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import {
+  getPerpsAccountScopedListData,
+  isPerpsAccountAddressMatched,
+} from '../../utils/accountScopedData';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../PerpDialogLayout';
 import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TpslInput } from '../TradingPanel/inputs/TpslInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { IntlShape } from 'react-intl';
 
 export interface ISetTpslParams {
   coin: string;
   szDecimals: number;
   assetId: number;
   isMobile?: boolean;
+  // Seed a single trigger field when opened from a chart position context.
+  presetTriggerPrice?: string;
+  presetTpsl?: 'tp' | 'sl';
 }
 
-interface ISetTpslFormProps extends ISetTpslParams {
+interface ISetTpslFormProps extends Omit<ISetTpslParams, 'isMobile'> {
   onClose: () => void;
 }
 
@@ -62,19 +75,123 @@ function MarkPrice({ coin }: { coin: string }) {
   );
 }
 
+function CancelOrderButton({
+  disabled,
+  label,
+  onPress,
+}: {
+  disabled: boolean;
+  label: string;
+  onPress?: () => void;
+}) {
+  return (
+    <Button
+      testID="perp-intl-btn"
+      size="small"
+      variant="secondary"
+      ml="$2"
+      minWidth={56}
+      height={24}
+      px="$2.5"
+      disabled={disabled}
+      onPress={onPress}
+      flexShrink={0}
+    >
+      <SizableText
+        size="$bodySmMedium"
+        color={disabled ? '$textDisabled' : '$text'}
+      >
+        {label}
+      </SizableText>
+    </Button>
+  );
+}
+
+function ExistingTpslOrderSummary({
+  relationLabel,
+  triggerPx,
+  pnlLabel,
+  pnlValue,
+  disabled,
+  cancelLabel,
+  onCancel,
+}: {
+  relationLabel: string;
+  triggerPx: string;
+  pnlLabel: string;
+  pnlValue: string;
+  disabled: boolean;
+  cancelLabel: string;
+  onCancel: () => void;
+}) {
+  const isNegative = pnlValue.startsWith('-');
+  const formattedPnlValue = isNegative
+    ? `-$${pnlValue.slice(1)}`
+    : `$${pnlValue}`;
+
+  return (
+    <YStack gap="$1.5" py="$1">
+      <XStack alignItems="center" justifyContent="space-between" gap="$3">
+        <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
+          <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+            {relationLabel}
+          </SizableText>
+          <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
+            {triggerPx}
+          </SizableText>
+        </XStack>
+        <CancelOrderButton
+          disabled={disabled}
+          label={cancelLabel}
+          onPress={onCancel}
+        />
+      </XStack>
+      <XStack alignItems="center" justifyContent="flex-end" gap="$1.5">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {pnlLabel}
+        </SizableText>
+        <SizableText
+          size="$bodyMdMedium"
+          color={isNegative ? '$red11' : '$green11'}
+        >
+          {formattedPnlValue}
+        </SizableText>
+      </XStack>
+    </YStack>
+  );
+}
+
 const SetTpslForm = memo(
   ({
     coin,
     szDecimals,
     assetId,
-    isMobile,
+    presetTriggerPrice,
+    presetTpsl,
     onClose = () => {},
   }: ISetTpslFormProps) => {
+    const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
     const { mid: midPrice } = usePerpsMidPrice({ coin });
 
-    const [{ activePositions }] = usePerpsActivePositionAtom();
-    const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
+    const activePositions = usePerpsAccountScopedActivePositions();
+    const [activeAccount] = usePerpsActiveAccountAtom();
+    const accountScopedAddress = usePerpsAccountScopedCacheAddress();
+    const canSubmitForScopedAccount = isPerpsAccountAddressMatched({
+      activeAccountAddress: activeAccount?.accountAddress,
+      dataAccountAddress: accountScopedAddress,
+    });
+    const [{ accountAddress: openOrdersAccountAddress, openOrders }] =
+      usePerpsActiveOpenOrdersAtom();
+    const accountScopedOpenOrders = useMemo(
+      () =>
+        getPerpsAccountScopedListData({
+          activeAccountAddress: accountScopedAddress,
+          dataAccountAddress: openOrdersAccountAddress,
+          data: openOrders,
+        }),
+      [accountScopedAddress, openOrders, openOrdersAccountAddress],
+    );
 
     const currentPosition = useMemo(() => {
       return activePositions.find((p) => p.position.coin === coin)?.position;
@@ -82,12 +199,12 @@ const SetTpslForm = memo(
 
     const currentTpslOrders = useMemo(() => {
       if (!currentPosition) return [];
-      return openOrders.filter(
+      return accountScopedOpenOrders.filter(
         (o) =>
           o.coin === currentPosition.coin &&
           (o.orderType.startsWith('Take') || o.orderType.startsWith('Stop')),
       );
-    }, [openOrders, currentPosition]);
+    }, [accountScopedOpenOrders, currentPosition]);
 
     useEffect(() => {
       if (!currentPosition || new BigNumber(currentPosition.szi || '0').eq(0)) {
@@ -147,6 +264,9 @@ const SetTpslForm = memo(
 
     const handleCancelOrder = useCallback(
       async (order: IPerpsFrontendOrder) => {
+        if (!canSubmitForScopedAccount) {
+          return;
+        }
         await hyperliquidActions.current.ensureTradingEnabled();
         const symbolMeta =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
@@ -166,7 +286,7 @@ const SetTpslForm = memo(
           ],
         });
       },
-      [hyperliquidActions],
+      [canSubmitForScopedAccount, hyperliquidActions],
     );
 
     const entryPrice = useMemo(() => {
@@ -185,12 +305,14 @@ const SetTpslForm = memo(
       return 1; // Default leverage if calculation fails
     }, [currentPosition]);
 
-    const [formData, setFormData] = useState({
-      tpPrice: '',
-      slPrice: '',
+    const [formData, setFormData] = useState(() => ({
+      tpPrice:
+        presetTriggerPrice && presetTpsl === 'tp' ? presetTriggerPrice : '',
+      slPrice:
+        presetTriggerPrice && presetTpsl === 'sl' ? presetTriggerPrice : '',
       amount: '',
       percentage: 100,
-    });
+    }));
 
     const [configureAmount, setConfigureAmount] = useState(false);
 
@@ -206,7 +328,8 @@ const SetTpslForm = memo(
         ? 0
         : formData.percentage;
       const amount = positionSize.multipliedBy(percentage).dividedBy(100);
-      return formatWithPrecision(amount.toNumber(), szDecimals, true);
+      // Floor-truncate to szDecimals to match HL lot-size rule (no over-rounding).
+      return formatHlSize(amount, szDecimals) || '0';
     }, [positionSize, formData.percentage, szDecimals]);
 
     const handleTpslChange = useCallback(
@@ -222,14 +345,11 @@ const SetTpslForm = memo(
 
     const handlePercentageChange = useCallback(
       (percentage: number) => {
-        const amount = positionSize
-          .multipliedBy(percentage)
-          .dividedBy(100)
-          .toFixed(szDecimals);
+        const amount = positionSize.multipliedBy(percentage).dividedBy(100);
         setFormData((prev) => ({
           ...prev,
           percentage,
-          amount,
+          amount: formatHlSize(amount, szDecimals) || '0',
         }));
       },
       [positionSize, szDecimals],
@@ -283,6 +403,9 @@ const SetTpslForm = memo(
 
     const handleSubmit = useCallback(async () => {
       try {
+        if (!canSubmitForScopedAccount) {
+          return;
+        }
         setIsSubmitting(true);
 
         const tpslAmount = configureAmount
@@ -293,7 +416,7 @@ const SetTpslForm = memo(
         if (configureAmount) {
           if (!tpOrder && !slOrder && (!tpslAmount || tpslAmountBN.lte(0))) {
             Toast.error({
-              title: appLocale.intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.perp_tp_sl_error_enter,
               }),
             });
@@ -302,7 +425,7 @@ const SetTpslForm = memo(
 
           if (tpslAmountBN.gt(positionSize)) {
             Toast.error({
-              title: appLocale.intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.perp_tp_sl_error_amount,
               }),
             });
@@ -312,7 +435,7 @@ const SetTpslForm = memo(
 
         if (!isValidForm) {
           Toast.error({
-            title: appLocale.intl.formatMessage({
+            title: intl.formatMessage({
               id: ETranslations.perp_tp_sl_error_price,
             }),
           });
@@ -337,7 +460,7 @@ const SetTpslForm = memo(
             let errorMessage = '';
             if (isLongPosition) {
               // Long + above
-              errorMessage = appLocale.intl.formatMessage({
+              errorMessage = intl.formatMessage({
                 // invalid => invalid
 
                 // oxlint-disable-next-line @cspell/spellchecker
@@ -345,7 +468,7 @@ const SetTpslForm = memo(
               });
             } else {
               // Short + below
-              errorMessage = appLocale.intl.formatMessage({
+              errorMessage = intl.formatMessage({
                 // invalid => invalid
 
                 // oxlint-disable-next-line @cspell/spellchecker
@@ -373,7 +496,7 @@ const SetTpslForm = memo(
             let errorMessage = '';
             if (isLongPosition) {
               // Long + below
-              errorMessage = appLocale.intl.formatMessage({
+              errorMessage = intl.formatMessage({
                 // invalid => invalid
 
                 // oxlint-disable-next-line @cspell/spellchecker
@@ -381,7 +504,7 @@ const SetTpslForm = memo(
               });
             } else {
               // Short + above
-              errorMessage = appLocale.intl.formatMessage({
+              errorMessage = intl.formatMessage({
                 // invalid => invalid
 
                 // oxlint-disable-next-line @cspell/spellchecker
@@ -426,6 +549,8 @@ const SetTpslForm = memo(
       tpOrder,
       midPrice,
       isValidForm,
+      intl,
+      canSubmitForScopedAccount,
     ]);
 
     // Early return if position doesn't exist to prevent accessing undefined properties
@@ -439,7 +564,7 @@ const SetTpslForm = memo(
           <YStack gap="$3">
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
+                {intl.formatMessage({
                   id: ETranslations.perp_token_selector_asset,
                 })}
               </SizableText>
@@ -448,7 +573,7 @@ const SetTpslForm = memo(
 
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
+                {intl.formatMessage({
                   id: ETranslations.perp_position_position_size,
                 })}
               </SizableText>
@@ -459,7 +584,7 @@ const SetTpslForm = memo(
 
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
+                {intl.formatMessage({
                   id: ETranslations.perp_position_entry_price,
                 })}
               </SizableText>
@@ -468,7 +593,7 @@ const SetTpslForm = memo(
 
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
+                {intl.formatMessage({
                   id: ETranslations.perp_position_mark_price,
                 })}
               </SizableText>
@@ -477,56 +602,25 @@ const SetTpslForm = memo(
           </YStack>
           <Divider />
           {!tpOrder ? null : (
-            <XStack justifyContent="space-between">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
-                  id: ETranslations.perp_trade_tp_price,
-                })}
-              </SizableText>
-              <YStack gap="$1">
-                <XStack gap="$1">
-                  <SizableText size="$bodyMdMedium">
-                    {appLocale.intl.formatMessage({
-                      id: ETranslations.perp_tp_sl_above,
-                    })}
-                    {': '}
-                    {tpOrder.triggerPx}
-                  </SizableText>
-                  <SizableText
-                    size="$bodyMd"
-                    color="$green9"
-                    ml="$2"
-                    onPress={() => handleCancelOrder(tpOrder)}
-                  >
-                    {appLocale.intl.formatMessage({
-                      id: ETranslations.perp_open_orders_cancel,
-                    })}
-                  </SizableText>
-                </XStack>
-                {expectedProfit ? (
-                  <SizableText
-                    size="$bodySm"
-                    alignSelf="flex-end"
-                    color="$textSubdued"
-                  >
-                    {appLocale.intl.formatMessage({
-                      id: ETranslations.perp_tp_sl_profit,
-                    })}
-                    {': '}
-                    <SizableText
-                      size="$bodySm"
-                      color={
-                        expectedProfit.startsWith('-') ? '$red11' : '$green11'
-                      }
-                    >
-                      {expectedProfit.startsWith('-')
-                        ? `-$${expectedProfit.slice(1)}`
-                        : `$${expectedProfit}`}
-                    </SizableText>
-                  </SizableText>
-                ) : null}
-              </YStack>
-            </XStack>
+            <YStack gap="$1">
+              {expectedProfit ? (
+                <ExistingTpslOrderSummary
+                  relationLabel={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_above,
+                  })}
+                  triggerPx={tpOrder.triggerPx}
+                  pnlLabel={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_profit,
+                  })}
+                  pnlValue={expectedProfit}
+                  disabled={!canSubmitForScopedAccount}
+                  cancelLabel={intl.formatMessage({
+                    id: ETranslations.perp_open_orders_cancel,
+                  })}
+                  onCancel={() => handleCancelOrder(tpOrder)}
+                />
+              ) : null}
+            </YStack>
           )}
           <TpslInput
             price={entryPrice}
@@ -545,63 +639,33 @@ const SetTpslForm = memo(
             hiddenSl={!!slOrder}
           />
           {!slOrder ? null : (
-            <XStack justifyContent="space-between">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {appLocale.intl.formatMessage({
-                  id: ETranslations.perp_trade_sl_price,
-                })}
-              </SizableText>
-              <YStack gap="$1">
-                <XStack gap="$1">
-                  <SizableText size="$bodyMdMedium">
-                    {appLocale.intl.formatMessage({
-                      id: ETranslations.perp_tp_sl_below,
-                    })}
-                    {': '}
-                    {slOrder.triggerPx}
-                  </SizableText>
-                  <SizableText
-                    size="$bodyMd"
-                    color="$green9"
-                    ml="$2"
-                    onPress={() => handleCancelOrder(slOrder)}
-                  >
-                    {appLocale.intl.formatMessage({
-                      id: ETranslations.perp_open_orders_cancel,
-                    })}
-                  </SizableText>
-                </XStack>
-                {expectedLoss ? (
-                  <SizableText
-                    size="$bodySm"
-                    alignSelf="flex-end"
-                    color="$textSubdued"
-                  >
-                    {appLocale.intl.formatMessage({
-                      id: ETranslations.perp_tp_sl_loss,
-                    })}
-                    {': '}
-                    <SizableText
-                      size="$bodySm"
-                      color={
-                        expectedLoss.startsWith('-') ? '$red11' : '$green11'
-                      }
-                    >
-                      {expectedLoss.startsWith('-')
-                        ? `-$${expectedLoss.slice(1)}`
-                        : `$${expectedLoss}`}
-                    </SizableText>
-                  </SizableText>
-                ) : null}
-              </YStack>
-            </XStack>
+            <YStack gap="$1">
+              {expectedLoss ? (
+                <ExistingTpslOrderSummary
+                  relationLabel={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_below,
+                  })}
+                  triggerPx={slOrder.triggerPx}
+                  pnlLabel={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_loss,
+                  })}
+                  pnlValue={expectedLoss}
+                  disabled={!canSubmitForScopedAccount}
+                  cancelLabel={intl.formatMessage({
+                    id: ETranslations.perp_open_orders_cancel,
+                  })}
+                  onCancel={() => handleCancelOrder(slOrder)}
+                />
+              ) : null}
+            </YStack>
           )}
 
           <YStack alignItems="flex-start" gap="$2" width="100%">
             <Checkbox
+              testID="perp-checkbox"
               value={configureAmount}
               onChange={(checked) => setConfigureAmount(Boolean(checked))}
-              label={appLocale.intl.formatMessage({
+              label={intl.formatMessage({
                 id: ETranslations.perp_tp_sl_partial_position,
               })}
               labelProps={{
@@ -617,7 +681,7 @@ const SetTpslForm = memo(
               <YStack width="100%" gap="$5">
                 <YStack width="100%">
                   <TradingFormInput
-                    label={appLocale.intl.formatMessage({
+                    label={intl.formatMessage({
                       id: ETranslations.dexmarket_details_history_amount,
                     })}
                     value={
@@ -640,22 +704,28 @@ const SetTpslForm = memo(
                     onChange={handlePercentageChange}
                     max={100}
                     min={0}
-                    segments={0}
+                    segments={4}
+                    snapTapToSegment
+                    sliderHeight={4}
+                    showBubble={false}
                   />
                 </YStack>
               </YStack>
             ) : null}
           </YStack>
         </YStack>
-        <TradingGuardWrapper>
+        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
           <Button
-            size={isMobile ? 'large' : 'medium'}
+            testID="perp-processed-value-btn"
+            size={PERP_DIALOG_BUTTON_SIZE}
             variant="primary"
             onPress={handleSubmit}
-            disabled={!isValidForm || isSubmitting}
+            disabled={
+              !canSubmitForScopedAccount || !isValidForm || isSubmitting
+            }
             loading={isSubmitting}
           >
-            {appLocale.intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.perp_confirm_order,
             })}
           </Button>{' '}
@@ -668,10 +738,11 @@ const SetTpslForm = memo(
 SetTpslForm.displayName = 'SetTpslForm';
 
 function SetTpslModal() {
+  const intl = useIntl();
   const route =
     useRoute<RouteProp<IModalPerpParamList, EModalPerpRoutes.MobileSetTpsl>>();
 
-  const { coin, szDecimals, assetId, isMobile = true } = route.params;
+  const { coin, szDecimals, assetId } = route.params;
   const navigation = useNavigation();
   const handleClose = useCallback(() => {
     navigation.goBack();
@@ -679,22 +750,23 @@ function SetTpslModal() {
   return (
     <Page>
       <Page.Header
-        title={appLocale.intl.formatMessage({
+        title={intl.formatMessage({
           id: ETranslations.perp_tp_sl_position,
         })}
       />
       <Page.Body>
-        <PerpsProviderMirror>
-          <YStack px="$4" flex={1}>
-            <SetTpslForm
-              coin={coin}
-              szDecimals={szDecimals}
-              assetId={assetId}
-              onClose={handleClose}
-              isMobile={isMobile}
-            />
-          </YStack>
-        </PerpsProviderMirror>
+        <PerpsAccountSelectorProviderMirror>
+          <PerpsProviderMirror>
+            <YStack px="$4" flex={1}>
+              <SetTpslForm
+                coin={coin}
+                szDecimals={szDecimals}
+                assetId={assetId}
+                onClose={handleClose}
+              />
+            </YStack>
+          </PerpsProviderMirror>
+        </PerpsAccountSelectorProviderMirror>
       </Page.Body>
     </Page>
   );
@@ -705,26 +777,34 @@ export function showSetTpslDialog({
   coin,
   szDecimals,
   assetId,
-}: ISetTpslParams) {
+  presetTriggerPrice,
+  presetTpsl,
+  intl,
+}: ISetTpslParams & { intl: IntlShape }) {
   const dialogInstance = Dialog.show({
-    title: appLocale.intl.formatMessage({
+    title: intl.formatMessage({
       id: ETranslations.perp_tp_sl_position,
     }),
-    description: appLocale.intl.formatMessage({
+    description: intl.formatMessage({
       id: ETranslations.perp_tp_sl_position_desc,
     }),
     renderContent: (
-      <PerpsProviderMirror>
-        <SetTpslForm
-          coin={coin}
-          szDecimals={szDecimals}
-          assetId={assetId}
-          onClose={() => {
-            void dialogInstance.close();
-          }}
-        />
-      </PerpsProviderMirror>
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <SetTpslForm
+            coin={coin}
+            szDecimals={szDecimals}
+            assetId={assetId}
+            presetTriggerPrice={presetTriggerPrice}
+            presetTpsl={presetTpsl}
+            onClose={() => {
+              void dialogInstance.close();
+            }}
+          />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();

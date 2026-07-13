@@ -1,3 +1,5 @@
+import { EDesktopIpcChannel } from '@onekeyhq/shared/src/consts/desktopIpcChannels';
+
 import type { Contexts } from '@sentry/core';
 import type { Systeminformation } from 'systeminformation';
 
@@ -55,6 +57,9 @@ export const ipcMessageKeys = {
 
   // App
   SHOW_ABOUT_WINDOW: 'showAboutWindow',
+  CPU_WATCHDOG_OPEN_EXPORT_LOGS: 'app/cpuWatchdog/openExportLogs',
+  CPU_WATCHDOG_FORCE_TRIGGER: 'app/cpuWatchdog/forceTrigger',
+  CPU_WATCHDOG_RESET_COOLDOWN: 'app/cpuWatchdog/resetCooldown',
   APP_STATE: 'appState',
   APP_READY: 'app/ready',
   APP_SHORTCUT: 'app/shortcut',
@@ -83,8 +88,9 @@ export const ipcMessageKeys = {
 
   SET_ONEKEY_DESKTOP_GLOBALS: 'onekey/setDesktopGlobals',
 
-  // webview
-  WEBVIEW_NEW_WINDOW: 'webview/newWindow',
+  // webview — channel name lives in `shared/src/consts/desktopIpcChannels`
+  // so non-app packages can subscribe without importing from `apps/desktop`.
+  WEBVIEW_NEW_WINDOW: EDesktopIpcChannel.WEBVIEW_NEW_WINDOW,
 
   // notification
   NOTIFICATION_SET_BADGE_WINDOWS: 'notification/setBadge/windows',
@@ -102,4 +108,12 @@ export const ipcMessageKeys = {
   RECOVERY_EXPORT_LOGS: 'recovery/exportLogs',
   RECOVERY_TRY_AGAIN: 'recovery/tryAgain',
   RECOVERY_AUTO_REPAIR: 'recovery/autoRepair',
+
+  // Tray
+  TRAY_DATA_REQUEST: 'tray/dataRequest',
+  TRAY_DATA_RESPONSE: 'tray/dataResponse',
+  TRAY_UPDATE: 'tray/update',
+  TRAY_ACTION: 'tray/action',
+  TRAY_TOGGLE: 'tray/toggle',
+  TRAY_READY: 'tray/ready',
 };

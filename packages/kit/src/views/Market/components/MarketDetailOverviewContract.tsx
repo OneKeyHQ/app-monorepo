@@ -55,6 +55,7 @@ export function MarketDetailOverviewContract({
       })}
       {isShowAllInDefault ? null : (
         <Button
+          testID="market-platform-btn"
           size="medium"
           variant="secondary"
           onPress={handleViewMore}

@@ -18,6 +18,8 @@ export interface IBrowserBookmark {
   url: string;
   logo: string | undefined;
   sortIndex: number | undefined;
+  titleMatch?: IFuseResultMatch;
+  urlMatch?: IFuseResultMatch;
 }
 
 export interface IBrowserRiskWhiteList {

@@ -2,12 +2,18 @@ import * as Linking from 'expo-linking';
 import { isString } from 'lodash';
 
 import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
+import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { IEOneKeyDeepLinkParams } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import {
   EOneKeyDeepLinkPath,
   ONEKEY_APP_DEEP_LINK,
   ONEKEY_APP_DEEP_LINK_NAME,
+  ONEKEY_PERPS_APP_LINK_HOST,
+  ONEKEY_PERPS_TEST_APP_LINK_HOST,
+  ONEKEY_STOCKS_APP_LINK_HOST,
+  ONEKEY_STOCKS_TEST_APP_LINK_HOST,
+  ONEKEY_SWAP_APP_LINK_HOST,
   ONEKEY_UNIVERSAL_LINK_HOST,
   ONEKEY_UNIVERSAL_TEST_LINK_HOST,
   WALLET_CONNECT_DEEP_LINK,
@@ -15,20 +21,39 @@ import {
   WalletConnectUniversalLinkPath,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
-  ETabHomeRoutes,
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  ERootRoutes,
+  ETabDiscoveryRoutes,
+  ETabMarketRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
+  ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
+import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
+import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
 import { registerHandler } from './handler';
+import { parseWebViewDeepLink } from './parseWebViewDeepLink';
+import {
+  handleReferralLandingUrl,
+  isValidReferralCode,
+  navigateToReferralLanding,
+} from './referralLandingLink';
 
 type IDeepLinkUrlParsedResult = {
   type: 'walletConnect';
@@ -40,6 +65,230 @@ type IProcessDeepLinkParams = {
   parsedUrl: Linking.ParsedURL;
 };
 
+function getStringQueryParam(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.find((item): item is string => typeof item === 'string');
+  }
+  return undefined;
+}
+
+let pendingRedeemBitcoinVoucherInitialCode: string | undefined;
+let redeemBitcoinVoucherOpenTask: Promise<void> | undefined;
+
+async function openRedeemBitcoinVoucherDialog(initialCode?: string) {
+  pendingRedeemBitcoinVoucherInitialCode = initialCode;
+
+  redeemBitcoinVoucherOpenTask ??= (async () => {
+    try {
+      await whenAppUnlocked();
+      const { showRedemptionCenterDialog } =
+        await import('../../../views/Redemption/components');
+      showRedemptionCenterDialog({
+        initialCode: pendingRedeemBitcoinVoucherInitialCode,
+        source: 'deeplink',
+      });
+    } finally {
+      pendingRedeemBitcoinVoucherInitialCode = undefined;
+      redeemBitcoinVoucherOpenTask = undefined;
+    }
+  })();
+
+  await redeemBitcoinVoucherOpenTask;
+}
+
+function getOneKeyDeepLinkPath({ hostname, path, scheme }: Linking.ParsedURL) {
+  if (scheme !== ONEKEY_APP_DEEP_LINK && scheme !== ONEKEY_APP_DEEP_LINK_NAME) {
+    return undefined;
+  }
+  return hostname ?? path?.slice(1);
+}
+
+async function handleReferralLandingAppDeepLink({
+  parsedUrl,
+}: IProcessDeepLinkParams) {
+  if (
+    getOneKeyDeepLinkPath(parsedUrl) !== EOneKeyDeepLinkPath.invited_by_friend
+  ) {
+    return false;
+  }
+
+  const { queryParams } = parsedUrl;
+  const { code, page } =
+    queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
+  if (!isValidReferralCode(code)) {
+    return true;
+  }
+
+  await navigateToReferralLanding({
+    code,
+    page: page ?? '',
+    fromDeepLink: true,
+  });
+  return true;
+}
+
+type IOneKeyAppLinkTarget =
+  | { type: 'stocks' }
+  | { type: 'perps' }
+  | { type: 'swapHome' }
+  | { type: 'market' };
+
+const ONEKEY_WEB_APP_UNIVERSAL_LINK_HOSTS = new Set<string>([
+  ONEKEY_UNIVERSAL_LINK_HOST,
+  ONEKEY_UNIVERSAL_TEST_LINK_HOST,
+]);
+const ONEKEY_STOCKS_APP_LINK_HOSTS = new Set<string>([
+  ONEKEY_STOCKS_APP_LINK_HOST,
+  ONEKEY_STOCKS_TEST_APP_LINK_HOST,
+]);
+const ONEKEY_PERPS_APP_LINK_HOSTS = new Set<string>([
+  ONEKEY_PERPS_APP_LINK_HOST,
+  ONEKEY_PERPS_TEST_APP_LINK_HOST,
+]);
+const ONEKEY_SWAP_APP_LINK_HOSTS = new Set<string>([ONEKEY_SWAP_APP_LINK_HOST]);
+
+// expo-linking returns "swap" while the jest URL polyfill returns "/swap".
+function normalizeAppLinkPath(path?: string | null) {
+  return path?.replace(/^\/+|\/+$/gu, '').toLowerCase() ?? '';
+}
+
+function parseOneKeyAppLinkTarget({
+  hostname,
+  path,
+  queryParams,
+  scheme,
+}: Linking.ParsedURL): IOneKeyAppLinkTarget | undefined {
+  if (scheme !== 'https' || !hostname) {
+    return undefined;
+  }
+  const host = hostname.toLowerCase();
+  if (ONEKEY_STOCKS_APP_LINK_HOSTS.has(host)) {
+    return { type: 'stocks' };
+  }
+  if (ONEKEY_PERPS_APP_LINK_HOSTS.has(host)) {
+    return { type: 'perps' };
+  }
+  if (ONEKEY_SWAP_APP_LINK_HOSTS.has(host)) {
+    return { type: 'swapHome' };
+  }
+  if (!ONEKEY_WEB_APP_UNIVERSAL_LINK_HOSTS.has(host)) {
+    return undefined;
+  }
+  const normalizedPath = normalizeAppLinkPath(path);
+  if (
+    normalizedPath === 'swap' &&
+    getStringQueryParam(queryParams?.tab)?.toLowerCase() ===
+      ESwapTabSwitchType.STOCK
+  ) {
+    return { type: 'stocks' };
+  }
+  if (normalizedPath === 'perps') {
+    return { type: 'perps' };
+  }
+  if (normalizedPath === 'market') {
+    return { type: 'market' };
+  }
+  return undefined;
+}
+
+async function getPerpsAppLinkTabRoute() {
+  const { perpConfigCommon, perpConfigLoaded } =
+    await perpsCommonConfigPersistAtom.get();
+  // Mirrors usePerpTabConfig: the persisted disablePerp default only takes
+  // effect after the remote config has actually loaded.
+  if ((perpConfigLoaded ?? false) && perpConfigCommon?.disablePerp) {
+    return undefined;
+  }
+  return perpConfigCommon?.usePerpWeb
+    ? ETabRoutes.WebviewPerpTrade
+    : ETabRoutes.Perp;
+}
+
+async function processOneKeyAppUniversalLink(
+  params: IProcessDeepLinkParams,
+  times = 0,
+): Promise<boolean> {
+  const target = parseOneKeyAppLinkTarget(params.parsedUrl);
+  if (!target) {
+    return false;
+  }
+  if (times > 10) {
+    return true;
+  }
+  const navigation = appGlobals.$rootAppNavigation;
+  if (!navigation) {
+    setTimeout(() => {
+      void processOneKeyAppUniversalLink(params, times + 1);
+    }, 1500);
+    return true;
+  }
+  if (target.type === 'stocks') {
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Swap,
+      params: {
+        screen: ETabSwapRoutes.TabSwap,
+        params: {
+          tab: ESwapTabSwitchType.STOCK,
+        },
+      },
+    });
+    return true;
+  }
+  if (target.type === 'swapHome') {
+    // Explicit tab param resets any live Stock/Limit sub tab so the link
+    // always lands on the plain Swap home, cold or warm.
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Swap,
+      params: {
+        screen: ETabSwapRoutes.TabSwap,
+        params: {
+          tab: ESwapTabSwitchType.SWAP,
+        },
+      },
+    });
+    return true;
+  }
+  if (target.type === 'market') {
+    // Mirrors useNavigateToMarketTab: on native the Market tab is hidden and
+    // merged into Discovery, so land on Discovery's market sub tab there;
+    // elsewhere reset the Market tab stack back to TabMarket.
+    if (platformEnv.isNative) {
+      navigation.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Discovery,
+        params: {
+          screen: ETabDiscoveryRoutes.TabDiscovery,
+          params: {
+            defaultTab: ETranslations.global_market,
+          },
+        },
+      });
+      setTimeout(() => {
+        appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+          tab: ETranslations.global_market,
+        });
+      }, 150);
+    } else {
+      navigation.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.TabMarket,
+        },
+      });
+    }
+    return true;
+  }
+  const perpsTabRoute = await getPerpsAppLinkTabRoute();
+  if (perpsTabRoute) {
+    // switchTabAsync serializes overlay dismiss and tab switch; the sync
+    // switchTab is deprecated for the iOS RNSScreenStack orphan freeze.
+    await navigation.switchTabAsync(perpsTabRoute);
+  }
+  return true;
+}
+
 async function processDeepLinkUrlAccount(
   params: IProcessDeepLinkParams,
   times = 0,
@@ -49,7 +298,7 @@ async function processDeepLinkUrlAccount(
   }
   try {
     const { parsedUrl } = params;
-    const { hostname, queryParams, scheme, path } = parsedUrl;
+    const { queryParams, scheme } = parsedUrl;
     if (
       scheme === ONEKEY_APP_DEEP_LINK ||
       scheme === ONEKEY_APP_DEEP_LINK_NAME
@@ -62,7 +311,7 @@ async function processDeepLinkUrlAccount(
         }, 1500);
         return;
       }
-      switch (hostname ?? path?.slice(1)) {
+      switch (getOneKeyDeepLinkPath(parsedUrl)) {
         case EOneKeyDeepLinkPath.url_account: {
           const query =
             queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
@@ -115,29 +364,27 @@ async function processDeepLinkUrlAccount(
             );
           }
           break;
-        case EOneKeyDeepLinkPath.invited_by_friend:
+        case EOneKeyDeepLinkPath.redeem_bitcoin_voucher:
           {
-            const { code, page } =
-              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
-            const VALID_REFERRAL_CODE = /^[a-zA-Z0-9_-]{1,32}$/;
-            if (!code || !VALID_REFERRAL_CODE.test(code)) {
-              break;
-            }
-            if (navigation) {
-              // Navigate to ReferralLandingPage which handles the modal opening
-              navigation.switchTab(ETabRoutes.Home);
-              await timerUtils.wait(50);
-              navigation.push(ETabHomeRoutes.TabHomeReferralLanding, {
-                code,
-                page: page ?? '',
-                fromDeepLink: true,
-              });
-            }
+            const query =
+              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.redeem_bitcoin_voucher];
+            const initialCode =
+              getStringQueryParam(query?.code)?.trim() || undefined;
+            await openRedeemBitcoinVoucherDialog(initialCode);
           }
           break;
         case EOneKeyDeepLinkPath.cross_device_transfer:
           console.log('TODO implement cross_device_transfer deeplink');
           break;
+        case EOneKeyDeepLinkPath.webview: {
+          const query =
+            queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.webview];
+          const webViewParams = parseWebViewDeepLink(query);
+          if (webViewParams) {
+            openWebView(webViewParams);
+          }
+          break;
+        }
         default:
           break;
       }
@@ -253,6 +500,11 @@ const processDeepLinkUrl = memoizee(
 
     try {
       console.log('processDeepLinkUrl: >>>>> ', url);
+      captureAndReportLoggerUtmParamsFromUrl(url);
+      if (await handleReferralLandingUrl({ url })) {
+        return;
+      }
+
       const parsedUrl = Linking.parse(url);
       const { hostname, path, queryParams, scheme } = parsedUrl;
       if (process.env.NODE_ENV !== 'production') {
@@ -263,6 +515,12 @@ const processDeepLinkUrl = memoizee(
           queryParams,
           scheme,
         });
+      }
+      if (await handleReferralLandingAppDeepLink({ url, parsedUrl })) {
+        return;
+      }
+      if (await processOneKeyAppUniversalLink({ url, parsedUrl })) {
+        return;
       }
       await processDeepLinkUrlAccount({ url, parsedUrl });
       await processDeepLinkWalletConnect({ url, parsedUrl });

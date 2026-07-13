@@ -1,18 +1,36 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { createServer } from 'http';
 
-import { ipcMain } from 'electron';
+import { type BrowserWindow, ipcMain } from 'electron';
+import logger from 'electron-log/main';
 import RNUUID from 'react-native-uuid';
 
 import { ipcMessageKeys } from '../config';
 
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
+// Tray window shares the same preload and would otherwise reach the
+// SERVER_* handlers; gate all of them on main-window sender id.
+let mainWindow: BrowserWindow | null = null;
+
+export function setMainWindowForHttpServer(window: BrowserWindow | null) {
+  mainWindow = window;
+}
+
+function isFromMainWindow(event: Electron.IpcMainEvent): boolean {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  return event.sender.id === mainWindow.webContents.id;
+}
+
 const init = () => {
   let server: Server;
 
   const resMap: Record<string, ServerResponse | null> = {};
   ipcMain.on(ipcMessageKeys.SERVER_START, (event, port: number) => {
+    if (!isFromMainWindow(event)) {
+      logger.warn('[HttpServer] rejected SERVER_START from non-main window');
+      return;
+    }
     try {
       if (!server) {
         server = createServer(
@@ -68,7 +86,11 @@ const init = () => {
     }
   });
 
-  ipcMain.on(ipcMessageKeys.SERVER_RESPOND, (_, args) => {
+  ipcMain.on(ipcMessageKeys.SERVER_RESPOND, (event, args) => {
+    if (!isFromMainWindow(event)) {
+      logger.warn('[HttpServer] rejected SERVER_RESPOND from non-main window');
+      return;
+    }
     const { requestId, code, type, body } = args;
     const res = resMap[requestId];
     if (res) {
@@ -83,8 +105,12 @@ const init = () => {
     }
   });
 
-  ipcMain.on(ipcMessageKeys.SERVER_STOP, () => {
-    server.close();
+  ipcMain.on(ipcMessageKeys.SERVER_STOP, (event) => {
+    if (!isFromMainWindow(event)) {
+      logger.warn('[HttpServer] rejected SERVER_STOP from non-main window');
+      return;
+    }
+    server?.close();
   });
 };
 

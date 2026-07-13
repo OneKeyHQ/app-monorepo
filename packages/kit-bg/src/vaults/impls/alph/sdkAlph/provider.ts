@@ -21,14 +21,14 @@ export class Provider extends NodeProvider {
     this.networkId = networkId;
 
     this.transactions.postTransactionsBuild = async (
-      data: node.BuildTransaction,
+      data: node.BuildTransferTx,
     ) =>
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       this.request({
         path: 'transactions',
         method: 'postTransactionsBuild',
         params: [data],
-      }) as Promise<node.BuildTransactionResult>;
+      }) as Promise<node.BuildTransferTxResult>;
 
     this.contracts.postContractsUnsignedTxDeployContract = async (
       data: node.BuildDeployContractTx,
@@ -51,14 +51,14 @@ export class Provider extends NodeProvider {
       }) as Promise<node.DecodeUnsignedTxResult>;
 
     this.contracts.postContractsUnsignedTxExecuteScript = async (
-      data: node.BuildDeployContractTx,
+      data: node.BuildExecuteScriptTx,
     ) =>
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       this.request({
         path: 'contracts',
         method: 'postContractsUnsignedTxExecuteScript',
         params: [data],
-      }) as Promise<node.BuildDeployContractTxResult>;
+      }) as Promise<node.BuildExecuteScriptTxResult>;
   }
 
   override request = async ({ path, method, params }: ApiRequestArguments) => {

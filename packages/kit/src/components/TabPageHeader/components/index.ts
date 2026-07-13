@@ -4,6 +4,7 @@ export { OneKeyIdButton } from './OneKeyIdButton';
 export type { IOneKeyIdButtonProps } from './OneKeyIdButton';
 export { DownloadButton } from './DownloadButton';
 export type { IDownloadButtonProps } from './DownloadButton';
+export { HeaderUpdateButton } from './HeaderUpdateButton';
 export { LanguageButton } from './LanguageButton';
 export type { ILanguageButtonProps } from './LanguageButton';
 export { ThemeButton } from './ThemeButton';

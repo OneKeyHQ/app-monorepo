@@ -6,8 +6,9 @@
  * - Builds production web and runs Chromium via Playwright.
  */
 
-const { spawn } = require('child_process');
 const path = require('path');
+
+const { runReleaseJob } = require('./lib/releaseJob');
 
 function main() {
   const repoRoot = path.join(__dirname, '..', '..');
@@ -18,22 +19,14 @@ function main() {
     args.push('--headed');
   }
 
-  const child = spawn(
-    process.execPath,
-    ['development/perf-ci/run-web-perf.js', ...args],
-    {
-      cwd: repoRoot,
-      env: {
-        ...process.env,
-        PERF_SERVER_ONESHOT: process.env.PERF_SERVER_ONESHOT || '1',
-      },
-      stdio: 'inherit',
+  runReleaseJob({
+    repoRoot,
+    script: 'development/perf-ci/run-web-perf.js',
+    args,
+    env: {
+      PERF_SERVER_ONESHOT: process.env.PERF_SERVER_ONESHOT || '1',
     },
-  );
-
-  child.on('close', (code) =>
-    process.exit(code === null || code === undefined ? 2 : code),
-  );
+  });
 }
 
 main();

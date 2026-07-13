@@ -103,6 +103,7 @@ export const ProviderSwitch = ({
           }}
         >
           <Switch
+            testID="swap-switch"
             value={serviceDisable ? false : providerEnable}
             size="small"
             disabled={serviceDisable}
@@ -301,7 +302,7 @@ const ProviderFold = ({
                   key={`${providerInfo.provider} - ${net.networkId}`}
                   networkId={net.networkId}
                   enable={net.enable}
-                  serviceDisable={net.serviceDisable}
+                  serviceDisable={net.serviceDisable || !providerEnable}
                   networkName={net.networkName}
                   onNetworkSwitch={onProviderNetworkEnable}
                 />

@@ -57,28 +57,36 @@ function PerpAccountMMRView() {
     if (pct <= 70) return '$yellow11';
     return '$red11';
   })();
+  const mmrTooltipContent = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_account_cross_margin_ration_tip,
+      }),
+    [intl],
+  );
+  const mmrTooltipTrigger = useMemo(
+    () => (
+      <DashText
+        size="$bodySm"
+        color="$textSubdued"
+        cursor="help"
+        dashThickness={1}
+      >
+        {intl.formatMessage({
+          id: ETranslations.perp_account_cross_margin_ration,
+        })}
+      </DashText>
+    ),
+    [intl],
+  );
 
   if (mmrPercent) {
     return (
       <XStack justifyContent="space-between">
         <Tooltip
           placement="top"
-          renderContent={intl.formatMessage({
-            id: ETranslations.perp_account_cross_margin_ration_tip,
-          })}
-          renderTrigger={
-            <DashText
-              size="$bodySm"
-              color="$textSubdued"
-              cursor="help"
-              dashColor="$textDisabled"
-              dashThickness={0.5}
-            >
-              {intl.formatMessage({
-                id: ETranslations.perp_account_cross_margin_ration,
-              })}
-            </DashText>
-          }
+          renderContent={mmrTooltipContent}
+          renderTrigger={mmrTooltipTrigger}
         />
         <SizableText size="$bodySmMedium" color={mmrColor}>
           {mmrPercent}%
@@ -98,6 +106,9 @@ function PerpAccountPanel() {
   const intl = useIntl();
   const { copyText } = useClipboard();
   const { showPortfolio } = useShowPortfolio();
+  const isDepositDisabled = accountUtils.isWatchingAccount({
+    accountId: selectedAccount.accountId || '',
+  });
 
   const unrealizedPnlInfo = useMemo(() => {
     const pnlBn = new BigNumber(accountSummary?.totalUnrealizedPnl || '0');
@@ -118,6 +129,50 @@ function PerpAccountPanel() {
     }
     return { pnlFormatted, pnlColor, pnlPlusOrMinus };
   }, [accountSummary?.totalUnrealizedPnl]);
+  const portfolioValueTooltipContent = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_portfolio_value_tooltip,
+      }),
+    [intl],
+  );
+  const portfolioValueTooltipTrigger = useMemo(
+    () => (
+      <DashText
+        size="$bodySm"
+        color="$textSubdued"
+        cursor="help"
+        dashThickness={1}
+      >
+        {intl.formatMessage({
+          id: ETranslations.perp_portfolio_value,
+        })}
+      </DashText>
+    ),
+    [intl],
+  );
+  const maintenanceMarginTooltipContent = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.perp_account_panel_account_maintenance_margin_tooltip,
+      }),
+    [intl],
+  );
+  const maintenanceMarginTooltipTrigger = useMemo(
+    () => (
+      <DashText
+        size="$bodySm"
+        color="$textSubdued"
+        cursor="help"
+        dashThickness={1}
+      >
+        {intl.formatMessage({
+          id: ETranslations.perp_account_panel_account_maintenance_margin,
+        })}
+      </DashText>
+    ),
+    [intl],
+  );
 
   const content = (
     <YStack flex={1} gap="$4" px="$2.5" pb="$4">
@@ -126,22 +181,8 @@ function PerpAccountPanel() {
         <XStack justifyContent="space-between">
           <Tooltip
             placement="top"
-            renderContent={intl.formatMessage({
-              id: ETranslations.perp_account_panel_account_value_tooltip,
-            })}
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                cursor="help"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_account_panel_account_value,
-                })}
-              </DashText>
-            }
+            renderContent={portfolioValueTooltipContent}
+            renderTrigger={portfolioValueTooltipTrigger}
           />
           <PerpsAccountNumberValue
             value={computedValue?.accountValue ?? ''}
@@ -172,22 +213,8 @@ function PerpAccountPanel() {
         <XStack justifyContent="space-between">
           <Tooltip
             placement="top"
-            renderContent={intl.formatMessage({
-              id: ETranslations.perp_account_panel_account_maintenance_margin_tooltip,
-            })}
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                cursor="help"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_account_panel_account_maintenance_margin,
-                })}
-              </DashText>
-            }
+            renderContent={maintenanceMarginTooltipContent}
+            renderTrigger={maintenanceMarginTooltipTrigger}
           />
           <PerpsAccountNumberValue
             value={accountSummary?.crossMaintenanceMarginUsed ?? ''}
@@ -219,6 +246,7 @@ function PerpAccountPanel() {
                   : ''}
               </SizableText>
               <IconButton
+                testID="perp-icon-btn"
                 icon="OpenOutline"
                 color="$iconSubdued"
                 variant="tertiary"
@@ -240,27 +268,34 @@ function PerpAccountPanel() {
       {userAddress ? (
         <XStack gap="$2.5" alignItems="center">
           <Button
+            testID="perp-btn"
             borderRadius="$full"
             flex={1}
             size="medium"
             h={36}
             variant="secondary"
+            disabled={isDepositDisabled}
             onPress={() =>
-              showDepositWithdrawDialog(
-                {
-                  actionType: 'deposit',
-                },
-                dialogInTab,
-              )
+              isDepositDisabled
+                ? undefined
+                : showDepositWithdrawDialog(
+                    {
+                      actionType: 'deposit',
+                    },
+                    dialogInTab,
+                    intl,
+                  )
             }
             alignItems="center"
             justifyContent="center"
+            childrenAsText={false}
           >
             <SizableText size="$bodySmMedium">
               {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
             </SizableText>
           </Button>
           <IconButton
+            testID="perp-icon-btn"
             borderRadius="$full"
             size="medium"
             h={36}
@@ -277,10 +312,12 @@ function PerpAccountPanel() {
                   actionType: 'withdraw',
                 },
                 dialogInTab,
+                intl,
               )
             }
           />
           <IconButton
+            testID="perp-icon-btn"
             borderRadius="$full"
             size="medium"
             h={36}
@@ -288,7 +325,7 @@ function PerpAccountPanel() {
             variant="secondary"
             icon="ChartLine2Outline"
             iconSize="$4.5"
-            title={getPortfolioTitle()}
+            title={getPortfolioTitle(intl)}
             onPress={showPortfolio}
           />
         </XStack>

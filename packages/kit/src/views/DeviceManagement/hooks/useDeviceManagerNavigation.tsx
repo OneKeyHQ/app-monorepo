@@ -6,6 +6,7 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
@@ -27,7 +28,10 @@ export const useDeviceManagerNavigation = () => {
     }
   };
 
-  const pushToDeviceDetail = (params: { walletId: string }) => {
+  const pushToDeviceDetail = (params: {
+    walletId: string;
+    initialDeviceVendor?: EHardwareVendor;
+  }) => {
     if (isModalStack) {
       navigation.pushModal(EModalRoutes.DeviceManagementModal, {
         screen: EModalDeviceManagementRoutes.DeviceDetailModal,

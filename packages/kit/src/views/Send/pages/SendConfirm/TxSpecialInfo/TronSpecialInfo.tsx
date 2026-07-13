@@ -53,6 +53,7 @@ function TronSpecialInfo({
             {intl.formatMessage({ id: ETranslations.global_resources })}
           </SizableText>
           <IconButton
+            testID="send-handle-resource-details-on-press-icon-btn"
             icon="QuestionmarkOutline"
             size="small"
             variant="tertiary"

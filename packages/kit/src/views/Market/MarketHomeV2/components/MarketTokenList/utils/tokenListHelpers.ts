@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -27,6 +25,61 @@ export const SORT_MAP: Record<string, keyof IMarketToken> = {
   v24hUSD: 'turnover',
 };
 
+export function normalizeStockMetadataValue(
+  value?: string | number | null,
+): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  const stringValue = typeof value === 'string' ? value.trim() : String(value);
+  if (!stringValue) {
+    return undefined;
+  }
+
+  const numericValue = Number(stringValue);
+  if (!Number.isFinite(numericValue)) {
+    return undefined;
+  }
+
+  return stringValue;
+}
+
+export function getStockMarketCapValue(
+  record: Pick<IMarketToken, 'stock'>,
+): string | undefined {
+  return normalizeStockMetadataValue(record.stock?.marketCap);
+}
+
+export function getStockVolume24hValue(
+  record: Pick<IMarketToken, 'stock'>,
+): string | undefined {
+  return normalizeStockMetadataValue(record.stock?.assetAnalysis?.volume24h);
+}
+
+export function getStockPeRatioValue(
+  record: Pick<IMarketToken, 'stock'>,
+): string | undefined {
+  return normalizeStockMetadataValue(record.stock?.tradingActivity?.peRatio);
+}
+
+export function shouldShowStockSubtitleForTokens(
+  items: Array<Pick<IMarketToken, 'stock'>>,
+) {
+  if (items.length === 0) {
+    return false;
+  }
+
+  const stockCount = items.filter((item) => !!item.stock).length;
+  return stockCount >= items.length / 2;
+}
+
+export function shouldUseStockMetadataColumnsForTokens(
+  items: Array<Pick<IMarketToken, 'stock'>>,
+) {
+  return items.length > 0 && items.every((item) => !!item.stock);
+}
+
 const ONE_HOUR = 60 * 60 * 1000;
 const ONE_DAY = 24 * ONE_HOUR;
 const ONE_MONTH = 30 * ONE_DAY;
@@ -49,26 +102,49 @@ const TIME_RANGE_FIELD_SUFFIX_MAP: Record<
   '24h': '24h',
 };
 
+const TIME_RANGE_PRICE_BASE_FIELD_MAP: Record<
+  IMarketTimeRangeValue,
+  'price5mAgo' | 'price1hAgo' | 'price4hAgo' | 'price24hAgo'
+> = {
+  '5m': 'price5mAgo',
+  '1h': 'price1hAgo',
+  '4h': 'price4hAgo',
+  '24h': 'price24hAgo',
+};
+
 export function getNetworkLogoUri(chainOrNetworkId: string): string {
   const networks = getPresetNetworks();
   const network = networks.find((n) => n.id === chainOrNetworkId);
   return network?.logoURI || '';
 }
 
-/**
- * Safely parse string to number using BigNumber for precision
- */
 function safeNumber(value: string | undefined, fallback = 0): number {
   if (!value) return fallback;
 
   try {
-    const bn = new BigNumber(value);
-    if (bn.isNaN() || !bn.isFinite()) {
+    const numberValue = Number(value);
+    if (!Number.isFinite(numberValue)) {
       return fallback;
     }
-    return bn.toNumber();
+    return numberValue;
   } catch {
     return fallback;
+  }
+}
+
+function safePositiveNumber(value: string | undefined): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const numberValue = Number(value);
+    if (!Number.isFinite(numberValue) || numberValue <= 0) {
+      return undefined;
+    }
+    return numberValue;
+  } catch {
+    return undefined;
   }
 }
 
@@ -84,6 +160,41 @@ function getMetricValueByTimeRange(
   const fallbackKey = `${baseKey}24h${suffix}` as keyof IMarketTokenListItem;
 
   return item[selectedKey] ?? item[fallbackKey];
+}
+
+function getPriceChangeBasePriceByTimeRange({
+  item,
+  timeRange,
+}: {
+  item: IMarketTokenListItem;
+  timeRange: IMarketTimeRangeValue | undefined;
+}) {
+  const selectedTimeRange = timeRange ?? '24h';
+  const selectedKey = TIME_RANGE_PRICE_BASE_FIELD_MAP[selectedTimeRange];
+  return safePositiveNumber(item[selectedKey]);
+}
+
+export function calculateMarketTokenLivePriceChange({
+  price,
+  priceChangeBasePrice,
+}: {
+  price: number | undefined;
+  priceChangeBasePrice: number | undefined;
+}): number | undefined {
+  if (price === undefined || priceChangeBasePrice === undefined) {
+    return undefined;
+  }
+
+  if (
+    !Number.isFinite(price) ||
+    !Number.isFinite(priceChangeBasePrice) ||
+    price <= 0 ||
+    priceChangeBasePrice <= 0
+  ) {
+    return undefined;
+  }
+
+  return ((price - priceChangeBasePrice) / priceChangeBasePrice) * 100;
 }
 
 /**
@@ -109,11 +220,12 @@ export function transformApiItemToToken(
     ? getNetworkLogoUri(item.networkId)
     : networkLogoUri;
 
-  const priceChange = safeNumber(
-    getMetricValueByTimeRange(item, timeRange, 'priceChange', 'Percent') as
-      | string
-      | undefined,
-  );
+  const priceChangeValue = item.stock
+    ? item.priceChange24hPercent
+    : (getMetricValueByTimeRange(item, timeRange, 'priceChange', 'Percent') as
+        | string
+        | undefined);
+  const priceChange = safeNumber(priceChangeValue);
   const transactions = safeNumber(
     getMetricValueByTimeRange(item, timeRange, 'trade', 'Count') as
       | string
@@ -125,9 +237,10 @@ export function transformApiItemToToken(
       | undefined,
   );
   const turnover = safeNumber(
-    getMetricValueByTimeRange(item, timeRange, 'volume', '') as
-      | string
-      | undefined,
+    getStockVolume24hValue(item) ??
+      (getMetricValueByTimeRange(item, timeRange, 'volume', '') as
+        | string
+        | undefined),
   );
   const buyCount = safeNumber(
     getMetricValueByTimeRange(item, timeRange, 'buy', 'Count') as
@@ -139,6 +252,12 @@ export function transformApiItemToToken(
       | string
       | undefined,
   );
+  const priceChangeBasePrice = item.stock
+    ? safePositiveNumber(item.price24hAgo)
+    : getPriceChangeBasePriceByTimeRange({
+        item,
+        timeRange,
+      });
 
   return {
     id: `${item.address}${item.name}${tokenNetworkLogoUri}${item.symbol}`,
@@ -147,7 +266,8 @@ export function transformApiItemToToken(
     address: item.address,
     price: safeNumber(item.price),
     change24h: priceChange,
-    marketCap: safeNumber(item.marketCap),
+    priceChangeRaw: priceChangeValue,
+    marketCap: safeNumber(getStockMarketCapValue(item) ?? item.marketCap),
     liquidity: safeNumber(item.liquidity),
     transactions,
     uniqueTraders,
@@ -158,6 +278,7 @@ export function transformApiItemToToken(
     decimals: item.decimals,
     networkLogoUri: tokenNetworkLogoUri,
     networkId: tokenNetworkId,
+    priceChangeBasePrice,
     chainId: tokenNetworkId,
     firstTradeTime: item.firstTradeTime
       ? Number(item.firstTradeTime)

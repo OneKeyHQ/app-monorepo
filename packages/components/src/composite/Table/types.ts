@@ -24,6 +24,8 @@ export interface ITableColumn<T> {
   align?: 'left' | 'right' | 'center';
 }
 
+type ITableRowProps = Omit<IStackProps, 'onPress' | 'onLongPress'>;
+
 export interface ITableProps<T> {
   useFlashList?: boolean;
   scrollEnabled?: boolean;
@@ -32,6 +34,7 @@ export interface ITableProps<T> {
   showSkeleton?: boolean;
   skeletonCount?: number;
   dataSource: T[];
+  estimatedDataLength?: number;
   columns: ITableColumn<T>[];
   contentContainerStyle?: IListViewProps<T>['contentContainerStyle'];
   renderScrollComponent?: IListViewProps<T>['renderScrollComponent'];
@@ -43,7 +46,7 @@ export interface ITableProps<T> {
   stickyHeaderHiddenOnScroll?: IListViewProps<T>['stickyHeaderHiddenOnScroll'];
   estimatedListSize?: { width: number; height: number };
   estimatedItemSize?: IListViewProps<T>['estimatedItemSize'];
-  rowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
+  rowProps?: ITableRowProps;
   headerRowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
   // Whether the column can be dragged to reorder. default value is false
   draggable?: boolean;
@@ -71,6 +74,7 @@ export interface ITableProps<T> {
         onPress?: () => void;
         onLongPress?: () => void;
         onContextMenu?: (position?: { x: number; y: number }) => void;
+        rowProps?: ITableRowProps;
       }
     | undefined;
   // Infinite scroll support

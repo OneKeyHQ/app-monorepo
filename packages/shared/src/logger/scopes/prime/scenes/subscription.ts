@@ -1,5 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
+import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -7,12 +8,13 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 export class PrimeSubscriptionScene extends BaseScene {
   /**
    * Prime feature entry click
-   * Triggered when a non-Prime user clicks on any Prime feature entry point
+   * Triggered when a user clicks on any Prime feature entry point.
    */
   @LogToServer()
   public primeEntryClick({
     featureName,
     entryPoint,
+    isPrimeActive,
   }: {
     featureName: EPrimeFeatures;
     entryPoint:
@@ -22,10 +24,12 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'primePage'
       | 'walletEdit'
       | 'browserTranslate';
+    isPrimeActive: boolean;
   }) {
     return {
       featureName,
       entryPoint,
+      isPrimeActive,
     };
   }
 
@@ -37,13 +41,78 @@ export class PrimeSubscriptionScene extends BaseScene {
   public primeUpsellShow({
     featureName,
     entryPoint,
+    isPrimeActive,
   }: {
     featureName: EPrimeFeatures;
     entryPoint?: 'settingsPage' | 'moreActions' | 'approvalPopup' | 'primePage';
+    isPrimeActive?: boolean;
   }) {
     return {
       featureName,
       entryPoint,
+      isPrimeActive,
+    };
+  }
+
+  /**
+   * Prime dashboard shown
+   * Triggered once when PrimeDashboard mounts.
+   */
+  @LogToServer()
+  public primeDashboardShow({
+    featureName,
+    isPrimeActive,
+  }: {
+    featureName?: EPrimeFeatures;
+    isPrimeActive: boolean;
+  }) {
+    return {
+      featureName,
+      isPrimeActive,
+    };
+  }
+
+  /**
+   * Prime subscribe button click
+   * Triggered when user taps the subscribe button on PrimeDashboard, before the
+   * login / IAP flow runs. Pair with primeSubscribeIntent to isolate login drop-off.
+   */
+  @LogToServer()
+  public primeSubscribeButtonClick({
+    subscriptionPeriod,
+    featureName,
+    isLoggedIn,
+  }: {
+    subscriptionPeriod: ISubscriptionPeriod;
+    featureName?: EPrimeFeatures;
+    isLoggedIn: boolean;
+  }) {
+    return {
+      subscriptionPeriod,
+      featureName,
+      isLoggedIn,
+    };
+  }
+
+  /**
+   * Prime subscribe intent
+   * Triggered immediately before RevenueCat purchase is initiated. Pair with
+   * primeSubscribeSuccess to measure the true payment-attempt → success rate.
+   */
+  @LogToServer()
+  public primeSubscribeIntent({
+    subscriptionPeriod,
+    featureName,
+    currency,
+  }: {
+    subscriptionPeriod: ISubscriptionPeriod;
+    featureName?: EPrimeFeatures;
+    currency?: string;
+  }) {
+    return {
+      subscriptionPeriod,
+      featureName,
+      currency,
     };
   }
 
@@ -62,6 +131,27 @@ export class PrimeSubscriptionScene extends BaseScene {
     return {
       featureName,
       entryPoint,
+    };
+  }
+
+  /**
+   * Prime feature CTA button click
+   * Triggered when an active Prime user clicks a feature action CTA on the feature intro page/dialog.
+   */
+  @LogToServer()
+  public primeFeatureCtaClick({
+    featureName,
+    entryPoint,
+    isPrimeActive,
+  }: {
+    featureName: EPrimeFeatures;
+    entryPoint: 'primePage';
+    isPrimeActive: boolean;
+  }) {
+    return {
+      featureName,
+      entryPoint,
+      isPrimeActive,
     };
   }
 

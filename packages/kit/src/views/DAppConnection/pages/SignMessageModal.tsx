@@ -43,6 +43,7 @@ import {
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
+import { DAppConnectionTestIDs } from '../testIDs';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
@@ -175,16 +176,19 @@ function SignMessageModal() {
           unsignedMessage.type === EMessageTypesEth.ETH_SIGN ||
           unsignedMessage.type === EMessageTypesEth.PERSONAL_SIGN
         ) {
-          validateSignMessageData(unsignedMessage, currentNetwork?.impl);
+          await validateSignMessageData(unsignedMessage, currentNetwork?.impl);
         }
         if (unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V1) {
-          validateTypedSignMessageDataV1(unsignedMessage, currentNetwork?.impl);
+          await validateTypedSignMessageDataV1(
+            unsignedMessage,
+            currentNetwork?.impl,
+          );
         }
         if (
           unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
           unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4
         ) {
-          validateTypedSignMessageDataV3V4(
+          await validateTypedSignMessageDataV3V4(
             unsignedMessage,
             networkUtils.getNetworkChainId({ networkId }),
             currentNetwork?.impl,
@@ -257,7 +261,10 @@ function SignMessageModal() {
   };
 
   return (
-    <DappOpenModalPage dappApprove={dappApprove}>
+    <DappOpenModalPage
+      dappApprove={dappApprove}
+      testID={DAppConnectionTestIDs.SignMessageModal}
+    >
       <>
         <Page.Header headerShown={false} />
         <Page.Body>
@@ -299,6 +306,10 @@ function SignMessageModal() {
             confirmButtonProps={{
               loading: isLoading,
               disabled: !continueOperate,
+              testID: DAppConnectionTestIDs.SignMessageConfirmButton,
+            }}
+            cancelButtonProps={{
+              testID: DAppConnectionTestIDs.SignMessageRejectButton,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={isRiskSignMethod ? EHostSecurityLevel.High : riskLevel}

@@ -12,12 +12,16 @@ import {
   useNavigationBuilder,
 } from '@react-navigation/core';
 import { StackView } from '@react-navigation/stack';
-import _ from 'lodash';
+import findLastIndex from 'lodash/findLastIndex';
 import { useWindowDimensions } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
@@ -44,6 +48,11 @@ import type {
 import type { GestureResponderEvent } from 'react-native';
 
 const MODAL_ANIMATED_VIEW_REF_LIST: TamaguiElement[] = [];
+// Parallel to MODAL_ANIMATED_VIEW_REF_LIST. When the slot value is true,
+// the corresponding modal opts out of the `scale(0.95) -> scale(1)` enter
+// animation and uses only an opacity fade. Driven by the route option
+// `disableEnterScaleAnimation` (see IModalNavigationOptions).
+const MODAL_DISABLE_SCALE_LIST: boolean[] = [];
 let MODAL_ANIMATED_BACKDROP_VIEW_REF: TamaguiElement | null;
 let ROOT_NAVIGATION_INDEX_LISTENER: (() => void) | undefined;
 
@@ -103,10 +112,19 @@ const modalStyleGtMd = {
   willChange: 'opacity, transform',
 };
 
-const modalStyleMd = {
-  transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
-  willChange: 'transform',
-};
+// The ext standalone window is itself a freshly-opened popup hosting a single
+// dapp-approval modal — replaying the slide-up enter transition inside it
+// doubles the perceived motion, so the modal renders in place instead.
+const disableModalAnimation = platformEnv.isExtensionUiStandaloneWindow;
+
+const modalStyleMd = disableModalAnimation
+  ? {
+      willChange: 'transform',
+    }
+  : {
+      transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
+      willChange: 'transform',
+    };
 
 const routeStyleFirst = {
   transform: [{ translateX: 0 }],
@@ -177,6 +195,16 @@ function WebModalNavigator({
 
   useBackHandler(handleBackPress, true, false);
 
+  // Let SplashProvider know the modal chunk is on screen: the ext standalone
+  // window keeps its splash up until this fires, so the Home tab never
+  // flashes through while the lazy-loaded modal navigator is fetched.
+  useEffect(() => {
+    if (platformEnv.isExtensionUiStandaloneWindow) {
+      (globalThis as any).$$onekeyExtModalNavigatorMounted = true;
+      appEventBus.emit(EAppEventBusNames.ModalNavigatorMounted, undefined);
+    }
+  }, []);
+
   const handleBackdropClick = useThrottledCallback(() => {
     if (descriptor.options.dismissOnOverlayPress === false) {
       return;
@@ -192,7 +220,7 @@ function WebModalNavigator({
   const currentRouteIndex = useMemo(
     () =>
       Math.max(
-        _.findLastIndex(
+        findLastIndex(
           rootNavigation?.getState?.()?.routes,
           (rootRoute) =>
             state.routes.findIndex(
@@ -243,6 +271,7 @@ function WebModalNavigator({
 
         MODAL_ANIMATED_VIEW_REF_LIST.forEach((element, index) => {
           const isHidden = newIndex < index;
+          const noScale = MODAL_DISABLE_SCALE_LIST[index];
           if (media.gtMd) {
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -250,11 +279,23 @@ function WebModalNavigator({
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             element.style.opacity = isHidden ? '0' : '1';
+            const depth = newIndex - index;
+            const peekTransform = `translateY(${-30 * depth}px) scale(${1 - 0.05 * depth})`;
+            let nextTransform: string;
+            if (noScale) {
+              // `disableEnterScaleAnimation` only suppresses THIS modal's own
+              // enter/exit scale bounce (depth 0). Once it is pushed into the
+              // background (depth > 0) it must still shrink with the standard
+              // peek scale, otherwise the stacked card looks inconsistent with
+              // every other modal (full-width flush peek instead of an inset
+              // card).
+              nextTransform = isHidden || depth === 0 ? '' : peekTransform;
+            } else {
+              nextTransform = isHidden ? 'scale(0.95)' : peekTransform;
+            }
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            element.style.transform = isHidden
-              ? 'scale(0.95)'
-              : `translateY(${-30 * (newIndex - index)}px) scale(${1 - 0.05 * (newIndex - index)})`;
+            element.style.transform = nextTransform;
           } else {
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -268,14 +309,42 @@ function WebModalNavigator({
 
   const stackChildrenRefList = useRef<TamaguiElement[]>([]);
 
+  // Hoist the opt-out to the WHOLE inner stack rather than just the
+  // active descriptor. Otherwise navigating into a child screen
+  // (e.g. AccountSelectorStack -> ExportPrivateKeysPage) re-runs the
+  // ref callback with the child's descriptor (which usually has the
+  // option unset) and flips the slot's `noScale` back to `false` — so
+  // a subsequent modal-on-modal push would shrink the underlying stack
+  // with `scale(0.95)`, breaking the visual contract of "this modal
+  // never scales". If any route in the stack opted out, the whole
+  // stack opts out.
+  const disableEnterScaleAnimation = state.routes.some(
+    (route) => !!descriptors[route.key]?.options?.disableEnterScaleAnimation,
+  );
+  const modalScreenGtMdStyleMemo = useMemo(
+    () => ({
+      ...modalScreenGtMdStyle,
+      ...(descriptor.options.modalContentMaxHeight
+        ? { maxHeight: descriptor.options.modalContentMaxHeight }
+        : undefined),
+      ...(descriptor.options.modalContentMaxWidth
+        ? { maxWidth: descriptor.options.modalContentMaxWidth }
+        : undefined),
+    }),
+    [
+      descriptor.options.modalContentMaxHeight,
+      descriptor.options.modalContentMaxWidth,
+    ],
+  );
+
   useLayoutEffect(() => {
     const element = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex];
     if (element) {
       const el = element as HTMLElement;
       if (media.gtMd) {
         el.style.opacity = '0';
-        el.style.transform = 'scale(0.95)';
-      } else {
+        el.style.transform = disableEnterScaleAnimation ? '' : 'scale(0.95)';
+      } else if (!disableModalAnimation) {
         el.style.transform = `translateY(${screenHeight}px)`;
       }
     }
@@ -366,9 +435,11 @@ function WebModalNavigator({
     (ref: TamaguiElement | null) => {
       if (ref) {
         MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
+        MODAL_DISABLE_SCALE_LIST[currentRouteIndex] =
+          disableEnterScaleAnimation;
       }
     },
-    [currentRouteIndex],
+    [currentRouteIndex, disableEnterScaleAnimation],
   );
 
   state.routes.forEach((route, routeIndex) => {
@@ -438,14 +509,14 @@ function WebModalNavigator({
               onPress={platformEnv.isNative ? stopPropagation : undefined}
               onPressIn={platformEnv.isNative ? undefined : onPagePressIn}
               testID="APP-Modal-Screen"
-              className="app-region-no-drag"
+              className="app-region-no-drag onekey-modal-screen"
               bg="$bgApp"
               overflow="hidden"
               width="100%"
               height="100%"
               borderTopStartRadius="$6"
               borderTopEndRadius="$6"
-              $gtMd={modalScreenGtMdStyle}
+              $gtMd={modalScreenGtMdStyleMemo}
               ref={modalScreenRefCallback}
               style={media.gtMd ? modalStyleGtMd : modalStyleMd}
             >

@@ -19,6 +19,8 @@ export enum EModalSendRoutes {
   SendAmountInput = 'SendAmountInput',
   SendConfirmFromDApp = 'SendConfirmFromDApp',
   SendConfirmFromSwap = 'SendConfirmFromSwap',
+  // TODO(6.7.0): Remove this legacy SendModal confirmation route.
+  // Active confirmation flows use SignatureConfirmModal -> TxConfirm.
   SendConfirm = 'SendConfirm',
   SendFeedback = 'SendFeedback',
   SendReplaceTx = 'SendReplaceTx',
@@ -60,6 +62,8 @@ export type IModalSendParamList = {
     onFail?: (error: Error) => void;
     onCancel?: () => void;
   };
+  // TODO(6.7.0): Remove this legacy param entry with SendModal.SendConfirm.
+  // Debug confirmation issues in SignatureConfirmModal -> TxConfirm instead.
   [EModalSendRoutes.SendConfirm]: {
     networkId: string;
     accountId: string;

@@ -25,6 +25,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { MarketHomeList } from '../components/MarketHomeList';
 import { MarketWatchList } from '../components/MarketWatchList';
 import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror';
+import { MarketTestIDs } from '../testIDs';
 
 function MarketHome() {
   const { result: categories } = usePromiseResult(
@@ -142,7 +143,9 @@ function MarketHome() {
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
       />
-      <Page.Body>{renderTabContainer()}</Page.Body>
+      <Page.Body testID={MarketTestIDs.marketPage}>
+        {renderTabContainer()}
+      </Page.Body>
     </Page>
   );
 }

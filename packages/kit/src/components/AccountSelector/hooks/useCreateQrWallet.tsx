@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { InvalidSchemeError } from '@ngraveio/bc-ur/dist/errors';
 import { useIntl } from 'react-intl';
 
 import { resetToRoute } from '@onekeyhq/components';
@@ -13,7 +12,6 @@ import type {
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type { AirGapUR, IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
-import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import {
   OneKeyErrorAirGapDeviceMismatch,
   OneKeyErrorAirGapWalletMismatch,
@@ -34,8 +32,8 @@ import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
-import useScanQrCode from '../../../views/ScanQrCode/hooks/useScanQrCode';
+import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
+import useScanQrCodeLazy from '../../../views/ScanQrCode/hooks/useScanQrCodeLazy';
 
 type ICreateQrWalletByScanParams = {
   isOnboarding?: boolean;
@@ -49,8 +47,8 @@ export function useCreateQrWallet() {
   const {
     start: startScan,
     // close,
-  } = useScanQrCode();
-  const actions = useAccountSelectorActions();
+  } = useScanQrCodeLazy();
+  const callAccountSelectorAction = useAccountSelectorLazyAction();
   const navigation = useAppNavigation();
 
   const createQrWalletByUr = useCallback(
@@ -110,7 +108,7 @@ export function useCreateQrWallet() {
         }
       }
       try {
-        const result = await actions.current.createQrWallet({
+        const result = await callAccountSelectorAction('createQrWallet', {
           qrDevice,
           airGapAccounts,
           isOnboarding,
@@ -121,7 +119,7 @@ export function useCreateQrWallet() {
         throw error;
       }
     },
-    [actions, navigation],
+    [callAccountSelectorAction, navigation],
   );
 
   const createQrWallet = useCallback(
@@ -145,6 +143,10 @@ export function useCreateQrWallet() {
       const urScanResult =
         scanResult as IQRCodeHandlerParseResult<IAnimationValue>;
       const qrcode = urScanResult?.data?.fullData || urScanResult?.raw || '';
+      const [{ airGapUrUtils }, { InvalidSchemeError }] = await Promise.all([
+        import('@onekeyhq/qr-wallet-sdk'),
+        import('@ngraveio/bc-ur/dist/errors'),
+      ]);
       let ur: AirGapUR | undefined;
       try {
         ur = await airGapUrUtils.qrcodeToUr(qrcode);
@@ -202,6 +204,7 @@ export function useCreateQrWallet() {
             walletId,
             networkId,
             indexedAccountId,
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
             appQrCodeModalTitle: appLocale.intl.formatMessage({
               // oxlint-disable-next-line @cspell/spellchecker
               id: ETranslations.scan_to_create_an_address,

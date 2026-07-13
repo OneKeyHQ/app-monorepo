@@ -4,6 +4,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   ETranslateDisplayMode,
   ETranslateEngine,
@@ -17,11 +19,13 @@ import {
   TRANSLATE_REQUEST_TYPE,
   TRANSLATE_RESPONSE_TYPE,
   offTabNavigation,
+  offTabNavigationEnd,
   onTabNavigation,
+  onTabNavigationEnd,
   registerTranslateHandler,
   unregisterTranslateHandler,
 } from './translateBridge';
-// @ts-expect-error text-js module imported as string by babel-plugin-inline-import / esbuild
+// @ts-expect-error — inlined as string by babel-plugin-inline-import
 import translateInjectScript from './translateInject.text-js';
 import { createMessageInjectedScript } from './utils';
 
@@ -92,6 +96,10 @@ function isAITranslateUnavailableError(error: unknown): error is IOneKeyError {
   return code === 90_104 || code === 90_105;
 }
 
+const TRANSLATE_MAX_ATTEMPTS = 2;
+const TRANSLATE_RETRY_DELAY_MS = 500;
+const TRANSLATE_START_DELAY_MS = 50;
+
 function sendTranslationResponse(
   tabId: string,
   requestId: string,
@@ -117,21 +125,52 @@ function handleTranslateRequest(
     testFlag,
   }: ITranslateRequestOptions = {},
 ): void {
+  const attemptTranslate = async (): Promise<{
+    translations: ITranslateResult;
+  } | null> => {
+    let lastErr: unknown;
+    for (let attempt = 1; attempt <= TRANSLATE_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        const translations = await translateTexts(
+          data.texts,
+          data.targetLang,
+          engine,
+          testFlag,
+        );
+        return { translations };
+      } catch (err) {
+        lastErr = err;
+        if (
+          engine === ETranslateEngine.ai &&
+          isAITranslateUnavailableError(err)
+        ) {
+          throw err;
+        }
+        if (attempt < TRANSLATE_MAX_ATTEMPTS) {
+          await timerUtils.wait(TRANSLATE_RETRY_DELAY_MS);
+        }
+      }
+    }
+    console.error('[Translate] API error:', lastErr);
+    return null;
+  };
+
   const handler = async () => {
     try {
-      const translations = await translateTexts(
-        data.texts,
-        data.targetLang,
-        engine,
-        testFlag,
-      );
-      sendTranslationResponse(tabId, data.id, {
-        translations,
-        sessionId: data.sessionId,
-      });
-      onSuccess?.();
+      const result = await attemptTranslate();
+      if (result) {
+        sendTranslationResponse(tabId, data.id, {
+          translations: result.translations,
+          sessionId: data.sessionId,
+        });
+        onSuccess?.();
+      } else {
+        sendTranslationResponse(tabId, data.id, {
+          translations: data.texts,
+          sessionId: data.sessionId,
+        });
+      }
     } catch (err) {
-      console.error('[Translate] API error:', err);
       if (
         engine === ETranslateEngine.ai &&
         isAITranslateUnavailableError(err)
@@ -145,62 +184,75 @@ function handleTranslateRequest(
           sessionId: data.sessionId,
           targetLang: data.targetLang,
         });
-        return;
       }
-      sendTranslationResponse(tabId, data.id, {
-        translations: data.texts,
-        sessionId: data.sessionId,
-      });
     }
   };
   void handler();
 }
 
-let sessionCounter = 0;
-
-function generateSessionId(): string {
-  sessionCounter += 1;
-  return `s${Date.now().toString(36)}${sessionCounter.toString(36)}`;
-}
-
-export function useWebViewTranslate(
-  tabId: string,
-  onNavigate?: () => void,
-  engine: ETranslateEngine = ETranslateEngine.standard,
-  displayMode: ETranslateDisplayMode = ETranslateDisplayMode.replace,
-  dappUrl?: string,
+export function useWebViewTranslate({
+  tabId,
+  onNavigate,
+  engine = ETranslateEngine.standard,
+  displayMode = ETranslateDisplayMode.replace,
+  dappUrl,
+  onAITranslateUnavailable,
+  currentTargetLang,
+}: {
+  tabId: string;
+  onNavigate?: (stillTranslating: boolean) => void;
+  engine?: ETranslateEngine;
+  displayMode?: ETranslateDisplayMode;
+  dappUrl?: string;
   onAITranslateUnavailable?: (payload: {
     code: number;
     targetLang: string;
-  }) => void,
-) {
+  }) => void;
+  currentTargetLang?: string;
+}) {
   const translatingRef = useRef(false);
   const desktopCleanupRef = useRef<(() => void) | null>(null);
   const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoggedSuccessRef = useRef(false);
   const activeSessionIdRef = useRef<string | null>(null);
-  const activeEngineRef = useRef(engine);
+  const sessionEngineRef = useRef(engine);
   const engineRef = useRef(engine);
   const displayModeRef = useRef(displayMode);
   const dappUrlRef = useRef(dappUrl);
+  // Tracks the currently configured target lang so sticky re-translate picks
+  // up user setting changes after the initial startTranslate.
+  const targetLangRef = useRef(currentTargetLang);
   const handledUnavailableSessionRef = useRef<string | null>(null);
+  // Electron fires did-finish-load / did-stop-loading / did-fail-load for the
+  // same navigation; WebContent.desktop binds all three to the same callback,
+  // so notifyTabNavigationEnd arrives multiple times. Consume once per nav.
+  const navEndConsumedRef = useRef(false);
+  // Hold via ref so callers don't have to memoize the callback; otherwise a
+  // fresh inline lambda would invalidate the downstream memo chain and
+  // re-register nav handlers on every render.
+  const onAITranslateUnavailableRef = useRef(onAITranslateUnavailable);
   engineRef.current = engine;
   displayModeRef.current = displayMode;
   dappUrlRef.current = dappUrl;
+  targetLangRef.current = currentTargetLang;
+  onAITranslateUnavailableRef.current = onAITranslateUnavailable;
 
   useEffect(() => () => unregisterTranslateHandler(tabId), [tabId]);
 
   useEffect(() => {
     onTabNavigation(tabId, () => {
-      translatingRef.current = false;
       activeSessionIdRef.current = null;
       handledUnavailableSessionRef.current = null;
-      unregisterTranslateHandler(tabId);
+      hasLoggedSuccessRef.current = false;
+      navEndConsumedRef.current = false;
       if (startTimerRef.current) {
         clearTimeout(startTimerRef.current);
         startTimerRef.current = null;
       }
-      onNavigate?.();
+      if (!translatingRef.current) {
+        unregisterTranslateHandler(tabId);
+      }
+      onNavigate?.(translatingRef.current);
     });
     return () => offTabNavigation(tabId);
   }, [tabId, onNavigate]);
@@ -225,7 +277,7 @@ export function useWebViewTranslate(
       ) {
         hasLoggedSuccessRef.current = true;
         defaultLogger.prime.usage.dappTranslateSuccess({
-          engine: activeEngineRef.current,
+          engine: sessionEngineRef.current,
           targetLang,
           displayMode: displayModeRef.current,
           dappDomain: dappUrlRef.current ?? '',
@@ -234,25 +286,6 @@ export function useWebViewTranslate(
     },
     [],
   );
-
-  const stopTranslate = useCallback(() => {
-    if (startTimerRef.current) {
-      clearTimeout(startTimerRef.current);
-      startTimerRef.current = null;
-    }
-    injectScript(
-      tabId,
-      createMessageInjectedScript({
-        type: TRANSLATE_COMMAND_TYPE,
-        command: 'stop',
-      }),
-    );
-    unregisterTranslateHandler(tabId);
-    desktopCleanupRef.current?.();
-    handledUnavailableSessionRef.current = null;
-    activeSessionIdRef.current = null;
-    translatingRef.current = false;
-  }, [tabId]);
 
   const restoreOriginal = useCallback(() => {
     if (startTimerRef.current) {
@@ -293,12 +326,12 @@ export function useWebViewTranslate(
 
       handledUnavailableSessionRef.current = sessionId;
       restoreOriginal();
-      onAITranslateUnavailable?.({
+      onAITranslateUnavailableRef.current?.({
         code,
         targetLang,
       });
     },
-    [onAITranslateUnavailable, restoreOriginal],
+    [restoreOriginal],
   );
 
   const setupDesktopListener = useCallback(
@@ -372,9 +405,9 @@ export function useWebViewTranslate(
         restoreOriginal();
       }
 
-      const sid = generateSessionId();
+      const sid = generateUUID({ removeDashes: true });
       activeSessionIdRef.current = sid;
-      activeEngineRef.current = selectedEngine;
+      sessionEngineRef.current = selectedEngine;
       handledUnavailableSessionRef.current = null;
       hasLoggedSuccessRef.current = false;
 
@@ -403,7 +436,7 @@ export function useWebViewTranslate(
             sessionId: sid,
           }),
         );
-      }, 50);
+      }, TRANSLATE_START_DELAY_MS);
     },
     [
       tabId,
@@ -413,6 +446,21 @@ export function useWebViewTranslate(
       restoreOriginal,
     ],
   );
+
+  useEffect(() => {
+    onTabNavigationEnd(tabId, () => {
+      if (navEndConsumedRef.current) return;
+      if (!translatingRef.current) return;
+      const nextTargetLang = targetLangRef.current;
+      if (!nextTargetLang) return;
+      navEndConsumedRef.current = true;
+      // Fresh page — nothing to restore. Skip the bogus restore inject that
+      // startTranslate would otherwise fire via its re-entry path.
+      translatingRef.current = false;
+      startTranslate(nextTargetLang, engineRef.current);
+    });
+    return () => offTabNavigationEnd(tabId);
+  }, [tabId, startTranslate]);
 
   const toggleTranslate = useCallback(
     (targetLang = 'zh') => {
@@ -427,7 +475,6 @@ export function useWebViewTranslate(
 
   return {
     startTranslate,
-    stopTranslate,
     restoreOriginal,
     toggleTranslate,
     translatingRef,

@@ -1,9 +1,16 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
-import { SendConfirmWithProvider } from '@onekeyhq/kit/src/views/Send';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
+
+// TODO(6.7.0): Remove this legacy SendModal confirmation page registration.
+// Active confirmation flows use SignatureConfirmModal -> TxConfirm.
+const SendConfirmWithProvider = LazyLoadPage(() =>
+  import('@onekeyhq/kit/src/views/Send').then((m) => ({
+    default: m.SendConfirmWithProvider,
+  })),
+);
 
 const SendDataInput = LazyLoadPage(
   () =>
@@ -54,8 +61,12 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.SendAmountInput,
     component: SendAmountInput,
+    modalContentMaxHeight: 544,
+    modalContentMaxWidth: 544,
   },
   {
+    // TODO(6.7.0): Remove this unused legacy route. Debug confirmation issues
+    // in SignatureConfirmModal -> TxConfirm instead of this SendModal page.
     name: EModalSendRoutes.SendConfirm,
     component: SendConfirmWithProvider,
   },

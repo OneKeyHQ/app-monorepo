@@ -8,6 +8,8 @@ import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { SettingTestIDs } from '../../testIDs';
+
 import { ConnectedSites } from './ConnectedSites';
 import { SignatureContext } from './Context';
 import { SignText } from './SignText';
@@ -90,7 +92,7 @@ const PageView = () => {
   );
 
   return (
-    <Page>
+    <Page testID={SettingTestIDs.signatureRecordPage}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.settings_signature_record,

@@ -1,5 +1,9 @@
 # Custom words for cspell spell checker
 # Migrated from spellCheckerSkipWords.js
+rescan
+fixpoint
+mmap
+segs
 unixTime
 nodata
 tradingview
@@ -13,11 +17,15 @@ _j_msgid
 oxlintrc
 0x1fffffffffffff
 skillshare
+bitrefill
+Bitrefill
+BITREFILL
 worktree
 googleusercontent
 0xf7ad23226db5c1c00ca0ca1468fd49c8f8bbc1489bc1c382de5adc557a69c229
 0xffffffffffffffffn
 reown
+Reown
 cloudfs
 morelink
 worktrees
@@ -49,6 +57,14 @@ wui
 deeplinks
 minmov
 appkit
+AppKit
+alephium
+jsbi
+JSBI
+lockdown
+Lockdown
+LOCKDOWN
+unpermitted
 wcm
 perp
 hyperliquid
@@ -120,6 +136,7 @@ alph
 Andkeys
 Anim
 apk
+apks
 apns
 apr
 aptos
@@ -144,6 +161,7 @@ Axios
 babylon
 backends
 backgrounded
+backgrounding
 backuped
 bassed
 bch
@@ -197,6 +215,7 @@ buf
 Buf
 bufs
 bundler
+bypassable
 bytesize
 bytify
 cacheable
@@ -226,6 +245,7 @@ checkbox
 Checkbox
 checksum
 Checksum
+chokepoint
 cip
 ciphertext
 ckb
@@ -389,6 +409,7 @@ focusable
 Formatjs
 formatter
 frontend
+frontmost
 fs
 fucntion
 func
@@ -461,6 +482,7 @@ integrations
 Integrations
 Interpolator
 ints
+inversifyjs
 invoker
 ipc
 Ipc
@@ -818,6 +840,7 @@ terra
 terra2
 testnet
 Testnet
+devnet
 textarea
 textgroup
 Themeable
@@ -874,6 +897,7 @@ Undelegate
 unencoded
 Unencoded
 unicode
+unintercept
 uniswap
 unittest
 unlink
@@ -1011,6 +1035,8 @@ multiline
 recrypt
 Lista
 customizable
+cutover
+coldstart
 ledgerbounds
 testid
 closeable
@@ -1212,6 +1238,7 @@ XRPL
 ISYS
 IBLE
 HEAPU
+NSURL
 NSUTF
 RIPEMD
 UXTO
@@ -1434,4 +1461,101 @@ Blockaid
 posthog
 Posthog
 autocapture
+hermesc
 ellipsize
+misalign
+minimizable
+maximizable
+fullscreenable
+frecency
+reactnativeappupdate
+pinentry
+Pinentry
+PINENTRY
+SETDESC
+Bixin
+libsecret
+libusb
+TOCTOU
+ledgerhq
+keyrings
+APDU
+webhid
+favorited
+UETH
+FUSDC
+unrewritten
+CSPRNG
+plaintexts
+ciphertexts
+unpadded
+spyable
+cloid
+loopback
+tombstoned
+bento
+psourceaddress
+neighbour
+KHTML
+Leons
+symbolicated
+
+# Split-bundle native reject code classification
+ivar
+RCTJS
+retryably
+unpair
+
+# TokenList native temp debug log tag (home token-list repro)
+TLNATIVE
+
+# TokenList SLC / cells refactor vocabulary + token symbols
+allnet
+coldpath
+concats
+CRDT
+desync
+fanout
+ified
+KHYPE
+ONLYUSDH
+reprojected
+tokenlist
+UBTC
+undefineds
+unparseable
+unsub
+
+# iOS 26 Liquid Glass header vocabulary
+bareify
+subview
+headerless
+
+# OCDS desktop concurrent download conformance tests
+OCDS
+byteranges
+singlestream
+selfsigned
+pems
+Reqs
+unparseable
+unsalvageable
+# Desktop main-bundle slim perf tooling
+openpgp
+whatwg
+IDNA
+heapstats
+minidump
+footgun
+jank
+hotspot
+
+# @mysten/sui 2.x package name
+mysten
+
+# web service worker / workbox (rspack migration) comments + cache names
+precaches
+navigations
+
+# OpenType tabular-figures feature tag
+tnum

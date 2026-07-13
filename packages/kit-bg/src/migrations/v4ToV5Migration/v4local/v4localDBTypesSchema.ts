@@ -106,11 +106,6 @@ export type IV4DBCredentialBase = {
 };
 
 type IV4DBAvatar = string; // stringify(IAvatarInfo)
-// IAvatar;
-export type IV4DBAvatarParsed = {
-  emoji: string | 'img'; // lazy load EmojiTypes
-  bgColor: string;
-};
 type IV4DBBaseAccount = IV4DBBaseObjectWithName & {
   type: EV4DBAccountType | undefined;
   path: string;

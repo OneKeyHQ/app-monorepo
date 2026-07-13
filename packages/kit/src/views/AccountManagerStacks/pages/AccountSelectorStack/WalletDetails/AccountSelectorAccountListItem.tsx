@@ -1,15 +1,18 @@
 import { useCallback, useMemo } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
-import { IconButton, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  SizableText,
+  Stack,
+  XStack,
+  resetAccountManagerStacksModal,
+} from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type {
   IDBAccount,
   IDBDevice,
@@ -25,7 +28,7 @@ import {
   useAccountSelectorValuesMapAtom,
   useIndexedAccountAddressCreationStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -33,6 +36,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { AccountEditButton } from '../../../components/AccountEdit';
 import { useAccountSelectorAvatarNetwork } from '../../../hooks/useAccountSelectorAvatarNetwork';
+import { AccountManagerTestIDs } from '../../../testIDs';
 
 import { AccountAddress } from './AccountAddress';
 import { AccountValueWithSpotlight } from './AccountValue';
@@ -40,6 +44,7 @@ import { AccountValueWithSpotlight } from './AccountValue';
 function PlusButton({ onPress, loading }: IButtonProps) {
   return (
     <IconButton
+      testID="account-manager-plus-button-icon-btn"
       borderWidth={0}
       borderRadius="$2"
       variant="tertiary"
@@ -89,16 +94,9 @@ export function AccountSelectorAccountListItem({
   mergeDeriveAssetsEnabled: boolean | undefined;
   hideAddress?: boolean;
   enabledNetworksCompatibleWithWalletId: IServerNetwork[];
-  networkInfoMap: Record<
-    string,
-    {
-      deriveType: IAccountDeriveTypes;
-      mergeDeriveAssetsEnabled: boolean;
-    }
-  >;
+  networkInfoMap: Record<string, INetworkDeriveInfo>;
 }) {
   const actions = useAccountSelectorActions();
-  const navigation = useAppNavigation();
   const {
     activeAccount: { network },
   } = useActiveAccount({
@@ -291,15 +289,19 @@ export function AccountSelectorAccountListItem({
   );
 
   const renderAccountValue = useCallback(() => {
+    // Gate on isEmptyAddress (the "address not created yet" signal that also
+    // drives the create-address button) instead of the address string:
+    // created Lightning accounts have an empty address text but should still
+    // show their value, like BTC/LTC accounts that hide the address.
     if (
       platformEnv.isWebDappMode ||
       platformEnv.isE2E ||
-      (linkNetwork && !subTitleInfo.address)
+      (linkNetwork && subTitleInfo.isEmptyAddress)
     )
       return null;
 
     return (
-      <>
+      <Stack flexShrink={1}>
         <AccountValueWithSpotlight
           walletId={focusedWalletInfo?.wallet?.id ?? ''}
           enabledNetworksCompatibleWithWalletId={
@@ -315,11 +317,11 @@ export function AccountSelectorAccountListItem({
           linkedNetworkId={avatarNetworkId ?? network?.id}
           mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
         />
-      </>
+      </Stack>
     );
   }, [
     linkNetwork,
-    subTitleInfo.address,
+    subTitleInfo.isEmptyAddress,
     enabledNetworksCompatibleWithWalletId,
     networkInfoMap,
     focusedWalletInfo?.wallet?.id,
@@ -361,7 +363,7 @@ export function AccountSelectorAccountListItem({
   return (
     <Stack>
       <ListItem
-        testID={`account-item-index-${index}`}
+        testID={AccountManagerTestIDs.accountItem(index)}
         key={item.id}
         renderAvatar={
           <AccountAvatar
@@ -376,6 +378,15 @@ export function AccountSelectorAccountListItem({
           <ListItem.Text
             {...textProps}
             flex={1}
+            // Without minWidth={0} the flex column keeps Yoga's default
+            // `min-width: auto`, so it can't shrink below the intrinsic width of
+            // its widest line (the value + address subtitle). On Android that
+            // forces the column to overflow and the name's numberOfLines={1}
+            // gets truncated against that inflated width — even short "Account #XX"
+            // names get cut off (OK-56318). iOS lays this out without the issue.
+            // Mirrors the working WebAccountPanelListItem pattern.
+            minWidth={0}
+            overflow="hidden"
             pr="$8"
             primary={
               <SizableText size="$bodyLg" numberOfLines={1}>
@@ -426,7 +437,7 @@ export function AccountSelectorAccountListItem({
                 autoChangeToAccountMatchedNetworkId: undefined,
               });
             }
-            navigation.popStack();
+            resetAccountManagerStacksModal();
           },
           isLoading: isCreatingAddress,
           userSelect: 'none',

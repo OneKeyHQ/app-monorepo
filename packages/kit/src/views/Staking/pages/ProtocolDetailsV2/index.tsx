@@ -51,12 +51,9 @@ import {
 } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
-  IEarnActivateActionIcon,
   IEarnAlert,
   IEarnDetailActions,
-  IEarnReceiveActionIcon,
   IEarnTokenInfo,
-  IEarnTradeActionIcon,
   IEarnWithdrawActionIcon,
   IEarnWithdrawOrderActionIcon,
   IProtocolInfo,
@@ -137,7 +134,11 @@ function SubscriptionSection({
     return (
       <XStack gap="$2">
         {subscriptionActions.map((action) => (
-          <Button key={action.text} {...action.buttonProps}>
+          <Button
+            key={action.text}
+            {...action.buttonProps}
+            testID="staking-render-action-buttons-btn"
+          >
             {action.text ?? ''}
           </Button>
         ))}
@@ -626,6 +627,11 @@ const ProtocolDetailsPage = () => {
       remainingCap: detailInfo.nums?.remainingCap,
       claimable: detailInfo.nums?.claimable,
       protocolInputDecimals: detailInfo.protocolInputDecimals,
+      withdrawApprove: detailInfo.withdrawApprove,
+      receiptTokenRate:
+        detailInfo.protocol.receiptTokenRate ??
+        detailInfo.protocol.morphoTokenRate,
+      morphoTokenRate: detailInfo.protocol.morphoTokenRate,
     };
   }, [detailInfo, earnAccount, provider, symbol]);
 
@@ -876,7 +882,7 @@ const ProtocolDetailsPage = () => {
   const activateActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find(
       (i) => i.type === EStakingActionType.Activate,
-    ) as IEarnActivateActionIcon | undefined;
+    );
     return {
       text: item?.text.text,
       buttonProps: {
@@ -931,7 +937,7 @@ const ProtocolDetailsPage = () => {
   const receiveActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find(
       (i) => i.type === EStakingActionType.Receive,
-    ) as IEarnReceiveActionIcon | undefined;
+    );
     return {
       text: item?.text.text,
       buttonProps: {
@@ -963,7 +969,7 @@ const ProtocolDetailsPage = () => {
   const tradeActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find(
       (i) => i.type === EStakingActionType.Trade,
-    ) as IEarnTradeActionIcon | undefined;
+    );
     return {
       text: item?.text.text,
       buttonProps: {

@@ -134,7 +134,13 @@ export type IDevicePassphraseParams = {
 export type IDeviceWebUSBParams = {
   skipWebDevicePrompt?: boolean;
 };
-export type IDeviceCommonParams = IDevicePassphraseParams & IDeviceWebUSBParams;
+export type IDevicePreInitialize = {
+  /** Pre-warm signal; whether it takes effect is decided by the SDK method's allowUsePreInitialize (sign methods only) */
+  usePreInitialize?: boolean;
+};
+export type IDeviceCommonParams = IDevicePassphraseParams &
+  IDeviceWebUSBParams &
+  IDevicePreInitialize;
 export type IDeviceCommonParamsFull = CommonParams;
 
 export type IGetDeviceAccountDataParams = {
@@ -257,6 +263,12 @@ export const UI_REQUEST = {
 
   FIRMWARE_PROGRESS: 'ui-firmware-progress',
 } as const;
+
+export enum EHardwareVendor {
+  onekey = 'onekey',
+  ledger = 'ledger',
+  trezor = 'trezor',
+}
 
 export enum EOneKeyDeviceMode {
   bootloader = 'bootloader',
@@ -424,6 +436,7 @@ export interface IConnectYourDeviceItem {
   src: ImageSourcePropType;
   opacity?: number;
   device: SearchDevice | KnownDevice | undefined;
+  vendor?: EHardwareVendor;
 }
 
 export interface IFirmwareVerifyResult {

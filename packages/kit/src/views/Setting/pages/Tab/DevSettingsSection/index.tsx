@@ -1,5 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
-import type { ComponentProps } from 'react';
+import {
+  Children,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { random } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -7,6 +14,7 @@ import { Dimensions, I18nManager } from 'react-native';
 
 import {
   Accordion,
+  Checkbox,
   Dialog,
   ESwitchSize,
   Icon,
@@ -24,7 +32,7 @@ import {
   useClipboard,
   useInPageDialog,
 } from '@onekeyhq/components';
-import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import type { ICheckedState } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
@@ -34,19 +42,25 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { navigateToReferralLanding } from '@onekeyhq/kit/src/routes/config/deeplink/referralLandingLink';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  getDevSettingsNetworkThrottleEnabled,
+  useDevSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   isDualScreenDevice,
@@ -54,6 +68,7 @@ import {
   isSpanning,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
+import { NATIVE_SLOW_4G_LATENCY_MS } from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import {
   requestPermissionsAsync,
   setBadgeCountAsync,
@@ -81,86 +96,63 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
-import {
-  cacheDevOnlyPassword,
-  clearCachedDevOnlyPassword,
-  getCachedDevOnlyPassword,
-} from '../../../utils/devOnlyPassword';
+import { SettingTestIDs } from '../../../testIDs';
 
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { BundleCommitSearch } from './BundleCommitSearch';
+import { CpuWatchdogDevSettings } from './CpuWatchdogDevSettings';
 import { CrashDevSettings } from './CrashDevSettings';
 import { DeviceToken } from './DeviceToken';
 import {
   DevSettingsSearchProvider,
   SearchFilterItem,
+  matchesDevSearchQuery,
 } from './DevSettingsSearchContext';
+import { DiscoverySearchDebugTool } from './DiscoverySearchDebugTool';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { IpTableSelector } from './IpTableSelector';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { NotificationPayloadTest } from './NotificationPayloadTest';
+import { ReferralCodeDebugPanel } from './ReferralCodeDebugPanel';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
+import { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
 
-export function showDevOnlyPasswordDialog({
-  title,
-  description,
-  onConfirm,
-  confirmButtonProps,
-}: {
-  title: string;
-  description?: string;
-  onConfirm: (params: IBackgroundMethodWithDevOnlyPassword) => Promise<void>;
-  confirmButtonProps?: IDialogButtonProps;
-}) {
-  Dialog.show({
-    title,
-    description,
-    confirmButtonProps: {
-      variant: 'destructive',
-      ...confirmButtonProps,
-    },
-    renderContent: (
-      <Dialog.Form
-        formProps={{ values: { password: getCachedDevOnlyPassword() } }}
-      >
-        <Dialog.FormField
-          name="password"
-          rules={{
-            required: { value: true, message: 'password is required.' },
-          }}
-        >
-          <Input testID="dev-only-password" placeholder="devOnlyPassword" />
-        </Dialog.FormField>
-      </Dialog.Form>
-    ),
-    onConfirm: async ({ getForm }) => {
-      const form = getForm();
-      if (form) {
-        await form.trigger();
-        const { password } = (form.getValues() || {}) as {
-          password: string;
-        };
-        if (!isCorrectDevOnlyPassword(password)) {
-          clearCachedDevOnlyPassword(password);
-          return;
-        }
-        cacheDevOnlyPassword(password);
-        const params: IBackgroundMethodWithDevOnlyPassword = {
-          $$devOnlyPassword: password,
-        };
-        await onConfirm(params);
-      }
-    },
-  });
-}
+const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
+  const { NavigationDiagnosticsSection } =
+    await import('./NavigationDiagnosticsSection');
+  return { default: NavigationDiagnosticsSection };
+});
+
+export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
+
+type ILocalSecretEnvelopeSimulatedKeyLossResult = {
+  credentialCount: number;
+  deletedLayers: Array<{
+    kind: string;
+    keyRef: string;
+    recordCount: number;
+  }>;
+  lseCredentialCount: number;
+  preservedLayers: Array<{
+    kind: string;
+    keyRef: string;
+    recordCount: number;
+  }>;
+};
+
+type IServiceE2EWithLocalSecretEnvelopeDevTools = {
+  simulateLocalSecretEnvelopeCredentialKeyLoss: (
+    params: IBackgroundMethodWithDevOnlyPassword,
+  ) => Promise<ILocalSecretEnvelopeSimulatedKeyLossResult>;
+};
 
 const DevSettingsAccordionTrigger = ({
   title,
@@ -225,23 +217,293 @@ const DevSettingsAccordionTrigger = ({
   </Accordion.Trigger>
 );
 
+function getSearchableString(value: unknown) {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function hasMatchingDevSettingsSearchItem(node: ReactNode, query: string) {
+  if (!query) return true;
+
+  let hasMatch = false;
+
+  Children.forEach(node, (child) => {
+    if (hasMatch || !isValidElement(child)) {
+      return;
+    }
+
+    const props = child.props as {
+      children?: ReactNode;
+      keywords?: string;
+      searchKeywords?: string;
+      subtitle?: unknown;
+      title?: unknown;
+    };
+
+    if (child.type === SearchFilterItem) {
+      hasMatch = matchesDevSearchQuery(query, props.keywords);
+      return;
+    }
+
+    if (child.type === SectionPressItem || child.type === SectionFieldItem) {
+      hasMatch = matchesDevSearchQuery(
+        query,
+        getSearchableString(props.title),
+        getSearchableString(props.subtitle),
+        props.searchKeywords,
+      );
+      return;
+    }
+
+    if (props.children) {
+      hasMatch = hasMatchingDevSettingsSearchItem(props.children, query);
+    }
+  });
+
+  return hasMatch;
+}
+
+const TRADING_VIEW_KLINE_EMPTY_MOCK_INTERVAL_ITEMS: {
+  label: string;
+  value: ITradingViewKLineMockEmptyInterval;
+}[] = [
+  { label: '1 minute', value: '1m' },
+  { label: '5 minutes', value: '5m' },
+  { label: '15 minutes', value: '15m' },
+  { label: '30 minutes', value: '30m' },
+  { label: '1 hour', value: '1H' },
+  { label: '4 hours', value: '4H' },
+  { label: '1 day', value: '1D' },
+  { label: '1 week', value: '1W' },
+];
+
+function getTradingViewKLineMockIntervalsText(
+  intervals: ITradingViewKLineMockEmptyInterval[],
+) {
+  if (!intervals.length) {
+    return '未选择周期';
+  }
+
+  const labelMap = new Map(
+    TRADING_VIEW_KLINE_EMPTY_MOCK_INTERVAL_ITEMS.map((item) => [
+      item.value,
+      item.label,
+    ]),
+  );
+
+  return intervals
+    .map((interval) => labelMap.get(interval) ?? interval)
+    .join(', ');
+}
+
+function TradingViewKLineEmptyMockIntervalsDialogContent({
+  initialEnabled,
+  initialValue,
+  onConfirm,
+}: {
+  initialEnabled: boolean;
+  initialValue: ITradingViewKLineMockEmptyInterval[];
+  onConfirm: (params: {
+    enabled: boolean;
+    intervals: ITradingViewKLineMockEmptyInterval[];
+  }) => Promise<void>;
+}) {
+  const [enabled, setEnabled] = useState(initialEnabled);
+  const [selectedIntervals, setSelectedIntervals] =
+    useState<ITradingViewKLineMockEmptyInterval[]>(initialValue);
+  const allIntervals = useMemo(
+    () =>
+      TRADING_VIEW_KLINE_EMPTY_MOCK_INTERVAL_ITEMS.map((item) => item.value),
+    [],
+  );
+  const allSelected = selectedIntervals.length === allIntervals.length;
+
+  const handleEnabledChange = useCallback(
+    (checked: boolean) => {
+      setEnabled(checked);
+
+      if (checked && !selectedIntervals.length) {
+        setSelectedIntervals(['1m']);
+      }
+    },
+    [selectedIntervals.length],
+  );
+
+  const handleSelectAllChange = useCallback(
+    (checked: ICheckedState) => {
+      setSelectedIntervals(checked === true ? allIntervals : []);
+    },
+    [allIntervals],
+  );
+
+  const handleIntervalChange = useCallback(
+    (interval: ITradingViewKLineMockEmptyInterval, checked: ICheckedState) => {
+      setSelectedIntervals((prev) => {
+        if (checked === true) {
+          return prev.includes(interval) ? prev : [...prev, interval];
+        }
+
+        return prev.filter((item) => item !== interval);
+      });
+    },
+    [],
+  );
+
+  const handleConfirm = useCallback(
+    () =>
+      onConfirm({
+        enabled,
+        intervals: selectedIntervals,
+      }),
+    [enabled, onConfirm, selectedIntervals],
+  );
+
+  return (
+    <YStack gap="$3">
+      <XStack alignItems="center" justifyContent="space-between" gap="$4">
+        <YStack flex={1}>
+          <SizableText size="$bodyMdMedium">启用 Mock</SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            开启后，命中的 K 线 history 请求会返回空数据
+          </SizableText>
+        </YStack>
+        <Switch
+          size={ESwitchSize.small}
+          value={enabled}
+          onChange={handleEnabledChange}
+        />
+      </XStack>
+      {enabled ? (
+        <>
+          <Checkbox
+            label="All intervals"
+            value={allSelected}
+            onChange={handleSelectAllChange}
+          />
+          <YStack gap="$2">
+            {TRADING_VIEW_KLINE_EMPTY_MOCK_INTERVAL_ITEMS.map((item) => (
+              <Checkbox
+                key={item.value}
+                label={item.label}
+                value={selectedIntervals.includes(item.value)}
+                onChange={(checked) => {
+                  handleIntervalChange(item.value, checked);
+                }}
+              />
+            ))}
+          </YStack>
+        </>
+      ) : null}
+      <Dialog.Footer
+        showConfirmButton
+        showCancelButton
+        onConfirm={handleConfirm}
+        confirmButtonProps={{
+          disabled: enabled && selectedIntervals.length === 0,
+        }}
+      />
+    </YStack>
+  );
+}
+
 const BaseDevSettingsSection = () => {
   const [settings] = useSettingsPersistAtom();
-  const [devSettings] = useDevSettingsPersistAtom();
+  const [devSettings, setDevSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
   const localTradingViewUrlSubtitle = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
+  const mockTradingViewKLineEmptyEnabled =
+    devSettings.settings?.mockTradingViewKLineEmptyEnabled ?? false;
+  const rawMockTradingViewKLineEmptyIntervals =
+    devSettings.settings?.mockTradingViewKLineEmptyIntervals;
+  const mockTradingViewKLineEmptyIntervals = useMemo(
+    () => rawMockTradingViewKLineEmptyIntervals ?? [],
+    [rawMockTradingViewKLineEmptyIntervals],
+  );
+  const mockTradingViewKLineEmptyIntervalsText = useMemo(
+    () =>
+      getTradingViewKLineMockIntervalsText(mockTradingViewKLineEmptyIntervals),
+    [mockTradingViewKLineEmptyIntervals],
+  );
+  const mockTradingViewKLineEmptySubtitle = mockTradingViewKLineEmptyEnabled
+    ? mockTradingViewKLineEmptyIntervalsText
+    : '已关闭';
+  const networkThrottleEnabled = getDevSettingsNetworkThrottleEnabled(
+    devSettings,
+    Boolean(platformEnv.isDesktop || platformEnv.isNative),
+  );
+
+  useEffect(() => {
+    if (!platformEnv.isDesktop) {
+      return;
+    }
+    void globalThis.desktopApiProxy?.dev
+      ?.getNetworkThrottle?.()
+      .then((config) => {
+        const enabled = !!config.enabled;
+        setDevSettings((prev) => {
+          if (prev.settings?.networkThrottleEnabled === enabled) {
+            return prev;
+          }
+          return {
+            ...prev,
+            settings: {
+              ...prev.settings,
+              networkThrottleEnabled: enabled,
+            },
+          };
+        });
+      })
+      .catch(() => undefined);
+  }, [setDevSettings]);
+
+  const handleNetworkThrottleChange = useCallback(
+    async (enabled: boolean) => {
+      if (!devSettings.enabled) {
+        Toast.error({
+          title: 'Enable developer mode first',
+        });
+        return;
+      }
+      try {
+        const actualEnabled = Boolean(
+          await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+            'networkThrottleEnabled',
+            enabled,
+          ),
+        );
+        Toast.success({
+          title: actualEnabled
+            ? 'Slow 4G enabled'
+            : 'Network throttle disabled',
+        });
+      } catch {
+        Toast.error({
+          title: 'Failed to update network throttle',
+        });
+      }
+    },
+    [devSettings.enabled],
+  );
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
       title: '关闭开发者模式',
-      onConfirm: () => {
-        void backgroundApiProxy.serviceDevSetting.switchDevMode(false);
-        if (platformEnv.isDesktop) {
-          void globalThis?.desktopApiProxy?.dev?.changeDevTools(false);
+      onConfirm: async () => {
+        try {
+          await backgroundApiProxy.serviceDevSetting.switchDevMode(false);
+        } catch {
+          Toast.error({
+            title: 'Failed to disable developer mode',
+          });
+        } finally {
+          if (platformEnv.isDesktop) {
+            await globalThis?.desktopApiProxy?.dev
+              ?.changeDevTools(false)
+              .catch(() => undefined);
+          }
         }
       },
     });
@@ -255,6 +517,95 @@ const BaseDevSettingsSection = () => {
       },
     });
   }, []);
+
+  const handleOpenLocalSecretEnvelopeSelfTest = useCallback(() => {
+    navigation.push(
+      EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+      { testKind: 'debug' },
+    );
+  }, [navigation]);
+
+  const handleOpenLocalSecretEnvelopeRestoreSelfTest = useCallback(() => {
+    navigation.push(
+      EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+      { testKind: 'restore' },
+    );
+  }, [navigation]);
+
+  const handleOpenLocalSecretEnvelopeMigrationDiagnostic = useCallback(() => {
+    navigation.push(
+      EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+      { testKind: 'diagnostic' },
+    );
+  }, [navigation]);
+
+  const handleSimulateLocalSecretEnvelopeCredentialKeyLoss = useCallback(() => {
+    showDevOnlyPasswordDialog({
+      title: 'Danger Zone: Simulate LSE Credential Key Loss',
+      description:
+        'Deletes secure-storage / Keychain layer keys referenced by current LSE credentials when present. Falls back to CryptoKey only when there is no secure-storage layer. This simulates a migrated device missing non-portable local LSE material and may make affected wallets inaccessible until restored again.',
+      confirmButtonProps: {
+        testID: SettingTestIDs.localSecretEnvelopeSimulateKeyLossConfirm,
+      },
+      onConfirm: async (params) => {
+        const serviceE2E =
+          backgroundApiProxy.serviceE2E as unknown as IServiceE2EWithLocalSecretEnvelopeDevTools;
+        const result =
+          await serviceE2E.simulateLocalSecretEnvelopeCredentialKeyLoss(params);
+        if (result.deletedLayers.length) {
+          Toast.success({
+            title: 'LSE local keys deleted',
+            message: `${result.deletedLayers.length} key(s), ${result.lseCredentialCount} LSE credential(s) affected`,
+          });
+        } else {
+          Toast.message({
+            title: 'No LSE credential local keys found',
+            message: `${result.credentialCount} credential(s) scanned`,
+          });
+        }
+        Dialog.debugMessage({
+          debugMessage: result,
+        });
+      },
+    });
+  }, []);
+
+  const handleTriggerReferralBindGuardIn10s = useCallback(() => {
+    Toast.message({
+      title: 'Referral bind guard will trigger in 10s.',
+      message: 'Open a dialog or modal now, then wait for the referral flow.',
+    });
+    globalThis.setTimeout(() => {
+      void navigateToReferralLanding({
+        code: 'DEV_REFERRAL_TEST',
+        page: 'perps',
+        fromDeepLink: true,
+      });
+    }, 10_000);
+  }, []);
+
+  const handleOpenMockTradingViewKLineEmptyIntervalsDialog = useCallback(() => {
+    Dialog.show({
+      title: 'Mock 空 K 线周期',
+      description: '选择一个或多个周期，命中后 history 请求会返回空数据。',
+      renderContent: (
+        <TradingViewKLineEmptyMockIntervalsDialogContent
+          initialEnabled={mockTradingViewKLineEmptyEnabled}
+          initialValue={mockTradingViewKLineEmptyIntervals}
+          onConfirm={async ({ enabled, intervals }) => {
+            await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'mockTradingViewKLineEmptyEnabled',
+              enabled,
+            );
+            await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'mockTradingViewKLineEmptyIntervals',
+              intervals,
+            );
+          }}
+        />
+      ),
+    });
+  }, [mockTradingViewKLineEmptyEnabled, mockTradingViewKLineEmptyIntervals]);
 
   const forceIntoRTL = useCallback(() => {
     I18nManager.forceRTL(!I18nManager.isRTL);
@@ -327,6 +678,10 @@ const BaseDevSettingsSection = () => {
   const PINNED_STORAGE_KEY = 'onekey_dev_settings_pinned_sections';
 
   const [searchText, setSearchText] = useState('');
+  const debouncedSearchText = useDebounce(searchText, 300);
+  const normalizedSearchText = (searchText.trim() ? debouncedSearchText : '')
+    .toLowerCase()
+    .trim();
   const [pinnedSections, setPinnedSections] = useState<string[]>(() => {
     try {
       const raw = appStorage.syncStorage.getString(PINNED_STORAGE_KEY as any);
@@ -368,7 +723,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 禁用IP直连 强制使用IP请求 Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -382,14 +737,21 @@ const BaseDevSettingsSection = () => {
         title: 'Performance & Crash & Error & Unit Tests',
         description: '性能 崩溃 错误 单元测试',
         keywords:
-          'Performance Monitor UI FPS JS FPS 性能监控 DebugRenderTracker 组件渲染高亮 Perps渲染统计 Bg Api 可序列化检测 Analytics Dev Unit Tests Show Recovery Page crash counter',
+          'Performance Monitor UI FPS JS FPS 性能监控 DebugRenderTracker 组件渲染高亮 Perps渲染统计 Bg Api 可序列化检测 Analytics Dev Unit Tests Show Recovery Page crash counter CPU Watchdog Burn long task unresponsive severe mild',
+      },
+      {
+        key: 'navigation',
+        title: 'Navigation Diagnostics',
+        description: 'Navigation rootState tabNavigator 排查',
+        keywords:
+          'navigation rootstate rootnavigationref tabletmainviewnavigationref tabnavigator router',
       },
       {
         key: 'data',
         title: 'Data Management',
         description: '数据重置 清理 导出',
         keywords:
-          '清空Market收藏数据 WatchList Mock Market Banner Data Clear App Data E2E Clear Discovery Data Clear Address Book Data Clear Wallets Accounts Data Clear Password Clear History Clear Settings Clear Wallet Connect Sessions Clear HD Wallet Hash XFP Clear Last DB Backup Timestamp Clear Cached Password Reset Spotlight Reset Invite Code Reset Hidden Sites Floating icon',
+          '清空Market收藏数据 WatchList Mock Market Banner Data Discovery Search Factors Browser Search QA Export Analysis 联想 因素 分析 Clear App Data E2E Clear Discovery Data Clear Address Book Data Clear Wallets Accounts Data Clear Password Clear History Clear Settings Clear Wallet Connect Sessions Clear HD Wallet Hash XFP Clear Last DB Backup Timestamp Clear Cached Password Reset Spotlight Reset Invite Code Reset Hidden Sites Floating icon',
       },
       {
         key: 'webview',
@@ -410,7 +772,7 @@ const BaseDevSettingsSection = () => {
         title: 'Account & Wallet & Prime & Network',
         description: '账户 钱包 Prime 链和网络',
         keywords:
-          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Add ServerNetwork Test Data 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
+          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
       },
       {
         key: 'transaction',
@@ -424,9 +786,6 @@ const BaseDevSettingsSection = () => {
   );
 
   const visibleSectionKeys = useMemo(() => {
-    // Show all sections — individual items are filtered by SearchFilterItem.
-    // This avoids the problem where item keywords missing from section-level
-    // keywords would make those items unreachable via search.
     const keys = sectionMeta.map((s) => s.key);
     // Sort: pinned first
     const pinSet = new Set(pinnedSections);
@@ -456,16 +815,18 @@ const BaseDevSettingsSection = () => {
           leftIconName="SearchOutline"
         />
       </Stack>
-      {searchText.trim() ? (
-        <BundleCommitSearch searchText={searchText} />
+      {normalizedSearchText ? (
+        <BundleCommitSearch searchText={debouncedSearchText} />
       ) : null}
       <Accordion
         width="100%"
         type="multiple"
         defaultValue={
-          searchText ? visibleSectionKeys : visibleSectionKeys.slice(0, 1)
+          normalizedSearchText
+            ? visibleSectionKeys
+            : visibleSectionKeys.slice(0, 1)
         }
-        key={`${searchText.trim() ? 'searching' : 'idle'}-${visibleSectionKeys.join(',')}`}
+        key={`${normalizedSearchText ? 'searching' : 'idle'}-${visibleSectionKeys.join(',')}`}
       >
         {visibleSectionKeys.map((sectionKey) => {
           const isPinned = pinnedSections.includes(sectionKey);
@@ -473,14 +834,19 @@ const BaseDevSettingsSection = () => {
             pinned: isPinned,
             onTogglePin: () => togglePin(sectionKey),
           };
-          const wrapWithSearch = (node: React.ReactNode) => (
-            <DevSettingsSearchProvider
-              key={sectionKey}
-              value={searchText.toLowerCase().trim()}
-            >
-              {node}
-            </DevSettingsSearchProvider>
-          );
+          const wrapWithSearch = (node: React.ReactNode) =>
+            normalizedSearchText &&
+            !hasMatchingDevSettingsSearchItem(
+              node,
+              normalizedSearchText,
+            ) ? null : (
+              <DevSettingsSearchProvider
+                key={sectionKey}
+                value={normalizedSearchText}
+              >
+                {node}
+              </DevSettingsSearchProvider>
+            );
           switch (sectionKey) {
             case 'basic':
               return wrapWithSearch(
@@ -583,8 +949,11 @@ const BaseDevSettingsSection = () => {
                             typeof __BUNDLE_START_TIME__ !== 'undefined'
                               ? __BUNDLE_START_TIME__
                               : 0;
+                          const { getDevicePerformanceTier } =
+                            await import('@onekeyhq/shared/src/performance/devicePerformanceTier');
                           Dialog.debugMessage({
                             debugMessage: {
+                              devicePerformanceTier: getDevicePerformanceTier(),
                               startupTimeAt:
                                 await LaunchOptionsManager.getStartupTimeAt(),
                               jsReadyTimeAt:
@@ -619,6 +988,27 @@ const BaseDevSettingsSection = () => {
                           });
                         }}
                       />
+                      {platformEnv.isNative ? (
+                        <SearchFilterItem keywords="ble bluetooth peripheral serviceUUIDs 蓝牙 已连接设备 dump">
+                          <SectionPressItem
+                            icon="CodeOutline"
+                            title="Dump connected BLE peripherals"
+                            subtitle="打印已连接设备的 serviceUUIDs(需 0.1.6 + 重新编译)"
+                            onPress={async () => {
+                              const { default: bleManager } =
+                                await import('@onekeyhq/shared/src/hardware/bleManager');
+                              const peripherals =
+                                await bleManager.getConnectedPeripheralsDebug();
+                              Dialog.debugMessage({
+                                debugMessage: {
+                                  count: peripherals.length,
+                                  peripherals,
+                                },
+                              });
+                            }}
+                          />
+                        </SearchFilterItem>
+                      ) : null}
                       <SearchFilterItem keywords="RegistrationID 推送注册">
                         <RegistrationID />
                       </SearchFilterItem>
@@ -750,6 +1140,94 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+
+                      {platformEnv.isDesktop ? (
+                        <SectionPressItem
+                          icon="SpeedLowOutline"
+                          title="Desktop Slow 4G Network Throttle"
+                          subtitle={
+                            networkThrottleEnabled
+                              ? 'Slow 4G latency enabled: 562.5ms'
+                              : 'Disabled'
+                          }
+                          drillIn={false}
+                          searchKeywords="Desktop Slow 4G Network Throttle weak network throttling 弱网 慢网"
+                        >
+                          <Switch
+                            size={ESwitchSize.small}
+                            value={networkThrottleEnabled}
+                            onChange={handleNetworkThrottleChange}
+                          />
+                        </SectionPressItem>
+                      ) : null}
+
+                      {platformEnv.isNative ? (
+                        <SectionPressItem
+                          icon="SpeedLowOutline"
+                          title="Native Slow 4G Network Throttle"
+                          subtitle={
+                            networkThrottleEnabled
+                              ? `Slow 4G latency enabled: ${NATIVE_SLOW_4G_LATENCY_MS}ms`
+                              : 'Disabled'
+                          }
+                          drillIn={false}
+                          searchKeywords="Native Slow 4G Network Throttle iOS Android latency weak network throttling 弱网 慢网"
+                        >
+                          <Switch
+                            size={ESwitchSize.small}
+                            value={networkThrottleEnabled}
+                            onChange={handleNetworkThrottleChange}
+                          />
+                        </SectionPressItem>
+                      ) : null}
+
+                      <SectionPressItem
+                        icon="ShieldKeyholeOutline"
+                        title="Local Secret Envelope Self-Test"
+                        subtitle="Per-checkpoint non-destructive LSE verification for CryptoKey / secureStorage layers"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeSelfTestButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB self-test"
+                        onPress={handleOpenLocalSecretEnvelopeSelfTest}
+                      />
+
+                      <SectionPressItem
+                        icon="CloudOutline"
+                        title="LSE Restore Self-Test"
+                        subtitle="Per-checkpoint non-destructive restore/export guard verification for Cloud Backup and Prime Transfer"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeRestoreSelfTestButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE restore Cloud Backup Prime Transfer portable credential self-test"
+                        onPress={handleOpenLocalSecretEnvelopeRestoreSelfTest}
+                      />
+
+                      <SectionPressItem
+                        icon="SearchOutline"
+                        title="LSE Migration Diagnostic"
+                        subtitle="Read-only scan: encryption method + KDF iterations (confirmed/inferred) per record, no secret exposed"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeMigrationDiagnosticButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE migration diagnostic encryption method KDF iterations scan inventory"
+                        onPress={
+                          handleOpenLocalSecretEnvelopeMigrationDiagnostic
+                        }
+                      />
+
+                      <SectionPressItem
+                        icon="DeleteOutline"
+                        title="Simulate LSE Credential Key Loss"
+                        subtitle="Prefer deleting Keychain / secure-storage LSE keys; fallback to CryptoKey only when no secure-storage layer exists"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeSimulateKeyLossButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE simulate migration new device key loss delete Keychain CryptoKey secureStorage IndexedDB credential"
+                        onPress={
+                          handleSimulateLocalSecretEnvelopeCredentialKeyLoss
+                        }
+                      />
 
                       <SectionPressItem
                         icon="SwitchHorOutline"
@@ -1028,11 +1506,11 @@ const BaseDevSettingsSection = () => {
                             isUncontrolled
                             size={ESwitchSize.small}
                             defaultChecked={
-                              !!devSettings.settings?.showPerformanceMonitor
+                              !!devSettings.settings?.showPerformanceMonitorV2
                             }
                             onChange={(v) => {
                               void backgroundApiProxy.serviceDevSetting.updateDevSetting(
-                                'showPerformanceMonitor',
+                                'showPerformanceMonitorV2',
                                 v,
                               );
                               setTimeout(() => {
@@ -1109,6 +1587,28 @@ const BaseDevSettingsSection = () => {
                       </SectionFieldItem>
 
                       <SectionPressItem
+                        icon="RepeatOutline"
+                        title="Split Bundle & Background Thread"
+                        subtitle="Check dual-thread mode & test service RPC"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevSplitBundleTestModal,
+                          );
+                        }}
+                      />
+
+                      <SectionPressItem
+                        icon="BugOutline"
+                        title="Drawing Order Stress (Android crash repro)"
+                        subtitle="Repro getChildDrawingOrder crash (REACT-NATIVE-48W/4AM)"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevDrawingOrderStressModal,
+                          );
+                        }}
+                      />
+
+                      <SectionPressItem
                         icon="Lab2Outline"
                         title="Dev Unit Tests"
                         testID="dev-unit-tests-menu"
@@ -1118,6 +1618,23 @@ const BaseDevSettingsSection = () => {
                           );
                         }}
                       />
+
+                      {platformEnv.isWeb ||
+                      platformEnv.isDesktop ||
+                      platformEnv.isExtension ? (
+                        <SectionPressItem
+                          icon="ShieldCheckDoneOutline"
+                          title="SES Harden Runtime Check"
+                          subtitle="Validate lockdown, harden, eval, Error, Intl, RegExp, JSON and Promise"
+                          testID="ses-harden-runtime-check-menu"
+                          searchKeywords="SES lockdown harden Object.prototype evalTaming runtime check"
+                          onPress={() => {
+                            navigation.push(
+                              EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal,
+                            );
+                          }}
+                        />
+                      ) : null}
 
                       <SearchFilterItem keywords="SentryCrashSettings Sentry Crash 崩溃">
                         <SentryCrashSettings />
@@ -1139,9 +1656,31 @@ const BaseDevSettingsSection = () => {
                       <SearchFilterItem keywords="CrashDevSettings Crash Test 崩溃测试">
                         <CrashDevSettings />
                       </SearchFilterItem>
+                      <SearchFilterItem keywords="CPU Watchdog Burn long task unresponsive severe mild 性能监视 测试">
+                        <CpuWatchdogDevSettings />
+                      </SearchFilterItem>
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>,
+              );
+            case 'navigation':
+              return (
+                <Accordion.Item value="navigation" key="navigation">
+                  <DevSettingsAccordionTrigger
+                    title="Navigation Diagnostics"
+                    description="Navigation rootState / tabNavigator 排查"
+                    icon="LayoutWindowOutline"
+                    {...pinProps}
+                  />
+                  <Accordion.HeightAnimator animation="quick">
+                    <Accordion.Content
+                      animation="quick"
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <LazyNavigationDiagnosticsSection />
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>
               );
             case 'data':
               return wrapWithSearch(
@@ -1199,6 +1738,10 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+
+                      <SearchFilterItem keywords="Discovery Search Factors Browser Search QA Export Analysis 联想 因素 分析">
+                        <DiscoverySearchDebugTool />
+                      </SearchFilterItem>
 
                       <SectionPressItem
                         icon="DeleteOutline"
@@ -1368,6 +1911,15 @@ const BaseDevSettingsSection = () => {
                           void backgroundApiProxy.serviceSetting.clearFloatingIconHiddenSites();
                         }}
                       />
+                      <SectionPressItem
+                        icon="ShieldCheckDoneOutline"
+                        title="Reset KYT Intro Dialog"
+                        subtitle="Clear the shown flag so the KYT intro dialog appears again"
+                        onPress={async () => {
+                          await backgroundApiProxy.serviceSetting.resetKytIntroShown();
+                          Toast.success({ title: 'KYT intro dialog reset' });
+                        }}
+                      />
                       <SearchFilterItem keywords="ResetInstanceId Reset Instance Id 重置实例ID">
                         <ResetInstanceId />
                       </SearchFilterItem>
@@ -1464,6 +2016,30 @@ const BaseDevSettingsSection = () => {
                             ? localTradingViewUrlSubtitle
                             : 'https://tradingview.onekeytest.com/'
                         }
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionPressItem
+                        icon="TradeOutline"
+                        title="Mock TradingView 空 K 线"
+                        subtitle={mockTradingViewKLineEmptySubtitle}
+                        onPress={
+                          handleOpenMockTradingViewKLineEmptyIntervalsDialog
+                        }
+                      />
+                      <SectionFieldItem
+                        icon="TradeOutline"
+                        name="showMarketHomeWsDebug"
+                        title="Market Home WS Debug"
+                        subtitle="显示 Market 首页 WS 订阅数量和可视窗口高亮"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="BrowserOutline"
+                        name="allowLocalhostUrlInDAppBrowser"
+                        title="Allow local URLs in DApp Browser"
+                        subtitle="Allow http://localhost and http://127.0.0.1"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
@@ -1606,6 +2182,32 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+
+                      <SectionPressItem
+                        icon="GiftOutline"
+                        title="Referral Bind Debug"
+                        subtitle="Reset the selected wallet referral bind status"
+                        searchKeywords="referral rebate bind wallet dev unbind creation record"
+                        onPress={() => {
+                          Dialog.cancel({
+                            title: 'Referral Bind Debug',
+                            renderContent: (
+                              <ReferralCodeDebugPanel
+                                activeWalletId={activeAccount.wallet?.id}
+                                activeWalletName={activeAccount.wallet?.name}
+                              />
+                            ),
+                          });
+                        }}
+                      />
+
+                      <SectionPressItem
+                        icon="ClockTimeHistoryOutline"
+                        title="Trigger Referral Bind Guard in 10s"
+                        subtitle="Click, then open any dialog/modal within 10 seconds to test the blocking toast."
+                        searchKeywords="referral rebate bind guard dialog modal toast 10s deep link"
+                        onPress={handleTriggerReferralBindGuardIn10s}
+                      />
 
                       <SectionPressItem
                         icon="ServerOutline"
@@ -1771,12 +2373,46 @@ const BaseDevSettingsSection = () => {
                           value={devSettings.settings?.enableMockHighTxFee}
                         />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="GlobusOutline"
+                        name="disableCustomUA"
+                        title="禁用自定义 User-Agent"
+                        subtitle="dev 调试用：开启后回退到 runtime 默认 UA"
+                      >
+                        <Switch
+                          size={ESwitchSize.small}
+                          onChange={() => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'disableCustomUA',
+                              !devSettings.settings?.disableCustomUA,
+                            );
+                          }}
+                          value={devSettings.settings?.disableCustomUA}
+                        />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="LockOutline"
+                        name="useFastPbkdf2NativeBackend"
+                        title="强制 Fast PBKDF2 Native 后端"
+                        subtitle="dev 调试用：默认走 react-native-quick-crypto；开启后改走 react-native-fast-pbkdf2"
+                        searchKeywords="crypto pbkdf2 kdf encryption password"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
                       <SectionFieldItem
                         icon="SignatureOutline"
                         name="alwaysSignOnlySendTx"
                         title="始终只签名不广播"
                         testID="always-sign-only-send-tx"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="EyeOutline"
+                        name="allowBulkSendWatchingAccount"
+                        title="批量转账允许观察账户进入前置流程"
+                        subtitle="仅放行前置校验，实际发送仍会在提交时拦截"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>

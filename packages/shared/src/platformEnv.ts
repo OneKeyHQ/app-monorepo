@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-import MobileDetect from 'mobile-detect';
 import { Platform } from 'react-native';
 
 import { ANDROID_CHANNEL } from './androidNativeEnv';
@@ -39,9 +38,37 @@ export type IAppChannel =
   | 'linux'
   | 'linuxSnap'
   | 'linuxFlatpak';
+export type INativeRuntimeKind = 'main' | 'background';
+
+/**
+ * Cross-platform runtime role used by the app event bus to decide how to route
+ * an event between processes:
+ *   - Main:       a foreground process (UI). May coexist with siblings (ext
+ *                 popup + side panel + expand tab). Talks to a single
+ *                 background via `sendToBackground`.
+ *   - Background: the singleton service process. Fans out events to every
+ *                 foreground via `broadcastToForegrounds`.
+ *   - Standalone: single-process runtime with no IPC (current desktop / web).
+ *                 When desktop/web later adopt service workers, simply remap
+ *                 them to Main / Background here.
+ *
+ * `INativeRuntimeKind` is the native-only ancestor of this concept; the new
+ * enum is the cross-platform generalization.
+ */
+export enum ERuntimeRole {
+  Main = 'main',
+  Background = 'background',
+  Standalone = 'standalone',
+}
+
+type IMobileDetectInfo = {
+  mobile: () => string | null;
+  os: () => string | null;
+  userAgent: () => string | null;
+};
 
 export type IPlatformEnv = {
-  mobileDetectInfo: MobileDetect | undefined;
+  mobileDetectInfo: IMobileDetectInfo | undefined;
   isNewRouteMode: boolean;
 
   appFullName: string;
@@ -64,6 +91,7 @@ export type IPlatformEnv = {
   isProduction?: boolean;
   /** e2e mode */
   isE2E?: boolean;
+  enableNativeBackgroundThread?: boolean;
 
   /** running in the browsers */
   isWeb?: boolean;
@@ -80,6 +108,11 @@ export type IPlatformEnv = {
   isExtension?: boolean;
   /** running in mobile APP */
   isNative?: boolean;
+  nativeRuntimeKind?: INativeRuntimeKind;
+  isNativeMainThread?: boolean;
+  isNativeBackgroundThread?: boolean;
+  /** Cross-platform runtime role for app event bus routing. See ERuntimeRole. */
+  runtimeRole: ERuntimeRole;
 
   isDesktopLinux?: boolean;
   isDesktopLinuxSnap?: boolean;
@@ -109,6 +142,8 @@ export type IPlatformEnv = {
   /** ios, tablet only */
   isNativeIOSPad?: boolean;
   isNativeIOSPadStore?: boolean;
+  /** ios 26+, used to opt into Liquid Glass UIKit defaults */
+  isNativeIOS26Plus?: boolean;
   isNativeAndroid?: boolean;
   isNativeAndroidGooglePlay?: boolean;
   isNativeAndroidHuawei?: boolean;
@@ -158,6 +193,7 @@ const {
   isExtFirefox,
   isExtEdge,
   isE2E,
+  enableNativeBackgroundThread,
 }: {
   isJest: boolean;
   isDev: boolean;
@@ -171,6 +207,7 @@ const {
   isExtFirefox: boolean;
   isExtEdge: boolean;
   isE2E: boolean;
+  enableNativeBackgroundThread: boolean;
 } = require('./buildTimeEnv.js');
 
 const desktopDeskChannel = globalThis?.desktopApi?.deskChannel || '';
@@ -197,11 +234,21 @@ const isNativeIOSPhone =
   isNative && Platform.OS === 'ios' && !Platform.isPad && !Platform.isTV;
 const isNativeIOSPad = isNative && Platform.OS === 'ios' && Platform.isPad;
 const isNativeIOSPadStore = isNativeIOSPad && isProduction;
+const isNativeIOS26Plus =
+  isNativeIOS && parseInt(String(Platform.Version), 10) >= 26;
 const isNativeAndroid = isNative && Platform.OS === 'android';
 const androidChannel = ANDROID_CHANNEL;
 const isNativeAndroidGooglePlay =
   isNativeAndroid && androidChannel === 'google';
 const isNativeAndroidHuawei = isNativeAndroid && androidChannel === 'huawei';
+const nativeRuntimeGlobal = globalThis as typeof globalThis & {
+  __ONEKEY_RUNTIME_KIND__?: INativeRuntimeKind;
+};
+const nativeRuntimeKind = isNative
+  ? (nativeRuntimeGlobal.__ONEKEY_RUNTIME_KIND__ ?? 'main')
+  : undefined;
+const isNativeBackgroundThread = isNative && nativeRuntimeKind === 'background';
+const isNativeMainThread = isNative && !isNativeBackgroundThread;
 
 // for platform building by file extension
 const getAppPlatform = (): IAppPlatform | undefined => {
@@ -378,23 +425,40 @@ let isWebMobileAndroid = false;
 let isWebMobileIOS = false;
 let isWebSafari = false;
 let isWebDappMode = false;
-let mobileDetectInfo: MobileDetect | undefined;
+let mobileDetectInfo: IMobileDetectInfo | undefined;
 (function () {
   if (!isWeb) {
     return;
   }
-  // https://hgoebl.github.io/mobile-detect.js/doc/MobileDetect.html
-  const md = new MobileDetect(globalThis.navigator?.userAgent);
-  mobileDetectInfo = md;
-  const mobileInfo = md.mobile();
-  isWebMobile = Boolean(mobileInfo);
-  const os = md.os();
-  const ua = md.userAgent();
+  const ua = globalThis.navigator?.userAgent || '';
+  const isIPadOS =
+    ua.includes('Macintosh') && (globalThis.navigator?.maxTouchPoints || 0) > 1;
 
-  isWebMobileAndroid = os === 'AndroidOS';
-  isWebMobileIOS = os === 'iOS' || os === 'iPadOS';
+  isWebMobileAndroid = /Android/u.test(ua);
+  isWebMobileIOS = /iPhone|iPad|iPod/u.test(ua) || isIPadOS;
+  isWebMobile = isWebMobileAndroid || isWebMobileIOS || /Mobi|Mobile/u.test(ua);
   isWebSafari =
-    ua === 'Safari' || globalThis.navigator?.userAgent?.includes('Safari');
+    ua.includes('Safari') &&
+    !ua.includes('Chrome') &&
+    !ua.includes('Chromium') &&
+    !ua.includes('Edg/');
+  mobileDetectInfo = {
+    mobile: () => {
+      if (isWebMobileAndroid) return 'Android';
+      if (isWebMobileIOS) return 'iPhone';
+      return isWebMobile ? 'UnknownMobile' : null;
+    },
+    os: () => {
+      if (isWebMobileAndroid) return 'AndroidOS';
+      if (isWebMobileIOS)
+        return isIPadOS || ua.includes('iPad') ? 'iPadOS' : 'iOS';
+      return null;
+    },
+    userAgent: () => {
+      if (isWebSafari) return 'Safari';
+      return null;
+    },
+  };
   isWebDappMode = isWebInDappMode();
 })();
 
@@ -402,8 +466,9 @@ const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
-// Desktop (Electron) supports WebUSB through Chromium, except Linux which uses Bridge due to udev permission issues
-const isSupportWebUSB = isExtension || isWeb || (isDesktop && !isDesktopLinux);
+// Desktop (Electron) supports WebUSB through Chromium. Linux requires host udev
+// rules for device access, which the desktop app can request via PolicyKit.
+const isSupportWebUSB = isExtension || isWeb || isDesktop;
 
 const isSupportDesktopBle = isDesktopMac || isDesktopWin;
 
@@ -469,6 +534,22 @@ export const supportAutoUpdate: boolean =
 
 export const isAppleStoreEnv = isMas || isNativeIOSStore || isNativeIOSPadStore;
 
+const computeRuntimeRole = (): ERuntimeRole => {
+  if (isExtensionBackground) return ERuntimeRole.Background;
+  if (isExtensionUi || isExtensionOffscreen) return ERuntimeRole.Main;
+  if (isNative && enableNativeBackgroundThread) {
+    return isNativeBackgroundThread
+      ? ERuntimeRole.Background
+      : ERuntimeRole.Main;
+  }
+  if (isWebEmbed) return ERuntimeRole.Main;
+  // desktop / web (currently single-process) and native dev without
+  // enableNativeBackgroundThread fall through to standalone — no IPC.
+  return ERuntimeRole.Standalone;
+};
+
+const runtimeRole: ERuntimeRole = computeRuntimeRole();
+
 const platformEnv: IPlatformEnv = {
   mobileDetectInfo,
   isNewRouteMode: true,
@@ -488,6 +569,7 @@ const platformEnv: IPlatformEnv = {
   isDev,
   isProduction,
   isE2E,
+  enableNativeBackgroundThread,
 
   isWeb,
   isWebDappMode,
@@ -500,6 +582,10 @@ const platformEnv: IPlatformEnv = {
   isDesktop,
   isExtension,
   isNative,
+  nativeRuntimeKind,
+  isNativeMainThread,
+  isNativeBackgroundThread,
+  runtimeRole,
 
   isDesktopMac,
   isDesktopWin,
@@ -520,6 +606,7 @@ const platformEnv: IPlatformEnv = {
   isNativeIOSPhone,
   isNativeIOSPad,
   isNativeIOSPadStore,
+  isNativeIOS26Plus,
   isNativeAndroid,
   isNativeAndroidGooglePlay,
   isNativeAndroidHuawei,

@@ -23,7 +23,12 @@ import type {
   ViewStyle,
 } from 'react-native';
 
-export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
+export function PageContainer({
+  children,
+  lazyLoad,
+  fullPage,
+  testID,
+}: IPageProps) {
   const { scrollEnabled, scrollProps } = useContext(PageContext);
 
   const rawContentContainerStyle = scrollProps?.contentContainerStyle;
@@ -72,7 +77,7 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
 
   return useMemo(
     () => (
-      <BasicPage lazyLoad={lazyLoad} fullPage={fullPage}>
+      <BasicPage lazyLoad={lazyLoad} fullPage={fullPage} testID={testID}>
         {scrollEnabled ? (
           <KeyboardAwareScrollView
             ref={scrollViewRef as any}
@@ -97,6 +102,7 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
     [
       lazyLoad,
       fullPage,
+      testID,
       scrollEnabled,
       nativeProps,
       handleScroll,

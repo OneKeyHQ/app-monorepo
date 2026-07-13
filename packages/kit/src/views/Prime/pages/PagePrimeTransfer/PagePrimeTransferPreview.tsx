@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
 import natsort from 'natsort';
@@ -30,7 +30,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EPrimePages,
@@ -48,7 +47,10 @@ import type {
 
 import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent';
-import { showPrimeTransferImportProcessingDialog } from './components/PrimeTransferImportProcessingDialog';
+import {
+  registerPrimeTransferImportTraceDebugGlobal,
+  showPrimeTransferImportProcessingDialog,
+} from './components/PrimeTransferImportProcessingDialog';
 
 function PreviewHeader({
   title,
@@ -76,7 +78,12 @@ function PreviewHeader({
       </SizableText>
       <XStack pr="$2.5">
         {buttonProps ? (
-          <Button size="small" variant="tertiary" onPress={buttonProps.onPress}>
+          <Button
+            size="small"
+            variant="tertiary"
+            onPress={buttonProps.onPress}
+            testID="prime-intl-btn"
+          >
             {intl.formatMessage({
               id: buttonProps.isAllSelected
                 ? ETranslations.global_deselect_all
@@ -107,12 +114,12 @@ function PreviewItem({
       onSelect?.(itemId);
     } else {
       Toast.error({
-        title: appLocale.intl.formatMessage({
+        title: intl.formatMessage({
           id: ETranslations.transfer_web_only_supports_watch_only_transfer,
         }),
       });
     }
-  }, [itemId, onSelect, selectedItemMapInfo]);
+  }, [itemId, onSelect, selectedItemMapInfo, intl]);
 
   return (
     <Stack
@@ -170,6 +177,7 @@ function PreviewItem({
         </YStack>
         <Stack w="$5">
           <Checkbox
+            testID="prime-checkbox"
             disabled={selectedItemMapInfo[itemId].disabled}
             shouldStopPropagation
             value={selectedItemMapInfo[itemId].checked}
@@ -348,9 +356,22 @@ function WalletList({
 export default function PagePrimeTransferPreview() {
   const intl = useIntl();
   const [isImporting, setIsImporting] = useState(false);
+  // Synchronous re-entrancy guard for the import flow. React state (isImporting)
+  // updates asynchronously, so it cannot block two near-simultaneous triggers
+  // (e.g. the remote-password dialog submitted via both the confirm button and
+  // the input's onSubmitEditing). A ref flips synchronously. See OK-56787.
+  const importInFlightRef = useRef(false);
   const navigation = useAppNavigation();
   const [primeTransferAtom] = usePrimeTransferAtom();
   const { exitTransferFlow } = usePrimeTransferExit();
+
+  useEffect(() => {
+    // Chrome/AI agents can inspect the transfer-only import trace while this
+    // preview page is open:
+    // await window.$$oneKeyPrimeTransferDebug.getImportTraceSnapshot()
+    registerPrimeTransferImportTraceDebugGlobal();
+  }, []);
+
   const route = useAppRoute<
     IPrimeParamList,
     EPrimePages.PrimeTransferPreview
@@ -496,6 +517,7 @@ export default function PagePrimeTransferPreview() {
       return (
         <>
           <Button
+            testID="prime-debug-buttons-btn"
             onPress={() => {
               Dialog.debugMessage({
                 debugMessage: selectedTransferData || transferData,
@@ -546,6 +568,10 @@ export default function PagePrimeTransferPreview() {
       let remotePasswordDialog: IDialogInstance | null = null;
 
       const startImport = async () => {
+        if (importInFlightRef.current) {
+          return;
+        }
+        importInFlightRef.current = true;
         try {
           void remotePasswordDialog?.close();
 
@@ -566,21 +592,28 @@ export default function PagePrimeTransferPreview() {
             navigation,
           });
 
-          const usedPassword = remoteDevicePassword || localPassword;
-          const { success, errorsInfo } =
+          const localPasswordEncoded = localPassword
+            ? await backgroundApiProxy.servicePassword.encodeSensitiveText({
+                text: localPassword,
+              })
+            : '';
+          const usedPasswordEncoded = remoteDevicePassword
+            ? await backgroundApiProxy.servicePassword.encodeSensitiveText({
+                text: remoteDevicePassword,
+              })
+            : localPasswordEncoded;
+          const { success, errorsInfo, taskUUID } =
             await backgroundApiProxy.servicePrimeTransfer.startImport({
               decryptedCredentialsHex:
                 transferData?.privateData?.decryptedCredentialsHex,
               selectedTransferData,
-              password: usedPassword
-                ? await backgroundApiProxy.servicePassword.encodeSensitiveText({
-                    text: usedPassword,
-                  })
-                : '',
+              password: usedPasswordEncoded,
+              localPassword: localPasswordEncoded,
             });
 
           await backgroundApiProxy.servicePrimeTransfer.completeImportProgress({
             errorsInfo,
+            taskUUID,
           });
 
           if (success) {
@@ -590,12 +623,14 @@ export default function PagePrimeTransferPreview() {
           console.error(error);
           await backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
           Toast.error({
-            title: appLocale.intl.formatMessage({
+            title: intl.formatMessage({
               id: ETranslations.global_an_error_occurred,
             }),
             message: (error as Error)?.message || 'Unknown error',
           });
           throw error;
+        } finally {
+          importInFlightRef.current = false;
         }
       };
 
@@ -621,7 +656,7 @@ export default function PagePrimeTransferPreview() {
                 await startImport();
               } else {
                 Toast.error({
-                  title: appLocale.intl.formatMessage({
+                  title: intl.formatMessage({
                     id: ETranslations.auth_error_passcode_incorrect,
                   }),
                 });

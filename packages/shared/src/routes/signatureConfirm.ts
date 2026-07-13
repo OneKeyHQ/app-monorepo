@@ -18,6 +18,7 @@ import type {
 } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
+import type { IGasAccountScenario } from '../../types/fee';
 import type { IAccountHistoryTx } from '../../types/history';
 import type {
   ILNURLAuthServiceResponse,
@@ -104,6 +105,7 @@ export type IModalSignatureConfirmParamList = {
     popStack?: boolean;
     isQueueMode?: boolean;
     unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
+    gasAccountScenario?: IGasAccountScenario;
   };
   [EModalSignatureConfirmRoutes.MessageConfirm]: {
     accountId: string;
@@ -131,6 +133,7 @@ export type IModalSignatureConfirmParamList = {
     onFail?: (error: Error) => void;
     onCancel?: () => void;
     transferPayload?: ITransferPayload;
+    gasAccountScenario?: IGasAccountScenario;
   };
   [EModalSignatureConfirmRoutes.TxReplace]: {
     networkId: string;

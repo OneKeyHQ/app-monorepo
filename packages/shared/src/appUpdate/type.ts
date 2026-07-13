@@ -1,3 +1,4 @@
+import type { IFeaturedChangelog } from './featuredChangelog';
 import type { ETranslations } from '../locale';
 import type { IUpdateDownloadedEvent } from '../modules3rdParty/auto-update';
 
@@ -147,6 +148,7 @@ export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
   // builtin if it has an active custom bundle.
   // When > 0 and jsBundleVersion is absent, the client is already up to date.
   jsBundleCount?: number;
+  featuredChangelog?: IFeaturedChangelog;
 }
 
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
@@ -167,12 +169,22 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   summary?: string;
   // the last time the update dialog was shown (for rate limiting)
   lastUpdateDialogShownAt?: number;
+  // the last time the stale-artifacts cleanup sweep ran (epoch ms); used to
+  // rate-limit pruneStaleArtifacts to at most once per 24h across launches
+  lastPruneStaleArtifactsAt?: number;
   // true when the pending update target is a rollback (target bundle < current bundle)
   isRollbackTarget?: boolean;
   freezeUntil?: number;
   ignoredTargets?: Record<string, IIgnoredUpdateTargetInfo>;
   fullFlowRetryByTarget?: Record<string, IFullFlowRetryInfo>;
   lastRequestSeq?: number;
+  featuredChangelog?: IFeaturedChangelog;
+  // In-flight attemptId for the current update cycle. Persisted (rather than
+  // module-memory only) so the post-install / post-relaunch
+  // `firstLaunchAfterUpdated` success event can re-emit the same id as the
+  // original `softwareUpdateStarted` event, keeping per-attempt funnels
+  // correlated across the install boundary. Cleared by reset().
+  currentUpdateAttemptId?: string;
 }
 
 export enum EAppUpdateStatus {

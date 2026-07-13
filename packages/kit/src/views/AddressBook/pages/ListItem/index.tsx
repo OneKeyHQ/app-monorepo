@@ -13,6 +13,7 @@ import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 import { AddressBookListContent } from '../../components/AddressBookListContent';
 import { ContentContainer } from '../../components/ContentContainer';
 import { useAddressBookItems } from '../../hooks/useAddressBook';
+import { AddressBookTestIDs } from '../../testIDs';
 
 function ListPage() {
   const intl = useIntl();
@@ -51,13 +52,14 @@ function ListPage() {
             color: iconColor as ColorTokens,
           }}
           onPress={handleShowDialog}
+          testID={AddressBookTestIDs.safeNotificationBtn}
         />
         {gtMd ? (
           <IconButton
             variant="tertiary"
             icon="PlusLargeOutline"
             onPress={onCreate}
-            testID="address-book-add-icon"
+            testID={AddressBookTestIDs.addIconBtn}
           />
         ) : null}
       </XStack>
@@ -84,6 +86,9 @@ function ListPage() {
           onConfirmText={intl.formatMessage({
             id: ETranslations.address_book_add_address_title,
           })}
+          confirmButtonProps={{
+            testID: AddressBookTestIDs.addFooterBtn,
+          }}
         />
       )}
     </Page>

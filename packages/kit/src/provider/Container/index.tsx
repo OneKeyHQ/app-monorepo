@@ -1,18 +1,15 @@
+import { useEffect } from 'react';
+
 import { RootSiblingParent } from 'react-native-root-siblings';
 
-import {
-  ESplitViewType,
-  SplitViewContext,
-  isNativeTablet,
-} from '@onekeyhq/components';
+import { ESplitViewType, SplitViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { setSplitViewLayoutDisabled } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
-import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useShouldUseSplitView } from '../../hooks/useShouldUseSplitView';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
-import { PrimeGlobalEffect } from '../../views/Prime/hooks/PrimeGlobalEffect';
 import { Bootstrap } from '../Bootstrap';
 
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
@@ -27,23 +24,24 @@ import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
 import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
-import { HardwareUiStateContainer } from './HardwareUiStateContainer';
+import { HardwareUiStateContainerLazy } from './HardwareUiStateContainer/Lazy';
 import InAppNotification from './InAppNotification';
-import { KeylessWalletContainerLazy } from './KeylessWalletContainer';
 import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
+import { LinuxUdevGuideDialogContainer } from './LinuxUdevGuideDialogContainer/LinuxUdevGuideDialogContainer';
+import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
 import { NavigationContainer } from './NavigationContainer';
+import PageTrackerContainer from './PageTrackerContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
+import { PrimeGlobalEffectLazy } from './PrimeGlobalEffectLazy';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
-import { RookieShareContainer } from './RookieShareContainer';
+import { RookieShareContainerLazy } from './RookieShareContainer/Lazy';
+import { SplitViewPerpTabSync } from './SplitViewPerpTabSync';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
+import { ThirdPartyHardwareUiStateContainerLazy } from './ThirdPartyHardwareUiStateContainer/Lazy';
 import { VerifyTxContainer } from './VerifyTxContainer';
+import { WalletBackupPreCheckContainerLazy } from './WalletBackupPreCheckContainerLazy';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
-
-const PageTrackerContainer = LazyLoad(
-  () => import('./PageTrackerContainer'),
-  100,
-);
 
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
@@ -62,14 +60,16 @@ function DetailRouter() {
       <AirGapQrcodeDialogContainer />
       <CreateAddressContainer />
       <PrevCheckBeforeSendingContainer />
-      <WalletBackupPreCheckContainer />
+      <WalletBackupPreCheckContainerLazy />
       <VerifyTxContainer />
-      <HardwareUiStateContainer />
+      <HardwareUiStateContainerLazy />
+      <ThirdPartyHardwareUiStateContainerLazy />
       <PrimeLoginContainerLazy />
-      <KeylessWalletContainerLazy />
       <KeylessWebAutoConnectHashCleanupContainer />
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />
+      <LinuxUdevGuideDialogContainer />
+      <LocalSecretEnvelopeErrorDialogContainer />
       <CloudBackupContainer />
 
       {/* <PortalBodyContainer /> */}
@@ -78,10 +78,10 @@ function DetailRouter() {
       <GlobalErrorHandlerContainer />
       <ForceFirmwareUpdateContainer />
       <ColdStartByNotification />
-      <PrimeGlobalEffect />
+      <PrimeGlobalEffectLazy />
       <WebPerformanceMonitorContainer />
       <PasswordVerifyPortalContainer />
-      <RookieShareContainer />
+      <RookieShareContainerLazy />
     </NavigationContainer>
   );
 }
@@ -97,8 +97,17 @@ export function Container() {
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('Container render');
   }
-  const isTablet = isNativeTablet();
-  if (isTablet) {
+  const shouldUseSplitView = useShouldUseSplitView();
+
+  // Tell the dual-screen width helper whether the app is rendering as a single
+  // logical pane. Without this, a foldable Android in spanning mode would
+  // always halve the tab-container width even after the user disabled the
+  // split-view setting — leaving Wallet/Home content stuck on the left half.
+  useEffect(() => {
+    setSplitViewLayoutDisabled(!shouldUseSplitView);
+  }, [shouldUseSplitView]);
+
+  if (shouldUseSplitView) {
     return (
       <RootSiblingParent>
         <AppStateLockContainer>
@@ -114,6 +123,7 @@ export function Container() {
               </SplitViewContext.Provider>
             }
           />
+          <SplitViewPerpTabSync />
           <GlobalWalletConnectModalContainer />
         </AppStateLockContainer>
       </RootSiblingParent>

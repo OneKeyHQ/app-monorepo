@@ -24,7 +24,6 @@ export const primePersistAtomInitialValue: IPrimePersistAtomData = {
   onekeyUserId: undefined,
   primeSubscription: undefined,
   subscriptionManageUrl: undefined,
-  keylessWalletId: undefined,
   nickname: undefined,
   avatar: undefined,
 };
@@ -167,6 +166,7 @@ export type IPrimeTransferImportProgressTotalDetailInfo = {
 export type IPrimeTransferAtomData = {
   shouldPreventExit: boolean;
   websocketConnected: boolean;
+  websocketReconnecting: boolean;
   websocketError: string | undefined;
   websocketEndpointUpdatedAt: number | undefined;
   status: EPrimeTransferStatus;
@@ -206,6 +206,7 @@ export const { target: primeTransferAtom, use: usePrimeTransferAtom } =
     initialValue: {
       shouldPreventExit: false,
       websocketConnected: false,
+      websocketReconnecting: false,
       websocketError: undefined,
       websocketEndpointUpdatedAt: undefined,
       status: EPrimeTransferStatus.init,

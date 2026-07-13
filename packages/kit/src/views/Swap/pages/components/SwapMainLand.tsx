@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
@@ -25,6 +25,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
+  useRateDifferenceAtom,
   useSwapActions,
   useSwapAlertsAtom,
   useSwapBuildTxFetchingAtom,
@@ -32,6 +33,7 @@ import {
   useSwapLimitPriceUseRateAtom,
   useSwapNativeTokenReserveGasAtom,
   useSwapNetworksAtom,
+  useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
@@ -51,9 +53,11 @@ import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import {
   EJotaiContextStoreNames,
+  useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -69,6 +73,7 @@ import {
 } from '@onekeyhq/shared/src/routes/swap';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -77,6 +82,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
+  IMarketPresetTokenContext,
   ISwapInitParams,
   ISwapPreSwapData,
   ISwapStep,
@@ -88,13 +94,21 @@ import {
   ESwapProTradeType,
   ESwapQuoteKind,
   ESwapSelectTokenSource,
+  ESwapSource,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   SwapBuildShouldFallBackNetworkIds,
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
+import {
+  EMarketPresetTradeSide,
+  shouldShowMarketPresetReviewCustomNetworkFeeOption,
+} from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSettings';
+import { useMarketPresetSettings } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
+import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
+import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetSwapOverridesEffect';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
@@ -112,14 +126,22 @@ import {
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 import { buildSwapReviewState } from '../../utils/buildSwapReviewState';
+import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
+import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
+import { getSwapAnalyticsTokenListType } from '../../utils/swapStockAnalytics';
+import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import PreSwapDialogContent from './PreSwapDialogContent';
-import SwapBridgeMdContainer from './SwapBridgeMdContainer';
 import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
+import {
+  SwapStockDesktopContainer,
+  SwapStockMobileContainer,
+} from './SwapStockDesktopContainer';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
 
 import type { ScrollView as ScrollViewNative } from 'react-native';
@@ -140,7 +162,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [alerts] = useSwapAlertsAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [rateDifference] = useRateDifferenceAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   // Check custom RPC availability for the from network
@@ -174,7 +198,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const swapProToToken = useSwapProToToken();
   const [swapProInputAmount, setSwapProInputAmount] =
     useSwapProInputAmountAtom();
+  const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapProJumpToken] = useSwapProJumpTokenAtom();
   const swapProAccount = useSwapProAccount();
   const tokenDetailActions = useTokenDetailActions();
 
@@ -190,6 +216,146 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
+  const [marketPresetTokenContext, setMarketPresetTokenContext] = useState<
+    IMarketPresetTokenContext | undefined
+  >(
+    () =>
+      swapInitParams?.marketPresetToken ?? swapProJumpToken.marketPresetToken,
+  );
+  const incomingMarketPresetToken =
+    swapInitParams?.marketPresetToken ?? swapProJumpToken.marketPresetToken;
+  const {
+    isLoading,
+    speedConfig,
+    speedConfigReady,
+    balanceLoading,
+    isMEV,
+    hasEnoughBalance,
+    supportSpeedSwap,
+  } = useSwapProTokenInit();
+
+  useEffect(() => {
+    if (incomingMarketPresetToken) {
+      setMarketPresetTokenContext(incomingMarketPresetToken);
+    }
+  }, [
+    incomingMarketPresetToken,
+    incomingMarketPresetToken?.contractAddress,
+    incomingMarketPresetToken?.isNative,
+    incomingMarketPresetToken?.networkId,
+  ]);
+
+  const isSwapProMarketPresetToken = useMemo(
+    () =>
+      !!(
+        focusSwapPro &&
+        marketPresetTokenContext &&
+        swapProSelectToken &&
+        equalTokenNoCaseSensitive({
+          token1: swapProSelectToken,
+          token2: marketPresetTokenContext,
+        })
+      ),
+    [focusSwapPro, marketPresetTokenContext, swapProSelectToken],
+  );
+  const swapProMarketPresetTokenContext = useMemo<
+    IMarketPresetTokenContext | undefined
+  >(() => {
+    if (
+      !focusSwapPro ||
+      swapProTradeType !== ESwapProTradeType.MARKET ||
+      !swapProSelectToken
+    ) {
+      return undefined;
+    }
+
+    if (isSwapProMarketPresetToken) {
+      return marketPresetTokenContext;
+    }
+
+    return {
+      networkId: swapProSelectToken.networkId,
+      contractAddress: swapProSelectToken.contractAddress,
+      isNative: swapProSelectToken.isNative,
+    };
+  }, [
+    focusSwapPro,
+    isSwapProMarketPresetToken,
+    marketPresetTokenContext,
+    swapProSelectToken,
+    swapProTradeType,
+  ]);
+  useEffect(() => {
+    if (
+      focusSwapPro &&
+      marketPresetTokenContext &&
+      swapProSelectToken &&
+      !isSwapProMarketPresetToken
+    ) {
+      setMarketPresetTokenContext(undefined);
+    }
+  }, [
+    focusSwapPro,
+    isSwapProMarketPresetToken,
+    marketPresetTokenContext,
+    swapProSelectToken,
+  ]);
+
+  const swapProMarketPresetTradeSide =
+    swapProDirection === ESwapDirection.SELL
+      ? EMarketPresetTradeSide.SELL
+      : EMarketPresetTradeSide.BUY;
+  const swapProMarketPresetSettings = useMarketPresetSettings({
+    networkId: swapProMarketPresetTokenContext?.networkId,
+    defaultSlippage: speedConfig?.slippage,
+    tradeSide: swapProMarketPresetTradeSide,
+    speedConfig,
+    speedConfigReady,
+  });
+  const isSwapProReviewMarketPresetEnabled =
+    focusSwapPro &&
+    swapProTradeType === ESwapProTradeType.MARKET &&
+    swapProMarketPresetSettings.enabled;
+  const showSwapProReviewCustomNetworkFeeOption =
+    isSwapProReviewMarketPresetEnabled
+      ? shouldShowMarketPresetReviewCustomNetworkFeeOption(
+          swapProMarketPresetSettings,
+        )
+      : undefined;
+  const swapProReviewDefaultNetworkFeeLevel = isSwapProReviewMarketPresetEnabled
+    ? swapProMarketPresetSettings.selectedNetworkFeeLevel
+    : undefined;
+  const swapProReviewDefaultCustomPriorityFee =
+    isSwapProReviewMarketPresetEnabled
+      ? swapProMarketPresetSettings.selectedPriorityFeeOverride
+      : undefined;
+  const isSwapProMarketPresetLoading =
+    focusSwapPro &&
+    swapProTradeType === ESwapProTradeType.MARKET &&
+    !!swapProMarketPresetTokenContext &&
+    swapProMarketPresetSettings.isLoading;
+  const marketPresetSwapOverrideToken = useMemo(() => {
+    if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+      return undefined;
+    }
+    if (focusSwapPro) {
+      return swapProMarketPresetTokenContext;
+    }
+    return marketPresetTokenContext;
+  }, [
+    focusSwapPro,
+    marketPresetTokenContext,
+    swapProMarketPresetTokenContext,
+    swapTypeSwitch,
+  ]);
+
+  // Reactively resolve Market preset overrides based on which side the market token sits on.
+  // Lets Swap and Swap Pro pick up BUY vs SELL preset as the user flips sides.
+  useMarketPresetSwapOverridesEffect({
+    marketPresetToken: marketPresetSwapOverrideToken,
+    speedConfig: focusSwapPro ? speedConfig : undefined,
+    speedConfigReady: focusSwapPro ? speedConfigReady : undefined,
+  });
   const currentQuoteRes = useMemo(() => {
     if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
       return swapProQuoteResult;
@@ -209,20 +375,44 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     return toSelectTokenAtom;
   }, [focusSwapPro, toSelectTokenAtom, swapProToToken]);
 
-  const swapTypeFinal = useMemo(() => {
-    if (focusSwapPro) {
-      return swapProTradeType === ESwapProTradeType.LIMIT
-        ? ESwapTabSwitchType.LIMIT
-        : ESwapTabSwitchType.SWAP;
-    }
-    return swapTypeSwitch;
-  }, [focusSwapPro, swapProTradeType, swapTypeSwitch]);
   const fromTokenBalance = useMemo(() => {
     if (focusSwapPro) {
       return swapProFromToken?.balanceParsed;
     }
     return swapFromTokenBalance;
   }, [focusSwapPro, swapFromTokenBalance, swapProFromToken?.balanceParsed]);
+  const fromSelectTokenAccountAddress = useMemo(() => {
+    if (!fromSelectToken || !('accountAddress' in fromSelectToken)) {
+      return undefined;
+    }
+    return fromSelectToken.accountAddress;
+  }, [fromSelectToken]);
+  const fallbackFromTokenBalance = useMemo(() => {
+    if (
+      !fromSelectToken?.balanceParsed ||
+      !fromSelectTokenAccountAddress ||
+      !swapFromAddressInfo.address ||
+      !equalsIgnoreCase(
+        fromSelectTokenAccountAddress,
+        swapFromAddressInfo.address,
+      )
+    ) {
+      return undefined;
+    }
+    return fromSelectToken.balanceParsed;
+  }, [
+    fromSelectTokenAccountAddress,
+    fromSelectToken?.balanceParsed,
+    swapFromAddressInfo.address,
+  ]);
+  const safeFromTokenBalanceAmount = useMemo(
+    () =>
+      getSwapSafeInputBalanceAmount({
+        balance: fromTokenBalance,
+        fallbackBalance: fallbackFromTokenBalance,
+      }),
+    [fallbackFromTokenBalance, fromTokenBalance],
+  );
   const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const swapSlippageRef = useRef(slippageItem);
   if (swapSlippageRef.current !== slippageItem) {
@@ -248,8 +438,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }
 
   const quoteResultRef = useRef<IFetchQuoteResult | undefined>(undefined);
-  if (quoteResultRef.current !== currentQuoteRes) {
-    quoteResultRef.current = currentQuoteRes;
+  if (quoteResultRef.current !== swapStepData.quoteResult) {
+    quoteResultRef.current = swapStepData.quoteResult;
   }
 
   const preSwapDataRef = useRef<ISwapPreSwapData | undefined>(undefined);
@@ -298,6 +488,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         isNative: swapProSelectToken?.isNative,
         from: EEnterWay.SwapPro,
         disableTrade: true,
+        showFavoriteButton: false,
       },
     });
   }, [
@@ -324,9 +515,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       void selectToToken(toTokenPair, undefined, skipCheckEqualToken);
       defaultLogger.swap.selectToken.selectToken({
         selectFrom: ESwapSelectTokenSource.RECENT_SELECT,
+        tokenListType: getSwapAnalyticsTokenListType({
+          swapType: swapTypeSwitch,
+        }),
       });
     },
-    [selectFromToken, selectToToken],
+    [selectFromToken, selectToToken, swapTypeSwitch],
   );
   const onOpenProviderList = useCallback(() => {
     dismissKeyboard();
@@ -399,15 +593,23 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }, [fromSelectToken?.symbol]);
 
   const checkNativeTokenGasToast = useCallback(() => {
-    let maxAmount = new BigNumber(fromTokenBalance ?? 0);
+    let maxAmount = safeFromTokenBalanceAmount;
+    if (!maxAmount) {
+      return undefined;
+    }
     if (fromSelectToken?.isNative) {
       const reserveGas = swapNativeTokenReserveGas.find(
         (item) => item.networkId === fromSelectToken.networkId,
       )?.reserveGas;
-      if (reserveGas) {
+      const reserveGasBN = new BigNumber(reserveGas ?? '');
+      if (
+        reserveGasBN.isFinite() &&
+        !reserveGasBN.isNaN() &&
+        reserveGasBN.gt(0)
+      ) {
         maxAmount = BigNumber.max(
           0,
-          maxAmount.minus(new BigNumber(reserveGas)),
+          maxAmount.minus(reserveGasBN),
         ).decimalPlaces(
           Number(fromSelectToken?.decimals ?? 6),
           BigNumber.ROUND_DOWN,
@@ -436,7 +638,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     return maxAmount;
   }, [
-    fromTokenBalance,
+    safeFromTokenBalanceAmount,
     fromSelectToken?.isNative,
     fromSelectToken?.networkId,
     fromSelectToken?.decimals,
@@ -447,17 +649,25 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 
   const onBalanceMaxPress = useCallback(() => {
     const maxAmount = checkNativeTokenGasToast();
+    if (!maxAmount || maxAmount.isNaN() || !maxAmount.isFinite()) {
+      return;
+    }
+    const maxAmountValue = maxAmount.toFixed();
+    if (!validateAmountInput(maxAmountValue, fromSelectToken?.decimals)) {
+      return;
+    }
     if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
-      setSwapProInputAmount(maxAmount?.toFixed() ?? '');
+      setSwapProInputAmount(maxAmountValue);
     } else {
       setFromInputAmount({
-        value: maxAmount?.toFixed() ?? '',
+        value: maxAmountValue,
         isInput: true,
       });
     }
   }, [
     checkNativeTokenGasToast,
     focusSwapPro,
+    fromSelectToken?.decimals,
     setFromInputAmount,
     setSwapProInputAmount,
     swapProTradeType,
@@ -465,8 +675,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
-      const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
-      const amountBN = fromTokenBalanceBN.multipliedBy(stage / 100);
+      if (stage === 100) {
+        onBalanceMaxPress();
+        return;
+      }
+      if (!safeFromTokenBalanceAmount) {
+        return;
+      }
+      const amountBN = safeFromTokenBalanceAmount.multipliedBy(stage / 100);
       const amountAfterDecimal = amountBN.decimalPlaces(
         Number(fromSelectToken?.decimals ?? 6),
         BigNumber.ROUND_DOWN,
@@ -478,10 +694,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           fromSelectToken?.decimals,
         )
       ) {
-        if (stage === 100) {
-          onBalanceMaxPress();
-          return;
-        }
         if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
           setSwapProInputAmount(amountAfterDecimal.toFixed());
         } else {
@@ -493,7 +705,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       }
     },
     [
-      fromTokenBalance,
+      safeFromTokenBalanceAmount,
       fromSelectToken?.decimals,
       focusSwapPro,
       swapProTradeType,
@@ -513,7 +725,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
 
   const supportPreBuild = useMemo(() => {
-    if (isWrapped) {
+    if (isWrapped || !currentQuoteRes) {
       return false;
     }
     if (currentQuoteRes && !currentQuoteRes?.allowanceResult) {
@@ -584,6 +796,19 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       return;
     }
 
+    const reviewRateDifference =
+      focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET
+        ? buildSwapRateDifference({
+            fromTokenPrice: fromSelectToken?.price,
+            toTokenPrice: toSelectToken?.price,
+            fromTokenCurrency: fromSelectToken?.currency,
+            toTokenCurrency: toSelectToken?.currency,
+            defaultTokenCurrency: settingsPersistAtom.currencyInfo.id,
+            currencyMap,
+            instantRate: currentQuoteRes.instantRate,
+          })
+        : rateDifference;
+
     const nextReviewState = buildSwapReviewState({
       accountId: swapFromAddressInfo.accountInfo?.account?.id,
       networkId: swapFromAddressInfo.networkId,
@@ -596,13 +821,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           : fromTokenAmount.value,
       toTokenAmount: swapToAmount.value,
       quoteResult: currentQuoteRes,
-      swapType: swapTypeFinal,
+      swapType: getSwapExecutionTypeFromQuoteResult(currentQuoteRes),
       shouldFallback:
         SwapBuildShouldFallBackNetworkIds.includes(
           fromSelectToken?.networkId ?? '',
         ) || isCustomRpcUnavailable,
       supportPreBuild,
       slippage: swapSlippageRef.current.value,
+      rateDifference: reviewRateDifference,
+      defaultTokenCurrency: settingsPersistAtom.currencyInfo.id,
+      currencyMap,
       texts: reviewStepTexts,
     });
 
@@ -621,12 +849,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapProInputAmount,
     fromTokenAmount.value,
     swapToAmount.value,
-    swapTypeFinal,
     swapFromAddressInfo.accountInfo?.account?.id,
     swapFromAddressInfo.networkId,
     settingsPersistAtom.swapBatchApproveAndSwap,
+    settingsPersistAtom.currencyInfo.id,
+    currencyMap,
     supportPreBuild,
     isCustomRpcUnavailable,
+    rateDifference,
     reviewStepTexts,
   ]);
   const onActionHandler = useCallback(() => {
@@ -765,6 +995,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       handleSelectAccountClick();
       return;
     }
+    if (isSwapProMarketPresetLoading) {
+      return;
+    }
     if (!currentQuoteRes) {
       return;
     }
@@ -801,6 +1034,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                     <PreSwapDialogContent
                       preSwapBeforeStepActions={preSwapBeforeStepActions}
                       preSwapStepsStart={preSwapStepsStart}
+                      defaultNetworkFeeLevel={
+                        swapProReviewDefaultNetworkFeeLevel
+                      }
+                      defaultCustomPriorityFee={
+                        swapProReviewDefaultCustomPriorityFee
+                      }
+                      showCustomNetworkFeeOption={
+                        showSwapProReviewCustomNetworkFeeOption
+                      }
                       onConfirm={handleConfirm}
                       onDone={onPreSwapClose}
                     />
@@ -834,6 +1076,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                     <PreSwapDialogContent
                       preSwapBeforeStepActions={preSwapBeforeStepActions}
                       preSwapStepsStart={preSwapStepsStart}
+                      defaultNetworkFeeLevel={
+                        swapProReviewDefaultNetworkFeeLevel
+                      }
+                      defaultCustomPriorityFee={
+                        swapProReviewDefaultCustomPriorityFee
+                      }
+                      showCustomNetworkFeeOption={
+                        showSwapProReviewCustomNetworkFeeOption
+                      }
                       onDone={onPreSwapClose}
                       onConfirm={handleConfirm}
                     />
@@ -847,6 +1098,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }, [
     focusSwapPro,
     swapProAccount?.result?.addressDetail.address,
+    isSwapProMarketPresetLoading,
     currentQuoteRes,
     parseQuoteResultToSteps,
     setSwapBuildTxFetching,
@@ -859,6 +1111,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     intl,
     preSwapBeforeStepActions,
     preSwapStepsStart,
+    swapProReviewDefaultCustomPriorityFee,
+    swapProReviewDefaultNetworkFeeLevel,
+    showSwapProReviewCustomNetworkFeeOption,
     handleConfirm,
     InTabDialog,
   ]);
@@ -880,6 +1135,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const scrollViewRef = useRef<ScrollViewNative>(null);
   const onTokenPress = useCallback(
     (token: ISwapToken) => {
+      if (token.isStock) {
+        return;
+      }
       if (focusSwapPro) {
         void setSwapProSelectToken(token);
       } else {
@@ -915,14 +1173,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
   const swapBridgeSupportNetworksFilterAllNet = useMemo(() => {
     let filteredNetworks: typeof swapNetworks;
-    if (swapTypeSwitch === ESwapTabSwitchType.BRIDGE) {
+    if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
       filteredNetworks = swapNetworks.filter(
-        (item) => !!item.supportCrossChainSwap,
+        (item) => !!item.supportSingleSwap || !!item.supportCrossChainSwap,
       );
-    } else if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
-      filteredNetworks = swapNetworks.filter(
-        (item) => !!item.supportSingleSwap,
-      );
+    } else if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+      filteredNetworks = swapNetworks.filter((item) => !!item.supportStock);
     } else {
       filteredNetworks = swapNetworks.filter((item) => !!item.supportLimit);
     }
@@ -946,20 +1202,66 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     return swapBridgeSupportNetworksFilterAllNetRef.current;
   }, [swapNetworks, swapTypeSwitch]);
 
-  const {
-    isLoading,
-    speedConfig,
-    balanceLoading,
-    isMEV,
-    hasEnoughBalance,
-    supportSpeedSwap,
-    onlySupportCrossChain,
-  } = useSwapProTokenInit();
-
   useSwapProErrorAlert();
   useSwapQuote();
 
   const renderSwapSwapBridgeContainer = useCallback(() => {
+    if (
+      swapTypeSwitch === ESwapTabSwitchType.STOCK &&
+      gtLg &&
+      pageType !== EPageType.modal &&
+      !platformEnv.isNative
+    ) {
+      return (
+        <SwapStockDesktopContainer
+          storeName={storeName}
+          onSelectToken={onSelectToken}
+          onTokenPress={onTokenPress}
+          supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
+          fetchLoading={fetchLoading}
+          onSelectPercentageStage={onSelectPercentageStage}
+          onBalanceMaxPress={onBalanceMaxPress}
+          onPreSwap={onPreSwap}
+          onToAnotherAddressModal={onToAnotherAddressModal}
+          onOpenProviderList={onOpenProviderList}
+          refreshAction={refreshAction}
+          quoteResult={quoteResult}
+          quoteLoading={quoteLoading}
+          quoteEventFetching={quoteEventFetching}
+          alerts={alerts}
+          headerContent={
+            <SwapHeaderContainer
+              pageType={pageType}
+              defaultSwapType={swapInitParams?.swapTabSwitchType}
+              showSwapPro={platformEnv.isNative}
+              hideRightActions
+              enterFrom={swapInitParams?.swapSource}
+            />
+          }
+        />
+      );
+    }
+    if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+      return (
+        <SwapStockMobileContainer
+          storeName={storeName}
+          onSelectToken={onSelectToken}
+          onTokenPress={onTokenPress}
+          supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
+          fetchLoading={fetchLoading}
+          onSelectPercentageStage={onSelectPercentageStage}
+          onBalanceMaxPress={onBalanceMaxPress}
+          onPreSwap={onPreSwap}
+          onToAnotherAddressModal={onToAnotherAddressModal}
+          onOpenProviderList={onOpenProviderList}
+          refreshAction={refreshAction}
+          quoteResult={quoteResult}
+          quoteLoading={quoteLoading}
+          quoteEventFetching={quoteEventFetching}
+          alerts={alerts}
+        />
+      );
+    }
     if (!platformEnv.isNative) {
       return (
         <SwapOldSwapBridgeLimitContainer
@@ -989,40 +1291,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                 defaultSwapType={swapInitParams?.swapTabSwitchType}
                 showSwapPro={platformEnv.isNative}
                 hideRightActions
+                enterFrom={swapInitParams?.swapSource}
               />
             ) : undefined
           }
         />
       );
     }
-    if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
-      return (
-        <SwapSwapMbContainer
-          pageType={pageType ?? EPageType.modal}
-          swapTipsPageType={pageType}
-          onSelectToken={onSelectToken}
-          fetchLoading={fetchLoading}
-          onSelectPercentageStage={onSelectPercentageStage}
-          onBalanceMaxPress={onBalanceMaxPress}
-          onPreSwap={onPreSwap}
-          onToAnotherAddressModal={onToAnotherAddressModal}
-          onOpenProviderList={onOpenProviderList}
-          refreshAction={refreshAction}
-          quoteResult={quoteResult}
-          quoteLoading={quoteLoading}
-          quoteEventFetching={quoteEventFetching}
-          alerts={alerts}
-          onTokenPress={onTokenPress}
-          onSelectRecentTokenPairs={onSelectRecentTokenPairs}
-          onOpenOrdersClick={onOpenOrdersClick}
-          fromTokenAmountValue={fromTokenAmount.value}
-          swapRecentTokenPairs={swapRecentTokenPairs}
-          supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
-        />
-      );
-    }
     return (
-      <SwapBridgeMdContainer
+      <SwapSwapMbContainer
         pageType={pageType ?? EPageType.modal}
         swapTipsPageType={pageType}
         onSelectToken={onSelectToken}
@@ -1069,13 +1346,17 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     storeName,
     isWrapped,
     swapInitParams?.swapTabSwitchType,
+    swapInitParams?.swapSource,
     gtLg,
   ]);
 
   // Desktop: show provider panel on the right side, need wider layout
   // Show when: on large desktop (gtLg), not in modal, and not on native platform
   const showDesktopProviderPanel =
-    gtLg && pageType !== EPageType.modal && !platformEnv.isNative;
+    gtLg &&
+    pageType !== EPageType.modal &&
+    !platformEnv.isNative &&
+    swapTypeSwitch !== ESwapTabSwitchType.STOCK;
 
   const containerLayout = useMemo(() => {
     if (pageType === EPageType.modal) {
@@ -1083,6 +1364,13 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     // Use full layout when showing desktop provider panel to allow scrolling on the entire viewport
     if (showDesktopProviderPanel) {
+      return 'full' as const;
+    }
+    if (
+      swapTypeSwitch === ESwapTabSwitchType.STOCK &&
+      gtLg &&
+      !platformEnv.isNative
+    ) {
       return 'full' as const;
     }
     if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
@@ -1095,14 +1383,27 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     return 'regular' as const;
   }, [pageType, swapTypeSwitch, showDesktopProviderPanel, gtLg]);
 
+  // Native iOS: zero top padding so the header row (given a fixed h=56 in
+  // SwapHeaderContainer) occupies [top, top+56] — structurally identical to the
+  // Wallet header's Row 1 (h=56, mt=top). Both then center their content at
+  // top+28, so the two tab headers align BY CONSTRUCTION, regardless of the
+  // tab/pill content heights (no tuned padding). Android keeps its original
+  // spacing; large screens already reset to $0 below.
+  let contentTopPadding = '$5';
+  if (pageType === EPageType.modal) {
+    contentTopPadding = '$2.5';
+  } else if (platformEnv.isNativeIOS) {
+    contentTopPadding = '$0';
+  }
+
   return (
     <>
       <Page.Container flex={1} layout={containerLayout} padded={false}>
         <YStack
-          testID="swap-content-container"
+          testID={SwapTestIDs.pageContainer}
           flex={1}
           width="100%"
-          pt={pageType !== EPageType.modal ? '$5' : '$2.5'}
+          pt={contentTopPadding}
           gap="$2"
           $gtMd={{
             flex: 'unset',
@@ -1119,6 +1420,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               defaultSwapType={swapInitParams?.swapTabSwitchType}
               showSwapPro={platformEnv.isNative}
               hideRightActions={showDesktopProviderPanel}
+              enterFrom={swapInitParams?.swapSource}
+              marketPresetSettings={
+                focusSwapPro ? swapProMarketPresetSettings : undefined
+              }
             />
           )}
           {focusSwapPro ? (
@@ -1133,6 +1438,11 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               onProMarketDetail={onProMarketDetail}
               onTokenPress={onTokenPress}
               supportNetworksList={SwapProSupportNetworksList}
+              marketPresetSettings={
+                swapProMarketPresetTokenContext
+                  ? swapProMarketPresetSettings
+                  : undefined
+              }
               config={{
                 isLoading,
                 speedConfig,
@@ -1140,7 +1450,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                 isMEV,
                 hasEnoughBalance,
                 supportSpeedSwap,
-                onlySupportCrossChain,
               }}
             />
           ) : (
@@ -1153,19 +1462,32 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 };
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
+  const { pageType, swapInitParams } = props;
+  const initialSelectedTokensOnInit =
+    swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
+    Boolean(swapInitParams?.importNetworkId)
+      ? {
+          fromToken: swapInitParams?.importFromToken,
+          toToken: swapInitParams?.importToToken,
+          swapType:
+            swapInitParams?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
+        }
+      : undefined;
+
   return (
     <SwapProviderMirror
       storeName={
-        props?.pageType === EPageType.modal
+        pageType === EPageType.modal
           ? EJotaiContextStoreNames.swapModal
           : EJotaiContextStoreNames.swap
       }
+      initialSelectedTokensOnInit={initialSelectedTokensOnInit}
     >
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
         <LazyPageContainer>
-          <SwapMainLoad {...props} pageType={props?.pageType} />
+          <SwapMainLoad {...props} pageType={pageType} />
         </LazyPageContainer>
       </MarketWatchListProviderMirrorV2>
     </SwapProviderMirror>

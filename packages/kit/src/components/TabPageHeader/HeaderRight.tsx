@@ -17,12 +17,13 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
-import { AllNetworksManagerTrigger } from '../AccountSelector';
+import { LazyAllNetworksManagerTrigger } from '../AccountSelector/LazyAllNetworksManagerTrigger';
 import { MoreActionButton } from '../MoreActionButton';
 
 import {
   GiftAction,
   HeaderNotificationIconButton,
+  HeaderUpdateButton,
   WalletConnectionForWeb,
 } from './components';
 
@@ -49,7 +50,7 @@ export function SelectorTrigger() {
     network?.isAllNetworks &&
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
   ) {
-    return <AllNetworksManagerTrigger num={0} unifiedMode />;
+    return <LazyAllNetworksManagerTrigger num={0} unifiedMode />;
   }
 
   return (
@@ -101,6 +102,7 @@ export function HeaderRight({
 
     const fixedItems = (
       <>
+        <HeaderUpdateButton />
         <HeaderNotificationIconButton testID="header-right-notification" />
         <MoreAction />
       </>

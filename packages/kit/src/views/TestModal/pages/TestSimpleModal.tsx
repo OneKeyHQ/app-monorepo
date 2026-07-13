@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { TestModalTestIDs } from '../testIDs';
 
 function CustomConfirmButton() {
   return (
@@ -41,6 +42,7 @@ function InModalDialogButton() {
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
   return (
     <Button
+      testID={TestModalTestIDs.inModalDialogBtn}
       onPress={() => {
         dialog.show({
           title: 'Lorem ipsum',
@@ -137,19 +139,28 @@ export function TestSimpleModal() {
       />
       <Page.Body bg="burlywood">
         <XStack>
-          <Switch value={showHeader} onChange={changeHeaderStatus} />
+          <Switch
+            testID={TestModalTestIDs.showHeaderSwitch}
+            value={showHeader}
+            onChange={changeHeaderStatus}
+          />
           <SizableText>
             {showHeader ? 'Show Header' : 'Hide Header'}
           </SizableText>
         </XStack>
         <XStack>
-          <Switch value={showFooter} onChange={changeFooterStatus} />
+          <Switch
+            testID={TestModalTestIDs.showFooterSwitch}
+            value={showFooter}
+            onChange={changeFooterStatus}
+          />
           <SizableText>
             {showFooter ? 'Show Footer' : 'Hide Fotter'}
           </SizableText>
         </XStack>
         <XStack>
           <Switch
+            testID={TestModalTestIDs.showConfirmCancelSwitch}
             value={showConfirmAndCancelButton}
             onChange={changeConfirmAndCancelButtonStatus}
           />
@@ -161,6 +172,7 @@ export function TestSimpleModal() {
         </XStack>
         <XStack>
           <Switch
+            testID={TestModalTestIDs.showCustomFooterSwitch}
             value={showCustomFooter}
             onChange={changeCustomFooterStatus}
           />
@@ -169,19 +181,31 @@ export function TestSimpleModal() {
           </SizableText>
         </XStack>
         <XStack>
-          <Switch value={showNewHeader} onChange={changeNewHeaderStatus} />
+          <Switch
+            testID={TestModalTestIDs.showNewHeaderSwitch}
+            value={showNewHeader}
+            onChange={changeNewHeaderStatus}
+          />
           <SizableText>
             {showNewHeader ? 'Show New Header' : 'Hide New Header'}
           </SizableText>
         </XStack>
         <SizableText>这是一个普通的 Modal 测试</SizableText>
         <YStack gap="$4" m="$4">
-          <Button onPress={navigateToNextPage}>Push to Next Page</Button>
+          <Button
+            testID={TestModalTestIDs.pushNextPageBtn}
+            onPress={navigateToNextPage}
+          >
+            Push to Next Page
+          </Button>
           <Page.Close>
-            <Button>Back To Previous Page</Button>
+            <Button testID={TestModalTestIDs.backToPreviousBtn}>
+              Back To Previous Page
+            </Button>
           </Page.Close>
           <Page.Close>
             <Button
+              testID="test-modal-btn"
               onPress={() =>
                 new Promise((resolve) => {
                   setTimeout(() => {
@@ -196,6 +220,7 @@ export function TestSimpleModal() {
           </Page.Close>
           <Page.Close>
             <Button
+              testID="test-modal-btn"
               onPress={() =>
                 new Promise((resolve) => {
                   setTimeout(() => {
@@ -247,9 +272,9 @@ export function TestSimpleModal() {
               justifyContent="space-between"
               width="100%"
             >
-              <Button>Close All</Button>
+              <Button testID="test-modal-close-all-btn">Close All</Button>
               <SizableText>+</SizableText>
-              <Button>Done</Button>
+              <Button testID="test-modal-done-btn">Done</Button>
             </XStack>
           ) : null}
         </Page.Footer>

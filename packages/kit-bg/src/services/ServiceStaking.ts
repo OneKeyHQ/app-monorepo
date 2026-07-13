@@ -1,3 +1,4 @@
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { omit } from 'lodash';
 
@@ -76,9 +77,11 @@ import type {
   IEarnManagePageResponse,
   IEarnPermit2ApproveSignData,
   IEarnRegisterSignMessageResponse,
+  IEarnStakeType,
   IEarnSummary,
   IEarnSummaryV2,
   IEarnUnbondingDelegationList,
+  IEarnWithdrawType,
   IGetPortfolioParams,
   IRecommendAsset,
   IRepayWithCollateralQuote,
@@ -166,8 +169,65 @@ interface IEarnBatchInvestmentDetailResponse {
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
+  private _abortControllersByRequestId: Record<string, Set<AbortController>> =
+    {};
+
+  private _registerAbortController(params: {
+    requestId?: string;
+    controller: AbortController;
+  }) {
+    const { requestId, controller } = params;
+    if (!requestId) {
+      return;
+    }
+    if (!this._abortControllersByRequestId[requestId]) {
+      this._abortControllersByRequestId[requestId] = new Set();
+    }
+    this._abortControllersByRequestId[requestId].add(controller);
+  }
+
+  private _unregisterAbortController(params: {
+    requestId?: string;
+    controller: AbortController;
+  }) {
+    const { requestId, controller } = params;
+    if (!requestId) {
+      return;
+    }
+    const controllers = this._abortControllersByRequestId[requestId];
+    if (!controllers) {
+      return;
+    }
+    controllers.delete(controller);
+    if (controllers.size === 0) {
+      delete this._abortControllersByRequestId[requestId];
+    }
+  }
+
+  private _createScopedAbortController(params: { requestId?: string }) {
+    if (!params.requestId) {
+      return undefined;
+    }
+    const controller = new AbortController();
+    this._registerAbortController({
+      requestId: params.requestId,
+      controller,
+    });
+    return controller;
+  }
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  @backgroundMethod()
+  async abortPendingRequestsByRequestId(params: { requestId: string }) {
+    const controllers = this._abortControllersByRequestId[params.requestId];
+    if (!controllers) {
+      return;
+    }
+    controllers.forEach((controller) => controller.abort());
+    delete this._abortControllersByRequestId[params.requestId];
   }
 
   @backgroundMethod()
@@ -250,7 +310,7 @@ class ServiceStaking extends ServiceBase {
         accountId,
         networkId,
       }),
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
         networkId,
       }),
@@ -348,7 +408,7 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new OneKeyLocalError('Staking config not found');
     }
-    const isVaultBased = earnUtils.isVaultBasedProvider({
+    const shouldSendProtocolVault = earnUtils.shouldSendEarnProtocolVault({
       providerName: provider,
     });
 
@@ -385,7 +445,7 @@ class ServiceStaking extends ServiceBase {
       ...rest,
     };
 
-    if (isVaultBased) {
+    if (shouldSendProtocolVault) {
       paramsToSend.vault = protocolVault;
     }
 
@@ -421,7 +481,7 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new OneKeyLocalError('Staking config not found');
     }
-    const isVaultBased = earnUtils.isVaultBasedProvider({
+    const shouldSendProtocolVault = earnUtils.shouldSendEarnProtocolVault({
       providerName: params.provider,
     });
     const resp = await client.post<{
@@ -433,7 +493,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      vault: isVaultBased ? protocolVault : undefined,
+      vault: shouldSendProtocolVault ? protocolVault : undefined,
       effectiveApy,
       ...rest,
     });
@@ -508,7 +568,9 @@ class ServiceStaking extends ServiceBase {
       sendParams.rewardTokenAddress = rewardTokenAddress;
     }
     if (
-      earnUtils.isVaultBasedProvider({ providerName: params.provider }) &&
+      earnUtils.shouldSendEarnProtocolVault({
+        providerName: params.provider,
+      }) &&
       vaultAddress
     ) {
       sendParams.vault = vaultAddress;
@@ -594,9 +656,9 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
-    const isVaultBased =
+    const shouldSendProtocolVault =
       params.provider &&
-      earnUtils.isVaultBasedProvider({
+      earnUtils.shouldSendEarnProtocolVault({
         providerName: params.provider,
       });
     const data: Record<string, string | undefined> & { type?: string } = {
@@ -605,7 +667,7 @@ class ServiceStaking extends ServiceBase {
       ...rest,
     };
 
-    if (isVaultBased) {
+    if (shouldSendProtocolVault) {
       data.vault = protocolVault;
     }
     if (type) {
@@ -839,6 +901,7 @@ class ServiceStaking extends ServiceBase {
     inputTokenAddress?: string;
     outputTokenAddress?: string;
     slippage?: number;
+    withdrawType?: IEarnWithdrawType;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const amountNumber = BigNumber(params.amount);
@@ -851,24 +914,36 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data;
   }
 
+  private async _fetchProtocolList(params: {
+    symbol: string;
+    type?: EAvailableAssetsTypeEnum;
+    accountAddress?: string;
+    signal?: AbortSignal;
+  }) {
+    const { symbol, type, accountAddress, signal } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+
+    const protocolListResp = await client.post<{
+      data: { protocols: IStakeProtocolListItem[] };
+    }>(
+      '/earn/v2/stake-protocol/list',
+      {
+        symbol,
+        type,
+        accountAddress,
+      },
+      { signal },
+    );
+    return protocolListResp.data.data.protocols;
+  }
+
   _getProtocolList = memoizee(
     async (params: {
       symbol: string;
       type?: EAvailableAssetsTypeEnum;
       accountAddress?: string;
     }) => {
-      const { symbol, type, accountAddress } = params;
-      const client = await this.getClient(EServiceEndpointEnum.Earn);
-
-      // Use v2 API that supports multiple networks
-      const protocolListResp = await client.post<{
-        data: { protocols: IStakeProtocolListItem[] };
-      }>('/earn/v2/stake-protocol/list', {
-        symbol,
-        type,
-        accountAddress,
-      });
-      return protocolListResp.data.data.protocols;
+      return this._fetchProtocolList(params);
     },
     {
       promise: true,
@@ -886,6 +961,7 @@ class ServiceStaking extends ServiceBase {
     filterNetworkId?: string;
     skipStakingConfigFilter?: boolean;
     includeWithdrawOnly?: boolean;
+    requestId?: string;
   }) {
     const accountNetworkId = params.networkId ?? params.filterNetworkId;
     let accountAddress: string | undefined;
@@ -904,19 +980,48 @@ class ServiceStaking extends ServiceBase {
     }
 
     let allItems: IStakeProtocolListItem[] = [];
+    const controller = this._createScopedAbortController({
+      requestId: params.requestId,
+    });
     try {
-      allItems = await this._getProtocolList({
-        symbol: params.symbol,
-        type: params.type,
-        accountAddress,
-      });
+      if (controller) {
+        allItems = await this._fetchProtocolList({
+          symbol: params.symbol,
+          type: params.type,
+          accountAddress,
+          signal: controller.signal,
+        });
+      } else {
+        allItems = await this._getProtocolList({
+          symbol: params.symbol,
+          type: params.type,
+          accountAddress,
+        });
+      }
     } catch (error) {
-      console.warn(
-        `Failed to fetch protocol list for symbol ${params.symbol}:`,
-        error,
-      );
-      // Fall back to empty array if request fails
-      allItems = [];
+      if (axios.isCancel(error)) {
+        // Cancellation is silent — fall back to empty
+        allItems = [];
+      } else if (controller) {
+        // Scoped (requestId) callers handle errors themselves so they can
+        // distinguish "no data" from "transient failure" for caching decisions.
+        throw error;
+      } else {
+        defaultLogger.app.error.log(
+          `Failed to fetch protocol list for symbol ${params.symbol}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        // Fall back to empty array if request fails
+        allItems = [];
+      }
+    } finally {
+      if (controller) {
+        this._unregisterAbortController({
+          requestId: params.requestId,
+          controller,
+        });
+      }
     }
 
     // Apply network filter if specified
@@ -1190,25 +1295,8 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchAllNetworkAssetsV2({
-    accountId,
-    networkId,
-    indexedAccountId,
-  }: {
-    accountId: string;
-    networkId: string;
-    indexedAccountId?: string;
-  }) {
-    if (!accountId) {
-      return this._getAccountAssetV2([]);
-    }
-
-    const accounts = await this.getEarnAvailableAccountsParams({
-      accountId,
-      networkId,
-      indexedAccountId,
-    });
-    return this._getAccountAssetV2(accounts);
+  async fetchAllNetworkAssetsV2() {
+    return this._getAccountAssetV2([]);
   }
 
   @backgroundMethod()
@@ -1356,11 +1444,6 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async clearRecommendedAssetsCache() {
-    void this._getAccountAssetV2.clear();
-  }
-
-  @backgroundMethod()
   async getAvailableAssetsV2() {
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<
@@ -1379,10 +1462,11 @@ class ServiceStaking extends ServiceBase {
     code?: string | number;
     message?: string;
     requestId?: string;
+    disableAutoToast?: boolean;
   }) {
     if (data.code !== undefined && Number(data.code) !== 0 && data.message) {
       throw new OneKeyServerApiError({
-        autoToast: true,
+        autoToast: !data.disableAutoToast,
         disableFallbackMessage: true,
         code: Number(data.code),
         message: data.message,
@@ -1405,6 +1489,8 @@ class ServiceStaking extends ServiceBase {
     inputTokenAddress,
     outputTokenAddress,
     slippage,
+    stakeType,
+    withdrawType,
   }: {
     accountId?: string;
     networkId?: string;
@@ -1418,13 +1504,15 @@ class ServiceStaking extends ServiceBase {
     inputTokenAddress?: string;
     outputTokenAddress?: string;
     slippage?: number;
+    stakeType?: IEarnStakeType;
+    withdrawType?: IEarnWithdrawType;
   }) {
     if (!networkId || !accountId || !provider) {
       throw new OneKeyLocalError(
         'networkId or accountId or provider not found',
       );
     }
-    const isVaultBased = earnUtils.isVaultBasedProvider({
+    const shouldSendProtocolVault = earnUtils.shouldSendEarnProtocolVault({
       providerName: provider,
     });
     const vault = await vaultFactory.getVault({ networkId, accountId });
@@ -1442,12 +1530,14 @@ class ServiceStaking extends ServiceBase {
         provider: provider || '',
         action,
         amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
-        vault: isVaultBased ? protocolVault : '',
+        vault: shouldSendProtocolVault ? protocolVault : '',
         withdrawAll,
         identity,
         inputTokenAddress,
         outputTokenAddress,
         slippage,
+        stakeType,
+        withdrawType,
       },
     });
     return result.data;
@@ -1653,6 +1743,66 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data.delegations;
   }
 
+  // Memoized for a short window so concurrent Earn account callers collapse
+  // into a single backend roundtrip instead of each firing their own
+  // serviceAllNetwork.getAllNetworkAccounts() call on every tab switch.
+  // CDP profile showed 3-4 redundant calls per Wallet/Earn focus producing
+  // ~700ms of cumulative CPU work in ServiceAllNetwork.
+  private _getEarnAvailableAccounts = memoizee(
+    async (params: {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
+      excludeTestNetwork?: boolean;
+    }) => {
+      const { accountId, networkId } = params;
+      const { accountsInfo } =
+        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+          accountId,
+          networkId,
+          indexedAccountId: params.indexedAccountId,
+          fetchAllNetworkAccounts: accountUtils.isOthersAccount({ accountId })
+            ? undefined
+            : true,
+          excludeTestNetwork: params.excludeTestNetwork,
+        });
+
+      // Check if the wallet is using BTC-only firmware
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      let isBtcOnlyFirmware = false;
+      if (walletId && accountUtils.isHwWallet({ walletId })) {
+        isBtcOnlyFirmware =
+          await this.backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
+            walletId,
+          });
+      }
+
+      return accountsInfo.filter((account) => {
+        // Filter out non-Taproot BTC addresses
+        if (
+          networkUtils.isBTCNetwork(account.networkId) &&
+          !isTaprootAddress(account.apiAddress)
+        ) {
+          return false;
+        }
+
+        // For BTC-only firmware, only allow BTC network accounts
+        if (
+          isBtcOnlyFirmware &&
+          !networkUtils.isBTCNetwork(account.networkId)
+        ) {
+          return false;
+        }
+
+        return true;
+      });
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+    },
+  );
+
   @backgroundMethod()
   async getEarnAvailableAccounts(params: {
     accountId: string;
@@ -1660,44 +1810,7 @@ class ServiceStaking extends ServiceBase {
     indexedAccountId?: string;
     excludeTestNetwork?: boolean;
   }) {
-    const { accountId, networkId } = params;
-    const { accountsInfo } =
-      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-        accountId,
-        networkId,
-        indexedAccountId: params.indexedAccountId,
-        fetchAllNetworkAccounts: accountUtils.isOthersAccount({ accountId })
-          ? undefined
-          : true,
-        excludeTestNetwork: params.excludeTestNetwork,
-      });
-
-    // Check if the wallet is using BTC-only firmware
-    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-    let isBtcOnlyFirmware = false;
-    if (walletId && accountUtils.isHwWallet({ walletId })) {
-      isBtcOnlyFirmware =
-        await this.backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
-          walletId,
-        });
-    }
-
-    return accountsInfo.filter((account) => {
-      // Filter out non-Taproot BTC addresses
-      if (
-        networkUtils.isBTCNetwork(account.networkId) &&
-        !isTaprootAddress(account.apiAddress)
-      ) {
-        return false;
-      }
-
-      // For BTC-only firmware, only allow BTC network accounts
-      if (isBtcOnlyFirmware && !networkUtils.isBTCNetwork(account.networkId)) {
-        return false;
-      }
-
-      return true;
-    });
+    return this._getEarnAvailableAccounts(params);
   }
 
   _getFAQListForHome = memoizee(
@@ -1776,14 +1889,18 @@ class ServiceStaking extends ServiceBase {
     inputTokenAddress?: string;
     outputTokenAddress?: string;
     message?: string;
+    stakeType?: IEarnStakeType;
+    withdrawType?: IEarnWithdrawType;
   }) {
     const { symbol, protocolVault, withdrawAll, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const sendParams: Record<string, string | boolean | undefined> = {
+    const sendParams: Record<string, string | number | boolean | undefined> = {
       symbol,
       ...rest,
     };
-    if (earnUtils.isVaultBasedProvider({ providerName: params.provider })) {
+    if (
+      earnUtils.shouldSendEarnProtocolVault({ providerName: params.provider })
+    ) {
       sendParams.vault = protocolVault;
     }
     if (withdrawAll !== undefined) {
@@ -1859,7 +1976,12 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async addEarnOrder(order: IAddEarnOrderParams) {
-    defaultLogger.staking.order.addOrder(order);
+    defaultLogger.staking.order.addOrder({
+      status: order.status,
+      stakingLabel: order.stakingLabel,
+      stakingProtocol: order.stakingProtocol,
+      stakingTags: order.stakingTags,
+    });
     await simpleDb.earnOrders.addOrder(order);
     try {
       await this.updateEarnOrderStatusToServer({
@@ -1868,7 +1990,6 @@ class ServiceStaking extends ServiceBase {
     } catch (_e) {
       // ignore error, continue
       defaultLogger.staking.order.updateOrderStatusError({
-        txId: order.txId,
         status: order.status,
       });
     }
@@ -1883,6 +2004,11 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async updateEarnOrder({ txs }: { txs: IChangedPendingTxInfo[] }) {
+    const updatedOrders: {
+      tx: IChangedPendingTxInfo;
+      order: IEarnOrderItem;
+    }[] = [];
+
     for (const tx of txs) {
       try {
         const order =
@@ -1892,25 +2018,35 @@ class ServiceStaking extends ServiceBase {
           tx.status !== EDecodedTxStatus.Pending &&
           order?.status !== tx.status;
         if (order && shouldUpdate) {
-          order.status = tx.status;
-          await this.updateEarnOrderStatusToServer({ order });
+          const updatedOrder = {
+            ...order,
+            status: tx.status,
+          };
+          await this.updateEarnOrderStatusToServer({ order: updatedOrder });
           await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId({
             currentTxId: tx.txId,
             status: tx.status,
           });
           defaultLogger.staking.order.updateOrderStatus({
-            txId: tx.txId,
             status: tx.status,
+            stakingLabel: updatedOrder.stakingLabel,
+            stakingProtocol: updatedOrder.stakingProtocol,
+            stakingTags: updatedOrder.stakingTags,
+          });
+          updatedOrders.push({
+            tx,
+            order: updatedOrder,
           });
         }
       } catch (_e) {
         // ignore error, continue loop
         defaultLogger.staking.order.updateOrderStatusError({
-          txId: tx.txId,
           status: tx.status,
         });
       }
     }
+
+    return updatedOrders;
   }
 
   @backgroundMethod()
@@ -1943,10 +2079,19 @@ class ServiceStaking extends ServiceBase {
     newTxId?: string;
     status: EDecodedTxStatus;
   }) {
-    defaultLogger.staking.order.updateOrderStatusByTxId(params);
-    await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
-      params,
-    );
+    const result =
+      await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
+        params,
+      );
+    if (!result.success || !result.order) {
+      return;
+    }
+    defaultLogger.staking.order.updateOrderStatusByTxId({
+      status: params.status,
+      stakingLabel: result.order.stakingLabel,
+      stakingProtocol: result.order.stakingProtocol,
+      stakingTags: result.order.stakingTags,
+    });
   }
 
   @backgroundMethod()
@@ -1954,6 +2099,33 @@ class ServiceStaking extends ServiceBase {
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     return vaultSettings.stakingResultPollingInterval ?? 30;
+  }
+
+  // Batched variant: callers iterating `effectiveNetworkIds` (see
+  // useStakingPendingTxsByInfo) MUST prefer this over N parallel
+  // `getFetchHistoryPollingInterval` calls. Single-item method retained for
+  // legacy callers; the cascade hot path collapses N RPCs into 1.
+  @backgroundMethod()
+  async getFetchHistoryPollingIntervalsBatch({
+    networkIds,
+  }: {
+    networkIds: string[];
+  }): Promise<Record<string, number>> {
+    const result: Record<string, number> = {};
+    await Promise.all(
+      networkIds.map(async (networkId) => {
+        try {
+          const vaultSettings =
+            await this.backgroundApi.serviceNetwork.getVaultSettings({
+              networkId,
+            });
+          result[networkId] = vaultSettings.stakingResultPollingInterval ?? 30;
+        } catch {
+          result[networkId] = 30;
+        }
+      }),
+    );
+    return result;
   }
 
   @backgroundMethod()
@@ -2043,7 +2215,10 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getBlockRegion() {
+  async getBlockRegion(params?: { requestId?: string }) {
+    const controller = this._createScopedAbortController({
+      requestId: params?.requestId,
+    });
     try {
       const isIpConnection =
         await this.backgroundApi.serviceIpTable.isUsingIpConnection();
@@ -2053,7 +2228,7 @@ class ServiceStaking extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Earn);
       const response = await client.get<{
         data: IStakeBlockRegionResponse;
-      }>('/earn/v1/block-region');
+      }>('/earn/v1/block-region', { signal: controller?.signal });
       const blockResult = response.data.data;
       const blockData = blockResult.isBlockedRegion
         ? blockResult.notification
@@ -2062,6 +2237,13 @@ class ServiceStaking extends ServiceBase {
       return blockData;
     } catch (_error) {
       return null;
+    } finally {
+      if (controller) {
+        this._unregisterAbortController({
+          requestId: params?.requestId,
+          controller,
+        });
+      }
     }
   }
 
@@ -2131,20 +2313,31 @@ class ServiceStaking extends ServiceBase {
     return response.data.data;
   }
 
+  _getBorrowMarkets = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const response = await client.get<{
+        data: {
+          markets: IBorrowMarketItem[];
+        };
+      }>('/earn/v1/borrow/markets');
+      return response.data.data?.markets || [];
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+    },
+  );
+
   @backgroundMethod()
   async getBorrowMarkets() {
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.get<{
-      data: {
-        markets: IBorrowMarketItem[];
-      };
-    }>('/earn/v1/borrow/markets');
-    return response.data.data?.markets || [];
+    return this._getBorrowMarkets();
   }
 
   @backgroundMethod()
   async getBorrowReserves(params: IBorrowReserveRequestParams) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress = accountId
       ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2173,7 +2366,8 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     type?: string;
   }) {
-    const { accountId, type, ...rest } = params;
+    const { accountId, type, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2215,7 +2409,7 @@ class ServiceStaking extends ServiceBase {
         items: IBorrowApyHistoryItem[];
       };
     }>('/earn/v1/borrow/apy/history', {
-      params,
+      params: earnUtils.normalizeBorrowAddressParams(params),
     });
 
     return response.data.data;
@@ -2229,7 +2423,8 @@ class ServiceStaking extends ServiceBase {
     reserveAddress: string;
     accountId?: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress = accountId
       ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2262,7 +2457,8 @@ class ServiceStaking extends ServiceBase {
     collateralReserveAddress?: string;
     slippageBps?: number;
   }) {
-    const { accountId, amount, ...rest } = params;
+    const { accountId, amount, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const amountNumber = BigNumber(amount || 0);
 
@@ -2294,7 +2490,8 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     amount: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2322,7 +2519,8 @@ class ServiceStaking extends ServiceBase {
     amount: string;
     withdrawAll?: boolean;
   }) {
-    const { accountId, withdrawAll, ...rest } = params;
+    const { accountId, withdrawAll, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2350,7 +2548,8 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     amount: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2378,7 +2577,8 @@ class ServiceStaking extends ServiceBase {
     amount: string;
     repayAll?: boolean;
   }) {
-    const { accountId, repayAll, ...rest } = params;
+    const { accountId, repayAll, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2409,7 +2609,8 @@ class ServiceStaking extends ServiceBase {
     repayAll?: boolean;
     slippageBps?: number;
   }) {
-    const { accountId, amount, ...rest } = params;
+    const { accountId, amount, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const amountNumber = BigNumber(amount || 0);
 
@@ -2443,7 +2644,8 @@ class ServiceStaking extends ServiceBase {
     slippageBps?: number;
     routeKey?: string;
   }) {
-    const { accountId, amount, ...rest } = params;
+    const { accountId, amount, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const amountNumber = BigNumber(amount || 0);
 
@@ -2473,7 +2675,8 @@ class ServiceStaking extends ServiceBase {
     collateralReserveAddress: string;
     accountId: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2534,7 +2737,8 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     ids: string[];
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2561,7 +2765,8 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     type: 'supply' | 'withdraw' | 'borrow' | 'repay';
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2588,7 +2793,8 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     accountId: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2620,7 +2826,8 @@ class ServiceStaking extends ServiceBase {
     repayAll?: boolean;
     collateralReserveAddress?: string;
   }) {
-    const { accountId, amount, repayAll, ...rest } = params;
+    const { accountId, amount, repayAll, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const amountNumber = BigNumber(amount || 0);
 
@@ -2656,7 +2863,8 @@ class ServiceStaking extends ServiceBase {
     action: 'supply' | 'withdraw' | 'borrow' | 'repay';
     amount: string;
   }) {
-    const { accountId, amount, ...rest } = params;
+    const { accountId, amount, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const amountNumber = BigNumber(amount || 0);
 
@@ -2688,7 +2896,8 @@ class ServiceStaking extends ServiceBase {
     marketAddress: string;
     accountId: string;
   }) {
-    const { accountId, ...rest } = params;
+    const { accountId, ...rest } =
+      earnUtils.normalizeBorrowAddressParams(params);
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2749,7 +2958,9 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     action: EBorrowActionsEnum;
   }) {
-    return this._getBorrowAssetsList(params);
+    return this._getBorrowAssetsList(
+      earnUtils.normalizeBorrowAddressParams(params),
+    );
   }
 
   @backgroundMethod()
@@ -2763,7 +2974,7 @@ class ServiceStaking extends ServiceBase {
     const response = await client.get<{
       data: IBorrowFaqList;
     }>('/earn/v1/borrow/faq/list', {
-      params,
+      params: earnUtils.normalizeBorrowAddressParams(params),
     });
     return response.data.data;
   }
@@ -2782,7 +2993,7 @@ class ServiceStaking extends ServiceBase {
         supplyCurve: [number, string][];
       };
     }>('/earn/v1/borrow/interest-rate/curve', {
-      params,
+      params: earnUtils.normalizeBorrowAddressParams(params),
     });
     return response.data.data;
   }

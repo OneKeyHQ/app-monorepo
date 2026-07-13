@@ -12,7 +12,7 @@ import {
   useShare,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
 import { OpenInAppButton } from '@onekeyhq/kit/src/components/OpenInAppButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
@@ -34,6 +34,7 @@ function Back() {
   const navigation = useAppNavigation();
   return (
     <IconButton
+      testID="home-navigation-icon-btn"
       icon="ChevronLeftSolid"
       onPress={() => {
         if (getHomeTabStackLength() > 1) {

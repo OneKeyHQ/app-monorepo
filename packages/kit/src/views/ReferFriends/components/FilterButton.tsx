@@ -14,6 +14,8 @@ import { useInviteCodeList } from '@onekeyhq/kit/src/views/ReferFriends/pages/In
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EExportTimeRange } from '@onekeyhq/shared/src/referralCode/type';
 
+import { ReferFriendsTestIDs } from '../testIDs';
+
 export interface IFilterState {
   timeRange: EExportTimeRange;
   inviteCode?: string;
@@ -115,6 +117,7 @@ export function FilterButton({
         title={intl.formatMessage({ id: ETranslations.referral_filter })}
         renderTrigger={
           <Button
+            testID={ReferFriendsTestIDs.filterBtn}
             size="small"
             icon={hasActiveFilters ? 'Filter1Solid' : 'Filter1Outline'}
           >
@@ -133,6 +136,7 @@ export function FilterButton({
   // Mobile: Use ActionList.show() to avoid Portal nesting issues
   return (
     <IconButton
+      testID={ReferFriendsTestIDs.filterBtn}
       icon={hasActiveFilters ? 'Filter1Solid' : 'Filter1Outline'}
       variant="tertiary"
       title={intl.formatMessage({ id: ETranslations.referral_filter })}

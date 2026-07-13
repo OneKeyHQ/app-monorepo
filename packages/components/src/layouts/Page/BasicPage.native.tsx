@@ -156,12 +156,13 @@ export function BasicPage({
   children,
   lazyLoad = false,
   fullPage = false,
+  testID,
 }: IBasicPageProps) {
   const { layout, onPageLayout } = useIPadModalPageSizeChange();
   const isIpadModalPage = useIsIpadModalPage();
   const content = useMemo(() => {
     return (
-      <Stack bg="$bgApp" flex={1}>
+      <Stack bg="$bgApp" flex={1} testID={testID}>
         {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
         {lazyLoad ? (
           <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
@@ -170,7 +171,7 @@ export function BasicPage({
         )}
       </Stack>
     );
-  }, [children, lazyLoad, fullPage]);
+  }, [children, lazyLoad, fullPage, testID]);
   return isIpadModalPage ? (
     <YStack flex={1} onLayout={onPageLayout}>
       <iPadModalPageContext.Provider value={layout}>

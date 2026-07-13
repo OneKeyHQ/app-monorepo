@@ -6,6 +6,7 @@ import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAcco
 import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import type { SimpleDbEntityAddressInfo } from '../entity/SimpleDbEntityAddressInfo';
+import type { SimpleDbEntityAddressRiskCheck } from '../entity/SimpleDbEntityAddressRiskCheck';
 import type { SimpleDbEntityAggregateToken } from '../entity/SimpleDbEntityAggregateToken';
 import type { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import type { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
@@ -40,6 +41,7 @@ import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning'
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import type { SimpleDbEntityLocalNFTs } from '../entity/SimpleDbEntityLocalNFTs';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import type { SimpleDbEntityMarketPresetSettings } from '../entity/SimpleDbEntityMarketPresetSettings';
 import type { SimpleDbEntityMarketTokenPreference } from '../entity/SimpleDbEntityMarketTokenPreference';
 import type { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import type { SimpleDbEntityMarketWatchListV2 } from '../entity/SimpleDbEntityMarketWatchListV2';
@@ -168,6 +170,10 @@ export class SimpleDbProxy
     'marketTokenPreference',
   ) as SimpleDbEntityMarketTokenPreference;
 
+  marketPresetSettings = this._createProxyService(
+    'marketPresetSettings',
+  ) as SimpleDbEntityMarketPresetSettings;
+
   marketWatchList = this._createProxyService(
     'marketWatchList',
   ) as SimpleDbEntityMarketWatchList;
@@ -247,6 +253,10 @@ export class SimpleDbProxy
   recentNetworks = this._createProxyService(
     'recentNetworks',
   ) as SimpleDbEntityRecentNetworks;
+
+  addressRiskCheck = this._createProxyService(
+    'addressRiskCheck',
+  ) as SimpleDbEntityAddressRiskCheck;
 
   addressInfo = this._createProxyService(
     'addressInfo',

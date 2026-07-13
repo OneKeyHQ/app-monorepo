@@ -26,6 +26,7 @@ type ITrigger = PropsWithChildren<{
   onPress?: () => void;
   disabled?: boolean;
   onLayout?: (e: LayoutChangeEvent) => void;
+  testID?: string;
 }>;
 const noop = () => undefined;
 
@@ -42,7 +43,7 @@ const stopPropagationPress = (onPress: (...params: any[]) => void) =>
     : onPress;
 
 function BasicTrigger(
-  { onPress: onPressInTrigger, disabled, children, onLayout }: ITrigger,
+  { onPress: onPressInTrigger, disabled, children, onLayout, testID }: ITrigger,
   ref: ForwardedRef<IView>,
 ) {
   if (children) {
@@ -58,7 +59,12 @@ function BasicTrigger(
       const handlePressWithStatus = disabled ? noop : debounceHandlePress;
 
       return (
-        <Stack ref={ref} onLayout={onLayout} onPress={handlePressWithStatus}>
+        <Stack
+          ref={ref}
+          testID={testID}
+          onLayout={onLayout}
+          onPress={handlePressWithStatus}
+        >
           {cloneElement(child, {
             onPress: handlePressWithStatus,
             disabled,

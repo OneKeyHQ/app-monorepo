@@ -46,6 +46,7 @@ function TxExtraInfoContainer() {
           <InfoItem
             label={
               <Button
+                testID="send-tx-btn"
                 alignSelf="flex-start"
                 variant="tertiary"
                 size="small"

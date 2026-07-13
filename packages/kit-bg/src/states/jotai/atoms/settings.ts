@@ -12,14 +12,12 @@ import { globalAtom } from '../utils';
 
 export type IEndpointType = 'prod' | 'test';
 
+export type INewBrowserTabPosition = 'top' | 'bottom';
+
 // don't use deviceUtils.getDefaultHardwareTransportType(), it will cause resource export order conflict
 function getDefaultHardwareTransportType(): EHardwareTransportType {
   if (platformEnv.isNative) {
     return EHardwareTransportType.BLE;
-  }
-  // Linux 桌面端优先使用 Bridge（WebUSB 受 udev 等限制）
-  if (platformEnv.isDesktopLinux) {
-    return EHardwareTransportType.Bridge;
   }
   if (platformEnv.isSupportWebUSB) {
     return EHardwareTransportType.WEBUSB;
@@ -49,6 +47,7 @@ export type ISettingsPersistAtom = {
   spendDustUTXO: boolean;
   inscriptionProtection: boolean;
   isFirstTimeSwap: boolean;
+  isPrivateSendGuideClicked?: boolean;
   swapBatchApproveAndSwap: boolean;
 
   hardwareConnectSrc: EOnekeyDomain;
@@ -68,6 +67,19 @@ export type ISettingsPersistAtom = {
   showAddHiddenInWalletSidebar?: boolean;
   enableDesktopBluetooth?: boolean;
   enableBTCFreshAddress?: boolean;
+  enableMenuBarTray?: boolean;
+  // Split-view layout for tablets / Android foldable devices. Undefined === enabled
+  // (default-on for back-compat). Toggling triggers app restart.
+  enableSplitView?: boolean;
+  newBrowserTabPosition?: INewBrowserTabPosition;
+  // Pay eligible network fees from Gas Account (sponsored gas) when available;
+  // turning this off makes ServiceGas.estimateFee force gasAccountEnabled=false
+  // for every caller (Send / Swap / Perps / Earn / dApp ...).
+  useGasAccountByDefault?: boolean;
+  // KYT receive risk monitoring enabled state, keyed by the Prime user's OneKey ID
+  // (onekeyUserId). Synced from the server `kytEnabled` field on prime user info fetch
+  // and after the enable API succeeds; a never-seen account defaults to off.
+  receiveRiskMonitoringMap?: Record<string, boolean>;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -87,6 +99,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   spendDustUTXO: false,
   inscriptionProtection: true,
   isFirstTimeSwap: true,
+  isPrivateSendGuideClicked: false,
   swapBatchApproveAndSwap: true,
   hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
   currencyInfo: {
@@ -104,6 +117,9 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   showAddHiddenInWalletSidebar: true,
   enableDesktopBluetooth: true,
   enableBTCFreshAddress: true,
+  enableMenuBarTray: true,
+  newBrowserTabPosition: 'bottom',
+  useGasAccountByDefault: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({

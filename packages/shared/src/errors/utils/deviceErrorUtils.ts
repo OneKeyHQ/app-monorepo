@@ -1,4 +1,5 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { HardwareErrorCode as HwkHardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 import { isArray, isNil } from 'lodash';
 
 import platformEnv from '../../platformEnv';
@@ -9,12 +10,40 @@ import {
 } from '../types/errorTypes';
 
 import { getDeviceErrorPayloadMessage } from './errorUtils';
+import {
+  convertThirdPartyDeviceError,
+  isThirdPartyInstallAppUserCancelCode,
+  normalizeThirdPartyDeviceErrorCode,
+} from './thirdPartyDeviceErrorUtils';
 
-import type { IDeviceResponseResult } from '../../../types/device';
+import type {
+  EHardwareVendor,
+  IDeviceResponseResult,
+} from '../../../types/device';
 import type {
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
 } from '../types/errorTypes';
+
+export type IConvertDeviceErrorOptions = {
+  silentMode?: boolean;
+  vendor?: EHardwareVendor | string;
+};
+
+// HWK (third-party hardware) error codes live in a disjoint range from
+// OneKey HD-SDK's enum. When convertDeviceError's switch can't match a
+// code, we check this set to decide whether to delegate to the
+// third-party mapper before falling back to UnknownHardwareError.
+const HWK_ERROR_CODES: ReadonlySet<number> = new Set<number>(
+  Object.values(HwkHardwareErrorCode).filter(
+    (v): v is number => typeof v === 'number',
+  ),
+);
+
+function isHwkErrorCode(code: unknown): code is number {
+  const n = typeof code === 'string' ? Number(code) : code;
+  return typeof n === 'number' && Number.isFinite(n) && HWK_ERROR_CODES.has(n);
+}
 
 export function captureSpecialError(
   code: string | number | undefined,
@@ -41,10 +70,18 @@ export function captureSpecialError(
 
 export function convertDeviceError(
   payloadOrigin: IOneKeyHardwareErrorPayload,
-  options?: { silentMode?: boolean },
+  options?: IConvertDeviceErrorOptions,
 ): IOneKeyError {
+  const { _tag, ...payloadOriginWithoutTag } =
+    payloadOrigin as IOneKeyHardwareErrorPayload & {
+      _tag?: string;
+    };
   const payload = {
-    ...payloadOrigin,
+    ...payloadOriginWithoutTag,
+    code: normalizeThirdPartyDeviceErrorCode({
+      code: payloadOrigin.code,
+      _tag,
+    }),
     message: getDeviceErrorPayloadMessage(payloadOrigin),
   };
   const { code, message, params } = payload;
@@ -234,6 +271,19 @@ export function convertDeviceError(
     case 'ERR_BAD_REQUEST':
       return new HardwareErrors.HardwareCommunicationError({ payload });
     default:
+      if (isHwkErrorCode(code) || isThirdPartyInstallAppUserCancelCode(code)) {
+        return convertThirdPartyDeviceError(
+          {
+            code: Number(code),
+            error: payload.error ?? message ?? '',
+            params: payload.params,
+          },
+          {
+            silentMode: options?.silentMode,
+            vendor: options?.vendor,
+          },
+        );
+      }
       return new HardwareErrors.UnknownHardwareError({ payload });
 
     // TODO not working as HardwareErrorCode is const but not enum
@@ -246,7 +296,7 @@ export function convertDeviceError(
 
 export async function convertDeviceResponse<T>(
   fn: () => Promise<IDeviceResponseResult<T>>,
-  options?: { silentMode?: boolean },
+  options?: IConvertDeviceErrorOptions,
 ): Promise<T> {
   let response: IDeviceResponseResult<T> | undefined;
   try {

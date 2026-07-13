@@ -12,10 +12,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  ensureSensitiveTextEncoded,
-  generateMnemonic,
-} from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -25,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -83,7 +80,7 @@ export function BeforeShowRecoveryPhrase() {
         encodedText: mnemonic,
       });
     } else {
-      mnemonic = generateMnemonic();
+      mnemonic = await backgroundApiProxy.serviceAccount.generateMnemonic();
     }
 
     defaultLogger.account.wallet.walletAdded({

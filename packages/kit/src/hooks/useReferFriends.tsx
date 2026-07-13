@@ -16,7 +16,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
-  PERPS_CAMPAIGN_HELP_LINK,
   REFERRAL_HELP_LINK,
   buildReferralUrl,
 } from '@onekeyhq/shared/src/config/appConfig';
@@ -32,6 +31,7 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import {
   openUrlExternal,
   openUrlInDiscovery,
@@ -43,11 +43,31 @@ import { useOneKeyAuth } from '../components/OneKeyAuth/useOneKeyAuth';
 
 import useAppNavigation from './useAppNavigation';
 
+const shouldUseReferralModalNav = platformEnv.isNative;
+const shouldOpenReferralInExtensionExpandTab =
+  platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
+
+function openExtensionReferralInExpandTab(path: string, params?: object) {
+  return backgroundApiProxy.serviceApp
+    .openExtensionExpandTab({
+      path,
+      params,
+    })
+    .then(closeExtensionPopupAfterExpandTabOpen);
+}
+
 export function useToReferFriendsModalByRootNavigation() {
   return useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
 
-    if (platformEnv.isNative) {
+    if (shouldOpenReferralInExtensionExpandTab) {
+      await openExtensionReferralInExpandTab(
+        isLogin ? '/refer-friends/invite-reward' : '/refer-friends',
+      );
+      return;
+    }
+
+    if (shouldUseReferralModalNav) {
       const screen = isLogin
         ? EModalReferFriendsRoutes.InviteReward
         : EModalReferFriendsRoutes.ReferAFriend;
@@ -93,7 +113,7 @@ export function useReplaceToReferFriends() {
       const isLogin =
         knownLoginState ?? (await backgroundApiProxy.servicePrime.isLoggedIn());
 
-      if (platformEnv.isNative) {
+      if (shouldUseReferralModalNav) {
         const screen = isLogin
           ? EModalReferFriendsRoutes.InviteReward
           : EModalReferFriendsRoutes.ReferAFriend;
@@ -130,7 +150,14 @@ export const useReferFriends = () => {
     async (params?: { showRewardDistributionHistory?: boolean }) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       if (isLogin) {
-        if (platformEnv.isNative) {
+        if (shouldOpenReferralInExtensionExpandTab) {
+          await openExtensionReferralInExpandTab(
+            '/refer-friends/invite-reward',
+            params,
+          );
+          return;
+        }
+        if (shouldUseReferralModalNav) {
           navigation.pushModal(EModalRoutes.ReferFriendsModal, {
             screen: EModalReferFriendsRoutes.InviteReward,
             params,
@@ -154,7 +181,14 @@ export const useReferFriends = () => {
     async (params?: { showOrderDetail?: boolean; orderId?: string }) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       if (isLogin) {
-        if (platformEnv.isNative) {
+        if (shouldOpenReferralInExtensionExpandTab) {
+          await openExtensionReferralInExpandTab(
+            '/refer-friends/hardware-sales-reward',
+            params,
+          );
+          return;
+        }
+        if (shouldUseReferralModalNav) {
           navigation.pushModal(EModalRoutes.ReferFriendsModal, {
             screen: EModalReferFriendsRoutes.HardwareSalesReward,
             params,
@@ -188,7 +222,16 @@ export const useReferFriends = () => {
 
     const shouldShowInviteReward = isLogin && isVisited;
 
-    if (platformEnv.isNative) {
+    if (shouldOpenReferralInExtensionExpandTab) {
+      await openExtensionReferralInExpandTab(
+        shouldShowInviteReward
+          ? '/refer-friends/invite-reward'
+          : '/refer-friends',
+      );
+      return;
+    }
+
+    if (shouldUseReferralModalNav) {
       // Native: use Modal
       navigation.pushModal(EModalRoutes.ReferFriendsModal, {
         screen: shouldShowInviteReward
@@ -196,7 +239,7 @@ export const useReferFriends = () => {
           : EModalReferFriendsRoutes.ReferAFriend,
       });
     } else {
-      // Web: use Tab
+      // Web / desktop: use Tab
       navigation.switchTab(ETabRoutes.ReferFriends);
       await timerUtils.wait(50);
       rootNavigationRef.current?.reset({
@@ -270,7 +313,13 @@ export const useReferFriends = () => {
 
       const handleConfirm = async () => {
         if (isLogin) {
-          if (platformEnv.isNative) {
+          if (shouldOpenReferralInExtensionExpandTab) {
+            await openExtensionReferralInExpandTab(
+              '/refer-friends/invite-reward',
+            );
+            return;
+          }
+          if (shouldUseReferralModalNav) {
             navigation.pushModal(EModalRoutes.ReferFriendsModal, {
               screen: EModalReferFriendsRoutes.InviteReward,
             });
@@ -313,6 +362,7 @@ export const useReferFriends = () => {
                     {myReferralCode}
                   </SizableText>
                   <IconButton
+                    testID="app-get-render-content-icon-btn"
                     title={intl.formatMessage({
                       id: ETranslations.global_copy,
                     })}
@@ -352,6 +402,7 @@ export const useReferFriends = () => {
                       {copyContent}
                     </SizableText>
                     <IconButton
+                      testID="app-icon-btn"
                       title={intl.formatMessage({
                         id: ETranslations.global_copy,
                       })}
@@ -430,12 +481,10 @@ export const useReferFriends = () => {
           id: ETranslations.referral_intro_learn_more,
         }),
         onCancel: () => {
-          const learnMoreUrl =
-            source === 'Perps' ? PERPS_CAMPAIGN_HELP_LINK : REFERRAL_HELP_LINK;
           if (platformEnv.isDesktop || platformEnv.isNative) {
-            openUrlInDiscovery({ url: learnMoreUrl });
+            openUrlInDiscovery({ url: REFERRAL_HELP_LINK });
           } else {
-            openUrlExternal(learnMoreUrl);
+            openUrlExternal(REFERRAL_HELP_LINK);
           }
         },
         onConfirmText: intl.formatMessage({

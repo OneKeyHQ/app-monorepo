@@ -61,6 +61,7 @@ const SwapProTradeTypeSelector = ({
 
   return (
     <Select
+      testID="swap-select"
       items={selectItems}
       value={currentSelect}
       onChange={(value) => {

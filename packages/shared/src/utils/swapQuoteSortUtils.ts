@@ -5,6 +5,8 @@ import {
   swapProviderRecommendApprovedWeights,
 } from '../../types/swap/SwapProvider.constants';
 
+import { getSwapQuoteDurationSortValue } from './swapQuoteDurationUtils';
+
 import type { IFetchQuoteResult } from '../../types/swap/types';
 
 // ---------------------------------------------------------------------------
@@ -118,8 +120,8 @@ export function sortSwapQuotes(
 
   // ---- Duration sort (ascending) ----
   const durationSorted = [...resetList].toSorted((a, b) => {
-    const aVal = new BigNumber(a.estimatedTime || Infinity);
-    const bVal = new BigNumber(b.estimatedTime || Infinity);
+    const aVal = getSwapQuoteDurationSortValue(a);
+    const bVal = getSwapQuoteDurationSortValue(b);
     return aVal.comparedTo(bVal);
   });
 

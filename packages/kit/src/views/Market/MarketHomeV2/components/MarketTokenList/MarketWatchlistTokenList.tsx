@@ -21,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
+import { MarketTestIDs } from '../../../testIDs';
 import { MarketRecommendList } from '../MarketRecommendList';
 
 import { InlineActionBar } from './components/InlineActionBar';
@@ -49,6 +50,7 @@ type IMarketWatchlistTokenListProps = {
   hidePerps?: boolean;
   hiddenDesktopColumns?: readonly string[];
   liveTokenOverride?: IMarketTokenListLiveOverride;
+  enableWebSocket?: boolean;
   pollingInterval?: number;
   rowBg?: string;
 };
@@ -64,6 +66,7 @@ function MarketWatchlistTokenList({
   hidePerps,
   hiddenDesktopColumns,
   liveTokenOverride,
+  enableWebSocket,
   pollingInterval,
   rowBg,
 }: IMarketWatchlistTokenListProps) {
@@ -343,6 +346,7 @@ function MarketWatchlistTokenList({
 
   return (
     <MarketTokenListBase
+      testID={MarketTestIDs.watchList}
       onItemPress={onItemPress}
       toolbar={toolbar || (hidePerps ? undefined : categorySelector)}
       result={filteredResult}
@@ -358,6 +362,7 @@ function MarketWatchlistTokenList({
       onItemContextMenu={handleShowContextMenu}
       onScrollBegin={activeActionItem ? dismissInlineActionBar : undefined}
       liveTokenOverride={liveTokenOverride}
+      enableWebSocket={enableWebSocket}
       rowBg={rowBg}
     />
   );

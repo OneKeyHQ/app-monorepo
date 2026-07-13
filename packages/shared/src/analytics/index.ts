@@ -180,6 +180,8 @@ export class Analytics {
     appWalletCount?: number;
     hwWalletCount?: number;
     keylessWalletCount?: number;
+    hwVendors?: string[];
+    primaryHwVendor?: string;
   }) {
     if (this.instanceId && this.baseURL) {
       void this.requestUserProfile(attributes);

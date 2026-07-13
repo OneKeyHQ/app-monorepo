@@ -33,19 +33,31 @@ function dispatchTranslateMessage(tabId: string, data: ITranslateRequest) {
 }
 
 type INavigationCallback = () => void;
-const navigationCallbacks: Record<string, INavigationCallback> = {};
 
-export function onTabNavigation(tabId: string, cb: INavigationCallback) {
-  navigationCallbacks[tabId] = cb;
+function createTabCallbackRegistry() {
+  const registry: Record<string, INavigationCallback> = {};
+  return {
+    on: (tabId: string, cb: INavigationCallback) => {
+      registry[tabId] = cb;
+    },
+    off: (tabId: string) => {
+      delete registry[tabId];
+    },
+    notify: (tabId: string) => {
+      registry[tabId]?.();
+    },
+  };
 }
 
-export function offTabNavigation(tabId: string) {
-  delete navigationCallbacks[tabId];
-}
+const navRegistry = createTabCallbackRegistry();
+export const onTabNavigation = navRegistry.on;
+export const offTabNavigation = navRegistry.off;
+export const notifyTabNavigation = navRegistry.notify;
 
-export function notifyTabNavigation(tabId: string) {
-  navigationCallbacks[tabId]?.();
-}
+const navEndRegistry = createTabCallbackRegistry();
+export const onTabNavigationEnd = navEndRegistry.on;
+export const offTabNavigationEnd = navEndRegistry.off;
+export const notifyTabNavigationEnd = navEndRegistry.notify;
 
 export function tryDispatchTranslateMessage(
   tabId: string,

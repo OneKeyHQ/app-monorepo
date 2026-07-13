@@ -5,6 +5,7 @@ import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/Staki
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
 
 import { useAmountInput } from './hooks/useAmountInput';
+import { useBorrowApproveAndSubmit } from './hooks/useBorrowApproveAndSubmit';
 import { useManagePositionState } from './hooks/useManagePositionState';
 import { useTokenSelector } from './hooks/useTokenSelector';
 import { ManagePositionContext } from './ManagePositionContext';
@@ -37,6 +38,8 @@ export function ManagePosition(props: IManagePositionProps) {
     tokenImageUri,
     selectableAssets,
     selectableAssetsLoading,
+    approveTarget,
+    currentAllowance = '0',
   } = props;
 
   // State management
@@ -102,7 +105,7 @@ export function ManagePosition(props: IManagePositionProps) {
   }, [action, borrowReserveAddress, setAmountValue]);
 
   // Submit handler
-  const onSubmit = useCallback(async () => {
+  const submitBorrowAction = useCallback(async () => {
     if (!onConfirm) return;
 
     await onConfirm({
@@ -120,12 +123,22 @@ export function ManagePosition(props: IManagePositionProps) {
     setAmountValue,
   ]);
 
+  const { needsApproval, approveLoading, onApprove } =
+    useBorrowApproveAndSubmit({
+      approveTarget,
+      currentAllowance,
+      amountValue,
+      onSubmit: submitBorrowAction,
+    });
+
   // Build complete state
   const state: IManagePositionState = useMemo(
     () => ({
       ...baseState,
       amountValue,
       submitting,
+      shouldApprove: needsApproval,
+      approveLoading,
       tokenSelectorMode: selectorMode,
       tokenSelectorTriggerProps,
     }),
@@ -133,6 +146,8 @@ export function ManagePosition(props: IManagePositionProps) {
       baseState,
       amountValue,
       submitting,
+      needsApproval,
+      approveLoading,
       selectorMode,
       tokenSelectorTriggerProps,
     ],
@@ -149,7 +164,8 @@ export function ManagePosition(props: IManagePositionProps) {
       onSelectPercentageStage,
       onTokenSelect,
       handleOpenTokenSelector,
-      onSubmit,
+      onSubmit: submitBorrowAction,
+      onApprove,
     }),
     [
       setAmountValue,
@@ -160,7 +176,8 @@ export function ManagePosition(props: IManagePositionProps) {
       onSelectPercentageStage,
       onTokenSelect,
       handleOpenTokenSelector,
-      onSubmit,
+      submitBorrowAction,
+      onApprove,
     ],
   );
 

@@ -1,10 +1,13 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
+  Button,
+  Dialog,
   Icon,
   Image,
   NumberSizeableText,
@@ -17,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   ESwapNetworkFeeLevel,
   type ISwapPreSwapData,
@@ -26,14 +30,31 @@ import { useSwapStepNetFeeLevelAtom } from '../../../states/jotai/contexts/swap'
 
 import PreSwapInfoItem from './PreSwapInfoItem';
 
+export const SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE = 'CUSTOM' as const;
+
+const SPONSORED_COUPON_INFO_WIDTH = 56;
+const SPONSORED_COUPON_SEPARATOR_STROKE = 2;
+const SPONSORED_COUPON_CUTOUT_SIZE = 18;
+const SPONSORED_COUPON_CUTOUT_OFFSET = SPONSORED_COUPON_CUTOUT_SIZE / 2;
+const SPONSORED_FEES_HELP_CENTER_URL =
+  'https://help.onekey.so/articles/14994693';
+
+export type ISwapReviewNetworkFeeSelectValue =
+  | ESwapNetworkFeeLevel
+  | typeof SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE;
+
 interface IPreSwapInfoGroupProps {
   preSwapData: ISwapPreSwapData;
-  onSelectNetworkFeeLevel: (value: ESwapNetworkFeeLevel) => void;
+  onSelectNetworkFeeLevel: (value: ISwapReviewNetworkFeeSelectValue) => void;
+  customNetworkFeeOptionLabel?: string;
+  networkFeeSelectValue?: ISwapReviewNetworkFeeSelectValue;
 }
 
 const PreSwapInfoGroup = ({
   preSwapData,
   onSelectNetworkFeeLevel,
+  customNetworkFeeOptionLabel,
+  networkFeeSelectValue,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -45,7 +66,10 @@ const PreSwapInfoGroup = ({
       ESwapNetworkFeeLevel.MEDIUM,
       ESwapNetworkFeeLevel.HIGH,
     ];
-    const selectItems = feeArray.map((item) => {
+    const selectItems: {
+      label: string;
+      value: ISwapReviewNetworkFeeSelectValue;
+    }[] = feeArray.map((item) => {
       let label = '';
       if (item === ESwapNetworkFeeLevel.LOW) {
         label = intl.formatMessage({
@@ -67,8 +91,14 @@ const PreSwapInfoGroup = ({
         value: item,
       };
     });
+    if (customNetworkFeeOptionLabel) {
+      selectItems.push({
+        label: customNetworkFeeOptionLabel,
+        value: SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE,
+      });
+    }
     return selectItems;
-  }, [intl]);
+  }, [customNetworkFeeOptionLabel, intl]);
   const slippage = useMemo(() => {
     if (
       !preSwapData?.unSupportSlippage &&
@@ -81,30 +111,234 @@ const PreSwapInfoGroup = ({
     return undefined;
   }, [preSwapData?.slippage, preSwapData?.unSupportSlippage]);
 
+  const activeNetworkFeeSelectValue =
+    networkFeeSelectValue ??
+    (swapStepNetFeeLevel.customPriorityFee
+      ? SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE
+      : swapStepNetFeeLevel.networkFeeLevel);
+
   const networkFeeLevelLabel = useMemo(() => {
-    if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.LOW) {
+    if (activeNetworkFeeSelectValue === SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE) {
+      return (
+        customNetworkFeeOptionLabel ??
+        intl.formatMessage({
+          id: ETranslations.transaction_custom,
+        })
+      );
+    }
+    if (activeNetworkFeeSelectValue === ESwapNetworkFeeLevel.LOW) {
       return intl.formatMessage({
         id: ETranslations.transaction_slow,
       });
     }
-    if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.MEDIUM) {
+    if (activeNetworkFeeSelectValue === ESwapNetworkFeeLevel.MEDIUM) {
       return intl.formatMessage({
         id: ETranslations.transaction_normal,
       });
     }
-    if (swapStepNetFeeLevel.networkFeeLevel === ESwapNetworkFeeLevel.HIGH) {
+    if (activeNetworkFeeSelectValue === ESwapNetworkFeeLevel.HIGH) {
       return intl.formatMessage({
         id: ETranslations.transaction_fast,
       });
     }
     return '-';
-  }, [intl, swapStepNetFeeLevel.networkFeeLevel]);
+  }, [activeNetworkFeeSelectValue, customNetworkFeeOptionLabel, intl]);
+
+  // Show the sponsorship badge only when estimate-fee actually confirmed
+  // sponsorship. The quote/build-tx `gasAccountEnabled` flag alone is just a
+  // pre-check and is not sufficient.
+  const isGasSponsored = useMemo(
+    () =>
+      !!preSwapData.netWorkFee?.gasInfos?.some(
+        (item) =>
+          item.gasInfo.gasAccountEligible ||
+          item.gasInfo.megafuelEligible?.sponsorable ||
+          item.gasInfo.payer === 'megafuel',
+      ),
+    [preSwapData.netWorkFee?.gasInfos],
+  );
+
+  const handleOpenSponsoredFeesHelpCenter = useCallback(() => {
+    openUrlExternal(SPONSORED_FEES_HELP_CENTER_URL);
+  }, []);
+
+  const renderSponsoredCoupon = useCallback(
+    () => (
+      <Stack position="relative" alignSelf="stretch">
+        <XStack overflow="hidden" borderRadius="$5" bg="$brand3">
+          <XStack
+            flex={1}
+            px="$3.5"
+            py="$3"
+            gap="$3"
+            alignItems="center"
+            minWidth={0}
+          >
+            <Stack
+              width={42}
+              height={42}
+              borderRadius="$full"
+              bg="$brand9"
+              alignItems="center"
+              justifyContent="center"
+              flexShrink={0}
+            >
+              <Icon name="GiftSolid" size="$4.5" color="$iconOnColor" />
+            </Stack>
+            <Stack flex={1} minWidth={0} gap="$1">
+              <SizableText size="$headingMd" color="$text" numberOfLines={1}>
+                {intl.formatMessage({
+                  id: ETranslations.wallet_zero_network_fee__title,
+                })}
+              </SizableText>
+              <SizableText
+                size="$bodySmMedium"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.wallet_sponsored_by_onekey__title,
+                })}
+              </SizableText>
+            </Stack>
+          </XStack>
+          <Stack
+            width={SPONSORED_COUPON_INFO_WIDTH}
+            position="relative"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Stack
+              position="absolute"
+              left={-(SPONSORED_COUPON_SEPARATOR_STROKE / 2)}
+              top="$3"
+              bottom="$3"
+              borderLeftWidth={SPONSORED_COUPON_SEPARATOR_STROKE}
+              borderStyle="dashed"
+              borderColor="$borderSubdued"
+              opacity={0.52}
+            />
+            <Stack
+              width={28}
+              height={28}
+              borderRadius="$full"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              onPress={handleOpenSponsoredFeesHelpCenter}
+              hoverStyle={{ opacity: 0.72 }}
+              pressStyle={{ opacity: 0.56 }}
+            >
+              <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
+            </Stack>
+          </Stack>
+        </XStack>
+        <Stack
+          position="absolute"
+          right={SPONSORED_COUPON_INFO_WIDTH - SPONSORED_COUPON_CUTOUT_OFFSET}
+          top={-SPONSORED_COUPON_CUTOUT_OFFSET}
+          width={SPONSORED_COUPON_CUTOUT_SIZE}
+          height={SPONSORED_COUPON_CUTOUT_SIZE}
+          borderRadius="$full"
+          bg="$bg"
+          pointerEvents="none"
+        />
+        <Stack
+          position="absolute"
+          right={SPONSORED_COUPON_INFO_WIDTH - SPONSORED_COUPON_CUTOUT_OFFSET}
+          bottom={-SPONSORED_COUPON_CUTOUT_OFFSET}
+          width={SPONSORED_COUPON_CUTOUT_SIZE}
+          height={SPONSORED_COUPON_CUTOUT_SIZE}
+          borderRadius="$full"
+          bg="$bg"
+          pointerEvents="none"
+        />
+      </Stack>
+    ),
+    [handleOpenSponsoredFeesHelpCenter, intl],
+  );
+
+  const handleShowSponsoredInfo = useCallback(() => {
+    const dialogInstance = Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.wallet_fee_sponsorship__title,
+      }),
+      showFooter: false,
+      showCancelButton: false,
+      renderContent: (
+        <Stack gap="$4">
+          {renderSponsoredCoupon()}
+          <Stack px="$1" gap="$3">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.wallet_sponsorship_availability_rules__desc,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.wallet_sponsored_tx_confirmation_may_take_longer__desc,
+              })}
+            </SizableText>
+            <SizableText
+              size="$bodySmMedium"
+              color="$text"
+              textDecorationLine="underline"
+              cursor="pointer"
+              alignSelf="flex-start"
+              hoverStyle={{ opacity: 0.8 }}
+              pressStyle={{ opacity: 0.7 }}
+              onPress={handleOpenSponsoredFeesHelpCenter}
+            >
+              {intl.formatMessage({
+                id: ETranslations.wallet_learn_about_sponsored_fees__action,
+              })}
+            </SizableText>
+          </Stack>
+          <Button
+            testID="swap-sponsored-fee-got-it-btn"
+            size="medium"
+            onPress={() => {
+              void dialogInstance?.close?.();
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_got_it })}
+          </Button>
+        </Stack>
+      ),
+    });
+    return dialogInstance;
+  }, [handleOpenSponsoredFeesHelpCenter, intl, renderSponsoredCoupon]);
 
   const networkFeeSelect = useMemo(() => {
+    // OneKey sponsors the network fee: the estimated amount and the fee-level
+    // selector are meaningless to the user, so show only the sponsored badge.
+    if (isGasSponsored) {
+      return (
+        <XStack
+          alignItems="center"
+          gap="$2"
+          cursor="pointer"
+          onPress={handleShowSponsoredInfo}
+          hoverStyle={{ opacity: 0.9 }}
+          pressStyle={{ opacity: 0.82 }}
+        >
+          <Badge badgeType="success" badgeSize="sm">
+            <Badge.Text>
+              {intl.formatMessage({
+                id: ETranslations.wallet_onekey_sponsored__title,
+              })}
+            </Badge.Text>
+          </Badge>
+        </XStack>
+      );
+    }
     return (
       <XStack alignItems="center" gap="$2">
         <Select
-          onChange={onSelectNetworkFeeLevel}
+          testID="swap-network-fee-select-select"
+          onChange={(value) =>
+            onSelectNetworkFeeLevel(value as ISwapReviewNetworkFeeSelectValue)
+          }
           renderTrigger={() => (
             <XStack cursor="pointer" gap="$1" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
@@ -113,10 +347,10 @@ const PreSwapInfoGroup = ({
               <Icon name="ChevronGrabberVerOutline" size="$4" />
             </XStack>
           )}
-          value={swapStepNetFeeLevel.networkFeeLevel}
           title={intl.formatMessage({
             id: ETranslations.swap_review_transaction_speed,
           })}
+          value={activeNetworkFeeSelectValue}
           items={networkFeeLevelArray}
         />
         {preSwapData.stepBeforeActionsLoading ? (
@@ -135,12 +369,14 @@ const PreSwapInfoGroup = ({
     );
   }, [
     intl,
+    isGasSponsored,
+    handleShowSponsoredInfo,
+    activeNetworkFeeSelectValue,
     networkFeeLevelArray,
     networkFeeLevelLabel,
     onSelectNetworkFeeLevel,
     preSwapData.netWorkFee?.gasFeeFiatValue,
     settings.currencyInfo.symbol,
-    swapStepNetFeeLevel.networkFeeLevel,
     preSwapData.stepBeforeActionsLoading,
   ]);
 

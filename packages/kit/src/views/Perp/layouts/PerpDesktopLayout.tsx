@@ -16,8 +16,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { FavoritesBar } from '../components/FavoritesBar/FavoritesBar.web';
+import { PerpMarketWorkspacePanel } from '../components/MarketDetail/PerpMarketWorkspacePanel';
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
-import { PerpCandles } from '../components/PerpCandles';
+import { PerpNetworkAlert } from '../components/PerpNetworkAlert';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
@@ -72,7 +73,8 @@ function PerpDesktopLayout() {
   const accountPanel = useMemo(() => {
     return (
       <YStack
-        h={layout.bottomPanelHeight}
+        minHeight={layout.bottomPanelHeight}
+        alignSelf="stretch"
         minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
         maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
         w={tradingWidth}
@@ -114,6 +116,7 @@ function PerpDesktopLayout() {
     >
       <YStack flex={chartExpanded ? 1 : undefined}>
         <PerpTips />
+        <PerpNetworkAlert />
         {chartExpanded ? null : <FavoritesBar />}
 
         <YStack
@@ -131,7 +134,7 @@ function PerpDesktopLayout() {
             <YStack flex={1} minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
               <XStack flex={1} overflow="hidden">
                 <YStack flex={1} position="relative">
-                  <PerpCandles />
+                  <PerpMarketWorkspacePanel />
 
                   <Stack
                     display={gtXl && !chartExpanded ? 'flex' : 'none'}
@@ -142,6 +145,7 @@ function PerpDesktopLayout() {
                     marginTop={-2}
                   >
                     <IconButton
+                      testID="perp-icon-btn"
                       icon={
                         showOrderBook
                           ? 'ChevronRightSmallSolid'
@@ -190,7 +194,11 @@ function PerpDesktopLayout() {
                       </SizableText>
                     </XStack>
                     <YStack flex={1} overflow="hidden">
-                      <PerpOrderBook />
+                      <PerpOrderBook
+                        initialOrderBookHeight={
+                          layout.marketContentHeight - layout.panelHeaderHeight
+                        }
+                      />
                     </YStack>
                   </YStack>
                 ) : null}
@@ -208,6 +216,7 @@ function PerpDesktopLayout() {
             borderTopWidth="$px"
             borderTopColor="$borderSubdued"
             overflow="hidden"
+            alignItems="stretch"
           >
             <YStack flex={1} h="100%">
               <PerpOrderInfoPanel />

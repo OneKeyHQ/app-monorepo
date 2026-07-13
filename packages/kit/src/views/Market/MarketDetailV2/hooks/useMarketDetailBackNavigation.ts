@@ -10,7 +10,11 @@ import { useSplitSubView } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabDiscoveryRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 export function useMarketDetailBackNavigation() {
   const navigation = useAppNavigation();
@@ -27,6 +31,17 @@ export function useMarketDetailBackNavigation() {
     }
 
     if (platformEnv.isNative && params?.from === EEnterWay.Search) {
+      const state = reactNavigation.getState();
+      if (state && state.routes && state.routes.length <= 1) {
+        reactNavigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: ETabDiscoveryRoutes.TabDiscovery }],
+          }),
+        );
+        return;
+      }
+
       navigation.pop();
       navigation.switchTab(ETabRoutes.Discovery);
       return;

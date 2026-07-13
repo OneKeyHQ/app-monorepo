@@ -1,9 +1,13 @@
 import {
   getBotWalletNameBadges,
+  shouldBlockBotWalletBeReceiver,
+  shouldBlockBotWalletCopyAddress,
   shouldBlockBotWalletReceive,
+  shouldBlockBotWalletReferralAddressDisplay,
   shouldHideBotWalletExport,
   shouldHideBotWalletMnemonicBackupEntry,
   shouldShowMnemonicBackupEntryForWallet,
+  shouldWarnBotWalletInteract,
 } from './botWalletStatusUtils';
 
 describe('botWalletStatusUtils', () => {
@@ -80,6 +84,23 @@ describe('botWalletStatusUtils', () => {
         isBotWallet: false,
       }),
     ).toBe(false);
+  });
+
+  it('blocks copy / receiver / referral display / dapp warning only for deactivated Bot wallets', () => {
+    const deactivated = { isBotWallet: true, isBotWalletDeactivated: true };
+    const active = { isBotWallet: true, isBotWalletDeactivated: false };
+    const nonBot = { isBotWallet: false, isBotWalletDeactivated: true };
+
+    for (const fn of [
+      shouldBlockBotWalletCopyAddress,
+      shouldBlockBotWalletBeReceiver,
+      shouldBlockBotWalletReferralAddressDisplay,
+      shouldWarnBotWalletInteract,
+    ]) {
+      expect(fn(deactivated)).toBe(true);
+      expect(fn(active)).toBe(false);
+      expect(fn(nonBot)).toBe(false);
+    }
   });
 
   it('only shows mnemonic backup entry for standard HD wallets', () => {

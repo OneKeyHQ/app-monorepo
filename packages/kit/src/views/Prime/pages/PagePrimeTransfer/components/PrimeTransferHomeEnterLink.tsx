@@ -14,13 +14,13 @@ import {
   XStack,
   YStack,
   useClipboard,
-  useForm,
   useMedia,
 } from '@onekeyhq/components';
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
+import useScanQrCodeLazy from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCodeLazy';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { TRANSFER_DEEPLINK_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
@@ -75,7 +75,7 @@ export function PrimeTransferHomeEnterLink({
 
   const intl = useIntl();
 
-  const { start } = useScanQrCode();
+  const { start } = useScanQrCodeLazy();
   const { onPasteClearText, clearText, getClipboard, supportPaste } =
     useClipboard();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -379,6 +379,7 @@ export function PrimeTransferHomeEnterLink({
         >
           {websocketConnected ? (
             <Input
+              testID="prime-input"
               size="large"
               autoComplete="off"
               autoCorrect={false}
@@ -405,6 +406,7 @@ export function PrimeTransferHomeEnterLink({
 
       <XStack>
         <Button
+          testID="prime-btn"
           mt="$4"
           onPress={form.handleSubmit(onSubmit)}
           variant="primary"

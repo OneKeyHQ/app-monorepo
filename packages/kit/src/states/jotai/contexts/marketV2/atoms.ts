@@ -15,6 +15,7 @@ import type { IMarketWatchListDataV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketPerpsInfo,
   IMarketTokenDetail,
+  IMarketTokenDetailPreview,
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
 
@@ -37,6 +38,9 @@ export const {
 export const { atom: tokenDetailAtom, use: useTokenDetailAtom } = contextAtom<
   IMarketTokenDetail | undefined
 >(undefined);
+
+export const { atom: tokenDetailPreviewAtom, use: useTokenDetailPreviewAtom } =
+  contextAtom<IMarketTokenDetailPreview | undefined>(undefined);
 
 export const { atom: tokenDetailLoadingAtom, use: useTokenDetailLoadingAtom } =
   contextAtom<boolean>(false);
@@ -61,6 +65,31 @@ export const { atom: isNativeAtom, use: useIsNativeAtom } =
 
 export const { atom: showWatchlistOnlyAtom, use: useShowWatchlistOnlyAtom } =
   contextAtom<boolean>(false);
+
+export interface IMarketTransactionsRealtimePauseState {
+  isPaused: boolean;
+  bufferedCount: number;
+  hasBufferOverflow: boolean;
+  flushBufferedTransactions?: () => void;
+  resumeRealtimeUpdates?: () => void;
+  scrollTransactionsToTop?: () => void;
+  handleRealtimePauseHoverIn?: () => void;
+  handleRealtimePauseHoverOut?: () => void;
+}
+
+export const EMPTY_MARKET_TRANSACTIONS_REALTIME_PAUSE_STATE: IMarketTransactionsRealtimePauseState =
+  {
+    isPaused: false,
+    bufferedCount: 0,
+    hasBufferOverflow: false,
+  };
+
+export const {
+  atom: marketTransactionsRealtimePauseAtom,
+  use: useMarketTransactionsRealtimePauseAtom,
+} = contextAtom<IMarketTransactionsRealtimePauseState>(
+  EMPTY_MARKET_TRANSACTIONS_REALTIME_PAUSE_STATE,
+);
 
 // Market Detail selected derive type (local to Market Detail page, not global)
 // Used when user selects a specific derive type in AddressTypeSelector

@@ -8,10 +8,11 @@ import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 type IProps = {
   activeDeriveInfo: IAccountDeriveInfo | undefined;
   disableSelector?: boolean;
+  testID?: string;
 };
 
 function AddressTypeSelectorTrigger(props: IProps) {
-  const { activeDeriveInfo, disableSelector } = props;
+  const { activeDeriveInfo, disableSelector, testID } = props;
   const intl = useIntl();
 
   if (!activeDeriveInfo) {
@@ -20,6 +21,7 @@ function AddressTypeSelectorTrigger(props: IProps) {
 
   return (
     <Badge
+      testID={testID}
       userSelect="none"
       role="button"
       pr={disableSelector ? undefined : '$1'}

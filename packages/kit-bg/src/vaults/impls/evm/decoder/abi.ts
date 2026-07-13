@@ -1,6 +1,10 @@
 export enum EErc20MethodSelectors {
   tokenTransfer = '0xa9059cbb',
   tokenApprove = '0x095ea7b3',
+  // OZ v2~v4 (removed in v5) and OZ v1 — different selectors must be
+  // preserved on re-encode; cannot be silently rewritten to approve().
+  increaseAllowance = '0x39509351',
+  increaseApproval = '0xd73dd623',
 }
 
 export enum EErc721MethodSelectors {
@@ -23,6 +27,8 @@ export enum EErc20TxDescriptionName {
   Transfer = 'transfer',
   TransferFrom = 'transferFrom',
   Approve = 'approve',
+  IncreaseAllowance = 'increaseAllowance',
+  IncreaseApproval = 'increaseApproval',
 }
 
 export enum EErc721TxDescriptionName {
@@ -42,6 +48,8 @@ const ERC20 = [
   'function transfer(address _to, uint256 _value) public returns (bool success)',
   'function transferFrom(address _from, address _to, uint256 _value) public returns (bool success)',
   'function approve(address _spender, uint256 _value) public returns (bool success)',
+  'function increaseAllowance(address _spender, uint256 _addedValue) public returns (bool success)',
+  'function increaseApproval(address _spender, uint256 _addedValue) public returns (bool success)',
   'function allowance(address _owner, address _spender) public view returns (uint256 remaining)',
   'event Transfer(address indexed _from, address indexed _to, uint256 _value)',
   'event Approval(address indexed _owner, address indexed _spender, uint256 _value)',

@@ -43,7 +43,7 @@ function createSelectedProtocolFromItem(
   return {
     networkId: item.network.networkId,
     provider: item.provider.name,
-    vault: earnUtils.isVaultBasedProvider({
+    vault: earnUtils.shouldSendEarnProtocolVault({
       providerName: item.provider.name,
     })
       ? item.provider.vault
@@ -187,6 +187,7 @@ const ManagePositionPage = () => {
 
     return {
       currentProtocol,
+      indexedAccountId,
       isLoading: isProtocolListLoading,
       protocols,
       selectedProtocol,
@@ -196,13 +197,14 @@ const ManagePositionPage = () => {
     currentProtocol,
     enableProtocolSwitch,
     handleProtocolSelect,
+    indexedAccountId,
     isProtocolListLoading,
     protocols,
     selectedProtocol,
   ]);
 
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
       <Page.Header title={symbol} />
       <Page.Body>
         <ManagePositionContent

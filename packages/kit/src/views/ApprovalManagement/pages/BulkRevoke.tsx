@@ -54,6 +54,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import BulkRevokeItem from '../components/BulkRevokeItem';
+import { ApprovalManagementTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -684,6 +685,7 @@ function BulkRevoke() {
             skippedTxCount === 0 &&
             failedTxCount === 0 ? undefined : (
               <Button
+                testID={ApprovalManagementTestIDs.bulkRevokeCancelRetryBtn}
                 $md={
                   {
                     flexGrow: 1,

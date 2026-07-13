@@ -104,6 +104,32 @@ describe('useMarketWSSubscriptionRecovery', () => {
     });
   });
 
+  it('notifies callers after a subscription is restored', async () => {
+    const onRestored = jest.fn();
+    renderHook(() =>
+      useMarketWSSubscriptionRecovery({
+        enabled: true,
+        networkId: 'evm--1',
+        tokenAddress: '0xabc',
+        currency: 'usd',
+        channel: 'tokenTxs',
+        onRestored,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(typeof visibilityHandler).toBe('function');
+    });
+
+    act(() => {
+      visibilityHandler?.(true);
+    });
+
+    await waitFor(() => {
+      expect(onRestored).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('restores ohlcv subscriptions with chart type when visibility recovers', async () => {
     renderHook(() =>
       useMarketWSSubscriptionRecovery({

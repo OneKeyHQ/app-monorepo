@@ -1,78 +1,120 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { DebugRenderTracker, YStack } from '@onekeyhq/components';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useTradingFormAtom,
-  useTradingFormComputedAtom,
+  useTradingFormComputedSize,
+  useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  getPerpsAccountDisplaySnapshotEntry,
+  usePerpsAccountDisplayReadyAtom,
+  usePerpsAccountDisplaySnapshotAtom,
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsComputedAccountValueAtom,
   usePerpsCustomSettingsAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useOrderConfirm, useTradingPrice } from '../../hooks';
+import { useOrderConfirm } from '../../hooks';
+import { useOrderPrice } from '../../hooks/useOrderPrice';
+import { getPerpsFormLeverage } from '../../utils/leverageDisplay';
+import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../../utils/mobileLayoutTrace';
+import {
+  getPerpsOrderPanelEnableTradingModeByAccount,
+  shouldReservePerpsMobileEnableTradingLayout,
+  shouldShowPerpsOrderPanelTradingButtons,
+} from '../../utils/perpsOrderPanelEnableTrading';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
 import { TradingButtonGroup } from './TradingButtonGroup';
 
-function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
+import type { LayoutChangeEvent } from 'react-native';
+
+function PerpTradingDisabledPlaceOrderButton() {
+  const intl = useIntl();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [formData] = useTradingFormAtom();
-  const [tradingComputed] = useTradingFormComputedAtom();
+  const computedSizeBN = useTradingFormComputedSize();
   const { isSubmitting, handleConfirm } = useOrderConfirm();
-  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
-  const { midPriceBN } = useTradingPrice();
+  const { price: effectivePriceBN } = useOrderPrice(formData.side);
 
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
+  const [tradingMode] = useTradingModeAtom();
 
-  const universalLoading = useMemo(() => {
+  const disabledForAccountLoading = useMemo(() => {
     return perpsAccountLoading?.selectAccountLoading;
   }, [perpsAccountLoading?.selectAccountLoading]);
 
   const leverage = useMemo(() => {
-    return activeAssetData?.leverage?.value || 1;
-  }, [activeAssetData?.leverage?.value]);
+    return (
+      getPerpsFormLeverage({
+        isSpot: tradingMode === 'spot',
+        liveLeverage: formData.leverage ?? activeAssetData?.leverage?.value,
+      }) ?? 1
+    );
+  }, [activeAssetData?.leverage?.value, formData.leverage, tradingMode]);
 
   const maxTradeSz = useMemo(() => {
     const maxTradeSzs = activeAssetData?.maxTradeSzs || [0, 0];
     return Number(maxTradeSzs[formData.side === 'long' ? 0 : 1]);
   }, [activeAssetData?.maxTradeSzs, formData.side]);
 
-  const effectivePriceBN = useMemo(() => {
-    if (formData.type === 'limit') {
-      return new BigNumber(formData.price || 0);
-    }
-    return midPriceBN;
-  }, [formData.type, formData.price, midPriceBN]);
-
   const isMinimumOrderNotMet = useMemo(() => {
-    if (!tradingComputed.computedSizeBN.isFinite()) return false;
-    if (tradingComputed.computedSizeBN.lte(0)) return false;
+    if (
+      !shouldApplyMinimumOrderGuard({
+        isSpot: tradingMode === 'spot',
+        orderMode: formData.orderMode,
+        orderType: formData.type,
+        hasBboPriceMode: Boolean(formData.bboPriceMode),
+      })
+    ) {
+      return false;
+    }
+    if (!computedSizeBN.isFinite()) return false;
+    if (computedSizeBN.lte(0)) return false;
 
     const priceBN = effectivePriceBN;
     if (!priceBN.isFinite() || priceBN.lte(0)) return false;
 
-    const leverageBN = new BigNumber(formData.leverage || 1);
-    if (!leverageBN.isFinite() || leverageBN.lte(0)) return false;
-
-    const orderValue = tradingComputed.computedSizeBN
-      .multipliedBy(priceBN)
-      .multipliedBy(leverageBN);
+    const orderValue = computedSizeBN.multipliedBy(priceBN);
     return orderValue.lt(10);
-  }, [tradingComputed.computedSizeBN, effectivePriceBN, formData.leverage]);
+  }, [
+    computedSizeBN,
+    effectivePriceBN,
+    formData.bboPriceMode,
+    formData.orderMode,
+    formData.type,
+    tradingMode,
+  ]);
 
   const isNoEnoughMargin = useMemo(() => {
-    if (!tradingComputed.computedSizeBN.isFinite()) return false;
-    if (tradingComputed.computedSizeBN.lte(0)) return false;
+    if (
+      (formData.orderMode === 'scale' && formData.scaleReduceOnly) ||
+      (formData.orderMode === 'twap' && formData.twapReduceOnly)
+    ) {
+      return false;
+    }
+    if (!computedSizeBN.isFinite()) return false;
+    if (computedSizeBN.lte(0)) return false;
 
     if (formData.type === 'limit') {
       if (!effectivePriceBN.isFinite() || effectivePriceBN.lte(0)) {
@@ -84,18 +126,21 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
           ? leverageBN
           : new BigNumber(1);
       const withdrawableBN = new BigNumber(computedValue?.withdrawable || 0);
-      const requiredMargin = tradingComputed.computedSizeBN
+      const requiredMargin = computedSizeBN
         .multipliedBy(effectivePriceBN)
         .dividedBy(safeLeverage);
       if (!requiredMargin.isFinite()) return false;
       return requiredMargin.gt(withdrawableBN);
     }
-    return tradingComputed.computedSizeBN.gt(maxTradeSz);
+    return computedSizeBN.gt(maxTradeSz);
   }, [
     computedValue?.withdrawable,
-    tradingComputed.computedSizeBN,
+    computedSizeBN,
     maxTradeSz,
     formData.type,
+    formData.orderMode,
+    formData.scaleReduceOnly,
+    formData.twapReduceOnly,
     effectivePriceBN,
     leverage,
   ]);
@@ -111,30 +156,198 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       void handleConfirm();
       return;
     }
-    showOrderConfirmDialog();
-  }, [activeAssetData, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
+    showOrderConfirmDialog({ intl });
+  }, [
+    activeAssetData,
+    perpsCustomSettings.skipOrderConfirm,
+    handleConfirm,
+    intl,
+  ]);
+
+  return (
+    <PerpTradingButton
+      disabledForAccountLoading={disabledForAccountLoading}
+      handleShowConfirm={handleShowConfirm}
+      formData={formData}
+      computedSize={computedSizeBN}
+      isMinimumOrderNotMet={isMinimumOrderNotMet}
+      isSubmitting={isSubmitting}
+      isNoEnoughMargin={isNoEnoughMargin}
+    />
+  );
+}
+
+const PerpTradingDisabledPlaceOrderButtonMemo = memo(
+  PerpTradingDisabledPlaceOrderButton,
+);
+
+function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [displayReady] = usePerpsAccountDisplayReadyAtom();
+  const [perpsActiveAccount] = usePerpsActiveAccountAtom();
+  const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
+  const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
+  const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
+  const [tradingMode] = useTradingModeAtom();
+  const [isSubmitting] = useTradingLoadingAtom();
+  const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
+  const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.indexedAccount?.id
+    : perpsActiveAccount?.indexedAccountId;
+  const snapshotLookupAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.account?.id
+    : perpsActiveAccount?.accountId;
+  const snapshotLookupAccountAddress =
+    !selectedWalletAccount.ready ||
+    snapshotLookupIndexedAccountId ||
+    snapshotLookupAccountId
+      ? perpsActiveAccount?.accountAddress
+      : undefined;
+  const snapshotEntry = useMemo(
+    () =>
+      getPerpsAccountDisplaySnapshotEntry({
+        snapshot: displaySnapshot,
+        accountAddress: snapshotLookupAccountAddress,
+        indexedAccountId: snapshotLookupIndexedAccountId,
+        accountId: snapshotLookupAccountId,
+        deriveType:
+          selectedWalletAccount.deriveType ?? perpsActiveAccount.deriveType,
+      }),
+    [
+      displaySnapshot,
+      perpsActiveAccount?.deriveType,
+      selectedWalletAccount.deriveType,
+      snapshotLookupAccountAddress,
+      snapshotLookupAccountId,
+      snapshotLookupIndexedAccountId,
+    ],
+  );
+  const canShowCachedTradingButtons = Boolean(
+    !displayReady.statusReady && snapshotEntry?.account.accountAddress,
+  );
+  const isLiveStatusPending = canShowCachedTradingButtons;
+  const coldStartEnableTradingMode = useMemo(() => {
+    if (!isLiveStatusPending) {
+      return undefined;
+    }
+    return getPerpsOrderPanelEnableTradingModeByAccount({
+      accountId: snapshotEntry?.account.accountId,
+      indexedAccountId: snapshotEntry?.account.indexedAccountId,
+    });
+  }, [
+    isLiveStatusPending,
+    snapshotEntry?.account.accountId,
+    snapshotEntry?.account.indexedAccountId,
+  ]);
+  const orderPanelEnableTradingMode = useMemo(() => {
+    if (
+      isLiveStatusPending &&
+      coldStartEnableTradingMode &&
+      (coldStartEnableTradingMode.canAutoEnableInOrderPanel ||
+        coldStartEnableTradingMode.requiresExplicitEnableTrading) &&
+      !enableTradingMode.canAutoEnableInOrderPanel &&
+      !enableTradingMode.requiresExplicitEnableTrading
+    ) {
+      return coldStartEnableTradingMode;
+    }
+    return enableTradingMode;
+  }, [coldStartEnableTradingMode, enableTradingMode, isLiveStatusPending]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    tracePerpsMobileLayout('tradingPanel.state', {
+      isMobile,
+      tradingMode,
+      canTrade: perpsAccountStatus.canTrade,
+      isLiveStatusPending,
+      isSubmitting,
+    });
+  }, [
+    isLiveStatusPending,
+    isMobile,
+    isSubmitting,
+    perpsAccountStatus.canTrade,
+    tradingMode,
+  ]);
+
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      if (!isMobile) {
+        return;
+      }
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+        tracePerpsMobileLayout('tradingPanel.layout', {
+          rect,
+          tradingMode,
+          canTrade: perpsAccountStatus.canTrade,
+          isLiveStatusPending,
+          isSubmitting,
+        });
+        layoutRef.current = rect;
+      }
+    },
+    [
+      isLiveStatusPending,
+      isMobile,
+      isSubmitting,
+      perpsAccountStatus.canTrade,
+      tradingMode,
+    ],
+  );
+
+  const canShowTradingButtons = useMemo(() => {
+    return shouldShowPerpsOrderPanelTradingButtons({
+      canShowCachedTradingButtons,
+      statusReady: displayReady.statusReady,
+      selectAccountLoading: perpsAccountLoading.selectAccountLoading,
+      accountStatus: perpsAccountStatus,
+      enableTradingMode: orderPanelEnableTradingMode,
+    });
+  }, [
+    canShowCachedTradingButtons,
+    displayReady.statusReady,
+    orderPanelEnableTradingMode,
+    perpsAccountLoading.selectAccountLoading,
+    perpsAccountStatus,
+  ]);
+
+  const reserveMobileEnableTradingLayout = useMemo(
+    () =>
+      shouldReservePerpsMobileEnableTradingLayout({
+        isMobile,
+        canShowTradingButtons,
+      }),
+    [canShowTradingButtons, isMobile],
+  );
 
   const content = (
     <YStack
-      gap="$2"
+      gap={isMobile && tradingMode === 'spot' ? '$0.5' : '$2'}
       pl={isMobile ? undefined : '$3'}
       pr={isMobile ? undefined : '$5'}
       flex={isMobile ? 1 : undefined}
-      justifyContent={isMobile ? 'space-between' : undefined}
+      justifyContent={
+        isMobile && tradingMode !== 'spot' ? 'space-between' : undefined
+      }
+      onLayout={handleLayout}
     >
-      <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
-      {perpsAccountStatus.canTrade ? (
-        <TradingButtonGroup isMobile={isMobile} />
-      ) : (
-        <PerpTradingButton
-          loading={universalLoading}
-          handleShowConfirm={handleShowConfirm}
-          formData={formData}
-          computedSize={tradingComputed.computedSizeBN}
-          isMinimumOrderNotMet={isMinimumOrderNotMet}
-          isSubmitting={isSubmitting}
-          isNoEnoughMargin={isNoEnoughMargin}
+      <PerpTradingForm
+        isSubmitting={isSubmitting}
+        isMobile={isMobile}
+        reserveMobileEnableTradingLayout={reserveMobileEnableTradingLayout}
+      />
+      {canShowTradingButtons ? (
+        <TradingButtonGroup
+          isMobile={isMobile}
+          isLiveStatusPending={isLiveStatusPending}
+          enableTradingModeOverride={orderPanelEnableTradingMode}
         />
+      ) : (
+        <PerpTradingDisabledPlaceOrderButtonMemo />
       )}
     </YStack>
   );

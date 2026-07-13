@@ -26,6 +26,8 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { KeyTagTestIDs } from '../../testIDs';
+
 const UserOptions = () => {
   const md = useMedia();
   const intl = useIntl();
@@ -81,6 +83,7 @@ const UserOptions = () => {
                   focusVisibleStyle={{ bg: 'rgba(0, 0, 0, 0.75)' }}
                   hoverStyle={{ bg: 'rgba(0, 0, 0, 0.75)' }}
                   onPress={onGetOne}
+                  testID={KeyTagTestIDs.getOneBtn}
                 >
                   {intl.formatMessage({ id: ETranslations.global_get_one })}
                 </Button>
@@ -98,6 +101,7 @@ const UserOptions = () => {
               })}
               drillIn
               onPress={onBackup}
+              testID={KeyTagTestIDs.backupItem}
               nativePressableStyle={{ flexShrink: 0 }}
               renderIcon={
                 <Stack bg="$bgStrong" p="$2" borderRadius="$3">
@@ -113,6 +117,7 @@ const UserOptions = () => {
               })}
               drillIn
               onPress={onImport}
+              testID={KeyTagTestIDs.importItem}
               nativePressableStyle={{ flexShrink: 0 }}
               renderIcon={
                 <Stack bg="$bgStrong" p="$2" borderRadius="$3">

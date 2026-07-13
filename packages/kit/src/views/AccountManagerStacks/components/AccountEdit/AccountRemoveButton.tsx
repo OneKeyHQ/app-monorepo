@@ -5,10 +5,8 @@ import { useIntl } from 'react-intl';
 import { ActionList, Dialog } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAccountSelectorActions,
-  useAccountSelectorContextData,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -16,6 +14,8 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { AccountManagerTestIDs } from '../../testIDs';
 
 let shouldShowHdOrHwAccountRemoveDialog = true;
 
@@ -77,6 +77,7 @@ export function AccountRemoveDialog({
       confirmButtonProps={{
         variant: indexedAccount && !account ? 'primary' : 'destructive',
         loading,
+        testID: AccountManagerTestIDs.accountRemoveConfirm,
       }}
       onConfirmText={intl.formatMessage({
         id: ETranslations.global_remove,
@@ -182,6 +183,7 @@ export function AccountRemoveButton({
 
   return (
     <ActionList.Item
+      testID={AccountManagerTestIDs.accountRemoveButton}
       icon={icon}
       label={label}
       destructive

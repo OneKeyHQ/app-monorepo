@@ -8,6 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFirmwareVerifyDialog } from '../../../Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
+import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
 import { useDialogDeviceAbout } from './dialog/DialogDeviceAbout';
@@ -17,11 +18,15 @@ import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
 function DeviceSectionSupport({
   onPressCheckForUpdates,
+  showFirmwareVerify = true,
+  showFirmwareUpdate = true,
 }: {
   onPressCheckForUpdates: (
     firmwareType?: EFirmwareType,
     baseReleaseInfo?: AllFirmwareRelease,
   ) => void;
+  showFirmwareVerify?: boolean;
+  showFirmwareUpdate?: boolean;
 }) {
   const intl = useIntl();
   const { pushToTroubleshooting } = useDeviceManagerNavigation();
@@ -72,26 +77,33 @@ function DeviceSectionSupport({
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressAboutDevice}
+        testID={DeviceManagementTestIDs.aboutDeviceItem}
       />
-      <ListItem
-        key="authRequest"
-        title={intl.formatMessage({
-          id: ETranslations.device_auth_request_title,
-        })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-        drillIn
-        onPress={onPressAuthRequest}
-        isLoading={isFirmwareVerifyDialogLoading}
-      />
-      <ListItem
-        key="checkForUpdates"
-        title={intl.formatMessage({
-          id: ETranslations.global_check_for_updates,
-        })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-        drillIn
-        onPress={() => onPressCheckForUpdates()}
-      />
+      {showFirmwareVerify ? (
+        <ListItem
+          key="authRequest"
+          title={intl.formatMessage({
+            id: ETranslations.device_auth_request_title,
+          })}
+          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          drillIn
+          onPress={onPressAuthRequest}
+          isLoading={isFirmwareVerifyDialogLoading}
+          testID={DeviceManagementTestIDs.authRequestItem}
+        />
+      ) : null}
+      {showFirmwareUpdate ? (
+        <ListItem
+          key="checkForUpdates"
+          title={intl.formatMessage({
+            id: ETranslations.global_check_for_updates,
+          })}
+          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          drillIn
+          onPress={() => onPressCheckForUpdates()}
+          testID={DeviceManagementTestIDs.checkForUpdatesItem}
+        />
+      ) : null}
       <ListItem
         key="troubleshooting"
         title={intl.formatMessage({
@@ -100,6 +112,7 @@ function DeviceSectionSupport({
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressTroubleshooting}
+        testID={DeviceManagementTestIDs.troubleshootingItem}
       />
     </ListItemGroup>
   );

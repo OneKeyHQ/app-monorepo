@@ -2,10 +2,11 @@
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { TypedDataUtils } from 'eth-sig-util';
-import { omit } from 'lodash';
 
-import { buildSignedTxFromSignatureEvm } from '@onekeyhq/core/src/chains/evm/sdkEvm';
-import type { UnsignedTransaction } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
+import {
+  buildHardwareEvmTransaction,
+  buildSignedTxFromSignatureEvm,
+} from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -24,11 +25,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
-import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
-import type {
-  IDeviceResponseResult,
-  IDeviceSharedCallParams,
-} from '@onekeyhq/shared/types/device';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
@@ -41,13 +38,7 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type {
-  AllNetworkAddressParams,
-  CoreApi,
-  EVMSignedTx,
-  EVMTransaction,
-  EVMTransactionEIP1559,
-} from '@onekeyfe/hd-core';
+import type { AllNetworkAddressParams, CoreApi } from '@onekeyfe/hd-core';
 
 async function hardwareEvmSignTransaction({
   sdk,
@@ -65,78 +56,17 @@ async function hardwareEvmSignTransaction({
   const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
   const { connectId = '', deviceId } = dbDevice;
 
-  let response: IDeviceResponseResult<EVMSignedTx> | undefined;
   const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
 
-  const isEip1559 = encodedTx.maxFeePerGas || encodedTx.maxPriorityFeePerGas;
-
-  let txToSign: EVMTransaction | EVMTransactionEIP1559;
-
-  const nonce = numberUtils.numberToHex(checkIsDefined(encodedTx.nonce), {
-    prefix0x: true,
+  const { hwTransaction, unsignedTx: tx } = buildHardwareEvmTransaction({
+    ...encodedTx,
+    chainId,
   });
-  const gasLimit = numberUtils.numberToHex(checkIsDefined(encodedTx.gasLimit), {
-    prefix0x: true,
-  });
-
-  const value = encodedTx.value ?? '0x0';
-  const data = encodedTx.data ?? '0x';
-  const to = encodedTx.to ?? '';
-
-  if (isEip1559) {
-    const txToSignEIP1559: EVMTransactionEIP1559 = {
-      ...omit(encodedTx, 'from'),
-      to,
-      value,
-      data,
-      chainId,
-      nonce,
-      gasPrice: undefined,
-      gasLimit,
-      maxFeePerGas: checkIsDefined(encodedTx.maxFeePerGas),
-      maxPriorityFeePerGas: checkIsDefined(encodedTx.maxPriorityFeePerGas),
-    };
-    txToSign = txToSignEIP1559;
-  } else {
-    const txToSignNormal: EVMTransaction = {
-      ...omit(encodedTx, 'from'),
-      to,
-      value,
-      data,
-      chainId,
-      nonce,
-      gasPrice: checkIsDefined(encodedTx.gasPrice),
-      gasLimit,
-      maxFeePerGas: undefined,
-      maxPriorityFeePerGas: undefined,
-    };
-    txToSign = txToSignNormal;
-  }
-
-  const tx: UnsignedTransaction = {
-    to: txToSign.to,
-    gasPrice: txToSign.gasPrice,
-    gasLimit: txToSign.gasLimit,
-    nonce: parseInt(txToSign.nonce, 16),
-    data: txToSign.data,
-    value: txToSign.value,
-    chainId: txToSign.chainId,
-  };
-
-  if (isEip1559) {
-    tx.type = 2;
-    tx.maxFeePerGas = txToSign?.maxFeePerGas ?? undefined;
-    tx.maxPriorityFeePerGas = txToSign?.maxPriorityFeePerGas ?? undefined;
-
-    if ((txToSign as EVMTransactionEIP1559).accessList) {
-      tx.accessList = (txToSign as EVMTransactionEIP1559).accessList;
-    }
-  }
 
   const result = await convertDeviceResponse(async () =>
     sdk.evmSignTransaction(connectId, deviceId, {
       path,
-      transaction: txToSign,
+      transaction: hwTransaction,
       ...deviceCommonParams,
     }),
   );
@@ -145,7 +75,7 @@ async function hardwareEvmSignTransaction({
     tx,
     signature: result,
   });
-  return { txid, rawTx, encodedTx };
+  return { rawTx, txid, encodedTx };
 }
 
 export class KeyringHardware extends KeyringHardwareBase {

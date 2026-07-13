@@ -1,3 +1,7 @@
+import type { IDesktopApiGlobal } from '@onekeyhq/shared/types/desktopApiPlatformInfo';
+
+import { getProcessStartAt } from './getProcessStartAt';
+
 // Avoid `electron-is-dev` here — it accesses `electron.app` which is
 // undefined in the preload/renderer process and would crash at load time.
 // esbuild already defines process.env.NODE_ENV at build time, so this is
@@ -14,24 +18,33 @@ export const InteractionManager = {};
 
 export const NativeEventEmitter = {};
 
-const _globalThis = globalThis as unknown as {
-  __DEV__: boolean;
-  desktopApi: {
-    systemVersion: string;
-    platform: string;
-    arch: string;
-    channel?: string;
-    isMas: boolean;
-    isDev: boolean;
-  };
-};
-
-const getChannel = () => {
-  let channel;
+// cspell:ignore Flathub bubblewrap
+const getChannel = (): string | undefined => {
+  let channel: string | undefined;
   try {
-    if (process.platform === 'linux' && process.env.APPIMAGE) {
+    if (process.platform !== 'linux') return channel;
+    // Flatpak MUST be detected first, and via RUNTIME signals: the Flathub
+    // package re-extracts our prebuilt AppImage, so the build-time
+    // `DESK_CHANNEL=appImage` define is baked in and would otherwise win and
+    // mis-tag the flatpak as an AppImage. `FLATPAK_ID` is exported by the
+    // flatpak launcher and `container=flatpak` is set by bubblewrap; neither
+    // is an esbuild `define`, so both reflect the real runtime environment.
+    // (`FLATPAK` itself is a build-time define and only set for a dedicated
+    // flatpak build, kept here as an extra signal.)
+    if (
+      process.env.FLATPAK ||
+      process.env.FLATPAK_ID ||
+      process.env.container === 'flatpak'
+    ) {
+      channel = 'flatpak';
+    } else if (process.env.DESK_CHANNEL === 'appImage') {
+      // AppImage is detected via the build-time `DESK_CHANNEL=appImage` flag
+      // (set in release-desktop-all.yml and baked in by esbuild `define`).
+      // We deliberately do not use the runtime `APPIMAGE` env for detection —
+      // it can be empty when a wrapper launcher strips it, giving a false
+      // negative for what is in fact an AppImage build.
       channel = 'appImage';
-    } else if (process.platform === 'linux' && process.env.SNAP) {
+    } else if (process.env.SNAP) {
       channel = 'snap';
     }
   } catch (_e) {
@@ -40,19 +53,36 @@ const getChannel = () => {
   return channel;
 };
 
+// Exported for the contract test in desktopApiContract.test.ts so drift
+// between this builder and IDesktopApiGlobal is caught at test time in
+// addition to compile time.
+export const buildDesktopApiGlobal = (): IDesktopApiGlobal => ({
+  platform: process.platform,
+  arch: process.arch,
+  systemVersion:
+    typeof process.getSystemVersion === 'function'
+      ? process.getSystemVersion()
+      : '',
+  channel: getChannel(),
+  deskChannel: process.env.DESK_CHANNEL || '',
+  isMas: Boolean(process.mas),
+  processStartAt: getProcessStartAt(),
+  isDev,
+});
+
 if (typeof globalThis !== 'undefined') {
-  if (typeof _globalThis.__DEV__ === 'undefined') {
-    _globalThis.__DEV__ = isDev;
+  const g = globalThis as typeof globalThis & { __DEV__?: boolean };
+  if (typeof g.__DEV__ === 'undefined') {
+    g.__DEV__ = isDev;
   }
 
-  if (typeof _globalThis.desktopApi === 'undefined') {
-    _globalThis.desktopApi = {
-      platform: process.platform,
-      systemVersion: process.getSystemVersion(),
-      arch: process.arch,
-      channel: getChannel(),
-      isMas: process.mas,
-      isDev,
-    };
+  if (typeof globalThis.desktopApi === 'undefined') {
+    // The `globalThis.desktopApi` type (IDesktopApiLegacy) includes bridge
+    // methods (on/ready/isFocused/…) that only exist in the renderer via
+    // contextBridge. In the main process bundle those methods are never
+    // called, so we install the platform-info subset only. Cast narrows the
+    // write to the IDesktopApiGlobal contract.
+    (globalThis as unknown as { desktopApi: IDesktopApiGlobal }).desktopApi =
+      buildDesktopApiGlobal();
   }
 }

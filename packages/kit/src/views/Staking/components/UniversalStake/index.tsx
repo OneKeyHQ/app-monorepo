@@ -40,6 +40,8 @@ import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRo
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
+import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
+import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ProtocolListContent } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -57,6 +59,7 @@ import type {
   IEarnEstimateFeeResp,
   IEarnPermit2ApproveSignData,
   IEarnSelectField,
+  IEarnStakeType,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeTransactionConfirmation,
@@ -89,6 +92,7 @@ import {
   ManagePageV2ReceiveInput,
 } from '../ManagePageV2ReceiveInput';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
+import { EarnPlatformBonusSection } from '../ProtocolDetails/EarnPlatformBonusSection';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
 import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
@@ -110,7 +114,10 @@ import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
-import type { IManagePositionProtocolSwitchConfig } from '../../pages/ManagePosition/components/ManagePositionContent';
+import type {
+  IManagePositionFooterAction,
+  IManagePositionProtocolSwitchConfig,
+} from '../../pages/ManagePosition/components/ManagePositionContent';
 import type { FontSizeTokens } from 'tamagui';
 
 function withRewardUnit(text: string, rewardUnit: string): string {
@@ -189,9 +196,10 @@ function ProtocolSwitchTriggerRow({
   const providerName = capitalizeString(
     currentProtocol?.provider.name || fallbackProviderName || '',
   );
+  const tvlText = formatTvl(currentProtocol?.provider.tvl);
   const subtitle = [
-    formatTvl(currentProtocol?.provider.tvl),
     currentProtocol?.provider.vaultName,
+    tvlText ? `TVL ${tvlText}` : undefined,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -223,9 +231,9 @@ function ProtocolSwitchTriggerRow({
       alignItems="center"
       justifyContent="space-between"
       gap="$3"
-      px="$2"
-      mx="$-2"
-      py="$1"
+      px="$3"
+      py="$2"
+      bg="$bgSubdued"
       borderRadius="$2"
       hoverStyle={isSwitchEnabled ? { bg: '$bgHover' } : undefined}
       pressStyle={isSwitchEnabled ? { bg: '$bgActive' } : undefined}
@@ -255,7 +263,7 @@ function ProtocolSwitchTriggerRow({
         {aprElement}
         {showChevron ? (
           <Icon
-            name="ChevronDownSmallOutline"
+            name="ChevronGrabberVerSolid"
             color={isSwitchEnabled ? '$iconSubdued' : '$iconDisabled'}
             size="$5"
           />
@@ -280,6 +288,7 @@ function ProtocolSwitcher({
   fallbackAprText?: string;
   protocolSwitchConfig: IManagePositionProtocolSwitchConfig;
 }) {
+  const intl = useIntl();
   const isSwitchEnabled = protocolSwitchConfig.protocols.length > 1;
   const trigger = (
     <ProtocolSwitchTriggerRow
@@ -299,19 +308,20 @@ function ProtocolSwitcher({
 
   return (
     <Popover
-      title=""
-      showHeader={false}
+      title={intl.formatMessage({ id: ETranslations.defi_select_protocol })}
       placement="bottom-end"
       renderTrigger={trigger}
       floatingPanelProps={{
         w: 360,
         p: '$0',
       }}
-      renderContent={({ closePopover }) => (
+      renderContent={({ closePopover, isOpen }) => (
         <ProtocolListContent
           variant="switcher"
+          isOpen={isOpen}
           symbol={tokenSymbol}
           accountId={accountId}
+          indexedAccountId={protocolSwitchConfig.indexedAccountId}
           protocols={protocolSwitchConfig.protocols}
           isLoading={protocolSwitchConfig.isLoading}
           selectedProtocol={protocolSwitchConfig.selectedProtocol}
@@ -359,15 +369,22 @@ type IUniversalStakeProps = {
     spenderAddress: string;
     token?: IToken;
   };
+  postWrapApproveTarget?: {
+    spenderAddress: string;
+    token?: IToken;
+  };
   beforeFooter?: ReactElement | null;
+  footerActionOverride?: IManagePositionFooterAction;
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   showApyDetail?: boolean;
+  suppressPlatformBonus?: boolean;
   isInModalContext?: boolean;
   ongoingValidator?: IEarnSelectField;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
   transactionInputTokenAddress?: string;
   transactionOutputTokenAddress?: string;
   requestSymbol?: string;
+  stakeType?: IEarnStakeType;
   inputTitle?: string;
   tokenSelectorTriggerProps?: Partial<
     NonNullable<IAmountInputFormItemProps['tokenSelectorTriggerProps']>
@@ -397,16 +414,20 @@ export function UniversalStake({
   tokenInfo,
   approveType,
   approveTarget,
+  postWrapApproveTarget,
   currentAllowance,
   beforeFooter,
+  footerActionOverride,
   protocolSwitchConfig,
   showApyDetail = false,
+  suppressPlatformBonus = false,
   isInModalContext = false,
   ongoingValidator,
   receiveInputConfig,
   transactionInputTokenAddress,
   transactionOutputTokenAddress,
   requestSymbol,
+  stakeType,
   inputTitle,
   tokenSelectorTriggerProps,
   isQuoteExpired,
@@ -431,8 +452,8 @@ export function UniversalStake({
     setSelectedValidator(ongoingValidator?.select?.defaultValue);
   }, [ongoingValidator?.select?.defaultValue]);
 
-  const useVaultProvider = useMemo(
-    () => earnUtils.isVaultBasedProvider({ providerName }),
+  const shouldSendProtocolVault = useMemo(
+    () => earnUtils.shouldSendEarnProtocolVault({ providerName }),
     [providerName],
   );
   const [
@@ -469,10 +490,9 @@ export function UniversalStake({
     () => requestSymbol || tokenInfo?.token.symbol || tokenSymbol || '',
     [requestSymbol, tokenInfo?.token.symbol, tokenSymbol],
   );
-  // Only Stakefish ETH needs signature for create new validator
   const isStakefishEthStake = useMemo(
-    () => isStakefishProvider && tokenSymbol?.toUpperCase() === 'ETH',
-    [isStakefishProvider, tokenSymbol],
+    () => isStakefishProvider && actionSymbol.toUpperCase() === 'ETH',
+    [actionSymbol, isStakefishProvider],
   );
   const isStakefishCreateNewValidator = useMemo(() => {
     if (!isStakefishEthStake || !selectedValidator) {
@@ -489,6 +509,18 @@ export function UniversalStake({
   ]);
   const stakefishPermitSignatureRef = useRef<string | undefined>(undefined);
   const stakefishPermitMessageRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    stakefishPermitSignatureRef.current = undefined;
+    stakefishPermitMessageRef.current = undefined;
+  }, [
+    accountId,
+    amountValue,
+    actionSymbol,
+    networkId,
+    providerName,
+    selectedValidator,
+  ]);
 
   const useApprove = useMemo(() => !!approveType, [approveType]);
   const usePermit2Approve = approveType === EApproveType.Permit;
@@ -512,14 +544,11 @@ export function UniversalStake({
     initialValue: currentAllowance ?? '0',
     approveType,
   });
-  const shouldApprove = useMemo(() => {
+  const shouldApproveWhenFocused = useMemo(() => {
     if (!useApprove) {
       return false;
     }
 
-    if (!isFocus) {
-      return true;
-    }
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
 
@@ -541,7 +570,6 @@ export function UniversalStake({
     return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
   }, [
     useApprove,
-    isFocus,
     amountValue,
     allowance,
     usePermit2Approve,
@@ -550,6 +578,13 @@ export function UniversalStake({
     approveTarget.networkId,
     approveTarget.token?.address,
   ]);
+  const lastFocusedShouldApproveRef = useRef(shouldApproveWhenFocused);
+  if (isFocus) {
+    lastFocusedShouldApproveRef.current = shouldApproveWhenFocused;
+  }
+  const shouldApprove = isFocus
+    ? shouldApproveWhenFocused
+    : useApprove && lastFocusedShouldApproveRef.current;
 
   const [transactionConfirmation, setTransactionConfirmation] = useState<
     IStakeTransactionConfirmation | undefined
@@ -570,7 +605,7 @@ export function UniversalStake({
           networkId,
           provider: providerName,
           symbol: actionSymbol,
-          vault: useVaultProvider ? protocolInfo?.vault || '' : '',
+          vault: shouldSendProtocolVault ? protocolInfo?.vault || '' : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
           action: ECheckAmountActionType.STAKING,
           amount,
@@ -586,7 +621,7 @@ export function UniversalStake({
       networkId,
       providerName,
       actionSymbol,
-      useVaultProvider,
+      shouldSendProtocolVault,
       protocolInfo?.vault,
       protocolInfo?.earnAccount?.accountAddress,
       stakefishIdentity,
@@ -617,7 +652,7 @@ export function UniversalStake({
     350,
   );
 
-  const protocolVault = useVaultProvider
+  const protocolVault = shouldSendProtocolVault
     ? protocolInfo?.vault || ''
     : undefined;
 
@@ -664,6 +699,7 @@ export function UniversalStake({
         accountAddress: account?.address,
         inputTokenAddress: transactionInputTokenAddress,
         outputTokenAddress: transactionOutputTokenAddress,
+        stakeType,
         ...permitParams,
       });
       return resp;
@@ -678,6 +714,7 @@ export function UniversalStake({
       actionSymbol,
       transactionInputTokenAddress,
       transactionOutputTokenAddress,
+      stakeType,
       usePermit2Approve,
     ],
   );
@@ -730,6 +767,101 @@ export function UniversalStake({
   );
 
   const prevShouldApproveRef = useRef<boolean | undefined>(undefined);
+  const isWrapStake = stakeType === 'wrap';
+  const wrapStakeLabel = useMemo(
+    () =>
+      intl.formatMessage(
+        { id: ETranslations.Limit_native_token_no_sell_wrap },
+        { token: actionSymbol || tokenInfo?.token.symbol || tokenSymbol || '' },
+      ),
+    [actionSymbol, intl, tokenInfo?.token.symbol, tokenSymbol],
+  );
+
+  const fetchPostWrapAllowance = useCallback(async () => {
+    if (
+      !isWrapStake ||
+      !postWrapApproveTarget?.token?.address ||
+      !postWrapApproveTarget.spenderAddress
+    ) {
+      return undefined;
+    }
+
+    const allowanceInfo =
+      await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+        accountId,
+        networkId,
+        spenderAddress: postWrapApproveTarget.spenderAddress,
+        tokenAddress: postWrapApproveTarget.token.address,
+      });
+
+    return allowanceInfo.allowanceParsed;
+  }, [
+    accountId,
+    isWrapStake,
+    networkId,
+    postWrapApproveTarget?.spenderAddress,
+    postWrapApproveTarget?.token?.address,
+  ]);
+
+  const getShouldShowPostWrapApproveStep = useCallback(
+    (allowanceValue?: string) => {
+      if (!isWrapStake) {
+        return false;
+      }
+
+      const amountBN = new BigNumber(amountValue);
+      if (amountBN.isNaN() || amountBN.lte(0)) {
+        return false;
+      }
+
+      if (
+        !postWrapApproveTarget?.token?.address ||
+        !postWrapApproveTarget.spenderAddress
+      ) {
+        return true;
+      }
+
+      const allowanceBN = new BigNumber(allowanceValue ?? '0');
+      return allowanceBN.isNaN() || allowanceBN.lt(amountBN);
+    },
+    [
+      amountValue,
+      isWrapStake,
+      postWrapApproveTarget?.spenderAddress,
+      postWrapApproveTarget?.token?.address,
+    ],
+  );
+
+  const { result: postWrapAllowance } = usePromiseResult(
+    fetchPostWrapAllowance,
+    [fetchPostWrapAllowance],
+    {
+      undefinedResultIfReRun: true,
+    },
+  );
+
+  const estimatedShouldShowPostWrapApproveStep = useMemo(
+    () => getShouldShowPostWrapApproveStep(postWrapAllowance),
+    [getShouldShowPostWrapApproveStep, postWrapAllowance],
+  );
+  const [
+    shouldShowPostWrapApproveStepOverride,
+    setShouldShowPostWrapApproveStepOverride,
+  ] = useState<boolean | undefined>(undefined);
+  const shouldShowPostWrapApproveStep =
+    shouldShowPostWrapApproveStepOverride ??
+    estimatedShouldShowPostWrapApproveStep;
+
+  const stakeProgressStep2LabelId = useMemo(() => {
+    if (shouldShowPostWrapApproveStep) {
+      return ETranslations.global_approve;
+    }
+    return isPendleProvider ? ETranslations.global_swap : undefined;
+  }, [isPendleProvider, shouldShowPostWrapApproveStep]);
+
+  const stakeProgressStep3LabelId = shouldShowPostWrapApproveStep
+    ? ETranslations.earn_deposit
+    : undefined;
 
   useEffect(() => {
     const amountValueBN = new BigNumber(amountValue);
@@ -805,6 +937,7 @@ export function UniversalStake({
           inputTokenAddress: transactionInputTokenAddress,
           outputTokenAddress: transactionOutputTokenAddress,
           slippage: pendleSlippage,
+          stakeType,
         });
 
         if (Number(response.code) === 0) {
@@ -858,6 +991,32 @@ export function UniversalStake({
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
+  const [stakeProgressStep, setStakeProgressStep] = useState(
+    EStakeProgressStep.approve,
+  );
+  const handleStakeProgressChange = useCallback(
+    (step: number, options?: { shouldShowPostWrapApproveStep?: boolean }) => {
+      if (options?.shouldShowPostWrapApproveStep !== undefined) {
+        setShouldShowPostWrapApproveStepOverride(
+          options.shouldShowPostWrapApproveStep,
+        );
+      }
+      setStakeProgressStep(step);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    setShouldShowPostWrapApproveStepOverride(undefined);
+    setStakeProgressStep(EStakeProgressStep.approve);
+  }, [
+    accountId,
+    amountValue,
+    networkId,
+    postWrapApproveTarget?.spenderAddress,
+    postWrapApproveTarget?.token?.address,
+    stakeType,
+  ]);
 
   const maxAmountValue = useMemo(() => {
     const balanceBN = new BigNumber(balance);
@@ -995,15 +1154,26 @@ export function UniversalStake({
   const onSubmit = useCallback(async () => {
     Keyboard.dismiss();
 
-    // Stakefish: get permit signature for create new validator
-    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
+    // Bot Wallet deactivated warning
+    const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
+      accountId,
+    });
+    if (isDeactivatedBot) {
+      const confirmed = await showBotWalletDeactivatedWarningDialog();
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    // Stakefish ETH: sign before building the staking transaction.
+    if (isStakefishEthStake && !stakefishPermitSignatureRef.current) {
       setApproving(true);
       try {
         const { signature, message } = await signPersonalMessage({
           networkId,
           accountId,
           provider: providerName,
-          symbol: tokenSymbol || '',
+          symbol: actionSymbol,
           amount: new BigNumber(amountValue).toFixed(),
           action: 'stake',
         });
@@ -1024,7 +1194,7 @@ export function UniversalStake({
     if (usePermit2Approve) {
       finalPermitSignature = permitSignatureRef.current;
       finalUnsignedMessage = permit2DataRef.current;
-    } else if (isStakefishCreateNewValidator) {
+    } else if (isStakefishEthStake) {
       finalPermitSignature = stakefishPermitSignatureRef.current;
       finalMessage = stakefishPermitMessageRef.current;
     }
@@ -1038,9 +1208,9 @@ export function UniversalStake({
         }
       : undefined;
 
-    // Stakefish specific params: validatorPubkey only for existing validator
+    // Stakefish specific params: validatorPubkey only for existing validator.
     const stakefishParams =
-      isStakefishProvider && !isStakefishCreateNewValidator
+      isStakefishProvider && !isStakefishCreateNewValidator && selectedValidator
         ? { validatorPubkey: selectedValidator }
         : undefined;
 
@@ -1055,9 +1225,24 @@ export function UniversalStake({
     const handleConfirm = async () => {
       setSubmitting(true);
       try {
+        if (isWrapStake) {
+          let shouldShowApproveStep = true;
+          try {
+            const allowanceValue = await fetchPostWrapAllowance();
+            shouldShowApproveStep =
+              getShouldShowPostWrapApproveStep(allowanceValue);
+          } catch {
+            shouldShowApproveStep = true;
+          }
+          setShouldShowPostWrapApproveStepOverride(shouldShowApproveStep);
+          setStakeProgressStep(EStakeProgressStep.approve);
+        }
+
         await onConfirm?.({
           amount: amountValue,
           effectiveApy: transactionConfirmation?.effectiveApy,
+          stakeType,
+          onStepChange: handleStakeProgressChange,
           ...permitSignatureParams,
           ...stakefishParams,
         });
@@ -1101,7 +1286,10 @@ export function UniversalStake({
             estimateFeeResp.coverFeeSeconds,
           ),
           estFiatValue: estimateFeeResp.feeFiatValue,
-          onConfirm: handleConfirm,
+          onConfirm: async (dialogInstance: IDialogInstance) => {
+            await dialogInstance.close();
+            await handleConfirm();
+          },
         });
         return;
       }
@@ -1123,13 +1311,14 @@ export function UniversalStake({
     showEstimateGasAlert,
     checkEstimateGasAlert,
     isStakefishProvider,
+    isStakefishEthStake,
     isPendleProvider,
     selectedValidator,
     isStakefishCreateNewValidator,
     signPersonalMessage,
     networkId,
     accountId,
-    tokenSymbol,
+    actionSymbol,
     providerName,
     onQuoteReset,
     intl,
@@ -1138,6 +1327,11 @@ export function UniversalStake({
     receiveInputConfig,
     transactionConfirmation?.effectiveApy,
     transactionConfirmation?.receive,
+    stakeType,
+    isWrapStake,
+    fetchPostWrapAllowance,
+    getShouldShowPostWrapApproveStep,
+    handleStakeProgressChange,
   ]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
@@ -1557,16 +1751,33 @@ export function UniversalStake({
     transactionConfirmation?.receive,
   ]);
   const isAccordionTriggerDisabled = !amountValue;
+  const isPositiveAmount = useMemo(() => {
+    const amountBN = new BigNumber(amountValue);
+    return !amountBN.isNaN() && amountBN.gt(0);
+  }, [amountValue]);
   const isShowStakeProgress =
-    useApprove &&
-    !!amountValue &&
-    (shouldApprove || showStakeProgressRef.current[amountValue]);
+    isPositiveAmount &&
+    (isWrapStake ||
+      (useApprove &&
+        (shouldApprove || showStakeProgressRef.current[amountValue])));
+  const stakeProgressCurrentStep = useMemo(() => {
+    if (isWrapStake) {
+      return stakeProgressStep;
+    }
+    if (isDisable || shouldApprove) {
+      return EStakeProgressStep.approve;
+    }
+    return EStakeProgressStep.deposit;
+  }, [isDisable, isWrapStake, shouldApprove, stakeProgressStep]);
 
   const onConfirmText = useMemo(() => {
     if (effectiveShowExpiredRefresh) {
       return intl.formatMessage({ id: ETranslations.global_refresh });
     }
     if (!useApprove) {
+      if (isWrapStake) {
+        return wrapStakeLabel;
+      }
       return intl.formatMessage({
         id: isPendleProvider
           ? ETranslations.global_swap
@@ -1593,6 +1804,8 @@ export function UniversalStake({
     useApprove,
     shouldApprove,
     intl,
+    isWrapStake,
+    wrapStakeLabel,
     usePermit2Approve,
     amountValue,
     tokenInfo?.token.symbol,
@@ -1611,26 +1824,36 @@ export function UniversalStake({
     onSubmit,
   ]);
 
+  const effectiveOnConfirmText = footerActionOverride?.text ?? onConfirmText;
+  const effectiveConfirmOnPress =
+    footerActionOverride?.onPress ?? confirmOnPress;
+  const baseConfirmLoading = effectiveShowExpiredRefresh
+    ? quoteRefreshing
+    : loadingAllowance || approving || submitting || checkAmountLoading;
+  const baseConfirmDisabled = effectiveShowExpiredRefresh ? false : isDisable;
+  const effectiveConfirmLoading = footerActionOverride
+    ? Boolean(footerActionOverride.loading)
+    : baseConfirmLoading;
+  const effectiveConfirmDisabled = footerActionOverride
+    ? Boolean(footerActionOverride.disabled)
+    : baseConfirmDisabled;
+
   const footerContent = (
     <YStack bg="$bgApp" gap="$5">
       {isShowStakeProgress ? (
         <Stack>
           <StakeProgress
             approveType={approveType}
-            currentStep={
-              isDisable || shouldApprove
-                ? EStakeProgressStep.approve
-                : EStakeProgressStep.deposit
-            }
-            step2LabelId={
-              isPendleProvider ? ETranslations.global_swap : undefined
-            }
+            currentStep={stakeProgressCurrentStep}
+            step1Label={isWrapStake ? wrapStakeLabel : undefined}
+            step2LabelId={stakeProgressStep2LabelId}
+            step3LabelId={stakeProgressStep3LabelId}
           />
         </Stack>
       ) : null}
       <Page.FooterActions
         p={0}
-        onConfirmText={onConfirmText}
+        onConfirmText={effectiveOnConfirmText}
         buttonContainerProps={{
           $gtMd: {
             ml: '0',
@@ -1638,11 +1861,9 @@ export function UniversalStake({
           w: '100%',
         }}
         confirmButtonProps={{
-          onPress: confirmOnPress,
-          loading: effectiveShowExpiredRefresh
-            ? quoteRefreshing
-            : loadingAllowance || approving || submitting || checkAmountLoading,
-          disabled: effectiveShowExpiredRefresh ? false : isDisable,
+          onPress: effectiveConfirmOnPress,
+          loading: effectiveConfirmLoading,
+          disabled: effectiveConfirmDisabled,
           w: '100%',
         }}
       />
@@ -1796,6 +2017,41 @@ export function UniversalStake({
     showPendleTransactionSection,
   });
 
+  const tradeOrBuyContent = isPendleProvider ? null : (
+    <TradeOrBuy
+      token={tokenInfo?.token as IToken}
+      accountId={accountId}
+      networkId={networkId}
+      containerStyle={{
+        pt: '$0',
+      }}
+    />
+  );
+
+  const platformBonus = suppressPlatformBonus
+    ? undefined
+    : transactionConfirmation?.platformBonus;
+  const shouldShowPlatformBonus = Boolean(platformBonus);
+
+  const platformBonusContent = platformBonus ? (
+    <EarnPlatformBonusSection
+      platformBonus={platformBonus}
+      protocolInfo={protocolInfo}
+      tokenInfo={tokenInfo}
+      footer={tradeOrBuyContent}
+    />
+  ) : null;
+
+  // When entering from the trending list, the protocol selector is rendered as a
+  // standalone (border-less) card above the summary card. The bordered summary
+  // card should then only render when it actually has body content, otherwise it
+  // would show up as an empty bordered box.
+  const summaryCardHasBodyContent = Boolean(
+    summaryContent ||
+    ongoingValidator ||
+    (!shouldShowPlatformBonus && tradeOrBuyContent),
+  );
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
@@ -1855,6 +2111,7 @@ export function UniversalStake({
             style={receiveArrowOverlayStyle}
           >
             <IconButton
+              testID="staking-icon-btn"
               alignSelf="center"
               bg="$bgApp"
               variant="tertiary"
@@ -1911,26 +2168,26 @@ export function UniversalStake({
         </>
       ) : null}
 
-      {shouldShowSummaryCard ? (
+      {protocolSwitchConfig ? (
+        <ProtocolSwitcher
+          tokenSymbol={actionSymbol}
+          accountId={accountId}
+          fallbackProviderName={providerName}
+          fallbackProviderLogoUri={providerLogo}
+          fallbackAprText={apyDetail?.description?.text}
+          protocolSwitchConfig={protocolSwitchConfig}
+        />
+      ) : null}
+
+      {shouldShowSummaryCard &&
+      (!protocolSwitchConfig || summaryCardHasBodyContent) ? (
         <YStack
           p="$3.5"
-          pt={protocolSwitchConfig ? '$3.5' : '$5'}
+          pt="$5"
           borderRadius="$3"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
         >
-          {protocolSwitchConfig ? (
-            <YStack mb="$3.5">
-              <ProtocolSwitcher
-                tokenSymbol={actionSymbol}
-                accountId={accountId}
-                fallbackProviderName={providerName}
-                fallbackProviderLogoUri={providerLogo}
-                fallbackAprText={apyDetail?.description?.text}
-                protocolSwitchConfig={protocolSwitchConfig}
-              />
-            </YStack>
-          ) : null}
           {showApyHeader && apyDetail && !protocolSwitchConfig ? (
             <XStack gap="$1" ai="center" mb="$3.5">
               <EarnText
@@ -2044,19 +2301,11 @@ export function UniversalStake({
                 </Accordion.Item>
               </Accordion>
             ) : null}
-            {isPendleProvider ? null : (
-              <TradeOrBuy
-                token={tokenInfo?.token as IToken}
-                accountId={accountId}
-                networkId={networkId}
-                containerStyle={{
-                  pt: '$0',
-                }}
-              />
-            )}
+            {shouldShowPlatformBonus ? null : tradeOrBuyContent}
           </YStack>
         </YStack>
       ) : null}
+      {platformBonusContent}
       {beforeFooter}
       {isInModalContext ? (
         <Page.Footer>
@@ -2073,29 +2322,20 @@ export function UniversalStake({
               {isShowStakeProgress ? (
                 <StakeProgress
                   approveType={approveType}
-                  currentStep={
-                    isDisable || shouldApprove
-                      ? EStakeProgressStep.approve
-                      : EStakeProgressStep.deposit
-                  }
-                  step2LabelId={
-                    isPendleProvider ? ETranslations.global_swap : undefined
-                  }
+                  currentStep={stakeProgressCurrentStep}
+                  step1Label={isWrapStake ? wrapStakeLabel : undefined}
+                  step2LabelId={stakeProgressStep2LabelId}
+                  step3LabelId={stakeProgressStep3LabelId}
                 />
               ) : null}
             </Stack>
 
             <Page.FooterActions
-              onConfirmText={onConfirmText}
+              onConfirmText={effectiveOnConfirmText}
               confirmButtonProps={{
-                onPress: confirmOnPress,
-                loading: effectiveShowExpiredRefresh
-                  ? quoteRefreshing
-                  : loadingAllowance ||
-                    approving ||
-                    submitting ||
-                    checkAmountLoading,
-                disabled: effectiveShowExpiredRefresh ? false : isDisable,
+                onPress: effectiveConfirmOnPress,
+                loading: effectiveConfirmLoading,
+                disabled: effectiveConfirmDisabled,
               }}
             />
           </Stack>

@@ -5,6 +5,8 @@ import { WalletBackupActions } from '@onekeyhq/kit/src/components/WalletBackup';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { AccountManagerTestIDs } from '../../testIDs';
+
 export function HdWalletBackupButton({
   wallet,
   onClose,
@@ -25,7 +27,7 @@ export function HdWalletBackupButton({
       onClose={onClose}
     >
       <ActionList.Item
-        testID="AccountSelector-WalletOption-Backup"
+        testID={AccountManagerTestIDs.walletBackupButton}
         icon="Shield2CheckOutline"
         label={intl.formatMessage({ id: ETranslations.global_backup })}
         // onClose={onClose}

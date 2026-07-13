@@ -18,11 +18,15 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { useTakeScreenshot } from '../../hooks/useTakeScreenshot';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { ESiteMode } from '../../types';
 
 import RefreshButton from './RefreshButton';
 import TabCountButton from './TabCountButton';
-import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
+import {
+  ACTION_LIST_CLOSE_ANIMATION_DELAY_MS,
+  useMobileBrowserBottomBarData,
+} from './useMobileBrowserBottomBarData';
 
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
 
@@ -67,6 +71,7 @@ function MobileBrowserBottomBar({
     disabledGoForward,
     isTranslated,
     handleTranslate,
+    handleRetranslate,
     handleTranslateTestAIError,
   } = useMobileBrowserBottomBarData({ id, onGoBackHomePage });
 
@@ -88,6 +93,15 @@ function MobileBrowserBottomBar({
       });
     })();
   }, [takeScreenshot, navigation, displayHomePage]);
+
+  const handleCloseTabFromActionList = useCallback(
+    async (close: () => void) => {
+      close();
+      await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
+      handleCloseTab();
+    },
+    [handleCloseTab],
+  );
 
   // Options button: use ActionList.show() programmatically
   const handleShowOptions = useCallback(() => {
@@ -113,9 +127,7 @@ function MobileBrowserBottomBar({
               }),
               icon: tab?.isBookmark ? 'StarSolid' : 'StarOutline',
               onPress: () => handleBookmarkPress(!tab?.isBookmark),
-              testID: `action-list-item-${
-                !tab?.isBookmark ? 'bookmark' : 'remove-bookmark'
-              }`,
+              testID: DiscoveryTestIDs.tabActionBookmark,
             },
             {
               label: intl.formatMessage({
@@ -125,7 +137,7 @@ function MobileBrowserBottomBar({
               }),
               icon: tab?.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
               onPress: () => handlePinTab(!tab?.isPinned),
-              testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
+              testID: DiscoveryTestIDs.tabActionPin(!!tab?.isPinned),
             },
             {
               label: intl.formatMessage({
@@ -175,7 +187,7 @@ function MobileBrowserBottomBar({
               }),
               icon: 'ShareOutline',
               onPress: onShare,
-              testID: 'action-list-item-share',
+              testID: DiscoveryTestIDs.browserShareButton,
             },
           ],
         },
@@ -200,8 +212,8 @@ function MobileBrowserBottomBar({
                   : ETranslations.explore_close_tab,
               }),
               icon: 'CrossedLargeOutline',
-              onPress: handleCloseTab,
-              testID: 'action-list-item-close-tab-in-browser',
+              onPress: handleCloseTabFromActionList,
+              testID: DiscoveryTestIDs.tabActionClose,
             },
             ...(onGoBackHomePage
               ? [
@@ -234,7 +246,7 @@ function MobileBrowserBottomBar({
     onShare,
     hasConnectedAccount,
     handleDisconnect,
-    handleCloseTab,
+    handleCloseTabFromActionList,
     onGoBackHomePage,
   ]);
 
@@ -326,11 +338,11 @@ function MobileBrowserBottomBar({
         <View style={barStyles.buttonContainer}>
           <IconButton
             variant="tertiary"
-            size="medium"
+            size="large"
             icon="ChevronLeftOutline"
             disabled={disabledGoBack}
             accessible={!disabledGoBack}
-            testID="browser-bar-go-back"
+            testID={DiscoveryTestIDs.browserBackButton}
           />
         </View>
       </GestureDetector>
@@ -338,24 +350,27 @@ function MobileBrowserBottomBar({
         <View style={barStyles.buttonContainer}>
           <IconButton
             variant="tertiary"
-            size="medium"
+            size="large"
             icon="ChevronRightOutline"
             disabled={disabledGoForward}
             accessible={!disabledGoForward}
-            testID="browser-bar-go-forward"
+            testID={DiscoveryTestIDs.browserForwardButton}
           />
         </View>
       </GestureDetector>
 
       <GestureDetector gesture={tabListGesture}>
         <View style={barStyles.buttonContainer}>
-          <TabCountButton testID="browser-bar-tabs" />
+          <TabCountButton
+            size="large"
+            testID={DiscoveryTestIDs.tabListButton}
+          />
         </View>
       </GestureDetector>
 
       <GestureDetector gesture={refreshGesture}>
         <View style={barStyles.buttonContainer}>
-          <RefreshButton onRefresh={handleRefresh} />
+          <RefreshButton size="large" onRefresh={handleRefresh} />
         </View>
       </GestureDetector>
 
@@ -364,9 +379,11 @@ function MobileBrowserBottomBar({
           <TranslatePopoverTrigger
             isTranslated={isTranslated}
             onTranslate={handleTranslate}
+            onRetranslate={handleRetranslate}
             onTestAITranslateError={handleTranslateTestAIError}
             open={translatePopoverOpen}
             onOpenChange={setTranslatePopoverOpen}
+            size="large"
           />
         </View>
       </GestureDetector>
@@ -375,7 +392,7 @@ function MobileBrowserBottomBar({
         <View style={barStyles.buttonContainer}>
           <IconButton
             variant="tertiary"
-            size="medium"
+            size="large"
             icon="DotHorOutline"
             disabled={displayHomePage}
             testID="browser-bar-options"

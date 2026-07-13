@@ -7,6 +7,7 @@ import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import { EVaultKeyringTypes } from '../types';
@@ -285,6 +286,15 @@ export abstract class KeyringBase extends VaultContext {
     params: IExportAccountSecretKeysParams,
   ): Promise<IExportAccountSecretKeysResult> {
     throw new NotImplemented();
+  }
+
+  async deriveContextHash(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    params: IDeriveContextHashKeyringParams,
+  ): Promise<string> {
+    throw new NotImplemented(
+      'deriveContextHash is not supported on this keyring',
+    );
   }
 
   async buildHwAllNetworkPrepareAccountsParams(

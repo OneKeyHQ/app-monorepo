@@ -5,6 +5,8 @@ export { KeychainStorage } from './keychain-storage';
 export {
   LinuxSecureStorage,
   MacOSSecureStorage,
+  NapiRsKeyringSecureStorage,
+  SECURE_STORAGE_USE_NAPI_RS_KEYRING,
   createSecureStorage,
 } from './keychain-storage';
 export type {

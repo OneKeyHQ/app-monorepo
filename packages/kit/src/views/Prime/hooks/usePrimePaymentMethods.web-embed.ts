@@ -1,19 +1,21 @@
 /* oxlint-disable import-js/order */
-import { useCallback, useMemo } from 'react';
-
-// load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
+// IMPORTANT: keep Stripe as an eager top-level import before RevenueCat.
+// RevenueCat checks for a preloaded Stripe.js runtime; if this is moved to a
+// lazy import for startup performance, RevenueCat may inject
+// https://js.stripe.com/v3 itself and Prime checkout can break.
 // eslint-disable-next-line import-js/order
 import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 
-import { LogLevel, Purchases } from '@revenuecat/purchases-js';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
+
 import { BigNumber } from 'bignumber.js';
-import { useSearchParams } from 'react-router-dom';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
+import { loadPurchasesSdkWeb } from '../purchasesSdk/purchasesSdkWebLoader';
 
 import primePaymentUtils from './primePaymentUtils';
 
@@ -24,18 +26,52 @@ import type {
 } from './usePrimePaymentTypes';
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
 
-if (process.env.NODE_ENV !== 'production') {
-  console.log('Purchases.setLogLevel Verbose');
-  Purchases.setLogLevel(LogLevel.Verbose);
+function getWebEmbedSearchParamsString() {
+  if (typeof globalThis.location === 'undefined') {
+    return '';
+  }
+
+  const hash = globalThis.location.hash || '';
+  const hashValue = hash.startsWith('#') ? hash.slice(1) : hash;
+  const queryIndex = hashValue.indexOf('?');
+  if (queryIndex >= 0) {
+    return hashValue.slice(queryIndex + 1);
+  }
+
+  const search = globalThis.location.search || '';
+  return search.startsWith('?') ? search.slice(1) : search;
+}
+
+function subscribeWebEmbedSearchParams(onStoreChange: () => void) {
+  if (typeof globalThis.addEventListener !== 'function') {
+    return () => undefined;
+  }
+
+  globalThis.addEventListener('hashchange', onStoreChange);
+  globalThis.addEventListener('popstate', onStoreChange);
+
+  return () => {
+    globalThis.removeEventListener('hashchange', onStoreChange);
+    globalThis.removeEventListener('popstate', onStoreChange);
+  };
 }
 
 export function usePrimePaymentMethods(): IUsePrimePayment {
   const isReady = true;
 
-  const [searchParams] = useSearchParams();
+  const searchParamsString = useSyncExternalStore(
+    subscribeWebEmbedSearchParams,
+    getWebEmbedSearchParamsString,
+    () => '',
+  );
+  const searchParams = useMemo(
+    () => new URLSearchParams(searchParamsString),
+    [searchParamsString],
+  );
 
   const params = useMemo(() => {
     const apiKey = searchParams.get('apiKey') || '';
+    const isSandboxKey = searchParams.get('isSandboxKey') === '1';
     const primeUserId = searchParams.get('primeUserId') || '';
     const primeUserEmail = searchParams.get('primeUserEmail') || '';
     const subscriptionPeriod = (searchParams.get('subscriptionPeriod') ||
@@ -46,6 +82,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     const featureName = searchParams.get('featureName') || '';
     return {
       apiKey,
+      isSandboxKey,
       primeUserId,
       primeUserEmail,
       subscriptionPeriod,
@@ -72,6 +109,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     // TODO VPN required
     // await Purchases.setProxyURL('https://api.rc-backup.com/');
 
+    const { Purchases } = await loadPurchasesSdkWeb();
+
     // TODO how to configure another userId when user login with another account
     // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
@@ -82,6 +121,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
   const getCustomerInfo = useCallback(async () => {
     await initSdk();
+    const { Purchases } = await loadPurchasesSdkWeb();
 
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
@@ -103,18 +143,26 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
   const getPackagesWeb = useCallback(async () => {
     await initSdk();
+    const { Purchases } = await loadPurchasesSdkWeb();
 
     if (!isReady) {
       throw new OneKeyLocalError('PrimeAuth Not ready');
     }
 
-    const offerings = await Purchases.getSharedInstance().getOfferings(
-      params.currency ? { currency: params.currency } : undefined,
-    );
+    const { offerings, targetOffering } =
+      await primePaymentUtils.fetchWebTargetOffering({
+        purchases: Purchases.getSharedInstance(),
+        isSandboxKey: params.isSandboxKey,
+        currency: params.currency,
+      });
 
     const packages: IPackage[] =
-      offerings?.current?.availablePackages?.map((p) => {
-        const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
+      targetOffering?.availablePackages?.map((p) => {
+        const {
+          normalPeriodDuration,
+          currentPrice,
+          defaultSubscriptionOption,
+        } = p.rcBillingProduct;
 
         const currencyCode = currentPrice.currency || '';
 
@@ -134,6 +182,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           pricePerMonth: Number(pricePerMonth),
           pricePerMonthString: `${pricePerMonth} ${currencyCode}`,
           priceTotalPerYearString: `${pricePerYear} ${currencyCode}`,
+          freeTrial: primePaymentUtils.extractWebFreeTrial(
+            defaultSubscriptionOption?.trial,
+          ),
         };
       }) || [];
 
@@ -143,7 +194,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     });
 
     return packages;
-  }, [initSdk, isReady, params.currency]);
+  }, [initSdk, isReady, params.currency, params.isSandboxKey]);
 
   const purchasePackageWeb = useCallback(
     async ({
@@ -153,7 +204,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       currency,
       featureName,
     }: {
-      subscriptionPeriod: string;
+      subscriptionPeriod: ISubscriptionPeriod;
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
       currency?: string;
@@ -168,6 +219,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       });
 
       await initSdk();
+      const { Purchases } = await loadPurchasesSdkWeb();
 
       console.log('purchasePackageWeb77632723>>>>>> initSdk done');
 
@@ -187,20 +239,23 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           'purchasePackageWeb77632723>>>>>> getOfferings',
           typeof Purchases.getSharedInstance().getOfferings,
         );
-        const offerings = await Purchases.getSharedInstance().getOfferings(
-          currency ? { currency } : undefined,
-        );
+        const { offerings, targetOffering } =
+          await primePaymentUtils.fetchWebTargetOffering({
+            purchases: Purchases.getSharedInstance(),
+            isSandboxKey: params.isSandboxKey,
+            currency,
+          });
         console.log('purchasePackageWeb77632723>>>>>> offerings', {
           offerings,
         });
 
-        if (!offerings.current) {
+        if (!targetOffering) {
           throw new OneKeyLocalError(
             'purchasePaywallPackage ERROR: No offerings',
           );
         }
 
-        const paywallPackage = offerings.current.availablePackages.find(
+        const paywallPackage = targetOffering.availablePackages.find(
           (p) => p.rcBillingProduct.normalPeriodDuration === subscriptionPeriod,
         );
 
@@ -227,7 +282,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           await Purchases.getSharedInstance().purchase(purchaseParams);
 
         primePaymentUtils.trackPrimeSubscriptionSuccess({
-          paywallPackage,
+          ...primePaymentUtils.extractWebPaywallPrice(paywallPackage),
           subscriptionPeriod,
           featureName,
         });
@@ -247,7 +302,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         // void backgroundApiProxy.serviceApp.hideDialogLoading();
       }
     },
-    [initSdk, isReady],
+    [initSdk, isReady, params.isSandboxKey],
   );
 
   return {

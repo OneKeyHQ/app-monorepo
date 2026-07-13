@@ -5,9 +5,11 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import { ReferFriendsTestIDs } from '../../../testIDs';
+
 export function LogoutButton() {
   const intl = useIntl();
-  const { logout } = useOneKeyAuth();
+  const { logoutWithPurchasesSdk } = useOneKeyAuth();
 
   const handlePress = () => {
     Dialog.show({
@@ -25,13 +27,14 @@ export function LogoutButton() {
         defaultLogger.prime.subscription.onekeyIdLogout({
           reason: 'Referral Logout Button',
         });
-        await logout();
+        await logoutWithPurchasesSdk();
       },
     });
   };
 
   return (
     <Button
+      testID={ReferFriendsTestIDs.logoutBtn}
       variant="tertiary"
       size="small"
       icon="LogoutOutline"

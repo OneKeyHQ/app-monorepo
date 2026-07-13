@@ -4,30 +4,21 @@ import type {
   ReactElement,
   ReactNode,
 } from 'react';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Dimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
-import {
-  TMPopover,
-  withStaticProperties,
-} from '@onekeyhq/components/src/shared/tamagui';
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import type {
-  PopoverContentProps as PopoverContentTypeProps,
   SheetProps,
-  TMPopoverProps,
   UseMediaState,
 } from '@onekeyhq/components/src/shared/tamagui';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { TMPopover } from '@onekeyhq/components/src/shared/tamaguiOverlay';
+import type {
+  PopoverContentProps as PopoverContentTypeProps,
+  TMPopoverProps,
+} from '@onekeyhq/components/src/shared/tamaguiOverlay';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite/Dialog';
@@ -51,7 +42,12 @@ import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
+import { PopoverContext, usePopoverContext } from './context';
 import { PopoverContent } from './PopoverContent';
+import {
+  runPopoverCloseSideEffects,
+  runPopoverOpenSideEffects,
+} from './popoverSideEffects';
 
 import type { IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
@@ -96,13 +92,6 @@ export interface IPopoverProps extends TMPopoverProps {
   trackID?: string;
 }
 
-interface IPopoverContext {
-  open?: boolean;
-  closePopover?: () => Promise<void>;
-}
-
-const PopoverContext = createContext({} as IPopoverContext);
-
 const usePopoverValue = (
   open?: boolean,
   onOpenChange?: IPopoverProps['onOpenChange'],
@@ -119,12 +108,7 @@ const usePopoverValue = (
       onOpenChange?.(true);
     }
 
-    if (trackID) {
-      defaultLogger.ui.popover.popoverOpen({
-        trackId: trackID,
-      });
-    }
-    void Keyboard.dismissWithDelay(50);
+    runPopoverOpenSideEffects(trackID);
   }, [isControlled, onOpenChange, trackID]);
 
   const closePopover = useCallback(() => {
@@ -135,12 +119,7 @@ const usePopoverValue = (
       onOpenChange?.(false);
     }
 
-    if (trackID) {
-      defaultLogger.ui.popover.popoverClose({
-        trackId: trackID,
-      });
-    }
-    void Keyboard.dismissWithDelay(50);
+    runPopoverCloseSideEffects(trackID);
   }, [isControlled, onOpenChange, trackID]);
 
   return {
@@ -176,14 +155,6 @@ const useContentDisplay = platformEnv.isNative
       }, [isOpen, keepChildrenMounted]);
       return display;
     };
-
-export const usePopoverContext = () => {
-  const { closePopover, open } = useContext(PopoverContext);
-  return {
-    open,
-    closePopover,
-  };
-};
 
 function ModalPortalProvider({ children }: PropsWithChildren) {
   const modalNavigatorContext = useModalNavigatorContext();
@@ -446,6 +417,8 @@ function RawPopover({
       {...props}
     >
       <TMPopover.Trigger asChild>
+        {/* testID is carried by renderTrigger from the caller. */}
+        {/* oxlint-disable-next-line onekey/require-testid */}
         <Trigger ref={triggerRef} onPress={openPopover}>
           {renderTrigger}
         </Trigger>
@@ -638,7 +611,9 @@ function BasicPopover({
     return (
       <>
         {renderTrigger ? (
-          <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
+          <Trigger testID="popover-trigger" onPress={openPopover}>
+            {renderTrigger}
+          </Trigger>
         ) : null}
         {isOpen || keepChildrenMounted ? (
           <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
@@ -683,6 +658,8 @@ function Tooltip({
 }) {
   const triggerMemo = useMemo(
     () => (
+      // testID flows through {...triggerProps} so caller controls it.
+      // oxlint-disable-next-line onekey/require-testid
       <IconButton
         iconColor="$iconSubdued"
         iconSize={iconSize}
@@ -720,3 +697,4 @@ export const Popover = withStaticProperties(BasicPopover, {
 });
 
 export * from './type';
+export { usePopoverContext };

@@ -9,12 +9,14 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components';
-import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { isNativeTablet } from '@onekeyhq/components';
 import {
   isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
-} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+} from '@onekeyhq/kit/src/components/AppUpdate';
+import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -41,6 +43,7 @@ import {
   EModalKeyTagRoutes,
   EModalRoutes,
   EModalSettingRoutes,
+  ESettingsTabNames,
 } from '@onekeyhq/shared/src/routes';
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -53,6 +56,7 @@ import {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
+import { SettingTestIDs } from '../../testIDs';
 
 import {
   AutoLockListItem,
@@ -66,11 +70,13 @@ import {
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
+  MenuBarTrayListItem,
   ResetAppListItem,
   ResetPinListItem,
+  SplitViewListItem,
   ThemeListItem,
+  UseGasAccountByDefaultListItem,
 } from './CustomElement';
-import { DevSettingsSection } from './DevSettingsSection';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
 // import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
 // import { OneKeyIdTabItem } from './OneKeyIdTabItem';
@@ -78,11 +84,23 @@ import { SubSearchSettings } from './SubSettings';
 
 import type { RouteProp } from '@react-navigation/native';
 
+const DevSettingsSection = LazyLoadPage(
+  () =>
+    import('./DevSettingsSection').then(
+      ({ DevSettingsSection: Component }) => ({
+        default: Component,
+      }),
+    ),
+  undefined,
+  true,
+);
+
 export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
   title: string;
   subtitle?: string;
   keywords?: string[];
+  testID?: string;
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
     badgeText: string;
@@ -95,24 +113,13 @@ export interface ISubSettingConfig {
   isExternalLink?: boolean;
 }
 
-export enum ESettingsTabNames {
-  OneKeyID = 'OneKeyID',
-  Backup = 'Backup',
-  Preferences = 'Preferences',
-  Wallet = 'Wallet',
-  Security = 'Security',
-  Network = 'Network',
-  About = 'About',
-  Search = 'Search',
-  Dev = 'Dev',
-}
-
 export type ISettingsConfig = (
   | {
       icon: string;
       title: string;
       subtitle?: string;
       name: ESettingsTabNames;
+      testID?: string;
       isHidden?: boolean;
       showDot?: boolean;
       tabBarItemStyle?: IStackStyle;
@@ -153,8 +160,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
-  const { isLoggedIn } = useOneKeyAuth();
   const [settings] = useSettingsPersistAtom();
+  const { isPrimeActive } = useOneKeyAuth();
 
   const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
 
@@ -203,6 +210,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     defaultLogger.prime.subscription.primeEntryClick({
                       featureName: EPrimeFeatures.OneKeyCloud,
                       entryPoint: 'settingsPage',
+                      isPrimeActive,
                     });
 
                     navigation?.pushModal(EModalRoutes.PrimeModal, {
@@ -325,6 +333,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_notifications,
                   }),
+                  testID: SettingTestIDs.notificationsItem,
                   settingRoute: EModalSettingRoutes.SettingNotifications,
                   onPress: (
                     navigation?: ReturnType<typeof useAppNavigation>,
@@ -345,6 +354,34 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : undefined,
           ],
+          [
+            platformEnv.isDesktopMac
+              ? {
+                  icon: 'DockOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_menu_bar_tray,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_menu_bar_tray_desc,
+                  }),
+                  renderElement: <MenuBarTrayListItem />,
+                }
+              : undefined,
+          ],
+          [
+            isNativeTablet()
+              ? {
+                  icon: 'LayoutColumnOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_split_view,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_split_view_desc,
+                  }),
+                  renderElement: <SplitViewListItem />,
+                }
+              : undefined,
+          ],
         ],
       },
       platformEnv.isWebDappMode
@@ -362,6 +399,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_address_book,
                   }),
+                  testID: SettingTestIDs.addressBookItem,
                   onPress: (navigation) => {
                     void onPressAddressBook(navigation);
                   },
@@ -434,11 +472,24 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <BTCFreshAddressListItem />,
                 },
               ],
+              [
+                {
+                  icon: 'GasOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__desc,
+                  }),
+                  renderElement: <UseGasAccountByDefaultListItem />,
+                },
+              ],
             ],
           },
       {
         name: ESettingsTabNames.Security,
         icon: 'Shield2CheckSolid',
+        testID: SettingTestIDs.securityItem,
         title: intl.formatMessage({
           id: ETranslations.global_security,
         }),
@@ -554,21 +605,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
           ],
           [
-            isLoggedIn
-              ? {
-                  icon: 'RemovePeopleOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.id_delete_onekey_id,
-                  }),
-                  onPress: (navigation) => {
-                    navigation?.pushModal(EModalRoutes.PrimeModal, {
-                      screen: EPrimePages.PrimeDeleteAccount,
-                    });
-                  },
-                }
-              : null,
-          ],
-          [
             {
               icon: 'BroomOutline',
               title: intl.formatMessage({
@@ -610,10 +646,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.custom_network_add_network_action_text,
                   }),
-                  settingRoute: EModalSettingRoutes.SettingCustomNetwork,
+                  settingRoute: EModalSettingRoutes.SettingChainListSearch,
                   onPress: (navigation) => {
                     defaultLogger.setting.page.enterCustomRPC();
-                    navigation?.push(EModalSettingRoutes.SettingCustomNetwork);
+                    navigation?.push(
+                      EModalSettingRoutes.SettingChainListSearch,
+                    );
                   },
                 },
                 {
@@ -670,6 +708,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       {
         name: ESettingsTabNames.About,
         icon: 'InfoCircleSolid',
+        testID: SettingTestIDs.aboutItem,
         title: intl.formatMessage({
           id: ETranslations.global_about,
         }),
@@ -843,7 +882,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       webAuthIsSupport,
       biometricAuthInfo.title,
       biometricAuthInfo.icon,
-      isLoggedIn,
       settings.hardwareTransportType,
       isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
@@ -854,6 +892,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       helpCenterUrl,
       userAgreementUrl,
       privacyPolicyUrl,
+      isPrimeActive,
     ],
   );
 };

@@ -7,9 +7,9 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
+import { Currency } from '../Currency';
 import { NetworkAvatarBase } from '../NetworkAvatar';
 
 import { useAddressTypeSelectorStableContext } from './AddressTypeSelectorContext';
@@ -19,8 +19,6 @@ function AddressTypeFiat({
 }: {
   account: INetworkAccount | undefined;
 }) {
-  const [settings] = useSettingsPersistAtom();
-
   const { tokenMap, networkLogoURI } = useAddressTypeSelectorStableContext();
 
   const media = useMedia();
@@ -67,6 +65,7 @@ function AddressTypeFiat({
       return {
         balanceParsed: '0',
         fiatValue: '0',
+        currency: undefined as string | undefined,
       };
     }
     return result;
@@ -87,19 +86,17 @@ function AddressTypeFiat({
           {tokenFiat.balanceParsed}
         </NumberSizeableText>
       </XStack>
-      <NumberSizeableText
+      <Currency
         size="$bodyMd"
         color="$textSubdued"
         formatter="value"
-        formatterOptions={{
-          currency: settings.currencyInfo.symbol,
-        }}
+        sourceCurrency={tokenFiat.currency}
         $gtMd={{
           size: '$bodySm',
         }}
       >
         {tokenFiat.fiatValue}
-      </NumberSizeableText>
+      </Currency>
     </YStack>
   );
 }

@@ -13,6 +13,7 @@ import type {
   IAccountDeriveTypes,
   IVaultSettings,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type {
@@ -56,9 +57,16 @@ export type ISelectedAccountsAtomMap = Partial<{
   [num: number]: IAccountSelectorSelectedAccount;
 }>;
 export const { atom: selectedAccountsAtom, use: useSelectedAccountsAtom } =
-  contextAtom<ISelectedAccountsAtomMap>({
-    0: defaultSelectedAccount(),
-  });
+  contextAtom<ISelectedAccountsAtomMap>(
+    {
+      0: defaultSelectedAccount(),
+    },
+    {
+      coldStartCache: true,
+      coldStartCacheKey:
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+    },
+  );
 
 // const atomInstance = selectedAccountsAtom();
 // const oldWrite = atomInstance.write;
@@ -112,7 +120,32 @@ export const {
 export const {
   atom: accountSelectorStorageReadyAtom,
   use: useAccountSelectorStorageReadyAtom,
+} = contextAtom<boolean>(false, {
+  // Cached across cold starts so the selector can render from the last snapshot
+  // before this launch finishes reading storage.
+  coldStartCache: true,
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorStorageReadyAtom,
+});
+
+// Process-local init signal. Do not replace this with storageReady: warm starts
+// can restore storageReady=true before the current launch has read storage.
+export const {
+  atom: accountSelectorStorageInitDoneAtom,
+  use: useAccountSelectorStorageInitDoneAtom,
 } = contextAtom<boolean>(false);
+
+export const {
+  atom: accountSelectorActiveAccountInitDoneAtom,
+  use: useAccountSelectorActiveAccountInitDoneAtom,
+} = contextAtom<Partial<{ [num: number]: boolean }>>({});
+
+export function useIsAccountSelectorActiveAccountInitDone(
+  num: number,
+): boolean {
+  const [initDone] = useAccountSelectorActiveAccountInitDoneAtom();
+  return !!initDone?.[num];
+}
 
 export type IAccountSelectorAvailableNetworks = {
   networkIds?: string[];
@@ -138,7 +171,14 @@ export const {
   Partial<{
     [num: number]: IAccountSelectorUpdateMeta;
   }>
->({});
+>(
+  {},
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorUpdateMetaAtom,
+  },
+);
 
 export type IAccountSelectorSyncLoadingMeta = {
   isLoading: boolean;
@@ -189,9 +229,15 @@ export const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
     ready: false,
   });
 export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
-  contextAtom<Partial<{ [num: number]: IAccountSelectorActiveAccountInfo }>>({
-    0: defaultActiveAccountInfo(),
-  });
+  contextAtom<Partial<{ [num: number]: IAccountSelectorActiveAccountInfo }>>(
+    {
+      0: defaultActiveAccountInfo(),
+    },
+    {
+      coldStartCache: true,
+      coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom,
+    },
+  );
 
 export function useActiveAccount({ num }: { num: number }): {
   activeAccount: IAccountSelectorActiveAccountInfo;

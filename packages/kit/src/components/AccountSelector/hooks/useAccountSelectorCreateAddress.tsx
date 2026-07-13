@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type {
   IDBAccount,
+  IDBDevice,
   IDBWalletId,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IWithHardwareProcessingControlParams } from '@onekeyhq/kit-bg/src/services/ServiceHardwareUI/ServiceHardwareUI';
@@ -21,6 +22,10 @@ import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appCo
 import { OneKeyErrorAirGapAccountNotFound } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  classifyThirdPartyHwCreateFailures,
+  filterThirdPartyHwCreateFailureToasts,
+} from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -28,7 +33,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
 import { TutorialsList } from '../../TutorialsList';
 
 import { useCreateQrWallet } from './useCreateQrWallet';
@@ -37,7 +42,7 @@ export function useAccountSelectorCreateAddress() {
   const { serviceAccount, serviceBatchCreateAccount, serviceHardwareUI } =
     backgroundApiProxy;
   const intl = useIntl();
-  const actions = useAccountSelectorActions();
+  const callAccountSelectorAction = useAccountSelectorLazyAction();
   const { createQrWalletAccount } = useCreateQrWallet();
 
   const createAddress = useCallback(
@@ -79,6 +84,7 @@ export function useAccountSelectorCreateAddress() {
         return;
       }
 
+      let walletDevice: IDBDevice | undefined;
       let connectId: string | undefined;
       if (
         account.walletId &&
@@ -86,10 +92,13 @@ export function useAccountSelectorCreateAddress() {
           walletId: account.walletId,
         })
       ) {
-        const device = await serviceAccount.getWalletDevice({
+        walletDevice = await serviceAccount.getWalletDevice({
           walletId: account.walletId,
         });
-        connectId = device?.connectId;
+        connectId =
+          walletDevice?.connectId ||
+          walletDevice?.usbConnectId ||
+          walletDevice?.bleConnectId;
       }
 
       const handleAddAccounts = async (
@@ -103,14 +112,17 @@ export function useAccountSelectorCreateAddress() {
       ) => {
         console.log(result);
         // await refreshCurrentAccount();
-        actions.current.refresh({ num });
+        await callAccountSelectorAction('refresh', { num });
 
         if (selectAfterCreate) {
-          await actions.current.updateSelectedAccountForHdOrHwAccount({
-            num,
-            walletId: result?.walletId,
-            indexedAccountId: result?.indexedAccountId,
-          });
+          await callAccountSelectorAction(
+            'updateSelectedAccountForHdOrHwAccount',
+            {
+              num,
+              walletId: result?.walletId,
+              indexedAccountId: result?.indexedAccountId,
+            },
+          );
         }
         return result;
       };
@@ -148,6 +160,42 @@ export function useAccountSelectorCreateAddress() {
           accountUtils.isQrWallet({ walletId: account.walletId })
         ) {
           throw new OneKeyErrorAirGapAccountNotFound();
+        }
+
+        if (
+          result?.failedAccounts?.length &&
+          !accountUtils.isQrWallet({ walletId: account.walletId })
+        ) {
+          let failedList = result.failedAccounts;
+          // 3rd-party HW: only report missing-app when zero chains succeeded;
+          // otherwise drop AppNotInstalled and surface only genuine errors.
+          const walletId = account.walletId;
+          const isThirdPartyHw = walletId
+            ? await serviceAccount.isThirdPartyHwByWalletId({ walletId })
+            : false;
+          if (isThirdPartyHw) {
+            const { allAppNotInstalled, genuineFailures } =
+              classifyThirdPartyHwCreateFailures({
+                addedCount: result.addedAccounts.length,
+                failedAccounts: failedList,
+              });
+            if (allAppNotInstalled) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.hardware_third_party_no_app_installed_on_device,
+                }),
+              });
+            }
+            failedList = genuineFailures;
+          }
+          const failedListForToast = isThirdPartyHw
+            ? filterThirdPartyHwCreateFailureToasts(failedList)
+            : failedList;
+          for (const failedAccount of failedListForToast) {
+            Toast.error({
+              title: failedAccount.error.message || 'Unknown error',
+            });
+          }
         }
 
         // If indexedAccountId was empty, get the first indexed account from wallet
@@ -258,6 +306,7 @@ export function useAccountSelectorCreateAddress() {
                           children: (
                             <Stack>
                               <Button
+                                testID="account-selector-is-btc-only-wallet-btn"
                                 size="small"
                                 mt="$2"
                                 iconAfter="OpenOutline"
@@ -282,7 +331,11 @@ export function useAccountSelectorCreateAddress() {
                           id: ETranslations.contact_us_instruction,
                         })}
                       </SizableText>
-                      <Button variant="tertiary" onPress={() => showIntercom()}>
+                      <Button
+                        variant="tertiary"
+                        onPress={() => showIntercom()}
+                        testID="account-selector-btn"
+                      >
                         {intl.formatMessage({
                           id: ETranslations.global_contact_us,
                         })}
@@ -301,7 +354,7 @@ export function useAccountSelectorCreateAddress() {
       }
     },
     [
-      actions,
+      callAccountSelectorAction,
       createQrWalletAccount,
       intl,
       serviceAccount,

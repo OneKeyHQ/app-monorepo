@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { Select, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { ReferFriendsTestIDs } from '@onekeyhq/kit/src/views/ReferFriends/testIDs';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { IInviteCodeListItem } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -30,6 +31,7 @@ export function useDebugCodeLength(items: IInviteCodeListItem[] | undefined): {
         [DEV] Force code length:
       </SizableText>
       <Select
+        testID={ReferFriendsTestIDs.debugCodeLengthSelector}
         title="Code Length"
         value={debugCodeLength}
         onChange={setDebugCodeLength}

@@ -61,6 +61,7 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 
 import { FeeEditor, FeeSelectorTrigger } from '../../components/SendFee';
+import { SendTestIDs } from '../../testIDs';
 
 type IProps = {
   accountId: string;
@@ -1020,6 +1021,7 @@ function TxFeeContainer(props: IProps) {
 
     return (
       <FeeSelectorTrigger
+        testID={SendTestIDs.feeSelector}
         onPress={handlePress}
         disabled={sendFeeStatus.status === ESendFeeStatus.Error || !txFeeInit}
       />
@@ -1086,6 +1088,7 @@ function TxFeeContainer(props: IProps) {
 
   return (
     <Stack
+      testID={SendTestIDs.feeContainer}
       mb="$5"
       $gtMd={{
         mb: '$0',

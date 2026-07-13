@@ -88,6 +88,7 @@ export function Radio({
   options,
   orientation = 'vertical',
   gap = '$2',
+  testID,
 }: IRadioProps) {
   const Container = orientation === 'horizontal' ? XStack : YStack;
 
@@ -115,6 +116,7 @@ export function Radio({
       defaultValue={defaultValue}
       onValueChange={handleValueChange}
       disabled={disabled}
+      testID={testID}
     >
       <Container
         gap={gap}
@@ -142,6 +144,7 @@ export function Radio({
                 gap="$2"
                 flex={itemContainerFlex}
                 opacity={optionDisabled ? 0.5 : 1}
+                testID={testID ? `${testID}-${v}` : undefined}
               >
                 <RadioGroup.Item
                   value={v}

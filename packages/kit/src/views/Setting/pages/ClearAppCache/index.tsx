@@ -4,13 +4,14 @@ import {
   Checkbox,
   Dialog,
   Form,
+  Image,
   Page,
   Stack,
   Toast,
   YStack,
   useClipboard,
-  useForm,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -30,6 +31,7 @@ export default function ClearAppCache() {
       signatureRecord: false,
       customToken: false,
       customRpc: false,
+      customNetworkFee: false,
       serverNetworks: false,
     } as IClearCacheOnAppState,
   });
@@ -120,6 +122,15 @@ export default function ClearAppCache() {
                 </Form.Field>
               )}
               {platformEnv.isWebDappMode ? null : (
+                <Form.Field name="customNetworkFee">
+                  <Checkbox
+                    label={intl.formatMessage({
+                      id: ETranslations.global_custom_network_fee,
+                    })}
+                  />
+                </Form.Field>
+              )}
+              {platformEnv.isWebDappMode ? null : (
                 <Form.Field name="serverNetworks">
                   <Checkbox
                     label={intl.formatMessage({
@@ -155,6 +166,17 @@ export default function ClearAppCache() {
         onConfirm={async (close) => {
           if (values) {
             await backgroundApiProxy.serviceSetting.clearCacheOnApp(values);
+            // The expo-image disk cache (token logos, NFT full-res images, dApp
+            // favicons, DeFi/market icons) is the largest on-disk contributor and
+            // is NOT cleared by clearCacheOnApp (which only clears DB/simpleDb).
+            // Purge the whole image cache here when the user clears Token & NFT
+            // data. Native-only effect; clearDiskCache is a no-op on web.
+            if (values.tokenAndNFT && platformEnv.isNative) {
+              await Promise.all([
+                Image.clearDiskCache(),
+                Image.clearMemoryCache(),
+              ]).catch(() => undefined);
+            }
             Toast.success({
               title: intl.formatMessage({
                 id: ETranslations.global_success,

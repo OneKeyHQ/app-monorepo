@@ -54,9 +54,12 @@ export function useHyperliquidReferralPromotion({
     }
   }, [origin, unsignedMessage]);
 
+  const shouldCheckReferralPromotion =
+    Boolean(origin && accountId && userAddress) && isApproveAgentSign;
+
   // Check snooze state and set default checkbox state
   const { result: snoozeResult } = usePromiseResult(async () => {
-    if (!userAddress) {
+    if (!shouldCheckReferralPromotion) {
       return { snoozed: false };
     }
     const snoozedUntil =
@@ -64,7 +67,7 @@ export function useHyperliquidReferralPromotion({
         { userAddress },
       );
     return { snoozed: snoozedUntil > Date.now() };
-  }, [userAddress]);
+  }, [shouldCheckReferralPromotion, userAddress]);
 
   // Update checkbox state based on snooze preference
   useEffect(() => {
@@ -75,7 +78,7 @@ export function useHyperliquidReferralPromotion({
 
   const { result, isLoading } = usePromiseResult(
     async () => {
-      if (!origin || !accountId || !userAddress) {
+      if (!shouldCheckReferralPromotion) {
         return { shouldShow: false };
       }
 
@@ -88,7 +91,13 @@ export function useHyperliquidReferralPromotion({
         },
       );
     },
-    [origin, accountId, userAddress, isApproveAgentSign],
+    [
+      origin,
+      accountId,
+      userAddress,
+      isApproveAgentSign,
+      shouldCheckReferralPromotion,
+    ],
     { watchLoading: true },
   );
 

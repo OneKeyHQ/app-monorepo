@@ -4,6 +4,8 @@ import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -11,12 +13,15 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
 import { useWatchListV2Action } from '../../../components/watchListHooksV2';
+import { getMarketRecommendContainerPaddingTop } from '../../layouts/mobileLayoutUtils';
 
 import { RecommendItem } from './RecommendItem';
 
 function getTokenKey(token: { chainId: string; contractAddress: string }) {
   return `${token.chainId}:${token.contractAddress}`;
 }
+
+const EMPTY_COMMUNITY_RECOGNIZED_MAP: Record<string, boolean> = {};
 
 interface IMarketRecommendListProps {
   recommendedTokens: IMarketBasicConfigToken[];
@@ -38,11 +43,12 @@ export function MarketRecommendList({
     platformEnv.isWeb ||
     platformEnv.isDesktop ||
     platformEnv.isExtensionUiExpandTab;
-  let containerPaddingTop = 0;
-
-  if (!platformEnv.isExtensionUiPopup) {
-    containerPaddingTop = Math.max(0, (windowHeight - 800) * 0.5);
-  }
+  const containerPaddingTop = platformEnv.isExtensionUiPopup
+    ? 0
+    : getMarketRecommendContainerPaddingTop({
+        isNative: Boolean(platformEnv.isNative),
+        windowHeight,
+      });
 
   const uniqueTokens = useMemo(() => {
     if (!recommendedTokens?.length) return [];
@@ -58,6 +64,41 @@ export function MarketRecommendList({
   const defaultTokens = useMemo(
     () => uniqueTokens.slice(0, maxSize),
     [uniqueTokens, maxSize],
+  );
+
+  const { result: communityRecognizedMap } = usePromiseResult(
+    async () => {
+      if (!defaultTokens.length) {
+        return EMPTY_COMMUNITY_RECOGNIZED_MAP;
+      }
+
+      const response =
+        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+          tokenAddressList: defaultTokens.map((token) => ({
+            chainId: token.chainId,
+            contractAddress: token.contractAddress,
+            isNative: token.isNative,
+          })),
+        });
+
+      return defaultTokens.reduce<Record<string, boolean>>(
+        (acc, token, index) => {
+          const tokenKey = getTokenKey(token);
+          if (
+            token.communityRecognized ||
+            response.list?.[index]?.communityRecognized
+          ) {
+            acc[tokenKey] = true;
+          }
+          return acc;
+        },
+        {},
+      );
+    },
+    [defaultTokens],
+    {
+      initResult: EMPTY_COMMUNITY_RECOGNIZED_MAP,
+    },
   );
 
   const [selectedTokens, setSelectedTokens] = useState<
@@ -117,6 +158,7 @@ export function MarketRecommendList({
     () =>
       enableSelection ? (
         <Button
+          testID="market-confirm-button-btn"
           width="100%"
           size="large"
           disabled={!selectedTokens.length}
@@ -175,7 +217,7 @@ export function MarketRecommendList({
           gap: '$2',
         }}
       >
-        {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
+        {new Array(Math.ceil(defaultTokens.length / 2)).fill(0).map((_, i) => (
           <XStack
             gap="$2.5"
             key={i}
@@ -184,7 +226,7 @@ export function MarketRecommendList({
             }}
           >
             {new Array(2).fill(0).map((__, j) => {
-              const item = uniqueTokens[i * 2 + j];
+              const item = defaultTokens[i * 2 + j];
               if (!item) return null;
               const tokenKey = getTokenKey(item);
               const isChecked =
@@ -199,6 +241,10 @@ export function MarketRecommendList({
                   symbol={item.symbol}
                   tokenName={item.name}
                   networkId={item.chainId}
+                  communityRecognized={Boolean(
+                    item.communityRecognized ||
+                    communityRecognizedMap[tokenKey],
+                  )}
                   onChange={handleRecommendItemChange}
                 />
               );

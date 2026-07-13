@@ -169,6 +169,7 @@ export default function NotificationsSettings() {
                 }}
               />
               <Switch
+                testID="setting-switch"
                 size="small"
                 value={!!settings?.pushEnabled}
                 onChange={async (checked) => {
@@ -212,6 +213,7 @@ export default function NotificationsSettings() {
                     }}
                   />
                   <Switch
+                    testID="setting-switch"
                     size="small"
                     value={!!settings?.accountActivityPushEnabled}
                     onChange={(checked) => {
@@ -238,6 +240,7 @@ export default function NotificationsSettings() {
                       }}
                     />
                     <Switch
+                      testID="setting-switch"
                       size="small"
                       value={!!settings?.priceAlertsEnabled}
                       onChange={(checked) => {
@@ -264,6 +267,7 @@ export default function NotificationsSettings() {
                     }}
                   />
                   <Switch
+                    testID="setting-switch"
                     size="small"
                     value={!!settings?.perpsEnabled}
                     onChange={(checked) => {
@@ -289,6 +293,7 @@ export default function NotificationsSettings() {
                     }}
                   />
                   <Switch
+                    testID="setting-switch"
                     size="small"
                     value={!!settings?.announcementEnabled}
                     onChange={(checked) => {
@@ -314,6 +319,7 @@ export default function NotificationsSettings() {
                     }}
                   />
                   <Switch
+                    testID="setting-switch"
                     size="small"
                     value={!!settings?.dailyUpdateEnabled}
                     onChange={(checked) => {
@@ -383,10 +389,14 @@ export default function NotificationsSettings() {
         {shouldShowDevPanel ? (
           <Stack p="$5" m="$5" borderRadius="$3" gap="$2" bg="$bgSubdued">
             <SizableText>Dev tools</SizableText>
-            <Button onPress={showNotificationPermissionsDialog}>
+            <Button
+              onPress={showNotificationPermissionsDialog}
+              testID="setting-btn"
+            >
               通知权限
             </Button>
             <Button
+              testID="setting-btn"
               onPress={() => {
                 navigation.pushModal(EModalRoutes.NotificationsModal, {
                   screen: EModalNotificationsRoutes.NotificationIntroduction,
@@ -396,6 +406,7 @@ export default function NotificationsSettings() {
               初次引导
             </Button>
             <Button
+              testID="setting-btn"
               onPress={() => {
                 setNotificationsData((v) => ({
                   ...v,

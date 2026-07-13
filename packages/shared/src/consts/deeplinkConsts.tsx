@@ -10,7 +10,9 @@ export enum EOneKeyDeepLinkPath {
   market_detail = 'market_detail',
   invite_share = 'invite_share',
   invited_by_friend = 'invited_by_friend',
+  redeem_bitcoin_voucher = 'redeem_bitcoin_voucher',
   cross_device_transfer = 'cross_device_transfer',
+  webview = 'webview',
 }
 export type IEOneKeyDeepLinkParams = {
   [EOneKeyDeepLinkPath.url_account]: {
@@ -28,6 +30,9 @@ export type IEOneKeyDeepLinkParams = {
     code: string;
     page?: string;
   };
+  [EOneKeyDeepLinkPath.redeem_bitcoin_voucher]: {
+    code?: string;
+  };
   [EOneKeyDeepLinkPath.cross_device_transfer]: {
     code?: string;
     server?: string;
@@ -35,11 +40,25 @@ export type IEOneKeyDeepLinkParams = {
     botWalletId?: string;
     defaultTab?: 'qr-code' | 'enter-link';
   };
+  [EOneKeyDeepLinkPath.webview]: {
+    url: string;
+    title?: string;
+    hideHeader?: '0' | '1';
+    /** Address bar is hidden by default; pass '1' to show it. */
+    showAddressBar?: '0' | '1';
+  };
 };
 
 // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=onekey&build=1710747625972
 export const ONEKEY_UNIVERSAL_LINK_HOST = 'app.onekey.so';
 export const ONEKEY_UNIVERSAL_TEST_LINK_HOST = 'app.onekeytest.com';
+
+export const ONEKEY_STOCKS_APP_LINK_HOST = 'stocks.onekey.so';
+export const ONEKEY_STOCKS_TEST_APP_LINK_HOST = 'stocks.onekeytest.com';
+export const ONEKEY_PERPS_APP_LINK_HOST = 'perps.onekey.so';
+export const ONEKEY_PERPS_TEST_APP_LINK_HOST = 'perps.onekeytest.com';
+// No test-env variant: swap.onekeytest.com is the server-side base URL.
+export const ONEKEY_SWAP_APP_LINK_HOST = 'swap.onekey.so';
 
 export const WalletConnectUniversalLinkPath = 'wc/connect/wc';
 export const WalletConnectUniversalLinkPathSchema = `/wc/connect/wc`; // do not add ? at the end (which meaning optional)

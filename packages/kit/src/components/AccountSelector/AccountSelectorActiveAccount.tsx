@@ -25,14 +25,17 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useBotWalletDeactivatedStatus } from '../../hooks/useBotWalletDeactivatedStatus';
 import { useCopyAddressWithDeriveType } from '../../hooks/useCopyAccountAddress';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
+import { showBotWalletDisabledToast } from '../../utils/botWalletDisabledToast';
+import { shouldBlockBotWalletCopyAddress } from '../../utils/botWalletStatusUtils';
 
-import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
+import { LazyAccountSelectorCreateAddressButton } from './LazyAccountSelectorCreateAddressButton';
 
 const AllNetworkAccountSelector = ({
   num,
@@ -48,6 +51,30 @@ const AllNetworkAccountSelector = ({
     useAllNetworkCopyAddressHandler({
       activeAccount,
     });
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: activeAccount?.wallet?.id,
+    },
+  );
+  const isCopyDisabled = shouldBlockBotWalletCopyAddress({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
+  const handleCopyAddress = useCallback(async () => {
+    if (isCopyDisabled) {
+      showBotWalletDisabledToast('copyAddress');
+      return;
+    }
+
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: activeAccount?.wallet?.id ?? '',
+      })
+    ) {
+      return;
+    }
+    await handleAllNetworkCopyAddress(true);
+  }, [activeAccount?.wallet?.id, handleAllNetworkCopyAddress, isCopyDisabled]);
 
   if (!isAllNetworkEnabled) {
     return null;
@@ -62,16 +89,18 @@ const AllNetworkAccountSelector = ({
       placement="bottom"
       renderTrigger={
         <XStack
+          testID="account-selector-copy-address-btn"
           gap="$2"
           p="$1"
           m="$-1"
           borderRadius="$2"
           hoverStyle={{
-            bg: '$bgHover',
+            bg: isCopyDisabled ? '$transparent' : '$bgHover',
           }}
           pressStyle={{
-            bg: '$bgActive',
+            bg: isCopyDisabled ? '$transparent' : '$bgActive',
           }}
+          opacity={isCopyDisabled ? 0.5 : 1}
           focusVisibleStyle={{
             outlineColor: '$focusRing',
             outlineWidth: 2,
@@ -84,16 +113,7 @@ const AllNetworkAccountSelector = ({
             top: 8,
           }}
           userSelect="none"
-          onPress={async () => {
-            if (
-              await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
-                walletId: activeAccount?.wallet?.id ?? '',
-              })
-            ) {
-              return;
-            }
-            await handleAllNetworkCopyAddress(true);
-          }}
+          onPress={handleCopyAddress}
         >
           <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
         </XStack>
@@ -129,19 +149,24 @@ const AllNetworkAccountSelector = ({
 function CopyButton({
   onPress,
   visible,
+  disabled,
 }: {
   onPress: IIconButtonProps['onPress'];
   visible: boolean;
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   return visible ? (
     <IconButton
+      testID="account-selector-copy-address-btn"
       title={intl.formatMessage({
         id: ETranslations.global_copy_address,
       })}
       icon="Copy3Outline"
       size="small"
       variant="tertiary"
+      disabled={disabled}
+      allowPressWhenDisabled={disabled}
       onPress={onPress}
     />
   ) : null;
@@ -180,6 +205,23 @@ export function AccountSelectorActiveAccountHome({
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
 
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const isCopyDisabled = shouldBlockBotWalletCopyAddress({
+    isBotWallet,
+    isBotWalletDeactivated,
+  });
+  const handleAllNetworkCopyAddressOnPress = useCallback(async () => {
+    if (isCopyDisabled) {
+      showBotWalletDisabledToast('copyAddress');
+      return;
+    }
+    await handleAllNetworkCopyAddress();
+  }, [handleAllNetworkCopyAddress, isCopyDisabled]);
+
   const logActiveAccount = useCallback(() => {
     console.log({
       selectedAccount,
@@ -192,6 +234,16 @@ export function AccountSelectorActiveAccountHome({
 
   const handleAddressOnPress = useCallback(async () => {
     if (!account?.address || !network || !wallet) {
+      return;
+    }
+
+    if (
+      shouldBlockBotWalletCopyAddress({
+        isBotWallet,
+        isBotWalletDeactivated,
+      })
+    ) {
+      showBotWalletDisabledToast('copyAddress');
       return;
     }
 
@@ -275,12 +327,14 @@ export function AccountSelectorActiveAccountHome({
     network,
     vaultSettings?.mergeDeriveAssetsEnabled,
     wallet,
+    isBotWallet,
+    isBotWalletDeactivated,
   ]);
 
   useShortcutsOnRouteFocused(
     EShortcutEvents.CopyAddressOrUrl,
     account?.address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS
-      ? handleAllNetworkCopyAddress
+      ? handleAllNetworkCopyAddressOnPress
       : handleAddressOnPress,
   );
 
@@ -308,16 +362,17 @@ export function AccountSelectorActiveAccountHome({
             <XStack
               alignItems="center"
               onPress={handleAddressOnPress}
+              opacity={isCopyDisabled ? 0.5 : 1}
               py="$1"
               px="$2"
               my="$-1"
               mx="$-2"
               borderRadius="$2"
               hoverStyle={{
-                bg: '$bgHover',
+                bg: isCopyDisabled ? '$transparent' : '$bgHover',
               }}
               pressStyle={{
-                bg: '$bgActive',
+                bg: isCopyDisabled ? '$transparent' : '$bgActive',
               }}
               focusable
               focusVisibleStyle={{
@@ -352,7 +407,11 @@ export function AccountSelectorActiveAccountHome({
     }
 
     return (
-      <CopyButton onPress={handleAddressOnPress} visible={showCopyButton} />
+      <CopyButton
+        onPress={handleAddressOnPress}
+        visible={showCopyButton}
+        disabled={isCopyDisabled}
+      />
     );
   }
 
@@ -364,7 +423,7 @@ export function AccountSelectorActiveAccountHome({
   if (activeAccount.canCreateAddress && showCreateAddressButton) {
     // show create button if account not exists
     return (
-      <AccountSelectorCreateAddressButton
+      <LazyAccountSelectorCreateAddressButton
         // autoCreateAddress // use EmptyAccount autoCreateAddress instead
         num={num}
         account={selectedAccount}

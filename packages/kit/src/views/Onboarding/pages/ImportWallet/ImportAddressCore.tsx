@@ -1,6 +1,5 @@
 import { useIntl } from 'react-intl';
 
-import type { UseFormReturn } from '@onekeyhq/components';
 import {
   Form,
   Icon,
@@ -11,6 +10,7 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
+import type { UseFormReturn } from '@onekeyhq/components/src/hooks/useForm';
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import {
@@ -18,7 +18,7 @@ import {
   createValidateAddressRule,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { MAX_LENGTH_ACCOUNT_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
-import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
+import useScanQrCodeLazy from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCodeLazy';
 import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -125,7 +125,7 @@ function ImportAddressCore({
   const intl = useIntl();
   const media = useMedia();
   const { onPasteClearText } = useClipboard();
-  const { start } = useScanQrCode();
+  const { start } = useScanQrCodeLazy();
 
   return (
     <Stack flex={1} gap="$4">
@@ -245,6 +245,7 @@ function ImportAddressCore({
           name="accountName"
         >
           <Input
+            testID="onboarding-input"
             maxLength={MAX_LENGTH_ACCOUNT_NAME}
             placeholder={intl.formatMessage({
               id: ETranslations.form_enter_account_name_placeholder,

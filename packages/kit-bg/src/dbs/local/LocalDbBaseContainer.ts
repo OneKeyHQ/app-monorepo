@@ -3,6 +3,7 @@ import { cloneDeep, isString } from 'lodash';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import indexedUtils from './indexed/indexedDBUtils';
@@ -46,6 +47,49 @@ import type {
 export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   abstract readyDb: Promise<ILocalDBAgent>;
 
+  private normalizeCloudSyncRecordDataTime<TRecord>(record: TRecord): TRecord {
+    if (!record || typeof record !== 'object') {
+      return record;
+    }
+    const recordWithDataTime = record as TRecord & { dataTime?: number };
+    recordWithDataTime.dataTime = cloudSyncUtils.normalizeDataTime(
+      recordWithDataTime.dataTime,
+    );
+    return recordWithDataTime;
+  }
+
+  private normalizeCloudSyncRecordPairDataTime<TPair>(pair: TPair): TPair {
+    if (!Array.isArray(pair)) {
+      return pair;
+    }
+    const [record, schemaRecord] = pair as [unknown, unknown];
+    return [
+      this.normalizeCloudSyncRecordDataTime(record),
+      schemaRecord,
+    ] as TPair;
+  }
+
+  private normalizeCloudSyncGetResult<
+    T extends ELocalDBStoreNames,
+    TResult extends {
+      records?: unknown[];
+      recordPairs?: unknown[];
+    },
+  >({ name, result }: { name: T; result: TResult }): TResult {
+    if (name !== ELocalDBStoreNames.CloudSyncItem) {
+      return result;
+    }
+    return {
+      ...result,
+      records: result.records?.map((record) =>
+        this.normalizeCloudSyncRecordDataTime(record),
+      ),
+      recordPairs: result.recordPairs?.map((pair) =>
+        this.normalizeCloudSyncRecordPairDataTime(pair),
+      ),
+    };
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async withTransaction<T>(
     bucketName: EIndexedDBBucketNames,
@@ -60,7 +104,31 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     }
 
     if (bucketName === EIndexedDBBucketNames.account) {
-      await appGlobals.$backgroundApiProxy.serviceKeylessCloudSync.hydrateKeylessSyncCredentialFromStorageIfNeeded();
+      // best-effort cache warm-up, must never block or fail the transaction.
+      // Cap the wait so a hung hydration can't stall account-bucket writes,
+      // and clear the timer when hydration wins so we don't leak a pending
+      // timeout per transaction.
+      let warmupTimer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const hydrationPromise =
+          appGlobals.$backgroundApiProxy.serviceKeylessCloudSync.hydrateKeylessSyncCredentialFromStorageIfNeeded();
+        // If the timeout wins the race, hydration keeps running with no awaiter;
+        // guard it so a later rejection can't surface as an unhandled rejection.
+        void hydrationPromise.catch(() => undefined);
+        const warmupTimeout = new Promise<void>((resolve) => {
+          warmupTimer = setTimeout(resolve, 5000);
+        });
+        await Promise.race([hydrationPromise, warmupTimeout]);
+      } catch (error) {
+        console.error(
+          'hydrateKeylessSyncCredentialFromStorageIfNeeded error',
+          error,
+        );
+      } finally {
+        if (warmupTimer) {
+          clearTimeout(warmupTimer);
+        }
+      }
     }
 
     const db = await this.readyDb;
@@ -86,14 +154,22 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     params: ILocalDBGetAllRecordsParams<T>,
   ): Promise<ILocalDBGetAllRecordsResult<T>> {
     const db = await this.readyDb;
-    return db.getAllRecords(params);
+    const result = await db.getAllRecords(params);
+    return this.normalizeCloudSyncGetResult({
+      name: params.name,
+      result,
+    });
   }
 
   async getRecordsByIds<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsByIdsParams<T>,
   ): Promise<ILocalDBGetRecordsByIdsResult<T>> {
     const db = await this.readyDb;
-    return db.getRecordsByIds(params);
+    const result = await db.getRecordsByIds(params);
+    return this.normalizeCloudSyncGetResult({
+      name: params.name,
+      result,
+    });
   }
 
   async getRecordById<T extends ELocalDBStoreNames>(
@@ -113,7 +189,11 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     }
 
     const db = await this.readyDb;
-    return db.getRecordById(params);
+    const record = await db.getRecordById(params);
+    if (params.name === ELocalDBStoreNames.CloudSyncItem) {
+      return this.normalizeCloudSyncRecordDataTime(record);
+    }
+    return record;
   }
 
   async getRecordIds<T extends ELocalDBStoreNames>(
@@ -153,6 +233,17 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     ttl: timerUtils.getTimeDurationMs({ seconds: 5 }),
   });
 
+  // Negative cache for getAccountNameFromAddress's scan fallback: remembers
+  // `${networkId}--${address}` combos that a full-account scan found no owner
+  // for, so repeatedly searching the same not-held address (the common
+  // universal-search case) does not re-run an O(n) scan plus a getAllAccounts()
+  // deep-clone every time. Flushed by clearStoreCachedData() on any
+  // account/wallet write, so a newly created account is still found immediately.
+  scanAccountMissCache = new cacheUtils.LRUCache<string, true>({
+    max: 100,
+    ttl: timerUtils.getTimeDurationMs({ seconds: 30 }),
+  });
+
   getAllRecordsByCache<T>(
     cacheKey:
       | 'allDbAccounts'
@@ -176,6 +267,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   clearStoreCachedData() {
     this.getRecordByIdWithCache.clear();
     this.dbAllRecordsCache.clear();
+    this.scanAccountMissCache.clear();
   }
 
   async removeRecords<T extends ELocalDBStoreNames>(
@@ -194,21 +286,33 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     params: ILocalDBTxGetAllRecordsParams<T>,
   ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
     const db = await this.readyDb;
-    return db.txGetAllRecords(params);
+    const result = await db.txGetAllRecords(params);
+    return this.normalizeCloudSyncGetResult({
+      name: params.name,
+      result,
+    });
   }
 
   async txGetRecordsByIds<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordsByIdsParams<T>,
   ): Promise<ILocalDBTxGetRecordsByIdsResult<T>> {
     const db = await this.readyDb;
-    return db.txGetRecordsByIds(params);
+    const result = await db.txGetRecordsByIds(params);
+    return this.normalizeCloudSyncGetResult({
+      name: params.name,
+      result,
+    });
   }
 
   async txGetRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordByIdParams<T>,
   ): Promise<ILocalDBTxGetRecordByIdResult<T>> {
     const db = await this.readyDb;
-    return db.txGetRecordById(params);
+    const pair = await db.txGetRecordById(params);
+    if (params.name === ELocalDBStoreNames.CloudSyncItem) {
+      return this.normalizeCloudSyncRecordPairDataTime(pair);
+    }
+    return pair;
   }
 
   async txGetRecordIds<T extends ELocalDBStoreNames>(
@@ -224,6 +328,16 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     this.clearStoreCachedDataIfMatch(params.name);
     const db = await this.readyDb;
     // const a = db.txAddRecords['hello-world-test-error-stack-8889273']['name'];
+    if (params.name === ELocalDBStoreNames.CloudSyncItem) {
+      const { updater } = params;
+      return db.txUpdateRecords({
+        ...params,
+        updater: async (record) => {
+          const updatedRecord = await updater(record);
+          return this.normalizeCloudSyncRecordDataTime(updatedRecord);
+        },
+      });
+    }
     return db.txUpdateRecords(params);
   }
 
@@ -232,6 +346,14 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   ): Promise<ILocalDBTxAddRecordsResult> {
     this.clearStoreCachedDataIfMatch(params.name);
     const db = await this.readyDb;
+    if (params.name === ELocalDBStoreNames.CloudSyncItem) {
+      return db.txAddRecords({
+        ...params,
+        records: params.records.map((record) =>
+          this.normalizeCloudSyncRecordDataTime({ ...record }),
+        ),
+      });
+    }
     return db.txAddRecords(params);
   }
 

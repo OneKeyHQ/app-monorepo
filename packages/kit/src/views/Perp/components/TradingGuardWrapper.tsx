@@ -1,95 +1,145 @@
 import type { ReactNode } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, SizableText, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  perpsActiveAccountStatusAtom,
   usePerpsAccountLoadingInfoAtom,
-  usePerpsActiveAccountAtom,
+  usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountIsAgentReadyAtom,
   usePerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
+import {
+  useConfirmHyperliquidTerms,
+  useRequestEnableTradingWithDepositFallback,
+} from '../hooks/useEnableTradingWithDepositFallback';
 import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
+import { getEnableTradingDialogConfirmDecision } from '../utils/enableTradingDialogConfirm';
+import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
-import { showHyperliquidTermsDialog } from './HyperliquidTerms';
+import { showEnableTradingStepsDialog } from './TradingPanel/modals/EnableTradingStepsDialog';
 
 interface ITradingGuardWrapperProps {
   children?: ReactNode;
   forceShowEnableTrading?: boolean;
+  bypassEnableTradingGuard?: boolean;
   disabled?: boolean;
+  buttonSize?: 'medium' | 'large';
 }
 
 function TradingGuardWrapperInternal({
   children,
   forceShowEnableTrading = false,
+  bypassEnableTradingGuard = false,
   disabled = false,
+  buttonSize = 'medium',
 }: ITradingGuardWrapperProps) {
-  const [perpsAccount] = usePerpsActiveAccountAtom();
+  const intl = useIntl();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
-  // Memoize account info to optimize callback dependencies
-  const accountInfo = useMemo(
-    () => ({
-      accountAddress: perpsAccount.accountAddress,
-      accountId: perpsAccount.accountId,
-    }),
-    [perpsAccount.accountAddress, perpsAccount.accountId],
-  );
+  const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
+  const requestEnableTradingWithDepositFallback =
+    useRequestEnableTradingWithDepositFallback();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
-  const enableTrading = useCallback(async () => {
-    try {
-      const didAcceptTerms = await showHyperliquidTermsDialog();
-      if (!didAcceptTerms) {
-        return;
-      }
-
-      const status =
-        await backgroundApiProxy.serviceHyperliquid.enableTrading();
-      if (
-        status?.details?.activatedOk === false &&
-        accountInfo.accountAddress &&
-        accountInfo.accountId
-      ) {
-        await showDepositWithdrawModal('deposit');
-      }
-    } catch (error) {
-      console.error('[TradingGuardWrapper] Enable trading failed:', error);
-    }
-  }, [
-    accountInfo.accountAddress,
-    accountInfo.accountId,
-    showDepositWithdrawModal,
-  ]);
 
   const shouldShowEnableTrading = useMemo(() => {
+    if (bypassEnableTradingGuard) {
+      return forceShowEnableTrading;
+    }
     return forceShowEnableTrading || isAgentReady === false;
-  }, [forceShowEnableTrading, isAgentReady]);
+  }, [bypassEnableTradingGuard, forceShowEnableTrading, isAgentReady]);
 
   const isEnableTradingLoading = perpsAccountLoading.enableTradingLoading;
-
-  const buttonText = useMemo(
-    () =>
-      appLocale.intl.formatMessage({
-        id: ETranslations.perp_trade_button_enable_trading,
-      }),
-    [],
-  );
+  const shouldShowEnableTradingStepsDialog =
+    enableTradingMode.requiresExplicitEnableTrading;
 
   const buttonStyles = useMemo(() => {
     const isDisabled = disabled || isEnableTradingLoading;
+    const styles = getTradingButtonStyleProps('long');
     return {
-      hoverStyle: isDisabled ? undefined : { bg: '$green8' },
-      pressStyle: isDisabled ? undefined : { bg: '$green8' },
+      bg: styles.bg,
+      hoverStyle: isDisabled ? undefined : styles.hoverStyle,
+      pressStyle: isDisabled ? undefined : styles.pressStyle,
+      textColor: styles.textColor,
     };
   }, [disabled, isEnableTradingLoading]);
 
+  const handleEnableTrading = useCallback(async () => {
+    if (disabled || isEnableTradingLoading) {
+      return;
+    }
+
+    if (shouldShowEnableTradingStepsDialog) {
+      // The dialog must use a fresh status snapshot so the predicted
+      // confirmations stay aligned with the enable-trading execution path.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+      } catch (error) {
+        errorToastUtils.toastIfError(error);
+        return;
+      }
+      const latestPerpsAccountStatus =
+        (await perpsActiveAccountStatusAtom.get()) ?? perpsAccountStatus;
+      if (
+        getEnableTradingDialogConfirmDecision(latestPerpsAccountStatus) ===
+        'deposit'
+      ) {
+        await showDepositWithdrawModal('deposit');
+        return;
+      }
+
+      await showEnableTradingStepsDialog({
+        accountStatus: latestPerpsAccountStatus,
+        onConfirm: async ({ closeDialog }) => {
+          const didAcceptTerms = await confirmHyperliquidTerms();
+          if (!didAcceptTerms) {
+            return {
+              shouldContinue: false,
+              status: undefined,
+            };
+          }
+          return requestEnableTradingWithDepositFallback({
+            beforeDeposit: closeDialog,
+          });
+        },
+      });
+      return;
+    }
+
+    const didAcceptTerms = await confirmHyperliquidTerms();
+    if (!didAcceptTerms) {
+      return;
+    }
+
+    await requestEnableTradingWithDepositFallback();
+  }, [
+    confirmHyperliquidTerms,
+    disabled,
+    isEnableTradingLoading,
+    perpsAccountStatus,
+    requestEnableTradingWithDepositFallback,
+    showDepositWithdrawModal,
+    shouldShowEnableTradingStepsDialog,
+  ]);
+
   if (perpsAccountLoading.selectAccountLoading) {
     return (
-      <Button variant="primary" size="medium" disabled>
+      <Button
+        variant="primary"
+        size={buttonSize}
+        disabled
+        childrenAsText={false}
+        testID="perp-is-disabled-btn"
+      >
         <Spinner />
       </Button>
     );
@@ -97,9 +147,17 @@ function TradingGuardWrapperInternal({
 
   if (perpsAccountStatus.accountNotSupport) {
     return (
-      <Button variant="primary" size="medium" disabled>
-        <SizableText size="$bodyMdMedium" color="$textOnColor">
-          {appLocale.intl.formatMessage({
+      <Button
+        variant="secondary"
+        size={buttonSize}
+        disabled
+        disabledStyle={{ opacity: 1 }}
+        bg="$bgDisabled"
+        childrenAsText={false}
+        testID="perp-is-disabled-btn"
+      >
+        <SizableText size="$bodyMdMedium" color="$textDisabled">
+          {intl.formatMessage({
             id: ETranslations.perp_trade_button_account_unsupported,
           })}
         </SizableText>
@@ -110,18 +168,21 @@ function TradingGuardWrapperInternal({
   if (shouldShowEnableTrading || !children) {
     return (
       <Button
+        testID="perp-is-disabled-btn"
         variant="primary"
-        size="medium"
+        size={buttonSize}
         disabled={disabled || isEnableTradingLoading}
         loading={isEnableTradingLoading}
-        onPress={disabled ? undefined : enableTrading}
-        bg="#18794E"
+        onPress={disabled ? undefined : handleEnableTrading}
+        bg={buttonStyles.bg}
         hoverStyle={buttonStyles.hoverStyle}
         pressStyle={buttonStyles.pressStyle}
-        color="$textOnColor"
+        childrenAsText={false}
       >
-        <SizableText size="$bodyMdMedium" color="$textOnColor">
-          {buttonText}
+        <SizableText size="$bodyMdMedium" color={buttonStyles.textColor}>
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_button_enable_trading,
+          })}
         </SizableText>
       </Button>
     );

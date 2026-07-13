@@ -362,6 +362,7 @@ export function useCloudBackup() {
           resetPasswordDialog = showCloudBackupPasswordDialog({
             showConfirmPasswordField: true,
             isFirstTimeSetPassword,
+            intl,
             onSubmit: async (password: string) => {
               try {
                 const result =
@@ -389,6 +390,7 @@ export function useCloudBackup() {
           verifyPasswordDialog = showCloudBackupPasswordDialog({
             showConfirmPasswordField: false,
             showForgotPasswordButton: true,
+            intl,
             onSubmit: async (password: string) => {
               const result =
                 await backgroundApiProxy.serviceCloudBackupV2.verifyBackupPassword(
@@ -422,7 +424,7 @@ export function useCloudBackup() {
 
   const doDeleteBackup = useThrottledCallback(
     ({ recordID }: { recordID: string }) => {
-      showCloudBackupDeleteDialog({ recordID, navigation });
+      showCloudBackupDeleteDialog({ recordID, navigation, intl });
     },
     600,
     {
@@ -445,6 +447,7 @@ export function useCloudBackup() {
       let importProcessingDialog: IDialogInstance | null = null;
       const verifyPasswordDialog = showCloudBackupPasswordDialog({
         isRestoreAction: true,
+        intl,
         onSubmit: async (password: string) => {
           // Show progress dialog
           try {

@@ -17,7 +17,10 @@ import {
   parseTransferRoomIdFromPairingCode,
 } from '../core/prime-transfer/pairing-code';
 import { getTransferPairingRuntimeError } from '../core/prime-transfer/pairing-session-runtime';
-import { TransferReceiverAdapter } from '../core/prime-transfer/transfer-receiver-adapter';
+import {
+  TRANSFER_SOCKET_TRANSPORTS,
+  TransferReceiverAdapter,
+} from '../core/prime-transfer/transfer-receiver-adapter';
 import { AppError, ERROR_CODES } from '../errors';
 
 import type {
@@ -45,6 +48,60 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     },
   },
 }));
+
+jest.mock('@onekeyhq/core/src/secret', () => {
+  type ISecretParams = {
+    data: Buffer | Uint8Array | string;
+    password: string;
+  };
+
+  class TestSecretCiphertextError extends Error {
+    constructor() {
+      super('Invalid test ciphertext');
+      this.name = 'TestSecretCiphertextError';
+    }
+  }
+
+  return {
+    encryptAsync: jest.fn(async ({ data, password }: ISecretParams) => {
+      const rawBuffer =
+        typeof data === 'string'
+          ? Buffer.from(data, 'utf8')
+          : Buffer.from(data);
+
+      return Buffer.from(
+        JSON.stringify({
+          password,
+          data: rawBuffer.toString('base64'),
+        }),
+        'utf8',
+      );
+    }),
+    decryptAsync: jest.fn(async ({ data, password }: ISecretParams) => {
+      const envelopeBuffer =
+        typeof data === 'string' ? Buffer.from(data, 'hex') : Buffer.from(data);
+      let envelope: {
+        password?: unknown;
+        data?: unknown;
+      };
+
+      try {
+        envelope = JSON.parse(envelopeBuffer.toString('utf8')) as {
+          password?: unknown;
+          data?: unknown;
+        };
+      } catch {
+        throw new TestSecretCiphertextError();
+      }
+
+      if (envelope.password !== password || typeof envelope.data !== 'string') {
+        throw new TestSecretCiphertextError();
+      }
+
+      return Buffer.from(envelope.data, 'base64');
+    }),
+  };
+});
 
 function createMockUser(id: string): IE2EESocketUserInfo {
   return {
@@ -217,6 +274,10 @@ async function deriveLocalSharedSecret({
 }
 
 describe('TransferReceiverAdapter', () => {
+  it('uses websocket-only transport to avoid Node url.parse deprecation warnings', () => {
+    expect(TRANSFER_SOCKET_TRANSPORTS).toEqual(['websocket']);
+  });
+
   it('creates normalized pairing session data in under one second', async () => {
     const socket = createMockSocket();
     const connectSocket = jest.fn(async () => socket);
@@ -268,11 +329,11 @@ describe('TransferReceiverAdapter', () => {
       status: 'pairing',
       loginMethod: 'app_transfer',
       createdAt: '2026-04-06T07:00:00.000Z',
-      timeoutMs: 120_000,
-      expiresAt: '2026-04-06T07:02:00.000Z',
+      timeoutMs: 300_000,
+      expiresAt: '2026-04-06T07:05:00.000Z',
       pairingPayload: {
         roomId: 'ABCDE-FGHIJ',
-        transferType: EPrimeTransferDataType.keylessWallet,
+        transferType: EPrimeTransferDataType.allWallet,
         serverType: EPrimeTransferServerType.OFFICIAL,
         websocketEndpoint: 'wss://transfer.onekeytest.com',
         uri: expect.stringContaining('code='),

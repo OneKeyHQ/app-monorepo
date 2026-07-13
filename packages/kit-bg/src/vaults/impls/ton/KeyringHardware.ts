@@ -10,6 +10,9 @@ import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
+  ISignDataPayloadBinary,
+  ISignDataPayloadCell,
+  ISignDataPayloadText,
   ISignedMessagePro,
   ISignedTxPro,
   IUnsignedMessageTon,
@@ -19,6 +22,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -48,6 +52,7 @@ import type {
 import type {
   AllNetworkAddressParams,
   CommonParams,
+  TonSignDataType,
   TonSignMessageParams,
 } from '@onekeyfe/hd-core';
 
@@ -362,29 +367,85 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new OneKeyInternalError('Unsupported message count');
     }
     const msg = messages[0] as IUnsignedMessageTon;
-    if (!msg.payload.isProof) {
-      throw new OneKeyInternalError('Unsupported message type');
-    }
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
-    const result = await convertDeviceResponse(async () => {
-      const res = await sdk.tonSignProof(
-        dbDevice.connectId,
-        dbDevice.deviceId,
-        {
+
+    // TON Connect v2 signData (text / binary / cell)
+    if (msg.payload.payload) {
+      const { TonSignDataType: TonSignDataTypeEnum } = await CoreSDKLoader();
+      const signDataPayload = msg.payload.payload;
+
+      let type: TonSignDataType;
+      let payloadHex: string;
+      let schema: string | undefined;
+      switch (signDataPayload.type) {
+        case 'text':
+          type = TonSignDataTypeEnum.TEXT;
+          payloadHex = Buffer.from(signDataPayload.text, 'utf-8').toString(
+            'hex',
+          );
+          break;
+        case 'binary':
+          type = TonSignDataTypeEnum.BINARY;
+          payloadHex = Buffer.from(signDataPayload.bytes, 'base64').toString(
+            'hex',
+          );
+          break;
+        case 'cell':
+          type = TonSignDataTypeEnum.CELL;
+          payloadHex = Buffer.from(signDataPayload.cell, 'base64').toString(
+            'hex',
+          );
+          schema = signDataPayload.schema;
+          break;
+        default:
+          throw new OneKeyInternalError(
+            'Unsupported TON signData payload type',
+          );
+      }
+
+      const result = await convertDeviceResponse(async () =>
+        sdk.tonSignData(dbDevice.connectId, dbDevice.deviceId, {
           ...deviceCommonParams,
           path: account.path,
-
+          type,
+          payload: payloadHex,
+          schema,
           // oxlint-disable-next-line @cspell/spellchecker
-          appdomain: Buffer.from(msg.payload.appDomain ?? '').toString('hex'),
-          expireAt: msg.payload.timestamp,
-          comment: Buffer.from(msg.message).toString('hex'),
-        },
+          appdomain: msg.payload.appDomain ?? '',
+          timestamp: msg.payload.timestamp,
+          fromAddress: msg.payload.address,
+        }),
       );
-      return res;
-    });
-    if (!result.signature) {
-      throw new OneKeyInternalError('Failed to sign message');
+      if (!result.signature) {
+        throw new OneKeyInternalError('Failed to sign data');
+      }
+      return [result.signature];
     }
-    return [result.signature];
+
+    // TON Connect proof
+    if (msg.payload.isProof) {
+      const result = await convertDeviceResponse(async () => {
+        const res = await sdk.tonSignProof(
+          dbDevice.connectId,
+          dbDevice.deviceId,
+          {
+            ...deviceCommonParams,
+            path: account.path,
+
+            // oxlint-disable-next-line @cspell/spellchecker
+            appdomain: Buffer.from(msg.payload.appDomain ?? '').toString('hex'),
+            expireAt: msg.payload.timestamp,
+            comment: Buffer.from(msg.message).toString('hex'),
+          },
+        );
+        return res;
+      });
+      if (!result.signature) {
+        throw new OneKeyInternalError('Failed to sign message');
+      }
+      return [result.signature];
+    }
+
+    throw new OneKeyInternalError('Unsupported message type');
   }
 }

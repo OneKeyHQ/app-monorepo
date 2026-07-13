@@ -67,6 +67,7 @@ function KeylessWalletPageView() {
                 titleProps={titleProps}
               >
                 <Switch
+                  testID="setting-handle-keys-recovery-switch"
                   size={ESwitchSize.small}
                   value={keylessWalletEnabled}
                   onChange={handleToggleKeylessWallet}

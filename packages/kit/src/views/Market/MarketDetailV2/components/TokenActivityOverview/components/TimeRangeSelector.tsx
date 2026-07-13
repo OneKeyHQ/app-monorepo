@@ -1,5 +1,7 @@
 import { ButtonFrame, SizableText, Stack, YStack } from '@onekeyhq/components';
 
+import { MarketTestIDs } from '../../../testIDs';
+
 import type { ITimeRangeOption, ITimeRangeSelectorProps } from '../types';
 
 function getPercentageColor(option: ITimeRangeOption) {
@@ -27,6 +29,7 @@ export function TimeRangeSelector({
       {options.map((opt) => (
         <ButtonFrame
           key={opt.value}
+          testID={MarketTestIDs.chartTimeRange(opt.value)}
           flex={1}
           borderWidth={0}
           borderRadius="$2"

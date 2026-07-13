@@ -28,6 +28,7 @@ import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
+import { SendTestIDs } from '../../testIDs';
 
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
 import TxActionsContainer from './TxActionsContainer';
@@ -37,6 +38,9 @@ import { TxSpecialInfoContainer } from './TxSpecialInfoContainer';
 
 import type { RouteProp } from '@react-navigation/core';
 
+// TODO(6.7.0): Remove this legacy SendModal confirmation page.
+// Current send confirmations go through SignatureConfirmModal -> TxConfirm;
+// debug confirmation issues in the TxConfirm page instead.
 function SendConfirmContainer() {
   const intl = useIntl();
   const route =
@@ -146,7 +150,7 @@ function SendConfirmContainer() {
   const renderSendConfirmView = useCallback(
     () => (
       <>
-        <Page.Body testID="tx-confirmation-body">
+        <Page.Body testID={SendTestIDs.confirmPage}>
           <Stack>
             {sendFeeStatus.errMessage ? (
               <Alert
@@ -255,11 +259,15 @@ function SendConfirmContainer() {
     }
   };
 
+  const pageTitleTranslationId = transferPayload?.isPrivateSend
+    ? ETranslations.private_send_private_send
+    : ETranslations.transaction__transaction_confirm;
+
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({
-          id: ETranslations.transaction__transaction_confirm,
+          id: pageTitleTranslationId,
         })}
       />
       {renderSendConfirmView()}

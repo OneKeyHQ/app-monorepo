@@ -41,6 +41,10 @@ const createOffscreenApiModule = memoizee(
         return new (await import('../OffscreenApiAdaSdk')).default();
       case 'kaspaSdk':
         return new (await import('../OffscreenApiKaspaSdk')).default();
+      case 'thirdPartyHardware':
+        return new (
+          await import('../OffscreenApiThirdPartyHardware')
+        ).default();
       default:
         throw new OneKeyLocalError(
           `Unknown offscreen API module: ${name as string}`,

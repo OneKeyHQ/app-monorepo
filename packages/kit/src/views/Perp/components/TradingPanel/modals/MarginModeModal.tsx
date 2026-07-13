@@ -3,26 +3,24 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { useInPageDialog } from '@onekeyhq/components';
-import {
-  Button,
-  Checkbox,
-  Dialog,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../../PerpDialogLayout';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
+
+import type { IntlShape } from 'react-intl';
 
 type IMarginMode = 'isolated' | 'cross';
 
@@ -78,48 +76,63 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
       <YStack
         p="$4"
         borderRadius="$3"
-        bg="$bgSubdued"
+        borderWidth="$px"
+        borderColor={
+          selectedMode === 'cross' ? '$borderActive' : '$borderSubdued'
+        }
         onPress={() => setSelectedMode('cross')}
         cursor="default"
+        hoverStyle={{
+          borderColor:
+            selectedMode === 'cross' ? '$borderActive' : '$borderStrong',
+        }}
+        pressStyle={{ borderColor: '$borderActive' }}
       >
-        <XStack alignItems="center" gap="$3">
-          <Checkbox value={selectedMode === 'cross'} />
+        <YStack gap="$1">
           <SizableText size="$headingMd" fontWeight="600">
             {intl.formatMessage({ id: ETranslations.perp_trade_cross })}
           </SizableText>
-        </XStack>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_cross_mode_desc,
-          })}
-        </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_cross_mode_desc,
+            })}
+          </SizableText>
+        </YStack>
       </YStack>
 
       {/* Isolated Mode Option */}
       <YStack
         p="$4"
         borderRadius="$3"
-        bg="$bgSubdued"
+        borderWidth="$px"
+        borderColor={
+          selectedMode === 'isolated' ? '$borderActive' : '$borderSubdued'
+        }
         onPress={() => setSelectedMode('isolated')}
         cursor="default"
+        hoverStyle={{
+          borderColor:
+            selectedMode === 'isolated' ? '$borderActive' : '$borderStrong',
+        }}
+        pressStyle={{ borderColor: '$borderActive' }}
       >
-        <XStack alignItems="center" gap="$3">
-          <Checkbox value={selectedMode === 'isolated'} />
+        <YStack gap="$1">
           <SizableText size="$headingMd" fontWeight="600">
             {intl.formatMessage({ id: ETranslations.perp_trade_isolated })}
           </SizableText>
-        </XStack>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_isolate_mode_desc,
-          })}
-        </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_isolate_mode_desc,
+            })}
+          </SizableText>
+        </YStack>
       </YStack>
 
-      <TradingGuardWrapper>
+      <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
         <Button
+          testID="perp-btn"
           variant="primary"
-          size="medium"
+          size={PERP_DIALOG_BUTTON_SIZE}
           disabled={loading}
           loading={loading}
           onPress={handleConfirm}
@@ -133,11 +146,10 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
 
 export function showMarginModeDialog(
   symbolCoin: string,
+  intl: IntlShape,
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
-  const title = `${
-    parseDexCoin(symbolCoin).displayName
-  } ${appLocale.intl.formatMessage({
+  const title = `${parseDexCoin(symbolCoin).displayName} ${intl.formatMessage({
     id: ETranslations.perp_trade_margin_type,
   })}`;
 
@@ -160,6 +172,7 @@ export function showMarginModeDialog(
         />
       </PerpsProviderMirror>
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();

@@ -10,13 +10,9 @@ import {
   TextArea,
   YStack,
 } from '@onekeyhq/components';
-import {
-  EEventKind,
-  ENostrSignType,
-  i18nSupportEventKinds,
-} from '@onekeyhq/core/src/chains/nostr/types';
 import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEventKind, ENostrSignType } from '@onekeyhq/shared/src/types/nostr';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -30,6 +26,37 @@ import {
 import { useRiskDetection } from '../hooks/useRiskDetection';
 
 import DappOpenModalPage from './DappOpenModalPage';
+
+const NOSTR_EVENT_KIND_TRANSLATION_IDS = {
+  [EEventKind.Metadata]: ETranslations.dapp_connect_nostr_event_kind_0,
+  [EEventKind.Text]: ETranslations.dapp_connect_nostr_event_kind_1,
+  [EEventKind.RelayRec]: ETranslations.dapp_connect_nostr_event_kind_2,
+  [EEventKind.Contacts]: ETranslations.dapp_connect_nostr_event_kind_3,
+  [EEventKind.DM]: ETranslations.dapp_connect_nostr_event_kind_4,
+  [EEventKind.Deleted]: ETranslations.dapp_connect_nostr_event_kind_5,
+  [EEventKind.Reaction]: ETranslations.dapp_connect_nostr_event_kind_7,
+  [EEventKind.BadgeAward]: ETranslations.dapp_connect_nostr_event_kind_8,
+  [EEventKind.ChannelCreation]: ETranslations.dapp_connect_nostr_event_kind_40,
+  [EEventKind.ChannelMetadata]: ETranslations.dapp_connect_nostr_event_kind_41,
+  [EEventKind.ChannelMessage]: ETranslations.dapp_connect_nostr_event_kind_42,
+  [EEventKind.ChannelHideMessage]:
+    ETranslations.dapp_connect_nostr_event_kind_43,
+  [EEventKind.Reporting]: ETranslations.dapp_connect_nostr_event_kind_1984,
+  [EEventKind.ZapRequest]: ETranslations.dapp_connect_nostr_event_kind_9734,
+  [EEventKind.Zap]: ETranslations.dapp_connect_nostr_event_kind_9735,
+  [EEventKind.RelayListMetadata]:
+    ETranslations.dapp_connect_nostr_event_kind_10002,
+  [EEventKind.ClientAuthentication]:
+    ETranslations.dapp_connect_nostr_event_kind_22242,
+  [EEventKind.NostrConnect]: ETranslations.dapp_connect_nostr_event_kind_24133,
+  [EEventKind.ProfileBadges]: ETranslations.dapp_connect_nostr_event_kind_30008,
+  [EEventKind.BadgeDefinition]:
+    ETranslations.dapp_connect_nostr_event_kind_30009,
+  [EEventKind.LongFormContent]:
+    ETranslations.dapp_connect_nostr_event_kind_30023,
+  [EEventKind.ApplicationSpecificData]:
+    ETranslations.dapp_connect_nostr_event_kind_30078,
+} as const;
 
 function NostrSignEventModal() {
   const {
@@ -108,11 +135,11 @@ function NostrSignEventModal() {
     if (signType !== ENostrSignType.signEvent) {
       return '';
     }
-    if (i18nSupportEventKinds.includes(Number(event?.kind))) {
+    const eventKind = Number(event?.kind) as EEventKind;
+    const translationId = NOSTR_EVENT_KIND_TRANSLATION_IDS[eventKind];
+    if (translationId) {
       return intl.formatMessage({
-        id: ETranslations[
-          `dapp_connect_nostr_event_kind_${event?.kind ?? 'unknown'}`
-        ],
+        id: translationId,
       });
     }
     return intl.formatMessage(
@@ -253,6 +280,7 @@ function NostrSignEventModal() {
     return (
       <YStack gap="$2">
         <Button
+          testID="d-app-connection-render-event-details-btn"
           variant="secondary"
           onPress={() => setDisplayDetails(!displayDetails)}
         >
@@ -268,6 +296,7 @@ function NostrSignEventModal() {
           <TextArea
             editable={false}
             numberOfLines={11}
+            testID="d-app-connection-render-event-details-textarea"
             value={JSON.stringify(event, null, 2)}
           />
         ) : null}
@@ -309,6 +338,7 @@ function NostrSignEventModal() {
           <TextArea
             editable={false}
             numberOfLines={5}
+            testID="d-app-connection-render-encrypt-sign-event-plaintext-textarea"
             value={savedPlaintext ?? ''}
           />
         </YStack>
@@ -332,12 +362,18 @@ function NostrSignEventModal() {
             {/* Content Start */}
             <YStack gap="$2">
               <SizableText>{eventKindText}</SizableText>
-              <TextArea editable={false} numberOfLines={5} value={content} />
+              <TextArea
+                editable={false}
+                numberOfLines={5}
+                testID="d-app-connection-textarea"
+                value={content}
+              />
               {renderEncryptSignEventPlaintext()}
               {renderEventDetails()}
             </YStack>
             {signType === ENostrSignType.signEvent ? (
               <Checkbox
+                testID="d-app-connection-checkbox"
                 label={intl.formatMessage({
                   id: ETranslations.dapp_connect_do_not_ask_again,
                 })}

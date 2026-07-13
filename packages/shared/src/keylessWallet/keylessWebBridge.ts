@@ -1,8 +1,8 @@
 /* eslint-disable no-continue */
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import {
+  ONBOARDING_CREATE_NEW_WALLET_PATH,
   ONBOARDING_FROM_EXT_PARAM,
-  ONBOARDING_GET_STARTED_PATH,
 } from '@onekeyhq/shared/src/consts/onboardingConsts';
 import { KEYLESS_WEB_TAB_URL_PATTERNS } from '@onekeyhq/shared/src/keylessWallet/keylessWebTabUrlPatternsConstants';
 import type {
@@ -317,12 +317,7 @@ async function openExtensionOnboardingGetStarts({
   }
 
   await extUtils.openExpandTab({
-    // routes: [ // routes not working
-    //   ERootRoutes.Onboarding,
-    //   EOnboardingV2Routes.OnboardingV2,
-    //   EOnboardingPagesV2.GetStarted,
-    // ],
-    path: ONBOARDING_GET_STARTED_PATH,
+    path: ONBOARDING_CREATE_NEW_WALLET_PATH,
     params: {
       ...ONBOARDING_FROM_EXT_PARAM,
       autoConnectOrigin,

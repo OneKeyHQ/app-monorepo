@@ -2,6 +2,7 @@ import { useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
@@ -16,7 +17,6 @@ import {
   buildOverviewOwnerKey,
   contextAtomMethod,
   overviewDeFiDataStateAtom,
-  walletStatusAtom,
   walletTopBannersAtom,
 } from './atoms';
 
@@ -50,8 +50,10 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         accountId: string;
         updateAll?: boolean;
         merge?: boolean;
+        currency?: string;
       },
     ) => {
+      const currency = payload.currency ?? USD_CURRENCY_ID;
       if (payload.merge) {
         const { worth, createAtNetworkWorth } = get(accountWorthAtom());
         set(accountWorthAtom(), {
@@ -65,6 +67,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
           initialized: payload.initialized,
           accountId: payload.accountId,
           updateAll: payload.updateAll,
+          currency,
         });
         return;
       }
@@ -75,6 +78,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         initialized: payload.initialized,
         accountId: payload.accountId,
         updateAll: payload.updateAll,
+        currency,
       });
     },
   );
@@ -87,24 +91,6 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
     ) => {
       set(approvalsInfoAtom(), {
         ...get(approvalsInfoAtom()),
-        ...payload,
-      });
-    },
-  );
-
-  updateWalletStatus = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        showReceiveInfo?: boolean;
-        receiveInfoInit?: boolean;
-        showReferralCodeBlock?: boolean;
-        referralCodeBlockInit?: boolean;
-      },
-    ) => {
-      set(walletStatusAtom(), {
-        ...get(walletStatusAtom()),
         ...payload,
       });
     },
@@ -152,7 +138,10 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
           totalReward: new BigNumber(overview.totalReward ?? 0)
             .plus(value.overview.totalReward ?? 0)
             .toNumber(),
-          currency: overview.currency,
+          // Honor the producer's currency on first merge into an empty atom
+          // (overview.currency defaults to ''); otherwise a later currency
+          // switch silently misreads the basis.
+          currency: value.currency ?? overview.currency,
           accountId: value.accountId ?? overview.accountId,
           networkId: value.networkId ?? overview.networkId,
         };
@@ -209,7 +198,6 @@ export function useAccountOverviewActions() {
   const updateAccountOverviewState = actions.updateAccountOverviewState.use();
   const updateAllNetworksState = actions.updateAllNetworksState.use();
   const updateApprovalsInfo = actions.updateApprovalsInfo.use();
-  const updateWalletStatus = actions.updateWalletStatus.use();
   const updateWalletTopBanners = actions.updateWalletTopBanners.use();
   const updateAccountDeFiOverview = actions.updateAccountDeFiOverview.use();
   const updateOverviewDeFiDataState = actions.updateOverviewDeFiDataState.use();
@@ -219,7 +207,6 @@ export function useAccountOverviewActions() {
     updateAccountWorth,
     updateAccountOverviewState,
     updateApprovalsInfo,
-    updateWalletStatus,
     updateWalletTopBanners,
     updateAccountDeFiOverview,
     updateOverviewDeFiDataState,

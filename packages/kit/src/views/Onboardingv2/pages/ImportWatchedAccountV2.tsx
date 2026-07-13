@@ -20,6 +20,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 
 export default function ImportWatchedAccountV2() {
   const navigation = useAppNavigation();
@@ -86,7 +87,7 @@ export default function ImportWatchedAccountV2() {
   };
 
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.importWatchedAccountPage}>
       <OnboardingLayout>
         <OnboardingLayout.Header
           title={intl.formatMessage({
@@ -128,6 +129,7 @@ export default function ImportWatchedAccountV2() {
                   gap="$5"
                 >
                   <TextAreaInput
+                    testID={OnboardingTestIDs.watchAddressInput}
                     allowPaste
                     allowClear
                     size="large"
@@ -171,6 +173,7 @@ export default function ImportWatchedAccountV2() {
             </HeightTransition>
             {gtMd ? (
               <Button
+                testID="onboardingv2-btn"
                 disabled={isConfirmDisabled}
                 size="large"
                 variant="primary"
@@ -185,6 +188,7 @@ export default function ImportWatchedAccountV2() {
         {!gtMd ? (
           <OnboardingLayout.Footer>
             <Button
+              testID="onboardingv2-btn"
               disabled={isConfirmDisabled}
               size="large"
               variant="primary"

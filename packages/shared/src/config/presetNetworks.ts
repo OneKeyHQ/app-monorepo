@@ -188,33 +188,6 @@ const avalanche: IServerNetwork = {
   'defaultEnabled': true,
   'backendIndex': true,
 };
-const okt: IServerNetwork = {
-  'impl': 'evm',
-  'chainId': '66',
-  'id': 'evm--66',
-  'name': 'OKX Chain',
-  'symbol': 'OKT',
-  'code': 'okt',
-  'shortcode': 'okt',
-  'shortname': 'OKC',
-  'decimals': 18,
-  'feeMeta': {
-    'decimals': 9,
-    'symbol': 'Gwei',
-    'isEIP1559FeeEnabled': false,
-    'isWithL1BaseFee': false,
-  },
-  'status': ENetworkStatus.LISTED,
-  'isTestnet': false,
-  'extensions': {
-    'position': 10,
-    'isTokenSupported': true,
-    'isNFTEnabled': false,
-  },
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/okx-chain.png',
-  'defaultEnabled': true,
-  'backendIndex': false,
-};
 const optimism: IServerNetwork = {
   'impl': 'evm',
   'chainId': '10',
@@ -1929,26 +1902,6 @@ const manta: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-const joystream: IServerNetwork = {
-  'chainId': 'joystream',
-  'code': 'joy',
-  'decimals': 10,
-  'id': 'dot--joystream',
-  'impl': 'dot',
-  'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/joystream.png',
-  'name': 'Joystream',
-  'shortcode': 'joy',
-  'shortname': 'JOY',
-  'symbol': 'JOY',
-  'feeMeta': {
-    'decimals': 10,
-    'symbol': 'JOY',
-  },
-  'defaultEnabled': true,
-  'status': ENetworkStatus.LISTED,
-};
-
 const hydradx: IServerNetwork = {
   'chainId': 'hydration',
   'code': 'hydration',
@@ -2223,10 +2176,10 @@ const ton: IServerNetwork = {
   'name': 'TON',
   'shortcode': 'ton',
   'shortname': 'ton',
-  'symbol': 'TON',
+  'symbol': 'GRAM',
   'feeMeta': {
     'decimals': 9,
-    'symbol': 'TON',
+    'symbol': 'GRAM',
   },
   'defaultEnabled': true,
   'status': ENetworkStatus.LISTED,
@@ -2381,7 +2334,6 @@ export const presetNetworksMap = {
   polygon,
   arbitrum,
   avalanche,
-  okt,
   optimism,
   zksyncera,
   opbnb,
@@ -2434,7 +2386,6 @@ export const presetNetworksMap = {
   // polkadot
   astar,
   manta,
-  joystream,
   hydradx,
   bifrost,
   bifrostDot,
@@ -2549,7 +2500,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     polygon,
     arbitrum,
     avalanche,
-    okt,
     optimism,
     zksyncera,
     opbnb,
@@ -2607,7 +2557,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     // polkadot
     astar,
     manta,
-    joystream,
     hydradx,
     bifrost,
     bifrostDot,

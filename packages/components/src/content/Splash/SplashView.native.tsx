@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react';
 
 import { hideAsync, preventAutoHideAsync } from 'expo-splash-screen';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ISplashViewProps } from './type';
@@ -29,9 +30,25 @@ if (platformEnv.isNativeAndroid) {
   void getLegacyAndroidSplash().preventAutoHideAsync();
 }
 
-export function SplashView({ onExit, ready }: ISplashViewProps) {
+const jsEntryStart: number =
+  (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
+
+export function SplashView({ onExit, canDismissSplash }: ISplashViewProps) {
   const hideSplash = useCallback(() => {
-    void hideAsync();
+    if (
+      platformEnv.isNativeMainThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      const elapsed = Date.now() - jsEntryStart;
+      defaultLogger.app.appUpdate.log(
+        `[SplashView] hideSplash invoked at +${elapsed}ms from JS entry, dismissing native splash`,
+      );
+    }
+    void hideAsync().catch((error) => {
+      defaultLogger.app.appUpdate.log(
+        `[SplashView] hideAsync failed: ${(error as Error)?.message ?? 'unknown'}`,
+      );
+    });
     if (platformEnv.isNativeAndroid) {
       void getLegacyAndroidSplash().hideAsync();
     }
@@ -39,9 +56,15 @@ export function SplashView({ onExit, ready }: ISplashViewProps) {
   }, [onExit]);
 
   useEffect(() => {
-    void ready.then(() => {
-      hideSplash();
-    });
-  }, [hideSplash, ready]);
+    if (!canDismissSplash) {
+      return;
+    }
+    // No setTimeout — the React commit that will render the post-splash tree
+    // already completed before this effect runs. The previous setTimeout(50)
+    // here was observed to get starved to ~320ms under main-thread load, which
+    // was the single largest delay in the "SplashProvider mount → hideSplash"
+    // window.
+    hideSplash();
+  }, [canDismissSplash, hideSplash]);
   return null;
 }

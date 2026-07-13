@@ -13,6 +13,16 @@ export interface IApiEndpointConfig {
   enabled: boolean;
 }
 
+export type ITradingViewKLineMockEmptyInterval =
+  | '1m'
+  | '5m'
+  | '15m'
+  | '30m'
+  | '1H'
+  | '4H'
+  | '1D'
+  | '1W';
+
 // Test account for dev login testing
 export interface ITestAccount {
   id: string;
@@ -64,9 +74,16 @@ export interface IDevSettings {
   customApiEndpoints?: IApiEndpointConfig[];
   // show performance monitor
   showPerformanceMonitor?: boolean;
+  // show performance monitor, replacing legacy showPerformanceMonitor which
+  // was default-on in older dev builds.
+  showPerformanceMonitorV2?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
   showPerpsRenderStats?: boolean;
+  mockTradingViewKLineEmptyEnabled?: boolean;
+  mockTradingViewKLineEmptyIntervals?: ITradingViewKLineMockEmptyInterval[];
+  // Show Market Home websocket subscription debug overlay and row highlight.
+  showMarketHomeWsDebug?: boolean;
 
   usbCommunicationMode?: 'webusb' | 'bridge';
 
@@ -82,6 +99,21 @@ export interface IDevSettings {
   testAccounts?: ITestAccount[];
   // Ignore server bundle update info (prevents rollback when dev-switching bundles)
   ignoreServerBundleUpdate?: boolean;
+  // Allow watching accounts to pass through bulk-send pre-flight validation.
+  // Submission remains blocked; this only lets QA walk through the UI flow
+  // (e.g. BTC 200+ split cases that need high balances) without a signer.
+  allowBulkSendWatchingAccount?: boolean;
+  // Disable custom User-Agent injection (debug only).
+  // When true, buildCustomUA() returns null, all call sites fall back to
+  // the runtime default UA.
+  disableCustomUA?: boolean;
+  // Allow Discovery browser to load local development URLs.
+  allowLocalhostUrlInDAppBrowser?: boolean;
+  // Force react-native-fast-pbkdf2 instead of the default quick-crypto backend
+  // for native PBKDF2 calls (debug only).
+  useFastPbkdf2NativeBackend?: boolean;
+  // Enable Slow 4G throttling on platforms with a supported backend.
+  networkThrottleEnabled?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -90,6 +122,16 @@ export type IDevSettingsPersistAtom = {
   enabled: boolean;
   settings?: IDevSettings;
 };
+
+export function getDevSettingsNetworkThrottleEnabled(
+  devSettings: IDevSettingsPersistAtom,
+  defaultEnabled: boolean,
+) {
+  if (!devSettings.enabled) {
+    return false;
+  }
+  return devSettings.settings?.networkThrottleEnabled ?? defaultEnabled;
+}
 export const {
   target: devSettingsPersistAtom,
   use: useDevSettingsPersistAtom,
@@ -111,16 +153,23 @@ export const {
       enableBotWalletFeature: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
-      showPerformanceMonitor: true,
+      showPerformanceMonitor: false,
+      showPerformanceMonitorV2: false,
       autoNavigation: {
         enabled: false,
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
-      // Linux Desktop use Bridge，avoiding WebUSB permission problem
-      usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
+      mockTradingViewKLineEmptyEnabled: false,
+      mockTradingViewKLineEmptyIntervals: ['1m'],
+      showMarketHomeWsDebug: false,
+      networkThrottleEnabled: !!platformEnv.isDesktop || !!platformEnv.isNative,
+      allowLocalhostUrlInDAppBrowser: false,
+      // Linux Desktop uses WebUSB; host udev rules are requested when needed.
+      usbCommunicationMode: 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
+      useFastPbkdf2NativeBackend: false,
     },
   },
 });

@@ -1,12 +1,9 @@
-import { cloneDeep, isNil, isPlainObject } from 'lodash';
+import { cloneDeep, isEqual, isNil, isPlainObject } from 'lodash';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
-
-// Side-effect import: starts localDb IndexedDB initialization in background
-// localDb is NOT needed for jotai atom reads (they use separate OneKeyGlobalStates IndexedDB)
-import '../../dbs/local/localDb';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EAtomNames } from './atomNames';
 import {
@@ -19,6 +16,16 @@ import { jotaiDefaultStore } from './utils/jotaiDefaultStore';
 
 import type { ISettingsPersistAtom } from './atoms/settings';
 import type { IJotaiWritableAtomPro } from './types';
+
+async function initLocalDbForJotaiIfNeeded() {
+  // Web main reads Jotai state from OneKeyGlobalStates IndexedDB. Importing
+  // localDb here pulls background/core crypto chunks into the cold-start path.
+  if (platformEnv.isWeb) {
+    return;
+  }
+
+  await import('../../dbs/local/localDb');
+}
 
 function checkAtomNameMatched(key: string, value: string) {
   if (key !== value) {
@@ -57,10 +64,38 @@ async function preloadAtomStorageValues() {
   return storageMap;
 }
 
-export async function jotaiInit() {
+/**
+ * Proactive one-time migration: AsyncStorage → MMKV per-key.
+ * Reads all EAtomNames keys — non-persist ones return null from
+ * AsyncStorage and are simply skipped (not written to MMKV).
+ */
+async function migrateToMMKVIfNeeded() {
+  if (!platformEnv.isNative) return;
+  if (!('migrateFromAsyncStorage' in onekeyJotaiStorage)) return;
+
+  const allKeys = Object.values(EAtomNames).map((name) =>
+    buildJotaiStorageKey(name),
+  );
+  const probeKey = buildJotaiStorageKey(EAtomNames.settingsPersistAtom);
+  await (
+    onekeyJotaiStorage as {
+      migrateFromAsyncStorage: (keys: string[], probe: string) => Promise<void>;
+    }
+  ).migrateFromAsyncStorage(allKeys, probeKey);
+}
+
+let jotaiInitPromise: ReturnType<typeof jotaiInitImpl> | undefined;
+
+async function jotaiInitImpl() {
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('jotaiInit start');
   }
+
+  await initLocalDbForJotaiIfNeeded();
+
+  // Native: proactively migrate AsyncStorage → MMKV per-key before reading.
+  // Must complete before preloadAtomStorageValues() so MMKV has all data.
+  await migrateToMMKVIfNeeded();
 
   // Parallelize: import atoms + preload all storage values at the same time
   const [allAtoms, preloadedStorage] = await Promise.all([
@@ -88,6 +123,9 @@ export async function jotaiInit() {
     }
   });
 
+  // Pause per-atom broadcasts during batch init — flush once at the end.
+  appGlobals.$jotaiBgSync?.pauseBroadcast?.();
+
   await Promise.all(
     Object.entries(atoms).map(async ([key, value]) => {
       if (!value.name) {
@@ -113,6 +151,7 @@ export async function jotaiInit() {
       if (isNil(storageValue)) {
         // initFrom backup (only for settingsPersistAtom on first launch)
         if (
+          !platformEnv.isWeb &&
           isNil(storageValue) &&
           storageKey === buildJotaiStorageKey(EAtomNames.settingsPersistAtom) &&
           isPlainObject(initValue)
@@ -167,19 +206,21 @@ export async function jotaiInit() {
         storageValue = await onekeyJotaiStorage.getItem(storageKey, initValue);
       }
       const currentValue = await jotaiDefaultStore.get(atomObj);
-      if (currentValue !== storageValue) {
-        await jotaiDefaultStore.set(
-          atomObj,
-          isPlainObject(storageValue) && isPlainObject(initValue)
-            ? {
-                ...initValue,
-                ...storageValue,
-              }
-            : storageValue,
-        );
+      const nextValue =
+        isPlainObject(storageValue) && isPlainObject(initValue)
+          ? {
+              ...initValue,
+              ...storageValue,
+            }
+          : storageValue;
+      if (!isEqual(currentValue, nextValue)) {
+        await jotaiDefaultStore.set(atomObj, nextValue);
       }
     }),
   );
+
+  // Flush all batched broadcasts in one go.
+  await appGlobals.$jotaiBgSync?.flushBroadcast?.();
 
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('jotaiInit done');
@@ -192,4 +233,12 @@ export async function jotaiInit() {
   }
 
   return atoms;
+}
+
+export async function jotaiInit() {
+  jotaiInitPromise ??= jotaiInitImpl().catch((error: unknown) => {
+    jotaiInitPromise = undefined;
+    throw error;
+  });
+  return jotaiInitPromise;
 }

@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -16,6 +15,7 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
+import { loadPurchasesSdkWeb } from '../purchasesSdk/purchasesSdkWebLoader';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
@@ -27,20 +27,18 @@ import type {
 } from './usePrimePaymentTypes';
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
 
-if (process.env.NODE_ENV !== 'production') {
-  console.log('Purchases.setLogLevel Verbose');
-  Purchases.setLogLevel(LogLevel.Verbose);
-}
-
 export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
   const { user, isReady: isAuthReady } = useOneKeyAuth();
   const [, setPrimePersistAtom] = usePrimePersistAtom();
   const isReady = isAuthReady;
 
   const initSdk = useCallback(
-    async ({ loginRequired }: { loginRequired?: boolean } = {}) => {
+    async ({ loginRequired }: { loginRequired?: boolean } = {}): Promise<{
+      apiKey: string;
+      isSandboxKey: boolean;
+    }> => {
       console.log('initSdk');
-      const { apiKey } = await getPrimePaymentApiKey({
+      const { apiKey, isSandboxKey } = await getPrimePaymentApiKey({
         apiKeyType: 'web',
       });
       if (!isReady) {
@@ -56,6 +54,8 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       // TODO VPN required
       // await Purchases.setProxyURL('https://api.rc-backup.com/');
 
+      const { Purchases } = await loadPurchasesSdkWeb();
+
       // TODO how to configure another userId when user login with another account
       // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
@@ -63,12 +63,14 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         apiKey,
         user?.onekeyUserId || Purchases.generateRevenueCatAnonymousAppUserId(),
       );
+      return { apiKey, isSandboxKey };
     },
     [isReady, user?.onekeyUserId],
   );
 
   const getCustomerInfo = useCallback(async () => {
     await initSdk({ loginRequired: true });
+    const { Purchases } = await loadPurchasesSdkWeb();
 
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
@@ -97,17 +99,26 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
   }, [initSdk, setPrimePersistAtom, user?.onekeyUserId]);
 
   const getPackagesWeb = useCallback(async () => {
-    await initSdk();
-
     if (!isReady) {
       throw new OneKeyLocalError('PrimeAuth Not ready');
     }
 
-    const offerings = await Purchases.getSharedInstance().getOfferings();
+    const { isSandboxKey } = await initSdk();
+    const { Purchases } = await loadPurchasesSdkWeb();
+
+    const { offerings, targetOffering } =
+      await primePaymentUtils.fetchWebTargetOffering({
+        purchases: Purchases.getSharedInstance(),
+        isSandboxKey,
+      });
 
     const packages: IPackage[] =
-      offerings?.current?.availablePackages?.map((p) => {
-        const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
+      targetOffering?.availablePackages?.map((p) => {
+        const {
+          normalPeriodDuration,
+          currentPrice,
+          defaultSubscriptionOption,
+        } = p.rcBillingProduct;
 
         const currencyCode = currentPrice.currency || '';
 
@@ -136,12 +147,17 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
             pricePerYear,
             currencyCode,
           ),
+          freeTrial: primePaymentUtils.extractWebFreeTrial(
+            defaultSubscriptionOption?.trial,
+          ),
         };
       }) || [];
 
     console.log('userPrimePaymentMethods >>>>>> WebPackages', {
       packages,
       offerings,
+      offeringId: targetOffering?.identifier,
+      isSandboxKey,
     });
 
     return packages;
@@ -155,13 +171,14 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       currency,
       featureName,
     }: {
-      subscriptionPeriod: string;
+      subscriptionPeriod: ISubscriptionPeriod;
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
       currency?: string;
       featureName?: EPrimeFeatures;
     }) => {
-      await initSdk({ loginRequired: true });
+      const { isSandboxKey } = await initSdk({ loginRequired: true });
+      const { Purchases } = await loadPurchasesSdkWeb();
       try {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth Not ready');
@@ -174,17 +191,20 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         //   }),
         // });
 
-        const offerings = await Purchases.getSharedInstance().getOfferings(
-          currency ? { currency } : undefined,
-        );
+        const { targetOffering } =
+          await primePaymentUtils.fetchWebTargetOffering({
+            purchases: Purchases.getSharedInstance(),
+            isSandboxKey,
+            currency,
+          });
 
-        if (!offerings.current) {
+        if (!targetOffering) {
           throw new OneKeyLocalError(
             'purchasePaywallPackage ERROR: No offerings',
           );
         }
 
-        const paywallPackage = offerings.current.availablePackages.find(
+        const paywallPackage = targetOffering.availablePackages.find(
           (p) => p.rcBillingProduct.normalPeriodDuration === subscriptionPeriod,
         );
 
@@ -207,7 +227,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
           await Purchases.getSharedInstance().purchase(purchaseParams);
 
         primePaymentUtils.trackPrimeSubscriptionSuccess({
-          paywallPackage,
+          ...primePaymentUtils.extractWebPaywallPrice(paywallPackage),
           subscriptionPeriod,
           featureName,
         });

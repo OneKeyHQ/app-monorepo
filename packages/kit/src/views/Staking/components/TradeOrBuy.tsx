@@ -50,7 +50,11 @@ function BasicTradeOrBuy({
         )}
       </SizableText>
       <XStack gap="$2">
-        <Button size="small" onPress={handleOnSwap}>
+        <Button
+          size="small"
+          onPress={handleOnSwap}
+          testID="staking-is-hidden-component-btn"
+        >
           {intl.formatMessage({ id: ETranslations.global_trade })}
         </Button>
         <ActionBuy

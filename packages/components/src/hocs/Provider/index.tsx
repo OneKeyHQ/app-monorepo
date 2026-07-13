@@ -8,6 +8,8 @@ import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { setGlassHeaderUIStyle } from '../../primitives/Button/GlassHeaderContext';
+
 import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { SettingConfigContext } from './hooks/useProviderValue';
@@ -44,6 +46,13 @@ const MemoizedTamaguiProvider = memo(TamaguiProvider);
 
 function FontProvider({ children }: IFontProviderProps) {
   const [loaded, error] = useLoadCustomFonts();
+  const shouldBypassFontGate =
+    platformEnv.isNativeMainThread && platformEnv.enableNativeBackgroundThread;
+
+  if (shouldBypassFontGate) {
+    return children;
+  }
+
   if (platformEnv.isNative || platformEnv.isRuntimeBrowser) {
     return loaded || error ? children : null;
   }
@@ -58,6 +67,17 @@ export function ConfigProvider({
   HyperlinkText,
   onLocaleChange,
 }: IUIProviderProps) {
+  // On iOS 26 the Liquid Glass nav bar's light/dark variant is driven by
+  // react-navigation's theme, which resolves a frame late on each navigation
+  // and makes the bar flash its light variant first. Mirror the resolved app
+  // theme — correct on the first frame here, since ConfigProvider is an
+  // ancestor of every header — so the patched native-stack paints the right
+  // variant immediately. iOS 26 only; elsewhere the global stays unset and
+  // native-stack keeps its default behavior.
+  if (platformEnv.isNativeIOS26Plus) {
+    setGlassHeaderUIStyle(theme);
+  }
+
   const providerValue = useMemo(
     () => ({
       theme,

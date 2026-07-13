@@ -80,6 +80,13 @@ export const limitOrderEstimationFeePercent = 1.05;
 
 export const defaultSupportUrl = 'https://help.onekey.so/articles/11536900';
 
+export const privateSendHelpCenterUrl =
+  'https://help.onekey.so/articles/15388307';
+
+export const privateSendProvider = 'SwapRocketXPrivateSend';
+
+export const privateSendFallbackOrderIdPrefix = 'private-send-';
+
 export const otherWalletFeeData = [
   {
     maxFee: 0.875,
@@ -143,8 +150,16 @@ export interface ISwapProviderManager {
   providerInfo: ISwapProviderInfo;
   enable: boolean;
   serviceDisable?: boolean;
+  isSupportSingleSwap?: boolean;
+  isSupportCrossChain?: boolean;
+  singleSwapEnable?: boolean;
+  crossChainEnable?: boolean;
+  supportSingleSwapNetworks?: ISwapNetwork[];
+  supportCrossChainNetworks?: ISwapNetwork[];
   supportNetworks?: ISwapNetwork[];
   disableNetworks?: ISwapNetwork[];
+  singleSwapDisableNetworks?: ISwapNetwork[];
+  crossChainDisableNetworks?: ISwapNetwork[];
   serviceDisableNetworks?: ISwapNetwork[];
 }
 
@@ -192,6 +207,8 @@ export const swapProBuyInputSegmentItems = [
 
 export const swapProPositionsListMinValue = 1;
 export const swapProPositionsListMaxCount = 20;
+// Stock positions use a lower floor so small (but non-dust) stock holdings show.
+export const swapProStockPositionsListMinValue = 0.1;
 
 export const swapDefaultSetTokens: Record<
   string,
@@ -423,6 +440,32 @@ export const swapDefaultSetTokens: Record<
       'isNative': false,
       'networkLogoURI':
         'https://uni.onekey-asset.com/static/chain/arbitrum.png',
+    },
+  },
+  'evm--4663': {
+    fromToken: {
+      'networkId': 'evm--4663',
+      'contractAddress': '',
+      'name': 'Ethereum',
+      'symbol': 'ETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni.onekey-asset.com/dashboard/logo/upload_1782996521358.0.27118193195795703.0.png',
+      'isNative': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/robinhood.png',
+    },
+    toToken: {
+      'networkId': 'evm--4663',
+      'contractAddress': '0x5fc5360d0400a0fd4f2af552add042d716f1d168',
+      'name': 'Global Dollar',
+      'symbol': 'USDG',
+      'decimals': 6,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--4663/tokens/address-0x5fc5360d0400a0fd4f2af552add042d716f1d168.png',
+      'isNative': false,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/robinhood.png',
     },
   },
   'evm--8453': {
@@ -775,8 +818,8 @@ export const swapDefaultSetTokens: Record<
     fromToken: {
       'networkId': 'ton--mainnet',
       'contractAddress': '',
-      'name': 'Toncoin',
-      'symbol': 'TON',
+      'name': 'Gram',
+      'symbol': 'GRAM',
       'decimals': 9,
       'logoURI':
         'https://uni.onekey-asset.com/server-service-onchain/ton--mainnet/tokens/native.png',
@@ -1781,6 +1824,29 @@ export const swapBridgeDefaultTokenExtraConfigs = {
   },
 };
 
+export function getSwapBridgeDefaultToToken(
+  token: Pick<ISwapToken, 'networkId' | 'contractAddress'>,
+) {
+  const matchedConfig = swapBridgeDefaultTokenConfigs.find((config) =>
+    config.fromTokens.some(
+      (fromToken) =>
+        fromToken.networkId === token.networkId &&
+        fromToken.contractAddress.toLowerCase() ===
+          token.contractAddress.toLowerCase(),
+    ),
+  );
+
+  if (matchedConfig) {
+    return matchedConfig.toTokenDefaultMatch;
+  }
+
+  return token.networkId ===
+    swapBridgeDefaultTokenExtraConfigs.mainNetDefaultToTokenConfig.networkId
+    ? swapBridgeDefaultTokenExtraConfigs.mainNetDefaultToTokenConfig
+        .defaultToToken
+    : swapBridgeDefaultTokenExtraConfigs.defaultToToken;
+}
+
 export const wrappedTokens = [
   {
     networkId: 'evm--1',
@@ -1811,11 +1877,6 @@ export const wrappedTokens = [
     networkId: 'evm--128',
     address: '0x5545153ccfca01fbd7dd11c0b23ba694d9509a6f',
     logo: 'https://uni.onekey-asset.com/static/logo/wht.png',
-  },
-  {
-    networkId: 'evm--66',
-    address: '0x8f8526dbfd6e38e3d8307702ca8469bae6c56c15',
-    logo: 'https://uni.onekey-asset.com/static/logo/wokt.png',
   },
   {
     networkId: 'evm--10',

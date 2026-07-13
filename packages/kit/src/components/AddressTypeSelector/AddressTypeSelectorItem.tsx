@@ -9,13 +9,13 @@ import {
   Tooltip,
   YStack,
 } from '@onekeyhq/components';
-import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -98,7 +98,6 @@ function AddressTypeSelectorItem(props: IProps) {
       <DashText
         size="$bodyMdMedium"
         $gtMd={{ size: '$bodySmMedium' }}
-        dashColor="$textDisabled"
         dashThickness={0.5}
         cursor="help"
       >

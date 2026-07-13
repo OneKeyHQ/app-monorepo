@@ -1,4 +1,7 @@
-type ISecureStorageBackend = 'macos-keychain' | 'linux-secret-service';
+type ISecureStorageBackend =
+  | 'macos-keychain'
+  | 'linux-secret-service'
+  | 'windows-credential-manager';
 
 export interface ISecureStorage {
   getBackendType(): ISecureStorageBackend;

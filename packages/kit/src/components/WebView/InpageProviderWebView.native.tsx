@@ -44,7 +44,10 @@ const injectedMetaJavaScript = `
 
 const defaultOnMessage = (_event: any) => {};
 
-const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
+type INativeInpageProviderWebViewProps = IInpageProviderWebViewProps &
+  Pick<WebViewProps, 'containerStyle' | 'style'>;
+
+const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
   (
     {
       src = '',
@@ -54,6 +57,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onShouldStartLoadWithRequest,
       nativeWebviewSource,
       nativeInjectedJavaScriptBeforeContentLoaded,
+      style,
+      containerStyle: webViewContainerStyle,
       isSpinnerLoading,
       onContentLoaded,
       onOpenWindow,
@@ -77,7 +82,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       allowingReadAccessToURL,
       onError,
       onHttpError,
-    }: IInpageProviderWebViewProps,
+      disableBridge,
+    }: INativeInpageProviderWebViewProps,
     ref: any,
   ) => {
     const [progress, setProgress] = useState(5);
@@ -117,7 +123,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
     );
 
     const nativeInjectedJsCode = useMemo(() => {
-      let code: string = useInjectedNativeCode ? injectedNativeCode : '';
+      let code: string =
+        useInjectedNativeCode && !disableBridge ? injectedNativeCode : '';
       if (nativeInjectedJavaScriptBeforeContentLoaded) {
         code += `
         ;(function() {
@@ -136,6 +143,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       }
       return code;
     }, [
+      disableBridge,
       isDesktopMode,
       nativeInjectedJavaScriptBeforeContentLoaded,
       useInjectedNativeCode,
@@ -202,8 +210,11 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           ref={setWebViewRef}
           src={src}
           onSrcChange={onSrcChange}
-          receiveHandler={receiveHandler}
+          receiveHandler={disableBridge ? undefined : receiveHandler}
+          disableBridge={disableBridge}
           injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
+          style={style}
+          containerStyle={webViewContainerStyle}
           onLoadProgress={({ nativeEvent }) => {
             const p = Math.ceil(nativeEvent.progress * 100);
             onProgress?.(p);

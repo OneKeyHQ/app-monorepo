@@ -11,6 +11,7 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { ReferFriendsTestIDs } from '@onekeyhq/kit/src/views/ReferFriends/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
@@ -93,12 +94,14 @@ export function CodeCell({
       <XStack gap="$2" ai="center">
         {codeElement}
         <IconButton
+          testID={ReferFriendsTestIDs.codeCellCopyBtn}
           variant="tertiary"
           size="small"
           icon="Copy3Outline"
           onPress={handleCopy}
         />
         <IconButton
+          testID={ReferFriendsTestIDs.codeCellEditBtn}
           variant="tertiary"
           size="small"
           icon="PencilOutline"

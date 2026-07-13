@@ -76,7 +76,13 @@ export function EmptyNoWalletView() {
   );
 }
 
-export function EmptyView() {
+export function EmptyView({ hasResolved }: { hasResolved: boolean }) {
   const [isLoading] = useAccountSelectorAccountsListIsLoadingAtom();
-  return isLoading ? <LoadingSkeletonView /> : <EmptyNoWalletView />;
+  // hasResolved=false covers the gap before the first fetch lands AND the
+  // brief window where storage is still hydrating, so we don't flash
+  // EmptyNoWalletView for users who actually have wallets.
+  if (isLoading || !hasResolved) {
+    return <LoadingSkeletonView />;
+  }
+  return <EmptyNoWalletView />;
 }

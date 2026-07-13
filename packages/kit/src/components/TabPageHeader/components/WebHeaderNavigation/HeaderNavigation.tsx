@@ -72,8 +72,7 @@ export function HeaderNavigation({
             }}
           >
             <SizableText
-              size="$bodyMd"
-              fontWeight="500"
+              size={isActive ? '$headingMd' : '$bodyLgMedium'}
               color={isActive ? '$text' : '$textSubdued'}
               userSelect="none"
             >

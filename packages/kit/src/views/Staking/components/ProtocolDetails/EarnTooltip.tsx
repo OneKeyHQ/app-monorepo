@@ -333,6 +333,7 @@ export function EarnTooltip({
       title={tooltipTitle}
       renderTrigger={
         <IconButton
+          testID="staking-icon-btn"
           iconColor="$iconSubdued"
           size="small"
           icon="InfoCircleOutline"

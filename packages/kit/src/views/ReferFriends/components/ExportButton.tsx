@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/referralCode/type';
 
 import { useExportInviteData } from '../hooks/useExportInviteData';
+import { ReferFriendsTestIDs } from '../testIDs';
 
 interface IExportButtonProps {
   subject?: EExportSubject;
@@ -69,6 +70,7 @@ export function ExportButton({
   if (gtMd) {
     return (
       <Button
+        testID={ReferFriendsTestIDs.exportBtn}
         size="small"
         icon="DownloadOutline"
         loading={isExporting}
@@ -81,6 +83,7 @@ export function ExportButton({
 
   return (
     <IconButton
+      testID={ReferFriendsTestIDs.exportBtn}
       icon="DownloadOutline"
       variant="tertiary"
       loading={isExporting}

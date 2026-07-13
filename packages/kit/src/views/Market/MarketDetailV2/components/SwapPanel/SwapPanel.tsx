@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
-  NumberSizeableText,
   SizableText,
   Spinner,
   Stack,
@@ -18,13 +17,14 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
-import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ESwapProJumpTokenDirection,
   useSwapProJumpTokenAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -56,7 +56,12 @@ function LgTradeButton({
   if (platformEnv.isWeb && noAccount) {
     return (
       <View p="$3">
-        <Button size="large" variant="primary" onPress={showAccountSelector}>
+        <Button
+          size="large"
+          variant="primary"
+          onPress={showAccountSelector}
+          testID="market-no-account-btn"
+        >
           {intl.formatMessage({ id: ETranslations.global_connect })}
         </Button>
       </View>
@@ -66,6 +71,7 @@ function LgTradeButton({
   return (
     <View p="$3">
       <Button
+        testID="market-no-account-btn"
         size="large"
         variant="primary"
         onPress={() => onShowSwapDialog?.(swapToken)}
@@ -90,7 +96,6 @@ export function SwapPanel({
   const intl = useIntl();
   const media = useMedia();
   const { bottom } = useSafeAreaInsets();
-  const currencyInfo = useCurrency();
   const navigation = useAppNavigation();
   const myPositionInfo = useMemo(() => {
     const positionInfo = portfolioData?.find((item) =>
@@ -106,7 +111,10 @@ export function SwapPanel({
     }
     const tokenPriceBN = new BigNumber(positionInfo?.tokenPrice || '0');
     const amountBN = new BigNumber(positionInfo?.amount || '0');
-    const valueBN = tokenPriceBN.multipliedBy(amountBN);
+    const totalPriceBN = new BigNumber(positionInfo?.totalPrice || NaN);
+    const valueBN = totalPriceBN.isFinite()
+      ? totalPriceBN
+      : tokenPriceBN.multipliedBy(amountBN);
     const isZero = amountBN.eq(0);
     const formattedValue = isZero ? '0.00' : valueBN.toFixed();
     const formattedAmount = isZero ? '0.00' : amountBN.toFixed();
@@ -124,6 +132,11 @@ export function SwapPanel({
     setSwapProJumpTokenAtom({
       token: swapToken,
       direction: ESwapProJumpTokenDirection.BUY,
+      marketPresetToken: {
+        networkId: swapToken.networkId,
+        contractAddress: swapToken.contractAddress,
+        isNative: swapToken.isNative,
+      },
     });
     navigation.pop();
     navigation.switchTab(ETabRoutes.Swap);
@@ -181,26 +194,40 @@ export function SwapPanel({
               })}
             </SizableText>
             {myPositionInfo.isZero ? (
-              <SizableText size="$bodySmMedium">
-                {currencyInfo.symbol}0.00
-              </SizableText>
-            ) : (
-              <NumberSizeableText
+              <Currency
                 size="$bodySmMedium"
                 formatter="value"
-                formatterOptions={{
-                  currency: currencyInfo.symbol,
-                }}
+                sourceCurrency={USD_CURRENCY_ID}
+              >
+                0.00
+              </Currency>
+            ) : (
+              <Currency
+                size="$bodySmMedium"
+                formatter="value"
+                sourceCurrency={USD_CURRENCY_ID}
               >
                 {myPositionInfo.formattedValue}
-              </NumberSizeableText>
+              </Currency>
             )}
           </XStack>
           {hasPnl ? (
             <XStack gap="$1" alignItems="center">
-              <SizableText size="$bodySmMedium" color={pnlColor}>
-                {`${pnlPrefix}$${unrealizedBN.abs().toFixed(2)}`}
-              </SizableText>
+              <XStack alignItems="center">
+                {pnlPrefix ? (
+                  <SizableText size="$bodySmMedium" color={pnlColor}>
+                    {pnlPrefix}
+                  </SizableText>
+                ) : null}
+                <Currency
+                  size="$bodySmMedium"
+                  color={pnlColor}
+                  formatter="value"
+                  sourceCurrency={USD_CURRENCY_ID}
+                >
+                  {unrealizedBN.abs().toFixed()}
+                </Currency>
+              </XStack>
               <SizableText size="$bodySm" color={pnlColor}>
                 {`(${pnl?.unrealizedPnlPercent ?? '0'}%)`}
               </SizableText>

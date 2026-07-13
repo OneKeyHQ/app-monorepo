@@ -25,6 +25,8 @@ import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboard
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { DeviceManagementTestIDs } from '../../testIDs';
+
 import type { ImageSourcePropType } from 'react-native';
 import type { OnProgressData, ReactVideoSource } from 'react-native-video';
 
@@ -222,6 +224,7 @@ function ButtonContainer() {
           variant="primary"
           onPress={onAddDevice}
           px="$4"
+          testID={DeviceManagementTestIDs.connectHardwareBtn}
         >
           {intl.formatMessage({
             id: ETranslations.global_connect_hardware_wallet,
@@ -237,6 +240,7 @@ function ButtonContainer() {
           iconAfter="ArrowTopRightOutline"
           onPress={handleBuyButtonPress}
           px="$4"
+          testID={DeviceManagementTestIDs.buyOneKeyBtn}
           $platform-web={{
             style: {
               backdropFilter: 'blur(16px)',
@@ -252,7 +256,12 @@ function ButtonContainer() {
 
   return (
     <YStack width="100%" gap="$4" py="$5" testID="blank-page-mobile-buttons">
-      <Button size="large" variant="primary" onPress={onAddDevice}>
+      <Button
+        size="large"
+        variant="primary"
+        onPress={onAddDevice}
+        testID={DeviceManagementTestIDs.connectHardwareBtn}
+      >
         {intl.formatMessage({
           id: ETranslations.global_connect_hardware_wallet,
         })}

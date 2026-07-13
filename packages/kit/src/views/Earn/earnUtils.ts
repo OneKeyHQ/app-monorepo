@@ -12,12 +12,20 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
+  ETabDiscoveryRoutes,
   ETabEarnRoutes,
   ETabRoutes,
+  type ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
+
+type IEarnHomeParams = NonNullable<ITabEarnParamList[ETabEarnRoutes.EarnHome]>;
+type IEarnHomeTab = NonNullable<IEarnHomeParams['tab']>;
+
+const DEFAULT_EARN_HOME_TAB: IEarnHomeTab = 'assets';
+const EARN_HOME_TABS = new Set<IEarnHomeTab>(['assets', 'portfolio', 'faqs']);
 
 const NetworkNameToIdMap: Record<string, string> = {
   ethereum: getNetworkIdsMap().eth,
@@ -82,6 +90,42 @@ function dispatchToTargetStack({
   rootNavigation.dispatch(action);
 }
 
+function isEarnHomeTab(tab: unknown): tab is IEarnHomeTab {
+  return typeof tab === 'string' && EARN_HOME_TABS.has(tab as IEarnHomeTab);
+}
+
+function persistNativeEarnHomeTab(tab: IEarnHomeTab) {
+  const rootNavigation = rootNavigationRef.current;
+  const discoveryHomeParams = {
+    defaultTab: ETranslations.global_earn,
+    earnTab: tab,
+  };
+  const targetStack = rootNavigation
+    ? findTargetStack(rootNavigation.getRootState?.(), ETabRoutes.Discovery)
+    : undefined;
+  const targetKey = targetStack?.targetKey;
+
+  if (rootNavigation && targetKey) {
+    dispatchToTargetStack({
+      action: StackActions.popTo(
+        ETabDiscoveryRoutes.TabDiscovery,
+        discoveryHomeParams,
+      ),
+      rootNavigation,
+      targetKey,
+    });
+    return;
+  }
+
+  rootNavigation?.navigate(ERootRoutes.Main, {
+    screen: ETabRoutes.Discovery,
+    params: {
+      screen: ETabDiscoveryRoutes.TabDiscovery,
+      params: discoveryHomeParams,
+    },
+  });
+}
+
 export const EarnNetworkUtils = {
   // convert network name to network id
   getNetworkIdByName(networkName: string): string | undefined {
@@ -98,6 +142,34 @@ export const EarnNetworkUtils = {
     return this.getNetworkNameById(networkId) || 'unknown';
   },
 };
+
+const liquidityUnitMultiplierMap: Record<string, number> = {
+  k: 10 ** 3,
+  m: 10 ** 6,
+  b: 10 ** 9,
+  t: 10 ** 12,
+};
+
+export function parseFormattedLiquidityValue(value?: string): number {
+  if (!value) {
+    return 0;
+  }
+
+  const match = value.replace(/,/g, '').match(/(-?\d+(?:\.\d+)?)([kmbt])?/i);
+  if (!match) {
+    return 0;
+  }
+
+  const parsedValue = Number(match[1]);
+  if (!Number.isFinite(parsedValue)) {
+    return 0;
+  }
+
+  const unit = match[2]?.toLowerCase();
+  const multiplier = unit ? (liquidityUnitMultiplierMap[unit] ?? 1) : 1;
+
+  return parsedValue * multiplier;
+}
 
 export async function safePushToEarnRoute(
   navigation: IAppNavigation,
@@ -128,7 +200,17 @@ export async function safePushToEarnRoute(
     // native, so navigating to it would fail. Switching to the Earn sub-tab
     // via the event above is sufficient to show the Earn home view.
     if (route === ETabEarnRoutes.EarnHome) {
+      const targetEarnTab = isEarnHomeTab(params?.tab) ? params.tab : undefined;
+      if (targetEarnTab) {
+        persistNativeEarnHomeTab(targetEarnTab);
+      }
       navigation.switchTab(targetTab);
+      if (targetEarnTab) {
+        await timerUtils.wait(150);
+        appEventBus.emit(EAppEventBusNames.SwitchEarnTab, {
+          tab: targetEarnTab,
+        });
+      }
       return;
     }
 
@@ -370,12 +452,13 @@ export const EarnNavigation = {
   async popToEarnHome(
     navigation: IAppNavigation,
     params?: {
-      tab?: 'assets' | 'portfolio' | 'faqs';
+      tab?: IEarnHomeTab;
     },
   ) {
+    const targetEarnTab = params?.tab ?? DEFAULT_EARN_HOME_TAB;
     const earnHomeParams = {
       mode: 'earn' as const,
-      tab: params?.tab ?? 'assets',
+      tab: targetEarnTab,
     };
 
     if (platformEnv.isNative) {
@@ -385,6 +468,7 @@ export const EarnNavigation = {
         tab: ETranslations.global_earn,
       });
       navigation.popToTop();
+      persistNativeEarnHomeTab(targetEarnTab);
       appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
       // Delay SwitchEarnTab to allow EarnMainTabs to mount and register
       // its listener after popToMainRoute triggers a re-render. Since we
@@ -392,7 +476,7 @@ export const EarnNavigation = {
       // synchronous touch event context, so timers will flush normally.
       await timerUtils.wait(150);
       appEventBus.emit(EAppEventBusNames.SwitchEarnTab, {
-        tab: params?.tab ?? 'assets',
+        tab: targetEarnTab,
       });
       return;
     }

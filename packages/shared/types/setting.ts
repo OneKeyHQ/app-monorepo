@@ -9,6 +9,7 @@ export type IClearCacheOnAppState = {
   browserHistory: boolean;
   customToken: boolean;
   customRpc: boolean;
+  customNetworkFee: boolean;
   serverNetworks: boolean;
   connectSites: boolean;
   signatureRecord: boolean;

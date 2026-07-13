@@ -27,7 +27,11 @@ export function PerpsEmptyData() {
           id: ETranslations.referral_referred_empty_desc,
         })}
       />
-      <Button variant="primary" onPress={handleCopyLink}>
+      <Button
+        variant="primary"
+        onPress={handleCopyLink}
+        testID="refer-friends-handle-copy-link-btn"
+      >
         {intl.formatMessage({ id: ETranslations.browser_copy_link })}
       </Button>
     </YStack>

@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { BigNumber } from 'bignumber.js';
 
 import {
-  usePerpsActivePositionAtom,
+  useActiveTradeInstrumentAtom,
   useTradingFormAtom,
   useTradingFormComputedAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -20,17 +20,19 @@ import {
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderPrice } from './useOrderPrice';
+import { usePerpsAccountScopedActivePositions } from './usePerpsAccountScopedActivePositions';
 
 export function useLiquidationPrice(
   overrideSide?: 'long' | 'short',
 ): BigNumber | null {
   const [formData] = useTradingFormAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-  const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
+  const perpsPositions = usePerpsAccountScopedActivePositions();
   const { coin, margin } = activeAsset;
 
   const effectiveSide = overrideSide || formData.side;
@@ -60,6 +62,9 @@ export function useLiquidationPrice(
   }, [perpsPositions, coin]);
 
   const liquidationPrice: BigNumber | null = useMemo(() => {
+    if (activeTradeInstrument.mode === 'spot') {
+      return null;
+    }
     if (!leverage || !activeAssetData?.leverage.type) return null;
 
     const isTriggerMode = formData.orderMode === 'trigger';
@@ -146,6 +151,7 @@ export function useLiquidationPrice(
     });
     return _liquidationPrice?.gt(0) ? _liquidationPrice : null;
   }, [
+    activeTradeInstrument.mode,
     activeAsset?.universe?.maxLeverage,
     activeAssetCtx?.ctx?.markPrice,
     activeAssetData?.leverage.type,

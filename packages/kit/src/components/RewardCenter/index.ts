@@ -1,13 +1,12 @@
 import type { IDialogShowProps, IKeyOfIcons } from '@onekeyhq/components';
 import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { showTronRewardCenter } from './TronRewardCenter';
 
 export type IRewardCenterConfig = {
-  title: string;
+  titleId: ETranslations;
   icon: IKeyOfIcons;
   handler: (
     props: IDialogShowProps & {
@@ -18,9 +17,7 @@ export type IRewardCenterConfig = {
 };
 
 const rewardCenterDefaultConfig: IRewardCenterConfig = {
-  title: appLocale.intl.formatMessage({
-    id: ETranslations.wallet_subsidy_redeem_title,
-  }),
+  titleId: ETranslations.wallet_subsidy_redeem_title,
   icon: 'GiftOutline',
   handler: () => {},
 };

@@ -2,6 +2,7 @@ import { BaseScope } from '../../base/baseScope';
 import { EScopeName } from '../../types';
 
 import { PrimeSubscriptionScene } from './scenes/subscription';
+import { PrimeTransferScene } from './scenes/transfer';
 import { PrimeUsageScene } from './scenes/usage';
 
 export class PrimeScope extends BaseScope {
@@ -10,4 +11,6 @@ export class PrimeScope extends BaseScope {
   subscription = this.createScene('subscription', PrimeSubscriptionScene);
 
   usage = this.createScene('usage', PrimeUsageScene);
+
+  transfer = this.createScene('transfer', PrimeTransferScene);
 }

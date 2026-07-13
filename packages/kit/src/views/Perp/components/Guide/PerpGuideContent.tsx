@@ -122,6 +122,7 @@ export function PerpGuideContent({ onClose }: { onClose?: () => void }) {
     <YStack flex={1}>
       <YStack px="$3" pt="$2" pb="$1">
         <SearchBar
+          testID="perp-url-input"
           placeholder={intl.formatMessage({
             id: ETranslations.perp_guide_search_placeholder,
           })}

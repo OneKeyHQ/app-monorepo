@@ -39,6 +39,7 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
+import { StakingTestIDs } from '../../testIDs';
 import { capitalizeString } from '../../utils/utils';
 
 import { AssetProtocolContent } from './AssetProtocolIntro';
@@ -101,6 +102,7 @@ function AssetProtocolIntroButton({
       // size="small"
       variant="tertiary"
       onPress={onPress}
+      testID={StakingTestIDs.protocolListInfoBtn}
     />
   ) : null;
 }
@@ -162,7 +164,7 @@ function AssetProtocolListContent({
         networkId: item.network.networkId,
         symbol,
         provider: item.provider.name,
-        vault: earnUtils.isVaultBasedProvider({
+        vault: earnUtils.shouldSendEarnProtocolVault({
           providerName: item.provider.name,
         })
           ? item.provider.vault
@@ -179,10 +181,15 @@ function AssetProtocolListContent({
 
   return (
     <ListView
+      testID={StakingTestIDs.protocolList}
       estimatedItemSize={60}
       data={items}
       renderItem={({ item }: { item: IStakeProtocolListItem }) => (
-        <ListItem userSelect="none" onPress={() => onPress?.({ item })}>
+        <ListItem
+          userSelect="none"
+          onPress={() => onPress?.({ item })}
+          testID={StakingTestIDs.protocolListItem}
+        >
           <Token
             size="lg"
             borderRadius="$2"
@@ -213,6 +220,7 @@ function AssetProtocolListContent({
           />
           <ListItem.Text
             align="right"
+            testID={StakingTestIDs.protocolListApr}
             primary={
               Number(item.provider.aprWithoutFee) > 0
                 ? `${BigNumber(item.provider.aprWithoutFee ?? 0).toFixed(2)}% ${

@@ -7,7 +7,7 @@ import type {
 
 import type { IEndpointEnv } from '../../config';
 
-export const DEFAULT_TRANSFER_PAIRING_TIMEOUT_MS = 120_000;
+export const DEFAULT_TRANSFER_PAIRING_TIMEOUT_MS = 300_000;
 
 type ITransferStateEvent =
   | 'pairing_started'

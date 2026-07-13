@@ -7,6 +7,10 @@ import { isEmpty } from 'lodash';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
@@ -17,6 +21,7 @@ import { useBorrowReserves } from '../hooks/useBorrowReserves';
 
 const BORROW_POLLING_INTERVAL = 1 * 60 * 1000; // 1 minute
 const BORROW_STALE_TTL = BORROW_POLLING_INTERVAL;
+const BORROW_DERIVE_TYPE_REFRESH_DELAY_MS = 300;
 
 export const BorrowDataGate = ({
   children,
@@ -60,6 +65,46 @@ export const BorrowDataGate = ({
     networkId: market?.networkId,
   });
 
+  useEffect(() => {
+    if (!market?.networkId) {
+      return undefined;
+    }
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refreshAccountAfterDeriveTypeChanged = () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(() => {
+        timer = undefined;
+        void refreshAccount({ alwaysSetState: true });
+      }, BORROW_DERIVE_TYPE_REFRESH_DELAY_MS);
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.GlobalDeriveTypeUpdate,
+      refreshAccountAfterDeriveTypeChanged,
+    );
+    appEventBus.on(
+      EAppEventBusNames.NetworkDeriveTypeChanged,
+      refreshAccountAfterDeriveTypeChanged,
+    );
+
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      appEventBus.off(
+        EAppEventBusNames.GlobalDeriveTypeUpdate,
+        refreshAccountAfterDeriveTypeChanged,
+      );
+      appEventBus.off(
+        EAppEventBusNames.NetworkDeriveTypeChanged,
+        refreshAccountAfterDeriveTypeChanged,
+      );
+    };
+  }, [market?.networkId, refreshAccount]);
+
   const { fetchReserves } = useBorrowReserves();
   const lastFetchKeyRef = useRef<string | null>(null);
   const prevFetchKeyRef = useRef<string | null>(null);
@@ -72,9 +117,11 @@ export const BorrowDataGate = ({
 
   const accountId = earnAccountData?.accountId ?? earnAccountData?.account?.id;
   const activeAccountId = activeAccount.account?.id;
+  const activeIndexedAccountId = activeAccount.indexedAccount?.id;
+  const hasAccountContext = Boolean(activeAccountId || activeIndexedAccountId);
   const shouldWaitForAccount =
     !activeAccount.ready ||
-    (activeAccountId !== undefined && earnAccountData === undefined);
+    (hasAccountContext && earnAccountData === undefined);
   const marketProvider = market?.provider;
   const marketNetworkId = market?.networkId;
   const marketAddress = market?.marketAddress;
@@ -85,6 +132,14 @@ export const BorrowDataGate = ({
         : null,
     [market, marketProvider, marketAddress, accountId],
   );
+
+  // Invalidate before usePromiseResult reruns for the new key; a later effect
+  // can let that rerun reuse the previous account's still-fresh TTL cache.
+  if (prevFetchKeyRef.current !== fetchKey) {
+    prevFetchKeyRef.current = fetchKey;
+    lastReservesUpdatedAtRef.current = null;
+    reservesResultRef.current = undefined;
+  }
 
   // Reset staleness on modal dismiss so revalidateOnFocus triggers a fresh fetch.
   // Must be declared BEFORE usePromiseResult so the effect fires first.
@@ -206,14 +261,6 @@ export const BorrowDataGate = ({
     }
     wasActiveRef.current = isViewActive;
   }, [isViewActive, refetchMarkets, refreshReserves]);
-
-  useEffect(() => {
-    if (prevFetchKeyRef.current !== fetchKey) {
-      prevFetchKeyRef.current = fetchKey;
-      lastReservesUpdatedAtRef.current = null;
-      reservesResultRef.current = undefined;
-    }
-  }, [fetchKey]);
 
   useEffect(() => {
     setMarket(market ?? null);

@@ -10,20 +10,22 @@ import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/Rename
 import { MAX_LENGTH_HW_LABEL_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 
+import type { IntlShape } from 'react-intl';
+
 function DeviceLabelDialogContent(props: {
   wallet: IDBWallet | undefined;
   deviceLabel: string;
+  asciiOnly?: boolean;
   onSubmit: (name: string) => Promise<void>;
 }) {
   const intl = useIntl();
   const [isLoading, setIsLoading] = useState(false);
-  const { wallet, deviceLabel, onSubmit } = props;
+  const { wallet, deviceLabel, asciiOnly, onSubmit } = props;
 
   const maxLength = MAX_LENGTH_HW_LABEL_NAME;
   return (
@@ -57,10 +59,19 @@ function DeviceLabelDialogContent(props: {
                   id: ETranslations.global_hardware_label_input_error,
                 });
               }
+
+              // Some devices (e.g. Trezor) can only store printable ASCII
+              // labels, so reject anything outside ASCII 32-126 (CJK, control
+              // chars, etc.) before writing it to the device.
+              if (asciiOnly && /[^\x20-\x7E]/.test(value)) {
+                return intl.formatMessage({
+                  id: ETranslations.global_hardware_label_input_error,
+                });
+              }
             },
             required: {
               value: true,
-              message: appLocale.intl.formatMessage({
+              message: intl.formatMessage({
                 id: ETranslations.form_rename_error_empty,
               }),
             },
@@ -97,7 +108,7 @@ function DeviceLabelDialogContent(props: {
             // fix toast dropped frames
             await close();
             Toast.success({
-              title: appLocale.intl.formatMessage({
+              title: intl.formatMessage({
                 id: ETranslations.feedback_change_saved,
               }),
             });
@@ -113,8 +124,12 @@ function DeviceLabelDialogContent(props: {
 export const showLabelSetDialog = async (
   {
     wallet,
+    intl,
+    asciiOnly,
   }: {
     wallet: IDBWallet | undefined;
+    intl: IntlShape;
+    asciiOnly?: boolean;
   },
   {
     onSubmit,
@@ -133,11 +148,12 @@ export const showLabelSetDialog = async (
     );
 
     const dialog = Dialog.show({
-      title: appLocale.intl.formatMessage({ id: ETranslations.global_rename }),
+      title: intl.formatMessage({ id: ETranslations.global_rename }),
       renderContent: (
         <DeviceLabelDialogContent
           wallet={wallet}
           deviceLabel={deviceLabel}
+          asciiOnly={asciiOnly}
           onSubmit={onSubmit}
         />
       ),
@@ -148,7 +164,7 @@ export const showLabelSetDialog = async (
     return dialog;
   } catch (error) {
     Toast.error({
-      title: appLocale.intl.formatMessage({
+      title: intl.formatMessage({
         id: ETranslations.global_connet_error_try_again,
       }),
     });

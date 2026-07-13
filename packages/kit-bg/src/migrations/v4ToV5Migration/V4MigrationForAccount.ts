@@ -18,6 +18,7 @@ import {
   type ICoreCredentialsInfo,
 } from '@onekeyhq/core/src/types';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import { v4CoinTypeToNetworkId } from '@onekeyhq/shared/src/consts/v4CoinTypeToNetworkId';
 import {
   COINTYPE_ADA,
   COINTYPE_BTC,
@@ -45,7 +46,6 @@ import v5localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
 import { vaultFactory } from '../../vaults/factory';
 
-import { v4CoinTypeToNetworkId } from './v4CoinTypeToNetworkId';
 import v4dbHubs from './v4dbHubs';
 import { EV4LocalDBStoreNames } from './v4local/v4localDBStoreNames';
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';

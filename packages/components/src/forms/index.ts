@@ -1,4 +1,5 @@
 export * from './Checkbox';
+export * from './ColorPicker';
 export * from './Form';
 export * from './Form/formInstances';
 export * from './Input';

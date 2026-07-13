@@ -2,7 +2,6 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
-import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 
 import { EOnChainHistoryTxStatus } from '../../types/history';
@@ -13,6 +12,7 @@ import { TX_RISKY_LEVEL_SPAM } from '../walletConnect/constant';
 
 import { formatDate } from './dateUtils';
 
+import type { ICurrencyItem } from '../../types/currency';
 import type {
   IAccountHistoryTx,
   IHistoryListSectionGroup,
@@ -202,6 +202,35 @@ export function sortHistoryTxsByTime({ txs }: { txs: IAccountHistoryTx[] }) {
   );
 }
 
+export function getHistoryTxDisplayStatus(item?: IAccountHistoryTx) {
+  return item?.displayStatus ?? item?.decodedTx.status;
+}
+
+// Pagination cursor advancement check shared by the load-more hook and the
+// merge-derive aggregator. Without this guard a misbehaving backend that
+// returns the same (or non-decreasing) cursor can wedge the client into an
+// infinite onEndReached → loadMore loop.
+//
+// Indexer chains feed `next` back as the next request's `maxTimestampMs`, so
+// the cursor is a millisecond timestamp and "forward" means strictly
+// decreasing. Non-indexer chains treat `next` as an opaque token (some
+// backends emit monotonically increasing offsets), so for them any non-empty
+// cursor that differs from the previous one counts as progress.
+export function isHistoryCursorAdvanced(
+  previousCursor: string | undefined,
+  nextCursor: string | undefined,
+  options?: { indexerTimestampCursor?: boolean },
+): boolean {
+  if (!nextCursor) return false;
+  if (!previousCursor) return true;
+  if (nextCursor === previousCursor) return false;
+  if (!options?.indexerTimestampCursor) return true;
+  const a = Number(previousCursor);
+  const b = Number(nextCursor);
+  if (Number.isFinite(a) && Number.isFinite(b)) return b < a;
+  return true;
+}
+
 export function convertToSectionGroups(params: {
   formatDate: (date: number) => string;
   items: IAccountHistoryTx[];
@@ -214,7 +243,7 @@ export function convertToSectionGroups(params: {
   const dateGroups: IHistoryListSectionGroup[] = [];
   let currentDateGroup: IHistoryListSectionGroup | undefined;
   items.forEach((item) => {
-    if (item.decodedTx.status === EDecodedTxStatus.Pending) {
+    if (getHistoryTxDisplayStatus(item) === EDecodedTxStatus.Pending) {
       pendingGroup?.data.push(item);
     } else {
       const dateKey = formatDateFn(

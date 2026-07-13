@@ -16,10 +16,10 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import {
-  useAccountSelectorActions,
   useAccountSelectorContextDataAtom,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { showWalletAvatarEditDialog } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletAvatarEdit';
 import { WalletEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletEdit/WalletEditButton';
 import { WalletRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRename';
@@ -28,6 +28,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import { AccountManagerTestIDs } from '../testIDs';
 
 import type { IWalletDetailsProps } from '..';
 
@@ -75,7 +77,7 @@ export function WalletDetailsHeader({
 
   return (
     <YStack
-      testID="account-selector-header"
+      testID={AccountManagerTestIDs.accountSelectorHeader}
       py="$1"
       {...(rest as IYStackProps)}
     >
@@ -153,6 +155,7 @@ export function WalletDetailsHeader({
             }
             renderSelectorTrigger={
               <IconButton
+                testID="account-manager-icon-btn"
                 onPress={() => {}}
                 icon="BranchesOutline"
                 variant="tertiary"

@@ -11,7 +11,7 @@ import {
   Toast,
   rootNavigationRef,
 } from '@onekeyhq/components';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/InAppNotification';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -37,11 +37,11 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useDebouncedCallback } from '../../../hooks/useDebounce';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { handleSwapNavigation } from '../../../views/Swap/hooks/useSwapNavigation';
 
@@ -202,6 +202,7 @@ const InAppNotification = () => {
   const approvingSuccessAction = useMemo(() => {
     return (
       <Button
+        testID="provider-approving-success-action-btn"
         variant="primary"
         size="small"
         onPress={approvingSuccessActionConfirm}
@@ -465,6 +466,7 @@ const InAppNotification = () => {
           if (isEarnTransaction || isBorrowTransaction) {
             earnAction = (
               <Button
+                testID="provider-is-borrow-transaction-btn"
                 variant="primary"
                 size="small"
                 onPress={async () => {

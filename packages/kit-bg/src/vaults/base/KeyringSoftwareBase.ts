@@ -1,9 +1,6 @@
 import { isNil } from 'lodash';
 
-import {
-  decryptImportedCredential,
-  revealableSeedFromMnemonic,
-} from '@onekeyhq/core/src/secret';
+import { decryptImportedCredential } from '@onekeyhq/core/src/secret';
 import type {
   ICoreCredentialsInfo,
   ICoreHdCredentialEncryptHex,
@@ -11,6 +8,7 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { getPbkdf2KdfParamsForNonDbTx } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   OneKeyInternalError,
   OneKeyLocalError,
@@ -55,27 +53,17 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
     // hd
     if (this.isKeyringHd()) {
-      const isKeyless = false;
-      if (isKeyless) {
-        const { mnemonic } =
-          await this.backgroundApi.serviceKeylessWallet.revealKeylessWalletMnemonic(
-            {
-              walletId: checkIsDefined(this.walletId),
-              password,
-            },
-          );
-        hd = await revealableSeedFromMnemonic(mnemonic, password);
-      } else {
-        const credential = await localDb.getCredential(
-          checkIsDefined(this.walletId),
-        );
-        hd = credential.credential;
-      }
+      const credential = await localDb.getCredentialInner({
+        credentialId: checkIsDefined(this.walletId),
+      });
+      hd = credential.credential;
     }
 
     // imported
     if (this.isKeyringImported()) {
-      const credential = await localDb.getCredential(this.accountId);
+      const credential = await localDb.getCredentialInner({
+        credentialId: this.accountId,
+      });
       imported = credential.credential;
     }
 
@@ -215,11 +203,22 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (!this.coreApi) {
       throw new OneKeyLocalError('coreApi is not defined');
     }
-    const { name, importedCredential, password, networks, createAtNetwork } =
-      params;
+    const {
+      name,
+      importedCredential,
+      password,
+      networks,
+      createAtNetwork,
+      kdfBackend,
+      enablePbkdf2Cache,
+      debugCryptoProbeId,
+    } = params;
     const { privateKey } = await decryptImportedCredential({
       credential: importedCredential,
       password,
+      kdfBackend,
+      enablePbkdf2Cache,
+      debugCryptoProbeId,
     });
     const settings = await this.getVaultSettings();
     const { onlyAvailableOnCertainNetworks } = options;
@@ -284,11 +283,22 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (!this.coreApi) {
       throw new OneKeyLocalError('coreApi is not defined');
     }
-    const { name, importedCredential, password, createAtNetwork, deriveInfo } =
-      params;
+    const {
+      name,
+      importedCredential,
+      password,
+      createAtNetwork,
+      deriveInfo,
+      kdfBackend,
+      enablePbkdf2Cache,
+      debugCryptoProbeId,
+    } = params;
     const { privateKey } = await decryptImportedCredential({
       credential: importedCredential,
       password,
+      kdfBackend,
+      enablePbkdf2Cache,
+      debugCryptoProbeId,
     });
 
     const addressEncoding = deriveInfo?.addressEncoding;
@@ -347,6 +357,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
           throw new OneKeyLocalError('coreApi is not defined');
         }
         const credentials = await this.baseGetCredentialsInfo({ password });
+        const kdfParams = getPbkdf2KdfParamsForNonDbTx();
         const { addresses: addressInfos } =
           await this.coreApi.getAddressesFromHd({
             networkInfo,
@@ -355,6 +366,8 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
             password,
             indexes: usedIndexes,
             addressEncoding,
+            hdCredentialCacheScopeId: params.hdCredentialCacheScopeId,
+            ...kdfParams,
           });
         return addressInfos;
       },
@@ -387,6 +400,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
         defaultLogger.account.accountCreatePerf.getAddressesFromHd();
 
+        const kdfParams = getPbkdf2KdfParamsForNonDbTx();
         const { addresses: addressesInfo } =
           await this.coreApi.getAddressesFromHd({
             networkInfo: await this.getCoreApiNetworkInfo(),
@@ -395,6 +409,8 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
             password,
             indexes: usedIndexes,
             addressEncoding,
+            hdCredentialCacheScopeId: params.hdCredentialCacheScopeId,
+            ...kdfParams,
           });
 
         if (addressesInfo.length !== usedIndexes.length) {

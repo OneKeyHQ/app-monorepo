@@ -1,3 +1,6 @@
+import { formatOk as formatCliOk } from './format';
+import { redactSensitiveText } from './redact';
+
 import type { IErrorDetail } from '../errors';
 import type {
   IErrorResponse,
@@ -7,28 +10,17 @@ import type {
 
 export function formatSuccess<T>(
   data: T,
-  metadata?: Partial<IOutputMetadata>,
+  _metadata?: Partial<IOutputMetadata>,
 ): ISuccessResponse<T> {
-  return {
-    status: 'success',
-    api_version: '1',
-    data,
-    metadata: {
-      timestamp: new Date().toISOString(),
-      ...metadata,
-    },
-  };
+  return JSON.parse(formatCliOk(data, 'json')) as ISuccessResponse<T>;
 }
 
 export function formatError(error: IErrorDetail): IErrorResponse {
   return {
-    status: 'error',
-    api_version: '1',
+    ok: false,
     error: {
       code: error.code,
-      message: error.message,
-      suggestion: error.suggestion,
-      ...(error.details ? { details: error.details } : {}),
+      message: redactSensitiveText(error.message),
     },
   };
 }

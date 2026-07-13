@@ -14,7 +14,6 @@ export type IPrimeUserInfo = {
   isEnableSandboxPay: boolean | undefined;
   isPrimeDeviceLimitExceeded: boolean | undefined;
   email: string | undefined; // update by local supabase sdk
-  keylessWalletId: string | undefined; // packSetId
   displayEmail: string | undefined; // update by server api
   nickname: string | undefined; // update by server api
   avatar: string | undefined; // update by server api
@@ -44,7 +43,6 @@ export type IPrimeServerUserInfo = {
   isPrimeDeviceLimitExceeded: boolean | undefined;
   primeExpiredAt: number;
   level: 'PRIME' | 'NORMAL';
-  keylessWalletId: string | undefined; // packSetId
   salt: string;
   pwdHash: string;
   userId: string;
@@ -57,6 +55,10 @@ export type IPrimeServerUserInfo = {
   // isLogin
 
   inviteCode: string;
+
+  // Whether the user has enabled KYT (receive risk monitoring) on the server.
+  // Used as the source of truth for the KYT switch and the intro dialog gate.
+  kytEnabled?: boolean;
 };
 
 export enum ESecurityPasswordType {

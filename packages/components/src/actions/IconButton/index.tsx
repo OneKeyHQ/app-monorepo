@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import type { TooltipProps } from '@onekeyhq/components/src/shared/tamagui';
+import type { TooltipProps } from '@onekeyhq/components/src/shared/tamaguiOverlay';
 
 import {
   ButtonFrame,
@@ -9,9 +9,13 @@ import {
   Stack,
   getSharedButtonStyles,
 } from '../../primitives';
+import {
+  GLASS_HEADER_BAREIFY_RESET,
+  useInGlassHeader,
+} from '../../primitives/Button/GlassHeaderContext';
 import { useSharedPress } from '../../primitives/Button/useEvent';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
-import { Tooltip } from '../Tooltip';
+import { LazyTooltip } from '../LazyTooltip';
 
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
 import type { ITooltipProps } from '../Tooltip';
@@ -24,6 +28,7 @@ export interface IIconButtonProps extends Omit<
   icon: IKeyOfIcons;
   iconSize?: IIconProps['size'];
   iconProps?: IIconProps;
+  allowPressWhenDisabled?: boolean;
   title?: ITooltipProps['renderContent'];
   // Allow triggering via the Enter or Space key.
   hotKey?: boolean;
@@ -57,6 +62,7 @@ export function IconButton(props: IIconButtonProps) {
     title,
     icon,
     iconProps,
+    allowPressWhenDisabled = false,
     size,
     variant = 'secondary',
     hotKey = false,
@@ -65,15 +71,20 @@ export function IconButton(props: IIconButtonProps) {
     ...rest
   } = props;
 
+  const visualDisabled = !!disabled;
+  const effectiveDisabled = visualDisabled && !allowPressWhenDisabled;
   const { p, negativeMargin } = getSizeStyles(size);
 
   const { sharedFrameStyles, iconColor } = getSharedButtonStyles({
-    disabled,
+    disabled: visualDisabled,
     loading,
     variant,
   });
 
   const { onPress, onLongPress } = useSharedPress(rest);
+
+  const inGlassHeader = useInGlassHeader();
+  const resolvedIconColor = iconProps?.color ?? iconColor;
 
   const onKeyDown = useCallback((event: GestureResponderEvent) => {
     event.preventDefault();
@@ -84,8 +95,8 @@ export function IconButton(props: IIconButtonProps) {
       <ButtonFrame
         p={p}
         borderRadius="$full"
-        disabled={!!disabled || !!loading}
-        aria-disabled={!!disabled || !!loading}
+        disabled={effectiveDisabled || !!loading}
+        aria-disabled={effectiveDisabled || !!loading}
         // @ts-expect-error
         onKeyDown={hotKey ? undefined : onKeyDown}
         hitSlop={size === 'small' ? NATIVE_HIT_SLOP : undefined}
@@ -94,6 +105,11 @@ export function IconButton(props: IIconButtonProps) {
         })}
         {...sharedFrameStyles}
         {...rest}
+        // Inside the iOS 26 glass capsule, drop our self-drawn background/press
+        // and the tertiary negative margin so we don't double up on the system
+        // glass. Only ever true for buttons injected into the native glass bar
+        // (see GlassHeaderContext / GLASS_HEADER_BAREIFY_RESET).
+        {...(inGlassHeader && GLASS_HEADER_BAREIFY_RESET)}
         onPress={onPress}
         onLongPress={onLongPress}
       >
@@ -103,31 +119,45 @@ export function IconButton(props: IIconButtonProps) {
               m: '$0.5',
             })}
           >
-            <Spinner color={iconColor} size="small" />
+            <Spinner color={inGlassHeader ? '$text' : iconColor} size="small" />
           </Stack>
         ) : (
           <Icon
-            color={iconColor}
             name={icon}
             size={iconSize || (size === 'small' ? '$5' : '$6')}
             {...iconProps}
+            // In a glass header the neutral default icon colors ($icon /
+            // $iconSubdued) look washed out on the capsule, so raise them to
+            // high-contrast $text. Placed after {...iconProps} so it wins over a
+            // caller-set default (e.g. the address-security shield's $iconSubdued,
+            // or the Trade header actions which pass $icon). Semantic colors set
+            // by the caller (success/critical/…) are preserved.
+            color={
+              inGlassHeader &&
+              (resolvedIconColor === '$iconSubdued' ||
+                resolvedIconColor === '$icon')
+                ? '$text'
+                : resolvedIconColor
+            }
           />
         )}
       </ButtonFrame>
     ),
     [
-      disabled,
+      effectiveDisabled,
       hotKey,
       icon,
       iconColor,
       iconProps,
       iconSize,
+      inGlassHeader,
       loading,
       negativeMargin,
       onKeyDown,
       onLongPress,
       onPress,
       p,
+      resolvedIconColor,
       rest,
       sharedFrameStyles,
       size,
@@ -137,7 +167,7 @@ export function IconButton(props: IIconButtonProps) {
 
   if (title) {
     return (
-      <Tooltip
+      <LazyTooltip
         renderTrigger={iconButtonElement}
         renderContent={title}
         placement={titlePlacement}

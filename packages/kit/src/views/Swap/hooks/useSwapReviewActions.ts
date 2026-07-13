@@ -104,6 +104,9 @@ function useReviewStepStateActions() {
         preSwapData: {
           ...prev.preSwapData,
           stepBeforeActionsLoading: loading,
+          stepBeforeActionsError: loading
+            ? undefined
+            : prev.preSwapData.stepBeforeActionsError,
         },
       }));
     },
@@ -133,6 +136,7 @@ export function useSwapReviewActions({
   const adapterRef = useRef(adapter);
   const intlRef = useRef(intl);
   const networkFeeLevelRef = useRef(swapStepNetFeeLevel.networkFeeLevel);
+  const customPriorityFeeRef = useRef(swapStepNetFeeLevel.customPriorityFee);
   const swapStepsStateRef = useRef(swapStepsState);
   const { replaceReviewState, setBeforeActionsLoading, updateStep } =
     useReviewStepStateActions();
@@ -140,6 +144,7 @@ export function useSwapReviewActions({
   adapterRef.current = adapter;
   intlRef.current = intl;
   networkFeeLevelRef.current = swapStepNetFeeLevel.networkFeeLevel;
+  customPriorityFeeRef.current = swapStepNetFeeLevel.customPriorityFee;
   swapStepsStateRef.current = swapStepsState;
 
   const clearPreSwapGasInfos = useCallback(
@@ -192,6 +197,7 @@ export function useSwapReviewActions({
           isWrap: data?.isWrapped,
           quoteResult: data,
           networkFeeLevel: swapStepNetFeeLevel.networkFeeLevel,
+          customPriorityFee: swapStepNetFeeLevel.customPriorityFee,
         });
         replaceReviewState(
           {
@@ -199,6 +205,7 @@ export function useSwapReviewActions({
             preSwapData: {
               ...reviewState.preSwapData,
               stepBeforeActionsLoading: false,
+              stepBeforeActionsError: undefined,
             },
           },
           {
@@ -211,6 +218,7 @@ export function useSwapReviewActions({
           preSwapData: {
             ...prev.preSwapData,
             stepBeforeActionsLoading: false,
+            stepBeforeActionsError: true,
             netWorkFee: undefined,
           },
         }));
@@ -222,6 +230,7 @@ export function useSwapReviewActions({
       setBeforeActionsLoading,
       setSwapSteps,
       swapStepNetFeeLevel.networkFeeLevel,
+      swapStepNetFeeLevel.customPriorityFee,
     ],
   );
 
@@ -245,6 +254,7 @@ export function useSwapReviewActions({
       const currentAdapter = adapterRef.current;
       const currentIntl = intlRef.current;
       const networkFeeLevel = networkFeeLevelRef.current;
+      const customPriorityFee = customPriorityFeeRef.current;
 
       for (let i = 0; i < steps.length; i += 1) {
         const step = steps[i];
@@ -272,6 +282,7 @@ export function useSwapReviewActions({
                 gasInfos: preSwapData.netWorkFee?.gasInfos,
                 isResetApprove: step.isResetApprove,
                 networkFeeLevel,
+                customPriorityFee,
                 quoteResult,
                 onBroadcast: ({ txHash }) => {
                   updateStep(i, {
@@ -293,6 +304,7 @@ export function useSwapReviewActions({
               await currentAdapter.sendWrappedTx({
                 gasInfos: preSwapData.netWorkFee?.gasInfos,
                 networkFeeLevel,
+                customPriorityFee,
                 onBroadcast: ({ txHash, orderId }) => {
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,
@@ -311,6 +323,7 @@ export function useSwapReviewActions({
               await currentAdapter.sendSwapTx({
                 gasInfos: preSwapData.netWorkFee?.gasInfos,
                 networkFeeLevel,
+                customPriorityFee,
                 onBroadcast: ({ txHash, orderId }) => {
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,
@@ -328,6 +341,7 @@ export function useSwapReviewActions({
             if (step.type === ESwapStepType.SIGN_MESSAGE) {
               await currentAdapter.sendSignMessage({
                 networkFeeLevel,
+                customPriorityFee,
                 onBroadcast: ({ txHash, orderId }) => {
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,
@@ -352,6 +366,7 @@ export function useSwapReviewActions({
                 approvesInfo: currentAdapter.buildApproveInfos(quoteResult),
                 gasInfos: preSwapData.netWorkFee?.gasInfos,
                 networkFeeLevel,
+                customPriorityFee,
                 onBroadcast: ({ txHash, orderId }) => {
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,

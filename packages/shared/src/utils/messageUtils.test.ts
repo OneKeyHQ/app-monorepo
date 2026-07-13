@@ -22,155 +22,167 @@ const eip712SolidityTypes = getEip712SolidityTypes();
 
 describe('messageUtils', () => {
   describe('validateSignMessageData', () => {
-    test('should throw if no from address', () => {
+    test('should throw if no from address', async () => {
       const message = '0x879a05';
-      expect(() =>
+      await expect(
         messageUtils.validateSignMessageData({
           type: EMessageTypesEth.PERSONAL_SIGN,
           message,
           payload: [message],
         } as any),
-      ).toThrow(`Invalid "from" address: undefined must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: undefined must be a valid string.`,
+      );
     });
 
-    test('should throw if invalid from address', () => {
+    test('should throw if invalid from address', async () => {
       const from = '01';
       const message = '0x879a05';
-      expect(() =>
+      await expect(
         messageUtils.validateSignMessageData({
           type: EMessageTypesEth.PERSONAL_SIGN,
           message,
           payload: [message, from],
         } as any),
-      ).toThrow(`Invalid "from" address: ${from} must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: ${from} must be a valid string.`,
+      );
     });
 
-    test('should throw if invalid type from address', () => {
+    test('should throw if invalid type from address', async () => {
       const from = 123;
       const message = '0x879a05';
-      expect(() =>
+      await expect(
         messageUtils.validateSignMessageData({
           type: EMessageTypesEth.PERSONAL_SIGN,
           message,
           payload: [message, from],
         } as any),
-      ).toThrow(`Invalid "from" address: ${from} must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: ${from} must be a valid string.`,
+      );
     });
 
-    test('should throw if no message', () => {
+    test('should throw if no message', async () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
-      expect(() =>
+      await expect(
         messageUtils.validateSignMessageData({
           type: EMessageTypesEth.PERSONAL_SIGN,
           payload: [undefined, from],
         } as any),
-      ).toThrow(`Invalid message: undefined must be a valid string.`);
+      ).rejects.toThrow(`Invalid message: undefined must be a valid string.`);
     });
 
-    test('should throw if invalid typed message', () => {
+    test('should throw if invalid typed message', async () => {
       const message = 123;
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
-      expect(() =>
+      await expect(
         messageUtils.validateSignMessageData({
           type: EMessageTypesEth.PERSONAL_SIGN,
           message,
           payload: [message, from],
         } as any),
-      ).toThrow('Invalid message: 123 must be a valid string.');
+      ).rejects.toThrow('Invalid message: 123 must be a valid string.');
     });
 
-    test('should not throw if message is correct ', () => {
+    test('should not throw if message is correct ', async () => {
       const message = 'test message';
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
-      expect(() =>
+      await expect(
         messageUtils.validateSignMessageData({
           type: EMessageTypesEth.PERSONAL_SIGN,
           message,
           payload: [message, from],
         } as any),
-      ).not.toThrow();
+      ).resolves.toBeUndefined();
     });
   });
 
   describe('validateTypedMessageDataV1', () => {
-    test('should throw if no from address legacy', () => {
+    test('should throw if no from address legacy', async () => {
       const message = [{}];
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV1({
           type: EMessageTypesEth.TYPED_DATA_V1,
           message,
         } as any),
-      ).toThrow(`Invalid "from" address: undefined must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: undefined must be a valid string.`,
+      );
     });
 
-    test('should throw if invalid from address', () => {
+    test('should throw if invalid from address', async () => {
       const from = '3244e191f1b4903970224322180f1';
       const message = [{}];
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV1({
           type: EMessageTypesEth.TYPED_DATA_V1,
           message: [],
           payload: [message, from],
         } as any),
-      ).toThrow(`Invalid "from" address: ${from} must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: ${from} must be a valid string.`,
+      );
     });
 
-    test('should throw if invalid type from address', () => {
+    test('should throw if invalid type from address', async () => {
       const from = 123;
       const message = [{}];
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV1({
           type: EMessageTypesEth.TYPED_DATA_V1,
           message: [],
           payload: [message, from],
         } as any),
-      ).toThrow(`Invalid "from" address: ${from} must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: ${from} must be a valid string.`,
+      );
     });
 
-    test('should throw if incorrect message', () => {
+    test('should throw if incorrect message', async () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       const message = '0x879a05';
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV1({
           type: EMessageTypesEth.TYPED_DATA_V1,
           message,
           payload: [message, from],
         } as any),
-      ).toThrow(`Invalid message: ${message} must be a valid array.`);
+      ).rejects.toThrow(`Invalid message: ${message} must be a valid array.`);
     });
 
-    test('should throw if no message', () => {
+    test('should throw if no message', async () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV1({
           type: EMessageTypesEth.TYPED_DATA_V1,
           payload: [undefined, from],
         } as any),
-      ).toThrow('Invalid message: undefined must be a valid array.');
+      ).rejects.toThrow('Invalid message: undefined must be a valid array.');
     });
 
-    test('should throw if invalid type message', () => {
+    test('should throw if invalid type message', async () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       const message = [{ name: 'test', type: 'string', value: 123 }];
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV1({
           type: EMessageTypesEth.TYPED_DATA_V1,
           message,
           payload: [message, from],
         } as any),
-      ).toThrow('Expected EIP712 typed data.');
+      ).rejects.toThrow('Expected EIP712 typed data.');
     });
 
-    test('should not throw if message is correct', () => {
+    test('should not throw if message is correct', async () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       const message = [{ name: 'test', type: 'string', value: 'test' }];
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV1({
           type: EMessageTypesEth.TYPED_DATA_V1,
           message,
           payload: [message, from],
         } as any),
-      ).not.toThrow();
+      ).resolves.toBeUndefined();
     });
   });
 
@@ -178,8 +190,8 @@ describe('messageUtils', () => {
     const dataTyped =
       '{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"Person":[{"name":"name","type":"string"},{"name":"wallet","type":"address"}],"Mail":[{"name":"from","type":"Person"},{"name":"to","type":"Person"},{"name":"contents","type":"string"}]},"primaryType":"Mail","domain":{"name":"Ether Mail","version":"1","chainId":1,"verifyingContract":"0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"},"message":{"from":{"name":"Cow","wallet":"0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"},"to":{"name":"Bob","wallet":"0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"},"contents":"Hello, Bob!"}}';
     const mockedCurrentChainId = '1';
-    test('should throw if no from address', () => {
-      expect(() =>
+    test('should throw if no from address', async () => {
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -187,13 +199,15 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).toThrow(`Invalid "from" address: undefined must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: undefined must be a valid string.`,
+      );
     });
 
-    test('should throw if invalid from address', () => {
+    test('should throw if invalid from address', async () => {
       const from = '3244e191f1b4903970224322180f1fb';
       const message = '0x879a05';
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -202,13 +216,15 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).toThrow(`Invalid "from" address: ${from} must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: ${from} must be a valid string.`,
+      );
     });
 
-    test('should throw if invalid type from address', () => {
+    test('should throw if invalid type from address', async () => {
       const from = 123;
       const message = '0x879a05';
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -217,13 +233,15 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).toThrow(`Invalid "from" address: ${from} must be a valid string.`);
+      ).rejects.toThrow(
+        `Invalid "from" address: ${from} must be a valid string.`,
+      );
     });
 
-    test('should throw if array message', () => {
+    test('should throw if array message', async () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       const message: [] = [];
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -232,12 +250,12 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).toThrow('Invalid message:');
+      ).rejects.toThrow('Invalid message:');
     });
 
-    test('should throw if no message', () => {
+    test('should throw if no message', async () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -245,13 +263,13 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).toThrow('Invalid message:');
+      ).rejects.toThrow('Invalid message:');
     });
 
-    test('should throw if no json valid message', () => {
+    test('should throw if no json valid message', async () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       const message = 'uh oh';
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -260,12 +278,12 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).toThrow('Message data must be passed as a valid JSON string.');
+      ).rejects.toThrow('Message data must be passed as a valid JSON string.');
     });
 
-    test('should throw if current chain id is not present', () => {
+    test('should throw if current chain id is not present', async () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -274,13 +292,13 @@ describe('messageUtils', () => {
           } as any,
           undefined,
         ),
-      ).toThrow('Current chainId cannot be null or undefined.');
+      ).rejects.toThrow('Current chainId cannot be null or undefined.');
     });
 
-    test('should throw if current chain id is not convertible to integer', () => {
+    test('should throw if current chain id is not convertible to integer', async () => {
       const unexpectedChainId = 'unexpected chain id';
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -292,15 +310,15 @@ describe('messageUtils', () => {
           } as any,
           unexpectedChainId,
         ),
-      ).toThrow(
+      ).rejects.toThrow(
         `Cannot sign messages for chainId "${mockedCurrentChainId}", because OneKey is switching networks.`,
       );
     });
 
-    test('should throw if current chain id is not matched with provided in message message', () => {
+    test('should throw if current chain id is not matched with provided in message message', async () => {
       const chainId = '2';
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -309,15 +327,15 @@ describe('messageUtils', () => {
           } as any,
           chainId,
         ),
-      ).toThrow(
+      ).rejects.toThrow(
         `Provided chainId "${mockedCurrentChainId}" must match the active chainId "${chainId}"`,
       );
     });
 
-    test('should throw if message not in typed message schema', () => {
+    test('should throw if message not in typed message schema', async () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       const message = '{"greetings":"I am Alice"}';
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -326,12 +344,12 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).toThrow('Message Data must conform to EIP-712 schema.');
+      ).rejects.toThrow('Message Data must conform to EIP-712 schema.');
     });
 
-    test('should not throw if message is correct', () => {
+    test('should not throw if message is correct', async () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -340,13 +358,13 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).not.toThrow();
+      ).resolves.toBeUndefined();
     });
 
-    test('should not throw if message is correct (object format)', () => {
+    test('should not throw if message is correct (object format)', async () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       const message = JSON.parse(dataTyped);
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -355,10 +373,10 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).not.toThrow();
+      ).resolves.toBeUndefined();
     });
 
-    test('should match valid typed message', () => {
+    test('should match valid typed message', async () => {
       const typedMessage = {
         domain: {},
         message: {},
@@ -368,7 +386,7 @@ describe('messageUtils', () => {
         },
       };
 
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -380,9 +398,9 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).not.toThrow();
+      ).resolves.toBeUndefined();
     });
-    test('should allow custom types in addition to domain', () => {
+    test('should allow custom types in addition to domain', async () => {
       const typedMessage = {
         domain: {},
         message: {},
@@ -393,7 +411,7 @@ describe('messageUtils', () => {
         },
       };
 
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -405,11 +423,11 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).not.toThrow();
+      ).resolves.toBeUndefined();
     });
 
     eip712SolidityTypes.forEach((solidityType) => {
-      test(`should allow custom type to have type of '${solidityType}'`, () => {
+      test(`should allow custom type to have type of '${solidityType}'`, async () => {
         const typedMessage = {
           domain: {},
           message: {},
@@ -419,7 +437,7 @@ describe('messageUtils', () => {
             Message: [{ name: 'data', type: solidityType }],
           },
         };
-        expect(() =>
+        await expect(
           messageUtils.validateTypedSignMessageDataV3V4(
             {
               type: EMessageTypesEth.TYPED_DATA_V4,
@@ -431,11 +449,11 @@ describe('messageUtils', () => {
             } as any,
             mockedCurrentChainId,
           ),
-        ).not.toThrow();
+        ).resolves.toBeUndefined();
       });
     });
 
-    test('should allow custom type to have a custom type', () => {
+    test('should allow custom type to have a custom type', async () => {
       const typedMessage = {
         domain: {},
         message: {},
@@ -447,7 +465,7 @@ describe('messageUtils', () => {
         },
       };
 
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -459,7 +477,7 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).not.toThrow();
+      ).resolves.toBeUndefined();
     });
 
     const invalidStrings = [undefined, null, 0, 1, [], {}];
@@ -467,7 +485,7 @@ describe('messageUtils', () => {
     for (const invalidString of invalidStrings) {
       test(`should disallow a primary type with value '${String(
         invalidString,
-      )}'`, () => {
+      )}'`, async () => {
         const typedMessage = {
           domain: {},
           message: {},
@@ -477,7 +495,7 @@ describe('messageUtils', () => {
           },
         };
 
-        expect(() =>
+        await expect(
           messageUtils.validateTypedSignMessageDataV3V4(
             {
               type: EMessageTypesEth.TYPED_DATA_V4,
@@ -489,14 +507,14 @@ describe('messageUtils', () => {
             } as any,
             mockedCurrentChainId,
           ),
-        ).toThrow('Message Data must conform to EIP-712 schema.');
+        ).rejects.toThrow('Message Data must conform to EIP-712 schema.');
       });
     }
 
     const invalidObjects = [undefined, null, 0, 1, [], '', 'test'];
     for (const invalidObject of invalidObjects) {
-      test(`should disallow a typed message with value ${JSON.stringify(invalidObject) ?? 'undefined'}`, () => {
-        expect(() =>
+      test(`should disallow a typed message with value ${JSON.stringify(invalidObject) ?? 'undefined'}`, async () => {
+        await expect(
           messageUtils.validateTypedSignMessageDataV3V4(
             {
               type: EMessageTypesEth.TYPED_DATA_V4,
@@ -508,10 +526,10 @@ describe('messageUtils', () => {
             } as any,
             mockedCurrentChainId,
           ),
-        ).toThrow();
+        ).rejects.toThrow();
       });
 
-      test(`should disallow a domain with value ${JSON.stringify(invalidObject) ?? 'undefined'}`, () => {
+      test(`should disallow a domain with value ${JSON.stringify(invalidObject) ?? 'undefined'}`, async () => {
         const typedMessage = {
           domain: invalidObject,
           message: {},
@@ -521,7 +539,7 @@ describe('messageUtils', () => {
           },
         };
 
-        expect(() =>
+        await expect(
           messageUtils.validateTypedSignMessageDataV3V4(
             {
               type: EMessageTypesEth.TYPED_DATA_V4,
@@ -533,9 +551,9 @@ describe('messageUtils', () => {
             } as any,
             mockedCurrentChainId,
           ),
-        ).toThrow('Message Data must conform to EIP-712 schema.');
+        ).rejects.toThrow('Message Data must conform to EIP-712 schema.');
       });
-      test(`should disallow a message with value ${JSON.stringify(invalidObject) ?? 'undefined'}`, () => {
+      test(`should disallow a message with value ${JSON.stringify(invalidObject) ?? 'undefined'}`, async () => {
         const typedMessage = {
           domain: {},
           message: invalidObject,
@@ -545,7 +563,7 @@ describe('messageUtils', () => {
           },
         };
 
-        expect(() =>
+        await expect(
           messageUtils.validateTypedSignMessageDataV3V4(
             {
               type: EMessageTypesEth.TYPED_DATA_V4,
@@ -557,10 +575,10 @@ describe('messageUtils', () => {
             } as any,
             mockedCurrentChainId,
           ),
-        ).toThrow('Message Data must conform to EIP-712 schema.');
+        ).rejects.toThrow('Message Data must conform to EIP-712 schema.');
       });
 
-      test(`should disallow types with value ${JSON.stringify(invalidObject) ?? 'undefined'}`, () => {
+      test(`should disallow types with value ${JSON.stringify(invalidObject) ?? 'undefined'}`, async () => {
         const typedMessage = {
           domain: {},
           message: {},
@@ -568,7 +586,7 @@ describe('messageUtils', () => {
           types: invalidObject,
         };
 
-        expect(() =>
+        await expect(
           messageUtils.validateTypedSignMessageDataV3V4(
             {
               type: EMessageTypesEth.TYPED_DATA_V4,
@@ -580,10 +598,10 @@ describe('messageUtils', () => {
             } as any,
             mockedCurrentChainId,
           ),
-        ).toThrow('Message Data must conform to EIP-712 schema.');
+        ).rejects.toThrow('Message Data must conform to EIP-712 schema.');
       });
     }
-    test('should require custom type properties to have a name', () => {
+    test('should require custom type properties to have a name', async () => {
       const typedMessage = {
         domain: {},
         message: {},
@@ -594,7 +612,7 @@ describe('messageUtils', () => {
         },
       };
 
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -606,10 +624,10 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).toThrow('Message Data must conform to EIP-712 schema.');
+      ).rejects.toThrow('Message Data must conform to EIP-712 schema.');
     });
 
-    test('should require custom type properties to have a type', () => {
+    test('should require custom type properties to have a type', async () => {
       const typedMessage = {
         domain: {},
         message: {},
@@ -620,7 +638,7 @@ describe('messageUtils', () => {
         },
       };
 
-      expect(() =>
+      await expect(
         messageUtils.validateTypedSignMessageDataV3V4(
           {
             type: EMessageTypesEth.TYPED_DATA_V4,
@@ -632,13 +650,13 @@ describe('messageUtils', () => {
           } as any,
           mockedCurrentChainId,
         ),
-      ).toThrow('Message Data must conform to EIP-712 schema.');
+      ).rejects.toThrow('Message Data must conform to EIP-712 schema.');
     });
 
     const invalidTypes = [undefined, null, 0, 1, [], {}];
 
     for (const invalidType of invalidTypes) {
-      it(`should disallow a type of '${String(invalidType)}'`, () => {
+      it(`should disallow a type of '${String(invalidType)}'`, async () => {
         const typedMessage = {
           domain: {},
           message: {},
@@ -648,7 +666,7 @@ describe('messageUtils', () => {
             Message: [{ name: 'name', type: invalidType }],
           },
         };
-        expect(() =>
+        await expect(
           messageUtils.validateTypedSignMessageDataV3V4(
             {
               type: EMessageTypesEth.TYPED_DATA_V4,
@@ -660,7 +678,7 @@ describe('messageUtils', () => {
             } as any,
             mockedCurrentChainId,
           ),
-        ).toThrow('Message Data must conform to EIP-712 schema.');
+        ).rejects.toThrow('Message Data must conform to EIP-712 schema.');
       });
     }
   });

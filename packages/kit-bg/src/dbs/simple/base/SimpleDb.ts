@@ -225,6 +225,15 @@ export class SimpleDb {
     return value;
   }
 
+  get marketPresetSettings() {
+    const SimpleDbEntityMarketPresetSettings = (
+      require('../entity/SimpleDbEntityMarketPresetSettings') as unknown as typeof import('../entity/SimpleDbEntityMarketPresetSettings')
+    ).SimpleDbEntityMarketPresetSettings;
+    const value = new SimpleDbEntityMarketPresetSettings();
+    Object.defineProperty(this, 'marketPresetSettings', { value });
+    return value;
+  }
+
   get marketWatchListV2() {
     const SimpleDbEntityMarketWatchListV2 = (
       require('../entity/SimpleDbEntityMarketWatchListV2') as unknown as typeof import('../entity/SimpleDbEntityMarketWatchListV2')
@@ -411,6 +420,15 @@ export class SimpleDb {
     ).SimpleDbEntityRecentNetworks;
     const value = new SimpleDbEntityRecentNetworks();
     Object.defineProperty(this, 'recentNetworks', { value });
+    return value;
+  }
+
+  get addressRiskCheck() {
+    const SimpleDbEntityAddressRiskCheck = (
+      require('../entity/SimpleDbEntityAddressRiskCheck') as unknown as typeof import('../entity/SimpleDbEntityAddressRiskCheck')
+    ).SimpleDbEntityAddressRiskCheck;
+    const value = new SimpleDbEntityAddressRiskCheck();
+    Object.defineProperty(this, 'addressRiskCheck', { value });
     return value;
   }
 

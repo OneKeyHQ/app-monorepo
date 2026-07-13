@@ -102,9 +102,26 @@ export interface ISignPsbtParams {
 
 export type ISignPsbtsParams = {
   psbtHexs: string[];
-  options: ISignPsbtOptions;
+  // UniSat-compatible callers pass `options` as an array (one entry per psbt);
+  // OneKey/legacy callers pass a single shared options object. Accept both.
+  options: ISignPsbtOptions | ISignPsbtOptions[];
 };
 
 export type IPushPsbtParams = {
   psbtHex: string;
 };
+
+// dApp-facing params for btc_deriveContextHash.
+export interface IDeriveContextHashParams {
+  appName: string;
+  context: string;
+}
+
+// Service → keyring after the account is resolved and the network canonicalized.
+export interface IDeriveContextHashKeyringParams {
+  password: string;
+  appName: string;
+  canonicalNetworkName: string;
+  connectedPubkey: string;
+  context: string;
+}

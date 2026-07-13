@@ -3,16 +3,13 @@ const path = require('path');
 
 const developmentConsts = require('./developmentConsts');
 const envExposedToClient = require('./envExposedToClient');
+const { buildPlatformEnvDefineMap } = require('./platformEnvDefine');
 
 function fullPath(pathStr) {
   return path.resolve(__dirname, pathStr);
 }
 
 const moduleResolverAliasForAllWebPlatform = {
-  // * cause firefox popup resize issue
-  'react-native-restart': fullPath(
-    './module-resolver/react-native-restart-mock',
-  ),
   'react-native-fast-image': fullPath(
     './module-resolver/react-native-fast-image-mock',
   ),
@@ -70,20 +67,11 @@ function normalizeConfig({ platform, config }) {
       },
     };
   }
-  const {
-    isJest,
-    isDev,
-    isE2E,
-    isProduction,
-    isWeb,
-    isWebEmbed,
-    isDesktop,
-    isExtension,
-    isNative,
-    isExtChrome,
-    isExtFirefox,
-    enablePerfMonitor,
-  } = require('../packages/shared/src/buildTimeEnv');
+  const buildTimeEnv = require('../packages/shared/src/buildTimeEnv');
+  // Only the flags used directly below are destructured; the platformEnv.*
+  // transform-define map reads the rest from buildTimeEnv via
+  // buildPlatformEnvDefineMap (single source of truth in platformEnvDefine.js).
+  const { isJest, isDev, isNative, enablePerfMonitor } = buildTimeEnv;
 
   config.plugins = [
     ...(config.plugins || []),
@@ -105,21 +93,10 @@ function normalizeConfig({ platform, config }) {
     // as runtime accesses (allowing tests to mock platform values).
     process.env.RN_HARNESS !== 'true' && [
       'transform-define',
-      {
-        // override runtime env with buildtime env
-        // so it can do more tree shaking
-        'platformEnv.isJest': isJest,
-        'platformEnv.isDev': isDev,
-        'platformEnv.isE2E': isE2E,
-        'platformEnv.isProduction': isProduction,
-        'platformEnv.isWeb': isWeb,
-        'platformEnv.isWebEmbed': isWebEmbed,
-        'platformEnv.isDesktop': isDesktop,
-        'platformEnv.isExtension': isExtension,
-        'platformEnv.isNative': isNative,
-        'platformEnv.isExtChrome': isExtChrome,
-        'platformEnv.isExtFirefox': isExtFirefox,
-      },
+      // override runtime env with buildtime env so it can do more tree shaking.
+      // Single source of truth shared with the rspack web build — see
+      // development/platformEnvDefine.js.
+      buildPlatformEnvDefineMap(buildTimeEnv),
     ],
     /*
     support lodash import in Ext background like this:

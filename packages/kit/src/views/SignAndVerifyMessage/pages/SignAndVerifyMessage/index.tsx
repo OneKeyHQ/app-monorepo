@@ -9,8 +9,8 @@ import {
   Toast,
   YStack,
   useClipboard,
-  useForm,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -23,6 +23,7 @@ import { ESignAndVerifyAction } from '@onekeyhq/shared/types/signAndVerify';
 
 import { SignForm } from '../../components/SignForm';
 import { VerifyForm } from '../../components/VerifyForm';
+import { SignAndVerifyMessageTestIDs } from '../../testIDs';
 
 import type { ISignFormData } from '../../components/SignForm';
 import type { IVerifyFormData } from '../../components/VerifyForm';
@@ -294,6 +295,7 @@ function SignAndVerifyMessage() {
       <Page.Body>
         <YStack p="$5" pt="$2" gap="$5">
           <SegmentControl
+            testID={SignAndVerifyMessageTestIDs.segmentControl}
             value={action}
             onChange={(v) => {
               const newAction = v as ESignAndVerifyAction;

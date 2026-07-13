@@ -11,13 +11,11 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import {
-  useAggregateTokensListMapAtom,
-  useAllTokenListMapAtom,
-} from '../../states/jotai/contexts/tokenList';
+import { useAggregateSubTokenFiatMap } from '../../states/jotai/contexts/tokenList/cells';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
@@ -32,6 +30,7 @@ type IProps = {
   textProps?: ISizableTextProps;
   withAggregateBadge?: boolean;
   showNetworkName?: boolean;
+  showDeFiReceiptTokenBadge?: boolean;
 } & IXStackProps;
 
 function TokenNameView(props: IProps) {
@@ -46,30 +45,47 @@ function TokenNameView(props: IProps) {
     textProps,
     withAggregateBadge,
     showNetworkName,
+    showDeFiReceiptTokenBadge,
     ...rest
   } = props;
   const intl = useIntl();
 
-  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
-  const { allAggregateTokenMap, networksMap } = useTokenListViewContext();
-  const [allTokenListMap] = useAllTokenListMapAtom();
+  const {
+    allAggregateTokenMap,
+    ownedAggregateTokenListMap,
+    networksMap,
+    tokenListMap: contextTokenListMap,
+    useCellSeam,
+  } = useTokenListViewContext();
   const allAggregateTokenList = useMemo(
     () => allAggregateTokenMap?.[$key]?.tokens ?? [],
     [allAggregateTokenMap, $key],
   );
   const aggregateTokenList = useMemo(
-    () => aggregateTokensListMap[$key]?.tokens ?? [],
-    [aggregateTokensListMap, $key],
+    () => ownedAggregateTokenListMap?.[$key]?.tokens ?? [],
+    [ownedAggregateTokenListMap, $key],
   );
   const firstAggregateToken = aggregateTokenList?.[0];
+  const shouldShowDeFiReceiptTokenBadge =
+    showDeFiReceiptTokenBadge && !platformEnv.isNative;
+
+  // Per-network sub-token fiat slice (red-team C-F2): the home cell-seam reads
+  // the live sub-cells; non-cell paths read the host-provided map. NEVER the
+  // summed aggCell — these keys are per-network sub-token `$key`s.
+  const subTokenFiatMap = useAggregateSubTokenFiatMap({
+    aggKey: $key,
+    aggregateTokenList,
+    useCellSeam,
+    contextTokenListMap,
+  });
 
   const { tokenHasBalance, tokenHasBalanceCount } = useMemo(() => {
     return checkIsOnlyOneTokenHasBalance({
-      tokenMap: allTokenListMap,
+      tokenMap: subTokenFiatMap,
       aggregateTokenList,
       allAggregateTokenList,
     });
-  }, [aggregateTokenList, allTokenListMap, allAggregateTokenList]);
+  }, [aggregateTokenList, subTokenFiatMap, allAggregateTokenList]);
 
   const network = useMemo(() => {
     if (!networkId) return undefined;
@@ -95,6 +111,21 @@ function TokenNameView(props: IProps) {
       <SizableText minWidth={0} numberOfLines={1} {...textProps}>
         {name}
       </SizableText>
+      {shouldShowDeFiReceiptTokenBadge ? (
+        <Tooltip
+          renderContent={intl.formatMessage({
+            id: ETranslations.wallet_defi_receipt_token__desc,
+          })}
+          renderTrigger={
+            <Icon
+              flexShrink={0}
+              name="TicketOutline"
+              color="$iconSubdued"
+              size="$5"
+            />
+          }
+        />
+      ) : null}
       {isAllNetworks &&
       withAggregateBadge &&
       isAggregateToken &&

@@ -10,6 +10,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.backgroundthread.BackgroundThreadManager;
 import com.margelo.nitro.nativelogger.OneKeyLog;
 import com.margelo.nitro.reactnativesplashscreen.SplashScreenBridge;
 import com.facebook.react.ReactActivity;
@@ -31,6 +32,31 @@ public class MainActivity extends ReactActivity {
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    long tActivityStart = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.activity.on_create.start: +" + (tActivityStart - MainApplication.appLaunchMs) + "ms from launch"
+    );
+
+    // Record this MainActivity.onCreate attempt and get the post-write
+    // time-windowed count back. The increment lives HERE (not in
+    // MainApplication.onCreate) so system-initiated process launches —
+    // JPush wakeups, foreground-service callbacks, broadcast receivers,
+    // post-download relaunches — that run Application.onCreate but never
+    // bring up the UI don't ratchet the counter.
+    //
+    // Placed before super.onCreate(null) so that crashes during ReactActivity
+    // / Fabric / TurboModule init still accumulate toward recovery — the
+    // whole point of this counter is to catch RN init crash-loops.
+    //
+    // Reset paths (all live outside this file): MainActivity.onStop on
+    // graceful background, RecoveryActivity after the user resolves
+    // recovery, JS-side 5s `markBootSuccess` timer in Bootstrap.tsx via
+    // the Nitro module.
+    int windowedFailures = BootRecoveryStore.recordBootAttempt(
+      getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE)
+    );
+
     // Install AndroidX SplashScreen before super.onCreate() to fix MIUI/HyperOS crashes
     // where system's replaceUmiTheme method fails with NullPointerException
     // Added defensive error handling for OPPO and other vendor-specific crashes
@@ -62,9 +88,21 @@ public class MainActivity extends ReactActivity {
         // If AndroidX splash screen fails, we'll rely on the Expo splash screen as fallback
       }
     }
+    long tBeforeSuper = System.currentTimeMillis();
     super.onCreate(null);
+    long tAfterSuper = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.activity.super_on_create: " + (tAfterSuper - tBeforeSuper) + "ms (ReactActivity init)"
+    );
 
-    if (MainApplication.shouldShowRecovery) {
+    // Re-evaluate recovery here using the post-increment windowed count.
+    // MainApplication only saw the pre-increment value (it doesn't increment),
+    // so when the third user-launch in the 10-minute window finally crosses
+    // the threshold, MainApplication.shouldShowRecovery is still false on
+    // this launch and we have to route to recovery ourselves.
+    if (MainApplication.shouldShowRecovery
+        || windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD) {
         startActivity(new Intent(this, RecoveryActivity.class));
         finish();
         return;
@@ -85,6 +123,31 @@ public class MainActivity extends ReactActivity {
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
     EventBus.getDefault().register(this);
+
+    long tActivityDone = System.currentTimeMillis();
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.activity.on_create.done: " + (tActivityDone - tActivityStart) + "ms (+" + (tActivityDone - MainApplication.appLaunchMs) + "ms from launch)"
+    );
+  }
+
+  @Override
+  public void onActivityResult(int requestCode, int resultCode, Intent data) {
+    // super -> ReactActivityDelegate drives the UI-host ReactContext's
+    // ActivityEventListener fan-out in the normal RN path.
+    super.onActivityResult(requestCode, resultCode, data);
+    // Manager re-dispatches only to an allowlisted subset of listeners on
+    // the bg ReactContext (see BackgroundThreadManager.bgActivityListenerClassAllowlist).
+    // This lets google-signin's bg instance resolve its pending signIn
+    // promise without leaking the event to every other bg module.
+    BackgroundThreadManager.getInstance()
+        .dispatchActivityResult(this, requestCode, resultCode, data);
+  }
+
+  @Override
+  public void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    BackgroundThreadManager.getInstance().dispatchNewIntent(intent);
   }
 
   @Override
@@ -96,7 +159,7 @@ public class MainActivity extends ReactActivity {
     // is still offered if the user swipe-kills without resolving.
     SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
     int count = prefs.getInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0);
-    if (count < 3) {
+    if (count < BootRecoveryKeys.RECOVERY_THRESHOLD) {
       prefs.edit()
           .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
           .commit();

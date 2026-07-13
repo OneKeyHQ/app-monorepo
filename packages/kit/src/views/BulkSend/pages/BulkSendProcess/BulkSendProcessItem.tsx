@@ -117,6 +117,7 @@ function BulkSendProcessItem(props: IProps) {
               })}
             </SizableText>
             <IconButton
+              testID="bulk-send-render-status-text-icon-btn"
               icon="OpenOutline"
               variant="tertiary"
               size="small"
@@ -130,6 +131,7 @@ function BulkSendProcessItem(props: IProps) {
               }
             />
             <IconButton
+              testID="bulk-send-icon-btn"
               icon="Copy3Outline"
               variant="tertiary"
               size="small"
@@ -158,6 +160,7 @@ function BulkSendProcessItem(props: IProps) {
                 })}
                 renderTrigger={
                   <IconButton
+                    testID="bulk-send-icon-btn"
                     size="small"
                     icon="InfoCircleOutline"
                     variant="tertiary"
@@ -171,6 +174,7 @@ function BulkSendProcessItem(props: IProps) {
                     </SizableText>
                     {status.isInsufficientFunds && onFillUp ? (
                       <Button
+                        testID="bulk-send-btn"
                         variant="tertiary"
                         size="large"
                         color="$textInfo"
@@ -210,6 +214,7 @@ function BulkSendProcessItem(props: IProps) {
                 })}
                 renderTrigger={
                   <IconButton
+                    testID="bulk-send-icon-btn"
                     size="small"
                     icon="InfoCircleOutline"
                     variant="tertiary"

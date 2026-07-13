@@ -14,7 +14,10 @@ import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts'
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type {
+  IAppEventBusPayload,
+  ILinuxUdevGuideReason,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -24,6 +27,7 @@ import {
   getHardwareSDKInstance,
   resetHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -49,6 +53,7 @@ import type {
 } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
+  EHardwareVendor,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -56,6 +61,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import simpleDb from '../../dbs/simple/simpleDb';
+import { dispatchOffscreenEvent } from '../../offscreens/offscreenEventBus';
 import {
   EHardwareUiStateAction,
   hardwareForceTransportAtom,
@@ -70,6 +76,10 @@ import { HardwareConnectionManager } from './HardwareConnectionManager';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
+import type {
+  IAdapterUiResponse,
+  IThirdPartyHardwareAdapter,
+} from './adapters/types';
 import type {
   IBaseDeviceProcessingParams,
   IChangePinParams,
@@ -94,6 +104,10 @@ import type {
 import type { IHardwareHomeScreenResponse } from './ServerType';
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
+  IOffscreenEventMap,
+  IOffscreenEventType,
+} from '../../offscreens/offscreenEventBus';
+import type {
   IHardwareUiPayload,
   IHardwareUiState,
 } from '../../states/jotai/atoms';
@@ -116,12 +130,17 @@ import type {
 
 export type IDeviceGetFeaturesOptions = {
   connectId: string | undefined;
+  vendor?: EHardwareVendor;
   withHardwareProcessing?: boolean;
   silentMode?: boolean;
   params?: CommonParams & {
     allowEmptyConnectId?: boolean;
   };
   hardwareCallContext?: IHardwareCallContext;
+};
+
+type IHandleLinuxWebUsbAccessDeniedErrorParams = {
+  error?: unknown;
 };
 
 // skip events
@@ -139,9 +158,22 @@ const NEW_DIALOG_EVENTS = new Set([
   EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
 ]);
 
+const LINUX_UDEV_RULES_INSTALL_RETRY_DELAY_MS = 5000;
+const LINUX_UDEV_RULES_INSTALL_MAX_ATTEMPTS = 2;
+
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
   private bridgeAvailabilityChecked = false;
+
+  private linuxUdevRulesReadyPromise: Promise<boolean> | undefined;
+
+  private linuxUdevRulesInstallMutedUntil = 0;
+
+  private linuxUdevRulesInstallFailedCount = 0;
+
+  // Third-party (Trezor / Ledger) hardware adapter lifecycle + methods now live
+  // in ServiceThirdPartyHardware. ServiceHardware delegates via
+  // `this.backgroundApi.serviceThirdPartyHardware.*`.
 
   constructor(props: IServiceBaseProps) {
     super(props);
@@ -279,6 +311,7 @@ class ServiceHardware extends ServiceBase {
     const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
       options || {};
     this.checkSdkVersionValid();
+    await this.assertOneKeySdkConnectId(options?.connectId);
 
     const { hardwareConnectSrc } = await settingsPersistAtom.get();
     const isPreRelease =
@@ -348,6 +381,20 @@ class ServiceHardware extends ServiceBase {
         title: (error as Error)?.message || 'Hardware SDK init failed',
       });
       throw error;
+    }
+  }
+
+  private async assertOneKeySdkConnectId(connectId: string | undefined) {
+    if (!connectId) {
+      return;
+    }
+    const dbDevice = await localDb.getDeviceByQuery({ connectId });
+    const vendor = dbDevice?.vendor;
+    const vendorProfile = vendor ? getVendorProfile(vendor) : undefined;
+    if (vendor && vendorProfile?.isThirdParty) {
+      throw new OneKeyLocalError(
+        `ServiceHardware SDK is OneKey-only; connectId "${connectId}" belongs to third-party vendor "${vendor}". Use ServiceThirdPartyHardware instead.`,
+      );
     }
   }
 
@@ -653,6 +700,20 @@ class ServiceHardware extends ServiceBase {
     sdk.emit(eventMessage.event, eventMessage);
   }
 
+  /**
+   * Receiver for the typed offscreen → SW event channel.
+   * `offscreenEventBus.emitOffscreenEventToBackground` on the offscreen side
+   * routes all event types through this single method; we just hand them off
+   * to the bus dispatcher, which fans out to per-type subscribers registered
+   * elsewhere in SW (e.g. in ServiceHardware constructors or jotai atoms).
+   */
+  @backgroundMethod()
+  async passThirdPartyHardwareEventsFromOffscreenToBackground<
+    K extends IOffscreenEventType,
+  >(message: { type: K; payload: IOffscreenEventMap[K] }) {
+    dispatchOffscreenEvent(message.type, message.payload);
+  }
+
   @backgroundMethod()
   async getDeviceByConnectId({ connectId }: { connectId: string }) {
     return localDb.getDeviceByQuery({
@@ -660,25 +721,364 @@ class ServiceHardware extends ServiceBase {
     });
   }
 
+  // Pre-warm the device before signing. Fire-and-forget signal; the SDK handles
+  // all concurrency (dedup + hang-up so the real Sign waits, not interrupts).
+  // Resolve the SAME connectId/passphraseState the Sign uses so the pre-init
+  // meta matches and Sign can skip Initialize. Hardware-only; failures swallowed.
+  @backgroundMethod()
+  async preInitializeDeviceForSign({
+    walletId,
+  }: {
+    walletId: string | undefined;
+  }): Promise<void> {
+    if (!walletId || !accountUtils.isHwWallet({ walletId })) {
+      return;
+    }
+    try {
+      const deviceParams =
+        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+          walletId,
+          hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+        });
+      if (
+        getVendorProfile(
+          deviceParams?.dbDevice?.vendor ?? EHardwareVendor.onekey,
+        ).isThirdParty
+      ) {
+        return;
+      }
+      const connectId = deviceParams?.dbDevice?.connectId;
+      if (!connectId) {
+        return;
+      }
+      const sdk = await this.getSDKInstance({
+        connectId,
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+      });
+      await sdk.preInitialize(connectId, {
+        ...deviceParams?.deviceCommonParams,
+      });
+    } catch (error) {
+      // Pre-warm is best-effort; a failure must never block the real Sign.
+      // Use the hardware scope (LogToLocal) so it lands in collected/exported logs.
+      defaultLogger.hardware.sdkLog.log(
+        'preInitializeDeviceForSign error',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
   // startDeviceScan
   // TODO use convertDeviceResponse()
   @backgroundMethod()
-  async searchDevices() {
+  async searchDevices(params?: {
+    vendor?: EHardwareVendor;
+    resetSession?: boolean;
+    waitForAllTransports?: boolean;
+    transportType?: 'usb' | 'ble';
+  }) {
+    const vendorProfile = params?.vendor
+      ? getVendorProfile(params.vendor)
+      : undefined;
+    if (params?.vendor && vendorProfile?.isThirdParty) {
+      // Third-party (Trezor / Ledger) discovery lives in ServiceThirdPartyHardware.
+      return this.backgroundApi.serviceThirdPartyHardware.searchDevices({
+        vendor: params.vendor,
+        resetSession: params.resetSession,
+        waitForAllTransports: params.waitForAllTransports,
+        transportType: params.transportType,
+      });
+    }
+
+    // Original OneKey SDK path
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
     const response = await hardwareSDK?.searchDevices();
-    console.log('searchDevices response: ', response);
+    defaultLogger.hardware.sdkLog.log(
+      'searchDevices response: ',
+      JSON.stringify(response),
+    );
+
+    // Linux may surface missing udev rules either through libusb or Chromium
+    // WebUSB errors, depending on the active transport path.
+    if (response?.success === false) {
+      // Normal Linux desktop (AppImage/.deb): install the rules via PolicyKit
+      // and retry once, so the user doesn't have to restart the app.
+      if (await this.recoverLinuxWebUsbAccessDeniedError(response.payload)) {
+        const retryResponse = await hardwareSDK?.searchDevices();
+        defaultLogger.hardware.sdkLog.log(
+          'searchDevices response after udev rules: ',
+          JSON.stringify(retryResponse),
+        );
+        return retryResponse;
+      }
+    }
     return response;
-    // if (response.success) {
-    //   return response.payload;
-    // }
-    // const deviceError = convertDeviceError(response.payload);
-    // return Promise.reject(deviceError);
+  }
+
+  private async ensureLinuxUdevRules() {
+    if (!this.isDesktopLinuxRuntime()) {
+      return false;
+    }
+    // Sandboxed builds cannot reach the host PolicyKit/udev to auto-install the
+    // rules; the missing-rules case is surfaced to the user via
+    // notifyLinuxUdevManualInstallIfNeeded() instead.
+    if (
+      this.isDesktopLinuxSnapRuntime() ||
+      this.isDesktopLinuxFlatpakRuntime()
+    ) {
+      return false;
+    }
+
+    if (
+      this.linuxUdevRulesInstallFailedCount >=
+      LINUX_UDEV_RULES_INSTALL_MAX_ATTEMPTS
+    ) {
+      this.notifyLinuxUdevManualInstallIfNeeded({
+        force: true,
+        reason: 'webusb-access-denied',
+      });
+      return false;
+    }
+
+    if (Date.now() < this.linuxUdevRulesInstallMutedUntil) {
+      return false;
+    }
+
+    if (!this.linuxUdevRulesReadyPromise) {
+      this.linuxUdevRulesReadyPromise = this.installLinuxUdevRules().then(
+        (ready) => {
+          if (!ready) {
+            this.linuxUdevRulesReadyPromise = undefined;
+          }
+          return ready;
+        },
+      );
+    }
+
+    return this.linuxUdevRulesReadyPromise;
+  }
+
+  private async recoverLinuxWebUsbAccessDeniedError(error: unknown) {
+    if (!this.isDesktopLinuxRuntime()) {
+      return false;
+    }
+    if (!this.isLinuxWebUsbAccessDeniedError(error)) {
+      return false;
+    }
+
+    if (await this.ensureLinuxUdevRules()) {
+      return true;
+    }
+
+    this.notifyLinuxUdevManualInstallIfNeeded();
+    return false;
+  }
+
+  @backgroundMethod()
+  async handleLinuxWebUsbAccessDeniedError(
+    params?: IHandleLinuxWebUsbAccessDeniedErrorParams,
+  ) {
+    if (await this.recoverLinuxWebUsbAccessDeniedError(params?.error)) {
+      defaultLogger.hardware.sdkLog.log(
+        '[LinuxWebUSB] OneKey udev rules installed after WebUSB access denied',
+      );
+      return true;
+    }
+    return false;
+  }
+
+  private isDesktopLinuxRuntime() {
+    return (
+      platformEnv.isDesktopLinux || globalThis.desktopApi?.platform === 'linux'
+    );
+  }
+
+  private getDesktopLinuxRuntimeChannel() {
+    return globalThis.desktopApi?.channel || '';
+  }
+
+  private isDesktopLinuxSnapRuntime() {
+    return (
+      platformEnv.isDesktopLinuxSnap ||
+      (this.isDesktopLinuxRuntime() &&
+        this.getDesktopLinuxRuntimeChannel() === 'snap')
+    );
+  }
+
+  private isDesktopLinuxFlatpakRuntime() {
+    return (
+      platformEnv.isDesktopLinuxFlatpak ||
+      (this.isDesktopLinuxRuntime() &&
+        this.getDesktopLinuxRuntimeChannel() === 'flatpak')
+    );
+  }
+
+  private getLinuxUdevManualInstallReason(): ILinuxUdevGuideReason {
+    if (this.isDesktopLinuxFlatpakRuntime()) {
+      return 'flatpak';
+    }
+    if (this.isDesktopLinuxSnapRuntime()) {
+      return 'snap';
+    }
+    return 'webusb-access-denied';
+  }
+
+  private getErrorText(error: unknown) {
+    const parts: string[] = [];
+    const append = (value: unknown) => {
+      if (typeof value === 'string') {
+        parts.push(value);
+      } else if (value instanceof Error) {
+        parts.push(value.message);
+      }
+    };
+
+    append(error);
+    if (error && typeof error === 'object') {
+      const errorRecord = error as Record<string, unknown>;
+      append(errorRecord.message);
+      append(errorRecord.error);
+
+      const payload = errorRecord.payload;
+      if (payload && typeof payload === 'object') {
+        const payloadRecord = payload as Record<string, unknown>;
+        append(payloadRecord.message);
+        append(payloadRecord.error);
+      }
+    }
+
+    return parts.join(' ');
+  }
+
+  private isLinuxWebUsbAccessDeniedError(error: unknown) {
+    const message = this.getErrorText(error);
+    const lowerMessage = message.toLowerCase();
+    return (
+      lowerMessage.includes('libusb_error_access') ||
+      (lowerMessage.includes('access denied') &&
+        (lowerMessage.includes('usbdevice') ||
+          lowerMessage.includes('acquire error') ||
+          (lowerMessage.includes('failed to execute') &&
+            lowerMessage.includes('open'))))
+    );
+  }
+
+  private async installLinuxUdevRules() {
+    try {
+      const result =
+        await globalThis.desktopApiProxy?.system?.installOneKeyUdevRules?.();
+      if (result?.installed) {
+        this.linuxUdevRulesInstallFailedCount = 0;
+        this.linuxUdevRulesInstallMutedUntil = 0;
+        defaultLogger.hardware.sdkLog.log(
+          '[LinuxWebUSB] OneKey udev rules ready',
+          JSON.stringify(result),
+        );
+        return true;
+      }
+      if (result) {
+        defaultLogger.hardware.sdkLog.log(
+          '[LinuxWebUSB] OneKey udev rules not installed',
+          JSON.stringify(result),
+        );
+        if (result.skippedReason === 'cancelled') {
+          this.linuxUdevRulesInstallMutedUntil =
+            Date.now() + LINUX_UDEV_RULES_INSTALL_RETRY_DELAY_MS;
+          return false;
+        }
+        const shouldShowManualGuide =
+          this.markLinuxUdevRulesInstallFailed() ||
+          result.needsManualInstall ||
+          result.skippedReason === 'missing-pkexec';
+        if (shouldShowManualGuide) {
+          this.notifyLinuxUdevManualInstallIfNeeded({
+            force: true,
+            reason:
+              result.needsManualInstall ||
+              result.skippedReason === 'missing-pkexec'
+                ? result.skippedReason
+                : 'webusb-access-denied',
+          });
+        }
+      } else if (this.markLinuxUdevRulesInstallFailed()) {
+        this.notifyLinuxUdevManualInstallIfNeeded({
+          force: true,
+          reason: 'webusb-access-denied',
+        });
+      }
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        '[LinuxWebUSB] Failed to install OneKey udev rules',
+        error instanceof Error ? error.message : String(error),
+      );
+      if (this.markLinuxUdevRulesInstallFailed()) {
+        this.notifyLinuxUdevManualInstallIfNeeded({
+          force: true,
+          reason: 'failed',
+        });
+      }
+    }
+    return false;
+  }
+
+  private markLinuxUdevRulesInstallFailed() {
+    this.linuxUdevRulesInstallFailedCount += 1;
+    this.linuxUdevRulesInstallMutedUntil =
+      Date.now() + LINUX_UDEV_RULES_INSTALL_RETRY_DELAY_MS;
+    return (
+      this.linuxUdevRulesInstallFailedCount >=
+      LINUX_UDEV_RULES_INSTALL_MAX_ATTEMPTS
+    );
+  }
+
+  // Emit at most once per session so repeated device scans don't spam the
+  // guide dialog.
+  private linuxUdevGuideShown = false;
+
+  private notifyLinuxUdevManualInstallIfNeeded(options?: {
+    force?: boolean;
+    reason?: ILinuxUdevGuideReason;
+  }) {
+    if (this.linuxUdevGuideShown) {
+      return;
+    }
+    // Only sandboxed builds need the manual-install guide; normal Linux desktop
+    // installs the rules automatically via PolicyKit unless PolicyKit helpers
+    // are unavailable on the host.
+    if (
+      !options?.force &&
+      !this.isDesktopLinuxFlatpakRuntime() &&
+      !this.isDesktopLinuxSnapRuntime()
+    ) {
+      return;
+    }
+    this.linuxUdevGuideShown = true;
+    let reason: ILinuxUdevGuideReason = options?.reason ?? 'unknown';
+    if (!options?.reason) {
+      if (this.isDesktopLinuxFlatpakRuntime()) {
+        reason = 'flatpak';
+      } else if (this.isDesktopLinuxSnapRuntime()) {
+        reason = 'snap';
+      }
+    }
+    defaultLogger.hardware.sdkLog.log(
+      `[LinuxWebUSB] host udev rules need manual install (${reason}); showing manual install guide`,
+    );
+    appEventBus.emit(EAppEventBusNames.ShowLinuxBundleUdevGuide, { reason });
   }
 
   @backgroundMethod()
   async connectDevice(params: IDeviceGetFeaturesOptions) {
+    if (params.vendor && params.vendor !== EHardwareVendor.onekey) {
+      throw new OneKeyLocalError(
+        `serviceHardware.connectDevice is OneKey-only; got vendor "${params.vendor}". ` +
+          `Third-party vendors have their own flow: ` +
+          `UI layer should use the dedicated hook (e.g. useDeviceConnect for ledger), ` +
+          `background/vault layer should call serviceHardware.getAdapterForVendor(vendor) and use the adapter directly.`,
+      );
+    }
     return this.getFeaturesWithoutCache(params);
   }
 
@@ -703,6 +1103,16 @@ class ServiceHardware extends ServiceBase {
     device: SearchDevice;
     hardwareCallContext?: EHardwareCallContext;
   }): Promise<Features | undefined> {
+    const vendor = (device as SearchDevice & { vendor?: string }).vendor;
+    if (vendor && vendor !== EHardwareVendor.onekey) {
+      throw new OneKeyLocalError(
+        `serviceHardware.connect is OneKey-only; got vendor "${vendor}". ` +
+          `Third-party vendors have their own flow: ` +
+          `UI layer should use the dedicated hook (e.g. useDeviceConnect for ledger), ` +
+          `background/vault layer should call serviceHardware.getAdapterForVendor(vendor) and use the adapter directly.`,
+      );
+    }
+
     const { connectId } = device;
     if (
       !connectId &&
@@ -1008,6 +1418,36 @@ class ServiceHardware extends ServiceBase {
           dbDevice,
         },
         hideCheckingDeviceLoading: true,
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async checkDeviceReachableForFirmwareUpdate(params: { connectId: string }) {
+    const dbDevice = await localDb.getDeviceByQuery({
+      connectId: params.connectId,
+    });
+    if (!dbDevice) {
+      // Onboarding / bootloader-mode flows hit this with a freshly-discovered
+      // device that has no local DB record yet — skip pre-flight and let the
+      // update modal proceed.
+      return;
+    }
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId: params.connectId,
+      featuresDeviceId: dbDevice.deviceId,
+      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+    });
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      () =>
+        this.getFeaturesWithoutCache({
+          connectId: compatibleConnectId,
+          params: { retryCount: 1 },
+        }),
+      {
+        deviceParams: {
+          dbDevice,
+        },
       },
     );
   }
@@ -1483,12 +1923,139 @@ class ServiceHardware extends ServiceBase {
     });
   }
 
+  /**
+   * Get the adapter for a specific vendor.
+   * NOTE: Not decorated with @backgroundMethod because the returned adapter
+   * is a non-serializable object. Only call from in-process code (keyrings).
+   */
+  async getAdapterForVendor(
+    vendor: EHardwareVendor,
+  ): Promise<IThirdPartyHardwareAdapter | undefined> {
+    return this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
+      vendor,
+    );
+  }
+
   @backgroundMethod()
-  async getEvmAddressByStandardWallet(params: {
+  async thirdPartyHardwareUiResponse(params: {
+    vendor: EHardwareVendor;
+    response: IAdapterUiResponse;
+  }) {
+    return this.backgroundApi.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareCancel(params: {
+    vendor: EHardwareVendor;
+    connectId?: string;
+  }) {
+    return this.backgroundApi.serviceThirdPartyHardware.thirdPartyHardwareCancel(
+      params,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Third-party hardware app management (Ledger-only for now).
+  //
+  // Wraps the SDK's `LedgerAdapter.installApp / listInstalledApps /
+  // listAvailableApps`. The `hw` field on IThirdPartyHardwareAdapter is typed
+  // as the generic IHardwareWallet; we cast to the Ledger-specific shape
+  // because these methods aren't part of the cross-vendor contract.
+  //
+  // Install progress streams as SDK `ui-event` AppInstallProgress, surfaced to
+  // the UI via the thirdPartyAppInstallAtom (it cannot ride through these
+  // @backgroundMethod return values — the function callback contract doesn't
+  // survive the IPC proxy).
+  // ---------------------------------------------------------------------------
+
+  @backgroundMethod()
+  async thirdPartyHardwareInstallApp(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+    appName: string;
+  }) {
+    return this.backgroundApi.serviceThirdPartyHardware.thirdPartyHardwareInstallApp(
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareListInstalledApps(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    return this.backgroundApi.serviceThirdPartyHardware.thirdPartyHardwareListInstalledApps(
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareListInstalledAppNames(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    return this.backgroundApi.serviceThirdPartyHardware.thirdPartyHardwareListInstalledAppNames(
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareListAvailableApps(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    return this.backgroundApi.serviceThirdPartyHardware.thirdPartyHardwareListAvailableApps(
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareGetFirmwareVersion(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    return this.backgroundApi.serviceThirdPartyHardware.thirdPartyHardwareGetFirmwareVersion(
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareGetDeviceInfo(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    return this.backgroundApi.serviceThirdPartyHardware.thirdPartyHardwareGetDeviceInfo(
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  async getEvmAddressByWalletState(params: {
     connectId: string;
     deviceId: string;
     path: string;
+    vendor?: EHardwareVendor;
+    passphraseState?: string;
+    useEmptyPassphrase?: boolean;
   }): Promise<string | null> {
+    const evmProfile = params.vendor
+      ? getVendorProfile(params.vendor)
+      : undefined;
+    if (params.vendor && evmProfile?.isThirdParty) {
+      // Third-party (Trezor / Ledger) goes through its own service + adapter.
+      return this.backgroundApi.serviceThirdPartyHardware.getEvmAddressByWalletState(
+        {
+          connectId: params.connectId,
+          deviceId: params.deviceId,
+          path: params.path,
+          vendor: params.vendor,
+          passphraseState: params.passphraseState,
+          useEmptyPassphrase: params.useEmptyPassphrase,
+        },
+      );
+    }
     try {
       const compatibleConnectId = await this.getCompatibleConnectId({
         connectId: params.connectId,
@@ -1503,7 +2070,8 @@ class ServiceHardware extends ServiceBase {
         hardwareSDK?.evmGetAddress(compatibleConnectId, params.deviceId, {
           path: params.path,
           showOnOneKey: false,
-          useEmptyPassphrase: true,
+          useEmptyPassphrase: params.useEmptyPassphrase,
+          passphraseState: params.passphraseState,
         }),
       );
       if (evmAddressResponse.address && evmAddressResponse.address.length > 0) {
@@ -1519,21 +2087,62 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getEvmAddressByStandardWallet(params: {
+    connectId: string;
+    deviceId: string;
+    path: string;
+    vendor?: EHardwareVendor;
+  }): Promise<string | null> {
+    return this.getEvmAddressByWalletState({
+      ...params,
+      useEmptyPassphrase: true,
+    });
+  }
+
+  @backgroundMethod()
   async buildHwWalletXfp({
     connectId,
     deviceId,
     passphraseState,
     throwError,
     withUserInteraction,
+    vendor,
   }: {
     connectId: string | undefined | null;
     deviceId: string | undefined | null;
     passphraseState: string | undefined;
     throwError: boolean;
     withUserInteraction: boolean;
+    vendor?: EHardwareVendor;
   }): Promise<string | undefined> {
     if (!connectId) {
       return;
+    }
+    const xfpProfile = vendor ? getVendorProfile(vendor) : undefined;
+    if (xfpProfile?.isThirdParty) {
+      // Trezor can supply XFP via its adapter (master fingerprint + taproot
+      // xpub). Other third-party vendors (e.g. Ledger) stay XFP-less for now.
+      if (vendor !== EHardwareVendor.trezor) {
+        return undefined;
+      }
+      try {
+        return await this.backgroundApi.serviceThirdPartyHardware.buildHwWalletXfp(
+          {
+            connectId,
+            deviceId: deviceId || '',
+            vendor,
+            passphraseState,
+          },
+        );
+      } catch (error) {
+        // Never block wallet creation on third-party XFP; fall back to XFP-less.
+        defaultLogger.hardware.sdkLog.log(
+          `[ServiceHardware] getHwWalletXfp third-party failed: ${
+            (error as Error)?.message ?? String(error)
+          }`,
+        );
+        return undefined;
+      }
     }
     try {
       const compatibleConnectId = await this.getCompatibleConnectId({
@@ -1584,9 +2193,18 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
-    return convertDeviceResponse(() =>
-      hardwareSDK?.promptWebDeviceAccess(params),
-    );
+    try {
+      return await convertDeviceResponse(() =>
+        hardwareSDK?.promptWebDeviceAccess(params),
+      );
+    } catch (error) {
+      if (await this.recoverLinuxWebUsbAccessDeniedError(error)) {
+        return convertDeviceResponse(() =>
+          hardwareSDK?.promptWebDeviceAccess(params),
+        );
+      }
+      throw error;
+    }
   }
 
   private async _needCheckBridgeStatus() {
@@ -1868,12 +2486,49 @@ class ServiceHardware extends ServiceBase {
       throw new OneKeyLocalError('connectId is required');
     }
 
-    // Try to get device from DB first
+    // Try to get device from DB first. Keep the default OneKey vendor filter:
+    // broadening it would pull shipped Ledger devices into the third-party
+    // branch below and change a working flow.
     const device = await localDb.getDeviceByQuery({
       connectId,
       featuresDeviceId: featuresDeviceId || undefined,
       features,
     });
+
+    // Third-party devices keep USB as the primary connectId, but Trezor can
+    // have a bound BLE connectId after USB->BLE pairing. Prefer the bound BLE
+    // handle only when the active target transport is DesktopWebBle; do not
+    // fall through to OneKey's generic BLE pairing dialog for unbound devices.
+    if (device?.vendor) {
+      const vp = getVendorProfile(device.vendor);
+      if (vp.isThirdParty) {
+        if (!platformEnv.isSupportDesktopBle) {
+          return device.connectId || connectId;
+        }
+        if (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK) {
+          const currentTransportType = await this.getCurrentTransportType();
+          if (
+            currentTransportType === EHardwareTransportType.DesktopWebBle &&
+            device.bleConnectId
+          ) {
+            return device.bleConnectId;
+          }
+          return device.connectId || connectId;
+        }
+
+        const result = await this.connectionManager.shouldSwitchTransportType({
+          connectId: device.connectId || connectId,
+          hardwareCallContext,
+        });
+        if (
+          result.targetType === EHardwareTransportType.DesktopWebBle &&
+          device.bleConnectId
+        ) {
+          return device.bleConnectId;
+        }
+        return device.connectId || connectId;
+      }
+    }
 
     if (!platformEnv.isSupportDesktopBle) {
       return device?.connectId || connectId;
@@ -1890,12 +2545,10 @@ class ServiceHardware extends ServiceBase {
       return device?.connectId || connectId;
     }
 
-    // Determine the transport type to use
     const result = await this.connectionManager.shouldSwitchTransportType({
       connectId: device?.connectId || connectId,
       hardwareCallContext,
     });
-    console.log('🔍 shouldSwitchTransportType result:', result);
     const targetTransportType = result.targetType;
     const forceTransportType = (await hardwareForceTransportAtom.get())
       .forceTransportType;

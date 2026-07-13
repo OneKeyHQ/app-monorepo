@@ -4,7 +4,7 @@ import {
   PARSE_HANDLER_NAMES,
 } from '@onekeyhq/shared/types/qrCode';
 
-import { PARSE_HANDLERS } from './handlers';
+import { getParseHandler } from './handlers';
 import * as deeplinkHandler from './handlers/deeplink';
 import * as urlHandler from './handlers/url';
 
@@ -26,22 +26,26 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
   });
 
   for (const handlerName of handlerNames) {
-    const handler = PARSE_HANDLERS[handlerName];
     try {
-      const itemResult = await handler(value, {
-        ...options,
-        urlResult,
-        deeplinkResult,
-      });
-      if (itemResult) {
-        result = {
-          ...itemResult,
-          raw: value,
-        };
-        break;
+      const handler = await getParseHandler(handlerName);
+      if (handler) {
+        const itemResult = await handler(value, {
+          ...options,
+          urlResult,
+          deeplinkResult,
+        });
+        if (itemResult) {
+          result = {
+            ...itemResult,
+            raw: value,
+          };
+          break;
+        }
       }
-    } catch (e) {
-      console.warn('parse next', e);
+    } catch {
+      defaultLogger.app.error.log(
+        `[ScanQRCode] parse handler failed: ${handlerName}`,
+      );
     }
   }
   if (!result) {

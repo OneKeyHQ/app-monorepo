@@ -14,6 +14,8 @@ import {
 import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSignatureConfirmParamList } from '@onekeyhq/shared/src/routes';
 
+import { SignatureConfirmTestIDs } from '../../testIDs';
+
 import type {
   NavigationAction,
   StackActionType,
@@ -134,13 +136,17 @@ function MessageConfirmFromDapp() {
   ]);
 
   return (
-    <Page onClose={handlePageClose}>
+    <Page
+      onClose={handlePageClose}
+      testID={SignatureConfirmTestIDs.MessageConfirmFromDappPage}
+    >
       <Page.Body bg="$bgApp">
         <Stack
           h="100%"
           justifyContent="center"
           alignContent="center"
           bg="$bgApp"
+          testID={SignatureConfirmTestIDs.MessageConfirmFromDappLoading}
         >
           <Spinner size="large" />
         </Stack>

@@ -51,6 +51,7 @@ export function RiskSection({ details }: { details?: IStakeProtocolDetails }) {
             </SizableText>
           </YStack>
           <IconButton
+            testID="staking-icon-btn"
             icon="OpenOutline"
             color="$iconSubdued"
             size="small"

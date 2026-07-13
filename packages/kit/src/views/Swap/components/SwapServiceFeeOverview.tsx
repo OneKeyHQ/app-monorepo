@@ -1,23 +1,24 @@
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Icon, Popover, SizableText, Stack } from '@onekeyhq/components';
+import { Icon, Popover, Stack } from '@onekeyhq/components';
+import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { swapServiceFeeDefault } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-export function SwapServiceFeeOverview({
-  percentageFee,
-  percentOriginFee,
-}: {
+export function SwapServiceFeeOverview(_props: {
   percentageFee?: number;
   percentOriginFee?: number;
 }) {
   const intl = useIntl();
-  const displayFee =
-    typeof percentageFee === 'number' &&
-    new BigNumber(percentageFee).lt(percentOriginFee ?? swapServiceFeeDefault)
-      ? (percentOriginFee ?? swapServiceFeeDefault)
-      : (percentageFee ?? swapServiceFeeDefault);
+  const onekeyFeeHelpLink = useHelpLink({
+    path: 'articles/13988593',
+  });
+  const content = `${intl.formatMessage({
+    id: ETranslations.provider_popover_onekey_fee_content_nofee,
+  })} <url>${onekeyFeeHelpLink}<underline>${intl.formatMessage({
+    id: ETranslations.trade_incognito_read_more,
+  })}</underline></url>`;
   return (
     <Popover
       title={intl.formatMessage({
@@ -32,22 +33,21 @@ export function SwapServiceFeeOverview({
         />
       }
       renderContent={
-        <Stack gap="$1" p="$4">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage(
-              {
-                id: ETranslations.provider_popover_onekey_fee_content,
-              },
-              {
-                number: `${displayFee}%`,
-              },
-            )}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.provider_ios_popover_onekey_fee_content_2,
-            })}
-          </SizableText>
+        <Stack p="$4">
+          <FormatHyperlinkText
+            autoExecuteParsedAction={false}
+            onAction={openUrlExternal}
+            size="$bodyMd"
+            color="$textSubdued"
+            urlTextProps={{
+              color: '$textInfo',
+            }}
+            underlineTextProps={{
+              color: '$textInfo',
+            }}
+          >
+            {content}
+          </FormatHyperlinkText>
         </Stack>
       }
     />

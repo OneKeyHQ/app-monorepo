@@ -14,6 +14,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { PinInputLayout } from '../components/PinInputLayout';
+import { OnboardingTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -47,6 +48,8 @@ function CreatePinPage() {
 
   return (
     <PinInputLayout
+      testID={OnboardingTestIDs.createPasscodePage}
+      inputTestID={OnboardingTestIDs.passcodeInput}
       title={
         isResetPin
           ? intl.formatMessage({ id: ETranslations.create_a_new_pin })

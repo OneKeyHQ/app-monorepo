@@ -16,8 +16,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { FavoritesBar } from '../components/FavoritesBar/FavoritesBar.web';
+import { PerpMarketWorkspacePanel } from '../components/MarketDetail/PerpMarketWorkspacePanel';
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
-import { PerpCandles } from '../components/PerpCandles';
+import { PerpNetworkAlert } from '../components/PerpNetworkAlert';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
@@ -66,32 +67,21 @@ function PerpDesktopLayout() {
 
   const tradingPanel = useMemo(() => {
     return (
-      <YStack
-        h={layout.marketContentHeight}
-        minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
-        maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
-        w={tradingWidth}
-        borderLeftWidth="$px"
-        borderLeftColor="$borderSubdued"
-      >
-        <Stack flex={1} style={{ overflowY: 'auto' }}>
-          <YStack pb="$4">
-            <PerpTradingPanel />
-          </YStack>
-        </Stack>
+      <YStack minHeight={layout.marketContentHeight}>
+        <YStack pb="$4">
+          <PerpTradingPanel />
+        </YStack>
       </YStack>
     );
-  }, [layout.marketContentHeight, tradingWidth]);
+  }, [layout.marketContentHeight]);
 
   const accountPanel = useMemo(() => {
     return (
       <YStack
-        h={layout.bottomPanelHeight}
-        minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
-        maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
-        w={tradingWidth}
-        borderLeftWidth="$px"
-        borderLeftColor="$borderSubdued"
+        minHeight={layout.bottomPanelHeight}
+        alignSelf="stretch"
+        borderTopWidth="$px"
+        borderTopColor="$borderSubdued"
       >
         <XStack alignItems="center">
           <XStack py="$3" px="$2.5">
@@ -108,7 +98,7 @@ function PerpDesktopLayout() {
         </YStack>
       </YStack>
     );
-  }, [intl, layout.bottomPanelHeight, tradingWidth]);
+  }, [intl, layout.bottomPanelHeight]);
 
   return (
     <Stack
@@ -118,6 +108,7 @@ function PerpDesktopLayout() {
     >
       <YStack flex={chartExpanded ? 1 : undefined}>
         <PerpTips />
+        <PerpNetworkAlert />
         {chartExpanded ? null : <FavoritesBar />}
 
         <YStack
@@ -128,14 +119,20 @@ function PerpDesktopLayout() {
           <PerpTickerBar />
 
           <XStack
-            h={chartExpanded ? undefined : layout.marketContentHeight}
             flex={chartExpanded ? 1 : undefined}
-            overflow="hidden"
+            alignItems="stretch"
+            overflow="visible"
           >
             <YStack flex={1} minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
-              <XStack flex={1} overflow="hidden">
+              <XStack
+                h={chartExpanded ? undefined : layout.marketContentHeight}
+                flex={chartExpanded ? 1 : undefined}
+                overflow="hidden"
+              >
                 <YStack flex={1} position="relative">
-                  <PerpCandles onTouchScroll={handleTradingViewTouchScroll} />
+                  <PerpMarketWorkspacePanel
+                    onTouchScroll={handleTradingViewTouchScroll}
+                  />
 
                   <Stack
                     display={gtXl && !chartExpanded ? 'flex' : 'none'}
@@ -146,6 +143,7 @@ function PerpDesktopLayout() {
                     marginTop={-2}
                   >
                     <IconButton
+                      testID="perp-icon-btn"
                       icon={
                         showOrderBook
                           ? 'ChevronRightSmallSolid'
@@ -194,28 +192,40 @@ function PerpDesktopLayout() {
                       </SizableText>
                     </XStack>
                     <YStack flex={1} overflow="hidden">
-                      <PerpOrderBook />
+                      <PerpOrderBook
+                        initialOrderBookHeight={
+                          layout.marketContentHeight - layout.panelHeaderHeight
+                        }
+                      />
                     </YStack>
                   </YStack>
                 ) : null}
               </XStack>
+
+              <XStack
+                display={chartExpanded ? 'none' : 'flex'}
+                borderTopWidth="$px"
+                borderTopColor="$borderSubdued"
+                minHeight={layout.bottomPanelHeight}
+                alignItems="stretch"
+              >
+                <YStack flex={1}>
+                  <PerpOrderInfoPanel />
+                </YStack>
+              </XStack>
             </YStack>
 
-            <YStack display={chartExpanded ? 'none' : 'flex'}>
+            <YStack
+              display={chartExpanded ? 'none' : 'flex'}
+              minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
+              maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
+              w={tradingWidth}
+              borderLeftWidth="$px"
+              borderLeftColor="$borderSubdued"
+            >
               {tradingPanel}
+              {accountPanel}
             </YStack>
-          </XStack>
-
-          <XStack
-            display={chartExpanded ? 'none' : 'flex'}
-            borderTopWidth="$px"
-            borderTopColor="$borderSubdued"
-            minHeight={layout.bottomPanelHeight}
-          >
-            <YStack flex={1}>
-              <PerpOrderInfoPanel />
-            </YStack>
-            {accountPanel}
           </XStack>
         </YStack>
       </YStack>

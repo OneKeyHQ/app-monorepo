@@ -155,7 +155,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      const privateKey = await decryptAsync({ password, data: privateKeyRaw });
+      const privateKey = await decryptAsync({
+        password,
+        data: privateKeyRaw,
+        kdfBackend: query.kdfBackend,
+        enablePbkdf2Cache: query.enablePbkdf2Cache,
+      });
       const publicKey = ed25519.publicFromPrivate(privateKey);
       return `ed25519:${baseEncode(Buffer.concat([privateKey, publicKey]))}`;
     }

@@ -1,9 +1,7 @@
 // import type only here to avoid cycle-deps error
 
-import type {
-  EAppEventBusNames,
-  IAppEventBusPayload,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 
 import type { LocalDbBase } from '../dbs/local/LocalDbBase';
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
@@ -15,6 +13,7 @@ import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
+import type ServiceAddressRiskCheck from '../services/ServiceAddressRiskCheck';
 import type ServiceAllNetwork from '../services/ServiceAllNetwork';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppCleanup from '../services/ServiceAppCleanup';
@@ -44,6 +43,7 @@ import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
+import type ServiceHyperliquidCache from '../services/ServiceHyperLiquid/ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
 import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
@@ -84,7 +84,9 @@ import type ServiceSignatureConfirm from '../services/ServiceSignatureConfirm';
 import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
+import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
@@ -126,20 +128,25 @@ export interface IBackgroundApiBridge {
   getAtomStates: () => Promise<{ states: Record<EAtomNames, any> }>;
 
   // **** eventBus
-  emitEvent<T extends EAppEventBusNames>(
+  emitEvent<T extends keyof IAppEventBusPayload>(
     type: T,
     payload: IAppEventBusPayload[T],
+    originNodeId?: string,
   ): Promise<boolean>;
+  writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void>;
 
   // **** webview bridge
   bridge: JsBridgeBase | null;
   bridgeExtBg: JsBridgeExtBackground | null;
-  connectBridge(bridge: JsBridgeBase): void;
-  connectWebEmbedBridge(bridge: JsBridgeBase): void;
+  connectBridge(bridge: JsBridgeBase | null): void;
+  connectWebEmbedBridge(bridge: JsBridgeBase | null): void;
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
 
   // **** dapp provider api
-  providers: Record<IInjectedProviderNames, ProviderApiBase>;
+  // Only $private is eagerly present; per-chain providers are loaded lazily via
+  // getProviderApi(scope) so their chain SDKs stay out of the startup bundle.
+  providers: Partial<Record<IInjectedProviderNames, ProviderApiBase>>;
+  getProviderApi(scope: IInjectedProviderNames): Promise<ProviderApiBase>;
   sendForProvider(providerName: IInjectedProviderNamesStrings): any;
   handleProviderMethods<T>(
     payload: IJsBridgeMessagePayload,
@@ -159,6 +166,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceWebviewPerp: ServiceWebviewPerp;
   serviceDevSetting: ServiceDevSetting;
   serviceSetting: ServiceSetting;
+  serviceAddressRiskCheck: ServiceAddressRiskCheck;
   serviceApp: ServiceApp;
   serviceSend: ServiceSend;
   serviceSwap: ServiceSwap;
@@ -169,6 +177,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceBatchCreateAccount: ServiceBatchCreateAccount;
   serviceAllNetwork: ServiceAllNetwork;
   serviceToken: ServiceToken;
+  serviceTokenViewModel: ServiceTokenViewModel;
   serviceNFT: ServiceNFT;
   serviceAppCleanup: ServiceAppCleanup;
   serviceHistory: ServiceHistory;
@@ -192,6 +201,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceFreshAddress: ServiceFreshAddress;
   serviceHardware: ServiceHardware;
   serviceHardwareUI: ServiceHardwareUI;
+  serviceThirdPartyHardware: ServiceThirdPartyHardware;
   serviceFirmwareUpdate: ServiceFirmwareUpdate;
   serviceLightning: ServiceLightning;
   serviceOnboarding: ServiceOnboarding;
@@ -228,6 +238,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceMasterPassword: ServiceMasterPassword;
   servicePrimeTransfer: ServicePrimeTransfer;
   serviceHyperliquid: ServiceHyperliquid;
+  serviceHyperliquidCache: ServiceHyperliquidCache;
   serviceHyperliquidExchange: ServiceHyperliquidExchange;
   serviceHyperliquidReferral: ServiceHyperliquidReferral;
   serviceHyperliquidWallet: ServiceHyperliquidWallet;

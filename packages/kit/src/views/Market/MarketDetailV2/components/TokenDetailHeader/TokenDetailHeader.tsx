@@ -11,7 +11,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-import { useTokenDetail } from '../../hooks/useTokenDetail';
+import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
 
 import { ShareButton } from './ShareButton';
 import { TokenDetailHeaderLeft } from './TokenDetailHeaderLeft';
@@ -28,14 +28,22 @@ const SCROLL_THRESHOLD = 2;
 export function TokenDetailHeader({
   showStats = true,
   showMediaAndSecurity = true,
+  showFavoriteButton = true,
   containerProps,
 }: {
   showStats?: boolean;
   showMediaAndSecurity?: boolean;
+  showFavoriteButton?: boolean;
   containerProps?: ComponentProps<typeof XStack>;
 }) {
   const { lg, md } = useMedia();
-  const { tokenDetail, networkId, isNative, isStockToken } = useTokenDetail();
+  const {
+    tokenDetail,
+    networkId,
+    isNative,
+    isPreviewTokenDetail,
+    isStockToken,
+  } = useMarketDetailHeaderDisplayData();
   const [scrollX, setScrollX] = useState(0);
   const [scrollViewWidth, setScrollViewWidth] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
@@ -84,6 +92,7 @@ export function TokenDetailHeader({
         networkLogoUri={networkData?.logoURI}
         showMediaAndSecurity={showMediaAndSecurity}
         isNative={isNative}
+        showFavoriteButton={showFavoriteButton}
       />
 
       {showStats === false && platformEnv.isNative && md ? null : (
@@ -92,6 +101,7 @@ export function TokenDetailHeader({
           networkId={networkId}
           isNative={isNative}
           showStats={showStats}
+          isPreviewTokenDetail={isPreviewTokenDetail}
           isStockToken={isStockToken}
         />
       )}

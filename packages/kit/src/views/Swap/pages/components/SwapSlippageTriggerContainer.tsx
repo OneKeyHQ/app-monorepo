@@ -20,6 +20,7 @@ import {
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { SwapTestIDs } from '../../testIDs';
 
 interface ISwapSlippageTriggerContainerProps {
   isLoading: boolean;
@@ -91,6 +92,7 @@ const SwapSlippageTriggerContainer = ({
   );
   return (
     <SwapCommonInfoItem
+      containerProps={{ testID: SwapTestIDs.slippageSelector }}
       title={intl.formatMessage({
         id: ETranslations.swap_page_provider_slippage_tolerance,
       })}

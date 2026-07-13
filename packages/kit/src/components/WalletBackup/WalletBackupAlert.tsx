@@ -84,6 +84,7 @@ export function WalletBackupAlert() {
               }}
             >
               <Button
+                testID="wallet-backup-btn"
                 size="small"
                 variant="tertiary"
                 iconAfter="ArrowRightOutline"

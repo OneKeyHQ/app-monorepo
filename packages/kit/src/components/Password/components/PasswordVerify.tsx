@@ -22,11 +22,12 @@ import {
   XStack,
   YStack,
   onVisibilityStateChange,
-  useForm,
 } from '@onekeyhq/components';
-import { usePasswordPersistManualLockStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
+import { usePasswordPersistManualLockStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -185,11 +186,22 @@ function PasswordVerify({
 
   const checkAuthChanged = useCallback(async () => {
     const isSupport = await biologyAuth.isSupportBiologyAuth();
+    // TODO(biologyAuth-debug): temporary log to diagnose iOS biometric disappearing
+    defaultLogger.setting.page.biologyAuthDebug('checkAuthChanged:start', {
+      platform: platformEnv.symbol,
+      isSupport,
+    });
     if (!isSupport) {
       return false;
     }
     try {
       const changed = await checkBiometricAuthChanged();
+      // TODO(biologyAuth-debug): temporary log — `changed: true` silently turns off
+      // isBiologyAuthSwitchOn, hiding the biometric button on lock screen.
+      defaultLogger.setting.page.biologyAuthDebug('checkAuthChanged:result', {
+        platform: platformEnv.symbol,
+        changed,
+      });
       if (changed) {
         await backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
         setTimeout(() => {
@@ -237,8 +249,11 @@ function PasswordVerify({
       if (changed) {
         return;
       }
+      // Skip auto-trigger in MV3 sidepanel: WebAuthn modal can deadlock when
+      // bound to Google Password Manager, and sidepanel lacks the popup
+      // focus-loss escape that lets users recover. See PR #11125.
       if (
-        !platformEnv.isExtension &&
+        !platformEnv.isExtensionUiSidePanel &&
         isEnable &&
         !passwordInput &&
         status.value === EPasswordVerifyStatus.DEFAULT &&
@@ -263,12 +278,13 @@ function PasswordVerify({
   }, [isEnable, manualLocking]);
 
   // Perform biology verification upon returning to the backend after a 1-second interval.
+  // Same sidepanel carve-out as the mount-time effect above.
   const onActive = useCallback(() => {
     const now = Date.now();
     if (now - lastTime.current > 1000) {
       lastTime.current = now;
       if (
-        !platformEnv.isExtension &&
+        !platformEnv.isExtensionUiSidePanel &&
         isEnable &&
         !passwordInput &&
         status.value === EPasswordVerifyStatus.DEFAULT &&
@@ -379,6 +395,7 @@ function PasswordVerify({
             {isEnable ? (
               <YStack alignSelf="center" pt="$6" scale={1.5}>
                 <IconButton
+                  testID="password-icon-btn"
                   size="large"
                   variant="tertiary"
                   icon={biologyAuthIconName}

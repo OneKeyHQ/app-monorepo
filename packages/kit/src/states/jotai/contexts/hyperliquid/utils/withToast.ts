@@ -1,6 +1,10 @@
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  extractHyperLiquidErrorMessage,
+  hyperLiquidErrorResolver,
+} from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 
 import { ERROR_MESSAGES, ERROR_PATTERNS, TOAST_CONFIGS } from './config';
 import { EErrorType } from './types';
@@ -26,7 +30,7 @@ function identifyError(errorMessage: string): EErrorType | null {
   return null;
 }
 
-function extractErrorMessage(error: unknown): string {
+function extractRawErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
   if (error && typeof error === 'object' && 'message' in error) {
@@ -35,9 +39,18 @@ function extractErrorMessage(error: unknown): string {
   return 'Unknown error occurred';
 }
 
+function extractErrorMessage(error: unknown): string {
+  const hyperLiquidMessage = extractHyperLiquidErrorMessage(error);
+  if (hyperLiquidMessage) return hyperLiquidMessage;
+
+  return extractRawErrorMessage(error);
+}
+
 async function handleError(error: unknown): Promise<void> {
   const errorMessage = extractErrorMessage(error);
-  const errorType = identifyError(errorMessage);
+  const rawErrorMessage = extractRawErrorMessage(error);
+  const errorType =
+    identifyError(errorMessage) ?? identifyError(rawErrorMessage);
 
   if (errorType) {
     switch (errorType) {
@@ -66,9 +79,23 @@ async function handleError(error: unknown): Promise<void> {
     }
   }
 
-  const friendlyMessage = errorType
-    ? ERROR_MESSAGES[errorType]()
-    : errorMessage;
+  const rawResolved =
+    rawErrorMessage !== errorMessage
+      ? await hyperLiquidErrorResolver.resolveAsync(rawErrorMessage)
+      : undefined;
+  const extractedResolved =
+    !rawResolved?.i18nKey && !errorType
+      ? await hyperLiquidErrorResolver.resolveAsync(errorMessage)
+      : undefined;
+
+  let friendlyMessage = errorMessage;
+  if (errorType) {
+    friendlyMessage = ERROR_MESSAGES[errorType]();
+  } else if (rawResolved?.i18nKey) {
+    friendlyMessage = rawResolved.localizedMessage;
+  } else if (extractedResolved?.localizedMessage) {
+    friendlyMessage = extractedResolved.localizedMessage;
+  }
   Toast.error({ title: friendlyMessage });
 }
 

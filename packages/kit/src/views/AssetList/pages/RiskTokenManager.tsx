@@ -33,18 +33,12 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptySearch } from '../../../components/Empty';
 import { ListItem } from '../../../components/ListItem';
-import TokenBalanceView from '../../../components/TokenListView/TokenBalanceView';
 import TokenIconView from '../../../components/TokenListView/TokenIconView';
 import TokenNameView from '../../../components/TokenListView/TokenNameView';
-import TokenPriceChangeView from '../../../components/TokenListView/TokenPriceChangeView';
-import TokenPriceView from '../../../components/TokenListView/TokenPriceView';
-import TokenValueView from '../../../components/TokenListView/TokenValueView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import {
-  useTokenListActions,
-  withTokenListProvider,
-} from '../../../states/jotai/contexts/tokenList';
+import { withTokenListProvider } from '../../../states/jotai/contexts/tokenList';
+import { AssetListTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 import type {
@@ -74,7 +68,6 @@ function RiskTokenManager() {
     accountId,
     deriveType,
     deriveInfo,
-    hideValue,
     accountAddress,
   } = route.params;
 
@@ -98,11 +91,10 @@ function RiskTokenManager() {
   const [isEditing, setIsEditing] = useState(false);
   const [searchKey, setSearchKey] = useState('');
 
-  const { refreshTokenListMap } = useTokenListActions().current;
-
   const headerRight = useCallback(() => {
     return (
       <Button
+        testID={AssetListTestIDs.riskTokenEditBtn}
         size="sm"
         variant="tertiary"
         onPress={() => {
@@ -255,14 +247,6 @@ function RiskTokenManager() {
     void fetchRiskTokens();
   }, [networkId]);
 
-  useEffect(() => {
-    if (tokenMap) {
-      refreshTokenListMap({
-        tokens: tokenMap,
-      });
-    }
-  }, [tokenMap, refreshTokenListMap]);
-
   const handleToggleBlockedToken = useCallback(
     (token: IAccountToken & { isBlocked: boolean }) => {
       const tokenNetworkId = token.networkId ?? networkId;
@@ -371,9 +355,14 @@ function RiskTokenManager() {
             };
           }) => (
             <ListItem
+              testID={AssetListTestIDs.riskTokenListItem}
               key={token.$key ?? token.uniqueKey}
               onPress={() => handleOnPressToken(token)}
             >
+              {/* Management UI: icon + symbol only. This screen has NO
+                  TokenListViewContext.Provider / cell producer, so any fiat leaf
+                  (price/value/balance) would render placeholder dashes and spin
+                  up discarded useTokenFiat subscriptions — do NOT re-add them. */}
               <XStack alignItems="center" gap="$3" maxWidth="60%">
                 <TokenIconView
                   $key={token.$key}
@@ -395,24 +384,12 @@ function RiskTokenManager() {
                       flexShrink: 0,
                     }}
                   />
-                  <XStack alignItems="center" gap="$1">
-                    <TokenPriceView
-                      $key={token.$key ?? ''}
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      numberOfLines={1}
-                    />
-                    <TokenPriceChangeView
-                      $key={token.$key ?? ''}
-                      size="$bodyMd"
-                      numberOfLines={1}
-                    />
-                  </XStack>
                 </YStack>
               </XStack>
               {isEditing ? (
                 <YStack alignItems="flex-end" flex={1}>
                   <Button
+                    testID={AssetListTestIDs.riskTokenToggleBtn}
                     size="small"
                     variant="secondary"
                     onPress={(e: GestureResponderEvent) => {
@@ -427,24 +404,7 @@ function RiskTokenManager() {
                     })}
                   </Button>
                 </YStack>
-              ) : (
-                <YStack alignItems="flex-end" flex={1}>
-                  <TokenBalanceView
-                    hideValue={hideValue}
-                    numberOfLines={1}
-                    size="$bodyLgMedium"
-                    $key={token.$key ?? ''}
-                    symbol=""
-                  />
-                  <TokenValueView
-                    hideValue={hideValue}
-                    numberOfLines={1}
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    $key={token.$key ?? ''}
-                  />
-                </YStack>
-              )}
+              ) : null}
             </ListItem>
           )}
         />

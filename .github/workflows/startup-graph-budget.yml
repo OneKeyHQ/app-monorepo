@@ -1,0 +1,209 @@
+name: Startup Graph Budget Check
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - x
+    paths:
+      - '.github/workflows/startup-graph-budget.yml'
+      - 'packages/**'
+      - 'apps/mobile/**'
+      - 'apps/web/**'
+      - 'development/babel-plugins/**'
+      - 'development/perf-ci/run-web-cold.js'
+      - 'development/perf-ci/lib/**'
+      - 'development/perf-ci/thresholds/web.cold.json'
+      - 'development/rspack/**'
+      - 'development/webpack/**'
+      - 'package.json'
+      - 'yarn.lock'
+
+# Cancel previous runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  # Dual-thread three-bundle architecture check (Phase 4)
+  # Runs unionBuild to produce allocation reports, then validates
+  # forbidden packages, module budgets, and architectural rules.
+  native-startup-graph-budget:
+    name: Native startup graph budget
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      - name: Union Build (three-bundle split)
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
+          UNION_BUILD: 'true'
+        run: |
+          cd apps/mobile
+          node scripts/unionBuild.js \
+            --platform ios \
+            --common-bundle-output /tmp/common.jsbundle \
+            --common-sourcemap-output /tmp/common.jsbundle.map \
+            --main-bundle-output /tmp/main.jsbundle \
+            --main-sourcemap-output /tmp/main.jsbundle.map \
+            --background-bundle-output /tmp/background.bundle.js \
+            --background-sourcemap-output /tmp/background.bundle.map \
+            --assets-dest /tmp/assets
+
+      - name: Budget Check (main entry)
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
+          ENTRY: main
+          # main entry currently: ~2552 modules / ~12.72 MB
+          STARTUP_MODULE_BUDGET: '3000'
+          STARTUP_SIZE_BUDGET_MB: '13.5'
+        run: node apps/mobile/scripts/check-startup-graph-budget.js
+
+      - name: Budget Check (background entry)
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
+          ENTRY: background
+          # background entry currently: ~2430 modules / ~18.83 MB
+          STARTUP_MODULE_BUDGET: '2600'
+          STARTUP_SIZE_BUDGET_MB: '19.5'
+        run: node apps/mobile/scripts/check-startup-graph-budget.js
+
+      - name: Architecture Check (three-bundle rules)
+        run: node apps/mobile/scripts/check-bundle-architecture.js
+
+      - name: Upload Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-architecture-reports
+          path: |
+            apps/mobile/dist/allocation-report-*.json
+            apps/mobile/out-dir-analysis/budget-check-report-*.json
+            apps/mobile/out-dir-analysis/budget-check-ai-hints-*.json
+            apps/mobile/out-dir-analysis/budget-check-ai-hints-*.md
+          retention-days: 30
+
+  web-startup-graph-budget:
+    name: Web startup graph budget
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      # Current GitHub Actions cold-entry median baseline, measured on
+      # ubuntu-24.04 with 3 fresh-browser runs in PR #12286 run 28733529052.
+      # Keep scenario budgets in development/perf-ci/thresholds/web.cold.json
+      # close to these per-entry baselines. LCP is reported by the script but is
+      # not a hard budget because it is too sensitive to GitHub runner variance.
+      # NOTE: resourceCount, scriptCount and jsDecodedBytes remain raw
+      # PerformanceResourceTiming hard gates matching web.cold.json. Normalized
+      # URL de-duplicated diagnostics are emitted as unique* fields in the
+      # report/hints; migrate thresholds in the same PR if those become gates.
+      # root: 15.86 MiB JS, 157 scripts, 206 resources, 1737 ms long tasks
+      # market: 15.86 MiB JS, 157 scripts, 205 resources, 1624 ms long tasks
+      # perps: 16.21 MiB JS, 165 scripts, 204 resources, 1271 ms long tasks
+      # swap: 15.81 MiB JS, 159 scripts, 192 resources, 971 ms long tasks
+      # defi: 15.95 MiB JS, 160 scripts, 190 resources, 1092 ms long tasks
+      # referFriends: 15.85 MiB JS, 157 scripts, 175 resources, 692 ms long tasks
+      - name: Check web startup/cold entry budgets
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          MARKET_HOME_TOKEN_SEED_MIN_COUNT: '20'
+          MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
+          PERF_WEB_COLD_OUT: apps/web/out-dir-analysis/web-cold-budget-report.json
+          PERF_WEB_STARTUP_GRAPH_OUT: apps/web/out-dir-analysis/web-startup-graph-budget-report.json
+        run: |
+          export PATH="${GITHUB_WORKSPACE}/node_modules/.bin:${PATH}"
+          MARKET_HOME_TOKEN_SEED_URL="$(
+          node <<'NODE'
+          const tokens = Array.from({ length: 20 }, (_, index) => {
+            const rank = index + 1;
+            return {
+              address: '',
+              chainId: '0',
+              communityRecognized: true,
+              decimals: 8,
+              isNative: true,
+              liquidity: String(100_000_000 - index * 1_000_000),
+              marketCap: String(2_000_000_000_000 - index * 10_000_000_000),
+              name: `Cold Seed ${rank}`,
+              networkId: 'btc--0',
+              price: String(100_000 - index * 100),
+              price24hAgo: String(99_000 - index * 100),
+              priceChange24hPercent: '1.23',
+              symbol: `SEED${rank}`,
+              volume24h: String(1_000_000_000 - index * 5_000_000),
+            };
+          });
+          const payload = { list: tokens, total: 100 };
+          process.stdout.write(
+            `data:application/json,${encodeURIComponent(JSON.stringify(payload))}`,
+          );
+          NODE
+          )"
+          export MARKET_HOME_TOKEN_SEED_URL
+          yarn perf:web:cold
+
+      - name: Upload web startup/cold budget reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-startup-cold-budget-reports
+          path: |
+            apps/web/out-dir-analysis/web-startup-graph-budget-report.json
+            apps/web/out-dir-analysis/web-startup-graph-budget-report-ai-hints.json
+            apps/web/out-dir-analysis/web-startup-graph-budget-report-ai-hints.md
+            apps/web/out-dir-analysis/web-cold-budget-report.json
+            apps/web/out-dir-analysis/web-cold-budget-report-ai-hints.json
+            apps/web/out-dir-analysis/web-cold-budget-report-ai-hints.md
+          retention-days: 30

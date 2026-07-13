@@ -48,6 +48,7 @@ import {
   useSwapProInputToken,
   useSwapProToToken,
 } from '../../hooks/useSwapPro';
+import { SwapTestIDs } from '../../testIDs';
 
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 
@@ -212,6 +213,7 @@ const SwapProInputContainer = ({
       <XStack borderTopLeftRadius="$2" borderTopRightRadius="$2">
         <Input
           ref={inputRef}
+          testID={SwapTestIDs.fromAmountInput}
           size="small"
           containerProps={{
             flex: 1,

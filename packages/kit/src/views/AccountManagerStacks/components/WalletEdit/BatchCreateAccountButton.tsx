@@ -20,6 +20,8 @@ import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { AccountManagerTestIDs } from '../../testIDs';
+
 export function BatchCreateAccountButton({
   focusedWalletInfo,
   activeAccount,
@@ -127,7 +129,7 @@ export function BatchCreateAccountButton({
 
   return (
     <ActionList.Item
-      testID="batch-create-account-button-trigger"
+      testID={AccountManagerTestIDs.batchCreateAccountButton}
       icon="ChecklistOutline"
       label={intl.formatMessage({
         id: ETranslations.global_manage_accounts,

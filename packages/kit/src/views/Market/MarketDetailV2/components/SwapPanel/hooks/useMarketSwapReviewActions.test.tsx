@@ -187,6 +187,9 @@ describe('useMarketSwapReviewActions', () => {
                 status: ESwapStepStatus.READY,
               },
             ],
+            preSwapData: {
+              stepBeforeActionsError: true,
+            },
           }),
         ),
       },
@@ -214,6 +217,9 @@ describe('useMarketSwapReviewActions', () => {
     expect(result.current.swapSteps.preSwapData.stepBeforeActionsLoading).toBe(
       false,
     );
+    expect(
+      result.current.swapSteps.preSwapData.stepBeforeActionsError,
+    ).toBeUndefined();
   });
 
   it('starts a send step through the market speed swap adapter', async () => {
@@ -508,6 +514,9 @@ describe('useMarketSwapReviewActions', () => {
 
     expect(result.current.swapSteps.preSwapData.stepBeforeActionsLoading).toBe(
       false,
+    );
+    expect(result.current.swapSteps.preSwapData.stepBeforeActionsError).toBe(
+      true,
     );
     expect(result.current.swapSteps.preSwapData.netWorkFee).toBeUndefined();
   });

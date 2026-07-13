@@ -3,7 +3,13 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { ActionList, Dialog, Divider, Toast } from '@onekeyhq/components';
+import {
+  ActionList,
+  Dialog,
+  Divider,
+  Toast,
+  resetAccountManagerStacksModal,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
@@ -20,6 +26,7 @@ import {
 import { shouldShowMnemonicBackupEntryForWallet } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -33,12 +40,17 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
+import { AccountManagerTestIDs } from '../../testIDs';
 
 import { AddHiddenWalletButton } from './AddHiddenWalletButton';
 import { BulkCopyAddressesButton } from './BulkCopyAddressesButton';
 import { DeviceManagementButton } from './DeviceManagementButton';
 import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { WalletBoundReferralCodeButton } from './WalletBoundReferralCodeButton';
+import {
+  shouldShowAddHiddenWalletButtonForWallet,
+  shouldShowDeviceManagementButtonForWallet,
+} from './WalletEditButtonUtils';
 import { WalletRemoveButton } from './WalletRemoveButton';
 
 function WalletEditButtonView({
@@ -57,7 +69,7 @@ function WalletEditButtonView({
   const [devSettings] = useDevSettingsPersistAtom();
 
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { user } = useOneKeyAuth();
+  const { user, isPrimeActive } = useOneKeyAuth();
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
   const { verifyKeylessPinChecking } = useVerifyKeylessPinChecking();
 
@@ -65,33 +77,60 @@ function WalletEditButtonView({
   const [isVerifyPinLoading, _setIsVerifyPinLoading] = useState(false);
 
   const isPrimeUser = useMemo(() => {
-    return user?.primeSubscription?.isActive && user?.onekeyUserId;
-  }, [user]);
+    return isPrimeActive && user?.onekeyUserId;
+  }, [isPrimeActive, user?.onekeyUserId]);
+
+  // True when the wallet is bound to a third-party hardware vendor.
+  // Used only for entries that are still third-party-wide exclusions. Device
+  // management and hidden-wallet creation are gated by vendor capability below.
+  const isThirdPartyVendorWallet = useMemo(() => {
+    return Boolean(
+      wallet?.associatedDeviceInfo?.vendor &&
+      getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty,
+    );
+  }, [wallet]);
 
   const showDeviceManagementButton = useMemo(() => {
-    if (isKeyless) return false;
-    return (
-      !accountUtils.isHwHiddenWallet({ wallet }) &&
-      accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
-    );
+    return shouldShowDeviceManagementButtonForWallet({
+      isKeyless,
+      isHiddenWallet: accountUtils.isHwHiddenWallet({ wallet }),
+      isHwOrQrWallet: accountUtils.isHwOrQrWallet({ walletId: wallet?.id }),
+      vendor: wallet?.associatedDeviceInfo?.vendor,
+    });
   }, [wallet, isKeyless]);
 
   const showAddHiddenWalletButton = useMemo(() => {
-    if (isKeyless) return false;
-    return (
-      !accountUtils.isHwHiddenWallet({ wallet }) &&
-      accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
-    );
+    return shouldShowAddHiddenWalletButtonForWallet({
+      isKeyless,
+      isHiddenWallet: accountUtils.isHwHiddenWallet({ wallet }),
+      isHwOrQrWallet: accountUtils.isHwOrQrWallet({ walletId: wallet?.id }),
+      vendor: wallet?.associatedDeviceInfo?.vendor,
+    });
   }, [wallet, isKeyless]);
 
   const showRemoveWalletButton = useMemo(() => {
     // Keyless wallet can also be removed
     if (isKeyless) return true;
+    // Third-party standard wallets remove via "remove device"; keep the delete
+    // entry for their hidden wallets.
+    if (
+      isThirdPartyVendorWallet &&
+      !accountUtils.isHwHiddenWallet({ wallet })
+    ) {
+      return false;
+    }
+    if (
+      platformEnv.isWebDappMode &&
+      !accountUtils.isHwHiddenWallet({ wallet }) &&
+      accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
+    ) {
+      return false;
+    }
     return (
       !wallet?.isMocked &&
       !accountUtils.isOthersWallet({ walletId: wallet?.id || '' })
     );
-  }, [wallet, isKeyless]);
+  }, [wallet, isKeyless, isThirdPartyVendorWallet]);
 
   const showRemoveDeviceButton = useMemo(() => {
     if (isKeyless) return false;
@@ -171,7 +210,7 @@ function WalletEditButtonView({
           return;
         }
         if (platformEnv.isNative) {
-          navigation.popStack();
+          resetAccountManagerStacksModal();
           await timerUtils.wait(200);
         }
         await goToOneKeyIDLoginPageForKeylessWallet({ mode });
@@ -180,7 +219,7 @@ function WalletEditButtonView({
         void loadingDialog?.close();
       }
     },
-    [navigation, goToOneKeyIDLoginPageForKeylessWallet, intl],
+    [goToOneKeyIDLoginPageForKeylessWallet, intl],
   );
 
   const renderItems = useCallback(
@@ -196,10 +235,12 @@ function WalletEditButtonView({
       return (
         // fix missing context in popover
         <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-          <WalletBoundReferralCodeButton
-            wallet={wallet}
-            onClose={handleActionListClose}
-          />
+          {isThirdPartyVendorWallet ? null : (
+            <WalletBoundReferralCodeButton
+              wallet={wallet}
+              onClose={handleActionListClose}
+            />
+          )}
 
           {isKeyless ? (
             <ActionList.Item
@@ -226,7 +267,7 @@ function WalletEditButtonView({
               onPress={async (close) => {
                 if (wallet) {
                   close();
-                  navigation.popStack();
+                  resetAccountManagerStacksModal();
                   await timerUtils.wait(200);
                   void verifyKeylessPinChecking({ forceVerify: true, wallet });
                 }
@@ -254,6 +295,7 @@ function WalletEditButtonView({
             <BulkCopyAddressesButton
               wallet={wallet}
               networkId={network?.id || ''}
+              isPrimeActive={isPrimeActive}
               isPrimeUser={!!isPrimeUser}
               onClose={handleActionListClose}
             />
@@ -331,10 +373,12 @@ function WalletEditButtonView({
       showBulkCopyAddressesButton,
       showBotWalletManagerButton,
       network?.id,
+      isPrimeActive,
       isPrimeUser,
       showAddHiddenWalletButton,
       showRemoveWalletButton,
       showRemoveDeviceButton,
+      isThirdPartyVendorWallet,
       handleKeylessWalletAction,
       verifyKeylessPinChecking,
       navigation,
@@ -350,7 +394,7 @@ function WalletEditButtonView({
       title={intl.formatMessage({ id: ETranslations.global_more })}
       renderTrigger={
         <ListItem.IconButton
-          testID={`wallet-item-edit-button-${wallet?.name || ''}`}
+          testID={AccountManagerTestIDs.walletEditButton(wallet?.name || '')}
           icon="DotHorOutline"
         />
       }

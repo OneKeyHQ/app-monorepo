@@ -1,12 +1,16 @@
 import BigNumber from 'bignumber.js';
 
-import { formatWithPrecision } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getTpSlKind } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
+import {
+  formatHlSize,
+  formatWithPrecision,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IPerpsAssetPosition,
   IPerpsFrontendOrder,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import type { ITVLine, ITVLineKind, ITVLineSide } from '../types';
+import type { ITVLine, ITVLineSide } from '../types';
 
 let lineVersionCounter = 0;
 
@@ -99,17 +103,16 @@ export function buildPositionLine(
     unrealizedPnl.abs(),
     2,
   )}`;
-  const sizeFormatted = `${szi > 0 ? '+' : '-'}${formatWithPrecision(
-    absSize,
-    szDecimals,
-  )}`;
+  // Floor-truncate size to szDecimals (HL lot-size rule).
+  const formattedAbsSize = formatHlSize(absSize, szDecimals) || '0';
+  const sizeFormatted = `${szi > 0 ? '+' : '-'}${formattedAbsSize}`;
 
   return {
     id: `pos:${symbol}:${leverageType}`,
     symbol,
     kind: 'position',
     price: toChartPriceString(position.entryPx),
-    qty: formatWithPrecision(absSize, szDecimals),
+    qty: formattedAbsSize,
     side,
     pnlPositive: unrealizedPnl.gte(0),
     label: { left: pnlFormatted, right: sizeFormatted },
@@ -122,6 +125,7 @@ export function buildPositionLine(
 export function buildOrderLine(
   order: IPerpsFrontendOrder,
   szDecimals: number,
+  symbol: string,
 ): ITVLine | null {
   const sz = parseSize(order.sz);
   if (sz === 0 || !parseValidPrice(order.limitPx)) {
@@ -129,18 +133,19 @@ export function buildOrderLine(
   }
 
   const side: ITVLineSide = order.side === 'B' ? 'long' : 'short';
-  const triggerCondition = order.triggerCondition || 'N/A';
   const orderTypeLabel = order.orderType || 'Limit';
-  const labelText = `${orderTypeLabel} ${formatPriceForLabel(
-    order.limitPx,
-  )} ${triggerCondition}`;
+  const priceLabel = formatPriceForLabel(order.limitPx);
+  const labelText = order.isTrigger
+    ? `${orderTypeLabel} ${priceLabel} ${order.triggerCondition ?? ''}`.trimEnd()
+    : `${orderTypeLabel} ${priceLabel}`;
 
   return {
     id: `order:${order.oid}`,
-    symbol: order.coin,
+    // Chart symbol, not order.coin (`@index` for spot), so sync/patch/drag share one key.
+    symbol,
     kind: 'order',
     price: toChartPriceString(order.limitPx),
-    qty: formatWithPrecision(sz, szDecimals),
+    qty: formatHlSize(sz, szDecimals) || '0',
     side,
     label: { left: labelText },
     editable: order.orderType === 'Limit',
@@ -164,6 +169,10 @@ function formatTriggerCondition(triggerCondition: string | undefined): string {
   return triggerCondition.replace(/\babove\b/i, '>').replace(/\bbelow\b/i, '<');
 }
 
+function isTriggerTpSlOrder(orderType: string): boolean {
+  return orderType.startsWith('Trigger');
+}
+
 /**
  * Build a TP (Take Profit) or SL (Stop Loss) line from a trigger order.
  * Uses triggerPx as the line price.
@@ -171,6 +180,7 @@ function formatTriggerCondition(triggerCondition: string | undefined): string {
 export function buildTpSlLine(
   order: IPerpsFrontendOrder,
   szDecimals: number,
+  symbol: string,
   positionSize?: string,
 ): ITVLine | null {
   const orderSize = parseSize(order.sz);
@@ -184,16 +194,20 @@ export function buildTpSlLine(
   }
 
   const side: ITVLineSide = order.side === 'B' ? 'long' : 'short';
-  const isTp = order.orderType.startsWith('Take Profit');
-  const kind: ITVLineKind = isTp ? 'tp' : 'sl';
+  const kind = getTpSlKind(order);
+  if (!kind) {
+    return null;
+  }
+  const isTp = kind === 'tp';
   const isMarket = order.orderType.includes('Market');
+  const isTriggerOrder = isTriggerTpSlOrder(order.orderType);
   const formattedCondition = formatTriggerCondition(order.triggerCondition);
 
   // Build label text
   // Market: "TP Price > 93723" or "SL Price > 95000"
   // Limit: "Take Profit Limit 92,206 Price < 89000" or "Stop Limit 92,206 Price > 96502"
   let labelText: string;
-  if (isMarket) {
+  if (isMarket || isTriggerOrder) {
     const prefix = isTp ? 'TP' : 'SL';
     labelText = `${prefix} ${formattedCondition}`;
   } else {
@@ -205,20 +219,25 @@ export function buildTpSlLine(
 
   return {
     id: `${kind}:${order.oid}`,
-    symbol: order.coin,
+    // Key on the chart symbol (see buildOrderLine), not order.coin.
+    symbol,
     kind,
     price: toChartPriceString(order.triggerPx),
-    qty: formatWithPrecision(resolvedSize, szDecimals),
+    qty: formatHlSize(resolvedSize, szDecimals) || '0',
     side,
     label: { left: labelText },
-    editable: false, // TP/SL orders are not draggable
+    editable: true, // Drag moves the trigger price; amend modifies in place.
     meta: { orderId: String(order.oid), orderType: order.orderType },
     version: getNextVersion(),
   };
 }
 
 function isTpSlOrder(orderType: string): boolean {
-  return orderType.startsWith('Take Profit') || orderType.startsWith('Stop');
+  return (
+    orderType.startsWith('Take Profit') ||
+    orderType.startsWith('Stop') ||
+    orderType.startsWith('Trigger')
+  );
 }
 
 export function buildAllLinesForSymbol(
@@ -245,12 +264,14 @@ export function buildAllLinesForSymbol(
     ? new BigNumber(currentPosition.position.szi || '0').abs().toFixed()
     : undefined;
 
-  for (const order of orders.filter((o) => o.coin === symbol)) {
+  // Already scoped to the active instrument upstream; re-filtering by
+  // `o.coin === symbol` here dropped spot orders (`@index` coin) (OK-56900).
+  for (const order of orders) {
     let line: ITVLine | null = null;
     if (order.orderType === 'Limit') {
-      line = buildOrderLine(order, szDecimals);
+      line = buildOrderLine(order, szDecimals, symbol);
     } else if (isTpSlOrder(order.orderType)) {
-      line = buildTpSlLine(order, szDecimals, currentPositionSize);
+      line = buildTpSlLine(order, szDecimals, symbol, currentPositionSize);
     }
     if (line) lines.push(line);
   }

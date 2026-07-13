@@ -26,6 +26,7 @@ import {
   getMergedDeriveTokenData,
   sortTokensByFiatValue,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
@@ -78,7 +79,7 @@ class ServiceUniversalSearch extends ServiceBase {
     if (!searchTypes.length) {
       return [] as IUniversalSearchBatchResult;
     }
-    if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
+    if (searchTypes.includes(EUniversalSearchType.V2MarketToken)) {
       try {
         // Prefer V2 trending endpoint (has network badge, dynamic data)
         const trendingItems =
@@ -329,6 +330,21 @@ class ServiceUniversalSearch extends ServiceBase {
     tokenListCacheMap?: Record<string, ITokenFiat>;
     aggregateTokenListCacheMap?: Record<string, { tokens: IAccountToken[] }>;
   }) {
+    // PR-3 D2=B1 (tokenList cells full-delete): the UI no longer threads the
+    // home `aggregateTokensListMapAtom` into the search params. When the caller
+    // omits `aggregateTokenListCacheMap` the BG self-derives the scoped owned
+    // sub-token list map for the searched owner so aggregate sub-token
+    // (contract-address) matching in `getFilteredTokenBySearchKey`
+    // (tokenUtils.ts:248-260,271-273) is preserved. Scoped to `{accountId,
+    // networkId}` — the same owner key the home write uses
+    // (TokenListBlock.tsx:2019) — and derived at most once per call.
+    const resolvedAggregateTokenListMap =
+      aggregateTokenListCacheMap ??
+      (await this.backgroundApi.serviceToken.getLocalAggregateTokenListMap({
+        accountId,
+        networkId,
+      }));
+
     if (tokenListCache && tokenListCacheMap) {
       return {
         tokens: sortTokensByFiatValue({
@@ -336,7 +352,7 @@ class ServiceUniversalSearch extends ServiceBase {
             tokens: tokenListCache,
             searchKey: input,
             allowEmptyWhenBelowMinLength: true,
-            aggregateTokenListMap: aggregateTokenListCacheMap,
+            aggregateTokenListMap: resolvedAggregateTokenListMap,
           }),
           map: tokenListCacheMap,
         }),
@@ -411,7 +427,7 @@ class ServiceUniversalSearch extends ServiceBase {
           tokens: getFilteredTokenBySearchKey({
             tokens,
             searchKey: input,
-            aggregateTokenListMap: aggregateTokenListCacheMap,
+            aggregateTokenListMap: resolvedAggregateTokenListMap,
           }),
           map: tokenMap,
         }),
@@ -471,7 +487,7 @@ class ServiceUniversalSearch extends ServiceBase {
         tokens: getFilteredTokenBySearchKey({
           tokens,
           searchKey: input,
-          aggregateTokenListMap: aggregateTokenListCacheMap,
+          aggregateTokenListMap: resolvedAggregateTokenListMap,
         }),
         map: tokenMap,
       }),
@@ -576,6 +592,7 @@ class ServiceUniversalSearch extends ServiceBase {
         const internalItems = await this.findInternalWalletAccounts({
           address: localValidateResult.displayAddress,
           networkId: validNetworkId,
+          searchedEncoding: localValidateResult.encoding,
         });
 
         if (internalItems.length > 0) {
@@ -616,9 +633,11 @@ class ServiceUniversalSearch extends ServiceBase {
   private async findInternalWalletAccounts({
     address,
     networkId,
+    searchedEncoding,
   }: {
     address: string;
     networkId?: string;
+    searchedEncoding?: EAddressEncodings;
   }): Promise<IUniversalSearchResultItem[]> {
     const { serviceNetwork, serviceAccount } = this.backgroundApi;
     const items: IUniversalSearchResultItem[] = [];
@@ -656,19 +675,13 @@ class ServiceUniversalSearch extends ServiceBase {
       let wallet;
       let accountsValue;
       let accountsDeFiOverview;
+      // Default to the validated network. For watch-only / imported /
+      // external accounts this is re-resolved below to the account's own
+      // network, since the validated networkId may point at a different
+      // chain of the same impl (e.g. eth vs polygon for EVM addresses).
+      let resolvedNetwork = network;
+      let resolvedNetworkId = networkId || '';
       try {
-        accountsDeFiOverview = (
-          await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
-            accounts: [
-              {
-                accountId: accountItem.accountId,
-                networkId: networkId || '',
-                accountAddress: address,
-              },
-            ],
-            deFiRawData,
-          })
-        )?.[0];
         if (
           accountUtils.isOthersAccount({
             accountId: accountItem.accountId,
@@ -679,9 +692,34 @@ class ServiceUniversalSearch extends ServiceBase {
             networkId: networkId || '',
           });
           if (account?.id) {
+            // Watch-only / imported / external accounts are bound to the
+            // network they were created on (createAtNetwork). When the same
+            // EVM address is searched while the active network is non-EVM,
+            // the validated networkId resolves to the default EVM chain (eth)
+            // rather than the account's real network — so the value lookup
+            // and navigation would target the wrong chain. Re-resolve the
+            // network from the account itself.
+            const createdNetworkId =
+              await serviceAccount.getAccountCreatedNetworkId({ account });
+            if (createdNetworkId && createdNetworkId !== resolvedNetworkId) {
+              const createdNetwork = await serviceNetwork.getNetworkSafe({
+                networkId: createdNetworkId,
+              });
+              if (createdNetwork) {
+                resolvedNetwork = createdNetwork;
+                resolvedNetworkId = createdNetworkId;
+              }
+            }
             accountsValue = (
               await this.backgroundApi.serviceAccountProfile.getAccountsValue({
-                accounts: [{ accountId: account?.id }],
+                accounts: [
+                  {
+                    accountId: account.id,
+                    networkId: resolvedNetworkId,
+                    accountAddress: account.address,
+                    xpub: accountUtils.pickXpubFromDBAccount(account),
+                  },
+                ],
               })
             )?.[0];
           }
@@ -690,22 +728,100 @@ class ServiceUniversalSearch extends ServiceBase {
             id: accountItem.accountId,
           });
 
-          account = (
-            await serviceAccount.getNetworkAccountsInSameIndexedAccountId({
+          // Locate the dbAccount that actually owns the searched address.
+          // `getNetworkAccountsInSameIndexedAccountId` picks the first
+          // network-compatible dbAccount, which for chains with multiple
+          // derive types under one indexed account (e.g. BTC
+          // legacy/nested-segwit/native-segwit/taproot) is not necessarily
+          // the one whose address matched the search — leading to a worth
+          // lookup against the wrong xpub.
+          const { accounts: allDbAccounts } =
+            await serviceAccount.getAccountsInSameIndexedAccountId({
               indexedAccountId: accountItem.accountId,
-              networkIds: [networkId || ''],
-            })
-          )?.[0]?.account;
+            });
+          const normalizedAddress = address.toLowerCase();
+          let matchedDbAccount = allDbAccounts.find(
+            (a) => a.address?.toLowerCase() === normalizedAddress,
+          );
+
+          if (!matchedDbAccount) {
+            const compatibles = allDbAccounts.filter((a) =>
+              accountUtils.isAccountCompatibleWithNetwork({
+                account: a,
+                networkId: networkId || '',
+              }),
+            );
+
+            // BTC fresh-address mode registers non-0/0 receive addresses
+            // against the indexedAccountId, but `dbAccount.address` stays at
+            // the derive type's 0/0 master — so the exact match above misses.
+            // Each derive type owns a unique encoding, so resolve via the
+            // dbAccount's `template` before the "first compatible" fallback,
+            // otherwise the row would show the wrong derive type's balance.
+            if (networkId && searchedEncoding) {
+              const deriveInfoMap =
+                await serviceNetwork.getDeriveInfoMapOfNetwork({ networkId });
+              const templateToEncoding = new Map<
+                string,
+                EAddressEncodings | undefined
+              >();
+              for (const info of Object.values(deriveInfoMap)) {
+                if (info?.template) {
+                  templateToEncoding.set(info.template, info.addressEncoding);
+                }
+              }
+              matchedDbAccount = compatibles.find(
+                (a) =>
+                  a.template &&
+                  templateToEncoding.get(a.template) === searchedEncoding,
+              );
+            }
+
+            if (!matchedDbAccount) {
+              matchedDbAccount = compatibles[0];
+            }
+          }
+
+          if (matchedDbAccount) {
+            try {
+              account = await serviceAccount.getAccount({
+                accountId: matchedDbAccount.id,
+                networkId: networkId || '',
+              });
+            } catch {
+              // Fall through with no account — accountsValue stays undefined.
+            }
+          }
+
           if (account?.id) {
-            accountsValue = (
-              await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
+            // Scope the worth lookup to the matched (address, xpub) — not the
+            // whole indexedAccount — so identical-address rows from different
+            // wallets read the same SimpleDb entry and agree.
+            accountsValue =
+              await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByAddress(
                 {
-                  accounts: [{ accountId: indexedAccount.id }],
+                  networkAccountId: account.id,
+                  accountAddress: matchedDbAccount?.address,
+                  xpub: matchedDbAccount
+                    ? accountUtils.pickXpubFromDBAccount(matchedDbAccount)
+                    : undefined,
                 },
-              )
-            )?.[0];
+              );
           }
         }
+
+        accountsDeFiOverview = (
+          await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
+            accounts: [
+              {
+                accountId: accountItem.accountId,
+                networkId: resolvedNetworkId,
+                accountAddress: address,
+              },
+            ],
+            deFiRawData,
+          })
+        )?.[0];
 
         const walletId = accountUtils.getWalletIdFromAccountId({
           accountId: accountItem.accountId,
@@ -729,7 +845,7 @@ class ServiceUniversalSearch extends ServiceBase {
             normalizedAddress: address,
             encoding: EAddressEncodings.P2PKH,
           },
-          network,
+          network: resolvedNetwork,
           accountInfo: {
             accountId: accountItem.accountId,
             formattedName: `${accountItem.walletName} / ${accountItem.accountName}`,
@@ -916,11 +1032,13 @@ class ServiceUniversalSearch extends ServiceBase {
           const wallet = await serviceAccount.getWalletSafe({
             walletId: i.item.walletId,
           });
-          const accountsValue = (
-            await serviceAccountProfile.getAllNetworkAccountsValue({
-              accounts: [{ accountId: i.item.id }],
-            })
-          )?.[0];
+          // Compound-key shape consumed by `calculateAccountTotalValue`; the
+          // per-networkId shape from the indexed-account aggregator would not
+          // match the row's linkedAccountId.
+          const accountsValue =
+            await serviceAccountProfile.getAllNetworkAccountsValueByAccountId({
+              accountId: i.item.id,
+            });
 
           let account: INetworkAccount | undefined;
           let addressInfo: IAddressValidation | undefined;
@@ -1008,7 +1126,14 @@ class ServiceUniversalSearch extends ServiceBase {
           }
           const accountsValue = (
             await serviceAccountProfile.getAccountsValue({
-              accounts: [{ accountId: i.item.id }],
+              accounts: [
+                {
+                  accountId: i.item.id,
+                  networkId: i.item.createAtNetwork ?? network?.id ?? '',
+                  accountAddress: account.address,
+                  xpub: accountUtils.pickXpubFromDBAccount(account),
+                },
+              ],
             })
           )?.[0];
           const localValidateResult =
@@ -1166,7 +1291,7 @@ class ServiceUniversalSearch extends ServiceBase {
           name: `${appLocale.intl.formatMessage({
             id: ETranslations.explore_search_placeholder,
           })} "${input}"`,
-          url: '',
+          url: uriUtils.buildGoogleSearchUrl(input),
           logo: GOOGLE_LOGO_URL,
           description: '',
           networkIds: [],

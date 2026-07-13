@@ -111,6 +111,7 @@ export function EmailOTPDialog(props: {
         {!hideResendButton ? (
           <XStack>
             <Button
+              testID="one-key-auth-handle-confirm-btn"
               width="auto"
               size="small"
               variant="tertiary"

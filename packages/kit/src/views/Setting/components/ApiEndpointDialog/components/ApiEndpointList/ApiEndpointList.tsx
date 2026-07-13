@@ -218,7 +218,7 @@ export function ApiEndpointList({ onRefresh }: IApiEndpointListProps) {
       )}
 
       <Stack justifyContent="flex-end" alignItems="flex-end">
-        <Button size="small" onPress={handleAdd}>
+        <Button size="small" onPress={handleAdd} testID="setting-btn">
           {intl.formatMessage({ id: ETranslations.global_create })}
         </Button>
       </Stack>

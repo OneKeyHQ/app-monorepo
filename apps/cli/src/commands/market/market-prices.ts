@@ -1,4 +1,4 @@
-import { resolveChain } from '../../core/chain-resolver';
+import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 
@@ -43,6 +43,7 @@ function parseTokenList(
     const address = trimmed.slice(colonIdx + 1);
 
     const chainConfig = resolveChain(chain);
+    assertChainCapability(chainConfig, 'evmTokenMarket', 'market-prices');
 
     const isNative = !address || address === 'native';
     return {

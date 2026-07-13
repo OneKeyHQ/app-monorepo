@@ -79,6 +79,78 @@ describe('EVM Address Derivation Tests', () => {
     expect(unique.size).toBe(addresses.length);
   });
 
+  it("should derive correct Ledger Live (m/44'/60'/i'/0/0) addresses", async () => {
+    const result = await coreApi.getAddressesFromHd({
+      networkInfo,
+      password: hdCredential.password,
+      hdCredential: hdCredential.hdCredentialHex,
+      template: "m/44'/60'/$$INDEX$$'/0/0",
+      indexes: [0, 1, 2],
+      addressEncoding: undefined,
+    });
+    expect(result.addresses.length).toBe(3);
+    expect(result.addresses[0].address).toBe(
+      '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
+    );
+    expect(result.addresses[1].address).toBe(
+      '0xbcd02d8f6eac6528546ce07e3f636cb7cdec9259',
+    );
+    expect(result.addresses[2].address).toBe(
+      '0x651a673a13db340a7fa121b39c3ecb83cccfe845',
+    );
+  });
+
+  it("should derive correct Ledger Legacy (m/44'/60'/0'/i) addresses", async () => {
+    const result = await coreApi.getAddressesFromHd({
+      networkInfo,
+      password: hdCredential.password,
+      hdCredential: hdCredential.hdCredentialHex,
+      template: "m/44'/60'/0'/$$INDEX$$",
+      indexes: [0, 1, 2],
+      addressEncoding: undefined,
+    });
+    expect(result.addresses.length).toBe(3);
+    expect(result.addresses[0].address).toBe(
+      '0xce7672af79330ae944e6f52ad08bfd5220e70c5d',
+    );
+    expect(result.addresses[1].address).toBe(
+      '0x44413d837af7aa12f83d674d7139cb372cbb71cc',
+    );
+    expect(result.addresses[2].address).toBe(
+      '0x4d51c36d0154b2ee6c1cba9701c2319e160d7470',
+    );
+  });
+
+  it('should produce three distinct addresses for the three deriveType templates at index 1', async () => {
+    // NOTE: Using index 1 (not index 0) because at index 0 the default and
+    // ledgerLive templates resolve to the SAME path (m/44'/60'/0'/0/0), so
+    // their addresses would be identical by definition. Index 1 yields three
+    // genuinely distinct paths.
+    const [defaultAddresses, liveAddresses, legacyAddresses] =
+      await Promise.all(
+        [
+          "m/44'/60'/0'/0/$$INDEX$$",
+          "m/44'/60'/$$INDEX$$'/0/0",
+          "m/44'/60'/0'/$$INDEX$$",
+        ].map((template) =>
+          coreApi.getAddressesFromHd({
+            networkInfo,
+            password: hdCredential.password,
+            hdCredential: hdCredential.hdCredentialHex,
+            template,
+            indexes: [1],
+            addressEncoding: undefined,
+          }),
+        ),
+      );
+    const a = defaultAddresses.addresses[0].address;
+    const b = liveAddresses.addresses[0].address;
+    const c = legacyAddresses.addresses[0].address;
+    expect(a).not.toBe(b);
+    expect(b).not.toBe(c);
+    expect(a).not.toBe(c);
+  });
+
   it('should produce deterministic results for same index', async () => {
     const result1 = await coreApi.getAddressesFromHd({
       networkInfo,

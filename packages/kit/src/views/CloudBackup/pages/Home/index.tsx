@@ -41,7 +41,13 @@ export default function Home() {
   const _renderBackupStatus = useCallback(() => {
     if (isInProgress) {
       return (
-        <Button disabled bg="transparent" p="0" loading>
+        <Button
+          disabled
+          bg="transparent"
+          p="0"
+          loading
+          testID="cloud-backup-_render-backup-status-btn"
+        >
           {intl.formatMessage({ id: ETranslations.global_syncing })}
         </Button>
       );
@@ -49,6 +55,7 @@ export default function Home() {
     if (submitError) {
       return (
         <Button
+          testID="cloud-backup-_render-backup-status-btn"
           disabled
           bg="transparent"
           p="0"
@@ -61,6 +68,7 @@ export default function Home() {
     }
     return (
       <Button
+        testID="cloud-backup-_render-backup-status-btn"
         disabled
         bg="transparent"
         p="0"
@@ -89,6 +97,7 @@ export default function Home() {
           debugComponent={
             <YStack gap="$2">
               <Button
+                testID="cloud-backup-btn"
                 onPress={async () => {
                   const metaData =
                     await backgroundApiProxy.serviceCloudBackup.getMetaDataFromCloud();

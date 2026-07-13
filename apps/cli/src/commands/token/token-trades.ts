@@ -1,5 +1,5 @@
 import { resolveToken } from '../../core';
-import { resolveChain } from '../../core/chain-resolver';
+import { assertChainCapability, resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 
@@ -140,7 +140,8 @@ export function registerTokenTradesCommand(parent: Command): void {
       const output = globalOpts._outputFormatter as OutputFormatter;
 
       try {
-        resolveChain(options.chain);
+        const chainConfig = resolveChain(options.chain);
+        assertChainCapability(chainConfig, 'evmTokenMarket', 'token-trades');
 
         const resolved = await resolveToken(options.token, options.chain);
 

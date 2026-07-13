@@ -9,14 +9,19 @@ import {
   type IFieldErrorProps,
   SizableText,
   YStack,
-  useFormContext,
 } from '@onekeyhq/components';
+import { useFormContext } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
+import {
+  getBotWalletDisabledMessage,
+  showBotWalletDisabledToast,
+} from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -26,6 +31,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
+import { parseBulkSendAddressLine } from '../../addressLineUtils';
 import { useBulkSendAddressesInputContext } from '../Context';
 
 import LineNumberedTextArea, {
@@ -97,7 +103,10 @@ function BulkSendReceiverAllowlistErrorMessage({ error }: IFieldErrorProps) {
       const lines = receiverAddresses.split('\n');
       const targetLine =
         typeof lineNumber === 'number' ? lines[lineNumber - 1]?.trim() : '';
-      const address = targetLine?.split(',')[0]?.trim();
+      const parsedLine = targetLine
+        ? parseBulkSendAddressLine(targetLine)
+        : undefined;
+      const address = parsedLine?.isValid ? parsedLine.address : undefined;
 
       if (!address || !selectedNetworkId) {
         return;
@@ -201,7 +210,19 @@ function useReceiverSelectorAccountItems() {
   >({});
 
   const handleActiveAccountChange = useCallback(
-    (activeAccount: IAccountSelectorActiveAccountInfo) => {
+    async (activeAccount: IAccountSelectorActiveAccountInfo) => {
+      const walletId = activeAccount.wallet?.id;
+      if (
+        accountUtils.isBotWallet({ walletId }) &&
+        walletId &&
+        (await backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
+          walletId,
+        }))
+      ) {
+        showBotWalletDisabledToast('beReceiver');
+        return false;
+      }
+
       const selectorAccountItem =
         buildReceiverSelectorAccountItem(activeAccount);
       if (selectorAccountItem) {
@@ -210,6 +231,7 @@ function useReceiverSelectorAccountItems() {
         ] = selectorAccountItem;
         void backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
       }
+      return true;
     },
     [],
   );
@@ -276,6 +298,24 @@ function SingleLineReceiverInput() {
           },
           { network: networkName },
         );
+      }
+
+      // Reject when the receiver address resolves to a deactivated Bot Wallet
+      // account. The helper falls back to BTC fresh-address resolution to
+      // match the allowlist resolver below. Surface a toast in addition to
+      // the inline error so users see the rejection prominently — the form
+      // continues to block submission via the inline error.
+      if (selectedNetworkId) {
+        const isDeactivatedBotReceiver =
+          await isAddressOwnedByDeactivatedBotWallet({
+            networkId: selectedNetworkId,
+            address: trimmedAddress,
+          });
+        if (isDeactivatedBotReceiver) {
+          setReceiverValidationErrors([]);
+          showBotWalletDisabledToast('beReceiver');
+          return getBotWalletDisabledMessage('beReceiver');
+        }
       }
 
       // Allowlist check
@@ -372,7 +412,7 @@ function SingleLineReceiverInput() {
     ],
   );
 
-  const debouncedValidate = useDebouncedValidation(handleValidateAddresses);
+  const debouncedValidation = useDebouncedValidation(handleValidateAddresses);
 
   return (
     <Form.Field
@@ -382,7 +422,7 @@ function SingleLineReceiverInput() {
       })}
       renderErrorMessage={renderBulkSendReceiverAllowlistErrorMessage}
       rules={{
-        validate: debouncedValidate,
+        validate: debouncedValidation.validate,
       }}
     >
       <LineNumberedTextArea
@@ -435,6 +475,7 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     selectedAccountId,
     selectorAccountItemsRef,
     onErrorsChange: setReceiverValidationErrors,
+    rejectDeactivatedBotWalletReceiver: true,
   });
 
   const validate = useCallback(
@@ -467,7 +508,7 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     [handleValidateAddresses, form, intl],
   );
 
-  const debouncedValidate = useDebouncedValidation(validate);
+  const debouncedValidation = useDebouncedValidation(validate);
 
   useEffect(() => {
     const previousSenderAddresses = previousSenderAddressesRef.current;
@@ -516,7 +557,9 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
         renderErrorMessage={renderBulkSendReceiverAllowlistErrorMessage}
         rules={{
           required: true,
-          validate: platformEnv.isNativeAndroid ? validate : debouncedValidate,
+          validate: platformEnv.isNativeAndroid
+            ? validate
+            : debouncedValidation.validate,
         }}
       >
         <LineNumberedTextArea
@@ -571,6 +614,7 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     onDuplicateAddressCountChange: setDuplicateAddressCount,
     selectorAccountItemsRef,
     onErrorsChange: setReceiverValidationErrors,
+    rejectDeactivatedBotWalletReceiver: true,
   });
 
   const validate = useCallback(
@@ -582,7 +626,7 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     [handleValidateAddresses],
   );
 
-  const debouncedValidate = useDebouncedValidation(validate);
+  const debouncedValidation = useDebouncedValidation(validate);
 
   const warningMessages = useMemo(() => {
     const warnings = errors.filter(
@@ -609,7 +653,9 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
         renderErrorMessage={renderBulkSendReceiverAllowlistErrorMessage}
         rules={{
           required: true,
-          validate: platformEnv.isNativeAndroid ? validate : debouncedValidate,
+          validate: platformEnv.isNativeAndroid
+            ? validate
+            : debouncedValidation.validate,
         }}
         description={intl.formatMessage({
           id: ETranslations.wallet_bulk_send_label_receiving_desc,

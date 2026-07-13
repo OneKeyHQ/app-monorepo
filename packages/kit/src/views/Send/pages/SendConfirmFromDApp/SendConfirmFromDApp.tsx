@@ -149,13 +149,14 @@ function SendConfirmFromDApp() {
             signOnly,
             useFeeInTx,
             feeInfoEditable,
+            gasAccountScenario: 'dapp',
             onSuccess: (result) => sendConfirmCallback(result, undefined),
             onFail: (error) => sendConfirmCallback(null, error),
             // @ts-ignore
             _disabledAnimationOfNavigate: true,
             _$t,
           };
-        // replace router to SendConfirm
+        // Replace the DApp entry screen with the shared TxConfirm page.
         action = StackActions.replace(signatureConfirmRoute, params);
       }
 

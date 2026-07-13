@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { flatMap, map } from 'lodash';
@@ -110,15 +110,35 @@ function TxConfirmAlert(props: IProps) {
     ));
   }, [decodedTxs]);
 
+  // Keep the last error message across retry cycles. The estimate flow resets
+  // `errMessage` to '' the moment it flips to Loading, which would otherwise
+  // unmount this Alert between attempts and produce a flicker when the retry
+  // fails again. We surface the sticky message throughout Loading and only
+  // drop it once the estimate settles to Success (or the page resets to Idle).
+  const [stickyFeeErrMessage, setStickyFeeErrMessage] = useState<string>('');
+  useEffect(() => {
+    if (
+      sendFeeStatus.status === ESendFeeStatus.Error &&
+      sendFeeStatus.errMessage
+    ) {
+      setStickyFeeErrMessage(sendFeeStatus.errMessage);
+    } else if (
+      sendFeeStatus.status === ESendFeeStatus.Success ||
+      sendFeeStatus.status === ESendFeeStatus.Idle
+    ) {
+      setStickyFeeErrMessage('');
+    }
+  }, [sendFeeStatus.status, sendFeeStatus.errMessage]);
+
   const renderTxFeeAlert = useCallback(() => {
-    if (!sendFeeStatus.errMessage) {
+    if (!stickyFeeErrMessage) {
       return null;
     }
     return (
       <Alert
         icon="ErrorOutline"
         type="critical"
-        title={sendFeeStatus.errMessage}
+        title={stickyFeeErrMessage}
         action={{
           primary: intl.formatMessage({
             id: ETranslations.global_retry,
@@ -130,7 +150,7 @@ function TxConfirmAlert(props: IProps) {
         }}
       />
     );
-  }, [intl, sendFeeStatus.errMessage, sendFeeStatus.status]);
+  }, [intl, stickyFeeErrMessage, sendFeeStatus.status]);
 
   const renderInsufficientNativeBalanceAlert = useCallback(() => {
     if (

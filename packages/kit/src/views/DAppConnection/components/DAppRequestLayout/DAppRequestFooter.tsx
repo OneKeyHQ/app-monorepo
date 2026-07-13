@@ -6,6 +6,8 @@ import type { IFooterActionsProps } from '@onekeyhq/components/src/layouts/Page/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
+import { DAppConnectionTestIDs } from '../../testIDs';
+
 function DAppRequestFooter({
   continueOperate,
   setContinueOperate,
@@ -13,6 +15,7 @@ function DAppRequestFooter({
   onConfirm,
   onCancel,
   confirmButtonProps,
+  cancelButtonProps,
   riskLevel,
   confirmText,
 }: {
@@ -22,6 +25,7 @@ function DAppRequestFooter({
   onConfirm: IFooterActionsProps['onConfirm'];
   onCancel: IFooterActionsProps['onCancel'];
   confirmButtonProps?: IFooterActionsProps['confirmButtonProps'];
+  cancelButtonProps?: IFooterActionsProps['cancelButtonProps'];
   riskLevel: EHostSecurityLevel;
   confirmText?: string;
 }) {
@@ -47,6 +51,7 @@ function DAppRequestFooter({
       }}
       cancelButtonProps={{
         variant: 'secondary',
+        ...cancelButtonProps,
       }}
       $md={{
         flexDirection: 'column',
@@ -60,6 +65,7 @@ function DAppRequestFooter({
     >
       {showContinueOperateCheckbox ? (
         <Checkbox
+          testID={DAppConnectionTestIDs.ContinueOperateCheckbox}
           label={intl.formatMessage({
             id: ETranslations.dapp_connect_proceed_at_my_own_risk,
           })}

@@ -71,6 +71,7 @@ const SwapLimitExpirySelect = ({
         </SizableText>
       </XStack>
       <Select
+        testID="swap-select"
         placement="bottom-end"
         items={selectItems}
         value={currentSelectExpiryValue?.value}

@@ -20,7 +20,10 @@ import { showClaimWithKycDialog } from '@onekeyhq/kit/src/views/Staking/componen
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes/staking';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { EEarnLabels } from '@onekeyhq/shared/types/staking';
+import {
+  EEarnLabels,
+  EStakingActionType,
+} from '@onekeyhq/shared/types/staking';
 import type {
   IEarnActionIcon,
   IEarnClaimActionIcon,
@@ -36,6 +39,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { useEarnSignMessage } from '../../hooks/useEarnSignMessage';
+import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
 import { useHandleClaim } from '../../pages/ProtocolDetails/useHandleClaim';
 
 import { EarnAmountText } from './EarnAmountText';
@@ -287,6 +291,7 @@ function BasicPortfolioActionIcon({
 
   return (
     <Button
+      testID="staking-on-portfolio-details-btn"
       disabled={actionIcon.disabled}
       variant="tertiary"
       iconAfter="ChevronRightOutline"
@@ -331,6 +336,7 @@ function BasicClaimActionIcon({
 
   return (
     <Button
+      testID="staking-handle-claim-action-btn"
       size="small"
       variant="primary"
       loading={loading}
@@ -385,6 +391,7 @@ function BasicListaCheckActionIcon({
 
   return (
     <Button
+      testID="staking-handle-press-btn"
       size="small"
       variant="primary"
       loading={loading}
@@ -496,6 +503,7 @@ function BasicClaimWithKycActionIcon({
 
   return (
     <Button
+      testID="staking-btn"
       size="small"
       variant="primary"
       loading={loading}
@@ -528,6 +536,44 @@ function BasicEarnActionIcon({
   onHistory?: (params?: { filterType?: string }) => void;
   trigger?: IActionTrigger;
 }) {
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const handleUniversalWithdraw = useUniversalWithdraw({
+    accountId: protocolInfo?.earnAccount?.accountId || '',
+    networkId: protocolInfo?.networkId || tokenInfo?.networkId || '',
+  });
+  const handleCancelWithdrawal = useCallback(async () => {
+    const provider = protocolInfo?.provider || tokenInfo?.provider || '';
+    const symbol =
+      protocolInfo?.symbol || tokenInfo?.token?.symbol || token?.symbol || '';
+
+    if (!protocolInfo?.earnAccount?.accountId || !provider || !symbol) {
+      return;
+    }
+    setCancelLoading(true);
+    try {
+      await handleUniversalWithdraw({
+        amount: '0',
+        symbol,
+        provider,
+        protocolVault: earnUtils.shouldSendEarnProtocolVault({
+          providerName: provider,
+        })
+          ? protocolInfo?.vault
+          : undefined,
+        withdrawAll: false,
+        withdrawType: 'cancel',
+        stakingInfo: {
+          label: EEarnLabels.Withdraw,
+          protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+          tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
+        },
+      });
+    } finally {
+      setCancelLoading(false);
+    }
+  }, [handleUniversalWithdraw, protocolInfo, token, tokenInfo]);
+
   if (!actionIcon) {
     return null;
   }
@@ -555,6 +601,30 @@ function BasicEarnActionIcon({
           token={token}
           trigger={trigger}
         />
+      );
+    case EStakingActionType.CancelWithdrawal:
+      if (trigger) {
+        return trigger({
+          onPress: () => {
+            void handleCancelWithdrawal();
+          },
+          loading: cancelLoading,
+          disabled: cancelLoading || actionIcon.disabled,
+        });
+      }
+      return (
+        <Button
+          testID="staking-cancel-withdrawal-btn"
+          size="small"
+          variant="secondary"
+          loading={cancelLoading}
+          disabled={cancelLoading || actionIcon.disabled}
+          onPress={() => {
+            void handleCancelWithdrawal();
+          }}
+        >
+          {actionIcon.text.text}
+        </Button>
       );
     case 'claim':
     case 'claimOrder':
@@ -588,6 +658,7 @@ function BasicEarnActionIcon({
           title={title || ''}
           renderTrigger={
             <IconButton
+              testID="staking-claim-with-kyc-action-icon-btn"
               icon={actionIcon.data.icon.icon}
               size="small"
               variant="tertiary"
@@ -624,6 +695,7 @@ function BasicEarnActionIcon({
   }
   return icon ? (
     <IconButton
+      testID="staking-icon-btn"
       size="small"
       icon={icon}
       onPress={onPress}

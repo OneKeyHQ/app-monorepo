@@ -3,17 +3,15 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { NumberSizeableText, Stack } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token, TokenName } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
-import {
-  useSettingsPersistAtom,
-  useSettingsValuePersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalAssetDetailRoutes,
@@ -39,11 +37,18 @@ export function UniversalSearchAccountAssetItem({
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const universalSearchActions = useUniversalSearchActions();
-  const [settings] = useSettingsPersistAtom();
   const [{ hideValue }] = useSettingsValuePersistAtom();
   const { token, tokenFiat } = item.payload;
   const priceChange = tokenFiat?.price24h ?? 0;
-  const [allTokenListMapAtom] = useAllTokenListMapAtom();
+  // Callback snapshot (red-team R-#4): the full home fiat map, captured in
+  // `handlePress` and seeded into the TokenDetails route. Replaces the deleted
+  // `homeTokenFiatMap`. This is a home store mirror (UniversalSearch wrapper).
+  const { map: homeTokenFiatMap } = useHomeTokenListSnapshot();
+  // PR-3 (tokenList cells full-delete): no longer reads `aggregateTokensListMapAtom`.
+  // `TokenName` defaults `aggregateTokenList` to `[]` when the prop is omitted and
+  // derives the aggregate badge from `allAggregateTokenMap` (passed in via the
+  // `allAggregateTokenMap` prop, fetched by UniversalSearch), so badge behavior is
+  // preserved without the per-`$key` owned-sub-token list.
   const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
     priceChange,
   });
@@ -80,7 +85,7 @@ export function UniversalSearchAccountAssetItem({
         tokenInfo: token,
         isAllNetworks: activeAccount.network?.isAllNetworks,
         indexedAccountId: activeAccount.indexedAccount?.id ?? '',
-        tokenMap: allTokenListMapAtom,
+        tokenMap: homeTokenFiatMap,
         accountAddress: activeAccount.account?.address ?? '',
       },
     });
@@ -103,7 +108,7 @@ export function UniversalSearchAccountAssetItem({
     });
   }, [
     activeAccount,
-    allTokenListMapAtom,
+    homeTokenFiatMap,
     getSearchInput,
     item.type,
     navigation,
@@ -154,14 +159,14 @@ export function UniversalSearchAccountAssetItem({
         </NumberSizeableTextWrapper>
       </Stack>
       <Stack flexDirection="column" alignItems="flex-end" flexShrink={1}>
-        <NumberSizeableTextWrapper
+        <Currency
           formatter="value"
-          formatterOptions={{ currency: settings.currencyInfo.symbol }}
+          sourceCurrency={tokenFiat?.currency}
           size="$bodyLgMedium"
           hideValue={hideValue}
         >
           {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
-        </NumberSizeableTextWrapper>
+        </Currency>
         <NumberSizeableText
           formatter="priceChange"
           formatterOptions={{ showPlusMinusSigns }}

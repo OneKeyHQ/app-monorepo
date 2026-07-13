@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { Button, Popover } from '@onekeyhq/components';
+import { Button } from '@onekeyhq/components';
+import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { formatLiquidityFilterDisplay } from '../../utils';
@@ -34,12 +35,13 @@ function LiquidityFilterControl({
   const popoverTitle = `${liquidityText} ($)`;
 
   return (
-    <Popover
+    <LazyPopover
       title={popoverTitle}
       open={isOpen}
       onOpenChange={setIsOpen}
       renderTrigger={
         <Button
+          testID="market-popover-title-btn"
           variant="tertiary"
           size="small"
           color="$text"

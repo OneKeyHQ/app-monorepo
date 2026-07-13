@@ -121,6 +121,7 @@ const HistoryItem = ({
             })}
           </SizableText>
           <IconButton
+            testID="staking-subtitle-icon-btn"
             icon="OpenOutline"
             size="small"
             variant="tertiary"
@@ -254,6 +255,7 @@ const HistoryContent = ({
     <YStack flex={1}>
       <XStack px="$5">
         <Select
+          testID="staking-handle-select-change-select"
           value={filterType}
           renderTrigger={({ label }) => (
             <XStack h="$12" ai="center" gap="$1">

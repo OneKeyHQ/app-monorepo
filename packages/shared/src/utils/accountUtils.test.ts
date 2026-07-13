@@ -1,4 +1,7 @@
 import {
+  COINTYPE_ADA,
+  COINTYPE_BTC,
+  COINTYPE_ETH,
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
 } from '../engine/engineConsts';
@@ -198,5 +201,93 @@ describe('Bot Wallet ID Parsing', () => {
     expect(accountUtils.parseBotWalletId('hd-bot--hd-keyless-parent--+1')).toBe(
       undefined,
     );
+  });
+});
+
+describe('isLocalAssetsKeyOwnedBy (orphan-cache cleanup matching)', () => {
+  const owns = (key: string, owners: string[]) =>
+    accountUtils.isLocalAssetsKeyOwnedBy({
+      key,
+      validOwners: new Set(owners.map((o) => o.toLowerCase())),
+    });
+
+  test('networkId-prefixed key: owner present -> true, absent -> false', () => {
+    expect(owns('evm--1_0xabc123', ['0xabc123'])).toBe(true);
+    // same address, different network -> still owned (suffix match)
+    expect(owns('evm--56_0xabc123', ['0xabc123'])).toBe(true);
+    // orphaned address (deleted account) -> not owned
+    expect(owns('evm--1_0xdead00', ['0xabc123'])).toBe(false);
+  });
+
+  test('bare owner key (all-networks aggregate / allByAddress)', () => {
+    expect(owns('0xabc123', ['0xabc123'])).toBe(true);
+    expect(owns('0xdead00', ['0xabc123'])).toBe(false);
+  });
+
+  test('xpub-based keys (UTXO)', () => {
+    expect(owns('btc--0_xpub6Cabc', ['xpub6Cabc'])).toBe(true);
+    expect(owns('xpub6Cabc', ['xpub6Cabc'])).toBe(true);
+    expect(owns('btc--0_xpub6Cdead', ['xpub6Cabc'])).toBe(false);
+  });
+
+  test('accountId keys with -- and / separators (aggregateToken)', () => {
+    const accountId = "hd-1--m/44'/60'/0'/0/0";
+    // aggregateTokenMapV2 / aggregateTokenListMap key = `${networkId}_${accountId}`
+    expect(owns(`evm--1_${accountId}`, [accountId])).toBe(true);
+    // tokenDetails key = bare accountId
+    expect(owns(accountId, [accountId])).toBe(true);
+    expect(owns(`evm--1_${accountId}`, ["hd-2--m/44'/60'/0'/0/0"])).toBe(false);
+  });
+
+  test('case-insensitive: key is lowercased internally', () => {
+    // real keys are already lowercased by buildAccountLocalAssetsKey; the helper
+    // also lowercases defensively. Owners are lowercased by the caller.
+    expect(owns('EVM--1_0xABCDEF', ['0xabcdef'])).toBe(true);
+  });
+
+  test('empty owner set drops everything', () => {
+    expect(owns('evm--1_0xabc123', [])).toBe(false);
+    expect(owns('0xabc123', [])).toBe(false);
+  });
+});
+
+describe('pickXpubFromDBAccount (address-keyed storage owner)', () => {
+  test('non-UTXO accounts have no xpub owner', () => {
+    expect(
+      accountUtils.pickXpubFromDBAccount({
+        coinType: COINTYPE_ETH,
+        address: '0xabc',
+      }),
+    ).toBeUndefined();
+  });
+
+  test('BTC prefers spendable xpubSegwit over raw xpub', () => {
+    expect(
+      accountUtils.pickXpubFromDBAccount({
+        coinType: COINTYPE_BTC,
+        xpub: 'xpub-legacy',
+        xpubSegwit: 'xpub-segwit',
+      }),
+    ).toBe('xpub-segwit');
+    expect(
+      accountUtils.pickXpubFromDBAccount({
+        coinType: COINTYPE_BTC,
+        xpub: 'xpub-legacy',
+      }),
+    ).toBe('xpub-legacy');
+  });
+
+  // Regression: account selector showed "--" for Cardano because the write
+  // path (AdaVault.getXpubFromAccount) keys account value by the stake address
+  // at addresses['2/0'], but this read helper returned the raw `.xpub`, so
+  // reads/writes landed at different keys. They must agree.
+  test('Cardano keys by the stake address, not the raw xpub', () => {
+    expect(
+      accountUtils.pickXpubFromDBAccount({
+        coinType: COINTYPE_ADA,
+        xpub: 'cardano-extended-pubkey',
+        addresses: { '0/0': 'addr1q...payment', '2/0': 'stake1u...stake' },
+      }),
+    ).toBe('stake1u...stake');
   });
 });

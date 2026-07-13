@@ -33,12 +33,12 @@ import {
   YStack,
 } from '../../primitives';
 import { useSharedPress } from '../../primitives/Button/useEvent';
-import { Popover } from '../Popover';
+import { LazyPopover } from '../LazyPopover';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
 
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
-import type { IPopoverProps } from '../Popover';
+import type { IPopoverProps } from '../LazyPopover';
 
 export interface IActionListItemProps {
   icon?: IKeyOfIcons;
@@ -52,6 +52,8 @@ export interface IActionListItemProps {
   onPress?: (close: () => void) => void | Promise<boolean | void>;
   onClose?: () => void;
   disabled?: boolean;
+  allowPressWhenDisabled?: boolean;
+  extraInteractiveWhenDisabled?: boolean;
   testID?: string;
   trackID?: string;
   shortcutKeys?: string[] | EShortcutEvents;
@@ -113,11 +115,25 @@ export function ActionListItem(
     onPress,
     destructive,
     disabled,
+    allowPressWhenDisabled,
+    extraInteractiveWhenDisabled,
     onClose,
     testID,
     shortcutKeys,
     isLoading,
   } = props;
+  const isActionDisabled = Boolean(disabled);
+  const shouldKeepExtraInteractive = Boolean(
+    isActionDisabled && extraInteractiveWhenDisabled,
+  );
+  const shouldAllowPressWhenDisabled = Boolean(
+    isActionDisabled && allowPressWhenDisabled,
+  );
+  const shouldSetAriaDisabled = Boolean(
+    isActionDisabled &&
+    !shouldAllowPressWhenDisabled &&
+    !shouldKeepExtraInteractive,
+  );
 
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
@@ -142,6 +158,7 @@ export function ActionListItem(
 
   const { onPress: sharedOnPress } = useSharedPress({
     ...props,
+    disabled: isActionDisabled && !shouldAllowPressWhenDisabled,
     onPress: handlePress,
   });
 
@@ -156,10 +173,18 @@ export function ActionListItem(
       $md={ACTION_LIST_ITEM_MD}
       borderCurve="continuous"
       opacity={disabled ? 0.5 : 1}
-      disabled={disabled}
-      aria-disabled={disabled}
+      disabled={
+        shouldKeepExtraInteractive || shouldAllowPressWhenDisabled
+          ? false
+          : disabled
+      }
+      aria-disabled={shouldSetAriaDisabled}
       {...(!disabled && ACTION_LIST_ENABLED_STYLE)}
-      onPress={isLoading ? undefined : sharedOnPress}
+      onPress={
+        isLoading || (isActionDisabled && !allowPressWhenDisabled)
+          ? undefined
+          : sharedOnPress
+      }
       testID={testID}
     >
       <XStack jc="space-between" flex={1} alignItems="center">
@@ -354,6 +379,8 @@ function BasicActionList({
 
   const trigger = useMemo(() => {
     return (
+      // testID is carried by renderTrigger from the caller.
+      // oxlint-disable-next-line onekey/require-testid
       <Trigger onPress={handleActionListOpen} disabled={disabled}>
         {renderTrigger}
       </Trigger>
@@ -414,7 +441,7 @@ function BasicActionList({
   );
 
   return (
-    <Popover
+    <LazyPopover
       title={title || intl.formatMessage({ id: ETranslations.explore_options })}
       open={isOpen}
       onOpenChange={handleOpenStatusChange}
@@ -577,6 +604,8 @@ function ActionListFrame(props: IActionListProps) {
     return <BasicActionList {...props} />;
   }
   return (
+    // testID is carried by renderTrigger from the caller.
+    // oxlint-disable-next-line onekey/require-testid
     <Trigger onPress={handleActionListOpen} disabled={disabled}>
       {renderTrigger}
     </Trigger>

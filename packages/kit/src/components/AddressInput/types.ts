@@ -12,7 +12,7 @@ export type IAddressPluginProps = {
   }) => void;
   onActiveAccountChange?: (
     activeAccount: IAccountSelectorActiveAccountInfo,
-  ) => void;
+  ) => void | boolean | Promise<void | boolean>;
   onExtraDataChange?: ({
     memo,
     note,

@@ -22,6 +22,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { KeyTagTestIDs } from '../../testIDs';
+
 const ListFooterComponent = ({ walletCount }: { walletCount: number }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -49,6 +51,7 @@ const ListFooterComponent = ({ walletCount }: { walletCount: number }) => {
         })}
         drillIn
         onPress={onPress}
+        testID={KeyTagTestIDs.enterRecoveryPhraseItem}
         renderIcon={
           <Stack bg="$bgStrong" p="$2" borderRadius="$3">
             <Icon name="PencilOutline" size="$6" color="$icon" />

@@ -24,6 +24,7 @@ import { rootRouter, useRootRouter } from '../router';
 
 import { registerDeepLinking } from './deeplink';
 import { getStateFromPath } from './getStateFromPath';
+import { captureAndReportLoggerUtmParamsFromUrl } from './loggerUtmParams';
 
 import type { LinkingOptions } from '@react-navigation/native';
 
@@ -66,6 +67,10 @@ const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
 const FULL_SCREEN_PUSH_PATH = `/${ERootRoutes.FullScreenPush}`;
 
 const onGetStateFromPath = (path: string, options?: any) => {
+  captureAndReportLoggerUtmParamsFromUrl(path);
+  if (platformEnv.isWeb) {
+    captureAndReportLoggerUtmParamsFromUrl(globalThis.location.href);
+  }
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('getStateFromPath', `path="${path}"`);
   }
@@ -210,7 +215,7 @@ const TAB_TITLE_TRANSLATION_MAP: Record<ETabRoutes, ETranslations | null> = {
   [ETabRoutes.Market]: ETranslations.global_market,
   [ETabRoutes.Discovery]: ETranslations.global_discover,
   [ETabRoutes.Earn]: ETranslations.global_earn,
-  [ETabRoutes.Swap]: ETranslations.global_swap,
+  [ETabRoutes.Swap]: ETranslations.global_trade,
   [ETabRoutes.Perp]: ETranslations.global_perp,
   [ETabRoutes.WebviewPerpTrade]: ETranslations.global_perp,
   [ETabRoutes.MultiTabBrowser]: ETranslations.global_browser,

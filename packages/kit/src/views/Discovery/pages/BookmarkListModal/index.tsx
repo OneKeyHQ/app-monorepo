@@ -2,16 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IDragEndParamsWithItem } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   Empty,
   Page,
-  SortableListView,
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView';
+import { SortableListView } from '@onekeyhq/components/src/layouts/SortableListView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/RenameDialog';
@@ -191,6 +191,7 @@ function BookmarkListModal() {
   const headerRight = useCallback(
     () => (
       <Button
+        testID="discovery-header-right-btn"
         variant="tertiary"
         onPress={() => {
           setIsEditing((prev) => !prev);

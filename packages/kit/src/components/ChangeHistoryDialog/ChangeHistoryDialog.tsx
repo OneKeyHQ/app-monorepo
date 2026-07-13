@@ -54,6 +54,7 @@ function ChangeHistoryDialogContent({
             }
             return (
               <Button
+                testID="change-history-dialog-intl-btn"
                 key={item.value}
                 onPress={() => {
                   onChange?.(item.value);
@@ -85,6 +86,7 @@ export function buildChangeHistoryInputAddon({
     iconName: 'ClockTimeHistoryOutline',
     onPress: () => {
       const d = Dialog.show({
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
         title: appLocale.intl.formatMessage({
           id: ETranslations.global_name_history,
         }),
