@@ -1390,41 +1390,6 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async updateLastActiveTabNameInTokenDetails({
-    accountId,
-    aggregateTokenId,
-    lastActiveTabName,
-  }: {
-    accountId: string;
-    aggregateTokenId: string;
-    lastActiveTabName: string;
-  }) {
-    return this.backgroundApi.simpleDb.aggregateToken.updateLastActiveTabNameInTokenDetails(
-      {
-        accountId,
-        aggregateTokenId,
-        lastActiveTabName,
-      },
-    );
-  }
-
-  @backgroundMethod()
-  public async getLastActiveTabNameInTokenDetails({
-    accountId,
-    aggregateTokenId,
-  }: {
-    accountId: string;
-    aggregateTokenId: string;
-  }) {
-    return this.backgroundApi.simpleDb.aggregateToken.getLastActiveTabNameInTokenDetails(
-      {
-        accountId,
-        aggregateTokenId,
-      },
-    );
-  }
-
-  @backgroundMethod()
   public async clearLastActiveTabNameData() {
     return this.backgroundApi.simpleDb.aggregateToken.clearLastActiveTabNameData();
   }
