@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
@@ -62,7 +63,9 @@ function ApprovedTokenItem(props: IProps) {
   const { isBuildingRevokeTxs, selectedTokens } =
     useApprovalManagementContext();
   const intl = useIntl();
+  const { sm } = useMedia();
   const isPermit2Approval = approvalUtils.isPermit2Approval({ approval });
+  const isCompactPermit2Layout = isPermit2Approval && sm;
 
   const isSelected =
     !!selectedTokens[
@@ -128,11 +131,40 @@ function ApprovedTokenItem(props: IProps) {
     return null;
   }
 
+  const allowanceContent = approval.isInfiniteAmount ? (
+    intl.formatMessage({
+      id: ETranslations.swap_page_provider_approve_amount_un_limit,
+    })
+  ) : (
+    <NumberSizeableText
+      numberOfLines={1}
+      textAlign="right"
+      size="$bodyLgMedium"
+      autoFormatter="balance-marketCap"
+    >
+      {approval.allowanceParsed}
+    </NumberSizeableText>
+  );
+
+  const revokeButton = isSelectMode ? null : (
+    <Button
+      testID={ApprovalManagementTestIDs.tokenRevokeBtn}
+      size="small"
+      loading={isBuildingRevokeTxs ? isSelected : null}
+      disabled={isBuildingRevokeTxs}
+      onPress={() => {
+        void onRevoke({ approval, tokenInfo: token.info });
+      }}
+    >
+      {intl.formatMessage({ id: ETranslations.global_revoke })}
+    </Button>
+  );
+
   return (
     <ListItem
       renderItemText={
         <ListItem.Text
-          flex={isPermit2Approval ? 1.5 : 1}
+          flex={1}
           minWidth={0}
           primary={
             <XStack alignItems="center" gap="$1.5" minWidth={0}>
@@ -211,40 +243,31 @@ function ApprovedTokenItem(props: IProps) {
         ) : null
       }
     >
-      <ListItem.Text
-        align="right"
-        flex={1}
-        minWidth={0}
-        primaryTextProps={{ numberOfLines: 1 }}
-        primary={
-          approval.isInfiniteAmount ? (
-            intl.formatMessage({
-              id: ETranslations.swap_page_provider_approve_amount_un_limit,
-            })
-          ) : (
-            <NumberSizeableText
-              numberOfLines={1}
-              textAlign="right"
-              size="$bodyLgMedium"
-              autoFormatter="balance-marketCap"
-            >
-              {approval.allowanceParsed}
-            </NumberSizeableText>
-          )
-        }
-      />
-      {isSelectMode ? null : (
-        <Button
-          testID={ApprovalManagementTestIDs.tokenRevokeBtn}
-          size="small"
-          loading={isBuildingRevokeTxs ? isSelected : null}
-          disabled={isBuildingRevokeTxs}
-          onPress={() => {
-            void onRevoke({ approval, tokenInfo: token.info });
-          }}
+      {isCompactPermit2Layout ? (
+        <YStack
+          alignItems="flex-end"
+          justifyContent="center"
+          gap="$1"
+          flexShrink={0}
         >
-          {intl.formatMessage({ id: ETranslations.global_revoke })}
-        </Button>
+          <ListItem.Text
+            align="right"
+            primaryTextProps={{ numberOfLines: 1 }}
+            primary={allowanceContent}
+          />
+          {revokeButton}
+        </YStack>
+      ) : (
+        <>
+          <ListItem.Text
+            align="right"
+            flex={1}
+            minWidth={0}
+            primaryTextProps={{ numberOfLines: 1 }}
+            primary={allowanceContent}
+          />
+          {revokeButton}
+        </>
       )}
     </ListItem>
   );
