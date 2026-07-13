@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 import type {
@@ -277,6 +278,31 @@ export function isStockBalanceInitializing({
   requestPending: boolean;
 }) {
   return balance === undefined && requestPending;
+}
+
+export function resolveStockBalanceSeed({
+  hasActiveAccount,
+  networkAccountAddress,
+  token,
+}: {
+  hasActiveAccount: boolean;
+  networkAccountAddress?: string;
+  token?: ISwapToken;
+}) {
+  if (token?.balanceParsed === undefined) {
+    return undefined;
+  }
+  if (!hasActiveAccount) {
+    return token.balanceParsed;
+  }
+  if (
+    !token.accountAddress ||
+    !networkAccountAddress ||
+    !equalsIgnoreCase(token.accountAddress, networkAccountAddress)
+  ) {
+    return undefined;
+  }
+  return token.balanceParsed;
 }
 
 export type IStockBalanceSnapshot = {

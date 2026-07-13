@@ -35,6 +35,7 @@ import {
   type IStockBalanceSnapshot,
   isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
+  resolveStockBalanceSeed,
   resolveStockBalanceSnapshot,
   shouldRenderStockTradeInputSkeleton,
 } from './swapStockChannelUtils';
@@ -158,6 +159,11 @@ function useStockInputTokenBalance({
     shouldFetchNetworkAccount && networkAccountReady
       ? networkAccountState.account
       : null;
+  const seededBalance = resolveStockBalanceSeed({
+    hasActiveAccount,
+    networkAccountAddress: networkAccount?.address,
+    token,
+  });
   const balanceScope = `${tokenScope}:${networkAccountReady ? 'ready' : 'pending'}:${
     networkAccount?.id ?? ''
   }:${networkAccount?.address ?? ''}:${refreshKey}`;
@@ -178,7 +184,7 @@ function useStockInputTokenBalance({
       if (!networkAccount) {
         return {
           scope: balanceScope,
-          balance: hasActiveAccount ? '0' : (token.balanceParsed ?? '0'),
+          balance: hasActiveAccount ? '0' : (seededBalance ?? '0'),
           tokenDetail: token,
         };
       }
@@ -193,7 +199,7 @@ function useStockInputTokenBalance({
         });
       return {
         scope: balanceScope,
-        balance: details?.[0]?.balanceParsed ?? token.balanceParsed ?? '0',
+        balance: details?.[0]?.balanceParsed ?? seededBalance ?? '0',
         tokenDetail: markStockUsdPriceCurrency(details?.[0]),
       };
     },
@@ -202,6 +208,7 @@ function useStockInputTokenBalance({
       enabled,
       hasActiveAccount,
       networkAccount,
+      seededBalance,
       shouldWaitForNetworkAccount,
       token,
     ],
@@ -254,7 +261,7 @@ function useStockInputTokenBalance({
       : undefined,
     ownerScope: balanceOwnerScope,
     previousSnapshot: lastValidBalanceStateRef.current,
-    seededBalance: enabled ? token?.balanceParsed : undefined,
+    seededBalance: enabled ? seededBalance : undefined,
     seededTokenDetail: enabled ? token : undefined,
   });
   if (balanceState) {

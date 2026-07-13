@@ -65,6 +65,7 @@ describe('Swap Pro account state', () => {
     expect(
       resolveSwapProAccountIdentity({
         isAccountSelectorStorageInitDone: true,
+        selectedNetworkId: 'evm--56',
         selectedIndexedAccountId: undefined,
         selectedAccountId: 'singleton-b',
         activeIndexedAccountId: 'indexed-a',
@@ -77,6 +78,40 @@ describe('Swap Pro account state', () => {
     expect(
       resolveSwapProAccountIdentity({
         isAccountSelectorStorageInitDone: true,
+        selectedNetworkId: undefined,
+        selectedIndexedAccountId: undefined,
+        selectedAccountId: undefined,
+        activeIndexedAccountId: 'indexed-a',
+        activeAccountId: undefined,
+      }),
+    ).toEqual({
+      indexedAccountId: undefined,
+      accountId: undefined,
+    });
+  });
+
+  it('keeps active identity for an initialized network-only selection', () => {
+    expect(
+      resolveSwapProAccountIdentity({
+        isAccountSelectorStorageInitDone: true,
+        selectedNetworkId: 'evm--56',
+        selectedIndexedAccountId: undefined,
+        selectedAccountId: undefined,
+        activeIndexedAccountId: 'indexed-a',
+        activeAccountId: undefined,
+      }),
+    ).toEqual({
+      indexedAccountId: 'indexed-a',
+      accountId: undefined,
+    });
+  });
+
+  it('does not reuse active identity for a wallet-owned incomplete selection', () => {
+    expect(
+      resolveSwapProAccountIdentity({
+        isAccountSelectorStorageInitDone: true,
+        selectedNetworkId: 'evm--56',
+        selectedWalletId: 'hd-2',
         selectedIndexedAccountId: undefined,
         selectedAccountId: undefined,
         activeIndexedAccountId: 'indexed-a',
@@ -92,6 +127,7 @@ describe('Swap Pro account state', () => {
     expect(
       resolveSwapProAccountIdentity({
         isAccountSelectorStorageInitDone: false,
+        selectedNetworkId: undefined,
         selectedIndexedAccountId: undefined,
         selectedAccountId: undefined,
         activeIndexedAccountId: 'indexed-a',
@@ -107,6 +143,7 @@ describe('Swap Pro account state', () => {
     expect(
       resolveSwapProAccountIdentity({
         isAccountSelectorStorageInitDone: false,
+        selectedNetworkId: 'evm--56',
         selectedIndexedAccountId: undefined,
         selectedAccountId: 'singleton-b',
         activeIndexedAccountId: 'indexed-a',

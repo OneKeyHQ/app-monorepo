@@ -1,3 +1,5 @@
+import { shouldKeepCurrentActiveAccountForIncompleteSelection } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/activeAccountInitGuard';
+
 export enum ESwapProAccountStatus {
   NO_ACCOUNT = 'noAccount',
   PENDING = 'pending',
@@ -30,17 +32,47 @@ export function buildSwapProAccountScope({
 
 export function resolveSwapProAccountIdentity({
   isAccountSelectorStorageInitDone,
+  selectedNetworkId,
+  selectedWalletId,
+  selectedFocusedWallet,
   selectedIndexedAccountId,
   selectedAccountId,
   activeIndexedAccountId,
   activeAccountId,
 }: {
   isAccountSelectorStorageInitDone: boolean;
+  selectedNetworkId: string | undefined;
+  selectedWalletId?: string;
+  selectedFocusedWallet?: string;
   selectedIndexedAccountId: string | undefined;
   selectedAccountId: string | undefined;
   activeIndexedAccountId: string | undefined;
   activeAccountId: string | undefined;
 }) {
+  const shouldKeepActiveAccount =
+    shouldKeepCurrentActiveAccountForIncompleteSelection({
+      storageInitDone: isAccountSelectorStorageInitDone,
+      selectedAccount: {
+        networkId: selectedNetworkId,
+        walletId: selectedWalletId,
+        focusedWallet: selectedFocusedWallet,
+        indexedAccountId: selectedIndexedAccountId,
+        othersWalletAccountId: selectedAccountId,
+      },
+      activeAccount: {
+        indexedAccount: activeIndexedAccountId
+          ? { id: activeIndexedAccountId }
+          : undefined,
+        account: activeAccountId ? { id: activeAccountId } : undefined,
+      },
+    });
+  if (shouldKeepActiveAccount) {
+    return {
+      indexedAccountId: activeIndexedAccountId,
+      accountId: activeIndexedAccountId ? undefined : activeAccountId,
+    };
+  }
+
   if (
     isAccountSelectorStorageInitDone ||
     selectedIndexedAccountId ||

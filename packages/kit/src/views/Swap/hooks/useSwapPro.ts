@@ -201,6 +201,9 @@ export function useSwapProAccount() {
   const accountNetworkSyncTargetId = selectMarketToken?.networkId ?? '';
   const { indexedAccountId, accountId } = resolveSwapProAccountIdentity({
     isAccountSelectorStorageInitDone,
+    selectedNetworkId: selectedAccount.networkId,
+    selectedWalletId: selectedAccount.walletId,
+    selectedFocusedWallet: selectedAccount.focusedWallet,
     selectedIndexedAccountId: selectedAccount.indexedAccountId,
     selectedAccountId: selectedAccount.othersWalletAccountId,
     activeIndexedAccountId: activeAccount?.indexedAccount?.id,

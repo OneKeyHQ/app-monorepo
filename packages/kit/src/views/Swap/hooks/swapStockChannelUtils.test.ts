@@ -8,6 +8,7 @@ import {
   isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
   isStockTradeReadyForQuote,
+  resolveStockBalanceSeed,
   resolveStockBalanceSnapshot,
   resolveStockChannelSwapPair,
   resolveStockKLineToken,
@@ -312,6 +313,57 @@ describe('swapStockChannelUtils', () => {
         requestPending: true,
       }),
     ).toBe(false);
+  });
+
+  it('uses a Stock balance seed only when it belongs to the active account', () => {
+    const tokenWithBalanceOwner: ISwapToken = {
+      ...usdcToken,
+      accountAddress: '0xAccountA',
+      balanceParsed: '0.24',
+    };
+
+    expect(
+      resolveStockBalanceSeed({
+        hasActiveAccount: true,
+        networkAccountAddress: '0xaccounta',
+        token: tokenWithBalanceOwner,
+      }),
+    ).toBe('0.24');
+    expect(
+      resolveStockBalanceSeed({
+        hasActiveAccount: true,
+        networkAccountAddress: '0xAccountB',
+        token: tokenWithBalanceOwner,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockBalanceSeed({
+        hasActiveAccount: true,
+        token: tokenWithBalanceOwner,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockBalanceSeed({
+        hasActiveAccount: true,
+        networkAccountAddress: '0xAccountA',
+        token: {
+          ...usdcToken,
+          balanceParsed: '0.24',
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps an unscoped Stock balance seed when no account is active', () => {
+    expect(
+      resolveStockBalanceSeed({
+        hasActiveAccount: false,
+        token: {
+          ...usdcToken,
+          balanceParsed: '0.24',
+        },
+      }),
+    ).toBe('0.24');
   });
 
   it('keeps a scoped Stock balance visible from seed through authoritative refresh', () => {
