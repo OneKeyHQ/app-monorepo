@@ -17,19 +17,22 @@ export type ITabPreloadReason =
   | 'legacy-high'
   | 'legacy-low'
   | 'legacy-medium'
-  | 'memory-constrained';
+  | 'memory-constrained'
+  | 'surface-limited';
 
 export interface ITabPreloadDecision {
   mode: ETabPreloadMode;
   reason: ITabPreloadReason;
 }
 
-export function resolveNativeTabPreloadDecision({
+export function resolveTabPreloadDecision({
   cpuTier,
   memoryClass,
+  allowFullPreload = true,
 }: {
   cpuTier: EDeviceCpuTier;
   memoryClass: EDeviceMemoryClass;
+  allowFullPreload?: boolean;
 }): ITabPreloadDecision {
   if (memoryClass === EDeviceMemoryClass.constrained) {
     return {
@@ -41,6 +44,9 @@ export function resolveNativeTabPreloadDecision({
     return { mode: ETabPreloadMode.disabled, reason: 'cpu-low' };
   }
   if (cpuTier === EDeviceCpuTier.high) {
+    if (!allowFullPreload) {
+      return { mode: ETabPreloadMode.light, reason: 'surface-limited' };
+    }
     return { mode: ETabPreloadMode.full, reason: 'cpu-high' };
   }
   if (cpuTier === EDeviceCpuTier.medium) {

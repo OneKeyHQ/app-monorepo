@@ -6,7 +6,9 @@ import {
   type TKnownDeviceCpuTier,
 } from './devicePerformanceTierTypes';
 
-export const DEVICE_PERFORMANCE_DATA_VERSION = 'native-cpu-v1';
+export const NATIVE_DEVICE_PERFORMANCE_DATA_VERSION = 'native-cpu-v1';
+export const NON_NATIVE_DEVICE_PERFORMANCE_DATA_VERSION =
+  'non-native-capabilities-v1';
 export const LARGE_DEVICE_MEMORY_THRESHOLD_GB = 6;
 
 export function resolveMemoryClass({
@@ -33,11 +35,13 @@ export function resolveDevicePerformanceProfile({
   memoryGB,
   isMemoryConstrained,
   overrideCpuTier,
+  dataVersion,
 }: {
   cpuTierMatch: IDeviceCpuTierMatch | null;
   memoryGB: number | null;
   isMemoryConstrained: boolean;
   overrideCpuTier?: TKnownDeviceCpuTier;
+  dataVersion: string;
 }): IDevicePerformanceProfile {
   return {
     cpu: {
@@ -56,6 +60,6 @@ export function resolveDevicePerformanceProfile({
       }),
       totalGB: memoryGB,
     },
-    dataVersion: DEVICE_PERFORMANCE_DATA_VERSION,
+    dataVersion,
   };
 }

@@ -4,7 +4,7 @@ import { getDevicePerformanceProfile } from '@onekeyhq/shared/src/performance/de
 import { getTabPreloadEntry } from './preloadConfig';
 import {
   type ITabPreloadDecision,
-  resolveNativeTabPreloadDecision,
+  resolveTabPreloadDecision,
 } from './preloadPolicyResolver';
 
 export interface ITabPreloadPolicy extends ITabPreloadDecision {
@@ -16,7 +16,7 @@ let hasLoggedDeviceCapability = false;
 
 export function getTabPreloadPolicy(): ITabPreloadPolicy {
   const profile = getDevicePerformanceProfile();
-  const decision = resolveNativeTabPreloadDecision({
+  const decision = resolveTabPreloadDecision({
     cpuTier: profile.cpu.tier,
     memoryClass: profile.memory.class,
   });

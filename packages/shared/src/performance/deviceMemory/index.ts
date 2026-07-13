@@ -2,7 +2,8 @@
 // have" and "is it memory-constrained" across the app.
 //
 //   getDeviceMemoryGBSync — platform-split primitive (expo-device.totalMemory on
-//                           native, navigator.deviceMemory on web/desktop)
+//                           native, exact bridged RAM on desktop, and
+//                           navigator.deviceMemory on web/extension)
 //   isLowEndMemory        — the ONE low-memory predicate (<= LOW_END_THRESHOLD)
 //   IS_LOW_END_DEVICE     — that predicate evaluated once at module load
 //

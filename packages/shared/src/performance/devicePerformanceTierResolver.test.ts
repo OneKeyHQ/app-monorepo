@@ -1,4 +1,5 @@
 import {
+  NATIVE_DEVICE_PERFORMANCE_DATA_VERSION,
   resolveDevicePerformanceProfile,
   resolveMemoryClass,
 } from './devicePerformanceTierResolver';
@@ -29,6 +30,7 @@ describe('devicePerformanceTierResolver', () => {
       },
       memoryGB: 3.55,
       isMemoryConstrained: false,
+      dataVersion: NATIVE_DEVICE_PERFORMANCE_DATA_VERSION,
     });
 
     expect(profile.cpu.tier).toBe(EDeviceCpuTier.low);
@@ -44,6 +46,7 @@ describe('devicePerformanceTierResolver', () => {
       },
       memoryGB: 8,
       isMemoryConstrained: false,
+      dataVersion: NATIVE_DEVICE_PERFORMANCE_DATA_VERSION,
     });
 
     expect(profile.cpu.tier).toBe(EDeviceCpuTier.high);
@@ -55,6 +58,7 @@ describe('devicePerformanceTierResolver', () => {
       cpuTierMatch: null,
       memoryGB: 12,
       isMemoryConstrained: false,
+      dataVersion: NATIVE_DEVICE_PERFORMANCE_DATA_VERSION,
     });
 
     expect(profile.cpu.tier).toBe(EDeviceCpuTier.unknown);
@@ -70,6 +74,7 @@ describe('devicePerformanceTierResolver', () => {
       },
       memoryGB: 3.5,
       isMemoryConstrained: true,
+      dataVersion: NATIVE_DEVICE_PERFORMANCE_DATA_VERSION,
     });
 
     expect(profile.cpu.tier).toBe(EDeviceCpuTier.high);
@@ -82,6 +87,7 @@ describe('devicePerformanceTierResolver', () => {
       memoryGB: null,
       isMemoryConstrained: false,
       overrideCpuTier: EDeviceCpuTier.high,
+      dataVersion: NATIVE_DEVICE_PERFORMANCE_DATA_VERSION,
     });
 
     expect(profile.cpu.tier).toBe(EDeviceCpuTier.high);

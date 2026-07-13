@@ -45,11 +45,24 @@ const PLATFORM_ENV_READS = [
   'isMas',
 ] as const;
 
+const DEVICE_CAPABILITY_READS = [
+  'logicalProcessorCount',
+  'totalMemoryBytes',
+] as const;
+
 describe('desktopApi contract', () => {
   it('IPC payload has all fields platformEnv reads', () => {
     const info = buildPlatformInfoForIpc();
     const keys = Object.keys(info);
     for (const required of PLATFORM_ENV_READS) {
+      expect(keys).toContain(required);
+    }
+  });
+
+  it('IPC payload exposes synchronous device capability inputs', () => {
+    const info = buildPlatformInfoForIpc();
+    const keys = Object.keys(info);
+    for (const required of DEVICE_CAPABILITY_READS) {
       expect(keys).toContain(required);
     }
   });
@@ -81,6 +94,8 @@ describe('desktopApi contract', () => {
     expect(typeof info.deskChannel).toBe('string');
     expect(typeof info.isMas).toBe('boolean');
     expect(typeof info.isDev).toBe('boolean');
+    expect(info.logicalProcessorCount).toBeGreaterThan(0);
+    expect(info.totalMemoryBytes).toBeGreaterThan(0);
     // `processStartAt` is required (epoch ms of process creation). In the
     // non-Electron test env `process.getCreationTime` is undefined, so the
     // builder falls back to `Date.now()` — still a positive number. Asserting

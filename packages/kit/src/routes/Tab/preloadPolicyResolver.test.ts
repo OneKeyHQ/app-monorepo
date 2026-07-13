@@ -5,13 +5,13 @@ import {
 
 import {
   ETabPreloadMode,
-  resolveNativeTabPreloadDecision,
+  resolveTabPreloadDecision,
 } from './preloadPolicyResolver';
 
-describe('resolveNativeTabPreloadDecision', () => {
+describe('resolveTabPreloadDecision', () => {
   it('disables preloading when memory is constrained regardless of CPU', () => {
     expect(
-      resolveNativeTabPreloadDecision({
+      resolveTabPreloadDecision({
         cpuTier: EDeviceCpuTier.high,
         memoryClass: EDeviceMemoryClass.constrained,
       }),
@@ -23,7 +23,7 @@ describe('resolveNativeTabPreloadDecision', () => {
 
   it('disables preloading for a low-tier CPU with ample memory', () => {
     expect(
-      resolveNativeTabPreloadDecision({
+      resolveTabPreloadDecision({
         cpuTier: EDeviceCpuTier.low,
         memoryClass: EDeviceMemoryClass.large,
       }).mode,
@@ -32,18 +32,31 @@ describe('resolveNativeTabPreloadDecision', () => {
 
   it('fully preloads for a high-tier CPU when memory is not constrained', () => {
     expect(
-      resolveNativeTabPreloadDecision({
+      resolveTabPreloadDecision({
         cpuTier: EDeviceCpuTier.high,
         memoryClass: EDeviceMemoryClass.standard,
       }).mode,
     ).toBe(ETabPreloadMode.full);
   });
 
+  it('caps high-tier devices at light preloading on limited surfaces', () => {
+    expect(
+      resolveTabPreloadDecision({
+        cpuTier: EDeviceCpuTier.high,
+        memoryClass: EDeviceMemoryClass.large,
+        allowFullPreload: false,
+      }),
+    ).toEqual({
+      mode: ETabPreloadMode.light,
+      reason: 'surface-limited',
+    });
+  });
+
   it.each([EDeviceCpuTier.medium, EDeviceCpuTier.unknown])(
     'uses light preloading for a %s CPU when memory is not constrained',
     (cpuTier) => {
       expect(
-        resolveNativeTabPreloadDecision({
+        resolveTabPreloadDecision({
           cpuTier,
           memoryClass: EDeviceMemoryClass.large,
         }).mode,

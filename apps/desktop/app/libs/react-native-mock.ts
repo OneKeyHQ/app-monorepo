@@ -1,3 +1,5 @@
+import os from 'os';
+
 import type { IDesktopApiGlobal } from '@onekeyhq/shared/types/desktopApiPlatformInfo';
 
 import { getProcessStartAt } from './getProcessStartAt';
@@ -63,6 +65,8 @@ export const buildDesktopApiGlobal = (): IDesktopApiGlobal => ({
     typeof process.getSystemVersion === 'function'
       ? process.getSystemVersion()
       : '',
+  logicalProcessorCount: os.cpus().length,
+  totalMemoryBytes: os.totalmem(),
   channel: getChannel(),
   deskChannel: process.env.DESK_CHANNEL || '',
   isMas: Boolean(process.mas),

@@ -209,22 +209,6 @@ export function TabNavigator() {
     };
   }, []);
 
-  // Non-native targets retain runtime calibration for the next launch. Native
-  // policies use stable CPU and memory capabilities instead.
-  useEffect(() => {
-    if (platformEnv.isNative) {
-      return undefined;
-    }
-    const timer = setTimeout(() => {
-      void (async () => {
-        const { calibrateDevicePerformanceTier } =
-          await import('@onekeyhq/shared/src/performance/devicePerformanceTier');
-        await calibrateDevicePerformanceTier();
-      })();
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, []);
-
   return (
     <>
       <TabStackNavigator<ETabRoutes>

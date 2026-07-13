@@ -1,3 +1,4 @@
+import os from 'os';
 import path from 'path';
 
 import { ipcMain } from 'electron';
@@ -48,6 +49,8 @@ export const buildPlatformInfoForIpc = (): IDesktopApiPlatformInfo => {
       typeof process.getSystemVersion === 'function'
         ? process.getSystemVersion()
         : '',
+    logicalProcessorCount: os.cpus().length,
+    totalMemoryBytes: os.totalmem(),
     isMas: Boolean((process as { mas?: boolean }).mas),
     channel,
     deskChannel: process.env.DESK_CHANNEL || '',

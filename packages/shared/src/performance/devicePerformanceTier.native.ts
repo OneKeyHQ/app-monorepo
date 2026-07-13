@@ -12,7 +12,10 @@ import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
 import { getDeviceCpuTierMatch } from './deviceCpuTier';
 import { getDeviceMemoryGBSync, isLowEndMemory } from './deviceMemory';
-import { resolveDevicePerformanceProfile } from './devicePerformanceTierResolver';
+import {
+  NATIVE_DEVICE_PERFORMANCE_DATA_VERSION,
+  resolveDevicePerformanceProfile,
+} from './devicePerformanceTierResolver';
 import {
   EDeviceCpuTier,
   EDeviceMemoryClass,
@@ -56,6 +59,7 @@ function createDevicePerformanceProfile(): IDevicePerformanceProfile {
     memoryGB,
     isMemoryConstrained: memoryGB !== null ? isLowEndMemory(memoryGB) : false,
     overrideCpuTier: getStoredCpuOverride(),
+    dataVersion: NATIVE_DEVICE_PERFORMANCE_DATA_VERSION,
   });
 }
 
