@@ -87,7 +87,7 @@ const SwapProLimitPriceInput = ({
         keyboardType="decimal-pad"
         size="small"
         inputAccessoryViewID={
-          platformEnv.isNativeIOSPhone
+          platformEnv.isNativeIOS
             ? SwapLimitPriceInputAccessoryViewID
             : undefined
         }
@@ -99,7 +99,7 @@ const SwapProLimitPriceInput = ({
           renderContent: currencySymbolAddOn,
         }}
       />
-      {platformEnv.isNativeIOSPhone ? (
+      {platformEnv.isNativeIOS ? (
         <InputAccessoryView nativeID={SwapLimitPriceInputAccessoryViewID}>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
