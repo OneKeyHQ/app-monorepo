@@ -124,8 +124,11 @@ export function useWalletConnection({
         ),
         showFooter: false,
         dismissOnOverlayPress: false,
+        // The zero-inset first frame only happens inside the iOS
+        // FullWindowOverlay portal; Android must not pad with the startup
+        // snapshot (stale under edge-to-edge gesture navigation).
         useInitialSafeAreaBottomInsetFallback:
-          platformEnv.isNative && isWalletConnect,
+          platformEnv.isNativeIOS && isWalletConnect,
         onClose() {
           if (
             platformEnv.isNative &&

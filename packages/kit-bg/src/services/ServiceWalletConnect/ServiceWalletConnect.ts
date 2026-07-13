@@ -53,13 +53,12 @@ class ServiceWalletConnect extends ServiceBase {
 
   @backgroundMethod()
   async abortConnectPairing({ uri }: { uri: string }) {
-    const providers = this.dappSide.providers;
     const cancelled = await this.dappSide.abortConnectPairing({ uri });
+    // the pairing uri query carries the symKey, never log it
     console.log(
       'abortConnectPairing current attempt: ',
-      uri,
+      uri.split('?')[0],
       cancelled,
-      providers,
     );
   }
 

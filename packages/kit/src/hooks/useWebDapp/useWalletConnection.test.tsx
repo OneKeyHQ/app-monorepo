@@ -32,6 +32,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
     isNative: true,
+    isNativeIOS: true,
   },
 }));
 

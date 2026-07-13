@@ -407,12 +407,29 @@ export class WalletConnectDappSide {
     }
 
     this.closeModal();
-    await attempt.provider?.abortConnectPairing();
+    try {
+      // best-effort SDK-side cleanup; the attempt is already rejected above,
+      // so a provider failure here must not reject the abort call itself
+      await attempt.provider?.abortConnectPairing();
+    } catch (error) {
+      console.error('abortConnectPairing provider error: ', error);
+    }
     return true;
   }
 
   async connectToWallet({ impl }: IWalletConnectConnectToWalletParams) {
     console.log('WalletConnectDappSide connectToWallet111');
+
+    // Cancel any superseded attempt before replacing it, so its pending
+    // connect() cannot re-emit display_uri or tear down this newer
+    // attempt's modal when it finally settles.
+    if (this.activeConnectAttempt) {
+      try {
+        await this.abortConnectPairing({ uri: '' });
+      } catch (error) {
+        console.error('abort superseded connect attempt error: ', error);
+      }
+    }
 
     const attempt: IWalletConnectConnectAttempt = {};
     this.activeConnectAttempt = attempt;
@@ -484,7 +501,8 @@ export class WalletConnectDappSide {
 
       attempt.provider = provider;
       displayUriHandler = async (uri: string) => {
-        console.log('uri', uri);
+        // the pairing uri query carries the symKey, never log it
+        console.log('uri', uri.split('?')[0]);
         if (attempt.cancelError) return;
         attempt.uri = uri;
         this.openModal({ uri });
@@ -546,10 +564,26 @@ export class WalletConnectDappSide {
       });
       throwIfCancelled();
       // call connect() to create new session
-      await Promise.race([
-        provider.connect(connectParams),
-        cancellationPromise,
-      ]);
+      const connectPromise = provider.connect(connectParams);
+      try {
+        await Promise.race([connectPromise, cancellationPromise]);
+      } catch (error) {
+        if (attempt.cancelError && error === attempt.cancelError) {
+          // connect() keeps running inside the SDK after cancellation; if the
+          // wallet approves later, disconnect the session nobody consumes
+          // instead of leaving it alive until the next cold start cleanup.
+          const orphanProvider = provider;
+          void connectPromise
+            .then(async () => {
+              const topic = orphanProvider?.session?.topic;
+              if (topic) {
+                await this.disconnectProvider({ topic });
+              }
+            })
+            .catch(() => undefined);
+        }
+        throw error;
+      }
       attempt.rejectCancellation = undefined;
       throwIfCancelled();
       if (!provider.session || !provider.isWalletConnect) {
@@ -569,7 +603,8 @@ export class WalletConnectDappSide {
       throw error;
     } finally {
       attempt.rejectCancellation = undefined;
-      if (this.activeConnectAttempt === attempt) {
+      const isCurrentAttempt = this.activeConnectAttempt === attempt;
+      if (isCurrentAttempt) {
         this.activeConnectAttempt = undefined;
       }
       if (this.lastConnectToWalletProvider === provider) {
@@ -587,7 +622,12 @@ export class WalletConnectDappSide {
           sessionDeleteHandler,
         );
       }
-      this.closeModal();
+      // Only the attempt that still owns the modal may close it; a superseded
+      // attempt settling late (e.g. proposal expiry minutes later) must not
+      // tear down the newer attempt's modal and main-runtime payload store.
+      if (isCurrentAttempt) {
+        this.closeModal();
+      }
     }
   }
 
