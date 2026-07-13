@@ -134,7 +134,17 @@ mod win {
                 super::emit(r#"{"type":"paired"}"#);
                 Ok(())
             }
-            status => Err(format!("pairing failed with status {status:?}")),
+            status => {
+                // Best-effort cleanup: a failed ceremony can leave a half-bond
+                // that makes the device un-scannable/un-connectable next time
+                // (the "device disappears" dead-end). Unpair so the next attempt
+                // starts clean. Ignore errors — we're already failing.
+                eprintln!("[pair] failed status {status:?}, unpairing to clean up");
+                if let Ok(op) = pairing.UnpairAsync() {
+                    let _ = op.await;
+                }
+                Err(format!("pairing failed with status {status:?}"))
+            }
         }
     }
 
