@@ -9,6 +9,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
+import { TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS } from './TradingViewSettingsMockState';
 import {
   OKX_CHART_BG,
   OKX_CHART_DIVIDER,
@@ -32,12 +33,10 @@ const OKX_INDICATOR_SIDEBAR_LABEL_WIDTH = 86;
 export function OkxIndicatorScopeTabs({
   value,
   indicators,
-  maxActiveSubIndicators,
   onChange,
 }: {
   value: ITradingViewSettingsMockIndicatorScope;
   indicators: ITradingViewSettingsMockIndicator[];
-  maxActiveSubIndicators: number;
   onChange: (value: ITradingViewSettingsMockIndicatorScope) => void;
 }) {
   const activeSubIndicatorCount = indicators.filter(
@@ -46,10 +45,7 @@ export function OkxIndicatorScopeTabs({
   const tabs = [
     { label: '主图指标', value: 'main' as const },
     {
-      label: `副图指标 (${Math.min(
-        activeSubIndicatorCount,
-        maxActiveSubIndicators,
-      )}/${maxActiveSubIndicators})`,
+      label: `副图指标 (${activeSubIndicatorCount}/${TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS})`,
       value: 'sub' as const,
     },
   ];

@@ -15,6 +15,7 @@ export type ITradingViewSettingsMockLineStyle =
 export type ITradingViewSettingsMockColorRole = 'up' | 'down';
 
 export const TRADING_VIEW_SETTINGS_SCHEMA_VERSION = 1 as const;
+export const TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS = 4;
 
 export type ITradingViewSettingsMockIndicatorScope = 'main' | 'sub';
 
@@ -1722,26 +1723,12 @@ export function toggleTradingViewSettingsMockIndicator(
   state: ITradingViewIndicatorSettingsValue,
   indicatorId: string,
   active: boolean,
-  maxActiveSubIndicators = 4,
+  activeSubIndicatorOrder?: readonly string[],
 ): ITradingViewIndicatorSettingsValue {
-  const activeSubIndicatorLimit = normalizeTradingViewMaxActiveSubIndicators(
-    maxActiveSubIndicators,
-  );
   const targetIndicator = state.indicators.find(
     (indicator) => indicator.id === indicatorId,
   );
   if (!targetIndicator) {
-    return state;
-  }
-
-  if (
-    active &&
-    targetIndicator.scope === 'sub' &&
-    !targetIndicator.active &&
-    state.indicators.filter(
-      (indicator) => indicator.scope === 'sub' && indicator.active,
-    ).length >= activeSubIndicatorLimit
-  ) {
     return state;
   }
 
@@ -1758,20 +1745,59 @@ export function toggleTradingViewSettingsMockIndicator(
     };
   });
 
-  return changed
-    ? {
-        ...state,
-        indicators,
-      }
-    : state;
+  if (!changed) {
+    return state;
+  }
+
+  const nextState = {
+    ...state,
+    indicators,
+  };
+  return active && targetIndicator.scope === 'sub'
+    ? normalizeTradingViewActiveSubIndicators(
+        nextState,
+        activeSubIndicatorOrder,
+      )
+    : nextState;
 }
 
-export function normalizeTradingViewMaxActiveSubIndicators(
-  maxActiveSubIndicators = 4,
-) {
-  return Number.isFinite(maxActiveSubIndicators)
-    ? Math.max(0, Math.floor(maxActiveSubIndicators))
-    : 4;
+export function normalizeTradingViewActiveSubIndicators(
+  state: ITradingViewIndicatorSettingsValue,
+  activeSubIndicatorOrder?: readonly string[],
+): ITradingViewIndicatorSettingsValue {
+  const activeSubIndicators = state.indicators.filter(
+    (indicator) => indicator.scope === 'sub' && indicator.active,
+  );
+  if (activeSubIndicators.length <= TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS) {
+    return state;
+  }
+
+  const activeSubIndicatorIds = new Set(
+    activeSubIndicators.map((indicator) => indicator.id),
+  );
+  const orderedActiveSubIndicatorIds = Array.from(
+    new Set([
+      ...(activeSubIndicatorOrder ?? []),
+      ...activeSubIndicators.map((indicator) => indicator.id),
+    ]),
+  ).filter((indicatorId) => activeSubIndicatorIds.has(indicatorId));
+
+  const retainedActiveSubIndicatorIds = new Set(
+    orderedActiveSubIndicatorIds.slice(-TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS),
+  );
+  return {
+    ...state,
+    indicators: state.indicators.map((indicator) =>
+      indicator.scope === 'sub' &&
+      indicator.active &&
+      !retainedActiveSubIndicatorIds.has(indicator.id)
+        ? {
+            ...indicator,
+            active: false,
+          }
+        : indicator,
+    ),
+  };
 }
 
 export function toggleTradingViewSettingsMockLine(

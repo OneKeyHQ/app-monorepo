@@ -1,11 +1,11 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { OkxIndicatorSettingsDialog } from './TradingViewIndicatorContent';
 import {
   createTradingViewIndicatorSettingsValue,
   getDefaultTradingViewIndicatorIdForScope,
   getTradingViewSettingsMockIndicatorsByScope,
-  normalizeTradingViewMaxActiveSubIndicators,
+  normalizeTradingViewActiveSubIndicators,
   toggleTradingViewSettingsMockIndicator,
   toggleTradingViewSettingsMockLine,
   updateTradingViewSettingsMockIndicatorOpacity,
@@ -27,7 +27,6 @@ export type ITradingViewIndicatorSettingsProps = {
   /** Use value for controlled committed state, or defaultValue for local state. */
   value?: ITradingViewIndicatorSettingsValue;
   defaultValue?: ITradingViewIndicatorSettingsValue;
-  maxActiveSubIndicators?: number;
   isSubmitting?: boolean;
   /** Called when the editable draft changes. */
   onChange?: (value: ITradingViewIndicatorSettingsValue) => void;
@@ -41,10 +40,29 @@ export type ITradingViewIndicatorSettingsProps = {
   onClose?: () => void;
 };
 
+function reconcileActiveSubIndicatorOrder(
+  value: ITradingViewIndicatorSettingsValue,
+  currentOrder: readonly string[] = [],
+) {
+  const activeSubIndicatorIds = value.indicators
+    .filter((indicator) => indicator.scope === 'sub' && indicator.active)
+    .map((indicator) => indicator.id);
+  const activeSubIndicatorIdSet = new Set(activeSubIndicatorIds);
+  const nextOrder = currentOrder.filter((indicatorId) =>
+    activeSubIndicatorIdSet.has(indicatorId),
+  );
+  const nextOrderSet = new Set(nextOrder);
+  for (const indicatorId of activeSubIndicatorIds) {
+    if (!nextOrderSet.has(indicatorId)) {
+      nextOrder.push(indicatorId);
+    }
+  }
+  return nextOrder;
+}
+
 export function TradingViewIndicatorSettings({
   value,
   defaultValue,
-  maxActiveSubIndicators = 4,
   isSubmitting = false,
   onChange,
   onConfirm,
@@ -52,6 +70,21 @@ export function TradingViewIndicatorSettings({
   onCancel,
   onClose,
 }: ITradingViewIndicatorSettingsProps) {
+  const activeSubIndicatorOrderRef = useRef<string[]>([]);
+  const handleSettingsChange = useCallback(
+    (nextValue: ITradingViewIndicatorSettingsValue) => {
+      const normalizedNextValue = normalizeTradingViewActiveSubIndicators(
+        nextValue,
+        activeSubIndicatorOrderRef.current,
+      );
+      activeSubIndicatorOrderRef.current = reconcileActiveSubIndicatorOrder(
+        normalizedNextValue,
+        activeSubIndicatorOrderRef.current,
+      );
+      onChange?.(normalizedNextValue);
+    },
+    [onChange],
+  );
   const [
     settingsValue,
     updateSettingsValue,
@@ -61,26 +94,44 @@ export function TradingViewIndicatorSettings({
     value,
     defaultValue,
     createDefaultValue: createTradingViewIndicatorSettingsValue,
-    onChange,
+    onChange: handleSettingsChange,
   });
+  const normalizedSettingsValue = useMemo(
+    () =>
+      normalizeTradingViewActiveSubIndicators(
+        settingsValue,
+        activeSubIndicatorOrderRef.current,
+      ),
+    [settingsValue],
+  );
   const [selectedIndicatorScope, setSelectedIndicatorScope] =
     useState<ITradingViewSettingsMockIndicatorScope>('main');
   const [selectedIndicatorId, setSelectedIndicatorId] = useState(() =>
-    getDefaultTradingViewIndicatorIdForScope(settingsValue.indicators, 'main'),
+    getDefaultTradingViewIndicatorIdForScope(
+      normalizedSettingsValue.indicators,
+      'main',
+    ),
   );
   const [isConfirming, setIsConfirming] = useState(false);
   const submitInProgress = isSubmitting || isConfirming;
-  const activeSubIndicatorLimit = normalizeTradingViewMaxActiveSubIndicators(
-    maxActiveSubIndicators,
-  );
+
+  useEffect(() => {
+    activeSubIndicatorOrderRef.current = reconcileActiveSubIndicatorOrder(
+      normalizedSettingsValue,
+      activeSubIndicatorOrderRef.current,
+    );
+    if (normalizedSettingsValue !== settingsValue) {
+      updateSettingsValue(() => normalizedSettingsValue);
+    }
+  }, [normalizedSettingsValue, settingsValue, updateSettingsValue]);
 
   const visibleIndicators = useMemo(
     () =>
       getTradingViewSettingsMockIndicatorsByScope(
-        settingsValue,
+        normalizedSettingsValue,
         selectedIndicatorScope,
       ),
-    [selectedIndicatorScope, settingsValue],
+    [normalizedSettingsValue, selectedIndicatorScope],
   );
   const selectedIndicator = useMemo(
     () =>
@@ -92,7 +143,11 @@ export function TradingViewIndicatorSettings({
   const effectiveSelectedIndicatorId = selectedIndicator?.id ?? '';
 
   const handleReset = useCallback(() => {
-    const nextValue = createTradingViewIndicatorSettingsValue();
+    const nextValue = normalizeTradingViewActiveSubIndicators(
+      createTradingViewIndicatorSettingsValue(),
+    );
+    activeSubIndicatorOrderRef.current =
+      reconcileActiveSubIndicatorOrder(nextValue);
     updateSettingsValue(() => nextValue);
     if (
       !nextValue.indicators.some(
@@ -110,16 +165,35 @@ export function TradingViewIndicatorSettings({
 
   const handleToggleIndicator = useCallback(
     (indicatorId: string, active: boolean) => {
+      const targetIndicator = normalizedSettingsValue.indicators.find(
+        (indicator) => indicator.id === indicatorId,
+      );
+      if (targetIndicator?.scope === 'sub') {
+        const currentOrder = reconcileActiveSubIndicatorOrder(
+          normalizedSettingsValue,
+          activeSubIndicatorOrderRef.current,
+        );
+        activeSubIndicatorOrderRef.current = active
+          ? [
+              ...currentOrder.filter(
+                (activeIndicatorId) => activeIndicatorId !== indicatorId,
+              ),
+              indicatorId,
+            ]
+          : currentOrder.filter(
+              (activeIndicatorId) => activeIndicatorId !== indicatorId,
+            );
+      }
       updateSettingsValue((currentValue) =>
         toggleTradingViewSettingsMockIndicator(
           currentValue,
           indicatorId,
           active,
-          activeSubIndicatorLimit,
+          activeSubIndicatorOrderRef.current,
         ),
       );
     },
-    [activeSubIndicatorLimit, updateSettingsValue],
+    [normalizedSettingsValue, updateSettingsValue],
   );
 
   const handleClose = () => {
@@ -135,7 +209,10 @@ export function TradingViewIndicatorSettings({
 
     setIsConfirming(true);
     try {
-      await onConfirm?.(settingsValue);
+      if (normalizedSettingsValue !== settingsValue) {
+        updateSettingsValue(() => normalizedSettingsValue);
+      }
+      await onConfirm?.(normalizedSettingsValue);
       commitSettingsValue();
     } catch (error) {
       onConfirmError?.(error);
@@ -146,28 +223,27 @@ export function TradingViewIndicatorSettings({
 
   return (
     <OkxIndicatorSettingsDialog
-      value={settingsValue}
-      maxActiveSubIndicators={activeSubIndicatorLimit}
+      value={normalizedSettingsValue}
       selectedIndicatorScope={selectedIndicatorScope}
       selectedIndicatorId={effectiveSelectedIndicatorId}
       visibleIndicators={visibleIndicators}
       selectedIndicator={selectedIndicator}
       onScopeChange={(scope) => {
         setSelectedIndicatorScope(scope);
-        const currentIndicator = settingsValue.indicators.find(
+        const currentIndicator = normalizedSettingsValue.indicators.find(
           (indicator) => indicator.id === effectiveSelectedIndicatorId,
         );
         if (currentIndicator?.scope !== scope) {
           setSelectedIndicatorId(
             getDefaultTradingViewIndicatorIdForScope(
-              settingsValue.indicators,
+              normalizedSettingsValue.indicators,
               scope,
             ),
           );
         }
       }}
       onSelectIndicator={(indicatorId) => {
-        const indicator = settingsValue.indicators.find(
+        const indicator = normalizedSettingsValue.indicators.find(
           (item) => item.id === indicatorId,
         );
         if (indicator) {
