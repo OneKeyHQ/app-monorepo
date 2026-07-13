@@ -1,6 +1,6 @@
 import { modelId } from 'expo-device';
 
-import { IOS_DEVICE_CPU_TIER_BY_MODEL_ID } from './deviceCpuTierData/ios';
+import { getIosDeviceCpuTier } from './deviceCpuTierData/ios';
 import { normalizeDeviceCpuTierKeyPart } from './deviceCpuTierUtils';
 
 import type { IDeviceCpuTierMatch } from './devicePerformanceTierTypes';
@@ -8,7 +8,7 @@ import type { IDeviceCpuTierMatch } from './devicePerformanceTierTypes';
 export function getDeviceCpuTierMatch(): IDeviceCpuTierMatch | null {
   const normalizedModelId = normalizeDeviceCpuTierKeyPart(modelId);
   const modelIdTier = normalizedModelId
-    ? IOS_DEVICE_CPU_TIER_BY_MODEL_ID[normalizedModelId]
+    ? getIosDeviceCpuTier(normalizedModelId)
     : undefined;
   if (modelIdTier !== undefined) {
     return {

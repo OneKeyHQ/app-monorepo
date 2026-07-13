@@ -71,4 +71,32 @@ describe('getTabPreloadPolicy for web capabilities', () => {
       dataVersion: 'non-native-capabilities-v1',
     });
   });
+
+  it('keeps preloading light when memory capacity is unknown', () => {
+    getDevicePerformanceProfileMock.mockReturnValue({
+      cpu: {
+        tier: 'high',
+        source: 'browserHardwareConcurrency',
+        confidence: 'medium',
+      },
+      memory: {
+        class: 'unknown',
+        totalGB: null,
+      },
+      dataVersion: 'non-native-capabilities-v1',
+    });
+    const { getTabPreloadPolicy } =
+      require('./preloadPolicy') as typeof import('./preloadPolicy');
+
+    getTabPreloadPolicy();
+
+    expect(getTabPreloadEntryMock).toHaveBeenCalledWith('light');
+    expect(deviceCapabilityDetectedMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        memoryClass: 'unknown',
+        tabPreloadMode: 'light',
+        tabPreloadReason: 'memory-unknown',
+      }),
+    );
+  });
 });

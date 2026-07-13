@@ -18,6 +18,7 @@ export type ITabPreloadReason =
   | 'legacy-low'
   | 'legacy-medium'
   | 'memory-constrained'
+  | 'memory-unknown'
   | 'surface-limited';
 
 export interface ITabPreloadDecision {
@@ -44,6 +45,9 @@ export function resolveTabPreloadDecision({
     return { mode: ETabPreloadMode.disabled, reason: 'cpu-low' };
   }
   if (cpuTier === EDeviceCpuTier.high) {
+    if (memoryClass === EDeviceMemoryClass.unknown) {
+      return { mode: ETabPreloadMode.light, reason: 'memory-unknown' };
+    }
     if (!allowFullPreload) {
       return { mode: ETabPreloadMode.light, reason: 'surface-limited' };
     }

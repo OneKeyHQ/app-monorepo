@@ -36,7 +36,7 @@ describe('getTabPreloadPolicy', () => {
         class: 'standard',
         totalGB: 6,
       },
-      dataVersion: 'native-cpu-v1',
+      dataVersion: 'native-cpu-v2',
     });
     getTabPreloadEntryMock.mockReturnValue({
       queue: [],
@@ -59,7 +59,7 @@ describe('getTabPreloadPolicy', () => {
       memoryClass: 'standard',
       tabPreloadMode: 'full',
       tabPreloadReason: 'cpu-high',
-      dataVersion: 'native-cpu-v1',
+      dataVersion: 'native-cpu-v2',
     });
   });
 });

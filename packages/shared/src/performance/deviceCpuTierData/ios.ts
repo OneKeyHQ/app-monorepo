@@ -1,5 +1,8 @@
 /* cspell:disable -- device catalog identifiers */
-import type { TKnownDeviceCpuTier } from '../devicePerformanceTierTypes';
+import {
+  type TKnownDeviceCpuTier,
+  isKnownDeviceCpuTier,
+} from '../devicePerformanceTierTypes';
 
 // Business tiers use Geekbench 6 single-core thresholds: low < 1000,
 // medium 1000-1799, and high >= 1800. These are not Geekbench classifications.
@@ -101,3 +104,18 @@ export const IOS_DEVICE_CPU_TIER_BY_MODEL_ID: Readonly<
   'iphone9,3': 'low',
   'iphone9,4': 'low',
 };
+
+export function getIosDeviceCpuTier(
+  modelId: string,
+): TKnownDeviceCpuTier | undefined {
+  if (
+    !Object.prototype.hasOwnProperty.call(
+      IOS_DEVICE_CPU_TIER_BY_MODEL_ID,
+      modelId,
+    )
+  ) {
+    return undefined;
+  }
+  const tier = IOS_DEVICE_CPU_TIER_BY_MODEL_ID[modelId];
+  return isKnownDeviceCpuTier(tier) ? tier : undefined;
+}

@@ -39,6 +39,18 @@ describe('resolveTabPreloadDecision', () => {
     ).toBe(ETabPreloadMode.full);
   });
 
+  it('uses light preloading when memory capacity is unknown', () => {
+    expect(
+      resolveTabPreloadDecision({
+        cpuTier: EDeviceCpuTier.high,
+        memoryClass: EDeviceMemoryClass.unknown,
+      }),
+    ).toEqual({
+      mode: ETabPreloadMode.light,
+      reason: 'memory-unknown',
+    });
+  });
+
   it('caps high-tier devices at light preloading on limited surfaces', () => {
     expect(
       resolveTabPreloadDecision({

@@ -6,7 +6,7 @@ import {
   type TKnownDeviceCpuTier,
 } from './devicePerformanceTierTypes';
 
-export const NATIVE_DEVICE_PERFORMANCE_DATA_VERSION = 'native-cpu-v1';
+export const NATIVE_DEVICE_PERFORMANCE_DATA_VERSION = 'native-cpu-v2';
 export const NON_NATIVE_DEVICE_PERFORMANCE_DATA_VERSION =
   'non-native-capabilities-v1';
 export const LARGE_DEVICE_MEMORY_THRESHOLD_GB = 6;
