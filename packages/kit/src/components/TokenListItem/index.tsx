@@ -4,6 +4,7 @@ import {
   PulseContainer,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -140,6 +141,7 @@ export function TokenListItem({
               color="$text"
               formatter="balance"
               size="$bodyLgMedium"
+              fontVariant={TABULAR_NUMS}
             >
               {balance}
             </NumberSizeableText>
@@ -154,6 +156,7 @@ export function TokenListItem({
                 formatter="value"
                 color="$textSubdued"
                 formatterOptions={{ currency: valueProps?.currency ?? '$' }}
+                fontVariant={TABULAR_NUMS}
               >
                 {valueProps.value}
               </NumberSizeableText>

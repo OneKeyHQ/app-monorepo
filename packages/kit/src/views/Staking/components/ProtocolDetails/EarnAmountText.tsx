@@ -1,6 +1,10 @@
 import { useMemo } from 'react';
 
-import { NumberSizeableText, SizableText } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  TABULAR_NUMS,
+} from '@onekeyhq/components';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 
@@ -30,9 +34,13 @@ const LEADING_NUMBER_PATTERN = /^(\d[\d,]*(?:\.\d+)?)([\s\S]*)/;
  *      while any trailing text (token symbol) is rendered as-is.
  *
  * Falls back to plain SizableText when the string does not start with a number.
+ *
+ * Every branch renders numeric data, so this component opts into tabular
+ * figures by default; callers can still override `fontVariant`.
  */
 export function EarnAmountText({
   children: text,
+  fontVariant = TABULAR_NUMS,
   ...textProps
 }: IEarnAmountTextProps) {
   const parsed = useMemo(() => {
@@ -62,18 +70,30 @@ export function EarnAmountText({
   // Delegate <subscripts> text to FormatHyperlinkText which already
   // renders them with 0.6x font size via its subscripts handler.
   if (parsed.type === 'subscripts') {
-    return <FormatHyperlinkText {...textProps}>{text}</FormatHyperlinkText>;
+    return (
+      <FormatHyperlinkText {...textProps} fontVariant={fontVariant}>
+        {text}
+      </FormatHyperlinkText>
+    );
   }
 
   // Percentages and unrecognized text: render as-is
   if (parsed.type === 'passthrough') {
-    return <SizableText {...textProps}>{text}</SizableText>;
+    return (
+      <SizableText {...textProps} fontVariant={fontVariant}>
+        {text}
+      </SizableText>
+    );
   }
 
   // Pure number without suffix
   if (!parsed.suffix) {
     return (
-      <NumberSizeableText {...textProps} formatter="balance">
+      <NumberSizeableText
+        {...textProps}
+        fontVariant={fontVariant}
+        formatter="balance"
+      >
         {parsed.number}
       </NumberSizeableText>
     );
@@ -82,10 +102,11 @@ export function EarnAmountText({
   // Mixed content (number + suffix like "0.000002948 SY-uniBTC"):
   // render inline — NumberSizeableText for number, plain text for suffix.
   return (
-    <SizableText {...textProps}>
+    <SizableText {...textProps} fontVariant={fontVariant}>
       <NumberSizeableText
         size={textProps.size}
         color={textProps.color}
+        fontVariant={fontVariant}
         formatter="balance"
       >
         {parsed.number}

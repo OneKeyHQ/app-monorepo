@@ -1,6 +1,11 @@
 import { useIntl } from 'react-intl';
 
-import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  Stack,
+  TABULAR_NUMS,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BuySellRatioBar } from './BuySellRatioBar';
@@ -40,6 +45,7 @@ export function VolumeRow({
               formatterOptions={{
                 currency: '$',
               }}
+              fontVariant={TABULAR_NUMS}
             >
               {totalVolume}
             </NumberSizeableText>
@@ -64,6 +70,7 @@ export function VolumeRow({
               formatterOptions={{
                 currency: '$',
               }}
+              fontVariant={TABULAR_NUMS}
             >
               {buyVolume}
             </NumberSizeableText>
@@ -82,6 +89,7 @@ export function VolumeRow({
               formatterOptions={{
                 currency: '$',
               }}
+              fontVariant={TABULAR_NUMS}
             >
               {sellVolume}
             </NumberSizeableText>

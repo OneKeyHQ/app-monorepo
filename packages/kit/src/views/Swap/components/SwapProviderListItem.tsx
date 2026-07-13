@@ -13,6 +13,7 @@ import {
   NumberSizeableText,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   Tooltip,
   XStack,
 } from '@onekeyhq/components';
@@ -82,6 +83,7 @@ const SwapProviderListItem = ({
           <NumberSizeableText
             size="$bodyMd"
             color="$textSubdued"
+            fontVariant={TABULAR_NUMS}
             formatter="value"
             formatterOptions={{
               currency: currencySymbol,
@@ -117,7 +119,11 @@ const SwapProviderListItem = ({
             }
             placement="bottom-start"
           />
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            fontVariant={TABULAR_NUMS}
+          >
             {displayTime}
           </SizableText>
         </XStack>
@@ -146,6 +152,7 @@ const SwapProviderListItem = ({
         <NumberSizeableText
           size="$bodyMd"
           color="$textSubdued"
+          fontVariant={TABULAR_NUMS}
           formatter="value"
           formatterOptions={{
             currency: currencySymbol,

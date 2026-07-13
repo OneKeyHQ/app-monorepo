@@ -16,6 +16,7 @@ import {
   Popover,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -87,6 +88,7 @@ function PortfolioItem({
         <NumberSizeableText
           size="$bodyLgMedium"
           formatter="balance"
+          fontVariant={TABULAR_NUMS}
           formatterOptions={{ tokenSymbol }}
         >
           {amount}
@@ -249,6 +251,7 @@ function PendingInactiveItem({
       <NumberSizeableText
         size="$bodyLgMedium"
         formatter="balance"
+        fontVariant={TABULAR_NUMS}
         formatterOptions={{ tokenSymbol }}
       >
         {pendingInactive}

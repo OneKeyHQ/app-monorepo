@@ -19,6 +19,7 @@ import {
   SizableText,
   SkeletonContainer,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -466,6 +467,7 @@ const TokenPriceCellDesktop = memo(() => {
                 size="$bodySmMedium"
                 color="$text"
                 lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+                fontVariant={TABULAR_NUMS}
               >
                 {assetCtx.markPrice}
               </SizableText>
@@ -475,6 +477,7 @@ const TokenPriceCellDesktop = memo(() => {
                 size="$bodySmMedium"
                 color="$text"
                 lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+                fontVariant={TABULAR_NUMS}
               >
                 {assetCtx.markPrice}
               </NumberSizeableText>
@@ -523,11 +526,13 @@ const Token24hChangeCellDesktop = memo(() => {
               size="$bodySm"
               color={assetCtx.change24hPercent > 0 ? '$green11' : '$red11'}
               lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+              fontVariant={TABULAR_NUMS}
             >
               <SizableText
                 size="$bodySm"
                 color={assetCtx.change24hPercent > 0 ? '$green11' : '$red11'}
                 lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+                fontVariant={TABULAR_NUMS}
               >
                 {assetCtx.change24h}
               </SizableText>{' '}
@@ -538,6 +543,7 @@ const Token24hChangeCellDesktop = memo(() => {
                 formatter="priceChange"
                 formatterOptions={{ showPlusMinusSigns: true }}
                 lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+                fontVariant={TABULAR_NUMS}
               >
                 {assetCtx.change24hPercent.toString()}
               </NumberSizeableText>
@@ -596,6 +602,7 @@ const TokenFundingCellDesktop = memo(() => {
               size="$bodySm"
               color="$text"
               lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+              fontVariant={TABULAR_NUMS}
             >
               {isSpot
                 ? '-'
@@ -645,6 +652,7 @@ const TokenVolumeCellDesktop = memo(() => {
               size="$bodySm"
               color="$text"
               lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+              fontVariant={TABULAR_NUMS}
             >
               $
               {formatDisplayNumber(
@@ -693,6 +701,7 @@ const TokenMarketCapCellDesktop = memo(() => {
             size="$bodySm"
             color="$text"
             lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+            fontVariant={TABULAR_NUMS}
           >
             {assetCtx.marketCap ?? '-'}
           </SizableText>
@@ -758,6 +767,7 @@ const TokenOpenInterestCellDesktop = memo(() => {
               size="$bodySm"
               color="$text"
               lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+              fontVariant={TABULAR_NUMS}
             >
               {isSpot ? '-' : openInterestDisplay}
             </SizableText>
@@ -933,7 +943,11 @@ const TokenVolumeMobile = memo(() => {
             <SubtitleText subtitle={token.subtitle} maxWidth={120} />
           ) : null}
           <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              fontVariant={TABULAR_NUMS}
+            >
               $
               {formatDisplayNumber(
                 NUMBER_FORMATTER.marketCap(assetCtx.volume24h),
@@ -971,6 +985,7 @@ const TokenPriceMobile = memo(() => {
               size="$bodyMdMedium"
               color="$text"
               alignSelf="flex-end"
+              fontVariant={TABULAR_NUMS}
             >
               {assetCtx.markPrice}
             </SizableText>
@@ -980,6 +995,7 @@ const TokenPriceMobile = memo(() => {
               size="$bodyMdMedium"
               color="$text"
               alignSelf="flex-end"
+              fontVariant={TABULAR_NUMS}
             >
               {assetCtx.markPrice}
             </NumberSizeableText>
@@ -1016,6 +1032,7 @@ const Token24hChangeMobile = memo(() => {
             color={assetCtx.change24hPercent > 0 ? '$green11' : '$red11'}
             formatter="priceChange"
             formatterOptions={{ showPlusMinusSigns: true }}
+            fontVariant={TABULAR_NUMS}
           >
             {assetCtx.change24hPercent.toString()}
           </NumberSizeableText>

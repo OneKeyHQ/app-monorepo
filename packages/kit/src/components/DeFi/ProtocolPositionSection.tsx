@@ -2,7 +2,12 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
@@ -73,6 +78,7 @@ const ProtocolPositionSection = memo(
               color="$textSubdued"
               formatter="balance"
               textAlign="right"
+              fontVariant={TABULAR_NUMS}
             >
               {asset.amount}
             </NumberSizeableTextWrapper>

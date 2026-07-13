@@ -1,6 +1,11 @@
 import { memo } from 'react';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -37,6 +42,7 @@ const ProtocolRewardsCell = memo(
               size="$bodyMd"
               formatter="balance"
               formatterOptions={{ tokenSymbol: asset.symbol }}
+              fontVariant={TABULAR_NUMS}
             >
               {asset.amount}
             </NumberSizeableTextWrapper>

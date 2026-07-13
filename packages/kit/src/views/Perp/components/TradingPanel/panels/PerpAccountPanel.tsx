@@ -9,6 +9,7 @@ import {
   DebugRenderTracker,
   IconButton,
   SizableText,
+  TABULAR_NUMS,
   Tooltip,
   XStack,
   YStack,
@@ -88,7 +89,11 @@ function PerpAccountMMRView() {
           renderContent={mmrTooltipContent}
           renderTrigger={mmrTooltipTrigger}
         />
-        <SizableText size="$bodySmMedium" color={mmrColor}>
+        <SizableText
+          size="$bodySmMedium"
+          color={mmrColor}
+          fontVariant={TABULAR_NUMS}
+        >
           {mmrPercent}%
         </SizableText>
       </XStack>
@@ -195,7 +200,11 @@ function PerpAccountPanel() {
               id: ETranslations.perp_account_unrealized_pnl,
             })}
           </SizableText>
-          <SizableText size="$bodySmMedium" color={unrealizedPnlInfo.pnlColor}>
+          <SizableText
+            size="$bodySmMedium"
+            color={unrealizedPnlInfo.pnlColor}
+            fontVariant={TABULAR_NUMS}
+          >
             {`${unrealizedPnlInfo.pnlPlusOrMinus}${unrealizedPnlInfo.pnlFormatted}`}
           </SizableText>
         </XStack>

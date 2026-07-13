@@ -13,6 +13,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   Tabs,
   XStack,
   YStack,
@@ -202,17 +203,26 @@ function useOpenPerpAsset() {
   );
 }
 
+// These wrappers exist to render live USD values that tick off the websocket and
+// sit in columns, so they opt into tabular figures by default; callers can still
+// override with an explicit `fontVariant`.
 function PerpsUsd({
   value,
+  fontVariant = TABULAR_NUMS,
   ...rest
 }: { value: number | undefined } & Omit<ISizableTextProps, 'children'>) {
   if (value === undefined) {
-    return <SizableText {...rest}>--</SizableText>;
+    return (
+      <SizableText fontVariant={fontVariant} {...rest}>
+        --
+      </SizableText>
+    );
   }
   return (
     <NumberSizeableText
       formatter="value"
       formatterOptions={{ currency: '$' }}
+      fontVariant={fontVariant}
       {...rest}
     >
       {value}
@@ -223,6 +233,7 @@ function PerpsUsd({
 function PerpsTotalUsd({
   value,
   isDegraded,
+  fontVariant = TABULAR_NUMS,
   ...rest
 }: {
   value: number | undefined;
@@ -244,6 +255,7 @@ function PerpsTotalUsd({
       <NumberSizeableText
         formatter="value"
         formatterOptions={{ currency: settings.currencyInfo.symbol }}
+        fontVariant={fontVariant}
         {...rest}
       >
         {displayValue}
@@ -258,6 +270,7 @@ function PerpsTotalUsd({
       <NumberSizeableText
         formatter="value"
         formatterOptions={{ currency: settings.currencyInfo.symbol }}
+        fontVariant={fontVariant}
         {...rest}
       >
         {displayValue}
@@ -270,6 +283,7 @@ function PerpsTotalUsd({
 // carry the sign via a currency prefix + color (mirrors PositionsRow's pnl).
 function PerpsSignedUsd({
   value,
+  fontVariant = TABULAR_NUMS,
   ...rest
 }: { value: number | undefined } & Omit<
   ISizableTextProps,
@@ -277,7 +291,7 @@ function PerpsSignedUsd({
 >) {
   if (value === undefined) {
     return (
-      <SizableText color="$textSubdued" {...rest}>
+      <SizableText color="$textSubdued" fontVariant={fontVariant} {...rest}>
         --
       </SizableText>
     );
@@ -288,6 +302,7 @@ function PerpsSignedUsd({
       formatter="value"
       formatterOptions={{ currency: negative ? '-$' : '+$' }}
       color={negative ? '$red11' : '$green11'}
+      fontVariant={fontVariant}
       {...rest}
     >
       {new BigNumber(value).abs().toFixed()}
@@ -728,6 +743,7 @@ function PerpsEmptyRecommendSection() {
                   textAlign="right"
                   formatter="price"
                   formatterOptions={{ currency: '$' }}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {token.markPrice}
                 </NumberSizeableText>
@@ -760,6 +776,7 @@ function PerpsEmptyRecommendSection() {
                   }
                   formatter="priceChange"
                   formatterOptions={{ showPlusMinusSigns: true }}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {token.change24hPercent}
                 </NumberSizeableText>
@@ -771,6 +788,7 @@ function PerpsEmptyRecommendSection() {
                   textAlign="right"
                   formatter="marketCap"
                   formatterOptions={{ currency: '$' }}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {token.volume24h}
                 </NumberSizeableText>
@@ -849,6 +867,7 @@ function PerpsEmptyRecommendSection() {
                         formatter="marketCap"
                         formatterOptions={{ currency: '$' }}
                         userSelect="none"
+                        fontVariant={TABULAR_NUMS}
                       >
                         {token.volume24h ?? '0'}
                       </NumberSizeableText>
@@ -864,6 +883,7 @@ function PerpsEmptyRecommendSection() {
                     size="$bodyLgMedium"
                     formatter="price"
                     formatterOptions={{ currency: '$' }}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {token.markPrice ?? '-'}
                   </NumberSizeableText>
@@ -872,6 +892,7 @@ function PerpsEmptyRecommendSection() {
                     color={change24hPercentColor}
                     formatter="priceChange"
                     formatterOptions={{ showPlusMinusSigns: true }}
+                    fontVariant={TABULAR_NUMS}
                   >
                     {token.change24hPercent ?? '-'}
                   </NumberSizeableText>
@@ -1135,6 +1156,7 @@ function PerpsMobileHoldingRow({
             size="$bodyMd"
             color="$textSubdued"
             numberOfLines={1}
+            fontVariant={TABULAR_NUMS}
           >
             {holding.balance}
           </NumberSizeableText>
@@ -1333,6 +1355,8 @@ function PerpsMetric({
               {labelExtra}
             </SizableText>
           </XStack>
+          {/* The metric value is dense column data — the same grid repeats on
+              every position card, so the columns have to line up card to card. */}
           {formatter ? (
             <NumberSizeableText
               size={valueSize}
@@ -1348,6 +1372,7 @@ function PerpsMetric({
               contentStyle={{ color: valueColor }}
               decimalTextStyle={{ color: valueColor }}
               subTextStyle={{ color: valueColor }}
+              fontVariant={TABULAR_NUMS}
             >
               {value}
             </NumberSizeableText>
@@ -1361,6 +1386,7 @@ function PerpsMetric({
               numberOfLines={platformEnv.isNative ? 1 : 2}
               adjustsFontSizeToFit
               minimumFontScale={0.7}
+              fontVariant={TABULAR_NUMS}
             >
               {value}
             </SizableText>

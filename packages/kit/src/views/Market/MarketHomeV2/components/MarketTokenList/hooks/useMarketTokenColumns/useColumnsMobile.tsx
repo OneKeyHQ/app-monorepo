@@ -8,6 +8,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -97,6 +98,7 @@ export const useColumnsMobile = (
                           numberOfLines={1}
                           formatter="marketCap"
                           formatterOptions={{ currency: '$' }}
+                          fontVariant={TABULAR_NUMS}
                         >
                           {record.turnover}
                         </NumberSizeableText>
@@ -193,6 +195,7 @@ export const useColumnsMobile = (
                 formatterOptions={{
                   currency: '$',
                 }}
+                fontVariant={TABULAR_NUMS}
               >
                 {record.price}
               </NumberSizeableText>

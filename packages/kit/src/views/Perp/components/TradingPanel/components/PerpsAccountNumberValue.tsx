@@ -4,6 +4,7 @@ import {
   NumberSizeableText,
   SizableText,
   Skeleton,
+  TABULAR_NUMS,
 } from '@onekeyhq/components';
 import {
   usePerpsAccountLoadingInfoAtom,
@@ -62,6 +63,7 @@ export function PerpsAccountNumberValue({
       size={textSize}
       formatter="value"
       formatterOptions={{ currency: '$' }}
+      fontVariant={TABULAR_NUMS}
     >
       {value}
     </NumberSizeableText>

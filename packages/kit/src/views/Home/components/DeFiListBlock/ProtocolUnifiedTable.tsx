@@ -67,8 +67,6 @@ export const USD_FLEX_WITHOUT_REWARDS = 1;
 // settles at four lines of content instead of eight.
 const MAX_BALANCE_LINES = 3;
 
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-
 // Stable identity for the inline action-button container styling so the
 // memo()'d ProtocolPositionActionButton isn't re-created on every parent
 // render (the tables now mount one per asset row). Shared with the sectioned
@@ -400,7 +398,6 @@ const ProtocolUnifiedTable = memo(
                     size="$bodyMdMedium"
                     textAlign="right"
                     numberOfLines={1}
-                    fontVariant={TABULAR_NUMS}
                   />
                 </Stack>
               </XStack>

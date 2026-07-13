@@ -2,7 +2,12 @@ import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+} from '@onekeyhq/components';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 interface ISwapProTokenTransactionItemProps {
@@ -42,6 +47,7 @@ const SwapProTokenTransactionItem = ({
         <NumberSizeableText
           size="$bodySm"
           color={textColorValue}
+          fontVariant={TABULAR_NUMS}
           formatter={isAboveThreshold ? 'marketCap' : 'price'}
           formatterOptions={{
             currency: '$',
@@ -66,6 +72,7 @@ const SwapProTokenTransactionItem = ({
         <NumberSizeableText
           size="$bodySm"
           color={textColorValue}
+          fontVariant={TABULAR_NUMS}
           formatter={isAboveThreshold ? 'marketCap' : 'value'}
           formatterOptions={{
             currency: '$',

@@ -2,17 +2,16 @@ import { SizableText as TamaguiSizableText } from '@tamagui/text';
 
 import { type SizableTextProps } from '@onekeyhq/components/src/shared/tamagui';
 
-import { TABULAR_NUMS, getFontVariantStyle } from '../../utils/tabularNums';
+import { getFontVariantStyle } from '../../utils/tabularNums';
 
 export const StyledSizableText = TamaguiSizableText;
 
 export function SizableText({
   size = '$bodyMd',
-  // App-wide default: tabular (equal-width) figures on ALL text, matching the
-  // reference exchanges whose brand fonts ship tabular digits by default.
-  // Only digit glyph widths change — letters are unaffected — so prose is
-  // safe. Opt out per text with `fontVariant={PROPORTIONAL_NUMS}`.
-  fontVariant = TABULAR_NUMS,
+  // No default: text is proportional (the font's natural figures), which is
+  // right for names, addresses, prose and hero numbers. Dense numeric data
+  // opts IN with `fontVariant={TABULAR_NUMS}` — see utils/tabularNums.ts.
+  fontVariant,
   style,
   ...props
 }: SizableTextProps) {

@@ -8,7 +8,7 @@ import {
 } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { SizableText } from '@onekeyhq/components';
+import { SizableText, TABULAR_NUMS } from '@onekeyhq/components';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 
@@ -62,7 +62,12 @@ function TransactionRelativeTimeBase({
   );
 
   return (
-    <SizableText size={size} color={color} {...textProps}>
+    <SizableText
+      size={size}
+      color={color}
+      {...textProps}
+      fontVariant={TABULAR_NUMS}
+    >
       {formattedTime}
     </SizableText>
   );

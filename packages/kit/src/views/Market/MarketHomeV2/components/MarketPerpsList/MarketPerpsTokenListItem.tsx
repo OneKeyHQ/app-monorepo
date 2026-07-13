@@ -5,6 +5,7 @@ import {
   NumberSizeableText,
   SizableText,
   SkeletonContainer,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -65,6 +66,7 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
                 formatter="marketCap"
                 formatterOptions={{ currency: '$' }}
                 userSelect="none"
+                fontVariant={TABULAR_NUMS}
               >
                 {item.volume24h ?? '0'}
               </NumberSizeableText>
@@ -83,6 +85,7 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
             size="$bodyLgMedium"
             formatter="price"
             formatterOptions={{ currency: '$' }}
+            fontVariant={TABULAR_NUMS}
           >
             {item.markPrice ?? '0'}
           </NumberSizeableText>

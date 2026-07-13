@@ -8,6 +8,7 @@ import {
   Icon,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -76,6 +77,7 @@ export function HardwareRecordCard({ item }: IHardwareRecordCardProps) {
             color={rewardColor}
             formatter="value"
             size="$bodyMdMedium"
+            fontVariant={TABULAR_NUMS}
             formatterOptions={{
               showPlusMinusSigns: true,
             }}
@@ -94,7 +96,11 @@ export function HardwareRecordCard({ item }: IHardwareRecordCardProps) {
           <XStack gap="$3" ai="center" flex={1}>
             {/* Date */}
             {formattedDate ? (
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                fontVariant={TABULAR_NUMS}
+              >
                 {formattedDate}
               </SizableText>
             ) : null}

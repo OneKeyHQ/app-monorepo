@@ -1,6 +1,11 @@
 import { memo } from 'react';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
@@ -66,6 +71,7 @@ const SwapProSearchTokenListItem = ({
           <BaseMarketTokenPrice
             price={price}
             size="$bodyLgMedium"
+            fontVariant={TABULAR_NUMS}
             tokenName={name}
             tokenSymbol={symbol}
           />

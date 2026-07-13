@@ -1,6 +1,12 @@
 import type { ComponentProps } from 'react';
 
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 
 import {
@@ -49,6 +55,7 @@ export function AprText({
           aprInfo?.normal?.color ||
           '$text'
         }
+        fontVariant={TABULAR_NUMS}
       >
         {formatRewardText({
           text: aprRangeText,
@@ -76,6 +83,7 @@ export function AprText({
             size={size}
             textAlign="right"
             color={highlight.color || '$textSuccess'}
+            fontVariant={TABULAR_NUMS}
           >
             {formatRewardText({
               text: highlight.text,
@@ -89,6 +97,7 @@ export function AprText({
           textAlign="right"
           color={deprecated.color || '$textSubdued'}
           textDecorationLine="line-through"
+          fontVariant={TABULAR_NUMS}
         >
           {formatRewardText({
             text: deprecated.text,
@@ -116,6 +125,7 @@ export function AprText({
           size={size}
           textAlign="right"
           color={highlight.color || '$textSuccess'}
+          fontVariant={TABULAR_NUMS}
         >
           {formatRewardText({
             text: highlight.text,
@@ -135,6 +145,7 @@ export function AprText({
         size={size}
         textAlign="right"
         color={normal.color || '$text'}
+        fontVariant={TABULAR_NUMS}
       >
         {formatRewardText({
           text: normal.text,
@@ -154,6 +165,7 @@ export function AprText({
         textAlign="right"
         color={deprecated.color || '$textSubdued'}
         textDecorationLine="line-through"
+        fontVariant={TABULAR_NUMS}
       >
         {formatRewardText({
           text: deprecated.text,
@@ -166,7 +178,7 @@ export function AprText({
 
   // Priority 4: fallback to current logic
   return (
-    <SizableText size={size} textAlign="right">
+    <SizableText size={size} textAlign="right" fontVariant={TABULAR_NUMS}>
       {hideSuffix ? aprWithoutFee : buildAprText(aprWithoutFee, rewardUnit)}
     </SizableText>
   );

@@ -14,6 +14,7 @@ import {
   ScrollView,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useIsKeyboardShown,
@@ -1302,7 +1303,7 @@ function ProtocolPositionActionPercentHero({
           color="$textSubdued"
           textAlign="center"
           numberOfLines={1}
-          fontVariant={['tabular-nums']}
+          fontVariant={TABULAR_NUMS}
         />
       </XStack>
     </YStack>

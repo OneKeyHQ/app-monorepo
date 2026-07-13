@@ -8,6 +8,7 @@ import {
   NumberSizeableText,
   SizableText,
   Skeleton,
+  TABULAR_NUMS,
   Table,
   View,
   XStack,
@@ -386,6 +387,7 @@ export function MarketDetailPools({
                 formatter="price"
                 formatterOptions={{ currency }}
                 textAlign="right"
+                fontVariant={TABULAR_NUMS}
               >
                 {price}
               </NumberSizeableText>
@@ -414,6 +416,7 @@ export function MarketDetailPools({
                 formatterOptions={{ currency }}
                 formatter="marketCap"
                 textAlign="right"
+                fontVariant={TABULAR_NUMS}
               >
                 {txTotal}
               </NumberSizeableText>
@@ -441,6 +444,7 @@ export function MarketDetailPools({
             formatterOptions={{ currency }}
             formatter="marketCap"
             textAlign="right"
+            fontVariant={TABULAR_NUMS}
           >
             {volumeUsdH24}
           </NumberSizeableText>
@@ -467,6 +471,7 @@ export function MarketDetailPools({
             formatterOptions={{ currency }}
             formatter="marketCap"
             textAlign="right"
+            fontVariant={TABULAR_NUMS}
           >
             {reserveInUsd}
           </NumberSizeableText>
@@ -499,6 +504,7 @@ export function MarketDetailPools({
             formatter="price"
             formatterOptions={{ currency }}
             textAlign="right"
+            fontVariant={TABULAR_NUMS}
           >
             {price}
           </NumberSizeableText>
@@ -527,6 +533,7 @@ export function MarketDetailPools({
                   formatter="price"
                   formatterOptions={{ currency }}
                   textAlign="right"
+                  fontVariant={TABULAR_NUMS}
                 >
                   {price}
                 </NumberSizeableText>
@@ -558,6 +565,7 @@ export function MarketDetailPools({
                   formatter="price"
                   formatterOptions={{ currency }}
                   textAlign="right"
+                  fontVariant={TABULAR_NUMS}
                 >
                   {price}
                 </NumberSizeableText>
@@ -587,6 +595,7 @@ export function MarketDetailPools({
             formatter="marketCap"
             formatterOptions={{ currency }}
             textAlign="right"
+            fontVariant={TABULAR_NUMS}
           >
             {volumeUsdH24}
           </NumberSizeableText>

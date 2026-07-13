@@ -330,6 +330,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
+  // `bodySm` also carries plain labels (the "Spread" caption), which stay
+  // proportional; numeric spread / tick-size values opt in via this variant.
+  bodySmTabular: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontVariant: TABULAR_NUMS,
+  },
   bodySmMedium: {
     fontSize: 12,
     lineHeight: 16,
@@ -944,7 +951,10 @@ export function OrderBook({
                       <PerpBookText
                         numberOfLines={1}
                         ellipsizeMode="tail"
-                        style={[styles.bodySm, { color: textColor.text }]}
+                        style={[
+                          styles.bodySmTabular,
+                          { color: textColor.text },
+                        ]}
                       >
                         {selectedTickOption?.label
                           ? new BigNumber(selectedTickOption.label).toFixed(
@@ -1242,7 +1252,10 @@ export function OrderBook({
                       <PerpBookText
                         numberOfLines={1}
                         ellipsizeMode="tail"
-                        style={[styles.bodySm, { color: textColor.text }]}
+                        style={[
+                          styles.bodySmTabular,
+                          { color: textColor.text },
+                        ]}
                       >
                         {selectedTickOption?.label
                           ? new BigNumber(selectedTickOption.label).toFixed(
@@ -1259,7 +1272,9 @@ export function OrderBook({
                   )}
                 />
               ) : null}
-              <PerpBookText style={[styles.bodySm, { color: textColor.text }]}>
+              <PerpBookText
+                style={[styles.bodySmTabular, { color: textColor.text }]}
+              >
                 {spreadPercentage}
               </PerpBookText>
             </View>
@@ -1480,12 +1495,12 @@ export function OrderPairBook({
                 })}
               </PerpBookText>
               <PerpBookText
-                style={[styles.bodySm, { color: textColor.textSubdued }]}
+                style={[styles.bodySmTabular, { color: textColor.textSubdued }]}
               >
                 {midPrice}
               </PerpBookText>
               <PerpBookText
-                style={[styles.bodySm, { color: textColor.textSubdued }]}
+                style={[styles.bodySmTabular, { color: textColor.textSubdued }]}
               >
                 {spreadPercentage}
               </PerpBookText>
@@ -2118,7 +2133,7 @@ export function OrderBookMobile({
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 style={[
-                  styles.bodySm,
+                  styles.bodySmTabular,
                   {
                     color: textColor.text,
                     fontSize: 11,

@@ -30,6 +30,8 @@ import {
   getOrderAssetDisplayName,
 } from '../utils';
 
+import { PerpTableCellText } from './PerpTableCellText';
+
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
 const balanceFormatter: INumberFormatProps = {
@@ -273,14 +275,14 @@ const OpenOrdersRow = memo(
                 >
                   {`${assetInfo.orderType} / ${assetInfo.type}`}
                 </SizableText>
-                <SizableText
+                <PerpTableCellText
                   numberOfLines={1}
                   ellipsizeMode="tail"
                   size="$bodySm"
                   color="$textSubdued"
                 >
                   {`${dateInfo.date} ${dateInfo.time}`}
-                </SizableText>
+                </PerpTableCellText>
               </XStack>
             </YStack>
             <Button
@@ -307,9 +309,9 @@ const OpenOrdersRow = memo(
                 id: ETranslations.perp_position_mobile_fill,
               })}
             </SizableText>
-            <SizableText size="$bodySm">
+            <PerpTableCellText size="$bodySm">
               {`${orderBaseInfo.sizeFormatted} / ${orderBaseInfo.origSizeFormatted}`}
-            </SizableText>
+            </PerpTableCellText>
           </XStack>
           <XStack
             width="100%"
@@ -321,13 +323,17 @@ const OpenOrdersRow = memo(
                 id: ETranslations.perp_orderbook_price,
               })}
             </SizableText>
-            <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            <PerpTableCellText
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              size="$bodySm"
+            >
               {order.orderType.includes('Market')
                 ? intl.formatMessage({
                     id: ETranslations.perp_position_market,
                   })
                 : orderBaseInfo.executePriceLimitFormatted}
-            </SizableText>
+            </PerpTableCellText>
           </XStack>
           <XStack
             width="100%"
@@ -353,9 +359,13 @@ const OpenOrdersRow = memo(
                 id: ETranslations.perp_open_orders_trigger_condition,
               })}
             </SizableText>
-            <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            <PerpTableCellText
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              size="$bodySm"
+            >
               {orderBaseInfo.triggerCondition}
-            </SizableText>
+            </PerpTableCellText>
           </XStack>
           <XStack
             width="100%"
@@ -367,9 +377,13 @@ const OpenOrdersRow = memo(
                 id: ETranslations.perp_position_tp_sl,
               })}
             </SizableText>
-            <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            <PerpTableCellText
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              size="$bodySm"
+            >
               {tpslInfo.tpsl}
-            </SizableText>
+            </PerpTableCellText>
           </XStack>
         </ListItem>
       );
@@ -395,21 +409,21 @@ const OpenOrdersRow = memo(
               justifyContent="center"
               alignItems={calcCellAlign(columnConfigs[0].align)}
             >
-              <SizableText
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
               >
                 {dateInfo.date}
-              </SizableText>
-              <SizableText
+              </PerpTableCellText>
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
                 color="$textSubdued"
               >
                 {dateInfo.time}
-              </SizableText>
+              </PerpTableCellText>
             </YStack>
             {/* Asset symbol */}
             <YStack
@@ -459,13 +473,13 @@ const OpenOrdersRow = memo(
               justifyContent={calcCellAlign(columnConfigs[3].align)}
               alignItems="center"
             >
-              <SizableText
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
               >
                 {orderBaseInfo.sizeFormatted}
-              </SizableText>
+              </PerpTableCellText>
             </XStack>
 
             {/* Original size */}
@@ -474,13 +488,13 @@ const OpenOrdersRow = memo(
               justifyContent={calcCellAlign(columnConfigs[4].align)}
               alignItems="center"
             >
-              <SizableText
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
               >
                 {orderBaseInfo.origSizeFormatted}
-              </SizableText>
+              </PerpTableCellText>
             </XStack>
 
             {/* value */}
@@ -489,13 +503,13 @@ const OpenOrdersRow = memo(
               justifyContent={calcCellAlign(columnConfigs[5].align)}
               alignItems="center"
             >
-              <SizableText
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
               >
                 {orderBaseInfo.valueFormatted}
-              </SizableText>
+              </PerpTableCellText>
             </XStack>
 
             {/* Execute price */}
@@ -504,7 +518,7 @@ const OpenOrdersRow = memo(
               justifyContent={calcCellAlign(columnConfigs[6].align)}
               alignItems="center"
             >
-              <SizableText
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
@@ -514,7 +528,7 @@ const OpenOrdersRow = memo(
                       id: ETranslations.perp_position_market,
                     })
                   : orderBaseInfo.executePriceLimitFormatted}
-              </SizableText>
+              </PerpTableCellText>
             </XStack>
             {/* Reduce Only */}
             <XStack
@@ -536,13 +550,13 @@ const OpenOrdersRow = memo(
               justifyContent={calcCellAlign(columnConfigs[8].align)}
               alignItems="center"
             >
-              <SizableText
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
               >
                 {orderBaseInfo.triggerCondition}
-              </SizableText>
+              </PerpTableCellText>
             </XStack>
             {/* TPSL */}
             <XStack
@@ -550,13 +564,13 @@ const OpenOrdersRow = memo(
               justifyContent={calcCellAlign(columnConfigs[9].align)}
               alignItems="center"
             >
-              <SizableText
+              <PerpTableCellText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
               >
                 {tpslInfo.tpsl}
-              </SizableText>
+              </PerpTableCellText>
             </XStack>
           </>
         ) : null}

@@ -19,6 +19,7 @@ import {
   Skeleton,
   Spinner,
   Stack,
+  TABULAR_NUMS,
   Table,
   View,
   XStack,
@@ -326,6 +327,7 @@ function MarketMdColumn({
               formatter="marketCap"
               color="$textSubdued"
               formatterOptions={{ currency }}
+              fontVariant={TABULAR_NUMS}
             >
               {item.totalVolume}
             </NumberSizeableText>
@@ -342,6 +344,7 @@ function MarketMdColumn({
             tokenName={item.name}
             tokenSymbol={item.symbol}
             lastUpdated={item.lastUpdated}
+            fontVariant={TABULAR_NUMS}
           />
         ) : (
           <NumberSizeableText
@@ -351,6 +354,7 @@ function MarketMdColumn({
             size="$bodyLgMedium"
             formatter="marketCap"
             formatterOptions={{ currency }}
+            fontVariant={TABULAR_NUMS}
           >
             {item[mdColumnKeys[0]] as string}
           </NumberSizeableText>
@@ -376,6 +380,7 @@ function MarketMdColumn({
               formatterOptions={{
                 showPlusMinusSigns: true,
               }}
+              fontVariant={TABULAR_NUMS}
             >
               {item[mdColumnKeys[1]] as string}
             </NumberSizeableText>
@@ -662,6 +667,7 @@ function BasicMarketHomeList({
                   size="$bodyMd"
                   color="$textSubdued"
                   userSelect="none"
+                  fontVariant={TABULAR_NUMS}
                 >
                   {serialNumber ?? '-'}
                 </SizableText>
@@ -733,6 +739,7 @@ function BasicMarketHomeList({
                   tokenName={record.name}
                   tokenSymbol={record.symbol}
                   lastUpdated={record.lastUpdated}
+                  fontVariant={TABULAR_NUMS}
                 />
               ),
               renderSkeleton: () => <Skeleton w="$20" h="$3" />,
@@ -811,6 +818,7 @@ function BasicMarketHomeList({
                       size="$bodyMd"
                       formatter="marketCap"
                       formatterOptions={{ currency }}
+                      fontVariant={TABULAR_NUMS}
                     >
                       {totalVolume || '-'}
                     </NumberSizeableText>
@@ -835,6 +843,7 @@ function BasicMarketHomeList({
                       size="$bodyMd"
                       formatter="marketCap"
                       formatterOptions={{ currency }}
+                      fontVariant={TABULAR_NUMS}
                     >
                       {marketCap || '-'}
                     </NumberSizeableText>

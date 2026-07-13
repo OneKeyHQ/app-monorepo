@@ -6,6 +6,7 @@ import {
   DashText,
   type INumberSizeableTextProps,
   SizableText,
+  TABULAR_NUMS,
   Tooltip,
   XStack,
 } from '@onekeyhq/components';
@@ -44,7 +45,9 @@ const ProtocolValueCell = memo(
     color,
     textAlign,
     numberOfLines,
-    fontVariant,
+    // A value cell is by definition dense column data, so it opts into tabular
+    // figures by default; callers can still override.
+    fontVariant = TABULAR_NUMS,
   }: IProtocolValueCellProps) => {
     const [{ hideValue }] = useSettingsValuePersistAtom();
     const valueBN = new BigNumber(value);

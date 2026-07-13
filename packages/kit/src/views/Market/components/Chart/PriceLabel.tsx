@@ -2,6 +2,7 @@ import {
   NumberSizeableText,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
 } from '@onekeyhq/components';
 import type { IStackProps } from '@onekeyhq/components';
@@ -120,6 +121,7 @@ export function PriceLabel({
           size="$bodyMd"
           color="$textSubdued"
           $md={{ color: '$text' }}
+          fontVariant={TABULAR_NUMS}
         >
           {time}
         </SizableText>
@@ -153,6 +155,7 @@ export function PriceLabel({
           size="$bodyMd"
           formatter="price"
           formatterOptions={{ currency }}
+          fontVariant={TABULAR_NUMS}
         >
           {String(price)}
         </NumberSizeableText>

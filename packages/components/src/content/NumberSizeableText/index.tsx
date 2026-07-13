@@ -146,9 +146,9 @@ export function NumberSizeableText({
       {result.map((r, index) =>
         typeof r === 'string' ? (
           // These slices build fresh SizableTexts (not spreading `props`), so
-          // they'd otherwise fall back to the app-wide tabular default and
-          // ignore a caller override (e.g. PROPORTIONAL_NUMS on a hero
-          // balance) — forward `fontVariant` explicitly to every slice.
+          // a caller's `fontVariant={TABULAR_NUMS}` would not reach them —
+          // forward it explicitly, or a split number in a table column would
+          // have only its decimal part tabular.
           <SizableText
             key={index}
             color={props.color}

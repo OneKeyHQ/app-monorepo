@@ -13,6 +13,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useClipboard,
@@ -271,6 +272,7 @@ function BulkSendProcessItem(props: IProps) {
             size="$bodyMdMedium"
             formatter="balance"
             formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
+            fontVariant={TABULAR_NUMS}
             numberOfLines={1}
           >
             {transferInfo.amount || '0'}
@@ -284,6 +286,7 @@ function BulkSendProcessItem(props: IProps) {
                 formatterOptions={{
                   currency: settings.currencyInfo.symbol,
                 }}
+                fontVariant={TABULAR_NUMS}
                 numberOfLines={1}
               >
                 {fiatAmount}

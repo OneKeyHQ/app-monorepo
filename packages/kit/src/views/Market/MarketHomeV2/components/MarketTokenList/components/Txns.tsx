@@ -1,6 +1,7 @@
 import {
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -35,7 +36,11 @@ export function Txns({ transactions, walletInfo }: ITxnsProps) {
   return (
     <YStack gap="$0.5">
       {/* Total transactions */}
-      <NumberSizeableText size="$bodyMd" formatter="marketCap">
+      <NumberSizeableText
+        size="$bodyMd"
+        formatter="marketCap"
+        fontVariant={TABULAR_NUMS}
+      >
         {transactions === 0 ? '--' : transactions}
       </NumberSizeableText>
 
@@ -46,6 +51,7 @@ export function Txns({ transactions, walletInfo }: ITxnsProps) {
             size="$bodySm"
             color="$textSuccess"
             formatter="marketCap"
+            fontVariant={TABULAR_NUMS}
           >
             {walletInfo.buy}
           </NumberSizeableText>
@@ -56,6 +62,7 @@ export function Txns({ transactions, walletInfo }: ITxnsProps) {
             size="$bodySm"
             color="$textCritical"
             formatter="marketCap"
+            fontVariant={TABULAR_NUMS}
           >
             {walletInfo.sell}
           </NumberSizeableText>

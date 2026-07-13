@@ -17,6 +17,7 @@ import {
   SegmentControl,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useDialogInstance,
@@ -142,6 +143,7 @@ function FeeInfoItem({
               tokenSymbol: nativeSymbol,
             }}
             size="$bodyMdMedium"
+            fontVariant={TABULAR_NUMS}
           >
             {nativeValue}
           </NumberSizeableText>
@@ -151,6 +153,7 @@ function FeeInfoItem({
             formatter="balance"
             formatterOptions={{ tokenSymbol: customSymbol }}
             size="$bodyMdMedium"
+            fontVariant={TABULAR_NUMS}
           >
             {customValue}
           </NumberSizeableText>
@@ -163,6 +166,7 @@ function FeeInfoItem({
             }}
             size="$bodyMd"
             color="$textSubdued"
+            fontVariant={TABULAR_NUMS}
           >
             {fiatValue}
           </NumberSizeableText>

@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react';
 
 import {
   NumberSizeableText,
+  TABULAR_NUMS,
   XStack,
   useMedia,
   useThemeName,
@@ -136,6 +137,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
           size="$bodyLgMedium"
           formatter="price"
           formatterOptions={{ currency: '$' }}
+          fontVariant={TABULAR_NUMS}
         >
           {item.price}
         </NumberSizeableText>

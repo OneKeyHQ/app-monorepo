@@ -1,4 +1,10 @@
-import { DashText, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  DashText,
+  SizableText,
+  TABULAR_NUMS,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 import type { IDescriptionRow } from '../hooks/useStockSecurityStats';
 
@@ -22,7 +28,11 @@ export function StockDescriptionRows({ rows }: { rows: IDescriptionRow[] }) {
               {item.label}
             </SizableText>
           )}
-          <SizableText size="$bodySmMedium" color="$text">
+          <SizableText
+            size="$bodySmMedium"
+            color="$text"
+            fontVariant={TABULAR_NUMS}
+          >
             {item.value}
           </SizableText>
         </XStack>

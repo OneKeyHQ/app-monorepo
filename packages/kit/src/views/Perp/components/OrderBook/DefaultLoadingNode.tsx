@@ -4,6 +4,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -36,7 +37,7 @@ function MobileVerticalEmptyRow({
         fontSize={11}
         lineHeight={14}
         fontFamily="$monoRegular"
-        fontVariant={['tabular-nums']}
+        fontVariant={TABULAR_NUMS}
         color={priceColor}
       >
         --
@@ -45,7 +46,7 @@ function MobileVerticalEmptyRow({
         fontSize={11}
         lineHeight={14}
         fontFamily="$monoRegular"
-        fontVariant={['tabular-nums']}
+        fontVariant={TABULAR_NUMS}
         color="$textSubdued"
       >
         --
@@ -62,7 +63,7 @@ function MobileHorizontalEmptyRow() {
           fontSize={12}
           lineHeight={16}
           fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
+          fontVariant={TABULAR_NUMS}
           color="$textSubdued"
         >
           --
@@ -71,7 +72,7 @@ function MobileHorizontalEmptyRow() {
           fontSize={12}
           lineHeight={16}
           fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
+          fontVariant={TABULAR_NUMS}
           color="$bgAccent"
         >
           --
@@ -82,7 +83,7 @@ function MobileHorizontalEmptyRow() {
           fontSize={12}
           lineHeight={16}
           fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
+          fontVariant={TABULAR_NUMS}
           color="$bgCriticalStrong"
         >
           --
@@ -91,7 +92,7 @@ function MobileHorizontalEmptyRow() {
           fontSize={12}
           lineHeight={16}
           fontFamily="$monoRegular"
-          fontVariant={['tabular-nums']}
+          fontVariant={TABULAR_NUMS}
           color="$textSubdued"
         >
           --
@@ -204,7 +205,7 @@ export function DefaultLoadingNode({
               lineHeight={24}
               fontWeight="600"
               fontFamily="$monoRegular"
-              fontVariant={['tabular-nums']}
+              fontVariant={TABULAR_NUMS}
               color="$text"
             >
               {midPriceDisplay}
@@ -213,7 +214,7 @@ export function DefaultLoadingNode({
               fontSize={10}
               lineHeight={14}
               fontFamily="$monoRegular"
-              fontVariant={['tabular-nums']}
+              fontVariant={TABULAR_NUMS}
               color="$textSubdued"
             >
               --

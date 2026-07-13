@@ -15,6 +15,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -359,6 +360,7 @@ const PreSwapInfoGroup = ({
           <NumberSizeableText
             size="$bodyMd"
             color="$text"
+            fontVariant={TABULAR_NUMS}
             formatter="value"
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
           >
@@ -420,7 +422,11 @@ const PreSwapInfoGroup = ({
           title={intl.formatMessage({
             id: ETranslations.swap_page_provider_slippage_tolerance,
           })}
-          value={`${slippage}%`}
+          value={
+            <SizableText size="$bodyMd" fontVariant={TABULAR_NUMS}>
+              {`${slippage}%`}
+            </SizableText>
+          }
           popoverContent={intl.formatMessage({
             id: ETranslations.slippage_tolerance_warning_message_1,
           })}
@@ -438,6 +444,7 @@ const PreSwapInfoGroup = ({
           value={
             <NumberSizeableText
               size="$bodyMd"
+              fontVariant={TABULAR_NUMS}
               formatter="balance"
               formatterOptions={{
                 tokenSymbol: preSwapData?.toToken?.symbol ?? '-',

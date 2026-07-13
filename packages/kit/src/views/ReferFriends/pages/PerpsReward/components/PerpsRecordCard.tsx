@@ -9,6 +9,7 @@ import {
   Popover,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -60,7 +61,11 @@ function DetailItem({
           />
         ) : null}
       </XStack>
-      <SizableText size="$bodyMdMedium" color={valueColor ?? '$text'}>
+      <SizableText
+        size="$bodyMdMedium"
+        color={valueColor ?? '$text'}
+        fontVariant={TABULAR_NUMS}
+      >
         {value}
       </SizableText>
     </YStack>
@@ -111,6 +116,7 @@ export function PerpsRecordCard({ item }: IPerpsRecordCardProps) {
               color="$textSuccess"
               formatter="value"
               size="$bodyLgMedium"
+              fontVariant={TABULAR_NUMS}
               formatterOptions={{
                 showPlusMinusSigns: true,
               }}
@@ -133,7 +139,12 @@ export function PerpsRecordCard({ item }: IPerpsRecordCardProps) {
                   --
                 </SizableText>
               ) : (
-                <Currency formatter="value" size="$bodyMdMedium" color="$text">
+                <Currency
+                  formatter="value"
+                  size="$bodyMdMedium"
+                  color="$text"
+                  fontVariant={TABULAR_NUMS}
+                >
                   {item.volumeFiatValue}
                 </Currency>
               )}

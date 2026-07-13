@@ -12,6 +12,7 @@ import {
   ScrollView,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   Tooltip,
   XStack,
   YStack,
@@ -338,6 +339,7 @@ function TextWithDottedUnderline({
         textAlign="right"
         dashColor={textColor}
         dashThickness={1}
+        fontVariant={TABULAR_NUMS}
       >
         {text}
       </DashText>
@@ -361,7 +363,12 @@ function TextWithTrigger({
   if (triggerMode === 'icon') {
     return (
       <XStack alignItems="center" gap="$1">
-        <SizableText size={size} textAlign="right" color={color || '$text'}>
+        <SizableText
+          size={size}
+          textAlign="right"
+          color={color || '$text'}
+          fontVariant={TABULAR_NUMS}
+        >
           {text}
         </SizableText>
         {showChevron ? (
@@ -481,6 +488,7 @@ export const ApyTextV2 = ({
         textAlign="right"
         color={deprecated.color || '$textSubdued'}
         textDecorationLine="line-through"
+        fontVariant={TABULAR_NUMS}
       >
         {deprecated.text}
       </SizableText>
@@ -535,7 +543,12 @@ export const ApyTextV2 = ({
 
   return (
     <YStack ai="flex-end">
-      <SizableText size="$bodyMdMedium" textAlign="right" color={displayColor}>
+      <SizableText
+        size="$bodyMdMedium"
+        textAlign="right"
+        color={displayColor}
+        fontVariant={TABULAR_NUMS}
+      >
         {displayText}
       </SizableText>
     </YStack>

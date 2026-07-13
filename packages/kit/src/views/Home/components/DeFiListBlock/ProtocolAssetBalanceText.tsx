@@ -1,4 +1,4 @@
-import { SizableText, XStack } from '@onekeyhq/components';
+import { SizableText, TABULAR_NUMS, XStack } from '@onekeyhq/components';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -25,6 +25,7 @@ function ProtocolAssetBalanceText({
         formatter="balance"
         formatterOptions={{ tokenSymbol: asset.symbol }}
         numberOfLines={1}
+        fontVariant={TABULAR_NUMS}
       >
         {asset.amount}
       </NumberSizeableTextWrapper>

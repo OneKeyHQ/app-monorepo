@@ -22,6 +22,8 @@ import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { PerpTestIDs } from '../../../testIDs';
 import { getOrderAssetDisplayName } from '../utils';
 
+import { PerpTableCellText } from './PerpTableCellText';
+
 const balanceFormatter: INumberFormatProps = {
   formatter: 'balance',
 };
@@ -66,7 +68,7 @@ function MobileTwapInfoRow({ label, value }: { label: string; value: string }) {
   return (
     <XStack width="100%" alignItems="center" justifyContent="space-between">
       <SizableText size="$bodySm">{label}</SizableText>
-      <SizableText
+      <PerpTableCellText
         size="$bodySm"
         numberOfLines={1}
         ellipsizeMode="tail"
@@ -74,7 +76,7 @@ function MobileTwapInfoRow({ label, value }: { label: string; value: string }) {
         maxWidth="60%"
       >
         {value}
-      </SizableText>
+      </PerpTableCellText>
     </XStack>
   );
 }
@@ -201,14 +203,14 @@ const MobileTwapOpenOrdersRow = memo(
                   id: ETranslations.perp_twap_order__title,
                 })} / ${sideText}`}
               </SizableText>
-              <SizableText
+              <PerpTableCellText
                 size="$bodySm"
                 color="$textSubdued"
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
                 {dateInfo.date} {dateInfo.time}
-              </SizableText>
+              </PerpTableCellText>
             </XStack>
           </YStack>
           <Button

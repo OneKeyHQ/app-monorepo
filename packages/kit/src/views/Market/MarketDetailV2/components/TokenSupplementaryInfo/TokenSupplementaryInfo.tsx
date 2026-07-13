@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   DashText,
   SizableText,
+  TABULAR_NUMS,
   Tooltip,
   XStack,
   YStack,
@@ -164,6 +165,7 @@ export function TokenSupplementaryInfo() {
               item.onPress ? { textDecorationLine: 'underline' } : undefined
             }
             onPress={item.onPress}
+            fontVariant={TABULAR_NUMS}
           >
             {item.value}
           </SizableText>

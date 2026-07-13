@@ -1,6 +1,11 @@
 import { useIntl } from 'react-intl';
 
-import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  Stack,
+  TABULAR_NUMS,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BuySellRatioBar } from './BuySellRatioBar';
@@ -34,7 +39,11 @@ export function TransactionRow({
           {showTotalPlaceholder ? (
             '--'
           ) : (
-            <NumberSizeableText size="$bodyMdMedium" formatter="marketCap">
+            <NumberSizeableText
+              size="$bodyMdMedium"
+              formatter="marketCap"
+              fontVariant={TABULAR_NUMS}
+            >
               {totalCount}
             </NumberSizeableText>
           )}
@@ -61,6 +70,7 @@ export function TransactionRow({
                 size="$bodyMd"
                 color="$textSubdued"
                 formatter="marketCap"
+                fontVariant={TABULAR_NUMS}
               >
                 {buyCount}
               </NumberSizeableText>
@@ -84,6 +94,7 @@ export function TransactionRow({
                 size="$bodyMd"
                 color="$textSubdued"
                 formatter="marketCap"
+                fontVariant={TABULAR_NUMS}
               >
                 {sellCount}
               </NumberSizeableText>

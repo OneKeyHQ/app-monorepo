@@ -14,6 +14,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -1058,6 +1059,7 @@ function TransferInfoListSection() {
                             ? '$textCritical'
                             : '$textSubdued'
                         }
+                        fontVariant={TABULAR_NUMS}
                         formatter="balance"
                         formatterOptions={{
                           tokenSymbol: tokenInfo?.symbol,
@@ -1147,6 +1149,7 @@ function TransferInfoListSection() {
                     textAlign="right"
                     numberOfLines={1}
                     ellipsizeMode="tail"
+                    fontVariant={TABULAR_NUMS}
                     formatter="balance"
                   >
                     {displayAmount || '-'}

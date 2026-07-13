@@ -14,6 +14,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -227,6 +228,7 @@ export function AssetItem({
           textAlign="right"
           size="$bodyLgMedium"
           color="$textSuccess"
+          fontVariant={TABULAR_NUMS}
           formatter="value"
         >
           {isApproveUnlimited
@@ -264,6 +266,7 @@ export function AssetItem({
         textAlign="right"
         size="$bodyLgMedium"
         color={direction === EDecodedTxDirection.IN ? '$textSuccess' : '$text'}
+        fontVariant={TABULAR_NUMS}
         formatter="balance"
         formatterOptions={{
           tokenSymbol: asset.isNFT ? '' : asset.symbol,
@@ -279,6 +282,7 @@ export function AssetItem({
         textAlign="right"
         size="$bodyMd"
         color="$textSubdued"
+        fontVariant={TABULAR_NUMS}
         formatter="value"
         formatterOptions={{ currency: currencySymbol }}
       >
@@ -1290,6 +1294,7 @@ function HistoryDetails() {
           formatter="balance"
           size="$bodyMd"
           color="$textSubdued"
+          fontVariant={TABULAR_NUMS}
           formatterOptions={{
             tokenSymbol: nativeToken?.symbol,
           }}
@@ -1304,6 +1309,7 @@ function HistoryDetails() {
               formatterOptions={{ currency: settings.currencyInfo.symbol }}
               size="$bodyMd"
               color="$textSubdued"
+              fontVariant={TABULAR_NUMS}
             >
               {txInfo?.gasFeeFiatValue ?? '0'}
             </NumberSizeableTextWrapper>

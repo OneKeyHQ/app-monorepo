@@ -4,6 +4,7 @@ import {
   Image,
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -89,6 +90,7 @@ function TransactionItemNormalBase({
               capAtMaxT: true,
               currency: '$',
             }}
+            fontVariant={TABULAR_NUMS}
           >
             {value}
           </NumberSizeableText>
@@ -100,6 +102,7 @@ function TransactionItemNormalBase({
               capAtMaxT: true,
               currency: '$',
             }}
+            fontVariant={TABULAR_NUMS}
           >
             {price}
           </NumberSizeableText>
@@ -115,6 +118,7 @@ function TransactionItemNormalBase({
               currency: '$',
             }}
             {...styles.price}
+            fontVariant={TABULAR_NUMS}
           >
             {price}
           </NumberSizeableText>
@@ -128,6 +132,7 @@ function TransactionItemNormalBase({
               currency: '$',
             }}
             {...styles.value}
+            fontVariant={TABULAR_NUMS}
           >
             {value}
           </NumberSizeableText>

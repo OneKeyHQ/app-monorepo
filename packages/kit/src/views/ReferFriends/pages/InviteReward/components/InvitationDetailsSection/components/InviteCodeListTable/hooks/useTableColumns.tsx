@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { SizableText } from '@onekeyhq/components';
+import { SizableText, TABULAR_NUMS } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -134,7 +134,11 @@ export function useTableColumns(
           ? { columnProps: { flex: 1 } }
           : { columnWidth: columnWidths.salesWidth }),
         render: (value: number) => (
-          <SizableText size="$bodyMdMedium" color="$text">
+          <SizableText
+            size="$bodyMdMedium"
+            color="$text"
+            fontVariant={TABULAR_NUMS}
+          >
             {value}
           </SizableText>
         ),
@@ -148,7 +152,11 @@ export function useTableColumns(
           ? { columnProps: { flex: 1 } }
           : { columnWidth: columnWidths.walletsWidth }),
         render: (value: number) => (
-          <SizableText size="$bodyMdMedium" color="$text">
+          <SizableText
+            size="$bodyMdMedium"
+            color="$text"
+            fontVariant={TABULAR_NUMS}
+          >
             {value}
           </SizableText>
         ),
@@ -165,7 +173,11 @@ export function useTableColumns(
         render: (value: string) => {
           const formattedValue = new BigNumber(value).toFixed(2);
           return (
-            <SizableText size="$bodyMdMedium" color="$text">
+            <SizableText
+              size="$bodyMdMedium"
+              color="$text"
+              fontVariant={TABULAR_NUMS}
+            >
               {currencySymbol
                 ? `${currencySymbol}${formattedValue}`
                 : formattedValue}
@@ -180,7 +192,11 @@ export function useTableColumns(
           ? { columnProps: { flex: 1 } }
           : { columnWidth: columnWidths.createdAtWidth }),
         render: (date: string) => (
-          <SizableText size="$bodyMdMedium" color="$text">
+          <SizableText
+            size="$bodyMdMedium"
+            color="$text"
+            fontVariant={TABULAR_NUMS}
+          >
             {formatDate(date, { hideSeconds: true })}
           </SizableText>
         ),

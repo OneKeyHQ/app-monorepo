@@ -10,6 +10,7 @@ import {
   Popover,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -91,6 +92,7 @@ function RewardItem({
               <NumberSizeableText
                 size="$bodyLgMedium"
                 formatter="balance"
+                fontVariant={TABULAR_NUMS}
                 formatterOptions={{ tokenSymbol: rewardToken.info?.symbol }}
               >
                 {validClaimableNow.toFixed()}
@@ -101,6 +103,7 @@ function RewardItem({
                   <NumberSizeableText
                     size="$bodyLgMedium"
                     formatter="value"
+                    fontVariant={TABULAR_NUMS}
                     formatterOptions={{ currency: symbol }}
                   >
                     {fiatClaimableNowValue.lt(0.01)

@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import {
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -45,7 +46,9 @@ function StatRow({ label, value }: { label: string; value: string }) {
       <SizableText size="$bodySm" color="$textSubdued">
         {label}
       </SizableText>
-      <SizableText size="$bodySmMedium">{value}</SizableText>
+      <SizableText size="$bodySmMedium" fontVariant={TABULAR_NUMS}>
+        {value}
+      </SizableText>
     </XStack>
   );
 }
@@ -223,11 +226,17 @@ export function InformationPanel() {
               color="$textSubdued"
               formatter="price"
               formatterOptions={{ currency: currencyInfo.symbol }}
+              fontVariant={TABULAR_NUMS}
             >
               {priceConverted}
             </NumberSizeableText>
           ) : null}
-          <SizableText pt="$1" size="$bodyLgMedium" color={priceChangeColor}>
+          <SizableText
+            pt="$1"
+            size="$bodyLgMedium"
+            color={priceChangeColor}
+            fontVariant={TABULAR_NUMS}
+          >
             {priceChangeDisplay}
           </SizableText>
         </YStack>

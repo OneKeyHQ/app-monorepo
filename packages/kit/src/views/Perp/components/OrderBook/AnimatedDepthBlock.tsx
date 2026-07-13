@@ -3,6 +3,8 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
+import { TABULAR_NUMS } from '@onekeyhq/components';
+
 import {
   ORDER_BOOK_DEPTH_WIDTH_TRANSITION_MS,
   ORDER_BOOK_SIDE_RATIO_TRANSITION_MS,
@@ -181,6 +183,7 @@ export function DepthBarColumn({
                     fontSize: priceFontSize,
                     flexShrink: 1,
                     paddingRight: 4,
+                    fontVariant: TABULAR_NUMS,
                   }}
                 >
                   {priceText}
@@ -192,6 +195,7 @@ export function DepthBarColumn({
                     fontSize: sizeFontSize,
                     flexShrink: 1,
                     textAlign: 'right',
+                    fontVariant: TABULAR_NUMS,
                   }}
                 >
                   {sizeText}

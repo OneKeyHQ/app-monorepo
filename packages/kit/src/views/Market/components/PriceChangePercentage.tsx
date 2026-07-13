@@ -2,6 +2,7 @@ import {
   type INumberSizeableTextProps,
   NumberSizeableText,
   SizableText,
+  TABULAR_NUMS,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -30,6 +31,7 @@ export function PriceChangePercentage({
       formatter="priceChange"
       color={color}
       formatterOptions={{ showPlusMinusSigns: true }}
+      fontVariant={TABULAR_NUMS}
       {...props}
     >
       {children}

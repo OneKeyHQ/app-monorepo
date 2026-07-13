@@ -9,6 +9,7 @@ import {
   NumberSizeableText,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useClipboard,
@@ -205,6 +206,7 @@ const MarketTokenSelectorRow = memo(
             size="$bodySmMedium"
             formatter={priceFormatter}
             formatterOptions={{ currency: '$', capAtMaxT: true }}
+            fontVariant={TABULAR_NUMS}
           >
             {String(item.price)}
           </NumberSizeableText>
@@ -217,6 +219,7 @@ const MarketTokenSelectorRow = memo(
             formatter="priceChange"
             formatterOptions={{ showPlusMinusSigns }}
             color={changeColor}
+            fontVariant={TABULAR_NUMS}
           >
             {String(item.change24h)}
           </NumberSizeableText>
@@ -229,6 +232,7 @@ const MarketTokenSelectorRow = memo(
               size="$bodySm"
               formatter="marketCap"
               formatterOptions={{ currency: '$', capAtMaxT: true }}
+              fontVariant={TABULAR_NUMS}
             >
               {String(item.marketCap)}
             </NumberSizeableText>
@@ -246,6 +250,7 @@ const MarketTokenSelectorRow = memo(
               size="$bodySm"
               formatter="marketCap"
               formatterOptions={{ currency: '$' }}
+              fontVariant={TABULAR_NUMS}
             >
               {String(item.liquidity)}
             </NumberSizeableText>
@@ -263,6 +268,7 @@ const MarketTokenSelectorRow = memo(
               size="$bodySm"
               formatter="marketCap"
               formatterOptions={{ currency: '$' }}
+              fontVariant={TABULAR_NUMS}
             >
               {String(item.turnover)}
             </NumberSizeableText>

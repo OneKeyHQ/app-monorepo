@@ -10,6 +10,7 @@ import {
   NumberSizeableText,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -335,6 +336,7 @@ function TxActionCommonChange({
       minWidth={0}
       numberOfLines={1}
       size="$bodyLgMedium"
+      fontVariant={TABULAR_NUMS}
       {...(!tableLayout && {
         textAlign: 'right',
       })}
@@ -360,6 +362,7 @@ function TxActionCommonChangeDescription({
       color="$textSubdued"
       numberOfLines={1}
       minWidth={0}
+      fontVariant={TABULAR_NUMS}
       {...(!tableLayout && {
         textAlign: 'right',
       })}
@@ -403,6 +406,7 @@ function TxActionCommonFee({
           numberOfLines={1}
           flexShrink={1}
           minWidth={0}
+          fontVariant={TABULAR_NUMS}
         >
           {fee}
         </NumberSizeableText>
@@ -414,6 +418,7 @@ function TxActionCommonFee({
           numberOfLines={1}
           flexShrink={1}
           minWidth={0}
+          fontVariant={TABULAR_NUMS}
         >
           {feeFiatValue}
         </NumberSizeableText>

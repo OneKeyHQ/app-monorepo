@@ -11,6 +11,7 @@ import {
   SectionList,
   SizableText,
   Spinner,
+  TABULAR_NUMS,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -170,6 +171,7 @@ function RewardDistributionHistoryPageWrapper() {
               <NumberSizeableText
                 numberOfLines={1}
                 formatter="balance"
+                fontVariant={TABULAR_NUMS}
                 formatterOptions={{
                   showPlusMinusSigns: true,
                   tokenSymbol: item.token.symbol,

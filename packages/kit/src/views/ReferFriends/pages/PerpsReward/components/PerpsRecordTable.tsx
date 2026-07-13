@@ -7,6 +7,7 @@ import {
   ScrollView,
   SizableText,
   Spinner,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
@@ -171,7 +172,7 @@ function ScrollableCellsContent({ item, columnWidths }: ICellContentProps) {
   return (
     <>
       <XStack w={columnWidths.invitedAt} ai="center" py="$1">
-        <SizableText size="$bodyMd" color="$text">
+        <SizableText size="$bodyMd" color="$text" fontVariant={TABULAR_NUMS}>
           {formatDateTime(item.invitationTime)}
         </SizableText>
       </XStack>
@@ -186,6 +187,7 @@ function ScrollableCellsContent({ item, columnWidths }: ICellContentProps) {
         <SizableText
           size="$bodyMd"
           color={isZeroData && !item.firstTradeTime ? '$textSubdued' : '$text'}
+          fontVariant={TABULAR_NUMS}
         >
           {isZeroData && !item.firstTradeTime
             ? '--'
@@ -199,7 +201,12 @@ function ScrollableCellsContent({ item, columnWidths }: ICellContentProps) {
             --
           </SizableText>
         ) : (
-          <Currency formatter="value" size="$bodyMd" color="$text">
+          <Currency
+            formatter="value"
+            size="$bodyMd"
+            color="$text"
+            fontVariant={TABULAR_NUMS}
+          >
             {item.volumeFiatValue}
           </Currency>
         )}
@@ -211,7 +218,12 @@ function ScrollableCellsContent({ item, columnWidths }: ICellContentProps) {
             --
           </SizableText>
         ) : (
-          <Currency formatter="value" size="$bodyMd" color="$text">
+          <Currency
+            formatter="value"
+            size="$bodyMd"
+            color="$text"
+            fontVariant={TABULAR_NUMS}
+          >
             {item.feeFiatValue}
           </Currency>
         )}
@@ -227,6 +239,7 @@ function ScrollableCellsContent({ item, columnWidths }: ICellContentProps) {
             color="$textSuccess"
             formatter="value"
             size="$bodyMd"
+            fontVariant={TABULAR_NUMS}
             formatterOptions={REWARD_FORMATTER_OPTIONS}
           >
             {item.rewardFiatValue}

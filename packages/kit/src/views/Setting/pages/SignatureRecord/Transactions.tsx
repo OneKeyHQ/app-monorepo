@@ -11,6 +11,7 @@ import {
   SectionList,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   Tabs,
   XStack,
   YStack,
@@ -53,6 +54,7 @@ const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => {
           size="$bodyLgMedium"
           formatter="balance"
           numberOfLines={1}
+          fontVariant={TABULAR_NUMS}
           formatterOptions={{
             tokenSymbol: data.token.symbol.toUpperCase(),
             showPlusMinusSigns: true,
@@ -91,6 +93,7 @@ const ApproveTransactionItem = ({
           formatter="balance"
           numberOfLines={1}
           flexShrink={1}
+          fontVariant={TABULAR_NUMS}
           formatterOptions={{
             tokenSymbol: data.token.symbol.toUpperCase(),
             showPlusMinusSigns: true,

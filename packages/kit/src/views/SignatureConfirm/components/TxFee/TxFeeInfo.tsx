@@ -21,6 +21,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   Toast,
   XStack,
   useTheme,
@@ -1895,6 +1896,7 @@ function TxFeeInfo(props: IProps) {
           size="$bodyMd"
           color="$text"
           formatter="balance"
+          fontVariant={TABULAR_NUMS}
           formatterOptions={{
             tokenSymbol: txFeeCommon?.nativeSymbol,
             keepLeadingZero: true,
@@ -1909,6 +1911,7 @@ function TxFeeInfo(props: IProps) {
               size="$bodyMd"
               color="$textSubdued"
               formatter="value"
+              fontVariant={TABULAR_NUMS}
               formatterOptions={{
                 currency: settings.currencyInfo.symbol,
               }}
@@ -2287,6 +2290,7 @@ function TxFeeInfo(props: IProps) {
           size="$bodyMd"
           color="$text"
           formatter="balance"
+          fontVariant={TABULAR_NUMS}
           formatterOptions={{
             tokenSymbol: payTokenInfo.symbol,
             keepLeadingZero: true,
@@ -2302,6 +2306,7 @@ function TxFeeInfo(props: IProps) {
         size="$bodyMd"
         color="$text"
         formatter="balance"
+        fontVariant={TABULAR_NUMS}
         formatterOptions={{
           tokenSymbol: txFeeCommon?.nativeSymbol,
           keepLeadingZero: true,
@@ -2344,6 +2349,7 @@ function TxFeeInfo(props: IProps) {
             size="$bodyMd"
             color="$text"
             formatter="value"
+            fontVariant={TABULAR_NUMS}
             formatterOptions={{
               currency: settings.currencyInfo.symbol,
             }}
@@ -2362,6 +2368,7 @@ function TxFeeInfo(props: IProps) {
           size="$bodyMd"
           color="$text"
           formatter="value"
+          fontVariant={TABULAR_NUMS}
           formatterOptions={{
             currency: settings.currencyInfo.symbol,
           }}
@@ -2427,6 +2434,7 @@ function TxFeeInfo(props: IProps) {
             size="$bodyMd"
             color={textColor}
             formatter="balance"
+            fontVariant={TABULAR_NUMS}
             formatterOptions={{
               tokenSymbol: txFeeCommon?.nativeSymbol,
               keepLeadingZero: true,
@@ -2439,6 +2447,7 @@ function TxFeeInfo(props: IProps) {
             size="$bodyMd"
             color={textColor}
             formatter="value"
+            fontVariant={TABULAR_NUMS}
             formatterOptions={{
               currency: settings.currencyInfo.symbol,
             }}

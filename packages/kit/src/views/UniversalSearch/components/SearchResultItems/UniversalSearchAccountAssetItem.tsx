@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { NumberSizeableText, Stack } from '@onekeyhq/components';
+import { NumberSizeableText, Stack, TABULAR_NUMS } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -153,6 +153,7 @@ export function UniversalSearchAccountAssetItem({
           formatterOptions={{ tokenSymbol: token?.symbol }}
           size="$bodyMd"
           color="$textSubdued"
+          fontVariant={TABULAR_NUMS}
           hideValue={hideValue}
         >
           {tokenFiat?.balanceParsed ?? '0'}
@@ -163,6 +164,7 @@ export function UniversalSearchAccountAssetItem({
           formatter="value"
           sourceCurrency={tokenFiat?.currency}
           size="$bodyLgMedium"
+          fontVariant={TABULAR_NUMS}
           hideValue={hideValue}
         >
           {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
@@ -172,6 +174,7 @@ export function UniversalSearchAccountAssetItem({
           formatterOptions={{ showPlusMinusSigns }}
           color={changeColor}
           size="$bodyMd"
+          fontVariant={TABULAR_NUMS}
         >
           {priceChange}
         </NumberSizeableText>

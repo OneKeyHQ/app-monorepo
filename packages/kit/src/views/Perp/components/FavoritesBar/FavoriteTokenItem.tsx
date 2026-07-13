@@ -4,6 +4,7 @@ import {
   NumberSizeableText,
   SizableText,
   Skeleton,
+  TABULAR_NUMS,
   XStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -27,14 +28,11 @@ import {
   MAX_SIGNIFICANT_FIGURES,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
-export const TABULAR_NUMS_STYLE = {
-  fontVariantNumeric: 'tabular-nums',
-} as const;
-
 /**
  * Calculate stable minWidth (in ch units) for formatted price strings to
  * prevent layout jitter caused by trailing-zero stripping in
  * formatPriceToSignificantDigits. With tabular-nums, 1ch equals one digit width.
+ * Callers must opt the text into `fontVariant={TABULAR_NUMS}` for this to hold.
  */
 export function getStablePriceMinWidth(priceStr: string): string | undefined {
   // ch units are CSS-only, not supported on React Native
@@ -118,7 +116,7 @@ const CtxPriceDisplay = memo(
         <NumberSizeableText
           size="$bodySmMedium"
           color={color}
-          style={TABULAR_NUMS_STYLE}
+          fontVariant={TABULAR_NUMS}
           formatter="priceChange"
           formatterOptions={{ showPlusMinusSigns: true }}
         >
@@ -132,7 +130,7 @@ const CtxPriceDisplay = memo(
       <SizableText
         size="$bodySmMedium"
         color={color}
-        style={TABULAR_NUMS_STYLE}
+        fontVariant={TABULAR_NUMS}
         minWidth={priceMinWidth}
         textAlign="right"
       >
@@ -189,7 +187,7 @@ const ActiveAssetPriceDisplay = memo(
         <NumberSizeableText
           size="$bodySmMedium"
           color={color}
-          style={TABULAR_NUMS_STYLE}
+          fontVariant={TABULAR_NUMS}
           formatter="priceChange"
           formatterOptions={{ showPlusMinusSigns: true }}
         >
@@ -203,7 +201,7 @@ const ActiveAssetPriceDisplay = memo(
       <SizableText
         size="$bodySmMedium"
         color={color}
-        style={TABULAR_NUMS_STYLE}
+        fontVariant={TABULAR_NUMS}
         minWidth={priceMinWidth}
         textAlign="right"
       >
@@ -226,14 +224,14 @@ export const PriceChangeDisplay = memo(
         <SizableText
           size="$bodySmMedium"
           color={color}
-          style={TABULAR_NUMS_STYLE}
+          fontVariant={TABULAR_NUMS}
         >
           {`${sign}${change.toFixed(2)}%`}
         </SizableText>
         <SizableText
           size="$bodySmMedium"
           color="$textSubdued"
-          style={TABULAR_NUMS_STYLE}
+          fontVariant={TABULAR_NUMS}
           minWidth={priceMinWidth}
           textAlign="right"
         >

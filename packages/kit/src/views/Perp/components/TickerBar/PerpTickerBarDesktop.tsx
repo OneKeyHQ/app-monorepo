@@ -11,6 +11,7 @@ import {
   ScrollView,
   SizableText,
   SkeletonContainer,
+  TABULAR_NUMS,
   Tooltip,
   XStack,
   YStack,
@@ -57,6 +58,7 @@ import { FavoriteButton } from '../TokenSelector/PerpTokenSelectorRow';
 // the subdued labels at this size.
 const TICKER_BAR_STAT_VALUE_TEXT_PROPS = {
   size: '$bodySmMedium',
+  fontVariant: TABULAR_NUMS,
 } as const;
 
 const TICKER_BAR_STAT_LABEL_VALUE_GAP = 5;
@@ -207,6 +209,7 @@ const TickerBarMarkPriceView = memo(
                 cursor="help"
                 lineHeight={20}
                 numberOfLines={1}
+                fontVariant={TABULAR_NUMS}
               >
                 {formattedMarkPrice}
               </SizableText>
@@ -278,6 +281,7 @@ const TickerBarChange24hView = memo(
           lineHeight={12}
           color={changeDisplay.trim().startsWith('-') ? '$red11' : '$green11'}
           numberOfLines={1}
+          fontVariant={TABULAR_NUMS}
         >
           {changeDisplay}
         </SizableText>
@@ -710,13 +714,18 @@ const TickerBarFundingRateView = memo(
                                 id: ETranslations.perps_hourly,
                               })}
                             </SizableText>
-                            <SizableText size="$bodySm" color="$textSubdued">
+                            <SizableText
+                              size="$bodySm"
+                              color="$textSubdued"
+                              fontVariant={TABULAR_NUMS}
+                            >
                               ({countdown})
                             </SizableText>
                           </XStack>
                           <SizableText
                             size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
+                            fontVariant={TABULAR_NUMS}
                           >
                             {hourlyFundingRate}%
                           </SizableText>
@@ -733,6 +742,7 @@ const TickerBarFundingRateView = memo(
                           <SizableText
                             size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
+                            fontVariant={TABULAR_NUMS}
                           >
                             {dailyFundingRate}%
                           </SizableText>
@@ -749,6 +759,7 @@ const TickerBarFundingRateView = memo(
                           <SizableText
                             size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
+                            fontVariant={TABULAR_NUMS}
                           >
                             {weeklyFundingRate}%
                           </SizableText>
@@ -765,6 +776,7 @@ const TickerBarFundingRateView = memo(
                           <SizableText
                             size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
+                            fontVariant={TABULAR_NUMS}
                           >
                             {monthlyFundingRate}%
                           </SizableText>
@@ -781,6 +793,7 @@ const TickerBarFundingRateView = memo(
                           <SizableText
                             size="$bodySm"
                             color={fundingRate >= 0 ? '$green11' : '$red11'}
+                            fontVariant={TABULAR_NUMS}
                           >
                             {annualizedFundingRate}%
                           </SizableText>

@@ -7,6 +7,7 @@ import {
   NumberSizeableText,
   SizableText,
   Stack,
+  TABULAR_NUMS,
   XStack,
   useClipboard,
   useMedia,
@@ -242,6 +243,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
                 numberOfLines={1}
                 formatter="marketCap"
                 formatterOptions={{ currency: '$' }}
+                fontVariant={TABULAR_NUMS}
               >
                 {volume}
               </NumberSizeableText>

@@ -20,6 +20,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  TABULAR_NUMS,
   XStack,
   YStack,
   resetToRoute,
@@ -1430,6 +1431,7 @@ function StockMarketTokenHeader({
         <BaseMarketTokenPrice
           size="$bodyLg"
           color="$text"
+          fontVariant={TABULAR_NUMS}
           numberOfLines={1}
           textAlign="right"
           price={tokenDetail.price ?? tokenDetail.priceConverted ?? ''}

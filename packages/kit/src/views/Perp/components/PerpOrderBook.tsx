@@ -8,6 +8,7 @@ import {
   Divider,
   Popover,
   SizableText,
+  TABULAR_NUMS,
   XStack,
   YStack,
   useMedia,
@@ -185,10 +186,18 @@ function MobileHeader({
             </SizableText>
           ) : (
             <XStack alignItems="center" gap={6}>
-              <SizableText size="$bodySmMedium" color={fundingColor}>
+              <SizableText
+                size="$bodySmMedium"
+                color={fundingColor}
+                fontVariant={TABULAR_NUMS}
+              >
                 {fundingDisplay}
               </SizableText>
-              <SizableText size="$bodySmMedium" color="$text">
+              <SizableText
+                size="$bodySmMedium"
+                color="$text"
+                fontVariant={TABULAR_NUMS}
+              >
                 {countdown}
               </SizableText>
             </XStack>
@@ -226,13 +235,18 @@ function MobileHeader({
                       id: ETranslations.perps_hourly,
                     })}
                   </SizableText>
-                  <SizableText size="$headingXs" color="$textSubdued">
+                  <SizableText
+                    size="$headingXs"
+                    color="$textSubdued"
+                    fontVariant={TABULAR_NUMS}
+                  >
                     ({countdown})
                   </SizableText>
                 </XStack>
                 <SizableText
                   size="$headingXs"
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {hourlyFundingRate}%
                 </SizableText>
@@ -246,6 +260,7 @@ function MobileHeader({
                 <SizableText
                   size="$headingXs"
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {dailyFundingRate}%
                 </SizableText>
@@ -259,6 +274,7 @@ function MobileHeader({
                 <SizableText
                   size="$headingXs"
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {weeklyFundingRate}%
                 </SizableText>
@@ -272,6 +288,7 @@ function MobileHeader({
                 <SizableText
                   size="$headingXs"
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {monthlyFundingRate}%
                 </SizableText>
@@ -285,6 +302,7 @@ function MobileHeader({
                 <SizableText
                   size="$headingXs"
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
+                  fontVariant={TABULAR_NUMS}
                 >
                   {annualizedFundingRate}%
                 </SizableText>
