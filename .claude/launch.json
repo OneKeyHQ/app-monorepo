@@ -12,6 +12,19 @@
         "--ci"
       ],
       "port": 6006
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "cross-env",
+        "NODE_OPTIONS=--max-old-space-size=10240",
+        "rspack",
+        "serve",
+        "--config",
+        "apps/web/rspack.config.ts"
+      ],
+      "port": 3000
     }
   ]
 }
