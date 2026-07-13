@@ -24,6 +24,7 @@ const PROCESS_NAME = 'onekey-ble-pair';
 const PAIR_TIMEOUT_MS = 60_000;
 
 export type IBlePairEvent =
+  | { type: 'diag'; t_ms: number; msg: string }
   | { type: 'pairing'; pin: string }
   | { type: 'paired' }
   | { type: 'already-paired' }
@@ -78,6 +79,9 @@ function runHelper(
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
+    const spawnedAt = Date.now();
+    const sinceSpawn = () => Date.now() - spawnedAt;
+
     const events: IBlePairEvent[] = [];
     let stdoutBuf = '';
     let settled = false;
@@ -106,6 +110,16 @@ function runHelper(
           try {
             const event = JSON.parse(line) as IBlePairEvent;
             events.push(event);
+            // Every helper event is logged, not just failures: `Failed(19)` is
+            // opaque, so the surrounding state (address type, bond inventory,
+            // link up/down, timings) is what actually explains a failing run.
+            if (event.type === 'diag') {
+              logger.info(`[BlePair] +${event.t_ms}ms ${event.msg}`);
+            } else {
+              logger.info(
+                `[BlePair] +${sinceSpawn()}ms event ${JSON.stringify(event)}`,
+              );
+            }
             if (event.type === 'error') {
               lastError = event.message;
             }
@@ -127,6 +141,9 @@ function runHelper(
 
     child.on('exit', (code) => {
       settle(() => {
+        logger.info(
+          `[BlePair] exit code=${code ?? 'null'} after ${sinceSpawn()}ms`,
+        );
         if (code === 0) {
           resolve(events);
         } else {
