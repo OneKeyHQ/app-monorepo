@@ -38,7 +38,9 @@ import {
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   displayFiatValueOrUnavailable,
   displayOrUnavailable,
@@ -122,11 +124,31 @@ function TokenDetailsOverview(props: IProps) {
       if (!missingRows.length) {
         return;
       }
-      missingRows.forEach((row) =>
+      // The home aggregate row only sums members on enabled networks, so
+      // fetching a disabled member here would push the Overview total above
+      // the home figure. Those members keep their "enable network" placeholder
+      // row and stay unmarked so a later enable can still fill them in.
+      let fetchableRows = missingRows;
+      if (isAllNetworks) {
+        const allNetworksState =
+          await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+        fetchableRows = missingRows.filter(({ token }) =>
+          isEnabledNetworksInAllNetworks({
+            networkId: token.networkId ?? '',
+            disabledNetworks: allNetworksState.disabledNetworks,
+            enabledNetworks: allNetworksState.enabledNetworks,
+            isTestnet: false,
+          }),
+        );
+      }
+      if (!fetchableRows.length) {
+        return;
+      }
+      fetchableRows.forEach((row) =>
         backfilledKeysRef.current.add(row.token.$key),
       );
       await Promise.all(
-        missingRows.map(async ({ token }) => {
+        fetchableRows.map(async ({ token }) => {
           try {
             const resp =
               await backgroundApiProxy.serviceToken.fetchTokensDetails({
@@ -149,7 +171,7 @@ function TokenDetailsOverview(props: IProps) {
         }),
       );
     },
-    [rows, updateTokenDetails],
+    [rows, isAllNetworks, updateTokenDetails],
     {
       watchLoading: true,
     },
