@@ -232,6 +232,7 @@ const ProtocolDetailsPage = () => {
         stakeTag: buildLocalTxStatusSyncId({
           providerName: result.provider.name,
           tokenSymbol: result.token.info.symbol,
+          protocolVault: vault,
         }),
         protocolVault: vault,
         filterType,
@@ -491,6 +492,7 @@ const ProtocolDetailsPage = () => {
                   stakeTag={buildLocalTxStatusSyncId({
                     providerName: result.provider.name,
                     tokenSymbol: result.token.info.symbol,
+                    protocolVault: vault,
                   })}
                   onRefresh={run}
                   onPress={onHistory}
