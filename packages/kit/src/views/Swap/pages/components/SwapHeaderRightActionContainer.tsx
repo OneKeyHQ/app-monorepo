@@ -61,12 +61,9 @@ import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
-  ESwapSlippageValidationStatus,
-  getSwapSlippageValidationStatus,
-} from '@onekeyhq/shared/src/utils/swapSlippageUtils';
-import {
   swapSlippageCustomDefaultList,
   swapSlippageItems,
+  swapSlippageMaxValue,
   swapSlippageWillAheadMinValue,
   swapSlippageWillFailMinValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -185,8 +182,11 @@ const SwapSlippageCustomContent = ({
   const handleSlippageChange = useCallback(
     debounce((value: string) => {
       const valueBN = new BigNumber(value);
-      const validationStatus = getSwapSlippageValidationStatus(value);
-      if (validationStatus === ESwapSlippageValidationStatus.ERROR) {
+      if (
+        valueBN.isNaN() ||
+        valueBN.isNegative() ||
+        valueBN.gt(swapSlippageMaxValue)
+      ) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.ERROR,
           message: intl.formatMessage({
@@ -200,7 +200,7 @@ const SwapSlippageCustomContent = ({
         swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
         swapSlippagePercentageCustomValue: valueBN.toNumber(),
       }));
-      if (validationStatus === ESwapSlippageValidationStatus.WILL_FAIL) {
+      if (valueBN.lte(swapSlippageWillFailMinValue)) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.WRONG,
           message: intl.formatMessage(
@@ -212,7 +212,7 @@ const SwapSlippageCustomContent = ({
         });
         return;
       }
-      if (validationStatus === ESwapSlippageValidationStatus.WILL_AHEAD) {
+      if (valueBN.gte(swapSlippageWillAheadMinValue)) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.WRONG,
           message: intl.formatMessage(

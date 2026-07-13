@@ -8,9 +8,10 @@ import {
   normalizeMarketPresetCustomPriorityFeeRange,
 } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import {
-  ESwapSlippageValidationStatus,
-  getSwapSlippageValidationStatus,
-} from '@onekeyhq/shared/src/utils/swapSlippageUtils';
+  swapSlippageMaxValue,
+  swapSlippageWillAheadMinValue,
+  swapSlippageWillFailMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapNetworkFeeLevel,
   ESwapSlippageCustomStatus,
@@ -825,21 +826,24 @@ export function getMarketPresetSlippageCustomStatus(
     return { status: ESwapSlippageCustomStatus.NORMAL };
   }
 
-  const validationStatus = getSwapSlippageValidationStatus(
-    settings.slippage.value,
-  );
-  if (validationStatus === ESwapSlippageValidationStatus.ERROR) {
+  const slippageValueBN = new BigNumber(settings.slippage.value ?? Number.NaN);
+  if (
+    settings.slippage.value === undefined ||
+    slippageValueBN.isNaN() ||
+    slippageValueBN.isNegative() ||
+    slippageValueBN.gt(swapSlippageMaxValue)
+  ) {
     return { status: ESwapSlippageCustomStatus.ERROR };
   }
 
-  if (validationStatus === ESwapSlippageValidationStatus.WILL_FAIL) {
+  if (slippageValueBN.lte(swapSlippageWillFailMinValue)) {
     return {
       status: ESwapSlippageCustomStatus.WRONG,
       warningType: EMarketPresetSlippageWarningType.WILL_FAIL,
     };
   }
 
-  if (validationStatus === ESwapSlippageValidationStatus.WILL_AHEAD) {
+  if (slippageValueBN.gt(swapSlippageWillAheadMinValue)) {
     return {
       status: ESwapSlippageCustomStatus.WRONG,
       warningType: EMarketPresetSlippageWarningType.WILL_AHEAD,
