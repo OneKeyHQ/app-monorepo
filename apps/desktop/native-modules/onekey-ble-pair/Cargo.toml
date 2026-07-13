@@ -18,6 +18,7 @@ windows = { version = "0.61", features = [
     "Devices_Bluetooth",
     "Devices_Enumeration",
     "Foundation",
+    "Win32_System_Com",
 ] }
 
 [profile.release]

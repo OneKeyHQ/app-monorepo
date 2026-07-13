@@ -27,6 +27,15 @@
 
 #[cfg(windows)]
 fn main() {
+    // Multithreaded apartment so WinRT event delegates (PairingRequested) are
+    // dispatched on thread-pool threads and fire while we block on
+    // PairAsync().get(). Without this the handler never runs → Windows shows a
+    // fallback dialog and pairing ends as Failed(19).
+    unsafe {
+        use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+    }
+
     let args: Vec<String> = std::env::args().collect();
     let command = args.get(1).map(String::as_str).unwrap_or("");
     let address = get_flag(&args, "--address");
@@ -98,21 +107,28 @@ mod win {
             DevicePairingRequestedEventArgs,
         >::new(move |_sender, args: Ref<DevicePairingRequestedEventArgs>| {
             if let Ok(args) = args.ok() {
-                if args.PairingKind()? == DevicePairingKinds::ConfirmPinMatch {
+                let kind = args.PairingKind()?;
+                eprintln!("[pair] PairingRequested kind={kind:?}");
+                if kind == DevicePairingKinds::ConfirmPinMatch {
                     let pin = args.Pin()?;
                     super::emit(&format!(r#"{{"type":"pairing","pin":"{pin}"}}"#));
                     args.Accept()?;
+                    eprintln!("[pair] accepted ConfirmPinMatch");
+                } else {
+                    eprintln!("[pair] unhandled pairing kind {kind:?}");
                 }
             }
             Ok(())
         });
         custom.PairingRequested(&handler).map_err(we)?;
 
+        eprintln!("[pair] calling PairAsync(ConfirmPinMatch)");
         let result = custom
             .PairAsync(DevicePairingKinds::ConfirmPinMatch)
             .map_err(we)?
             .get()
             .map_err(we)?;
+        eprintln!("[pair] PairAsync returned");
 
         match result.Status().map_err(we)? {
             DevicePairingResultStatus::Paired => {
