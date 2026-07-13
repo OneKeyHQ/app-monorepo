@@ -133,6 +133,13 @@ export interface ISubscriptionDiff {
   toSubscribe: ISubscriptionSpec<ESubscriptionType>[];
 }
 
+export function isOrderBookOptionsTargetReady(
+  currentCoin: string | undefined,
+  optionsCoin: string | undefined,
+) {
+  return !currentCoin || !optionsCoin || currentCoin === optionsCoin;
+}
+
 export function generateSubscriptionKey<T extends ESubscriptionType>(
   type: T,
   params: IPerpsSubscriptionParams[T],

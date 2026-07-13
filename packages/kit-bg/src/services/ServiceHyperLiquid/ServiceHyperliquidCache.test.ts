@@ -114,6 +114,21 @@ describe('ServiceHyperliquidCache L2 book helpers', () => {
       mantissa: null,
     });
   });
+
+  it('uses the source precision instead of current UI options', () => {
+    const data = Object.assign(
+      buildBook({ coin: 'ETH', bidLevels: 20, askLevels: 20 }),
+      { nSigFigs: 5, mantissa: 5 },
+    );
+
+    expect(
+      buildL2BookSnapshotCachePayload({
+        data,
+        activeBookCoin: 'ETH',
+        activeOptions: { nSigFigs: 5, mantissa: 2 },
+      }),
+    ).toMatchObject({ nSigFigs: 5, mantissa: 5 });
+  });
 });
 
 describe('ServiceHyperliquidCache account display write throttle', () => {

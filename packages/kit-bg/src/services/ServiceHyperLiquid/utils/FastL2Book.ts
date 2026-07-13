@@ -315,8 +315,14 @@ export class FastL2Book {
 
   private readonly _coin: string;
 
-  constructor(coin: string) {
+  private readonly _options: Pick<IBook, 'nSigFigs' | 'mantissa'>;
+
+  constructor(
+    coin: string,
+    options: Pick<IBook, 'nSigFigs' | 'mantissa'> = {},
+  ) {
     this._coin = coin;
+    this._options = options;
   }
 
   get hasSnapshot(): boolean {
@@ -325,7 +331,7 @@ export class FastL2Book {
 
   apply(frame: IFastL2Frame): IBook | null {
     if ('s' in frame) {
-      this._book = parseSnapshot(frame.s, this._coin);
+      this._book = { ...parseSnapshot(frame.s, this._coin), ...this._options };
       return this._book;
     }
     const update = parseUpdate(
@@ -344,7 +350,12 @@ export class FastL2Book {
       mergeSide(this._book.levels[1], update.l[1], update.r[1], 1),
     ];
     assertBookInvariant(levels);
-    this._book = { coin: this._coin, time: update.t, levels } as IBook;
+    this._book = {
+      coin: this._coin,
+      time: update.t,
+      levels,
+      ...this._options,
+    } as IBook;
     return this._book;
   }
 }

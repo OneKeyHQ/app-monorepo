@@ -148,7 +148,10 @@ export type IWebSocketTransport = HL.WebSocketTransport;
 // Market data types
 export type IAllMids = HL.AllMidsResponse;
 export type ICandle = HL.CandleSnapshotResponse[number];
-export type IBook = HL.L2BookWsEvent;
+export type IBook = HL.L2BookWsEvent & {
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+};
 export type IBookLevel = IBook['levels'][number][number];
 export type IFill = HL.UserFillsResponse[number];
 

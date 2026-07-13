@@ -83,6 +83,7 @@ import {
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
+  isOrderBookOptionsTargetReady,
 } from './utils/SubscriptionConfig';
 import { PerKeyMutationQueue } from './utils/SubscriptionMutationQueue';
 import { LatestSubscriptionReconcileQueue } from './utils/SubscriptionReconcileQueue';
@@ -331,7 +332,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       this._fastL2ReconnectAttempted = false;
     }
     this._fastL2SubscriptionKey = spec.key;
-    this._fastL2Book = new FastL2Book(spec.params.c);
+    this._fastL2Book = new FastL2Book(spec.params.c, {
+      nSigFigs: spec.params.s ?? null,
+      mantissa: spec.params.m ?? null,
+    });
     this._logFastL2Diagnostic('decoder-prepared', {
       coin: spec.params.c,
       nSigFigs: spec.params.s ?? null,
@@ -470,6 +474,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const currentAssetId =
       currentMode === 'spot' ? spotActiveAsset?.assetId : activeAsset?.assetId;
     const activeOrderBookOptions = await perpsActiveOrderBookOptionsAtom.get();
+    if (
+      !isOrderBookOptionsTargetReady(currentCoin, activeOrderBookOptions?.coin)
+    ) {
+      this._logFastL2Diagnostic('target-options-not-ready', {
+        coin: currentCoin,
+        detail: activeOrderBookOptions?.coin,
+      });
+      return undefined;
+    }
     const isOrderBookOptionsForCurrentCoin =
       Boolean(currentCoin) && activeOrderBookOptions?.coin === currentCoin;
 
@@ -2356,15 +2369,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           normalizedBook,
         );
       } else if (subscriptionType === ESubscriptionType.L2_BOOK) {
+        const normalizedBook = {
+          ...(data as IBook),
+          nSigFigs: this._currentState.l2BookOptions?.nSigFigs ?? null,
+          mantissa: this._currentState.l2BookOptions?.mantissa ?? null,
+        };
         this.backgroundApi.serviceHyperliquidCache.cacheL2BookSnapshot({
-          data: data as IBook,
+          data: normalizedBook,
           activeBookCoin:
             this._currentState.tradingMode === 'spot'
               ? this._currentState.currentSpotSymbol
               : this._currentState.currentSymbol,
           activeOptions: this._currentState.l2BookOptions,
         });
-        this._emitHyperliquidDataUpdate(subscriptionType, data);
+        this._emitHyperliquidDataUpdate(subscriptionType, normalizedBook);
       } else {
         this._emitHyperliquidDataUpdate(subscriptionType, data);
       }

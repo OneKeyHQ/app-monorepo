@@ -1,6 +1,17 @@
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { calculateRequiredSubscriptions } from './SubscriptionConfig';
+import {
+  calculateRequiredSubscriptions,
+  isOrderBookOptionsTargetReady,
+} from './SubscriptionConfig';
+
+describe('isOrderBookOptionsTargetReady', () => {
+  it('waits for order book options to catch up with the active coin', () => {
+    expect(isOrderBookOptionsTargetReady('ETH', 'BTC')).toBe(false);
+    expect(isOrderBookOptionsTargetReady('ETH', 'ETH')).toBe(true);
+    expect(isOrderBookOptionsTargetReady('ETH', undefined)).toBe(true);
+  });
+});
 
 describe('calculateRequiredSubscriptions', () => {
   it('always subscribes to all dex asset contexts for token selector prices', () => {

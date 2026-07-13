@@ -29,6 +29,20 @@ export function hasL2BookLevels(bookData: HL.IBook | null | undefined) {
   );
 }
 
+export function isL2BookForTarget(
+  book: HL.IBook | null | undefined,
+  coin: string,
+  options?: IL2BookOptions,
+) {
+  return (
+    book?.coin === coin &&
+    book.nSigFigs !== undefined &&
+    book.mantissa !== undefined &&
+    (book.nSigFigs ?? null) === (options?.nSigFigs ?? null) &&
+    (book.mantissa ?? null) === (options?.mantissa ?? null)
+  );
+}
+
 export function getFreshL2BookSnapshotFromColdCache({
   coin,
   options,
@@ -51,7 +65,7 @@ export function getFreshL2BookSnapshotFromColdCache({
   for (const key of keys) {
     const entry = cache[key];
     if (
-      entry?.data?.coin === coin &&
+      isL2BookForTarget(entry?.data, coin, options) &&
       Date.now() - entry.updatedAt <= maxAgeMs
     ) {
       return entry.data;

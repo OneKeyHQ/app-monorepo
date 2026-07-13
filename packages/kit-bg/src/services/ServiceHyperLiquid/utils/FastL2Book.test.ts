@@ -1,6 +1,24 @@
 import { FastL2Book } from './FastL2Book';
 
 describe('FastL2Book', () => {
+  it('keeps source precision on snapshots and updates', () => {
+    const book = new FastL2Book('ETH', { nSigFigs: 5, mantissa: 2 });
+    book.apply({
+      s: {
+        coin: 'ETH',
+        time: 1,
+        levels: [
+          [{ px: '100', sz: '1', n: 1 }],
+          [{ px: '101', sz: '1', n: 1 }],
+        ],
+      },
+    });
+
+    expect(
+      book.apply({ u: { c: 'ETH', t: 2, l: [[], []], r: [[], []] } }),
+    ).toMatchObject({ nSigFigs: 5, mantissa: 2 });
+  });
+
   it('merges an l2 delta into a snapshot without changing the book contract', () => {
     const book = new FastL2Book('BTC');
 

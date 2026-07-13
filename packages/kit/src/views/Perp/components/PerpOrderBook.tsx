@@ -41,6 +41,7 @@ import { useTradingPrice } from '../hooks/useTradingPrice';
 import {
   getFreshL2BookSnapshotFromColdCache,
   getPerpsL2BookColdCacheGlobalSnapshot,
+  isL2BookForTarget,
   isPerpsL2BookInteractive,
 } from '../utils/l2BookFreshness';
 import {
@@ -600,8 +601,13 @@ export function PerpOrderBook({
     l2SubscriptionOptions.mantissa,
     l2SubscriptionOptions.nSigFigs,
   ]);
-  const activeRenderL2Book =
-    renderL2Book?.coin === activeTradeInstrument.coin ? renderL2Book : null;
+  const activeRenderL2Book = isL2BookForTarget(
+    renderL2Book,
+    activeTradeInstrument.coin,
+    l2SubscriptionOptions,
+  )
+    ? renderL2Book
+    : null;
   const visibleL2Book = activeRenderL2Book ?? initialCachedL2Book;
   const hasRenderOrderBook = Boolean(visibleL2Book);
 
@@ -623,7 +629,7 @@ export function PerpOrderBook({
   // Do NOT reset renderL2Book/isOrderBookInteractive on coin/options change:
   // the bridge only re-reports isInteractive on a boolean flip, so a reset
   // landing after a `true` report leaves it stuck out of sync. Render-time gates
-  // (activeRenderL2Book coin filter + freshness checks) already cover staleness.
+  // (activeRenderL2Book target filter + freshness checks) already cover staleness.
 
   useEffect(() => {
     const coin = activeTradeInstrument.coin;
