@@ -30,7 +30,15 @@ jest.mock('expo-linking', () => ({
 jest.mock('expo-web-browser', () => ({
   openBrowserAsync: jest.fn().mockResolvedValue({ type: 'dismiss' }),
   dismissBrowser: jest.fn().mockResolvedValue({ type: 'dismiss' }),
+  WebBrowserPresentationStyle: { PAGE_SHEET: 'pageSheet' },
 }));
+
+const IN_APP_BROWSER_OPTIONS = {
+  createTask: false,
+  presentationStyle: 'pageSheet',
+  dismissButtonStyle: 'close',
+  enableBarCollapsing: true,
+};
 
 const mockEnv = platformEnv as unknown as {
   isNative: boolean;
@@ -58,13 +66,13 @@ describe('openUrlExternal (native)', () => {
     setForceSystemBrowserForDebug(false);
   });
 
-  test('opens https URLs in the in-app browser, trimmed, with createTask:false', async () => {
+  test('opens https URLs in the in-app browser, trimmed, as a page sheet', async () => {
     openUrlExternal('  https://help.onekey.so/hc  ');
     await flushPromises();
     await flushPromises();
     expect(mockOpenBrowserAsync).toHaveBeenCalledWith(
       'https://help.onekey.so/hc',
-      { createTask: false },
+      IN_APP_BROWSER_OPTIONS,
     );
     expect(mockOpenURL).not.toHaveBeenCalled();
   });
@@ -75,7 +83,7 @@ describe('openUrlExternal (native)', () => {
     await flushPromises();
     expect(mockOpenBrowserAsync).toHaveBeenCalledWith(
       'http://192.168.1.1/admin',
-      { createTask: false },
+      IN_APP_BROWSER_OPTIONS,
     );
   });
 

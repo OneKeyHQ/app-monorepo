@@ -168,9 +168,16 @@ const openUrlInAppBrowserNative = async (url: string): Promise<void> => {
   const webBrowser = await import('expo-web-browser');
   // createTask:false keeps the Custom Tab inside OneKey's Android task
   // (BACK returns to the app; singleTask MainActivity clears it on
-  // deep-link re-entry). iOS presents a full-screen SFSafariViewController;
-  // the promise only resolves once the browser is dismissed.
-  await webBrowser.openBrowserAsync(url, { createTask: false });
+  // deep-link re-entry). iOS presents SFSafariViewController as a page
+  // sheet (swipe down or X to dismiss); the promise only resolves once
+  // the browser is dismissed. presentationStyle/dismissButtonStyle are
+  // iOS-only, enableBarCollapsing applies to both platforms.
+  await webBrowser.openBrowserAsync(url, {
+    createTask: false,
+    presentationStyle: webBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+    dismissButtonStyle: 'close',
+    enableBarCollapsing: true,
+  });
 };
 
 export const openUrlExternal = (
