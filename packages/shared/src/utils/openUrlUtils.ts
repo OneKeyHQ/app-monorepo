@@ -16,6 +16,8 @@ import appGlobals from '../appGlobals';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { ETranslations } from '../locale';
 
+import { parseUrl } from './uriUtils';
+
 import type { IPrefType } from '../../types/desktop';
 import type { EWebEmbedRoutePath } from '../consts/webEmbedConsts';
 
@@ -116,12 +118,104 @@ export const openUrlInApp = (url: string, title?: string) => {
   }
 };
 
-export const openUrlExternal = (url: string) => {
-  if (platformEnv.isNative) {
-    void linkingOpenURL(url.trim());
-  } else {
-    openUrlOutsideNative(url.trim());
+export interface IOpenUrlExternalOptions {
+  /**
+   * Skip the in-app browser and hand the URL to the OS. Use for OAuth
+   * redirects, WebUSB tool pages, store links, and explicit
+   * "open in external browser" user actions.
+   */
+  useSystemBrowser?: boolean;
+}
+
+// Store/social links must reach the native app via universal links;
+// in-app browsers never trigger universal-link handoff. Server-driven
+// URLs (banners, notifications) may carry these, so enforce centrally.
+const STORE_HOSTS = new Set([
+  'apps.apple.com',
+  'itunes.apple.com',
+  'testflight.apple.com',
+  'play.google.com',
+]);
+const SOCIAL_APP_HOSTS = new Set([
+  'twitter.com',
+  'x.com',
+  't.me',
+  'discord.com',
+  'discord.gg',
+]);
+
+// Dev-settings kill switch, pushed in from kit (shared cannot import kit-bg).
+let forceSystemBrowserForDebug = false;
+export const setForceSystemBrowserForDebug = (value: boolean) => {
+  forceSystemBrowserForDebug = value;
+};
+
+const isSystemBrowserOnlyHost = (hostname: string): boolean => {
+  const host = hostname.toLowerCase().replace(/^www\./, '');
+  return STORE_HOSTS.has(host) || SOCIAL_APP_HOSTS.has(host);
+};
+
+const trackOpenUrl = (url: string, method: 'inApp' | 'system') => {
+  const parsedUrl = parseUrl(url);
+  // Host-level only: never report the full URL or its query params.
+  const host = parsedUrl?.hostname || parsedUrl?.urlSchema || 'unknown';
+  appGlobals.$defaultLogger?.app.page.openExternalUrl({ host, method });
+};
+
+const openUrlInAppBrowserNative = async (url: string): Promise<void> => {
+  // Lazy import: must never load on the native background JS runtime,
+  // and web/ext/desktop bundles don't need it.
+  const webBrowser = await import('expo-web-browser');
+  // createTask:false keeps the Custom Tab inside OneKey's Android task
+  // (BACK returns to the app; singleTask MainActivity clears it on
+  // deep-link re-entry). iOS presents a full-screen SFSafariViewController;
+  // the promise only resolves once the browser is dismissed.
+  await webBrowser.openBrowserAsync(url, { createTask: false });
+};
+
+export const openUrlExternal = (
+  url: string,
+  options?: IOpenUrlExternalOptions,
+) => {
+  const trimmedUrl = url.trim();
+  if (!platformEnv.isNative) {
+    openUrlOutsideNative(trimmedUrl);
+    return;
   }
+  if (
+    options?.useSystemBrowser ||
+    forceSystemBrowserForDebug ||
+    // The background JS runtime cannot present a native view controller.
+    platformEnv.isNativeBackgroundThread
+  ) {
+    trackOpenUrl(trimmedUrl, 'system');
+    void linkingOpenURL(trimmedUrl);
+    return;
+  }
+  const parsedUrl = parseUrl(trimmedUrl);
+  const isHttpUrl =
+    parsedUrl?.urlSchema === 'http' || parsedUrl?.urlSchema === 'https';
+  if (!parsedUrl || !isHttpUrl || isSystemBrowserOnlyHost(parsedUrl.hostname)) {
+    trackOpenUrl(trimmedUrl, 'system');
+    void linkingOpenURL(trimmedUrl);
+    return;
+  }
+  trackOpenUrl(trimmedUrl, 'inApp');
+  openUrlInAppBrowserNative(trimmedUrl).catch(() => {
+    // e.g. Android NoMatchingActivityException when no installed browser
+    // supports Custom Tabs — fall back to the system browser.
+    void linkingOpenURL(trimmedUrl);
+  });
+};
+
+export const dismissNativeInAppBrowser = () => {
+  // iOS-only API; Android Custom Tabs are cleared by singleTask re-entry.
+  if (!platformEnv.isNativeIOS) {
+    return;
+  }
+  void import('expo-web-browser')
+    .then((webBrowser) => webBrowser.dismissBrowser())
+    .catch(() => {});
 };
 
 export const openSettings = (prefType: IPrefType) => {
@@ -216,6 +310,7 @@ const openUrlUtils = {
   openUrlByWebviewPro,
   openUrlInApp,
   openUrlExternal,
+  dismissNativeInAppBrowser,
   openUrlInDiscovery,
   openFiatCryptoUrl,
   gotoDiscoveryTab,

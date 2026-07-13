@@ -28,7 +28,7 @@ export const openExplorerAddressUrl = async ({
     type: 'address' as const,
   };
   const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
-  if (openInExternal ?? platformEnv.isDesktop) {
+  if (openInExternal ?? (platformEnv.isDesktop || platformEnv.isNative)) {
     openUrlExternal(url);
   } else {
     openUrlInApp(url);
@@ -53,7 +53,7 @@ export const openTransactionDetailsUrl = async ({
     type: 'transaction' as const,
   };
   const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
-  if (openInExternal ?? platformEnv.isDesktop) {
+  if (openInExternal ?? (platformEnv.isDesktop || platformEnv.isNative)) {
     openUrlExternal(url);
   } else {
     openUrlInApp(url);
@@ -81,7 +81,7 @@ export const openBlockExplorerUrl = async ({
   if (!url) {
     return;
   }
-  if (openInExternal ?? platformEnv.isDesktop) {
+  if (openInExternal ?? (platformEnv.isDesktop || platformEnv.isNative)) {
     openUrlExternal(url);
   } else {
     openUrlInApp(url);
@@ -106,7 +106,7 @@ export const openTokenDetailsUrl = async ({
     type: 'token' as const,
   };
   const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
-  if (openInExternal ?? platformEnv.isDesktop) {
+  if (openInExternal ?? (platformEnv.isDesktop || platformEnv.isNative)) {
     openUrlExternal(url);
   } else {
     openUrlInApp(url);
@@ -122,7 +122,7 @@ export const openHyperLiquidExplorerUrl = async ({
 }) => {
   if (address) {
     const url = `${HYPERLIQUID_EXPLORER_URL}${address}`;
-    if (openInExternal ?? platformEnv.isDesktop) {
+    if (openInExternal ?? (platformEnv.isDesktop || platformEnv.isNative)) {
       openUrlExternal(url);
     } else {
       openUrlInApp(url);
@@ -139,7 +139,7 @@ export const openHyperLiquidTokenExplorerUrl = async ({
 }) => {
   if (tokenId) {
     const url = `${HYPERLIQUID_TOKEN_EXPLORER_URL}${tokenId}`;
-    if (openInExternal ?? platformEnv.isDesktop) {
+    if (openInExternal ?? (platformEnv.isDesktop || platformEnv.isNative)) {
       openUrlExternal(url);
     } else {
       openUrlInApp(url);

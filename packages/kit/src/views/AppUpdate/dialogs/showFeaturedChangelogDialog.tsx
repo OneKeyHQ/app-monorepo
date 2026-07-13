@@ -110,7 +110,9 @@ function useFeaturedCta({
 
     if (isPreInstall) {
       if (shouldOpenStore && storeUrl) {
-        openUrlExternal(storeUrl);
+        // Server-driven store URL must reach the store app via the system
+        // browser; in-app browsers never trigger universal links.
+        openUrlExternal(storeUrl, { useSystemBrowser: true });
         await closeIfUnlocked();
         return;
       }

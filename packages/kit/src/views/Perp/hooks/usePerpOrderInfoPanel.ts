@@ -13,7 +13,7 @@ import {
   PERPS_TWAP_HISTORY_URL,
 } from '@onekeyhq/shared/src/consts/perp';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -110,7 +110,7 @@ function usePerpViewAllUrl(baseUrl: string) {
   const [currentAccount] = usePerpsActiveAccountAtom();
   const onViewAllUrl = useCallback(() => {
     if (currentAccount?.accountAddress) {
-      openUrlInApp(`${baseUrl}${currentAccount.accountAddress}`);
+      openUrlExternal(`${baseUrl}${currentAccount.accountAddress}`);
     }
   }, [baseUrl, currentAccount?.accountAddress]);
   return {

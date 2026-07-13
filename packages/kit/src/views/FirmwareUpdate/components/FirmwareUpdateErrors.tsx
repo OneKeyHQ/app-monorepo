@@ -119,7 +119,10 @@ function ShouldUpdateByWeb() {
       />
       <FirmwareUpdatePageFooter
         onConfirm={() => {
-          openUrlExternal(FIRMWARE_UPDATE_WEB_TOOLS_URL);
+          // The web tool needs WebUSB, unavailable in in-app browsers.
+          openUrlExternal(FIRMWARE_UPDATE_WEB_TOOLS_URL, {
+            useSystemBrowser: true,
+          });
         }}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_visit_website,

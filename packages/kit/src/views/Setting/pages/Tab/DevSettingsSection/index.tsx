@@ -2043,6 +2043,16 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      {platformEnv.isNative ? (
+                        <SectionFieldItem
+                          icon="ArrowTopRightOutline"
+                          name="useSystemBrowserForExternalLinks"
+                          title="外部链接使用系统浏览器"
+                          subtitle="跳过 in-app browser（SFSafariViewController / Custom Tabs），外链直接跳出到系统浏览器"
+                        >
+                          <Switch size={ESwitchSize.small} />
+                        </SectionFieldItem>
+                      ) : null}
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>,
