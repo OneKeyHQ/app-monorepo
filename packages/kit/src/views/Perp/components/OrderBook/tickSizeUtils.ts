@@ -23,6 +23,30 @@ export interface ITickParam {
   value: string;
 }
 
+type IOrderBookTickOptionState = {
+  value: string;
+  nSigFigs?: INSig;
+  mantissa?: IMantissa | null;
+};
+
+export function shouldPersistOrderBookTickOption({
+  hasMarketData,
+  persisted,
+  selected,
+}: {
+  hasMarketData: boolean;
+  persisted: IOrderBookTickOptionState | undefined;
+  selected: IOrderBookTickOptionState;
+}) {
+  return (
+    hasMarketData &&
+    (!persisted ||
+      persisted.value !== selected.value ||
+      persisted.nSigFigs !== selected.nSigFigs ||
+      persisted.mantissa !== selected.mantissa)
+  );
+}
+
 function floorLog10(x: number): number {
   return Math.floor(Math.log10(x));
 }

@@ -2,7 +2,32 @@ import BigNumber from 'bignumber.js';
 
 import { getDisplayPriceScaleDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { buildTickOptions } from './tickSizeUtils';
+import {
+  buildTickOptions,
+  shouldPersistOrderBookTickOption,
+} from './tickSizeUtils';
+
+describe('shouldPersistOrderBookTickOption', () => {
+  it('does not replace precision while order book data is transitioning', () => {
+    expect(
+      shouldPersistOrderBookTickOption({
+        hasMarketData: false,
+        persisted: { value: '0.2', nSigFigs: 5, mantissa: 2 },
+        selected: { value: '100', nSigFigs: 2, mantissa: null },
+      }),
+    ).toBe(false);
+  });
+
+  it('persists a changed selection derived from live market data', () => {
+    expect(
+      shouldPersistOrderBookTickOption({
+        hasMarketData: true,
+        persisted: { value: '0.1', nSigFigs: 5, mantissa: null },
+        selected: { value: '0.2', nSigFigs: 5, mantissa: 2 },
+      }),
+    ).toBe(true);
+  });
+});
 
 const fixtures = {
   BTC: {
