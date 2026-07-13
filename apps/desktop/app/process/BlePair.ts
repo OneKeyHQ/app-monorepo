@@ -202,3 +202,33 @@ export async function isDevicePaired(address: string): Promise<boolean> {
 export async function forgetDevice(address: string): Promise<void> {
   await runHelper(['forget', '--address', address]);
 }
+
+/**
+ * Fire-and-forget raw advertisement dump into the app log.
+ *
+ * ACTIVE scan, no service-UUID filter — deliberately everything noble's filtered
+ * scan could be hiding. This is the only way to tell "the device is not
+ * advertising at all" apart from "it IS advertising but we filter it out", and —
+ * after a bond — whether Windows resolves the device's rotating RPA back to a
+ * stable identity address. Rebuilding the app to find that out is expensive, so
+ * the answer is captured in the normal log instead.
+ *
+ * Never awaited and never throws: this is instrumentation, it must not be able
+ * to fail a connect.
+ */
+export function startRawAdvertisementWatch(
+  seconds: number,
+  reason: string,
+): void {
+  if (!isBlePairAvailable()) return;
+  logger.info(
+    `[BlePair] raw advertisement watch (${seconds}s), reason=${reason}`,
+  );
+  void runHelper(['watch', '--seconds', String(seconds)]).catch((error) => {
+    logger.warn(
+      `[BlePair] raw watch failed: ${
+        error instanceof Error ? error.message : ''
+      }`,
+    );
+  });
+}

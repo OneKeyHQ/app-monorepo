@@ -2,7 +2,11 @@ import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble
 import { dialog } from 'electron';
 import logger from 'electron-log/main';
 
-import { ensureDevicePaired, isBlePairAvailable } from './BlePair';
+import {
+  ensureDevicePaired,
+  isBlePairAvailable,
+  startRawAdvertisementWatch,
+} from './BlePair';
 
 import type {
   IpcMainLike,
@@ -24,11 +28,29 @@ import type { BrowserWindow } from 'electron';
 // the device is advertising again.
 const POST_PAIR_SETTLE_MS = 2000;
 
+// Raw-advertisement instrumentation. It only ever runs when we are ALREADY in a
+// failing state (the scan keeps coming back empty) or right after a bond, so it
+// cannot disturb a flow that works — and it means a single app run captures the
+// answer, instead of costing another hour-long rebuild.
+const EMPTY_SCANS_BEFORE_RAW_WATCH = 8; // ~12s of the SDK's ~1.5s poll
+const RAW_WATCH_COOLDOWN_MS = 90_000;
+const RAW_WATCH_SECONDS_SCAN = 20;
+const RAW_WATCH_SECONDS_POST_PAIR = 25;
+
 export function createTrezorBlePairingIpcMain(
   base: IpcMainLike,
   browserWindow: BrowserWindow,
 ): IpcMainLike {
   const addressByConnectId = new Map<string, string>();
+  let consecutiveEmptyScans = 0;
+  let lastRawWatchAt = 0;
+
+  const maybeRawWatch = (seconds: number, reason: string) => {
+    const now = Date.now();
+    if (now - lastRawWatchAt < RAW_WATCH_COOLDOWN_MS) return;
+    lastRawWatchAt = now;
+    startRawAdvertisementWatch(seconds, reason);
+  };
 
   const showPin = (pin: string) => {
     // The helper has ALREADY called Accept() on the Windows side by the time we
@@ -86,6 +108,14 @@ export function createTrezorBlePairingIpcMain(
       // resume advertising; noble's scan cannot see it until it does. Skipped
       // when the bond already existed (no link was opened).
       if (paired === 'paired') {
+        // THE question: post-bond, does Windows report the device under a stable
+        // (IRK-resolved) identity address, or still a rotating RPA? If stable,
+        // the connectId must become that identity. If it keeps rotating, noble
+        // cannot address this device on Windows at all and the transport needs
+        // rethinking. Runs alongside the connect below, so the log shows exactly
+        // what was on air while noble was failing to find the device.
+        lastRawWatchAt = 0; // this one always runs, cooldown must not eat it
+        maybeRawWatch(RAW_WATCH_SECONDS_POST_PAIR, 'post-pair-identity-check');
         await new Promise((resolve) => {
           setTimeout(resolve, POST_PAIR_SETTLE_MS);
         });
@@ -135,6 +165,22 @@ export function createTrezorBlePairingIpcMain(
                   .join(', ') || 'none'
               }`,
             );
+
+            // The SDK scans with a service-UUID filter. When it keeps returning
+            // nothing, we cannot tell from here whether the device is silent or
+            // whether the filter is dropping it — so dump the raw, unfiltered
+            // advertisements once and settle it in the log.
+            if (devices.length === 0) {
+              consecutiveEmptyScans += 1;
+              if (consecutiveEmptyScans >= EMPTY_SCANS_BEFORE_RAW_WATCH) {
+                maybeRawWatch(
+                  RAW_WATCH_SECONDS_SCAN,
+                  `${consecutiveEmptyScans}-empty-scans`,
+                );
+              }
+            } else {
+              consecutiveEmptyScans = 0;
+            }
           }
           return result;
         });
