@@ -93,6 +93,11 @@ import {
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 
+import {
+  isLatestTransactionConfirmationRequest,
+  selectCurrentTransactionConfirmation,
+} from './transactionConfirmationRequestUtils';
+
 import type { FontSizeTokens } from 'tamagui';
 
 type IFooterActionOverride = {
@@ -372,9 +377,12 @@ export function UniversalWithdraw({
   const [pendingEthenaCooldownUnstake, setPendingEthenaCooldownUnstake] =
     useState(false);
   const ethenaCooldownCompletedRef = useRef(false);
-  const [transactionConfirmation, setTransactionConfirmation] = useState<
-    IStakeTransactionConfirmation | undefined
-  >();
+  const [transactionConfirmationSnapshot, setTransactionConfirmation] =
+    useState<IStakeTransactionConfirmation | undefined>();
+  const [resolvedTransactionConfirmationRequestKey, setResolvedRequestKey] =
+    useState<string>();
+  const transactionConfirmationRequestIdRef = useRef(0);
+  const transactionConfirmationRequestKeyRef = useRef('');
 
   // Sign message hook and refs for withdraw all signature
   const signPersonalMessage = useEarnSignMessageWithoutVerify();
@@ -391,8 +399,11 @@ export function UniversalWithdraw({
     () => earnUtils.isPendleProvider({ providerName: providerName ?? '' }),
     [providerName],
   );
-  const isNativeProvider = useMemo(
-    () => earnUtils.isNativeProvider({ providerName: providerName ?? '' }),
+  const requiresEarnWithdrawPath = useMemo(
+    () =>
+      earnUtils.requiresEarnWithdrawPath({
+        providerName: providerName ?? '',
+      }),
     [providerName],
   );
   const shouldSendProtocolVault = useMemo(
@@ -404,13 +415,10 @@ export function UniversalWithdraw({
   );
 
   const withdrawPathConfirmBoxes = useMemo(() => {
-    if (!(isPendleProvider || isNativeProvider)) return [];
-    return transactionConfirmation?.withdrawPath?.data?.confirmBoxes ?? [];
-  }, [
-    isPendleProvider,
-    isNativeProvider,
-    transactionConfirmation?.withdrawPath?.data?.confirmBoxes,
-  ]);
+    return (
+      transactionConfirmationSnapshot?.withdrawPath?.data?.confirmBoxes ?? []
+    );
+  }, [transactionConfirmationSnapshot?.withdrawPath?.data?.confirmBoxes]);
 
   const effectiveSelectedWithdrawPathIndex = useMemo(() => {
     if (withdrawPathConfirmBoxes.length <= 1) return 0;
@@ -439,6 +447,54 @@ export function UniversalWithdraw({
     return selectedWithdrawPath?.withdrawType;
   }, [isCancelWithdrawal, selectedWithdrawPath?.withdrawType]);
 
+  const transactionConfirmationRequestKey = useMemo(
+    () =>
+      JSON.stringify({
+        accountAddress,
+        actionSymbol: requestSymbol || tokenSymbol || '',
+        amount: amountValue,
+        identity,
+        inputTokenAddress: transactionInputTokenAddress,
+        isDisabled,
+        networkId: networkId || '',
+        outputTokenAddress: transactionOutputTokenAddress,
+        provider: providerName || '',
+        slippage: pendleSlippage,
+        vault: shouldSendProtocolVault ? protocolVault || '' : '',
+        withdrawType: selectedWithdrawType,
+      }),
+    [
+      accountAddress,
+      amountValue,
+      identity,
+      isDisabled,
+      networkId,
+      pendleSlippage,
+      protocolVault,
+      providerName,
+      requestSymbol,
+      selectedWithdrawType,
+      shouldSendProtocolVault,
+      tokenSymbol,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+    ],
+  );
+  transactionConfirmationRequestKeyRef.current =
+    transactionConfirmationRequestKey;
+
+  const isTransactionConfirmationCurrent =
+    resolvedTransactionConfirmationRequestKey ===
+    transactionConfirmationRequestKey;
+  // Preserve the last response only to retain the selected path while loading.
+  // Stale data is never rendered or submitted for providers that require it.
+  const transactionConfirmation = selectCurrentTransactionConfirmation({
+    snapshot: transactionConfirmationSnapshot,
+    currentRequestKey: transactionConfirmationRequestKey,
+    resolvedRequestKey: resolvedTransactionConfirmationRequestKey,
+    requiresCurrentRequest: requiresEarnWithdrawPath,
+  });
+
   const rootTransactionTip = useMemo(
     () =>
       transactionConfirmation?.withdrawPath?.data?.tip ??
@@ -453,8 +509,7 @@ export function UniversalWithdraw({
     [rootTransactionTip, selectedWithdrawPath?.tip],
   );
 
-  const isNativeQueuedWithdraw =
-    isNativeProvider && selectedWithdrawType === 'queued';
+  const isQueuedWithdraw = selectedWithdrawType === 'queued';
 
   const handleTipAction = useCallback(
     async (tip?: IEarnTransactionTip) => {
@@ -479,7 +534,7 @@ export function UniversalWithdraw({
   );
 
   const approveAmountValue = useMemo(() => {
-    if (!isNativeQueuedWithdraw || !receiptTokenRate) {
+    if (!isQueuedWithdraw || !receiptTokenRate) {
       return amountValue;
     }
 
@@ -512,15 +567,14 @@ export function UniversalWithdraw({
     amountValue,
     approveTarget?.token?.decimals,
     decimals,
-    isNativeQueuedWithdraw,
+    isQueuedWithdraw,
     isWithdrawAll,
     receiptTokenRate,
   ]);
 
-  // --- Approve logic (Pendle sell and Native queued withdraw) ---
+  // --- Approve logic (Pendle sell and server-declared queued withdraw) ---
   const useApprove =
-    (isPendleProvider || isNativeQueuedWithdraw) &&
-    !!approveTarget?.spenderAddress;
+    (isPendleProvider || isQueuedWithdraw) && !!approveTarget?.spenderAddress;
   const [approving, setApproving] = useState(false);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
 
@@ -798,6 +852,12 @@ export function UniversalWithdraw({
   );
 
   const onPress = useCallback(async () => {
+    if (
+      requiresEarnWithdrawPath &&
+      (!isTransactionConfirmationCurrent || !selectedWithdrawType)
+    ) {
+      return;
+    }
     try {
       Keyboard.dismiss();
       setLoading(true);
@@ -921,6 +981,8 @@ export function UniversalWithdraw({
     transactionConfirmation?.effectiveApy,
     transactionConfirmation?.receive,
     pendingEthenaCooldownUnstake,
+    requiresEarnWithdrawPath,
+    isTransactionConfirmationCurrent,
     selectedWithdrawType,
     isCancelWithdrawal,
   ]);
@@ -928,6 +990,14 @@ export function UniversalWithdraw({
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
   const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
     useState(false);
+
+  const isWithdrawPathReady = earnUtils.isEarnWithdrawPathReady({
+    providerName: providerName ?? '',
+    isLoading:
+      transactionConfirmationLoading ||
+      (requiresEarnWithdrawPath && !isTransactionConfirmationCurrent),
+    withdrawType: selectedWithdrawType,
+  });
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
@@ -966,7 +1036,7 @@ export function UniversalWithdraw({
   }, 300);
 
   const fetchTransactionConfirmation = useCallback(
-    async (amount: string) => {
+    async (amount: string, withdrawType = selectedWithdrawType) => {
       if (isDisabled) {
         return undefined;
       }
@@ -983,7 +1053,7 @@ export function UniversalWithdraw({
           inputTokenAddress: transactionInputTokenAddress,
           outputTokenAddress: transactionOutputTokenAddress,
           slippage: pendleSlippage,
-          withdrawType: selectedWithdrawType,
+          withdrawType,
         });
       return resp;
     },
@@ -1008,30 +1078,76 @@ export function UniversalWithdraw({
   fetchTransactionConfirmationRef.current = fetchTransactionConfirmation;
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
-    async (amount?: string) => {
-      setTransactionConfirmationLoading(true);
+    async ({
+      amount,
+      requestId,
+      requestKey,
+      withdrawType,
+    }: {
+      amount?: string;
+      requestId: number;
+      requestKey: string;
+      withdrawType?: IEarnWithdrawType;
+    }) => {
       try {
-        const resp = await fetchTransactionConfirmation(amount || '0');
+        const resp = await fetchTransactionConfirmation(
+          amount || '0',
+          withdrawType,
+        );
+        if (
+          !isLatestTransactionConfirmationRequest({
+            requestId,
+            requestKey,
+            latestRequestId: transactionConfirmationRequestIdRef.current,
+            latestRequestKey: transactionConfirmationRequestKeyRef.current,
+          })
+        ) {
+          return;
+        }
         setTransactionConfirmation(resp);
+        setResolvedRequestKey(requestKey);
         if (resp && amount && Number(amount) > 0) {
           onQuoteReset?.();
         }
       } catch {
-        // keep stale state
+        // The previous snapshot remains internal and cannot enable submission.
       } finally {
-        setTransactionConfirmationLoading(false);
+        if (
+          isLatestTransactionConfirmationRequest({
+            requestId,
+            requestKey,
+            latestRequestId: transactionConfirmationRequestIdRef.current,
+            latestRequestKey: transactionConfirmationRequestKeyRef.current,
+          })
+        ) {
+          setTransactionConfirmationLoading(false);
+        }
       }
     },
     350,
   );
 
   useEffect(() => {
-    void debouncedFetchTransactionConfirmation(amountValue);
+    transactionConfirmationRequestIdRef.current += 1;
+    const requestId = transactionConfirmationRequestIdRef.current;
+    setTransactionConfirmationLoading(true);
+    void debouncedFetchTransactionConfirmation({
+      amount: amountValue,
+      requestId,
+      requestKey: transactionConfirmationRequestKey,
+      withdrawType: selectedWithdrawType,
+    });
+    return () => {
+      if (transactionConfirmationRequestIdRef.current === requestId) {
+        transactionConfirmationRequestIdRef.current += 1;
+      }
+      debouncedFetchTransactionConfirmation.cancel();
+    };
   }, [
     amountValue,
     debouncedFetchTransactionConfirmation,
     selectedWithdrawType,
-    transactionOutputTokenAddress,
+    transactionConfirmationRequestKey,
   ]);
 
   const { quoteRefreshing, handleLocalRefreshQuote } = useQuoteRefresh({
@@ -1153,7 +1269,8 @@ export function UniversalWithdraw({
           BigNumber(amountValue).isLessThanOrEqualTo(0))) ||
       isCheckAmountMessageError ||
       checkAmountAlerts.length > 0 ||
-      checkAmountLoading,
+      checkAmountLoading ||
+      !isWithdrawPathReady,
     [
       isDisabled,
       amountValue,
@@ -1161,6 +1278,7 @@ export function UniversalWithdraw({
       checkAmountAlerts.length,
       checkAmountLoading,
       isCancelWithdrawal,
+      isWithdrawPathReady,
       selectedWithdrawPath?.disabled,
     ],
   );
@@ -1251,7 +1369,9 @@ export function UniversalWithdraw({
   const isAccordionTriggerDisabled = !amountValue;
 
   const showWithdrawPathSelector =
-    withdrawPathConfirmBoxes.length > 1 && !!selectedWithdrawPath;
+    (!requiresEarnWithdrawPath || isTransactionConfirmationCurrent) &&
+    withdrawPathConfirmBoxes.length > 1 &&
+    !!selectedWithdrawPath;
   const shouldShowPendleWithdrawProgress =
     useApprove &&
     !!amountValue &&
@@ -1334,7 +1454,11 @@ export function UniversalWithdraw({
   const confirmLoading = useMemo(() => {
     if (shouldApprove) return loadingAllowance || approving;
     if (effectiveShowExpiredRefresh) return quoteRefreshing;
-    return loading || checkAmountLoading;
+    return (
+      loading ||
+      checkAmountLoading ||
+      (requiresEarnWithdrawPath && transactionConfirmationLoading)
+    );
   }, [
     shouldApprove,
     effectiveShowExpiredRefresh,
@@ -1343,6 +1467,8 @@ export function UniversalWithdraw({
     quoteRefreshing,
     loading,
     checkAmountLoading,
+    requiresEarnWithdrawPath,
+    transactionConfirmationLoading,
   ]);
 
   const confirmDisabled = useMemo(() => {
