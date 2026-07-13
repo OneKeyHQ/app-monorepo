@@ -1,0 +1,28 @@
+[package]
+name = "onekey-ble-pair"
+version = "0.1.0"
+edition = "2021"
+description = "One-shot Windows BLE pairing helper for OneKey desktop (mirrors trezor-suite try_to_pair)"
+publish = false
+
+[[bin]]
+name = "onekey-ble-pair"
+path = "src/main.rs"
+
+# WinRT projections. Only pulled on Windows targets; on macOS/Linux the crate
+# compiles down to the non-windows stub in main.rs so `cargo build` still works
+# during local development. Version pinned to match trezor-suite's transport-
+# bluetooth crate, whose platform/windows.rs this is ported from.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = [
+    "Devices_Bluetooth",
+    "Devices_Enumeration",
+    "Foundation",
+] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+panic = "abort"
+codegen-units = 1
