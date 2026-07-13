@@ -3,6 +3,7 @@ import semver from 'semver';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type {
+  IFeaturedChangelog,
   IPendingInstallTask,
   IResponseAppUpdateInfo,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -502,6 +503,80 @@ class ServiceAppUpdate extends ServiceBase {
       this.cachedUpdateInfo = normalizedData;
     }
     return this.cachedUpdateInfo;
+  }
+
+  // Ops-only Featured Changelog preview. Fetches the changelog the server has
+  // configured for a SPECIFIC app version by overriding the
+  // X-Onekey-Request-Version request header, so the server's REAL
+  // update-selection pipeline runs for that version (no dashboard "simulate"
+  // bypass). Deliberately clones fetchConfig's fetch + normalize path but
+  // writes NOTHING — no this.cachedUpdateInfo, no this.updateAt, no
+  // appUpdatePersistAtom — so the preview has zero side effects on the real
+  // update flow.
+  //
+  // Runtime scope: bg-JS. The returned plain object crosses the
+  // backgroundApiProxy boundary back to main-JS (JSON-safe: strings/enums/
+  // nested plain objects only).
+  @backgroundMethod()
+  public async previewFeaturedChangelog(params: { version: string }): Promise<{
+    version: string | undefined;
+    featuredChangelog: IFeaturedChangelog | undefined;
+    storeUrl: string | undefined;
+    downloadUrl: string | undefined;
+    updateStrategy: EUpdateStrategy | undefined;
+    jsBundleVersion: string | undefined;
+  }> {
+    const version = params.version?.trim();
+    if (!version) {
+      throw new OneKeyLocalError(
+        'previewFeaturedChangelog: version is required',
+      );
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    // Per-request header override. The shared axios interceptor carves
+    // 'x-onekey-request-version' out of its global-header overwrite loop, so
+    // this value survives. The key MUST be lowercase to match that carve-out.
+    const response = await client.get<{
+      code: number;
+      data: IResponseAppUpdateInfo;
+    }>('/utility/v1/app-update', {
+      headers: { 'x-onekey-request-version': version },
+    });
+    const { code, data } = response.data;
+    const emptyResult = {
+      version: undefined,
+      featuredChangelog: undefined,
+      storeUrl: undefined,
+      downloadUrl: undefined,
+      updateStrategy: undefined,
+      jsBundleVersion: undefined,
+    };
+    if (code !== 0 || !data) {
+      return emptyResult;
+    }
+    // Use the version the server actually returned (data.version) as the
+    // expected-version guard for normalizeFeaturedChangelog — identical to
+    // fetchConfig — so a formatting difference in the operator's input never
+    // nukes an otherwise-valid payload.
+    const responseVersion = normalizeOptionalString(data.version);
+    const normalizedUpdateStrategy =
+      data.updateStrategy === undefined ||
+      data.updateStrategy === null ||
+      (data.updateStrategy as unknown) === ''
+        ? undefined
+        : Number(data.updateStrategy);
+    return {
+      version: responseVersion,
+      featuredChangelog: normalizeFeaturedChangelog(
+        data.featuredChangelog,
+        responseVersion,
+      ),
+      storeUrl: normalizeOptionalString(data.storeUrl),
+      downloadUrl: normalizeOptionalString(data.downloadUrl),
+      updateStrategy: (normalizedUpdateStrategy ??
+        data.updateStrategy) as EUpdateStrategy,
+      jsBundleVersion: normalizeOptionalString(data.jsBundleVersion),
+    };
   }
 
   @backgroundMethod()

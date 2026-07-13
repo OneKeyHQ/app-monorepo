@@ -306,6 +306,17 @@ axios.interceptors.request.use(async (config) => {
     ) {
       return;
     }
+    // Preserve per-request version header override. The Featured Changelog
+    // preview (ops tool) forces a target version so the server's real
+    // update-selection pipeline runs for it. Key MUST stay lowercase to match
+    // the normalizeHeaderKey output of getRequestHeaders().
+    if (
+      key === 'x-onekey-request-version' &&
+      config.headers[key] !== null &&
+      config.headers[key] !== undefined
+    ) {
+      return;
+    }
     config.headers[key] = val;
   });
 

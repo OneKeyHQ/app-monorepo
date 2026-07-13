@@ -17,6 +17,8 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
+  EAppUpdateRoutes,
+  EModalRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -207,6 +209,21 @@ async function processDeepLinkUrlAccount(
           if (webViewParams) {
             openWebView(webViewParams);
           }
+          break;
+        }
+        case EOneKeyDeepLinkPath.preview_featured_changelog: {
+          // Ops-only entry: opens the Featured Changelog preview page so
+          // dashboard-configured changelog content can be verified in a
+          // production build. Access is gated by the obscurity of this
+          // deeplink — the page has no in-app navigation entry point.
+          const query =
+            queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.preview_featured_changelog];
+          const version =
+            getStringQueryParam(query?.version)?.trim() || undefined;
+          navigation.pushModal(EModalRoutes.AppUpdateModal, {
+            screen: EAppUpdateRoutes.FeaturedChangelogPreview,
+            params: { version },
+          });
           break;
         }
         default:
