@@ -69,24 +69,37 @@ export class WalletConnectDappSide {
 
   sharedClient: IWalletConnectSignClient | undefined;
 
+  private sharedClientPromise: Promise<IWalletConnectSignClient> | undefined;
+
   async getSharedClient() {
-    if (!this.sharedClient) {
-      this.sharedClient = await walletConnectClient.getDappSideClient();
-      // TODO off event
-      this.sharedClient.on(
-        EWalletConnectSessionEvents.session_delete,
-        this.handleSessionDelete,
-      );
-      this.sharedClient.on(
-        EWalletConnectSessionEvents.session_update,
-        this.handleSessionUpdate,
-      );
-      this.sharedClient.on(
-        EWalletConnectSessionEvents.session_event,
-        this.handleSessionEvent,
-      );
+    if (this.sharedClient) {
+      return this.sharedClient;
     }
-    return this.sharedClient;
+    if (!this.sharedClientPromise) {
+      this.sharedClientPromise = (async () => {
+        try {
+          const client = await walletConnectClient.getDappSideClient();
+          this.sharedClient = client;
+          client.on(
+            EWalletConnectSessionEvents.session_delete,
+            this.handleSessionDelete,
+          );
+          client.on(
+            EWalletConnectSessionEvents.session_update,
+            this.handleSessionUpdate,
+          );
+          client.on(
+            EWalletConnectSessionEvents.session_event,
+            this.handleSessionEvent,
+          );
+          return client;
+        } catch (error) {
+          this.sharedClientPromise = undefined;
+          throw error;
+        }
+      })();
+    }
+    return this.sharedClientPromise;
   }
 
   handleSessionEvent = async (p: IWalletConnectEventSessionEventParams) => {
@@ -214,38 +227,39 @@ export class WalletConnectDappSide {
     if (!topic) return;
 
     const provider = await this.getOrCreateProvider({ topic });
+    const cachedProvider = this.providers[topic];
 
     const destroy = async (p: WalletConnectDappSideProvider | undefined) => {
-      try {
-        await p?.disconnect();
-      } catch (error) {
-        console.error(error);
+      if (p) {
+        try {
+          await p.disconnect();
+        } catch (error) {
+          console.error(error);
+        }
+        try {
+          // @ts-ignore
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          await p.cleanup();
+        } catch (error) {
+          console.error(error);
+        }
+        try {
+          await p.cleanupPendingPairings({ deletePairings: true });
+        } catch (error) {
+          console.error(error);
+        } finally {
+          p.dispose();
+        }
       }
-      try {
-        // @ts-ignore
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        await p?.cleanup();
-      } catch (error) {
-        console.error(error);
-      }
-      try {
-        await p?.cleanupPendingPairings({ deletePairings: true });
-      } catch (error) {
-        console.error(error);
-      }
-      // TODO save all event on listener, and remove it on destroy
     };
 
-    try {
-      await destroy(provider);
-    } catch (error) {
-      console.error(error);
-    }
-
-    try {
-      await destroy(this.providers[topic]);
-    } catch (error) {
-      console.error(error);
+    const providers = new Set([provider, cachedProvider].filter(Boolean));
+    for (const item of providers) {
+      try {
+        await destroy(item);
+      } catch (error) {
+        console.error(error);
+      }
     }
 
     // remove provider cache
@@ -403,6 +417,8 @@ export class WalletConnectDappSide {
 
   private activeConnectAttempt: IWalletConnectAttempt | undefined;
 
+  private singleWalletCleanupQueue: Promise<void> = Promise.resolve();
+
   private throwIfConnectCancelled(attempt: IWalletConnectAttempt) {
     if (attempt.cancelled) {
       throw new OneKeyWalletConnectModalCloseError();
@@ -420,6 +436,33 @@ export class WalletConnectDappSide {
       return;
     }
     this.openModal({ uri });
+  }
+
+  private async cleanupPreviousWalletConnectAccounts(
+    attempt: IWalletConnectAttempt,
+  ) {
+    const previousCleanup = this.singleWalletCleanupQueue;
+    let releaseCleanup: (() => void) | undefined;
+    this.singleWalletCleanupQueue = new Promise<void>((resolve) => {
+      releaseCleanup = resolve;
+    });
+
+    await previousCleanup;
+    try {
+      this.throwIfConnectCancelled(attempt);
+      const { accounts } =
+        await this.backgroundApi.serviceAccount.getWalletConnectDBAccounts({
+          topic: undefined,
+        });
+      this.throwIfConnectCancelled(attempt);
+      for (const account of accounts) {
+        this.throwIfConnectCancelled(attempt);
+        await this.backgroundApi.serviceAccount.removeAccount({ account });
+        this.throwIfConnectCancelled(attempt);
+      }
+    } finally {
+      releaseCleanup?.();
+    }
   }
 
   async connectToWallet(params: IWalletConnectConnectToWalletParams) {
@@ -476,31 +519,21 @@ export class WalletConnectDappSide {
         updateDB: true,
       });
 
-    let provider = await createNewProvider();
-    this.throwIfConnectCancelled(attempt);
-
     // disconnect previous session
     if (DAPP_SIDE_SINGLE_WALLET_MODE) {
       try {
-        const { accounts } =
-          await this.backgroundApi.serviceAccount.getWalletConnectDBAccounts({
-            topic: undefined, // find all walletconnect accounts
-          });
-        for (const account of accounts) {
-          await this.backgroundApi.serviceAccount.removeAccount({ account });
-        }
+        await this.cleanupPreviousWalletConnectAccounts(attempt);
       } catch (error) {
-        console.error(error);
-      } finally {
-        provider = await createNewProvider();
         this.throwIfConnectCancelled(attempt);
+        console.error(error);
       }
     }
 
+    this.throwIfConnectCancelled(attempt);
+    const provider = await createNewProvider();
     attempt.provider = provider;
 
     const displayUriHandler = (uri: string) => {
-      console.log('uri', uri);
       this.openModalForConnectAttempt({ attempt, uri });
     };
 
@@ -511,14 +544,17 @@ export class WalletConnectDappSide {
       await this.handleSessionDelete(p);
     };
 
-    // https://docs.walletconnect.com/advanced/providers/universal#events
-    provider.once(EWalletConnectSessionEvents.display_uri, displayUriHandler);
-    provider.once(
-      EWalletConnectSessionEvents.session_delete,
-      sessionDeleteHandler,
-    );
-
+    let shouldKeepProvider = false;
     try {
+      this.throwIfConnectCancelled(attempt);
+
+      // https://docs.walletconnect.com/advanced/providers/universal#events
+      provider.once(EWalletConnectSessionEvents.display_uri, displayUriHandler);
+      provider.once(
+        EWalletConnectSessionEvents.session_delete,
+        sessionDeleteHandler,
+      );
+
       const connectParams: IWalletConnectConnectParams = {
         optionalNamespaces: {},
       };
@@ -557,11 +593,18 @@ export class WalletConnectDappSide {
       this.throwIfConnectCancelled(attempt);
       // call connect() to create new session
       await provider.connect(connectParams);
+      this.throwIfConnectCancelled(attempt);
       if (!provider.session || !provider.isWalletConnect) {
         throw new OneKeyLocalError(
           'WalletConnect ERROR: Connect to wallet failed',
         );
       }
+      const cachedProvider = this.providers[provider.session.topic];
+      if (cachedProvider && cachedProvider !== provider) {
+        cachedProvider.dispose();
+      }
+      this.providers[provider.session.topic] = provider;
+      shouldKeepProvider = true;
       appEventBus.emit(EAppEventBusNames.WalletConnectConnectSuccess, {
         session: provider.session,
       });
@@ -578,6 +621,9 @@ export class WalletConnectDappSide {
         EWalletConnectSessionEvents.session_delete,
         sessionDeleteHandler,
       );
+      if (!shouldKeepProvider) {
+        provider.dispose();
+      }
     }
   }
 

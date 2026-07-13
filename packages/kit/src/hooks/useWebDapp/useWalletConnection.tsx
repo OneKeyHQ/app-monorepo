@@ -20,6 +20,8 @@ import { ConnectToWalletDialogContent } from '../../components/WebDapp/ConnectTo
 
 import { useConnectExternalWallet } from './useConnectExternalWallet';
 
+const WALLET_CONNECT_MODAL_OPEN_DIALOG_CLOSE_FLAG = 'wallet-connect-modal-open';
+
 // Hook for wallet connection logic - shared between WalletItem and WalletConnectListItem
 export function useWalletConnection({
   name,
@@ -76,8 +78,9 @@ export function useWalletConnection({
       if (state.open === true && platformEnv.isNative && isWalletConnect) {
         // Dialog component will cover the WalletConnectSDK modal, so we need to manually close the Dialog
         // search: zIndex: 99993173
-        shouldAbortWalletConnectOnDialogCloseRef.current = false;
-        await dialogRef.current?.close();
+        await dialogRef.current?.close({
+          flag: WALLET_CONNECT_MODAL_OPEN_DIALOG_CLOSE_FLAG,
+        });
 
         // Wait for React Native Fabric to complete view cleanup
         // This prevents race conditions when opening WalletConnect modal
@@ -123,9 +126,10 @@ export function useWalletConnection({
         ),
         showFooter: false,
         dismissOnOverlayPress: false,
-        onClose() {
+        onClose(extra) {
           const shouldAbortWalletConnect =
-            shouldAbortWalletConnectOnDialogCloseRef.current;
+            shouldAbortWalletConnectOnDialogCloseRef.current &&
+            extra?.flag !== WALLET_CONNECT_MODAL_OPEN_DIALOG_CLOSE_FLAG;
           shouldAbortWalletConnectOnDialogCloseRef.current = false;
           if (shouldAbortWalletConnect) {
             void backgroundApiProxy.serviceWalletConnect.abortConnectPairing(

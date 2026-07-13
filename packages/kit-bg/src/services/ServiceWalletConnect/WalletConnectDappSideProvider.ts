@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { StorageUtil as StorageUtilCore } from '@reown/appkit-core-react-native';
 import UniversalProvider from '@walletconnect/universal-provider';
-import { engineEvent, parseUri } from '@walletconnect/utils';
+import { engineEvent, getSdkError, parseUri } from '@walletconnect/utils';
 
 import {
   OneKeyLocalError,
@@ -16,6 +16,7 @@ import {
   EIP155_SIGNING_METHODS,
   WC_DAPP_SIDE_METHODS_EVM,
 } from '@onekeyhq/shared/src/walletConnect/constant';
+import type { IWalletConnectSignClient } from '@onekeyhq/shared/src/walletConnect/types';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBExternalAccount } from '../../dbs/local/types';
@@ -31,6 +32,12 @@ export type IWalletConnectDappProviderOpts = UniversalProviderOpts & {
   sessionTopic: string | undefined;
   backgroundApi: IBackgroundApi;
 };
+
+type IClientEventListener = (...args: unknown[]) => unknown;
+type IClientOn = (
+  event: string,
+  listener: IClientEventListener,
+) => IWalletConnectSignClient;
 
 // TODO check UniversalProvider.registerEventListeners for topic specified events
 // create multiple providers for different topics, delete one topic may cleanup all session of shared client
@@ -50,22 +57,76 @@ export class WalletConnectDappSideProvider extends UniversalProvider {
     | ((error: OneKeyWalletConnectModalCloseError) => void)
     | undefined;
 
+  private connectAbortError: OneKeyWalletConnectModalCloseError | undefined;
+
+  private clientEventListeners: Array<{
+    event: string;
+    listener: IClientEventListener;
+  }> = [];
+
+  private isDisposed = false;
+
   override async connect(
     opts: ConnectParams,
   ): Promise<SessionTypes.Struct | undefined> {
+    this.connectAbortError = undefined;
     const cancellation = new Promise<never>((_resolve, reject) => {
       this.rejectPendingConnect = reject;
     });
+    const connectPromise = super.connect(opts).then(async (session) => {
+      if (session && this.connectAbortError) {
+        await this.disconnectCancelledSession(session);
+        throw this.connectAbortError;
+      }
+      return session;
+    });
     try {
-      return await Promise.race([super.connect(opts), cancellation]);
+      return await Promise.race([connectPromise, cancellation]);
     } finally {
       this.rejectPendingConnect = undefined;
     }
   }
 
+  private async cleanupPro(): Promise<void> {
+    // @ts-ignore
+    return super.cleanup();
+  }
+
+  private async disconnectCancelledSession(session: SessionTypes.Struct) {
+    try {
+      if (this.client.session.keys.includes(session.topic)) {
+        await this.client.disconnect({
+          topic: session.topic,
+          reason: getSdkError('USER_DISCONNECTED'),
+        });
+      }
+    } catch (error) {
+      console.warn(
+        'Failed to disconnect cancelled WalletConnect session:',
+        error,
+      );
+    }
+
+    if (this.session?.topic === session.topic) {
+      try {
+        await this.cleanupPro();
+      } catch (error) {
+        console.warn(
+          'Failed to clean up cancelled WalletConnect session:',
+          error,
+        );
+      }
+    }
+  }
+
   async abortConnectPairing() {
     const closeError = new OneKeyWalletConnectModalCloseError();
+    this.connectAbortError = closeError;
     this.rejectPendingConnect?.(closeError);
+
+    if (this.session) {
+      await this.disconnectCancelledSession(this.session);
+    }
 
     const uri = this.uri;
     this.uri = undefined;
@@ -176,8 +237,36 @@ export class WalletConnectDappSideProvider extends UniversalProvider {
   }
 
   registerEventListenersPro(): void {
-    // @ts-ignore
-    super.registerEventListeners();
+    const originalClientOn = this.client.on;
+    const callClientOn = originalClientOn as unknown as IClientOn;
+    const trackedClientOn: IClientOn = (event, listener) => {
+      this.clientEventListeners.push({ event, listener });
+      return callClientOn(event, listener);
+    };
+
+    // UniversalProvider does not expose its client listeners, so capture only
+    // the listeners registered synchronously by this provider initialization.
+    this.client.on = trackedClientOn as unknown as typeof this.client.on;
+    try {
+      // @ts-ignore
+      super.registerEventListeners();
+    } finally {
+      this.client.on = originalClientOn;
+    }
+  }
+
+  dispose(): void {
+    if (this.isDisposed) {
+      return;
+    }
+    this.isDisposed = true;
+
+    const clientOff = this.client.off as unknown as IClientOn;
+    for (const { event, listener } of this.clientEventListeners) {
+      clientOff(event, listener);
+    }
+    this.clientEventListeners = [];
+    this.events.removeAllListeners();
   }
 
   // https://github.com/WalletConnect/walletconnect-monorepo/blob/v2.0/providers/universal-provider/src/UniversalProvider.ts#L250
@@ -222,6 +311,4 @@ export class WalletConnectDappSideProvider extends UniversalProvider {
     await provider.initializePro(opts);
     return provider;
   }
-
-  // TODO cleanup, remove event listeners
 }

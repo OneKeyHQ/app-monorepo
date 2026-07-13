@@ -1,5 +1,10 @@
-import type { IWalletConnectConnectToWalletParams } from '@onekeyhq/shared/src/walletConnect/types';
+import { OneKeyWalletConnectModalCloseError } from '@onekeyhq/shared/src/errors';
+import type {
+  IWalletConnectConnectToWalletParams,
+  IWalletConnectSignClient,
+} from '@onekeyhq/shared/src/walletConnect/types';
 
+import walletConnectClient from './walletConnectClient';
 import { WalletConnectDappSide } from './WalletConnectDappSide';
 
 import type { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
@@ -18,7 +23,9 @@ jest.mock('../../dbs/local/localDb', () => ({
 }));
 jest.mock('./walletConnectClient', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    getDappSideClient: jest.fn(),
+  },
 }));
 jest.mock('./WalletConnectDappSideProvider', () => ({
   WalletConnectDappSideProvider: class WalletConnectDappSideProvider {},
@@ -47,6 +54,12 @@ type ITestWalletConnectDappSide = {
   }) => void;
 };
 
+type ITestCleanupWalletConnectDappSide = {
+  cleanupPreviousWalletConnectAccounts: (
+    attempt: ITestConnectAttempt,
+  ) => Promise<void>;
+};
+
 function createDappSide() {
   return Object.assign(Object.create(WalletConnectDappSide.prototype), {
     closeModal: jest.fn(),
@@ -56,6 +69,65 @@ function createDappSide() {
 }
 
 describe('WalletConnectDappSide connection attempts', () => {
+  beforeEach(() => {
+    jest.mocked(walletConnectClient.getDappSideClient).mockReset();
+  });
+
+  it('reuses the in-flight shared client initialization', async () => {
+    let resolveClient: ((client: IWalletConnectSignClient) => void) | undefined;
+    const clientPromise = new Promise<IWalletConnectSignClient>((resolve) => {
+      resolveClient = resolve;
+    });
+    jest
+      .mocked(walletConnectClient.getDappSideClient)
+      .mockReturnValue(clientPromise);
+    const client = {
+      on: jest.fn(),
+    } as unknown as IWalletConnectSignClient;
+    const dappSide = new WalletConnectDappSide({ backgroundApi: {} });
+
+    const firstClient = dappSide.getSharedClient();
+    const secondClient = dappSide.getSharedClient();
+
+    expect(walletConnectClient.getDappSideClient).toHaveBeenCalledTimes(1);
+    resolveClient?.(client);
+    await expect(firstClient).resolves.toBe(client);
+    await expect(secondClient).resolves.toBe(client);
+    expect(client.on).toHaveBeenCalledTimes(3);
+  });
+
+  it('stops a cancelled attempt before removing queried accounts', async () => {
+    let resolveAccounts:
+      | ((value: { accounts: Array<{ id: string }> }) => void)
+      | undefined;
+    const getWalletConnectDBAccounts = jest.fn(
+      () =>
+        new Promise<{ accounts: Array<{ id: string }> }>((resolve) => {
+          resolveAccounts = resolve;
+        }),
+    );
+    const removeAccount = jest.fn().mockResolvedValue(undefined);
+    const dappSide = new WalletConnectDappSide({
+      backgroundApi: {
+        serviceAccount: {
+          getWalletConnectDBAccounts,
+          removeAccount,
+        },
+      },
+    }) as unknown as ITestCleanupWalletConnectDappSide;
+    const attempt: ITestConnectAttempt = { cancelled: false };
+
+    const cleanup = dappSide.cleanupPreviousWalletConnectAccounts(attempt);
+    await Promise.resolve();
+    attempt.cancelled = true;
+    resolveAccounts?.({ accounts: [{ id: 'wallet-connect-account' }] });
+
+    await expect(cleanup).rejects.toBeInstanceOf(
+      OneKeyWalletConnectModalCloseError,
+    );
+    expect(removeAccount).not.toHaveBeenCalled();
+  });
+
   it('does not let a stale URI cancel an attempt before its URI is ready', async () => {
     const dappSide = createDappSide();
     const abortConnectPairing = jest.fn().mockResolvedValue(undefined);

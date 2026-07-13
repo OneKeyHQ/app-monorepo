@@ -51,9 +51,11 @@ describe('GlobalWalletConnectModalContainer', () => {
       jest.runOnlyPendingTimers();
     });
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   it('replays the first event once and does not replay it after a page switch', async () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
     const onOpen = jest.fn();
     appEventBus.on(EAppEventBusNames.WalletConnectOpenModal, onOpen);
     const view = render(<GlobalWalletConnectModalContainer />);
@@ -66,6 +68,7 @@ describe('GlobalWalletConnectModalContainer', () => {
     await flushLazyContainer();
 
     expect(onOpen).toHaveBeenCalledTimes(2);
+    expect(emitSpy).toHaveBeenCalledTimes(1);
 
     mockIsPageFocused = false;
     view.rerender(<GlobalWalletConnectModalContainer />);
@@ -83,6 +86,7 @@ describe('GlobalWalletConnectModalContainer', () => {
     await flushLazyContainer();
 
     expect(onOpen).toHaveBeenCalledTimes(3);
+    expect(emitSpy).toHaveBeenCalledTimes(2);
     appEventBus.off(EAppEventBusNames.WalletConnectOpenModal, onOpen);
   });
 

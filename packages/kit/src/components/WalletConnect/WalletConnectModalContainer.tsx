@@ -18,13 +18,6 @@ export function WalletConnectModalContainer() {
       p: IAppEventBusPayload[EAppEventBusNames.WalletConnectOpenModal],
     ) => {
       const { uri } = p;
-
-      console.log(
-        'WalletConnectModalContainer show qrcode uri: ------------------------ ',
-      );
-      console.log(uri);
-      console.log('------------------------');
-
       await openModal({ uri });
     };
 

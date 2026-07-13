@@ -91,9 +91,7 @@ const appKit = createAppKit({
 let pairingUri = '';
 let pairingTopic = '';
 let connectedPairingTopic = '';
-let updateConnectModalUri: (uri: string) => void = (uri: string) => {
-  console.log('updateConnectModalUri-init-fn', uri);
-};
+let updateConnectModalUri: (uri: string) => void = () => undefined;
 let resolveConnect: (session: IWalletConnectSession) => void = () => {};
 let rejectConnect: (error: IOneKeyError) => void = () => {};
 // @ts-ignore

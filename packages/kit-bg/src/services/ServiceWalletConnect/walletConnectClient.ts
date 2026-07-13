@@ -55,37 +55,61 @@ async function coreInit({
 }
 
 let signClient: IWalletConnectSignClient | undefined;
+let signClientPromise: Promise<IWalletConnectSignClient> | undefined;
 async function getDappSideClient(): Promise<IWalletConnectSignClient> {
-  if (!signClient) {
-    const core = await coreInit({
-      storage: getSharedStorage(),
-      customStoragePrefix: DAPP_STORAGE_PREFIX,
-    });
-    signClient = await SignClient.init({
-      ...sharedOptions,
-      core,
-      metadata: WALLET_CONNECT_CLIENT_META,
-      storage: getSharedStorage(),
-      customStoragePrefix: DAPP_STORAGE_PREFIX,
-    });
+  if (signClient) {
+    return signClient;
   }
-  return signClient;
+  if (!signClientPromise) {
+    signClientPromise = (async () => {
+      try {
+        const core = await coreInit({
+          storage: getSharedStorage(),
+          customStoragePrefix: DAPP_STORAGE_PREFIX,
+        });
+        signClient = await SignClient.init({
+          ...sharedOptions,
+          core,
+          metadata: WALLET_CONNECT_CLIENT_META,
+          storage: getSharedStorage(),
+          customStoragePrefix: DAPP_STORAGE_PREFIX,
+        });
+        return signClient;
+      } catch (error) {
+        signClientPromise = undefined;
+        throw error;
+      }
+    })();
+  }
+  return signClientPromise;
 }
 
 let web3Wallet: IWalletConnectWeb3Wallet | undefined;
+let web3WalletPromise: Promise<IWalletConnectWeb3Wallet> | undefined;
 async function getWalletSideClient(): Promise<IWalletConnectWeb3Wallet> {
-  if (!web3Wallet) {
-    const core = await coreInit({
-      storage: getSharedStorage(),
-      customStoragePrefix: WALLET_STORAGE_PREFIX,
-    });
-    web3Wallet = await WalletKit.init({
-      ...sharedOptions,
-      core,
-      metadata: WALLET_CONNECT_CLIENT_META,
-    });
+  if (web3Wallet) {
+    return web3Wallet;
   }
-  return web3Wallet;
+  if (!web3WalletPromise) {
+    web3WalletPromise = (async () => {
+      try {
+        const core = await coreInit({
+          storage: getSharedStorage(),
+          customStoragePrefix: WALLET_STORAGE_PREFIX,
+        });
+        web3Wallet = await WalletKit.init({
+          ...sharedOptions,
+          core,
+          metadata: WALLET_CONNECT_CLIENT_META,
+        });
+        return web3Wallet;
+      } catch (error) {
+        web3WalletPromise = undefined;
+        throw error;
+      }
+    })();
+  }
+  return web3WalletPromise;
 }
 
 async function getStorageSessions({

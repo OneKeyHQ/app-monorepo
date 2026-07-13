@@ -42,7 +42,10 @@ function WalletConnectEventBridge({
     const timer = setTimeout(() => {
       onReady(payload);
       if (payload) {
-        appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, payload);
+        appEventBus.emitToSelf({
+          type: EAppEventBusNames.WalletConnectOpenModal,
+          payload,
+        });
       }
     }, 0);
     return () => clearTimeout(timer);
