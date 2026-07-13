@@ -353,3 +353,18 @@ Verified 2026-07-11 on an iPhone 16 Pro simulator:
   Electron-only; inert box elsewhere), `View` (thin tamagui re-export —
   covered by the Stack story), `ScrollGuard` (web passthrough; native-only
   nested-scroll gesture guard).
+- Gallery cleanup (second cut): the kit Gallery pages for all 53
+  story-covered components were deleted (`packages/kit/.../Gallery`),
+  together with their `EGalleryRoutes` members and `galleryScreenList`
+  registrations — CSF stories are the only demo surface for
+  `@onekeyhq/components` now. The Gallery keeps kit-level component pages
+  (AccountAvatar, AddressInput, Token, …), dev/debug tools (LocalDB,
+  Hardware, Logger, …), token/typography references, and the pages for the
+  documented story exclusions (ImageCrop, RefreshControl, Shortcut,
+  RichSizeableText). The NavigatorRoute big-list demo modal previously
+  reused the Icon gallery page and now renders its own inline 500-row
+  ListView. The gallery home guards its pinned `galleryLastRoute` against
+  persisted routes that no longer exist. Pre-existing quirk (untouched):
+  `EGalleryRoutes.ComponentNavigation` has never had a registered screen,
+  so dev builds log one `screen component-Navigation not found` while
+  building the URL allowlist.
