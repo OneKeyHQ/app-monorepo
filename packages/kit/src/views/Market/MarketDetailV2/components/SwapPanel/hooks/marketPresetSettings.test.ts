@@ -513,11 +513,11 @@ describe('marketPresetSettings', () => {
 
   it.each([
     [
-      0.05,
+      0.09,
       ESwapSlippageCustomStatus.WRONG,
       EMarketPresetSlippageWarningType.WILL_FAIL,
     ],
-    [0.06, ESwapSlippageCustomStatus.NORMAL, undefined],
+    [0.1, ESwapSlippageCustomStatus.NORMAL, undefined],
     [10, ESwapSlippageCustomStatus.NORMAL, undefined],
     [
       10.01,

@@ -16,9 +16,12 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  ESwapSlippageValidationStatus,
+  getSwapSlippageValidationStatus,
+} from '@onekeyhq/shared/src/utils/swapSlippageUtils';
+import {
   swapSlippageCustomDefaultList,
   swapSlippageItems,
-  swapSlippageMaxValue,
   swapSlippageWillAheadMinValue,
   swapSlippageWillFailMinValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -55,11 +58,8 @@ const SlippageSettingDialog = ({
   const handleSlippageChange = useCallback(
     debounce((value: string) => {
       const valueBN = new BigNumber(value);
-      if (
-        valueBN.isNaN() ||
-        valueBN.isNegative() ||
-        valueBN.gt(swapSlippageMaxValue)
-      ) {
+      const validationStatus = getSwapSlippageValidationStatus(value);
+      if (validationStatus === ESwapSlippageValidationStatus.ERROR) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.ERROR,
           message: intl.formatMessage({
@@ -72,7 +72,7 @@ const SlippageSettingDialog = ({
         key: ESwapSlippageSegmentKey.CUSTOM,
         value: valueBN.toNumber(),
       });
-      if (valueBN.lte(swapSlippageWillFailMinValue)) {
+      if (validationStatus === ESwapSlippageValidationStatus.WILL_FAIL) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.WRONG,
           message: intl.formatMessage(
@@ -84,7 +84,7 @@ const SlippageSettingDialog = ({
         });
         return;
       }
-      if (valueBN.gte(swapSlippageWillAheadMinValue)) {
+      if (validationStatus === ESwapSlippageValidationStatus.WILL_AHEAD) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.WRONG,
           message: intl.formatMessage(
@@ -101,12 +101,7 @@ const SlippageSettingDialog = ({
         message: '',
       });
     }, 350),
-    [
-      intl,
-      swapSlippageMaxValue,
-      swapSlippageWillFailMinValue,
-      swapSlippageWillAheadMinValue,
-    ],
+    [intl, swapSlippageWillFailMinValue, swapSlippageWillAheadMinValue],
   );
 
   return (
