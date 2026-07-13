@@ -37,6 +37,7 @@ import {
   formatBalance,
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import { promiseAllSettledSlidingWindow } from '@onekeyhq/shared/src/utils/promiseAllSettledSlidingWindow';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   isPrivateSendSwapHistoryItem,
@@ -44,6 +45,10 @@ import {
   isStockSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import {
+  type IOneKeyLimitOrderTokenMetadata,
+  mergeOneKeyLimitOrderTokenMetadata,
+} from '@onekeyhq/shared/src/utils/swapLimitOrderUtils';
 import {
   getDenyBridgeProviderString,
   getDenySwapProviderString,
@@ -53,7 +58,10 @@ import {
 import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/swapRecentTokenPairsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  equalTokenNoCaseSensitive,
+  normalizeTokenContractAddress,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
@@ -2647,6 +2655,83 @@ export default class ServiceSwap extends ServiceBase {
 
   // --- limit order ---
 
+  async enrichLimitOrderTokenMetadata(fetchResult: IFetchLimitOrderRes[]) {
+    const getTokenIdentity = (token: ISwapToken, fallbackNetworkId: string) => {
+      const networkId = token.networkId || fallbackNetworkId;
+      const isNative = Boolean(token.isNative);
+      const contractAddress = normalizeTokenContractAddress({
+        networkId,
+        contractAddress: token.contractAddress,
+      });
+      if (!networkId || (!isNative && !contractAddress)) {
+        return undefined;
+      }
+      return {
+        contractAddress: contractAddress ?? '',
+        isNative,
+        key: `${networkId}:${isNative ? 'native' : contractAddress}`,
+        networkId,
+      };
+    };
+
+    const tokenLookupMap = new Map<
+      string,
+      NonNullable<ReturnType<typeof getTokenIdentity>>
+    >();
+    fetchResult.forEach((order) => {
+      [order.fromTokenInfo, order.toTokenInfo].forEach((token) => {
+        const identity = getTokenIdentity(token, order.networkId);
+        if (identity) {
+          tokenLookupMap.set(identity.key, identity);
+        }
+      });
+    });
+    const tokenLookupEntries = Array.from(tokenLookupMap.entries());
+    const metadataResults = await promiseAllSettledSlidingWindow(
+      tokenLookupEntries.map(([, identity]) => async () => {
+        const oneKeyToken = identity.isNative
+          ? await this.backgroundApi.serviceToken.getNativeToken({
+              accountId: '',
+              networkId: identity.networkId,
+              tokenInfoOnly: true,
+            })
+          : await this.backgroundApi.serviceToken.getToken({
+              accountId: '',
+              networkId: identity.networkId,
+              tokenIdOnNetwork: identity.contractAddress,
+              tokenInfoOnly: true,
+            });
+        return oneKeyToken
+          ? {
+              logoURI: oneKeyToken.logoURI,
+              name: oneKeyToken.name,
+              symbol: oneKeyToken.symbol,
+            }
+          : null;
+      }),
+      { concurrency: 5, continueOnError: true },
+    );
+    const metadataMap = new Map<string, IOneKeyLimitOrderTokenMetadata | null>(
+      tokenLookupEntries.map(([key], index) => [key, metadataResults[index]]),
+    );
+    const getMetadata = (token: ISwapToken, fallbackNetworkId: string) => {
+      const identity = getTokenIdentity(token, fallbackNetworkId);
+      return identity ? metadataMap.get(identity.key) : null;
+    };
+
+    return fetchResult.map((order) => ({
+      ...order,
+      fromTokenInfo: mergeOneKeyLimitOrderTokenMetadata({
+        providerToken: order.fromTokenInfo,
+        oneKeyToken: getMetadata(order.fromTokenInfo, order.networkId),
+      }),
+      toTokenInfo: mergeOneKeyLimitOrderTokenMetadata({
+        providerToken: order.toTokenInfo,
+        oneKeyToken: getMetadata(order.toTokenInfo, order.networkId),
+      }),
+    }));
+  }
+
   async checkLimitOrderStatus(
     fetchResult: IFetchLimitOrderRes[],
     currentSwapLimitOrders: IFetchLimitOrderRes[],
@@ -2894,7 +2979,7 @@ export default class ServiceSwap extends ServiceBase {
       }>(`/swap/v1/limit-orders`, {
         accounts,
       });
-      return res.data.data;
+      return this.enrichLimitOrderTokenMetadata(res.data.data);
     } catch (error) {
       console.error(error);
       throw error;
