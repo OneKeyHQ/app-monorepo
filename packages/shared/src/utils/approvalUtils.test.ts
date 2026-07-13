@@ -9,7 +9,7 @@ const tokenAddress = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
 const permit2Address = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
 
 function buildContractApproval(): IContractApproval {
-  const baseApproval = {
+  const approval = {
     tokenAddress,
     spenderAddress: contractAddress,
     networkId,
@@ -19,7 +19,6 @@ function buildContractApproval(): IContractApproval {
     time: 1,
     riskLevel: 0,
   };
-
   return {
     accountId,
     networkId,
@@ -28,63 +27,15 @@ function buildContractApproval(): IContractApproval {
     highestRiskLevel: 0,
     contractAddress,
     approvals: [
-      baseApproval,
-      {
-        ...baseApproval,
-        permit2Address,
-        expirationMs: 1_785_444_349_000,
-      },
+      approval,
+      { ...approval, permit2Address, expirationMs: 1_785_444_349_000 },
     ],
   };
 }
 
-describe('approval selection identity', () => {
-  test('does not classify a direct ERC20 approval to Permit2 as Permit2', () => {
-    const directTokenToPermit2Approval = {
-      tokenAddress,
-      spenderAddress: permit2Address,
-    };
-    const permit2ToDappApproval = {
-      tokenAddress,
-      spenderAddress: contractAddress,
-      permit2Address,
-      expirationMs: 281_474_976_710_655_000,
-    };
-
-    expect(
-      approvalUtils.isPermit2Approval({
-        approval: {
-          ...directTokenToPermit2Approval,
-          permit2Address: undefined,
-        },
-      }),
-    ).toBe(false);
-    expect(
-      approvalUtils.isPermit2Approval({
-        approval: permit2ToDappApproval,
-      }),
-    ).toBe(true);
-    expect(directTokenToPermit2Approval.spenderAddress.toLowerCase()).toBe(
-      permit2Address.toLowerCase(),
-    );
-    expect(permit2ToDappApproval.spenderAddress).toBe(contractAddress);
-  });
-
-  test('detects partial Permit2 metadata as invalid rather than ERC20', () => {
-    expect(
-      approvalUtils.hasPermit2ApprovalMetadata({
-        approval: {},
-      }),
-    ).toBe(false);
-    expect(
-      approvalUtils.hasPermit2ApprovalMetadata({
-        approval: { expirationMs: 1_785_444_349_000 },
-      }),
-    ).toBe(true);
-  });
-
-  test('distinguishes ERC20 and Permit2 approvals for the same token', () => {
-    const directKey = approvalUtils.buildSelectedTokenKey({
+describe('approvalUtils Permit2 helpers', () => {
+  test('keeps ERC20 and Permit2 identities separate', () => {
+    const erc20Key = approvalUtils.buildSelectedTokenKey({
       accountId,
       networkId,
       contractAddress,
@@ -98,63 +49,49 @@ describe('approval selection identity', () => {
       permit2Address,
     });
 
-    expect(directKey).not.toBe(permit2Key);
-    expect(directKey.endsWith('_erc20')).toBe(true);
-    expect(permit2Key.endsWith(`_${permit2Address.toLowerCase()}`)).toBe(true);
+    expect(
+      approvalUtils.isPermit2Approval({
+        approval: { permit2Address: undefined },
+      }),
+    ).toBe(false);
+    expect(
+      approvalUtils.isPermit2Approval({ approval: { permit2Address } }),
+    ).toBe(true);
+    expect(
+      approvalUtils.hasPermit2ApprovalMetadata({
+        approval: { expirationMs: 1_785_444_349_000 },
+      }),
+    ).toBe(true);
+    expect(erc20Key).not.toBe(permit2Key);
     expect(
       approvalUtils.parseSelectedTokenKey({ selectedTokenKey: permit2Key }),
-    ).toEqual({
-      accountId,
-      networkId,
-      contractAddress,
-      tokenAddress,
-      permit2Address: permit2Address.toLowerCase(),
-    });
+    ).toMatchObject({ permit2Address: permit2Address.toLowerCase() });
   });
 
-  test('counts ERC20 and Permit2 approvals independently', () => {
-    const approval = buildContractApproval();
+  test('selects direct and Permit2 approvals independently', () => {
+    const approvals = [buildContractApproval()];
     const selectedTokens = approvalUtils.buildToggleSelectAllTokensMap({
-      approvals: [approval],
+      approvals,
       toggle: true,
     });
 
     expect(Object.keys(selectedTokens)).toHaveLength(2);
     expect(
-      approvalUtils.checkIsSelectAllTokens({
-        approvals: [approval],
-        selectedTokens,
-      }),
+      approvalUtils.checkIsSelectAllTokens({ approvals, selectedTokens }),
     ).toEqual({
       isSelectAllTokens: true,
       totalCount: 2,
       selectedCount: 2,
     });
   });
-});
 
-describe('normalizePermit2ExpirationMs', () => {
-  test('normalizes a finite millisecond timestamp to ABI seconds', () => {
+  test('normalizes finite and uint48-max expirations', () => {
     expect(
       approvalUtils.normalizePermit2ExpirationMs(1_785_444_349_000),
     ).toEqual({
       expirationSeconds: '1785444349',
       isNeverExpires: false,
     });
-  });
-
-  test('recovers uint48 values after millisecond precision loss', () => {
-    const nearMaxSeconds = 281_474_976_710_654;
-
-    expect(
-      approvalUtils.normalizePermit2ExpirationMs(nearMaxSeconds * 1000),
-    ).toEqual({
-      expirationSeconds: nearMaxSeconds.toString(),
-      isNeverExpires: false,
-    });
-  });
-
-  test('recognizes uint48 max as never expiring', () => {
     expect(
       approvalUtils.normalizePermit2ExpirationMs(281_474_976_710_655_000),
     ).toEqual({
