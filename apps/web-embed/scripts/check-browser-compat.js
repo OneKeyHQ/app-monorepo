@@ -154,15 +154,19 @@ function inspectJavaScript(source, filePath, failures) {
   }
 }
 
-function inspectHtmlScripts(failures) {
-  const html = fs.readFileSync(indexHtmlPath, 'utf8');
-  const scripts = Array.from(
-    html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi),
+function extractHtmlScripts(html) {
+  return Array.from(
+    html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi),
     (match) => ({
       attributes: match[1],
       source: match[2],
     }),
   );
+}
+
+function inspectHtmlScripts(failures) {
+  const html = fs.readFileSync(indexHtmlPath, 'utf8');
+  const scripts = extractHtmlScripts(html);
   const entryScripts = scripts.filter((script) =>
     getScriptAttribute(script.attributes, 'src'),
   );
@@ -250,5 +254,6 @@ if (require.main === module) {
 }
 
 module.exports = {
+  extractHtmlScripts,
   inspectJavaScript,
 };
