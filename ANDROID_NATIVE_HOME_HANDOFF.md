@@ -418,6 +418,29 @@ SIMCTL_CHILD_ONEKEY_HOME_DEBUG_PAGER_PROGRESS=0.5 \
 
 当前验证结果：Swift parse、TypeScript type-aware oxlint、iOS Debug 完整 build、Android `:onekeyhq_native-components:compileDebugKotlin` 和 `HomeContainerController.test.ts`（7/7）均通过。新 `.app` 已覆盖安装到 iPhone 17 Pro Simulator（iOS 26.5），data container 安装前后保持 `23896KB`、394 个文件，没有卸载或清数据。`native-home-banner-dismiss` 的实际 frame 为 `28 × 28pt`、`hittable=true`；Light/Dark 截图分别位于 `.tmp/ui/native-home-banner-dismiss-aligned.png` 和 `.tmp/ui/native-home-banner-dismiss-aligned-dark.png`。关闭按钮的点击链路未改动，本轮没有实际关闭远端 Banner，以免把 `closedForever` 写入当前测试钱包；提交前仍应人工点一次可恢复的测试 Banner，确认关闭点击不冒泡到整卡 action。
 
+## 2026-07-14 Header 横向区域的纵向 Gate
+
+新增问题：手指从 Banner 卡片正文开始上下拖动时，Header 横向 `UIScrollView` 会先取得 pan，`isDirectionalLockEnabled` 只能在它取得手势后约束内容方向，不能把纵向手势所有权交给共享 outer scroll，因此页面不滚动且 Banner 可能执行横向吸附。
+
+本轮采用原生 Gate，不恢复 Header 横向 scroll 的 velocity delegate，也不在 JS 或 Swift 中手算任何 offset、阻尼、惯性或回弹：
+
+1. 每个 `HomeContainerHorizontalScrollView` 持有一个 `HomeContainerVerticalGateGestureRecognizer`，在 4pt touch slop 后只判定一次主方向。
+2. 横向 scroll 的原生 pan 使用 `require(toFail: verticalGate)`。明显纵向时 Gate 进入 began，横向 pan 失败；明显横向时 Gate 失败，横向 pan 继续使用 UIKit 原生 tracking/dragging/deceleration。
+3. Gate 与 `HomeContainerNestedScrollView` / `HomeContainerNestedTableView` 允许 simultaneous recognition，使纵向手势继续由共享 outer/table 原生状态机消费。
+4. outer scroll 覆盖 `touchesShouldCancel(in:) = true`，只有形成真实纵向拖动时才取消 Banner/按钮的 control touch；短按仍由原控件处理。
+5. `HomeContainerPagerChildHorizontalScrollView` 继续保留自己的 Pager 边界交接；Header Actions、Banner、共享 Tabs 不新增 `gestureRecognizerShouldBegin`，避免再次破坏横向惯性期间的同向加速和反向接管。
+
+自动化诊断已确认：从 Banner 正文发出的纵向 drag 被 Gate 判定为 vertical，Banner contentOffset 保持横向 `0`，共享 outer pan 进入滚动回调。当前 `agent-device/XCTest` 仍会把 210pt drag 的第一段合并为约 113pt 的单次 `touchesMoved`；Gate 在该帧进入 began 后，outer 只剩约 1.7pt 的后续位移，所以自动化最终截图不能代表真人连续采样的滚动距离。临时 `NSLog` 已移除。必须继续在真机或 Simulator 鼠标连续慢拖中验证 Banner 图片、标题、空白和关闭按钮 hit area 四个起点，并同时回归横向惯性期间的同向/反向二次接管。
+
+本轮 iOS Debug 完整 `xcodebuild` 通过，并使用 `simctl install` 覆盖安装到 iPhone 17 Pro Simulator（iOS 26.5）；没有执行 uninstall/reinstall/clear。首次覆盖安装前后 Data container 都是 `24936KB`、436 个文件；移除临时诊断后的最终增量 build 也已通过并再次覆盖安装，最终安装前后均为 `25976KB`、437 个文件。人工连续手势验收完成前不能把此项标记为完全通过。
+
+### Gate 运行时边界
+
+- **Runtime scope：** 仅 main UI runtime；bg 不参与手势方向、scroll offset、refresh 或 control touch cancellation。
+- **Native resource ownership：** 每个 `HomeContainerHorizontalScrollView` 各自持有一个 Gate；outer/table/pager/refresh 继续由单个 `HomeContainer` 实例持有，没有新增共享 singleton。
+- **JS heap copies：** main/bg JS heap 隔离；Gate 不创建 JS 状态，也不把逐帧 offset、velocity 或 progress 序列化到任何 JS heap。
+- **Timing/order：** Gate 与 UIKit pan 在 main thread 的同一次原生触摸序列内仲裁，不等待 bg 或 JS readiness；异步数据 patch 不应替换 scroll view 或重置 recognizer state。
+
 ### 运行时边界（本轮实现）
 
 - **Runtime scope：** 展开状态、More trigger、History load-more action 和 Native Home UI 都在 main JS runtime；bg 只通过既有 service proxy 提供数据。
