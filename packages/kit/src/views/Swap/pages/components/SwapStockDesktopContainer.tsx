@@ -109,6 +109,7 @@ import {
 } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 import {
+  ESwapStockChannelAsyncStatus,
   ESwapStockChannelStage,
   ESwapStockTradeSide,
   type IUseSwapStockChannelReturn,
@@ -149,6 +150,7 @@ import {
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
   getStockChartDisplayState,
   getStockDisabledActionButtonProps,
+  isStockMarketPanelLoadingStage,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
 import { isCurrentStockQuoteEventError } from './SwapStockTradeAlertUtils';
@@ -415,6 +417,7 @@ function useCurrentStockMarketDetail() {
   return {
     stockChannel,
     tokenDetail: stockChannel.activeStockTokenDetail,
+    currentStockToken,
     tokenAddress: currentStockToken?.contractAddress,
     networkId: currentStockToken?.networkId,
     isNative: currentStockToken?.isNative,
@@ -814,9 +817,11 @@ function StockActionGate({
     [isDesktopModalPage, keyboardPercentageStage],
   );
   const isStockChannelInitializing =
-    stockChannel.channelStage === ESwapStockChannelStage.InitializingStock ||
-    stockChannel.channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
-    stockChannel.channelStage === ESwapStockChannelStage.InitializingPayToken;
+    stockChannel.stockTokenStatus ===
+      ESwapStockChannelAsyncStatus.Initializing ||
+    stockChannel.marketStatusStatus ===
+      ESwapStockChannelAsyncStatus.Initializing ||
+    stockChannel.payTokenStatus === ESwapStockChannelAsyncStatus.Initializing;
   const disabledLabel = useMemo(() => {
     switch (stockChannel.channelStage) {
       case ESwapStockChannelStage.MissingStock:
@@ -1306,9 +1311,11 @@ function StockMarketHeaderSkeleton({ proAligned }: { proAligned?: boolean }) {
 }
 
 function StockMarketTokenHeader({
+  loading,
   storeName,
   proAligned,
 }: {
+  loading?: boolean;
   storeName: EJotaiContextStoreNames;
   // The mobile layout passes true so the header visually matches Pro mode's
   // token selector (see SwapProTokenSelect): symbol at $headingLg with a
@@ -1318,27 +1325,40 @@ function StockMarketTokenHeader({
   // $headingSm heading and fixed row height (OK-57348).
   proAligned?: boolean;
 }) {
-  const { tokenDetail, networkId } = useCurrentStockMarketDetail();
-  const stockTokenNetworkId = tokenDetail?.networkId ?? networkId;
+  const intl = useIntl();
+  const { currentStockToken, tokenDetail, networkId } =
+    useCurrentStockMarketDetail();
+  const stockTokenNetworkId =
+    tokenDetail?.networkId ?? currentStockToken?.networkId ?? networkId;
   const effectiveNetworkLogoUri = useNetworkLogoUri({
     logoUri: undefined,
     networkId: stockTokenNetworkId,
   });
   const stock = tokenDetail?.stock;
+  const tokenSymbol = tokenDetail?.symbol ?? currentStockToken?.symbol;
+  const tokenDisplaySymbol =
+    tokenSymbol ??
+    intl.formatMessage({
+      id: ETranslations.swap_page_button_select_token,
+    });
+  const tokenName =
+    tokenDetail?.name ?? currentStockToken?.name ?? tokenSymbol ?? '';
+  const tokenSubtitle =
+    stock?.subtitle ?? (tokenDetail ? undefined : currentStockToken?.name);
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockTokenNetworkId,
     storeName,
   });
 
-  if (!tokenDetail) {
+  if (!tokenDetail && loading) {
     return <StockMarketHeaderSkeleton proAligned={proAligned} />;
   }
 
   const tokenIcon = (
     <Token
       size="md"
-      tokenImageUri={tokenDetail.logoUrl}
-      tokenImageUris={tokenDetail.logoUrls}
+      tokenImageUri={tokenDetail?.logoUrl ?? currentStockToken?.logoURI}
+      tokenImageUris={tokenDetail?.logoUrls}
       networkImageUri={effectiveNetworkLogoUri}
       showNetworkIconBorder={false}
       bg="$transparent"
@@ -1355,7 +1375,7 @@ function StockMarketTokenHeader({
         maxWidth={proAligned ? '$40' : 132}
         flexShrink={1}
       >
-        {tokenDetail.symbol}
+        {tokenDisplaySymbol}
       </SizableText>
       <Icon
         name="ChevronDownSmallOutline"
@@ -1367,14 +1387,14 @@ function StockMarketTokenHeader({
   );
   const tokenLabelsRow = (
     <XStack h={18} alignItems="center" gap="$1" maxWidth="100%">
-      {stock?.subtitle ? (
+      {tokenSubtitle ? (
         <SizableText
           size="$bodySm"
           color="$textSubdued"
           numberOfLines={1}
           flexShrink={1}
         >
-          {stock.subtitle}
+          {tokenSubtitle}
         </SizableText>
       ) : null}
       <StockSourceLogo stock={stock} />
@@ -1426,22 +1446,30 @@ function StockMarketTokenHeader({
       >
         {tokenInfoContent}
       </XStack>
-      <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
-        <BaseMarketTokenPrice
-          size="$bodyLg"
-          color="$text"
-          numberOfLines={1}
-          textAlign="right"
-          price={tokenDetail.price ?? tokenDetail.priceConverted ?? ''}
-          tokenName={tokenDetail.name}
-          tokenSymbol={tokenDetail.symbol}
-          lastUpdated={String(tokenDetail.lastUpdated ?? '')}
-          currency="$"
-        />
-        <PriceChangePercentage size="$bodySm">
-          {tokenDetail.priceChange24hPercent}
-        </PriceChangePercentage>
-      </YStack>
+      {tokenDetail ? (
+        <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+          <BaseMarketTokenPrice
+            size="$bodyLg"
+            color="$text"
+            numberOfLines={1}
+            textAlign="right"
+            price={tokenDetail.price ?? tokenDetail.priceConverted ?? ''}
+            tokenName={tokenName}
+            tokenSymbol={tokenSymbol ?? ''}
+            lastUpdated={String(tokenDetail.lastUpdated ?? '')}
+            currency="$"
+          />
+          <PriceChangePercentage size="$bodySm">
+            {tokenDetail.priceChange24hPercent}
+          </PriceChangePercentage>
+        </YStack>
+      ) : (
+        <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+          <SizableText size="$bodyLg" color="$textSubdued">
+            --
+          </SizableText>
+        </YStack>
+      )}
     </XStack>
   );
 }
@@ -1922,6 +1950,26 @@ function StockMobilePositionsSection({
   );
 }
 
+function StockMarketChartEmptyState() {
+  const intl = useIntl();
+  return (
+    <YStack
+      h={274}
+      w="100%"
+      alignItems="center"
+      justifyContent="center"
+      gap="$2"
+      bg="$bgSubdued"
+      borderRadius="$3"
+    >
+      <Icon name="InfoCircleOutline" size="$6" color="$iconSubdued" />
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.global_no_data })}
+      </SizableText>
+    </YStack>
+  );
+}
+
 function StockMarketContextPanel({
   storeName,
 }: {
@@ -1939,8 +1987,30 @@ function StockMarketContextPanel({
   );
   const chartReady =
     !!networkId && !!tokenDetail?.stock && !!tokenDetail?.symbol;
+  const marketPanelLoading = isStockMarketPanelLoadingStage(
+    stockChannel.channelStage,
+  );
   // Only pulse the chart tail while the market is open (live updating).
   const isMarketOpen = stockChannel.stockMarketStatus?.open === true;
+  let chartContent: ReactNode;
+  if (chartReady) {
+    chartContent = (
+      <StockPriceChart
+        coinGeckoId={coinGeckoId}
+        tokenAddress={tokenAddress ?? ''}
+        networkId={networkId ?? ''}
+        isNative={isNative}
+        range={range}
+        onRangeChange={setRange}
+        pulseLastPoint={isMarketOpen}
+        realtimeChartPoint={stockChannel.realtimeChartPoint}
+      />
+    );
+  } else if (marketPanelLoading) {
+    chartContent = <Skeleton w="100%" h={274} />;
+  } else {
+    chartContent = <StockMarketChartEmptyState />;
+  }
 
   return (
     <YStack
@@ -1964,24 +2034,12 @@ function StockMarketContextPanel({
         shadowRadius: 24,
       }}
     >
-      <StockMarketTokenHeader storeName={storeName} />
+      <StockMarketTokenHeader
+        storeName={storeName}
+        loading={marketPanelLoading}
+      />
 
-      <Stack mt="$6">
-        {chartReady ? (
-          <StockPriceChart
-            coinGeckoId={coinGeckoId}
-            tokenAddress={tokenAddress ?? ''}
-            networkId={networkId ?? ''}
-            isNative={isNative}
-            range={range}
-            onRangeChange={setRange}
-            pulseLastPoint={isMarketOpen}
-            realtimeChartPoint={stockChannel.realtimeChartPoint}
-          />
-        ) : (
-          <Skeleton w="100%" h={274} />
-        )}
-      </Stack>
+      <Stack mt="$6">{chartContent}</Stack>
 
       <Divider mt="$2.5" mb="$3" />
       <StockMarketDataGrid tokenDetail={tokenDetail} />
@@ -2238,6 +2296,9 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const stockChannel = useSwapStockTradeContext();
+  const marketPanelLoading = isStockMarketPanelLoadingStage(
+    stockChannel.channelStage,
+  );
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
   // The desktop trade modal reuses this mobile content; positions/order-history
   // don't belong in that compact modal, so hide them there (native/web tabs keep
@@ -2282,7 +2343,11 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
         gap="$2"
         flex={1}
       >
-        <StockMarketTokenHeader storeName={props.storeName} proAligned />
+        <StockMarketTokenHeader
+          storeName={props.storeName}
+          loading={marketPanelLoading}
+          proAligned
+        />
         <StockTradeTicket
           onSelectToken={props.onSelectToken}
           fetchLoading={props.fetchLoading}
