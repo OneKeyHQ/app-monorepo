@@ -15,41 +15,10 @@ export type ISimulationGroup = {
   assets: ISimulationAsset[];
 };
 
-function isLikelyAsciiAbbreviation(text: string, endIndex: number) {
-  const token = text.slice(0, endIndex + 1).match(/[A-Za-z.]+$/)?.[0];
-
-  if (!token) {
-    return false;
-  }
-
-  return (
-    /^(?:[A-Za-z]\.){2,}$/.test(token) || /^[A-Z][a-z]{0,2}\.$/.test(token)
-  );
-}
-
 function findParserAlertSentenceEnd(text: string) {
-  for (const match of text.matchAll(/[。！？]|[.!?](?=\s|$)/g)) {
-    const endIndex = match.index;
-    if (match[0] !== '.') {
-      return endIndex;
-    }
-
-    const remainder = text.slice(endIndex + 1).trimStart();
-    if (!remainder) {
-      return endIndex;
-    }
-
-    // Parser alerts are backend-provided. Prefer the conservative fallback to
-    // a misleading title that ends at an abbreviation or mid-sentence period.
-    if (
-      !isLikelyAsciiAbbreviation(text, endIndex) &&
-      !/[a-z]/.test(remainder[0])
-    ) {
-      return endIndex;
-    }
-  }
-
-  return -1;
+  // Backend alerts can contain arbitrary ASCII abbreviations. Treating their
+  // periods as sentence boundaries can produce a misleading, incomplete title.
+  return text.search(/[。！？]|[!?](?=\s|$)/);
 }
 
 // Address tag severities that represent risk. They stay next to the address,

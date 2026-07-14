@@ -131,30 +131,34 @@ describe('SecurityCheckCard parser alert display', () => {
       'a number abbreviation',
       'Recipient No. 12 is associated with suspicious activity and may put all wallet assets at risk.',
     ],
-  ])('does not split a long alert at %s', (_case, alert) => {
+    [
+      'an abbreviation before a number',
+      'This transaction requests approx. 1000 USDC from your wallet and sends the funds to an unverified address.',
+    ],
+    [
+      'an abbreviation before a proper noun',
+      'This transaction sends funds to Corp. Treasury through an unverified contract with unlimited access.',
+    ],
+    [
+      'a decimal point',
+      'The request transfers 0.5 ETH to an unverified recipient. Confirm the amount and recipient before continuing.',
+    ],
+  ])('uses the fallback for a long alert containing %s', (_case, alert) => {
     expect(alert.length).toBeGreaterThan(80);
-    expect(alert.length).toBeLessThanOrEqual(100);
-    expect(getParserAlertDisplay(alert)).toEqual({ title: alert });
+    expect(getParserAlertDisplay(alert)).toEqual({
+      title: `${alert.slice(0, 80).trim()}...`,
+      description: alert,
+    });
   });
 
   it('splits a long alert at a high-confidence sentence boundary', () => {
     const alert =
-      'This approval grants unlimited access to your USDC. The spender is unverified and may transfer all of your funds.';
+      'This approval grants unlimited access to your USDC! The spender is unverified and may transfer all of your funds.';
 
     expect(getParserAlertDisplay(alert)).toEqual({
-      title: 'This approval grants unlimited access to your USDC.',
+      title: 'This approval grants unlimited access to your USDC!',
       description:
         'The spender is unverified and may transfer all of your funds.',
-    });
-  });
-
-  it('does not mistake a decimal point for a sentence boundary', () => {
-    const alert =
-      'The request transfers 0.5 ETH to an unverified recipient. Confirm the amount and recipient before continuing.';
-
-    expect(getParserAlertDisplay(alert)).toEqual({
-      title: 'The request transfers 0.5 ETH to an unverified recipient.',
-      description: 'Confirm the amount and recipient before continuing.',
     });
   });
 });
