@@ -144,7 +144,11 @@ function NeedFirmwareUpgradeFromWebButton() {
       testID="provider-intl-btn"
       size="small"
       onPress={() => {
-        openUrlExternal('https://firmware.onekey.so/');
+        // The web firmware tool needs WebUSB, unavailable in in-app browsers;
+        // keep it on the system browser (matches FirmwareUpdateErrors).
+        openUrlExternal('https://firmware.onekey.so/', {
+          useSystemBrowser: true,
+        });
       }}
     >
       {intl.formatMessage({ id: ETranslations.update_update_now })}
