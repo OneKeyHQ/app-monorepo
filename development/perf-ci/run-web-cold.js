@@ -27,6 +27,12 @@ const {
   formatExecResultError,
   withRepoNodeBin,
 } = require('./lib/exec');
+const {
+  findForbiddenModules,
+  getMissingSourceMaps,
+  getModuleRows,
+  getScriptFilesFromUrls,
+} = require('./lib/sourceMapSourceGuard');
 const { startStaticServer } = require('./lib/staticServer');
 const { classifyPageErrors } = require('./lib/webColdPageErrors');
 
@@ -1174,6 +1180,32 @@ function printReport({
   );
 }
 
+function checkRequestedScriptSources({
+  buildDir,
+  scenarioOutputs,
+  forbiddenSources,
+}) {
+  const scriptUrls = scenarioOutputs.flatMap((scenario) =>
+    scenario.runs.flatMap((run) =>
+      run.uniqueScripts.map((script) => script.url),
+    ),
+  );
+  const scriptFiles = getScriptFilesFromUrls({ buildDir, scriptUrls });
+  const missingSourceMaps = getMissingSourceMaps({ buildDir, scriptFiles });
+  const moduleRows = getModuleRows({ buildDir, scriptFiles });
+  const forbiddenModulesFound = findForbiddenModules({
+    moduleRows,
+    forbiddenSources,
+  });
+
+  return {
+    scriptFiles,
+    missingSourceMaps,
+    forbiddenModulesFound,
+    pass: missingSourceMaps.length === 0 && forbiddenModulesFound.length === 0,
+  };
+}
+
 async function main() {
   const repoRoot = path.join(__dirname, '..', '..');
   const buildDir =
@@ -1279,6 +1311,26 @@ async function main() {
       });
     }
 
+    const requestedScriptSourceGuard = checkRequestedScriptSources({
+      buildDir,
+      scenarioOutputs,
+      forbiddenSources: budgetConfig.startupGraph?.forbiddenSources || [],
+    });
+    log(
+      `requested script source guard: ${requestedScriptSourceGuard.pass ? 'PASS' : 'FAIL'} (${requestedScriptSourceGuard.scriptFiles.length} scripts)`,
+    );
+    if (requestedScriptSourceGuard.missingSourceMaps.length > 0) {
+      log(
+        `missing requested script source maps: ${requestedScriptSourceGuard.missingSourceMaps.join(', ')}`,
+      );
+    }
+    if (requestedScriptSourceGuard.forbiddenModulesFound.length > 0) {
+      log(
+        `forbidden requested script sources: ${requestedScriptSourceGuard.forbiddenModulesFound
+          .map((row) => row.source)
+          .join(', ')}`,
+      );
+    }
     const firstScenario = scenarioOutputs[0];
     const legacyTopLevelFieldsNote =
       'Use scenarios[] as the source of truth. Top-level url/budgets/budgetChecks/healthChecks/summary/runs are legacy-compatible fields for the first scenario only.';
@@ -1311,6 +1363,7 @@ async function main() {
       profileDir: booleanEnv('PERF_WEB_COLD_CPU_PROFILE') ? profileDir : null,
       budgetConfig,
       startupGraphBudget,
+      requestedScriptSourceGuard,
       legacyTopLevelFieldsNote,
       metricDefinitions,
       scenarios: scenarioOutputs,
@@ -1346,11 +1399,12 @@ async function main() {
     log(`wrote ${aiHintsJsonPath}`);
     log(`wrote ${aiHintsMarkdownPath}`);
 
-    const hasBlockingFailure = scenarioOutputs.some(
-      (scenarioOutput) =>
-        scenarioOutput.healthChecks.some((check) => !check.pass) ||
-        scenarioOutput.budgetChecks.some((check) => check.status === 'fail'),
-    );
+    const hasBlockingFailure =
+      scenarioOutputs.some(
+        (scenarioOutput) =>
+          scenarioOutput.healthChecks.some((check) => !check.pass) ||
+          scenarioOutput.budgetChecks.some((check) => check.status === 'fail'),
+      ) || !requestedScriptSourceGuard.pass;
     if (hasBlockingFailure) {
       printAiTriageInstructions({
         artifactName: WEB_BUDGET_ARTIFACT,

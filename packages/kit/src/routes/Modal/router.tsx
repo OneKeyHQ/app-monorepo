@@ -5,7 +5,11 @@ import {
   v4migrationAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EOnboardingV2Routes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  onboardingV2RouteConfig,
+} from '@onekeyhq/shared/src/routes';
+import type { EOnboardingV2Routes } from '@onekeyhq/shared/src/routes';
 import { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -282,6 +286,7 @@ export const fullScreenPushRouterConfig: IModalRootNavigatorConfig<EFullScreenPu
 export const onboardingRouterV2Config: IModalRootNavigatorConfig<EOnboardingV2Routes>[] =
   [
     {
+      ...onboardingV2RouteConfig,
       onMounted: () => {
         console.log('OnboardingModal onMounted');
         void isOnBoardingOpenAtom.set(true);
@@ -302,9 +307,6 @@ export const onboardingRouterV2Config: IModalRootNavigatorConfig<EOnboardingV2Ro
         console.log('OnboardingModal onUnmounted');
         await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
       },
-      name: EOnboardingV2Routes.OnboardingV2,
-      rewrite: '/onboarding',
-      exact: true,
       children: OnboardingRouterV2,
     },
   ];
