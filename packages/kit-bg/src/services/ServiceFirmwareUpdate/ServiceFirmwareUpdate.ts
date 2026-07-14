@@ -122,6 +122,11 @@ export type IUpdateFirmwareTaskFn = ({
   id: number;
 }) => Promise<Success | undefined>; // return Success | undefined go to next task, throw error to retry
 
+type IUpdateFirmwareTask = {
+  fn: IUpdateFirmwareTaskFn;
+  workflowId: number | undefined;
+};
+
 interface IFirmwareUpdateResult {
   bleVersion?: string;
   firmwareVersion?: string;
@@ -1369,18 +1374,22 @@ class ServiceFirmwareUpdate extends ServiceBase {
     );
   }
 
-  updateTasks: Record<number | string, IUpdateFirmwareTaskFn> = {};
+  updateTasks: Record<number | string, IUpdateFirmwareTask> = {};
 
-  // Per-workflow analytics context (OK-57543): only one update workflow runs
-  // at a time, reset on each workflow start
+  updateWorkflowSequence = 0;
+
+  // Bind analytics to the workflow that created each task so late native
+  // completions cannot mutate a newer workflow's counters.
   updateWorkflowTracking:
     | {
+        workflowId: number;
+        acceptsTaskResults: boolean;
         updateFlow: 'v1' | 'v2';
         releaseResult: ICheckAllFirmwareReleaseResult;
         activeStartedAt: number | undefined;
         activeDurationMs: number;
         attemptCount: number;
-        failedAttemptCount: number;
+        retryCount: number;
       }
     | undefined;
 
@@ -1391,18 +1400,46 @@ class ServiceFirmwareUpdate extends ServiceBase {
     updateFlow: 'v1' | 'v2';
     releaseResult: ICheckAllFirmwareReleaseResult;
   }) {
+    const workflowId = (this.updateWorkflowSequence += 1);
     this.updateWorkflowTracking = {
+      workflowId,
+      acceptsTaskResults: true,
       updateFlow,
       releaseResult,
       activeStartedAt: Date.now(),
       activeDurationMs: 0,
       attemptCount: 0,
-      failedAttemptCount: 0,
+      retryCount: 0,
     };
+    return workflowId;
   }
 
-  pauseUpdateWorkflowTracking() {
+  getUpdateWorkflowTracking(workflowId: number) {
     const tracking = this.updateWorkflowTracking;
+    return tracking?.workflowId === workflowId && tracking.acceptsTaskResults
+      ? tracking
+      : undefined;
+  }
+
+  isUpdateWorkflowCurrent(workflowId: number | undefined) {
+    return (
+      workflowId === undefined ||
+      (this.updateWorkflowTracking?.workflowId === workflowId &&
+        this.updateWorkflowTracking.acceptsTaskResults)
+    );
+  }
+
+  closeUpdateWorkflowTracking() {
+    const tracking = this.updateWorkflowTracking;
+    if (!tracking || !tracking.acceptsTaskResults) {
+      return;
+    }
+    this.pauseUpdateWorkflowTracking(tracking.workflowId);
+    tracking.acceptsTaskResults = false;
+  }
+
+  pauseUpdateWorkflowTracking(workflowId: number) {
+    const tracking = this.getUpdateWorkflowTracking(workflowId);
     if (!tracking || tracking.activeStartedAt === undefined) {
       return;
     }
@@ -1410,12 +1447,21 @@ class ServiceFirmwareUpdate extends ServiceBase {
     tracking.activeStartedAt = undefined;
   }
 
-  resumeUpdateWorkflowTracking() {
-    const tracking = this.updateWorkflowTracking;
+  resumeUpdateWorkflowTracking(workflowId: number) {
+    const tracking = this.getUpdateWorkflowTracking(workflowId);
     if (!tracking || tracking.activeStartedAt !== undefined) {
       return;
     }
     tracking.activeStartedAt = Date.now();
+  }
+
+  recordUpdateWorkflowRetry(workflowId: number) {
+    const tracking = this.getUpdateWorkflowTracking(workflowId);
+    if (!tracking) {
+      return false;
+    }
+    tracking.retryCount += 1;
+    return true;
   }
 
   @backgroundMethod()
@@ -1429,7 +1475,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         ? 0
         : Date.now() - tracking.activeStartedAt;
     return {
-      retryCount: tracking?.failedAttemptCount,
+      retryCount: tracking?.retryCount,
       durationMs: tracking
         ? tracking.activeDurationMs + currentActiveDurationMs
         : undefined,
@@ -1437,15 +1483,17 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   async trackUpdateTaskAttemptResult({
+    workflowId,
     status,
     error,
   }: {
+    workflowId: number;
     status: 'success' | 'failed';
     error?: unknown;
   }) {
     // Never let analytics break the update/retry flow
     try {
-      const tracking = this.updateWorkflowTracking;
+      const tracking = this.getUpdateWorkflowTracking(workflowId);
       if (!tracking) {
         return;
       }
@@ -1457,10 +1505,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       ) {
         return;
       }
-      tracking.attemptCount += 1;
-      if (status === 'failed') {
-        tracking.failedAttemptCount += 1;
-      }
+      const attempt = (tracking.attemptCount += 1);
       const err =
         error === undefined ? undefined : toPlainErrorObject(error as any);
       const hardwareTransportType =
@@ -1470,7 +1515,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         transportType: hardwareTransportType,
         updateFlow: tracking.updateFlow,
         firmwareVersions: parseFirmwareVersions(tracking.releaseResult),
-        attempt: tracking.attemptCount,
+        attempt,
         status,
         errorCode: err?.code,
         errorMessage: err?.message,
@@ -1494,7 +1539,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // TODO disabled servicePromise auto reject when timeout
     const id = servicePromise.createCallback({ reject, resolve });
 
-    this.updateTasks[id] = fn;
+    this.updateTasks[id] = {
+      fn,
+      workflowId: this.updateWorkflowTracking?.workflowId,
+    };
     return id;
   }
 
@@ -1529,6 +1577,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   @backgroundMethod()
   async exitUpdateWorkflow() {
+    this.closeUpdateWorkflowTracking();
     await this.updateTasksClear('exitUpdateWorkflow');
     await firmwareUpdateWorkflowRunningAtom.set(false);
   }
@@ -2066,6 +2115,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
     id: number;
     preFn?: (params?: undefined) => Promise<void | undefined>;
   }): Promise<void> {
+    const task = this.updateTasks[id];
+    if (!task || !this.isUpdateWorkflowCurrent(task.workflowId)) {
+      return;
+    }
+
     try {
       await this.cancelUpdateWorkflowIfExit();
     } catch (error) {
@@ -2077,19 +2131,39 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await firmwareUpdateRetryAtom.set(undefined);
 
       await preFn?.();
+      if (!this.isUpdateWorkflowCurrent(task.workflowId)) {
+        return;
+      }
 
-      const fn = this.updateTasks[id];
-      const result = await fn?.({ id });
+      const result = await task.fn({ id });
+      if (!this.isUpdateWorkflowCurrent(task.workflowId)) {
+        return;
+      }
       await this.updateTasksResolve({ id, data: result });
       serviceHardwareUtils.hardwareLog('runUpdateTask SUCCESS', result);
-      await this.trackUpdateTaskAttemptResult({ status: 'success' });
+      if (task.workflowId !== undefined) {
+        void this.trackUpdateTaskAttemptResult({
+          workflowId: task.workflowId,
+          status: 'success',
+        });
+      }
     } catch (error) {
-      //
-      this.pauseUpdateWorkflowTracking();
+      if (!this.isUpdateWorkflowCurrent(task.workflowId)) {
+        return;
+      }
+      if (task.workflowId !== undefined) {
+        this.pauseUpdateWorkflowTracking(task.workflowId);
+      }
       serviceHardwareUtils.hardwareLog('startUpdateWorkflow ERROR', error);
 
       // OK-57543: track each real attempt even when a later retry succeeds
-      await this.trackUpdateTaskAttemptResult({ status: 'failed', error });
+      if (task.workflowId !== undefined) {
+        void this.trackUpdateTaskAttemptResult({
+          workflowId: task.workflowId,
+          status: 'failed',
+          error,
+        });
+      }
 
       // never reject here, we should use retry
       // await servicePromise.rejectCallback({ id, error });
@@ -2105,17 +2179,18 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
       // TODO hide deviceCheckingLoading and confirm dialog
     } finally {
-      //
-      try {
-        await this.cancelUpdateWorkflowIfExit();
-        // Workflow is still alive (not exited by user), but in retry wait state
-        // Allow lock screen since no active hardware communication is happening
-        const retryInfo = await firmwareUpdateRetryAtom.get();
-        if (retryInfo) {
-          await firmwareUpdateWorkflowRunningAtom.set(false);
+      if (this.isUpdateWorkflowCurrent(task.workflowId)) {
+        try {
+          await this.cancelUpdateWorkflowIfExit();
+          // Workflow is still alive (not exited by user), but in retry wait state
+          // Allow lock screen since no active hardware communication is happening
+          const retryInfo = await firmwareUpdateRetryAtom.get();
+          if (retryInfo) {
+            await firmwareUpdateWorkflowRunningAtom.set(false);
+          }
+        } catch (error2) {
+          await this.updateTasksReject({ id, error: error2 });
         }
-      } catch (error2) {
-        await this.updateTasksReject({ id, error: error2 });
       }
     }
   }
@@ -2131,7 +2206,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
     connectId: string | undefined;
     releaseResult: ICheckAllFirmwareReleaseResult | undefined;
   }) {
-    this.resumeUpdateWorkflowTracking();
+    const task = this.updateTasks[id];
+    if (!task || !this.isUpdateWorkflowCurrent(task.workflowId)) {
+      return;
+    }
+    if (task.workflowId !== undefined) {
+      this.resumeUpdateWorkflowTracking(task.workflowId);
+      this.recordUpdateWorkflowRetry(task.workflowId);
+    }
 
     // Re-block lock screen before resuming hardware communication
     await firmwareUpdateWorkflowRunningAtom.set(true);
