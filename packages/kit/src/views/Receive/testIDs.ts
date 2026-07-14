@@ -8,7 +8,14 @@ export const ReceiveTestIDs = {
   SkipVerifyButton: 'receive-skip-verify-button',
   AddressTypeSelector: 'receive-address-type-selector',
   Banner: 'receive-banner',
-  BtcFreshAddressLink: 'receive-btc-fresh-address-link',
+  PageHeading: 'receive-page-heading',
+  CardHeaderNetworkEta: 'receive-card-network-eta',
+  ShareButton: 'receive-share-button',
+
+  // ReceiveShare dialog
+  ShareDialogPreview: 'receive-share-preview',
+  ShareSaveButton: 'receive-share-save-button',
+  ShareMoreButton: 'receive-share-more-button',
 
   // ReceiveSelector page
   ReceiveSelectorPage: 'receive-selector-page',
