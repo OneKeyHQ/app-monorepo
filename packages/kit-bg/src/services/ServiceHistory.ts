@@ -48,6 +48,7 @@ import type {
   IAccountHistoryTx,
   IAllNetworkHistoryExtraItem,
   IChangedPendingTxInfo,
+  ICreateExportTransactionHistoryTaskParams,
   IExportTransactionHistoryParams,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
@@ -2350,6 +2351,17 @@ class ServiceHistory extends ServiceBase {
     });
 
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async createExportTransactionHistoryTask(
+    params: ICreateExportTransactionHistoryTaskParams,
+  ) {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    await client.post(
+      '/wallet/v1/account/transaction/export-task/create',
+      params,
+    );
   }
 
   @backgroundMethod()

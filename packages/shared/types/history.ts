@@ -289,6 +289,19 @@ export type IExportTransactionHistoryParams = {
   withoutDust?: boolean;
 };
 
+export type ICreateExportTransactionHistoryTaskParams = {
+  networkIdToAddressArray: Record<
+    string, // networkId
+    string[] // addresses or xpub descriptors
+  >;
+  limit: number;
+  maxTimestampMs: number;
+  minTimestampMs: number;
+  onlySafe?: boolean;
+  timeZone?: string;
+  withoutDust?: boolean;
+};
+
 export type IFetchHistoryTxDetailsParams = {
   accountId: string;
   networkId: string;

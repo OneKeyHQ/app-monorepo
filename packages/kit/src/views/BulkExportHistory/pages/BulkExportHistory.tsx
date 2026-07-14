@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  differenceInMonths,
-  format as formatDateFns,
-  subMonths,
-} from 'date-fns';
+import { differenceInMonths, subMonths } from 'date-fns';
 import { useIntl } from 'react-intl';
 
 import type { IDateRange, IPageScreenProps } from '@onekeyhq/components';
@@ -30,11 +26,10 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EChainSelectorPages,
-  type EModalBulkExportHistoryRoutes,
+  EModalBulkExportHistoryRoutes,
   EModalRoutes,
   type IModalBulkExportHistoryParamList,
 } from '@onekeyhq/shared/src/routes';
-import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountTransactionRange } from '@onekeyhq/shared/types/history';
 
@@ -274,13 +269,30 @@ function BulkExportHistoryContent({
         );
       }
 
-      // 2. Build account array (handles mergeDeriveAssetsEnabled networks like BTC)
-      const accountArrayNested = await Promise.all(
+      // 2. Build per-network address list (handles mergeDeriveAssetsEnabled networks like BTC)
+      const networkIdToAddressEntries = await Promise.all(
         selectedNetworkIds.map(async (networkId) => {
           const vaultSettings =
             await backgroundApiProxy.serviceNetwork.getVaultSettings({
               networkId,
             });
+
+          const addresses: string[] = [];
+
+          const appendAccount = ({
+            address,
+            xpub,
+          }: {
+            address: string | undefined;
+            xpub: string | undefined;
+          }) => {
+            if (address) {
+              addresses.push(address);
+            }
+            if (xpub) {
+              addresses.push(xpub);
+            }
+          };
 
           if (vaultSettings.mergeDeriveAssetsEnabled) {
             // Get accounts for ALL derive types (e.g. BTC Taproot, SegWit, Legacy)
@@ -292,7 +304,7 @@ function BulkExportHistoryContent({
                   excludeEmptyAccount: true,
                 },
               );
-            return Promise.all(
+            await Promise.all(
               networkAccounts
                 .filter((item) => item.account)
                 .map(async (item) => {
@@ -301,91 +313,75 @@ function BulkExportHistoryContent({
                       accountId: item.account!.id,
                       networkId,
                     });
-                  return {
-                    accountAddress: item.account!.address,
-                    networkId,
+                  appendAccount({
+                    address: item.account!.address,
                     xpub: xpub || undefined,
-                  };
+                  });
                 }),
             );
+          } else {
+            // Single derive type — use global derive type
+            const deriveType =
+              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                { networkId },
+              );
+            const { accounts } =
+              await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
+                {
+                  indexedAccountIds: [indexedAccount.id],
+                  networkId,
+                  deriveType,
+                },
+              );
+            const account = accounts[0];
+            if (account) {
+              const xpub =
+                await backgroundApiProxy.serviceAccount.getAccountXpub({
+                  accountId: account.id,
+                  networkId,
+                });
+              appendAccount({
+                address: account.address,
+                xpub: xpub || undefined,
+              });
+            }
           }
 
-          // Single derive type — use global derive type
-          const deriveType =
-            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-              { networkId },
-            );
-          const { accounts } =
-            await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
-              {
-                indexedAccountIds: [indexedAccount.id],
-                networkId,
-                deriveType,
-              },
-            );
-          const account = accounts[0];
-          if (!account) return [];
-          const xpub = await backgroundApiProxy.serviceAccount.getAccountXpub({
-            accountId: account.id,
-            networkId,
-          });
-          return [
-            {
-              accountAddress: account.address,
-              networkId,
-              xpub: xpub || undefined,
-            },
-          ];
+          return [networkId, addresses] as const;
         }),
       );
-      const accountArray = accountArrayNested.flat();
+      const networkIdToAddressArray = Object.fromEntries(
+        networkIdToAddressEntries.filter(
+          ([, addresses]) => addresses.length > 0,
+        ),
+      );
 
       if (controller.signal.aborted) return;
 
-      // 3. Call export API
-      const csvData =
-        await backgroundApiProxy.serviceHistory.exportTransactionHistory({
-          accountArray,
-          limit: 1000,
+      // 3. Create the export task; the CSV is generated asynchronously on the server
+      await backgroundApiProxy.serviceHistory.createExportTransactionHistoryTask(
+        {
+          networkIdToAddressArray,
+          limit: 10_000,
           minTimestampMs,
           maxTimestampMs,
           onlySafe: hideRiskyTransactions,
           withoutDust: hideDustTransactions,
           timeZone: getLocalTimeZoneOffset(),
-        });
+        },
+      );
 
       if (controller.signal.aborted) return;
 
-      // 4. Generate filename
-      const networkPart =
-        isSingleNetwork && singleNetworkName
-          ? singleNetworkName.toLowerCase().replace(/\s+/g, '_')
-          : 'all_networks';
-
-      let datePart: string;
-      if (dateRange === EDateRange.Custom) {
-        datePart = `${formatDateFns(new Date(minTimestampMs), 'ddMMyy')}_${formatDateFns(new Date(maxTimestampMs), 'ddMMyy')}`;
-      } else {
-        datePart = formatDateFns(now, 'ddMMyy');
-      }
-
-      const filename = `transaction_history_${networkPart}_${datePart}.csv`;
-
-      // 5. Save file
-      await csvExporterUtils.exportCSV(csvData, filename, true);
-
-      if (!controller.signal.aborted) {
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.global_success,
-          }),
-        });
-      }
+      navigation.push(
+        EModalBulkExportHistoryRoutes.BulkExportHistoryTaskCreated,
+      );
     } catch (error) {
       console.error(error);
       if (!controller.signal.aborted) {
+        const errorMessage = (error as Error | undefined)?.message;
         Toast.error({
-          title: 'Exporting history failed, please try again.',
+          title: errorMessage || 'Exporting history failed, please try again.',
         });
       }
     } finally {
@@ -400,9 +396,7 @@ function BulkExportHistoryContent({
     customDateConstraints,
     hideRiskyTransactions,
     hideDustTransactions,
-    isSingleNetwork,
-    singleNetworkName,
-    intl,
+    navigation,
   ]);
 
   if (isLoading) {
@@ -489,6 +483,7 @@ function BulkExportHistoryContent({
             })}
           </SizableText>
           <Switch
+            testID="bulk-export-history-hide-risky-switch"
             size={ESwitchSize.small}
             value={hideRiskyTransactions}
             onChange={setHideRiskyTransactions}
@@ -503,6 +498,7 @@ function BulkExportHistoryContent({
             })}
           </SizableText>
           <Switch
+            testID="bulk-export-history-hide-dust-switch"
             size={ESwitchSize.small}
             value={hideDustTransactions}
             onChange={setHideDustTransactions}
