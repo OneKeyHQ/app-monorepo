@@ -91,56 +91,68 @@ const modal: IWalletConnectModalShared = {
     // const modalRef0 = useRef<WalletConnectModal | null>(null);
     const modalRef = useRef<AppKit | null>(null);
     const uriRef = useRef<string | undefined>(undefined);
-    const openModal = useCallback(async ({ uri }: { uri: string }) => {
-      uriRef.current = uri;
-      const tamaguiWebFontFamily = webFontFamily;
-      if (!modalRef.current) {
-        // modalRef.current = new WalletConnectModal({
-        //   projectId: WALLET_CONNECT_V2_PROJECT_ID,
+    const attemptIdRef = useRef<number | undefined>(undefined);
+    const openModal = useCallback(
+      async ({ uri, attemptId }: { uri: string; attemptId?: number }) => {
+        uriRef.current = uri;
+        attemptIdRef.current = attemptId;
+        const tamaguiWebFontFamily = webFontFamily;
+        if (!modalRef.current) {
+          // modalRef.current = new WalletConnectModal({
+          //   projectId: WALLET_CONNECT_V2_PROJECT_ID,
+          // });
+          // modalRef.current.subscribeModal((state: { open: boolean }) => {
+          //   appEventBus.emit(EAppEventBusNames.WalletConnectModalState, state);
+          //   if (state.open) {
+          //     updateModalSizeOnExt();
+          //   }
+          // });
+          modalRef.current = createOneKeyAppKit({
+            projectId: WALLET_CONNECT_V2_PROJECT_ID,
+            networks: [mainnet, solana], // show all network matched wallets
+            // networks: [] as any,
+            universalProvider: {} as any,
+            // manualWCControl: true,
+            themeMode: 'dark',
+            themeVariables: {
+              // https://docs.reown.com/appkit/react/core/theming
+              '--w3m-font-family': tamaguiWebFontFamily,
+            },
+            // debug: true,
+            enableInjected: true,
+            enableEIP6963: true,
+            enableCoinbase: true,
+            enableWallets: true,
+          });
+          modalRef.current.subscribeState(
+            (state: PublicStateControllerState) => {
+              // hide connect Dialog loading by eventBus
+              appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
+                open: state.open,
+                attemptId: attemptIdRef.current,
+              });
+              if (state.open) {
+                updateModalSizeOnExt();
+              } else {
+                console.log('WalletConnectModal closed.');
+                void backgroundApiProxy.serviceWalletConnect.abortConnectPairing(
+                  {
+                    uri: uriRef.current || '',
+                  },
+                );
+              }
+            },
+          );
+        }
+        // await modalRef.current.openModal({
+        //   uri,
         // });
-        // modalRef.current.subscribeModal((state: { open: boolean }) => {
-        //   appEventBus.emit(EAppEventBusNames.WalletConnectModalState, state);
-        //   if (state.open) {
-        //     updateModalSizeOnExt();
-        //   }
-        // });
-        modalRef.current = createOneKeyAppKit({
-          projectId: WALLET_CONNECT_V2_PROJECT_ID,
-          networks: [mainnet, solana], // show all network matched wallets
-          // networks: [] as any,
-          universalProvider: {} as any,
-          // manualWCControl: true,
-          themeMode: 'dark',
-          themeVariables: {
-            // https://docs.reown.com/appkit/react/core/theming
-            '--w3m-font-family': tamaguiWebFontFamily,
-          },
-          // debug: true,
-          enableInjected: true,
-          enableEIP6963: true,
-          enableCoinbase: true,
-          enableWallets: true,
+        await modalRef.current.open({
+          uri,
         });
-        modalRef.current.subscribeState((state: PublicStateControllerState) => {
-          // hide connect Dialog loading by eventBus
-          appEventBus.emit(EAppEventBusNames.WalletConnectModalState, state);
-          if (state.open) {
-            updateModalSizeOnExt();
-          } else {
-            console.log('WalletConnectModal closed.');
-            void backgroundApiProxy.serviceWalletConnect.abortConnectPairing({
-              uri: uriRef.current || '',
-            });
-          }
-        });
-      }
-      // await modalRef.current.openModal({
-      //   uri,
-      // });
-      await modalRef.current.open({
-        uri,
-      });
-    }, []);
+      },
+      [],
+    );
 
     const closeModal = useCallback(async () => {
       if (modalRef.current) {

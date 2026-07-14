@@ -17,15 +17,16 @@ export function WalletConnectModalContainer() {
     const open = async (
       p: IAppEventBusPayload[EAppEventBusNames.WalletConnectOpenModal],
     ) => {
-      const { uri } = p;
+      const { uri, attemptId } = p;
 
       console.log(
         'WalletConnectModalContainer show qrcode uri: ------------------------ ',
       );
-      console.log(uri);
+      // the pairing uri query carries the symKey, never log it
+      console.log(uri.split('?')[0]);
       console.log('------------------------');
 
-      await openModal({ uri });
+      await openModal({ uri, attemptId });
     };
 
     const close = async () => {

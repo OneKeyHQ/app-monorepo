@@ -60,6 +60,7 @@ describe('GlobalWalletConnectModalContainer', () => {
     act(() => {
       appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, {
         uri: 'wc:test-pairing-uri',
+        attemptId: 11,
       });
     });
 
@@ -67,6 +68,7 @@ describe('GlobalWalletConnectModalContainer', () => {
       expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
     });
 
+    // the native modal's initial open:false emit carries no attemptId
     act(() => {
       appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
         open: false,
@@ -88,9 +90,11 @@ describe('GlobalWalletConnectModalContainer', () => {
     act(() => {
       appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
         open: true,
+        attemptId: 11,
       });
       appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
         open: false,
+        attemptId: 11,
       });
     });
 
@@ -141,15 +145,17 @@ describe('GlobalWalletConnectModalContainer', () => {
     view.unmount();
   });
 
-  it('clears the payload when a second pairing arrives while the modal stays open', async () => {
+  it('ignores stale terminal events from a superseded attempt and clears on its own', async () => {
     const view = render(<GlobalWalletConnectModalContainer />);
 
     act(() => {
       appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, {
         uri: 'wc:first-session',
+        attemptId: 1,
       });
       appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
         open: true,
+        attemptId: 1,
       });
     });
 
@@ -157,11 +163,11 @@ describe('GlobalWalletConnectModalContainer', () => {
       expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
     });
 
-    // A second pairing lands while AppKit stays open, so no fresh open:true
-    // transition will ever follow for it.
+    // A second pairing lands while the first modal is still open.
     act(() => {
       appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, {
         uri: 'wc:second-session',
+        attemptId: 2,
       });
     });
 
@@ -169,9 +175,34 @@ describe('GlobalWalletConnectModalContainer', () => {
       expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(2);
     });
 
+    // Stale terminal events of the superseded attempt arrive late; they must
+    // not clear the newer payload.
     act(() => {
       appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
         open: false,
+        attemptId: 1,
+      });
+      appEventBus.emit(EAppEventBusNames.WalletConnectCloseModal, {
+        attemptId: 1,
+      });
+    });
+
+    mockShouldRenderPageEveryChildren = false;
+    view.rerender(<GlobalWalletConnectModalContainer />);
+
+    mockShouldRenderPageEveryChildren = true;
+    view.rerender(<GlobalWalletConnectModalContainer />);
+
+    // The newer payload survived and is replayed on remount.
+    await waitFor(() => {
+      expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(3);
+    });
+
+    // The matching terminal event clears it even without a fresh open:true.
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
+        open: false,
+        attemptId: 2,
       });
     });
 
@@ -185,8 +216,7 @@ describe('GlobalWalletConnectModalContainer', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
-    // The stale second uri must not be replayed after the user closed the modal.
-    expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(2);
+    expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(3);
 
     view.unmount();
   });
