@@ -105,8 +105,9 @@ PrivateSend-like channels and future stock-trading channels should be evaluated 
 4. Identify the closest valid repo pattern before inventing a new hook, atom,
    adapter, modal, or channel abstraction. Reuse the shell only when account,
    network, token, provider, route, and execution semantics match.
-5. Run the readiness script, fill the feature packet, and state `main`, `bg`,
-   native/web resource, JS-copy, and initialization ownership.
+5. Run the readiness script, fill the feature packet, and state platform
+   topology, `main`/UI and `bg` service ownership, persistent-resource ownership,
+   cross-boundary JS copies, and initialization timing.
 6. Read [app-architecture.md](references/app-architecture.md) and [code-map.md](references/code-map.md) before editing.
 7. Fill the provider/channel contract in [provider-contracts.md](references/provider-contracts.md).
 8. For any non-standard channel, fill [channel-state-model.md](references/channel-state-model.md) before touching history, status polling, or local replay.

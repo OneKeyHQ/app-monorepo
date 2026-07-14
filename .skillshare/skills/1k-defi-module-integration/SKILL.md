@@ -80,8 +80,9 @@ If the scenario is unclear, map its operation contract before choosing UI struct
 
 ## Default Workflow
 
-1. Run the readiness script, fill the feature packet, and state `main`, `bg`,
-   native/web resource, JS-copy, and initialization ownership.
+1. Run the readiness script, fill the feature packet, and state platform
+   topology, `main`/UI and `bg` service ownership, persistent-resource ownership,
+   cross-boundary JS copies, and initialization timing.
 2. Read [app-architecture.md](references/app-architecture.md) to place the feature in the App flow.
 3. Use [code-map.md](references/code-map.md) to find stable anchors.
 4. Define the operation contract in [operation-flow.md](references/operation-flow.md): operation type, parameters, setup tx, business tx, status, risk, and refresh.

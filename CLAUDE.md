@@ -16,22 +16,42 @@ aware, and aligned with existing package boundaries.
 
 ## Runtime Model
 
-Production native apps run two JS runtimes in the same native process:
-`main` (UI) and `background` (bg). They have isolated JS heaps; JS objects are
-not shared. Native resources such as MMKV, DB handles, file handles, and native
-singletons may be shared underneath.
+Runtime topology is platform-specific:
 
-For any native, storage, state, memory, startup, or crash analysis, explicitly
-state:
+- iOS and Android production apps run `main` (UI) and `background` (bg) as two
+  independent JS runtimes inside the same native app process. Their JS heaps are
+  isolated, so JS objects and deserialized state are not shared. Native resources
+  such as MMKV, DB handles, file handles, and native singletons may be shared
+  underneath, depending on their native implementation.
+- Browser extension UI and background code run in separate browser execution
+  contexts, such as UI pages and a background page or service worker. Their JS
+  heaps are isolated and they communicate through bridges. Additional extension
+  contexts, including offscreen documents and content scripts, have isolated JS
+  globals and do not share JS objects. Do not apply native process or native
+  resource assumptions to them.
+- Desktop and web run the wallet UI and `BackgroundApi` services in the same app
+  JS runtime. Here, `background` is a logical service boundary rather than a
+  separate JS runtime. Web initialization may still be deferred, but it does not
+  create another JS heap.
 
-- Runtime scope: `main`, `bg`, or both.
-- Native resource ownership: shared native instance or per-runtime instance.
-- JS heap copies: whether data is deserialized once per runtime.
-- Timing/order: bg and main initialize independently; do not assume readiness.
+Before analyzing storage, state, memory, startup, or crashes, first identify the
+platform and its runtime topology.
 
-Every conclusion must label the runtime(s) it concerns and distinguish shared
-native resources from per-runtime JS copies. main-JS and bg-JS bundles ship
-version-locked; practical version skew is native-vs-JS, not bg-vs-main.
+For iOS, Android, and extension runtime-boundary analysis, explicitly state:
+
+- Runtime scope: `main`/UI, `background`/bg, both, or the named extension context.
+- Resource ownership: shared underlying resource or per-runtime/context instance.
+- JS state copies: whether data is independently created, deserialized, or cloned
+  in each runtime/context.
+- Timing/order: separate runtimes or contexts initialize independently; do not
+  assume readiness.
+
+For desktop and web, do not assume duplicated `main` and `bg` JS state merely
+because code belongs to `kit-bg`. Treat it as same-runtime state unless a specific
+Electron process, WebView, worker, or other execution context is involved.
+
+Native main-JS and bg-JS bundles ship version-locked; practical native version
+skew is native-vs-JS, not bg-vs-main.
 
 ## Import Hierarchy
 
@@ -42,7 +62,7 @@ Never violate this dependency order:
 - `@onekeyhq/kit-bg`: may import `shared` and `core` only; never `components`
   or `kit`.
 - `@onekeyhq/kit`: may import `shared`, `components`, and `kit-bg`.
-- Apps may import all packages.
+- Application workspaces under `apps/` may import any OneKey workspace package.
 
 ## Security
 
@@ -50,7 +70,11 @@ Never violate this dependency order:
   user data.
 - Never log sensitive data or bypass authentication, validation, CSP, transaction
   verification, or risk checks.
-- Keep hardware wallet communication isolated in background processes.
+- Keep hardware wallet orchestration in the `kit-bg` background service layer. On
+  native, device communication runs in the background runtime. On extension, the
+  background context owns the workflow and may delegate the device transport to
+  an offscreen context. On desktop and web, `background` remains a logical service
+  boundary in the app JS runtime.
 - Do not modify cryptographic functions without deep security review.
 - Use `stringUtils.stableStringify()` for deterministic crypto/hash/signature
   serialization; never use raw `JSON.stringify()` for those paths.
