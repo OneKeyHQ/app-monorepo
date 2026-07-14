@@ -3,6 +3,7 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import {
   type ISwapKLineToken,
   getDefaultSwapKLineSide,
+  getResolvableDefaultSwapKLineSide,
   haveSameSwapKLineTokenSymbol,
 } from './swapKLineTokenUtils';
 
@@ -11,7 +12,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {},
 }));
 
-const buildToken = (symbol: string) => ({ symbol }) as ISwapKLineToken;
+const buildToken = (symbol: string, overrides: Partial<ISwapKLineToken> = {}) =>
+  ({ symbol, ...overrides }) as ISwapKLineToken;
 
 describe('swapKLineTokenUtils', () => {
   describe('haveSameSwapKLineTokenSymbol', () => {
@@ -47,4 +49,34 @@ describe('swapKLineTokenUtils', () => {
       }),
     ).toBe(ESwapDirectionType.TO);
   });
+
+  it.each([
+    {
+      expectedSide: ESwapDirectionType.FROM,
+      fromToken: buildToken('ETH'),
+      toToken: buildToken('eth', { defiMarked: true }),
+    },
+    {
+      expectedSide: ESwapDirectionType.TO,
+      fromToken: buildToken('ETH', { defiMarked: true }),
+      toToken: buildToken('eth'),
+    },
+  ])(
+    'selects the supported $expectedSide side for same-symbol tokens',
+    ({ expectedSide, fromToken, toToken }) => {
+      expect(
+        getDefaultSwapKLineSide({
+          fromToken,
+          toToken,
+        }),
+      ).toBe(expectedSide);
+      expect(
+        getResolvableDefaultSwapKLineSide({
+          fromToken,
+          isStableTokenCheckLoading: true,
+          toToken,
+        }),
+      ).toBe(expectedSide);
+    },
+  );
 });

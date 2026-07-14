@@ -179,10 +179,6 @@ export function getDefaultSwapKLineSide({
     return ESwapDirectionType.TO;
   }
 
-  if (haveSameSwapKLineTokenSymbol({ fromToken, toToken })) {
-    return ESwapDirectionType.TO;
-  }
-
   const fromIsKnownUnsupported = isKnownSwapKLineUnsupportedToken(fromToken);
   const toIsKnownUnsupported = isKnownSwapKLineUnsupportedToken(toToken);
 
@@ -190,6 +186,10 @@ export function getDefaultSwapKLineSide({
     return ESwapDirectionType.FROM;
   }
   if (fromIsKnownUnsupported && !toIsKnownUnsupported) {
+    return ESwapDirectionType.TO;
+  }
+
+  if (haveSameSwapKLineTokenSymbol({ fromToken, toToken })) {
     return ESwapDirectionType.TO;
   }
 

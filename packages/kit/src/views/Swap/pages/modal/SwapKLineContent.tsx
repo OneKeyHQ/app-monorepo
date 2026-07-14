@@ -670,7 +670,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
 
   const resolvedSelectedSide = useMemo(() => {
     if (haveSameSwapKLineTokenSymbol({ fromToken, toToken })) {
-      return ESwapDirectionType.TO;
+      return defaultSide;
     }
     if (selectedSide) {
       const selectedToken =
