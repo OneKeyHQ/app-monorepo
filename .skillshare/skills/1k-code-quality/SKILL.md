@@ -175,6 +175,6 @@ echo "yourword" >> development/spellCheckerSkipWords.txt
 
 ## Related Skills
 
-- `/1k-sentry-analysis` - Sentry error analysis and fixes
+- `/1k-sentry` - Sentry error analysis and fixes
 - `/1k-test-version` - Test version creation workflow
 - `/1k-coding-patterns` - General coding patterns

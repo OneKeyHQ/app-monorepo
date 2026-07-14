@@ -726,11 +726,9 @@ cat > node_modules/.cache/bugs/logger-undefined-crash-6db69603.md << 'EOF'
 EOF
 ```
 
-### Real-World Example
+### Real-World Example Checklist
 
-**Complete bug analysis document**: [`bug-analysis-logger-undefined-crash.md`](../../../../Downloads/bug-analysis-logger-undefined-crash%20(1).md)
-
-This is an actual bug analysis from production that demonstrates:
+A complete production bug analysis should demonstrate:
 - ✅ Comprehensive error analysis with Sentry Event ID
 - ✅ Clear reproduction steps and user impact assessment
 - ✅ Detailed root cause analysis with code evidence
@@ -1074,7 +1072,7 @@ If fixing an iOS issue:
 
 ## Related Skills
 
-- `/1k-git-workflow` - Git branching and commit conventions
+- `/1k-dev-commands` - Git branching and commit conventions
 - `/1k-coding-patterns` - Code patterns and best practices
 - `/1k-sentry` - Sentry error tracking and monitoring
 

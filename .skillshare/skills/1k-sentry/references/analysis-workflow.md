@@ -1,10 +1,3 @@
----
-name: 1k-sentry-analysis
-description: Analyze and fix production errors from Sentry crash reports (AppHang, ANR, crashes, stacktraces).
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash
-disable-model-invocation: true
----
-
 # Sentry Error Analysis & Fixes
 
 Complete workflow for analyzing and fixing production errors from Sentry crash reports.
@@ -94,7 +87,7 @@ InteractionManager.runAfterInteractions(() => {
 
 ## Detailed Guide
 
-For comprehensive Sentry error analysis workflow, see [fix-sentry-errors.md](references/rules/fix-sentry-errors.md).
+For comprehensive Sentry error analysis workflow, see [fix-sentry-errors.md](rules/fix-sentry-errors.md).
 
 Topics covered:
 - Obtaining Sentry JSON logs
@@ -127,6 +120,6 @@ Topics covered:
 ## Related Skills
 
 - `/1k-performance` - Performance optimization patterns
-- `/1k-error-handling` - Error handling best practices
+- `/1k-coding-patterns` - Error handling best practices
 - `/1k-sentry` - Sentry configuration and filtering
 - `/1k-code-quality` - Lint fixes and code quality

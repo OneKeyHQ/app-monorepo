@@ -1,9 +1,3 @@
----
-name: 1k-platform-requirements
-description: Minimum SDK/OS version requirements for all OneKey platforms (iOS, Android, Chrome, Electron).
-allowed-tools: Read, Grep, Glob, Bash
----
-
 # OneKey Platform Requirements
 
 ## Device Compatibility Check
@@ -337,12 +331,12 @@ fi
 
 ## Related Files
 
-- Node/Yarn: [package.json](package.json)
-- Android: [apps/mobile/android/app/build.gradle](apps/mobile/android/app/build.gradle)
-- Android: [apps/mobile/android/gradle.properties](apps/mobile/android/gradle.properties)
-- Gradle: [apps/mobile/android/gradle/wrapper/gradle-wrapper.properties](apps/mobile/android/gradle/wrapper/gradle-wrapper.properties)
-- iOS: [apps/mobile/ios/Podfile](apps/mobile/ios/Podfile)
-- iOS: [apps/mobile/ios/Podfile.lock](apps/mobile/ios/Podfile.lock)
-- Extension: [apps/ext/src/manifest/chrome_v3.js](apps/ext/src/manifest/chrome_v3.js)
-- Desktop: [apps/desktop/package.json](apps/desktop/package.json)
-- Desktop: [apps/desktop/electron-builder.config.js](apps/desktop/electron-builder.config.js)
+- Node/Yarn: [package.json](../../../../package.json)
+- Android: [apps/mobile/android/app/build.gradle](../../../../apps/mobile/android/app/build.gradle)
+- Android: [apps/mobile/android/gradle.properties](../../../../apps/mobile/android/gradle.properties)
+- Gradle: [apps/mobile/android/gradle/wrapper/gradle-wrapper.properties](../../../../apps/mobile/android/gradle/wrapper/gradle-wrapper.properties)
+- iOS: [apps/mobile/ios/Podfile](../../../../apps/mobile/ios/Podfile)
+- iOS: [apps/mobile/ios/Podfile.lock](../../../../apps/mobile/ios/Podfile.lock)
+- Extension: [apps/ext/src/manifest/chrome_v3.js](../../../../apps/ext/src/manifest/chrome_v3.js)
+- Desktop: [apps/desktop/package.json](../../../../apps/desktop/package.json)
+- Desktop: [apps/desktop/electron-builder.config.js](../../../../apps/desktop/electron-builder.config.js)

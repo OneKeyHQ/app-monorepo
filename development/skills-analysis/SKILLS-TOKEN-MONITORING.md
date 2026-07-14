@@ -32,7 +32,7 @@ python3 development/skills-analysis/analyze-skills-tokens.py --detailed
 Skill Name                         Tokens       Size   Files Recommendation
 ----------------------------------------------------------------------------------------------------
 react-best-practices               14,345      56.1K      45 🚨 URGENT: Split immediately (>10k tokens)
-1k-sentry-analysis                  9,394      37.9K       1 ⚠️  CONSIDER: Should be split (>5k tokens)
+1k-sentry analysis reference        9,394      37.9K       1 ✅  ON DEMAND
 1k-feature-guides                   8,493      34.4K       4 ⚠️  CONSIDER: Should be split (>5k tokens)
 1k-performance                      6,267      24.7K       1 ⚠️  CONSIDER: Should be split (>5k tokens)
 1k-code-quality                     3,732      14.7K       2 👀 MONITOR: Watch for growth (>2k tokens)
@@ -85,7 +85,7 @@ Where:
 
 ## Splitting Workflow
 
-See detailed workflow in: [.claude/skills/1k-new-skill/SKILL.md](../.claude/skills/1k-new-skill/SKILL.md#splitting-workflow)
+Use the installed `$skill-creator` guidance when creating or restructuring skills.
 
 **Quick steps:**
 1. Run analysis to identify split candidates
@@ -161,13 +161,12 @@ As of 2026-01-30:
 - **Total tokens**: 76,200 (303 KB)
 - **Average per skill**: 3,313 tokens
 - **Urgent splits needed**: 1 (react-best-practices)
-- **Consider splitting**: 3 (1k-sentry-analysis, 1k-feature-guides, 1k-performance)
+- **Consider splitting**: 2 (1k-feature-guides, 1k-performance)
 
 ## Related Documentation
 
-- [Creating Skills Best Practices](./.claude/skills/1k-new-skill/SKILL.md)
-- [Token Optimization Guidelines](./.claude/skills/1k-new-skill/SKILL.md#token-optimization-considerations)
-- [Splitting Workflow](./.claude/skills/1k-new-skill/SKILL.md#splitting-workflow)
+- Use the installed `$skill-creator` for current creation, token optimization,
+  and progressive-disclosure guidance.
 
 ## FAQs
 

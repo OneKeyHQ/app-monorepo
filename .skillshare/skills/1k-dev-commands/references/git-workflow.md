@@ -1,9 +1,3 @@
----
-name: 1k-git-workflow
-description: Git workflow and conventions — branching, commit messages, and PR creation.
-allowed-tools: Bash, Read
----
-
 # OneKey Git Usage Guidelines
 
 ## Branch Management

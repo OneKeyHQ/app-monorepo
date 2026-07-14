@@ -1,10 +1,12 @@
 ---
 name: 1k-dev-commands
-description: Development commands — yarn scripts for dev servers, building, linting, testing, and troubleshooting.
+description: OneKey development commands plus branch, commit, validation, and PR conventions.
 allowed-tools: Bash, Read
 ---
 
 # OneKey Development Commands
+
+For branch naming, commit format, rebasing, and PR conventions, read [git-workflow.md](references/git-workflow.md).
 
 ## Application Development Commands
 

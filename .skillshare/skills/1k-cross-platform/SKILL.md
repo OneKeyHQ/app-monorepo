@@ -1,6 +1,6 @@
 ---
 name: 1k-cross-platform
-description: Cross-platform development patterns — platform-specific code (.native.ts/.web.ts/.desktop.ts/.ext.ts) and platformEnv usage.
+description: OneKey cross-platform patterns, platform files, platformEnv, and supported OS/SDK requirements.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -109,6 +109,8 @@ export const storage: IStorage = {
 ## Detailed Guide
 
 For comprehensive cross-platform patterns and platform considerations, see [cross-platform.md](references/rules/cross-platform.md).
+
+For current development tool and minimum platform versions, see [platform-requirements.md](references/platform-requirements.md). Verify version values against the referenced repository files before relying on them.
 
 Topics covered:
 - Platform extensions and file structure

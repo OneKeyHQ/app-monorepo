@@ -1,9 +1,3 @@
----
-name: 1k-error-handling
-description: Error handling patterns — try/catch, async errors, error boundaries, useAsyncCall, and toast messages.
-allowed-tools: Read, Grep, Glob
----
-
 # Error Handling
 
 Best practices for error handling in OneKey codebase.
@@ -160,7 +154,7 @@ function GoodComponent() {
 
 ## Detailed Guide
 
-For comprehensive error handling patterns and examples, see [error-handling.md](references/rules/error-handling.md).
+For comprehensive error handling patterns and examples, see [error-handling.md](rules/error-handling.md).
 
 Topics covered:
 - Core principles
@@ -182,4 +176,4 @@ Topics covered:
 ## Related Skills
 
 - `/1k-coding-patterns` - General coding patterns and promise handling
-- `/1k-sentry-analysis` - Sentry error analysis and fixes
+- `/1k-sentry` - Sentry error analysis and fixes

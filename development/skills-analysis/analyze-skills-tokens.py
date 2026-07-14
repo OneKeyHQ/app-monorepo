@@ -196,7 +196,7 @@ def main():
     print("• Keep related topics together if frequently used together")
     print("• Use --detailed flag for per-file breakdown")
     print("• Use --sort-by-size to see largest skills first")
-    print("\nFor splitting guidelines, see: .claude/skills/1k-new-skill/SKILL.md")
+    print("\nFor current splitting guidelines, invoke the installed $skill-creator skill.")
 
 if __name__ == '__main__':
     main()

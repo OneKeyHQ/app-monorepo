@@ -1,6 +1,6 @@
 ---
 name: 1k-sentry
-description: Sentry error tracking and monitoring for OneKey. Use when configuring Sentry, filtering errors, analyzing crash reports, or debugging production issues. Covers platform-specific setup (desktop/mobile/web/extension) and error filtering strategies.
+description: Configure OneKey Sentry, filter events, and analyze AppHang, ANR, crash, or stacktrace reports.
 ---
 
 # Sentry Integration
@@ -46,12 +46,7 @@ Key file: `packages/shared/src/modules3rdParty/sentry/basicOptions.ts`
 
 ### Analyze Crash Reports
 
-1. Get crash details from Sentry dashboard
-2. Identify error type, message, and stack trace
-3. Check platform-specific context
-4. Use related skills for fixes:
-   - Native crashes → `/1k-patching-native-modules`
-   - JS errors → Fix in codebase
+Read [analysis-workflow.md](references/analysis-workflow.md) for the evidence-based production-error workflow. For third-party native crashes that require a persisted patch, use `/1k-patch-package-workflow`.
 
 ### Add Custom Context
 
@@ -102,5 +97,5 @@ if (error.value?.includes('PATTERN')) return true;
 
 ## Related Skills
 
-- `/1k-patching-native-modules` - Fix native crashes found in Sentry
+- `/1k-patch-package-workflow` - Patch third-party native crashes
 - `/1k-coding-patterns` - Error handling best practices

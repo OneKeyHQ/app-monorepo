@@ -1,9 +1,3 @@
----
-name: 1k-date-formatting
-description: Date and time formatting — use OneKey dateUtils (formatDate/formatTime) instead of native JS date methods.
-allowed-tools: Read, Grep, Glob
----
-
 # Date Formatting
 
 Guidelines for consistent date and time formatting across OneKey applications.
@@ -77,7 +71,7 @@ interface IFormatDateOptions {
 
 ## Detailed Guide
 
-For comprehensive date formatting rules and examples, see [date-formatting.md](references/rules/date-formatting.md).
+For comprehensive date formatting rules and examples, see [date-formatting.md](rules/date-formatting.md).
 
 Topics covered:
 - Core utilities from `@onekeyhq/shared/src/utils/dateUtils`

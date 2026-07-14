@@ -10,13 +10,13 @@ Analyzed 3 large skills (>5k tokens) for potential splitting. **Recommendation: 
 
 | Skill | Tokens | Size | Files | Status |
 |-------|--------|------|-------|--------|
-| 1k-sentry-analysis | 9,394 | 37.9 KB | 1 | ⚠️ CONSIDER |
+| 1k-sentry analysis reference | 9,394 | 37.9 KB | 1 | ✅ ON DEMAND |
 | 1k-feature-guides | 8,493 | 34.4 KB | 4 | ⚠️ CONSIDER |
 | 1k-performance | 6,267 | 24.7 KB | 1 | ⚠️ CONSIDER |
 
 ## Detailed Analysis
 
-### 1. 1k-sentry-analysis (9,394 tokens)
+### 1. 1k-sentry analysis reference (9,394 tokens)
 
 **Structure:**
 - Single file: `fix-sentry-errors.md` (1,123 lines, 8,361 tokens)
@@ -142,7 +142,7 @@ Analyzed 3 large skills (>5k tokens) for potential splitting. **Recommendation: 
 
 | Skill | Current | Re-evaluate at | Trigger |
 |-------|---------|----------------|---------|
-| 1k-sentry-analysis | 9,394 | >12,000 tokens | +30% growth OR new independent workflow added |
+| 1k-sentry analysis reference | 9,394 | >12,000 tokens | +30% growth OR new independent workflow added |
 | 1k-performance | 6,267 | >10,000 tokens | +60% growth OR categories split into web/native |
 | 1k-feature-guides | 8,493 | >12,000 tokens | +40% growth OR unrelated feature added |
 

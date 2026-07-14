@@ -1,12 +1,14 @@
 ---
 name: 1k-patch-package-workflow
-description: Create or regenerate a patch-package patch in this monorepo. Use when you edit anything under node_modules/ and need a persisted .patch, or when `npx patch-package <pkg>` fails with "Couldn't find any versions for ... matches ^x@x". Keywords: patch-package, patch a package, regenerate patch, resolutions error.
+description: "Create or regenerate patch-package patches, including native-module crash fixes and resolutions failures."
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write
 ---
 
 # patch-package workflow
 
 Patches live in `patches/<pkg>+<version>.patch` and auto-apply on install. Never hand-edit a `.patch` — edit the `node_modules/` source, then generate.
+
+For native crash analysis and Swift/Kotlin patch patterns, read [native-module-patching.md](references/native-module-patching.md).
 
 ## Generate
 
