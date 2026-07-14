@@ -386,8 +386,13 @@ SIMCTL_CHILD_ONEKEY_HOME_DEBUG_PAGER_PROGRESS=0.5 \
 3. Header-origin 与 list-origin 纵向手势进入同一组 native recognizer：outer/table simultaneous，outer 负责顶部负 offset、bounce、spinner progress 和 refresh 完成回弹；child table 只负责 header collapse 后的正文正 offset。
 4. 协调代码只做 collapse owner gate 和合法 offset clamp；已经删除旧的 rubber-band 常量、translation 积分、速度投影和自定义 refresh settling。
 5. `completeRefresh()` 只按 request id 调用共享 `refreshControl.endRefreshing()`，不再延迟强写 `contentOffset = 0`，因此不会在刷新结束后额外向上弹一截。
+6. 2026-07-14 补充修复 Banner-origin 下拉：禁止 outer/table 对横向 Banner 设置 `require(toFail:)`。outer/table 只接受纵向主速度，Banner 只接受横向主速度，并允许两类 recognizer 同时参与方向仲裁；只有 Page 内的横向 section 继续优先于 Pager。恢复 outer/table 等待 Banner 会导致触点从卡片起手时外层 pan 长时间停在 `.possible`，表现为红框区域无法下拉。
+7. 2026-07-14 补充修复横向惯性期间的二次手势：旧的 `HomeContainerHorizontalScrollView.gestureRecognizerShouldBegin` 把 `velocity == .zero` 当作非横向并返回 `false`。`UIScrollView` 在惯性期间接收替换触摸时，可能先进入 tracking、再获得新 pan 的速度样本；因此该判断会同时拒绝同向加速和反向接管。`stopScrollingAndZooming()` 不是修复方向，它只会丢弃原生动量，且零速度 gate 仍会拒绝后续 pan。
+8. Header 的 Actions、Banner 和共享 Tabs 现在使用不覆盖 `gestureRecognizerShouldBegin` 的原生横向 `UIScrollView`，完整保留 UIKit tracking/dragging/deceleration 状态机。只有 Page 内需要在边界把横向手势交给 Pager 的 section 使用 `HomeContainerPagerChildHorizontalScrollView`；该类在方向尚未产生有效样本时必须返回 `true`，不得把 undecided 当作失败。
 
-这部分自动化仍受上面单次 `touchesMoved` 限制，必须在真机逐项复核账户、网络、金额、按钮、Banner、Tabs、accessory 和列表第一行起点。代码层通过条件已经具备：所有起点共享 outer 原生 pan/UIRefreshControl，不存在 Header 专用的第二套阻尼或 spinner 状态。
+这部分自动化仍受上面单次 `touchesMoved` 限制，必须在真机逐项复核账户、网络、金额、按钮、Banner、Tabs、accessory 和列表第一行起点。代码层通过条件已经具备：所有起点共享 outer 原生 pan/UIRefreshControl，不存在 Header 专用的第二套阻尼或 spinner 状态。Banner-origin 的自动化证据位于 `.tmp/native-home-p0-validation/banner-vertical-refresh.mov`；录屏中可以看到从 Banner 正文起手进入共享刷新状态，但真机仍需复核慢速斜向手势和横向 Banner 惯性。横向惯性验收必须覆盖：惯性未结束时再次同向快滑应立即继续并提高速度，反向快滑应在新手势开始后立即反向；等待旧惯性自然结束后才响应不算通过。
+
+2026-07-14 构建验证：`OneKeyWallet` Debug simulator 完整 `xcodebuild` 退出码为 0。对最终 `OneKeyWallet.debug.dylib` 执行 `nm | swift-demangle` 后，`HomeContainerHorizontalScrollView` 只有 `touchesShouldCancel`，不存在 `gestureRecognizerShouldBegin`；`gestureRecognizerShouldBegin` 只存在于 `HomeContainerPagerChildHorizontalScrollView`。这证明 Banner 的最终产物已回到 UIKit 默认 pan delegate 路径，但不替代上述真机连续手势验收。
 
 ### 第二轮实现的运行时边界
 

@@ -136,11 +136,18 @@ private final class HomeContainerNestedScrollView: UIScrollView, UIGestureRecogn
     fatalError("init(coder:) has not been implemented")
   }
 
+  override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+    guard gestureRecognizer === panGestureRecognizer else { return true }
+    let velocity = panGestureRecognizer.velocity(in: self)
+    return abs(velocity.y) >= abs(velocity.x)
+  }
+
   func gestureRecognizer(
     _ gestureRecognizer: UIGestureRecognizer,
     shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
   ) -> Bool {
-    otherGestureRecognizer.view is HomeContainerNestedTableView
+    otherGestureRecognizer.view is HomeContainerNestedTableView ||
+      otherGestureRecognizer.view is HomeContainerHorizontalScrollView
   }
 }
 
@@ -154,11 +161,18 @@ private final class HomeContainerNestedTableView: UITableView, UIGestureRecogniz
     fatalError("init(coder:) has not been implemented")
   }
 
+  override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+    guard gestureRecognizer === panGestureRecognizer else { return true }
+    let velocity = panGestureRecognizer.velocity(in: self)
+    return abs(velocity.y) >= abs(velocity.x)
+  }
+
   func gestureRecognizer(
     _ gestureRecognizer: UIGestureRecognizer,
     shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
   ) -> Bool {
-    otherGestureRecognizer.view is HomeContainerNestedScrollView
+    otherGestureRecognizer.view is HomeContainerNestedScrollView ||
+      otherGestureRecognizer.view is HomeContainerHorizontalScrollView
   }
 }
 
@@ -235,10 +249,9 @@ private final class HomeContainerPagerScrollView: UIScrollView, UIGestureRecogni
   }
 }
 
-private final class HomeContainerHorizontalScrollView: UIScrollView, UIGestureRecognizerDelegate {
+private class HomeContainerHorizontalScrollView: UIScrollView {
   override init(frame: CGRect) {
     super.init(frame: frame)
-    panGestureRecognizer.delegate = self
   }
 
   required init?(coder: NSCoder) {
@@ -248,6 +261,20 @@ private final class HomeContainerHorizontalScrollView: UIScrollView, UIGestureRe
   override func touchesShouldCancel(in view: UIView) -> Bool {
     true
   }
+}
+
+private final class HomeContainerPagerChildHorizontalScrollView:
+  HomeContainerHorizontalScrollView,
+  UIGestureRecognizerDelegate
+{
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    panGestureRecognizer.delegate = self
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
@@ -255,10 +282,6 @@ private final class HomeContainerHorizontalScrollView: UIScrollView, UIGestureRe
     var current = superview
     while let view = current {
       if let scrollView = view as? HomeContainerPagerScrollView {
-        scrollView.panGestureRecognizer.require(toFail: panGestureRecognizer)
-      } else if let scrollView = view as? HomeContainerNestedTableView {
-        scrollView.panGestureRecognizer.require(toFail: panGestureRecognizer)
-      } else if let scrollView = view as? HomeContainerNestedScrollView {
         scrollView.panGestureRecognizer.require(toFail: panGestureRecognizer)
       }
       current = view.superview
@@ -270,6 +293,9 @@ private final class HomeContainerHorizontalScrollView: UIScrollView, UIGestureRe
     let maximumOffset = max(0, contentSize.width - bounds.width)
     guard maximumOffset > 1 else { return false }
     let velocity = panGestureRecognizer.velocity(in: self)
+    // UIScrollView may ask its delegate before a replacement drag has produced
+    // a velocity sample. Preserve native deceleration takeover in that state.
+    guard max(abs(velocity.x), abs(velocity.y)) > 0.5 else { return true }
     guard abs(velocity.x) > abs(velocity.y) else { return false }
     if contentOffset.x <= 0.5, velocity.x > 0 {
       return false
@@ -279,7 +305,6 @@ private final class HomeContainerHorizontalScrollView: UIScrollView, UIGestureRe
     }
     return true
   }
-
 }
 
 final class HomeContainerView: UIView, UIScrollViewDelegate {
@@ -1897,7 +1922,7 @@ private final class HomeContainerTabsView: UIView {
 }
 
 private final class HomeContainerHorizontalCell: UITableViewCell {
-  private let scrollView = HomeContainerHorizontalScrollView()
+  private let scrollView = HomeContainerPagerChildHorizontalScrollView()
   private let stack = UIStackView()
   private var itemIds: [String] = []
 
