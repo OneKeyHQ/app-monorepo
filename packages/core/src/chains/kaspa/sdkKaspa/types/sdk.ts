@@ -3,34 +3,14 @@ import type { IEncodedTxKaspa } from '../../types';
 import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
 
 export type IKaspaSdkApi = {
-  createKRC20RevealTxJSON: (params: {
-    accountAddress: string;
-    encodedTx: IEncodedTxKaspa;
-    isTestnet: boolean;
-  }) => Promise<string>;
-
-  buildCommitTxInfo: ({
-    accountAddress,
-    transferDataString,
-    isTestnet,
-  }: {
-    accountAddress: string;
-    transferDataString: string;
-    isTestnet: boolean;
-  }) => Promise<{
-    commitScriptPubKey: string;
-    commitAddress: string;
-    commitScriptHex: string;
-  }>;
-
-  signRevealTransactionSoftware: (params: {
+  signPayloadTransactionSoftware: (params: {
     accountAddress: string;
     encodedTx: IEncodedTxKaspa;
     isTestnet: boolean;
     tweakedPrivateKey: string;
   }) => Promise<string>;
 
-  signRevealTransactionHardware: (params: {
+  signPayloadTransactionHardware: (params: {
     accountAddress: string;
     encodedTx: IEncodedTxKaspa;
     isTestnet: boolean;
@@ -49,6 +29,14 @@ export type IKaspaSdkApi = {
   }) => Promise<KaspaSignTransactionParams>;
 
   deserializeFromSafeJSON: (json: string) => Promise<IKaspaTransaction>;
+
+  // Submit a signed safe-JSON rawTx via the wasm wRPC RpcClient (public node
+  // resolver). Unlike the REST submit, wRPC preserves the consensus payload, so
+  // the node validates the same with-payload tx the wallet signed.
+  submitPayloadTransactionViaRpc: (params: {
+    rawTx: string;
+    isTestnet: boolean;
+  }) => Promise<string>;
 };
 
 export type IGetKaspaApi = () => Promise<IKaspaSdkApi>;

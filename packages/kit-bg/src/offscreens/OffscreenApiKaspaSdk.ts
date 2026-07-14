@@ -2,28 +2,16 @@ import kaspaWebSdk from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk/kaspaWebSd
 import type { IKaspaSdkApi } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/types/sdk';
 
 export default class OffscreenApiKaspaSdk implements IKaspaSdkApi {
-  async createKRC20RevealTxJSON(...args: any[]) {
+  async signPayloadTransactionSoftware(...args: any[]) {
     const api = await kaspaWebSdk.getKaspaApi();
     // @ts-ignore
-    return api.createKRC20RevealTxJSON(...args);
+    return api.signPayloadTransactionSoftware(...args);
   }
 
-  async buildCommitTxInfo(...args: any[]) {
+  async signPayloadTransactionHardware(...args: any[]) {
     const api = await kaspaWebSdk.getKaspaApi();
     // @ts-ignore
-    return api.buildCommitTxInfo(...args);
-  }
-
-  async signRevealTransactionSoftware(...args: any[]) {
-    const api = await kaspaWebSdk.getKaspaApi();
-    // @ts-ignore
-    return api.signRevealTransactionSoftware(...args);
-  }
-
-  async signRevealTransactionHardware(...args: any[]) {
-    const api = await kaspaWebSdk.getKaspaApi();
-    // @ts-ignore
-    return api.signRevealTransactionHardware(...args);
+    return api.signPayloadTransactionHardware(...args);
   }
 
   async buildUnsignedTxForHardware(...args: any[]) {
@@ -36,5 +24,11 @@ export default class OffscreenApiKaspaSdk implements IKaspaSdkApi {
     const api = await kaspaWebSdk.getKaspaApi();
     // @ts-ignore
     return api.deserializeFromSafeJSON(...args);
+  }
+
+  async submitPayloadTransactionViaRpc(...args: any[]) {
+    const api = await kaspaWebSdk.getKaspaApi();
+    // @ts-ignore
+    return api.submitPayloadTransactionViaRpc(...args);
   }
 }

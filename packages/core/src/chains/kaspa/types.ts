@@ -16,14 +16,16 @@ export type IEncodedTxKaspa = {
     limit: string;
   };
 
-  commitAddress?: string;
-  commitScriptPubKey?: string;
-  commitScriptHex?: string;
   changeAddress?: string;
   // When set, the change output is dropped and the whole input surplus is left
-  // as fee. Used by the KRC20 commit tx to avoid a small change output that
-  // would push the KIP-0009 storage mass over the node's max-allowed mass limit.
+  // as fee.
   dropChangeToFee?: boolean;
+
+  // Hex-encoded transaction payload. When set, the tx is built/signed via
+  // kaspa-wasm (kaspa-core-lib hardcodes a zero payload hash and cannot carry a
+  // real payload). Used by the single-tx KRC20 transfer that puts the kasplex op
+  // JSON into the consensus payload.
+  payload?: string;
 };
 
 export type IKaspaSigner = {

@@ -9185,10 +9185,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/kaspa-wasm@npm:^1.0.2":
-  version: 1.0.2
-  resolution: "@onekeyfe/kaspa-wasm@npm:1.0.2"
-  checksum: 10/ff67e3e9a864f024dbae2813e1c8db1e2433137589847a8102d0a842dd119fea4316fd2040eda82410dea863df83a57a9028efd5adc12d8b53562d7107646309
+"@onekeyfe/kaspa-wasm@npm:1.0.3-alpha.0":
+  version: 1.0.3-alpha.0
+  resolution: "@onekeyfe/kaspa-wasm@npm:1.0.3-alpha.0"
+  checksum: 10/fef46e93815d03bda34a8a529e376c70b505c6c1b080f3752288b2741a42cd99a1f7f09343e303abb2f88d3eef7b5e1fca28fd3e1c74f3d88ecd06d16345f190
   languageName: node
   linkType: hard
 
@@ -10093,7 +10093,7 @@ __metadata:
     "@onekeyfe/cardano-coin-selection-asmjs": "npm:1.1.11"
     "@onekeyfe/coinselect": "npm:3.1.17"
     "@onekeyfe/kaspa-core-lib": "npm:^1.0.2"
-    "@onekeyfe/kaspa-wasm": "npm:^1.0.2"
+    "@onekeyfe/kaspa-wasm": "npm:1.0.3-alpha.0"
     "@solana/spl-token": "npm:^0.4.8"
     "@solana/web3.js": "npm:1.98.2"
     "@starcoin/starcoin": "npm:^2.3.7"

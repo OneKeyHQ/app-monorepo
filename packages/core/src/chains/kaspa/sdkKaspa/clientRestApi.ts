@@ -115,6 +115,11 @@ export class RestAPIClient {
       };
     }
 
+    // eslint-disable-next-line no-console
+    console.log('[KSPDBG] rawTx >>>', rawTx);
+    // eslint-disable-next-line no-console
+    console.log('[KSPDBG] POST body >>>', JSON.stringify(transaction));
+
     return this.axios
       .post<{
         transactionId: string;
@@ -124,9 +129,15 @@ export class RestAPIClient {
           'Content-Type': 'application/json',
         },
       })
-      .then((resp) => resp.data.transactionId)
+      .then((resp) => {
+        // eslint-disable-next-line no-console
+        console.log('[KSPDBG] node OK txid >>>', resp.data.transactionId);
+        return resp.data.transactionId;
+      })
       .catch((error: AxiosError) => {
         const message: string = get(error, 'response.data.error', '');
+        // eslint-disable-next-line no-console
+        console.log('[KSPDBG] node ERROR >>>', message);
 
         if (message.match(/payment of \d+ is dust/)) {
           throw new OneKeyInternalError({

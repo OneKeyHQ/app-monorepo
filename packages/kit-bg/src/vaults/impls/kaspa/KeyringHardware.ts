@@ -7,7 +7,6 @@ import {
   MAX_ORPHAN_TX_MASS,
   SignatureType,
   SigningMethodType,
-  addressFromPublicKeyBuffer,
   publicKeyFromX,
   toTransaction,
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
@@ -148,10 +147,11 @@ export class KeyringHardware extends KeyringHardwareBase {
     const chainId = await this.getNetworkChainId();
     const addressEncoding = await this.vault.getAddressEncoding();
 
-    if (unsignedTx.isKRC20RevealTx) {
-      if (!encodedTx.commitScriptHex) {
-        throw new OneKeyLocalError('commitScriptHex is required');
-      }
+    // Single-tx KRC20 payload transfer: a P2PK self-sweep carrying the kasplex
+    // op JSON in the consensus payload. Built/reconstructed via wasm
+    // (kaspa-core-lib cannot carry a payload), and the device signs over the
+    // payload via the streaming protocol.
+    if (encodedTx.payload) {
       const api = await sdkWasm.getKaspaApi();
       const network = await this.getNetwork();
       const unSignTx = await api.buildUnsignedTxForHardware({
@@ -169,13 +169,11 @@ export class KeyringHardware extends KeyringHardwareBase {
       });
 
       if (response.success) {
-        const signatures = response.payload;
-
-        const rawTx = await api.signRevealTransactionHardware({
+        const rawTx = await api.signPayloadTransactionHardware({
           accountAddress: dbAccount.address,
           encodedTx,
           isTestnet: !!network.isTestnet,
-          signatures,
+          signatures: response.payload,
         });
 
         return {
@@ -213,17 +211,29 @@ export class KeyringHardware extends KeyringHardwareBase {
         },
         sigOpCount: input?.output?.script?.getSignatureOperationsCount() ?? 1,
       })),
-      outputs: txn.outputs.map((output) => ({
-        satoshis: output.satoshis.toString(),
-        // Streaming protocol describes outputs by address; the device rebuilds the
-        // script itself (mirrors BTC PAYTOADDRESS outputs). Derive the cashaddr from
-        // the P2PK output script's public key, the same encoding used for receiving.
-        address: addressFromPublicKeyBuffer(
-          // @ts-expect-error kaspa-core-lib Script exposes getPublicKey() for P2PK
-          output.script.getPublicKey(),
-          chainId,
-        ),
-      })),
+      // Streaming protocol describes outputs by address and the device rebuilds
+      // the script itself. The change output returns to our own account address,
+      // so send it by BIP-32 path (addressN) — the device verifies it as change
+      // (KASPA_PAYTOCHANGE) instead of prompting it as an external recipient.
+      // A custom change address (not our account address) falls back to address.
+      outputs: txn.outputs.map((output, index) => {
+        const satoshis = output.satoshis.toString();
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const isChange = index === (txn as any)._changeIndex;
+        if (
+          isChange &&
+          (!encodedTx.changeAddress ||
+            encodedTx.changeAddress === dbAccount.address)
+        ) {
+          return { satoshis, addressN: dbAccount.path };
+        }
+        return {
+          satoshis,
+          address: isChange
+            ? (encodedTx.changeAddress ?? dbAccount.address)
+            : encodedTx.outputs[0]?.address,
+        };
+      }),
       lockTime: txn.nLockTime.toString(),
       sigHashType: SignatureType.SIGHASH_ALL,
       sigOpCount: 1,

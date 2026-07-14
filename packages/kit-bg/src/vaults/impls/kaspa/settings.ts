@@ -85,7 +85,8 @@ const settings: IVaultSettings = {
   nativeMinTransferAmount: new BigNumber(DUST_AMOUNT).shiftedBy(-8).toFixed(),
   isNativeTokenContractAddressEmpty: false,
 
-  afterSendTxActionEnabled: true,
+  // No commit/reveal follow-up tx for the single-tx payload KRC20 transfer.
+  afterSendTxActionEnabled: false,
 };
 
 export default Object.freeze(settings);

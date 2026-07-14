@@ -22,7 +22,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { showCustomRpcFallbackDialog } from '@onekeyhq/kit/src/views/Send/components/CustomRpcFallbackDialog';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -348,21 +347,8 @@ function TxConfirmAlert(props: IProps) {
   }, [intl, customRpcStatus, handleSwitchToOneKeyRpc]);
 
   const renderChainSpecialAlert = useCallback(() => {
-    if (
-      networkId === getNetworkIdsMap().kaspa &&
-      accountUtils.isHwAccount({ accountId }) &&
-      transferPayload?.tokenInfo &&
-      !transferPayload.tokenInfo.isNative
-    ) {
-      return (
-        <Alert
-          type="warning"
-          title={intl.formatMessage({
-            id: ETranslations.sending_krc20_warning_text,
-          })}
-        />
-      );
-    }
+    // KRC20 transfers are now a single payload tx (one hardware confirmation),
+    // so the old commit/reveal "confirm twice" warning no longer applies.
 
     if (networkUtils.isTronNetworkByNetworkId(networkId)) {
       const alerts: {

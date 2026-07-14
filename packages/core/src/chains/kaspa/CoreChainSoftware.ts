@@ -124,14 +124,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         break;
     }
 
-    if (unsignedTx.isKRC20RevealTx) {
+    if (encodedTx.payload) {
       const api = await sdk.getKaspaApi();
-
-      if (!encodedTx.commitScriptHex) {
-        throw new OneKeyLocalError('commitScriptHex is required');
-      }
-
-      const rawTx = await api.signRevealTransactionSoftware({
+      const rawTx = await api.signPayloadTransactionSoftware({
         accountAddress: account.address,
         encodedTx,
         isTestnet: !!isTestnet,
