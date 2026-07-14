@@ -89,7 +89,7 @@
     "_packageVersions": "node ./development/lint/package-versions.js",
     "_font": "node ./development/lint/font.js",
     "lint:agent-context": "node ./development/lint/agent-context",
-    "lint:project": "yarn lint:agent-context && yarn _tsc && yarn _lint && concurrently --kill-others-on-fail \"yarn _electron\" \"yarn _lang\" \"yarn _packageVersions\" \"yarn _font\"",
+    "lint:project": "yarn _tsc && yarn _lint && concurrently --kill-others-on-fail \"yarn _electron\" \"yarn _lang\" \"yarn _packageVersions\" \"yarn _font\" \"yarn lint:agent-context\"",
     "lint": "yarn lint:project",
     "lint:all": "yarn lint --fix && yarn eslint --fix",
     "eslint": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"/.eslintcache",
