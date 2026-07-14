@@ -1106,9 +1106,6 @@ const SwapHistoryDetailModal = () => {
         currencyMap,
       });
     }, [currencyMap, displayCurrencyId, isPrivateSendHistory, txHistory]);
-  const shouldRenderOrderId =
-    !!txHistory?.txInfo.orderId && !isPrivateSendHistory;
-
   const onViewInBrowser = useCallback((url: string) => {
     openUrlExternal(url);
   }, []);
@@ -1743,23 +1740,6 @@ const SwapHistoryDetailModal = () => {
               })}
               renderContent={renderSwapProvider()}
             />
-            {shouldRenderOrderId ? (
-              <InfoItem
-                label="Order ID"
-                renderContent={txHistory.txInfo.orderId}
-                showCopy
-                {...(txHistory.swapInfo.orderSupportUrl
-                  ? {
-                      openWithUrl: () =>
-                        onViewInBrowser(
-                          `${txHistory.swapInfo.orderSupportUrl ?? ''}${
-                            txHistory.txInfo.orderId ?? ''
-                          }`,
-                        ),
-                    }
-                  : {})}
-              />
-            ) : null}
             {isPrivateSendHistory ? null : (
               <InfoItem
                 disabledCopy
@@ -1794,7 +1774,6 @@ const SwapHistoryDetailModal = () => {
     );
   }, [
     intl,
-    onViewInBrowser,
     renderNetworkFee,
     renderProtocolFee,
     renderRate,
@@ -1804,7 +1783,6 @@ const SwapHistoryDetailModal = () => {
     renderSwapLongPendingWarning,
     renderSwapOrderStatus,
     renderSwapProvider,
-    shouldRenderOrderId,
     isPrivateSendHistory,
     txHistory,
   ]);
