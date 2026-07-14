@@ -91,6 +91,7 @@ const ReserveDetailsTabsComponent = ({
       <Tabs.TabBar
         {...tabBarProps}
         scrollable={platformEnv.isNative}
+        keepFocusedTabVisible={platformEnv.isNative}
         onTabPress={handleTabPress}
       />
     );
