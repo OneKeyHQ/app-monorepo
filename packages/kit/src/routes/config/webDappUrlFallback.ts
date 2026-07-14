@@ -5,6 +5,28 @@ type IAllowListRule = {
 
 type IAllowList = Record<string, IAllowListRule>;
 
+const DYNAMIC_PATH_SUFFIX = '/.';
+
+function matchesDynamicAllowListPath({
+  allowListKey,
+  path,
+}: {
+  allowListKey: string;
+  path: string;
+}) {
+  if (!allowListKey.endsWith(DYNAMIC_PATH_SUFFIX)) {
+    return false;
+  }
+  // buildAllowList collapses one or more route params into a trailing `/.`.
+  const pathPrefix = allowListKey.slice(0, -DYNAMIC_PATH_SUFFIX.length);
+  const dynamicPath = path.slice(pathPrefix.length + 1);
+  return (
+    path.startsWith(`${pathPrefix}/`) &&
+    dynamicPath.length > 0 &&
+    dynamicPath.split('/').every(Boolean)
+  );
+}
+
 function getAllowListRule({
   allowList,
   allowListKeys,
@@ -18,7 +40,9 @@ function getAllowListRule({
   if (directRule) {
     return directRule;
   }
-  const matchedKey = allowListKeys.find((key) => new RegExp(key).test(path));
+  const matchedKey = allowListKeys.find((key) =>
+    matchesDynamicAllowListPath({ allowListKey: key, path }),
+  );
   return matchedKey ? allowList[matchedKey] : undefined;
 }
 

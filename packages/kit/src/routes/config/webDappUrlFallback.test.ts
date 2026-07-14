@@ -41,6 +41,42 @@ describe('getWebDappUrlFallback', () => {
     ).toBe('/market/tokens/btc');
   });
 
+  it('keeps all dynamic segments represented by a collapsed allowlist key', () => {
+    expect(
+      getWebDappUrlFallback({
+        allowList,
+        allowListKeys,
+        currentPath: '/market/tokens/ethereum/0x123',
+      }),
+    ).toBe('/market/tokens/ethereum/0x123');
+  });
+
+  it.each(['/foo/swap', '/market-fake', '/swap/extra'])(
+    'does not treat a partial static route match as public: %s',
+    (currentPath) => {
+      expect(
+        getWebDappUrlFallback({
+          allowList,
+          allowListKeys,
+          currentPath,
+        }),
+      ).toBe('/market');
+    },
+  );
+
+  it.each(['/foo/market/tokens/btc', '/market/tokens/'])(
+    'does not treat an invalid dynamic route match as public: %s',
+    (currentPath) => {
+      expect(
+        getWebDappUrlFallback({
+          allowList,
+          allowListKeys,
+          currentPath,
+        }),
+      ).toBe('/market');
+    },
+  );
+
   it('does not match an allowed route through query parameters', () => {
     expect(
       getWebDappUrlFallback({
