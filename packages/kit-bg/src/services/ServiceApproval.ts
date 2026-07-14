@@ -41,13 +41,12 @@ class ServiceApproval extends ServiceBase {
       accountAddress: string;
       networkId: string;
       accountId: string;
-      withPermit2: true;
+      withPermit2: boolean;
     }[] = [];
+    const networksSupportBulkRevokeApproval =
+      getNetworksSupportBulkRevokeApproval();
 
     if (networkUtils.isAllNetwork({ networkId })) {
-      const networksSupportBulkRevokeApproval =
-        getNetworksSupportBulkRevokeApproval();
-
       const { allNetworkAccounts } =
         await this.backgroundApi.serviceAllNetwork.buildAllNetworkAccountsForApiParam(
           {
@@ -77,7 +76,7 @@ class ServiceApproval extends ServiceBase {
               accountId: itemAccountId,
               networkId: itemNetworkId,
               accountAddress,
-              withPermit2: true as const,
+              withPermit2: true,
             },
           ];
         },
@@ -96,7 +95,7 @@ class ServiceApproval extends ServiceBase {
         accountAddress,
         networkId,
         accountId,
-        withPermit2: true,
+        withPermit2: Boolean(networksSupportBulkRevokeApproval[networkId]),
       });
     }
 
