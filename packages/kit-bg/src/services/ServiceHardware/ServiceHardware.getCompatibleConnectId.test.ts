@@ -196,10 +196,11 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       success: true,
       payload: { portfolioUpdated: true },
     });
-    service.getCompatibleConnectId = getCompatibleConnectId;
-    service.getSDKInstance = jest.fn().mockResolvedValue({
+    const getSDKInstance = jest.fn().mockResolvedValue({
       uploadPortfolio,
     } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    service.getCompatibleConnectId = getCompatibleConnectId;
+    service.getSDKInstance = getSDKInstance;
 
     const packageBytes = new Uint8Array([1, 2, 3]).buffer;
 
@@ -212,7 +213,11 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
     expect(getCompatibleConnectId).toHaveBeenCalledWith({
       connectId: 'ONEKEY_USB',
-      hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+    });
+    expect(getSDKInstance).toHaveBeenCalledWith({
+      connectId: 'ONEKEY_USB',
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
     });
     expect(uploadPortfolio).toHaveBeenCalledWith('ONEKEY_USB', {
       packageBytes,

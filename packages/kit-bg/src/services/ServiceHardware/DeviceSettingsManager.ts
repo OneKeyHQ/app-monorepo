@@ -6,8 +6,7 @@ import {
   type DeviceUploadResourceResponse,
   ResourceType,
 } from '@onekeyfe/hd-core';
-
-
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { isNil } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -42,6 +41,13 @@ import type {
 } from '../../dbs/local/types';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
 import type { Response as ThirdPartyResponse } from '@onekeyfe/hwk-adapter-core';
+
+const jpeg = require('jpeg-js') as {
+  decode: (
+    data: Uint8Array,
+    options: { useTArray: true; formatAsRGBA: true },
+  ) => { width: number; height: number; data: Uint8Array };
+};
 
 export type ISetInputPinOnSoftwareParams = {
   walletId: string;
@@ -132,6 +138,39 @@ type ITrezorDeviceSettingsAction = (params: {
   device: IDBDevice;
 }) => Promise<ThirdPartyResponse<Record<string, unknown>>>;
 
+type IProtocolV2DeviceSettings = {
+  label?: string;
+  language?: string;
+  // cspell:disable-next-line
+  autolock_delay_ms?: number;
+  // cspell:disable-next-line
+  autoshutdown_delay_ms?: number;
+  haptic_feedback?: boolean;
+};
+
+type IProtocolV2SettingsCoreApi = CoreApi & {
+  deviceSettingsSet: (
+    connectId: string,
+    params: { settings: IProtocolV2DeviceSettings },
+  ) => ReturnType<CoreApi['deviceSettings']>;
+  deviceSettingsPageShow: (
+    connectId: string,
+    params: {
+      page: 'DevicePassphrase' | 'DevicePinChange' | 'DeviceReset';
+      fieldName?: string;
+    },
+  ) => ReturnType<CoreApi['deviceSettings']>;
+  deviceUploadWallpaper: (
+    connectId: string,
+    params: {
+      width: number;
+      height: number;
+      rgba: Uint8Array;
+      fileName?: string;
+    },
+  ) => ReturnType<CoreApi['deviceSettings']>;
+};
+
 export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   private async _getDeviceForSettings({
     walletId,
@@ -163,6 +202,14 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       device?.vendor === EHardwareVendor.trezor ||
       device?.settings?.vendor === EHardwareVendor.trezor
     );
+  }
+
+  private _isPro2Device(device: IDBDevice | undefined): boolean {
+    return device?.deviceType === EDeviceType.Pro2;
+  }
+
+  private _getProtocolV2SettingsSDK(sdk: CoreApi): IProtocolV2SettingsCoreApi {
+    return sdk as IProtocolV2SettingsCoreApi;
   }
 
   private async _withTrezorDeviceProcessing({
@@ -351,6 +398,20 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         },
       });
     }
+    if (this._isPro2Device(device)) {
+      return this._withDeviceProcessing({
+        walletId,
+        connectId,
+        featuresDeviceId,
+        dbDevice: device,
+        debugMethodName: 'deviceSettings.changePin.pro2',
+        action: async (sdk, compatibleConnectId) =>
+          this._getProtocolV2SettingsSDK(sdk).deviceSettingsPageShow(
+            compatibleConnectId,
+            { page: 'DevicePinChange' },
+          ),
+      });
+    }
     return this._withDeviceProcessing({
       walletId,
       connectId,
@@ -487,6 +548,18 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         preciseUpdateFields: { label },
       });
     }
+    if (this._isPro2Device(device)) {
+      return this._withDeviceProcessing({
+        walletId,
+        dbDevice: device,
+        debugMethodName: 'deviceSettings.setDeviceLabel.pro2',
+        action: async (sdk, compatibleConnectId) =>
+          this._getProtocolV2SettingsSDK(sdk).deviceSettingsSet(
+            compatibleConnectId,
+            { settings: { label } },
+          ),
+      });
+    }
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
         this.applySettingsToDevice(device.connectId, {
@@ -532,6 +605,52 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       async () => {
         // pro touch custom upload wallpaper
         if (needUploadResource) {
+          if (this._isPro2Device(device)) {
+            if (!finallyScreenHex) {
+              throw new OneKeyLocalError(
+                'Upload Pro2 wallpaper error: screenHex not defined',
+              );
+            }
+            const decoded = jpeg.decode(Buffer.from(finallyScreenHex, 'hex'), {
+              useTArray: true,
+              formatAsRGBA: true,
+            });
+            if (decoded.width !== 604 || decoded.height !== 1024) {
+              throw new OneKeyLocalError(
+                `Invalid Pro2 wallpaper size: ${decoded.width}x${decoded.height}, expected 604x1024`,
+              );
+            }
+            if (decoded.data.byteLength !== 604 * 1024 * 4) {
+              throw new OneKeyLocalError(
+                `Invalid Pro2 wallpaper RGBA length: ${decoded.data.byteLength}`,
+              );
+            }
+            const compatibleConnectId =
+              await this.serviceHardware.getCompatibleConnectId({
+                connectId: device.connectId,
+                featuresDeviceId: device.deviceId,
+                hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+              });
+            const hardwareSDK = await this.getSDKInstance({
+              connectId: compatibleConnectId,
+            });
+            const response = await convertDeviceResponse(() =>
+              this._getProtocolV2SettingsSDK(hardwareSDK).deviceUploadWallpaper(
+                compatibleConnectId,
+                {
+                  width: decoded.width,
+                  height: decoded.height,
+                  rgba: decoded.data,
+                  fileName: screenItem.id.replace(/[^A-Za-z0-9_-]/g, '-'),
+                },
+              ),
+            );
+            return {
+              ...response,
+              message: response.message ?? 'Success',
+              applyScreen: true,
+            };
+          }
           if (!finallyThumbnailHex) {
             throw new OneKeyLocalError(
               'Upload screen item error: thumbnailHex not defined',
@@ -611,6 +730,39 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         },
       });
     }
+    if (this._isPro2Device(device)) {
+      return this._withDeviceProcessing({
+        walletId,
+        connectId,
+        featuresDeviceId,
+        dbDevice: device,
+        debugMethodName: 'deviceSettings.setPassphraseEnabled.pro2',
+        action: async (sdk, compatibleConnectId, targetDevice) =>
+          this._getProtocolV2SettingsSDK(sdk)
+            .deviceSettingsPageShow(compatibleConnectId, {
+              page: 'DevicePassphrase',
+              fieldName: 'passphrase_enable',
+            })
+            .then(async (response) => {
+              if (response.success && targetDevice.featuresInfo) {
+                const features =
+                  await this.serviceHardware.getFeaturesWithoutCache({
+                    connectId: compatibleConnectId,
+                    hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+                  });
+                await localDb.updateDevice({
+                  features: targetDevice.featuresInfo,
+                  preciseUpdateFields: {
+                    passphraseProtection: Boolean(
+                      features?.passphraseProtection,
+                    ),
+                  },
+                });
+              }
+              return response;
+            }),
+      });
+    }
     return this._withDeviceProcessing({
       walletId,
       connectId,
@@ -661,6 +813,21 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         },
       });
     }
+    if (this._isPro2Device(device)) {
+      return this._withDeviceProcessing({
+        walletId,
+        connectId,
+        featuresDeviceId,
+        dbDevice: device,
+        debugMethodName: 'deviceSettings.setAutoLockDelayMs.pro2',
+        action: async (sdk, compatibleConnectId) =>
+          this._getProtocolV2SettingsSDK(sdk).deviceSettingsSet(
+            compatibleConnectId,
+            // cspell:disable-next-line
+            { settings: { autolock_delay_ms: autoLockDelayMs } },
+          ),
+      });
+    }
     return this._withDeviceProcessing({
       walletId,
       connectId,
@@ -700,6 +867,21 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     });
     if (this._isTrezorDevice(device)) {
       throw new OneKeyLocalError('Trezor auto shutdown settings not available');
+    }
+    if (this._isPro2Device(device)) {
+      return this._withDeviceProcessing({
+        walletId,
+        connectId,
+        featuresDeviceId,
+        dbDevice: device,
+        debugMethodName: 'deviceSettings.setAutoShutDownDelayMs.pro2',
+        action: async (sdk, compatibleConnectId) =>
+          this._getProtocolV2SettingsSDK(sdk).deviceSettingsSet(
+            compatibleConnectId,
+            // cspell:disable-next-line
+            { settings: { autoshutdown_delay_ms: autoShutdownDelayMs } },
+          ),
+      });
     }
     return this._withDeviceProcessing({
       walletId,
@@ -749,6 +931,20 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         preciseUpdateFields: {
           language,
         },
+      });
+    }
+    if (this._isPro2Device(device)) {
+      return this._withDeviceProcessing({
+        walletId,
+        connectId,
+        featuresDeviceId,
+        dbDevice: device,
+        debugMethodName: 'deviceSettings.setLanguage.pro2',
+        action: async (sdk, compatibleConnectId) =>
+          this._getProtocolV2SettingsSDK(sdk).deviceSettingsSet(
+            compatibleConnectId,
+            { settings: { language } },
+          ),
       });
     }
     return this._withDeviceProcessing({
@@ -842,6 +1038,20 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         settings: { haptic_feedback: hapticFeedback },
       });
     }
+    if (this._isPro2Device(device)) {
+      return this._withDeviceProcessing({
+        walletId,
+        connectId,
+        featuresDeviceId,
+        dbDevice: device,
+        debugMethodName: 'deviceSettings.setHapticFeedback.pro2',
+        action: async (sdk, compatibleConnectId) =>
+          this._getProtocolV2SettingsSDK(sdk).deviceSettingsSet(
+            compatibleConnectId,
+            { settings: { haptic_feedback: hapticFeedback } },
+          ),
+      });
+    }
     return this._withDeviceProcessing({
       walletId,
       connectId,
@@ -894,6 +1104,20 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       });
       await localDb.clearTrezorDeviceThpState({ dbDeviceId: device.id });
       return response;
+    }
+    if (this._isPro2Device(device)) {
+      return this._withDeviceProcessing({
+        walletId,
+        connectId,
+        featuresDeviceId,
+        dbDevice: device,
+        debugMethodName: 'deviceSettings.wipeDevice.pro2',
+        action: async (sdk, compatibleConnectId) =>
+          this._getProtocolV2SettingsSDK(sdk).deviceSettingsPageShow(
+            compatibleConnectId,
+            { page: 'DeviceReset' },
+          ),
+      });
     }
     return this._withDeviceProcessing({
       walletId,

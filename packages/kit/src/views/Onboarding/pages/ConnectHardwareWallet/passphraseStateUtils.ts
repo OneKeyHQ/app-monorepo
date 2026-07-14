@@ -2,8 +2,8 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
+
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
 export async function resolveHardwarePassphraseEnabled({
@@ -29,22 +29,16 @@ export async function resolveHardwarePassphraseEnabled({
   }
 
   try {
-    const passphraseStatePayload =
+    const passphraseState =
       await backgroundApiProxy.serviceHardware.getPassphraseStateBase({
         connectId: device.connectId ?? '',
         forceInputPassphrase: false,
         useEmptyPassphrase: true,
       });
-    const passphraseEnabled = Boolean(
-      passphraseStatePayload?.passphraseState ||
-        passphraseStatePayload?.passphraseProtection === true,
-    );
+    const passphraseEnabled = Boolean(passphraseState);
 
     if (passphraseEnabled) {
       features.passphraseProtection = true;
-    }
-    if (passphraseStatePayload?.unlockedAttachPin !== undefined) {
-      features.unlockedAttachPin = passphraseStatePayload.unlockedAttachPin;
     }
 
     return passphraseEnabled;

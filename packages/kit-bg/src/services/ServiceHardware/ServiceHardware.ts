@@ -122,7 +122,6 @@ import type {
   DeviceUploadResourceParams,
   Features,
   GetDeviceInfoParams,
-  GetPassphraseStatePayload,
   Response as HardwareResponse,
   IDeviceType,
   KnownDevice,
@@ -270,6 +269,8 @@ const LINUX_UDEV_RULES_INSTALL_MAX_ATTEMPTS = 2;
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
+  private activeHardwareConnectIds = new Set<string>();
+
   private bridgeAvailabilityChecked = false;
 
   private linuxUdevRulesReadyPromise: Promise<boolean> | undefined;
@@ -459,6 +460,7 @@ class ServiceHardware extends ServiceBase {
 
         // Reset SDK instance to use new transport type
         await resetHardwareSDKInstance();
+        this.activeHardwareConnectIds.clear();
         this.registeredEvents = false;
 
         console.log('✅ TRANSPORT SWITCH: SDK reset completed');
@@ -494,11 +496,14 @@ class ServiceHardware extends ServiceBase {
 
       return instance;
     } catch (error) {
-      // always show error toast when sdk init, so user can report to us
-      void this.backgroundApi.serviceApp.showToast({
-        method: 'error',
-        title: (error as Error)?.message || 'Hardware SDK init failed',
-      });
+      if (
+        hardwareCallContext !== EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
+      ) {
+        void this.backgroundApi.serviceApp.showToast({
+          method: 'error',
+          title: (error as Error)?.message || 'Hardware SDK init failed',
+        });
+      }
       throw error;
     }
   }
@@ -720,6 +725,10 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
+        const activeConnectId = message.device?.connectId;
+        if (activeConnectId) {
+          this.activeHardwareConnectIds.add(activeConnectId);
+        }
         const { features } = message.device || {};
         const deviceId = features
           ? deviceUtils.getRawDeviceId({
@@ -765,6 +774,13 @@ class ServiceHardware extends ServiceBase {
             // ignore tracking errors — device not marked, so retry is possible
           }
         })();
+      });
+
+      instance.on(DEVICE.DISCONNECT, (message: { device: KnownDevice }) => {
+        const activeConnectId = message.device?.connectId;
+        if (activeConnectId) {
+          this.activeHardwareConnectIds.delete(activeConnectId);
+        }
       });
 
       // TODO how to emit this event?
@@ -836,6 +852,7 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async resetHardwareSDK() {
     this.registeredEvents = false;
+    this.activeHardwareConnectIds.clear();
     await resetHardwareSDKInstance();
   }
 
@@ -1657,37 +1674,27 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     forceInputPassphrase: boolean; // not working?
     useEmptyPassphrase?: boolean;
-  }): Promise<GetPassphraseStatePayload | undefined> {
+  }): Promise<string | undefined> {
     const hardwareSDK = await this.getSDKInstance({
       connectId,
     });
+    const getPassphraseState = hardwareSDK?.getPassphraseState as
+      | ((
+          targetConnectId: string,
+          params: CommonParams,
+        ) => HardwareResponse<string | undefined>)
+      | undefined;
+    if (!getPassphraseState) {
+      return undefined;
+    }
 
-    const payload = await convertDeviceResponse(() =>
-      hardwareSDK?.getPassphraseState(connectId, {
+    return convertDeviceResponse(() =>
+      getPassphraseState(connectId, {
         initSession: forceInputPassphrase, // always re-input passphrase on device
         useEmptyPassphrase,
         // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
       }),
     );
-
-    const rawPayload = payload as unknown as {
-      passphrase_state?: unknown;
-      session_id?: unknown;
-      unlocked_attach_pin?: unknown;
-      passphrase_protection?: unknown;
-    };
-    if (
-      rawPayload.passphrase_state !== undefined ||
-      rawPayload.session_id !== undefined ||
-      rawPayload.unlocked_attach_pin !== undefined ||
-      rawPayload.passphrase_protection !== undefined
-    ) {
-      throw new OneKeyLocalError(
-        'getPassphraseState returned protocol payload fields. Please rebuild/clear the loaded hardware SDK bundle so it returns the hd-core standard payload.',
-      );
-    }
-
-    return payload;
   }
 
   @backgroundMethod()
@@ -1750,10 +1757,13 @@ class ServiceHardware extends ServiceBase {
         dbDeviceId = device?.id;
       }
       if (dbDeviceId) {
-        await localDb.updateDeviceFeaturesPassphraseProtection({
-          dbDeviceId,
-          passphraseProtection: p.passphraseEnabled,
-        });
+        const dbDevice = await localDb.getDevice(dbDeviceId);
+        if (dbDevice.deviceType !== EDeviceType.Pro2) {
+          await localDb.updateDeviceFeaturesPassphraseProtection({
+            dbDeviceId,
+            passphraseProtection: p.passphraseEnabled,
+          });
+        }
       }
     }
     return result;
@@ -1941,10 +1951,11 @@ class ServiceHardware extends ServiceBase {
   }) {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
-      hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
     });
     const hardwareSDK = await this.getSDKInstance({
       connectId: compatibleConnectId,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
     });
     const portfolioSDK = hardwareSDK as typeof hardwareSDK & {
       uploadPortfolio: (
@@ -1953,7 +1964,21 @@ class ServiceHardware extends ServiceBase {
       ) => HardwareResponse<{ portfolioUpdated: true }>;
     };
     return convertDeviceResponse(() =>
-      portfolioSDK.uploadPortfolio(compatibleConnectId, { packageBytes }),
+      portfolioSDK.uploadPortfolio(compatibleConnectId, {
+        packageBytes,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async isDeviceConnectionActive({ connectId }: { connectId: string }) {
+    if (this.activeHardwareConnectIds.has(connectId)) {
+      return true;
+    }
+    const device = await localDb.getDeviceByQuery({ connectId });
+    return Boolean(
+      device?.bleConnectId &&
+      this.activeHardwareConnectIds.has(device.bleConnectId),
     );
   }
 
@@ -2514,6 +2539,7 @@ class ServiceHardware extends ServiceBase {
 
       // Reset event registration flag to allow re-registration
       this.registeredEvents = false;
+      this.activeHardwareConnectIds.clear();
 
       // 3. Reset SDK instance (clears memoizee cache and cleans up SDK instance)
       await resetHardwareSDKInstance();
@@ -2734,7 +2760,11 @@ class ServiceHardware extends ServiceBase {
         if (!platformEnv.isSupportDesktopBle) {
           return device.connectId || connectId;
         }
-        if (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK) {
+        if (
+          hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
+          hardwareCallContext ===
+            EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
+        ) {
           const currentTransportType = await this.getCurrentTransportType();
           if (
             currentTransportType === EHardwareTransportType.DesktopWebBle &&
@@ -2763,7 +2793,10 @@ class ServiceHardware extends ServiceBase {
       return device?.connectId || connectId;
     }
 
-    if (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK) {
+    if (
+      hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
+      hardwareCallContext === EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
+    ) {
       const currentTransportType = await this.getCurrentTransportType();
       if (
         currentTransportType === EHardwareTransportType.DesktopWebBle &&

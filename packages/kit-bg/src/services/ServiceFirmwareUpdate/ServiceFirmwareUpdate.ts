@@ -125,12 +125,95 @@ const PRO2_APP_FIRMWARE_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
 const PRO2_NON_BOOT_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
   'app_v1',
   'app_v2',
+  'coprocessor',
   'resource',
   'se01',
   'se02',
   'se03',
   'se04',
 ]);
+
+const PRO2_COMPONENT_TARGET_MAP: Partial<
+  Record<string, IPro2FirmwareUpdateTarget>
+> = {
+  BOOTLOADER: 'boot',
+  APPLICATION_P1: 'app_v1',
+  APPLICATION_P2: 'app_v2',
+  COPROCESSOR: 'coprocessor',
+  SE01: 'se01',
+  SE02: 'se02',
+  SE03: 'se03',
+  SE04: 'se04',
+};
+
+function buildPro2TargetsToUpdate({
+  features,
+  firmware,
+  ble,
+  bootloader,
+  forceTargets,
+}: {
+  features: IOneKeyDeviceFeatures | undefined;
+  firmware: IFirmwareUpdateInfo | undefined;
+  ble: IBleFirmwareUpdateInfo | undefined;
+  bootloader: IBootloaderUpdateInfo | undefined;
+  forceTargets: IPro2FirmwareUpdateTarget[];
+}) {
+  const targets = new Set<IPro2FirmwareUpdateTarget>(forceTargets);
+  const release = firmware?.releasePayload.release;
+  const components = release?.components;
+
+  const currentVersionByTarget: Partial<
+    Record<IPro2FirmwareUpdateTarget, string | undefined>
+  > = {
+    boot: bootloader?.fromVersion,
+    app_v1: firmware?.fromVersion,
+    app_v2: firmware?.fromVersion,
+    coprocessor: ble?.fromVersion,
+    se01: features?.se01Version ?? undefined,
+    se02: features?.se02Version ?? undefined,
+    se03: features?.se03Version ?? undefined,
+    se04: features?.se04Version ?? undefined,
+  };
+
+  Object.values(components ?? {}).forEach((component) => {
+    const target = PRO2_COMPONENT_TARGET_MAP[component.target.toUpperCase()];
+    if (!target || target === 'resource' || targets.has(target)) {
+      return;
+    }
+    const targetVersion = component.version?.join('.');
+    const currentVersion = currentVersionByTarget[target];
+    if (
+      targetVersion &&
+      currentVersion &&
+      semver.valid(targetVersion) &&
+      semver.valid(currentVersion)
+    ) {
+      if (semver.lt(currentVersion, targetVersion)) {
+        targets.add(target);
+      }
+      return;
+    }
+    let aggregateHasUpgrade: boolean | undefined;
+    if (target === 'boot') {
+      aggregateHasUpgrade = bootloader?.hasUpgrade;
+    } else if (PRO2_APP_FIRMWARE_UPDATE_TARGETS.has(target)) {
+      aggregateHasUpgrade = firmware?.hasUpgrade;
+    } else if (target === 'coprocessor') {
+      aggregateHasUpgrade = ble?.hasUpgrade;
+    } else {
+      aggregateHasUpgrade = currentVersion !== targetVersion;
+    }
+    if (aggregateHasUpgrade) {
+      targets.add(target);
+    }
+  });
+
+  if (firmware?.hasUpgrade || forceTargets.includes('resource')) {
+    targets.add('resource');
+  }
+  return Array.from(targets);
+}
 
 export type IUpdateFirmwareTaskFn = ({
   id,
@@ -655,6 +738,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
             ]),
           )
         : undefined;
+    const pro2TargetsToUpdate =
+      deviceType === EDeviceType.Pro2
+        ? buildPro2TargetsToUpdate({
+            features,
+            firmware,
+            ble,
+            bootloader,
+            forceTargets: pro2ForceTargets ?? [],
+          })
+        : undefined;
 
     return {
       updatingConnectId: fixedUpdatingConnectId,
@@ -664,7 +757,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       deviceName,
       deviceBleName,
       deviceUUID,
-      hasUpgrade,
+      hasUpgrade: hasUpgrade || Boolean(pro2TargetsToUpdate?.length),
       isBootloaderMode: features
         ? (await deviceUtils.getDeviceModeFromFeatures({ features })) ===
           EOneKeyDeviceMode.bootloader
@@ -677,6 +770,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       },
       totalPhase: totalPhase.filter(Boolean),
       pro2ForceTargets,
+      pro2TargetsToUpdate,
     };
   }
 
@@ -2158,20 +2252,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   ): Promise<IFirmwareUpdateResult> {
     const { releaseResult } = params;
     const { updateInfos } = releaseResult;
-    const pro2ForceUpdateTargets =
-      (await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'pro2ForceUpdateTargets',
-      )) ?? [];
-    const pro2ForceUpdateOnceTargets =
-      (await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'pro2ForceUpdateOnceTargets',
-      )) ?? [];
     const isPro2Device = releaseResult.deviceType === EDeviceType.Pro2;
-    const pro2ForceTargets = isPro2Device
-      ? Array.from(
-          new Set([...pro2ForceUpdateTargets, ...pro2ForceUpdateOnceTargets]),
-        )
-      : undefined;
 
     const updateParams: IFirmwareUpdateV3VersionParams = {
       connectId: releaseResult.updatingConnectId,
@@ -2186,7 +2267,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
         : undefined,
       firmwareType: updateInfos.firmware?.toFirmwareType,
       isPro2Device,
-      pro2ForceTargets,
+      pro2ForceTargets: releaseResult.pro2ForceTargets,
+      pro2TargetsToUpdate: releaseResult.pro2TargetsToUpdate,
     };
     return this.createRunTaskWithRetry({
       fn: async () => this.updatingFirmwareV3(updateParams),
@@ -2256,7 +2338,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
                 platform: platformEnv.symbol ?? 'web',
                 forcedUpdateRes,
                 firmwareType: params.firmwareType,
-                forceTargets: params.pro2ForceTargets,
+                targetsToUpdate: params.pro2TargetsToUpdate,
               })
             : hardwareSDK.firmwareUpdateV3(updatingConnectId, {
                 platform: platformEnv.symbol ?? 'web',

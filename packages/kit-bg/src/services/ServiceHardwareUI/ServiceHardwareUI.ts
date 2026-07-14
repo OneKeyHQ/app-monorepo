@@ -488,6 +488,12 @@ class ServiceHardwareUI extends ServiceBase {
     const connectId = device?.connectId;
     let isOuterCall = false;
 
+    if (connectId) {
+      await this.backgroundApi.serviceHardwarePortfolioSync.waitForActivePortfolioSync(
+        { connectId },
+      );
+    }
+
     // Third-party vendors (Ledger) don't use OneKey SDK
     // Skip all OneKey-specific flows: DeviceChecking dialog, mutex, cancel, resetToHome
     const isThirdPartyVendor = getVendorProfile(

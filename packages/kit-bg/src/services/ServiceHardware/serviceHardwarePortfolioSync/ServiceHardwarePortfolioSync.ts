@@ -2,6 +2,7 @@ import { debounce } from 'lodash';
 
 import {
   backgroundClass,
+  backgroundMethod,
   backgroundMethodForDev,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -38,6 +39,7 @@ export type IPortfolioSyncStatus =
   | 'disabled'
   | 'duplicate'
   | 'error'
+  | 'device-disconnected'
   | 'hardware-busy'
   | 'uploaded';
 
@@ -88,15 +90,6 @@ function debugPortfolioSyncLog(label: string, value?: unknown) {
   console.log(`${LOG_PREFIX} ${label}${valueText}`);
 }
 
-function debugPortfolioSyncRawLog(label: string, value: string) {
-  if (process.env.NODE_ENV === 'production') {
-    return;
-  }
-
-  // eslint-disable-next-line no-console
-  console.log(`${LOG_PREFIX} ${label} ${value}`);
-}
-
 @backgroundClass()
 class ServiceHardwarePortfolioSync extends ServiceBase {
   private initialized = false;
@@ -120,6 +113,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   private pendingCooldownTimerByConnectId = new Map<
     string,
     ReturnType<typeof setTimeout>
+  >();
+
+  private activeUploadByConnectId = new Map<
+    string,
+    Promise<{ portfolioUpdated: boolean }>
   >();
 
   private syncDebounced = debounce(
@@ -399,14 +397,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         eventPayload,
         timestamp: updatedAt,
       });
-      debugPortfolioSyncRawLog(
-        'server-submit-portfolio-json',
-        artifacts.portfolioJsonText,
-      );
-      debugPortfolioSyncRawLog(
-        'mock-sdk-portfolio-json',
-        artifacts.mockPortfolioJsonText,
-      );
+      debugPortfolioSyncLog('portfolio-built', {
+        contentHash: artifacts.contentHash,
+        portfolioJsonBytesLength: artifacts.portfolioJsonBytes.byteLength,
+        tokenCount: artifacts.portfolio.tokens.length,
+      });
 
       // Read the persisted last-synced hash for this target (await) BEFORE the
       // synchronous check-and-reserve below. The in-flight read + duplicate
@@ -441,6 +436,26 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       this.inFlightContentHashByTargetKey.set(targetKey, artifacts.contentHash);
 
       if (isHardwareWallet && deviceConnectId) {
+        const isDeviceConnectionActive =
+          await this.backgroundApi.serviceHardware.isDeviceConnectionActive({
+            connectId: deviceConnectId,
+          });
+        if (!isDeviceConnectionActive) {
+          this.inFlightContentHashByTargetKey.delete(targetKey);
+          debugPortfolioSyncLog('skip-device-disconnected', {
+            contentHash: artifacts.contentHash,
+          });
+          this.setLastResult(
+            this.buildResultBase({
+              artifacts,
+              eventPayload,
+              status: 'device-disconnected',
+              updatedAt,
+            }),
+          );
+          return;
+        }
+
         const hardwareBusy =
           await this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy({
             connectId: deviceConnectId,
@@ -471,11 +486,50 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         });
 
       if (isHardwareWallet && deviceConnectId) {
-        const upload =
-          await this.backgroundApi.serviceHardware.uploadPortfolioPackage({
+        const [isDeviceConnectionActive, hardwareBusy] = await Promise.all([
+          this.backgroundApi.serviceHardware.isDeviceConnectionActive({
+            connectId: deviceConnectId,
+          }),
+          this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy({
+            connectId: deviceConnectId,
+          }),
+        ]);
+        if (!isDeviceConnectionActive || hardwareBusy) {
+          this.inFlightContentHashByTargetKey.delete(targetKey);
+          const status = isDeviceConnectionActive
+            ? 'hardware-busy'
+            : 'device-disconnected';
+          this.setLastResult(
+            this.buildResultBase({
+              artifacts,
+              eventPayload,
+              serverSubmit,
+              status,
+              updatedAt,
+            }),
+          );
+          debugPortfolioSyncLog(`skip-${status}`, {
+            contentHash: artifacts.contentHash,
+          });
+          return;
+        }
+
+        const uploadPromise =
+          this.backgroundApi.serviceHardware.uploadPortfolioPackage({
             connectId: deviceConnectId,
             packageBytes: serverPackageBytes,
           });
+        this.activeUploadByConnectId.set(deviceConnectId, uploadPromise);
+        let upload: { portfolioUpdated: boolean };
+        try {
+          upload = await uploadPromise;
+        } finally {
+          if (
+            this.activeUploadByConnectId.get(deviceConnectId) === uploadPromise
+          ) {
+            this.activeUploadByConnectId.delete(deviceConnectId);
+          }
+        }
         this.setLastResult({
           ...this.buildResultBase({
             artifacts,
@@ -524,6 +578,16 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         updatedAt,
       });
     }
+  }
+
+  @backgroundMethod()
+  async waitForActivePortfolioSync({ connectId }: { connectId: string }) {
+    const activeUpload = this.activeUploadByConnectId.get(connectId);
+    if (!activeUpload) {
+      return false;
+    }
+    await activeUpload.catch(() => undefined);
+    return true;
   }
 
   @backgroundMethodForDev()

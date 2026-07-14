@@ -9987,6 +9987,7 @@ __metadata:
     jest-expo: "npm:~53.0.8"
     jest-html-reporter: "npm:^3.10.2"
     jotai: "npm:^2.5.0"
+    jpeg-js: "npm:0.4.4"
     js-md5: "npm:^0.8.3"
     juicebox-sdk: "npm:^0.3.4"
     lightweight-charts: "npm:5.2.0"
@@ -35284,7 +35285,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jpeg-js@npm:^0.4.4":
+"jpeg-js@npm:0.4.4, jpeg-js@npm:^0.4.4":
   version: 0.4.4
   resolution: "jpeg-js@npm:0.4.4"
   checksum: 10/30bb6e16e79db4bd6edbecf1140039bbab326de876f2d20685f04a38d03f70ef9fada1886f0bf58832a4dba4aa179311fc4be7df3d756cab8f1c74d745542f38

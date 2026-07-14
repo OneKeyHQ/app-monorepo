@@ -344,6 +344,7 @@ export class HardwareConnectionManager {
       if (
         [
           EHardwareCallContext.BACKGROUND_TASK,
+          EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
           EHardwareCallContext.SDK_INITIALIZATION,
           EHardwareCallContext.SILENT_CALL,
         ].includes(hardwareCallContext || EHardwareCallContext.USER_INTERACTION)

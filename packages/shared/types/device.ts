@@ -119,12 +119,14 @@ export type ICheckAllFirmwareReleaseResult = {
   };
   totalPhase: IDeviceFirmwareType[];
   pro2ForceTargets?: IPro2FirmwareUpdateTarget[];
+  pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
 };
 
 export type IPro2FirmwareUpdateTarget =
   | 'boot'
   | 'app_v1'
   | 'app_v2'
+  | 'coprocessor'
   | 'resource'
   | 'se01'
   | 'se02'
@@ -428,12 +430,14 @@ export type IFirmwareUpdateV3VersionParams = {
   firmwareType: EFirmwareType | undefined;
   isPro2Device?: boolean;
   pro2ForceTargets?: IPro2FirmwareUpdateTarget[];
+  pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
 };
 
 export enum EHardwareCallContext {
   USER_INTERACTION = 'user_interaction',
   USER_INTERACTION_NO_BLE_DIALOG = 'user_interaction_no_ble_dialog',
   BACKGROUND_TASK = 'background_task',
+  BACKGROUND_NON_INTERACTIVE = 'background_non_interactive',
   SDK_INITIALIZATION = 'sdk_initialization',
   SILENT_CALL = 'silent_call',
   UPDATE_FIRMWARE = 'update_firmware',

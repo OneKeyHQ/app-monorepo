@@ -20,13 +20,7 @@ export async function getHwHiddenWalletPassphraseState({
     getPassphraseState(params: {
       connectId: string;
       forceInputPassphrase: boolean;
-    }): Promise<
-      | string
-      | {
-          passphraseState?: string;
-        }
-      | undefined
-    >;
+    }): Promise<string | undefined>;
   };
   serviceThirdPartyHardware: {
     getTrezorPassphraseState(params: {
@@ -48,11 +42,8 @@ export async function getHwHiddenWalletPassphraseState({
     );
   }
 
-  const passphraseStatePayload = await serviceHardware.getPassphraseState({
+  return serviceHardware.getPassphraseState({
     connectId,
     forceInputPassphrase: true,
   });
-  return typeof passphraseStatePayload === 'string'
-    ? passphraseStatePayload
-    : passphraseStatePayload?.passphraseState;
 }
