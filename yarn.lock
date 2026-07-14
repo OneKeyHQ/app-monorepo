@@ -10041,7 +10041,6 @@ __metadata:
     passport-desktop-win32-x64-msvc: "npm:0.1.2"
     rimraf: "npm:3.0.2"
     semver: "npm:7.5.4"
-    webpack: "npm:5.90.3"
   languageName: unknown
   linkType: soft
 
