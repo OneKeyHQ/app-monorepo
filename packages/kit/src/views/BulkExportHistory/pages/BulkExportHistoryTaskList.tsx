@@ -241,16 +241,24 @@ function BulkExportHistoryTaskListContent({
   const actions = useAccountSelectorActions();
 
   // Default the account filter to the account selected on the export form
-  // page (which itself mirrors the home scene).
+  // page (which itself defaults to the wallet home account). Gate rendering
+  // on the sync so a stale persisted selection never flashes or filters.
+  const [isAccountSyncReady, setIsAccountSyncReady] = useState(false);
   useEffect(() => {
-    void actions.current.syncFromScene({
-      from: {
-        sceneName: EAccountSelectorSceneName.bulkExportHistory,
-        sceneUrl: '',
-        sceneNum: 0,
-      },
-      num: 0,
-    });
+    void (async () => {
+      try {
+        await actions.current.syncFromScene({
+          from: {
+            sceneName: EAccountSelectorSceneName.bulkExportHistory,
+            sceneUrl: '',
+            sceneNum: 0,
+          },
+          num: 0,
+        });
+      } finally {
+        setIsAccountSyncReady(true);
+      }
+    })();
   }, [actions]);
 
   const {
@@ -362,8 +370,11 @@ function BulkExportHistoryTaskListContent({
     return () => clearInterval(timer);
   }, [hasInProgressTask, run]);
 
-  const renderHeaderRight = useCallback(
-    () => (
+  const renderHeaderRight = useCallback(() => {
+    if (!isAccountSyncReady) {
+      return null;
+    }
+    return (
       <AccountSelectorProviderMirror
         config={{
           sceneName: EAccountSelectorSceneName.bulkExportHistory,
@@ -378,9 +389,8 @@ function BulkExportHistoryTaskListContent({
           showWalletName={media.gtMd}
         />
       </AccountSelectorProviderMirror>
-    ),
-    [media.gtMd, selectorSceneUrl],
-  );
+    );
+  }, [isAccountSyncReady, media.gtMd, selectorSceneUrl]);
 
   return (
     <Page>
@@ -392,7 +402,7 @@ function BulkExportHistoryTaskListContent({
       <Page.Body>
         <PageFrame
           LoadingSkeleton={TaskListSkeleton}
-          loading={isLoadingState({ result, isLoading })}
+          loading={!isAccountSyncReady || isLoadingState({ result, isLoading })}
           error={isErrorState({ result, isLoading })}
           onRefresh={run}
         >

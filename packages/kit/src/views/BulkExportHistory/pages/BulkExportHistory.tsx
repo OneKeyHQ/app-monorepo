@@ -78,15 +78,24 @@ function BulkExportHistoryContent({
   const actions = useAccountSelectorActions();
   const { networkId: homeNetworkId } = route.params;
 
+  // Default the selected account to the wallet home account. Gate rendering
+  // on the sync so a stale persisted selection never flashes before it lands.
+  const [isAccountSyncReady, setIsAccountSyncReady] = useState(false);
   useEffect(() => {
-    void actions.current.syncFromScene({
-      from: {
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-        sceneNum: 0,
-      },
-      num: 0,
-    });
+    void (async () => {
+      try {
+        await actions.current.syncFromScene({
+          from: {
+            sceneName: EAccountSelectorSceneName.home,
+            sceneUrl: '',
+            sceneNum: 0,
+          },
+          num: 0,
+        });
+      } finally {
+        setIsAccountSyncReady(true);
+      }
+    })();
   }, [actions]);
 
   const [dateRange, setDateRange] = useState<string | number>(
@@ -408,7 +417,7 @@ function BulkExportHistoryContent({
     navigation,
   ]);
 
-  if (isLoading) {
+  if (isLoading || !isAccountSyncReady) {
     return (
       <Page>
         <Page.Header
