@@ -1,8 +1,13 @@
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IBook } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   buildL2BookSnapshotCachePayload,
   getL2BookSnapshotCacheEntryLevelCount,
+  getL2BookSnapshotSwrCache,
   selectL2BookSnapshotCacheEntry,
   shouldWritePerpsAccountDisplayCache,
 } from './ServiceHyperliquidCache';
@@ -51,6 +56,11 @@ function buildEntry({
 }
 
 describe('ServiceHyperliquidCache L2 book helpers', () => {
+  afterEach(() => {
+    swrCacheUtils.clearAll();
+    swrCacheUtils.flushNow();
+  });
+
   it('counts the shallower side of the cached L2 book', () => {
     expect(
       getL2BookSnapshotCacheEntryLevelCount(
@@ -128,6 +138,42 @@ describe('ServiceHyperliquidCache L2 book helpers', () => {
         activeOptions: { nSigFigs: 5, mantissa: 2 },
       }),
     ).toMatchObject({ nSigFigs: 5, mantissa: 5 });
+  });
+
+  it('rejects a latest snapshot cached for another precision', () => {
+    const data = Object.assign(
+      buildBook({ coin: 'ETH', bidLevels: 20, askLevels: 20 }),
+      { nSigFigs: 5, mantissa: 5 },
+    );
+    swrCacheUtils.set(swrKeys.perpsL2BookSnapshotLatest({ coin: 'ETH' }), data);
+
+    expect(
+      getL2BookSnapshotSwrCache({
+        coin: 'ETH',
+        nSigFigs: 5,
+        mantissa: 2,
+        maxAgeMs: 60_000,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('preserves source precision when using an untargeted latest snapshot', () => {
+    const data = Object.assign(
+      buildBook({ coin: 'ETH', bidLevels: 20, askLevels: 20 }),
+      { nSigFigs: 5, mantissa: 5 },
+    );
+    swrCacheUtils.set(swrKeys.perpsL2BookSnapshotLatest({ coin: 'ETH' }), data);
+
+    expect(
+      getL2BookSnapshotSwrCache({
+        coin: 'ETH',
+        maxAgeMs: 60_000,
+      }),
+    ).toMatchObject({
+      data,
+      nSigFigs: 5,
+      mantissa: 5,
+    });
   });
 });
 

@@ -159,7 +159,7 @@ export function buildL2BookSnapshotCachePayload({
   };
 }
 
-function getL2BookSnapshotSwrCache({
+export function getL2BookSnapshotSwrCache({
   coin,
   nSigFigs,
   mantissa,
@@ -175,17 +175,25 @@ function getL2BookSnapshotSwrCache({
     nSigFigs,
     mantissa,
   });
+  const hasRequestedPrecision =
+    nSigFigs !== undefined || mantissa !== undefined;
   for (const key of keys) {
     const entry = swrCacheUtils.getWithTimestamp<IBook>(key);
+    const sourceNSigFigs = entry?.data?.nSigFigs ?? null;
+    const sourceMantissa = entry?.data?.mantissa ?? null;
+    const matchesRequestedPrecision =
+      sourceNSigFigs === (nSigFigs ?? null) &&
+      sourceMantissa === (mantissa ?? null);
     if (
       entry?.data?.coin === coin &&
-      Date.now() - entry.updatedAt <= maxAgeMs
+      Date.now() - entry.updatedAt <= maxAgeMs &&
+      (!hasRequestedPrecision || matchesRequestedPrecision)
     ) {
       return {
         data: entry.data,
         updatedAt: entry.updatedAt,
-        nSigFigs,
-        mantissa,
+        nSigFigs: sourceNSigFigs,
+        mantissa: sourceMantissa,
       };
     }
   }

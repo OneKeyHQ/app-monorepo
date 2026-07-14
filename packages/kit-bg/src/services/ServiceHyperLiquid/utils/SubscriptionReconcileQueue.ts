@@ -8,9 +8,7 @@ export class LatestSubscriptionReconcileQueue {
   enqueue(task: () => Promise<void>): Promise<void> {
     this.pendingTask = task;
     if (!this.runningPromise) {
-      this.runningPromise = this.drain().finally(() => {
-        this.runningPromise = null;
-      });
+      this.runningPromise = this.drain();
     }
     return this.runningPromise;
   }
@@ -27,6 +25,9 @@ export class LatestSubscriptionReconcileQueue {
           error instanceof Error ? error : new Error(String(error));
       }
     }
+    // Clear the running marker before this async function settles. A task
+    // queued by an already-scheduled microtask will then start a new drain.
+    this.runningPromise = null;
     if (firstError) {
       throw new OneKeyLocalError(firstError.message);
     }

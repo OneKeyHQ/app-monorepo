@@ -1,15 +1,61 @@
+import type { IBook } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   calculateRequiredSubscriptions,
   isOrderBookOptionsTargetReady,
+  normalizeL2BookForSubscriptionSpec,
 } from './SubscriptionConfig';
+
+import type { ISubscriptionSpec } from './SubscriptionConfig';
 
 describe('isOrderBookOptionsTargetReady', () => {
   it('waits for order book options to catch up with the active coin', () => {
     expect(isOrderBookOptionsTargetReady('ETH', 'BTC')).toBe(false);
     expect(isOrderBookOptionsTargetReady('ETH', 'ETH')).toBe(true);
     expect(isOrderBookOptionsTargetReady('ETH', undefined)).toBe(true);
+  });
+});
+
+describe('normalizeL2BookForSubscriptionSpec', () => {
+  const data: IBook = {
+    coin: 'ETH',
+    time: 1,
+    levels: [[], []],
+  };
+
+  it('uses the precision of the active wire subscription', () => {
+    const spec = calculateRequiredSubscriptions({
+      currentUser: null,
+      currentSymbol: 'ETH',
+      isConnected: true,
+      orderBookTransport: 'l2Book',
+      l2BookOptions: { nSigFigs: 5, mantissa: 2 },
+    }).find(
+      (item) => item.type === ESubscriptionType.L2_BOOK,
+    ) as ISubscriptionSpec<ESubscriptionType.L2_BOOK>;
+
+    expect(normalizeL2BookForSubscriptionSpec(data, spec)).toMatchObject({
+      coin: 'ETH',
+      nSigFigs: 5,
+      mantissa: 2,
+    });
+  });
+
+  it('drops frames when no matching wire subscription is active', () => {
+    expect(normalizeL2BookForSubscriptionSpec(data, null)).toBeUndefined();
+
+    const spec = calculateRequiredSubscriptions({
+      currentUser: null,
+      currentSymbol: 'BTC',
+      isConnected: true,
+      orderBookTransport: 'l2Book',
+      l2BookOptions: { nSigFigs: 5, mantissa: 2 },
+    }).find(
+      (item) => item.type === ESubscriptionType.L2_BOOK,
+    ) as ISubscriptionSpec<ESubscriptionType.L2_BOOK>;
+
+    expect(normalizeL2BookForSubscriptionSpec(data, spec)).toBeUndefined();
   });
 });
 

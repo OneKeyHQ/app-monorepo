@@ -29,4 +29,26 @@ describe('LatestSubscriptionReconcileQueue', () => {
 
     expect(events).toEqual(['first:start', 'first:end', 'latest']);
   });
+
+  it('does not strand a reconcile queued while the current drain settles', async () => {
+    const queue = new LatestSubscriptionReconcileQueue();
+    const events: string[] = [];
+    let lateReconcile: Promise<void> | undefined;
+
+    const firstReconcile = queue.enqueue(async () => {
+      events.push('first');
+      queueMicrotask(() => {
+        queueMicrotask(() => {
+          lateReconcile = queue.enqueue(async () => {
+            events.push('late');
+          });
+        });
+      });
+    });
+
+    await firstReconcile;
+    await lateReconcile;
+
+    expect(events).toEqual(['first', 'late']);
+  });
 });

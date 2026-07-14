@@ -2,6 +2,7 @@ import { PERPS_EMPTY_ADDRESS } from '@onekeyhq/shared/src/consts/perp';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { DEX_PREFIXES } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
+  IBook,
   IEventAllDexsClearinghouseStateParameters,
   IEventFastL2Parameters,
   IEventL2BookParameters,
@@ -112,6 +113,20 @@ export interface ISubscriptionSpec<T extends ESubscriptionType> {
   readonly key: string;
   readonly params: IPerpsSubscriptionParams[T];
   readonly priority: number;
+}
+
+export function normalizeL2BookForSubscriptionSpec(
+  data: IBook,
+  spec: ISubscriptionSpec<ESubscriptionType.L2_BOOK> | null,
+): IBook | undefined {
+  if (!spec || data.coin !== spec.params.coin) {
+    return undefined;
+  }
+  return {
+    ...data,
+    nSigFigs: spec.params.nSigFigs ?? null,
+    mantissa: spec.params.mantissa ?? null,
+  };
 }
 
 export interface ISubscriptionState {
