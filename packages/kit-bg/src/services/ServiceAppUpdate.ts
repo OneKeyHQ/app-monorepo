@@ -107,6 +107,7 @@ interface IDownloadAttemptBudgetRecord {
   targetKey: string;
   attemptCount: number;
   firstAttemptAt: number;
+  nativeRuntimeKey?: string;
 }
 
 export interface IDownloadAttemptBudgetResult {
@@ -939,6 +940,36 @@ class ServiceAppUpdate extends ServiceBase {
     };
   }
 
+  private async getDownloadAttemptNativeRuntimeKey(): Promise<
+    string | undefined
+  > {
+    if (!platformEnv.isDesktop) {
+      return undefined;
+    }
+    const [nativeAppVersionResult, nativeBuildNumberResult] =
+      await Promise.allSettled([
+        BundleUpdate.getNativeAppVersion(),
+        BundleUpdate.getNativeBuildNumber(),
+      ]);
+    const nativeAppVersion =
+      nativeAppVersionResult.status === 'fulfilled'
+        ? nativeAppVersionResult.value
+        : undefined;
+    const nativeBuildNumber =
+      nativeBuildNumberResult.status === 'fulfilled'
+        ? nativeBuildNumberResult.value
+        : undefined;
+    const version = nativeAppVersion || platformEnv.version || 'unknown';
+    const buildNumber =
+      nativeBuildNumber || platformEnv.buildNumber || 'unknown';
+    // Desktop must always write a stable key. Returning undefined here makes a
+    // transient native-info failure ambiguous: a later successful read can
+    // either erase the same runtime's budget or inherit an older runtime's
+    // exhausted budget. Build-time values are stable per installed shell and
+    // provide a conservative fallback when either native getter is unavailable.
+    return `${version}:${buildNumber}`;
+  }
+
   /**
    * Read the persisted budget for `targetKey` WITHOUT mutating it. The caller
    * checks `givenUp` on entry (before starting a download) so a target that
@@ -953,8 +984,14 @@ class ServiceAppUpdate extends ServiceBase {
     targetKey: string;
   }): Promise<IDownloadAttemptBudgetResult> {
     const { targetKey } = params;
+    const nativeRuntimeKey = await this.getDownloadAttemptNativeRuntimeKey();
     const existing = this.readDownloadAttemptBudget();
-    if (!existing || existing.targetKey !== targetKey) {
+    if (
+      !existing ||
+      existing.targetKey !== targetKey ||
+      (nativeRuntimeKey !== undefined &&
+        existing.nativeRuntimeKey !== nativeRuntimeKey)
+    ) {
       return {
         targetKey,
         attemptCount: 0,
@@ -977,16 +1014,21 @@ class ServiceAppUpdate extends ServiceBase {
     targetKey: string;
   }): Promise<IDownloadAttemptBudgetResult> {
     const { targetKey } = params;
+    const nativeRuntimeKey = await this.getDownloadAttemptNativeRuntimeKey();
     const now = Date.now();
     const existing = this.readDownloadAttemptBudget();
     const base: IDownloadAttemptBudgetRecord =
-      existing && existing.targetKey === targetKey
+      existing &&
+      existing.targetKey === targetKey &&
+      (nativeRuntimeKey === undefined ||
+        existing.nativeRuntimeKey === nativeRuntimeKey)
         ? existing
         : { targetKey, attemptCount: 0, firstAttemptAt: 0 };
     const next: IDownloadAttemptBudgetRecord = {
       targetKey,
       attemptCount: base.attemptCount + 1,
       firstAttemptAt: base.firstAttemptAt > 0 ? base.firstAttemptAt : now,
+      nativeRuntimeKey: nativeRuntimeKey ?? base.nativeRuntimeKey,
     };
     this.writeDownloadAttemptBudget(next);
     const result = this.evaluateDownloadBudget(next);

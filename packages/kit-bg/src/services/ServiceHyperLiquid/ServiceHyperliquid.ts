@@ -638,6 +638,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return {
           ...prev,
           tokens: tokensMap,
+          serverTokens: tokens,
           defaultTokens,
           currentPerpsDepositSelectedToken: selectedToken,
           depositTokenListSource: 'serverConfig',
@@ -674,6 +675,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       return {
         ...prev,
         tokens: tokensMap,
+        serverTokens: tokens,
         defaultTokens,
         currentPerpsDepositSelectedToken: selectedToken,
         depositTokenListSource: 'serverConfig',

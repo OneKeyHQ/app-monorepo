@@ -73,3 +73,32 @@ export function getMidPrice(
 
   return bestBidBN.plus(bestAskBN).dividedBy(2).toFixed();
 }
+
+export function getOrderBookMidPrice({
+  liveMidPrice,
+  bestBid,
+  bestAsk,
+}: {
+  liveMidPrice?: string;
+  bestBid?: string;
+  bestAsk?: string;
+}): string {
+  const liveMidPriceBN = new BigNumber(liveMidPrice ?? '');
+  if (liveMidPriceBN.isFinite() && liveMidPriceBN.isGreaterThan(0)) {
+    return liveMidPriceBN.toFixed();
+  }
+
+  return getMidPrice(bestBid ?? '0', bestAsk ?? '0');
+}
+
+export function getOrderBookLiveMidPrice({
+  isSpot,
+  spotMidPrice,
+  tradingMidPrice,
+}: {
+  isSpot: boolean;
+  spotMidPrice?: string;
+  tradingMidPrice?: string;
+}): string | undefined {
+  return isSpot ? spotMidPrice : tradingMidPrice;
+}

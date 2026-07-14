@@ -25,6 +25,7 @@ import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { sanitizeAmountInputText } from './amountInputTextUtils';
 import { AutoSizeInput } from './AutoSizeInput';
 
 import type { IAutoSizeInputRef } from './AutoSizeInput.types';
@@ -141,40 +142,6 @@ const formatWrappedTokenSymbol = ({
   }
 
   return lines.join('\n');
-};
-
-const sanitizeAmountInputText = (text: string): string => {
-  let sanitizedText = text.replace(/\s/g, '').replace(/[。,，,]/g, '.');
-
-  // Auto-prepend "0" for ".5" style input.
-  if (sanitizedText.startsWith('.')) {
-    sanitizedText = `0${sanitizedText}`;
-  }
-
-  // Keep "0" / "0.xxx", trim redundant leading zeros like "0012" -> "12".
-  if (sanitizedText.length > 1 && sanitizedText.startsWith('0')) {
-    if (!sanitizedText.startsWith('0.')) {
-      sanitizedText = sanitizedText.replace(/^0+/, '') || '0';
-      if (sanitizedText.startsWith('.')) {
-        sanitizedText = `0${sanitizedText}`;
-      }
-    }
-  }
-
-  // Keep only digits and decimal separator.
-  sanitizedText = sanitizedText.replace(/[^\d.]/g, '');
-
-  // Keep only the first decimal separator.
-  const firstDecimalIndex = sanitizedText.indexOf('.');
-  if (firstDecimalIndex !== -1) {
-    const integerPart = sanitizedText.slice(0, firstDecimalIndex + 1);
-    const decimalPart = sanitizedText
-      .slice(firstDecimalIndex + 1)
-      .replace(/\./g, '');
-    sanitizedText = `${integerPart}${decimalPart}`;
-  }
-
-  return sanitizedText;
 };
 
 const normalizeAutoSizeNativeColor = (color?: string): string | undefined => {
