@@ -5,6 +5,7 @@ struct HomeContainerTheme: Decodable {
   let cardColor: String
   let hoverColor: String?
   let activeColor: String?
+  let subduedIconColor: String?
   let dividerColor: String
   let primaryTextColor: String
   let secondaryTextColor: String

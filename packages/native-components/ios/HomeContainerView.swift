@@ -37,6 +37,33 @@ private extension UIImage {
   }
 }
 
+private enum HomeContainerIcons {
+  static let crossedSmall: UIImage = {
+    let size: CGFloat = 20
+    let scale = size / 24
+    let path = UIBezierPath()
+    path.move(to: CGPoint(x: 17.414 * scale, y: 8 * scale))
+    path.addLine(to: CGPoint(x: 13.414 * scale, y: 12 * scale))
+    path.addLine(to: CGPoint(x: 17.414 * scale, y: 16 * scale))
+    path.addLine(to: CGPoint(x: 16 * scale, y: 17.414 * scale))
+    path.addLine(to: CGPoint(x: 12 * scale, y: 13.414 * scale))
+    path.addLine(to: CGPoint(x: 8 * scale, y: 17.414 * scale))
+    path.addLine(to: CGPoint(x: 6.586 * scale, y: 16 * scale))
+    path.addLine(to: CGPoint(x: 10.586 * scale, y: 12 * scale))
+    path.addLine(to: CGPoint(x: 6.586 * scale, y: 8 * scale))
+    path.addLine(to: CGPoint(x: 8 * scale, y: 6.586 * scale))
+    path.addLine(to: CGPoint(x: 12 * scale, y: 10.586 * scale))
+    path.addLine(to: CGPoint(x: 16 * scale, y: 6.586 * scale))
+    path.close()
+
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
+    return renderer.image { _ in
+      UIColor.black.setFill()
+      path.fill()
+    }.withRenderingMode(.alwaysTemplate)
+  }()
+}
+
 private struct HomeContainerRow {
   enum Kind {
     case grid([HomeContainerItem])
@@ -1715,11 +1742,7 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     labels.isUserInteractionEnabled = false
     labels.translatesAutoresizingMaskIntoConstraints = false
     addSubview(labels)
-    let dismissSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 12, weight: .medium)
-    dismissButton.setImage(
-      UIImage(systemName: "xmark", withConfiguration: dismissSymbolConfiguration),
-      for: .normal
-    )
+    dismissButton.setImage(HomeContainerIcons.crossedSmall, for: .normal)
     dismissButton.accessibilityIdentifier = "native-home-banner-dismiss"
     dismissButton.addAction(UIAction { [weak self] _ in self?.onDismiss?() }, for: .touchUpInside)
     dismissButton.translatesAutoresizingMaskIntoConstraints = false
@@ -1740,8 +1763,8 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
       labels.leadingAnchor.constraint(equalTo: imageView.trailingAnchor, constant: 10),
       labels.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
       labels.centerYAnchor.constraint(equalTo: centerYAnchor),
-      dismissButton.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-      dismissButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+      dismissButton.topAnchor.constraint(equalTo: topAnchor, constant: 3),
+      dismissButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -3),
       dismissButton.widthAnchor.constraint(equalToConstant: 28),
       dismissButton.heightAnchor.constraint(equalToConstant: 28),
     ])
@@ -1774,7 +1797,10 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     subtitleLabel.text = banner.subtitle
     subtitleLabel.isHidden = banner.subtitle?.isEmpty != false
     dismissButton.isHidden = banner.dismissActionId?.isEmpty != false
-    dismissButton.tintColor = UIColor(homeContainerColor: theme.secondaryTextColor, fallback: .secondaryLabel)
+    dismissButton.tintColor = UIColor(
+      homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
+      fallback: .tertiaryLabel
+    )
     accessibilityLabel = banner.title
     loadImage(banner.imageUrl)
   }

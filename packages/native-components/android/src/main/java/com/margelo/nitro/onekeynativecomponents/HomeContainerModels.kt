@@ -15,6 +15,7 @@ internal data class HomeContainerTheme(
   val negativeColor: String,
   val hoverColor: String = "",
   val activeColor: String = "",
+  val subduedIconColor: String = "",
 )
 
 internal data class HomeContainerAction(
@@ -161,6 +162,7 @@ internal object HomeContainerJson {
     negativeColor = value.getString("negativeColor"),
     hoverColor = value.optString("hoverColor"),
     activeColor = value.optString("activeColor"),
+    subduedIconColor = value.optString("subduedIconColor"),
   )
 
   private fun parseHeader(value: JSONObject): HomeContainerHeader = HomeContainerHeader(
