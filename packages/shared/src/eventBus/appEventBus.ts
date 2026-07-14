@@ -209,16 +209,27 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.WalletConnectOpenModal]: {
     uri: string;
+    // bg connect attempt generation; lets main-runtime consumers match
+    // terminal close/modal-state events to the pairing they belong to
+    attemptId?: number;
   };
-  [EAppEventBusNames.WalletConnectCloseModal]: undefined;
+  [EAppEventBusNames.WalletConnectCloseModal]:
+    | {
+        // scope the close to one attempt; omitted means wildcard close
+        attemptId?: number;
+      }
+    | undefined;
   [EAppEventBusNames.WalletConnectModalState]: {
     open: boolean;
+    attemptId?: number;
   };
   [EAppEventBusNames.WalletConnectConnectSuccess]: {
     session: IWalletConnectSession;
+    attemptId?: number;
   };
   [EAppEventBusNames.WalletConnectConnectError]: {
     error: IOneKeyError;
+    attemptId?: number;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
   [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;

@@ -41,7 +41,11 @@ export function getMarketRecommendContainerPaddingTop({
   isNative,
   windowHeight,
 }: IGetMarketRecommendContainerPaddingTopParams) {
-  return isNative ? 0 : Math.max(0, (windowHeight - 800) * 0.5);
+  // Keep a minimum gap below the tab bar on short windows (<= 832px),
+  // where the height-based formula would otherwise collapse to 0.
+  return isNative
+    ? 0
+    : Math.max(MARKET_MOBILE_CONTENT_TOP_GAP, (windowHeight - 800) * 0.5);
 }
 
 interface IGetMarketWebSecondaryHeaderHeightParams {

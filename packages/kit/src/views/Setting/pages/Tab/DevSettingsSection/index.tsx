@@ -98,7 +98,6 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
 import { SettingTestIDs } from '../../../testIDs';
 
-import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { BundleCommitSearch } from './BundleCommitSearch';
 import { CpuWatchdogDevSettings } from './CpuWatchdogDevSettings';
@@ -129,6 +128,13 @@ const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
   const { NavigationDiagnosticsSection } =
     await import('./NavigationDiagnosticsSection');
   return { default: NavigationDiagnosticsSection };
+});
+
+// Loaded on demand so this dev-only diagnostics panel (and its bg RPC test
+// harness) stays out of the statically-imported startup graph.
+const LazyAsyncStorageDevSettings = LazyLoad(async () => {
+  const { AsyncStorageDevSettings } = await import('./AsyncStorageDevSettings');
+  return { default: AsyncStorageDevSettings };
 });
 
 export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
@@ -1334,7 +1340,7 @@ const BaseDevSettingsSection = () => {
                         onPress={() => {
                           Dialog.cancel({
                             title: 'Single data store test',
-                            renderContent: <AsyncStorageDevSettings />,
+                            renderContent: <LazyAsyncStorageDevSettings />,
                           });
                         }}
                       />
