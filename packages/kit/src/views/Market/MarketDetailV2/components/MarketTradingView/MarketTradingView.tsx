@@ -22,7 +22,6 @@ const MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingViewDisabl
     TRADING_VIEW_DISABLED_FEATURES.LAYOUT_TOGGLE,
     TRADING_VIEW_DISABLED_FEATURES.DRAWING_TOOLBAR,
   ];
-const MARKET_DETAIL_MAX_NATIVE_SUB_INDICATOR_COUNT = 4;
 
 function normalizeChartRealtimePrice(
   price: ITradingViewPriceUpdateData['price'],
@@ -96,6 +95,7 @@ export interface IMarketTradingViewProps {
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
   onNativeSubIndicatorCountChange?: (count: number | null) => void;
+  maxNativeSubIndicatorCount?: number;
 }
 
 export const MarketTradingView = memo(
@@ -119,6 +119,7 @@ export const MarketTradingView = memo(
     onIndicatorsDialogOpenChange,
     onInteractionOverlayOpenChange,
     onNativeSubIndicatorCountChange,
+    maxNativeSubIndicatorCount,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
@@ -168,9 +169,7 @@ export const MarketTradingView = memo(
         onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
         onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
         onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
-        maxNativeSubIndicatorCount={
-          MARKET_DETAIL_MAX_NATIVE_SUB_INDICATOR_COUNT
-        }
+        maxNativeSubIndicatorCount={maxNativeSubIndicatorCount}
         onPriceUpdate={handlePriceUpdate}
         disabledFeatures={MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES}
         enableNativeChartControls

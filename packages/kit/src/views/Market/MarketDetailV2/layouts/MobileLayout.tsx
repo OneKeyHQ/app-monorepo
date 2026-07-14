@@ -147,6 +147,7 @@ const LazyStockTokenOverview = LazyLoad<Record<string, never>>(
 );
 
 const MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT = 1;
+const MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT = 4;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_SUB_INDICATOR_HEIGHT = 56;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_BASE_HEIGHT_RATIO = 0.58;
 
@@ -194,6 +195,9 @@ function MobileMarketTradingView({
       pageWidth={pageWidth}
       onNativeIndicatorQuickBarChange={onNativeIndicatorQuickBarChange}
       onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
+      maxNativeSubIndicatorCount={
+        MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT
+      }
       onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
       onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
     />

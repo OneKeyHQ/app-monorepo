@@ -76,4 +76,43 @@ describe('native indicator controls', () => {
       'StochRSI',
     ]);
   });
+
+  it('does not cap QuickBar additions when no sub-indicator cap is passed', async () => {
+    const onIndicatorSelect = jest.fn();
+    const indicatorsWithFourActive = indicators.map((indicator, index) => ({
+      ...indicator,
+      active: index < 4,
+    }));
+    const nativeChartControlsConfigWithFourActive = {
+      ...nativeChartControlsConfig,
+      indicators: indicatorsWithFourActive,
+    };
+    const { result } = renderHook(() => {
+      const nativeIndicatorState = useNativeIndicatorActiveValues(
+        indicatorsWithFourActive,
+      );
+      return useNativeIndicatorControls({
+        nativeChartControlsConfig: nativeChartControlsConfigWithFourActive,
+        nativeIndicatorState,
+        onIndicatorSelect,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeIndicatorValues.size).toBe(4);
+    });
+
+    act(() => {
+      result.current.handleIndicatorPress(indicatorsWithFourActive[4]);
+    });
+
+    expect(onIndicatorSelect).toHaveBeenCalledWith('OBV', true);
+    expect([...result.current.activeIndicatorValues]).toEqual([
+      'VOL',
+      'MACD',
+      'RSI',
+      'StochRSI',
+      'OBV',
+    ]);
+  });
 });
