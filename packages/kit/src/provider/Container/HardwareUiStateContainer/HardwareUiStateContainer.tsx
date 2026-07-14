@@ -67,6 +67,7 @@ import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
   buildBleNotifyChangeError,
+  buildBlePermissionDialogProps,
   buildBleSettingsDialogProps,
   buildWebDeviceAccessDialogProps,
 } from '../../../components/Hardware/HardwareDialog';
@@ -830,6 +831,11 @@ function HardwareUiStateContainerCmpControlled() {
           EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
         ) {
           dialogProps = buildBleNotifyChangeError(intl);
+        } else if (
+          uiRequestType === EHardwareUiStateAction.LOCATION_PERMISSION ||
+          uiRequestType === EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION
+        ) {
+          dialogProps = buildBlePermissionDialogProps(intl);
         } else if (
           uiRequestType ===
           EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION
