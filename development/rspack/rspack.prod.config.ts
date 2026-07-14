@@ -83,12 +83,12 @@ export function createProductionConfig({
       ],
       splitChunks: {
         chunks: 'all',
-        minSize: 102_400,
-        maxSize: isWeb ? 614_400 : 4_194_304,
+        minSize: 153_600,
+        maxSize: 614_400,
         hidePathInfo: true,
         automaticNameDelimiter: '.',
         name: false,
-        maxInitialRequests: isWeb ? 60 : 20,
+        maxInitialRequests: 20,
         maxAsyncRequests: 50_000,
         // Vendor cache groups for long-term caching (web/desktop only).
         // Extension uses its own code splitting via HtmlWebpackPlugin chunks,

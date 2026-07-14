@@ -9741,6 +9741,7 @@ __metadata:
     "@sentry/webpack-plugin": "npm:^2.22.6"
     "@substrate/txwrapper-polkadot": "npm:7.5.3"
     "@supabase/supabase-js": "npm:^2.77.0"
+    "@swc/core": "npm:^1.5.25"
     "@swc/helpers": "npm:0.5.23"
     "@swc/jest": "npm:^0.2.37"
     "@tamagui/animations-moti": "npm:1.108.0"

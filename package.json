@@ -288,6 +288,7 @@
     "@rspack/plugin-react-refresh": "2.0.2",
     "@sentry/babel-plugin-component-annotate": "2.21.1",
     "@sentry/webpack-plugin": "^2.22.6",
+    "@swc/core": "^1.5.25",
     "@swc/helpers": "0.5.23",
     "@swc/jest": "^0.2.37",
     "@tamagui/babel-plugin": "1.108.0",

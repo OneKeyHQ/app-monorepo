@@ -2,7 +2,7 @@
 /* cspell:ignore debugid postbuild */
 require('../../development/env');
 
-const { execSync, spawn, spawnSync } = require('child_process');
+const { execFileSync, execSync, spawn, spawnSync } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 
@@ -924,16 +924,14 @@ const buildWebEmbed = async () => {
       },
     );
     if (injectResult.status === 0) {
-      execSync(
-        `${nodeExecutablePath} ${path.join(
-          projectRootPath,
-          'apps/web-embed/scripts/check-browser-compat.js',
-        )}`,
-        {
-          stdio: 'inherit',
-          cwd: projectRootPath,
-        },
+      const browserCompatScriptPath = path.join(
+        projectRootPath,
+        'apps/web-embed/scripts/check-browser-compat.js',
       );
+      execFileSync(nodeExecutablePath, [browserCompatScriptPath], {
+        stdio: 'inherit',
+        cwd: projectRootPath,
+      });
     } else {
       console.warn(
         '::warning::Web-embed Sentry debug-id injection failed; falling back to release-based sourcemap upload.',
