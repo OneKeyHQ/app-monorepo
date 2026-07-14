@@ -21,6 +21,7 @@ type IWalletConnectOpenModalPayload =
 
 let pendingPayload: IWalletConnectOpenModalPayload | null = null;
 let wasModalOpened = false;
+let isModalOpen = false;
 const pendingPayloadListeners = new Set<() => void>();
 
 function getPendingPayload() {
@@ -37,7 +38,10 @@ function subscribePendingPayload(listener: () => void) {
 function updatePendingPayload(payload: IWalletConnectOpenModalPayload) {
   if (pendingPayload?.uri === payload.uri) return;
   pendingPayload = payload;
-  wasModalOpened = false;
+  // A new pairing can arrive while AppKit is still open (interleaved
+  // sessions). No fresh open:true transition follows in that case, so inherit
+  // the current open state to keep the eventual close clearing this store.
+  wasModalOpened = isModalOpen;
   pendingPayloadListeners.forEach((listener) => listener());
 }
 
@@ -51,6 +55,7 @@ function clearPendingPayload() {
 function handleModalState({
   open,
 }: IAppEventBusPayload[EAppEventBusNames.WalletConnectModalState]) {
+  isModalOpen = open;
   if (open) {
     wasModalOpened = true;
   } else if (wasModalOpened) {

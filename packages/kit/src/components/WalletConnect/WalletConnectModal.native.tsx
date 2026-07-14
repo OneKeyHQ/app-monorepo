@@ -332,6 +332,7 @@ const modal: IWalletConnectModalShared = {
     const openRequestIdRef = useRef(0);
     const isClosingProgrammaticallyRef = useRef(false);
     const isAwaitingMobileWalletApprovalRef = useRef(false);
+    const activePairingUriRef = useRef('');
 
     useEffect(
       () => () => {
@@ -359,15 +360,19 @@ const modal: IWalletConnectModalShared = {
             event.data.properties.connected;
 
           // AppKit may close after launching a mobile wallet but before the
-          // WalletConnect session is approved. The OneKey status dialog remains
-          // the explicit cancellation surface while that pairing is pending.
+          // WalletConnect session is approved; skip aborting so that pending
+          // pairing can still complete. It then terminates in bg via wallet
+          // approval/rejection or proposal expiry.
           if (
             !isClosingProgrammaticallyRef.current &&
             !isConnected &&
             !isAwaitingMobileWalletApprovalRef.current
           ) {
+            // Use the uri captured at open time: the module-level pairingUri
+            // is cleared while a newer attempt resets AppKit, and an empty
+            // uri would wildcard-cancel that newer attempt in bg.
             void backgroundApiProxy.serviceWalletConnect.abortConnectPairing({
-              uri: pairingUri,
+              uri: activePairingUriRef.current,
             });
           }
         },
@@ -393,6 +398,7 @@ const modal: IWalletConnectModalShared = {
         return;
       }
       pairingUri = uri;
+      activePairingUriRef.current = uri;
       updateConnectModalUri(uri);
 
       // TODO use custom provider from bg make QRCode Modal not open automatically

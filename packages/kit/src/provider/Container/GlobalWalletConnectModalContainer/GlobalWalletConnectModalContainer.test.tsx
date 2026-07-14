@@ -141,6 +141,56 @@ describe('GlobalWalletConnectModalContainer', () => {
     view.unmount();
   });
 
+  it('clears the payload when a second pairing arrives while the modal stays open', async () => {
+    const view = render(<GlobalWalletConnectModalContainer />);
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, {
+        uri: 'wc:first-session',
+      });
+      appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
+        open: true,
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(1);
+    });
+
+    // A second pairing lands while AppKit stays open, so no fresh open:true
+    // transition will ever follow for it.
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, {
+        uri: 'wc:second-session',
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(2);
+    });
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
+        open: false,
+      });
+    });
+
+    mockShouldRenderPageEveryChildren = false;
+    view.rerender(<GlobalWalletConnectModalContainer />);
+
+    mockShouldRenderPageEveryChildren = true;
+    view.rerender(<GlobalWalletConnectModalContainer />);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    // The stale second uri must not be replayed after the user closed the modal.
+    expect(mockWalletConnectModalContainer).toHaveBeenCalledTimes(2);
+
+    view.unmount();
+  });
+
   it('renders the modal only in the detail tree for split view', async () => {
     mockSplitViewType = 'main';
     const view = render(<GlobalWalletConnectModalContainer />);
