@@ -1,3 +1,5 @@
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
   EHardwareVendor,
   type ICheckAllFirmwareReleaseResult,
@@ -138,5 +140,53 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
       retryCount: 0,
       durationMs: 900,
     });
+  });
+
+  it('tracks failed and successful attempts with one sequence', async () => {
+    const attemptResultSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateAttemptResult')
+      .mockImplementation((params) => params);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.BLE),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    service.resetUpdateWorkflowTracking({
+      updateFlow: 'v1',
+      releaseResult: {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    });
+
+    await service.trackUpdateTaskAttemptResult({
+      status: 'failed',
+      error: new Error('first failure'),
+    });
+    await service.trackUpdateTaskAttemptResult({
+      status: 'failed',
+      error: new Error('second failure'),
+    });
+    await service.trackUpdateTaskAttemptResult({ status: 'success' });
+
+    expect(attemptResultSpy).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ attempt: 1, status: 'failed' }),
+    );
+    expect(attemptResultSpy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ attempt: 2, status: 'failed' }),
+    );
+    expect(attemptResultSpy).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({ attempt: 3, status: 'success' }),
+    );
+    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
+      expect.objectContaining({ retryCount: 2 }),
+    );
   });
 });
