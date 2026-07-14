@@ -19,6 +19,7 @@ import {
   mkdtempSync,
   readdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -96,6 +97,28 @@ if (!token) {
 function fail(msg) {
   console.error(`[tradingview-assets] ${msg}`);
   process.exit(1);
+}
+
+function isSafeAssetTree(rootDir) {
+  try {
+    const pendingDirs = [rootDir];
+    while (pendingDirs.length > 0) {
+      const currentDir = pendingDirs.pop();
+      if (currentDir) {
+        const entries = readdirSync(currentDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            pendingDirs.push(join(currentDir, entry.name));
+          } else if (!entry.isFile()) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 const authHeaders = { Authorization: `Bearer ${token}` };
@@ -182,6 +205,22 @@ try {
 if (distEntries.length === 0) {
   rmSync(tmp, { recursive: true, force: true });
   fail(`extracted dist/ is empty for ${PKG}@${VERSION}`);
+}
+
+if (!isSafeAssetTree(distSrc)) {
+  rmSync(tmp, { recursive: true, force: true });
+  fail('extracted dist/ contains a symlink or unsupported file type');
+}
+
+let hasEntryHtml = false;
+try {
+  hasEntryHtml = statSync(join(distSrc, 'index.html')).isFile();
+} catch {
+  // handled by the required entry check below
+}
+if (!hasEntryHtml) {
+  rmSync(tmp, { recursive: true, force: true });
+  fail(`extracted dist/index.html is missing for ${PKG}@${VERSION}`);
 }
 
 rmSync(DEST_DIR, { recursive: true, force: true });

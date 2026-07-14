@@ -841,7 +841,9 @@ export function TradingViewPerpsV2(
         onLoadEnd={onLoadEnd}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         preloadKind={
-          platformEnv.isDesktop ? EDesktopWebViewPreloadKind.Chart : undefined
+          platformEnv.isDesktop && isOfflineChart
+            ? EDesktopWebViewPreloadKind.Chart
+            : undefined
         }
         nativeInjectedJavaScriptBeforeContentLoaded={
           platformEnv.isNativeAndroid

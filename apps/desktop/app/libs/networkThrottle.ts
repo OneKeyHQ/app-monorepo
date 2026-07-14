@@ -1,7 +1,10 @@
 import { type Session, type WebContents, session, webContents } from 'electron';
 import logger from 'electron-log/main';
 
-import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
+import {
+  DESKTOP_WEBVIEW_CHART_PARTITION,
+  DESKTOP_WEBVIEW_OVERLAY_PARTITION,
+} from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
 import { syncStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
 import {
@@ -498,6 +501,10 @@ export async function applyDesktopNetworkThrottleToKnownSessions(
     {
       label: DESKTOP_WEBVIEW_OVERLAY_PARTITION,
       targetSession: session.fromPartition(DESKTOP_WEBVIEW_OVERLAY_PARTITION),
+    },
+    {
+      label: DESKTOP_WEBVIEW_CHART_PARTITION,
+      targetSession: session.fromPartition(DESKTOP_WEBVIEW_CHART_PARTITION),
     },
     ...webContents
       .getAllWebContents()

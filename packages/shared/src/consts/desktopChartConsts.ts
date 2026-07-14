@@ -13,3 +13,15 @@ export const DESKTOP_OFFLINE_CHART_HOST = 'local';
 export const DESKTOP_OFFLINE_CHART_BASE_URL = `${DESKTOP_OFFLINE_CHART_SCHEME}://${DESKTOP_OFFLINE_CHART_HOST}/`;
 
 export const DESKTOP_OFFLINE_CHART_ENTRY_URL = `${DESKTOP_OFFLINE_CHART_BASE_URL}index.html`;
+
+export function isAllowedDesktopChartNavigation(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === `${DESKTOP_OFFLINE_CHART_SCHEME}:` &&
+      parsed.host === DESKTOP_OFFLINE_CHART_HOST
+    );
+  } catch {
+    return false;
+  }
+}

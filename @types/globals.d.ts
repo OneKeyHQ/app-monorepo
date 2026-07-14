@@ -95,6 +95,9 @@ declare global {
       value?: unknown;
     }) => any;
     ONEKEY_DESKTOP_GLOBALS_GETTER: () => IDesktopGlobals | undefined;
+    ONEKEY_DESKTOP_GLOBALS_SUBSCRIBE?: (
+      listener: () => void,
+    ) => () => void;
     ONEKEY_DESKTOP_DEEP_LINKS_GETTER: () => any[];
     ONEKEY_DESKTOP_DEEP_LINKS_CLEAR: () => void;
 
@@ -121,6 +124,9 @@ declare global {
     value?: unknown;
   }) => any;
   var ONEKEY_DESKTOP_GLOBALS_GETTER: () => IDesktopGlobals | undefined;
+  var ONEKEY_DESKTOP_GLOBALS_SUBSCRIBE:
+    | ((listener: () => void) => () => void)
+    | undefined;
   var ONEKEY_DESKTOP_DEEP_LINKS_GETTER: () => any[];
   var ONEKEY_DESKTOP_DEEP_LINKS_CLEAR: () => void;
 

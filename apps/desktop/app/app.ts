@@ -43,8 +43,12 @@ import {
 import {
   DESKTOP_OFFLINE_CHART_HOST,
   DESKTOP_OFFLINE_CHART_SCHEME,
+  isAllowedDesktopChartNavigation,
 } from '@onekeyhq/shared/src/consts/desktopChartConsts';
-import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
+import {
+  DESKTOP_WEBVIEW_CHART_PARTITION,
+  DESKTOP_WEBVIEW_OVERLAY_PARTITION,
+} from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -1302,6 +1306,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   const overlaySession = session.fromPartition(
     DESKTOP_WEBVIEW_OVERLAY_PARTITION,
   );
+  const chartSession = session.fromPartition(DESKTOP_WEBVIEW_CHART_PARTITION);
   void applyDesktopNetworkThrottleToKnownSessions();
   // Overlay loads arbitrary external https pages from deeplinks /
   // notifications; the renderer's media-permission whitelist already
@@ -1323,6 +1328,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     applyDesktopNetworkThrottleToWebContents(contents);
     if (contents.getType() === 'webview') {
       const isOverlayWebview = contents.session === overlaySession;
+      const isChartWebview = contents.session === chartSession;
       if (isOverlayWebview) {
         const guardOverlayPreNavigation = (
           navigationEvent: Electron.Event,
@@ -1334,6 +1340,32 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         };
         contents.on('will-redirect', guardOverlayPreNavigation);
         contents.on('will-navigate', guardOverlayPreNavigation);
+      }
+      if (isChartWebview) {
+        const guardChartPreNavigation = (
+          navigationEvent: Electron.Event<
+            | Electron.WebContentsWillNavigateEventParams
+            | Electron.WebContentsWillRedirectEventParams
+          >,
+        ) => {
+          const { isMainFrame, url } = navigationEvent;
+          if (!isMainFrame) return;
+          if (isAllowedDesktopChartNavigation(url)) return;
+          navigationEvent.preventDefault();
+          let blockedOrigin = '<malformed>';
+          try {
+            const parsed = new URL(url);
+            blockedOrigin = `${parsed.protocol}//${parsed.host}`;
+          } catch {
+            // Keep the malformed fallback without logging the full URL.
+          }
+          logger.info(
+            'chart pre-navigation block (main process):',
+            blockedOrigin,
+          );
+        };
+        contents.on('will-redirect', guardChartPreNavigation);
+        contents.on('will-navigate', guardChartPreNavigation);
       }
       contents.setWindowOpenHandler((handleDetails) => {
         const safelyMainWindow = getSafelyMainWindow();
@@ -1434,45 +1466,57 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   const webviewSession = session.fromPartition('persist:onekey');
   void applyDesktopNetworkThrottleToKnownSessions();
   if (chartOfflineReady) {
-    try {
-      webviewSession.protocol.handle(
-        DESKTOP_OFFLINE_CHART_SCHEME,
-        async (request) => {
-          try {
-            const { host, pathname } = new URL(request.url);
-            if (host !== DESKTOP_OFFLINE_CHART_HOST) {
-              return new Response('Not Found', { status: 404 });
-            }
+    const handleChartProtocolRequest = async (request: Request) => {
+      try {
+        const { host, pathname } = new URL(request.url);
+        if (host !== DESKTOP_OFFLINE_CHART_HOST) {
+          return new Response('Not Found', { status: 404 });
+        }
 
-            const relativePath =
-              decodeURIComponent(pathname).replace(/^\/+/, '') || 'index.html';
-            const resolved = path.resolve(chartAssetsRoot, relativePath);
-            if (
-              resolved !== chartAssetsRoot &&
-              !resolved.startsWith(chartAssetsRoot + path.sep)
-            ) {
-              logger.warn('[chart] blocked path traversal:', resolved);
-              return new Response('Forbidden', { status: 403 });
-            }
+        const relativePath =
+          decodeURIComponent(pathname).replace(/^\/+/, '') || 'index.html';
+        const resolved = path.resolve(chartAssetsRoot, relativePath);
+        if (
+          resolved !== chartAssetsRoot &&
+          !resolved.startsWith(chartAssetsRoot + path.sep)
+        ) {
+          logger.warn('[chart] blocked path traversal:', resolved);
+          return new Response('Forbidden', { status: 403 });
+        }
 
-            const data = await fs.promises.readFile(resolved);
-            const mime =
-              CHART_MIME_TYPES[path.extname(resolved).toLowerCase()] ||
-              'application/octet-stream';
-            return new Response(new Uint8Array(data), {
-              status: 200,
-              headers: { 'Content-Type': mime },
-            });
-          } catch {
-            logger.warn('[chart] asset not found:', request.url);
-            return new Response('Not Found', { status: 404 });
-          }
-        },
-      );
-    } catch (error) {
-      logger.info('[chart] protocol handler already registered:', error);
+        const data = await fs.promises.readFile(resolved);
+        const mime =
+          CHART_MIME_TYPES[path.extname(resolved).toLowerCase()] ||
+          'application/octet-stream';
+        return new Response(new Uint8Array(data), {
+          status: 200,
+          headers: { 'Content-Type': mime },
+        });
+      } catch {
+        logger.warn('[chart] asset not found:', request.url);
+        return new Response('Not Found', { status: 404 });
+      }
+    };
+
+    for (const targetSession of [webviewSession, chartSession]) {
+      try {
+        targetSession.protocol.handle(
+          DESKTOP_OFFLINE_CHART_SCHEME,
+          handleChartProtocolRequest,
+        );
+      } catch (error) {
+        logger.info('[chart] protocol handler already registered:', error);
+      }
     }
   }
+
+  chartSession.setPermissionCheckHandler(() => false);
+  chartSession.setPermissionRequestHandler(
+    (_webContents, _permission, callback) => {
+      callback(false);
+    },
+  );
+  chartSession.setDevicePermissionHandler(() => false);
 
   webviewSession.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {

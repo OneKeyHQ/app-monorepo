@@ -5,6 +5,7 @@ import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble
 import { contextBridge, ipcRenderer } from 'electron';
 
 import { OAUTH_CALLBACK_DESKTOP_CHANNEL } from '@onekeyhq/shared/src/consts/authConsts';
+import type { IDesktopGlobals } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
 
@@ -25,18 +26,15 @@ export type IDesktopEventUnSubscribe = () => void;
 
 // --- Internal state (preload world, not accessible from renderer) ---
 
-let desktopGlobals:
-  | { sdkConnectSrc: string; tradingViewOfflineReady?: boolean }
-  | undefined;
+let desktopGlobals: IDesktopGlobals | undefined;
+const desktopGlobalsListeners = new Set<() => void>();
 const deepLinks: any[] = [];
 
 ipcRenderer.on(
   ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS,
-  (
-    _,
-    globals: { sdkConnectSrc: string; tradingViewOfflineReady?: boolean },
-  ) => {
+  (_, globals: IDesktopGlobals) => {
     desktopGlobals = globals;
+    desktopGlobalsListeners.forEach((listener) => listener());
   },
 );
 
@@ -420,6 +418,13 @@ exposeToMainWorld(
 
 // Expose getters for globals managed by IPC events
 exposeToMainWorld('ONEKEY_DESKTOP_GLOBALS_GETTER', () => desktopGlobals);
+exposeToMainWorld(
+  'ONEKEY_DESKTOP_GLOBALS_SUBSCRIBE',
+  (listener: () => void) => {
+    desktopGlobalsListeners.add(listener);
+    return () => desktopGlobalsListeners.delete(listener);
+  },
+);
 exposeToMainWorld('ONEKEY_DESKTOP_DEEP_LINKS_GETTER', () => [...deepLinks]);
 // Drain the deep link queue after the renderer has consumed them
 exposeToMainWorld('ONEKEY_DESKTOP_DEEP_LINKS_CLEAR', () => {

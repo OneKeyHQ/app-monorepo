@@ -11,3 +11,6 @@
  */
 
 export const DESKTOP_WEBVIEW_OVERLAY_PARTITION = 'onekey-overlay';
+
+// Chart storage must persist across launches, but stay isolated from DApps.
+export const DESKTOP_WEBVIEW_CHART_PARTITION = 'persist:onekey-chart';

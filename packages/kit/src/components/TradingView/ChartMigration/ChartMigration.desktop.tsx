@@ -18,13 +18,16 @@ import {
   CHART_MIGRATION_EXPORT_EVAL_JS,
   CHART_MIGRATION_EXPORT_TIMEOUT_MS,
   CHART_MIGRATION_RESTORE_ACK_TIMEOUT_MS,
-  CHART_MIGRATION_RESTORE_MAX_ATTEMPTS,
+  CHART_MIGRATION_RESTORE_MAX_SESSION_ATTEMPTS,
   CHART_MIGRATION_RESTORE_RETRY_DELAY_MS,
   buildRestoreStorageMessage,
+  mergeChartMigrationExportResults,
   nextChartMigrationRequestId,
+  parseChartMigrationExportResult,
   parseRestoreAck,
 } from './utils';
 
+import type { IChartMigrationExportResult } from './utils';
 import type { IElectronWebView, IWebViewRef } from '../../WebView/types';
 
 const OLD_ORIGIN_URLS = [TRADING_VIEW_URL, TRADING_VIEW_URL_TEST] as const;
@@ -32,10 +35,6 @@ const OLD_ORIGIN_URLS = [TRADING_VIEW_URL, TRADING_VIEW_URL_TEST] as const;
 type IElectronWebViewWithEval = Omit<IElectronWebView, 'executeJavaScript'> & {
   executeJavaScript: (code: string) => Promise<unknown>;
 };
-
-type IChartMigrationExportResult =
-  | { ok: true; items: Record<string, string> }
-  | { ok: false };
 
 function ExportSourceHost({
   sourceUrl,
@@ -90,10 +89,7 @@ function ExportSourceHost({
           return;
         }
 
-        const items = (
-          typeof raw === 'string' ? JSON.parse(raw) : {}
-        ) as Record<string, string>;
-        settle({ ok: true, items });
+        settle(parseChartMigrationExportResult(raw));
       } catch {
         fail();
       }
@@ -129,7 +125,11 @@ function ExportSourceHost({
         disableBridge
         onWebViewRef={handleWebViewRef}
         onDomReady={exportNow}
-        onDidFailLoad={fail}
+        onDidFailLoad={(event) => {
+          if (event.isMainFrame && event.errorCode !== -3) {
+            fail();
+          }
+        }}
         displayProgressBar={false}
         pullToRefreshEnabled={false}
       />
@@ -166,27 +166,21 @@ function ExportHost({
         ...OLD_ORIGIN_URLS.filter((url) => url !== preferredOrigin),
         preferredOrigin,
       ];
-      const items: Record<string, string> = {};
-      let hasFailure = false;
-      mergeOrder.forEach((url) => {
-        const sourceResult = resultsRef.current.get(url);
-        if (sourceResult?.ok) {
-          Object.assign(items, sourceResult.items);
-        } else {
-          hasFailure = true;
-        }
+      const mergedResult = mergeChartMigrationExportResults({
+        results: resultsRef.current,
+        mergeOrder,
       });
 
       void (async () => {
-        if (hasFailure && Object.keys(items).length === 0) {
+        if (!mergedResult.ok) {
           await backgroundApiProxy.serviceApp.markTradingViewChartMigrationAttempt();
           return;
         }
         try {
           await backgroundApiProxy.serviceApp.setTradingViewChartMigrationExported(
-            { blob: items },
+            { blob: mergedResult.items },
           );
-          onExported(items);
+          onExported(mergedResult.items);
         } catch {
           await backgroundApiProxy.serviceApp.markTradingViewChartMigrationAttempt();
         }
@@ -216,13 +210,16 @@ function RestoreHost({
   const webRef = useRef<IWebViewRef | null>(null);
   const sentRef = useRef(false);
   const doneRef = useRef(false);
+  const disposedRef = useRef(false);
   const attemptCountRef = useRef(initialRestoreAttemptCount);
+  const sessionAttemptCountRef = useRef(0);
   const requestIdRef = useRef<string>('');
   const ackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
 
   const { finalUrl, isOfflineChart } = useTradingViewUrl({
+    forceDesktopOfflineChart: true,
     additionalParams: {
       symbol: 'BTC',
       type: 'market',
@@ -256,20 +253,20 @@ function RestoreHost({
 
   const recordFailureAndScheduleRetry = useCallback(
     (reason: 'ack-timeout' | 'protocol-error') => {
-      if (doneRef.current) {
+      if (doneRef.current || disposedRef.current) {
         return;
       }
       sentRef.current = false;
-      const isTerminal =
-        attemptCountRef.current >= CHART_MIGRATION_RESTORE_MAX_ATTEMPTS;
       void backgroundApiProxy.serviceApp.markTradingViewChartMigrationRestoreAttempt(
         {
           reason,
           attemptCount: attemptCountRef.current,
-          isTerminal,
         },
       );
-      if (isTerminal) {
+      if (
+        sessionAttemptCountRef.current >=
+        CHART_MIGRATION_RESTORE_MAX_SESSION_ATTEMPTS
+      ) {
         return;
       }
       if (retryTimerRef.current) {
@@ -277,13 +274,18 @@ function RestoreHost({
       }
       retryTimerRef.current = setTimeout(() => {
         setRetryTrigger((value) => value + 1);
-      }, CHART_MIGRATION_RESTORE_RETRY_DELAY_MS * attemptCountRef.current);
+      }, CHART_MIGRATION_RESTORE_RETRY_DELAY_MS * sessionAttemptCountRef.current);
     },
     [],
   );
 
   const sendRestore = useCallback(() => {
-    if (sentRef.current || doneRef.current) {
+    if (
+      sentRef.current ||
+      doneRef.current ||
+      sessionAttemptCountRef.current >=
+        CHART_MIGRATION_RESTORE_MAX_SESSION_ATTEMPTS
+    ) {
       return;
     }
 
@@ -304,6 +306,7 @@ function RestoreHost({
       }
       sentRef.current = true;
       attemptCountRef.current += 1;
+      sessionAttemptCountRef.current += 1;
       void sendChartProtocolRequest(
         'chart.restoreStorage',
         { payload: restoreMessage.payload },
@@ -322,6 +325,7 @@ function RestoreHost({
     ref.sendMessageViaInjectedScript(restoreMessage);
     sentRef.current = true;
     attemptCountRef.current += 1;
+    sessionAttemptCountRef.current += 1;
 
     if (ackTimerRef.current) {
       clearTimeout(ackTimerRef.current);
@@ -384,6 +388,7 @@ function RestoreHost({
 
   useEffect(() => {
     return () => {
+      disposedRef.current = true;
       if (ackTimerRef.current) {
         clearTimeout(ackTimerRef.current);
       }
@@ -405,7 +410,10 @@ function RestoreHost({
     >
       <WebView
         src={finalUrl}
-        preloadKind={EDesktopWebViewPreloadKind.Chart}
+        preloadKind={
+          isOfflineChart ? EDesktopWebViewPreloadKind.Chart : undefined
+        }
+        skipBackgroundBridge={isOfflineChart}
         customReceiveHandler={customReceiveHandler}
         onWebViewRef={handleWebViewRef}
         onLoadEnd={sendRestore}

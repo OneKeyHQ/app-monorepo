@@ -469,6 +469,32 @@ class ServiceApp extends ServiceBase {
       await this.initTradingViewChartMigrationState();
       v = await simpleDb.appStatus.getRawData();
     }
+    // Recover state written by builds that treated retry exhaustion as terminal.
+    if (v?.tradingViewChartMigration?.state === 'restore-failed') {
+      await simpleDb.appStatus.setRawData((current): ISimpleDBAppStatus => {
+        if (current?.tradingViewChartMigration?.state !== 'restore-failed') {
+          return current ?? {};
+        }
+        const blob = current.tradingViewChartMigrationBlob;
+        if (blob && Object.keys(blob).length > 0) {
+          return {
+            ...current,
+            tradingViewChartMigration: {
+              ...current.tradingViewChartMigration,
+              state: 'restore-pending',
+            },
+          };
+        }
+        return {
+          ...current,
+          tradingViewChartMigration: {
+            state: 'export-deferred',
+          },
+          tradingViewChartMigrationBlob: undefined,
+        };
+      });
+      v = await simpleDb.appStatus.getRawData();
+    }
     return {
       migration: v?.tradingViewChartMigration,
       blob: v?.tradingViewChartMigrationBlob,
@@ -539,7 +565,6 @@ class ServiceApp extends ServiceBase {
   async markTradingViewChartMigrationRestoreAttempt(params: {
     reason: 'ack-timeout' | 'protocol-error';
     attemptCount: number;
-    isTerminal: boolean;
   }) {
     await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
       if (v?.tradingViewChartMigration?.state !== 'restore-pending') {
@@ -550,7 +575,7 @@ class ServiceApp extends ServiceBase {
         ...v,
         tradingViewChartMigration: {
           ...v.tradingViewChartMigration,
-          state: params.isTerminal ? 'restore-failed' : 'restore-pending',
+          state: 'restore-pending',
           restoreAttemptCount: Math.max(
             v.tradingViewChartMigration.restoreAttemptCount ?? 0,
             params.attemptCount,
@@ -558,9 +583,6 @@ class ServiceApp extends ServiceBase {
           lastRestoreAttemptAt: Date.now(),
           lastRestoreFailureReason: params.reason,
         },
-        tradingViewChartMigrationBlob: params.isTerminal
-          ? undefined
-          : v.tradingViewChartMigrationBlob,
       };
     });
   }

@@ -13,7 +13,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { TRADING_VIEW_DISABLED_FEATURES_URL_PARAM } from '../constants';
-import { getDesktopOfflineChartReady } from '../utils/desktopOfflineChartReady';
+import { useDesktopOfflineChartReady } from '../utils/desktopOfflineChartReady';
 import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 
 import type { ITradingViewDisabledFeature } from '../constants';
@@ -21,10 +21,12 @@ import type { ITradingViewDisabledFeature } from '../constants';
 interface IUseTradingViewUrlOptions {
   additionalParams?: Record<string, string>;
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
+  forceDesktopOfflineChart?: boolean;
 }
 
 export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
-  const { additionalParams, disabledFeatures } = options;
+  const { additionalParams, disabledFeatures, forceDesktopOfflineChart } =
+    options;
 
   const calendars = useCalendars();
   const systemLocale = useLocaleVariant();
@@ -33,9 +35,13 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
   const localTradingViewUrl = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
-  const desktopOfflineChartReady = getDesktopOfflineChartReady();
+  const desktopOfflineChartReady = useDesktopOfflineChartReady();
 
   const baseUrl = useMemo(() => {
+    if (forceDesktopOfflineChart && desktopOfflineChartReady) {
+      return DESKTOP_OFFLINE_CHART_ENTRY_URL;
+    }
+
     if (devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl) {
       return localTradingViewUrl;
     }
@@ -53,6 +59,7 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
     devSettings.enabled,
     devSettings.settings?.useLocalTradingViewUrl,
     desktopOfflineChartReady,
+    forceDesktopOfflineChart,
     localTradingViewUrl,
   ]);
 

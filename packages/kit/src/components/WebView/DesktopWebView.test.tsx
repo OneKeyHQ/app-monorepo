@@ -8,6 +8,8 @@ import {
   waitFor,
 } from '@testing-library/react';
 
+import { DESKTOP_WEBVIEW_CHART_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
+
 import { DesktopWebView } from './DesktopWebView';
 import { EDesktopWebViewPreloadKind } from './types';
 
@@ -199,6 +201,9 @@ describe('DesktopWebView', () => {
         screen.getByTestId('desktop-chart-webview').getAttribute('preload'),
       ).toBe('file:///tmp/desktop-chart-preload.js'),
     );
+    expect(
+      screen.getByTestId('desktop-chart-webview').getAttribute('partition'),
+    ).toBe(DESKTOP_WEBVIEW_CHART_PARTITION);
     expect(getChartPreloadJsContent).toHaveBeenCalledTimes(1);
     expect(getPreloadJsContent).not.toHaveBeenCalled();
   });

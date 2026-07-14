@@ -19,6 +19,7 @@ import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { DESKTOP_WEBVIEW_CHART_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   checkOneKeyCardGoogleOauthUrl,
@@ -173,6 +174,10 @@ const DesktopWebView = forwardRef(
       !isDesktopChartPreloadReady()
         ? DEFAULT_PRELOAD_KIND
         : requestedBridgePreloadKind;
+    const webviewPartition =
+      !bridgeDisabled && bridgePreloadKind === EDesktopWebViewPreloadKind.Chart
+        ? DESKTOP_WEBVIEW_CHART_PARTITION
+        : (partitionProp ?? 'persist:onekey');
     const [isWebviewReady, setIsWebviewReady] = useState(false);
     const [isDomReady, setIsDomReady] = useState(false);
     // Parents hold wrapper closures across renders, so dom-ready must be read
@@ -669,7 +674,7 @@ const DesktopWebView = forwardRef(
           ref={initWebviewByRef}
           {...(bridgeDisabled ? {} : { preload: resolvedPreloadJsUrl })}
           src={src}
-          partition={partitionProp ?? 'persist:onekey'}
+          partition={webviewPartition}
           style={{
             'width': '100%',
             'height': '100%',

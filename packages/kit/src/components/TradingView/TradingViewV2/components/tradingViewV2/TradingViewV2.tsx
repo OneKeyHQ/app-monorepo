@@ -834,8 +834,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         onLoadStart={handleLoadStart}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         preloadKind={
-          platformEnv.isDesktop ? EDesktopWebViewPreloadKind.Chart : undefined
+          platformEnv.isDesktop && isOfflineChart
+            ? EDesktopWebViewPreloadKind.Chart
+            : undefined
         }
+        skipBackgroundBridge={isOfflineChart}
         displayProgressBar={false}
         pullToRefreshEnabled={false}
         scrollEnabled={false}
@@ -852,6 +855,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       chartWebViewRuntimeKey,
       handleLoadStart,
       handleWebViewRef,
+      isOfflineChart,
       onShouldStartLoadWithRequest,
       tradingViewUrlWithParams,
       tradingViewWebViewStyleProps,
