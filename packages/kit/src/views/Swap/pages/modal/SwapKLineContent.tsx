@@ -70,11 +70,13 @@ import {
   getResolvableDefaultSwapKLineSide,
   getSwapKLineStableTokenKey,
   getSwapKLineStableTokenStatusFromMap,
+  haveSameSwapKLineTokenSymbol,
   isKnownSwapKLineUnsupportedToken,
 } from './swapKLineTokenUtils';
 
 const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE = 'swap-kline';
 const SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES = [
+  TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
   TRADING_VIEW_DISABLED_FEATURES.TIME_SCALE,
   TRADING_VIEW_DISABLED_FEATURES.PRICE_SCALE,
   TRADING_VIEW_DISABLED_FEATURES.PRICE_MARKET_CAP_TOGGLE,
@@ -87,7 +89,6 @@ const SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES = [
 ] as const satisfies readonly ITradingViewDisabledFeature[];
 
 const SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES = [
-  TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
   ...SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES,
 ] as const satisfies readonly ITradingViewDisabledFeature[];
 const SWAP_KLINE_TOKEN_DETAIL_POLLING_INTERVAL = 6000;
@@ -508,6 +509,10 @@ function SwapKLineTokenSwitch({
   toToken?: ISwapToken;
   compact?: boolean;
 }) {
+  const tokensHaveSameSymbol = haveSameSwapKLineTokenSymbol({
+    fromToken,
+    toToken,
+  });
   const tokenSize = compact ? 'xxs' : 'xs';
   const labelSize = compact ? '$bodySmMedium' : '$bodyMdMedium';
   const labelGap = compact ? '$1' : '$1.5';
@@ -586,7 +591,7 @@ function SwapKLineTokenSwitch({
     [onChange],
   );
 
-  if (options.length <= 1) {
+  if (tokensHaveSameSymbol || options.length <= 1) {
     return null;
   }
 
@@ -664,6 +669,9 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   const kLineFallbackChainRef = useRef<string[]>([]);
 
   const resolvedSelectedSide = useMemo(() => {
+    if (haveSameSwapKLineTokenSymbol({ fromToken, toToken })) {
+      return defaultSide;
+    }
     if (selectedSide) {
       const selectedToken =
         selectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
@@ -1211,6 +1219,7 @@ function SwapKLineContentBody({
         decimal={selectedToken?.decimals ?? 0}
         dataSource="polling"
         disabledFeatures={disabledTradingViewFeatures}
+        enableNativeChartControls
         storageNamespace={SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE}
         forceEmptyKLineData={state.shouldForceEmptyKLineData}
         emptyKLineDataOnError
