@@ -273,6 +273,20 @@ export const {
 } = contextAtom('');
 
 export const {
+  atom: swapStockSelectedFromTokenBalanceAtom,
+  use: useSwapStockSelectedFromTokenBalanceAtom,
+} = contextAtom('');
+
+export const {
+  atom: swapActiveSelectedFromTokenBalanceAtom,
+  use: useSwapActiveSelectedFromTokenBalanceAtom,
+} = contextAtomComputed((get) =>
+  get(swapTypeSwitchAtom()) === ESwapTabSwitchType.STOCK
+    ? get(swapStockSelectedFromTokenBalanceAtom())
+    : get(swapSelectedFromTokenBalanceAtom()),
+);
+
+export const {
   atom: swapSelectedToTokenBalanceAtom,
   use: useSwapSelectedToTokenBalanceAtom,
 } = contextAtom('');
