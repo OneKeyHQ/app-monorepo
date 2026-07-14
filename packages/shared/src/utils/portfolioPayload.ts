@@ -257,7 +257,7 @@ export function buildPortfolioPayload({
     account,
     currency: displayCurrency.id,
     currencySymbol: displayCurrency.symbol,
-    tokenCount: tokens.length,
+    tokenCount: payloadTokens.length,
     tokens: payloadTokens,
     totalFiat: hasNullTopFiat ? null : totalFiat.toFixed(),
     ts: timestamp,

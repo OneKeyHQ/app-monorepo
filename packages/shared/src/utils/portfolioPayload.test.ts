@@ -281,6 +281,41 @@ describe('buildPortfolioPayload', () => {
     expect(payload.totalFiat).toBeNull();
   });
 
+  test('limits the payload to ten tokens and keeps tokenCount aligned', () => {
+    const tokens = Array.from({ length: 12 }, (_, index) =>
+      buildToken({
+        $key: `token-${index}`,
+        name: `Token ${index}`,
+        symbol: `T${index}`,
+      }),
+    );
+    const tokenMap = Object.fromEntries(
+      tokens.map((token, index) => [
+        token.$key,
+        buildFiat({ fiatValue: String(100 - index), price: 1 }),
+      ]),
+    );
+
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      timestamp: 1_780_900_000,
+      tokenMap,
+      tokens,
+    });
+
+    expect(payload.tokens).toHaveLength(10);
+    expect(payload.tokenCount).toBe(10);
+    expect(payload.tokens.map((token) => token.symbol)).toEqual(
+      tokens.slice(0, 10).map((token) => token.symbol),
+    );
+  });
+
   test('content hash excludes ts but includes portfolio content', () => {
     const token = buildToken({ $key: 'eth', symbol: 'ETH' });
     const basePayload = buildPortfolioPayload({
