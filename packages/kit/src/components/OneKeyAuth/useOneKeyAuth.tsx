@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
@@ -322,6 +323,21 @@ export function useOneKeyAuth() {
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
     } = {}) => {
+      // OneKey ID login now goes through OAuth (PrimeLoginOAuthDialog), whose
+      // Google/Apple buttons run chrome.identity.launchWebAuthFlow in the
+      // current UI runtime. The browser-action popup is the only extension
+      // surface Chrome tears down on focus loss: the moment the auth window
+      // steals focus the popup document is destroyed, silently killing the
+      // pending PKCE/session/apiOAuthLogin continuation. Hand the flow off to
+      // the persistent expand tab (the popup auto-closes once the tab takes
+      // focus); the expand tab's PrimeGlobalEffect resumes loginOneKeyId there
+      // via a shared bg flag. The side panel and standalone window are
+      // persistent contexts that survive the auth window, so they complete
+      // OAuth in place and are intentionally left alone.
+      if (platformEnv.isExtensionUiPopup) {
+        await backgroundApiProxy.serviceApp.openExtensionExpandTabForOneKeyIdLogin();
+        return;
+      }
       const localKeylessLoginPrepareResult: IOneKeyIdLoginWithLocalKeylessPrepareResult =
         await backgroundApiProxy.serviceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless();
       const preserveLocalKeylessAuth =

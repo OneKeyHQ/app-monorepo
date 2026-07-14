@@ -278,8 +278,40 @@ function PrimeGlobalEffectAfterAuthReady() {
 }
 
 function PrimeGlobalEffectView() {
-  const { isReady, legacySupabaseSignOut, keylessSupabaseSignOut } =
-    useOneKeyAuth();
+  const {
+    isReady,
+    legacySupabaseSignOut,
+    keylessSupabaseSignOut,
+    loginOneKeyId,
+  } = useOneKeyAuth();
+
+  // Resume a OneKey ID OAuth login that was handed off from an ephemeral
+  // extension surface (popup / side panel / standalone window). Those surfaces
+  // cannot host chrome.identity.launchWebAuthFlow, so loginOneKeyId there only
+  // opens this expand tab and sets a one-shot bg flag; consume it once on mount
+  // and re-open the login dialog in this persistent runtime. Gated to the
+  // expand tab so the surface that SET the flag never consumes its own flag.
+  useEffect(() => {
+    if (!platformEnv.isExtensionUiExpandTab) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const pending =
+        await backgroundApiProxy.serviceApp.consumePendingOneKeyIdLoginExpandTabRedirect();
+      if (cancelled || !pending) {
+        return;
+      }
+      const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
+      if (cancelled || isLoggedIn) {
+        return;
+      }
+      void loginOneKeyId();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loginOneKeyId]);
 
   useEffect(() => {
     const fn = async (

@@ -363,6 +363,26 @@ class ServiceApp extends ServiceBase {
     return extUtils.openExpandTab(routeInfo);
   }
 
+  // One-shot, in-memory only (never persisted). Set by an ephemeral extension
+  // UI surface (action popup / side panel / standalone window) that cannot host
+  // the OneKey ID OAuth flow, and consumed once by the persistent expand tab so
+  // it can resume the login there. Lives on the single shared bg service
+  // worker, so it is visible across every extension UI runtime.
+  private pendingOneKeyIdLoginExpandTabRedirect = false;
+
+  @backgroundMethod()
+  async openExtensionExpandTabForOneKeyIdLogin() {
+    this.pendingOneKeyIdLoginExpandTabRedirect = true;
+    return extUtils.openExpandTab({ routes: '' });
+  }
+
+  @backgroundMethod()
+  async consumePendingOneKeyIdLoginExpandTabRedirect(): Promise<boolean> {
+    const pending = this.pendingOneKeyIdLoginExpandTabRedirect;
+    this.pendingOneKeyIdLoginExpandTabRedirect = false;
+    return pending;
+  }
+
   @backgroundMethod()
   async openExtensionMarketTokenDetail(params: {
     tokenAddress: string;
