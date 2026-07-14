@@ -1682,6 +1682,17 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
   private var imageTask: HomeContainerImageRequest?
   private var representedImageURL: URL?
   private var hasAppliedImage = false
+  private var normalBackgroundColor = UIColor.secondarySystemBackground
+  private var hoverBackgroundColor = UIColor.tertiarySystemBackground
+  private var activeBackgroundColor = UIColor.systemGray5
+  private var isPointerHovering = false
+
+  override var isHighlighted: Bool {
+    didSet {
+      guard oldValue != isHighlighted else { return }
+      updateInteractiveBackgroundColor()
+    }
+  }
 
   init(banner: HomeContainerBanner, theme: HomeContainerTheme) {
     itemId = banner.id
@@ -1691,6 +1702,7 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     imageView.contentMode = .scaleAspectFit
     imageView.layer.cornerRadius = 10
     imageView.clipsToBounds = true
+    imageView.isUserInteractionEnabled = false
     imageView.translatesAutoresizingMaskIntoConstraints = false
     addSubview(imageView)
     titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
@@ -1700,6 +1712,7 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     let labels = UIStackView(arrangedSubviews: [titleLabel, subtitleLabel])
     labels.axis = .vertical
     labels.spacing = 3
+    labels.isUserInteractionEnabled = false
     labels.translatesAutoresizingMaskIntoConstraints = false
     addSubview(labels)
     let dismissSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 12, weight: .medium)
@@ -1711,6 +1724,14 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     dismissButton.addAction(UIAction { [weak self] _ in self?.onDismiss?() }, for: .touchUpInside)
     dismissButton.translatesAutoresizingMaskIntoConstraints = false
     addSubview(dismissButton)
+    let hoverGestureRecognizer = UIHoverGestureRecognizer(
+      target: self,
+      action: #selector(handleHover(_:))
+    )
+    addGestureRecognizer(hoverGestureRecognizer)
+    isAccessibilityElement = true
+    accessibilityIdentifier = "native-home-banner-item"
+    accessibilityTraits = .button
     NSLayoutConstraint.activate([
       imageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
       imageView.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -1732,7 +1753,21 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
   }
 
   func apply(banner: HomeContainerBanner, theme: HomeContainerTheme) {
-    backgroundColor = UIColor(homeContainerColor: theme.cardColor, fallback: .secondarySystemBackground)
+    normalBackgroundColor = UIColor(
+      homeContainerColor: theme.cardColor,
+      fallback: .secondarySystemBackground
+    )
+    hoverBackgroundColor = UIColor(
+      homeContainerColor: theme.hoverColor ?? theme.cardColor,
+      fallback: .tertiarySystemBackground
+    )
+    activeBackgroundColor = UIColor(
+      homeContainerColor: theme.activeColor ?? theme.cardColor,
+      fallback: .systemGray5
+    )
+    layer.borderWidth = 1 / UIScreen.main.scale
+    layer.borderColor = hoverBackgroundColor.cgColor
+    updateInteractiveBackgroundColor()
     titleLabel.textColor = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
     subtitleLabel.textColor = UIColor(homeContainerColor: theme.secondaryTextColor, fallback: .secondaryLabel)
     titleLabel.text = banner.title
@@ -1740,7 +1775,30 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     subtitleLabel.isHidden = banner.subtitle?.isEmpty != false
     dismissButton.isHidden = banner.dismissActionId?.isEmpty != false
     dismissButton.tintColor = UIColor(homeContainerColor: theme.secondaryTextColor, fallback: .secondaryLabel)
+    accessibilityLabel = banner.title
     loadImage(banner.imageUrl)
+  }
+
+  @objc private func handleHover(_ gestureRecognizer: UIHoverGestureRecognizer) {
+    switch gestureRecognizer.state {
+    case .began, .changed:
+      isPointerHovering = true
+    case .ended, .cancelled, .failed:
+      isPointerHovering = false
+    default:
+      break
+    }
+    updateInteractiveBackgroundColor()
+  }
+
+  private func updateInteractiveBackgroundColor() {
+    if isHighlighted {
+      backgroundColor = activeBackgroundColor
+    } else if isPointerHovering {
+      backgroundColor = hoverBackgroundColor
+    } else {
+      backgroundColor = normalBackgroundColor
+    }
   }
 
   private func loadImage(_ value: String?) {

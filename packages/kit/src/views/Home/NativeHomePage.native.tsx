@@ -721,6 +721,8 @@ export function NativeHomePage({
     () => ({
       backgroundColor: theme.bgApp.val,
       cardColor: theme.bgSubdued.val,
+      hoverColor: theme.bgHover.val,
+      activeColor: theme.bgActive.val,
       dividerColor: theme.borderSubdued.val,
       primaryTextColor: theme.text.val,
       secondaryTextColor: theme.textSubdued.val,
@@ -730,6 +732,8 @@ export function NativeHomePage({
     }),
     [
       theme.bgApp.val,
+      theme.bgActive.val,
+      theme.bgHover.val,
       theme.bgSubdued.val,
       theme.borderSubdued.val,
       theme.brand9.val,
