@@ -316,11 +316,7 @@ function auditAgentContext({ config, rootDir }) {
       const skillFile = path.join(skillDirectory, caseInsensitiveSkillFile);
       const displaySkillFile = relative(rootDir, skillFile);
       const source = fs.readFileSync(skillFile, 'utf8');
-      const { body, fields } = parseFrontmatter(
-        source,
-        displaySkillFile,
-        errors,
-      );
+      const { fields } = parseFrontmatter(source, displaySkillFile, errors);
       const name = fields.name;
       const description = fields.description;
 
@@ -377,7 +373,7 @@ function auditAgentContext({ config, rootDir }) {
         );
       }
 
-      const bodyLines = body ? body.split(/\r?\n/).length : 0;
+      const bodyLines = source ? source.split(/\r?\n/).length : 0;
       addBudgetError(
         errors,
         `${displaySkillFile} body lines`,

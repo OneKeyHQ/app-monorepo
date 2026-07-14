@@ -31,6 +31,7 @@ function writeSkill(
     description = 'Focused test skill.',
     explicit = false,
     fileName = 'SKILL.md',
+    frontmatter = [],
     modelExplicit = false,
     policySource,
   } = {},
@@ -43,6 +44,7 @@ function writeSkill(
       '---',
       `name: ${name}`,
       `description: ${description}`,
+      ...frontmatter,
       ...(modelExplicit ? [`disable-model-invocation: ${modelExplicit}`] : []),
       '---',
       '',
@@ -231,6 +233,29 @@ describe('agent context lint', () => {
     expect(result.stats.projectInstructionBytes).toBe(10);
   });
 
+  it('counts multiline frontmatter against the skill line budget', () => {
+    const skillDirectory = writeSkill(rootDir, 'frontmatter-heavy-skill', {
+      body: '# Skill',
+      frontmatter: [
+        'metadata: |',
+        ...Array.from({ length: 10 }, (_, index) => `  line ${index}`),
+      ],
+    });
+    const skillFile = path.join(skillDirectory, 'SKILL.md');
+    const sourceLines = fs
+      .readFileSync(skillFile, 'utf8')
+      .split(/\r?\n/).length;
+
+    const result = auditAgentContext({
+      config: createConfig({ maxSkillBodyLines: 10 }),
+      rootDir,
+    });
+
+    expect(result.errors).toContain(
+      `.skillshare/skills/frontmatter-heavy-skill/SKILL.md body lines: ${sourceLines} exceeds budget 10`,
+    );
+  });
+
   it.each(['true', 'True', 'TRUE'])(
     'requires Codex explicit policy for Claude explicit skills using %s',
     (modelExplicit) => {
@@ -300,7 +325,7 @@ describe('agent context lint', () => {
     expect(result.errors).toEqual(
       expect.arrayContaining([
         '.skillshare/skills/broken-skill: rename skill.md to SKILL.md',
-        '.skillshare/skills/broken-skill/skill.md body lines: 14 exceeds budget 10',
+        '.skillshare/skills/broken-skill/skill.md body lines: 18 exceeds budget 10',
         '.skillshare/skills/broken-skill/skill.md: missing relative link: references/missing.md',
       ]),
     );
