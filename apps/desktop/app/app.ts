@@ -73,6 +73,8 @@ import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelect
 import './logger';
 import initProcess from './process';
 import { setMainWindowForHttpServer } from './process/HttpServer';
+import { logTrezorBleFlags } from './process/trezorBleFlags';
+import { createTrezorNobleFactory } from './process/trezorBleNoble';
 import { createTrezorBlePairingIpcMain } from './process/trezorBlePairing';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
@@ -1683,6 +1685,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     },
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   };
+  logTrezorBleFlags();
   initTrezorBleSupport(browserWindow.webContents, {
     // Insert Windows OS-pairing at the connect seam (SDK stays untouched):
     // caches scan address, runs the WinRT pairing helper before noble connects.
@@ -1691,6 +1694,10 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       trezorBleSenderGatedIpcMain,
       browserWindow,
     ),
+    // Proxies noble so the last real peripheral per device can be replayed into
+    // the SDK's cache after OS pairing — a bonded Safe 7 stops advertising, so
+    // connect can otherwise never rediscover it.
+    nobleFactory: createTrezorNobleFactory(),
     logger: (entry) => {
       const message = `[hwk:${entry.scope}] ${entry.event}`;
       // THP debug payloads can carry handshake packets / pairing credentials /

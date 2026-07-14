@@ -11,6 +11,8 @@ import {
   isBlePairAvailable,
   startRawAdvertisementWatch,
 } from './BlePair';
+import { trezorBleFlags } from './trezorBleFlags';
+import { directConnect, replayDiscover } from './trezorBleNoble';
 
 import type {
   IpcMainLike,
@@ -68,6 +70,7 @@ export function createTrezorBlePairingIpcMain(
   let lastScanAt = 0;
 
   const maybeRawWatch = (seconds: number, reason: string) => {
+    if (!trezorBleFlags.rawWatch) return;
     const now = Date.now();
     if (now - lastRawWatchAt < RAW_WATCH_COOLDOWN_MS) return;
     lastRawWatchAt = now;
@@ -122,7 +125,11 @@ export function createTrezorBlePairingIpcMain(
     const startedAt = Date.now();
     // ensureDevicePaired no-ops (already-paired) when the OS bond already exists.
     try {
-      const paired = await ensureDevicePaired(address, showPin);
+      const paired = await ensureDevicePaired(
+        address,
+        showPin,
+        trezorBleFlags.pairKeepLink,
+      );
       const pairingMs = Date.now() - startedAt;
       // Spell out the cache verdict rather than leaving it to be re-derived from
       // timestamps later: this is the exact mechanism that fails the connect.
@@ -169,11 +176,10 @@ export function createTrezorBlePairingIpcMain(
           // for a long time. An empty filter list disables the drop entirely.
           const options = (args[0] ?? {}) as Record<string, unknown>;
           const rest = args.slice(1);
-          const result = await listener(
-            event,
-            { ...options, serviceUuids: [] },
-            ...rest,
-          );
+          const scanOptions = trezorBleFlags.unfilteredScan
+            ? { ...options, serviceUuids: [] }
+            : options;
+          const result = await listener(event, scanOptions, ...rest);
           if (!Array.isArray(result)) {
             return result;
           }
@@ -243,6 +249,26 @@ export function createTrezorBlePairingIpcMain(
           logger.info(
             `[TrezorBLE] noble connect start ${connectId}; ${sinceScan}ms since last scan (SDK clears its peripheral cache ${SDK_SCAN_IDLE_STOP_MS}ms after the last scan)`,
           );
+
+          // THE FIX for "paired OK, then device not found": pairing outlives the
+          // SDK's cache and the bonded device stops advertising, so connect can
+          // neither find the peripheral nor rediscover it. Put the peripheral we
+          // already have straight back into the cache — no advertisement needed.
+          if (trezorBleFlags.replayDiscover) {
+            replayDiscover(connectId);
+          }
+          if (trezorBleFlags.directConnect) {
+            try {
+              await directConnect(connectId);
+            } catch (error) {
+              logger.warn(
+                `[TrezorBLE] directConnect failed: ${
+                  error instanceof Error ? error.message : ''
+                }`,
+              );
+            }
+          }
+
           try {
             const result = await listener(event, ...args);
             logger.info(
