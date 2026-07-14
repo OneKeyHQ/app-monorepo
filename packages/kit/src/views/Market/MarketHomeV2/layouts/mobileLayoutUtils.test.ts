@@ -65,6 +65,15 @@ describe('getMarketRecommendContainerPaddingTop', () => {
       }),
     ).toBe(37);
   });
+
+  it('keeps a minimum top gap on short windows outside native', () => {
+    expect(
+      getMarketRecommendContainerPaddingTop({
+        isNative: false,
+        windowHeight: 800,
+      }),
+    ).toBe(16);
+  });
 });
 
 describe('getMarketMobileSecondaryHeaderHeight', () => {
