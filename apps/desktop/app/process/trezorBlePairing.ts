@@ -12,7 +12,6 @@ import {
   startRawAdvertisementWatch,
 } from './BlePair';
 import { trezorBleFlags } from './trezorBleFlags';
-import { directConnect, replayDiscover } from './trezorBleNoble';
 
 import type {
   IpcMainLike,
@@ -164,22 +163,11 @@ export function createTrezorBlePairingIpcMain(
     handle: (channel, listener) => {
       if (channel === TREZOR_BLE_CHANNELS.scan) {
         base.handle(channel, async (event, ...args) => {
-          // Scan WITHOUT the service-UUID filter, then filter here instead.
-          //
-          // noble's Windows backend filters per RECEIVED PACKET (ble_manager.cc
-          // OnScanResult): a packet is dropped unless that packet itself carries
-          // a matching service UUID. The Safe 7's ADV packet carries only its
-          // name — the service UUID lives in the scan response, which arrives as
-          // a separate, irregularly-timed event. So every ADV packet was being
-          // thrown away and the device was only discovered if a scan response
-          // happened to land: the device is on air, yet the app "cannot find it"
-          // for a long time. An empty filter list disables the drop entirely.
-          const options = (args[0] ?? {}) as Record<string, unknown>;
-          const rest = args.slice(1);
-          const scanOptions = trezorBleFlags.unfilteredScan
-            ? { ...options, serviceUuids: [] }
-            : options;
-          const result = await listener(event, scanOptions, ...rest);
+          // The SDK now scans unfiltered by default and filters for Trezor itself
+          // (NobleBleHandler, 1.1.32-alpha.1), so nothing is rewritten here. We
+          // only observe: cache the id->address mapping the pairing helper needs,
+          // and log what was seen.
+          const result = await listener(event, ...args);
           if (!Array.isArray(result)) {
             return result;
           }
@@ -250,25 +238,9 @@ export function createTrezorBlePairingIpcMain(
             `[TrezorBLE] noble connect start ${connectId}; ${sinceScan}ms since last scan (SDK clears its peripheral cache ${SDK_SCAN_IDLE_STOP_MS}ms after the last scan)`,
           );
 
-          // THE FIX for "paired OK, then device not found": pairing outlives the
-          // SDK's cache and the bonded device stops advertising, so connect can
-          // neither find the peripheral nor rediscover it. Put the peripheral we
-          // already have straight back into the cache — no advertisement needed.
-          if (trezorBleFlags.replayDiscover) {
-            replayDiscover(connectId);
-          }
-          if (trezorBleFlags.directConnect) {
-            try {
-              await directConnect(connectId);
-            } catch (error) {
-              logger.warn(
-                `[TrezorBLE] directConnect failed: ${
-                  error instanceof Error ? error.message : ''
-                }`,
-              );
-            }
-          }
-
+          // Nothing to do here any more. Reaching a bonded, silent device is the
+          // SDK's job (NobleBleHandler._directConnect); the app-side attempt at
+          // it needed a noble proxy that blinded the scan outright.
           try {
             const result = await listener(event, ...args);
             logger.info(

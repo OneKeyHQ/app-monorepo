@@ -74,7 +74,6 @@ import './logger';
 import initProcess from './process';
 import { setMainWindowForHttpServer } from './process/HttpServer';
 import { logTrezorBleFlags } from './process/trezorBleFlags';
-import { createTrezorNobleFactory } from './process/trezorBleNoble';
 import { createTrezorBlePairingIpcMain } from './process/trezorBlePairing';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
@@ -1694,10 +1693,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       trezorBleSenderGatedIpcMain,
       browserWindow,
     ),
-    // Proxies noble so the last real peripheral per device can be replayed into
-    // the SDK's cache after OS pairing — a bonded Safe 7 stops advertising, so
-    // connect can otherwise never rediscover it.
-    nobleFactory: createTrezorNobleFactory(),
+    // NO nobleFactory override. A proxy used to sit here to replay `discover`
+    // events into the SDK's cache; it blinded noble entirely (the SDK saw zero
+    // peripherals while a WinRT watcher in another process saw 29 at the same
+    // moment) and, because it did not forward `connectAsync`, it would also have
+    // disabled the SDK's connect-by-id fallback. The SDK owns both behaviors as
+    // of 1.1.32-alpha.1 — let it use plain noble.
     logger: (entry) => {
       const message = `[hwk:${entry.scope}] ${entry.event}`;
       // THP debug payloads can carry handshake packets / pairing credentials /
