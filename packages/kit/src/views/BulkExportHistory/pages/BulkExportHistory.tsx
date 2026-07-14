@@ -14,6 +14,7 @@ import {
   Spinner,
   Stack,
   Switch,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -308,6 +309,19 @@ function BulkExportHistoryContent({
         );
       }
 
+      // A preset window (Last month / Last 3 months) may not overlap the
+      // supported range at all (e.g. the account's last transaction is older
+      // than the preset window), which inverts the clamped range. Block the
+      // request instead of creating an empty export task.
+      if (minTimestampMs >= maxTimestampMs) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.global_no_transactions_yet,
+          }),
+        });
+        return;
+      }
+
       // 2. Build per-network address list (handles mergeDeriveAssetsEnabled networks like BTC)
       const networkIdToAddressEntries = await Promise.all(
         selectedNetworkIds.map(async (networkId) => {
@@ -433,6 +447,7 @@ function BulkExportHistoryContent({
     customDateConstraints,
     hideRiskyTransactions,
     navigation,
+    intl,
   ]);
 
   if (isLoading || !isAccountSyncReady) {
