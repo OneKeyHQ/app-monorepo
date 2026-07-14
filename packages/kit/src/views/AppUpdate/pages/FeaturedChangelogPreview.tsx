@@ -59,15 +59,17 @@ function FeaturedChangelogPreview({
           await backgroundApiProxy.serviceAppUpdate.previewFeaturedChangelog({
             version: target,
           });
+        // Online-pipeline comparison: which release production would deliver
+        // right now, and whether that release carries a featured changelog.
+        const onlineNote = res.onlineVersion
+          ? ` Online pipeline currently delivers ${res.onlineVersion}${
+              res.onlineHasFeatured ? ' (with featured)' : ' (no featured)'
+            }.`
+          : '';
         if (!res.featuredChangelog) {
           setPreview(undefined);
-          // The server treats the requested version as the CLIENT's current
-          // version and serves the newest release above it, so spell out which
-          // version the featured changelog must be configured on.
           setEcho(
-            res.version && res.version !== target
-              ? `No featured changelog for ${res.version} (the version the server selects for a client on ${target}). Configure the featured changelog on ${res.version}, or adjust the release rows.`
-              : `No featured changelog returned for version ${target}. Tip: enter a LOWER version to simulate a client that has not upgraded yet — the server returns the newest release above it.`,
+            `No featured changelog configured for version ${target}.${onlineNote}`,
           );
           return undefined;
         }
@@ -83,7 +85,7 @@ function FeaturedChangelogPreview({
         setEcho(
           `Matched · version ${res.version ?? target} · ${
             res.featuredChangelog.features.length
-          } feature(s)`,
+          } feature(s).${onlineNote}`,
         );
         return data;
       } catch (e) {
