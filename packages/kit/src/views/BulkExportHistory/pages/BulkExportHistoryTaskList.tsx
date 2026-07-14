@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,12 +10,14 @@ import {
   Page,
   Skeleton,
   Stack,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IExportTransactionHistoryTask } from '@onekeyhq/shared/types/history';
@@ -114,9 +116,49 @@ function ExportTaskListItem({ task }: { task: IExportTransactionHistoryTask }) {
     }
   }, [intl, task.status]);
 
-  const handleDownload = useCallback(() => {
-    // TODO download the exported CSV once the download api is available
-  }, []);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = useCallback(async () => {
+    if (isDownloading) {
+      return;
+    }
+    setIsDownloading(true);
+    try {
+      const csvData =
+        await backgroundApiProxy.serviceHistory.downloadExportTransactionHistoryTaskCsv(
+          { id: task.id },
+        );
+
+      const formatFilenameDay = (timestampMs: number) =>
+        formatDate(new Date(timestampMs), { formatTemplate: 'ddMMyy' });
+      const filename = `transaction_history_${formatFilenameDay(
+        task.query.minTimestampMs,
+      )}_${formatFilenameDay(task.query.maxTimestampMs)}.csv`;
+
+      const saved = await csvExporterUtils.exportCSV(csvData, filename, true);
+      if (saved) {
+        Toast.success({
+          title: intl.formatMessage({ id: ETranslations.global_success }),
+        });
+      } else {
+        Toast.error({
+          title: 'Download failed, please try again.',
+        });
+      }
+    } catch (error) {
+      // The api client interceptor already toasts the server error message,
+      // so only log here to avoid duplicate toasts.
+      console.error(error);
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [
+    intl,
+    isDownloading,
+    task.id,
+    task.query.maxTimestampMs,
+    task.query.minTimestampMs,
+  ]);
 
   return (
     <ListItem
@@ -133,6 +175,7 @@ function ExportTaskListItem({ task }: { task: IExportTransactionHistoryTask }) {
           <ListItem.IconButton
             testID={`bulk-export-history-task-download-${task.id}`}
             icon="DownloadOutline"
+            loading={isDownloading}
             onPress={handleDownload}
           />
         ) : null}

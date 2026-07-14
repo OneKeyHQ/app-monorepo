@@ -2387,6 +2387,21 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async downloadExportTransactionHistoryTaskCsv(params: { id: number }) {
+    // Prime-only endpoint: use the OneKey ID authenticated client so the
+    // request carries the auth token and prime auth errors are handled.
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{
+      data: string;
+    }>('/wallet/v1/account/transaction/export-task/csv', params, {
+      // exported CSV files can be large
+      timeout: 30_000,
+    });
+
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
   public async fetchAccountOnChainHistory(
     params: IFetchAccountHistoryParams & {
       accountAddress: string;

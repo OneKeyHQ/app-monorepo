@@ -32,11 +32,14 @@ function convertToCSV(data: any[]) {
   return csvContent;
 }
 
+// Returns true when the file was handed off to the platform (share sheet
+// opened / browser download triggered), false otherwise so callers can
+// surface an error to the user.
 async function exportCSVExpo(
   data: any[] | string,
   filename = 'export.csv',
   skipConversion = false,
-) {
+): Promise<boolean> {
   try {
     // Get CSV string
     const csvString =
@@ -46,19 +49,23 @@ async function exportCSVExpo(
 
     if (!csvString) {
       console.error('no data to export');
-      return;
+      return false;
     }
 
     const fileUri = `${FileSystem.cacheDirectory ?? ''}${filename}`;
     await FileSystem.writeAsStringAsync(fileUri, csvString);
 
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(fileUri);
-    } else {
-      console.log(`file saved to: ${fileUri}`);
+    if (!(await Sharing.isAvailableAsync())) {
+      // Without a share sheet the file stays in the sandboxed cache directory,
+      // which the user cannot reach — treat it as a failure.
+      console.error(`sharing unavailable, file saved to: ${fileUri}`);
+      return false;
     }
+    await Sharing.shareAsync(fileUri);
+    return true;
   } catch (error) {
     console.error('export CSV failed:', error);
+    return false;
   }
 }
 
@@ -66,7 +73,7 @@ function exportCSVWeb(
   data: any[] | string,
   filename = 'export.csv',
   skipConversion = false,
-) {
+): boolean {
   try {
     // Get CSV string
     const csvString =
@@ -76,7 +83,7 @@ function exportCSVWeb(
 
     if (!csvString) {
       console.error('no data to export');
-      return;
+      return false;
     }
 
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
@@ -88,8 +95,10 @@ function exportCSVWeb(
     link.click();
 
     URL.revokeObjectURL(url);
+    return true;
   } catch (error) {
     console.error('export CSV failed:', error);
+    return false;
   }
 }
 
@@ -97,12 +106,11 @@ async function exportCSV(
   data: any[] | string,
   filename = 'export.csv',
   skipConversion = false,
-) {
+): Promise<boolean> {
   if (platformEnv.isNative) {
-    await exportCSVExpo(data, filename, skipConversion);
-  } else {
-    exportCSVWeb(data, filename, skipConversion);
+    return exportCSVExpo(data, filename, skipConversion);
   }
+  return exportCSVWeb(data, filename, skipConversion);
 }
 
 export default {
