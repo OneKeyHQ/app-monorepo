@@ -71,6 +71,7 @@ import {
   SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
   getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
+  isSwapNoProviderSupportsTrade,
   isSwapQuoteEventFetching,
   isSwapQuoteInputAmountMatched,
   isSwapZeroProviderQuoteCompleted,
@@ -512,6 +513,21 @@ export function useSwapActionState() {
       swapSlippagePercentageMode,
     ],
   );
+  // "The CURRENT pair's quote round completed and no provider supports it."
+  // A stale mismatched quote must not count — see isSwapNoProviderSupportsTrade.
+  const noProviderSupportsTrade = useMemo(
+    () =>
+      isSwapNoProviderSupportsTrade({
+        zeroProviderQuoteCompleted: isZeroProviderQuoteCompleted,
+        quote: quoteCurrentSelect,
+        quoteResultNoMatch: Boolean(quoteResultNoMatchDebounce),
+      }),
+    [
+      isZeroProviderQuoteCompleted,
+      quoteCurrentSelect,
+      quoteResultNoMatchDebounce,
+    ],
+  );
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
@@ -561,12 +577,7 @@ export function useSwapActionState() {
     ) {
       infoRes.disable = true;
     } else {
-      if (
-        isZeroProviderQuoteCompleted ||
-        (quoteCurrentSelect &&
-          !quoteCurrentSelect.toAmount &&
-          !quoteCurrentSelect.limit)
-      ) {
+      if (noProviderSupportsTrade) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_alert_no_provider_supports_trade,
         });
@@ -646,7 +657,15 @@ export function useSwapActionState() {
         infoRes.disable = true;
       }
 
-      if (isRefreshQuote || quoteResultNoMatchDebounce) {
+      // Keep the disabled "no provider supports trade" state instead of
+      // flipping to an actionable "Refresh quotes" button when no provider
+      // supports the current pair. stepState.isRefreshQuote excludes this
+      // state too, which keeps the rate-line refresh (auto interval + manual
+      // tap) alive as the recovery path. (OK-57545)
+      if (
+        (isRefreshQuote || quoteResultNoMatchDebounce) &&
+        !noProviderSupportsTrade
+      ) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_refresh_quotes,
         });
@@ -681,7 +700,7 @@ export function useSwapActionState() {
     toToken,
     quoteResultNoMatchDebounce,
     swapUseLimitPrice.rate,
-    isZeroProviderQuoteCompleted,
+    noProviderSupportsTrade,
   ]);
   const stepState: ISwapState = {
     label: actionInfo.label,
@@ -699,10 +718,14 @@ export function useSwapActionState() {
     shoutResetApprove:
       !!quoteCurrentSelect?.allowanceResult?.shouldResetApprove,
     isWrapped: !!quoteCurrentSelect?.isWrapped,
+    // Excluded for noProviderSupportsTrade so SwapRefreshButton keeps its
+    // auto interval and manual tap alive while the action button stays
+    // disabled with "no provider supports trade". (OK-57545)
     isRefreshQuote:
       (isRefreshQuote || quoteResultNoMatchDebounce) &&
       !quoteLoading &&
-      !quoteEventFetching,
+      !quoteEventFetching &&
+      !noProviderSupportsTrade,
     isWaitingAutoSlippage,
   };
   return stepState;

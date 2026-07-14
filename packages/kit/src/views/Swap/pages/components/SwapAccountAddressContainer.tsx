@@ -2,15 +2,10 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Image,
-  SizableText,
-  Skeleton,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { SizableText, Skeleton, Stack, XStack } from '@onekeyhq/components';
 import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapNetworksIncludeAllNetworkAtom,
@@ -68,7 +63,7 @@ const SwapAccountAddressContainer = ({
           }}
         >
           {networkLogoURI ? (
-            <Image w={16} h={16} source={{ uri: networkLogoURI }} />
+            <NetworkAvatarBase logoURI={networkLogoURI} size="$4" />
           ) : null}
           <SizableText size="$bodyMd" color="$text">
             {networkName}
