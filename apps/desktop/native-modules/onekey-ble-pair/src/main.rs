@@ -413,6 +413,35 @@ mod win {
                     Ok(()) => diag("closed device handle after pairing"),
                     Err(e) => diag(&format!("close after pairing failed: {e}")),
                 }
+                drop(device);
+
+                // Did Close() actually drop the LINK, or is the device still held
+                // (by us, or by Windows auto-connecting to the fresh bond)? A held
+                // link means the device never advertises again, which is exactly
+                // why the connect that follows cannot find it. Re-open a fresh
+                // handle and watch the connection state settle.
+                for wait_ms in [0_u64, 1000, 3000] {
+                    if wait_ms > 0 {
+                        std::thread::sleep(std::time::Duration::from_millis(wait_ms));
+                    }
+                    match BluetoothLEDevice::FromBluetoothAddressAsync(addr) {
+                        Ok(op) => match op.await {
+                            Ok(dev) => {
+                                let status = dev
+                                    .ConnectionStatus()
+                                    .map(|v| format!("{v:?}"))
+                                    .unwrap_or_else(|_| "<err>".into());
+                                diag(&format!(
+                                    "post-close link check (+{wait_ms}ms): connection={status} \
+                                     (Connected => device will NOT advertise => noble cannot find it)"
+                                ));
+                                let _ = dev.Close();
+                            }
+                            Err(e) => diag(&format!("post-close link check (+{wait_ms}ms): {e}")),
+                        },
+                        Err(e) => diag(&format!("post-close link check (+{wait_ms}ms): {e}")),
+                    }
+                }
 
                 super::emit(r#"{"type":"paired"}"#);
                 Ok(())
@@ -496,11 +525,19 @@ mod win {
                     }
                 }
 
+                // EVERY Trezor packet is logged, never deduped. Deduping by
+                // address is what hid the truth last time: it showed only the
+                // first sighting, so "device silent" and "device on air but the
+                // app is blind to it" looked identical. The full on-air timeline
+                // is the whole point. Other devices stay deduped (they are just
+                // ambient noise and would drown the log).
+                let is_trezor = name.contains("Trezor");
                 let first_time = seen.lock().map(|mut s| s.insert(addr)).unwrap_or(false);
-                if first_time {
+                if is_trezor || first_time {
                     diag(&format!(
-                        "adv addr={addr:012x} addrType={addr_type} randomKind={} \
+                        "adv{} addr={addr:012x} addrType={addr_type} randomKind={} \
                          type={adv_type} rssi={rssi} name='{name}' serviceUuids={uuids:?}",
+                        if is_trezor { "[TREZOR]" } else { "" },
                         classify_random_address(addr)
                     ));
                 }
