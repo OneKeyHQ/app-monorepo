@@ -27,7 +27,7 @@ function matchesDynamicAllowListPath({
   );
 }
 
-function getAllowListRule({
+export function getWebDappAllowListRule({
   allowList,
   allowListKeys,
   path,
@@ -61,7 +61,7 @@ export function getWebDappUrlFallback({
     return '/market';
   }
   const pathWithQuery = `${currentPath}${currentSearch}`;
-  const rule = getAllowListRule({
+  const rule = getWebDappAllowListRule({
     allowList,
     allowListKeys,
     path: currentPath,

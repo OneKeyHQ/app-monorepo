@@ -25,7 +25,10 @@ import { rootRouter, useRootRouter } from '../router';
 import { registerDeepLinking } from './deeplink';
 import { getStateFromPath } from './getStateFromPath';
 import { captureAndReportLoggerUtmParamsFromUrl } from './loggerUtmParams';
-import { getWebDappUrlFallback } from './webDappUrlFallback';
+import {
+  getWebDappAllowListRule,
+  getWebDappUrlFallback,
+} from './webDappUrlFallback';
 
 import type { LinkingOptions } from '@react-navigation/native';
 
@@ -144,16 +147,11 @@ const useBuildLinking = (): LinkingOptions<any> => {
           .replace(FULL_SCREEN_MODAL_PATH, MODAL_PATH)
           .replace(FULL_SCREEN_PUSH_PATH, MODAL_PATH);
 
-        let rule = allowList[defaultPathWithoutQuery];
-
-        if (!rule) {
-          const key = allowListKeys.find((k) =>
-            new RegExp(k).test(defaultPath),
-          );
-          if (key) {
-            rule = allowList[key];
-          }
-        }
+        const rule = getWebDappAllowListRule({
+          allowList,
+          allowListKeys,
+          path: defaultPathWithoutQuery,
+        });
 
         if (process.env.NODE_ENV !== 'production') {
           const mainRoute = state?.routes?.[state?.index ?? 0];

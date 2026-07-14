@@ -50,6 +50,29 @@ describe('swapKLineTokenUtils', () => {
     ).toBe(ESwapDirectionType.TO);
   });
 
+  it('prefers the non-stable side when supported tokens share a symbol', () => {
+    const fromToken = buildToken('USDT');
+    const toToken = buildToken('usdt');
+
+    expect(
+      getDefaultSwapKLineSide({
+        fromToken,
+        fromTokenIsStable: false,
+        toToken,
+        toTokenIsStable: true,
+      }),
+    ).toBe(ESwapDirectionType.FROM);
+    expect(
+      getResolvableDefaultSwapKLineSide({
+        fromToken,
+        fromTokenIsStable: false,
+        isStableTokenCheckLoading: false,
+        toToken,
+        toTokenIsStable: true,
+      }),
+    ).toBe(ESwapDirectionType.FROM);
+  });
+
   it.each([
     {
       expectedSide: ESwapDirectionType.FROM,

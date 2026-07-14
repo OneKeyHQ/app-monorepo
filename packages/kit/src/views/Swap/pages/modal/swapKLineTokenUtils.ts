@@ -189,10 +189,6 @@ export function getDefaultSwapKLineSide({
     return ESwapDirectionType.TO;
   }
 
-  if (haveSameSwapKLineTokenSymbol({ fromToken, toToken })) {
-    return ESwapDirectionType.TO;
-  }
-
   if (!fromIsKnownUnsupported && !toIsKnownUnsupported) {
     if (fromTokenIsStable !== toTokenIsStable) {
       return fromTokenIsStable

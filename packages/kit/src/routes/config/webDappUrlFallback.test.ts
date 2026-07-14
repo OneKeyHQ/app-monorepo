@@ -1,4 +1,7 @@
-import { getWebDappUrlFallback } from './webDappUrlFallback';
+import {
+  getWebDappAllowListRule,
+  getWebDappUrlFallback,
+} from './webDappUrlFallback';
 
 const allowList = {
   '/swap': { showUrl: true, showParams: true },
@@ -7,6 +10,27 @@ const allowList = {
   '/hidden': { showUrl: false, showParams: false },
 };
 const allowListKeys = Object.keys(allowList);
+
+describe('getWebDappAllowListRule', () => {
+  it.each(['/modal/swap-settings', '/modal/token-selector?next=/swap'])(
+    'does not authorize a non-public target containing an allowlist fragment: %s',
+    (path) => {
+      expect(
+        getWebDappAllowListRule({ allowList, allowListKeys, path }),
+      ).toBeUndefined();
+    },
+  );
+
+  it('matches a complete dynamic pathname', () => {
+    expect(
+      getWebDappAllowListRule({
+        allowList,
+        allowListKeys,
+        path: '/market/tokens/btc',
+      }),
+    ).toEqual(allowList['/market/tokens/.']);
+  });
+});
 
 describe('getWebDappUrlFallback', () => {
   it('keeps the current allowed Swap path and query', () => {
