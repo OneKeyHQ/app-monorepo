@@ -115,9 +115,12 @@ appKit.walletConnectProvider = {
   },
 };
 
-async function resetAppKit() {
+function clearPairingOwnership() {
   pairingUri = '';
   pairingAttemptId = undefined;
+}
+
+async function resetAppKitState() {
   // await appKitModalCtrl.disconnect();
 
   // ClientCtrl.resetSession();
@@ -135,6 +138,11 @@ async function resetAppKit() {
   // @ts-ignore
   appKit.setClientId(null);
   appKit.setAddress(undefined);
+}
+
+async function resetAppKit() {
+  clearPairingOwnership();
+  await resetAppKitState();
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -348,6 +356,7 @@ const modal: IWalletConnectModalShared = {
     const isAwaitingMobileWalletApprovalRef = useRef(false);
     const activePairingUriRef = useRef('');
     const activeAttemptIdRef = useRef<number | undefined>(undefined);
+    const attributedRequestIdRef = useRef(0);
 
     useEffect(
       () => () => {
@@ -460,6 +469,7 @@ const modal: IWalletConnectModalShared = {
         // and cannot cancel or clear the one still opening.
         activePairingUriRef.current = uri;
         activeAttemptIdRef.current = attemptId;
+        attributedRequestIdRef.current = requestId;
 
         // await openNativeModal({
         //   route: 'ConnectWallet',
@@ -486,7 +496,16 @@ const modal: IWalletConnectModalShared = {
       void (async () => {
         if (platformEnv.isNative) {
           if (!isNativeModalOpen) {
-            await resetAppKit();
+            await resetAppKitState();
+            // Only the request that opened the modal producing this close
+            // state may clear the pairing ownership. A newer openModal has
+            // already claimed (or is about to rewrite) the module slots, and
+            // wiping them here would let the superseded attempt's late
+            // success/error bypass the staleness check and settle the newer
+            // attempt's connection.
+            if (attributedRequestIdRef.current === openRequestIdRef.current) {
+              clearPairingOwnership();
+            }
             console.log('setShouldRenderNativeModal false');
             // setShouldRenderNativeModal(false);
           }
