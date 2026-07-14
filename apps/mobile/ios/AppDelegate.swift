@@ -341,14 +341,13 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   private func backgroundDebugBundleURLString() -> String? {
     if let mainMetroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry"),
        var components = URLComponents(url: mainMetroURL, resolvingAgainstBaseURL: false) {
-      components.port = 8082
       components.path = "/background.bundle"
       return components.url?.absoluteString
     }
 
-    let packagerHost = RCTBundleURLProvider.sharedSettings().packagerServerHost()
-    if !packagerHost.isEmpty {
-      return "http://\(packagerHost):8082/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
+    let packagerHostPort = RCTBundleURLProvider.sharedSettings().packagerServerHostPort()
+    if !packagerHostPort.isEmpty {
+      return "http://\(packagerHostPort)/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
     }
 
     return nil
@@ -357,7 +356,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   private func backgroundBundleEntryURL() -> String {
 #if DEBUG
     let debugURL = backgroundDebugBundleURLString() ??
-      "http://localhost:8082/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
+      "http://localhost:8081/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
     NitroModuleBridge.logInfo("BackgroundThread", "backgroundBundleEntryURL(DEBUG): \(debugURL)")
     return debugURL
 #else
