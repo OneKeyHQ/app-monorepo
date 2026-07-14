@@ -9942,6 +9942,7 @@ __metadata:
     lightweight-charts: "npm:5.2.0"
     long: "npm:^5.2.1"
     lru-cache: "npm:^10.2.0"
+    markdown-it: "npm:^10.0.0"
     memoizee: "npm:^0.4.15"
     metro: "npm:0.83.2"
     mipd: "npm:^0.0.7"

@@ -124,6 +124,27 @@ describe('agent context lint', () => {
     );
   });
 
+  it('rejects missing, unknown, and invalid budget settings', () => {
+    const config = createConfig({
+      maxImplicitDescriptionCharacters: Number.POSITIVE_INFINITY,
+      maxProjectInstructionBytes: -1,
+      maxSkillBodyLines: '10',
+      maxTotalDescriptionCharacter: 200,
+    });
+    delete config.budgets.maxTotalDescriptionCharacters;
+
+    const result = auditAgentContext({ config, rootDir });
+
+    expect(result.errors).toEqual([
+      'Agent context config: budget maxImplicitDescriptionCharacters must be a finite non-negative number',
+      'Agent context config: budget maxProjectInstructionBytes must be a finite non-negative number',
+      'Agent context config: budget maxSkillBodyLines must be a finite non-negative number',
+      'Agent context config: missing required budget: maxTotalDescriptionCharacters',
+      'Agent context config: unsupported budget: maxTotalDescriptionCharacter',
+    ]);
+    expect(result.stats.discoverableSkills).toBe(0);
+  });
+
   it.each([
     '>+',
     '>-',
@@ -282,6 +303,21 @@ describe('agent context lint', () => {
         '.skillshare/skills/broken-skill/skill.md body lines: 14 exceeds budget 10',
         '.skillshare/skills/broken-skill/skill.md: missing relative link: references/missing.md',
       ]),
+    );
+  });
+
+  it('rejects broken reference-style links', () => {
+    writeSkill(rootDir, 'broken-reference-skill', {
+      body: '[Guide][guide]\n\n[guide]: references/missing.md',
+    });
+
+    const result = auditAgentContext({
+      config: createConfig(),
+      rootDir,
+    });
+
+    expect(result.errors).toContain(
+      '.skillshare/skills/broken-reference-skill/SKILL.md: missing relative link: references/missing.md',
     );
   });
 });

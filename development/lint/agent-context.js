@@ -1,7 +1,17 @@
 const fs = require('fs');
 const path = require('path');
 
+const MarkdownIt = require('markdown-it');
 const { parseDocument } = require('yaml');
+
+const markdown = new MarkdownIt();
+
+const ALLOWED_CONFIG_KEYS = new Set([
+  'budgets',
+  'projectInstructionFiles',
+  'schemaVersion',
+  'skillsDirectory',
+]);
 
 const ALLOWED_FRONTMATTER_KEYS = new Set([
   'allowed-tools',
@@ -23,9 +33,94 @@ const ALLOWED_SKILL_ENTRIES = new Set([
   'templates',
 ]);
 
+const REQUIRED_BUDGET_KEYS = new Set([
+  'maxDiscoverableSkills',
+  'maxExplicitDescriptionCharactersPerSkill',
+  'maxImplicitDescriptionCharacters',
+  'maxImplicitDescriptionCharactersPerSkill',
+  'maxImplicitSkills',
+  'maxProjectInstructionBytes',
+  'maxSkillBodyLines',
+  'maxTotalDescriptionCharacters',
+]);
+
 function relative(rootDir, filePath) {
   const relativePath = path.relative(rootDir, filePath);
   return relativePath ? relativePath.split(path.sep).join('/') : '.';
+}
+
+function isMapping(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validateConfig(config, errors) {
+  let valid = true;
+  if (!isMapping(config)) {
+    errors.push('Agent context config must be an object');
+    return false;
+  }
+
+  for (const key of Object.keys(config)) {
+    if (!ALLOWED_CONFIG_KEYS.has(key)) {
+      errors.push(`Agent context config: unsupported field: ${key}`);
+      valid = false;
+    }
+  }
+
+  if (config.schemaVersion !== 1) {
+    errors.push(
+      `Unsupported agent-context config schema: ${config.schemaVersion}`,
+    );
+    valid = false;
+  }
+  if (
+    typeof config.skillsDirectory !== 'string' ||
+    !config.skillsDirectory.trim()
+  ) {
+    errors.push(
+      'Agent context config: skillsDirectory must be a non-empty string',
+    );
+    valid = false;
+  }
+  if (
+    !Array.isArray(config.projectInstructionFiles) ||
+    !config.projectInstructionFiles.every(
+      (filePath) => typeof filePath === 'string' && filePath.trim(),
+    )
+  ) {
+    errors.push(
+      'Agent context config: projectInstructionFiles must contain only non-empty strings',
+    );
+    valid = false;
+  }
+
+  if (!isMapping(config.budgets)) {
+    errors.push('Agent context config: budgets must be an object');
+    return false;
+  }
+
+  for (const key of REQUIRED_BUDGET_KEYS) {
+    if (!Object.hasOwn(config.budgets, key)) {
+      errors.push(`Agent context config: missing required budget: ${key}`);
+      valid = false;
+    } else {
+      const value = config.budgets[key];
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+        errors.push(
+          `Agent context config: budget ${key} must be a finite non-negative number`,
+        );
+        valid = false;
+      }
+    }
+  }
+  for (const key of Object.keys(config.budgets)) {
+    if (!REQUIRED_BUDGET_KEYS.has(key)) {
+      errors.push(`Agent context config: unsupported budget: ${key}`);
+      valid = false;
+    }
+  }
+
+  return valid;
 }
 
 function parseYamlMapping(source, displayPath, errors) {
@@ -109,24 +204,29 @@ function collectMarkdownFiles(directory) {
   return files;
 }
 
-function extractLinkTarget(rawTarget) {
-  const trimmed = rawTarget.trim();
-  if (trimmed.startsWith('<')) {
-    const end = trimmed.indexOf('>');
-    return end === -1 ? trimmed : trimmed.slice(1, end);
+function collectMarkdownLinkTargets(tokens, targets = []) {
+  for (const token of tokens) {
+    if (token.type === 'link_open') {
+      targets.push(token.attrGet('href'));
+    } else if (token.type === 'image') {
+      targets.push(token.attrGet('src'));
+    }
+    if (token.children) {
+      collectMarkdownLinkTargets(token.children, targets);
+    }
   }
-  return trimmed.split(/\s+["']/)[0];
+  return targets;
 }
 
 function validateMarkdownLinks(skillDirectory, rootDir, errors) {
   for (const filePath of collectMarkdownFiles(skillDirectory)) {
     const source = fs.readFileSync(filePath, 'utf8');
-    for (const match of source.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)) {
-      const rawTarget = extractLinkTarget(match[1]);
-      const target = rawTarget.split('#')[0];
+    const linkTargets = collectMarkdownLinkTargets(markdown.parse(source, {}));
+    for (const linkTarget of linkTargets) {
+      const target = linkTarget.split('#')[0];
       const ignored =
         !target ||
-        /^(?:data:|https?:|mailto:|skill:|\/)/.test(target) ||
+        /^(?:data:|https?:|mailto:|skill:|\/)/i.test(target) ||
         target.includes('<') ||
         target.includes('*');
 
@@ -161,8 +261,6 @@ function addBudgetError(errors, label, actual, maximum) {
 
 function auditAgentContext({ config, rootDir }) {
   const errors = [];
-  const skillsDirectory = path.resolve(rootDir, config.skillsDirectory);
-  const budgets = config.budgets;
   const stats = {
     discoverableSkills: 0,
     explicitSkills: 0,
@@ -172,11 +270,10 @@ function auditAgentContext({ config, rootDir }) {
     totalDescriptionCharacters: 0,
   };
 
-  if (config.schemaVersion !== 1) {
-    errors.push(
-      `Unsupported agent-context config schema: ${config.schemaVersion}`,
-    );
-  }
+  if (!validateConfig(config, errors)) return { errors, stats };
+
+  const skillsDirectory = path.resolve(rootDir, config.skillsDirectory);
+  const budgets = config.budgets;
   if (!fs.existsSync(skillsDirectory)) {
     errors.push(`${config.skillsDirectory}: skills directory does not exist`);
     return { errors, stats };
@@ -359,7 +456,6 @@ function main() {
   const rootDir = path.resolve(__dirname, '../..');
   const config = loadConfig();
   const result = auditAgentContext({ config, rootDir });
-  printStats(result.stats, config.budgets);
 
   if (result.errors.length > 0) {
     console.error(
@@ -369,6 +465,7 @@ function main() {
     return;
   }
 
+  printStats(result.stats, config.budgets);
   console.log('[agent-context] passed');
 }
 
