@@ -1,10 +1,15 @@
 import { createStore } from 'jotai';
 
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { hydrateContextColdStartCacheForProvider } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 
 import type { IJotaiContextStore } from './createJotaiContext';
+
+type IJotaiContextStoreWithColdStartScope = IJotaiContextStore & {
+  __ONEKEY_JOTAI_COLD_START_SCOPE_KEY__?: string;
+};
 
 export function buildJotaiContextStoreId(data: IJotaiContextStoreData) {
   const { storeName, accountSelectorInfo } = data;
@@ -24,11 +29,9 @@ function setStoreColdStartScopeKey({
   store: IJotaiContextStore;
   storeId: string;
 }) {
-  (
-    store as IJotaiContextStore & {
-      __ONEKEY_JOTAI_COLD_START_SCOPE_KEY__?: string;
-    }
-  ).__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__ = `store:${storeId}`;
+  (store as IJotaiContextStoreWithColdStartScope)[
+    '__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__'
+  ] = `store:${storeId}`;
 }
 
 // AccountSelectorStore
@@ -101,6 +104,30 @@ class JotaiContextStore {
     let store = this.storeCache.get(id);
     if (!store) {
       store = this.createStore(data);
+    }
+    return store;
+  }
+
+  /**
+   * Prepares a context store for a synchronous cross-surface handoff that must
+   * complete before the destination Provider renders.
+   */
+  prepareStoreForImmediateUse(
+    data: IJotaiContextStoreData,
+  ): IJotaiContextStore {
+    const storeId = buildJotaiContextStoreId(data);
+    const store = this.getOrCreateStore(data);
+    this.cancelStoreResetById(storeId, store);
+
+    const coldStartScopeKey = (store as IJotaiContextStoreWithColdStartScope)
+      .__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__;
+    if (coldStartScopeKey) {
+      hydrateContextColdStartCacheForProvider({
+        store: store as unknown as Parameters<
+          typeof hydrateContextColdStartCacheForProvider
+        >[0]['store'],
+        coldStartScopeKey,
+      });
     }
     return store;
   }
