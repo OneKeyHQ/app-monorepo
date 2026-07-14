@@ -22,7 +22,8 @@ const ALLOWED_SKILL_ENTRIES = new Set([
 ]);
 
 function relative(rootDir, filePath) {
-  return path.relative(rootDir, filePath) || '.';
+  const relativePath = path.relative(rootDir, filePath);
+  return relativePath ? relativePath.split(path.sep).join('/') : '.';
 }
 
 function parseScalar(rawValue, { errors, filePath, key }) {
@@ -87,7 +88,9 @@ function parseFrontmatter(source, filePath, errors) {
           }
 
           const rawValue = rawFieldValue.trim();
-          if (rawValue === '>' || rawValue === '|') {
+          const blockStyleMatch = rawValue.match(/^([>|])[+-]?$/);
+          if (blockStyleMatch) {
+            const blockStyle = blockStyleMatch[1];
             const block = [];
             while (
               index + 1 < lines.length &&
@@ -97,7 +100,7 @@ function parseFrontmatter(source, filePath, errors) {
               block.push(lines[index].trim());
             }
             fields[key] =
-              rawValue === '>'
+              blockStyle === '>'
                 ? block.filter(Boolean).join(' ')
                 : block.join('\n');
           } else {

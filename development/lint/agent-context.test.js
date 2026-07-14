@@ -120,6 +120,32 @@ describe('agent context lint', () => {
     );
   });
 
+  it.each(['>+', '>-', '|+', '|-'])(
+    'rejects oversized descriptions using the %s block scalar',
+    (blockStyle) => {
+      writeSkill(rootDir, 'oversized-description', {
+        description: `${blockStyle}\n  ${'x'.repeat(120)}`,
+      });
+
+      const result = auditAgentContext({
+        config: createConfig({
+          maxImplicitDescriptionCharacters: 10,
+          maxImplicitDescriptionCharactersPerSkill: 10,
+          maxTotalDescriptionCharacters: 10,
+        }),
+        rootDir,
+      });
+
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          '.skillshare/skills/oversized-description/SKILL.md implicit description characters: 120 exceeds budget 10',
+          'Implicit description characters: 120 exceeds budget 10',
+          'Total description characters: 120 exceeds budget 10',
+        ]),
+      );
+    },
+  );
+
   it('budgets equivalent project instruction files independently', () => {
     writeSkill(rootDir, 'focused-skill');
     fs.writeFileSync(path.join(rootDir, 'CLAUDE.md'), '1234567890');
