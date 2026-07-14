@@ -46,6 +46,7 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBExternalAccount } from '../../dbs/local/types';
 
 type IWalletConnectConnectAttempt = {
+  attemptId: number;
   cancelError?: OneKeyWalletConnectModalCloseError;
   provider?: WalletConnectDappSideProvider;
   rejectCancellation?: (error: OneKeyWalletConnectModalCloseError) => void;
@@ -371,16 +372,17 @@ export class WalletConnectDappSide {
     }, delay);
   }
 
-  openModal({ uri }: { uri: string }) {
+  openModal({ uri, attemptId }: { uri: string; attemptId?: number }) {
     // emit event
     appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, {
       uri,
+      attemptId,
     });
   }
 
-  closeModal() {
-    // emit event
-    appEventBus.emit(EAppEventBusNames.WalletConnectCloseModal, undefined);
+  closeModal(params?: { attemptId?: number }) {
+    // emit event; omitting attemptId means a wildcard close
+    appEventBus.emit(EAppEventBusNames.WalletConnectCloseModal, params);
   }
 
   async activateSession({ topic }: { topic: string }) {
@@ -406,7 +408,7 @@ export class WalletConnectDappSide {
       attempt.rejectCancellation?.(attempt.cancelError);
     }
 
-    this.closeModal();
+    this.closeModal({ attemptId: attempt.attemptId });
     try {
       // best-effort SDK-side cleanup; the attempt is already rejected above,
       // so a provider failure here must not reject the abort call itself
@@ -417,8 +419,16 @@ export class WalletConnectDappSide {
     return true;
   }
 
+  connectToWalletGeneration = 0;
+
   async connectToWallet({ impl }: IWalletConnectConnectToWalletParams) {
     console.log('WalletConnectDappSide connectToWallet111');
+
+    // Serialize the supersede transition: every call claims a generation
+    // synchronously; after any await, only the latest generation may install
+    // its attempt, so concurrent retries cannot leave two attempts running.
+    this.connectToWalletGeneration += 1;
+    const generation = this.connectToWalletGeneration;
 
     // Cancel any superseded attempt before replacing it, so its pending
     // connect() cannot re-emit display_uri or tear down this newer
@@ -430,8 +440,15 @@ export class WalletConnectDappSide {
         console.error('abort superseded connect attempt error: ', error);
       }
     }
+    if (generation !== this.connectToWalletGeneration) {
+      // A newer connectToWallet call arrived while awaiting the abort;
+      // yield to it instead of racing two live attempts.
+      throw new OneKeyWalletConnectModalCloseError({ autoToast: false });
+    }
 
-    const attempt: IWalletConnectConnectAttempt = {};
+    const attempt: IWalletConnectConnectAttempt = {
+      attemptId: generation,
+    };
     this.activeConnectAttempt = attempt;
     this.closeModal();
 
@@ -505,7 +522,7 @@ export class WalletConnectDappSide {
         console.log('uri', uri.split('?')[0]);
         if (attempt.cancelError) return;
         attempt.uri = uri;
-        this.openModal({ uri });
+        this.openModal({ uri, attemptId: attempt.attemptId });
       };
 
       sessionDeleteHandler = async (
@@ -626,7 +643,7 @@ export class WalletConnectDappSide {
       // attempt settling late (e.g. proposal expiry minutes later) must not
       // tear down the newer attempt's modal and main-runtime payload store.
       if (isCurrentAttempt) {
-        this.closeModal();
+        this.closeModal({ attemptId: attempt.attemptId });
       }
     }
   }

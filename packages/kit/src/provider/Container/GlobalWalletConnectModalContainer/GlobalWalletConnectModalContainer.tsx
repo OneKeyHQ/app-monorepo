@@ -20,8 +20,6 @@ type IWalletConnectOpenModalPayload =
   IAppEventBusPayload[EAppEventBusNames.WalletConnectOpenModal];
 
 let pendingPayload: IWalletConnectOpenModalPayload | null = null;
-let wasModalOpened = false;
-let isModalOpen = false;
 const pendingPayloadListeners = new Set<() => void>();
 
 function getPendingPayload() {
@@ -38,29 +36,43 @@ function subscribePendingPayload(listener: () => void) {
 function updatePendingPayload(payload: IWalletConnectOpenModalPayload) {
   if (pendingPayload?.uri === payload.uri) return;
   pendingPayload = payload;
-  // A new pairing can arrive while AppKit is still open (interleaved
-  // sessions). No fresh open:true transition follows in that case, so inherit
-  // the current open state to keep the eventual close clearing this store.
-  wasModalOpened = isModalOpen;
   pendingPayloadListeners.forEach((listener) => listener());
 }
 
 function clearPendingPayload() {
   if (!pendingPayload) return;
   pendingPayload = null;
-  wasModalOpened = false;
   pendingPayloadListeners.forEach((listener) => listener());
+}
+
+function handleCloseModal(
+  payload: IAppEventBusPayload[EAppEventBusNames.WalletConnectCloseModal],
+) {
+  if (!pendingPayload) return;
+  // An attempt-scoped close only clears its own payload, so a stale close
+  // from a superseded attempt cannot tear down the newer pairing. Closes
+  // without attemptId are wildcard clears (dialog close, session delete).
+  if (
+    payload?.attemptId &&
+    pendingPayload.attemptId &&
+    payload.attemptId !== pendingPayload.attemptId
+  ) {
+    return;
+  }
+  clearPendingPayload();
 }
 
 function handleModalState({
   open,
+  attemptId,
 }: IAppEventBusPayload[EAppEventBusNames.WalletConnectModalState]) {
-  isModalOpen = open;
-  if (open) {
-    wasModalOpened = true;
-  } else if (wasModalOpened) {
-    clearPendingPayload();
-  }
+  if (open || !pendingPayload) return;
+  // Only the modal session belonging to the current payload may clear it:
+  // main and bg schedule independently, so close(A) can be delivered after
+  // open(B) and must not drop B back to loading. The native modal's initial
+  // open:false emit carries no attemptId and is ignored the same way.
+  if (!attemptId || attemptId !== pendingPayload.attemptId) return;
+  clearPendingPayload();
 }
 
 function ReplayWalletConnectEvent({
@@ -105,10 +117,7 @@ export function GlobalWalletConnectModalContainer() {
       EAppEventBusNames.WalletConnectOpenModal,
       updatePendingPayload,
     );
-    appEventBus.on(
-      EAppEventBusNames.WalletConnectCloseModal,
-      clearPendingPayload,
-    );
+    appEventBus.on(EAppEventBusNames.WalletConnectCloseModal, handleCloseModal);
     appEventBus.on(EAppEventBusNames.WalletConnectModalState, handleModalState);
     return () => {
       appEventBus.off(
@@ -117,7 +126,7 @@ export function GlobalWalletConnectModalContainer() {
       );
       appEventBus.off(
         EAppEventBusNames.WalletConnectCloseModal,
-        clearPendingPayload,
+        handleCloseModal,
       );
       appEventBus.off(
         EAppEventBusNames.WalletConnectModalState,

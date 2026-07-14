@@ -333,6 +333,7 @@ const modal: IWalletConnectModalShared = {
     const isClosingProgrammaticallyRef = useRef(false);
     const isAwaitingMobileWalletApprovalRef = useRef(false);
     const activePairingUriRef = useRef('');
+    const activeAttemptIdRef = useRef<number | undefined>(undefined);
 
     useEffect(
       () => () => {
@@ -389,58 +390,68 @@ const modal: IWalletConnectModalShared = {
     const [shouldRenderNativeModal, setShouldRenderNativeModal] =
       useState(false);
 
-    const openModal = useCallback(async ({ uri }: { uri: string }) => {
-      isAwaitingMobileWalletApprovalRef.current = false;
-      const requestId = openRequestIdRef.current + 1;
-      openRequestIdRef.current = requestId;
-      await resetAppKit();
-      if (!isMountedRef.current || requestId !== openRequestIdRef.current) {
-        return;
-      }
-      pairingUri = uri;
-      activePairingUriRef.current = uri;
-      updateConnectModalUri(uri);
-
-      // TODO use custom provider from bg make QRCode Modal not open automatically
-      // ClientCtrl.setProvider({} as any);
-      // // resetApp(); // onSessionDelete
-      // ClientCtrl.setInitialized(true);
-
-      if (!isMountedRef.current) return;
-      setShouldRenderNativeModal(true);
-
-      // try {
-      //   await nativeProviderRef.current?.disconnect();
-      // } catch (error) {
-      //   console.error(error);
-      // }
-
-      await timerUtils.wait(600); // wait modal render done
-
-      if (!isMountedRef.current || requestId !== openRequestIdRef.current) {
-        return;
-      }
-
-      console.log(
-        'WalletConnectModalContainer openNativeModalRef: ------------------------ ',
-      );
-      await openNativeModalRef.current({
-        view: 'Connect',
-      }); // show modal
-
-      if (isMountedRef.current && requestId !== openRequestIdRef.current) {
-        isClosingProgrammaticallyRef.current = true;
-        try {
-          await closeNativeModalRef.current();
-        } finally {
-          isClosingProgrammaticallyRef.current = false;
+    const openModal = useCallback(
+      async ({ uri, attemptId }: { uri: string; attemptId?: number }) => {
+        isAwaitingMobileWalletApprovalRef.current = false;
+        const requestId = openRequestIdRef.current + 1;
+        openRequestIdRef.current = requestId;
+        await resetAppKit();
+        if (!isMountedRef.current || requestId !== openRequestIdRef.current) {
+          return;
         }
-      }
+        pairingUri = uri;
+        updateConnectModalUri(uri);
 
-      // await openNativeModal({
-      //   route: 'ConnectWallet',
-      // });
-    }, []);
+        // TODO use custom provider from bg make QRCode Modal not open automatically
+        // ClientCtrl.setProvider({} as any);
+        // // resetApp(); // onSessionDelete
+        // ClientCtrl.setInitialized(true);
+
+        if (!isMountedRef.current) return;
+        setShouldRenderNativeModal(true);
+
+        // try {
+        //   await nativeProviderRef.current?.disconnect();
+        // } catch (error) {
+        //   console.error(error);
+        // }
+
+        await timerUtils.wait(600); // wait modal render done
+
+        if (!isMountedRef.current || requestId !== openRequestIdRef.current) {
+          return;
+        }
+
+        console.log(
+          'WalletConnectModalContainer openNativeModalRef: ------------------------ ',
+        );
+        await openNativeModalRef.current({
+          view: 'Connect',
+        }); // show modal
+
+        if (isMountedRef.current && requestId !== openRequestIdRef.current) {
+          isClosingProgrammaticallyRef.current = true;
+          try {
+            await closeNativeModalRef.current();
+          } finally {
+            isClosingProgrammaticallyRef.current = false;
+          }
+          return;
+        }
+
+        // The modal now shows this pairing. Attribute user closes and
+        // modal-state transitions to it only from this point, so a stale
+        // close from the previous modal keeps blaming the previous attempt
+        // and cannot cancel or clear the one still opening.
+        activePairingUriRef.current = uri;
+        activeAttemptIdRef.current = attemptId;
+
+        // await openNativeModal({
+        //   route: 'ConnectWallet',
+        // });
+      },
+      [],
+    );
 
     const closeModal = useCallback(async () => {
       openRequestIdRef.current += 1;
@@ -467,6 +478,7 @@ const modal: IWalletConnectModalShared = {
           if (!isMountedRef.current) return;
           appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
             open: isNativeModalOpen,
+            attemptId: activeAttemptIdRef.current,
           });
         }
       })();
