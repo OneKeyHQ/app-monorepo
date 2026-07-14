@@ -128,6 +128,12 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
     case vertical(page: HomeContainerPageView)
   }
 
+  private enum PagerTransitionState: Equatable {
+    case idle
+    case dragging(startIndex: Int)
+    case settling(targetIndex: Int)
+  }
+
   var onAction: ((String, String, String) -> Void)?
   var onRefresh: ((String, String) -> Void)?
   var onVisibleTabChange: ((String) -> Void)?
@@ -156,6 +162,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
   private var refreshPullOffset: CGFloat = 0
   private var mountedSlotKeys = Set<String>()
   private var interactionPanMode: InteractionPanMode?
+  private var pagerTransitionState = PagerTransitionState.idle
+  private var pagerAnimationGeneration = 0
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -203,6 +211,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
 
   override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
     guard gestureRecognizer === interactionPan else { return true }
+    if case .settling = pagerTransitionState {
+      return false
+    }
     interactionPanMode = nil
     let location = gestureRecognizer.location(in: self)
     let velocity = interactionPan.velocity(in: self)
@@ -245,6 +256,13 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
     return true
   }
 
+  func gestureRecognizer(
+    _ gestureRecognizer: UIGestureRecognizer,
+    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+  ) -> Bool {
+    gestureRecognizer === interactionPan || otherGestureRecognizer === interactionPan
+  }
+
   private func footerSlotKey(at location: CGPoint) -> String? {
     guard let page = pages.first(where: { $0.tabId == selectedTabId }) else {
       return nil
@@ -261,7 +279,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
     guard let mode = interactionPanMode else { return }
     switch gestureRecognizer.state {
     case .began:
-      if case .vertical(let page) = mode {
+      if case .pager(_, let startIndex) = mode {
+        beginPagerInteraction(startIndex: startIndex)
+      } else if case .vertical(let page) = mode {
         page.beginExternalVerticalPan()
       }
     case .changed:
@@ -336,7 +356,11 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
       let targetIndex = cancelled || !crossesThreshold
         ? startIndex
         : min(max(startIndex + direction, 0), pages.count - 1)
-      moveToTab(pages[targetIndex].tabId, animated: true, notify: targetIndex != startIndex)
+      settlePager(
+        targetIndex: targetIndex,
+        animated: true,
+        notify: targetIndex != startIndex
+      )
     case .vertical(let page):
       page.endExternalVerticalPan(velocityY: cancelled ? 0 : velocity.y)
     }
@@ -363,9 +387,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
     )
     updateSharedChromeLayout()
 
-    guard interactionPanMode == nil,
-          !pager.isDragging,
-          !pager.isDecelerating,
+    guard pagerTransitionState == .idle,
           let index = pages.firstIndex(where: { $0.tabId == selectedTabId }) else {
       return
     }
@@ -623,22 +645,75 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
 
   private func moveToTab(_ tabId: String, animated: Bool, notify: Bool) {
     guard let index = pages.firstIndex(where: { $0.tabId == tabId }) else { return }
-    let currentPage = pages.first(where: { $0.tabId == selectedTabId })
-    let targetPage = pages[index]
-    if let currentPage {
-      targetPage.synchronizeCollapseOffset(currentPage.collapseOffset)
+    guard pagerTransitionState == .idle else { return }
+    preparePagesForPagerTransition()
+    settlePager(targetIndex: index, animated: animated, notify: notify)
+  }
+
+  private func beginPagerInteraction(startIndex: Int) {
+    pagerAnimationGeneration += 1
+    pager.layer.removeAllAnimations()
+    pagerTransitionState = .dragging(startIndex: startIndex)
+    preparePagesForPagerTransition()
+  }
+
+  private func preparePagesForPagerTransition() {
+    guard let currentPage = pages.first(where: { $0.tabId == selectedTabId }) else { return }
+    let sharedCollapseOffset = currentPage.collapseOffset
+    for page in pages where page !== currentPage {
+      page.synchronizeCollapseOffset(sharedCollapseOffset)
+      page.layoutIfNeeded()
     }
-    selectedTabId = tabId
-    updateSelectedTab(tabId)
+    currentPage.layoutIfNeeded()
+  }
+
+  private func settlePager(targetIndex: Int, animated: Bool, notify: Bool) {
+    guard pages.indices.contains(targetIndex) else {
+      pagerTransitionState = .idle
+      return
+    }
+    let generation = pagerAnimationGeneration + 1
+    pagerAnimationGeneration = generation
+    pagerTransitionState = .settling(targetIndex: targetIndex)
+    let targetOffset = CGPoint(x: CGFloat(targetIndex) * pager.bounds.width, y: 0)
+    let complete: () -> Void = { [weak self] in
+      guard let self,
+            self.pagerAnimationGeneration == generation else { return }
+      self.pager.contentOffset = targetOffset
+      self.completePagerTransition(targetIndex: targetIndex, notify: notify)
+    }
+    guard animated, abs(pager.contentOffset.x - targetOffset.x) > 0.5 else {
+      pager.contentOffset = targetOffset
+      complete()
+      return
+    }
+    UIView.animate(
+      withDuration: 0.26,
+      delay: 0,
+      options: [.beginFromCurrentState, .curveEaseOut]
+    ) {
+      self.pager.contentOffset = targetOffset
+    } completion: { _ in
+      complete()
+    }
+  }
+
+  private func completePagerTransition(targetIndex: Int, notify: Bool) {
+    guard pages.indices.contains(targetIndex) else {
+      pagerTransitionState = .idle
+      return
+    }
+    let targetPage = pages[targetIndex]
+    let nextTabId = targetPage.tabId
+    pagerTransitionState = .idle
+    selectedTabId = nextTabId
+    updateSelectedTab(nextTabId)
     collapseOffset = targetPage.collapseOffset
     refreshPullOffset = targetPage.refreshPullOffset
     updateSharedChromeLayout()
-    pager.setContentOffset(
-      CGPoint(x: CGFloat(index) * pager.bounds.width, y: 0),
-      animated: animated
-    )
+    slotLayoutDidChange?()
     if notify {
-      onVisibleTabChange?(tabId)
+      onVisibleTabChange?(nextTabId)
     }
   }
 
@@ -655,7 +730,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
   }
 
   private func finishPaging() {
-    guard pager.bounds.width > 0, !pages.isEmpty else { return }
+    guard pagerTransitionState == .idle,
+          pager.bounds.width > 0,
+          !pages.isEmpty else { return }
     let index = max(
       0,
       min(pages.count - 1, Int(round(pager.contentOffset.x / pager.bounds.width)))
@@ -718,14 +795,9 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   private var suppressCollapseCallback = false
   private var externalPanStartOffset: CGFloat = 0
   private var refreshEnabled = false
-  private var isSettlingRefresh = false
-  private var refreshSettleWorkItem: DispatchWorkItem?
   private var mountedSlotKeys = Set<String>()
 
   var collapseOffset: CGFloat {
-    if isSettlingRefresh {
-      return 0
-    }
     let headerHeight = max(0, topSpacerHeight - HomeContainerMetrics.tabHeight)
     return min(max(tableView.contentOffset.y, 0), headerHeight)
   }
@@ -855,7 +927,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     } else {
       nextSnapshot.reloadItems(changedIds)
     }
-    dataSource.apply(nextSnapshot, animatingDifferences: !previousRows.isEmpty) { [weak self] in
+    dataSource.apply(nextSnapshot, animatingDifferences: false) { [weak self] in
       self?.onSlotLayoutChange?()
     }
   }
@@ -899,14 +971,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   }
 
   func endRefreshing() {
-    refreshSettleWorkItem?.cancel()
-    isSettlingRefresh = true
     tableView.refreshControl?.endRefreshing()
-    let workItem = DispatchWorkItem { [weak self] in
-      self?.finishRefreshSettling()
-    }
-    refreshSettleWorkItem = workItem
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: workItem)
   }
 
   func setRefreshEnabled(_ enabled: Bool) {
@@ -919,7 +984,6 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   }
 
   func beginExternalVerticalPan() {
-    cancelRefreshSettling()
     tableView.layer.removeAllAnimations()
     externalPanStartOffset = tableView.contentOffset.y
   }
@@ -927,7 +991,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   func updateExternalVerticalPan(translationY: CGFloat) {
     let proposedOffset = externalPanStartOffset - translationY
     if proposedOffset < 0 {
-      tableView.contentOffset.y = max(-120, proposedOffset * 0.55)
+      tableView.contentOffset.y = -rubberBandedPullDistance(-proposedOffset)
     } else {
       tableView.contentOffset.y = boundedContentOffset(proposedOffset)
     }
@@ -961,6 +1025,12 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       tableView.contentSize.height - tableView.bounds.height + tableView.adjustedContentInset.bottom
     )
     return min(max(value, minimum), maximum)
+  }
+
+  private func rubberBandedPullDistance(_ distance: CGFloat) -> CGFloat {
+    let dimension = max(tableView.bounds.height, 1)
+    let resistance: CGFloat = 0.55
+    return (distance * dimension * resistance) / (dimension + resistance * distance)
   }
 
   @objc private func refreshRequested() {
@@ -1006,38 +1076,32 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     onAction?(actionId, item.id, tabId)
   }
 
+  func tableView(
+    _ tableView: UITableView,
+    willDisplay cell: UITableViewCell,
+    forRowAt indexPath: IndexPath
+  ) {
+    guard let rowId = dataSource.itemIdentifier(for: indexPath),
+          let request = loadMoreRequest(for: rowId) else { return }
+    onAction?(request.actionId, request.itemId, tabId)
+  }
+
+  private func loadMoreRequest(for rowId: String) -> (actionId: String, itemId: String)? {
+    for section in sections {
+      guard let actionId = section.actionId,
+            actionId.hasSuffix(".loadMore"),
+            let lastItem = section.items.last,
+            rowId == "item:\(section.id):\(lastItem.id)" else { continue }
+      return (actionId, lastItem.id)
+    }
+    return nil
+  }
+
   func scrollViewDidScroll(_ scrollView: UIScrollView) {
     guard !suppressCollapseCallback else { return }
-    if isSettlingRefresh, scrollView.contentOffset.y > 0 {
-      suppressCollapseCallback = true
-      scrollView.setContentOffset(.zero, animated: false)
-      suppressCollapseCallback = false
-    }
     onCollapseOffsetChange?(self, collapseOffset)
     onRefreshPullOffsetChange?(self, refreshPullOffset)
     onSlotLayoutChange?()
-  }
-
-  func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-    cancelRefreshSettling()
-  }
-
-  private func finishRefreshSettling() {
-    guard isSettlingRefresh else { return }
-    suppressCollapseCallback = true
-    tableView.setContentOffset(.zero, animated: false)
-    suppressCollapseCallback = false
-    isSettlingRefresh = false
-    refreshSettleWorkItem = nil
-    onCollapseOffsetChange?(self, 0)
-    onRefreshPullOffsetChange?(self, 0)
-    onSlotLayoutChange?()
-  }
-
-  private func cancelRefreshSettling() {
-    refreshSettleWorkItem?.cancel()
-    refreshSettleWorkItem = nil
-    isSettlingRefresh = false
   }
 
   private func updateTopSpacerFrame() {
@@ -1707,7 +1771,7 @@ private final class HomeContainerTabsView: UIView, UIScrollViewDelegate {
     scrollView.delegate = self
     scrollView.translatesAutoresizingMaskIntoConstraints = false
     stack.axis = .horizontal
-    stack.spacing = 12
+    stack.spacing = 24
     stack.translatesAutoresizingMaskIntoConstraints = false
     toolbarButton.titleLabel?.font = .systemFont(ofSize: 22, weight: .medium)
     toolbarButton.setTitle("≡", for: .normal)
@@ -1758,9 +1822,6 @@ private final class HomeContainerTabsView: UIView, UIScrollViewDelegate {
       button.titleLabel?.numberOfLines = 1
       button.titleLabel?.adjustsFontSizeToFitWidth = true
       button.titleLabel?.minimumScaleFactor = 0.85
-      button.widthAnchor.constraint(
-        equalToConstant: tab.title.count > 3 ? 72 : 44
-      ).isActive = true
       button.accessibilityIdentifier = "HomeContainer.Tab.\(tab.id)"
       button.addAction(UIAction { [weak self] _ in self?.onSelect?(tab.id) }, for: .touchUpInside)
       button.alpha = 1

@@ -970,6 +970,16 @@ private class HomeListAdapter : ListAdapter<HomeListRow, RecyclerView.ViewHolder
         holder.view.setOnClickListener {
           if (item.actionId.isNotEmpty()) onAction?.invoke(item.actionId, item.id)
         }
+        val loadMoreActionId = sections.firstOrNull { section ->
+          section.actionId.endsWith(".loadMore") && section.items.lastOrNull()?.id == item.id
+        }?.actionId
+        if (!loadMoreActionId.isNullOrEmpty()) {
+          holder.itemView.post {
+            if (holder.bindingAdapterPosition != RecyclerView.NO_POSITION) {
+              onAction?.invoke(loadMoreActionId, item.id)
+            }
+          }
+        }
       }
       is GridHolder -> {
         holder.view.bind(row.horizontalItems, theme, onAction)

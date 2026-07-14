@@ -9,6 +9,7 @@ import {
 
 import {
   NATIVE_HOME_ACTION_IDS,
+  buildNativeDeFiSections,
   buildNativeHistorySections,
   buildNativeNFTSections,
   buildNativePerpsSections,
@@ -93,6 +94,52 @@ describe('nativeHomeDataAdapters', () => {
     expect(sections[0].items.map((item) => item.id)).not.toContain(
       tokens[0].$key,
     );
+
+    const expandedSections = buildNativePortfolioSections({
+      tokens,
+      tokenMap,
+      initialized: true,
+      hideZeroBalanceTokens: true,
+      sectionTitle: 'Assets',
+      stateLabels,
+      formatters,
+      limit: tokens.length,
+    });
+    expect(expandedSections[0].items).toHaveLength(7);
+  });
+
+  it('expands and collapses DeFi rows without changing their action identity', () => {
+    const protocols = Array.from({ length: 8 }, (_, index) => ({
+      networkId: 'evm--1',
+      owner: '0xowner',
+      protocol: `protocol-${index}`,
+      categories: [],
+      positions: [],
+    }));
+    const common = {
+      protocols,
+      protocolMap: {},
+      initialized: true,
+      stateLabels,
+      formatters,
+      labels: {
+        positions: 'Positions',
+        showMore: 'Show more',
+        showLess: 'Show less',
+      },
+      toggleActionId: NATIVE_HOME_ACTION_IDS.toggleDeFiExpanded,
+    };
+
+    const collapsed = buildNativeDeFiSections(common);
+    expect(collapsed[0].items).toHaveLength(6);
+    expect(collapsed[1].items[0]).toMatchObject({
+      title: 'Show more',
+      actionId: NATIVE_HOME_ACTION_IDS.toggleDeFiExpanded,
+    });
+
+    const expanded = buildNativeDeFiSections({ ...common, expanded: true });
+    expect(expanded[0].items).toHaveLength(8);
+    expect(expanded[1].items[0]).toMatchObject({ title: 'Show less' });
   });
 
   it('preserves loading and empty as explicit native rows', () => {
@@ -230,9 +277,13 @@ describe('nativeHomeDataAdapters', () => {
       formatBalance: (value) => value,
       formatSectionDate: () => 'Today',
       formatTimestamp: () => '10:00',
+      loadMoreActionId: NATIVE_HOME_ACTION_IDS.loadMoreHistory,
     });
 
-    expect(sections[0]).toMatchObject({ id: 'history:0:Today' });
+    expect(sections[0]).toMatchObject({
+      id: 'history:0:Today',
+      actionId: NATIVE_HOME_ACTION_IDS.loadMoreHistory,
+    });
     expect(sections[0].items[0]).toMatchObject({
       id: history.id,
       title: 'Send',

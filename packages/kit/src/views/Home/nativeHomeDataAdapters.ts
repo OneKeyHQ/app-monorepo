@@ -22,7 +22,11 @@ export const NATIVE_HOME_ACTION_IDS = {
   openDeFiPosition: 'home.defi.position.open',
   openDeFiProtocol: 'home.defi.protocol.open',
   openDeFiOverview: 'home.defi.overview.open',
+  toggleDeFiExpanded: 'home.defi.expanded.toggle',
+  togglePortfolioDeFiExpanded: 'home.portfolio.defi.expanded.toggle',
+  togglePortfolioAssetsExpanded: 'home.portfolio.assets.expanded.toggle',
   openHistory: 'home.history.open',
+  loadMoreHistory: 'home.history.loadMore',
   openNFT: 'home.nft.open',
   openPerps: 'home.perps.open',
   openPerpsHolding: 'home.perps.holding.open',
@@ -82,6 +86,7 @@ export function buildNativePortfolioSections({
   stateLabels,
   formatters,
   networkImageById,
+  limit = 6,
 }: {
   tokens: IAccountToken[];
   tokenMap: Record<string, ITokenFiat>;
@@ -91,16 +96,16 @@ export function buildNativePortfolioSections({
   stateLabels: INativeHomeListStateLabels;
   formatters: INativeHomeValueFormatters;
   networkImageById?: Record<string, string>;
+  limit?: number;
 }): IHomeContainerSection[] {
-  const visibleTokens = tokens
-    .filter((token) => {
-      if (!hideZeroBalanceTokens) {
-        return true;
-      }
-      const fiat = tokenMap[token.$key];
-      return new BigNumber(fiat?.balanceParsed || fiat?.balance || 0).gt(0);
-    })
-    .slice(0, 6);
+  const filteredTokens = tokens.filter((token) => {
+    if (!hideZeroBalanceTokens) {
+      return true;
+    }
+    const fiat = tokenMap[token.$key];
+    return new BigNumber(fiat?.balanceParsed || fiat?.balance || 0).gt(0);
+  });
+  const visibleTokens = filteredTokens.slice(0, limit);
   const stateSection = buildStateSection({
     id: 'portfolio-state',
     initialized,
@@ -237,6 +242,8 @@ export function buildNativeDeFiSections({
   formatters,
   sectionTitle,
   labels,
+  expanded = false,
+  toggleActionId = NATIVE_HOME_ACTION_IDS.openDeFiOverview,
 }: {
   protocols: IDeFiProtocol[];
   protocolMap: Record<string, IProtocolSummary>;
@@ -247,7 +254,10 @@ export function buildNativeDeFiSections({
   labels: {
     positions: string;
     showMore: string;
+    showLess?: string;
   };
+  expanded?: boolean;
+  toggleActionId?: string;
 }): IHomeContainerSection[] {
   const stateSection = buildStateSection({
     id: 'defi-state',
@@ -264,7 +274,7 @@ export function buildNativeDeFiSections({
     {
       id: 'defi-protocols',
       ...(sectionTitle ? { title: sectionTitle } : {}),
-      items: protocols.slice(0, 6).map((protocol) => {
+      items: (expanded ? protocols : protocols.slice(0, 6)).map((protocol) => {
         const protocolKey = defiUtils.buildProtocolMapKey({
           networkId: protocol.networkId,
           protocol: protocol.protocol,
@@ -290,8 +300,10 @@ export function buildNativeDeFiSections({
               {
                 id: 'defi-show-more',
                 renderer: 'showMore' as const,
-                title: labels.showMore,
-                actionId: NATIVE_HOME_ACTION_IDS.openDeFiOverview,
+                title: expanded
+                  ? (labels.showLess ?? labels.showMore)
+                  : labels.showMore,
+                actionId: toggleActionId,
               },
             ],
           },
@@ -473,6 +485,7 @@ interface IBuildNativeHistorySectionsParams {
   formatFiat?: INativeHomeValueFormatters['formatFiat'];
   formatSectionDate: (timestamp: number) => string;
   formatTimestamp: (timestamp: number) => string;
+  loadMoreActionId?: string;
 }
 
 export function buildNativeHistorySections({
@@ -484,6 +497,7 @@ export function buildNativeHistorySections({
   formatFiat = () => '',
   formatSectionDate,
   formatTimestamp,
+  loadMoreActionId,
 }: IBuildNativeHistorySectionsParams): IHomeContainerSection[] {
   const stateSection = buildStateSection({
     id: 'history-state',
@@ -505,50 +519,52 @@ export function buildNativeHistorySections({
     groups.set(sectionTitle, group);
   }
 
-  return Array.from(groups.entries()).map(
-    ([sectionTitle, items], sectionIndex) => ({
-      id: `history:${sectionIndex}:${sectionTitle}`,
-      title: sectionTitle,
-      items: items.map((item) => {
-        const timestamp =
-          item.decodedTx.updatedAt ?? item.decodedTx.createdAt ?? 0;
-        const transfer = getHistoryTransferDisplay(
-          item,
-          {
-            formatBalance,
-            formatFiat,
-          },
-          labels.unlimited ?? '',
-        );
-        const description =
-          item.decodedTx.interactInfo?.name ||
-          item.decodedTx.actions.find((action) => !action.hidden)?.assetTransfer
-            ?.application?.name ||
-          item.decodedTx.payload?.label;
-        const title = getHistoryTitle(item, labels);
-        const normalizedDescription = description?.trim();
-        const subtitle =
-          normalizedDescription &&
-          normalizedDescription.toLowerCase() !== title.toLowerCase()
-            ? normalizedDescription
-            : formatTimestamp(timestamp);
-        return {
-          id: item.id,
-          renderer: 'history',
-          title,
-          subtitle,
-          value: transfer.value,
-          detail: transfer.detail,
-          imageUrl: transfer.imageUrl,
-          secondaryImageUrl: transfer.secondaryImageUrl,
-          badgeImageUrl: transfer.badgeImageUrl,
-          badge: getHistoryStatusLabel(
-            item.displayStatus ?? item.decodedTx.status,
-            labels,
-          ),
-          actionId: NATIVE_HOME_ACTION_IDS.openHistory,
-        };
-      }),
+  const groupEntries = Array.from(groups.entries());
+  return groupEntries.map(([sectionTitle, items], sectionIndex) => ({
+    id: `history:${sectionIndex}:${sectionTitle}`,
+    title: sectionTitle,
+    ...(loadMoreActionId && sectionIndex === groupEntries.length - 1
+      ? { actionId: loadMoreActionId }
+      : {}),
+    items: items.map((item) => {
+      const timestamp =
+        item.decodedTx.updatedAt ?? item.decodedTx.createdAt ?? 0;
+      const transfer = getHistoryTransferDisplay(
+        item,
+        {
+          formatBalance,
+          formatFiat,
+        },
+        labels.unlimited ?? '',
+      );
+      const description =
+        item.decodedTx.interactInfo?.name ||
+        item.decodedTx.actions.find((action) => !action.hidden)?.assetTransfer
+          ?.application?.name ||
+        item.decodedTx.payload?.label;
+      const title = getHistoryTitle(item, labels);
+      const normalizedDescription = description?.trim();
+      const subtitle =
+        normalizedDescription &&
+        normalizedDescription.toLowerCase() !== title.toLowerCase()
+          ? normalizedDescription
+          : formatTimestamp(timestamp);
+      return {
+        id: item.id,
+        renderer: 'history',
+        title,
+        subtitle,
+        value: transfer.value,
+        detail: transfer.detail,
+        imageUrl: transfer.imageUrl,
+        secondaryImageUrl: transfer.secondaryImageUrl,
+        badgeImageUrl: transfer.badgeImageUrl,
+        badge: getHistoryStatusLabel(
+          item.displayStatus ?? item.decodedTx.status,
+          labels,
+        ),
+        actionId: NATIVE_HOME_ACTION_IDS.openHistory,
+      };
     }),
-  );
+  }));
 }

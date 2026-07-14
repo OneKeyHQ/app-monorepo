@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import { Divider } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { ActionList, Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
@@ -18,6 +20,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -39,7 +42,7 @@ import { WalletActionSwap } from './WalletActionSwap';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 import { WalletActionVote } from './WalletActionVote';
 
-export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
+function useWalletActionMoreItems() {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
@@ -359,6 +362,25 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
       sceneUrl,
     ],
   );
+
+  return renderItemsAsync;
+}
+
+export function useShowWalletActionMore() {
+  const intl = useIntl();
+  const renderItemsAsync = useWalletActionMoreItems();
+
+  return useCallback(() => {
+    ActionList.show({
+      title: intl.formatMessage({ id: ETranslations.global_more }),
+      floatingPanelProps: { w: '$60' },
+      renderItemsAsync,
+    });
+  }, [intl, renderItemsAsync]);
+}
+
+export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
+  const renderItemsAsync = useWalletActionMoreItems();
 
   return (
     <RawActions.More
