@@ -471,6 +471,7 @@ function TxConfirm() {
         <SecurityCheckCard
           kind="transaction"
           requestKey={securityCheckRequestKey}
+          requestIdentity={reactiveUnsignedTxs}
           origin={sourceInfo?.origin}
           urlSecurityInfo={urlSecurityInfo}
           decodedTxs={decodedTxs}
@@ -501,6 +502,7 @@ function TxConfirm() {
     sourceInfo?.origin,
     urlSecurityInfo,
     securityCheckRequestKey,
+    reactiveUnsignedTxs,
     visibleSimulationComponents,
     shouldHideSimulationInDetails,
     unsignedTxs,

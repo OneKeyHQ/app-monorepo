@@ -71,6 +71,7 @@ type ISecurityCheckFinding = {
 type IProps = {
   kind: ISecurityCheckKind;
   requestKey?: string;
+  requestIdentity?: object;
   origin?: string;
   urlSecurityInfo?: IHostSecurity;
   decodedTxs?: IDecodedTx[];
@@ -633,6 +634,7 @@ function SecurityCheckCard(props: IProps) {
   const {
     kind,
     requestKey,
+    requestIdentity,
     origin,
     urlSecurityInfo,
     decodedTxs,
@@ -731,17 +733,24 @@ function SecurityCheckCard(props: IProps) {
   const [accordionValue, setAccordionValue] = useState<string[]>(() =>
     getDefaultAccordionValue(findings),
   );
+  // Keep the render key compact while tracking transaction revisions by
+  // reference. Some cross-chain encoded payloads are too large to stringify
+  // synchronously just to detect an updated review request.
+  const effectiveRequestIdentity = requestIdentity ?? requestKey;
   const hasUserChangedAccordionRef = useRef(false);
-  const previousRequestKeyRef = useRef(requestKey);
+  const previousRequestIdentityRef = useRef(effectiveRequestIdentity);
   const previousHighestStatusWeightRef = useRef(0);
 
   useLayoutEffect(() => {
     const highestStatusWeight = highestStatus
       ? STATUS_WEIGHT[highestStatus]
       : 0;
-    const didRequestChange = previousRequestKeyRef.current !== requestKey;
+    const didRequestChange = !Object.is(
+      previousRequestIdentityRef.current,
+      effectiveRequestIdentity,
+    );
     if (didRequestChange) {
-      previousRequestKeyRef.current = requestKey;
+      previousRequestIdentityRef.current = effectiveRequestIdentity;
       hasUserChangedAccordionRef.current = false;
       previousHighestStatusWeightRef.current = 0;
     }
@@ -769,7 +778,7 @@ function SecurityCheckCard(props: IProps) {
       previousHighestStatusWeightRef.current,
       highestStatusWeight,
     );
-  }, [findings, highestStatus, requestKey]);
+  }, [effectiveRequestIdentity, findings, highestStatus]);
 
   const handleAccordionValueChange = useCallback((value: string[]) => {
     hasUserChangedAccordionRef.current = true;
