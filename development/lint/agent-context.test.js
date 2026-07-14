@@ -272,6 +272,22 @@ describe('agent context lint', () => {
     },
   );
 
+  it.each(['"true"', '"false"'])(
+    'rejects non-boolean disable-model-invocation values using %s',
+    (modelExplicit) => {
+      writeSkill(rootDir, 'invalid-model-policy-skill', { modelExplicit });
+
+      const result = auditAgentContext({
+        config: createConfig(),
+        rootDir,
+      });
+
+      expect(result.errors).toContain(
+        '.skillshare/skills/invalid-model-policy-skill/SKILL.md: disable-model-invocation must be true or false',
+      );
+    },
+  );
+
   it('reads only the nested invocation policy and accepts inline comments', () => {
     writeSkill(rootDir, 'implicit-skill', {
       policySource: 'metadata:\n  allow_implicit_invocation: false\n',

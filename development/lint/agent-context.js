@@ -319,6 +319,7 @@ function auditAgentContext({ config, rootDir }) {
       const { fields } = parseFrontmatter(source, displaySkillFile, errors);
       const name = fields.name;
       const description = fields.description;
+      const disableModelInvocation = fields['disable-model-invocation'];
 
       stats.discoverableSkills += 1;
 
@@ -335,6 +336,15 @@ function auditAgentContext({ config, rootDir }) {
       if (typeof description !== 'string' || !description.trim()) {
         errors.push(
           `${displaySkillFile}: description must be a non-empty string`,
+        );
+      }
+
+      if (
+        Object.hasOwn(fields, 'disable-model-invocation') &&
+        typeof disableModelInvocation !== 'boolean'
+      ) {
+        errors.push(
+          `${displaySkillFile}: disable-model-invocation must be true or false`,
         );
       }
 
@@ -367,7 +377,7 @@ function auditAgentContext({ config, rootDir }) {
         );
       }
 
-      if (fields['disable-model-invocation'] === true && implicit) {
+      if (disableModelInvocation === true && implicit) {
         errors.push(
           `${displaySkillFile}: disable-model-invocation requires agents/openai.yaml policy.allow_implicit_invocation: false`,
         );
