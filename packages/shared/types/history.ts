@@ -301,16 +301,29 @@ export type ICreateExportTransactionHistoryTaskParams = {
   timeZone?: string;
 };
 
+export type IExportTransactionHistoryTaskStatus =
+  | 'pending'
+  | 'processing'
+  | 'success'
+  | 'failed'
+  // stored export artifact is corrupted or has been cleaned up
+  | 'deprecated';
+
 export type IExportTransactionHistoryTask = {
   id: number;
-  next: string | null;
+  // null: all txs in the time range are included; a number: only txs up to
+  // `next` are included (partial export limited by `limit`)
+  next: number | null;
   createdAt: number;
   updatedAt: number;
   uid: string;
+  // the create-task params; xpubs are expanded to addresses by the server
   query: ICreateExportTransactionHistoryTaskParams;
-  status: string;
+  status: IExportTransactionHistoryTaskStatus;
   filename: string;
   count: number;
+  // failure reason; 'ok' on success
+  message?: string;
 };
 
 export type IFetchExportTransactionHistoryTasksResp = {

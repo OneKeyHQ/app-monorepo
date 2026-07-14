@@ -2372,9 +2372,16 @@ class ServiceHistory extends ServiceBase {
     // Prime-only endpoint: use the OneKey ID authenticated client so the
     // request carries the auth token and prime auth errors are handled.
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
+    // Errors are surfaced as an in-page error state by the caller, so suppress
+    // the default error toast to avoid a duplicate prompt.
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      autoHandleError: false,
+    };
     const resp = await client.post<{
       data: IFetchExportTransactionHistoryTasksResp;
-    }>('/wallet/v1/account/transaction/export-task/list', {});
+    }>('/wallet/v1/account/transaction/export-task/list', {}, requestConfig);
 
     return resp.data.data;
   }

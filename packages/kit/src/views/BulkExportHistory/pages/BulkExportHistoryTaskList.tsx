@@ -1,27 +1,204 @@
-import { Page, Spinner, Stack } from '@onekeyhq/components';
+import { useCallback, useEffect, useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import type { IBadgeType } from '@onekeyhq/components';
+import {
+  Badge,
+  Empty,
+  ListView,
+  Page,
+  Skeleton,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IExportTransactionHistoryTask } from '@onekeyhq/shared/types/history';
+
+import {
+  PageFrame,
+  isErrorState,
+  isLoadingState,
+} from '../../Staking/components/PageFrame';
+import BulkExportHistoryNetworkAvatars from '../components/BulkExportHistoryNetworkAvatars';
+
+const TASK_POLLING_INTERVAL_MS = timerUtils.getTimeDurationMs({ seconds: 5 });
+
+function TaskListSkeleton() {
+  return (
+    <Stack>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <ListItem key={index}>
+          <Skeleton h="$8" w="$8" radius="round" />
+          <Stack gap="$1">
+            <Skeleton.BodyLg />
+            <Skeleton.BodyMd />
+          </Stack>
+        </ListItem>
+      ))}
+    </Stack>
+  );
+}
+
+function ExportTaskListItem({ task }: { task: IExportTransactionHistoryTask }) {
+  const intl = useIntl();
+
+  const networkIds = useMemo(
+    () => Object.keys(task.query?.networkIdToAddressArray ?? {}),
+    [task.query?.networkIdToAddressArray],
+  );
+
+  const dateRangeText = useMemo(() => {
+    const formatDay = (timestampMs: number) =>
+      formatDate(new Date(timestampMs), { hideTimeForever: true });
+    return `${formatDay(task.query.minTimestampMs)} - ${formatDay(
+      task.query.maxTimestampMs,
+    )}`;
+  }, [task.query.maxTimestampMs, task.query.minTimestampMs]);
+
+  const subtitle = useMemo(() => {
+    if (task.status === 'success') {
+      // a non-null `next` means the export hit the limit and is partial
+      const partialSuffix =
+        task.next === null || task.next === undefined ? '' : ' · Partial';
+      return `${task.count} transactions${partialSuffix}`;
+    }
+    if (task.status === 'failed' && task.message && task.message !== 'ok') {
+      return task.message;
+    }
+    return formatDate(new Date(task.createdAt), { hideSeconds: true });
+  }, [task.count, task.createdAt, task.message, task.next, task.status]);
+
+  const { badgeType, statusLabel } = useMemo((): {
+    badgeType: IBadgeType;
+    statusLabel: string;
+  } => {
+    switch (task.status) {
+      case 'pending':
+        return {
+          badgeType: 'info',
+          statusLabel: intl.formatMessage({ id: ETranslations.global_pending }),
+        };
+      case 'processing':
+        return {
+          badgeType: 'info',
+          statusLabel: intl.formatMessage({
+            id: ETranslations.global_processing,
+          }),
+        };
+      case 'success':
+        return {
+          badgeType: 'success',
+          statusLabel: intl.formatMessage({ id: ETranslations.global_success }),
+        };
+      case 'failed':
+        return {
+          badgeType: 'critical',
+          statusLabel: intl.formatMessage({ id: ETranslations.global_failed }),
+        };
+      case 'deprecated':
+        return {
+          badgeType: 'default',
+          statusLabel: 'Expired',
+        };
+      default:
+        return {
+          badgeType: 'default',
+          statusLabel: task.status,
+        };
+    }
+  }, [intl, task.status]);
+
+  const handleDownload = useCallback(() => {
+    // TODO download the exported CSV once the download api is available
+  }, []);
+
+  return (
+    <ListItem
+      renderAvatar={<BulkExportHistoryNetworkAvatars networkIds={networkIds} />}
+      title={dateRangeText}
+      subtitle={subtitle}
+      subtitleProps={{ numberOfLines: 1 }}
+    >
+      <XStack alignItems="center" gap="$3">
+        <Badge badgeType={badgeType} badgeSize="sm">
+          <Badge.Text>{statusLabel}</Badge.Text>
+        </Badge>
+        {task.status === 'success' ? (
+          <ListItem.IconButton
+            testID={`bulk-export-history-task-download-${task.id}`}
+            icon="DownloadOutline"
+            onPress={handleDownload}
+          />
+        ) : null}
+      </XStack>
+    </ListItem>
+  );
+}
 
 function BulkExportHistoryTaskList() {
-  const { result: tasks, isLoading } = usePromiseResult(
+  const intl = useIntl();
+
+  const { result, isLoading, run } = usePromiseResult(
     async () =>
       backgroundApiProxy.serviceHistory.fetchExportTransactionHistoryTasks(),
     [],
     { watchLoading: true },
   );
 
-  // TODO render the export task list once the UI design is ready
-  void tasks;
+  const tasks = useMemo(
+    () =>
+      [...(result?.list ?? [])].toSorted((a, b) => b.createdAt - a.createdAt),
+    [result],
+  );
+
+  const hasInProgressTask = useMemo(
+    () =>
+      tasks.some(
+        (task) => task.status === 'pending' || task.status === 'processing',
+      ),
+    [tasks],
+  );
+
+  useEffect(() => {
+    if (!hasInProgressTask) {
+      return undefined;
+    }
+    const timer = setInterval(() => {
+      // ignore transient polling errors; the current list stays visible
+      void run().catch(() => undefined);
+    }, TASK_POLLING_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [hasInProgressTask, run]);
 
   return (
     <Page>
       <Page.Header title="Export history" />
       <Page.Body>
-        {isLoading ? (
-          <Stack flex={1} alignItems="center" justifyContent="center">
-            <Spinner size="large" />
-          </Stack>
-        ) : null}
+        <PageFrame
+          LoadingSkeleton={TaskListSkeleton}
+          loading={isLoadingState({ result, isLoading })}
+          error={isErrorState({ result, isLoading })}
+          onRefresh={run}
+        >
+          <ListView
+            data={tasks}
+            estimatedItemSize="$16"
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => <ExportTaskListItem task={item} />}
+            ListEmptyComponent={
+              <Empty
+                icon="ClockTimeHistoryOutline"
+                title={intl.formatMessage({ id: ETranslations.global_no_data })}
+              />
+            }
+          />
+        </PageFrame>
       </Page.Body>
     </Page>
   );
