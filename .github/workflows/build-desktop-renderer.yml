@@ -138,7 +138,7 @@ jobs:
         run: |
           cd apps/desktop
           npx cross-env NODE_ENV=production yarn clean:build
-          yarn run -T cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build
+          yarn run -T cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti
 
       # Desktop Rspack builds with SRI enabled, so upload sourcemaps after the
       # build without mutating emitted JS files. Sentry failures should not block
