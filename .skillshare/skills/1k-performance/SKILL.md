@@ -79,4 +79,3 @@ Topics covered:
 
 - `/1k-coding-patterns` - General coding patterns and conventions
 - `/1k-sentry` - Sentry error analysis (includes performance issues)
-- `/react-native-best-practices` - React Native specific optimizations
