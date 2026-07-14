@@ -1,7 +1,7 @@
 ---
 name: 1k-cross-platform
 description: OneKey cross-platform patterns, platform files, platformEnv, and supported OS/SDK requirements.
-allowed-tools: Read, Grep, Glob
+allowed-tools: Read, Grep, Glob, Bash
 ---
 
 # Cross-Platform Development

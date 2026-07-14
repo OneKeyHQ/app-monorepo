@@ -43,9 +43,10 @@ python3 development/skills-analysis/analyze-skills-tokens.py --detailed
 ```
 Skill Name                         Tokens       Size   Files Recommendation
 ----------------------------------------------------------------------------------------------------
-1k-feature-guides                   8,493      34.4K       4 ⚠️  CONSIDER: Should be split (>5k tokens)
-1k-performance                      6,267      24.7K       1 ⚠️  CONSIDER: Should be split (>5k tokens)
-1k-code-quality                     3,732      14.7K       2 👀 MONITOR: Watch for growth (>2k tokens)
+1k-trade-swap-market               21,724      85.0K      10 🚨 URGENT: Split immediately (>10k tokens)
+1k-ui-recipes                      17,895      70.4K       8 🚨 URGENT: Split immediately (>10k tokens)
+1k-defi-module-integration         17,066      66.7K      10 🚨 URGENT: Split immediately (>10k tokens)
+1k-cross-platform                   4,703      18.5K       2 👀 MONITOR: Watch for growth (>2k tokens)
 ```
 
 **Recommendation levels:**
@@ -99,7 +100,7 @@ Use the installed `$skill-creator` guidance when creating or restructuring skill
 
 **Quick steps:**
 1. Run analysis to identify split candidates
-2. Analyze file sizes: `ls -lh .claude/skills/<skill>/references/rules/`
+2. Analyze file sizes: `find .claude/skills/<skill>/references -name '*.md' -print`
 3. Identify independent topics with distinct trigger words
 4. Create new skill directories
 5. Move files (git tracks as rename)
@@ -166,12 +167,12 @@ This ensures all new skills are optimized from day one.
 
 ## Current Status
 
-As of 2026-01-30:
-- **Total skills**: 23
-- **Total tokens**: 76,200 (303 KB)
-- **Average per skill**: 3,313 tokens
-- **Urgent splits needed**: 0
-- **Consider splitting**: 2 (1k-feature-guides, 1k-performance)
+As of 2026-07-14:
+- **Total skills**: 36
+- **Total tokens**: 180,263 (713.8 KB)
+- **Average per skill**: 5,007 tokens
+- **Urgent splits needed**: 3 (`1k-defi-module-integration`, `1k-trade-swap-market`, `1k-ui-recipes`)
+- **Consider splitting**: 8 (`1k-analytics`, `1k-bundle-release`, `1k-code-review-pr`, `1k-coding-patterns`, `1k-cold-start-ssr`, `1k-feature-guides`, `1k-performance`, `1k-perps-module`)
 
 ## Related Documentation
 
