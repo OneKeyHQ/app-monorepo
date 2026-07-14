@@ -225,9 +225,11 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.WalletConnectConnectSuccess]: {
     session: IWalletConnectSession;
+    attemptId?: number;
   };
   [EAppEventBusNames.WalletConnectConnectError]: {
     error: IOneKeyError;
+    attemptId?: number;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
   [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;

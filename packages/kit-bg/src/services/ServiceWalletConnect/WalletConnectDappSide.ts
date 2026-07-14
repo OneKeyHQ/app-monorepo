@@ -610,12 +610,14 @@ export class WalletConnectDappSide {
       }
       appEventBus.emit(EAppEventBusNames.WalletConnectConnectSuccess, {
         session: provider.session,
+        attemptId: attempt.attemptId,
       });
       return provider.session;
     } catch (error) {
       console.error('connectToWallet error: ', error);
       appEventBus.emit(EAppEventBusNames.WalletConnectConnectError, {
         error: errorUtils.toPlainErrorObject(error),
+        attemptId: attempt.attemptId,
       });
       throw error;
     } finally {

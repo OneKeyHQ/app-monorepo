@@ -81,6 +81,7 @@ const appKit = createAppKit({
   chains: [],
 });
 let pairingUri = '';
+let pairingAttemptId: number | undefined;
 let updateConnectModalUri: (uri: string) => void = (uri: string) => {
   console.log('updateConnectModalUri-init-fn', uri);
 };
@@ -116,6 +117,7 @@ appKit.walletConnectProvider = {
 
 async function resetAppKit() {
   pairingUri = '';
+  pairingAttemptId = undefined;
   // await appKitModalCtrl.disconnect();
 
   // ClientCtrl.resetSession();
@@ -162,17 +164,29 @@ appKit.setWalletConnectProvider = async () => {
   void setMockedProviderConnectedV2();
 };
 
+// The module-level resolve/reject slots always belong to the pairing this
+// modal flow is currently driving. main and bg heaps are independent and the
+// relay only copies payloads, so a superseded attempt settling late must be
+// matched by attemptId or it would settle the newer attempt's connection.
+function isStaleAttemptEvent(attemptId: number | undefined) {
+  return Boolean(
+    attemptId && pairingAttemptId && attemptId !== pairingAttemptId,
+  );
+}
+
 appEventBus.on(
   EAppEventBusNames.WalletConnectConnectSuccess,
-  (payload: { session: IWalletConnectSession }) => {
-    const { session } = payload;
+  (payload: { session: IWalletConnectSession; attemptId?: number }) => {
+    const { session, attemptId } = payload;
+    if (isStaleAttemptEvent(attemptId)) return;
     resolveConnect(session);
   },
 );
 appEventBus.on(
   EAppEventBusNames.WalletConnectConnectError,
-  (payload: { error: IOneKeyError }) => {
-    const { error } = payload;
+  (payload: { error: IOneKeyError; attemptId?: number }) => {
+    const { error, attemptId } = payload;
+    if (isStaleAttemptEvent(attemptId)) return;
     rejectConnect(error);
   },
 );
@@ -400,6 +414,7 @@ const modal: IWalletConnectModalShared = {
           return;
         }
         pairingUri = uri;
+        pairingAttemptId = attemptId;
         updateConnectModalUri(uri);
 
         // TODO use custom provider from bg make QRCode Modal not open automatically
