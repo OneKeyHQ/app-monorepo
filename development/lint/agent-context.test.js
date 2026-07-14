@@ -120,7 +120,22 @@ describe('agent context lint', () => {
     );
   });
 
-  it.each(['>+', '>-', '|+', '|-'])(
+  it.each([
+    '>+',
+    '>-',
+    '|+',
+    '|-',
+    '>2',
+    '>2+',
+    '>2-',
+    '>+2',
+    '>-2',
+    '|2',
+    '|2+',
+    '|2-',
+    '|+2',
+    '|-2',
+  ])(
     'rejects oversized descriptions using the %s block scalar',
     (blockStyle) => {
       writeSkill(rootDir, 'oversized-description', {

@@ -88,7 +88,9 @@ function parseFrontmatter(source, filePath, errors) {
           }
 
           const rawValue = rawFieldValue.trim();
-          const blockStyleMatch = rawValue.match(/^([>|])[+-]?$/);
+          const blockStyleMatch = rawValue.match(
+            /^([>|])(?:(?:[1-9][+-]?)|(?:[+-][1-9]?))?$/,
+          );
           if (blockStyleMatch) {
             const blockStyle = blockStyleMatch[1];
             const block = [];
