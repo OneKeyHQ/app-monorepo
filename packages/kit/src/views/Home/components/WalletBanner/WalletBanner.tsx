@@ -121,7 +121,11 @@ function BannerItem({
             <Image size={56} source={{ uri: item.src }} />
           </YStack>
         ) : null}
-        <YStack flex={1} gap="$1">
+        {/* The decorative icon is bottom-anchored (right/bottom "$4", 24pt), so
+            at this card height it rises into the title's line band and would sit
+            on top of a long title. Reserve its footprint plus a gap on the icon
+            branch — capping numberOfLines cannot prevent a horizontal overlap. */}
+        <YStack flex={1} gap="$1" {...(item.icon && { pr: '$8' })}>
           {item.description ? (
             <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
               {item.description}
