@@ -23,6 +23,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EChainSelectorPages,
@@ -42,17 +43,15 @@ enum EDateRange {
   Custom = 'custom',
 }
 
-const DATE_RANGE_OPTIONS = [
-  { label: 'Last month', value: EDateRange.LastMonth },
-  { label: 'Last 3 months', value: EDateRange.Last3Months },
-  { label: 'Custom', value: EDateRange.Custom },
-];
-
 function getLocalTimeZoneOffset() {
+  // getTimezoneOffset() is minutes behind UTC (UTC+8 => -480). Take abs()
+  // BEFORE dividing: Math.floor on a negative value rounds away from zero,
+  // which turns half-hour zones like UTC+5:30 into "+06:30".
   const offset = new Date().getTimezoneOffset();
   const sign = offset <= 0 ? '+' : '-';
-  const hours = String(Math.abs(Math.floor(offset / 60))).padStart(2, '0');
-  const minutes = String(Math.abs(offset % 60)).padStart(2, '0');
+  const absOffset = Math.abs(offset);
+  const hours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+  const minutes = String(absOffset % 60).padStart(2, '0');
   return `${sign}${hours}:${minutes}`;
 }
 
@@ -107,7 +106,29 @@ function BulkExportHistoryContent({
   });
   const [hideRiskyTransactions, setHideRiskyTransactions] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  // The abort signal is NOT wired into the underlying background/HTTP calls
+  // (an AbortSignal cannot cross the UI↔bg bridge). It only guards the
+  // checkpoints between steps: cancelling prevents creating the task if the
+  // request has not been sent yet and prevents navigating to the success page
+  // afterwards; an already-in-flight create request still completes server-side.
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const dateRangeOptions = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({ id: ETranslations.earn_last_month }),
+        value: EDateRange.LastMonth,
+      },
+      // TODO: i18n — no existing key for "Last 3 months"; add one via the
+      // translation workflow before release
+      { label: 'Last 3 months', value: EDateRange.Last3Months },
+      {
+        label: intl.formatMessage({ id: ETranslations.transaction_custom }),
+        value: EDateRange.Custom,
+      },
+    ],
+    [intl],
+  );
 
   const {
     activeAccount: { indexedAccount },
@@ -117,7 +138,7 @@ function BulkExportHistoryContent({
     selectedNetworkIds,
     setSelectedNetworkIds,
     networkRangeMap,
-    selectedRangeMap,
+    effectiveRange,
     hasRangeData,
     isLoading,
     isRangeLoading,
@@ -158,28 +179,19 @@ function BulkExportHistoryContent({
     { checkIsFocused: false },
   );
 
-  // Compute the intersection range across selected networks (narrowest common window)
+  // The hook's effectiveRange is already the intersection across selected
+  // networks (narrowest common window); only clamp its end to "now" here.
   const customDateConstraints = useMemo(() => {
-    if (!selectedRangeMap) return undefined;
-    const ranges = Object.values(selectedRangeMap);
-    if (!ranges.length) return undefined;
+    if (!effectiveRange) return undefined;
 
-    // Intersection: latest start, earliest end
-    const minTimestampMs = Math.max(
-      ...ranges.map((range) => range.minTimestampMs),
-    );
-    const maxTimestampMs = Math.min(
-      ...ranges.map((range) => range.maxTimestampMs),
-      Date.now(),
-    );
-
-    if (minTimestampMs >= maxTimestampMs) return undefined;
+    const maxTimestampMs = Math.min(effectiveRange.maxTimestampMs, Date.now());
+    if (effectiveRange.minTimestampMs >= maxTimestampMs) return undefined;
 
     return {
-      minDate: new Date(minTimestampMs),
+      minDate: new Date(effectiveRange.minTimestampMs),
       maxDate: new Date(maxTimestampMs),
     };
-  }, [selectedRangeMap]);
+  }, [effectiveRange]);
 
   const customDateRangeMaxMonths = useMemo(() => {
     if (!customDateConstraints) return undefined;
@@ -233,9 +245,6 @@ function BulkExportHistoryContent({
     navigation.pushModal(EModalRoutes.ChainSelectorModal, {
       screen: EChainSelectorPages.MultiNetworkSelector,
       params: {
-        title: 'Select networks',
-        searchPlaceholder: 'Search networks',
-        selectAllLabel: 'Select all',
         networkIds: supportedNetworkIds,
         selectedNetworkIds,
         networkSubtitleMap,
@@ -270,8 +279,14 @@ function BulkExportHistoryContent({
 
       if (dateRange === EDateRange.Custom) {
         if (!customDateRange.start || !customDateRange.end) return;
-        minTimestampMs = customDateRange.start.getTime();
-        maxTimestampMs = customDateRange.end.getTime();
+        // DatePicker.Range returns midnight of the picked days; expand to the
+        // full days so transactions on the end date are included.
+        const startDay = new Date(customDateRange.start);
+        startDay.setHours(0, 0, 0, 0);
+        const endDay = new Date(customDateRange.end);
+        endDay.setHours(23, 59, 59, 999);
+        minTimestampMs = startDay.getTime();
+        maxTimestampMs = endDay.getTime();
       } else if (dateRange === EDateRange.Last3Months) {
         minTimestampMs = subMonths(now, 3).getTime();
         maxTimestampMs = now.getTime();
@@ -400,8 +415,11 @@ function BulkExportHistoryContent({
         EModalBulkExportHistoryRoutes.BulkExportHistoryTaskCreated,
       );
     } catch (error) {
-      // The api client interceptor already toasts the server error message,
-      // so only log here to avoid duplicate toasts.
+      // HTTP errors are auto-toasted by the api client bridge, but local
+      // address/xpub resolution errors are not — surface those too instead of
+      // failing silently. showToastOfError dedupes already-toasted errors.
+      errorToastUtils.toastIfError(error);
+      errorToastUtils.showToastOfError(error);
       console.error(error);
     } finally {
       setIsExporting(false);
@@ -476,7 +494,7 @@ function BulkExportHistoryContent({
             <SegmentControl
               fullWidth
               value={dateRange}
-              options={DATE_RANGE_OPTIONS}
+              options={dateRangeOptions}
               onChange={setDateRange}
             />
             {dateRange === EDateRange.Custom ? (
@@ -523,7 +541,10 @@ function BulkExportHistoryContent({
           })}
           confirmButtonProps={{
             onPress: handleExport,
-            disabled: !hasRangeData || !isCustomDateRangeValid,
+            // Export only supports indexed accounts (HD/HW); disable instead
+            // of letting the press fail silently for watch-only/imported ones.
+            disabled:
+              !indexedAccount?.id || !hasRangeData || !isCustomDateRangeValid,
             loading: isExporting,
           }}
         />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -21,6 +21,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -153,7 +154,9 @@ function ExportTaskListItem({ task }: { task: IExportTransactionHistoryTask }) {
       case 'deprecated':
         return {
           badgeType: 'default',
-          statusLabel: 'Expired',
+          statusLabel: intl.formatMessage({
+            id: ETranslations.limit_order_expired,
+          }),
         };
       default:
         return {
@@ -193,8 +196,11 @@ function ExportTaskListItem({ task }: { task: IExportTransactionHistoryTask }) {
         });
       }
     } catch (error) {
-      // The api client interceptor already toasts the server error message,
-      // so only log here to avoid duplicate toasts.
+      // HTTP errors are auto-toasted by the api client bridge; surface local
+      // errors too instead of failing silently. showToastOfError dedupes
+      // already-toasted errors.
+      errorToastUtils.toastIfError(error);
+      errorToastUtils.showToastOfError(error);
       console.error(error);
     } finally {
       setIsDownloading(false);
@@ -424,12 +430,15 @@ function BulkExportHistoryTaskListContent({
   );
 }
 
+// A dedicated (but stable) scene url isolates this page's selector state from
+// the export form page (which uses sceneUrl ''). It must NOT be unique per
+// mount: the bulkExportHistory scene persists to simpleDb accountSelector, so
+// per-mount urls would accumulate storage entries unboundedly, and the
+// mount-time syncFromScene below re-seeds the selection anyway.
+const TASK_LIST_SELECTOR_SCENE_URL = 'bulk-export-history-task-list';
+
 function BulkExportHistoryTaskList() {
-  // A unique scene url isolates this page's selector state from the export
-  // form page, so changing the filter here never mutates the form selection.
-  const selectorSceneUrlRef = useRef<string | undefined>(undefined);
-  selectorSceneUrlRef.current ??= `bulk-export-history-task-list-${Date.now()}-${Math.random()}`;
-  const selectorSceneUrl = selectorSceneUrlRef.current;
+  const selectorSceneUrl = TASK_LIST_SELECTOR_SCENE_URL;
 
   return (
     <AccountSelectorProviderMirror

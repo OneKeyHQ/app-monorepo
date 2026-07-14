@@ -6,10 +6,9 @@ export enum EModalBulkExportHistoryRoutes {
 
 export type IModalBulkExportHistoryParamList = {
   [EModalBulkExportHistoryRoutes.BulkExportHistoryModal]: {
-    accountId: string | undefined;
-    indexedAccountId: string | undefined;
+    // Only the home network is needed to seed the default network selection;
+    // the account is re-derived from the home scene inside the page.
     networkId: string | undefined;
-    walletId: string | undefined;
   };
   [EModalBulkExportHistoryRoutes.BulkExportHistoryTaskCreated]: undefined;
   [EModalBulkExportHistoryRoutes.BulkExportHistoryTaskList]: undefined;

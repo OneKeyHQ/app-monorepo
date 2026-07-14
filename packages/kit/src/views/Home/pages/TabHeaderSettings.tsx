@@ -86,11 +86,8 @@ function TxHistorySettingsContent({
   onFilterLowValueHistoryChange,
   exportHistoryText,
   exportHistoryTitle,
-  accountId,
-  indexedAccountId,
   isPrimeSubscriptionActive,
   networkId,
-  walletId,
 }: {
   filterScamHistorySupported: boolean;
   networkName: string;
@@ -100,11 +97,8 @@ function TxHistorySettingsContent({
   onFilterLowValueHistoryChange: (value: boolean) => void;
   exportHistoryText: string;
   exportHistoryTitle: ReactNode;
-  accountId: string | undefined;
-  indexedAccountId: string | undefined;
   isPrimeSubscriptionActive: boolean;
   networkId: string | undefined;
-  walletId: string | undefined;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -118,10 +112,7 @@ function TxHistorySettingsContent({
       navigation.pushModal(EModalRoutes.BulkExportHistoryModal, {
         screen: EModalBulkExportHistoryRoutes.BulkExportHistoryModal,
         params: {
-          accountId,
-          indexedAccountId,
           networkId,
-          walletId,
         },
       });
       return;
@@ -133,15 +124,7 @@ function TxHistorySettingsContent({
         fromFeature: EPrimeFeatures.HistoryExport,
       },
     });
-  }, [
-    accountId,
-    closePopover,
-    indexedAccountId,
-    isPrimeSubscriptionActive,
-    navigation,
-    networkId,
-    walletId,
-  ]);
+  }, [closePopover, isPrimeSubscriptionActive, navigation, networkId]);
 
   return (
     <Stack py="$2">
@@ -254,7 +237,7 @@ function TxHistorySettings() {
   );
 
   const {
-    activeAccount: { account, indexedAccount, network, wallet },
+    activeAccount: { network },
   } = useActiveAccount({ num: 0 });
 
   const filterScamHistorySupported = useMemo(
@@ -290,11 +273,8 @@ function TxHistorySettings() {
             onFilterLowValueHistoryChange={handleFilterLowValueHistoryOnChange}
             exportHistoryText={exportHistoryText}
             exportHistoryTitle={exportHistoryTitle}
-            accountId={account?.id}
-            indexedAccountId={indexedAccount?.id}
             isPrimeSubscriptionActive={!!isPrimeSubscriptionActive}
             networkId={network?.id}
-            walletId={wallet?.id}
           />
         }
       />

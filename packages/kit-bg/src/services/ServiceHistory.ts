@@ -49,7 +49,6 @@ import type {
   IAllNetworkHistoryExtraItem,
   IChangedPendingTxInfo,
   ICreateExportTransactionHistoryTaskParams,
-  IExportTransactionHistoryParams,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
   IFetchAccountTransactionRangeResp,
@@ -2336,20 +2335,6 @@ class ServiceHistory extends ServiceBase {
     const resp = await client.post<{
       data: IFetchAccountTransactionRangeResp;
     }>('/wallet/v1/account/transaction/export/range', {});
-
-    return resp.data.data;
-  }
-
-  @backgroundMethod()
-  public async exportTransactionHistory(
-    params: IExportTransactionHistoryParams,
-  ) {
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.post<{
-      data: string;
-    }>('/wallet/v1/account/transaction/export-csv', params, {
-      timeout: 15_000,
-    });
 
     return resp.data.data;
   }

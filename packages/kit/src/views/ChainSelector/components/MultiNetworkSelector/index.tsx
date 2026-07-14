@@ -28,9 +28,9 @@ import { useNetworkOptions } from '../../hooks/useNetworkOptions';
 export type IMultiNetworkSelectorProps = IMultiNetworkSelectorRouteParams;
 
 export function MultiNetworkSelector({
-  title = 'Select networks',
-  searchPlaceholder = 'Search networks',
-  selectAllLabel = 'Select all',
+  title,
+  searchPlaceholder,
+  selectAllLabel,
   networkIds,
   selectedNetworkIds: initialSelectedNetworkIds,
   networkSubtitleMap,
@@ -48,6 +48,21 @@ export function MultiNetworkSelector({
   const { networks, isLoading } = useNetworkOptions(networkIds);
   const fuseSearch = useFuseSearch(networks);
 
+  const resolvedTitle =
+    title ??
+    intl.formatMessage({
+      id: ETranslations.global_select_network,
+    });
+  const resolvedSearchPlaceholder =
+    searchPlaceholder ??
+    intl.formatMessage({
+      id: ETranslations.form_search_network_placeholder,
+    });
+  const resolvedSelectAllLabel =
+    selectAllLabel ??
+    intl.formatMessage({
+      id: ETranslations.global_select_all,
+    });
   const resolvedCancelButtonText =
     cancelButtonText ??
     intl.formatMessage({
@@ -175,9 +190,9 @@ export function MultiNetworkSelector({
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={title}
+        title={resolvedTitle}
         headerSearchBarOptions={{
-          placeholder: searchPlaceholder,
+          placeholder: resolvedSearchPlaceholder,
           onSearchTextChange: setSearchText,
           searchBarInputValue: searchText,
         }}
@@ -201,9 +216,10 @@ export function MultiNetworkSelector({
                 <Stack>
                   <XStack alignItems="center" justifyContent="space-between">
                     <SizableText size="$bodyLgMedium">
-                      {selectAllLabel}
+                      {resolvedSelectAllLabel}
                     </SizableText>
                     <Checkbox
+                      testID="multi-network-selector-select-all"
                       value={selectAllValue}
                       onChange={handleToggleAll}
                       shouldStopPropagation
@@ -239,6 +255,7 @@ export function MultiNetworkSelector({
                         onPress={() => handleToggle(network.id)}
                       >
                         <Checkbox
+                          testID={`multi-network-selector-checkbox-${network.id}`}
                           value={isSelected}
                           onChange={() => handleToggle(network.id)}
                           shouldStopPropagation

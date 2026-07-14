@@ -261,10 +261,21 @@ export function useBulkExportHistorySupportedNetworks({
       return undefined;
     }
 
-    return {
-      minTimestampMs: Math.min(...ranges.map((range) => range.minTimestampMs)),
-      maxTimestampMs: Math.max(...ranges.map((range) => range.maxTimestampMs)),
-    };
+    // Intersection (latest start, earliest end): the export window must be
+    // supported by EVERY selected network. Returns undefined when the selected
+    // networks share no overlapping window, which disables exporting.
+    const minTimestampMs = Math.max(
+      ...ranges.map((range) => range.minTimestampMs),
+    );
+    const maxTimestampMs = Math.min(
+      ...ranges.map((range) => range.maxTimestampMs),
+    );
+
+    if (minTimestampMs >= maxTimestampMs) {
+      return undefined;
+    }
+
+    return { minTimestampMs, maxTimestampMs };
   }, [selectedRangeMap]);
 
   return {
