@@ -1,0 +1,9 @@
+@media (max-width: 639px) {
+  body.perps-unifold-modal-open [role='dialog'].\!uf-h-full {
+    top: 50% !important;
+    height: auto !important;
+    max-height: calc(100vh - 32px) !important;
+    max-height: calc(100dvh - 32px) !important;
+    overflow-y: auto !important;
+  }
+}

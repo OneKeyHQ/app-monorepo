@@ -5,10 +5,12 @@ import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
+  Button,
   DebugRenderTracker,
   SizableText,
   Tabs,
   XStack,
+  useThemeName,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -37,6 +39,7 @@ import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
+import { showPerpsUnifoldDepositTracker } from '../TradingPanel/modals/PerpsUnifoldDepositModal';
 
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
@@ -175,6 +178,8 @@ function TabBarItem({
 function PerpOrderInfoPanel() {
   const tabsRef = useRef<ITabContainerRef | null>(null);
   const actions = useHyperliquidActions();
+  const themeName = useThemeName();
+  const [currentUser] = usePerpsActiveAccountAtom();
   const [tradeRouteViewState] = useTradeRouteViewStateAtom();
   const [pendingInfoPanelTab, setPendingInfoPanelTab] =
     usePerpsPendingInfoPanelTabAtom();
@@ -210,6 +215,16 @@ function PerpOrderInfoPanel() {
     tabsRef.current?.jumpToTab('Open Orders');
   };
 
+  const handleOpenDepositTracker = () => {
+    if (!currentUser?.accountId || !currentUser.accountAddress) {
+      return;
+    }
+    showPerpsUnifoldDepositTracker({
+      selectedAccount: currentUser,
+      theme: themeName === 'dark' ? 'dark' : 'light',
+    });
+  };
+
   return (
     <Tabs.Container
       ref={tabsRef as any}
@@ -240,6 +255,24 @@ function PerpOrderInfoPanel() {
             padding: 0,
             cursor: 'default',
           }}
+          renderToolbar={() =>
+            activeTab === 'Account' && platformEnv.isWeb ? (
+              <XStack pr="$3">
+                <Button
+                  testID="perp-account-deposit-tracker"
+                  size="small"
+                  variant="tertiary"
+                  icon="ClockTimeHistoryOutline"
+                  disabled={
+                    !currentUser?.accountId || !currentUser.accountAddress
+                  }
+                  onPress={handleOpenDepositTracker}
+                >
+                  Deposit Tracker
+                </Button>
+              </XStack>
+            ) : null
+          }
         />
       )}
     >

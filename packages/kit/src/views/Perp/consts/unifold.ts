@@ -1,0 +1,8 @@
+// cspell: words hypercore unifold Unifold
+export const UNIFOLD_PERPS_PUBLISHABLE_KEY =
+  process.env.UNIFOLD_PUBLISHABLE_KEY || '';
+
+export const UNIFOLD_HYPERCORE_CHAIN_ID = '1337';
+export const UNIFOLD_HYPERCORE_USDC_PERP_ADDRESS =
+  '0x00000000000000000000000000000000';
+export const UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL = 'USDC (Perp)';

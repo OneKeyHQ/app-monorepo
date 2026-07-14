@@ -13,6 +13,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { showPerpsUnifoldDepositDialog } from '../components/TradingPanel/modals/PerpsUnifoldDepositModal';
 import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
 
 type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
@@ -39,7 +40,7 @@ export function useShowDepositWithdrawModal() {
     });
   }, []);
 
-  const showModal = useCallback(
+  const openDepositWithdrawForm = useCallback(
     async (actionType: IPerpsDepositWithdrawActionType = 'deposit') => {
       if (actionType === 'deposit' && getLatestDepositDisabled()) {
         return;
@@ -62,6 +63,35 @@ export function useShowDepositWithdrawModal() {
       }
     },
     [gtMd, getLatestDepositDisabled, dialogInTab, intl, navigation],
+  );
+
+  const showModal = useCallback(
+    async (actionType: IPerpsDepositWithdrawActionType = 'deposit') => {
+      if (actionType === 'deposit' && getLatestDepositDisabled()) {
+        return;
+      }
+
+      if (actionType !== 'deposit') {
+        await openDepositWithdrawForm(actionType);
+        return;
+      }
+
+      const selectedAccount = jotaiDefaultStore.get(
+        perpsActiveAccountAtom.atom(),
+      );
+      if (!selectedAccount.accountId || !selectedAccount.accountAddress) {
+        await openDepositWithdrawForm(actionType);
+        return;
+      }
+
+      showPerpsUnifoldDepositDialog({
+        selectedAccount,
+        onOneKeyWalletPress: () => {
+          void openDepositWithdrawForm('deposit');
+        },
+      });
+    },
+    [getLatestDepositDisabled, openDepositWithdrawForm],
   );
 
   return { showDepositWithdrawModal: showModal, isDepositDisabled };
