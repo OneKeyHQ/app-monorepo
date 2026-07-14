@@ -1,3 +1,6 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
@@ -182,5 +185,42 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         passphraseState: undefined,
       },
     );
+  });
+});
+
+describe('ServiceHardware.getFeaturesWithUnlock', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('unlocks a locked Pro2 instead of returning the locked features', async () => {
+    const lockedFeatures = { unlocked: false } as unknown as Awaited<
+      ReturnType<ServiceHardware['getFeaturesWithoutCache']>
+    >;
+    const unlockedFeatures = { unlocked: true } as unknown as Awaited<
+      ReturnType<ServiceHardware['unlockDevice']>
+    >;
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
+    service.getFeaturesWithoutCache = jest
+      .fn()
+      .mockResolvedValue(lockedFeatures);
+    const unlockDevice = jest
+      .spyOn(service, 'unlockDevice')
+      .mockResolvedValue(unlockedFeatures);
+    jest
+      .spyOn(deviceUtils, 'getDeviceTypeFromFeatures')
+      .mockResolvedValue(EDeviceType.Pro2);
+
+    await expect(
+      service.getFeaturesWithUnlock({ connectId: 'ORIGINAL_CONNECT_ID' }),
+    ).resolves.toBe(unlockedFeatures);
+
+    expect(unlockDevice).toHaveBeenCalledWith({
+      connectId: 'PRO2_USB',
+    });
   });
 });

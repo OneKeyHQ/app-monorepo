@@ -1329,14 +1329,6 @@ class ServiceHardware extends ServiceBase {
     });
 
     if (!features.unlocked) {
-      const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
-        features,
-      });
-      if (deviceType === EDeviceType.Pro2) {
-        // 临时绕过：当前 Pro2 固件 dev 分支尚未注册 UnLockDevice handler。
-        return features;
-      }
-
       // unlock device
       features = (await this.unlockDevice({
         connectId: compatibleConnectId,

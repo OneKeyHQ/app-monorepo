@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/hd-core/dist/index.d.ts b/node_modules/@onekeyfe/hd-core/dist/index.d.ts
-index 7bcbc10..f989439 100644
+index 3534864..2ff07d1 100644
 --- a/node_modules/@onekeyfe/hd-core/dist/index.d.ts
 +++ b/node_modules/@onekeyfe/hd-core/dist/index.d.ts
 @@ -1020,6 +1020,7 @@ declare function firmwareUpdate(connectId: string | undefined, params: Params<Fi
@@ -19,10 +19,10 @@ index 7bcbc10..f989439 100644
          binary: ArrayBuffer;
          devicePath: string;
 diff --git a/node_modules/@onekeyfe/hd-core/dist/index.js b/node_modules/@onekeyfe/hd-core/dist/index.js
-index 6c8bd90..372c538 100644
+index 1909526..119eb91 100644
 --- a/node_modules/@onekeyfe/hd-core/dist/index.js
 +++ b/node_modules/@onekeyfe/hd-core/dist/index.js
-@@ -45898,6 +45898,15 @@ const PROTOCOL_V2_REMOTE_COMPONENT_TARGETS = {
+@@ -45918,6 +45918,15 @@ const PROTOCOL_V2_REMOTE_COMPONENT_TARGETS = {
          kind: 'firmware',
      },
  };
@@ -38,7 +38,7 @@ index 6c8bd90..372c538 100644
  const PROTOCOL_V2_ROMLOADER_UNSUPPORTED_MESSAGE = 'FW_MGMT_TARGET_ROMLOADER is not accepted by the current Pro2 bootloader update request. Flash romloader with the loader-specific flow instead of firmwareUpdateV4.';
  const PROTOCOL_V2_TARGET_ID_BY_DECODED_NAME = new Map(Object.entries(ProtocolV2FirmwareTargetType).map(([key, value]) => [key, value]));
  const PROTOCOL_V2_TARGET_STATUS_BY_DECODED_NAME = new Map([
-@@ -46074,6 +46083,7 @@ class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod {
+@@ -46094,6 +46103,7 @@ class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod {
              { name: 'se02Binary', type: 'buffer' },
              { name: 'se03Binary', type: 'buffer' },
              { name: 'se04Binary', type: 'buffer' },
@@ -46,7 +46,7 @@ index 6c8bd90..372c538 100644
              { name: 'firmwareType', type: 'string' },
              { name: 'platform', type: 'string' },
              { name: 'resourceBundleFiles', type: 'array', allowEmpty: true },
-@@ -46090,6 +46100,7 @@ class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod {
+@@ -46110,6 +46120,7 @@ class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod {
              se02Binary: payload.se02Binary,
              se03Binary: payload.se03Binary,
              se04Binary: payload.se04Binary,
@@ -54,7 +54,7 @@ index 6c8bd90..372c538 100644
              resourceBundleFiles: payload.resourceBundleFiles,
              firmwareType: payload.firmwareType,
              platform: payload.platform,
-@@ -46218,6 +46229,17 @@ class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod {
+@@ -46238,6 +46249,17 @@ class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod {
          }
          return target;
      }
@@ -72,7 +72,7 @@ index 6c8bd90..372c538 100644
      getProtocolV2ComponentTargetVersion(release, component, target) {
          if (component.version)
              return component.version;
-@@ -46342,8 +46364,14 @@ class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod {
+@@ -46362,8 +46384,14 @@ class FirmwareUpdateV4 extends FirmwareUpdateBaseMethod {
              }
              const entries = this.getRemoteComponentEntries(release);
              for (const [key, component] of entries) {
@@ -89,7 +89,7 @@ index 6c8bd90..372c538 100644
                      const remoteBinary = yield this.downloadRemoteProtocolV2Component(key, component);
                      if (remoteBinary.kind === 'bootloader') {
 diff --git a/node_modules/@onekeyfe/hd-core/dist/types/api/firmwareUpdate.d.ts b/node_modules/@onekeyfe/hd-core/dist/types/api/firmwareUpdate.d.ts
-index e08a0ad..a664cfd 100644
+index e08a0ad..076fd08 100644
 --- a/node_modules/@onekeyfe/hd-core/dist/types/api/firmwareUpdate.d.ts
 +++ b/node_modules/@onekeyfe/hd-core/dist/types/api/firmwareUpdate.d.ts
 @@ -20,6 +20,7 @@ export declare function firmwareUpdate(connectId: string | undefined, params: Pa
