@@ -176,8 +176,15 @@ function runHelper(
 export async function ensureDevicePaired(
   address: string,
   onPin: (pin: string) => void,
+  keepLink = false,
 ): Promise<'paired' | 'already-paired'> {
-  const events = await runHelper(['pair', '--address', address], (event) => {
+  const args = ['pair', '--address', address];
+  if (keepLink) {
+    // Leave the BLE link up after bonding instead of closing it — the other half
+    // of the "who is holding the device" experiment.
+    args.push('--keep-link');
+  }
+  const events = await runHelper(args, (event) => {
     if (event.type === 'pairing') {
       onPin(event.pin);
     }
