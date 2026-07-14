@@ -22,6 +22,7 @@ import {
   getPerpsL2BookColdCacheGlobalSnapshot,
   getPerpsL2BookInteractiveRefreshDelayMs,
   hasL2BookLevels,
+  isL2BookForTarget,
   isPerpsL2BookInteractive,
 } from '../utils/l2BookFreshness';
 
@@ -75,7 +76,8 @@ export function getFreshL2BookSnapshotFromSwr({
     for (const key of keys) {
       const entry = swrCacheUtils.getWithTimestamp<HL.IBook>(key);
       if (
-        entry?.data?.coin === coin &&
+        entry &&
+        isL2BookForTarget(entry.data, coin, options) &&
         Date.now() - entry.updatedAt <= PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS
       ) {
         return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt);
@@ -109,6 +111,8 @@ export function normalizeL2BookData({
     coin: bookData.coin,
     time: bookData.time,
     levels: bookData.levels,
+    nSigFigs: bookData.nSigFigs,
+    mantissa: bookData.mantissa,
     localReceivedAt: getPerpsMarketDataLocalReceivedAt(bookData),
     bids: bids || [],
     asks: asks || [],
@@ -149,7 +153,13 @@ export function useL2Book(options?: IL2BookOptions): {
 
   const l2Book = useMemo((): IL2BookData | null => {
     let bookData: HL.IBook | null | undefined;
-    if (l2BookData?.coin === expectedCoin && hasL2BookLevels(l2BookData)) {
+    if (
+      isL2BookForTarget(l2BookData, expectedCoin, {
+        nSigFigs,
+        mantissa,
+      }) &&
+      hasL2BookLevels(l2BookData)
+    ) {
       bookData = l2BookData;
     } else if (expectedCoin) {
       const cacheOptions = {

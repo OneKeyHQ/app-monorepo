@@ -1,6 +1,17 @@
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { calculateRequiredSubscriptions } from './SubscriptionConfig';
+import {
+  calculateRequiredSubscriptions,
+  isOrderBookOptionsTargetReady,
+} from './SubscriptionConfig';
+
+describe('isOrderBookOptionsTargetReady', () => {
+  it('waits for order book options to catch up with the active coin', () => {
+    expect(isOrderBookOptionsTargetReady('ETH', 'BTC')).toBe(false);
+    expect(isOrderBookOptionsTargetReady('ETH', 'ETH')).toBe(true);
+    expect(isOrderBookOptionsTargetReady('ETH', undefined)).toBe(true);
+  });
+});
 
 describe('calculateRequiredSubscriptions', () => {
   it('always subscribes to all dex asset contexts for token selector prices', () => {
@@ -26,6 +37,90 @@ describe('calculateRequiredSubscriptions', () => {
       },
     });
 
+    expect(
+      specs
+        .filter((spec) => spec.type === ESubscriptionType.L2_BOOK)
+        .map((spec) => spec.params),
+    ).toEqual([
+      {
+        coin: 'BTC',
+        nSigFigs: 5,
+        mantissa: null,
+      },
+    ]);
+  });
+
+  it('prefers fast L2 for a perp book when explicitly enabled', () => {
+    const specs = calculateRequiredSubscriptions({
+      currentUser: null,
+      currentSymbol: 'BTC',
+      isConnected: true,
+      orderBookTransport: 'l2',
+      l2BookOptions: {
+        nSigFigs: 5,
+        mantissa: null,
+      },
+    });
+
+    expect(
+      specs
+        .filter((spec) => spec.type === ESubscriptionType.L2)
+        .map((spec) => spec.params),
+    ).toEqual([
+      {
+        c: 'BTC',
+        s: 5,
+      },
+    ]);
+    expect(specs.some((spec) => spec.type === ESubscriptionType.L2_BOOK)).toBe(
+      false,
+    );
+  });
+
+  it('prefers fast L2 for a spot book when explicitly enabled', () => {
+    const specs = calculateRequiredSubscriptions({
+      currentUser: null,
+      currentSymbol: '',
+      currentSpotSymbol: '@107',
+      tradingMode: 'spot',
+      isConnected: true,
+      orderBookTransport: 'l2',
+      l2BookOptions: {
+        nSigFigs: 5,
+        mantissa: null,
+      },
+    });
+
+    expect(
+      specs
+        .filter((spec) => spec.type === ESubscriptionType.L2)
+        .map((spec) => spec.params),
+    ).toEqual([
+      {
+        c: '@107',
+        s: 5,
+      },
+    ]);
+    expect(specs.some((spec) => spec.type === ESubscriptionType.L2_BOOK)).toBe(
+      false,
+    );
+  });
+
+  it('uses l2Book when the service selects the fallback transport', () => {
+    const specs = calculateRequiredSubscriptions({
+      currentUser: null,
+      currentSymbol: 'BTC',
+      isConnected: true,
+      orderBookTransport: 'l2Book',
+      l2BookOptions: {
+        nSigFigs: 5,
+        mantissa: null,
+      },
+    });
+
+    expect(specs.some((spec) => spec.type === ESubscriptionType.L2)).toBe(
+      false,
+    );
     expect(
       specs
         .filter((spec) => spec.type === ESubscriptionType.L2_BOOK)

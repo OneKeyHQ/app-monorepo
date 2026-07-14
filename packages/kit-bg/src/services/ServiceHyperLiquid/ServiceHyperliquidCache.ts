@@ -139,10 +139,22 @@ export function buildL2BookSnapshotCachePayload({
   }
 
   const isActiveBook = activeBookCoin === coin;
+  const hasSourceOptions =
+    Object.prototype.hasOwnProperty.call(data, 'nSigFigs') ||
+    Object.prototype.hasOwnProperty.call(data, 'mantissa');
+  let nSigFigs = null;
+  let mantissa = null;
+  if (hasSourceOptions) {
+    nSigFigs = data.nSigFigs ?? null;
+    mantissa = data.mantissa ?? null;
+  } else if (isActiveBook) {
+    nSigFigs = activeOptions?.nSigFigs ?? null;
+    mantissa = activeOptions?.mantissa ?? null;
+  }
   return {
     coin,
-    nSigFigs: isActiveBook ? (activeOptions?.nSigFigs ?? null) : null,
-    mantissa: isActiveBook ? (activeOptions?.mantissa ?? null) : null,
+    nSigFigs,
+    mantissa,
     data,
   };
 }
@@ -313,6 +325,8 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     });
     return {
       ...cacheEntry.data,
+      nSigFigs: cacheEntry.nSigFigs ?? null,
+      mantissa: cacheEntry.mantissa ?? null,
       localReceivedAt: cacheEntry.updatedAt,
     } as IBook & { localReceivedAt?: number };
   }

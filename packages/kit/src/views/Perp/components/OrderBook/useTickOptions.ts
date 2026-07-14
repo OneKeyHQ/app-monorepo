@@ -18,6 +18,7 @@ import {
   type ITickParam,
   buildTickOptions,
   getDefaultTickOption,
+  shouldPersistOrderBookTickOption,
 } from './tickSizeUtils';
 
 interface ITickOptionsResult {
@@ -165,17 +166,24 @@ export function useTickOptions({
     };
 
     if (
-      !persisted ||
-      persisted.value !== currentPersist.value ||
-      persisted.nSigFigs !== currentPersist.nSigFigs ||
-      persisted.mantissa !== currentPersist.mantissa
+      shouldPersistOrderBookTickOption({
+        hasMarketData: Boolean(tickOptionsData),
+        persisted,
+        selected: currentPersist,
+      })
     ) {
       void actions.current.setOrderBookTickOption({
         symbol,
         option: currentPersist,
       });
     }
-  }, [symbol, persistedTickOptions, selectedTickOption, actions]);
+  }, [
+    symbol,
+    persistedTickOptions,
+    selectedTickOption,
+    tickOptionsData,
+    actions,
+  ]);
 
   const handleSelectTickOption = useCallback(
     (option: ITickParam) => {

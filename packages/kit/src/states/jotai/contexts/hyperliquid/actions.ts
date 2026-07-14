@@ -1387,11 +1387,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         });
         const keys = getPerpsL2BookSnapshotCacheKeys({
           coin: data.coin,
-          nSigFigs: storedTickOptions?.nSigFigs ?? null,
+          nSigFigs: nextBook.nSigFigs ?? storedTickOptions?.nSigFigs ?? null,
           mantissa:
+            nextBook.mantissa === undefined &&
             storedTickOptions?.mantissa === undefined
               ? undefined
-              : storedTickOptions.mantissa,
+              : (nextBook.mantissa ?? storedTickOptions?.mantissa),
         });
         const updatedAt = nextBook.localReceivedAt ?? now;
         const nextColdCache = Object.fromEntries(
