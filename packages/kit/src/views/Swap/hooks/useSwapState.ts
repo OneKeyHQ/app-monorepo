@@ -43,6 +43,7 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
+  useSwapActiveSelectedFromTokenBalanceAtom,
   useSwapAlertsAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
@@ -59,7 +60,6 @@ import {
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
   useSwapSlippageOverrideAtom,
@@ -95,7 +95,7 @@ function useSwapWarningCheck() {
   const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+  const [fromTokenBalance] = useSwapActiveSelectedFromTokenBalanceAtom();
   const { checkSwapWarning } = useSwapActions().current;
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [accountSelectorStorageInitDone] =
@@ -401,7 +401,8 @@ export function useSwapActionState() {
     useSwapQuoteApproveAllowanceUnLimitAtom();
   useSwapWarningCheck();
   const [alerts] = useSwapAlertsAtom();
-  const [selectedFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+  const [selectedFromTokenBalance] =
+    useSwapActiveSelectedFromTokenBalanceAtom();
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);

@@ -41,6 +41,12 @@ const SwapAccountAddressContainer = ({
 
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { activeAccount: activeToAccount } = useActiveAccount({ num: 1 });
+  const fromAccountMatchesToken = Boolean(
+    fromToken?.networkId && activeAccount.network?.id === fromToken.networkId,
+  );
+  const toAccountMatchesToken = Boolean(
+    toToken?.networkId && activeToAccount.network?.id === toToken.networkId,
+  );
   const networkComponent = useMemo(() => {
     const token =
       displayToken ?? (type === ESwapDirectionType.FROM ? fromToken : toToken);
@@ -112,9 +118,11 @@ const SwapAccountAddressContainer = ({
       </SizableText>
       {networkComponent}
       {(type === ESwapDirectionType.FROM &&
+        fromAccountMatchesToken &&
         activeAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
         !!fromToken) ||
       (type === ESwapDirectionType.TO &&
+        toAccountMatchesToken &&
         activeToAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
         !!toToken) ? (
         <AddressTypeSelector
