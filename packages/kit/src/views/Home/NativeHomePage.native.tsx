@@ -74,6 +74,7 @@ import {
   EModalReceiveRoutes,
   EModalRoutes,
   EModalSignatureConfirmRoutes,
+  ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -109,17 +110,20 @@ import {
   buildAprText,
   formatRewardText,
 } from '../Earn/components/AprText.utils';
-import { usePerpsNavigation } from '../Market/hooks/usePerpsNavigation';
+import { safePushToEarnRoute } from '../Earn/earnUtils';
+import { useNavigateToMarketTab, usePerpsNavigation } from '../Market/hooks';
 import { usePrimeAvailable } from '../Prime/hooks/usePrimeAvailable';
 import { maybeOpenPrivateSendHistoryDetail } from '../Swap/utils/privateSendHistory';
 
 import { showBalanceDetailsDialog } from './components/BalanceDetailsDialog';
 import { formatPortfolioTotal } from './components/DeFiListBlock/formatPortfolioTotal';
+import { DEFAULT_MARKET_CATEGORY_ID } from './components/PopularTrading/constants';
 import { onHomePageRefresh } from './components/PullToRefresh';
 import { RichBlockHeader } from './components/RichBlock/RichBlockHeader';
 import { SupportHub } from './components/SupportHub';
 import { Upgrade } from './components/Upgrade';
 import { ActionItem } from './components/WalletActions/RawActions';
+import { useShowWalletActionMore } from './components/WalletActions/WalletActionMore';
 import {
   NATIVE_HOME_ACTION_IDS,
   buildNativeDeFiSections,
@@ -216,6 +220,7 @@ export function NativeHomePage({
 }: INativeHomePageProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const navigateToMarketTab = useNavigateToMarketTab();
   const { navigateToPerps } = usePerpsNavigation();
   const theme = useTheme();
   const [settings, setSettings] = useSettingsPersistAtom();
@@ -253,6 +258,7 @@ export function NativeHomePage({
     indexedAccountId: indexedAccount?.id,
     isOthersWallet,
   });
+  const showWalletActionMore = useShowWalletActionMore();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user } = useOneKeyAuth();
   const isWalletNotBackedUp = Boolean(
@@ -312,6 +318,9 @@ export function NativeHomePage({
   const [visitedTabs, setVisitedTabs] = useState<Set<IHomeContainerTabId>>(
     () => new Set(['portfolio']),
   );
+  const [portfolioAssetsExpanded, setPortfolioAssetsExpanded] = useState(false);
+  const [portfolioDeFiExpanded, setPortfolioDeFiExpanded] = useState(false);
+  const [deFiExpanded, setDeFiExpanded] = useState(false);
 
   const portfolio = useNativeHomePortfolioData({ enabled: true });
   const lpTokens = useNativeHomeLpTokenData();
@@ -332,6 +341,7 @@ export function NativeHomePage({
     enabled: visitedTabs.has('history'),
     visible: activeTabId === 'history',
   });
+  const loadMoreHistory = history.loadMore;
 
   const formatters = useMemo(() => {
     const formatFiat = (
@@ -379,6 +389,12 @@ export function NativeHomePage({
     ? lpTokens.initialized
     : portfolio.initialized;
 
+  useEffect(() => {
+    setPortfolioAssetsExpanded(false);
+    setPortfolioDeFiExpanded(false);
+    setDeFiExpanded(false);
+  }, [account?.id, lpTokens.showLpTokensOnly, network?.id]);
+
   const tabTitles = useMemo(
     () => ({
       portfolio: intl.formatMessage({ id: ETranslations.dexmarket_spot }),
@@ -401,6 +417,9 @@ export function NativeHomePage({
         stateLabels,
         formatters,
         networkImageById: nftNetworkImageById,
+        limit: portfolioAssetsExpanded
+          ? visiblePortfolioTokens.length
+          : undefined,
       }),
     [
       formatters,
@@ -411,6 +430,7 @@ export function NativeHomePage({
       visiblePortfolioTokenMap,
       visiblePortfolioTokens,
       nftNetworkImageById,
+      portfolioAssetsExpanded,
     ],
   );
   const perpsSections = useMemo(() => {
@@ -480,9 +500,15 @@ export function NativeHomePage({
           showMore: intl.formatMessage({
             id: ETranslations.global_show_more,
           }),
+          showLess: intl.formatMessage({
+            id: ETranslations.global_show_less,
+          }),
         },
+        expanded: deFiExpanded,
+        toggleActionId: NATIVE_HOME_ACTION_IDS.toggleDeFiExpanded,
       }),
     [
+      deFiExpanded,
       deFi.initialized,
       deFi.protocolMap,
       deFi.protocols,
@@ -544,11 +570,15 @@ export function NativeHomePage({
           }),
         formatTimestamp: (timestamp) =>
           formatTime(timestampToDate(timestamp), { hideSeconds: true }),
+        loadMoreActionId: history.hasMore
+          ? NATIVE_HOME_ACTION_IDS.loadMoreHistory
+          : undefined,
       }),
     [
       formatters.formatBalance,
       formatters.formatFiat,
       history.data,
+      history.hasMore,
       history.initialized,
       intl,
       stateLabels,
@@ -564,8 +594,12 @@ export function NativeHomePage({
           {
             id: 'portfolio-show-more',
             renderer: 'showMore',
-            title: intl.formatMessage({ id: ETranslations.global_show_more }),
-            actionId: 'home.portfolio.manageTokens',
+            title: intl.formatMessage({
+              id: portfolioAssetsExpanded
+                ? ETranslations.global_show_less
+                : ETranslations.global_show_more,
+            }),
+            actionId: NATIVE_HOME_ACTION_IDS.togglePortfolioAssetsExpanded,
           },
         ],
       });
@@ -590,7 +624,12 @@ export function NativeHomePage({
             showMore: intl.formatMessage({
               id: ETranslations.global_show_more,
             }),
+            showLess: intl.formatMessage({
+              id: ETranslations.global_show_less,
+            }),
           },
+          expanded: portfolioDeFiExpanded,
+          toggleActionId: NATIVE_HOME_ACTION_IDS.togglePortfolioDeFiExpanded,
           sectionTitle: `${tabTitles.defi} · ${formatters.formatFiat(
             deFiTotal.toFixed(),
           )}`,
@@ -639,7 +678,7 @@ export function NativeHomePage({
           renderer: 'showMore',
           title: intl.formatMessage({ id: ETranslations.global_view_more }),
           showChevron: true,
-          actionId: 'home.widget.market',
+          actionId: 'home.widget.market.showMore',
         },
       ],
     });
@@ -667,6 +706,8 @@ export function NativeHomePage({
     formatters,
     intl,
     portfolioAssetSections,
+    portfolioAssetsExpanded,
+    portfolioDeFiExpanded,
     supplemental.earn,
     supplemental.market,
     stateLabels,
@@ -1435,12 +1476,29 @@ export function NativeHomePage({
         if (banner) await banners.dismiss(banner);
         return;
       }
-      if (actionId === 'home.widget.market') {
-        navigation.switchTab(ETabRoutes.Discovery);
+      if (
+        actionId === 'home.widget.market' ||
+        actionId === 'home.widget.market.showMore'
+      ) {
+        navigateToMarketTab({
+          spotCategoryToSelect: DEFAULT_MARKET_CATEGORY_ID,
+        });
         return;
       }
       if (actionId === 'home.widget.earn') {
-        navigation.switchTab(ETabRoutes.Earn);
+        await safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
+        return;
+      }
+      if (actionId === NATIVE_HOME_ACTION_IDS.togglePortfolioAssetsExpanded) {
+        setPortfolioAssetsExpanded((value) => !value);
+        return;
+      }
+      if (actionId === NATIVE_HOME_ACTION_IDS.toggleDeFiExpanded) {
+        setDeFiExpanded((value) => !value);
+        return;
+      }
+      if (actionId === NATIVE_HOME_ACTION_IDS.togglePortfolioDeFiExpanded) {
+        setPortfolioDeFiExpanded((value) => !value);
         return;
       }
       if (actionId === NATIVE_HOME_ACTION_IDS.openDeFiOverview) {
@@ -1586,32 +1644,7 @@ export function NativeHomePage({
         return;
       }
       if (actionId === 'home.header.more') {
-        Dialog.show({
-          title: intl.formatMessage({ id: ETranslations.global_more }),
-          showFooter: false,
-          renderContent: (
-            <Stack>
-              <ListItem
-                title={intl.formatMessage({
-                  id: ETranslations.global_copy_address,
-                })}
-                onPress={() => {
-                  copyAddressWithDeriveType({
-                    address: account.address ?? '',
-                    deriveInfo,
-                    networkName: network.name,
-                  });
-                }}
-              />
-              <ListItem
-                title={intl.formatMessage({
-                  id: ETranslations.manage_token_title,
-                })}
-                onPress={handleOnManageToken}
-              />
-            </Stack>
-          ),
-        });
+        showWalletActionMore();
         return;
       }
 
@@ -1705,6 +1738,10 @@ export function NativeHomePage({
             isAllNetworks: network.isAllNetworks,
           },
         });
+        return;
+      }
+      if (actionId === NATIVE_HOME_ACTION_IDS.loadMoreHistory) {
+        await loadMoreHistory();
         return;
       }
 
@@ -1829,7 +1866,9 @@ export function NativeHomePage({
       hideValue,
       indexedAccount?.id,
       intl,
+      loadMoreHistory,
       navigateToPerps,
+      navigateToMarketTab,
       navigation,
       network,
       nft.data,
@@ -1849,6 +1888,7 @@ export function NativeHomePage({
       settings.currencyInfo.symbol,
       showAccountSelector,
       showUnifiedNetworkSelector,
+      showWalletActionMore,
       wallet,
       vaultSettings?.mergeDeriveAssetsEnabled,
       visiblePortfolioTokenMap,
