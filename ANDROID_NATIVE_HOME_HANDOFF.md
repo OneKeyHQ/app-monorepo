@@ -8,7 +8,7 @@
 
 - 仓库：`OneKeyHQ/app-monorepo`
 - 分支：`codex/native-home-container`
-- 原生首页最新基准 commit：`3d15d3efe5317adb57dc5bc526833ff1d6f7e856`
+- 原生首页最新基准 commit：`09ff3f0623`（`fix: stabilize native home paging and actions`）
 - Base branch 是 `x`，但本次不要切换、合并或 rebase `x`。
 
 开始前执行：
@@ -17,16 +17,16 @@
 git fetch origin
 git switch codex/native-home-container
 git pull --ff-only
-git merge-base --is-ancestor 3d15d3efe5317adb57dc5bc526833ff1d6f7e856 HEAD
+git merge-base --is-ancestor 09ff3f0623 HEAD
 ```
 
 最后一条命令必须成功。
 
 ## 2026-07-14 最新复测结论
 
-复测基线为 `3d15d3efe5`，本地分支与 `origin/codex/native-home-container` 一致。问题来自 iOS 真机上的 split release 包（`main` 与 `bg` 两个 bundle）；这些截图证明 iOS 视觉已接近目标，但不能再把“iOS 已经完成”作为前提。
+第一轮复测基线为 `3d15d3efe5`；随后 `09ff3f0623` 已完成 Tab 间距、More、Show more/View more/History load more 语义，以及针对 Pager/下拉的第一轮稳定性修改。2026-07-14 第二轮慢拖复测确认：前三项已经改善，但 Pager 50% 位置和 Header-origin 下拉仍未通过。问题来自 iOS 真机/模拟器上的 split release 包（`main` 与 `bg` 两个 bundle）；这些截图证明 iOS 视觉已接近目标，但不能再把“iOS 已经完成”作为前提。
 
-下面先保留当时的问题、现有代码证据、修复约束和验收标准。其后的“2026-07-14 macOS 实施进展”记录了基于这些结论产生的本地未提交实现；继续工作时必须先核对当前 diff 和实际运行结果，不允许只凭截图调固定像素。
+下面先保留当时的问题、现有代码证据、修复约束和验收标准。其后的“2026-07-14 macOS 实施进展”记录了 `09ff3f0623` 的实现与验证结果；“第二轮慢拖复测”会覆盖其中两项过时结论。继续工作时必须以第二轮结论为准，不允许只凭最终截图调固定像素。
 
 新增问题优先级：
 
@@ -171,9 +171,9 @@ WalletActions
 4. refresh 完成后不遮住账户行、不向上弹一截、不重置非当前 Tab。
 5. 斜向拖动和触点跨 Slot/Native 边界不中断。
 
-## 2026-07-14 macOS 实施进展（本地未提交）
+## 2026-07-14 macOS 第一轮实施进展（已提交为 `09ff3f0623`）
 
-以下修改已经存在于当前工作区，但尚未提交或推送。后续接手者必须保留这些改动，先验证再继续调整；不要从 `3d15d3efe5` 重新实现一遍。
+以下修改已经提交为 `09ff3f0623`。后续接手者必须保留前三项已经验证的业务修复；Pager 和 Header-origin 下拉只是第一轮尝试，已经被后文第二轮慢拖复测证明仍不充分，不要从 `3d15d3efe5` 重做，也不要继续围绕旧常量做微调。
 
 ### 已实现
 
@@ -240,6 +240,161 @@ WalletActions
 3. 滚动到 History 末尾，确认只触发一次分页、追加下一页且不重置 Header/Tab/offset。
 4. Spot Token 与两个 DeFi section 的 Show more/less；Market/Earn View more 的真实导航目的地。
 5. 中英文与大一档动态字体下的 Tab intrinsic spacing 和 accessory 命中区。
+
+## 2026-07-14 第二轮慢拖复测：两个 P0 仍未解决
+
+用户已确认 Tab 间距、More 和各类 Show more/View more 行为基本符合预期。下面两项仍是阻断项；本节结论覆盖第一轮实现中对 Pager 和 Header-origin pull-to-refresh 的乐观描述。
+
+### P0-A：50% 横滑证明 Page Header 没有随所属 Page 移动
+
+稳定复现方法：在任意相邻 Tab 之间慢拖到约 50% 并保持。此时可见左右两个列表正文各占半屏，但 Perps/DeFi 等 Page 专属 Header 仍以全屏宽度停在 Surface 上，随后出现半屏空白、错列或正文与 Header 属于不同页面的现象。
+
+已确认的代码根因：
+
+- `HomeContainer.native.tsx` 把 `content.header.<tabId>`、`content.state.<tabId>` 和 `content.footer.<tabId>.*` 渲染为 `HomeContainerSurface` 的 JSX 子节点。
+- `HomeContainerSurfaceComponentView.mm::layoutManagedChildren()` 再根据 `slotFrameForKey` 把这些 Slot 绝对定位到 Surface 坐标系；它们不是真正的 Page/List row 子视图。
+- `HomeContainerView.swift::slotFrame(forKey:)` 只给当前 `selectedTabId` 返回 content Header/State/Footer frame。横滑尚未 settle 时，Pager 的两个 Page 在移动，但 selected Tab 的 Slot 仍保持全宽旧位置。
+- `pager.panGestureRecognizer.isEnabled = false`，外层 `interactionPan` 继续手工写 `pager.contentOffset.x`。这让 UIKit 原生 paging、Slot 布局和 selected state 形成三套不同节奏。
+
+因此第一轮增加 `idle/dragging/settling` 和关闭 diff animation 只能减少行动画，不能修复视图层级错误。禁止继续用“横滑时隐藏 Header”“50% 时重算一个 overlay frame”或增加更多 selected/pending 条件掩盖问题。
+
+用户确认的实现决策：**先保留 JSX Slot，并把 Page 专属 Slot 绑定到对应列表 Header/State/Footer row 的 native host；只有经过真机 profiling 证明 Slot 本身仍造成持续掉帧时，才评估把该小块原生化。禁止继续使用 Surface 绝对定位作为正式方案。**
+
+目标结构：
+
+1. 共享 Header 和 Tabs 保持唯一一份，位于横向 Pager 之外。
+2. 把当前 `.contentHeader` / empty-state / footer 占位 cell 改成稳定的 native slot-host cell。`content.header.<tabId>`、`content.state.<tabId>` 和 `content.footer.<tabId>.*` 整个 `HomeContainerSlotComponentView` 挂入对应 host 的 `contentView`，成为该 Page 坐标系的真实后代，不能继续作为 Surface 顶层绝对 overlay。
+3. 横向切页优先恢复 `UIScrollView` 自己的 `panGestureRecognizer` 和 `isPagingEnabled`，或改用 `UIPageViewController`；不要再用外层 recognizer 逐帧积分 translation/velocity 并手写 `contentOffset.x`。
+4. 数据 patch 仍按 Page/section 精确更新；Pager dragging 时可以禁止结构动画，但不能暂停价格等非结构可见行更新，也不能 reload 整个容器。
+5. Surface 继续作为 Fabric children 的逻辑 owner 和 slot registry，但不再是 page-scoped Slot 的视觉 layout owner。Header cell 出现时按 `slotKey` attach，离屏/复用时移入隐藏 parking host；Fabric unmount 仍从 registry 解绑。只移动整个 Slot ComponentView，不能拆走它内部的 React children。
+6. attach/detach 只发生在 mount/unmount、`willDisplay/didEndDisplaying`、host 复用或结构 patch 时；严禁在 `scrollViewDidScroll`、Pager progress callback 或每帧 `layoutManagedChildren()` 中反复 `removeFromSuperview/addSubview`。
+7. host 的 `layoutSubviews` 只把 Slot frame 设为 `bounds`。Slot 高度继续由 snapshot/native row metric 明确给出；动态高度需要显式 revision/patch，不能恢复 JS `onLayout` 每帧测量。
+8. 相邻两个 Page 在横滑期间各自持有自己的 Header Slot，因此 25%/50%/75% 时由 Pager 自动移动整棵 Page hierarchy，不需要 JS 更新、不需要 bridge event，也不需要 Surface 重算 presentation frame。
+9. Android 使用同一个公开 Slot 契约，在对应 RecyclerView ViewHolder 内提供 host/parking container；iOS/Android 可以分别实现 native host 生命周期，但不能让 `.native.tsx` 分叉业务数据和 slotKey 语义。
+
+这个方案的预期性能优于当前绝对定位方案：每个 Page 只有少量 Header/State/Footer React 子树，列表正文仍由原生虚拟化；横滑热路径只是 UIKit/Android View hierarchy 的合成位移，不产生 React render、JS/native 往返或逐帧 Slot frame 计算。React Native 自身的 Fabric component 也通过 `mountChildComponentView` 把 React child 挂到内部 native container（例如 ScrollView、Modal 和 InputAccessory），因此自定义 container/host 是可行模式；实现时必须保持 mount/unmount 索引和 ownership 一致。
+
+只有满足以下任一条件并有 Instruments/Perfetto 证据时才转原生 Header：
+
+- Slot host 已经没有 per-frame reparent/layout，横滑仍由该 React 子树造成稳定的 frame-budget 超限或 main-thread hitch。
+- Fabric 更新会在交互期间反复覆盖 host frame，无法通过 host lifecycle/`layoutSubviews` 安全约束。
+- Slot 的交互或 accessibility 在真实 Page hierarchy 中无法保持正确，且不是 host 生命周期 bug。
+
+不能因为单次 Debug build 掉帧、图片首次解码或网络数据 patch 就判定 Slot 性能不合格；必须使用同一数据、同一设备、Release/profile build 对比 native placeholder 基线。
+
+Apple 的 `UIScrollView.isPagingEnabled` 会让滚动自然停在 bounds 的整数倍，`UIPageViewController` 也是系统提供的页面转场容器。这里应让 UIKit 成为横向位置和速度的唯一 owner：
+
+- https://developer.apple.com/documentation/uikit/uiscrollview/ispagingenabled
+- https://developer.apple.com/documentation/uikit/uipageviewcontroller
+
+### P0-B：Header-origin 下拉仍是第二套手工物理
+
+稳定复现方法：对账户行、网络选择器、金额、按钮、Banner 或 Tabs 使用与列表第一行完全相同的慢速下拉手势。列表起点的阻尼、spinner progress 和松手回弹自然；Header/Slot 起点仍可能中途失去位移、手指与内容脱节或松手直接复位。
+
+已确认的代码根因：
+
+- 每个 Page 的 `UITableView` 自带一个 `UIRefreshControl`，列表区域的 pan、负 offset、progress、触发和回弹都由 UIKit 管理。
+- Surface 另挂一个 `interactionPan`。Header/Slot 起点会进入 `.vertical(page:)`，记录 `externalPanStartOffset`，再把手势 translation 手工换算成 active table 的 `contentOffset.y`。
+- 第一轮虽然把固定 `0.55/-120` 换成近似 `UIScrollView` 的 rubber-band 公式，但手势识别、deceleration、bounce、refresh progress 和取消仍不是同一个 `UIScrollView/UIRefreshControl` 状态机，所以无法只靠公式做到逐帧等价。
+
+目标结构采用标准的原生嵌套分页组合，而不是再调常量：
+
+1. 增加一个共享 outer `UIScrollView`（也可以是 `UICollectionView`）作为唯一共享 Header、吸顶 Tabs、负 offset、bounce 和 refresh owner；账户行、金额、按钮、Banner 和 Tabs 都必须在它的 descendant hierarchy 中。
+2. outer scroll 下方承载横向 Pager；每个 Page 内保留自己的 `UITableView/UICollectionView` 负责长列表虚拟化和正文纵向位置。
+3. 只在 outer scroll 上挂一个 `UIRefreshControl`，并设置 `alwaysBounceVertical = true`。移除每页独立 refresh control，禁止自定义 spinner progress、触发阈值、refresh inset 或刷新结束回弹。
+4. outer 与 active child list 的原生 pan recognizer 允许按规则 simultaneous recognition：outer 消费 Header collapse range 和所有顶部负 offset/bounce；只有 outer 到达 sticky threshold 后 child list 才消费正向正文滚动；child 回到顶部后继续下拉时重新由 outer 的原生 bounce/refresh 接管。
+5. 协调器可以在 `scrollViewDidScroll` 中做 owner/state gate 和 offset clamp，但不得读取 translation 后自行计算阻尼、速度投影、deceleration 或回弹曲线。一次手势越过 touch slop 后 owner 不变，直到 ended/cancelled。
+6. 横向 Banner/Pager 与纵向 outer scroll 通过 `UIGestureRecognizerDelegate` 做方向锁和 failure/simultaneous 规则；Tap Slot 仍可点击，明显纵向拖动不应因手指跨过 Slot 边界而取消。
+7. Tabs 的吸顶使用 native supplementary header pinning 或 native layout，不通过 JS scroll event，也不增加 main/bg bridge 热路径。
+
+Apple 官方行为依据：
+
+- `UIRefreshControl` 可直接附着到 `UIScrollView`，由下拉原生展示进度并在完成时 `endRefreshing()`：https://developer.apple.com/documentation/uikit/uirefreshcontrol
+- `alwaysBounceVertical` 让内容不足一屏时仍能使用原生纵向拖动/回弹：https://developer.apple.com/documentation/uikit/uiscrollview/alwaysbouncevertical
+- 多个 recognizer 的先后与 simultaneous recognition 应通过 delegate 协调：https://developer.apple.com/documentation/uikit/coordinating-multiple-gesture-recognizers
+- Collection View 的 section header 可以由系统 pin 到可视区域顶部：https://developer.apple.com/documentation/uikit/uicollectionviewflowlayout/sectionheaderspintovisiblebounds
+
+### 可重复、可自动化的验收方式
+
+不要再依赖“松手后的最终截图”。必须同时提供确定的中间态证据和完整手势曲线。
+
+#### 横向 50% checkpoint
+
+优先增加只在 `#if DEBUG` 可用的 native test seam，例如 `debugSetPagerProgress(from:to:progress:)`，把 Pager 固定在 `0.25/0.5/0.75`，不提交 selected Tab。它只允许设置测试位置，不能进入 release schema 或改变生产手势。
+
+若不增加 seam，则用 XCUITest 的 `XCUICoordinate.press(...thenDragTo:withVelocity:thenHoldForDuration:)` 做慢拖并在终点 hold，同时由外部 `xcrun simctl io <udid> recordVideo` 录制，或在 hold 窗口内执行 `simctl io screenshot`。Apple 的该 API 支持指定 drag velocity 和终点 hold：
+
+- https://developer.apple.com/documentation/xcuiautomation/xcuicoordinate/press%28forduration%3Athendragto%3Awithvelocity%3Athenholdforduration%3A%29
+
+每个相邻组合双向验证 `25%/50%/75%`，并覆盖顶部、Header 半折叠、正文深处、慢拖取消、快速 flick、拖动中数据 patch。50% 截图的通过条件是：左右各自的 Page content Header、empty/footer Slot 和列表行严格一起移动；共享 Header/Tabs 保持唯一且固定；不存在任何全宽 page-scoped overlay。
+
+DEBUG overlay/日志至少输出：`pagerProgress`、from/to index、pager presentation offset、两个 Page frame、page-scoped Slot 的 `superview` 与 frame。只有 Slot 的 superview 确实属于对应 Page host，才算结构通过。
+
+#### 下拉手势曲线
+
+对账户、网络、金额、四个按钮、Banner 内容/空白/关闭按钮、Tab 文案、accessory、列表第一行使用同一组起点到终点坐标、duration 和 velocity，分别录制：未达阈值、刚过阈值、refreshing、`endRefreshing()` 后静止四个阶段。
+
+用 DEBUG `os_signpost` 或 overlay 同时记录 outer offset、active child offset、refresh state、gesture owner。通过条件：
+
+- 相同输入下，从所有起点得到相同的 outer `contentOffset.y` 时间曲线和 spinner 填充距离。
+- 同一手势只触发一次 refresh；Header、Tabs 和 active Page 不重建。
+- 刷新完成精确回到刷新前合法位置，不遮住账户行，不跳到其他 collapse offset。
+- Banner 横滑仍保持横向；斜向拖动只做一次方向判定，过程中不换 owner。
+- Simulator 自动化通过后仍需真机慢拖复核，不能用 Simulator 的最终帧替代真机物理体验。
+
+### 运行时和性能边界（第二轮方案）
+
+- **Runtime scope：** 两个 P0 都只涉及 main UI runtime。bg runtime 继续独立提供数据，不参与手势、Pager、refresh 或 Slot frame 计算。
+- **Native resource ownership：** outer scroll、Pager、active child list 和共享 `UIRefreshControl` 都属于单个 `HomeContainer` native instance，不新增进程级 singleton；图片 cache 仍是共享 native resource。
+- **JS heap copies：** main/bg JS heap 隔离；页面数据只在各自 runtime 独立反序列化。新方案不得把 per-frame offset/progress 复制到 JS，也不得通过 main/bg bridge 同步手势状态。
+- **Timing/order：** main 与 bg 独立初始化。数据晚到只允许精确 patch 对应 Page/section，不能假设 bg ready，也不能重建 native scroll hierarchy。
+- **性能通过条件：** Instruments/Signpost 中横滑和下拉热路径没有 JS scroll callback、没有每帧 Surface Slot 全量 layout、没有 Page `reloadData()`；60/120 Hz 设备由 UIKit 原生 pan/deceleration 驱动。
+
+## 2026-07-14 两个 P0 的第二轮实现（当前工作区，待提交）
+
+当前 macOS 工作区已经按上面的目标结构完成第二轮实现。不要再恢复 `interactionPan`、Surface 绝对定位或每页独立 `UIRefreshControl`。
+
+### P0-A 已完成的结构修复
+
+1. `content.header.<tabId>`、`content.state.<tabId>`、`content.footer.<tabId>.*` 现在使用 `HomeContainerSlotHostCell`，Slot 整体挂入对应 Page 的 `UITableViewCell.contentView` 后代，不再以 Surface 坐标绝对定位。
+2. `HomeContainerSurfaceComponentView` 只保留 Fabric logical ownership、slot registry 和隐藏 parking view；可见 host 出现时把整个 `HomeContainerSlotComponentView` reparent 到 host，离屏时回收到 parking view。
+3. host registry 由 `willDisplay/didEndDisplaying` 维护，不再在 diffable update 过程中读取 `visibleCells`；这同时避免了 UIKit reentrancy assertion。
+4. Slot host 给 Fabric paragraph 提供明确 accessibility ancestor boundary，避免 XCUITest 枚举 `UITableView` 时在 `RCTParagraphComponentView.isAccessibilityCoopted` 与 table accessibility label 之间递归栈溢出。
+5. Pager 恢复 `UIScrollView.isPagingEnabled` 和自身原生 pan/deceleration；生产代码不再逐帧读取 translation、投影 velocity 或手写横向 offset。
+6. 原生方向仲裁使用一个只决定纵/横轴的 `HomeContainerVerticalGateGestureRecognizer`：纵向时 Pager 失败并放行 outer/table；横向时 outer/table 等待 Pager。该 recognizer 不计算或写入任何 scroll offset，最终位移、惯性和停靠仍全部由 `UIScrollView` 持有。
+7. 横向 Banner/section 仍优先使用自己的原生 scroll pan；到达边界并失败后才允许 Pager 接管。
+
+DEBUG build 现在支持确定的中间态验证，不会进入 Release：
+
+```bash
+SIMCTL_CHILD_ONEKEY_HOME_DEBUG_PAGER_PROGRESS=0.5 \
+  xcrun simctl launch --terminate-running-process \
+  <simulator-udid> so.onekey.wallet
+```
+
+环境变量 `ONEKEY_HOME_DEBUG_PAGER_PROGRESS` 只允许 `(0, 1)`，固定当前 Page 到下一 Page 的 presentation progress，不提交 selected Tab，也不改变生产 schema。当前证据：
+
+- `.tmp/native-home-p0-validation/pager-half-slot-bound.png`：Spot/Perps 各自 content Header 与各自列表位于同一半屏 Page hierarchy；共享 Header/Tabs 仍只有一份，没有全宽 page-scoped overlay 或半屏空白。
+- `.tmp/native-home-p0-validation/history-after-five-tab-sequence.png`：Spot → Perps → DeFi → NFT → History 顺序切换后 History 页面完整、选中态正确，没有跨页残留。
+
+注意：当前 `agent-device/XCTest` 的 coordinate drag 在该 Simulator/runtime 组合中会把整段位移合并为一次 `touchesMoved`。日志已证明 axis gate 和 Pager 都进入 began，Pager 的 `contentSize.width = 2010`、`bounds.width = 402`，但因为 began 之后没有下一帧 move，不能用这条自动化 drag 的最终帧判断真实手势是否滚动。临时 `[HOME-NATIVE]` 日志已经移除。最终仍需在模拟器鼠标慢拖和真机触摸上录制连续往返横滑；DEBUG 50% seam 只证明层级/布局，不替代真实物理验收。
+
+### P0-B 已完成的结构修复
+
+1. 新增唯一共享 `outerScrollView`，账户行、金额、操作按钮、Banner、Tabs 和 Pager 都是它的真实 descendant。
+2. 只有 outer 持有一个 `UIRefreshControl`，并启用 `alwaysBounceVertical`；Page table 不再持有 refresh control，也关闭自己的 bounce/负 offset。
+3. Header-origin 与 list-origin 纵向手势进入同一组 native recognizer：outer/table simultaneous，outer 负责顶部负 offset、bounce、spinner progress 和 refresh 完成回弹；child table 只负责 header collapse 后的正文正 offset。
+4. 协调代码只做 collapse owner gate 和合法 offset clamp；已经删除旧的 rubber-band 常量、translation 积分、速度投影和自定义 refresh settling。
+5. `completeRefresh()` 只按 request id 调用共享 `refreshControl.endRefreshing()`，不再延迟强写 `contentOffset = 0`，因此不会在刷新结束后额外向上弹一截。
+
+这部分自动化仍受上面单次 `touchesMoved` 限制，必须在真机逐项复核账户、网络、金额、按钮、Banner、Tabs、accessory 和列表第一行起点。代码层通过条件已经具备：所有起点共享 outer 原生 pan/UIRefreshControl，不存在 Header 专用的第二套阻尼或 spinner 状态。
+
+### 第二轮实现的运行时边界
+
+- **Runtime scope：** 修改仅在 main UI runtime 执行。bg runtime 不创建 native view，也不参与 pan、Pager、Slot host 或 refresh state。
+- **Native resource ownership：** outer、Pager、每页 table、Slot host/parking view、方向 gate 和共享 `UIRefreshControl` 都由单个 `HomeContainer` 实例持有；没有新增进程 singleton。图片 cache 仍是既有共享 native resource。
+- **JS heap copies：** main/bg 仍各自反序列化自己的 JS 数据；横滑/下拉热路径没有把 offset、progress 或 velocity 复制到任一 JS heap。
+- **Timing/order：** main/bg 独立初始化；bg 晚到的数据仍通过 revision/section patch 精确更新，不能假设 bg ready，也不会因 refresh 或横滑重建容器。
 
 ### 运行时边界（本轮实现）
 
