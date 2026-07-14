@@ -2357,7 +2357,9 @@ class ServiceHistory extends ServiceBase {
   public async createExportTransactionHistoryTask(
     params: ICreateExportTransactionHistoryTaskParams,
   ) {
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    // Prime-only endpoint: use the OneKey ID authenticated client so the
+    // request carries the auth token and prime auth errors are handled.
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
     await client.post(
       '/wallet/v1/account/transaction/export-task/create',
       params,

@@ -56,7 +56,9 @@ export default class ServiceBase {
 
   getOneKeyIdClient = async (name: EServiceEndpointEnum) => {
     if (!_oneKeyIdAuthClientsMap[name]) {
-      const client = await appApiClient.getClient(
+      // Use a dedicated client instance so the auth/prime interceptors below
+      // never leak onto the shared plain client returned by getClient().
+      const client = await appApiClient.getOneKeyIdAuthClient(
         await getEndpointInfo({ name }),
       );
       client.interceptors.request.use(async (config) => {
@@ -135,15 +137,14 @@ export default class ServiceBase {
     return _oneKeyIdAuthClientsMap[name];
   };
 
-  // Returns the OneKey ID auth header for authenticating a single request,
-  // WITHOUT mutating the shared API client. Unlike getOneKeyIdClient — which
-  // permanently attaches request/response interceptors (auth token + prime
-  // invalid-token logout handling) onto the shared `clients[name]` instance and
-  // thus affects every other consumer of that endpoint — this only attaches the
-  // token to the one request it is spread into. Use it to opportunistically
-  // authenticate an individual wallet-endpoint request (e.g. so the server can
-  // attach per-user KYT risk data) while leaving the shared wallet client and
-  // all its other callers untouched.
+  // Returns the OneKey ID auth header for authenticating a single request.
+  // Unlike getOneKeyIdClient — which returns a dedicated client instance with
+  // request/response interceptors (auth token + prime invalid-token logout
+  // handling) permanently attached — this only attaches the token to the one
+  // request it is spread into, with no prime error handling. Use it to
+  // opportunistically authenticate an individual plain-client request (e.g. so
+  // the server can attach per-user KYT risk data) where auth is optional and
+  // requests must stay on the shared plain client.
   getOneKeyIdAuthHeaders = async (): Promise<Record<string, string>> => {
     try {
       const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
