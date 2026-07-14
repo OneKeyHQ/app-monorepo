@@ -1116,7 +1116,7 @@ function SwapKLineResolvingTokenContent({
     />
   );
   const chartSectionSkeleton = showSeparateChartDivider ? (
-    <YStack flex={1} gap="$5">
+    <YStack flex={1}>
       <Stack h="$px" bg="$borderSubdued" />
       {chartSkeleton}
     </YStack>
@@ -1236,7 +1236,7 @@ function SwapKLineContentBody({
     </Stack>
   );
   const chartSectionContent = showSeparateChartDivider ? (
-    <YStack flex={1} gap="$5">
+    <YStack flex={1}>
       <Stack h="$px" bg="$borderSubdued" />
       {chartContent}
     </YStack>
