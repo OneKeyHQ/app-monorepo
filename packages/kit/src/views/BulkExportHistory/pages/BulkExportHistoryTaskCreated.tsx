@@ -1,18 +1,26 @@
 import { useCallback } from 'react';
 
+import { StackActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Empty, Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
 
 function BulkExportHistoryTaskCreated() {
   const intl = useIntl();
   const navigation = useAppNavigation();
 
   const handleViewHistory = useCallback(() => {
-    // TODO: navigate to the export history list page once it is implemented
-  }, []);
+    // Replace instead of push so that going back from the task list returns
+    // to the export form page rather than this success page.
+    navigation.dispatch(
+      StackActions.replace(
+        EModalBulkExportHistoryRoutes.BulkExportHistoryTaskList,
+      ),
+    );
+  }, [navigation]);
 
   const handleClose = useCallback(() => {
     navigation.popStack();
