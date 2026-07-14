@@ -30,10 +30,9 @@ export const DesktopActionIconButton = memo(
         iconSize={iconSize}
         iconProps={{
           color: '$iconSubdued',
-          '$group-hover': { color: '$icon' },
-          '$group-press': { color: '$iconActive' },
+          hoverStyle: { color: '$icon' },
+          pressStyle: { color: '$iconActive' },
         }}
-        group
         hoverStyle={{ bg: 'transparent' }}
         pressStyle={{ bg: 'transparent' }}
         onPress={onPress}
