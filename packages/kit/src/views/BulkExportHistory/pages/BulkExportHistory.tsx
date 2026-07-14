@@ -13,7 +13,6 @@ import {
   Spinner,
   Stack,
   Switch,
-  Toast,
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -97,7 +96,6 @@ function BulkExportHistoryContent({
     end: null,
   });
   const [hideRiskyTransactions, setHideRiskyTransactions] = useState(true);
-  const [hideDustTransactions, setHideDustTransactions] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -366,7 +364,6 @@ function BulkExportHistoryContent({
           minTimestampMs,
           maxTimestampMs,
           onlySafe: hideRiskyTransactions,
-          withoutDust: hideDustTransactions,
           timeZone: getLocalTimeZoneOffset(),
         },
       );
@@ -377,13 +374,9 @@ function BulkExportHistoryContent({
         EModalBulkExportHistoryRoutes.BulkExportHistoryTaskCreated,
       );
     } catch (error) {
+      // The api client interceptor already toasts the server error message,
+      // so only log here to avoid duplicate toasts.
       console.error(error);
-      if (!controller.signal.aborted) {
-        const errorMessage = (error as Error | undefined)?.message;
-        Toast.error({
-          title: errorMessage || 'Exporting history failed, please try again.',
-        });
-      }
     } finally {
       setIsExporting(false);
       abortControllerRef.current = null;
@@ -395,7 +388,6 @@ function BulkExportHistoryContent({
     customDateRange,
     customDateConstraints,
     hideRiskyTransactions,
-    hideDustTransactions,
     navigation,
   ]);
 
@@ -487,21 +479,6 @@ function BulkExportHistoryContent({
             size={ESwitchSize.small}
             value={hideRiskyTransactions}
             onChange={setHideRiskyTransactions}
-          />
-        </XStack>
-
-        {/* Hide Dust Transactions */}
-        <XStack alignItems="center" py="$2" gap="$3">
-          <SizableText size="$bodyLgMedium" flex={1}>
-            {intl.formatMessage({
-              id: ETranslations.wallet_history_settings_hide_small_transaction_title,
-            })}
-          </SizableText>
-          <Switch
-            testID="bulk-export-history-hide-dust-switch"
-            size={ESwitchSize.small}
-            value={hideDustTransactions}
-            onChange={setHideDustTransactions}
           />
         </XStack>
       </Page.Body>

@@ -299,7 +299,6 @@ export type ICreateExportTransactionHistoryTaskParams = {
   minTimestampMs: number;
   onlySafe?: boolean;
   timeZone?: string;
-  withoutDust?: boolean;
 };
 
 export type IFetchHistoryTxDetailsParams = {
