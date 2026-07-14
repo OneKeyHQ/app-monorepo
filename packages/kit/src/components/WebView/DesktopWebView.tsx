@@ -37,6 +37,7 @@ import type {
   IWebViewRef,
 } from './types';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type {
   DidFailLoadEvent,
@@ -577,11 +578,18 @@ const DesktopWebView = forwardRef(
       }) => {
         if (event.channel === consts.JS_BRIDGE_MESSAGE_IPC_CHANNEL) {
           const data: string = event?.args?.[0];
+          let parsedPayload: IJsBridgeMessagePayload | undefined;
           let originInRequest = '';
           let origin = '';
           try {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            originInRequest = JSON.parse(data)?.origin as string;
+            const value = JSON.parse(data) as unknown;
+            if (value && typeof value === 'object') {
+              parsedPayload = value as IJsBridgeMessagePayload;
+              originInRequest =
+                typeof parsedPayload.origin === 'string'
+                  ? parsedPayload.origin
+                  : '';
+            }
             await waitForDataLoaded({
               wait: 600,
               logName: 'DesktopWebView waitForDataLoaded if origin matched',
@@ -613,8 +621,21 @@ const DesktopWebView = forwardRef(
             // noop
           }
           if (origin) {
-            // - receive
-            jsBridgeHost.receive(data, { origin });
+            if (
+              bridgePreloadKind === EDesktopWebViewPreloadKind.Chart &&
+              parsedPayload
+            ) {
+              try {
+                await receiveHandler?.(parsedPayload, jsBridgeHost);
+              } catch (error) {
+                console.error(
+                  'DesktopWebView: failed to handle chart bridge message',
+                  error,
+                );
+              }
+            } else {
+              jsBridgeHost.receive(data, { origin });
+            }
           } else {
             // TODO log error if url is empty
           }
@@ -627,7 +648,14 @@ const DesktopWebView = forwardRef(
       return () => {
         webview.removeEventListener('ipc-message', handleMessage);
       };
-    }, [jsBridgeHost, isWebviewReady, src, bridgeDisabled]);
+    }, [
+      bridgeDisabled,
+      bridgePreloadKind,
+      isWebviewReady,
+      jsBridgeHost,
+      receiveHandler,
+      src,
+    ]);
 
     useEffect(() => {
       flushPendingScripts();
