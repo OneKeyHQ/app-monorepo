@@ -12,6 +12,7 @@ const unsupportedNodeTypes = new Set([
   'ClassPrivateProperty',
   'ClassProperty',
   'DecimalLiteral',
+  'ExportNamespaceSpecifier',
   'ModuleExpression',
   'OptionalCallExpression',
   'OptionalMemberExpression',
@@ -21,6 +22,14 @@ const unsupportedNodeTypes = new Set([
   'TupleExpression',
 ]);
 const unsupportedAssignmentOperators = new Set(['&&=', '||=', '??=']);
+const functionNodeTypes = new Set([
+  'ArrowFunctionExpression',
+  'ClassMethod',
+  'ClassPrivateMethod',
+  'FunctionDeclaration',
+  'FunctionExpression',
+  'ObjectMethod',
+]);
 const ignoredTraversalKeys = new Set([
   'comments',
   'end',
@@ -43,9 +52,29 @@ function collectJavaScriptFiles(directoryPath) {
     });
 }
 
-function getUnsupportedReason(node) {
+function getUnsupportedReason(node, functionDepth) {
   if (unsupportedNodeTypes.has(node.type)) {
     return node.type;
+  }
+  if (node.type === 'AwaitExpression' && functionDepth === 0) {
+    return 'top-level await';
+  }
+  if (
+    [
+      'ExportAllDeclaration',
+      'ExportNamedDeclaration',
+      'ImportDeclaration',
+    ].includes(node.type) &&
+    ((node.attributes?.length ?? 0) > 0 || (node.assertions?.length ?? 0) > 0)
+  ) {
+    return 'import attributes';
+  }
+  if (
+    node.type === 'CallExpression' &&
+    node.callee?.type === 'Import' &&
+    node.arguments.length > 1
+  ) {
+    return 'dynamic import attributes';
   }
   if (
     node.type === 'AssignmentExpression' &&
@@ -71,16 +100,18 @@ function getUnsupportedReason(node) {
   return undefined;
 }
 
-function findUnsupportedSyntax(node, filePath, failures) {
+function findUnsupportedSyntax(node, filePath, failures, functionDepth = 0) {
   if (!node || typeof node !== 'object') {
     return;
   }
   if (Array.isArray(node)) {
-    node.forEach((item) => findUnsupportedSyntax(item, filePath, failures));
+    node.forEach((item) =>
+      findUnsupportedSyntax(item, filePath, failures, functionDepth),
+    );
     return;
   }
   if (typeof node.type === 'string') {
-    const reason = getUnsupportedReason(node);
+    const reason = getUnsupportedReason(node, functionDepth);
     if (reason) {
       failures.push({
         filePath,
@@ -90,48 +121,108 @@ function findUnsupportedSyntax(node, filePath, failures) {
       });
     }
   }
+  const childFunctionDepth = functionNodeTypes.has(node.type)
+    ? functionDepth + 1
+    : functionDepth;
   Object.entries(node).forEach(([key, value]) => {
     if (!ignoredTraversalKeys.has(key)) {
-      findUnsupportedSyntax(value, filePath, failures);
+      findUnsupportedSyntax(value, filePath, failures, childFunctionDepth);
     }
   });
 }
 
-function assertRelativeEntryScripts() {
+function getScriptAttribute(attributes, name) {
+  const match = attributes.match(
+    new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'),
+  );
+  return match?.[1] ?? match?.[2] ?? match?.[3];
+}
+
+function inspectJavaScript(source, filePath, failures) {
+  try {
+    const ast = parser.parse(source, {
+      sourceType: 'unambiguous',
+    });
+    findUnsupportedSyntax(ast, filePath, failures);
+  } catch (error) {
+    failures.push({
+      filePath,
+      reason: `parse error: ${error.message}`,
+      line: error.loc?.line ?? 0,
+      column: error.loc?.column ?? 0,
+    });
+  }
+}
+
+function inspectHtmlScripts(failures) {
   const html = fs.readFileSync(indexHtmlPath, 'utf8');
-  const scriptSources = Array.from(
-    html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g),
-    (match) => match[1],
+  const scripts = Array.from(
+    html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi),
+    (match) => ({
+      attributes: match[1],
+      source: match[2],
+    }),
   );
-  if (scriptSources.length !== 2) {
+  const entryScripts = scripts.filter((script) =>
+    getScriptAttribute(script.attributes, 'src'),
+  );
+  if (entryScripts.length !== 2) {
     throw new Error(
-      `Expected two web-embed entry scripts, found ${scriptSources.length}: ${scriptSources.join(', ')}`,
+      `Expected two web-embed entry scripts, found ${entryScripts.length}`,
     );
   }
-  const invalidSources = scriptSources.filter(
-    (source) => !source.startsWith('./web-embed.'),
-  );
-  if (invalidSources.length > 0) {
-    throw new Error(
-      `Web-embed entry scripts must use relative file URLs: ${invalidSources.join(', ')}`,
-    );
-  }
+  entryScripts.forEach((script) => {
+    const source = getScriptAttribute(script.attributes, 'src');
+    const type = getScriptAttribute(script.attributes, 'type');
+    if (!source?.startsWith('./web-embed.')) {
+      throw new Error(
+        `Web-embed entry scripts must use relative file URLs: ${source}`,
+      );
+    }
+    if (type?.toLowerCase() === 'module') {
+      throw new Error(
+        `Web-embed entry scripts must be classic scripts: ${source}`,
+      );
+    }
+    if (!fs.existsSync(path.resolve(buildDir, source))) {
+      throw new Error(`Web-embed entry script is missing: ${source}`);
+    }
+  });
+
+  let inlineScriptIndex = 0;
+  scripts.forEach((script) => {
+    if (getScriptAttribute(script.attributes, 'src')) {
+      return;
+    }
+    const type = getScriptAttribute(script.attributes, 'type')?.toLowerCase();
+    if (type === 'module') {
+      throw new Error('Web-embed inline scripts must be classic scripts.');
+    }
+    if (type && !['application/javascript', 'text/javascript'].includes(type)) {
+      return;
+    }
+    if (script.source.trim()) {
+      inlineScriptIndex += 1;
+      inspectJavaScript(
+        script.source,
+        `index.html:inline-script-${inlineScriptIndex}`,
+        failures,
+      );
+    }
+  });
+  return inlineScriptIndex;
 }
 
 function main() {
   if (!fs.existsSync(indexHtmlPath)) {
     throw new Error(`Web-embed build output is missing: ${indexHtmlPath}`);
   }
-  assertRelativeEntryScripts();
-
   const failures = [];
+  const inlineScriptCount = inspectHtmlScripts(failures);
   const javaScriptFiles = collectJavaScriptFiles(buildDir);
   javaScriptFiles.forEach((filePath) => {
     const source = fs.readFileSync(filePath, 'utf8');
-    const ast = parser.parse(source, {
-      sourceType: 'unambiguous',
-    });
-    findUnsupportedSyntax(ast, path.relative(buildDir, filePath), failures);
+    inspectJavaScript(source, path.relative(buildDir, filePath), failures);
   });
 
   if (failures.length > 0) {
@@ -150,8 +241,14 @@ function main() {
   }
 
   console.log(
-    `Verified ${javaScriptFiles.length} web-embed JavaScript assets for Chromium 67 syntax compatibility.`,
+    `Verified ${javaScriptFiles.length} web-embed JavaScript assets and ${inlineScriptCount} inline scripts for Chromium 67 syntax compatibility.`,
   );
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  inspectJavaScript,
+};
