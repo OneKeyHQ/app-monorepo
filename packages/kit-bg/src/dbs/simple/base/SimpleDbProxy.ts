@@ -35,6 +35,7 @@ import type { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrder
 import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import type { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
 import type { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
+import type { SimpleDbEntityHardwarePortfolioSync } from '../entity/SimpleDbEntityHardwarePortfolioSync';
 import type { SimpleDbEntityIpTable } from '../entity/SimpleDbEntityIpTable';
 import type { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
@@ -235,6 +236,10 @@ export class SimpleDbProxy
   babylonSync = this._createProxyService(
     'babylonSync',
   ) as SimpleDbEntityBabylonSync;
+
+  hardwarePortfolioSync = this._createProxyService(
+    'hardwarePortfolioSync',
+  ) as SimpleDbEntityHardwarePortfolioSync;
 
   appStatus = this._createProxyService('appStatus') as SimpleDbEntityAppStatus;
 

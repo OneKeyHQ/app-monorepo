@@ -344,6 +344,23 @@ export interface IAppEventBusPayload {
     riskyMap: Record<string, ITokenFiat>;
     storeData: IJotaiContextStoreData;
   };
+  [EAppEventBusNames.AllNetworksTokenListSettled]: {
+    accountAddress?: string;
+    accountId?: string;
+    accountName?: string;
+    aggregateTokenMap: Record<string, ITokenFiat>;
+    deviceConnectId?: string;
+    indexedAccountId?: string;
+    indexedAccountIndex?: number;
+    indexedAccountName?: string;
+    networkId?: string;
+    ownerAccountId?: string;
+    ownerNetworkId?: string;
+    tokenMap: Record<string, ITokenFiat>;
+    tokens: IAccountToken[];
+    walletId?: string;
+    walletType?: string;
+  };
   [EAppEventBusNames.RefreshTokenList]:
     | undefined
     | {

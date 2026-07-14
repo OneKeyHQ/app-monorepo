@@ -123,6 +123,7 @@ import type {
   Features,
   GetDeviceInfoParams,
   GetPassphraseStatePayload,
+  Response as HardwareResponse,
   IDeviceType,
   KnownDevice,
   OnekeyFeatures,
@@ -1927,6 +1928,32 @@ class ServiceHardware extends ServiceBase {
     });
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUploadResource(compatibleConnectId, params),
+    );
+  }
+
+  @backgroundMethod()
+  async uploadPortfolioPackage({
+    connectId,
+    packageBytes,
+  }: {
+    connectId: string;
+    packageBytes: ArrayBuffer;
+  }) {
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+    });
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
+    const portfolioSDK = hardwareSDK as typeof hardwareSDK & {
+      uploadPortfolio: (
+        targetConnectId: string,
+        params: { packageBytes: ArrayBuffer },
+      ) => HardwareResponse<{ portfolioUpdated: true }>;
+    };
+    return convertDeviceResponse(() =>
+      portfolioSDK.uploadPortfolio(compatibleConnectId, { packageBytes }),
     );
   }
 

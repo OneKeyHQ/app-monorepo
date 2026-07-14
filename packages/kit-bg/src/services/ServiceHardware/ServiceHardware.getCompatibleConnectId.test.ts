@@ -186,6 +186,38 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       },
     );
   });
+
+  it('uploads a portfolio package through the SDK with a silent context', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    const getCompatibleConnectId = jest.fn().mockResolvedValue('ONEKEY_USB');
+    const uploadPortfolio = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { portfolioUpdated: true },
+    });
+    service.getCompatibleConnectId = getCompatibleConnectId;
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      uploadPortfolio,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+
+    const packageBytes = new Uint8Array([1, 2, 3]).buffer;
+
+    await expect(
+      service.uploadPortfolioPackage({
+        connectId: 'ONEKEY_USB',
+        packageBytes,
+      }),
+    ).resolves.toEqual({ portfolioUpdated: true });
+
+    expect(getCompatibleConnectId).toHaveBeenCalledWith({
+      connectId: 'ONEKEY_USB',
+      hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+    });
+    expect(uploadPortfolio).toHaveBeenCalledWith('ONEKEY_USB', {
+      packageBytes,
+    });
+  });
 });
 
 describe('ServiceHardware.getFeaturesWithUnlock', () => {

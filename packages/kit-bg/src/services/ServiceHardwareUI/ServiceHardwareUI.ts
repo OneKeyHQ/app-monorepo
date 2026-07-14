@@ -31,6 +31,7 @@ import type {
 import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
+  firmwareUpdateWorkflowRunningAtom,
   hardwareUiStateAtom,
   thirdPartyAppInstallAtom,
   thirdPartyHardwareUiStateAtom,
@@ -449,6 +450,20 @@ class ServiceHardwareUI extends ServiceBase {
 
   isOuterProcessing() {
     return this.processingNestedNum === 1;
+  }
+
+  @backgroundMethod()
+  async isHardwareChannelBusy(_params?: { connectId?: string }) {
+    const [hardwareUiState, firmwareUpdateWorkflowRunning] = await Promise.all([
+      hardwareUiStateAtom.get(),
+      firmwareUpdateWorkflowRunningAtom.get(),
+    ]);
+    return (
+      this.processingNestedNum > 0 ||
+      this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked() ||
+      firmwareUpdateWorkflowRunning ||
+      Boolean(hardwareUiState)
+    );
   }
 
   async withHardwareProcessing<T>(

@@ -115,6 +115,9 @@ export interface IDevSettings {
   useFastPbkdf2NativeBackend?: boolean;
   // Enable Slow 4G throttling on platforms with a supported backend.
   networkThrottleEnabled?: boolean;
+  // Build App -> Pro 2 portfolio artifacts locally in dev. Production must use
+  // server-packed archive responses and must not upload client-packed archives.
+  enablePortfolioSyncDev?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

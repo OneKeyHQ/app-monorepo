@@ -71,6 +71,7 @@ import type { ServicePendingInstallTask } from '../services/servicePendingInstal
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
+import type ServiceHardwarePortfolioSync from '../services/ServiceHardware/serviceHardwarePortfolioSync';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
@@ -283,6 +284,12 @@ class BackgroundApiProxy
 
   get servicePrimeCloudSync(): ServicePrimeCloudSync {
     return this.getProxyService<ServicePrimeCloudSync>('servicePrimeCloudSync');
+  }
+
+  get serviceHardwarePortfolioSync(): ServiceHardwarePortfolioSync {
+    return this.getProxyService<ServiceHardwarePortfolioSync>(
+      'serviceHardwarePortfolioSync',
+    );
   }
 
   get serviceKeylessCloudSync(): ServiceKeylessCloudSync {
