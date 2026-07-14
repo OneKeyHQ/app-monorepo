@@ -24,6 +24,7 @@ import { Markets } from '../components/Markets';
 import { Overview } from '../components/Overview';
 import { SuppliedCard } from '../components/SuppliedCard';
 import { SupplyCard } from '../components/SupplyCard';
+import { useBorrowEModeStatus } from '../hooks/useBorrowEModeStatus';
 import { BorrowTestIDs } from '../testIDs';
 
 import type { IStakePendingTx } from '../../Earn/hooks/useStakingPendingTxs';
@@ -92,6 +93,26 @@ const BorrowHomeContent = memo(
     const { reserves, market, earnAccount, refreshAllBorrowData } =
       useBorrowContext();
     const { activeAccount } = useActiveAccount({ num: 0 });
+    const eModeAccountId =
+      earnAccount.data?.accountId ?? earnAccount.data?.account?.id;
+    const { eModeStatus, isLoading: isEModeStatusLoading } =
+      useBorrowEModeStatus({
+        networkId: market?.networkId,
+        provider: market?.provider,
+        marketAddress: market?.marketAddress,
+        accountId: eModeAccountId,
+        enabled:
+          isActive &&
+          Boolean(
+            market?.networkId &&
+            market.provider &&
+            market.marketAddress &&
+            eModeAccountId,
+          ),
+      });
+    const activeEModeId = isEModeStatusLoading
+      ? undefined
+      : eModeStatus?.eModeId;
     const alerts = useMemo(
       () => [...(reserves.data?.alerts ?? []), ...(healthFactorAlerts ?? [])],
       [reserves.data?.alerts, healthFactorAlerts],
@@ -154,6 +175,7 @@ const BorrowHomeContent = memo(
         <YStack flex={1} px="$5" pb="$10">
           <Markets />
           <Overview
+            eModeStatus={eModeStatus}
             showBottomSpacing={!hasAlerts}
             isActive={isActive}
             onHealthFactorAlertsChange={setHealthFactorAlerts}
@@ -184,7 +206,7 @@ const BorrowHomeContent = memo(
             // Desktop layout - two equal-width columns with independent vertical flow
             <XStack gap="$5" ai="flex-start">
               <YStack flex={1} flexShrink={0} flexBasis={0} gap="$5">
-                <SuppliedCard />
+                <SuppliedCard eModeId={activeEModeId} />
                 <SupplyCard />
               </YStack>
               <YStack flex={1} flexShrink={0} flexBasis={0} gap="$5">
@@ -226,7 +248,7 @@ const BorrowHomeContent = memo(
                     pointerEvents: 'none' as const,
                   })}
                 >
-                  <SuppliedCard />
+                  <SuppliedCard eModeId={activeEModeId} />
                   <SupplyCard />
                 </YStack>
                 <YStack

@@ -45,8 +45,19 @@ const defaultAsyncData = <T,>(data: T): IAsyncData<T> => ({
   refresh: () => Promise.resolve(),
 });
 
+export const buildBorrowMarketKey = (
+  market?: Pick<IBorrowMarketItem, 'provider' | 'networkId' | 'marketAddress'>,
+) =>
+  [
+    market?.provider?.toLowerCase() ?? '',
+    market?.networkId ?? '',
+    market?.marketAddress?.toLowerCase() ?? '',
+  ].join(':');
+
 type IBorrowContextValue = {
   // Market (sync data)
+  markets: IBorrowMarketItem[];
+  setMarkets: React.Dispatch<React.SetStateAction<IBorrowMarketItem[]>>;
   market: IBorrowMarketItem | null;
   setMarket: React.Dispatch<React.SetStateAction<IBorrowMarketItem | null>>;
 
@@ -85,6 +96,7 @@ export const BorrowProvider = ({
 }: PropsWithChildren<{
   value?: IBorrowContextValue;
 }>) => {
+  const [markets, setMarkets] = useState<IBorrowMarketItem[]>([]);
   const [market, setMarket] = useState<IBorrowMarketItem | null>(null);
   const [earnAccount, setEarnAccount] = useState<
     IAsyncData<IBorrowEarnAccount>
@@ -129,6 +141,8 @@ export const BorrowProvider = ({
 
   const contextValue = useMemo(
     () => ({
+      markets,
+      setMarkets,
       market,
       setMarket,
       earnAccount,
@@ -144,6 +158,7 @@ export const BorrowProvider = ({
       setRefreshAllBorrowData,
     }),
     [
+      markets,
       market,
       earnAccount,
       reserves,

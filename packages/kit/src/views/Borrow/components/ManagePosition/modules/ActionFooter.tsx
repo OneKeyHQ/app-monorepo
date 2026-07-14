@@ -25,9 +25,8 @@ export function ActionFooter({
   isInModalContext: isInModalContextProp,
   beforeFooter,
 }: IActionFooterProps) {
-  const { state, actions, actionResult } = useManagePositionContext();
   const intl = useIntl();
-
+  const { state, actions, actionResult, approval } = useManagePositionContext();
   const {
     action,
     actionLabel: actionLabelProp,
@@ -37,8 +36,6 @@ export function ActionFooter({
     isInsufficientBalance,
     isAmountInvalid,
     isInModalContext: isInModalContextState,
-    shouldApprove,
-    approveLoading,
   } = state;
 
   const {
@@ -48,8 +45,14 @@ export function ActionFooter({
     riskOfLiquidationAlert,
   } = actionResult;
 
-  const { onSubmit, onApprove, onSelectPercentageStage, setSubmitting } =
-    actions;
+  const { onSubmit, onSelectPercentageStage, setSubmitting } = actions;
+  const {
+    approving,
+    loadingAllowance,
+    shouldApprove,
+    ensureReadyToSubmit,
+    onApprove,
+  } = approval;
 
   const isInModalContext = isInModalContextProp ?? isInModalContextState;
 
@@ -91,46 +94,71 @@ export function ActionFooter({
     checkAmountLoading,
   ]);
 
+  const confirmBorrowLiquidationRisk = useCallback(async () => {
+    if (action !== 'borrow' || !riskOfLiquidationAlert) {
+      return true;
+    }
+
+    return showLiquidationRiskDialog(intl);
+  }, [action, intl, riskOfLiquidationAlert]);
+
   // Handle submit with liquidation risk check for borrow
   const handleSubmit = useCallback(async () => {
     try {
       Keyboard.dismiss();
 
-      // Check if liquidation risk alert is needed (only for borrow action)
-      if (action === 'borrow' && riskOfLiquidationAlert) {
-        const confirmed = await showLiquidationRiskDialog(intl);
-        if (!confirmed) {
-          return;
-        }
-      }
-
-      if (shouldApprove && onApprove) {
-        await onApprove();
+      const confirmed = await confirmBorrowLiquidationRisk();
+      if (!confirmed) {
         return;
       }
 
       setSubmitting(true);
+      const readyToSubmit = await ensureReadyToSubmit();
+      if (!readyToSubmit) {
+        return;
+      }
       await onSubmit();
     } finally {
       setSubmitting(false);
     }
   }, [
-    action,
-    riskOfLiquidationAlert,
-    intl,
-    shouldApprove,
-    onApprove,
+    confirmBorrowLiquidationRisk,
+    ensureReadyToSubmit,
     onSubmit,
     setSubmitting,
   ]);
 
+  const handleConfirm = useCallback(async () => {
+    if (shouldApprove) {
+      Keyboard.dismiss();
+      const confirmed = await confirmBorrowLiquidationRisk();
+      if (!confirmed) {
+        return;
+      }
+      await onApprove();
+      return;
+    }
+    await handleSubmit();
+  }, [confirmBorrowLiquidationRisk, handleSubmit, onApprove, shouldApprove]);
+
+  const confirmText = useMemo(() => {
+    if (shouldApprove) {
+      return intl.formatMessage(
+        { id: ETranslations.global_approve },
+        { amount: amountValue, symbol: state.tokenSymbol ?? '' },
+      );
+    }
+    return actionLabel;
+  }, [actionLabel, amountValue, intl, shouldApprove, state.tokenSymbol]);
+
   const footerContent = (
     <Page.FooterActions
-      onConfirmText={actionLabel}
+      onConfirmText={confirmText}
       confirmButtonProps={{
         testID: BorrowTestIDs.actionConfirmBtn,
-        onPress: handleSubmit,
-        loading: submitting || checkAmountLoading || approveLoading,
+        onPress: handleConfirm,
+        loading:
+          submitting || checkAmountLoading || loadingAllowance || approving,
         disabled: isButtonDisabled,
       }}
     />
@@ -143,7 +171,9 @@ export function ActionFooter({
         <Page.Footer>
           {footerContent}
           <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
+            onSelectPercentageStage={
+              approving ? undefined : onSelectPercentageStage
+            }
           />
         </Page.Footer>
       ) : (

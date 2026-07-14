@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Page, useMedia } from '@onekeyhq/components';
+import { Button, Page, Skeleton, YStack, useMedia } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -27,9 +27,9 @@ const BorrowManagePosition = () => {
   >();
 
   const {
-    networkId,
     accountId: routeAccountId,
     indexedAccountId: routeIndexedAccountId,
+    networkId,
     symbol,
     provider,
     logoURI,
@@ -42,22 +42,28 @@ const BorrowManagePosition = () => {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { gtMd } = useMedia();
-  const { earnAccount } = useEarnAccount({
+  const { earnAccount, isLoading: isAccountLoading } = useEarnAccount({
     networkId,
     accountId: routeAccountId,
     indexedAccountId: routeIndexedAccountId,
   });
-  const accountId = routeAccountId || earnAccount?.account?.id || '';
+  const accountId = earnAccount?.account?.id || routeAccountId || '';
   const indexedAccountId =
-    routeIndexedAccountId || earnAccount?.account?.indexedAccountId;
+    earnAccount?.account?.indexedAccountId ?? routeIndexedAccountId;
+  const hasReserveAddress = reserveAddress !== undefined;
   const defaultTab = useMemo(() => {
     if (type === 'withdraw' || type === 'repay') {
       return 'withdraw';
     }
     return 'deposit';
   }, [type]);
+  const shouldWaitForAccount = Boolean(
+    !earnAccount &&
+    (routeAccountId || routeIndexedAccountId) &&
+    isAccountLoading !== false,
+  );
   const handleViewReserveDetails = useCallback(() => {
-    if (!reserveAddress || !marketAddress) {
+    if (!hasReserveAddress || !marketAddress) {
       return;
     }
     BorrowNavigation.pushToBorrowReserveDetails(appNavigation, {
@@ -77,6 +83,7 @@ const BorrowManagePosition = () => {
     provider,
     marketAddress,
     reserveAddress,
+    hasReserveAddress,
     symbol,
     logoURI,
     accountId,
@@ -84,7 +91,7 @@ const BorrowManagePosition = () => {
   ]);
 
   const headerRight = useCallback(() => {
-    if (gtMd || !reserveAddress || !marketAddress) {
+    if (gtMd || !hasReserveAddress || !marketAddress) {
       return null;
     }
 
@@ -98,7 +105,7 @@ const BorrowManagePosition = () => {
         {intl.formatMessage({ id: ETranslations.defi_reserve_info })}
       </Button>
     );
-  }, [gtMd, reserveAddress, marketAddress, handleViewReserveDetails, intl]);
+  }, [gtMd, hasReserveAddress, marketAddress, handleViewReserveDetails, intl]);
 
   return (
     <Page scrollEnabled>
@@ -110,22 +117,30 @@ const BorrowManagePosition = () => {
         headerRight={headerRight}
       />
       <Page.Body>
-        <ManagePositionContent
-          showApyDetail
-          isInModalContext
-          networkId={networkId}
-          symbol={symbol}
-          provider={provider}
-          accountId={accountId}
-          indexedAccountId={indexedAccountId}
-          fallbackTokenImageUri={logoURI}
-          providerDisplayName={providerDisplayName}
-          providerLogoUri={providerLogoURI}
-          type={type}
-          reserveAddress={reserveAddress}
-          marketAddress={marketAddress}
-          defaultTab={defaultTab}
-        />
+        {shouldWaitForAccount ? (
+          <YStack px="$5" py="$4" gap="$4">
+            <Skeleton h="$10" w="100%" borderRadius="$3" />
+            <Skeleton h="$24" w="100%" borderRadius="$3" />
+            <Skeleton h="$12" w="100%" borderRadius="$3" />
+          </YStack>
+        ) : (
+          <ManagePositionContent
+            showApyDetail
+            isInModalContext
+            networkId={networkId}
+            symbol={symbol}
+            provider={provider}
+            accountId={accountId}
+            indexedAccountId={indexedAccountId}
+            fallbackTokenImageUri={logoURI}
+            providerDisplayName={providerDisplayName}
+            providerLogoUri={providerLogoURI}
+            type={type}
+            reserveAddress={reserveAddress}
+            marketAddress={marketAddress}
+            defaultTab={defaultTab}
+          />
+        )}
       </Page.Body>
     </Page>
   );

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
@@ -12,6 +12,8 @@ import type { IStakeTag } from '@onekeyhq/shared/types/staking';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useEarnAtom } from '../../../states/jotai/contexts/earn';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
+
+import { createPendingCompletionRefreshOwner } from './stakingPendingCompletion';
 
 export type IStakePendingTx = IAccountHistoryTx &
   Required<Pick<IAccountHistoryTx, 'stakingInfo'>>;
@@ -151,7 +153,7 @@ export const useStakingPendingTxsByInfo = ({
   precomputed,
 }: {
   filter?: (tx: IStakePendingTx) => boolean;
-  onRefresh?: () => void;
+  onRefresh?: () => void | Promise<void>;
   networkIds?: string[];
   tagMatcher?: (tag: string) => boolean;
   onRefreshDelayMs?: number;
@@ -165,6 +167,12 @@ export const useStakingPendingTxsByInfo = ({
   const shouldUseEarnAssets = !tagMatcher;
   const lastFilteredTxsRef = useRef<IStakePendingTx[]>([]);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+  const [isCompletionRevalidating, setIsCompletionRevalidating] =
+    useState(false);
+  const [completionRefreshOwner] = useState(
+    createPendingCompletionRefreshOwner,
+  );
 
   // Stabilize onRefresh callback reference
   const onRefreshRef = useRef(onRefresh);
@@ -270,19 +278,23 @@ export const useStakingPendingTxsByInfo = ({
     [stakingTargets],
   );
 
-  const effectiveNetworkIds = useMemo(() => {
-    if (networkIds?.length) {
-      return [...new Set(networkIds.filter(Boolean))];
-    }
-    return derivedNetworkIds;
-  }, [derivedNetworkIds, networkIds]);
+  const stableNetworkIdsKey = useMemo(
+    () => [...new Set((networkIds ?? []).filter(Boolean))].toSorted().join('|'),
+    [networkIds],
+  );
+  const explicitNetworkIds = useMemo(
+    () => (stableNetworkIdsKey ? stableNetworkIdsKey.split('|') : []),
+    [stableNetworkIdsKey],
+  );
+  const hasExplicitNetworkIds = Boolean(networkIds?.length);
+  const effectiveNetworkIds = hasExplicitNetworkIds
+    ? explicitNetworkIds
+    : derivedNetworkIds;
 
   // Resolve network-specific accountIds for the active indexed account.
   // Short-circuit to the parent-precomputed union map when present —
   // EarnHome's earn + borrow hook instances share one resolution this way.
-  const { result: networkAccountMap } = usePromiseResult<
-    Record<string, string>
-  >(
+  const networkAccountResult = usePromiseResult<Record<string, string>>(
     async () => {
       const sharedMap = precomputed?.networkAccountMap;
       if (sharedMap) {
@@ -383,8 +395,10 @@ export const useStakingPendingTxsByInfo = ({
       effectiveNetworkIds,
       precomputed?.networkAccountMap,
     ],
-    { initResult: {} },
+    { initResult: {}, watchLoading: true },
   );
+  const { result: networkAccountMap, isLoading: networkAccountMapLoading } =
+    networkAccountResult;
 
   const pendingNetworkIds = useMemo(
     () => Object.keys(networkAccountMap).sort(),
@@ -423,7 +437,7 @@ export const useStakingPendingTxsByInfo = ({
   // One batched bridge call replaces the prior 2N per-pair fan-out
   // (getAccountXpub + getAccountAddressForApi) — see ServiceAccount
   // .getAccountMetaForNetworksBatch for the contract.
-  const { result: accountMetaByNetwork } = usePromiseResult<
+  const accountMetaResult = usePromiseResult<
     Record<string, INetworkAccountMeta>
   >(
     async () => {
@@ -472,8 +486,13 @@ export const useStakingPendingTxsByInfo = ({
       return meta;
     },
     [networkAccountMap, precomputed?.accountMetaByNetwork],
-    { initResult: {} as Record<string, INetworkAccountMeta> },
+    {
+      initResult: {} as Record<string, INetworkAccountMeta>,
+      watchLoading: true,
+    },
   );
+  const { result: accountMetaByNetwork, isLoading: accountMetaLoading } =
+    accountMetaResult;
 
   // Fetch pending transactions based on stake tags or tag matcher
   const fetchFilteredPendingTxs = useCallback(async (): Promise<
@@ -559,14 +578,15 @@ export const useStakingPendingTxsByInfo = ({
     tagMatcher,
   ]);
 
-  const { result: filteredTxs, run: refreshPendingTxs } = usePromiseResult(
-    fetchFilteredPendingTxs,
-    [fetchFilteredPendingTxs],
-    {
-      initResult: [],
-      revalidateOnFocus: true,
-    },
-  );
+  const {
+    result: filteredTxs,
+    run: refreshPendingTxs,
+    isLoading: filteredTxsLoading,
+  } = usePromiseResult(fetchFilteredPendingTxs, [fetchFilteredPendingTxs], {
+    initResult: [],
+    revalidateOnFocus: true,
+    watchLoading: true,
+  });
 
   const isPending = filteredTxs.length > 0;
   const prevIsPending = usePrevious(isPending);
@@ -580,34 +600,57 @@ export const useStakingPendingTxsByInfo = ({
   }, [filteredTxs.length]);
 
   useEffect(() => {
-    if (!isPending || !refreshTimeoutRef.current) {
+    if (!isPending) {
       return;
     }
-    clearTimeout(refreshTimeoutRef.current);
-    refreshTimeoutRef.current = null;
-  }, [isPending]);
+    completionRefreshOwner.invalidate();
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+  }, [completionRefreshOwner, isPending]);
 
   useEffect(() => {
     if (!isPending && prevIsPending) {
+      const attempt = completionRefreshOwner.begin();
+      let ownedTimeout: ReturnType<typeof setTimeout> | null = null;
+      setIsCompletionRevalidating(true);
+      const refreshAfterPending = async () => {
+        try {
+          await onRefreshRef.current?.();
+        } catch {
+          // Best-effort refresh; pending history remains the durable guard.
+        } finally {
+          if (mountedRef.current && completionRefreshOwner.isCurrent(attempt)) {
+            setIsCompletionRevalidating(false);
+          }
+          if (refreshTimeoutRef.current === ownedTimeout) {
+            refreshTimeoutRef.current = null;
+          }
+        }
+      };
       if (onRefreshDelayMs > 0) {
-        refreshTimeoutRef.current = setTimeout(() => {
-          onRefreshRef.current?.();
-          refreshTimeoutRef.current = null;
+        ownedTimeout = setTimeout(() => {
+          void refreshAfterPending();
         }, onRefreshDelayMs);
+        refreshTimeoutRef.current = ownedTimeout;
       } else {
-        onRefreshRef.current?.();
+        void refreshAfterPending();
       }
     }
-  }, [isPending, prevIsPending, onRefreshDelayMs]);
+  }, [completionRefreshOwner, isPending, prevIsPending, onRefreshDelayMs]);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
+      completionRefreshOwner.invalidate();
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
         refreshTimeoutRef.current = null;
       }
     };
-  }, []);
+  }, [completionRefreshOwner]);
 
   // Refresh both account history and pending transactions
   const refreshPendingWithHistory = useCallback(async () => {
@@ -648,6 +691,12 @@ export const useStakingPendingTxsByInfo = ({
   return {
     filteredTxs,
     pendingCount: filteredTxs.length,
+    isLoading:
+      networkAccountMapLoading !== false ||
+      accountMetaLoading !== false ||
+      filteredTxsLoading !== false ||
+      (!isPending && !!prevIsPending) ||
+      isCompletionRevalidating,
     refreshPending: refreshPendingWithHistory,
   };
 };

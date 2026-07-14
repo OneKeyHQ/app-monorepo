@@ -4,6 +4,10 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  isBorrowRepayAllAmount,
+  shouldDowngradeAaveNativeRepayAll,
+} from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -16,8 +20,6 @@ export function useManagePositionState(props: IManagePositionProps): {
     IManagePositionState,
     | 'amountValue'
     | 'submitting'
-    | 'shouldApprove'
-    | 'approveLoading'
     | 'tokenSelectorMode'
     | 'tokenSelectorTriggerProps'
   >;
@@ -112,20 +114,51 @@ export function useManagePositionState(props: IManagePositionProps): {
     [props.action, maxAmountValue, props.repayAllBalance],
   );
 
+  const shouldDowngradeRepayAll = useMemo(
+    () =>
+      shouldDowngradeAaveNativeRepayAll({
+        action: props.action,
+        networkId: props.networkId,
+        providerName: props.providerName,
+        reserveAddress: props.borrowReserveAddress,
+      }),
+    [
+      props.action,
+      props.borrowReserveAddress,
+      props.networkId,
+      props.providerName,
+    ],
+  );
+
   const isRepayAll = useMemo(() => {
     if (props.action !== 'repay') return false;
+    if (shouldDowngradeRepayAll) return false;
+    if (
+      props.repayAllBalance === undefined &&
+      props.debtBalance !== undefined
+    ) {
+      return isBorrowRepayAllAmount({
+        amount: amountValue,
+        debtBalance: props.debtBalance,
+      });
+    }
     return isSamePositiveAmount({
       amount: amountValue,
       targetAmount: repayAllAmountValue,
     });
-  }, [props.action, amountValue, repayAllAmountValue]);
+  }, [
+    props.action,
+    props.debtBalance,
+    props.repayAllBalance,
+    amountValue,
+    repayAllAmountValue,
+    shouldDowngradeRepayAll,
+  ]);
 
   const state: Omit<
     IManagePositionState,
     | 'amountValue'
     | 'submitting'
-    | 'shouldApprove'
-    | 'approveLoading'
     | 'tokenSelectorMode'
     | 'tokenSelectorTriggerProps'
   > = useMemo(
@@ -148,6 +181,7 @@ export function useManagePositionState(props: IManagePositionProps): {
       price,
       balance: props.balance,
       maxBalance: props.maxBalance,
+      debtBalance: props.debtBalance,
       tokenInfo: props.tokenInfo,
       token,
 
@@ -192,6 +226,7 @@ export function useManagePositionState(props: IManagePositionProps): {
       props.decimals,
       props.balance,
       props.maxBalance,
+      props.debtBalance,
       props.tokenInfo,
       props.isDisabled,
       props.isInModalContext,

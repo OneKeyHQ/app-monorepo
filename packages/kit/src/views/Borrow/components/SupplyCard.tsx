@@ -19,6 +19,7 @@ import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { BorrowTestIDs } from '../testIDs';
 
+import { filterUnsupportedAaveNativeReserveAssets } from './borrowRepayPosition.utils';
 import {
   ActionField,
   AmountField,
@@ -28,6 +29,7 @@ import {
   BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
   BorrowAPYField,
   BorrowTableList,
+  CollateralBadge,
 } from './BorrowTableList';
 import { Card } from './Card';
 
@@ -166,16 +168,26 @@ export const SupplyCard = () => {
 
   // Filter data based on showZeroBalance (mobile always shows all assets)
   const filteredAssets = useMemo(() => {
-    if (!reserves.data?.supply?.assets) return [];
+    const supportedAssets = filterUnsupportedAaveNativeReserveAssets({
+      assets: reserves.data?.supply?.assets,
+      networkId: market?.networkId,
+      providerName: market?.provider,
+    });
     // Mobile: always show all assets
-    if (!gtMd) return reserves.data.supply.assets;
+    if (!gtMd) return supportedAssets;
     // Desktop: filter based on showZeroBalance toggle
-    if (showZeroBalance) return reserves.data.supply.assets;
-    return reserves.data.supply.assets.filter((asset) => {
+    if (showZeroBalance) return supportedAssets;
+    return supportedAssets.filter((asset) => {
       const balance = new BigNumber(asset?.walletBalance?.title?.text || '0');
       return balance.gt(0);
     });
-  }, [reserves.data?.supply?.assets, showZeroBalance, gtMd]);
+  }, [
+    gtMd,
+    market?.networkId,
+    market?.provider,
+    reserves.data?.supply?.assets,
+    showZeroBalance,
+  ]);
 
   const labels = useMemo(
     () => ({
@@ -184,6 +196,9 @@ export const SupplyCard = () => {
       supply: intl.formatMessage({ id: ETranslations.defi_supply }),
       assetCanBeCollateral: intl.formatMessage({
         id: ETranslations.global_asset,
+      }),
+      canBeCollateral: intl.formatMessage({
+        id: ETranslations.defi_can_be_collateral,
       }),
       assetsToSupply: intl.formatMessage({
         id: ETranslations.defi_assets_to_supply,
@@ -228,7 +243,7 @@ export const SupplyCard = () => {
         render: (item: ISupplyAsset) => (
           <AssetWithAmountField
             token={item.token}
-            canBeCollateral={false}
+            canBeCollateral={item.canBeCollateral}
             amount={item.walletBalance.title}
             amountDescription={item.walletBalance.description}
             showWalletIcon
@@ -287,6 +302,15 @@ export const SupplyCard = () => {
         render: BorrowAPYField,
         flex: 1,
         minWidth: BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
+      },
+      {
+        label: labels.canBeCollateral,
+        align: 'center' as const,
+        key: 'canBeCollateral',
+        render: (item: ISupplyAsset) => (
+          <CollateralBadge canBeCollateral={item.canBeCollateral} />
+        ),
+        flex: 1,
       },
       {
         label: '',

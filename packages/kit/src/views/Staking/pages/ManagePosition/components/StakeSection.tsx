@@ -8,6 +8,12 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
 import {
+  buildAaveNativeGatewayReceiveToken,
+  isUnsupportedAaveNativeReserve,
+  resolveBorrowTokenApproveSpenderAddress,
+  shouldUseAaveNativeGateway,
+} from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+import {
   type IManagePositionConfirmParams,
   ManagePosition,
 } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
@@ -154,6 +160,26 @@ export const StakeSection = ({
     borrowApiCtx.isBorrow &&
     (borrowApiCtx.borrowApiParams.action === 'supply' ||
       borrowApiCtx.borrowApiParams.action === 'borrow');
+  const borrowDelegationApproveTarget = useMemo(() => {
+    if (
+      !borrowApiCtx.isBorrow ||
+      borrowApiCtx.borrowApiParams.action !== 'borrow' ||
+      protocolInfo?.borrowAllowance === undefined
+    ) {
+      return undefined;
+    }
+
+    const { provider, marketAddress, reserveAddress } =
+      borrowApiCtx.borrowApiParams;
+    return {
+      accountId,
+      networkId,
+      provider,
+      marketAddress,
+      reserveAddress,
+      allowance: protocolInfo.borrowAllowance,
+    };
+  }, [accountId, borrowApiCtx, networkId, protocolInfo?.borrowAllowance]);
 
   const { result: stakeAssetsList } = usePromiseResult(
     async () => {
@@ -292,19 +318,28 @@ export const StakeSection = ({
       tokenInfo?.token.symbol,
     ],
   );
-  const approveSpenderAddress = useMemo(
-    () =>
-      earnUtils.resolveEarnApproveSpenderAddress({
-        providerName: protocolInfo?.provider || '',
-        protocolVault: protocolInfo?.vault,
+  const approveSpenderAddress = useMemo(() => {
+    if (borrowApiCtx.isBorrow) {
+      return resolveBorrowTokenApproveSpenderAddress({
+        providerName: protocolInfo?.provider,
+        marketAddress: borrowApiCtx.borrowApiParams.marketAddress,
         backendApproveTarget: protocolInfo?.approve?.approveTarget,
-      }),
-    [
-      protocolInfo?.provider,
-      protocolInfo?.vault,
-      protocolInfo?.approve?.approveTarget,
-    ],
-  );
+        tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
+      });
+    }
+
+    return earnUtils.resolveEarnApproveSpenderAddress({
+      providerName: protocolInfo?.provider || '',
+      protocolVault: protocolInfo?.vault,
+      backendApproveTarget: protocolInfo?.approve?.approveTarget,
+    });
+  }, [
+    borrowApiCtx,
+    effectiveStakeTokenInfo?.token?.isNative,
+    protocolInfo?.provider,
+    protocolInfo?.vault,
+    protocolInfo?.approve?.approveTarget,
+  ]);
   const effectiveApproveType = useMemo(() => {
     return earnUtils.resolveEarnApproveType({
       providerName: protocolInfo?.provider || '',
@@ -664,15 +699,49 @@ export const StakeSection = ({
     }
     return protocolInfo?.maxSupplyBalance;
   }, [borrowAction, protocolInfo?.maxSupplyBalance]);
+  const unsupportedAaveNativeReserve = useMemo(
+    () =>
+      isUnsupportedAaveNativeReserve({
+        networkId,
+        providerName: providerName || borrowApiCtx.borrowApiParams?.provider,
+        reserveAddress: borrowApiCtx.borrowApiParams?.reserveAddress,
+      }),
+    [
+      borrowApiCtx.borrowApiParams?.provider,
+      borrowApiCtx.borrowApiParams?.reserveAddress,
+      networkId,
+      providerName,
+    ],
+  );
 
   const onBorrowConfirm = useCallback(
     async (params: IManagePositionConfirmParams) => {
       const { amount } = params;
-      if (!hasRequiredData || !borrowApiCtx.isBorrow) return;
+      if (
+        !hasRequiredData ||
+        !borrowApiCtx.isBorrow ||
+        unsupportedAaveNativeReserve
+      ) {
+        return;
+      }
 
       const token = tokenInfo?.token as IToken;
       const { provider, marketAddress, reserveAddress, action } =
         borrowApiCtx.borrowApiParams;
+      const shouldUnwrapNativeAaveReserve =
+        action === 'borrow' &&
+        shouldUseAaveNativeGateway({
+          networkId,
+          providerName: provider,
+          reserveAddress,
+        });
+      const receiveToken = shouldUnwrapNativeAaveReserve
+        ? buildAaveNativeGatewayReceiveToken({
+            token,
+            nativeToken: tokenInfo?.nativeToken?.info,
+            networkId,
+          })
+        : token;
 
       // Build tags array with both new borrow tag and legacy stakeTag for backward compatibility
       const tags: string[] = [EEarnLabels.Borrow];
@@ -689,6 +758,7 @@ export const StakeSection = ({
         provider,
         marketAddress,
         reserveAddress,
+        ...(shouldUnwrapNativeAaveReserve ? { unwrap: true } : {}),
         stakingInfo: token
           ? {
               label:
@@ -696,7 +766,7 @@ export const StakeSection = ({
               protocol: borrowProviderDisplayName,
               protocolLogoURI: protocolInfo?.providerDetail.logoURI,
               ...(action === 'borrow'
-                ? { receive: { token, amount } }
+                ? { receive: { token: receiveToken ?? token, amount } }
                 : { send: { token, amount } }),
               tags,
             }
@@ -712,10 +782,13 @@ export const StakeSection = ({
       handleBorrowBorrow,
       handleBorrowSupply,
       hasRequiredData,
+      networkId,
       onSuccess,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.stakeTag,
+      tokenInfo?.nativeToken?.info,
       tokenInfo?.token,
+      unsupportedAaveNativeReserve,
     ],
   );
 
@@ -724,7 +797,7 @@ export const StakeSection = ({
     if (
       useBorrowApi &&
       borrowMarketAddress &&
-      borrowReserveAddress &&
+      borrowReserveAddress !== undefined &&
       (borrowAction === 'supply' || borrowAction === 'borrow')
     ) {
       return (
@@ -784,13 +857,21 @@ export const StakeSection = ({
           tokenSymbol={tokenInfo?.token.symbol}
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
           onConfirm={onBorrowConfirm}
+          approveType={
+            borrowApiCtx.borrowApiParams.action === 'supply'
+              ? EApproveType.Legacy
+              : undefined
+          }
           approveTarget={borrowSupplyApproveTarget}
           currentAllowance={
-            borrowSupplyAllowanceResult?.allowanceParsed ??
-            protocolInfo?.approve?.allowance
+            borrowApiCtx.borrowApiParams.action === 'supply'
+              ? (borrowSupplyAllowanceResult?.allowanceParsed ??
+                protocolInfo?.approve?.allowance)
+              : undefined
           }
           tokenInfo={tokenInfo}
-          isDisabled={isDisabled}
+          isDisabled={isDisabled || unsupportedAaveNativeReserve}
+          borrowDelegationApproveTarget={borrowDelegationApproveTarget}
           borrowMarketAddress={
             borrowApiCtx.borrowApiParams?.marketAddress ?? ''
           }
