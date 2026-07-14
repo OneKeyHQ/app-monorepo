@@ -1,14 +1,12 @@
 ---
 name: 1k-patch-package-workflow
-description: "Create or regenerate patch-package patches, including native-module crash fixes and resolutions failures."
+description: "Create or regenerate patch-package patches, including resolutions failures and build-artifact verification."
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write
 ---
 
 # patch-package workflow
 
 Patches live in `patches/<pkg>+<version>.patch` and auto-apply on install. Never hand-edit a `.patch` — edit the `node_modules/` source, then generate.
-
-For native crash analysis and Swift/Kotlin patch patterns, read [native-module-patching.md](references/native-module-patching.md).
 
 ## Generate
 

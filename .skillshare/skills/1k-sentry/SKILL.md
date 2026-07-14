@@ -1,6 +1,6 @@
 ---
 name: 1k-sentry
-description: Configure OneKey Sentry, filter events, and analyze AppHang, ANR, crash, or stacktrace reports.
+description: Configure OneKey Sentry and filter events across desktop, mobile, web, and extension.
 ---
 
 # Sentry Integration
@@ -43,10 +43,6 @@ platformEnv.isWebEmbed   // Embedded web components
 See: [references/rules/ignoring-errors.md](references/rules/ignoring-errors.md)
 
 Key file: `packages/shared/src/modules3rdParty/sentry/basicOptions.ts`
-
-### Analyze Crash Reports
-
-Read [analysis-workflow.md](references/analysis-workflow.md) for the evidence-based production-error workflow. For third-party native crashes that require a persisted patch, use `/1k-patch-package-workflow`.
 
 ### Add Custom Context
 
@@ -97,5 +93,4 @@ if (error.value?.includes('PATTERN')) return true;
 
 ## Related Skills
 
-- `/1k-patch-package-workflow` - Patch third-party native crashes
 - `/1k-coding-patterns` - Error handling best practices

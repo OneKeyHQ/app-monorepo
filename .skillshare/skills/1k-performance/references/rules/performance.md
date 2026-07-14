@@ -767,10 +767,9 @@ const expensiveMemoCheck = useMemo(
 
 ## Related Documentation
 
-- [Promise Handling](./promise-handling.md) - Async patterns and error handling
-- [React Components](./react-components.md) - Component structure and hooks
-- [Error Handling](./error-handling.md) - Error boundaries and recovery
-- [1k-dev-workflows: Fix Sentry Errors](../../1k-dev-workflows/references/rules/fix-sentry-errors.md) - Performance issue analysis
+- [Promise Handling](../../../1k-coding-patterns/references/rules/promise-handling.md) - Async patterns and error handling
+- [React Components](../../../1k-coding-patterns/references/rules/react-components.md) - Component structure and hooks
+- [Error Handling](../../../1k-coding-patterns/references/rules/error-handling.md) - Error boundaries and recovery
 
 ## External References
 

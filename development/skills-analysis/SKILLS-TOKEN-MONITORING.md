@@ -32,7 +32,6 @@ python3 development/skills-analysis/analyze-skills-tokens.py --detailed
 Skill Name                         Tokens       Size   Files Recommendation
 ----------------------------------------------------------------------------------------------------
 react-best-practices               14,345      56.1K      45 🚨 URGENT: Split immediately (>10k tokens)
-1k-sentry analysis reference        9,394      37.9K       1 ✅  ON DEMAND
 1k-feature-guides                   8,493      34.4K       4 ⚠️  CONSIDER: Should be split (>5k tokens)
 1k-performance                      6,267      24.7K       1 ⚠️  CONSIDER: Should be split (>5k tokens)
 1k-code-quality                     3,732      14.7K       2 👀 MONITOR: Watch for growth (>2k tokens)
