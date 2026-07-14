@@ -39,6 +39,7 @@ import type ServiceFirmwareUpdate from '../services/ServiceFirmwareUpdate';
 import type ServiceFreshAddress from '../services/ServiceFreshAddress';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
+import type ServiceHardwarePortfolioSync from '../services/ServiceHardware/serviceHardwarePortfolioSync';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
@@ -71,7 +72,6 @@ import type { ServicePendingInstallTask } from '../services/servicePendingInstal
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
-import type ServiceHardwarePortfolioSync from '../services/ServiceHardware/serviceHardwarePortfolioSync';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
