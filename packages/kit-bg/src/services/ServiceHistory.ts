@@ -2331,9 +2331,9 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchAccountTransactionRange() {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.get<{
+    const resp = await client.post<{
       data: IFetchAccountTransactionRangeResp;
-    }>('/wallet/v1/account/transaction/range');
+    }>('/wallet/v1/account/transaction/export/range', {});
 
     return resp.data.data;
   }

@@ -107,8 +107,8 @@ export function useBulkExportHistorySupportedNetworks({
   );
 
   const apiSupportedNetworkIds = useMemo(
-    () => Object.keys(rangeResp?.networkMap ?? {}),
-    [rangeResp?.networkMap],
+    () => Object.keys(rangeResp ?? {}),
+    [rangeResp],
   );
 
   const supportedNetworkIds = useMemo(() => {
@@ -147,7 +147,7 @@ export function useBulkExportHistorySupportedNetworks({
 
         setRangeResp(resp);
 
-        const nextSupportedNetworkIds = Object.keys(resp.networkMap ?? {});
+        const nextSupportedNetworkIds = Object.keys(resp ?? {});
         if (nextSupportedNetworkIds.length > 0) {
           setCachedSupportedNetworkIds(nextSupportedNetworkIds);
         }
@@ -234,16 +234,14 @@ export function useBulkExportHistorySupportedNetworks({
   }, [homeNetworkId, supportedNetworkIds, allNetworkEnabledNetworkIds]);
 
   const selectedRangeMap = useMemo(() => {
-    const networkMap = rangeResp?.networkMap;
-
-    if (!networkMap || !selectedNetworkIdsState.length) {
+    if (!rangeResp || !selectedNetworkIdsState.length) {
       return undefined;
     }
 
     const nextSelectedRangeMap: Record<string, IAccountTransactionRange> = {};
 
     for (const networkId of selectedNetworkIdsState) {
-      const range = networkMap[networkId];
+      const range = rangeResp[networkId];
       if (!range) {
         return undefined;
       }
@@ -251,7 +249,7 @@ export function useBulkExportHistorySupportedNetworks({
     }
 
     return nextSelectedRangeMap;
-  }, [rangeResp?.networkMap, selectedNetworkIdsState]);
+  }, [rangeResp, selectedNetworkIdsState]);
 
   const effectiveRange = useMemo(() => {
     if (!selectedRangeMap) {
@@ -273,7 +271,7 @@ export function useBulkExportHistorySupportedNetworks({
     supportedNetworkIds,
     selectedNetworkIds: selectedNetworkIdsState,
     setSelectedNetworkIds,
-    networkRangeMap: rangeResp?.networkMap,
+    networkRangeMap: rangeResp,
     selectedRangeMap,
     effectiveRange,
     hasRangeData: Boolean(selectedRangeMap && effectiveRange),

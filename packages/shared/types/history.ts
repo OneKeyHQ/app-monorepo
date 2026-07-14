@@ -262,9 +262,16 @@ export type IAccountTransactionRange = {
   maxTimestampMs: number;
 };
 
-export type IFetchAccountTransactionRangeResp = IAccountTransactionRange & {
-  networkMap?: Record<string, IAccountTransactionRange>;
+export type IExportHistoryNetworkRange = IAccountTransactionRange & {
+  networkId: string;
+  networkKey: string;
+  minBlockNumber: number;
 };
+
+export type IFetchAccountTransactionRangeResp = Record<
+  string, // networkId
+  IExportHistoryNetworkRange
+>;
 
 export type IExportTransactionHistoryAccount = {
   accountAddress?: string;
