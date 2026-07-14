@@ -27,8 +27,9 @@ function relative(rootDir, filePath) {
 }
 
 function parseScalar(rawValue, { errors, filePath, key }) {
-  if (rawValue === 'true') return true;
-  if (rawValue === 'false') return false;
+  const normalizedValue = rawValue.toLowerCase();
+  if (normalizedValue === 'true') return true;
+  if (normalizedValue === 'false') return false;
   if (rawValue === 'null' || rawValue === '~') return null;
 
   if (rawValue.startsWith('"')) {
@@ -89,7 +90,7 @@ function parseFrontmatter(source, filePath, errors) {
 
           const rawValue = rawFieldValue.trim();
           const blockStyleMatch = rawValue.match(
-            /^([>|])(?:(?:[1-9][+-]?)|(?:[+-][1-9]?))?$/,
+            /^([>|])(?:(?:[1-9][+-]?)|(?:[+-][1-9]?))?(?:[ \t]+#.*)?$/,
           );
           if (blockStyleMatch) {
             const blockStyle = blockStyleMatch[1];

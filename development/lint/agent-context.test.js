@@ -42,7 +42,7 @@ function writeSkill(
       '---',
       `name: ${name}`,
       `description: ${description}`,
-      ...(modelExplicit ? ['disable-model-invocation: true'] : []),
+      ...(modelExplicit ? [`disable-model-invocation: ${modelExplicit}`] : []),
       '---',
       '',
       body,
@@ -135,6 +135,8 @@ describe('agent context lint', () => {
     '|2-',
     '|+2',
     '|-2',
+    '> # catalog note',
+    '>2- # catalog note',
   ])(
     'rejects oversized descriptions using the %s block scalar',
     (blockStyle) => {
@@ -175,18 +177,21 @@ describe('agent context lint', () => {
     expect(result.stats.projectInstructionBytes).toBe(10);
   });
 
-  it('requires Codex explicit policy for Claude explicit skills', () => {
-    writeSkill(rootDir, 'operation-skill', { modelExplicit: true });
+  it.each(['true', 'True', 'TRUE'])(
+    'requires Codex explicit policy for Claude explicit skills using %s',
+    (modelExplicit) => {
+      writeSkill(rootDir, 'operation-skill', { modelExplicit });
 
-    const result = auditAgentContext({
-      config: createConfig(),
-      rootDir,
-    });
+      const result = auditAgentContext({
+        config: createConfig(),
+        rootDir,
+      });
 
-    expect(result.errors).toContain(
-      '.skillshare/skills/operation-skill/SKILL.md: disable-model-invocation requires agents/openai.yaml policy.allow_implicit_invocation: false',
-    );
-  });
+      expect(result.errors).toContain(
+        '.skillshare/skills/operation-skill/SKILL.md: disable-model-invocation requires agents/openai.yaml policy.allow_implicit_invocation: false',
+      );
+    },
+  );
 
   it('rejects incorrect filenames, oversized bodies, and broken links', () => {
     writeSkill(rootDir, 'broken-skill', {
