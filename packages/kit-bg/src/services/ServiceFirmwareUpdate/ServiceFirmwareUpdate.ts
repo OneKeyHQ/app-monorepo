@@ -1377,7 +1377,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     | {
         updateFlow: 'v1' | 'v2';
         releaseResult: ICheckAllFirmwareReleaseResult;
-        startedAt: number;
+        activeStartedAt: number | undefined;
+        activeDurationMs: number;
         failedAttemptCount: number;
       }
     | undefined;
@@ -1392,9 +1393,27 @@ class ServiceFirmwareUpdate extends ServiceBase {
     this.updateWorkflowTracking = {
       updateFlow,
       releaseResult,
-      startedAt: Date.now(),
+      activeStartedAt: Date.now(),
+      activeDurationMs: 0,
       failedAttemptCount: 0,
     };
+  }
+
+  pauseUpdateWorkflowTracking() {
+    const tracking = this.updateWorkflowTracking;
+    if (!tracking || tracking.activeStartedAt === undefined) {
+      return;
+    }
+    tracking.activeDurationMs += Date.now() - tracking.activeStartedAt;
+    tracking.activeStartedAt = undefined;
+  }
+
+  resumeUpdateWorkflowTracking() {
+    const tracking = this.updateWorkflowTracking;
+    if (!tracking || tracking.activeStartedAt !== undefined) {
+      return;
+    }
+    tracking.activeStartedAt = Date.now();
   }
 
   @backgroundMethod()
@@ -1403,9 +1422,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
     durationMs: number | undefined;
   }> {
     const tracking = this.updateWorkflowTracking;
+    const currentActiveDurationMs =
+      tracking?.activeStartedAt === undefined
+        ? 0
+        : Date.now() - tracking.activeStartedAt;
     return {
       retryCount: tracking?.failedAttemptCount,
-      durationMs: tracking ? Date.now() - tracking.startedAt : undefined,
+      durationMs: tracking
+        ? tracking.activeDurationMs + currentActiveDurationMs
+        : undefined,
     };
   }
 
@@ -2045,6 +2070,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       serviceHardwareUtils.hardwareLog('runUpdateTask SUCCESS', result);
     } catch (error) {
       //
+      this.pauseUpdateWorkflowTracking();
       serviceHardwareUtils.hardwareLog('startUpdateWorkflow ERROR', error);
 
       // OK-57543: track each real failed attempt (retry may succeed later)
@@ -2090,6 +2116,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     connectId: string | undefined;
     releaseResult: ICheckAllFirmwareReleaseResult | undefined;
   }) {
+    this.resumeUpdateWorkflowTracking();
+
     // Re-block lock screen before resuming hardware communication
     await firmwareUpdateWorkflowRunningAtom.set(true);
 

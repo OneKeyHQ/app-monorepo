@@ -1,4 +1,7 @@
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareVendor,
+  type ICheckAllFirmwareReleaseResult,
+} from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 
@@ -102,4 +105,38 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
       expect(getCompatibleConnectId).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('ServiceFirmwareUpdate workflow tracking', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('excludes time spent waiting for the user to retry', async () => {
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+    service.resetUpdateWorkflowTracking({
+      updateFlow: 'v1',
+      releaseResult: {} as ICheckAllFirmwareReleaseResult,
+    });
+
+    nowSpy.mockReturnValue(1600);
+    service.pauseUpdateWorkflowTracking();
+
+    nowSpy.mockReturnValue(10_000);
+    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual({
+      retryCount: 0,
+      durationMs: 600,
+    });
+
+    service.resumeUpdateWorkflowTracking();
+    nowSpy.mockReturnValue(10_300);
+    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual({
+      retryCount: 0,
+      durationMs: 900,
+    });
+  });
 });
