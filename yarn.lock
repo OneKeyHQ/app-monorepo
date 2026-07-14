@@ -10012,6 +10012,7 @@ __metadata:
     workbox-webpack-plugin: "npm:^7.4.0"
     worker-loader: "npm:^3.0.8"
     worker-rspack-loader: "npm:^3.1.2"
+    yaml: "npm:^2.8.2"
     zxcvbn: "npm:^4.4.2"
   languageName: unknown
   linkType: soft

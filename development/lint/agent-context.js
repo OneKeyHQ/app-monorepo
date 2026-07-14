@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const { parseDocument } = require('yaml');
+
 const ALLOWED_FRONTMATTER_KEYS = new Set([
   'allowed-tools',
   'argument-hint',
@@ -26,36 +28,24 @@ function relative(rootDir, filePath) {
   return relativePath ? relativePath.split(path.sep).join('/') : '.';
 }
 
-function parseScalar(rawValue, { errors, filePath, key }) {
-  const normalizedValue = rawValue.toLowerCase();
-  if (normalizedValue === 'true') return true;
-  if (normalizedValue === 'false') return false;
-  if (rawValue === 'null' || rawValue === '~') return null;
-
-  if (rawValue.startsWith('"')) {
-    try {
-      return JSON.parse(rawValue);
-    } catch (error) {
-      errors.push(`${filePath}: invalid quoted ${key}: ${error.message}`);
-      return '';
+function parseYamlMapping(source, displayPath, errors) {
+  const document = parseDocument(source, {
+    prettyErrors: false,
+    uniqueKeys: true,
+  });
+  if (document.errors.length > 0) {
+    for (const error of document.errors) {
+      errors.push(`${displayPath}: invalid YAML: ${error.message}`);
     }
+    return null;
   }
 
-  if (rawValue.startsWith("'")) {
-    if (!rawValue.endsWith("'")) {
-      errors.push(`${filePath}: unterminated quoted ${key}`);
-      return '';
-    }
-    return rawValue.slice(1, -1).replaceAll("''", "'");
+  const value = document.toJS();
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    errors.push(`${displayPath}: YAML root must be a mapping`);
+    return null;
   }
-
-  if (key === 'description' && /:\s/.test(rawValue)) {
-    errors.push(
-      `${filePath}: descriptions containing ": " must be quoted or folded YAML`,
-    );
-  }
-
-  return rawValue;
+  return value;
 }
 
 function parseFrontmatter(source, filePath, errors) {
@@ -65,56 +55,12 @@ function parseFrontmatter(source, filePath, errors) {
     return { body: source, fields: {}, keys: new Set() };
   }
 
-  const fields = {};
-  const keys = new Set();
-  const lines = match[1].split(/\r?\n/);
+  const fields = parseYamlMapping(match[1], filePath, errors) ?? {};
+  const keys = new Set(Object.keys(fields));
 
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    const shouldParse =
-      line.trim() && !line.trimStart().startsWith('#') && !/^\s/.test(line);
-    if (shouldParse) {
-      const fieldMatch = line.match(/^([a-zA-Z0-9_-]+):(?:\s*(.*))?$/);
-      if (!fieldMatch) {
-        errors.push(`${filePath}: invalid top-level frontmatter line: ${line}`);
-      } else {
-        const [, key, rawFieldValue = ''] = fieldMatch;
-        if (keys.has(key)) {
-          errors.push(`${filePath}: duplicate frontmatter key: ${key}`);
-        } else {
-          keys.add(key);
-
-          if (!ALLOWED_FRONTMATTER_KEYS.has(key)) {
-            errors.push(`${filePath}: unsupported frontmatter key: ${key}`);
-          }
-
-          const rawValue = rawFieldValue.trim();
-          const blockStyleMatch = rawValue.match(
-            /^([>|])(?:(?:[1-9][+-]?)|(?:[+-][1-9]?))?(?:[ \t]+#.*)?$/,
-          );
-          if (blockStyleMatch) {
-            const blockStyle = blockStyleMatch[1];
-            const block = [];
-            while (
-              index + 1 < lines.length &&
-              (!lines[index + 1].trim() || /^\s/.test(lines[index + 1]))
-            ) {
-              index += 1;
-              block.push(lines[index].trim());
-            }
-            fields[key] =
-              blockStyle === '>'
-                ? block.filter(Boolean).join(' ')
-                : block.join('\n');
-          } else {
-            fields[key] = parseScalar(rawValue, {
-              errors,
-              filePath,
-              key,
-            });
-          }
-        }
-      }
+  for (const key of keys) {
+    if (!ALLOWED_FRONTMATTER_KEYS.has(key)) {
+      errors.push(`${filePath}: unsupported frontmatter key: ${key}`);
     }
   }
 
@@ -129,23 +75,25 @@ function readInvocationPolicy(policyPath, displayPath, errors) {
   if (!fs.existsSync(policyPath)) return true;
 
   const source = fs.readFileSync(policyPath, 'utf8');
-  const matches = [
-    ...source.matchAll(/^\s*allow_implicit_invocation:\s*(\S+)\s*$/gm),
-  ];
-  if (matches.length === 0) return true;
-  if (matches.length > 1) {
-    errors.push(`${displayPath}: duplicate allow_implicit_invocation policy`);
+  const config = parseYamlMapping(source, displayPath, errors);
+  if (!config) return true;
+
+  const policy = config.policy;
+  if (policy === undefined) return true;
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) {
+    errors.push(`${displayPath}: policy must be a mapping`);
     return true;
   }
 
-  const value = matches[0][1];
-  if (value !== 'true' && value !== 'false') {
+  const value = policy.allow_implicit_invocation;
+  if (value === undefined) return true;
+  if (typeof value !== 'boolean') {
     errors.push(
       `${displayPath}: allow_implicit_invocation must be true or false`,
     );
     return true;
   }
-  return value === 'true';
+  return value;
 }
 
 function collectMarkdownFiles(directory) {

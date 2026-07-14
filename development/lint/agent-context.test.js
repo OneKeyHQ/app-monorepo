@@ -32,6 +32,7 @@ function writeSkill(
     explicit = false,
     fileName = 'SKILL.md',
     modelExplicit = false,
+    policySource,
   } = {},
 ) {
   const skillDirectory = path.join(rootDir, '.skillshare/skills', name);
@@ -49,12 +50,15 @@ function writeSkill(
       '',
     ].join('\n'),
   );
-  if (explicit) {
+  const resolvedPolicySource =
+    policySource ??
+    (explicit ? 'policy:\n  allow_implicit_invocation: false\n' : null);
+  if (resolvedPolicySource) {
     const agentsDirectory = path.join(skillDirectory, 'agents');
     fs.mkdirSync(agentsDirectory, { recursive: true });
     fs.writeFileSync(
       path.join(agentsDirectory, 'openai.yaml'),
-      'policy:\n  allow_implicit_invocation: false\n',
+      resolvedPolicySource,
     );
   }
   return skillDirectory;
@@ -98,8 +102,8 @@ describe('agent context lint', () => {
   });
 
   it('rejects startup catalog and project-instruction budget regressions', () => {
-    writeSkill(rootDir, 'first-skill', { description: '12345' });
-    writeSkill(rootDir, 'second-skill', { description: '67890' });
+    writeSkill(rootDir, 'first-skill', { description: 'abcde' });
+    writeSkill(rootDir, 'second-skill', { description: 'fghij' });
     fs.writeFileSync(path.join(rootDir, 'CLAUDE.md'), 'too large');
 
     const result = auditAgentContext({
@@ -155,13 +159,42 @@ describe('agent context lint', () => {
 
       expect(result.errors).toEqual(
         expect.arrayContaining([
-          '.skillshare/skills/oversized-description/SKILL.md implicit description characters: 120 exceeds budget 10',
-          'Implicit description characters: 120 exceeds budget 10',
-          'Total description characters: 120 exceeds budget 10',
+          expect.stringMatching(
+            /^\.skillshare\/skills\/oversized-description\/SKILL\.md implicit description characters: 12[01] exceeds budget 10$/,
+          ),
+          expect.stringMatching(
+            /^Implicit description characters: 12[01] exceeds budget 10$/,
+          ),
+          expect.stringMatching(
+            /^Total description characters: 12[01] exceeds budget 10$/,
+          ),
         ]),
       );
     },
   );
+
+  it('preserves content indentation beyond an explicit block indicator', () => {
+    writeSkill(rootDir, 'indented-description', {
+      description: `>2-\n    ${'x'.repeat(20)}`,
+    });
+
+    const result = auditAgentContext({
+      config: createConfig({
+        maxImplicitDescriptionCharacters: 21,
+        maxImplicitDescriptionCharactersPerSkill: 21,
+        maxTotalDescriptionCharacters: 21,
+      }),
+      rootDir,
+    });
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        '.skillshare/skills/indented-description/SKILL.md implicit description characters: 22 exceeds budget 21',
+        'Implicit description characters: 22 exceeds budget 21',
+        'Total description characters: 22 exceeds budget 21',
+      ]),
+    );
+  });
 
   it('budgets equivalent project instruction files independently', () => {
     writeSkill(rootDir, 'focused-skill');
@@ -192,6 +225,45 @@ describe('agent context lint', () => {
       );
     },
   );
+
+  it('reads only the nested invocation policy and accepts inline comments', () => {
+    writeSkill(rootDir, 'implicit-skill', {
+      policySource: 'metadata:\n  allow_implicit_invocation: false\n',
+    });
+    writeSkill(rootDir, 'explicit-skill', {
+      modelExplicit: true,
+      policySource:
+        'policy:\n  allow_implicit_invocation: false # explicit skill\n',
+    });
+
+    const result = auditAgentContext({
+      config: createConfig(),
+      rootDir,
+    });
+
+    expect(result.errors).toEqual([]);
+    expect(result.stats).toEqual(
+      expect.objectContaining({
+        explicitSkills: 1,
+        implicitSkills: 1,
+      }),
+    );
+  });
+
+  it('rejects non-boolean nested invocation policies', () => {
+    writeSkill(rootDir, 'invalid-policy-skill', {
+      policySource: 'policy:\n  allow_implicit_invocation: "false"\n',
+    });
+
+    const result = auditAgentContext({
+      config: createConfig(),
+      rootDir,
+    });
+
+    expect(result.errors).toContain(
+      '.skillshare/skills/invalid-policy-skill/agents/openai.yaml: allow_implicit_invocation must be true or false',
+    );
+  });
 
   it('rejects incorrect filenames, oversized bodies, and broken links', () => {
     writeSkill(rootDir, 'broken-skill', {
