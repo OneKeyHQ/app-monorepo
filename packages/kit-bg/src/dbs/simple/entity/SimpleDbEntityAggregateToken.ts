@@ -221,43 +221,6 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
   }
 
   @backgroundMethod()
-  async updateLastActiveTabNameInTokenDetails({
-    accountId,
-    aggregateTokenId,
-    lastActiveTabName,
-  }: {
-    accountId: string;
-    aggregateTokenId: string;
-    lastActiveTabName: string;
-  }) {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      tokenDetails: {
-        ...rawData?.tokenDetails,
-        [accountId]: {
-          ...rawData?.tokenDetails?.[accountId],
-          [aggregateTokenId]: {
-            lastActiveTabName,
-          },
-        },
-      },
-    }));
-  }
-
-  @backgroundMethod()
-  async getLastActiveTabNameInTokenDetails({
-    accountId,
-    aggregateTokenId,
-  }: {
-    accountId: string;
-    aggregateTokenId: string;
-  }) {
-    return (await this.getRawData())?.tokenDetails?.[accountId]?.[
-      aggregateTokenId
-    ]?.lastActiveTabName;
-  }
-
-  @backgroundMethod()
   async clearLastActiveTabNameData() {
     await this.setRawData((rawData) => {
       return {

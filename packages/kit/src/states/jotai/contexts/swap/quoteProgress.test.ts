@@ -11,6 +11,7 @@ import {
   getSwapQuoteProgressState,
   hasSwapQuoteEventTotalCount,
   hasSwapZeroProviderQuoteEvent,
+  isSwapNoProviderSupportsTrade,
   isSwapQuoteEventFetching,
   isSwapQuoteFromCurrentEvent,
   isSwapQuoteInputAmountMatched,
@@ -216,6 +217,54 @@ describe('swap quote progress', () => {
         quoteEventCompleted: true,
       }),
     ).toBe(true);
+  });
+
+  it('reports no-provider-supports-trade for the current pair only (OK-57545)', () => {
+    // Zero-provider round completed for the current inputs.
+    expect(
+      isSwapNoProviderSupportsTrade({
+        zeroProviderQuoteCompleted: true,
+        quote: undefined,
+        quoteResultNoMatch: false,
+      }),
+    ).toBe(true);
+
+    // Selected quote carries no toAmount and no limit info.
+    expect(
+      isSwapNoProviderSupportsTrade({
+        zeroProviderQuoteCompleted: false,
+        quote: { toAmount: '' },
+        quoteResultNoMatch: false,
+      }),
+    ).toBe(true);
+
+    // A quote with a limit (e.g. min amount) is not a no-provider verdict.
+    expect(
+      isSwapNoProviderSupportsTrade({
+        zeroProviderQuoteCompleted: false,
+        quote: { toAmount: '', limit: { min: '1' } },
+        quoteResultNoMatch: false,
+      }),
+    ).toBe(false);
+
+    // An actionable quote is never a no-provider verdict.
+    expect(
+      isSwapNoProviderSupportsTrade({
+        zeroProviderQuoteCompleted: false,
+        quote: { toAmount: '10' },
+        quoteResultNoMatch: false,
+      }),
+    ).toBe(false);
+
+    // A stale quote that no longer matches the current inputs must not lock
+    // the action button out of its "Refresh quotes" recovery state.
+    expect(
+      isSwapNoProviderSupportsTrade({
+        zeroProviderQuoteCompleted: true,
+        quote: { toAmount: '' },
+        quoteResultNoMatch: true,
+      }),
+    ).toBe(false);
   });
 
   it('treats quotes as previous while a new event has not reported its id', () => {
