@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IFetchLimitOrderRes,
   ISwapToken,
@@ -44,20 +45,24 @@ function buildOrder({
 }
 
 describe('ServiceSwap.enrichLimitOrderTokenMetadata', () => {
-  it('uses Market detail metadata for an empty native contract address', async () => {
-    const fetchMarketTokenDetailByTokenAddress = jest.fn(async () => ({
-      code: 0,
-      data: {
-        token: {
+  it('uses one Market batch request for an empty native contract address', async () => {
+    const fetchMarketTokenListBatch = jest.fn(async () => ({
+      list: [
+        {
           logoUrl: 'https://market.example/native.png',
           name: 'Market Native',
           symbol: 'NATIVE',
         },
-      },
+        {
+          logoUrl: 'https://market.example/0x2.png',
+          name: 'Market Token',
+          symbol: 'MARKET',
+        },
+      ],
     }));
     const service = new ServiceSwap({
       backgroundApi: {
-        serviceMarketV2: { fetchMarketTokenDetailByTokenAddress },
+        serviceMarketV2: { fetchMarketTokenListBatch },
       },
     });
 
@@ -72,14 +77,20 @@ describe('ServiceSwap.enrichLimitOrderTokenMetadata', () => {
       }),
     ]);
 
-    expect(fetchMarketTokenDetailByTokenAddress).toHaveBeenCalledWith(
-      '',
-      'evm--1',
-      {
-        autoHandleError: false,
-        skipConvertCurrency: true,
-      },
-    );
+    expect(fetchMarketTokenListBatch).toHaveBeenCalledWith({
+      tokenAddressList: [
+        {
+          chainId: 'evm--1',
+          contractAddress: '',
+          isNative: true,
+        },
+        {
+          chainId: 'evm--1',
+          contractAddress: '0x2',
+          isNative: false,
+        },
+      ],
+    });
     expect(result.fromTokenInfo).toMatchObject({
       contractAddress: '',
       isNative: true,
@@ -89,32 +100,27 @@ describe('ServiceSwap.enrichLimitOrderTokenMetadata', () => {
     });
   });
 
-  it('deduplicates token lookups and caps network concurrency', async () => {
-    let activeRequests = 0;
-    let maxActiveRequests = 0;
-    const fetchMarketTokenDetailByTokenAddress = jest.fn(
-      async (contractAddress: string) => {
-        activeRequests += 1;
-        maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
-        await new Promise((resolve) => {
-          setTimeout(resolve, 5);
-        });
-        activeRequests -= 1;
-        return {
-          code: 0,
-          data: {
-            token: {
-              logoUrl: `https://market.example/${contractAddress}.png`,
-              name: contractAddress,
-              symbol: contractAddress,
-            },
-          },
-        };
-      },
+  it('deduplicates token identities into one batch request', async () => {
+    const fetchMarketTokenListBatch = jest.fn(
+      async ({
+        tokenAddressList,
+      }: {
+        tokenAddressList: {
+          chainId: string;
+          contractAddress: string;
+          isNative: boolean;
+        }[];
+      }) => ({
+        list: tokenAddressList.map(({ contractAddress }) => ({
+          logoUrl: `https://market.example/${contractAddress}.png`,
+          name: contractAddress,
+          symbol: contractAddress,
+        })),
+      }),
     );
     const service = new ServiceSwap({
       backgroundApi: {
-        serviceMarketV2: { fetchMarketTokenDetailByTokenAddress },
+        serviceMarketV2: { fetchMarketTokenListBatch },
       },
     });
     const repeatedToken = buildToken({ contractAddress: '0x1' });
@@ -133,7 +139,56 @@ describe('ServiceSwap.enrichLimitOrderTokenMetadata', () => {
 
     await service.enrichLimitOrderTokenMetadata(orders);
 
-    expect(fetchMarketTokenDetailByTokenAddress).toHaveBeenCalledTimes(7);
-    expect(maxActiveRequests).toBeLessThanOrEqual(5);
+    expect(fetchMarketTokenListBatch).toHaveBeenCalledTimes(1);
+    expect(
+      fetchMarketTokenListBatch.mock.calls[0][0].tokenAddressList,
+    ).toHaveLength(7);
+  });
+
+  it('keeps provider data when optional Market enrichment fails', async () => {
+    const fetchMarketTokenListBatch = jest.fn(async () => {
+      throw new OneKeyLocalError('Market unavailable');
+    });
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceMarketV2: { fetchMarketTokenListBatch },
+      },
+    });
+    const orders = [
+      buildOrder({
+        orderId: 'order-1',
+        fromTokenInfo: buildToken({ contractAddress: '0x1' }),
+        toTokenInfo: buildToken({ contractAddress: '0x2' }),
+      }),
+    ];
+
+    await expect(service.enrichLimitOrderTokenMetadata(orders)).resolves.toBe(
+      orders,
+    );
+  });
+
+  it('returns limit order status data without waiting for Market enrichment', async () => {
+    const fetchMarketTokenListBatch = jest.fn();
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceMarketV2: { fetchMarketTokenListBatch },
+      },
+    });
+    const orders = [
+      buildOrder({
+        orderId: 'order-1',
+        fromTokenInfo: buildToken({ contractAddress: '0x1' }),
+        toTokenInfo: buildToken({ contractAddress: '0x2' }),
+      }),
+    ];
+    const post = jest.fn(async () => ({ data: { data: orders } }));
+    service.getClient = jest.fn(async () => ({
+      post,
+    })) as unknown as typeof service.getClient;
+    const accounts = [{ userAddress: '0xuser', networkId: 'evm--1' }];
+
+    await expect(service.fetchLimitOrders(accounts)).resolves.toBe(orders);
+    expect(post).toHaveBeenCalledWith('/swap/v1/limit-orders', { accounts });
+    expect(fetchMarketTokenListBatch).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,13 @@
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapLimitOrderStatus,
+  type IFetchLimitOrderRes,
+  type ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
-import { mergeLimitOrderTokenDisplayMetadata } from './swapLimitOrderUtils';
+import {
+  mergeLimitOrderTokenDisplayMetadata,
+  mergeLimitOrderTokenDisplayMetadataIntoOrder,
+} from './swapLimitOrderUtils';
 
 const providerToken = {
   networkId: 'evm--1',
@@ -36,6 +43,80 @@ describe('mergeLimitOrderTokenDisplayMetadata', () => {
         providerToken,
         displayMetadata: null,
       }),
+    ).toBe(providerToken);
+  });
+
+  it('keeps the existing token reference when display fields are unchanged', () => {
+    expect(
+      mergeLimitOrderTokenDisplayMetadata({
+        providerToken,
+        displayMetadata: providerToken,
+      }),
+    ).toBe(providerToken);
+  });
+});
+
+describe('mergeLimitOrderTokenDisplayMetadataIntoOrder', () => {
+  it('merges display fields without overwriting current order state', () => {
+    const currentOrder = {
+      orderId: 'order-1',
+      status: ESwapLimitOrderStatus.FULFILLED,
+      executedBuyAmount: '200',
+      fromTokenInfo: providerToken,
+      toTokenInfo: {
+        ...providerToken,
+        contractAddress: '0x456',
+        symbol: 'TO',
+      },
+    } as IFetchLimitOrderRes;
+    const metadataOrder = {
+      ...currentOrder,
+      status: ESwapLimitOrderStatus.OPEN,
+      executedBuyAmount: '0',
+      fromTokenInfo: {
+        ...providerToken,
+        logoURI: 'https://onekey.example/token.png',
+        name: 'OneKey Token',
+        symbol: 'ONE',
+      },
+    };
+
+    expect(
+      mergeLimitOrderTokenDisplayMetadataIntoOrder({
+        currentOrder,
+        metadataOrder,
+      }),
+    ).toMatchObject({
+      status: ESwapLimitOrderStatus.FULFILLED,
+      executedBuyAmount: '200',
+      fromTokenInfo: {
+        logoURI: 'https://onekey.example/token.png',
+        name: 'OneKey Token',
+        symbol: 'ONE',
+      },
+    });
+  });
+
+  it('ignores stale metadata for a different token identity', () => {
+    const currentOrder = {
+      orderId: 'order-1',
+      fromTokenInfo: providerToken,
+      toTokenInfo: providerToken,
+    } as IFetchLimitOrderRes;
+    const metadataOrder = {
+      ...currentOrder,
+      fromTokenInfo: {
+        ...providerToken,
+        contractAddress: '0x999',
+        logoURI: 'https://onekey.example/stale.png',
+      },
+    };
+
+    expect(
+      mergeLimitOrderTokenDisplayMetadataIntoOrder({
+        currentOrder,
+        metadataOrder,
+      }).fromTokenInfo,
     ).toBe(providerToken);
   });
 });
