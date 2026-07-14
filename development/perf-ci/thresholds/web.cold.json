@@ -23,6 +23,10 @@
       "react-hook-form",
       "localforage",
       "WebStorageLegacy",
+      "packages/kit/src/views/Onboardingv2/pages/",
+      "packages/kit/src/views/Onboardingv2/router/",
+      "packages/kit/src/views/Onboardingv2/components/Layout",
+      "packages/kit/src/views/Onboardingv2/components/OnboardingLayout",
       "translations.ts"
     ]
   },

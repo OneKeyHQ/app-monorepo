@@ -37,6 +37,9 @@ const {
 const { createStaticImportChainReport } = require(
   path.join(repoRoot, 'development/perf-ci/lib/importChain'),
 );
+const { findForbiddenModules, getMissingSourceMaps, getModuleRows } = require(
+  path.join(repoRoot, 'development/perf-ci/lib/sourceMapSourceGuard'),
+);
 
 const DEFAULT_BUDGETS = {
   moduleCount: 3500,
@@ -152,33 +155,6 @@ function walkFiles(dir) {
   });
 }
 
-function normalizeSource(source) {
-  return source
-    .replace(/^webpack:\/\/[^/]+\//, '')
-    .replace(/^webpack:\/\//, '')
-    .replace(/^(\.\.\/)+/, '')
-    .replace(/^\.\//, '');
-}
-
-function categorizeModule(source) {
-  if (source.includes('node_modules/')) return 'node_modules';
-  if (source.includes('packages/components/')) return 'components';
-  if (source.includes('packages/kit-bg/')) return 'kit-bg';
-  if (source.includes('packages/kit/')) return 'kit';
-  if (source.includes('packages/shared/')) return 'shared';
-  if (source.includes('apps/web/')) return 'apps/web';
-  return 'other';
-}
-
-function getPackageName(source) {
-  const marker = 'node_modules/';
-  const index = source.indexOf(marker);
-  if (index < 0) return null;
-  const parts = source.slice(index + marker.length).split('/');
-  if (!parts[0]) return null;
-  return parts[0].startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
-}
-
 function getFileSizeRows(files) {
   return files.map((file) => {
     const filePath = path.join(buildDir, file);
@@ -190,40 +166,6 @@ function getFileSizeRows(files) {
       brotliBytes: zlib.brotliCompressSync(buffer).length,
     };
   });
-}
-
-function getModuleRows(scriptFiles) {
-  const modules = new Map();
-  for (const file of scriptFiles) {
-    const mapPath = path.join(buildDir, `${file}.map`);
-    if (fs.existsSync(mapPath)) {
-      const map = JSON.parse(fs.readFileSync(mapPath, 'utf8'));
-      const sources = map.sources || [];
-      const contents = map.sourcesContent || [];
-      for (let index = 0; index < sources.length; index += 1) {
-        const source = normalizeSource(sources[index]);
-        const bytes = Buffer.byteLength(contents[index] || '');
-        const existing = modules.get(source);
-        if (existing) {
-          existing.bytes = Math.max(existing.bytes, bytes);
-          existing.files.add(file);
-        } else {
-          modules.set(source, {
-            source,
-            bytes,
-            category: categorizeModule(source),
-            packageName: getPackageName(source),
-            files: new Set([file]),
-          });
-        }
-      }
-    }
-  }
-
-  return [...modules.values()].map((module) => ({
-    ...module,
-    files: [...module.files],
-  }));
 }
 
 function sum(rows, key) {
@@ -279,11 +221,15 @@ function main() {
   const initialScriptFiles = getInitialScriptFiles(html).filter((file) =>
     fs.existsSync(path.join(buildDir, file)),
   );
-  const missingSourceMaps = initialScriptFiles.filter(
-    (file) => !fs.existsSync(path.join(buildDir, `${file}.map`)),
-  );
+  const missingSourceMaps = getMissingSourceMaps({
+    buildDir,
+    scriptFiles: initialScriptFiles,
+  });
   const initialScripts = getFileSizeRows(initialScriptFiles);
-  const moduleRows = getModuleRows(initialScriptFiles);
+  const moduleRows = getModuleRows({
+    buildDir,
+    scriptFiles: initialScriptFiles,
+  });
   const allScriptFiles = walkFiles(buildDir).filter(
     (file) => /\.m?js$/.test(file) && !file.endsWith('.map'),
   );
@@ -307,9 +253,10 @@ function main() {
   };
 
   const packageBytes = groupBytes(moduleRows, 'packageName');
-  const forbiddenModulesFound = moduleRows.filter((row) =>
-    forbiddenSources.some((pattern) => row.source.includes(pattern)),
-  );
+  const forbiddenModulesFound = findForbiddenModules({
+    moduleRows,
+    forbiddenSources,
+  });
 
   const budgetChecks = [
     makeBudgetCheck('moduleCount', summary.moduleCount, budgets.moduleCount),

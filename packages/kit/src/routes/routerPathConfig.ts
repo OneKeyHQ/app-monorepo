@@ -8,10 +8,9 @@ import {
   EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
   EModalStakingRoutes,
-  EOnboardingPagesV2,
-  EOnboardingV2Routes,
   ETestModalPages,
   EWebViewRoutes,
+  onboardingV2RouteConfig,
 } from '@onekeyhq/shared/src/routes';
 import {
   EActionCenterPages,
@@ -22,7 +21,7 @@ export interface IRoutePathConfig {
   name: string;
   rewrite?: string;
   exact?: boolean;
-  children?: IRoutePathConfig[];
+  children?: readonly IRoutePathConfig[];
 }
 
 const route = ({
@@ -96,21 +95,6 @@ const signatureConfirmPathConfig = [
   route({ name: EModalSignatureConfirmRoutes.LnurlWithdraw }),
   route({ name: EModalSignatureConfirmRoutes.LnurlAuth }),
   route({ name: EModalSignatureConfirmRoutes.WeblnSendPayment }),
-];
-
-const onboardingV2PagePathConfig = [
-  route({
-    name: EOnboardingPagesV2.GetStarted,
-    rewrite: '/get-started',
-  }),
-  route({
-    name: EOnboardingPagesV2.CreateNewWallet,
-    rewrite: '/create-new-wallet',
-  }),
-  route({
-    name: EOnboardingPagesV2.CreateOrImportWallet,
-    rewrite: '/create-or-import-wallet',
-  }),
 ];
 
 const modalRouteNames = Object.values(EModalRoutes).filter(
@@ -191,10 +175,17 @@ export const fullScreenPushRouterPathConfig: IRoutePathConfig[] = [
 
 export const onboardingRouterV2PathConfig: IRoutePathConfig[] = [
   route({
-    name: EOnboardingV2Routes.OnboardingV2,
-    rewrite: '/onboarding',
-    exact: true,
-    children: onboardingV2PagePathConfig,
+    name: onboardingV2RouteConfig.name,
+    rewrite: onboardingV2RouteConfig.rewrite,
+    exact: onboardingV2RouteConfig.exact,
+    children: onboardingV2RouteConfig.children
+      .filter((screen) => screen.coldStart === 'public')
+      .map((screen) =>
+        route({
+          name: screen.name,
+          rewrite: screen.rewrite,
+        }),
+      ),
   }),
 ];
 
