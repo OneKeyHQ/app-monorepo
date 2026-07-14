@@ -505,32 +505,27 @@ class ServiceAppUpdate extends ServiceBase {
     return this.cachedUpdateInfo;
   }
 
-  // Ops-only Featured Changelog preview. Fetches the changelog configured for
+  // Ops-only Featured Changelog preview. Looks up the changelog configured for
   // EXACTLY the requested version via the read-only preview endpoint
   // (/featured-changelog-preview), which bypasses the release-selection
-  // pipeline server-side — the production response only attaches
+  // pipeline server-side — the production /app-update response only attaches
   // featuredChangelog to the release the pipeline currently selects, so any
-  // other version would be unreachable. Also fires the real app-update
-  // request (with the version header overridden) purely as an ONLINE
-  // COMPARISON signal: `onlineVersion` tells the operator which release the
-  // pipeline would actually deliver right now, exposing config mismatches.
-  // Writes NOTHING — no this.cachedUpdateInfo, no this.updateAt, no
-  // appUpdatePersistAtom — so the preview has zero side effects on the real
-  // update flow.
+  // other version would be unreachable.
+  //
+  // Deliberately does NOT call the real /app-update: that path performs a
+  // grayscale `$inc` (server-side write to shared release state) when the
+  // selected release is under grayscale rollout, which would violate the
+  // preview's zero-side-effect guarantee. The preview endpoint is a pure read.
+  //
+  // Writes NOTHING client-side either — no this.cachedUpdateInfo, no
+  // this.updateAt, no appUpdatePersistAtom.
   //
   // Runtime scope: bg-JS. The returned plain object crosses the
-  // backgroundApiProxy boundary back to main-JS (JSON-safe: strings/enums/
-  // nested plain objects only).
+  // backgroundApiProxy boundary back to main-JS (JSON-safe).
   @backgroundMethod()
   public async previewFeaturedChangelog(params: { version: string }): Promise<{
     version: string | undefined;
     featuredChangelog: IFeaturedChangelog | undefined;
-    onlineVersion: string | undefined;
-    onlineHasFeatured: boolean;
-    storeUrl: string | undefined;
-    downloadUrl: string | undefined;
-    updateStrategy: EUpdateStrategy | undefined;
-    jsBundleVersion: string | undefined;
   }> {
     const version = params.version?.trim();
     if (!version) {
@@ -539,63 +534,27 @@ class ServiceAppUpdate extends ServiceBase {
       );
     }
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-
-    // Primary: direct lookup of the requested version's featured changelog.
-    const previewPromise = client.get<{
+    const response = await client.get<{
       code: number;
       data: { version?: string; featuredChangelog?: unknown };
     }>('/utility/v1/app-update/featured-changelog-preview', {
       params: { version },
     });
 
-    // Secondary (best-effort): the real pipeline response, only to report
-    // which release is actually being delivered right now. The version header
-    // override survives via the interceptor carve-out
-    // ('x-onekey-request-version', lowercase — must match).
-    const onlinePromise = client
-      .get<{
-        code: number;
-        data: IResponseAppUpdateInfo;
-      }>('/utility/v1/app-update', {
-        headers: { 'x-onekey-request-version': version },
-      })
-      .catch(() => undefined);
-
-    const [previewRes, onlineRes] = await Promise.all([
-      previewPromise,
-      onlinePromise,
-    ]);
-
-    const { code, data } = previewRes.data;
-    const previewVersion =
-      code === 0 ? normalizeOptionalString(data?.version) : undefined;
-
-    const onlineData =
-      onlineRes && onlineRes.data.code === 0 ? onlineRes.data.data : undefined;
-    const onlineVersion = normalizeOptionalString(onlineData?.version);
-    const normalizedUpdateStrategy =
-      onlineData?.updateStrategy === undefined ||
-      onlineData?.updateStrategy === null ||
-      (onlineData?.updateStrategy as unknown) === ''
-        ? undefined
-        : Number(onlineData.updateStrategy);
-
+    const { code, data } = response.data;
+    if (code !== 0) {
+      return { version: undefined, featuredChangelog: undefined };
+    }
+    // Use the version the server echoed as the expected-version guard for
+    // normalizeFeaturedChangelog (same as the production path) so operator
+    // input formatting never nukes an otherwise-valid payload.
+    const responseVersion = normalizeOptionalString(data?.version);
     return {
-      version: previewVersion,
-      // Same validation as the production path; expectedVersion is the echo
-      // from the preview endpoint so operator input formatting never nukes a
-      // valid payload.
-      featuredChangelog:
-        code === 0
-          ? normalizeFeaturedChangelog(data?.featuredChangelog, previewVersion)
-          : undefined,
-      onlineVersion,
-      onlineHasFeatured: !!onlineData?.featuredChangelog,
-      storeUrl: normalizeOptionalString(onlineData?.storeUrl),
-      downloadUrl: normalizeOptionalString(onlineData?.downloadUrl),
-      updateStrategy: (normalizedUpdateStrategy ??
-        onlineData?.updateStrategy) as EUpdateStrategy | undefined,
-      jsBundleVersion: normalizeOptionalString(onlineData?.jsBundleVersion),
+      version: responseVersion,
+      featuredChangelog: normalizeFeaturedChangelog(
+        data?.featuredChangelog,
+        responseVersion,
+      ),
     };
   }
 

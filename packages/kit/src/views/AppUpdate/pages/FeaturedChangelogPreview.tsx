@@ -59,33 +59,20 @@ function FeaturedChangelogPreview({
           await backgroundApiProxy.serviceAppUpdate.previewFeaturedChangelog({
             version: target,
           });
-        // Online-pipeline comparison: which release production would deliver
-        // right now, and whether that release carries a featured changelog.
-        const onlineNote = res.onlineVersion
-          ? ` Online pipeline currently delivers ${res.onlineVersion}${
-              res.onlineHasFeatured ? ' (with featured)' : ' (no featured)'
-            }.`
-          : '';
         if (!res.featuredChangelog) {
           setPreview(undefined);
-          setEcho(
-            `No featured changelog configured for version ${target}.${onlineNote}`,
-          );
+          setEcho(`No featured changelog configured for version ${target}.`);
           return undefined;
         }
         const data: IFeaturedChangelogPreviewData = {
           featuredChangelog: res.featuredChangelog,
-          updateStrategy: res.updateStrategy,
           latestVersion: res.version,
-          jsBundleVersion: res.jsBundleVersion,
-          storeUrl: res.storeUrl,
-          downloadUrl: res.downloadUrl,
         };
         setPreview(data);
         setEcho(
           `Matched · version ${res.version ?? target} · ${
             res.featuredChangelog.features.length
-          } feature(s).${onlineNote}`,
+          } feature(s).`,
         );
         return data;
       } catch (e) {
@@ -146,7 +133,13 @@ function FeaturedChangelogPreview({
               testID={AppUpdateTestIDs.previewVersionInput}
               placeholder="e.g. 6.5.0"
               value={version}
-              onChangeText={setVersion}
+              onChangeText={(text) => {
+                setVersion(text);
+                // Invalidate the cached fetch so a preview button can never
+                // render a previously-fetched version after the input changed.
+                setPreview(undefined);
+                setEcho('');
+              }}
             />
             <Button
               testID={AppUpdateTestIDs.previewFetchBtn}

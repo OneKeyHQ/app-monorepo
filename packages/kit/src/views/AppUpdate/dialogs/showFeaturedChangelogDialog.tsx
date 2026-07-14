@@ -27,7 +27,6 @@ import {
   isAllowedFeaturedHref,
 } from '@onekeyhq/shared/src/appUpdate';
 import type {
-  EUpdateStrategy,
   IFeaturedChangelog,
   IFeaturedItem,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -45,21 +44,19 @@ import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
 import { FeaturedFooter } from '../components/FeaturedFooter';
 
-// Injected payload for the ops-only Featured Changelog preview page. A subset
-// of IAppUpdateInfo: `featuredChangelog` drives the carousel in both modes; the
-// update fields only feed the pre-install CTA label. When present, the dialog
-// renders ENTIRELY from this object (never appUpdatePersistAtom) and every
-// production side effect is neutralized — download, store open, DownloadVerify,
-// force-lock, and the onClose refetch — EXCEPT the already-upgraded CTA's
-// configured jump, which stays live because verifying that target is the whole
-// point of the preview.
+// Injected payload for the ops-only Featured Changelog preview page.
+// `featuredChangelog` drives the carousel in both modes; `latestVersion` is the
+// target version (feeds only the inert pre-install CTA label). Deliberately
+// carries NO storeUrl/downloadUrl/updateStrategy — those would come from a
+// different (online) version and must never mix into the previewed version. When
+// present, the dialog renders ENTIRELY from this object (never
+// appUpdatePersistAtom) and every production side effect is neutralized —
+// download, store open, DownloadVerify, force-lock, and the onClose refetch —
+// EXCEPT the already-upgraded CTA's configured jump, which stays live because
+// verifying that target is the whole point of the preview.
 export interface IFeaturedChangelogPreviewData {
   featuredChangelog: IFeaturedChangelog;
-  updateStrategy?: EUpdateStrategy;
   latestVersion?: string;
-  jsBundleVersion?: string;
-  storeUrl?: string;
-  downloadUrl?: string;
 }
 
 export interface IShowFeaturedChangelogDialogParams {
@@ -115,19 +112,17 @@ function useFeaturedCta({
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const { downloadPackage } = useDownloadPackage();
 
-  // In preview mode source the update fields from the injected payload so the
-  // pre-install CTA label reflects the target version's real server data,
-  // while never reading the persisted atom.
-  const storeUrl = preview ? preview.storeUrl : appUpdateInfo.storeUrl;
-  const downloadUrl = preview ? preview.downloadUrl : appUpdateInfo.downloadUrl;
+  // In preview mode the CTA is inert (see onCtaPress), so the real update
+  // fields are intentionally absent — only `latestVersion` (the target) feeds
+  // the label. Never read the persisted atom while previewing.
+  const storeUrl = preview ? undefined : appUpdateInfo.storeUrl;
+  const downloadUrl = preview ? undefined : appUpdateInfo.downloadUrl;
   const jsBundle = preview ? undefined : appUpdateInfo.jsBundle;
   const status = preview ? undefined : appUpdateInfo.status;
   const latestVersion = preview
     ? preview.latestVersion
     : appUpdateInfo.latestVersion;
-  const jsBundleVersion = preview
-    ? preview.jsBundleVersion
-    : appUpdateInfo.jsBundleVersion;
+  const jsBundleVersion = preview ? undefined : appUpdateInfo.jsBundleVersion;
 
   const updateFileType = useMemo(
     () =>
