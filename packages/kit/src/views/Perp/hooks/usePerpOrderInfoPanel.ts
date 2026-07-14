@@ -12,8 +12,12 @@ import {
   PERPS_HISTORY_FILLS_URL,
   PERPS_TWAP_HISTORY_URL,
 } from '@onekeyhq/shared/src/consts/perp';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInApp,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -110,7 +114,14 @@ function usePerpViewAllUrl(baseUrl: string) {
   const [currentAccount] = usePerpsActiveAccountAtom();
   const onViewAllUrl = useCallback(() => {
     if (currentAccount?.accountAddress) {
-      openUrlExternal(`${baseUrl}${currentAccount.accountAddress}`);
+      const url = `${baseUrl}${currentAccount.accountAddress}`;
+      // Native: in-app browser; desktop/web keep the original WebView
+      // modal / new-tab behavior.
+      if (platformEnv.isNative) {
+        openUrlExternal(url);
+      } else {
+        openUrlInApp(url);
+      }
     }
   }, [baseUrl, currentAccount?.accountAddress]);
   return {

@@ -138,9 +138,12 @@ const STORE_HOSTS = new Set([
 ]);
 const SOCIAL_APP_HOSTS = new Set([
   'twitter.com',
+  'mobile.twitter.com',
   'x.com',
   't.me',
+  'telegram.me',
   'discord.com',
+  'discordapp.com',
   'discord.gg',
 ]);
 
@@ -215,6 +218,7 @@ export const openUrlExternal = (
   openUrlInAppBrowserNative(trimmedUrl).catch(() => {
     // e.g. Android NoMatchingActivityException when no installed browser
     // supports Custom Tabs — fall back to the system browser.
+    trackOpenUrl(parsedUrl, 'system');
     void linkingOpenURL(trimmedUrl);
   });
 };

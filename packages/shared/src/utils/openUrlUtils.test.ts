@@ -1,6 +1,7 @@
 import { openURL } from 'expo-linking';
 import { dismissBrowser, openBrowserAsync } from 'expo-web-browser';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -139,10 +140,13 @@ describe('openUrlExternal (native)', () => {
     'https://play.google.com/store/apps/details?id=so.onekey.app.wallet',
     'https://www.play.google.com/store/apps/details?id=so.onekey.app.wallet',
     'https://twitter.com/OneKeyHQ',
+    'https://mobile.twitter.com/OneKeyHQ',
     'https://x.com/OneKeyHQ',
     'https://WWW.X.COM/OneKeyHQ',
     'https://t.me/OneKeyHQ',
+    'https://telegram.me/OneKeyHQ',
     'https://discord.com/invite/onekey',
+    'https://discordapp.com/invite/onekey',
     'https://Discord.gg/onekey',
   ])('store/social host goes to the OS: %s', async (url) => {
     openUrlExternal(url);
@@ -160,6 +164,31 @@ describe('openUrlExternal (native)', () => {
     await flushPromises();
     expect(mockOpenBrowserAsync).toHaveBeenCalledTimes(1);
     expect(mockOpenURL).toHaveBeenCalledWith('https://onekey.so');
+  });
+
+  test('the fallback reports the real open method to analytics', async () => {
+    const openExternalUrlLog = jest.fn();
+    appGlobals.$defaultLogger = {
+      app: { page: { openExternalUrl: openExternalUrlLog } },
+    } as unknown as typeof appGlobals.$defaultLogger;
+    try {
+      mockOpenBrowserAsync.mockRejectedValueOnce(
+        new Error('No matching browser activity'),
+      );
+      openUrlExternal('https://onekey.so');
+      await flushPromises();
+      await flushPromises();
+      expect(openExternalUrlLog).toHaveBeenCalledWith({
+        host: 'onekey.so',
+        method: 'inApp',
+      });
+      expect(openExternalUrlLog).toHaveBeenCalledWith({
+        host: 'onekey.so',
+        method: 'system',
+      });
+    } finally {
+      appGlobals.$defaultLogger = undefined;
+    }
   });
 
   test('a locked result (already presenting) does not trigger the fallback', async () => {
