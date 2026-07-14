@@ -9,7 +9,7 @@
 import { AppError, ERROR_CODES } from '../../errors';
 
 import type { PassphraseMode } from '../../core/auth/auth-types';
-import type { CoreApi, GetPassphraseStatePayload } from '@onekeyfe/hd-core';
+import type { CoreApi } from '@onekeyfe/hd-core';
 
 export type IResolvedPassphraseSession = {
   passphraseState?: string;
@@ -17,16 +17,15 @@ export type IResolvedPassphraseSession = {
 };
 
 export function extractPassphraseSessionFromPayload(
-  payload: GetPassphraseStatePayload | undefined,
+  payload: string | undefined,
 ): IResolvedPassphraseSession {
   return {
-    passphraseState: payload?.passphraseState || undefined,
-    sessionId: payload?.sessionId || undefined,
+    passphraseState: payload || undefined,
   };
 }
 
 export function extractPassphraseStateFromPayload(
-  payload: GetPassphraseStatePayload | undefined,
+  payload: string | undefined,
 ): string | undefined {
   return extractPassphraseSessionFromPayload(payload).passphraseState;
 }
@@ -370,8 +369,8 @@ export async function searchDevice(opts?: { deviceIdHint?: string }): Promise<{
  * Matches the app-monorepo pattern (ServiceHardware.getPassphraseStateBase):
  * - Calls sdk.getPassphraseState with initSession=true so the device
  *   prompts for passphrase entry (host input or on-device input).
- * - Returns passphraseState for subsequent SDK calls and sessionId for
- *   SDK session cache/keychain reuse.
+ * - Returns passphraseState for subsequent SDK calls. Session reuse is now
+ *   maintained inside the SDK and is no longer exposed by this method.
  * - Returns an empty object for standard wallets (no passphrase).
  */
 export async function resolvePassphraseSession(
@@ -445,8 +444,8 @@ export async function resolvePassphraseState(
  *   provider tells device to show passphrase input on its screen.
  *
  * SECURITY: passphrase exists only in memory during provider callback.
- * passphraseState/sessionId are returned in memory; persistence is handled
- * by the caller only after the downstream operation succeeds.
+ * passphraseState is returned in memory; persistence is handled by the caller
+ * only after the downstream operation succeeds.
  */
 export async function resolvePassphraseSessionByMode(
   connectId: string,
