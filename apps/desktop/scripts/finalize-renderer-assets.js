@@ -2,6 +2,8 @@ const path = require('path');
 
 const fs = require('fs-extra');
 
+const { stripProductionArtifacts } = require('./finalize-production-assets');
+
 const root = path.join(__dirname, '..');
 const webBuildDir = path.join(root, 'web-build');
 const appBuildDir = path.join(root, 'app', 'build');
@@ -32,6 +34,8 @@ async function postBuild() {
     } else {
       console.log(`Info: No ${publicStaticDir} found to copy.`);
     }
+
+    stripProductionArtifacts(appBuildDir, 'Desktop packaged renderer assets');
 
     console.log('Post-renderer build steps completed successfully.');
   } catch (err) {

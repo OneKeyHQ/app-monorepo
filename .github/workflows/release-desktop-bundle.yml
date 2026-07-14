@@ -258,17 +258,9 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
-      - name: Cleanup Desktop Bundle Sourcemaps and License Files
+      - name: Finalize Desktop Bundle Production Assets
         if: always()
-        run: |
-          if [ ! -d ./apps/desktop/web-build ]; then
-            echo "Desktop web-build directory does not exist - skipping sourcemap cleanup."
-            exit 0
-          fi
-          find ./apps/desktop/web-build -name '*.LICENSE.txt' -type f -exec rm -f {} +
-          find ./apps/desktop/web-build \
-            -type f \( -name '*.js.map' -o -name '*.css.map' \) \
-            -exec rm -f {} +
+        run: node ./apps/desktop/scripts/finalize-production-assets.js --strip-only
 
       - name: bundle folder
         run: |
