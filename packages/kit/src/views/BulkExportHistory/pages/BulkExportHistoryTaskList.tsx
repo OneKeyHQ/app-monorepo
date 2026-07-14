@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,14 +12,20 @@ import {
   Stack,
   Toast,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorTriggerBase } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerBase';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IExportTransactionHistoryTask } from '@onekeyhq/shared/types/history';
 
 import {
@@ -45,6 +51,47 @@ function TaskListSkeleton() {
       ))}
     </Stack>
   );
+}
+
+// Resolve the addresses an indexed account owns on the given network so tasks
+// (which only store addresses, with xpubs already expanded by the server) can
+// be matched back to accounts.
+async function resolveAccountAddressesOnNetwork({
+  networkId,
+  indexedAccountId,
+}: {
+  networkId: string;
+  indexedAccountId: string;
+}): Promise<string[]> {
+  const vaultSettings =
+    await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId,
+    });
+
+  if (vaultSettings.mergeDeriveAssetsEnabled) {
+    const { networkAccounts } =
+      await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+        {
+          networkId,
+          indexedAccountId,
+          excludeEmptyAccount: true,
+        },
+      );
+    return networkAccounts.map((item) => item.account?.address).filter(Boolean);
+  }
+
+  const deriveType =
+    await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+      networkId,
+    });
+  const { accounts } =
+    await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+      indexedAccountIds: [indexedAccountId],
+      networkId,
+      deriveType,
+    });
+  const address = accounts[0]?.address;
+  return address ? [address] : [];
 }
 
 function ExportTaskListItem({ task }: { task: IExportTransactionHistoryTask }) {
@@ -184,8 +231,31 @@ function ExportTaskListItem({ task }: { task: IExportTransactionHistoryTask }) {
   );
 }
 
-function BulkExportHistoryTaskList() {
+function BulkExportHistoryTaskListContent({
+  selectorSceneUrl,
+}: {
+  selectorSceneUrl: string;
+}) {
   const intl = useIntl();
+  const media = useMedia();
+  const actions = useAccountSelectorActions();
+
+  // Default the account filter to the account selected on the export form
+  // page (which itself mirrors the home scene).
+  useEffect(() => {
+    void actions.current.syncFromScene({
+      from: {
+        sceneName: EAccountSelectorSceneName.bulkExportHistory,
+        sceneUrl: '',
+        sceneNum: 0,
+      },
+      num: 0,
+    });
+  }, [actions]);
+
+  const {
+    activeAccount: { account, indexedAccount },
+  } = useActiveAccount({ num: 0 });
 
   const { result, isLoading, run } = usePromiseResult(
     async () =>
@@ -199,6 +269,79 @@ function BulkExportHistoryTaskList() {
       [...(result?.list ?? [])].toSorted((a, b) => b.createdAt - a.createdAt),
     [result],
   );
+
+  // Tasks only store per-network addresses, so filter by intersecting them
+  // with the addresses owned by the selected account.
+  const { result: filteredTaskIds } = usePromiseResult(
+    async () => {
+      if (!tasks.length) {
+        return [];
+      }
+
+      const indexedAccountId = indexedAccount?.id;
+      const othersAccountAddress = indexedAccountId
+        ? undefined
+        : account?.address;
+
+      // No account selected: show all tasks.
+      if (!indexedAccountId && !othersAccountAddress) {
+        return tasks.map((task) => task.id);
+      }
+
+      const networkIds = Array.from(
+        new Set(
+          tasks.flatMap((task) =>
+            Object.keys(task.query?.networkIdToAddressArray ?? {}),
+          ),
+        ),
+      );
+
+      // Lowercased matching keeps hex (EVM-like) addresses case-insensitive;
+      // base58 case collisions are practically impossible here.
+      const accountAddressSetMap: Record<string, Set<string>> = {};
+      await Promise.all(
+        networkIds.map(async (networkId) => {
+          let addresses: string[] = [];
+          if (indexedAccountId) {
+            try {
+              addresses = await resolveAccountAddressesOnNetwork({
+                networkId,
+                indexedAccountId,
+              });
+            } catch {
+              addresses = [];
+            }
+          } else if (othersAccountAddress) {
+            addresses = [othersAccountAddress];
+          }
+          accountAddressSetMap[networkId] = new Set(
+            addresses.map((address) => address.toLowerCase()),
+          );
+        }),
+      );
+
+      return tasks
+        .filter((task) =>
+          Object.entries(task.query?.networkIdToAddressArray ?? {}).some(
+            ([networkId, taskAddresses]) =>
+              (taskAddresses ?? []).some((address) =>
+                accountAddressSetMap[networkId]?.has(address.toLowerCase()),
+              ),
+          ),
+        )
+        .map((task) => task.id);
+    },
+    [tasks, indexedAccount?.id, account?.address],
+    { checkIsFocused: false },
+  );
+
+  const displayTasks = useMemo(() => {
+    if (!filteredTaskIds) {
+      return tasks;
+    }
+    const filteredTaskIdSet = new Set(filteredTaskIds);
+    return tasks.filter((task) => filteredTaskIdSet.has(task.id));
+  }, [tasks, filteredTaskIds]);
 
   const hasInProgressTask = useMemo(
     () =>
@@ -219,9 +362,33 @@ function BulkExportHistoryTaskList() {
     return () => clearInterval(timer);
   }, [hasInProgressTask, run]);
 
+  const renderHeaderRight = useCallback(
+    () => (
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.bulkExportHistory,
+          sceneUrl: selectorSceneUrl,
+        }}
+        enabledNum={[0]}
+      >
+        <AccountSelectorTriggerBase
+          horizontalLayout
+          autoWidthForHome
+          num={0}
+          showWalletName={media.gtMd}
+        />
+      </AccountSelectorProviderMirror>
+    ),
+    [media.gtMd, selectorSceneUrl],
+  );
+
   return (
     <Page>
-      <Page.Header title="Export history" />
+      <Page.Header
+        title="Export history"
+        headerRight={renderHeaderRight}
+        headerRightNoGlass
+      />
       <Page.Body>
         <PageFrame
           LoadingSkeleton={TaskListSkeleton}
@@ -230,7 +397,7 @@ function BulkExportHistoryTaskList() {
           onRefresh={run}
         >
           <ListView
-            data={tasks}
+            data={displayTasks}
             estimatedItemSize="$16"
             keyExtractor={(item) => String(item.id)}
             renderItem={({ item }) => <ExportTaskListItem task={item} />}
@@ -244,6 +411,26 @@ function BulkExportHistoryTaskList() {
         </PageFrame>
       </Page.Body>
     </Page>
+  );
+}
+
+function BulkExportHistoryTaskList() {
+  // A unique scene url isolates this page's selector state from the export
+  // form page, so changing the filter here never mutates the form selection.
+  const selectorSceneUrlRef = useRef<string | undefined>(undefined);
+  selectorSceneUrlRef.current ??= `bulk-export-history-task-list-${Date.now()}-${Math.random()}`;
+  const selectorSceneUrl = selectorSceneUrlRef.current;
+
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.bulkExportHistory,
+        sceneUrl: selectorSceneUrl,
+      }}
+      enabledNum={[0]}
+    >
+      <BulkExportHistoryTaskListContent selectorSceneUrl={selectorSceneUrl} />
+    </AccountSelectorProviderMirror>
   );
 }
 
