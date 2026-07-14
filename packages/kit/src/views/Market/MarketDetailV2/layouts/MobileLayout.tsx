@@ -501,7 +501,7 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
             excludeBottomEdgeHeight={
               TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
             }
-            scrollScale={1}
+            scrollScale={1.2}
             onHorizontalSwipe={chartAreaHorizontalSwipeHandler}
             horizontalSwipeThreshold={24}
             horizontalSwipeVelocityThreshold={900}

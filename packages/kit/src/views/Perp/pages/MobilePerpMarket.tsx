@@ -183,7 +183,7 @@ function MobilePerpCandlesHeader({
         panActiveOffsetY={[-4, 4]}
         panFailOffsetX={[-40, 40]}
         excludeRightEdgeRatio={0.1}
-        scrollScale={1}
+        scrollScale={1.2}
         disableMomentum
         simultaneousWithNativeGesture
         cancelChildTouches={false}
