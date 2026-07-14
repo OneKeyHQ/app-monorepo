@@ -238,11 +238,11 @@ export function usePendleTransactionDetails({
         (routeItem) =>
           !!routeItem?.token?.symbol && !!routeItem?.token?.logoURI,
       ) ?? [];
-    const resolveTooltipText = (tooltip?: IEarnTooltip) => {
+    const resolveTooltipDescription = (tooltip?: IEarnTooltip) => {
       if (tooltip?.type !== 'text') {
         return undefined;
       }
-      return tooltip.data?.description?.text;
+      return tooltip.data?.description;
     };
 
     detailItems.forEach((detailItem, index) => {
@@ -250,6 +250,7 @@ export function usePendleTransactionDetails({
         detailItem.tooltip &&
         (detailItem.tooltip.type !== 'text' ||
           detailItem.tooltip.data?.items?.length);
+      const tooltipDescription = resolveTooltipDescription(detailItem.tooltip);
       const popupButton =
         detailItem.button?.type === 'popup' ? detailItem.button : undefined;
 
@@ -272,7 +273,15 @@ export function usePendleTransactionDetails({
             <CalculationListItem.Label
               size={detailItem.title.size || '$bodyMd'}
               color={detailItem.title.color}
-              tooltip={resolveTooltipText(detailItem.tooltip)}
+              tooltip={tooltipDescription?.text}
+              tooltipTextProps={
+                tooltipDescription
+                  ? {
+                      size: tooltipDescription.size,
+                      color: tooltipDescription.color,
+                    }
+                  : undefined
+              }
             >
               {detailItem.title.text}
             </CalculationListItem.Label>

@@ -289,14 +289,55 @@ function ProtocolSwitcher({
   protocolSwitchConfig: IManagePositionProtocolSwitchConfig;
 }) {
   const intl = useIntl();
-  const isSwitchEnabled = protocolSwitchConfig.protocols.length > 1;
+  const {
+    currentProtocol,
+    indexedAccountId,
+    isLoading,
+    onProtocolSelect,
+    protocols,
+    selectedProtocol,
+  } = protocolSwitchConfig;
+  const isSwitchEnabled = protocols.length > 1;
+  const renderProtocolListContent = useCallback(
+    ({
+      closePopover,
+      isOpen,
+    }: {
+      closePopover: () => void;
+      isOpen?: boolean;
+    }) => (
+      <ProtocolListContent
+        variant="switcher"
+        isOpen={isOpen}
+        symbol={tokenSymbol}
+        accountId={accountId}
+        indexedAccountId={indexedAccountId}
+        protocols={protocols}
+        isLoading={isLoading}
+        selectedProtocol={selectedProtocol}
+        onProtocolSelect={async (protocol) => {
+          await onProtocolSelect(protocol);
+          closePopover();
+        }}
+      />
+    ),
+    [
+      accountId,
+      indexedAccountId,
+      isLoading,
+      onProtocolSelect,
+      protocols,
+      selectedProtocol,
+      tokenSymbol,
+    ],
+  );
   const trigger = (
     <ProtocolSwitchTriggerRow
-      currentProtocol={protocolSwitchConfig.currentProtocol}
+      currentProtocol={currentProtocol}
       fallbackProviderName={fallbackProviderName}
       fallbackProviderLogoUri={fallbackProviderLogoUri}
       fallbackAprText={fallbackAprText}
-      isLoading={protocolSwitchConfig.isLoading}
+      isLoading={isLoading}
       isSwitchEnabled={isSwitchEnabled}
       onPress={() => {}}
     />
@@ -315,22 +356,7 @@ function ProtocolSwitcher({
         w: 360,
         p: '$0',
       }}
-      renderContent={({ closePopover, isOpen }) => (
-        <ProtocolListContent
-          variant="switcher"
-          isOpen={isOpen}
-          symbol={tokenSymbol}
-          accountId={accountId}
-          indexedAccountId={protocolSwitchConfig.indexedAccountId}
-          protocols={protocolSwitchConfig.protocols}
-          isLoading={protocolSwitchConfig.isLoading}
-          selectedProtocol={protocolSwitchConfig.selectedProtocol}
-          onProtocolSelect={async (protocol) => {
-            await protocolSwitchConfig.onProtocolSelect(protocol);
-            closePopover();
-          }}
-        />
-      )}
+      renderContent={renderProtocolListContent}
     />
   );
 }

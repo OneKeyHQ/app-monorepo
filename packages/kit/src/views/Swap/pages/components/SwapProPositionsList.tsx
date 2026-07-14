@@ -18,6 +18,8 @@ import SwapProPositionListHeader from '../../components/SwapProPositionListHeade
 import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
 import { useSwapProPositionsPnl } from '../../hooks/useSwapProPositionsPnl';
 
+import { shouldRenderStockPositionsSkeleton } from './SwapProPositionsList.utils';
+
 function SwapProPositionItemSkeleton() {
   return (
     <Stack
@@ -97,47 +99,56 @@ const SwapProPositionsList = ({
   // In the stock context, resolve which holdings are actually stocks by
   // querying the server market metadata (account-holding tokens do NOT carry
   // isStock, so the client-side field is unreliable here).
-  const { result: stockTokenList } = usePromiseResult(async () => {
-    if (!stockOnly) {
-      return undefined;
-    }
-    if (!finallyTokenList.length) {
-      return [] as ISwapToken[];
-    }
-    // Let a fetch failure throw rather than swallowing it into an empty list:
-    // usePromiseResult then keeps the previous successful result instead of
-    // wrongly showing "No results" on a tab that hides the search entry.
-    const response =
-      await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-        requestLocale: settings.locale,
-        tokenAddressList: finallyTokenList.map((token) => ({
-          contractAddress: token.contractAddress ?? '',
-          chainId: token.networkId,
-          isNative: !!token.isNative,
-        })),
-      });
-    const list = response.list ?? [];
-    // response.list is index-aligned with tokenAddressList: keep only the
-    // holdings whose server entry has a truthy .stock field, and mark the
-    // selected row as Stock-owned before it reaches downstream swap handlers.
-    return finallyTokenList.flatMap((token, i) =>
-      list[i]?.stock
-        ? [
-            {
-              ...token,
-              isStock: true,
-            },
-          ]
-        : [],
+  const { result: stockTokenList, isLoading: isStockMetadataLoading } =
+    usePromiseResult(
+      async () => {
+        if (!stockOnly) {
+          return undefined;
+        }
+        if (!finallyTokenList.length) {
+          return [] as ISwapToken[];
+        }
+        // Let a fetch failure throw rather than swallowing it into an empty
+        // list. usePromiseResult preserves a previous successful result while
+        // its loading state still lets the first failed request exit skeleton.
+        const response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+            requestLocale: settings.locale,
+            tokenAddressList: finallyTokenList.map((token) => ({
+              contractAddress: token.contractAddress ?? '',
+              chainId: token.networkId,
+              isNative: !!token.isNative,
+            })),
+          });
+        const list = response.list ?? [];
+        // response.list is index-aligned with tokenAddressList: keep only the
+        // holdings whose server entry has a truthy .stock field, and mark the
+        // selected row as Stock-owned before downstream swap handlers.
+        return finallyTokenList.flatMap((token, i) =>
+          list[i]?.stock
+            ? [
+                {
+                  ...token,
+                  isStock: true,
+                },
+              ]
+            : [],
+        );
+      },
+      [finallyTokenList, settings.locale, stockOnly],
+      { watchLoading: true },
     );
-  }, [finallyTokenList, settings.locale, stockOnly]);
 
   // The stock list is undefined until the first batch resolves; treat that as a
   // loading state (skeleton below) so the list never flashes "No results" while
   // holdings are still being classified. usePromiseResult keeps the prior result
   // across subsequent fetches and on failure, so a defined value is always the
   // last good one.
-  const isStockListLoading = stockOnly && stockTokenList === undefined;
+  const isStockListLoading = shouldRenderStockPositionsSkeleton({
+    isStockMetadataLoading,
+    stockOnly: Boolean(stockOnly),
+    stockTokenListResolved: stockTokenList !== undefined,
+  });
   const displayTokenList = stockOnly
     ? (stockTokenList ?? [])
     : finallyTokenList;
