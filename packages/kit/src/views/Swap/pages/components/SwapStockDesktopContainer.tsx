@@ -157,6 +157,7 @@ import {
   useSwapStockTradeContext,
 } from './SwapStockTradeProvider';
 
+import type { ScrollViewProps } from 'react-native';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
@@ -179,6 +180,11 @@ interface ISwapStockDesktopContainerProps {
     states: ISwapAlertState[];
     quoteId: string;
   };
+  // iOS immersive header: drives the glass nav-bar fade and adds the top inset so
+  // the mobile Stock scroll view starts below the fixed bar and scrolls up under
+  // it. Unused by the desktop layout.
+  onScroll?: ScrollViewProps['onScroll'];
+  contentTopInset?: number;
 }
 
 type IStockMarketTokenDetail = IMarketTokenDetail | undefined;
@@ -2268,7 +2274,11 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
       keyboardDismissMode="on-drag"
       ref={scrollViewRef}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: tabBarHeight }}
+      onScroll={props.onScroll}
+      contentContainerStyle={{
+        paddingTop: props.contentTopInset ?? 0,
+        paddingBottom: tabBarHeight,
+      }}
       bottomOffset={bottomOffset}
     >
       <YStack
