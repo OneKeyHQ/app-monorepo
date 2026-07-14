@@ -82,8 +82,11 @@ const appKit = createAppKit({
 });
 let pairingUri = '';
 let pairingAttemptId: number | undefined;
-let updateConnectModalUri: (uri: string) => void = (uri: string) => {
-  console.log('updateConnectModalUri-init-fn', uri);
+let updateConnectModalUri: (uri: string) => void = () => {
+  // No-op until the SDK registers its display_uri listener; the uri is
+  // replayed from the pairingUri cache at registration time. Never log the
+  // argument here: the wc: uri query carries the pairing symKey and would
+  // leak into device logs and console breadcrumbs.
 };
 let resolveConnect: (session: IWalletConnectSession) => void = () => {};
 let rejectConnect: (error: IOneKeyError) => void = () => {};
