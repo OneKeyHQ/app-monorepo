@@ -14,17 +14,23 @@ function buildBook({
   coin = 'ETH',
   bidPx = '100',
   askPx = '101',
+  nSigFigs,
+  mantissa,
   levels,
 }: {
   time?: number;
   coin?: string;
   bidPx?: string;
   askPx?: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
   levels?: HL.IBook['levels'];
 }): HL.IBook {
   return {
     coin,
     time: time as number,
+    nSigFigs,
+    mantissa,
     levels: levels ?? [
       [{ px: bidPx, sz: '1', n: 1 }],
       [{ px: askPx, sz: '2', n: 1 }],
@@ -110,6 +116,38 @@ describe('shouldUpdatePerpsL2Book', () => {
       shouldUpdatePerpsL2Book({
         currentBook: buildBook({ time: 1000 }),
         nextBook: buildBook({ time: 1000, bidPx: '99' }),
+      }),
+    ).toBe(true);
+  });
+
+  it('updates identical levels when source precision changes', () => {
+    expect(
+      shouldUpdatePerpsL2Book({
+        currentBook: buildBook({
+          time: 1000,
+          nSigFigs: 5,
+          mantissa: 2,
+        }),
+        nextBook: buildBook({
+          time: 1001,
+          nSigFigs: 5,
+          mantissa: 5,
+        }),
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldUpdatePerpsL2Book({
+        currentBook: buildBook({
+          time: 1000,
+          nSigFigs: 4,
+          mantissa: null,
+        }),
+        nextBook: buildBook({
+          time: 1001,
+          nSigFigs: 5,
+          mantissa: null,
+        }),
       }),
     ).toBe(true);
   });

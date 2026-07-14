@@ -103,6 +103,13 @@ export function shouldUpdatePerpsL2Book({
     return true;
   }
 
+  if (
+    (currentBook?.nSigFigs ?? null) !== (nextBook.nSigFigs ?? null) ||
+    (currentBook?.mantissa ?? null) !== (nextBook.mantissa ?? null)
+  ) {
+    return true;
+  }
+
   const currentTime = currentBook?.time;
   const nextTime = nextBook.time;
   const hasCurrentTime =
