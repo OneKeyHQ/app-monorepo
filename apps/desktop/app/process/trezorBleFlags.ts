@@ -5,8 +5,16 @@ import logger from 'electron-log/main';
 // Every one of these is read from the environment at startup, NOT baked in at
 // build time, because rebuilding the desktop app costs about an hour. One build
 // therefore has to be able to test the whole matrix: set the vars, restart the
-// app, try again. Defaults are the behavior we currently believe is correct, so
-// a plain launch needs no environment at all.
+// app, try again.
+//
+// AS OF SDK 1.1.32-alpha.1 THE WORKAROUNDS DEFAULT TO OFF. The SDK's own
+// NobleBleHandler now scans unfiltered and falls back to connect-by-id, so these
+// are duplicates — and worse than duplicates: `replayDiscover` refills the SDK's
+// cache before connect runs, which makes the SDK take its cache path and never
+// exercise `_directConnect`. That would mask the one thing we still need to
+// prove (that a bonded, silent device is reachable at all) behind a
+// `connect.route: cache` log line. Flip one back on with its env var if the SDK
+// fix turns out not to have shipped — no rebuild needed.
 
 const isOn = (value: string | undefined, fallback: boolean): boolean => {
   if (value === undefined || value === '') return fallback;
@@ -23,14 +31,14 @@ export const trezorBleFlags = {
    * happened to carry the UUID. Set to 0 to restore the old filtered scan and
    * A/B this against the previous behavior.
    */
-  unfilteredScan: isOn(process.env.ONEKEY_BLE_UNFILTERED_SCAN, true),
+  unfilteredScan: isOn(process.env.ONEKEY_BLE_UNFILTERED_SCAN, false),
 
   /**
    * After OS pairing, replay the cached `discover` event so the peripheral is
    * back in the SDK's cache before connect runs. Set to 0 to see the raw
    * failure ("device not found") again.
    */
-  replayDiscover: isOn(process.env.ONEKEY_BLE_REPLAY_DISCOVER, true),
+  replayDiscover: isOn(process.env.ONEKEY_BLE_REPLAY_DISCOVER, false),
 
   /**
    * Connect straight by address, with no scan and no reliance on the SDK's
@@ -47,7 +55,7 @@ export const trezorBleFlags = {
    * for a never-scanned device (ble_manager.cc `Connect` synthesizes the
    * peripheral), which is the equivalent escape hatch.
    */
-  directConnect: isOn(process.env.ONEKEY_BLE_DIRECT_CONNECT, true),
+  directConnect: isOn(process.env.ONEKEY_BLE_DIRECT_CONNECT, false),
 
   /**
    * Let the pairing helper keep the BLE link open after bonding instead of
