@@ -713,7 +713,7 @@ const ManagePositionPart = ({
 const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
-  const { gtMd } = useMedia();
+  const { gtMd, gtSm } = useMedia();
   const { shareText } = useShare();
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -938,7 +938,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       tabRoute={ETabRoutes.Earn}
       showBackButton
       header={
-        <XStack ml={gtMd ? 'auto' : '0'} pr="$2" pt={gtMd ? undefined : '$4'}>
+        <XStack ml={gtSm ? 'auto' : '0'} pr="$2" pt={gtSm ? undefined : '$4'}>
           <ManagersSection managers={detailInfo?.managers} noPadding />
         </XStack>
       }

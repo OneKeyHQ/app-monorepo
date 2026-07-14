@@ -173,7 +173,6 @@ function BasicSwapStockTradeAlert({
   const stockPrimaryAlert = stockQuoteAlert ?? stockEventAlert;
   const stockTradeDisabled =
     isStockMarketClosed ||
-    stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable ||
     stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken ||
     Boolean(stockQuoteAlert || stockEventAlert);
 
@@ -200,18 +199,6 @@ function BasicSwapStockTradeAlert({
         alertLevel: ESwapAlertLevel.WARNING,
       };
     }
-    if (
-      stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable
-    ) {
-      return {
-        alertType: getStockTradeAlertType({
-          message: stockChannel.stockMarketStatus?.reason ?? undefined,
-          notAvailableInRegionMessage,
-        }),
-        alertLevel: ESwapAlertLevel.WARNING,
-        message: stockChannel.stockMarketStatus?.reason ?? undefined,
-      };
-    }
     if (stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken) {
       return {
         alertType: getStockTradeAlertType({ notAvailableInRegionMessage }),
@@ -233,7 +220,6 @@ function BasicSwapStockTradeAlert({
     isStockMarketClosed,
     notAvailableInRegionMessage,
     stockChannel.channelStage,
-    stockChannel.stockMarketStatus?.reason,
     stockPrimaryAlert,
   ]);
 
@@ -287,20 +273,6 @@ function BasicSwapStockTradeAlert({
         statusCase={statusCase}
         timeText={closedTimeText}
         onTradePerps={hlTicker ? () => navigateToPerps(hlTicker) : undefined}
-      />
-    );
-  }
-
-  if (stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable) {
-    return (
-      <Alert
-        testID={SwapTestIDs.stockTradeStatusAlert}
-        type="warning"
-        icon="InfoCircleOutline"
-        title={intl.formatMessage({
-          id: ETranslations.swap_page_alert_no_provider_supports_trade,
-        })}
-        description={stockChannel.stockMarketStatus?.reason ?? undefined}
       />
     );
   }
