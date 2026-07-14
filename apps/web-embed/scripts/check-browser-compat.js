@@ -154,14 +154,89 @@ function inspectJavaScript(source, filePath, failures) {
   }
 }
 
-function extractHtmlScripts(html) {
-  return Array.from(
-    html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi),
-    (match) => ({
-      attributes: match[1],
-      source: match[2],
-    }),
+function isHtmlTagNameBoundary(character) {
+  return (
+    character === undefined ||
+    character === '>' ||
+    character === '/' ||
+    character.trim() === ''
   );
+}
+
+function findHtmlTagStart(html, tagPrefix, fromIndex) {
+  let tagStart = html.indexOf(tagPrefix, fromIndex);
+  while (tagStart !== -1) {
+    if (isHtmlTagNameBoundary(html[tagStart + tagPrefix.length])) {
+      return tagStart;
+    }
+    tagStart = html.indexOf(tagPrefix, tagStart + tagPrefix.length);
+  }
+  return -1;
+}
+
+function findOpeningTagEnd(html, tagStart) {
+  let quote;
+  for (let index = tagStart; index < html.length; index += 1) {
+    const character = html[index];
+    if (quote) {
+      if (character === quote) {
+        quote = undefined;
+      }
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '>') {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function extractHtmlScripts(html) {
+  const normalizedHtml = html.toLowerCase();
+  const openingTagPrefix = '<script';
+  const closingTagPrefix = '</script';
+  const scripts = [];
+  let cursor = 0;
+
+  while (cursor < html.length) {
+    const openingTagStart = findHtmlTagStart(
+      normalizedHtml,
+      openingTagPrefix,
+      cursor,
+    );
+    if (openingTagStart === -1) {
+      break;
+    }
+    const openingTagEnd = findOpeningTagEnd(html, openingTagStart);
+    if (openingTagEnd === -1) {
+      throw new Error(`Unterminated script opening tag at ${openingTagStart}`);
+    }
+    const closingTagStart = findHtmlTagStart(
+      normalizedHtml,
+      closingTagPrefix,
+      openingTagEnd + 1,
+    );
+    if (closingTagStart === -1) {
+      throw new Error(`Missing script end tag at ${openingTagStart}`);
+    }
+    const closingTagEnd = html.indexOf(
+      '>',
+      closingTagStart + closingTagPrefix.length,
+    );
+    if (closingTagEnd === -1) {
+      throw new Error(`Unterminated script end tag at ${closingTagStart}`);
+    }
+    scripts.push({
+      attributes: html.slice(
+        openingTagStart + openingTagPrefix.length,
+        openingTagEnd,
+      ),
+      source: html.slice(openingTagEnd + 1, closingTagStart),
+    });
+    cursor = closingTagEnd + 1;
+  }
+
+  return scripts;
 }
 
 function inspectHtmlScripts(failures) {
