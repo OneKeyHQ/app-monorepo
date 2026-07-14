@@ -49,6 +49,7 @@ import {
   getSwapLimitOpenOrderCount,
   getSwapMarketPendingHistoryList,
   isStockSwapHistoryItem,
+  isSwapLimitHistoryTypeSupported,
 } from '../../utils/swapMarketHistory';
 import { SwapHistoryClearButtonView } from '../components/SwapHistoryClearButton';
 import SwapMarketHistoryList from '../components/SwapMarketHistoryList';
@@ -81,8 +82,9 @@ const SwapHistoryListModal = ({
   ] = useInAppNotificationAtom();
   const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
     useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
-  const shouldShowLimitHistoryType =
-    shouldShowSwapLocalData && !platformEnv.isNative;
+  const shouldShowLimitHistoryType = isSwapLimitHistoryTypeSupported({
+    isNative: platformEnv.isNative,
+  });
   const visibleHistoryType =
     historyType === EProtocolOfExchange.LIMIT && !shouldShowLimitHistoryType
       ? EProtocolOfExchange.SWAP
