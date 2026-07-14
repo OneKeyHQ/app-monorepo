@@ -28,6 +28,8 @@ import type {
 
 type IDiscoverHandler = (peripheral: NoblePeripheralLike) => void;
 
+const DIRECT_CONNECT_TIMEOUT_MS = 15_000;
+
 let realNoble: NobleLike | undefined;
 const lastPeripheralById = new Map<string, NoblePeripheralLike>();
 const discoverHandlers = new Map<IDiscoverHandler, IDiscoverHandler>();
@@ -144,5 +146,20 @@ export async function directConnect(id: string): Promise<void> {
     throw new OneKeyLocalError('noble.connectAsync is unavailable');
   }
   logger.info(`[TrezorBLE] directConnect(${id}) — no scan, connect by address`);
-  await noble.connectAsync(id);
+  const startedAt = Date.now();
+  // noble has no connect timeout of its own, so an unreachable device hangs here
+  // forever — and a hang is worse than a failure, because the SDK's own connect
+  // (which has a timeout) never even gets to run.
+  await Promise.race([
+    noble.connectAsync(id),
+    new Promise((_, reject) => {
+      setTimeout(
+        () => reject(new OneKeyLocalError('directConnect timed out')),
+        DIRECT_CONNECT_TIMEOUT_MS,
+      );
+    }),
+  ]);
+  logger.info(
+    `[TrezorBLE] directConnect(${id}) OK in ${Date.now() - startedAt}ms`,
+  );
 }

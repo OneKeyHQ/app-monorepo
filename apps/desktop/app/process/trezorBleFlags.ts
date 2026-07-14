@@ -33,11 +33,21 @@ export const trezorBleFlags = {
   replayDiscover: isOn(process.env.ONEKEY_BLE_REPLAY_DISCOVER, true),
 
   /**
-   * Instead of (or as well as) replaying discover, have noble connect straight
-   * by address with no scan. Off by default — it also opens the link itself,
-   * which overlaps with what the SDK's connect is about to do.
+   * Connect straight by address, with no scan and no reliance on the SDK's
+   * peripheral cache.
+   *
+   * This is what Trezor Suite does. Its `discover_services` calls
+   * `manager.get_peripheral_or_die(id)`, which asks the ADAPTER for its
+   * peripheral list (`adapter.peripherals()`) every time — Suite keeps no cache
+   * of its own, so a bonded device that has stopped advertising is still
+   * addressable. Our SDK instead keeps a `_discovered` map with a 5s
+   * advertisement TTL and a 10s idle wipe, which the 8-22s pairing outlives; by
+   * the time connect runs the peripheral is gone and the silent, bonded device
+   * cannot be rediscovered. noble's Windows backend supports connect-by-address
+   * for a never-scanned device (ble_manager.cc `Connect` synthesizes the
+   * peripheral), which is the equivalent escape hatch.
    */
-  directConnect: isOn(process.env.ONEKEY_BLE_DIRECT_CONNECT, false),
+  directConnect: isOn(process.env.ONEKEY_BLE_DIRECT_CONNECT, true),
 
   /**
    * Let the pairing helper keep the BLE link open after bonding instead of
