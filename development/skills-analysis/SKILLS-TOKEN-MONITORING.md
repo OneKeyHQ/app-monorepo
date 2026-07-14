@@ -13,6 +13,18 @@ Claude Code loads skills on-demand based on trigger words. Large skills cause:
 
 ## Monitoring Tool
 
+### Enforced Harness
+
+```bash
+yarn lint:agent-context
+```
+
+This command is part of `yarn lint` and `yarn agent:check`. It validates skill
+structure, frontmatter, relative links, cross-agent explicit-invocation policy,
+and the budgets in `development/lint/agent-context.config.json`. The Python
+analysis below remains useful for detailed body/reference sizing, but its output
+is diagnostic rather than the CI gate.
+
 ### Quick Start
 
 ```bash
