@@ -44,66 +44,76 @@ function FeaturedChangelogPreview({
   const [echo, setEcho] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const fetchPreview = useCallback(async (): Promise<
-    IFeaturedChangelogPreviewData | undefined
-  > => {
-    const target = version.trim();
-    if (!target) {
-      Toast.error({ title: 'Enter a version first' });
-      return undefined;
-    }
-    setLoading(true);
-    try {
-      const res =
-        await backgroundApiProxy.serviceAppUpdate.previewFeaturedChangelog({
-          version: target,
-        });
-      if (!res.featuredChangelog) {
-        setPreview(undefined);
-        setEcho(
-          `No featured changelog returned for version ${target}${
-            res.version && res.version !== target
-              ? ` (server selected ${res.version})`
-              : ''
-          }`,
-        );
+  const fetchPreview = useCallback(
+    async (
+      versionOverride?: string,
+    ): Promise<IFeaturedChangelogPreviewData | undefined> => {
+      const target = (versionOverride ?? version).trim();
+      if (!target) {
+        Toast.error({ title: 'Enter a version first' });
         return undefined;
       }
-      const data: IFeaturedChangelogPreviewData = {
-        featuredChangelog: res.featuredChangelog,
-        updateStrategy: res.updateStrategy,
-        latestVersion: res.version,
-        jsBundleVersion: res.jsBundleVersion,
-        storeUrl: res.storeUrl,
-        downloadUrl: res.downloadUrl,
-      };
-      setPreview(data);
-      setEcho(
-        `Matched · version ${res.version ?? target} · ${
-          res.featuredChangelog.features.length
-        } feature(s)`,
-      );
-      return data;
-    } catch (e) {
-      setPreview(undefined);
-      setEcho((e as Error)?.message ?? 'Request failed');
-      Toast.error({
-        title: 'Preview fetch failed',
-        message: (e as Error)?.message,
-      });
-      return undefined;
-    } finally {
-      setLoading(false);
-    }
-  }, [version]);
+      setLoading(true);
+      try {
+        const res =
+          await backgroundApiProxy.serviceAppUpdate.previewFeaturedChangelog({
+            version: target,
+          });
+        if (!res.featuredChangelog) {
+          setPreview(undefined);
+          // The server treats the requested version as the CLIENT's current
+          // version and serves the newest release above it, so spell out which
+          // version the featured changelog must be configured on.
+          setEcho(
+            res.version && res.version !== target
+              ? `No featured changelog for ${res.version} (the version the server selects for a client on ${target}). Configure the featured changelog on ${res.version}, or adjust the release rows.`
+              : `No featured changelog returned for version ${target}. Tip: enter a LOWER version to simulate a client that has not upgraded yet — the server returns the newest release above it.`,
+          );
+          return undefined;
+        }
+        const data: IFeaturedChangelogPreviewData = {
+          featuredChangelog: res.featuredChangelog,
+          updateStrategy: res.updateStrategy,
+          latestVersion: res.version,
+          jsBundleVersion: res.jsBundleVersion,
+          storeUrl: res.storeUrl,
+          downloadUrl: res.downloadUrl,
+        };
+        setPreview(data);
+        setEcho(
+          `Matched · version ${res.version ?? target} · ${
+            res.featuredChangelog.features.length
+          } feature(s)`,
+        );
+        return data;
+      } catch (e) {
+        setPreview(undefined);
+        setEcho((e as Error)?.message ?? 'Request failed');
+        Toast.error({
+          title: 'Preview fetch failed',
+          message: (e as Error)?.message,
+        });
+        return undefined;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [version],
+  );
 
-  // Auto-fetch once when arriving via deeplink with a version param, so
-  // scanning the dashboard QR immediately surfaces the configured content.
-  const autoFetchedRef = useRef(false);
+  // Auto-fetch when arriving via deeplink with a version param, so scanning
+  // the dashboard QR immediately surfaces the configured content. Note:
+  // re-firing the deeplink while this screen is already the top modal is
+  // swallowed by pushModal's duplicate-target guard (useAppNavigation), so
+  // params never change on re-fire — the operator edits the input instead.
+  // This effect still guards by param value for the day that changes.
+  const lastAutoFetchedParamRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!autoFetchedRef.current && versionParam?.trim()) {
-      autoFetchedRef.current = true;
-      void fetchPreview();
+    const target = versionParam?.trim();
+    if (target && lastAutoFetchedParamRef.current !== target) {
+      lastAutoFetchedParamRef.current = target;
+      setVersion(target);
+      void fetchPreview(target);
     }
   }, [versionParam, fetchPreview]);
 
