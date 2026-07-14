@@ -1,6 +1,7 @@
 export enum EModalBulkExportHistoryRoutes {
   BulkExportHistoryModal = 'BulkExportHistoryModal',
   BulkExportHistoryTaskCreated = 'BulkExportHistoryTaskCreated',
+  BulkExportHistoryTaskList = 'BulkExportHistoryTaskList',
 }
 
 export type IModalBulkExportHistoryParamList = {
@@ -11,4 +12,5 @@ export type IModalBulkExportHistoryParamList = {
     walletId: string | undefined;
   };
   [EModalBulkExportHistoryRoutes.BulkExportHistoryTaskCreated]: undefined;
+  [EModalBulkExportHistoryRoutes.BulkExportHistoryTaskList]: undefined;
 };

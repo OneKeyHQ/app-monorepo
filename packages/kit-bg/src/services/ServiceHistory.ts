@@ -53,6 +53,7 @@ import type {
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
   IFetchAccountTransactionRangeResp,
+  IFetchExportTransactionHistoryTasksResp,
   IFetchHistoryTxDetailsParams,
   IFetchMergeDeriveAccountHistoryParams,
   IFetchTransferRecipientsResp,
@@ -2364,6 +2365,18 @@ class ServiceHistory extends ServiceBase {
       '/wallet/v1/account/transaction/export-task/create',
       params,
     );
+  }
+
+  @backgroundMethod()
+  public async fetchExportTransactionHistoryTasks() {
+    // Prime-only endpoint: use the OneKey ID authenticated client so the
+    // request carries the auth token and prime auth errors are handled.
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{
+      data: IFetchExportTransactionHistoryTasksResp;
+    }>('/wallet/v1/account/transaction/export-task/list', {});
+
+    return resp.data.data;
   }
 
   @backgroundMethod()

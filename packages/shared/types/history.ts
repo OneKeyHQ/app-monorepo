@@ -301,6 +301,22 @@ export type ICreateExportTransactionHistoryTaskParams = {
   timeZone?: string;
 };
 
+export type IExportTransactionHistoryTask = {
+  id: number;
+  next: string | null;
+  createdAt: number;
+  updatedAt: number;
+  uid: string;
+  query: ICreateExportTransactionHistoryTaskParams;
+  status: string;
+  filename: string;
+  count: number;
+};
+
+export type IFetchExportTransactionHistoryTasksResp = {
+  list: IExportTransactionHistoryTask[];
+};
+
 export type IFetchHistoryTxDetailsParams = {
   accountId: string;
   networkId: string;

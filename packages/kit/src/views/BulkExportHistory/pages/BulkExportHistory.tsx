@@ -7,6 +7,7 @@ import type { IDateRange, IPageScreenProps } from '@onekeyhq/components';
 import {
   DatePicker,
   ESwitchSize,
+  IconButton,
   Page,
   SegmentControl,
   SizableText,
@@ -203,6 +204,22 @@ function BulkExportHistoryContent({
     navigation.pop();
   }, [navigation]);
 
+  const handleOpenTaskList = useCallback(() => {
+    navigation.push(EModalBulkExportHistoryRoutes.BulkExportHistoryTaskList);
+  }, [navigation]);
+
+  const renderHeaderRight = useCallback(
+    () => (
+      <IconButton
+        testID="bulk-export-history-task-list-btn"
+        variant="tertiary"
+        icon="ClockTimeHistoryOutline"
+        onPress={handleOpenTaskList}
+      />
+    ),
+    [handleOpenTaskList],
+  );
+
   const handleOpenNetworkSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.ChainSelectorModal, {
       screen: EChainSelectorPages.MultiNetworkSelector,
@@ -398,6 +415,7 @@ function BulkExportHistoryContent({
           title={intl.formatMessage({
             id: ETranslations.global_export_transaction_history,
           })}
+          headerRight={renderHeaderRight}
         />
         <Page.Body flex={1} alignItems="center" justifyContent="center">
           <Spinner size="large" />
@@ -412,6 +430,7 @@ function BulkExportHistoryContent({
         title={intl.formatMessage({
           id: ETranslations.global_export_transaction_history,
         })}
+        headerRight={renderHeaderRight}
       />
       <Page.Body px="$5" pt="$3" gap="$6">
         {/* Export Account */}
