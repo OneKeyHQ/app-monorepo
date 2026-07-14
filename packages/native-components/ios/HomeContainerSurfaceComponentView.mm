@@ -10,13 +10,14 @@ using namespace facebook::react;
 
 @interface UIView (HomeContainerSlotLayout)
 - (NSValue *)slotFrameForKey:(NSString *)key;
+- (UIView *)slotHostViewForKey:(NSString *)key;
 - (void)setMountedSlotKeys:(NSArray<NSString *> *)keys;
-- (UIPanGestureRecognizer *)containerInteractionPanGesture;
 @end
 
 static UIView *FindHomeContainerEngine(UIView *view)
 {
   if ([view respondsToSelector:@selector(slotFrameForKey:)] &&
+      [view respondsToSelector:@selector(slotHostViewForKey:)] &&
       [view respondsToSelector:@selector(setMountedSlotKeys:)]) {
     return view;
   }
@@ -32,7 +33,7 @@ static UIView *FindHomeContainerEngine(UIView *view)
 @implementation HomeContainerSurfaceComponentView {
   NSMutableArray<UIView<RCTComponentViewProtocol> *> *_mountedChildren;
   __weak UIView *_engine;
-  __weak UIPanGestureRecognizer *_interactionPan;
+  UIView *_slotParkingView;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -47,6 +48,9 @@ static UIView *FindHomeContainerEngine(UIView *view)
         std::make_shared<const OneKeyHomeContainerSurfaceProps>();
     _props = defaultProps;
     _mountedChildren = [NSMutableArray new];
+    _slotParkingView = [UIView new];
+    _slotParkingView.hidden = YES;
+    [self addSubview:_slotParkingView];
     self.clipsToBounds = YES;
   }
   return self;
@@ -62,7 +66,11 @@ static UIView *FindHomeContainerEngine(UIView *view)
 {
   NSInteger safeIndex = MIN(MAX(index, 0), _mountedChildren.count);
   [_mountedChildren insertObject:childComponentView atIndex:safeIndex];
-  [self insertSubview:childComponentView atIndex:safeIndex];
+  if ([childComponentView isKindOfClass:HomeContainerSlotComponentView.class]) {
+    [_slotParkingView addSubview:childComponentView];
+  } else {
+    [self insertSubview:childComponentView atIndex:MIN(safeIndex, self.subviews.count)];
+  }
   [self setNeedsLayout];
 }
 
@@ -90,23 +98,11 @@ static UIView *FindHomeContainerEngine(UIView *view)
   if (_engine == nextEngine) {
     return;
   }
-  if (_interactionPan.view == self) {
-    [self removeGestureRecognizer:_interactionPan];
-  }
-  _interactionPan = nil;
   if (_engine != nil) {
     [_engine setValue:nil forKey:@"slotLayoutDidChange"];
   }
   _engine = nextEngine;
   if (_engine != nil) {
-    UIPanGestureRecognizer *interactionPan =
-        ((UIPanGestureRecognizer *(*)(id, SEL))objc_msgSend)(
-            _engine,
-            @selector(containerInteractionPanGesture));
-    if (interactionPan != nil) {
-      [self addGestureRecognizer:interactionPan];
-      _interactionPan = interactionPan;
-    }
     __weak HomeContainerSurfaceComponentView *weakSelf = self;
     void (^layoutCallback)(void) = ^{
       [weakSelf layoutManagedChildren];
@@ -184,18 +180,29 @@ static UIView *FindHomeContainerEngine(UIView *view)
       slot.hidden = YES;
       continue;
     }
-    NSValue *frameValue =
-        ((NSValue *(*)(id, SEL, NSString *))objc_msgSend)(
+    UIView *hostView =
+        ((UIView *(*)(id, SEL, NSString *))objc_msgSend)(
             engine,
-            @selector(slotFrameForKey:),
+            @selector(slotHostViewForKey:),
             slot.slotKey);
-    CGRect frame = frameValue.CGRectValue;
-    BOOL isVisible = frame.size.width > 0 && frame.size.height > 0;
-    slot.hidden = !isVisible;
-    if (isVisible) {
-      slot.frame = frame;
-      [slot setNeedsLayout];
+    BOOL isVisible = hostView != nil && !hostView.hidden &&
+        hostView.bounds.size.width > 0 && hostView.bounds.size.height > 0;
+    if (!isVisible) {
+      if (slot.superview != _slotParkingView) {
+        [slot removeFromSuperview];
+        [_slotParkingView addSubview:slot];
+      }
+      slot.hidden = YES;
+      slot.frame = CGRectZero;
+      continue;
     }
+    if (slot.superview != hostView) {
+      [slot removeFromSuperview];
+      [hostView addSubview:slot];
+    }
+    slot.hidden = NO;
+    slot.frame = hostView.bounds;
+    [slot setNeedsLayout];
   }
 }
 
@@ -216,10 +223,6 @@ static UIView *FindHomeContainerEngine(UIView *view)
   if (_engine != nil) {
     [_engine setValue:nil forKey:@"slotLayoutDidChange"];
   }
-  if (_interactionPan.view == self) {
-    [self removeGestureRecognizer:_interactionPan];
-  }
-  _interactionPan = nil;
   _engine = nil;
   [super prepareForRecycle];
 }

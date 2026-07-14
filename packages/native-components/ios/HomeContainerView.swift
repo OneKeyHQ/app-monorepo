@@ -106,10 +106,139 @@ private struct HomeContainerRow {
   }
 }
 
-private final class HomeContainerHorizontalScrollView: UIScrollView {
+private final class HomeContainerSlotHostView: UIView {
   override init(frame: CGRect) {
     super.init(frame: frame)
-    panGestureRecognizer.isEnabled = false
+    clipsToBounds = true
+    // Fabric paragraphs walk native ancestors while resolving coopted labels.
+    // Stop that lookup before it reaches UITableView's recursive accessibility label.
+    accessibilityLabel = ""
+    isAccessibilityElement = false
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    subviews.forEach { $0.frame = bounds }
+  }
+}
+
+private final class HomeContainerNestedScrollView: UIScrollView, UIGestureRecognizerDelegate {
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    panGestureRecognizer.delegate = self
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  func gestureRecognizer(
+    _ gestureRecognizer: UIGestureRecognizer,
+    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+  ) -> Bool {
+    otherGestureRecognizer.view is HomeContainerNestedTableView
+  }
+}
+
+private final class HomeContainerNestedTableView: UITableView, UIGestureRecognizerDelegate {
+  override init(frame: CGRect, style: UITableView.Style) {
+    super.init(frame: frame, style: style)
+    panGestureRecognizer.delegate = self
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  func gestureRecognizer(
+    _ gestureRecognizer: UIGestureRecognizer,
+    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+  ) -> Bool {
+    otherGestureRecognizer.view is HomeContainerNestedScrollView
+  }
+}
+
+private final class HomeContainerVerticalGateGestureRecognizer: UIGestureRecognizer {
+  private weak var trackedTouch: UITouch?
+  private var initialPoint = CGPoint.zero
+
+  override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+    guard trackedTouch == nil, let touch = touches.first, touches.count == 1 else {
+      state = .failed
+      return
+    }
+    trackedTouch = touch
+    initialPoint = touch.location(in: view)
+  }
+
+  override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+    guard let trackedTouch, touches.contains(trackedTouch) else { return }
+    if state == .began || state == .changed {
+      state = .changed
+      return
+    }
+    guard state == .possible else { return }
+    let point = trackedTouch.location(in: view)
+    let deltaX = point.x - initialPoint.x
+    let deltaY = point.y - initialPoint.y
+    guard max(abs(deltaX), abs(deltaY)) >= 4 else { return }
+    state = abs(deltaY) > abs(deltaX) ? .began : .failed
+  }
+
+  override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+    guard let trackedTouch, touches.contains(trackedTouch) else { return }
+    if state == .began || state == .changed {
+      state = .ended
+    } else {
+      state = .failed
+    }
+  }
+
+  override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+    state = state == .possible ? .failed : .cancelled
+  }
+
+  override func reset() {
+    trackedTouch = nil
+    initialPoint = .zero
+    super.reset()
+  }
+}
+
+private final class HomeContainerPagerScrollView: UIScrollView, UIGestureRecognizerDelegate {
+  let verticalGateGestureRecognizer = HomeContainerVerticalGateGestureRecognizer()
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    panGestureRecognizer.delegate = self
+    verticalGateGestureRecognizer.cancelsTouchesInView = false
+    verticalGateGestureRecognizer.delegate = self
+    addGestureRecognizer(verticalGateGestureRecognizer)
+    panGestureRecognizer.require(toFail: verticalGateGestureRecognizer)
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  func gestureRecognizer(
+    _ gestureRecognizer: UIGestureRecognizer,
+    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+  ) -> Bool {
+    guard gestureRecognizer === verticalGateGestureRecognizer else { return false }
+    return otherGestureRecognizer.view is HomeContainerNestedScrollView ||
+      otherGestureRecognizer.view is HomeContainerNestedTableView
+  }
+}
+
+private final class HomeContainerHorizontalScrollView: UIScrollView, UIGestureRecognizerDelegate {
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    panGestureRecognizer.delegate = self
   }
 
   required init?(coder: NSCoder) {
@@ -119,15 +248,41 @@ private final class HomeContainerHorizontalScrollView: UIScrollView {
   override func touchesShouldCancel(in view: UIView) -> Bool {
     true
   }
-}
 
-final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizerDelegate {
-  private enum InteractionPanMode {
-    case pager(startOffset: CGFloat, startIndex: Int)
-    case horizontal(scrollView: UIScrollView, startOffset: CGFloat)
-    case vertical(page: HomeContainerPageView)
+  override func didMoveToWindow() {
+    super.didMoveToWindow()
+    guard window != nil else { return }
+    var current = superview
+    while let view = current {
+      if let scrollView = view as? HomeContainerPagerScrollView {
+        scrollView.panGestureRecognizer.require(toFail: panGestureRecognizer)
+      } else if let scrollView = view as? HomeContainerNestedTableView {
+        scrollView.panGestureRecognizer.require(toFail: panGestureRecognizer)
+      } else if let scrollView = view as? HomeContainerNestedScrollView {
+        scrollView.panGestureRecognizer.require(toFail: panGestureRecognizer)
+      }
+      current = view.superview
+    }
   }
 
+  override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+    guard gestureRecognizer === panGestureRecognizer else { return true }
+    let maximumOffset = max(0, contentSize.width - bounds.width)
+    guard maximumOffset > 1 else { return false }
+    let velocity = panGestureRecognizer.velocity(in: self)
+    guard abs(velocity.x) > abs(velocity.y) else { return false }
+    if contentOffset.x <= 0.5, velocity.x > 0 {
+      return false
+    }
+    if contentOffset.x >= maximumOffset - 0.5, velocity.x < 0 {
+      return false
+    }
+    return true
+  }
+
+}
+
+final class HomeContainerView: UIView, UIScrollViewDelegate {
   private enum PagerTransitionState: Equatable {
     case idle
     case dragging(startIndex: Int)
@@ -140,10 +295,11 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
   var onRenderError: ((String, String) -> Void)?
   @objc dynamic var slotLayoutDidChange: (() -> Void)?
 
-  private let pager = UIScrollView()
+  private let outerScrollView = HomeContainerNestedScrollView()
+  private let pager = HomeContainerPagerScrollView()
   private let headerView = HomeContainerHeaderView()
   private let tabsView = HomeContainerTabsView()
-  private let interactionPan = UIPanGestureRecognizer()
+  private let refreshControl = UIRefreshControl()
   private let parsingQueue = DispatchQueue(
     label: "so.onekey.home-container.decode",
     qos: .userInitiated
@@ -152,35 +308,37 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
   private let lifecycleLock = NSLock()
   private var snapshot: HomeContainerSnapshot?
   private var pages: [HomeContainerPageView] = []
-  private var refreshPages: [String: HomeContainerPageView] = [:]
+  private var refreshRequestIds = Set<String>()
   private var selectedTabId = ""
   private var disposed = false
   private var debugOverlayEnabled = false
   private var refreshEnabled = false
   private var headerHeight: CGFloat = 0
-  private var collapseOffset: CGFloat = 0
-  private var refreshPullOffset: CGFloat = 0
   private var mountedSlotKeys = Set<String>()
-  private var interactionPanMode: InteractionPanMode?
   private var pagerTransitionState = PagerTransitionState.idle
-  private var pagerAnimationGeneration = 0
+  private var pendingPagerNotify = false
+  private var isCoordinatingNestedScroll = false
 
   override init(frame: CGRect) {
     super.init(frame: frame)
     clipsToBounds = true
+    outerScrollView.alwaysBounceVertical = true
+    outerScrollView.showsVerticalScrollIndicator = false
+    outerScrollView.contentInsetAdjustmentBehavior = .never
+    outerScrollView.delegate = self
+    refreshControl.addTarget(self, action: #selector(refreshRequested), for: .valueChanged)
+    outerScrollView.refreshControl = refreshControl
     pager.isPagingEnabled = true
-    pager.alwaysBounceHorizontal = true
+    pager.bounces = false
     pager.showsHorizontalScrollIndicator = false
     pager.isDirectionalLockEnabled = true
-    pager.panGestureRecognizer.isEnabled = false
+    pager.contentInsetAdjustmentBehavior = .never
     pager.delegate = self
-    addSubview(pager)
-    addSubview(headerView)
-    addSubview(tabsView)
-    interactionPan.addTarget(self, action: #selector(handleInteractionPan(_:)))
-    interactionPan.delegate = self
-    interactionPan.cancelsTouchesInView = true
-    addGestureRecognizer(interactionPan)
+    outerScrollView.panGestureRecognizer.require(toFail: pager.panGestureRecognizer)
+    addSubview(outerScrollView)
+    outerScrollView.addSubview(headerView)
+    outerScrollView.addSubview(pager)
+    outerScrollView.addSubview(tabsView)
     headerView.onAction = { [weak self] actionId, itemId in
       guard let self else { return }
       self.onAction?(actionId, itemId, self.selectedTabId)
@@ -204,186 +362,32 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
     fatalError("init(coder:) has not been implemented")
   }
 
-  @objc(containerInteractionPanGesture)
-  func containerInteractionPanGesture() -> UIPanGestureRecognizer {
-    interactionPan
-  }
-
-  override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-    guard gestureRecognizer === interactionPan else { return true }
-    if case .settling = pagerTransitionState {
-      return false
-    }
-    interactionPanMode = nil
-    let location = gestureRecognizer.location(in: self)
-    let velocity = interactionPan.velocity(in: self)
-    let translation = interactionPan.translation(in: self)
-    let direction = abs(translation.x) + abs(translation.y) > 0.5 ? translation : velocity
-    let horizontalScrollView = horizontalScrollView(at: location)
-    let hasDirectionalSignal = max(abs(direction.x), abs(direction.y)) > 0.5
-    let prefersHorizontal = hasDirectionalSignal
-      ? abs(direction.x) > abs(direction.y)
-      : horizontalScrollView != nil
-    if prefersHorizontal {
-      if footerSlotKey(at: location) != nil {
-        return false
-      }
-      if let scrollView = horizontalScrollView {
-        interactionPanMode = .horizontal(
-          scrollView: scrollView,
-          startOffset: scrollView.contentOffset.x
-        )
-      } else if let index = pages.firstIndex(where: { $0.tabId == selectedTabId }) {
-        interactionPanMode = .pager(startOffset: pager.contentOffset.x, startIndex: index)
-      }
-      return interactionPanMode != nil
-    }
-
-    guard headerView.frame.contains(location) || tabsView.frame.contains(location),
-          let page = pages.first(where: { $0.tabId == selectedTabId }) else {
-      let gestureView = gestureRecognizer.view
-      let gestureLocation = gestureRecognizer.location(in: gestureView)
-      let hitView = gestureView?.hitTest(gestureLocation, with: nil)
-      let startedInSlot = hitView.map { !$0.isDescendant(of: self) } ?? false
-      guard startedInSlot,
-            let page = pages.first(where: { $0.tabId == selectedTabId }) else {
-        return false
-      }
-      interactionPanMode = .vertical(page: page)
-      return true
-    }
-    interactionPanMode = .vertical(page: page)
-    return true
-  }
-
-  func gestureRecognizer(
-    _ gestureRecognizer: UIGestureRecognizer,
-    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
-  ) -> Bool {
-    gestureRecognizer === interactionPan || otherGestureRecognizer === interactionPan
-  }
-
-  private func footerSlotKey(at location: CGPoint) -> String? {
-    guard let page = pages.first(where: { $0.tabId == selectedTabId }) else {
-      return nil
-    }
-    let prefix = "content.footer.\(selectedTabId)."
-    return mountedSlotKeys.first { key in
-      guard key.hasPrefix(prefix),
-            let localFrame = page.footerSlotFrame(key: key) else { return false }
-      return page.convert(localFrame, to: self).contains(location)
-    }
-  }
-
-  @objc private func handleInteractionPan(_ gestureRecognizer: UIPanGestureRecognizer) {
-    guard let mode = interactionPanMode else { return }
-    switch gestureRecognizer.state {
-    case .began:
-      if case .pager(_, let startIndex) = mode {
-        beginPagerInteraction(startIndex: startIndex)
-      } else if case .vertical(let page) = mode {
-        page.beginExternalVerticalPan()
-      }
-    case .changed:
-      updateInteractionPan(mode, gestureRecognizer: gestureRecognizer)
-    case .ended:
-      finishInteractionPan(mode, gestureRecognizer: gestureRecognizer, cancelled: false)
-      interactionPanMode = nil
-    case .cancelled, .failed:
-      finishInteractionPan(mode, gestureRecognizer: gestureRecognizer, cancelled: true)
-      interactionPanMode = nil
-    default:
-      break
-    }
-  }
-
-  private func horizontalScrollView(at location: CGPoint) -> UIScrollView? {
-    var view: UIView? = hitTest(location, with: nil)
-    while let current = view, current !== self {
-      if let scrollView = current as? HomeContainerHorizontalScrollView,
-         scrollView.contentSize.width > scrollView.bounds.width + 1 {
-        return scrollView
-      }
-      view = current.superview
-    }
-    return nil
-  }
-
-  private func updateInteractionPan(
-    _ mode: InteractionPanMode,
-    gestureRecognizer: UIPanGestureRecognizer
-  ) {
-    let translation = gestureRecognizer.translation(in: self)
-    switch mode {
-    case .horizontal(let scrollView, let startOffset):
-      scrollView.contentOffset.x = boundedHorizontalOffset(
-        startOffset - translation.x,
-        scrollView: scrollView
-      )
-    case .pager(let startOffset, _):
-      pager.contentOffset.x = min(
-        max(startOffset - translation.x, 0),
-        max(0, pager.contentSize.width - pager.bounds.width)
-      )
-    case .vertical(let page):
-      page.updateExternalVerticalPan(translationY: translation.y)
-    }
-  }
-
-  private func finishInteractionPan(
-    _ mode: InteractionPanMode,
-    gestureRecognizer: UIPanGestureRecognizer,
-    cancelled: Bool
-  ) {
-    let translation = gestureRecognizer.translation(in: self)
-    let velocity = gestureRecognizer.velocity(in: self)
-    switch mode {
-    case .horizontal(let scrollView, let startOffset):
-      let projectedOffset = cancelled
-        ? startOffset
-        : startOffset - translation.x - velocity.x * 0.18
-      let targetOffset = boundedHorizontalOffset(projectedOffset, scrollView: scrollView)
-      UIView.animate(
-        withDuration: 0.28,
-        delay: 0,
-        options: [.allowUserInteraction, .beginFromCurrentState, .curveEaseOut]
-      ) {
-        scrollView.contentOffset.x = targetOffset
-      }
-    case .pager(_, let startIndex):
-      let crossesThreshold = abs(translation.x) > bounds.width * 0.18 || abs(velocity.x) > 500
-      let direction = translation.x < 0 ? 1 : -1
-      let targetIndex = cancelled || !crossesThreshold
-        ? startIndex
-        : min(max(startIndex + direction, 0), pages.count - 1)
-      settlePager(
-        targetIndex: targetIndex,
-        animated: true,
-        notify: targetIndex != startIndex
-      )
-    case .vertical(let page):
-      page.endExternalVerticalPan(velocityY: cancelled ? 0 : velocity.y)
-    }
-  }
-
-  private func boundedHorizontalOffset(_ value: CGFloat, scrollView: UIScrollView) -> CGFloat {
-    min(max(value, 0), max(0, scrollView.contentSize.width - scrollView.bounds.width))
-  }
-
   override func layoutSubviews() {
     super.layoutSubviews()
-    pager.frame = bounds
+    outerScrollView.frame = bounds
+    headerView.frame = CGRect(x: 0, y: 0, width: bounds.width, height: headerHeight)
+    let pagerHeight = max(0, bounds.height - HomeContainerMetrics.tabHeight)
+    pager.frame = CGRect(
+      x: 0,
+      y: headerHeight + HomeContainerMetrics.tabHeight,
+      width: bounds.width,
+      height: pagerHeight
+    )
     for (index, page) in pages.enumerated() {
       page.frame = CGRect(
         x: CGFloat(index) * bounds.width,
         y: 0,
         width: bounds.width,
-        height: bounds.height
+        height: pagerHeight
       )
     }
     pager.contentSize = CGSize(
       width: CGFloat(pages.count) * bounds.width,
-      height: bounds.height
+      height: pagerHeight
+    )
+    outerScrollView.contentSize = CGSize(
+      width: bounds.width,
+      height: headerHeight + bounds.height
     )
     updateSharedChromeLayout()
 
@@ -391,7 +395,19 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
           let index = pages.firstIndex(where: { $0.tabId == selectedTabId }) else {
       return
     }
+    #if DEBUG
+    if let value = ProcessInfo.processInfo.environment["ONEKEY_HOME_DEBUG_PAGER_PROGRESS"],
+       let progress = Double(value),
+       progress > 0,
+       progress < 1,
+       index + 1 < pages.count {
+      pager.contentOffset.x = (CGFloat(index) + CGFloat(progress)) * bounds.width
+    } else {
+      pager.contentOffset.x = CGFloat(index) * bounds.width
+    }
+    #else
     pager.contentOffset.x = CGFloat(index) * bounds.width
+    #endif
     slotLayoutDidChange?()
   }
 
@@ -446,9 +462,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
   func completeRefresh(_ requestId: String) {
     DispatchQueue.main.async { [weak self] in
       guard let self else { return }
-      if let page = self.refreshPages.removeValue(forKey: requestId) {
-        page.endRefreshing()
-        self.updateSharedChromeLayout()
+      if self.refreshRequestIds.remove(requestId) != nil {
+        self.refreshControl.endRefreshing()
       }
     }
   }
@@ -472,35 +487,24 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
   @objc(slotFrameForKey:)
   func slotFrame(forKey key: String) -> NSValue {
     layoutIfNeeded()
-    let statePrefix = "content.state."
-    if key.hasPrefix(statePrefix),
-       String(key.dropFirst(statePrefix.count)) == selectedTabId,
-       let page = pages.first(where: { $0.tabId == selectedTabId }),
-       let localFrame = page.stateSlotFrame() {
-      return NSValue(cgRect: page.convert(localFrame, to: self))
-    }
-    let contentHeaderPrefix = "content.header."
-    if key.hasPrefix(contentHeaderPrefix),
-       String(key.dropFirst(contentHeaderPrefix.count)) == selectedTabId,
-       let page = pages.first(where: { $0.tabId == selectedTabId }),
-       let localFrame = page.contentHeaderSlotFrame() {
-      return NSValue(cgRect: page.convert(localFrame, to: self))
-    }
-    let footerPrefix = "content.footer.\(selectedTabId)."
-    if key.hasPrefix(footerPrefix),
-       let page = pages.first(where: { $0.tabId == selectedTabId }),
-       let localFrame = page.footerSlotFrame(key: key) {
-      return NSValue(cgRect: page.convert(localFrame, to: self))
-    }
-    if key.hasPrefix("header."),
-       let localFrame = headerView.slotFrame(forKey: key) {
-      return NSValue(cgRect: headerView.convert(localFrame, to: self))
-    }
-    if key.hasPrefix("tab."),
-       let localFrame = tabsView.slotFrame(forKey: key) {
-      return NSValue(cgRect: tabsView.convert(localFrame, to: self))
+    if let host = slotHostView(forKey: key) {
+      return NSValue(cgRect: host.convert(host.bounds, to: self))
     }
     return NSValue(cgRect: .zero)
+  }
+
+  @objc(slotHostViewForKey:)
+  func slotHostView(forKey key: String) -> UIView? {
+    if key.hasPrefix("header.") {
+      return headerView.slotHostView(forKey: key)
+    }
+    if key.hasPrefix("tab.") {
+      return tabsView.slotHostView(forKey: key)
+    }
+    if key.hasPrefix("content.") {
+      return pages.lazy.compactMap { $0.slotHostView(forKey: key) }.first
+    }
+    return nil
   }
 
   func setFallbackBackgroundColor(_ value: String) {
@@ -521,7 +525,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
     DispatchQueue.main.async { [weak self] in
       guard let self else { return }
       self.refreshEnabled = enabled
-      self.pages.forEach { $0.setRefreshEnabled(enabled) }
+      self.refreshControl.isEnabled = enabled
     }
   }
 
@@ -557,7 +561,6 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
       let page = oldPages[tab.id] ?? makePage(tabId: tab.id)
       page.apply(
         tab: tab,
-        topSpacerHeight: headerHeight + HomeContainerMetrics.tabHeight,
         theme: next.theme
       )
       nextPages.append(page)
@@ -577,9 +580,6 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
       : (next.tabs.first?.id ?? "")
     selectedTabId = requestedTab
     updateSelectedTab(requestedTab)
-    let selectedPage = pages.first(where: { $0.tabId == requestedTab })
-    collapseOffset = selectedPage?.collapseOffset ?? 0
-    refreshPullOffset = selectedPage?.refreshPullOffset ?? 0
     setNeedsLayout()
     layoutIfNeeded()
   }
@@ -598,9 +598,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
       headerView.apply(header: header, theme: next.theme)
       headerHeight = headerView.preferredHeight
       if abs(previousHeaderHeight - headerHeight) > 0.5 {
-        pages.forEach {
-          $0.updateTopSpacerHeight(headerHeight + HomeContainerMetrics.tabHeight)
-        }
+        setNeedsLayout()
       }
       updateSharedChromeLayout()
     }
@@ -612,30 +610,13 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
 
   private func makePage(tabId: String) -> HomeContainerPageView {
     let page = HomeContainerPageView(tabId: tabId)
-    page.prioritizeContainerPan(interactionPan)
-    page.setRefreshEnabled(refreshEnabled)
+    page.requirePagerPanToFail(pager.panGestureRecognizer)
     page.setMountedSlotKeys(mountedSlotKeys)
     page.onAction = { [weak self] actionId, itemId, sourceTabId in
       self?.onAction?(actionId, itemId, sourceTabId)
     }
-    page.onRefresh = { [weak self, weak page] sourceTabId in
-      guard let self, let page else { return }
-      let requestId = UUID().uuidString
-      self.refreshPages[requestId] = page
-      self.onRefresh?(sourceTabId, requestId)
-    }
-    page.onCollapseOffsetChange = { [weak self] source, offset in
-      guard let self, source.tabId == self.selectedTabId else { return }
-      self.collapseOffset = offset
-      self.updateSharedChromeLayout()
-      for page in self.pages where page !== source {
-        page.synchronizeCollapseOffset(offset)
-      }
-    }
-    page.onRefreshPullOffsetChange = { [weak self] source, offset in
-      guard let self, source.tabId == self.selectedTabId else { return }
-      self.refreshPullOffset = offset
-      self.updateSharedChromeLayout()
+    page.onContentOffsetChange = { [weak self] source in
+      self?.coordinateNestedScroll(source: source)
     }
     page.onSlotLayoutChange = { [weak self] in
       self?.slotLayoutDidChange?()
@@ -647,121 +628,136 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
     guard let index = pages.firstIndex(where: { $0.tabId == tabId }) else { return }
     guard pagerTransitionState == .idle else { return }
     preparePagesForPagerTransition()
-    settlePager(targetIndex: index, animated: animated, notify: notify)
-  }
-
-  private func beginPagerInteraction(startIndex: Int) {
-    pagerAnimationGeneration += 1
-    pager.layer.removeAllAnimations()
-    pagerTransitionState = .dragging(startIndex: startIndex)
-    preparePagesForPagerTransition()
+    pagerTransitionState = .settling(targetIndex: index)
+    pendingPagerNotify = notify
+    let targetOffset = CGPoint(x: CGFloat(index) * pager.bounds.width, y: 0)
+    pager.setContentOffset(targetOffset, animated: animated)
+    if !animated || abs(pager.contentOffset.x - targetOffset.x) <= 0.5 {
+      finishPaging(notify: notify)
+    }
   }
 
   private func preparePagesForPagerTransition() {
-    guard let currentPage = pages.first(where: { $0.tabId == selectedTabId }) else { return }
-    let sharedCollapseOffset = currentPage.collapseOffset
-    for page in pages where page !== currentPage {
-      page.synchronizeCollapseOffset(sharedCollapseOffset)
-      page.layoutIfNeeded()
-    }
-    currentPage.layoutIfNeeded()
-  }
-
-  private func settlePager(targetIndex: Int, animated: Bool, notify: Bool) {
-    guard pages.indices.contains(targetIndex) else {
-      pagerTransitionState = .idle
-      return
-    }
-    let generation = pagerAnimationGeneration + 1
-    pagerAnimationGeneration = generation
-    pagerTransitionState = .settling(targetIndex: targetIndex)
-    let targetOffset = CGPoint(x: CGFloat(targetIndex) * pager.bounds.width, y: 0)
-    let complete: () -> Void = { [weak self] in
-      guard let self,
-            self.pagerAnimationGeneration == generation else { return }
-      self.pager.contentOffset = targetOffset
-      self.completePagerTransition(targetIndex: targetIndex, notify: notify)
-    }
-    guard animated, abs(pager.contentOffset.x - targetOffset.x) > 0.5 else {
-      pager.contentOffset = targetOffset
-      complete()
-      return
-    }
-    UIView.animate(
-      withDuration: 0.26,
-      delay: 0,
-      options: [.beginFromCurrentState, .curveEaseOut]
-    ) {
-      self.pager.contentOffset = targetOffset
-    } completion: { _ in
-      complete()
-    }
-  }
-
-  private func completePagerTransition(targetIndex: Int, notify: Bool) {
-    guard pages.indices.contains(targetIndex) else {
-      pagerTransitionState = .idle
-      return
-    }
-    let targetPage = pages[targetIndex]
-    let nextTabId = targetPage.tabId
-    pagerTransitionState = .idle
-    selectedTabId = nextTabId
-    updateSelectedTab(nextTabId)
-    collapseOffset = targetPage.collapseOffset
-    refreshPullOffset = targetPage.refreshPullOffset
-    updateSharedChromeLayout()
-    slotLayoutDidChange?()
-    if notify {
-      onVisibleTabChange?(nextTabId)
-    }
+    pages.forEach { $0.layoutIfNeeded() }
   }
 
   private func updateSelectedTab(_ tabId: String) {
     tabsView.setSelectedTab(tabId)
   }
 
+  func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+    guard scrollView === pager,
+          let startIndex = pages.firstIndex(where: { $0.tabId == selectedTabId }) else { return }
+    pagerTransitionState = .dragging(startIndex: startIndex)
+    pendingPagerNotify = true
+    preparePagesForPagerTransition()
+  }
+
+  func scrollViewDidScroll(_ scrollView: UIScrollView) {
+    guard scrollView === outerScrollView else { return }
+    coordinateOuterScroll()
+  }
+
+  func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+    if scrollView === pager, !decelerate {
+      finishPaging(notify: pendingPagerNotify)
+    }
+  }
+
   func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-    finishPaging()
+    if scrollView === pager {
+      finishPaging(notify: pendingPagerNotify)
+    }
   }
 
   func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
-    finishPaging()
+    if scrollView === pager {
+      finishPaging(notify: pendingPagerNotify)
+    }
   }
 
-  private func finishPaging() {
-    guard pagerTransitionState == .idle,
-          pager.bounds.width > 0,
+  private func finishPaging(notify: Bool) {
+    guard pager.bounds.width > 0,
           !pages.isEmpty else { return }
     let index = max(
       0,
       min(pages.count - 1, Int(round(pager.contentOffset.x / pager.bounds.width)))
     )
     let nextTabId = pages[index].tabId
-    guard nextTabId != selectedTabId else { return }
+    let didChangeTab = nextTabId != selectedTabId
+    pagerTransitionState = .idle
+    pendingPagerNotify = false
     selectedTabId = nextTabId
     updateSelectedTab(nextTabId)
-    collapseOffset = pages[index].collapseOffset
-    refreshPullOffset = pages[index].refreshPullOffset
-    updateSharedChromeLayout()
-    onVisibleTabChange?(nextTabId)
+    coordinateNestedScroll(source: pages[index])
+    slotLayoutDidChange?()
+    if notify, didChangeTab {
+      onVisibleTabChange?(nextTabId)
+    }
   }
 
   private func updateSharedChromeLayout() {
-    let boundedOffset = min(max(collapseOffset, 0), headerHeight)
-    headerView.frame = CGRect(
-      x: 0,
-      y: -boundedOffset + refreshPullOffset,
-      width: bounds.width,
-      height: headerHeight
-    )
+    let pinnedOffset = max(0, min(outerScrollView.contentOffset.y, headerHeight))
     tabsView.frame = CGRect(
       x: 0,
-      y: max(0, headerHeight - boundedOffset) + refreshPullOffset,
+      y: max(headerHeight, pinnedOffset),
       width: bounds.width,
       height: HomeContainerMetrics.tabHeight
     )
-    slotLayoutDidChange?()
+    outerScrollView.bringSubviewToFront(tabsView)
+  }
+
+  private func coordinateOuterScroll() {
+    guard !isCoordinatingNestedScroll else { return }
+    isCoordinatingNestedScroll = true
+    defer { isCoordinatingNestedScroll = false }
+    let maximumOffset = headerHeight
+    guard let page = pages.first(where: { $0.tabId == selectedTabId }) else {
+      updateSharedChromeLayout()
+      return
+    }
+    var targetOffset = outerScrollView.contentOffset.y
+    let isPullingDown = outerScrollView.panGestureRecognizer.velocity(in: outerScrollView).y > 0
+    if targetOffset > maximumOffset {
+      targetOffset = maximumOffset
+    } else if isPullingDown, page.bodyContentOffset > 0.5, targetOffset < maximumOffset {
+      targetOffset = maximumOffset
+    }
+    if abs(targetOffset - outerScrollView.contentOffset.y) > 0.5 {
+      outerScrollView.contentOffset.y = targetOffset
+    }
+    if outerScrollView.contentOffset.y < maximumOffset - 0.5,
+       page.bodyContentOffset > 0.5 {
+      page.setBodyContentOffset(0)
+    }
+    updateSharedChromeLayout()
+  }
+
+  private func coordinateNestedScroll(source: HomeContainerPageView) {
+    guard source.tabId == selectedTabId, !isCoordinatingNestedScroll else { return }
+    isCoordinatingNestedScroll = true
+    defer { isCoordinatingNestedScroll = false }
+    let maximumOffset = headerHeight
+    let pageVelocity = source.panVelocityY
+    if source.bodyContentOffset < 0 {
+      source.setBodyContentOffset(0)
+    }
+    if outerScrollView.contentOffset.y < maximumOffset - 0.5,
+       source.bodyContentOffset > 0.5,
+       pageVelocity <= 0 {
+      source.setBodyContentOffset(0)
+    }
+    updateSharedChromeLayout()
+  }
+
+  @objc private func refreshRequested() {
+    guard refreshEnabled else {
+      refreshControl.endRefreshing()
+      return
+    }
+    let requestId = UUID().uuidString
+    refreshRequestIds.insert(requestId)
+    onRefresh?(selectedTabId, requestId)
   }
 
   private func reportError(code: String, message: String) {
@@ -780,30 +776,24 @@ final class HomeContainerView: UIView, UIScrollViewDelegate, UIGestureRecognizer
 private final class HomeContainerPageView: UIView, UITableViewDelegate {
   let tabId: String
   var onAction: ((String, String, String) -> Void)?
-  var onRefresh: ((String) -> Void)?
-  var onCollapseOffsetChange: ((HomeContainerPageView, CGFloat) -> Void)?
-  var onRefreshPullOffsetChange: ((HomeContainerPageView, CGFloat) -> Void)?
+  var onContentOffsetChange: ((HomeContainerPageView) -> Void)?
   var onSlotLayoutChange: (() -> Void)?
 
-  private let tableView = UITableView(frame: .zero, style: .plain)
-  private let topSpacerView = UIView()
+  private let tableView = HomeContainerNestedTableView(frame: .zero, style: .plain)
   private var rowsById: [String: HomeContainerRow] = [:]
   private lazy var dataSource = makeDataSource()
   private var theme: HomeContainerTheme?
   private var sections: [HomeContainerSection] = []
-  private var topSpacerHeight: CGFloat = 0
-  private var suppressCollapseCallback = false
-  private var externalPanStartOffset: CGFloat = 0
-  private var refreshEnabled = false
+  private var suppressContentOffsetCallback = false
   private var mountedSlotKeys = Set<String>()
+  private var visibleSlotHosts: [String: HomeContainerSlotHostView] = [:]
 
-  var collapseOffset: CGFloat {
-    let headerHeight = max(0, topSpacerHeight - HomeContainerMetrics.tabHeight)
-    return min(max(tableView.contentOffset.y, 0), headerHeight)
+  var bodyContentOffset: CGFloat {
+    tableView.contentOffset.y
   }
 
-  var refreshPullOffset: CGFloat {
-    max(0, -tableView.contentOffset.y)
+  var panVelocityY: CGFloat {
+    tableView.panGestureRecognizer.velocity(in: tableView).y
   }
 
   init(tabId: String) {
@@ -812,7 +802,8 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     tableView.backgroundColor = .clear
     tableView.separatorStyle = .none
     tableView.showsVerticalScrollIndicator = false
-    tableView.alwaysBounceVertical = true
+    tableView.alwaysBounceVertical = false
+    tableView.bounces = false
     tableView.contentInsetAdjustmentBehavior = .never
     tableView.contentInset.bottom = 112
     tableView.verticalScrollIndicatorInsets.bottom = 112
@@ -824,10 +815,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     tableView.register(HomeContainerSectionTitleCell.self, forCellReuseIdentifier: "section")
     tableView.register(HomeContainerHorizontalCell.self, forCellReuseIdentifier: "horizontal")
     tableView.register(HomeContainerNFTGridCell.self, forCellReuseIdentifier: "grid")
-
-    let refreshControl = UIRefreshControl()
-    refreshControl.addTarget(self, action: #selector(refreshRequested), for: .valueChanged)
-    tableView.refreshControl = refreshControl
+    tableView.register(HomeContainerSlotHostCell.self, forCellReuseIdentifier: "slot-host")
     addSubview(tableView)
     _ = dataSource
   }
@@ -839,12 +827,10 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   override func layoutSubviews() {
     super.layoutSubviews()
     tableView.frame = bounds
-    updateTopSpacerFrame()
   }
 
   func apply(
     tab: HomeContainerTab,
-    topSpacerHeight: CGFloat,
     theme: HomeContainerTheme
   ) {
     self.theme = theme
@@ -852,17 +838,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       homeContainerColor: theme.backgroundColor,
       fallback: .systemBackground
     )
-    topSpacerView.backgroundColor = backgroundColor
-    updateTopSpacerHeight(topSpacerHeight)
     updateSections(tab.sections)
-  }
-
-  func updateTopSpacerHeight(_ value: CGFloat) {
-    guard abs(topSpacerHeight - value) > 0.5 || tableView.tableHeaderView !== topSpacerView else {
-      return
-    }
-    topSpacerHeight = value
-    updateTopSpacerFrame()
   }
 
   func updateSections(_ sections: [HomeContainerSection]) {
@@ -928,113 +904,42 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       nextSnapshot.reloadItems(changedIds)
     }
     dataSource.apply(nextSnapshot, animatingDifferences: false) { [weak self] in
-      self?.onSlotLayoutChange?()
+      DispatchQueue.main.async {
+        self?.onSlotLayoutChange?()
+      }
     }
   }
 
-  func synchronizeCollapseOffset(_ offset: CGFloat) {
-    let headerHeight = max(0, topSpacerHeight - HomeContainerMetrics.tabHeight)
-    guard headerHeight > 0, tableView.contentOffset.y <= headerHeight else { return }
-    let target = min(max(offset, 0), headerHeight)
-    guard abs(tableView.contentOffset.y - target) > 0.5 else { return }
-    suppressCollapseCallback = true
-    tableView.setContentOffset(CGPoint(x: 0, y: target), animated: false)
-    suppressCollapseCallback = false
+  func slotHostView(forKey key: String) -> UIView? {
+    guard key.contains(".\(tabId)") else { return nil }
+    return visibleSlotHosts[key]
   }
 
-  func stateSlotFrame() -> CGRect? {
-    let stateRowId = dataSource.snapshot().itemIdentifiers.first { rowId in
-      guard let row = rowsById[rowId], case .item(let item) = row.kind else { return false }
-      return item.renderer == "empty" || item.renderer == "loading"
+  func setBodyContentOffset(_ value: CGFloat) {
+    guard abs(tableView.contentOffset.y - value) > 0.5 else { return }
+    suppressContentOffsetCallback = true
+    tableView.contentOffset.y = value
+    suppressContentOffsetCallback = false
+  }
+
+  func requirePagerPanToFail(_ pagerPan: UIPanGestureRecognizer) {
+    tableView.panGestureRecognizer.require(toFail: pagerPan)
+  }
+
+  private func slotKey(for row: HomeContainerRow) -> String? {
+    switch row.kind {
+    case .contentHeader(let tabId):
+      return "content.header.\(tabId)"
+    case .footerSlot(let key):
+      return key
+    case .item(let item):
+      let key = "content.state.\(tabId)"
+      guard mountedSlotKeys.contains(key),
+            item.renderer == "empty" || item.renderer == "loading" else { return nil }
+      return key
+    default:
+      return nil
     }
-    guard let stateRowId,
-          let indexPath = dataSource.indexPath(for: stateRowId) else { return nil }
-    let frame = tableView.rectForRow(at: indexPath)
-    guard frame.width > 0, frame.height > 0 else { return nil }
-    return tableView.convert(frame, to: self)
-  }
-
-  func contentHeaderSlotFrame() -> CGRect? {
-    let rowId = "content-header:\(tabId)"
-    guard let indexPath = dataSource.indexPath(for: rowId) else { return nil }
-    let frame = tableView.rectForRow(at: indexPath)
-    guard frame.width > 0, frame.height > 0 else { return nil }
-    return tableView.convert(frame, to: self)
-  }
-
-  func footerSlotFrame(key: String) -> CGRect? {
-    let rowId = "footer-slot:\(key)"
-    guard let indexPath = dataSource.indexPath(for: rowId) else { return nil }
-    let frame = tableView.rectForRow(at: indexPath)
-    guard frame.width > 0, frame.height > 0 else { return nil }
-    return tableView.convert(frame, to: self)
-  }
-
-  func endRefreshing() {
-    tableView.refreshControl?.endRefreshing()
-  }
-
-  func setRefreshEnabled(_ enabled: Bool) {
-    refreshEnabled = enabled
-    tableView.refreshControl?.isEnabled = enabled
-  }
-
-  func prioritizeContainerPan(_ containerPanGesture: UIPanGestureRecognizer) {
-    tableView.panGestureRecognizer.require(toFail: containerPanGesture)
-  }
-
-  func beginExternalVerticalPan() {
-    tableView.layer.removeAllAnimations()
-    externalPanStartOffset = tableView.contentOffset.y
-  }
-
-  func updateExternalVerticalPan(translationY: CGFloat) {
-    let proposedOffset = externalPanStartOffset - translationY
-    if proposedOffset < 0 {
-      tableView.contentOffset.y = -rubberBandedPullDistance(-proposedOffset)
-    } else {
-      tableView.contentOffset.y = boundedContentOffset(proposedOffset)
-    }
-  }
-
-  func endExternalVerticalPan(velocityY: CGFloat) {
-    if refreshEnabled,
-       tableView.contentOffset.y <= -72,
-       tableView.refreshControl?.isRefreshing != true {
-      tableView.refreshControl?.beginRefreshing()
-      tableView.setContentOffset(CGPoint(x: 0, y: -60), animated: true)
-      refreshRequested()
-      return
-    }
-    let projectedOffset = tableView.contentOffset.y - velocityY * 0.18
-    let targetOffset = boundedContentOffset(projectedOffset)
-    guard abs(targetOffset - tableView.contentOffset.y) > 0.5 else { return }
-    UIView.animate(
-      withDuration: 0.28,
-      delay: 0,
-      options: [.allowUserInteraction, .beginFromCurrentState, .curveEaseOut]
-    ) {
-      self.tableView.contentOffset.y = targetOffset
-    }
-  }
-
-  private func boundedContentOffset(_ value: CGFloat) -> CGFloat {
-    let minimum = -tableView.adjustedContentInset.top
-    let maximum = max(
-      minimum,
-      tableView.contentSize.height - tableView.bounds.height + tableView.adjustedContentInset.bottom
-    )
-    return min(max(value, minimum), maximum)
-  }
-
-  private func rubberBandedPullDistance(_ distance: CGFloat) -> CGFloat {
-    let dimension = max(tableView.bounds.height, 1)
-    let resistance: CGFloat = 0.55
-    return (distance * dimension * resistance) / (dimension + resistance * distance)
-  }
-
-  @objc private func refreshRequested() {
-    onRefresh?(tabId)
   }
 
   func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
@@ -1081,9 +986,32 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     willDisplay cell: UITableViewCell,
     forRowAt indexPath: IndexPath
   ) {
+    if let slotCell = cell as? HomeContainerSlotHostCell,
+       !slotCell.slotKey.isEmpty {
+      visibleSlotHosts[slotCell.slotKey] = slotCell.slotHostView
+      DispatchQueue.main.async { [weak self] in
+        self?.onSlotLayoutChange?()
+      }
+    }
     guard let rowId = dataSource.itemIdentifier(for: indexPath),
           let request = loadMoreRequest(for: rowId) else { return }
     onAction?(request.actionId, request.itemId, tabId)
+  }
+
+  func tableView(
+    _ tableView: UITableView,
+    didEndDisplaying cell: UITableViewCell,
+    forRowAt indexPath: IndexPath
+  ) {
+    if let slotCell = cell as? HomeContainerSlotHostCell,
+       let visibleKey = visibleSlotHosts.first(where: {
+         $0.value === slotCell.slotHostView
+       })?.key {
+      visibleSlotHosts.removeValue(forKey: visibleKey)
+      DispatchQueue.main.async { [weak self] in
+        self?.onSlotLayoutChange?()
+      }
+    }
   }
 
   private func loadMoreRequest(for rowId: String) -> (actionId: String, itemId: String)? {
@@ -1098,18 +1026,8 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   }
 
   func scrollViewDidScroll(_ scrollView: UIScrollView) {
-    guard !suppressCollapseCallback else { return }
-    onCollapseOffsetChange?(self, collapseOffset)
-    onRefreshPullOffsetChange?(self, refreshPullOffset)
-    onSlotLayoutChange?()
-  }
-
-  private func updateTopSpacerFrame() {
-    topSpacerView.frame = CGRect(x: 0, y: 0, width: bounds.width, height: topSpacerHeight)
-    if tableView.tableHeaderView !== topSpacerView ||
-        tableView.tableHeaderView?.frame.size != topSpacerView.frame.size {
-      tableView.tableHeaderView = topSpacerView
-    }
+    guard !suppressContentOffsetCallback else { return }
+    onContentOffsetChange?(self)
   }
 
   private func makeDataSource() -> UITableViewDiffableDataSource<Int, String> {
@@ -1120,10 +1038,11 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
             let theme = self.theme else { return UITableViewCell() }
       switch row.kind {
       case .contentHeader, .footerSlot:
-        let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-        cell.backgroundColor = .clear
-        cell.contentView.backgroundColor = .clear
-        cell.selectionStyle = .none
+        let cell = tableView.dequeueReusableCell(withIdentifier: "slot-host", for: indexPath)
+          as! HomeContainerSlotHostCell
+        if let key = self.slotKey(for: row) {
+          cell.apply(slotKey: key)
+        }
         return cell
       case .grid(let items):
         let cell = tableView.dequeueReusableCell(withIdentifier: "grid", for: indexPath)
@@ -1152,6 +1071,12 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
         }
         return cell
       case .item(let item):
+        if let key = self.slotKey(for: row) {
+          let cell = tableView.dequeueReusableCell(withIdentifier: "slot-host", for: indexPath)
+            as! HomeContainerSlotHostCell
+          cell.apply(slotKey: key)
+          return cell
+        }
         let cell = tableView.dequeueReusableCell(withIdentifier: "item", for: indexPath)
           as! HomeContainerItemCell
         cell.apply(item: item, theme: theme)
@@ -1161,7 +1086,38 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   }
 }
 
-private final class HomeContainerHeaderView: UIView, UIScrollViewDelegate {
+private final class HomeContainerSlotHostCell: UITableViewCell {
+  let slotHostView = HomeContainerSlotHostView()
+  private(set) var slotKey = ""
+
+  override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+    super.init(style: style, reuseIdentifier: reuseIdentifier)
+    selectionStyle = .none
+    backgroundColor = .clear
+    contentView.backgroundColor = .clear
+    contentView.addSubview(slotHostView)
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    slotHostView.frame = contentView.bounds
+  }
+
+  override func prepareForReuse() {
+    super.prepareForReuse()
+    slotKey = ""
+  }
+
+  func apply(slotKey: String) {
+    self.slotKey = slotKey
+  }
+}
+
+private final class HomeContainerHeaderView: UIView {
   var onAction: ((String, String) -> Void)?
   var onSlotLayoutChange: (() -> Void)?
   private let contentStack = UIStackView()
@@ -1180,6 +1136,9 @@ private final class HomeContainerHeaderView: UIView, UIScrollViewDelegate {
   private let actionsStack = UIStackView()
   private let bannersScroll = HomeContainerHorizontalScrollView()
   private let bannersStack = UIStackView()
+  private let accountSlotHost = HomeContainerSlotHostView()
+  private let balanceSlotHost = HomeContainerSlotHostView()
+  private let actionRowSlotHost = HomeContainerSlotHostView()
   private var actionControls: [String: HomeContainerActionControl] = [:]
   private var balanceActionButtons: [String: UIButton] = [:]
   private var bannerControls: [String: HomeContainerBannerControl] = [:]
@@ -1307,9 +1266,11 @@ private final class HomeContainerHeaderView: UIView, UIScrollViewDelegate {
 
     configureHorizontalStrip(scrollView: actionsScroll, stack: actionsStack, height: 72)
     configureHorizontalStrip(scrollView: bannersScroll, stack: bannersStack, height: 84)
-    actionsScroll.delegate = self
     contentStack.addArrangedSubview(actionsScroll)
     contentStack.addArrangedSubview(bannersScroll)
+    addSubview(accountSlotHost)
+    addSubview(balanceSlotHost)
+    addSubview(actionRowSlotHost)
   }
 
   required init?(coder: NSCoder) {
@@ -1377,6 +1338,27 @@ private final class HomeContainerHeaderView: UIView, UIScrollViewDelegate {
     networkGroupImageTasks.forEach { $0.cancel() }
   }
 
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    layoutSlotHost(accountSlotHost, target: accountRow)
+    layoutSlotHost(balanceSlotHost, target: balanceButton)
+    layoutSlotHost(actionRowSlotHost, target: actionsScroll)
+  }
+
+  func slotHostView(forKey key: String) -> UIView? {
+    layoutIfNeeded()
+    switch key {
+    case "header.account-row":
+      return accountRow.isHidden ? nil : accountSlotHost
+    case "header.balance":
+      return balanceButton.isHidden ? nil : balanceSlotHost
+    case "header.action-row":
+      return actionsScroll.isHidden ? nil : actionRowSlotHost
+    default:
+      return nil
+    }
+  }
+
   func slotFrame(forKey key: String) -> CGRect? {
     layoutIfNeeded()
     let target: UIView?
@@ -1396,10 +1378,15 @@ private final class HomeContainerHeaderView: UIView, UIScrollViewDelegate {
     return target.convert(target.bounds, to: self)
   }
 
-  func scrollViewDidScroll(_ scrollView: UIScrollView) {
-    if scrollView === actionsScroll {
-      onSlotLayoutChange?()
+  private func layoutSlotHost(_ host: UIView, target: UIView) {
+    guard !target.isHidden, target.bounds.width > 0, target.bounds.height > 0 else {
+      host.frame = .zero
+      host.isHidden = true
+      return
     }
+    host.isHidden = false
+    host.frame = target.convert(target.bounds, to: self)
+    bringSubviewToFront(host)
   }
 
   private func loadAccountImage(_ value: String?) {
@@ -1751,13 +1738,14 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
   }
 }
 
-private final class HomeContainerTabsView: UIView, UIScrollViewDelegate {
+private final class HomeContainerTabsView: UIView {
   var onSelect: ((String) -> Void)?
   var onAction: ((String, String) -> Void)?
   var onSlotLayoutChange: (() -> Void)?
   private let scrollView = HomeContainerHorizontalScrollView()
   private let stack = UIStackView()
   private let toolbarButton = UIButton(type: .system)
+  private let toolbarSlotHost = HomeContainerSlotHostView()
   private var buttons: [String: UIButton] = [:]
   private var tabsById: [String: HomeContainerTab] = [:]
   private var selectedTabId = ""
@@ -1768,7 +1756,6 @@ private final class HomeContainerTabsView: UIView, UIScrollViewDelegate {
     super.init(frame: frame)
     scrollView.showsHorizontalScrollIndicator = false
     scrollView.alwaysBounceHorizontal = true
-    scrollView.delegate = self
     scrollView.translatesAutoresizingMaskIntoConstraints = false
     stack.axis = .horizontal
     stack.spacing = 24
@@ -1783,6 +1770,7 @@ private final class HomeContainerTabsView: UIView, UIScrollViewDelegate {
     toolbarButton.translatesAutoresizingMaskIntoConstraints = false
     addSubview(scrollView)
     addSubview(toolbarButton)
+    addSubview(toolbarSlotHost)
     scrollView.addSubview(stack)
     NSLayoutConstraint.activate([
       scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -1803,6 +1791,19 @@ private final class HomeContainerTabsView: UIView, UIScrollViewDelegate {
 
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    let accessoryKey = "tab.accessory.\(selectedTabId)"
+    guard !toolbarButton.isHidden, mountedSlotKeys.contains(accessoryKey) else {
+      toolbarSlotHost.frame = .zero
+      toolbarSlotHost.isHidden = true
+      return
+    }
+    toolbarSlotHost.isHidden = false
+    toolbarSlotHost.frame = toolbarButton.frame
+    bringSubviewToFront(toolbarSlotHost)
   }
 
   func apply(tabs: [HomeContainerTab], selectedTabId: String, theme: HomeContainerTheme) {
@@ -1862,8 +1863,13 @@ private final class HomeContainerTabsView: UIView, UIScrollViewDelegate {
     return toolbarButton.convert(toolbarButton.bounds, to: self)
   }
 
-  func scrollViewDidScroll(_ scrollView: UIScrollView) {
-    onSlotLayoutChange?()
+  func slotHostView(forKey key: String) -> UIView? {
+    layoutIfNeeded()
+    let accessoryPrefix = "tab.accessory."
+    guard key.hasPrefix(accessoryPrefix),
+          String(key.dropFirst(accessoryPrefix.count)) == selectedTabId,
+          !toolbarButton.isHidden else { return nil }
+    return toolbarSlotHost
   }
 
   private func updateButtonColors() {
