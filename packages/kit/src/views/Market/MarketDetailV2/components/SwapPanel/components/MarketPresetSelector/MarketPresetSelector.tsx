@@ -1428,6 +1428,7 @@ function MarketPresetSettingsDialog({
                       size="medium"
                       error={showCurrentPriorityFeeError}
                       value={currentSettings.priorityFee.customValue ?? ''}
+                      keyboardType="decimal-pad"
                       addOns={[
                         {
                           renderContent: (
