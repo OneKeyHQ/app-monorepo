@@ -163,6 +163,10 @@ private final class HomeContainerNestedScrollView: UIScrollView, UIGestureRecogn
     fatalError("init(coder:) has not been implemented")
   }
 
+  override func touchesShouldCancel(in view: UIView) -> Bool {
+    true
+  }
+
   override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
     guard gestureRecognizer === panGestureRecognizer else { return true }
     let velocity = panGestureRecognizer.velocity(in: self)
@@ -276,9 +280,15 @@ private final class HomeContainerPagerScrollView: UIScrollView, UIGestureRecogni
   }
 }
 
-private class HomeContainerHorizontalScrollView: UIScrollView {
+private class HomeContainerHorizontalScrollView: UIScrollView, UIGestureRecognizerDelegate {
+  private let verticalGateGestureRecognizer = HomeContainerVerticalGateGestureRecognizer()
+
   override init(frame: CGRect) {
     super.init(frame: frame)
+    verticalGateGestureRecognizer.cancelsTouchesInView = false
+    verticalGateGestureRecognizer.delegate = self
+    addGestureRecognizer(verticalGateGestureRecognizer)
+    panGestureRecognizer.require(toFail: verticalGateGestureRecognizer)
   }
 
   required init?(coder: NSCoder) {
@@ -288,11 +298,19 @@ private class HomeContainerHorizontalScrollView: UIScrollView {
   override func touchesShouldCancel(in view: UIView) -> Bool {
     true
   }
+
+  func gestureRecognizer(
+    _ gestureRecognizer: UIGestureRecognizer,
+    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+  ) -> Bool {
+    guard gestureRecognizer === verticalGateGestureRecognizer else { return false }
+    return otherGestureRecognizer.view is HomeContainerNestedScrollView ||
+      otherGestureRecognizer.view is HomeContainerNestedTableView
+  }
 }
 
 private final class HomeContainerPagerChildHorizontalScrollView:
-  HomeContainerHorizontalScrollView,
-  UIGestureRecognizerDelegate
+  HomeContainerHorizontalScrollView
 {
   override init(frame: CGRect) {
     super.init(frame: frame)
