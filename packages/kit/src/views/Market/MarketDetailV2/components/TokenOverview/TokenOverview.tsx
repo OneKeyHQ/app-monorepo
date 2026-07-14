@@ -184,7 +184,7 @@ export function TokenOverview() {
       ) : (
         <>
           <XStack gap="$2">
-            <StatCard {...auditStat} />
+            {securityData ? <StatCard {...auditStat} /> : null}
             <StatCard
               label={intl.formatMessage({
                 id: ETranslations.dexmarket_holders,
