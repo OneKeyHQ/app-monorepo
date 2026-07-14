@@ -8,7 +8,7 @@
 
 - 仓库：`OneKeyHQ/app-monorepo`
 - 分支：`codex/native-home-container`
-- 原生首页最新基准 commit：`09ff3f0623`（`fix: stabilize native home paging and actions`）
+- 原生首页最新基准 commit：`c7a8d3c086`（`fix: restore native home banner interactions`）
 - Base branch 是 `x`，但本次不要切换、合并或 rebase `x`。
 
 开始前执行：
@@ -17,7 +17,7 @@
 git fetch origin
 git switch codex/native-home-container
 git pull --ff-only
-git merge-base --is-ancestor 09ff3f0623 HEAD
+git merge-base --is-ancestor c7a8d3c086 HEAD
 ```
 
 最后一条命令必须成功。
@@ -400,6 +400,23 @@ SIMCTL_CHILD_ONEKEY_HOME_DEBUG_PAGER_PROGRESS=0.5 \
 - **Native resource ownership：** outer、Pager、每页 table、Slot host/parking view、方向 gate 和共享 `UIRefreshControl` 都由单个 `HomeContainer` 实例持有；没有新增进程 singleton。图片 cache 仍是既有共享 native resource。
 - **JS heap copies：** main/bg 仍各自反序列化自己的 JS 数据；横滑/下拉热路径没有把 offset、progress 或 velocity 复制到任一 JS heap。
 - **Timing/order：** main/bg 独立初始化；bg 晚到的数据仍通过 revision/section patch 精确更新，不能假设 bg ready，也不会因 refresh 或横滑重建容器。
+
+## 2026-07-14 Banner 关闭按钮视觉对齐（当前工作区，视觉已完成模拟器验证）
+
+原版 JSX 实现在 `packages/kit/src/views/Home/components/WalletBanner/WalletBanner.tsx`：
+
+- 使用 `CrossedSmallOutline`，`IconButton size="small" variant="tertiary"`。
+- 图标 viewport 为 `20 × 20pt`；SVG path 在该 viewport 内的实际可见 bounds 约为 `9.02 × 9.02pt`。
+- 颜色来自 `$iconSubdued`（light/dark theme 的 neutral9），不是 `$textSubdued`（neutral11）。
+- ButtonFrame 为 `28 × 28pt`：图标 `20pt` 加四边 `4pt` padding。
+- 声明位置是 `top/right=$2`（8pt），small tertiary 同时应用 `-5pt` margin，因此 Native 对齐目标为距卡片右上 `3pt` 的按钮 frame。
+- 额外 hit slop 为四边 `12pt`；视觉缩小不能缩小这个点击范围。
+
+此前 iOS 使用 `xmark` SF Symbol `12pt/medium`、`$textSubdued` 和 `top/trailing=8pt`，因此 X 的可见尺寸偏大、颜色偏重，并且相对原版偏左偏下。当前修复改为按原版 SVG path 生成 `20pt` template image，新增可选 `subduedIconColor` theme 字段，并保持 Android/旧 JS schema 兼容；按钮 frame/hit slop 维持 `28pt/12pt`，只把视觉锚点对齐到 `3pt`。
+
+验收条件：Light/Dark 下与 JSX 原版并排截图，X 的可见 bounds、颜色和中心位置一致；点击 X 的扩展区域只关闭 Banner，不能触发整卡导航；点击 X 外的卡片正文仍触发 Banner action。
+
+当前验证结果：Swift parse、TypeScript type-aware oxlint、iOS Debug 完整 build、Android `:onekeyhq_native-components:compileDebugKotlin` 和 `HomeContainerController.test.ts`（7/7）均通过。新 `.app` 已覆盖安装到 iPhone 17 Pro Simulator（iOS 26.5），data container 安装前后保持 `23896KB`、394 个文件，没有卸载或清数据。`native-home-banner-dismiss` 的实际 frame 为 `28 × 28pt`、`hittable=true`；Light/Dark 截图分别位于 `.tmp/ui/native-home-banner-dismiss-aligned.png` 和 `.tmp/ui/native-home-banner-dismiss-aligned-dark.png`。关闭按钮的点击链路未改动，本轮没有实际关闭远端 Banner，以免把 `closedForever` 写入当前测试钱包；提交前仍应人工点一次可恢复的测试 Banner，确认关闭点击不冒泡到整卡 action。
 
 ### 运行时边界（本轮实现）
 

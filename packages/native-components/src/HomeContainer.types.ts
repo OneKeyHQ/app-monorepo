@@ -65,6 +65,7 @@ export interface IHomeContainerTheme {
   cardColor: string;
   hoverColor?: string;
   activeColor?: string;
+  subduedIconColor?: string;
   dividerColor: string;
   primaryTextColor: string;
   secondaryTextColor: string;
