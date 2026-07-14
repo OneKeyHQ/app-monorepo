@@ -912,6 +912,7 @@ export interface IPerpsDepositToken {
 
 export interface IPerpsDepositTokensAtom {
   tokens: Record<string, IPerpsDepositToken[]>;
+  serverTokens?: IPerpsDepositToken[];
   defaultTokens?: IPerpsDepositToken[];
   currentPerpsDepositSelectedToken?: IPerpsDepositToken;
   depositTokenListOwnerKey?: string;

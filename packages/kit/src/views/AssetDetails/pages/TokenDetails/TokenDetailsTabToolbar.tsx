@@ -1,6 +1,5 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -19,11 +18,10 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { sortTokensByOrder } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { displayFiatValueOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { useTokenDetailsContext } from './TokenDetailsContext';
+import { useAggregateTokenDetails } from './useAggregateTokenDetails';
 
 type IProps = {
   tokens: IAccountToken[];
@@ -35,83 +33,8 @@ function TokenDetailsTabToolbar(props: IProps) {
   const { tokens, onSelected } = props;
   const themeVariant = useThemeVariant();
   const intl = useIntl();
-  const { tokenDetails, tokenAccountMap } = useTokenDetailsContext();
 
-  const sortedTokensByFiatValue = useMemo(() => {
-    let sortedTokens = tokens?.toSorted((a, b) => {
-      const aKey = `${
-        a.accountId ||
-        tokenAccountMap[`${a.networkId || ''}_${a.address}`] ||
-        ''
-      }_${a.networkId || ''}`;
-      const bKey = `${
-        b.accountId ||
-        tokenAccountMap[`${b.networkId || ''}_${b.address}`] ||
-        ''
-      }_${b.networkId || ''}`;
-      const aFiat = new BigNumber(tokenDetails[aKey]?.data?.fiatValue ?? -1);
-      const bFiat = new BigNumber(tokenDetails[bKey]?.data?.fiatValue ?? -1);
-
-      return new BigNumber(bFiat.isNaN() ? -1 : bFiat).comparedTo(
-        new BigNumber(aFiat.isNaN() ? -1 : aFiat),
-      );
-    });
-    const negativeIndex = sortedTokens.findIndex((t) => {
-      const key = `${
-        t.accountId ||
-        tokenAccountMap[`${t.networkId || ''}_${t.address}`] ||
-        ''
-      }_${t.networkId || ''}`;
-      return new BigNumber(
-        tokenDetails[key]?.data?.fiatValue ?? -1,
-      ).isNegative();
-    });
-
-    const zeroIndex = sortedTokens.findIndex((t) => {
-      const key = `${
-        t.accountId ||
-        tokenAccountMap[`${t.networkId || ''}_${t.address}`] ||
-        ''
-      }_${t.networkId || ''}`;
-      return new BigNumber(tokenDetails[key]?.data?.fiatValue ?? -1).isZero();
-    });
-
-    if (negativeIndex > -1 || zeroIndex > -1) {
-      let tokensWithNonZeroBalance: IAccountToken[] = [];
-      let tokensWithZeroBalance: IAccountToken[] = [];
-      let tokensWithoutBalance: IAccountToken[] = [];
-
-      if (negativeIndex > -1) {
-        const tokensWithBalance = sortedTokens.slice(0, negativeIndex);
-        tokensWithoutBalance = sortedTokens.slice(negativeIndex);
-        if (zeroIndex > -1) {
-          tokensWithNonZeroBalance = tokensWithBalance.slice(0, zeroIndex);
-          tokensWithZeroBalance = tokensWithBalance.slice(zeroIndex);
-        } else {
-          tokensWithNonZeroBalance = tokensWithBalance;
-        }
-      } else if (zeroIndex > -1) {
-        tokensWithNonZeroBalance = sortedTokens.slice(0, zeroIndex);
-        tokensWithZeroBalance = sortedTokens.slice(zeroIndex);
-      }
-
-      tokensWithZeroBalance = sortTokensByOrder({
-        tokens: tokensWithZeroBalance,
-      });
-
-      tokensWithoutBalance = sortTokensByOrder({
-        tokens: tokensWithoutBalance,
-      });
-
-      sortedTokens = [
-        ...tokensWithNonZeroBalance,
-        ...tokensWithZeroBalance,
-        ...tokensWithoutBalance,
-      ];
-    }
-
-    return sortedTokens;
-  }, [tokens, tokenAccountMap, tokenDetails]);
+  const { rows } = useAggregateTokenDetails({ tokens });
 
   const renderContent = useCallback(
     ({ closePopover }: { closePopover: () => void }) => {
@@ -123,14 +46,7 @@ function TokenDetailsTabToolbar(props: IProps) {
             py: '$1.5',
           }}
         >
-          {sortedTokensByFiatValue?.map((token) => {
-            const tokenDetailKey = `${
-              token.accountId ||
-              tokenAccountMap[`${token.networkId || ''}_${token.address}`] ||
-              ''
-            }_${token.networkId || ''}`;
-            const tokenDetail = tokenDetails[tokenDetailKey]?.data;
-
+          {rows.map(({ token, tokenDetail }) => {
             return (
               <ListItem
                 key={token.$key}
@@ -203,14 +119,7 @@ function TokenDetailsTabToolbar(props: IProps) {
         </Stack>
       );
     },
-    [
-      sortedTokensByFiatValue,
-      tokenAccountMap,
-      tokenDetails,
-      gtMd,
-      intl,
-      onSelected,
-    ],
+    [rows, gtMd, intl, onSelected],
   );
 
   if (tokens.length <= 1) {

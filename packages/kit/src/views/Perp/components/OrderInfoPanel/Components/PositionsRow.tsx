@@ -20,6 +20,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatLocalizedNumberString,
@@ -838,23 +839,45 @@ const PositionRowMobilePnLAndROE = memo(
         alignItems="center"
         position="relative"
       >
-        <YStack gap="$1">
+        <YStack gap="$1" flexGrow={1} flexBasis={0} minWidth={0}>
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.perp_position_pnl_mobile,
             })}
           </SizableText>
-          <SizableText size="$bodyLgMedium" color={otherInfo.pnlColor}>
+          <SizableText
+            size="$bodyLgMedium"
+            color={otherInfo.pnlColor}
+            flexShrink={1}
+            minWidth={0}
+            numberOfLines={platformEnv.isNative ? 1 : 2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+          >
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}`}
           </SizableText>
         </YStack>
-        <YStack gap="$1" alignItems="flex-end">
+        <YStack
+          gap="$1"
+          flexGrow={1}
+          flexBasis={0}
+          minWidth={0}
+          alignItems="flex-end"
+        >
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.perp_share_roe,
             })}
           </SizableText>
-          <SizableText size="$bodyLgMedium" color={otherInfo.pnlColor}>
+          <SizableText
+            size="$bodyLgMedium"
+            color={otherInfo.pnlColor}
+            flexShrink={1}
+            minWidth={0}
+            numberOfLines={platformEnv.isNative ? 1 : 2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+          >
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%`}
           </SizableText>
         </YStack>
@@ -879,7 +902,13 @@ const PositionRowMobilePositionSize = memo(
     const intl = useIntl();
 
     return (
-      <YStack gap="$1" flex={1.35} position="relative">
+      <YStack
+        gap="$1"
+        flexGrow={1.35}
+        flexBasis={0}
+        minWidth={0}
+        position="relative"
+      >
         <XStack
           alignItems="center"
           gap="$1"
@@ -899,7 +928,14 @@ const PositionRowMobilePositionSize = memo(
           <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
         </XStack>
         <XStack alignItems="center" gap="$1">
-          <SizableText size="$bodyMdMedium">
+          <SizableText
+            size="$bodyMdMedium"
+            flexShrink={1}
+            minWidth={0}
+            numberOfLines={platformEnv.isNative ? 1 : 2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+          >
             {isSizeViewChange
               ? `$${sizeInfo.sizeValue}`
               : sizeInfo.sizeAbsFormatted}
@@ -924,14 +960,28 @@ const PositionRowMobileMargin = memo(
     const intl = useIntl();
 
     return (
-      <YStack gap="$1" flex={0.65} alignItems="flex-start" position="relative">
+      <YStack
+        gap="$1"
+        flexGrow={0.65}
+        flexBasis={0}
+        minWidth={0}
+        alignItems="flex-start"
+        position="relative"
+      >
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.perp_position_margin,
           })}
         </SizableText>
         <XStack alignItems="center" gap="$1">
-          <SizableText size="$bodyMdMedium">
+          <SizableText
+            size="$bodyMdMedium"
+            flexShrink={1}
+            minWidth={0}
+            numberOfLines={platformEnv.isNative ? 1 : 2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+          >
             {`${otherInfo.marginUsedFormatted}`}
           </SizableText>
           {isIsolatedMode ? (
@@ -957,13 +1007,27 @@ const PositionRowMobileEntryPrice = memo(
     const intl = useIntl();
 
     return (
-      <YStack gap="$1" flex={1} alignItems="flex-end" position="relative">
+      <YStack
+        gap="$1"
+        flexGrow={1}
+        flexBasis={0}
+        minWidth={0}
+        alignItems="flex-end"
+        position="relative"
+      >
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.perp_position_entry_price,
           })}
         </SizableText>
-        <SizableText size="$bodyMdMedium">
+        <SizableText
+          size="$bodyMdMedium"
+          flexShrink={1}
+          minWidth={0}
+          numberOfLines={platformEnv.isNative ? 1 : 2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+        >
           {priceInfo.entryPriceFormatted}
         </SizableText>
       </YStack>
@@ -982,7 +1046,13 @@ const PositionRowMobileFunding = memo(
   }) => {
     const intl = useIntl();
     return (
-      <YStack gap="$1" flex={1.35} position="relative">
+      <YStack
+        gap="$1"
+        flexGrow={1.35}
+        flexBasis={0}
+        minWidth={0}
+        position="relative"
+      >
         <Popover
           title={intl.formatMessage({
             id: ETranslations.perp_position_funding_2,
@@ -1076,6 +1146,11 @@ const PositionRowMobileFunding = memo(
         <SizableText
           size="$bodyMdMedium"
           color={otherInfo.fundingSinceOpenColor}
+          flexShrink={1}
+          minWidth={0}
+          numberOfLines={platformEnv.isNative ? 1 : 2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
         >
           {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
         </SizableText>
@@ -1114,13 +1189,27 @@ const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
   }, [currentAssetOpenOrders]);
 
   return (
-    <YStack gap="$1" flex={0.65} alignItems="flex-start" position="relative">
+    <YStack
+      gap="$1"
+      flexGrow={0.65}
+      flexBasis={0}
+      minWidth={0}
+      alignItems="flex-start"
+      position="relative"
+    >
       <SizableText size="$bodySm" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.perp_position_tp_sl,
         })}
       </SizableText>
-      <SizableText size="$bodyMdMedium" numberOfLines={1}>
+      <SizableText
+        size="$bodyMdMedium"
+        flexShrink={1}
+        minWidth={0}
+        numberOfLines={platformEnv.isNative ? 1 : 2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+      >
         {tpslInfo.tpsl}
       </SizableText>
     </YStack>
@@ -1136,13 +1225,27 @@ const PositionRowMobileMarkPrice = memo(({ coin }: { coin: string }) => {
   });
 
   return (
-    <YStack gap="$1" flex={0.65} alignItems="flex-start" position="relative">
+    <YStack
+      gap="$1"
+      flexGrow={0.65}
+      flexBasis={0}
+      minWidth={0}
+      alignItems="flex-start"
+      position="relative"
+    >
       <SizableText size="$bodySm" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.perp_position_mark_price,
         })}
       </SizableText>
-      <SizableText size="$bodyMdMedium" numberOfLines={1}>
+      <SizableText
+        size="$bodyMdMedium"
+        flexShrink={1}
+        minWidth={0}
+        numberOfLines={platformEnv.isNative ? 1 : 2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+      >
         {formatLocalizedNumberString(midFormattedByDecimals || '--')}
       </SizableText>
     </YStack>
@@ -1154,13 +1257,27 @@ const PositionRowMobileLiqPrice = memo(
   ({ priceInfo }: { priceInfo: IPriceInfo }) => {
     const intl = useIntl();
     return (
-      <YStack gap="$1" flex={1} alignItems="flex-end" position="relative">
+      <YStack
+        gap="$1"
+        flexGrow={1}
+        flexBasis={0}
+        minWidth={0}
+        alignItems="flex-end"
+        position="relative"
+      >
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.perp_position_liq_price,
           })}
         </SizableText>
-        <SizableText size="$bodyMdMedium">
+        <SizableText
+          size="$bodyMdMedium"
+          flexShrink={1}
+          minWidth={0}
+          numberOfLines={platformEnv.isNative ? 1 : 2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+        >
           {priceInfo.liquidationPriceFormatted}
         </SizableText>
       </YStack>

@@ -83,8 +83,8 @@ export function createProductionConfig({
       ],
       splitChunks: {
         chunks: 'all',
-        minSize: 153_600,
-        maxSize: 614_400,
+        minSize: isWeb ? 153_600 : 102_400,
+        maxSize: isWeb ? 614_400 : 4_194_304,
         hidePathInfo: true,
         automaticNameDelimiter: '.',
         name: false,

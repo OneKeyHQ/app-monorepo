@@ -2801,6 +2801,8 @@
   "perp_time_in_force_gtc__desc": "GTC (มีผลจนกว่าจะยกเลิก): คำสั่งจะคงอยู่จนกว่าจะถูกจับคู่หรือยกเลิก",
   "perp_time_in_force_ioc__desc": "IOC (จับคู่ทันทีหรือยกเลิก): ส่วนที่ไม่ถูกจับคู่ทันทีจะถูกยกเลิก",
   "perp_toast_deposit_success_eta_one_minute__msg": "ส่งคำขอฝาก {amount} {token} แล้ว การฝากควรถึงภายใน 1 นาที",
+  "perp_toast_modifying_order": "กำลังแก้ไขคำสั่ง…",
+  "perp_toast_order_modified": "แก้ไขคำสั่งแล้ว",
   "perp_token_info_not_found__msg": "ไม่พบข้อมูลโทเคน",
   "perp_trade_account_overview_avbl": "พร้อมใช้",
   "perp_trade_deposit_to_trade__action": "ฝากเพื่อเทรด",

@@ -166,6 +166,25 @@ export function isSwapZeroProviderQuoteCompleted({
   );
 }
 
+export function isSwapNoProviderSupportsTrade({
+  zeroProviderQuoteCompleted,
+  quote,
+  quoteResultNoMatch,
+}: {
+  zeroProviderQuoteCompleted: boolean;
+  quote?: Pick<IFetchQuoteResult, 'toAmount' | 'limit'>;
+  quoteResultNoMatch: boolean;
+}) {
+  // Only trust the no-provider verdict when the quote belongs to the current
+  // inputs; a stale mismatched quote must not lock the action button out of
+  // its "Refresh quotes" recovery state. (OK-57545)
+  return (
+    (zeroProviderQuoteCompleted ||
+      Boolean(quote && !quote.toAmount && !quote.limit)) &&
+    !quoteResultNoMatch
+  );
+}
+
 export const SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP = 2;
 
 export function getSwapQuoteEventProgressTotalCount({
