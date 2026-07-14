@@ -70,6 +70,7 @@ import {
   getResolvableDefaultSwapKLineSide,
   getSwapKLineStableTokenKey,
   getSwapKLineStableTokenStatusFromMap,
+  haveSameSwapKLineTokenSymbol,
   isKnownSwapKLineUnsupportedToken,
 } from './swapKLineTokenUtils';
 
@@ -508,6 +509,10 @@ function SwapKLineTokenSwitch({
   toToken?: ISwapToken;
   compact?: boolean;
 }) {
+  const tokensHaveSameSymbol = haveSameSwapKLineTokenSymbol({
+    fromToken,
+    toToken,
+  });
   const tokenSize = compact ? 'xxs' : 'xs';
   const labelSize = compact ? '$bodySmMedium' : '$bodyMdMedium';
   const labelGap = compact ? '$1' : '$1.5';
@@ -586,7 +591,7 @@ function SwapKLineTokenSwitch({
     [onChange],
   );
 
-  if (options.length <= 1) {
+  if (tokensHaveSameSymbol || options.length <= 1) {
     return null;
   }
 
@@ -664,6 +669,9 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   const kLineFallbackChainRef = useRef<string[]>([]);
 
   const resolvedSelectedSide = useMemo(() => {
+    if (haveSameSwapKLineTokenSymbol({ fromToken, toToken })) {
+      return defaultSide;
+    }
     if (selectedSide) {
       const selectedToken =
         selectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
