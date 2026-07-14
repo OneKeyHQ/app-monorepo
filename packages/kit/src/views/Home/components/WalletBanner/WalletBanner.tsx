@@ -127,9 +127,14 @@ function BannerItem({
               {item.description}
             </SizableText>
           ) : null}
+          {/* Cap title lines to what BANNER_ITEM_HEIGHT's content box
+              (88 - 2 * $4 = 56pt) can hold, otherwise long or localized
+              titles spill past the card border: with a description only one
+              line fits (14 + gap 4 + $headingMd 24 = 42pt), without one two
+              lines fit ($headingMd 48pt). */}
           <SizableText
             size={item.icon ? '$headingMd' : '$headingSm'}
-            numberOfLines={3}
+            numberOfLines={item.description ? 1 : 2}
           >
             {item.title}
           </SizableText>
