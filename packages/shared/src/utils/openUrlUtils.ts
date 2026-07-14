@@ -146,6 +146,8 @@ const SOCIAL_APP_HOSTS = new Set([
   'discordapp.com',
   'discord.gg',
 ]);
+// The hardware web tools need WebUSB, which in-app browsers cannot provide.
+const WEBUSB_TOOL_HOSTS = new Set(['firmware.onekey.so']);
 
 // Dev-settings kill switch, pushed in from kit (shared cannot import kit-bg).
 let forceSystemBrowserForDebug = false;
@@ -155,7 +157,11 @@ export const setForceSystemBrowserForDebug = (value: boolean) => {
 
 const isSystemBrowserOnlyHost = (hostname: string): boolean => {
   const host = hostname.toLowerCase().replace(/^www\./, '');
-  return STORE_HOSTS.has(host) || SOCIAL_APP_HOSTS.has(host);
+  return (
+    STORE_HOSTS.has(host) ||
+    SOCIAL_APP_HOSTS.has(host) ||
+    WEBUSB_TOOL_HOSTS.has(host)
+  );
 };
 
 const trackOpenUrl = (
@@ -218,8 +224,7 @@ export const openUrlExternal = (
   openUrlInAppBrowserNative(trimmedUrl).catch(() => {
     // e.g. Android NoMatchingActivityException when no installed browser
     // supports Custom Tabs — fall back to the system browser.
-    trackOpenUrl(parsedUrl, 'system');
-    void linkingOpenURL(trimmedUrl);
+    openViaSystemBrowser();
   });
 };
 

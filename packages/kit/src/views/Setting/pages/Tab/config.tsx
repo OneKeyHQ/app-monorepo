@@ -764,15 +764,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                         }),
                       );
                     } else if (platformEnv.isNativeAndroidGooglePlay) {
-                      // Store links need the universal-link handoff to the
-                      // store app, which in-app browsers never trigger.
-                      openUrlExternal(PLAY_STORE_LINK, {
-                        useSystemBrowser: true,
-                      });
+                      // Store hosts are forced to the system browser by the
+                      // central openUrlExternal policy.
+                      openUrlExternal(PLAY_STORE_LINK);
                     } else if (platformEnv.isNativeIOS) {
-                      openUrlExternal(APP_STORE_LINK, {
-                        useSystemBrowser: true,
-                      });
+                      openUrlExternal(APP_STORE_LINK);
                     }
                   },
                 }

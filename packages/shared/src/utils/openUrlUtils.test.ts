@@ -148,6 +148,7 @@ describe('openUrlExternal (native)', () => {
     'https://discord.com/invite/onekey',
     'https://discordapp.com/invite/onekey',
     'https://Discord.gg/onekey',
+    'https://firmware.onekey.so/',
   ])('store/social host goes to the OS: %s', async (url) => {
     openUrlExternal(url);
     await flushPromises();

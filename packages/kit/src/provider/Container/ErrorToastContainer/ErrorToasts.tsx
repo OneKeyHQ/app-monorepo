@@ -10,6 +10,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   ECustomCloudSyncError,
@@ -144,11 +145,7 @@ function NeedFirmwareUpgradeFromWebButton() {
       testID="provider-intl-btn"
       size="small"
       onPress={() => {
-        // The web firmware tool needs WebUSB, unavailable in in-app browsers;
-        // keep it on the system browser (matches FirmwareUpdateErrors).
-        openUrlExternal('https://firmware.onekey.so/', {
-          useSystemBrowser: true,
-        });
+        openUrlExternal(FIRMWARE_UPDATE_WEB_TOOLS_URL);
       }}
     >
       {intl.formatMessage({ id: ETranslations.update_update_now })}
