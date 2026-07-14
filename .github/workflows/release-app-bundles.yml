@@ -252,15 +252,19 @@ jobs:
           # shellcheck disable=SC2088
           URL_PREFIX='~/web-embed'
           npx sentry-cli releases new "$RELEASE" || true
-          if npx sentry-cli sourcemaps inject ./apps/web-embed/web-build \
-            && node ./apps/web-embed/scripts/check-browser-compat.js \
-            && npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web-embed/web-build; then
+          if ! npx sentry-cli sourcemaps inject ./apps/web-embed/web-build; then
+            echo "::warning::Web-embed Sentry debug-id injection failed; continuing with release-based upload."
+          fi
+          if npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web-embed/web-build; then
             npx sentry-cli releases finalize "$RELEASE" || true
             echo "uploaded=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::Web-embed Sentry sourcemap upload failed; archiving sourcemaps before stripping them."
             echo "uploaded=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Verify injected Web-embed Chromium 67 compatibility
+        run: node ./apps/web-embed/scripts/check-browser-compat.js
 
       - name: Upload Web-embed Sourcemap Diagnostic Artifact
         if: always() && steps.upload_web_embed_sourcemaps.outputs.uploaded != 'true'
@@ -274,17 +278,9 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
-      - name: Cleanup Web-embed Sourcemaps and License Files
+      - name: Finalize Web-embed Production Assets
         if: always()
-        run: |
-          if [ ! -d ./apps/web-embed/web-build ]; then
-            echo "Web-embed build directory does not exist - skipping sourcemap cleanup."
-            exit 0
-          fi
-          find ./apps/web-embed/web-build -name '*.LICENSE.txt' -type f -exec rm -f {} +
-          find ./apps/web-embed/web-build \
-            -type f \( -name '*.js.map' -o -name '*.css.map' \) \
-            -exec rm -f {} +
+        run: node ./apps/web-embed/scripts/finalize-production-assets.js --strip-only
 
       - name: Upload web-embed artifact
         uses: actions/upload-artifact@v4

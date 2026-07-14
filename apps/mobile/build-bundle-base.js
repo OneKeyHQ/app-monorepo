@@ -602,17 +602,21 @@ const cleanupSourceMapsUnder = (directory) => {
   });
 };
 
-const cleanupLicenseFilesUnder = (directory) => {
-  if (!fs.existsSync(directory)) return;
-  const entries = fs.readdirSync(directory, { withFileTypes: true });
-  entries.forEach((entry) => {
-    const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      cleanupLicenseFilesUnder(entryPath);
-    } else if (entry.name.endsWith('.LICENSE.txt')) {
-      fs.rmSync(entryPath, { force: true });
-    }
-  });
+const finalizeWebEmbedProductionAssets = () => {
+  execFileSync(
+    nodeExecutablePath,
+    [
+      path.join(
+        projectRootPath,
+        'apps/web-embed/scripts/finalize-production-assets.js',
+      ),
+      '--strip-only',
+    ],
+    {
+      stdio: 'inherit',
+      cwd: projectRootPath,
+    },
+  );
 };
 
 const buildBackgroundBundle = async ({
@@ -895,6 +899,7 @@ const buildWebEmbed = async () => {
     fs.readdirSync(webEmbedOutputPath).length > 0
   ) {
     log(`web embed already present at ${webEmbedOutputPath}, skipping build`);
+    finalizeWebEmbedProductionAssets();
     return;
   }
   log('build web embed');
@@ -910,20 +915,25 @@ const buildWebEmbed = async () => {
     },
   });
 
-  if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
-    const sentryCli = path.join(
-      projectRootPath,
-      'node_modules/@sentry/cli/bin/sentry-cli',
-    );
-    const injectResult = spawnSync(
-      sentryCli,
-      ['sourcemaps', 'inject', webEmbedOutputPath],
-      {
-        stdio: 'inherit',
-        cwd: projectRootPath,
-      },
-    );
-    if (injectResult.status === 0) {
+  try {
+    if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
+      const sentryCli = path.join(
+        projectRootPath,
+        'node_modules/@sentry/cli/bin/sentry-cli',
+      );
+      const injectResult = spawnSync(
+        sentryCli,
+        ['sourcemaps', 'inject', webEmbedOutputPath],
+        {
+          stdio: 'inherit',
+          cwd: projectRootPath,
+        },
+      );
+      if (injectResult.status !== 0) {
+        console.warn(
+          '::warning::Web-embed Sentry debug-id injection failed; falling back to release-based sourcemap upload.',
+        );
+      }
       const browserCompatScriptPath = path.join(
         projectRootPath,
         'apps/web-embed/scripts/check-browser-compat.js',
@@ -932,21 +942,16 @@ const buildWebEmbed = async () => {
         stdio: 'inherit',
         cwd: projectRootPath,
       });
-    } else {
-      console.warn(
-        '::warning::Web-embed Sentry debug-id injection failed; falling back to release-based sourcemap upload.',
-      );
+      uploadDirectoryToSentry({
+        directory: webEmbedOutputPath,
+        label: 'web embed',
+      });
     }
-    uploadDirectoryToSentry({
-      directory: webEmbedOutputPath,
-      label: 'web embed',
-    });
+  } finally {
+    // Web-embed is copied into the native OTA zip immediately after this step.
+    finalizeWebEmbedProductionAssets();
   }
 
-  // Web-embed is copied into the native OTA zip immediately after this step.
-  // Match the old Sentry Webpack plugin and never ship maps or license files.
-  cleanupSourceMapsUnder(webEmbedOutputPath);
-  cleanupLicenseFilesUnder(webEmbedOutputPath);
   log('build web embed done');
 };
 
