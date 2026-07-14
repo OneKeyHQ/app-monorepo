@@ -105,25 +105,6 @@ Analyzed 2 large skills (>5k tokens) for potential splitting. **Recommendation: 
 | 1k-performance | 6,267 | >10,000 tokens | +60% growth OR categories split into web/native |
 | 1k-feature-guides | 8,493 | >12,000 tokens | +40% growth OR unrelated feature added |
 
-### Split Priority: react-best-practices
-
-**Urgent split needed**: react-best-practices (14,345 tokens, 45 files)
-
-**Suggested split by category:**
-1. `react-bundle` - Bundle optimization (barrel imports, preload)
-2. `react-rendering` - Rendering optimization (hydration, memoization, transitions)
-3. `react-async` - Async patterns (defer, await, Suspense, API routes)
-4. `react-js-perf` - JS performance (cache, batch DOM, early exit, loops)
-5. `react-client` - Client-side (event listeners, SWR)
-6. `react-server` - Server-side (parallel fetching, streaming)
-
-**Benefits:**
-- Reduces token load from 14,345 to ~2,400 per category (83% reduction)
-- Each category has distinct trigger words
-- Low correlation between categories
-
----
-
 ## Key Learnings
 
 ### When NOT to Split (Lessons from This Analysis)
@@ -170,22 +151,8 @@ Analyzed 2 large skills (>5k tokens) for potential splitting. **Recommendation: 
 
 **Minimal savings; high cost to user experience.**
 
-### If We Split react-best-practices
-
-| Scenario | Current | After Split | Savings | Worth It? |
-|----------|---------|-------------|---------|-----------|
-| Bundle optimization | 14,345 | ~2,400 | 83% | ✅ Yes |
-| Rendering work | 14,345 | ~2,400 | 83% | ✅ Yes |
-| Async patterns | 14,345 | ~2,400 | 83% | ✅ Yes |
-
-**Massive savings; minimal UX cost (categories are independent).**
-
----
-
 ## Conclusion
 
 The 2 "consider splitting" skills should **remain intact**. They represent coherent, related content that users need together. The current token consumption (5-9k per skill) is acceptable given the workflow coherence and comprehensive nature of the content.
-
-**Priority**: Focus on splitting `react-best-practices` (14,345 tokens) for immediate impact.
 
 **Long-term**: Monitor growth and re-evaluate when skills exceed 10-12k tokens.
