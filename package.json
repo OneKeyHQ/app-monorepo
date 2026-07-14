@@ -394,7 +394,7 @@
     "workbox-webpack-plugin": "^7.4.0",
     "worker-loader": "^3.0.8",
     "worker-rspack-loader": "^3.1.2",
-    "yaml": "^2.8.2"
+    "yaml": "^2.8.0"
   },
   "resolutions": {
     "lodash": "4.18.1",
