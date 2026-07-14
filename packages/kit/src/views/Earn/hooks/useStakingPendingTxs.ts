@@ -232,13 +232,14 @@ export const useStakingPendingTxsByInfo = ({
     const targets: { networkId: string; stakeTag: IStakeTag }[] = [];
 
     availableAssets.forEach((asset) => {
-      asset.protocols?.forEach(({ networkId, provider }) => {
+      asset.protocols?.forEach(({ networkId, provider, vault }) => {
         if (!networkId || !provider) {
           return;
         }
         const stakeTag = buildLocalTxStatusSyncId({
           providerName: provider,
           tokenSymbol: asset.symbol,
+          protocolVault: vault,
         });
         const key = `${networkId}-${stakeTag}`;
         if (seen.has(key)) {

@@ -2,19 +2,18 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Button,
-  ConfirmHighlighter,
   Page,
   QRCode,
   SizableText,
-  Stack,
   Toast,
+  YStack,
   useClipboard,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
@@ -24,6 +23,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { ReceiveCard, ReceiveCardCell } from '../components/ReceiveCard';
 import { ReceiveTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -92,66 +92,55 @@ function ReceiveInvoice() {
   const renderReceiveInvoice = useCallback(() => {
     if (!account || !network || !paymentRequest) return null;
     return (
-      <>
-        <Stack
-          testID={ReceiveTestIDs.InvoiceQRCode}
-          borderRadius="$3"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-          p="$4"
-        >
-          <QRCode
-            value={paymentRequest}
-            logo={{
-              uri: network.logoURI,
-            }}
-            logoSize={40}
-            size={240}
-          />
-        </Stack>
-        <ConfirmHighlighter
-          maxWidth="$96"
-          highlight={false}
-          mt="$5"
-          px="$3"
-          borderRadius="$3"
-          borderCurve="continuous"
-        >
-          <SizableText
-            testID={ReceiveTestIDs.InvoiceText}
-            numberOfLines={3}
-            textAlign="center"
-            size="$bodyLg"
-            style={{
-              wordBreak: 'break-all',
-            }}
+      <YStack width="100%" maxWidth={384} alignSelf="center" gap="$5">
+        <ReceiveCard>
+          <ReceiveCardCell
+            testID={ReceiveTestIDs.InvoiceQRCode}
+            alignItems="center"
+            justifyContent="center"
+            py="$8"
+            px="$4"
           >
-            {paymentRequest}
-          </SizableText>
-        </ConfirmHighlighter>
+            <QRCode
+              value={paymentRequest}
+              logo={{
+                uri: network.logoURI,
+              }}
+              logoSize={40}
+              size={platformEnv.isNative ? 208 : 176}
+            />
+          </ReceiveCardCell>
+          <ReceiveCardCell px="$4" py="$3">
+            <SizableText
+              testID={ReceiveTestIDs.InvoiceText}
+              numberOfLines={3}
+              textAlign="center"
+              size="$bodyMd"
+              style={{
+                wordBreak: 'break-all',
+              }}
+            >
+              {paymentRequest}
+            </SizableText>
+          </ReceiveCardCell>
+        </ReceiveCard>
         <Button
           testID={ReceiveTestIDs.CopyInvoiceButton}
-          mt="$5"
+          alignSelf="center"
           icon="Copy3Outline"
           onPress={handleCopyInvoice}
         >
           {intl.formatMessage({ id: ETranslations.global_copy })}
         </Button>
-      </>
+      </YStack>
     );
   }, [account, handleCopyInvoice, intl, network, paymentRequest]);
   return (
-    <Page testID={ReceiveTestIDs.ReceiveInvoicePage}>
+    <Page testID={ReceiveTestIDs.ReceiveInvoicePage} scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.lightning_invoice })}
       />
-      <Page.Body
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        px="$5"
-        pb="$5"
-      >
+      <Page.Body px="$5" py="$5" $md={{ py: '$0' }}>
         {renderReceiveInvoice()}
       </Page.Body>
     </Page>
