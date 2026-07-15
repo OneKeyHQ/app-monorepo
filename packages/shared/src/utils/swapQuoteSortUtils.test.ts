@@ -1,10 +1,6 @@
 import { ESwapProviderSort } from '../../types/swap/SwapProvider.constants';
 
-import {
-  isSwapQuoteAvailable,
-  selectBestQuote,
-  sortSwapQuotes,
-} from './swapQuoteSortUtils';
+import { selectBestQuote, sortSwapQuotes } from './swapQuoteSortUtils';
 
 import type { IFetchQuoteResult } from '../../types/swap/types';
 
@@ -57,71 +53,6 @@ const quoteC = makeQuote({
   toAmount: '110',
   fee: { percentageFee: 0, estimatedFeeFiatValue: 8 },
   estimatedTime: '10',
-});
-
-describe('isSwapQuoteAvailable', () => {
-  it('accepts a positive quote without provider limits', () => {
-    expect(
-      isSwapQuoteAvailable({
-        quote: makeQuote({ quoteId: 'OPEN', toAmount: '1' }),
-      }),
-    ).toBe(true);
-  });
-
-  it.each([undefined, '', '0', '-1', 'not-a-number'])(
-    'rejects an unusable output amount: %s',
-    (toAmount) => {
-      expect(
-        isSwapQuoteAvailable({
-          quote: makeQuote({ quoteId: 'NO_OUTPUT', toAmount }),
-        }),
-      ).toBe(false);
-    },
-  );
-
-  it('uses inclusive minimum and maximum limits', () => {
-    const quote = makeQuote({
-      quoteId: 'LIMITED',
-      toAmount: '1',
-      limit: { min: '10', max: '20' },
-    });
-
-    expect(isSwapQuoteAvailable({ quote, fromTokenAmount: '9.99' })).toBe(
-      false,
-    );
-    expect(isSwapQuoteAvailable({ quote, fromTokenAmount: '10' })).toBe(true);
-    expect(isSwapQuoteAvailable({ quote, fromTokenAmount: '20' })).toBe(true);
-    expect(isSwapQuoteAvailable({ quote, fromTokenAmount: '20.01' })).toBe(
-      false,
-    );
-  });
-
-  it('allows an exact amount when minimum and maximum are equal', () => {
-    const quote = makeQuote({
-      quoteId: 'EXACT',
-      toAmount: '1',
-      limit: { min: '10', max: '10' },
-    });
-
-    expect(isSwapQuoteAvailable({ quote, fromTokenAmount: '10' })).toBe(true);
-    expect(isSwapQuoteAvailable({ quote, fromTokenAmount: '10.01' })).toBe(
-      false,
-    );
-  });
-
-  it.each([
-    { limit: { min: 'invalid', max: '20' }, amount: '10' },
-    { limit: { min: '20', max: '10' }, amount: '15' },
-    { limit: { min: '10', max: '20' }, amount: undefined },
-    { limit: { min: '10', max: '20' }, amount: 'invalid' },
-  ])('fails closed for malformed limit state: $limit', ({ limit, amount }) => {
-    expect(
-      isSwapQuoteAvailable({
-        quote: makeQuote({ quoteId: 'MALFORMED', toAmount: '1', limit }),
-        fromTokenAmount: amount,
-      }),
-    ).toBe(false);
-  });
 });
 
 // ---------------------------------------------------------------------------

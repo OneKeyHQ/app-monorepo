@@ -22,47 +22,6 @@ export interface ISelectBestQuoteOptions {
   manualSelect?: IFetchQuoteResult;
 }
 
-export function isSwapQuoteAvailable({
-  quote,
-  fromTokenAmount,
-}: {
-  quote: Pick<IFetchQuoteResult, 'limit' | 'toAmount'>;
-  fromTokenAmount?: string;
-}) {
-  const toAmountBN = new BigNumber(quote.toAmount ?? '');
-  if (!toAmountBN.isFinite() || !toAmountBN.gt(0)) {
-    return false;
-  }
-
-  const minValue = quote.limit?.min;
-  const maxValue = quote.limit?.max;
-  const hasMin = minValue !== undefined && minValue !== '';
-  const hasMax = maxValue !== undefined && maxValue !== '';
-  if (!hasMin && !hasMax) {
-    return true;
-  }
-
-  const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? '');
-  if (!fromTokenAmountBN.isFinite() || fromTokenAmountBN.lt(0)) {
-    return false;
-  }
-
-  const minBN = hasMin ? new BigNumber(minValue) : undefined;
-  const maxBN = hasMax ? new BigNumber(maxValue) : undefined;
-  if (
-    (minBN && (!minBN.isFinite() || minBN.lt(0))) ||
-    (maxBN && (!maxBN.isFinite() || maxBN.lt(0))) ||
-    (minBN && maxBN && minBN.gt(maxBN))
-  ) {
-    return false;
-  }
-
-  return (
-    (!minBN || fromTokenAmountBN.gte(minBN)) &&
-    (!maxBN || fromTokenAmountBN.lte(maxBN))
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------

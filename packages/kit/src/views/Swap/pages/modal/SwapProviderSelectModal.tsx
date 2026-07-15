@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IPageNavigationProp } from '@onekeyhq/components';
@@ -39,7 +40,6 @@ import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
-import { isSwapQuoteAvailable } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
@@ -136,18 +136,11 @@ const SwapProviderSelectModal = () => {
     [intl],
   );
   const sectionData = useMemo(() => {
-    const availableList = quoteListForDisplay.filter((item) =>
-      isSwapQuoteAvailable({
-        quote: item,
-        fromTokenAmount: fromTokenAmount.value,
-      }),
+    const availableList = quoteListForDisplay.filter(
+      (item) => item.toAmount && !item.limit?.min && !item.limit?.max,
     );
     const unavailableList = quoteListForDisplay.filter(
-      (item) =>
-        !isSwapQuoteAvailable({
-          quote: item,
-          fromTokenAmount: fromTokenAmount.value,
-        }),
+      (item) => !item.toAmount || item.limit?.min || item.limit?.max,
     );
     return [
       ...(availableList?.length > 0
@@ -171,7 +164,7 @@ const SwapProviderSelectModal = () => {
           ]
         : []),
     ];
-  }, [fromTokenAmount.value, intl, quoteListForDisplay]);
+  }, [intl, quoteListForDisplay]);
   const onSelectQuote = useCallback(
     (item: IFetchQuoteResult) => {
       setSwapManualSelect(buildSwapManualProviderSelectionIntent(item));
@@ -185,12 +178,23 @@ const SwapProviderSelectModal = () => {
   );
   const renderItem = useCallback(
     ({ item }: { item: IFetchQuoteResult; index: number }) => {
-      const disabled = !isSwapQuoteAvailable({
-        quote: item,
-        fromTokenAmount: fromTokenAmount.value,
-      });
+      let disabled = !item.toAmount;
+      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
+      if (item.limit) {
+        if (item.limit.min) {
+          const minBN = new BigNumber(item.limit.min);
+          if (fromTokenAmountBN.lt(minBN)) {
+            disabled = false;
+          }
+        }
+        if (item.limit.max) {
+          const maxBN = new BigNumber(item.limit.max);
+          if (fromTokenAmountBN.gt(maxBN)) {
+            disabled = false;
+          }
+        }
+      }
       const selected = Boolean(
-        !disabled &&
         item.info.provider === selectedProviderInfo?.provider &&
         item.info.providerName === selectedProviderInfo?.providerName,
       );
