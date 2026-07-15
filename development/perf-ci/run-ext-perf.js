@@ -66,7 +66,7 @@ async function buildExt({ repoRoot, outputDir }) {
   if (skip) return;
 
   const res = await withBuildLock(
-    'webpack-build',
+    'rspack-build',
     () =>
       execCmd('yarn', ['workspace', '@onekeyhq/ext', 'build:v3'], {
         cwd: repoRoot,

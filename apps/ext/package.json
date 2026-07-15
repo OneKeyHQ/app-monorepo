@@ -3,18 +3,17 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "WEB_PORT=3180 webpack serve",
+    "start": "yarn start:v3",
     "start:proxy": "ONEKEY_PROXY=true yarn start",
     "clean": "yarn clean:build",
     "clean:build": "rimraf ./build && rimraf .tamagui && rimraf ./node_modules/.cache",
-    "build": "cross-env NODE_ENV=production webpack build",
-    "build:all": "yarn clean && yarn build && node ../../development/webpack/ext/zip.js",
-    "start:v3": "EXT_MANIFEST_V3=1 WEB_PORT=3180 NODE_OPTIONS=\"--max-old-space-size=8192\" webpack serve",
-    "start:v3:rspack": "EXT_MANIFEST_V3=1 WEB_PORT=3180 NODE_OPTIONS=\"--max-old-space-size=8192\" rspack serve --config-loader jiti",
+    "build": "yarn build:v3",
+    "build:all": "yarn build:all:v3",
+    "start:v3": "cross-env EXT_MANIFEST_V3=1 WEB_PORT=3180 NODE_OPTIONS=\"--max-old-space-size=8192\" rspack serve --config-loader jiti",
     "start:v3:proxy": "ONEKEY_PROXY=true yarn start:v3",
-    "build:v3": "cross-env NODE_ENV=production EXT_MANIFEST_V3=1 NODE_OPTIONS=\"--max-old-space-size=8192\"  webpack build",
-    "build:v3:rspack": "cross-env NODE_ENV=production EXT_MANIFEST_V3=1 NODE_OPTIONS=\"--max-old-space-size=8192\" rspack build --config-loader jiti",
-    "build:all:v3": "yarn clean && yarn build:v3 && node ../../development/webpack/ext/zip.js",
+    "build:v3": "yarn clean && cross-env NODE_ENV=production EXT_MANIFEST_V3=1 NODE_OPTIONS=\"--max-old-space-size=8192\" rspack build --config-loader jiti && node ./scripts/finalize-production-assets.js && node ./scripts/check-build-output.js",
+    "build:all:v3": "yarn build:v3 && node ./scripts/zip.js",
+    "stats:v3": "yarn clean && cross-env NODE_ENV=production EXT_MANIFEST_V3=1 RSPACK_FULL_STATS=1 NODE_OPTIONS=\"--max-old-space-size=8192\" rspack build --config-loader jiti --json=build/rspack-stats.json",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web"
@@ -26,6 +25,7 @@
     "@onekeyhq/shared": "*"
   },
   "devDependencies": {
+    "adm-zip": "0.5.17",
     "rimraf": "3.0.2"
   }
 }

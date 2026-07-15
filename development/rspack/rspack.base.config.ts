@@ -335,8 +335,8 @@ const buildBaseCache: (
   type: 'persistent',
   storage: {
     type: 'filesystem',
-    // Use separate cache directories for each config to avoid conflicts
-    // in multi-config builds (ext has 5 parallel configs)
+    // Use separate cache directories for each compiler domain to avoid
+    // persistent cache conflicts in multi-config builds.
     directory: path.join(
       basePath,
       'node_modules/.cache/rspack',
