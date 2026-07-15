@@ -167,7 +167,26 @@ describe('openUrlExternal (native)', () => {
     expect(mockOpenURL).toHaveBeenCalledWith('https://onekey.so');
   });
 
-  test('the fallback reports the real open method to analytics', async () => {
+  test('a successful in-app open reports a single inApp event', async () => {
+    const openExternalUrlLog = jest.fn();
+    appGlobals.$defaultLogger = {
+      app: { page: { openExternalUrl: openExternalUrlLog } },
+    } as unknown as typeof appGlobals.$defaultLogger;
+    try {
+      openUrlExternal('https://onekey.so');
+      await flushPromises();
+      await flushPromises();
+      expect(openExternalUrlLog).toHaveBeenCalledTimes(1);
+      expect(openExternalUrlLog).toHaveBeenCalledWith({
+        host: 'onekey.so',
+        method: 'inApp',
+      });
+    } finally {
+      appGlobals.$defaultLogger = undefined;
+    }
+  });
+
+  test('a failed in-app attempt reports only the system fallback', async () => {
     const openExternalUrlLog = jest.fn();
     appGlobals.$defaultLogger = {
       app: { page: { openExternalUrl: openExternalUrlLog } },
@@ -179,10 +198,7 @@ describe('openUrlExternal (native)', () => {
       openUrlExternal('https://onekey.so');
       await flushPromises();
       await flushPromises();
-      expect(openExternalUrlLog).toHaveBeenCalledWith({
-        host: 'onekey.so',
-        method: 'inApp',
-      });
+      expect(openExternalUrlLog).toHaveBeenCalledTimes(1);
       expect(openExternalUrlLog).toHaveBeenCalledWith({
         host: 'onekey.so',
         method: 'system',
@@ -192,13 +208,22 @@ describe('openUrlExternal (native)', () => {
     }
   });
 
-  test('a locked result (already presenting) does not trigger the fallback', async () => {
-    mockOpenBrowserAsync.mockResolvedValueOnce({ type: 'locked' });
-    openUrlExternal('https://onekey.so');
-    await flushPromises();
-    await flushPromises();
-    expect(mockOpenBrowserAsync).toHaveBeenCalledTimes(1);
-    expect(mockOpenURL).not.toHaveBeenCalled();
+  test('a locked result (already presenting) triggers no fallback and no event', async () => {
+    const openExternalUrlLog = jest.fn();
+    appGlobals.$defaultLogger = {
+      app: { page: { openExternalUrl: openExternalUrlLog } },
+    } as unknown as typeof appGlobals.$defaultLogger;
+    try {
+      mockOpenBrowserAsync.mockResolvedValueOnce({ type: 'locked' });
+      openUrlExternal('https://onekey.so');
+      await flushPromises();
+      await flushPromises();
+      expect(mockOpenBrowserAsync).toHaveBeenCalledTimes(1);
+      expect(mockOpenURL).not.toHaveBeenCalled();
+      expect(openExternalUrlLog).not.toHaveBeenCalled();
+    } finally {
+      appGlobals.$defaultLogger = undefined;
+    }
   });
 });
 

@@ -173,7 +173,11 @@ const trackOpenUrl = (
   appGlobals.$defaultLogger?.app.page.openExternalUrl({ host, method });
 };
 
-const openUrlInAppBrowserNative = async (url: string): Promise<void> => {
+// Result typed structurally ({ type: string }) because the precise enum
+// lives in expo-web-browser, which must stay behind the lazy import.
+const openUrlInAppBrowserNative = async (
+  url: string,
+): Promise<{ type: string }> => {
   // Lazy import: must never load on the native background JS runtime,
   // and web/ext/desktop bundles don't need it.
   const webBrowser = await import('expo-web-browser');
@@ -183,7 +187,7 @@ const openUrlInAppBrowserNative = async (url: string): Promise<void> => {
   // sheet (swipe down or X to dismiss); the promise only resolves once
   // the browser is dismissed. presentationStyle/dismissButtonStyle are
   // iOS-only, enableBarCollapsing applies to both platforms.
-  await webBrowser.openBrowserAsync(url, {
+  return webBrowser.openBrowserAsync(url, {
     createTask: false,
     presentationStyle: webBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
     dismissButtonStyle: 'close',
@@ -220,12 +224,20 @@ export const openUrlExternal = (
     openViaSystemBrowser();
     return;
   }
-  trackOpenUrl(parsedUrl, 'inApp');
-  openUrlInAppBrowserNative(trimmedUrl).catch(() => {
-    // e.g. Android NoMatchingActivityException when no installed browser
-    // supports Custom Tabs — fall back to the system browser.
-    openViaSystemBrowser();
-  });
+  openUrlInAppBrowserNative(trimmedUrl)
+    .then((result) => {
+      // 'locked' (iOS) means a browser was already presenting and nothing
+      // new opened, so it doesn't count. Real opens resolve at launch on
+      // Android but only at dismissal on iOS, so the report may lag the tap.
+      if (result.type !== 'locked') {
+        trackOpenUrl(parsedUrl, 'inApp');
+      }
+    })
+    .catch(() => {
+      // e.g. Android NoMatchingActivityException when no installed browser
+      // supports Custom Tabs — fall back to the system browser.
+      openViaSystemBrowser();
+    });
 };
 
 export const dismissNativeInAppBrowser = () => {
