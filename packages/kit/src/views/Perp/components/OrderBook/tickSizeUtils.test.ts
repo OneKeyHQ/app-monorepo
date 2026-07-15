@@ -4,26 +4,33 @@ import { getDisplayPriceScaleDecimals } from '@onekeyhq/shared/src/utils/perpsUt
 
 import {
   buildTickOptions,
-  shouldPersistOrderBookTickOption,
+  shouldInitializeOrderBookTickOption,
 } from './tickSizeUtils';
 
-describe('shouldPersistOrderBookTickOption', () => {
+describe('shouldInitializeOrderBookTickOption', () => {
   it('does not replace precision while order book data is transitioning', () => {
     expect(
-      shouldPersistOrderBookTickOption({
+      shouldInitializeOrderBookTickOption({
         hasMarketData: false,
         persisted: { value: '0.2', nSigFigs: 5, mantissa: 2 },
-        selected: { value: '100', nSigFigs: 2, mantissa: null },
       }),
     ).toBe(false);
   });
 
-  it('persists a changed selection derived from live market data', () => {
+  it('does not overwrite a persisted selection from a live market frame', () => {
     expect(
-      shouldPersistOrderBookTickOption({
+      shouldInitializeOrderBookTickOption({
         hasMarketData: true,
         persisted: { value: '0.1', nSigFigs: 5, mantissa: null },
-        selected: { value: '0.2', nSigFigs: 5, mantissa: 2 },
+      }),
+    ).toBe(false);
+  });
+
+  it('initializes a missing selection after market data arrives', () => {
+    expect(
+      shouldInitializeOrderBookTickOption({
+        hasMarketData: true,
+        persisted: undefined,
       }),
     ).toBe(true);
   });

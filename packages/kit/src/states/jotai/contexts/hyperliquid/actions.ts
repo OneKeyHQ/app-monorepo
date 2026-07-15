@@ -533,11 +533,32 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       nSigFigs: stored?.nSigFigs ?? null,
       mantissa: stored?.mantissa ?? null,
     };
+    defaultLogger.perp.hyperliquid.orderBookSwitchDiagnostic({
+      runtime: 'main',
+      event: 'options-sync-start',
+      requestId: params.requestId,
+      mode: params.instrument.mode,
+      coin: params.instrument.coin,
+      nSigFigs: nextOrderBookOptions.nSigFigs,
+      mantissa: nextOrderBookOptions.mantissa,
+      hasTickOption: Boolean(stored),
+      latest: this.isLatestActiveInstrumentChange(params.requestId),
+    });
     const isLatest = await publishLatestOrderBookOptions({
       read: () => perpsActiveOrderBookOptionsAtom.get(),
       write: (value) => perpsActiveOrderBookOptionsAtom.set(() => value),
       next: nextOrderBookOptions,
       isLatest: () => this.isLatestActiveInstrumentChange(params.requestId),
+    });
+    defaultLogger.perp.hyperliquid.orderBookSwitchDiagnostic({
+      runtime: 'main',
+      event: 'options-sync-result',
+      requestId: params.requestId,
+      mode: params.instrument.mode,
+      coin: params.instrument.coin,
+      nSigFigs: nextOrderBookOptions.nSigFigs,
+      mantissa: nextOrderBookOptions.mantissa,
+      latest: isLatest,
     });
     if (!isLatest) {
       return;
@@ -1693,6 +1714,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       },
     ) => {
       const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
+      defaultLogger.perp.hyperliquid.orderBookSwitchDiagnostic({
+        runtime: 'main',
+        event: 'spot-switch-start',
+        requestId,
+        mode: 'spot',
+        coin,
+      });
       const optimisticInstrument: IActiveTradeInstrument = {
         mode: 'spot',
         coin,
@@ -1732,6 +1760,33 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
       }
 
+      await this.ensureOrderBookTickOptionsLoaded.call(set);
+      if (!this.isLatestActiveInstrumentChange(requestId)) {
+        defaultLogger.perp.hyperliquid.orderBookSwitchDiagnostic({
+          runtime: 'main',
+          event: 'spot-switch-stale-after-options-load',
+          requestId,
+          mode: 'spot',
+          coin,
+          latest: false,
+        });
+        return false;
+      }
+      const storedTickOption = getPerpsOrderBookTickOptionWithCache({
+        coin,
+        options: get(orderBookTickOptionsAtom()),
+      });
+      defaultLogger.perp.hyperliquid.orderBookSwitchDiagnostic({
+        runtime: 'main',
+        event: 'spot-switch-options-ready',
+        requestId,
+        mode: 'spot',
+        coin,
+        nSigFigs: storedTickOption?.nSigFigs ?? null,
+        mantissa: storedTickOption?.mantissa ?? null,
+        hasTickOption: Boolean(storedTickOption),
+        latest: true,
+      });
       if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
         return false;
       }
@@ -1749,6 +1804,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
+      defaultLogger.perp.hyperliquid.orderBookSwitchDiagnostic({
+        runtime: 'main',
+        event: 'spot-switch-target-published',
+        requestId,
+        mode: 'spot',
+        coin,
+        nSigFigs: storedTickOption?.nSigFigs ?? null,
+        mantissa: storedTickOption?.mantissa ?? null,
+        hasTickOption: Boolean(storedTickOption),
+        latest: true,
+      });
       void this.syncSubscriptionsAfterInstrumentChange({
         instrument: optimisticInstrument,
         orderBookTickOptions: get(orderBookTickOptionsAtom()),

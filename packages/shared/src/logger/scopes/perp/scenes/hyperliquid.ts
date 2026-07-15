@@ -417,6 +417,27 @@ export class HyperLiquidScene extends BaseScene {
   }) {
     return params;
   }
+
+  @LogToLocal({ level: 'info' })
+  public orderBookSwitchDiagnostic(params: {
+    runtime: 'main' | 'bg';
+    event: string;
+    sequence?: number;
+    requestId?: number;
+    mode?: 'perp' | 'spot';
+    coin?: string;
+    nSigFigs?: number | null;
+    mantissa?: number | null;
+    hasTickOption?: boolean;
+    hasBook?: boolean;
+    bidLevels?: number;
+    askLevels?: number;
+    latest?: boolean;
+    transport?: 'l2' | 'l2Book' | 'none';
+    source?: string;
+  }) {
+    return params;
+  }
 }
 
 export type IHyperLiquidOrderAction =

@@ -29,22 +29,14 @@ type IOrderBookTickOptionState = {
   mantissa?: IMantissa | null;
 };
 
-export function shouldPersistOrderBookTickOption({
+export function shouldInitializeOrderBookTickOption({
   hasMarketData,
   persisted,
-  selected,
 }: {
   hasMarketData: boolean;
   persisted: IOrderBookTickOptionState | undefined;
-  selected: IOrderBookTickOptionState;
 }) {
-  return (
-    hasMarketData &&
-    (!persisted ||
-      persisted.value !== selected.value ||
-      persisted.nSigFigs !== selected.nSigFigs ||
-      persisted.mantissa !== selected.mantissa)
-  );
+  return hasMarketData && !persisted;
 }
 
 function floorLog10(x: number): number {

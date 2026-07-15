@@ -561,6 +561,16 @@ export function PerpOrderBook({
       stored?.mantissa === undefined ? undefined : stored.mantissa;
     return { nSigFigs, mantissa };
   }, [activeTradeInstrument.coin, orderBookTickOptions]);
+  const hasInitializedTickOption = useMemo(
+    () =>
+      Boolean(
+        getPerpsOrderBookTickOptionWithCache({
+          coin: activeTradeInstrument.coin,
+          options: orderBookTickOptions,
+        }),
+      ),
+    [activeTradeInstrument.coin, orderBookTickOptions],
+  );
 
   const enableVisualSnapshot = !gtMd;
   const [renderL2Book, setRenderL2Book] = useState<IL2BookData | null>(null);
@@ -608,8 +618,13 @@ export function PerpOrderBook({
   )
     ? renderL2Book
     : null;
-  const visibleL2Book = activeRenderL2Book ?? initialCachedL2Book;
+  const candidateL2Book = activeRenderL2Book ?? initialCachedL2Book;
+  const visibleL2Book = hasInitializedTickOption ? candidateL2Book : null;
   const hasRenderOrderBook = Boolean(visibleL2Book);
+  let orderBookRenderSource = 'none';
+  if (candidateL2Book) {
+    orderBookRenderSource = hasRenderOrderBook ? 'visible' : 'provisional';
+  }
 
   const handleVisualBookChange = useCallback((book: IL2BookData | null) => {
     setRenderL2Book((prevBook) => (prevBook === book ? prevBook : book));
@@ -744,9 +759,9 @@ export function PerpOrderBook({
   ]);
 
   const tickOptionsData = useTickOptions({
-    symbol: visibleL2Book?.coin,
-    bids: visibleL2Book?.bids ?? [],
-    asks: visibleL2Book?.asks ?? [],
+    symbol: candidateL2Book?.coin,
+    bids: candidateL2Book?.bids ?? [],
+    asks: candidateL2Book?.asks ?? [],
   });
   const {
     tickOptions,
@@ -866,6 +881,10 @@ export function PerpOrderBook({
       visibleL2Book?.coin ?? '',
       visibleL2Book?.bids.length ?? 0,
       visibleL2Book?.asks.length ?? 0,
+      candidateL2Book?.coin ?? '',
+      candidateL2Book?.bids.length ?? 0,
+      candidateL2Book?.asks.length ?? 0,
+      hasInitializedTickOption ? 'tickReady' : 'tickPending',
       shouldShowEnableTradingButton ? 'enableTrading' : 'trade',
       formData.hasTpsl ? 'tpsl' : 'noTpsl',
       mobileMaxLevelsPerSide,
@@ -886,13 +905,33 @@ export function PerpOrderBook({
       shouldShowEnableTradingButton,
       hasTpsl: formData.hasTpsl,
     });
+    defaultLogger.perp.hyperliquid.orderBookSwitchDiagnostic({
+      runtime: 'main',
+      event: 'ui-render-state',
+      mode: activeTradeInstrument.mode,
+      coin: activeTradeInstrument.coin,
+      nSigFigs: l2SubscriptionOptions.nSigFigs,
+      mantissa: l2SubscriptionOptions.mantissa ?? null,
+      hasTickOption: hasInitializedTickOption,
+      hasBook: hasRenderOrderBook,
+      bidLevels: candidateL2Book?.bids.length ?? 0,
+      askLevels: candidateL2Book?.asks.length ?? 0,
+      source: orderBookRenderSource,
+    });
   }, [
     activeTradeInstrument.coin,
     activeTradeInstrument.mode,
+    candidateL2Book?.asks.length,
+    candidateL2Book?.bids.length,
+    candidateL2Book?.coin,
     entry,
     formData.hasTpsl,
     gtMd,
+    hasInitializedTickOption,
     hasRenderOrderBook,
+    l2SubscriptionOptions.mantissa,
+    l2SubscriptionOptions.nSigFigs,
+    orderBookRenderSource,
     visibleL2Book?.asks.length,
     visibleL2Book?.bids.length,
     visibleL2Book?.coin,
