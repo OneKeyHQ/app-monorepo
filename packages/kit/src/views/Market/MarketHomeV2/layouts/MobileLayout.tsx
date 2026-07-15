@@ -39,6 +39,7 @@ import {
   getDefaultMarketStockCategoryId,
   getMarketStockCategoryRequestParam,
 } from './marketStockCategoryUtils';
+import { getMarketWebSecondaryHeaderHeight } from './mobileLayoutUtils';
 
 import type {
   ILiquidityFilter,
@@ -79,7 +80,6 @@ interface ITabBarDynamicContext {
 
 const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
 const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
-const MARKET_MOBILE_SECONDARY_HEADER_HEIGHT = 74;
 
 interface IMarketHomeTabBarProps extends TabBarProps<string> {
   watchlistTabName: string;
@@ -94,6 +94,7 @@ function MarketHomeTabBar({
   const ctx = useContext(TabBarDynamicContext)!;
   const { activeTabName } = ctx;
   const currentFocusedTabName = activeTabName || tabBarProps.tabNames[0] || '';
+  const showWatchlistSubHeader = currentFocusedTabName === watchlistTabName;
   const currentSpotCategoryId = ctx.getSpotCategoryIdByTabName(
     currentFocusedTabName,
   );
@@ -117,6 +118,12 @@ function MarketHomeTabBar({
     ) &&
     ctx.stockCategories.length > 0,
   );
+  const secondaryHeaderHeight = getMarketWebSecondaryHeaderHeight({
+    isWatchlistEmpty: ctx.isWatchlistEmpty,
+    showWatchlistSubHeader,
+    showSpotSubHeader,
+    hasSpotSecondaryControls: showSpotFilterBar || showStockCategorySelector,
+  });
 
   // Watchlist sub-header: conditional rendering (hidden when empty).
   // Spot & Perps sub-headers: display toggling keeps both mounted across
@@ -129,10 +136,7 @@ function MarketHomeTabBar({
         {...tabBarProps}
         containerStyle={{ position: 'relative' as any }}
       />
-      <YStack
-        height={MARKET_MOBILE_SECONDARY_HEADER_HEIGHT}
-        position="relative"
-      >
+      <YStack height={secondaryHeaderHeight} position="relative">
         <YStack
           display={
             currentFocusedTabName === watchlistTabName && !ctx.isWatchlistEmpty

@@ -2,12 +2,19 @@ import type { ReactNode } from 'react';
 import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useChartData } from '@onekeyfe/react-native-animated-charts';
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { NumberSizeableText } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import type { LayoutChangeEvent } from 'react-native';
+
+const styles = StyleSheet.create({
+  label: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+});
 
 function trim(val: number) {
   return Math.min(Math.max(val, 0.05), 0.95);
@@ -79,15 +86,7 @@ const CenteredLabel = ({
         position: 'absolute',
       }}
     >
-      <Text
-        style={{
-          color,
-          fontSize: 14,
-          fontWeight: 'bold',
-        }}
-      >
-        {children}
-      </Text>
+      <Text style={[styles.label, { color }]}>{children}</Text>
     </View>
   );
 };

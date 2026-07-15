@@ -1,6 +1,6 @@
 ---
 name: 1k-patch-package-workflow
-description: Create or regenerate a patch-package patch in this monorepo. Use when you edit anything under node_modules/ and need a persisted .patch, or when `npx patch-package <pkg>` fails with "Couldn't find any versions for ... matches ^x@x". Keywords: patch-package, patch a package, regenerate patch, resolutions error.
+description: "Create or regenerate patch-package patches, including resolutions failures and build-artifact verification."
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write
 ---
 

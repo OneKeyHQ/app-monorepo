@@ -19,10 +19,6 @@ import {
   useIsAccountSelectorSyncLoading,
 } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import {
-  ENABLE_IMMERSIVE_GLASS_HEADER,
-  IMMERSIVE_GLASS_HEADER_TAB_ROUTES,
-} from '../ImmersiveGlassHeader';
 import { MoreActionButton } from '../MoreActionButton';
 
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
@@ -35,12 +31,7 @@ import { LegacyUniversalSearchInput } from './LegacyUniversalSearchInput';
 
 import type { SharedValue } from 'react-native-reanimated';
 
-// Height of the Home search-bar row. Shared source of truth so the iOS glass
-// frost layer (HomeHeaderGlass) can size itself to the same value instead of
-// hardcoding a copy that silently drifts if this row's height changes.
-export const HOME_HEADER_SEARCH_ROW_HEIGHT = 56;
-
-export function HomeWalletConnectionRow({
+function HomeWalletConnectionRow({
   headerPx,
   selectedHeaderTab,
   sceneName,
@@ -145,18 +136,6 @@ export function MDHeader({
     tabRoute === ETabRoutes.Home &&
     sceneName !== EAccountSelectorSceneName.homeUrlAccount;
 
-  // Immersive-glass tabs (e.g. Swap) own their full top region, so drop the
-  // status-bar spacer and let the page scroll content under the translucent bar
-  // (mirroring Home). Other non-base-header tabs, and iOS builds without the
-  // effect, keep the spacer. The route list lives with the flag in
-  // ImmersiveGlassHeader so a new page doesn't have to edit this condition.
-  const suppressStatusBarSpacer =
-    ENABLE_IMMERSIVE_GLASS_HEADER &&
-    IMMERSIVE_GLASS_HEADER_TAB_ROUTES.has(tabRoute);
-  const baseHeaderFallback = suppressStatusBarSpacer ? null : (
-    <XStack h={top || '$2'} bg="$bgApp" />
-  );
-
   return (
     <>
       <Page.Header headerShown={false} />
@@ -168,7 +147,7 @@ export function MDHeader({
               <XStack
                 alignItems="center"
                 px={headerPx}
-                h={HOME_HEADER_SEARCH_ROW_HEIGHT}
+                h={56}
                 gap={headerGlassActive ? '$3' : '$6'}
                 {...(top || platformEnv.isNativeAndroid
                   ? { mt: top || '$2' }
@@ -194,20 +173,14 @@ export function MDHeader({
                   <MoreActionButton />
                 </GlassButtonCapsule>
               </XStack>
-              {/* Row 2: Wallet connection (account + network + address).
-                  iOS relocates this row into the collapsible scroll header
-                  (see HomePageView `renderHeader`) so it scrolls away with the
-                  page for the Liquid Glass immersive layout — only the search
-                  row stays fixed. Other platforms keep it pinned here. */}
-              {ENABLE_IMMERSIVE_GLASS_HEADER ? null : (
-                <HomeWalletConnectionRow
-                  headerPx={headerPx}
-                  selectedHeaderTab={selectedHeaderTab}
-                  sceneName={sceneName}
-                  tabRoute={tabRoute}
-                  customHeaderLeftItems={customHeaderLeftItems}
-                />
-              )}
+              {/* Row 2: Wallet connection (account + network + address) */}
+              <HomeWalletConnectionRow
+                headerPx={headerPx}
+                selectedHeaderTab={selectedHeaderTab}
+                sceneName={sceneName}
+                tabRoute={tabRoute}
+                customHeaderLeftItems={customHeaderLeftItems}
+              />
             </>
           ) : (
             <>
@@ -242,7 +215,7 @@ export function MDHeader({
           )}
         </>
       ) : (
-        baseHeaderFallback
+        <XStack h={top || '$2'} bg="$bgApp" />
       )}
     </>
   );

@@ -1,6 +1,7 @@
 import { memo, useCallback, useState } from 'react';
 
-import { RefreshControl } from '@onekeyhq/components';
+import { RefreshControl, useTheme } from '@onekeyhq/components';
+import type { IRefreshControlType } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -15,12 +16,16 @@ export const onHomePageRefresh = () => {
   });
 };
 
-export interface IPullToRefreshProps {
+export interface IPullToRefreshProps extends Omit<
+  IRefreshControlType,
+  'onRefresh' | 'refreshing'
+> {
   onRefresh: () => void;
 }
 
 function BasePullToRefresh({ onRefresh, ...props }: IPullToRefreshProps) {
   const [refreshing, setRefreshing] = useState(false);
+  const theme = useTheme();
 
   const handleRefresh = useCallback(() => {
     onRefresh?.();
@@ -31,9 +36,15 @@ function BasePullToRefresh({ onRefresh, ...props }: IPullToRefreshProps) {
     defaultLogger.account.wallet.walletPullToRefresh();
   }, [onRefresh]);
 
+  const iosRefreshControlProps: Partial<IRefreshControlType> =
+    platformEnv.isNativeIOS
+      ? { tintColor: props.tintColor ?? theme.iconSubdued.val }
+      : {};
+
   return (
     <RefreshControl
       {...props}
+      {...iosRefreshControlProps}
       refreshing={refreshing}
       onRefresh={handleRefresh}
     />

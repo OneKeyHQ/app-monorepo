@@ -1,5 +1,14 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  checkBLEPermissions,
+  checkBLEState,
+} from '@onekeyhq/shared/src/hardware/blePermissions';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
@@ -9,6 +18,7 @@ import {
 
 import localDb from '../../dbs/local/localDb';
 
+import { HardwareConnectionManager } from './HardwareConnectionManager';
 import ServiceHardware from './ServiceHardware';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -31,6 +41,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     SyncDeviceLabelToWalletName: 'SyncDeviceLabelToWalletName',
     UpdateWalletAvatarByDeviceSerialNo: 'UpdateWalletAvatarByDeviceSerialNo',
+    RequestHardwareUIDialog: 'RequestHardwareUIDialog',
   },
   appEventBus: {
     on: jest.fn(),
@@ -45,7 +56,14 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isDesktop: true,
     isJest: true,
     isSupportDesktopBle: true,
+    isNative: false,
+    isNativeAndroid: false,
   },
+}));
+
+jest.mock('@onekeyhq/shared/src/hardware/blePermissions', () => ({
+  checkBLEPermissions: jest.fn(),
+  checkBLEState: jest.fn(),
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/deviceHomeScreenUtils', () => ({
@@ -63,7 +81,11 @@ jest.mock('../../dbs/local/localDb', () => ({
 }));
 
 jest.mock('../../states/jotai/atoms', () => ({
-  EHardwareUiStateAction: {},
+  EHardwareUiStateAction: {
+    BLUETOOTH_PERMISSION: 'ui-bluetooth_permission',
+    LOCATION_PERMISSION: 'ui-location_permission',
+    LOCATION_SERVICE_PERMISSION: 'ui-location_service_permission',
+  },
   hardwareForceTransportAtom: {
     get: jest.fn(async () => ({ forceTransportType: undefined })),
   },
@@ -73,10 +95,31 @@ jest.mock('../../states/jotai/atoms', () => ({
 }));
 
 const mockedLocalDb = jest.mocked(localDb);
+const mockedCheckBLEPermissions = jest.mocked(checkBLEPermissions);
+const mockedCheckBLEState = jest.mocked(checkBLEState);
+const mockedAppEventBus = jest.mocked(appEventBus);
+const mutablePlatformEnv = platformEnv as unknown as {
+  isDesktop: boolean;
+  isJest: boolean;
+  isSupportDesktopBle: boolean;
+  isNative: boolean;
+  isNativeAndroid: boolean;
+};
 
 describe('ServiceHardware.getCompatibleConnectId', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    HardwareConnectionManager.resetInstance();
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isJest: true,
+      isSupportDesktopBle: true,
+      isNative: false,
+      isNativeAndroid: false,
+    });
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
+    mockedCheckBLEPermissions.mockResolvedValue(true);
+    mockedCheckBLEState.mockResolvedValue(true);
   });
 
   it('uses a bound Trezor BLE connectId when desktop BLE is selected', async () => {
@@ -149,6 +192,140 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     ).rejects.toThrow(
       'ServiceHardware SDK is OneKey-only; connectId "USB_ID" belongs to third-party vendor "trezor". Use ServiceThirdPartyHardware instead.',
     );
+  });
+
+  it('shows BLE permission guidance before Android user hardware calls when permission is missing', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: false,
+      isSupportDesktopBle: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    mockedCheckBLEPermissions.mockResolvedValue(false);
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest.fn(
+            async () => EHardwareTransportType.BLE,
+          ),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'ANDROID_BLE_ID',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).rejects.toThrow('NeedBluetoothPermissions');
+
+    expect(mockedAppEventBus.emit.mock.calls).toContainEqual([
+      EAppEventBusNames.RequestHardwareUIDialog,
+      {
+        uiRequestType: 'ui-location_permission',
+      },
+    ]);
+    expect(mockedCheckBLEState).not.toHaveBeenCalled();
+    expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(1);
+  });
+
+  it('shows Bluetooth settings guidance before Android user hardware calls when Bluetooth is off', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: false,
+      isSupportDesktopBle: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    mockedCheckBLEPermissions.mockResolvedValue(true);
+    mockedCheckBLEState.mockResolvedValue(false);
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest.fn(
+            async () => EHardwareTransportType.BLE,
+          ),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'ANDROID_BLE_ID',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).rejects.toThrow('NeedBluetoothTurnedOn');
+
+    expect(mockedAppEventBus.emit.mock.calls).toContainEqual([
+      EAppEventBusNames.RequestHardwareUIDialog,
+      {
+        uiRequestType: 'ui-bluetooth_permission',
+      },
+    ]);
+    expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(1);
+  });
+
+  it('does not run BLE prechecks for Android third-party USB devices', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: false,
+      isSupportDesktopBle: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    mockedCheckBLEPermissions.mockResolvedValue(false);
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'USB_ID',
+      usbConnectId: 'USB_ID',
+      deviceId: 'FEATURES_DEVICE_ID',
+      vendor: EHardwareVendor.trezor,
+      name: 'Trezor Safe 7',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice);
+
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'USB_ID',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toBe('USB_ID');
+
+    expect(mockedCheckBLEPermissions).not.toHaveBeenCalled();
+    expect(mockedCheckBLEState).not.toHaveBeenCalled();
+    expect(mockedAppEventBus.emit.mock.calls).toHaveLength(0);
+  });
+
+  it('does not show BLE permission guidance for Android background hardware calls', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: false,
+      isSupportDesktopBle: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    mockedCheckBLEPermissions.mockResolvedValue(false);
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
+
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'ANDROID_BLE_ID',
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+      }),
+    ).resolves.toBe('ANDROID_BLE_ID');
+
+    expect(mockedCheckBLEPermissions).not.toHaveBeenCalled();
+    expect(mockedAppEventBus.emit.mock.calls).toHaveLength(0);
   });
 
   it('keeps OneKey standard wallet EVM address lookup on empty passphrase', async () => {

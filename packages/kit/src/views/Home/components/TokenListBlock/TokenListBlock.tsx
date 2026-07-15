@@ -854,6 +854,20 @@ function TokenListBlock({
   useLayoutEffect(() => {
     if (!showLpTokensOnly || !account?.id || !network?.id) {
       setIsLpTokenSwitchLoading(false);
+      // Leaving DeFi-token mode must drop the scoped list/map, restoring the
+      // invariant "scoped map populated ⟹ LP mode ON". The residue is not
+      // rendered while the mode is off, but stale data outliving its mode is
+      // exactly what blanked the home list when the seam gate still keyed on
+      // map content. Functional no-op guards: this effect re-fires on owner
+      // changes while the mode is off.
+      setScopedLpTokenList((prev) =>
+        prev.tokens.length === 0 && prev.keys === ''
+          ? prev
+          : { tokens: [], keys: '' },
+      );
+      setScopedLpTokenListMap((prev) =>
+        Object.keys(prev).length === 0 ? prev : {},
+      );
       return;
     }
 

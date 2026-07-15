@@ -328,6 +328,9 @@ function DeFiProtocolDetails() {
                     supportedActions={supportedActions}
                     block
                     preferLendingDialog={sectioned}
+                    actionPresentation={
+                      platformEnv.isNative ? 'modal-route' : 'dialog'
+                    }
                     onSuccess={handleActionSuccess}
                   />
                 </YStack>

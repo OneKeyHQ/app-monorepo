@@ -16,6 +16,9 @@ function FeaturedMedia({
   isActive,
   children,
 }: IFeaturedMediaProps) {
+  // Note: native drag-ghost suppression is handled once on the shared media
+  // container in FeaturedCarousel (a single dragstart listener covers every
+  // slide), so this component stays purely presentational.
   return (
     <Stack width="100%" height={height} overflow="hidden" position="relative">
       {/* Loading placeholder. Media is absolutely positioned so it stacks

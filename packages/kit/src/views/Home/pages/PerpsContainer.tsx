@@ -50,13 +50,18 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  type INumberFormatProps,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IPerpsHomeHolding,
   IPerpsHomePosition,
 } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import {
+  formatPriceToSignificantDigits,
   getHyperliquidTokenImageUrl,
+  getValidPriceDecimals,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -95,7 +100,6 @@ const VALUE_FORMATTER: INumberFormatProps['formatter'] = 'value';
 const VALUE_FORMATTER_OPTIONS: INumberFormatProps['formatterOptions'] = {
   currency: '$',
 };
-const BALANCE_FORMATTER: INumberFormatProps['formatter'] = 'balance';
 
 function isTradableSpotHolding(holding: IPerpsHomeHolding) {
   return Boolean(
@@ -1290,11 +1294,15 @@ function PerpsMetric({
   emphasis?: boolean;
 }) {
   const intl = useIntl();
-  let alignItems: 'center' | 'flex-end' | 'flex-start' = 'flex-start';
-  if (column === 'center') {
-    alignItems = 'center';
-  } else if (align === 'right') {
-    alignItems = 'flex-end';
+  const alignItems = align === 'right' ? 'flex-end' : 'flex-start';
+  let columnFlexGrow = 1;
+  let columnGtMdFlexGrow = 1;
+  if (column === 'left') {
+    columnFlexGrow = 1.35;
+    columnGtMdFlexGrow = 1.45;
+  } else if (column === 'center') {
+    columnFlexGrow = 0.65;
+    columnGtMdFlexGrow = 0.55;
   }
   let valueColor = '$text';
   if (positive) {
@@ -1302,48 +1310,63 @@ function PerpsMetric({
   } else if (negative) {
     valueColor = '$red11';
   }
-  const valueSize = emphasis ? '$bodyMdMedium' : '$bodySmMedium';
+  const valueSize = emphasis ? '$bodyLgMedium' : '$bodyMdMedium';
   const valueGtMdSize = emphasis ? '$bodyLgMedium' : '$bodyMdMedium';
 
   return (
     <YStack
-      width={column === 'left' || column === 'right' ? 120 : undefined}
-      flex={column === 'center' || !column ? 1 : undefined}
-      gap="$1"
-      alignItems={alignItems}
+      flexGrow={columnFlexGrow}
+      flexBasis={0}
+      minWidth={0}
+      $gtMd={{ flexGrow: columnGtMdFlexGrow }}
     >
-      <XStack alignItems="center" gap="$1">
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          $gtMd={{ size: '$bodySm' }}
-        >
-          {intl.formatMessage({ id: labelId })}
-          {labelExtra}
-        </SizableText>
+      <XStack width="100%" justifyContent={alignItems}>
+        <YStack width="100%" minWidth={0} gap="$1" alignItems={alignItems}>
+          <XStack alignItems="center" gap="$1">
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              $gtMd={{ size: '$bodySm' }}
+            >
+              {intl.formatMessage({ id: labelId })}
+              {labelExtra}
+            </SizableText>
+          </XStack>
+          {formatter ? (
+            <NumberSizeableText
+              size={valueSize}
+              color={valueColor}
+              $gtMd={{ size: valueGtMdSize }}
+              formatter={formatter}
+              formatterOptions={formatterOptions}
+              flexShrink={1}
+              minWidth={0}
+              numberOfLines={platformEnv.isNative ? 1 : 2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+              contentStyle={{ color: valueColor }}
+              decimalTextStyle={{ color: valueColor }}
+              subTextStyle={{ color: valueColor }}
+            >
+              {value}
+            </NumberSizeableText>
+          ) : (
+            <SizableText
+              size={valueSize}
+              color={valueColor}
+              $gtMd={{ size: valueGtMdSize }}
+              flexShrink={1}
+              minWidth={0}
+              numberOfLines={platformEnv.isNative ? 1 : 2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {value}
+            </SizableText>
+          )}
+        </YStack>
       </XStack>
-      {formatter ? (
-        <NumberSizeableText
-          size={valueSize}
-          color={valueColor}
-          $gtMd={{ size: valueGtMdSize }}
-          formatter={formatter}
-          formatterOptions={formatterOptions}
-          contentStyle={{ color: valueColor }}
-          decimalTextStyle={{ color: valueColor }}
-          subTextStyle={{ color: valueColor }}
-        >
-          {value}
-        </NumberSizeableText>
-      ) : (
-        <SizableText
-          size={valueSize}
-          color={valueColor}
-          $gtMd={{ size: valueGtMdSize }}
-        >
-          {value}
-        </SizableText>
-      )}
     </YStack>
   );
 }
@@ -1367,12 +1390,35 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
   });
   const roiPercent = new BigNumber(position.roi).times(100).abs().toFixed(1);
   const displayCoin = parseDexCoin(position.coin).displayName;
-  const positionSizeUsd = new BigNumber(position.sizeCoin)
-    .times(position.markPx)
-    .abs()
-    .toFixed();
-  const fundingAmount = new BigNumber(position.fundingUsd).abs().toFixed();
-  const hasLiquidationPrice = !new BigNumber(position.liqPx || '0').isZero();
+  const priceDecimals = useMemo(
+    () => getValidPriceDecimals(position.entryPx || '0'),
+    [position.entryPx],
+  );
+  const positionSizeFormatted = useMemo(
+    () =>
+      numberFormat(position.sizeCoin, {
+        formatter: 'balance',
+      }),
+    [position.sizeCoin],
+  );
+  const entryPriceFormatted = useMemo(
+    () => new BigNumber(position.entryPx || '0').toFixed(priceDecimals),
+    [position.entryPx, priceDecimals],
+  );
+  const liquidationPriceFormatted = useMemo(() => {
+    const liquidationPrice = new BigNumber(position.liqPx || '0');
+    return liquidationPrice.isZero()
+      ? 'N/A'
+      : liquidationPrice.toFixed(priceDecimals);
+  }, [position.liqPx, priceDecimals]);
+  const markPriceFormatted = useMemo(
+    () => formatPriceToSignificantDigits(position.markPx || '0'),
+    [position.markPx],
+  );
+  const fundingAmount = useMemo(
+    () => new BigNumber(position.fundingUsd).abs().toFixed(2),
+    [position.fundingUsd],
+  );
 
   return (
     <YStack
@@ -1423,15 +1469,18 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             </SizableText>
           </XStack>
           <SizableText
-            size="$headingSm"
+            size="$bodyMdMedium"
             color="$text"
             $gtMd={{ size: '$headingMd' }}
           >
             {displayCoin}
           </SizableText>
           <SizableText
+            bg="$bgSubdued"
+            borderRadius={2}
+            px="$1"
             color="$textSubdued"
-            size="$bodySm"
+            fontSize={10}
             $gtMd={{ size: '$bodySm' }}
           >
             {leverageTypeText} {position.leverageValue}x
@@ -1440,7 +1489,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
         <SizableText
           testID={HomeTestIDs.perpsManageButton}
           display="none"
-          size="$bodyXs"
+          size="$bodySm"
           color="$textSubdued"
           $gtMd={{ display: 'flex', size: '$bodySm' }}
         >
@@ -1472,12 +1521,11 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
         </XStack>
 
         <YStack gap="$3">
-          <XStack width="100%" justifyContent="space-between">
+          <XStack width="100%">
             <PerpsMetric
               labelId={ETranslations.perp_position_position_size}
-              labelExtra=" (USDC)"
-              value={positionSizeUsd}
-              formatter={BALANCE_FORMATTER}
+              labelExtra={` (${displayCoin})`}
+              value={positionSizeFormatted}
               column="left"
             />
             <PerpsMetric
@@ -1489,15 +1537,13 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_entry_price}
-              value={position.entryPx}
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
+              value={entryPriceFormatted}
               align="right"
               column="right"
             />
           </XStack>
 
-          <XStack width="100%" justifyContent="space-between">
+          <XStack width="100%">
             {/* fundingUsd > 0 = paid -> red '-$' (mirrors PositionsRow) */}
             <PerpsMetric
               labelId={ETranslations.perp_position_funding_2}
@@ -1512,18 +1558,12 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_mark_price}
-              value={position.markPx}
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
+              value={markPriceFormatted}
               column="center"
             />
             <PerpsMetric
               labelId={ETranslations.perp_position_liq_price}
-              value={hasLiquidationPrice ? position.liqPx || '0' : 'N/A'}
-              formatter={hasLiquidationPrice ? 'price' : undefined}
-              formatterOptions={
-                hasLiquidationPrice ? { currency: '$' } : undefined
-              }
+              value={liquidationPriceFormatted}
               align="right"
               column="right"
             />

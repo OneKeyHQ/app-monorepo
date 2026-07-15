@@ -36,6 +36,7 @@ import {
   isPrivateSendSwapHistoryItem,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { collectDecodedTxInvolvedAddresses } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressBadge,
   IAddressInfo,
@@ -1376,6 +1377,12 @@ class ServiceHistory extends ServiceBase {
             accountId: tx.decodedTx.accountId,
             networkId: tx.decodedTx.networkId,
             txid: tx.decodedTx.txid,
+            // the locally built decoded tx carries the complete input/output
+            // set, so detail polling can narrow vault extra params to the
+            // addresses this tx actually involves
+            txInvolvedAddresses: collectDecodedTxInvolvedAddresses({
+              decodedTx: tx.decodedTx,
+            }),
           }),
       ),
       { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
@@ -2340,6 +2347,7 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     networkId: string;
     accountAddress: string;
+    txInvolvedAddresses?: string[];
   }) {
     const { networkId, accountId } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
@@ -2682,17 +2690,16 @@ class ServiceHistory extends ServiceBase {
         // pass
       }
 
-      const extraParams = await this.buildFetchHistoryListParams({
-        ...params,
-        accountAddress: accountAddress || '',
-      });
-
+      // the withUTXOs request deliberately carries no account context so
+      // the server returns the tx's raw full input/output breakdown; skip
+      // account-scoped vault extra params there too — the server rejects
+      // `accountAddressArray` unless `accountAddress` accompanies it, and
+      // the raw view needs no account semantics.
       const requestParams: IServerFetchAccountHistoryDetailParams = withUTXOs
         ? {
             accountId,
             networkId,
             txid,
-            ...extraParams,
           }
         : {
             accountId,
@@ -2700,7 +2707,16 @@ class ServiceHistory extends ServiceBase {
             txid,
             xpub,
             accountAddress,
-            ...extraParams,
+            // skip account-scoped vault extras when the address lookup
+            // failed: the server rejects `accountAddressArray` without an
+            // accompanying `accountAddress`, and other vault extras (e.g.
+            // lightning auth) are equally meaningless with an empty address.
+            ...(accountAddress
+              ? await this.buildFetchHistoryListParams({
+                  ...params,
+                  accountAddress,
+                })
+              : {}),
           };
       const vault = await vaultFactory.getVault({ networkId, accountId });
       const resp = await vault.fetchAccountHistoryDetail(requestParams);

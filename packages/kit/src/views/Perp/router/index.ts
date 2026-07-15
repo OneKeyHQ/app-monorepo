@@ -13,6 +13,10 @@ import {
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
 import { RootTabLoadingFallback } from '../../../routes/Tab/RootTabLoadingFallback';
+import {
+  getLoadedPerpsDepositSelectTokenModal,
+  loadPerpsDepositSelectTokenModal,
+} from '../utils/preloadPerpsDepositSelectTokenModal';
 import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
 import {
   getLoadedPerpsMobileTokenSelectorPage,
@@ -49,9 +53,17 @@ const MobileSetTpslModal = LazyLoadPage(
 
 const MobileDepositWithdrawModal = LazyLoadPage(loadPerpsDepositWithdrawModal);
 
-const MobileDepositSelectTokenModal = LazyLoadPage(
-  () => import('../components/TradingPanel/modals/DepositSelectTokenModal'),
+const MobileDepositSelectTokenLazyModal = LazyLoadPage(
+  loadPerpsDepositSelectTokenModal,
 );
+
+function MobileDepositSelectTokenModal() {
+  const LoadedMobileDepositSelectTokenModal =
+    getLoadedPerpsDepositSelectTokenModal()?.default;
+  return createElement(
+    LoadedMobileDepositSelectTokenModal ?? MobileDepositSelectTokenLazyModal,
+  );
+}
 
 const PerpsInviteeRewardModal = LazyLoadPage(
   () => import('../components/InviteeReward/InviteeRewardModal'),
