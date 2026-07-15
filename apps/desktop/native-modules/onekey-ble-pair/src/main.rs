@@ -344,8 +344,20 @@ mod win {
 
         let custom = pairing.Custom().map_err(we)?;
 
-        // On ConfirmPinMatch, surface the pin for numeric comparison and auto-
-        // accept (mirrors Suite; the user verifies it against the device screen).
+        // Accept EVERY pairing kind, not just ConfirmPinMatch.
+        //
+        // Suite hardcodes ConfirmPinMatch and it works for them; on this machine
+        // the same call returns Failed(19) with the PairingRequested delegate
+        // NEVER firing (sinceAccept=never-accepted). That means Windows and the
+        // device could not agree on a ceremony — we asked for exactly one kind
+        // and the device wanted another (ProvidePin / DisplayPin / ConfirmOnly).
+        // Requesting the full set lets the delegate fire for whatever the device
+        // actually offers; we then handle each kind instead of ignoring it.
+        let kinds = DevicePairingKinds::ConfirmOnly
+            | DevicePairingKinds::DisplayPin
+            | DevicePairingKinds::ProvidePin
+            | DevicePairingKinds::ConfirmPinMatch;
+
         let handler = TypedEventHandler::<
             DeviceInformationCustomPairing,
             DevicePairingRequestedEventArgs,
@@ -353,26 +365,41 @@ mod win {
             if let Ok(args) = args.ok() {
                 let kind = args.PairingKind()?;
                 diag(&format!("PairingRequested kind={kind:?}"));
-                if kind == DevicePairingKinds::ConfirmPinMatch {
-                    let pin = args.Pin()?;
-                    super::emit(&format!(r#"{{"type":"pairing","pin":"{pin}"}}"#));
-                    args.Accept()?;
-                    ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
-                    diag("accepted ConfirmPinMatch (device confirmation now pending)");
-                } else {
-                    diag(&format!("unhandled pairing kind {kind:?}"));
+                match kind {
+                    // Numeric comparison: surface the pin so the user can check
+                    // it against the device screen, then accept.
+                    DevicePairingKinds::ConfirmPinMatch => {
+                        let pin = args.Pin()?;
+                        super::emit(&format!(r#"{{"type":"pairing","pin":"{pin}"}}"#));
+                        args.Accept()?;
+                        ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
+                        diag("accepted ConfirmPinMatch (device confirmation pending)");
+                    }
+                    // Device shows a pin; Windows just needs a yes. Surface it too.
+                    DevicePairingKinds::DisplayPin => {
+                        if let Ok(pin) = args.Pin() {
+                            super::emit(&format!(r#"{{"type":"pairing","pin":"{pin}"}}"#));
+                        }
+                        args.Accept()?;
+                        ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
+                        diag("accepted DisplayPin");
+                    }
+                    // Just-works / confirm-only: no code involved.
+                    DevicePairingKinds::ConfirmOnly => {
+                        args.Accept()?;
+                        ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
+                        diag("accepted ConfirmOnly");
+                    }
+                    // We do not have a pin to type in; log so the failure is legible.
+                    other => diag(&format!("cannot satisfy pairing kind {other:?}")),
                 }
             }
             Ok(())
         });
         custom.PairingRequested(&handler).map_err(we)?;
 
-        diag("calling PairAsync(ConfirmPinMatch)");
-        let result = custom
-            .PairAsync(DevicePairingKinds::ConfirmPinMatch)
-            .map_err(we)?
-            .await
-            .map_err(we)?;
+        diag(&format!("calling PairAsync(kinds={kinds:?})"));
+        let result = custom.PairAsync(kinds).map_err(we)?.await.map_err(we)?;
 
         let accepted_at = ACCEPT_MS.load(Ordering::SeqCst);
         let since_accept = if accepted_at == u64::MAX {
