@@ -1608,7 +1608,9 @@ function ProtocolLendingActionBorrowContent({
     amount,
     debtAmount: isWithdraw ? undefined : repayAllTargetAmount,
   });
-  const healthFactor = actionResult.transactionConfirmation?.healthFactor;
+  const healthFactor = isAmountInsufficient
+    ? undefined
+    : actionResult.transactionConfirmation?.healthFactor;
   const confirmDisabled =
     isBorrowDataLoading ||
     isRepayWalletBalancePending ||
@@ -1619,7 +1621,10 @@ function ProtocolLendingActionBorrowContent({
     actionResult.checkAmountResult === false ||
     actionResult.checkAmountLoading;
   const shouldShowHealthFactorSkeleton =
-    !healthFactor && isAmountPositive && !actionResult.transactionConfirmation;
+    !isAmountInsufficient &&
+    !healthFactor &&
+    isAmountPositive &&
+    !actionResult.transactionConfirmation;
   // Belt-and-suspenders: a selectable Aave entry whose asset fetch AND protocol
   // info both come back empty falls back to the empty state instead of crashing.
   const isEmpty =
