@@ -7,72 +7,27 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
-  EModalStakingRoutes,
   EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ERootRoutes,
-  onboardingV2RouteConfig,
 } from '@onekeyhq/shared/src/routes';
-import {
-  appUpdateRouteManifest,
-  bindRouteManifest,
-  dAppConnectionRouteManifest,
-  filterRouteManifestByPresentation,
-  fullScreenPushRouteManifest,
-  modalRouteManifest,
-  onboardingRouteManifest,
-  projectColdStartRouteManifest,
-  rootRouteManifest,
-  settingRouteManifest,
-  signatureConfirmRouteManifest,
-  stakingRouteManifest,
-  webViewRouteManifest,
-} from '@onekeyhq/shared/src/routes/routeManifest';
 import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
 
 import { getStateFromPath as getWebStateFromPath } from './config/getStateFromPath';
 import { getStateFromPath as getExtensionStateFromPath } from './config/getStateFromPath.ext';
 import { resolveScreens } from './config/resolveScreens';
 import {
-  fullModalRouterPathConfig,
-  fullScreenPushRouterPathConfig,
+  type IRoutePathConfig,
   modalRouterPathConfig,
   onboardingRouterV2PathConfig,
-  webViewRouterPathConfig,
+  rootRouterPathConfig,
 } from './routerPathConfig';
 
 import type { NavigationState, PartialState } from '@react-navigation/routers';
 
 type IPartialNavigationState = PartialState<NavigationState>;
 
-const screens = resolveScreens([
-  {
-    name: ERootRoutes.Onboarding,
-    children: onboardingRouterV2PathConfig,
-  },
-]) as IScreenPathConfig;
-
-const allRootScreens = resolveScreens([
-  {
-    name: ERootRoutes.Onboarding,
-    children: onboardingRouterV2PathConfig,
-  },
-  {
-    name: ERootRoutes.Modal,
-    children: modalRouterPathConfig,
-  },
-  {
-    name: ERootRoutes.iOSFullScreen,
-    children: fullModalRouterPathConfig,
-  },
-  {
-    name: ERootRoutes.FullScreenPush,
-    children: fullScreenPushRouterPathConfig,
-  },
-  {
-    name: ERootRoutes.WebView,
-    children: webViewRouterPathConfig,
-  },
-]) as IScreenPathConfig;
+const screens = resolveScreens(rootRouterPathConfig) as IScreenPathConfig;
 
 const getFocusedRouteNames = (
   state: IPartialNavigationState | undefined,
@@ -98,174 +53,117 @@ const parseExtensionHash = (hash: string) => {
   return getExtensionStateFromPath(hash, { screens });
 };
 
-describe('onboardingRouterV2PathConfig', () => {
+const findRoute = (
+  routes: IRoutePathConfig[],
+  ...names: string[]
+): IRoutePathConfig | undefined => {
+  let currentRoutes = routes;
+  let current: IRoutePathConfig | undefined;
+  for (const name of names) {
+    current = currentRoutes.find((route) => route.name === name);
+    if (!current) {
+      return undefined;
+    }
+    currentRoutes = current.children ?? [];
+  }
+  return current;
+};
+
+const countRoutes = (routes: IRoutePathConfig[]): number =>
+  routes.reduce(
+    (total, route) => total + 1 + countRoutes(route.children ?? []),
+    0,
+  );
+
+describe('generated cold-start route config', () => {
   afterEach(() => {
     globalThis.location.hash = '';
   });
 
-  it('derives the public cold-start routes from the full route definition', () => {
+  it('contains the complete registered root graph without UI metadata', () => {
+    expect(rootRouterPathConfig.slice(0, 6).map((route) => route.name)).toEqual(
+      [
+        ERootRoutes.Main,
+        ERootRoutes.Onboarding,
+        ERootRoutes.Modal,
+        ERootRoutes.iOSFullScreen,
+        ERootRoutes.FullScreenPush,
+        ERootRoutes.WebView,
+      ],
+    );
+    expect(countRoutes(rootRouterPathConfig)).toBeGreaterThan(400);
+
+    const visit = (routes: IRoutePathConfig[]) => {
+      for (const route of routes) {
+        expect(Object.keys(route)).toEqual(expect.arrayContaining(['name']));
+        expect(
+          Object.keys(route).every((key) =>
+            ['name', 'rewrite', 'exact', 'children'].includes(key),
+          ),
+        ).toBe(true);
+        visit(route.children ?? []);
+      }
+    };
+    visit(rootRouterPathConfig);
+  });
+
+  it('derives every onboarding page from the full navigator', () => {
     const onboardingRoute = onboardingRouterV2PathConfig[0];
+    const pageNames =
+      onboardingRoute?.children?.map((route) => route.name) ?? [];
 
-    expect(onboardingRoute.children?.map((route) => route.name)).toEqual([
-      EOnboardingPagesV2.GetStarted,
-      EOnboardingPagesV2.CreateNewWallet,
-      EOnboardingPagesV2.CreateOrImportWallet,
-      EOnboardingPagesV2.PickYourDevice,
-    ]);
-    expect(onboardingV2RouteConfig.children.map((route) => route.name)).toEqual(
-      Object.values(EOnboardingPagesV2),
-    );
-    expect(onboardingV2RouteConfig.children[0]?.name).toBe(
-      EOnboardingPagesV2.GetStarted,
-    );
-    expect(Object.isFrozen(onboardingV2RouteConfig)).toBe(true);
-    expect(Object.isFrozen(onboardingV2RouteConfig.children)).toBe(true);
-    expect(Object.isFrozen(onboardingV2RouteConfig.children[0])).toBe(true);
-  });
-
-  it('parses PickYourDevice into the complete Web navigation state', () => {
-    const state = getWebStateFromPath('/onboarding/PickYourDevice', {
-      screens,
+    expect(onboardingRoute).toMatchObject({
+      name: EOnboardingV2Routes.OnboardingV2,
+      rewrite: '/onboarding',
+      exact: true,
     });
-
-    expect(getFocusedRouteNames(state)).toEqual([
-      ERootRoutes.Onboarding,
-      onboardingV2RouteConfig.name,
-      EOnboardingPagesV2.PickYourDevice,
-    ]);
+    expect(pageNames).toHaveLength(Object.values(EOnboardingPagesV2).length);
+    expect(new Set(pageNames)).toEqual(
+      new Set(Object.values(EOnboardingPagesV2)),
+    );
+    expect(onboardingRoute?.children?.[0]).toMatchObject({
+      name: EOnboardingPagesV2.GetStarted,
+      rewrite: '/get-started',
+    });
   });
 
-  it('parses PickYourDevice from the real extension hash parser', () => {
-    const state = parseExtensionHash('#/onboarding/PickYourDevice');
+  it('keeps development-only modal routes aligned with the full router', () => {
+    const modalNames = modalRouterPathConfig.map((route) => route.name);
+    const expectedNames = Object.values(EModalRoutes).filter(
+      (name) => platformEnv.isDev || name !== EModalRoutes.TestModal,
+    );
 
-    expect(getFocusedRouteNames(state)).toEqual([
-      ERootRoutes.Onboarding,
-      onboardingV2RouteConfig.name,
-      EOnboardingPagesV2.PickYourDevice,
-    ]);
-  });
-
-  it.each([
-    '/onboarding/ConnectYourDevice',
-    '/onboarding/CheckAndUpdate',
-    '/onboarding/ShowRecoveryPhrase',
-    '/onboarding/VerifyRecoveryPhrase?walletId=hd-1',
-    '/onboarding/UnknownPage',
-  ])('rejects non-public Web cold-start path %s', (path) => {
-    expect(getWebStateFromPath(path, { screens })).toBeUndefined();
+    expect(modalNames).toHaveLength(expectedNames.length);
+    expect(new Set(modalNames)).toEqual(new Set(expectedNames));
   });
 
   it.each([
-    '#/onboarding/ConnectYourDevice',
-    '#/onboarding/CheckAndUpdate',
-    '#/onboarding/ShowRecoveryPhrase',
-    '#/onboarding/VerifyRecoveryPhrase?walletId=hd-1',
-    '#/onboarding/UnknownPage',
-  ])('rejects non-public extension cold-start hash %s', (hash) => {
-    expect(parseExtensionHash(hash)).toBeUndefined();
-  });
-});
-
-describe('route manifests', () => {
-  it('covers every configured route domain from a pure manifest', () => {
-    expect(rootRouteManifest.map((route) => route.name)).toEqual([
-      ERootRoutes.Main,
+    EOnboardingPagesV2.PickYourDevice,
+    EOnboardingPagesV2.ConnectYourDevice,
+    EOnboardingPagesV2.CheckAndUpdate,
+    EOnboardingPagesV2.ShowRecoveryPhrase,
+    EOnboardingPagesV2.VerifyRecoveryPhrase,
+  ])('parses registered onboarding page %s on Web and extension', (page) => {
+    const path = `/onboarding/${page}`;
+    const expected = [
       ERootRoutes.Onboarding,
-      ERootRoutes.Modal,
-      ERootRoutes.iOSFullScreen,
-      ERootRoutes.FullScreenPush,
-      ERootRoutes.WebView,
-    ]);
-    expect(modalRouteManifest.map((route) => route.name)).toEqual(
-      Object.values(EModalRoutes),
-    );
-    expect(settingRouteManifest.map((route) => route.name)).toEqual(
-      Object.values(EModalSettingRoutes),
-    );
-    expect(appUpdateRouteManifest.map((route) => route.name)).toEqual(
-      Object.values(EAppUpdateRoutes),
-    );
-    expect(stakingRouteManifest.map((route) => route.name)).toEqual(
-      Object.values(EModalStakingRoutes),
-    );
-    expect(signatureConfirmRouteManifest.map((route) => route.name)).toEqual(
-      Object.values(EModalSignatureConfirmRoutes),
-    );
-    expect(dAppConnectionRouteManifest.map((route) => route.name)).toEqual(
-      Object.values(EDAppConnectionModal).filter(
-        (name) => name !== EDAppConnectionModal.VerifyMessage,
-      ),
-    );
-  });
-
-  it('projects every lightweight root domain from the same manifests', () => {
-    const activeModalManifest = modalRouteManifest.filter(
-      (route) => platformEnv.isDev || route.name !== EModalRoutes.TestModal,
-    );
-
-    expect(modalRouterPathConfig).toEqual(
-      projectColdStartRouteManifest(
-        filterRouteManifestByPresentation(activeModalManifest, 'modal'),
-      ),
-    );
-    expect(fullModalRouterPathConfig).toEqual(
-      projectColdStartRouteManifest(
-        filterRouteManifestByPresentation(activeModalManifest, 'iosFullScreen'),
-      ),
-    );
-    expect(onboardingRouterV2PathConfig).toEqual(
-      projectColdStartRouteManifest(onboardingRouteManifest),
-    );
-    expect(fullScreenPushRouterPathConfig).toEqual(
-      projectColdStartRouteManifest(fullScreenPushRouteManifest),
-    );
-    expect(webViewRouterPathConfig).toEqual(
-      projectColdStartRouteManifest(webViewRouteManifest),
-    );
-  });
-
-  it('binds UI config without changing route order or path metadata', () => {
-    const bindings = [
-      { name: EAppUpdateRoutes.WhatsNew, component: 'whats-new' },
-      { name: EAppUpdateRoutes.UpdatePreview, component: 'preview' },
-      { name: EAppUpdateRoutes.DownloadVerify, component: 'verify' },
-      { name: EAppUpdateRoutes.ManualInstall, component: 'install' },
-      {
-        name: EAppUpdateRoutes.FeaturedChangelogPreview,
-        component: 'changelog',
-      },
+      EOnboardingV2Routes.OnboardingV2,
+      page,
     ];
 
-    const routes = bindRouteManifest(appUpdateRouteManifest, bindings);
-
-    expect(routes.map((route) => route.name)).toEqual(
-      bindings.map((route) => route.name),
+    expect(
+      getFocusedRouteNames(getWebStateFromPath(path, { screens })),
+    ).toEqual(expected);
+    expect(getFocusedRouteNames(parseExtensionHash(`#${path}`))).toEqual(
+      expected,
     );
-    expect(routes[1]).toMatchObject({
-      component: 'preview',
-      rewrite: '/preview',
-    });
   });
 
-  it('rejects missing bindings and duplicated path metadata', () => {
-    expect(() =>
-      bindRouteManifest(appUpdateRouteManifest, [
-        { name: EAppUpdateRoutes.UpdatePreview },
-      ]),
-    ).toThrow('Missing route binding');
-
-    expect(() =>
-      bindRouteManifest(appUpdateRouteManifest, [
-        {
-          name: EAppUpdateRoutes.UpdatePreview,
-          rewrite: '/duplicated-preview',
-        },
-        { name: EAppUpdateRoutes.WhatsNew },
-        { name: EAppUpdateRoutes.DownloadVerify },
-        { name: EAppUpdateRoutes.ManualInstall },
-        { name: EAppUpdateRoutes.FeaturedChangelogPreview },
-      ]),
-    ).toThrow('Route path metadata must be declared in the manifest');
+  it('rejects an unregistered onboarding page', () => {
+    expect(
+      getWebStateFromPath('/onboarding/UnknownPage', { screens }),
+    ).toBeUndefined();
+    expect(parseExtensionHash('#/onboarding/UnknownPage')).toBeUndefined();
   });
 
   it.each([
@@ -309,14 +207,28 @@ describe('route manifests', () => {
       '/RootWebView/WebView/WebView',
       [ERootRoutes.WebView, 'WebView', 'WebView'],
     ],
-  ])(
-    'parses cold-start path %s across every root route domain',
-    (path, names) => {
-      const state = getWebStateFromPath(path, {
-        screens: allRootScreens,
-      });
+  ])('parses cold-start path %s across root domains', (path, names) => {
+    expect(
+      getFocusedRouteNames(getWebStateFromPath(path, { screens })),
+    ).toEqual(names);
+  });
 
-      expect(getFocusedRouteNames(state)).toEqual(names);
-    },
-  );
+  it('contains deep routes that were previously omitted by manual projection', () => {
+    expect(
+      findRoute(
+        rootRouterPathConfig,
+        ERootRoutes.Modal,
+        EModalRoutes.SettingModal,
+        EModalSettingRoutes.SettingProtectModal,
+      ),
+    ).toBeDefined();
+    expect(
+      findRoute(
+        rootRouterPathConfig,
+        ERootRoutes.Modal,
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.ConnectionModal,
+      ),
+    ).toBeDefined();
+  });
 });

@@ -4,18 +4,8 @@ import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
-import {
-  bindRouteManifest,
-  rootRouteManifest,
-} from '@onekeyhq/shared/src/routes/routeManifest';
 
-import {
-  fullModalRouterPathConfig,
-  fullScreenPushRouterPathConfig,
-  modalRouterPathConfig,
-  onboardingRouterV2PathConfig,
-  webViewRouterPathConfig,
-} from './routerPathConfig';
+import { rootRouterPathConfig } from './routerPathConfig';
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
 
@@ -63,7 +53,7 @@ const buildPermissionRouter = () => {
   ].filter(Boolean);
 };
 
-const rootRouteBindings: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
+export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
     name: ERootRoutes.Main,
     component: TabNavigator,
@@ -94,10 +84,6 @@ const rootRouteBindings: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     component: WebViewNavigator,
     type: 'webView',
   },
-];
-
-export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
-  ...bindRouteManifest(rootRouteManifest, rootRouteBindings),
   ...buildPermissionRouter(),
 ];
 
@@ -112,35 +98,15 @@ if (platformEnv.isDev) {
 export const useRootRouter = () => {
   const tabRouter = useTabRouterConfig();
   return useMemo(
-    () => [
-      ...bindRouteManifest(rootRouteManifest, [
-        {
-          name: ERootRoutes.Main,
-          children: tabRouter,
-        },
-        {
-          name: ERootRoutes.Onboarding,
-          children: onboardingRouterV2PathConfig,
-        },
-        {
-          name: ERootRoutes.Modal,
-          children: modalRouterPathConfig,
-        },
-        {
-          name: ERootRoutes.iOSFullScreen,
-          children: fullModalRouterPathConfig,
-        },
-        {
-          name: ERootRoutes.FullScreenPush,
-          children: fullScreenPushRouterPathConfig,
-        },
-        {
-          name: ERootRoutes.WebView,
-          children: webViewRouterPathConfig,
-        },
-      ]),
-      ...buildPermissionRouter(),
-    ],
+    () =>
+      rootRouterPathConfig.map((route) =>
+        route.name === ERootRoutes.Main
+          ? {
+              ...route,
+              children: tabRouter,
+            }
+          : route,
+      ),
     [tabRouter],
   );
 };

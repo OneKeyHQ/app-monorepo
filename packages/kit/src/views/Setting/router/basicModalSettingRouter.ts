@@ -220,6 +220,7 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingProtectModal,
     component: SettingProtectionModal,
+    rewrite: '/protection',
   },
   {
     name: EModalSettingRoutes.SettingReceiveRiskSupportedAssets,

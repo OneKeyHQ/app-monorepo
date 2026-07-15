@@ -5,19 +5,8 @@ import {
   v4migrationAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalRoutes,
-  onboardingV2RouteConfig,
-} from '@onekeyhq/shared/src/routes';
-import type { EOnboardingV2Routes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EOnboardingV2Routes } from '@onekeyhq/shared/src/routes';
 import { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
-import {
-  bindRouteManifest,
-  filterRouteManifestByPresentation,
-  fullScreenPushRouteManifest,
-  modalRouteManifest,
-  onboardingRouteManifest,
-} from '@onekeyhq/shared/src/routes/routeManifest';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { keylessOnboardingCache } from '../../components/KeylessWallet/useKeylessWallet';
@@ -80,7 +69,7 @@ const onboardingRouterConfig = {
   children: OnboardingRouter,
 };
 
-const modalRouteBindings: IModalRootNavigatorConfig<EModalRoutes>[] = [
+const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.MainModal,
     children: ModalMainStack,
@@ -92,6 +81,8 @@ const modalRouteBindings: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.SettingModal,
     children: ModalSettingStack,
+    rewrite: '/settings',
+    exact: true,
   },
   {
     name: EModalRoutes.SwapModal,
@@ -182,6 +173,7 @@ const modalRouteBindings: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.AppUpdateModal,
+    rewrite: '/update',
     children: AppUpdateRouter,
   },
   {
@@ -248,46 +240,48 @@ const modalRouteBindings: IModalRootNavigatorConfig<EModalRoutes>[] = [
 
 // Pages in Dev Mode
 if (platformEnv.isDev) {
-  modalRouteBindings.push({
+  router.push({
     name: EModalRoutes.TestModal,
     children: TestModalRouter,
   });
 }
 
-const activeModalRouteManifest = modalRouteManifest.filter(
-  (entry) => platformEnv.isDev || entry.name !== EModalRoutes.TestModal,
-);
+export const modalRouter = router;
 
-export const modalRouter = bindRouteManifest(
-  activeModalRouteManifest,
-  modalRouteBindings,
-);
-
-const fullModalRouteManifest = filterRouteManifestByPresentation(
-  activeModalRouteManifest,
-  'iosFullScreen',
-);
-const fullModalRouteNames = new Set(
-  fullModalRouteManifest.map((entry) => entry.name),
-);
-
-export const fullModalRouter = bindRouteManifest(
-  fullModalRouteManifest,
-  modalRouteBindings.filter((binding) => fullModalRouteNames.has(binding.name)),
-);
+export const fullModalRouter = [
+  {
+    name: EModalRoutes.AppUpdateModal,
+    children: AppUpdateRouter,
+  },
+  {
+    name: EModalRoutes.DAppConnectionModal,
+    children: DAppConnectionRouter,
+  },
+  {
+    name: EModalRoutes.ReceiveModal,
+    children: ModalReceiveStack,
+  },
+  {
+    name: EModalRoutes.SendModal,
+    children: ModalSendStack,
+  },
+  {
+    name: EModalRoutes.SignatureConfirmModal,
+    children: ModalSignatureConfirmStack,
+  },
+];
 
 export const fullScreenPushRouterConfig: IModalRootNavigatorConfig<EFullScreenPushRoutes>[] =
-  bindRouteManifest(fullScreenPushRouteManifest, [
+  [
     {
       name: EFullScreenPushRoutes.ActionCenter,
       children: ActionCenterRouter,
     },
-  ]);
+  ];
 
 export const onboardingRouterV2Config: IModalRootNavigatorConfig<EOnboardingV2Routes>[] =
-  bindRouteManifest(onboardingRouteManifest, [
+  [
     {
-      name: onboardingV2RouteConfig.name,
       onMounted: () => {
         console.log('OnboardingModal onMounted');
         void isOnBoardingOpenAtom.set(true);
@@ -308,6 +302,9 @@ export const onboardingRouterV2Config: IModalRootNavigatorConfig<EOnboardingV2Ro
         console.log('OnboardingModal onUnmounted');
         await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
       },
+      name: EOnboardingV2Routes.OnboardingV2,
+      rewrite: '/onboarding',
+      exact: true,
       children: OnboardingRouterV2,
     },
-  ]);
+  ];

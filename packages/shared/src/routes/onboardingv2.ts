@@ -49,66 +49,11 @@ export enum EOnboardingPagesV2 {
   OneKeyIDLogin = 'OneKeyIDLogin',
   CreatePin = 'CreatePin',
   ConfirmPin = 'ConfirmPin',
-  CreatePasscode = 'CreatePasscode',
   VerifyPin = 'VerifyPin',
   ResetPinGuide = 'ResetPinGuide',
   NewPinCreated = 'NewPinCreated',
+  CreatePasscode = 'CreatePasscode',
 }
-
-export interface IOnboardingV2PageRouteConfig {
-  readonly name: EOnboardingPagesV2;
-  readonly rewrite?: string;
-  readonly coldStart?: 'public';
-}
-
-export interface IOnboardingV2RouteConfig {
-  readonly name: EOnboardingV2Routes;
-  readonly rewrite: string;
-  readonly exact: boolean;
-  readonly children: readonly IOnboardingV2PageRouteConfig[];
-}
-
-const onboardingV2PageRouteMeta: Partial<
-  Record<
-    EOnboardingPagesV2,
-    Pick<IOnboardingV2PageRouteConfig, 'rewrite' | 'coldStart'>
-  >
-> = {
-  [EOnboardingPagesV2.GetStarted]: {
-    rewrite: '/get-started',
-    coldStart: 'public',
-  },
-  [EOnboardingPagesV2.CreateNewWallet]: {
-    rewrite: '/create-new-wallet',
-    coldStart: 'public',
-  },
-  [EOnboardingPagesV2.CreateOrImportWallet]: {
-    rewrite: '/create-or-import-wallet',
-    coldStart: 'public',
-  },
-  [EOnboardingPagesV2.PickYourDevice]: {
-    coldStart: 'public',
-  },
-};
-
-const onboardingV2PageRouteConfig = Object.freeze(
-  Object.values(EOnboardingPagesV2).map((name) =>
-    Object.freeze({
-      name,
-      ...onboardingV2PageRouteMeta[name],
-    }),
-  ),
-);
-
-// Root linking imports this UI-free definition synchronously and projects only
-// public cold-start entries. Full navigators bind every entry after lazy load.
-export const onboardingV2RouteConfig: IOnboardingV2RouteConfig = Object.freeze({
-  name: EOnboardingV2Routes.OnboardingV2,
-  rewrite: '/onboarding',
-  exact: true,
-  children: onboardingV2PageRouteConfig,
-});
-
 interface IVerifyRecoveryPhraseParams {
   mnemonic: string;
   isWalletBackedUp?: boolean;

@@ -1,10 +1,7 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
-import {
-  EOnboardingPagesV2,
-  onboardingV2RouteConfig,
-} from '@onekeyhq/shared/src/routes';
+import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
 import { OnboardingPageFallback } from '../components/Layout';
 import { OnboardingLayoutFallback } from '../components/OnboardingLayout';
@@ -173,46 +170,141 @@ const hiddenHeaderOptions = {
   headerShown: false,
 };
 
-type IOnboardingScreenComponent = IModalFlowNavigatorConfig<
-  EOnboardingPagesV2,
-  IOnboardingParamListV2
->['component'];
-
-const onboardingScreenComponents = {
-  [EOnboardingPagesV2.GetStarted]: GetStarted,
-  [EOnboardingPagesV2.CreateNewWallet]: CreateNewWallet,
-  [EOnboardingPagesV2.CreateOrImportWallet]: CreateOrImportWallet,
-  [EOnboardingPagesV2.FinalizeWalletSetup]: FinalizeWalletSetup,
-  [EOnboardingPagesV2.PickYourDevice]: PickYourDevice,
-  [EOnboardingPagesV2.ConnectYourDevice]: ConnectYourDevice,
-  [EOnboardingPagesV2.ConnectQRCode]: ConnectQRCode,
-  [EOnboardingPagesV2.CheckAndUpdate]: CheckAndUpdate,
-  [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: ImportPhraseOrPrivateKey,
-  [EOnboardingPagesV2.ImportWatchedAccount]: ImportWatchedAccount,
-  [EOnboardingPagesV2.BackupWalletReminder]: BackupWalletReminder,
-  [EOnboardingPagesV2.ShowRecoveryPhrase]: ShowRecoveryPhrase,
-  [EOnboardingPagesV2.VerifyRecoveryPhrase]: VerifyRecoveryPhrase,
-  [EOnboardingPagesV2.SelectPrivateKeyNetwork]: SelectPrivateKeyNetwork,
-  [EOnboardingPagesV2.ICloudBackup]: ICloudBackup,
-  [EOnboardingPagesV2.ICloudBackupDetails]: ICloudBackupDetails,
-  [EOnboardingPagesV2.ConnectWalletSelectNetworks]: ConnectWalletSelectNetworks,
-  [EOnboardingPagesV2.ConnectExternalWallet]: ConnectExternalWallet,
-  [EOnboardingPagesV2.ImportKeyTag]: ImportKeyTag,
-  [EOnboardingPagesV2.OneKeyIDLogin]: OneKeyIDLogin,
-  [EOnboardingPagesV2.CreatePin]: CreatePin,
-  [EOnboardingPagesV2.ConfirmPin]: ConfirmPin,
-  [EOnboardingPagesV2.CreatePasscode]: CreatePasscode,
-  [EOnboardingPagesV2.VerifyPin]: VerifyPin,
-  [EOnboardingPagesV2.ResetPinGuide]: ResetPinGuidePage,
-  [EOnboardingPagesV2.NewPinCreated]: NewPinCreated,
-} satisfies Record<EOnboardingPagesV2, IOnboardingScreenComponent>;
-
 export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   EOnboardingPagesV2,
   IOnboardingParamListV2
->[] = onboardingV2RouteConfig.children.map((screen) => ({
-  name: screen.name,
-  ...(screen.rewrite ? { rewrite: screen.rewrite } : {}),
-  component: onboardingScreenComponents[screen.name],
-  options: hiddenHeaderOptions,
-}));
+>[] = [
+  {
+    name: EOnboardingPagesV2.GetStarted,
+    component: GetStarted,
+    options: hiddenHeaderOptions,
+    rewrite: '/get-started',
+  },
+  {
+    name: EOnboardingPagesV2.CreateNewWallet,
+    component: CreateNewWallet,
+    options: hiddenHeaderOptions,
+    rewrite: '/create-new-wallet',
+  },
+  {
+    name: EOnboardingPagesV2.CreateOrImportWallet,
+    component: CreateOrImportWallet,
+    options: hiddenHeaderOptions,
+    rewrite: '/create-or-import-wallet',
+  },
+  {
+    name: EOnboardingPagesV2.FinalizeWalletSetup,
+    component: FinalizeWalletSetup,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.PickYourDevice,
+    component: PickYourDevice,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConnectYourDevice,
+    component: ConnectYourDevice,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConnectQRCode,
+    component: ConnectQRCode,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.CheckAndUpdate,
+    component: CheckAndUpdate,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
+    component: ImportPhraseOrPrivateKey,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ImportWatchedAccount,
+    component: ImportWatchedAccount,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.BackupWalletReminder,
+    component: BackupWalletReminder,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ShowRecoveryPhrase,
+    component: ShowRecoveryPhrase,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.VerifyRecoveryPhrase,
+    component: VerifyRecoveryPhrase,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.SelectPrivateKeyNetwork,
+    component: SelectPrivateKeyNetwork,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ICloudBackup,
+    component: ICloudBackup,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ICloudBackupDetails,
+    component: ICloudBackupDetails,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConnectWalletSelectNetworks,
+    component: ConnectWalletSelectNetworks,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConnectExternalWallet,
+    component: ConnectExternalWallet,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ImportKeyTag,
+    component: ImportKeyTag,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.OneKeyIDLogin,
+    component: OneKeyIDLogin,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.CreatePin,
+    component: CreatePin,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConfirmPin,
+    component: ConfirmPin,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.CreatePasscode,
+    component: CreatePasscode,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.VerifyPin,
+    component: VerifyPin,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ResetPinGuide,
+    component: ResetPinGuidePage,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.NewPinCreated,
+    component: NewPinCreated,
+    options: hiddenHeaderOptions,
+  },
+];
