@@ -1,6 +1,6 @@
 ---
 name: 1k-monitor-pr-ci
-description: Monitors a PR's CI checks and review comments until all pass and issues are resolved. Auto-fixes CI failures, addresses inline review comments, replies, and resolves threads. Use when watching CI status, waiting for checks to pass, fixing CI errors, or resolving review feedback on a pull request.
+description: Monitor OneKey PR checks and review threads, fix failures, address comments, and continue until the PR is ready.
 disable-model-invocation: true
 argument-hint: "<PR number or URL> [polling interval]"
 ---

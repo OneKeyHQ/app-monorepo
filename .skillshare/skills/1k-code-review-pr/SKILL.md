@@ -1,6 +1,6 @@
 ---
 name: 1k-code-review-pr
-description: Comprehensive PR code review for OneKey monorepo. Use when reviewing PRs, code changes, or diffs — covers security (secrets/PII leakage, supply-chain, AuthN/AuthZ), code quality (hooks, race conditions, null safety, concurrent requests), and OneKey-specific patterns (Fabric crashes, MIUI, BigNumber). Triggers on "review PR", "review this PR", "code review", "check this diff", "审查 PR", "代码审查", "review #123". Always use this skill for any PR review task in this repo, even if the user doesn't explicitly mention "code review".
+description: Review OneKey PRs and diffs for security, correctness, concurrency, React/RN pitfalls, and repository-specific regressions. Use for code review or 审查 PR.
 allowed-tools: Read, Grep, Glob, Bash, WebFetch
 ---
 

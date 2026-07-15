@@ -31,11 +31,17 @@ import { CircleProgress } from '../../views/Borrow/components/CircleProgress';
 
 const TRON_RESOURCE_DOC_URL = 'https://help.onekey.so/articles/11461319';
 const DONUT_COLOR = '#818cf8';
-const DONUT_SIZE = 40;
-const DONUT_STROKE = 4;
+const DONUT_SIZE = 20;
+const DONUT_STROKE = 2;
 
 function clampResourceAvailable(value: BigNumber) {
   return value.isNegative() ? new BigNumber(0) : value;
+}
+
+// available is already in [0, total], and the ring/bar consumers clamp
+// internally, so no extra clamp is needed here.
+function getResourcePercentage(available: BigNumber, total: BigNumber) {
+  return total.isZero() ? 0 : available.div(total).times(100).toNumber();
 }
 
 function useTronAccountResources({
@@ -141,9 +147,7 @@ function ResourceDetails({
   available: BigNumber;
   total: BigNumber;
 }) {
-  const percentage = total.isZero()
-    ? 0
-    : available.div(total).times(100).toNumber();
+  const percentage = getResourcePercentage(available, total);
 
   return (
     <YStack gap="$2" flexGrow={1} flexBasis={0}>
@@ -226,7 +230,7 @@ function ResourceDetailsContent({
   );
 }
 
-function DonutArc({
+function ResourceRow({
   name,
   available,
   total,
@@ -235,43 +239,46 @@ function DonutArc({
   available: BigNumber;
   total: BigNumber;
 }) {
-  const percentage = total.isZero()
-    ? 0
-    : Math.max(0, Math.min(available.div(total).times(100).toNumber(), 100));
+  const percentage = getResourcePercentage(available, total);
 
+  // Full-width row: ring + name on the left, available/total on the right.
+  // Two rows stack inside the compact 88pt card. Giving each label the full
+  // card width (instead of two cramped side-by-side columns) prevents
+  // truncation for long localized resource names.
   return (
-    <YStack alignItems="center" gap="$0.5" flex={1}>
+    <XStack alignItems="center" gap="$2.5">
       <CircleProgress
         percentage={percentage}
         size={DONUT_SIZE}
         strokeWidth={DONUT_STROKE}
         progressColor={DONUT_COLOR}
       >
-        <SizableText size="$bodyXs" fontWeight="600">
-          {`${Math.round(percentage)}%`}
-        </SizableText>
+        {/* Ring-only accent; exact figures are shown as text on the right. */}
+        <Stack />
       </CircleProgress>
-      <SizableText size="$headingSm">{name}</SizableText>
-      <XStack alignItems="center">
+      <SizableText size="$bodyMdMedium" numberOfLines={1} flex={1}>
+        {name}
+      </SizableText>
+      <XStack alignItems="center" gap="$0.5" flexShrink={0}>
         <NumberSizeableText
-          size="$bodyXs"
+          size="$bodyMd"
           color="$textSubdued"
           formatter="marketCap"
         >
           {available.toFixed()}
         </NumberSizeableText>
-        <SizableText size="$bodyXs" color="$textSubdued">
-          {' / '}
+        <SizableText size="$bodyMd" color="$textSubdued">
+          /
         </SizableText>
         <NumberSizeableText
-          size="$bodyXs"
+          size="$bodyMd"
           color="$textSubdued"
           formatter="marketCap"
         >
           {total.toFixed()}
         </NumberSizeableText>
       </XStack>
-    </YStack>
+    </XStack>
   );
 }
 
@@ -311,9 +318,13 @@ export function showTronResourceDetailsDialog({
 export function TronResourceBannerCard({
   accountId,
   networkId,
+  width,
+  height,
 }: {
   accountId: string;
   networkId: string;
+  width: number;
+  height: number;
 }) {
   const intl = useIntl();
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
@@ -355,8 +366,8 @@ export function TronResourceBannerCard({
 
   return (
     <YStack
-      w={220}
-      h={108}
+      w={width}
+      h={height}
       p="$4"
       my="$px"
       bg="$bgSubdued"
@@ -385,18 +396,18 @@ export function TronResourceBannerCard({
       {isLoading && !result ? (
         <Skeleton h="$7" flex={1} width="100%" />
       ) : (
-        <XStack flex={1} alignItems="center" gap="$3">
-          <DonutArc
+        <YStack gap="$3">
+          <ResourceRow
             name={intl.formatMessage({ id: ETranslations.global_energy })}
             total={energyTotal}
             available={energyAvailable}
           />
-          <DonutArc
+          <ResourceRow
             name={intl.formatMessage({ id: ETranslations.global_bandwidth })}
             total={netTotal}
             available={netAvailable}
           />
-        </XStack>
+        </YStack>
       )}
     </YStack>
   );
