@@ -111,7 +111,6 @@ export const BorrowedCard = () => {
           reserveAddress: item.reserveAddress,
           symbol: item.token.symbol,
           logoURI: item.token.logoURI,
-          providerLogoURI: market.logoURI,
           accountId: accountId || undefined,
           indexedAccountId,
         });

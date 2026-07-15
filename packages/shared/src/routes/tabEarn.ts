@@ -39,7 +39,6 @@ export type ITabEarnParamList = {
     reserveAddress: string;
     symbol: string;
     logoURI?: string;
-    providerLogoURI?: string;
     accountId?: string;
     indexedAccountId?: string;
   };
@@ -50,7 +49,6 @@ export type ITabEarnParamList = {
     marketAddress: string;
     reserveAddress: string;
     logoURI?: string;
-    providerLogoURI?: string;
     accountId?: string;
     indexedAccountId?: string;
   };

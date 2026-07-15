@@ -28,7 +28,6 @@ interface IManagePositionPartProps {
   reserveAddress: string;
   symbol: string;
   logoURI?: string;
-  providerLogoURI?: string;
 }
 
 export const ManagePositionPart = ({
@@ -40,7 +39,6 @@ export const ManagePositionPart = ({
   reserveAddress,
   symbol,
   logoURI,
-  providerLogoURI,
 }: IManagePositionPartProps) => {
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -54,7 +52,7 @@ export const ManagePositionPart = ({
       reserveAddress,
       symbol,
       logoURI,
-      providerLogoURI,
+      providerLogoURI: logoURI,
       type: EManagePositionType.Supply,
     });
   }, [
@@ -66,7 +64,6 @@ export const ManagePositionPart = ({
     reserveAddress,
     symbol,
     logoURI,
-    providerLogoURI,
   ]);
 
   const handleBorrow = useCallback(() => {
@@ -78,7 +75,7 @@ export const ManagePositionPart = ({
       reserveAddress,
       symbol,
       logoURI,
-      providerLogoURI,
+      providerLogoURI: logoURI,
       type: EManagePositionType.Borrow,
     });
   }, [
@@ -90,7 +87,6 @@ export const ManagePositionPart = ({
     reserveAddress,
     symbol,
     logoURI,
-    providerLogoURI,
   ]);
 
   const labels = {

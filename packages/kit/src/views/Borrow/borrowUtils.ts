@@ -49,7 +49,6 @@ export const BorrowNavigation = {
       reserveAddress: string;
       symbol: string;
       logoURI?: string;
-      providerLogoURI?: string;
       isModal?: boolean;
       accountId?: string;
       indexedAccountId?: string;
@@ -62,7 +61,6 @@ export const BorrowNavigation = {
       reserveAddress: params.reserveAddress,
       symbol: params.symbol,
       logoURI: params.logoURI,
-      providerLogoURI: params.providerLogoURI,
       accountId: params.accountId,
       indexedAccountId: params.indexedAccountId,
     };
