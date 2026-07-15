@@ -39,12 +39,46 @@
 #[cfg(windows)]
 use std::sync::atomic::AtomicU64;
 #[cfg(windows)]
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 #[cfg(windows)]
 use std::time::Instant;
 
 #[cfg(windows)]
 static START: OnceLock<Instant> = OnceLock::new();
+/// Every emitted line is also appended here, so a standalone run leaves a single
+/// self-contained log the user can hand back verbatim (stdout and stderr get
+/// interleaved/reordered by the terminal; this does not).
+#[cfg(windows)]
+static LOG_FILE: OnceLock<Mutex<std::fs::File>> = OnceLock::new();
+
+#[cfg(windows)]
+fn log_line(line: &str) {
+    use std::io::Write;
+    if let Some(lock) = LOG_FILE.get() {
+        if let Ok(mut f) = lock.lock() {
+            let _ = writeln!(f, "{line}");
+            let _ = f.flush();
+        }
+    }
+}
+
+/// Open `onekey-ble-pair.log` next to the exe (fallback: cwd). Best-effort — if
+/// it can't be opened we just don't file-log.
+#[cfg(windows)]
+fn init_log_file() {
+    let path = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("onekey-ble-pair.log")))
+        .unwrap_or_else(|| std::path::PathBuf::from("onekey-ble-pair.log"));
+    if let Ok(file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        let _ = LOG_FILE.set(Mutex::new(file));
+        log_line(&format!("===== onekey-ble-pair run, log at {} =====", path.display()));
+    }
+}
 /// Set by the PairingRequested delegate so we can report Accept -> result delta.
 #[cfg(windows)]
 static ACCEPT_MS: AtomicU64 = AtomicU64::new(u64::MAX);
@@ -62,6 +96,7 @@ fn t_ms() -> u64 {
 #[cfg(windows)]
 fn main() {
     START.get_or_init(Instant::now);
+    init_log_file();
 
     // Multithreaded apartment so WinRT event delegates (PairingRequested,
     // ConnectionStatusChanged) are dispatched on thread-pool threads while we
@@ -650,11 +685,13 @@ fn emit(line: &str) {
     let mut out = std::io::stdout().lock();
     let _ = writeln!(out, "{line}");
     let _ = out.flush();
+    log_line(line);
 }
 
 /// Diagnostics go out as their own stdout JSON line (so the parent logs them
 /// individually and they carry a monotonic timestamp — stderr chunks get merged
-/// by the pipe and lose ordering), and are mirrored to stderr as a fallback.
+/// by the pipe and lose ordering), mirrored to stderr, and appended to the log
+/// file in human-readable form.
 #[cfg(windows)]
 fn diag(message: &str) {
     let t = t_ms();
@@ -662,7 +699,9 @@ fn diag(message: &str) {
         r#"{{"type":"diag","t_ms":{t},"msg":"{}"}}"#,
         json_escape(message)
     ));
-    eprintln!("[pair +{t}ms] {message}");
+    let human = format!("[pair +{t}ms] {message}");
+    eprintln!("{human}");
+    log_line(&human);
 }
 
 #[cfg(windows)]
