@@ -1,10 +1,17 @@
 // https://jestjs.io/docs/configuration
 const util = require('node:util');
-
-const { defaults } = require('jest-config');
 const exec = util.promisify(require('node:child_process').exec);
 
+const { defaults } = require('jest-config');
+
+const {
+  ensureRoutePathConfig,
+  watchRoutePathConfig,
+} = require('./development/scripts/ensure-route-path-config');
+
 module.exports = async () => {
+  ensureRoutePathConfig(['web']);
+  watchRoutePathConfig(['web']);
   const { stdout } = await exec('yarn config get cacheFolder');
   const cacheDirectory = stdout.trim().replace('\n', '');
   return {

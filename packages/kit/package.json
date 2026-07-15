@@ -20,8 +20,8 @@
     "zbar.wasm": "^2.1.1"
   },
   "scripts": {
-    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
-    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
+    "lint": "yarn routes:generate --target native && tsc --noEmit && eslint . --ext .ts,.tsx",
+    "lint:fix": "yarn routes:generate --target native && tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
   "devDependencies": {
     "@types/d3-scale": "^4.0.3",

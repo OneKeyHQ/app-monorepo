@@ -13,7 +13,6 @@ export interface IRoutePathConfig {
 interface IGeneratedRoutePathConfig {
   schemaVersion: 1;
   target: string;
-  sourceHash: string;
   production: IRoutePathConfig[];
   development: IRoutePathConfig[];
 }

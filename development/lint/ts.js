@@ -6,6 +6,12 @@ const { exit } = require('process');
 
 const { parse } = require('@aivenio/tsc-output-parser');
 
+const {
+  ensureRoutePathConfig,
+} = require('../scripts/ensure-route-path-config');
+
+ensureRoutePathConfig(['native']);
+
 const getTimestamp = () => new Date().toLocaleTimeString();
 const startTime = Date.now();
 
