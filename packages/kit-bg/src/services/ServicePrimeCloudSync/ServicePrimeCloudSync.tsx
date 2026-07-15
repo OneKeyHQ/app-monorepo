@@ -2092,7 +2092,6 @@ class ServicePrimeCloudSync extends ServiceBase {
     const { wallets: allWallets, allDevices } =
       await this.backgroundApi.serviceAccount.getAllWallets({
         refillWalletInfo: true,
-        excludeKeylessWallet: true,
       });
     // TODO only get watching or imported accounts for better performance
     const { accounts: allAccounts } =
