@@ -42,6 +42,7 @@ import type {
 import {
   ESwapDirectionType,
   ESwapProTradeType,
+  ESwapQuoteKind,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -78,6 +79,10 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import {
+  getSwapQuoteAmountProjection,
+  getSwapQuoteKindForCurrentInput,
+} from '../../../states/jotai/contexts/swap/quoteSemanticIntent';
 import { useMarketBasicConfig } from '../../Market/hooks';
 import { useTransactionsWebSocket } from '../../Market/MarketDetailV2/components/InformationTabs/components/TransactionsHistory/hooks/useTransactionsWebSocket';
 import { useSpeedSwapInit } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapInit';
@@ -88,7 +93,10 @@ import {
   getSwapAnalyticsTokenRole,
 } from '../utils/swapStockAnalytics';
 
-import { useSwapSlippagePercentageModeInfo } from './useSwapState';
+import {
+  useSwapQuoteProgressState,
+  useSwapSlippagePercentageModeInfo,
+} from './useSwapState';
 
 type ISwapProSearchTokenListItem = IMarketSearchV2Token & {
   networkLogoURI: string;
@@ -1704,10 +1712,13 @@ export function useSwapLimitPriceCheck(
   const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
-  const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const [, setToInputAmount] = useSwapToTokenAmountAtom();
+  const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
+  const [toInputAmount, setToInputAmount] = useSwapToTokenAmountAtom();
   const swapProtoToToken = useSwapProToToken();
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
+  const { displayQuote: swapQuoteDisplay } = useSwapQuoteProgressState();
+  const swapQuoteForAmountProjection =
+    swapQuoteDisplay ?? swapQuoteCurrentSelect;
   useEffect(() => {
     if (
       swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
@@ -1740,50 +1751,61 @@ export function useSwapLimitPriceCheck(
   ]);
 
   useEffect(() => {
+    const isWrappedTokenPair = checkWrappedTokenPair({ fromToken, toToken });
     if (
-      swapTypeSwitchValue !== ESwapTabSwitchType.LIMIT ||
-      checkWrappedTokenPair({
-        fromToken,
-        toToken,
-      })
+      swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
+      !isWrappedTokenPair
     ) {
-      let toAmount = '';
+      return;
+    }
+
+    const expectedKind = getSwapQuoteKindForCurrentInput({
+      protocol: swapTypeSwitchValue,
+      toAmount: toInputAmount,
+    });
+    const projection = getSwapQuoteAmountProjection({
+      expectedKind,
+      fromAmount: fromInputAmount.value,
+      fromToken,
+      quote:
+        !isWrappedTokenPair || swapQuoteForAmountProjection?.isWrapped
+          ? swapQuoteForAmountProjection
+          : undefined,
+      toAmount: toInputAmount.value,
+      toToken,
+    });
+
+    if (projection?.direction === ESwapDirectionType.FROM) {
       if (
-        equalTokenNoCaseSensitive({
-          token1: fromToken,
-          token2: swapQuoteCurrentSelect?.fromTokenInfo,
-        }) &&
-        equalTokenNoCaseSensitive({
-          token1: toToken,
-          token2: swapQuoteCurrentSelect?.toTokenInfo,
-        })
+        fromInputAmount.value !== projection.value ||
+        fromInputAmount.isInput
       ) {
-        toAmount = swapQuoteCurrentSelect?.toAmount ?? '';
+        setFromInputAmount({ value: projection.value, isInput: false });
       }
-      if (
-        checkWrappedTokenPair({
-          fromToken,
-          toToken,
-        })
-      ) {
-        toAmount = swapQuoteCurrentSelect?.isWrapped
-          ? (swapQuoteCurrentSelect?.toAmount ?? '')
-          : '';
+      return;
+    }
+    if (projection?.direction === ESwapDirectionType.TO) {
+      if (toInputAmount.value !== projection.value || toInputAmount.isInput) {
+        setToInputAmount({ value: projection.value, isInput: false });
       }
-      setToInputAmount({
-        value: toAmount,
-        isInput: false,
-      });
+      return;
+    }
+
+    if (expectedKind === ESwapQuoteKind.BUY) {
+      if (fromInputAmount.value || fromInputAmount.isInput) {
+        setFromInputAmount({ value: '', isInput: false });
+      }
+    } else if (toInputAmount.value || toInputAmount.isInput) {
+      setToInputAmount({ value: '', isInput: false });
     }
   }, [
-    swapQuoteCurrentSelect?.toAmount,
-    swapQuoteCurrentSelect?.fromTokenInfo,
-    swapQuoteCurrentSelect?.toTokenInfo,
-    swapQuoteCurrentSelect?.isWrapped,
+    fromInputAmount,
+    fromToken,
     setToInputAmount,
     setFromInputAmount,
     swapTypeSwitchValue,
-    fromToken,
+    swapQuoteForAmountProjection,
+    toInputAmount,
     toToken,
   ]);
 }

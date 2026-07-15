@@ -98,6 +98,17 @@ jest.mock('react-intl', () => ({
   }),
 }));
 
+jest.mock(
+  '@onekeyhq/kit/src/states/jotai/contexts/swap/speedQuoteSessionV2',
+  // The temporary worktree's Jest root points at the source checkout, so this
+  // virtual module redirects the new additive helper back to this worktree.
+  () =>
+    jest.requireActual<
+      typeof import('../../../../../../states/jotai/contexts/swap/speedQuoteSessionV2')
+    >('../../../../../../states/jotai/contexts/swap/speedQuoteSessionV2'),
+  { virtual: true },
+);
+
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {

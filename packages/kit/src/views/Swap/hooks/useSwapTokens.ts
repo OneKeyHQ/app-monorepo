@@ -41,9 +41,14 @@ import {
   useSwapNetworksAtom,
   useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectTokenNetworkAtom,
+  useSwapTokenDetailRequestStateAtom,
   useSwapTokenFetchingAtom,
   useSwapTokenMapAtom,
 } from '../../../states/jotai/contexts/swap';
+import {
+  buildSwapTokenDetailRequestKey,
+  isSwapTokenDetailBalanceVisible,
+} from '../../../states/jotai/contexts/swap/tokenDetailRequest';
 import {
   buildSwapNetworkReadyKey,
   isSwapNetworkCacheCompatible,
@@ -585,14 +590,19 @@ export function useSwapTokenList(
  * @param type - The swap direction type (`FROM` or `TO`)
  */
 export function useSwapSelectedTokenInfo({
+  initialSelectedTokensSynced,
+  isCurrentDisplayToken,
   token,
   type,
 }: {
+  initialSelectedTokensSynced: boolean;
+  isCurrentDisplayToken: boolean;
   type: ESwapDirectionType;
   token?: ISwapToken;
 }) {
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM); // always fetch from account balance
   const swapAddressInfoTo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const [tokenDetailRequestState] = useSwapTokenDetailRequestStateAtom();
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { loadSwapSelectTokenDetail } = useSwapActions().current;
   const swapHistoryPendingListRef = useRef(swapHistoryPendingList);
@@ -603,6 +613,11 @@ export function useSwapSelectedTokenInfo({
     useRef<ReturnType<typeof useSwapAddressInfo>>(swapAddressInfo);
   if (swapAddressInfoRef.current !== swapAddressInfo) {
     swapAddressInfoRef.current = swapAddressInfo;
+  }
+  const swapAddressInfoToRef =
+    useRef<ReturnType<typeof useSwapAddressInfo>>(swapAddressInfoTo);
+  if (swapAddressInfoToRef.current !== swapAddressInfoTo) {
+    swapAddressInfoToRef.current = swapAddressInfoTo;
   }
   const isFocused = useIsFocused();
   const isFocusRef = useRef(isFocused);
@@ -615,11 +630,84 @@ export function useSwapSelectedTokenInfo({
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const loadSwapSelectTokenDetailDeb = useCallback(
-    debounce((direction, addressInfo, fetchBalance) => {
-      void loadSwapSelectTokenDetail(direction, addressInfo, fetchBalance);
+    debounce((direction: ESwapDirectionType, fetchBalance: boolean) => {
+      // A history event can outlive an account switch. Resolve the owner at
+      // execution time so the queued refresh cannot reclaim stale ownership.
+      void loadSwapSelectTokenDetail(
+        direction,
+        swapAddressInfoRef.current,
+        fetchBalance,
+        swapAddressInfoToRef.current,
+      );
     }, 300),
     [],
   );
+  useEffect(
+    () => () => {
+      loadSwapSelectTokenDetailDeb.cancel();
+    },
+    [loadSwapSelectTokenDetailDeb],
+  );
+  const ownerAccountInfo =
+    swapAddressInfo.accountInfo ?? swapAddressInfo.activeAccount;
+  const targetAccountInfo =
+    swapAddressInfoTo.accountInfo ?? swapAddressInfoTo.activeAccount;
+  const expectedTokenDetailRequestKey = buildSwapTokenDetailRequestKey({
+    direction: type,
+    token,
+    walletId: ownerAccountInfo?.wallet?.id,
+    indexedAccountId: ownerAccountInfo?.indexedAccount?.id,
+    accountId: ownerAccountInfo?.account?.id,
+    dbAccountId: ownerAccountInfo?.dbAccount?.id,
+    deriveType: ownerAccountInfo?.deriveType,
+    accountAddress:
+      swapAddressInfo.address ??
+      ownerAccountInfo?.account?.addressDetail?.address,
+    resolvedNetworkId:
+      type === ESwapDirectionType.TO
+        ? token?.networkId
+        : (swapAddressInfo.networkId ?? token?.networkId),
+    targetWalletId:
+      type === ESwapDirectionType.TO
+        ? targetAccountInfo?.wallet?.id
+        : undefined,
+    targetIndexedAccountId:
+      type === ESwapDirectionType.TO
+        ? targetAccountInfo?.indexedAccount?.id
+        : undefined,
+    targetAccountId:
+      type === ESwapDirectionType.TO
+        ? targetAccountInfo?.account?.id
+        : undefined,
+    targetDbAccountId:
+      type === ESwapDirectionType.TO
+        ? targetAccountInfo?.dbAccount?.id
+        : undefined,
+    targetDeriveType:
+      type === ESwapDirectionType.TO
+        ? targetAccountInfo?.deriveType
+        : undefined,
+    targetAccountAddress:
+      type === ESwapDirectionType.TO
+        ? (swapAddressInfoTo.address ??
+          targetAccountInfo?.account?.addressDetail?.address)
+        : undefined,
+    targetNetworkId:
+      type === ESwapDirectionType.TO
+        ? (swapAddressInfoTo.networkId ?? token?.networkId)
+        : undefined,
+    targetAddressInfoReady:
+      type === ESwapDirectionType.TO
+        ? swapAddressInfoTo.isAddressInfoReady
+        : undefined,
+  });
+  const isSelectedTokenDetailBalanceVisible = isSwapTokenDetailBalanceVisible({
+    direction: type,
+    initialSelectedTokensSynced,
+    isCurrentDisplayToken,
+    key: expectedTokenDetailRequestKey,
+    state: tokenDetailRequestState,
+  });
 
   const reloadSwapSelectTokenDetail = useCallback(
     ({
@@ -655,11 +743,7 @@ export function useSwapSelectedTokenInfo({
             },
           }))
       ) {
-        void loadSwapSelectTokenDetailDeb(
-          type,
-          swapAddressInfoRef.current,
-          true,
-        );
+        void loadSwapSelectTokenDetailDeb(type, true);
       }
     },
     [type, loadSwapSelectTokenDetailDeb],
@@ -680,23 +764,18 @@ export function useSwapSelectedTokenInfo({
 
   useEffect(() => {
     if (isFocused) {
-      void loadSwapSelectTokenDetailDeb(
+      void loadSwapSelectTokenDetail(
         type,
         swapAddressInfoRef.current,
         false,
+        swapAddressInfoToRef.current,
       );
     }
   }, [
+    expectedTokenDetailRequestKey,
     isFocused,
+    loadSwapSelectTokenDetail,
     type,
-    swapAddressInfo,
-    swapAddressInfoTo.accountInfo?.deriveType,
-    token?.networkId,
-    token?.contractAddress,
-    token?.balanceParsed,
-    loadSwapSelectTokenDetailDeb,
-    token?.reservationValue,
-    token?.isNative,
   ]);
 
   useListenTabFocusState(
@@ -730,4 +809,6 @@ export function useSwapSelectedTokenInfo({
       }
     },
   );
+
+  return { isSelectedTokenDetailBalanceVisible };
 }

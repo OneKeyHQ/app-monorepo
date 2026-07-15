@@ -336,7 +336,7 @@ describe('swap quote progress', () => {
     expect(state.hasPreviousActionableQuote).toBe(true);
   });
 
-  it('moves to hasQuote when the current event quote arrives', () => {
+  it('does not publish an early current quote before the event settles', () => {
     const currentQuote = buildQuote({
       eventId: 'event-2',
       provider: 'current',
@@ -350,9 +350,21 @@ describe('swap quote progress', () => {
       quoteEventCompleted: false,
     });
 
-    expect(state.phase).toBe(ESwapQuoteUiPhase.HasQuote);
-    expect(state.displayQuote).toBe(currentQuote);
-    expect(state.isWaitingActionableQuote).toBe(false);
+    expect(state.phase).toBe(ESwapQuoteUiPhase.Waiting);
+    expect(state.displayQuote).toBeUndefined();
+    expect(state.isWaitingActionableQuote).toBe(true);
+
+    const settledState = getSwapQuoteProgressState({
+      quoteLoading: false,
+      quoteEventFetching: false,
+      quoteCurrentSelect: currentQuote,
+      quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+      quoteEventCompleted: false,
+    });
+
+    expect(settledState.phase).toBe(ESwapQuoteUiPhase.HasQuote);
+    expect(settledState.displayQuote).toBe(currentQuote);
+    expect(settledState.isWaitingActionableQuote).toBe(false);
   });
 
   it('only shows zero-provider after the current event terminally has no quote', () => {
@@ -374,7 +386,7 @@ describe('swap quote progress', () => {
     expect(state.isWaitingActionableQuote).toBe(false);
   });
 
-  it('uses error phase before falling back to stale quotes', () => {
+  it('keeps the last committed display on refresh error without making it current', () => {
     const previousQuote = buildQuote({
       eventId: 'event-1',
       provider: 'previous',
@@ -390,7 +402,9 @@ describe('swap quote progress', () => {
     });
 
     expect(state.phase).toBe(ESwapQuoteUiPhase.Error);
-    expect(state.displayQuote).toBeUndefined();
+    expect(state.displayQuote).toBe(previousQuote);
+    expect(state.hasActionableQuote).toBe(false);
+    expect(state.hasPreviousActionableQuote).toBe(true);
   });
 
   it('defers non-actionable provider errors while the current event is still waiting for providers', () => {

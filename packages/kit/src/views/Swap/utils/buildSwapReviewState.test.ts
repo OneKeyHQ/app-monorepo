@@ -12,8 +12,10 @@ import {
 
 import {
   buildSwapBatchTransferType,
+  buildSwapReviewExecutionFingerprint,
   buildSwapReviewState,
 } from './buildSwapReviewState';
+import { ESwapExecutionRecipientMode } from './swapReviewState';
 
 const fromToken: ISwapToken = {
   networkId: 'evm--1',
@@ -419,5 +421,176 @@ describe('buildSwapReviewState', () => {
 
     expect(result.preSwapData.slippage).toBeUndefined();
     expect(result.preSwapData.unSupportSlippage).toBe(true);
+  });
+
+  it('adds immutable quote provenance without inventing unavailable fields', () => {
+    const result = buildSwapReviewState({
+      accountId: 'hd-1--m/44/60/0/0/0',
+      networkId: fromToken.networkId,
+      batchApproveAndSwapEnabled: false,
+      fromToken,
+      toToken,
+      fromTokenAmount: '1',
+      toTokenAmount: '2500',
+      quoteResult: createQuoteResult({
+        eventId: 'event-1',
+        quoteId: 'quote-1',
+        fromAmount: '1',
+        toAmount: '2500',
+      }),
+      swapType: ESwapTabSwitchType.SWAP,
+      shouldFallback: false,
+      supportPreBuild: true,
+      slippage: 1,
+      quoteRequestId: 'request-1',
+      quoteIntentRevision: 7,
+      quoteCommittedAt: 123_456,
+      texts,
+    });
+
+    expect(result.provenance.quoteRequestId).toBe('request-1');
+    expect(result.provenance.quoteIntentRevision).toBe(7);
+    expect(result.provenance.quoteCommittedAt).toBe(123_456);
+    expect(result.provenance.executionFingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(Object.isFrozen(result.provenance)).toBe(true);
+
+    const resultWithoutClientRequestId = buildSwapReviewState({
+      accountId: 'hd-1--m/44/60/0/0/0',
+      networkId: fromToken.networkId,
+      fromToken,
+      toToken,
+      fromTokenAmount: '1',
+      toTokenAmount: '2500',
+      quoteResult: createQuoteResult({ eventId: 'server-event-1' }),
+      swapType: ESwapTabSwitchType.SWAP,
+      supportPreBuild: true,
+      texts,
+    });
+    expect(
+      resultWithoutClientRequestId.provenance.quoteRequestId,
+    ).toBeUndefined();
+  });
+
+  it('builds stable fingerprints and changes them for execution semantics', () => {
+    const baseInput = {
+      accountId: 'hd-1--m/44/60/0/0/0',
+      networkId: fromToken.networkId,
+      batchApproveAndSwapEnabled: false,
+      fromToken,
+      toToken,
+      fromTokenAmount: '1',
+      toTokenAmount: '2500',
+      quoteResult: createQuoteResult({
+        eventId: 'event-1',
+        quoteId: 'quote-1',
+        fromAmount: '1',
+        toAmount: '2500',
+      }),
+      swapType: ESwapTabSwitchType.SWAP,
+      shouldFallback: false,
+      supportPreBuild: true,
+      slippage: 1,
+    };
+    const fingerprint = buildSwapReviewExecutionFingerprint(baseInput);
+
+    expect(buildSwapReviewExecutionFingerprint({ ...baseInput })).toBe(
+      fingerprint,
+    );
+    expect(
+      buildSwapReviewExecutionFingerprint({
+        ...baseInput,
+        accountId: 'hd-2--m/44/60/0/0/0',
+      }),
+    ).not.toBe(fingerprint);
+    expect(
+      buildSwapReviewExecutionFingerprint({
+        ...baseInput,
+        fromTokenAmount: '2',
+      }),
+    ).not.toBe(fingerprint);
+    expect(
+      buildSwapReviewExecutionFingerprint({
+        ...baseInput,
+        slippage: 2,
+      }),
+    ).not.toBe(fingerprint);
+    expect(
+      buildSwapReviewExecutionFingerprint({
+        ...baseInput,
+        quoteResult: createQuoteResult({
+          ...baseInput.quoteResult,
+          info: {
+            provider: 'other',
+            providerName: 'Other',
+          },
+        }),
+      }),
+    ).not.toBe(fingerprint);
+    expect(
+      buildSwapReviewExecutionFingerprint({
+        ...baseInput,
+        fromToken: {
+          ...fromToken,
+          networkId: 'sol--101',
+          contractAddress: 'AbCDefGhijk',
+        },
+      }),
+    ).not.toBe(
+      buildSwapReviewExecutionFingerprint({
+        ...baseInput,
+        fromToken: {
+          ...fromToken,
+          networkId: 'sol--101',
+          contractAddress: 'abcdefghijk',
+        },
+      }),
+    );
+  });
+
+  it('deep-freezes a detached execution snapshot', () => {
+    const quote = createQuoteResult({
+      fromAmount: '1',
+      toAmount: '2500',
+      quoteResultCtx: { nested: { value: 'original' } },
+    });
+    const result = buildSwapReviewState({
+      accountId: 'hd-1--m/44/60/0/0/0',
+      networkId: fromToken.networkId,
+      fromToken,
+      toToken,
+      fromTokenAmount: '1',
+      toTokenAmount: '2500',
+      quoteResult: quote,
+      swapType: ESwapTabSwitchType.SWAP,
+      supportPreBuild: true,
+      slippage: 1,
+      executionContext: {
+        reviewRevision: 'review-1',
+        senderAddress: '0xsender',
+        receivingAddress: '0xreceiver',
+        receivingAccountId: 'account-2',
+        recipientMode: ESwapExecutionRecipientMode.Account,
+        limitSettings: {
+          expirationTime: '3600',
+          priceFromAmount: '',
+          priceToAmount: '',
+          partiallyFillable: true,
+        },
+      },
+      texts,
+    });
+    const snapshot = result.executionSnapshot;
+
+    expect(snapshot).toBeDefined();
+    expect(Object.isFrozen(snapshot)).toBe(true);
+    expect(Object.isFrozen(snapshot?.quoteResult)).toBe(true);
+    expect(Object.isFrozen(snapshot?.quoteResult.info)).toBe(true);
+    expect(Object.isFrozen(snapshot?.quoteResult.quoteResultCtx)).toBe(true);
+    expect(() => {
+      if (snapshot) {
+        snapshot.quoteResult.info.provider = 'mutated';
+      }
+    }).toThrow();
+    expect(quote.info.provider).toBe('onekey');
   });
 });

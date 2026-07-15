@@ -360,6 +360,20 @@ export function getSwapQuoteProgressState({
   let displayQuote = currentQuote;
   if (quoteEventError?.message) {
     phase = ESwapQuoteUiPhase.Error;
+    // A failed refresh must revoke execution ownership, but it does not need
+    // to erase an already committed value for the same intent. Keeping the
+    // display projection stable avoids amount -> empty/skeleton oscillation;
+    // the executable selector remains empty until a later request settles.
+    displayQuote = hasPreviousActionableQuote
+      ? displayPreviousQuote
+      : undefined;
+  } else if (isQuoteRequesting && hasPreviousActionableQuote) {
+    phase = ESwapQuoteUiPhase.StaleRefreshing;
+    displayQuote = displayPreviousQuote;
+  } else if (isQuoteRequesting) {
+    // Provider candidates are still raw while the request is active. Do not
+    // publish an early current quote and then replace it on every SSE message.
+    phase = ESwapQuoteUiPhase.Waiting;
     displayQuote = undefined;
   } else if (hasActionableQuote) {
     phase = ESwapQuoteUiPhase.HasQuote;
@@ -372,11 +386,6 @@ export function getSwapQuoteProgressState({
   ) {
     phase = ESwapQuoteUiPhase.ZeroProvider;
     displayQuote = undefined;
-  } else if (isQuoteRequesting && hasPreviousActionableQuote) {
-    phase = ESwapQuoteUiPhase.StaleRefreshing;
-    displayQuote = displayPreviousQuote;
-  } else if (isQuoteRequesting) {
-    phase = ESwapQuoteUiPhase.Waiting;
   } else if (hasPreviousActionableQuote) {
     phase = ESwapQuoteUiPhase.HasQuote;
     displayQuote = displayPreviousQuote;
@@ -387,7 +396,7 @@ export function getSwapQuoteProgressState({
     quoteEventFetching,
     hasActionableQuote,
     hasPreviousActionableQuote,
-    isWaitingActionableQuote: isQuoteRequesting && !hasActionableQuote,
+    isWaitingActionableQuote: isQuoteRequesting,
     isInputQuoteLoading: phase === ESwapQuoteUiPhase.Waiting,
     phase,
     displayQuote,

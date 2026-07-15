@@ -105,7 +105,12 @@ const SwapQuoteResult = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
-  const quoteResultForDisplay = quoteResult ?? displayQuote;
+  const isQuoteDisplayRequesting =
+    quoteUiPhase === ESwapQuoteUiPhase.Waiting ||
+    quoteUiPhase === ESwapQuoteUiPhase.StaleRefreshing;
+  const quoteResultForDisplay = isQuoteDisplayRequesting
+    ? displayQuote
+    : (quoteResult ?? displayQuote);
   const hasQuoteResultForDisplay = isSwapQuoteActionable(quoteResultForDisplay);
   const quoteDuration = formatSwapQuoteDuration({
     estTime: quoteResultForDisplay?.estTime,

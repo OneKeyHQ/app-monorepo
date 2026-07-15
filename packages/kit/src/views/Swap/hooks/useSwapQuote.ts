@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -24,18 +30,22 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
-  IFetchQuotesParams,
   ISwapApproveTransaction,
-  ISwapQuoteEvent,
+  ISwapQuoteSessionEventV2,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useDebounce } from '../../../hooks/useDebounce';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import {
+  useAccountSelectorStorageInitDoneAtom,
+  useIsAccountSelectorActiveAccountInitDone,
+} from '../../../states/jotai/contexts/accountSelector';
+import {
   useSwapActions,
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapFromTokenAmountAtom,
+  useSwapInitialSelectedTokensSyncedAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -52,13 +62,16 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
+import { buildSwapQuoteSemanticIntent } from '../../../states/jotai/contexts/swap/quoteSemanticIntent';
 import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
+import { getSwapQuoteReadiness } from '../utils/swapQuoteReadiness';
 import {
   getStockTradeAnalyticsPayload,
   getSwapAnalyticsCategory,
 } from '../utils/swapStockAnalytics';
 import { truncateDecimalPlaces } from '../utils/utils';
 
+import { getSwapQuoteFocusLifecycleTransition } from './swapQuoteFocusLifecycle';
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapProInputToken, useSwapProToToken } from './useSwapPro';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
@@ -72,9 +85,10 @@ export function useSwapQuote() {
   const {
     quoteAction,
     cleanQuoteInterval,
-    quoteEventHandler,
+    quoteEventHandlerV2,
     syncNetworksSort,
     closeQuoteEvent,
+    invalidateQuoteIntent,
     swapTypeSwitchAction,
   } = useSwapActions().current;
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
@@ -88,7 +102,25 @@ export function useSwapQuote() {
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
-  const shouldPauseQuote = Boolean(currentSelectNetwork?.networkId);
+  const [initialSelectedTokensSynced] =
+    useSwapInitialSelectedTokensSyncedAtom();
+  const [accountSelectorStorageInitDone] =
+    useAccountSelectorStorageInitDoneAtom();
+  const accountSelectorActiveAccountInitDone =
+    useIsAccountSelectorActiveAccountInitDone(0);
+  const quoteReadiness = getSwapQuoteReadiness({
+    networkSelectorReady: !currentSelectNetwork?.networkId,
+    initialSelectedTokensSynced,
+    accountSelectorStorageInitDone,
+    accountSelectorActiveAccountInitDone,
+    fromAddressInfoReady: swapAddressInfo.isAddressInfoReady,
+    toAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
+  });
+  const shouldPauseQuote = !quoteReadiness.ready;
+  const shouldPauseQuoteRef = useRef(shouldPauseQuote);
+  if (shouldPauseQuoteRef.current !== shouldPauseQuote) {
+    shouldPauseQuoteRef.current = shouldPauseQuote;
+  }
   const swapProInputToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
   const focusSwapPro = useMemo(() => {
@@ -113,11 +145,10 @@ export function useSwapQuote() {
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const [swapQuoteResultList, setSwapQuoteResultList] = useSwapQuoteListAtom();
+  const [swapQuoteResultList] = useSwapQuoteListAtom();
   const [, setSwapManualSelectQuoteProviders] =
     useSwapManualSelectQuoteProvidersAtom();
-  const [swapQuoteEventTotalCount, setSwapQuoteEventTotalCount] =
-    useSwapQuoteEventTotalCountAtom();
+  const [swapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [swapQuoteFetching, setSwapQuoteFetching] = useSwapQuoteFetchingAtom();
   const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
   const [settingsAtom] = useSettingsAtom();
@@ -134,7 +165,6 @@ export function useSwapQuote() {
   const swapTabSwitchTypeRef = useRef(swapTabSwitchType);
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
   const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
-  const swapQuoteFetchingRef = useRef(swapQuoteFetching);
   const swapToAddressInfoRef = useRef(swapToAddressInfo);
   const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
     fromTokenAmount,
@@ -171,9 +201,6 @@ export function useSwapQuote() {
   if (swapTabSwitchTypeRef.current !== swapTabSwitchType) {
     swapTabSwitchTypeRef.current = swapTabSwitchType;
   }
-  if (swapQuoteFetchingRef.current !== swapQuoteFetching) {
-    swapQuoteFetchingRef.current = swapQuoteFetching;
-  }
   const swapQuoteResultListRef = useRef(swapQuoteResultList);
   if (
     swapQuoteResultListRef.current?.length !== swapQuoteResultList?.length ||
@@ -203,6 +230,7 @@ export function useSwapQuote() {
     toTokenRef.current = toToken;
   }
   const isFocused = useIsFocused();
+  const isModalPage = useIsOverlayPage();
   const isFocusRef = useRef(isFocused);
   if (isFocusRef.current !== isFocused) {
     isFocusRef.current = isFocused;
@@ -228,6 +256,64 @@ export function useSwapQuote() {
     fromTokenAmount.isInput &&
     Boolean(fromTokenAmount.value) &&
     fromTokenAmount.value !== fromAmountDebounce.value;
+
+  const semanticIntent = useMemo(
+    () =>
+      buildSwapQuoteSemanticIntent({
+        accountId: swapAddressInfo.accountInfo?.account?.id,
+        accountNetworkId: swapAddressInfo.networkId,
+        fromAmount: fromTokenAmount,
+        fromToken,
+        protocol: swapTabSwitchType,
+        receivingAddress: swapToAddressInfo.address,
+        slippage: slippageItem,
+        toAmount: toTokenAmount,
+        toToken,
+        userAddress: swapAddressInfo.address,
+      }),
+    [
+      fromToken,
+      fromTokenAmount,
+      slippageItem,
+      swapAddressInfo.accountInfo?.account?.id,
+      swapAddressInfo.address,
+      swapAddressInfo.networkId,
+      swapTabSwitchType,
+      swapToAddressInfo.address,
+      toToken,
+      toTokenAmount,
+    ],
+  );
+  const semanticIntentKeyRef = useRef(semanticIntent.key);
+
+  useEffect(() => {
+    // Root modals and the lock screen make route focus false while the Swap
+    // tab and its in-flight V2 session are still alive. Keep the core session
+    // handler mounted for the component lifetime so terminal events cannot be
+    // lost; real tab exits explicitly invalidate and detach it below.
+    appEventBus.off(EAppEventBusNames.SwapQuoteEventV2, quoteEventHandlerV2);
+    appEventBus.on(EAppEventBusNames.SwapQuoteEventV2, quoteEventHandlerV2);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SwapQuoteEventV2, quoteEventHandlerV2);
+    };
+  }, [quoteEventHandlerV2]);
+
+  useLayoutEffect(() => {
+    if (semanticIntentKeyRef.current === semanticIntent.key) {
+      return;
+    }
+    semanticIntentKeyRef.current = semanticIntent.key;
+    invalidateQuoteIntent({ isPending: semanticIntent.hasValidInput });
+    if (!isFocusRef.current && semanticIntent.hasValidInput) {
+      shouldRefreshPreservedInputQuoteOnFocusRef.current = true;
+    }
+  }, [invalidateQuoteIntent, semanticIntent]);
+
+  useEffect(() => {
+    if (shouldPauseQuote) {
+      closeQuoteEvent();
+    }
+  }, [closeQuoteEvent, shouldPauseQuote]);
 
   useEffect(() => {
     if (swapTabSwitchType !== ESwapTabSwitchType.STOCK) {
@@ -329,6 +415,9 @@ export function useSwapQuote() {
   }, [toTokenAmount, quoteAction, shouldPauseQuote]);
 
   useEffect(() => {
+    if (!isFocusRef.current) {
+      return;
+    }
     if (shouldPauseQuote) {
       return;
     }
@@ -377,6 +466,10 @@ export function useSwapQuote() {
       return;
     }
 
+    if (!isFocusRef.current) {
+      return;
+    }
+
     const keyChanged = prevKey !== slippageItem.key;
     const customValueChanged =
       slippageItem.key === ESwapSlippageSegmentKey.CUSTOM &&
@@ -410,18 +503,7 @@ export function useSwapQuote() {
     if (shouldPauseQuote) {
       return;
     }
-    if (
-      !isFocusRef.current &&
-      swapToAddressInfo.address ===
-        swapQuoteActionLockRef.current?.receivingAddress
-    ) {
-      return;
-    }
-    if (
-      !isFocusRef.current &&
-      !swapToAnotherAccountAddress?.address &&
-      settingsAtomRef.current.swapToAnotherAccountSwitchOn
-    ) {
+    if (!isFocusRef.current) {
       return;
     }
     if (
@@ -499,6 +581,9 @@ export function useSwapQuote() {
   ]);
 
   useEffect(() => {
+    if (!isFocusRef.current) {
+      return;
+    }
     if (shouldPauseQuote) {
       return;
     }
@@ -526,26 +611,16 @@ export function useSwapQuote() {
   useEffect(
     () => () => {
       cleanQuoteInterval();
+      closeQuoteEvent();
     },
-    [cleanQuoteInterval],
+    [cleanQuoteInterval, closeQuoteEvent],
   );
 
   useEffect(() => {
     if (shouldPauseQuote) {
       return;
     }
-    if (
-      !isFocusRef.current &&
-      swapToAddressInfo.address ===
-        swapQuoteActionLockRef.current?.receivingAddress
-    ) {
-      return;
-    }
-    if (
-      !isFocusRef.current &&
-      !swapToAnotherAccountAddress?.address &&
-      settingsAtomRef.current.swapToAnotherAccountSwitchOn
-    ) {
+    if (!isFocusRef.current) {
       return;
     }
     if (swapTabSwitchTypeRef.current !== ESwapTabSwitchType.LIMIT) {
@@ -623,41 +698,6 @@ export function useSwapQuote() {
     toAmountDebounce,
     shouldPauseQuote,
   ]);
-
-  // Due to the changes in derived types causing address changes, this is not in the swap tab.
-  useEffect(() => {
-    if (shouldPauseQuote) {
-      return;
-    }
-    if (isFocusRef.current) return;
-    if (
-      fromToken?.networkId !== activeAccountRef.current?.networkId ||
-      equalTokenNoCaseSensitive({
-        token1: {
-          networkId: fromToken?.networkId,
-          contractAddress: fromToken?.contractAddress,
-        },
-        token2: {
-          networkId: toToken?.networkId,
-          contractAddress: toToken?.contractAddress,
-        },
-      })
-    ) {
-      return;
-    }
-    alignmentDecimal();
-    void quoteAction(
-      swapSlippageRef.current,
-      activeAccountRef.current?.address,
-      activeAccountRef.current?.accountInfo?.account?.id,
-      undefined,
-      undefined,
-      ESwapQuoteKind.SELL,
-      undefined,
-      swapToAddressInfoRef.current.address,
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [swapAddressInfo.accountInfo?.deriveType, shouldPauseQuote]);
 
   const swapApprovingSuccessAction = useCallback(
     async (data: {
@@ -814,15 +854,9 @@ export function useSwapQuote() {
   );
 
   const swapQuoteMixEvent = useCallback(
-    async (event: {
-      event: ISwapQuoteEvent;
-      type: 'done' | 'close' | 'error' | 'message' | 'open';
-      params: IFetchQuotesParams;
-      tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-      accountId?: string;
-    }) => {
-      if (event?.type === 'error') {
-        swapQuoteMixEventAction(JSON.stringify(event.event));
+    async (event: ISwapQuoteSessionEventV2) => {
+      if (event.kind === 'transportError') {
+        swapQuoteMixEventAction(JSON.stringify(event.error));
       }
     },
     [swapQuoteMixEventAction],
@@ -849,16 +883,43 @@ export function useSwapQuote() {
     swapQuoteMixEventAction,
   ]);
 
-  const isModalPage = useIsOverlayPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (!isModalPage) {
-        if (isFocus) {
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
+        const shouldPreserveUserInputAmount =
+          shouldPreserveSwapUserInputAmountOnAccountSwitch({
+            fromTokenAmount: fromTokenAmountRef.current,
+            toTokenAmount: toTokenAmountRef.current,
+          });
+        const focusTransition = getSwapQuoteFocusLifecycleTransition({
+          hasPendingPreservedInputRefresh:
+            shouldRefreshPreservedInputQuoteOnFocusRef.current,
+          isHiddenByOverlay: isHiddenModel,
+          isQuotePaused: shouldPauseQuoteRef.current,
+          isTabFocused: isFocus,
+          shouldPreserveUserInputOnExit: shouldPreserveUserInputAmount,
+        });
+        shouldRefreshPreservedInputQuoteOnFocusRef.current =
+          focusTransition.nextShouldRefreshPreservedInput;
+
+        if (focusTransition.shouldAttachSessionListeners) {
+          // The tab-focus callback can run before the route-focus effect has
+          // reattached its listener. Subscribe synchronously before a
+          // preserved-input refresh can start emitting V2 events.
+          appEventBus.off(
+            EAppEventBusNames.SwapQuoteEventV2,
+            quoteEventHandlerV2,
+          );
+          appEventBus.on(
+            EAppEventBusNames.SwapQuoteEventV2,
+            quoteEventHandlerV2,
+          );
+          appEventBus.off(
+            EAppEventBusNames.SwapQuoteEventV2,
+            swapQuoteMixEvent,
+          );
+          appEventBus.on(EAppEventBusNames.SwapQuoteEventV2, swapQuoteMixEvent);
           appEventBus.off(
             EAppEventBusNames.SwapApprovingSuccess,
             swapApprovingSuccessAction,
@@ -867,11 +928,7 @@ export function useSwapQuote() {
             EAppEventBusNames.SwapApprovingSuccess,
             swapApprovingSuccessAction,
           );
-          if (
-            shouldRefreshPreservedInputQuoteOnFocusRef.current &&
-            !shouldPauseQuote
-          ) {
-            shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
+          if (focusTransition.shouldRefreshPreservedInput) {
             const quoteKind =
               swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT &&
               toTokenAmountRef.current.isInput &&
@@ -888,49 +945,24 @@ export function useSwapQuote() {
               undefined,
               swapToAddressInfoRef.current.address,
             );
-          } else if (shouldPauseQuote) {
-            shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
           }
-        } else if (isHiddenModel) {
-          if (
-            swapQuoteFetchingRef.current ||
-            (swapQuoteEventTotalCountRef.current.count > 0 &&
-              swapQuoteResultListRef.current.length <
-                swapQuoteEventTotalCountRef.current.count)
-          ) {
-            // reset tab quote data when swap modal is open and tab quote data is fetching
-            const shouldPreserveUserInputAmount =
-              shouldPreserveSwapUserInputAmountOnAccountSwitch({
-                fromTokenAmount: fromTokenAmountRef.current,
-                toTokenAmount: toTokenAmountRef.current,
-              });
-            closeQuoteEvent();
-            setSwapQuoteEventTotalCount({
-              count: 0,
-            });
-            setSwapQuoteResultList([]);
-            if (!shouldPreserveUserInputAmount) {
-              setFromTokenAmount({ value: '', isInput: true });
-            } else {
-              shouldRefreshPreservedInputQuoteOnFocusRef.current = true;
-            }
+        }
+        if (focusTransition.shouldInvalidateIntent) {
+          invalidateQuoteIntent({ isPending: false });
+          if (focusTransition.shouldClearUserInput) {
+            setFromTokenAmount({ value: '', isInput: true });
           }
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
+        }
+        if (focusTransition.shouldDetachSessionListeners) {
           appEventBus.off(
-            EAppEventBusNames.SwapApprovingSuccess,
-            swapApprovingSuccessAction,
+            EAppEventBusNames.SwapQuoteEventV2,
+            quoteEventHandlerV2,
           );
-        } else {
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
           appEventBus.off(
-            EAppEventBusNames.SwapApprovingSuccess,
-            swapApprovingSuccessAction,
+            EAppEventBusNames.SwapQuoteEventV2,
+            swapQuoteMixEvent,
           );
-          appEventBus.on(
+          appEventBus.off(
             EAppEventBusNames.SwapApprovingSuccess,
             swapApprovingSuccessAction,
           );
@@ -942,10 +974,8 @@ export function useSwapQuote() {
   useEffect(() => {
     if (isModalPage) {
       if (isFocused) {
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-        appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
-        appEventBus.on(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
+        appEventBus.off(EAppEventBusNames.SwapQuoteEventV2, swapQuoteMixEvent);
+        appEventBus.on(EAppEventBusNames.SwapQuoteEventV2, swapQuoteMixEvent);
         appEventBus.off(
           EAppEventBusNames.SwapApprovingSuccess,
           swapApprovingSuccessAction,
@@ -958,19 +988,12 @@ export function useSwapQuote() {
     }
     return () => {
       if (isModalPage) {
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
+        appEventBus.off(EAppEventBusNames.SwapQuoteEventV2, swapQuoteMixEvent);
         appEventBus.off(
           EAppEventBusNames.SwapApprovingSuccess,
           swapApprovingSuccessAction,
         );
       }
     };
-  }, [
-    isFocused,
-    isModalPage,
-    quoteEventHandler,
-    swapApprovingSuccessAction,
-    swapQuoteMixEvent,
-  ]);
+  }, [isFocused, isModalPage, swapApprovingSuccessAction, swapQuoteMixEvent]);
 }

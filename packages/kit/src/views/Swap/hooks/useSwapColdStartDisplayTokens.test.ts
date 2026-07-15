@@ -7,6 +7,7 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import {
   getSwapColdStartDisplayTokensFromGlobalSnapshot,
   getSwapDefaultSelectedTokensFromGlobalHomeSnapshot,
+  getSwapDisplayTokenPair,
 } from './useSwapColdStartDisplayTokens';
 
 const SWAP_STORE_SCOPE_KEY = 'store:swap';
@@ -38,6 +39,24 @@ function setGlobalContextSnapshot(snapshot: Record<string, unknown>) {
   globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = snapshot;
 }
 
+function setGlobalSnapshotCandidates({
+  contextSnapshot,
+  rawSnapshot,
+}: {
+  contextSnapshot: Record<string, unknown>;
+  rawSnapshot: Record<string, unknown>;
+}) {
+  const globalCache = globalThis as typeof globalThis & {
+    __ONEKEY_COLD_START_CACHE_MAP__?: Map<string, unknown>;
+    __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+  };
+
+  globalCache.__ONEKEY_COLD_START_CACHE_MAP__ = new Map([
+    [EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot, rawSnapshot],
+  ]);
+  globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = contextSnapshot;
+}
+
 function clearGlobalSnapshot() {
   const globalCache = globalThis as typeof globalThis & {
     __ONEKEY_COLD_START_CACHE_MAP__?: Map<string, unknown>;
@@ -54,6 +73,50 @@ function buildHomeSelectedAccount(networkId: string) {
     indexedAccountId: 'indexed-account-1',
     networkId,
     deriveType: 'default',
+  };
+}
+
+function buildSelectedTokenSnapshot({
+  fromToken,
+  networkId,
+  toToken,
+}: {
+  fromToken?: Partial<ISwapToken>;
+  networkId: string;
+  toToken?: Partial<ISwapToken>;
+}) {
+  return {
+    [scopedKey(
+      ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+    )]: {
+      0: buildHomeSelectedAccount(networkId),
+    },
+    [scopedKey(
+      SWAP_STORE_SCOPE_KEY,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+    )]: {
+      accountKey: 'wallet-1|indexed-account-1|default',
+      networkId,
+      swapType: ESwapTabSwitchType.SWAP,
+      updatedAt: 1,
+    } satisfies ISwapSelectedTokensColdStartContext,
+    ...(fromToken
+      ? {
+          [scopedKey(
+            SWAP_STORE_SCOPE_KEY,
+            CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+          )]: fromToken,
+        }
+      : undefined),
+    ...(toToken
+      ? {
+          [scopedKey(
+            SWAP_STORE_SCOPE_KEY,
+            CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
+          )]: toToken,
+        }
+      : undefined),
   };
 }
 
@@ -208,5 +271,131 @@ describe('getSwapColdStartDisplayTokensFromGlobalSnapshot', () => {
         symbol: 'USDC',
       }),
     });
+  });
+
+  it('rejects a partial selected-token pair', () => {
+    setGlobalSnapshot(
+      buildSelectedTokenSnapshot({
+        networkId: 'custom--1',
+        fromToken: {
+          networkId: 'custom--1',
+          symbol: 'FROM_ONLY',
+        },
+      }),
+    );
+
+    expect(getSwapColdStartDisplayTokensFromGlobalSnapshot()).toEqual({});
+  });
+
+  it('never combines opposite sides from different snapshot candidates', () => {
+    setGlobalSnapshotCandidates({
+      rawSnapshot: buildSelectedTokenSnapshot({
+        networkId: 'custom--1',
+        fromToken: {
+          networkId: 'custom--1',
+          symbol: 'FIRST_FROM',
+        },
+      }),
+      contextSnapshot: buildSelectedTokenSnapshot({
+        networkId: 'custom--2',
+        toToken: {
+          networkId: 'custom--2',
+          symbol: 'SECOND_TO',
+        },
+      }),
+    });
+
+    expect(getSwapColdStartDisplayTokensFromGlobalSnapshot()).toEqual({});
+  });
+
+  it('skips a partial candidate and returns the next complete pair intact', () => {
+    setGlobalSnapshotCandidates({
+      rawSnapshot: buildSelectedTokenSnapshot({
+        networkId: 'custom--1',
+        fromToken: {
+          networkId: 'custom--1',
+          symbol: 'FIRST_FROM',
+        },
+      }),
+      contextSnapshot: buildSelectedTokenSnapshot({
+        networkId: 'custom--2',
+        fromToken: {
+          networkId: 'custom--2',
+          symbol: 'SECOND_FROM',
+        },
+        toToken: {
+          networkId: 'custom--2',
+          symbol: 'SECOND_TO',
+        },
+      }),
+    });
+
+    expect(getSwapColdStartDisplayTokensFromGlobalSnapshot()).toEqual({
+      fromToken: expect.objectContaining({
+        networkId: 'custom--2',
+        symbol: 'SECOND_FROM',
+      }),
+      toToken: expect.objectContaining({
+        networkId: 'custom--2',
+        symbol: 'SECOND_TO',
+      }),
+    });
+  });
+});
+
+describe('getSwapDisplayTokenPair', () => {
+  const bootPair = {
+    fromToken: { networkId: 'evm--1', symbol: 'BOOT_FROM' } as ISwapToken,
+    toToken: { networkId: 'evm--1', symbol: 'BOOT_TO' } as ISwapToken,
+  };
+  const liveFrom = {
+    networkId: 'sol--101',
+    symbol: 'LIVE_FROM',
+  } as ISwapToken;
+  const liveTo = {
+    networkId: 'sol--101',
+    symbol: 'LIVE_TO',
+  } as ISwapToken;
+
+  it('keeps one complete boot pair while current-launch selection is pending', () => {
+    expect(
+      getSwapDisplayTokenPair({
+        coldStartTokens: bootPair,
+        fromToken: liveFrom,
+        initialSelectedTokensSynced: false,
+        toToken: undefined,
+      }),
+    ).toEqual(bootPair);
+  });
+
+  it('does not combine a live side with the opposite boot side', () => {
+    expect(
+      getSwapDisplayTokenPair({
+        coldStartTokens: { toToken: bootPair.toToken },
+        fromToken: liveFrom,
+        initialSelectedTokensSynced: false,
+      }),
+    ).toEqual({});
+  });
+
+  it('switches atomically to the current-launch live pair after sync', () => {
+    expect(
+      getSwapDisplayTokenPair({
+        coldStartTokens: bootPair,
+        fromToken: liveFrom,
+        initialSelectedTokensSynced: true,
+        toToken: liveTo,
+      }),
+    ).toEqual({ fromToken: liveFrom, toToken: liveTo });
+  });
+
+  it('never backfills a missing live side from the boot pair after sync', () => {
+    expect(
+      getSwapDisplayTokenPair({
+        coldStartTokens: bootPair,
+        fromToken: liveFrom,
+        initialSelectedTokensSynced: true,
+      }),
+    ).toEqual({ fromToken: liveFrom, toToken: undefined });
   });
 });

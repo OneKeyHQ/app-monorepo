@@ -53,6 +53,7 @@ import type {
   IFetchQuotesParams,
   ISwapApproveTransaction,
   ISwapQuoteEvent,
+  ISwapQuoteSessionEventV2,
   ISwapToken,
   ISwapTokenBase,
 } from '../../types/swap/types';
@@ -415,6 +416,7 @@ export interface IAppEventBusPayload {
     accountId?: string;
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
+  [EAppEventBusNames.SwapQuoteEventV2]: ISwapQuoteSessionEventV2;
   [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
   [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {

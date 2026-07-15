@@ -30,6 +30,10 @@ import {
   useSwapAlertsAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
+  useSwapLimitExpirationTimeAtom,
+  useSwapLimitPartiallyFillAtom,
+  useSwapLimitPriceFromAmountAtom,
+  useSwapLimitPriceToAmountAtom,
   useSwapLimitPriceUseRateAtom,
   useSwapNativeTokenReserveGasAtom,
   useSwapNetworksAtom,
@@ -38,8 +42,11 @@ import {
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteActionLockAtom,
+  useSwapQuoteCommittedStateAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteIntervalCountAtom,
+  useSwapQuoteSessionStateAtom,
+  useSwapReviewExecutionSnapshotAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -49,6 +56,7 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { isSwapQuoteCommittedSettledCandidate } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteCommittedState';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import {
@@ -71,6 +79,7 @@ import {
   EModalSwapRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -129,7 +138,9 @@ import {
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapReviewState } from '../../utils/buildSwapReviewState';
 import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
+import { resolveSwapReviewRiskCheckInput } from '../../utils/swapExecutionSnapshotGuard';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
+import { ESwapExecutionRecipientMode } from '../../utils/swapReviewState';
 import { getSwapAnalyticsTokenListType } from '../../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -160,6 +171,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
+  const [quoteSessionState] = useSwapQuoteSessionStateAtom();
+  const [quoteCommittedState] = useSwapQuoteCommittedStateAtom();
   const [alerts] = useSwapAlertsAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [rateDifference] = useRateDifferenceAtom();
@@ -182,6 +195,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
+  const [swapReviewExecutionSnapshot, setSwapReviewExecutionSnapshot] =
+    useSwapReviewExecutionSnapshotAtom();
   const [fromSelectTokenAtom] = useSwapSelectFromTokenAtom();
   const [toSelectTokenAtom, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
@@ -189,7 +204,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [, setSwapSteps] = useSwapStepsAtom();
   const [swapToAmount] = useSwapToTokenAmountAtom();
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
-  const [toToken] = useSwapSelectToTokenAtom();
+  const [swapLimitExpirationTime] = useSwapLimitExpirationTimeAtom();
+  const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
+  const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
+  const [swapLimitPartiallyFill] = useSwapLimitPartiallyFillAtom();
   const [swapStepData] = useSwapStepsAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const { setSwapProSelectToken } = useSwapActions().current;
@@ -429,17 +447,17 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     [pageType],
   );
 
+  const swapReviewExecutionSnapshotRef = useRef(swapReviewExecutionSnapshot);
+  if (swapReviewExecutionSnapshotRef.current !== swapReviewExecutionSnapshot) {
+    swapReviewExecutionSnapshotRef.current = swapReviewExecutionSnapshot;
+  }
+
   const swapStepsRef = useRef<ISwapStep[]>([]);
   if (
     swapStepsRef.current !== swapStepData.steps ||
     swapStepsRef.current.length !== swapStepData.steps.length
   ) {
     swapStepsRef.current = [...swapStepData.steps];
-  }
-
-  const quoteResultRef = useRef<IFetchQuoteResult | undefined>(undefined);
-  if (quoteResultRef.current !== swapStepData.quoteResult) {
-    quoteResultRef.current = swapStepData.quoteResult;
   }
 
   const preSwapDataRef = useRef<ISwapPreSwapData | undefined>(undefined);
@@ -793,7 +811,54 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 
   const parseQuoteResultToSteps = useCallback(() => {
     if (!currentQuoteRes) {
-      return;
+      return false;
+    }
+
+    const isSpeedSwapReview =
+      focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET;
+    const activeQuoteSession = quoteSessionState.activeSession;
+    const isCommittedExecutableQuote = Boolean(
+      !isSpeedSwapReview &&
+      activeQuoteSession &&
+      quoteSessionState.phase === 'settled' &&
+      quoteCommittedState.requestId === activeQuoteSession.requestId &&
+      quoteCommittedState.intentFingerprint ===
+        activeQuoteSession.fingerprint &&
+      isSwapQuoteCommittedSettledCandidate(
+        quoteCommittedState,
+        currentQuoteRes,
+      ),
+    );
+
+    // Speed Swap still uses its legacy single-response endpoint. Every SSE
+    // quote must belong to the settled candidate set for the active session.
+    if (!isSpeedSwapReview && !isCommittedExecutableQuote) {
+      return false;
+    }
+
+    const executionAccountId = focusSwapPro
+      ? swapProAccount.result?.id
+      : swapFromAddressInfo.accountInfo?.account?.id;
+    const executionNetworkId = focusSwapPro
+      ? swapProAccount.result?.addressDetail.networkId
+      : swapFromAddressInfo.networkId;
+    const executionSenderAddress = focusSwapPro
+      ? swapProAccount.result?.addressDetail.address
+      : swapFromAddressInfo.address;
+    const executionReceivingAddress = focusSwapPro
+      ? swapProAccount.result?.addressDetail.address
+      : toAddressInfo.address;
+    const executionReceivingAccountId = focusSwapPro
+      ? swapProAccount.result?.id
+      : toAddressInfo.accountInfo?.account?.id;
+    let recipientMode = ESwapExecutionRecipientMode.Custom;
+    if (
+      executionAccountId &&
+      executionAccountId === executionReceivingAccountId
+    ) {
+      recipientMode = ESwapExecutionRecipientMode.Self;
+    } else if (executionReceivingAccountId) {
+      recipientMode = ESwapExecutionRecipientMode.Account;
     }
 
     const reviewRateDifference =
@@ -810,8 +875,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         : rateDifference;
 
     const nextReviewState = buildSwapReviewState({
-      accountId: swapFromAddressInfo.accountInfo?.account?.id,
-      networkId: swapFromAddressInfo.networkId,
+      accountId: executionAccountId,
+      networkId: executionNetworkId,
       batchApproveAndSwapEnabled: settingsPersistAtom.swapBatchApproveAndSwap,
       fromToken: fromSelectToken,
       toToken: toSelectToken,
@@ -831,14 +896,55 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       rateDifference: reviewRateDifference,
       defaultTokenCurrency: settingsPersistAtom.currencyInfo.id,
       currencyMap,
+      quoteRequestId: isCommittedExecutableQuote
+        ? activeQuoteSession?.requestId
+        : undefined,
+      quoteIntentRevision: isCommittedExecutableQuote
+        ? activeQuoteSession?.intentRevision
+        : undefined,
+      quoteCommittedAt: isCommittedExecutableQuote
+        ? quoteCommittedState.committedAt
+        : undefined,
+      executionContext: {
+        reviewRevision: generateUUID(),
+        senderAddress: executionSenderAddress,
+        receivingAddress: executionReceivingAddress,
+        receivingAccountId: executionReceivingAccountId,
+        recipientMode,
+        indexedAccountId: focusSwapPro
+          ? swapProAccount.result?.indexedAccountId
+          : swapFromAddressInfo.accountInfo?.indexedAccount?.id,
+        dbAccountId: focusSwapPro
+          ? swapProAccount.result?.id
+          : swapFromAddressInfo.accountInfo?.dbAccount?.id,
+        walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        walletType: swapFromAddressInfo.accountInfo?.wallet?.type,
+        deriveType: swapFromAddressInfo.accountInfo?.deriveType,
+        addressEncoding:
+          swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
+        limitSettings: {
+          expirationTime: swapLimitExpirationTime.value,
+          rate: swapLimitUseRate.rate,
+          priceFromAmount: swapLimitPriceFromAmount,
+          priceToAmount: swapLimitPriceToAmount,
+          partiallyFillable: swapLimitPartiallyFill.value,
+        },
+      },
       texts: reviewStepTexts,
     });
 
+    if (!nextReviewState.executionSnapshot) {
+      setSwapReviewExecutionSnapshot(undefined);
+      return false;
+    }
+
+    setSwapReviewExecutionSnapshot(nextReviewState.executionSnapshot);
     setSwapSteps({
       steps: [...nextReviewState.steps],
       preSwapData: nextReviewState.preSwapData,
       quoteResult: { ...(nextReviewState.quoteResult as IFetchQuoteResult) },
     });
+    return true;
   }, [
     currentQuoteRes,
     setSwapSteps,
@@ -850,7 +956,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     fromTokenAmount.value,
     swapToAmount.value,
     swapFromAddressInfo.accountInfo?.account?.id,
+    swapFromAddressInfo.accountInfo?.dbAccount?.id,
+    swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
+    swapFromAddressInfo.accountInfo?.deriveType,
+    swapFromAddressInfo.accountInfo?.indexedAccount?.id,
+    swapFromAddressInfo.accountInfo?.wallet?.id,
+    swapFromAddressInfo.accountInfo?.wallet?.type,
+    swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
+    swapProAccount.result?.addressDetail.address,
+    swapProAccount.result?.addressDetail.networkId,
+    swapProAccount.result?.id,
+    swapProAccount.result?.indexedAccountId,
+    toAddressInfo.accountInfo?.account?.id,
+    toAddressInfo.address,
     settingsPersistAtom.swapBatchApproveAndSwap,
     settingsPersistAtom.currencyInfo.id,
     currencyMap,
@@ -858,49 +977,75 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     isCustomRpcUnavailable,
     rateDifference,
     reviewStepTexts,
+    quoteCommittedState,
+    quoteSessionState.activeSession,
+    quoteSessionState.phase,
+    setSwapReviewExecutionSnapshot,
+    swapLimitExpirationTime.value,
+    swapLimitPartiallyFill.value,
+    swapLimitPriceFromAmount,
+    swapLimitPriceToAmount,
+    swapLimitUseRate.rate,
   ]);
   const onActionHandler = useCallback(() => {
+    const executionSnapshot = swapReviewExecutionSnapshotRef.current;
     if (
+      executionSnapshot &&
       swapStepsRef.current.length > 0 &&
-      preSwapDataRef.current &&
-      quoteResultRef.current
+      preSwapDataRef.current
     ) {
       void preSwapStepsStart({
         steps: swapStepsRef.current,
-        preSwapData: preSwapDataRef.current,
-        quoteResult: quoteResultRef.current,
+        preSwapData: {
+          ...preSwapDataRef.current,
+          swapType: executionSnapshot.swapType,
+          fromToken: executionSnapshot.fromToken,
+          toToken: executionSnapshot.toToken,
+          fromTokenAmount: executionSnapshot.fromTokenAmount,
+          toTokenAmount: executionSnapshot.toTokenAmount,
+          slippage: executionSnapshot.slippage,
+        },
+        quoteResult: executionSnapshot.quoteResult,
       });
     }
   }, [preSwapStepsStart]);
 
   const onActionHandlerBefore = useCallback(() => {
+    const executionSnapshot = swapReviewExecutionSnapshotRef.current;
+    const riskCheckInput = resolveSwapReviewRiskCheckInput(executionSnapshot);
+    if (!executionSnapshot || !riskCheckInput) {
+      return;
+    }
+    const { reviewRevision, quoteResult: frozenQuoteResult } = riskCheckInput;
     if (
-      currentQuoteRes?.networkCostExceedInfo &&
-      !currentQuoteRes.allowanceResult
+      frozenQuoteResult.networkCostExceedInfo &&
+      !frozenQuoteResult.allowanceResult
     ) {
-      let percentage = currentQuoteRes.networkCostExceedInfo?.exceedPercent;
+      let percentage = frozenQuoteResult.networkCostExceedInfo?.exceedPercent;
       const netCost = new BigNumber(
-        currentQuoteRes.networkCostExceedInfo?.cost ?? '0',
+        frozenQuoteResult.networkCostExceedInfo?.cost ?? '0',
       );
       if (
-        currentQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
+        frozenQuoteResult.protocol === EProtocolOfExchange.LIMIT &&
         netCost.gt(0)
       ) {
         let toRealAmount = new BigNumber(0);
-        const fromAmountBN = new BigNumber(fromTokenAmount.value);
-        const toAmountBN = new BigNumber(swapToAmount.value);
+        const fromAmountBN = new BigNumber(riskCheckInput.fromTokenAmount);
+        const toAmountBN = new BigNumber(riskCheckInput.toTokenAmount);
         if (!toAmountBN.isNaN() && !toAmountBN.isZero()) {
-          toRealAmount = new BigNumber(swapToAmount.value);
+          toRealAmount = toAmountBN;
         } else if (
           !fromAmountBN.isNaN() &&
           !fromAmountBN.isZero() &&
-          swapLimitUseRate.rate
+          riskCheckInput.limitRate
         ) {
           const cToAmountBN = new BigNumber(fromAmountBN).multipliedBy(
-            new BigNumber(swapLimitUseRate.rate),
+            new BigNumber(riskCheckInput.limitRate),
           );
           toRealAmount = cToAmountBN.decimalPlaces(
-            Number(toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
+            Number(
+              riskCheckInput.toTokenDecimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+            ),
             BigNumber.ROUND_HALF_UP,
           );
         }
@@ -928,9 +1073,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         ),
         renderContent: (
           <TransactionLossNetworkFeeExceedDialog
-            protocol={currentQuoteRes.protocol ?? EProtocolOfExchange.SWAP}
+            protocol={frozenQuoteResult.protocol ?? EProtocolOfExchange.SWAP}
             networkCostExceedInfo={{
-              ...currentQuoteRes.networkCostExceedInfo,
+              ...frozenQuoteResult.networkCostExceedInfo,
               exceedPercent: percentage,
             }}
           />
@@ -939,23 +1084,19 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           id: ETranslations.global_continue,
         }),
         onConfirm: () => {
+          if (
+            swapReviewExecutionSnapshotRef.current?.reviewRevision !==
+            reviewRevision
+          ) {
+            return;
+          }
           onActionHandler();
         },
       });
     } else {
       onActionHandler();
     }
-  }, [
-    currentQuoteRes?.allowanceResult,
-    currentQuoteRes?.networkCostExceedInfo,
-    currentQuoteRes?.protocol,
-    intl,
-    onActionHandler,
-    swapLimitUseRate.rate,
-    fromTokenAmount.value,
-    swapToAmount.value,
-    toToken?.decimals,
-  ]);
+  }, [intl, onActionHandler]);
 
   const handleConfirm = useCallback(async () => {
     onActionHandlerBefore();
@@ -968,6 +1109,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const onPreSwapClose = useCallback(() => {
     dialogClose();
     setSwapBuildTxFetching(false);
+    setSwapReviewExecutionSnapshot(undefined);
     void backgroundApiProxy.serviceGas.abortEstimateFee();
     setTimeout(() => {
       setSwapSteps({
@@ -975,7 +1117,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         preSwapData: {},
       });
     }, 100);
-  }, [setSwapBuildTxFetching, dialogClose, setSwapSteps]);
+  }, [
+    setSwapBuildTxFetching,
+    dialogClose,
+    setSwapReviewExecutionSnapshot,
+    setSwapSteps,
+  ]);
 
   const handleSelectAccountClick = useCallback(() => {
     dismissKeyboard();
@@ -1005,7 +1152,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       cleanQuoteInterval();
       setSwapShouldRefreshQuote(true);
     }
-    parseQuoteResultToSteps();
+    if (!parseQuoteResultToSteps()) {
+      return;
+    }
     setSwapBuildTxFetching(true);
     setTimeout(() => {
       dialogRef.current =

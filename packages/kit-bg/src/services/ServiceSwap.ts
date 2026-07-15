@@ -79,6 +79,8 @@ import {
 import type {
   ESwapExtraStatus,
   ESwapQuoteKind,
+  ICancelFetchSpeedSwapQuoteV2Params,
+  ICancelSwapQuoteEventsV2Params,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
   IFetchLimitOrderRes,
@@ -86,6 +88,9 @@ import type {
   IFetchQuotesParams,
   IFetchResponse,
   IFetchSpeedCheckResult,
+  IFetchSpeedSwapQuoteV2Params,
+  IFetchSpeedSwapQuoteV2Result,
+  IFetchSwapQuoteEventsV2Params,
   IFetchSwapQuoteParams,
   IFetchSwapTxHistoryStatusResponse,
   IFetchTokenDetailParams,
@@ -103,6 +108,9 @@ import type {
   ISwapNativeTokenConfig,
   ISwapNetwork,
   ISwapNetworkBase,
+  ISwapQuoteSessionEventV2,
+  ISwapQuoteSessionStartResult,
+  ISwapQuoteSessionTransportErrorV2,
   ISwapTips,
   ISwapToken,
   ISwapTokenBase,
@@ -129,6 +137,11 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 import { normalizeSwapTokenListCurrency } from './ServiceSwap.utils';
+import {
+  type ISwapQuoteSessionLease,
+  SwapQuoteSessionRegistry,
+} from './ServiceSwapQuoteSession';
+import { SwapSpeedQuoteSessionRegistry } from './ServiceSwapSpeedQuoteSession';
 import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
 import {
@@ -475,9 +488,61 @@ function trackPrivateSendOrderFinalStatusIfNeeded({
   });
 }
 
+type ISwapQuoteSessionEventContextV2 = {
+  params: IFetchQuotesParams;
+  accountId?: string;
+  tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
+};
+
+type ISwapQuoteSessionEventDataV2 =
+  | { kind: 'open' }
+  | {
+      kind: 'message';
+      data: string | null;
+      lastEventId: string | null;
+    }
+  | { kind: 'done' }
+  | {
+      kind: 'transportError';
+      error: ISwapQuoteSessionTransportErrorV2;
+    }
+  | { kind: 'cancelled' };
+
+function normalizeSwapQuoteSessionTransportErrorV2(
+  error: unknown,
+): ISwapQuoteSessionTransportErrorV2 {
+  if (!error || typeof error !== 'object') {
+    return typeof error === 'string' ? { message: error } : {};
+  }
+  const errorRecord = error as {
+    message?: unknown;
+    type?: unknown;
+    xhrState?: unknown;
+    xhrStatus?: unknown;
+  };
+  let message: string | undefined;
+  if (typeof errorRecord.message === 'string') {
+    message = errorRecord.message;
+  } else if (errorRecord.type === 'timeout') {
+    message = 'Swap quote event timeout';
+  }
+  return {
+    ...(message ? { message } : {}),
+    ...(typeof errorRecord.xhrState === 'number'
+      ? { xhrState: errorRecord.xhrState }
+      : {}),
+    ...(typeof errorRecord.xhrStatus === 'number'
+      ? { xhrStatus: errorRecord.xhrStatus }
+      : {}),
+  };
+}
+
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
   private _speedSwapQuoteAbortController?: AbortController;
+
+  private readonly _speedSwapQuoteSessionRegistryV2 =
+    new SwapSpeedQuoteSessionRegistry();
 
   private _checkTokenApproveAllowanceAbortController?: AbortController;
 
@@ -488,6 +553,13 @@ export default class ServiceSwap extends ServiceBase {
   private _quoteEventSource?: EventSource;
 
   private _quoteEventSourcePolyfill?: EventSourcePolyfill;
+
+  private readonly _quoteSessionRegistryV2 = new SwapQuoteSessionRegistry();
+
+  private readonly _quoteSessionEventContextV2 = new WeakMap<
+    ISwapQuoteSessionLease,
+    ISwapQuoteSessionEventContextV2
+  >();
 
   private _tokenDetailAbortControllerMap: Record<
     ESwapDirectionType,
@@ -566,10 +638,66 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
+  async cancelFetchSpeedSwapQuoteV2(
+    params: ICancelFetchSpeedSwapQuoteV2Params,
+  ): Promise<boolean> {
+    return this._speedSwapQuoteSessionRegistryV2.cancelExact(params);
+  }
+
   async removeQuoteEventSourceListeners() {
     if (this._quoteEventSource) {
       this._quoteEventSource.removeAllEventListeners();
     }
+  }
+
+  private emitQuoteSessionEventV2WithSequence({
+    event,
+    lease,
+    sequence,
+  }: {
+    event: ISwapQuoteSessionEventDataV2;
+    lease: ISwapQuoteSessionLease;
+    sequence: number;
+  }): boolean {
+    const context = this._quoteSessionEventContextV2.get(lease);
+    if (!context) {
+      return false;
+    }
+    appEventBus.emit(EAppEventBusNames.SwapQuoteEventV2, {
+      version: 2,
+      session: lease.session,
+      bgGeneration: lease.bgGeneration,
+      sequence,
+      emittedAt: Date.now(),
+      ...context,
+      ...event,
+    } as ISwapQuoteSessionEventV2);
+    return true;
+  }
+
+  private emitQuoteSessionEventV2({
+    event,
+    lease,
+    terminal = false,
+  }: {
+    event: ISwapQuoteSessionEventDataV2;
+    lease: ISwapQuoteSessionLease;
+    terminal?: boolean;
+  }): boolean {
+    const sequence = this._quoteSessionRegistryV2.nextSequence(lease);
+    if (sequence === undefined) {
+      return false;
+    }
+    const emitted = this.emitQuoteSessionEventV2WithSequence({
+      event,
+      lease,
+      sequence,
+    });
+    if (terminal) {
+      this._quoteSessionRegistryV2.finish(lease);
+    }
+    return emitted;
   }
 
   @backgroundMethod()
@@ -582,6 +710,22 @@ export default class ServiceSwap extends ServiceBase {
       this._quoteEventSourcePolyfill.close();
       this._quoteEventSourcePolyfill = undefined;
     }
+  }
+
+  @backgroundMethod()
+  async cancelFetchQuoteEventsV2(
+    params: ICancelSwapQuoteEventsV2Params,
+  ): Promise<boolean> {
+    return this._quoteSessionRegistryV2.cancelExact(
+      params,
+      ({ lease, sequence }) => {
+        this.emitQuoteSessionEventV2WithSequence({
+          event: { kind: 'cancelled' },
+          lease,
+          sequence,
+        });
+      },
+    );
   }
 
   @backgroundMethod()
@@ -1154,6 +1298,261 @@ export default class ServiceSwap extends ServiceBase {
           tokenPairs: { fromToken, toToken },
         });
       });
+    }
+  }
+
+  @backgroundMethod()
+  async fetchQuotesEventsV2({
+    request,
+    session,
+  }: IFetchSwapQuoteEventsV2Params): Promise<ISwapQuoteSessionStartResult> {
+    const {
+      fromToken,
+      toToken,
+      fromTokenAmount,
+      userAddress,
+      slippagePercentage,
+      autoSlippage,
+      blockNumber,
+      accountId,
+      protocol,
+      expirationTime,
+      receivingAddress,
+      incognito,
+      limitPartiallyFillable,
+      kind,
+      toTokenAmount,
+      userMarketPriceRate,
+    } = request;
+    const initialParams: IFetchQuotesParams = {
+      fromTokenAddress: fromToken.contractAddress,
+      toTokenAddress: toToken.contractAddress,
+      fromTokenAmount,
+      fromNetworkId: fromToken.networkId,
+      toNetworkId: toToken.networkId,
+      protocol: getProtocolOfExchangeFromSwapTab(protocol),
+      userAddress,
+      slippagePercentage,
+      autoSlippage,
+      blockNumber,
+      expirationTime,
+      receivingAddress,
+      limitPartiallyFillable,
+      kind,
+      toTokenAmount,
+      userMarketPriceRate,
+      ...(incognito ? { incognito } : {}),
+    };
+
+    // Reserve synchronously before the first await. Any older async start for
+    // this surface becomes stale immediately and can no longer attach a source.
+    const lease = this._quoteSessionRegistryV2.reserve(session);
+    this._quoteSessionEventContextV2.set(lease, {
+      params: initialParams,
+      accountId,
+      tokenPairs: { fromToken, toToken },
+    });
+    const buildStartResult = (
+      accepted: boolean,
+    ): ISwapQuoteSessionStartResult => ({
+      accepted,
+      session,
+      bgGeneration: lease.bgGeneration,
+    });
+    const isCurrent = () => this._quoteSessionRegistryV2.isCurrent(lease);
+    if (!isCurrent()) {
+      return buildStartResult(false);
+    }
+
+    try {
+      const [denyCrossChainProvider, denySingleSwapProvider, walletDevice] =
+        await Promise.all([
+          this.getDenyCrossChainProvider(
+            fromToken.networkId,
+            toToken.networkId,
+          ),
+          this.getDenySingleSwapProvider(
+            fromToken.networkId,
+            toToken.networkId,
+          ),
+          this.backgroundApi.serviceAccount.getAccountDeviceSafe({
+            accountId: accountId ?? '',
+          }),
+        ]);
+      if (!isCurrent()) {
+        return buildStartResult(false);
+      }
+
+      const params: IFetchQuotesParams = {
+        ...initialParams,
+        denyCrossChainProvider,
+        denySingleSwapProvider,
+        walletDeviceType: walletDevice?.deviceType,
+      };
+      this._quoteSessionEventContextV2.set(lease, {
+        params,
+        accountId,
+        tokenPairs: { fromToken, toToken },
+      });
+
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      if (!isCurrent()) {
+        return buildStartResult(false);
+      }
+      const swapEventUrl = client.getUri({
+        url: '/swap/v1/quote/events',
+        params,
+      });
+      let headers = await getRequestHeaders();
+      if (!isCurrent()) {
+        return buildStartResult(false);
+      }
+      const walletType =
+        await this.backgroundApi.serviceAccountProfile._getRequestWalletType({
+          accountId,
+        });
+      if (!isCurrent()) {
+        return buildStartResult(false);
+      }
+      headers = {
+        ...headers,
+        ...(accountId
+          ? {
+              'X-OneKey-Wallet-Type': walletType,
+            }
+          : {}),
+      };
+      headers = await withCustomUAHeaders(
+        swapEventUrl,
+        headers as Record<string, string>,
+      );
+      if (!isCurrent()) {
+        return buildStartResult(false);
+      }
+
+      if (platformEnv.isExtension) {
+        const eventSource = new EventSourcePolyfill(swapEventUrl, {
+          headers: headers as Record<string, string>,
+        });
+        eventSource.onmessage = (event) => {
+          this.emitQuoteSessionEventV2({
+            event: {
+              kind: 'message',
+              data: event.data ?? null,
+              lastEventId: event.lastEventId ?? null,
+            },
+            lease,
+          });
+        };
+        eventSource.onerror = (event) => {
+          const errorEvent = event as {
+            error?: string;
+            type: string;
+            target: unknown;
+          };
+          if (!errorEvent.error) {
+            this.emitQuoteSessionEventV2({
+              event: { kind: 'done' },
+              lease,
+              terminal: true,
+            });
+            return;
+          }
+          this.emitQuoteSessionEventV2({
+            event: {
+              kind: 'transportError',
+              error: {
+                message: errorEvent.error,
+                xhrState: eventSource.readyState ?? 0,
+                xhrStatus: eventSource.readyState ?? 0,
+              },
+            },
+            lease,
+            terminal: true,
+          });
+        };
+        eventSource.onopen = () => {
+          this.emitQuoteSessionEventV2({
+            event: { kind: 'open' },
+            lease,
+          });
+        };
+
+        const attached = this._quoteSessionRegistryV2.attachConnection(lease, {
+          close: () => eventSource.close(),
+          removeAllListeners: () => {
+            eventSource.onmessage = null;
+            eventSource.onerror = null;
+            eventSource.onopen = null;
+          },
+        });
+        return buildStartResult(attached);
+      }
+
+      const eventSource = new EventSource(swapEventUrl, {
+        headers,
+        pollingInterval: 0,
+        timeoutBeforeConnection: 0,
+        timeout: swapQuoteEventTimeout,
+      });
+      eventSource.addEventListener('open', () => {
+        this.emitQuoteSessionEventV2({
+          event: { kind: 'open' },
+          lease,
+        });
+      });
+      eventSource.addEventListener('message', (event) => {
+        this.emitQuoteSessionEventV2({
+          event: {
+            kind: 'message',
+            data: event.data,
+            lastEventId: event.lastEventId,
+          },
+          lease,
+        });
+      });
+      eventSource.addEventListener('done', () => {
+        this.emitQuoteSessionEventV2({
+          event: { kind: 'done' },
+          lease,
+          terminal: true,
+        });
+      });
+      eventSource.addEventListener('close', () => {
+        this.emitQuoteSessionEventV2({
+          event: { kind: 'done' },
+          lease,
+          terminal: true,
+        });
+      });
+      eventSource.addEventListener('error', (event) => {
+        this.emitQuoteSessionEventV2({
+          event: {
+            kind: 'transportError',
+            error: normalizeSwapQuoteSessionTransportErrorV2(event),
+          },
+          lease,
+          terminal: true,
+        });
+      });
+      const attached = this._quoteSessionRegistryV2.attachConnection(lease, {
+        close: () => eventSource.close(),
+        removeAllListeners: () => eventSource.removeAllEventListeners(),
+      });
+      return buildStartResult(attached);
+    } catch (error) {
+      if (isCurrent()) {
+        this.emitQuoteSessionEventV2({
+          event: {
+            kind: 'transportError',
+            error: normalizeSwapQuoteSessionTransportErrorV2(error),
+          },
+          lease,
+          terminal: true,
+        });
+        throw error;
+      }
+      return buildStartResult(false);
     }
   }
 
@@ -3120,6 +3519,132 @@ export default class ServiceSwap extends ServiceBase {
         toTokenInfo: toToken,
       },
     ];
+  }
+
+  @backgroundMethod()
+  async fetchSpeedSwapQuoteV2({
+    request,
+    session,
+  }: IFetchSpeedSwapQuoteV2Params): Promise<IFetchSpeedSwapQuoteV2Result> {
+    const {
+      fromToken,
+      toToken,
+      fromTokenAmount,
+      userAddress,
+      slippagePercentage,
+      autoSlippage,
+      blockNumber,
+      accountId,
+      expirationTime,
+      receivingAddress,
+      kind,
+      protocol,
+    } = request;
+    const lease = this._speedSwapQuoteSessionRegistryV2.reserve(session);
+    const rejectedResult = (): IFetchSpeedSwapQuoteV2Result => ({
+      accepted: false,
+      session,
+      bgGeneration: lease.bgGeneration,
+    });
+    const isCurrent = () =>
+      this._speedSwapQuoteSessionRegistryV2.isCurrent(lease);
+    if (!isCurrent()) {
+      return rejectedResult();
+    }
+
+    try {
+      const [walletDevice, client] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountDeviceSafe({
+          accountId: accountId ?? '',
+        }),
+        this.getClient(EServiceEndpointEnum.Swap),
+      ]);
+      if (!isCurrent()) {
+        return rejectedResult();
+      }
+
+      const params: IFetchQuotesParams = {
+        fromTokenAddress: fromToken.contractAddress,
+        toTokenAddress: toToken.contractAddress,
+        fromTokenAmount,
+        fromNetworkId: fromToken.networkId,
+        toNetworkId: toToken.networkId,
+        protocol: getProtocolOfExchangeFromSwapTab(protocol),
+        userAddress,
+        slippagePercentage,
+        autoSlippage,
+        blockNumber,
+        receivingAddress,
+        expirationTime,
+        kind,
+        walletDeviceType: walletDevice?.deviceType,
+      };
+      let quotes: IFetchQuoteResult[] = [
+        {
+          info: { provider: '', providerName: '' },
+          fromTokenInfo: fromToken,
+          toTokenInfo: toToken,
+        },
+      ];
+      try {
+        const headers =
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          });
+        if (!isCurrent()) {
+          return rejectedResult();
+        }
+        const abortController = new AbortController();
+        if (
+          !this._speedSwapQuoteSessionRegistryV2.attachAbortController(
+            lease,
+            abortController,
+          )
+        ) {
+          return rejectedResult();
+        }
+        const { data } = await client.get<IFetchResponse<IFetchQuoteResult[]>>(
+          '/swap/v1/quote/speed',
+          {
+            params,
+            signal: abortController.signal,
+            headers,
+          },
+        );
+        if (!isCurrent()) {
+          return rejectedResult();
+        }
+        if (data?.code === 0 && data?.data?.length) {
+          quotes = data.data;
+        }
+      } catch (error) {
+        if (!isCurrent()) {
+          return rejectedResult();
+        }
+        if (axios.isCancel(error)) {
+          // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
+          throw new Error('swap speed fetch quote cancel', {
+            cause: ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL,
+          });
+        }
+      }
+
+      if (!this._speedSwapQuoteSessionRegistryV2.finish(lease)) {
+        return rejectedResult();
+      }
+      return {
+        accepted: true,
+        session,
+        bgGeneration: lease.bgGeneration,
+        quotes,
+      };
+    } catch (error) {
+      if (!isCurrent()) {
+        return rejectedResult();
+      }
+      this._speedSwapQuoteSessionRegistryV2.finish(lease);
+      throw error;
+    }
   }
 
   @backgroundMethod()

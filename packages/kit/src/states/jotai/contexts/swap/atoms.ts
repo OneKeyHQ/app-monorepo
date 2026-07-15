@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import type { ISwapExecutionSnapshot } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { isStockQuoteInputAmountMatched } from '@onekeyhq/kit/src/views/Swap/utils/swapStockTradeControl';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -25,6 +26,7 @@ import {
   swapProTimeRangeItems,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
+  EProtocolOfExchange,
   ESwapNetworkFeeLevel,
   ESwapProTradeType,
   ESwapTabSwitchType,
@@ -53,12 +55,30 @@ import type {
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
 import {
+  type ISwapQuoteCommittedState,
+  initialSwapQuoteCommittedState,
+  isSwapQuoteCommittedSettledCandidate,
+} from './quoteCommittedState';
+import {
   type ISwapQuoteEventTotalCount,
   type ISwapQuoteSelectionIntent,
   buildSwapQuoteProviderKey,
   selectSwapCurrentQuote,
 } from './quoteProgress';
+import {
+  getSwapQuoteAmountProjection,
+  getSwapQuoteKindForCurrentInput,
+} from './quoteSemanticIntent';
+import {
+  type ISwapQuoteSessionState,
+  SWAP_QUOTE_SESSION_V2_INITIAL_STATE,
+} from './quoteSessionV2';
+import {
+  type ISwapSpeedQuoteSessionState,
+  SWAP_SPEED_QUOTE_SESSION_V2_INITIAL_STATE,
+} from './speedQuoteSessionV2';
 
+import type { ISwapTokenDetailRequestState } from './tokenDetailRequest';
 import type { IAccountSelectorActiveAccountInfo } from '../accountSelector';
 
 const {
@@ -289,6 +309,16 @@ export const {
 
 // swap quote
 export const {
+  atom: swapQuoteSessionStateAtom,
+  use: useSwapQuoteSessionStateAtom,
+} = contextAtom<ISwapQuoteSessionState>(SWAP_QUOTE_SESSION_V2_INITIAL_STATE);
+
+export const {
+  atom: swapQuoteCommittedStateAtom,
+  use: useSwapQuoteCommittedStateAtom,
+} = contextAtom<ISwapQuoteCommittedState>(initialSwapQuoteCommittedState);
+
+export const {
   atom: swapManualSelectQuoteProvidersAtom,
   use: useSwapManualSelectQuoteProvidersAtom,
 } = contextAtom<ISwapQuoteSelectionIntent | undefined>(undefined);
@@ -376,8 +406,8 @@ export const {
 });
 
 export const {
-  atom: swapQuoteCurrentSelectAtom,
-  use: useSwapQuoteCurrentSelectAtom,
+  atom: swapQuoteStreamingCurrentSelectAtom,
+  use: useSwapQuoteStreamingCurrentSelectAtom,
 } = contextAtomComputed((get) => {
   const list = get(swapQuoteCurrentEventListAtom());
   const fromTokenAmount = get(swapFromTokenAmountAtom());
@@ -412,6 +442,55 @@ export const {
   });
 });
 
+export const {
+  atom: swapQuoteCurrentSelectAtom,
+  use: useSwapQuoteCurrentSelectAtom,
+} = contextAtomComputed((get) => {
+  const committedState = get(swapQuoteCommittedStateAtom());
+  if (committedState.intentFingerprint) {
+    const selectionIntent = get(swapManualSelectQuoteProvidersAtom());
+    const quote =
+      selectionIntent?.type === 'manual-provider'
+        ? committedState.settledQuotes.find(
+            (candidate) =>
+              buildSwapQuoteProviderKey(candidate) ===
+              buildSwapQuoteProviderKey(selectionIntent),
+          )
+        : committedState.executableQuote;
+    if (!isSwapQuoteCommittedSettledCandidate(committedState, quote)) {
+      return undefined;
+    }
+    const fromToken = get(swapSelectFromTokenAtom());
+    const toToken = get(swapSelectToTokenAtom());
+    const fromAmount = get(swapFromTokenAmountAtom());
+    const toAmount = get(swapToTokenAmountAtom());
+    const protocol = get(swapTypeSwitchAtom());
+    const expectedKind = getSwapQuoteKindForCurrentInput({
+      protocol,
+      toAmount,
+    });
+    const amountProjection = getSwapQuoteAmountProjection({
+      expectedKind,
+      fromAmount: fromAmount.value,
+      fromToken,
+      quote,
+      toAmount: toAmount.value,
+      toToken,
+    });
+    const protocolMatched =
+      (protocol === ESwapTabSwitchType.STOCK &&
+        quote.protocol === EProtocolOfExchange.STOCK) ||
+      (protocol === ESwapTabSwitchType.LIMIT &&
+        quote.protocol === EProtocolOfExchange.LIMIT) ||
+      (protocol !== ESwapTabSwitchType.STOCK &&
+        protocol !== ESwapTabSwitchType.LIMIT &&
+        quote.protocol !== EProtocolOfExchange.STOCK &&
+        quote.protocol !== EProtocolOfExchange.LIMIT);
+    return amountProjection && protocolMatched ? quote : undefined;
+  }
+  return get(swapQuoteStreamingCurrentSelectAtom());
+});
+
 export const { atom: swapTokenMetadataAtom, use: useSwapTokenMetadataAtom } =
   contextAtomComputed<{
     swapTokenMetadata?: ISwapTokenMetadata;
@@ -435,6 +514,11 @@ export const {
   'from': false,
   'to': false,
 });
+
+export const {
+  atom: swapTokenDetailRequestStateAtom,
+  use: useSwapTokenDetailRequestStateAtom,
+} = contextAtom<ISwapTokenDetailRequestState>({});
 
 export const {
   atom: swapSilenceQuoteLoading,
@@ -606,6 +690,11 @@ export const { atom: swapStepsAtom, use: useSwapStepsAtom } = contextAtom<{
   steps: [],
   preSwapData: {},
 });
+
+export const {
+  atom: swapReviewExecutionSnapshotAtom,
+  use: useSwapReviewExecutionSnapshotAtom,
+} = contextAtom<ISwapExecutionSnapshot | undefined>(undefined);
 
 export const {
   atom: swapStepNetFeeLevelAtom,
@@ -784,6 +873,11 @@ export const {
   atom: swapSpeedQuoteFetchingAtom,
   use: useSwapSpeedQuoteFetchingAtom,
 } = contextAtom<boolean>(false);
+
+export const { atom: swapSpeedQuoteSessionStateAtom } =
+  contextAtom<ISwapSpeedQuoteSessionState>(
+    SWAP_SPEED_QUOTE_SESSION_V2_INITIAL_STATE,
+  );
 
 export const {
   atom: swapSpeedQuoteResultAtom,

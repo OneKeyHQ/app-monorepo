@@ -5,6 +5,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteListAtom,
+  useSwapReviewExecutionSnapshotAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapStepNetFeeLevelAtom,
@@ -44,6 +45,8 @@ export function SwapReviewInitializer({
   const [, setSwapManualSelectQuoteProviders] =
     useSwapManualSelectQuoteProvidersAtom();
   const [, setSwapSteps] = useSwapStepsAtom();
+  const [, setSwapReviewExecutionSnapshot] =
+    useSwapReviewExecutionSnapshotAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setSwapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
 
@@ -69,6 +72,7 @@ export function SwapReviewInitializer({
       preSwapData: reviewState.preSwapData,
       quoteResult: reviewState.quoteResult,
     });
+    setSwapReviewExecutionSnapshot(reviewState.executionSnapshot);
     setSwapBuildTxFetching(false);
     setSwapStepNetFeeLevel({
       networkFeeLevel: defaultNetworkFeeLevel,
@@ -93,6 +97,7 @@ export function SwapReviewInitializer({
         steps: [],
         preSwapData: {},
       });
+      setSwapReviewExecutionSnapshot(undefined);
       setSwapBuildTxFetching(false);
       setSwapStepNetFeeLevel({
         networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
@@ -104,10 +109,12 @@ export function SwapReviewInitializer({
     reviewState.preSwapData,
     reviewState.quoteResult,
     reviewState.steps,
+    reviewState.executionSnapshot,
     setSwapBuildTxFetching,
     setSwapFromTokenAmount,
     setSwapManualSelectQuoteProviders,
     setSwapQuoteList,
+    setSwapReviewExecutionSnapshot,
     setSwapSelectFromToken,
     setSwapSelectToToken,
     setSwapStepNetFeeLevel,

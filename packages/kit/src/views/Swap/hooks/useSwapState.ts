@@ -49,6 +49,7 @@ import {
   useSwapLimitPriceUseRateAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
+  useSwapQuoteCommittedStateAtom,
   useSwapQuoteCurrentEventReceivedCountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventCompletedAtom,
@@ -234,6 +235,7 @@ export function useSwapQuoteProgressState() {
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
+  const [quoteCommittedState] = useSwapQuoteCommittedStateAtom();
   const [quoteList] = useSwapQuoteListAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -312,21 +314,32 @@ export function useSwapQuoteProgressState() {
     toTokenAmount.value,
   ]);
 
-  const previousQuote = useMemo(
-    () =>
-      selectSwapPreviousActionableQuote({
-        quotes: scopedPreviousQuoteList,
-        quoteEventTotalCount,
-        quoteLoading,
-        quoteEventFetching,
-      }),
-    [
-      quoteEventFetching,
+  const previousQuote = useMemo(() => {
+    // A post-settlement manual provider selection is the visible committed
+    // value even though the reducer's original display quote may still be the
+    // recommended provider. Prefer the validated settled selector so the
+    // synchronous start of a same-intent refresh cannot flash back to the
+    // previous recommended amount before requestStarted retains it.
+    if (quoteCurrentSelect) {
+      return quoteCurrentSelect;
+    }
+    if (quoteCommittedState.displayQuote) {
+      return quoteCommittedState.displayQuote;
+    }
+    return selectSwapPreviousActionableQuote({
+      quotes: scopedPreviousQuoteList,
       quoteEventTotalCount,
       quoteLoading,
-      scopedPreviousQuoteList,
-    ],
-  );
+      quoteEventFetching,
+    });
+  }, [
+    quoteCommittedState.displayQuote,
+    quoteCurrentSelect,
+    quoteEventFetching,
+    quoteEventTotalCount,
+    quoteLoading,
+    scopedPreviousQuoteList,
+  ]);
 
   return useMemo(
     () =>

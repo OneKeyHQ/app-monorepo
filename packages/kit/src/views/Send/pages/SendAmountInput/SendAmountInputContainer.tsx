@@ -87,6 +87,7 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   openFiatCryptoUrl,
@@ -109,13 +110,13 @@ import {
 import type {
   IFetchQuoteInfo,
   IFetchQuoteResult,
-  IFetchQuotesParams,
-  ISwapQuoteEvent,
+  IFetchSwapQuoteParams,
   ISwapQuoteEventAutoSlippage,
-  ISwapQuoteEventData,
   ISwapQuoteEventError,
   ISwapQuoteEventInfo,
   ISwapQuoteEventQuoteResult,
+  ISwapQuoteSessionEventV2,
+  ISwapQuoteSessionIdentity,
   ISwapToken,
   ISwapTxHistory,
   ISwapTxInfo,
@@ -147,6 +148,15 @@ import {
   type ISiblingDeriveBalance,
   useSiblingDeriveBalances,
 } from './hooks/useSiblingDeriveBalances';
+import {
+  type IPrivateSendQuoteSessionState,
+  acceptPrivateSendQuoteSessionEvent,
+  acceptPrivateSendQuoteSessionStartResult,
+  buildPrivateSendQuoteCancelParams,
+  buildPrivateSendQuoteSurfaceId,
+  createPrivateSendQuoteSessionState,
+  parsePrivateSendQuoteEventDataSafe,
+} from './privateSendQuoteSession';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -219,14 +229,6 @@ type IPrivateSendBuildCtx = {
   payinAddress?: unknown;
 };
 
-type IPrivateSendQuoteEvent = {
-  type: 'message' | 'done' | 'error' | 'close' | 'open';
-  event: ISwapQuoteEvent;
-  params: IFetchQuotesParams;
-  accountId?: string;
-  tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-};
-
 type IPrivateSendQuoteEventRequest = {
   fromToken: ISwapToken;
   toToken: ISwapToken;
@@ -241,18 +243,11 @@ type IPrivateSendQuoteEventsResult = {
   quoteError?: string;
 };
 
-let privateSendQuoteEventsSessionId = 0;
-let stopPrivateSendQuoteEventsSession: (() => void) | undefined;
-
-async function cancelPrivateSendQuoteEvents() {
-  const stopSession = stopPrivateSendQuoteEventsSession;
-  if (!stopSession) return;
-
-  privateSendQuoteEventsSessionId += 1;
-  stopPrivateSendQuoteEventsSession = undefined;
-  stopSession();
-  await backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
-}
+type IPrivateSendQuoteEventsHandle = {
+  session: ISwapQuoteSessionIdentity;
+  promise: Promise<IPrivateSendQuoteEventsResult>;
+  cancel: () => void;
+};
 
 const privateSendValueDropWarningPercent = 5;
 const privateSendValueDropCountdownSeconds = 5;
@@ -448,7 +443,7 @@ function isPrivateSendQuoteEventMatched({
   event,
   request,
 }: {
-  event: IPrivateSendQuoteEvent;
+  event: ISwapQuoteSessionEventV2;
   request: IPrivateSendQuoteEventRequest;
 }) {
   return (
@@ -469,16 +464,20 @@ function isPrivateSendQuoteEventMatched({
   );
 }
 
-function parsePrivateSendQuoteEventData(event: ISwapQuoteEvent) {
-  const data = (event as { data?: unknown }).data;
-  if (typeof data !== 'string' || !data) {
-    return undefined;
-  }
-  try {
-    return JSON.parse(data) as ISwapQuoteEventData;
-  } catch {
-    return undefined;
-  }
+function buildPrivateSendQuoteRequest(
+  request: IPrivateSendQuoteEventRequest,
+): IFetchSwapQuoteParams {
+  return {
+    fromToken: request.fromToken,
+    toToken: request.toToken,
+    fromTokenAmount: request.fromTokenAmount,
+    userAddress: request.userAddress,
+    receivingAddress: request.receivingAddress,
+    slippagePercentage: swapSlippageAutoValue,
+    protocol: ESwapTabSwitchType.PRIVATE_SEND,
+    kind: ESwapQuoteKind.SELL,
+    accountId: request.accountId,
+  };
 }
 
 function applyPrivateSendAutoSlippage({
@@ -587,38 +586,34 @@ function mergePrivateSendQuoteEventResults({
   });
 }
 
-async function fetchPrivateSendQuotesEvents({
+function fetchPrivateSendQuotesEvents({
+  quoteRequest,
   request,
   quoteError,
+  sessionState: initialSessionState,
 }: {
+  quoteRequest: IFetchSwapQuoteParams;
   request: IPrivateSendQuoteEventRequest;
   quoteError: string;
-}): Promise<IPrivateSendQuoteEventsResult> {
-  await cancelPrivateSendQuoteEvents();
-
-  privateSendQuoteEventsSessionId += 1;
-  const sessionId = privateSendQuoteEventsSessionId;
-
-  await backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
-
-  return new Promise<IPrivateSendQuoteEventsResult>((resolve) => {
+  sessionState: IPrivateSendQuoteSessionState;
+}): IPrivateSendQuoteEventsHandle {
+  let cancel = () => {};
+  const promise = new Promise<IPrivateSendQuoteEventsResult>((resolve) => {
     let settled = false;
     let quotes: IFetchQuoteResult[] = [];
     let eventId: string | undefined;
     let totalQuoteCount: number | undefined;
     let autoSlippage: ISwapQuoteEventAutoSlippage | undefined;
-    let cleanup = (_cancelEventSource: boolean) => {};
-
-    const isCurrentSession = () =>
-      privateSendQuoteEventsSessionId === sessionId;
+    let sessionState = initialSessionState;
+    let cleanup = (_cancelRequest: boolean) => {};
 
     const settle = (
       result: IPrivateSendQuoteEventsResult,
-      options?: { cancelEventSource?: boolean },
+      options?: { cancelRequest?: boolean },
     ) => {
       if (settled) return;
       settled = true;
-      cleanup((options?.cancelEventSource ?? true) && isCurrentSession());
+      cleanup(options?.cancelRequest ?? true);
       resolve(result);
     };
 
@@ -629,16 +624,19 @@ async function fetchPrivateSendQuotesEvents({
       return true;
     };
 
-    const quoteEventHandler = (event: IPrivateSendQuoteEvent) => {
-      if (!isCurrentSession()) {
+    const quoteEventHandler = (event: ISwapQuoteSessionEventV2) => {
+      const transition = acceptPrivateSendQuoteSessionEvent({
+        event,
+        paramsMatched: isPrivateSendQuoteEventMatched({ event, request }),
+        state: sessionState,
+      });
+      if (!transition.accepted) {
         return;
       }
-      if (!isPrivateSendQuoteEventMatched({ event, request })) {
-        return;
-      }
+      sessionState = transition.state;
 
-      if (event.type === 'message') {
-        const data = parsePrivateSendQuoteEventData(event.event);
+      if (event.kind === 'message') {
+        const data = parsePrivateSendQuoteEventDataSafe(event.data);
         if (!data) return;
 
         const errorData = data as ISwapQuoteEventError;
@@ -695,53 +693,71 @@ async function fetchPrivateSendQuotesEvents({
         return;
       }
 
-      if (event.type === 'done' || event.type === 'close') {
-        settle({ quotes });
+      if (event.kind === 'done') {
+        settle({ quotes }, { cancelRequest: false });
         return;
       }
 
-      if (event.type === 'error') {
-        settle(quotes.length ? { quotes } : { quotes, quoteError });
+      if (event.kind === 'transportError') {
+        const transportError = event.error.message ?? quoteError;
+        settle(
+          quotes.length ? { quotes } : { quotes, quoteError: transportError },
+          { cancelRequest: false },
+        );
+        return;
+      }
+
+      if (event.kind === 'cancelled') {
+        settle({ quotes }, { cancelRequest: false });
       }
     };
 
     const timeoutId = setTimeout(() => {
       settle(quotes.length ? { quotes } : { quotes, quoteError });
     }, swapQuoteFetchInterval);
-    const stopCurrentSession = () => {
-      settle({ quotes: [] }, { cancelEventSource: false });
-    };
-    cleanup = (cancelEventSource: boolean) => {
+    cleanup = (cancelRequest: boolean) => {
       clearTimeout(timeoutId);
-      appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-      if (stopPrivateSendQuoteEventsSession === stopCurrentSession) {
-        stopPrivateSendQuoteEventsSession = undefined;
-      }
-      if (cancelEventSource) {
-        void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
+      appEventBus.off(EAppEventBusNames.SwapQuoteEventV2, quoteEventHandler);
+      if (cancelRequest) {
+        void backgroundApiProxy.serviceSwap.cancelFetchQuoteEventsV2(
+          buildPrivateSendQuoteCancelParams(initialSessionState.session),
+        );
       }
     };
-    stopPrivateSendQuoteEventsSession = stopCurrentSession;
+    cancel = () => {
+      settle({ quotes: [] });
+    };
 
-    appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-    appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    appEventBus.on(EAppEventBusNames.SwapQuoteEventV2, quoteEventHandler);
 
     void backgroundApiProxy.serviceSwap
-      .fetchQuotesEvents({
-        fromToken: request.fromToken,
-        toToken: request.toToken,
-        fromTokenAmount: request.fromTokenAmount,
-        userAddress: request.userAddress,
-        receivingAddress: request.receivingAddress,
-        slippagePercentage: swapSlippageAutoValue,
-        protocol: ESwapTabSwitchType.PRIVATE_SEND,
-        kind: ESwapQuoteKind.SELL,
-        accountId: request.accountId,
+      .fetchQuotesEventsV2({
+        session: initialSessionState.session,
+        request: quoteRequest,
+      })
+      .then((result) => {
+        const transition = acceptPrivateSendQuoteSessionStartResult({
+          result,
+          state: sessionState,
+        });
+        if (!transition.accepted) {
+          return;
+        }
+        sessionState = transition.state;
+        if (!result.accepted) {
+          settle({ quotes: [], quoteError }, { cancelRequest: false });
+        }
       })
       .catch(() => {
         settle({ quotes: [], quoteError });
       });
   });
+
+  return {
+    session: initialSessionState.session,
+    promise,
+    cancel: () => cancel(),
+  };
 }
 
 function PrivateSendValueDropWarningContent({
@@ -803,6 +819,26 @@ function SendAmountInputContainer() {
   const intl = useIntl();
   const media = useMedia();
   const isRouteFocused = useRouteIsFocused();
+  const privateSendQuoteSurfaceIdRef = useRef<string | undefined>(undefined);
+  const privateSendQuoteSurfaceId =
+    privateSendQuoteSurfaceIdRef.current ??
+    buildPrivateSendQuoteSurfaceId({
+      nodeId: appEventBus.nodeId,
+      componentInstanceId: generateUUID(),
+    });
+  privateSendQuoteSurfaceIdRef.current = privateSendQuoteSurfaceId;
+  const privateSendQuoteIntentRevisionRef = useRef(0);
+  const privateSendActiveQuoteRequestRef = useRef<
+    IPrivateSendQuoteEventsHandle | undefined
+  >(undefined);
+  const cancelPrivateSendQuoteEvents = useCallback(() => {
+    const activeRequest = privateSendActiveQuoteRequestRef.current;
+    if (!activeRequest) {
+      return;
+    }
+    privateSendActiveQuoteRequestRef.current = undefined;
+    activeRequest.cancel();
+  }, []);
 
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1401,19 +1437,38 @@ function SendAmountInputContainer() {
       }
       const scopeKey = privateSendQuoteRequestKey;
       try {
-        const { quotes, quoteError } = await fetchPrivateSendQuotesEvents({
-          request: {
-            fromToken: privateSendToken,
-            toToken: privateSendToken,
-            fromTokenAmount: amountBN.toFixed(),
-            userAddress: account.address,
-            receivingAddress: privateSendQuoteRecipientAddress,
-            accountId: currentAccountId,
-          },
+        cancelPrivateSendQuoteEvents();
+        const request: IPrivateSendQuoteEventRequest = {
+          fromToken: privateSendToken,
+          toToken: privateSendToken,
+          fromTokenAmount: amountBN.toFixed(),
+          userAddress: account.address,
+          receivingAddress: privateSendQuoteRecipientAddress,
+          accountId: currentAccountId,
+        };
+        const quoteRequest = buildPrivateSendQuoteRequest(request);
+        privateSendQuoteIntentRevisionRef.current += 1;
+        const sessionState = createPrivateSendQuoteSessionState({
+          surfaceId: privateSendQuoteSurfaceId,
+          intentRevision: privateSendQuoteIntentRevisionRef.current,
+          request: quoteRequest,
+        });
+        const quoteRequestHandle = fetchPrivateSendQuotesEvents({
+          request,
+          quoteRequest,
           quoteError: intl.formatMessage({
             id: ETranslations.global_network_error,
           }),
+          sessionState,
         });
+        privateSendActiveQuoteRequestRef.current = quoteRequestHandle;
+        const { quotes, quoteError } = await quoteRequestHandle.promise;
+        if (
+          privateSendActiveQuoteRequestRef.current?.session.requestId ===
+          quoteRequestHandle.session.requestId
+        ) {
+          privateSendActiveQuoteRequestRef.current = undefined;
+        }
         if (quoteError) {
           return {
             selectedQuote: undefined,
@@ -1446,11 +1501,13 @@ function SendAmountInputContainer() {
     [
       account?.address,
       currentAccountId,
+      cancelPrivateSendQuoteEvents,
       isPrivateSendSupported,
       privateSendAmount,
       privateSendToken,
       privateSendQuoteRequestKey,
       privateSendQuoteRecipientAddress,
+      privateSendQuoteSurfaceId,
       sendMode,
       intl,
     ],
@@ -1463,7 +1520,7 @@ function SendAmountInputContainer() {
     return () => {
       void cancelPrivateSendQuoteEvents();
     };
-  }, [canFetchPrivateSendQuote]);
+  }, [canFetchPrivateSendQuote, cancelPrivateSendQuoteEvents]);
   const isPrivateSendQuoteScopeMatched =
     !!privateSendQuoteResult &&
     privateSendQuoteResult.scopeKey === privateSendQuoteRequestKey;

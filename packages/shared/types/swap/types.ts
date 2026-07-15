@@ -297,6 +297,93 @@ export type ISwapQuoteEvent =
   | IEventSourceCloseEvent
   | IEventSourceOpenEvent;
 
+export interface ISwapQuoteSessionIdentity {
+  surfaceId: string;
+  requestId: string;
+  fingerprint: string;
+  intentRevision: number;
+}
+
+export interface IFetchSwapQuoteEventsV2Params {
+  session: ISwapQuoteSessionIdentity;
+  request: IFetchSwapQuoteParams;
+}
+
+export interface ICancelSwapQuoteEventsV2Params {
+  surfaceId: string;
+  requestId: string;
+}
+
+export interface ISwapQuoteSessionStartResult {
+  accepted: boolean;
+  session: ISwapQuoteSessionIdentity;
+  bgGeneration: number;
+}
+
+export interface ISwapQuoteSessionTransportErrorV2 {
+  message?: string;
+  xhrState?: number;
+  xhrStatus?: number;
+}
+
+interface ISwapQuoteSessionEventBaseV2 {
+  version: 2;
+  session: ISwapQuoteSessionIdentity;
+  bgGeneration: number;
+  sequence: number;
+  emittedAt: number;
+  params: IFetchQuotesParams;
+  accountId?: string;
+  tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
+}
+
+export type ISwapQuoteSessionEventV2 = ISwapQuoteSessionEventBaseV2 &
+  (
+    | { kind: 'open' }
+    | {
+        kind: 'message';
+        data: string | null;
+        lastEventId: string | null;
+      }
+    | { kind: 'done' }
+    | {
+        kind: 'transportError';
+        error: ISwapQuoteSessionTransportErrorV2;
+      }
+    | { kind: 'cancelled' }
+  );
+
+export interface ISwapSpeedQuoteSessionIdentity {
+  surfaceId: string;
+  requestId: string;
+  intentRevision: number;
+}
+
+export interface IFetchSpeedSwapQuoteV2Params {
+  session: ISwapSpeedQuoteSessionIdentity;
+  request: IFetchSwapQuoteParams;
+}
+
+export interface ICancelFetchSpeedSwapQuoteV2Params {
+  surfaceId: string;
+  requestId: string;
+}
+
+interface IFetchSpeedSwapQuoteV2ResultBase {
+  session: ISwapSpeedQuoteSessionIdentity;
+  bgGeneration: number;
+}
+
+export type IFetchSpeedSwapQuoteV2Result =
+  | (IFetchSpeedSwapQuoteV2ResultBase & {
+      accepted: true;
+      quotes: IFetchQuoteResult[];
+    })
+  | (IFetchSpeedSwapQuoteV2ResultBase & {
+      accepted: false;
+      quotes?: never;
+    });
+
 export enum ESwapApproveTransactionStatus {
   PENDING = 'pending',
   SUCCESS = 'success',

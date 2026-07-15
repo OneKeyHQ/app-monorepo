@@ -1,4 +1,9 @@
+import { sha256 as sha256ByNoble } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
+import { cloneDeep } from 'lodash';
+
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types';
 import type {
   ESwapTabSwitchType,
@@ -10,12 +15,21 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapBatchTransferType,
+  ESwapQuoteKind,
   ESwapStepStatus,
   ESwapStepType,
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { buildSwapRateDifference } from './swapRateDifferenceUtils';
+
+import type {
+  ESwapExecutionRecipientMode,
+  ISwapExecutionLimitSettings,
+  ISwapExecutionSnapshot,
+  ISwapReviewProvenance,
+  ISwapReviewState,
+} from './swapReviewState';
 
 export type ISwapReviewStepTexts = {
   wrap: string;
@@ -221,8 +235,231 @@ export type IBuildSwapReviewStateInput = {
   rateDifference?: ISwapPreSwapData['rateDifference'];
   defaultTokenCurrency?: string;
   currencyMap?: Record<string, ICurrencyItem>;
+  quoteRequestId?: string;
+  quoteIntentRevision?: number;
+  quoteCommittedAt?: number;
+  executionContext?: IBuildSwapExecutionContext;
   texts: ISwapReviewStepTexts;
 };
+
+export type IBuildSwapExecutionContext = {
+  reviewRevision: string;
+  senderAddress?: string;
+  receivingAddress?: string;
+  receivingAccountId?: string;
+  recipientMode: ESwapExecutionRecipientMode;
+  indexedAccountId?: string;
+  dbAccountId?: string;
+  walletId?: string;
+  walletType?: string;
+  deriveType?: string;
+  addressEncoding?: string;
+  limitSettings: ISwapExecutionLimitSettings;
+};
+
+function buildSwapReviewTokenIdentity(
+  token:
+    | Pick<ISwapToken, 'networkId' | 'contractAddress' | 'isNative'>
+    | undefined,
+) {
+  if (!token) {
+    return undefined;
+  }
+
+  return {
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+    isNative: Boolean(token.isNative),
+  };
+}
+
+function encodeUtf8(value: string) {
+  const encoded = encodeURIComponent(value);
+  const bytes: number[] = [];
+  for (let index = 0; index < encoded.length; index += 1) {
+    if (encoded[index] === '%') {
+      bytes.push(Number.parseInt(encoded.slice(index + 1, index + 3), 16));
+      index += 2;
+    } else {
+      bytes.push(encoded.charCodeAt(index));
+    }
+  }
+  return Uint8Array.from(bytes);
+}
+
+function deepFreezeSnapshotValue<T>(value: T, seen = new WeakSet<object>()): T {
+  if (value === null || typeof value !== 'object') {
+    return value;
+  }
+  if (ArrayBuffer.isView(value) || seen.has(value)) {
+    return value;
+  }
+
+  seen.add(value);
+  Object.values(value).forEach((child) => {
+    deepFreezeSnapshotValue(child, seen);
+  });
+  return Object.freeze(value);
+}
+
+export function buildSwapReviewExecutionFingerprint({
+  accountId,
+  networkId,
+  batchApproveAndSwapEnabled,
+  fromToken,
+  toToken,
+  fromTokenAmount,
+  toTokenAmount,
+  quoteResult,
+  swapType,
+  shouldFallback,
+  supportPreBuild,
+  slippage,
+  executionContext,
+}: Omit<
+  IBuildSwapReviewStateInput,
+  | 'texts'
+  | 'rateDifference'
+  | 'defaultTokenCurrency'
+  | 'currencyMap'
+  | 'quoteRequestId'
+  | 'quoteIntentRevision'
+  | 'quoteCommittedAt'
+>) {
+  const serialized = stableStringify({
+    accountId,
+    networkId,
+    swapType,
+    fromToken: buildSwapReviewTokenIdentity(
+      fromToken ?? quoteResult?.fromTokenInfo,
+    ),
+    toToken: buildSwapReviewTokenIdentity(toToken ?? quoteResult?.toTokenInfo),
+    inputFromAmount: fromTokenAmount,
+    inputToAmount: toTokenAmount,
+    quote: quoteResult
+      ? {
+          quoteId: quoteResult.quoteId,
+          eventId: quoteResult.eventId,
+          protocol: quoteResult.protocol,
+          kind: quoteResult.kind,
+          provider: quoteResult.info.provider,
+          providerName: quoteResult.info.providerName,
+          fromAmount: quoteResult.fromAmount,
+          toAmount: quoteResult.toAmount,
+          minToAmount: quoteResult.minToAmount,
+          expirationTime: quoteResult.expirationTime,
+          isWrapped: Boolean(quoteResult.isWrapped),
+          allowanceTarget: quoteResult.allowanceResult?.allowanceTarget,
+          allowanceAmount: quoteResult.allowanceResult?.amount,
+          shouldResetApprove: quoteResult.allowanceResult?.shouldResetApprove,
+          shouldSign: Boolean(quoteResult.swapShouldSignedData),
+          providerDisableBatchTransfer:
+            quoteResult.providerDisableBatchTransfer,
+        }
+      : undefined,
+    slippage,
+    shouldFallback: Boolean(shouldFallback),
+    supportPreBuild,
+    batchApproveAndSwapEnabled: Boolean(batchApproveAndSwapEnabled),
+    executionIdentity: executionContext
+      ? {
+          senderAddress: executionContext.senderAddress,
+          receivingAddress: executionContext.receivingAddress,
+          receivingAccountId: executionContext.receivingAccountId,
+          recipientMode: executionContext.recipientMode,
+          indexedAccountId: executionContext.indexedAccountId,
+          dbAccountId: executionContext.dbAccountId,
+          walletId: executionContext.walletId,
+          walletType: executionContext.walletType,
+          deriveType: executionContext.deriveType,
+          addressEncoding: executionContext.addressEncoding,
+          limitSettings: executionContext.limitSettings,
+        }
+      : undefined,
+  });
+
+  return bytesToHex(sha256ByNoble(encodeUtf8(serialized)));
+}
+
+export function buildSwapExecutionSnapshot({
+  accountId,
+  networkId,
+  fromToken,
+  toToken,
+  fromTokenAmount,
+  toTokenAmount,
+  quoteResult,
+  swapType,
+  slippage,
+  executionContext,
+  provenance,
+}: Pick<
+  IBuildSwapReviewStateInput,
+  | 'accountId'
+  | 'networkId'
+  | 'fromToken'
+  | 'toToken'
+  | 'fromTokenAmount'
+  | 'toTokenAmount'
+  | 'quoteResult'
+  | 'swapType'
+  | 'slippage'
+  | 'executionContext'
+> & {
+  provenance: ISwapReviewProvenance;
+}): ISwapExecutionSnapshot | undefined {
+  const snapshotFromToken = fromToken ?? quoteResult?.fromTokenInfo;
+  const snapshotToToken = toToken ?? quoteResult?.toTokenInfo;
+  const snapshotFromAmount = quoteResult?.fromAmount ?? fromTokenAmount;
+  const snapshotToAmount = quoteResult?.toAmount ?? toTokenAmount;
+
+  if (
+    !executionContext ||
+    !accountId ||
+    !networkId ||
+    !executionContext.senderAddress ||
+    !executionContext.receivingAddress ||
+    !snapshotFromToken ||
+    !snapshotToToken ||
+    !snapshotFromAmount ||
+    !snapshotToAmount ||
+    !quoteResult ||
+    slippage === undefined
+  ) {
+    return undefined;
+  }
+
+  const snapshot: ISwapExecutionSnapshot = {
+    reviewRevision: executionContext.reviewRevision,
+    accountId,
+    indexedAccountId: executionContext.indexedAccountId,
+    dbAccountId: executionContext.dbAccountId,
+    networkId,
+    senderAddress: executionContext.senderAddress,
+    receivingAccountId: executionContext.receivingAccountId,
+    receivingAddress: executionContext.receivingAddress,
+    recipientMode: executionContext.recipientMode,
+    walletId: executionContext.walletId,
+    walletType: executionContext.walletType,
+    deriveType: executionContext.deriveType,
+    addressEncoding: executionContext.addressEncoding,
+    swapType,
+    kind: quoteResult.kind ?? ESwapQuoteKind.SELL,
+    fromToken: cloneDeep(snapshotFromToken),
+    toToken: cloneDeep(snapshotToToken),
+    fromTokenAmount: snapshotFromAmount,
+    toTokenAmount: snapshotToAmount,
+    provider: quoteResult.info.provider,
+    slippage:
+      quoteResult.protocol === EProtocolOfExchange.STOCK
+        ? (quoteResult.slippage ?? slippage)
+        : slippage,
+    quoteResult: cloneDeep(quoteResult),
+    limitSettings: { ...executionContext.limitSettings },
+    provenance,
+  };
+  return deepFreezeSnapshotValue(snapshot);
+}
 
 export function buildSwapReviewState({
   accountId,
@@ -240,12 +477,14 @@ export function buildSwapReviewState({
   rateDifference,
   defaultTokenCurrency,
   currencyMap,
+  quoteRequestId,
+  quoteIntentRevision,
+  quoteCommittedAt,
+  executionContext,
   texts,
-}: IBuildSwapReviewStateInput): {
+}: IBuildSwapReviewStateInput): ISwapReviewState & {
   batchTransferType: ESwapBatchTransferType;
-  steps: ISwapStep[];
-  preSwapData: ISwapPreSwapData;
-  quoteResult?: IFetchQuoteResult;
+  provenance: ISwapReviewProvenance;
 } {
   const needApprove = Boolean(quoteResult?.allowanceResult);
   const batchTransferType = buildSwapBatchTransferType({
@@ -362,11 +601,46 @@ export function buildSwapReviewState({
         }
       : {}),
   };
+  const provenance = Object.freeze({
+    executionFingerprint: buildSwapReviewExecutionFingerprint({
+      accountId,
+      networkId,
+      batchApproveAndSwapEnabled,
+      fromToken,
+      toToken,
+      fromTokenAmount,
+      toTokenAmount,
+      quoteResult,
+      swapType,
+      shouldFallback,
+      supportPreBuild,
+      slippage,
+      executionContext,
+    }),
+    quoteRequestId,
+    quoteIntentRevision,
+    quoteCommittedAt,
+  });
+  const executionSnapshot = buildSwapExecutionSnapshot({
+    accountId,
+    networkId,
+    fromToken,
+    toToken,
+    fromTokenAmount,
+    toTokenAmount,
+    quoteResult,
+    swapType,
+    slippage,
+    executionContext,
+    provenance,
+  });
 
   return {
     batchTransferType,
     steps,
     preSwapData,
     quoteResult,
+    provenance,
+    executionSnapshot,
   };
 }

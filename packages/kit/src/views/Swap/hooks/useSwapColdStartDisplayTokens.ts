@@ -277,41 +277,66 @@ export function getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
   return undefined;
 }
 
-function hasDisplayToken(tokens: IDisplayTokens) {
-  return Boolean(tokens.fromToken?.symbol || tokens.toToken?.symbol);
+function hasCompleteDisplayTokenPair(
+  tokens: IDisplayTokens,
+): tokens is Required<IDisplayTokens> {
+  return Boolean(tokens.fromToken?.symbol && tokens.toToken?.symbol);
+}
+
+export function getSwapDisplayTokenPair({
+  coldStartTokens,
+  defaultTokens,
+  fromToken,
+  initialSelectedTokensSynced,
+  toToken,
+}: {
+  coldStartTokens: IDisplayTokens;
+  defaultTokens?: IDisplayTokens;
+  fromToken?: ISwapToken;
+  initialSelectedTokensSynced: boolean;
+  toToken?: ISwapToken;
+}): IDisplayTokens {
+  if (!initialSelectedTokensSynced) {
+    if (hasCompleteDisplayTokenPair(coldStartTokens)) {
+      return coldStartTokens;
+    }
+    if (defaultTokens && hasCompleteDisplayTokenPair(defaultTokens)) {
+      return defaultTokens;
+    }
+    return {};
+  }
+
+  // Live selections are one candidate. Returning them together avoids mixing
+  // one hydrated side with the other side of a boot seed during reconciliation.
+  if (fromToken || toToken) {
+    return { fromToken, toToken };
+  }
+  if (defaultTokens && hasCompleteDisplayTokenPair(defaultTokens)) {
+    return defaultTokens;
+  }
+  return {};
 }
 
 export function getSwapColdStartDisplayTokensFromGlobalSnapshot() {
-  const displayTokens: {
-    fromToken?: ISwapToken;
-    toToken?: ISwapToken;
-  } = {};
-
   for (const snapshot of getColdStartSnapshotCandidatesFromGlobal()) {
     const normalizedTokens =
       getSwapColdStartSelectedTokensFromSnapshot<ISwapToken>(snapshot);
     const rawTokens = getRawSwapSelectedTokensFromSnapshot(snapshot);
     const defaultTokens =
       getDefaultSwapSelectedTokensFromHomeSnapshot(snapshot);
-    let candidateTokens: IDisplayTokens = defaultTokens;
-    if (hasDisplayToken(normalizedTokens)) {
-      candidateTokens = normalizedTokens;
-    } else if (hasDisplayToken(rawTokens)) {
-      candidateTokens = rawTokens;
-    }
 
-    if (!displayTokens.fromToken && candidateTokens.fromToken?.symbol) {
-      displayTokens.fromToken = candidateTokens.fromToken;
-    }
-    if (!displayTokens.toToken && candidateTokens.toToken?.symbol) {
-      displayTokens.toToken = candidateTokens.toToken;
-    }
-    if (displayTokens.fromToken && displayTokens.toToken) {
-      break;
+    for (const candidateTokens of [
+      normalizedTokens,
+      rawTokens,
+      defaultTokens,
+    ]) {
+      if (hasCompleteDisplayTokenPair(candidateTokens)) {
+        return candidateTokens;
+      }
     }
   }
 
-  return displayTokens;
+  return {};
 }
 
 export function useSwapColdStartDisplayTokens({
@@ -325,33 +350,12 @@ export function useSwapColdStartDisplayTokens({
   swapType?: ESwapTabSwitchType;
   toToken?: ISwapToken;
 }) {
-  const hasResolvedFromTokenRef = useRef(Boolean(fromToken?.symbol));
-  const hasResolvedToTokenRef = useRef(Boolean(toToken?.symbol));
   const coldStartDisplayTokensRef = useRef<
     | ReturnType<typeof getSwapColdStartDisplayTokensFromGlobalSnapshot>
     | undefined
   >(undefined);
 
-  if (fromToken?.symbol) {
-    hasResolvedFromTokenRef.current = true;
-  }
-  if (toToken?.symbol) {
-    hasResolvedToTokenRef.current = true;
-  }
-  if (initialSelectedTokensSynced) {
-    hasResolvedFromTokenRef.current = true;
-    hasResolvedToTokenRef.current = true;
-  }
-
-  if (
-    !coldStartDisplayTokensRef.current ||
-    (!fromToken?.symbol &&
-      !hasResolvedFromTokenRef.current &&
-      !coldStartDisplayTokensRef.current.fromToken) ||
-    (!toToken?.symbol &&
-      !hasResolvedToTokenRef.current &&
-      !coldStartDisplayTokensRef.current.toToken)
-  ) {
+  if (!coldStartDisplayTokensRef.current) {
     coldStartDisplayTokensRef.current =
       getSwapColdStartDisplayTokensFromGlobalSnapshot();
   }
@@ -360,25 +364,21 @@ export function useSwapColdStartDisplayTokens({
     swapType === ESwapTabSwitchType.LIMIT
       ? buildSwapDefaultLimitSelectedTokens()
       : undefined;
-
+  const displayPair = getSwapDisplayTokenPair({
+    coldStartTokens: coldStartDisplayTokens,
+    defaultTokens: defaultDisplayTokens,
+    fromToken,
+    initialSelectedTokensSynced,
+    toToken,
+  });
   const displayTokens = {
-    displayFromToken:
-      (fromToken?.symbol ? fromToken : undefined) ||
-      (!fromToken?.symbol ? defaultDisplayTokens?.fromToken : undefined) ||
-      (hasResolvedFromTokenRef.current
-        ? undefined
-        : coldStartDisplayTokens.fromToken),
-    displayToToken:
-      (toToken?.symbol ? toToken : undefined) ||
-      (!toToken?.symbol ? defaultDisplayTokens?.toToken : undefined) ||
-      (hasResolvedToTokenRef.current
-        ? undefined
-        : coldStartDisplayTokens.toToken),
+    displayFromToken: displayPair.fromToken,
+    displayToToken: displayPair.toToken,
   };
   const isInitialFromTokenSelectionPending =
-    !hasResolvedFromTokenRef.current && !displayTokens.displayFromToken?.symbol;
+    !initialSelectedTokensSynced && !displayTokens.displayFromToken?.symbol;
   const isInitialToTokenSelectionPending =
-    !hasResolvedToTokenRef.current && !displayTokens.displayToToken?.symbol;
+    !initialSelectedTokensSynced && !displayTokens.displayToToken?.symbol;
 
   return {
     ...displayTokens,

@@ -376,7 +376,7 @@ const SwapHeaderContainer = ({
         <SwapHeaderRightActionContainer
           pageType={pageType}
           marketPresetSettings={marketPresetSettings}
-          compact={isCompactLayout && !useDesktopModalHeaderActions}
+          compact={isCompactLayout ? !useDesktopModalHeaderActions : undefined}
         />
       ) : null}
     </XStack>

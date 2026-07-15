@@ -84,6 +84,7 @@ export enum EAppEventBusNames {
   SidePanel_BgToUI = 'SidePanel_BgToUI',
   SidePanel_UIToBg = 'SidePanel_UIToBg',
   SwapQuoteEvent = 'SwapQuoteEvent',
+  SwapQuoteEventV2 = 'SwapQuoteEventV2',
   ShowSystemDiskFullWarning = 'ShowSystemDiskFullWarning',
   ShowLinuxBundleUdevGuide = 'ShowLinuxBundleUdevGuide',
   SwapTxHistoryStatusUpdate = 'SwapTxHistoryStatusUpdate',

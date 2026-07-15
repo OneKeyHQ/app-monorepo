@@ -2,11 +2,14 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   ESwapNetworkFeeLevel,
+  ESwapQuoteKind,
+  ESwapTabSwitchType,
   IFetchQuoteResult,
   ISwapApproveTransaction,
   ISwapGasInfo,
   ISwapPreSwapData,
   ISwapStep,
+  ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 export type ISwapReviewGasInfoEntry = {
@@ -18,7 +21,62 @@ export type ISwapReviewState = {
   steps: ISwapStep[];
   preSwapData: ISwapPreSwapData;
   quoteResult?: IFetchQuoteResult;
+  provenance?: ISwapReviewProvenance;
+  executionSnapshot?: ISwapExecutionSnapshot;
 };
+
+export type ISwapReviewProvenance = Readonly<{
+  executionFingerprint: string;
+  quoteRequestId?: string;
+  quoteIntentRevision?: number;
+  quoteCommittedAt?: number;
+}>;
+
+export enum ESwapExecutionRecipientMode {
+  Self = 'self',
+  Account = 'account',
+  Custom = 'custom',
+}
+
+export type ISwapExecutionLimitSettings = Readonly<{
+  expirationTime: string;
+  rate?: string;
+  priceFromAmount: string;
+  priceToAmount: string;
+  partiallyFillable: boolean;
+}>;
+
+/**
+ * Immutable execution inputs captured when the user opens Review. The build,
+ * estimate, sign, and send pipeline must use this snapshot instead of mutable
+ * Swap page atoms. It is optional only for legacy review adapters.
+ */
+export type ISwapExecutionSnapshot = Readonly<{
+  reviewRevision: string;
+  accountId: string;
+  indexedAccountId?: string;
+  dbAccountId?: string;
+  networkId: string;
+  senderAddress: string;
+  receivingAccountId?: string;
+  receivingAddress: string;
+  recipientMode: ESwapExecutionRecipientMode;
+  walletId?: string;
+  walletType?: string;
+  deriveType?: string;
+  addressEncoding?: string;
+  swapType: ESwapTabSwitchType;
+  kind: ESwapQuoteKind;
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  fromTokenAmount: string;
+  toTokenAmount: string;
+  provider: string;
+  slippage: number;
+  quoteResult: IFetchQuoteResult;
+  limitSettings: ISwapExecutionLimitSettings;
+  provenance: ISwapReviewProvenance;
+}>;
 
 export type ISwapReviewBroadcastResult = {
   txHash?: string;

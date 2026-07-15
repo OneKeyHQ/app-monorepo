@@ -18,6 +18,14 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import {
+  SWAP_SPEED_QUOTE_SESSION_V2_INITIAL_STATE,
+  buildSwapSpeedQuoteCancelParams,
+  invalidateSwapSpeedQuoteSession,
+  isCurrentSwapSpeedQuoteResult,
+  prepareSwapSpeedQuoteSession,
+  settleSwapSpeedQuoteSession,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/speedQuoteSessionV2';
 import { getGasAccountErrorEntry } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import { checkSwapLatestBalanceSufficient } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
@@ -69,6 +77,7 @@ import { wrappedTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constant
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
+  IFetchSwapQuoteParams,
   ISwapApproveTransaction,
   ISwapNativeTokenReserveGas,
   ISwapToken,
@@ -388,6 +397,9 @@ export function useSpeedSwapActions(props: {
   const speedCheckRequestIdRef = useRef(0);
   const balanceRequestIdRef = useRef(0);
   const priceRequestIdRef = useRef(0);
+  const speedQuoteSessionStateRef = useRef(
+    SWAP_SPEED_QUOTE_SESSION_V2_INITIAL_STATE,
+  );
   const reviewExecutionSnapshotRef = useRef<
     IMarketReviewExecutionSnapshot | undefined
   >(undefined);
@@ -395,6 +407,20 @@ export function useSpeedSwapActions(props: {
     () => buildDefaultMarketSpeedCheckState(),
     [],
   );
+
+  useEffect(() => {
+    return () => {
+      const sessionState = speedQuoteSessionStateRef.current;
+      const activeSession = sessionState.activeSession;
+      if (activeSession) {
+        speedQuoteSessionStateRef.current =
+          invalidateSwapSpeedQuoteSession(sessionState);
+        void backgroundApiProxy.serviceSwap.cancelFetchSpeedSwapQuoteV2(
+          buildSwapSpeedQuoteCancelParams(activeSession),
+        );
+      }
+    };
+  }, []);
 
   const effectiveSpenderAddress = checkSpenderAddress || spenderAddress;
 
@@ -837,6 +863,50 @@ export function useSpeedSwapActions(props: {
     [intl],
   );
 
+  const fetchMarketSpeedSwapQuoteFallback = useCallback(
+    async (request: IFetchSwapQuoteParams) => {
+      const preparedSessionState = prepareSwapSpeedQuoteSession(
+        speedQuoteSessionStateRef.current,
+      );
+      const activeSession = preparedSessionState.activeSession;
+      if (!activeSession) {
+        return [];
+      }
+      speedQuoteSessionStateRef.current = preparedSessionState;
+      try {
+        const result =
+          await backgroundApiProxy.serviceSwap.fetchSpeedSwapQuoteV2({
+            session: activeSession,
+            request,
+          });
+        if (
+          !isCurrentSwapSpeedQuoteResult({
+            state: speedQuoteSessionStateRef.current,
+            result,
+          }) ||
+          !result.accepted
+        ) {
+          // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
+          throw new Error('market speed quote request superseded', {
+            cause: ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL,
+          });
+        }
+        speedQuoteSessionStateRef.current = settleSwapSpeedQuoteSession({
+          state: speedQuoteSessionStateRef.current,
+          session: activeSession,
+        });
+        return result.quotes;
+      } catch (error) {
+        speedQuoteSessionStateRef.current = settleSwapSpeedQuoteSession({
+          state: speedQuoteSessionStateRef.current,
+          session: activeSession,
+        });
+        throw error;
+      }
+    },
+    [],
+  );
+
   const buildSpeedSwapTxData = useCallback(
     async ({
       fromAmount,
@@ -946,19 +1016,18 @@ export function useSpeedSwapActions(props: {
 
         let quoteResultForBuild: IFetchQuoteResult | undefined;
         if (shouldFetchMarketQuoteFallbackData(buildRes)) {
-          const quotes =
-            await backgroundApiProxy.serviceSwap.fetchSpeedSwapQuote({
-              fromToken: fromTokenFinal,
-              toToken: toTokenFinal,
-              fromTokenAmount: amount,
-              userAddress,
-              receivingAddress: userAddress,
-              slippagePercentage: slippage,
-              autoSlippage: false,
-              accountId: netAccountRes.result.id,
-              kind: ESwapQuoteKind.SELL,
-              protocol: ESwapTabSwitchType.SWAP,
-            });
+          const quotes = await fetchMarketSpeedSwapQuoteFallback({
+            fromToken: fromTokenFinal,
+            toToken: toTokenFinal,
+            fromTokenAmount: amount,
+            userAddress,
+            receivingAddress: userAddress,
+            slippagePercentage: slippage,
+            autoSlippage: false,
+            accountId: netAccountRes.result.id,
+            kind: ESwapQuoteKind.SELL,
+            protocol: ESwapTabSwitchType.SWAP,
+          });
           quoteResultForBuild = pickMarketQuoteResultByProvider({
             quotes,
             provider: buildRes.result.info.provider,
@@ -1003,6 +1072,7 @@ export function useSpeedSwapActions(props: {
       toToken,
       buildMarketExecutionFromBuildRes,
       assertLatestFromTokenBalanceSufficient,
+      fetchMarketSpeedSwapQuoteFallback,
     ],
   );
 
