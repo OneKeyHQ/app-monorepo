@@ -2,6 +2,21 @@ import {
   LocalSecretEnvelopeUnavailable,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import {
+  INDEXED_DB_CRYPTO_KEY_AES_GCM_NONCE_BYTES,
+  INDEXED_DB_CRYPTO_KEY_DB_NAME,
+  INDEXED_DB_CRYPTO_KEY_STORE_NAME,
+  defaultRandomBytes,
+  deleteCryptoKeyRecord,
+  generateNonExtractableAesGcmKey,
+  getCryptoGlobal,
+  getIndexedDBInstance,
+  getOrCreateCryptoKey,
+  readCryptoKeyRecord,
+  toWebCryptoBytes,
+  writeCryptoKeyRecord,
+} from '@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore';
+import type { IIndexedDbCryptoKeyRecord } from '@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import type {
@@ -9,25 +24,24 @@ import type {
   ILocalSecretEnvelopeLayerCapabilities,
 } from './types';
 
+// The IndexedDB CryptoKey persistence primitives live in
+// `@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore` (extracted from this
+// file) so that shared-level consumers (e.g. SupabaseStorage device-key
+// sealing) can reuse the same origin-shared key database without importing
+// kit-bg. This adapter keeps the local-secret-envelope-specific parts:
+// per-envelope random keyRefs, AAD binding, and the retryable
+// LocalSecretEnvelopeUnavailable error mapping.
 export const DEFAULT_INDEXED_DB_CRYPTO_KEY_LSE_DB_NAME =
-  'OneKeyLocalSecretEnvelopeCryptoKey';
+  INDEXED_DB_CRYPTO_KEY_DB_NAME;
 
-export const INDEXED_DB_CRYPTO_KEY_LSE_STORE_NAME = 'CryptoKey';
+export const INDEXED_DB_CRYPTO_KEY_LSE_STORE_NAME =
+  INDEXED_DB_CRYPTO_KEY_STORE_NAME;
 
 const DEFAULT_INDEXED_DB_CRYPTO_KEY_LSE_KEY_REF_PREFIX =
   'onekey:lse:indexeddb-cryptokey:v1';
 
-const AES_GCM_KEY_BITS = 256;
-const AES_GCM_NONCE_BYTES = 12;
+const AES_GCM_NONCE_BYTES = INDEXED_DB_CRYPTO_KEY_AES_GCM_NONCE_BYTES;
 const KEY_REF_RANDOM_BYTES = 16;
-const DB_VERSION = 1;
-
-type IIndexedDbCryptoKeyRecord = {
-  createdAt: number;
-  id: string;
-  key: CryptoKey;
-  updatedAt: number;
-};
 
 type IIndexedDbCryptoKeyLayerParams = {
   cryptoGlobal?: Crypto | null;
@@ -51,235 +65,11 @@ function invariant(condition: boolean, message: string): asserts condition {
   }
 }
 
-function requestToPromise<TResult>(request: IDBRequest<TResult>) {
-  return new Promise<TResult>((resolve, reject) => {
-    request.onerror = () => {
-      reject(request.error || new OneKeyLocalError('IndexedDB request failed'));
-    };
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
-  });
-}
-
-function transactionDone(transaction: IDBTransaction) {
-  return new Promise<void>((resolve, reject) => {
-    transaction.onabort = () => {
-      reject(
-        transaction.error ||
-          new OneKeyLocalError('IndexedDB transaction aborted'),
-      );
-    };
-    transaction.onerror = () => {
-      reject(
-        transaction.error ||
-          new OneKeyLocalError('IndexedDB transaction failed'),
-      );
-    };
-    transaction.oncomplete = () => {
-      resolve();
-    };
-  });
-}
-
-function getIndexedDBInstance(
-  indexedDBInstance?: IDBFactory | null,
-): IDBFactory {
-  const instance =
-    indexedDBInstance === undefined ? globalThis.indexedDB : indexedDBInstance;
-  invariant(
-    Boolean(instance && typeof instance.open === 'function'),
-    'Local secret envelope IndexedDB is unavailable',
-  );
-  return instance as IDBFactory;
-}
-
-function getCryptoGlobal(cryptoGlobal?: Crypto | null): Crypto {
-  const cryptoInstance =
-    cryptoGlobal === undefined ? globalThis.crypto : cryptoGlobal;
-  const subtle = cryptoInstance?.subtle;
-  invariant(
-    Boolean(
-      subtle &&
-      typeof subtle.generateKey === 'function' &&
-      typeof subtle.encrypt === 'function' &&
-      typeof subtle.decrypt === 'function' &&
-      typeof subtle.exportKey === 'function',
-    ),
-    'Local secret envelope WebCrypto is unavailable',
-  );
-  invariant(
-    typeof cryptoInstance?.getRandomValues === 'function',
-    'Local secret envelope secure random is unavailable',
-  );
-  return cryptoInstance;
-}
-
-function toWebCryptoBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
-  const result = new Uint8Array(bytes.byteLength);
-  result.set(bytes);
-  return result;
-}
-
-function defaultRandomBytes(length: number): Uint8Array {
-  const bytes = new Uint8Array(length);
-  getCryptoGlobal().getRandomValues(bytes);
-  return bytes;
-}
-
 function readAesGcmLayerIv({ alg, iv }: { alg: string; iv?: string }) {
   if (alg !== 'AES-256-GCM' || !iv) {
     throw new OneKeyLocalError('Invalid local secret envelope AES-GCM layer');
   }
   return toWebCryptoBytes(bufferUtils.toBuffer(iv, 'hex'));
-}
-
-async function openCryptoKeyDb({
-  dbName,
-  indexedDBInstance,
-}: {
-  dbName: string;
-  indexedDBInstance?: IDBFactory | null;
-}): Promise<IDBDatabase> {
-  const indexedDB = getIndexedDBInstance(indexedDBInstance);
-  const request = indexedDB.open(dbName, DB_VERSION);
-  request.onupgradeneeded = () => {
-    const db = request.result;
-    if (!db.objectStoreNames.contains(INDEXED_DB_CRYPTO_KEY_LSE_STORE_NAME)) {
-      db.createObjectStore(INDEXED_DB_CRYPTO_KEY_LSE_STORE_NAME, {
-        keyPath: 'id',
-      });
-    }
-  };
-  return requestToPromise(request);
-}
-
-async function readCryptoKeyRecord({
-  dbName,
-  indexedDBInstance,
-  keyRef,
-}: {
-  dbName: string;
-  indexedDBInstance?: IDBFactory | null;
-  keyRef: string;
-}): Promise<IIndexedDbCryptoKeyRecord | undefined> {
-  const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
-  try {
-    const transaction = db.transaction(
-      INDEXED_DB_CRYPTO_KEY_LSE_STORE_NAME,
-      'readonly',
-    );
-    const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_LSE_STORE_NAME);
-    const record = await requestToPromise(
-      store.get(keyRef) as IDBRequest<IIndexedDbCryptoKeyRecord | undefined>,
-    );
-    await transactionDone(transaction);
-    return record;
-  } finally {
-    db.close();
-  }
-}
-
-async function writeCryptoKeyRecord({
-  dbName,
-  indexedDBInstance,
-  key,
-  keyRef,
-}: {
-  dbName: string;
-  indexedDBInstance?: IDBFactory | null;
-  key: CryptoKey;
-  keyRef: string;
-}): Promise<void> {
-  const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
-  try {
-    const transaction = db.transaction(
-      INDEXED_DB_CRYPTO_KEY_LSE_STORE_NAME,
-      'readwrite',
-    );
-    const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_LSE_STORE_NAME);
-    const now = Date.now();
-    await requestToPromise(
-      store.put({
-        createdAt: now,
-        id: keyRef,
-        key,
-        updatedAt: now,
-      } satisfies IIndexedDbCryptoKeyRecord),
-    );
-    await transactionDone(transaction);
-  } finally {
-    db.close();
-  }
-}
-
-async function deleteCryptoKeyRecord({
-  dbName,
-  indexedDBInstance,
-  keyRef,
-}: {
-  dbName: string;
-  indexedDBInstance?: IDBFactory | null;
-  keyRef: string;
-}): Promise<void> {
-  const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
-  try {
-    const transaction = db.transaction(
-      INDEXED_DB_CRYPTO_KEY_LSE_STORE_NAME,
-      'readwrite',
-    );
-    const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_LSE_STORE_NAME);
-    await requestToPromise(store.delete(keyRef));
-    await transactionDone(transaction);
-  } finally {
-    db.close();
-  }
-}
-
-async function generateCryptoKey({
-  cryptoGlobal,
-}: {
-  cryptoGlobal?: Crypto | null;
-}) {
-  const cryptoInstance = getCryptoGlobal(cryptoGlobal);
-  return cryptoInstance.subtle.generateKey(
-    {
-      length: AES_GCM_KEY_BITS,
-      name: 'AES-GCM',
-    },
-    false,
-    ['encrypt', 'decrypt'],
-  );
-}
-
-async function getOrCreateCryptoKey({
-  cryptoGlobal,
-  dbName,
-  indexedDBInstance,
-  keyRef,
-}: {
-  cryptoGlobal?: Crypto | null;
-  dbName: string;
-  indexedDBInstance?: IDBFactory | null;
-  keyRef: string;
-}) {
-  const existingRecord = await readCryptoKeyRecord({
-    dbName,
-    indexedDBInstance,
-    keyRef,
-  });
-  if (existingRecord?.key) {
-    return existingRecord.key;
-  }
-
-  const key = await generateCryptoKey({ cryptoGlobal });
-  await writeCryptoKeyRecord({
-    dbName,
-    indexedDBInstance,
-    key,
-    keyRef,
-  });
-  return key;
 }
 
 async function getExistingCryptoKey({
@@ -457,7 +247,7 @@ export async function isIndexedDbCryptoKeyLocalSecretEnvelopeLayerAvailable({
     keyRef = `${DEFAULT_INDEXED_DB_CRYPTO_KEY_LSE_KEY_REF_PREFIX}:probe:${bufferUtils.bytesToHex(
       randomBytes(KEY_REF_RANDOM_BYTES),
     )}`;
-    const key = await generateCryptoKey({ cryptoGlobal });
+    const key = await generateNonExtractableAesGcmKey({ cryptoGlobal });
     await writeCryptoKeyRecord({
       dbName,
       indexedDBInstance,
