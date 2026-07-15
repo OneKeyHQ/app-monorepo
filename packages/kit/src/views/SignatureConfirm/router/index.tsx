@@ -1,6 +1,10 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import type { IModalSignatureConfirmParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  bindRouteManifest,
+  signatureConfirmRouteManifest,
+} from '@onekeyhq/shared/src/routes/routeManifest';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
@@ -81,7 +85,7 @@ const WeblnSendPaymentModal = LazyLoadPage(
     import('@onekeyhq/kit/src/views/LightningNetwork/pages/Webln/WeblnSendPaymentModal'),
 );
 
-export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<
+const signatureConfirmRouteBindings: IModalFlowNavigatorConfig<
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList
 >[] = [
@@ -155,3 +159,8 @@ export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<
     component: LnurlAuthModal,
   },
 ];
+
+export const ModalSignatureConfirmStack = bindRouteManifest(
+  signatureConfirmRouteManifest,
+  signatureConfirmRouteBindings,
+);

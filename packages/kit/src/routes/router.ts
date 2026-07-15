@@ -4,6 +4,10 @@ import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  bindRouteManifest,
+  rootRouteManifest,
+} from '@onekeyhq/shared/src/routes/routeManifest';
 
 import {
   fullModalRouterPathConfig,
@@ -59,7 +63,7 @@ const buildPermissionRouter = () => {
   ].filter(Boolean);
 };
 
-export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
+const rootRouteBindings: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
     name: ERootRoutes.Main,
     component: TabNavigator,
@@ -90,6 +94,10 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     component: WebViewNavigator,
     type: 'webView',
   },
+];
+
+export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
+  ...bindRouteManifest(rootRouteManifest, rootRouteBindings),
   ...buildPermissionRouter(),
 ];
 
@@ -105,31 +113,32 @@ export const useRootRouter = () => {
   const tabRouter = useTabRouterConfig();
   return useMemo(
     () => [
-      {
-        name: ERootRoutes.Main,
-        children: tabRouter,
-      },
-      {
-        name: ERootRoutes.Onboarding,
-        children: onboardingRouterV2PathConfig,
-      },
-      {
-        name: ERootRoutes.Modal,
-        children: modalRouterPathConfig,
-      },
-      {
-        name: ERootRoutes.iOSFullScreen,
-        children: fullModalRouterPathConfig,
-      },
-      {
-        name: ERootRoutes.FullScreenPush,
-        children: fullScreenPushRouterPathConfig,
-      },
-      {
-        name: ERootRoutes.WebView,
-        children: webViewRouterPathConfig,
-      },
-
+      ...bindRouteManifest(rootRouteManifest, [
+        {
+          name: ERootRoutes.Main,
+          children: tabRouter,
+        },
+        {
+          name: ERootRoutes.Onboarding,
+          children: onboardingRouterV2PathConfig,
+        },
+        {
+          name: ERootRoutes.Modal,
+          children: modalRouterPathConfig,
+        },
+        {
+          name: ERootRoutes.iOSFullScreen,
+          children: fullModalRouterPathConfig,
+        },
+        {
+          name: ERootRoutes.FullScreenPush,
+          children: fullScreenPushRouterPathConfig,
+        },
+        {
+          name: ERootRoutes.WebView,
+          children: webViewRouterPathConfig,
+        },
+      ]),
       ...buildPermissionRouter(),
     ],
     [tabRouter],

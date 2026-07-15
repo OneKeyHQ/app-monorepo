@@ -5,6 +5,10 @@ import type {
   IModalSettingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  bindRouteManifest,
+  settingRouteManifest,
+} from '@onekeyhq/shared/src/routes/routeManifest';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
@@ -18,14 +22,13 @@ const SettingTabModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Tab'),
 );
 
-export const ModalSettingStack: IModalFlowNavigatorConfig<
+const settingRouteBindings: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
 >[] = [
   {
     name: EModalSettingRoutes.SettingListModal,
     component: SettingTabModal,
-    rewrite: '/',
     options: {
       headerShown: false,
     },
@@ -36,3 +39,9 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   },
   ...BasicModalSettingStack,
 ];
+
+export const ModalSettingStack = bindRouteManifest(
+  settingRouteManifest,
+  settingRouteBindings,
+  { allowUnknownBindings: true },
+);

@@ -1,19 +1,26 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import type { IModalRewardCenterParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRewardCenterRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  bindRouteManifest,
+  rewardCenterRouteManifest,
+} from '@onekeyhq/shared/src/routes/routeManifest';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
 const RewardCenterModal = LazyLoadPage(() => import('../pages/RewardCenter'));
 
-export const RewardCenterStack: IModalFlowNavigatorConfig<
+const rewardCenterRouteBindings: IModalFlowNavigatorConfig<
   EModalRewardCenterRoutes,
   IModalRewardCenterParamList
 >[] = [
   {
     name: EModalRewardCenterRoutes.RewardCenter,
     component: RewardCenterModal,
-    rewrite: '/reward-center',
-    exact: true,
   },
 ];
+
+export const RewardCenterStack = bindRouteManifest(
+  rewardCenterRouteManifest,
+  rewardCenterRouteBindings,
+);
