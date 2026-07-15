@@ -62,16 +62,13 @@ import {
 } from './OrderBook';
 import { DefaultLoadingNode } from './OrderBook/DefaultLoadingNode';
 import { useTickOptions } from './OrderBook/useTickOptions';
+import { PerpOrderBookMobileVerticalShell } from './PerpOrderBookMobileVerticalShell';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
 import type { IOrderBookVariant } from './OrderBook/types';
 import type { LayoutChangeEvent } from 'react-native';
 
-function MobileHeader({
-  showPlaceholder = false,
-}: {
-  showPlaceholder?: boolean;
-}) {
+function MobileHeader() {
   const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const countdown = useFundingCountdown();
@@ -114,7 +111,6 @@ function MobileHeader({
   useEffect(() => {
     tracePerpsMobileLayout('orderBook.mobileHeader.state', {
       coin: activeTradeInstrument.coin,
-      showPlaceholder,
       showSkeleton,
       isReady,
       hasError,
@@ -131,7 +127,6 @@ function MobileHeader({
     hasError,
     isReady,
     markPrice,
-    showPlaceholder,
     showSkeleton,
   ]);
 
@@ -141,14 +136,13 @@ function MobileHeader({
       if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
         tracePerpsMobileLayout('orderBook.mobileHeader.layout', {
           rect,
-          showPlaceholder,
           showSkeleton,
           coin: activeTradeInstrument.coin,
         });
         layoutRef.current = rect;
       }
     },
-    [activeTradeInstrument.coin, showPlaceholder, showSkeleton],
+    [activeTradeInstrument.coin, showSkeleton],
   );
 
   if (isSpot) {
@@ -180,7 +174,7 @@ function MobileHeader({
             })}
           </DashText>
 
-          {showPlaceholder || showSkeleton ? (
+          {showSkeleton ? (
             <SizableText size="$bodySmMedium" color="$textSubdued">
               --
             </SizableText>
@@ -949,74 +943,47 @@ export function PerpOrderBook({
   const mobileOrderBook = useMemo(() => {
     if (!hasRenderOrderBook || !visibleL2Book) return null;
     if (gtMd) return null;
-    if (entry === 'perpMobileMarket') {
-      return (
-        <OrderBook
-          horizontal
-          symbol={visibleL2Book.coin}
-          bids={visibleL2Book.bids}
-          asks={visibleL2Book.asks}
-          maxLevelsPerSide={13}
-          selectedTickOption={selectedTickOption}
-          onTickOptionChange={handleTickOptionChange}
-          tickOptions={tickOptions}
-          showTickSelector
-          priceDecimals={priceDecimals}
-          sizeDecimals={sizeDecimals}
-          onSelectLevel={
-            isVisibleOrderBookInteractive ? handleLevelSelect : undefined
-          }
-          loadingNode={
-            <DefaultLoadingNode
-              variant="mobileHorizontal"
-              maxLevelsPerSide={13}
-            />
-          }
-          style={{
-            paddingLeft: 16,
-            paddingRight: 16,
-            paddingTop: 8,
-            paddingBottom: 8,
-          }}
-          variant="mobileHorizontal"
-        />
-      );
-    }
+    if (entry !== 'perpMobileMarket') return null;
     return (
-      <YStack
-        gap="$1"
-        onLayout={(event) => handleTraceLayout('mobileVerticalReady', event)}
-      >
-        <MobileHeaderMemo />
-        <OrderBookMobile
-          symbol={visibleL2Book.coin}
-          bids={visibleL2Book.bids}
-          asks={visibleL2Book.asks}
-          maxLevelsPerSide={mobileMaxLevelsPerSide}
-          selectedTickOption={selectedTickOption}
-          onTickOptionChange={handleTickOptionChange}
-          tickOptions={tickOptions}
-          showTickSelector
-          priceDecimals={priceDecimals}
-          sizeDecimals={sizeDecimals}
-          onSelectLevel={
-            isVisibleOrderBookInteractive ? handleLevelSelect : undefined
-          }
-          variant="mobileVertical"
-        />
-      </YStack>
+      <OrderBook
+        horizontal
+        symbol={visibleL2Book.coin}
+        bids={visibleL2Book.bids}
+        asks={visibleL2Book.asks}
+        maxLevelsPerSide={13}
+        selectedTickOption={selectedTickOption}
+        onTickOptionChange={handleTickOptionChange}
+        tickOptions={tickOptions}
+        showTickSelector
+        priceDecimals={priceDecimals}
+        sizeDecimals={sizeDecimals}
+        onSelectLevel={
+          isVisibleOrderBookInteractive ? handleLevelSelect : undefined
+        }
+        loadingNode={
+          <DefaultLoadingNode
+            variant="mobileHorizontal"
+            maxLevelsPerSide={13}
+          />
+        }
+        style={{
+          paddingLeft: 16,
+          paddingRight: 16,
+          paddingTop: 8,
+          paddingBottom: 8,
+        }}
+        variant="mobileHorizontal"
+      />
     );
   }, [
     entry,
     gtMd,
-    handleTraceLayout,
     handleTickOptionChange,
     visibleL2Book,
     handleLevelSelect,
     selectedTickOption,
     hasRenderOrderBook,
     isVisibleOrderBookInteractive,
-    mobileMaxLevelsPerSide,
     tickOptions,
     priceDecimals,
     sizeDecimals,
@@ -1031,25 +998,21 @@ export function PerpOrderBook({
     />
   );
 
-  if (!hasRenderOrderBook || !visibleL2Book) {
-    let loadingVariant = 'desktop';
-    if (!gtMd) {
-      loadingVariant =
-        entry === 'perpMobileMarket' ? 'mobileHorizontal' : 'mobileVertical';
-    }
-    if (!gtMd && loadingVariant === 'mobileVertical') {
-      return (
-        <>
-          {dataBridge}
-          <YStack
-            flex={1}
-            bg="$bgApp"
-            gap="$1"
-            onLayout={(event) =>
-              handleTraceLayout('mobileVerticalLoading', event)
-            }
-          >
-            <MobileHeaderMemo showPlaceholder />
+  if (!gtMd && entry !== 'perpMobileMarket') {
+    const isLoading = !hasRenderOrderBook || !visibleL2Book;
+    return (
+      <>
+        {dataBridge}
+        <PerpOrderBookMobileVerticalShell
+          header={<MobileHeaderMemo />}
+          isLoading={isLoading}
+          onLayout={(event) =>
+            handleTraceLayout(
+              isLoading ? 'mobileVerticalLoading' : 'mobileVerticalReady',
+              event,
+            )
+          }
+          loadingBody={
             <OrderBookMobile
               symbol={activeTradeInstrument.coin}
               bids={[]}
@@ -1064,9 +1027,37 @@ export function PerpOrderBook({
               onSelectLevel={undefined}
               variant="mobileVertical"
             />
-          </YStack>
-        </>
-      );
+          }
+          readyBody={
+            visibleL2Book ? (
+              <OrderBookMobile
+                symbol={visibleL2Book.coin}
+                bids={visibleL2Book.bids}
+                asks={visibleL2Book.asks}
+                maxLevelsPerSide={mobileMaxLevelsPerSide}
+                selectedTickOption={selectedTickOption}
+                onTickOptionChange={handleTickOptionChange}
+                tickOptions={tickOptions}
+                showTickSelector
+                priceDecimals={priceDecimals}
+                sizeDecimals={sizeDecimals}
+                onSelectLevel={
+                  isVisibleOrderBookInteractive ? handleLevelSelect : undefined
+                }
+                variant="mobileVertical"
+              />
+            ) : null
+          }
+        />
+      </>
+    );
+  }
+
+  if (!hasRenderOrderBook || !visibleL2Book) {
+    let loadingVariant = 'desktop';
+    if (!gtMd) {
+      loadingVariant =
+        entry === 'perpMobileMarket' ? 'mobileHorizontal' : 'mobileVertical';
     }
     if (!gtMd && loadingVariant === 'mobileHorizontal') {
       return (
