@@ -4,8 +4,36 @@ import { getDisplayPriceScaleDecimals } from '@onekeyhq/shared/src/utils/perpsUt
 
 import {
   buildTickOptions,
+  getTickOptionsDataDuringTransition,
   shouldInitializeOrderBookTickOption,
 } from './tickSizeUtils';
+
+describe('getTickOptionsDataDuringTransition', () => {
+  const cached = {
+    symbol: '@188',
+    marker: 'cached',
+  };
+
+  it('keeps same-coin precision data while the order book is temporarily empty', () => {
+    expect(
+      getTickOptionsDataDuringTransition({
+        symbol: '@188',
+        hasMarketData: false,
+        cached,
+      }),
+    ).toBe(cached);
+  });
+
+  it('does not reuse precision data after switching coins', () => {
+    expect(
+      getTickOptionsDataDuringTransition({
+        symbol: '@166',
+        hasMarketData: false,
+        cached,
+      }),
+    ).toBeNull();
+  });
+});
 
 describe('shouldInitializeOrderBookTickOption', () => {
   it('does not replace precision while order book data is transitioning', () => {

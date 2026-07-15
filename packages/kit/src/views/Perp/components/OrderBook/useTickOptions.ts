@@ -18,6 +18,7 @@ import {
   type ITickParam,
   buildTickOptions,
   getDefaultTickOption,
+  getTickOptionsDataDuringTransition,
   shouldInitializeOrderBookTickOption,
 } from './tickSizeUtils';
 
@@ -65,13 +66,19 @@ export function useTickOptions({
     if (!symbol) return null;
 
     const marketPrice = topBidPrice || topAskPrice || '0';
-    if (marketPrice === '0') return null;
-
-    const priceDecimals = getDisplayPriceScaleDecimals(marketPrice);
     const cached =
       tickOptionsCache.current?.symbol === symbol
         ? tickOptionsCache.current
         : null;
+    if (marketPrice === '0') {
+      return getTickOptionsDataDuringTransition({
+        symbol,
+        hasMarketData: false,
+        cached,
+      });
+    }
+
+    const priceDecimals = getDisplayPriceScaleDecimals(marketPrice);
 
     if (cached && priceDecimals <= cached.priceDecimals) {
       return cached;

@@ -29,6 +29,23 @@ type IOrderBookTickOptionState = {
   mantissa?: IMantissa | null;
 };
 
+export function getTickOptionsDataDuringTransition<
+  T extends { symbol: string },
+>({
+  symbol,
+  hasMarketData,
+  cached,
+}: {
+  symbol: string | undefined;
+  hasMarketData: boolean;
+  cached: T | null;
+}): T | null {
+  if (hasMarketData || !symbol || cached?.symbol !== symbol) {
+    return null;
+  }
+  return cached;
+}
+
 export function shouldInitializeOrderBookTickOption({
   hasMarketData,
   persisted,
