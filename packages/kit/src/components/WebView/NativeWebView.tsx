@@ -175,7 +175,8 @@ const NativeWebView = forwardRef(
         const { url } = syntheticEvent?.nativeEvent;
         try {
           if (checkOneKeyCardGoogleOauthUrl({ url })) {
-            openUrlExternal(url);
+            // Google OAuth rejects embedded browser UAs (disallowed_useragent).
+            openUrlExternal(url, { useSystemBrowser: true });
             webviewRef.current?.stopLoading();
           }
           onLoadStart?.(syntheticEvent);
