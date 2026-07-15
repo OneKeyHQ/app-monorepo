@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /* eslint-disable no-continue */
 
-const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -16,6 +15,11 @@ const rootRouterFile = path.join(repoRoot, 'packages/kit/src/routes/router.ts');
 
 const targets = ['web', 'ext', 'desktop', 'ios', 'android', 'native'];
 const routeProperties = new Set(['name', 'rewrite', 'exact', 'children']);
+const generatedTargets = new Set();
+const sourceContentCache = new Map();
+const sourceFileCache = new Map();
+let enumRegistryCache;
+let temporaryFileCounter = 0;
 
 const childEntries = [
   {
@@ -47,6 +51,17 @@ const childEntries = [
 
 const normalizePath = (filePath) => path.normalize(filePath);
 
+const readSourceContent = (filePath) => {
+  const normalizedFile = normalizePath(filePath);
+  if (!sourceContentCache.has(normalizedFile)) {
+    sourceContentCache.set(
+      normalizedFile,
+      fs.readFileSync(normalizedFile, 'utf8'),
+    );
+  }
+  return sourceContentCache.get(normalizedFile);
+};
+
 const unwrapExpression = (node) => {
   let current = node;
   while (
@@ -72,14 +87,19 @@ const fail = (node, message) => {
 };
 
 const readSourceFile = (filePath) => {
-  const content = fs.readFileSync(filePath, 'utf8');
-  return ts.createSourceFile(
-    filePath,
-    content,
+  const normalizedFile = normalizePath(filePath);
+  if (sourceFileCache.has(normalizedFile)) {
+    return sourceFileCache.get(normalizedFile);
+  }
+  const sourceFile = ts.createSourceFile(
+    normalizedFile,
+    readSourceContent(normalizedFile),
     ts.ScriptTarget.Latest,
     true,
-    filePath.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+    normalizedFile.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
+  sourceFileCache.set(normalizedFile, sourceFile);
+  return sourceFile;
 };
 
 const walkFiles = (directory) => {
@@ -95,63 +115,73 @@ const walkFiles = (directory) => {
   return files;
 };
 
+const propertyName = (node) => {
+  if (ts.isIdentifier(node) || ts.isPrivateIdentifier(node)) {
+    return node.text;
+  }
+  if (ts.isStringLiteral(node) || ts.isNumericLiteral(node)) {
+    return node.text;
+  }
+  return undefined;
+};
+
+const loadEnumRegistry = () => {
+  if (enumRegistryCache) {
+    return enumRegistryCache;
+  }
+  const enumDeclarations = new Map();
+  const routeDirectory = path.join(repoRoot, 'packages/shared/src/routes');
+  const viewDirectory = path.join(repoRoot, 'packages/kit/src/views');
+  const files = [
+    ...walkFiles(routeDirectory),
+    ...walkFiles(path.join(repoRoot, 'packages/kit/src/routes')).filter(
+      (filePath) =>
+        !normalizePath(filePath).startsWith(
+          `${normalizePath(outputDirectory)}${path.sep}`,
+        ),
+    ),
+    ...walkFiles(viewDirectory).filter((filePath) =>
+      filePath.includes(`${path.sep}router${path.sep}`),
+    ),
+  ];
+  for (const filePath of files) {
+    const sourceFile = readSourceFile(filePath);
+    for (const statement of sourceFile.statements) {
+      if (!ts.isEnumDeclaration(statement)) {
+        continue;
+      }
+      const enumName = statement.name.text;
+      const members = enumDeclarations.get(enumName) || new Map();
+      for (const member of statement.members) {
+        const memberName = propertyName(member.name);
+        if (!memberName) {
+          fail(member, 'Route enum members must have static names');
+        }
+        if (members.has(memberName)) {
+          fail(member, `Duplicate route enum member ${enumName}.${memberName}`);
+        }
+        members.set(memberName, member);
+      }
+      enumDeclarations.set(enumName, members);
+    }
+  }
+  enumRegistryCache = { enumDeclarations };
+  return enumRegistryCache;
+};
+
 class RouteCompiler {
   constructor({ target, isDev }) {
     this.target = target;
     this.isDev = isDev;
     this.moduleCache = new Map();
     this.exportCache = new Map();
-    this.enumDeclarations = new Map();
+    const enumRegistry = loadEnumRegistry();
+    this.enumDeclarations = enumRegistry.enumDeclarations;
     this.enumValueCache = new Map();
-    this.sourceFiles = new Set();
-    this.loadEnumDeclarations();
-  }
-
-  loadEnumDeclarations() {
-    const routeDirectory = path.join(repoRoot, 'packages/shared/src/routes');
-    const viewDirectory = path.join(repoRoot, 'packages/kit/src/views');
-    const files = [
-      ...walkFiles(routeDirectory),
-      ...walkFiles(path.join(repoRoot, 'packages/kit/src/routes')),
-      ...walkFiles(viewDirectory).filter((filePath) =>
-        filePath.includes(`${path.sep}router${path.sep}`),
-      ),
-    ];
-    for (const filePath of files) {
-      const sourceFile = readSourceFile(filePath);
-      this.sourceFiles.add(normalizePath(filePath));
-      for (const statement of sourceFile.statements) {
-        if (!ts.isEnumDeclaration(statement)) {
-          continue;
-        }
-        const enumName = statement.name.text;
-        const members = this.enumDeclarations.get(enumName) || new Map();
-        for (const member of statement.members) {
-          const memberName = this.propertyName(member.name);
-          if (!memberName) {
-            fail(member, 'Route enum members must have static names');
-          }
-          if (members.has(memberName)) {
-            fail(
-              member,
-              `Duplicate route enum member ${enumName}.${memberName}`,
-            );
-          }
-          members.set(memberName, member);
-        }
-        this.enumDeclarations.set(enumName, members);
-      }
-    }
   }
 
   propertyName(node) {
-    if (ts.isIdentifier(node) || ts.isPrivateIdentifier(node)) {
-      return node.text;
-    }
-    if (ts.isStringLiteral(node) || ts.isNumericLiteral(node)) {
-      return node.text;
-    }
-    return undefined;
+    return propertyName(node);
   }
 
   enumValue(enumName, memberName, nodeForError) {
@@ -244,7 +274,6 @@ class RouteCompiler {
     }
 
     const sourceFile = readSourceFile(normalizedFile);
-    this.sourceFiles.add(normalizedFile);
     const context = {
       filePath: normalizedFile,
       sourceFile,
@@ -838,27 +867,9 @@ const compileTarget = (target) => {
   const production = productionCompiler.compileRoot();
   const developmentCompiler = new RouteCompiler({ target, isDev: true });
   const development = developmentCompiler.compileRoot();
-  const sourceFiles = [
-    ...new Set([
-      ...productionCompiler.sourceFiles,
-      ...developmentCompiler.sourceFiles,
-    ]),
-  ].toSorted();
-  const sourceHash = crypto
-    .createHash('sha256')
-    .update(
-      sourceFiles
-        .map(
-          (filePath) =>
-            `${path.relative(repoRoot, filePath)}\0${fs.readFileSync(filePath, 'utf8')}`,
-        )
-        .join('\0'),
-    )
-    .digest('hex');
   return {
     schemaVersion: 1,
     target,
-    sourceHash,
     production,
     development,
   };
@@ -867,9 +878,21 @@ const compileTarget = (target) => {
 const wrapperSource = (target) =>
   `// Generated by development/scripts/compile-route-path-config.js. Do not edit.\nimport routePathConfig from './routePathConfig.generated.${target}.json';\n\nexport default routePathConfig;\n`;
 
-const expectedFiles = () => {
+const normalizeTarget = (target) => {
+  if (target === 'webEmbed' || target === 'web-embed') {
+    return 'web';
+  }
+  if (!targets.includes(target)) {
+    throw new Error(
+      `Unknown route generation target "${target}". Expected: ${targets.join(', ')}`,
+    );
+  }
+  return target;
+};
+
+const expectedFiles = (selectedTargets) => {
   const files = new Map();
-  for (const target of targets) {
+  for (const target of selectedTargets) {
     files.set(
       path.join(outputDirectory, `routePathConfig.generated.${target}.json`),
       stableJson(compileTarget(target)),
@@ -879,17 +902,50 @@ const expectedFiles = () => {
       wrapperSource(target),
     );
   }
-  files.set(
-    path.join(outputDirectory, 'routePathConfig.generated.ts'),
-    wrapperSource('native'),
-  );
+  if (selectedTargets.includes('native')) {
+    files.set(
+      path.join(outputDirectory, 'routePathConfig.generated.ts'),
+      wrapperSource('native'),
+    );
+  }
   return files;
 };
 
-const main = () => {
-  const mode = process.argv.includes('--check') ? 'check' : 'write';
-  const files = expectedFiles();
-  if (mode === 'check') {
+const generateRoutePathConfig = ({
+  targetNames = targets,
+  check = false,
+  silent = false,
+  force = false,
+} = {}) => {
+  const startedAt = performance.now();
+  if (force) {
+    generatedTargets.clear();
+    sourceContentCache.clear();
+    sourceFileCache.clear();
+    enumRegistryCache = undefined;
+  }
+  const selectedTargets = [
+    ...new Set(targetNames.map((target) => normalizeTarget(target))),
+  ];
+  const hasGeneratedOutput = (target) =>
+    fs.existsSync(
+      path.join(outputDirectory, `routePathConfig.generated.${target}.json`),
+    ) &&
+    fs.existsSync(
+      path.join(outputDirectory, `routePathConfig.generated.${target}.ts`),
+    ) &&
+    (target !== 'native' ||
+      fs.existsSync(
+        path.join(outputDirectory, 'routePathConfig.generated.ts'),
+      ));
+  const pendingTargets = selectedTargets.filter(
+    (target) => !generatedTargets.has(target) || !hasGeneratedOutput(target),
+  );
+  if (pendingTargets.length === 0) {
+    return { durationMs: 0, targets: [] };
+  }
+  const files = expectedFiles(pendingTargets);
+  if (check) {
     const stale = [];
     for (const [filePath, expected] of files) {
       if (
@@ -905,20 +961,88 @@ const main = () => {
         console.error(`  ${filePath}`);
       }
       console.error('Run: yarn routes:generate');
-      process.exitCode = 1;
-      return;
+      const error = new Error('Generated cold-start route config is stale');
+      error.staleFiles = stale;
+      throw error;
     }
-    console.log(
-      `Cold-start route config is up to date (${targets.length} targets).`,
-    );
-    return;
+    if (!silent) {
+      console.log(
+        `Cold-start route config is up to date (${pendingTargets.join(', ')}).`,
+      );
+    }
+  } else {
+    fs.mkdirSync(outputDirectory, { recursive: true });
+    for (const [filePath, content] of files) {
+      if (
+        !fs.existsSync(filePath) ||
+        fs.readFileSync(filePath, 'utf8') !== content
+      ) {
+        temporaryFileCounter += 1;
+        const temporaryFile = `${filePath}.${process.pid}.${temporaryFileCounter}.tmp`;
+        try {
+          fs.writeFileSync(temporaryFile, content);
+          fs.renameSync(temporaryFile, filePath);
+        } finally {
+          if (fs.existsSync(temporaryFile)) {
+            fs.unlinkSync(temporaryFile);
+          }
+        }
+      }
+    }
+    if (!silent) {
+      console.log(
+        `Generated cold-start route config for ${pendingTargets.join(', ')}.`,
+      );
+    }
   }
-
-  fs.mkdirSync(outputDirectory, { recursive: true });
-  for (const [filePath, content] of files) {
-    fs.writeFileSync(filePath, content);
+  for (const target of pendingTargets) {
+    generatedTargets.add(target);
   }
-  console.log(`Generated cold-start route config for ${targets.join(', ')}.`);
+  return {
+    durationMs: performance.now() - startedAt,
+    targets: pendingTargets,
+  };
 };
 
-main();
+const parseTargetNames = (argv) => {
+  const values = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === '--target') {
+      values.push(argv[index + 1]);
+      index += 1;
+    } else if (argument.startsWith('--target=')) {
+      values.push(argument.slice('--target='.length));
+    }
+  }
+  return values.length > 0
+    ? values.flatMap((value) => value.split(',').filter(Boolean))
+    : targets;
+};
+
+const main = () => {
+  const check = process.argv.includes('--check');
+  try {
+    const result = generateRoutePathConfig({
+      targetNames: parseTargetNames(process.argv.slice(2)),
+      check,
+      force: true,
+    });
+    console.log(
+      `Route generation completed in ${result.durationMs.toFixed(0)} ms.`,
+    );
+  } catch (error) {
+    if (!error.staleFiles) {
+      console.error(error);
+    }
+    process.exitCode = 1;
+  }
+};
+
+module.exports = {
+  generateRoutePathConfig,
+};
+
+if (require.main === module) {
+  main();
+}

@@ -9,6 +9,10 @@ const webpack = require('webpack');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 
 const { readOneKeyBootstrapDataCode } = require('../htmlBootstrapData');
+const {
+  ensureRoutePathConfig,
+  watchRoutePathConfig,
+} = require('../scripts/ensure-route-path-config');
 const { resolveCommitSha } = require('../utils/resolveCommitSha');
 
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
@@ -145,6 +149,8 @@ const basePerformance = {
 };
 
 module.exports = ({ platform, basePath, configName }) => {
+  ensureRoutePathConfig([platform]);
+  watchRoutePathConfig([platform]);
   const babelLoaderOption = {
     babelrc: false,
     configFile: true,

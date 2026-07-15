@@ -13,12 +13,20 @@ const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 const connect = require('connect');
 const fs = require('fs-extra');
 const { resolve } = require('metro-resolver');
+
 // const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin'); // Uncomment if needed
 
 const projectRoot = __dirname;
 
 // Pre-calculate monorepo root for use in multiple places
 const monorepoRoot = path.resolve(projectRoot, '../..');
+const {
+  ensureRoutePathConfig,
+  watchRoutePathConfig,
+} = require('../../development/scripts/ensure-route-path-config');
+
+ensureRoutePathConfig(['ios', 'android', 'native']);
+watchRoutePathConfig(['ios', 'android', 'native']);
 
 // Get Metro's default config for the project
 const defaultConfig = getDefaultConfig(projectRoot);

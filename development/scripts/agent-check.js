@@ -579,7 +579,7 @@ function runLocalChecks(logDir) {
   humanLog('\nLocal checks');
   return [
     ...runWorktreeLintChecks(logDir),
-    runCommand(logDir, 'routes-generated', 'yarn', ['routes:check']),
+    runCommand(logDir, 'routes-generated', 'yarn', ['routes:generate']),
     runCommand(logDir, 'agent-context', 'yarn', ['lint:agent-context']),
     runCommand(logDir, 'lint-staged', 'yarn', ['lint:staged']),
     runCommand(logDir, 'tsc-staged', 'yarn', ['tsc:staged']),

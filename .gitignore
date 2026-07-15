@@ -106,6 +106,7 @@ coverage/
 /packages/kit/src/components/WebView/translateInject.text-js
 /packages/kit/src/components/LightweightChart/utils/lightweightChartsStandalone.text-js
 /packages/shared/src/web/index.html
+/packages/kit/src/routes/generated/
 /mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy/jpush
 apps/mobile/android/.kotlin/
 apps/mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy/**/*.class

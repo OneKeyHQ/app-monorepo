@@ -29,6 +29,12 @@ const { resolveCommitSha } = require('../utils/resolveCommitSha') as {
   resolveCommitSha: () => string;
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
+const { ensureRoutePathConfig, watchRoutePathConfig } =
+  require('../scripts/ensure-route-path-config') as {
+    ensureRoutePathConfig: (targetNames: string[]) => void;
+    watchRoutePathConfig: (targetNames: string[]) => void;
+  };
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { readOneKeyBootstrapDataCode } = require('../htmlBootstrapData') as {
   readOneKeyBootstrapDataCode: (opts: {
     basePath: string;
@@ -351,6 +357,8 @@ export function createBaseConfig({
   basePath,
   configName,
 }: IBaseConfigOptions): RspackOptions {
+  ensureRoutePathConfig([platform]);
+  watchRoutePathConfig([platform]);
   // platformEnv.* folding (mirrors webpack babel transform-define). Applied in
   // the first-party babel-loader pass below.
   const platformEnvDefineMap = buildPlatformEnvDefineMap(platform);
