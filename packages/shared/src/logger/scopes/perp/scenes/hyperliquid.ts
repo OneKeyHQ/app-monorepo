@@ -417,67 +417,6 @@ export class HyperLiquidScene extends BaseScene {
   }) {
     return params;
   }
-
-  @LogToLocal({ level: 'info' })
-  public orderBookSwitchDiagnostic(params: {
-    runtime: 'main' | 'bg';
-    event: string;
-    sequence?: number;
-    requestId?: number;
-    mode?: 'perp' | 'spot';
-    coin?: string;
-    nSigFigs?: number | null;
-    mantissa?: number | null;
-    hasTickOption?: boolean;
-    hasBook?: boolean;
-    bidLevels?: number;
-    askLevels?: number;
-    sampleCount?: number;
-    bestBidPx?: string;
-    bestBidSz?: string;
-    bestAskPx?: string;
-    bestAskSz?: string;
-    markPrice?: string;
-    midPrice?: string;
-    hasCurrentCtx?: boolean;
-    showSkeleton?: boolean;
-    cacheAgeMs?: number | null;
-    tickOptionValue?: string;
-    tickOptionsCount?: number;
-    tickOptionSource?: 'market' | 'cache' | 'reference' | 'fallback';
-    latest?: boolean;
-    transport?: 'l2' | 'l2Book' | 'none';
-    source?: string;
-  }) {
-    return params;
-  }
-
-  @LogToLocal({ level: 'info' })
-  public openOrdersFilterDiagnostic(params: {
-    runtime: 'main';
-    event: string;
-    sequence?: number;
-    isMobile?: boolean;
-    filterByCurrentToken?: boolean;
-    checkboxValue?: boolean | 'indeterminate';
-    nextFilterValue?: boolean;
-    activeCoin?: string;
-    activeSubTab?: 'basic' | 'twap';
-    currentPage?: number;
-    filterMode?: 'not-mobile' | 'disabled' | 'missing-active-coin' | 'active';
-    unsafeFallback?: boolean;
-    openOrdersCount?: number;
-    filteredOrdersCount?: number;
-    displayRowsCount?: number;
-    mismatchedVisibleCount?: number;
-    orderCoins?: string[];
-    filteredCoins?: string[];
-    displayCoins?: string[];
-    rowCoin?: string;
-    rowIndex?: number;
-  }) {
-    return params;
-  }
 }
 
 export type IHyperLiquidOrderAction =

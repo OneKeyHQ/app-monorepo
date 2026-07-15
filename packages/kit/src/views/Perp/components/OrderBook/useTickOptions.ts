@@ -6,7 +6,6 @@ import {
   useHyperliquidActions,
   useOrderBookTickOptionsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPerpsOrderBookTickOptionsWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import {
   analyzeOrderBookPrecision,
@@ -31,7 +30,6 @@ interface ITickOptionsResult {
   setSelectedTickOption: (option: ITickParam) => void;
   priceDecimals: number;
   sizeDecimals: number;
-  tickOptionSource: 'market' | 'cache' | 'reference' | 'fallback';
 }
 
 const emptyTickOption: ITickParam = {
@@ -186,18 +184,6 @@ export function useTickOptions({
 
     return tickOptionsData;
   }, [tickOptionsData]);
-  const tickOptionSource = useMemo(() => {
-    if (!tickOptionsData) {
-      return 'fallback' as const;
-    }
-    if (topBidPrice || topAskPrice) {
-      return 'market' as const;
-    }
-    return tickOptionsData === referenceTickOptionsData
-      ? ('reference' as const)
-      : ('cache' as const);
-  }, [referenceTickOptionsData, tickOptionsData, topAskPrice, topBidPrice]);
-
   const selectedTickOption = useMemo(() => {
     const { tickOptions, defaultTickOption } = baseTickOptionsData;
 
@@ -240,16 +226,6 @@ export function useTickOptions({
         persisted,
       })
     ) {
-      defaultLogger.perp.hyperliquid.orderBookSwitchDiagnostic({
-        runtime: 'main',
-        event: 'tick-option-initialize',
-        coin: symbol,
-        nSigFigs: currentPersist.nSigFigs,
-        mantissa: currentPersist.mantissa,
-        tickOptionValue: currentPersist.value,
-        tickOptionsCount: baseTickOptionsData.tickOptions.length,
-        tickOptionSource,
-      });
       void actions.current.setOrderBookTickOption({
         symbol,
         option: currentPersist,
@@ -260,8 +236,6 @@ export function useTickOptions({
     persistedTickOptions,
     selectedTickOption,
     tickOptionsData,
-    baseTickOptionsData.tickOptions.length,
-    tickOptionSource,
     actions,
   ]);
 
@@ -276,17 +250,6 @@ export function useTickOptions({
         return;
       }
 
-      defaultLogger.perp.hyperliquid.orderBookSwitchDiagnostic({
-        runtime: 'main',
-        event: 'tick-option-select',
-        coin: symbol,
-        nSigFigs: option.nSigFigs,
-        mantissa: option.mantissa ?? null,
-        tickOptionValue: option.value,
-        tickOptionsCount: baseTickOptionsData.tickOptions.length,
-        tickOptionSource,
-      });
-
       void actions.current.setOrderBookTickOption({
         symbol,
         option: {
@@ -296,13 +259,7 @@ export function useTickOptions({
         },
       });
     },
-    [
-      actions,
-      baseTickOptionsData.tickOptions.length,
-      selectedTickOption,
-      symbol,
-      tickOptionSource,
-    ],
+    [actions, selectedTickOption, symbol],
   );
 
   return useMemo(() => {
@@ -313,13 +270,11 @@ export function useTickOptions({
       setSelectedTickOption: handleSelectTickOption,
       priceDecimals: baseTickOptionsData.priceDecimals,
       sizeDecimals,
-      tickOptionSource,
     };
   }, [
     baseTickOptionsData,
     selectedTickOption,
     handleSelectTickOption,
     sizeDecimals,
-    tickOptionSource,
   ]);
 }
