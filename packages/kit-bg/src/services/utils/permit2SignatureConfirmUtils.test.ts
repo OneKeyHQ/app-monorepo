@@ -72,7 +72,7 @@ describe('shouldUseLocalPermit2Display', () => {
     ).toBe(false);
   });
 
-  test('trusts server display when parse API classified the tx', () => {
+  test('trusts server display only for the revokeApproval classification', () => {
     expect(
       shouldUseLocalPermit2Display({
         hasPermit2ApproveInfo: true,
@@ -82,6 +82,15 @@ describe('shouldUseLocalPermit2Display', () => {
         },
       }),
     ).toBe(false);
+  });
+
+  test('keeps local display when parse API classifies the revoke as a plain approve', () => {
+    expect(
+      shouldUseLocalPermit2Display({
+        hasPermit2ApproveInfo: true,
+        parsedTx: { type: EParseTxType.Approve, display: revokeDisplay },
+      }),
+    ).toBe(true);
   });
 
   test('falls back to local display when parse API returned no display', () => {
