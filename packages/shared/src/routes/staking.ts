@@ -103,6 +103,7 @@ export type IModalStakingParamList = {
     reserveAddress: string;
     symbol: string;
     logoURI?: string;
+    providerLogoURI?: string;
     accountId?: string;
     indexedAccountId?: string;
   };

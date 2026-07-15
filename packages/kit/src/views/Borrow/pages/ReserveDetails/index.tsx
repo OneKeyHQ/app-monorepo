@@ -75,6 +75,7 @@ const ReserveDetailsPage = () => {
     reserveAddress: string;
     symbol: string;
     logoURI?: string;
+    providerLogoURI?: string;
     accountId?: string;
     indexedAccountId?: string;
   }>(() => {
@@ -90,6 +91,7 @@ const ReserveDetailsPage = () => {
       reserveAddress: routeParams.reserveAddress,
       symbol: routeParams.symbol,
       logoURI: routeParams.logoURI,
+      providerLogoURI: routeParams.providerLogoURI,
       accountId: routeParams.accountId,
       indexedAccountId: routeParams.indexedAccountId,
     };
@@ -102,6 +104,7 @@ const ReserveDetailsPage = () => {
     reserveAddress,
     symbol,
     logoURI,
+    providerLogoURI,
     accountId: routeAccountId,
     indexedAccountId,
   } = resolvedParams;
@@ -247,6 +250,7 @@ const ReserveDetailsPage = () => {
             reserveAddress={reserveAddress}
             symbol={symbol}
             logoURI={logoURI}
+            providerLogoURI={providerLogoURI}
           />
         </Stack>
       </XStack>
