@@ -1,4 +1,5 @@
 import bufferUtils from '../../utils/bufferUtils';
+import { SupabaseStorageTransientError } from '../../utils/supabaseAuthErrorUtils';
 import {
   INDEXED_DB_CRYPTO_KEY_AES_GCM_NONCE_BYTES,
   getCryptoGlobal,
@@ -63,9 +64,14 @@ export type ISupabaseSealedValueCodec = {
    */
   sealValue: (params: { key: string; value: string }) => Promise<string | null>;
   /**
-   * Unseal a recognized envelope. Returns null when decryption genuinely
-   * fails (device key lost/cleared, corrupt envelope) — the session is
-   * unrecoverable and the user must re-OAuth.
+   * Unseal a recognized envelope. Returns null only when the session is
+   * PROVEN unrecoverable (unparseable envelope, or AES-GCM decryption fails
+   * because the device key was lost/cleared) — the user must re-OAuth.
+   * Throws a retryable-classified `SupabaseStorageTransientError` when the
+   * device key is merely unavailable right now (transient IndexedDB open
+   * failure): the sealed session may still be perfectly valid, and callers
+   * must not collapse that state into "no session" (destructive cleanups
+   * treat an empty read as authoritative).
    */
   unsealValue: (params: {
     key: string;
@@ -207,10 +213,24 @@ export function buildSupabaseSealedValueCodec({
       }
       const deviceKey = await getDeviceKey();
       if (!deviceKey) {
+        // A present sealed envelope with an unavailable device key is NOT
+        // proof the session is lost: getDeviceKey() fails transiently
+        // (IndexedDB open errors under storage pressure / AV lock at cold
+        // start — the same rationale that keeps failed resolutions unpinned
+        // above). Returning null here would be indistinguishable from a
+        // genuine loss, and destructive callers (startup no-token clear,
+        // invalid-token cleanup) would wipe authSessionSource over a blip —
+        // a wiped KeylessOAuth source is never re-inferred, permanently
+        // orphaning a still-valid session. Throw retryable instead; only
+        // the genuine decrypt failure below returns null. The read cache
+        // evicts rejections on the next tick, so recovery is immediate on
+        // the next read once the device key resolves again.
         console.error(
-          'SupabaseStorage sealed value present but device key unavailable, treating session as lost',
+          'SupabaseStorage sealed value present but device key unavailable, treating as transient read failure',
         );
-        return null;
+        throw new SupabaseStorageTransientError(
+          'SupabaseStorage sealed-value device key transiently unavailable',
+        );
       }
       try {
         const cryptoInstance = getCryptoGlobal(cryptoGlobal);

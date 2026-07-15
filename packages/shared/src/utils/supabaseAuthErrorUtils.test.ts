@@ -1,7 +1,28 @@
-import { isRetryableSupabaseAuthError } from './supabaseAuthErrorUtils';
+import {
+  SupabaseStorageTransientError,
+  isRetryableSupabaseAuthError,
+} from './supabaseAuthErrorUtils';
 
 describe('isRetryableSupabaseAuthError', () => {
   describe('name-based classification', () => {
+    test('SupabaseStorageTransientError (sealed session transiently unreadable) is retryable', () => {
+      expect(
+        isRetryableSupabaseAuthError(
+          new SupabaseStorageTransientError('device key unavailable'),
+        ),
+      ).toBe(true);
+    });
+
+    test('SupabaseStorageTransientError matches structurally by name across realms', () => {
+      // The bg/main runtime split can hand the error across a bridge that
+      // loses the prototype chain; name-based matching must still work.
+      expect(
+        isRetryableSupabaseAuthError({
+          name: 'SupabaseStorageTransientError',
+        }),
+      ).toBe(true);
+    });
+
     test('AuthRetryableFetchError is retryable even without a status', () => {
       expect(
         isRetryableSupabaseAuthError({ name: 'AuthRetryableFetchError' }),

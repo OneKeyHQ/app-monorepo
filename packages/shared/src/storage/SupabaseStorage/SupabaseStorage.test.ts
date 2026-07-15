@@ -2,6 +2,7 @@ import { IDBFactory } from 'fake-indexeddb';
 
 import { OneKeyLocalError } from '../../errors';
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
+import { isRetryableSupabaseAuthError } from '../../utils/supabaseAuthErrorUtils';
 import appStorage from '../appStorage';
 import secureStorageInstance from '../instance/secureStorageInstance';
 
@@ -265,6 +266,68 @@ describe('SupabaseStorage', () => {
       const codecB = buildTestCodec();
       const storageB = new SupabaseStorage({ sealedValueCodec: codecB });
       await expect(storageB.getItem('session')).resolves.toBeNull();
+    });
+
+    it('rejects retryable on a transient device-key failure and recovers without caching it', async () => {
+      const backing = useInMemoryAppStorage();
+      const sharedDbName = `test-supabase-sealed-${(testDbNameSeq += 1)}`;
+      const realFactory = new IDBFactory();
+
+      // Seal with a healthy codec so a sealed value AND a persisted device
+      // key exist.
+      const writerStorage = new SupabaseStorage({
+        sealedValueCodec: buildSupabaseSealedValueCodec({
+          dbName: sharedDbName,
+          indexedDBInstance: realFactory,
+        }),
+      });
+      await writerStorage.setItem('session', sessionValue);
+      expect(
+        backing
+          .get(PREFIXED_SESSION_KEY)
+          ?.startsWith(SUPABASE_SEALED_VALUE_PREFIX),
+      ).toBe(true);
+
+      // Reader whose IndexedDB open fails transiently, then recovers to the
+      // SAME underlying database (same persisted device key) — modeling a
+      // cold-start open failure, not a lost key.
+      let failOpen = true;
+      const flakyFactory = {
+        open: (...args: Parameters<IDBFactory['open']>) => {
+          if (failOpen) {
+            throw new OneKeyLocalError('transient IndexedDB open failure');
+          }
+          return realFactory.open(...args);
+        },
+      } as unknown as IDBFactory;
+      const readerStorage = new SupabaseStorage({
+        sealedValueCodec: buildSupabaseSealedValueCodec({
+          dbName: sharedDbName,
+          indexedDBInstance: flakyFactory,
+        }),
+      });
+
+      // Transient unavailability REJECTS retryable instead of resolving
+      // null: resolving null would be indistinguishable from a genuinely
+      // lost session and lets destructive cleanups orphan a valid one.
+      const readError: unknown = await readerStorage.getItem('session').then(
+        () => null,
+        (error: unknown) => error,
+      );
+      expect(readError).toBeTruthy();
+      expect(isRetryableSupabaseAuthError(readError)).toBe(true);
+
+      // The rejection is not kept for maxAge: memoizee evicts rejected
+      // promises on the next event-loop tick, so once the device key store
+      // recovers, the SAME storage instance unseals the same persisted
+      // session instead of serving the stale failure for 30s.
+      failOpen = false;
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+      await expect(readerStorage.getItem('session')).resolves.toBe(
+        sessionValue,
+      );
     });
 
     it('returns null for a recognized but corrupt envelope instead of leaking it as plaintext', async () => {

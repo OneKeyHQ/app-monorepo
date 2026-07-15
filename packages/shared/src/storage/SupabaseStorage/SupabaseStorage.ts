@@ -85,7 +85,12 @@ export class SupabaseStorage {
       }
       // Recognized sealed envelope: a genuine decrypt failure (device key
       // lost, e.g. browser cleared IndexedDB) returns null — the session is
-      // unrecoverable and the user re-OAuths.
+      // unrecoverable and the user re-OAuths. A TRANSIENT device-key
+      // failure instead rejects with SupabaseStorageTransientError so
+      // callers cannot mistake a recoverable session for "no session";
+      // memoizee evicts rejected promises on the next tick (same-tick
+      // concurrent readers share the retryable rejection), so later reads
+      // retry immediately instead of serving a stale failure for maxAge.
       return this.sealedValueCodec.unsealValue({ key, sealedValue: rawValue });
     },
     {

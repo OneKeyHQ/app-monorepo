@@ -1295,14 +1295,26 @@ class ServicePrime extends ServiceBase {
   @backgroundMethod()
   async callApiFetchPrimeUserInfo(): Promise<IPrimeServerUserInfoWithProfile> {
     const client = await this.getPrimeClient();
-    // Capture the token the request interceptor will attach, so invalid-token
-    // cleanup can detect stale in-flight responses after a re-login.
+    // Snapshot the token AND pin it as the explicit request header (the
+    // ServiceBase interceptor respects a pre-set header). Without pinning,
+    // the interceptor would re-read the active token at send time, so a
+    // refresh/re-login between this snapshot and the send would make the
+    // requests carry a token different from `requestAuthToken` — and the
+    // HTTP-200 body-code 90002/90003 cleanup below would compare its
+    // stale-token guard against the wrong snapshot. Pinning keeps the
+    // recorded, sent, and judged token identical. An empty snapshot is
+    // falsy, so the interceptor falls back to the live token exactly as
+    // before — matching the `!requestAuthToken` guard in
+    // evaluateInvalidTokenClearGuards.
     const requestAuthToken =
       await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
     const requestConfig: Parameters<typeof client.get>[1] & {
       autoHandleError?: boolean;
     } = {
       autoHandleError: false,
+      headers: {
+        'X-Onekey-Request-Token': requestAuthToken,
+      },
     };
     const profileRequest = client
       .get<
