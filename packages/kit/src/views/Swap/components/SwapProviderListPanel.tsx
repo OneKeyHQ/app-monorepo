@@ -47,6 +47,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isSwapQuoteAvailable } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapTabSwitchType,
@@ -335,18 +336,25 @@ const SwapProviderListPanel = ({
 
   const availableList = useMemo(
     () =>
-      displayList.filter(
-        (item) => item.toAmount && !item.limit?.min && !item.limit?.max,
+      displayList.filter((item) =>
+        isSwapQuoteAvailable({
+          quote: item,
+          fromTokenAmount: fromTokenAmount.value,
+        }),
       ),
-    [displayList],
+    [displayList, fromTokenAmount.value],
   );
 
   const unavailableList = useMemo(
     () =>
       displayList.filter(
-        (item) => !item.toAmount || item.limit?.min || item.limit?.max,
+        (item) =>
+          !isSwapQuoteAvailable({
+            quote: item,
+            fromTokenAmount: fromTokenAmount.value,
+          }),
       ),
-    [displayList],
+    [displayList, fromTokenAmount.value],
   );
 
   // Auto-scroll to selected provider when loading completes (OK-49778)
@@ -392,25 +400,14 @@ const SwapProviderListPanel = ({
 
   const renderItem = useCallback(
     (item: IFetchQuoteResult) => {
-      let disabled = !item.toAmount;
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
-      if (item.limit) {
-        if (item.limit.min) {
-          const minBN = new BigNumber(item.limit.min);
-          if (fromTokenAmountBN.lt(minBN)) {
-            disabled = false;
-          }
-        }
-        if (item.limit.max) {
-          const maxBN = new BigNumber(item.limit.max);
-          if (fromTokenAmountBN.gt(maxBN)) {
-            disabled = false;
-          }
-        }
-      }
+      const disabled = !isSwapQuoteAvailable({
+        quote: item,
+        fromTokenAmount: fromTokenAmount.value,
+      });
       const itemKey = buildSwapQuoteProviderKey(item);
       const isNewItem = isNewItemRef.current.has(itemKey);
       const selected = Boolean(
+        !disabled &&
         item.info.provider === selectedProviderInfo?.provider &&
         item.info.providerName === selectedProviderInfo?.providerName,
       );
