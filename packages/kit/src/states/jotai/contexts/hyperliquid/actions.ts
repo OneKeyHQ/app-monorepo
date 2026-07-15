@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 
 import { BigNumber } from 'bignumber.js';
-import { isEqual, isNil } from 'lodash';
+import { isNil } from 'lodash';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -121,6 +121,7 @@ import {
   shouldResetOpenOrdersForAccount,
   sortActivePerpsPositions,
 } from './utils/coldStartMergeUtils';
+import { publishLatestOrderBookOptions } from './utils/instrumentSwitch';
 import {
   shouldClearPerpsMarketDataForInstrument,
   shouldUpdatePerpsBbo,
@@ -532,11 +533,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       nSigFigs: stored?.nSigFigs ?? null,
       mantissa: stored?.mantissa ?? null,
     };
-    const prevOrderBookOptions = await perpsActiveOrderBookOptionsAtom.get();
-    if (!isEqual(prevOrderBookOptions, nextOrderBookOptions)) {
-      await perpsActiveOrderBookOptionsAtom.set(() => nextOrderBookOptions);
-    }
-    if (!this.isLatestActiveInstrumentChange(params.requestId)) {
+    const isLatest = await publishLatestOrderBookOptions({
+      read: () => perpsActiveOrderBookOptionsAtom.get(),
+      write: (value) => perpsActiveOrderBookOptionsAtom.set(() => value),
+      next: nextOrderBookOptions,
+      isLatest: () => this.isLatestActiveInstrumentChange(params.requestId),
+    });
+    if (!isLatest) {
       return;
     }
 
