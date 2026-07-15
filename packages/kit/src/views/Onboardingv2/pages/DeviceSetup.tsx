@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useNavigation } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
+import { defineMessages, useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import Animated from 'react-native-reanimated';
 
@@ -33,7 +33,6 @@ import {
   useConnectDeviceError,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
-import { definePendingMessages } from '../pendingMessages';
 import { OnboardingTestIDs } from '../testIDs';
 import { getForceTransportType } from '../utils';
 
@@ -46,17 +45,17 @@ import {
 import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { DevOnboardingStatus } from '@onekeyfe/hd-transport';
 
-const deviceSetupMessages = definePendingMessages({
+const deviceSetupMessages = defineMessages({
   checking: {
-    id: 'global.checking',
+    id: ETranslations.global_checking,
     defaultMessage: 'Checking',
   },
   ready: {
-    id: 'your_device_is_ready',
+    id: ETranslations.your_device_is_ready,
     defaultMessage: 'Your device is ready',
   },
   title: {
-    id: 'set_up_your_device',
+    id: ETranslations.set_up_your_device,
     defaultMessage: 'Set up your device',
   },
 });

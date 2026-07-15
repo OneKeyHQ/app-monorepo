@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import pRetry from 'p-retry';
-import { useIntl } from 'react-intl';
+import { defineMessages, useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -45,7 +45,6 @@ import {
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
 import { usePrepareUSBConnectForFirmwareUpdate } from '../hooks/usePrepareUSBConnectForFirmwareUpdate';
-import { definePendingMessages } from '../pendingMessages';
 import { OnboardingTestIDs } from '../testIDs';
 import { getDeviceLabel, getForceTransportType } from '../utils';
 
@@ -60,13 +59,13 @@ enum ECheckAndUpdateStepState {
   Error = 'error',
 }
 
-const checkSuccessMessages = definePendingMessages({
+const checkSuccessMessages = defineMessages({
   firmware: {
-    id: 'firmware_check_success_title',
+    id: ETranslations.firmware_check_success_title,
     defaultMessage: 'Your firmware is ready',
   },
   genuine: {
-    id: 'genuine_check_success_title',
+    id: ETranslations.genuine_check_success_title,
     defaultMessage: '{deviceLabel} is genuine',
   },
 });

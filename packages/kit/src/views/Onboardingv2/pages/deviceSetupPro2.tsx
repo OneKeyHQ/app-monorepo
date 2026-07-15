@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
-import { type IntlShape, useIntl } from 'react-intl';
+import { type IntlShape, defineMessages, useIntl } from 'react-intl';
 
 import { Anchor, Image, SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -11,7 +11,6 @@ import { SeedCardIllustration } from '../components/SeedCardIllustration';
 import { SetupCardBody } from '../components/SetupCard';
 import { SetupCardBackground } from '../components/SetupCardBackground';
 import { SetupStepItem } from '../components/SetupStepItem';
-import { definePendingMessages } from '../pendingMessages';
 
 import {
   EPro2OnboardingStep,
@@ -23,109 +22,109 @@ import type { DevOnboardingStatus } from '@onekeyfe/hd-transport';
 
 const pro2Avatar = HwWalletAvatarImages[EDeviceType.Pro2];
 
-const pro2Messages = definePendingMessages({
+const pro2Messages = defineMessages({
   createPhraseDesc: {
-    id: 'device_setup_create_phrase_desc',
+    id: ETranslations.device_setup_create_phrase_desc,
     defaultMessage:
       'Write down each word in order and keep it offline. Anyone with this phrase can access your assets. OneKey cannot recover it for you.',
   },
   createSeedCardDesc: {
-    id: 'device_setup_create_seedcard_desc',
+    id: ETranslations.device_setup_create_seedcard_desc,
     defaultMessage:
       'Create a wallet backup on a PIN-protected SeedCard with a built-in Secure Element. Treat the card and PIN as sensitive backup materials.',
   },
   createSeedCardLink: {
-    id: 'device_setup_create_seedcard_link',
+    id: ETranslations.device_setup_create_seedcard_link,
     defaultMessage: 'Learn about SeedCard',
   },
   followStepsInstruction: {
-    id: 'device_setup_follow_steps_instruction',
+    id: ETranslations.device_setup_follow_steps_instruction,
     defaultMessage: 'Follow the steps on your device',
   },
   personalizeDesc: {
-    id: 'device_setup_personalize_desc',
+    id: ETranslations.device_setup_personalize_desc,
     defaultMessage: 'Choose a language and name your device.',
   },
   personalizeInstruction: {
-    id: 'device_setup_personalize_instruction',
+    id: ETranslations.device_setup_personalize_instruction,
     defaultMessage: 'Continue on your device',
   },
   personalizeTitle: {
-    id: 'device_setup_personalize_title',
+    id: ETranslations.device_setup_personalize_title,
     defaultMessage: 'Personalize your device',
   },
   pinDesc: {
-    id: 'device_setup_pin_desc',
+    id: ETranslations.device_setup_pin_desc,
     defaultMessage:
       'Your PIN unlocks your device and helps prevent unauthorized access. Keep it private.',
   },
   pinInstruction: {
-    id: 'device_setup_pin_instruction',
+    id: ETranslations.device_setup_pin_instruction,
     defaultMessage: 'Create a PIN on your device',
   },
   pinTitle: {
-    id: 'device_setup_pin_title',
+    id: ETranslations.device_setup_pin_title,
     defaultMessage: 'Create PIN',
   },
   restoreDesc: {
-    id: 'device_setup_restore_desc',
+    id: ETranslations.device_setup_restore_desc,
     defaultMessage: 'Choose how you want to restore your wallet:',
   },
   restoreInstruction: {
-    id: 'device_setup_restore_instruction',
+    id: ETranslations.device_setup_restore_instruction,
     defaultMessage: 'Choose a restore method',
   },
   restoreOptionPhraseDesc: {
-    id: 'device_setup_restore_option_phrase_desc',
+    id: ETranslations.device_setup_restore_option_phrase_desc,
     defaultMessage: 'Use a recovery phrase from an existing wallet.',
   },
   restoreOptionSeedCardDesc: {
-    id: 'device_setup_restore_option_seedcard_desc',
+    id: ETranslations.device_setup_restore_option_seedcard_desc,
     defaultMessage: 'Use your SeedCard to restore wallet access.',
   },
   restorePhraseDesc: {
-    id: 'device_setup_restore_phrase_desc',
+    id: ETranslations.device_setup_restore_phrase_desc,
     defaultMessage:
       'Keep it private while restoring. Never enter it in the app or on a website.',
   },
   restorePhraseInstruction: {
-    id: 'device_setup_restore_phrase_instruction',
+    id: ETranslations.device_setup_restore_phrase_instruction,
     defaultMessage: 'Enter the recovery phrase on your device',
   },
   restorePhraseTitle: {
-    id: 'device_setup_restore_phrase_title',
+    id: ETranslations.device_setup_restore_phrase_title,
     defaultMessage: 'Restore with recovery phrase',
   },
   restoreSeedCardDesc: {
-    id: 'device_setup_restore_seedcard_desc',
+    id: ETranslations.device_setup_restore_seedcard_desc,
     defaultMessage: 'Keep your SeedCard nearby and follow the device prompts.',
   },
   restoreSeedCardTitle: {
-    id: 'device_setup_restore_seedcard_title',
+    id: ETranslations.device_setup_restore_seedcard_title,
     defaultMessage: 'Restore with SeedCard',
   },
   walletDesc: {
-    id: 'device_setup_wallet_desc',
+    id: ETranslations.device_setup_wallet_desc,
     defaultMessage: 'Create a new wallet or restore an existing one:',
   },
   walletInstruction: {
-    id: 'device_setup_wallet_instruction',
+    id: ETranslations.device_setup_wallet_instruction,
     defaultMessage: 'Choose an option on your device',
   },
   walletOptionCreateDesc: {
-    id: 'device_setup_wallet_option_create_desc',
+    id: ETranslations.device_setup_wallet_option_create_desc,
     defaultMessage: 'Generate a new recovery phrase on your device.',
   },
   walletOptionRestore: {
-    id: 'device_setup_wallet_option_restore',
+    id: ETranslations.device_setup_wallet_option_restore,
     defaultMessage: 'Restore wallet',
   },
   walletOptionRestoreDesc: {
-    id: 'device_setup_wallet_option_restore_desc',
+    id: ETranslations.device_setup_wallet_option_restore_desc,
     defaultMessage: 'Restore from a recovery phrase or SeedCard.',
   },
   walletTitle: {
-    id: 'device_setup_wallet_title',
+    id: ETranslations.device_setup_wallet_title,
     defaultMessage: 'Set up wallet',
   },
 });
