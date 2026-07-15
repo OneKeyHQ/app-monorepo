@@ -1,3 +1,5 @@
+/* cspell:words tsgo */
+
 const { execSync, execFileSync } = require('child_process');
 const path = require('path');
 const { exit } = require('process');
@@ -46,8 +48,11 @@ try {
   console.log(`[${getTimestamp()}] Using tsconfig: ${tsConfigPath}`);
   console.log(`[${getTimestamp()}] Using cache folder: ${cacheFolder}`);
   const tsBuildInfoPath = path.join(cacheFolder, '.app-mono-ts-cache');
-  const result = execFileSync('npx', [
-    'tsgo',
+  const tsgoPackage =
+    require.resolve('@typescript/native-preview/package.json');
+  const tsgoEntry = path.join(path.dirname(tsgoPackage), 'bin', 'tsgo.js');
+  const result = execFileSync(process.execPath, [
+    tsgoEntry,
     '-p',
     tsConfigPath,
     '--noEmit',
@@ -56,8 +61,16 @@ try {
   ]).toString('utf-8');
   console.log(result);
 } catch (error) {
-  const errorMsg = error.stdout.toString('utf-8');
-  handleProblems(errorMsg);
+  const stdout = error.stdout?.toString('utf-8') ?? '';
+  const stderr = error.stderr?.toString('utf-8') ?? '';
+  const compilerOutput = [stdout, stderr].filter(Boolean).join('\n');
+  if (compilerOutput) {
+    handleProblems(compilerOutput);
+    console.error(compilerOutput);
+  } else {
+    console.error(error.message);
+  }
+  failToExit();
 }
 
 console.log(

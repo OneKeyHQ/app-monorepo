@@ -7,6 +7,7 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/de
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { ExtOneKeyIdAuthOnMount } from '../../../components/OneKeyAuth/ExtOneKeyIdAuthOnMount';
 import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { ProviderJotaiContextAccountOverview } from '../../../states/jotai/contexts/accountOverview';
 import {
@@ -96,6 +97,7 @@ function HomePageContainer() {
           )}
           <DAppConnectExtensionFloatingTrigger />
           <OnboardingOnMount />
+          <ExtOneKeyIdAuthOnMount />
           <NotificationRegisterDaily />
           <KYTIntroOnMount />
           <BTCFreshAddressProvider />

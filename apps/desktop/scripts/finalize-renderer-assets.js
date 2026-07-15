@@ -2,6 +2,8 @@ const path = require('path');
 
 const fs = require('fs-extra');
 
+const { stripProductionArtifacts } = require('./finalize-production-assets');
+
 const root = path.join(__dirname, '..');
 const webBuildDir = path.join(root, 'web-build');
 const appBuildDir = path.join(root, 'app', 'build');
@@ -11,7 +13,7 @@ const appBuildStaticDir = path.join(appBuildDir, 'static');
 async function postBuild() {
   try {
     // The old script did `mv ./web-build ./app/build`.
-    // We need to move the webpack output from web-build to app/build
+    // Move the Rspack renderer output from web-build to app/build.
     if (await fs.pathExists(webBuildDir)) {
       console.log(`Moving ${webBuildDir} to ${appBuildDir}...`);
       // Remove existing app/build if it exists
@@ -20,7 +22,7 @@ async function postBuild() {
       await fs.move(webBuildDir, appBuildDir);
     } else {
       console.error(
-        `Error: Source directory ${webBuildDir} does not exist. Webpack build might have failed.`,
+        `Error: Source directory ${webBuildDir} does not exist. Rspack build might have failed.`,
       );
       process.exit(1);
     }
@@ -32,6 +34,8 @@ async function postBuild() {
     } else {
       console.log(`Info: No ${publicStaticDir} found to copy.`);
     }
+
+    stripProductionArtifacts(appBuildDir, 'Desktop packaged renderer assets');
 
     console.log('Post-renderer build steps completed successfully.');
   } catch (err) {

@@ -5,7 +5,6 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import { ENABLE_IMMERSIVE_GLASS_HEADER } from '@onekeyhq/kit/src/components/ImmersiveGlassHeader';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
@@ -32,7 +31,7 @@ function BaseHomeHeaderContainer() {
   // Mirror WalletBanner's own render condition so the placeholder height
   // matches what the banner will actually display. WalletBanner returns null
   // when there's no banner content (no banners and no Tron-resource card);
-  // otherwise the banner band is ~130pt and the header settles at 312pt.
+  // otherwise the banner band is ~110pt and the header settles at 292pt.
   const [{ banners }] = useWalletTopBannersAtom();
   const hasTronCard = Boolean(
     vaultSettings?.hasResource && account?.id && network?.id,
@@ -56,14 +55,13 @@ function BaseHomeHeaderContainer() {
     hasWalletBannerContent &&
     homeBalanceState === 'positive';
 
-  // Reserve the taller native header (312pt) only when the banner band will
+  // Reserve the taller native header (292pt) only when the banner band will
   // actually render; otherwise collapse to the shorter layout so we don't
   // leave an empty gap below WalletActions.
   let nativeMinHeight: number | undefined;
   if (platformEnv.isNative && !isWalletNotBackedUp) {
-    nativeMinHeight = shouldShowBanner ? 312 : 182;
+    nativeMinHeight = shouldShowBanner ? 292 : 182;
   }
-  const headerBg = ENABLE_IMMERSIVE_GLASS_HEADER ? '$transparent' : '$bgApp';
 
   // Funnel denominator for backup / receive completion rates: log once per
   // (walletId, state) tuple seen this session. Skip `unknown` so we don't
@@ -95,7 +93,7 @@ function BaseHomeHeaderContainer() {
       gap="$5"
       minHeight={nativeMinHeight}
       $gtMd={{ gap: '$8' }}
-      bg={headerBg}
+      bg="$bgApp"
       pointerEvents="box-none"
     >
       <Stack
@@ -106,7 +104,7 @@ function BaseHomeHeaderContainer() {
           pt: '$8',
         }}
         px="$pagePadding"
-        bg={headerBg}
+        bg="$bgApp"
         pointerEvents="box-none"
       >
         <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>

@@ -1,4 +1,87 @@
+import { EEarnProviderEnum } from '../../types/earn';
+import { normalizeToEarnProvider } from '../../types/earn/earnProvider.constants';
+
 import earnUtils from './earnUtils';
+
+describe('earnUtils Spark provider integration', () => {
+  it('normalizes Spark provider identity for Earn routes and config lookup', () => {
+    expect(normalizeToEarnProvider('spark')).toBe(EEarnProviderEnum.Spark);
+    expect(earnUtils.getEarnProviderEnumKey('spark')).toBe(
+      EEarnProviderEnum.Spark,
+    );
+    expect(earnUtils.getEarnProviderName({ providerName: 'spark' })).toBe(
+      EEarnProviderEnum.Spark,
+    );
+  });
+
+  it('uses the protocol vault for Spark requests and ERC20 approval', () => {
+    const protocolVault = '0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d';
+
+    expect(
+      earnUtils.shouldSendEarnProtocolVault({ providerName: 'spark' }),
+    ).toBe(true);
+    expect(
+      earnUtils.resolveEarnApproveSpenderAddress({
+        providerName: 'spark',
+        protocolVault,
+      }),
+    ).toBe(protocolVault);
+  });
+
+  it('fails closed until Spark returns a withdrawal path', () => {
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Spark',
+        isLoading: false,
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Spark',
+        isLoading: false,
+        withdrawType: 'instant',
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('earnUtils Bitway provider behavior', () => {
+  it('normalizes Bitway and forwards its vault-scoped contract identity', () => {
+    expect(earnUtils.getEarnProviderEnumKey('bitway')).toBe('Bitway');
+    expect(earnUtils.isBitwayProvider({ providerName: 'BITWAY' })).toBe(true);
+    expect(
+      earnUtils.shouldSendEarnProtocolVault({ providerName: 'Bitway' }),
+    ).toBe(true);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Bitway',
+        isLoading: true,
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Bitway',
+        isLoading: false,
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Bitway',
+        isLoading: false,
+        withdrawType: 'queued',
+      }),
+    ).toBe(true);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Native',
+        isLoading: false,
+      }),
+    ).toBe(true);
+    expect(earnUtils.getEarnProviderName({ providerName: 'bitway' })).toBe(
+      'Bitway',
+    );
+  });
+});
 
 describe('earnUtils borrow address normalization', () => {
   describe('normalizeBorrowAddress', () => {

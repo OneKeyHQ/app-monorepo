@@ -22,6 +22,7 @@ import type {
   IAnimationValue,
   IBaseValue,
   IChainValue,
+  IFeaturedChangelogPreviewValue,
   IMarketDetailValue,
   IQRCodeHandlerParse,
   IUrlAccountValue,
@@ -195,6 +196,17 @@ export async function parseQRCodeWithDeps(
         screen: EAppUpdateRoutes.UpdatePreview,
       });
       break;
+    case EQRCodeHandlerType.FEATURED_CHANGELOG_PREVIEW: {
+      // Ops-only Featured Changelog preview (dashboard-generated QR). Route
+      // to the preview page instead of the raw Info/Copy fallback dialog.
+      const { version } = result.data as IFeaturedChangelogPreviewValue;
+      await closeScanPage();
+      navigation.pushModal(EModalRoutes.AppUpdateModal, {
+        screen: EAppUpdateRoutes.FeaturedChangelogPreview,
+        params: { version },
+      });
+      break;
+    }
     case EQRCodeHandlerType.PRIME_TRANSFER:
       {
         const primeTransferData = result.data as IPrimeTransferValue;
