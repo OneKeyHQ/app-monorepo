@@ -11,7 +11,7 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
 ## Application Development Commands
 
 **PLATFORM-SPECIFIC DEVELOPMENT**:
-- `yarn app:desktop:rspack` - Start desktop Electron app development
+- `yarn app:desktop` - Start desktop Electron app development with Rspack
   - **Runtime**: 30-60 seconds to start
   - **Common issues**: Node version conflicts, missing native dependencies
   - **Troubleshooting**: Run `yarn clean && yarn reinstall` if startup fails
