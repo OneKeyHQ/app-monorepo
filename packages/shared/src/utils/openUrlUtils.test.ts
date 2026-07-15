@@ -31,12 +31,12 @@ jest.mock('expo-linking', () => ({
 jest.mock('expo-web-browser', () => ({
   openBrowserAsync: jest.fn().mockResolvedValue({ type: 'dismiss' }),
   dismissBrowser: jest.fn().mockResolvedValue({ type: 'dismiss' }),
-  WebBrowserPresentationStyle: { PAGE_SHEET: 'pageSheet' },
+  WebBrowserPresentationStyle: { OVER_FULL_SCREEN: 'overFullScreen' },
 }));
 
 const IN_APP_BROWSER_OPTIONS = {
   createTask: false,
-  presentationStyle: 'pageSheet',
+  presentationStyle: 'overFullScreen',
   dismissButtonStyle: 'close',
   enableBarCollapsing: true,
 };
@@ -67,7 +67,7 @@ describe('openUrlExternal (native)', () => {
     setForceSystemBrowserForDebug(false);
   });
 
-  test('opens https URLs in the in-app browser, trimmed, as a page sheet', async () => {
+  test('opens https URLs in the in-app browser, trimmed, full screen', async () => {
     openUrlExternal('  https://help.onekey.so/hc  ');
     await flushPromises();
     await flushPromises();

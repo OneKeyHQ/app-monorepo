@@ -183,13 +183,15 @@ const openUrlInAppBrowserNative = async (
   const webBrowser = await import('expo-web-browser');
   // createTask:false keeps the Custom Tab inside OneKey's Android task
   // (BACK returns to the app; singleTask MainActivity clears it on
-  // deep-link re-entry). iOS presents SFSafariViewController as a page
-  // sheet (swipe down or X to dismiss); the promise only resolves once
-  // the browser is dismissed. presentationStyle/dismissButtonStyle are
-  // iOS-only, enableBarCollapsing applies to both platforms.
+  // deep-link re-entry). iOS presents SFSafariViewController full screen,
+  // dismissed via the X button (no swipe-down); OVER_FULL_SCREEN keeps the
+  // RN view hierarchy mounted underneath, unlike FULL_SCREEN. The promise
+  // only resolves once the browser is dismissed. presentationStyle/
+  // dismissButtonStyle are iOS-only, enableBarCollapsing applies to both
+  // platforms.
   return webBrowser.openBrowserAsync(url, {
     createTask: false,
-    presentationStyle: webBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+    presentationStyle: webBrowser.WebBrowserPresentationStyle.OVER_FULL_SCREEN,
     dismissButtonStyle: 'close',
     enableBarCollapsing: true,
   });
