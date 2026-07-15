@@ -11,12 +11,8 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import {
-  EPrimeAuthSessionSource,
-  type IOneKeyIdAccount,
-} from '@onekeyhq/shared/types/prime/primeTypes';
+import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import {
@@ -107,24 +103,27 @@ function getOneKeyIdLogoutDialogContent({
   };
 }
 
-function isLegacyOneKeyIdAccountMissingOAuthIdentityWithFallback({
-  onekeyAccount,
+// Device-level classification for the linked (destructive) keyless logout
+// branch: the coupling "log out OneKey ID => remove the keyless wallet" is
+// only justified when THIS device's login is backed by the keyless wallet's
+// shared OAuth session (logging out tears down the wallet's active
+// credential). That is exactly `authSessionSource === KeylessOAuth`.
+//
+// Deliberately NOT based on server-side account identities
+// (onekeyAccount.identities): identities are account-level and shared across
+// devices — after another device binds an OAuth identity, this device may
+// still be logged in via the legacy email session, and its local keyless
+// wallet may even belong to a different social account. Logging out here
+// only clears the legacy session, so the wallet must be preserved. An
+// unknown source (bridge read failed, stale persisted state) must never
+// trigger wallet removal either, so anything other than a confirmed
+// KeylessOAuth source takes the wallet-preserving classification.
+function shouldSkipLinkedKeylessLogoutBySource({
   authSessionSource,
 }: {
-  onekeyAccount?: IOneKeyIdAccount;
   authSessionSource?: EPrimeAuthSessionSource;
 }) {
-  const identities = onekeyAccount?.identities ?? [];
-  if (!identities.length) {
-    // Identity data is unavailable (e.g. persisted login state from an old
-    // build, offline, or the profile fetch failed). Fall back to the locally
-    // persisted auth session source: only a confirmed Keyless OAuth session
-    // may take the OAuth-bound (linked wallet logout) branch. Unknown
-    // identity data must never trigger wallet removal, so default to the
-    // legacy (wallet-preserving) classification.
-    return authSessionSource !== EPrimeAuthSessionSource.KeylessOAuth;
-  }
-  return isLegacyOneKeyIdAccountMissingOAuthIdentity(onekeyAccount);
+  return authSessionSource !== EPrimeAuthSessionSource.KeylessOAuth;
 }
 
 function OneKeyIdLogoutDialogContent({
@@ -236,7 +235,6 @@ let isOneKeyIdLogoutDialogShowing = false;
 export function useShowOneKeyIdLogoutDialog() {
   const intl = useIntl();
   const { logoutWithPurchasesSdk, user } = useOneKeyAuthMethods();
-  const userOneKeyAccount = user?.onekeyAccount;
   const isUserOneKeyIdLoggedIn = Boolean(
     user?.isLoggedIn && user?.isLoggedInOnServer,
   );
@@ -261,22 +259,18 @@ export function useShowOneKeyIdLogoutDialog() {
 
         const isOneKeyIdLoggedIn =
           options.isOneKeyIdLoggedIn ?? isUserOneKeyIdLoggedIn;
-        // `onekeyAccount.identities` is only populated by successful profile
-        // fetches. When it is missing, read the offline-available auth session
-        // source so the classification below never falls into the destructive
-        // linked wallet logout branch just because identity data is unknown.
+        // Always read the locally persisted auth session source (offline
+        // available, device-level): the linked-logout classification below
+        // must reflect what backs THIS device's login, never server-side
+        // account identities (see shouldSkipLinkedKeylessLogoutBySource).
         let authSessionSource: EPrimeAuthSessionSource | undefined;
-        if (
-          Boolean(keylessWallet) &&
-          isOneKeyIdLoggedIn &&
-          !userOneKeyAccount?.identities?.length
-        ) {
+        if (Boolean(keylessWallet) && isOneKeyIdLoggedIn) {
           try {
             authSessionSource =
               await backgroundApiProxy.simpleDb.prime.getAuthSessionSource();
           } catch {
-            // Leave the source undefined; unknown identity data defaults to
-            // the non-destructive (wallet-preserving) classification.
+            // Leave the source undefined; an unknown source defaults to the
+            // non-destructive (wallet-preserving) classification.
           }
         }
         // A not-logged-in OneKey ID logout must never remove the keyless
@@ -287,8 +281,7 @@ export function useShowOneKeyIdLogoutDialog() {
         const shouldSkipLinkedLogout =
           Boolean(keylessWallet) &&
           (!isOneKeyIdLoggedIn ||
-            isLegacyOneKeyIdAccountMissingOAuthIdentityWithFallback({
-              onekeyAccount: userOneKeyAccount,
+            shouldSkipLinkedKeylessLogoutBySource({
               authSessionSource,
             }));
         const shouldLogoutKeylessWallet =
@@ -352,6 +345,6 @@ export function useShowOneKeyIdLogoutDialog() {
         throw error;
       }
     },
-    [intl, isUserOneKeyIdLoggedIn, logoutWithPurchasesSdk, userOneKeyAccount],
+    [intl, isUserOneKeyIdLoggedIn, logoutWithPurchasesSdk],
   );
 }
