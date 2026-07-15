@@ -12,8 +12,8 @@ describe('isFastL2RecoveryCurrent', () => {
       isFastL2RecoveryCurrent({
         startedGeneration: 1,
         currentGeneration: 2,
-        targetKey: 'l2:{\"coin\":\"ETH\"}',
-        currentTargetKey: 'l2:{\"coin\":\"ETH\"}',
+        targetKey: 'l2:{"coin":"ETH"}',
+        currentTargetKey: 'l2:{"coin":"ETH"}',
         isTargetPending: true,
       }),
     ).toBe(false);
@@ -21,8 +21,8 @@ describe('isFastL2RecoveryCurrent', () => {
       isFastL2RecoveryCurrent({
         startedGeneration: 2,
         currentGeneration: 2,
-        targetKey: 'l2:{\"coin\":\"ETH\"}',
-        currentTargetKey: 'l2:{\"coin\":\"ETH\"}',
+        targetKey: 'l2:{"coin":"ETH"}',
+        currentTargetKey: 'l2:{"coin":"ETH"}',
         isTargetPending: true,
       }),
     ).toBe(true);
