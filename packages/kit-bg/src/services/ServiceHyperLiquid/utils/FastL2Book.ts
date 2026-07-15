@@ -32,6 +32,26 @@ export function shouldResetFastL2RecoveryAfterFrame(
   return normalizedBook !== null && !('s' in frame);
 }
 
+export function isFastL2RecoveryCurrent({
+  startedGeneration,
+  currentGeneration,
+  targetKey,
+  currentTargetKey,
+  isTargetPending,
+}: {
+  startedGeneration: number;
+  currentGeneration: number;
+  targetKey: string;
+  currentTargetKey: string | null;
+  isTargetPending: boolean;
+}): boolean {
+  return (
+    startedGeneration === currentGeneration &&
+    targetKey === currentTargetKey &&
+    isTargetPending
+  );
+}
+
 export type IFastL2BookError = Error & {
   code: 'invalid_stream' | 'stale_target';
 };

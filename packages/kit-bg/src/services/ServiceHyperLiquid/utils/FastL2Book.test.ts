@@ -1,6 +1,33 @@
 import type { IBook } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { FastL2Book, shouldResetFastL2RecoveryAfterFrame } from './FastL2Book';
+import {
+  FastL2Book,
+  isFastL2RecoveryCurrent,
+  shouldResetFastL2RecoveryAfterFrame,
+} from './FastL2Book';
+
+describe('isFastL2RecoveryCurrent', () => {
+  it('invalidates a delayed recovery after a healthy frame advances generation', () => {
+    expect(
+      isFastL2RecoveryCurrent({
+        startedGeneration: 1,
+        currentGeneration: 2,
+        targetKey: 'l2:{\"coin\":\"ETH\"}',
+        currentTargetKey: 'l2:{\"coin\":\"ETH\"}',
+        isTargetPending: true,
+      }),
+    ).toBe(false);
+    expect(
+      isFastL2RecoveryCurrent({
+        startedGeneration: 2,
+        currentGeneration: 2,
+        targetKey: 'l2:{\"coin\":\"ETH\"}',
+        currentTargetKey: 'l2:{\"coin\":\"ETH\"}',
+        isTargetPending: true,
+      }),
+    ).toBe(true);
+  });
+});
 
 describe('shouldResetFastL2RecoveryAfterFrame', () => {
   const snapshot: IBook = {

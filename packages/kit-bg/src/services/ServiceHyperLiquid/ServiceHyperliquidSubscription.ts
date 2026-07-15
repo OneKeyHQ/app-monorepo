@@ -78,6 +78,7 @@ import hyperLiquidCache from './hyperLiquidCache';
 import {
   FastL2Book,
   type IFastL2Frame,
+  isFastL2RecoveryCurrent,
   isStaleFastL2TargetError,
   shouldResetFastL2RecoveryAfterFrame,
 } from './utils/FastL2Book';
@@ -225,6 +226,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _fastL2RecoveryPromise: Promise<void> | null = null;
 
+  private _fastL2RecoveryGeneration = 0;
+
   private static readonly FAST_L2_SNAPSHOT_TIMEOUT_MS = 3000;
 
   private static readonly FAST_L2_RECOVERY_DELAYS_MS = [0, 1000, 3000];
@@ -298,10 +301,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private _resetFastL2Recovery(): void {
+    this._invalidateFastL2RecoveryTask();
     this._fastL2TargetKey = null;
     this._fastL2FallbackTargetKey = null;
     this._fastL2RecoveryAttempts = 0;
     this._fastL2ReconnectAttempted = false;
+  }
+
+  private _invalidateFastL2RecoveryTask(): void {
+    this._fastL2RecoveryGeneration += 1;
     this._fastL2RecoveryPromise = null;
   }
 
@@ -310,6 +318,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   ): void {
     this._resetFastL2Book();
     if (this._fastL2TargetKey !== spec.key) {
+      this._invalidateFastL2RecoveryTask();
       this._fastL2TargetKey = spec.key;
       this._fastL2FallbackTargetKey = null;
       this._fastL2RecoveryAttempts = 0;
@@ -354,6 +363,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if (!spec) {
       return;
     }
+    const startedGeneration = this._fastL2RecoveryGeneration;
+    const isRecoveryCurrent = () =>
+      isFastL2RecoveryCurrent({
+        startedGeneration,
+        currentGeneration: this._fastL2RecoveryGeneration,
+        targetKey,
+        currentTargetKey: this._fastL2TargetKey,
+        isTargetPending: Boolean(this.pendingSubSpecsMap[targetKey]),
+      });
 
     const recoveryPromise = (async () => {
       const delay =
@@ -365,10 +383,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         if (delay > 0) {
           await timerUtils.wait(delay);
         }
-        if (
-          this._fastL2TargetKey !== targetKey ||
-          !this.pendingSubSpecsMap[targetKey]
-        ) {
+        if (!isRecoveryCurrent()) {
           return;
         }
         console.warn(
@@ -377,14 +392,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         const resetSucceeded = await this._subscriptionMutationQueue.enqueue(
           ServiceHyperliquidSubscription.ORDER_BOOK_MUTATION_KEY,
           async () => {
+            if (!isRecoveryCurrent()) {
+              return true;
+            }
             const destroyed = await this._destroySubscription(spec);
             if (!destroyed) {
               return false;
             }
-            if (
-              this._fastL2TargetKey === targetKey &&
-              this.pendingSubSpecsMap[targetKey]
-            ) {
+            if (isRecoveryCurrent()) {
               await this._createSubscription(spec);
             }
             return true;
@@ -2267,6 +2282,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           this._fastL2SnapshotTimer = null;
         }
         if (shouldResetFastL2RecoveryAfterFrame(fastL2Frame, normalizedBook)) {
+          this._invalidateFastL2RecoveryTask();
           this._fastL2RecoveryAttempts = 0;
           this._fastL2ReconnectAttempted = false;
           this._fastL2FallbackTargetKey = null;
