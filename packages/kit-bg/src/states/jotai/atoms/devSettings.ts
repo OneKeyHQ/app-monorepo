@@ -118,6 +118,9 @@ export interface IDevSettings {
   // Build App -> Pro 2 portfolio artifacts locally in dev. Production must use
   // server-packed archive responses and must not upload client-packed archives.
   enablePortfolioSyncDev?: boolean;
+  // Expose Pro 2 development entry points and allow explicit Protocol V2
+  // sessions without changing the default protocol for existing devices.
+  enablePro2TestMode?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -126,6 +129,14 @@ export type IDevSettingsPersistAtom = {
   enabled: boolean;
   settings?: IDevSettings;
 };
+
+export function isPro2TestModeEnabled(
+  devSettings: IDevSettingsPersistAtom,
+): boolean {
+  return Boolean(
+    devSettings.enabled && devSettings.settings?.enablePro2TestMode,
+  );
+}
 
 export function getDevSettingsNetworkThrottleEnabled(
   devSettings: IDevSettingsPersistAtom,

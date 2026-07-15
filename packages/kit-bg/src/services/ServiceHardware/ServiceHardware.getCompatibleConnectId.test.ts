@@ -400,6 +400,25 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       packageBytes,
     });
   });
+
+  it('forwards an explicit Protocol V2 selection during Pro 2 discovery', async () => {
+    const searchDevices = jest.fn().mockResolvedValue({
+      success: true,
+      payload: [],
+    });
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      searchDevices,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+
+    await expect(
+      service.searchDevices({ connectProtocol: 'V2' }),
+    ).resolves.toEqual({ success: true, payload: [] });
+
+    expect(searchDevices).toHaveBeenCalledWith({ connectProtocol: 'V2' });
+  });
 });
 
 describe('ServiceHardware.getFeaturesWithUnlock', () => {

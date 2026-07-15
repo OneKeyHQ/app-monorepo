@@ -9,7 +9,7 @@ import type { EOAuthSocialLoginProvider } from '../consts/authConsts';
 import type { EKeylessFinalizeAction } from '../keylessWallet/keylessWalletConsts';
 import type { IDetectedNetworkGroupItem } from '../utils/networkDetectUtils';
 import type { EMnemonicType } from '../utils/secret';
-import type { EDeviceType } from '@onekeyfe/hd-shared';
+import type { EDeviceType, HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 
 export enum EOnboardingV2Routes {
   OnboardingV2 = 'OnboardingV2',
@@ -96,6 +96,7 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.ConnectQRCode]: undefined;
   [EOnboardingPagesV2.CheckAndUpdate]: {
+    connectProtocol?: HardwareConnectProtocol;
     deviceData: IConnectYourDeviceItem;
     tabValue: EConnectDeviceChannel;
   };

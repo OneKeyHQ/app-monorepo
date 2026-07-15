@@ -254,4 +254,23 @@ describe('DeviceScannerUtils', () => {
     await flushMicrotasks();
     scanner.stopScan();
   });
+
+  it('passes an explicit Protocol V2 selection to OneKey device search', async () => {
+    const search = createDeferred<Success<SearchDevice[]>>();
+    const searchDevices = jest.fn(() => search.promise);
+    const scanner = createScanner(searchDevices);
+
+    scanner.startDeviceScan(jest.fn(), jest.fn(), 1, 60_000, 1, undefined, {
+      connectProtocol: 'V2',
+    });
+    await flushMicrotasks();
+
+    expect(searchDevices).toHaveBeenCalledWith({
+      connectProtocol: 'V2',
+    });
+
+    search.resolve(successResponse('pro2'));
+    await flushMicrotasks();
+    scanner.stopScan();
+  });
 });

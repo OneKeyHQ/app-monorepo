@@ -133,6 +133,7 @@ import type {
   SearchDevice,
   UiEvent,
 } from '@onekeyfe/hd-core';
+import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 
 const DEVICE_PIN_ON_DEVICE_TYPES = new Set<IDeviceType>([
   EDeviceType.Touch,
@@ -940,6 +941,7 @@ class ServiceHardware extends ServiceBase {
   // TODO use convertDeviceResponse()
   @backgroundMethod()
   async searchDevices(params?: {
+    connectProtocol?: HardwareConnectProtocol;
     vendor?: EHardwareVendor;
     resetSession?: boolean;
     waitForAllTransports?: boolean;
@@ -962,7 +964,11 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
-    const response = await hardwareSDK?.searchDevices();
+    const response = await hardwareSDK?.searchDevices(
+      params?.connectProtocol
+        ? { connectProtocol: params.connectProtocol }
+        : undefined,
+    );
     defaultLogger.hardware.sdkLog.log(
       'searchDevices response: ',
       JSON.stringify(response),
@@ -974,7 +980,11 @@ class ServiceHardware extends ServiceBase {
       // Normal Linux desktop (AppImage/.deb): install the rules via PolicyKit
       // and retry once, so the user doesn't have to restart the app.
       if (await this.recoverLinuxWebUsbAccessDeniedError(response.payload)) {
-        const retryResponse = await hardwareSDK?.searchDevices();
+        const retryResponse = await hardwareSDK?.searchDevices(
+          params?.connectProtocol
+            ? { connectProtocol: params.connectProtocol }
+            : undefined,
+        );
         defaultLogger.hardware.sdkLog.log(
           'searchDevices response after udev rules: ',
           JSON.stringify(retryResponse),
@@ -1248,6 +1258,25 @@ class ServiceHardware extends ServiceBase {
       );
     }
     return this.getFeaturesWithoutCache(params);
+  }
+
+  @backgroundMethod()
+  async getPro2OnboardingStatus({ connectId }: { connectId: string }) {
+    const hardwareCallContext =
+      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext,
+    });
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+      hardwareCallContext,
+    });
+    return convertDeviceResponse(() =>
+      hardwareSDK.deviceGetOnboardingStatus(compatibleConnectId, {
+        connectProtocol: 'V2',
+      }),
+    );
   }
 
   private handlerConnectError = (e: any) => {

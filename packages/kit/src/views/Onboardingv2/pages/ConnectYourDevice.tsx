@@ -31,6 +31,7 @@ import {
 } from '@onekeyhq/components';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   HARDWARE_BRIDGE_DOWNLOAD_URL,
   HARDWARE_TROUBLESHOOTING_URL,
@@ -93,8 +94,10 @@ import {
 } from '../utils';
 
 import { ConnectionIndicator } from './ConnectionIndicator';
+import { getOnboardingConnectProtocol } from './pro2TestMode';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 import type { ReactVideoSource } from 'react-native-video';
 
 const LedgerConnectionFlow = lazy(() => import('./ConnectionFlowLedger'));
@@ -123,6 +126,7 @@ function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
 }
 
 interface IDeviceConnectionProps {
+  connectProtocol?: HardwareConnectProtocol;
   tabValue: EConnectDeviceChannel;
   deviceTypeItems: EDeviceType[];
   vendor?: EHardwareVendor;
@@ -134,10 +138,12 @@ interface IDeviceConnectionProps {
 
 // Common device list and connection logic
 function useDeviceConnection({
+  connectProtocol,
   tabValue,
   onDeviceSelect,
   vendor,
 }: {
+  connectProtocol?: HardwareConnectProtocol;
   tabValue: EConnectDeviceChannel;
   onDeviceSelect?: (item: IConnectYourDeviceItem) => Promise<void> | void;
   vendor?: EHardwareVendor;
@@ -314,8 +320,9 @@ function useDeviceConnection({
       undefined, // pollInterval
       undefined, // maxTryCount
       vendor,
+      { connectProtocol },
     );
-  }, [deviceScanner, intl, tabValue, vendor]);
+  }, [connectProtocol, deviceScanner, intl, tabValue, vendor]);
 
   const stopScan = useCallback(() => {
     isSearchingRef.current = false;
@@ -609,6 +616,7 @@ function DeviceVideo({
 }
 
 function USBOrBLEConnectionIndicator({
+  connectProtocol,
   tabValue,
   deviceTypeItems,
   connectDevice,
@@ -622,6 +630,7 @@ function USBOrBLEConnectionIndicator({
 
   // Use the shared device connection logic
   const deviceConnection = useDeviceConnection({
+    connectProtocol,
     tabValue,
     onDeviceSelect: async (item) => connectDevice(item, tabValue),
     vendor,
@@ -724,6 +733,7 @@ function USBOrBLEConnectionIndicator({
           navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
             deviceData: connectedDevice,
             tabValue,
+            connectProtocol,
           });
         }
       }
@@ -731,7 +741,13 @@ function USBOrBLEConnectionIndicator({
       console.error('onConnectWebDevice error:', error);
       setIsChecking(false);
     }
-  }, [setIsChecking, tabValue, promptWebUsbDeviceAccess, navigation]);
+  }, [
+    connectProtocol,
+    navigation,
+    promptWebUsbDeviceAccess,
+    setIsChecking,
+    tabValue,
+  ]);
 
   useEffect(() => {
     if (
@@ -863,6 +879,7 @@ function USBOrBLEConnectionIndicator({
 }
 
 function BluetoothConnectionIndicator({
+  connectProtocol,
   deviceTypeItems,
   tabValue,
   connectDevice,
@@ -876,6 +893,7 @@ function BluetoothConnectionIndicator({
 
   // Use shared device connection logic for Bluetooth
   const deviceConnection = useDeviceConnection({
+    connectProtocol,
     tabValue,
     onDeviceSelect: async (item) => connectDevice(item, tabValue),
     vendor,
@@ -1098,9 +1116,19 @@ function ConnectYourDevicePage({
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const intl = useIntl();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const connectProtocol = useMemo(
+    () =>
+      getOnboardingConnectProtocol({
+        deviceTypeItems,
+        devSettings,
+      }),
+    [devSettings, deviceTypeItems],
+  );
   const isSupportedQRCode = useMemo(() => {
     return deviceTypeItems.every(
-      (deviceType) => deviceType === EDeviceType.Pro,
+      (deviceType) =>
+        deviceType === EDeviceType.Pro || deviceType === EDeviceType.Pro2,
     );
   }, [deviceTypeItems]);
   const navigateToCreateQRWallet = useCallback(async () => {
@@ -1172,6 +1200,7 @@ function ConnectYourDevicePage({
           await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
             connectId,
             params: {
+              connectProtocol,
               retryCount: 0,
               onlyConnectBleDevice: true,
             },
@@ -1180,6 +1209,7 @@ function ConnectYourDevicePage({
         navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
           deviceData: item,
           tabValue: innerTabValue,
+          connectProtocol,
         });
       } catch (error) {
         if (error instanceof OneKeyHardwareError) {
@@ -1206,7 +1236,7 @@ function ConnectYourDevicePage({
         });
       }
     },
-    [navigation],
+    [connectProtocol, navigation],
   );
 
   let content = (
@@ -1244,6 +1274,7 @@ function ConnectYourDevicePage({
       </XStack>
       {tabValue === EConnectDeviceChannel.usbOrBle ? (
         <USBOrBLEConnectionIndicator
+          connectProtocol={connectProtocol}
           tabValue={tabValue}
           deviceTypeItems={deviceTypeItems}
           connectDevice={connectDevice}
@@ -1252,6 +1283,7 @@ function ConnectYourDevicePage({
       ) : null}
       {tabValue === EConnectDeviceChannel.bluetooth ? (
         <BluetoothConnectionIndicator
+          connectProtocol={connectProtocol}
           tabValue={tabValue}
           deviceTypeItems={deviceTypeItems}
           connectDevice={connectDevice}

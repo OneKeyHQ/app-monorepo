@@ -1147,6 +1147,17 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
+                      <SectionFieldItem
+                        icon="OnekeyDeviceCustom"
+                        name="enablePro2TestMode"
+                        title="Enable Pro 2 Test Mode"
+                        subtitle="Enable Pro 2 onboarding, direct Protocol V2 connection, and development features"
+                        testID="enable-pro2-test-mode"
+                        searchKeywords="Pro2 onboarding portfolio protocol v2 hardware testing"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+
                       {platformEnv.isDesktop ? (
                         <SectionPressItem
                           icon="SpeedLowOutline"
