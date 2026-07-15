@@ -203,17 +203,28 @@ const SwapActionsState = ({
     () =>
       !!(
         swapIncognitoMode &&
-        swapProviderSupportReceiveAddress &&
-        fromToken &&
-        toToken &&
         swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
         swapTypeSwitch !== ESwapTabSwitchType.STOCK
       ),
+    [swapIncognitoMode, swapTypeSwitch],
+  );
+
+  const incognitoRecipientNetworkId =
+    toToken?.networkId ?? swapToAddressInfo.networkId;
+  const shouldValidateIncognitoRecipientInput = useMemo(
+    () =>
+      !!(
+        shouldShowIncognitoRecipientInput &&
+        swapProviderSupportReceiveAddress &&
+        fromToken &&
+        toToken &&
+        incognitoRecipientNetworkId
+      ),
     [
       fromToken,
-      swapIncognitoMode,
+      incognitoRecipientNetworkId,
+      shouldShowIncognitoRecipientInput,
       swapProviderSupportReceiveAddress,
-      swapTypeSwitch,
       toToken,
     ],
   );
@@ -225,8 +236,9 @@ const SwapActionsState = ({
 
   const incognitoRecipientInput = useSwapIncognitoRecipientInput({
     visible: shouldShowIncognitoRecipientInput,
+    validationEnabled: shouldValidateIncognitoRecipientInput,
     clearRecipientAddressOnHide,
-    networkId: toToken?.networkId ?? swapToAddressInfo.networkId,
+    networkId: incognitoRecipientNetworkId,
     accountId:
       swapToAddressInfo.accountInfo?.account?.id ??
       swapToAddressInfo.activeAccount?.account?.id,
