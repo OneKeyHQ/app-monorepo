@@ -2,10 +2,6 @@ import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import type { IAppUpdatePagesParamList } from '@onekeyhq/shared/src/routes';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes';
-import {
-  appUpdateRouteManifest,
-  bindRouteManifest,
-} from '@onekeyhq/shared/src/routes/routeManifest';
 
 const UpdatePreview = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AppUpdate/pages/UpdatePreview'),
@@ -23,13 +19,14 @@ const ManualInstall = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AppUpdate/pages/ManualInstall'),
 );
 
-const appUpdateRouteBindings: IModalFlowNavigatorConfig<
+export const AppUpdateRouter: IModalFlowNavigatorConfig<
   EAppUpdateRoutes,
   IAppUpdatePagesParamList
 >[] = [
   {
     name: EAppUpdateRoutes.UpdatePreview,
     component: UpdatePreview,
+    rewrite: '/preview',
   },
   {
     name: EAppUpdateRoutes.WhatsNew,
@@ -44,8 +41,3 @@ const appUpdateRouteBindings: IModalFlowNavigatorConfig<
     component: ManualInstall,
   },
 ];
-
-export const AppUpdateRouter = bindRouteManifest(
-  appUpdateRouteManifest,
-  appUpdateRouteBindings,
-);

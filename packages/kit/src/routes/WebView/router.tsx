@@ -7,18 +7,13 @@ import {
   EWebViewRoutes,
   type IWebViewParamList,
 } from '@onekeyhq/shared/src/routes';
-import {
-  bindRouteManifest,
-  webViewRouteManifest,
-  webViewScreenRouteManifest,
-} from '@onekeyhq/shared/src/routes/routeManifest';
 
 const WebViewPage = LazyLoad(
   () => import('@onekeyhq/kit/src/views/WebView/pages/WebViewPage'),
 );
 
 // Inner stack (each entry has `component`).
-const webViewScreenBindings: IModalFlowNavigatorConfig<
+const webViewStack: IModalFlowNavigatorConfig<
   EWebViewRoutes,
   IWebViewParamList
 >[] = [
@@ -27,17 +22,12 @@ const webViewScreenBindings: IModalFlowNavigatorConfig<
     component: WebViewPage,
   },
 ];
-const webViewStack = bindRouteManifest(
-  webViewScreenRouteManifest,
-  webViewScreenBindings,
-);
 
 // Outer wrapper consumed by RootModalNavigator + useRootRouter (each entry
 // has `children`). Mirrors `onboardingRouterV2Config`.
-export const webViewRouter: IModalRootNavigatorConfig<EWebViewRoutes>[] =
-  bindRouteManifest(webViewRouteManifest, [
-    {
-      name: EWebViewRoutes.WebView,
-      children: webViewStack,
-    },
-  ]);
+export const webViewRouter: IModalRootNavigatorConfig<EWebViewRoutes>[] = [
+  {
+    name: EWebViewRoutes.WebView,
+    children: webViewStack,
+  },
+];

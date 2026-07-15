@@ -3,10 +3,6 @@ import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IActionCenterParamList } from '@onekeyhq/shared/src/routes/fullScreenPush';
 import { EActionCenterPages } from '@onekeyhq/shared/src/routes/fullScreenPush';
-import {
-  actionCenterRouteManifest,
-  bindRouteManifest,
-} from '@onekeyhq/shared/src/routes/routeManifest';
 
 const ActionCenter = LazyLoadPage(() => import('../pages/ActionCenter'));
 
@@ -22,7 +18,7 @@ const headerOptions = {
   headerShown: platformEnv.isNativeIOS26Plus,
 };
 
-const actionCenterRouteBindings: IModalFlowNavigatorConfig<
+export const ActionCenterRouter: IModalFlowNavigatorConfig<
   EActionCenterPages,
   IActionCenterParamList
 >[] = [
@@ -32,8 +28,3 @@ const actionCenterRouteBindings: IModalFlowNavigatorConfig<
     options: headerOptions,
   },
 ];
-
-export const ActionCenterRouter = bindRouteManifest(
-  actionCenterRouteManifest,
-  actionCenterRouteBindings,
-);
