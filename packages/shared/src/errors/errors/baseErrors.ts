@@ -176,4 +176,15 @@ export class OneKeyServerApiError extends OneKeyError<
 
   override className?: EOneKeyErrorClassNames | undefined =
     EOneKeyErrorClassNames.OneKeyServerApiError;
+
+  // Auth token (X-Onekey-Request-Token) the failed request carried, so
+  // response interceptors registered after the global one (e.g. the prime
+  // invalid-token handler in ServiceBase) can compare it against the
+  // currently active token before clearing the session.
+  // Intentionally NOT the whole axios request config: attaching the full
+  // config would pin the request body and auth headers on an error object
+  // that propagates to arbitrary catch blocks. Never serialized across the
+  // bg/main bridge (toPlainErrorObject whitelists its fields, and this
+  // $$-prefixed internal field is not in the whitelist).
+  $$requestAuthToken?: string;
 }

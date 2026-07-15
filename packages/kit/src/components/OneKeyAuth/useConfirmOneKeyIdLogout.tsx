@@ -1,12 +1,9 @@
 import { useCallback } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { Dialog } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-
-import { useOneKeyAuthMethods } from './useOneKeyAuth';
+import {
+  EOneKeyIdLogoutDialogSource,
+  useShowOneKeyIdLogoutDialog,
+} from './OneKeyIdLogoutDialog';
 
 type IUseConfirmOneKeyIdLogoutOptions = {
   reason: string;
@@ -19,29 +16,14 @@ export function useConfirmOneKeyIdLogout({
   onBeforeLogout,
   onSuccess,
 }: IUseConfirmOneKeyIdLogoutOptions) {
-  const intl = useIntl();
-  const { logoutWithPurchasesSdk } = useOneKeyAuthMethods();
+  const showOneKeyIdLogoutDialog = useShowOneKeyIdLogoutDialog();
 
   return useCallback(() => {
-    Dialog.show({
-      icon: 'InfoCircleOutline',
-      title: intl.formatMessage({
-        id: ETranslations.prime_onekeyid_log_out,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.prime_onekeyid_log_out_description,
-      }),
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.prime_log_out,
-      }),
-      onConfirm: async () => {
-        await onBeforeLogout?.();
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason,
-        });
-        await logoutWithPurchasesSdk();
-        await onSuccess?.();
-      },
+    void showOneKeyIdLogoutDialog({
+      source: EOneKeyIdLogoutDialogSource.OneKeyId,
+      reason,
+      onBeforeLogout,
+      onSuccess,
     });
-  }, [intl, logoutWithPurchasesSdk, onBeforeLogout, onSuccess, reason]);
+  }, [onBeforeLogout, onSuccess, reason, showOneKeyIdLogoutDialog]);
 }

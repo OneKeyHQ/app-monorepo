@@ -448,22 +448,13 @@ function FinalizeWalletSetupPage({
                   if (!keylessDetailsInfo?.keylessOwnerId) {
                     return;
                   }
-                  const refreshResult =
-                    await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
-                      {
-                        ownerId: keylessDetailsInfo?.keylessOwnerId,
-                        forceRefresh: true,
-                      },
-                    );
-                  if (
-                    !refreshResult?.accessToken ||
-                    !refreshResult?.refreshToken
-                  ) {
+                  const token =
+                    await backgroundApiProxy.serviceKeylessWallet.getActiveKeylessOAuthAccessTokenForLocalWallet();
+                  if (!token) {
                     return;
                   }
-                  const { accessToken: token, refreshToken } = refreshResult;
                   const pin = await getKeylessOnboardingPin();
-                  if (!token || !pin || !refreshToken) {
+                  if (!pin) {
                     console.error(
                       'Skip keyless auto reset pin: missing onboarding token or pin.',
                     );
@@ -473,7 +464,6 @@ function FinalizeWalletSetupPage({
                   await backgroundApiProxy.serviceKeylessWallet.autoResetKeylessWalletPinAfterRestoreForSameEmailAccount(
                     {
                       token,
-                      refreshToken: refreshToken || undefined,
                       pin,
                     },
                   );
