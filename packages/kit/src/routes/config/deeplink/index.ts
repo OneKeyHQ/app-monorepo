@@ -29,6 +29,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EAppUpdateRoutes,
+  EModalRoutes,
   ERootRoutes,
   ETabDiscoveryRoutes,
   ETabMarketRoutes,
@@ -37,6 +39,7 @@ import {
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
@@ -385,6 +388,21 @@ async function processDeepLinkUrlAccount(
           }
           break;
         }
+        case EOneKeyDeepLinkPath.preview_featured_changelog: {
+          // Ops-only entry: opens the Featured Changelog preview page so
+          // dashboard-configured changelog content can be verified in a
+          // production build. Access is gated by the obscurity of this
+          // deeplink — the page has no in-app navigation entry point.
+          const query =
+            queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.preview_featured_changelog];
+          const version =
+            getStringQueryParam(query?.version)?.trim() || undefined;
+          navigation.pushModal(EModalRoutes.AppUpdateModal, {
+            screen: EAppUpdateRoutes.FeaturedChangelogPreview,
+            params: { version },
+          });
+          break;
+        }
         default:
           break;
       }
@@ -499,6 +517,9 @@ const processDeepLinkUrl = memoizee(
     if (!url) return;
 
     try {
+      // An open SFSafariViewController would cover any navigation this deep
+      // link triggers; close it first (iOS-only, no-op elsewhere).
+      dismissNativeInAppBrowser();
       console.log('processDeepLinkUrl: >>>>> ', url);
       captureAndReportLoggerUtmParamsFromUrl(url);
       if (await handleReferralLandingUrl({ url })) {

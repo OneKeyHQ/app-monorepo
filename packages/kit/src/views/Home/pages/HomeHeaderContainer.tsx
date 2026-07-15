@@ -31,7 +31,7 @@ function BaseHomeHeaderContainer() {
   // Mirror WalletBanner's own render condition so the placeholder height
   // matches what the banner will actually display. WalletBanner returns null
   // when there's no banner content (no banners and no Tron-resource card);
-  // otherwise the banner band is ~130pt and the header settles at 312pt.
+  // otherwise the banner band is ~110pt and the header settles at 292pt.
   const [{ banners }] = useWalletTopBannersAtom();
   const hasTronCard = Boolean(
     vaultSettings?.hasResource && account?.id && network?.id,
@@ -55,12 +55,12 @@ function BaseHomeHeaderContainer() {
     hasWalletBannerContent &&
     homeBalanceState === 'positive';
 
-  // Reserve the taller native header (312pt) only when the banner band will
+  // Reserve the taller native header (292pt) only when the banner band will
   // actually render; otherwise collapse to the shorter layout so we don't
   // leave an empty gap below WalletActions.
   let nativeMinHeight: number | undefined;
   if (platformEnv.isNative && !isWalletNotBackedUp) {
-    nativeMinHeight = shouldShowBanner ? 312 : 182;
+    nativeMinHeight = shouldShowBanner ? 292 : 182;
   }
 
   // Funnel denominator for backup / receive completion rates: log once per

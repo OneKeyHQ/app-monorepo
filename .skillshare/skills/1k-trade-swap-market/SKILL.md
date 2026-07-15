@@ -1,6 +1,6 @@
 ---
 name: 1k-trade-swap-market
-description: App-side OneKey Trade/Swap/Market guide for Swap core, Swap Pro, Wallet Home and Home Token entries, Send/Earn/Market/Buy handoffs, native/mobile host differences, K-line/chart, token selectors, cold-start frame-by-frame validation, quote/build/send flows, history/status, provider channels, PrivateSend-like channels, stock-trading channels, limit/order flows, fees, slippage, ETA, and cross-module funding handoffs.
+description: OneKey app Trade/Swap/Market development for entry handoffs, native hosts, quotes, transactions, orders, history, charts, providers, fees, slippage, and funding flows.
 ---
 
 # Trade, Swap, Market

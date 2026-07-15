@@ -17,6 +17,7 @@ export enum EQRCodeHandlerType {
   REWARD_CENTER = 'REWARD_CENTER',
   PRIME_TRANSFER = 'PRIME_TRANSFER',
   TOKEN_URI = 'TOKEN_URI',
+  FEATURED_CHANGELOG_PREVIEW = 'FEATURED_CHANGELOG_PREVIEW',
 }
 
 export enum EQRCodeHandlerNames {
@@ -34,6 +35,7 @@ export enum EQRCodeHandlerNames {
   updatePreview = 'updatePreview',
   primeTransfer = 'primeTransfer',
   sui = 'sui',
+  featuredChangelogPreview = 'featuredChangelogPreview',
 }
 
 export const PARSE_HANDLER_NAMES = {
@@ -52,6 +54,7 @@ export const PARSE_HANDLER_NAMES = {
     EQRCodeHandlerNames.primeTransfer,
     EQRCodeHandlerNames.sui,
     EQRCodeHandlerNames.lightningNetwork,
+    EQRCodeHandlerNames.featuredChangelogPreview,
   ],
   animation: [EQRCodeHandlerNames.animation],
   none: [],

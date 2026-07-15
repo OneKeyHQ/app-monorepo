@@ -3,6 +3,7 @@ import semver from 'semver';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type {
+  IFeaturedChangelog,
   IPendingInstallTask,
   IResponseAppUpdateInfo,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -503,6 +504,59 @@ class ServiceAppUpdate extends ServiceBase {
       this.cachedUpdateInfo = normalizedData;
     }
     return this.cachedUpdateInfo;
+  }
+
+  // Ops-only Featured Changelog preview. Looks up the changelog configured for
+  // EXACTLY the requested version via the read-only preview endpoint
+  // (/featured-changelog-preview), which bypasses the release-selection
+  // pipeline server-side — the production /app-update response only attaches
+  // featuredChangelog to the release the pipeline currently selects, so any
+  // other version would be unreachable.
+  //
+  // Deliberately does NOT call the real /app-update: that path performs a
+  // grayscale `$inc` (server-side write to shared release state) when the
+  // selected release is under grayscale rollout, which would violate the
+  // preview's zero-side-effect guarantee. The preview endpoint is a pure read.
+  //
+  // Writes NOTHING client-side either — no this.cachedUpdateInfo, no
+  // this.updateAt, no appUpdatePersistAtom.
+  //
+  // Runtime scope: bg-JS. The returned plain object crosses the
+  // backgroundApiProxy boundary back to main-JS (JSON-safe).
+  @backgroundMethod()
+  public async previewFeaturedChangelog(params: { version: string }): Promise<{
+    version: string | undefined;
+    featuredChangelog: IFeaturedChangelog | undefined;
+  }> {
+    const version = params.version?.trim();
+    if (!version) {
+      throw new OneKeyLocalError(
+        'previewFeaturedChangelog: version is required',
+      );
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      data: { version?: string; featuredChangelog?: unknown };
+    }>('/utility/v1/app-update/featured-changelog-preview', {
+      params: { version },
+    });
+
+    const { code, data } = response.data;
+    if (code !== 0) {
+      return { version: undefined, featuredChangelog: undefined };
+    }
+    // Use the version the server echoed as the expected-version guard for
+    // normalizeFeaturedChangelog (same as the production path) so operator
+    // input formatting never nukes an otherwise-valid payload.
+    const responseVersion = normalizeOptionalString(data?.version);
+    return {
+      version: responseVersion,
+      featuredChangelog: normalizeFeaturedChangelog(
+        data?.featuredChangelog,
+        responseVersion,
+      ),
+    };
   }
 
   @backgroundMethod()

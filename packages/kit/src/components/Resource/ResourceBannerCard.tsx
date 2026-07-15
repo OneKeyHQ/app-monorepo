@@ -6,16 +6,25 @@ import { TronResourceBannerCard } from './TronResource';
 export function ResourceBannerCard({
   accountId,
   networkId,
+  width,
+  height,
 }: {
   accountId: string;
   networkId: string;
+  width: number;
+  height: number;
 }) {
   const impl = networkUtils.getNetworkImpl({ networkId });
 
   switch (impl) {
     case IMPL_TRON:
       return (
-        <TronResourceBannerCard accountId={accountId} networkId={networkId} />
+        <TronResourceBannerCard
+          accountId={accountId}
+          networkId={networkId}
+          width={width}
+          height={height}
+        />
       );
     default:
       return null;

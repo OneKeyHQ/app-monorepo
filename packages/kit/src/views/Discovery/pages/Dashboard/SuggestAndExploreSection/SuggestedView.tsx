@@ -90,7 +90,8 @@ export function SuggestedView({
                         void dialog.close();
                         const link = i?.dappInfo?.link;
                         if (link) {
-                          openUrlExternal(link);
+                          // Explicit "open in browser" action: leave the app.
+                          openUrlExternal(link, { useSystemBrowser: true });
                         }
                       },
                     },
