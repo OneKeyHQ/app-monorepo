@@ -295,12 +295,36 @@ function PrimeGlobalEffectView() {
         | {
             authSessionSource?: EPrimeAuthSessionSource;
             clearedByBackground?: boolean;
+            authStateGeneration?: number;
           }
         | undefined,
     ) => {
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason: 'appEventBus: EAppEventBusNames.PrimeLoginInvalidToken',
       });
+      if (
+        payload?.clearedByBackground &&
+        payload.authStateGeneration !== undefined
+      ) {
+        // Staleness gate: the payload carries the auth-state commit
+        // generation observed when bg decided to clear. A user can complete
+        // a fresh login while this event propagates bg -> main (event-bus
+        // hop + the signOut awaits below); that commit bumps the
+        // generation. Signing out then would be destructive: this runtime's
+        // clients persist through the SHARED session storage, so the stale
+        // sign-out would delete the fresh login's persisted session — and
+        // the guarded atom reset at the end cannot restore deleted
+        // credentials. Skip the whole stale event; the fresh login owns the
+        // session slot now.
+        const currentAuthStateGeneration =
+          await backgroundApiProxy.simpleDb.prime.getAuthStateGeneration();
+        if (currentAuthStateGeneration !== payload.authStateGeneration) {
+          defaultLogger.prime.subscription.onekeyIdLogout({
+            reason: `PrimeGlobalEffectView.PrimeLoginInvalidToken: skip stale event, a login committed during propagation (generation ${payload.authStateGeneration} -> ${currentAuthStateGeneration})`,
+          });
+          return;
+        }
+      }
       if (
         payload?.clearedByBackground &&
         payload.authSessionSource === EPrimeAuthSessionSource.KeylessOAuth

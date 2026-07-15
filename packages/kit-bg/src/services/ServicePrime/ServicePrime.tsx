@@ -240,6 +240,7 @@ class ServicePrime extends ServiceBase {
         appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, {
           authSessionSource: clearResult.authSessionSource,
           clearedByBackground: true,
+          authStateGeneration: clearResult.authStateGeneration,
         });
       }
       throw error;
@@ -484,6 +485,11 @@ class ServicePrime extends ServiceBase {
   }): Promise<{
     cleared: boolean;
     authSessionSource?: EPrimeAuthSessionSource;
+    // Auth-state commit generation observed in-lock at clear time; carried
+    // into the PrimeLoginInvalidToken event so main-runtime handlers can
+    // detect that a login committed after this clear and skip their stale
+    // sign-outs (see the event payload doc in appEventBus).
+    authStateGeneration?: number;
   }> {
     // Entry-time guard pass OUTSIDE authStateWriteMutex: skips cheaply
     // without contending on the lock, and performs the possibly-slow
@@ -512,6 +518,7 @@ class ServicePrime extends ServiceBase {
       async (): Promise<{
         cleared: boolean;
         authSessionSource?: EPrimeAuthSessionSource;
+        authStateGeneration?: number;
       }> => {
         const guards = await this.evaluateInvalidTokenClearGuards({
           requestAuthToken,
@@ -546,6 +553,11 @@ class ServicePrime extends ServiceBase {
         const sourceToClear =
           guards.authSessionSource ??
           EPrimeAuthSessionSource.LegacyEmailSupabase;
+        // Read the commit generation in-lock so the emitted event carries
+        // the exact auth-state epoch this clear belongs to (clears never
+        // bump the generation — only login commits do).
+        const authStateGeneration =
+          await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
         // Write section: simpleDb + atom only — no network I/O while the
         // lock is held (clearAuthTokens is a simpleDb write plus a local
         // storage-cache clear; setPrimePersistAtomNotLoggedIn is atom +
@@ -555,6 +567,7 @@ class ServicePrime extends ServiceBase {
         return {
           cleared: true,
           authSessionSource: sourceToClear,
+          authStateGeneration,
         };
       },
     );
@@ -1122,14 +1135,35 @@ class ServicePrime extends ServiceBase {
    * deciding on a pre-clear source snapshot could race a login commit that
    * lands in between and wipe the fresh login; the in-lock re-read under
    * authStateWriteMutex closes that window.
+   *
+   * The source-only re-read cannot distinguish "the same KeylessOAuth login
+   * the caller decided to tear down" from "a FRESH KeylessOAuth login that
+   * committed while the caller's session clear awaited" — both read as
+   * KeylessOAuth. Callers therefore pass `expectedAuthStateGeneration`
+   * (snapshotted BEFORE their session clear): a fresh commit bumps the
+   * generation, and the in-lock comparison skips the wipe with
+   * `generationChanged: true` so the caller can also suppress its stale
+   * follow-up broadcasts (e.g. KeylessAuthSessionCleared).
    */
   @backgroundMethod()
   async clearOneKeyIdAuthStateIfSourceStillKeylessOAuth({
     callerName,
+    expectedAuthStateGeneration,
   }: {
     callerName: string;
-  }): Promise<{ cleared: boolean }> {
+    expectedAuthStateGeneration?: number;
+  }): Promise<{ cleared: boolean; generationChanged?: boolean }> {
     return this.authStateWriteMutex.runExclusive(async () => {
+      if (expectedAuthStateGeneration !== undefined) {
+        const currentGeneration =
+          await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+        if (currentGeneration !== expectedAuthStateGeneration) {
+          defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+            reason: `${callerName}: skip keyless-source clear, a login committed while the caller's session clear was in flight (generation ${expectedAuthStateGeneration} -> ${currentGeneration})`,
+          });
+          return { cleared: false, generationChanged: true };
+        }
+      }
       const source =
         await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
       if (source !== EPrimeAuthSessionSource.KeylessOAuth) {

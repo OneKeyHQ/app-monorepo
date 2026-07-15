@@ -155,6 +155,7 @@ export default class ServiceBase {
                 appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, {
                   authSessionSource: clearResult.authSessionSource,
                   clearedByBackground: true,
+                  authStateGeneration: clearResult.authStateGeneration,
                 });
               }
             } catch (handlerError) {

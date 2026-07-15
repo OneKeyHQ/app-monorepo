@@ -454,6 +454,13 @@ export interface IAppEventBusPayload {
     | {
         authSessionSource?: EPrimeAuthSessionSource;
         clearedByBackground?: boolean;
+        // Auth-state commit generation (simpleDb.prime.getAuthStateGeneration)
+        // observed by the bg cleanup when it decided to clear. Handlers must
+        // treat the event as STALE and skip their sign-outs when the current
+        // generation differs: a login commit that landed after the clear
+        // decision owns the shared session slot, and a stale sign-out would
+        // destroy the fresh login's persisted session.
+        authStateGeneration?: number;
       }
     | undefined;
   // Emitted from the bg runtime after it clears the shared keyless Supabase

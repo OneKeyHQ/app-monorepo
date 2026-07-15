@@ -148,6 +148,7 @@ const REQUEST_TOKEN = 'request-token';
 function createService() {
   const simpleDbPrime = {
     getAuthSessionSource: jest.fn(async () => undefined as unknown),
+    getAuthStateGeneration: jest.fn(async () => 0),
     getActiveAuthToken: jest.fn(async () => ''),
     getSupabaseAuthToken: jest.fn(async () => ''),
     getKeylessSupabaseAuthToken: jest.fn(async () => ''),
@@ -268,6 +269,9 @@ describe('ServicePrime invalid-token handling', () => {
         {
           authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
           clearedByBackground: true,
+          // In-lock generation snapshot: lets main-runtime handlers detect
+          // a login that commits during bg->main event propagation.
+          authStateGeneration: 0,
         },
       );
     });
@@ -311,6 +315,7 @@ describe('ServicePrime invalid-token handling', () => {
       handlerImpl.mockImplementation(async () => ({
         cleared: true,
         authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        authStateGeneration: 7,
       }));
       const { thrown } = await invokeInterceptorWith90002();
 
@@ -327,6 +332,9 @@ describe('ServicePrime invalid-token handling', () => {
         {
           authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
           clearedByBackground: true,
+          // Forwarded from the handler result so main-runtime handlers can
+          // gate on staleness.
+          authStateGeneration: 7,
         },
       );
     });
@@ -366,6 +374,7 @@ describe('ServicePrime invalid-token handling', () => {
       expect(result).toEqual({
         cleared: true,
         authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        authStateGeneration: 0,
       });
       expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
       expect(simpleDbPrime.clearKeylessAuthSession).toHaveBeenCalled();
@@ -575,6 +584,75 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     });
 
     expect(result.cleared).toBe(false);
+    expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
+    expect(atomResetSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServicePrime.clearOneKeyIdAuthStateIfSourceStillKeylessOAuth', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('clears when the source is still KeylessOAuth and the generation is unchanged', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    const atomResetSpy = jest
+      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
+      .mockResolvedValue(undefined);
+
+    const result =
+      await service.clearOneKeyIdAuthStateIfSourceStillKeylessOAuth({
+        callerName: 'test',
+        expectedAuthStateGeneration: 3,
+      });
+
+    expect(result).toEqual({ cleared: true });
+    expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
+    expect(atomResetSpy).toHaveBeenCalled();
+  });
+
+  it('skips with generationChanged when a login committed after the caller snapshot', async () => {
+    const { service, simpleDbPrime } = createService();
+    // The fresh login re-committed KeylessOAuth, so a source-only recheck
+    // would still match and wipe it — only the generation exposes the race.
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+    const atomResetSpy = jest
+      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
+      .mockResolvedValue(undefined);
+
+    const result =
+      await service.clearOneKeyIdAuthStateIfSourceStillKeylessOAuth({
+        callerName: 'test',
+        expectedAuthStateGeneration: 3,
+      });
+
+    expect(result).toEqual({ cleared: false, generationChanged: true });
+    expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
+    expect(atomResetSpy).not.toHaveBeenCalled();
+  });
+
+  it('keeps the source-only guard when no generation snapshot is provided', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    const atomResetSpy = jest
+      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
+      .mockResolvedValue(undefined);
+
+    const result =
+      await service.clearOneKeyIdAuthStateIfSourceStillKeylessOAuth({
+        callerName: 'test',
+      });
+
+    expect(result).toEqual({ cleared: false });
     expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
     expect(atomResetSpy).not.toHaveBeenCalled();
   });

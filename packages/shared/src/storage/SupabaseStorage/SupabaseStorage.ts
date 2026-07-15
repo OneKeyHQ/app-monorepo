@@ -169,10 +169,23 @@ export class SupabaseStorage {
     }
     // Seal with the device key when available; sealValue returns null when
     // WebCrypto/IndexedDB is unavailable (older webviews, jest), in which
-    // case we keep the pre-sealing plaintext behavior.
+    // case we keep the pre-sealing plaintext behavior. The plaintext
+    // fallback is deliberate even when the PREVIOUS stored value was sealed
+    // and this failure is transient: rejecting the write instead would lose
+    // a just-rotated refresh token that auth-js persists through this
+    // setItem (the old token is already consumed server-side), trading a
+    // short plaintext-at-rest window for a guaranteed forced re-login.
     const sealedValue = await this.sealedValueCodec.sealValue({ key, value });
     const result = await appStorage.setItem(key, sealedValue ?? value);
     this.clearCache();
+    if (sealedValue === null) {
+      // Shrink the plaintext window: retry sealing right away instead of
+      // waiting for the next read's opportunistic rewrite (the device-key
+      // resolution failure is not pinned, so a retry can succeed). The
+      // method self-guards: it no-ops in Main UI runtimes and re-reads
+      // before writing so it can never clobber a newer rotated session.
+      this.resealLegacyPlainValue(key, value);
+    }
     return result;
   }
 

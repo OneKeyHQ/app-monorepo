@@ -330,6 +330,49 @@ describe('SupabaseStorage', () => {
       );
     });
 
+    it('falls back to plaintext on a transient seal failure and reseals immediately after recovery', async () => {
+      const backing = useInMemoryAppStorage();
+      const realFactory = new IDBFactory();
+      // Device key store fails exactly once (the setItem-time seal attempt),
+      // then recovers — the write must not be rejected (a rejected write
+      // would lose a just-rotated refresh token), and the immediate
+      // opportunistic reseal must shrink the plaintext window without
+      // waiting for the next read.
+      let remainingFailures = 1;
+      const failOnceFactory = {
+        open: (...args: Parameters<IDBFactory['open']>) => {
+          if (remainingFailures > 0) {
+            remainingFailures -= 1;
+            throw new OneKeyLocalError('transient IndexedDB open failure');
+          }
+          return realFactory.open(...args);
+        },
+      } as unknown as IDBFactory;
+      const storage = new SupabaseStorage({
+        sealedValueCodec: buildSupabaseSealedValueCodec({
+          dbName: `test-supabase-sealed-${(testDbNameSeq += 1)}`,
+          indexedDBInstance: failOnceFactory,
+        }),
+      });
+
+      await storage.setItem('session', sessionValue);
+
+      // The reseal is fire-and-forget; wait until it lands sealed.
+      await waitFor(() =>
+        Boolean(
+          backing
+            .get(PREFIXED_SESSION_KEY)
+            ?.startsWith(SUPABASE_SEALED_VALUE_PREFIX),
+        ),
+      );
+      expect(backing.get(PREFIXED_SESSION_KEY)).not.toContain(
+        'secret-access-token',
+      );
+      // The resealed value still decrypts to the same session.
+      storage.clearCache({ syncRemote: false });
+      await expect(storage.getItem('session')).resolves.toBe(sessionValue);
+    });
+
     it('returns null for a recognized but corrupt envelope instead of leaking it as plaintext', async () => {
       const backing = useInMemoryAppStorage();
       backing.set(

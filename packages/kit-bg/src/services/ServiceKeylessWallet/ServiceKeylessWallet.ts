@@ -3634,16 +3634,37 @@ class ServiceKeylessWallet extends ServiceBase {
    */
   @backgroundMethod()
   async clearKeylessAuthSessionAndLoginState(): Promise<void> {
+    // Snapshot the auth-state commit generation BEFORE the slow session
+    // clear below: the in-lock source re-read alone cannot distinguish the
+    // KeylessOAuth login this teardown targets from a FRESH KeylessOAuth
+    // login that commits while clearKeylessAuthSession() awaits (its
+    // signOut can hang on the network for many seconds) — both read as
+    // KeylessOAuth. A fresh commit bumps the generation, which the guarded
+    // clear compares in-lock.
+    const expectedAuthStateGeneration =
+      await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
     await this.backgroundApi.simpleDb.prime.clearKeylessAuthSession();
-    // Guarded clear (authStateWriteMutex + in-lock source re-read): deciding
-    // on a source snapshot taken before the session clear above could race a
-    // login commit that lands in between (e.g. while a wallet-removal
-    // signOut waits on the network) and wipe the freshly committed login.
-    await this.backgroundApi.servicePrime.clearOneKeyIdAuthStateIfSourceStillKeylessOAuth(
-      {
-        callerName: 'clearKeylessAuthSessionAndLoginState',
-      },
-    );
+    // Guarded clear (authStateWriteMutex + in-lock generation/source
+    // re-read): deciding on a pre-clear snapshot alone could race a login
+    // commit that lands in between (e.g. while a wallet-removal signOut
+    // waits on the network) and wipe the freshly committed login.
+    const { generationChanged } =
+      await this.backgroundApi.servicePrime.clearOneKeyIdAuthStateIfSourceStillKeylessOAuth(
+        {
+          callerName: 'clearKeylessAuthSessionAndLoginState',
+          expectedAuthStateGeneration,
+        },
+      );
+    if (generationChanged) {
+      // A fresh KeylessOAuth login committed while the session clear was in
+      // flight; its session now occupies the shared keyless slot (written
+      // after the sweep above). The KeylessAuthSessionCleared broadcast
+      // below must NOT fire: main-runtime handlers respond by signing out
+      // their keyless client copy, whose storage adapter is the SHARED
+      // session storage — a stale broadcast would delete the fresh login's
+      // persisted session.
+      return;
+    }
     // Runtime note (bg -> main): the clear above only affects the shared
     // native session storage plus THIS (bg) runtime's JS client copy. The
     // main runtime's keyless Supabase client keeps its own isolated

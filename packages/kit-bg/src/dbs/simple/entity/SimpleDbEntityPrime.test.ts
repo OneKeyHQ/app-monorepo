@@ -74,6 +74,54 @@ describe('SimpleDbEntityPrime.getEffectiveAuthSessionSource', () => {
   });
 });
 
+describe('SimpleDbEntityPrime.authStateGeneration', () => {
+  test('defaults to 0 for pre-upgrade data', async () => {
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'getRawData').mockResolvedValue({});
+
+    await expect(entity.getAuthStateGeneration()).resolves.toBe(0);
+  });
+
+  test('setAuthSessionSource bumps the generation on every commit', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: Record<string, unknown> = { authStateGeneration: 2 };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: Record<string, unknown>) => Record<string, unknown>,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await entity.setAuthSessionSource(EPrimeAuthSessionSource.KeylessOAuth);
+    expect(persisted.authSessionSource).toBe(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    expect(persisted.authStateGeneration).toBe(3);
+
+    // A bind switch (KeylessOAuth while already logged in) is also a commit
+    // and must advance the epoch again.
+    await entity.setAuthSessionSource(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    expect(persisted.authStateGeneration).toBe(4);
+  });
+
+  test('clearAuthTokens does not bump the generation (clears are not commits)', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: Record<string, unknown> = { authStateGeneration: 5 };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: Record<string, unknown>) => Record<string, unknown>,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await entity.clearAuthTokens();
+    expect(persisted.authSessionSource).toBeUndefined();
+    expect(persisted.authStateGeneration).toBe(5);
+  });
+});
+
 describe('SimpleDbEntityPrime.hasShownLocalKeylessUpgradeBindPrompt', () => {
   test('treats a recent shownAt as throttled', async () => {
     const entity = new SimpleDbEntityPrime();

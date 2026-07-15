@@ -15,6 +15,15 @@ export interface ISimpleDBPrime {
   // Deprecated token copy. Supabase/OAuth session storage is the source of truth.
   authToken?: string;
   authSessionSource?: EPrimeAuthSessionSource;
+  // Monotonic auth-state commit epoch, bumped on every setAuthSessionSource
+  // write (login commits, bind switches, legacy self-heal). Destructive
+  // cleanups that decide on a pre-await snapshot (keyless session teardown,
+  // bg->main invalid-token events) compare it before acting: a source-only
+  // recheck cannot distinguish "the same KeylessOAuth login I decided to
+  // clear" from "a FRESH KeylessOAuth login committed while I awaited", but
+  // the generation can. Clears intentionally do NOT bump: gating only needs
+  // to detect commits, and a redundant clear is idempotent.
+  authStateGeneration?: number;
   // Per-user throttle timestamp for the local-keyless upgrade bind prompt.
   // Written by ServicePrime.checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt
   // for every completed check outcome (dialog about to show, bind not
@@ -100,11 +109,24 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     return undefined;
   }
 
+  /**
+   * Current auth-state commit generation (see the ISimpleDBPrime field doc).
+   * Defaults to 0 for pre-upgrade data.
+   */
+  @backgroundMethod()
+  async getAuthStateGeneration(): Promise<number> {
+    const rawData = await this.getRawData();
+    return rawData?.authStateGeneration ?? 0;
+  }
+
   @backgroundMethod()
   async setAuthSessionSource(authSessionSource: EPrimeAuthSessionSource) {
     await this.setRawData((rawData) => ({
       ...rawData,
       authSessionSource,
+      // Every source commit advances the generation so pre-await snapshots
+      // held by in-flight destructive cleanups become detectably stale.
+      authStateGeneration: (rawData?.authStateGeneration ?? 0) + 1,
     }));
     clearSupabaseStorageCache();
   }
