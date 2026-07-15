@@ -463,7 +463,12 @@ export function PerpMobileLayout() {
           flex={1}
           onLayout={(event) => handleTraceLayout('openOrdersPanel', event)}
         >
-          <PerpOpenOrdersList isMobile useTabsList={false} disableListScroll />
+          <PerpOpenOrdersList
+            isMobile
+            isPanelActive={activeTab === ETabName.OpenOrders}
+            useTabsList={false}
+            disableListScroll
+          />
         </YStack>
         <YStack
           display={activeTab === ETabName.Balances ? 'flex' : 'none'}
