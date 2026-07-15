@@ -2229,8 +2229,8 @@ try {
     /[.*+?^${}()|[\]\\]/g,
     '\\$&',
   );
-  // process.env.VERSION is substituted at build time by webpack DefinePlugin
-  // (apps/desktop/scripts/build.js) — the same path every other call site
+  // process.env.VERSION is substituted by the main-process esbuild config in
+  // apps/desktop/scripts/build.js — the same path every other call site
   // uses. Falls back to '1' to match buildCustomUA()'s fallback in
   // packages/shared/src/request/customUA.ts.
   const appVersion = process.env.VERSION || '1';
