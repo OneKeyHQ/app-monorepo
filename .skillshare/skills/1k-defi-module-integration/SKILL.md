@@ -1,6 +1,6 @@
 ---
 name: 1k-defi-module-integration
-description: App-side OneKey DeFi guide for Earn, native Discovery-hosted Earn, Borrow, Staking, DeFi Portfolio actions, vaults, lending, protocol integrations, ABI-backed operations, native/provider-backed operations, pending transactions, history, route handoffs, risk display, and DeFi regression review.
+description: OneKey app DeFi integration for Earn, Borrow, Staking, portfolio actions, vault/lending protocols, transactions, history, routing, and risk display.
 ---
 
 # DeFi Module Integration

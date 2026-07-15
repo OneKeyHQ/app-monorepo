@@ -9942,6 +9942,7 @@ __metadata:
     lightweight-charts: "npm:5.2.0"
     long: "npm:^5.2.1"
     lru-cache: "npm:^10.2.0"
+    markdown-it: "npm:^10.0.0"
     memoizee: "npm:^0.4.15"
     metro: "npm:0.83.2"
     mipd: "npm:^0.0.7"
@@ -10012,6 +10013,7 @@ __metadata:
     workbox-webpack-plugin: "npm:^7.4.0"
     worker-loader: "npm:^3.0.8"
     worker-rspack-loader: "npm:^3.1.2"
+    yaml: "npm:^2.8.0"
     zxcvbn: "npm:^4.4.2"
   languageName: unknown
   linkType: soft
