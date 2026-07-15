@@ -384,6 +384,34 @@ describe('ServicePrime invalid-token handling', () => {
       ).toHaveBeenCalled();
     });
 
+    it('skips the post-lock per-source session sweep when a login commits after the in-lock clear', async () => {
+      const { service, simpleDbPrime } = createService();
+      simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+        EPrimeAuthSessionSource.KeylessOAuth,
+      );
+      simpleDbPrime.getActiveAuthToken.mockResolvedValue(REQUEST_TOKEN);
+      // In-lock snapshot reads 0; a same-source OAuth login fully commits
+      // right after the lock releases, bumping the generation to 1 — the
+      // sweep would otherwise delete the fresh login's session while its
+      // atom/source stay logged-in (the commit fail-safe already passed).
+      simpleDbPrime.getAuthStateGeneration
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(1);
+
+      const result = await service.handlePrimeLoginInvalidToken({
+        requestAuthToken: REQUEST_TOKEN,
+        errorCode: 90_002,
+        errorMessage: 'invalid',
+      });
+
+      // The guarded simpleDb+atom clear already committed in-lock…
+      expect(result.cleared).toBe(true);
+      expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
+      // …but the stale per-source session sweep must be skipped.
+      expect(simpleDbPrime.clearKeylessAuthSession).not.toHaveBeenCalled();
+      expect(simpleDbPrime.clearLegacyAuthSession).not.toHaveBeenCalled();
+    });
+
     it('skips clearing when the active token changed while waiting for the lock (concurrent re-login committed)', async () => {
       const { service, simpleDbPrime } = createService();
       simpleDbPrime.getAuthSessionSource.mockResolvedValue(

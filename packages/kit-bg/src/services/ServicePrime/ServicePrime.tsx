@@ -578,11 +578,32 @@ class ServicePrime extends ServiceBase {
 
     // Per-source Supabase session clear (auth.signOut can perform network
     // I/O) deliberately runs OUTSIDE the lock, after the guarded
-    // simpleDb+atom write above committed the clear decision. A login
-    // racing this signOut is not made worse by the move: its own Supabase
-    // sign-in happens outside any mutex either way, and
-    // commitAuthSessionSourceBeforeAtomUpdate fails safe (clears + throws)
-    // when the session storage was swept underneath it.
+    // simpleDb+atom write above committed the clear decision.
+    //
+    // Stale-sweep gate: a same-source OAuth login can FULLY commit (session
+    // + source + atom) between the lock release above and this sweep. Once
+    // committed, commitAuthSessionSourceBeforeAtomUpdate's fail-safe can no
+    // longer catch anything — sweeping here would delete the FRESH login's
+    // session while its atom/source stay logged-in. Re-check the commit
+    // generation right before sweeping and skip when a commit landed in
+    // between: the fresh login owns the slot now, and the invalid session
+    // this sweep targeted was already overwritten by the fresh setItem (or,
+    // for a cross-source login, left inert with its source no longer
+    // selected). A commit landing DURING the sweep below remains possible —
+    // fully closing that would require routing every session write through
+    // the bg mutex (forbidden: network I/O under authStateWriteMutex).
+    const generationBeforeSessionClear =
+      await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+    if (generationBeforeSessionClear !== lockResult.authStateGeneration) {
+      defaultLogger.prime.subscription.onekeyIdInvalidToken({
+        url: requestUrl || '',
+        errorCode: errorCode || -1,
+        errorMessage: `skip stale per-source session clear, a login committed after the in-lock clear (generation ${String(
+          lockResult.authStateGeneration,
+        )} -> ${generationBeforeSessionClear})`,
+      });
+      return lockResult;
+    }
     if (lockResult.authSessionSource === EPrimeAuthSessionSource.KeylessOAuth) {
       await this.backgroundApi.simpleDb.prime.clearKeylessAuthSession();
     } else {
