@@ -127,6 +127,7 @@ function PrimeLoginOAuthDialog(props: {
         setLoggingInProvider(provider);
         const result = await getOAuthAccessToken({
           provider,
+          // TODO: i18n
           missingTokenMessage: 'OAuth login failed: access token not found',
         });
         didUseOAuthSignIn = result.didUseOAuthSignIn;
@@ -269,11 +270,13 @@ function PrimeLoginOAuthDialog(props: {
       <Stack>
         <Dialog.Header>
           <Dialog.Icon icon="InfoCircleOutline" />
-          <Dialog.Title>Use Email Sign In?</Dialog.Title>
+          {/* TODO: i18n */}
+          <Dialog.Title>Use Email Sign-In?</Dialog.Title>
+          {/* TODO: i18n */}
           <Dialog.Description>
-            Email sign in is only available for existing OneKey ID accounts that
-            previously used email login. It does not support creating a new
-            OneKey ID with email.
+            Email sign-in is only available for existing OneKey ID accounts
+            that previously used email login. It can't be used to create a new
+            OneKey ID.
           </Dialog.Description>
         </Dialog.Header>
         <Dialog.Footer
@@ -345,7 +348,8 @@ function PrimeLoginOAuthDialog(props: {
         ) : null}
         {isLocalKeylessOAuthMode && localKeylessProvider ? (
           <SizableText size="$bodySm" color="$textSubdued" ta="center">
-            {`Use the ${localKeylessProviderName} account linked to your Keyless Wallet.`}
+            {/* TODO: i18n (use a {provider} placeholder) */}
+            {`Use the ${localKeylessProviderName} account linked to your Keyless wallet.`}
           </SizableText>
         ) : null}
         {showKeylessLogoutAction && isLocalKeylessOAuthMode ? (
@@ -406,7 +410,8 @@ function PrimeLoginOAuthDialog(props: {
                   variant="tertiary"
                   icon="InfoCircleOutline"
                   iconSize="$4"
-                  title="Email sign in"
+                  // TODO: i18n
+                  title="Email sign-in"
                   testID="prime-login-oauth-email-help-btn"
                   ml="$1"
                   onPress={showLegacyEmailLoginConfirm}

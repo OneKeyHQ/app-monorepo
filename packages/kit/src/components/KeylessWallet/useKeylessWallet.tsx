@@ -590,6 +590,7 @@ export function useKeylessWallet() {
       });
       const accessToken = result?.session?.accessToken;
       if (!accessToken) {
+        // TODO: i18n
         throw new OneKeyLocalError(
           'Keyless wallet OAuth login failed: access token not found',
         );
@@ -648,8 +649,10 @@ export function useKeylessWallet() {
           displayEmail: prepareResult.displayEmail,
         });
         Dialog.show({
+          // TODO: i18n
           title: 'Continue with current OneKey ID?',
-          description: `You are signed in as ${displayEmail}. Continue with this OneKey ID to create a Keyless wallet, or sign out to use another Google or Apple account.`,
+          // TODO: i18n
+          description: `You are signed in as ${displayEmail}. Continue with this OneKey ID to create a Keyless wallet, or log out to use another Google or Apple account.`,
           showCancelButton: true,
           onConfirmText: intl.formatMessage({
             id: ETranslations.global_continue,

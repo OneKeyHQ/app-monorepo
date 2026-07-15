@@ -122,7 +122,7 @@ export async function showKeylessOneKeyIdSessionConflictDialog(params: {
         id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
       }),
       // TODO: i18n
-      description: `You are signed in to OneKey ID as ${displayEmail}, but this Keyless wallet is linked to a different account. Continuing will log out of OneKey ID (you can log in again later); the Keyless wallet stays untouched.`,
+      description: `You are signed in to OneKey ID as ${displayEmail}, but this Keyless wallet is linked to a different account. Continuing will log you out of OneKey ID (you can log in again later); the Keyless wallet stays untouched.`,
       showCancelButton: true,
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_continue,
