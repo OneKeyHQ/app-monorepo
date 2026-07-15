@@ -46,6 +46,7 @@ import type {
   INotificationViewDialogPayload,
 } from '../../types/notification';
 import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
+import type { EPrimeAuthSessionSource } from '../../types/prime/primeTypes';
 import type { IRookieShareData } from '../../types/rookieGuide';
 import type {
   ESwapCrossChainStatus,
@@ -449,7 +450,28 @@ export interface IAppEventBusPayload {
     autoCreateAddress: boolean;
     deriveType: IAccountDeriveTypes;
   };
-  [EAppEventBusNames.PrimeLoginInvalidToken]: undefined;
+  [EAppEventBusNames.PrimeLoginInvalidToken]:
+    | {
+        authSessionSource?: EPrimeAuthSessionSource;
+        clearedByBackground?: boolean;
+        // Auth-state commit generation (simpleDb.prime.getAuthStateGeneration)
+        // observed by the bg cleanup when it decided to clear. Handlers must
+        // treat the event as STALE and skip their sign-outs when the current
+        // generation differs: a login commit that landed after the clear
+        // decision owns the shared session slot, and a stale sign-out would
+        // destroy the fresh login's persisted session.
+        authStateGeneration?: number;
+      }
+    | undefined;
+  // Emitted from the bg runtime after it clears the shared keyless Supabase
+  // session storage (wallet removal / cleanup). JS heaps are isolated per
+  // runtime, so the main runtime must sign out its own in-memory keyless
+  // client copy when this arrives.
+  [EAppEventBusNames.KeylessAuthSessionCleared]: undefined;
+  [EAppEventBusNames.PrimeAuthSessionSourceCommitted]: {
+    authSessionSource: EPrimeAuthSessionSource;
+    callerName: string;
+  };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: undefined;
   [EAppEventBusNames.PrimeMasterPasswordInvalid]: undefined;
