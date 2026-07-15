@@ -86,7 +86,8 @@
     "_lang": "node ./development/lint/lang",
     "_packageVersions": "node ./development/lint/package-versions.js",
     "_font": "node ./development/lint/font.js",
-    "lint:project": "yarn _tsc && yarn _lint && concurrently --kill-others-on-fail \"yarn _electron\" \"yarn _lang\" \"yarn _packageVersions\" \"yarn _font\"",
+    "lint:agent-context": "node ./development/lint/agent-context",
+    "lint:project": "yarn _tsc && yarn _lint && concurrently --kill-others-on-fail \"yarn _electron\" \"yarn _lang\" \"yarn _packageVersions\" \"yarn _font\" \"yarn lint:agent-context\"",
     "lint": "yarn lint:project",
     "lint:all": "yarn lint --fix && yarn eslint --fix",
     "eslint": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"/.eslintcache",
@@ -362,6 +363,7 @@
     "jest": "^29.7.0",
     "jest-expo": "~53.0.8",
     "jest-html-reporter": "^3.10.2",
+    "markdown-it": "^10.0.0",
     "metro": "0.83.2",
     "node-notifier": "^10.0.1",
     "oxfmt": "^0.24.0",
@@ -393,7 +395,8 @@
     "webpack-subresource-integrity": "^5.2.0-rc.1",
     "workbox-webpack-plugin": "^7.4.0",
     "worker-loader": "^3.0.8",
-    "worker-rspack-loader": "3.1.5"
+    "worker-rspack-loader": "3.1.5",
+    "yaml": "^2.8.0"
   },
   "resolutions": {
     "lodash": "4.18.1",
