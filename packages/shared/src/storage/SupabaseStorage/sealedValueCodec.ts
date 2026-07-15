@@ -109,14 +109,18 @@ export function buildSupabaseSealedValueCodec({
   indexedDBInstance?: IDBFactory | null;
   keyRef?: string;
 } = {}): ISupabaseSealedValueCodec {
-  // Availability + key resolution are cached for the process lifetime (per
-  // JS runtime): the first failure pins this runtime to the plaintext
-  // fallback, the first success pins the shared persisted device key.
+  // Key resolution is cached only on SUCCESS (per JS runtime). A failed
+  // resolution must not be pinned for the process lifetime: IndexedDB open
+  // errors can be transient (storage pressure, AV lock at cold start), and
+  // pinning them would both hide a perfectly recoverable sealed session
+  // (read path reports "logged out") and silently downgrade every later
+  // write to plaintext until restart. Failures are retried on the next
+  // call; concurrent callers still share one in-flight attempt.
   let deviceKeyPromise: Promise<CryptoKey | null> | undefined;
 
   const getDeviceKey = async (): Promise<CryptoKey | null> => {
     if (!deviceKeyPromise) {
-      deviceKeyPromise = (async () => {
+      const attempt: Promise<CryptoKey | null> = (async () => {
         try {
           // getOrCreateCryptoKey validates WebCrypto + IndexedDB availability
           // and races safely against the other runtime (single readwrite
@@ -138,6 +142,12 @@ export function buildSupabaseSealedValueCodec({
           return null;
         }
       })();
+      deviceKeyPromise = attempt;
+      void attempt.then((key) => {
+        if (key === null && deviceKeyPromise === attempt) {
+          deviceKeyPromise = undefined;
+        }
+      });
     }
     return deviceKeyPromise;
   };

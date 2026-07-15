@@ -120,6 +120,16 @@ export class SupabaseStorage {
       if (sealedValue === null) {
         return;
       }
+      // Re-read before writing: a concurrent auth-js token refresh in this
+      // runtime (getItem -> expired -> refresh -> setItem) may have already
+      // rotated and rewritten the session while the device key was being
+      // resolved. Never clobber the newer write with the resealed OLD value
+      // — its single-use rotating refresh token is already consumed, and
+      // re-using it past the GoTrue reuse window revokes the whole token
+      // family (forced logout).
+      if ((await appStorage.getItem(prefixedKey)) !== plainValue) {
+        return;
+      }
       await appStorage.setItem(prefixedKey, sealedValue);
       // No cache clear: the logical value is unchanged, only its at-rest
       // encoding.
