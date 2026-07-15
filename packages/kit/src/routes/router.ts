@@ -87,6 +87,34 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   ...buildPermissionRouter(),
 ];
 
+export const rootRouterPathConfigSources = [
+  {
+    name: ERootRoutes.Onboarding,
+    pathConfigFile: './Modal/router',
+    pathConfigExport: 'onboardingRouterV2Config',
+  },
+  {
+    name: ERootRoutes.Modal,
+    pathConfigFile: './Modal/router',
+    pathConfigExport: 'modalRouter',
+  },
+  {
+    name: ERootRoutes.iOSFullScreen,
+    pathConfigFile: './Modal/router',
+    pathConfigExport: 'fullModalRouter',
+  },
+  {
+    name: ERootRoutes.FullScreenPush,
+    pathConfigFile: './Modal/router',
+    pathConfigExport: 'fullScreenPushRouterConfig',
+  },
+  {
+    name: ERootRoutes.WebView,
+    pathConfigFile: './WebView/router',
+    pathConfigExport: 'webViewRouter',
+  },
+] as const;
+
 if (platformEnv.isDev) {
   const NotFound = LazyLoad(() => import('../components/NotFound'));
   rootRouter.push({

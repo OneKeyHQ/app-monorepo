@@ -54,6 +54,9 @@ const allowListMap = new Map<string, string>();
 
 const buildAllowListMapKey = (screenNames: string[]) => screenNames.join(',');
 
+// This allow list controls state-to-URL serialization only: it decides whether
+// navigation state is reflected in the address bar. It is not an inbound URL or
+// cold-start allow list; URL-to-state parsing is defined by the linking screens.
 export const getAllowPathFromScreenNames = (screenNames: string[]) =>
   allowListMap.get(buildAllowListMapKey(screenNames)) || '/';
 

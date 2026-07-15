@@ -1,4 +1,3 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import generatedRoutePathConfig from './generated/routePathConfig.generated';
@@ -11,18 +10,16 @@ export interface IRoutePathConfig {
 }
 
 interface IGeneratedRoutePathConfig {
-  schemaVersion: 1;
+  schemaVersion: 2;
   target: string;
-  production: IRoutePathConfig[];
-  development: IRoutePathConfig[];
+  mode: 'production' | 'development';
+  routes: IRoutePathConfig[];
 }
 
 const generated =
   generatedRoutePathConfig as unknown as IGeneratedRoutePathConfig;
 
-export const rootRouterPathConfig: IRoutePathConfig[] = platformEnv.isDev
-  ? generated.development
-  : generated.production;
+export const rootRouterPathConfig: IRoutePathConfig[] = generated.routes;
 
 const getRootChildren = (name: ERootRoutes): IRoutePathConfig[] =>
   rootRouterPathConfig.find((route) => route.name === name)?.children ?? [];

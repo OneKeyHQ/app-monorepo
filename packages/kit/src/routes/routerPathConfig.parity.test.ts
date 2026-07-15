@@ -1,11 +1,12 @@
+import fs from 'node:fs';
+import nodePath from 'node:path';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
 
 import { getStateFromPath } from './config/getStateFromPath';
 import { resolveScreens } from './config/resolveScreens';
-import generatedWebRouteConfig from './generated/routePathConfig.generated.web.json';
 
 import type { IRoutePathConfig } from './routerPathConfig';
 
@@ -51,25 +52,47 @@ jest.mock(
   '@onekeyhq/kit/src/views/Home/pages/urlAccount/urlAccountUtils',
   () => ({ urlAccountLandingRewrite: '/not-part-of-static-root' }),
 );
-// Jest does not include Rspack's `.web-only` suffix priority, so mirror it here.
-jest.mock('@onekeyhq/kit/src/views/Home/router', () =>
-  jest.requireActual<
-    typeof import('@onekeyhq/kit/src/views/Home/router/index.web-only')
-  >('@onekeyhq/kit/src/views/Home/router/index.web-only'),
-);
-jest.mock('@onekeyhq/kit/src/views/Onboardingv2/router', () =>
-  jest.requireActual<
-    typeof import('@onekeyhq/kit/src/views/Onboardingv2/router/index.web-only')
-  >('@onekeyhq/kit/src/views/Onboardingv2/router/index.web-only'),
-);
-
 interface IGeneratedRouteConfig {
-  production: IRoutePathConfig[];
-  development: IRoutePathConfig[];
+  schemaVersion: 2;
+  target: IRouteTarget;
+  mode: IRouteMode;
+  routes: IRoutePathConfig[];
 }
 
-const generatedWeb =
-  generatedWebRouteConfig as unknown as IGeneratedRouteConfig;
+type IRouteMode = 'production' | 'development';
+type IRouteTarget =
+  | 'web'
+  | 'web-embed'
+  | 'ext'
+  | 'desktop'
+  | 'ios'
+  | 'android'
+  | 'native';
+
+const routeTargets: IRouteTarget[] = [
+  'web',
+  'web-embed',
+  'ext',
+  'desktop',
+  'ios',
+  'android',
+  'native',
+];
+
+const readGeneratedRouteConfig = (
+  target: IRouteTarget,
+  mode: IRouteMode,
+): IGeneratedRouteConfig =>
+  JSON.parse(
+    fs.readFileSync(
+      nodePath.join(
+        __dirname,
+        'generated',
+        `routePathConfig.generated.${target}.${mode}.json`,
+      ),
+      'utf8',
+    ),
+  ) as IGeneratedRouteConfig;
 
 interface IParameterizedRoute {
   names: string[];
@@ -188,20 +211,24 @@ const projectRouteMetadata = (
     return output;
   });
 
-const loadRuntimeWebProjection = (isDev: boolean): IRoutePathConfig[] => {
+const loadRuntimeProjection = (
+  target: IRouteTarget,
+  isDev: boolean,
+): IRoutePathConfig[] => {
   let projection: IRoutePathConfig[] | undefined;
+  const isNative = ['ios', 'android', 'native'].includes(target);
   const mockedPlatformEnv = {
     ...platformEnv,
     isJest: false,
     isDev,
     isProduction: !isDev,
-    isWeb: true,
-    isWebEmbed: false,
-    isExtension: false,
-    isDesktop: false,
-    isNative: false,
-    isNativeIOS: false,
-    isNativeAndroid: false,
+    isWeb: target === 'web',
+    isWebEmbed: target === 'web-embed',
+    isExtension: target === 'ext',
+    isDesktop: target === 'desktop',
+    isNative,
+    isNativeIOS: target === 'ios',
+    isNativeAndroid: target === 'android',
     isNativeIOS26Plus: false,
   };
 
@@ -210,25 +237,41 @@ const loadRuntimeWebProjection = (isDev: boolean): IRoutePathConfig[] => {
     __esModule: true,
     default: mockedPlatformEnv,
   }));
+  const usesWebOnlyRoutes = target === 'web' || target === 'web-embed';
+  jest.doMock('@onekeyhq/kit/src/views/Home/router', () =>
+    usesWebOnlyRoutes
+      ? jest.requireActual<
+          typeof import('@onekeyhq/kit/src/views/Home/router/index.web-only')
+        >('@onekeyhq/kit/src/views/Home/router/index.web-only')
+      : jest.requireActual<
+          typeof import('@onekeyhq/kit/src/views/Home/router/index')
+        >('@onekeyhq/kit/src/views/Home/router/index'),
+  );
+  jest.doMock('@onekeyhq/kit/src/views/Onboardingv2/router', () =>
+    usesWebOnlyRoutes
+      ? jest.requireActual<
+          typeof import('@onekeyhq/kit/src/views/Onboardingv2/router/index.web-only')
+        >('@onekeyhq/kit/src/views/Onboardingv2/router/index.web-only')
+      : jest.requireActual<
+          typeof import('@onekeyhq/kit/src/views/Onboardingv2/router/index')
+        >('@onekeyhq/kit/src/views/Onboardingv2/router/index'),
+  );
   jest.isolateModules(() => {
-    const { rootRouter } =
+    const { rootRouter, rootRouterPathConfigSources } =
       jest.requireActual<typeof import('./router')>('./router');
-    const {
-      fullModalRouter,
-      fullScreenPushRouterConfig,
-      modalRouter,
-      onboardingRouterV2Config,
-    } = jest.requireActual<typeof import('./Modal/router')>('./Modal/router');
-    const { webViewRouter } =
-      jest.requireActual<typeof import('./WebView/router')>('./WebView/router');
-
-    const childrenByRootRoute = new Map<string, readonly unknown[]>([
-      [ERootRoutes.Onboarding, onboardingRouterV2Config],
-      [ERootRoutes.Modal, modalRouter],
-      [ERootRoutes.iOSFullScreen, fullModalRouter],
-      [ERootRoutes.FullScreenPush, fullScreenPushRouterConfig],
-      [ERootRoutes.WebView, webViewRouter],
-    ]);
+    const childrenByRootRoute = new Map<string, readonly unknown[]>();
+    for (const source of rootRouterPathConfigSources) {
+      const sourceModule = jest.requireActual<Record<string, unknown>>(
+        source.pathConfigFile,
+      );
+      const children = sourceModule[source.pathConfigExport];
+      if (!Array.isArray(children)) {
+        throw new OneKeyLocalError(
+          `${source.pathConfigExport} is not a route array`,
+        );
+      }
+      childrenByRootRoute.set(source.name, children);
+    }
     const runtimeRoot = rootRouter.map((route) => {
       const children = childrenByRootRoute.get(route.name);
       return children ? { ...route, children } : route;
@@ -236,28 +279,34 @@ const loadRuntimeWebProjection = (isDev: boolean): IRoutePathConfig[] => {
     projection = projectRouteMetadata(runtimeRoot);
   });
   jest.dontMock('@onekeyhq/shared/src/platformEnv');
+  jest.dontMock('@onekeyhq/kit/src/views/Home/router');
+  jest.dontMock('@onekeyhq/kit/src/views/Onboardingv2/router');
 
   if (!projection) {
-    throw new OneKeyLocalError('Runtime Web route projection was not created');
+    throw new OneKeyLocalError(
+      `Runtime ${target} route projection was not created`,
+    );
   }
   return projection;
 };
 
-describe('generated Web route config parity', () => {
+describe.each(routeTargets)('generated %s route config parity', (target) => {
   it.each([
     ['production', false],
     ['development', true],
   ] as const)(
     'matches the independently executed %s Router projection',
     (mode, isDev) => {
-      expect(loadRuntimeWebProjection(isDev)).toEqual(generatedWeb[mode]);
+      const generated = readGeneratedRouteConfig(target, mode);
+      expect(generated).toMatchObject({ schemaVersion: 2, target, mode });
+      expect(loadRuntimeProjection(target, isDev)).toEqual(generated.routes);
     },
   );
 
   it.each([['production'], ['development']] as const)(
     'parses every generated %s parameterized path and query parameter',
     (mode) => {
-      const routeConfig = generatedWeb[mode];
+      const routeConfig = readGeneratedRouteConfig(target, mode).routes;
       const parameterizedRoutes = collectParameterizedRoutes(routeConfig);
       const screens = resolveScreens(routeConfig) as IScreenPathConfig;
 
@@ -278,4 +327,26 @@ describe('generated Web route config parity', () => {
       }
     },
   );
+});
+
+describe('generated mode isolation', () => {
+  it('keeps development-only routes out of the production asset', () => {
+    const production = fs.readFileSync(
+      nodePath.join(
+        __dirname,
+        'generated/routePathConfig.generated.web.production.json',
+      ),
+      'utf8',
+    );
+    const development = fs.readFileSync(
+      nodePath.join(
+        __dirname,
+        'generated/routePathConfig.generated.web.development.json',
+      ),
+      'utf8',
+    );
+
+    expect(production).not.toContain('TestSimpleModal');
+    expect(development).toContain('TestSimpleModal');
+  });
 });

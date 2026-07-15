@@ -27,6 +27,8 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 import { OnboardingTestIDs } from '../testIDs';
 import { shuffleWordsIndices } from '../utils';
 
+import { isValidRecoveryPhraseRouteParams } from './routeParamGuards';
+
 import type { RouteProp } from '@react-navigation/core';
 
 export default function VerifyRecoveryPhrase() {
@@ -38,28 +40,23 @@ export default function VerifyRecoveryPhrase() {
     >();
   const routeMnemonic = route.params?.mnemonic;
   const walletId = route.params?.walletId;
+  const hasValidRouteParams = isValidRecoveryPhraseRouteParams(route.params);
 
   useEffect(() => {
-    if (!routeMnemonic || !walletId) {
-      navigation.popStack();
-      return;
-    }
-    try {
-      ensureSensitiveTextEncoded(routeMnemonic);
-    } catch {
+    if (!hasValidRouteParams) {
       navigation.popStack();
     }
-  }, [navigation, routeMnemonic, walletId]);
+  }, [hasValidRouteParams, navigation]);
 
   const { result: mnemonic = '' } = usePromiseResult(async () => {
-    if (!routeMnemonic) {
+    if (!hasValidRouteParams) {
       return '';
     }
     ensureSensitiveTextEncoded(routeMnemonic);
     return backgroundApiProxy.servicePassword.decodeSensitiveText({
       encodedText: routeMnemonic,
     });
-  }, [routeMnemonic]);
+  }, [hasValidRouteParams, routeMnemonic]);
   const recoveryPhrase = useMemo(
     () => mnemonic.split(' ').filter(Boolean),
     [mnemonic],
@@ -152,6 +149,10 @@ export default function VerifyRecoveryPhrase() {
     },
     [answerIndices, intl, navigation, recoveryPhrase, selectedWords, walletId],
   );
+
+  if (!hasValidRouteParams || !mnemonic) {
+    return null;
+  }
 
   return (
     <Page testID={OnboardingTestIDs.verifyRecoveryPhrasePage}>
