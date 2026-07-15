@@ -133,7 +133,10 @@ import {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
-import { normalizeSwapTokenListCurrency } from './ServiceSwap.utils';
+import {
+  buildSwapRequestErrorToastPayload,
+  normalizeSwapTokenListCurrency,
+} from './ServiceSwap.utils';
 import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
 import {
@@ -3329,11 +3332,9 @@ export default class ServiceSwap extends ServiceBase {
           data?: unknown;
         };
       };
-      void this.backgroundApi.serviceApp.showToast({
-        method: 'error',
-        title: error?.message ?? 'Request failed',
-        message: error?.requestId,
-      });
+      void this.backgroundApi.serviceApp.showToast(
+        buildSwapRequestErrorToastPayload(error),
+      );
       return undefined;
     }
   }
