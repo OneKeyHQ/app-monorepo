@@ -769,6 +769,7 @@ export function PerpOrderBook({
     setSelectedTickOption,
     priceDecimals,
     sizeDecimals,
+    tickOptionSource,
   } = tickOptionsData;
 
   const handleTickOptionChange = useCallback(
@@ -916,6 +917,9 @@ export function PerpOrderBook({
       hasBook: hasRenderOrderBook,
       bidLevels: candidateL2Book?.bids.length ?? 0,
       askLevels: candidateL2Book?.asks.length ?? 0,
+      tickOptionValue: selectedTickOption.value,
+      tickOptionsCount: tickOptions.length,
+      tickOptionSource,
       source: orderBookRenderSource,
     });
   }, [
@@ -932,6 +936,9 @@ export function PerpOrderBook({
     l2SubscriptionOptions.mantissa,
     l2SubscriptionOptions.nSigFigs,
     orderBookRenderSource,
+    selectedTickOption.value,
+    tickOptionSource,
+    tickOptions.length,
     visibleL2Book?.asks.length,
     visibleL2Book?.bids.length,
     visibleL2Book?.coin,
