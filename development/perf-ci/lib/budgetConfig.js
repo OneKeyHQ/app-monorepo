@@ -19,6 +19,38 @@ function normalizeBudgetConfig(raw, defaultBudgets) {
   };
 }
 
+function uniqueStrings(values) {
+  return [
+    ...new Set(values.filter((value) => typeof value === 'string' && value)),
+  ];
+}
+
+function resolveSourceGuardPolicies({
+  startupGraph,
+  defaultInitialForbiddenSources = [],
+}) {
+  const initialOnlyForbiddenSources = Array.isArray(
+    startupGraph?.forbiddenSources,
+  )
+    ? startupGraph.forbiddenSources
+    : defaultInitialForbiddenSources;
+  const requestedScriptForbiddenSources = uniqueStrings(
+    Array.isArray(startupGraph?.requestedScriptForbiddenSources)
+      ? startupGraph.requestedScriptForbiddenSources
+      : [],
+  );
+
+  // Sources forbidden at runtime must also stay out of the initial entry graph.
+  return {
+    initialForbiddenSources: uniqueStrings([
+      ...initialOnlyForbiddenSources,
+      ...requestedScriptForbiddenSources,
+    ]),
+    requestedScriptForbiddenSources,
+  };
+}
+
 module.exports = {
   normalizeBudgetConfig,
+  resolveSourceGuardPolicies,
 };

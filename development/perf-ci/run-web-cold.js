@@ -21,7 +21,10 @@ const {
   printAiTriageInstructions,
   writeAiHints,
 } = require('./lib/budgetAiHints');
-const { normalizeBudgetConfig } = require('./lib/budgetConfig');
+const {
+  normalizeBudgetConfig,
+  resolveSourceGuardPolicies,
+} = require('./lib/budgetConfig');
 const { findChromiumExecutable } = require('./lib/chromium');
 const {
   execCmd,
@@ -1218,6 +1221,9 @@ async function main() {
   });
   const startupGraphBudget = startupGraphBudgetResult?.report || null;
   const budgetConfig = loadBudgetConfig(repoRoot);
+  const { requestedScriptForbiddenSources } = resolveSourceGuardPolicies({
+    startupGraph: budgetConfig.startupGraph,
+  });
   const scenarios = parseScenarios();
   const initialScripts = parseInitialScriptFiles(buildDir);
   const staticServer = await startStaticServer({ rootDir: buildDir });
@@ -1295,7 +1301,7 @@ async function main() {
     const requestedScriptSourceGuard = checkRequestedScriptSources({
       buildDir,
       scenarioOutputs,
-      forbiddenSources: budgetConfig.startupGraph?.forbiddenSources || [],
+      forbiddenSources: requestedScriptForbiddenSources,
     });
     log(
       `requested script source guard: ${requestedScriptSourceGuard.pass ? 'PASS' : 'FAIL'} (${requestedScriptSourceGuard.scriptFiles.length} scripts)`,

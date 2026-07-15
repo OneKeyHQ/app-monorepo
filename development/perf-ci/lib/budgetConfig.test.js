@@ -1,4 +1,7 @@
-const { normalizeBudgetConfig } = require('./budgetConfig');
+const {
+  normalizeBudgetConfig,
+  resolveSourceGuardPolicies,
+} = require('./budgetConfig');
 
 describe('normalizeBudgetConfig', () => {
   const defaults = { scriptCount: 10, resourceCount: 20 };
@@ -29,6 +32,27 @@ describe('normalizeBudgetConfig', () => {
     expect(normalizeBudgetConfig({ scriptCount: 8 }, defaults)).toEqual({
       defaults: { scriptCount: 8, resourceCount: 20 },
       scenarios: {},
+    });
+  });
+
+  it('keeps initial-only sources out of the runtime requested-script policy', () => {
+    expect(
+      resolveSourceGuardPolicies({
+        startupGraph: {
+          forbiddenSources: ['@reown/'],
+          requestedScriptForbiddenSources: [
+            'packages/kit/src/views/Onboardingv2/router/',
+          ],
+        },
+      }),
+    ).toEqual({
+      initialForbiddenSources: [
+        '@reown/',
+        'packages/kit/src/views/Onboardingv2/router/',
+      ],
+      requestedScriptForbiddenSources: [
+        'packages/kit/src/views/Onboardingv2/router/',
+      ],
     });
   });
 });

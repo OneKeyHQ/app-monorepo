@@ -34,6 +34,9 @@ const {
   printAiTriageInstructions,
   writeAiHints,
 } = require(path.join(repoRoot, 'development/perf-ci/lib/budgetAiHints'));
+const { resolveSourceGuardPolicies } = require(
+  path.join(repoRoot, 'development/perf-ci/lib/budgetConfig'),
+);
 const { createStaticImportChainReport } = require(
   path.join(repoRoot, 'development/perf-ci/lib/importChain'),
 );
@@ -212,9 +215,13 @@ function main() {
 
   const budgetConfig = readJsonIfExists(budgetPath);
   const budgets = loadBudgets();
+  const { initialForbiddenSources } = resolveSourceGuardPolicies({
+    startupGraph: budgetConfig?.startupGraph,
+    defaultInitialForbiddenSources: DEFAULT_FORBIDDEN_SOURCES,
+  });
   const forbiddenSources = csvEnv(
     'WEB_STARTUP_FORBIDDEN_SOURCES',
-    budgetConfig?.startupGraph?.forbiddenSources || DEFAULT_FORBIDDEN_SOURCES,
+    initialForbiddenSources,
   );
 
   const html = fs.readFileSync(htmlPath, 'utf8');

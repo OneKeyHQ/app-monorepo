@@ -23,6 +23,9 @@
       "react-hook-form",
       "localforage",
       "WebStorageLegacy",
+      "translations.ts"
+    ],
+    "requestedScriptForbiddenSources": [
       "packages/kit/src/views/Onboardingv2/pages/",
       "packages/kit/src/views/Onboardingv2/router/",
       "packages/kit/src/views/Onboardingv2/components/Layout",
@@ -37,8 +40,7 @@
       "packages/kit/src/views/Setting/router/",
       "packages/kit/src/views/SignatureConfirm/router/",
       "packages/kit/src/views/Staking/router/",
-      "packages/kit/src/views/TestModal/router/",
-      "translations.ts"
+      "packages/kit/src/views/TestModal/router/"
     ]
   },
   "scenarios": {
