@@ -737,12 +737,19 @@ const SwapTokenSelectPage = ({
   }, [getClipboard]);
 
   const disableNetworksOnClick = useCallback(() => {
+    // STOCK keeps the legacy copy until stock-specific copy is defined
+    let disabledNetworkTipId = ETranslations.swap_toast_bridge_tip;
+    if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
+      disabledNetworkTipId = ETranslations.trade_swap_network_only_cross;
+    } else if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+      disabledNetworkTipId = ETranslations.trade_limit_network_only_swap;
+    }
     Toast.message({
       title: intl.formatMessage({
-        id: ETranslations.swap_toast_bridge_tip,
+        id: disabledNetworkTipId,
       }),
     });
-  }, [intl]);
+  }, [intl, swapTypeSwitch]);
 
   const disableNetworks = useMemo(() => {
     return buildSwapTokenSelectorDisableNetworks({
