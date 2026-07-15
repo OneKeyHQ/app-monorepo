@@ -29,6 +29,7 @@ import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyIdLoginWithLocalKeylessPrepareResult } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 
 import {
   showOneKeyIdLoginFailedToast,
@@ -135,11 +136,18 @@ function PrimeLoginOAuthDialog(props: {
           });
           isOneKeyIdLoginCommitted = true;
         } catch (error) {
-          if (didUseOAuthSignIn && isLocalKeylessOAuthMode) {
-            await clearOAuthSignInTempSession();
-          } else if (didUseOAuthSignIn) {
-            await supabaseSignOut();
-            await backgroundApiProxy.simpleDb.prime.clearLocalAuthSession();
+          // Only tear the session down on definitive rejections: a transient
+          // network failure (timeout / 5xx) says nothing about the
+          // just-validated session, and keeping it lets the retry skip a
+          // fresh Google/Apple OAuth round-trip (same policy as
+          // startKeylessCreateWithOAuthProvider).
+          if (!isTransientNetworkLikeError(error)) {
+            if (didUseOAuthSignIn && isLocalKeylessOAuthMode) {
+              await clearOAuthSignInTempSession();
+            } else if (didUseOAuthSignIn) {
+              await supabaseSignOut();
+              await backgroundApiProxy.simpleDb.prime.clearLocalAuthSession();
+            }
           }
           throw error;
         }
