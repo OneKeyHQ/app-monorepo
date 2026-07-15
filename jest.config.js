@@ -5,13 +5,16 @@ const exec = util.promisify(require('node:child_process').exec);
 const { defaults } = require('jest-config');
 
 const {
+  targets: routePathConfigTargets,
+} = require('./development/scripts/compile-route-path-config');
+const {
   ensureRoutePathConfig,
   watchRoutePathConfig,
 } = require('./development/scripts/ensure-route-path-config');
 
 module.exports = async () => {
-  ensureRoutePathConfig(['web']);
-  watchRoutePathConfig(['web']);
+  ensureRoutePathConfig(routePathConfigTargets);
+  watchRoutePathConfig(routePathConfigTargets);
   const { stdout } = await exec('yarn config get cacheFolder');
   const cacheDirectory = stdout.trim().replace('\n', '');
   return {

@@ -143,21 +143,24 @@ describe('generated cold-start route config', () => {
     EOnboardingPagesV2.CheckAndUpdate,
     EOnboardingPagesV2.ShowRecoveryPhrase,
     EOnboardingPagesV2.VerifyRecoveryPhrase,
-  ])('parses registered onboarding page %s on Web and extension', (page) => {
-    const path = `/onboarding/${page}`;
-    const expected = [
-      ERootRoutes.Onboarding,
-      EOnboardingV2Routes.OnboardingV2,
-      page,
-    ];
+  ])(
+    'parses registered onboarding page %s as a Web URL and extension hash',
+    (page) => {
+      const path = `/onboarding/${page}`;
+      const expected = [
+        ERootRoutes.Onboarding,
+        EOnboardingV2Routes.OnboardingV2,
+        page,
+      ];
 
-    expect(
-      getFocusedRouteNames(getWebStateFromPath(path, { screens })),
-    ).toEqual(expected);
-    expect(getFocusedRouteNames(parseExtensionHash(`#${path}`))).toEqual(
-      expected,
-    );
-  });
+      expect(
+        getFocusedRouteNames(getWebStateFromPath(path, { screens })),
+      ).toEqual(expected);
+      expect(getFocusedRouteNames(parseExtensionHash(`#${path}`))).toEqual(
+        expected,
+      );
+    },
+  );
 
   it('rejects an unregistered onboarding page', () => {
     expect(

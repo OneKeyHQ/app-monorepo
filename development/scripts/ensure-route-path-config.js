@@ -19,9 +19,27 @@ const ensureRoutePathConfig = (targetNames) => {
   return result;
 };
 
-const isTypeScriptFile = (filePath) => /\.tsx?$/u.test(filePath);
+const routeSourceExtensions = ['.ts', '.tsx', '.mjs', '.js', '.jsx'];
+const isRouteSourceFile = (filePath) =>
+  routeSourceExtensions.some((extension) => filePath.endsWith(extension));
 const normalizeWatchPath = (filePath) =>
   filePath?.toString().replaceAll('\\', '/');
+
+const isViewRouterSourceFile = (filePath) => {
+  if (!isRouteSourceFile(filePath)) {
+    return false;
+  }
+  const segments = filePath.split('/');
+  if (segments.includes('router')) {
+    return true;
+  }
+  const fileName = segments.at(-1) || '';
+  const extension = routeSourceExtensions.find((item) =>
+    fileName.endsWith(item),
+  );
+  const baseName = extension ? fileName.slice(0, -extension.length) : fileName;
+  return baseName.split('.')[0] === 'router';
+};
 
 const watchRoutePathConfig = (targetNames) => {
   if (process.env.NODE_ENV === 'production') {
@@ -55,18 +73,16 @@ const watchRoutePathConfig = (targetNames) => {
   const watchRoots = [
     {
       directory: path.join(repoRoot, 'packages/shared/src/routes'),
-      matches: isTypeScriptFile,
+      matches: isRouteSourceFile,
     },
     {
       directory: path.join(repoRoot, 'packages/kit/src/routes'),
       matches: (filePath) =>
-        isTypeScriptFile(filePath) && !filePath.startsWith('generated/'),
+        isRouteSourceFile(filePath) && !filePath.startsWith('generated/'),
     },
     {
       directory: path.join(repoRoot, 'packages/kit/src/views'),
-      matches: (filePath) =>
-        isTypeScriptFile(filePath) &&
-        /(?:^|\/)router(?:\/|(?:\.[^/]+)*\.tsx?$)/u.test(filePath),
+      matches: isViewRouterSourceFile,
     },
   ];
   const watchers = watchRoots.map(({ directory, matches }) => {
@@ -91,5 +107,6 @@ const watchRoutePathConfig = (targetNames) => {
 
 module.exports = {
   ensureRoutePathConfig,
+  isViewRouterSourceFile,
   watchRoutePathConfig,
 };

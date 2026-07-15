@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -27,6 +27,8 @@ import { useRecoveryPhraseProtected } from '../../../hooks/useRecoveryPhraseProt
 import { OnboardingLayout } from '../components/OnboardingLayout';
 import { OnboardingTestIDs } from '../testIDs';
 
+import { isValidRecoveryPhraseRouteParams } from './routeParamGuards';
+
 import type { RouteProp } from '@react-navigation/core';
 
 export default function ShowRecoveryPhrase() {
@@ -37,50 +39,58 @@ export default function ShowRecoveryPhrase() {
     useRoute<
       RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.ShowRecoveryPhrase>
     >();
+  const routeParams = route.params;
+  const hasValidRouteParams = isValidRecoveryPhraseRouteParams(routeParams);
+
+  useEffect(() => {
+    if (!hasValidRouteParams) {
+      navigation.popStack();
+    }
+  }, [hasValidRouteParams, navigation]);
 
   const { result: mnemonic = '' } = usePromiseResult(async () => {
-    const routeMnemonic = route.params?.mnemonic;
-    if (routeMnemonic) {
-      ensureSensitiveTextEncoded(routeMnemonic);
-      return backgroundApiProxy.servicePassword.decodeSensitiveText({
-        encodedText: routeMnemonic,
-      });
+    if (!hasValidRouteParams) {
+      return '';
     }
-    return backgroundApiProxy.serviceAccount.generateMnemonic();
-  }, [route.params.mnemonic]);
+    ensureSensitiveTextEncoded(routeParams.mnemonic);
+    return backgroundApiProxy.servicePassword.decodeSensitiveText({
+      encodedText: routeParams.mnemonic,
+    });
+  }, [hasValidRouteParams, routeParams]);
   const { result: displayName } = usePromiseResult<string>(async () => {
-    if (!route.params.walletId) {
+    if (!hasValidRouteParams) {
       return '';
     }
     const wallet = await backgroundApiProxy.serviceAccount.getWallet({
-      walletId: route.params.walletId,
+      walletId: routeParams.walletId,
     });
     if (
-      route.params.accountName &&
+      routeParams.accountName &&
       accountUtils.isOthersWallet({ walletId: wallet.id })
     ) {
-      return route.params.accountName;
+      return routeParams.accountName;
     }
     return wallet.name;
-  }, [route.params.accountName, route.params.walletId]);
+  }, [hasValidRouteParams, routeParams]);
   const recoveryPhrase = useMemo(
     () => mnemonic.split(' ').filter(Boolean),
     [mnemonic],
   );
   const handleContinue = useCallback(async () => {
-    let isNotBackedUp = true;
-    if (route.params.walletId) {
-      const wallet = await backgroundApiProxy.serviceAccount.getWallet({
-        walletId: route.params.walletId,
-      });
-      isNotBackedUp = !wallet?.backuped;
+    if (!hasValidRouteParams) {
+      return;
     }
+    let isNotBackedUp = true;
+    const wallet = await backgroundApiProxy.serviceAccount.getWallet({
+      walletId: routeParams.walletId,
+    });
+    isNotBackedUp = !wallet?.backuped;
     if (isNotBackedUp) {
-      navigation.push(EOnboardingPagesV2.VerifyRecoveryPhrase, route.params);
+      navigation.push(EOnboardingPagesV2.VerifyRecoveryPhrase, routeParams);
     } else {
       navigation.popStack();
     }
-  }, [navigation, route.params]);
+  }, [hasValidRouteParams, navigation, routeParams]);
 
   useRecoveryPhraseProtected({ enabled: Boolean(mnemonic) });
 
@@ -129,6 +139,10 @@ export default function ShowRecoveryPhrase() {
       </Button>
     );
   }, [handleCopyMnemonic]);
+
+  if (!hasValidRouteParams || !mnemonic) {
+    return null;
+  }
 
   return (
     <Page testID={OnboardingTestIDs.showRecoveryPhrasePage}>

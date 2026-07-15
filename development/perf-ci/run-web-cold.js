@@ -21,6 +21,7 @@ const {
   printAiTriageInstructions,
   writeAiHints,
 } = require('./lib/budgetAiHints');
+const { normalizeBudgetConfig } = require('./lib/budgetConfig');
 const { findChromiumExecutable } = require('./lib/chromium');
 const {
   execCmd,
@@ -138,26 +139,6 @@ function readJsonIfExists(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-function normalizeBudgetConfig(raw) {
-  if (raw?.defaults || raw?.scenarios) {
-    return {
-      defaults: {
-        ...DEFAULT_BUDGETS,
-        ...raw.defaults,
-      },
-      scenarios: raw.scenarios || {},
-    };
-  }
-
-  return {
-    defaults: {
-      ...DEFAULT_BUDGETS,
-      ...raw,
-    },
-    scenarios: {},
-  };
-}
-
 function loadBudgetConfig(repoRoot) {
   const budgetPath =
     process.env.PERF_WEB_COLD_BUDGET_PATH ||
@@ -168,7 +149,7 @@ function loadBudgetConfig(repoRoot) {
       'thresholds',
       'web.cold.json',
     );
-  return normalizeBudgetConfig(readJsonIfExists(budgetPath));
+  return normalizeBudgetConfig(readJsonIfExists(budgetPath), DEFAULT_BUDGETS);
 }
 
 function expandScenarioNames(names) {
