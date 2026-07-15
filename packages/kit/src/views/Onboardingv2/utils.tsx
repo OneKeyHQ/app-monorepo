@@ -89,6 +89,8 @@ export const getDeviceLabel = (
   return deviceTypeItems
     .map((deviceType) => {
       switch (deviceType) {
+        case EDeviceType.Pro2:
+          return 'OneKey Pro 2';
         case EDeviceType.Pro:
           return 'OneKey Pro';
         case EDeviceType.Classic:

@@ -12,6 +12,7 @@ import {
   PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS,
   buildPortfolioSyncArtifacts,
   getPortfolioSyncCooldownRemainingMs,
+  isPortfolioSyncDevEnabled,
 } from './serviceHardwarePortfolioSyncUtils';
 
 const currencyMap: Record<string, ICurrencyItem> = {
@@ -55,6 +56,34 @@ function buildFiat(params: Partial<ITokenFiat>): ITokenFiat {
 }
 
 describe('serviceHardwarePortfolioSyncUtils', () => {
+  test('requires Pro 2 test mode before enabling the local portfolio flow', () => {
+    expect(
+      isPortfolioSyncDevEnabled({
+        devSettings: {
+          enabled: true,
+          settings: {
+            enablePortfolioSyncDev: true,
+            enablePro2TestMode: false,
+          },
+        },
+        runtimeDevEnabled: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      isPortfolioSyncDevEnabled({
+        devSettings: {
+          enabled: true,
+          settings: {
+            enablePortfolioSyncDev: true,
+            enablePro2TestMode: true,
+          },
+        },
+        runtimeDevEnabled: false,
+      }),
+    ).toBe(true);
+  });
+
   test('calculates the 20s hardware transfer cooldown window', () => {
     expect(
       getPortfolioSyncCooldownRemainingMs({

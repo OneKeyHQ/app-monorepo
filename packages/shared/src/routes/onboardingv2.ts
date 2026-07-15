@@ -35,6 +35,7 @@ export enum EOnboardingPagesV2 {
   ConnectYourDevice = 'ConnectYourDevice',
   ConnectQRCode = 'ConnectQRCode',
   CheckAndUpdate = 'CheckAndUpdate',
+  DeviceSetup = 'DeviceSetup',
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
   ImportWatchedAccount = 'ImportWatchedAccount',
   BackupWalletReminder = 'BackupWalletReminder',
@@ -99,6 +100,12 @@ export type IOnboardingParamListV2 = {
     connectProtocol?: HardwareConnectProtocol;
     deviceData: IConnectYourDeviceItem;
     tabValue: EConnectDeviceChannel;
+  };
+  [EOnboardingPagesV2.DeviceSetup]: {
+    connectProtocol?: HardwareConnectProtocol;
+    deviceData: IConnectYourDeviceItem;
+    tabValue: EConnectDeviceChannel;
+    isFirmwareVerified?: boolean;
   };
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: {
     defaultTab: EOnboardingV2ImportPhraseOrPrivateKeyTab;

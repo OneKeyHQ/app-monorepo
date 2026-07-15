@@ -26,7 +26,12 @@ export const HdWalletAvatarImageNames = Object.keys(
 ) as IHdWalletAvatarImageNames[];
 
 export const HwWalletAvatarImages: Record<
-  IDeviceType | `${EDeviceType.Pro}Black` | `${EDeviceType.Pro}White`,
+  | IDeviceType
+  | `${EDeviceType.Pro}Black`
+  | `${EDeviceType.Pro}White`
+  | `${EDeviceType.Pro2}Black`
+  | `${EDeviceType.Pro2}Orange`
+  | `${EDeviceType.Pro2}Silver`,
   ImageSourcePropType
 > = {
   [EDeviceType.Unknown]: { uri: undefined },
@@ -36,9 +41,12 @@ export const HwWalletAvatarImages: Record<
   [EDeviceType.Mini]: require('../assets/wallet/avatar/Mini.png'),
   [EDeviceType.Touch]: require('../assets/wallet/avatar/Touch.png'),
   [EDeviceType.Pro]: require('../assets/wallet/avatar/ProBlack.png'),
-  [EDeviceType.Pro2]: require('../assets/wallet/avatar/ProBlack.png'),
+  [EDeviceType.Pro2]: require('../assets/wallet/avatar/Pro2Black.png'),
   [`${EDeviceType.Pro}Black`]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}White`]: require('../assets/wallet/avatar/ProWhite.png'),
+  [`${EDeviceType.Pro2}Black`]: require('../assets/wallet/avatar/Pro2Black.png'),
+  [`${EDeviceType.Pro2}Orange`]: require('../assets/wallet/avatar/Pro2Orange.png'),
+  [`${EDeviceType.Pro2}Silver`]: require('../assets/wallet/avatar/Pro2Silver.png'),
 };
 
 export const OthersWalletAvatarImages = {
@@ -87,12 +95,27 @@ export type IAllWalletAvatarImageNamesWithoutDividers =
 export function getDeviceAvatarImage(
   deviceType: IDeviceType,
   serialNo?: string,
-): IDeviceType | `${EDeviceType.Pro}Black` | `${EDeviceType.Pro}White` {
+):
+  | IDeviceType
+  | `${EDeviceType.Pro}Black`
+  | `${EDeviceType.Pro}White`
+  | `${EDeviceType.Pro2}Black`
+  | `${EDeviceType.Pro2}Orange`
+  | `${EDeviceType.Pro2}Silver` {
   if (deviceType === EDeviceType.Pro) {
     if (serialNo && serialNo?.startsWith('PR') && serialNo?.endsWith('B')) {
       return `${EDeviceType.Pro}White`;
     }
     return `${EDeviceType.Pro}Black`;
+  }
+  if (deviceType === EDeviceType.Pro2) {
+    if (serialNo?.endsWith('O')) {
+      return `${EDeviceType.Pro2}Orange`;
+    }
+    if (serialNo?.endsWith('S')) {
+      return `${EDeviceType.Pro2}Silver`;
+    }
+    return `${EDeviceType.Pro2}Black`;
   }
   return deviceType;
 }

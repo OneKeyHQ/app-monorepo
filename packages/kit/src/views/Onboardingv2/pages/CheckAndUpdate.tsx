@@ -6,20 +6,17 @@ import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IImageProps, IPageScreenProps } from '@onekeyhq/components';
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   Button,
   Dialog,
-  Divider,
+  DialogContainer,
   HeightTransition,
-  Icon,
-  Image,
   SizableText,
-  Spinner,
+  Theme,
   XStack,
   YStack,
-  useThemeName,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -30,26 +27,27 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import {
-  EHardwareCallContext,
-  EOneKeyDeviceMode,
-} from '@onekeyhq/shared/types/device';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import {
+  CheckStepIllustration,
+  type ICheckStepIllustrationTone,
+} from '../components/CheckStepIllustration';
+import { Confetti } from '../components/Confetti';
 import { OnboardingPage } from '../components/Layout';
 import {
   useConnectDeviceError,
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
 import { usePrepareUSBConnectForFirmwareUpdate } from '../hooks/usePrepareUSBConnectForFirmwareUpdate';
+import { definePendingMessages } from '../pendingMessages';
 import { OnboardingTestIDs } from '../testIDs';
-import { getForceTransportType } from '../utils';
+import { getDeviceLabel, getForceTransportType } from '../utils';
 
 import type { Features, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
@@ -62,11 +60,31 @@ enum ECheckAndUpdateStepState {
   Error = 'error',
 }
 
+const checkSuccessMessages = definePendingMessages({
+  firmware: {
+    id: 'firmware_check_success_title',
+    defaultMessage: 'Your firmware is ready',
+  },
+  genuine: {
+    id: 'genuine_check_success_title',
+    defaultMessage: '{deviceLabel} is genuine',
+  },
+});
+
 enum ECheckAndUpdateStepId {
   GenuineCheck = 'genuine-check',
   FirmwareCheck = 'firmware-check',
-  SetupOnDevice = 'setup-on-device',
 }
+
+// Illustration glyph tint per step state (idle / in progress stay neutral).
+const STEP_STATE_TONE: Partial<
+  Record<ECheckAndUpdateStepState, ICheckStepIllustrationTone>
+> = {
+  [ECheckAndUpdateStepState.Success]: 'success',
+  [ECheckAndUpdateStepState.Warning]: 'warning',
+  [ECheckAndUpdateStepState.Skipped]: 'warning',
+  [ECheckAndUpdateStepState.Error]: 'critical',
+};
 
 function CheckAndUpdatePage({
   route: routeParams,
@@ -75,9 +93,7 @@ function CheckAndUpdatePage({
   EOnboardingPagesV2.CheckAndUpdate
 >) {
   const intl = useIntl();
-  const { deviceData, tabValue } = routeParams?.params || {};
-  console.log('deviceData', deviceData);
-  const themeVariant = useThemeName();
+  const { connectProtocol, deviceData, tabValue } = routeParams?.params || {};
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
@@ -94,6 +110,17 @@ function CheckAndUpdatePage({
     }
     return (currentDevice as SearchDevice).name;
   }, [currentDevice]);
+
+  // Product model name (e.g. "OneKey Pro"), not the BLE name (e.g. "Pro 062B").
+  // Falls back to the BLE label when the device type is unknown so the string
+  // is never empty.
+  const deviceModelName = useMemo(() => {
+    const deviceType = currentDevice?.deviceType;
+    if (!deviceType || deviceType === EDeviceType.Unknown) {
+      return deviceLabel;
+    }
+    return getDeviceLabel([deviceType]);
+  }, [currentDevice, deviceLabel]);
 
   const {
     verifyHardware,
@@ -117,29 +144,17 @@ function CheckAndUpdatePage({
     }
   }, [tabValue]);
 
-  const deviceImage = useMemo(() => {
-    const device = currentDevice as SearchDevice;
-    const deviceType = device?.deviceType || EDeviceType.Pro;
-    return HwWalletAvatarImages[deviceType];
-  }, [currentDevice]);
-
   const [steps, setSteps] = useState<
     {
-      image: IImageProps['source'];
       id: ECheckAndUpdateStepId;
       title: string;
       description?: string;
       state?: ECheckAndUpdateStepState;
-      neededAction?: boolean;
       errorMessage?: string;
     }[]
   >(() => [
     {
       id: ECheckAndUpdateStepId.GenuineCheck,
-      image:
-        themeVariant === 'light'
-          ? require('@onekeyhq/kit/assets/onboarding/genuine-check.png')
-          : require('@onekeyhq/kit/assets/onboarding/genuine-check-dark.png'),
       title: intl.formatMessage({
         id: ETranslations.device_auth_request_title,
       }),
@@ -147,16 +162,12 @@ function CheckAndUpdatePage({
         {
           id: ETranslations.genuine_check_desc,
         },
-        { deviceLabel },
+        { deviceLabel: deviceModelName },
       ),
       state: ECheckAndUpdateStepState.Idle,
     },
     {
       id: ECheckAndUpdateStepId.FirmwareCheck,
-      image:
-        themeVariant === 'light'
-          ? require('@onekeyhq/kit/assets/onboarding/firmware-check.png')
-          : require('@onekeyhq/kit/assets/onboarding/firmware-check-dark.png'),
       title: intl.formatMessage({
         id: ETranslations.firmware_check,
       }),
@@ -164,20 +175,23 @@ function CheckAndUpdatePage({
         {
           id: ETranslations.firmware_check_desc,
         },
-        { deviceLabel },
+        { deviceLabel: deviceModelName },
       ),
       state: ECheckAndUpdateStepState.Idle,
     },
-    {
-      id: ECheckAndUpdateStepId.SetupOnDevice,
-      image: deviceImage,
-      title: intl.formatMessage({ id: ETranslations.device_setup_check_title }),
-      description: intl.formatMessage({
-        id: ETranslations.device_setup_check_desc,
-      }),
-      state: ECheckAndUpdateStepState.Idle,
-    },
   ]);
+
+  const [celebrate, setCelebrate] = useState(false);
+  // Fire the celebratory confetti once everything is ready — i.e. the moment
+  // the firmware check passes and the "Continue" button appears.
+  const isReady =
+    steps.find((step) => step.id === ECheckAndUpdateStepId.FirmwareCheck)
+      ?.state === ECheckAndUpdateStepState.Success;
+  useEffect(() => {
+    if (isReady) {
+      setCelebrate(true);
+    }
+  }, [isReady]);
 
   const actions = useFirmwareUpdateActions();
   const toFirmwareUpgradePage = useCallback(async () => {
@@ -206,14 +220,10 @@ function CheckAndUpdatePage({
           (step) => step.state === ECheckAndUpdateStepState.InProgress,
         );
         if (inProgressStep) {
-          if (inProgressStep.id === ECheckAndUpdateStepId.SetupOnDevice) {
-            inProgressStep.state = ECheckAndUpdateStepState.Warning;
-          } else {
-            inProgressStep.state = ECheckAndUpdateStepState.Error;
-            inProgressStep.errorMessage = intl.formatMessage({
-              id: ETranslations.hardware_connect_timeout_error,
-            });
-          }
+          inProgressStep.state = ECheckAndUpdateStepState.Error;
+          inProgressStep.errorMessage = intl.formatMessage({
+            id: ETranslations.hardware_connect_timeout_error,
+          });
         }
         return newSteps;
       });
@@ -221,89 +231,30 @@ function CheckAndUpdatePage({
     return () => clearTimeout(timeout);
   }, [intl]);
 
-  const checkDeviceInitialized = useCallback(async () => {
-    const setWarningStep = () => {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[2] = {
-          ...newSteps[2],
-          state: ECheckAndUpdateStepState.Warning,
-        };
-        return newSteps;
-      });
-    };
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[2] = {
-        ...newSteps[2],
-        state: ECheckAndUpdateStepState.InProgress,
-      };
-      return newSteps;
+  // Firmware check is done — hand off to the dedicated DeviceSetup page, which
+  // runs the device-status check and shows the on-device setup instructions
+  // when the device is not yet initialized. Pass the latest device reference
+  // (its connectId may have changed after a firmware update) so DeviceSetup
+  // and FinalizeWalletSetup talk to the right device.
+  const toDeviceSetup = useCallback(() => {
+    navigation.push(EOnboardingPagesV2.DeviceSetup, {
+      connectProtocol,
+      deviceData: {
+        ...deviceData,
+        device: (getActiveDevice() ??
+          currentDevice ??
+          deviceData.device) as SearchDevice,
+      },
+      tabValue,
+      isFirmwareVerified: isFirmwareVerifiedRef.current,
     });
-    try {
-      await ensureTransportType();
-      const baseDevice =
-        getActiveDevice() ??
-        currentDevice ??
-        (deviceData.device as SearchDevice | undefined);
-      if (!baseDevice) {
-        setWarningStep();
-        return;
-      }
-      const latestDevice = getActiveDevice() ?? baseDevice;
-      setCurrentDevice(latestDevice);
-      if (latestDevice.connectId) {
-        const [features] = await Promise.all([
-          backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
-            connectId: latestDevice.connectId,
-          }),
-          new Promise<void>((resolve) => {
-            setTimeout(resolve, 1200);
-          }),
-        ]);
-        const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
-          features,
-        });
-        console.log('deviceMode', deviceMode);
-        if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-          setWarningStep();
-          return;
-        }
-      } else {
-        setWarningStep();
-        return;
-      }
-    } catch (error) {
-      setWarningStep();
-      throw error;
-    }
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[2] = {
-        ...newSteps[2],
-        state: ECheckAndUpdateStepState.Success,
-      };
-      return newSteps;
-    });
-    const deviceForFinalize =
-      getActiveDevice() ??
-      currentDevice ??
-      (deviceData.device as SearchDevice | undefined);
-    setTimeout(async () => {
-      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-        deviceData: {
-          ...deviceData,
-          device: (deviceForFinalize ?? currentDevice) as SearchDevice,
-        },
-        isFirmwareVerified: isFirmwareVerifiedRef.current,
-      });
-    }, 1200);
   }, [
-    currentDevice,
-    deviceData,
-    ensureTransportType,
-    getActiveDevice,
+    connectProtocol,
     navigation,
+    deviceData,
+    getActiveDevice,
+    currentDevice,
+    tabValue,
   ]);
 
   // Retry connecting to device after firmware update
@@ -461,7 +412,6 @@ function CheckAndUpdatePage({
             };
             return newSteps;
           });
-          void checkDeviceInitialized();
         }
       } else {
         setSteps((prev) => {
@@ -485,7 +435,6 @@ function CheckAndUpdatePage({
       deviceData.device,
       ensureActiveConnection,
       intl,
-      checkDeviceInitialized,
       retryDeviceConnectionAfterUpdate,
     ],
   );
@@ -640,10 +589,6 @@ function CheckAndUpdatePage({
     currentDevice,
   ]);
 
-  const handleDeviceSetupDone = useCallback(() => {
-    void checkDeviceInitialized();
-  }, [checkDeviceInitialized]);
-
   const handleRetry = useCallback(async () => {
     const currentErrorStep = steps.find(
       (step) => step.state === ECheckAndUpdateStepState.Error,
@@ -656,39 +601,50 @@ function CheckAndUpdatePage({
       await handleVerifyHardware();
     } else if (currentErrorStep.id === ECheckAndUpdateStepId.FirmwareCheck) {
       await checkFirmwareUpdate();
-    } else if (currentErrorStep.id === ECheckAndUpdateStepId.SetupOnDevice) {
-      await checkDeviceInitialized();
     }
-  }, [
-    checkFirmwareUpdate,
-    checkDeviceInitialized,
-    handleVerifyHardware,
-    steps,
-  ]);
+  }, [checkFirmwareUpdate, handleVerifyHardware, steps]);
 
   const handleSkipUpdate = useCallback(() => {
     Dialog.show({
-      icon: 'InfoCircleOutline',
-      tone: 'warning',
-      title: intl.formatMessage({
-        id: ETranslations.skip_firmware_check_dialog_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.skip_firmware_check_dialog_desc,
-      }),
-      onConfirm: () => {
-        setSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[1] = {
-            ...newSteps[1],
-            state: ECheckAndUpdateStepState.Success,
-          };
-          return newSteps;
-        });
-        void checkDeviceInitialized();
-      },
+      // The onboarding flow is force-dark (routes/Modal/Navigator.tsx wraps it
+      // in <Theme name="dark">), but Dialog.show renders into the global
+      // full-window overlay portal OUTSIDE that wrapper, so by default this
+      // dialog pops in the app/system (light) theme. Wrapping the whole
+      // DialogContainer in <Theme name="dark"> re-themes the entire chrome
+      // (card, header close icon, warning icon, footer buttons) via React
+      // context to match the onboarding flow. Mirrors
+      // useShowOnboardingInviteCodeDialog.
+      dialogContainer: ({ ref }) => (
+        <Theme name="dark">
+          <DialogContainer
+            ref={ref}
+            icon="CubeSolid"
+            tone="warning"
+            title={intl.formatMessage({
+              id: ETranslations.skip_firmware_check_dialog_title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.skip_firmware_check_dialog_desc,
+            })}
+            showFooter
+            showConfirmButton
+            showCancelButton
+            onConfirm={() => {
+              setSteps((prev) => {
+                const newSteps = [...prev];
+                newSteps[1] = {
+                  ...newSteps[1],
+                  state: ECheckAndUpdateStepState.Success,
+                };
+                return newSteps;
+              });
+            }}
+            onClose={async () => undefined}
+          />
+        </Theme>
+      ),
     });
-  }, [checkDeviceInitialized, intl]);
+  }, [intl]);
 
   useConnectDeviceError(
     useCallback(
@@ -710,87 +666,6 @@ function CheckAndUpdatePage({
     ),
   );
 
-  const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
-    const deviceType = (currentDevice as SearchDevice)?.deviceType;
-    const isClassicOrMini =
-      deviceType === EDeviceType.Classic ||
-      deviceType === EDeviceType.Classic1s ||
-      deviceType === EDeviceType.ClassicPure ||
-      deviceType === EDeviceType.Mini;
-
-    const chooseOptionStep = {
-      title: intl.formatMessage({
-        id: ETranslations.setup_choose_option_title,
-      }),
-      details: [
-        intl.formatMessage({
-          id: ETranslations.setup_choose_option_create_new_wallet,
-        }),
-        intl.formatMessage({
-          id: ETranslations.setup_choose_option_import_wallet,
-        }),
-      ],
-    };
-
-    const pinStep = {
-      title: intl.formatMessage({
-        id: ETranslations.setup_pin,
-      }),
-      details: [
-        intl.formatMessage({
-          id: ETranslations.setup_pin_limit,
-        }),
-        intl.formatMessage({
-          id: ETranslations.setup_pin_reminder,
-        }),
-      ],
-    };
-
-    const recoveryPhraseStep = {
-      title: intl.formatMessage({
-        id: ETranslations.setup_recovery_phrase,
-      }),
-      details: [
-        intl.formatMessage({
-          id: ETranslations.setup_recovery_phrase_write_down,
-        }),
-        intl.formatMessage({
-          id: ETranslations.setup_recovery_phrase_matches,
-        }),
-        intl.formatMessage({
-          id: ETranslations.setup_recovery_phrase_charging,
-        }),
-        intl.formatMessage({
-          id: ETranslations.setup_recovery_phrase_do_not_power_off,
-        }),
-      ],
-    };
-
-    const finishOnboardingOnDevice = {
-      title: intl.formatMessage({
-        id: ETranslations.setup_recovery_phrase_follow_instructions,
-      }),
-      details: [],
-    };
-
-    // For Classic or Mini devices, swap the order of PIN and recovery phrase
-    if (isClassicOrMini) {
-      return [
-        chooseOptionStep,
-        recoveryPhraseStep,
-        pinStep,
-        finishOnboardingOnDevice,
-      ];
-    }
-
-    return [
-      chooseOptionStep,
-      pinStep,
-      recoveryPhraseStep,
-      finishOnboardingOnDevice,
-    ];
-  }, [intl, currentDevice]);
-
   const handleSkipCurrentStep = useCallback(() => {
     let currentStepId: ECheckAndUpdateStepId | undefined;
     setSteps((prev) => {
@@ -809,15 +684,42 @@ function CheckAndUpdatePage({
       return newSteps;
     });
     setTimeout(() => {
-      if (currentStepId === ECheckAndUpdateStepId.FirmwareCheck) {
-        void handleDeviceSetupDone();
-      } else if (currentStepId === ECheckAndUpdateStepId.GenuineCheck) {
+      // GenuineCheck has no skip affordance today, but keep the chain intact
+      // defensively. Skipping a failed FirmwareCheck just marks it Success
+      // above, which reveals the "Continue" button.
+      if (currentStepId === ECheckAndUpdateStepId.GenuineCheck) {
         void checkFirmwareUpdate();
-      } else {
-        void handleVerifyHardware();
       }
     }, 150);
-  }, [checkFirmwareUpdate, handleDeviceSetupDone, handleVerifyHardware]);
+  }, [checkFirmwareUpdate]);
+
+  // Primary CTA at the foot of the flow. The two states are mutually exclusive
+  // (all-idle → verify the device; ready → continue to setup), so the single
+  // bottom slot renders whichever is active.
+  let bottomCta: {
+    key: string;
+    testID: string;
+    onPress: () => void;
+    label: string;
+  } | null = null;
+  if (!steps.some((step) => step.state !== ECheckAndUpdateStepState.Idle)) {
+    bottomCta = {
+      key: 'verify',
+      testID: OnboardingTestIDs.checkAndUpdateVerifyBtn,
+      onPress: handleVerifyHardware,
+      label: intl.formatMessage(
+        { id: ETranslations.check_my_deviceLabel },
+        { deviceLabel: deviceModelName },
+      ),
+    };
+  } else if (isReady) {
+    bottomCta = {
+      key: 'continue',
+      testID: OnboardingTestIDs.checkAndUpdateContinueToSetupBtn,
+      onPress: toDeviceSetup,
+      label: intl.formatMessage({ id: ETranslations.global_continue }),
+    };
+  }
 
   return (
     <OnboardingPage
@@ -828,17 +730,25 @@ function CheckAndUpdatePage({
       scrollable
       alignTop
       narrow
-      contentContainerProps={{ gap: '$10' }}
+      contentContainerProps={{ gap: '$10', pt: '$5' }}
+      foregroundLayer={celebrate ? <Confetti /> : null}
     >
       {steps.map((step, index) => {
-        // Don't show setup-on-device until firmware-check is completed
-        if (
-          step.id === ECheckAndUpdateStepId.SetupOnDevice &&
-          steps[1].state !== ECheckAndUpdateStepState.Success
-        ) {
-          return null;
-        }
-
+        // On Success, collapse the row to a single celebratory title and hide
+        // the description. The genuine title interpolates the product model
+        // name (e.g. "OneKey Pro"), not the BLE label.
+        const isStepSuccess = step.state === ECheckAndUpdateStepState.Success;
+        // Glyph tint per state; the border beam runs only while in progress.
+        const illustrationTone: ICheckStepIllustrationTone =
+          (step.state && STEP_STATE_TONE[step.state]) || 'neutral';
+        const successTitle =
+          step.id === ECheckAndUpdateStepId.GenuineCheck
+            ? intl.formatMessage(checkSuccessMessages.genuine, {
+                deviceLabel: deviceModelName,
+              })
+            : intl.formatMessage(checkSuccessMessages.firmware);
+        const displayTitle = isStepSuccess ? successTitle : step.title;
+        const displayDescription = isStepSuccess ? undefined : step.description;
         return (
           <YStack key={step.title}>
             {/* highlight background */}
@@ -875,27 +785,23 @@ function CheckAndUpdatePage({
                   borderCurve="continuous"
                   $platform-web={{
                     boxShadow:
-                      '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                      'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)',
                   }}
-                  $theme-dark={{
+                  $platform-native={{
                     borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: '$neutral2',
+                    borderColor: '$neutral5',
                   }}
                   zIndex={0}
                 />
               ) : null}
             </AnimatePresence>
-            {/* connected line */}
-            {index !== steps.length - 1 &&
-            !(
-              steps[index + 1]?.id === ECheckAndUpdateStepId.SetupOnDevice &&
-              steps[1].state !== ECheckAndUpdateStepState.Success
-            ) ? (
+            {/* connected line — anchored to the 56px illustration's centre */}
+            {index !== steps.length - 1 ? (
               <YStack
                 w={2}
                 position="absolute"
-                left={31}
-                top={64}
+                left={27}
+                top={56}
                 bottom={-40}
                 gap="$1"
                 overflow="hidden"
@@ -905,204 +811,34 @@ function CheckAndUpdatePage({
                     key={i}
                     w="100%"
                     h="$1"
-                    bg="$neutral3"
+                    bg="$border"
                     borderRadius="$full"
                   />
                 ))}
               </YStack>
             ) : null}
-            <XStack alignItems="center" gap="$5">
-              <YStack
-                w="$16"
-                h="$16"
-                borderRadius="$2"
-                bg="$bg"
-                borderCurve="continuous"
-                $platform-web={{
-                  boxShadow:
-                    '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
-                }}
-                $theme-dark={{
-                  bg: '$whiteA1',
-                  borderWidth: 1,
-                  borderColor: '$neutral3',
-                }}
-                $platform-native={{
-                  borderWidth: StyleSheet.hairlineWidth,
-                  borderColor: '$neutral3',
-                }}
-                $platform-ios={{
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 0.5 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 0.5,
-                }}
-                $platform-android={{ elevation: 0.5 }}
-                alignItems="center"
-                justifyContent="center"
-              >
-                <Image
-                  source={step.image}
-                  width={
-                    step.id === ECheckAndUpdateStepId.SetupOnDevice ? 48 : 64
-                  }
-                  height={
-                    step.id === ECheckAndUpdateStepId.SetupOnDevice ? 48 : 64
-                  }
-                />
-                {step.state !== ECheckAndUpdateStepState.Idle ? (
-                  <YStack
-                    position="absolute"
-                    right={-9}
-                    bottom={-9}
-                    w={26}
-                    h={26}
-                    borderWidth={1}
-                    bg="$bg"
-                    borderRadius="$full"
-                    borderColor="$borderSubdued"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    <AnimatePresence exitBeforeEnter initial={false}>
-                      {step.state === ECheckAndUpdateStepState.InProgress ? (
-                        <Spinner
-                          key="spinner"
-                          size="small"
-                          animation="quick"
-                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                          enterStyle={{ scale: 0.7, opacity: 0 }}
-                          exitStyle={{ scale: 0.7, opacity: 0 }}
-                          scale={0.8}
-                        />
-                      ) : null}
-                      {step.state === ECheckAndUpdateStepState.Error ? (
-                        <YStack
-                          animation="quick"
-                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                          enterStyle={{ scale: 0.8, opacity: 0 }}
-                          exitStyle={{ scale: 0.8, opacity: 0 }}
-                          key="error"
-                        >
-                          <Icon
-                            name="CrossedSmallOutline"
-                            color="$iconCritical"
-                            size="$5"
-                          />
-                        </YStack>
-                      ) : null}
-                      {step.state === ECheckAndUpdateStepState.Warning ||
-                      step.state === ECheckAndUpdateStepState.Skipped ? (
-                        <YStack
-                          animation="quick"
-                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                          enterStyle={{ scale: 0.8, opacity: 0 }}
-                          exitStyle={{ scale: 0.8, opacity: 0 }}
-                          key="warning"
-                        >
-                          <Icon
-                            name="InfoCircleOutline"
-                            color="$iconInfo"
-                            size="$5"
-                          />
-                        </YStack>
-                      ) : null}
-                      {step.state === ECheckAndUpdateStepState.Success ? (
-                        <YStack
-                          animation="quick"
-                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                          enterStyle={{ scale: 0.8, opacity: 0 }}
-                          exitStyle={{ scale: 0.8, opacity: 0 }}
-                          key="checkmark"
-                        >
-                          <Icon
-                            name="Checkmark2SmallOutline"
-                            color="$iconSuccess"
-                            size="$5"
-                          />
-                        </YStack>
-                      ) : null}
-                    </AnimatePresence>
-                  </YStack>
-                ) : null}
-              </YStack>
-              <YStack gap="$1" flex={1}>
-                <SizableText size="$headingSm">{step.title}</SizableText>
-                {step.description ? (
+            <XStack gap="$5">
+              {/* No corner state badge — the glyph tint + border beam already
+                  carry the state. */}
+              <CheckStepIllustration
+                kind={
+                  step.id === ECheckAndUpdateStepId.GenuineCheck
+                    ? 'genuine'
+                    : 'firmware'
+                }
+                tone={illustrationTone}
+                beaming={step.state === ECheckAndUpdateStepState.InProgress}
+              />
+              <YStack gap="$1" flex={1} alignSelf="center">
+                <SizableText size="$headingSm">{displayTitle}</SizableText>
+                {displayDescription ? (
                   <SizableText color="$textSubdued">
-                    {step.description}
+                    {displayDescription}
                   </SizableText>
                 ) : null}
               </YStack>
             </XStack>
             <HeightTransition initialHeight={0}>
-              {step.id === ECheckAndUpdateStepId.SetupOnDevice &&
-              step.state === ECheckAndUpdateStepState.Warning ? (
-                <YStack pt="$8" gap="$5">
-                  <SizableText size="$bodyMdMedium" color="$textInfo">
-                    {intl.formatMessage({
-                      id: ETranslations.setup_device_prompt,
-                    })}
-                  </SizableText>
-                  {DEVICE_SETUP_INSTRUCTIONS.map((instruction, idx) => (
-                    <YStack key={instruction.title} gap="$5">
-                      <Divider />
-                      <YStack gap={instruction.details ? '$2' : undefined}>
-                        <XStack gap="$2">
-                          <YStack
-                            w="$5"
-                            h="$5"
-                            borderRadius="$1"
-                            borderCurve="continuous"
-                            bg="$bgStrong"
-                            alignItems="center"
-                            justifyContent="center"
-                          >
-                            <SizableText textAlign="center">
-                              {idx + 1}
-                            </SizableText>
-                          </YStack>
-                          <SizableText size="$bodyMdMedium" flex={1}>
-                            {instruction.title}
-                          </SizableText>
-                        </XStack>
-                        {instruction.details?.map((detail) => (
-                          <XStack key={detail} gap="$2">
-                            <YStack
-                              w="$5"
-                              h="$5"
-                              alignItems="center"
-                              justifyContent="center"
-                            >
-                              <YStack
-                                w={5}
-                                h={5}
-                                borderRadius="$full"
-                                bg="$iconDisabled"
-                              />
-                            </YStack>
-                            <SizableText color="$textSubdued" flex={1}>
-                              {detail}
-                            </SizableText>
-                          </XStack>
-                        ))}
-                      </YStack>
-                    </YStack>
-                  ))}
-                  <Button
-                    testID={OnboardingTestIDs.checkAndUpdateDoneBtn}
-                    variant="primary"
-                    $platform-native={{
-                      size: 'large',
-                    }}
-                    onPress={handleDeviceSetupDone}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_done,
-                    })}
-                  </Button>
-                </YStack>
-              ) : null}
               {/* update */}
               {step.id === ECheckAndUpdateStepId.FirmwareCheck &&
               step.state === ECheckAndUpdateStepState.Warning ? (
@@ -1197,26 +933,32 @@ function CheckAndUpdatePage({
           </YStack>
         );
       })}
+      {/* The page never scrolls, so on mobile the CTA pins to the bottom of the
+          viewport (mt:auto in the flex column) with the shared onboarding bottom
+          gap ($5, matching BackupWalletReminder / CreateNewWallet); wider
+          layouts keep it inline under the steps. Keyed so a verify→continue
+          switch cross-fades. */}
       <AnimatePresence initial={false}>
-        {!steps.some((step) => step.state !== ECheckAndUpdateStepState.Idle) ? (
+        {bottomCta ? (
           <Button
-            testID={OnboardingTestIDs.checkAndUpdateVerifyBtn}
+            key={bottomCta.key}
+            testID={bottomCta.testID}
             animation="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             variant="primary"
             size="large"
-            onPress={handleVerifyHardware}
+            onPress={bottomCta.onPress}
+            $md={{ mt: 'auto', mb: '$5' }}
+            enterStyle={{
+              opacity: 0,
+              scale: 0.97,
+            }}
             exitStyle={{
               opacity: 0,
               scale: 0.97,
             }}
           >
-            {intl.formatMessage(
-              {
-                id: ETranslations.check_my_deviceLabel,
-              },
-              { deviceLabel },
-            )}
+            {bottomCta.label}
           </Button>
         ) : null}
       </AnimatePresence>

@@ -1,6 +1,9 @@
 import { DevOnboardingStage } from '@onekeyfe/hd-transport';
 
-import { mapPro2OnboardingStatus } from './pro2OnboardingStatus';
+import {
+  EPro2OnboardingStep,
+  mapPro2OnboardingStatus,
+} from './pro2OnboardingStatus';
 
 describe('mapPro2OnboardingStatus', () => {
   it.each([
@@ -36,9 +39,53 @@ describe('mapPro2OnboardingStatus', () => {
       }),
     ).toEqual({
       phase: 'personalization',
+      step: EPro2OnboardingStep.Personalization,
       stage: DevOnboardingStage.DEV_ONBOARDING_STAGE_PERSONALIZATION,
       statusCode: 7,
       detailCode: 9,
+    });
+  });
+
+  it.each([
+    [
+      DevOnboardingStage.DEV_ONBOARDING_STAGE_SELECT_SETUP_METHOD,
+      EPro2OnboardingStep.Pin,
+      undefined,
+    ],
+    [
+      DevOnboardingStage.DEV_ONBOARDING_STAGE_NEW_DEVICE,
+      EPro2OnboardingStep.Setup,
+      { kind: 'create', card: 'recoveryPhrase' },
+    ],
+    [
+      DevOnboardingStage.DEV_ONBOARDING_STAGE_SELECT_RESTORE_METHOD,
+      EPro2OnboardingStep.Setup,
+      { kind: 'restore' },
+    ],
+    [
+      DevOnboardingStage.DEV_ONBOARDING_STAGE_RESTORE_MNEMONIC,
+      EPro2OnboardingStep.Setup,
+      { kind: 'restore', method: 'recoveryPhrase' },
+    ],
+    [
+      DevOnboardingStage.DEV_ONBOARDING_STAGE_RESTORE_SEEDCARD,
+      EPro2OnboardingStep.Setup,
+      { kind: 'restore', method: 'seedCard' },
+    ],
+    [
+      DevOnboardingStage.DEV_ONBOARDING_STAGE_SEEDCARD_BACKUP,
+      EPro2OnboardingStep.Setup,
+      { kind: 'create', card: 'seedCard' },
+    ],
+    [
+      DevOnboardingStage.DEV_ONBOARDING_STAGE_DONE,
+      EPro2OnboardingStep.Done,
+      undefined,
+    ],
+  ] as const)('maps stage %s to the stepper model', (stage, step, setup) => {
+    expect(mapPro2OnboardingStatus({ stage })).toMatchObject({
+      step,
+      ...(setup ? { setup } : {}),
     });
   });
 });

@@ -9,12 +9,73 @@ export type IPro2OnboardingPhase =
   | 'backup'
   | 'ready';
 
+export enum EPro2OnboardingStep {
+  Checking = 0,
+  Personalization = 1,
+  Pin = 2,
+  Setup = 3,
+  Done = 4,
+}
+
+export type IPro2SetupSubStatus =
+  | { kind: 'choice' }
+  | { kind: 'create'; card: 'recoveryPhrase' | 'seedCard' }
+  | { kind: 'restore'; method?: 'recoveryPhrase' | 'seedCard' };
+
 export type IPro2OnboardingViewState = {
   phase: IPro2OnboardingPhase;
+  step: EPro2OnboardingStep;
+  setup?: IPro2SetupSubStatus;
   stage: DevOnboardingStage;
   statusCode?: number;
   detailCode?: number;
 };
+
+function getStepperState(stage: DevOnboardingStage): {
+  step: EPro2OnboardingStep;
+  setup?: IPro2SetupSubStatus;
+} {
+  switch (stage) {
+    case DevOnboardingStage.DEV_ONBOARDING_STAGE_PERSONALIZATION:
+      return { step: EPro2OnboardingStep.Personalization };
+    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SELECT_SETUP_METHOD:
+      return { step: EPro2OnboardingStep.Pin };
+    case DevOnboardingStage.DEV_ONBOARDING_STAGE_NEW_DEVICE:
+      return {
+        step: EPro2OnboardingStep.Setup,
+        setup: { kind: 'create', card: 'recoveryPhrase' },
+      };
+    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SELECT_RESTORE_METHOD:
+      return {
+        step: EPro2OnboardingStep.Setup,
+        setup: { kind: 'restore' },
+      };
+    case DevOnboardingStage.DEV_ONBOARDING_STAGE_RESTORE_MNEMONIC:
+      return {
+        step: EPro2OnboardingStep.Setup,
+        setup: { kind: 'restore', method: 'recoveryPhrase' },
+      };
+    case DevOnboardingStage.DEV_ONBOARDING_STAGE_RESTORE_SEEDCARD:
+      return {
+        step: EPro2OnboardingStep.Setup,
+        setup: { kind: 'restore', method: 'seedCard' },
+      };
+    case DevOnboardingStage.DEV_ONBOARDING_STAGE_WALLET_READY:
+    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SEEDCARD_BACKUP_PROMPT:
+    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SELECT_SEEDCARD_BACKUP_METHOD:
+    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SEEDCARD_BACKUP:
+      return {
+        step: EPro2OnboardingStep.Setup,
+        setup: { kind: 'create', card: 'seedCard' },
+      };
+    case DevOnboardingStage.DEV_ONBOARDING_STAGE_DONE:
+      return { step: EPro2OnboardingStep.Done };
+    case DevOnboardingStage.DEV_ONBOARDING_STAGE_UNKNOWN:
+    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SAFETY_CHECK:
+    default:
+      return { step: EPro2OnboardingStep.Checking };
+  }
+}
 
 function getPhase(stage: DevOnboardingStage): IPro2OnboardingPhase {
   switch (stage) {
@@ -45,6 +106,7 @@ export function mapPro2OnboardingStatus(
 ): IPro2OnboardingViewState {
   return {
     phase: getPhase(status.stage),
+    ...getStepperState(status.stage),
     stage: status.stage,
     ...(status.status_code === undefined
       ? {}

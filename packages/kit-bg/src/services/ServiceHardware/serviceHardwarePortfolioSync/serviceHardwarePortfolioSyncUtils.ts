@@ -12,7 +12,10 @@ import type { IPortfolioPayload } from '@onekeyhq/shared/src/utils/portfolioPayl
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 
-import type { IDevSettingsPersistAtom } from '../../../states/jotai/atoms/devSettings';
+import {
+  type IDevSettingsPersistAtom,
+  isPro2TestModeEnabled,
+} from '../../../states/jotai/atoms/devSettings';
 
 export type IPortfolioSyncSettledPayload =
   IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled];
@@ -52,7 +55,7 @@ export function isPortfolioSyncDevEnabled({
   devSettings: IDevSettingsPersistAtom;
   runtimeDevEnabled: boolean;
 }): boolean {
-  if (!devSettings.enabled) {
+  if (!isPro2TestModeEnabled(devSettings)) {
     return false;
   }
   return devSettings.settings?.enablePortfolioSyncDev ?? runtimeDevEnabled;
