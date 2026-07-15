@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/components';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
@@ -594,7 +595,10 @@ function MoreActionOneKeyId() {
     if (!isLoggedIn) {
       return intl.formatMessage({ id: ETranslations.prime_signup_login });
     }
-    return user?.displayEmail || 'OneKey ID';
+    return getDisplayEmailOrUnknown({
+      intl,
+      displayEmail: user?.displayEmail,
+    });
   }, [isLoggedIn, user?.displayEmail, intl]);
 
   const navigation = useAppNavigation();
@@ -1569,7 +1573,8 @@ function MoreButtonWithDot({
     if (isShowUpgradeDot) {
       return (
         <Dot
-          color="$blue8"
+          // Accent (brand green) to match the header "Update now" button.
+          color="$bgAccent"
           top={isDesktopMode ? 0 : '$-2'}
           right={isDesktopMode ? undefined : '$-2.5'}
         />
@@ -1585,7 +1590,9 @@ function MoreButtonWithDot({
       <Stack
         width="$3"
         height="$3"
-        bg={isShowUpgradeDot ? '$iconInfo' : '$bgCriticalStrong'}
+        // Update dot uses accent (brand green) to match the header "Update
+        // now" button; the notification (non-update) dot stays critical red.
+        bg={isShowUpgradeDot ? '$bgAccent' : '$bgCriticalStrong'}
         borderRadius="$full"
         position="absolute"
         right={-4}

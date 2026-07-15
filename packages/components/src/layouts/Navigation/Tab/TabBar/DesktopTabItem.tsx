@@ -277,7 +277,7 @@ export function DesktopTabItem(
               <Stack
                 width="$2.5"
                 height="$2.5"
-                bg="$iconInfo"
+                bg="$bgAccent"
                 borderRadius="$full"
                 position="absolute"
                 right={-3}

@@ -38,6 +38,7 @@ export type IDeFiProtocolLendingActionSource =
       marketAddress: string;
       reserveAddress: string;
       symbol: string;
+      debtAmount?: string;
       logoURI?: string;
       providerDisplayName?: string;
       providerLogoURI?: string;

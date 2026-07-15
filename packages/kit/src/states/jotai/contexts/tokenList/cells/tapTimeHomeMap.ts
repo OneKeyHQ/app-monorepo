@@ -74,10 +74,16 @@ export function buildTapTimeHomeTokenMap(
       // Each owned sub-token's per-network fiat, keyed by the SUB-TOKEN `$key`
       // (the key TokenDetails rebuilds for its sort + seed). One sub-token per
       // network per aggregate, so the network -> sub-cell join is exact.
+      // Only `aggMembership` networks are emitted: the owned sub-token list is
+      // the full server config (it can include disabled networks the home never
+      // fetched), while membership is exactly the set `aggCell` sums — a stale
+      // sub-cell outside it would seed TokenDetails with a balance the home row
+      // does not count.
+      const memberNetworkIds = new Set(structure.aggMembership[id] ?? []);
       const subTokens = structure.ownedAggregateTokenListMap[id]?.tokens ?? [];
       for (const subToken of subTokens) {
         const networkId = subToken.networkId;
-        if (networkId) {
+        if (networkId && memberNetworkIds.has(networkId)) {
           const subFiat = readers.readSubCell(id, networkId);
           if (subFiat) {
             map[subToken.$key] = subFiat;
