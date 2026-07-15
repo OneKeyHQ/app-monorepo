@@ -135,10 +135,6 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         email,
       });
 
-      Toast.success({
-        title: intl.formatMessage({ id: ETranslations.id_login_success }),
-      });
-
       setState({ status: 'done' });
       await onLoginSuccess?.();
       defaultLogger.referral.page.signupOneKeyIDResult(true);
@@ -170,7 +166,6 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     verificationCode,
     loginWithCode,
     email,
-    intl,
     onLoginSuccess,
   ]);
 

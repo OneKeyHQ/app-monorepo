@@ -18,6 +18,7 @@ import {
   prepareColdStartSnapshotForWrite,
 } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   MMKV_MIGRATION_COMPLETE_KEY,
@@ -438,6 +439,21 @@ const ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX = 'store:accountSelector@';
 const RECENT_ACCOUNT_SWITCH_COLD_START_MS = 5 * 60 * 1000;
 const ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION = 1;
 
+function isDappConnectionBackedAccountSelectorColdStartScope(
+  coldStartScopeKey: string,
+) {
+  if (!coldStartScopeKey.startsWith(ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX)) {
+    return false;
+  }
+  const sceneId = coldStartScopeKey.slice(
+    ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX.length,
+  );
+  return (
+    sceneId === EAccountSelectorSceneName.discover ||
+    sceneId.startsWith(`${EAccountSelectorSceneName.discover}--`)
+  );
+}
+
 type IAccountSelectorRecentSelectionCacheItem = {
   version: typeof ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION;
   updatedAt: number;
@@ -464,6 +480,14 @@ function getRecentAccountSelectorColdStartValue({
     ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX.length,
   );
   if (!sceneId) {
+    return undefined;
+  }
+  // OK-57139: discover (dApp) scenes are backed by the dApp connection
+  // record, not by the recent-selection cache. Hydrating them from this
+  // cache resurrects a stale browser-side selection which then overwrites
+  // the re-aligned connection session. New builds no longer write discover
+  // entries; this guard also ignores entries written by older builds.
+  if (isDappConnectionBackedAccountSelectorColdStartScope(coldStartScopeKey)) {
     return undefined;
   }
 
@@ -858,9 +882,11 @@ export function hydrateContextColdStartCacheForProvider({
           coldStartScopeKey: scope,
           coldStartCacheKey: typedCacheKey,
         });
+      const shouldSkipScopedSnapshot =
+        isDappConnectionBackedAccountSelectorColdStartScope(scope);
       const cached =
         recentAccountSelectorCached ??
-        (snapshot
+        (!shouldSkipScopedSnapshot && snapshot
           ? getScopedColdStartSnapshotValue({
               snapshot,
               coldStartScopeKey: scope,

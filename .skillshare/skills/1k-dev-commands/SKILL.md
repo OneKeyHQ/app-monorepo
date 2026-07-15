@@ -1,15 +1,17 @@
 ---
 name: 1k-dev-commands
-description: Development commands — yarn scripts for dev servers, building, linting, testing, and troubleshooting.
+description: OneKey development commands plus branch, commit, validation, and PR conventions.
 allowed-tools: Bash, Read
 ---
 
 # OneKey Development Commands
 
+For branch naming, commit format, rebasing, and PR conventions, read [git-workflow.md](references/git-workflow.md).
+
 ## Application Development Commands
 
 **PLATFORM-SPECIFIC DEVELOPMENT**:
-- `yarn app:desktop:rspack` - Start desktop Electron app development
+- `yarn app:desktop` - Start desktop Electron app development with Rspack
   - **Runtime**: 30-60 seconds to start
   - **Common issues**: Node version conflicts, missing native dependencies
   - **Troubleshooting**: Run `yarn clean && yarn reinstall` if startup fails
@@ -69,13 +71,12 @@ allowed-tools: Bash, Read
 
 ### Pre-commit Commands (Local Development)
 
-**Use these for fast pre-commit validation:**
-- `yarn lint:staged` - Lint only staged files (fast, recommended for pre-commit)
-- `yarn tsc:staged` - Type check (same as tsc:only)
+**Use this for fast agent pre-commit validation:**
+- `yarn agent:check --profile commit` - Runs staged lint and type checks with compact output
 
 **Pre-commit workflow:**
 ```bash
-yarn lint:staged && yarn tsc:staged && git commit -m "your message"
+yarn agent:check --profile commit && git commit -m "your message"
 ```
 
 ### CI Commands (Full Project Check)

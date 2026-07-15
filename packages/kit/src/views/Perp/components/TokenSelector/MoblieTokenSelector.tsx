@@ -58,7 +58,6 @@ import {
 import perpsUtils, {
   SPOT_SELECTOR_MIN_VOLUME,
   compareSpotMarketCapValues,
-  formatSpotPairDisplayName,
   getHyperliquidTokenImageUrl,
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
@@ -103,6 +102,7 @@ import {
   buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
   buildPrimaryTabs,
+  filterPerpTokenSelectorSpotItemsBySearch,
   getNextPerpTokenSelectorActiveTabConfig,
   getNextPerpTokenSelectorSortConfig,
   getPerpTokenSelectorDynamicTabItems,
@@ -134,10 +134,11 @@ function hasSpotVolumeData(
   );
 }
 
-// Android FlashList can preserve the pre-sort anchor, which defeats the
-// selector's explicit scroll-to-top contract.
-const androidSortScrollBehaviorProps: Record<string, unknown> =
-  platformEnv.isNativeAndroid
+// Disable visible-content anchoring only for this selector:
+// - Android (OK-54946): sorting must restore the list to the first row.
+// - iOS (OK-57864): clearing search must restore a fully scrollable live list.
+const tokenSelectorScrollBehaviorProps: Record<string, unknown> =
+  platformEnv.isNativeAndroid || platformEnv.isNativeIOS
     ? {
         maintainVisibleContentPosition: {
           disabled: true,
@@ -428,11 +429,24 @@ function MobileTokenSelectorModal({
   const cachedInitialListRef = useRef<ITokenSelectorListItem[]>(
     getCachedPerpsTokenSelectorInitialList(),
   );
+  // iOS only (OK-57864): search interaction permanently ends the cold-start
+  // snapshot phase so recycled rows cannot leave a static overlay behind.
+  const [initialRowsSnapshotDismissed, setInitialRowsSnapshotDismissed] =
+    useState(!platformEnv.isNativeIOS);
   const initialListRenderedRef = useRef(!platformEnv.isNativeIOS);
   const initialListRenderedIndexesRef = useRef<Set<number>>(new Set());
   const [hasInitialListRendered, setHasInitialListRendered] = useState(
     !platformEnv.isNativeIOS,
   );
+  const dismissInitialRowsSnapshot = useCallback(() => {
+    if (!platformEnv.isNativeIOS) {
+      return;
+    }
+    initialListRenderedRef.current = true;
+    initialListRenderedIndexesRef.current.clear();
+    setHasInitialListRendered(true);
+    setInitialRowsSnapshotDismissed(true);
+  }, []);
   const fixedTabNames = useMemo(
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
@@ -948,32 +962,27 @@ function MobileTokenSelectorModal({
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
 
-    const getSpotListBySearch = () => {
-      if (!searchQuery) return spotSortedList;
-      const q = searchQuery.toLowerCase();
-      return spotSortedList.filter((item) => {
-        const u = item.spotUniverse;
-        if (!u) return false;
-        const displayBase = getSpotTokenDisplayName(u.baseName);
-        const pairDisplay = formatSpotPairDisplayName(u.baseName, u.quoteName);
-        return (
-          u.baseName.toLowerCase().includes(q) ||
-          displayBase.toLowerCase().includes(q) ||
-          pairDisplay.toLowerCase().includes(q)
-        );
-      });
-    };
-
     let result: ITokenSelectorListItem[];
 
     if (isPerpTokenSelectorSpotTab(displayPrimaryTab)) {
-      result = getSpotListBySearch();
+      result = filterPerpTokenSelectorSpotItemsBySearch({
+        items: spotSortedList,
+        searchQuery,
+        tokenSearchAliases,
+      });
     } else if (isPerpTokenSelectorFavoritesTab(displayPrimaryTab)) {
       result = getTokenSelectorFavoriteItems({
         favoriteItems,
         favoritesOrder: favoritesOrder.sequence,
         perpItems: perpSortedList,
-        spotItems: spotFavoriteSortedList,
+        // perp favorites follow the search-filtered assets atom, so spot
+        // favorites must be search-filtered here too or unmatched rows
+        // stay visible while searching
+        spotItems: filterPerpTokenSelectorSpotItemsBySearch({
+          items: spotFavoriteSortedList,
+          searchQuery,
+          tokenSearchAliases,
+        }),
       });
       if (sortField) {
         result = sortTokenSelectorFavoriteItems({
@@ -1076,6 +1085,7 @@ function MobileTokenSelectorModal({
     spotPriceSnapshot,
     spotSortedList,
     searchQuery,
+    tokenSearchAliases,
   ]);
 
   useEffect(() => {
@@ -1090,6 +1100,7 @@ function MobileTokenSelectorModal({
       DEFAULT_PERP_TOKEN_SORT_DIRECTION;
   const shouldUseCachedInitialList =
     platformEnv.isNativeIOS &&
+    !initialRowsSnapshotDismissed &&
     !searchQuery &&
     isDefaultPerpsSelectorView &&
     mockedListData.length === 0 &&
@@ -1099,13 +1110,13 @@ function MobileTokenSelectorModal({
     : mockedListData;
 
   useEffect(() => {
-    if (!platformEnv.isNativeIOS) {
+    if (!platformEnv.isNativeIOS || initialRowsSnapshotDismissed) {
       return;
     }
     initialListRenderedRef.current = false;
     initialListRenderedIndexesRef.current.clear();
     setHasInitialListRendered(false);
-  }, [activeTab, searchQuery, shouldUseCachedInitialList]);
+  }, [activeTab, initialRowsSnapshotDismissed, shouldUseCachedInitialList]);
 
   usePerpActiveTabValidation({
     activeTab,
@@ -1217,6 +1228,7 @@ function MobileTokenSelectorModal({
     perpSortedList.length === 0;
   const shouldShowInitialRowsSnapshot =
     platformEnv.isNativeIOS &&
+    !initialRowsSnapshotDismissed &&
     !hasInitialListRendered &&
     !searchQuery &&
     isPerpTokenSelectorPerpsTab(displayPrimaryTab) &&
@@ -1283,6 +1295,7 @@ function MobileTokenSelectorModal({
             id: ETranslations.global_search,
           }),
           onChangeText: ({ nativeEvent }) => {
+            dismissInitialRowsSnapshot();
             const afterTrim = nativeEvent.text.trim();
             setSearchQuery(afterTrim);
           },
@@ -1411,7 +1424,7 @@ function MobileTokenSelectorModal({
               decelerationRate="normal"
               showsVerticalScrollIndicator
               nestedScrollEnabled={platformEnv.isNativeAndroid}
-              {...androidSortScrollBehaviorProps}
+              {...tokenSelectorScrollBehaviorProps}
               contentContainerStyle={{
                 paddingBottom: 10,
               }}

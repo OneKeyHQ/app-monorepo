@@ -38,9 +38,10 @@ type ISwapQuoteProgressState = {
   previousQuote?: IFetchQuoteResult;
 };
 
-type ISwapQuoteEventTotalCount = {
+export type ISwapQuoteEventTotalCount = {
   count: number;
   eventId?: string;
+  totalQuoteCountReceived?: boolean;
 };
 
 type ISwapQuoteEventStateInput = {
@@ -62,6 +63,8 @@ type ISwapCurrentQuoteInput = {
   selectionIntent?: ISwapQuoteSelectionIntent;
   quoteEventTotalCount: ISwapQuoteEventTotalCount;
   currentEventProviderKeys: string[];
+  quoteEventCompleted?: boolean;
+  deferNonActionableQuoteUntilEventSettled?: boolean;
 };
 
 type ISwapPreviousQuoteInput = {
@@ -118,6 +121,10 @@ export function isSwapQuoteEventFetching({
   currentEventReceivedCount,
   quoteEventCompleted,
 }: ISwapQuoteEventFetchingInput) {
+  if (quoteEventTotalCount.totalQuoteCountReceived === false) {
+    return !quoteEventCompleted;
+  }
+
   const hasReceivedTotal =
     quoteEventTotalCount.count > 0 || Boolean(quoteEventTotalCount.eventId);
   return (
@@ -156,6 +163,25 @@ export function isSwapZeroProviderQuoteCompleted({
   return (
     quoteEventCompleted &&
     hasSwapZeroProviderQuoteEvent({ quoteEventTotalCount })
+  );
+}
+
+export function isSwapNoProviderSupportsTrade({
+  zeroProviderQuoteCompleted,
+  quote,
+  quoteResultNoMatch,
+}: {
+  zeroProviderQuoteCompleted: boolean;
+  quote?: Pick<IFetchQuoteResult, 'toAmount' | 'limit'>;
+  quoteResultNoMatch: boolean;
+}) {
+  // Only trust the no-provider verdict when the quote belongs to the current
+  // inputs; a stale mismatched quote must not lock the action button out of
+  // its "Refresh quotes" recovery state. (OK-57545)
+  return (
+    (zeroProviderQuoteCompleted ||
+      Boolean(quote && !quote.toAmount && !quote.limit)) &&
+    !quoteResultNoMatch
   );
 }
 
@@ -244,7 +270,22 @@ export function selectSwapCurrentQuote({
   selectionIntent,
   quoteEventTotalCount,
   currentEventProviderKeys,
+  quoteEventCompleted = false,
+  deferNonActionableQuoteUntilEventSettled = false,
 }: ISwapCurrentQuoteInput) {
+  const actionableQuotes = currentEventSortedQuotes.filter(
+    isSwapQuoteActionable,
+  );
+  const isWaitingForAuthoritativeTotalCount =
+    quoteEventTotalCount.totalQuoteCountReceived === false;
+  const isWaitingForMoreProviders =
+    quoteEventTotalCount.count > currentEventProviderKeys.length;
+  const shouldDeferNonActionableQuote =
+    deferNonActionableQuoteUntilEventSettled &&
+    !quoteEventCompleted &&
+    (isWaitingForAuthoritativeTotalCount || isWaitingForMoreProviders) &&
+    actionableQuotes.length === 0;
+
   if (selectionIntent?.type === 'manual-provider') {
     const manualQuote = currentEventSortedQuotes.find(
       (quote) =>
@@ -261,7 +302,7 @@ export function selectSwapCurrentQuote({
       return (
         selectBestQuote(
           // eslint-disable-next-line @typescript-eslint/no-use-before-define
-          currentEventSortedQuotes.filter(isSwapQuoteActionable),
+          actionableQuotes,
         ) ?? manualQuote
       );
     }
@@ -272,6 +313,10 @@ export function selectSwapCurrentQuote({
     ) {
       return undefined;
     }
+  }
+
+  if (shouldDeferNonActionableQuote) {
+    return undefined;
   }
 
   return selectBestQuote(currentEventSortedQuotes);

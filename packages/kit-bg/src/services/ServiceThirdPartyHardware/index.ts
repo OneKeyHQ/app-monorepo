@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -61,8 +62,10 @@ type IThirdPartySearchDevicesResponse =
 
 function createThirdPartyAdapterNotRegisteredError(vendor: EHardwareVendor) {
   return new OneKeyLocalError({
-    key: ETranslations.third_party_hw_adapter_not_registered__msg,
-    info: { vendor },
+    message: appLocale.intl.formatMessage(
+      { id: ETranslations.third_party_hw_adapter_not_registered__msg },
+      { vendor },
+    ),
   });
 }
 
@@ -262,7 +265,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const adapter = await this.getAdapterForVendor(EHardwareVendor.trezor);
     if (!adapter) {
       throw new OneKeyLocalError({
-        key: ETranslations.trezor_adapter_not_available__msg,
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.trezor_adapter_not_available__msg,
+        }),
       });
     }
 
@@ -307,7 +312,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
           `[TrezorBLEBind] candidate matched but db device missing usbConnectId=${usbConnectId} deviceId=${featuresDeviceId}`,
         );
         throw new OneKeyLocalError({
-          key: ETranslations.hardware_connect_failed,
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.hardware_connect_failed,
+          }),
           autoToast: true,
         });
       }
@@ -639,7 +646,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const getPassphraseState = adapter?.hw.getPassphraseState?.bind(adapter.hw);
     if (!getPassphraseState) {
       throw new OneKeyLocalError({
-        key: ETranslations.trezor_passphrase_state_not_supported__msg,
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.trezor_passphrase_state_not_supported__msg,
+        }),
       });
     }
     // Mirror the signing path: resolve the passphrase state with USB→BLE
@@ -677,7 +686,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
       );
     }
     throw new OneKeyLocalError({
-      key: ETranslations.trezor_get_passphrase_state_failed__msg,
+      message: appLocale.intl.formatMessage({
+        id: ETranslations.trezor_get_passphrase_state_failed__msg,
+      }),
     });
   }
 

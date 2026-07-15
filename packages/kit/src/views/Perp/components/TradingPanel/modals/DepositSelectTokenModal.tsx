@@ -14,7 +14,12 @@ import type {
   IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
 
-import { DepositTokenSelectionContent } from './DepositWithdrawModal';
+import {
+  getPerpsDepositTokenDisplayList,
+  mergePerpsDepositTokensPreservingOrder,
+  shouldUsePerpsDepositLiveWalletTokens,
+} from './depositTokenDisplayUtils';
+import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
 
 import type { RouteProp } from '@react-navigation/native';
 
@@ -25,12 +30,9 @@ function DepositSelectTokenModal() {
     useRoute<
       RouteProp<IModalPerpParamList, EModalPerpRoutes.MobileDepositSelectToken>
     >();
-
-  const handleClose = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
-
-  const [{ tokens }] = usePerpsDepositTokensAtom();
+  const [{ tokens, depositTokenListOwnerKey, depositTokenListSource }] =
+    usePerpsDepositTokensAtom();
+  const routeDepositTokenListOwnerKey = route.params.depositTokenListOwnerKey;
   const hasRouteDepositTokens = Array.isArray(
     route.params.depositTokensWithPrice,
   );
@@ -39,18 +41,50 @@ function DepositSelectTokenModal() {
     [route.params.depositTokensWithPrice],
   );
   const atomDepositTokens = useMemo(
-    () => Object.values(tokens).flat(),
+    () => getPerpsDepositTokenDisplayList(tokens),
     [tokens],
   );
-  const depositTokensWithPrice = useMemo(() => {
-    if (hasRouteDepositTokens) {
-      return routeDepositTokens;
+  const liveDepositTokens = useMemo(() => {
+    if (
+      !shouldUsePerpsDepositLiveWalletTokens({
+        atomOwnerKey: depositTokenListOwnerKey,
+        routeOwnerKey: routeDepositTokenListOwnerKey,
+        depositTokenListSource,
+      })
+    ) {
+      return [];
     }
     return atomDepositTokens;
-  }, [atomDepositTokens, hasRouteDepositTokens, routeDepositTokens]);
+  }, [
+    atomDepositTokens,
+    depositTokenListOwnerKey,
+    depositTokenListSource,
+    routeDepositTokenListOwnerKey,
+  ]);
+  const depositTokensWithPrice = useMemo(() => {
+    if (!hasRouteDepositTokens) {
+      return atomDepositTokens;
+    }
+    if (liveDepositTokens.length === 0) {
+      return routeDepositTokens;
+    }
+    return mergePerpsDepositTokensPreservingOrder({
+      currentTokens: routeDepositTokens,
+      nextTokens: liveDepositTokens,
+    });
+  }, [
+    atomDepositTokens,
+    hasRouteDepositTokens,
+    liveDepositTokens,
+    routeDepositTokens,
+  ]);
   const hasLoadedDepositTokenBalances =
     route.params.hasLoadedDepositTokenBalances ??
     (hasRouteDepositTokens ? true : atomDepositTokens.length > 0);
+
+  const handleClose = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
 
   return (
     <Page>

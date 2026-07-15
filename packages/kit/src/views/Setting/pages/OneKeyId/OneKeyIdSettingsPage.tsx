@@ -16,6 +16,7 @@ import {
 import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,6 +32,10 @@ import { OneKeyIdAvatar } from './OneKeyIdAvatar';
 function OneKeyIdUserProfile() {
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
   const intl = useIntl();
+  const displayEmail = getDisplayEmailOrUnknown({
+    intl,
+    displayEmail: user?.displayEmail,
+  });
 
   const handleLogin = useCallback(() => {
     void loginOneKeyId();
@@ -126,10 +131,10 @@ function OneKeyIdUserProfile() {
       </YStack>
       <YStack gap="$1">
         <SizableText size="$bodyLgMedium" color="$text" textAlign="center">
-          {user?.displayEmail || 'OneKey ID'}
+          {displayEmail}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
-          {user?.displayEmail}
+          {displayEmail}
         </SizableText>
       </YStack>
     </YStack>

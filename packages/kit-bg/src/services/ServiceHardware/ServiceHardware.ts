@@ -23,6 +23,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
+  checkBLEPermissions,
+  checkBLEState,
+} from '@onekeyhq/shared/src/hardware/blePermissions';
+import {
   CoreSDKLoader,
   getHardwareSDKInstance,
   resetHardwareSDKInstance,
@@ -158,7 +162,8 @@ const NEW_DIALOG_EVENTS = new Set([
   EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
 ]);
 
-const LINUX_UDEV_RULES_AUTH_CANCEL_RETRY_DELAY_MS = 60_000;
+const LINUX_UDEV_RULES_INSTALL_RETRY_DELAY_MS = 5000;
+const LINUX_UDEV_RULES_INSTALL_MAX_ATTEMPTS = 2;
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -167,6 +172,8 @@ class ServiceHardware extends ServiceBase {
   private linuxUdevRulesReadyPromise: Promise<boolean> | undefined;
 
   private linuxUdevRulesInstallMutedUntil = 0;
+
+  private linuxUdevRulesInstallFailedCount = 0;
 
   // Third-party (Trezor / Ledger) hardware adapter lifecycle + methods now live
   // in ServiceThirdPartyHardware. ServiceHardware delegates via
@@ -828,6 +835,17 @@ class ServiceHardware extends ServiceBase {
       return false;
     }
 
+    if (
+      this.linuxUdevRulesInstallFailedCount >=
+      LINUX_UDEV_RULES_INSTALL_MAX_ATTEMPTS
+    ) {
+      this.notifyLinuxUdevManualInstallIfNeeded({
+        force: true,
+        reason: 'webusb-access-denied',
+      });
+      return false;
+    }
+
     if (Date.now() < this.linuxUdevRulesInstallMutedUntil) {
       return false;
     }
@@ -956,6 +974,7 @@ class ServiceHardware extends ServiceBase {
       const result =
         await globalThis.desktopApiProxy?.system?.installOneKeyUdevRules?.();
       if (result?.installed) {
+        this.linuxUdevRulesInstallFailedCount = 0;
         this.linuxUdevRulesInstallMutedUntil = 0;
         defaultLogger.hardware.sdkLog.log(
           '[LinuxWebUSB] OneKey udev rules ready',
@@ -970,25 +989,52 @@ class ServiceHardware extends ServiceBase {
         );
         if (result.skippedReason === 'cancelled') {
           this.linuxUdevRulesInstallMutedUntil =
-            Date.now() + LINUX_UDEV_RULES_AUTH_CANCEL_RETRY_DELAY_MS;
+            Date.now() + LINUX_UDEV_RULES_INSTALL_RETRY_DELAY_MS;
+          return false;
         }
-        if (
+        const shouldShowManualGuide =
+          this.markLinuxUdevRulesInstallFailed() ||
           result.needsManualInstall ||
-          result.skippedReason === 'missing-pkexec'
-        ) {
+          result.skippedReason === 'missing-pkexec';
+        if (shouldShowManualGuide) {
           this.notifyLinuxUdevManualInstallIfNeeded({
             force: true,
-            reason: result.skippedReason,
+            reason:
+              result.needsManualInstall ||
+              result.skippedReason === 'missing-pkexec'
+                ? result.skippedReason
+                : 'webusb-access-denied',
           });
         }
+      } else if (this.markLinuxUdevRulesInstallFailed()) {
+        this.notifyLinuxUdevManualInstallIfNeeded({
+          force: true,
+          reason: 'webusb-access-denied',
+        });
       }
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         '[LinuxWebUSB] Failed to install OneKey udev rules',
         error instanceof Error ? error.message : String(error),
       );
+      if (this.markLinuxUdevRulesInstallFailed()) {
+        this.notifyLinuxUdevManualInstallIfNeeded({
+          force: true,
+          reason: 'failed',
+        });
+      }
     }
     return false;
+  }
+
+  private markLinuxUdevRulesInstallFailed() {
+    this.linuxUdevRulesInstallFailedCount += 1;
+    this.linuxUdevRulesInstallMutedUntil =
+      Date.now() + LINUX_UDEV_RULES_INSTALL_RETRY_DELAY_MS;
+    return (
+      this.linuxUdevRulesInstallFailedCount >=
+      LINUX_UDEV_RULES_INSTALL_MAX_ATTEMPTS
+    );
   }
 
   // Emit at most once per session so repeated device scans don't spam the
@@ -2304,6 +2350,58 @@ class ServiceHardware extends ServiceBase {
     return state.forceTransportType;
   }
 
+  private shouldPrecheckNativeBleForHardwareCall({
+    hardwareCallContext,
+  }: {
+    hardwareCallContext: EHardwareCallContext;
+  }) {
+    return (
+      platformEnv.isNativeAndroid &&
+      hardwareCallContext === EHardwareCallContext.USER_INTERACTION
+    );
+  }
+
+  private async ensureNativeBleReadyForHardwareCall({
+    connectId,
+    hardwareCallContext,
+  }: {
+    connectId: string;
+    hardwareCallContext: EHardwareCallContext;
+  }) {
+    if (!this.shouldPrecheckNativeBleForHardwareCall({ hardwareCallContext })) {
+      return;
+    }
+
+    const currentTransportType = await this.getCurrentTransportType();
+    if (currentTransportType !== EHardwareTransportType.BLE) {
+      return;
+    }
+
+    const hasBlePermission = !!(await checkBLEPermissions());
+    if (!hasBlePermission) {
+      appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+        uiRequestType: EHardwareUiStateAction.LOCATION_PERMISSION,
+      });
+      throw new deviceErrors.NeedBluetoothPermissions({
+        payload: {
+          connectId,
+        },
+      });
+    }
+
+    const isBluetoothOn = !!(await checkBLEState());
+    if (!isBluetoothOn) {
+      appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+        uiRequestType: EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+      });
+      throw new deviceErrors.NeedBluetoothTurnedOn({
+        payload: {
+          connectId,
+        },
+      });
+    }
+  }
+
   @backgroundMethod()
   async getCurrentTransportType() {
     return this.connectionManager.getCurrentTransportType();
@@ -2487,6 +2585,11 @@ class ServiceHardware extends ServiceBase {
         return device.connectId || connectId;
       }
     }
+
+    await this.ensureNativeBleReadyForHardwareCall({
+      connectId,
+      hardwareCallContext,
+    });
 
     if (!platformEnv.isSupportDesktopBle) {
       return device?.connectId || connectId;

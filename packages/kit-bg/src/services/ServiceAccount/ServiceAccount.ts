@@ -24,6 +24,7 @@ import {
   revealableSeedFromMnemonic,
   revealableSeedFromTonMnemonic,
   tonMnemonicFromEntropy,
+  tonMnemonicToKeyPair,
   tonValidateMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
@@ -248,6 +249,23 @@ export type IAddHDOrHWAccountsResult = {
   accounts: IBatchCreateAccount[];
   deriveType: IAccountDeriveTypes;
 };
+
+function normalizeTonSecretKey(secretKey: unknown): Uint8Array {
+  if (secretKey instanceof Uint8Array) {
+    return new Uint8Array(secretKey);
+  }
+  if (Array.isArray(secretKey)) {
+    return new Uint8Array(secretKey);
+  }
+  if (secretKey && typeof secretKey === 'object') {
+    return new Uint8Array(
+      Object.values(secretKey as Record<string, number>).map((value) =>
+        Number(value),
+      ),
+    );
+  }
+  throw new InvalidMnemonic();
+}
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
@@ -648,10 +666,11 @@ class ServiceAccount extends ServiceBase {
     return wallet;
   }
 
-  async getAllWallets(
-    params: { refillWalletInfo?: boolean; excludeKeylessWallet?: boolean } = {},
-  ) {
-    const { excludeKeylessWallet = false } = params;
+  // getAllWallets intentionally includes keyless wallets. A keyless exclusion
+  // filter added in #9337 has been deliberately disabled since #9394 — do not
+  // re-add it here; hash-dedup paths use localDb.getWalletByHash's own
+  // excludeKeylessWallet instead.
+  async getAllWallets(params: { refillWalletInfo?: boolean } = {}) {
     let { wallets } = await localDb.getAllWallets();
     let allDevices: IDBDevice[] | undefined;
     if (params.refillWalletInfo) {
@@ -672,10 +691,6 @@ class ServiceAccount extends ServiceBase {
     await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
       wallets,
     );
-    // Filter out keyless wallets if excludeKeylessWallet is true
-    if (excludeKeylessWallet) {
-      // do nothing
-    }
     return { wallets, allDevices };
   }
 
@@ -731,7 +746,6 @@ class ServiceAccount extends ServiceBase {
 
     const { wallets, allDevices } = await this.getAllWallets({
       refillWalletInfo: true,
-      excludeKeylessWallet: true,
     });
 
     const filterQrWallet = params?.filterQrWallet ?? false;
@@ -3901,6 +3915,83 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async addTonImportedAccountByMnemonic({
+    mnemonic,
+    name,
+    shouldCheckDuplicateName,
+  }: {
+    mnemonic: string;
+    name?: string;
+    shouldCheckDuplicateName?: boolean;
+  }): Promise<{
+    networkId: string;
+    walletId: string;
+    accounts: IDBAccount[];
+    isOverrideAccounts: boolean;
+  }> {
+    ensureSensitiveTextEncoded(mnemonic);
+    const { mnemonic: realMnemonic, mnemonicType } =
+      await this.validateMnemonic(mnemonic);
+
+    if (mnemonicType !== EMnemonicType.TON) {
+      throw new OneKeyLocalError(
+        'addTonImportedAccountByMnemonic ERROR: Not a TON mnemonic',
+      );
+    }
+
+    const { servicePassword } = this.backgroundApi;
+    const { password } = await servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+    });
+    ensureSensitiveTextEncoded(password);
+
+    const keyPair = await tonMnemonicToKeyPair(realMnemonic.split(' '));
+    const secretKeyBytes = normalizeTonSecretKey(keyPair?.secretKey);
+    if (secretKeyBytes.length < 32) {
+      throw new InvalidMnemonic();
+    }
+    let privateHex = '';
+
+    try {
+      privateHex = bufferUtils.bytesToHex(secretKeyBytes.slice(0, 32));
+      const result = await this.addImportedAccountWithCredentialBase({
+        credentialRaw: privateHex,
+        password,
+        deriveType: 'default',
+        networkId: getNetworkIdsMap().ton,
+        name,
+        shouldCheckDuplicateName,
+      });
+      privateHex = '';
+
+      const accountId = result.accounts?.[0]?.id;
+      if (!accountId) {
+        throw new OneKeyLocalError(
+          'addTonImportedAccountByMnemonic ERROR: Account is required',
+        );
+      }
+
+      let rs: IBip39RevealableSeedEncryptHex | undefined;
+      try {
+        rs = await revealableSeedFromTonMnemonic(realMnemonic, password);
+      } catch {
+        throw new InvalidMnemonic();
+      }
+
+      const tonMnemonicFromRs = await tonMnemonicFromEntropy(rs, password);
+      if (realMnemonic !== tonMnemonicFromRs) {
+        throw new InvalidMnemonic();
+      }
+      await localDb.saveTonImportedAccountMnemonic({ accountId, rs });
+
+      return result;
+    } finally {
+      secretKeyBytes.fill(0);
+      privateHex = '';
+    }
+  }
+
+  @backgroundMethod()
   async saveTonImportedAccountMnemonic({
     mnemonic,
     accountId,
@@ -5003,9 +5094,11 @@ class ServiceAccount extends ServiceBase {
 
     if (keylessOwnerId) {
       void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
-      void this.backgroundApi.serviceKeylessWallet.cleanupKeylessWalletStorage({
-        ownerId: keylessOwnerId,
-      });
+      await this.backgroundApi.serviceKeylessWallet.cleanupKeylessWalletStorage(
+        {
+          ownerId: keylessOwnerId,
+        },
+      );
     }
 
     if (!skipBackupWalletRemove) {
@@ -6198,7 +6291,6 @@ class ServiceAccount extends ServiceBase {
 
         const { wallets } = await this.getAllWallets({
           refillWalletInfo: false,
-          excludeKeylessWallet: true,
         });
         const hdWallets = wallets.filter((wallet) =>
           accountUtils.isHdWallet({ walletId: wallet.id }),
@@ -6382,7 +6474,6 @@ class ServiceAccount extends ServiceBase {
 
     const { wallets } = await this.getAllWallets({
       refillWalletInfo: true,
-      excludeKeylessWallet: true,
     });
     const qrWallets = wallets.filter((wallet) =>
       accountUtils.isQrWallet({ walletId: wallet.id }),
@@ -6689,14 +6780,18 @@ class ServiceAccount extends ServiceBase {
     });
     const { wallets: allWallets } = await this.getAllWallets({
       refillWalletInfo: true,
-      excludeKeylessWallet: true,
     });
     const sameWalletsMap: {
       [walletHash: string]: IDBWallet[];
     } = {};
     for (const wallet of allWallets) {
       const walletHash = wallet.hash;
-      if (walletHash) {
+      // Exclude bot wallets from duplicate grouping. A bot wallet's hash can
+      // collide with a plain HD wallet (e.g. its derived mnemonic was imported
+      // separately), but bot wallets are managed by the keyless cloud-sync
+      // lifecycle: removing one as a "duplicate" would push a deletion
+      // tombstone that removes it on all devices.
+      if (walletHash && !accountUtils.isBotWallet({ walletId: wallet.id })) {
         sameWalletsMap[walletHash] = sameWalletsMap[walletHash] || [];
         sameWalletsMap[walletHash].push(wallet);
       }
@@ -6751,8 +6846,19 @@ class ServiceAccount extends ServiceBase {
             name: string;
           }[] = [];
 
-          for (let i = 0; i < sameWallet.wallets.length; i += 1) {
-            const wallet = sameWallet.wallets[i];
+          // A keyless wallet must always be the survivor of a merge group:
+          // removing it irreversibly destroys its OAuth credentials, PIN
+          // recovery data and child bot wallets, while removing a plain HD
+          // duplicate is lossless (the user holds the mnemonic and its
+          // accounts are re-added into the kept wallet below). Stable sort:
+          // keyless wallets first, existing relative order otherwise kept.
+          const walletsInGroup = sameWallet.wallets.toSorted(
+            (a, b) =>
+              Number(Boolean(b.isKeyless)) - Number(Boolean(a.isKeyless)),
+          );
+
+          for (let i = 0; i < walletsInGroup.length; i += 1) {
+            const wallet = walletsInGroup[i];
             if (i === 0) {
               walletToKeep = wallet;
             } else {

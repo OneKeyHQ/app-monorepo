@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useDebouncedCallback } from 'use-debounce';
@@ -67,6 +67,9 @@ export function useUniversalBorrowAction({
   const [riskOfLiquidationAlert, setRiskOfLiquidationAlert] = useState<
     boolean | undefined
   >(undefined);
+  const transactionConfirmationRequestNonceRef = useRef(0);
+  const estimateFeeRequestNonceRef = useRef(0);
+  const checkAmountRequestNonceRef = useRef(0);
 
   const isReady = useMemo(
     () =>
@@ -114,25 +117,44 @@ export function useUniversalBorrowAction({
   );
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
-    async (value?: string) => {
+    async (value: string, requestNonce: number) => {
+      if (transactionConfirmationRequestNonceRef.current !== requestNonce) {
+        return;
+      }
       const resp = await fetchTransactionConfirmation(value || '0');
-      setTransactionConfirmation(resp);
+      if (transactionConfirmationRequestNonceRef.current === requestNonce) {
+        setTransactionConfirmation(resp);
+      }
     },
     350,
   );
 
   useEffect(() => {
+    debouncedFetchTransactionConfirmation.cancel();
+    transactionConfirmationRequestNonceRef.current += 1;
+    const requestNonce = transactionConfirmationRequestNonceRef.current;
+    setTransactionConfirmation(undefined);
+
     if (!isReady || isDisabled) {
-      setTransactionConfirmation(undefined);
       return;
     }
 
-    void debouncedFetchTransactionConfirmation(normalizedAmount);
+    void debouncedFetchTransactionConfirmation(normalizedAmount, requestNonce);
+    return () => {
+      debouncedFetchTransactionConfirmation.cancel();
+      transactionConfirmationRequestNonceRef.current += 1;
+    };
   }, [
+    accountId,
+    action,
     debouncedFetchTransactionConfirmation,
     isDisabled,
     isReady,
+    marketAddress,
+    networkId,
     normalizedAmount,
+    provider,
+    reserveAddress,
   ]);
 
   const fetchEstimateFeeResp = useCallback(
@@ -173,73 +195,130 @@ export function useUniversalBorrowAction({
   );
 
   const debouncedFetchEstimateFeeResp = useDebouncedCallback(
-    async (value?: string) => {
+    async (value: string, requestNonce: number) => {
+      if (estimateFeeRequestNonceRef.current !== requestNonce) {
+        return;
+      }
       const resp = await fetchEstimateFeeResp(value || '0');
-      setEstimateFeeResp(resp);
+      if (estimateFeeRequestNonceRef.current === requestNonce) {
+        setEstimateFeeResp(resp);
+      }
     },
     350,
   );
 
   useEffect(() => {
+    debouncedFetchEstimateFeeResp.cancel();
+    estimateFeeRequestNonceRef.current += 1;
+    const requestNonce = estimateFeeRequestNonceRef.current;
+    setEstimateFeeResp(undefined);
+
     if (!isReady || isDisabled) {
-      setEstimateFeeResp(undefined);
       return;
     }
 
     if (!amount || isAmountInvalid(amount) || BigNumber(amount).lte(0)) {
-      setEstimateFeeResp(undefined);
       return;
     }
 
-    void debouncedFetchEstimateFeeResp(amount);
-  }, [amount, debouncedFetchEstimateFeeResp, isDisabled, isReady]);
+    void debouncedFetchEstimateFeeResp(amount, requestNonce);
+    return () => {
+      debouncedFetchEstimateFeeResp.cancel();
+      estimateFeeRequestNonceRef.current += 1;
+    };
+  }, [
+    accountId,
+    action,
+    amount,
+    debouncedFetchEstimateFeeResp,
+    isDisabled,
+    isReady,
+    marketAddress,
+    networkId,
+    provider,
+    reserveAddress,
+  ]);
 
-  const checkAmount = useDebouncedCallback(async (value: string) => {
-    if (!isReady || isAmountInvalid(value)) {
-      return;
-    }
-    setCheckAmountLoading(true);
-    try {
-      const response =
-        await backgroundApiProxy.serviceStaking.getBorrowCheckAmount({
-          networkId,
-          provider,
-          marketAddress,
-          reserveAddress,
-          accountId,
-          action,
-          amount: value,
-          repayAll: action === 'repay' ? repayAll : undefined,
-        });
-
-      if (Number(response.code) === 0) {
-        setCheckAmountMessage('');
-        setCheckAmountAlerts(response.data?.alerts || []);
-        setCheckAmountResult(response.data?.result);
-        setRiskOfLiquidationAlert(response.data?.riskOfLiquidationAlert);
-      } else {
-        setCheckAmountMessage(response.message);
-        setCheckAmountAlerts([]);
-        setCheckAmountResult(false);
-        setRiskOfLiquidationAlert(undefined);
+  const checkAmount = useDebouncedCallback(
+    async (value: string, requestNonce: number) => {
+      if (
+        checkAmountRequestNonceRef.current !== requestNonce ||
+        !isReady ||
+        isDisabled ||
+        isAmountInvalid(value)
+      ) {
+        return;
       }
-    } finally {
-      setCheckAmountLoading(false);
-    }
-  }, 300);
+      try {
+        const response =
+          await backgroundApiProxy.serviceStaking.getBorrowCheckAmount({
+            networkId,
+            provider,
+            marketAddress,
+            reserveAddress,
+            accountId,
+            action,
+            amount: value,
+            repayAll: action === 'repay' ? repayAll : undefined,
+          });
+
+        if (checkAmountRequestNonceRef.current !== requestNonce) {
+          return;
+        }
+
+        if (Number(response.code) === 0) {
+          setCheckAmountMessage('');
+          setCheckAmountAlerts(response.data?.alerts || []);
+          setCheckAmountResult(response.data?.result);
+          setRiskOfLiquidationAlert(response.data?.riskOfLiquidationAlert);
+        } else {
+          setCheckAmountMessage(response.message);
+          setCheckAmountAlerts([]);
+          setCheckAmountResult(false);
+          setRiskOfLiquidationAlert(undefined);
+        }
+      } finally {
+        if (checkAmountRequestNonceRef.current === requestNonce) {
+          setCheckAmountLoading(false);
+        }
+      }
+    },
+    300,
+  );
 
   useEffect(() => {
-    if (!isReady || (amount && isAmountInvalid(amount))) {
-      setCheckAmountMessage('');
-      setCheckAmountAlerts([]);
+    checkAmount.cancel();
+    checkAmountRequestNonceRef.current += 1;
+    const requestNonce = checkAmountRequestNonceRef.current;
+    setCheckAmountMessage('');
+    setCheckAmountAlerts([]);
+    setCheckAmountResult(undefined);
+    setRiskOfLiquidationAlert(undefined);
+
+    if (!isReady || isDisabled || !amount || isAmountInvalid(amount)) {
       setCheckAmountLoading(false);
-      setCheckAmountResult(undefined);
-      setRiskOfLiquidationAlert(undefined);
       return;
     }
 
-    void checkAmount(amount || '0');
-  }, [amount, checkAmount, isReady, repayAll]);
+    setCheckAmountLoading(true);
+    void checkAmount(amount, requestNonce);
+    return () => {
+      checkAmount.cancel();
+      checkAmountRequestNonceRef.current += 1;
+    };
+  }, [
+    accountId,
+    action,
+    amount,
+    checkAmount,
+    isDisabled,
+    isReady,
+    marketAddress,
+    networkId,
+    provider,
+    repayAll,
+    reserveAddress,
+  ]);
 
   const isCheckAmountMessageError = useMemo(
     () => amount.length > 0 && !!checkAmountMessage,

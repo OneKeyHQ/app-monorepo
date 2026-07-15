@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { range } from 'lodash';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 import {
   Easing,
   useSharedValue,
@@ -147,6 +147,7 @@ function getTrezorConnectFailureMessage(payload: unknown) {
 function getTrezorConnectFailureError(
   payload: unknown,
   vendor: EHardwareVendor,
+  intl: IntlShape,
 ) {
   const failure =
     payload && typeof payload === 'object'
@@ -171,7 +172,9 @@ function getTrezorConnectFailureError(
     return new OneKeyLocalError(failureMessage);
   }
   return new OneKeyLocalError({
-    key: ETranslations.trezor_connect_failed_before_wallet_creation__msg,
+    message: intl.formatMessage({
+      id: ETranslations.trezor_connect_failed_before_wallet_creation__msg,
+    }),
   });
 }
 
@@ -446,22 +449,13 @@ function FinalizeWalletSetupPage({
                   if (!keylessDetailsInfo?.keylessOwnerId) {
                     return;
                   }
-                  const refreshResult =
-                    await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
-                      {
-                        ownerId: keylessDetailsInfo?.keylessOwnerId,
-                        forceRefresh: true,
-                      },
-                    );
-                  if (
-                    !refreshResult?.accessToken ||
-                    !refreshResult?.refreshToken
-                  ) {
+                  const token =
+                    await backgroundApiProxy.serviceKeylessWallet.getActiveKeylessOAuthAccessTokenForLocalWallet();
+                  if (!token) {
                     return;
                   }
-                  const { accessToken: token, refreshToken } = refreshResult;
                   const pin = await getKeylessOnboardingPin();
-                  if (!token || !pin || !refreshToken) {
+                  if (!pin) {
                     console.error(
                       'Skip keyless auto reset pin: missing onboarding token or pin.',
                     );
@@ -471,7 +465,6 @@ function FinalizeWalletSetupPage({
                   await backgroundApiProxy.serviceKeylessWallet.autoResetKeylessWalletPinAfterRestoreForSameEmailAccount(
                     {
                       token,
-                      refreshToken: refreshToken || undefined,
                       pin,
                     },
                   );
@@ -614,11 +607,14 @@ function FinalizeWalletSetupPage({
                 throw getTrezorConnectFailureError(
                   connected.payload,
                   deviceData.vendor,
+                  intl,
                 );
               }
               if (!connectedDeviceId) {
                 throw new OneKeyLocalError({
-                  key: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  message: intl.formatMessage({
+                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  }),
                 });
               }
               // Device has no seed yet — block creation and prompt the user to
@@ -688,6 +684,16 @@ function FinalizeWalletSetupPage({
               isSoftwareWalletOnlyUser,
               vendor: deviceData.vendor,
             });
+            // After a reset the same device re-onboards with a new device_id;
+            // mark the stale wallet deprecated so only the current one lights
+            // up. Trezor-specific dedup, matched on the device's transport
+            // connect ids (same key set as the connection-status light).
+            if (deviceData.vendor === EHardwareVendor.trezor) {
+              await actions.current.updateTrezorWalletsDeprecatedStatus({
+                connectId: thirdPartyDevice.connectId ?? '',
+                deviceId: thirdPartyDevice.deviceId ?? '',
+              });
+            }
           } catch (createError) {
             await trackHardwareWalletConnection({
               status: 'failure',

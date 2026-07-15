@@ -209,6 +209,7 @@ function ProfileEditPage() {
                   <OneKeyIdAvatar
                     size="$20"
                     source={profileAvatar ? { uri: profileAvatar } : undefined}
+                    showSocialBadge={false}
                   />
                   <XStack
                     bg="$bg"

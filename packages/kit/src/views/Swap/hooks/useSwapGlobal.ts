@@ -107,6 +107,14 @@ function getSelectedTokensColdStartSwapType({
   toToken?: ISwapToken;
 }) {
   if (
+    currentSwapType === ESwapTabSwitchType.STOCK ||
+    fromToken?.isStock ||
+    toToken?.isStock
+  ) {
+    return ESwapTabSwitchType.STOCK;
+  }
+
+  if (
     fromToken?.networkId &&
     toToken?.networkId &&
     fromToken.networkId !== toToken.networkId
@@ -372,6 +380,25 @@ export function useSwapInit(params?: ISwapInitParams) {
     },
     [swapTypeSwitchAction],
   );
+
+  const lastRouteSwapTabSwitchTypeRef = useRef(params?.swapTabSwitchType);
+  useEffect(() => {
+    // Cold mount is owned by SwapHeaderContainer's mount-time switch (which
+    // delays to avoid racing default-token init). This effect only serves warm
+    // navigation: the tab route param changing while the Swap page is already
+    // mounted, e.g. a stocks universal link arriving with the app alive.
+    if (lastRouteSwapTabSwitchTypeRef.current === params?.swapTabSwitchType) {
+      return;
+    }
+    lastRouteSwapTabSwitchTypeRef.current = params?.swapTabSwitchType;
+    if (!params?.swapTabSwitchType) {
+      return;
+    }
+    switchSwapTypeIfNeeded(
+      params.swapTabSwitchType,
+      swapAddressInfoRef.current?.networkId ?? fromTokenRef.current?.networkId,
+    );
+  }, [params?.swapTabSwitchType, switchSwapTypeIfNeeded]);
 
   const validateSelectedTokensColdStartContext = useCallback(() => {
     if (!fromTokenRef.current && !toTokenRef.current) {
@@ -890,6 +917,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     const isStockDefaultTokenFlow =
       swapTypeSwitchRef.current === ESwapTabSwitchType.STOCK ||
       params?.swapTabSwitchType === ESwapTabSwitchType.STOCK;
+    const hasStockExecutionSelectedTokens =
+      fromTokenRef.current?.isStock === true ||
+      toTokenRef.current?.isStock === true;
     const hasInitFromAmount = Boolean(
       hasUnconsumedSwapInitParams && params?.fromAmount,
     );
@@ -905,8 +935,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     }
     if (isStockDefaultTokenFlow) {
       if (
+        !hasStockExecutionSelectedTokens &&
         selectedTokensColdStartContextRef.current?.swapType !==
-        ESwapTabSwitchType.STOCK
+          ESwapTabSwitchType.STOCK
       ) {
         if (fromTokenRef.current) {
           setSwapFromToken(undefined);

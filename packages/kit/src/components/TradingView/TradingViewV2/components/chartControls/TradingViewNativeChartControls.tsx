@@ -76,6 +76,7 @@ interface ITradingViewNativeChartControlsProps {
   onPriceMarketCapModeChange: (mode: ITradingViewPriceMarketCapMode) => void;
   onCalendarPanelSubmit?: (payload: ICalendarPanelSubmitPayload) => void;
   onOpenChartSettings?: () => void;
+  onControlInteraction?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
   onFullscreenChange?: (isFullscreen: boolean) => void;
@@ -108,6 +109,7 @@ export const TradingViewNativeChartControls = memo(
     onPriceMarketCapModeChange,
     onCalendarPanelSubmit,
     onOpenChartSettings,
+    onControlInteraction,
     onUndo,
     onRedo,
     onFullscreenChange,
@@ -169,6 +171,7 @@ export const TradingViewNativeChartControls = memo(
     );
 
     const showIndicatorsDialog = useCallback(() => {
+      onControlInteraction?.();
       Dialog.show({
         title: indicatorsTitle,
         showFooter: false,
@@ -186,6 +189,7 @@ export const TradingViewNativeChartControls = memo(
       handleNativeIndicatorSelect,
       indicators,
       indicatorsTitle,
+      onControlInteraction,
       onResetLayout,
       resetLayout,
     ]);
@@ -225,22 +229,34 @@ export const TradingViewNativeChartControls = memo(
 
     const handleChartTypeToggle = useCallback(() => {
       if (nextChartType) {
+        onControlInteraction?.();
         onChartTypeChange(nextChartType.value);
       }
-    }, [nextChartType, onChartTypeChange]);
+    }, [nextChartType, onChartTypeChange, onControlInteraction]);
 
     const handleFullscreenToggle = useCallback(() => {
+      onControlInteraction?.();
       onFullscreenChange?.(!isFullscreen);
-    }, [isFullscreen, onFullscreenChange]);
+    }, [isFullscreen, onControlInteraction, onFullscreenChange]);
+
+    const handleUndo = useCallback(() => {
+      onControlInteraction?.();
+      onUndo?.();
+    }, [onControlInteraction, onUndo]);
+
+    const handleRedo = useCallback(() => {
+      onControlInteraction?.();
+      onRedo?.();
+    }, [onControlInteraction, onRedo]);
 
     const handleSettingsPress = useCallback(() => {
-      if (isDesktopLayout && onOpenChartSettings) {
+      if (onOpenChartSettings) {
         onOpenChartSettings();
         return;
       }
 
       showChartSettingsDialog();
-    }, [isDesktopLayout, onOpenChartSettings, showChartSettingsDialog]);
+    }, [onOpenChartSettings, showChartSettingsDialog]);
 
     const chartTypeControl = useMemo(() => {
       if (showChartTypeSelect) {
@@ -250,6 +266,7 @@ export const TradingViewNativeChartControls = memo(
             chartTypes={chartTypes}
             activeChartType={activeChartType}
             onChartTypeChange={onChartTypeChange}
+            onControlInteraction={onControlInteraction}
           />
         );
       }
@@ -278,6 +295,7 @@ export const TradingViewNativeChartControls = memo(
       handleChartTypeToggle,
       nextChartTypeLabel,
       onChartTypeChange,
+      onControlInteraction,
       showChartTypeSelect,
       showChartTypeToggle,
     ]);
@@ -294,6 +312,7 @@ export const TradingViewNativeChartControls = memo(
             indicators={indicators}
             activeIndicatorValues={activeIndicatorValues}
             onIndicatorPress={handleIndicatorPress}
+            onControlInteraction={onControlInteraction}
           />
         );
       }
@@ -316,6 +335,7 @@ export const TradingViewNativeChartControls = memo(
       hasVisibleIndicators,
       indicators,
       indicatorsTitle,
+      onControlInteraction,
       showIndicatorPopover,
       showIndicatorsDialog,
     ]);
@@ -329,15 +349,22 @@ export const TradingViewNativeChartControls = memo(
         <PriceMarketCapSelect
           priceMarketCap={priceMarketCap}
           onPriceMarketCapModeChange={onPriceMarketCapModeChange}
+          onControlInteraction={onControlInteraction}
         />
       );
-    }, [onPriceMarketCapModeChange, priceMarketCap, showPriceMarketCapSelect]);
+    }, [
+      onControlInteraction,
+      onPriceMarketCapModeChange,
+      priceMarketCap,
+      showPriceMarketCapSelect,
+    ]);
 
     const calendarControl =
       hasCalendarControl && onCalendarPanelSubmit ? (
         <CalendarPanelPopover
           chartTimezone={chartTimezone}
           onSubmit={onCalendarPanelSubmit}
+          onControlInteraction={onControlInteraction}
         />
       ) : null;
 
@@ -385,7 +412,7 @@ export const TradingViewNativeChartControls = memo(
             icon="UndoOutline"
             iconSize="$5"
             title={intl.formatMessage({ id: ETranslations.menu_undo })}
-            onPress={onUndo}
+            onPress={handleUndo}
             {...HEADER_ICON_BUTTON_STYLE_PROPS}
           />
           <IconButton
@@ -395,7 +422,7 @@ export const TradingViewNativeChartControls = memo(
             icon="UndoFlipHorOutline"
             iconSize="$5"
             title={intl.formatMessage({ id: ETranslations.menu_redo })}
-            onPress={onRedo}
+            onPress={handleRedo}
             {...HEADER_ICON_BUTTON_STYLE_PROPS}
           />
         </XStack>
@@ -416,6 +443,7 @@ export const TradingViewNativeChartControls = memo(
         intervalConfig={intervalConfig}
         intervalControlMode={intervalControlMode}
         onIntervalChange={onIntervalChange}
+        onControlInteraction={onControlInteraction}
       />
     ) : null;
     const hasLeftChartTools = Boolean(

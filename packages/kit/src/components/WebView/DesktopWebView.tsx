@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
@@ -57,12 +58,43 @@ type IDesktopDidFailLoadEvent = DidFailLoadEvent & {
 };
 
 let preloadJsUrl = '';
+let preloadJsUrlPromise: Promise<string> | undefined;
+const preloadJsUrlListeners = new Set<() => void>();
 
-void globalThis.desktopApiProxy.webview
-  .getPreloadJsContent()
-  .then((url: string) => {
-    preloadJsUrl = url;
+function emitPreloadJsUrlChange() {
+  preloadJsUrlListeners.forEach((listener) => {
+    listener();
   });
+}
+
+function subscribePreloadJsUrl(listener: () => void) {
+  preloadJsUrlListeners.add(listener);
+  return () => {
+    preloadJsUrlListeners.delete(listener);
+  };
+}
+
+function getPreloadJsUrlSnapshot() {
+  return preloadJsUrl;
+}
+
+function getPreloadJsUrl() {
+  if (preloadJsUrl) {
+    return Promise.resolve(preloadJsUrl);
+  }
+  preloadJsUrlPromise ??= globalThis.desktopApiProxy.webview
+    .getPreloadJsContent()
+    .then((url: string) => {
+      preloadJsUrl = url;
+      emitPreloadJsUrlChange();
+      return url;
+    })
+    .catch((error: unknown) => {
+      preloadJsUrlPromise = undefined;
+      throw error;
+    });
+  return preloadJsUrlPromise;
+}
 
 // Used for webview type referencing
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -97,11 +129,24 @@ const DesktopWebView = forwardRef(
   ) => {
     const [isWebviewReady, setIsWebviewReady] = useState(false);
     const [isDomReady, setIsDomReady] = useState(false);
+    // Parents hold wrapper closures across renders, so dom-ready must be read
+    // from a ref, not a render snapshot.
+    const isDomReadyRef = useRef(false);
+    const updateIsDomReady = useCallback((value: boolean) => {
+      isDomReadyRef.current = value;
+      setIsDomReady(value);
+    }, []);
     const webviewRef = useRef<IElectronWebView | null>(null);
     const pendingScriptsRef = useRef<string[]>([]);
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
     const [devSettings] = useDevSettingsPersistAtom();
     const isUnmountingRef = useRef(false);
+    const resolvedPreloadJsUrl = useSyncExternalStore(
+      subscribePreloadJsUrl,
+      getPreloadJsUrlSnapshot,
+      getPreloadJsUrlSnapshot,
+    );
+    const [preloadJsUrlError, setPreloadJsUrlError] = useState(false);
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
     const [desktopLoadErrorCode, setDesktopLoadErrorCode] = useState<number>();
@@ -149,6 +194,31 @@ const DesktopWebView = forwardRef(
         }
       }
     }, [isDomReady]);
+
+    useEffect(() => {
+      if (disableBridge || preloadJsUrlError || resolvedPreloadJsUrl) {
+        return undefined;
+      }
+
+      let isMounted = true;
+      void getPreloadJsUrl()
+        .then(() => undefined)
+        .catch(() => {
+          if (isMounted) {
+            setPreloadJsUrlError(true);
+          }
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    }, [disableBridge, preloadJsUrlError, resolvedPreloadJsUrl]);
+
+    useEffect(() => {
+      if (resolvedPreloadJsUrl && preloadJsUrlError) {
+        setPreloadJsUrlError(false);
+      }
+    }, [preloadJsUrlError, resolvedPreloadJsUrl]);
 
     // Register event listeners
     useEffect(() => {
@@ -230,7 +300,7 @@ const DesktopWebView = forwardRef(
             lastMainFrameLoadErrorRef.current = undefined;
             setDesktopLoadError(false);
             setDesktopLoadErrorCode(undefined);
-            setIsDomReady(false);
+            updateIsDomReady(false);
             startLoadTimeout();
           }
           checkGoogleOauth(url);
@@ -288,7 +358,7 @@ const DesktopWebView = forwardRef(
         webview.addEventListener('page-favicon-updated', onPageFaviconUpdated);
         webview.addEventListener('new-window', onNewWindow);
         const handleDomReady = (event: Event) => {
-          setIsDomReady(true);
+          updateIsDomReady(true);
           onDomReady?.(event);
         };
 
@@ -323,8 +393,12 @@ const DesktopWebView = forwardRef(
         console.error(error);
       }
     }, [
+      // the first run can precede <webview> mount when the preload URL
+      // resolves async, leaving every load listener unregistered.
+      isWebviewReady,
       clearLoadTimeout,
       startLoadTimeout,
+      updateIsDomReady,
       onDidFailLoad,
       onDidFinishLoad,
       onDidStartLoading,
@@ -370,7 +444,9 @@ const DesktopWebView = forwardRef(
       ref as Ref<unknown>,
       (): IWebViewWrapperRef => {
         const wrapper = {
-          innerRef: webviewRef.current,
+          // deferred preload mounts the node after the first create; the
+          // isWebviewReady dep re-snapshots innerRef once it exists.
+          innerRef: isWebviewReady ? webviewRef.current : null,
           jsBridge: jsBridgeHost,
           reload: () => {
             webviewRef.current?.reload();
@@ -382,7 +458,7 @@ const DesktopWebView = forwardRef(
           },
           sendMessageViaInjectedScript: (message: unknown) => {
             const script = createMessageInjectedScript(message);
-            if (!isDomReady || !webviewRef.current) {
+            if (!isDomReadyRef.current || !webviewRef.current) {
               pendingScriptsRef.current.push(script);
               if (pendingScriptsRef.current.length > 50) {
                 console.warn(
@@ -407,14 +483,19 @@ const DesktopWebView = forwardRef(
         jsBridgeHost.webviewWrapper = wrapper;
         return wrapper as IWebViewRef;
       },
-      [isDomReady, jsBridgeHost],
+      // dom-ready is read via isDomReadyRef so a parent holding an old
+      // wrapper still delivers.
+      [isWebviewReady, jsBridgeHost],
     );
 
-    const initWebviewByRef = useCallback(($ref: any) => {
-      webviewRef.current = $ref;
-      setIsDomReady(false);
-      setIsWebviewReady(Boolean($ref));
-    }, []);
+    const initWebviewByRef = useCallback(
+      ($ref: any) => {
+        webviewRef.current = $ref;
+        updateIsDomReady(false);
+        setIsWebviewReady(Boolean($ref));
+      },
+      [updateIsDomReady],
+    );
 
     useEffect(() => {
       const webview = webviewRef.current;
@@ -495,10 +576,21 @@ const DesktopWebView = forwardRef(
       flushPendingScripts();
     }, [flushPendingScripts, isWebviewReady]);
 
-    if (!preloadJsUrl && !disableBridge) {
-      return null;
+    if (preloadJsUrlError && !disableBridge) {
+      return (
+        <Stack flex={1} position="relative" bg="$bgApp">
+          <ErrorView
+            onRefresh={() => {
+              setPreloadJsUrlError(false);
+            }}
+          />
+        </Stack>
+      );
     }
 
+    if (!resolvedPreloadJsUrl && !disableBridge) {
+      return null;
+    }
     return (
       <Stack flex={1} position="relative" bg="$bgApp">
         {devSettings?.enabled && devSettings?.settings?.showWebviewDevTools ? (
@@ -523,7 +615,7 @@ const DesktopWebView = forwardRef(
         ) : null}
         <webview
           ref={initWebviewByRef}
-          {...(disableBridge ? {} : { preload: preloadJsUrl })}
+          {...(disableBridge ? {} : { preload: resolvedPreloadJsUrl })}
           src={src}
           partition={partitionProp ?? 'persist:onekey'}
           style={{

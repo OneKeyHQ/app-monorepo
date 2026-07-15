@@ -1,6 +1,6 @@
 ---
 name: 1k-ui-verify
-description: AI-agent-driven UI verification for OneKey. Use to actually drive the running app and confirm a visual/interactive change works — Electron desktop via Chrome DevTools Protocol (CDP) on port 9222 with playwright-core, and React Native (iOS/Android) via callstack agent-device. Triggers on "verify the UI", "drive the app", "screenshot the change", "check it on desktop/simulator", "CDP 9222", "agent-device", "UI 验证", "跑一下看看", "截图确认".
+description: Drive OneKey desktop or mobile apps to verify real visual and interactive behavior using CDP/Playwright or agent-device. Use for UI 验证 or screenshot confirmation.
 ---
 
 # UI Verification (Desktop CDP + RN agent-device)
@@ -39,8 +39,8 @@ Prereq: `yarn app:desktop` running — its `dev:main` launches Electron with
 `--remote-debugging-port=9222 --remote-debugging-address=127.0.0.1`.
 
 ```bash
-node .claude/skills/1k-ui-verify/scripts/cdp-shot.mjs --out .tmp/ui/after.png
-node .claude/skills/1k-ui-verify/scripts/cdp-shot.mjs --testid header-gift-action --click --out .tmp/ui/clicked.png
+node .skillshare/skills/1k-ui-verify/scripts/cdp-shot.mjs --out .tmp/ui/after.png
+node .skillshare/skills/1k-ui-verify/scripts/cdp-shot.mjs --testid header-gift-action --click --out .tmp/ui/clicked.png
 ```
 
 The script connects to the main window (the page with `[data-testid^="tab-modal"]`), captures a
@@ -74,6 +74,7 @@ over CDP to an already-running Chrome).
 
 ```bash
 node scenarios/regression.mjs list
+node scenarios/regression.mjs dapp-cold-start-desktop --url https://onekey.so # CDP 9222, verifies tab + active URL + real webview render
 node scenarios/regression.mjs gift-storm-desktop              # CDP 9222 (yarn app:desktop)
 node scenarios/regression.mjs gift-storm-web                  # CDP 9223 (Chrome --remote-debugging-port=9223 on app:web)
 node scenarios/regression.mjs gift-storm-rn --platform ios    # agent-device

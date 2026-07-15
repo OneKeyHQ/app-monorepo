@@ -1,3 +1,11 @@
+/* oxlint-disable import-js/order */
+// IMPORTANT: keep Stripe as an eager top-level import before RevenueCat.
+// RevenueCat checks for a preloaded Stripe.js runtime; if this is moved to a
+// lazy import for startup performance, RevenueCat may inject
+// https://js.stripe.com/v3 itself and Prime checkout can break.
+// eslint-disable-next-line import-js/order
+import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
+
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 import { BigNumber } from 'bignumber.js';
@@ -17,12 +25,6 @@ import type {
   IUsePrimePayment,
 } from './usePrimePaymentTypes';
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
-
-async function loadStripeV3() {
-  // Load Stripe before RevenueCat opens checkout, otherwise RevenueCat injects
-  // https://js.stripe.com/v3 itself.
-  await import('@onekeyhq/shared/src/modules3rdParty/stripe-v3');
-}
 
 function getWebEmbedSearchParamsString() {
   if (typeof globalThis.location === 'undefined') {
@@ -107,7 +109,6 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     // TODO VPN required
     // await Purchases.setProxyURL('https://api.rc-backup.com/');
 
-    await loadStripeV3();
     const { Purchases } = await loadPurchasesSdkWeb();
 
     // TODO how to configure another userId when user login with another account
