@@ -369,6 +369,13 @@ export function UniversalWithdraw({
     isCancelWithdrawal ? '0' : (initialAmount ?? ''),
   );
   const [selectedWithdrawPathIndex, setSelectedWithdrawPathIndex] = useState(0);
+  // Tracks the withdraw type the user explicitly picked in the path selector.
+  // Default selection always prefers the first enabled option (instant); this
+  // ref lets an explicit manual choice (e.g. queued in the overlap range) win,
+  // but only while a box of that type is still enabled.
+  const manualWithdrawTypeRef = useRef<IEarnWithdrawType | undefined>(
+    undefined,
+  );
   const [withdrawProgressStep, setWithdrawProgressStep] = useState(
     EStakeProgressStep.approve,
   );
@@ -422,11 +429,29 @@ export function UniversalWithdraw({
 
   const effectiveSelectedWithdrawPathIndex = useMemo(() => {
     if (withdrawPathConfirmBoxes.length <= 1) return 0;
+    // Respect an explicit manual choice as long as a box of that withdraw type
+    // is still enabled (keeps the selector meaningful, e.g. a user opting into
+    // the queued path in the instant/queued overlap range).
+    const manualType = manualWithdrawTypeRef.current;
+    if (manualType) {
+      const manualIndex = withdrawPathConfirmBoxes.findIndex(
+        (box) => box.withdrawType === manualType && !box.disabled,
+      );
+      if (manualIndex >= 0) return manualIndex;
+    }
+    // Default: always prefer the first available option. Instant is index 0, so
+    // instant wins whenever it is enabled (even when both are selectable);
+    // queued is only auto-selected when instant is unavailable. Fall back to a
+    // clamped index only if every option is disabled (to still show its tip).
+    const firstEnabledIndex = withdrawPathConfirmBoxes.findIndex(
+      (box) => !box.disabled,
+    );
+    if (firstEnabledIndex >= 0) return firstEnabledIndex;
     return Math.min(
       Math.max(selectedWithdrawPathIndex, 0),
       withdrawPathConfirmBoxes.length - 1,
     );
-  }, [selectedWithdrawPathIndex, withdrawPathConfirmBoxes.length]);
+  }, [selectedWithdrawPathIndex, withdrawPathConfirmBoxes]);
 
   useEffect(() => {
     if (selectedWithdrawPathIndex !== effectiveSelectedWithdrawPathIndex) {
@@ -843,6 +868,8 @@ export function UniversalWithdraw({
       if (!targetBox || targetBox.disabled) {
         return;
       }
+      // Remember the user's explicit choice so it is respected on later renders.
+      manualWithdrawTypeRef.current = targetBox.withdrawType;
       setIgnoreAllowanceCheck(false);
       setPendingEthenaCooldownUnstake(false);
       setWithdrawProgressStep(EStakeProgressStep.approve);
