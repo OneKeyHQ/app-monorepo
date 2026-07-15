@@ -459,8 +459,7 @@ export function useOneKeyAuth() {
     () => {
       return {
         sendCode: async ({ email }: { email: string }) => {
-          const _res = await supabaseSignInWithOtp({ email });
-          console.log(_res);
+          await supabaseSignInWithOtp({ email });
         },
         loginWithCode: async ({
           code,
@@ -469,8 +468,9 @@ export function useOneKeyAuth() {
           code: string;
           email: string;
         }) => {
-          const _res = await supabaseVerifyOtp({ email, otp: code });
-          console.log(_res);
+          // Never log the response: verifyOtp resolves with a full
+          // AuthResponse whose session carries the access + refresh tokens.
+          await supabaseVerifyOtp({ email, otp: code });
         },
       };
     },
