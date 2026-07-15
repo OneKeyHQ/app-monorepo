@@ -1104,6 +1104,38 @@ class ServicePrime extends ServiceBase {
     });
   }
 
+  /**
+   * Guarded destructive clear for keyless-session teardown
+   * (ServiceKeylessWallet.clearKeylessAuthSessionAndLoginState): wipes the
+   * auth-state pair only when the CURRENT persisted source is still
+   * KeylessOAuth. The caller's session clear can involve a slow signOut, so
+   * deciding on a pre-clear source snapshot could race a login commit that
+   * lands in between and wipe the fresh login; the in-lock re-read under
+   * authStateWriteMutex closes that window.
+   */
+  @backgroundMethod()
+  async clearOneKeyIdAuthStateIfSourceStillKeylessOAuth({
+    callerName,
+  }: {
+    callerName: string;
+  }): Promise<{ cleared: boolean }> {
+    return this.authStateWriteMutex.runExclusive(async () => {
+      const source =
+        await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      if (source !== EPrimeAuthSessionSource.KeylessOAuth) {
+        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+          reason: `${callerName}: skip keyless-source clear, current source is ${
+            source ?? 'undefined'
+          } (in-lock recheck)`,
+        });
+        return { cleared: false };
+      }
+      await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+      await this.setPrimePersistAtomNotLoggedIn();
+      return { cleared: true };
+    });
+  }
+
   @backgroundMethod()
   async apiLogout({
     preserveLocalKeylessAuth,

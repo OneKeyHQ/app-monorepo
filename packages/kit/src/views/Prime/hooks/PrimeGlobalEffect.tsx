@@ -319,7 +319,16 @@ function PrimeGlobalEffectView() {
         // keyless-sourced payload.
         await legacySupabaseSignOut();
       }
-      await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
+      // Guarded reset (authStateWriteMutex + in-lock re-read): the bg-side
+      // invalid-token cleanup already reset the atom in-lock before emitting
+      // this event, and a new login may have committed during the event-bus
+      // hop + signOut awaits above — an unconditional atom reset here would
+      // wipe it (ext runs this handler once per UI surface).
+      await backgroundApiProxy.servicePrime.clearOneKeyIdAuthStateIfNoActiveToken(
+        {
+          callerName: 'PrimeGlobalEffectView.PrimeLoginInvalidToken',
+        },
+      );
     };
     appEventBus.on(EAppEventBusNames.PrimeLoginInvalidToken, fn);
     return () => {

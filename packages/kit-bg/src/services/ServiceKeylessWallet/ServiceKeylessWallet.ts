@@ -3584,13 +3584,16 @@ class ServiceKeylessWallet extends ServiceBase {
    */
   @backgroundMethod()
   async clearKeylessAuthSessionAndLoginState(): Promise<void> {
-    const authSessionSource =
-      await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
     await this.backgroundApi.simpleDb.prime.clearKeylessAuthSession();
-    if (authSessionSource === EPrimeAuthSessionSource.KeylessOAuth) {
-      await this.backgroundApi.simpleDb.prime.clearAuthTokens();
-      await this.backgroundApi.servicePrime.setPrimePersistAtomNotLoggedIn();
-    }
+    // Guarded clear (authStateWriteMutex + in-lock source re-read): deciding
+    // on a source snapshot taken before the session clear above could race a
+    // login commit that lands in between (e.g. while a wallet-removal
+    // signOut waits on the network) and wipe the freshly committed login.
+    await this.backgroundApi.servicePrime.clearOneKeyIdAuthStateIfSourceStillKeylessOAuth(
+      {
+        callerName: 'clearKeylessAuthSessionAndLoginState',
+      },
+    );
     // Runtime note (bg -> main): the clear above only affects the shared
     // native session storage plus THIS (bg) runtime's JS client copy. The
     // main runtime's keyless Supabase client keeps its own isolated
