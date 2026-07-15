@@ -1,23 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import BigNumber from 'bignumber.js';
-import { isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
   ActionList,
-  Badge,
   Button,
   Dialog,
-  Divider,
   Icon,
   Page,
-  Popover,
   SizableText,
   Stack,
   XStack,
-  YStack,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -31,12 +25,10 @@ import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
-  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
@@ -93,16 +85,15 @@ const SwapHistoryListModal = ({
     void backgroundApiProxy.serviceSwap.refreshSwapHistoryPendingStatusOnce();
   }, []);
 
-  // Shares the list view's hook so the savings total and clear-button guards
-  // below re-fetch on the RefreshSwapHistoryList signal too — otherwise they
-  // would go stale after a finished-order clear while the rendered list updates.
+  // Shares the list view's hook so the clear-button guards below re-fetch on the
+  // RefreshSwapHistoryList signal too.
   const { swapTxHistoryList } = useSwapMarketHistoryList(
     EProtocolOfExchange.SWAP,
   );
   // Non-stock Swap & Bridge history only: the SWAP bucket also carries stock
   // orders, but the visible Swap & Bridge list hides them and the clear uses
-  // excludeStock. Drive savings and the clear guards off the same scoped set so
-  // an all-stock state doesn't show savings or pop a clear that deletes nothing.
+  // excludeStock. Drive the clear guards off the same scoped set so an all-stock
+  // state doesn't pop a clear that deletes nothing.
   const swapMarketTxHistoryList = useMemo(
     () =>
       filterSwapMarketHistoryItems({
@@ -111,49 +102,6 @@ const SwapHistoryListModal = ({
       }).filter((item) => !isStockSwapHistoryItem(item)),
     [swapTxHistoryList],
   );
-
-  // Default fee percentage for savings calculation (0.3%)
-  const DEFAULT_FEE_PERCENTAGE = 0.3;
-
-  // Calculate cumulative savings from all completed successful orders
-  const cumulativeSavings = useMemo(() => {
-    if (
-      visibleHistoryType !== EProtocolOfExchange.SWAP ||
-      !swapMarketTxHistoryList.length
-    ) {
-      return '$0';
-    }
-
-    let total = new BigNumber(0);
-
-    for (const history of swapMarketTxHistoryList) {
-      // Only count completed successful orders
-      // eslint-disable-next-line no-continue
-      if (history.status !== ESwapTxHistoryStatus.SUCCESS) continue;
-
-      const historyOneKeyFeeUsd =
-        history.swapInfo?.oneKeyFeeExtraInfo?.oneKeyFeeUsd;
-      const historyOneKeyFee = history.swapInfo?.oneKeyFee;
-
-      // Check if this order qualifies for savings (oneKeyFee is 0 or oneKeyFeeUsd is 0)
-      const isSavingsOrder =
-        (isNumber(historyOneKeyFee) && historyOneKeyFee === 0) ||
-        (historyOneKeyFeeUsd && new BigNumber(historyOneKeyFeeUsd).eq(0));
-
-      if (isSavingsOrder) {
-        const fromAmount = history.baseInfo.fromAmount ?? '0';
-        const fromPrice = history.baseInfo.fromToken?.price ?? '0';
-        const fromValueUsd = new BigNumber(fromAmount).times(fromPrice);
-        const savedAmount = fromValueUsd.times(DEFAULT_FEE_PERCENTAGE).div(100);
-        total = total.plus(savedAmount);
-      }
-    }
-
-    return numberFormat(total.toFixed(), {
-      formatter: 'value',
-      formatterOptions: { currency: '$' },
-    });
-  }, [visibleHistoryType, swapMarketTxHistoryList]);
 
   const marketPendingHistoryItems = useMemo(
     () =>
@@ -429,134 +377,9 @@ const SwapHistoryListModal = ({
     });
   }, [intl, swapMarketTxHistoryList]);
 
-  const savingsPopoverContent = useMemo(
-    () => (
-      <YStack gap="$2" py="$2" w="100%">
-        <YStack gap="$5" px="$4" py="$2">
-          <XStack
-            px="$1"
-            alignItems="flex-start"
-            justifyContent="space-between"
-            gap="$2"
-          >
-            <XStack gap="$3" alignItems="flex-start" flex={1} minWidth={0}>
-              <Icon
-                name="Shield2CheckSolid"
-                size="$5"
-                color="$textSubdued"
-                flexShrink={0}
-              />
-              <YStack gap="$1" flex={1} minWidth={0}>
-                <SizableText size="$bodyMdMedium" color="$text">
-                  {intl.formatMessage({
-                    id: ETranslations.swap_provider_panel_feature_mev,
-                  })}
-                </SizableText>
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.swap_provider_panel_feature_mev_desc,
-                  })}
-                </SizableText>
-              </YStack>
-            </XStack>
-            <Icon
-              name="CheckRadioSolid"
-              size="$5"
-              color="$iconSuccess"
-              flexShrink={0}
-            />
-          </XStack>
-
-          <XStack
-            px="$1"
-            alignItems="flex-start"
-            justifyContent="space-between"
-            gap="$2"
-          >
-            <XStack gap="$3" alignItems="flex-start" flex={1} minWidth={0}>
-              <Icon
-                name="SplitSolid"
-                size="$5"
-                color="$textSubdued"
-                flexShrink={0}
-              />
-              <YStack gap="$1" flex={1} minWidth={0}>
-                <SizableText size="$bodyMdMedium" color="$text">
-                  {intl.formatMessage({
-                    id: ETranslations.swap_provider_panel_feature_routing,
-                  })}
-                </SizableText>
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.swap_provider_panel_feature_routing_desc,
-                  })}
-                </SizableText>
-              </YStack>
-            </XStack>
-            <Icon
-              name="CheckRadioSolid"
-              size="$5"
-              color="$iconSuccess"
-              flexShrink={0}
-            />
-          </XStack>
-        </YStack>
-
-        <Divider />
-
-        <XStack
-          py="$2"
-          px="$4"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <XStack px="$1" gap="$3" alignItems="center">
-            <Icon name="PiggyMoneySolid" size="$5" color="$text" />
-            <SizableText size="$headingXs" color="$text">
-              {intl.formatMessage({ id: ETranslations.swap_total_saved })}
-            </SizableText>
-          </XStack>
-          <SizableText size="$headingSm" color="$textSuccess">
-            +{cumulativeSavings}
-          </SizableText>
-        </XStack>
-      </YStack>
-    ),
-    [intl, cumulativeSavings],
-  );
-
   const deleteButton = useCallback(
     () => (
       <XStack gap="$2" alignItems="center">
-        {cumulativeSavings !== '$0' && gtMd ? (
-          <Popover
-            title={intl.formatMessage({
-              id: ETranslations.perps_saving_breakdown,
-            })}
-            floatingPanelProps={{
-              width: 320,
-            }}
-            renderTrigger={
-              <Badge
-                badgeSize="lg"
-                badgeType="success"
-                py="$1"
-                gap="$1.5"
-                borderRadius="$8"
-                cursor="pointer"
-                hoverStyle={{
-                  opacity: 0.8,
-                }}
-              >
-                <Icon name="PiggyMoneySolid" size="$3" color="$iconSuccess" />
-                <SizableText size="$bodySmMedium" color="$textSuccess">
-                  {cumulativeSavings}
-                </SizableText>
-              </Badge>
-            }
-            renderContent={savingsPopoverContent}
-          />
-        ) : null}
         <ActionList
           title={intl.formatMessage({
             id: ETranslations.global_clear,
@@ -583,14 +406,7 @@ const SwapHistoryListModal = ({
         />
       </XStack>
     ),
-    [
-      intl,
-      onDeleteHistory,
-      onDeletePendingHistory,
-      cumulativeSavings,
-      gtMd,
-      savingsPopoverContent,
-    ],
+    [intl, onDeleteHistory, onDeletePendingHistory],
   );
 
   const stockDeleteButton = useCallback(
@@ -604,7 +420,7 @@ const SwapHistoryListModal = ({
   );
 
   // Limit has no clear; Stock clears its own dataset; everything else (Swap &
-  // Bridge) uses the savings-aware clear button.
+  // Bridge) uses the scoped clear button.
   const headerRightButton = useMemo(() => {
     if (!shouldShowSwapLocalData) {
       return undefined;
@@ -637,79 +453,6 @@ const SwapHistoryListModal = ({
     [historyTypeItems, historyTypeTitle, historyTypeTrigger],
   );
 
-  const savingsBanner = useMemo(() => {
-    if (
-      cumulativeSavings === '$0' ||
-      gtMd ||
-      visibleHistoryType !== EProtocolOfExchange.SWAP
-    ) {
-      return null;
-    }
-
-    return (
-      <Popover
-        title={intl.formatMessage({ id: ETranslations.perps_saving_breakdown })}
-        floatingPanelProps={{
-          width: 320,
-        }}
-        renderTrigger={
-          <XStack
-            mx="$5"
-            mt="$5"
-            px="$4"
-            py="$3"
-            backgroundColor="$bgStrong"
-            borderRadius="$3"
-            alignItems="center"
-            justifyContent="space-between"
-            cursor="pointer"
-            hoverStyle={{
-              opacity: 0.8,
-            }}
-            borderColor="$borderSubdued"
-            borderWidth={1}
-          >
-            <XStack gap="$2.5" alignItems="center" flex={1}>
-              <Icon name="PiggyMoneySolid" size="$5" color="$iconSuccess" />
-              <SizableText size="$bodyMd" color="$text">
-                {intl
-                  .formatMessage(
-                    { id: ETranslations.perps_onekey_has_saved_you },
-                    { fee: '__FEE__' },
-                  )
-                  .split('__FEE__')
-                  .reduce((acc, part, index) => {
-                    if (index === 0) return [part];
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-                    return [
-                      ...acc,
-                      <SizableText
-                        key={index}
-                        size="$bodyMd"
-                        color="$textSuccess"
-                        fontWeight="600"
-                      >
-                        {cumulativeSavings}
-                      </SizableText>,
-                      part,
-                    ];
-                  }, [] as any[])}
-              </SizableText>
-            </XStack>
-            <Icon name="ChevronRightSmallOutline" size="$5" color="$icon" />
-          </XStack>
-        }
-        renderContent={savingsPopoverContent}
-      />
-    );
-  }, [
-    cumulativeSavings,
-    gtMd,
-    visibleHistoryType,
-    intl,
-    savingsPopoverContent,
-  ]);
-
   return (
     <Page>
       <Page.Header
@@ -719,10 +462,7 @@ const SwapHistoryListModal = ({
         headerTitle={headerSelectType}
       />
       {visibleHistoryType !== EProtocolOfExchange.LIMIT ? (
-        <YStack flex={1}>
-          {savingsBanner}
-          <SwapMarketHistoryList protocol={visibleHistoryType} />
-        </YStack>
+        <SwapMarketHistoryList protocol={visibleHistoryType} />
       ) : (
         <LimitOrderListModalWithAllProvider storeName={storeName} />
       )}
