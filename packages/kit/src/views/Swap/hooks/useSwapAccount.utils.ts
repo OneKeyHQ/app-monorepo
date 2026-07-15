@@ -35,6 +35,23 @@ type IShouldResetSwapRecipientOnAccountNetworkSyncParams = {
   providerSupportReceiveAddress?: boolean;
 };
 
+type IGetSwapAddressAccountSelectorNumParams = {
+  type: ESwapDirectionType;
+  swapToAnotherAccountSwitchOn: boolean;
+};
+
+export function getSwapAddressAccountSelectorNum({
+  type,
+  swapToAnotherAccountSwitchOn,
+}: IGetSwapAddressAccountSelectorNumParams) {
+  // Without an explicit recipient, both addresses must belong to the source
+  // account even if the account-selector TO slot is temporarily stale.
+  if (type === ESwapDirectionType.TO && swapToAnotherAccountSwitchOn) {
+    return 1;
+  }
+  return 0;
+}
+
 function areSwapRecipientNetworksCompatible({
   selectedRecipientNetworkId,
   targetNetworkId,
