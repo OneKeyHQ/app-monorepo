@@ -240,12 +240,29 @@ export function useSupabaseAuth() {
       ).client.auth.signInWithOtp({
         email,
         options: {
-          // set this to false if you do not want the user to be automatically signed up
-          shouldCreateUser: true,
+          // Email sign-in is a legacy fallback for EXISTING accounts only —
+          // the OAuth-first policy (and the fallback dialog copy) forbids
+          // creating a new OneKey ID via email. Maps to `create_user` in the
+          // GoTrue /otp request; the server-side signup closure is the
+          // authoritative control, this keeps the client consistent with it
+          // and fails at send-code time instead of after the OTP round-trip.
+          shouldCreateUser: false,
         },
       });
-      console.log('useSupabaseAuth_signInWithOtp', res);
       if (res.error && res.error.message) {
+        // With shouldCreateUser=false (or sign-up disabled server-side),
+        // GoTrue rejects unknown emails with the sign-up-not-allowed
+        // rejection (error code `otp_disabled`) — surface it as
+        // account-not-found guidance instead of the raw GoTrue message.
+        if (
+          (res.error as { code?: string }).code === 'otp_disabled' ||
+          res.error.message.includes('Signups not allowed')
+        ) {
+          // TODO: i18n
+          throw new OneKeyLocalError(
+            'No OneKey ID uses this email. Email sign-in is only available for existing accounts — use Google or Apple to create a new OneKey ID.',
+          );
+        }
         // For security purposes, you can only request this after 48 seconds.
         if (
           res.error.message?.includes(
