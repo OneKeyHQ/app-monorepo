@@ -257,7 +257,14 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   // sign-out / keyless persist.
   useEffect(() => {
     let isActive = true;
-    const onAuthSessionSourceCommitted = () => {
+    // Pure PROJECTION refresh: re-resolve the source and re-read both
+    // persisted session slots, then update local state. Never mutates the
+    // shared session storage from this (main) runtime — bg owns every
+    // persistent session deletion (generation-gated slot queue), so a
+    // stale event arriving after a fresh login simply re-reads the fresh
+    // session and keeps presenting it, instead of a main-side signOut
+    // deleting credentials that no guard could restore.
+    const refreshProjectionFromStorage = () => {
       void (async () => {
         try {
           await refreshAuthSessionSource();
@@ -270,61 +277,50 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
           setKeylessSession(nextKeylessSession);
         } catch (error) {
           console.error(
-            'Error refreshing sessions after auth session source commit:',
+            'Error refreshing session projection from storage:',
             error,
           );
         }
       })();
     };
+    // Source committed (login / bind switch): pick up the new slot.
     appEventBus.on(
       EAppEventBusNames.PrimeAuthSessionSourceCommitted,
-      onAuthSessionSourceCommitted,
+      refreshProjectionFromStorage,
+    );
+    // Bg cleared the shared keyless session storage (keyless wallet
+    // removal / teardown): drop this runtime's projection by re-reading
+    // the storage bg just cleared. Runtime note (main): the keyless client
+    // itself holds no long-lived in-memory session — auth-js re-reads
+    // storage per getSession — so no client sign-out is needed here, and
+    // performing one would race a concurrent fresh login's persist.
+    appEventBus.on(
+      EAppEventBusNames.KeylessAuthSessionCleared,
+      refreshProjectionFromStorage,
+    );
+    // Bg cleared auth state after a confirmed invalid token: same
+    // projection refresh; the per-source persistent deletion already
+    // happened (generation-gated) in bg before the event was emitted.
+    appEventBus.on(
+      EAppEventBusNames.PrimeLoginInvalidToken,
+      refreshProjectionFromStorage,
     );
     return () => {
       isActive = false;
       appEventBus.off(
         EAppEventBusNames.PrimeAuthSessionSourceCommitted,
-        onAuthSessionSourceCommitted,
+        refreshProjectionFromStorage,
+      );
+      appEventBus.off(
+        EAppEventBusNames.KeylessAuthSessionCleared,
+        refreshProjectionFromStorage,
+      );
+      appEventBus.off(
+        EAppEventBusNames.PrimeLoginInvalidToken,
+        refreshProjectionFromStorage,
       );
     };
   }, [readSessionSlots, refreshAuthSessionSource]);
-
-  // Runtime note (main): when the bg runtime clears the shared keyless
-  // session storage (keyless wallet removal / cleanup), this runtime's
-  // keyless client still holds an isolated in-memory JS session copy. Sign
-  // it out locally so the context (and any other main-side holder of the
-  // keyless client) stops acting logged-in. On desktop/web (standalone,
-  // single runtime) the sign-out is an idempotent no-op — the emitting
-  // runtime already signed out this same client instance.
-  useEffect(() => {
-    const onKeylessAuthSessionCleared = () => {
-      void (async () => {
-        try {
-          const { getKeylessSupabaseClient } =
-            await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
-          // scope:'local' only drops the local session (storage already
-          // cleared by bg) and emits SIGNED_OUT to the subscription above.
-          await getKeylessSupabaseClient().client.auth.signOut({
-            scope: 'local',
-          });
-        } catch (error) {
-          console.error('Error signing out keyless client:', error);
-        }
-        setKeylessSession(null);
-        void refreshAuthSessionSource();
-      })();
-    };
-    appEventBus.on(
-      EAppEventBusNames.KeylessAuthSessionCleared,
-      onKeylessAuthSessionCleared,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.KeylessAuthSessionCleared,
-        onKeylessAuthSessionCleared,
-      );
-    };
-  }, [refreshAuthSessionSource]);
 
   // Select the session slot matching the persisted auth session source.
   // HARD SAFETY RULE (mirrors SimpleDbEntityPrime.getEffectiveAuthSessionSource):

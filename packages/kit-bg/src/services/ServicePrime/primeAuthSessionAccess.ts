@@ -1,3 +1,5 @@
+import { Semaphore } from 'async-mutex';
+
 import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
 import {
   getKeylessSupabaseAuthSessionKey,
@@ -131,22 +133,69 @@ export function clearSupabaseStorageCache() {
 }
 
 /**
- * Sign out the given session source locally and remove its persisted
- * session storage key.
+ * Per-realm serial queue for session-slot DELETIONS (bg-owned). Every
+ * destructive session-slot mutation — unconditional clears here and the
+ * generation-gated clear in ServicePrime — runs inside the realm's
+ * semaphore, so two deletions can never interleave, and a gated deletion's
+ * generation validation and its storage removal belong to one serial
+ * operation.
+ *
+ * Lock ordering: session slot queue (outer) -> authStateWriteMutex (inner,
+ * taken by ServicePrime's gated clear for the validate+remove step).
+ * Sections holding authStateWriteMutex must never wait on this queue.
+ */
+const sessionSlotMutexBySource: Record<EPrimeAuthSessionSource, Semaphore> = {
+  [EPrimeAuthSessionSource.LegacyEmailSupabase]: new Semaphore(1),
+  [EPrimeAuthSessionSource.KeylessOAuth]: new Semaphore(1),
+};
+
+export async function runExclusiveOnAuthSessionSlot<T>(
+  authSessionSource: EPrimeAuthSessionSource,
+  fn: () => Promise<T>,
+): Promise<T> {
+  return sessionSlotMutexBySource[authSessionSource].runExclusive(fn);
+}
+
+/**
+ * Remove the persisted session storage key of the given source (local
+ * storage write only — safe inside authStateWriteMutex).
+ */
+export async function removeAuthSessionStorageBySessionSource(
+  authSessionSource: EPrimeAuthSessionSource,
+): Promise<void> {
+  const sessionKey =
+    getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
+  await supabaseStorageInstance.removeItem(sessionKey);
+  supabaseStorageInstance.clearCache();
+}
+
+/**
+ * Sign out this runtime's SDK client of the given source (network-capable;
+ * never call while holding authStateWriteMutex).
+ */
+export async function signOutAuthSessionClientBySessionSource(
+  authSessionSource: EPrimeAuthSessionSource,
+): Promise<void> {
+  const client = getSupabaseClientBySessionSource(authSessionSource);
+  try {
+    await client.auth.signOut({ scope: 'local' });
+  } catch {
+    // Storage removal is handled by the callers even when the SDK session
+    // is already invalid.
+  }
+}
+
+/**
+ * Unconditionally sign out the given session source locally and remove its
+ * persisted session storage key, serialized on the realm's slot queue.
  */
 export async function clearAuthSessionBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
 ): Promise<void> {
-  const client = getSupabaseClientBySessionSource(authSessionSource);
-  const sessionKey =
-    getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
-  try {
-    await client.auth.signOut({ scope: 'local' });
-  } catch {
-    // Local storage is cleared below even if the SDK session is already invalid.
-  }
-  await supabaseStorageInstance.removeItem(sessionKey);
-  supabaseStorageInstance.clearCache();
+  await runExclusiveOnAuthSessionSlot(authSessionSource, async () => {
+    await signOutAuthSessionClientBySessionSource(authSessionSource);
+    await removeAuthSessionStorageBySessionSource(authSessionSource);
+  });
 }
 
 /**

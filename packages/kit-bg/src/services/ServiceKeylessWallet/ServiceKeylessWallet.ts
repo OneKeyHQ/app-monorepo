@@ -3634,20 +3634,38 @@ class ServiceKeylessWallet extends ServiceBase {
    */
   @backgroundMethod()
   async clearKeylessAuthSessionAndLoginState(): Promise<void> {
-    // Snapshot the auth-state commit generation BEFORE the slow session
-    // clear below: the in-lock source re-read alone cannot distinguish the
-    // KeylessOAuth login this teardown targets from a FRESH KeylessOAuth
-    // login that commits while clearKeylessAuthSession() awaits (its
-    // signOut can hang on the network for many seconds) — both read as
-    // KeylessOAuth. A fresh commit bumps the generation, which the guarded
-    // clear compares in-lock.
+    // Snapshot the auth-state commit generation BEFORE the session
+    // deletion: a source-only re-read cannot distinguish the KeylessOAuth
+    // login this teardown targets from a FRESH KeylessOAuth login that
+    // commits mid-teardown — both read as KeylessOAuth. A fresh commit
+    // bumps the generation.
     const expectedAuthStateGeneration =
       await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
-    await this.backgroundApi.simpleDb.prime.clearKeylessAuthSession();
+    // Generation-gated slot-queue deletion: the validation and the storage
+    // removal execute as one serial operation, atomic w.r.t. login commits
+    // (see ServicePrime.clearAuthSessionIfGenerationStillMatches). A login
+    // that fully committed before this call keeps its session — the
+    // deletion is skipped instead of destroying credentials that the later
+    // guards could never restore.
+    const sessionClearOutcome =
+      await this.backgroundApi.servicePrime.clearAuthSessionIfGenerationStillMatches(
+        {
+          authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+          expectedAuthStateGeneration,
+          callerName: 'clearKeylessAuthSessionAndLoginState',
+        },
+      );
+    if (sessionClearOutcome.generationChanged) {
+      // A fresh KeylessOAuth login committed after the snapshot: it owns
+      // the keyless slot now. Skip the auth-state wipe AND the
+      // KeylessAuthSessionCleared broadcast — main-runtime handlers respond
+      // to it by dropping their keyless session projection, which would
+      // present the fresh login as logged out.
+      return;
+    }
     // Guarded clear (authStateWriteMutex + in-lock generation/source
     // re-read): deciding on a pre-clear snapshot alone could race a login
-    // commit that lands in between (e.g. while a wallet-removal signOut
-    // waits on the network) and wipe the freshly committed login.
+    // commit that lands in between and wipe the freshly committed login.
     const { generationChanged } =
       await this.backgroundApi.servicePrime.clearOneKeyIdAuthStateIfSourceStillKeylessOAuth(
         {
@@ -3656,13 +3674,8 @@ class ServiceKeylessWallet extends ServiceBase {
         },
       );
     if (generationChanged) {
-      // A fresh KeylessOAuth login committed while the session clear was in
-      // flight; its session now occupies the shared keyless slot (written
-      // after the sweep above). The KeylessAuthSessionCleared broadcast
-      // below must NOT fire: main-runtime handlers respond by signing out
-      // their keyless client copy, whose storage adapter is the SHARED
-      // session storage — a stale broadcast would delete the fresh login's
-      // persisted session.
+      // Same rationale as above, for a commit landing between the session
+      // deletion and this auth-state clear.
       return;
     }
     // Runtime note (bg -> main): the clear above only affects the shared

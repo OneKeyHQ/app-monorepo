@@ -17,8 +17,10 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
-import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
+import type {
+  EPrimeAuthSessionSource,
+  IPrimeUserInfo,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { showOneKeyIdLegacyOAuthBindDialogForLocalKeylessUpgrade } from '../components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
@@ -286,10 +288,17 @@ function PrimeGlobalEffectAfterAuthReady() {
 }
 
 function PrimeGlobalEffectView() {
-  const { isReady, legacySupabaseSignOut, keylessSupabaseSignOut } =
-    useOneKeyAuth();
+  const { isReady } = useOneKeyAuth();
 
   useEffect(() => {
+    // Main-runtime handler NEVER mutates the shared session storage: every
+    // persistent session deletion is bg-owned and generation-gated (see
+    // ServicePrime.clearAuthSessionIfGenerationStillMatches) — a main-side
+    // signOut here could race a fresh login's persist and delete
+    // credentials no later guard can restore (extension runs this handler
+    // once per UI surface, multiplying that window). The session
+    // PROJECTION refresh is handled by SupabaseAuthProvider's own
+    // PrimeLoginInvalidToken subscription (pure storage re-read).
     const fn = async (
       payload:
         | {
@@ -307,15 +316,10 @@ function PrimeGlobalEffectView() {
         payload.authStateGeneration !== undefined
       ) {
         // Staleness gate: the payload carries the auth-state commit
-        // generation observed when bg decided to clear. A user can complete
-        // a fresh login while this event propagates bg -> main (event-bus
-        // hop + the signOut awaits below); that commit bumps the
-        // generation. Signing out then would be destructive: this runtime's
-        // clients persist through the SHARED session storage, so the stale
-        // sign-out would delete the fresh login's persisted session — and
-        // the guarded atom reset at the end cannot restore deleted
-        // credentials. Skip the whole stale event; the fresh login owns the
-        // session slot now.
+        // generation observed when bg decided to clear. A user can
+        // complete a fresh login while this event propagates bg -> main;
+        // that commit bumps the generation, and the rest of this handler
+        // must not run against the pre-login epoch.
         const currentAuthStateGeneration =
           await backgroundApiProxy.simpleDb.prime.getAuthStateGeneration();
         if (currentAuthStateGeneration !== payload.authStateGeneration) {
@@ -325,29 +329,19 @@ function PrimeGlobalEffectView() {
           return;
         }
       }
-      if (
-        payload?.clearedByBackground &&
-        payload.authSessionSource === EPrimeAuthSessionSource.KeylessOAuth
-      ) {
-        await keylessSupabaseSignOut();
-      } else if (
-        payload?.clearedByBackground &&
-        payload.authSessionSource ===
-          EPrimeAuthSessionSource.LegacyEmailSupabase
-      ) {
-        await legacySupabaseSignOut();
-      } else {
-        // Payload-less event: only sign out the legacy session. Never clear
-        // the keyless session here — it may be the only credential of a
-        // local keyless wallet and must not be destroyed without an explicit
-        // keyless-sourced payload.
-        await legacySupabaseSignOut();
+      if (!payload?.clearedByBackground) {
+        // Payload-less defensive branch (no current emitter): route the
+        // legacy-session deletion through the bg-owned slot queue instead
+        // of a main-side signOut. Never touch the keyless session here —
+        // it may be the only credential of a local keyless wallet and must
+        // not be destroyed without an explicit keyless-sourced payload.
+        await backgroundApiProxy.simpleDb.prime.clearLegacyAuthSession();
       }
       // Guarded reset (authStateWriteMutex + in-lock re-read): the bg-side
-      // invalid-token cleanup already reset the atom in-lock before emitting
-      // this event, and a new login may have committed during the event-bus
-      // hop + signOut awaits above — an unconditional atom reset here would
-      // wipe it (ext runs this handler once per UI surface).
+      // invalid-token cleanup already reset the atom in-lock before
+      // emitting this event, and a new login may have committed during the
+      // event-bus hop — an unconditional atom reset here would wipe it
+      // (ext runs this handler once per UI surface).
       await backgroundApiProxy.servicePrime.clearOneKeyIdAuthStateIfNoActiveToken(
         {
           callerName: 'PrimeGlobalEffectView.PrimeLoginInvalidToken',
@@ -358,7 +352,7 @@ function PrimeGlobalEffectView() {
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeLoginInvalidToken, fn);
     };
-  }, [keylessSupabaseSignOut, legacySupabaseSignOut]);
+  }, []);
 
   if (isReady) {
     return <PrimeGlobalEffectAfterAuthReady />;

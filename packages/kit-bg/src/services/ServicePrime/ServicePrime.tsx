@@ -54,7 +54,12 @@ import {
 } from '../../states/jotai/atoms/prime';
 import ServiceBase from '../ServiceBase';
 
-import { readAuthTokenAllowingRetryableAuthError } from './primeAuthSessionAccess';
+import {
+  readAuthTokenAllowingRetryableAuthError,
+  removeAuthSessionStorageBySessionSource,
+  runExclusiveOnAuthSessionSlot,
+  signOutAuthSessionClientBySessionSource,
+} from './primeAuthSessionAccess';
 
 import type {
   IPrimeLoginDialogAtomData,
@@ -576,39 +581,20 @@ class ServicePrime extends ServiceBase {
       return lockResult;
     }
 
-    // Per-source Supabase session clear (auth.signOut can perform network
-    // I/O) deliberately runs OUTSIDE the lock, after the guarded
-    // simpleDb+atom write above committed the clear decision.
-    //
-    // Stale-sweep gate: a same-source OAuth login can FULLY commit (session
-    // + source + atom) between the lock release above and this sweep. Once
-    // committed, commitAuthSessionSourceBeforeAtomUpdate's fail-safe can no
-    // longer catch anything — sweeping here would delete the FRESH login's
-    // session while its atom/source stay logged-in. Re-check the commit
-    // generation right before sweeping and skip when a commit landed in
-    // between: the fresh login owns the slot now, and the invalid session
-    // this sweep targeted was already overwritten by the fresh setItem (or,
-    // for a cross-source login, left inert with its source no longer
-    // selected). A commit landing DURING the sweep below remains possible —
-    // fully closing that would require routing every session write through
-    // the bg mutex (forbidden: network I/O under authStateWriteMutex).
-    const generationBeforeSessionClear =
-      await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
-    if (generationBeforeSessionClear !== lockResult.authStateGeneration) {
-      defaultLogger.prime.subscription.onekeyIdInvalidToken({
-        url: requestUrl || '',
-        errorCode: errorCode || -1,
-        errorMessage: `skip stale per-source session clear, a login committed after the in-lock clear (generation ${String(
-          lockResult.authStateGeneration,
-        )} -> ${generationBeforeSessionClear})`,
-      });
-      return lockResult;
-    }
-    if (lockResult.authSessionSource === EPrimeAuthSessionSource.KeylessOAuth) {
-      await this.backgroundApi.simpleDb.prime.clearKeylessAuthSession();
-    } else {
-      await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
-    }
+    // Per-source Supabase session clear deliberately runs OUTSIDE
+    // authStateWriteMutex (auth.signOut can perform network I/O), but
+    // through the generation-gated slot-queue clear: the generation
+    // validation and the storage removal execute as one serial operation
+    // (atomic w.r.t. login commits — see the method doc), so a login that
+    // fully commits after the in-lock clear above can never have its fresh
+    // session swept here.
+    await this.clearAuthSessionIfGenerationStillMatches({
+      authSessionSource:
+        lockResult.authSessionSource ??
+        EPrimeAuthSessionSource.LegacyEmailSupabase,
+      expectedAuthStateGeneration: lockResult.authStateGeneration ?? 0,
+      callerName: 'handlePrimeLoginInvalidToken',
+    });
     return lockResult;
   }
 
@@ -1144,6 +1130,55 @@ class ServicePrime extends ServiceBase {
       }
       await this.backgroundApi.simpleDb.prime.clearAuthTokens();
       await this.setPrimePersistAtomNotLoggedIn();
+      return { cleared: true };
+    });
+  }
+
+  /**
+   * Generation-gated per-realm session-slot deletion, serialized on the
+   * bg-owned session slot queue (see runExclusiveOnAuthSessionSlot).
+   *
+   * Race-free structure:
+   * 1. Slot queue (outer): no two deletions of the same realm interleave.
+   * 2. authStateWriteMutex (inner): [generation validation + storage-key
+   *    removal] execute atomically w.r.t. login commits — both are local
+   *    writes, allowed under the lock policy. A commit that already
+   *    finished bumped the generation, so the validation skips; a commit
+   *    still waiting on the mutex re-reads its active token AFTER this
+   *    removal and fails safe (clears + throws), so the worst racing
+   *    outcome is one visibly failed login retry — never a logged-in
+   *    atom/source pointing at an empty session slot.
+   * 3. The SDK signOut (network-capable) runs after the gated removal,
+   *    inside the slot queue but outside authStateWriteMutex, and only
+   *    when the removal actually happened.
+   */
+  @backgroundMethod()
+  async clearAuthSessionIfGenerationStillMatches({
+    authSessionSource,
+    expectedAuthStateGeneration,
+    callerName,
+  }: {
+    authSessionSource: EPrimeAuthSessionSource;
+    expectedAuthStateGeneration: number;
+    callerName: string;
+  }): Promise<{ cleared: boolean; generationChanged?: boolean }> {
+    return runExclusiveOnAuthSessionSlot(authSessionSource, async () => {
+      const removed = await this.authStateWriteMutex.runExclusive(async () => {
+        const currentGeneration =
+          await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+        if (currentGeneration !== expectedAuthStateGeneration) {
+          defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+            reason: `${callerName}: skip session-slot clear, a login committed after the caller snapshot (generation ${expectedAuthStateGeneration} -> ${currentGeneration})`,
+          });
+          return false;
+        }
+        await removeAuthSessionStorageBySessionSource(authSessionSource);
+        return true;
+      });
+      if (!removed) {
+        return { cleared: false, generationChanged: true };
+      }
+      await signOutAuthSessionClientBySessionSource(authSessionSource);
       return { cleared: true };
     });
   }

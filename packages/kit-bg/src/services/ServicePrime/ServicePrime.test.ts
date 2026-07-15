@@ -105,6 +105,15 @@ jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
   },
 }));
 
+// Captures the session-slot mutation helpers so tests can assert the
+// generation-gated deletion behavior without a real Supabase client.
+const mockRemoveAuthSessionStorageBySessionSource = jest.fn(
+  async (_source: unknown) => undefined,
+);
+const mockSignOutAuthSessionClientBySessionSource = jest.fn(
+  async (_source: unknown) => undefined,
+);
+
 // Real retryable-error semantics, driven by a `$$retryable` marker on the
 // rejection so tests can simulate a failed local session refresh.
 jest.mock('./primeAuthSessionAccess', () => ({
@@ -127,6 +136,15 @@ jest.mock('./primeAuthSessionAccess', () => ({
       return null;
     }
   },
+  // Pass-through slot queue preserving the serial-execution shape.
+  runExclusiveOnAuthSessionSlot: async (
+    _source: unknown,
+    fn: () => Promise<unknown>,
+  ) => fn(),
+  removeAuthSessionStorageBySessionSource: (source: unknown) =>
+    mockRemoveAuthSessionStorageBySessionSource(source),
+  signOutAuthSessionClientBySessionSource: (source: unknown) =>
+    mockSignOutAuthSessionClientBySessionSource(source),
 }));
 
 const {
@@ -266,8 +284,14 @@ describe('ServicePrime invalid-token handling', () => {
       ).rejects.toBe(error);
 
       expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
-      expect(simpleDbPrime.clearKeylessAuthSession).toHaveBeenCalled();
-      expect(simpleDbPrime.clearLegacyAuthSession).not.toHaveBeenCalled();
+      // The per-source sweep runs through the generation-gated slot-queue
+      // deletion, targeting only the keyless realm.
+      expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledWith(
+        EPrimeAuthSessionSource.KeylessOAuth,
+      );
+      expect(mockSignOutAuthSessionClientBySessionSource).toHaveBeenCalledWith(
+        EPrimeAuthSessionSource.KeylessOAuth,
+      );
       expect(emitSpy).toHaveBeenCalledWith(
         EAppEventBusNames.PrimeLoginInvalidToken,
         {
@@ -405,7 +429,12 @@ describe('ServicePrime invalid-token handling', () => {
         authStateGeneration: 0,
       });
       expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
-      expect(simpleDbPrime.clearKeylessAuthSession).toHaveBeenCalled();
+      expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledWith(
+        EPrimeAuthSessionSource.KeylessOAuth,
+      );
+      expect(mockSignOutAuthSessionClientBySessionSource).toHaveBeenCalledWith(
+        EPrimeAuthSessionSource.KeylessOAuth,
+      );
       expect(mockPrimePersistAtom.set).toHaveBeenCalled();
       expect(
         backgroundApi.serviceMasterPassword.clearLocalMasterPassword,
@@ -435,9 +464,14 @@ describe('ServicePrime invalid-token handling', () => {
       // The guarded simpleDb+atom clear already committed in-lock…
       expect(result.cleared).toBe(true);
       expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
-      // …but the stale per-source session sweep must be skipped.
-      expect(simpleDbPrime.clearKeylessAuthSession).not.toHaveBeenCalled();
-      expect(simpleDbPrime.clearLegacyAuthSession).not.toHaveBeenCalled();
+      // …but the stale per-source session sweep must be skipped: neither
+      // the storage removal nor the SDK sign-out may run.
+      expect(
+        mockRemoveAuthSessionStorageBySessionSource,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockSignOutAuthSessionClientBySessionSource,
+      ).not.toHaveBeenCalled();
     });
 
     it('skips clearing when the active token changed while waiting for the lock (concurrent re-login committed)', async () => {
@@ -476,8 +510,12 @@ describe('ServicePrime invalid-token handling', () => {
       const result = await resultPromise;
       expect(result.cleared).toBe(false);
       expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
-      expect(simpleDbPrime.clearKeylessAuthSession).not.toHaveBeenCalled();
-      expect(simpleDbPrime.clearLegacyAuthSession).not.toHaveBeenCalled();
+      expect(
+        mockRemoveAuthSessionStorageBySessionSource,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockSignOutAuthSessionClientBySessionSource,
+      ).not.toHaveBeenCalled();
       expect(mockPrimePersistAtom.set).not.toHaveBeenCalled();
     });
 
@@ -642,6 +680,83 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     expect(result.cleared).toBe(false);
     expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
     expect(atomResetSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServicePrime.clearAuthSessionIfGenerationStillMatches', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('removes storage under the lock then signs out when the generation matches', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+
+    const result = await service.clearAuthSessionIfGenerationStillMatches({
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      expectedAuthStateGeneration: 3,
+      callerName: 'test',
+    });
+
+    expect(result).toEqual({ cleared: true });
+    expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    expect(mockSignOutAuthSessionClientBySessionSource).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+  });
+
+  it('skips both removal and sign-out when a login committed after the snapshot', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+
+    const result = await service.clearAuthSessionIfGenerationStillMatches({
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      expectedAuthStateGeneration: 3,
+      callerName: 'test',
+    });
+
+    expect(result).toEqual({ cleared: false, generationChanged: true });
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+    expect(mockSignOutAuthSessionClientBySessionSource).not.toHaveBeenCalled();
+  });
+
+  it('validates the generation atomically with commits (waits for authStateWriteMutex)', async () => {
+    const { service, simpleDbPrime } = createService();
+    const generationRef = { current: 3 };
+    simpleDbPrime.getAuthStateGeneration.mockImplementation(
+      async () => generationRef.current,
+    );
+
+    // Hold authStateWriteMutex, simulating a login commit in progress.
+    const lockAcquired = createDeferred();
+    const releaseLock = createDeferred();
+    const lockHolder = service.authStateWriteMutex.runExclusive(async () => {
+      lockAcquired.resolve();
+      await releaseLock.promise;
+    });
+    await lockAcquired.promise;
+
+    const resultPromise = service.clearAuthSessionIfGenerationStillMatches({
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      expectedAuthStateGeneration: 3,
+      callerName: 'test',
+    });
+    await flushAsync();
+    // Nothing may have been deleted while the commit holds the mutex.
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+
+    // The commit bumps the generation before releasing the lock — the
+    // deletion must then observe it and skip.
+    generationRef.current = 4;
+    releaseLock.resolve();
+    await lockHolder;
+
+    const result = await resultPromise;
+    expect(result).toEqual({ cleared: false, generationChanged: true });
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+    expect(mockSignOutAuthSessionClientBySessionSource).not.toHaveBeenCalled();
   });
 });
 
