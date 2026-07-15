@@ -23,6 +23,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
@@ -346,19 +347,19 @@ function hasProtocolIntroItemContent(item: IEarnProtocolIntroItem) {
 }
 
 const DIALOG_CONTENT_MAX_HEIGHT = 512;
-const EXTENSION_POPUP_DIALOG_CONTENT_HEIGHT = 260;
+const COMPACT_DIALOG_CONTENT_HEIGHT = 260;
 
-function DialogContent({ children }: { children: React.ReactNode }) {
+function DialogContent({
+  children,
+  isCompact,
+}: {
+  children: React.ReactNode;
+  isCompact: boolean;
+}) {
   return (
     <ScrollView
-      height={
-        platformEnv.isExtensionUiPopup
-          ? EXTENSION_POPUP_DIALOG_CONTENT_HEIGHT
-          : undefined
-      }
-      maxHeight={
-        platformEnv.isExtensionUiPopup ? undefined : DIALOG_CONTENT_MAX_HEIGHT
-      }
+      height={isCompact ? COMPACT_DIALOG_CONTENT_HEIGHT : undefined}
+      maxHeight={isCompact ? undefined : DIALOG_CONTENT_MAX_HEIGHT}
       nestedScrollEnabled
     >
       <YStack px="$5" pb="$5">
@@ -1502,6 +1503,8 @@ function ProtocolIntroSectionComponent({
   protocolInfo?: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[];
 }) {
   const intl = useIntl();
+  const { md } = useMedia();
+  const isCompactDialog = Boolean(platformEnv.isRuntimeBrowser && md);
   const [selection, setSelection] = useState<{
     protocolInfo?: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[];
     index: number;
@@ -1567,16 +1570,20 @@ function ProtocolIntroSectionComponent({
         floatingPanelProps: {
           width: 400,
         },
-        renderContent: <DialogContent>{renderContent}</DialogContent>,
+        renderContent: (
+          <DialogContent isCompact={isCompactDialog}>
+            {renderContent}
+          </DialogContent>
+        ),
         onConfirmText: intl.formatMessage({ id: ETranslations.global_got_it }),
         confirmButtonProps: {
           variant: 'secondary',
         },
         showCancelButton: false,
-        disableDrag: platformEnv.isExtensionUiPopup,
+        disableDrag: isCompactDialog,
       });
     },
-    [intl],
+    [intl, isCompactDialog],
   );
 
   const handleShowTeam = useCallback(() => {
