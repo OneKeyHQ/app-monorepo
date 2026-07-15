@@ -144,7 +144,8 @@ export default function WebViewModal() {
                 icon: 'GlobusOutline',
                 testID: WebViewTestIDs.openInBrowserBtn,
                 onPress: async () => {
-                  openUrlExternal(currentUrl);
+                  // Explicit "open in browser" action: leave the app.
+                  openUrlExternal(currentUrl, { useSystemBrowser: true });
                 },
               },
             ].filter(Boolean) as IActionListItemProps[],
