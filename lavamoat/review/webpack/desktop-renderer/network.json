@@ -1,0 +1,391 @@
+{
+  "description": "可发起网络请求或跨上下文加载脚本的浏览器 API",
+  "resources": {
+    "@onekeyhq/components>react-hook-form": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/components>react-native-svg": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/core>@alephium/web3": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/core>@aptos-labs/ts-sdk": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": {
+      "globals": {
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/core>@glif/filecoin-address>ethers>@ethersproject/providers": {
+      "globals": {
+        "WebSocket": true
+      }
+    },
+    "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor": {
+      "globals": {
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "fetch": true,
+        "WebSocket": true
+      }
+    },
+    "@onekeyhq/core>@solana/web3.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/core>@solana/web3.js>rpc-websockets": {
+      "globals": {
+        "WebSocket": true
+      }
+    },
+    "@onekeyhq/core>@starcoin/starcoin>@ethersproject/web": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/core>algosdk": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js": {
+      "globals": {
+        "importScripts": true,
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/core>cosmjs-types>protobufjs>@protobufjs/fetch": {
+      "globals": {
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk": {
+      "globals": {
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk>superagent": {
+      "globals": {
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>@near-js/providers": {
+      "globals": {
+        "fetch": "write"
+      }
+    },
+    "@onekeyhq/core>xrpl": {
+      "globals": {
+        "WebSocket": true
+      }
+    },
+    "@onekeyhq/kit-bg": {
+      "globals": {
+        "fetch": true,
+        "WebSocket.CLOSED": true,
+        "WebSocket.CLOSING": true,
+        "WebSocket.OPEN": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>expo": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/kit>zbar.wasm": {
+      "globals": {
+        "fetch": true,
+        "importScripts": true,
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>micro-ftch": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "fetch": "write",
+        "WebSocket": true,
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/shared>axios": {
+      "globals": {
+        "fetch": true,
+        "importScripts": true,
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/shared>localforage": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@sentry/electron": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@sentry/electron>@sentry/browser": {
+      "globals": {
+        "XMLHttpRequest.prototype": true
+      }
+    },
+    "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils": {
+      "globals": {
+        "XMLHttpRequest.prototype": true
+      }
+    },
+    "external:../../node_modules/@benfen/bfc.js/dist/esm/client/http-transport.js": {
+      "globals": {
+        "fetch": true,
+        "WebSocket": true
+      }
+    },
+    "external:../../node_modules/@benfen/bfc.js/dist/esm/client/rpc-websocket-client.js": {
+      "globals": {
+        "WebSocket": true
+      }
+    },
+    "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": {
+      "globals": {
+        "XMLHttpRequest": true
+      }
+    },
+    "external:../../node_modules/@ledgerhq/device-management-kit/node_modules/isomorphic-ws/browser.js": {
+      "globals": {
+        "WebSocket": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/dist/jsonRpc/http-transport.mjs": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@nktkas/hyperliquid/esm/transport/http/mod.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@nktkas/rews/esm/mod.js": {
+      "globals": {
+        "WebSocket": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+      "globals": {
+        "fetch": true,
+        "importScripts": true,
+        "XMLHttpRequest": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/ReownAuthentication.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/ExchangeUtil.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/FetchUtil.js": {
+      "globals": {
+        "fetch": true,
+        "navigator.sendBeacon": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/FetchUtil.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit/node_modules/@reown/appkit-utils/dist/esm/src/SemVerUtils.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/core/SVG.web.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/JsiSkDataFactory.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/helpers.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@supabase/functions-js/dist/module/helper.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@supabase/postgrest-js/dist/cjs/PostgrestBuilder.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@supabase/postgrest-js/dist/cjs/PostgrestClient.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@supabase/postgrest-js/dist/cjs/PostgrestQueryBuilder.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@supabase/realtime-js/dist/module/lib/websocket-factory.js": {
+      "globals": {
+        "WebSocket": true
+      }
+    },
+    "external:../../node_modules/@supabase/realtime-js/dist/module/RealtimeClient.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@supabase/storage-js/dist/module/lib/helpers.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@supabase/storage-js/dist/module/lib/vectors/helpers.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@supabase/supabase-js/dist/main/lib/fetch.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/core/dist/index.es.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/jsonrpc-ws-connection/dist/index.es.js": {
+      "globals": {
+        "WebSocket": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/universal-provider/dist/index.es.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js": {
+      "globals": {
+        "fetch": true,
+        "XMLHttpRequest": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/build/esm/contrib/has-cors.js": {
+      "globals": {
+        "XMLHttpRequest": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/build/esm/transports/xmlhttprequest.browser.js": {
+      "globals": {
+        "XMLHttpRequest": true
+      }
+    },
+    "external:../../node_modules/expo-image/src/ImageModule.web.ts": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/expo-image/src/web/hooks.ts": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/iceberg-js/dist/index.mjs": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/juicebox-sdk/juicebox-sdk_bg.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/lottie-web/build/player/lottie.js": {
+      "globals": {
+        "XMLHttpRequest": true
+      }
+    },
+    "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js": {
+      "globals": {
+        "XMLHttpRequest": true
+      }
+    },
+    "external:../../node_modules/tonweb/src/providers/index.js": {
+      "globals": {
+        "fetch": "write"
+      }
+    },
+    "external:../../node_modules/viem/_esm/utils/ccip.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/viem/_esm/utils/ens/avatar/utils.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/viem/_esm/utils/rpc/http.js": {
+      "globals": {
+        "fetch": true
+      }
+    }
+  }
+}

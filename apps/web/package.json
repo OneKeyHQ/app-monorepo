@@ -9,12 +9,17 @@
     "clean:build": "rimraf ./web-build && rimraf .generated && rimraf .tamagui && rimraf ./node_modules/.cache",
     "build": "yarn clean && node ./scripts/fetch-market-home-token-seed.js && cross-env NODE_ENV=production rspack build && cp ./web-build/index.html ./web-build/404.html && bash ./postbuild.sh",
     "build:webpack": "yarn clean && node ./scripts/fetch-market-home-token-seed.js && cross-env NODE_ENV=production webpack build -c ./webpack.config.kill-switch.js && cp ./web-build/index.html ./web-build/404.html && bash ./postbuild.sh",
+    "build:lavamoat": "yarn clean && node ./scripts/fetch-market-home-token-seed.js && cross-env NODE_ENV=production ONEKEY_LAVAMOAT=1 NODE_OPTIONS=--max-old-space-size=10240 webpack build -c ./webpack.config.kill-switch.js && cp ./web-build/index.html ./web-build/404.html && bash ./postbuild.sh",
+    "lavamoat:policy": "cross-env NODE_ENV=production ONEKEY_LAVAMOAT=1 ONEKEY_LAVAMOAT_GENERATE_POLICY=1 NODE_OPTIONS=--max-old-space-size=10240 webpack build -c ./webpack.config.kill-switch.js",
     "stats": "cross-env NODE_ENV=production RSPACK_FULL_STATS=1 rspack build --json=web-build/stats.json",
     "check:startup-graph-budget": "node scripts/check-startup-graph-budget.js"
   },
   "dependencies": {
     "@onekeyhq/components": "*",
+    "@onekeyhq/core": "*",
     "@onekeyhq/kit": "*",
+    "@onekeyhq/kit-bg": "*",
+    "@onekeyhq/qr-wallet-sdk": "*",
     "@onekeyhq/shared": "*"
   },
   "devDependencies": {

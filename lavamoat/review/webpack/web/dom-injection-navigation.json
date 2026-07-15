@@ -1,0 +1,480 @@
+{
+  "description": "DOM 注入、HTML 解析、顶层跳转、opener/parent/top 等导航能力",
+  "resources": {
+    "@onekeyhq/components>@react-navigation/native": {
+      "globals": {
+        "history.go": true,
+        "history.pushState": true,
+        "history.replaceState": true,
+        "history.state": true,
+        "location": true
+      }
+    },
+    "@onekeyhq/components>moti>react-native-reanimated": {
+      "globals": {
+        "document.createElement": true,
+        "location.protocol": true
+      }
+    },
+    "@onekeyhq/components>qrcode": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "@onekeyhq/components>react-native-svg": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>borc>iso-url": {
+      "globals": {
+        "location": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>@near-js/wallet-account": {
+      "globals": {
+        "history.replaceState": true,
+        "location.assign": true,
+        "location.href": true
+      }
+    },
+    "@onekeyhq/kit": {
+      "globals": {
+        "history": true,
+        "location": true,
+        "open": true
+      }
+    },
+    "@onekeyhq/kit-bg": {
+      "globals": {
+        "location.origin": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>expo": {
+      "globals": {
+        "location.href": true,
+        "location.origin": true,
+        "location.pathname": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": {
+      "globals": {
+        "location.reload": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>react-native-web": {
+      "globals": {
+        "location": "write",
+        "open": true
+      }
+    },
+    "@onekeyhq/kit>lightweight-charts": {
+      "globals": {
+        "document.createElement": true,
+        "location.href": true
+      }
+    },
+    "@onekeyhq/kit>zbar.wasm": {
+      "globals": {
+        "location.href": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "location": true,
+        "open": true,
+        "parent": true,
+        "top": true
+      }
+    },
+    "@onekeyhq/shared>axios": {
+      "globals": {
+        "location.href": true
+      }
+    },
+    "@onekeyhq/shared>posthog-js": {
+      "globals": {
+        "location.hash": true
+      }
+    },
+    "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/src/api/logger-subscriber/service/WebLogsExporterLogger.js": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/@lit/reactive-element/css-tag.js": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": {
+      "globals": {
+        "location.origin": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": {
+      "globals": {
+        "document.createElement": true,
+        "location.hostname": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
+      "globals": {
+        "location.origin": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
+      "globals": {
+        "location": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+      "globals": {
+        "location": true
+      }
+    },
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/@polkadot/api-augment/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/api-base/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/api/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/keyring/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/types-create/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/types-known/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/types/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util-crypto/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js": {
+      "globals": {
+        "location.host": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": {
+      "globals": {
+        "location.hostname": true,
+        "location.href": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/TelemetryController.js": {
+      "globals": {
+        "location.hostname": true,
+        "location.href": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": {
+      "globals": {
+        "location.ancestorOrigins": true,
+        "location.href": true,
+        "open": true,
+        "top": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/MobileWallet.js": {
+      "globals": {
+        "location.href": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/modal/w3m-modal/index.js": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit/dist/esm/src/client/appkit-base-client.js": {
+      "globals": {
+        "location.origin": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit/dist/esm/src/client/appkit-core.js": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": {
+      "globals": {
+        "open": true
+      }
+    },
+    "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/JsiSkSVGFactory.js": {
+      "globals": {
+        "DOMParser": true
+      }
+    },
+    "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/JsiVideo.js": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js": {
+      "globals": {
+        "history.replaceState": true,
+        "history.state": true,
+        "location.assign": true,
+        "location.hash": true,
+        "location.href": true
+      }
+    },
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/webauthn.errors.js": {
+      "globals": {
+        "location.hostname": true
+      }
+    },
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/webauthn.js": {
+      "globals": {
+        "location.hostname": true,
+        "location.origin": true
+      }
+    },
+    "external:../../node_modules/@tamagui/sheet/dist/esm/constants.mjs": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/@tamagui/web/dist/esm/helpers/insertStyleRule.mjs": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/@tamagui/web/dist/esm/views/TamaguiProvider.mjs": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/@vibrant/image-browser/dist/esm/index.js": {
+      "globals": {
+        "document.createElement": true,
+        "location.host": true,
+        "location.href": true,
+        "location.port": true,
+        "location.protocol": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/core/dist/index.es.js": {
+      "globals": {
+        "location.origin": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/logger/dist/index.es.js": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": {
+      "globals": {
+        "open": true,
+        "top": true
+      }
+    },
+    "external:../../node_modules/advanced-cropper/utils/index.js": {
+      "globals": {
+        "location": true
+      }
+    },
+    "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js": {
+      "globals": {
+        "location.href": true
+      }
+    },
+    "external:../../node_modules/dom-helpers/esm/scrollbarSize.js": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/build/esm/socket.js": {
+      "globals": {
+        "location": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/build/esm/transports/polling.js": {
+      "globals": {
+        "location": true
+      }
+    },
+    "external:../../node_modules/expo-clipboard/build/web/ClipboardModule.js": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-clipboard/build/web/Utils.js": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/CropAction.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/ExtentAction.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/FlipAction.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/ResizeAction.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/RotateAction.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorContext.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-picker/build/ExponentImagePicker.web.js": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image/src/ImageModule.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-linking/build/createURL.web.js": {
+      "globals": {
+        "location.origin": true
+      }
+    },
+    "external:../../node_modules/expo-linking/build/ExpoLinking.web.js": {
+      "globals": {
+        "location.href": true
+      }
+    },
+    "external:../../node_modules/expo-linking/build/RNLinking.web.js": {
+      "globals": {
+        "location": "write"
+      }
+    },
+    "external:../../node_modules/lottie-web/build/player/lottie.js": {
+      "globals": {
+        "document.createElement": true,
+        "location.origin": true,
+        "location.pathname": true
+      }
+    },
+    "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js": {
+      "globals": {
+        "document.createElement": true,
+        "location": true
+      }
+    },
+    "external:../../node_modules/socket.io-client/build/esm/url.js": {
+      "globals": {
+        "location": true
+      }
+    },
+    "external:../../node_modules/style-loader/dist/runtime/insertStyleElement.js": {
+      "globals": {
+        "document.createElement": true
+      }
+    }
+  }
+}

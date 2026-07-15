@@ -1,0 +1,2079 @@
+{
+  "@onekeyhq/components": {
+    "@onekeyhq/components>@react-navigation/native": true,
+    "@onekeyhq/components>moti>react-native-reanimated": true,
+    "@onekeyhq/components>qrcode": true,
+    "@onekeyhq/components>react-hook-form": true,
+    "@onekeyhq/components>react-native-svg": true,
+    "@onekeyhq/core>xrpl>bignumber.js": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true,
+    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true,
+    "@onekeyhq/shared": true,
+    "external:../../node_modules/@tamagui/web/dist/esm/views/TamaguiProvider.mjs": true
+  },
+  "@onekeyhq/components>@react-navigation/bottom-tabs": {
+    "@onekeyhq/components>@react-navigation/native": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/components>@react-navigation/elements": {
+    "@onekeyhq/components>@react-navigation/native": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/components>@react-navigation/native": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/components>@react-navigation/stack": {
+    "@onekeyhq/components>@react-navigation/native": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler": {
+    "@onekeyhq/components>moti>react-native-reanimated": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/components>@react-navigation/stack>react-native-safe-area-context": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/components>moti": {
+    "@onekeyhq/components>moti>react-native-reanimated": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/components>moti>react-native-reanimated": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/components>moti>react-native-reanimated>react-native-worklets": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/components>react-native-markdown-display": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/components>react-native-markdown-display>react-native-fit-image": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/components>react-native-svg": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/core": {
+    "@onekeyhq/core>@aptos-labs/siwa": true,
+    "@onekeyhq/core>@aptos-labs/ts-sdk": true,
+    "@onekeyhq/core>@glif/filecoin-address>ethers>@ethersproject/providers": true,
+    "@onekeyhq/core>@noble/hashes": true,
+    "@onekeyhq/core>@noble/secp256k1": true,
+    "@onekeyhq/core>@onekeyfe/coinselect": true,
+    "@onekeyhq/core>@onekeyfe/kaspa-core-lib": true,
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": true,
+    "@onekeyhq/core>@solana/web3.js": true,
+    "@onekeyhq/core>@stellar/stellar-base": true,
+    "@onekeyhq/core>algosdk": true,
+    "@onekeyhq/core>algosdk>tweetnacl": true,
+    "@onekeyhq/core>cardano-crypto.js": true,
+    "@onekeyhq/core>js-conflux-sdk": true,
+    "@onekeyhq/core>tonweb-mnemonic": true,
+    "@onekeyhq/core>xrpl": true,
+    "@onekeyhq/core>xrpl>bignumber.js": true,
+    "@onekeyhq/shared": true,
+    "@onekeyhq/shared>axios": true,
+    "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": true,
+    "external:../../node_modules/long/index.js": true
+  },
+  "@onekeyhq/core>@alephium/web3": {
+    "@onekeyhq/core>@alephium/web3>@noble/secp256k1": true
+  },
+  "@onekeyhq/core>@alephium/web3>@noble/curves": {
+    "@onekeyhq/core>@alephium/web3>@noble/curves>@noble/hashes": true
+  },
+  "@onekeyhq/core>@aptos-labs/siwa": {
+    "@onekeyhq/core>@aptos-labs/ts-sdk": true
+  },
+  "@onekeyhq/core>@aptos-labs/ts-sdk": {
+    "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack": true,
+    "@onekeyhq/core>@aptos-labs/ts-sdk>@noble/hashes": true
+  },
+  "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/aptos-client": {
+    "@onekeyhq/shared>axios": true
+  },
+  "@onekeyhq/core>@ckb-lumos/ckb-indexer": {
+    "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": true
+  },
+  "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/base>blake2b": {
+    "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/base>blake2b>blake2b-wasm": true
+  },
+  "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/rpc": {
+    "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": true
+  },
+  "@onekeyhq/core>@glif/filecoin-address>ethers": {
+    "@onekeyhq/core>@glif/filecoin-address>ethers>@ethersproject/providers": true,
+    "@onekeyhq/core>@starcoin/starcoin>@ethersproject/web": true
+  },
+  "@onekeyhq/core>@glif/filecoin-address>ethers>@ethersproject/providers": {
+    "@onekeyhq/core>@starcoin/starcoin>@ethersproject/web": true
+  },
+  "@onekeyhq/core>@glif/filecoin-address>uint8arrays": {
+    "@onekeyhq/core>@glif/filecoin-message>multiformats": true
+  },
+  "@onekeyhq/core>@glif/filecoin-message": {
+    "@onekeyhq/core>@glif/filecoin-message>multiformats": true,
+    "@onekeyhq/core>xrpl>bignumber.js": true
+  },
+  "@onekeyhq/core>@glif/filecoin-message>uint8arrays": {
+    "@onekeyhq/core>@glif/filecoin-message>multiformats": true
+  },
+  "@onekeyhq/core>@magiceden-oss/open_creator_protocol": {
+    "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor": true,
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet": {
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true
+  },
+  "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet-solana": {
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true,
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor": {
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor>@project-serum/borsh": {
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@solana/spl-token": {
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata": {
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>@metaplex-foundation/beet-solana": {
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true,
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>@solana/spl-token": {
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "@onekeyhq/core>@onekeyfe/cardano-coin-selection-asmjs": {
+    "@onekeyhq/core>xrpl>bignumber.js": true
+  },
+  "@onekeyhq/core>@onekeyfe/coinselect": {
+    "@onekeyhq/core>xrpl>bignumber.js": true,
+    "@onekeyhq/shared": true
+  },
+  "@onekeyhq/core>@onekeyfe/coinselect>bs58check": {
+    "@onekeyhq/core>@onekeyfe/coinselect>bs58check>@noble/hashes": true
+  },
+  "@onekeyhq/core>@onekeyfe/kaspa-core-lib": {
+    "@onekeyhq/core>@noble/secp256k1": true,
+    "@onekeyhq/core>@onekeyfe/kaspa-core-lib>@noble/hashes": true,
+    "@onekeyhq/shared": true
+  },
+  "@onekeyhq/core>@solana/spl-token": {
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "@onekeyhq/core>@solana/spl-token>@solana/buffer-layout-utils": {
+    "@onekeyhq/core>@solana/web3.js": true,
+    "@onekeyhq/core>xrpl>bignumber.js": true
+  },
+  "@onekeyhq/core>@solana/spl-token>@solana/spl-token-group>@solana/spl-type-length-value": {
+    "@onekeyhq/shared": true
+  },
+  "@onekeyhq/core>@solana/spl-token>@solana/spl-token-metadata": {
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "@onekeyhq/core>@solana/web3.js": {
+    "@onekeyhq/core>@noble/hashes": true,
+    "@onekeyhq/core>@solana/web3.js>rpc-websockets": true
+  },
+  "@onekeyhq/core>@solana/web3.js>jayson": {
+    "@onekeyhq/core>@solana/web3.js>jayson>uuid": true
+  },
+  "@onekeyhq/core>@ton/crypto": {
+    "@onekeyhq/core>@ton/crypto>@ton/crypto-primitives": true,
+    "@onekeyhq/core>algosdk>tweetnacl": true
+  },
+  "@onekeyhq/core>@ton/ton": {
+    "@onekeyhq/shared>axios": true
+  },
+  "@onekeyhq/core>@zondax/izari-filecoin": {
+    "@onekeyhq/shared>axios": true
+  },
+  "@onekeyhq/core>@zondax/izari-filecoin>@bitcoinerlab/secp256k1": {
+    "@onekeyhq/core>@noble/secp256k1": true,
+    "@onekeyhq/core>@zondax/izari-filecoin>@bitcoinerlab/secp256k1>@noble/hashes": true
+  },
+  "@onekeyhq/core>algosdk": {
+    "@onekeyhq/core>algosdk>tweetnacl": true
+  },
+  "@onekeyhq/core>algosdk>json-bigint": {
+    "@onekeyhq/core>xrpl>bignumber.js": true
+  },
+  "@onekeyhq/core>bip32": {
+    "@onekeyhq/core>bip32>@noble/hashes": true
+  },
+  "@onekeyhq/core>bip322-js>bitcoinjs-lib": {
+    "@onekeyhq/core>bip322-js>bitcoinjs-lib>@noble/hashes": true
+  },
+  "@onekeyhq/core>bip39": {
+    "@onekeyhq/core>bip39>@noble/hashes": true
+  },
+  "@onekeyhq/core>bs58check": {
+    "@onekeyhq/core>bs58check>@noble/hashes": true
+  },
+  "@onekeyhq/core>cardano-crypto.js": {
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2": true
+  },
+  "@onekeyhq/core>cardano-crypto.js>borc": {
+    "@onekeyhq/core>cardano-crypto.js>borc>iso-url": true,
+    "@onekeyhq/core>xrpl>bignumber.js": true
+  },
+  "@onekeyhq/core>cip-23>keccak>readable-stream": {
+    "@onekeyhq/core>cip-23>keccak>readable-stream>util-deprecate": true
+  },
+  "@onekeyhq/core>cosmjs-types": {
+    "@onekeyhq/core>cosmjs-types>long": true
+  },
+  "@onekeyhq/core>cosmjs-types>protobufjs": {
+    "@onekeyhq/core>cosmjs-types>protobufjs>@protobufjs/fetch": true
+  },
+  "@onekeyhq/core>ecpair": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "@onekeyhq/core>elliptic": {
+    "@onekeyhq/core>elliptic>brorand": true
+  },
+  "@onekeyhq/core>eth-sig-util": {
+    "@onekeyhq/core>algosdk>tweetnacl": true
+  },
+  "@onekeyhq/core>eth-sig-util>ethereumjs-abi>ethereumjs-util>ethereum-cryptography": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethereum-cryptography": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "@onekeyhq/core>ethereumjs-util>ethereum-cryptography": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "@onekeyhq/core>js-conflux-sdk": {
+    "@onekeyhq/core>js-conflux-sdk>superagent": true,
+    "@onekeyhq/shared": true
+  },
+  "@onekeyhq/core>near-api-js": {
+    "@onekeyhq/core>near-api-js>@near-js/keystores-browser": true,
+    "@onekeyhq/core>near-api-js>@near-js/providers": true,
+    "@onekeyhq/core>near-api-js>@near-js/wallet-account": true
+  },
+  "@onekeyhq/core>near-api-js>@near-js/accounts": {
+    "@onekeyhq/core>near-api-js>@near-js/providers": true
+  },
+  "@onekeyhq/core>near-api-js>@near-js/crypto": {
+    "@onekeyhq/core>algosdk>tweetnacl": true
+  },
+  "@onekeyhq/core>ripple-keypairs": {
+    "@onekeyhq/core>elliptic>brorand": true
+  },
+  "@onekeyhq/core>tronweb": {
+    "@onekeyhq/core>xrpl>bignumber.js": true,
+    "@onekeyhq/shared>axios": true
+  },
+  "@onekeyhq/core>web3-utils>ethereum-cryptography": {
+    "@onekeyhq/core>web3-utils>ethereum-cryptography>@noble/hashes": true
+  },
+  "@onekeyhq/core>xrpl": {
+    "@onekeyhq/core>xrpl>bignumber.js": true,
+    "@onekeyhq/shared": true
+  },
+  "@onekeyhq/core>xrpl>ripple-binary-codec": {
+    "@onekeyhq/core>xrpl>ripple-binary-codec>decimal.js": true
+  },
+  "@onekeyhq/core>xrpl>xrpl-secret-numbers": {
+    "@onekeyhq/core>elliptic>brorand": true
+  },
+  "@onekeyhq/kit": {
+    "@onekeyhq/components": true,
+    "@onekeyhq/components>@react-navigation/native": true,
+    "@onekeyhq/components>moti>react-native-reanimated": true,
+    "@onekeyhq/components>qrcode": true,
+    "@onekeyhq/components>react-hook-form": true,
+    "@onekeyhq/components>react-native-svg": true,
+    "@onekeyhq/core": true,
+    "@onekeyhq/core>@noble/hashes": true,
+    "@onekeyhq/core>xrpl>bignumber.js": true,
+    "@onekeyhq/kit-bg": true,
+    "@onekeyhq/kit>expo-camera": true,
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true,
+    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true,
+    "@onekeyhq/kit>lightweight-charts": true,
+    "@onekeyhq/kit>zbar.wasm": true,
+    "@onekeyhq/shared": true,
+    "@onekeyhq/shared>axios": true,
+    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
+    "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": true,
+    "external:../../node_modules/jotai/esm/vanilla/utils.mjs": true
+  },
+  "@onekeyhq/kit-bg": {
+    "@onekeyhq/core": true,
+    "@onekeyhq/core>@alephium/web3": true,
+    "@onekeyhq/core>@aptos-labs/siwa": true,
+    "@onekeyhq/core>@aptos-labs/ts-sdk": true,
+    "@onekeyhq/core>@noble/hashes": true,
+    "@onekeyhq/core>@onekeyfe/kaspa-core-lib": true,
+    "@onekeyhq/core>@solana/web3.js": true,
+    "@onekeyhq/core>algosdk": true,
+    "@onekeyhq/core>js-conflux-sdk": true,
+    "@onekeyhq/core>xrpl": true,
+    "@onekeyhq/core>xrpl>bignumber.js": true,
+    "@onekeyhq/kit": true,
+    "@onekeyhq/kit-bg>eth-url-parser": true,
+    "@onekeyhq/kit-bg>idb": true,
+    "@onekeyhq/kit-bg>miscreant": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true,
+    "@onekeyhq/shared": true,
+    "@onekeyhq/shared>axios": true,
+    "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": true,
+    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
+    "external:../../node_modules/@walletconnect/core/dist/index.es.js": true,
+    "external:../../node_modules/@walletconnect/keyvaluestorage/dist/index.es.js": true,
+    "external:../../node_modules/@walletconnect/universal-provider/dist/index.es.js": true,
+    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": true,
+    "external:../../node_modules/jotai/esm/vanilla/utils.mjs": true
+  },
+  "@onekeyhq/kit>expo-camera": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true,
+    "@onekeyhq/kit>zbar.wasm": true
+  },
+  "@onekeyhq/kit>expo-camera>expo": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/kit>expo-camera>expo>expo-file-system": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/kit>expo-camera>expo>expo-modules-core": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/kit>expo-camera>react-native-web": {
+    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+  },
+  "@onekeyhq/qr-wallet-sdk": {
+    "@onekeyhq/shared": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>uuid": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-aptos": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-aptos>uuid": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-arweave": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-arweave>uuid": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-btc": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-btc>uuid": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cardano": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cardano>uuid": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cosmos": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cosmos>uuid": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>uuid": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util": {
+    "@onekeyhq/core>web3-utils>ethereum-cryptography": true,
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>micro-ftch": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>hdkey": {
+    "@onekeyhq/shared": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-evm": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-evm>uuid": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-near": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-near>uuid": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sol": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sol>uuid": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sui": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sui>uuid": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-ton": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-ton>uuid": true
+  },
+  "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": {
+    "@onekeyhq/core>xrpl>bignumber.js": true
+  },
+  "@onekeyhq/shared": {
+    "@onekeyhq/components>@react-navigation/native": true,
+    "@onekeyhq/core>@noble/hashes": true,
+    "@onekeyhq/core>@noble/secp256k1": true,
+    "@onekeyhq/core>xrpl>bignumber.js": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true,
+    "@onekeyhq/shared>axios": true,
+    "@onekeyhq/shared>localforage": true,
+    "@onekeyhq/shared>posthog-js": true,
+    "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": true,
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": true,
+    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
+    "external:../../node_modules/@sentry/browser/build/npm/esm/integrations/browserapierrors.js": true,
+    "external:../../node_modules/@sentry/browser/build/npm/esm/transports/offline.js": true
+  },
+  "external:../../node_modules/@benfen/bfc.js/dist/esm/client/client.js": {
+    "external:../../node_modules/@benfen/bfc.js/dist/esm/client/http-transport.js": true
+  },
+  "external:../../node_modules/@benfen/bfc.js/dist/esm/client/http-transport.js": {
+    "external:../../node_modules/@benfen/bfc.js/dist/esm/client/rpc-websocket-client.js": true
+  },
+  "external:../../node_modules/@benfen/bfc.js/dist/esm/keypairs/ed25519/ed25519-hd-key.js": {
+    "@onekeyhq/core>algosdk>tweetnacl": true
+  },
+  "external:../../node_modules/@benfen/bfc.js/dist/esm/keypairs/ed25519/keypair.js": {
+    "@onekeyhq/core>algosdk>tweetnacl": true
+  },
+  "external:../../node_modules/@benfen/bfc.js/dist/esm/keypairs/ed25519/publickey.js": {
+    "@onekeyhq/core>algosdk>tweetnacl": true
+  },
+  "external:../../node_modules/@benfen/bfc.js/dist/esm/utils/bf-types.js": {
+    "@onekeyhq/core>xrpl>bignumber.js": true
+  },
+  "external:../../node_modules/@cityofzion/neon-core/lib/logging.js": {
+    "external:../../node_modules/loglevel/lib/loglevel.js": true
+  },
+  "external:../../node_modules/@floating-ui/react-dom/dist/floating-ui.react-dom.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+  },
+  "external:../../node_modules/@floating-ui/react/dist/floating-ui.react.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+  },
+  "external:../../node_modules/@glif/filecoin-rpc-client/lib/index.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@inversifyjs/container/lib/esm/index.js": {
+    "external:../../node_modules/reflect-metadata/Reflect.js": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/index.js": {
+    "external:../../node_modules/reflect-metadata/Reflect.js": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/calldata/data/HttpCalldataDescriptorDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/dynamic-network/data/HttpDynamicNetworkDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/external-plugin/data/HttpExternalPluginDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/gated-signing/data/HttpGatedDescriptorDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/nft/data/HttpNftDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/pki/data/HttpPkiCertificateDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/proxy/data/HttpProxyDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/proxy/data/HttpSafeProxyDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/reporter/data/HttpBlindSigningReporterDatasource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/safe/data/HttpSafeAccountDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/solana/data/HttpSolanaOwnerInfoDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/solanaLifi/data/HttpSolanaLifiDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/solanaToken/data/HttpSolanaTokenDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/token/data/HttpTokenDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/transaction-check/data/HttpTransactionCheckDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/transaction-check/data/HttpTypedDataCheckDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/trusted-name/data/HttpTrustedNameDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/context-module/lib/esm/src/typed-data/data/HttpTypedDataDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/src/api/index.js": {
+    "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/src/api/logger-subscriber/service/WebLogsExporterLogger.js": true
+  },
+  "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/src/api/secure-channel/task/ConnectToSecureChannelTask.js": {
+    "external:../../node_modules/@ledgerhq/device-management-kit/node_modules/isomorphic-ws/browser.js": true
+  },
+  "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/src/index.js": {
+    "external:../../node_modules/reflect-metadata/Reflect.js": true
+  },
+  "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/src/internal/manager-api/data/AxiosManagerApiDataSource.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/src/internal/secure-channel/data/DefaultSecureChannelDataSource.js": {
+    "external:../../node_modules/@ledgerhq/device-management-kit/node_modules/isomorphic-ws/browser.js": true
+  },
+  "external:../../node_modules/@ledgerhq/device-management-kit/node_modules/uuid/dist/esm-browser/v4.js": {
+    "external:../../node_modules/@ledgerhq/device-management-kit/node_modules/uuid/dist/esm-browser/native.js": true,
+    "external:../../node_modules/@ledgerhq/device-management-kit/node_modules/uuid/dist/esm-browser/rng.js": true
+  },
+  "external:../../node_modules/@ledgerhq/device-signer-kit-bitcoin/lib/esm/index.js": {
+    "external:../../node_modules/reflect-metadata/Reflect.js": true
+  },
+  "external:../../node_modules/@ledgerhq/device-signer-kit-ethereum/lib/esm/index.js": {
+    "external:../../node_modules/reflect-metadata/Reflect.js": true
+  },
+  "external:../../node_modules/@ledgerhq/device-signer-kit-solana/lib/esm/index.js": {
+    "external:../../node_modules/reflect-metadata/Reflect.js": true
+  },
+  "external:../../node_modules/@ledgerhq/device-signer-kit-solana/lib/esm/internal/app-binder/services/TransactionInspector.js": {
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "external:../../node_modules/@ledgerhq/device-signer-kit-solana/lib/esm/internal/app-binder/services/utils/TransactionParser.js": {
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "external:../../node_modules/@ledgerhq/device-signer-kit-solana/node_modules/@solana/spl-token/lib/esm/constants.js": {
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "external:../../node_modules/@ledgerhq/device-signer-kit-solana/node_modules/@solana/spl-token/lib/esm/state/mint.js": {
+    "@onekeyhq/core>@solana/web3.js": true
+  },
+  "external:../../node_modules/@ledgerhq/device-transport-kit-web-hid/lib/esm/api/index.js": {
+    "external:../../node_modules/@ledgerhq/device-transport-kit-web-hid/lib/esm/api/transport/WebHidTransport.js": true
+  },
+  "external:../../node_modules/@ledgerhq/device-transport-kit-web-hid/node_modules/uuid/dist/esm-browser/v4.js": {
+    "external:../../node_modules/@ledgerhq/device-transport-kit-web-hid/node_modules/uuid/dist/esm-browser/native.js": true,
+    "external:../../node_modules/@ledgerhq/device-transport-kit-web-hid/node_modules/uuid/dist/esm-browser/rng.js": true
+  },
+  "external:../../node_modules/@lit/reactive-element/reactive-element.js": {
+    "external:../../node_modules/@lit/reactive-element/css-tag.js": true
+  },
+  "external:../../node_modules/@metamask/eth-sig-util/dist/encryption.js": {
+    "@onekeyhq/core>algosdk>tweetnacl": true
+  },
+  "external:../../node_modules/@metamask/eth-sig-util/dist/sign-typed-data.js": {
+    "@onekeyhq/core>web3-utils>ethereum-cryptography": true
+  },
+  "external:../../node_modules/@mysten/sui/dist/client/core.mjs": {
+    "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs": true
+  },
+  "external:../../node_modules/@mysten/sui/dist/cryptography/publickey.mjs": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/dist/jsonRpc/client.mjs": {
+    "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs": true,
+    "external:../../node_modules/@mysten/sui/dist/jsonRpc/http-transport.mjs": true
+  },
+  "external:../../node_modules/@mysten/sui/dist/transactions/plugins/NamedPackagesPlugin.mjs": {
+    "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/_blake.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/_md.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/blake2.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/hmac.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/pbkdf2.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/sha2.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/index.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@nktkas/hyperliquid/esm/signing/mod.js": {
+    "external:../../node_modules/@nktkas/hyperliquid/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@nktkas/hyperliquid/esm/transport/mod.js": {
+    "external:../../node_modules/@nktkas/hyperliquid/esm/transport/http/mod.js": true
+  },
+  "external:../../node_modules/@nktkas/hyperliquid/esm/transport/websocket/mod.js": {
+    "external:../../node_modules/@nktkas/rews/esm/mod.js": true
+  },
+  "external:../../node_modules/@nktkas/hyperliquid/node_modules/@noble/hashes/sha3.js": {
+    "external:../../node_modules/@nktkas/hyperliquid/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/index.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedProviderReceiveHandler.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectJsBridge.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true
+  },
+  "external:../../node_modules/@onekeyfe/hd-common-connect-sdk/dist/index.js": {
+    "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": true,
+    "external:../../node_modules/@onekeyfe/hd-transport-web-device/dist/index.js": true
+  },
+  "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
+    "@onekeyhq/core>@noble/hashes": true,
+    "@onekeyhq/core>xrpl>bignumber.js": true,
+    "@onekeyhq/shared>axios": true,
+    "external:../../node_modules/jszip/dist/jszip.min.js": true
+  },
+  "external:../../node_modules/@onekeyfe/hd-transport-emulator/dist/index.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@onekeyfe/hd-transport-http/dist/index.js": {
+    "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": {
+    "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js": true
+  },
+  "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": {
+    "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": true
+  },
+  "external:../../node_modules/@onekeyfe/hwk-trezor-connector/dist/index.mjs": {
+    "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowCircleDown.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowClockwise.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowDown.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowLeft.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowRight.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsClockwise.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsDownUp.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsLeftRight.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowSquareOut.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowUp.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowUpRight.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhBank.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhBrowser.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretDown.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretLeft.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretRight.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretUp.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCheck.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCircleHalf.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhClock.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCompass.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCopy.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCreditCard.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCurrencyDollar.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhDesktop.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhDeviceMobile.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhDotsThree.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhEnvelope.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhFunnelSimple.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhGlobe.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhIdentificationCard.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhImage.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhInfo.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhLightbulb.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhMagnifyingGlass.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhPaperPlaneRight.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhPlus.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhPower.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhPuzzlePiece.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhQrCode.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhQuestion.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhQuestionMark.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhSealCheck.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhSignOut.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhSpinner.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhTrash.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhUser.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhVault.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhWarning.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhWarningCircle.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhX.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/reactive-element.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@polkadot/api-augment/bundle.js": {
+    "external:../../node_modules/@polkadot/api-augment/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/api-augment/packageDetect.js": {
+    "external:../../node_modules/@polkadot/api-augment/packageInfo.js": true,
+    "external:../../node_modules/@polkadot/api-base/packageInfo.js": true,
+    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": true,
+    "external:../../node_modules/@polkadot/types/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/api-derive/node_modules/@polkadot/util-crypto/blake2/asU8a.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/api/base/Getters.js": {
+    "external:../../node_modules/@polkadot/api/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/api/node_modules/@polkadot/util-crypto/blake2/asU8a.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/api/node_modules/@polkadot/util-crypto/helpers.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/bundle.js": {
+    "external:../../node_modules/@polkadot/keyring/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/blake2/asU8a.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/ed25519/pair/fromSeed.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/ed25519/sign.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/ed25519/verify.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/helpers.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/hmac/shaAsU8a.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/mnemonic/toEntropy.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/mnemonic/toLegacySeed.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/mnemonic/validate.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/pbkdf2/encode.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/scrypt/encode.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/compress.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/expand.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/pair/fromSeed.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/recover.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/sign.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/tweakAdd.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto-init/wasm.js": {
+    "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-bridge/init.js": true
+  },
+  "external:../../node_modules/@polkadot/keyring/packageDetect.js": {
+    "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js": true,
+    "external:../../node_modules/@polkadot/keyring/packageInfo.js": true,
+    "external:../../node_modules/@polkadot/util/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/types-codec/bundle.js": {
+    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/types-codec/packageDetect.js": {
+    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/types-known/bundle.js": {
+    "external:../../node_modules/@polkadot/types-known/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/types-known/packageDetect.js": {
+    "external:../../node_modules/@polkadot/types-known/packageInfo.js": true,
+    "external:../../node_modules/@polkadot/types/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/types/bundle.js": {
+    "external:../../node_modules/@polkadot/types/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/types/node_modules/@polkadot/util-crypto/blake2/asU8a.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/types/node_modules/@polkadot/util-crypto/helpers.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/types/node_modules/@polkadot/util-crypto/secp256k1/expand.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/types/node_modules/@polkadot/util-crypto/xxhash/asU8a.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/types/packageDetect.js": {
+    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": true,
+    "external:../../node_modules/@polkadot/types-create/packageInfo.js": true,
+    "external:../../node_modules/@polkadot/types/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/blake2/asU8a.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/bundle.js": {
+    "external:../../node_modules/@polkadot/util-crypto/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/ed25519/pair/fromSeed.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/ed25519/sign.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/ed25519/verify.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/helpers.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/hmac/shaAsU8a.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/mnemonic/generate.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/mnemonic/toEntropy.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/mnemonic/toLegacySeed.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/mnemonic/validate.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto-init/wasm.js": {
+    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-bridge/init.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/browser.js": {
+    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/packageDetect.js": {
+    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js": true,
+    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js": true,
+    "external:../../node_modules/@polkadot/util-crypto/packageInfo.js": true,
+    "external:../../node_modules/@polkadot/util/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/pbkdf2/encode.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/scrypt/encode.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/secp256k1/compress.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/secp256k1/expand.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/secp256k1/pair/fromSeed.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/secp256k1/recover.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/secp256k1/sign.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/secp256k1/tweakAdd.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util-crypto/xxhash/asU8a.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util/bundle.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true,
+    "external:../../node_modules/@polkadot/util/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/util/is/buffer.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/util/packageDetect.js": {
+    "external:../../node_modules/@polkadot/util/packageInfo.js": true,
+    "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js": true,
+    "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/util/u8a/toBuffer.js": {
+    "external:../../node_modules/@polkadot/util/has.js": true
+  },
+  "external:../../node_modules/@polkadot/wasm-crypto-init/wasm.js": {
+    "external:../../node_modules/@polkadot/wasm-bridge/init.js": true
+  },
+  "external:../../node_modules/@polkadot/x-textdecoder/browser.js": {
+    "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js": true
+  },
+  "external:../../node_modules/@polkadot/x-textencoder/browser.js": {
+    "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js": true
+  },
+  "external:../../node_modules/@react-native-async-storage/async-storage/lib/module/index.js": {
+    "external:../../node_modules/@react-native-async-storage/async-storage/lib/module/NativeAsyncStorage.web.js": true
+  },
+  "external:../../node_modules/@reown/appkit-common-react-native/lib/module/utils/NumberUtil.js": {
+    "@onekeyhq/core>xrpl>bignumber.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/ApiController.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/FetchUtil.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/MobileWallet.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/BlockchainApiController.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/FetchUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/ChainController.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/ConnectionController.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/ConnectorController.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/MobileWallet.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/FetchUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/ModalController.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/OptionsController.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/SendController.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/SnackController.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/SwapController.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/TelemetryController.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/FetchUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/TransactionsController.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/ReownAuthentication.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/ReownAuthentication.js": {
+    "external:../../node_modules/@reown/appkit-common/dist/esm/src/utils/SafeLocalStorage.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/ConnectorControllerUtil.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/OptionsUtil.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/SIWXUtil.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
+    "external:../../node_modules/@walletconnect/universal-provider/dist/index.es.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/StorageUtil.js": {
+    "external:../../node_modules/@reown/appkit-common/dist/esm/src/utils/SafeLocalStorage.js": true
+  },
+  "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/withErrorBoundary.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/TelemetryController.js": true
+  },
+  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/controllers/ApiController.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true,
+    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/FetchUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/controllers/BlockchainApiController.js": {
+    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/FetchUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/controllers/EventsController.js": {
+    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/FetchUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/ApiUtil.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/CoreHelperUtil.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/exports/w3m-modal.js": {
+    "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/modal/w3m-modal/index.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/modal/w3m-footer/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/modal/w3m-modal/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-all-wallets-list-item/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-all-wallets-list/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-all-wallets-widget/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-connecting-wc-browser/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-connecting-wc-desktop/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-connecting-wc-mobile/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-connecting-wc-qrcode/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-connecting-wc-unsupported/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-connecting-wc-web/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-connector-list/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-header/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-list-wallet/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-mobile-download-links/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-onramp-providers-footer/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/utils/ConnectorUtil.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/utils/w3m-connecting-widget/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/utils/WalletUtil.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/views/w3m-all-wallets-view/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/views/w3m-connecting-wc-basic-view/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/views/w3m-connecting-wc-view/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/views/w3m-downloads-view/index.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/exports/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/components/wui-card/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/components/wui-icon/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/components/wui-image/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/components/wui-loading-spinner/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/components/wui-loading-thumbnail/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/components/wui-text/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-alertbar/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-all-wallets-image/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-button/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-card-select-loader/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-certified-switch/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-cta-button/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-icon-box/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-icon-button/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-input-text/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-link/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-list-item/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-list-wallet/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-qr-code/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-search-bar/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-select/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-snackbar/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-tab-item/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-tabs/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-tag/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-toggle/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-ux-by-reown/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-wallet-image/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/layout/wui-flex/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/layout/wui-grid/index.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/QrCode.js": {
+    "@onekeyhq/components>qrcode": true
+  },
+  "external:../../node_modules/@reown/appkit/dist/esm/exports/core.js": {
+    "external:../../node_modules/@reown/appkit/dist/esm/src/client/appkit-core.js": true
+  },
+  "external:../../node_modules/@reown/appkit/dist/esm/src/adapters/ChainAdapterBlueprint.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
+    "external:../../node_modules/@walletconnect/universal-provider/dist/index.es.js": true
+  },
+  "external:../../node_modules/@reown/appkit/dist/esm/src/client/appkit-base-client.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
+    "external:../../node_modules/@reown/appkit/node_modules/@reown/appkit-utils/dist/esm/src/SemVerUtils.js": true,
+    "external:../../node_modules/@walletconnect/universal-provider/dist/index.es.js": true
+  },
+  "external:../../node_modules/@reown/appkit/dist/esm/src/client/appkit-core.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
+    "external:../../node_modules/@reown/appkit/dist/esm/src/client/appkit-base-client.js": true
+  },
+  "external:../../node_modules/@reown/appkit/dist/esm/src/connections/ConnectionManager.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit/dist/esm/src/connectors/WalletConnectConnector.js": {
+    "external:../../node_modules/@walletconnect/universal-provider/dist/index.es.js": true
+  },
+  "external:../../node_modules/@reown/appkit/dist/esm/src/universal-adapter/client.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
+  },
+  "external:../../node_modules/@reown/appkit/node_modules/@reown/appkit-utils/dist/esm/src/ErrorUtil.js": {
+    "external:../../node_modules/@reown/appkit-common/dist/esm/src/utils/SafeLocalStorage.js": true
+  },
+  "external:../../node_modules/@reown/appkit/node_modules/@reown/appkit-utils/dist/esm/src/LoggerUtil.js": {
+    "external:../../node_modules/@walletconnect/logger/dist/index.es.js": true
+  },
+  "external:../../node_modules/@reown/appkit/node_modules/@reown/appkit-utils/dist/esm/src/TokenUtil.js": {
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/ExchangeUtil.js": true
+  },
+  "external:../../node_modules/@reown/walletkit/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/core/dist/index.es.js": true
+  },
+  "external:../../node_modules/@sentry/browser/build/npm/esm/client.js": {
+    "external:../../node_modules/@sentry/browser/build/npm/esm/eventbuilder.js": true
+  },
+  "external:../../node_modules/@sentry/browser/build/npm/esm/integrations/breadcrumbs.js": {
+    "external:../../node_modules/@sentry-internal/browser-utils/build/esm/instrument/xhr.js": true
+  },
+  "external:../../node_modules/@sentry/browser/build/npm/esm/integrations/globalhandlers.js": {
+    "external:../../node_modules/@sentry/browser/build/npm/esm/eventbuilder.js": true
+  },
+  "external:../../node_modules/@sentry/browser/build/npm/esm/integrations/linkederrors.js": {
+    "external:../../node_modules/@sentry/browser/build/npm/esm/eventbuilder.js": true
+  },
+  "external:../../node_modules/@sentry/browser/build/npm/esm/sdk.js": {
+    "external:../../node_modules/@sentry/browser/build/npm/esm/integrations/browserapierrors.js": true
+  },
+  "external:../../node_modules/@shopify/flash-list/dist/AnimatedFlashList.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@shopify/flash-list/dist/isNewArch.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@shopify/flash-list/dist/recyclerview/components/CompatScroller.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@shopify/flash-list/dist/recyclerview/components/CompatView.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@shopify/flash-list/dist/recyclerview/hooks/useRecyclerViewController.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@shopify/flash-list/dist/recyclerview/hooks/useSecondaryProps.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@shopify/flash-list/dist/recyclerview/RecyclerView.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@shopify/react-native-skia/lib/module/external/reanimated/ReanimatedProxy.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true
+  },
+  "external:../../node_modules/@shopify/react-native-skia/lib/module/external/reanimated/renderHelpers.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true
+  },
+  "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/core/index.js": {
+    "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/core/SVG.web.js": true
+  },
+  "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/JsiSkia.js": {
+    "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/JsiSkDataFactory.js": true,
+    "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/JsiSkSVGFactory.js": true,
+    "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/JsiVideo.js": true
+  },
+  "external:../../node_modules/@shopify/react-native-skia/lib/module/web/LoadSkiaWeb.js": {
+    "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js": true
+  },
+  "external:../../node_modules/@supabase/auth-js/dist/module/AuthClient.js": {
+    "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js": true
+  },
+  "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueAdminApi.js": {
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/helpers.js": true
+  },
+  "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js": {
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/helpers.js": true,
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/locks.js": true,
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/webauthn.js": true
+  },
+  "external:../../node_modules/@supabase/auth-js/dist/module/index.js": {
+    "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js": true,
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/locks.js": true
+  },
+  "external:../../node_modules/@supabase/auth-js/dist/module/lib/fetch.js": {
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/helpers.js": true
+  },
+  "external:../../node_modules/@supabase/auth-js/dist/module/lib/locks.js": {
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/helpers.js": true
+  },
+  "external:../../node_modules/@supabase/auth-js/dist/module/lib/webauthn.errors.js": {
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/webauthn.js": true
+  },
+  "external:../../node_modules/@supabase/auth-js/dist/module/lib/webauthn.js": {
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/helpers.js": true,
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/webauthn.errors.js": true
+  },
+  "external:../../node_modules/@supabase/functions-js/dist/module/FunctionsClient.js": {
+    "external:../../node_modules/@supabase/functions-js/dist/module/helper.js": true
+  },
+  "external:../../node_modules/@supabase/postgrest-js/dist/cjs/index.js": {
+    "external:../../node_modules/@supabase/postgrest-js/dist/cjs/PostgrestBuilder.js": true,
+    "external:../../node_modules/@supabase/postgrest-js/dist/cjs/PostgrestClient.js": true,
+    "external:../../node_modules/@supabase/postgrest-js/dist/cjs/PostgrestQueryBuilder.js": true
+  },
+  "external:../../node_modules/@supabase/postgrest-js/dist/cjs/PostgrestClient.js": {
+    "external:../../node_modules/@supabase/postgrest-js/dist/cjs/PostgrestQueryBuilder.js": true
+  },
+  "external:../../node_modules/@supabase/postgrest-js/dist/cjs/PostgrestTransformBuilder.js": {
+    "external:../../node_modules/@supabase/postgrest-js/dist/cjs/PostgrestBuilder.js": true
+  },
+  "external:../../node_modules/@supabase/realtime-js/dist/module/index.js": {
+    "external:../../node_modules/@supabase/realtime-js/dist/module/lib/websocket-factory.js": true,
+    "external:../../node_modules/@supabase/realtime-js/dist/module/RealtimeClient.js": true
+  },
+  "external:../../node_modules/@supabase/realtime-js/dist/module/RealtimeClient.js": {
+    "external:../../node_modules/@supabase/realtime-js/dist/module/lib/websocket-factory.js": true
+  },
+  "external:../../node_modules/@supabase/storage-js/dist/module/lib/fetch.js": {
+    "external:../../node_modules/@supabase/storage-js/dist/module/lib/helpers.js": true
+  },
+  "external:../../node_modules/@supabase/storage-js/dist/module/lib/vectors/fetch.js": {
+    "external:../../node_modules/@supabase/storage-js/dist/module/lib/vectors/helpers.js": true
+  },
+  "external:../../node_modules/@supabase/storage-js/dist/module/lib/vectors/index.js": {
+    "external:../../node_modules/@supabase/storage-js/dist/module/lib/vectors/helpers.js": true
+  },
+  "external:../../node_modules/@supabase/storage-js/dist/module/lib/vectors/VectorBucketApi.js": {
+    "external:../../node_modules/@supabase/storage-js/dist/module/lib/vectors/helpers.js": true
+  },
+  "external:../../node_modules/@supabase/storage-js/dist/module/lib/vectors/VectorDataApi.js": {
+    "external:../../node_modules/@supabase/storage-js/dist/module/lib/vectors/helpers.js": true
+  },
+  "external:../../node_modules/@supabase/storage-js/dist/module/lib/vectors/VectorIndexApi.js": {
+    "external:../../node_modules/@supabase/storage-js/dist/module/lib/vectors/helpers.js": true
+  },
+  "external:../../node_modules/@supabase/storage-js/dist/module/packages/StorageAnalyticsClient.js": {
+    "external:../../node_modules/@supabase/storage-js/dist/module/lib/helpers.js": true,
+    "external:../../node_modules/iceberg-js/dist/index.mjs": true
+  },
+  "external:../../node_modules/@supabase/storage-js/dist/module/packages/StorageBucketApi.js": {
+    "external:../../node_modules/@supabase/storage-js/dist/module/lib/helpers.js": true
+  },
+  "external:../../node_modules/@supabase/storage-js/dist/module/packages/StorageFileApi.js": {
+    "external:../../node_modules/@supabase/storage-js/dist/module/lib/helpers.js": true
+  },
+  "external:../../node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js": {
+    "external:../../node_modules/@supabase/supabase-js/dist/main/lib/fetch.js": true
+  },
+  "external:../../node_modules/@tamagui/animations-moti/dist/esm/createAnimations.mjs": {
+    "@onekeyhq/components>moti>react-native-reanimated": true
+  },
+  "external:../../node_modules/@tamagui/dismissable/dist/esm/Dismissable.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+  },
+  "external:../../node_modules/@tamagui/group/dist/esm/Group.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@tamagui/popover/dist/esm/Popover.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@tamagui/popper/dist/esm/Popper.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@tamagui/portal/dist/esm/Portal.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+  },
+  "external:../../node_modules/@tamagui/scroll-view/dist/esm/ScrollView.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@tamagui/sheet/dist/esm/createSheet.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true,
+    "external:../../node_modules/@tamagui/sheet/dist/esm/constants.mjs": true
+  },
+  "external:../../node_modules/@tamagui/sheet/dist/esm/Sheet.mjs": {
+    "external:../../node_modules/@tamagui/sheet/dist/esm/constants.mjs": true
+  },
+  "external:../../node_modules/@tamagui/sheet/dist/esm/SheetContext.mjs": {
+    "external:../../node_modules/@tamagui/sheet/dist/esm/constants.mjs": true
+  },
+  "external:../../node_modules/@tamagui/sheet/dist/esm/SheetImplementationCustom.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true,
+    "external:../../node_modules/@tamagui/sheet/dist/esm/constants.mjs": true
+  },
+  "external:../../node_modules/@tamagui/switch/dist/esm/createSwitch.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@tamagui/toast/dist/esm/ToastImperative.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@tamagui/toast/dist/esm/ToastImpl.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@tamagui/toast/dist/esm/ToastPortal.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@tamagui/use-keyboard-visible/dist/esm/useKeyboardVisible.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@tamagui/web/dist/esm/createTamagui.mjs": {
+    "external:../../node_modules/@tamagui/web/dist/esm/helpers/insertStyleRule.mjs": true
+  },
+  "external:../../node_modules/@tamagui/web/dist/esm/helpers/getSplitStyles.mjs": {
+    "external:../../node_modules/@tamagui/web/dist/esm/helpers/insertStyleRule.mjs": true
+  },
+  "external:../../node_modules/@tamagui/web/dist/esm/helpers/normalizeValueWithProperty.mjs": {
+    "external:../../node_modules/@tamagui/web/dist/esm/helpers/insertStyleRule.mjs": true
+  },
+  "external:../../node_modules/@walletconnect/core/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/jsonrpc-ws-connection/dist/index.es.js": true,
+    "external:../../node_modules/@walletconnect/keyvaluestorage/dist/index.es.js": true,
+    "external:../../node_modules/@walletconnect/logger/dist/index.es.js": true,
+    "external:../../node_modules/@walletconnect/relay-auth/dist/index.es.js": true,
+    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": true
+  },
+  "external:../../node_modules/@walletconnect/environment/dist/cjs/index.js": {
+    "external:../../node_modules/@walletconnect/environment/dist/cjs/crypto.js": true
+  },
+  "external:../../node_modules/@walletconnect/jsonrpc-http-connection/dist/index.es.js": {
+    "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": true
+  },
+  "external:../../node_modules/@walletconnect/keyvaluestorage/dist/index.es.js": {
+    "external:../../node_modules/idb-keyval/dist/index.js": true
+  },
+  "external:../../node_modules/@walletconnect/sign-client/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/core/dist/index.es.js": true,
+    "external:../../node_modules/@walletconnect/logger/dist/index.es.js": true,
+    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": true
+  },
+  "external:../../node_modules/@walletconnect/universal-provider/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/logger/dist/index.es.js": true,
+    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": true
+  },
+  "external:../../node_modules/@walletconnect/utils/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/relay-auth/dist/index.es.js": true
+  },
+  "external:../../node_modules/advanced-cropper/algorithms/resizeCoordinatesAlgorithm.js": {
+    "external:../../node_modules/advanced-cropper/utils/index.js": true
+  },
+  "external:../../node_modules/advanced-cropper/algorithms/rotateImageAlgorithm.js": {
+    "external:../../node_modules/advanced-cropper/utils/index.js": true
+  },
+  "external:../../node_modules/advanced-cropper/algorithms/transformImageAlgorithm.js": {
+    "external:../../node_modules/advanced-cropper/utils/index.js": true
+  },
+  "external:../../node_modules/advanced-cropper/defaults/defaultStencilConstraints.js": {
+    "external:../../node_modules/advanced-cropper/utils/index.js": true
+  },
+  "external:../../node_modules/advanced-cropper/service/helpers.js": {
+    "external:../../node_modules/advanced-cropper/utils/index.js": true
+  },
+  "external:../../node_modules/advanced-cropper/service/sizeRestrictions.js": {
+    "external:../../node_modules/advanced-cropper/utils/index.js": true
+  },
+  "external:../../node_modules/advanced-cropper/service/utils.js": {
+    "external:../../node_modules/advanced-cropper/utils/index.js": true
+  },
+  "external:../../node_modules/advanced-cropper/showcase/mobile/index.js": {
+    "external:../../node_modules/advanced-cropper/utils/index.js": true
+  },
+  "external:../../node_modules/advanced-cropper/state/copyState.js": {
+    "external:../../node_modules/advanced-cropper/utils/index.js": true
+  },
+  "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": {
+    "@onekeyhq/shared": true
+  },
+  "external:../../node_modules/browserify-rsa/index.js": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "external:../../node_modules/crypto-browserify/index.js": {
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2": true,
+    "@onekeyhq/core>ecpair>randombytes": true,
+    "external:../../node_modules/randomfill/browser.js": true
+  },
+  "external:../../node_modules/crypto-js/aes.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/blowfish.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/cipher-core.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/enc-base64.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/enc-base64url.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/enc-hex.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/enc-latin1.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/enc-utf16.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/evpkdf.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/format-hex.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/hmac.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/index.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/lib-typedarrays.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/md5.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/mode-cfb.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/mode-ctr-gladman.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/mode-ctr.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/mode-ecb.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/mode-ofb.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/pad-ansix923.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/pad-iso10126.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/pad-iso97971.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/pad-nopadding.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/pad-zeropadding.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/pbkdf2.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/rabbit-legacy.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/rabbit.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/rc4.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/ripemd160.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/sha1.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/sha224.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/sha256.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/sha3.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/sha384.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/sha512.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/tripledes.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/crypto-js/x64-core.js": {
+    "external:../../node_modules/crypto-js/core.js": true
+  },
+  "external:../../node_modules/diffie-hellman/lib/dh.js": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "external:../../node_modules/diffie-hellman/lib/generatePrime.js": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm/index.js": {
+    "external:../../node_modules/engine.io-client/build/esm/socket.js": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm/transports/index.js": {
+    "external:../../node_modules/engine.io-client/build/esm/transports/polling.js": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm/transports/polling.js": {
+    "external:../../node_modules/engine.io-client/build/esm/transports/xmlhttprequest.browser.js": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm/transports/xmlhttprequest.browser.js": {
+    "external:../../node_modules/engine.io-client/build/esm/contrib/has-cors.js": true
+  },
+  "external:../../node_modules/engine.io-parser/build/esm/index.js": {
+    "external:../../node_modules/engine.io-parser/build/esm/encodePacket.browser.js": true
+  },
+  "external:../../node_modules/expo-blur/build/BlurView.web.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/expo-clipboard/build/Clipboard.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-clipboard/build/ExpoClipboard.web.js": {
+    "external:../../node_modules/expo-clipboard/build/web/ClipboardModule.js": true
+  },
+  "external:../../node_modules/expo-clipboard/build/web/ClipboardModule.js": {
+    "external:../../node_modules/expo-clipboard/build/web/Utils.js": true
+  },
+  "external:../../node_modules/expo-clipboard/build/web/Exceptions.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-device/build/Device.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-device/build/ExpoDevice.web.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/ImageManipulator.ts": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/NativeImageManipulatorModule.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo": true,
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorContext.web.ts": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/actions/CropAction.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/actions/ExtentAction.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/actions/FlipAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/actions/ResizeAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/actions/RotateAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorContext.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo": true,
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/CropAction.web.ts": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/ExtentAction.web.ts": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/FlipAction.web.ts": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/ResizeAction.web.ts": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/RotateAction.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorImageRef.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo": true,
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-image-picker/build/ExponentImagePicker.web.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-image-picker/build/ImagePicker.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-image-picker/build/ExponentImagePicker.web.js": true
+  },
+  "external:../../node_modules/expo-image/src/ExpoImage.web.tsx": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/expo-image/src/Image.tsx": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true,
+    "external:../../node_modules/expo-image/src/ImageModule.web.ts": true
+  },
+  "external:../../node_modules/expo-image/src/ImageModule.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-image/src/utils.ts": {
+    "@onekeyhq/kit>expo-camera>expo": true,
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-image/src/utils/AssetSourceResolver.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/expo-image/src/utils/resolveSources.tsx": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-image/src/web/ColorTintFilter.tsx": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/expo-image/src/web/ImageRef.ts": {
+    "@onekeyhq/kit>expo-camera>expo": true,
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-image/src/web/ImageWrapper.tsx": {
+    "external:../../node_modules/expo-image/src/web/hooks.ts": true
+  },
+  "external:../../node_modules/expo-keep-awake/build/ExpoKeepAwake.web.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-keep-awake/build/index.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-linear-gradient/build/LinearGradient.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/expo-linear-gradient/build/NativeLinearGradient.web.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/expo-linear-gradient/build/normalizeColor.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/expo-linking/build/Linking.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true,
+    "external:../../node_modules/expo-linking/build/createURL.web.js": true,
+    "external:../../node_modules/expo-linking/build/ExpoLinking.web.js": true,
+    "external:../../node_modules/expo-linking/build/RNLinking.web.js": true
+  },
+  "external:../../node_modules/expo-local-authentication/build/LocalAuthentication.types.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-localization/build/ExpoLocalization.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-screen-orientation/build/ExpoScreenOrientation.web.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-screen-orientation/build/ScreenOrientation.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/expo-sharing/build/ExpoSharing.web.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-sharing/build/Sharing.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/inversify/lib/esm/index.js": {
+    "external:../../node_modules/reflect-metadata/Reflect.js": true
+  },
+  "external:../../node_modules/juicebox-sdk/juicebox-sdk_bg.wasm": {
+    "external:../../node_modules/juicebox-sdk/juicebox-sdk_bg.js": true
+  },
+  "external:../../node_modules/juicebox-sdk/juicebox-sdk.js": {
+    "external:../../node_modules/juicebox-sdk/juicebox-sdk_bg.js": true
+  },
+  "external:../../node_modules/lottie-react/build/index.umd.js": {
+    "external:../../node_modules/lottie-web/build/player/lottie.js": true
+  },
+  "external:../../node_modules/miller-rabin/lib/mr.js": {
+    "@onekeyhq/core>elliptic>brorand": true
+  },
+  "external:../../node_modules/node-vibrant/dist/esm/configs/browser.js": {
+    "external:../../node_modules/@vibrant/image-browser/dist/esm/index.js": true
+  },
+  "external:../../node_modules/ox/_esm/core/AbiParameters.js": {
+    "external:../../node_modules/ox/_esm/core/Bytes.js": true
+  },
+  "external:../../node_modules/ox/_esm/core/Address.js": {
+    "external:../../node_modules/ox/_esm/core/Bytes.js": true
+  },
+  "external:../../node_modules/ox/_esm/core/Hash.js": {
+    "external:../../node_modules/ox/_esm/core/Bytes.js": true
+  },
+  "external:../../node_modules/ox/_esm/core/Hex.js": {
+    "external:../../node_modules/ox/_esm/core/Bytes.js": true
+  },
+  "external:../../node_modules/ox/_esm/core/internal/abiParameters.js": {
+    "external:../../node_modules/ox/_esm/core/Bytes.js": true
+  },
+  "external:../../node_modules/ox/_esm/core/internal/bytes.js": {
+    "external:../../node_modules/ox/_esm/core/Bytes.js": true
+  },
+  "external:../../node_modules/ox/_esm/core/Signature.js": {
+    "external:../../node_modules/ox/_esm/core/Bytes.js": true
+  },
+  "external:../../node_modules/parse-asn1/index.js": {
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2": true
+  },
+  "external:../../node_modules/public-encrypt/publicEncrypt.js": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "external:../../node_modules/randomfill/browser.js": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "external:../../node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.esm.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+  },
+  "external:../../node_modules/react-mobile-cropper/dist/index.esm-bundler.js": {
+    "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js": true
+  },
+  "external:../../node_modules/react-native-confirmation-code-field/esm/CodeField.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/react-native-confirmation-code-field/esm/CodeField.styles.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/react-native-confirmation-code-field/esm/useClearByFocusCell.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/components/CellDecorators.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/components/CellRendererComponent.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/components/NestableDraggableFlatList.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/components/NestableScrollContainer.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/components/PlaceholderItem.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/components/ScrollOffsetListener.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/constants.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/context/nestableScrollContainerContext.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/context/refContext.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/hooks/useAutoScroll.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/hooks/useCellTranslate.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/hooks/useNestedAutoScroll.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true
+  },
+  "external:../../node_modules/react-native-draggable-flatlist/lib/module/hooks/useOnCellActiveAnimation.js": {
+    "@onekeyhq/components>moti>react-native-reanimated": true
+  },
+  "external:../../node_modules/react-native-image-colors/build/index.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/react-native-mmkv/lib/createMMKV/createMMKV.web.js": {
+    "external:../../node_modules/react-native-mmkv/lib/web/getLocalStorage.js": true
+  },
+  "external:../../node_modules/react-native-mmkv/lib/deleteMMKV/deleteMMKV.web.js": {
+    "external:../../node_modules/react-native-mmkv/lib/web/getLocalStorage.js": true
+  },
+  "external:../../node_modules/react-native-mmkv/lib/existsMMKV/existsMMKV.web.js": {
+    "external:../../node_modules/react-native-mmkv/lib/web/getLocalStorage.js": true
+  },
+  "external:../../node_modules/react-native-webview-cleaner/lib/module/index.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/react-redux/es/utils/reactBatchedUpdates.js": {
+    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+  },
+  "external:../../node_modules/react-virtualized/dist/es/Collection/CollectionView.js": {
+    "external:../../node_modules/dom-helpers/esm/scrollbarSize.js": true
+  },
+  "external:../../node_modules/react-virtualized/dist/es/Grid/Grid.js": {
+    "external:../../node_modules/dom-helpers/esm/scrollbarSize.js": true
+  },
+  "external:../../node_modules/react-virtualized/dist/es/Grid/utils/ScalingCellSizeAndPositionManager.js": {
+    "external:../../node_modules/react-virtualized/dist/es/Grid/utils/maxElementSize.js": true
+  },
+  "external:../../node_modules/shamir-secret-sharing/esm/index.js": {
+    "external:../../node_modules/shamir-secret-sharing/esm/csprng.js": true
+  },
+  "external:../../node_modules/socket.io-client/build/esm/index.js": {
+    "external:../../node_modules/socket.io-client/build/esm/url.js": true
+  },
+  "external:../../node_modules/sonner/dist/index.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+  },
+  "external:../../node_modules/tonweb/src/index.js": {
+    "external:../../node_modules/@ledgerhq/hw-transport-web-ble/lib-es/TransportWebBLE.js": true,
+    "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/TransportWebUSB.js": true,
+    "external:../../node_modules/tonweb/src/providers/index.js": true
+  },
+  "external:../../node_modules/tonweb/src/utils/Address.js": {
+    "external:../../node_modules/tonweb/src/utils/Utils.js": true
+  },
+  "external:../../node_modules/tonweb/src/utils/AdnlAddress.js": {
+    "external:../../node_modules/tonweb/src/utils/Utils.js": true
+  },
+  "external:../../node_modules/tonweb/src/utils/index.js": {
+    "external:../../node_modules/tonweb/src/utils/Utils.js": true
+  },
+  "external:../../node_modules/tonweb/src/utils/StorageBagId.js": {
+    "external:../../node_modules/tonweb/src/utils/Utils.js": true
+  },
+  "external:../../node_modules/tonweb/src/utils/Utils.js": {
+    "@onekeyhq/core>algosdk>tweetnacl": true,
+    "external:../../node_modules/isomorphic-webcrypto/src/browser.mjs": true
+  },
+  "external:../../node_modules/usb/dist/usb/device.js": {
+    "external:../../node_modules/usb/dist/usb/bindings.js": true
+  },
+  "external:../../node_modules/usb/dist/usb/endpoint.js": {
+    "external:../../node_modules/usb/dist/usb/bindings.js": true
+  },
+  "external:../../node_modules/usb/dist/usb/index.js": {
+    "external:../../node_modules/usb/dist/usb/bindings.js": true
+  },
+  "external:../../node_modules/usb/dist/usb/interface.js": {
+    "external:../../node_modules/usb/dist/usb/bindings.js": true
+  },
+  "external:../../node_modules/uuid/v1.js": {
+    "external:../../node_modules/uuid/lib/rng-browser.js": true
+  },
+  "external:../../node_modules/uuid/v4.js": {
+    "external:../../node_modules/uuid/lib/rng-browser.js": true
+  },
+  "external:../../node_modules/viem/_esm/actions/public/call.js": {
+    "external:../../node_modules/viem/_esm/utils/ccip.js": true
+  },
+  "external:../../node_modules/viem/_esm/clients/transports/http.js": {
+    "external:../../node_modules/viem/_esm/utils/rpc/http.js": true
+  },
+  "external:../../node_modules/viem/_esm/index.js": {
+    "external:../../node_modules/viem/_esm/utils/ccip.js": true
+  },
+  "external:../../node_modules/viem/_esm/utils/ens/avatar/parseAvatarRecord.js": {
+    "external:../../node_modules/viem/_esm/utils/ens/avatar/utils.js": true
+  },
+  "external:../desktop/app/config.ts": {
+    "@onekeyhq/shared": true
+  }
+}
