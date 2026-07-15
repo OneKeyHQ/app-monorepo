@@ -373,7 +373,9 @@ export function UniversalWithdraw({
   // Default selection always prefers the first enabled option (instant); this
   // ref lets an explicit manual choice (e.g. queued in the overlap range) win,
   // but only while a box of that type is still enabled.
-  const manualWithdrawTypeRef = useRef<IEarnWithdrawType | undefined>(undefined);
+  const manualWithdrawTypeRef = useRef<IEarnWithdrawType | undefined>(
+    undefined,
+  );
   const [withdrawProgressStep, setWithdrawProgressStep] = useState(
     EStakeProgressStep.approve,
   );
