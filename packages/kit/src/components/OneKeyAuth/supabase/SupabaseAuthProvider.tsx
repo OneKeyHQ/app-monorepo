@@ -106,14 +106,71 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
-  // The auth session source changes on login / logout / source switch, all
-  // of which flip the bg-owned primePersistAtom.isLoggedIn (the source is
-  // committed before the atom update — see
-  // ServicePrime.commitAuthSessionSourceBeforeAtomUpdate); re-resolve on
-  // every flip (and once on mount).
+  // Re-resolve the source whenever the bg-owned primePersistAtom.isLoggedIn
+  // flips (login / logout), and once on mount. This is NOT sufficient for
+  // every source change: apiBindLegacyOneKeyIdOAuth switches the source
+  // while staying logged in — that case is covered by the
+  // PrimeAuthSessionSourceCommitted subscription below.
   useEffect(() => {
     void refreshAuthSessionSource();
   }, [isPrimeLoggedIn, refreshAuthSessionSource]);
+
+  // Read both per-realm session slots. Reusable outside the mount effect:
+  // the runtime split below (bg/standalone getSession() vs pure-UI direct
+  // storage read) is position-independent, and both reads are idempotent.
+  const readSessionSlots = useCallback(async (): Promise<{
+    nextLegacySession: Session | null;
+    nextKeylessSession: Session | null;
+  }> => {
+    const {
+      getSupabaseClient,
+      getKeylessSupabaseClient,
+      isSupabaseTokenRefreshRuntime,
+    } = await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
+    const { client: legacyClient, storage } = getSupabaseClient();
+    const keylessClient = getKeylessSupabaseClient().client;
+    let nextLegacySession: Session | null = null;
+    let nextKeylessSession: Session | null = null;
+    if (isSupabaseTokenRefreshRuntime()) {
+      // bg/standalone runtime: getSession() may perform a network token
+      // refresh of an expired session — allowed here because this runtime
+      // owns token rotation (both realms).
+      const readClientSession = async (client: typeof legacyClient) => {
+        const { data, error } = await client.auth.getSession();
+        if (error) {
+          console.error('Error fetching session:', error);
+        }
+        return data.session;
+      };
+      nextLegacySession = await readClientSession(legacyClient);
+      nextKeylessSession = await readClientSession(keylessClient);
+    } else {
+      // Pure-UI (main) runtime: NEVER call client.auth.getSession() in
+      // steady state — its on-demand refresh of an expired session is NOT
+      // disabled by autoRefreshToken:false and would race the bg
+      // runtime's token rotation (see isSupabaseTokenRefreshRuntime).
+      // Read the persisted sessions directly instead (the native session
+      // storage is shared with bg; only JS-heap copies are per-runtime);
+      // they are only used here for identity display (user / isLoggedIn),
+      // so a possibly expired access token is fine — steady-state token
+      // reads go through the bg bridge.
+      const readStoredSession = async (sessionKey: string) => {
+        try {
+          const raw = await storage.getItem(sessionKey);
+          const parsed = raw ? (JSON.parse(raw) as Session) : null;
+          return parsed?.access_token && parsed?.refresh_token ? parsed : null;
+        } catch (error) {
+          console.error('Error reading stored session:', error);
+          return null;
+        }
+      };
+      nextLegacySession = await readStoredSession(getSupabaseAuthSessionKey());
+      nextKeylessSession = await readStoredSession(
+        getKeylessSupabaseAuthSessionKey(),
+      );
+    }
+    return { nextLegacySession, nextKeylessSession };
+  }, []);
 
   // TODO move to OneKeyAuthGlobalEffects
   // Fetch the sessions once, and subscribe to auth state changes
@@ -127,15 +184,12 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
         if (cancelled) {
           return;
         }
-        const {
-          getSupabaseClient,
-          getKeylessSupabaseClient,
-          isSupabaseTokenRefreshRuntime,
-        } = await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
+        const { getSupabaseClient, getKeylessSupabaseClient } =
+          await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
         if (cancelled) {
           return;
         }
-        const { client: legacyClient, storage } = getSupabaseClient();
+        const legacyClient = getSupabaseClient().client;
         const keylessClient = getKeylessSupabaseClient().client;
         logSupabaseAuthProvider('fetchSession start');
         setIsLoading(true);
@@ -145,50 +199,8 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
         if (cancelled) {
           return;
         }
-        let nextLegacySession: Session | null = null;
-        let nextKeylessSession: Session | null = null;
-        if (isSupabaseTokenRefreshRuntime()) {
-          // bg/standalone runtime: getSession() may perform a network token
-          // refresh of an expired session — allowed here because this runtime
-          // owns token rotation (both realms).
-          const readClientSession = async (client: typeof legacyClient) => {
-            const { data, error } = await client.auth.getSession();
-            if (error) {
-              console.error('Error fetching session:', error);
-            }
-            return data.session;
-          };
-          nextLegacySession = await readClientSession(legacyClient);
-          nextKeylessSession = await readClientSession(keylessClient);
-        } else {
-          // Pure-UI (main) runtime: NEVER call client.auth.getSession() in
-          // steady state — its on-demand refresh of an expired session is NOT
-          // disabled by autoRefreshToken:false and would race the bg
-          // runtime's token rotation (see isSupabaseTokenRefreshRuntime).
-          // Read the persisted sessions directly instead (the native session
-          // storage is shared with bg; only JS-heap copies are per-runtime);
-          // they are only used here for identity display (user / isLoggedIn),
-          // so a possibly expired access token is fine — steady-state token
-          // reads go through the bg bridge.
-          const readStoredSession = async (sessionKey: string) => {
-            try {
-              const raw = await storage.getItem(sessionKey);
-              const parsed = raw ? (JSON.parse(raw) as Session) : null;
-              return parsed?.access_token && parsed?.refresh_token
-                ? parsed
-                : null;
-            } catch (error) {
-              console.error('Error reading stored session:', error);
-              return null;
-            }
-          };
-          nextLegacySession = await readStoredSession(
-            getSupabaseAuthSessionKey(),
-          );
-          nextKeylessSession = await readStoredSession(
-            getKeylessSupabaseAuthSessionKey(),
-          );
-        }
+        const { nextLegacySession, nextKeylessSession } =
+          await readSessionSlots();
         if (cancelled) {
           return;
         }
@@ -228,7 +240,54 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
       cancelled = true;
       unsubscribes.forEach((unsubscribe) => unsubscribe());
     };
-  }, [refreshAuthSessionSource]);
+  }, [readSessionSlots, refreshAuthSessionSource]);
+
+  // A source commit does not necessarily flip primePersistAtom.isLoggedIn:
+  // apiBindLegacyOneKeyIdOAuth switches LegacyEmailSupabase -> KeylessOAuth
+  // while staying logged in, so the [isPrimeLoggedIn] effect above never
+  // re-resolves the source in that flow and this context would keep
+  // selecting the (just signed-out) legacy slot — session=null while the
+  // app is logged in — until restart. bg-side setSession writes (legacy
+  // keyless migration) additionally never emit auth events in this runtime,
+  // leaving the keyless SLOT stale even when the source is re-resolved.
+  // Handle both by re-resolving the source AND re-reading both slots on
+  // every commit. Ordering vs the in-flight bind flow is safe: the slots
+  // converge through the onAuthStateChange subscriptions above regardless
+  // of whether this handler runs before or after the main-side legacy
+  // sign-out / keyless persist.
+  useEffect(() => {
+    let isActive = true;
+    const onAuthSessionSourceCommitted = () => {
+      void (async () => {
+        try {
+          await refreshAuthSessionSource();
+          const { nextLegacySession, nextKeylessSession } =
+            await readSessionSlots();
+          if (!isActive) {
+            return;
+          }
+          setLegacySession(nextLegacySession);
+          setKeylessSession(nextKeylessSession);
+        } catch (error) {
+          console.error(
+            'Error refreshing sessions after auth session source commit:',
+            error,
+          );
+        }
+      })();
+    };
+    appEventBus.on(
+      EAppEventBusNames.PrimeAuthSessionSourceCommitted,
+      onAuthSessionSourceCommitted,
+    );
+    return () => {
+      isActive = false;
+      appEventBus.off(
+        EAppEventBusNames.PrimeAuthSessionSourceCommitted,
+        onAuthSessionSourceCommitted,
+      );
+    };
+  }, [readSessionSlots, refreshAuthSessionSource]);
 
   // Runtime note (main): when the bg runtime clears the shared keyless
   // session storage (keyless wallet removal / cleanup), this runtime's

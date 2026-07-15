@@ -443,6 +443,10 @@ export interface IAppEventBusPayload {
   // runtime, so the main runtime must sign out its own in-memory keyless
   // client copy when this arrives.
   [EAppEventBusNames.KeylessAuthSessionCleared]: undefined;
+  [EAppEventBusNames.PrimeAuthSessionSourceCommitted]: {
+    authSessionSource: EPrimeAuthSessionSource;
+    callerName: string;
+  };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: undefined;
   [EAppEventBusNames.PrimeMasterPasswordInvalid]: undefined;

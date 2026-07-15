@@ -642,3 +642,62 @@ describe('ServicePrime.apiLogin invalid-token clear guard', () => {
     expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
   });
 });
+
+describe('ServicePrime.commitAuthSessionSourceBeforeAtomUpdate', () => {
+  let emitSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    emitSpy = jest.spyOn(appEventBus, 'emit').mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    emitSpy.mockRestore();
+  });
+
+  it('emits PrimeAuthSessionSourceCommitted after a successful commit', async () => {
+    // The main-runtime SupabaseAuthProvider relies on this event: a bind
+    // commit switches the source without flipping primePersistAtom.isLoggedIn,
+    // so without the event the provider would keep selecting the stale slot.
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('active-token');
+
+    await service.commitAuthSessionSourceBeforeAtomUpdate({
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      callerName: 'test',
+    });
+
+    expect(simpleDbPrime.setAuthSessionSource).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.PrimeAuthSessionSourceCommitted,
+      {
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        callerName: 'test',
+      },
+    );
+  });
+
+  it('does not emit when the commit fails safe (no readable active token)', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('');
+    const atomResetSpy = jest
+      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
+      .mockResolvedValue(undefined);
+
+    await expect(
+      service.commitAuthSessionSourceBeforeAtomUpdate({
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        callerName: 'test',
+      }),
+    ).rejects.toThrow('Active auth token not found');
+
+    expect(atomResetSpy).toHaveBeenCalled();
+    expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.PrimeAuthSessionSourceCommitted,
+      expect.anything(),
+    );
+  });
+});

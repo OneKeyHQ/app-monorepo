@@ -600,6 +600,16 @@ class ServicePrime extends ServiceBase {
         `${callerName} ERROR: Active auth token not found`,
       );
     }
+    // Notify main-runtime session holders (SupabaseAuthProvider) that the
+    // source changed. This must not rely on a primePersistAtom.isLoggedIn
+    // flip: apiBindLegacyOneKeyIdOAuth switches LegacyEmailSupabase ->
+    // KeylessOAuth while staying logged in, and bg-side setSession writes
+    // (legacy keyless migration) emit no auth events in the main runtime.
+    // On desktop/web (single runtime) the event is a harmless self-delivery.
+    appEventBus.emit(EAppEventBusNames.PrimeAuthSessionSourceCommitted, {
+      authSessionSource,
+      callerName,
+    });
   }
 
   @backgroundMethod()
