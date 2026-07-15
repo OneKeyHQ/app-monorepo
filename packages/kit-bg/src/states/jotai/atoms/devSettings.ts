@@ -109,6 +109,9 @@ export interface IDevSettings {
   disableCustomUA?: boolean;
   // Allow Discovery browser to load local development URLs.
   allowLocalhostUrlInDAppBrowser?: boolean;
+  // Open external links in the system browser instead of the native in-app
+  // browser (SFSafariViewController / Chrome Custom Tabs). Native only.
+  useSystemBrowserForExternalLinks?: boolean;
   // Force react-native-fast-pbkdf2 instead of the default quick-crypto backend
   // for native PBKDF2 calls (debug only).
   useFastPbkdf2NativeBackend?: boolean;
