@@ -5,6 +5,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+
+type IPrimeLoginInvalidTokenPayload =
+  IAppEventBusPayload[EAppEventBusNames.PrimeLoginInvalidToken];
 
 const PRIME_GLOBAL_EFFECT_DELAY_MS = 1500;
 
@@ -17,6 +21,8 @@ function PrimeGlobalEffectLazyCmp() {
     useState<IPrimeGlobalEffectComponent | null>(null);
   const containerLoadedRef = useRef(false);
   const hasPendingInvalidTokenEventRef = useRef(false);
+  const pendingInvalidTokenPayloadRef =
+    useRef<IPrimeLoginInvalidTokenPayload>(undefined);
   const replayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -38,11 +44,16 @@ function PrimeGlobalEffectLazyCmp() {
   }, [requestMount]);
 
   useEffect(() => {
-    const handleInvalidToken = () => {
+    const handleInvalidToken = (payload: IPrimeLoginInvalidTokenPayload) => {
       if (containerLoadedRef.current) {
         return;
       }
       hasPendingInvalidTokenEventRef.current = true;
+      // Buffer the payload so the replay keeps the source-aware cleanup
+      // information (authSessionSource / clearedByBackground) — a payload
+      // dropped to undefined would send the handler down the payload-less
+      // legacy fallback branch instead of the keyless sign-out.
+      pendingInvalidTokenPayloadRef.current = payload;
       requestMount();
     };
     appEventBus.on(
@@ -81,8 +92,13 @@ function PrimeGlobalEffectLazyCmp() {
       return;
     }
     hasPendingInvalidTokenEventRef.current = false;
+    const pendingPayload = pendingInvalidTokenPayloadRef.current;
+    pendingInvalidTokenPayloadRef.current = undefined;
     replayTimerRef.current = setTimeout(() => {
-      appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
+      appEventBus.emit(
+        EAppEventBusNames.PrimeLoginInvalidToken,
+        pendingPayload,
+      );
     }, 0);
     return () => {
       if (replayTimerRef.current) {
