@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -11,6 +11,7 @@ import {
   useSpotPairDisplayNameMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -240,6 +241,28 @@ const OpenOrdersRow = memo(
 
     const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
     const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
+
+    useEffect(() => {
+      if (!isMobile) {
+        return undefined;
+      }
+      defaultLogger.perp.hyperliquid.openOrdersFilterDiagnostic({
+        runtime: 'main',
+        event: 'row-commit',
+        isMobile: true,
+        rowCoin: order.coin,
+        rowIndex: index,
+      });
+      return () => {
+        defaultLogger.perp.hyperliquid.openOrdersFilterDiagnostic({
+          runtime: 'main',
+          event: 'row-cleanup',
+          isMobile: true,
+          rowCoin: order.coin,
+          rowIndex: index,
+        });
+      };
+    }, [index, isMobile, order.coin]);
 
     if (isMobile) {
       return (

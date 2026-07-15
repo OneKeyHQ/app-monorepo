@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -24,6 +24,7 @@ import {
   useSpotActiveOpenOrdersAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
@@ -58,6 +59,37 @@ type IOpenOrdersDisplayRow =
       type: 'twap';
       order: IPerpsActiveTwapOrder;
     };
+
+const DIAGNOSTIC_COIN_LIMIT = 5;
+
+function getOrderCoin(order: IPerpsFrontendOrder | IPerpsActiveTwapOrder) {
+  return 'state' in order ? order.state.coin : order.coin;
+}
+
+function getDisplayRowCoin(row: IOpenOrdersDisplayRow) {
+  return getOrderCoin(row.order);
+}
+
+function getOrderFilterMode({
+  isMobile,
+  filterByCurrentToken,
+  activeCoin,
+}: {
+  isMobile?: boolean;
+  filterByCurrentToken: boolean;
+  activeCoin: string;
+}) {
+  if (!isMobile) {
+    return 'not-mobile' as const;
+  }
+  if (!filterByCurrentToken) {
+    return 'disabled' as const;
+  }
+  if (!activeCoin) {
+    return 'missing-active-coin' as const;
+  }
+  return 'active' as const;
+}
 
 function MobileTwapEmptyState() {
   const intl = useIntl();
@@ -217,6 +249,7 @@ function PerpOpenOrdersList({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
+  const diagnosticSequenceRef = useRef(0);
   const canMutateScopedOrders = isPerpsAccountAddressMatched({
     activeAccountAddress: currentUser?.accountAddress,
     dataAccountAddress: accountScopedAddress,
@@ -383,6 +416,88 @@ function PerpOpenOrdersList({
         : []),
     ];
   }, [activeOpenOrdersSubTab, filteredOrders, filteredTwapOrders, isMobile]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    diagnosticSequenceRef.current += 1;
+    const sequence = diagnosticSequenceRef.current;
+    const activeCoin = activeTradeInstrument?.coin ?? '';
+    const filterMode = getOrderFilterMode({
+      isMobile,
+      filterByCurrentToken,
+      activeCoin,
+    });
+    const visibleOrders =
+      activeOpenOrdersSubTab === 'twap' ? filteredTwapOrders : filteredOrders;
+    const sourceOrders =
+      activeOpenOrdersSubTab === 'twap' ? scopedTwapOrders : openOrders;
+    const orderCoins = sourceOrders
+      .map(getOrderCoin)
+      .slice(0, DIAGNOSTIC_COIN_LIMIT);
+    const filteredCoins = visibleOrders
+      .map(getOrderCoin)
+      .slice(0, DIAGNOSTIC_COIN_LIMIT);
+    const displayCoins = displayRows
+      .map(getDisplayRowCoin)
+      .slice(0, DIAGNOSTIC_COIN_LIMIT);
+    const unsafeFallback = Boolean(
+      isMobile &&
+      filterByCurrentToken &&
+      !activeCoin &&
+      sourceOrders.length > 0,
+    );
+    const mismatchedVisibleCount = activeCoin
+      ? visibleOrders.filter((order) => getOrderCoin(order) !== activeCoin)
+          .length
+      : 0;
+    const snapshot = {
+      runtime: 'main' as const,
+      sequence,
+      isMobile: Boolean(isMobile),
+      filterByCurrentToken,
+      activeCoin,
+      activeSubTab: activeOpenOrdersSubTab,
+      currentPage: currentListPage,
+      filterMode,
+      unsafeFallback,
+      openOrdersCount: sourceOrders.length,
+      filteredOrdersCount: visibleOrders.length,
+      displayRowsCount: displayRows.length,
+      mismatchedVisibleCount,
+      orderCoins,
+      filteredCoins,
+      displayCoins,
+    };
+    defaultLogger.perp.hyperliquid.openOrdersFilterDiagnostic({
+      event: 'list-commit',
+      ...snapshot,
+    });
+    if (unsafeFallback) {
+      defaultLogger.perp.hyperliquid.openOrdersFilterDiagnostic({
+        event: 'unsafe-unfiltered-fallback',
+        ...snapshot,
+      });
+    }
+    requestAnimationFrame(() => {
+      defaultLogger.perp.hyperliquid.openOrdersFilterDiagnostic({
+        event: 'list-next-frame',
+        ...snapshot,
+      });
+    });
+  }, [
+    activeOpenOrdersSubTab,
+    activeTradeInstrument?.coin,
+    currentListPage,
+    displayRows,
+    filterByCurrentToken,
+    filteredOrders,
+    filteredTwapOrders,
+    isMobile,
+    openOrders,
+    scopedTwapOrders,
+  ]);
 
   const columnsConfig = useOpenOrdersColumnsConfig({
     openOrdersLength: openOrders.length,

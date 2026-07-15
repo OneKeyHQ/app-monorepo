@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Button, Checkbox, SizableText, XStack } from '@onekeyhq/components';
 import { useOrderFilterByCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 
@@ -32,9 +33,18 @@ export function MobileOpenOrdersListHeader({
 
   const handleFilterChange = useCallback(
     (value: boolean | 'indeterminate') => {
-      setFilterByCurrentToken(value === true);
+      const nextFilterValue = value === true;
+      defaultLogger.perp.hyperliquid.openOrdersFilterDiagnostic({
+        runtime: 'main',
+        event: 'checkbox-change',
+        isMobile: true,
+        filterByCurrentToken,
+        checkboxValue: value,
+        nextFilterValue,
+      });
+      setFilterByCurrentToken(nextFilterValue);
     },
-    [setFilterByCurrentToken],
+    [filterByCurrentToken, setFilterByCurrentToken],
   );
 
   // Early return when no orders exist
