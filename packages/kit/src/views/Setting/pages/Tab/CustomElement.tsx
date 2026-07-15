@@ -442,13 +442,13 @@ export function ListVersionItem(props: ICustomElementProps) {
     <TabSettingsListItem
       {...props}
       onPress={handleToUpdatePreviewPage}
-      iconProps={{ ...iconProps, color: '$textInfo' }}
-      titleProps={{ ...titleProps, color: '$textInfo' }}
+      iconProps={{ ...iconProps, color: '$textSuccess' }}
+      titleProps={{ ...titleProps, color: '$textSuccess' }}
       drillIn
     >
       <ListItem.Text
         primary={
-          <Badge badgeType="info" badgeSize="lg">
+          <Badge badgeType="success" badgeSize="lg">
             {displayAppUpdateVersion(appUpdateInfo.data)}
           </Badge>
         }

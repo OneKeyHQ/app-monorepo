@@ -24,6 +24,7 @@ import {
   revealableSeedFromMnemonic,
   revealableSeedFromTonMnemonic,
   tonMnemonicFromEntropy,
+  tonMnemonicToKeyPair,
   tonValidateMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
@@ -248,6 +249,23 @@ export type IAddHDOrHWAccountsResult = {
   accounts: IBatchCreateAccount[];
   deriveType: IAccountDeriveTypes;
 };
+
+function normalizeTonSecretKey(secretKey: unknown): Uint8Array {
+  if (secretKey instanceof Uint8Array) {
+    return new Uint8Array(secretKey);
+  }
+  if (Array.isArray(secretKey)) {
+    return new Uint8Array(secretKey);
+  }
+  if (secretKey && typeof secretKey === 'object') {
+    return new Uint8Array(
+      Object.values(secretKey as Record<string, number>).map((value) =>
+        Number(value),
+      ),
+    );
+  }
+  throw new InvalidMnemonic();
+}
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
@@ -3894,6 +3912,83 @@ class ServiceAccount extends ServiceBase {
       skipAddHDNextIndexedAccount,
       applyRestoreSyncPolicy,
     });
+  }
+
+  @backgroundMethod()
+  async addTonImportedAccountByMnemonic({
+    mnemonic,
+    name,
+    shouldCheckDuplicateName,
+  }: {
+    mnemonic: string;
+    name?: string;
+    shouldCheckDuplicateName?: boolean;
+  }): Promise<{
+    networkId: string;
+    walletId: string;
+    accounts: IDBAccount[];
+    isOverrideAccounts: boolean;
+  }> {
+    ensureSensitiveTextEncoded(mnemonic);
+    const { mnemonic: realMnemonic, mnemonicType } =
+      await this.validateMnemonic(mnemonic);
+
+    if (mnemonicType !== EMnemonicType.TON) {
+      throw new OneKeyLocalError(
+        'addTonImportedAccountByMnemonic ERROR: Not a TON mnemonic',
+      );
+    }
+
+    const { servicePassword } = this.backgroundApi;
+    const { password } = await servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+    });
+    ensureSensitiveTextEncoded(password);
+
+    const keyPair = await tonMnemonicToKeyPair(realMnemonic.split(' '));
+    const secretKeyBytes = normalizeTonSecretKey(keyPair?.secretKey);
+    if (secretKeyBytes.length < 32) {
+      throw new InvalidMnemonic();
+    }
+    let privateHex = '';
+
+    try {
+      privateHex = bufferUtils.bytesToHex(secretKeyBytes.slice(0, 32));
+      const result = await this.addImportedAccountWithCredentialBase({
+        credentialRaw: privateHex,
+        password,
+        deriveType: 'default',
+        networkId: getNetworkIdsMap().ton,
+        name,
+        shouldCheckDuplicateName,
+      });
+      privateHex = '';
+
+      const accountId = result.accounts?.[0]?.id;
+      if (!accountId) {
+        throw new OneKeyLocalError(
+          'addTonImportedAccountByMnemonic ERROR: Account is required',
+        );
+      }
+
+      let rs: IBip39RevealableSeedEncryptHex | undefined;
+      try {
+        rs = await revealableSeedFromTonMnemonic(realMnemonic, password);
+      } catch {
+        throw new InvalidMnemonic();
+      }
+
+      const tonMnemonicFromRs = await tonMnemonicFromEntropy(rs, password);
+      if (realMnemonic !== tonMnemonicFromRs) {
+        throw new InvalidMnemonic();
+      }
+      await localDb.saveTonImportedAccountMnemonic({ accountId, rs });
+
+      return result;
+    } finally {
+      secretKeyBytes.fill(0);
+      privateHex = '';
+    }
   }
 
   @backgroundMethod()

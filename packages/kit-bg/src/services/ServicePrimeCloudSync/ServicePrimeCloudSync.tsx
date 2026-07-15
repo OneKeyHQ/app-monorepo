@@ -1856,14 +1856,24 @@ class ServicePrimeCloudSync extends ServiceBase {
     callerName = 'Manual Cloud Sync Keyless',
     noDebounceUpload = true,
     forceSync,
+    password,
   }: {
     callerName?: string;
     noDebounceUpload?: boolean;
     forceSync?: boolean;
+    password?: string;
   } = {}): Promise<boolean> {
     const { isCloudSyncEnabledKeyless } = await primeCloudSyncPersistAtom.get();
     if (!isCloudSyncEnabledKeyless) {
       return false;
+    }
+    if (password) {
+      await this.backgroundApi.serviceKeylessCloudSync.repairKeylessSyncCredentialIfNeeded(
+        {
+          password,
+          throwOnLocalSecretEnvelopeUnavailable: true,
+        },
+      );
     }
     const syncCredential = await this.getSyncCredentialSafe();
     if (!syncCredential) {
@@ -1871,6 +1881,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
     await this.initLocalSyncItemsDB({
       syncCredential,
+      password,
     });
     await this.startServerSyncFlow({
       callerName,

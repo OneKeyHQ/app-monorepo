@@ -140,12 +140,14 @@ interface IBaseResolveOptions {
   platform: string;
   configName?: string;
   basePath: string;
+  enableSentryMinimalCompat: boolean;
 }
 
 const baseResolve = ({
   platform,
   configName,
   basePath,
+  enableSentryMinimalCompat,
 }: IBaseResolveOptions): RspackOptions['resolve'] => ({
   mainFields: ['browser', 'module', 'main'],
   aliasFields: ['browser', 'module', 'main'],
@@ -189,6 +191,14 @@ const baseResolve = ({
       basePath,
       '../../node_modules/@react-aria/utils/src/index.ts',
     ),
+    ...(enableSentryMinimalCompat
+      ? {
+          '@sentry/minimal$': path.join(
+            __dirname,
+            '../module-resolver/sentry-minimal-compat',
+          ),
+        }
+      : {}),
     'bn.js$': require.resolve('bn.js'),
   },
   fallback: {
@@ -289,28 +299,50 @@ const buildBasePlugins: (
         '../../packages/kit/src/views/Developer/router.empty.ts',
       ),
     ),
+  !isDev &&
+    platform === 'web' &&
+    new rspack.CssExtractRspackPlugin({
+      filename: '[name].[contenthash:10].css',
+      chunkFilename: 'static/css/[name].[contenthash:10].chunk.css',
+    }),
   isDev && new BuildDoneNotifyPlugin(),
 ];
 
-const buildBaseExperiments: (
+function buildCssLoaders(platform: string) {
+  return [
+    !isDev && platform === 'web'
+      ? rspack.CssExtractRspackPlugin.loader
+      : 'style-loader',
+    {
+      loader: 'css-loader',
+      options: {
+        importLoaders: 1,
+        sourceMap: true,
+        modules: { mode: 'global' },
+      },
+    },
+  ];
+}
+
+const buildBaseExperiments: () => RspackOptions['experiments'] = () => ({
+  asyncWebAssembly: true,
+});
+
+const buildBaseCache: (
   basePath: string,
   configName?: string,
-) => RspackOptions['experiments'] = (basePath, configName) => ({
-  cache: {
-    type: 'persistent',
-    storage: {
-      type: 'filesystem',
-      // Use separate cache directories for each config to avoid conflicts
-      // in multi-config builds (ext has 5 parallel configs)
-      directory: path.join(
-        basePath,
-        'node_modules/.cache/rspack',
-        configName || 'default',
-      ),
-    },
+) => RspackOptions['cache'] = (basePath, configName) => ({
+  type: 'persistent',
+  storage: {
+    type: 'filesystem',
+    // Use separate cache directories for each config to avoid conflicts
+    // in multi-config builds (ext has 5 parallel configs)
+    directory: path.join(
+      basePath,
+      'node_modules/.cache/rspack',
+      configName || 'default',
+    ),
   },
-  asyncWebAssembly: true,
-  incremental: true,
 });
 
 const basePerformance: RspackOptions['performance'] = {
@@ -322,12 +354,22 @@ interface IBaseConfigOptions {
   platform: string;
   basePath: string;
   configName?: string;
+  target?: RspackOptions['target'];
+  swcTargets?: string | Record<string, string>;
+  enableImportMetaCompat?: boolean;
+  enableSentryMinimalCompat?: boolean;
+  transpileDependencies?: RegExp[];
 }
 
 export function createBaseConfig({
   platform,
   basePath,
   configName,
+  target = ['web'],
+  swcTargets = 'defaults',
+  enableImportMetaCompat = false,
+  enableSentryMinimalCompat = false,
+  transpileDependencies = [],
 }: IBaseConfigOptions): RspackOptions {
   // platformEnv.* folding (mirrors webpack babel transform-define). Applied in
   // the first-party babel-loader pass below.
@@ -343,7 +385,7 @@ export function createBaseConfig({
     entry: path.join(basePath, 'index.js'),
     context: path.resolve(basePath),
     bail: false,
-    target: ['web'],
+    target,
     watchOptions: {
       aggregateTimeout: 5,
       ignored: [
@@ -415,6 +457,15 @@ export function createBaseConfig({
       ...buildBasePlugins(platform, basePath).filter(Boolean),
     ],
     module: {
+      // Webpack used strictExportPresence=false. Keep the same behavior for
+      // native-only React Native exports that are guarded by platformEnv.
+      parser: {
+        javascript: {
+          exportsPresence: false,
+          importExportsPresence: false,
+          reexportExportsPresence: false,
+        },
+      },
       rules: [
         // `.text-js` = JS source imported as a RAW STRING (default export = the
         // file contents), matching babel-plugin-inline-import in the webpack
@@ -489,7 +540,7 @@ export function createBaseConfig({
                 },
                 isModule: 'unknown',
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
               },
             },
@@ -532,21 +583,19 @@ export function createBaseConfig({
                 },
                 isModule: 'unknown',
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
                 // lodash cherry-pick, mirrors babel-plugin-import in the webpack
                 // chain (`import { x } from 'lodash'` -> `import x from 'lodash/x'`).
                 // camelToDashComponentName:false mirrors camel2DashComponentName:false.
-                rspackExperiments: {
-                  import: [
-                    {
-                      libraryName: 'lodash',
-                      customName: 'lodash/{{ member }}',
-                      camelToDashComponentName: false,
-                      transformToDefaultImport: true,
-                    },
-                  ],
-                },
+                transformImport: [
+                  {
+                    libraryName: 'lodash',
+                    customName: 'lodash/{{ member }}',
+                    camelToDashComponentName: false,
+                    transformToDefaultImport: true,
+                  },
+                ],
               },
             },
             {
@@ -558,6 +607,7 @@ export function createBaseConfig({
                   ['@babel/preset-typescript', { allowDeclareFields: true }],
                 ],
                 plugins: [
+                  '@babel/plugin-syntax-jsx',
                   ...(platform === 'web'
                     ? [
                         path.join(
@@ -618,13 +668,46 @@ export function createBaseConfig({
                 },
                 isModule: 'unknown',
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
               },
             },
           ],
           resolve: { fullySpecified: false },
         },
+        ...(transpileDependencies.length > 0
+          ? [
+              {
+                test: /\.(c|m)?(js|jsx)$/,
+                include: transpileDependencies,
+                loader: 'builtin:swc-loader',
+                options: {
+                  jsc: {
+                    parser: {
+                      syntax: 'ecmascript',
+                      jsx: true,
+                    },
+                    transform: {
+                      react: {
+                        runtime: 'automatic',
+                        development: isDev,
+                        refresh: isDev,
+                      },
+                    },
+                    externalHelpers: true,
+                    experimental: {
+                      cacheRoot: path.join(basePath, 'node_modules/.cache/swc'),
+                    },
+                  },
+                  isModule: 'unknown',
+                  env: {
+                    targets: swcTargets,
+                  },
+                },
+                resolve: { fullySpecified: false },
+              },
+            ]
+          : []),
         {
           test: [
             /(@?expo-*).*\.(c|m)?(ts|js)x?$/,
@@ -655,7 +738,7 @@ export function createBaseConfig({
                 },
                 isModule: 'unknown',
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
               },
             },
@@ -687,26 +770,24 @@ export function createBaseConfig({
                   noInterop: false,
                 },
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
               },
             },
           ],
           resolve: { fullySpecified: false },
         },
+        ...(enableImportMetaCompat
+          ? [
+              {
+                test: /@polkadot/,
+                loader: require.resolve('@open-wc/webpack-import-meta-loader'),
+              },
+            ]
+          : []),
         {
           test: /\.(css)$/,
-          use: [
-            'style-loader',
-            {
-              loader: 'css-loader',
-              options: {
-                importLoaders: 1,
-                sourceMap: true,
-                modules: { mode: 'global' },
-              },
-            },
-          ],
+          use: buildCssLoaders(platform),
           sideEffects: true,
         },
         {
@@ -729,14 +810,21 @@ export function createBaseConfig({
         },
       ],
     },
-    resolve: baseResolve({ platform, configName, basePath }),
+    resolve: baseResolve({
+      platform,
+      configName,
+      basePath,
+      enableSentryMinimalCompat,
+    }),
     resolveLoader: {
       alias: {
         'worker-loader': require.resolve('worker-rspack-loader'),
       },
     },
     lazyCompilation: false,
-    experiments: buildBaseExperiments(basePath, configName),
+    incremental: true,
+    cache: buildBaseCache(basePath, configName),
+    experiments: buildBaseExperiments(),
     performance: basePerformance,
     optimization: {
       splitChunks: {

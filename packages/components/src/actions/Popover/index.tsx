@@ -19,7 +19,6 @@ import type {
   PopoverContentProps as PopoverContentTypeProps,
   TMPopoverProps,
 } from '@onekeyhq/components/src/shared/tamaguiOverlay';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite/Dialog';
@@ -45,6 +44,10 @@ import { Trigger } from '../Trigger';
 
 import { PopoverContext, usePopoverContext } from './context';
 import { PopoverContent } from './PopoverContent';
+import {
+  runPopoverCloseSideEffects,
+  runPopoverOpenSideEffects,
+} from './popoverSideEffects';
 
 import type { IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
@@ -105,12 +108,7 @@ const usePopoverValue = (
       onOpenChange?.(true);
     }
 
-    if (trackID) {
-      defaultLogger.ui.popover.popoverOpen({
-        trackId: trackID,
-      });
-    }
-    void Keyboard.dismissWithDelay(50);
+    runPopoverOpenSideEffects(trackID);
   }, [isControlled, onOpenChange, trackID]);
 
   const closePopover = useCallback(() => {
@@ -121,12 +119,7 @@ const usePopoverValue = (
       onOpenChange?.(false);
     }
 
-    if (trackID) {
-      defaultLogger.ui.popover.popoverClose({
-        trackId: trackID,
-      });
-    }
-    void Keyboard.dismissWithDelay(50);
+    runPopoverCloseSideEffects(trackID);
   }, [isControlled, onOpenChange, trackID]);
 
   return {

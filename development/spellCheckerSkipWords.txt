@@ -20,11 +20,13 @@ skillshare
 bitrefill
 Bitrefill
 BITREFILL
+Bitway
 worktree
 googleusercontent
 0xf7ad23226db5c1c00ca0ca1468fd49c8f8bbc1489bc1c382de5adc557a69c229
 0xffffffffffffffffn
 reown
+Reown
 cloudfs
 morelink
 worktrees
@@ -56,6 +58,14 @@ wui
 deeplinks
 minmov
 appkit
+AppKit
+alephium
+jsbi
+JSBI
+lockdown
+Lockdown
+LOCKDOWN
+unpermitted
 wcm
 perp
 hyperliquid
@@ -1547,3 +1557,6 @@ mysten
 # web service worker / workbox (rspack migration) comments + cache names
 precaches
 navigations
+
+# OpenType tabular-figures feature tag
+tnum

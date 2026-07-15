@@ -18,6 +18,7 @@ export type IAutoSizeInputProps = {
   inlineTokenSymbol?: string;
   inlinePrefixGapPx: number;
   inlineSuffixGapPx: number;
+  fontFamily: string;
   // Shared selection color for web/native text cursor and selection.
   selectionColor: string;
   onChangeText: (text: string) => void;

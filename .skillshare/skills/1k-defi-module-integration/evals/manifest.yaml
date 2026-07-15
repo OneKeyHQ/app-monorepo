@@ -1,0 +1,9 @@
+skill: 1k-defi-module-integration
+version: 1
+pass_threshold: 90
+critical_fail_policy: zero
+reviewed_code_ref: ec605542881e33d53f6efe809604b5821ad98351
+cases:
+  - cases/assetdetails-lending-action.yaml
+  - cases/external-dapp-owner-boundary.yaml
+  - cases/all-networks-refresh-persistence.yaml

@@ -105,10 +105,12 @@ function SpotBalanceList({
   const [abstractionMode] = usePerpsAbstractionModeAtom();
   const [priceMap] = useSpotAssetCtxsMapAtom();
   const actions = useHyperliquidActions();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
   const { spotUniverses, universeByBaseName, tokenContractMap } =
     useSpotMetaMaps();
   const [currentListPage, setCurrentListPage] = useState(1);
+  const canDeposit = Boolean(currentUser?.accountAddress) && !isDepositDisabled;
 
   useEffect(() => {
     setCurrentListPage(1);
@@ -428,8 +430,10 @@ function SpotBalanceList({
             px="$3"
             h={28}
             bg="$bgAccent"
+            opacity={canDeposit ? 1 : 0.5}
+            cursor={canDeposit ? 'pointer' : 'default'}
             onPress={
-              currentUser?.accountAddress
+              canDeposit
                 ? () => void showDepositWithdrawModal('deposit')
                 : undefined
             }
@@ -500,9 +504,9 @@ function SpotBalanceList({
     );
   }, [
     ListHeaderComponent,
+    canDeposit,
     computedValue.accountValue,
     computedValue.withdrawable,
-    currentUser?.accountAddress,
     intl,
     isMobile,
     showDepositWithdrawModal,

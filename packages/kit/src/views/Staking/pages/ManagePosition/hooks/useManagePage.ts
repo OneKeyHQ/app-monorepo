@@ -31,6 +31,7 @@ export const useManagePage = ({
   reserveAddress,
   marketAddress,
   revalidateOnFocus = true,
+  undefinedResultIfReRun = false,
 }: {
   accountId: string;
   indexedAccountId: string | undefined;
@@ -42,6 +43,7 @@ export const useManagePage = ({
   reserveAddress?: string;
   marketAddress?: string;
   revalidateOnFocus?: boolean;
+  undefinedResultIfReRun?: boolean;
 }) => {
   const {
     result,
@@ -116,7 +118,7 @@ export const useManagePage = ({
       reserveAddress,
       marketAddress,
     ],
-    { watchLoading: true, revalidateOnFocus },
+    { watchLoading: true, revalidateOnFocus, undefinedResultIfReRun },
   );
 
   const { managePageData, protocolList, earnAccount } = result || {};
@@ -262,6 +264,7 @@ export const useManagePage = ({
       stakeTag: buildLocalTxStatusSyncId({
         providerName: provider,
         tokenSymbol: symbol,
+        protocolVault: resolvedProtocolVault,
       }),
       providerDetail: {
         name: matchingProtocol?.provider.name || provider,
@@ -287,6 +290,7 @@ export const useManagePage = ({
       // supply max balance for supply max button
       maxSupplyBalance: managePageData.supply?.data?.maxBalance,
       receiptTokenRate:
+        managePageData.withdrawApprove?.receiptTokenRate ??
         matchingProtocol?.provider.receiptTokenRate ??
         matchingProtocol?.provider.morphoTokenRate,
       morphoTokenRate: matchingProtocol?.provider.morphoTokenRate,

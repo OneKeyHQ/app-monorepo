@@ -99,7 +99,6 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
 import { SettingTestIDs } from '../../../testIDs';
 
-import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { BundleCommitSearch } from './BundleCommitSearch';
 import { CpuWatchdogDevSettings } from './CpuWatchdogDevSettings';
@@ -130,6 +129,13 @@ const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
   const { NavigationDiagnosticsSection } =
     await import('./NavigationDiagnosticsSection');
   return { default: NavigationDiagnosticsSection };
+});
+
+// Loaded on demand so this dev-only diagnostics panel (and its bg RPC test
+// harness) stays out of the statically-imported startup graph.
+const LazyAsyncStorageDevSettings = LazyLoad(async () => {
+  const { AsyncStorageDevSettings } = await import('./AsyncStorageDevSettings');
+  return { default: AsyncStorageDevSettings };
 });
 
 export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
@@ -999,6 +1005,27 @@ const BaseDevSettingsSection = () => {
                           });
                         }}
                       />
+                      {platformEnv.isNative ? (
+                        <SearchFilterItem keywords="ble bluetooth peripheral serviceUUIDs 蓝牙 已连接设备 dump">
+                          <SectionPressItem
+                            icon="CodeOutline"
+                            title="Dump connected BLE peripherals"
+                            subtitle="打印已连接设备的 serviceUUIDs(需 0.1.6 + 重新编译)"
+                            onPress={async () => {
+                              const { default: bleManager } =
+                                await import('@onekeyhq/shared/src/hardware/bleManager');
+                              const peripherals =
+                                await bleManager.getConnectedPeripheralsDebug();
+                              Dialog.debugMessage({
+                                debugMessage: {
+                                  count: peripherals.length,
+                                  peripherals,
+                                },
+                              });
+                            }}
+                          />
+                        </SearchFilterItem>
+                      ) : null}
                       <SearchFilterItem keywords="RegistrationID 推送注册">
                         <RegistrationID />
                       </SearchFilterItem>
@@ -1324,7 +1351,7 @@ const BaseDevSettingsSection = () => {
                         onPress={() => {
                           Dialog.cancel({
                             title: 'Single data store test',
-                            renderContent: <AsyncStorageDevSettings />,
+                            renderContent: <LazyAsyncStorageDevSettings />,
                           });
                         }}
                       />
@@ -2033,6 +2060,16 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      {platformEnv.isNative ? (
+                        <SectionFieldItem
+                          icon="ArrowTopRightOutline"
+                          name="useSystemBrowserForExternalLinks"
+                          title="外部链接使用系统浏览器"
+                          subtitle="跳过 in-app browser（SFSafariViewController / Custom Tabs），外链直接跳出到系统浏览器"
+                        >
+                          <Switch size={ESwitchSize.small} />
+                        </SectionFieldItem>
+                      ) : null}
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>,

@@ -12,23 +12,33 @@ import {
   Stack,
   Toast,
   XStack,
+  switchTabAsync,
   useClipboard,
+  useIsSplitView,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IActionListItemProps } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useShouldUseSplitView } from '@onekeyhq/kit/src/hooks/useShouldUseSplitView';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import MobileTabListItem from '../../components/MobileTabListItem';
 import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
@@ -130,6 +140,21 @@ function MobileTabListModal() {
     setPinnedTab,
     setDisplayHomePage,
   } = useBrowserTabActions().current;
+  const shouldUseSplitView = useShouldUseSplitView();
+  const isLandscape = useIsSplitView();
+  const shouldRevealTabletBrowser =
+    platformEnv.isNativeIOSPad && shouldUseSplitView && isLandscape;
+
+  const revealTabletBrowser = useCallback(async () => {
+    await timerUtils.wait(100);
+    await switchTabAsync(ETabRoutes.Discovery);
+    appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+      tab: ETranslations.global_browser,
+      openUrl: true,
+      shouldConsumePendingUrl: false,
+      showWebPage: true,
+    });
+  }, []);
 
   const initialScrollIndex = useMemo(() => {
     const index = data.findIndex((t) => t.id === activeTabId);
@@ -361,7 +386,11 @@ function MobileTabListModal() {
         activeTabId={activeTabId}
         onSelectedItem={(id) => {
           void setCurrentWebTab(id);
+          setDisplayHomePage(false);
           navigation.pop();
+          if (shouldRevealTabletBrowser) {
+            void revealTabletBrowser();
+          }
         }}
         onCloseItem={handleCloseTab}
         onLongPress={(id) => {
@@ -369,7 +398,16 @@ function MobileTabListModal() {
         }}
       />
     ),
-    [activeTabId, handleCloseTab, navigation, setCurrentWebTab, showTabOptions],
+    [
+      activeTabId,
+      handleCloseTab,
+      navigation,
+      revealTabletBrowser,
+      setDisplayHomePage,
+      setCurrentWebTab,
+      shouldRevealTabletBrowser,
+      showTabOptions,
+    ],
   );
 
   const renderPinnedItem = useCallback(
@@ -379,7 +417,11 @@ function MobileTabListModal() {
         activeTabId={activeTabId}
         onSelectedItem={(id) => {
           setCurrentWebTab(id);
+          setDisplayHomePage(false);
           navigation.pop();
+          if (shouldRevealTabletBrowser) {
+            void revealTabletBrowser();
+          }
         }}
         onCloseItem={handleCloseTab}
         onLongPress={(id) => {
@@ -387,7 +429,16 @@ function MobileTabListModal() {
         }}
       />
     ),
-    [navigation, setCurrentWebTab, activeTabId, handleCloseTab, showTabOptions],
+    [
+      navigation,
+      revealTabletBrowser,
+      setDisplayHomePage,
+      setCurrentWebTab,
+      activeTabId,
+      handleCloseTab,
+      shouldRevealTabletBrowser,
+      showTabOptions,
+    ],
   );
 
   const renderPinnedList = useMemo(() => {

@@ -281,7 +281,8 @@ function PerpPortfolioContentComponent({
 }: IPerpPortfolioContentProps) {
   const intl = useIntl();
   const theme = useTheme();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
   const portfolioPalette = useMemo(
     () => ({
       positive: theme.bgAccent?.val ?? '#31E72F',
@@ -978,6 +979,7 @@ function PerpPortfolioContentComponent({
         size={PERP_DIALOG_BUTTON_SIZE}
         variant="accent"
         icon="DownloadOutline"
+        disabled={isDepositDisabled}
         onPress={() => showDepositWithdrawModal('deposit')}
       >
         {intl.formatMessage({

@@ -127,6 +127,13 @@ export type IEventBusPayloadShowLocalSecretEnvelopeErrorDialog = {
   technicalMessage: string;
 };
 
+export type IEventBusPayloadAccountDataUpdate =
+  | undefined
+  | {
+      isManualRefresh?: boolean;
+      refreshSource?: 'home-header' | 'pull-to-refresh';
+    };
+
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
     num: number;
@@ -203,16 +210,27 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.WalletConnectOpenModal]: {
     uri: string;
+    // bg connect attempt generation; lets main-runtime consumers match
+    // terminal close/modal-state events to the pairing they belong to
+    attemptId?: number;
   };
-  [EAppEventBusNames.WalletConnectCloseModal]: undefined;
+  [EAppEventBusNames.WalletConnectCloseModal]:
+    | {
+        // scope the close to one attempt; omitted means wildcard close
+        attemptId?: number;
+      }
+    | undefined;
   [EAppEventBusNames.WalletConnectModalState]: {
     open: boolean;
+    attemptId?: number;
   };
   [EAppEventBusNames.WalletConnectConnectSuccess]: {
     session: IWalletConnectSession;
+    attemptId?: number;
   };
   [EAppEventBusNames.WalletConnectConnectError]: {
     error: IOneKeyError;
+    attemptId?: number;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
   [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;
@@ -367,7 +385,7 @@ export interface IAppEventBusPayload {
     accountId: string;
     networkId: string;
   };
-  [EAppEventBusNames.AccountDataUpdate]: undefined;
+  [EAppEventBusNames.AccountDataUpdate]: IEventBusPayloadAccountDataUpdate;
   [EAppEventBusNames.AccountValueUpdate]: undefined;
   [EAppEventBusNames.onDragBeginInListView]: undefined;
   [EAppEventBusNames.onDragEndInListView]: undefined;
@@ -529,6 +547,9 @@ export interface IAppEventBusPayload {
     mode: 'perp' | 'spot';
     coin: string;
   };
+  [EAppEventBusNames.PerpSwitchInfoPanelTab]: {
+    tab: 'Positions' | 'Balances';
+  };
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
     subType: 'datastream';
@@ -588,6 +609,7 @@ export interface IAppEventBusPayload {
       | ETranslations.global_earn;
     openUrl?: boolean;
     shouldConsumePendingUrl?: boolean;
+    showWebPage?: boolean;
     switchType?: 'default' | 'tap' | 'swipe';
   };
   [EAppEventBusNames.SwitchEarnMode]: {
@@ -633,6 +655,7 @@ export interface IAppEventBusPayload {
     params: any;
   };
   [EAppEventBusNames.HomePageReady]: undefined;
+  [EAppEventBusNames.ModalNavigatorMounted]: undefined;
   [EAppEventBusNames.TrayActionWillNavigate]: undefined;
   [EAppEventBusNames.MemoryPressureWarning]: {
     /** 'low' (Android only) or 'critical' (iOS + Android). See native spec. */

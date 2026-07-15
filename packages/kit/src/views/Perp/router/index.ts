@@ -14,6 +14,11 @@ import {
 } from '../../../components/LazyLoadPage';
 import { RootTabLoadingFallback } from '../../../routes/Tab/RootTabLoadingFallback';
 import {
+  getLoadedPerpsDepositSelectTokenModal,
+  loadPerpsDepositSelectTokenModal,
+} from '../utils/preloadPerpsDepositSelectTokenModal';
+import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
+import {
   getLoadedPerpsMobileTokenSelectorPage,
   loadPerpsMobileTokenSelectorPage,
 } from '../utils/preloadPerpsTokenSelector';
@@ -46,13 +51,19 @@ const MobileSetTpslModal = LazyLoadPage(
   () => import('../components/OrderInfoPanel/SetTpslModal'),
 );
 
-const MobileDepositWithdrawModal = LazyLoadPage(
-  () => import('../components/TradingPanel/modals/DepositWithdrawModal'),
+const MobileDepositWithdrawModal = LazyLoadPage(loadPerpsDepositWithdrawModal);
+
+const MobileDepositSelectTokenLazyModal = LazyLoadPage(
+  loadPerpsDepositSelectTokenModal,
 );
 
-const MobileDepositSelectTokenModal = LazyLoadPage(
-  () => import('../components/TradingPanel/modals/DepositSelectTokenModal'),
-);
+function MobileDepositSelectTokenModal() {
+  const LoadedMobileDepositSelectTokenModal =
+    getLoadedPerpsDepositSelectTokenModal()?.default;
+  return createElement(
+    LoadedMobileDepositSelectTokenModal ?? MobileDepositSelectTokenLazyModal,
+  );
+}
 
 const PerpsInviteeRewardModal = LazyLoadPage(
   () => import('../components/InviteeReward/InviteeRewardModal'),

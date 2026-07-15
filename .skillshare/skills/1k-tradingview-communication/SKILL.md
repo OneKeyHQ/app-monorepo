@@ -1,6 +1,6 @@
 ---
 name: 1k-tradingview-communication
-description: OneKey TradingView app bridge guide. Use when changing or debugging TradingView/WebView/iframe communication, chart URL params, kline/history/realtime messages, marks, Hyperliquid price scale, Perps SYMBOL_CHANGE, chart lines, order draft/cancel/drag-amend messages, FORCE_RECOVER_WS, or tradingview_* methods between the app repo and the chart repo. 适用于 TradingView 通信、图表 WebView 通信、K 线、perps 线、marks、消息桥排查。
+description: OneKey TradingView bridge communication for WebView/iframe messages, K-line data, marks, Perps symbols/lines, order events, and websocket recovery.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -196,6 +196,6 @@ When adding or changing a message:
 
 ## Verification
 
-- App-only bridge change: run the relevant TypeScript/lint command for touched files; before commit use `yarn lint:staged` and `yarn tsc:staged`.
+- App-only bridge change: run the relevant TypeScript/lint command for touched files; before commit use `yarn agent:check --profile commit`.
 - Chart repo change: run `npm run build` or `yarn build` from the chart repo root; run `npm run lint` or `yarn lint` when touching lint-sensitive code.
 - For local manual testing, enable "use local TradingView URL" in dev settings and run chart dev server on `localhost:5173` (`10.0.2.2:5173` for Android emulator).

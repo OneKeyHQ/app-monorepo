@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { range } from 'lodash';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 import {
   Easing,
   useSharedValue,
@@ -19,6 +19,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  resetOnboardingModal,
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
@@ -47,7 +48,6 @@ import { buildWalletCreatedAtISOString } from '@onekeyhq/shared/src/referralCode
 import type { ICheckWalletBindStatusResponse } from '@onekeyhq/shared/src/referralCode/type';
 import {
   type EOnboardingPagesV2,
-  ERootRoutes,
   type IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -147,6 +147,7 @@ function getTrezorConnectFailureMessage(payload: unknown) {
 function getTrezorConnectFailureError(
   payload: unknown,
   vendor: EHardwareVendor,
+  intl: IntlShape,
 ) {
   const failure =
     payload && typeof payload === 'object'
@@ -171,7 +172,9 @@ function getTrezorConnectFailureError(
     return new OneKeyLocalError(failureMessage);
   }
   return new OneKeyLocalError({
-    key: ETranslations.trezor_connect_failed_before_wallet_creation__msg,
+    message: intl.formatMessage({
+      id: ETranslations.trezor_connect_failed_before_wallet_creation__msg,
+    }),
   });
 }
 
@@ -294,10 +297,8 @@ function FinalizeWalletSetupPage({
   const closePage = useCallback(() => {
     closePageCalled.current = true;
     void backgroundApiProxy.serviceHardware.clearForceTransportType();
-    navigation.navigate(ERootRoutes.Main, undefined, {
-      pop: true,
-    });
-  }, [navigation]);
+    resetOnboardingModal();
+  }, []);
 
   const {
     setPendingKeylessAutoConnectWalletId,
@@ -606,11 +607,14 @@ function FinalizeWalletSetupPage({
                 throw getTrezorConnectFailureError(
                   connected.payload,
                   deviceData.vendor,
+                  intl,
                 );
               }
               if (!connectedDeviceId) {
                 throw new OneKeyLocalError({
-                  key: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  message: intl.formatMessage({
+                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  }),
                 });
               }
               // Device has no seed yet — block creation and prompt the user to
@@ -680,6 +684,16 @@ function FinalizeWalletSetupPage({
               isSoftwareWalletOnlyUser,
               vendor: deviceData.vendor,
             });
+            // After a reset the same device re-onboards with a new device_id;
+            // mark the stale wallet deprecated so only the current one lights
+            // up. Trezor-specific dedup, matched on the device's transport
+            // connect ids (same key set as the connection-status light).
+            if (deviceData.vendor === EHardwareVendor.trezor) {
+              await actions.current.updateTrezorWalletsDeprecatedStatus({
+                connectId: thirdPartyDevice.connectId ?? '',
+                deviceId: thirdPartyDevice.deviceId ?? '',
+              });
+            }
           } catch (createError) {
             await trackHardwareWalletConnection({
               status: 'failure',
