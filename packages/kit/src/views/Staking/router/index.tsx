@@ -6,6 +6,10 @@ import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
+import {
+  bindRouteManifest,
+  stakingRouteManifest,
+} from '@onekeyhq/shared/src/routes/routeManifest';
 
 import { ModalAssetDetailsStack } from '../../AssetDetails/router';
 
@@ -82,37 +86,29 @@ const EarnAssetSearchModal = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Earn/pages/EarnAssetSearch'),
 );
 
-export const StakingModalRouter: IModalFlowNavigatorConfig<
+const stakingRouteBindings: IModalFlowNavigatorConfig<
   EModalStakingRoutes | EModalAssetDetailRoutes,
   IModalStakingParamList & IModalAssetDetailsParamList
 >[] = [
   {
     name: EModalStakingRoutes.ProtocolDetails,
     component: ProtocolDetails,
-    exact: true,
-    rewrite: '/defi/staking/:symbol/:provider',
   },
   {
     name: EModalStakingRoutes.ProtocolDetailsV2,
     component: ProtocolDetailsV2,
-    exact: true,
-    rewrite: '/defi/staking/v2/:symbol/:provider',
   },
   {
     name: EModalStakingRoutes.ProtocolDetailsV2Share,
     component: ProtocolDetailsV2,
-    exact: true,
-    rewrite: '/defi/:network/:symbol/:provider',
   },
   {
     name: EModalStakingRoutes.ManagePosition,
     component: ManagePosition,
-    exact: true,
   },
   {
     name: EModalStakingRoutes.BorrowManagePosition,
     component: BorrowManagePosition,
-    exact: true,
   },
   {
     name: EModalStakingRoutes.BorrowTokenSelect,
@@ -175,3 +171,9 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     IModalStakingParamList & IModalAssetDetailsParamList
   >[]),
 ];
+
+export const StakingModalRouter = bindRouteManifest(
+  stakingRouteManifest,
+  stakingRouteBindings,
+  { allowUnknownBindings: true },
+);

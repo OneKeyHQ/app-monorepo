@@ -27,6 +27,17 @@
       "packages/kit/src/views/Onboardingv2/router/",
       "packages/kit/src/views/Onboardingv2/components/Layout",
       "packages/kit/src/views/Onboardingv2/components/OnboardingLayout",
+      "packages/kit/src/routes/Modal/router",
+      "packages/kit/src/routes/WebView/router",
+      "packages/kit/src/views/ActionCenter/router/",
+      "packages/kit/src/views/AppUpdate/router/",
+      "packages/kit/src/views/DAppConnection/router/",
+      "packages/kit/src/views/ReferFriends/router/",
+      "packages/kit/src/views/RewardCenter/router/",
+      "packages/kit/src/views/Setting/router/",
+      "packages/kit/src/views/SignatureConfirm/router/",
+      "packages/kit/src/views/Staking/router/",
+      "packages/kit/src/views/TestModal/router/",
       "translations.ts"
     ]
   },

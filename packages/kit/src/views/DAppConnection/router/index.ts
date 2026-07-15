@@ -1,6 +1,10 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import type { IDAppConnectionModalParamList } from '@onekeyhq/shared/src/routes';
 import { EDAppConnectionModal } from '@onekeyhq/shared/src/routes';
+import {
+  bindRouteManifest,
+  dAppConnectionRouteManifest,
+} from '@onekeyhq/shared/src/routes/routeManifest';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
@@ -60,7 +64,7 @@ const AddCustomTokenModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AssetList/pages/AddCustomTokenModal'),
 );
 
-export const DAppConnectionRouter: IModalFlowNavigatorConfig<
+const dAppConnectionRouteBindings: IModalFlowNavigatorConfig<
   EDAppConnectionModal,
   IDAppConnectionModalParamList
 >[] = [
@@ -122,3 +126,8 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
     component: DeriveContextHashModal,
   },
 ];
+
+export const DAppConnectionRouter = bindRouteManifest(
+  dAppConnectionRouteManifest,
+  dAppConnectionRouteBindings,
+);

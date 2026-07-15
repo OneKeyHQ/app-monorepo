@@ -23,6 +23,7 @@ export * from './onboardingv2';
 export * from './receive';
 export * from './referFriends';
 export * from './root';
+export * from './routeManifest';
 export * from './scanQrCode';
 export * from './send';
 export * from './setting';

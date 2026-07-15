@@ -2,6 +2,10 @@ import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import type { IModalReferFriendsParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  bindRouteManifest,
+  referFriendsRouteManifest,
+} from '@onekeyhq/shared/src/routes/routeManifest';
 
 const ReferFriends = LazyLoadPage(() => import('../pages/ReferAFriend'));
 const InvitedByFriend = LazyLoadPage(() => import('../pages/InvitedByFriend'));
@@ -46,7 +50,7 @@ const BtcRewardDetail = LazyLoadPage(
   () => import('../../Redemption/pages/BtcReward/BtcRewardDetail'),
 );
 
-export const ReferFriendsRouter: IModalFlowNavigatorConfig<
+const referFriendsRouteBindings: IModalFlowNavigatorConfig<
   EModalReferFriendsRoutes,
   IModalReferFriendsParamList
 >[] = [
@@ -127,3 +131,8 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
     component: BtcRewardDetail,
   },
 ];
+
+export const ReferFriendsRouter = bindRouteManifest(
+  referFriendsRouteManifest,
+  referFriendsRouteBindings,
+);

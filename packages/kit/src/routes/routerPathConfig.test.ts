@@ -1,16 +1,44 @@
 /** @jest-environment jsdom */
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EAppUpdateRoutes,
+  EDAppConnectionModal,
+  EModalRoutes,
+  EModalSettingRoutes,
+  EModalSignatureConfirmRoutes,
+  EModalStakingRoutes,
   EOnboardingPagesV2,
   ERootRoutes,
   onboardingV2RouteConfig,
 } from '@onekeyhq/shared/src/routes';
+import {
+  appUpdateRouteManifest,
+  bindRouteManifest,
+  dAppConnectionRouteManifest,
+  filterRouteManifestByPresentation,
+  fullScreenPushRouteManifest,
+  modalRouteManifest,
+  onboardingRouteManifest,
+  projectColdStartRouteManifest,
+  rootRouteManifest,
+  settingRouteManifest,
+  signatureConfirmRouteManifest,
+  stakingRouteManifest,
+  webViewRouteManifest,
+} from '@onekeyhq/shared/src/routes/routeManifest';
 import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
 
 import { getStateFromPath as getWebStateFromPath } from './config/getStateFromPath';
 import { getStateFromPath as getExtensionStateFromPath } from './config/getStateFromPath.ext';
 import { resolveScreens } from './config/resolveScreens';
-import { onboardingRouterV2PathConfig } from './routerPathConfig';
+import {
+  fullModalRouterPathConfig,
+  fullScreenPushRouterPathConfig,
+  modalRouterPathConfig,
+  onboardingRouterV2PathConfig,
+  webViewRouterPathConfig,
+} from './routerPathConfig';
 
 import type { NavigationState, PartialState } from '@react-navigation/routers';
 
@@ -20,6 +48,29 @@ const screens = resolveScreens([
   {
     name: ERootRoutes.Onboarding,
     children: onboardingRouterV2PathConfig,
+  },
+]) as IScreenPathConfig;
+
+const allRootScreens = resolveScreens([
+  {
+    name: ERootRoutes.Onboarding,
+    children: onboardingRouterV2PathConfig,
+  },
+  {
+    name: ERootRoutes.Modal,
+    children: modalRouterPathConfig,
+  },
+  {
+    name: ERootRoutes.iOSFullScreen,
+    children: fullModalRouterPathConfig,
+  },
+  {
+    name: ERootRoutes.FullScreenPush,
+    children: fullScreenPushRouterPathConfig,
+  },
+  {
+    name: ERootRoutes.WebView,
+    children: webViewRouterPathConfig,
   },
 ]) as IScreenPathConfig;
 
@@ -113,4 +164,159 @@ describe('onboardingRouterV2PathConfig', () => {
   ])('rejects non-public extension cold-start hash %s', (hash) => {
     expect(parseExtensionHash(hash)).toBeUndefined();
   });
+});
+
+describe('route manifests', () => {
+  it('covers every configured route domain from a pure manifest', () => {
+    expect(rootRouteManifest.map((route) => route.name)).toEqual([
+      ERootRoutes.Main,
+      ERootRoutes.Onboarding,
+      ERootRoutes.Modal,
+      ERootRoutes.iOSFullScreen,
+      ERootRoutes.FullScreenPush,
+      ERootRoutes.WebView,
+    ]);
+    expect(modalRouteManifest.map((route) => route.name)).toEqual(
+      Object.values(EModalRoutes),
+    );
+    expect(settingRouteManifest.map((route) => route.name)).toEqual(
+      Object.values(EModalSettingRoutes),
+    );
+    expect(appUpdateRouteManifest.map((route) => route.name)).toEqual(
+      Object.values(EAppUpdateRoutes),
+    );
+    expect(stakingRouteManifest.map((route) => route.name)).toEqual(
+      Object.values(EModalStakingRoutes),
+    );
+    expect(signatureConfirmRouteManifest.map((route) => route.name)).toEqual(
+      Object.values(EModalSignatureConfirmRoutes),
+    );
+    expect(dAppConnectionRouteManifest.map((route) => route.name)).toEqual(
+      Object.values(EDAppConnectionModal).filter(
+        (name) => name !== EDAppConnectionModal.VerifyMessage,
+      ),
+    );
+  });
+
+  it('projects every lightweight root domain from the same manifests', () => {
+    const activeModalManifest = modalRouteManifest.filter(
+      (route) => platformEnv.isDev || route.name !== EModalRoutes.TestModal,
+    );
+
+    expect(modalRouterPathConfig).toEqual(
+      projectColdStartRouteManifest(
+        filterRouteManifestByPresentation(activeModalManifest, 'modal'),
+      ),
+    );
+    expect(fullModalRouterPathConfig).toEqual(
+      projectColdStartRouteManifest(
+        filterRouteManifestByPresentation(activeModalManifest, 'iosFullScreen'),
+      ),
+    );
+    expect(onboardingRouterV2PathConfig).toEqual(
+      projectColdStartRouteManifest(onboardingRouteManifest),
+    );
+    expect(fullScreenPushRouterPathConfig).toEqual(
+      projectColdStartRouteManifest(fullScreenPushRouteManifest),
+    );
+    expect(webViewRouterPathConfig).toEqual(
+      projectColdStartRouteManifest(webViewRouteManifest),
+    );
+  });
+
+  it('binds UI config without changing route order or path metadata', () => {
+    const bindings = [
+      { name: EAppUpdateRoutes.WhatsNew, component: 'whats-new' },
+      { name: EAppUpdateRoutes.UpdatePreview, component: 'preview' },
+      { name: EAppUpdateRoutes.DownloadVerify, component: 'verify' },
+      { name: EAppUpdateRoutes.ManualInstall, component: 'install' },
+      {
+        name: EAppUpdateRoutes.FeaturedChangelogPreview,
+        component: 'changelog',
+      },
+    ];
+
+    const routes = bindRouteManifest(appUpdateRouteManifest, bindings);
+
+    expect(routes.map((route) => route.name)).toEqual(
+      bindings.map((route) => route.name),
+    );
+    expect(routes[1]).toMatchObject({
+      component: 'preview',
+      rewrite: '/preview',
+    });
+  });
+
+  it('rejects missing bindings and duplicated path metadata', () => {
+    expect(() =>
+      bindRouteManifest(appUpdateRouteManifest, [
+        { name: EAppUpdateRoutes.UpdatePreview },
+      ]),
+    ).toThrow('Missing route binding');
+
+    expect(() =>
+      bindRouteManifest(appUpdateRouteManifest, [
+        {
+          name: EAppUpdateRoutes.UpdatePreview,
+          rewrite: '/duplicated-preview',
+        },
+        { name: EAppUpdateRoutes.WhatsNew },
+        { name: EAppUpdateRoutes.DownloadVerify },
+        { name: EAppUpdateRoutes.ManualInstall },
+        { name: EAppUpdateRoutes.FeaturedChangelogPreview },
+      ]),
+    ).toThrow('Route path metadata must be declared in the manifest');
+  });
+
+  it.each([
+    [
+      '/settings/protection',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.SettingModal,
+        EModalSettingRoutes.SettingProtectModal,
+      ],
+    ],
+    [
+      '/modal/update/preview',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.AppUpdateModal,
+        EAppUpdateRoutes.UpdatePreview,
+      ],
+    ],
+    [
+      '/modal/DAppConnectionModal/ConnectionModal',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.ConnectionModal,
+      ],
+    ],
+    [
+      '/iOSFullScreen/SignatureConfirmModal/TxConfirmFromDApp',
+      [
+        ERootRoutes.iOSFullScreen,
+        EModalRoutes.SignatureConfirmModal,
+        EModalSignatureConfirmRoutes.TxConfirmFromDApp,
+      ],
+    ],
+    [
+      '/fullScreenPush/ActionCenter/ActionCenter',
+      [ERootRoutes.FullScreenPush, 'ActionCenter', 'ActionCenter'],
+    ],
+    [
+      '/RootWebView/WebView/WebView',
+      [ERootRoutes.WebView, 'WebView', 'WebView'],
+    ],
+  ])(
+    'parses cold-start path %s across every root route domain',
+    (path, names) => {
+      const state = getWebStateFromPath(path, {
+        screens: allRootScreens,
+      });
+
+      expect(getFocusedRouteNames(state)).toEqual(names);
+    },
+  );
 });
