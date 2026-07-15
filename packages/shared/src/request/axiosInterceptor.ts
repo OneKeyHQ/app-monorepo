@@ -34,6 +34,7 @@ import {
   checkRequestIsOneKeyDomain,
   getRequestHeaders,
 } from './Interceptor';
+import { stashRequestAuthTokenOfError } from './requestAuthTokenErrorStash';
 import { REQUEST_TIMEOUT } from './requestConst';
 
 import type { IAxiosResponse } from '../appApiClient/appApiClient';
@@ -402,19 +403,25 @@ axios.interceptors.response.use(
         },
         requestId: config.headers[requestIdKey] as string,
       });
-      // Attach ONLY the request's auth token so later response interceptors
+      // Stash ONLY the request's auth token so later response interceptors
       // (e.g. the prime invalid-token handler in ServiceBase) can compare it
       // against the currently active one before clearing the session.
       // Deliberately NOT the whole axios config: the full config carries the
-      // request body and every header on an error object that escapes to
-      // arbitrary catch blocks in both runtimes.
+      // request body and every header. And deliberately NOT written onto the
+      // error object itself: the error escapes to arbitrary catch blocks and
+      // `console.error(e)` / error-collection contexts, which must never
+      // capture a still-usable bearer token — the module-private WeakMap
+      // stash stays invisible to any serialization of the error.
       const requestHeaders = config.headers;
       const requestAuthToken =
         requestHeaders?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
         requestHeaders?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
         requestHeaders?.[ONEKEY_REQUEST_TOKEN_HEADER.toLowerCase()];
       if (requestAuthToken) {
-        serverApiError.$$requestAuthToken = String(requestAuthToken);
+        stashRequestAuthTokenOfError({
+          error: serverApiError,
+          requestAuthToken: String(requestAuthToken),
+        });
       }
       throw serverApiError;
     }

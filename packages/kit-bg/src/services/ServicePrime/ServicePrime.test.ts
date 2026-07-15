@@ -138,6 +138,10 @@ const {
   appEventBus,
 } = require('@onekeyhq/shared/src/eventBus/appEventBus');
 const {
+  stashRequestAuthTokenOfError,
+  takeRequestAuthTokenOfError,
+} = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
+const {
   EPrimeAuthSessionSource,
 } = require('@onekeyhq/shared/types/prime/primeTypes');
 
@@ -295,21 +299,45 @@ describe('ServicePrime invalid-token handling', () => {
       const onRejected = mockCapturedInterceptors.responseOnRejected;
       expect(onRejected).toBeDefined();
       const rawError = {
-        $$requestAuthToken: REQUEST_TOKEN,
         data: {
           code: 90_002,
           message: 'refresh token required',
           requestUrl: 'https://test.onekey.so/prime/v1/user/info',
         },
       };
+      // The global axios interceptor never writes the token onto the error
+      // (it would leak through console.error / error collection); it goes
+      // through the module-private WeakMap stash instead.
+      stashRequestAuthTokenOfError({
+        error: rawError,
+        requestAuthToken: REQUEST_TOKEN,
+      });
       let thrown: unknown;
       try {
         await onRejected?.(rawError);
       } catch (error) {
         thrown = error;
       }
-      return { thrown };
+      return { thrown, rawError };
     }
+
+    it('never exposes the request token as a property of the error object', async () => {
+      handlerImpl.mockImplementation(async () => ({
+        cleared: false,
+      }));
+      const { thrown, rawError } = await invokeInterceptorWith90002();
+
+      // The handler received the token via the stash…
+      expect(handlerImpl).toHaveBeenCalledWith(
+        expect.objectContaining({ requestAuthToken: REQUEST_TOKEN }),
+      );
+      // …but neither the incoming raw error nor the rethrown error carries
+      // it anywhere JSON/console serialization could reach.
+      expect(JSON.stringify(rawError)).not.toContain(REQUEST_TOKEN);
+      expect(JSON.stringify(thrown)).not.toContain(REQUEST_TOKEN);
+      // Read-and-delete: a second take returns nothing.
+      expect(takeRequestAuthTokenOfError(rawError)).toBe('');
+    });
 
     it('marks the rethrown error with $$invalidTokenHandled after handling', async () => {
       handlerImpl.mockImplementation(async () => ({

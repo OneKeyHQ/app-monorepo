@@ -16,6 +16,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { takeRequestAuthTokenOfError } from '@onekeyhq/shared/src/request/requestAuthTokenErrorStash';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -106,10 +107,6 @@ export default class ServiceBase {
         },
         async (error) => {
           const errorData = error as {
-            // set by the global axios interceptor on OneKeyServerApiError:
-            // the X-Onekey-Request-Token the failed request carried
-            // (the full request config is intentionally not attached)
-            $$requestAuthToken?: string;
             requestId?: string;
             data: {
               code: number;
@@ -124,7 +121,11 @@ export default class ServiceBase {
           // TODO 90_002 sdk refresh token required
           // TODO 90_003 user login required
           if ([90_002, 90_003].includes(errorCode)) {
-            const requestAuthToken = errorData?.$$requestAuthToken || '';
+            // Read-and-delete from the module-private WeakMap stash written
+            // by the global axios interceptor: the X-Onekey-Request-Token
+            // the failed request carried (never a property on the error —
+            // errors escape to console.error / error collection).
+            const requestAuthToken = takeRequestAuthTokenOfError(error);
             defaultLogger.prime.subscription.onekeyIdInvalidToken({
               url: errorData?.data?.requestUrl || '',
               errorCode,
