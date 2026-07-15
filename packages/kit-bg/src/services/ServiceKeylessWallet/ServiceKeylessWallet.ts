@@ -3195,6 +3195,35 @@ class ServiceKeylessWallet extends ServiceBase {
         keylessWallet: context.keylessWallet,
       });
     if (!accessToken) {
+      // Anti-clobber guard (mirrors
+      // getOrMigrateKeylessOAuthAccessTokenForLocalWallet): the matching
+      // helper above returns null both for "slot empty" and "slot holds
+      // another account's session". Read the raw active token so a
+      // non-matching session that BACKS the live OneKey ID login
+      // (source === KeylessOAuth) can be detected before the migration
+      // below setSession()s over it — that would silently destroy the live
+      // login (its refresh token rotates on use, unrecoverable) while the
+      // Prime atom keeps showing the old account. Today both UI hosts
+      // guarantee this cannot happen; this keeps the invariant enforced at
+      // runtime for any future caller.
+      const activeAccessToken = await this.getActiveKeylessOAuthAccessToken();
+      if (activeAccessToken) {
+        const mismatchReason =
+          await this.validateKeylessAccessTokenMatchesLocalWallet({
+            token: activeAccessToken,
+            keylessWallet: context.keylessWallet,
+          });
+        if (mismatchReason) {
+          const authSessionSource =
+            await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
+          if (authSessionSource === EPrimeAuthSessionSource.KeylessOAuth) {
+            // TODO: i18n
+            throw new OneKeyLocalError(
+              'A different OneKey ID is currently signed in with this Keyless session. Log out first, then continue.',
+            );
+          }
+        }
+      }
       accessToken = await this.migrateLegacyKeylessOAuthSessionForLocalWallet({
         keylessWallet: context.keylessWallet,
         ownerId: context.ownerId,
