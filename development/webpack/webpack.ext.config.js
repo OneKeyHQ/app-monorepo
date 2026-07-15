@@ -26,6 +26,30 @@ const productionConfig = require('./webpack.prod.config');
 
 const IS_DEV = isDev;
 
+const passkeyIconRuntimeDependencyRegex =
+  /[\\/]node_modules[\\/](?:react-native-svg[\\/]|react-native-web[\\/]dist[\\/](?:exports[\\/]Touchable[\\/]|vendor[\\/]react-native[\\/]PooledClass[\\/]))/;
+
+function includePasskeyIconRuntimeDependencies({ config }) {
+  const iconsCacheGroup = config.optimization?.splitChunks?.cacheGroups?.icons;
+  const originalIconsTest = iconsCacheGroup?.test;
+
+  if (typeof originalIconsTest !== 'function') {
+    throw new Error(
+      'Expected the extension icons cache group to be configured',
+    );
+  }
+
+  // Keep the icon modules and their SVG runtime closure in the same async
+  // chunk. Splitting the closure into a second shared chunk makes Webpack 5
+  // emit one equivalent JSONP asset for every generated icon import.
+  iconsCacheGroup.test = (module, ...args) =>
+    originalIconsTest(module, ...args) ||
+    Boolean(
+      module.resource &&
+      passkeyIconRuntimeDependencyRegex.test(module.resource),
+    );
+}
+
 const chromeExtensionV3ViolationPlugin = new ChromeExtensionV3ViolationPlugin([
   // @sentry/react
   {
@@ -150,7 +174,7 @@ module.exports = ({
       },
     },
 
-    // **** passkey standalone entry build without code-split
+    // **** passkey standalone entry build with async icon code-splitting
     {
       config: {
         name: devUtils.consts.configName.passkey,
@@ -171,6 +195,7 @@ module.exports = ({
             config,
           });
         }
+        includePasskeyIconRuntimeDependencies({ config });
         config.plugins = [
           ...config.plugins,
           ...pluginsHtml.passkeyHtml,
