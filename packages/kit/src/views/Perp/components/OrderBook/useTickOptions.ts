@@ -17,6 +17,7 @@ import type { IPerpOrderBookTickOptionPersist } from '@onekeyhq/shared/types/hyp
 
 import {
   type ITickParam,
+  buildReferenceTickOptions,
   buildTickOptions,
   getDefaultTickOption,
   getTickOptionsDataDuringTransition,
@@ -30,17 +31,33 @@ interface ITickOptionsResult {
   setSelectedTickOption: (option: ITickParam) => void;
   priceDecimals: number;
   sizeDecimals: number;
-  tickOptionSource: 'market' | 'cache' | 'fallback';
+  tickOptionSource: 'market' | 'cache' | 'reference' | 'fallback';
 }
+
+const emptyTickOption: ITickParam = {
+  targetTick: 0,
+  nSigFigs: null,
+  apiTick: 0,
+  exact: true,
+  multiplier: 1,
+  label: '',
+  value: '',
+};
 
 export function useTickOptions({
   symbol,
   bids,
   asks,
+  referencePrice,
+  szDecimals,
+  isSpot,
 }: {
   symbol?: string;
   bids: IBookLevel[];
   asks: IBookLevel[];
+  referencePrice?: string;
+  szDecimals?: number;
+  isSpot: boolean;
 }): ITickOptionsResult {
   // Use ref to cache tick options calculation results by symbol
   const tickOptionsCache = useRef<{
@@ -63,6 +80,18 @@ export function useTickOptions({
 
   const topBidPrice = bids[0]?.px;
   const topAskPrice = asks[0]?.px;
+  const referenceTickOptionsData = useMemo(
+    () =>
+      symbol
+        ? buildReferenceTickOptions({
+            symbol,
+            price: referencePrice,
+            szDecimals,
+            isSpot,
+          })
+        : null,
+    [isSpot, referencePrice, symbol, szDecimals],
+  );
 
   const tickOptionsData = useMemo(() => {
     if (!symbol) return null;
@@ -77,7 +106,25 @@ export function useTickOptions({
         symbol,
         hasMarketData: false,
         cached,
+        reference: referenceTickOptionsData,
       });
+    }
+
+    const marketTickOptionsData = buildReferenceTickOptions({
+      symbol,
+      price: marketPrice,
+      szDecimals,
+      isSpot,
+    });
+    if (marketTickOptionsData) {
+      if (
+        cached &&
+        marketTickOptionsData.priceDecimals <= cached.priceDecimals
+      ) {
+        return cached;
+      }
+      tickOptionsCache.current = marketTickOptionsData;
+      return marketTickOptionsData;
     }
 
     const priceDecimals = getDisplayPriceScaleDecimals(marketPrice);
@@ -109,7 +156,14 @@ export function useTickOptions({
     tickOptionsCache.current = result;
 
     return result;
-  }, [symbol, topBidPrice, topAskPrice]);
+  }, [
+    isSpot,
+    referenceTickOptionsData,
+    symbol,
+    szDecimals,
+    topAskPrice,
+    topBidPrice,
+  ]);
 
   // Calculate size decimals separately as it may need to update more frequently
   const sizeDecimals = useMemo(() => {
@@ -123,15 +177,10 @@ export function useTickOptions({
   const baseTickOptionsData = useMemo(() => {
     // Fallback when no data available
     if (!tickOptionsData) {
-      const priceDecimals = 0;
-      const decimalsArg = 0;
-      const tickOptions = buildTickOptions(1, decimalsArg);
-      const defaultTickOption = getDefaultTickOption(tickOptions);
-
       return {
-        tickOptions,
-        defaultTickOption,
-        priceDecimals,
+        tickOptions: [],
+        defaultTickOption: emptyTickOption,
+        priceDecimals: 0,
       };
     }
 
@@ -141,10 +190,13 @@ export function useTickOptions({
     if (!tickOptionsData) {
       return 'fallback' as const;
     }
-    return topBidPrice || topAskPrice
-      ? ('market' as const)
+    if (topBidPrice || topAskPrice) {
+      return 'market' as const;
+    }
+    return tickOptionsData === referenceTickOptionsData
+      ? ('reference' as const)
       : ('cache' as const);
-  }, [tickOptionsData, topAskPrice, topBidPrice]);
+  }, [referenceTickOptionsData, tickOptionsData, topAskPrice, topBidPrice]);
 
   const selectedTickOption = useMemo(() => {
     const { tickOptions, defaultTickOption } = baseTickOptionsData;

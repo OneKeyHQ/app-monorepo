@@ -434,7 +434,7 @@ export class HyperLiquidScene extends BaseScene {
     askLevels?: number;
     tickOptionValue?: string;
     tickOptionsCount?: number;
-    tickOptionSource?: 'market' | 'cache' | 'fallback';
+    tickOptionSource?: 'market' | 'cache' | 'reference' | 'fallback';
     latest?: boolean;
     transport?: 'l2' | 'l2Book' | 'none';
     source?: string;

@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { getDisplayPriceScaleDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
+  buildReferenceTickOptions,
   buildTickOptions,
   getTickOptionsDataDuringTransition,
   shouldInitializeOrderBookTickOption,
@@ -25,11 +26,96 @@ describe('getTickOptionsDataDuringTransition', () => {
   });
 
   it('does not reuse precision data after switching coins', () => {
+    const reference = {
+      symbol: '@166',
+      marker: 'reference',
+    };
     expect(
       getTickOptionsDataDuringTransition({
         symbol: '@166',
         hasMarketData: false,
         cached,
+        reference,
+      }),
+    ).toBe(reference);
+  });
+
+  it('does not use reference precision from another coin', () => {
+    expect(
+      getTickOptionsDataDuringTransition({
+        symbol: '@166',
+        hasMarketData: false,
+        cached,
+        reference: {
+          symbol: '@107',
+          marker: 'reference',
+        },
+      }),
+    ).toBeNull();
+  });
+});
+
+describe('buildReferenceTickOptions', () => {
+  it.each([
+    {
+      name: 'ETH perp',
+      price: '4400',
+      szDecimals: 4,
+      isSpot: false,
+      expectedTick: '0.1',
+      expectedDecimals: 1,
+    },
+    {
+      name: 'HYPE perp',
+      price: '55',
+      szDecimals: 2,
+      isSpot: false,
+      expectedTick: '0.001',
+      expectedDecimals: 3,
+    },
+    {
+      name: 'BTC perp',
+      price: '114000',
+      szDecimals: 5,
+      isSpot: false,
+      expectedTick: '1',
+      expectedDecimals: 0,
+    },
+    {
+      name: 'low price spot',
+      price: '0.002699',
+      szDecimals: 0,
+      isSpot: true,
+      expectedTick: '0.0000001',
+      expectedDecimals: 7,
+    },
+  ])(
+    'derives the finest full-precision option for $name',
+    ({ price, szDecimals, isSpot, expectedTick, expectedDecimals }) => {
+      expect(buildReferenceTickOptions).toBeDefined();
+      const result = buildReferenceTickOptions({
+        symbol: 'TEST',
+        price,
+        szDecimals,
+        isSpot,
+      });
+
+      expect(result?.defaultTickOption).toMatchObject({
+        value: expectedTick,
+        label: expectedTick,
+        nSigFigs: null,
+      });
+      expect(result?.priceDecimals).toBe(expectedDecimals);
+    },
+  );
+
+  it('does not invent precision without valid reference inputs', () => {
+    expect(
+      buildReferenceTickOptions({
+        symbol: 'ETH',
+        price: undefined,
+        szDecimals: 4,
+        isSpot: false,
       }),
     ).toBeNull();
   });

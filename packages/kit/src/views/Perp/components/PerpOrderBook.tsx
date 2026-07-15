@@ -19,6 +19,7 @@ import {
   useHyperliquidActions,
   useOrderBookTickOptionsAtom,
   usePerpsL2BookColdCacheAtom,
+  usePerpsMidByCoin,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -535,6 +536,7 @@ export function PerpOrderBook({
   >({});
   const renderStateSignatureRef = useRef<string | undefined>(undefined);
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const tickReferencePrice = usePerpsMidByCoin(activeTradeInstrument.coin);
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
   const [l2BookColdCache] = usePerpsL2BookColdCacheAtom();
@@ -756,6 +758,12 @@ export function PerpOrderBook({
     symbol: activeTradeInstrument.coin,
     bids: candidateL2Book?.bids ?? [],
     asks: candidateL2Book?.asks ?? [],
+    referencePrice: tickReferencePrice,
+    szDecimals:
+      activeTradeInstrument.mode === 'spot'
+        ? activeTradeInstrument.universe?.baseSzDecimals
+        : activeTradeInstrument.universe?.szDecimals,
+    isSpot: activeTradeInstrument.mode === 'spot',
   });
   const {
     tickOptions,
