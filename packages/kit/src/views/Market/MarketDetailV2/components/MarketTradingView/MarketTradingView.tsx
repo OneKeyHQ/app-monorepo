@@ -9,9 +9,12 @@ import type {
   ITradingViewPriceUpdateData,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
+
+import { MarketChartFullscreenHeader } from './MarketChartFullscreenHeader';
 
 const MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingViewDisabledFeature[] =
   [
@@ -173,6 +176,11 @@ export const MarketTradingView = memo(
         nativePriceMarketCapControlMode={nativePriceMarketCapControlMode}
         nativeControlsLayoutMode={nativeControlsLayoutMode}
         isNativeChartFullscreen={isNativeChartFullscreen}
+        nativeChartFullscreenHeader={
+          !platformEnv.isNative && nativeControlsLayoutMode === 'desktop' ? (
+            <MarketChartFullscreenHeader />
+          ) : undefined
+        }
         showNativeIndicatorQuickBar={showNativeIndicatorQuickBar}
         onNativeChartFullscreenChange={onNativeChartFullscreenChange}
         onNativeIndicatorQuickBarChange={onNativeIndicatorQuickBarChange}
