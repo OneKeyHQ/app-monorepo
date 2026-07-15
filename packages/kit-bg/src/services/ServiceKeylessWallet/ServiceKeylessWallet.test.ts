@@ -589,6 +589,45 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     expect(migrationPersist.byWalletId[WALLET_ID]).toBeUndefined();
   });
 
+  test('persists the rotated legacy token even when the exchanged token mismatches the local wallet', async () => {
+    const { service, serviceAny } = createService();
+    mockLegacyRefreshTokenFallback(serviceAny);
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        access_token: TOKEN,
+        refresh_token: 'rotated-refresh-token',
+      }),
+    } as any);
+    // e.g. a same-email wallet whose local provider was rewritten by
+    // fixedKeylessProviderMap, or a transient hash failure classified as a
+    // mismatch — NOT a GoTrue verdict on the credential itself.
+    serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
+      async () => 'token_provider_mismatch',
+    );
+    serviceAny.apiGetKeylessBackendShareMeta = jest.fn();
+
+    await expect(
+      service.tryMigrateLocalExistingKeylessBackendShareToV2(),
+    ).resolves.toMatchObject({
+      skipped: true,
+      reason: 'token_provider_mismatch',
+    });
+
+    // The exchange consumed the stored single-use token, so the rotated
+    // replacement must be persisted regardless of the mismatch verdict —
+    // otherwise the blob keeps the consumed token and the next attempt's
+    // definitive GoTrue rejection deletes the credential for good.
+    expect(serviceAny.saveLegacyKeylessOAuthRefreshToken).toHaveBeenCalledWith({
+      ownerId: OWNER_ID,
+      refreshToken: 'rotated-refresh-token',
+      password: PASSWORD,
+    });
+    expect(serviceAny.removeLegacyKeylessOAuthTokens).not.toHaveBeenCalled();
+    expect(serviceAny.apiGetKeylessBackendShareMeta).not.toHaveBeenCalled();
+  });
+
   test('does not consume the 24-hour throttle when the legacy refresh is rate limited with 429', async () => {
     const { service, serviceAny } = createService();
     mockLegacyRefreshTokenFallback(serviceAny);
@@ -2091,6 +2130,53 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
     expect(serviceAny.removeLegacyKeylessOAuthTokens).toHaveBeenCalledWith({
       ownerId: OWNER_ID,
     });
+  });
+
+  test('interactive migration persists the rotated token before wallet validation so a mismatch cannot strand the consumed token', async () => {
+    const { serviceAny, wallet } = createService();
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
+    serviceAny.getLegacyKeylessOAuthRefreshToken = jest.fn(
+      async () => 'legacy-refresh-token',
+    );
+    serviceAny.saveLegacyKeylessOAuthRefreshToken = jest.fn(
+      async () => undefined,
+    );
+    serviceAny.removeLegacyKeylessOAuthTokens = jest.fn(async () => undefined);
+    // Mismatch verdict AFTER the exchange already consumed the stored
+    // single-use token (e.g. same-email wallet with a rewritten provider,
+    // or a transient hash failure classified as a mismatch).
+    serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
+      async () => 'token_identity_mismatch',
+    );
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        access_token: TOKEN,
+        refresh_token: 'rotated-refresh-token',
+      }),
+    } as any);
+
+    await expect(
+      serviceAny.migrateLegacyKeylessOAuthSessionForLocalWallet({
+        keylessWallet: wallet,
+        ownerId: OWNER_ID,
+      }),
+    ).resolves.toBeNull();
+
+    // The rotated token must be persisted back even though validation
+    // failed — the blob would otherwise keep the consumed token and the
+    // next attempt's definitive GoTrue rejection would delete the
+    // credential for good.
+    expect(serviceAny.saveLegacyKeylessOAuthRefreshToken).toHaveBeenCalledWith({
+      ownerId: OWNER_ID,
+      refreshToken: 'rotated-refresh-token',
+      password: PASSWORD,
+    });
+    // A mismatched session must never be installed, and the blob must not
+    // be removed.
+    expect(mockSupabaseSetSession).not.toHaveBeenCalled();
+    expect(serviceAny.removeLegacyKeylessOAuthTokens).not.toHaveBeenCalled();
   });
 });
 

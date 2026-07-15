@@ -662,6 +662,24 @@ class ServicePrime extends ServiceBase {
           // and the auth session source. Serialized like every other
           // source/token write so it cannot tear a concurrent writer.
           await this.authStateWriteMutex.runExclusive(async () => {
+            // In-lock source guard (mirrors evaluateInvalidTokenClearGuards):
+            // the rejected token belongs to THIS legacy-realm login attempt.
+            // If the persisted source meanwhile points at a different realm
+            // (a KeylessOAuth login committed concurrently, or this call
+            // replayed a residual legacy token while a keyless session backs
+            // the live login), clearing would wipe that session's source —
+            // and a wiped KeylessOAuth source is never re-inferred.
+            const persistedSource =
+              await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+            if (persistedSource && persistedSource !== nextAuthSessionSource) {
+              defaultLogger.prime.subscription.onekeyIdInvalidToken({
+                url: '/prime/v1/user/login',
+                errorCode: -1,
+                errorMessage:
+                  'ServicePrime.apiLogin: skip clearing auth tokens, persisted source belongs to another realm',
+              });
+              return;
+            }
             await this.backgroundApi.simpleDb.prime.clearAuthTokens();
           });
         }
@@ -1038,6 +1056,52 @@ class ServicePrime extends ServiceBase {
       // sweeping every Supabase session storage key.
       await this.backgroundApi.simpleDb.prime.clearLocalAuthSession();
     }
+  }
+
+  /**
+   * Guarded "reset to logged-out only if there is really no active token",
+   * for UI startup effects that observe a missing-token state. Unlike
+   * clearOneKeyIdAuthState (an explicit logout decision), the clear here is
+   * committed under authStateWriteMutex with an in-lock re-read, so it can
+   * never interleave with a concurrent login commit and wipe a
+   * just-committed authSessionSource — a wiped KeylessOAuth source is never
+   * re-inferred (see getEffectiveAuthSessionSource) and would permanently
+   * orphan a still-valid keyless session. Retryable auth errors (transient
+   * refresh failures) skip the clear entirely: the session may still be
+   * valid and must not be destroyed over a network blip.
+   */
+  @backgroundMethod()
+  async clearOneKeyIdAuthStateIfNoActiveToken({
+    callerName,
+  }: {
+    callerName: string;
+  }): Promise<{ cleared: boolean }> {
+    // Entry-time read OUTSIDE the lock: performs the possibly-slow Supabase
+    // session read (network-capable token refresh) before the lock is taken,
+    // keeping the in-lock re-read fast (cached session) — same pattern as
+    // handlePrimeLoginInvalidToken.
+    const entryRead = await readAuthTokenAllowingRetryableAuthError(() =>
+      this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
+    );
+    if (entryRead.retryableError || entryRead.token) {
+      return { cleared: false };
+    }
+    return this.authStateWriteMutex.runExclusive(async () => {
+      // In-lock re-check: a login commit may have finished between the
+      // entry-time read above and lock acquisition.
+      const read = await readAuthTokenAllowingRetryableAuthError(() =>
+        this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
+      );
+      if (read.retryableError || read.token) {
+        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+          reason: `${callerName}: skip no-active-token clear, a token appeared or the refresh failed (in-lock recheck)`,
+        });
+        return { cleared: false };
+      }
+      await this.backgroundApi.simpleDb.prime.clearAuthTokens();
+      await this.setPrimePersistAtomNotLoggedIn();
+      return { cleared: true };
+    });
   }
 
   @backgroundMethod()

@@ -1210,6 +1210,9 @@ class ServiceKeylessWallet extends ServiceBase {
   // decrypts the blob with the already-cached password (never an interactive
   // prompt) and exchanges it directly over HTTP, so the refreshed session is
   // used in-memory only and is NEVER written to the global Supabase client.
+  // On a successful exchange it persists the rotated refresh token back to
+  // the blob BEFORE returning (the exchange consumes the stored single-use
+  // token, so the save must not depend on anything the caller does next).
   // Transient failures (fetch throw / 5xx / 408 / 429 / json-parse / any
   // non-OK response without a parseable GoTrue rejection body) become
   // `KeylessPassiveMigrationNetworkError` so the migration loop rolls back
@@ -1325,6 +1328,24 @@ class ServiceKeylessWallet extends ServiceBase {
       };
     } catch (error) {
       throw new KeylessPassiveMigrationNetworkError(error);
+    }
+
+    // The exchange above already consumed the single-use rotating token
+    // stored in the blob. Persist the rotated replacement IMMEDIATELY —
+    // before returning to the caller and thus before ANY later step
+    // (wallet-identity validation, Prime API calls) can fail or the process
+    // can be killed. The rotated token is an identity-equivalent replacement
+    // of what the blob already held, so this save must never be gated on any
+    // later validation verdict: a blob stranded with the consumed token
+    // would hit a definitive GoTrue rejection on the next attempt and be
+    // deleted, permanently destroying the legacy credential over a
+    // non-definitive failure.
+    if (refreshResult?.refresh_token) {
+      await this.saveLegacyKeylessOAuthRefreshToken({
+        ownerId,
+        refreshToken: refreshResult.refresh_token,
+        password,
+      });
     }
 
     if (!refreshResult?.access_token || !refreshResult?.refresh_token) {
@@ -1745,6 +1766,15 @@ class ServiceKeylessWallet extends ServiceBase {
           }
           const token = tokenInfo.accessToken;
 
+          // NOTE: when the token came from the legacy blob, the refresh
+          // helper has ALREADY persisted the rotated refresh token back
+          // (immediately after the exchange, inside the same exchange lock).
+          // Nothing below — neither this validation nor any Prime API step —
+          // may be a precondition for that save: the exchange consumed the
+          // single-use stored token, so a save gated on later steps would
+          // strand the blob with a consumed token on any non-definitive
+          // failure, and the next attempt's definitive GoTrue rejection
+          // would delete the credential for good.
           const tokenValidationError =
             await this.validateKeylessAccessTokenMatchesLocalWallet({
               token,
@@ -1762,30 +1792,6 @@ class ServiceKeylessWallet extends ServiceBase {
               skipped: true,
               reason: tokenValidationError,
             };
-          }
-
-          if (tokenInfo.refreshToken) {
-            // The access token came from the legacy blob and Supabase rotates
-            // refresh tokens on use — the exchange above already consumed the
-            // stored single-use token, so persist the rotated one back
-            // immediately after the LOCAL wallet validation passes and BEFORE
-            // any Prime API call (mirroring the interactive migration path).
-            // The rotated token is an identity-equivalent replacement of what
-            // the blob already held, so the server-side owner check below
-            // gates only the v2 migration itself, never this save. If the
-            // save ran after the Prime calls instead, a transient Prime
-            // failure (5xx / timeout / Prime-only outage) would drop the
-            // rotated token while the blob still held the consumed one, and
-            // the next attempt's definitive GoTrue rejection would delete the
-            // blob — permanently destroying the legacy credential over a
-            // network blip. The save is never rolled back when a later
-            // migration step fails, because the previous refresh token was
-            // already consumed by the exchange.
-            await this.saveLegacyKeylessOAuthRefreshToken({
-              ownerId,
-              refreshToken: tokenInfo.refreshToken,
-              password,
-            });
           }
 
           const current = await this.apiGetKeylessBackendShareMeta({ token });
@@ -3075,6 +3081,26 @@ class ServiceKeylessWallet extends ServiceBase {
       };
       const accessToken = refreshResult?.access_token;
       const nextRefreshToken = refreshResult?.refresh_token;
+
+      // Supabase rotates refresh tokens on use — the exchange above already
+      // consumed the stored single-use token, so persist the rotated one
+      // back IMMEDIATELY, before the wallet validation below (mirroring the
+      // passive refresh helper). The rotated token is an identity-equivalent
+      // replacement of what the blob already held, so this save must never
+      // be gated on a validation verdict: a mismatch result (e.g. a
+      // same-email wallet whose local provider was rewritten, or a transient
+      // hash failure classified as a mismatch) would otherwise strand the
+      // consumed token in the blob, and the next attempt's definitive GoTrue
+      // rejection would delete the credential for good. It also means that
+      // if setSession below throws, the blob still holds a usable token for
+      // the next attempt.
+      if (nextRefreshToken) {
+        await this.saveLegacyKeylessOAuthRefreshToken({
+          ownerId,
+          refreshToken: nextRefreshToken,
+          password,
+        });
+      }
       if (!accessToken || !nextRefreshToken) {
         return null;
       }
@@ -3087,17 +3113,6 @@ class ServiceKeylessWallet extends ServiceBase {
       if (mismatchReason) {
         return null;
       }
-
-      // Supabase rotates refresh tokens on use — the exchange above consumed
-      // the stored token, so persist the rotated one back (only after it has
-      // been validated against the local wallet, mirroring the passive
-      // migration path). If setSession below throws, the blob then still holds
-      // a usable token for the next attempt instead of a consumed one.
-      await this.saveLegacyKeylessOAuthRefreshToken({
-        ownerId,
-        refreshToken: nextRefreshToken,
-        password,
-      });
 
       const setSessionResult =
         await getKeylessSupabaseClient().client.auth.setSession({

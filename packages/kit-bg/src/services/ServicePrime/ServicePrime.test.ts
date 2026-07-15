@@ -515,3 +515,130 @@ describe('ServicePrime invalid-token handling', () => {
     });
   });
 });
+
+describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('clears tokens and resets the atom when no active token exists (entry + in-lock)', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('');
+    const atomResetSpy = jest
+      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
+      .mockResolvedValue(undefined);
+
+    const result = await service.clearOneKeyIdAuthStateIfNoActiveToken({
+      callerName: 'test',
+    });
+
+    expect(result.cleared).toBe(true);
+    expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
+    expect(atomResetSpy).toHaveBeenCalled();
+  });
+
+  it('skips clearing when a login commit lands between the entry read and the in-lock re-read', async () => {
+    const { service, simpleDbPrime } = createService();
+    // Entry-time read observes no token, but a concurrent OAuth login
+    // commits before the lock is acquired — the in-lock re-read must see it
+    // and abort, otherwise the just-committed authSessionSource would be
+    // wiped (a wiped KeylessOAuth source is never re-inferred).
+    simpleDbPrime.getActiveAuthToken
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('fresh-login-token');
+    const atomResetSpy = jest
+      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
+      .mockResolvedValue(undefined);
+
+    const result = await service.clearOneKeyIdAuthStateIfNoActiveToken({
+      callerName: 'test',
+    });
+
+    expect(result.cleared).toBe(false);
+    expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
+    expect(atomResetSpy).not.toHaveBeenCalled();
+  });
+
+  it('skips clearing when the token read fails with a retryable auth error', async () => {
+    const { service, simpleDbPrime } = createService();
+    const retryableError: Error & { $$retryable?: boolean } = new Error(
+      'transient refresh failure',
+    );
+    retryableError.$$retryable = true;
+    simpleDbPrime.getActiveAuthToken.mockRejectedValue(retryableError);
+    const atomResetSpy = jest
+      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
+      .mockResolvedValue(undefined);
+
+    const result = await service.clearOneKeyIdAuthStateIfNoActiveToken({
+      callerName: 'test',
+    });
+
+    expect(result.cleared).toBe(false);
+    expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
+    expect(atomResetSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServicePrime.apiLogin invalid-token clear guard', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function mockLoginRejection(service: any) {
+    const invalidTokenError = new OneKeyErrorPrimeLoginInvalidToken({
+      message: 'invalid token',
+      code: 90_002,
+    });
+    service.getPrimeClient = jest.fn(async () => ({
+      post: jest.fn(async () => {
+        throw invalidTokenError;
+      }),
+    }));
+    return invalidTokenError;
+  }
+
+  it('clears tokens on a confirmed invalid-token rejection when no other realm committed', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockLoginRejection(service);
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
+
+    await expect(
+      service.apiLogin({ accessToken: REQUEST_TOKEN }),
+    ).rejects.toThrow('invalid token');
+
+    expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
+  });
+
+  it('skips clearing when the persisted source belongs to another realm (KeylessOAuth)', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockLoginRejection(service);
+    // A KeylessOAuth login committed concurrently (or this call replayed a
+    // residual legacy token while a keyless session backs the live login):
+    // clearing would wipe that session's source, which is never re-inferred.
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+
+    await expect(
+      service.apiLogin({ accessToken: REQUEST_TOKEN }),
+    ).rejects.toThrow('invalid token');
+
+    expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
+  });
+
+  it('keeps the persisted source on a transient login failure', async () => {
+    const { service, simpleDbPrime } = createService();
+    service.getPrimeClient = jest.fn(async () => ({
+      post: jest.fn(async () => {
+        throw new OneKeyLocalError('Network Error');
+      }),
+    }));
+
+    await expect(
+      service.apiLogin({ accessToken: REQUEST_TOKEN }),
+    ).rejects.toThrow('Network Error');
+
+    expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
+  });
+});

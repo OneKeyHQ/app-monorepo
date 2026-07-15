@@ -217,7 +217,6 @@ function PrimeGlobalEffectAfterAuthReady() {
         if (accessToken) {
           await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
         } else {
-          await backgroundApiProxy.simpleDb.prime.clearAuthTokens();
           defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
             reason: `PrimeGlobalEffect: privySdk.getAccessToken() is null ${JSON.stringify(
               {
@@ -225,7 +224,16 @@ function PrimeGlobalEffectAfterAuthReady() {
               },
             )}`,
           });
-          await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
+          // Guarded bg-side clear (authStateWriteMutex + in-lock re-read):
+          // a raw clearAuthTokens here could interleave with an in-flight
+          // OAuth login commit and wipe its freshly written
+          // authSessionSource — a wiped KeylessOAuth source is never
+          // re-inferred, orphaning a still-valid keyless session.
+          await backgroundApiProxy.servicePrime.clearOneKeyIdAuthStateIfNoActiveToken(
+            {
+              callerName: 'PrimeGlobalEffect',
+            },
+          );
         }
       } catch (error) {
         defaultLogger.prime.subscription.onekeyIdInvalidToken({
