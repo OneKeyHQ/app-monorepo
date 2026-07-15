@@ -33,10 +33,7 @@ import {
   type IOneKeyError,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import {
-  EOneKeyIdLoginWithLocalKeylessPrepareStatus,
-  type IOneKeyIdLoginWithLocalKeylessPrepareResult,
-} from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
+import type { IOneKeyIdLoginWithLocalKeylessPrepareResult } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   getBoundOAuthProviders,
@@ -59,6 +56,9 @@ export const ONEKEY_ID_BIND_OAUTH_TITLE = 'Add Google or Apple Sign-In';
 export const ONEKEY_ID_BIND_OAUTH_DESC =
   'Email sign-in is legacy. Add a social sign-in method to keep access to your OneKey ID.';
 let isLegacyOAuthBindDialogVisible = false;
+
+const PREPARE_LOCAL_KEYLESS_MAX_ATTEMPTS = 3;
+const PREPARE_LOCAL_KEYLESS_RETRY_DELAY_MS = 1000;
 
 // TODO: i18n (use a {provider} placeholder)
 function getBindOAuthTitle(provider?: EOAuthSocialLoginProvider) {
@@ -215,18 +215,39 @@ function OneKeyIdLegacyOAuthBindActions({
 
   useEffect(() => {
     let isMounted = true;
+    // Never fake a NoLocalKeyless result when prepare rejects: the bg method
+    // already degrades transient Supabase failures to NeedOAuthLogin, so a
+    // rejection here means the bg bridge call itself failed and nothing is
+    // known about the local Keyless wallet. Faking NoLocalKeyless would
+    // render both provider buttons and turn the token-matches-wallet guard
+    // into a no-op, allowing a wrong-account permanent bind that also
+    // overwrites the shared keyless session slot. Keep the buttons disabled
+    // (result stays null) and retry with backoff instead.
     const prepareLocalKeylessLogin = async () => {
-      try {
-        const result =
-          await backgroundApiProxy.serviceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless();
-        if (isMounted) {
-          setLocalKeylessLoginPrepareResult(result);
-        }
-      } catch {
-        if (isMounted) {
-          setLocalKeylessLoginPrepareResult({
-            status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless,
-          });
+      for (
+        let attempt = 1;
+        attempt <= PREPARE_LOCAL_KEYLESS_MAX_ATTEMPTS;
+        attempt += 1
+      ) {
+        try {
+          const result =
+            await backgroundApiProxy.serviceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless();
+          if (isMounted) {
+            setLocalKeylessLoginPrepareResult(result);
+          }
+          return;
+        } catch (error) {
+          if (attempt >= PREPARE_LOCAL_KEYLESS_MAX_ATTEMPTS) {
+            console.error(
+              'OneKeyIdLegacyOAuthBindActions prepare failed:',
+              error,
+            );
+            return;
+          }
+          await timerUtils.wait(PREPARE_LOCAL_KEYLESS_RETRY_DELAY_MS * attempt);
+          if (!isMounted) {
+            return;
+          }
         }
       }
     };

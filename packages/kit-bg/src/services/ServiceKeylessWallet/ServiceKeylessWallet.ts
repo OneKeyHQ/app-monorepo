@@ -3137,21 +3137,41 @@ class ServiceKeylessWallet extends ServiceBase {
       };
     }
 
-    const activeAccessToken =
-      await this.getActiveKeylessOAuthAccessTokenMatchingLocalWallet({
-        keylessWallet: context.keylessWallet,
-      });
-    if (!activeAccessToken) {
-      const hasLegacyRefreshToken =
-        await this.hasLegacyKeylessOAuthRefreshToken({
-          ownerId: context.ownerId,
+    // The local Keyless wallet definitely exists past this point, so a
+    // transient probe failure (retryable Supabase auth error rethrown by
+    // getActiveKeylessOAuthAccessToken, storage read failure) must never
+    // surface as NoLocalKeyless: callers treat NoLocalKeyless as "no wallet"
+    // and drop both the provider lock and the token-matches-wallet guard,
+    // which would let a wrong-account OAuth session overwrite the shared
+    // keyless session slot and complete a permanent server-side bind.
+    // Degrade to NeedOAuthLogin with the wallet's provider instead — the
+    // guards stay armed, and continueOneKeyIdLoginWithLocalKeyless can still
+    // reuse the local session on the next attempt once the failure clears.
+    try {
+      const activeAccessToken =
+        await this.getActiveKeylessOAuthAccessTokenMatchingLocalWallet({
+          keylessWallet: context.keylessWallet,
         });
-      if (!hasLegacyRefreshToken) {
-        return {
-          status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
-          provider: context.provider,
-        };
+      if (!activeAccessToken) {
+        const hasLegacyRefreshToken =
+          await this.hasLegacyKeylessOAuthRefreshToken({
+            ownerId: context.ownerId,
+          });
+        if (!hasLegacyRefreshToken) {
+          return {
+            status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
+            provider: context.provider,
+          };
+        }
       }
+    } catch (error) {
+      defaultLogger.wallet.keyless.prepareOneKeyIdLoginWithLocalKeylessFailed({
+        error: String(error),
+      });
+      return {
+        status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
+        provider: context.provider,
+      };
     }
 
     return {

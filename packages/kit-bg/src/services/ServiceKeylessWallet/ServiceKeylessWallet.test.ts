@@ -159,6 +159,9 @@ const {
 const { KeylessDataCorruptedError, OneKeyLocalError } =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('@onekeyhq/shared/src/errors');
+const { EOneKeyIdLoginWithLocalKeylessPrepareStatus } =
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('@onekeyhq/shared/src/keylessWallet/keylessWalletTypes');
 
 const localDb =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -2370,5 +2373,65 @@ describe('ServiceKeylessWallet.validateKeylessAccessTokenMatchesLocalWallet (rea
         }),
       }),
     ).resolves.toBe('token_identity_mismatch');
+  });
+});
+
+describe('ServiceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless', () => {
+  test('returns NoLocalKeyless when no local keyless wallet exists', async () => {
+    const { service } = createService({ wallet: undefined });
+    await expect(
+      service.prepareOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless,
+    });
+  });
+
+  test('returns ContinueWithKeyless when the active session matches the local wallet', async () => {
+    const { service, serviceAny } = createService();
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn(
+      async () => TOKEN,
+    );
+    await expect(
+      service.prepareOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.ContinueWithKeyless,
+      provider: EOAuthSocialLoginProvider.Google,
+    });
+  });
+
+  test('degrades a transient session probe failure to NeedOAuthLogin with the wallet provider, never NoLocalKeyless', async () => {
+    // A retryable Supabase auth error rethrown by
+    // getActiveKeylessOAuthAccessToken must not be reported as
+    // NoLocalKeyless: that status drops the provider lock and the
+    // token-matches-wallet guard in the bind/login UI while the local
+    // Keyless wallet actually exists.
+    const { service, serviceAny } = createService();
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn(
+      async () => {
+        throw new OneKeyLocalError('AuthRetryableFetchError');
+      },
+    );
+    await expect(
+      service.prepareOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
+      provider: EOAuthSocialLoginProvider.Google,
+    });
+  });
+
+  test('degrades a legacy refresh token probe failure to NeedOAuthLogin with the wallet provider', async () => {
+    const { service, serviceAny } = createService();
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn(
+      async () => null,
+    );
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => {
+      throw new OneKeyLocalError('storage read failed');
+    });
+    await expect(
+      service.prepareOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
+      provider: EOAuthSocialLoginProvider.Google,
+    });
   });
 });
