@@ -2701,6 +2701,7 @@ function TokenListBlock({
             variant="tertiary"
             icon="SliderHorOutline"
             onPress={handleOnManageToken}
+            disabled={showLpTokensOnly}
             size="medium"
           />
         </XStack>
