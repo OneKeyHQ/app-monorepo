@@ -7,6 +7,7 @@ import { showKeylessWalletAccountMismatchError } from '@onekeyhq/kit/src/compone
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
   type IOneKeyIdLoginWithLocalKeylessPrepareResult,
@@ -122,7 +123,17 @@ export function useOneKeyIdLocalKeylessOAuth({
           const result =
             await backgroundApiProxy.serviceKeylessWallet.continueOneKeyIdLoginWithLocalKeyless();
           accessToken = result.accessToken;
-        } catch {
+        } catch (error) {
+          // Dead/expired legacy blob -> fall back to a fresh OAuth
+          // round-trip below. But a user-initiated cancel (the legacy-blob
+          // migration's passcode prompt was dismissed) must settle the flow
+          // instead — a "Cancel" click must never escalate into opening the
+          // system browser. Both hosts skip toasts for cancel-style errors
+          // (errorToastUtils.isUserCancelStyleError), so rethrowing is
+          // silent there.
+          if (errorToastUtils.isUserCancelStyleError(error)) {
+            throw error;
+          }
           accessToken = '';
         }
       }
