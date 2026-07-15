@@ -110,8 +110,11 @@ jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
 const mockRemoveAuthSessionStorageBySessionSource = jest.fn(
   async (_source: unknown) => undefined,
 );
-const mockSignOutAuthSessionClientBySessionSource = jest.fn(
-  async (_source: unknown) => undefined,
+const mockReadPersistedAccessTokenBySessionSource = jest.fn(
+  async (_source: unknown) => 'persisted-access-token',
+);
+const mockRevokeAuthSessionTokenOnServerBestEffort = jest.fn(
+  async (_params: unknown) => undefined,
 );
 
 // Real retryable-error semantics, driven by a `$$retryable` marker on the
@@ -143,8 +146,10 @@ jest.mock('./primeAuthSessionAccess', () => ({
   ) => fn(),
   removeAuthSessionStorageBySessionSource: (source: unknown) =>
     mockRemoveAuthSessionStorageBySessionSource(source),
-  signOutAuthSessionClientBySessionSource: (source: unknown) =>
-    mockSignOutAuthSessionClientBySessionSource(source),
+  readPersistedAccessTokenBySessionSource: (source: unknown) =>
+    mockReadPersistedAccessTokenBySessionSource(source),
+  revokeAuthSessionTokenOnServerBestEffort: (params: unknown) =>
+    mockRevokeAuthSessionTokenOnServerBestEffort(params),
 }));
 
 const {
@@ -289,8 +294,11 @@ describe('ServicePrime invalid-token handling', () => {
       expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledWith(
         EPrimeAuthSessionSource.KeylessOAuth,
       );
-      expect(mockSignOutAuthSessionClientBySessionSource).toHaveBeenCalledWith(
-        EPrimeAuthSessionSource.KeylessOAuth,
+      expect(mockRevokeAuthSessionTokenOnServerBestEffort).toHaveBeenCalledWith(
+        {
+          authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+          accessToken: 'persisted-access-token',
+        },
       );
       expect(emitSpy).toHaveBeenCalledWith(
         EAppEventBusNames.PrimeLoginInvalidToken,
@@ -432,8 +440,11 @@ describe('ServicePrime invalid-token handling', () => {
       expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledWith(
         EPrimeAuthSessionSource.KeylessOAuth,
       );
-      expect(mockSignOutAuthSessionClientBySessionSource).toHaveBeenCalledWith(
-        EPrimeAuthSessionSource.KeylessOAuth,
+      expect(mockRevokeAuthSessionTokenOnServerBestEffort).toHaveBeenCalledWith(
+        {
+          authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+          accessToken: 'persisted-access-token',
+        },
       );
       expect(mockPrimePersistAtom.set).toHaveBeenCalled();
       expect(
@@ -470,7 +481,7 @@ describe('ServicePrime invalid-token handling', () => {
         mockRemoveAuthSessionStorageBySessionSource,
       ).not.toHaveBeenCalled();
       expect(
-        mockSignOutAuthSessionClientBySessionSource,
+        mockRevokeAuthSessionTokenOnServerBestEffort,
       ).not.toHaveBeenCalled();
     });
 
@@ -514,7 +525,7 @@ describe('ServicePrime invalid-token handling', () => {
         mockRemoveAuthSessionStorageBySessionSource,
       ).not.toHaveBeenCalled();
       expect(
-        mockSignOutAuthSessionClientBySessionSource,
+        mockRevokeAuthSessionTokenOnServerBestEffort,
       ).not.toHaveBeenCalled();
       expect(mockPrimePersistAtom.set).not.toHaveBeenCalled();
     });
@@ -688,7 +699,7 @@ describe('ServicePrime.clearAuthSessionIfGenerationStillMatches', () => {
     jest.clearAllMocks();
   });
 
-  it('removes storage under the lock then signs out when the generation matches', async () => {
+  it('removes storage under the lock then revokes the snapshotted token on the server when the generation matches', async () => {
     const { service, simpleDbPrime } = createService();
     simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
 
@@ -702,12 +713,13 @@ describe('ServicePrime.clearAuthSessionIfGenerationStillMatches', () => {
     expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledWith(
       EPrimeAuthSessionSource.KeylessOAuth,
     );
-    expect(mockSignOutAuthSessionClientBySessionSource).toHaveBeenCalledWith(
-      EPrimeAuthSessionSource.KeylessOAuth,
-    );
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).toHaveBeenCalledWith({
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      accessToken: 'persisted-access-token',
+    });
   });
 
-  it('skips both removal and sign-out when a login committed after the snapshot', async () => {
+  it('skips removal and server revocation when a login committed after the snapshot', async () => {
     const { service, simpleDbPrime } = createService();
     simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
 
@@ -719,7 +731,7 @@ describe('ServicePrime.clearAuthSessionIfGenerationStillMatches', () => {
 
     expect(result).toEqual({ cleared: false, generationChanged: true });
     expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
-    expect(mockSignOutAuthSessionClientBySessionSource).not.toHaveBeenCalled();
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
   });
 
   it('validates the generation atomically with commits (waits for authStateWriteMutex)', async () => {
@@ -756,7 +768,7 @@ describe('ServicePrime.clearAuthSessionIfGenerationStillMatches', () => {
     const result = await resultPromise;
     expect(result).toEqual({ cleared: false, generationChanged: true });
     expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
-    expect(mockSignOutAuthSessionClientBySessionSource).not.toHaveBeenCalled();
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
   });
 });
 

@@ -56,9 +56,10 @@ import ServiceBase from '../ServiceBase';
 
 import {
   readAuthTokenAllowingRetryableAuthError,
+  readPersistedAccessTokenBySessionSource,
   removeAuthSessionStorageBySessionSource,
+  revokeAuthSessionTokenOnServerBestEffort,
   runExclusiveOnAuthSessionSlot,
-  signOutAuthSessionClientBySessionSource,
 } from './primeAuthSessionAccess';
 
 import type {
@@ -1148,9 +1149,14 @@ class ServicePrime extends ServiceBase {
    *    removal and fails safe (clears + throws), so the worst racing
    *    outcome is one visibly failed login retry — never a logged-in
    *    atom/source pointing at an empty session slot.
-   * 3. The SDK signOut (network-capable) runs after the gated removal,
-   *    inside the slot queue but outside authStateWriteMutex, and only
-   *    when the removal actually happened.
+   * 3. Server-side revocation (network-capable) runs after the gated
+   *    removal, inside the slot queue but outside authStateWriteMutex,
+   *    using ONLY the in-lock token snapshot. Deliberately NOT auth-js
+   *    signOut: signOut RE-READS the shared slot and ends with
+   *    _removeSession(), so a fresh OAuth setSession landing between the
+   *    gated removal and the signOut (before its apiOAuthLogin commit
+   *    bumps the generation) would be revoked server-side and deleted
+   *    locally — the exact credential loss this method exists to prevent.
    */
   @backgroundMethod()
   async clearAuthSessionIfGenerationStillMatches({
@@ -1163,22 +1169,35 @@ class ServicePrime extends ServiceBase {
     callerName: string;
   }): Promise<{ cleared: boolean; generationChanged?: boolean }> {
     return runExclusiveOnAuthSessionSlot(authSessionSource, async () => {
-      const removed = await this.authStateWriteMutex.runExclusive(async () => {
-        const currentGeneration =
-          await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
-        if (currentGeneration !== expectedAuthStateGeneration) {
-          defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-            reason: `${callerName}: skip session-slot clear, a login committed after the caller snapshot (generation ${expectedAuthStateGeneration} -> ${currentGeneration})`,
-          });
-          return false;
-        }
-        await removeAuthSessionStorageBySessionSource(authSessionSource);
-        return true;
-      });
-      if (!removed) {
+      const lockOutcome = await this.authStateWriteMutex.runExclusive(
+        async (): Promise<{
+          removed: boolean;
+          accessTokenToRevoke: string;
+        }> => {
+          const currentGeneration =
+            await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+          if (currentGeneration !== expectedAuthStateGeneration) {
+            defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+              reason: `${callerName}: skip session-slot clear, a login committed after the caller snapshot (generation ${expectedAuthStateGeneration} -> ${currentGeneration})`,
+            });
+            return { removed: false, accessTokenToRevoke: '' };
+          }
+          // Snapshot the slot's access token BEFORE removing it, so the
+          // post-lock server revocation targets exactly the session this
+          // gated deletion decided to destroy — never a later write.
+          const accessTokenToRevoke =
+            await readPersistedAccessTokenBySessionSource(authSessionSource);
+          await removeAuthSessionStorageBySessionSource(authSessionSource);
+          return { removed: true, accessTokenToRevoke };
+        },
+      );
+      if (!lockOutcome.removed) {
         return { cleared: false, generationChanged: true };
       }
-      await signOutAuthSessionClientBySessionSource(authSessionSource);
+      await revokeAuthSessionTokenOnServerBestEffort({
+        authSessionSource,
+        accessToken: lockOutcome.accessTokenToRevoke,
+      });
       return { cleared: true };
     });
   }

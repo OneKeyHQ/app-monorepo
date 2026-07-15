@@ -172,6 +172,13 @@ export async function removeAuthSessionStorageBySessionSource(
 /**
  * Sign out this runtime's SDK client of the given source (network-capable;
  * never call while holding authStateWriteMutex).
+ *
+ * WARNING: auth-js signOut RE-READS the shared session slot and ends with
+ * `_removeSession()`, so it deletes WHATEVER currently occupies the slot —
+ * including a fresh login persisted after the caller's own snapshot. Only
+ * use it on unconditional teardown paths; generation-gated deletions must
+ * use readPersistedAccessTokenBySessionSource +
+ * revokeAuthSessionTokenOnServerBestEffort instead.
  */
 export async function signOutAuthSessionClientBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
@@ -182,6 +189,57 @@ export async function signOutAuthSessionClientBySessionSource(
   } catch {
     // Storage removal is handled by the callers even when the SDK session
     // is already invalid.
+  }
+}
+
+/**
+ * Read the access token currently persisted in the given source's session
+ * slot — a pure LOCAL storage read (no SDK session load, no network, no
+ * refresh), safe inside authStateWriteMutex. Returns '' when the slot is
+ * empty, unparseable, or transiently unreadable: the caller only uses the
+ * token for best-effort server revocation, so degrading to "no revocation"
+ * is always acceptable.
+ */
+export async function readPersistedAccessTokenBySessionSource(
+  authSessionSource: EPrimeAuthSessionSource,
+): Promise<string> {
+  try {
+    const sessionKey =
+      getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
+    const rawValue = await supabaseStorageInstance.getItem(sessionKey);
+    if (!rawValue) {
+      return '';
+    }
+    const parsed = JSON.parse(rawValue) as { access_token?: string } | null;
+    return parsed?.access_token || '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Best-effort server-side revocation of a CAPTURED access token: a direct
+ * POST /logout with the given JWT (the same call auth-js signOut performs
+ * internally), WITHOUT any session storage interaction — so it can never
+ * delete a session persisted after the caller captured the token.
+ * Network-capable; never call while holding authStateWriteMutex.
+ */
+export async function revokeAuthSessionTokenOnServerBestEffort({
+  authSessionSource,
+  accessToken,
+}: {
+  authSessionSource: EPrimeAuthSessionSource;
+  accessToken: string;
+}): Promise<void> {
+  if (!accessToken) {
+    return;
+  }
+  try {
+    const client = getSupabaseClientBySessionSource(authSessionSource);
+    await client.auth.admin.signOut(accessToken, 'local');
+  } catch {
+    // Best-effort: the local deletion already happened; an unreachable
+    // revocation endpoint must not fail the teardown.
   }
 }
 
