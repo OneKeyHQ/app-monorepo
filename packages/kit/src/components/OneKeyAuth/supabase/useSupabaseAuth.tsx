@@ -112,6 +112,7 @@ export function useSupabaseAuth() {
       // first (see extOneKeyIdAuthExpandTab); fail loudly if one slips
       // through instead of dying without any feedback.
       if (platformEnv.isExtensionUiPopup) {
+        // TODO: i18n
         throw new OneKeyLocalError(
           'OAuth sign-in cannot run in the extension popup. Please continue in the expanded view.',
         );

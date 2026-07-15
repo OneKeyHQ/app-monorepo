@@ -356,9 +356,10 @@ export class OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound extends OneKeyAppError
           };
     super(
       normalizeErrorProps(nextProps, {
-        // TODO: Remove this client fallback once the server returns message or translatedMessage for oauth_identity_already_bound.
+        // TODO: i18n — remove this client fallback once the server returns
+        // message or translatedMessage for oauth_identity_already_bound.
         defaultMessage:
-          'This Google or Apple account is already bound to another OneKey ID.',
+          'This Google or Apple account is already linked to another OneKey ID.',
         defaultAutoToast: true,
       }),
     );

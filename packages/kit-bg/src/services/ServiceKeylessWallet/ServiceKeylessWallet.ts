@@ -3180,8 +3180,9 @@ class ServiceKeylessWallet extends ServiceBase {
         ownerId: context.ownerId,
       });
       if (!accessToken) {
+        // TODO: i18n
         throw new OneKeyLocalError(
-          'The local Keyless Wallet session has expired. Please continue with your linked social account.',
+          'The local Keyless wallet session has expired. Please continue with your linked social account.',
         );
       }
     }

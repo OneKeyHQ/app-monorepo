@@ -53,22 +53,26 @@ import { useOneKeyIdLocalKeylessOAuth } from '../useOneKeyIdLocalKeylessOAuth';
 
 import type { IntlShape } from 'react-intl';
 
+// TODO: i18n
 export const ONEKEY_ID_BIND_OAUTH_TITLE = 'Add Google or Apple Sign-In';
+// TODO: i18n
 export const ONEKEY_ID_BIND_OAUTH_DESC =
   'Email sign-in is legacy. Add a social sign-in method to keep access to your OneKey ID.';
 let isLegacyOAuthBindDialogVisible = false;
 
+// TODO: i18n (use a {provider} placeholder)
 function getBindOAuthTitle(provider?: EOAuthSocialLoginProvider) {
   return provider
     ? `Add ${getOAuthSocialLoginProviderName(provider)} Sign-In`
     : ONEKEY_ID_BIND_OAUTH_TITLE;
 }
 
+// TODO: i18n (use a {provider} placeholder)
 function getBindOAuthDescription(provider?: EOAuthSocialLoginProvider) {
   return provider
     ? `Email sign-in is legacy. Add ${getOAuthSocialLoginProviderName(
         provider,
-      )} sign-in method to keep access to your OneKey ID.`
+      )} sign-in to keep access to your OneKey ID.`
     : ONEKEY_ID_BIND_OAUTH_DESC;
 }
 
@@ -120,8 +124,9 @@ async function showOneKeyIdOAuthIdentityAlreadyBoundSwitchDialog({
       icon: 'ErrorOutline',
       // TODO: i18n
       title: 'Already Linked to Another OneKey ID',
-      // TODO: i18n
-      description: `This ${providerName} account is already linked to another OneKey ID, so it can't be added to ${emailText}. Continue to log out of ${emailText} and sign in with the OneKey ID linked to this ${providerName} account instead. You can log back in to ${emailText} with email verification at any time${
+      // TODO: i18n (two full messages — with and without the trailing
+      // Keyless clause; never concatenate translated fragments)
+      description: `This ${providerName} account is already linked to another OneKey ID, so it can't be added to ${emailText}. Continuing will log out of ${emailText} and sign in with the OneKey ID linked to this ${providerName} account. You can log back in with email verification at any time${
         hasLocalKeylessWallet ? '; the Keyless wallet stays untouched' : ''
       }.`,
       showCancelButton: true,
@@ -302,6 +307,7 @@ function OneKeyIdLegacyOAuthBindActions({
           try {
             const result = await getOAuthAccessToken({
               provider,
+              // TODO: i18n (surfaces as a raw toast via withErrorAutoToast)
               missingTokenMessage: 'OAuth bind failed: access token not found',
             });
             didUseOAuthSignIn = result.didUseOAuthSignIn;
@@ -516,6 +522,8 @@ function OneKeyIdOAuthBindStatus({
   const providerNames = providers.map((provider) =>
     getOneKeyIdOAuthProviderName(provider),
   );
+  // TODO: i18n (localize the list conjunction via intl.formatList instead of
+  // hardcoding ' and ')
   const providerText =
     providerNames.length > 1 ? providerNames.join(' and ') : providerNames[0];
 
@@ -533,6 +541,7 @@ function OneKeyIdOAuthBindStatus({
         mx={0}
         borderRadius={0}
         userSelect="none"
+        // TODO: i18n (use a {provider} placeholder)
         title={`${providerText} Sign-In linked`}
         titleProps={{
           size: '$bodyMdMedium',

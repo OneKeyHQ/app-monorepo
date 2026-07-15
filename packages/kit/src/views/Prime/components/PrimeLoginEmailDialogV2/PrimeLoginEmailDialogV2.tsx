@@ -111,6 +111,7 @@ function PrimeLoginEmailDialogV2(props: {
                 try {
                   const token = await getAccessToken();
                   if (!token) {
+                    // TODO: i18n
                     throw new OneKeyLocalError(
                       'OneKey ID login failed: access token not found',
                     );
