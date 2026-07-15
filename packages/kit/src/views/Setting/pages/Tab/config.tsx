@@ -764,6 +764,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                         }),
                       );
                     } else if (platformEnv.isNativeAndroidGooglePlay) {
+                      // Store hosts are forced to the system browser by the
+                      // central openUrlExternal policy.
                       openUrlExternal(PLAY_STORE_LINK);
                     } else if (platformEnv.isNativeIOS) {
                       openUrlExternal(APP_STORE_LINK);
