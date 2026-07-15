@@ -32,7 +32,6 @@ import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUti
 
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useMobileTabTouchScrollBridge } from '../../../hooks/useMobileTabTouchScrollBridge';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { PerpMarketIntroContent } from '../components/MarketDetail/PerpMarketIntroContent';
 import { PerpCandles } from '../components/PerpCandles';
@@ -150,97 +149,16 @@ function MobilePerpMarketTabBar({
   );
 }
 
-function useNativeGestureTouchScrollGuard({
-  onTouchScroll,
-  releaseDelayMs = 80,
-}: {
-  onTouchScroll: (deltaY: number) => void;
-  releaseDelayMs?: number;
-}) {
-  const isNativeGestureActiveRef = useRef(false);
-  const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (releaseTimerRef.current) {
-        clearTimeout(releaseTimerRef.current);
-      }
-    },
-    [],
-  );
-
-  const handleGestureActiveChange = useCallback(
-    (active: boolean) => {
-      if (releaseTimerRef.current) {
-        clearTimeout(releaseTimerRef.current);
-        releaseTimerRef.current = null;
-      }
-
-      if (active) {
-        isNativeGestureActiveRef.current = true;
-        return;
-      }
-
-      releaseTimerRef.current = setTimeout(() => {
-        isNativeGestureActiveRef.current = false;
-        releaseTimerRef.current = null;
-      }, releaseDelayMs);
-    },
-    [releaseDelayMs],
-  );
-
-  const handleTouchScroll = useCallback(
-    (deltaY: number) => {
-      if (isNativeGestureActiveRef.current) {
-        return;
-      }
-      onTouchScroll(deltaY);
-    },
-    [onTouchScroll],
-  );
-
-  return {
-    handleGestureActiveChange,
-    handleTouchScroll,
-  };
-}
-
-function MobilePerpCandlesTouchBridge({
+function MobilePerpCandlesHeader({
   isInteractionOverlayOpen,
   onInteractionOverlayOpenChange,
 }: {
   isInteractionOverlayOpen: boolean;
   onInteractionOverlayOpenChange: (isOpen: boolean) => void;
 }) {
-  const rawTouchScroll = useMobileTabTouchScrollBridge();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
-  const interactionOverlayOpenRef = useRef(isInteractionOverlayOpen);
-  const handleTouchScrollWhenEnabled = useCallback(
-    (deltaY: number) => {
-      if (interactionOverlayOpenRef.current) {
-        return;
-      }
-      rawTouchScroll(deltaY);
-    },
-    [rawTouchScroll],
-  );
-  const handleInteractionOverlayOpenChange = useCallback(
-    (isOpen: boolean) => {
-      interactionOverlayOpenRef.current = isOpen;
-      onInteractionOverlayOpenChange(isOpen);
-    },
-    [onInteractionOverlayOpenChange],
-  );
-  const { handleGestureActiveChange, handleTouchScroll } =
-    useNativeGestureTouchScrollGuard({
-      onTouchScroll: handleTouchScrollWhenEnabled,
-    });
-  useEffect(() => {
-    interactionOverlayOpenRef.current = isInteractionOverlayOpen;
-  }, [isInteractionOverlayOpen]);
   useEffect(
     () => () => {
-      interactionOverlayOpenRef.current = false;
       onInteractionOverlayOpenChange(false);
     },
     [onInteractionOverlayOpenChange],
@@ -248,7 +166,7 @@ function MobilePerpCandlesTouchBridge({
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const rect = getPerpsMobileLayoutTraceRect(event);
     if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
-      tracePerpsMobileLayout('mobileMarket.candlesTouchBridge.layout', {
+      tracePerpsMobileLayout('mobileMarket.candlesHeader.layout', {
         rect,
         chartHeight: IOS_CHART_HEIGHT,
         bottomOverlap: IOS_CHART_BOTTOM_OVERLAP,
@@ -265,15 +183,14 @@ function MobilePerpCandlesTouchBridge({
         panActiveOffsetY={[-4, 4]}
         panFailOffsetX={[-40, 40]}
         excludeRightEdgeRatio={0.1}
-        scrollScale={1}
+        scrollScale={1.2}
+        disableMomentum
         simultaneousWithNativeGesture
         cancelChildTouches={false}
-        onGestureActiveChange={handleGestureActiveChange}
       >
         <YStack h={IOS_CHART_HEIGHT} overflow="hidden">
           <PerpCandles
-            onTouchScroll={handleTouchScroll}
-            onInteractionOverlayOpenChange={handleInteractionOverlayOpenChange}
+            onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
           />
         </YStack>
       </HeaderScrollGestureWrapper>
@@ -685,7 +602,7 @@ function MobilePerpMarket() {
                 <Tabs.Container
                   initialTabName="orderbook"
                   renderHeader={() => (
-                    <MobilePerpCandlesTouchBridge
+                    <MobilePerpCandlesHeader
                       isInteractionOverlayOpen={
                         isTradingViewInteractionOverlayOpen
                       }
