@@ -445,9 +445,20 @@ mod win {
         let scan_watcher = BluetoothLEAdvertisementWatcher::new().ok();
         if let Some(w) = &scan_watcher {
             let _ = w.SetScanningMode(BluetoothLEScanningMode::Active);
-            match w.Start() {
-                Ok(()) => diag("started ambient advertisement watcher for pairing"),
-                Err(e) => diag(&format!("ambient watcher start error: {e}")),
+            // WinRT REQUIRES a Received handler before Start(), else Start fails
+            // with 0x8000000E ("must register at least one Received handler").
+            // The handler body does nothing — we only need the radio scanning,
+            // not the results — but it must exist.
+            let sink = TypedEventHandler::<
+                BluetoothLEAdvertisementWatcher,
+                BluetoothLEAdvertisementReceivedEventArgs,
+            >::new(|_, _| Ok(()));
+            match w.Received(&sink) {
+                Ok(_) => match w.Start() {
+                    Ok(()) => diag("started ambient advertisement watcher for pairing"),
+                    Err(e) => diag(&format!("ambient watcher start error: {e}")),
+                },
+                Err(e) => diag(&format!("ambient watcher Received-subscribe error: {e}")),
             }
         } else {
             diag("ambient watcher unavailable");
