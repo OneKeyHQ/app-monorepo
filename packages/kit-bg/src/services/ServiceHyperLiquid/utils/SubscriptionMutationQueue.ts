@@ -14,3 +14,40 @@ export class PerKeyMutationQueue {
     return nextTask;
   }
 }
+
+export async function executeOrderBookSubscriptionTransition<T>({
+  toDestroy,
+  toCreate,
+  destroy,
+  create,
+  isPending,
+  runExclusive,
+  reconnect,
+}: {
+  toDestroy: T[];
+  toCreate: T[];
+  destroy: (spec: T) => Promise<boolean>;
+  create: (spec: T) => Promise<void>;
+  isPending: (spec: T) => boolean;
+  runExclusive: <R>(task: () => Promise<R>) => Promise<R>;
+  reconnect: () => Promise<void>;
+}): Promise<boolean> {
+  const succeeded = await runExclusive(async () => {
+    for (const spec of toDestroy) {
+      if (!(await destroy(spec))) {
+        return false;
+      }
+    }
+    for (const spec of toCreate) {
+      if (isPending(spec)) {
+        await create(spec);
+      }
+    }
+    return true;
+  });
+
+  if (!succeeded) {
+    await reconnect();
+  }
+  return succeeded;
+}

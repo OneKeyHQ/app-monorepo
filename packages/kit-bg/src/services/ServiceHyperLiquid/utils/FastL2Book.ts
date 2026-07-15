@@ -25,6 +25,13 @@ type IFastL2Update = {
 
 export type IFastL2Frame = { s: IBook } | { u: IFastL2Update } | { c: string };
 
+export function shouldResetFastL2RecoveryAfterFrame(
+  frame: IFastL2Frame,
+  normalizedBook: IBook | null,
+): boolean {
+  return normalizedBook !== null && !('s' in frame);
+}
+
 export type IFastL2BookError = Error & {
   code: 'invalid_stream' | 'stale_target';
 };

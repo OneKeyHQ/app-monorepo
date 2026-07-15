@@ -79,6 +79,7 @@ import {
   FastL2Book,
   type IFastL2Frame,
   isStaleFastL2TargetError,
+  shouldResetFastL2RecoveryAfterFrame,
 } from './utils/FastL2Book';
 import {
   SUBSCRIPTION_TYPE_INFO,
@@ -86,7 +87,10 @@ import {
   isOrderBookOptionsTargetReady,
   normalizeL2BookForSubscriptionSpec,
 } from './utils/SubscriptionConfig';
-import { PerKeyMutationQueue } from './utils/SubscriptionMutationQueue';
+import {
+  PerKeyMutationQueue,
+  executeOrderBookSubscriptionTransition,
+} from './utils/SubscriptionMutationQueue';
 import { LatestSubscriptionReconcileQueue } from './utils/SubscriptionReconcileQueue';
 
 import type {
@@ -1828,20 +1832,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
     const orderBookTask =
       orderBookToDestroy.length > 0 || orderBookToCreate.length > 0
-        ? this._subscriptionMutationQueue.enqueue(
-            ServiceHyperliquidSubscription.ORDER_BOOK_MUTATION_KEY,
-            async () => {
-              for (const spec of orderBookToDestroy) {
-                await this._destroySubscription(spec);
-              }
-              for (const spec of orderBookToCreate) {
-                if (this._isSubscriptionSpecPending(spec)) {
-                  await this._createSubscription(spec);
-                }
-              }
-            },
-          )
-        : Promise.resolve();
+        ? executeOrderBookSubscriptionTransition({
+            toDestroy: orderBookToDestroy,
+            toCreate: orderBookToCreate,
+            destroy: (spec) => this._destroySubscription(spec),
+            create: (spec) => this._createSubscription(spec),
+            isPending: (spec) => this._isSubscriptionSpecPending(spec),
+            runExclusive: (task) =>
+              this._subscriptionMutationQueue.enqueue(
+                ServiceHyperliquidSubscription.ORDER_BOOK_MUTATION_KEY,
+                task,
+              ),
+            reconnect: () => this._forceReconnectTransport(),
+          })
+        : Promise.resolve(true);
 
     await Promise.all([...otherTasks, orderBookTask]);
   }
@@ -2336,9 +2340,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           return;
         }
 
+        const fastL2Frame = data as IFastL2Frame;
         let normalizedBook: IBook | null;
         try {
-          normalizedBook = fastL2Book.apply(data as IFastL2Frame);
+          normalizedBook = fastL2Book.apply(fastL2Frame);
         } catch (error) {
           if (isStaleFastL2TargetError(error)) {
             return;
@@ -2349,7 +2354,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         if (!normalizedBook) {
           return;
         }
-        if ('s' in (data as IFastL2Frame)) {
+        if ('s' in fastL2Frame) {
           this._logOrderBookSwitchDiagnostic('snapshot-applied', {
             mode: this._currentState.tradingMode,
             coin: normalizedBook.coin,
@@ -2366,7 +2371,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           clearTimeout(this._fastL2SnapshotTimer);
           this._fastL2SnapshotTimer = null;
         }
-        if (fastL2Book.hasSnapshot) {
+        if (shouldResetFastL2RecoveryAfterFrame(fastL2Frame, normalizedBook)) {
           this._fastL2RecoveryAttempts = 0;
           this._fastL2ReconnectAttempted = false;
           this._fastL2FallbackTargetKey = null;

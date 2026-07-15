@@ -1,19 +1,31 @@
 import { isEqual } from 'lodash';
 
-export async function publishLatestOrderBookOptions<T>(params: {
+let orderBookOptionsWriteQueue = Promise.resolve();
+
+export function publishLatestOrderBookOptions<T>(params: {
   read: () => Promise<T | undefined>;
   write: (value: T) => Promise<void>;
   next: T;
   isLatest: () => boolean;
 }): Promise<boolean> {
-  const previous = await params.read();
-  if (!params.isLatest()) {
-    return false;
-  }
+  const publish = orderBookOptionsWriteQueue.then(async () => {
+    if (!params.isLatest()) {
+      return false;
+    }
+    const previous = await params.read();
+    if (!params.isLatest()) {
+      return false;
+    }
 
-  if (!isEqual(previous, params.next)) {
-    await params.write(params.next);
-  }
+    if (!isEqual(previous, params.next)) {
+      await params.write(params.next);
+    }
 
-  return params.isLatest();
+    return params.isLatest();
+  });
+  orderBookOptionsWriteQueue = publish.then(
+    () => undefined,
+    () => undefined,
+  );
+  return publish;
 }

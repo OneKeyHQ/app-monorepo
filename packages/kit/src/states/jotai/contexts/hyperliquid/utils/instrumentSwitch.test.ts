@@ -41,4 +41,46 @@ describe('publishLatestOrderBookOptions', () => {
     ).resolves.toBe(true);
     expect(write).toHaveBeenCalledWith({ coin: '@107' });
   });
+
+  it('serializes writes so the latest instrument remains committed', async () => {
+    let latestRequestId = 1;
+    let committed = { coin: '@106' };
+    let releaseFirstWrite: (() => void) | undefined;
+    let markFirstWriteStarted: (() => void) | undefined;
+    const firstWriteStarted = new Promise<void>((resolve) => {
+      markFirstWriteStarted = resolve;
+    });
+    const firstWriteBlocked = new Promise<void>((resolve) => {
+      releaseFirstWrite = resolve;
+    });
+    const write = async (value: { coin: string }) => {
+      if (value.coin === '@107') {
+        markFirstWriteStarted?.();
+        await firstWriteBlocked;
+      }
+      committed = value;
+    };
+
+    const first = publishLatestOrderBookOptions({
+      read: () => Promise.resolve(committed),
+      write,
+      next: { coin: '@107' },
+      isLatest: () => latestRequestId === 1,
+    });
+    await firstWriteStarted;
+
+    latestRequestId = 2;
+    const latest = publishLatestOrderBookOptions({
+      read: () => Promise.resolve(committed),
+      write,
+      next: { coin: '@108' },
+      isLatest: () => latestRequestId === 2,
+    });
+    await Promise.resolve();
+    releaseFirstWrite?.();
+
+    await expect(first).resolves.toBe(false);
+    await expect(latest).resolves.toBe(true);
+    expect(committed).toEqual({ coin: '@108' });
+  });
 });

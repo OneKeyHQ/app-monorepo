@@ -1,4 +1,29 @@
-import { FastL2Book } from './FastL2Book';
+import type { IBook } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
+import { FastL2Book, shouldResetFastL2RecoveryAfterFrame } from './FastL2Book';
+
+describe('shouldResetFastL2RecoveryAfterFrame', () => {
+  const snapshot: IBook = {
+    coin: 'ETH',
+    time: 1,
+    levels: [[{ px: '100', sz: '1', n: 1 }], [{ px: '101', sz: '1', n: 1 }]],
+  };
+
+  it('keeps the recovery budget after a snapshot', () => {
+    expect(shouldResetFastL2RecoveryAfterFrame({ s: snapshot }, snapshot)).toBe(
+      false,
+    );
+  });
+
+  it('resets the recovery budget only after an update is applied', () => {
+    expect(
+      shouldResetFastL2RecoveryAfterFrame(
+        { u: { c: 'ETH', t: 2, l: [[], []], r: [[], []] } },
+        snapshot,
+      ),
+    ).toBe(true);
+  });
+});
 
 describe('FastL2Book', () => {
   it('keeps source precision on snapshots and updates', () => {
