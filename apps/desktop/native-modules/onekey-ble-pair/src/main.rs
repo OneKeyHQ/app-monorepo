@@ -39,12 +39,46 @@
 #[cfg(windows)]
 use std::sync::atomic::AtomicU64;
 #[cfg(windows)]
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 #[cfg(windows)]
 use std::time::Instant;
 
 #[cfg(windows)]
 static START: OnceLock<Instant> = OnceLock::new();
+/// Every emitted line is also appended here, so a standalone run leaves a single
+/// self-contained log the user can hand back verbatim (stdout and stderr get
+/// interleaved/reordered by the terminal; this does not).
+#[cfg(windows)]
+static LOG_FILE: OnceLock<Mutex<std::fs::File>> = OnceLock::new();
+
+#[cfg(windows)]
+fn log_line(line: &str) {
+    use std::io::Write;
+    if let Some(lock) = LOG_FILE.get() {
+        if let Ok(mut f) = lock.lock() {
+            let _ = writeln!(f, "{line}");
+            let _ = f.flush();
+        }
+    }
+}
+
+/// Open `onekey-ble-pair.log` next to the exe (fallback: cwd). Best-effort — if
+/// it can't be opened we just don't file-log.
+#[cfg(windows)]
+fn init_log_file() {
+    let path = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("onekey-ble-pair.log")))
+        .unwrap_or_else(|| std::path::PathBuf::from("onekey-ble-pair.log"));
+    if let Ok(file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        let _ = LOG_FILE.set(Mutex::new(file));
+        log_line(&format!("===== onekey-ble-pair run, log at {} =====", path.display()));
+    }
+}
 /// Set by the PairingRequested delegate so we can report Accept -> result delta.
 #[cfg(windows)]
 static ACCEPT_MS: AtomicU64 = AtomicU64::new(u64::MAX);
@@ -62,6 +96,7 @@ fn t_ms() -> u64 {
 #[cfg(windows)]
 fn main() {
     START.get_or_init(Instant::now);
+    init_log_file();
 
     // Multithreaded apartment so WinRT event delegates (PairingRequested,
     // ConnectionStatusChanged) are dispatched on thread-pool threads while we
@@ -344,8 +379,16 @@ mod win {
 
         let custom = pairing.Custom().map_err(we)?;
 
-        // On ConfirmPinMatch, surface the pin for numeric comparison and auto-
-        // accept (mirrors Suite; the user verifies it against the device screen).
+        // Only request kinds we actually accept. A Safe 7 has a screen and, on
+        // every real pairing observed, negotiates ConfirmPinMatch; DisplayPin
+        // is kept as a fallback since it is handled the same way (surface the
+        // code, accept). ConfirmOnly/ProvidePin are neither accepted nor
+        // rejected by the handler below (see the `other` arm) — requesting
+        // them let a negotiation silently land there and hang until Windows'
+        // own pairing timeout. Not requesting them makes Windows fail that
+        // negotiation immediately instead.
+        let kinds = DevicePairingKinds::DisplayPin | DevicePairingKinds::ConfirmPinMatch;
+
         let handler = TypedEventHandler::<
             DeviceInformationCustomPairing,
             DevicePairingRequestedEventArgs,
@@ -353,26 +396,76 @@ mod win {
             if let Ok(args) = args.ok() {
                 let kind = args.PairingKind()?;
                 diag(&format!("PairingRequested kind={kind:?}"));
-                if kind == DevicePairingKinds::ConfirmPinMatch {
-                    let pin = args.Pin()?;
-                    super::emit(&format!(r#"{{"type":"pairing","pin":"{pin}"}}"#));
-                    args.Accept()?;
-                    ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
-                    diag("accepted ConfirmPinMatch (device confirmation now pending)");
-                } else {
-                    diag(&format!("unhandled pairing kind {kind:?}"));
+                match kind {
+                    // Numeric comparison: surface the pin so the user can check
+                    // it against the device screen, then accept.
+                    DevicePairingKinds::ConfirmPinMatch => {
+                        let pin = args.Pin()?;
+                        super::emit(&format!(r#"{{"type":"pairing","pin":"{pin}"}}"#));
+                        args.Accept()?;
+                        ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
+                        diag("accepted ConfirmPinMatch (device confirmation pending)");
+                    }
+                    // Device shows a pin; Windows just needs a yes. Surface it too.
+                    DevicePairingKinds::DisplayPin => {
+                        if let Ok(pin) = args.Pin() {
+                            super::emit(&format!(r#"{{"type":"pairing","pin":"{pin}"}}"#));
+                        }
+                        args.Accept()?;
+                        ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
+                        diag("accepted DisplayPin");
+                    }
+                    // Just-works / confirm-only: no code involved.
+                    DevicePairingKinds::ConfirmOnly => {
+                        args.Accept()?;
+                        ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
+                        diag("accepted ConfirmOnly");
+                    }
+                    // We do not have a pin to type in; log so the failure is legible.
+                    other => diag(&format!("cannot satisfy pairing kind {other:?}")),
                 }
             }
             Ok(())
         });
         custom.PairingRequested(&handler).map_err(we)?;
 
-        diag("calling PairAsync(ConfirmPinMatch)");
-        let result = custom
-            .PairAsync(DevicePairingKinds::ConfirmPinMatch)
-            .map_err(we)?
-            .await
-            .map_err(we)?;
+        // Keep an advertisement watcher running for the whole ceremony, the way
+        // Trezor Suite does. Suite pairs WITHOUT stopping its scan
+        // (connect_device never calls stop_scan; the start_scan loop stays live),
+        // so on Windows the radio is actively watching the device throughout
+        // PairAsync. Our helper otherwise pairs silently, and the SMP handshake
+        // stalls: the device sits in `wait_ble_host_confirmation` and drops the
+        // link at ~22s -> Failed(19). Our pairing code is byte-for-byte Suite's,
+        // so this ambient scan is the remaining structural difference. Dropped
+        // (Stop) as soon as PairAsync returns.
+        let scan_watcher = BluetoothLEAdvertisementWatcher::new().ok();
+        if let Some(w) = &scan_watcher {
+            let _ = w.SetScanningMode(BluetoothLEScanningMode::Active);
+            // WinRT REQUIRES a Received handler before Start(), else Start fails
+            // with 0x8000000E ("must register at least one Received handler").
+            // The handler body does nothing — we only need the radio scanning,
+            // not the results — but it must exist.
+            let sink = TypedEventHandler::<
+                BluetoothLEAdvertisementWatcher,
+                BluetoothLEAdvertisementReceivedEventArgs,
+            >::new(|_, _| Ok(()));
+            match w.Received(&sink) {
+                Ok(_) => match w.Start() {
+                    Ok(()) => diag("started ambient advertisement watcher for pairing"),
+                    Err(e) => diag(&format!("ambient watcher start error: {e}")),
+                },
+                Err(e) => diag(&format!("ambient watcher Received-subscribe error: {e}")),
+            }
+        } else {
+            diag("ambient watcher unavailable");
+        }
+
+        diag(&format!("calling PairAsync(kinds={kinds:?})"));
+        let result = custom.PairAsync(kinds).map_err(we)?.await.map_err(we)?;
+
+        if let Some(w) = &scan_watcher {
+            let _ = w.Stop();
+        }
 
         let accepted_at = ACCEPT_MS.load(Ordering::SeqCst);
         let since_accept = if accepted_at == u64::MAX {
@@ -381,9 +474,50 @@ mod win {
             format!("{}ms", t_ms().saturating_sub(accepted_at))
         };
         let status = result.Status().map_err(we)?;
+        // ProtectionLevelUsed tells us what security tier the ceremony actually
+        // negotiated (None/Encryption/EncryptionAndAuthentication) — a mismatch
+        // here vs the device's required level is one concrete way SMP fails.
+        let prot_used = result
+            .ProtectionLevelUsed()
+            .map(|v| format!("{v:?}"))
+            .unwrap_or_else(|_| "<err>".into());
         diag(&format!(
-            "PairAsync returned status={status:?} sinceAccept={since_accept}"
+            "PairAsync returned status={status:?} protectionLevelUsed={prot_used} sinceAccept={since_accept}"
         ));
+
+        // Deep probe on FAILURE: separate "never connected" from "connected but
+        // SMP/GATT failed". Status 19 flattens both. We ask three questions the
+        // device can only answer if the link is actually reachable:
+        //   - ConnectionStatus right now
+        //   - whether an unpaired GATT service query reaches it (the earliest
+        //     failures in this whole saga were GetGattServicesAsync=Unreachable,
+        //     which is far more specific than 19)
+        //   - the current DeviceAccessInformation
+        if status != DevicePairingResultStatus::Paired {
+            let conn = device
+                .ConnectionStatus()
+                .map(|v| format!("{v:?}"))
+                .unwrap_or_else(|_| "<err>".into());
+            diag(&format!("[probe] connectionStatus={conn}"));
+
+            match device.GetGattServicesAsync() {
+                Ok(op) => match op.await {
+                    Ok(res) => {
+                        let gatt_status = res
+                            .Status()
+                            .map(|v| format!("{v:?}"))
+                            .unwrap_or_else(|_| "<err>".into());
+                        let count = res.Services().and_then(|s| s.Size()).unwrap_or(0);
+                        diag(&format!(
+                            "[probe] GetGattServices status={gatt_status} serviceCount={count} \
+                             (Unreachable => link never formed; Success => link is fine, SMP is the problem)"
+                        ));
+                    }
+                    Err(e) => diag(&format!("[probe] GetGattServices await error: {e}")),
+                },
+                Err(e) => diag(&format!("[probe] GetGattServices call error: {e}")),
+            }
+        }
 
         // State AFTER the ceremony but BEFORE our cleanup unpair — this is the
         // window in which "Failed but actually bonded" would be visible, and the
@@ -495,7 +629,11 @@ mod win {
             .map_err(we)?;
 
         let seen: &'static Mutex<HashSet<u64>> = Box::leak(Box::new(Mutex::new(HashSet::new())));
-        let hits: &'static Mutex<Vec<(u64, String, u32)>> = Box::leak(Box::new(Mutex::new(vec![])));
+        // (addr, name, count, rssi_min, rssi_max). No per-packet logging — a scan
+        // sees hundreds of adverts and printing each one buries the pairing flow.
+        // Signal is kept as a min/max range per device, summarized once at the end.
+        let hits: &'static Mutex<Vec<(u64, String, u32, i16, i16)>> =
+            Box::leak(Box::new(Mutex::new(vec![])));
 
         let handler = TypedEventHandler::<
             BluetoothLEAdvertisementWatcher,
@@ -504,10 +642,6 @@ mod win {
             if let Ok(args) = args.ok() {
                 let addr = args.BluetoothAddress()?;
                 let rssi = args.RawSignalStrengthInDBm().unwrap_or(0);
-                let adv_type = args
-                    .AdvertisementType()
-                    .map(|v| format!("{v:?}"))
-                    .unwrap_or_else(|_| "<err>".into());
                 let addr_type = args
                     .BluetoothAddressType()
                     .map(addr_type_name)
@@ -518,37 +652,25 @@ mod win {
                     .map(|v| v.to_string())
                     .unwrap_or_else(|_| String::new());
 
-                let mut uuids: Vec<String> = Vec::new();
-                if let Ok(list) = adv.ServiceUuids() {
-                    let size = list.Size().unwrap_or(0);
-                    for i in 0..size {
-                        if let Ok(u) = list.GetAt(i) {
-                            uuids.push(format!("{u:?}"));
-                        }
-                    }
-                }
-
+                // Accumulate only — no per-packet log line. Track the signal as a
+                // min/max range and keep the advert count.
+                let r = rssi as i16;
                 if let Ok(mut hits) = hits.lock() {
-                    if let Some(entry) = hits.iter_mut().find(|(a, _, _)| *a == addr) {
-                        entry.2 += 1;
+                    if let Some(e) = hits.iter_mut().find(|(a, ..)| *a == addr) {
+                        e.2 += 1;
+                        if r < e.3 { e.3 = r; }
+                        if r > e.4 { e.4 = r; }
                     } else {
-                        hits.push((addr, name.clone(), 1));
+                        hits.push((addr, name.clone(), 1, r, r));
                     }
                 }
-
-                // EVERY Trezor packet is logged, never deduped. Deduping by
-                // address is what hid the truth last time: it showed only the
-                // first sighting, so "device silent" and "device on air but the
-                // app is blind to it" looked identical. The full on-air timeline
-                // is the whole point. Other devices stay deduped (they are just
-                // ambient noise and would drown the log).
-                let is_trezor = name.contains("Trezor");
-                let first_time = seen.lock().map(|mut s| s.insert(addr)).unwrap_or(false);
-                if is_trezor || first_time {
+                // Log ONLY the first time we ever see a Trezor, so the pairing
+                // address is easy to grab without scrolling through the summary.
+                if name.contains("Trezor")
+                    && seen.lock().map(|mut s| s.insert(addr)).unwrap_or(false)
+                {
                     diag(&format!(
-                        "adv{} addr={addr:012x} addrType={addr_type} randomKind={} \
-                         type={adv_type} rssi={rssi} name='{name}' serviceUuids={uuids:?}",
-                        if is_trezor { "[TREZOR]" } else { "" },
+                        "found {name} addr={addr:012x} addrType={addr_type} randomKind={} rssi={rssi}",
                         classify_random_address(addr)
                     ));
                 }
@@ -564,10 +686,19 @@ mod win {
 
         let _ = watcher.Stop();
         if let Ok(hits) = hits.lock() {
-            diag(&format!("watch done: {} distinct address(es)", hits.len()));
-            for (addr, name, count) in hits.iter() {
+            let trezor: Vec<_> = hits.iter().filter(|(_, n, ..)| n.contains("Trezor")).collect();
+            let named = hits.iter().filter(|(_, n, ..)| !n.is_empty()).count();
+            diag(&format!(
+                "watch done: {} devices ({} named, {} Trezor)",
+                hits.len(),
+                named,
+                trezor.len()
+            ));
+            // Only Trezors get a line, with the signal range — everything else is
+            // ambient noise and would bury it.
+            for (addr, name, count, rmin, rmax) in trezor {
                 diag(&format!(
-                    "  addr={addr:012x} adverts={count} name='{name}'"
+                    "  TREZOR addr={addr:012x} name='{name}' adverts={count} rssi=[{rmax}..{rmin}]dBm"
                 ));
             }
         }
@@ -623,11 +754,13 @@ fn emit(line: &str) {
     let mut out = std::io::stdout().lock();
     let _ = writeln!(out, "{line}");
     let _ = out.flush();
+    log_line(line);
 }
 
 /// Diagnostics go out as their own stdout JSON line (so the parent logs them
 /// individually and they carry a monotonic timestamp — stderr chunks get merged
-/// by the pipe and lose ordering), and are mirrored to stderr as a fallback.
+/// by the pipe and lose ordering), mirrored to stderr, and appended to the log
+/// file in human-readable form.
 #[cfg(windows)]
 fn diag(message: &str) {
     let t = t_ms();
@@ -635,7 +768,9 @@ fn diag(message: &str) {
         r#"{{"type":"diag","t_ms":{t},"msg":"{}"}}"#,
         json_escape(message)
     ));
-    eprintln!("[pair +{t}ms] {message}");
+    let human = format!("[pair +{t}ms] {message}");
+    eprintln!("{human}");
+    log_line(&human);
 }
 
 #[cfg(windows)]
