@@ -20,7 +20,14 @@ import {
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  HYPERLIQUID_DIAGNOSTIC_HEARTBEAT_INTERVAL_MS,
+  type IHyperliquidDiagnosticHeartbeatState,
+  recordHyperliquidDiagnosticHeartbeat,
+} from '@onekeyhq/shared/src/utils/hyperliquidDiagnostic';
 import {
   formatLocalizedNumberString,
   numberFormat,
@@ -58,6 +65,9 @@ function StatRow({ label, children }: { label: string; children: ReactNode }) {
 function MobilePerpMarketHeader() {
   const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
+  const markPriceDiagnosticTargetRef = useRef<string | undefined>(undefined);
+  const markPriceDiagnosticStateRef =
+    useRef<IHyperliquidDiagnosticHeartbeatState>({ pendingCount: 0 });
   const { coin, mode } = useActiveTradeDisplay();
   const [connectionState] = useConnectionStateAtom();
   const {
@@ -137,6 +147,60 @@ function MobilePerpMarketHeader() {
     coin,
     connectionState.isConnected,
     connectionState.reconnectCount,
+    currentCtx,
+    isSpot,
+    markPrice,
+    midPrice,
+    mode,
+    showSkeleton,
+  ]);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    let source: string = assetCtxSource;
+    if (isSpot) {
+      source = currentCtx ? 'spot-active-asset' : 'empty';
+    }
+    const target = [
+      mode,
+      coin,
+      source,
+      currentCtx ? 'ctx' : 'noCtx',
+      showSkeleton ? 'skeleton' : 'ready',
+    ].join('|');
+    const force = markPriceDiagnosticTargetRef.current !== target;
+    markPriceDiagnosticTargetRef.current = target;
+
+    const heartbeat = recordHyperliquidDiagnosticHeartbeat({
+      state: markPriceDiagnosticStateRef.current,
+      now: Date.now(),
+      intervalMs: HYPERLIQUID_DIAGNOSTIC_HEARTBEAT_INTERVAL_MS,
+      force,
+    });
+    markPriceDiagnosticStateRef.current = heartbeat.state;
+    if (!heartbeat.shouldLog) {
+      return;
+    }
+
+    defaultLogger.perp.hyperliquid.orderBookSwitchDiagnostic({
+      runtime: 'main',
+      event: 'mark-price-state',
+      mode,
+      coin,
+      source,
+      markPrice,
+      midPrice,
+      hasCurrentCtx: Boolean(currentCtx),
+      showSkeleton,
+      cacheAgeMs: cacheAgeMs ?? null,
+      sampleCount: heartbeat.sampleCount,
+    });
+  }, [
+    assetCtxSource,
+    cacheAgeMs,
+    coin,
     currentCtx,
     isSpot,
     markPrice,

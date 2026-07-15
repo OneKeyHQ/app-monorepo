@@ -27,6 +27,12 @@ import { usePerpsShouldShowEnableTradingButtonAtom } from '@onekeyhq/kit-bg/src/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  HYPERLIQUID_DIAGNOSTIC_HEARTBEAT_INTERVAL_MS,
+  type IHyperliquidDiagnosticHeartbeatState,
+  recordHyperliquidDiagnosticHeartbeat,
+} from '@onekeyhq/shared/src/utils/hyperliquidDiagnostic';
 import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -535,6 +541,9 @@ export function PerpOrderBook({
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
   const renderStateSignatureRef = useRef<string | undefined>(undefined);
+  const visibleBookDiagnosticTargetRef = useRef<string | undefined>(undefined);
+  const visibleBookDiagnosticStateRef =
+    useRef<IHyperliquidDiagnosticHeartbeatState>({ pendingCount: 0 });
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const tickReferencePrice = usePerpsMidByCoin(activeTradeInstrument.coin);
   const [formData] = useTradingFormAtom();
@@ -946,6 +955,61 @@ export function PerpOrderBook({
     visibleL2Book?.coin,
     mobileMaxLevelsPerSide,
     shouldShowEnableTradingButton,
+  ]);
+
+  useEffect(() => {
+    if (!platformEnv.isNative || gtMd) {
+      return;
+    }
+    const target = [
+      activeTradeInstrument.mode,
+      activeTradeInstrument.coin,
+      visibleL2Book?.coin ?? '',
+      hasRenderOrderBook ? 'book' : 'loading',
+      orderBookRenderSource,
+    ].join('|');
+    const force = visibleBookDiagnosticTargetRef.current !== target;
+    visibleBookDiagnosticTargetRef.current = target;
+
+    const heartbeat = recordHyperliquidDiagnosticHeartbeat({
+      state: visibleBookDiagnosticStateRef.current,
+      now: Date.now(),
+      intervalMs: HYPERLIQUID_DIAGNOSTIC_HEARTBEAT_INTERVAL_MS,
+      force,
+    });
+    visibleBookDiagnosticStateRef.current = heartbeat.state;
+    if (!heartbeat.shouldLog) {
+      return;
+    }
+
+    const bestBid = visibleL2Book?.bids[0];
+    const bestAsk = visibleL2Book?.asks[0];
+    defaultLogger.perp.hyperliquid.orderBookSwitchDiagnostic({
+      runtime: 'main',
+      event: 'ui-book-heartbeat',
+      mode: activeTradeInstrument.mode,
+      coin: activeTradeInstrument.coin,
+      nSigFigs: l2SubscriptionOptions.nSigFigs,
+      mantissa: l2SubscriptionOptions.mantissa ?? null,
+      hasBook: hasRenderOrderBook,
+      bidLevels: visibleL2Book?.bids.length ?? 0,
+      askLevels: visibleL2Book?.asks.length ?? 0,
+      sampleCount: heartbeat.sampleCount,
+      bestBidPx: bestBid?.px,
+      bestBidSz: bestBid?.sz,
+      bestAskPx: bestAsk?.px,
+      bestAskSz: bestAsk?.sz,
+      source: orderBookRenderSource,
+    });
+  }, [
+    activeTradeInstrument.coin,
+    activeTradeInstrument.mode,
+    gtMd,
+    hasRenderOrderBook,
+    l2SubscriptionOptions.mantissa,
+    l2SubscriptionOptions.nSigFigs,
+    orderBookRenderSource,
+    visibleL2Book,
   ]);
 
   const mobileOrderBook = useMemo(() => {

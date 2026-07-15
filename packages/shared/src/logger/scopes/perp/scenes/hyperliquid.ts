@@ -432,6 +432,16 @@ export class HyperLiquidScene extends BaseScene {
     hasBook?: boolean;
     bidLevels?: number;
     askLevels?: number;
+    sampleCount?: number;
+    bestBidPx?: string;
+    bestBidSz?: string;
+    bestAskPx?: string;
+    bestAskSz?: string;
+    markPrice?: string;
+    midPrice?: string;
+    hasCurrentCtx?: boolean;
+    showSkeleton?: boolean;
+    cacheAgeMs?: number | null;
     tickOptionValue?: string;
     tickOptionsCount?: number;
     tickOptionSource?: 'market' | 'cache' | 'reference' | 'fallback';

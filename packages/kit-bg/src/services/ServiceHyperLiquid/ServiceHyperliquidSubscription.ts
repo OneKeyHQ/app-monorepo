@@ -22,6 +22,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isAppVisible } from '@onekeyhq/shared/src/utils/appVisibility';
 import {
+  HYPERLIQUID_DIAGNOSTIC_HEARTBEAT_INTERVAL_MS,
+  type IHyperliquidDiagnosticHeartbeatState,
+  recordHyperliquidDiagnosticHeartbeat,
+} from '@onekeyhq/shared/src/utils/hyperliquidDiagnostic';
+import {
   clearTrackedInterval,
   trackedSetInterval,
 } from '@onekeyhq/shared/src/utils/timerRegistry';
@@ -227,6 +232,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _orderBookDiagnosticSequence = 0;
 
+  private _fastL2DeltaDiagnosticState: IHyperliquidDiagnosticHeartbeatState = {
+    pendingCount: 0,
+  };
+
   private static readonly FAST_L2_SNAPSHOT_TIMEOUT_MS = 3000;
 
   private static readonly FAST_L2_RECOVERY_DELAYS_MS = [0, 1000, 3000];
@@ -309,6 +318,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
     this._fastL2Book = null;
     this._fastL2SubscriptionKey = null;
+    this._fastL2DeltaDiagnosticState = { pendingCount: 0 };
   }
 
   private _clearActiveL2BookSpec(subscriptionKey?: string): void {
@@ -2365,6 +2375,32 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             bidLevels: normalizedBook.levels?.[0]?.length ?? 0,
             askLevels: normalizedBook.levels?.[1]?.length ?? 0,
           });
+        } else {
+          const heartbeat = recordHyperliquidDiagnosticHeartbeat({
+            state: this._fastL2DeltaDiagnosticState,
+            now: Date.now(),
+            intervalMs: HYPERLIQUID_DIAGNOSTIC_HEARTBEAT_INTERVAL_MS,
+          });
+          this._fastL2DeltaDiagnosticState = heartbeat.state;
+          if (heartbeat.shouldLog) {
+            const bestBid = normalizedBook.levels?.[0]?.[0];
+            const bestAsk = normalizedBook.levels?.[1]?.[0];
+            this._logOrderBookSwitchDiagnostic('fast-l2-delta-heartbeat', {
+              mode: this._currentState.tradingMode,
+              coin: normalizedBook.coin,
+              nSigFigs: normalizedBook.nSigFigs ?? null,
+              mantissa: normalizedBook.mantissa ?? null,
+              transport: 'l2',
+              hasBook: true,
+              bidLevels: normalizedBook.levels?.[0]?.length ?? 0,
+              askLevels: normalizedBook.levels?.[1]?.length ?? 0,
+              sampleCount: heartbeat.sampleCount,
+              bestBidPx: bestBid?.px,
+              bestBidSz: bestBid?.sz,
+              bestAskPx: bestAsk?.px,
+              bestAskSz: bestAsk?.sz,
+            });
+          }
         }
         this._markSubscriptionActivity(subscriptionType, messageTimestamp);
         if (this._fastL2SnapshotTimer && fastL2Book.hasSnapshot) {
