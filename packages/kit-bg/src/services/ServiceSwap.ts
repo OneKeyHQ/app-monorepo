@@ -3253,7 +3253,7 @@ export default class ServiceSwap extends ServiceBase {
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
         title: error?.message ?? 'Request failed',
-        message: error?.requestId,
+        requestId: error?.requestId,
       });
       return undefined;
     }
