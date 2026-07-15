@@ -433,8 +433,32 @@ mod win {
         });
         custom.PairingRequested(&handler).map_err(we)?;
 
+        // Keep an advertisement watcher running for the whole ceremony, the way
+        // Trezor Suite does. Suite pairs WITHOUT stopping its scan
+        // (connect_device never calls stop_scan; the start_scan loop stays live),
+        // so on Windows the radio is actively watching the device throughout
+        // PairAsync. Our helper otherwise pairs silently, and the SMP handshake
+        // stalls: the device sits in `wait_ble_host_confirmation` and drops the
+        // link at ~22s -> Failed(19). Our pairing code is byte-for-byte Suite's,
+        // so this ambient scan is the remaining structural difference. Dropped
+        // (Stop) as soon as PairAsync returns.
+        let scan_watcher = BluetoothLEAdvertisementWatcher::new().ok();
+        if let Some(w) = &scan_watcher {
+            let _ = w.SetScanningMode(BluetoothLEScanningMode::Active);
+            match w.Start() {
+                Ok(()) => diag("started ambient advertisement watcher for pairing"),
+                Err(e) => diag(&format!("ambient watcher start error: {e}")),
+            }
+        } else {
+            diag("ambient watcher unavailable");
+        }
+
         diag(&format!("calling PairAsync(kinds={kinds:?})"));
         let result = custom.PairAsync(kinds).map_err(we)?.await.map_err(we)?;
+
+        if let Some(w) = &scan_watcher {
+            let _ = w.Stop();
+        }
 
         let accepted_at = ACCEPT_MS.load(Ordering::SeqCst);
         let since_accept = if accepted_at == u64::MAX {
