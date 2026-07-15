@@ -397,11 +397,35 @@ export function createBaseConfig({
         '**/.#*',
       ],
     },
-    // Build logs stay quiet ('errors-warnings'), but `--json` reuses this same
-    // stats config, and 'errors-warnings' (all:false) omits assets/chunks — so
-    // the bundle-size diff CI job would see an empty stats.json. The `stats:web`
-    // script sets RSPACK_FULL_STATS=1 to emit a full preset for the JSON path.
-    stats: process.env.RSPACK_FULL_STATS === '1' ? 'normal' : 'errors-warnings',
+    // Build logs stay quiet, while JSON stats retain the module-to-chunk graph
+    // needed for bundle-size audits. Rspack's `normal` preset is string-output
+    // oriented and omits assets, chunks, and modules from `toJson()`.
+    stats:
+      process.env.RSPACK_FULL_STATS === '1'
+        ? {
+            all: false,
+            assets: true,
+            builtAt: true,
+            cachedModules: true,
+            chunkGroups: true,
+            chunkRelations: true,
+            chunks: true,
+            children: true,
+            entrypoints: true,
+            errors: true,
+            errorsCount: true,
+            hash: true,
+            ids: true,
+            modules: true,
+            outputPath: true,
+            publicPath: true,
+            source: false,
+            timings: true,
+            version: true,
+            warnings: true,
+            warningsCount: true,
+          }
+        : 'errors-warnings',
     infrastructureLogging: { debug: false, level: 'none' },
     output: {
       publicPath: publicUrl || '/',
