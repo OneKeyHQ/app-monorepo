@@ -162,7 +162,7 @@ jobs:
           echo "  BRANCH=$BRANCH"
           echo "  COMMIT=$COMMIT"
 
-  # Pre-build the web-embed webpack bundle ONCE here, then both
+  # Pre-build the web-embed Rspack bundle ONCE here, then both
   # native-bundle-ios and native-bundle-android download the same artifact.
   # Avoids the duplicate web-embed-build that would otherwise show up under
   # each native-bundle-* slot when each workflow_call ran its own internal
@@ -227,9 +227,60 @@ jobs:
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           NODE_ENV: production
-        # Skip postbuild.sh; it only syncs to native asset dirs the OTA bundle
-        # does not need.
-        run: cd apps/web-embed && npx webpack build
+          SENTRY_UPLOAD_BY_CLI: 'true'
+          WEB_EMBED_SKIP_POSTBUILD: 'true'
+        run: yarn workspace @onekeyhq/web-embed build
+
+      - name: Upload Web-embed Sourcemaps to Sentry
+        id: upload_web_embed_sourcemaps
+        continue-on-error: true
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+          SENTRY_ORG: onekey-bb
+          SENTRY_PROJECT: react-native
+          BUILD_APP_VERSION: ${{ env.BUILD_APP_VERSION }}
+          BUILD_NUMBER: ${{ env.BUILD_NUMBER }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "No SENTRY_AUTH_TOKEN - skipping web-embed sourcemap upload."
+            echo "uploaded=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          RELEASE="$BUILD_APP_VERSION ($BUILD_NUMBER)"
+          # Sentry expects a literal tilde URL prefix.
+          # shellcheck disable=SC2088
+          URL_PREFIX='~/web-embed'
+          npx sentry-cli releases new "$RELEASE" || true
+          if ! npx sentry-cli sourcemaps inject ./apps/web-embed/web-build; then
+            echo "::warning::Web-embed Sentry debug-id injection failed; continuing with release-based upload."
+          fi
+          if npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web-embed/web-build; then
+            npx sentry-cli releases finalize "$RELEASE" || true
+            echo "uploaded=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Web-embed Sentry sourcemap upload failed; archiving sourcemaps before stripping them."
+            echo "uploaded=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify injected Web-embed Chromium 67 compatibility
+        run: node ./apps/web-embed/scripts/check-browser-compat.js
+
+      - name: Upload Web-embed Sourcemap Diagnostic Artifact
+        if: always() && steps.upload_web_embed_sourcemaps.outputs.uploaded != 'true'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-embed-sourcemaps-${{ github.sha }}
+          path: |
+            ./apps/web-embed/web-build/**/*.js.map
+            ./apps/web-embed/web-build/**/*.css.map
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Finalize Web-embed Production Assets
+        if: always()
+        run: node ./apps/web-embed/scripts/finalize-production-assets.js --strip-only
 
       - name: Upload web-embed artifact
         uses: actions/upload-artifact@v4
