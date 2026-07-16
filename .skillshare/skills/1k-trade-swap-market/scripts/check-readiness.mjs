@@ -10,7 +10,7 @@ import { parse } from 'yaml';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const skillRoot = resolve(scriptDir, '..');
 const repoRoot = resolve(skillRoot, '../../..');
-// Keep this full commit aligned with the report, code map, and eval manifest.
+// Keep this full commit aligned with the code map and eval manifest.
 // An unresolved token deliberately fails the readiness gate.
 const reviewedCodeRef = 'b686873c44b514b820db21fadc2566d067405607';
 
