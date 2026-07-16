@@ -150,7 +150,7 @@ export function useFirmwareUpdateActions() {
         params: {
           screen: EOnboardingPagesV2.ConnectYourDevice,
           params: {
-            deviceType: [deviceType],
+            deviceType: deviceType ? [deviceType] : [],
           },
         },
       });

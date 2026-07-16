@@ -26,6 +26,7 @@ export const AppUpdateRouter: IModalFlowNavigatorConfig<
   {
     name: EAppUpdateRoutes.UpdatePreview,
     component: UpdatePreview,
+    allowColdStart: true,
     rewrite: '/preview',
   },
   {

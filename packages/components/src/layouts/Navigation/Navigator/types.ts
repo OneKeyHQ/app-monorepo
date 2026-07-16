@@ -40,6 +40,8 @@ export interface ITabSubNavigatorConfig<
 
 export interface ITabNavigatorConfig<RouteName extends string> {
   name: RouteName;
+  /** Explicit inbound URL opt-in. Every route in a nested path must opt in. */
+  allowColdStart?: boolean;
   tabBarIcon: (focused?: boolean) => IKeyOfIcons;
   /** Native tab bar icon for react-native-bottom-tabs (iOS/Android only) */
   nativeTabBarIcon?: (props: { focused: boolean }) => INativeTabBarIcon;
@@ -70,6 +72,8 @@ export interface ICommonNavigatorConfig<
 > {
   name: RouteName;
   component: (() => JSX.Element) | ComponentType<any>;
+  /** Explicit inbound URL opt-in. Every route in a nested path must opt in. */
+  allowColdStart?: boolean;
   rewrite?: string;
   /** with exact property set to true, current screen will ignore the parent screen's path config */
   exact?: boolean;

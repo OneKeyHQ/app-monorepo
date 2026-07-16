@@ -172,7 +172,7 @@ const projectRouteMetadata = (
   routes: readonly unknown[],
   parentNames: readonly string[] = [],
 ): IRoutePathConfig[] =>
-  routes.map((route, index) => {
+  routes.flatMap((route, index) => {
     if (!route || typeof route !== 'object') {
       throw new OneKeyLocalError(
         `Runtime route ${[...parentNames, String(index)].join(' > ')} is not an object`,
@@ -183,6 +183,10 @@ const projectRouteMetadata = (
       throw new OneKeyLocalError(
         `Runtime route ${[...parentNames, String(index)].join(' > ')} has no static name`,
       );
+    }
+
+    if (input.allowColdStart !== true) {
+      return [];
     }
 
     const output: IRoutePathConfig = { name: input.name };
@@ -202,13 +206,13 @@ const projectRouteMetadata = (
       }
       output.exact = input.exact;
     }
-    if (Array.isArray(input.children)) {
-      output.children = projectRouteMetadata(input.children, [
-        ...parentNames,
-        input.name,
-      ]);
+    const children = Array.isArray(input.children)
+      ? projectRouteMetadata(input.children, [...parentNames, input.name])
+      : [];
+    if (children.length > 0) {
+      output.children = children;
     }
-    return output;
+    return [output];
   });
 
 const loadRuntimeProjection = (
@@ -346,7 +350,7 @@ describe('generated mode isolation', () => {
       'utf8',
     );
 
-    expect(production).not.toContain('TestSimpleModal');
-    expect(development).toContain('TestSimpleModal');
+    expect(production).not.toContain('NotFound');
+    expect(development).toContain('NotFound');
   });
 });

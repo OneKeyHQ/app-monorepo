@@ -25,6 +25,7 @@ const targets = [
 const modes = ['production', 'development'];
 const routeProperties = new Set([
   'name',
+  'allowColdStart',
   'rewrite',
   'exact',
   'children',
@@ -693,6 +694,12 @@ class RouteCompiler {
     if (route.rewrite !== undefined && typeof route.rewrite !== 'string') {
       fail(expression, 'Route rewrite must resolve to a string');
     }
+    if (
+      route.allowColdStart !== undefined &&
+      typeof route.allowColdStart !== 'boolean'
+    ) {
+      fail(expression, 'Route allowColdStart must resolve to a boolean');
+    }
     if (route.exact !== undefined && typeof route.exact !== 'boolean') {
       fail(expression, 'Route exact must resolve to a boolean');
     }
@@ -820,6 +827,26 @@ class RouteCompiler {
     }
   }
 
+  projectColdStartRoutes(routes) {
+    return routes.flatMap((route) => {
+      if (route.allowColdStart !== true) {
+        return [];
+      }
+      const children = this.projectColdStartRoutes(route.children || []);
+      const projected = { name: route.name };
+      if (route.rewrite !== undefined) {
+        projected.rewrite = route.rewrite;
+      }
+      if (route.exact !== undefined) {
+        projected.exact = route.exact;
+      }
+      if (children.length > 0) {
+        projected.children = children;
+      }
+      return [projected];
+    });
+  }
+
   compileRoot() {
     const roots = this.resolveExport(rootRouterFile, 'rootRouter');
     if (!Array.isArray(roots)) {
@@ -866,7 +893,7 @@ class RouteCompiler {
       root.children = children;
     }
     this.validateRoutes(roots, this.contextFor(rootRouterFile).sourceFile);
-    return roots;
+    return this.projectColdStartRoutes(roots);
   }
 }
 
