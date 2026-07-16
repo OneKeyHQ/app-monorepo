@@ -307,6 +307,14 @@ function runWorktreeLintChecks(logDir) {
     );
   }
 
+  results.push(
+    runCommand(logDir, 'format-worktree', npx, [
+      'oxfmt',
+      '--no-error-on-unmatched-pattern',
+      ...files,
+    ]),
+  );
+
   return results;
 }
 
