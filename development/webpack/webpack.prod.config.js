@@ -6,9 +6,6 @@ const webpack = require('webpack');
 
 const babelTools = require('../babelTools');
 
-const {
-  RetryChunkLoadWebpackPlugin,
-} = require('./RetryChunkLoadWebpackPlugin');
 const utils = require('./utils');
 
 const FILES_TO_DELETE_AFTER_UPLOAD = [
@@ -19,7 +16,6 @@ const FILES_TO_DELETE_AFTER_UPLOAD = [
 
 module.exports = ({ platform, basePath }) => {
   const isExt = platform === babelTools.developmentConsts.platforms.ext;
-  const isWeb = platform === babelTools.developmentConsts.platforms.web;
   const shouldUploadSourcemapsByCli =
     process.env.SENTRY_UPLOAD_BY_CLI === 'true';
   const rootPath = isExt
@@ -42,18 +38,6 @@ module.exports = ({ platform, basePath }) => {
           '__CURRENT_FILE_PATH__--not-available-in-production',
         ),
       }),
-      isWeb &&
-        new RetryChunkLoadWebpackPlugin({
-          // optional value to set the amount of time in milliseconds before trying to load the chunk again. Default is 0
-          // if string, value must be code to generate a delay value. Receives retryCount as argument
-          // e.g. `function(retryAttempt) { return retryAttempt * 1000 }`
-          retryDelay: 3000,
-          // optional value to set the maximum number of retries to load the chunk. Default is 1
-          maxRetries: 5,
-          // optional code to be executed in the browser context if after all retries chunk is not loaded.
-          // if not set - nothing will happen and error will be returned to the chunk loader.
-          // lastResortScript: "window.location.href='/500.html';",
-        }),
       !isExt &&
         !shouldUploadSourcemapsByCli &&
         sentryWebpackPlugin({

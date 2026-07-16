@@ -226,10 +226,11 @@ async function buildIconRegistry(format, items) {
   export type IKeyOfIcons = keyof typeof icons;
   export default icons;
 `;
-  const { code, errors } = await format(iconsFilePath, typesTemplate, {
-    ...FORMAT_OPTIONS,
-    singleQuote: false,
-  });
+  const { code, errors } = await format(
+    iconsFilePath,
+    typesTemplate,
+    FORMAT_OPTIONS,
+  );
   if (errors.length > 0) {
     throw new TypeError(
       `Oxfmt failed for ${iconsFilePath}: ${errors.join(', ')}`,
