@@ -1,11 +1,17 @@
 /** @jest-environment jsdom */
 
+import fs from 'node:fs';
+import nodePath from 'node:path';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
+  EDAppConnectionModal,
   EModalReferFriendsRoutes,
+  EModalRewardCenterRoutes,
   EModalRoutes,
   EModalSettingRoutes,
+  EModalSignatureConfirmRoutes,
   EModalStakingRoutes,
   EOnboardingPagesV2,
   EOnboardingV2Routes,
@@ -28,6 +34,20 @@ import type { NavigationState, PartialState } from '@react-navigation/routers';
 type IPartialNavigationState = PartialState<NavigationState>;
 
 const screens = resolveScreens(rootRouterPathConfig) as IScreenPathConfig;
+const extensionRootRouterPathConfig = (
+  JSON.parse(
+    fs.readFileSync(
+      nodePath.join(
+        __dirname,
+        'generated/routePathConfig.generated.ext.production.json',
+      ),
+      'utf8',
+    ),
+  ) as { routes: IRoutePathConfig[] }
+).routes;
+const extensionScreens = resolveScreens(
+  extensionRootRouterPathConfig,
+) as IScreenPathConfig;
 
 const getFocusedRouteNames = (
   state: IPartialNavigationState | undefined,
@@ -50,7 +70,7 @@ const getFocusedRouteNames = (
 
 const parseExtensionHash = (hash: string) => {
   globalThis.location.hash = hash;
-  return getExtensionStateFromPath(hash, { screens });
+  return getExtensionStateFromPath(hash, { screens: extensionScreens });
 };
 
 const findRoute = (
@@ -87,7 +107,7 @@ describe('generated cold-start route config', () => {
       ERootRoutes.Modal,
       ...(platformEnv.isDev ? [ERootRoutes.NotFound] : []),
     ]);
-    expect(countRoutes(rootRouterPathConfig)).toBe(platformEnv.isDev ? 17 : 16);
+    expect(countRoutes(rootRouterPathConfig)).toBe(platformEnv.isDev ? 21 : 20);
 
     const visit = (routes: IRoutePathConfig[]) => {
       for (const route of routes) {
@@ -125,9 +145,10 @@ describe('generated cold-start route config', () => {
     });
   });
 
-  it('does not expose internal modal stacks', () => {
+  it('contains only explicitly allowed Web modal stacks', () => {
     const modalNames = modalRouterPathConfig.map((route) => route.name);
     expect(modalNames).toEqual([
+      EModalRoutes.MainModal,
       EModalRoutes.SettingModal,
       EModalRoutes.AppUpdateModal,
       EModalRoutes.StakingModal,
@@ -175,6 +196,14 @@ describe('generated cold-start route config', () => {
 
   it.each([
     [
+      '/reward-center',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.MainModal,
+        EModalRewardCenterRoutes.RewardCenter,
+      ],
+    ],
+    [
       '/settings/protection',
       [
         ERootRoutes.Modal,
@@ -188,6 +217,22 @@ describe('generated cold-start route config', () => {
         ERootRoutes.Modal,
         EModalRoutes.AppUpdateModal,
         EAppUpdateRoutes.UpdatePreview,
+      ],
+    ],
+    [
+      '/defi/staking/ETH/lido',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.StakingModal,
+        EModalStakingRoutes.ProtocolDetails,
+      ],
+    ],
+    [
+      '/defi/staking/v2/ETH/lido',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.StakingModal,
+        EModalStakingRoutes.ProtocolDetailsV2,
       ],
     ],
     [
@@ -214,13 +259,55 @@ describe('generated cold-start route config', () => {
 
   it.each([
     '/modal/ApprovalManagementModal/BulkRevoke',
-    '/modal/DAppConnectionModal/ConnectionModal',
-    '/iOSFullScreen/SignatureConfirmModal/TxConfirmFromDApp',
     '/fullScreenPush/ActionCenter/ActionCenter',
     '/RootWebView/WebView/WebView',
   ])('rejects internal runtime path %s', (path) => {
     expect(getWebStateFromPath(path, { screens })).toBeUndefined();
     expect(parseExtensionHash(`#${path}`)).toBeUndefined();
+  });
+
+  it.each([
+    '/modal/DAppConnectionModal/ConnectionModal',
+    '/iOSFullScreen/SignatureConfirmModal/TxConfirmFromDApp',
+  ])('keeps Extension approval path %s private from Web', (path) => {
+    expect(getWebStateFromPath(path, { screens })).toBeUndefined();
+  });
+
+  it.each([
+    [
+      '#/modal/DAppConnectionModal/ConnectionModal?query=approval',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.ConnectionModal,
+      ],
+    ],
+    [
+      '#/iOSFullScreen/DAppConnectionModal/WalletConnectSessionProposalModal?query=proposal',
+      [
+        ERootRoutes.iOSFullScreen,
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.WalletConnectSessionProposalModal,
+      ],
+    ],
+    [
+      '#/modal/SignatureConfirmModal/MessageConfirmFromDApp?query=message',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.SignatureConfirmModal,
+        EModalSignatureConfirmRoutes.MessageConfirmFromDApp,
+      ],
+    ],
+    [
+      '#/iOSFullScreen/SignatureConfirmModal/TxConfirmFromDApp?query=transaction',
+      [
+        ERootRoutes.iOSFullScreen,
+        EModalRoutes.SignatureConfirmModal,
+        EModalSignatureConfirmRoutes.TxConfirmFromDApp,
+      ],
+    ],
+  ])('parses Extension standalone approval hash %s', (hash, names) => {
+    expect(getFocusedRouteNames(parseExtensionHash(hash))).toEqual(names);
   });
 
   it('keeps allowed deep routes and excludes internal runtime routes', () => {
