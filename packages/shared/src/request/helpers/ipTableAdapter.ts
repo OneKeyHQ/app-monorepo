@@ -254,6 +254,10 @@ async function recordDomainRequestOutcome(options: {
           lookupDomain,
           cause: 'domain_recovered',
         });
+        defaultLogger.ipTable.metrics.adapterFailover({
+          lookupDomain,
+          action: 'deactivated',
+        });
       }
       state.consecutiveNetworkFailures = 0;
       state.failOpenUntil = 0;
@@ -281,6 +285,10 @@ async function recordDomainRequestOutcome(options: {
       lookupDomain,
       consecutiveNetworkFailures: state.consecutiveNetworkFailures,
       ttlMs: IP_TABLE_ADAPTER_FAILOVER_TTL_MS,
+    });
+    defaultLogger.ipTable.metrics.adapterFailover({
+      lookupDomain,
+      action: 'activated',
     });
   }
 }

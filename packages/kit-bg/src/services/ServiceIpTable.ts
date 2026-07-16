@@ -385,6 +385,11 @@ class ServiceIpTable extends ServiceBase {
         defaultLogger.ipTable.request.error({
           info: `[IpTable] Skipping CDN config update: signature verification failed, reason=${verifyResult.reason}`,
         });
+        defaultLogger.ipTable.metrics.configVerifyFailed({
+          reason: verifyResult.reason,
+          configVersion: remoteConfig.version,
+          payloadHash: computeIpTableConfigHash(remoteConfig),
+        });
         return false;
       }
 
@@ -677,8 +682,26 @@ class ServiceIpTable extends ServiceBase {
           domain,
           decision.ip,
         );
+        if ((currentSelection ?? '') === '') {
+          defaultLogger.ipTable.metrics.endpointSwitched({
+            domain,
+            from: 'domain',
+            to: 'ip',
+            trigger: 'speed_test',
+            reason: decision.reason,
+          });
+        }
       } else if (decision.action === 'select_domain') {
         await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, '');
+        if (currentSelection) {
+          defaultLogger.ipTable.metrics.endpointSwitched({
+            domain,
+            from: 'ip',
+            to: 'domain',
+            trigger: 'speed_test',
+            reason: decision.reason,
+          });
+        }
       }
       // no_change: keep the previous selection untouched.
 
@@ -782,6 +805,12 @@ class ServiceIpTable extends ServiceBase {
           domain,
           lastBestIp,
         );
+        defaultLogger.ipTable.metrics.endpointSwitched({
+          domain,
+          from: 'domain',
+          to: 'ip',
+          trigger: 'fast_failover',
+        });
       }
     }
 

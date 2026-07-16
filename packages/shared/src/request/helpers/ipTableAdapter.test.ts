@@ -32,6 +32,11 @@ jest.mock('../../logger/logger', () => ({
         warn: jest.fn(),
         error: jest.fn(),
       },
+      metrics: {
+        endpointSwitched: jest.fn(),
+        adapterFailover: jest.fn(),
+        configVerifyFailed: jest.fn(),
+      },
     },
   },
 }));
