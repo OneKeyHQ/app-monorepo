@@ -14,6 +14,7 @@ const connect = require('connect');
 const fs = require('fs-extra');
 const { resolve } = require('metro-resolver');
 
+const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
 // const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin'); // Uncomment if needed
 
 const projectRoot = __dirname;
@@ -332,7 +333,6 @@ if (process.env.RN_HARNESS === 'true') {
   };
 }
 
-const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
 const getMetroRuntimeTarget = (context) =>
   context.customResolverOptions?.runtimeTarget ||
   process.env.METRO_RUNTIME_TARGET ||

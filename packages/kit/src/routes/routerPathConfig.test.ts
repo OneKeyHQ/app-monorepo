@@ -3,10 +3,10 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
-  EDAppConnectionModal,
+  EModalReferFriendsRoutes,
   EModalRoutes,
   EModalSettingRoutes,
-  EModalSignatureConfirmRoutes,
+  EModalStakingRoutes,
   EOnboardingPagesV2,
   EOnboardingV2Routes,
   ERootRoutes,
@@ -80,18 +80,14 @@ describe('generated cold-start route config', () => {
     globalThis.location.hash = '';
   });
 
-  it('contains the complete registered root graph without UI metadata', () => {
-    expect(rootRouterPathConfig.slice(0, 6).map((route) => route.name)).toEqual(
-      [
-        ERootRoutes.Main,
-        ERootRoutes.Onboarding,
-        ERootRoutes.Modal,
-        ERootRoutes.iOSFullScreen,
-        ERootRoutes.FullScreenPush,
-        ERootRoutes.WebView,
-      ],
-    );
-    expect(countRoutes(rootRouterPathConfig)).toBeGreaterThan(400);
+  it('contains only explicit inbound routes without UI metadata', () => {
+    expect(rootRouterPathConfig.map((route) => route.name)).toEqual([
+      ERootRoutes.Main,
+      ERootRoutes.Onboarding,
+      ERootRoutes.Modal,
+      ...(platformEnv.isDev ? [ERootRoutes.NotFound] : []),
+    ]);
+    expect(countRoutes(rootRouterPathConfig)).toBe(platformEnv.isDev ? 17 : 16);
 
     const visit = (routes: IRoutePathConfig[]) => {
       for (const route of routes) {
@@ -107,7 +103,7 @@ describe('generated cold-start route config', () => {
     visit(rootRouterPathConfig);
   });
 
-  it('derives every onboarding page from the full navigator', () => {
+  it('keeps only explicitly allowed onboarding pages', () => {
     const onboardingRoute = onboardingRouterV2PathConfig[0];
     const pageNames =
       onboardingRoute?.children?.map((route) => route.name) ?? [];
@@ -117,36 +113,39 @@ describe('generated cold-start route config', () => {
       rewrite: '/onboarding',
       exact: true,
     });
-    expect(pageNames).toHaveLength(Object.values(EOnboardingPagesV2).length);
-    expect(new Set(pageNames)).toEqual(
-      new Set(Object.values(EOnboardingPagesV2)),
-    );
+    expect(pageNames).toEqual([
+      EOnboardingPagesV2.GetStarted,
+      EOnboardingPagesV2.CreateNewWallet,
+      EOnboardingPagesV2.CreateOrImportWallet,
+      EOnboardingPagesV2.PickYourDevice,
+    ]);
     expect(onboardingRoute?.children?.[0]).toMatchObject({
       name: EOnboardingPagesV2.GetStarted,
       rewrite: '/get-started',
     });
   });
 
-  it('keeps development-only modal routes aligned with the full router', () => {
+  it('does not expose internal modal stacks', () => {
     const modalNames = modalRouterPathConfig.map((route) => route.name);
-    const expectedNames = Object.values(EModalRoutes).filter(
-      (name) => platformEnv.isDev || name !== EModalRoutes.TestModal,
-    );
-
-    expect(modalNames).toHaveLength(expectedNames.length);
-    expect(new Set(modalNames)).toEqual(new Set(expectedNames));
+    expect(modalNames).toEqual([
+      EModalRoutes.SettingModal,
+      EModalRoutes.AppUpdateModal,
+      EModalRoutes.StakingModal,
+      EModalRoutes.ReferFriendsModal,
+    ]);
   });
 
   it.each([
-    EOnboardingPagesV2.PickYourDevice,
-    EOnboardingPagesV2.ConnectYourDevice,
-    EOnboardingPagesV2.CheckAndUpdate,
-    EOnboardingPagesV2.ShowRecoveryPhrase,
-    EOnboardingPagesV2.VerifyRecoveryPhrase,
+    [EOnboardingPagesV2.GetStarted, '/onboarding/get-started'],
+    [EOnboardingPagesV2.CreateNewWallet, '/onboarding/create-new-wallet'],
+    [
+      EOnboardingPagesV2.CreateOrImportWallet,
+      '/onboarding/create-or-import-wallet',
+    ],
+    [EOnboardingPagesV2.PickYourDevice, '/onboarding/PickYourDevice'],
   ])(
     'parses registered onboarding page %s as a Web URL and extension hash',
-    (page) => {
-      const path = `/onboarding/${page}`;
+    (page, path) => {
       const expected = [
         ERootRoutes.Onboarding,
         EOnboardingV2Routes.OnboardingV2,
@@ -162,11 +161,16 @@ describe('generated cold-start route config', () => {
     },
   );
 
-  it('rejects an unregistered onboarding page', () => {
-    expect(
-      getWebStateFromPath('/onboarding/UnknownPage', { screens }),
-    ).toBeUndefined();
-    expect(parseExtensionHash('#/onboarding/UnknownPage')).toBeUndefined();
+  it.each([
+    EOnboardingPagesV2.ConnectYourDevice,
+    EOnboardingPagesV2.CheckAndUpdate,
+    EOnboardingPagesV2.ShowRecoveryPhrase,
+    EOnboardingPagesV2.VerifyRecoveryPhrase,
+    'UnknownPage',
+  ])('rejects non-opted-in onboarding page %s', (page) => {
+    const path = `/onboarding/${page}`;
+    expect(getWebStateFromPath(path, { screens })).toBeUndefined();
+    expect(parseExtensionHash(`#${path}`)).toBeUndefined();
   });
 
   it.each([
@@ -187,28 +191,20 @@ describe('generated cold-start route config', () => {
       ],
     ],
     [
-      '/modal/DAppConnectionModal/ConnectionModal',
+      '/defi/ethereum/ETH/lido',
       [
         ERootRoutes.Modal,
-        EModalRoutes.DAppConnectionModal,
-        EDAppConnectionModal.ConnectionModal,
+        EModalRoutes.StakingModal,
+        EModalStakingRoutes.ProtocolDetailsV2Share,
       ],
     ],
     [
-      '/iOSFullScreen/SignatureConfirmModal/TxConfirmFromDApp',
+      '/modal/ReferFriendsModal/ReferAFriend',
       [
-        ERootRoutes.iOSFullScreen,
-        EModalRoutes.SignatureConfirmModal,
-        EModalSignatureConfirmRoutes.TxConfirmFromDApp,
+        ERootRoutes.Modal,
+        EModalRoutes.ReferFriendsModal,
+        EModalReferFriendsRoutes.ReferAFriend,
       ],
-    ],
-    [
-      '/fullScreenPush/ActionCenter/ActionCenter',
-      [ERootRoutes.FullScreenPush, 'ActionCenter', 'ActionCenter'],
-    ],
-    [
-      '/RootWebView/WebView/WebView',
-      [ERootRoutes.WebView, 'WebView', 'WebView'],
     ],
   ])('parses cold-start path %s across root domains', (path, names) => {
     expect(
@@ -216,7 +212,18 @@ describe('generated cold-start route config', () => {
     ).toEqual(names);
   });
 
-  it('contains deep routes that were previously omitted by manual projection', () => {
+  it.each([
+    '/modal/ApprovalManagementModal/BulkRevoke',
+    '/modal/DAppConnectionModal/ConnectionModal',
+    '/iOSFullScreen/SignatureConfirmModal/TxConfirmFromDApp',
+    '/fullScreenPush/ActionCenter/ActionCenter',
+    '/RootWebView/WebView/WebView',
+  ])('rejects internal runtime path %s', (path) => {
+    expect(getWebStateFromPath(path, { screens })).toBeUndefined();
+    expect(parseExtensionHash(`#${path}`)).toBeUndefined();
+  });
+
+  it('keeps allowed deep routes and excludes internal runtime routes', () => {
     expect(
       findRoute(
         rootRouterPathConfig,
@@ -229,9 +236,9 @@ describe('generated cold-start route config', () => {
       findRoute(
         rootRouterPathConfig,
         ERootRoutes.Modal,
-        EModalRoutes.DAppConnectionModal,
-        EDAppConnectionModal.ConnectionModal,
+        EModalRoutes.ApprovalManagementModal,
+        'BulkRevoke',
       ),
-    ).toBeDefined();
+    ).toBeUndefined();
   });
 });

@@ -101,6 +101,7 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.ProtocolDetailsV2Share,
     component: ProtocolDetailsV2,
+    allowColdStart: true,
     exact: true,
     rewrite: '/defi/:network/:symbol/:provider',
   },

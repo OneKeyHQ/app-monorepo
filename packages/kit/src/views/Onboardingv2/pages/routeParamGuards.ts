@@ -41,7 +41,6 @@ export const isValidConnectYourDeviceRouteParams = (
     return false;
   }
   return (
-    params.deviceType.length > 0 &&
     params.deviceType.every(
       (deviceType) =>
         typeof deviceType === 'string' && deviceTypes.has(deviceType),

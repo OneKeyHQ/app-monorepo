@@ -46,6 +46,7 @@ const buildPermissionRouter = () => {
       ? {
           name: ERootRoutes.PermissionWebDevice,
           component: PromptWebDeviceAccessPage,
+          allowColdStart: true,
           rewrite: '/permission/web-device',
           exact: true,
         }
@@ -57,16 +58,19 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
     name: ERootRoutes.Main,
     component: TabNavigator,
+    allowColdStart: true,
     initialRoute: true,
   },
   {
     name: ERootRoutes.Onboarding,
     component: OnboardingNavigator,
+    allowColdStart: true,
     type: 'onboarding',
   },
   {
     name: ERootRoutes.Modal,
     component: ModalNavigator,
+    allowColdStart: true,
     type: 'modal',
   },
   {
@@ -120,6 +124,7 @@ if (platformEnv.isDev) {
   rootRouter.push({
     name: ERootRoutes.NotFound,
     component: NotFound,
+    allowColdStart: true,
   });
 }
 

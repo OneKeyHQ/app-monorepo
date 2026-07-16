@@ -177,18 +177,21 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.GetStarted,
     component: GetStarted,
+    allowColdStart: true,
     options: hiddenHeaderOptions,
     rewrite: '/get-started',
   },
   {
     name: EOnboardingPagesV2.CreateNewWallet,
     component: CreateNewWallet,
+    allowColdStart: true,
     options: hiddenHeaderOptions,
     rewrite: '/create-new-wallet',
   },
   {
     name: EOnboardingPagesV2.CreateOrImportWallet,
     component: CreateOrImportWallet,
+    allowColdStart: true,
     options: hiddenHeaderOptions,
     rewrite: '/create-or-import-wallet',
   },
@@ -200,6 +203,7 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.PickYourDevice,
     component: PickYourDevice,
+    allowColdStart: true,
     options: hiddenHeaderOptions,
   },
   {

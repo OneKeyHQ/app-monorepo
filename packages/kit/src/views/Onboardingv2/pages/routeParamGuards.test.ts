@@ -2,6 +2,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { ENCODE_TEXT_PREFIX } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
   isValidCheckAndUpdateRouteParams,
@@ -37,7 +38,18 @@ describe('onboarding route parameter guards', () => {
     expect(
       isValidConnectYourDeviceRouteParams({ deviceType: EDeviceType.Pro }),
     ).toBe(false);
-    expect(isValidConnectYourDeviceRouteParams({ deviceType: [] })).toBe(false);
+    expect(isValidConnectYourDeviceRouteParams({ deviceType: [] })).toBe(true);
+    expect(
+      isValidConnectYourDeviceRouteParams({
+        deviceType: [],
+        vendor: EHardwareVendor.ledger,
+      }),
+    ).toBe(true);
+    expect(
+      isValidConnectYourDeviceRouteParams({
+        deviceType: [undefined],
+      }),
+    ).toBe(false);
   });
 
   it('requires a connected device object and channel', () => {
