@@ -154,6 +154,13 @@ export function shouldUpdatePerpsL2Book({
   if (!currentBook) {
     return true;
   }
+  if (
+    currentBook.coin !== nextBook.coin ||
+    (currentBook.nSigFigs ?? null) !== (nextBook.nSigFigs ?? null) ||
+    (currentBook.mantissa ?? null) !== (nextBook.mantissa ?? null)
+  ) {
+    return true;
+  }
   const isCurrentCached = Boolean(
     (currentBook as IPerpsL2BookWithLocalReceivedAt).isCachedSnapshot,
   );
@@ -165,13 +172,6 @@ export function shouldUpdatePerpsL2Book({
   }
 
   if (!arePerpsL2BookLevelsEqual(currentBook, nextBook)) {
-    return true;
-  }
-
-  if (
-    (currentBook?.nSigFigs ?? null) !== (nextBook.nSigFigs ?? null) ||
-    (currentBook?.mantissa ?? null) !== (nextBook.mantissa ?? null)
-  ) {
     return true;
   }
 

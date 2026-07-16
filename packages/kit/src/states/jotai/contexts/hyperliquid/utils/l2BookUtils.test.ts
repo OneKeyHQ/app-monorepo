@@ -89,6 +89,39 @@ describe('shouldUpdatePerpsL2Book', () => {
     ).toBe(false);
   });
 
+  it.each([
+    [
+      'coin',
+      buildBook({
+        coin: 'BTC',
+        time: 2000,
+        nSigFigs: 5,
+        mantissa: 2,
+      }),
+    ],
+    ['nSigFigs', buildBook({ time: 2000, nSigFigs: 4, mantissa: 2 })],
+    ['mantissa', buildBook({ time: 2000, nSigFigs: 5, mantissa: 5 })],
+  ])(
+    'hydrates a cached snapshot when the %s target identity changes',
+    (_identityField, nextBook) => {
+      const currentBook = buildBook({
+        time: 1000,
+        nSigFigs: 5,
+        mantissa: 2,
+      });
+      const cachedBook = Object.assign(nextBook, {
+        isCachedSnapshot: true,
+      });
+
+      expect(
+        shouldUpdatePerpsL2Book({
+          currentBook,
+          nextBook: cachedBook,
+        }),
+      ).toBe(true);
+    },
+  );
+
   it('updates when the incoming book belongs to a different coin', () => {
     expect(
       shouldUpdatePerpsL2Book({

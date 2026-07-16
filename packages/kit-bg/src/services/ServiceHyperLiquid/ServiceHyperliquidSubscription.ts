@@ -1414,6 +1414,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     void perpsWebSocketReadyStateAtom.set({ readyState });
     // WS close event — readyState tracked via perpsWebSocketReadyStateAtom
     this._activeSubscriptions.clear();
+    this._invalidateFastL2RecoveryTask();
     this._resetFastL2Book();
     this._clearPostOpenDataCheck();
     this._stopPingLoop();
@@ -1726,6 +1727,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private async _closeClient(): Promise<void> {
+    this._invalidateFastL2RecoveryTask();
     this._unwatchSubscriptionAtoms();
     this._clearActiveL2BookSpec();
     if (this._client) {
