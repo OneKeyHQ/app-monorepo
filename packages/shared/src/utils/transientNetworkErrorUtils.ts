@@ -1,14 +1,21 @@
 import { EOneKeyErrorClassNames } from '../errors/types/errorTypes';
 import errorUtils from '../errors/utils/errorUtils';
 
-import { SUPABASE_STORAGE_TRANSIENT_ERROR_NAME } from './supabaseAuthErrorUtils';
+import { isRetryableSupabaseAuthError } from './supabaseAuthErrorUtils';
 
 // Detect transient infrastructure failures (network down, 5xx, timeout, rate
 // limit) as opposed to definite auth/business rejections. Relies only on
-// fields that survive bg -> main bridge serialization (className / code /
-// httpStatusCode) instead of instanceof checks, so the same classification
-// works identically in both runtimes.
+// fields that survive bg -> main bridge serialization (className / name /
+// code / httpStatusCode) instead of instanceof checks, so the same
+// classification works identically in both runtimes.
 export function isTransientNetworkLikeError(error: unknown): boolean {
+  // Retryable Supabase auth/storage errors (AuthRetryableFetchError,
+  // SupabaseStorageTransientError, AuthUnknownError) say nothing definitive
+  // about the session; UI teardown guards must not treat them as authoritative
+  // rejections. Matched by `name`, which survives bridge serialization.
+  if (isRetryableSupabaseAuthError(error)) {
+    return true;
+  }
   if (
     errorUtils.isErrorByClassName({
       error,
@@ -47,17 +54,6 @@ export function isTransientNetworkLikeError(error: unknown): boolean {
     ) {
       return true;
     }
-  }
-  // Transient Supabase session-storage read failures (e.g. the sealed-value
-  // device key store failed to open at cold start): the persisted session may
-  // be perfectly valid, so callers must treat this like a transient outage —
-  // keep local state and let the user retry — never as a definitive
-  // rejection. Matched by `name`, which survives the bg -> main bridge
-  // serialization like className/code do (set from a string literal in
-  // supabaseAuthErrorUtils, minification-safe).
-  const errorName = (error as { name?: string } | undefined)?.name;
-  if (errorName === SUPABASE_STORAGE_TRANSIENT_ERROR_NAME) {
-    return true;
   }
   return false;
 }

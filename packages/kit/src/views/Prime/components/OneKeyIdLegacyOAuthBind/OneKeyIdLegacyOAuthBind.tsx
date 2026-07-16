@@ -292,13 +292,11 @@ function OneKeyIdLegacyOAuthBindActions({
           accessToken: oauthAccessToken,
         });
       } catch (error) {
-        // Only tear the temp session down on definitive rejections (same
-        // policy as PrimeLoginOAuthDialog): a transient failure (network
-        // blip, transient session-storage read) says nothing about the
-        // just-validated session, and keeping it lets a retry re-login
-        // without a fresh OAuth round-trip — especially important here,
-        // where the legacy account was already logged out above and clearing
-        // the session would strand the user fully logged out.
+        // Only tear the temp session down on definitive rejections: a
+        // transient failure (network down, 5xx, transient session-storage
+        // read) says nothing about the just-validated OAuth session, and
+        // keeping it lets the retry skip a fresh Google/Apple OAuth
+        // round-trip (same policy as PrimeLoginOAuthDialog).
         if (didUseOAuthSignIn && !isTransientNetworkLikeError(error)) {
           await clearOAuthSignInTempSession();
         }
@@ -366,9 +364,12 @@ function OneKeyIdLegacyOAuthBindActions({
               });
               return;
             }
-            // Definitive rejections only (same policy as
-            // PrimeLoginOAuthDialog): keep the just-persisted session on
-            // transient failures so a retry can reuse it.
+            // Only tear the temp session down on definitive rejections: a
+            // transient failure (network down, 5xx, transient
+            // session-storage read) says nothing about the just-validated
+            // OAuth session, and keeping it lets the retry skip a fresh
+            // Google/Apple OAuth round-trip (same policy as
+            // PrimeLoginOAuthDialog and handleSwitchToBoundOneKeyId).
             if (didUseOAuthSignIn && !isTransientNetworkLikeError(error)) {
               await clearOAuthSignInTempSession();
             }
