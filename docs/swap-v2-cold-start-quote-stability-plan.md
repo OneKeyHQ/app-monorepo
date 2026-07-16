@@ -7,7 +7,7 @@
 
 ## 0. 2026-07-16 实施补充
 
-本轮最终代码基线：`783b1c18432d3fd831061fcc4acaa0a0bf30dd6c`（已合并 `origin/x@f76289e26288b3ef7b9ef9ec77672215d3827df8`）；该值与 skill manifest、code map 和 readiness script 完全一致。在既有 Quote Session V2 与冷启动身份门闩之上，本轮补齐了以下可审计闭环：
+本轮最终代码基线：`b686873c44b514b820db21fadc2566d067405607`（已合并 `origin/x@93280b23e12e6ccb577c0692c992d4e04a2c3a62`）；该值与 skill manifest、code map 和 readiness script 完全一致。在既有 Quote Session V2 与冷启动身份门闩之上，本轮补齐了以下可审计闭环：
 
 | 领域                    | 已实现状态                                                                                                                                      | 不可突破的安全边界                                                                                                                    |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -27,6 +27,7 @@
 - 最终 type-aware Oxlint：冲突核心 `9 files / 0 warnings / 0 errors / exit 0`；完整 staged merge 另由 `agent:check` 覆盖。
 - 最终 `git diff --check`：`PASS / exit 0`。
 - 最终 `yarn agent:check --profile commit`：code commit `PASS：lint-worktree-js、lint-worktree-ts、agent-context、lint-staged、tsc-staged`；docs-only finalization `PASS：lint-worktree-js、agent-context、lint-staged、tsc-staged`。
+- 最终复核期间 `origin/x` 从 `f76289e262` 前进到 `93280b23e1`；该增量仅涉及 Extension/Rspack 构建路径、无 Swap 域文件，已再次无冲突合并并通过完整 commit profile。
 
 上述命令只能证明纯函数、Hook、Jotai 与静态边界；它们仍不等于 Desktop / iOS / Android / Web / Extension 的完整真实首帧验收。Extension 当前 cold-start storage 为 no-op，因此本轮不得宣称 Extension 跨重启恢复。真实运行时仍必须执行第 16 节与 `references/swap-cold-start-frame-checklist.md` 的逐帧验收。
 
@@ -1081,7 +1082,7 @@ Case 跟踪表使用以下覆盖层标记：`U`（纯函数 / reducer）、`H`�
 
 canonical live balance owner 前的输入、Max 与 Review fail-closed 由 Hook / Jotai 自动化覆盖；空钱包 real-surface 没有构造出有余额的可点击前后对照，因此该项继续保留 Pending-R。没有为了让开发构建冷重启样本“通过”而改变全局 hydration 策略。
 
-以下是本轮实现之前的**历史 Desktop 基线样本**，只用于解释原问题和旧性能，不得作为 `783b1c18432d3fd831061fcc4acaa0a0bf30dd6c` 的通过证据：macOS Apple M4 Pro、开发构建、旧 `x` 依赖、独立 `3002 / 9223` 端口、独立 `/tmp` 用户目录、测试时新建助记词钱包，网络使用 Desktop harness 的 Slow 4G（562.5 ms latency、180,000 B/s download、84,375 B/s upload）。测试结束后已关闭进程并删除临时用户目录；未读取或复用真实钱包，也未记录助记词。
+以下是本轮实现之前的**历史 Desktop 基线样本**，只用于解释原问题和旧性能，不得作为 `b686873c44b514b820db21fadc2566d067405607` 的通过证据：macOS Apple M4 Pro、开发构建、旧 `x` 依赖、独立 `3002 / 9223` 端口、独立 `/tmp` 用户目录、测试时新建助记词钱包，网络使用 Desktop harness 的 Slow 4G（562.5 ms latency、180,000 B/s download、84,375 B/s upload）。测试结束后已关闭进程并删除临时用户目录；未读取或复用真实钱包，也未记录助记词。
 
 | 场景                      | 观测到的状态序列                                                                                        | 结果 / 边界                                                                                    |
 | ------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
