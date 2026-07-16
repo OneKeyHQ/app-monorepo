@@ -255,14 +255,28 @@ function generate(): string {
 }
 
 const outPath = path.resolve(__dirname, '..', 'cli-api.d.ts');
-const content = generate();
 
-void format(outPath, content, {
-  printWidth: 80,
-  quoteProps: 'preserve',
-  singleQuote: true,
-  trailingComma: 'all',
-}).then(({ code }) => {
+async function writeGeneratedTypes(): Promise<void> {
+  const content = generate();
+  const { code, errors } = await format(outPath, content, {
+    printWidth: 80,
+    quoteProps: 'preserve',
+    singleQuote: true,
+    trailingComma: 'all',
+  });
+  if (errors.length > 0) {
+    throw new TypeError(
+      `Oxfmt failed for ${outPath}: ${errors
+        .map((error) => error.message)
+        .join(', ')}`,
+    );
+  }
+
   fs.writeFileSync(outPath, code, 'utf-8');
   console.log(`Generated ${outPath} (${code.split('\n').length} lines)`);
+}
+
+void writeGeneratedTypes().catch((error) => {
+  console.error(error);
+  process.exit(1);
 });
