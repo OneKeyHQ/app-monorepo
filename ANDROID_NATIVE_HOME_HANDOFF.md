@@ -996,3 +996,43 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - iOS split-runtime 边界保持不变：main 持有 Native Home UI、Market selection/cache/snapshot/section patch；bg 持有 config、category、watchlist 与 service 数据。两侧 Hermes heap、反序列化和初始化相互独立。图片/字体 cache 是进程级共享 Native 资源；constraint、represented signature、请求取消和 pressed/hover 属于 per-view 状态。
 - 仍待真实证据：Stocks logo 成功态与图片格式、CASHCAT 当前行、Star 点击不冒泡、pressed/hover、Dark mode，以及全部样式尺寸逐点复核。未完成这些项前不得宣称“UI 已完成”。
 - **从本节开始，每轮 Native Home 工作结束后都要更新 handoff，并按任务范围单独 commit/push 当前 `codex/native-home-container` 分支。** 只能 stage 本轮 Native Home/handoff 文件；Discovery、Swap、TradingView、Firmware 等无关 dirty files 必须继续保留且不得混入提交。
+
+## 2026-07-16 Debug 原版/Native A/B 自动走查与 Market 集中修复
+
+### A/B 走查结论与后续主要流程
+
+- 原版 Home 代码仍保留。本轮只在 Debug Metro session 中临时把 `nativeHomeFeatureFlag.native.ts` 的默认值从 Native 切到 legacy，完成截图后立即恢复为 Native；该文件最终无 diff，也没有修改持久化设置、钱包数据或默认首页。
+- 同一台 iPhone 17 Pro / iOS 26.5 simulator、同一账户和同一服务端数据分别截图 legacy 与 Native 的 Favorites、Trending、Stocks、Perps。对 Market ROI 生成 side-by-side、50% overlay 和 pixel diff，产物位于 `.tmp/ui/native-home-ab-audit/` 与 `.tmp/ui/native-home-ab-audit-after-fix/`。
+- 这套流程本轮非常有效，直接发现了：Native 空 Favorites 错用四条普通 Market row、header action 多余 chevron、icon-only 分类宽度偏大、View more chevron 不一致、`marketTabs` 被误分组为第 5 张 `Market` 推荐卡、推荐卡子视图吞掉父控件点击，以及 Trending 小额价格被错误折叠成 `< $0.01`。
+- **后续 iOS Native Home 视觉走查把同机 Debug legacy/Native A/B 作为主要方法：** 先固定同一 simulator/account/config，临时切 legacy 截一圈并恢复 Native，再逐分类截一圈；按 Market header 对齐 ROI，批量生成 side-by-side/overlay/diff；先排除实时价格、排序、轮播等动态噪声，再集中修稳定几何、字体、图标和格式化差异。
+- Pixel diff 不能替代真实交互。分类连续切换、pressed/hover、Star 不冒泡、横滑和下拉仍必须使用短批处理录屏或多帧证据；Nitro 截图出现黑块时等待后再采第二帧，黑块帧和坐标误命中都不得作为通过/失败证据。
+
+### 本轮集中修复
+
+- Favorites 空态改为与原版一致的 2×2 推荐卡：LINK、SHIB、WLFI、UNI；header 使用独立 plus + `Add N tokens`，默认 4 个全部选中。点击 LINK 已真实验证 `Add 4 tokens -> Add 3 tokens -> Add 4 tokens`，check 同步消失/恢复，未实际提交 watchlist 变更。
+- 推荐卡加入稳定 accessibility id、远程图片候选/signature/request cancellation、32pt token、20/16pt network badge、20pt check；分类 icon-only 宽度收敛到 38pt，View more 使用仓库 `ChevronRightSmallOutline` 对应的独立 20pt chevron。
+- 推荐 grid 只分组连续的 `renderer == market` item，不再把 `marketTabs` 当成推荐卡；推荐卡所有内容子视图关闭 hit testing，由父 `UIControl` 独占点击。
+- 首版辅助图片 loader 使用 `inout` property，而 SDWebImage memory-cache callback 可能同步回调，触发 Swift exclusivity fatal access conflict。已改为 badge/accessory 两个不使用 `inout` 的独立 loader，保留 represented URL 与 cancellation 校验；重新 `yarn app:ios` 后无 crash，应用持续存活。
+- A/B 新发现的价格差异根因是 Native Market 复用了 DeFi 金额格式化 `formatValue`，它会把 `< 0.01` 全部折叠。现已只对 Market 改用原版 `formatPrice`；最新 Debug 截图中 SOLdiers 为 `$0.00167`、PONS 为 `$0.008942`，不再显示 `< $0.01`。
+
+### 最新 Debug 实证
+
+- 最终再次从仓库根目录执行 `yarn app:ios`，结果 `Build Succeeded`、0 error，并由标准流程更新安装、启动 Debug app。没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`。
+- 没有执行 uninstall、reinstall、erase、clear data，没有删除 app container、钱包数据库或持久化数据。启动后 `Account #1`、余额与 Token 数据正常，应用持续存活。
+- 最新 Hermes/CDP：page 1 为 `main`，`$$onekeyJsReadyAt` / `$$onekeyUIVisibleAt` 存在，并收到 `background/status=ready` payload；page 2 独立为 `background`。main/bg 都 ready，未用 main ready 代替 bg ready。
+- 最新截图：
+  - `.tmp/ui/handoff-ui-market-favorites-after-debug.png` 与 `-402.png`
+  - `.tmp/ui/handoff-ui-market-trending-after-debug.png` 与 `-402.png`
+  - `.tmp/ui/handoff-ui-market-stocks-after-debug.png` 与 `-402.png`
+  - 三张原图均为 1206×2622，对照图均为 402×874。
+- 最新 Stocks 成功态中 AAPLon、SLVon、CRCLon 分别显示真实 Apple、iShares、Circle 服务端 logo；badge/signature 正确，没有 fallback 或复用串图。此前 `static.oklink.com` TLS `-1200` 是瞬时网络失败，不能再把 fallback 当成永久格式不支持结论。
+- 当前 Trending BTC `volume24h` 仍为服务端字符串 `"-"`，normalize 后 falsey；原版与 Native 都隐藏第二行，禁止增加假占位。本轮实时 top 3 没有 CASHCAT，因此 CASHCAT 行仍无最新 UI 证据。
+- 修复后连续分类短录屏为 `.tmp/ui/handoff-ui-market-category-switches-ab-after-fix.mov`，抽帧为 `.tmp/ui/native-home-ab-audit-after-fix/category-switches-contact-sheet.png`。Trending -> Stocks -> Perps -> Favorites 都命中正确分类，首帧直接有行数据，Earn/Upgrade 与外层 offset 没有跳动。
+- 当前服务端已提供 Perps hot config，Perps 为真实配置结果，没有在 Native 写死。最新 Perps settle 截图为 `.tmp/ui/handoff-ui-market-perps-ab-after-fix-settled-2.png`。
+- 提交前 `yarn agent:check --profile commit` 日志位于 `node_modules/.cache/agent-checks/2026-07-16T04-08-47-746Z`。gate 首次发现本轮 `formatPrice` 入参类型错误，已修为显式 string；聚焦 ESLint 通过，重跑 `yarn tsc:staged` 后 Native Home 文件不再报错。剩余 13 个 TypeScript error 与 type-aware lint failure 均来自共享工作区已有的 Rspack、DeFi、TradingView、WebView、Navigator、AppUpdate、Firmware、ReferFriends、Swap 和旧 `NativeHomePageView.native.tsx` 改动，不得回滚这些文件制造绿色结果。
+
+### Runtime 边界与剩余项
+
+- **main runtime：** Native Home UI、Market selection/cache/snapshot/section patch、推荐卡选择和格式化。**bg runtime：** Market config/category/watchlist/service 数据。两侧 Hermes heap 与反序列化副本独立，初始化顺序也独立。
+- 图片与字体 cache 是进程级共享 Native 资源；cell constraint、represented image signature、request cancellation、pressed/hover 和推荐卡渲染状态属于 per-view 状态。
+- 已有真实证据覆盖 Favorites 2×2 空态、选择/恢复、Trending 小额精确价格、Stocks 三张真实 logo、Perps 配置态和连续分类无空窗/无高度跳动。仍未覆盖 Dark mode、pressed/hover、行内 Star 点击不冒泡、所有降级态及 CASHCAT 当前行，因此不能声明整个 Market UI 已完成。

@@ -32,6 +32,16 @@ struct HomeContainerBanner: Decodable {
   let dismissActionId: String?
 }
 
+struct HomeContainerSegment: Decodable {
+  let id: String
+  let title: String
+  let imageUrl: String?
+  let leadingIcon: String?
+  let iconOnly: Bool?
+  let selected: Bool?
+  let actionId: String
+}
+
 struct HomeContainerHeader: Decodable {
   let accountName: String
   let accountSubtitle: String?
@@ -60,15 +70,22 @@ struct HomeContainerItem: Decodable {
   let value: String?
   let detail: String?
   let imageUrl: String?
+  let imageUrls: [String]?
   let secondaryImageUrl: String?
+  let titleAccessoryImageUrl: String?
   let badge: String?
   let badgeImageUrl: String?
+  let communityRecognized: Bool?
   let accentColor: String?
   let buttonTitle: String?
   let leadingIcon: String?
   let showChevron: Bool?
   let actionId: String?
+  let favorite: Bool?
+  let favoriteActionId: String?
+  let favoriteLabel: String?
   let displayHeight: CGFloat?
+  let segments: [HomeContainerSegment]?
 }
 
 struct HomeContainerSection: Decodable {
@@ -76,6 +93,7 @@ struct HomeContainerSection: Decodable {
   let title: String?
   let actionTitle: String?
   let actionId: String?
+  let actionDisabled: Bool?
   let layout: String?
   let items: [HomeContainerItem]
 }

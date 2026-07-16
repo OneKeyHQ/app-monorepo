@@ -34,6 +34,7 @@ export interface IHomeContainerSlot {
 
 export type IHomeContainerItemRenderer =
   | 'action'
+  | 'addToken'
   | 'asset'
   | 'card'
   | 'defi'
@@ -92,6 +93,16 @@ export interface IHomeContainerBanner {
   dismissActionId?: string;
 }
 
+export interface IHomeContainerSegment {
+  id: string;
+  title: string;
+  imageUrl?: string;
+  leadingIcon?: 'star';
+  iconOnly?: boolean;
+  selected?: boolean;
+  actionId: string;
+}
+
 export interface IHomeContainerHeader {
   accountName: string;
   accountSubtitle?: string;
@@ -120,15 +131,29 @@ export interface IHomeContainerItem {
   value?: string;
   detail?: string;
   imageUrl?: string;
+  imageUrls?: string[];
   secondaryImageUrl?: string;
+  titleAccessoryImageUrl?: string;
   badge?: string;
   badgeImageUrl?: string;
+  communityRecognized?: boolean;
   accentColor?: string;
   buttonTitle?: string;
-  leadingIcon?: 'book' | 'download' | 'prime' | 'star' | 'support';
+  leadingIcon?:
+    | 'book'
+    | 'download'
+    | 'lowValue'
+    | 'prime'
+    | 'risk'
+    | 'star'
+    | 'support';
   showChevron?: boolean;
   actionId?: string;
+  favorite?: boolean;
+  favoriteActionId?: string;
+  favoriteLabel?: string;
   displayHeight?: number;
+  segments?: IHomeContainerSegment[];
 }
 
 export interface IHomeContainerSection {
@@ -136,7 +161,8 @@ export interface IHomeContainerSection {
   title?: string;
   actionTitle?: string;
   actionId?: string;
-  layout?: 'grid' | 'horizontal' | 'list';
+  actionDisabled?: boolean;
+  layout?: 'grid' | 'horizontal' | 'list' | 'marketRecommendations';
   items: IHomeContainerItem[];
 }
 

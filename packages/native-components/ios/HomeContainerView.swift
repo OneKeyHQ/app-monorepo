@@ -69,6 +69,7 @@ private struct HomeContainerRow {
     case grid([HomeContainerItem])
     case horizontal(HomeContainerSection)
     case item(HomeContainerItem)
+    case marketRecommendations([HomeContainerItem])
     case sectionTitle(HomeContainerSection)
     case contentHeader(String)
     case footerSlot(String)
@@ -88,8 +89,23 @@ private struct HomeContainerRow {
           item.subtitleDetail ?? "",
           item.value ?? "",
           item.imageUrl ?? "",
+          item.imageUrls?.joined(separator: ",") ?? "",
           item.secondaryImageUrl ?? "",
           item.badgeImageUrl ?? "",
+        ].joined(separator: ":")
+      }.joined(separator: "|")
+    case .marketRecommendations(let items):
+      return items.map { item in
+        [
+          item.id,
+          item.title,
+          item.subtitle ?? "",
+          item.imageUrl ?? "",
+          item.imageUrls?.joined(separator: ",") ?? "",
+          item.badgeImageUrl ?? "",
+          item.communityRecognized == true ? "recognized" : "",
+          item.favorite == true ? "selected" : "unselected",
+          item.actionId ?? "",
         ].joined(separator: ":")
       }.joined(separator: "|")
     case .horizontal(let section):
@@ -101,11 +117,19 @@ private struct HomeContainerRow {
           item.subtitle ?? "",
           item.value ?? "",
           item.imageUrl ?? "",
+          item.imageUrls?.joined(separator: ",") ?? "",
         ]
           .joined(separator: ":")
       }.joined(separator: "|")
     case .sectionTitle(let section):
-      return "section|\(section.title ?? "")|\(section.actionTitle ?? "")|\(section.actionId ?? "")"
+      return [
+        "section",
+        section.title ?? "",
+        section.actionTitle ?? "",
+        section.actionId ?? "",
+        section.actionDisabled == true ? "disabled" : "enabled",
+        section.layout ?? "",
+      ].joined(separator: "|")
     case .contentHeader(let tabId):
       return "content-header|\(tabId)"
     case .footerSlot(let key):
@@ -120,14 +144,31 @@ private struct HomeContainerRow {
         item.value ?? "",
         item.detail ?? "",
         item.imageUrl ?? "",
+        item.imageUrls?.joined(separator: ",") ?? "",
         item.secondaryImageUrl ?? "",
         item.badge ?? "",
         item.badgeImageUrl ?? "",
+        item.titleAccessoryImageUrl ?? "",
+        item.communityRecognized == true ? "1" : "0",
         item.accentColor ?? "",
         item.buttonTitle ?? "",
         item.leadingIcon ?? "",
         item.showChevron == true ? "1" : "0",
         item.actionId ?? "",
+        item.favorite == true ? "1" : "0",
+        item.favoriteActionId ?? "",
+        item.favoriteLabel ?? "",
+        item.segments?.map { segment in
+          [
+            segment.id,
+            segment.title,
+            segment.imageUrl ?? "",
+            segment.leadingIcon ?? "",
+            segment.iconOnly == true ? "1" : "0",
+            segment.selected == true ? "1" : "0",
+            segment.actionId,
+          ].joined(separator: ":")
+        }.joined(separator: ",") ?? "",
       ].joined(separator: "|")
     }
   }
@@ -885,6 +926,10 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     tableView.register(HomeContainerSectionTitleCell.self, forCellReuseIdentifier: "section")
     tableView.register(HomeContainerHorizontalCell.self, forCellReuseIdentifier: "horizontal")
     tableView.register(HomeContainerNFTGridCell.self, forCellReuseIdentifier: "grid")
+    tableView.register(
+      HomeContainerMarketRecommendationGridCell.self,
+      forCellReuseIdentifier: "market-recommendations"
+    )
     tableView.register(HomeContainerSlotHostCell.self, forCellReuseIdentifier: "slot-host")
     addSubview(tableView)
     _ = dataSource
@@ -933,7 +978,30 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       if let title = section.title, !title.isEmpty {
         result.append(HomeContainerRow(id: "section:\(section.id)", kind: .sectionTitle(section)))
       }
-      if section.layout == "grid" {
+      if section.layout == "marketRecommendations" {
+        var itemIndex = 0
+        while itemIndex < section.items.count {
+          let item = section.items[itemIndex]
+          guard item.renderer == "market" else {
+            result.append(HomeContainerRow(
+              id: "item:\(section.id):\(item.id)",
+              kind: .item(item)
+            ))
+            itemIndex += 1
+            continue
+          }
+          var recommendationItems = [item]
+          if section.items.indices.contains(itemIndex + 1),
+             section.items[itemIndex + 1].renderer == "market" {
+            recommendationItems.append(section.items[itemIndex + 1])
+          }
+          result.append(HomeContainerRow(
+            id: "market-recommendations:\(section.id):\(itemIndex)",
+            kind: .marketRecommendations(recommendationItems)
+          ))
+          itemIndex += recommendationItems.count
+        }
+      } else if section.layout == "grid" {
         var itemIndex = 0
         while itemIndex < section.items.count {
           let endIndex = min(itemIndex + 2, section.items.count)
@@ -1022,6 +1090,8 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       return HomeContainerMetrics.footerSlotHeight(key: key) ?? 0
     case .grid:
       return tableView.bounds.width / 2 + 54
+    case .marketRecommendations:
+      return 68
     case .horizontal(let section):
       return section.items.first?.renderer == "supportPromo" ? 163 : HomeContainerMetrics.horizontalRowHeight
     case .sectionTitle:
@@ -1030,9 +1100,10 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       switch item.renderer {
       case "nft": return HomeContainerMetrics.nftRowHeight
       case "history": return 60
-      case "defi", "market": return 64
-      case "earn": return 56
-      case "marketTabs", "showMore": return 56
+      case "defi": return 64
+      case "marketTabs": return 48
+      case "showMore": return 48
+      case "addToken", "asset", "earn", "market": return 56
       case "supportAction": return 76
       case "upgrade": return 96
       case "empty", "loading": return item.displayHeight ?? HomeContainerMetrics.emptyRowHeight
@@ -1122,6 +1193,16 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
           self.onAction?(actionId, itemId, self.tabId)
         }
         return cell
+      case .marketRecommendations(let items):
+        let cell = tableView.dequeueReusableCell(
+          withIdentifier: "market-recommendations",
+          for: indexPath
+        ) as! HomeContainerMarketRecommendationGridCell
+        cell.apply(items: items, theme: theme) { [weak self] actionId, itemId in
+          guard let self else { return }
+          self.onAction?(actionId, itemId, self.tabId)
+        }
+        return cell
       case .horizontal(let section):
         let cell = tableView.dequeueReusableCell(withIdentifier: "horizontal", for: indexPath)
           as! HomeContainerHorizontalCell
@@ -1149,7 +1230,10 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
         }
         let cell = tableView.dequeueReusableCell(withIdentifier: "item", for: indexPath)
           as! HomeContainerItemCell
-        cell.apply(item: item, theme: theme)
+        cell.apply(item: item, theme: theme) { [weak self] actionId, itemId in
+          guard let self else { return }
+          self.onAction?(actionId, itemId, self.tabId)
+        }
         return cell
       }
     }
@@ -2193,18 +2277,18 @@ private final class HomeContainerSectionTitleCell: UITableViewCell {
   override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
     super.init(style: style, reuseIdentifier: reuseIdentifier)
     selectionStyle = .none
-    titleLabel.font = .systemFont(ofSize: 20, weight: .semibold)
+    titleLabel.font = HomeContainerTypography.semibold(20)
     titleLabel.translatesAutoresizingMaskIntoConstraints = false
-    actionButton.titleLabel?.font = .systemFont(ofSize: 14)
+    actionButton.titleLabel?.font = HomeContainerTypography.regular(14)
     actionButton.translatesAutoresizingMaskIntoConstraints = false
     actionButton.addTarget(self, action: #selector(handleAction), for: .touchUpInside)
     contentView.addSubview(titleLabel)
     contentView.addSubview(actionButton)
     NSLayoutConstraint.activate([
-      titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+      titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
       titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: actionButton.leadingAnchor, constant: -8),
       titleLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-      actionButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+      actionButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
       actionButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
     ])
   }
@@ -2222,16 +2306,39 @@ private final class HomeContainerSectionTitleCell: UITableViewCell {
     backgroundColor = UIColor(homeContainerColor: theme.backgroundColor, fallback: .systemBackground)
     titleLabel.textColor = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
     titleLabel.text = section.title
-    actionButton.setTitle(section.actionTitle.map { "\($0)  ›" }, for: .normal)
-    actionButton.setTitleColor(
-      UIColor(homeContainerColor: theme.secondaryTextColor, fallback: .secondaryLabel),
+    let actionColor = UIColor(
+      homeContainerColor: theme.secondaryTextColor,
+      fallback: .secondaryLabel
+    )
+    let isMarketRecommendation = section.layout == "marketRecommendations"
+    actionButton.setTitle(
+      section.actionTitle.map { isMarketRecommendation ? $0 : "\($0)  ›" },
       for: .normal
     )
+    actionButton.setImage(
+      isMarketRecommendation
+        ? UIImage(
+            systemName: "plus",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .regular)
+          )
+        : nil,
+      for: .normal
+    )
+    actionButton.imageEdgeInsets = isMarketRecommendation
+      ? UIEdgeInsets(top: 0, left: -4, bottom: 0, right: 4)
+      : .zero
+    actionButton.tintColor = actionColor
+    actionButton.setTitleColor(actionColor, for: .normal)
+    actionButton.setTitleColor(actionColor.withAlphaComponent(0.45), for: .disabled)
     actionButton.isHidden = section.actionTitle?.isEmpty != false
+    actionButton.isEnabled = section.actionDisabled != true
+    actionButton.accessibilityIdentifier = isMarketRecommendation
+      ? "native-home-market-add-recommended"
+      : "native-home-section-action-\(section.id)"
     self.onAction = onAction
     titleLabel.font = sectionId.hasPrefix("section:history:")
       ? .systemFont(ofSize: 13, weight: .semibold)
-      : .systemFont(ofSize: 20, weight: .semibold)
+      : HomeContainerTypography.semibold(20)
     titleLabel.textColor = sectionId.hasPrefix("section:history:")
       ? UIColor(homeContainerColor: theme.secondaryTextColor, fallback: .secondaryLabel)
       : UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
@@ -2239,6 +2346,351 @@ private final class HomeContainerSectionTitleCell: UITableViewCell {
 
   @objc private func handleAction() {
     onAction?()
+  }
+}
+
+private final class HomeContainerMarketRecommendationGridCell: UITableViewCell {
+  private let cards = [
+    HomeContainerMarketRecommendationCardControl(),
+    HomeContainerMarketRecommendationCardControl(),
+  ]
+
+  override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+    super.init(style: style, reuseIdentifier: reuseIdentifier)
+    selectionStyle = .none
+    cards.forEach(contentView.addSubview)
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    let horizontalPadding: CGFloat = 20
+    let gap: CGFloat = 10
+    let cardWidth = max(0, (contentView.bounds.width - horizontalPadding * 2 - gap) / 2)
+    for (index, card) in cards.enumerated() {
+      card.frame = CGRect(
+        x: horizontalPadding + CGFloat(index) * (cardWidth + gap),
+        y: 0,
+        width: cardWidth,
+        height: 60
+      )
+    }
+  }
+
+  func apply(
+    items: [HomeContainerItem],
+    theme: HomeContainerTheme,
+    onAction: @escaping (String, String) -> Void
+  ) {
+    backgroundColor = UIColor(homeContainerColor: theme.backgroundColor, fallback: .systemBackground)
+    for (index, card) in cards.enumerated() {
+      guard items.indices.contains(index) else {
+        card.isHidden = true
+        card.prepareForReuse()
+        continue
+      }
+      card.isHidden = false
+      card.apply(item: items[index], theme: theme, onAction: onAction)
+    }
+  }
+
+  override func prepareForReuse() {
+    super.prepareForReuse()
+    cards.forEach { $0.prepareForReuse() }
+  }
+}
+
+private final class HomeContainerMarketRecommendationCardControl: UIControl {
+  private let iconContainer = UIView()
+  private let iconImageView = UIImageView()
+  private let badgeContainerView = UIView()
+  private let badgeImageView = UIImageView()
+  private let titleLabel = UILabel()
+  private let leverageLabel = HomeContainerInsetLabel()
+  private let titleAccessoryImageView = UIImageView()
+  private let recognizedImageView = UIImageView()
+  private let titleStack: UIStackView
+  private let subtitleLabel = UILabel()
+  private let checkImageView = UIImageView()
+  private var imageTask: HomeContainerImageRequest?
+  private var badgeImageTask: HomeContainerImageRequest?
+  private var titleAccessoryImageTask: HomeContainerImageRequest?
+  private var representedImageSignature: String?
+  private var representedBadgeImageURL: URL?
+  private var representedTitleAccessoryImageURL: URL?
+  private var itemId = ""
+  private var actionId = ""
+  private var onAction: ((String, String) -> Void)?
+  private var normalBackgroundColor = UIColor.clear
+  private var highlightedBackgroundColor = UIColor.clear
+
+  override init(frame: CGRect) {
+    titleStack = UIStackView(arrangedSubviews: [
+      titleLabel,
+      leverageLabel,
+      titleAccessoryImageView,
+      recognizedImageView,
+    ])
+    super.init(frame: frame)
+    layer.cornerRadius = 12
+    layer.borderWidth = 0.5
+    clipsToBounds = true
+
+    iconContainer.layer.cornerRadius = 16
+    iconContainer.clipsToBounds = true
+    iconImageView.contentMode = .scaleAspectFill
+    iconImageView.clipsToBounds = true
+    iconContainer.addSubview(iconImageView)
+
+    badgeContainerView.layer.cornerRadius = 10
+    badgeContainerView.clipsToBounds = true
+    badgeImageView.contentMode = .scaleAspectFill
+    badgeImageView.layer.cornerRadius = 8
+    badgeImageView.clipsToBounds = true
+    badgeContainerView.addSubview(badgeImageView)
+
+    titleLabel.font = HomeContainerTypography.medium(14)
+    titleLabel.numberOfLines = 1
+    titleLabel.lineBreakMode = .byTruncatingTail
+    titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+    leverageLabel.font = HomeContainerTypography.regular(10)
+    leverageLabel.contentInsets = UIEdgeInsets(top: 0, left: 4, bottom: 0, right: 4)
+    leverageLabel.layer.cornerRadius = 3
+    leverageLabel.clipsToBounds = true
+    titleAccessoryImageView.contentMode = .scaleAspectFill
+    titleAccessoryImageView.layer.cornerRadius = 7
+    titleAccessoryImageView.clipsToBounds = true
+    recognizedImageView.image = HomeContainerMarketArtwork.recognized(size: 14)
+    recognizedImageView.contentMode = .scaleAspectFit
+    titleStack.axis = .horizontal
+    titleStack.alignment = .center
+    titleStack.spacing = 4
+
+    subtitleLabel.font = HomeContainerTypography.regular(12)
+    subtitleLabel.numberOfLines = 1
+    subtitleLabel.lineBreakMode = .byTruncatingTail
+    checkImageView.contentMode = .scaleAspectFit
+
+    [
+      iconContainer,
+      badgeContainerView,
+      titleStack,
+      subtitleLabel,
+      checkImageView,
+    ].forEach {
+      $0.isUserInteractionEnabled = false
+      addSubview($0)
+    }
+    addAction(UIAction { [weak self] _ in
+      guard let self, !self.actionId.isEmpty else { return }
+      self.onAction?(self.actionId, self.itemId)
+    }, for: .touchUpInside)
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override var isHighlighted: Bool {
+    didSet {
+      backgroundColor = isHighlighted
+        ? highlightedBackgroundColor
+        : normalBackgroundColor
+    }
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    iconContainer.frame = CGRect(x: 10, y: 14, width: 32, height: 32)
+    iconImageView.frame = iconContainer.bounds
+    badgeContainerView.frame = CGRect(x: 32, y: 30, width: 20, height: 20)
+    badgeImageView.frame = CGRect(x: 2, y: 2, width: 16, height: 16)
+    checkImageView.frame = CGRect(x: bounds.width - 30, y: 20, width: 20, height: 20)
+    let textX: CGFloat = 54
+    let textWidth = max(0, checkImageView.frame.minX - textX - 4)
+    titleStack.frame = CGRect(x: textX, y: 10, width: textWidth, height: 20)
+    subtitleLabel.frame = CGRect(x: textX, y: 31, width: textWidth, height: 18)
+    leverageLabel.frame.size.height = 16
+    titleAccessoryImageView.frame.size = CGSize(width: 14, height: 14)
+    recognizedImageView.frame.size = CGSize(width: 14, height: 14)
+  }
+
+  func apply(
+    item: HomeContainerItem,
+    theme: HomeContainerTheme,
+    onAction: @escaping (String, String) -> Void
+  ) {
+    itemId = item.id
+    actionId = item.actionId ?? ""
+    self.onAction = onAction
+    normalBackgroundColor = UIColor(
+      homeContainerColor: theme.cardColor,
+      fallback: .secondarySystemBackground
+    )
+    highlightedBackgroundColor = UIColor(
+      homeContainerColor: theme.activeColor ?? theme.hoverColor ?? theme.cardColor,
+      fallback: .systemGray5
+    )
+    backgroundColor = normalBackgroundColor
+    layer.borderColor = UIColor(
+      homeContainerColor: theme.dividerColor,
+      fallback: .separator
+    ).cgColor
+    badgeContainerView.backgroundColor = UIColor(
+      homeContainerColor: theme.backgroundColor,
+      fallback: .systemBackground
+    )
+    titleLabel.text = item.title
+    titleLabel.textColor = UIColor(
+      homeContainerColor: theme.primaryTextColor,
+      fallback: .label
+    )
+    subtitleLabel.text = item.subtitle
+    subtitleLabel.textColor = UIColor(
+      homeContainerColor: theme.secondaryTextColor,
+      fallback: .secondaryLabel
+    )
+    leverageLabel.text = item.badge
+    leverageLabel.textColor = UIColor(
+      homeContainerColor: theme.accentColor,
+      fallback: .systemBlue
+    )
+    leverageLabel.backgroundColor = normalBackgroundColor
+    leverageLabel.isHidden = item.badge?.isEmpty != false
+    recognizedImageView.tintColor = UIColor(
+      homeContainerColor: theme.positiveColor,
+      fallback: .systemGreen
+    )
+    recognizedImageView.isHidden = item.communityRecognized != true
+    checkImageView.image = item.favorite == true
+      ? HomeContainerMarketArtwork.checkRadio(size: 20)
+      : nil
+    checkImageView.tintColor = UIColor(
+      homeContainerColor: theme.primaryTextColor,
+      fallback: .label
+    )
+    accessibilityIdentifier = "native-home-market-recommendation-\(item.id)"
+    accessibilityLabel = [item.title, item.subtitle].compactMap { $0 }.joined(separator: ", ")
+    accessibilityValue = item.favorite == true ? "selected" : "not selected"
+    accessibilityTraits = [.button]
+    loadPrimaryImage(
+      item.imageUrl,
+      fallbacks: item.imageUrls,
+      theme: theme
+    )
+    loadBadgeImage(item.badgeImageUrl)
+    badgeContainerView.isHidden = item.badgeImageUrl?.isEmpty != false
+    loadTitleAccessoryImage(item.titleAccessoryImageUrl)
+    titleAccessoryImageView.isHidden = item.titleAccessoryImageUrl?.isEmpty != false
+    setNeedsLayout()
+  }
+
+  func prepareForReuse() {
+    imageTask?.cancel()
+    badgeImageTask?.cancel()
+    titleAccessoryImageTask?.cancel()
+    imageTask = nil
+    badgeImageTask = nil
+    titleAccessoryImageTask = nil
+    representedImageSignature = nil
+    representedBadgeImageURL = nil
+    representedTitleAccessoryImageURL = nil
+    iconImageView.image = nil
+    badgeImageView.image = nil
+    titleAccessoryImageView.image = nil
+    itemId = ""
+    actionId = ""
+    onAction = nil
+  }
+
+  private func loadPrimaryImage(
+    _ value: String?,
+    fallbacks: [String]?,
+    theme: HomeContainerTheme
+  ) {
+    let candidates = ([value].compactMap { $0 } + (fallbacks ?? []))
+      .reduce(into: [URL]()) { result, candidate in
+        guard let url = URL(string: candidate),
+              url.scheme == "https" || url.scheme == "http",
+              !result.contains(url) else { return }
+        result.append(url)
+      }
+    let signature = candidates.map(\.absoluteString).joined(separator: "|") + "|\(theme.backgroundColor)"
+    guard representedImageSignature != signature else { return }
+    imageTask?.cancel()
+    imageTask = nil
+    representedImageSignature = signature
+    let backgroundColor = UIColor(
+      homeContainerColor: theme.backgroundColor,
+      fallback: .systemBackground
+    )
+    iconContainer.backgroundColor = HomeContainerMarketArtwork.cryptoCoinFallbackBackgroundColor(
+      for: backgroundColor
+    )
+    iconImageView.contentMode = .scaleAspectFit
+    iconImageView.image = HomeContainerMarketArtwork.cryptoCoinFallback(
+      size: 32,
+      color: UIColor(
+        homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
+        fallback: .secondaryLabel
+      )
+    )
+    loadPrimaryImageCandidate(candidates, index: 0, signature: signature)
+  }
+
+  private func loadPrimaryImageCandidate(
+    _ candidates: [URL],
+    index: Int,
+    signature: String
+  ) {
+    guard candidates.indices.contains(index) else { return }
+    let url = candidates[index]
+    imageTask = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
+      guard let self, self.representedImageSignature == signature else { return }
+      if let image {
+        self.iconImageView.contentMode = .scaleAspectFill
+        self.iconImageView.image = image
+      } else {
+        self.loadPrimaryImageCandidate(candidates, index: index + 1, signature: signature)
+      }
+    }
+  }
+
+  private func loadBadgeImage(_ value: String?) {
+    let url = value.flatMap(URL.init(string:)).flatMap {
+      $0.scheme == "https" || $0.scheme == "http" || $0.isFileURL ? $0 : nil
+    }
+    guard representedBadgeImageURL != url else { return }
+    badgeImageTask?.cancel()
+    badgeImageTask = nil
+    representedBadgeImageURL = url
+    badgeImageView.image = nil
+    guard let url else { return }
+    let request = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
+      guard let self, self.representedBadgeImageURL == url else { return }
+      self.badgeImageView.image = image
+    }
+    badgeImageTask = request
+  }
+
+  private func loadTitleAccessoryImage(_ value: String?) {
+    let url = value.flatMap(URL.init(string:)).flatMap {
+      $0.scheme == "https" || $0.scheme == "http" || $0.isFileURL ? $0 : nil
+    }
+    guard representedTitleAccessoryImageURL != url else { return }
+    titleAccessoryImageTask?.cancel()
+    titleAccessoryImageTask = nil
+    representedTitleAccessoryImageURL = url
+    titleAccessoryImageView.image = nil
+    guard let url else { return }
+    let request = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
+      guard let self, self.representedTitleAccessoryImageURL == url else { return }
+      self.titleAccessoryImageView.image = image
+    }
+    titleAccessoryImageTask = request
   }
 }
 
@@ -2444,32 +2896,271 @@ private final class HomeContainerNFTCardControl: UIControl {
   }
 }
 
+private enum HomeContainerTypography {
+  static func regular(_ size: CGFloat) -> UIFont {
+    UIFont(name: "Roobert-Regular", size: size) ?? .systemFont(ofSize: size)
+  }
+
+  static func medium(_ size: CGFloat) -> UIFont {
+    UIFont(name: "Roobert-Medium", size: size) ?? .systemFont(ofSize: size, weight: .medium)
+  }
+
+  static func semibold(_ size: CGFloat) -> UIFont {
+    UIFont(name: "Roobert-SemiBold", size: size) ?? .systemFont(ofSize: size, weight: .semibold)
+  }
+}
+
+private enum HomeContainerMarketArtwork {
+  static func star(filled: Bool, size: CGFloat) -> UIImage {
+    let path = UIBezierPath()
+    if filled {
+      path.move(to: CGPoint(x: 15.405, y: 7.313))
+      path.addLine(to: CGPoint(x: 23.245, y: 8.347))
+      path.addLine(to: CGPoint(x: 17.51, y: 13.79))
+      path.addLine(to: CGPoint(x: 18.95, y: 21.564))
+      path.addLine(to: CGPoint(x: 12, y: 17.793))
+      path.addLine(to: CGPoint(x: 5.052, y: 21.564))
+      path.addLine(to: CGPoint(x: 6.492, y: 13.79))
+      path.addLine(to: CGPoint(x: 0.756, y: 8.347))
+      path.addLine(to: CGPoint(x: 8.595, y: 7.313))
+      path.addLine(to: CGPoint(x: 12, y: 0.178))
+      path.close()
+    } else {
+      path.usesEvenOddFillRule = true
+      path.move(to: CGPoint(x: 15.455, y: 7.243))
+      path.addLine(to: CGPoint(x: 23.184, y: 8.366))
+      path.addLine(to: CGPoint(x: 17.592, y: 13.816))
+      path.addLine(to: CGPoint(x: 18.912, y: 21.514))
+      path.addLine(to: CGPoint(x: 12, y: 17.879))
+      path.addLine(to: CGPoint(x: 5.089, y: 21.514))
+      path.addLine(to: CGPoint(x: 6.409, y: 13.816))
+      path.addLine(to: CGPoint(x: 0.817, y: 8.366))
+      path.addLine(to: CGPoint(x: 8.545, y: 7.243))
+      path.addLine(to: CGPoint(x: 12, y: 0.24))
+      path.close()
+      path.move(to: CGPoint(x: 9.872, y: 9.071))
+      path.addLine(to: CGPoint(x: 5.113, y: 9.761))
+      path.addLine(to: CGPoint(x: 8.557, y: 13.119))
+      path.addLine(to: CGPoint(x: 7.743, y: 17.857))
+      path.addLine(to: CGPoint(x: 12, y: 15.62))
+      path.addLine(to: CGPoint(x: 12.465, y: 15.865))
+      path.addLine(to: CGPoint(x: 16.256, y: 17.858))
+      path.addLine(to: CGPoint(x: 15.443, y: 13.119))
+      path.addLine(to: CGPoint(x: 18.886, y: 9.762))
+      path.addLine(to: CGPoint(x: 14.128, y: 9.072))
+      path.addLine(to: CGPoint(x: 12, y: 4.758))
+      path.close()
+    }
+
+    let format = UIGraphicsImageRendererFormat()
+    format.opaque = false
+    let rendered = UIGraphicsImageRenderer(size: CGSize(width: size, height: size), format: format).image { _ in
+      path.apply(CGAffineTransform(scaleX: size / 24, y: size / 24))
+      UIColor.black.setFill()
+      path.fill()
+    }
+    return rendered.withRenderingMode(.alwaysTemplate)
+  }
+
+  static func checkRadio(size: CGFloat) -> UIImage {
+    let path = UIBezierPath(ovalIn: CGRect(x: 2, y: 2, width: 20, height: 20))
+    let check = UIBezierPath()
+    check.move(to: CGPoint(x: 10.426, y: 13.512))
+    check.addLine(to: CGPoint(x: 8.5, y: 11.586))
+    check.addLine(to: CGPoint(x: 7.086, y: 13))
+    check.addLine(to: CGPoint(x: 10.574, y: 16.488))
+    check.addLine(to: CGPoint(x: 16.407, y: 9.359))
+    check.addLine(to: CGPoint(x: 14.859, y: 8.093))
+    check.close()
+    path.append(check)
+    path.usesEvenOddFillRule = true
+
+    let rendered = UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { _ in
+      path.apply(CGAffineTransform(scaleX: size / 24, y: size / 24))
+      UIColor.black.setFill()
+      path.fill()
+    }
+    return rendered.withRenderingMode(.alwaysTemplate)
+  }
+
+  static func chevronRightSmall(size: CGFloat) -> UIImage {
+    let path = UIBezierPath()
+    path.move(to: CGPoint(x: 15.414, y: 12))
+    path.addLine(to: CGPoint(x: 10, y: 17.414))
+    path.addLine(to: CGPoint(x: 8.586, y: 16))
+    path.addLine(to: CGPoint(x: 12.586, y: 12))
+    path.addLine(to: CGPoint(x: 8.586, y: 8))
+    path.addLine(to: CGPoint(x: 10, y: 6.586))
+    path.close()
+
+    let rendered = UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { _ in
+      path.apply(CGAffineTransform(scaleX: size / 24, y: size / 24))
+      UIColor.black.setFill()
+      path.fill()
+    }
+    return rendered.withRenderingMode(.alwaysTemplate)
+  }
+
+  static func cryptoCoinFallbackBackgroundColor(for backgroundColor: UIColor) -> UIColor {
+    var red: CGFloat = 1
+    var green: CGFloat = 1
+    var blue: CGFloat = 1
+    var alpha: CGFloat = 1
+    backgroundColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+    let luminance = red * 0.299 + green * 0.587 + blue * 0.114
+    return luminance < 0.5
+      ? UIColor(red: 49 / 255, green: 49 / 255, blue: 49 / 255, alpha: 1)
+      : UIColor(red: 224 / 255, green: 224 / 255, blue: 224 / 255, alpha: 1)
+  }
+
+  static func cryptoCoinFallback(size: CGFloat, color: UIColor) -> UIImage {
+    let rendered = UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { context in
+      let scale = size / 40
+      context.cgContext.scaleBy(x: scale, y: scale)
+      color.setStroke()
+
+      let outerRing = UIBezierPath(
+        arcCenter: CGPoint(x: 20, y: 20),
+        radius: 9,
+        startAngle: 0,
+        endAngle: .pi * 2,
+        clockwise: true
+      )
+      outerRing.lineWidth = 2
+      outerRing.stroke()
+
+      let coinMark = UIBezierPath(
+        arcCenter: CGPoint(x: 20, y: 20),
+        radius: 3.5,
+        startAngle: .pi * 31 / 180,
+        endAngle: .pi * 329 / 180,
+        clockwise: true
+      )
+      coinMark.lineWidth = 2
+      coinMark.stroke()
+
+      let stem = UIBezierPath()
+      stem.move(to: CGPoint(x: 20, y: 14))
+      stem.addLine(to: CGPoint(x: 20, y: 15.6))
+      stem.move(to: CGPoint(x: 20, y: 24.4))
+      stem.addLine(to: CGPoint(x: 20, y: 26))
+      stem.lineWidth = 2
+      stem.stroke()
+    }
+    return rendered
+  }
+
+  static func recognized(size: CGFloat) -> UIImage {
+    let format = UIGraphicsImageRendererFormat()
+    format.opaque = false
+    let rendered = UIGraphicsImageRenderer(size: CGSize(width: size, height: size), format: format).image { context in
+      let scale = size / 24
+      context.cgContext.scaleBy(x: scale, y: scale)
+      let seal = UIBezierPath()
+      let center = CGPoint(x: 12, y: 12)
+      let points = 16
+      for index in 0..<(points * 2) {
+        let angle = -CGFloat.pi / 2 + CGFloat(index) * CGFloat.pi / CGFloat(points)
+        let radius: CGFloat = index.isMultiple(of: 2) ? 10.4 : 8.8
+        let point = CGPoint(
+          x: center.x + cos(angle) * radius,
+          y: center.y + sin(angle) * radius
+        )
+        index == 0 ? seal.move(to: point) : seal.addLine(to: point)
+      }
+      seal.close()
+      UIColor.black.setFill()
+      seal.fill()
+
+      UIColor.clear.setFill()
+      context.cgContext.setBlendMode(.clear)
+      let thumb = UIBezierPath(roundedRect: CGRect(x: 8.5, y: 10.2, width: 8.8, height: 6), cornerRadius: 1.8)
+      thumb.append(UIBezierPath(roundedRect: CGRect(x: 7, y: 10.2, width: 1.5, height: 6), cornerRadius: 0.4))
+      thumb.fill()
+      context.cgContext.setBlendMode(.normal)
+    }
+    return rendered.withRenderingMode(.alwaysTemplate)
+  }
+}
+
+private final class HomeContainerInsetLabel: UILabel {
+  var contentInsets = UIEdgeInsets.zero
+
+  override var intrinsicContentSize: CGSize {
+    let size = super.intrinsicContentSize
+    return CGSize(
+      width: size.width + contentInsets.left + contentInsets.right,
+      height: size.height + contentInsets.top + contentInsets.bottom
+    )
+  }
+
+  override func drawText(in rect: CGRect) {
+    super.drawText(in: rect.inset(by: contentInsets))
+  }
+}
+
 private final class HomeContainerItemCell: UITableViewCell {
+  private let highlightView = UIView()
+  private let favoriteButton = UIButton(type: .system)
   private let iconContainer = UIView()
   private let iconImageView = UIImageView()
   private let secondaryIconImageView = UIImageView()
+  private let badgeContainerView = UIView()
   private let badgeImageView = UIImageView()
   private let iconLabel = UILabel()
   private let titleLabel = UILabel()
+  private let leverageLabel = HomeContainerInsetLabel()
+  private let titleAccessoryImageView = UIImageView()
+  private let recognizedImageView = UIImageView()
   private let subtitleLabel = UILabel()
   private let subtitleDetailLabel = UILabel()
   private let valueLabel = UILabel()
   private let detailLabel = UILabel()
   private let chevronLabel = UILabel()
   private let centerButton = UILabel()
+  private let marketTabsScrollView = HomeContainerPagerChildHorizontalScrollView()
+  private let marketTabsStack = UIStackView()
   private let divider = UIView()
   private var rightTrailingConstraint: NSLayoutConstraint?
+  private var iconLeadingConstraint: NSLayoutConstraint?
+  private var marketIconLeadingConstraint: NSLayoutConstraint?
+  private var iconWidthConstraint: NSLayoutConstraint?
+  private var iconHeightConstraint: NSLayoutConstraint?
+  private var titleMaxWidthConstraint: NSLayoutConstraint?
+  private var subtitleMaxWidthConstraint: NSLayoutConstraint?
+  private var centerButtonTopConstraint: NSLayoutConstraint?
+  private var centerButtonBottomConstraint: NSLayoutConstraint?
   private var imageTask: HomeContainerImageRequest?
   private var secondaryImageTask: HomeContainerImageRequest?
   private var badgeImageTask: HomeContainerImageRequest?
-  private var representedImageURL: URL?
+  private var representedImageSignature: String?
   private var representedSecondaryImageURL: URL?
   private var representedBadgeImageURL: URL?
+  private var titleAccessoryImageTask: HomeContainerImageRequest?
+  private var representedTitleAccessoryImageURL: URL?
   private var hasAppliedImage = false
+  private var usesSymbolicIcon = false
+  private var usesCryptoCoinFallback = false
   private var currentRenderer = ""
+  private var isInteractive = false
+  private var normalCenterBackgroundColor = UIColor.clear
+  private var activeBackgroundColor = UIColor.systemGray5
+  private var normalCardBackgroundColor = UIColor.clear
+  private var usesCard = false
+  private var favoriteActionId: String?
+  private var favoriteItemId = ""
+  private var onFavoriteAction: ((String, String) -> Void)?
 
   override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
     super.init(style: style, reuseIdentifier: reuseIdentifier)
+    selectionStyle = .none
+    highlightView.layer.cornerRadius = 12
+    highlightView.isHidden = true
+    highlightView.isUserInteractionEnabled = false
+    highlightView.translatesAutoresizingMaskIntoConstraints = false
+    favoriteButton.translatesAutoresizingMaskIntoConstraints = false
+    favoriteButton.isHidden = true
+    favoriteButton.addTarget(self, action: #selector(handleFavoritePress), for: .touchUpInside)
     iconContainer.layer.cornerRadius = 20
     iconContainer.layer.masksToBounds = true
     iconContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -2485,63 +3176,150 @@ private final class HomeContainerItemCell: UITableViewCell {
     secondaryIconImageView.translatesAutoresizingMaskIntoConstraints = false
     iconContainer.addSubview(secondaryIconImageView)
 
+    badgeContainerView.layer.cornerRadius = 10
+    badgeContainerView.clipsToBounds = true
+    badgeContainerView.translatesAutoresizingMaskIntoConstraints = false
+
     iconLabel.font = .systemFont(ofSize: 15, weight: .bold)
     iconLabel.textAlignment = .center
     iconLabel.translatesAutoresizingMaskIntoConstraints = false
     iconContainer.addSubview(iconLabel)
 
-    titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-    subtitleLabel.font = .systemFont(ofSize: 14)
-    subtitleDetailLabel.font = .systemFont(ofSize: 14)
-    valueLabel.font = .systemFont(ofSize: 16, weight: .medium)
+    titleLabel.font = HomeContainerTypography.medium(16)
+    subtitleLabel.font = HomeContainerTypography.regular(14)
+    subtitleDetailLabel.font = HomeContainerTypography.regular(14)
+    valueLabel.font = HomeContainerTypography.medium(16)
     valueLabel.textAlignment = .right
-    detailLabel.font = .systemFont(ofSize: 14)
+    detailLabel.font = HomeContainerTypography.regular(14)
     detailLabel.textAlignment = .right
+    [titleLabel, subtitleLabel, subtitleDetailLabel, valueLabel, detailLabel].forEach {
+      $0.numberOfLines = 1
+      $0.lineBreakMode = .byTruncatingTail
+    }
+    titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+    subtitleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+    subtitleDetailLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+    valueLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+    detailLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
+    leverageLabel.font = HomeContainerTypography.regular(10)
+    leverageLabel.contentInsets = UIEdgeInsets(top: 0, left: 6, bottom: 0, right: 6)
+    leverageLabel.layer.cornerRadius = 4
+    leverageLabel.clipsToBounds = true
+    leverageLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+    titleAccessoryImageView.contentMode = .scaleAspectFill
+    titleAccessoryImageView.layer.cornerRadius = 7
+    titleAccessoryImageView.clipsToBounds = true
+    titleAccessoryImageView.translatesAutoresizingMaskIntoConstraints = false
+    titleAccessoryImageView.setContentCompressionResistancePriority(.required, for: .horizontal)
+    recognizedImageView.image = HomeContainerMarketArtwork.recognized(size: 16)
+    recognizedImageView.contentMode = .scaleAspectFit
+    recognizedImageView.translatesAutoresizingMaskIntoConstraints = false
+    recognizedImageView.setContentCompressionResistancePriority(.required, for: .horizontal)
+    let titleStack = UIStackView(arrangedSubviews: [
+      titleLabel,
+      leverageLabel,
+      titleAccessoryImageView,
+      recognizedImageView,
+    ])
+    titleStack.axis = .horizontal
+    titleStack.alignment = .center
+    titleStack.spacing = 4
     let subtitleStack = UIStackView(arrangedSubviews: [subtitleLabel, subtitleDetailLabel])
     subtitleStack.axis = .horizontal
-    subtitleStack.spacing = 4
-    let leftStack = UIStackView(arrangedSubviews: [titleLabel, subtitleStack])
+    subtitleStack.spacing = 6
+    let leftStack = UIStackView(arrangedSubviews: [titleStack, subtitleStack])
     leftStack.axis = .vertical
-    leftStack.spacing = 3
+    leftStack.spacing = 0
     leftStack.translatesAutoresizingMaskIntoConstraints = false
     let rightStack = UIStackView(arrangedSubviews: [valueLabel, detailLabel])
     rightStack.axis = .vertical
     rightStack.spacing = 3
     rightStack.alignment = .trailing
     rightStack.translatesAutoresizingMaskIntoConstraints = false
+    leftStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+    rightStack.setContentCompressionResistancePriority(.required, for: .horizontal)
+    rightStack.setContentHuggingPriority(.required, for: .horizontal)
     chevronLabel.text = "›"
     chevronLabel.font = .systemFont(ofSize: 28, weight: .regular)
     chevronLabel.textAlignment = .center
     chevronLabel.translatesAutoresizingMaskIntoConstraints = false
-    centerButton.font = .systemFont(ofSize: 16, weight: .medium)
+    centerButton.font = HomeContainerTypography.medium(16)
     centerButton.textAlignment = .center
     centerButton.layer.cornerRadius = 18
     centerButton.clipsToBounds = true
     centerButton.translatesAutoresizingMaskIntoConstraints = false
+    marketTabsScrollView.showsHorizontalScrollIndicator = false
+    marketTabsScrollView.alwaysBounceHorizontal = false
+    marketTabsScrollView.translatesAutoresizingMaskIntoConstraints = false
+    marketTabsStack.axis = .horizontal
+    marketTabsStack.alignment = .center
+    marketTabsStack.spacing = 4
+    marketTabsStack.translatesAutoresizingMaskIntoConstraints = false
+    marketTabsScrollView.addSubview(marketTabsStack)
     badgeImageView.contentMode = .scaleAspectFill
     badgeImageView.layer.cornerRadius = 8
     badgeImageView.clipsToBounds = true
     badgeImageView.translatesAutoresizingMaskIntoConstraints = false
+    badgeContainerView.addSubview(badgeImageView)
     divider.translatesAutoresizingMaskIntoConstraints = false
 
+    contentView.addSubview(highlightView)
+    contentView.addSubview(favoriteButton)
     contentView.addSubview(iconContainer)
     contentView.addSubview(leftStack)
     contentView.addSubview(rightStack)
     contentView.addSubview(chevronLabel)
-    contentView.addSubview(badgeImageView)
+    contentView.addSubview(badgeContainerView)
     contentView.addSubview(centerButton)
+    contentView.addSubview(marketTabsScrollView)
     contentView.addSubview(divider)
     let rightTrailingConstraint = rightStack.trailingAnchor.constraint(
       equalTo: contentView.trailingAnchor,
       constant: -16
     )
     self.rightTrailingConstraint = rightTrailingConstraint
+    let iconLeadingConstraint = iconContainer.leadingAnchor.constraint(
+      equalTo: contentView.leadingAnchor,
+      constant: 20
+    )
+    let marketIconLeadingConstraint = iconContainer.leadingAnchor.constraint(
+      equalTo: favoriteButton.trailingAnchor,
+      constant: 8
+    )
+    let iconWidthConstraint = iconContainer.widthAnchor.constraint(equalToConstant: 40)
+    let iconHeightConstraint = iconContainer.heightAnchor.constraint(equalToConstant: 40)
+    let titleMaxWidthConstraint = titleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 128)
+    let subtitleMaxWidthConstraint = subtitleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 66)
+    let centerButtonTopConstraint = centerButton.topAnchor.constraint(
+      equalTo: contentView.topAnchor,
+      constant: 6
+    )
+    let centerButtonBottomConstraint = centerButton.bottomAnchor.constraint(
+      equalTo: contentView.bottomAnchor,
+      constant: -6
+    )
+    self.iconLeadingConstraint = iconLeadingConstraint
+    self.marketIconLeadingConstraint = marketIconLeadingConstraint
+    self.iconWidthConstraint = iconWidthConstraint
+    self.iconHeightConstraint = iconHeightConstraint
+    self.titleMaxWidthConstraint = titleMaxWidthConstraint
+    self.subtitleMaxWidthConstraint = subtitleMaxWidthConstraint
+    self.centerButtonTopConstraint = centerButtonTopConstraint
+    self.centerButtonBottomConstraint = centerButtonBottomConstraint
     NSLayoutConstraint.activate([
-      iconContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+      highlightView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
+      highlightView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
+      highlightView.topAnchor.constraint(equalTo: contentView.topAnchor),
+      highlightView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+      favoriteButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+      favoriteButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+      favoriteButton.widthAnchor.constraint(equalToConstant: 28),
+      favoriteButton.heightAnchor.constraint(equalToConstant: 28),
+      iconLeadingConstraint,
       iconContainer.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-      iconContainer.widthAnchor.constraint(equalToConstant: 40),
-      iconContainer.heightAnchor.constraint(equalToConstant: 40),
+      iconWidthConstraint,
+      iconHeightConstraint,
       iconImageView.leadingAnchor.constraint(equalTo: iconContainer.leadingAnchor),
       iconImageView.trailingAnchor.constraint(equalTo: iconContainer.trailingAnchor),
       iconImageView.topAnchor.constraint(equalTo: iconContainer.topAnchor),
@@ -2550,28 +3328,50 @@ private final class HomeContainerItemCell: UITableViewCell {
       secondaryIconImageView.bottomAnchor.constraint(equalTo: iconContainer.bottomAnchor),
       secondaryIconImageView.widthAnchor.constraint(equalToConstant: 26),
       secondaryIconImageView.heightAnchor.constraint(equalToConstant: 26),
+      titleAccessoryImageView.widthAnchor.constraint(equalToConstant: 14),
+      titleAccessoryImageView.heightAnchor.constraint(equalToConstant: 14),
+      recognizedImageView.widthAnchor.constraint(equalToConstant: 16),
+      recognizedImageView.heightAnchor.constraint(equalToConstant: 16),
       iconLabel.leadingAnchor.constraint(equalTo: iconContainer.leadingAnchor),
       iconLabel.trailingAnchor.constraint(equalTo: iconContainer.trailingAnchor),
       iconLabel.topAnchor.constraint(equalTo: iconContainer.topAnchor),
       iconLabel.bottomAnchor.constraint(equalTo: iconContainer.bottomAnchor),
       leftStack.leadingAnchor.constraint(equalTo: iconContainer.trailingAnchor, constant: 12),
       leftStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-      rightStack.leadingAnchor.constraint(greaterThanOrEqualTo: leftStack.trailingAnchor, constant: 8),
+      rightStack.leadingAnchor.constraint(equalTo: leftStack.trailingAnchor, constant: 8),
       rightTrailingConstraint,
       rightStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-      chevronLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+      chevronLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
       chevronLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
       chevronLabel.widthAnchor.constraint(equalToConstant: 12),
-      badgeImageView.trailingAnchor.constraint(equalTo: iconContainer.trailingAnchor, constant: 2),
-      badgeImageView.bottomAnchor.constraint(equalTo: iconContainer.bottomAnchor, constant: 2),
+      badgeContainerView.trailingAnchor.constraint(equalTo: iconContainer.trailingAnchor, constant: 4),
+      badgeContainerView.bottomAnchor.constraint(equalTo: iconContainer.bottomAnchor, constant: 4),
+      badgeContainerView.widthAnchor.constraint(equalToConstant: 20),
+      badgeContainerView.heightAnchor.constraint(equalToConstant: 20),
+      badgeImageView.leadingAnchor.constraint(equalTo: badgeContainerView.leadingAnchor, constant: 2),
+      badgeImageView.topAnchor.constraint(equalTo: badgeContainerView.topAnchor, constant: 2),
       badgeImageView.widthAnchor.constraint(equalToConstant: 16),
       badgeImageView.heightAnchor.constraint(equalToConstant: 16),
-      centerButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-      centerButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-      centerButton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
-      centerButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6),
+      centerButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+      centerButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+      centerButtonTopConstraint,
+      centerButtonBottomConstraint,
+      marketTabsScrollView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+      marketTabsScrollView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+      marketTabsScrollView.topAnchor.constraint(equalTo: contentView.topAnchor),
+      marketTabsScrollView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+      marketTabsStack.leadingAnchor.constraint(
+        equalTo: marketTabsScrollView.contentLayoutGuide.leadingAnchor,
+        constant: 20
+      ),
+      marketTabsStack.trailingAnchor.constraint(
+        equalTo: marketTabsScrollView.contentLayoutGuide.trailingAnchor,
+        constant: -20
+      ),
+      marketTabsStack.centerYAnchor.constraint(equalTo: marketTabsScrollView.frameLayoutGuide.centerYAnchor),
+      marketTabsStack.heightAnchor.constraint(equalToConstant: 32),
       divider.leadingAnchor.constraint(equalTo: leftStack.leadingAnchor),
-      divider.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+      divider.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
       divider.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
       divider.heightAnchor.constraint(equalToConstant: 0.5),
     ])
@@ -2579,6 +3379,11 @@ private final class HomeContainerItemCell: UITableViewCell {
 
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
+  }
+
+  @objc private func handleFavoritePress() {
+    guard let favoriteActionId else { return }
+    onFavoriteAction?(favoriteActionId, favoriteItemId)
   }
 
   override func layoutSubviews() {
@@ -2590,27 +3395,97 @@ private final class HomeContainerItemCell: UITableViewCell {
     }
   }
 
+  override func setHighlighted(_ highlighted: Bool, animated: Bool) {
+    super.setHighlighted(highlighted, animated: animated)
+    guard isInteractive else {
+      highlightView.isHidden = true
+      return
+    }
+    if currentRenderer == "showMore" {
+      centerButton.backgroundColor = highlighted
+        ? activeBackgroundColor
+        : normalCenterBackgroundColor
+    } else if usesCard {
+      contentView.backgroundColor = highlighted
+        ? activeBackgroundColor
+        : normalCardBackgroundColor
+    } else {
+      highlightView.isHidden = !highlighted
+    }
+  }
+
   override func prepareForReuse() {
     super.prepareForReuse()
     imageTask?.cancel()
     secondaryImageTask?.cancel()
     badgeImageTask?.cancel()
+    titleAccessoryImageTask?.cancel()
     imageTask = nil
     secondaryImageTask = nil
     badgeImageTask = nil
-    representedImageURL = nil
+    titleAccessoryImageTask = nil
+    representedImageSignature = nil
     representedSecondaryImageURL = nil
     representedBadgeImageURL = nil
+    representedTitleAccessoryImageURL = nil
     hasAppliedImage = false
+    usesSymbolicIcon = false
+    usesCryptoCoinFallback = false
     iconImageView.image = nil
     secondaryIconImageView.image = nil
     badgeImageView.image = nil
+    titleAccessoryImageView.image = nil
     iconLabel.isHidden = false
+    favoriteButton.isHidden = true
+    badgeContainerView.isHidden = true
+    leverageLabel.isHidden = true
+    titleAccessoryImageView.isHidden = true
+    recognizedImageView.isHidden = true
+    favoriteActionId = nil
+    favoriteItemId = ""
+    onFavoriteAction = nil
   }
 
-  func apply(item: HomeContainerItem, theme: HomeContainerTheme) {
+  func apply(
+    item: HomeContainerItem,
+    theme: HomeContainerTheme,
+    onAction: @escaping (String, String) -> Void
+  ) {
     currentRenderer = item.renderer
+    isInteractive = item.actionId?.isEmpty == false
+    activeBackgroundColor = UIColor(
+      homeContainerColor: theme.activeColor ?? theme.hoverColor ?? theme.cardColor,
+      fallback: .systemGray5
+    )
+    highlightView.backgroundColor = activeBackgroundColor
+    highlightView.isHidden = true
     setNeedsLayout()
+    let showsFavorite = item.renderer == "market" && item.favoriteActionId?.isEmpty == false
+    favoriteButton.isHidden = !showsFavorite
+    favoriteButton.accessibilityLabel = item.favoriteLabel
+    favoriteButton.accessibilityIdentifier = showsFavorite
+      ? "native-home-market-favorite-\(item.id)"
+      : nil
+    favoriteButton.tintColor = UIColor(
+      homeContainerColor: item.favorite == true
+        ? theme.primaryTextColor
+        : theme.subduedIconColor ?? theme.secondaryTextColor,
+      fallback: item.favorite == true ? .label : .secondaryLabel
+    )
+    favoriteButton.setImage(
+      HomeContainerMarketArtwork.star(filled: item.favorite == true, size: 20),
+      for: .normal
+    )
+    favoriteActionId = item.favoriteActionId
+    favoriteItemId = item.id
+    onFavoriteAction = onAction
+    iconLeadingConstraint?.isActive = !showsFavorite
+    marketIconLeadingConstraint?.isActive = showsFavorite
+    let usesMarketGeometry = item.renderer == "market"
+    titleMaxWidthConstraint?.isActive = usesMarketGeometry
+    subtitleMaxWidthConstraint?.isActive = usesMarketGeometry && item.subtitle?.isEmpty == false
+    iconWidthConstraint?.constant = usesMarketGeometry ? 32 : 40
+    iconHeightConstraint?.constant = usesMarketGeometry ? 32 : 40
     contentView.alpha = item.renderer == "empty" || item.renderer == "loading" ? 0 : 1
     backgroundColor = UIColor(homeContainerColor: theme.backgroundColor, fallback: .systemBackground)
     titleLabel.textColor = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
@@ -2631,17 +3506,83 @@ private final class HomeContainerItemCell: UITableViewCell {
     iconContainer.backgroundColor = item.renderer == "upgrade"
       ? UIColor(red: 0.88, green: 1, blue: 0.85, alpha: 1)
       : UIColor(homeContainerColor: theme.cardColor, fallback: .secondarySystemBackground)
-    iconContainer.layer.cornerRadius = item.renderer == "upgrade" ? 10 : 20
+    iconContainer.layer.cornerRadius = item.renderer == "upgrade"
+      ? 10
+      : (usesMarketGeometry ? 16 : 20)
+    badgeContainerView.backgroundColor = UIColor(
+      homeContainerColor: theme.backgroundColor,
+      fallback: .systemBackground
+    )
+    recognizedImageView.tintColor = UIColor(
+      homeContainerColor: theme.positiveColor,
+      fallback: .systemGreen
+    )
+    leverageLabel.textColor = UIColor(
+      homeContainerColor: theme.accentColor,
+      fallback: .systemBlue
+    )
+    leverageLabel.backgroundColor = UIColor(
+      homeContainerColor: theme.cardColor,
+      fallback: .secondarySystemBackground
+    )
     iconLabel.textColor = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
+    switch item.renderer {
+    case "portfolio", "perps", "market", "earn":
+      usesCryptoCoinFallback = true
+    default:
+      usesCryptoCoinFallback = false
+    }
+    if usesCryptoCoinFallback {
+      iconContainer.backgroundColor = Self.cryptoCoinFallbackBackgroundColor(
+        for: UIColor(homeContainerColor: theme.backgroundColor, fallback: .systemBackground)
+      )
+    }
     switch item.leadingIcon {
     case "star": iconLabel.text = "★"
     case "support": iconLabel.text = "◉"
     case "book": iconLabel.text = "▣"
     case "download": iconLabel.text = "↓"
     case "prime": iconLabel.text = "1"
+    case "lowValue": iconLabel.text = "••"
+    case "risk": iconLabel.text = "▲"
     default: iconLabel.text = String(item.title.prefix(1)).uppercased()
     }
-    loadImage(item.imageUrl)
+    if item.leadingIcon == "lowValue" || item.leadingIcon == "risk" {
+      imageTask?.cancel()
+      imageTask = nil
+      representedImageSignature = nil
+      hasAppliedImage = true
+      usesSymbolicIcon = true
+      iconImageView.contentMode = .scaleAspectFit
+      iconImageView.tintColor = UIColor(
+        homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
+        fallback: .secondaryLabel
+      )
+      iconImageView.image = UIImage(
+        systemName: item.leadingIcon == "risk"
+          ? "exclamationmark.triangle.fill"
+          : "circle.grid.2x2.fill"
+      )
+      iconLabel.isHidden = true
+    } else {
+      if usesSymbolicIcon {
+        hasAppliedImage = false
+        representedImageSignature = nil
+        iconImageView.image = nil
+        iconLabel.isHidden = false
+        usesSymbolicIcon = false
+      }
+      iconImageView.contentMode = .scaleAspectFill
+      iconImageView.tintColor = nil
+      loadImage(
+        item.imageUrl,
+        fallbacks: item.imageUrls,
+        fallbackColor: UIColor(
+          homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
+          fallback: .secondaryLabel
+        )
+      )
+    }
     loadAuxiliaryImage(
       item.secondaryImageUrl,
       representedURL: &representedSecondaryImageURL,
@@ -2654,6 +3595,12 @@ private final class HomeContainerItemCell: UITableViewCell {
       task: &badgeImageTask,
       imageView: badgeImageView
     )
+    loadAuxiliaryImage(
+      item.titleAccessoryImageUrl,
+      representedURL: &representedTitleAccessoryImageURL,
+      task: &titleAccessoryImageTask,
+      imageView: titleAccessoryImageView
+    )
     titleLabel.text = item.title
     subtitleLabel.text = item.subtitle
     subtitleDetailLabel.text = item.subtitleDetail
@@ -2664,18 +3611,29 @@ private final class HomeContainerItemCell: UITableViewCell {
     valueLabel.isHidden = item.value?.isEmpty != false
     detailLabel.isHidden = item.detail?.isEmpty != false
     secondaryIconImageView.isHidden = item.secondaryImageUrl?.isEmpty != false
-    badgeImageView.isHidden = item.badgeImageUrl?.isEmpty != false
+    badgeContainerView.isHidden = item.badgeImageUrl?.isEmpty != false
+    badgeImageView.isHidden = badgeContainerView.isHidden
+    leverageLabel.text = item.badge
+    leverageLabel.isHidden = item.badge?.isEmpty != false
+    titleAccessoryImageView.isHidden = item.titleAccessoryImageUrl?.isEmpty != false
+    recognizedImageView.isHidden = item.communityRecognized != true
     chevronLabel.isHidden = item.showChevron != true
-    rightTrailingConstraint?.constant = item.showChevron == true ? -38 : -16
-    centerButton.isHidden = item.renderer != "showMore" && item.renderer != "marketTabs"
-    iconContainer.isHidden = !centerButton.isHidden
-    titleLabel.superview?.isHidden = !centerButton.isHidden
-    valueLabel.superview?.isHidden = !centerButton.isHidden
-    divider.isHidden = item.renderer == "showMore" || item.renderer == "marketTabs" || item.renderer == "upgrade" || item.renderer == "supportAction"
-    let usesCard = item.renderer == "supportAction" || item.renderer == "upgrade"
-    contentView.backgroundColor = usesCard
+    rightTrailingConstraint?.constant = item.showChevron == true ? -42 : -20
+    let isCentered = item.renderer == "addToken" || item.renderer == "showMore"
+    let isMarketTabs = item.renderer == "marketTabs"
+    centerButton.isHidden = !isCentered
+    marketTabsScrollView.isHidden = !isMarketTabs
+    iconContainer.isHidden = isCentered || isMarketTabs
+    titleLabel.superview?.isHidden = isCentered || isMarketTabs
+    valueLabel.superview?.isHidden = isCentered || isMarketTabs
+    divider.isHidden = true
+    centerButtonTopConstraint?.constant = item.renderer == "showMore" ? 12 : 6
+    centerButtonBottomConstraint?.constant = item.renderer == "showMore" ? 0 : -6
+    usesCard = item.renderer == "supportAction" || item.renderer == "upgrade"
+    normalCardBackgroundColor = usesCard
       ? UIColor(homeContainerColor: theme.cardColor, fallback: .secondarySystemBackground)
       : UIColor(homeContainerColor: theme.backgroundColor, fallback: .systemBackground)
+    contentView.backgroundColor = normalCardBackgroundColor
     contentView.layer.cornerRadius = usesCard ? 12 : 0
     contentView.layer.borderWidth = usesCard ? 0.5 : 0
     contentView.layer.borderColor = UIColor(
@@ -2686,8 +3644,19 @@ private final class HomeContainerItemCell: UITableViewCell {
       iconLabel.textColor = .black
     }
 
-    titleLabel.font = .systemFont(ofSize: 16, weight: .medium)
-    valueLabel.font = .systemFont(ofSize: 16, weight: .medium)
+    titleLabel.font = item.renderer == "market"
+      ? HomeContainerTypography.medium(16)
+      : .systemFont(ofSize: 16, weight: .medium)
+    subtitleLabel.font = item.renderer == "market"
+      ? HomeContainerTypography.regular(14)
+      : .systemFont(ofSize: 14)
+    subtitleDetailLabel.font = subtitleLabel.font
+    valueLabel.font = item.renderer == "market"
+      ? HomeContainerTypography.medium(16)
+      : .systemFont(ofSize: 16, weight: .medium)
+    detailLabel.font = item.renderer == "market"
+      ? HomeContainerTypography.regular(14)
+      : .systemFont(ofSize: 14)
     if item.renderer == "history" {
       titleLabel.font = .systemFont(ofSize: 16, weight: .medium)
     }
@@ -2709,16 +3678,87 @@ private final class HomeContainerItemCell: UITableViewCell {
       valueLabel.layer.cornerRadius = 0
     }
     if item.renderer == "showMore" {
-      centerButton.text = item.showChevron == true ? "\(item.title)  ›" : item.title
+      centerButton.attributedText = nil
+      centerButton.font = HomeContainerTypography.medium(16)
+      centerButton.layer.cornerRadius = 18
+      if item.showChevron == true {
+        let text = NSMutableAttributedString(
+          string: "\(item.title)  ",
+          attributes: [.font: HomeContainerTypography.medium(16)]
+        )
+        let attachment = NSTextAttachment()
+        attachment.image = HomeContainerMarketArtwork.chevronRightSmall(size: 20).withTintColor(
+          UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label),
+          renderingMode: .alwaysOriginal
+        )
+        attachment.bounds = CGRect(x: 0, y: -4, width: 20, height: 20)
+        text.append(NSAttributedString(attachment: attachment))
+        centerButton.attributedText = text
+      } else {
+        centerButton.text = item.title
+      }
       centerButton.textColor = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
-      centerButton.backgroundColor = UIColor(homeContainerColor: theme.cardColor, fallback: .secondarySystemBackground)
+      normalCenterBackgroundColor = UIColor(
+        homeContainerColor: theme.cardColor,
+        fallback: .secondarySystemBackground
+      )
+      centerButton.backgroundColor = normalCenterBackgroundColor
     } else if item.renderer == "marketTabs" {
-      centerButton.textAlignment = .left
-      centerButton.text = "  ☆    \(item.title)      \(item.subtitle ?? "")"
-      centerButton.textColor = UIColor(homeContainerColor: theme.secondaryTextColor, fallback: .secondaryLabel)
-      centerButton.backgroundColor = .clear
-    } else {
+      applyMarketSegments(
+        item.segments ?? [],
+        theme: theme,
+        onAction: onAction
+      )
+    } else if item.renderer == "addToken" {
+      centerButton.text = nil
+      centerButton.font = .systemFont(ofSize: 14)
+      centerButton.layer.cornerRadius = 0
       centerButton.textAlignment = .center
+      centerButton.backgroundColor = .clear
+      let instruction = "\(item.title)  "
+      let action = "\(item.buttonTitle ?? "")  →"
+      let text = NSMutableAttributedString(
+        string: instruction,
+        attributes: [
+          .foregroundColor: UIColor(
+            homeContainerColor: theme.secondaryTextColor,
+            fallback: .tertiaryLabel
+          )
+        ]
+      )
+      text.append(NSAttributedString(
+        string: action,
+        attributes: [
+          .foregroundColor: UIColor(
+            homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
+            fallback: .secondaryLabel
+          )
+        ]
+      ))
+      centerButton.attributedText = text
+    } else {
+      centerButton.attributedText = nil
+      centerButton.textAlignment = .center
+      centerButton.backgroundColor = .clear
+    }
+    setHighlighted(false, animated: false)
+  }
+
+  private func applyMarketSegments(
+    _ segments: [HomeContainerSegment],
+    theme: HomeContainerTheme,
+    onAction: @escaping (String, String) -> Void
+  ) {
+    marketTabsStack.arrangedSubviews.forEach {
+      marketTabsStack.removeArrangedSubview($0)
+      $0.removeFromSuperview()
+    }
+    segments.forEach { segment in
+      let button = HomeContainerMarketSegmentButton(segment: segment, theme: theme)
+      button.onPress = {
+        onAction(segment.actionId, segment.id)
+      }
+      marketTabsStack.addArrangedSubview(button)
     }
   }
 
@@ -2742,22 +3782,163 @@ private final class HomeContainerItemCell: UITableViewCell {
     }
   }
 
-  private func loadImage(_ value: String?) {
-    let url = value.flatMap(URL.init(string:)).flatMap {
-      $0.scheme == "https" || $0.scheme == "http" ? $0 : nil
-    }
-    guard !hasAppliedImage || representedImageURL != url else { return }
+  private func loadImage(
+    _ value: String?,
+    fallbacks: [String]?,
+    fallbackColor: UIColor
+  ) {
+    let candidates = ([value].compactMap { $0 } + (fallbacks ?? []))
+      .reduce(into: [URL]()) { result, candidate in
+        guard let url = URL(string: candidate),
+              url.scheme == "https" || url.scheme == "http",
+              !result.contains(url) else { return }
+        result.append(url)
+      }
+    let signature = candidates.map(\.absoluteString).joined(separator: "|")
+    guard !hasAppliedImage || representedImageSignature != signature else { return }
     hasAppliedImage = true
     imageTask?.cancel()
     imageTask = nil
-    representedImageURL = url
-    iconImageView.image = nil
-    iconLabel.isHidden = false
-    guard let url else { return }
-    imageTask = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
-      guard let self, self.representedImageURL == url else { return }
-      self.iconImageView.image = image
-      self.iconLabel.isHidden = image != nil
+    representedImageSignature = signature
+    applyPrimaryImageFallback(color: fallbackColor)
+    loadImageCandidate(candidates, index: 0, signature: signature)
+  }
+
+  private func applyPrimaryImageFallback(color: UIColor) {
+    guard usesCryptoCoinFallback else {
+      iconImageView.image = nil
+      iconLabel.isHidden = false
+      return
     }
+    iconImageView.contentMode = .scaleAspectFit
+    iconImageView.image = Self.cryptoCoinFallbackImage(color: color)
+    iconLabel.isHidden = true
+  }
+
+  private static func cryptoCoinFallbackBackgroundColor(for backgroundColor: UIColor) -> UIColor {
+    var red: CGFloat = 1
+    var green: CGFloat = 1
+    var blue: CGFloat = 1
+    var alpha: CGFloat = 1
+    backgroundColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+    let luminance = red * 0.299 + green * 0.587 + blue * 0.114
+    return luminance < 0.5
+      ? UIColor(red: 49 / 255, green: 49 / 255, blue: 49 / 255, alpha: 1)
+      : UIColor(red: 224 / 255, green: 224 / 255, blue: 224 / 255, alpha: 1)
+  }
+
+  private static func cryptoCoinFallbackImage(color: UIColor) -> UIImage {
+    let size = CGSize(width: 40, height: 40)
+    return UIGraphicsImageRenderer(size: size).image { _ in
+      color.setStroke()
+
+      let outerRing = UIBezierPath(
+        arcCenter: CGPoint(x: 20, y: 20),
+        radius: 9,
+        startAngle: 0,
+        endAngle: .pi * 2,
+        clockwise: true
+      )
+      outerRing.lineWidth = 2
+      outerRing.stroke()
+
+      let coinMark = UIBezierPath(
+        arcCenter: CGPoint(x: 20, y: 20),
+        radius: 3.5,
+        startAngle: .pi * 31 / 180,
+        endAngle: .pi * 329 / 180,
+        clockwise: true
+      )
+      coinMark.lineWidth = 2
+      coinMark.stroke()
+
+      let stem = UIBezierPath()
+      stem.move(to: CGPoint(x: 20, y: 14))
+      stem.addLine(to: CGPoint(x: 20, y: 15.6))
+      stem.move(to: CGPoint(x: 20, y: 24.4))
+      stem.addLine(to: CGPoint(x: 20, y: 26))
+      stem.lineWidth = 2
+      stem.stroke()
+    }
+  }
+
+  private func loadImageCandidate(_ candidates: [URL], index: Int, signature: String) {
+    guard candidates.indices.contains(index) else { return }
+    let url = candidates[index]
+    imageTask = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
+      guard let self, self.representedImageSignature == signature else { return }
+      if let image {
+        self.iconImageView.contentMode = .scaleAspectFill
+        self.iconImageView.image = image
+        self.iconLabel.isHidden = true
+      } else {
+        self.loadImageCandidate(candidates, index: index + 1, signature: signature)
+      }
+    }
+  }
+}
+
+private final class HomeContainerMarketSegmentButton: UIButton {
+  var onPress: (() -> Void)?
+  private let normalBackgroundColor: UIColor
+  private let highlightedBackgroundColor: UIColor
+
+  init(segment: HomeContainerSegment, theme: HomeContainerTheme) {
+    let selected = segment.selected == true
+    normalBackgroundColor = selected
+      ? UIColor(homeContainerColor: theme.activeColor ?? theme.cardColor, fallback: .systemGray5)
+      : .clear
+    highlightedBackgroundColor = UIColor(
+      homeContainerColor: theme.hoverColor ?? theme.activeColor ?? theme.cardColor,
+      fallback: .systemGray5
+    )
+    super.init(frame: .zero)
+    layer.cornerRadius = 16
+    clipsToBounds = true
+    backgroundColor = normalBackgroundColor
+    titleLabel?.font = HomeContainerTypography.medium(14)
+    setTitleColor(
+      UIColor(
+        homeContainerColor: selected ? theme.primaryTextColor : theme.secondaryTextColor,
+        fallback: selected ? .label : .secondaryLabel
+      ),
+      for: .normal
+    )
+    tintColor = UIColor(
+      homeContainerColor: selected
+        ? theme.primaryTextColor
+        : theme.subduedIconColor ?? theme.secondaryTextColor,
+      fallback: selected ? .label : .secondaryLabel
+    )
+    if segment.leadingIcon == "star" {
+      setImage(HomeContainerMarketArtwork.star(filled: false, size: 18), for: .normal)
+    }
+    if segment.iconOnly != true {
+      setTitle(segment.title, for: .normal)
+    }
+    contentEdgeInsets = UIEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
+    heightAnchor.constraint(equalToConstant: 32).isActive = true
+    if segment.iconOnly == true {
+      widthAnchor.constraint(equalToConstant: 38).isActive = true
+    }
+    accessibilityIdentifier = "native-home-market-category-\(segment.id)"
+    accessibilityLabel = segment.title
+    addTarget(self, action: #selector(handlePress), for: .touchUpInside)
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override var isHighlighted: Bool {
+    didSet {
+      backgroundColor = isHighlighted
+        ? highlightedBackgroundColor
+        : normalBackgroundColor
+    }
+  }
+
+  @objc private func handlePress() {
+    onPress?()
   }
 }
