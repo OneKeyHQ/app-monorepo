@@ -6,9 +6,12 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import type { IQueryCheckAddressArgs } from '@onekeyhq/shared/types/address';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
+  shouldEnableSwapIncognitoRecipientValidation,
+  shouldShowSwapIncognitoRecipientInput,
   useSwapIncognitoRecipientInput,
 } from './useSwapIncognitoRecipientInput';
 
@@ -28,6 +31,7 @@ type IHookProps = {
   clearRecipientAddressOnHide?: boolean;
   networkId?: string;
   swapToAnotherAccountSwitchOn: boolean;
+  validationEnabled: boolean;
   visible: boolean;
 };
 
@@ -150,6 +154,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       accountId: 'account-1',
       address: undefined,
       swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
     });
 
     act(() => {
@@ -173,6 +178,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       accountId: 'account-1',
       address: undefined,
       swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
     });
 
     await act(async () => {
@@ -205,6 +211,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       accountId: 'account-1',
       address: undefined,
       swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
     });
 
     act(() => {
@@ -225,11 +232,297 @@ describe('useSwapIncognitoRecipientInput', () => {
       accountId: 'account-1',
       address: undefined,
       swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
     });
 
     expect(result.current.inputText).toBe('');
     expect(mockSettingsState.swapToAnotherAccountSwitchOn).toBe(false);
     expect(mockSwapToAddressState.address).toBeUndefined();
+
+    await flushDebounce();
+    expect(mockQueryAddressWithFallback).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves typed text until the recipient validation context is ready', async () => {
+    mockQueryAddressWithFallback.mockResolvedValueOnce({
+      input: '0xrecipient',
+      resolveAddress: '0xresolved-recipient',
+      validStatus: 'valid',
+    });
+
+    const { result, rerender } = renderUseSwapIncognitoRecipientInput({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: undefined,
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+      validationEnabled: false,
+    });
+
+    act(() => {
+      result.current.onInputChange('0xrecipient');
+    });
+
+    await flushDebounce();
+
+    expect(result.current.enabled).toBe(false);
+    expect(result.current.inputText).toBe('0xrecipient');
+    expect(mockQueryAddressWithFallback).not.toHaveBeenCalled();
+    expect(mockSettingsState.swapToAnotherAccountSwitchOn).toBe(false);
+    expect(mockSwapToAddressState.address).toBeUndefined();
+
+    rerender({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
+    });
+
+    expect(result.current.inputText).toBe('0xrecipient');
+
+    await flushDebounce();
+
+    await waitFor(() => {
+      expect(mockQueryAddressWithFallback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 'account-1',
+          address: '0xrecipient',
+          networkId: 'evm--1',
+        }),
+      );
+      expect(mockSettingsState.swapToAnotherAccountSwitchOn).toBe(true);
+      expect(mockSwapToAddressState.address).toBe('0xresolved-recipient');
+    });
+  });
+
+  it('preserves raw text typed while validation is paused after another network was enabled', async () => {
+    mockQueryAddressWithFallback.mockResolvedValueOnce({
+      input: 'sol-recipient',
+      resolveAddress: 'sol-resolved-recipient',
+      validStatus: 'valid',
+    });
+
+    const { result, rerender } = renderUseSwapIncognitoRecipientInput({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
+    });
+
+    rerender({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+      validationEnabled: false,
+    });
+
+    act(() => {
+      result.current.onInputChange('sol-recipient');
+    });
+
+    rerender({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'sol--101',
+      accountId: 'account-sol',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
+    });
+
+    expect(result.current.inputText).toBe('sol-recipient');
+
+    await flushDebounce();
+
+    await waitFor(() => {
+      expect(mockQueryAddressWithFallback).toHaveBeenCalledTimes(1);
+      expect(mockQueryAddressWithFallback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 'account-sol',
+          address: 'sol-recipient',
+          networkId: 'sol--101',
+        }),
+      );
+      expect(mockSwapToAddressState.address).toBe('sol-resolved-recipient');
+    });
+  });
+
+  it('waits for the resolved target account before validating preserved text', async () => {
+    mockQueryAddressWithFallback.mockResolvedValueOnce({
+      input: '0xrecipient',
+      resolveAddress: '0xresolved-recipient',
+      validStatus: 'valid',
+    });
+
+    const { result, rerender } = renderUseSwapIncognitoRecipientInput({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'evm--10',
+      accountId: 'stale-account',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+      validationEnabled: false,
+    });
+
+    act(() => {
+      result.current.onInputChange('0xrecipient');
+    });
+
+    await flushDebounce();
+
+    expect(result.current.inputText).toBe('0xrecipient');
+    expect(mockQueryAddressWithFallback).not.toHaveBeenCalled();
+
+    rerender({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'evm--10',
+      accountId: 'resolved-account',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
+    });
+
+    await flushDebounce();
+
+    await waitFor(() => {
+      expect(mockQueryAddressWithFallback).toHaveBeenCalledTimes(1);
+      expect(mockQueryAddressWithFallback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 'resolved-account',
+          address: '0xrecipient',
+          networkId: 'evm--10',
+        }),
+      );
+    });
+  });
+
+  it('preserves edited text when switching networks before it is revalidated', async () => {
+    mockQueryAddressWithFallback
+      .mockResolvedValueOnce({
+        input: '0xrecipient',
+        resolveAddress: '0xresolved-recipient',
+        validStatus: 'valid',
+      })
+      .mockResolvedValueOnce({
+        input: 'sol-recipient',
+        resolveAddress: 'sol-resolved-recipient',
+        validStatus: 'valid',
+      });
+
+    const { result, rerender } = renderUseSwapIncognitoRecipientInput({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
+    });
+
+    act(() => {
+      result.current.onInputChange('0xrecipient');
+    });
+
+    await flushDebounce();
+
+    await waitFor(() => {
+      expect(mockSwapToAddressState.address).toBe('0xresolved-recipient');
+    });
+
+    act(() => {
+      result.current.onInputChange('sol-recipient');
+    });
+
+    rerender({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'sol--101',
+      accountId: 'account-sol',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
+    });
+
+    expect(result.current.inputText).toBe('sol-recipient');
+
+    await flushDebounce();
+
+    await waitFor(() => {
+      expect(mockQueryAddressWithFallback).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          accountId: 'account-sol',
+          address: 'sol-recipient',
+          networkId: 'sol--101',
+        }),
+      );
+      expect(mockSwapToAddressState.address).toBe('sol-resolved-recipient');
+    });
+  });
+
+  it('clears input after a validated network changes while validation is paused', async () => {
+    mockQueryAddressWithFallback.mockResolvedValueOnce({
+      input: '0xrecipient',
+      resolveAddress: '0xresolved-recipient',
+      validStatus: 'valid',
+    });
+
+    const { result, rerender } = renderUseSwapIncognitoRecipientInput({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'evm--1',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
+    });
+
+    act(() => {
+      result.current.onInputChange('0xrecipient');
+    });
+
+    await flushDebounce();
+
+    await waitFor(() => {
+      expect(mockSwapToAddressState.address).toBe('0xresolved-recipient');
+    });
+
+    rerender({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'sol--101',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+      validationEnabled: false,
+    });
+
+    expect(result.current.inputText).toBe('0xrecipient');
+    expect(mockSwapToAddressState.address).toBeUndefined();
+
+    rerender({
+      visible: true,
+      clearRecipientAddressOnHide: false,
+      networkId: 'sol--101',
+      accountId: 'account-1',
+      address: undefined,
+      swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
+    });
+
+    expect(result.current.inputText).toBe('');
+    expect(mockSettingsState.swapToAnotherAccountSwitchOn).toBe(false);
 
     await flushDebounce();
     expect(mockQueryAddressWithFallback).toHaveBeenCalledTimes(1);
@@ -255,6 +548,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       accountId: 'account-1',
       address: undefined,
       swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
     });
 
     act(() => {
@@ -275,6 +569,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       accountId: 'account-2',
       address: undefined,
       swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
     });
 
     expect(result.current.inputText).toBe('0xrecipient');
@@ -311,6 +606,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       accountId: 'account-1',
       address: undefined,
       swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
     });
 
     act(() => {
@@ -331,6 +627,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       accountId: 'account-1',
       address: mockSwapToAddressState.address,
       swapToAnotherAccountSwitchOn: true,
+      validationEnabled: true,
     });
 
     await flushAsync();
@@ -354,6 +651,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       accountId: 'account-1',
       address: undefined,
       swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
     });
 
     act(() => {
@@ -374,6 +672,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       accountId: 'account-1',
       address: mockSwapToAddressState.address,
       swapToAnotherAccountSwitchOn: true,
+      validationEnabled: true,
     });
 
     await flushAsync();
@@ -397,6 +696,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       accountId: 'account-1',
       address: '0xresolved-recipient',
       swapToAnotherAccountSwitchOn: true,
+      validationEnabled: true,
     });
 
     await flushDebounce();
@@ -414,6 +714,7 @@ describe('useSwapIncognitoRecipientInput', () => {
       accountId: 'account-1',
       address: undefined,
       swapToAnotherAccountSwitchOn: false,
+      validationEnabled: true,
     });
 
     await waitFor(() => {
@@ -426,10 +727,12 @@ describe('shouldBlockSwapActionForIncognitoRecipientInput', () => {
   it('blocks review while the recipient input is still unresolved', () => {
     expect(
       shouldBlockSwapActionForIncognitoRecipientInput({
-        enabled: true,
         inputText: '0xrecipient',
+        isConnectWalletAction: false,
         loading: false,
         queryResult: {},
+        validationEnabled: true,
+        visible: true,
       }),
     ).toBe(true);
   });
@@ -437,12 +740,131 @@ describe('shouldBlockSwapActionForIncognitoRecipientInput', () => {
   it('allows review after the recipient input is validated', () => {
     expect(
       shouldBlockSwapActionForIncognitoRecipientInput({
-        enabled: true,
         inputText: '0xrecipient',
+        isConnectWalletAction: false,
         loading: false,
         queryResult: {
           validStatus: 'valid',
         },
+        validationEnabled: true,
+        visible: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('blocks review while a visible recipient is waiting for validation readiness', () => {
+    expect(
+      shouldBlockSwapActionForIncognitoRecipientInput({
+        inputText: '0xrecipient',
+        isConnectWalletAction: false,
+        loading: false,
+        queryResult: {
+          validStatus: 'valid',
+        },
+        validationEnabled: false,
+        visible: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('blocks review while a validated recipient is being rechecked', () => {
+    expect(
+      shouldBlockSwapActionForIncognitoRecipientInput({
+        inputText: '0xrecipient',
+        isConnectWalletAction: false,
+        loading: true,
+        queryResult: {
+          validStatus: 'valid',
+        },
+        validationEnabled: true,
+        visible: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not block review after the recipient input is hidden', () => {
+    expect(
+      shouldBlockSwapActionForIncognitoRecipientInput({
+        inputText: '0xrecipient',
+        isConnectWalletAction: false,
+        loading: false,
+        queryResult: {},
+        validationEnabled: false,
+        visible: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not block review for an empty recipient input', () => {
+    expect(
+      shouldBlockSwapActionForIncognitoRecipientInput({
+        inputText: '   ',
+        isConnectWalletAction: false,
+        loading: false,
+        queryResult: {},
+        validationEnabled: false,
+        visible: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps Connect Wallet available while recipient validation is pending', () => {
+    expect(
+      shouldBlockSwapActionForIncognitoRecipientInput({
+        inputText: '0xrecipient',
+        isConnectWalletAction: true,
+        loading: false,
+        queryResult: {},
+        validationEnabled: false,
+        visible: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('shouldEnableSwapIncognitoRecipientValidation', () => {
+  const readyParams = {
+    hasFromToken: true,
+    hasToToken: true,
+    isAddressInfoReady: true,
+    networkId: 'evm--1',
+    providerSupportsRecipient: true,
+    visible: true,
+  };
+
+  it('waits for the target address context to resolve', () => {
+    expect(
+      shouldEnableSwapIncognitoRecipientValidation({
+        ...readyParams,
+        isAddressInfoReady: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('enables validation after every recipient dependency is ready', () => {
+    expect(shouldEnableSwapIncognitoRecipientValidation(readyParams)).toBe(
+      true,
+    );
+  });
+});
+
+describe('shouldShowSwapIncognitoRecipientInput', () => {
+  it('keeps the input visible before token selection while support is available', () => {
+    expect(
+      shouldShowSwapIncognitoRecipientInput({
+        incognitoMode: true,
+        providerSupportsRecipient: true,
+        swapType: ESwapTabSwitchType.SWAP,
+      }),
+    ).toBe(true);
+  });
+
+  it('hides the input when the selected provider cannot use the address', () => {
+    expect(
+      shouldShowSwapIncognitoRecipientInput({
+        incognitoMode: true,
+        providerSupportsRecipient: false,
+        swapType: ESwapTabSwitchType.SWAP,
       }),
     ).toBe(false);
   });
