@@ -472,24 +472,25 @@ export function useSwapActionState() {
     swapTypeSwitchValue,
     toTokenAmount.value,
   ]);
+  // Pair identity must match the quote ingestion path, which accepts quotes
+  // via equalTokenNoCaseSensitive (e.g. checksum vs lowercase EVM contract
+  // addresses); a raw !== compare would flag those quotes as a stale pair.
   const quoteResultPairNoMatch = useMemo(
     () =>
       Boolean(
         quoteCurrentSelect &&
-        (quoteCurrentSelect.fromTokenInfo.networkId !== fromToken?.networkId ||
-          quoteCurrentSelect.toTokenInfo.networkId !== toToken?.networkId ||
-          quoteCurrentSelect.fromTokenInfo.contractAddress !==
-            fromToken?.contractAddress ||
-          quoteCurrentSelect.toTokenInfo.contractAddress !==
-            toToken?.contractAddress),
+        !(
+          equalTokenNoCaseSensitive({
+            token1: quoteCurrentSelect.fromTokenInfo,
+            token2: fromToken,
+          }) &&
+          equalTokenNoCaseSensitive({
+            token1: quoteCurrentSelect.toTokenInfo,
+            token2: toToken,
+          })
+        ),
       ),
-    [
-      fromToken?.contractAddress,
-      fromToken?.networkId,
-      quoteCurrentSelect,
-      toToken?.contractAddress,
-      toToken?.networkId,
-    ],
+    [fromToken, quoteCurrentSelect, toToken],
   );
   const quoteResultNoMatch = useMemo(
     () =>
