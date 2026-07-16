@@ -31,6 +31,20 @@ export type IPro2OnboardingViewState = {
   detailCode?: number;
 };
 
+function normalizeOnboardingStage(stage: unknown): DevOnboardingStage {
+  if (typeof stage === 'number') {
+    return stage as DevOnboardingStage;
+  }
+  if (typeof stage === 'string') {
+    const enumValue =
+      DevOnboardingStage[stage as keyof typeof DevOnboardingStage];
+    if (typeof enumValue === 'number') {
+      return enumValue;
+    }
+  }
+  return DevOnboardingStage.DEV_ONBOARDING_STAGE_UNKNOWN;
+}
+
 function getStepperState(stage: DevOnboardingStage): {
   step: EPro2OnboardingStep;
   setup?: IPro2SetupSubStatus;
@@ -104,10 +118,11 @@ function getPhase(stage: DevOnboardingStage): IPro2OnboardingPhase {
 export function mapPro2OnboardingStatus(
   status: DevOnboardingStatus,
 ): IPro2OnboardingViewState {
+  const stage = normalizeOnboardingStage(status.stage);
   return {
-    phase: getPhase(status.stage),
-    ...getStepperState(status.stage),
-    stage: status.stage,
+    phase: getPhase(stage),
+    ...getStepperState(stage),
+    stage,
     ...(status.status_code === undefined
       ? {}
       : { statusCode: status.status_code }),

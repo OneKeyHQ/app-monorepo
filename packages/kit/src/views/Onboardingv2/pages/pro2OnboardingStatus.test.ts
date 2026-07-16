@@ -5,6 +5,8 @@ import {
   mapPro2OnboardingStatus,
 } from './pro2OnboardingStatus';
 
+import type { DevOnboardingStatus } from '@onekeyfe/hd-transport';
+
 describe('mapPro2OnboardingStatus', () => {
   it.each([
     [DevOnboardingStage.DEV_ONBOARDING_STAGE_UNKNOWN, 'checking'],
@@ -43,6 +45,20 @@ describe('mapPro2OnboardingStatus', () => {
       stage: DevOnboardingStage.DEV_ONBOARDING_STAGE_PERSONALIZATION,
       statusCode: 7,
       detailCode: 9,
+    });
+  });
+
+  it('accepts the protobuf runtime enum name returned by the SDK', () => {
+    const status = {
+      stage: 'DEV_ONBOARDING_STAGE_DONE',
+      status_code: null,
+      detail_code: null,
+    } as unknown as DevOnboardingStatus;
+
+    expect(mapPro2OnboardingStatus(status)).toMatchObject({
+      phase: 'ready',
+      step: EPro2OnboardingStep.Done,
+      stage: DevOnboardingStage.DEV_ONBOARDING_STAGE_DONE,
     });
   });
 
