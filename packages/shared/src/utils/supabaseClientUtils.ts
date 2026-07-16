@@ -63,11 +63,45 @@ const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
     await response.clone().json();
   } catch {
     throw new TypeError(
-      `Supabase non-JSON HTTP ${response.status} error response treated as network failure to preserve the persisted session`,
+      `Supabase non-JSON HTTP ${response.status} error response treated as network failure to preserve the persisted session ${await buildInterceptedResponseFingerprint(
+        response,
+      )}`,
     );
   }
   return response;
 };
+
+/**
+ * Identify WHICH intermediary produced a non-JSON error page. Supabase auth
+ * hosts sit behind Cloudflare, so every response that genuinely traversed
+ * the edge carries a `cf-ray` header:
+ * - no `cf-ray`            -> produced by a local proxy/VPN on the device's
+ *                             network path (never reached Cloudflare);
+ * - `cf-ray` + cf-mitigated/challenge markers -> blocked by Cloudflare
+ *                             itself (WAF / bot management);
+ * - `cf-ray` + server!=cloudflare -> passed the edge, rejected by the origin
+ *                             gateway/reverse proxy in front of GoTrue.
+ * The fingerprint is embedded in the thrown error message so it reaches the
+ * login-failure toast and exported logs without extra plumbing. Headers and
+ * a short body prefix of an error page only — no request data, no tokens.
+ */
+async function buildInterceptedResponseFingerprint(
+  response: Response,
+): Promise<string> {
+  let bodySnippet = '';
+  try {
+    const text = await response.clone().text();
+    bodySnippet = text.slice(0, 160).replace(/\s+/g, ' ').trim();
+  } catch {
+    bodySnippet = '<unreadable>';
+  }
+  const header = (name: string) => response.headers?.get?.(name) || 'none';
+  return `[server=${header('server')} content-type=${header(
+    'content-type',
+  )} cf-ray=${header('cf-ray')} cf-mitigated=${header(
+    'cf-mitigated',
+  )} body="${bodySnippet}"]`;
+}
 
 /**
  * Whether THIS JS runtime is allowed to perform Supabase refresh-token

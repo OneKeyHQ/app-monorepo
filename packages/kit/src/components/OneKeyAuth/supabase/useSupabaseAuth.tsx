@@ -9,6 +9,7 @@ import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/auth
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OAuthPopup } from '../OAuthPopup';
@@ -108,11 +109,15 @@ export function useSupabaseAuth() {
       if (error || !data?.session) {
         const statusPart = error?.status ? ` status=${error.status}` : '';
         const codePart = error?.code ? ` code=${error.code}` : '';
-        throw new OneKeyLocalError(
-          `Failed to persist Keyless OAuth session: ${
-            error?.message || 'no session returned'
-          }${statusPart}${codePart}`,
-        );
+        const reason = `Failed to persist Keyless OAuth session: ${
+          error?.message || 'no session returned'
+        }${statusPart}${codePart}`;
+        // Mirror into exported logs — the thrown error itself only reaches
+        // the UI toast, which is not diagnosable after the fact.
+        defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
+          reason,
+        });
+        throw new OneKeyLocalError(reason);
       }
     },
     [],
