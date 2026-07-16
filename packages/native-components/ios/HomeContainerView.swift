@@ -1,7 +1,9 @@
 import UIKit
 
 private enum HomeContainerMetrics {
-  static let tabHeight: CGFloat = 52
+  static let tabHeight: CGFloat = 60
+  static let compactHeaderHeight: CGFloat = 48
+  static let headerBottomPadding: CGFloat = 40
   static let rowHeight: CGFloat = 68
   static let nftRowHeight: CGFloat = 92
   static let emptyRowHeight: CGFloat = 108
@@ -38,6 +40,46 @@ private extension UIImage {
 }
 
 private enum HomeContainerIcons {
+  static let gasSolid: UIImage = {
+    let size: CGFloat = 20
+    let scale = size / 24
+    let path = UIBezierPath()
+    path.move(to: CGPoint(x: 15 * scale, y: 9 * scale))
+    path.addLine(to: CGPoint(x: 19 * scale, y: 9 * scale))
+    path.addLine(to: CGPoint(x: 19 * scale, y: 16 * scale))
+    path.addLine(to: CGPoint(x: 20 * scale, y: 16 * scale))
+    path.addLine(to: CGPoint(x: 20 * scale, y: 8.414 * scale))
+    path.addLine(to: CGPoint(x: 17.586 * scale, y: 6 * scale))
+    path.addLine(to: CGPoint(x: 19 * scale, y: 4.586 * scale))
+    path.addLine(to: CGPoint(x: 22 * scale, y: 7.586 * scale))
+    path.addLine(to: CGPoint(x: 22 * scale, y: 18 * scale))
+    path.addLine(to: CGPoint(x: 17 * scale, y: 18 * scale))
+    path.addLine(to: CGPoint(x: 17 * scale, y: 11 * scale))
+    path.addLine(to: CGPoint(x: 15 * scale, y: 11 * scale))
+    path.addLine(to: CGPoint(x: 15 * scale, y: 19 * scale))
+    path.addLine(to: CGPoint(x: 16 * scale, y: 19 * scale))
+    path.addLine(to: CGPoint(x: 16 * scale, y: 21 * scale))
+    path.addLine(to: CGPoint(x: 2 * scale, y: 21 * scale))
+    path.addLine(to: CGPoint(x: 2 * scale, y: 19 * scale))
+    path.addLine(to: CGPoint(x: 3 * scale, y: 19 * scale))
+    path.addLine(to: CGPoint(x: 3 * scale, y: 3 * scale))
+    path.addLine(to: CGPoint(x: 15 * scale, y: 3 * scale))
+    path.close()
+    path.move(to: CGPoint(x: 6 * scale, y: 9 * scale))
+    path.addLine(to: CGPoint(x: 6 * scale, y: 11 * scale))
+    path.addLine(to: CGPoint(x: 12 * scale, y: 11 * scale))
+    path.addLine(to: CGPoint(x: 12 * scale, y: 9 * scale))
+    path.close()
+    path.usesEvenOddFillRule = true
+
+    return UIGraphicsImageRenderer(
+      size: CGSize(width: size, height: size)
+    ).image { _ in
+      UIColor.black.setFill()
+      path.fill()
+    }.withRenderingMode(.alwaysTemplate)
+  }()
+
   static let plusSmall: UIImage = {
     let size: CGFloat = 18
     let scale = size / 24
@@ -117,6 +159,8 @@ private struct HomeContainerRow {
           item.imageUrls?.joined(separator: ",") ?? "",
           item.secondaryImageUrl ?? "",
           item.badgeImageUrl ?? "",
+          item.titleAccessoryIcon ?? "",
+          item.badges?.joined(separator: ",") ?? "",
         ].joined(separator: ":")
       }.joined(separator: "|")
     case .marketRecommendations(let items):
@@ -160,7 +204,18 @@ private struct HomeContainerRow {
     case .footerSlot(let key):
       return "footer-slot|\(key)"
     case .item(let item):
-      return [
+      let segmentSignature = item.segments?.map { segment in
+        [
+          segment.id,
+          segment.title,
+          segment.imageUrl ?? "",
+          segment.leadingIcon ?? "",
+          segment.iconOnly == true ? "1" : "0",
+          segment.selected == true ? "1" : "0",
+          segment.actionId,
+        ].joined(separator: ":")
+      }.joined(separator: ",") ?? ""
+      let fields: [String] = [
         item.renderer,
         item.title,
         item.subtitle ?? "",
@@ -172,8 +227,10 @@ private struct HomeContainerRow {
         item.imageUrls?.joined(separator: ",") ?? "",
         item.secondaryImageUrl ?? "",
         item.badge ?? "",
+        item.badges?.joined(separator: ",") ?? "",
         item.badgeImageUrl ?? "",
         item.titleAccessoryImageUrl ?? "",
+        item.titleAccessoryIcon ?? "",
         item.communityRecognized == true ? "1" : "0",
         item.accentColor ?? "",
         item.buttonTitle ?? "",
@@ -183,18 +240,9 @@ private struct HomeContainerRow {
         item.favorite == true ? "1" : "0",
         item.favoriteActionId ?? "",
         item.favoriteLabel ?? "",
-        item.segments?.map { segment in
-          [
-            segment.id,
-            segment.title,
-            segment.imageUrl ?? "",
-            segment.leadingIcon ?? "",
-            segment.iconOnly == true ? "1" : "0",
-            segment.selected == true ? "1" : "0",
-            segment.actionId,
-          ].joined(separator: ":")
-        }.joined(separator: ",") ?? "",
-      ].joined(separator: "|")
+        segmentSignature,
+      ]
+      return fields.joined(separator: "|")
     }
   }
 }
@@ -461,6 +509,10 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private var isCoordinatingNestedScroll = false
   private var verticalScrollOwner = VerticalScrollOwner.header
   private var isVerticalGestureActive = false
+
+  private var maximumHeaderOffset: CGFloat {
+    max(0, headerHeight - HomeContainerMetrics.compactHeaderHeight)
+  }
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -859,10 +911,11 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   private func updateSharedChromeLayout() {
-    let pinnedOffset = max(0, min(outerScrollView.contentOffset.y, headerHeight))
+    let pinnedOffset = max(0, min(outerScrollView.contentOffset.y, maximumHeaderOffset))
+    headerView.setPinnedOffset(pinnedOffset)
     tabsView.frame = CGRect(
       x: 0,
-      y: max(headerHeight, pinnedOffset),
+      y: headerHeight,
       width: bounds.width,
       height: HomeContainerMetrics.tabHeight
     )
@@ -873,7 +926,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     guard !isCoordinatingNestedScroll else { return }
     isCoordinatingNestedScroll = true
     defer { isCoordinatingNestedScroll = false }
-    let maximumOffset = headerHeight
+    let maximumOffset = maximumHeaderOffset
     guard let page = pages.first(where: { $0.tabId == selectedTabId }) else {
       updateSharedChromeLayout()
       return
@@ -909,7 +962,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     guard source.tabId == selectedTabId, !isCoordinatingNestedScroll else { return }
     isCoordinatingNestedScroll = true
     defer { isCoordinatingNestedScroll = false }
-    let maximumOffset = headerHeight
+    let maximumOffset = maximumHeaderOffset
     let pageVelocity = source.panVelocityY
     if source.bodyContentOffset < 0 {
       source.setBodyContentOffset(0)
@@ -941,7 +994,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private func beginVerticalGesture(source: HomeContainerPageView) {
     guard source.tabId == selectedTabId, !isVerticalGestureActive else { return }
     isVerticalGestureActive = true
-    let maximumOffset = headerHeight
+    let maximumOffset = maximumHeaderOffset
     let outerVelocity = outerScrollView.panGestureRecognizer.velocity(in: outerScrollView).y
     let bodyVelocity = source.panVelocityY
     let velocityY = abs(bodyVelocity) > abs(outerVelocity) ? bodyVelocity : outerVelocity
@@ -965,7 +1018,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     isVerticalGestureActive = false
     if source.bodyContentOffset > 0.5 {
       verticalScrollOwner = .body
-    } else if outerScrollView.contentOffset.y < headerHeight - 0.5 {
+    } else if outerScrollView.contentOffset.y < maximumHeaderOffset - 0.5 {
       verticalScrollOwner = .header
     }
     refreshControl.isEnabled = refreshEnabled && verticalScrollOwner == .header
@@ -1265,7 +1318,8 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       case "defi": return 64
       case "marketTabs": return 48
       case "showMore": return 48
-      case "addToken", "asset", "earn", "market": return 56
+      case "asset": return 60
+      case "addToken", "earn", "market": return 56
       case "supportAction": return 76
       case "upgrade": return 96
       case "empty", "loading": return item.displayHeight ?? HomeContainerMetrics.emptyRowHeight
@@ -1453,6 +1507,7 @@ private final class HomeContainerHeaderView: UIView {
   var onAction: ((String, String) -> Void)?
   var onSlotLayoutChange: (() -> Void)?
   private let contentStack = UIStackView()
+  private let compactBackdropView = UIView()
   private let accountButton = UIButton(type: .system)
   private let copyButton = UIButton(type: .system)
   private let networkSelectorControl = HomeContainerTapControl()
@@ -1482,6 +1537,7 @@ private final class HomeContainerHeaderView: UIView {
   private var representedNetworkGroupImageURLs: [URL] = []
   private var header: HomeContainerHeader?
   private(set) var preferredHeight: CGFloat = 216
+  private var pinnedOffset: CGFloat = 0
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -1490,8 +1546,8 @@ private final class HomeContainerHeaderView: UIView {
     contentStack.translatesAutoresizingMaskIntoConstraints = false
     addSubview(contentStack)
     NSLayoutConstraint.activate([
-      contentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-      contentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+      contentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
+      contentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
       contentStack.topAnchor.constraint(equalTo: topAnchor, constant: 16),
     ])
 
@@ -1596,10 +1652,13 @@ private final class HomeContainerHeaderView: UIView {
     balanceActionsStack.heightAnchor.constraint(equalToConstant: 28).isActive = true
     contentStack.addArrangedSubview(balanceActionsStack)
 
-    configureHorizontalStrip(scrollView: actionsScroll, stack: actionsStack, height: 72)
-    configureHorizontalStrip(scrollView: bannersScroll, stack: bannersStack, height: 84)
+    configureHorizontalStrip(scrollView: actionsScroll, stack: actionsStack, height: 62)
+    configureHorizontalStrip(scrollView: bannersScroll, stack: bannersStack, height: 88)
     contentStack.addArrangedSubview(actionsScroll)
     contentStack.addArrangedSubview(bannersScroll)
+    contentStack.setCustomSpacing(26, after: balanceButton)
+    contentStack.setCustomSpacing(21, after: actionsScroll)
+    addSubview(compactBackdropView)
     addSubview(accountSlotHost)
     addSubview(balanceSlotHost)
     addSubview(actionRowSlotHost)
@@ -1612,6 +1671,10 @@ private final class HomeContainerHeaderView: UIView {
   func apply(header: HomeContainerHeader, theme: HomeContainerTheme) {
     self.header = header
     backgroundColor = .clear
+    compactBackdropView.backgroundColor = UIColor(
+      homeContainerColor: theme.backgroundColor,
+      fallback: .systemBackground
+    )
     let primaryColor = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
     let secondaryColor = UIColor(homeContainerColor: theme.secondaryTextColor, fallback: .secondaryLabel)
     accountButton.setTitle("\(header.accountName) ⌄", for: .normal)
@@ -1661,7 +1724,8 @@ private final class HomeContainerHeaderView: UIView {
     actionsScroll.isHidden = header.actions.isEmpty
     bannersScroll.isHidden = header.banners.isEmpty
     let balanceActionsHeight: CGFloat = (header.balanceActions ?? []).isEmpty ? 0 : 38
-    preferredHeight = (header.banners.isEmpty ? 216 : 310) + balanceActionsHeight
+    preferredHeight = (header.banners.isEmpty ? 216 : 310) +
+      balanceActionsHeight + HomeContainerMetrics.headerBottomPadding
   }
 
   deinit {
@@ -1672,9 +1736,23 @@ private final class HomeContainerHeaderView: UIView {
 
   override func layoutSubviews() {
     super.layoutSubviews()
+    updatePinnedAccountRow()
     layoutSlotHost(accountSlotHost, target: accountRow)
     layoutSlotHost(balanceSlotHost, target: balanceButton)
     layoutSlotHost(actionRowSlotHost, target: actionsScroll)
+    bringSubviewToFront(compactBackdropView)
+    bringSubviewToFront(accountSlotHost)
+  }
+
+  func setPinnedOffset(_ offset: CGFloat) {
+    let nextOffset = max(0, offset)
+    guard abs(nextOffset - pinnedOffset) > 0.5 else { return }
+    pinnedOffset = nextOffset
+    updatePinnedAccountRow()
+    layoutSlotHost(accountSlotHost, target: accountRow)
+    bringSubviewToFront(compactBackdropView)
+    bringSubviewToFront(accountSlotHost)
+    onSlotLayoutChange?()
   }
 
   func slotHostView(forKey key: String) -> UIView? {
@@ -1719,6 +1797,15 @@ private final class HomeContainerHeaderView: UIView {
     host.isHidden = false
     host.frame = target.convert(target.bounds, to: self)
     bringSubviewToFront(host)
+  }
+
+  private func updatePinnedAccountRow() {
+    accountRow.transform = .identity
+    let naturalFrame = accountRow.convert(accountRow.bounds, to: self)
+    let translationY = max(0, pinnedOffset - naturalFrame.minY)
+    accountRow.transform = CGAffineTransform(translationX: 0, y: translationY)
+    compactBackdropView.frame = accountRow.convert(accountRow.bounds, to: self)
+    compactBackdropView.isHidden = accountRow.isHidden
   }
 
   private func loadAccountImage(_ value: String?) {
@@ -1810,7 +1897,7 @@ private final class HomeContainerHeaderView: UIView {
     scrollView.isDirectionalLockEnabled = true
     scrollView.heightAnchor.constraint(equalToConstant: height).isActive = true
     stack.axis = .horizontal
-    stack.spacing = 10
+    stack.spacing = scrollView === bannersScroll ? 12 : 10
     stack.translatesAutoresizingMaskIntoConstraints = false
     scrollView.addSubview(stack)
     NSLayoutConstraint.activate([
@@ -2005,7 +2092,7 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     itemId = banner.id
     super.init(frame: .zero)
     layer.cornerRadius = 16
-    widthAnchor.constraint(equalToConstant: 246).isActive = true
+    widthAnchor.constraint(equalToConstant: 280).isActive = true
     imageView.contentMode = .scaleAspectFit
     imageView.layer.cornerRadius = 10
     imageView.clipsToBounds = true
@@ -2036,11 +2123,11 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     accessibilityIdentifier = "native-home-banner-item"
     accessibilityTraits = .button
     NSLayoutConstraint.activate([
-      imageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+      imageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
       imageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-      imageView.widthAnchor.constraint(equalToConstant: 50),
-      imageView.heightAnchor.constraint(equalToConstant: 50),
-      labels.leadingAnchor.constraint(equalTo: imageView.trailingAnchor, constant: 10),
+      imageView.widthAnchor.constraint(equalToConstant: 56),
+      imageView.heightAnchor.constraint(equalToConstant: 56),
+      labels.leadingAnchor.constraint(equalTo: imageView.trailingAnchor, constant: 12),
       labels.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
       labels.centerYAnchor.constraint(equalTo: centerYAnchor),
       dismissButton.topAnchor.constraint(equalTo: topAnchor, constant: 3),
@@ -2147,7 +2234,8 @@ private final class HomeContainerTabsView: UIView {
     scrollView.alwaysBounceHorizontal = true
     scrollView.translatesAutoresizingMaskIntoConstraints = false
     stack.axis = .horizontal
-    stack.spacing = 24
+    stack.alignment = .center
+    stack.spacing = 20
     stack.translatesAutoresizingMaskIntoConstraints = false
     toolbarButton.titleLabel?.font = .systemFont(ofSize: 22, weight: .medium)
     toolbarButton.setTitle("≡", for: .normal)
@@ -2166,13 +2254,13 @@ private final class HomeContainerTabsView: UIView {
       scrollView.trailingAnchor.constraint(equalTo: toolbarButton.leadingAnchor),
       scrollView.topAnchor.constraint(equalTo: topAnchor),
       scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
-      stack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
-      stack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
+      stack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 20),
+      stack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -20),
       stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
       stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
       stack.heightAnchor.constraint(equalTo: scrollView.frameLayoutGuide.heightAnchor),
       toolbarButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-      toolbarButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+      toolbarButton.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -8),
       toolbarButton.widthAnchor.constraint(equalToConstant: 36),
       toolbarButton.heightAnchor.constraint(equalToConstant: 36),
     ])
@@ -2208,7 +2296,7 @@ private final class HomeContainerTabsView: UIView {
     for tab in tabs {
       let button = UIButton(type: .system)
       button.setTitle(tab.title, for: .normal)
-      button.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
+      button.titleLabel?.font = HomeContainerTypography.medium(18)
       button.titleLabel?.numberOfLines = 1
       button.titleLabel?.adjustsFontSizeToFitWidth = true
       button.titleLabel?.minimumScaleFactor = 0.85
@@ -2216,6 +2304,8 @@ private final class HomeContainerTabsView: UIView {
       button.addAction(UIAction { [weak self] _ in self?.onSelect?(tab.id) }, for: .touchUpInside)
       button.alpha = 1
       button.isUserInteractionEnabled = true
+      button.transform = CGAffineTransform(translationX: 0, y: -8)
+      button.heightAnchor.constraint(equalToConstant: 36).isActive = true
       buttons[tab.id] = button
       stack.addArrangedSubview(button)
     }
@@ -2264,10 +2354,14 @@ private final class HomeContainerTabsView: UIView {
   private func updateButtonColors() {
     guard let theme else { return }
     for (tabId, button) in buttons {
-      let color = tabId == selectedTabId
+      let isSelected = tabId == selectedTabId
+      let color = isSelected
         ? UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
         : UIColor(homeContainerColor: theme.secondaryTextColor, fallback: .secondaryLabel)
       button.setTitleColor(color, for: .normal)
+      button.titleLabel?.font = isSelected
+        ? HomeContainerTypography.semibold(18)
+        : HomeContainerTypography.medium(18)
     }
   }
 
@@ -2928,6 +3022,7 @@ private final class HomeContainerNFTCardControl: UIControl {
   private var networkImageTask: HomeContainerImageRequest?
   private var representedImageURL: URL?
   private var representedNetworkImageURL: URL?
+  private var imagePlaceholderColor = UIColor.tertiaryLabel
   private var itemId = ""
   private var actionId = ""
   private var onAction: ((String, String) -> Void)?
@@ -3004,6 +3099,10 @@ private final class HomeContainerNFTCardControl: UIControl {
       homeContainerColor: theme.cardColor,
       fallback: .secondarySystemBackground
     )
+    imagePlaceholderColor = UIColor(
+      homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
+      fallback: .tertiaryLabel
+    )
     collectionLabel.text = item.subtitle?.isEmpty == false ? item.subtitle : "-"
     collectionLabel.textColor = UIColor(
       homeContainerColor: theme.secondaryTextColor,
@@ -3014,6 +3113,9 @@ private final class HomeContainerNFTCardControl: UIControl {
     amountLabel.text = item.value
     amountLabel.isHidden = item.value?.isEmpty != false
     accessibilityLabel = [collectionLabel.text, titleLabel.text].compactMap { $0 }.joined(separator: ", ")
+    if imageView.image == nil {
+      applyImagePlaceholder()
+    }
     loadImage(item.imageUrl, target: imageView, isNetwork: false)
     loadImage(item.badgeImageUrl, target: networkImageView, isNetwork: true)
     setNeedsLayout()
@@ -3049,7 +3151,7 @@ private final class HomeContainerNFTCardControl: UIControl {
       guard representedImageURL != url else { return }
       imageTask?.cancel()
       representedImageURL = url
-      imageView.image = nil
+      applyImagePlaceholder()
     }
     guard let url else { return }
     let task = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
@@ -3060,7 +3162,12 @@ private final class HomeContainerNFTCardControl: UIControl {
         self.networkImageView.isHidden = image == nil
       } else {
         guard self.representedImageURL == url else { return }
-        self.imageView.image = image
+        if let image {
+          self.imageView.contentMode = .scaleAspectFill
+          self.imageView.image = image
+        } else {
+          self.applyImagePlaceholder()
+        }
       }
     }
     if isNetwork {
@@ -3068,6 +3175,12 @@ private final class HomeContainerNFTCardControl: UIControl {
     } else {
       imageTask = task
     }
+  }
+
+  private func applyImagePlaceholder() {
+    imageView.contentMode = .center
+    imageView.tintColor = imagePlaceholderColor
+    imageView.image = UIImage(systemName: "photo")
   }
 }
 
@@ -3437,6 +3550,7 @@ private final class HomeContainerItemCell: UITableViewCell {
   private let subtitleDetailLabel = UILabel()
   private let valueLabel = UILabel()
   private let detailLabel = UILabel()
+  private let inlineBadgesStack = UIStackView()
   private let chevronLabel = UILabel()
   private let centerButton = UILabel()
   private let marketTabsScrollView = HomeContainerPagerChildHorizontalScrollView()
@@ -3555,7 +3669,12 @@ private final class HomeContainerItemCell: UITableViewCell {
     leftStack.axis = .vertical
     leftStack.spacing = 0
     leftStack.translatesAutoresizingMaskIntoConstraints = false
-    let rightStack = UIStackView(arrangedSubviews: [valueLabel, detailLabel])
+    inlineBadgesStack.axis = .horizontal
+    inlineBadgesStack.alignment = .center
+    inlineBadgesStack.spacing = 4
+    let rightStack = UIStackView(
+      arrangedSubviews: [valueLabel, detailLabel, inlineBadgesStack]
+    )
     rightStack.axis = .vertical
     rightStack.spacing = 3
     rightStack.alignment = .trailing
@@ -3758,6 +3877,10 @@ private final class HomeContainerItemCell: UITableViewCell {
     secondaryIconImageView.image = nil
     badgeImageView.image = nil
     titleAccessoryImageView.image = nil
+    inlineBadgesStack.arrangedSubviews.forEach { view in
+      inlineBadgesStack.removeArrangedSubview(view)
+      view.removeFromSuperview()
+    }
     iconLabel.isHidden = false
     favoriteButton.isHidden = true
     badgeContainerView.isHidden = true
@@ -3946,6 +4069,21 @@ private final class HomeContainerItemCell: UITableViewCell {
       task: &titleAccessoryImageTask,
       imageView: titleAccessoryImageView
     )
+    if item.titleAccessoryIcon == "gas" {
+      titleAccessoryImageTask?.cancel()
+      titleAccessoryImageTask = nil
+      representedTitleAccessoryImageURL = nil
+      titleAccessoryImageView.contentMode = .scaleAspectFit
+      titleAccessoryImageView.image = HomeContainerIcons.gasSolid
+      titleAccessoryImageView.tintColor = UIColor(
+        homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
+        fallback: .secondaryLabel
+      )
+    } else {
+      titleAccessoryImageView.contentMode = .scaleAspectFill
+      titleAccessoryImageView.tintColor = nil
+    }
+    updateInlineBadges(item.badges ?? [], theme: theme)
     titleLabel.text = item.title
     subtitleLabel.text = item.subtitle
     subtitleDetailLabel.text = item.subtitleDetail
@@ -3960,7 +4098,8 @@ private final class HomeContainerItemCell: UITableViewCell {
     badgeImageView.isHidden = badgeContainerView.isHidden
     leverageLabel.text = item.badge
     leverageLabel.isHidden = item.badge?.isEmpty != false
-    titleAccessoryImageView.isHidden = item.titleAccessoryImageUrl?.isEmpty != false
+    titleAccessoryImageView.isHidden =
+      item.titleAccessoryImageUrl?.isEmpty != false && item.titleAccessoryIcon == nil
     recognizedImageView.isHidden = item.communityRecognized != true
     chevronLabel.isHidden = item.showChevron != true
     rightTrailingConstraint?.constant = item.showChevron == true ? -42 : -20
@@ -3971,7 +4110,7 @@ private final class HomeContainerItemCell: UITableViewCell {
     iconContainer.isHidden = isCentered || isMarketTabs
     titleLabel.superview?.isHidden = isCentered || isMarketTabs
     valueLabel.superview?.isHidden = isCentered || isMarketTabs
-    divider.isHidden = true
+    divider.isHidden = item.renderer != "defi"
     centerButtonTopConstraint?.constant = item.renderer == "showMore" ? 12 : 6
     centerButtonBottomConstraint?.constant = item.renderer == "showMore" ? 0 : -6
     usesCard = item.renderer == "supportAction" || item.renderer == "upgrade"
@@ -4105,6 +4244,34 @@ private final class HomeContainerItemCell: UITableViewCell {
       }
       marketTabsStack.addArrangedSubview(button)
     }
+  }
+
+  private func updateInlineBadges(
+    _ badges: [String],
+    theme: HomeContainerTheme
+  ) {
+    inlineBadgesStack.arrangedSubviews.forEach { view in
+      inlineBadgesStack.removeArrangedSubview(view)
+      view.removeFromSuperview()
+    }
+    let color = UIColor(
+      homeContainerColor: theme.positiveColor,
+      fallback: .systemGreen
+    )
+    badges.prefix(2).forEach { value in
+      let label = HomeContainerInsetLabel()
+      label.text = value
+      label.font = .systemFont(ofSize: 10, weight: .medium)
+      label.textColor = color
+      label.backgroundColor = color.withAlphaComponent(0.12)
+      label.contentInsets = UIEdgeInsets(top: 2, left: 5, bottom: 2, right: 5)
+      label.layer.cornerRadius = 5
+      label.clipsToBounds = true
+      label.numberOfLines = 1
+      label.setContentCompressionResistancePriority(.required, for: .horizontal)
+      inlineBadgesStack.addArrangedSubview(label)
+    }
+    inlineBadgesStack.isHidden = badges.isEmpty
   }
 
   private func loadAuxiliaryImage(

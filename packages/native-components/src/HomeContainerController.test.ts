@@ -106,6 +106,70 @@ describe('HomeContainerController', () => {
     );
   });
 
+  it('preserves the selected market category in an atomic tab patch', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    const controller = new HomeContainerController({
+      initialSnapshot: buildSnapshot(),
+      schedule: (flush) => scheduled.push(flush),
+    });
+    controller.attach(target);
+    target.setSnapshot.mockClear();
+
+    controller.updateTabSections('portfolio', [
+      {
+        id: 'market',
+        title: 'Market',
+        items: [
+          {
+            id: 'market-tabs',
+            renderer: 'marketTabs',
+            title: 'Market',
+            segments: [
+              {
+                id: 'watchlist',
+                title: 'Favorites',
+                leadingIcon: 'star',
+                iconOnly: true,
+                selected: false,
+                actionId: 'home.widget.market.category:watchlist',
+              },
+              {
+                id: 'trending',
+                title: 'Trending',
+                selected: true,
+                actionId: 'home.widget.market.category:trending',
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    scheduled[0]();
+    expect(target.applyPatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tabs: [
+          expect.objectContaining({
+            tabId: 'portfolio',
+            sections: [
+              expect.objectContaining({
+                items: [
+                  expect.objectContaining({
+                    segments: [
+                      expect.objectContaining({ selected: false }),
+                      expect.objectContaining({ selected: true }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+  });
+
   it('folds tab and header changes into one incremental patch', () => {
     const scheduled: (() => void)[] = [];
     const target = buildTarget();

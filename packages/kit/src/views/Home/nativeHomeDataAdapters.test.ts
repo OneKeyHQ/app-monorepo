@@ -20,6 +20,7 @@ const stateLabels = { empty: 'Empty', loading: 'Loading' };
 const formatters = {
   formatBalance: (value: string) => value,
   formatFiat: (value: string | number | undefined) => `$${value ?? '0'}`,
+  formatPrice: (value: string | number | undefined) => `price:${value ?? '0'}`,
 };
 
 describe('nativeHomeDataAdapters', () => {
@@ -53,6 +54,8 @@ describe('nativeHomeDataAdapters', () => {
     expect(sections[0].items[0]).toMatchObject({
       id: token.$key,
       title: 'ETH',
+      subtitle: 'price:3000',
+      titleAccessoryIcon: 'gas',
       value: '1',
       detail: '$3000',
       actionId: NATIVE_HOME_ACTION_IDS.openAsset,
@@ -103,9 +106,126 @@ describe('nativeHomeDataAdapters', () => {
       sectionTitle: 'Assets',
       stateLabels,
       formatters,
-      limit: tokens.length,
+      expanded: true,
     });
     expect(expandedSections[0].items).toHaveLength(7);
+  });
+
+  it('matches the legacy Home fiat-value order before applying the row limit', () => {
+    const tokens = [
+      { $key: 'bnb', symbol: 'BNB' },
+      { $key: 'usdt', symbol: 'USDT' },
+      { $key: 'usdc', symbol: 'USDC' },
+    ].map(
+      ({ $key, symbol }) =>
+        ({
+          $key,
+          address: $key,
+          decimals: 18,
+          isNative: symbol === 'BNB',
+          name: symbol,
+          symbol,
+        }) satisfies IAccountToken,
+    );
+    const tokenMap = {
+      bnb: {
+        balance: '1',
+        balanceParsed: '1',
+        fiatValue: '0.30',
+        price: 0.3,
+      },
+      usdt: {
+        balance: '1',
+        balanceParsed: '1',
+        fiatValue: '0.56',
+        price: 0.56,
+      },
+      usdc: {
+        balance: '1',
+        balanceParsed: '1',
+        fiatValue: '0.52',
+        price: 0.52,
+      },
+    } satisfies Record<string, ITokenFiat>;
+
+    const sections = buildNativePortfolioSections({
+      tokens,
+      tokenMap,
+      initialized: true,
+      stateLabels,
+      formatters,
+    });
+
+    expect(sections[0].items.map((item) => item.id)).toEqual([
+      'usdt',
+      'usdc',
+      'bnb',
+    ]);
+  });
+
+  it('matches the legacy token footer order and label semantics', () => {
+    const tokens = Array.from({ length: 7 }, (_, index) => ({
+      $key: `evm--1:token-${index}`,
+      address: `${index}`,
+      decimals: 18,
+      isNative: index === 0,
+      name: `Token ${index}`,
+      symbol: `T${index}`,
+    })) satisfies IAccountToken[];
+    const common = {
+      tokens,
+      tokenMap: {},
+      initialized: true,
+      stateLabels,
+      formatters,
+      footer: {
+        addTokenEnabled: true,
+        labels: {
+          addToken: 'Add token',
+          addTokenInstruction: "Can't find your token?",
+          lowValueAssets: 'Low-value assets',
+          riskAssets: '2 Collapsed risk assets',
+          showLess: 'Show less',
+          showMore: 'Show more',
+        },
+        lowValueAssetsCount: 3,
+        lowValueAssetsValue: '< $0.01',
+        riskAssetsCount: 2,
+      },
+    };
+
+    const collapsed = buildNativePortfolioSections(common);
+    expect(collapsed).toHaveLength(2);
+    expect(collapsed[1].items[0]).toMatchObject({
+      renderer: 'showMore',
+      title: 'Show more',
+    });
+
+    const expanded = buildNativePortfolioSections({
+      ...common,
+      expanded: true,
+    });
+    expect(expanded[1].items).toMatchObject([
+      {
+        title: '3 Low-value assets',
+        value: '< $0.01',
+        actionId: NATIVE_HOME_ACTION_IDS.openSmallBalanceAssets,
+      },
+      {
+        title: '2 Collapsed risk assets',
+        actionId: NATIVE_HOME_ACTION_IDS.openRiskAssets,
+      },
+      {
+        renderer: 'addToken',
+        title: "Can't find your token?",
+        buttonTitle: 'Add token',
+        actionId: NATIVE_HOME_ACTION_IDS.manageTokens,
+      },
+    ]);
+    expect(expanded[2].items[0]).toMatchObject({
+      renderer: 'showMore',
+      title: 'Show less',
+    });
   });
 
   it('expands and collapses DeFi rows without changing their action identity', () => {
@@ -217,8 +337,12 @@ describe('nativeHomeDataAdapters', () => {
       'perps-holdings',
       'perps-positions',
     ]);
+    expect(sections[0].items[0]).toMatchObject({
+      imageUrl: 'https://uni.onekey-asset.com/static/hyperliquid/USDC.png',
+    });
     expect(sections[1].items[0]).toMatchObject({
       badge: 'Long 3x',
+      imageUrl: 'https://uni.onekey-asset.com/static/hyperliquid/BTC.png',
       actionId: NATIVE_HOME_ACTION_IDS.openPerpsPosition,
     });
   });
@@ -273,6 +397,7 @@ describe('nativeHomeDataAdapters', () => {
         status: { [EDecodedTxStatus.Confirmed]: 'Confirmed' },
         swap: 'Swap',
         unknown: 'Unknown',
+        revokeApprove: (symbol) => `Revoke ${symbol}`,
       },
       formatBalance: (value) => value,
       formatSectionDate: () => 'Today',
@@ -288,9 +413,9 @@ describe('nativeHomeDataAdapters', () => {
       id: history.id,
       title: 'Send',
       value: '-0.5 ETH',
-      badge: 'Confirmed',
       actionId: NATIVE_HOME_ACTION_IDS.openHistory,
     });
+    expect(sections[0].items[0].badge).toBeUndefined();
   });
 
   it('uses a stable NFT identity across account refreshes', () => {

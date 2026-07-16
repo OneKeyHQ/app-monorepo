@@ -14,6 +14,7 @@ import {
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IDeFiProtocol,
+  IDeFiSupportedProtocolAction,
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
@@ -30,6 +31,7 @@ export interface INativeHomeDeFiData {
   isRefreshing: boolean;
   protocolMap: Record<string, IProtocolSummary>;
   protocols: IDeFiProtocol[];
+  supportedActions: IDeFiSupportedProtocolAction[];
   refresh: () => Promise<void>;
 }
 
@@ -55,6 +57,9 @@ export function useNativeHomeDeFiData({
   const [protocolMap, setProtocolMap] = useState<
     Record<string, IProtocolSummary>
   >({});
+  const [supportedActions, setSupportedActions] = useState<
+    IDeFiSupportedProtocolAction[]
+  >([]);
   const [initialized, setInitialized] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorCode, setErrorCode] = useState<string>();
@@ -242,6 +247,31 @@ export function useNativeHomeDeFiData({
   }, [allNetworkResult]);
 
   useEffect(() => {
+    let cancelled = false;
+    if (!enabled) {
+      setSupportedActions([]);
+      return () => {
+        cancelled = true;
+      };
+    }
+    void backgroundApiProxy.serviceDeFi
+      .fetchSupportedDeFiProtocols()
+      .then((result) => {
+        if (!cancelled) {
+          setSupportedActions(result);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSupportedActions([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+
+  useEffect(() => {
     requestIdRef.current += 1;
     allNetworkGenerationRef.current = 0;
     setProtocols([]);
@@ -310,8 +340,17 @@ export function useNativeHomeDeFiData({
       isRefreshing,
       protocolMap,
       protocols,
+      supportedActions,
       refresh,
     }),
-    [errorCode, initialized, isRefreshing, protocolMap, protocols, refresh],
+    [
+      errorCode,
+      initialized,
+      isRefreshing,
+      protocolMap,
+      protocols,
+      refresh,
+      supportedActions,
+    ],
   );
 }
