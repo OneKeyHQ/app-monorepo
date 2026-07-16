@@ -1300,6 +1300,18 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="ShieldOutline"
+                        name="disableIpTableFailover"
+                        title="禁用 IP 快速故障切换"
+                        subtitle={
+                          devSettings.settings?.disableIpTableFailover
+                            ? '域名失败时不自动切换到 IP'
+                            : '域名连续失败时自动切换到 IP (默认)'
+                        }
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                       <SectionPressItem
                         icon="RefreshCcwOutline"
                         title="Reset IP Table Cache"
