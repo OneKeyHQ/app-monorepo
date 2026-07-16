@@ -364,7 +364,13 @@ function OneKeyIdLegacyOAuthBindActions({
               });
               return;
             }
-            if (didUseOAuthSignIn) {
+            // Only tear the temp session down on definitive rejections: a
+            // transient failure (network down, 5xx, transient
+            // session-storage read) says nothing about the just-validated
+            // OAuth session, and keeping it lets the retry skip a fresh
+            // Google/Apple OAuth round-trip (same policy as
+            // PrimeLoginOAuthDialog and handleSwitchToBoundOneKeyId).
+            if (didUseOAuthSignIn && !isTransientNetworkLikeError(error)) {
               await clearOAuthSignInTempSession();
             }
             throw error;
