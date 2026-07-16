@@ -11,6 +11,7 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
 ## Application Development Commands
 
 **PLATFORM-SPECIFIC DEVELOPMENT**:
+
 - `yarn app:desktop` - Start desktop Electron app development with Rspack
   - **Runtime**: 30-60 seconds to start
   - **Common issues**: Node version conflicts, missing native dependencies
@@ -21,7 +22,7 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
   - **Common issues**: Port 3000 already in use, rspack compilation errors
   - **Troubleshooting**: Kill existing processes on port 3000, check console for specific errors
 
-- `yarn app:ext:rspack` - Start browser extension development
+- `yarn app:ext` - Start browser extension development with Rspack
   - **Runtime**: 20-40 seconds to start
   - **Common issues**: Manifest v3 validation errors, permission issues
   - **Troubleshooting**: Check extension manifest validity, verify content security policy
@@ -43,6 +44,7 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
 ## Build Commands
 
 **PRODUCTION BUILDS** (Use for final validation):
+
 - `yarn app:desktop:build` - Build desktop app for all platforms
   - **Runtime**: 5-10 minutes (multi-platform build)
   - **Output**: Platform-specific installers in `apps/desktop/dist/`
@@ -51,7 +53,7 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
 
 - `yarn app:ext:build` - Build browser extension
   - **Runtime**: 2-3 minutes
-  - **Output**: Extension packages in `apps/ext/dist/`
+  - **Output**: Unpacked extension in `apps/ext/build/chrome_v3/`
   - **Common issues**: Manifest validation, content security policy violations
   - **Verification**: Load extension in browser for testing
 
@@ -72,9 +74,11 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
 ### Pre-commit Commands (Local Development)
 
 **Use this for fast agent pre-commit validation:**
+
 - `yarn agent:check --profile commit` - Runs staged lint and type checks with compact output
 
 **Pre-commit workflow:**
+
 ```bash
 yarn agent:check --profile commit && git commit -m "your message"
 ```
@@ -82,6 +86,7 @@ yarn agent:check --profile commit && git commit -m "your message"
 ### CI Commands (Full Project Check)
 
 **These run in CI pipeline or for comprehensive validation:**
+
 - `yarn lint` - Comprehensive linting (TypeScript, ESLint, folder structure, i18n)
   - **Expected runtime**: ~1 minute
   - **Zero tolerance**: ALL warnings and errors MUST be fixed
