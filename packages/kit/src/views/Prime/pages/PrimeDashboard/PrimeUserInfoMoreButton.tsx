@@ -70,17 +70,29 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const { purchase } = usePrimePurchaseCallback();
   const navigation = useAppNavigation();
 
+  // The server's user info already declares which channel owns the active
+  // subscription (subscriptions[].channel), synced into the atom alongside
+  // isPrime — so Infini routing can be decided synchronously, without waiting
+  // for the separate apiGetInfiniSubscription lookup below.
+  const hasInfiniChannel = Boolean(
+    isInfiniManageSupported &&
+    user?.primeSubscription?.subscriptions?.some(
+      (s) => s.channel?.toLowerCase() === 'infini',
+    ),
+  );
+
   // Prefetched when the dropdown opens so the Manage-subscription click can
   // usually resolve the channel routing instantly (integration plan §5.3(d));
   // the promise ref lets an early click await the in-flight lookup instead of
   // racing the reactive result. The result is wrapped in an object so that
   // "settled with no Infini subscription" can be told apart from "still
-  // loading" (both would otherwise be a plain undefined).
+  // loading" (both would otherwise be a plain undefined). Skipped entirely
+  // when the channel declaration above already routes to the in-app page.
   const infiniSubscriptionPromiseRef = useRef<
     Promise<IPrimeInfiniSubscription | undefined> | undefined
   >(undefined);
   const { result: infiniLookup } = usePromiseResult(async () => {
-    if (!isPrime || !isInfiniManageSupported) {
+    if (!isPrime || !isInfiniManageSupported || hasInfiniChannel) {
       infiniSubscriptionPromiseRef.current = undefined;
       return { subscription: undefined };
     }
@@ -91,9 +103,18 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       .catch(() => undefined);
     infiniSubscriptionPromiseRef.current = promise;
     return { subscription: await promise };
-  }, [isPrime]);
+  }, [isPrime, hasInfiniChannel]);
 
   const handleManageSubscription = useCallback(async () => {
+    // Channel-declared routing first: instant, no network dependency. The
+    // in-app page owns its own loading / error / empty states, so it is safe
+    // to enter even if the Infini detail endpoint is temporarily failing —
+    // strictly better than silently bouncing the user to the external
+    // manage url.
+    if (hasInfiniChannel) {
+      navigation.push(EPrimePages.PrimeInfiniSubscription);
+      return;
+    }
     // The menu item shows as soon as isPrime is known, so this click handler
     // may run before the channel routing data (Infini lookup / manage url)
     // has settled — a loading dialog bridges any perceptible wait instead of
@@ -161,7 +182,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       clearTimeout(loadingTimerId);
       void loadingDialog?.close();
     }
-  }, [infiniLookup, intl, navigation, subscriptionManageUrl]);
+  }, [hasInfiniChannel, infiniLookup, intl, navigation, subscriptionManageUrl]);
 
   const refreshUserInfo = useCallback(async () => {
     void getCustomerInfo();

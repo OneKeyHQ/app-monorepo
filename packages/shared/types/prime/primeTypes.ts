@@ -5,6 +5,10 @@ export type IPrimeSubscriptionInfo = {
   subscriptions?: {
     id?: string;
     managementUrl?: string;
+    // Payment channel owning this subscription as declared by the server,
+    // e.g. 'infini' for the crypto channel; used to route the in-app
+    // manage-subscription entry without an extra lookup
+    channel?: string;
   }[];
   willRenew?: boolean;
 };
@@ -190,6 +194,9 @@ export type IPrimeServerUserInfo = {
   subscriptions?: {
     id?: string;
     managementUrl?: string;
+    // Payment channel owning this subscription (e.g. 'infini'), see
+    // IPrimeSubscriptionInfo.subscriptions
+    channel?: string;
   }[];
   willRenew?: boolean;
   // isLogin
