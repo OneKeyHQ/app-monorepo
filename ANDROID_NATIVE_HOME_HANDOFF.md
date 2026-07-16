@@ -1229,3 +1229,36 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - 本节通过的是 iOS Native Home Support hub 深层短拖、连续反向、body/header handoff 和无跳顶。Market 的 Stocks 服务端 logo 成功态、CASHCAT 当前行、Dark mode、pressed/hover、失败回滚注入态等仍按前文保持未完成，不能据此声明整个 Native Home UI 完成。
 - `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 与指定 Native Home 文件的 `git diff --check` 通过；两次完整 Debug Xcode build 也已经编译该 Swift 文件成功。本节没有修改 TS/JS，因此没有新增聚焦 Jest/ESLint 范围。
 - `yarn agent:check --profile commit` 日志为 `node_modules/.cache/agent-checks/2026-07-16T13-31-53-119Z`。`lint-worktree-js`、`lint-staged`、`agent-context` 通过；`lint-worktree-ts` / `tsc-staged` 被共享工作区已有的 Desktop、Rspack、DeFi、TradingView、WebView、Navigator、AppUpdate、Firmware、ReferFriends、Swap、旧 `NativeHomePageView.native.tsx` 等问题阻断，日志没有本轮 Swift/handoff 错误。没有回滚或修改这些无关文件制造绿色结果。
+
+## 2026-07-16 Market Community Recognized 图标映射修复
+
+### A/B 发现与根因
+
+- 用户截图指出 Market 行标题后的绿色 Community Recognized 图标与原版不同。自动 A/B 旧证据 `.tmp/ui/ab-audit-legacy-market-trending-402.png` 与 `.tmp/ui/ab-audit-native-market-trending-402.png` 也显示相同差异：原版是不规则徽章轮廓和点赞留白，Native 是规则齿轮形外圈。
+- 原版唯一图形源是 `packages/components/svg/solid/badge-recognized.svg`，React 组件 `packages/components/src/primitives/Icon/react/solid/BadgeRecognized.tsx` 由该 SVG 生成，Market 使用 `BadgeRecognizedSolid`。服务端 `communityRecognized` 字段和 DTO 映射没有错。
+- iOS `HomeContainerMarketArtwork.recognized` 此前用 16 组等距内外半径生成规则齿轮，再用两个圆角矩形近似挖出内部图形；Android 当前 WIP 中的 `HomeRecognizedView` 也使用同一规则齿轮近似，且缺少完整点赞 path。因此问题属于两端 Native artwork 几何映射，不是字体、缓存、cell 复用或服务端数据问题。
+
+### 简化实现决策
+
+- 本轮不增加运行时 SVG parser、Android SVG decoder 或通用生成脚本。对于当前单个图标，直接把规范 SVG 的两个精确 path 一次性移植到 UIKit `UIBezierPath` 和 Android `Path`，两端都沿用 SVG 的 `24 × 24` viewBox，再缩放到现有 14/16pt 容器。
+- 精确结构包含：不规则外轮廓、`evenOdd` 规则形成的点赞主体留白、以及独立填充的 1pt 竖条。主题色仍由现有 `$iconSuccess` / Native positive color 注入，没有写死绿色，也没有改 DTO 或布局尺寸。
+- 如果以后出现第二、第三个需要 React/iOS/Android 三端共用的 Native 图标，再建立“单 SVG 源 → iOS/Android 原生 path 生成”的脚本；当前单图标不先引入额外工具链。
+
+### 最新 iOS Debug 真实证据
+
+- 从仓库根目录执行标准 `yarn app:ios`，结果为 `Build Succeeded`、0 errors，由命令完成 `Debug-iphonesimulator/OneKeyWallet.app` 的签名、更新安装和启动。没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`。
+- 没有执行 uninstall、reinstall、erase、clear data，没有删除 app container、钱包数据库或持久化数据。`Account #1`、余额、Token 和 DeFi 数据正常，应用持续前台为 `so.onekey.wallet`。
+- 修复后原始截图 `.tmp/ui/market-recognized-native-after-debug.png` 为 1206 × 2622；宽度 402 对照图为 `.tmp/ui/market-recognized-native-after-debug-402.png`。当前 Favorites 中 `UNI / WLFI / SHIB` 三行都显示新的精确徽章，SHIB 行可见不规则外轮廓、点赞留白和独立竖条，修复前规则齿轮已消失。
+- 最终 main runtime：`$$onekeyJsReadyAt=1784210700807`、`$$onekeyUIVisibleAt=1784210702406`、background transport ready；bg ready payload 为 `runtime=background/status=ready/protocolVersion=1/bootId=1784210702503-6dl7y333`，独立 background page 报告 `runtime=background` 且 Jotai bridge 存在。没有用 main ready 代替 bg ready。
+
+### Android、runtime 与资源边界
+
+- Android 当前 WIP 的 `HomeRecognizedView` 已同步同一组精确 `Path` 数据，但 `HomeContainerView.kt`、`HomeContainerModels.kt` 和 controller test 在进入本轮前已有大块未提交 Native Home 改动。本轮不能把整份重叠文件误混入 iOS commit；Android path 需要随该 Android WIP 的原 owner 一起完成编译和真实 Android 截图验收，不能用 iOS 截图宣称 Android 已通过。
+- **Runtime scope：main UI。** `communityRecognized` DTO 来自 main 的 Market snapshot，Native view 只消费布尔值并渲染本地图形。bg 仍负责 Market config/category/watchlist/service 数据，不拥有该图标 view，也不参与 path 绘制。
+- main/bg 是独立 Hermes heap，独立初始化，经 proxy 序列化/反序列化数据；本轮没有新增跨 runtime 共享对象。生成后的模板 `UIImage`、字体和图片 cache 是进程级共享 Native 资源；tint、view frame、represented identity、pressed/hover 和 cell reuse 是 per-view 状态。
+
+### 检查与完成边界
+
+- `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 通过，完整 `yarn app:ios` 也真实编译该 Swift 文件成功；指定 iOS/Android Native Home 文件 `git diff --check` 通过。
+- `yarn agent:check --profile commit` 日志为 `node_modules/.cache/agent-checks/2026-07-16T14-23-37-670Z`。`lint-worktree-js`、`lint-staged`、`agent-context` 通过；`lint-worktree-ts` / `tsc-staged` 被共享工作区已有的 Desktop、Rspack、DeFi、TradingView、WebView、Navigator、AppUpdate、Firmware、Receive、ReferFriends、Swap、旧 `NativeHomePageView.native.tsx` 等错误阻断，日志没有本轮 Swift/handoff 错误。没有修改或回滚这些无关文件制造绿色结果。
+- 本节只通过 iOS Community Recognized 图标映射和最新 Debug 实图。Android 仍缺独立 build/真机截图验收；Stocks 服务端 logo 成功态、CASHCAT 当前行、Dark mode、pressed/hover、失败回滚注入态等继续保持未完成，不能据此声明整个 Market UI 完成。
