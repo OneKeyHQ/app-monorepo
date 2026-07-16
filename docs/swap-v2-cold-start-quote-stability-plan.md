@@ -1,9 +1,38 @@
 # Swap V2 冷启动、报价稳定性与状态机重构方案
 
-> 状态：**核心稳定性保护已在当前 Draft PR 候选中实现；Release Gates 尚未完成**<br>
-> 审计日期：2026-07-15<br>
+> 状态：**核心稳定性保护与 Stock 展示快照已在 `codex/swap-v2-stability` 实现；自动化门禁通过，真实运行时 Release Gates 尚未完成**<br>
+> 审计日期：2026-07-15；实施补充：2026-07-16<br>
 > 审计范围：Swap / Bridge / Limit / Stock、Swap Modal、跨模块兑换入口、冷启动缓存、账户与收款地址就绪、报价 SSE、Review / Build / Send 交接<br>
-> 目标：消除交易对乱闪、金额与骨架屏反复切换、报价来回跳动、旧报价串入新意图、冷启动错误账户或错误收款地址参与询价等问题，同时保持既有跨平台能力和交易流程不回归。本文同时记录本次实际改动、尚未落地的目标架构、86 个逻辑 case、自动化证据与发布门槛；任何未验证项都不得解释为已通过。
+> 目标：消除交易对乱闪、金额与骨架屏反复切换、报价来回跳动、旧报价串入新意图、冷启动错误账户或错误收款地址参与询价等问题，同时保持既有跨平台能力和交易流程不回归。本文同时记录本次实际改动、尚未落地的目标架构、86 个基础逻辑 case、本次新增专项验收、自动化证据与发布门槛；任何未验证项都不得解释为已通过。
+
+## 0. 2026-07-16 实施补充
+
+本轮代码基线为 `efbde7c98190097110fa7acf22116e44fb11c7e9`，在既有 Quote Session V2 与冷启动身份门闩之上，补齐了以下可审计闭环：
+
+| 领域                    | 已实现状态                                                                                                                                     | 不可突破的安全边界                                                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| SSE Provider 选择       | 当前 request / intent 下，第一个可执行候选返回后即可打开 Provider picker；手选意图在 settlement 时按 Provider key 重新绑定                     | streaming candidate 不得写入主展示或 executable quote；Review / build / send 仍只认 terminal settlement                |
+| 报价展示稳定性          | 同一 display intent 刷新时保留上一次 committed amount / rate / info，后台静默询价，不再退回骨架屏                                              | 新请求立即作废旧执行报价；保留展示不等于保留执行权限                                                                   |
+| Stock 首帧快照          | 以 `account + stock token + pay token + side + currency` 为逻辑身份，独立恢复 token detail、balance、chart；live 数据按区域静默替换            | 快照只服务展示；缓存 balance、market-open、description、chart 均不得参与 Max、百分比、Review、报价、build、sign、send  |
+| Stock 存储              | UI main 使用专用 `onekey_swap_stock_display_snapshot`；最多 8 个账户槽，500 ms 合并写，生命周期 flush，坏数据自愈；chart 最多 500 点并保留端点 | native main / bg JS heap 独立，禁止 bg 或 `ServiceSwap` 读取该展示缓存；账户或交易对身份变化的同一帧必须拒绝旧快照     |
+| Stock execution balance | 输入 token 与 display identity 可见后即并行请求精确 live balance；有界重试、focus / reconnect 恢复、显式 Retry                                 | 请求失败继续 fail-closed；只有当前 account / token / display scope 的 live balance 且已发布到共享 atom 后才允许 Review |
+| Chart                   | 精确 identity/range 快照首帧恢复；live exact result 静默替换，失败保留，确切空结果进入 empty 而非 skeleton                                     | 旧 identity、旧 range、旧异步 patch 和旧 realtime point 不得进入当前图表                                               |
+
+### 0.1 本轮自动化证据
+
+- 26 个显式 Swap / Stock Jest suites、385 个 tests 全部通过。
+- 修改范围的 type-aware Oxlint 为 0 warnings / 0 errors。
+- `git diff --check` 通过。
+- `yarn agent:check --profile commit` 全部通过，包括 worktree lint、agent context、staged lint 与 staged TypeScript。
+
+以上证据证明纯函数、Hook、Jotai 与静态边界；它们不等于 Desktop / iOS / Android / Web / Extension 的真实首帧验收。Extension 当前 cold-start storage 为 no-op，因此本轮不得宣称 Extension 跨重启恢复。真实运行时仍必须执行第 16 节与 `references/swap-cold-start-frame-checklist.md` 的逐帧验收。
+
+### 0.2 本轮新增阻断级验收
+
+1. `QUOTE-PICKER-EARLY-001`：首个当前请求可执行候选到达、SSE 尚未 `done` 时 picker 可点击；主金额、rate、executable quote、Review 均不变化。
+2. `STOCK-DISPLAY-RESTORE-001`：同账户、同 stock/pay/side/currency 再次进入 Stock，首帧恢复金额/header/chart；live 成功分区替换，失败保持快照且不回骨架。
+3. `STOCK-DISPLAY-ISOLATION-001`：切账户、stock、pay token、side 或 currency 后，旧快照不得出现一帧，旧异步结果不得 patch 当前 identity。
+4. `STOCK-BALANCE-FAIL-CLOSED-001`：有展示快照但 live balance 失败时，Max、百分比、Review 始终不可用；有界重试或手动 Retry 成功且 scope 精确匹配后才解锁。
 
 ## 1. 执行结论
 

@@ -6,19 +6,21 @@ Use this file before implementing or reviewing a new Swap provider, PrivateSend-
 
 Define these fields in writing before UI work:
 
-| Area | Questions |
-| --- | --- |
-| Capability | Is this swap, bridge, limit, privacy/order, stock/order, funding handoff, or data-only? |
-| Asset universe | Are assets tokens, native tokens, wrapped tokens, stock-like assets, or provider-owned synthetic assets? |
-| Account roles | Which account signs, which account receives, which address is hidden, and which address settles? |
-| Quote identity | What identifies a quote across provider, amount, token, network, and request lifecycle? |
-| Amount units | Which fields are base units, parsed units, fiat values, rates, or display strings? |
-| Limits | What do min/max fields mean, and are they per token, per route, per provider, or per trading session? |
-| Fees | Which fees are network gas, provider fee, protocol fee, service fee, stock commission, or settlement fee? |
-| Time | Does ETA mean chain confirmation, provider processing time, trading session state, or order expiry? |
-| Build response | Does build return unsigned tx, setup tx, business tx, order payload, or provider-managed action? |
-| History identity | Is status keyed by txid, order id, route id, provider id, or a composite key? |
-| Channel state | Which listener, local row, replay source, and repair rule own the lifecycle after submit? |
+| Area                   | Questions                                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Capability             | Is this swap, bridge, limit, privacy/order, stock/order, funding handoff, or data-only?                                   |
+| Asset universe         | Are assets tokens, native tokens, wrapped tokens, stock-like assets, or provider-owned synthetic assets?                  |
+| Account roles          | Which account signs, which account receives, which address is hidden, and which address settles?                          |
+| Quote identity         | What identifies the transport session, request, event, provider, amount, token, network, account, and intent fingerprint? |
+| Quote readiness        | What independently unlocks provider selection, retained/committed display, and settled execution?                         |
+| Manual provider intent | What stable provider identity is recorded during streaming, and how is it rebound to the active settled candidate?        |
+| Amount units           | Which fields are base units, parsed units, fiat values, rates, or display strings?                                        |
+| Limits                 | What do min/max fields mean, and are they per token, per route, per provider, or per trading session?                     |
+| Fees                   | Which fees are network gas, provider fee, protocol fee, service fee, stock commission, or settlement fee?                 |
+| Time                   | Does ETA mean chain confirmation, provider processing time, trading session state, or order expiry?                       |
+| Build response         | Does build return unsigned tx, setup tx, business tx, order payload, or provider-managed action?                          |
+| History identity       | Is status keyed by txid, order id, route id, provider id, or a composite key?                                             |
+| Channel state          | Which listener, local row, replay source, and repair rule own the lifecycle after submit?                                 |
 
 ## Quote Result Fields
 
@@ -30,6 +32,28 @@ For every quote field used in UI, decide:
 - invalidation rule: amount, network, token, account, receiver, provider, slippage, or market session change
 
 Never normalize a missing provider field into a display value without preserving whether it was unknown.
+
+## Incremental Quote Lifecycle
+
+For an SSE or other multi-provider stream, define these transitions explicitly:
+
+- session owner: surface id, request id, intent revision/fingerprint, background
+  generation where applicable, and monotonic event sequence
+- actionable candidate: the exact field predicate that makes a provider row
+  selectable, including min/max and error semantics
+- provider-picker readiness: any actionable candidate accepted by the active
+  request; it does not require terminal completion or the manually selected
+  provider to have returned
+- display readiness: retained prior display while requesting, then one
+  terminal-committed amount/rate/provider update
+- execution readiness: only a settled current-request executable quote can
+  enter Review/build/send
+- manual provider intent: store provider identity during streaming and rebind
+  it to the active settled candidate at completion; never rely on object identity
+- invalidation: amount, token, network, account, receiver, slippage, protocol,
+  request cancellation, or fingerprint change clears streaming readiness
+
+Do not make one loading boolean own all three readiness contracts.
 
 ## Build Response Variants
 

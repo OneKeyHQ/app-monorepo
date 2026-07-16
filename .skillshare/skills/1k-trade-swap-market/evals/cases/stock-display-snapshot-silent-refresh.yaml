@@ -1,0 +1,27 @@
+id: stock-display-snapshot-silent-refresh
+type:
+  - golden
+  - negative
+  - verification
+prompt: 'Stock Swap restores a stale-looking amount and chart on entry, then flashes skeletons while live data loads; account switches can briefly show the previous account. Design or review the fix without allowing cached data to unlock trading.'
+expected:
+  must_include:
+    - 'name the target platform topology and separate the UI display-cache owner from ServiceSwap quote/build/execution ownership'
+    - 'use a dedicated display snapshot keyed by account, stock token, pay token, side, and currency, with token detail, balance, and chart regions carrying independent timestamps'
+    - 'restore an exact matching first frame, refresh regions silently, retain matching display data on failure, and settle an exact live empty chart without returning to skeleton'
+    - 'reject the old snapshot and every late patch in the same render after account, stock token, pay token, side, or currency changes'
+    - 'keep cached balance, market-open state, description, and chart out of Max, percentage, balance validation, Review, quote, build, sign, and send decisions'
+    - 'require exact current-scope live execution balance plus matching shared-atom publication, with bounded retry, stale-scope cancellation, and explicit Retry'
+    - 'cover malformed, future, expired, independent-TTL, eight-account eviction, 500-point endpoint-preserving downsample, extension no-op, and native main/bg ownership'
+    - 'run the exact focused Jest lane and capture real first-frame, replacement, failure-retention, account-switch, and Review-unlock timing'
+  must_not_include:
+    - 'reuse shared SWR aggregate persistence as a second cross-runtime writer for the Stock display snapshot'
+    - 'treat cached balance or token market metadata as live execution truth'
+    - 'claim extension cross-restart restoration or runtime success from static tests'
+score:
+  pass: 90
+  critical_fail_if:
+    - 'a snapshot from another account, pair, side, or currency appears for one frame or patches the current identity later'
+    - 'cached balance, market state, or chart unlocks Max, percentage, Review, quote, build, sign, or send'
+    - 'same-identity silent refresh performs a snapshot-to-skeleton-to-live round trip'
+    - 'the implementation creates competing main/bg writers for the dedicated display cache'

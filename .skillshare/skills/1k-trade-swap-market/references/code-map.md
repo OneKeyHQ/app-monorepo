@@ -1,11 +1,13 @@
 # Code Map
 
-Use these anchors to orient in the current repository. Prefer the local pattern around the anchor over inventing a parallel path. The executable anchor map was reviewed at `ec605542881e`; run the readiness script before relying on it.
+Use these anchors to orient in the current repository. Prefer the local pattern around the anchor over inventing a parallel path. The committed baseline was reviewed at `efbde7c98190`; run the readiness script before relying on current-worktree additions, and advance the reviewed ref after those additions have a commit.
 
 ## Shared Swap Core
 
 - `packages/kit-bg/src/services/ServiceSwap.ts`
+- `packages/kit-bg/src/services/ServiceSwapQuoteSession.ts`
 - `packages/kit/src/states/jotai/contexts/swap/actions.ts`
+- `packages/kit/src/states/jotai/contexts/swap/quoteSessionV2.ts`
 - `packages/kit/src/states/jotai/contexts/swap/quoteProgress.ts`
 - `packages/kit/src/views/Swap/index.tsx`
 
@@ -13,10 +15,14 @@ Key operations:
 
 - `ServiceSwap.fetchQuotes`
 - `ServiceSwap.fetchQuotesEvents`
+- `ServiceSwap.fetchQuotesEventsV2`
 - `ServiceSwap.fetchBuildTx`
 - `ServiceSwap.fetchBuildSpeedSwapTx`
 - `ServiceSwap.fetchTxState`
 - `runQuoteEvent`
+- `prepareSwapQuoteSession`
+- `acceptSwapQuoteSessionEvent`
+- `SwapQuoteSessionRegistry`
 - `selectSwapCurrentQuote`
 
 ## Account And Token Selection
@@ -109,19 +115,37 @@ Entry-specific anchors:
 
 - `packages/kit/src/states/jotai/contexts/swap/quoteProgress.ts`
 - `packages/kit/src/states/jotai/contexts/swap/actions.ts`
+- `packages/kit/src/states/jotai/contexts/swap/atoms.ts`
+- `packages/kit/src/states/jotai/contexts/swap/quoteCommittedState.ts`
 - `packages/kit/src/views/Swap/components/SwapProviderListPanel.tsx`
 - `packages/kit/src/views/Swap/components/ProviderManageComponent.tsx`
 - `packages/kit/src/views/Swap/components/SwapQuoteResultRate.tsx`
+- `packages/kit/src/views/Swap/pages/components/SwapQuoteResult.tsx`
 - `packages/kit/src/views/Swap/components/ProtocolFeeComparisonList.tsx`
 
-Keep manual provider selection, quote progress, and provider availability separate.
+Important anchors:
+
+- `swapQuoteProviderSelectionReadyAtom`
+- `swapQuoteStreamingCurrentSelectAtom`
+- `swapQuoteCurrentSelectAtom`
+- `hasSwapQuoteSelectableProviderCandidate`
+- `ESwapQuoteCommitPhase`
+
+Keep manual provider intent, picker readiness, stable display, executable quote,
+transport progress, and provider availability separate. The picker can open
+from an actionable current-request pending candidate; the visible amount and
+`swapQuoteCurrentSelectAtom` remain terminal-committed. Manual intent selected
+while streaming is rebound to the active settled candidate by provider key at
+`done`.
 
 For Stock and other multi-provider quote events, the closest error-settlement
 pattern is `selectSwapCurrentQuote` with
 `deferNonActionableQuoteUntilEventSettled`, wired from swap atoms/actions.
 Track `totalQuoteCountReceived`, `quoteEventCompleted`, actionable `toAmount`,
 manual provider intent, and current event identity separately. An early error
-must not replace a later actionable quote.
+must not replace a later actionable quote. A Stock quote can make provider
+selection ready before the total-count event arrives, but it cannot make the
+quote executable before settlement.
 
 ## Stock Channel Owners
 
@@ -144,6 +168,41 @@ Important anchors:
 
 These owners keep Stock/pay-token identity, default restoration, amount side,
 market readiness, trade alerts, and analytics distinct from ordinary Swap.
+
+## Stock Display Snapshot And Silent Refresh
+
+- `packages/kit/src/views/Swap/hooks/useSwapStockDisplaySnapshot.ts`
+- `packages/kit/src/views/Swap/hooks/swapStockDisplaySnapshotUtils.ts`
+- `packages/kit/src/views/Swap/hooks/swapStockDisplaySnapshotStorage.ts`
+- `packages/kit/src/views/Swap/hooks/useSwapStockTradeInputs.ts`
+- `packages/kit/src/views/Swap/hooks/swapStockExecutionBalanceUtils.ts`
+- `packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.tsx`
+- `packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.utils.ts`
+- `packages/shared/src/storage/syncStorageKeys.ts`
+
+Important anchors:
+
+- `resolveSwapStockDisplayAccountKey`
+- `buildSwapStockDisplayIdentityKey`
+- `getMatchingSwapStockDisplaySnapshot`
+- `mergeSwapStockDisplaySnapshot`
+- `swapStockDisplaySnapshotStorage`
+- `buildStockExecutionNetworkAccountScope`
+- `buildStockExecutionBalanceScope`
+- `runStockExecutionBalanceRequestWithRetry`
+- `isStockExecutionBalanceScopeReady`
+- `isStockExecutionBalancePublished`
+- `createStockChartStateFromSnapshot`
+- `getStockChartVisibleState`
+
+The physical store is the dedicated UI-owned
+`onekey_swap_stock_display_snapshot` key. It keeps at most eight account slots;
+each logical display identity is account + stock token + pay token + side +
+currency, while chart range is scoped inside the chart region. Token detail,
+balance, and chart carry independent timestamps and replace independently:
+`RESTORE_MATCH -> LIVE_DETAIL / LIVE_BALANCE / CHART_DONE`. A refresh failure
+retains display data, but cached balance, market state, and chart data never
+become quote/build/execution truth.
 
 ## Review And Execution
 

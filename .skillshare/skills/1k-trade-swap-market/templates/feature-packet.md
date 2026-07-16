@@ -18,19 +18,22 @@
 
 ## Owner And Runtime Map
 
+- Target platform(s) and physical JS runtime topology:
 - Entry/handoff owner:
-- `main` route/UI/hooks/atoms:
-- `bg` quote/build/status/history services:
+- UI route/hooks/atoms owner and runtime:
+- Logical `kit-bg` quote/build/status/history owner and physical runtime:
 - Shared pure types/predicates:
 - Persistent native/web resource and sole writer:
-- Serialized JS copies crossing runtimes:
+- Serialized JS copies only where a bridge/runtime boundary exists:
 - Independent initialization/readiness gates:
 
 ## Contract And State Machine
 
 - Capability and asset universe:
 - Account/network/token/provider/receiver identity:
-- Quote event, progress, actionable selection, stale guard:
+- Quote session/event identity and stale guard:
+- Provider-picker, retained-display, and settled-execution readiness:
+- Manual provider intent and settlement rebind:
 - Frozen review fields:
 - Approval/setup/build/send/order sequence:
 - Pending/history identity and terminal mapping:

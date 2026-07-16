@@ -15,6 +15,18 @@ The canonical Swap path is:
 
 `selection/account -> quote -> review snapshot -> build/sign/send -> pending history/status`
 
+During an incremental quote stream, keep three readiness contracts separate:
+
+- provider selection readiness: the active request has at least one actionable
+  candidate, so the provider picker can open and record manual intent
+- display readiness: the UI shows a retained or terminal-committed quote and
+  does not publish each streaming candidate into the main amount/rate
+- execution readiness: the active request has settled with an executable quote,
+  so Review, build, sign, and send can proceed
+
+The first actionable provider may unlock selection before the stream completes.
+It must not replace the main display quote or unlock Review/build/send.
+
 Treat Swap as the execution spine below visible surfaces. Market speed-swap,
 Bridge, Limit, PrivateSend-like flows, stock/order channels, and funding
 handoffs can adapt entry, asset, and settlement semantics, but they must still
@@ -88,7 +100,7 @@ Before adding or reviewing any provider channel, define this contract:
 1. Capability: swap, bridge, limit, privacy/order channel, stock order, funding handoff, or data-only chart.
 2. Asset universe: token, native token, wrapped token, stock-like asset, route-only target, or provider-owned synthetic asset.
 3. Account roles: source account, target account, receiver, settlement account, and whether address privacy changes the display.
-4. Quote contract: amount units, quote identity, provider key, min/max, slippage, fee, ETA, and stale-response guard.
+4. Quote contract: amount units, quote identity, provider key, min/max, slippage, fee, ETA, stale-response guard, and independent provider-selection/display/execution readiness.
 5. Review snapshot: fields frozen for confirm, risk text, fee/rate display, allowance/approval, and receiver semantics.
 6. Build/send contract: build payload, unsigned tx or order payload, approval/setup tx, send method, and retry behavior.
 7. History/status: pending item, order id vs txid, progress labels, final status mapping, detail-page fallback data.
@@ -105,8 +117,9 @@ PrivateSend-like channels and future stock-trading channels should be evaluated 
 4. Identify the closest valid repo pattern before inventing a new hook, atom,
    adapter, modal, or channel abstraction. Reuse the shell only when account,
    network, token, provider, route, and execution semantics match.
-5. Run the readiness script, fill the feature packet, and state `main`, `bg`,
-   native/web resource, JS-copy, and initialization ownership.
+5. Run the readiness script, fill the feature packet, and state the target
+   platform's physical runtime topology, logical `kit`/`kit-bg` ownership,
+   native/web resource, JS-copy, and initialization boundaries.
 6. Read [app-architecture.md](references/app-architecture.md) and [code-map.md](references/code-map.md) before editing.
 7. Fill the provider/channel contract in [provider-contracts.md](references/provider-contracts.md).
 8. For any non-standard channel, fill [channel-state-model.md](references/channel-state-model.md) before touching history, status polling, or local replay.
@@ -117,23 +130,23 @@ PrivateSend-like channels and future stock-trading channels should be evaluated 
     with [validation.md](references/validation.md), including a readiness drill
     when the change is a new channel.
 11. For cold start, token selector flicker, default-token bring-in, tab stability,
-   or Wallet handoff regressions, run
-   [swap-cold-start-frame-checklist.md](references/swap-cold-start-frame-checklist.md).
+    or Wallet handoff regressions, run
+    [swap-cold-start-frame-checklist.md](references/swap-cold-start-frame-checklist.md).
 
 ## Reference Map
 
-| Need | Reference |
-| --- | --- |
-| Understand the App flow and extension seams | [app-architecture.md](references/app-architecture.md) |
-| Execute a feature end to end | [autonomous-feature-workflow.md](references/autonomous-feature-workflow.md) |
-| Fill the implementation capability packet | [feature-packet.md](templates/feature-packet.md) |
-| Find stable code anchors | [code-map.md](references/code-map.md) |
-| Reason about main/bg/persistence/init timing | [runtime-boundaries.md](references/runtime-boundaries.md) |
-| Define provider/channel fields | [provider-contracts.md](references/provider-contracts.md) |
-| Define channel listening, writeback, replay, and repair | [channel-state-model.md](references/channel-state-model.md) |
-| Prevent known failure classes | [checklists.md](references/checklists.md) |
-| Prove the change works | [validation.md](references/validation.md) |
-| Run exact focused test lanes | [test-map.md](references/test-map.md) |
+| Need                                                                                | Reference                                                                           |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Understand the App flow and extension seams                                         | [app-architecture.md](references/app-architecture.md)                               |
+| Execute a feature end to end                                                        | [autonomous-feature-workflow.md](references/autonomous-feature-workflow.md)         |
+| Fill the implementation capability packet                                           | [feature-packet.md](templates/feature-packet.md)                                    |
+| Find stable code anchors                                                            | [code-map.md](references/code-map.md)                                               |
+| Reason about platform runtimes, logical services, persistence, and init timing      | [runtime-boundaries.md](references/runtime-boundaries.md)                           |
+| Define provider/channel fields                                                      | [provider-contracts.md](references/provider-contracts.md)                           |
+| Define channel listening, writeback, replay, and repair                             | [channel-state-model.md](references/channel-state-model.md)                         |
+| Prevent known failure classes                                                       | [checklists.md](references/checklists.md)                                           |
+| Prove the change works                                                              | [validation.md](references/validation.md)                                           |
+| Run exact focused test lanes                                                        | [test-map.md](references/test-map.md)                                               |
 | Validate Swap cold-start frames, default tokens, tab stability, and Wallet handoffs | [swap-cold-start-frame-checklist.md](references/swap-cold-start-frame-checklist.md) |
 
 ## Readiness Drills
@@ -154,6 +167,9 @@ Use these drills to judge whether the skill is complete enough for a new require
 - Entry ownership: can you tell whether the bug belongs to Wallet/Home
   handoff params, Swap route initialization, channel-specific state such as
   Stock, native/mobile host behavior, or the quote/review/build spine?
+- Incremental provider quote: can the first actionable candidate open the
+  provider picker while the main amount stays stable and Review remains locked
+  until the active request settles?
 
 If a drill cannot be completed from the references, update the abstraction instead of adding another one-off case.
 
@@ -164,6 +180,10 @@ If a drill cannot be completed from the references, update the abstraction inste
   order-backed channel; define replay/enrichment and repair sources before
   shipping.
 - Do not let page atoms drift into review/confirm; confirm must use a frozen quote/build snapshot.
+- Do not bind provider-picker availability to terminal quote completion when
+  the active request already has an actionable provider candidate.
+- Do not publish a streaming candidate as the current display or executable
+  quote merely to make provider selection available.
 - Do not reuse token-list state from another surface as proof for Swap selection.
 - Do not treat Wallet/Receive DeFi-token list regressions as Swap selector bugs unless the failing owner is the Swap/Market selector or handoff state.
 - Do not collapse account, network, provider, token, and receiver resets into one path without checking dependents.

@@ -1,0 +1,24 @@
+id: quote-provider-selection-before-settlement
+type:
+  - golden
+  - verification
+prompt: 'Swap SSE returns one usable provider while other providers are still pending, but the provider picker stays disabled until the stream completes. Fix that regression without bringing quote-amount flicker back, and prove Review remains safe.'
+expected:
+  must_include:
+    - 'name the target platform topology, then map logical SSE service ownership separately from UI Jotai candidate aggregation, picker UI, committed display, and Review execution'
+    - 'derive provider-picker readiness from any actionable candidate accepted by the active request id and intent fingerprint'
+    - 'keep the retained or terminal-committed main amount, rate, swapQuoteCurrentSelectAtom, and executable quote unchanged while requesting'
+    - 'record manual provider intent during streaming and rebind it by provider identity to the active settled candidate at done'
+    - 'cover first actionable candidate, selected provider not yet returned, stale and non-actionable events, invalidation, and Stock quote-before-total ordering'
+    - 'prove the real provider picker opens before done while Review and build remain disabled until settlement'
+  must_not_include:
+    - 'make swapQuoteCurrentSelectAtom return a streaming candidate'
+    - 'clear global quote loading or unlock Review and build on the first message'
+    - "use a stale retained provider as proof of the new request's provider result"
+score:
+  pass: 90
+  critical_fail_if:
+    - 'provider selection is still gated by terminal completion after an actionable current-request candidate exists'
+    - 'a pending or stale quote becomes executable or changes the main amount before settlement'
+    - 'a matching manually selected settled provider is discarded in favor of auto-best'
+    - 'a non-actionable provider candidate unlocks selection'
