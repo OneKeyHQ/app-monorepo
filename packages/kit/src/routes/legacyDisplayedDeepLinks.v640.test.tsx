@@ -5,6 +5,7 @@ import { renderHook } from '@testing-library/react';
 import {
   EAppUpdateRoutes,
   EModalReferFriendsRoutes,
+  EModalRewardCenterRoutes,
   EModalRoutes,
   EModalSignatureConfirmRoutes,
   EModalStakingRoutes,
@@ -366,5 +367,25 @@ describe('v6.4.0 displayed deep-link compatibility', () => {
         showParams: true,
       },
     );
+  });
+
+  it('keeps Reward Center inbound-only as in v6.4.0', () => {
+    const { result } = renderHook(() => useRootRouter());
+    const screens = resolveScreens(result.current);
+    expect(screens).toBeDefined();
+    if (!screens) {
+      return;
+    }
+
+    const path = '/reward-center';
+    const state = getStateFromPath(path, { screens });
+    expect(getFocusedRouteNames(state).slice(0, 3)).toEqual([
+      ERootRoutes.Modal,
+      EModalRoutes.MainModal,
+      EModalRewardCenterRoutes.RewardCenter,
+    ]);
+    expect(
+      findDisplayRule(buildAllowList(screens, false, false), path),
+    ).toBeUndefined();
   });
 });
