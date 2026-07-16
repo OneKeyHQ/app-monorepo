@@ -5,7 +5,7 @@
  * removed safely yet:
  * - Effective TypeScript/test configs still contain 129 rules that are not
  *   enabled in oxlint, plus 15 rules enforced at a weaker severity.
- * - ESLint reports 304 diagnostics and honors 2,850 suppressions across 6,924
+ * - ESLint reports 303 diagnostics and honors 2,849 suppressions across 6,924
  *   file results; the current oxlint run reports a different, non-equivalent
  *   diagnostic set.
  * - Type-aware behavior is not equivalent. For example,
@@ -104,8 +104,8 @@ const jsRules = {
   'react/no-unstable-nested-components': 'warn',
   'react/jsx-key': 'error',
   'react/jsx-no-useless-fragment': 'off',
-  // Keep ESLint enforcement while the nightly ESLint workflow is still active.
-  'use-effect-no-deps/use-effect-no-deps': 'error',
+  // Covered by oxlint via jsPlugins after local parity verification.
+  'use-effect-no-deps/use-effect-no-deps': 'off',
   'react-hooks/rules-of-hooks': 'error',
   'react-hooks/exhaustive-deps': [
     'error',
