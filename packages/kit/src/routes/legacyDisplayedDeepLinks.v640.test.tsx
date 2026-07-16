@@ -70,10 +70,9 @@ jest.mock('../hooks/usePerpTabConfig', () => ({
   usePerpTabConfig: () => mockUsePerpTabConfig(),
 }));
 
-jest.mock(
-  '../views/DeviceManagement/hooks/useDeviceManagerModalStyle',
-  () => ({ useDeviceManagerModalStyle: () => ({ isModalStack: false }) }),
-);
+jest.mock('../views/DeviceManagement/hooks/useDeviceManagerModalStyle', () => ({
+  useDeviceManagerModalStyle: () => ({ isModalStack: false }),
+}));
 
 jest.mock('@onekeyhq/kit/src/routes/Tab/Navigator', () => ({
   TabNavigator: () => null,
@@ -98,7 +97,9 @@ jest.mock('../views/PerpTrade/router', () => ({
 }));
 
 jest.mock('../views/Home/router', () =>
-  jest.requireActual('../views/Home/router/index.web-only'),
+  jest.requireActual<typeof import('../views/Home/router/index.web-only')>(
+    '../views/Home/router/index.web-only',
+  ),
 );
 
 jest.mock('../views/Home/pages/urlAccount/urlAccountUtils', () => ({
@@ -361,12 +362,12 @@ describe('v6.4.0 displayed deep-link compatibility', () => {
       ERootRoutes.Main,
       ETabRoutes.WebviewPerpTrade,
     ]);
-    expect(findDisplayRule(buildAllowList(screens, false, true), path)).toMatchObject(
-      {
-        showUrl: true,
-        showParams: true,
-      },
-    );
+    expect(
+      findDisplayRule(buildAllowList(screens, false, true), path),
+    ).toMatchObject({
+      showUrl: true,
+      showParams: true,
+    });
   });
 
   it('keeps Reward Center inbound-only as in v6.4.0', () => {
