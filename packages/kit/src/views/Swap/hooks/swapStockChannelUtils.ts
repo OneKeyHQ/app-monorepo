@@ -225,6 +225,44 @@ export function resolveStockChannelSwapPair({
   return {};
 }
 
+export function resolveStockChannelOwnedPayToken({
+  explicitPayToken,
+  stockPair,
+  tradeSide,
+}: {
+  explicitPayToken?: ISwapToken;
+  stockPair: {
+    stockToken?: ISwapToken;
+    payToken?: ISwapToken;
+    tradeSide?: ESwapStockTradeSide;
+  };
+  tradeSide: ESwapStockTradeSide;
+}) {
+  if (explicitPayToken) {
+    return explicitPayToken;
+  }
+  if (!stockPair.stockToken || stockPair.tradeSide !== tradeSide) {
+    return undefined;
+  }
+  return stockPair.payToken;
+}
+
+export function isStockCanonicalInputOwnerReady({
+  displayIdentityKey,
+  inputTokenKey,
+  inputTokenReady,
+  inputTokenVisible,
+}: {
+  displayIdentityKey: string;
+  inputTokenKey: string;
+  inputTokenReady: boolean;
+  inputTokenVisible: boolean;
+}) {
+  return Boolean(
+    displayIdentityKey && inputTokenKey && inputTokenReady && inputTokenVisible,
+  );
+}
+
 export function resolveStockKLineToken({
   stockSelectedToken,
   executionFromToken,

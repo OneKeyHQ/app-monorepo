@@ -12,6 +12,7 @@ import {
   hasSwapQuoteEventTotalCount,
   hasSwapZeroProviderQuoteEvent,
   isSwapNoProviderSupportsTrade,
+  isSwapQuoteActionable,
   isSwapQuoteEventFetching,
   isSwapQuoteFromCurrentEvent,
   isSwapQuoteInputAmountMatched,
@@ -49,6 +50,41 @@ function buildQuote({
 }
 
 describe('swap quote progress', () => {
+  it('treats provider errors and input limit violations as non-actionable', () => {
+    expect(
+      isSwapQuoteActionable({
+        fromAmount: '1',
+        kind: ESwapQuoteKind.SELL,
+        limit: { min: '2' },
+        toAmount: '10',
+      }),
+    ).toBe(false);
+    expect(
+      isSwapQuoteActionable({
+        errorMessage: 'provider unavailable',
+        fromAmount: '1',
+        kind: ESwapQuoteKind.SELL,
+        toAmount: '10',
+      }),
+    ).toBe(false);
+    expect(
+      isSwapQuoteActionable({
+        fromAmount: '2',
+        kind: ESwapQuoteKind.SELL,
+        limit: { min: '2', max: '3' },
+        toAmount: '10',
+      }),
+    ).toBe(true);
+    expect(
+      isSwapQuoteActionable({
+        fromAmount: '200',
+        kind: ESwapQuoteKind.BUY,
+        limit: { min: '10', max: '300' },
+        toAmount: '1',
+      }),
+    ).toBe(true);
+  });
+
   it('caps quote event total count for scoped provider flows', () => {
     expect(
       getSwapQuoteEventProgressTotalCount({
@@ -336,7 +372,7 @@ describe('swap quote progress', () => {
     expect(state.hasPreviousActionableQuote).toBe(true);
   });
 
-  it('does not publish an early current quote before the event settles', () => {
+  it('publishes the pinned first actionable quote before the event settles', () => {
     const currentQuote = buildQuote({
       eventId: 'event-2',
       provider: 'current',
@@ -350,9 +386,10 @@ describe('swap quote progress', () => {
       quoteEventCompleted: false,
     });
 
-    expect(state.phase).toBe(ESwapQuoteUiPhase.Waiting);
-    expect(state.displayQuote).toBeUndefined();
-    expect(state.isWaitingActionableQuote).toBe(true);
+    expect(state.phase).toBe(ESwapQuoteUiPhase.HasQuote);
+    expect(state.displayQuote).toBe(currentQuote);
+    expect(state.isWaitingActionableQuote).toBe(false);
+    expect(state.isInputQuoteLoading).toBe(false);
 
     const settledState = getSwapQuoteProgressState({
       quoteLoading: false,

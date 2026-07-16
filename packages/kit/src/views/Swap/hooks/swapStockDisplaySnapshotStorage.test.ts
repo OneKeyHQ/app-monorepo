@@ -1,9 +1,10 @@
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
-import { ESwapStockTradeSide } from './swapStockChannelUtils';
 import { swapStockDisplaySnapshotStorage } from './swapStockDisplaySnapshotStorage';
-
-import type { ISwapStockDisplaySnapshot } from './swapStockDisplaySnapshotUtils';
+import {
+  type ISwapStockDisplaySnapshot,
+  SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION,
+} from './swapStockDisplaySnapshotUtils';
 
 let mockStoredValue: unknown;
 const mockSetObject = jest.fn((_key: string, value: unknown) => {
@@ -26,14 +27,8 @@ function buildSnapshot(
   updatedAt: number,
 ): ISwapStockDisplaySnapshot {
   return {
-    version: 1,
-    identity: {
-      accountKey,
-      stockTokenKey: 'evm--1:0xstock',
-      payTokenKey: 'evm--1:0xusdc',
-      tradeSide: ESwapStockTradeSide.Buy,
-      currency: 'usd',
-    },
+    version: SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION,
+    identity: { accountKey },
     updatedAt,
   };
 }

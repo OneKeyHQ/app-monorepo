@@ -9,10 +9,7 @@ import {
   ESwapStockTradeSide,
   getTokenIdentityKey,
 } from './swapStockChannelUtils';
-import {
-  buildSwapStockDisplayIdentityKey,
-  mergeSwapStockDisplaySnapshot,
-} from './swapStockDisplaySnapshotUtils';
+import { mergeSwapStockDisplaySnapshot } from './swapStockDisplaySnapshotUtils';
 import { useSwapStockDisplaySnapshot } from './useSwapStockDisplaySnapshot';
 
 import type { ISwapStockDisplayIdentity } from './swapStockDisplaySnapshotUtils';
@@ -34,6 +31,7 @@ let mockActiveAccount: {
   deriveType: 'default',
 };
 let mockInitialSelectedTokensSynced = true;
+let mockCurrency = 'usd';
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({ activeAccount: mockActiveAccount }),
@@ -50,7 +48,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [
     {
       currencyInfo: {
-        id: 'usd',
+        id: mockCurrency,
       },
     },
   ],
@@ -125,9 +123,10 @@ describe('useSwapStockDisplaySnapshot', () => {
       deriveType: 'default',
     };
     mockInitialSelectedTokensSynced = true;
+    mockCurrency = 'usd';
   });
 
-  it('rejects the previous pair snapshot in the identity-changing render', () => {
+  it('rejects stock-owned regions but retains the same input-token balance', () => {
     const identityA = buildIdentity();
     seedSnapshot(identityA, '10');
     const { result, rerender } = renderHook(
@@ -150,7 +149,11 @@ describe('useSwapStockDisplaySnapshot', () => {
     rerender({ currentStockToken: stockB });
 
     expect(result.current.identityKey).not.toBe(staleIdentityKey);
-    expect(result.current.snapshot).toBeUndefined();
+    expect(result.current.snapshot).toMatchObject({
+      tokenDetail: undefined,
+      chart: undefined,
+      balance: { value: '10' },
+    });
   });
 
   it('rejects a stale async patch after the pair owner changes', () => {
@@ -187,14 +190,12 @@ describe('useSwapStockDisplaySnapshot', () => {
 
     expect(committed).toBe(false);
     expect(
-      buildSwapStockDisplayIdentityKey(
-        (
-          mockCache.get('wallet-a|account-a|default') as {
-            identity: ISwapStockDisplayIdentity;
-          }
-        ).identity,
-      ),
-    ).toBe(buildSwapStockDisplayIdentityKey(identityA));
+      (
+        mockCache.get('wallet-a|account-a|default') as {
+          balance?: { value: string };
+        }
+      ).balance?.value,
+    ).toBe('10');
   });
 
   it('never restores another account snapshot during an account switch', () => {
@@ -219,6 +220,38 @@ describe('useSwapStockDisplaySnapshot', () => {
 
     expect(result.current.accountKey).toBe('wallet-b|account-b|default');
     expect(result.current.snapshot).toBeUndefined();
+  });
+
+  it('does not checkpoint preserved live state while the account owner is unresolved', () => {
+    const liveTokenDetail = {
+      address: stockA.contractAddress,
+      decimals: stockA.decimals,
+      logoUrl: '',
+      name: stockA.symbol,
+      networkId: stockA.networkId,
+      price: '100',
+      stock: { subtitle: stockA.symbol },
+      symbol: stockA.symbol,
+    } as IMarketTokenDetail;
+    const { result, rerender } = renderHook(() =>
+      useSwapStockDisplaySnapshot({
+        currentStockToken: stockA,
+        liveTokenDetail,
+        payToken,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    );
+    expect(result.current.accountKey).toBe('wallet-a|account-a|default');
+    mockStorageSet.mockClear();
+
+    mockActiveAccount = { ready: false };
+    rerender();
+
+    expect(result.current.accountKey).toBeUndefined();
+    expect(result.current.identityKey).toBe('');
+    expect(result.current.chart.ownerKey).toBe('');
+    expect(result.current.amount.ownerKey).toBe('');
+    expect(mockStorageSet).not.toHaveBeenCalled();
   });
 
   it('checkpoints token detail once per active identity instead of every live tick', () => {
@@ -254,18 +287,133 @@ describe('useSwapStockDisplaySnapshot', () => {
       },
     );
 
-    expect(mockStorageSet).toHaveBeenCalledTimes(1);
+    expect(mockStorageSet).toHaveBeenCalledTimes(2);
 
     rerender({
       currentStockToken: stockA,
       liveTokenDetail: buildLiveDetail(stockA, '101'),
     });
-    expect(mockStorageSet).toHaveBeenCalledTimes(1);
+    expect(mockStorageSet).toHaveBeenCalledTimes(2);
 
     rerender({
       currentStockToken: stockB,
       liveTokenDetail: buildLiveDetail(stockB, '200'),
     });
-    expect(mockStorageSet).toHaveBeenCalledTimes(2);
+    expect(mockStorageSet).toHaveBeenCalledTimes(4);
+  });
+
+  it('restores chart before pay token lands and keeps its owner across side and currency changes', () => {
+    const identityA = buildIdentity();
+    mockCache.set(
+      identityA.accountKey,
+      mergeSwapStockDisplaySnapshot({
+        identity: identityA,
+        patch: {
+          chart: {
+            range: '1W',
+            data: [[1_725_000_000, 213.49]],
+          },
+        },
+      }),
+    );
+    const { result, rerender } = renderHook(
+      ({
+        selectedPayToken,
+        side,
+      }: {
+        selectedPayToken?: ISwapToken;
+        side: ESwapStockTradeSide;
+      }) =>
+        useSwapStockDisplaySnapshot({
+          currentStockToken: stockA,
+          payToken: selectedPayToken,
+          tradeSide: side,
+        }),
+      {
+        initialProps: {
+          selectedPayToken: undefined as ISwapToken | undefined,
+          side: ESwapStockTradeSide.Buy,
+        },
+      },
+    );
+
+    const chartOwnerKey = result.current.chart.ownerKey;
+    expect(result.current.identityKey).toBe('');
+    expect(result.current.chart.snapshot?.data).toEqual([
+      [1_725_000_000, 213.49],
+    ]);
+
+    mockCurrency = 'eur';
+    rerender({
+      selectedPayToken: payToken,
+      side: ESwapStockTradeSide.Sell,
+    });
+
+    expect(result.current.chart.ownerKey).toBe(chartOwnerKey);
+    expect(result.current.chart.snapshot?.range).toBe('1W');
+  });
+
+  it('rejects a chart synchronously when the stock owner changes', () => {
+    const identityA = buildIdentity();
+    mockCache.set(
+      identityA.accountKey,
+      mergeSwapStockDisplaySnapshot({
+        identity: identityA,
+        patch: {
+          chart: { range: '1W', data: [[1_725_000_000, 213.49]] },
+        },
+      }),
+    );
+    const { result, rerender } = renderHook(
+      ({ stockToken }: { stockToken: ISwapToken }) =>
+        useSwapStockDisplaySnapshot({
+          currentStockToken: stockToken,
+          payToken,
+          tradeSide: ESwapStockTradeSide.Buy,
+        }),
+      { initialProps: { stockToken: stockA } },
+    );
+    const staleOwnerKey = result.current.chart.ownerKey;
+
+    rerender({ stockToken: stockB });
+
+    expect(result.current.chart.ownerKey).not.toBe(staleOwnerKey);
+    expect(result.current.chart.snapshot).toBeUndefined();
+    expect(
+      result.current.chart.commitSnapshot({
+        expectedOwnerKey: staleOwnerKey,
+        chart: { range: '1M', data: [[1_725_000_000, 999]] },
+      }),
+    ).toBe(false);
+  });
+
+  it('restores display amount from account selection before live pay token lands', () => {
+    const identityA = buildIdentity();
+    mockCache.set(
+      identityA.accountKey,
+      mergeSwapStockDisplaySnapshot({
+        identity: identityA,
+        patch: {
+          selection: {
+            stockToken: stockA,
+            payToken,
+            tradeSide: ESwapStockTradeSide.Buy,
+          },
+          amount: { value: '42.5' },
+        },
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useSwapStockDisplaySnapshot({
+        currentStockToken: stockA,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    );
+
+    expect(result.current.identityKey).toBe('');
+    expect(result.current.restoredSelection).toMatchObject({ symbol: 'AAPL' });
+    expect(result.current.restoredAmount).toBe('42.5');
+    expect(result.current.amount.ownerKey).not.toBe('');
   });
 });

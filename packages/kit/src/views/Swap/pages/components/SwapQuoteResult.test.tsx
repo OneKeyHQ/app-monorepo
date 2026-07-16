@@ -22,7 +22,15 @@ let mockQuoteProgressState: {
   isWaitingActionableQuote: true,
   phase: 'waiting',
 };
-const mockSwapQuoteResultRate = jest.fn((_props: unknown) => null);
+const mockSwapQuoteResultRate = jest.fn(
+  (props: { onOpenProviderList?: () => void }) => (
+    <button
+      data-testid="mock-rate-provider-selector"
+      type="button"
+      onClick={props.onOpenProviderList}
+    />
+  ),
+);
 
 type IPrimitiveProps = {
   children?: ReactNode | ((state: { open: boolean }) => ReactNode);
@@ -95,6 +103,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/swap', () => ({
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress', () => ({
   ESwapQuoteUiPhase: {
     Error: 'error',
+    HasQuote: 'hasQuote',
     StaleRefreshing: 'staleRefreshing',
     Waiting: 'waiting',
     ZeroProvider: 'zeroProvider',
@@ -132,7 +141,8 @@ jest.mock('../../components/SwapCommonInfoItem', () => () => null);
 jest.mock('../../components/SwapProviderInfoItem', () => () => null);
 jest.mock('../../components/SwapQuoteResultRate', () => ({
   __esModule: true,
-  default: (props: unknown) => mockSwapQuoteResultRate(props),
+  default: (props: { onOpenProviderList?: () => void }) =>
+    mockSwapQuoteResultRate(props),
 }));
 jest.mock('../../hooks/useSwapGlobal', () => ({
   useSwapLimitConfigMaps: () => ({
@@ -235,6 +245,45 @@ describe('SwapQuoteResult requesting provider selection', () => {
       expect.objectContaining({
         isLoading: false,
         rate: '2000',
+      }),
+    );
+  });
+
+  it('opens the provider picker from HasQuote while SSE is still active', () => {
+    const displayQuote = {
+      fromAmount: '1',
+      fromTokenInfo: {
+        contractAddress: '',
+        decimals: 18,
+        networkId: 'evm--1',
+        symbol: 'ETH',
+      },
+      info: {
+        provider: 'provider-a',
+        providerName: 'Provider A',
+      },
+      instantRate: '2000',
+      toAmount: '2000',
+      toTokenInfo: {
+        contractAddress: '0xusdc',
+        decimals: 6,
+        networkId: 'evm--1',
+        symbol: 'USDC',
+      },
+    } as IFetchQuoteResult;
+    mockQuoteProgressState = {
+      displayQuote,
+      isWaitingActionableQuote: false,
+      phase: 'hasQuote',
+    };
+
+    const { onOpenProviderList } = renderSubject(true);
+    fireEvent.click(screen.getByTestId('mock-rate-provider-selector'));
+
+    expect(onOpenProviderList).toHaveBeenCalledTimes(1);
+    expect(mockSwapQuoteResultRate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onOpenProviderList,
       }),
     );
   });

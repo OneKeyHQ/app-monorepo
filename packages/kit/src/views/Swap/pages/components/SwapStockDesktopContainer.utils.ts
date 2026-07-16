@@ -3,20 +3,9 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import { ESwapStockTradeSide } from '../../hooks/swapStockChannelUtils';
 import { normalizeSwapKLineWalletChartTimestamp } from '../modal/swapKLineChartUtils';
 
-import type {
-  ISwapStockDisplayChartRange,
-  ISwapStockDisplayChartSnapshot,
-} from '../../hooks/swapStockDisplaySnapshotUtils';
+import type { ISwapStockDisplayChartRange } from '../../hooks/swapStockDisplaySnapshotUtils';
 
 export type IStockChartRange = ISwapStockDisplayChartRange;
-
-export type IStockChartState = {
-  displayScope: string;
-  requestScope: string;
-  data: IMarketTokenChart;
-  range: IStockChartRange;
-  status: 'waiting' | 'settled' | 'failed';
-};
 
 export const STOCK_CHART_DEFAULT_RANGE: IStockChartRange = '1W';
 
@@ -38,50 +27,16 @@ export const STOCK_CHART_RANGE_ITEMS: {
   { label: '1Y', interval: '1D', seconds: 365 * 24 * 60 * 60 },
 ];
 
-export function createStockChartStateFromSnapshot({
-  displayScope,
-  snapshot,
+export function resolveStockChartControlRange({
+  requestedRange,
+  visibleRange,
 }: {
-  displayScope: string;
-  snapshot?: ISwapStockDisplayChartSnapshot;
-}): IStockChartState | undefined {
-  if (!displayScope || !snapshot) {
-    return undefined;
-  }
-  return {
-    displayScope,
-    requestScope: '',
-    data: snapshot.data,
-    range: snapshot.range,
-    status: 'settled',
-  };
-}
-
-export function getStockChartVisibleState({
-  displayScope,
-  range,
-  requestScope,
-  requestState,
-  retainedState,
-}: {
-  displayScope: string;
-  range: IStockChartRange;
-  requestScope: string;
-  requestState?: IStockChartState;
-  retainedState?: IStockChartState;
-}): IStockChartState | undefined {
-  if (
-    requestState?.status === 'settled' &&
-    requestState.displayScope === displayScope &&
-    requestState.requestScope === requestScope &&
-    requestState.range === range
-  ) {
-    return requestState;
-  }
-  if (retainedState?.displayScope === displayScope) {
-    return retainedState;
-  }
-  return undefined;
+  requestedRange: IStockChartRange;
+  visibleRange?: IStockChartRange;
+}) {
+  // Silent refresh may deliberately retain the last-good chart. The control
+  // must describe the data on screen, not a newer range that is still pending.
+  return visibleRange ?? requestedRange;
 }
 
 export function getStockDisabledActionButtonProps(

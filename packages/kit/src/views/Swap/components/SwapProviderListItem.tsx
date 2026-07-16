@@ -294,6 +294,8 @@ const SwapProviderListItem = ({
   return (
     <Stack
       role="button"
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : 0}
       group="card"
       borderRadius="$4"
       my="$2"

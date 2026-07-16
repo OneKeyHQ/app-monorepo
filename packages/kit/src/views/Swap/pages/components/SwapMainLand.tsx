@@ -56,7 +56,7 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { isSwapQuoteCommittedSettledCandidate } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteCommittedState';
+import { isSwapQuoteCommittedActiveCandidate } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteCommittedState';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import {
@@ -748,6 +748,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     if (isWrapped || !currentQuoteRes) {
       return false;
     }
+    // Review may open on the first actionable provider, but pre-build should
+    // not race the still-changing provider set. Confirm/build will consume the
+    // immutable Review snapshot instead.
+    if (quoteEventFetching) {
+      return false;
+    }
     if (currentQuoteRes && !currentQuoteRes?.allowanceResult) {
       return true;
     }
@@ -757,7 +763,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         fromSelectToken?.networkId ?? '',
       )
     );
-  }, [currentQuoteRes, fromSelectToken?.networkId, isWrapped]);
+  }, [
+    currentQuoteRes,
+    fromSelectToken?.networkId,
+    isWrapped,
+    quoteEventFetching,
+  ]);
 
   const reviewStepTexts = useMemo(
     () => ({
@@ -819,22 +830,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     const isSpeedSwapReview =
       focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET;
     const activeQuoteSession = quoteSessionState.activeSession;
-    const isCommittedExecutableQuote = Boolean(
+    const isActiveExecutableQuote = Boolean(
       !isSpeedSwapReview &&
       activeQuoteSession &&
-      quoteSessionState.phase === 'settled' &&
+      (quoteSessionState.phase === 'streaming' ||
+        quoteSessionState.phase === 'settled') &&
       quoteCommittedState.requestId === activeQuoteSession.requestId &&
       quoteCommittedState.intentFingerprint ===
         activeQuoteSession.fingerprint &&
-      isSwapQuoteCommittedSettledCandidate(
-        quoteCommittedState,
-        currentQuoteRes,
-      ),
+      isSwapQuoteCommittedActiveCandidate(quoteCommittedState, currentQuoteRes),
     );
 
     // Speed Swap still uses its legacy single-response endpoint. Every SSE
-    // quote must belong to the settled candidate set for the active session.
-    if (!isSpeedSwapReview && !isCommittedExecutableQuote) {
+    // quote must be an actionable candidate accepted by the active session.
+    if (!isSpeedSwapReview && !isActiveExecutableQuote) {
       return false;
     }
 
@@ -898,13 +907,13 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       rateDifference: reviewRateDifference,
       defaultTokenCurrency: settingsPersistAtom.currencyInfo.id,
       currencyMap,
-      quoteRequestId: isCommittedExecutableQuote
+      quoteRequestId: isActiveExecutableQuote
         ? activeQuoteSession?.requestId
         : undefined,
-      quoteIntentRevision: isCommittedExecutableQuote
+      quoteIntentRevision: isActiveExecutableQuote
         ? activeQuoteSession?.intentRevision
         : undefined,
-      quoteCommittedAt: isCommittedExecutableQuote
+      quoteCommittedAt: isActiveExecutableQuote
         ? quoteCommittedState.committedAt
         : undefined,
       executionContext: {

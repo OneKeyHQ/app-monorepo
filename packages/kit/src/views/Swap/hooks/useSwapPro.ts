@@ -107,18 +107,21 @@ const SWAP_PRO_SEARCH_RESULTS_REFRESH_INTERVAL = timerUtils.getTimeDurationMs({
 });
 
 export function useSwapProInit() {
-  const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
   const [, setSwapProDirection] = useSwapProDirectionAtom();
   const { networkList } = useMarketBasicConfig();
-  const { setSwapProSelectToken } = useSwapActions().current;
+  const { setSwapProSelectToken, swapTypeSwitchAction } =
+    useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProJumpToken, setSwapProJumpToken] = useSwapProJumpTokenAtom();
   const swapSwitchProToken = useCallback(
     (payload: { token: ISwapToken }) => {
-      setSwapSwitchType(ESwapTabSwitchType.LIMIT);
+      // Market handoffs may arrive while Stock still owns the shared amount
+      // and balance atoms. Use the canonical transition so the old execution
+      // owner is revoked before the Limit surface becomes visible.
+      void swapTypeSwitchAction(ESwapTabSwitchType.LIMIT);
       void setSwapProSelectToken(payload.token);
     },
-    [setSwapSwitchType, setSwapProSelectToken],
+    [setSwapProSelectToken, swapTypeSwitchAction],
   );
   const swapProSelectTokenRef = useRef<ISwapToken | undefined>(
     swapProSelectToken,

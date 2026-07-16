@@ -7,9 +7,11 @@ import {
   filterStockPayTokenCandidates,
   getTokenIdentityKey,
   getValidStockExecutionBalance,
+  isStockCanonicalInputOwnerReady,
   isStockExecutionBalancePublished,
   isStockExecutionBalanceScopeReady,
   isStockPayTokenReadyForTradeInput,
+  resolveStockChannelOwnedPayToken,
   resolveStockChannelSwapPair,
   resolveStockDisplayBalance,
   resolveStockKLineToken,
@@ -202,12 +204,67 @@ describe('swapStockChannelUtils', () => {
   });
 
   it('does not resolve ordinary swap tokens as a stock execution pair', () => {
+    const ordinarySwapPair = resolveStockChannelSwapPair({
+      fromToken: ethToken,
+      toToken: usdcToken,
+    });
+
+    expect(ordinarySwapPair).toEqual({});
     expect(
-      resolveStockChannelSwapPair({
-        fromToken: ethToken,
-        toToken: usdcToken,
+      resolveStockChannelOwnedPayToken({
+        stockPair: ordinarySwapPair,
+        tradeSide: ESwapStockTradeSide.Buy,
       }),
-    ).toEqual({});
+    ).toBeUndefined();
+  });
+
+  it('resolves a pay token only from an explicitly stock-owned pair', () => {
+    const stockPair = resolveStockChannelSwapPair({
+      fromToken: usdcToken,
+      toToken: appleStockToken,
+    });
+
+    expect(
+      resolveStockChannelOwnedPayToken({
+        stockPair,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toBe(usdcToken);
+    expect(
+      resolveStockChannelOwnedPayToken({
+        stockPair,
+        tradeSide: ESwapStockTradeSide.Sell,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('starts canonical Stock balance work only after the exact input owner is ready', () => {
+    const readyOwner = {
+      displayIdentityKey: 'account-a|stock|pay|buy|usd',
+      inputTokenKey: 'network:pay:token',
+      inputTokenReady: true,
+      inputTokenVisible: true,
+    };
+
+    expect(isStockCanonicalInputOwnerReady(readyOwner)).toBe(true);
+    expect(
+      isStockCanonicalInputOwnerReady({
+        ...readyOwner,
+        inputTokenReady: false,
+      }),
+    ).toBe(false);
+    expect(
+      isStockCanonicalInputOwnerReady({
+        ...readyOwner,
+        displayIdentityKey: '',
+      }),
+    ).toBe(false);
+    expect(
+      isStockCanonicalInputOwnerReady({
+        ...readyOwner,
+        inputTokenKey: '',
+      }),
+    ).toBe(false);
   });
 
   it('keeps the stock K-line token from the stable selected owner', () => {

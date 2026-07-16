@@ -6,7 +6,10 @@ import {
   type IFetchQuoteResult,
 } from '@onekeyhq/shared/types/swap/types';
 
-type ISwapActionableQuote = Pick<IFetchQuoteResult, 'toAmount'>;
+type ISwapActionableQuote = Pick<
+  IFetchQuoteResult,
+  'errorMessage' | 'fromAmount' | 'kind' | 'limit' | 'toAmount'
+>;
 type ISwapQuoteProviderIdentity = Pick<
   IFetchQuoteResult['info'],
   'provider' | 'providerName'
@@ -14,6 +17,7 @@ type ISwapQuoteProviderIdentity = Pick<
 export type ISwapQuoteSelectionIntent = {
   type: 'manual-provider';
   info: ISwapQuoteProviderIdentity;
+  quoteSnapshot?: IFetchQuoteResult;
 };
 
 type ISwapQuoteProgressInput = {
@@ -90,7 +94,9 @@ export function buildSwapQuoteProviderKey(quote: {
 }
 
 export function buildSwapManualProviderSelectionIntent(
-  quote: { info: ISwapQuoteProviderIdentity } | undefined,
+  quote:
+    | ({ info: ISwapQuoteProviderIdentity } & Partial<IFetchQuoteResult>)
+    | undefined,
 ): ISwapQuoteSelectionIntent | undefined {
   if (!quote) {
     return undefined;
@@ -102,6 +108,9 @@ export function buildSwapManualProviderSelectionIntent(
       provider: quote.info.provider,
       providerName: quote.info.providerName,
     },
+    ...(quote.fromTokenInfo && quote.toTokenInfo
+      ? { quoteSnapshot: quote as IFetchQuoteResult }
+      : {}),
   };
 }
 
@@ -204,7 +213,38 @@ export function getSwapQuoteEventProgressTotalCount({
 export function isSwapQuoteActionable(
   quoteCurrentSelect?: ISwapActionableQuote,
 ) {
-  return new BigNumber(quoteCurrentSelect?.toAmount ?? 0).gt(0);
+  if (!quoteCurrentSelect) {
+    return false;
+  }
+  if (quoteCurrentSelect?.errorMessage) {
+    return false;
+  }
+  const toAmount = new BigNumber(quoteCurrentSelect?.toAmount ?? 0);
+  if (!toAmount.isFinite() || !toAmount.gt(0)) {
+    return false;
+  }
+  if (!quoteCurrentSelect.limit) {
+    return true;
+  }
+  const inputAmount = new BigNumber(
+    quoteCurrentSelect.fromAmount ?? Number.NaN,
+  );
+  if (!inputAmount.isFinite() || inputAmount.isNegative()) {
+    return false;
+  }
+  if (quoteCurrentSelect.limit.min) {
+    const min = new BigNumber(quoteCurrentSelect.limit.min);
+    if (!min.isFinite() || inputAmount.lt(min)) {
+      return false;
+    }
+  }
+  if (quoteCurrentSelect.limit.max) {
+    const max = new BigNumber(quoteCurrentSelect.limit.max);
+    if (!max.isFinite() || inputAmount.gt(max)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function isSwapQuoteInputAmountMatched({
@@ -367,16 +407,18 @@ export function getSwapQuoteProgressState({
     displayQuote = hasPreviousActionableQuote
       ? displayPreviousQuote
       : undefined;
+  } else if (hasActionableQuote) {
+    // The committed-state owner pins the first actionable provider for this
+    // request, so publishing it here ends the skeleton without exposing every
+    // later provider update to the main amount or Review button.
+    phase = ESwapQuoteUiPhase.HasQuote;
+    displayQuote = currentQuote;
   } else if (isQuoteRequesting && hasPreviousActionableQuote) {
     phase = ESwapQuoteUiPhase.StaleRefreshing;
     displayQuote = displayPreviousQuote;
   } else if (isQuoteRequesting) {
-    // Provider candidates are still raw while the request is active. Do not
-    // publish an early current quote and then replace it on every SSE message.
     phase = ESwapQuoteUiPhase.Waiting;
     displayQuote = undefined;
-  } else if (hasActionableQuote) {
-    phase = ESwapQuoteUiPhase.HasQuote;
   } else if (
     isSwapZeroProviderQuoteCompleted({
       quoteEventTotalCount,
@@ -396,7 +438,7 @@ export function getSwapQuoteProgressState({
     quoteEventFetching,
     hasActionableQuote,
     hasPreviousActionableQuote,
-    isWaitingActionableQuote: isQuoteRequesting,
+    isWaitingActionableQuote: isQuoteRequesting && !hasActionableQuote,
     isInputQuoteLoading: phase === ESwapQuoteUiPhase.Waiting,
     phase,
     displayQuote,

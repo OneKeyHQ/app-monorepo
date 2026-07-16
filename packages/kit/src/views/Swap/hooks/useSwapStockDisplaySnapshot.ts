@@ -17,12 +17,23 @@ import {
 } from './swapStockChannelUtils';
 import { swapStockDisplaySnapshotStorage } from './swapStockDisplaySnapshotStorage';
 import {
+  type ISwapStockDisplayAmountIdentity,
+  type ISwapStockDisplayChartIdentity,
+  type ISwapStockDisplayChartSnapshot,
   type ISwapStockDisplayIdentity,
   type ISwapStockDisplaySnapshot,
   type ISwapStockDisplaySnapshotPatch,
+  SWAP_STOCK_DISPLAY_CHART_SOURCE_CURRENCY,
+  buildSwapStockDisplayAccountIdentityKey,
+  buildSwapStockDisplayAmountIdentityKey,
+  buildSwapStockDisplayBalanceIdentityKey,
+  buildSwapStockDisplayChartIdentityKey,
   buildSwapStockDisplayIdentityKey,
+  buildSwapStockDisplayTokenDetailIdentityKey,
   getMatchingSwapStockDisplaySnapshot,
+  getSwapStockDisplayAccountSnapshot,
   mergeSwapStockDisplaySnapshot,
+  projectSwapStockDisplayTokenDescriptor,
   projectSwapStockDisplayTokenDetail,
   resolveSwapStockDisplayAccountKey,
 } from './swapStockDisplaySnapshotUtils';
@@ -61,6 +72,9 @@ export function useSwapStockDisplaySnapshot({
     coldStartAccountKey,
     initialSelectedTokensSynced,
   });
+  const accountIdentityKey = buildSwapStockDisplayAccountIdentityKey(
+    accountKey ? { accountKey } : undefined,
+  );
   const stockTokenKey = getTokenIdentityKey(currentStockToken);
   const payTokenKey = getTokenIdentityKey(payToken);
   const currency = settings.currencyInfo.id;
@@ -77,47 +91,121 @@ export function useSwapStockDisplaySnapshot({
     };
   }, [accountKey, currency, payTokenKey, stockTokenKey, tradeSide]);
   const identityKey = buildSwapStockDisplayIdentityKey(identity);
-  const storedSnapshot = useMemo(
+  const chartIdentity = useMemo<ISwapStockDisplayChartIdentity | undefined>(
     () =>
-      getMatchingSwapStockDisplaySnapshot({
-        identity,
+      accountKey && stockTokenKey
+        ? {
+            accountKey,
+            stockTokenKey,
+            sourceCurrency: SWAP_STOCK_DISPLAY_CHART_SOURCE_CURRENCY,
+          }
+        : undefined,
+    [accountKey, stockTokenKey],
+  );
+  const chartOwnerKey = buildSwapStockDisplayChartIdentityKey(chartIdentity);
+  const amountIdentity = useMemo<ISwapStockDisplayAmountIdentity | undefined>(
+    () =>
+      accountKey && stockTokenKey && payTokenKey
+        ? { accountKey, stockTokenKey, payTokenKey, tradeSide }
+        : undefined,
+    [accountKey, payTokenKey, stockTokenKey, tradeSide],
+  );
+  const amountOwnerKey = buildSwapStockDisplayAmountIdentityKey(amountIdentity);
+  const tokenDetailOwnerKey = buildSwapStockDisplayTokenDetailIdentityKey(
+    accountKey && stockTokenKey && currency
+      ? { accountKey, stockTokenKey, currency }
+      : undefined,
+  );
+  const inputTokenKey =
+    identity?.tradeSide === 'buy'
+      ? identity.payTokenKey
+      : identity?.stockTokenKey;
+  const balanceOwnerKey = buildSwapStockDisplayBalanceIdentityKey(
+    accountKey && inputTokenKey ? { accountKey, inputTokenKey } : undefined,
+  );
+
+  // The physical cache slot changes only with account. Region selectors below
+  // synchronously reject mismatched stock/pay/side owners within that slot.
+  const storedAccountSnapshot = useMemo(
+    () =>
+      getSwapStockDisplayAccountSnapshot({
+        accountKey,
         snapshot: accountKey
           ? swapStockDisplaySnapshotStorage.get(accountKey)
           : undefined,
       }),
-    [accountKey, identity],
+    [accountKey],
   );
   const [snapshotState, setSnapshotState] = useState<{
-    identityKey: string;
+    accountKey?: string;
     snapshot?: ISwapStockDisplaySnapshot;
-  }>({
-    identityKey,
-    snapshot: storedSnapshot,
-  });
-  const snapshotRef = useRef<ISwapStockDisplaySnapshot | undefined>(
-    snapshotState.snapshot,
-  );
+  }>({ accountKey, snapshot: storedAccountSnapshot });
+  const currentAccountSnapshot =
+    snapshotState.accountKey === accountKey
+      ? snapshotState.snapshot
+      : storedAccountSnapshot;
+  const accountSnapshotRef = useRef(currentAccountSnapshot);
   const identityRef = useRef(identity);
   const identityKeyRef = useRef(identityKey);
   const accountKeyRef = useRef(accountKey);
-
-  // Derive the current render from the new identity immediately. The effect
-  // only reconciles local state; it is never needed to hide an old owner.
-  const currentSnapshot =
-    snapshotState.identityKey === identityKey
-      ? snapshotState.snapshot
-      : storedSnapshot;
-  snapshotRef.current = currentSnapshot;
+  const accountIdentityKeyRef = useRef(accountIdentityKey);
+  const chartIdentityRef = useRef(chartIdentity);
+  const chartOwnerKeyRef = useRef(chartOwnerKey);
+  const amountIdentityRef = useRef(amountIdentity);
+  const amountOwnerKeyRef = useRef(amountOwnerKey);
+  accountSnapshotRef.current = currentAccountSnapshot;
   identityRef.current = identity;
   identityKeyRef.current = identityKey;
   accountKeyRef.current = accountKey;
+  accountIdentityKeyRef.current = accountIdentityKey;
+  chartIdentityRef.current = chartIdentity;
+  chartOwnerKeyRef.current = chartOwnerKey;
+  amountIdentityRef.current = amountIdentity;
+  amountOwnerKeyRef.current = amountOwnerKey;
   useEffect(() => {
-    if (snapshotState.identityKey === identityKey) {
+    if (snapshotState.accountKey === accountKey) {
       return;
     }
-    snapshotRef.current = storedSnapshot;
-    setSnapshotState({ identityKey, snapshot: storedSnapshot });
-  }, [identityKey, snapshotState.identityKey, storedSnapshot]);
+    accountSnapshotRef.current = storedAccountSnapshot;
+    setSnapshotState({ accountKey, snapshot: storedAccountSnapshot });
+  }, [accountKey, snapshotState.accountKey, storedAccountSnapshot]);
+
+  const persistPatch = useCallback(
+    ({
+      patch,
+      writeIdentity,
+    }: {
+      patch: ISwapStockDisplaySnapshotPatch;
+      writeIdentity: Parameters<
+        typeof mergeSwapStockDisplaySnapshot
+      >[0]['identity'];
+    }) => {
+      const currentAccountKey = accountKeyRef.current;
+      if (
+        !currentAccountKey ||
+        writeIdentity.accountKey !== currentAccountKey
+      ) {
+        return false;
+      }
+      const stored = getSwapStockDisplayAccountSnapshot({
+        accountKey: currentAccountKey,
+        snapshot: swapStockDisplaySnapshotStorage.get(currentAccountKey),
+      });
+      const nextSnapshot = mergeSwapStockDisplaySnapshot({
+        identity: writeIdentity,
+        previous: accountSnapshotRef.current ?? stored,
+        patch,
+      });
+      accountSnapshotRef.current = nextSnapshot;
+      setSnapshotState({
+        accountKey: currentAccountKey,
+        snapshot: nextSnapshot,
+      });
+      swapStockDisplaySnapshotStorage.set(currentAccountKey, nextSnapshot);
+      return true;
+    },
+    [],
+  );
 
   const commitSnapshotPatch = useCallback(
     ({
@@ -128,49 +216,171 @@ export function useSwapStockDisplaySnapshot({
       patch: ISwapStockDisplaySnapshotPatch;
     }) => {
       const currentIdentity = identityRef.current;
-      const currentIdentityKey = identityKeyRef.current;
-      const currentAccountKey = accountKeyRef.current;
       if (
         !currentIdentity ||
-        !currentAccountKey ||
         !expectedIdentityKey ||
-        expectedIdentityKey !== currentIdentityKey
+        expectedIdentityKey !== identityKeyRef.current
       ) {
         return false;
       }
-      const stored = getMatchingSwapStockDisplaySnapshot({
-        identity: currentIdentity,
-        snapshot: swapStockDisplaySnapshotStorage.get(currentAccountKey),
-      });
-      const nextSnapshot = mergeSwapStockDisplaySnapshot({
-        identity: currentIdentity,
-        previous: snapshotRef.current ?? stored,
-        patch,
-      });
-      snapshotRef.current = nextSnapshot;
-      setSnapshotState({
-        identityKey: currentIdentityKey,
-        snapshot: nextSnapshot,
-      });
-      swapStockDisplaySnapshotStorage.set(currentAccountKey, nextSnapshot);
-      return true;
+      return persistPatch({ patch, writeIdentity: currentIdentity });
     },
-    [],
+    [persistPatch],
   );
+
+  const commitChartSnapshot = useCallback(
+    ({
+      expectedOwnerKey,
+      chart,
+    }: {
+      expectedOwnerKey: string;
+      chart: Omit<ISwapStockDisplayChartSnapshot, 'identity' | 'updatedAt'>;
+    }) => {
+      const currentChartIdentity = chartIdentityRef.current;
+      if (
+        !currentChartIdentity ||
+        !expectedOwnerKey ||
+        expectedOwnerKey !== chartOwnerKeyRef.current
+      ) {
+        return false;
+      }
+      return persistPatch({
+        patch: { chart },
+        writeIdentity: currentChartIdentity,
+      });
+    },
+    [persistPatch],
+  );
+
+  const commitSelectionSnapshot = useCallback(
+    ({
+      expectedOwnerKey,
+      payToken: selectedPayToken,
+      stockToken,
+      tradeSide: selectedTradeSide,
+    }: {
+      expectedOwnerKey: string;
+      payToken?: ISwapToken;
+      stockToken: ISwapToken;
+      tradeSide: ESwapStockTradeSide;
+    }) => {
+      const currentAccountKey = accountKeyRef.current;
+      if (
+        !currentAccountKey ||
+        !expectedOwnerKey ||
+        expectedOwnerKey !== accountIdentityKeyRef.current
+      ) {
+        return false;
+      }
+      return persistPatch({
+        patch: {
+          selection: {
+            stockToken: projectSwapStockDisplayTokenDescriptor(stockToken),
+            payToken: selectedPayToken
+              ? projectSwapStockDisplayTokenDescriptor(selectedPayToken)
+              : undefined,
+            tradeSide: selectedTradeSide,
+          },
+        },
+        writeIdentity: { accountKey: currentAccountKey },
+      });
+    },
+    [persistPatch],
+  );
+
+  const commitAmountSnapshot = useCallback(
+    ({
+      expectedOwnerKey,
+      value,
+    }: {
+      expectedOwnerKey: string;
+      value: string;
+    }) => {
+      const currentAmountIdentity = amountIdentityRef.current;
+      if (
+        !currentAmountIdentity ||
+        !expectedOwnerKey ||
+        expectedOwnerKey !== amountOwnerKeyRef.current
+      ) {
+        return false;
+      }
+      return persistPatch({
+        patch: { amount: { value } },
+        writeIdentity: currentAmountIdentity,
+      });
+    },
+    [persistPatch],
+  );
+
+  const matchingSnapshot = useMemo(
+    () =>
+      getMatchingSwapStockDisplaySnapshot({
+        identity,
+        snapshot: currentAccountSnapshot,
+      }),
+    [currentAccountSnapshot, identity],
+  );
+  const chartSnapshot =
+    currentAccountSnapshot?.chart &&
+    buildSwapStockDisplayChartIdentityKey(
+      currentAccountSnapshot.chart.identity,
+    ) === chartOwnerKey
+      ? currentAccountSnapshot.chart
+      : undefined;
+  const tokenDetailSnapshot =
+    currentAccountSnapshot?.tokenDetail &&
+    buildSwapStockDisplayTokenDetailIdentityKey(
+      currentAccountSnapshot.tokenDetail.identity,
+    ) === tokenDetailOwnerKey
+      ? currentAccountSnapshot.tokenDetail
+      : undefined;
+  const selectionSnapshot = currentAccountSnapshot?.selection;
+  const selectedStockTokenKey = getTokenIdentityKey(
+    selectionSnapshot?.stockToken,
+  );
+  const selectedPayTokenKey = getTokenIdentityKey(selectionSnapshot?.payToken);
+  const selectionAmountIdentity =
+    accountKey &&
+    selectionSnapshot?.tradeSide &&
+    selectedStockTokenKey &&
+    selectedPayTokenKey &&
+    (!stockTokenKey || stockTokenKey === selectedStockTokenKey) &&
+    (!payTokenKey || payTokenKey === selectedPayTokenKey)
+      ? {
+          accountKey,
+          stockTokenKey: selectedStockTokenKey,
+          payTokenKey: selectedPayTokenKey,
+          tradeSide: selectionSnapshot.tradeSide,
+        }
+      : undefined;
+  // Before live pay-token selection lands, an account-owned selection can
+  // recover the exact display amount owner. It is never used as execution
+  // readiness; the live amount identity above remains the only write gate.
+  const displayAmountIdentity = amountIdentity ?? selectionAmountIdentity;
+  const displayAmountOwnerKey = buildSwapStockDisplayAmountIdentityKey(
+    displayAmountIdentity,
+  );
+  const amountSnapshot =
+    currentAccountSnapshot?.amount &&
+    buildSwapStockDisplayAmountIdentityKey(
+      currentAccountSnapshot.amount.identity,
+    ) === displayAmountOwnerKey
+      ? currentAccountSnapshot.amount
+      : undefined;
 
   const projectedLiveTokenDetail = useMemo(
     () =>
-      identity && liveTokenDetail?.stock
+      tokenDetailOwnerKey && liveTokenDetail?.stock
         ? projectSwapStockDisplayTokenDetail(liveTokenDetail)
         : undefined,
-    [identity, liveTokenDetail],
+    [liveTokenDetail, tokenDetailOwnerKey],
   );
   const tokenDetailCheckpointIdentityRef = useRef('');
   useEffect(() => {
-    if (!projectedLiveTokenDetail || !identityKey) {
+    if (!projectedLiveTokenDetail || !identityKey || !tokenDetailOwnerKey) {
       return;
     }
-    if (tokenDetailCheckpointIdentityRef.current === identityKey) {
+    if (tokenDetailCheckpointIdentityRef.current === tokenDetailOwnerKey) {
       return;
     }
     if (
@@ -180,20 +390,85 @@ export function useSwapStockDisplaySnapshot({
       })
     ) {
       // WebSocket price ticks remain render-only. Persist one stable checkpoint
-      // per identity/mount; balance and chart completions create later coarse
-      // checkpoints without serializing the store on every market tick.
-      tokenDetailCheckpointIdentityRef.current = identityKey;
+      // per token-detail owner/mount, independent from pay token and side.
+      tokenDetailCheckpointIdentityRef.current = tokenDetailOwnerKey;
     }
-  }, [commitSnapshotPatch, identityKey, projectedLiveTokenDetail]);
+  }, [
+    commitSnapshotPatch,
+    identityKey,
+    projectedLiveTokenDetail,
+    tokenDetailOwnerKey,
+  ]);
+
+  const currentSelectionKey = `${selectedStockTokenKey}|${selectedPayTokenKey}|${
+    selectionSnapshot?.tradeSide ?? ''
+  }`;
+  const nextSelectionKey = `${stockTokenKey}|${payTokenKey}|${tradeSide}`;
+  useEffect(() => {
+    if (
+      !currentStockToken ||
+      !payToken ||
+      !accountIdentityKey ||
+      !stockTokenKey ||
+      currentSelectionKey === nextSelectionKey
+    ) {
+      return;
+    }
+    commitSelectionSnapshot({
+      expectedOwnerKey: accountIdentityKey,
+      payToken,
+      stockToken: currentStockToken,
+      tradeSide,
+    });
+  }, [
+    accountIdentityKey,
+    commitSelectionSnapshot,
+    currentSelectionKey,
+    currentStockToken,
+    nextSelectionKey,
+    payToken,
+    stockTokenKey,
+    tradeSide,
+  ]);
 
   return {
     accountKey,
     identity,
     identityKey,
-    snapshot: currentSnapshot,
-    displayTokenDetail:
-      projectedLiveTokenDetail ?? currentSnapshot?.tokenDetail?.data,
+    snapshot: matchingSnapshot,
+    displayTokenDetail: projectedLiveTokenDetail ?? tokenDetailSnapshot?.data,
     commitSnapshotPatch,
+    tokenDetail: {
+      ownerKey: tokenDetailOwnerKey,
+      snapshot: tokenDetailSnapshot,
+    },
+    balance: {
+      ownerKey: balanceOwnerKey,
+      snapshot: matchingSnapshot?.balance,
+    },
+    chart: {
+      identity: chartIdentity,
+      ownerKey: chartOwnerKey,
+      snapshot: chartSnapshot,
+      commitSnapshot: commitChartSnapshot,
+    },
+    selection: {
+      ownerKey: accountIdentityKey,
+      snapshot: selectionSnapshot,
+      restoredToken: selectionSnapshot?.stockToken,
+      commitSnapshot: commitSelectionSnapshot,
+    },
+    amount: {
+      identity: displayAmountIdentity,
+      ownerKey: displayAmountOwnerKey,
+      snapshot: amountSnapshot,
+      restoredValue: amountSnapshot?.value,
+      commitSnapshot: commitAmountSnapshot,
+    },
+    // Convenience aliases for a future cold-start consumer. These are display
+    // seeds only; execution readiness must still come from live channel state.
+    restoredSelection: selectionSnapshot?.stockToken,
+    restoredAmount: amountSnapshot?.value,
   };
 }
 

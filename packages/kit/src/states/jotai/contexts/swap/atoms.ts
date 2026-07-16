@@ -55,10 +55,12 @@ import type {
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
 import {
+  ESwapQuoteCommitPhase,
   type ISwapQuoteCommittedState,
   hasSwapQuoteSelectableProviderCandidate,
   initialSwapQuoteCommittedState,
-  isSwapQuoteCommittedSettledCandidate,
+  isSwapQuoteCommittedActiveCandidate,
+  mergeSwapQuoteStreamingEnrichment,
 } from './quoteCommittedState';
 import {
   type ISwapQuoteEventTotalCount,
@@ -447,8 +449,6 @@ export const {
   atom: swapQuoteProviderSelectionReadyAtom,
   use: useSwapQuoteProviderSelectionReadyAtom,
 } = contextAtomComputed((get) => {
-  // This atom may open the provider picker only; display and execution keep
-  // consuming the terminal committed quote below.
   const committedState = get(swapQuoteCommittedStateAtom());
   return hasSwapQuoteSelectableProviderCandidate(committedState);
 });
@@ -460,15 +460,64 @@ export const {
   const committedState = get(swapQuoteCommittedStateAtom());
   if (committedState.intentFingerprint) {
     const selectionIntent = get(swapManualSelectQuoteProvidersAtom());
-    const quote =
+    const guardedCandidates =
+      committedState.phase === ESwapQuoteCommitPhase.Requesting
+        ? committedState.pendingQuotes
+        : committedState.settledQuotes;
+    const manualLiveQuote =
       selectionIntent?.type === 'manual-provider'
-        ? committedState.settledQuotes.find(
+        ? guardedCandidates.find(
             (candidate) =>
               buildSwapQuoteProviderKey(candidate) ===
               buildSwapQuoteProviderKey(selectionIntent),
           )
+        : undefined;
+    const committedManualQuote =
+      selectionIntent?.type === 'manual-provider' &&
+      committedState.executableQuote &&
+      buildSwapQuoteProviderKey(committedState.executableQuote) ===
+        buildSwapQuoteProviderKey(selectionIntent)
+        ? committedState.executableQuote
+        : undefined;
+    let guardedQuote =
+      selectionIntent?.type === 'manual-provider'
+        ? (committedManualQuote ??
+          manualLiveQuote ??
+          committedState.executableQuote)
         : committedState.executableQuote;
-    if (!isSwapQuoteCommittedSettledCandidate(committedState, quote)) {
+    const manualQuoteSnapshot = selectionIntent?.quoteSnapshot;
+    if (
+      committedState.phase === ESwapQuoteCommitPhase.Requesting &&
+      !committedManualQuote &&
+      manualLiveQuote &&
+      manualQuoteSnapshot?.eventId &&
+      manualQuoteSnapshot.eventId === manualLiveQuote.eventId &&
+      buildSwapQuoteProviderKey(manualQuoteSnapshot) ===
+        buildSwapQuoteProviderKey(manualLiveQuote)
+    ) {
+      guardedQuote = mergeSwapQuoteStreamingEnrichment({
+        pinnedQuote: manualQuoteSnapshot,
+        latestQuote: manualLiveQuote,
+      });
+    }
+    if (!isSwapQuoteCommittedActiveCandidate(committedState, guardedQuote)) {
+      return undefined;
+    }
+    const latestProviderQuote =
+      committedState.phase === ESwapQuoteCommitPhase.Requesting
+        ? get(swapQuoteCurrentEventListAtom()).find(
+            (candidate) =>
+              buildSwapQuoteProviderKey(candidate) ===
+              buildSwapQuoteProviderKey(guardedQuote),
+          )
+        : undefined;
+    // Preserve the first accepted quote's economic fields during streaming;
+    // only explicitly safe enrichment may flow in before settlement.
+    const quote = mergeSwapQuoteStreamingEnrichment({
+      pinnedQuote: guardedQuote,
+      latestQuote: latestProviderQuote,
+    });
+    if (!isSwapQuoteCommittedActiveCandidate(committedState, quote)) {
       return undefined;
     }
     const fromToken = get(swapSelectFromTokenAtom());

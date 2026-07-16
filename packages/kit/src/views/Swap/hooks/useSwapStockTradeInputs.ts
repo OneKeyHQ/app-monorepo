@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -35,6 +42,7 @@ import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 import {
   getTokenIdentityKey,
   getValidStockExecutionBalance,
+  isStockCanonicalInputOwnerReady,
   isStockExecutionBalancePublished,
   isStockExecutionBalanceScopeReady,
   isStockPayTokenReadyForTradeInput,
@@ -58,6 +66,186 @@ import {
   ESwapStockTradeSide,
   type IUseSwapStockChannelReturn,
 } from './useSwapStockChannel';
+
+import type {
+  ISwapStockDisplayAmountIdentity,
+  ISwapStockDisplaySelectionSnapshot,
+  ISwapStockDisplayTokenDescriptor,
+} from './swapStockDisplaySnapshotUtils';
+
+export type IStockAmountAtomOwnerState = {
+  ownerKey?: string;
+  initialized: boolean;
+};
+
+export function buildStockAmountQuoteIntent(value: string) {
+  return { value, isInput: true } as const;
+}
+
+export function isStockAmountInputEditable({
+  amountOwnerKey,
+  canonicalOwnerReady,
+}: {
+  amountOwnerKey: string;
+  canonicalOwnerReady: boolean;
+}) {
+  return Boolean(amountOwnerKey && canonicalOwnerReady);
+}
+
+function materializeStockDisplayToken(
+  token?: ISwapStockDisplayTokenDescriptor,
+): ISwapToken | undefined {
+  if (!token) {
+    return undefined;
+  }
+  return {
+    ...token,
+    // Native-token snapshots deliberately allow a missing address. UI token
+    // consumers still expect the canonical ISwapToken shape.
+    contractAddress: token.contractAddress ?? '',
+  };
+}
+
+export function resolveStockAmountInputTokens({
+  currentStockToken,
+  payToken,
+  selection,
+  tradeSide,
+}: {
+  currentStockToken?: ISwapToken;
+  payToken?: ISwapToken;
+  selection?: ISwapStockDisplaySelectionSnapshot;
+  tradeSide: ESwapStockTradeSide;
+}) {
+  const isBuySide = tradeSide === ESwapStockTradeSide.Buy;
+  const executionInputToken = isBuySide ? payToken : currentStockToken;
+  const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
+  const selectionStockTokenKey = getTokenIdentityKey(selection?.stockToken);
+  const selectionMatchesCurrentOwner = Boolean(
+    selection?.tradeSide === tradeSide &&
+    selectionStockTokenKey &&
+    (!currentStockTokenKey || selectionStockTokenKey === currentStockTokenKey),
+  );
+  let restoredInputToken: ISwapStockDisplayTokenDescriptor | undefined;
+  if (selectionMatchesCurrentOwner) {
+    restoredInputToken = isBuySide
+      ? selection?.payToken
+      : selection?.stockToken;
+  }
+
+  return {
+    executionInputToken,
+    displayInputToken:
+      executionInputToken ?? materializeStockDisplayToken(restoredInputToken),
+  };
+}
+
+export function resolveStockAmountDisplayOwnerKey({
+  amountIdentity,
+  amountOwnerKey,
+  currentStockToken,
+  payToken,
+  tradeSide,
+}: {
+  amountIdentity?: ISwapStockDisplayAmountIdentity;
+  amountOwnerKey: string;
+  currentStockToken?: ISwapToken;
+  payToken?: ISwapToken;
+  tradeSide: ESwapStockTradeSide;
+}) {
+  if (
+    !amountIdentity ||
+    !amountOwnerKey ||
+    amountIdentity.tradeSide !== tradeSide
+  ) {
+    return '';
+  }
+  const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
+  if (
+    currentStockTokenKey &&
+    currentStockTokenKey !== amountIdentity.stockTokenKey
+  ) {
+    return '';
+  }
+  const payTokenKey = getTokenIdentityKey(payToken);
+  if (payTokenKey && payTokenKey !== amountIdentity.payTokenKey) {
+    return '';
+  }
+  return amountOwnerKey;
+}
+
+export function resolveStockAmountInputValue({
+  amountAtomOwnerState,
+  amountOwnerKey,
+  atomValue,
+  restoredValue,
+}: {
+  amountAtomOwnerState: IStockAmountAtomOwnerState;
+  amountOwnerKey: string;
+  atomValue: string;
+  restoredValue?: string;
+}) {
+  if (
+    amountOwnerKey &&
+    amountAtomOwnerState.ownerKey === amountOwnerKey &&
+    amountAtomOwnerState.initialized
+  ) {
+    return atomValue;
+  }
+  if (amountOwnerKey && restoredValue !== undefined) {
+    return restoredValue;
+  }
+  return '';
+}
+
+export function resolveStockAmountAtomInitialization({
+  amountAtomOwnerState,
+  amountOwnerKey,
+  canonicalOwnerReady,
+  restoredValue,
+}: {
+  amountAtomOwnerState: IStockAmountAtomOwnerState;
+  amountOwnerKey: string;
+  canonicalOwnerReady: boolean;
+  restoredValue?: string;
+}) {
+  const shouldInitialize = Boolean(
+    canonicalOwnerReady &&
+    amountOwnerKey &&
+    amountAtomOwnerState.ownerKey === amountOwnerKey &&
+    !amountAtomOwnerState.initialized,
+  );
+  return {
+    shouldInitialize,
+    seedValue: shouldInitialize ? restoredValue : undefined,
+  };
+}
+
+export function commitStockAmountInputSnapshot({
+  amountAtomOwnerState,
+  canonicalOwnerKey,
+  commitSnapshot,
+  expectedOwnerKey,
+  value,
+}: {
+  amountAtomOwnerState: IStockAmountAtomOwnerState;
+  canonicalOwnerKey: string;
+  commitSnapshot: (params: {
+    expectedOwnerKey: string;
+    value: string;
+  }) => boolean;
+  expectedOwnerKey: string;
+  value: string;
+}) {
+  if (
+    !expectedOwnerKey ||
+    canonicalOwnerKey !== expectedOwnerKey ||
+    amountAtomOwnerState.ownerKey !== expectedOwnerKey
+  ) {
+    return false;
+  }
+  return commitSnapshot({ expectedOwnerKey, value });
+}
 
 function getNetworkLogoURI(networkId?: string) {
   if (!networkId) {
@@ -585,10 +773,18 @@ export function useSwapStockAmountInputState({
     tradeSide,
   } = stockChannel;
   const commitStockDisplaySnapshotPatch = stockDisplay.commitSnapshotPatch;
+  const commitStockDisplayAmountSnapshot = stockDisplay.amount.commitSnapshot;
   const stockDisplayIdentityKey = stockDisplay.identityKey;
   const isBuySide = tradeSide === ESwapStockTradeSide.Buy;
-  const inputToken = isBuySide ? payToken : currentStockToken;
-  const inputTokenVisible = Boolean(inputToken);
+  const { displayInputToken, executionInputToken } =
+    resolveStockAmountInputTokens({
+      currentStockToken,
+      payToken,
+      selection: stockDisplay.selection.snapshot,
+      tradeSide,
+    });
+  const displayInputTokenVisible = Boolean(displayInputToken);
+  const executionInputTokenVisible = Boolean(executionInputToken);
   const stockIdentityReady =
     stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
     marketStatusStatus === ESwapStockChannelAsyncStatus.Ready;
@@ -600,16 +796,109 @@ export function useSwapStockAmountInputState({
   });
   const inputTokenReady = isBuySide
     ? payTokenReady
-    : stockIdentityReady && inputTokenVisible;
-  const executionBalanceFetchEnabled = Boolean(
-    inputTokenVisible && stockDisplayIdentityKey,
+    : stockIdentityReady && executionInputTokenVisible;
+  const inputTokenKey = getStockInputTokenIdentityKey(executionInputToken);
+  const canonicalInputOwnerReady = isStockCanonicalInputOwnerReady({
+    displayIdentityKey: stockDisplayIdentityKey,
+    inputTokenKey,
+    inputTokenReady,
+    inputTokenVisible: executionInputTokenVisible,
+  });
+  const amountOwnerKey = resolveStockAmountDisplayOwnerKey({
+    amountIdentity: stockDisplay.amount.identity,
+    amountOwnerKey: stockDisplay.amount.ownerKey,
+    currentStockToken,
+    payToken,
+    tradeSide,
+  });
+  const restoredAmountValue = amountOwnerKey
+    ? stockDisplay.amount.restoredValue
+    : undefined;
+  const [amountAtomOwnerState, setAmountAtomOwnerState] =
+    useState<IStockAmountAtomOwnerState>({
+      ownerKey: undefined,
+      initialized: false,
+    });
+  const amountAtomOwnerStateRef = useRef(amountAtomOwnerState);
+  amountAtomOwnerStateRef.current = amountAtomOwnerState;
+  const setAmountAtomOwnerStateWithRef = useCallback(
+    (nextState: IStockAmountAtomOwnerState) => {
+      amountAtomOwnerStateRef.current = nextState;
+      setAmountAtomOwnerState(nextState);
+    },
+    [],
   );
+  const inputEditable = isStockAmountInputEditable({
+    amountOwnerKey,
+    canonicalOwnerReady: canonicalInputOwnerReady,
+  });
+  const canonicalAmountOwnerKey = inputEditable ? amountOwnerKey : '';
+  const canonicalAmountOwnerKeyRef = useRef(canonicalAmountOwnerKey);
+  canonicalAmountOwnerKeyRef.current = canonicalAmountOwnerKey;
+  const inputValue = resolveStockAmountInputValue({
+    amountAtomOwnerState,
+    amountOwnerKey,
+    atomValue: fromTokenAmount.value,
+    restoredValue: restoredAmountValue,
+  });
+
+  useLayoutEffect(() => {
+    if (amountAtomOwnerStateRef.current.ownerKey === amountOwnerKey) {
+      return;
+    }
+    setAmountAtomOwnerStateWithRef({
+      ownerKey: amountOwnerKey,
+      initialized: false,
+    });
+    // The amount atom is shared by generic Swap. Clear it before paint so an
+    // account/stock/pay/side transition cannot expose or execute the old
+    // owner's amount while the new canonical channel settles.
+    setSwapAlerts({ quoteId: '', states: [] });
+    setFromTokenAmount(buildStockAmountQuoteIntent(''));
+  }, [
+    amountOwnerKey,
+    setAmountAtomOwnerStateWithRef,
+    setFromTokenAmount,
+    setSwapAlerts,
+  ]);
+
+  useEffect(() => {
+    const initialization = resolveStockAmountAtomInitialization({
+      amountAtomOwnerState: amountAtomOwnerStateRef.current,
+      amountOwnerKey,
+      canonicalOwnerReady:
+        canonicalAmountOwnerKeyRef.current === amountOwnerKey,
+      restoredValue: restoredAmountValue,
+    });
+    if (!initialization.shouldInitialize) {
+      return;
+    }
+    setAmountAtomOwnerStateWithRef({
+      ownerKey: amountOwnerKey,
+      initialized: true,
+    });
+    if (initialization.seedValue === undefined) {
+      return;
+    }
+    // A restored value is display-only until the exact live owner is ready.
+    // Publishing it as user intent here starts a fresh owner-scoped quote;
+    // the snapshot itself never marks balance or execution as ready.
+    setSwapAlerts({ quoteId: '', states: [] });
+    setFromTokenAmount(buildStockAmountQuoteIntent(initialization.seedValue));
+  }, [
+    amountOwnerKey,
+    canonicalAmountOwnerKey,
+    restoredAmountValue,
+    setAmountAtomOwnerStateWithRef,
+    setFromTokenAmount,
+    setSwapAlerts,
+  ]);
+
   const stockInputTokenBalance = useStockInputTokenBalance({
     displayIdentityKey: stockDisplayIdentityKey,
-    enabled: executionBalanceFetchEnabled,
-    token: inputToken,
+    enabled: canonicalInputOwnerReady,
+    token: executionInputToken,
   });
-  const inputTokenKey = getStockInputTokenIdentityKey(inputToken);
   const snapshotBalance =
     stockDisplay.snapshot?.balance?.inputTokenKey === inputTokenKey
       ? stockDisplay.snapshot.balance
@@ -631,7 +920,8 @@ export function useSwapStockAmountInputState({
     snapshotBalance: snapshotBalance?.value,
   });
   const inputTokenNetworkLogoURI =
-    inputToken?.networkLogoURI ?? getNetworkLogoURI(inputToken?.networkId);
+    displayInputToken?.networkLogoURI ??
+    getNetworkLogoURI(displayInputToken?.networkId);
   const inputTokenPrice =
     resolveStockTokenPrice({
       token: stockInputTokenBalance.tokenDetail,
@@ -645,19 +935,19 @@ export function useSwapStockAmountInputState({
           fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
         })) ??
     resolveStockTokenPrice({
-      token: inputToken,
+      token: displayInputToken,
       fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
     });
   const amountFiatValue = useMemo(() => {
     return getStockTokenFiatValue({
-      amount: fromTokenAmount.value,
+      amount: inputValue,
       tokenPrice: inputTokenPrice,
       targetCurrency: settingsPersistAtom.currencyInfo.id,
       currencyMap,
     });
   }, [
     currencyMap,
-    fromTokenAmount.value,
+    inputValue,
     inputTokenPrice,
     settingsPersistAtom.currencyInfo.id,
   ]);
@@ -665,42 +955,59 @@ export function useSwapStockAmountInputState({
     currencyMap[settingsPersistAtom.currencyInfo.id]?.unit ??
     currencyMap[STOCK_PRICE_SOURCE_CURRENCY]?.unit ??
     settingsPersistAtom.currencyInfo.symbol;
+  const publishInputValue = useCallback(
+    (value: string) => {
+      const committed = commitStockAmountInputSnapshot({
+        amountAtomOwnerState: amountAtomOwnerStateRef.current,
+        canonicalOwnerKey: canonicalAmountOwnerKeyRef.current,
+        commitSnapshot: commitStockDisplayAmountSnapshot,
+        expectedOwnerKey: amountOwnerKey,
+        value,
+      });
+      if (!committed) {
+        return false;
+      }
+      setAmountAtomOwnerStateWithRef({
+        ownerKey: amountOwnerKey,
+        initialized: true,
+      });
+      setSwapAlerts({ quoteId: '', states: [] });
+      setFromTokenAmount(buildStockAmountQuoteIntent(value));
+      return true;
+    },
+    [
+      amountOwnerKey,
+      commitStockDisplayAmountSnapshot,
+      setAmountAtomOwnerStateWithRef,
+      setFromTokenAmount,
+      setSwapAlerts,
+    ],
+  );
   const onAmountChange = useCallback(
     (value: string) => {
-      if (validateAmountInput(value, inputToken?.decimals)) {
-        setSwapAlerts({
-          quoteId: '',
-          states: [],
-        });
-        setFromTokenAmount({
-          value,
-          isInput: true,
-        });
+      if (validateAmountInput(value, executionInputToken?.decimals)) {
+        publishInputValue(value);
       }
     },
-    [inputToken?.decimals, setFromTokenAmount, setSwapAlerts],
+    [executionInputToken?.decimals, publishInputValue],
   );
   const setInputAmount = useCallback(
     (amount: BigNumber) => {
-      if (!inputToken || !amount.isFinite() || amount.isNaN()) {
+      if (!executionInputToken || !amount.isFinite() || amount.isNaN()) {
         return;
       }
       const amountValue = amount
-        .decimalPlaces(Number(inputToken.decimals ?? 6), BigNumber.ROUND_DOWN)
+        .decimalPlaces(
+          Number(executionInputToken.decimals ?? 6),
+          BigNumber.ROUND_DOWN,
+        )
         .toFixed();
-      if (!validateAmountInput(amountValue, inputToken.decimals)) {
+      if (!validateAmountInput(amountValue, executionInputToken.decimals)) {
         return;
       }
-      setSwapAlerts({
-        quoteId: '',
-        states: [],
-      });
-      setFromTokenAmount({
-        value: amountValue,
-        isInput: true,
-      });
+      publishInputValue(amountValue);
     },
-    [inputToken, setFromTokenAmount, setSwapAlerts],
+    [executionInputToken, publishInputValue],
   );
   const onBalanceMaxPress = useCallback(() => {
     if (
@@ -731,14 +1038,14 @@ export function useSwapStockAmountInputState({
   const hasBalanceError = useMemo(() => {
     if (
       !isBuySide ||
-      !inputToken ||
+      !executionInputToken ||
       !balanceReadyForExecution ||
       stockInputTokenBalance.balance === undefined
     ) {
       return false;
     }
     const balanceBN = new BigNumber(stockInputTokenBalance.balance);
-    const amountBN = new BigNumber(fromTokenAmount.value ?? '0');
+    const amountBN = new BigNumber(inputValue || '0');
     if (
       balanceBN.isNaN() ||
       amountBN.isNaN() ||
@@ -750,8 +1057,8 @@ export function useSwapStockAmountInputState({
     return amountBN.gt(balanceBN);
   }, [
     balanceReadyForExecution,
-    fromTokenAmount.value,
-    inputToken,
+    executionInputToken,
+    inputValue,
     isBuySide,
     stockInputTokenBalance.balance,
   ]);
@@ -765,7 +1072,7 @@ export function useSwapStockAmountInputState({
     [stockInputTokenBalance.tokenDetail],
   );
   const canonicalBalanceScope = `${stockDisplayIdentityKey}:${inputTokenKey}`;
-  useEffect(() => {
+  useLayoutEffect(() => {
     // The atom is shared with generic Swap actions. Invalidate it whenever the
     // Stock execution owner changes so an old account balance cannot unlock a
     // new account/pair before its exact live balance lands.
@@ -773,8 +1080,7 @@ export function useSwapStockAmountInputState({
   }, [canonicalBalanceScope, setFromTokenBalance]);
   useEffect(() => {
     if (
-      !stockDisplayIdentityKey ||
-      !inputTokenKey ||
+      !canonicalInputOwnerReady ||
       stockInputTokenBalance.balance === undefined ||
       stockInputTokenBalance.displayIdentityKey !== stockDisplayIdentityKey
     ) {
@@ -791,6 +1097,7 @@ export function useSwapStockAmountInputState({
       },
     });
   }, [
+    canonicalInputOwnerReady,
     inputTokenKey,
     liveTokenPrice,
     commitStockDisplaySnapshotPatch,
@@ -831,9 +1138,10 @@ export function useSwapStockAmountInputState({
     disableNativePayToken,
     displayBalance,
     hasBalanceError,
-    inputToken,
+    inputEditable,
+    inputToken: displayInputToken,
     inputTokenNetworkLogoURI,
-    inputValue: fromTokenAmount.value,
+    inputValue,
     isBuySide,
     onBalanceMaxPress,
     onBalanceRetry: stockInputTokenBalance.retry,
@@ -846,7 +1154,7 @@ export function useSwapStockAmountInputState({
     selectPayToken,
     shouldRenderSkeleton: shouldRenderStockTradeInputSkeleton({
       inputTokenReady,
-      inputTokenVisible,
+      inputTokenVisible: displayInputTokenVisible,
       isBuySide,
     }),
   };

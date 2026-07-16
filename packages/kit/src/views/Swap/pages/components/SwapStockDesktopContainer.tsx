@@ -39,16 +39,17 @@ import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart'
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { useIdentityScopedSilentRefresh } from '@onekeyhq/kit/src/hooks/useIdentityScopedSilentRefresh';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapProEnableCurrentSymbolAtom,
   useSwapQuoteEventErrorAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapToTokenAmountAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import {
@@ -101,7 +102,6 @@ import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText'
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 import {
   type ISwapStockDisplayChartSnapshot,
-  type ISwapStockDisplaySnapshotPatch,
   type ISwapStockDisplayTokenDetail,
 } from '../../hooks/swapStockDisplaySnapshotUtils';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
@@ -146,15 +146,13 @@ import SwapProPositionsList from './SwapProPositionsList';
 import SwapQuoteResult from './SwapQuoteResult';
 import {
   type IStockChartRange,
-  type IStockChartState,
   STOCK_CHART_DEFAULT_RANGE,
   STOCK_CHART_RANGE_ITEMS,
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
   canMountStockSwapActions,
-  createStockChartStateFromSnapshot,
   getStockChartDisplayState,
-  getStockChartVisibleState,
   getStockDisabledActionButtonProps,
+  resolveStockChartControlRange,
   shouldShowStockBalanceRetryAction,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
@@ -1040,6 +1038,7 @@ function StockAmountInput({
     disableNativePayToken,
     displayBalance,
     hasBalanceError,
+    inputEditable,
     inputToken,
     inputTokenNetworkLogoURI,
     inputValue,
@@ -1165,6 +1164,8 @@ function StockAmountInput({
         maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
         inputProps={{
           placeholder: '0.0',
+          editable: inputEditable,
+          readonly: !inputEditable,
           inputAccessoryViewID: platformEnv.isNativeIOS
             ? SwapAmountInputAccessoryViewID
             : undefined,
@@ -1503,7 +1504,7 @@ function StockMarketTokenHeader({
 function StockPriceChart({
   coinGeckoId,
   coinGeckoIdLoading,
-  commitSnapshotPatch,
+  commitSnapshot,
   displayScope,
   initialSnapshot,
   isNative,
@@ -1516,9 +1517,9 @@ function StockPriceChart({
 }: {
   coinGeckoId?: string;
   coinGeckoIdLoading: boolean;
-  commitSnapshotPatch: (params: {
-    expectedIdentityKey: string;
-    patch: ISwapStockDisplaySnapshotPatch;
+  commitSnapshot: (params: {
+    expectedOwnerKey: string;
+    chart: Omit<ISwapStockDisplayChartSnapshot, 'identity' | 'updatedAt'>;
   }) => boolean;
   displayScope: string;
   initialSnapshot?: ISwapStockDisplayChartSnapshot;
@@ -1556,160 +1557,88 @@ function StockPriceChart({
     () => STOCK_CHART_RANGE_ITEMS.find((item) => item.label === range),
     [range],
   );
-  const chartAssetScope = `${networkId ?? ''}:${tokenAddress ?? ''}:${
-    isNative ? 'native' : 'token'
-  }:${normalizedCoinGeckoId ?? ''}`;
-  const chartRequestScope = `${chartAssetScope}:${range}`;
-  const initialChartState = useMemo(
-    () =>
-      createStockChartStateFromSnapshot({
-        displayScope,
-        snapshot: initialSnapshot,
-      }),
-    [displayScope, initialSnapshot],
-  );
-  const [retainedChartSnapshot, setRetainedChartSnapshot] = useState<{
-    displayScope: string;
-    state?: IStockChartState;
-  }>({
-    displayScope,
-    state: initialChartState,
-  });
-  const currentRetainedChartState =
-    retainedChartSnapshot.displayScope === displayScope
-      ? retainedChartSnapshot.state
-      : initialChartState;
-  useEffect(() => {
-    if (retainedChartSnapshot.displayScope === displayScope) {
-      return;
-    }
-    setRetainedChartSnapshot({
-      displayScope,
-      state: initialChartState,
-    });
-  }, [displayScope, initialChartState, retainedChartSnapshot.displayScope]);
   useEffect(() => {
     setHoverData(null);
-  }, [chartRequestScope, displayScope]);
-  const { result: chartState } = usePromiseResult(
-    async () => {
-      if (!networkId || (!tokenAddress && !isNative) || !activeRange) {
-        return {
-          displayScope,
-          requestScope: chartRequestScope,
-          range,
-          data: [] as IMarketTokenChart,
-          status: 'waiting' as const,
-        };
-      }
-      if (!normalizedCoinGeckoId) {
-        return {
-          displayScope,
-          requestScope: chartRequestScope,
-          range,
-          data: [] as IMarketTokenChart,
-          status: coinGeckoIdLoading
-            ? ('waiting' as const)
-            : ('failed' as const),
-        };
-      }
-      try {
-        const timeTo = Math.floor(Date.now() / 1000);
-        const timeFrom = timeTo - activeRange.seconds;
-        const days = getSwapKLineWalletChartDays({ timeFrom, timeTo });
-        const response = await backgroundApiProxy.serviceMarket.fetchTokenChart(
-          normalizedCoinGeckoId,
-          days,
-          { requestCurrency: 'usd' },
-        );
-        return {
-          displayScope,
-          requestScope: chartRequestScope,
-          range,
-          data: normalizeSwapKLineWalletChartData({
-            chartData: response,
-            timeFrom,
-            timeTo,
-          }),
-          status: 'settled' as const,
-        };
-      } catch {
-        return {
-          displayScope,
-          requestScope: chartRequestScope,
-          range,
-          data: [] as IMarketTokenChart,
-          status: 'failed' as const,
-        };
-      }
-    },
-    [
-      activeRange,
-      chartRequestScope,
-      coinGeckoIdLoading,
-      displayScope,
-      isNative,
-      networkId,
-      normalizedCoinGeckoId,
-      range,
-      tokenAddress,
-    ],
-    {
-      initResult: {
-        displayScope: '',
-        requestScope: '',
-        range,
-        data: [] as IMarketTokenChart,
-        status: 'waiting' as const,
-      },
-      watchLoading: true,
-    },
-  );
-  useEffect(() => {
-    if (
-      chartState.status === 'settled' &&
-      chartState.displayScope === displayScope &&
-      chartState.requestScope === chartRequestScope &&
-      chartState.range === range
-    ) {
-      setRetainedChartSnapshot({
-        displayScope,
-        state: chartState,
-      });
-      commitSnapshotPatch({
-        expectedIdentityKey: displayScope,
-        patch: {
-          chart: {
-            range,
-            data: chartState.data,
-          },
-        },
-      });
-    }
-  }, [chartRequestScope, chartState, commitSnapshotPatch, displayScope, range]);
-  const visibleChartState = getStockChartVisibleState({
-    displayScope,
-    range,
-    requestScope: chartRequestScope,
-    requestState: chartState,
-    retainedState: currentRetainedChartState,
-  });
-  const isVisibleChartStateForCurrentAsset =
-    visibleChartState?.displayScope === displayScope;
-  const isVisibleChartStateForCurrentScope =
-    isVisibleChartStateForCurrentAsset && visibleChartState?.range === range;
-  const visibleRange = isVisibleChartStateForCurrentAsset
-    ? (visibleChartState?.range ?? range)
-    : range;
-  const baseChartData = useMemo<IMarketTokenChart>(
+  }, [displayScope, range]);
+  const restoredChart = useMemo(
     () =>
-      isVisibleChartStateForCurrentAsset ? (visibleChartState?.data ?? []) : [],
-    [isVisibleChartStateForCurrentAsset, visibleChartState?.data],
+      initialSnapshot
+        ? {
+            ownerKey: displayScope,
+            requestKey: initialSnapshot.range,
+            data: {
+              range: initialSnapshot.range,
+              data: initialSnapshot.data,
+            },
+          }
+        : undefined,
+    [displayScope, initialSnapshot],
+  );
+  const loadChart = useCallback(async () => {
+    if (!normalizedCoinGeckoId || !activeRange) {
+      return { status: 'empty' as const };
+    }
+    const timeTo = Math.floor(Date.now() / 1000);
+    const timeFrom = timeTo - activeRange.seconds;
+    const days = getSwapKLineWalletChartDays({ timeFrom, timeTo });
+    const response = await backgroundApiProxy.serviceMarket.fetchTokenChart(
+      normalizedCoinGeckoId,
+      days,
+      { requestCurrency: 'usd' },
+    );
+    const data = normalizeSwapKLineWalletChartData({
+      chartData: response,
+      timeFrom,
+      timeTo,
+    });
+    return data.length > 0
+      ? { status: 'success' as const, data: { range, data } }
+      : { status: 'empty' as const };
+  }, [activeRange, normalizedCoinGeckoId, range]);
+  const handleChartCommit = useCallback(
+    ({
+      data,
+      ownerKey,
+    }: {
+      data: { range: IStockChartRange; data: IMarketTokenChart };
+      ownerKey: string;
+    }) => {
+      commitSnapshot({
+        expectedOwnerKey: ownerKey,
+        chart: data,
+      });
+    },
+    [commitSnapshot],
+  );
+  const chartRefresh = useIdentityScopedSilentRefresh({
+    ownerKey: displayScope,
+    requestKey: range,
+    refreshKey: normalizedCoinGeckoId,
+    restored: restoredChart,
+    enabled: Boolean(
+      displayScope &&
+      networkId &&
+      (tokenAddress || isNative) &&
+      normalizedCoinGeckoId &&
+      activeRange,
+    ),
+    load: loadChart,
+    onCommit: handleChartCommit,
+  });
+  const visibleChartState = chartRefresh.visible?.data;
+  const visibleRange = resolveStockChartControlRange({
+    requestedRange: range,
+    visibleRange: visibleChartState?.range,
+  });
+  const isVisibleChartStateForCurrentScope = chartRefresh.isVisibleExact;
+  const baseChartData = useMemo<IMarketTokenChart>(
+    () => visibleChartState?.data ?? [],
+    [visibleChartState?.data],
   );
   const hasCurrentRequestFailed =
-    chartState.status === 'failed' &&
-    chartState.displayScope === displayScope &&
-    chartState.requestScope === chartRequestScope;
+    chartRefresh.phase === 'failed' ||
+    chartRefresh.phase === 'empty' ||
+    (!coinGeckoIdLoading && !normalizedCoinGeckoId);
   const { chartData, shouldShowChartLoading } = useMemo(
     () =>
       getStockChartDisplayState({
@@ -1934,7 +1863,7 @@ function StockMobilePositionsSection({
   const intl = useIntl();
   const stockChannel = useSwapStockTradeContext();
   const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
-  const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
+  const { swapTypeSwitchAction } = useSwapActions().current;
   const [swapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken] = useSwapSelectToTokenAtom();
   const { selectStockSwapToken } = stockChannel;
@@ -1958,10 +1887,10 @@ function StockMobilePositionsSection({
         selectStockSwapToken(token, { resetReceiveAmount: true });
         return;
       }
-      void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
+      void swapTypeSwitchAction(ESwapTabSwitchType.SWAP);
       onTokenPress?.(token);
     },
-    [onTokenPress, selectStockSwapToken, setSwapTypeSwitch],
+    [onTokenPress, selectStockSwapToken, swapTypeSwitchAction],
   );
 
   const [activeStockTab, setActiveStockTab] = useState<'position' | 'history'>(
@@ -2067,9 +1996,9 @@ function StockMarketContextPanel({
       tokenAddress,
       tokenDetail,
     });
-  const displayScope = stockChannel.stockDisplay.identityKey;
+  const displayScope = stockChannel.stockDisplay.chart.ownerKey;
   const restoredRange =
-    stockChannel.stockDisplay.snapshot?.chart?.range ??
+    stockChannel.stockDisplay.chart.snapshot?.range ??
     STOCK_CHART_DEFAULT_RANGE;
   const [rangeState, setRangeState] = useState<{
     displayScope: string;
@@ -2133,9 +2062,9 @@ function StockMarketContextPanel({
           <StockPriceChart
             coinGeckoId={coinGeckoId}
             coinGeckoIdLoading={coinGeckoIdLoading}
-            commitSnapshotPatch={stockChannel.stockDisplay.commitSnapshotPatch}
+            commitSnapshot={stockChannel.stockDisplay.chart.commitSnapshot}
             displayScope={displayScope}
-            initialSnapshot={stockChannel.stockDisplay.snapshot?.chart}
+            initialSnapshot={stockChannel.stockDisplay.chart.snapshot}
             tokenAddress={tokenAddress ?? ''}
             networkId={networkId ?? ''}
             isNative={isNative}

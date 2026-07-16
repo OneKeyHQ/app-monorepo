@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IPageNavigationProp } from '@onekeyhq/components';
@@ -28,6 +27,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSortedQuoteListAtom,
+  useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   buildSwapManualProviderSelectionIntent,
@@ -45,6 +45,7 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProviderListItem from '../../components/SwapProviderListItem';
 import { SwapTestIDs } from '../../testIDs';
+import { isSwapProviderQuoteSelectable } from '../../utils/swapProviderQuoteAvailability';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -75,6 +76,7 @@ const SwapProviderSelectModal = () => {
   const intl = useIntl();
   const [swapSortedList] = useSwapSortedQuoteListAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [manualSelectQuoteProvider, setSwapManualSelect] =
@@ -136,11 +138,24 @@ const SwapProviderSelectModal = () => {
     [intl],
   );
   const sectionData = useMemo(() => {
-    const availableList = quoteListForDisplay.filter(
-      (item) => item.toAmount && !item.limit?.min && !item.limit?.max,
+    const availableList = quoteListForDisplay.filter((item) =>
+      isSwapProviderQuoteSelectable({
+        currentEventId: quoteEventTotalCount.eventId,
+        currentEventProviderKeys,
+        fromAmount: fromTokenAmount.value,
+        quote: item,
+        toAmount: toTokenAmount.value,
+      }),
     );
     const unavailableList = quoteListForDisplay.filter(
-      (item) => !item.toAmount || item.limit?.min || item.limit?.max,
+      (item) =>
+        !isSwapProviderQuoteSelectable({
+          currentEventId: quoteEventTotalCount.eventId,
+          currentEventProviderKeys,
+          fromAmount: fromTokenAmount.value,
+          quote: item,
+          toAmount: toTokenAmount.value,
+        }),
     );
     return [
       ...(availableList?.length > 0
@@ -164,7 +179,14 @@ const SwapProviderSelectModal = () => {
           ]
         : []),
     ];
-  }, [intl, quoteListForDisplay]);
+  }, [
+    currentEventProviderKeys,
+    fromTokenAmount.value,
+    intl,
+    quoteEventTotalCount.eventId,
+    quoteListForDisplay,
+    toTokenAmount.value,
+  ]);
   const onSelectQuote = useCallback(
     (item: IFetchQuoteResult) => {
       setSwapManualSelect(buildSwapManualProviderSelectionIntent(item));
@@ -178,22 +200,13 @@ const SwapProviderSelectModal = () => {
   );
   const renderItem = useCallback(
     ({ item }: { item: IFetchQuoteResult; index: number }) => {
-      let disabled = !item.toAmount;
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
-      if (item.limit) {
-        if (item.limit.min) {
-          const minBN = new BigNumber(item.limit.min);
-          if (fromTokenAmountBN.lt(minBN)) {
-            disabled = false;
-          }
-        }
-        if (item.limit.max) {
-          const maxBN = new BigNumber(item.limit.max);
-          if (fromTokenAmountBN.gt(maxBN)) {
-            disabled = false;
-          }
-        }
-      }
+      const disabled = !isSwapProviderQuoteSelectable({
+        currentEventId: quoteEventTotalCount.eventId,
+        currentEventProviderKeys,
+        fromAmount: fromTokenAmount.value,
+        quote: item,
+        toAmount: toTokenAmount.value,
+      });
       const selected = Boolean(
         item.info.provider === selectedProviderInfo?.provider &&
         item.info.providerName === selectedProviderInfo?.providerName,
@@ -220,7 +233,7 @@ const SwapProviderSelectModal = () => {
           autoOpenRoute={autoOpenRoute}
           autoOpenRouteTrigger={autoOpenRouteTrigger}
           routeCollapseTrigger={selectedProviderKey}
-          fromTokenAmount={fromTokenAmount.value}
+          fromTokenAmount={item.fromAmount}
           fromToken={fromToken}
           toToken={toToken}
           providerResult={item}
@@ -232,6 +245,7 @@ const SwapProviderSelectModal = () => {
     [
       fromToken,
       fromTokenAmount,
+      currentEventProviderKeys,
       manualSelectQuoteProvider,
       onSelectQuote,
       selectedProviderKey,
@@ -239,6 +253,8 @@ const SwapProviderSelectModal = () => {
       selectedProviderInfo?.providerName,
       settingsPersist.currencyInfo.symbol,
       toToken,
+      toTokenAmount,
+      quoteEventTotalCount.eventId,
     ],
   );
 

@@ -4,19 +4,25 @@ import type {
   IMarketStockInfo,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/marketV2';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ESwapStockTradeSide,
   getValidStockExecutionBalance,
 } from './swapStockChannelUtils';
 
-export const SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION = 1 as const;
+const SWAP_STOCK_DISPLAY_SNAPSHOT_LEGACY_VERSION = 1 as const;
+
+export const SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION = 2 as const;
 export const SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS =
   timerUtils.getTimeDurationMs({ week: 1 });
 export const SWAP_STOCK_DISPLAY_CHART_MAX_POINTS = 500;
+export const SWAP_STOCK_DISPLAY_CHART_SOURCE_CURRENCY = 'usd' as const;
 
 export type ISwapStockDisplayChartRange = '1D' | '1W' | '1M' | '1Y';
 
+// Kept as the compatibility identity for existing Stock input/balance callers.
+// Persisted v2 regions own their narrower identities independently.
 export type ISwapStockDisplayIdentity = {
   accountKey: string;
   stockTokenKey: string;
@@ -24,6 +30,37 @@ export type ISwapStockDisplayIdentity = {
   tradeSide: ESwapStockTradeSide;
   currency: string;
 };
+
+export type ISwapStockDisplayAccountIdentity = {
+  accountKey: string;
+};
+
+export type ISwapStockDisplayTokenDetailIdentity = {
+  accountKey: string;
+  stockTokenKey: string;
+  currency: string;
+};
+
+export type ISwapStockDisplayBalanceIdentity = {
+  accountKey: string;
+  inputTokenKey: string;
+};
+
+export type ISwapStockDisplayChartIdentity = {
+  accountKey: string;
+  stockTokenKey: string;
+  sourceCurrency: typeof SWAP_STOCK_DISPLAY_CHART_SOURCE_CURRENCY;
+};
+
+export type ISwapStockDisplayAmountIdentity = {
+  accountKey: string;
+  stockTokenKey: string;
+  payTokenKey: string;
+  tradeSide: ESwapStockTradeSide;
+};
+
+export type ISwapStockDisplayWriteContext = ISwapStockDisplayAccountIdentity &
+  Partial<Omit<ISwapStockDisplayIdentity, 'accountKey'>>;
 
 export type ISwapStockDisplayTokenDetail = Pick<
   IMarketTokenDetail,
@@ -52,7 +89,27 @@ export type ISwapStockDisplayTokenDetail = Pick<
   >;
 };
 
+export type ISwapStockDisplayTokenDescriptor = Omit<
+  Pick<
+    ISwapToken,
+    | 'networkId'
+    | 'contractAddress'
+    | 'isNative'
+    | 'symbol'
+    | 'decimals'
+    | 'name'
+    | 'logoURI'
+    | 'networkLogoURI'
+    | 'isStock'
+  >,
+  'contractAddress'
+> & {
+  // Native-token descriptors may arrive without an address at runtime.
+  contractAddress?: string;
+};
+
 export type ISwapStockDisplayBalanceSnapshot = {
+  identity: ISwapStockDisplayBalanceIdentity;
   inputTokenKey: string;
   value: string;
   tokenPrice?: {
@@ -63,27 +120,51 @@ export type ISwapStockDisplayBalanceSnapshot = {
 };
 
 export type ISwapStockDisplayChartSnapshot = {
+  identity: ISwapStockDisplayChartIdentity;
   range: ISwapStockDisplayChartRange;
   data: IMarketTokenChart;
   updatedAt: number;
 };
 
+export type ISwapStockDisplaySelectionSnapshot = {
+  identity: ISwapStockDisplayAccountIdentity;
+  stockToken: ISwapStockDisplayTokenDescriptor;
+  payToken?: ISwapStockDisplayTokenDescriptor;
+  tradeSide: ESwapStockTradeSide;
+  updatedAt: number;
+};
+
+export type ISwapStockDisplayAmountSnapshot = {
+  identity: ISwapStockDisplayAmountIdentity;
+  value: string;
+  updatedAt: number;
+};
+
 export type ISwapStockDisplaySnapshot = {
   version: typeof SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION;
-  identity: ISwapStockDisplayIdentity;
+  // The physical slot is account-scoped. No total pair identity gates v2.
+  identity: ISwapStockDisplayAccountIdentity;
   tokenDetail?: {
+    identity: ISwapStockDisplayTokenDetailIdentity;
     data: ISwapStockDisplayTokenDetail;
     updatedAt: number;
   };
   balance?: ISwapStockDisplayBalanceSnapshot;
   chart?: ISwapStockDisplayChartSnapshot;
+  selection?: ISwapStockDisplaySelectionSnapshot;
+  amount?: ISwapStockDisplayAmountSnapshot;
   updatedAt: number;
 };
 
 export type ISwapStockDisplaySnapshotPatch = {
   tokenDetail?: ISwapStockDisplayTokenDetail;
-  balance?: Omit<ISwapStockDisplayBalanceSnapshot, 'updatedAt'>;
-  chart?: Omit<ISwapStockDisplayChartSnapshot, 'updatedAt'>;
+  balance?: Omit<ISwapStockDisplayBalanceSnapshot, 'identity' | 'updatedAt'>;
+  chart?: Omit<ISwapStockDisplayChartSnapshot, 'identity' | 'updatedAt'>;
+  selection?: Omit<
+    ISwapStockDisplaySelectionSnapshot,
+    'identity' | 'updatedAt'
+  >;
+  amount?: Omit<ISwapStockDisplayAmountSnapshot, 'identity' | 'updatedAt'>;
 };
 
 export function resolveSwapStockDisplayAccountKey({
@@ -116,27 +197,72 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
+function buildIdentityKey(values: (string | undefined)[]) {
+  if (values.some((value) => !value)) {
+    return '';
+  }
+  return values.map((value) => encodeURIComponent(value ?? '')).join('|');
+}
+
 export function buildSwapStockDisplayIdentityKey(
   identity?: ISwapStockDisplayIdentity,
 ) {
-  if (
-    !identity?.accountKey ||
-    !identity.stockTokenKey ||
-    !identity.payTokenKey ||
-    !identity.tradeSide ||
-    !identity.currency
-  ) {
+  if (!identity?.tradeSide) {
     return '';
   }
-  return [
+  return buildIdentityKey([
     identity.accountKey,
     identity.stockTokenKey,
     identity.payTokenKey,
     identity.tradeSide,
-    identity.currency.toLowerCase(),
-  ]
-    .map((value) => encodeURIComponent(value))
-    .join('|');
+    identity.currency?.toLowerCase(),
+  ]);
+}
+
+export function buildSwapStockDisplayAccountIdentityKey(
+  identity?: ISwapStockDisplayAccountIdentity,
+) {
+  return buildIdentityKey([identity?.accountKey]);
+}
+
+export function buildSwapStockDisplayTokenDetailIdentityKey(
+  identity?: ISwapStockDisplayTokenDetailIdentity,
+) {
+  return buildIdentityKey([
+    identity?.accountKey,
+    identity?.stockTokenKey,
+    identity?.currency?.toLowerCase(),
+  ]);
+}
+
+export function buildSwapStockDisplayBalanceIdentityKey(
+  identity?: ISwapStockDisplayBalanceIdentity,
+) {
+  return buildIdentityKey([identity?.accountKey, identity?.inputTokenKey]);
+}
+
+export function buildSwapStockDisplayChartIdentityKey(
+  identity?: ISwapStockDisplayChartIdentity,
+) {
+  return buildIdentityKey([
+    identity?.accountKey,
+    identity?.stockTokenKey,
+    identity?.sourceCurrency?.toLowerCase(),
+  ]);
+}
+
+export function buildSwapStockDisplayAmountIdentityKey(
+  identity?: ISwapStockDisplayAmountIdentity,
+) {
+  if (!identity?.tradeSide) {
+    return '';
+  }
+  return buildIdentityKey([
+    identity.accountKey,
+    identity.stockTokenKey,
+    identity.payTokenKey,
+    identity.tradeSide,
+  ]);
 }
 
 export function isSwapStockDisplayIdentityMatched({
@@ -188,6 +314,22 @@ export function projectSwapStockDisplayTokenDetail(
   };
 }
 
+export function projectSwapStockDisplayTokenDescriptor(
+  token: ISwapToken,
+): ISwapStockDisplayTokenDescriptor {
+  return {
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+    isNative: token.isNative,
+    symbol: token.symbol,
+    decimals: token.decimals,
+    name: token.name,
+    logoURI: token.logoURI,
+    networkLogoURI: token.networkLogoURI,
+    isStock: token.isStock,
+  };
+}
+
 function isValidDisplayTokenDetail(
   value: unknown,
 ): value is ISwapStockDisplayTokenDetail {
@@ -203,10 +345,55 @@ function isValidDisplayTokenDetail(
   );
 }
 
+function normalizeDisplayTokenDescriptor(
+  value: unknown,
+): ISwapStockDisplayTokenDescriptor | undefined {
+  if (
+    !isRecord(value) ||
+    typeof value.networkId !== 'string' ||
+    typeof value.symbol !== 'string' ||
+    typeof value.decimals !== 'number' ||
+    (typeof value.contractAddress !== 'string' &&
+      !(
+        value.isNative === true &&
+        (value.contractAddress === undefined || value.contractAddress === null)
+      ))
+  ) {
+    return undefined;
+  }
+  return {
+    networkId: value.networkId,
+    contractAddress:
+      typeof value.contractAddress === 'string'
+        ? value.contractAddress
+        : undefined,
+    isNative: typeof value.isNative === 'boolean' ? value.isNative : undefined,
+    symbol: value.symbol,
+    decimals: value.decimals,
+    name: typeof value.name === 'string' ? value.name : undefined,
+    logoURI: typeof value.logoURI === 'string' ? value.logoURI : undefined,
+    networkLogoURI:
+      typeof value.networkLogoURI === 'string'
+        ? value.networkLogoURI
+        : undefined,
+    isStock: typeof value.isStock === 'boolean' ? value.isStock : undefined,
+  };
+}
+
 function isValidChartRange(
   value: unknown,
 ): value is ISwapStockDisplayChartRange {
   return value === '1D' || value === '1W' || value === '1M' || value === '1Y';
+}
+
+function getValidSwapStockDisplayAmount(value: unknown) {
+  if (value === '') {
+    return '';
+  }
+  if (typeof value !== 'string' || !/^(?:0|[1-9]\d*)(?:\.\d*)?$/.test(value)) {
+    return undefined;
+  }
+  return getValidStockExecutionBalance(value);
 }
 
 function isValidChartPoint(value: unknown): value is IMarketTokenChart[number] {
@@ -255,121 +442,356 @@ function isUsableSnapshotTimestamp({
   return timestamp <= now && now - timestamp <= maxAgeMs;
 }
 
+function normalizeTradeSide(value: unknown) {
+  return value === ESwapStockTradeSide.Buy || value === ESwapStockTradeSide.Sell
+    ? value
+    : undefined;
+}
+
+function normalizeLegacyIdentity(
+  value: unknown,
+): ISwapStockDisplayIdentity | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const tradeSide = normalizeTradeSide(value.tradeSide);
+  const identity = tradeSide
+    ? {
+        accountKey:
+          typeof value.accountKey === 'string' ? value.accountKey.trim() : '',
+        stockTokenKey:
+          typeof value.stockTokenKey === 'string'
+            ? value.stockTokenKey.trim()
+            : '',
+        payTokenKey:
+          typeof value.payTokenKey === 'string' ? value.payTokenKey.trim() : '',
+        tradeSide,
+        currency:
+          typeof value.currency === 'string' ? value.currency.trim() : '',
+      }
+    : undefined;
+  return buildSwapStockDisplayIdentityKey(identity) ? identity : undefined;
+}
+
+function normalizeTokenDetailRegion({
+  accountKey,
+  fallbackIdentity,
+  value,
+}: {
+  accountKey: string;
+  fallbackIdentity?: ISwapStockDisplayIdentity;
+  value: unknown;
+}): ISwapStockDisplaySnapshot['tokenDetail'] {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const rawIdentity = isRecord(value.identity) ? value.identity : undefined;
+  const identity: ISwapStockDisplayTokenDetailIdentity = {
+    accountKey:
+      typeof rawIdentity?.accountKey === 'string'
+        ? rawIdentity.accountKey.trim()
+        : (fallbackIdentity?.accountKey ?? ''),
+    stockTokenKey:
+      typeof rawIdentity?.stockTokenKey === 'string'
+        ? rawIdentity.stockTokenKey.trim()
+        : (fallbackIdentity?.stockTokenKey ?? ''),
+    currency:
+      typeof rawIdentity?.currency === 'string'
+        ? rawIdentity.currency.trim().toLowerCase()
+        : (fallbackIdentity?.currency.toLowerCase() ?? ''),
+  };
+  const updatedAt = Number(value.updatedAt);
+  if (
+    identity.accountKey !== accountKey ||
+    !buildSwapStockDisplayTokenDetailIdentityKey(identity) ||
+    !Number.isFinite(updatedAt) ||
+    !isValidDisplayTokenDetail(value.data)
+  ) {
+    return undefined;
+  }
+  return { identity, data: value.data, updatedAt };
+}
+
+function normalizeBalanceRegion({
+  accountKey,
+  value,
+}: {
+  accountKey: string;
+  value: unknown;
+}): ISwapStockDisplayBalanceSnapshot | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const rawIdentity = isRecord(value.identity) ? value.identity : undefined;
+  const inputTokenKey =
+    typeof value.inputTokenKey === 'string' ? value.inputTokenKey.trim() : '';
+  const identity: ISwapStockDisplayBalanceIdentity = {
+    accountKey:
+      typeof rawIdentity?.accountKey === 'string'
+        ? rawIdentity.accountKey.trim()
+        : accountKey,
+    inputTokenKey:
+      typeof rawIdentity?.inputTokenKey === 'string'
+        ? rawIdentity.inputTokenKey.trim()
+        : inputTokenKey,
+  };
+  const updatedAt = Number(value.updatedAt);
+  const balanceValue =
+    typeof value.value === 'string'
+      ? getValidStockExecutionBalance(value.value)
+      : undefined;
+  const tokenPrice = value.tokenPrice;
+  if (
+    identity.accountKey !== accountKey ||
+    identity.inputTokenKey !== inputTokenKey ||
+    !buildSwapStockDisplayBalanceIdentityKey(identity) ||
+    balanceValue === undefined ||
+    !Number.isFinite(updatedAt)
+  ) {
+    return undefined;
+  }
+  return {
+    identity,
+    inputTokenKey,
+    value: balanceValue,
+    tokenPrice:
+      isRecord(tokenPrice) &&
+      typeof tokenPrice.price === 'string' &&
+      typeof tokenPrice.currency === 'string'
+        ? { price: tokenPrice.price, currency: tokenPrice.currency }
+        : undefined,
+    updatedAt,
+  };
+}
+
+function normalizeChartRegion({
+  accountKey,
+  fallbackIdentity,
+  value,
+}: {
+  accountKey: string;
+  fallbackIdentity?: ISwapStockDisplayIdentity;
+  value: unknown;
+}): ISwapStockDisplayChartSnapshot | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const rawIdentity = isRecord(value.identity) ? value.identity : undefined;
+  const sourceCurrency =
+    typeof rawIdentity?.sourceCurrency === 'string'
+      ? rawIdentity.sourceCurrency.toLowerCase()
+      : SWAP_STOCK_DISPLAY_CHART_SOURCE_CURRENCY;
+  const identity: ISwapStockDisplayChartIdentity | undefined =
+    sourceCurrency === SWAP_STOCK_DISPLAY_CHART_SOURCE_CURRENCY
+      ? {
+          accountKey:
+            typeof rawIdentity?.accountKey === 'string'
+              ? rawIdentity.accountKey.trim()
+              : (fallbackIdentity?.accountKey ?? ''),
+          stockTokenKey:
+            typeof rawIdentity?.stockTokenKey === 'string'
+              ? rawIdentity.stockTokenKey.trim()
+              : (fallbackIdentity?.stockTokenKey ?? ''),
+          sourceCurrency,
+        }
+      : undefined;
+  const updatedAt = Number(value.updatedAt);
+  if (
+    identity?.accountKey !== accountKey ||
+    !buildSwapStockDisplayChartIdentityKey(identity) ||
+    !isValidChartRange(value.range) ||
+    !Array.isArray(value.data) ||
+    !Number.isFinite(updatedAt)
+  ) {
+    return undefined;
+  }
+  return {
+    identity,
+    range: value.range,
+    data: sanitizeSwapStockDisplayChartData(value.data as IMarketTokenChart),
+    updatedAt,
+  };
+}
+
+function normalizeSelectionRegion({
+  accountKey,
+  value,
+}: {
+  accountKey: string;
+  value: unknown;
+}): ISwapStockDisplaySelectionSnapshot | undefined {
+  if (!isRecord(value) || !isRecord(value.identity)) {
+    return undefined;
+  }
+  const identity = {
+    accountKey:
+      typeof value.identity.accountKey === 'string'
+        ? value.identity.accountKey.trim()
+        : '',
+  };
+  const updatedAt = Number(value.updatedAt);
+  const stockToken = normalizeDisplayTokenDescriptor(value.stockToken);
+  const payToken =
+    value.payToken === undefined
+      ? undefined
+      : normalizeDisplayTokenDescriptor(value.payToken);
+  if (
+    identity.accountKey !== accountKey ||
+    !buildSwapStockDisplayAccountIdentityKey(identity) ||
+    !stockToken ||
+    (value.payToken !== undefined && !payToken) ||
+    !normalizeTradeSide(value.tradeSide) ||
+    !Number.isFinite(updatedAt)
+  ) {
+    return undefined;
+  }
+  return {
+    identity,
+    stockToken,
+    payToken,
+    tradeSide: value.tradeSide as ESwapStockTradeSide,
+    updatedAt,
+  };
+}
+
+function normalizeAmountRegion({
+  accountKey,
+  value,
+}: {
+  accountKey: string;
+  value: unknown;
+}): ISwapStockDisplayAmountSnapshot | undefined {
+  if (!isRecord(value) || !isRecord(value.identity)) {
+    return undefined;
+  }
+  const tradeSide = normalizeTradeSide(value.identity.tradeSide);
+  const identity: ISwapStockDisplayAmountIdentity | undefined = tradeSide
+    ? {
+        accountKey:
+          typeof value.identity.accountKey === 'string'
+            ? value.identity.accountKey.trim()
+            : '',
+        stockTokenKey:
+          typeof value.identity.stockTokenKey === 'string'
+            ? value.identity.stockTokenKey.trim()
+            : '',
+        payTokenKey:
+          typeof value.identity.payTokenKey === 'string'
+            ? value.identity.payTokenKey.trim()
+            : '',
+        tradeSide,
+      }
+    : undefined;
+  const updatedAt = Number(value.updatedAt);
+  const amountValue = getValidSwapStockDisplayAmount(value.value);
+  if (
+    identity?.accountKey !== accountKey ||
+    !buildSwapStockDisplayAmountIdentityKey(identity) ||
+    amountValue === undefined ||
+    !Number.isFinite(updatedAt)
+  ) {
+    return undefined;
+  }
+  return { identity, value: amountValue, updatedAt };
+}
+
 function normalizeSwapStockDisplaySnapshot(
   value: unknown,
 ): ISwapStockDisplaySnapshot | undefined {
-  if (
-    !isRecord(value) ||
-    value.version !== SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION
-  ) {
+  if (!isRecord(value)) {
     return undefined;
   }
-  const identity = value.identity;
-  if (!isRecord(identity)) {
+  const isLegacy = value.version === SWAP_STOCK_DISPLAY_SNAPSHOT_LEGACY_VERSION;
+  if (!isLegacy && value.version !== SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION) {
     return undefined;
   }
-  if (
-    identity.tradeSide !== ESwapStockTradeSide.Buy &&
-    identity.tradeSide !== ESwapStockTradeSide.Sell
-  ) {
-    return undefined;
-  }
-  const normalizedIdentity: ISwapStockDisplayIdentity = {
-    accountKey:
-      typeof identity.accountKey === 'string' ? identity.accountKey.trim() : '',
-    stockTokenKey:
-      typeof identity.stockTokenKey === 'string'
-        ? identity.stockTokenKey.trim()
-        : '',
-    payTokenKey:
-      typeof identity.payTokenKey === 'string'
-        ? identity.payTokenKey.trim()
-        : '',
-    tradeSide: identity.tradeSide,
-    currency:
-      typeof identity.currency === 'string' ? identity.currency.trim() : '',
-  };
-  if (!buildSwapStockDisplayIdentityKey(normalizedIdentity)) {
-    return undefined;
+  const legacyIdentity = isLegacy
+    ? normalizeLegacyIdentity(value.identity)
+    : undefined;
+  const rawIdentity = isRecord(value.identity) ? value.identity : undefined;
+  let accountKey = legacyIdentity?.accountKey;
+  if (!isLegacy) {
+    accountKey =
+      typeof rawIdentity?.accountKey === 'string'
+        ? rawIdentity.accountKey.trim()
+        : undefined;
   }
   const updatedAt = Number(value.updatedAt);
-  if (!Number.isFinite(updatedAt)) {
+  if (!accountKey || !Number.isFinite(updatedAt)) {
     return undefined;
   }
 
-  let tokenDetail: ISwapStockDisplaySnapshot['tokenDetail'];
-  if (isRecord(value.tokenDetail)) {
-    const tokenUpdatedAt = Number(value.tokenDetail.updatedAt);
-    if (
-      Number.isFinite(tokenUpdatedAt) &&
-      isValidDisplayTokenDetail(value.tokenDetail.data)
-    ) {
-      tokenDetail = {
-        data: value.tokenDetail.data,
-        updatedAt: tokenUpdatedAt,
-      };
-    }
-  }
-
-  let balance: ISwapStockDisplayBalanceSnapshot | undefined;
-  if (isRecord(value.balance)) {
-    const balanceUpdatedAt = Number(value.balance.updatedAt);
-    const tokenPrice = value.balance.tokenPrice;
-    const balanceValue =
-      typeof value.balance.value === 'string'
-        ? getValidStockExecutionBalance(value.balance.value)
-        : undefined;
-    if (
-      typeof value.balance.inputTokenKey === 'string' &&
-      balanceValue !== undefined &&
-      Number.isFinite(balanceUpdatedAt)
-    ) {
-      balance = {
-        inputTokenKey: value.balance.inputTokenKey,
-        value: balanceValue,
-        tokenPrice:
-          isRecord(tokenPrice) &&
-          typeof tokenPrice.price === 'string' &&
-          typeof tokenPrice.currency === 'string'
-            ? {
-                price: tokenPrice.price,
-                currency: tokenPrice.currency,
-              }
-            : undefined,
-        updatedAt: balanceUpdatedAt,
-      };
-    }
-  }
-
-  let chart: ISwapStockDisplayChartSnapshot | undefined;
-  if (isRecord(value.chart)) {
-    const chartUpdatedAt = Number(value.chart.updatedAt);
-    if (
-      isValidChartRange(value.chart.range) &&
-      Array.isArray(value.chart.data) &&
-      Number.isFinite(chartUpdatedAt)
-    ) {
-      chart = {
-        range: value.chart.range,
-        data: sanitizeSwapStockDisplayChartData(
-          value.chart.data as IMarketTokenChart,
-        ),
-        updatedAt: chartUpdatedAt,
-      };
-    }
-  }
-
-  if (!tokenDetail && !balance && !chart) {
+  const tokenDetail = normalizeTokenDetailRegion({
+    accountKey,
+    fallbackIdentity: legacyIdentity,
+    value: value.tokenDetail,
+  });
+  const balance = normalizeBalanceRegion({
+    accountKey,
+    value: value.balance,
+  });
+  const chart = normalizeChartRegion({
+    accountKey,
+    fallbackIdentity: legacyIdentity,
+    value: value.chart,
+  });
+  const selection = normalizeSelectionRegion({
+    accountKey,
+    value: value.selection,
+  });
+  const amount = normalizeAmountRegion({
+    accountKey,
+    value: value.amount,
+  });
+  if (!tokenDetail && !balance && !chart && !selection && !amount) {
     return undefined;
   }
   return {
     version: SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION,
-    identity: normalizedIdentity,
+    identity: { accountKey },
     tokenDetail,
     balance,
     chart,
+    selection,
+    amount,
     updatedAt,
   };
+}
+
+export function getSwapStockDisplayAccountSnapshot({
+  accountKey,
+  snapshot,
+  maxAgeMs = SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS,
+  now = Date.now(),
+}: {
+  accountKey?: string;
+  snapshot: unknown;
+  maxAgeMs?: number;
+  now?: number;
+}): ISwapStockDisplaySnapshot | undefined {
+  const normalized = normalizeSwapStockDisplaySnapshot(snapshot);
+  if (
+    !accountKey ||
+    !normalized ||
+    normalized.identity.accountKey !== accountKey ||
+    normalized.updatedAt > now
+  ) {
+    return undefined;
+  }
+  const keepFresh = <T extends { updatedAt: number }>(region?: T) =>
+    region &&
+    isUsableSnapshotTimestamp({ maxAgeMs, now, timestamp: region.updatedAt })
+      ? region
+      : undefined;
+  const tokenDetail = keepFresh(normalized.tokenDetail);
+  const balance = keepFresh(normalized.balance);
+  const chart = keepFresh(normalized.chart);
+  const selection = keepFresh(normalized.selection);
+  const amount = keepFresh(normalized.amount);
+  if (!tokenDetail && !balance && !chart && !selection && !amount) {
+    return undefined;
+  }
+  return { ...normalized, tokenDetail, balance, chart, selection, amount };
 }
 
 export function getMatchingSwapStockDisplaySnapshot({
@@ -383,55 +805,70 @@ export function getMatchingSwapStockDisplaySnapshot({
   maxAgeMs?: number;
   now?: number;
 }): ISwapStockDisplaySnapshot | undefined {
-  const normalized = normalizeSwapStockDisplaySnapshot(snapshot);
-  if (
-    !normalized ||
-    !identity ||
-    normalized.updatedAt > now ||
-    !isSwapStockDisplayIdentityMatched({
-      current: normalized.identity,
-      expected: identity,
-    })
-  ) {
+  if (!identity) {
     return undefined;
   }
-
+  const normalized = getSwapStockDisplayAccountSnapshot({
+    accountKey: identity.accountKey,
+    snapshot,
+    maxAgeMs,
+    now,
+  });
+  if (!normalized) {
+    return undefined;
+  }
+  const tokenDetailIdentity: ISwapStockDisplayTokenDetailIdentity = {
+    accountKey: identity.accountKey,
+    stockTokenKey: identity.stockTokenKey,
+    currency: identity.currency,
+  };
+  const inputTokenKey =
+    identity.tradeSide === ESwapStockTradeSide.Buy
+      ? identity.payTokenKey
+      : identity.stockTokenKey;
+  const balanceIdentity: ISwapStockDisplayBalanceIdentity = {
+    accountKey: identity.accountKey,
+    inputTokenKey,
+  };
+  const chartIdentity: ISwapStockDisplayChartIdentity = {
+    accountKey: identity.accountKey,
+    stockTokenKey: identity.stockTokenKey,
+    sourceCurrency: SWAP_STOCK_DISPLAY_CHART_SOURCE_CURRENCY,
+  };
+  const amountIdentity: ISwapStockDisplayAmountIdentity = {
+    accountKey: identity.accountKey,
+    stockTokenKey: identity.stockTokenKey,
+    payTokenKey: identity.payTokenKey,
+    tradeSide: identity.tradeSide,
+  };
   const tokenDetail =
-    normalized.tokenDetail &&
-    isUsableSnapshotTimestamp({
-      maxAgeMs,
-      now,
-      timestamp: normalized.tokenDetail.updatedAt,
-    })
+    buildSwapStockDisplayTokenDetailIdentityKey(
+      normalized.tokenDetail?.identity,
+    ) === buildSwapStockDisplayTokenDetailIdentityKey(tokenDetailIdentity)
       ? normalized.tokenDetail
       : undefined;
   const balance =
-    normalized.balance &&
-    isUsableSnapshotTimestamp({
-      maxAgeMs,
-      now,
-      timestamp: normalized.balance.updatedAt,
-    })
+    buildSwapStockDisplayBalanceIdentityKey(normalized.balance?.identity) ===
+    buildSwapStockDisplayBalanceIdentityKey(balanceIdentity)
       ? normalized.balance
       : undefined;
   const chart =
-    normalized.chart &&
-    isUsableSnapshotTimestamp({
-      maxAgeMs,
-      now,
-      timestamp: normalized.chart.updatedAt,
-    })
+    buildSwapStockDisplayChartIdentityKey(normalized.chart?.identity) ===
+    buildSwapStockDisplayChartIdentityKey(chartIdentity)
       ? normalized.chart
       : undefined;
-  if (!tokenDetail && !balance && !chart) {
+  const amount =
+    buildSwapStockDisplayAmountIdentityKey(normalized.amount?.identity) ===
+    buildSwapStockDisplayAmountIdentityKey(amountIdentity)
+      ? normalized.amount
+      : undefined;
+  // Selection is account-scoped and exposed through the dedicated API. Keep
+  // the compatibility pair snapshot limited to exact pair-owned regions.
+  const selection = undefined;
+  if (!tokenDetail && !balance && !chart && !amount) {
     return undefined;
   }
-  return {
-    ...normalized,
-    tokenDetail,
-    balance,
-    chart,
-  };
+  return { ...normalized, tokenDetail, balance, chart, selection, amount };
 }
 
 export function mergeSwapStockDisplaySnapshot({
@@ -440,40 +877,88 @@ export function mergeSwapStockDisplaySnapshot({
   previous,
   now = Date.now(),
 }: {
-  identity: ISwapStockDisplayIdentity;
+  identity: ISwapStockDisplayWriteContext;
   patch: ISwapStockDisplaySnapshotPatch;
   previous?: ISwapStockDisplaySnapshot;
   now?: number;
 }): ISwapStockDisplaySnapshot {
-  const usablePrevious = getMatchingSwapStockDisplaySnapshot({
-    identity,
+  const usablePrevious = getSwapStockDisplayAccountSnapshot({
+    accountKey: identity.accountKey,
     snapshot: previous,
     now,
   });
   const next: ISwapStockDisplaySnapshot = {
     version: SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION,
-    identity,
+    identity: { accountKey: identity.accountKey },
     tokenDetail: usablePrevious?.tokenDetail,
     balance: usablePrevious?.balance,
     chart: usablePrevious?.chart,
+    selection: usablePrevious?.selection,
+    amount: usablePrevious?.amount,
     updatedAt: now,
   };
-  if (patch.tokenDetail) {
+  if (patch.tokenDetail && identity.stockTokenKey && identity.currency) {
     next.tokenDetail = {
+      identity: {
+        accountKey: identity.accountKey,
+        stockTokenKey: identity.stockTokenKey,
+        currency: identity.currency.toLowerCase(),
+      },
       data: patch.tokenDetail,
       updatedAt: now,
     };
   }
   if (patch.balance) {
     next.balance = {
+      identity: {
+        accountKey: identity.accountKey,
+        inputTokenKey: patch.balance.inputTokenKey,
+      },
       ...patch.balance,
       updatedAt: now,
     };
   }
-  if (patch.chart) {
-    next.chart = {
-      range: patch.chart.range,
-      data: sanitizeSwapStockDisplayChartData(patch.chart.data),
+  if (patch.chart && identity.stockTokenKey) {
+    const data = sanitizeSwapStockDisplayChartData(patch.chart.data);
+    // An empty refresh is not a new last-good value. Keep any previous region
+    // (which may belong to another stock and remain hidden by its owner key).
+    if (data.length > 0) {
+      next.chart = {
+        identity: {
+          accountKey: identity.accountKey,
+          stockTokenKey: identity.stockTokenKey,
+          sourceCurrency: SWAP_STOCK_DISPLAY_CHART_SOURCE_CURRENCY,
+        },
+        range: patch.chart.range,
+        data,
+        updatedAt: now,
+      };
+    }
+  }
+  if (patch.selection) {
+    next.selection = {
+      identity: { accountKey: identity.accountKey },
+      stockToken: patch.selection.stockToken,
+      payToken: patch.selection.payToken,
+      tradeSide: patch.selection.tradeSide,
+      updatedAt: now,
+    };
+  }
+  if (
+    patch.amount &&
+    identity.stockTokenKey &&
+    identity.payTokenKey &&
+    identity.tradeSide &&
+    getValidSwapStockDisplayAmount(patch.amount.value) !== undefined
+  ) {
+    next.amount = {
+      identity: {
+        accountKey: identity.accountKey,
+        stockTokenKey: identity.stockTokenKey,
+        payTokenKey: identity.payTokenKey,
+        tradeSide: identity.tradeSide,
+      },
+      value: patch.amount.value,
       updatedAt: now,
     };
   }

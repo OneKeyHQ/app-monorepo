@@ -57,6 +57,7 @@ import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
 } from '../hooks/useSwapState';
+import { isSwapProviderQuoteSelectable } from '../utils/swapProviderQuoteAvailability';
 
 import SwapProviderListItem from './SwapProviderListItem';
 import SwapRefreshButton from './SwapRefreshButton';
@@ -335,18 +336,43 @@ const SwapProviderListPanel = ({
 
   const availableList = useMemo(
     () =>
-      displayList.filter(
-        (item) => item.toAmount && !item.limit?.min && !item.limit?.max,
+      displayList.filter((item) =>
+        isSwapProviderQuoteSelectable({
+          currentEventId: quoteEventTotalCount.eventId,
+          currentEventProviderKeys,
+          fromAmount: fromTokenAmount.value,
+          quote: item,
+          toAmount: toTokenAmount.value,
+        }),
       ),
-    [displayList],
+    [
+      currentEventProviderKeys,
+      displayList,
+      fromTokenAmount.value,
+      quoteEventTotalCount.eventId,
+      toTokenAmount.value,
+    ],
   );
 
   const unavailableList = useMemo(
     () =>
       displayList.filter(
-        (item) => !item.toAmount || item.limit?.min || item.limit?.max,
+        (item) =>
+          !isSwapProviderQuoteSelectable({
+            currentEventId: quoteEventTotalCount.eventId,
+            currentEventProviderKeys,
+            fromAmount: fromTokenAmount.value,
+            quote: item,
+            toAmount: toTokenAmount.value,
+          }),
       ),
-    [displayList],
+    [
+      currentEventProviderKeys,
+      displayList,
+      fromTokenAmount.value,
+      quoteEventTotalCount.eventId,
+      toTokenAmount.value,
+    ],
   );
 
   // Auto-scroll to selected provider when loading completes (OK-49778)
@@ -392,22 +418,13 @@ const SwapProviderListPanel = ({
 
   const renderItem = useCallback(
     (item: IFetchQuoteResult) => {
-      let disabled = !item.toAmount;
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
-      if (item.limit) {
-        if (item.limit.min) {
-          const minBN = new BigNumber(item.limit.min);
-          if (fromTokenAmountBN.lt(minBN)) {
-            disabled = false;
-          }
-        }
-        if (item.limit.max) {
-          const maxBN = new BigNumber(item.limit.max);
-          if (fromTokenAmountBN.gt(maxBN)) {
-            disabled = false;
-          }
-        }
-      }
+      const disabled = !isSwapProviderQuoteSelectable({
+        currentEventId: quoteEventTotalCount.eventId,
+        currentEventProviderKeys,
+        fromAmount: fromTokenAmount.value,
+        quote: item,
+        toAmount: toTokenAmount.value,
+      });
       const itemKey = buildSwapQuoteProviderKey(item);
       const isNewItem = isNewItemRef.current.has(itemKey);
       const selected = Boolean(
@@ -440,7 +457,7 @@ const SwapProviderListPanel = ({
             autoOpenRoute={autoOpenRoute}
             autoOpenRouteTrigger={autoOpenRouteTrigger}
             routeCollapseTrigger={selectedProviderKey}
-            fromTokenAmount={fromTokenAmount.value}
+            fromTokenAmount={item.fromAmount}
             fromToken={fromToken}
             toToken={toToken}
             providerResult={item}
@@ -453,6 +470,7 @@ const SwapProviderListPanel = ({
     [
       fromToken,
       fromTokenAmount,
+      currentEventProviderKeys,
       onSelectQuote,
       manualSelectQuoteProvider,
       selectedProviderKey,
@@ -460,6 +478,8 @@ const SwapProviderListPanel = ({
       selectedProviderInfo?.providerName,
       settingsPersist.currencyInfo.symbol,
       toToken,
+      toTokenAmount,
+      quoteEventTotalCount.eventId,
     ],
   );
 

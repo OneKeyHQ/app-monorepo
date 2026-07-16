@@ -397,6 +397,31 @@ export function useSwapBatchTransferType(
   });
 }
 
+export function isSwapActionWaitingAutoSlippage({
+  effectiveSlippageMode,
+  quoteEventCompleted,
+  quoteEventProviderCount,
+  quote,
+}: {
+  effectiveSlippageMode: ESwapSlippageSegmentKey;
+  quoteEventCompleted: boolean;
+  quoteEventProviderCount: number;
+  quote?: {
+    autoSuggestedSlippage?: number;
+    protocol?: EProtocolOfExchange;
+    unSupportSlippage?: boolean;
+  };
+}) {
+  return (
+    effectiveSlippageMode === ESwapSlippageSegmentKey.AUTO &&
+    quoteEventProviderCount > 0 &&
+    !quoteEventCompleted &&
+    quote?.protocol === EProtocolOfExchange.SWAP &&
+    !quote.unSupportSlippage &&
+    isNil(quote.autoSuggestedSlippage)
+  );
+}
+
 export function useSwapActionState() {
   const intl = useIntl();
   const { quoteLoading, quoteEventFetching, isWaitingActionableQuote } =
@@ -408,7 +433,7 @@ export function useSwapActionState() {
   const [toToken] = useSwapSelectToTokenAtom();
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [shouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
-  const [{ swapSlippagePercentageMode }] = useSettingsAtom();
+  const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const [swapQuoteApproveAllowanceUnLimit] =
@@ -511,19 +536,17 @@ export function useSwapActionState() {
   const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 10);
   const isWaitingAutoSlippage = useMemo(
     () =>
-      swapSlippagePercentageMode === ESwapSlippageSegmentKey.AUTO &&
-      quoteEventTotalCount.count > 0 &&
-      !quoteEventCompleted &&
-      quoteCurrentSelect?.protocol === EProtocolOfExchange.SWAP &&
-      !quoteCurrentSelect.unSupportSlippage &&
-      isNil(quoteCurrentSelect.autoSuggestedSlippage),
+      isSwapActionWaitingAutoSlippage({
+        effectiveSlippageMode: slippageItem.key,
+        quoteEventCompleted,
+        quoteEventProviderCount: quoteEventTotalCount.count,
+        quote: quoteCurrentSelect,
+      }),
     [
-      quoteCurrentSelect?.autoSuggestedSlippage,
-      quoteCurrentSelect?.protocol,
-      quoteCurrentSelect?.unSupportSlippage,
+      quoteCurrentSelect,
       quoteEventCompleted,
       quoteEventTotalCount.count,
-      swapSlippagePercentageMode,
+      slippageItem.key,
     ],
   );
   // "The CURRENT pair's quote round completed and no provider supports it."
@@ -744,6 +767,44 @@ export function useSwapActionState() {
   return stepState;
 }
 
+export function resolveSwapSlippagePercentageModeInfo({
+  autoSuggestedSlippage,
+  swapSlippageOverride,
+  swapSlippagePercentageCustomValue,
+  swapSlippagePercentageMode,
+}: {
+  autoSuggestedSlippage?: number;
+  swapSlippageOverride?: {
+    key: ESwapSlippageSegmentKey;
+    value?: number;
+  };
+  swapSlippagePercentageCustomValue: number;
+  swapSlippagePercentageMode: ESwapSlippageSegmentKey;
+}) {
+  const autoValue = isNil(autoSuggestedSlippage)
+    ? swapSlippageAutoValue
+    : autoSuggestedSlippage;
+  // Session-scoped override (e.g. Market preset) takes precedence over the
+  // global persisted swap slippage so quote, Review, and action readiness use
+  // the same effective mode.
+  const effectiveMode = swapSlippageOverride?.key ?? swapSlippagePercentageMode;
+  const effectiveCustomValue =
+    swapSlippageOverride?.key === ESwapSlippageSegmentKey.CUSTOM
+      ? (swapSlippageOverride.value ?? swapSlippagePercentageCustomValue)
+      : swapSlippagePercentageCustomValue;
+
+  return {
+    slippageItem: {
+      key: effectiveMode,
+      value:
+        effectiveMode === ESwapSlippageSegmentKey.AUTO
+          ? autoValue
+          : effectiveCustomValue,
+    },
+    autoValue,
+  };
+}
+
 export function useSwapSlippagePercentageModeInfo() {
   const [{ swapSlippagePercentageCustomValue, swapSlippagePercentageMode }] =
     useSettingsAtom();
@@ -761,39 +822,20 @@ export function useSwapSlippagePercentageModeInfo() {
     }
     return swapCurrentQuote;
   }, [focusSwapPro, swapProTradeType, swapCurrentQuote, swapProQuoteResult]);
-  const res = useMemo(() => {
-    let autoValue = swapSlippageAutoValue;
-    let value = swapSlippageAutoValue;
-    if (!isNil(quoteResult?.autoSuggestedSlippage)) {
-      autoValue = quoteResult.autoSuggestedSlippage;
-    }
-    // Session-scoped override (e.g. Market preset) takes precedence over the
-    // global persisted swap slippage so a user jumping in from Market with a
-    // configured P1/P2/P3 slippage gets quote/build aligned to that value.
-    const effectiveMode =
-      swapSlippageOverride?.key ?? swapSlippagePercentageMode;
-    const effectiveCustomValue =
-      swapSlippageOverride?.key === ESwapSlippageSegmentKey.CUSTOM
-        ? (swapSlippageOverride.value ?? swapSlippagePercentageCustomValue)
-        : swapSlippagePercentageCustomValue;
-
-    if (effectiveMode === ESwapSlippageSegmentKey.AUTO) {
-      value = autoValue;
-    } else {
-      value = effectiveCustomValue;
-    }
-    return {
-      slippageItem: {
-        key: effectiveMode,
-        value,
-      },
-      autoValue,
-    };
-  }, [
-    quoteResult?.autoSuggestedSlippage,
-    swapSlippageOverride,
-    swapSlippagePercentageCustomValue,
-    swapSlippagePercentageMode,
-  ]);
+  const res = useMemo(
+    () =>
+      resolveSwapSlippagePercentageModeInfo({
+        autoSuggestedSlippage: quoteResult?.autoSuggestedSlippage,
+        swapSlippageOverride,
+        swapSlippagePercentageCustomValue,
+        swapSlippagePercentageMode,
+      }),
+    [
+      quoteResult?.autoSuggestedSlippage,
+      swapSlippageOverride,
+      swapSlippagePercentageCustomValue,
+      swapSlippagePercentageMode,
+    ],
+  );
   return res;
 }

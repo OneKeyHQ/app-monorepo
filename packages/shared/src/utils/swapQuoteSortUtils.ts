@@ -35,6 +35,43 @@ function makeReceivedComparator(
   useSlippage: boolean,
   fromTokenAmountBN: BigNumber | undefined,
 ): (a: IFetchQuoteResult, b: IFetchQuoteResult) => number {
+  const isUnavailable = (
+    quote: IFetchQuoteResult,
+    receivedAmount: BigNumber,
+  ) => {
+    if (
+      !receivedAmount.isFinite() ||
+      receivedAmount.isNaN() ||
+      receivedAmount.isZero()
+    ) {
+      return true;
+    }
+
+    const candidateInput =
+      quote.fromAmount !== undefined && quote.fromAmount !== ''
+        ? new BigNumber(quote.fromAmount)
+        : fromTokenAmountBN;
+    if (!candidateInput) {
+      return false;
+    }
+    if (!candidateInput.isFinite() || candidateInput.isNegative()) {
+      return true;
+    }
+    if (quote.limit?.min) {
+      const min = new BigNumber(quote.limit.min);
+      if (!min.isFinite() || candidateInput.lt(min)) {
+        return true;
+      }
+    }
+    if (quote.limit?.max) {
+      const max = new BigNumber(quote.limit.max);
+      if (!max.isFinite() || candidateInput.gt(max)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   return (a, b) => {
     const aVal = useSlippage
       ? new BigNumber(a.toAmount || 0).multipliedBy(
@@ -57,30 +94,10 @@ function makeReceivedComparator(
       return 1;
     }
 
-    if (fromTokenAmountBN) {
-      if (
-        aVal.isZero() ||
-        aVal.isNaN() ||
-        fromTokenAmountBN.lt(new BigNumber(a.limit?.min || 0)) ||
-        fromTokenAmountBN.gt(new BigNumber(a.limit?.max || Infinity))
-      ) {
-        return 1;
-      }
-      if (
-        bVal.isZero() ||
-        bVal.isNaN() ||
-        fromTokenAmountBN.lt(new BigNumber(b.limit?.min || 0)) ||
-        fromTokenAmountBN.gt(new BigNumber(b.limit?.max || Infinity))
-      ) {
-        return -1;
-      }
-    } else {
-      if (aVal.isZero() || aVal.isNaN()) {
-        return 1;
-      }
-      if (bVal.isZero() || bVal.isNaN()) {
-        return -1;
-      }
+    const aUnavailable = isUnavailable(a, aVal);
+    const bUnavailable = isUnavailable(b, bVal);
+    if (aUnavailable !== bUnavailable) {
+      return aUnavailable ? 1 : -1;
     }
 
     return bVal.comparedTo(aVal);

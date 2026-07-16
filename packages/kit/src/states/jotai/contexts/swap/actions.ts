@@ -1128,18 +1128,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     }),
                   );
                 }
-                set(swapQuoteCurrentEventProviderKeysAtom(), (keys) => [
-                  ...new Set([
-                    ...keys,
-                    ...quoteResults.map((quote) =>
+                const currentEventProviderKeys = [
+                  ...new Set(
+                    newQuoteList.map((quote) =>
                       buildSwapQuoteProviderKey(quote),
                     ),
-                  ]),
-                ]);
-                set(swapQuoteCurrentEventReceivedCountAtom(), (count) =>
+                  ),
+                ];
+                set(
+                  swapQuoteCurrentEventProviderKeysAtom(),
+                  currentEventProviderKeys,
+                );
+                set(
+                  swapQuoteCurrentEventReceivedCountAtom(),
                   Math.min(
                     activeQuoteEventTotalCount.count,
-                    count + quoteResultData.data.length,
+                    currentEventProviderKeys.length,
                   ),
                 );
               }
@@ -3274,6 +3278,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       const oldType = get(swapTypeSwitchAtom());
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
+      const isSwitchingStockSurface =
+        oldType !== normalizedType &&
+        (oldType === ESwapTabSwitchType.STOCK ||
+          normalizedType === ESwapTabSwitchType.STOCK);
+      if (isSwitchingStockSurface) {
+        // Stock and generic Swap share the amount/balance atoms, but they do
+        // not share an execution owner. Revoke the old surface synchronously
+        // before publishing the next tab so the first render can never paint
+        // an ETH amount or balance inside a BSC Stock trade (or vice versa).
+        // A matching Stock display snapshot may be projected afterwards, but
+        // it remains display-only until the exact live owner becomes ready.
+        set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        set(swapToTokenAmountAtom(), { value: '', isInput: false });
+        set(swapSelectedFromTokenBalanceAtom(), '');
+        set(swapSelectedToTokenBalanceAtom(), '');
+      }
       if (oldType !== normalizedType) {
         const quoteSessionState = get(swapQuoteSessionStateAtom());
         const activeQuoteSession = quoteSessionState.activeSession;

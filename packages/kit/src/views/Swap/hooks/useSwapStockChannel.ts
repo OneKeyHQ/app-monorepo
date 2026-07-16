@@ -47,6 +47,7 @@ import {
   buildStockSwapTokenFromMarketToken,
   filterStockPayTokenCandidates,
   getTokenIdentityKey,
+  resolveStockChannelOwnedPayToken,
   resolveStockChannelSwapPair,
   shouldResetStockTradeReceiveAmount,
 } from './swapStockChannelUtils';
@@ -160,8 +161,6 @@ export function useSwapStockChannel() {
     : selectedTokensStockPair;
   const tradeSide =
     tradeSideState ?? stockPair.tradeSide ?? ESwapStockTradeSide.Buy;
-  const isBuySide = tradeSide === ESwapStockTradeSide.Buy;
-  const swapPairPayToken = isBuySide ? fromToken : toToken;
   const persistedStockSelectedToken = stockSelectedToken?.isStock
     ? stockSelectedToken
     : undefined;
@@ -170,16 +169,11 @@ export function useSwapStockChannel() {
   const selectedStockTokenKey = getTokenIdentityKey(selectedStockToken);
   const currentStockToken = selectedStockToken;
   const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
-  const swapPairStockPayToken = useMemo(
-    () =>
-      filterStockPayTokenCandidates(
-        swapPairPayToken ? [swapPairPayToken] : [],
-      )[0],
-    [swapPairPayToken],
-  );
-  const stockPairPayToken =
-    stockPair.tradeSide === tradeSide ? stockPair.payToken : undefined;
-  const payToken = payTokenState ?? stockPairPayToken ?? swapPairStockPayToken;
+  const payToken = resolveStockChannelOwnedPayToken({
+    explicitPayToken: payTokenState,
+    stockPair,
+    tradeSide,
+  });
   const stockNetworkId = currentStockToken?.networkId ?? '';
   const stockTokenDetailScope = currentStockTokenKey;
   const lastGoodStockTokenDetailRef =

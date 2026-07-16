@@ -8,6 +8,7 @@ import {
   SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS,
   SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION,
   getMatchingSwapStockDisplaySnapshot,
+  getSwapStockDisplayAccountSnapshot,
   mergeSwapStockDisplaySnapshot,
   projectSwapStockDisplayTokenDetail,
   resolveSwapStockDisplayAccountKey,
@@ -121,20 +122,69 @@ describe('swapStockDisplaySnapshotUtils', () => {
     ).toBe('wallet-2|account-2|derive-1');
   });
 
-  it.each([
-    ['account', { accountKey: 'wallet-2:account-2:derive-1' }],
-    ['stock', { stockTokenKey: 'evm--1:0xtsla:token' }],
-    ['pay token', { payTokenKey: 'evm--1:0xusdt:token' }],
-    ['trade side', { tradeSide: ESwapStockTradeSide.Sell }],
-    ['currency', { currency: 'EUR' }],
-  ] as const)('rejects a snapshot for the wrong %s identity', (_, change) => {
+  it('rejects every region for a different account owner', () => {
     expect(
       getMatchingSwapStockDisplaySnapshot({
-        identity: { ...identity, ...change },
+        identity: {
+          ...identity,
+          accountKey: 'wallet-2:account-2:derive-1',
+        },
         snapshot: createSnapshot(),
         now: NOW,
       }),
     ).toBeUndefined();
+  });
+
+  it('matches each v2 region by its narrow owner instead of total pair identity', () => {
+    const snapshot = createSnapshot();
+
+    expect(
+      getMatchingSwapStockDisplaySnapshot({
+        identity: {
+          ...identity,
+          stockTokenKey: 'evm--1:0xtsla:token',
+        },
+        snapshot,
+        now: NOW,
+      }),
+    ).toMatchObject({
+      tokenDetail: undefined,
+      chart: undefined,
+      balance: { value: '125.5' },
+    });
+    expect(
+      getMatchingSwapStockDisplaySnapshot({
+        identity: { ...identity, payTokenKey: 'evm--1:0xusdt:token' },
+        snapshot,
+        now: NOW,
+      }),
+    ).toMatchObject({
+      tokenDetail: { data: { symbol: 'AAPL' } },
+      chart: { range: '1W' },
+      balance: undefined,
+    });
+    expect(
+      getMatchingSwapStockDisplaySnapshot({
+        identity: { ...identity, tradeSide: ESwapStockTradeSide.Sell },
+        snapshot,
+        now: NOW,
+      }),
+    ).toMatchObject({
+      tokenDetail: { data: { symbol: 'AAPL' } },
+      chart: { range: '1W' },
+      balance: undefined,
+    });
+    expect(
+      getMatchingSwapStockDisplaySnapshot({
+        identity: { ...identity, currency: 'EUR' },
+        snapshot,
+        now: NOW,
+      }),
+    ).toMatchObject({
+      tokenDetail: undefined,
+      chart: { range: '1W' },
+      balance: { value: '125.5' },
+    });
   });
 
   it('rejects snapshots with future or expired region timestamps', () => {
@@ -204,14 +254,21 @@ describe('swapStockDisplaySnapshotUtils', () => {
       }),
     ).toBeUndefined();
 
+    const chartOnly = createSnapshot();
     expect(
       getMatchingSwapStockDisplaySnapshot({
         identity,
         snapshot: {
-          ...createSnapshot(),
-          identity: {
-            ...identity,
-            tradeSide: 'hold',
+          version: SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION,
+          identity: { accountKey: identity.accountKey },
+          updatedAt: NOW,
+          chart: {
+            ...chartOnly.chart,
+            identity: {
+              accountKey: identity.accountKey,
+              stockTokenKey: identity.stockTokenKey,
+              sourceCurrency: 'eur',
+            },
           },
         },
         now: NOW,
@@ -296,13 +353,186 @@ describe('swapStockDisplaySnapshotUtils', () => {
       now: NOW + 1,
     });
 
-    expect(next.identity).toEqual(nextIdentity);
+    expect(next.identity).toEqual({ accountKey: nextIdentity.accountKey });
     expect(next.tokenDetail).toBeUndefined();
     expect(next.chart).toBeUndefined();
     expect(next.balance).toMatchObject({
       inputTokenKey: nextIdentity.payTokenKey,
       value: '50',
       updatedAt: NOW + 1,
+    });
+  });
+
+  it('never replaces a last-good chart with an empty refresh', () => {
+    const original = createSnapshot();
+    const next = mergeSwapStockDisplaySnapshot({
+      identity: { ...identity, payTokenKey: 'evm--1:0xusdt:token' },
+      previous: original,
+      patch: {
+        chart: {
+          range: '1M',
+          data: [],
+        },
+      },
+      now: NOW + 1,
+    });
+
+    expect(next.chart).toEqual(original.chart);
+  });
+
+  it('stores account selection but scopes display amount to stock/pay/side', () => {
+    const snapshot = mergeSwapStockDisplaySnapshot({
+      identity,
+      patch: {
+        selection: {
+          stockToken: {
+            networkId: 'evm--1',
+            contractAddress: '0xaapl',
+            symbol: 'AAPL',
+            decimals: 18,
+            isStock: true,
+          },
+          payToken: {
+            networkId: 'evm--1',
+            contractAddress: '0xusdc',
+            symbol: 'USDC',
+            decimals: 6,
+          },
+          tradeSide: ESwapStockTradeSide.Buy,
+        },
+        amount: { value: '12.5' },
+      },
+      now: NOW,
+    });
+
+    expect(
+      getSwapStockDisplayAccountSnapshot({
+        accountKey: identity.accountKey,
+        snapshot,
+        now: NOW,
+      }),
+    ).toMatchObject({
+      selection: {
+        stockToken: { symbol: 'AAPL' },
+        payToken: { symbol: 'USDC' },
+        tradeSide: ESwapStockTradeSide.Buy,
+      },
+      amount: { value: '12.5' },
+    });
+    expect(
+      getMatchingSwapStockDisplaySnapshot({
+        identity: { ...identity, tradeSide: ESwapStockTradeSide.Sell },
+        snapshot,
+        now: NOW,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('persists an explicit cleared amount so an older value cannot revive', () => {
+    const previous = mergeSwapStockDisplaySnapshot({
+      identity,
+      patch: { amount: { value: '12.5' } },
+      now: NOW,
+    });
+    const cleared = mergeSwapStockDisplaySnapshot({
+      identity,
+      previous,
+      patch: { amount: { value: '' } },
+      now: NOW + 1,
+    });
+
+    expect(
+      getMatchingSwapStockDisplaySnapshot({
+        identity,
+        snapshot: cleared,
+        now: NOW + 1,
+      })?.amount,
+    ).toMatchObject({ value: '', updatedAt: NOW + 1 });
+  });
+
+  it('round-trips a native pay-token selection without contractAddress', () => {
+    const snapshot = mergeSwapStockDisplaySnapshot({
+      identity,
+      patch: {
+        selection: {
+          stockToken: {
+            networkId: 'evm--1',
+            contractAddress: '0xaapl',
+            symbol: 'AAPL',
+            decimals: 18,
+            isStock: true,
+          },
+          payToken: {
+            networkId: 'evm--1',
+            isNative: true,
+            symbol: 'ETH',
+            decimals: 18,
+          },
+          tradeSide: ESwapStockTradeSide.Buy,
+        },
+      },
+      now: NOW,
+    });
+
+    expect(
+      getSwapStockDisplayAccountSnapshot({
+        accountKey: identity.accountKey,
+        snapshot,
+        now: NOW,
+      })?.selection?.payToken,
+    ).toMatchObject({
+      networkId: 'evm--1',
+      isNative: true,
+      symbol: 'ETH',
+    });
+  });
+
+  it('migrates a v1 total-identity snapshot into v2 region identities', () => {
+    const projected = projectSwapStockDisplayTokenDetail(tokenDetail);
+    const migrated = getMatchingSwapStockDisplaySnapshot({
+      identity,
+      snapshot: {
+        version: 1,
+        identity,
+        tokenDetail: { data: projected, updatedAt: NOW },
+        balance: {
+          inputTokenKey: identity.payTokenKey,
+          value: '25',
+          updatedAt: NOW,
+        },
+        chart: {
+          range: '1W',
+          data: [[1_725_000_000, 213.49]],
+          updatedAt: NOW,
+        },
+        updatedAt: NOW,
+      },
+      now: NOW,
+    });
+
+    expect(migrated).toMatchObject({
+      version: SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION,
+      identity: { accountKey: identity.accountKey },
+      tokenDetail: {
+        identity: {
+          accountKey: identity.accountKey,
+          stockTokenKey: identity.stockTokenKey,
+          currency: 'usd',
+        },
+      },
+      balance: {
+        identity: {
+          accountKey: identity.accountKey,
+          inputTokenKey: identity.payTokenKey,
+        },
+      },
+      chart: {
+        identity: {
+          accountKey: identity.accountKey,
+          stockTokenKey: identity.stockTokenKey,
+          sourceCurrency: 'usd',
+        },
+      },
     });
   });
 

@@ -111,9 +111,7 @@ const SwapQuoteResult = ({
     quoteUiPhase === ESwapQuoteUiPhase.Waiting ||
     quoteUiPhase === ESwapQuoteUiPhase.StaleRefreshing;
   const onSelectProviderWhileRequesting =
-    isQuoteDisplayRequesting && providerSelectionReady
-      ? onOpenProviderList
-      : undefined;
+    swapQuoteLoading && providerSelectionReady ? onOpenProviderList : undefined;
   const quoteResultForDisplay = isQuoteDisplayRequesting
     ? displayQuote
     : (quoteResult ?? displayQuote);

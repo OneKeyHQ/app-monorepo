@@ -1,8 +1,7 @@
 import { ESwapProviderSort } from '../../types/swap/SwapProvider.constants';
+import { ESwapQuoteKind, type IFetchQuoteResult } from '../../types/swap/types';
 
 import { selectBestQuote, sortSwapQuotes } from './swapQuoteSortUtils';
-
-import type { IFetchQuoteResult } from '../../types/swap/types';
 
 // ---------------------------------------------------------------------------
 // helpers – minimal IFetchQuoteResult factories
@@ -349,6 +348,35 @@ describe('sortSwapQuotes', () => {
   // Limit filtering
   // -------------------------------------------------------------------------
   describe('limit filtering', () => {
+    it('uses each exact-out provider input for limits and best badges', () => {
+      const invalid = makeQuote({
+        quoteId: 'INVALID',
+        kind: ESwapQuoteKind.BUY,
+        fromAmount: '0.9',
+        toAmount: '10',
+        limit: { max: '0.8' },
+      });
+      const valid = makeQuote({
+        quoteId: 'VALID',
+        kind: ESwapQuoteKind.BUY,
+        fromAmount: '0.7',
+        toAmount: '10',
+        limit: { max: '0.8' },
+      });
+
+      const result = sortSwapQuotes([invalid, valid], {
+        sort: ESwapProviderSort.RECEIVED,
+        fromTokenAmount: '0.9',
+      });
+
+      expect(result.map((quote) => quote.quoteId)).toEqual([
+        'VALID',
+        'INVALID',
+      ]);
+      expect(result[0].isBest).toBe(true);
+      expect(result[0].receivedBest).toBe(true);
+    });
+
     it('pushes quotes out of min range down in received sort', () => {
       const limited = makeQuote({
         quoteId: 'LIMITED',
