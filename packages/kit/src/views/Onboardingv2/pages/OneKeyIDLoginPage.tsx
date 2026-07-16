@@ -150,9 +150,14 @@ function OneKeyIDLoginPage() {
   const isVerifyMode =
     mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin ||
     mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly;
+  const isCreateOrRestoreMode =
+    mode === EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore;
 
   const { signInWithSocialLogin } = useOneKeyAuth();
-  const { checkKeylessWalletCreatedOnServer } = useKeylessWallet();
+  const {
+    checkKeylessWalletCreatedOnServer,
+    checkKeylessWalletLocalExistence,
+  } = useKeylessWallet();
 
   const handleSocialLogin = useCallback(
     async (provider: EOAuthSocialLoginProvider) => {
@@ -183,6 +188,18 @@ function OneKeyIDLoginPage() {
             details: { provider },
           });
         }
+        if (isCreateOrRestoreMode && !isResetMode) {
+          await checkKeylessWalletLocalExistence({
+            signInProvider: provider,
+          });
+          return;
+        }
+        // Never persist the OAuth session at sign-in time here: there is a
+        // single shared keyless session slot, and in verify mode a
+        // wrong-account login would overwrite the active session (which may
+        // back the live OneKey ID login) before any validation runs. In
+        // verify mode checkKeylessWalletCreatedOnServer persists the session
+        // (via the refreshToken below) only after validation passes.
         const result = await signInWithSocialLogin(provider);
         if (result?.session?.accessToken) {
           if (isResetMode) {
@@ -218,6 +235,8 @@ function OneKeyIDLoginPage() {
     },
     [
       checkKeylessWalletCreatedOnServer,
+      checkKeylessWalletLocalExistence,
+      isCreateOrRestoreMode,
       isResetMode,
       isVerifyMode,
       mode,
