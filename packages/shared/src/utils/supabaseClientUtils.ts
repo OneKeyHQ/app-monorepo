@@ -82,25 +82,51 @@ const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
  * - `cf-ray` + server!=cloudflare -> passed the edge, rejected by the origin
  *                             gateway/reverse proxy in front of GoTrue.
  * The fingerprint is embedded in the thrown error message so it reaches the
- * login-failure toast and exported logs without extra plumbing. Headers and
- * a short body prefix of an error page only — no request data, no tokens.
+ * login-failure toast and exported logs without extra plumbing. It carries
+ * response headers and a body CLASSIFICATION only — never raw body content:
+ * this string flows into server-side failure logging, and intermediary
+ * pages (captive portals, corporate proxies) can embed user- or
+ * network-identifying details.
  */
 async function buildInterceptedResponseFingerprint(
   response: Response,
 ): Promise<string> {
-  let bodySnippet = '';
-  try {
-    const text = await response.clone().text();
-    bodySnippet = text.slice(0, 160).replace(/\s+/g, ' ').trim();
-  } catch {
-    bodySnippet = '<unreadable>';
-  }
   const header = (name: string) => response.headers?.get?.(name) || 'none';
   return `[server=${header('server')} content-type=${header(
     'content-type',
   )} cf-ray=${header('cf-ray')} cf-mitigated=${header(
     'cf-mitigated',
-  )} body="${bodySnippet}"]`;
+  )} body=${await classifyInterceptedResponseBody(response)}]`;
+}
+
+// Whitelist classification of an intercepted error-page body. Only fixed
+// labels leave this function (see the privacy note above); the labels keep
+// the Cloudflare-vs-other discrimination the raw snippet used to provide.
+async function classifyInterceptedResponseBody(
+  response: Response,
+): Promise<string> {
+  let text = '';
+  try {
+    text = (await response.clone().text()).slice(0, 2048);
+  } catch {
+    return 'unreadable';
+  }
+  if (!text.trim()) {
+    return 'empty';
+  }
+  const lowerText = text.toLowerCase();
+  if (
+    lowerText.includes('cloudflare') ||
+    lowerText.includes('cf-error') ||
+    lowerText.includes('just a moment') ||
+    lowerText.includes('attention required')
+  ) {
+    return 'cloudflare-page';
+  }
+  if (lowerText.includes('<html') || lowerText.includes('<!doctype')) {
+    return 'html';
+  }
+  return 'text';
 }
 
 /**
