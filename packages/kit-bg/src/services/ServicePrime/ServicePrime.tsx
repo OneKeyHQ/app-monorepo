@@ -728,36 +728,35 @@ class ServicePrime extends ServiceBase {
   // commits KeylessOAuth: prove the shared keyless session slot is actually
   // persisted BEFORE any server-side state change, so the server login can
   // never succeed while the local commit fails (server logged in / client
-  // rolled back). Only a DEFINITELY-empty slot aborts; a transiently-unreadable
-  // slot proceeds, because aborting classifies as a definitive failure and
-  // callers would tear down (sign out + revoke) the just-persisted session.
+  // rolled back). Definitive bad slot states (empty / corrupt) abort here;
+  // a TRANSIENT storage failure is rethrown as-is instead of proceeding —
+  // the slot state is unknown, so running the server mutation could recreate
+  // the very split this guard prevents, while the retryable error type
+  // (recognized by isTransientNetworkLikeError) keeps callers from tearing
+  // down a possibly-valid just-persisted session.
   private async assertKeylessSessionPersistedBeforeLogin(callerName: string) {
     // Force a fresh local read: on split-runtime targets the bg storage cache
     // may still hold a pre-login empty probe (up to 30s), whose cross-runtime
     // invalidation after the UI-side persist is best-effort.
     clearSupabaseStorageLocalCache();
-    let isSlotDefinitelyEmpty = false;
-    try {
-      const persistedKeylessAccessToken =
-        await readPersistedAccessTokenBySessionSourceStrict(
-          EPrimeAuthSessionSource.KeylessOAuth,
-        );
-      isSlotDefinitelyEmpty = !persistedKeylessAccessToken;
-    } catch {
-      // Transiently unreadable (e.g. SupabaseStorageTransientError, or a
-      // present-but-unparseable value) — cannot prove the slot is empty, so do
-      // NOT abort. Proceeding at worst reproduces the recoverable pre-guard
-      // behavior; aborting would destroy a possibly-valid persisted session.
-      isSlotDefinitelyEmpty = false;
+    const slot = await readPersistedAccessTokenBySessionSourceStrict(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    if (slot.status === 'ok') {
+      return;
     }
-    if (isSlotDefinitelyEmpty) {
-      defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
-        reason: `${callerName}: keyless session slot is empty, skip server login`,
-      });
-      throw new OneKeyLocalError(
-        `${callerName} ERROR: Keyless OAuth session is not persisted locally`,
-      );
-    }
+    defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
+      reason: `${callerName}: keyless session slot is ${slot.status}, skip server login`,
+    });
+    // Both remaining states are deterministic — a corrupt slot re-reads the
+    // same bytes and would fail the post-POST commit identically — so a
+    // definitive abort (which lets callers clear the unusable slot) is
+    // correct for both.
+    throw new OneKeyLocalError(
+      slot.status === 'corrupt'
+        ? `${callerName} ERROR: Keyless OAuth session slot is corrupt`
+        : `${callerName} ERROR: Keyless OAuth session is not persisted locally`,
+    );
   }
 
   @backgroundMethod()

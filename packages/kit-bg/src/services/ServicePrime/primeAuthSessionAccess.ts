@@ -142,30 +142,44 @@ export function clearSupabaseStorageLocalCache() {
   supabaseStorageInstance.clearCache({ syncRemote: false });
 }
 
+export type IPersistedAccessTokenStrictReadResult =
+  | { status: 'empty' }
+  | { status: 'corrupt' }
+  | { status: 'ok'; accessToken: string };
+
 /**
  * Strict variant of readPersistedAccessTokenBySessionSource for callers that
  * make a DESTRUCTIVE decision on the result. Unlike the best-effort reader
- * (which degrades EVERY failure to ''), this distinguishes a definitely-empty
- * slot (returns '') from a transiently-unreadable one (rethrows): a transient
- * storage failure (e.g. SupabaseStorageTransientError from the sealed codec)
- * or a present-but-unparseable value must NOT be collapsed into "no session",
- * or the caller destroys a still-recoverable session.
+ * (which degrades EVERY failure to ''), this separates three definitive slot
+ * states from a transient failure:
+ * - `empty`   — no value persisted;
+ * - `corrupt` — a value is persisted but is not a usable session (unparseable
+ *   JSON or no access_token). DETERMINISTIC: re-reading yields the same
+ *   bytes, and the auth-js commit read would fail on it the same way;
+ * - `ok`      — a usable access token is persisted;
+ * - transient storage failures (e.g. SupabaseStorageTransientError from the
+ *   sealed codec) are RETHROWN — the slot state is unknown, and collapsing
+ *   that into "no session" would let callers destroy a still-recoverable
+ *   session.
  */
 export async function readPersistedAccessTokenBySessionSourceStrict(
   authSessionSource: EPrimeAuthSessionSource,
-): Promise<string> {
+): Promise<IPersistedAccessTokenStrictReadResult> {
   const sessionKey =
     getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
   // getItem rethrows transient device-key/storage failures — let them
   // propagate so the caller treats the slot as "unknown", not "empty".
   const rawValue = await supabaseStorageInstance.getItem(sessionKey);
   if (!rawValue) {
-    return '';
+    return { status: 'empty' };
   }
-  // A present-but-unparseable value throws here and propagates (unknown), not
-  // returns '' (empty) — the same "never collapse into no-session" rule.
-  const parsed = JSON.parse(rawValue) as { access_token?: string } | null;
-  return parsed?.access_token || '';
+  try {
+    const parsed = JSON.parse(rawValue) as { access_token?: string } | null;
+    const accessToken = parsed?.access_token || '';
+    return accessToken ? { status: 'ok', accessToken } : { status: 'corrupt' };
+  } catch {
+    return { status: 'corrupt' };
+  }
 }
 
 /**

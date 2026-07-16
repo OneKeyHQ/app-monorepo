@@ -63,11 +63,78 @@ function isJsonParseableBody(bodyText: string): boolean {
   }
 }
 
+const ERROR_BODY_FINGERPRINT_MAX_BYTES = 2048;
+const ERROR_BODY_FINGERPRINT_TIMEOUT_MS = 1500;
+
+/**
+ * Bounded best-effort read of an error-page body prefix. A proxy/WAF error
+ * response can be huge or stream forever, so cap the bytes via the stream
+ * reader where one exists (web / desktop / extension) and cap the wall-clock
+ * wait everywhere. React Native's fetch exposes no ReadableStream and its
+ * native layer buffers the body regardless — there the timeout only bounds
+ * how long WE wait, which is the part that matters for fast retryable
+ * classification. Returns undefined when nothing could be read in time.
+ */
+async function readErrorBodyPrefixBestEffort(
+  response: Response,
+): Promise<string | undefined> {
+  try {
+    const clone = response.clone();
+    const reader = clone.body?.getReader?.();
+    if (reader) {
+      const deadline = Date.now() + ERROR_BODY_FINGERPRINT_TIMEOUT_MS;
+      const chunks: Uint8Array[] = [];
+      let receivedBytes = 0;
+      while (
+        receivedBytes < ERROR_BODY_FINGERPRINT_MAX_BYTES &&
+        Date.now() < deadline
+      ) {
+        const readResult = await Promise.race([
+          reader.read(),
+          new Promise<{ done: true; value: undefined }>((resolve) => {
+            setTimeout(
+              () => resolve({ done: true, value: undefined }),
+              Math.max(0, deadline - Date.now()),
+            );
+          }),
+        ]);
+        if (readResult.done) {
+          break;
+        }
+        if (readResult.value) {
+          chunks.push(readResult.value);
+          receivedBytes += readResult.value.byteLength;
+        }
+      }
+      void reader.cancel().catch(() => {});
+      const merged = new Uint8Array(receivedBytes);
+      let offset = 0;
+      for (const chunk of chunks) {
+        merged.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      return new TextDecoder().decode(merged);
+    }
+    return await Promise.race([
+      clone.text(),
+      new Promise<undefined>((resolve) => {
+        setTimeout(() => resolve(undefined), ERROR_BODY_FINGERPRINT_TIMEOUT_MS);
+      }),
+    ]);
+  } catch {
+    return undefined;
+  }
+}
+
 // Whitelist classification of an intercepted error-page body from ALREADY-READ
-// text. Only fixed labels leave this function (see the privacy note on
+// text (undefined = the body could not be read in time). Only fixed labels
+// leave this function (see the privacy note on
 // buildInterceptedResponseFingerprint); the labels keep the
 // Cloudflare-vs-other discrimination the raw snippet used to provide.
-function classifyInterceptedResponseBody(bodyText: string): string {
+function classifyInterceptedResponseBody(bodyText: string | undefined): string {
+  if (bodyText === undefined) {
+    return 'unreadable';
+  }
   const text = bodyText.slice(0, 2048);
   if (!text.trim()) {
     return 'empty';
@@ -121,7 +188,7 @@ function classifyInterceptedResponseBody(bodyText: string): string {
  */
 function buildInterceptedResponseFingerprint(
   response: Response,
-  bodyText: string,
+  bodyText: string | undefined,
 ): string {
   const header = (name: string) => response.headers?.get?.(name) || 'none';
   return `[platform=${platformEnv.appPlatform} server=${header(
@@ -138,27 +205,32 @@ const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
   if (response.ok) {
     return response;
   }
-  // Read the error body ONCE from a clone; the original stays unread so
-  // auth-js can still consume it on the JSON pass-through path below.
-  let bodyText: string | undefined;
-  try {
-    bodyText = await response.clone().text();
-  } catch {
-    bodyText = undefined;
-  }
   if (isTransientSupabaseHttpStatus(response.status)) {
-    // 408/429/5xx: mask as a fetch-level failure so auth-js's _removeSession()
-    // cannot destroy the persisted session over a transient outage. Attach the
-    // fingerprint too — Cloudflare's legacy 503 challenge / 429 rate-limit
-    // pages are exactly the intermediary responses worth identifying.
+    // 408/429/5xx: the status ALONE decides the retryable verdict — classify
+    // touching the body so a huge/streaming intermediary payload can never
+    // delay the retryable failure, and read only a bounded prefix for the
+    // fingerprint (Cloudflare's legacy 503 challenge / 429 rate-limit pages
+    // are exactly the intermediary responses worth identifying).
+    const bodyPrefix = await readErrorBodyPrefixBestEffort(response);
     throw new TypeError(
       `Supabase transient HTTP ${
         response.status
       } treated as network failure to preserve the persisted session ${buildInterceptedResponseFingerprint(
         response,
-        bodyText ?? '',
+        bodyPrefix,
       )}`,
     );
+  }
+  // Non-transient statuses need FULL body fidelity: a truncated read could
+  // misclassify a real GoTrue JSON verdict as an intermediary page. Read the
+  // error body once from a clone (pre-existing behavior for this branch; the
+  // original stays unread for the pass-through below) and reuse the text for
+  // both the JSON check and the fingerprint.
+  let bodyText: string | undefined;
+  try {
+    bodyText = await response.clone().text();
+  } catch {
+    bodyText = undefined;
   }
   // A non-OK response with a parseable JSON body is a definitive GoTrue verdict
   // — pass it through UNCHANGED so auth-js/callers surface the real error. Only
@@ -173,7 +245,7 @@ const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
       response.status
     } error response treated as network failure to preserve the persisted session ${buildInterceptedResponseFingerprint(
       response,
-      bodyText ?? '',
+      bodyText,
     )}`,
   );
 };
