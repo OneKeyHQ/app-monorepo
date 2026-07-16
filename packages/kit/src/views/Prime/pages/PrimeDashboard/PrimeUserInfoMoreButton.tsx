@@ -46,6 +46,11 @@ const isInfiniManageSupported =
 // activation (~5s in Chromium) or the popup blocker silently eats it.
 const INFINI_LOOKUP_CLICK_TIMEOUT_MS = 3000;
 
+// Grace period before the loading dialog appears: waits that resolve faster
+// than this stay dialog-free, so an (almost) settled lookup never flashes a
+// loading frame.
+const LOADING_DIALOG_DELAY_MS = 150;
+
 function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose,
   onBeforeLogout,
@@ -91,15 +96,21 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const handleManageSubscription = useCallback(async () => {
     // The menu item shows as soon as isPrime is known, so this click handler
     // may run before the channel routing data (Infini lookup / manage url)
-    // has settled — a loading dialog bridges any wait instead of hiding the
-    // entry until everything is prefetched.
+    // has settled — a loading dialog bridges any perceptible wait instead of
+    // hiding the entry until everything is prefetched. The dialog itself is
+    // deferred by a grace period: when the awaited data is (nearly) ready it
+    // never appears at all.
     let loadingDialog: IDialogInstance | undefined;
-    const showLoadingOnce = () => {
-      loadingDialog =
-        loadingDialog ??
-        Dialog.loading({
+    let loadingTimerId: ReturnType<typeof setTimeout> | undefined;
+    const scheduleLoading = () => {
+      if (loadingDialog || loadingTimerId) {
+        return;
+      }
+      loadingTimerId = setTimeout(() => {
+        loadingDialog = Dialog.loading({
           title: intl.formatMessage({ id: ETranslations.global_preparing }),
         });
+      }, LOADING_DIALOG_DELAY_MS);
     };
     try {
       let latestInfiniSubscription = infiniLookup?.subscription;
@@ -109,7 +120,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
         // within the click's transient user activation or the popup blocker
         // silently eats it. On timeout fall back to the RevenueCat manage
         // url, matching the pre-Infini behavior.
-        showLoadingOnce();
+        scheduleLoading();
         latestInfiniSubscription = await Promise.race([
           infiniSubscriptionPromiseRef.current ?? Promise.resolve(undefined),
           timerUtils.wait(INFINI_LOOKUP_CLICK_TIMEOUT_MS).then(() => undefined),
@@ -130,7 +141,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       // retry the server-provided manage url. This path may exceed the web
       // popup-activation window in the worst case; acceptable for a rare
       // fallback that previously had no entry at all.
-      showLoadingOnce();
+      scheduleLoading();
       const freshManageUrl = await backgroundApiProxy.servicePrime
         .apiFetchPrimeUserInfo()
         .then(({ userInfo }) => userInfo.subscriptionManageUrl)
@@ -144,6 +155,10 @@ function PrimeUserInfoMoreButtonDropDownMenu({
         title: 'Unable to open subscription management, please try again',
       });
     } finally {
+      // Clear the pending timer first: without this, a wait that resolved
+      // inside the grace period would still pop the dialog afterwards, with
+      // nothing left to close it.
+      clearTimeout(loadingTimerId);
       void loadingDialog?.close();
     }
   }, [infiniLookup, intl, navigation, subscriptionManageUrl]);
