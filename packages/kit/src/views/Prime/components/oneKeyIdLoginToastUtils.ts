@@ -105,7 +105,9 @@ export function showOneKeyIdLoginFailedToast({
   // This fallback toast has now surfaced the error. Mark it so the global
   // unhandledrejection handler (autoToast errors flow there when a caller
   // rethrows into a `void`ed promise) does not show a second toast for it.
-  if (err) {
+  // Objects only: writing a property on a string/primitive throwable would
+  // itself throw in strict mode (same guard as markOneKeyIdFailureServerLogged).
+  if (err && typeof err === 'object') {
     (
       err as IOneKeyError & { $$autoToastErrorTriggered?: boolean }
     ).$$autoToastErrorTriggered = true;
