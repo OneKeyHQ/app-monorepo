@@ -1505,10 +1505,11 @@ class ServicePrime extends ServiceBase {
         'X-Onekey-Request-Token': requestAuthToken,
       },
     };
+    type IProfileApiResponse =
+      IPrimeApiClientResponse<IOneKeyIdProfileResponse>;
+    type IUserInfoApiResponse = IPrimeApiClientResponse<IPrimeServerUserInfo>;
     const profileRequest = client
-      .get<
-        IPrimeApiClientResponse<IOneKeyIdProfileResponse>
-      >('/prime/v1/account/profile', requestConfig)
+      .get<IProfileApiResponse>('/prime/v1/account/profile', requestConfig)
       .then((response) =>
         this.getPrimeApiResponseData({
           response,
@@ -1517,9 +1518,7 @@ class ServicePrime extends ServiceBase {
         }),
       );
     const serverUserInfoRequest = client
-      .get<
-        IPrimeApiClientResponse<IPrimeServerUserInfo>
-      >('/prime/v1/user/info', requestConfig)
+      .get<IUserInfoApiResponse>('/prime/v1/user/info', requestConfig)
       .then((response) =>
         this.getPrimeApiResponseData({
           response,
