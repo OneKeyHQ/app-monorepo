@@ -72,6 +72,7 @@ const onboardingRouterConfig = {
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.MainModal,
+    allowColdStart: true,
     children: ModalMainStack,
   },
   {
@@ -138,6 +139,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.SignatureConfirmModal,
+    allowColdStart: platformEnv.isExtension,
     children: ModalSignatureConfirmStack,
   },
   {
@@ -146,6 +148,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.DAppConnectionModal,
+    allowColdStart: platformEnv.isExtension,
     children: DAppConnectionRouter,
   },
   {
@@ -259,6 +262,7 @@ export const fullModalRouter = [
   },
   {
     name: EModalRoutes.DAppConnectionModal,
+    allowColdStart: platformEnv.isExtension,
     children: DAppConnectionRouter,
   },
   {
@@ -271,6 +275,7 @@ export const fullModalRouter = [
   },
   {
     name: EModalRoutes.SignatureConfirmModal,
+    allowColdStart: platformEnv.isExtension,
     children: ModalSignatureConfirmStack,
   },
 ];

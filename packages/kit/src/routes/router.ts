@@ -76,6 +76,7 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
     name: ERootRoutes.iOSFullScreen,
     component: IOSFullScreenNavigator,
+    allowColdStart: platformEnv.isExtension,
     type: 'iOSFullScreen',
   },
   {

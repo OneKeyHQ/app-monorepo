@@ -13,6 +13,7 @@ export const RewardCenterStack: IModalFlowNavigatorConfig<
   {
     name: EModalRewardCenterRoutes.RewardCenter,
     component: RewardCenterModal,
+    allowColdStart: true,
     rewrite: '/reward-center',
     exact: true,
   },

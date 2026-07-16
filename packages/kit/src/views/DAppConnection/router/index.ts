@@ -1,4 +1,5 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDAppConnectionModalParamList } from '@onekeyhq/shared/src/routes';
 import { EDAppConnectionModal } from '@onekeyhq/shared/src/routes';
 
@@ -64,61 +65,78 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   EDAppConnectionModal,
   IDAppConnectionModalParamList
 >[] = [
+  // Extension standalone windows cold-start from a hash URL built by
+  // ServiceDApp.openModal. Keep every screen in this stack available to the
+  // Extension compiler target without exposing these internal routes on Web.
   {
     name: EDAppConnectionModal.ConnectionModal,
     component: ConnectionModal,
+    allowColdStart: platformEnv.isExtension,
     dismissOnOverlayPress: false,
   },
   {
     name: EDAppConnectionModal.ConnectionList,
     component: ConnectionList,
+    allowColdStart: platformEnv.isExtension,
   },
   {
     name: EDAppConnectionModal.WalletConnectSessionProposalModal,
     component: WalletConnectSessionProposalModal,
+    allowColdStart: platformEnv.isExtension,
   },
   {
     name: EDAppConnectionModal.SignMessageModal,
     component: SignMessageModal,
+    allowColdStart: platformEnv.isExtension,
   },
   {
     name: EDAppConnectionModal.AddCustomNetworkModal,
     component: SettingCustomNetworkModal,
+    allowColdStart: platformEnv.isExtension,
   },
   {
     name: EDAppConnectionModal.AddCustomTokenModal,
     component: AddCustomTokenModal,
+    allowColdStart: platformEnv.isExtension,
   },
   {
     name: EDAppConnectionModal.CurrentConnectionModal,
     component: CurrentConnectionModal,
+    allowColdStart: platformEnv.isExtension,
   },
   {
     name: EDAppConnectionModal.DefaultWalletSettingsModal,
     component: DefaultWalletSettingsModal,
+    allowColdStart: platformEnv.isExtension,
   },
   {
     name: EDAppConnectionModal.MakeInvoice,
     component: MakeInvoiceModal,
+    allowColdStart: platformEnv.isExtension,
   },
   {
     name: EDAppConnectionModal.NostrSignEventModal,
     component: NostrSignEventModal,
+    allowColdStart: platformEnv.isExtension,
   },
   {
     name: EDAppConnectionModal.CosmosEnigmaUnlockModal,
     component: CosmosEnigmaUnlockModal,
+    allowColdStart: platformEnv.isExtension,
   },
   {
     name: EDAppConnectionModal.RiskWhiteListModal,
     component: RiskWhiteListModal,
+    allowColdStart: platformEnv.isExtension,
   },
   {
     name: EDAppConnectionModal.ClipboardPermissionModal,
     component: ClipboardPermissionModal,
+    allowColdStart: platformEnv.isExtension,
   },
   {
     name: EDAppConnectionModal.DeriveContextHashModal,
     component: DeriveContextHashModal,
+    allowColdStart: platformEnv.isExtension,
   },
 ];
