@@ -242,7 +242,12 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           })}
           icon="CreditCardOutline"
           onClose={handleActionListClose}
-          onPress={async () => {
+          // Declaring the `close` param opts out of ActionList's
+          // close-after-onPress behavior: the menu must close before the
+          // destination is resolved, otherwise it would stay open underneath
+          // the loading dialog until the resolution finishes.
+          onPress={async (close) => {
+            close();
             await handleManageSubscription();
           }}
         />
