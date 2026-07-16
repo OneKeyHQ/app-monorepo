@@ -8,6 +8,7 @@ import { createStore } from 'jotai';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorAutoSelectTriggerBy,
@@ -1152,6 +1153,106 @@ describe('useAccountSelectorActions', () => {
         sceneName: EAccountSelectorSceneName.swap,
       }),
     );
+  });
+
+  it('fills a missing Swap recipient account when restoring a partial recent-selection cache', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--1');
+    mockGetSelectedAccountsMap.mockResolvedValue({
+      0: selectedAccount,
+    });
+    mockMergeHomeDataToSwapMap.mockResolvedValue({
+      0: selectedAccount,
+      1: selectedAccount,
+    });
+
+    getAccountSelectorActions().setRecentAccountSelectorSelectionCache({
+      sceneName: EAccountSelectorSceneName.swap,
+      selectedAccountsMap: {
+        0: selectedAccount,
+      },
+      updateMeta: {
+        0: {
+          eventEmitDisabled: false,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())).toMatchObject({
+      0: {
+        indexedAccountId: selectedAccount.indexedAccountId,
+      },
+      1: {
+        indexedAccountId: selectedAccount.indexedAccountId,
+      },
+    });
+  });
+
+  it('ignores an affected-version Swap recent cache with the wrong recipient account', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--1');
+    const wrongRecipientAccount = createHdSelectedAccount('hd-1--0');
+    mockGetSelectedAccountsMap.mockResolvedValue({
+      0: selectedAccount,
+      1: selectedAccount,
+    });
+    mockMergeHomeDataToSwapMap.mockResolvedValue({
+      0: selectedAccount,
+      1: selectedAccount,
+    });
+    mockColdStartCacheStorageData.set(
+      EAppSyncStorageKeys.onekey_account_selector_recent_selection,
+      {
+        [EAccountSelectorSceneName.swap]: {
+          version: 1,
+          updatedAt: Date.now(),
+          selectedAccountsMap: {
+            0: selectedAccount,
+            1: wrongRecipientAccount,
+          },
+          updateMeta: {
+            0: {
+              eventEmitDisabled: false,
+              updatedAt: Date.now(),
+            },
+            1: {
+              eventEmitDisabled: true,
+              updatedAt: Date.now(),
+            },
+          },
+        },
+      },
+    );
+
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())).toMatchObject({
+      0: {
+        indexedAccountId: selectedAccount.indexedAccountId,
+      },
+      1: {
+        indexedAccountId: selectedAccount.indexedAccountId,
+      },
+    });
   });
 
   it('keeps a locked temp hidden wallet selection during storage init', async () => {
