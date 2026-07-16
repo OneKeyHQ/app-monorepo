@@ -752,6 +752,8 @@ const BaseDevSettingsSection = () => {
   // ---------------------------------------------------------------------------
   // Search, pin, and history (MMKV sync read/write for instant restore)
   // ---------------------------------------------------------------------------
+  const PINNED_STORAGE_KEY = 'onekey_dev_settings_pinned_sections';
+
   const [searchText, setSearchText] = useState('');
   const debouncedSearchText = useDebounce(searchText, 300);
   const normalizedSearchText = (searchText.trim() ? debouncedSearchText : '')
@@ -759,9 +761,7 @@ const BaseDevSettingsSection = () => {
     .trim();
   const [pinnedSections, setPinnedSections] = useState<string[]>(() => {
     try {
-      const raw = appStorage.syncStorage.getString(
-        EAppSyncStorageKeys.onekey_dev_settings_pinned_sections,
-      );
+      const raw = appStorage.syncStorage.getString(PINNED_STORAGE_KEY as any);
       return raw ? (JSON.parse(raw) as string[]) : [];
     } catch {
       return [];
@@ -774,7 +774,7 @@ const BaseDevSettingsSection = () => {
         ? prev.filter((k) => k !== sectionKey)
         : [...prev, sectionKey];
       appStorage.syncStorage.set(
-        EAppSyncStorageKeys.onekey_dev_settings_pinned_sections,
+        PINNED_STORAGE_KEY as any,
         JSON.stringify(next),
       );
       return next;
