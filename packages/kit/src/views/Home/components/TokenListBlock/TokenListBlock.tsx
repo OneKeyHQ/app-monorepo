@@ -2701,6 +2701,7 @@ function TokenListBlock({
             variant="tertiary"
             icon="SliderHorOutline"
             onPress={handleOnManageToken}
+            disabled={showLpTokensOnly}
             size="medium"
           />
         </XStack>
@@ -2750,7 +2751,7 @@ function TokenListBlock({
           showLpTokensOnly ? false : !!network?.isAllNetworks
         }
         deferTokenManagement={!!network?.isAllNetworks}
-        manageTokenEnabled={manageTokenEnabled}
+        manageTokenEnabled={manageTokenEnabled && !showLpTokensOnly}
         onManageToken={handleOnManageToken}
         onPressToken={handleOnPressToken}
         isAllNetworks={network?.isAllNetworks}
