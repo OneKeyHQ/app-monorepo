@@ -58,7 +58,7 @@ import {
   getPerpsOrderBookTickOptionsWithCache,
   setPerpsOrderBookTickOptionsCache,
 } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
-import { classifyTpSlOrder } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
+import { getPerpsOrderAmendKind } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
   findTokensByAlias,
   formatPriceToSignificantDigits,
@@ -560,11 +560,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     const activeAccountAddress = normalizePerpsAccountAddress(
       activeAccount?.accountAddress,
     );
+    if (!activeAccountAddress) {
+      return undefined;
+    }
     const activeOpenOrdersState = get(perpsActiveOpenOrdersAtom());
     const isPerpsOpenOrdersScoped =
-      !activeAccountAddress ||
       normalizePerpsAccountAddress(activeOpenOrdersState.accountAddress) ===
-        activeAccountAddress;
+      activeAccountAddress;
     if (isPerpsOpenOrdersScoped) {
       const perpOrder = activeOpenOrdersState.openOrders.find(
         (order) => order.oid === oid,
@@ -577,7 +579,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     const { openOrders: spotOpenOrders, accountAddress: spotAccountAddress } =
       await spotActiveOpenOrdersAtom.get();
     const isLiveSpotOrdersScoped =
-      !activeAccountAddress ||
       normalizePerpsAccountAddress(spotAccountAddress) === activeAccountAddress;
     if (isLiveSpotOrdersScoped) {
       const spotOrder = spotOpenOrders.find((order) => order.oid === oid);
@@ -3167,19 +3168,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           if (!existing) {
             throw new OneKeyLocalError(`Order ${params.oid} not found`);
           }
-          // Dragging a TP/SL line moves its trigger price; modify in place as a
-          // trigger order so HL keeps its reduce-only / position-tpsl nature.
-          // Classify with the shared helper (same one the line builder uses to
-          // mark a line editable) so every draggable TP/SL — incl. 'Trigger'-
-          // prefixed position TP/SL — amends as a trigger with the correct
-          // market/limit nature instead of degrading to a limit order.
-          const tpSlClassification = classifyTpSlOrder(existing);
-          const trigger = tpSlClassification
-            ? {
-                isMarket: tpSlClassification.isMarket,
-                tpsl: tpSlClassification.kind,
-              }
-            : undefined;
+          if (existing.coin !== params.coin) {
+            throw new OneKeyLocalError(
+              `Order ${params.oid} does not belong to ${params.coin}`,
+            );
+          }
+          const amendKind = getPerpsOrderAmendKind(existing);
+          if (!amendKind) {
+            throw new OneKeyLocalError(
+              `Order ${params.oid} cannot be modified safely`,
+            );
+          }
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
             {
               coin: params.coin,
@@ -3188,7 +3187,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               isBuy: existing.side === 'B',
               size: existing.sz,
               reduceOnly: existing.reduceOnly,
-              trigger,
+              amendKind,
+              cloid: existing.cloid,
             },
           );
         },

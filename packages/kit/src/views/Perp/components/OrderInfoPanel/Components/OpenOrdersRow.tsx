@@ -55,6 +55,9 @@ interface IOpenOrdersRowProps {
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   handleCancelOrder: () => void;
+  handleChaseOrder: () => void;
+  canChaseOrder: boolean;
+  isChasingOrder: boolean;
   isMobile?: boolean;
   index: number;
   renderMode?: IRenderMode;
@@ -67,6 +70,9 @@ const OpenOrdersRow = memo(
     order,
     cellMinWidth,
     handleCancelOrder,
+    handleChaseOrder,
+    canChaseOrder,
+    isChasingOrder,
     columnConfigs,
     isMobile,
     index,
@@ -283,19 +289,33 @@ const OpenOrdersRow = memo(
                 </SizableText>
               </XStack>
             </YStack>
-            <Button
-              testID={PerpTestIDs.CancelOrderButton(order.oid)}
-              size="small"
-              variant="secondary"
-              onPress={handleCancelOrder}
-              childrenAsText={false}
-            >
-              <SizableText size="$bodySm">
-                {intl.formatMessage({
-                  id: ETranslations.perp_open_orders_cancel,
-                })}
-              </SizableText>
-            </Button>
+            <XStack gap="$2">
+              {canChaseOrder ? (
+                <Button
+                  testID={PerpTestIDs.ChaseOrderButton(order.oid)}
+                  size="small"
+                  variant="secondary"
+                  loading={isChasingOrder}
+                  disabled={isChasingOrder}
+                  onPress={handleChaseOrder}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_refresh })}
+                </Button>
+              ) : null}
+              <Button
+                testID={PerpTestIDs.CancelOrderButton(order.oid)}
+                size="small"
+                variant="secondary"
+                onPress={handleCancelOrder}
+                childrenAsText={false}
+              >
+                <SizableText size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_open_orders_cancel,
+                  })}
+                </SizableText>
+              </Button>
+            </XStack>
           </XStack>
           <XStack
             width="100%"
@@ -569,16 +589,30 @@ const OpenOrdersRow = memo(
             alignItems="center"
             cursor="default"
           >
-            <SizableText
-              color="$bgAccent"
-              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              size="$bodySmMedium"
-              onPress={handleCancelOrder}
-            >
-              {intl.formatMessage({
-                id: ETranslations.perp_open_orders_cancel,
-              })}
-            </SizableText>
+            <XStack gap="$3" alignItems="center">
+              {canChaseOrder ? (
+                <Button
+                  testID={PerpTestIDs.ChaseOrderButton(order.oid)}
+                  size="small"
+                  variant="tertiary"
+                  loading={isChasingOrder}
+                  disabled={isChasingOrder}
+                  onPress={handleChaseOrder}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_refresh })}
+                </Button>
+              ) : null}
+              <SizableText
+                color="$bgAccent"
+                hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
+                size="$bodySmMedium"
+                onPress={handleCancelOrder}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_open_orders_cancel,
+                })}
+              </SizableText>
+            </XStack>
           </XStack>
         ) : null}
       </XStack>

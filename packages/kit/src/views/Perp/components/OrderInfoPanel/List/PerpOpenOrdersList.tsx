@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,7 +23,12 @@ import {
   usePerpsActiveAccountAtom,
   useSpotActiveOpenOrdersAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  normalizePerpsAccountAddress,
+  resolveBboOrderPrice,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
@@ -39,6 +44,7 @@ import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHe
 import { MobileTwapOpenOrdersRow } from '../Components/MobileTwapOpenOrdersRow';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
+import { canChasePerpsOrder } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -217,6 +223,14 @@ function PerpOpenOrdersList({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
+  const [chasingOrderIds, setChasingOrderIds] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const chasingOrderIdsRef = useRef(new Set<number>());
+  const activeAccountAddressRef = useRef(currentUser?.accountAddress);
+  const scopedAccountAddressRef = useRef(accountScopedAddress);
+  activeAccountAddressRef.current = currentUser?.accountAddress;
+  scopedAccountAddressRef.current = accountScopedAddress;
   const canMutateScopedOrders = isPerpsAccountAddressMatched({
     activeAccountAddress: currentUser?.accountAddress,
     dataAccountAddress: accountScopedAddress,
@@ -463,6 +477,114 @@ function PerpOpenOrdersList({
     [actions, intl],
   );
 
+  const handleChaseOrder = useCallback(
+    async (order: IPerpsFrontendOrder) => {
+      if (
+        !canMutateScopedOrders ||
+        !canChasePerpsOrder(order) ||
+        chasingOrderIdsRef.current.has(order.oid)
+      ) {
+        return;
+      }
+
+      const requestAccountAddress = normalizePerpsAccountAddress(
+        currentUser?.accountAddress,
+      );
+      const requestScopedAddress =
+        normalizePerpsAccountAddress(accountScopedAddress);
+      if (
+        !requestAccountAddress ||
+        requestAccountAddress !== requestScopedAddress
+      ) {
+        return;
+      }
+
+      chasingOrderIdsRef.current.add(order.oid);
+      setChasingOrderIds((previous) => new Set(previous).add(order.oid));
+      try {
+        await actions.current.ensureTradingEnabled();
+        const symbolMeta =
+          await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+            coin: order.coin,
+          });
+        const szDecimals = symbolMeta?.universe?.szDecimals;
+        if (!symbolMeta || symbolMeta.isSpot || szDecimals === undefined) {
+          throw new OneKeyLocalError(
+            intl.formatMessage({
+              id: ETranslations.perp_token_info_not_found__msg,
+            }),
+          );
+        }
+
+        const book =
+          await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
+            coin: order.coin,
+          });
+        const bid = book?.levels[0]?.[0]?.px;
+        const ask = book?.levels[1]?.[0]?.px;
+        const nextPrice =
+          bid && ask
+            ? resolveBboOrderPrice({
+                bid,
+                ask,
+                side: order.side === 'B' ? 'long' : 'short',
+                type: 'counterparty',
+                offsetTicks: 0,
+                szDecimals,
+              })
+            : null;
+        if (!nextPrice) {
+          throw new OneKeyLocalError(
+            'No BBO price is available for this order',
+          );
+        }
+
+        const latestAccountAddress = normalizePerpsAccountAddress(
+          activeAccountAddressRef.current,
+        );
+        const latestScopedAddress = normalizePerpsAccountAddress(
+          scopedAccountAddressRef.current,
+        );
+        if (
+          latestAccountAddress !== requestAccountAddress ||
+          latestScopedAddress !== requestScopedAddress ||
+          latestAccountAddress !== latestScopedAddress
+        ) {
+          throw new OneKeyLocalError('The active trading account changed');
+        }
+
+        await actions.current.amendChartOrder({
+          coin: order.coin,
+          oid: order.oid,
+          newPrice: nextPrice.toFixed(),
+        });
+      } catch (error) {
+        Toast.error({
+          title:
+            error instanceof Error
+              ? error.message
+              : intl.formatMessage({
+                  id: ETranslations.perp_toast_modifying_order,
+                }),
+        });
+      } finally {
+        chasingOrderIdsRef.current.delete(order.oid);
+        setChasingOrderIds((previous) => {
+          const next = new Set(previous);
+          next.delete(order.oid);
+          return next;
+        });
+      }
+    },
+    [
+      accountScopedAddress,
+      actions,
+      canMutateScopedOrders,
+      currentUser?.accountAddress,
+      intl,
+    ],
+  );
+
   const totalMinWidth = useMemo(
     () =>
       columnsConfig.reduce(
@@ -493,6 +615,9 @@ function PerpOpenOrdersList({
         cellMinWidth={totalMinWidth}
         columnConfigs={columnsConfig}
         handleCancelOrder={() => void handleCancelOrder(item.order)}
+        handleChaseOrder={() => void handleChaseOrder(item.order)}
+        canChaseOrder={canMutateScopedOrders && canChasePerpsOrder(item.order)}
+        isChasingOrder={chasingOrderIds.has(item.order.oid)}
         index={_index}
         renderMode={renderMode}
         isHovered={isHovered}

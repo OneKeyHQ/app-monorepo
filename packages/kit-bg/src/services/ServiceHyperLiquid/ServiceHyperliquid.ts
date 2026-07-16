@@ -82,6 +82,7 @@ import type {
   IFill,
   IFundingHistoryRecord,
   IHex,
+  IL2BookResponse,
   IMarginTable,
   IMarginTableMap,
   IPerpAnnotation,
@@ -155,6 +156,7 @@ import {
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
+import { buildL2BookByCoinRequest } from './utils/l2Book';
 import {
   buildPerpsAccountStatusCheckInitialDetails,
   canApplyPerpsNotActivatedZeroState,
@@ -1618,6 +1620,17 @@ export default class ServiceHyperliquid extends ServiceBase {
       nSigFigs,
       mantissa,
     });
+  }
+
+  @backgroundMethod()
+  async fetchL2BookByCoin({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IL2BookResponse> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin } = this.resolveInfoRequestCoin(coin);
+    return infoClient.l2Book(buildL2BookByCoinRequest(apiCoin));
   }
 
   @backgroundMethod()

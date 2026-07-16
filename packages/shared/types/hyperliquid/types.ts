@@ -128,12 +128,17 @@ export interface IModifyOrderParams {
   sz: string;
   price: string;
   reduceOnly?: boolean;
-  orderType?:
+  orderType:
     | { limit: { tif: ITIF } }
     | { trigger: { isMarket: boolean; triggerPx: string; tpsl: 'tp' | 'sl' } };
+  cloid?: IHex | null;
   // Position TP/SL orders rest with sz "0"; allow it through size formatting on modify.
   allowZeroSize?: boolean;
 }
+
+export type IOrderAmendKind =
+  | { kind: 'limit'; tif: ITIF }
+  | { kind: 'trigger'; isMarket: boolean; tpsl: 'tp' | 'sl' };
 
 export interface IWithdrawParams extends IWithdraw3Request {
   userAccountId: string;

@@ -1,6 +1,10 @@
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { classifyTpSlOrder, getTpSlKind } from './perpsTpSlUtils';
+import {
+  classifyTpSlOrder,
+  getPerpsOrderAmendKind,
+  getTpSlKind,
+} from './perpsTpSlUtils';
 
 // orderType is widened to string: some real runtime values (notably the bare
 // "Trigger" position TP/SL) are not in the SDK's orderType union but do occur
@@ -110,5 +114,60 @@ describe('perpsTpSlUtils', () => {
     );
     expect(getTpSlKind(mkOrder({ orderType: 'Stop Limit' }))).toBe('sl');
     expect(getTpSlKind(mkOrder({ orderType: 'Limit' }))).toBeNull();
+  });
+
+  describe('getPerpsOrderAmendKind', () => {
+    test.each(['Gtc', 'Ioc', 'Alo'] as const)(
+      'preserves the explicit %s limit TIF',
+      (tif) => {
+        expect(
+          getPerpsOrderAmendKind(
+            mkOrder({ orderType: 'Limit', isTrigger: false, tif }),
+          ),
+        ).toEqual({ kind: 'limit', tif });
+      },
+    );
+
+    test('preserves trigger semantics including bare position TP/SL', () => {
+      expect(
+        getPerpsOrderAmendKind(
+          mkOrder({
+            orderType: 'Trigger',
+            isTrigger: true,
+            isPositionTpsl: true,
+            triggerCondition: 'Price below 89000',
+            side: 'A',
+          }),
+        ),
+      ).toEqual({ kind: 'trigger', isMarket: true, tpsl: 'sl' });
+    });
+
+    test.each([null, 'FrontendMarket', 'LiquidationMarket'])(
+      'fails closed for unsupported TIF %s',
+      (tif) => {
+        expect(
+          getPerpsOrderAmendKind(
+            mkOrder({
+              orderType: 'Limit',
+              isTrigger: false,
+              tif,
+            } as Parameters<typeof mkOrder>[0]),
+          ),
+        ).toBeNull();
+      },
+    );
+
+    test('fails closed for unclassified trigger orders', () => {
+      expect(
+        getPerpsOrderAmendKind(
+          mkOrder({
+            orderType: 'Trigger',
+            isTrigger: true,
+            isPositionTpsl: false,
+            triggerCondition: 'Price above 95000',
+          }),
+        ),
+      ).toBeNull();
+    });
   });
 });

@@ -149,6 +149,7 @@ export type IWebSocketTransport = HL.WebSocketTransport;
 export type IAllMids = HL.AllMidsResponse;
 export type ICandle = HL.CandleSnapshotResponse[number];
 export type IBook = HL.L2BookWsEvent;
+export type IL2BookResponse = HL.L2BookResponse;
 export type IBookLevel = IBook['levels'][number][number];
 export type IFill = HL.UserFillsResponse[number];
 

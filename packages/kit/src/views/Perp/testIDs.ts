@@ -68,6 +68,8 @@ export const PerpTestIDs = {
   OpenOrderRow: 'perp-open-order-row',
   CancelOrderButton: (orderId: string | number) =>
     `perp-cancel-order-${orderId}-button`,
+  ChaseOrderButton: (orderId: string | number) =>
+    `perp-chase-order-${orderId}-button`,
   CancelAllOrdersButton: 'perp-cancel-all-orders-button',
 
   // -- Close position modal --

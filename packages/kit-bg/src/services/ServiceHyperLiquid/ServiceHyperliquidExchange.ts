@@ -67,6 +67,7 @@ import type {
   ICancelTwapOrderParams,
   ILeverageUpdateRequest,
   IModifyOrderParams,
+  IOrderAmendKind,
   IOrderCloseParams,
   IOrderOpenParams,
   IPlaceOrderParams,
@@ -90,6 +91,7 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import { createLoggedHyperLiquidClient } from './utils/logHyperLiquidApiFailure';
+import { buildHyperliquidModifyOrder } from './utils/orderAmend';
 
 import type {
   WalletHyperliquidOnekey,
@@ -1300,14 +1302,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async modifyOrder(params: IModifyOrderParams): Promise<IModifyResponse> {
     await this.checkAccountCanTrade();
 
-    const order: IOrderParams = {
-      a: params.assetId,
-      b: params.isBuy,
-      p: params.price,
-      s: params.sz,
-      r: params.reduceOnly ?? false,
-      t: params.orderType ?? { limit: { tif: 'Gtc' } },
-    };
+    const order = buildHyperliquidModifyOrder(params);
     const [formattedOrder = order] = await this._formatOrdersForHyperLiquid(
       [order],
       { allowZeroSize: params.allowZeroSize },
@@ -1556,9 +1551,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     isBuy: boolean;
     size: string;
     reduceOnly: boolean;
-    // When set, the dragged price is the trigger price of a TP/SL order; modify
-    // in place keeping its trigger nature instead of degrading it to a limit.
-    trigger?: { isMarket: boolean; tpsl: 'tp' | 'sl' };
+    amendKind: IOrderAmendKind;
+    cloid?: IHex | null;
     slippage?: number;
   }): Promise<IModifyResponse> {
     const symbolMeta =
@@ -1579,8 +1573,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           symbolMeta.universe?.szDecimals,
         );
 
-    if (params.trigger) {
-      const executionPrice = params.trigger.isMarket
+    if (params.amendKind.kind === 'trigger') {
+      const executionPrice = params.amendKind.isMarket
         ? this._calculateSlippagePrice({
             markPrice: params.newPrice,
             isBuy: params.isBuy,
@@ -1597,11 +1591,12 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         reduceOnly: params.reduceOnly,
         orderType: {
           trigger: {
-            isMarket: params.trigger.isMarket,
+            isMarket: params.amendKind.isMarket,
             triggerPx: formattedPrice,
-            tpsl: params.trigger.tpsl,
+            tpsl: params.amendKind.tpsl,
           },
         },
+        cloid: params.cloid,
         // Position TP/SL rests with sz "0"; keep it so HL preserves isPositionTpsl.
         allowZeroSize: new BigNumber(params.size).isZero(),
       });
@@ -1614,6 +1609,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       sz: params.size,
       price: formattedPrice,
       reduceOnly: params.reduceOnly,
+      orderType: { limit: { tif: params.amendKind.tif } },
+      cloid: params.cloid,
     });
   }
 

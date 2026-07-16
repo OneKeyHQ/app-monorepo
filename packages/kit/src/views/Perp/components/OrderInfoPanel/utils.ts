@@ -11,6 +11,7 @@ import {
   isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import type { IColumnConfig } from './List/CommonTableListView';
 import type { IntlShape } from 'react-intl';
@@ -202,6 +203,19 @@ export const calculateSpotHoldingPnl = ({
     pnlPercent: pnlBN.dividedBy(entryNtlBN).multipliedBy(100).toNumber(),
   };
 };
+
+export function canChasePerpsOrder(order: IPerpsFrontendOrder): boolean {
+  const remainingSize = new BigNumber(order.sz);
+  return Boolean(
+    !isSpotInstrument(order.coin) &&
+    order.orderType === 'Limit' &&
+    order.tif === 'Gtc' &&
+    !order.isTrigger &&
+    !order.isPositionTpsl &&
+    remainingSize.isFinite() &&
+    remainingSize.gt(0),
+  );
+}
 
 export function formatSpotHoldingPnlText(
   pnl?: string,
