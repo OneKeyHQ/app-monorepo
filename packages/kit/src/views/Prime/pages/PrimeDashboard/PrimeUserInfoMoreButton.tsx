@@ -1,5 +1,5 @@
 /* cspell:ignore Infini */
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,20 +19,16 @@ import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAut
 import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IPrimeInfiniSubscription } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { PrimeTestIDs } from '../../testIDs';
-import { isInfiniSubscriptionInPeriod } from '../PrimeInfiniSubscription/infiniSubscriptionUtils';
 
 // Crypto pay is not available on iOS / Android Google Play builds (store
 // policy, integration plan §2), so those builds must not surface the Infini
@@ -40,11 +36,6 @@ import { isInfiniSubscriptionInPeriod } from '../PrimeInfiniSubscription/infiniS
 // lookup entirely and keep the original RevenueCat manage-url behavior.
 const isInfiniManageSupported =
   !platformEnv.isNativeIOS && !platformEnv.isNativeAndroidGooglePlay;
-
-// Upper bound for awaiting an in-flight Infini lookup inside the click
-// handler: on web, window.open must run within the click's transient user
-// activation (~5s in Chromium) or the popup blocker silently eats it.
-const INFINI_LOOKUP_CLICK_TIMEOUT_MS = 3000;
 
 // Grace period before the loading dialog appears: waits that resolve faster
 // than this stay dialog-free, so an (almost) settled lookup never flashes a
@@ -70,10 +61,10 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const { purchase } = usePrimePurchaseCallback();
   const navigation = useAppNavigation();
 
-  // The server's user info already declares which channel owns the active
+  // The server's user info declares which channel owns the active
   // subscription (subscriptions[].channel), synced into the atom alongside
-  // isPrime — so Infini routing can be decided synchronously, without waiting
-  // for the separate apiGetInfiniSubscription lookup below.
+  // isPrime — the manage entry routes on it synchronously: 'infini' goes to
+  // the in-app page, every other channel to the external manage url.
   const hasInfiniChannel = Boolean(
     isInfiniManageSupported &&
     user?.primeSubscription?.subscriptions?.some(
@@ -81,88 +72,29 @@ function PrimeUserInfoMoreButtonDropDownMenu({
     ),
   );
 
-  // Prefetched when the dropdown opens so the Manage-subscription click can
-  // usually resolve the channel routing instantly (integration plan §5.3(d));
-  // the promise ref lets an early click await the in-flight lookup instead of
-  // racing the reactive result. The result is wrapped in an object so that
-  // "settled with no Infini subscription" can be told apart from "still
-  // loading" (both would otherwise be a plain undefined). Skipped entirely
-  // when the channel declaration above already routes to the in-app page.
-  const infiniSubscriptionPromiseRef = useRef<
-    Promise<IPrimeInfiniSubscription | undefined> | undefined
-  >(undefined);
-  const { result: infiniLookup } = usePromiseResult(async () => {
-    if (!isPrime || !isInfiniManageSupported || hasInfiniChannel) {
-      infiniSubscriptionPromiseRef.current = undefined;
-      return { subscription: undefined };
-    }
-    // Lookup failures fall back to the original RevenueCat manage url flow,
-    // so RevenueCat-only users see zero behavior change
-    const promise = backgroundApiProxy.servicePrime
-      .apiGetInfiniSubscription()
-      .catch(() => undefined);
-    infiniSubscriptionPromiseRef.current = promise;
-    return { subscription: await promise };
-  }, [isPrime, hasInfiniChannel]);
-
   const handleManageSubscription = useCallback(async () => {
-    // Channel-declared routing first: instant, no network dependency. The
-    // in-app page owns its own loading / error / empty states, so it is safe
-    // to enter even if the Infini detail endpoint is temporarily failing —
-    // strictly better than silently bouncing the user to the external
+    // Route purely on the server-declared subscription channel: 'infini'
+    // owns the in-app management page (which handles its own loading /
+    // error / empty states), every other channel goes to the external
     // manage url.
     if (hasInfiniChannel) {
       navigation.push(EPrimePages.PrimeInfiniSubscription);
       return;
     }
-    // The menu item shows as soon as isPrime is known, so this click handler
-    // may run before the channel routing data (Infini lookup / manage url)
-    // has settled — a loading dialog bridges any perceptible wait instead of
-    // hiding the entry until everything is prefetched. The dialog itself is
-    // deferred by a grace period: when the awaited data is (nearly) ready it
-    // never appears at all.
+    if (subscriptionManageUrl) {
+      openUrlUtils.openUrlExternal(subscriptionManageUrl);
+      return;
+    }
+    // Manage url not synced yet: refresh the user info once (deduped /
+    // TTL-cached in bg) and retry, behind a grace-period loading dialog so a
+    // fast refresh never flashes it.
     let loadingDialog: IDialogInstance | undefined;
-    let loadingTimerId: ReturnType<typeof setTimeout> | undefined;
-    const scheduleLoading = () => {
-      if (loadingDialog || loadingTimerId) {
-        return;
-      }
-      loadingTimerId = setTimeout(() => {
-        loadingDialog = Dialog.loading({
-          title: intl.formatMessage({ id: ETranslations.global_preparing }),
-        });
-      }, LOADING_DIALOG_DELAY_MS);
-    };
+    const loadingTimerId = setTimeout(() => {
+      loadingDialog = Dialog.loading({
+        title: intl.formatMessage({ id: ETranslations.global_preparing }),
+      });
+    }, LOADING_DIALOG_DELAY_MS);
     try {
-      let latestInfiniSubscription = infiniLookup?.subscription;
-      if (!infiniLookup) {
-        // The prefetch has not settled yet: await it, but bounded — on web
-        // the fallback openUrlExternal below is window.open, which must run
-        // within the click's transient user activation or the popup blocker
-        // silently eats it. On timeout fall back to the RevenueCat manage
-        // url, matching the pre-Infini behavior.
-        scheduleLoading();
-        latestInfiniSubscription = await Promise.race([
-          infiniSubscriptionPromiseRef.current ?? Promise.resolve(undefined),
-          timerUtils.wait(INFINI_LOOKUP_CLICK_TIMEOUT_MS).then(() => undefined),
-        ]);
-      }
-      // Infini takes priority while its paid period has not ended, including
-      // canceled-but-not-expired subscriptions (integration plan §5.3(d))
-      if (isInfiniSubscriptionInPeriod(latestInfiniSubscription)) {
-        navigation.push(EPrimePages.PrimeInfiniSubscription);
-        return;
-      }
-      if (subscriptionManageUrl) {
-        openUrlUtils.openUrlExternal(subscriptionManageUrl);
-        return;
-      }
-      // Neither channel resolved (e.g. the manage url has not been synced
-      // yet): refresh the user info once (deduped/TTL-cached in bg) and
-      // retry the server-provided manage url. This path may exceed the web
-      // popup-activation window in the worst case; acceptable for a rare
-      // fallback that previously had no entry at all.
-      scheduleLoading();
       const freshManageUrl = await backgroundApiProxy.servicePrime
         .apiFetchPrimeUserInfo()
         .then(({ userInfo }) => userInfo.subscriptionManageUrl)
@@ -176,13 +108,13 @@ function PrimeUserInfoMoreButtonDropDownMenu({
         title: 'Unable to open subscription management, please try again',
       });
     } finally {
-      // Clear the pending timer first: without this, a wait that resolved
-      // inside the grace period would still pop the dialog afterwards, with
+      // Clear the pending timer first: a refresh that resolved inside the
+      // grace period would otherwise still pop the dialog afterwards, with
       // nothing left to close it.
       clearTimeout(loadingTimerId);
       void loadingDialog?.close();
     }
-  }, [hasInfiniChannel, infiniLookup, intl, navigation, subscriptionManageUrl]);
+  }, [hasInfiniChannel, intl, navigation, subscriptionManageUrl]);
 
   const refreshUserInfo = useCallback(async () => {
     void getCustomerInfo();
