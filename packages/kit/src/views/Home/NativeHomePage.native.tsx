@@ -19,6 +19,7 @@ import {
   Skeleton,
   Stack,
   Switch,
+  Toast,
   XStack,
   useTheme,
 } from '@onekeyhq/components';
@@ -89,6 +90,7 @@ import {
   formatBalance,
   formatDisplayNumber,
   formatMarketCap,
+  formatPrice,
   formatValue,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -112,12 +114,17 @@ import {
 } from '../Earn/components/AprText.utils';
 import { safePushToEarnRoute } from '../Earn/earnUtils';
 import { useNavigateToMarketTab, usePerpsNavigation } from '../Market/hooks';
+import { EMarketHomeTab } from '../Market/MarketHomeV2/types';
 import { usePrimeAvailable } from '../Prime/hooks/usePrimeAvailable';
 import { maybeOpenPrivateSendHistoryDetail } from '../Swap/utils/privateSendHistory';
 
 import { showBalanceDetailsDialog } from './components/BalanceDetailsDialog';
 import { formatPortfolioTotal } from './components/DeFiListBlock/formatPortfolioTotal';
-import { DEFAULT_MARKET_CATEGORY_ID } from './components/PopularTrading/constants';
+import {
+  FAVORITES_CATEGORY_ID,
+  HOME_PERPS_HOT_CATEGORY_ID,
+  HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+} from './components/PopularTrading/constants';
 import { onHomePageRefresh } from './components/PullToRefresh';
 import { RichBlockHeader } from './components/RichBlock/RichBlockHeader';
 import { SupportHub } from './components/SupportHub';
@@ -188,6 +195,21 @@ function formatNativePriceChange(value: string | number | undefined): string {
   return `${parsed.gt(0) ? '+' : ''}${parsed.toFixed(2)}%`;
 }
 
+function formatNativeMarketPrice(value: string | number | undefined): string {
+  if (value === undefined) return '--';
+  return displayNumberToString(
+    formatDisplayNumber(formatPrice(value.toString(), { currency: '$' })),
+  );
+}
+
+function getNativeMarketItemId(
+  token: ReturnType<typeof useNativeHomeSupplementalData>['market'][number],
+): string {
+  return token.perpsCoin
+    ? `market:perps:${token.perpsCoin}`
+    : `market:${token.chainId}:${token.contractAddress}`;
+}
+
 function formatNativeEarnApr(
   item: ReturnType<typeof useNativeHomeSupplementalData>['earn'][number],
 ): string {
@@ -250,7 +272,7 @@ export function NativeHomePage({
     num: 0,
   });
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
-  const { handleOnManageToken } = useManageToken({
+  const { handleOnManageToken, manageTokenEnabled } = useManageToken({
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
     walletId: wallet?.id ?? '',
@@ -321,11 +343,36 @@ export function NativeHomePage({
   const [portfolioAssetsExpanded, setPortfolioAssetsExpanded] = useState(false);
   const [portfolioDeFiExpanded, setPortfolioDeFiExpanded] = useState(false);
   const [deFiExpanded, setDeFiExpanded] = useState(false);
+  const [selectedMarketCategoryId, setSelectedMarketCategoryId] = useState(
+    FAVORITES_CATEGORY_ID,
+  );
 
   const portfolio = useNativeHomePortfolioData({ enabled: true });
   const lpTokens = useNativeHomeLpTokenData();
   const banners = useNativeHomeBannersData();
-  const supplemental = useNativeHomeSupplementalData();
+  const supplemental = useNativeHomeSupplementalData({
+    favoritesLabel: intl.formatMessage({
+      id: ETranslations.global_favorites,
+    }),
+    perpsLabel: intl.formatMessage({ id: ETranslations.global_perp }),
+    selectedMarketCategoryId,
+  });
+  const {
+    addRecommendedMarketTokens,
+    earn: supplementalEarn,
+    favoriteCount,
+    isMarketRecommendationSelected,
+    isTokenFavorite,
+    market: supplementalMarket,
+    marketCategories,
+    marketIsRecommendation,
+    marketLoading,
+    marketNetworkImageById,
+    marketRecommendationSelectedCount,
+    resolvedMarketCategoryId,
+    toggleMarketRecommendation,
+    toggleMarketFavorite,
+  } = supplemental;
   const perps = usePerpsHomePortfolio({
     isTabFocused: activeTabId === 'perps',
   });
@@ -388,6 +435,17 @@ export function NativeHomePage({
   const visiblePortfolioInitialized = lpTokens.showLpTokensOnly
     ? lpTokens.initialized
     : portfolio.initialized;
+  const smallBalanceValue = useMemo(() => {
+    const total = portfolio.smallBalanceTokens.reduce(
+      (value, token) =>
+        value.plus(portfolio.smallBalanceMap[token.$key]?.fiatValue ?? 0),
+      new BigNumber(0),
+    );
+    const sourceCurrency = portfolio.smallBalanceTokens
+      .map((token) => portfolio.smallBalanceMap[token.$key]?.currency)
+      .find((value): value is string => Boolean(value));
+    return formatters.formatFiat(total.toFixed(), sourceCurrency);
+  }, [formatters, portfolio.smallBalanceMap, portfolio.smallBalanceTokens]);
 
   useEffect(() => {
     setPortfolioAssetsExpanded(false);
@@ -417,20 +475,56 @@ export function NativeHomePage({
         stateLabels,
         formatters,
         networkImageById: nftNetworkImageById,
-        limit: portfolioAssetsExpanded
-          ? visiblePortfolioTokens.length
-          : undefined,
+        expanded: portfolioAssetsExpanded,
+        footer: {
+          addTokenEnabled: manageTokenEnabled,
+          labels: {
+            addToken: intl.formatMessage({
+              id: ETranslations.add_token_label,
+            }),
+            addTokenInstruction: intl.formatMessage({
+              id: ETranslations.add_token_instruction,
+            }),
+            lowValueAssets: intl.formatMessage({
+              id: ETranslations.low_value_assets,
+            }),
+            riskAssets: intl.formatMessage(
+              {
+                id: ETranslations.wallet_collapsed_risk_assets_number,
+              },
+              { number: portfolio.riskTokens.length },
+            ),
+            showLess: intl.formatMessage({
+              id: ETranslations.global_show_less,
+            }),
+            showMore: intl.formatMessage({
+              id: ETranslations.global_show_more,
+            }),
+          },
+          lowValueAssetsCount: lpTokens.showLpTokensOnly
+            ? 0
+            : portfolio.smallBalanceTokens.length,
+          lowValueAssetsValue: smallBalanceValue,
+          riskAssetsCount: lpTokens.showLpTokensOnly
+            ? 0
+            : portfolio.riskTokens.length,
+        },
       }),
     [
       formatters,
+      intl,
       lpTokens.showLpTokensOnly,
+      manageTokenEnabled,
       network?.isAllNetworks,
+      portfolio.riskTokens.length,
+      portfolio.smallBalanceTokens.length,
+      portfolioAssetsExpanded,
+      smallBalanceValue,
       stateLabels,
       visiblePortfolioInitialized,
       visiblePortfolioTokenMap,
       visiblePortfolioTokens,
       nftNetworkImageById,
-      portfolioAssetsExpanded,
     ],
   );
   const perpsSections = useMemo(() => {
@@ -587,23 +681,6 @@ export function NativeHomePage({
 
   const portfolioSections = useMemo<IHomeContainerSection[]>(() => {
     const sections: IHomeContainerSection[] = [...portfolioAssetSections];
-    if (visiblePortfolioTokens.length > 6) {
-      sections.push({
-        id: 'portfolio-show-more',
-        items: [
-          {
-            id: 'portfolio-show-more',
-            renderer: 'showMore',
-            title: intl.formatMessage({
-              id: portfolioAssetsExpanded
-                ? ETranslations.global_show_less
-                : ETranslations.global_show_more,
-            }),
-            actionId: NATIVE_HOME_ACTION_IDS.togglePortfolioAssetsExpanded,
-          },
-        ],
-      });
-    }
 
     if (deFi.protocols.length > 0) {
       const deFiTotal = Object.values(deFi.protocolMap).reduce(
@@ -643,43 +720,113 @@ export function NativeHomePage({
     sections.push({
       id: 'portfolio-market',
       title: intl.formatMessage({ id: ETranslations.global_market }),
+      actionTitle: marketIsRecommendation
+        ? intl.formatMessage(
+            { id: ETranslations.market_add_number_tokens },
+            { number: marketRecommendationSelectedCount },
+          )
+        : undefined,
+      actionId: marketIsRecommendation
+        ? 'home.widget.market.addRecommended'
+        : undefined,
+      actionDisabled:
+        marketIsRecommendation && marketRecommendationSelectedCount === 0,
+      layout: marketIsRecommendation ? 'marketRecommendations' : undefined,
       items: [
         {
           id: 'market-tabs',
           renderer: 'marketTabs',
-          title: intl.formatMessage({ id: ETranslations.market_trending }),
-          subtitle: intl.formatMessage({
-            id: ETranslations.perps_token_selector_stocks,
-          }),
-          leadingIcon: 'star',
+          title: intl.formatMessage({ id: ETranslations.global_market }),
+          segments: marketCategories.map((category) => ({
+            id: category.id,
+            title: category.name,
+            imageUrl: category.icon,
+            leadingIcon: category.leadingIcon,
+            iconOnly: category.iconOnly,
+            selected: category.id === resolvedMarketCategoryId,
+            actionId: `home.widget.market.category:${category.id}`,
+          })),
         },
-        ...supplemental.market.map((token) => ({
-          id: `market:${token.networkId ?? ''}:${token.address}`,
-          renderer: 'market' as const,
-          title: token.symbol,
-          subtitle: `${token.name} ${
-            token.marketCap
-              ? `$${displayNumberToString(
-                  formatDisplayNumber(formatMarketCap(token.marketCap)),
-                )}`
-              : ''
-          }`.trim(),
-          value: token.price ? formatters.formatFiat(token.price, 'usd') : '--',
-          detail: formatNativePriceChange(token.priceChange24hPercent),
-          imageUrl: token.logoUrl,
-          accentColor:
-            Number.parseFloat(token.priceChange24hPercent || '0') >= 0
-              ? theme.textSuccess.val
-              : theme.textCritical.val,
-          actionId: 'home.widget.market',
-        })),
-        {
-          id: 'market-show-more',
-          renderer: 'showMore',
-          title: intl.formatMessage({ id: ETranslations.global_view_more }),
-          showChevron: true,
-          actionId: 'home.widget.market.showMore',
-        },
+        ...(marketLoading
+          ? [
+              {
+                id: 'market-loading',
+                renderer: 'loading' as const,
+                title: '',
+                displayHeight: 224,
+              },
+            ]
+          : [
+              ...supplementalMarket.map((token) => {
+                const volume = token.volume24h
+                  ? `$${displayNumberToString(
+                      formatDisplayNumber(
+                        formatMarketCap(token.volume24h.toString()),
+                      ),
+                    )}`
+                  : undefined;
+                const favorite = marketIsRecommendation
+                  ? isMarketRecommendationSelected(token)
+                  : isTokenFavorite(token);
+                return {
+                  id: getNativeMarketItemId(token),
+                  renderer: 'market' as const,
+                  title: token.symbol,
+                  subtitle: marketIsRecommendation
+                    ? token.name
+                    : token.stock?.subtitle || token.perpsSubtitle,
+                  subtitleDetail: marketIsRecommendation ? undefined : volume,
+                  value: marketIsRecommendation
+                    ? undefined
+                    : formatNativeMarketPrice(token.price),
+                  detail: marketIsRecommendation
+                    ? undefined
+                    : formatNativePriceChange(token.priceChange24h),
+                  imageUrl: token.logoUrl,
+                  imageUrls: token.logoUrls,
+                  titleAccessoryImageUrl: token.stock?.sourceLogoUri,
+                  badgeImageUrl: token.perpsCoin
+                    ? undefined
+                    : marketNetworkImageById[token.chainId] ||
+                      nftNetworkImageById[token.chainId],
+                  badge: token.maxLeverage
+                    ? `${token.maxLeverage}x`
+                    : undefined,
+                  communityRecognized: token.communityRecognized,
+                  favorite,
+                  favoriteActionId: marketIsRecommendation
+                    ? 'home.widget.market.toggleRecommendation'
+                    : 'home.widget.market.favorite',
+                  favoriteLabel: intl.formatMessage({
+                    id: favorite
+                      ? ETranslations.market_remove_from_favorites
+                      : ETranslations.market_add_to_favorites,
+                  }),
+                  accentColor:
+                    token.priceChange24h >= 0
+                      ? theme.textSuccess.val
+                      : theme.textCritical.val,
+                  actionId: marketIsRecommendation
+                    ? 'home.widget.market.toggleRecommendation'
+                    : 'home.widget.market.token',
+                };
+              }),
+              ...(supplementalMarket.length > 0 &&
+              (resolvedMarketCategoryId !== FAVORITES_CATEGORY_ID ||
+                favoriteCount > 3)
+                ? [
+                    {
+                      id: 'market-show-more',
+                      renderer: 'showMore' as const,
+                      title: intl.formatMessage({
+                        id: ETranslations.global_view_more,
+                      }),
+                      showChevron: true,
+                      actionId: 'home.widget.market.showMore',
+                    },
+                  ]
+                : []),
+            ]),
       ],
     });
     sections.push({
@@ -687,7 +834,7 @@ export function NativeHomePage({
       title: intl.formatMessage({ id: ETranslations.earn_title }),
       actionTitle: intl.formatMessage({ id: ETranslations.global_view_more }),
       actionId: 'home.widget.earn',
-      items: supplemental.earn.map((item) => ({
+      items: supplementalEarn.map((item) => ({
         id: `earn:${item.symbol}:${item.protocols[0]?.provider ?? ''}`,
         renderer: 'earn',
         title: item.symbol,
@@ -705,16 +852,24 @@ export function NativeHomePage({
     deFi.protocols,
     formatters,
     intl,
+    nftNetworkImageById,
     portfolioAssetSections,
-    portfolioAssetsExpanded,
     portfolioDeFiExpanded,
-    supplemental.earn,
-    supplemental.market,
+    favoriteCount,
+    isTokenFavorite,
+    isMarketRecommendationSelected,
+    marketCategories,
+    marketIsRecommendation,
+    marketLoading,
+    marketRecommendationSelectedCount,
+    marketNetworkImageById,
+    resolvedMarketCategoryId,
+    supplementalEarn,
+    supplementalMarket,
     stateLabels,
     tabTitles.defi,
     theme.textCritical.val,
     theme.textSuccess.val,
-    visiblePortfolioTokens.length,
   ]);
 
   const nativeTheme = useMemo<IHomeContainerTheme>(
@@ -862,7 +1017,7 @@ export function NativeHomePage({
     () =>
       HOME_CONTAINER_TAB_IDS.map((id) => {
         let toolbarAction: IHomeContainerAction | undefined;
-        if (id === 'portfolio') {
+        if (id === 'portfolio' && manageTokenEnabled) {
           toolbarAction = {
             id: 'manage-tokens',
             title: '',
@@ -884,7 +1039,7 @@ export function NativeHomePage({
           sections: [],
         };
       }),
-    [tabTitles],
+    [manageTokenEnabled, tabTitles],
   );
   const contentStateSlots = useMemo<
     NonNullable<IHomeContainerSlots['contentStates']>
@@ -1482,12 +1637,82 @@ export function NativeHomePage({
         if (banner) await banners.dismiss(banner);
         return;
       }
+      if (actionId.startsWith('home.widget.market.category:')) {
+        setSelectedMarketCategoryId(
+          actionId.slice('home.widget.market.category:'.length),
+        );
+        return;
+      }
+      if (actionId === 'home.widget.market.addRecommended') {
+        try {
+          const didAdd = await addRecommendedMarketTokens();
+          if (didAdd) {
+            Toast.success({
+              title: intl.formatMessage({
+                id: ETranslations.market_added_to_watchlist,
+              }),
+            });
+          }
+        } catch {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+        }
+        return;
+      }
+      if (actionId === 'home.widget.market.toggleRecommendation') {
+        const token = supplementalMarket.find(
+          (candidate) => getNativeMarketItemId(candidate) === itemId,
+        );
+        if (token) {
+          toggleMarketRecommendation(token);
+        }
+        return;
+      }
+      if (actionId === 'home.widget.market.favorite') {
+        const token = supplementalMarket.find(
+          (candidate) => getNativeMarketItemId(candidate) === itemId,
+        );
+        if (!token) return;
+        try {
+          await toggleMarketFavorite(token);
+        } catch {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+        }
+        return;
+      }
+      if (actionId === 'home.widget.market.token') {
+        const token = supplementalMarket.find(
+          (candidate) => getNativeMarketItemId(candidate) === itemId,
+        );
+        if (token?.perpsCoin) {
+          navigateToPerps(token.perpsCoin);
+          return;
+        }
+      }
       if (
-        actionId === 'home.widget.market' ||
+        actionId === 'home.widget.market.token' ||
         actionId === 'home.widget.market.showMore'
       ) {
+        if (resolvedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
+          navigateToMarketTab({
+            tabToSelect: EMarketHomeTab.Perps,
+            perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+          });
+          return;
+        }
+        if (resolvedMarketCategoryId === FAVORITES_CATEGORY_ID) {
+          navigateToMarketTab({ tabToSelect: EMarketHomeTab.Watchlist });
+          return;
+        }
         navigateToMarketTab({
-          spotCategoryToSelect: DEFAULT_MARKET_CATEGORY_ID,
+          spotCategoryToSelect: resolvedMarketCategoryId,
         });
         return;
       }
@@ -1895,6 +2120,11 @@ export function NativeHomePage({
       showAccountSelector,
       showUnifiedNetworkSelector,
       showWalletActionMore,
+      addRecommendedMarketTokens,
+      resolvedMarketCategoryId,
+      supplementalMarket,
+      toggleMarketRecommendation,
+      toggleMarketFavorite,
       wallet,
       vaultSettings?.mergeDeriveAssetsEnabled,
       visiblePortfolioTokenMap,
