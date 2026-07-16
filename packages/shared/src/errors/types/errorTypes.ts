@@ -41,6 +41,7 @@ export enum EOneKeyErrorClassNames {
   PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
   PrimeLoginDialogCancelError = 'PrimeLoginDialogCancelError',
   PrimeSendEmailOTPCancelError = 'PrimeSendEmailOTPCancelError',
+  OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound = 'OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound',
   OAuthLoginCancelError = 'OAuthLoginCancelError',
   OneKeyErrorPrimeMasterPasswordInvalid = 'OneKeyErrorPrimeMasterPasswordInvalid',
   VaultKeyringNotDefinedError = 'VaultKeyringNotDefinedError',

@@ -54,16 +54,8 @@ const WithdrawPage = () => {
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const withdrawAbortRef = useRef<AbortController | null>(null);
-  const isNativeProvider = useMemo(
-    () => earnUtils.isNativeProvider({ providerName }),
-    [providerName],
-  );
-  const nativeWithdrawApproveToken = useMemo(() => {
-    if (
-      !isNativeProvider ||
-      !protocolInfo?.withdrawApprove?.tokenAddress ||
-      !token
-    ) {
+  const withdrawApproveToken = useMemo(() => {
+    if (!protocolInfo?.withdrawApprove?.tokenAddress || !token) {
       return undefined;
     }
     return {
@@ -71,31 +63,25 @@ const WithdrawPage = () => {
       address: protocolInfo.withdrawApprove.tokenAddress,
       isNative: false,
     };
-  }, [isNativeProvider, protocolInfo?.withdrawApprove?.tokenAddress, token]);
-  const nativeWithdrawApproveSpender =
-    protocolInfo?.withdrawApprove?.approveTarget;
-  const { result: nativeWithdrawAllowance } = usePromiseResult(
+  }, [protocolInfo?.withdrawApprove?.tokenAddress, token]);
+  const withdrawApproveSpender = protocolInfo?.withdrawApprove?.approveTarget;
+  const { result: withdrawAllowance } = usePromiseResult(
     async () => {
-      if (
-        !isNativeProvider ||
-        !nativeWithdrawApproveToken?.address ||
-        !nativeWithdrawApproveSpender
-      ) {
+      if (!withdrawApproveToken?.address || !withdrawApproveSpender) {
         return undefined;
       }
       return backgroundApiProxy.serviceStaking.fetchTokenAllowance({
         accountId,
         networkId,
-        spenderAddress: nativeWithdrawApproveSpender,
-        tokenAddress: nativeWithdrawApproveToken.address,
+        spenderAddress: withdrawApproveSpender,
+        tokenAddress: withdrawApproveToken.address,
       });
     },
     [
       accountId,
       networkId,
-      isNativeProvider,
-      nativeWithdrawApproveSpender,
-      nativeWithdrawApproveToken?.address,
+      withdrawApproveSpender,
+      withdrawApproveToken?.address,
     ],
     { watchLoading: true },
   );
@@ -251,18 +237,20 @@ const WithdrawPage = () => {
           }
           protocolVault={vault}
           approveTarget={
-            nativeWithdrawApproveSpender && nativeWithdrawApproveToken
+            withdrawApproveSpender && withdrawApproveToken
               ? {
                   accountId,
                   networkId,
-                  spenderAddress: nativeWithdrawApproveSpender,
-                  token: nativeWithdrawApproveToken,
+                  spenderAddress: withdrawApproveSpender,
+                  token: withdrawApproveToken,
                 }
               : undefined
           }
-          currentAllowance={nativeWithdrawAllowance?.allowanceParsed}
+          currentAllowance={withdrawAllowance?.allowanceParsed}
           receiptTokenRate={
-            protocolInfo?.receiptTokenRate ?? protocolInfo?.morphoTokenRate
+            protocolInfo?.withdrawApprove?.receiptTokenRate ??
+            protocolInfo?.receiptTokenRate ??
+            protocolInfo?.morphoTokenRate
           }
         />
       </Page.Body>

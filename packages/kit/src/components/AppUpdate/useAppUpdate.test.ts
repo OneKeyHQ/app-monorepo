@@ -3134,6 +3134,7 @@ describe('onUpdateActionDirect', () => {
 
     expect(mockOpenUrlExternal).toHaveBeenCalledWith(
       'https://apps.apple.com/onekey',
+      { useSystemBrowser: true },
     );
     expect(nav.pushModal).not.toHaveBeenCalled();
   });

@@ -139,5 +139,5 @@ Topics covered:
 
 ## Related Skills
 
-- `/1k-date-formatting` - Date formatting with locale support
+- `/1k-coding-patterns` - Date formatting with locale support
 - `/1k-coding-patterns` - General coding patterns
