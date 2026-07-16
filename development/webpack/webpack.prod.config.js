@@ -3,10 +3,12 @@ const path = require('path');
 const { sentryWebpackPlugin } = require('@sentry/webpack-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
-const { RetryChunkLoadPlugin } = require('webpack-retry-chunk-load-plugin');
 
 const babelTools = require('../babelTools');
 
+const {
+  RetryChunkLoadWebpackPlugin,
+} = require('./RetryChunkLoadWebpackPlugin');
 const utils = require('./utils');
 
 const FILES_TO_DELETE_AFTER_UPLOAD = [
@@ -41,7 +43,7 @@ module.exports = ({ platform, basePath }) => {
         ),
       }),
       isWeb &&
-        new RetryChunkLoadPlugin({
+        new RetryChunkLoadWebpackPlugin({
           // optional value to set the amount of time in milliseconds before trying to load the chunk again. Default is 0
           // if string, value must be code to generate a delay value. Receives retryCount as argument
           // e.g. `function(retryAttempt) { return retryAttempt * 1000 }`
