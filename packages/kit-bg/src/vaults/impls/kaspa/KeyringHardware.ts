@@ -222,7 +222,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     } catch (e) {
       defaultLogger.transaction.send.refTxFetchFailed({
         network: this.networkId,
-        txids: prevTxids,
         error: e instanceof Error ? e.message : String(e),
       });
       refTxs = undefined;

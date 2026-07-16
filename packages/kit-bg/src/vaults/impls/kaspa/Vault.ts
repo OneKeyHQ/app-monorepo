@@ -18,9 +18,8 @@ import {
   selectUTXOs,
   toTransaction,
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
-import { RestAPIClient as ClientKaspa } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
+import { RestAPIClient } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
 import sdk from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
-import type { IKaspaGetTransactionResponse } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/types';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
 import {
@@ -71,6 +70,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { ClientKaspa } from './sdkKaspa/ClientKaspa';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -802,7 +802,7 @@ export default class Vault extends VaultBase {
   override async getCustomRpcEndpointStatus(
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
-    const client = new ClientKaspa(params.rpcUrl);
+    const client = new RestAPIClient(params.rpcUrl);
     const start = performance.now();
     const { virtualDaaScore: blockNumber } = await client.getNetworkInfo();
     const bestBlockNumber = parseInt(blockNumber, 10);
@@ -820,7 +820,7 @@ export default class Vault extends VaultBase {
     if (!rpcUrl) {
       throw new OneKeyInternalError('Invalid rpc url');
     }
-    const client = new ClientKaspa(rpcUrl);
+    const client = new RestAPIClient(rpcUrl);
     const txId = await client.sendRawTransaction(signedTx.rawTx);
     console.log('broadcastTransaction END:', {
       txid: txId,
@@ -830,27 +830,6 @@ export default class Vault extends VaultBase {
       ...params.signedTx,
       txid: txId,
     };
-  }
-
-  // Fetch the raw previous transactions for the given txids (the txs being spent
-  // as inputs), keyed by txid. Mirrors the BTC vault so a future hardware refTx
-  // (previous-transaction) flow can verify each input's amount/script on-device.
-  //
-  // NOTE: not wired into signing yet — hd-core's KaspaSignTransactionParams has
-  // no `refTxs` field and the firmware doesn't verify prev-txs yet. Once it does:
-  // dedupe input txids -> collectTxsByApi -> build a Kaspa RefTransaction
-  // (outputs: value + scriptPublicKey) -> pass as refTxs in kaspaSignTransaction.
-  // Backend: POST /wallet/v1/network/raw-transaction/list needs kaspa support.
-  async collectTxsByApi(txids: string[]): Promise<{ [txid: string]: string }> {
-    const lookup: { [txid: string]: string } = {};
-    const txs = await this.backgroundApi.serviceSend.getRawTransactions({
-      networkId: this.networkId,
-      txids,
-    });
-    Object.keys(txs).forEach((txid) => {
-      lookup[txid] = txs[txid].rawTx;
-    });
-    return lookup;
   }
 
   // Build a KaspaRefTransaction (previous tx) from a backend rawTx. Handles both
@@ -899,44 +878,23 @@ export default class Vault extends VaultBase {
     };
   }
 
-  // Fetch previous transactions as refTxs for on-device input verification, via
-  // the kaspa REST RPC proxy (network-aware, transparently forwards to
-  // api.kaspa.org).
+  // Fetch previous transactions as refTxs for on-device input verification.
   async collectRefTxsByApi(txids: string[]): Promise<IKaspaRefTransaction[]> {
-    // Cap the fetch at 30s: refTx is a best-effort verification aid, so a slow or
-    // huge (many-input) request must not block signing — on timeout the caller
-    // falls back to blind signing.
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      const prevTxs = await Promise.race([
-        this.backgroundApi.serviceAccountProfile.sendProxyRequest<IKaspaGetTransactionResponse>(
-          {
-            networkId: this.networkId,
-            body: txids.map((txid) => ({
-              route: 'rpc',
-              params: {
-                method: 'GET',
-                params: [],
-                url: `/transactions/${txid}?inputs=true&outputs=true&resolve_previous_outpoints=light`,
-              },
-            })),
-          },
-        ),
-        new Promise<never>((_resolve, reject) => {
-          timer = setTimeout(
-            () => reject(new OneKeyLocalError('kaspa refTx fetch timeout')),
-            timerUtils.getTimeDurationMs({ seconds: 30 }),
-          );
-        }),
-      ]);
-      return prevTxs
-        .filter((tx) => tx?.transaction_id)
-        .map((tx) => this.buildPrevTx(tx.transaction_id, JSON.stringify(tx)));
-    } finally {
-      if (timer) {
-        clearTimeout(timer);
-      }
+    const client = new ClientKaspa({
+      networkId: this.networkId,
+      backgroundApi: this.backgroundApi,
+    });
+    const prevTxs = await client.getTransactions(txids);
+    const refTxs = prevTxs
+      .filter((tx) => tx?.transaction_id)
+      .map((tx) => this.buildPrevTx(tx.transaction_id, JSON.stringify(tx)));
+    // Only trust version-0 txs: the REST API returns bad fields for non-standard
+    // txs (a v1 tx's subnetwork_id mirrors its txid prefix), which would make the
+    // device hard-reject. Bail → caller blind-signs. TODO: handle v1 via wasm SDK.
+    if (refTxs.some((tx) => tx.version !== 0)) {
+      throw new OneKeyLocalError('kaspa refTx: unsupported non-v0 prev tx');
     }
+    return refTxs;
   }
 
   // -------------------KRC20-----------------------------------------

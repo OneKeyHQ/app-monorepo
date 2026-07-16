@@ -418,18 +418,16 @@ export class SendScene extends BaseScene {
     };
   }
 
+  @LogToLocal()
   public refTxFetchFailed({
     network,
-    txids,
     error,
   }: {
     network: string | undefined;
-    txids: string[];
     error: string;
   }) {
     return {
       network,
-      txids,
       error,
     };
   }
