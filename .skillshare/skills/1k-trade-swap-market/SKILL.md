@@ -102,10 +102,12 @@ Run the readiness check first:
 node .skillshare/skills/1k-trade-swap-market/scripts/check-readiness.mjs
 ```
 
-The check intentionally fails when reviewed domain anchors drift. Refresh the
-code map and reviewed ref from current source before continuing; do not bypass
-the failure. Use [runtime-boundaries.md](references/runtime-boundaries.md) for
-every cross-runtime, persistence, cold-start, background, or restart path and
+The check intentionally fails when current stable anchors or required eval
+assets are missing, or when pre-existing uncommitted domain code makes intake
+ambiguous. Reconcile the current checkout, code map, and tests before
+continuing; do not bypass the failure. Use
+[runtime-boundaries.md](references/runtime-boundaries.md) for every
+cross-runtime, persistence, cold-start, background, or restart path and
 [test-map.md](references/test-map.md) for exact validation lanes.
 
 Autonomy does not authorize inventing product behavior, resolving conflicting
@@ -163,10 +165,14 @@ shared-atom publication. Keep a chart's visible range separate from a newer
 requested range during silent refresh.
 
 Crossing the Stock boundary must use the centralized `swapTypeSwitchAction`.
-Before the new surface paints, synchronously clear shared from/to amounts and
-selected balances and invalidate the old quote session. The matching Stock
-snapshot may then restore display-only regions under its own owners; an
-ordinary Swap amount or balance must never appear as a Stock first frame.
+Before the new surface paints, synchronously clear shared from/to amounts, the
+selected-to balance, the Stock-owned from balance, and the old quote session.
+The ordinary Swap from-balance may stay cached only behind
+`swapActiveSelectedFromTokenBalanceAtom`; Stock must never read it, and the
+existing token-detail request owner must clear it when account or token
+identity changes. The matching Stock snapshot may then restore display-only
+regions under its own owners; an ordinary Swap amount or balance must never
+appear as a Stock first frame.
 
 ## Reference Map
 
@@ -242,8 +248,10 @@ If a drill cannot be completed from the references, update the abstraction inste
   balance stays display-only and the amount stays non-editable until the exact
   canonical live account/token owner is ready.
 - Do not set `swapType` directly across the Stock boundary. Use the centralized
-  transition so ordinary Swap/Limit/Pro amounts, balances, and quote ownership
-  are revoked before the next surface paints.
+  transition so shared amounts, the target balance, the Stock-owned balance,
+  and quote ownership are revoked before the next surface paints. A retained
+  ordinary Swap from-balance must remain inaccessible in Stock and must still
+  pass its account/token request-owner guard before reuse.
 - Do not reuse token-list state from another surface as proof for Swap selection.
 - Do not treat Wallet/Receive DeFi-token list regressions as Swap selector bugs unless the failing owner is the Swap/Market selector or handoff state.
 - Do not collapse account, network, provider, token, and receiver resets into one path without checking dependents.
@@ -255,8 +263,8 @@ If a drill cannot be completed from the references, update the abstraction inste
 - Do not edit generated locale files directly; use the repository i18n workflow.
 - Do not create a new abstraction, hook, or state owner until the closest
   existing repo pattern and its semantic mismatch have been named.
-- Do not continue from a failing readiness drift check. Reconcile current code,
-  actual PR scope, anchors, tests, and the reviewed ref first.
+- Do not continue from a failing readiness check. Reconcile current code,
+  actual PR scope, anchors, tests, and pre-existing worktree changes first.
 - Do not ask the user to supply Jira, Slack, Git, client, or accessible server
   context that current tools can retrieve.
 - Do not leave route/provider/listener/quote/history side effects inside one

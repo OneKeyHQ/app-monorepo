@@ -1,6 +1,9 @@
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
-import { ESwapStockTradeSide } from '../../hooks/swapStockChannelUtils';
+import {
+  ESwapStockChannelStage,
+  ESwapStockTradeSide,
+} from '../../hooks/swapStockChannelUtils';
 
 import {
   STOCK_CHART_DEFAULT_RANGE,
@@ -9,6 +12,7 @@ import {
   canMountStockSwapActions,
   getStockChartDisplayState,
   getStockDisabledActionButtonProps,
+  isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
   resolveStockChartControlRange,
   shouldShowStockBalanceRetryAction,
@@ -97,6 +101,23 @@ describe('SwapStockDesktopContainer utils', () => {
         balanceFailed: true,
         readyForQuote: false,
       }),
+    ).toBe(false);
+  });
+
+  it('shows market skeletons only while Stock identity is initializing', () => {
+    expect(
+      isStockMarketPanelLoadingStage(ESwapStockChannelStage.InitializingStock),
+    ).toBe(true);
+    expect(
+      isStockMarketPanelLoadingStage(
+        ESwapStockChannelStage.CheckingMarketStatus,
+      ),
+    ).toBe(true);
+    expect(
+      isStockMarketPanelLoadingStage(ESwapStockChannelStage.MissingStock),
+    ).toBe(false);
+    expect(
+      isStockMarketPanelLoadingStage(ESwapStockChannelStage.MarketUnavailable),
     ).toBe(false);
   });
 

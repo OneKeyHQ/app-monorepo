@@ -1,0 +1,23 @@
+id: swap-pro-cold-start-account-owner
+type:
+  - golden
+  - verification
+prompt: 'Enter Swap Pro from Market during account-selector cold start, then switch account before the network-account request settles. Prevent the old account, recipient, alert, positions, balance, quote, or Review from flashing into the new scope.'
+expected:
+  must_include:
+    - 'prepare the root Swap Pro entry before the first child render without mutating modal Swap or ordinary Swap state'
+    - 'scope account resolution by wallet or account identity plus the target network and reject late results from the previous scope'
+    - 'retain an active account during cold start only through the explicit incomplete-selected-storage guard'
+    - 'use the source account for the TO address unless the explicit custom-recipient switch is on'
+    - 'keep alerts and Stock positions pending or same-owner visible until the current scope definitively resolves'
+    - 'run accountSelector actions, prepareSwapProEntry, useSwapAccount utils, swapProAccountUtils, and SwapProPositionsList utils tests'
+    - 'prove the real account switch before request settlement never exposes or executes the old scope'
+  must_not_include:
+    - 'treat an earlier network-account response as current because its token network matches'
+    - 'use the account-selector TO slot when custom recipient is off'
+    - 'claim first-frame or account-switch safety from settled screenshots only'
+score:
+  pass: 90
+  critical_fail_if:
+    - 'an earlier account scope reaches header, recipient, balance, quote, positions, alert, or Review'
+    - 'Market entry paints before its Swap Pro context is prepared'

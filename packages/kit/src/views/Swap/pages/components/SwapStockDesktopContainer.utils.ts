@@ -1,6 +1,9 @@
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
-import { ESwapStockTradeSide } from '../../hooks/swapStockChannelUtils';
+import {
+  ESwapStockChannelStage,
+  ESwapStockTradeSide,
+} from '../../hooks/swapStockChannelUtils';
 import { normalizeSwapKLineWalletChartTimestamp } from '../modal/swapKLineChartUtils';
 
 import type { ISwapStockDisplayChartRange } from '../../hooks/swapStockDisplaySnapshotUtils';
@@ -72,6 +75,15 @@ export function shouldShowStockBalanceRetryAction({
   readyForQuote: boolean;
 }) {
   return balanceFailed && readyForQuote;
+}
+
+export function isStockMarketPanelLoadingStage(
+  channelStage: ESwapStockChannelStage,
+) {
+  return (
+    channelStage === ESwapStockChannelStage.InitializingStock ||
+    channelStage === ESwapStockChannelStage.CheckingMarketStatus
+  );
 }
 
 export function mergeStockChartRealtimePoint({

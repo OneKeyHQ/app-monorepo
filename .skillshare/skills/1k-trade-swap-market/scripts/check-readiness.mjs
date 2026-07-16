@@ -21,7 +21,16 @@ const anchors = [
   ],
   [
     'packages/kit/src/views/Swap/hooks/swapStockChannelUtils.ts',
-    ['resolveStockChannelSwapPair'],
+    [
+      'isStockTradeReadyForQuote',
+      'resolveStockChannelSwapPair',
+      'resolveStockChannelOwnedPayToken',
+      'isStockCanonicalInputOwnerReady',
+      'resolveStockKLineToken',
+      'isStockPayTokenReadyForTradeInput',
+      'shouldRenderStockTradeInputSkeleton',
+      'resolveStockBalanceSnapshot',
+    ],
   ],
   [
     'packages/kit/src/views/Swap/hooks/useSwapStockTradeInputs.ts',
@@ -77,6 +86,7 @@ const anchors = [
       'resolveStockChartControlRange',
       'getStockChartDisplayState',
       'shouldShowStockBalanceRetryAction',
+      'isStockMarketPanelLoadingStage',
     ],
   ],
   [
@@ -84,6 +94,29 @@ const anchors = [
     ['onekey_swap_stock_display_snapshot'],
   ],
   ['packages/kit/src/views/Swap/hooks/useSwapStockDefaultToken.ts', []],
+  [
+    'packages/kit/src/states/jotai/contexts/swap/prepareSwapProEntry.ts',
+    ['prepareSwapProEntry'],
+  ],
+  [
+    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/SwapPanel.tsx',
+    ['prepareSwapProEntry'],
+  ],
+  [
+    'packages/kit/src/views/Swap/utils/swapProAccountUtils.ts',
+    [
+      'buildSwapProAccountScope',
+      'resolveSwapProAccountIdentity',
+      'resolveSwapProAccountStatus',
+      'getSwapProAccountForCurrentScope',
+      'getSwapProErrorAlertAction',
+      'shouldSyncSwapProAccountNetwork',
+    ],
+  ],
+  [
+    'packages/kit/src/views/Swap/pages/components/SwapProPositionsList.utils.ts',
+    ['shouldRenderStockPositionsSkeleton'],
+  ],
   [
     'packages/kit/src/states/jotai/contexts/swap/quoteProgress.ts',
     [
@@ -124,7 +157,12 @@ const anchors = [
   ],
   [
     'packages/kit/src/states/jotai/contexts/swap/atoms.ts',
-    ['swapQuoteProviderSelectionReadyAtom', 'swapQuoteCurrentSelectAtom'],
+    [
+      'swapQuoteProviderSelectionReadyAtom',
+      'swapQuoteCurrentSelectAtom',
+      'swapStockSelectedFromTokenBalanceAtom',
+      'swapActiveSelectedFromTokenBalanceAtom',
+    ],
   ],
   [
     'packages/kit/src/views/Swap/pages/components/SwapQuoteResult.tsx',
@@ -165,6 +203,14 @@ const anchors = [
     ['buildSwapHistoryIdentity'],
   ],
   [
+    'packages/kit/src/views/Swap/utils/swapMarketHistory.ts',
+    ['isSwapLimitHistoryTypeSupported'],
+  ],
+  [
+    'packages/shared/src/utils/swapHistoryNetworkUtils.ts',
+    ['getSwapHistoryNetworkIdsToEnrich', 'normalizeSwapHistoryNetworkInfo'],
+  ],
+  [
     'packages/kit/src/views/Swap/hooks/useSwapLocalDataVisibility.ts',
     ['useShouldShowSwapLocalData'],
   ],
@@ -174,11 +220,11 @@ const anchors = [
   ],
   [
     'packages/kit-bg/src/services/ServiceSwap.ts',
-    ['fetchSwapHistoryListFromSimple'],
+    ['fetchSwapHistoryListFromSimple', 'repairSwapHistoryNetworkInfo'],
   ],
   [
     'packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapHistory.ts',
-    ['class SimpleDbEntitySwapHistory'],
+    ['class SimpleDbEntitySwapHistory', 'repairSwapHistoryNetworkInfo'],
   ],
   [
     'packages/kit/src/views/Receive/pages/ReceiveSelector.tsx',
@@ -193,6 +239,7 @@ const anchors = [
 
 const driftScopes = [
   'packages/kit/src/hooks/useIdentityScopedSilentRefresh.ts',
+  'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel',
   'packages/kit/src/views/Swap',
   'packages/kit/src/states/jotai/contexts/swap',
   'packages/kit/src/views/Receive',
@@ -201,6 +248,7 @@ const driftScopes = [
   'packages/kit-bg/src/services/ServiceSwapQuoteSession.ts',
   'packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapHistory.ts',
   'packages/shared/src/utils/swapHistoryUtils.ts',
+  'packages/shared/src/utils/swapHistoryNetworkUtils.ts',
   'packages/shared/src/utils/swapQuoteSortUtils.ts',
   'packages/shared/src/utils/tokenSelectorFilterUtils.ts',
   'packages/shared/src/storage/syncStorageKeys.ts',

@@ -39,6 +39,10 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
+  getSwapHistoryNetworkIdsToEnrich,
+  normalizeSwapHistoryNetworkInfo,
+} from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
+import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
   isStockSwapHistoryItem,
@@ -54,6 +58,7 @@ import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/s
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
@@ -600,6 +605,8 @@ export default class ServiceSwap extends ServiceBase {
   private speedSwapApprovingInterval: ReturnType<typeof setTimeout> | undefined;
 
   private speedSwapApprovingIntervalCount = 0;
+
+  private _swapHistoryNetworkRepairPromise?: Promise<ISwapTxHistory[]>;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -2171,10 +2178,74 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   // --- swap history
+  private async fetchSwapHistoryNetworks(
+    networkIds: string[],
+  ): Promise<IServerNetwork[]> {
+    if (!networkIds.length) {
+      return [];
+    }
+    try {
+      const { networks } =
+        await this.backgroundApi.serviceNetwork.getNetworksByIds({
+          networkIds,
+        });
+      return networks;
+    } catch (_error) {
+      // History persistence must not fail when the server-network registry is
+      // temporarily unavailable. Canonical IDs are retained and retried later.
+      return [];
+    }
+  }
+
+  private async enrichSwapHistoryItemNetworkInfo(
+    item: ISwapTxHistory,
+  ): Promise<ISwapTxHistory> {
+    const networkIds = getSwapHistoryNetworkIdsToEnrich([item]);
+    if (!networkIds.length) {
+      return item;
+    }
+    const networks = await this.fetchSwapHistoryNetworks(networkIds);
+    return (
+      normalizeSwapHistoryNetworkInfo({ histories: [item], networks })
+        .histories[0] ?? item
+    );
+  }
+
+  private async repairSwapHistoryNetworkInfo(): Promise<ISwapTxHistory[]> {
+    if (this._swapHistoryNetworkRepairPromise) {
+      return this._swapHistoryNetworkRepairPromise;
+    }
+
+    const repairPromise = (async () => {
+      const histories =
+        await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+      const networkIds = getSwapHistoryNetworkIdsToEnrich(histories);
+      if (!networkIds.length) {
+        return histories;
+      }
+      const networks = await this.fetchSwapHistoryNetworks(networkIds);
+      const repaired =
+        await this.backgroundApi.simpleDb.swapHistory.repairSwapHistoryNetworkInfo(
+          networks,
+        );
+      if (repaired.changed) {
+        appEventBus.emit(EAppEventBusNames.RefreshSwapHistoryList, undefined);
+      }
+      return repaired.histories;
+    })();
+    this._swapHistoryNetworkRepairPromise = repairPromise;
+    try {
+      return await repairPromise;
+    } finally {
+      if (this._swapHistoryNetworkRepairPromise === repairPromise) {
+        this._swapHistoryNetworkRepairPromise = undefined;
+      }
+    }
+  }
+
   @backgroundMethod()
   async fetchSwapHistoryListFromSimple() {
-    const histories =
-      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+    const histories = await this.repairSwapHistoryNetworkInfo();
     return histories.toSorted((a, b) => b.date.created - a.date.created);
   }
 
@@ -2250,6 +2321,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async seedSwapHistoryPreviewReadIfNeeded() {
+    await this.repairSwapHistoryNetworkInfo();
     const seeded =
       await this.backgroundApi.simpleDb.swapHistory.seedPreviewReadIfNeeded(
         Date.now(),
@@ -2290,25 +2362,27 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async getSwapHistoryByTxId({ txId }: { txId: string }) {
-    const history =
-      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryByTxId(txId);
-    return history;
+    const histories = await this.repairSwapHistoryNetworkInfo();
+    return histories.find((item) => item.txInfo.txId === txId);
   }
 
   @backgroundMethod()
   async addSwapHistoryItem(item: ISwapTxHistory) {
-    await this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(item);
+    const enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
+    await this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(
+      enrichedItem,
+    );
     await inAppNotificationAtom.set((pre) => {
       const filteredList = filterSwapHistoryPendingList(
         pre.swapHistoryPendingList,
       );
       const matchFn = (i: ISwapTxHistory) =>
-        this.isSameSwapHistoryItem(i, item);
+        this.isSameSwapHistoryItem(i, enrichedItem);
       const unmatchedList = filteredList.filter((i) => !matchFn(i));
-      if (this.isSwapHistoryPendingStatus(item)) {
+      if (this.isSwapHistoryPendingStatus(enrichedItem)) {
         return {
           ...pre,
-          swapHistoryPendingList: [...unmatchedList, item],
+          swapHistoryPendingList: [...unmatchedList, enrichedItem],
         };
       }
       const matchedInPendingList = filteredList.some(matchFn);
@@ -2316,7 +2390,7 @@ export default class ServiceSwap extends ServiceBase {
         return {
           ...pre,
           swapHistoryPendingList: filteredList.map((i) =>
-            matchFn(i) ? item : i,
+            matchFn(i) ? enrichedItem : i,
           ),
         };
       }
@@ -2328,8 +2402,8 @@ export default class ServiceSwap extends ServiceBase {
       return pre;
     });
     if (
-      isPrivateSendSwapHistoryItem(item) &&
-      !this.isSwapHistoryPendingStatus(item)
+      isPrivateSendSwapHistoryItem(enrichedItem) &&
+      !this.isSwapHistoryPendingStatus(enrichedItem)
     ) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }
@@ -2351,12 +2425,12 @@ export default class ServiceSwap extends ServiceBase {
     ).find((item) => item.txInfo.txId === oldTxId);
     if (oldHistoryItem) {
       const updated = Date.now();
-      const newHistoryItem = {
+      const newHistoryItem = await this.enrichSwapHistoryItemNetworkInfo({
         ...oldHistoryItem,
         date: { ...oldHistoryItem.date, updated },
         txInfo: { ...oldHistoryItem.txInfo, txId: newTxId },
         status,
-      };
+      });
       await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
         newHistoryItem,
         oldTxId,
@@ -2395,43 +2469,46 @@ export default class ServiceSwap extends ServiceBase {
     const oldItem = filteredList.find(matchFn);
     const updated = Date.now();
     item.date = { ...item.date, updated };
+    if (
+      oldItem?.status === ESwapTxHistoryStatus.CANCELING &&
+      item.status === ESwapTxHistoryStatus.SUCCESS
+    ) {
+      // Status polling reads the caller object after this method resolves, so
+      // preserve the original in-place cancellation reconciliation contract.
+      item.status = ESwapTxHistoryStatus.CANCELED;
+    }
+    const enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
     if (oldItem) {
       if (
-        oldItem.status === ESwapTxHistoryStatus.CANCELING &&
-        item.status === ESwapTxHistoryStatus.SUCCESS
-      ) {
-        item.status = ESwapTxHistoryStatus.CANCELED;
-      }
-      if (
-        item.txInfo.receiverTransactionId &&
+        enrichedItem.txInfo.receiverTransactionId &&
         !this._crossChainReceiveTxBlockNotificationMap[
-          item.txInfo.receiverTransactionId
+          enrichedItem.txInfo.receiverTransactionId
         ]
       ) {
         void this.backgroundApi.serviceNotification.blockNotificationForTxId({
-          networkId: item.baseInfo.toToken.networkId,
-          tx: item.txInfo.receiverTransactionId,
+          networkId: enrichedItem.baseInfo.toToken.networkId,
+          tx: enrichedItem.txInfo.receiverTransactionId,
         });
         this._crossChainReceiveTxBlockNotificationMap[
-          item.txInfo.receiverTransactionId
+          enrichedItem.txInfo.receiverTransactionId
         ] = true;
       }
       await inAppNotificationAtom.set((pre) => {
         const newPendingList = filterSwapHistoryPendingList(
           pre.swapHistoryPendingList,
-        ).map((i) => (matchFn(i) ? item : i));
+        ).map((i) => (matchFn(i) ? enrichedItem : i));
         return {
           ...pre,
           swapHistoryPendingList: newPendingList,
         };
       });
-      const isPrivateSendHistory = isPrivateSendSwapHistoryItem(item);
+      const isPrivateSendHistory = isPrivateSendSwapHistoryItem(enrichedItem);
       const isSuccessStatus =
-        item.status === ESwapTxHistoryStatus.SUCCESS ||
-        item.status === ESwapTxHistoryStatus.PARTIALLY_FILLED;
+        enrichedItem.status === ESwapTxHistoryStatus.SUCCESS ||
+        enrichedItem.status === ESwapTxHistoryStatus.PARTIALLY_FILLED;
       if (
         shouldShowToast &&
-        item.status !== ESwapTxHistoryStatus.PENDING &&
+        enrichedItem.status !== ESwapTxHistoryStatus.PENDING &&
         (!isPrivateSendHistory || isSuccessStatus)
       ) {
         let toastTitleId = ETranslations.swap_page_toast_swap_failed;
@@ -2440,13 +2517,13 @@ export default class ServiceSwap extends ServiceBase {
             ? ETranslations.private_send_success
             : ETranslations.swap_page_toast_swap_successful;
         }
-        let fromAmountFinal = item.baseInfo.fromAmount;
-        if (item.swapInfo.otherFeeInfos?.length) {
-          item.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
+        let fromAmountFinal = enrichedItem.baseInfo.fromAmount;
+        if (enrichedItem.swapInfo.otherFeeInfos?.length) {
+          enrichedItem.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
             if (
               equalTokenNoCaseSensitive({
                 token1: extraFeeInfo.token,
-                token2: item.baseInfo.fromToken,
+                token2: enrichedItem.baseInfo.fromToken,
               })
             ) {
               fromAmountFinal = new BigNumber(fromAmountFinal)
@@ -2460,16 +2537,18 @@ export default class ServiceSwap extends ServiceBase {
           title: appLocale.intl.formatMessage({
             id: toastTitleId,
           }),
-          message: `${numberFormat(item.baseInfo.fromAmount, formatter)} ${
-            item.baseInfo.fromToken.symbol
-          } → ${numberFormat(item.baseInfo.toAmount, formatter)} ${
-            item.baseInfo.toToken.symbol
+          message: `${numberFormat(enrichedItem.baseInfo.fromAmount, formatter)} ${
+            enrichedItem.baseInfo.fromToken.symbol
+          } → ${numberFormat(enrichedItem.baseInfo.toAmount, formatter)} ${
+            enrichedItem.baseInfo.toToken.symbol
           }`,
         });
       }
     }
-    await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
-    if (isPrivateSendSwapHistoryItem(item)) {
+    await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+      enrichedItem,
+    );
+    if (isPrivateSendSwapHistoryItem(enrichedItem)) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }
   }

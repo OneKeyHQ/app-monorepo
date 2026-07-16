@@ -158,9 +158,12 @@ Complete this drill before wiring a stock-like protocol:
   be verified against the current account. Ordinary Swap defaults cannot
   overwrite an initialized Stock pair.
 - Entering or leaving Stock uses the centralized swap-type transition and
-  clears shared from/to amount plus selected balances before paint. A restored
-  region can then render only under its Stock owner; no ordinary Swap amount or
-  balance may appear for one frame.
+  clears shared from/to amount, the target balance, the Stock-owned from
+  balance, and old quote execution before paint. The ordinary Swap from-balance
+  may remain cached only behind the active surface projection and only while
+  its account/token request owner remains valid. A restored region can then
+  render only under its Stock owner; no ordinary Swap amount or balance may
+  appear for one frame.
 - Token detail, balance, and chart regions have independent timestamps and
   TTLs. One expired region must not discard fresh sibling regions.
 - The snapshot is display-only. Cached amount or balance cannot enable editing,

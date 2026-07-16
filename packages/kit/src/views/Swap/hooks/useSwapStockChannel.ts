@@ -47,6 +47,7 @@ import {
   buildStockSwapTokenFromMarketToken,
   filterStockPayTokenCandidates,
   getTokenIdentityKey,
+  isStockTradeReadyForQuote,
   resolveStockChannelOwnedPayToken,
   resolveStockChannelSwapPair,
   shouldResetStockTradeReceiveAmount,
@@ -671,10 +672,14 @@ export function useSwapStockChannel() {
     stockTokenStatus,
   ]);
 
-  const readyForQuote =
-    channelStage === ESwapStockChannelStage.Ready &&
-    !!payToken &&
-    !!currentStockToken;
+  const readyForQuote = isStockTradeReadyForQuote({
+    currentStockToken,
+    marketOpen: stockMarketStatus?.open,
+    marketStatusStatus,
+    payToken,
+    payTokenStatus,
+    stockTokenStatus,
+  });
 
   useEffect(() => {
     if (!readyForQuote) {

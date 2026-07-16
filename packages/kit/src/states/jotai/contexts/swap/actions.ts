@@ -141,6 +141,7 @@ import {
   swapSpeedQuoteSessionStateAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
+  swapStockSelectedFromTokenBalanceAtom,
   swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
   swapTokenDetailRequestStateAtom,
@@ -3278,21 +3279,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       const oldType = get(swapTypeSwitchAtom());
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
-      const isSwitchingStockSurface =
-        oldType !== normalizedType &&
-        (oldType === ESwapTabSwitchType.STOCK ||
-          normalizedType === ESwapTabSwitchType.STOCK);
-      if (isSwitchingStockSurface) {
-        // Stock and generic Swap share the amount/balance atoms, but they do
-        // not share an execution owner. Revoke the old surface synchronously
-        // before publishing the next tab so the first render can never paint
-        // an ETH amount or balance inside a BSC Stock trade (or vice versa).
-        // A matching Stock display snapshot may be projected afterwards, but
-        // it remains display-only until the exact live owner becomes ready.
+      const isCrossingStockBoundary =
+        (oldType === ESwapTabSwitchType.STOCK) !==
+        (normalizedType === ESwapTabSwitchType.STOCK);
+      if (isCrossingStockBoundary) {
+        // Stock and generic Swap share amount state, but the active input
+        // balance is surface-owned. Revoke the shared and Stock-owned values
+        // synchronously before publishing the next tab. The ordinary Swap
+        // balance stays cached behind swapActiveSelectedFromTokenBalanceAtom
+        // so returning from Stock does not introduce another loading flash.
         set(swapFromTokenAmountAtom(), { value: '', isInput: false });
         set(swapToTokenAmountAtom(), { value: '', isInput: false });
-        set(swapSelectedFromTokenBalanceAtom(), '');
         set(swapSelectedToTokenBalanceAtom(), '');
+        set(swapStockSelectedFromTokenBalanceAtom(), '');
+        if (normalizedType === ESwapTabSwitchType.LIMIT) {
+          set(swapSelectedFromTokenBalanceAtom(), '');
+        }
       }
       if (oldType !== normalizedType) {
         const quoteSessionState = get(swapQuoteSessionStateAtom());

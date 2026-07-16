@@ -15,7 +15,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import {
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
-  useSwapSelectedFromTokenBalanceAtom,
+  useSwapStockSelectedFromTokenBalanceAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
@@ -755,7 +755,7 @@ export function useSwapStockAmountInputState({
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapAlerts] = useSwapAlertsAtom();
   const [fromTokenBalance, setFromTokenBalance] =
-    useSwapSelectedFromTokenBalanceAtom();
+    useSwapStockSelectedFromTokenBalanceAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const {
@@ -766,7 +766,6 @@ export function useSwapStockAmountInputState({
     selectablePayTokens,
     payTokenOptionsLoading,
     disableNativePayToken,
-    marketStatusStatus,
     selectPayToken,
     stockDisplay,
     stockTokenStatus,
@@ -785,9 +784,9 @@ export function useSwapStockAmountInputState({
     });
   const displayInputTokenVisible = Boolean(displayInputToken);
   const executionInputTokenVisible = Boolean(executionInputToken);
+  const inputTokenStatus = isBuySide ? payTokenStatus : stockTokenStatus;
   const stockIdentityReady =
-    stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
-    marketStatusStatus === ESwapStockChannelAsyncStatus.Ready;
+    stockTokenStatus === ESwapStockChannelAsyncStatus.Ready;
   const payTokenReady = isStockPayTokenReadyForTradeInput({
     payToken,
     payTokenStatus,
@@ -1073,9 +1072,9 @@ export function useSwapStockAmountInputState({
   );
   const canonicalBalanceScope = `${stockDisplayIdentityKey}:${inputTokenKey}`;
   useLayoutEffect(() => {
-    // The atom is shared with generic Swap actions. Invalidate it whenever the
-    // Stock execution owner changes so an old account balance cannot unlock a
-    // new account/pair before its exact live balance lands.
+    // Keep the Stock-only published balance scoped to the exact execution
+    // owner so an old account/pair cannot unlock the new owner. Ordinary Swap
+    // keeps its own cached balance behind the active-balance projection.
     setFromTokenBalance('');
   }, [canonicalBalanceScope, setFromTokenBalance]);
   useEffect(() => {
@@ -1153,6 +1152,7 @@ export function useSwapStockAmountInputState({
     selectablePayTokens,
     selectPayToken,
     shouldRenderSkeleton: shouldRenderStockTradeInputSkeleton({
+      inputTokenStatus,
       inputTokenReady,
       inputTokenVisible: displayInputTokenVisible,
       isBuySide,

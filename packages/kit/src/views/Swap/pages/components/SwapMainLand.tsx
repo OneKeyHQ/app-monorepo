@@ -1362,7 +1362,11 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     return swapBridgeSupportNetworksFilterAllNetRef.current;
   }, [swapNetworks, swapTypeSwitch]);
 
-  useSwapProErrorAlert();
+  useSwapProErrorAlert({
+    isSwapProActive: Boolean(focusSwapPro),
+    accountScope: swapProAccount.accountScope,
+    accountStatus: swapProAccount.accountStatus,
+  });
   useSwapQuote();
 
   const renderSwapSwapBridgeContainer = useCallback(() => {

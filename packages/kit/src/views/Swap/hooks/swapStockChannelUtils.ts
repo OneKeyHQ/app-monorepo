@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   equalTokenNoCaseSensitive,
   normalizeTokenContractAddress,
@@ -34,6 +35,31 @@ export enum ESwapStockChannelStage {
 export enum ESwapStockTradeSide {
   Buy = 'buy',
   Sell = 'sell',
+}
+
+export function isStockTradeReadyForQuote({
+  currentStockToken,
+  marketOpen,
+  marketStatusStatus,
+  payToken,
+  payTokenStatus,
+  stockTokenStatus,
+}: {
+  currentStockToken?: ISwapToken;
+  marketOpen?: boolean;
+  marketStatusStatus: ESwapStockChannelAsyncStatus;
+  payToken?: ISwapToken;
+  payTokenStatus: ESwapStockChannelAsyncStatus;
+  stockTokenStatus: ESwapStockChannelAsyncStatus;
+}) {
+  return Boolean(
+    currentStockToken &&
+    payToken &&
+    stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
+    marketStatusStatus !== ESwapStockChannelAsyncStatus.Initializing &&
+    payTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
+    marketOpen !== false,
+  );
 }
 
 const STOCK_DEFAULT_PAY_SYMBOLS = new Set(['USDC', 'USDT']);
@@ -333,8 +359,10 @@ export function isStockPayTokenReadyForTradeInput({
 }
 
 export function shouldRenderStockTradeInputSkeleton({
+  inputTokenStatus,
   inputTokenVisible,
 }: {
+  inputTokenStatus: ESwapStockChannelAsyncStatus;
   inputTokenReady: boolean;
   inputTokenVisible: boolean;
   isBuySide: boolean;
@@ -343,7 +371,86 @@ export function shouldRenderStockTradeInputSkeleton({
   // balance readiness still gate market status, quote, Max/percentage, and
   // execution, but they must not replace a restored input card with a full
   // skeleton while those independent requests settle.
+  if (inputTokenStatus !== ESwapStockChannelAsyncStatus.Initializing) {
+    return false;
+  }
   return !inputTokenVisible;
+}
+
+export function isStockBalanceInitializing({
+  balance,
+  requestPending,
+}: {
+  balance?: string;
+  requestPending: boolean;
+}) {
+  return balance === undefined && requestPending;
+}
+
+export function resolveStockBalanceSeed({
+  hasActiveAccount,
+  networkAccountAddress,
+  token,
+}: {
+  hasActiveAccount: boolean;
+  networkAccountAddress?: string;
+  token?: ISwapToken;
+}) {
+  if (token?.balanceParsed === undefined) {
+    return undefined;
+  }
+  if (!hasActiveAccount) {
+    return token.balanceParsed;
+  }
+  if (
+    !token.accountAddress ||
+    !networkAccountAddress ||
+    !equalsIgnoreCase(token.accountAddress, networkAccountAddress)
+  ) {
+    return undefined;
+  }
+  return token.balanceParsed;
+}
+
+export type IStockBalanceSnapshot = {
+  ownerScope: string;
+  balance: string;
+  tokenDetail?: ISwapToken;
+};
+
+export function resolveStockBalanceSnapshot({
+  authoritativeBalance,
+  authoritativeTokenDetail,
+  ownerScope,
+  previousSnapshot,
+  seededBalance,
+  seededTokenDetail,
+}: {
+  authoritativeBalance?: string;
+  authoritativeTokenDetail?: ISwapToken;
+  ownerScope: string;
+  previousSnapshot?: IStockBalanceSnapshot;
+  seededBalance?: string;
+  seededTokenDetail?: ISwapToken;
+}): IStockBalanceSnapshot | undefined {
+  if (authoritativeBalance !== undefined) {
+    return {
+      ownerScope,
+      balance: authoritativeBalance,
+      tokenDetail: authoritativeTokenDetail,
+    };
+  }
+  if (previousSnapshot?.ownerScope === ownerScope) {
+    return previousSnapshot;
+  }
+  if (seededBalance !== undefined) {
+    return {
+      ownerScope,
+      balance: seededBalance,
+      tokenDetail: seededTokenDetail,
+    };
+  }
+  return undefined;
 }
 
 function getStockDefaultPayTokenCandidates(candidates: IToken[]) {

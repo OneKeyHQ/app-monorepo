@@ -119,8 +119,9 @@ Required cases:
   cannot seed quote/Max/percentage/Review until the canonical live Stock owner
   is ready
 - ordinary Swap -> Stock and Stock -> non-Stock transitions clear shared
-  amounts/balances synchronously before the destination first frame, then
-  restore only matching display regions
+  amounts, target/Stock-owned balances, and quote execution synchronously
+  before the destination first frame; an ordinary Swap from-balance remains
+  hidden in Stock and is reusable only while its account/token owner is exact
 - only exact live account/token/display-scope balance and its matching shared
   atom publication enable Max, percentage actions, balance validation, or Review
 - bounded retry stops at its budget, cancels stale scopes/generations, and the
@@ -143,6 +144,52 @@ yarn jest \
   packages/kit/src/states/jotai/contexts/accountSelector/actions.test.tsx \
   --runInBand
 ```
+
+## Swap Pro Entry And Account Ownership
+
+```bash
+yarn jest \
+  packages/kit/src/states/jotai/contexts/accountSelector/actions.test.tsx \
+  packages/kit/src/states/jotai/contexts/swap/prepareSwapProEntry.test.tsx \
+  packages/kit/src/views/Swap/hooks/useSwapAccount.utils.test.ts \
+  packages/kit/src/views/Swap/utils/swapProAccountUtils.test.ts \
+  packages/kit/src/views/Swap/pages/components/SwapProPositionsList.utils.test.ts \
+  --runInBand
+```
+
+Required cases:
+
+- Market entry hydrates the root Swap Pro context before the first child paint
+  without mutating modal Swap or ordinary Swap state
+- account resolution, alerts, positions, and network synchronization accept
+  only the current wallet/account/network scope
+- account-selector cold start can retain a matching active account only while
+  selected storage is incomplete; a wallet-owned incomplete or changed scope
+  fails closed
+- the TO address uses the source account unless the explicit custom-recipient
+  switch is on
+- Stock positions stop skeleton loading after definitive empty/error and keep
+  same-owner content visible during refresh
+
+Runtime acceptance must enter Swap Pro from Market during cold start, switch
+account before the network-account request settles, and prove that header,
+recipient, alert, balance, positions, quote, and Review never publish the old
+scope.
+
+## History Network Repair
+
+```bash
+yarn jest \
+  packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapHistory.test.ts \
+  packages/kit-bg/src/services/ServiceSwap.networkInfo.test.ts \
+  packages/shared/src/utils/swapHistoryNetworkUtils.test.ts \
+  --runInBand
+```
+
+Repair must derive network ids from token ownership, normalize from the
+current server registry, preserve concurrent rows, and remain best-effort when
+the registry is unavailable. UI visibility must never invoke repair as a
+delete/clean path.
 
 ## Disconnect: Hide Without Delete
 

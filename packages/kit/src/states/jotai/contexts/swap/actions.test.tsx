@@ -38,6 +38,7 @@ import {
 import { useSwapActions } from './actions';
 import {
   ProviderJotaiContextSwap,
+  swapActiveSelectedFromTokenBalanceAtom,
   swapAlertsAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
@@ -71,6 +72,7 @@ import {
   swapSpeedQuoteSessionStateAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
+  swapStockSelectedFromTokenBalanceAtom,
   swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
@@ -1634,6 +1636,7 @@ describe('useSwapActions', () => {
       storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
       storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
       storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
+      storeInstance.set(swapStockSelectedFromTokenBalanceAtom(), '999');
       storeInstance.set(swapFromTokenAmountAtom(), {
         value: '10',
         isInput: true,
@@ -1682,6 +1685,8 @@ describe('useSwapActions', () => {
     expect(store.get(swapSelectedTokensColdStartContextAtom())).toBeUndefined();
     expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
     expect(store.get(swapLastNonLimitSelectedTokensAtom())).toBeUndefined();
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('');
+    expect(store.get(swapStockSelectedFromTokenBalanceAtom())).toBe('');
 
     await act(async () => {
       await result.current.actions.swapTypeSwitchAction(
@@ -1699,11 +1704,12 @@ describe('useSwapActions', () => {
     });
   });
 
-  it('restores the previous Swap pair after visiting Stock', async () => {
+  it('restores the previous Swap pair without exposing the Stock balance', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
       storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
       storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
       storeInstance.set(swapSelectToTokenAtom(), usdtToken);
+      storeInstance.set(swapSelectedFromTokenBalanceAtom(), '0.1724');
     });
     const { result } = renderHook(
       () => {
@@ -1725,8 +1731,14 @@ describe('useSwapActions', () => {
       );
     });
 
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('0.1724');
+    expect(store.get(swapStockSelectedFromTokenBalanceAtom())).toBe('');
+    expect(store.get(swapActiveSelectedFromTokenBalanceAtom())).toBe('');
+
     store.set(swapSelectFromTokenAtom(), usdcToken);
     store.set(swapSelectToTokenAtom(), appleStockToken);
+    store.set(swapStockSelectedFromTokenBalanceAtom(), '999');
+    expect(store.get(swapActiveSelectedFromTokenBalanceAtom())).toBe('999');
 
     await act(async () => {
       await result.current.actions.swapTypeSwitchAction(
@@ -1748,9 +1760,15 @@ describe('useSwapActions', () => {
       value: '',
       isInput: false,
     });
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('0.1724');
+    expect(store.get(swapStockSelectedFromTokenBalanceAtom())).toBe('');
+    expect(store.get(swapActiveSelectedFromTokenBalanceAtom())).toBe('0.1724');
+
+    store.set(swapStockSelectedFromTokenBalanceAtom(), '999');
+    expect(store.get(swapActiveSelectedFromTokenBalanceAtom())).toBe('0.1724');
   });
 
-  it('revokes shared amounts and balances before entering Stock', async () => {
+  it('revokes shared amounts and the active balance before entering Stock', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
       storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
       storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
@@ -1765,6 +1783,7 @@ describe('useSwapActions', () => {
       });
       storeInstance.set(swapSelectedFromTokenBalanceAtom(), '9.9');
       storeInstance.set(swapSelectedToTokenBalanceAtom(), '8.8');
+      storeInstance.set(swapStockSelectedFromTokenBalanceAtom(), '7.7');
     });
     const { result } = renderHook(() => useSwapActions().current, {
       wrapper: Wrapper,
@@ -1789,13 +1808,15 @@ describe('useSwapActions', () => {
       value: '',
       isInput: false,
     });
-    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('');
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('9.9');
     expect(store.get(swapSelectedToTokenBalanceAtom())).toBe('');
+    expect(store.get(swapStockSelectedFromTokenBalanceAtom())).toBe('');
+    expect(store.get(swapActiveSelectedFromTokenBalanceAtom())).toBe('');
 
     await act(async () => switchPromise);
   });
 
-  it('revokes shared amounts and balances before leaving Stock', async () => {
+  it('revokes Stock-owned amounts and balance before leaving Stock', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
       storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
       storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
@@ -1808,8 +1829,9 @@ describe('useSwapActions', () => {
         value: '0.12',
         isInput: false,
       });
-      storeInstance.set(swapSelectedFromTokenBalanceAtom(), '100');
+      storeInstance.set(swapSelectedFromTokenBalanceAtom(), '9.9');
       storeInstance.set(swapSelectedToTokenBalanceAtom(), '2');
+      storeInstance.set(swapStockSelectedFromTokenBalanceAtom(), '100');
     });
     const { result } = renderHook(() => useSwapActions().current, {
       wrapper: Wrapper,
@@ -1832,8 +1854,10 @@ describe('useSwapActions', () => {
       value: '',
       isInput: false,
     });
-    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('');
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('9.9');
     expect(store.get(swapSelectedToTokenBalanceAtom())).toBe('');
+    expect(store.get(swapStockSelectedFromTokenBalanceAtom())).toBe('');
+    expect(store.get(swapActiveSelectedFromTokenBalanceAtom())).toBe('9.9');
 
     await act(async () => switchPromise);
   });

@@ -6,6 +6,7 @@ reviewed_code_ref: f7790b70e249809e38cced3cbc272419f217ac36
 cases:
   - cases/quote-provider-selection-before-settlement.yaml
   - cases/stock-display-snapshot-silent-refresh.yaml
+  - cases/swap-pro-cold-start-account-owner.yaml
   - cases/stock-channel-autonomous-implementation.yaml
   - cases/receive-wrong-owner.yaml
   - cases/history-hide-not-delete-runtime.yaml
