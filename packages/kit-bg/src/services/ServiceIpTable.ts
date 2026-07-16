@@ -24,6 +24,7 @@ import {
   IP_TABLE_SPEED_TEST_TIMEOUT_MS,
 } from '@onekeyhq/shared/src/request/constants/ipTableDefaults';
 import {
+  createAxiosWithIpTable,
   getSelectedIpForHost,
   setReportRequestFailureCallback,
   testDomainSpeed,
@@ -297,7 +298,13 @@ class ServiceIpTable extends ServiceBase {
         info: `[IpTable] Fetching remote config from: ${IP_TABLE_CDN_URL}`,
       });
 
-      const plainAxios = axios.create();
+      // Fetch the config through the IP-Table-capable client: the config CDN
+      // (config.onekeycn.com) shares the walled root domain, so this fetch
+      // needs the same fail-open protection as business traffic. No cycle:
+      // endpoint selection only reads the local simpleDb/builtin table.
+      const plainAxios = createAxiosWithIpTable({
+        timeout: IP_TABLE_CDN_FETCH_TIMEOUT_MS,
+      });
 
       const headers = await getRequestHeaders();
 
