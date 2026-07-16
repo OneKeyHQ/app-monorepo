@@ -9,12 +9,15 @@ const {
 } = require('./development/scripts/compile-route-path-config');
 const {
   ensureRoutePathConfig,
+  shouldWatchRoutePathConfig,
   watchRoutePathConfig,
 } = require('./development/scripts/ensure-route-path-config');
 
 module.exports = async () => {
   ensureRoutePathConfig(routePathConfigTargets);
-  watchRoutePathConfig(routePathConfigTargets);
+  if (shouldWatchRoutePathConfig()) {
+    watchRoutePathConfig(routePathConfigTargets);
+  }
   const { stdout } = await exec('yarn config get cacheFolder');
   const cacheDirectory = stdout.trim().replace('\n', '');
   return {

@@ -19,8 +19,9 @@ describe('BotWallet CI gate script', () => {
     );
     expect(rootPackageJson.scripts['ci:gate']).toBe(
       [
+        'yarn routes:generate',
         'yarn lint:staged',
-        'yarn tsc:staged',
+        'yarn tsc:staged:no-routes',
         'yarn test:unit',
         'bash apps/cli/scripts/audit-persistence-fields.sh',
         'yarn test:integration:cli',

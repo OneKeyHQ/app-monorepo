@@ -32,6 +32,7 @@ jobs:
   unittest:
     name: Unit Tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
