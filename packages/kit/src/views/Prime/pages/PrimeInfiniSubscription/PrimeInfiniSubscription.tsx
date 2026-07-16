@@ -229,7 +229,7 @@ export default function PrimeInfiniSubscription() {
   // useDebouncedCallback always invokes the latest render's closure, so no
   // dependency array is needed.
   const handleRenewNow = useDebouncedCallback(
-    (currentSubscription: IPrimeInfiniSubscription) => {
+    async (currentSubscription: IPrimeInfiniSubscription) => {
       // Normalized defensively: the raw server enum is unconfirmed
       // (integration plan §11-3) and must not misclassify the plan
       const plan = normalizeInfiniSubscriptionPlan(currentSubscription.plan);
@@ -246,10 +246,22 @@ export default function PrimeInfiniSubscription() {
           paymentMethod: 'crypto',
         });
         // System browser required for wallet-app / Binance Pay deep links
-        // (integration plan §8)
+        // (integration plan §8). Opened before the baseline fetch below so
+        // the web popup blocker still sees a direct user gesture; the
+        // waiting dialog offers a manual reopen affordance either way.
         openUrlUtils.openUrlExternal(latestInvoiceUrl, {
           useSystemBrowser: true,
         });
+        // Same staleness rule as purchaseByCrypto: the merged-expiry baseline
+        // must come from fresh server truth, not the render-time atom
+        // snapshot — another channel renewed elsewhere (webhook landed while
+        // the app was backgrounded) would leave the snapshot low and make the
+        // dialog's first poll report success before any payment. On fetch
+        // failure fall back to the snapshot, never worse than trusting it.
+        const baselinePrimeSubscription = await backgroundApiProxy.servicePrime
+          .apiFetchPrimeUserInfo()
+          .then((userInfo) => userInfo.primeSubscription)
+          .catch(() => primeUserInfo.primeSubscription);
         showPrimeInfiniWaitingDialog({
           plan,
           checkoutUrl: latestInvoiceUrl,
@@ -262,7 +274,7 @@ export default function PrimeInfiniSubscription() {
           renewalBaselineExpiresAt:
             Math.max(
               currentSubscription.currentPeriodEnd ?? 0,
-              primeUserInfo.primeSubscription?.expiresAt ?? 0,
+              baselinePrimeSubscription?.expiresAt ?? 0,
             ) || undefined,
           // For those same dual-channel users the merged expiry may also
           // never move after the invoice is paid (only the shorter Infini

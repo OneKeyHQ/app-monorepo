@@ -4,7 +4,10 @@ import type {
   IPrimeInfiniSubscriptionPlan,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
-const CANCELED_STATUSES = new Set(['canceled', 'cancelled']);
+// 'expired' counts as renewal-stopped too: an expired subscription must not
+// offer "Cancel renewal" nor promise a next invoice, even if the server left
+// willRenew unset or stale (schema pending confirmation, integration plan §11)
+const RENEWAL_STOPPED_STATUSES = new Set(['canceled', 'cancelled', 'expired']);
 
 // The server plan enum is unconfirmed (integration plan §11-3): the yearly
 // value may arrive as 'annual'. Normalize defensively so an unknown raw value
@@ -40,7 +43,7 @@ export function isInfiniSubscriptionInPeriod(
   return subscription.status.toLowerCase() === 'active';
 }
 
-// Whether renewal invoices have stopped: either explicitly canceled or the
+// Whether renewal invoices have stopped: explicitly canceled, expired, or the
 // server reports willRenew=false. Infini has no auto-charge, so "renew" only
 // means "keep generating renewal invoices" (integration plan §6)
 export function isInfiniSubscriptionRenewalStopped(
@@ -49,5 +52,5 @@ export function isInfiniSubscriptionRenewalStopped(
   if (subscription.willRenew === false) {
     return true;
   }
-  return CANCELED_STATUSES.has(subscription.status.toLowerCase());
+  return RENEWAL_STOPPED_STATUSES.has(subscription.status.toLowerCase());
 }
