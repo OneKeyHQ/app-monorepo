@@ -685,3 +685,314 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - 编译、测试和 commit gate 全部通过。
 - 给出修改文件清单、每项根因与修复原因、验证设备/API Level 或 iOS 版本、截图/录屏路径、剩余差异和性能结果。
 - 完成后先展示跨平台对比证据和验证报告，不要自动提交或推送，等待用户确认。
+
+## 2026-07-14 Spot 列表项与 Footer 对齐
+
+### 原版行为基准
+
+- 普通 Token、Market 和 Earn 行以原版 `ListItem` 为准：内容左右边距 20、Token 图标 40、实际行高 56、无可见分割线。
+- 可点击行的命中区域覆盖整行；按压时只在左右各缩进 8 的 12 圆角区域显示 `bgActive`，不能只高亮文字或图片。
+- `Show more` / `Show less` 是当前列表的展开与收起动作，不显示箭头。
+- Market 底部的 `View more ›` 是跳转动作；Earn 标题右侧的 `View more ›` 也是跳转动作，两者不能复用列表展开状态。
+- Spot Token 折叠且超过默认数量时，只显示 `Show more`，不提前显示 footer。
+- 展开后顺序必须是：全部可见 Token、Low-value assets、Collapsed risk assets、`Can't find your token? Add token →`、`Show less`。
+- `Can't find your token? Add token →` 只在存在可见 Token 且 `manageTokenEnabled` 为真时出现，点击复用原版 `useManageToken().handleOnManageToken()`。
+
+### 数据和文案边界
+
+- **Runtime scope：main。** `Show more`、`Show less`、`View more`、Add token instruction/label、Low-value/risk 文案都由 main JS 使用 `ETranslations` 格式化后注入 snapshot；Native 不保存英文默认文案。
+- **Runtime scope：bg。** Token、small-balance 和 risk 数据仍由现有 bg service/proxy 独立获取；bg 不持有列表展开状态，也不参与按压或滚动帧。
+- **Native resource ownership：per view。** iOS `UITableViewCell` 和 Android `RecyclerView.ViewHolder` 各自持有瞬时 pressed/hover 状态；没有新增进程级 UI singleton。
+- **JS heap copies：** main 与 bg 的 JS heap 仍隔离。Native Home snapshot 只在 main 生成并序列化给 Native；不会为按压态或展开动画在 bg 再复制一份 UI 状态。
+- **Timing/order：** bg 与 main 独立初始化；loading/empty snapshot 返回时不得显示 Add token footer。数据到达后使用现有 revision/patch 更新，不能假设 bg 已先于 main ready。
+
+### 本轮实现和验证
+
+- JS adapter 新增独立 `addToken` renderer，并将三类文案和 footer 显示条件写入 snapshot；未修改生成翻译文件。
+- iOS/Android 行高、内容边距、无分割线、全行点击和 inset pressed/hover 背景已经按原版对齐。
+- iOS Debug simulator app 已重新 Native build，并用覆盖安装验证；安装前后 App Data 均为 `31452 KB / 497 files`，未执行 uninstall/reinstall/clear。
+- `nativeHomeDataAdapters.test.ts`：8/8 通过；`HomeContainerController.test.ts`：7/7 通过。
+- Android Native module 使用 Java 17 执行 `:onekeyhq_native-components:compileDebugKotlin`，构建通过。
+- 待人工录屏确认：长按 Token 行时背景色、展开后完整 footer 的逐项视觉，以及 Add token 弹窗入口。自动化坐标手势会把列表 pan 误判为行点击，不能把该自动化结果当作交互通过证据。
+
+## 2026-07-15 Market 分类选择器与 View more 对齐
+
+### 原版结构和交互基准
+
+- Market 分类必须复用原版 `PopularTrading` 的 `CategorySelector` 语义，不能写死为星标、Trending、Stocks 三段静态文字。
+- 分类来源顺序为：Watchlist/Favorites、服务端 `homeTab` Spot 分类，以及配置支持时追加 Perps Hot。服务端没有 Spot 分类时才使用原版 fallback categories。
+- 选择器总高 48：内容上下各 8、按钮高 32、按钮间距 4、水平内容边距 20。按钮使用 16 号 medium 文本，选中态为 `bgActive` 胶囊，未选中态透明并使用 subdued 文本/图标色。
+- Favorites 是仅图标按钮，使用 Star outline；选择后星标胶囊高亮。Trending、Stocks、Perps 等分类点击后应立即切换选中胶囊；main 只重算 Market 数据，现有 transport 发送 portfolio tab 的 atomic sections patch，不发送全量 Home snapshot。
+- Market 底部 `View more ›` 是全宽 secondary pill，点击目的地取决于当前分类：Favorites 跳 Watchlist，Spot 分类跳对应 Market category，Perps Hot 跳 Perps/Hot。
+- Earn 标题右侧 `View more ›` 是 small tertiary header action，点击进入 Earn Home。它与 Market footer 的外观、位置和目的地均不同。
+
+### 数据与运行时边界
+
+- **Runtime scope：main。** 当前 Market 分类 ID、分类列表、选中态、Market snapshot 和导航 action 都由 main UI JS runtime 持有；切换分类通过现有 controller 生成 portfolio tab 的 atomic sections patch，不重建 `HomeContainer` 或发送全量 snapshot。
+- **Runtime scope：bg。** Watchlist、Market basic config、Spot category、Perps Hot 和 Earn 数据继续通过现有 `backgroundApiProxy` 请求；bg 不持有选中态，也不参与按钮按压/hover/滚动帧。
+- **Native resource ownership：per view。** iOS `HomeContainerMarketSegmentButton` 与 Android Market segment view 只持有当前 cell/view 的 pressed、hover 和 selected 视觉状态；没有新增共享 Native singleton。
+- **JS heap copies：** main 与 bg JS heap 相互隔离。Market service 返回值在调用方 runtime 独立反序列化；Native 只收到 main 生成的轻量 segment/token snapshot，不共享 bg JS 对象。
+- **Timing/order：** main 与 bg 独立初始化。配置或分类数据晚到时，main 使用可解析的第一项作为临时 selection；服务端分类到达后再用 monotonic revision patch 更新，不能假设 bg 已在首页首帧前 ready。
+
+### 实现和验证证据
+
+- `HomeContainer` schema 新增 `segments`，Swift/Kotlin model 均解析 `id/title/icon/selected/actionId`；分类按钮具备整项点击、pressed/hover 和 accessibility label。
+- iOS Debug 在 iPhone 17 Pro / iOS 26.5 simulator 完成全量 Native build，并使用 `simctl install` 覆盖安装；安装前后 App Data 均为 `35008 KB / 672 files`，未执行 uninstall/reinstall/clear。
+- Trending 的真实点击已经使胶囊选中并加载 Trending token 数据。Nitro 子树当前未出现在 accessibility snapshot，因此该次点击使用坐标；坐标验证不能替代后续 Android 语义节点验证。
+- iOS 对比截图：`.tmp/ui/native-home-market-stable.png`（Favorites 选中）、`.tmp/ui/native-home-market-trending-2.png`（Trending 选中并加载数据）、`.tmp/ui/native-home-stable-with-defi.png`（Market 与 Earn header action 同屏）。
+- TypeScript、Swift parse、Android `:onekeyhq_native-components:compileDebugKotlin` 和 iOS full build 均已通过；`HomeContainerController.test.ts` 覆盖 segment selected 状态在 atomic patch 中不丢失。
+- Android 后续必须验证：Favorites/Trending/Stocks/Perps 连续点击、暗色模式、RTL、横向超宽分类滚动、点击后仅 Market section 更新，以及两类 View more 的真实路由。
+
+## 2026-07-15 Market 分类切换与行样式遗留
+
+### 新增问题
+
+1. **P0：Favorites / Trending / Stocks / Perps 切换时列表剧烈抖动。** 当前分类请求开始时会把旧 rows 立即清空，随后 Native diff 再插入新 rows；iOS diffable table 与 Android `ListAdapter` 都可能对 Market section 的删除/插入播放结构动画，导致 Market 以下的 Earn/Support 内容上下跳动。验收要求是选择胶囊立即切换，Market 内容在固定高度 loading/旧内容过渡后原位更新，外层 content offset、Earn 位置和 Header/Tab 均不得跳动。
+2. **P0：Market 行缺少左侧收藏按钮。** 原版 `RichTable` 每个 Market row 左侧都有独立 Star 按钮；Favorites 中为实心星，其他分类按 watchlist 状态显示实心/空心星，并可直接增删收藏。Star 点击不能触发行导航，整行其他区域仍进入原版 Market token/Perps 目的地。
+3. **P1：长文本截断规则不一致。** 原版 title/subtitle/value/detail 均为单行尾部省略；左侧 identity 区必须在右侧价格列之前收缩，不能把 subtitle 截成硬切、覆盖右侧列或让 badge/market cap 漂移。Stocks 等长名称需保持 token symbol、subtitle 和右侧价格对齐。
+4. **P1：Stocks 图标与原版不一致。** Stocks 行必须使用服务端 token `logoUrl`，同时保留右下角 network badge；图片加载失败时才使用原版 identity fallback，不能常态显示首字母圆形占位。Stocks symbol 中的 Ondo/stock 标记属于文本/徽标语义，不得替代 token logo。
+
+### 修复边界与验证要求
+
+- **Runtime scope：main。** 分类选中态、watchlist pressed action、loading/previous rows view model 和文本截断字段由 main UI runtime 生成；分类切换只触发 portfolio tab atomic patch，不重建 `HomeContainer`。
+- **Runtime scope：bg。** Market category、watchlist 增删与 token logo 数据继续由现有 Market service 通过 background proxy 提供。每次请求必须带 category/request identity，较旧分类结果不能覆盖新选择。
+- **Native resource ownership：per view。** iOS/Android row 持有瞬时 pressed/hover、图片请求和布局状态；图片 cache 仍是进程级共享 Native 资源，但 represented URL 与取消句柄属于具体 cell/view，不能串图。
+- **JS heap copies：** main 与 bg JS heap 隔离；watchlist/category/token 数据通过 proxy 序列化为 main 副本，再生成轻量 Native snapshot。Native 不读取 bg JS 对象。
+- **Timing/order：** main 可先切换 selected category，bg 数据随后返回。过渡期必须保持 Market section 稳定高度并拒绝 stale result；不能用清空 rows 作为 loading 状态。
+- iOS/Android 都要录制连续 `Star → Trending → Stocks → Perps → Star` 切换，确认无高度跳变、无插入/删除行动画、外层滚动位置不变。
+- 分别验证空心/实心 Star 的点击、hover/press、事件隔离和 watchlist 数据刷新。
+- 使用超长 Stock symbol/name 与失败图片 URL 验证尾部省略、真实 logo、network badge 和 fallback；Light/Dark 均需截图。
+
+### 2026-07-15 当前实现状态
+
+- 分类请求现在携带 request identity；旧分类结果不能覆盖当前 selection。数据等待期间使用一条不可见、固定为三行 Market row 加一行 `View more` 的占位，避免原先 `3/4 rows -> 0 rows -> 3/4 rows` 引起的 content-size 抖动。iOS diffable update 保持 `animatingDifferences: false`，Android 继续禁用 item animator。
+- Market row schema 已加入 `favorite`、`favoriteActionId`、`favoriteLabel`。iOS 与 Android 都渲染独立 Star 命中区，Star 点击只执行 watchlist 增删，不能冒泡到 token row 导航；spot/perps 的原版 add/remove、日志与 watchlist refresh 链路由 main 调用 bg service proxy。
+- Market identity schema 已加入 `imageUrls` 候选链。iOS/Android 都先加载 `logoUrl`，失败后依次尝试 `logoUrls`；每个复用 cell/view 保存自己的 represented signature 并取消旧请求，避免快速分类切换时串图。网络 badge 仍由 main 查询 network logo 后单独注入。
+- iOS 与 Android 的 title/subtitle/subtitleDetail/value/detail 均限制为单行尾部省略；左侧 identity 区优先压缩，右侧价格列保持对齐。Stocks 不再以首字母圆形作为常态图标，仅在所有服务端图片候选均失败时显示 fallback。
+- 聚焦 Jest：`HomeContainerController.test.ts`、`nativeHomeDataAdapters.test.ts`、`PopularTrading/utils.test.ts` 共 17/17 通过。Swift parse、Android Java 17 `:onekeyhq_native-components:compileDebugKotlin`、iOS iPhone 17 Pro / iOS 26.5 Debug full build 均通过。
+- iOS 已使用 `simctl install` 覆盖安装签名构建；App Data 安装前后均为 `36736 KB / 761 files`，未执行 uninstall/reinstall/clear。应用已正常启动。
+- **尚未判定交互验收通过：** 当前 `agent-device` 从 Market/Token row 发起坐标 pan 时会误触 row 详情，无法用这条自动化证据证明连续分类切换无抖动、Star 事件隔离及 hover/press。后续必须使用真实触摸或可靠语义节点录制 `Star -> Trending -> Stocks -> Perps -> Star`，并补 Light/Dark 的长文本、Stock logo/network badge 截图；元素存在或单帧截图不算通过。
+
+## 2026-07-15 Perps Token 图标与原版兜底
+
+### 根因和原版基准
+
+- 原版 Perps holding 使用 `getHyperliquidTokenImageUrl(symbol)`，例如 USDC 对应 `https://uni.onekey-asset.com/static/hyperliquid/USDC.png`；Native Home adapter 此前没有注入 `imageUrl`，因此 Native 永远进入兜底分支。
+- 原版 `Token` 组件的最终兜底不是首字母圆形，而是 `$gray5` 圆形背景上的 `$iconSubdued` `CryptoCoinOutline`。iOS/Android Native cell 此前把 title 首字母作为所有未知图片的统一兜底，所以显示了错误的 `U`。
+
+### 当前实现和运行时边界
+
+- main runtime 在构造 Perps holding/position snapshot 时注入同一套 Hyperliquid token URL；Native image loader 负责异步加载、缓存和 cell/view 复用取消。bg runtime、Perps service 和持久化数据均未修改。
+- iOS/Android 对 `portfolio/perps/market/earn` token-like renderer 使用 CryptoCoin 语义兜底：Light 为 `#e0e0e0`，Dark 为 `#313131`，图标色继续取 main snapshot 的 subdued icon theme。远程图成功后覆盖兜底；URL 为空、全部候选失败或离线时兜底保持可见。
+- **Runtime scope：main。** URL 只在 main 的 adapter 中计算并序列化一次；bg 不生成 UI URL，也不持有 cell 状态。
+- **Native resource ownership：process shared + per view。** 图片 cache/loader 是进程级 Native 共享资源；represented signature、请求取消句柄和最终 fallback bitmap/image 属于具体 iOS cell 或 Android view。
+- **JS heap copies：** 没有新增 bg JS 副本；main snapshot 只新增一个短 URL 字符串。Native fallback 不经过 JS bridge。
+- **Timing/order：** main 与 bg 仍独立初始化。Native 会先同步呈现 fallback，再异步替换真实图片；旧请求回调必须通过 represented signature 校验，不能覆盖复用后的新行。
+
+### 验证状态
+
+- `nativeHomeDataAdapters.test.ts` 8/8 通过，并断言 USDC/BTC URL 与原版路径一致。
+- Swift parse 通过；Android Java 17 `:onekeyhq_native-components:compileDebugKotlin` 通过；iOS iPhone 17 Pro / iOS 26.5 Debug full build 通过；`git diff --check` 通过。
+- iOS 已用 `simctl install` 覆盖安装并启动；安装前后 App Data 均为 `37640 KB / 762 files`，未执行 uninstall/reinstall/clear。正常网络下 Perps holding 已实际显示 USDC 原版图片，证据为 `.tmp/ui/native-home-perps-icon-after.png`。
+- 仍需验证两种降级态：断网显示 CryptoCoin fallback，以及快速切 Tab 后无串图。还需补 Dark mode 背景截图；单纯看到正常网络图片存在不能覆盖这些降级验收。
+
+## 2026-07-15 Market 收藏空态、Star 比例与分类预取
+
+### 原版行为与本轮根因
+
+- Favorites/Watchlist 为空时，原版 `PopularTrading` 不展示空白：读取 Market basic config 的 `recommendTokens`，解析前 4 个推荐 Token，并提供“添加 N 个代币”的批量关注入口。Native supplemental 此前只读取 watchlist，空数组直接生成空 Market section，因此用户看到只有分类条、没有内容。
+- 原版分类 Star 使用固定 18pt `StarOutline`，行内 Star 使用固定 20pt 图标并放在 32×40 命中区；Native 此前依赖 SF Symbol/Unicode glyph 默认大小，导致图形本体偏大，视觉间距也随字体度量漂移。
+- 原版 JSX 首次点击分类时按需请求；Native 直接复用这个单分类 hook 后，未命中的 Stocks/Perps 会经历 `selected -> empty/loading -> rows`。固定高度 loading 只能避免下方 section 跳动，不能实现秒切。
+
+### 当前实现
+
+- Favorites 为空时复用原版 `fetchMarketBasicConfig().data.recommendTokens` 与 `fetchMarketTokenListBatch()`，推荐 Token 注入同一套 Native Market row；Market section header 同时注入本地化“添加 N 个代币”动作，批量写入 watchlist、记录原版 Recommend analytics、发出 watchlist refresh。没有修改生成翻译文件。
+- iOS 行内 Star 固定为 20pt、分类 Star 固定为 18pt；Android 行内/分类 Star 同步固定为 20sp/18sp，保留原版 32×40 行命中区和 32 高分类胶囊，点击语义不变。
+- `useHomeMarketCategoryTokens` 以 `categoryId + minLiquidity` 为 key 建立 main-runtime 30 秒缓存和 in-flight 去重。Market basic config 到达后立即并行预取当前可见的所有 Spot/Perps 分类；watchlist 和空收藏推荐也在首个 committed render 后开始 warm-up，不再等待首页原有 1.2 秒 deferred gate。点击已预取分类直接从 main cache 生成 atomic section patch，后台轮询/主动刷新再更新缓存；Earn 与其他 supplemental widget 仍保留 deferred gate。
+- 收藏请求的初始 request identity 改为 `initial`，不能再把“尚未请求”误判为“当前分类已成功返回空数组”。这也是此前 Favorites/Earn 附近出现大片空白时 Market 空态没有 loading 的直接原因之一。
+
+### 运行时与所有权
+
+- **Runtime scope：main。** 分类 cache、in-flight 去重、当前 selection、推荐列表和 Native snapshot 都属于 main UI runtime；分类点击不向 Native 高频回传手势数据。
+- **Runtime scope：bg。** basic config、Spot/Perps 分类、watchlist 读写仍由 bg service proxy 提供；bg 不持有 main 的分类 cache 或选中态。
+- **Native resource ownership：per view。** Star 的 pressed/hover 与 accessibility target 属于具体 iOS cell/button 或 Android item/segment view；图片 cache 仍是进程共享 Native 资源。
+- **JS heap copies：** main 与 bg heap 隔离；service 返回值在 main 反序列化后进入轻量 cache，再生成 Native snapshot。bg 不共享推荐 Token JS 对象。
+- **Timing/order：** main/bg 独立初始化。Market warm-up 在分类配置可用后立即启动；相同 request key 共享一个 in-flight Promise，旧 selection 的完成结果只写自身 cache，不能覆盖当前分类。Network 请求仍由 bg service 执行；main 只在响应返回后反序列化每个分类的轻量首页行，并且未选分类不会生成 Native patch。
+
+### 验证状态与待人工验收
+
+- 相关 TypeScript 文件 ESLint 通过；聚焦 Jest 17/17 通过；Swift parse 通过；Android Java 17 `:onekeyhq_native-components:compileDebugKotlin` 通过；`git diff --check` 通过。
+- `packages/kit` 全量 typecheck 仍被工作区已有的 DeFi、TradingView、Navigator、Firmware、MarketBanner、ReferFriends、Swap Header 错误阻断；本轮文件没有新增 TypeScript 报错。
+- 尚需新构建后的真实交互证据：空 Favorites 是否显示 4 个推荐项与本地化批量关注动作；批量关注后是否无空窗切换为实心 Favorites；冷启动等待预取后连续 `Star -> Trending -> Stocks -> Perps -> Star` 是否每次首帧就有正确行；Light/Dark 下 18/20pt Star 比例与原版截图是否一致。单帧元素存在不能判定“秒切”通过。
+
+## 2026-07-15 Market 行逐像素审计：Star、Token、Badge、字体和 View more
+
+### 原版源码基准（不是截图估值）
+
+- 原版行来自 `PopularTrading/metricColumns.tsx`、`MarketCategoryTokenList.tsx`、`TokenIdentityItem.tsx` 与共享 `Token.tsx`。移动端 `RichTable` 行高估算为 56，行外边距 8、行内水平 padding 12，因此可见内容从页面 x=20 开始。
+- 行内收藏按钮是 `IconButton size="small"`：命中 frame 为 28×28，内部 `StarOutline/StarSolid` 为 **20×20**，使用 OneKey 自有 24×24 SVG path。它不是 SF Symbol，也不是 Unicode `☆/★`；两者即使 nominal size 同为 20，轮廓比例和 baseline 也不同。
+- 行内横向几何为：Star frame x=20..48，随后 8 间距，Token x=56..88（**32×32**），再 12 间距，文字从 x=100 开始。当前 Native 的 40×40 Token、32×40 Star 区和系统 glyph 导致 icon、title 和右侧金额整体错位。
+- `Token size="md"` 的主图是 **32×32**。链图本体是 **16×16**，外层有 2pt `bgApp` 圆形 padding，外层总尺寸 20×20，并相对主图 `right=-4 / bottom=-4`。当前 iOS 只有 16pt 裸图、Android 还把 badge 裁在主图圆形内，均不等价。
+- 标题与右侧价格使用 `$bodyLgMedium`：Roobert Medium 16 / line-height 24；第二行 volume 和涨跌使用 `$bodyMd`：Roobert Regular 14 / line-height 20。标题必须单行 tail ellipsis，左列先收缩，右侧价格列保持完整。
+- 普通 Spot 第二行只显示格式化 `volume24h`，不显示 `token.name`。只有 Stock `subtitle` 或 Perps localized subtitle 才出现在 volume 前。Native 把 `token.name` 无条件放进 subtitle，直接造成 BTC 金额被挤掉、CASHCAT 出现多余 `...`。
+- 标题徽标顺序必须与 `TokenIdentityItem` 一致：symbol → leverage badge → stock source logo → `BadgeRecognizedSolid`。community badge 为 OneKey 自有 path、**16×16**、success 色；不能用文字或系统 badge 替代。
+- 分类条内容 padding 为水平 20、垂直 8，item gap 4，item 高 32；分类文案是 Roobert Medium **14**，分类 Star 为原版 path **18×18**。当前 Native 分类文案 16 且仍用 SF/Unicode star。
+- Market footer 的 `View more ›` 来自默认 medium secondary `Button`：可见 pill 高 **36**（6+24+6），文字 Roobert Medium 16，chevron 是 `ChevronRightSmallOutline` 20，外层顶部间距 12，总占高约 48。当前 Native pill 高 44、圆角 22，并把 chevron 拼进字符串，明显更厚且字距不一致。
+
+### 本轮根因和修复目标
+
+1. iOS `UIImage(systemName: "star")` 与 Android Unicode star 必须替换成同一份 OneKey Star path；分类和行内分别按 18/20 渲染，命中区仍保持可访问性与独立收藏事件。
+2. Market row 需要 renderer-specific 几何，不能继续复用其他 Token/DeFi 行的 40pt icon 约束；只把 Market icon 改为 32，其他 renderer 保持原有尺寸。
+3. 链徽标必须放到独立 20pt badge container，2pt 背景圈后渲染 16pt network image，并允许越过主图边界；cell/view 复用时仍要校验 represented URL 并取消旧请求。
+4. Native schema 需要显式携带 `communityRecognized` 与 stock source logo；Native title row 按原版顺序渲染 recognized、stock、leverage，避免把这些语义压进 title 字符串。
+5. JS Market adapter 只在 stock/perps 时注入 subtitle，volume 单独注入 `subtitleDetail`；这会同时修复 BTC 缺金额和 CASHCAT 多余三个点。
+6. Market cell、分类条和 View more 改用 App 已打包的 Roobert Regular/Medium；iOS font 不可用时才回退 system，Android 从 `assets/fonts` 读取并缓存 Typeface。
+7. View more 使用独立 label + chevron icon 布局，不再用 `"title  ›"` 字符串模拟；可见高度、圆角与原版 Button 对齐。
+
+### 运行时边界和验证约束
+
+- **Runtime scope：main。** Market subtitle/badge/source-logo/view-more 文案均由 main JS 生成轻量 snapshot；本轮不修改 bg Market 服务或持久化。
+- **Native resource ownership：process shared + per view。** 字体与图片 cache 是进程共享 Native 资源；Star/recognized vector、约束、represented URL、按压态属于具体 cell/view。
+- **JS heap copies：** bg 返回的 Market DTO 在 main 单独反序列化；新增字段只存在 main snapshot 和 Native decoded model，不共享 JS 对象。
+- **Timing/order：** main 可先显示缓存分类，bg 独立刷新；图片/徽标异步回调必须核对复用 identity。分类预取和本轮视觉修复不能假设 bg 已 ready。
+- Readiness 脚本当前被共享工作区已有的 `SwapHeaderContainer.tsx` / `SwapHeaderRightActionContainer.tsx` 未提交改动阻断；diff 已确认属于 Swap header、与 Native Home Market 无依赖交叉。本轮不得回滚或混入这两处改动。
+- 验收必须同时截图 Favorites/Trending/Stocks/Perps：核对 Star path、32pt token、链 badge 背景圈、community/stock/leverage 徽标、长文本 tail ellipsis、BTC volume、CASHCAT 无多余 `...`，以及 36pt View more。只通过编译或只看到一张分类截图均不算完成。
+
+## 2026-07-16 iOS Release 冷启动崩溃修复
+
+### 崩溃证据与根因
+
+- 最新崩溃报告为 `~/Library/Logs/DiagnosticReports/OneKeyWallet-2026-07-16-000045.ips`。控制台直接错误是 `RCTFatalException: No script URL provided`，调用栈进入 `RCTInstance handleBundleLoadingError`，不是 Market DTO、Native Home cell 或钱包数据库异常。
+- 标准 main/bg Release 增量构建目录残留了 7 月 9 日 union build 的 `common.bundle`。Native 启动选择器检测到它后按 split bundle 启动 main，但同目录的 `main.jsbundle` 已是完整单 bundle，先产生模块 ID 冲突。
+- 移除陈旧 `common.bundle` 后暴露第二个问题：`AppDelegate` 仍按 split bundle 约定给 background runner 传空 `entryURL`。background React Host 在后续 loader 接管前就因没有 script URL 调用 `RCTFatal`，因此应用一启动即退出。
+
+### 修复和防复发
+
+- `AppDelegate.backgroundBundleEntryURL()` 在 embedded fallback 下返回完整 `background.bundle` 文件 URL。Release host 启动时只有 `initialBundleKind == .common` 才走空 entry 的 split 模式；完整 main single-bundle 模式直接把 background bundle URL 交给 background runner。
+- Xcode 标准非-union Release build phase 现在会先删除增量 Product 目录里的 `common.bundle`、`module-id-map.json`、`segments/` 和 `segments-background/`，避免旧 union artifact 让下一次构建再次误选 split 启动路径。main/background bundle 本身不会被删除。
+
+### 运行时与资源边界
+
+- **Runtime scope：main + bg。** 崩溃发生在 bg React Host 创建阶段；main 已开始启动，但进程被 bg 的 `RCTFatal` 一并终止。Market 首页视图和 DTO 只属于 main，不是本次根因。
+- **Native resource ownership：shared native process resources。** MMKV、文件和原生 runner 位于同一进程，可由两个 runtime 触达；本轮只修正 runner 的 bundle URL 和构建产物选择，没有清理或迁移存储。
+- **JS heap copies：per runtime。** main 与 bg 各自创建 Hermes/React JS heap，并分别加载完整 main/background bundle；对象和模块状态不共享，各 runtime 独立反序列化自身数据。
+- **Timing/order：independent startup.** main host ready 不代表 bg 已 ready。bg 必须在创建 React Host 时就获得合法 bundle URL，不能依赖稍后的 background entry loader 补救空 URL。
+
+### 验证结果
+
+- `AppDelegate.swift` 通过 `swiftc -parse`；Xcode project 通过 `plutil -lint`；两处文件 `git diff --check` 通过。
+- iPhone 17 Pro / iOS 26.5 simulator 的 Release main+bg 构建成功，并使用 `simctl install` 覆盖安装；未执行 uninstall、reinstall 或 clear，安装前后数据文件计数均为 2052，后续新增数量来自启动日志/cache。
+- 00:16 冷启动日志明确显示 `backgroundBundleEntryURL ... fallback=file://.../background.bundle`、`start background runner in single-bundle mode`、`SharedStore and SharedRPC installed in background runtime`；随后 `BgTransport ... transportState=ready` 和持续 BgRPC 调用正常。
+- 应用进程 PID 54495 持续存活，首页与钱包数据正常渲染；验证截图为 `.tmp/ui/native-home-after-bg-startup-fix.png`。00:16 之后未生成新的 `OneKeyWallet-*.ips` 崩溃报告。
+
+## 2026-07-16 iOS Release Market UI 真机复测
+
+### 复测环境与证据
+
+- 使用 iPhone 17 Pro / iOS 26.5 simulator 上已覆盖安装的 Release main+bg 构建；只执行进程 terminate/launch，没有 uninstall、reinstall 或 clear，钱包数据仍正常。
+- Favorites：`.tmp/ui/handoff-ui-market-favorites-verified.png`。
+- Trending：`.tmp/ui/handoff-ui-market-trending-verified.png`。
+- Stocks：`.tmp/ui/handoff-ui-market-stocks-verified.png`。
+- 所有截图同时保留 402pt 宽的对照副本（文件名追加 `-402`），便于直接核对 handoff 中的 pt 几何。
+
+### 已通过或部分通过
+
+- 空 Favorites 已显示 4 个推荐项与 `Add 4 tokens` header action，不再是空白 section。
+- Favorites、Trending、Stocks 单次点击均能在已有缓存上立即出现对应数据，没有复现 `rows -> empty -> rows` 空窗；但本轮没有四分类连续录屏，不能把“无抖动”判定为完全通过。
+- 分类 Star、行内 Star、32pt token、20pt network badge 外圈和 recognized badge 已实际渲染；Market `View more` 当前可见 pill 高度接近 36pt，并使用独立 chevron。
+- 当前服务端 basic config 没有提供 `perpsCategories.hot`，因此 Native 与原版 `PopularTrading` 相同，只渲染 Favorites/Trending/Stocks；本环境无法完成 Perps 分类截图，不能通过把 Perps 写死到 Native 来伪造验收。
+
+### 未通过与新根因
+
+- **P0：iOS Market 左列仍异常过度收缩。** Favorites 中 `LINK/SHIB/WLFI` 被显示为 `LI.../S.../W...`，Trending 的 `CASHCAT` 被压成 `CA...`，Stocks 的 subtitle 也出现 `A...` / `...`。`HomeContainerItemCell` 只设置 `rightStack.leading >= leftStack.trailing + 8`，没有让 left stack 占满价格列之前的可用宽度；Auto Layout 会保留一段无意义弹性空隙并把低 compression-resistance 的 title/subtitle 压到最小 intrinsic width。应改成确定的相邻约束，同时保留原版 symbol 128pt 与 localized subtitle 66pt 上限。
+- **P1：Trending BTC 当前没有第二行 volume。** 同一截图中 PONS/CASHCAT volume 正常，说明 Native subtitleDetail 行本身可见；需继续区分当前 BTC DTO 的 `volume24h == 0` 与 patch/复用丢字段，不能用占位文案掩盖数据问题。
+- **P1：Stocks 三行仍落到 CryptoCoin fallback。** snapshot 已携带 `logoUrl/logoUrls`，但真机未加载出 AAPL/SLV/CRCL 原版 token logo。需记录实际图片候选和失败原因，确认是服务端候选为空、SVG 过滤差异还是 Native loader/cache 命中问题；只有所有候选真实失败时才允许 fallback。
+- **交互证据限制：** Nitro Market 子树仍不出现在 accessibility snapshot。页面上方 DeFi/Earn 异步数据会改变 Market 的纵向坐标，因此延迟坐标点击会误命中 `Show more`、Earn `View more` 或推荐入口；这些误命中不能作为 Market 路由通过/失败证据。后续需要语义节点或“截图后立即点击”的录制脚本。
+
+### 运行时边界
+
+- **Runtime scope：main。** 分类选中、Market DTO、section patch 与本轮布局结果属于 main UI runtime；bg 只提供 basic config、category/watchlist 数据，不持有选中态。
+- **Native resource ownership：process shared + per view。** 图片/font cache 是进程共享 Native 资源；cell 的 Auto Layout、represented image signature、pressed/hover 和 accessibility target 属于具体 view。
+- **JS heap copies：** Market 响应在 bg 与 main 各自 heap 中独立序列化/反序列化；Native snapshot 是 main 的轻量副本，没有共享 JS 对象。
+- **Timing/order：** main、bg 独立启动。单分类缓存命中不代表图片已经完成异步加载；图片回调仍必须校验 represented signature，分类复测也不能假定 Perps config 一定存在。
+
+## 2026-07-16 交接：后续统一改用 iOS Debug 包做 UI 调试
+
+### 历史 Release 构建问题（已结束，不是当前 crash）
+
+- 01:45:37 的最新启动失败报告为 `~/Library/Logs/DiagnosticReports/OneKeyWallet-2026-07-16-014537.ips`。它不是 Market DTO、Native Home 约束或钱包数据异常，而是进程在 `dyld` 阶段加载 `@rpath/GPChannelSDKCore.framework/GPChannelSDKCore` 失败。
+- 本轮为了绕过本地签名曾使用 `CODE_SIGNING_ALLOWED=NO` 构建 Release。产物检查显示 `OneKeyWallet.app/Frameworks/GPChannelSDKCore.framework: code object is not signed at all`，因此 simulator 在进入 `AppDelegate` 前就以 `DYLD / Library missing` 终止。这个产物不能用于 UI 验收。
+- 覆盖安装前数据容器有 2158 个文件；安装后重新查询仍为 2158 个文件。没有执行 uninstall、reinstall、erase 或 clear，钱包数据没有因这次失败构建被删除。
+- **Runtime scope：main + bg 均未启动。** 崩溃发生在 dyld 装载阶段，main/bg React Host 和两个 Hermes JS heap 都尚未创建；不能把它归因到任一 JS runtime。
+- **Native resource ownership：process shared。** 失败对象是同一 Native 进程加载的动态 framework；它不是 main/bg 各自持有的资源。存储、MMKV/DB 与已持久化钱包数据没有进入本次调用链。
+- **Timing/order：pre-runtime。** 进程在 `AppDelegate` 和 background runner 初始化之前退出，因此现有 Release 冷启动 main/bg bundle 修复仍不能由这个 unsigned artifact 重新验收。
+- **状态更正：当前已经没有 crash。** 上述 dyld 报告只描述一次错误的 unsigned Release 构建产物，不再是待修问题。后续不得继续围绕旧 crash 修改业务或 Native Home 代码。
+
+### 新 session 的构建与安装硬约束
+
+1. 后续 iOS UI 调试统一使用 **Debug** 构建；当前已经没有 crash，不需要再做启动崩溃修复。
+2. 新 session 的固定第一步是从仓库根目录执行 `yarn app:ios`，由标准 Expo/Metro 流程重新构建、更新安装并启动当前分支的 Debug 包。
+3. 不要用自定义 Release `xcodebuild` 替代 `yarn app:ios`，不要传 `CODE_SIGNING_ALLOWED=NO`。严禁 uninstall、reinstall、erase、clear data、删除 app container 或清理钱包数据库。
+4. 只有确认当前运行的是最新 Debug 包、钱包数据仍在、应用稳定且 main/bg 日志都 ready 后，才开始 UI 验收。
+5. 当前 simulator：iPhone 17 Pro / iOS 26.5，UDID `4837E819-A117-4E08-9936-445785D199E3`；bundle id `so.onekey.wallet`；agent-device session 曾使用 `native-home-p0`。
+
+### 尚未完成的 UI 验收与当前源码状态
+
+- 已在 `packages/native-components/ios/HomeContainerView.swift` 把 Market row 的左右列关系从 `rightStack.leading >= leftStack.trailing + 8` 改为确定的相邻约束 `rightStack.leading == leftStack.trailing + 8`，同时保留原版 symbol 128pt 与 localized subtitle 66pt 上限。Swift parse 与 `git diff --check` 已通过，但仍需要在 `yarn app:ios` 更新安装的最新 Debug 包中截图验收，不能提前标记通过。
+- 新 Debug 包首先复测 Favorites：`LINK/SHIB/WLFI/UNI` 不应再显示为 `LI.../S.../W.../...`；再复测 Trending 的 `CASHCAT` 与 Stocks subtitle。若仍过度截断，应从 Auto Layout frame/compression priority 重新分析，不要继续对同一约束做微调猜测。
+- Trending BTC 第二行 volume 仍需区分当前 DTO 的 `volume24h == 0` 与 snapshot/复用丢字段；原版同样只在 volume truthy 时显示，禁止用假占位文本掩盖数据问题。
+- Stocks 的 AAPL/SLV/CRCL 仍显示 CryptoCoin fallback。需要记录 `logoUrl/logoUrls` 的真实候选、格式和 loader 错误，确认服务端候选为空、SVG/格式不支持或缓存/request identity 问题；所有候选真实失败时才允许 fallback。
+- 当前服务端 basic config 没有 `perpsCategories.hot`，所以原版与 Native 都只显示 Favorites/Trending/Stocks。不要为了截图在 Native 写死 Perps；换到提供 hot config 的环境再验收。
+- UI 证据继续使用 `.tmp/ui/handoff-ui-market-favorites-verified.png`、`.tmp/ui/handoff-ui-market-trending-verified.png`、`.tmp/ui/handoff-ui-market-stocks-verified.png` 与各自 `-402` 副本。新 Debug 构建必须生成新的 `after-debug` 截图，不能复用旧 Release 截图宣称通过。
+- Nitro Market 子树仍未进入 accessibility snapshot；坐标会被 DeFi/Earn 异步高度变化影响。截图后延迟点击造成的误命中不算路由证据，优先补语义节点或使用截图后立即执行的短批处理。
+
+### 工作区与提交边界
+
+- 当前分支是 `codex/native-home-container`，交接时 HEAD 为 `120c035707`。工作区包含大量用户/其他任务改动，不能 reset、checkout、clean、stash 或批量提交。
+- Native Home 相关未提交文件包括 handoff、`NativeHomePage.native.tsx`、`useNativeHomeSupplementalData.ts`、iOS/Android HomeContainer model/view、types/tests 等；另外还有与本任务无关的 Discovery、Swap、TradingView、Firmware 等改动，必须保留且不能混入提交。
+- readiness 脚本此前被已有的 `SwapHeaderContainer.tsx` / `SwapHeaderRightActionContainer.tsx` 改动阻断；这不是 Native Home 失败，不得回滚这两处以制造绿色结果。
+
+## 2026-07-16 iOS Debug Market UI 复测与后续提交约定
+
+### Debug 构建、安装与 runtime readiness
+
+- 本轮从仓库根目录执行了唯一允许的标准命令 `yarn app:ios`。命令完成 Debug build、更新安装和启动，结果为 `Build Succeeded`、0 error；没有改用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`。
+- 没有执行 uninstall、reinstall、erase、clear data，也没有删除 simulator app container、钱包数据库或持久化数据。`Account #1`、余额和 Token 数据均正常显示，应用持续存活。
+- Hermes/CDP 实测 page 1 为 `__ONEKEY_RUNTIME_KIND__ = "main"`，`$$onekeyJsReadyAt` 与 `$$onekeyUIVisibleAt` 均存在；main 收到的 background ready payload 为 `runtime=background/status=ready/protocolVersion=1`。page 2 独立报告 `__ONEKEY_RUNTIME_KIND__ = "background"`。main ready 和 bg ready 分别验证，没有把 main ready 当作 bg ready。
+- 本轮开始时实际 HEAD 为 `ed30e0ac66a4483004144a722be4990c4f175825`，不是上一节记录的 `120c035707`；分支仍为 `codex/native-home-container`。
+
+### Market 截图与交互结论
+
+- `rightStack.leading == leftStack.trailing + 8` 已在最新 Debug 包完成真实截图验收。Favorites 的 `LINK`、`SHIB`、`WLFI`、`UNI` 均完整显示，不再出现 `LI...`、`S...`、`W...` 或只剩省略号；空收藏态同时显示 4 个推荐 Token 与 `Add 4 tokens`。
+- 新 Debug 截图：
+  - `.tmp/ui/handoff-ui-market-favorites-after-debug.png` 与 `-402.png`
+  - `.tmp/ui/handoff-ui-market-trending-after-debug.png` 与 `-402.png`
+  - `.tmp/ui/handoff-ui-market-stocks-after-debug.png` 与 `-402.png`
+  - 三张原图均为 1206×2622，对照图均为 402×874。最终交付文件使用 settle 后的系统截图，未使用采集黑块帧作为证据。
+- 连续 `Favorites -> Trending -> Stocks -> Perps -> Favorites` 的纯点击录屏为 `.tmp/ui/handoff-ui-market-category-switches-verified-after-debug.mov`。录屏中各分类首帧直接带行数据，没有观察到 `rows -> empty -> rows`；Market 高度、下方 section 位置与外层 content offset 没有跳动。
+- 当前服务端 basic config 已经提供 `perpsCategories.hot`，与上一轮环境不同。Native 没有写死 Perps；本轮真实显示并切换到 KAITO、VVV、SKHY，因此 Perps 分类已进入连续切换证据。
+- settle 后截图可见约 36pt 的独立 `View more` pill 与独立 chevron。Star 点击事件隔离、pressed/hover、Dark mode 和全部 pt 尺寸仍未在本轮重新完成真实触摸/逐点验收，不能声明整个 Market UI 完成。
+
+### Trending BTC volume 与 CASHCAT
+
+- main 通过 bg proxy 取得的实时 Trending DTO 中，BTC 的 `volume24h` 是字符串 `"-"`。现有 normalize/parse 结果为 falsey，原版和 Native 都应隐藏第二行 volume；这不是 snapshot、section patch 或 cell 复用丢字段，禁止添加假占位。
+- 当前排序前三为 BTC、PONS、SOLdiers；CASHCAT 位于实时响应第 4，而 Native Home 只显示前三行。因此本轮没有真实 UI 行可用于验收 CASHCAT 截断，不能仅凭约束修复推断通过。
+
+### Stocks 图片候选、TLS 失败与 fallback
+
+- Native snapshot 的前三项为 AAPLon、SLVon、CRCLon。每项只有一个 `https://static.oklink.com/.../type=default_90_0?...` 图片候选；`logoUrls` 只是重复同一个 primary URL，去重后不存在第二个真实 fallback 候选。
+- main runtime 对三条精确 URL 的 `fetch` 均返回 `Network request failed`；Apple `URLSession` 对三条 URL 均返回 `NSURLErrorDomain -1200`，即 TLS 在响应头和图片字节到达前失败。因此当前无法确认服务端实际图片格式，不能把格式猜测写成结论。
+- iOS `representedImageSignature` 使用去重后的完整候选 URL 串；三项 URL 各不相同。cell 更新时会取消旧请求，异步回调再次校验 signature。连续分类切换中没有出现缓存串图或旧请求覆盖。
+- 当前三项显示 CryptoCoin fallback 符合“所有真实候选失败后才降级”的约束。真实服务端 logo 成功态、Content-Type/图片格式仍需在 `static.oklink.com` TLS 可用的环境中复测。
+
+### 检查、未完成项与推送约定
+
+- `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 通过。
+- 指定 Native Home 文件的 `git diff --check` 通过。
+- 聚焦 Jest：`HomeContainerController.test.ts`、`nativeHomeDataAdapters.test.ts`、`PopularTrading/utils.test.ts` 共 3 suites / 17 tests 全部通过。
+- 聚焦 ESLint：`HomeContainer.types.ts`、`NativeHomePage.native.tsx`、`useNativeHomeSupplementalData.ts`、`useHomeMarketCategoryTokens.ts`、`PopularTrading/utils.ts` 通过。
+- 提交前已执行 `yarn agent:check --profile commit`。`lint-staged`、`lint-worktree-js` 与 `agent-context` 通过；`lint-worktree-ts` / `tsc-staged` 被共享工作区已有的 ThirdPartyHardware、Discovery、tokenList、Swap、Rspack、DeFi、TradingView、WebView、Navigator、Firmware、ReferFriends 等错误阻断。日志目录为 `node_modules/.cache/agent-checks/2026-07-16T02-03-58-225Z`；本轮只提交 handoff 文档，不得回滚或顺手修复这些无关文件来制造绿色结果。
+- Trade/Swap readiness 仍被共享工作区已有的 `quoteProgress.ts` anchor 与两个 Swap Header dirty files 阻断；不得为本任务修改 reviewed ref 或回滚 Swap 代码。
+- iOS split-runtime 边界保持不变：main 持有 Native Home UI、Market selection/cache/snapshot/section patch；bg 持有 config、category、watchlist 与 service 数据。两侧 Hermes heap、反序列化和初始化相互独立。图片/字体 cache 是进程级共享 Native 资源；constraint、represented signature、请求取消和 pressed/hover 属于 per-view 状态。
+- 仍待真实证据：Stocks logo 成功态与图片格式、CASHCAT 当前行、Star 点击不冒泡、pressed/hover、Dark mode，以及全部样式尺寸逐点复核。未完成这些项前不得宣称“UI 已完成”。
+- **从本节开始，每轮 Native Home 工作结束后都要更新 handoff，并按任务范围单独 commit/push 当前 `codex/native-home-container` 分支。** 只能 stage 本轮 Native Home/handoff 文件；Discovery、Swap、TradingView、Firmware 等无关 dirty files 必须继续保留且不得混入提交。
