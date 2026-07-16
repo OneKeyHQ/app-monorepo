@@ -88,7 +88,10 @@ const INFINI_STATUS_TO_LABEL: Record<string, string> = {
 };
 
 function formatPeriodDate(timestamp: number) {
-  return formatDate(new Date(timestamp), { hideTimeForever: true });
+  // Show the full time down to the second: the billing period end / next
+  // invoice are exact instants, so the user can tell precisely when the
+  // subscription lapses rather than guessing the time on the end date.
+  return formatDate(new Date(timestamp));
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

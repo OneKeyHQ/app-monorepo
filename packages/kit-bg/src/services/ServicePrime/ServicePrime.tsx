@@ -3465,11 +3465,16 @@ class ServicePrime extends ServiceBase {
     plan: IPrimeInfiniSubscriptionPlan;
   }): Promise<{ checkoutUrl: string }> {
     const client = await this.getPrimeClient();
+    // The checkout API's wire enum uses 'annual' for the yearly plan, while
+    // the app models it as 'yearly' everywhere else (IPrimeInfiniSubscriptionPlan);
+    // convert only at this boundary, mirroring normalizeInfiniSubscriptionPlan
+    // which maps 'annual' back to 'yearly' on the read path.
+    const planParam = plan === 'yearly' ? 'annual' : 'monthly';
     // NOTE: response schema pending backend confirmation, assumed { checkoutUrl }
     const result = await client.post<
       IApiClientResponse<{ checkoutUrl: string }>
     >('/prime/v1/infini/checkout', {
-      plan,
+      plan: planParam,
     });
     return result?.data?.data;
   }
