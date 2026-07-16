@@ -60,6 +60,58 @@ function getNativeHomeWatchListContentKey(
     .join('|');
 }
 
+function isNativeHomeWatchListItemForToken(
+  item: IMarketWatchListItemV2,
+  token: IFavoriteTokenDisplay,
+): boolean {
+  if (token.perpsCoin) {
+    return item.perpsCoin === token.perpsCoin;
+  }
+  return equalTokenNoCaseSensitive({
+    token1: {
+      networkId: token.chainId,
+      contractAddress: token.contractAddress,
+    },
+    token2: {
+      networkId: item.chainId,
+      contractAddress: item.contractAddress,
+    },
+  });
+}
+
+function setNativeHomeWatchListTokenFavorite({
+  favorite,
+  items,
+  previousItem,
+  token,
+}: {
+  favorite: boolean;
+  items: IMarketWatchListItemV2[];
+  previousItem?: IMarketWatchListItemV2;
+  token: IFavoriteTokenDisplay;
+}): IMarketWatchListItemV2[] {
+  const filteredItems = items.filter(
+    (item) => !isNativeHomeWatchListItemForToken(item, token),
+  );
+  if (!favorite) return filteredItems;
+
+  const firstSortIndex = filteredItems[0]?.sortIndex ?? 1000;
+  const nextItem: IMarketWatchListItemV2 = token.perpsCoin
+    ? {
+        chainId: '',
+        contractAddress: '',
+        perpsCoin: token.perpsCoin,
+        sortIndex: previousItem?.sortIndex ?? firstSortIndex - 1,
+      }
+    : {
+        chainId: token.chainId,
+        contractAddress: token.contractAddress,
+        isNative: token.isNative,
+        sortIndex: previousItem?.sortIndex ?? firstSortIndex - 1,
+      };
+  return [nextItem, ...filteredItems];
+}
+
 export interface INativeHomeMarketCategory {
   id: string;
   name: string;
@@ -327,28 +379,36 @@ export function useNativeHomeSupplementalData({
     },
   );
 
+  const isCurrentFavoriteMarketResult =
+    favoriteMarket.result?.requestKey === favoriteRequestKey;
+  const hasSettledFavoriteMarketResult =
+    Boolean(favoriteMarket.result) &&
+    favoriteMarket.result?.requestKey !== 'initial';
+
   const market = useMemo(() => {
     if (resolvedMarketCategoryId !== FAVORITES_CATEGORY_ID) {
       return categoryMarket.categoryTokens;
     }
-    return favoriteMarket.result?.requestKey === favoriteRequestKey
+    return favoriteMarket.result &&
+      (isCurrentFavoriteMarketResult || hasSettledFavoriteMarketResult)
       ? favoriteMarket.result.tokens
       : EMPTY_DISPLAY_TOKENS;
   }, [
     categoryMarket.categoryTokens,
     favoriteMarket.result,
-    favoriteRequestKey,
+    hasSettledFavoriteMarketResult,
+    isCurrentFavoriteMarketResult,
     resolvedMarketCategoryId,
   ]);
   const marketLoading =
     !hasCurrentWatchList ||
     (resolvedMarketCategoryId === FAVORITES_CATEGORY_ID
-      ? favoriteMarket.result?.requestKey !== favoriteRequestKey
+      ? !isCurrentFavoriteMarketResult && !hasSettledFavoriteMarketResult
       : categoryMarket.isCategoryLoading);
   const marketIsRecommendation =
     resolvedMarketCategoryId === FAVORITES_CATEGORY_ID &&
-    favoriteMarket.result?.requestKey === favoriteRequestKey &&
-    favoriteMarket.result.isRecommendation;
+    isCurrentFavoriteMarketResult &&
+    favoriteMarket.result?.isRecommendation === true;
   const marketRecommendationTokenIds = useMemo(
     () =>
       marketIsRecommendation
@@ -428,6 +488,12 @@ export function useNativeHomeSupplementalData({
     [market, selectedMarketRecommendationTokenIds],
   );
   const addRecommendedMarketTokensInFlightRef = useRef(false);
+  const marketFavoriteToggleInFlightRef = useRef(new Set<string>());
+  const marketFavoriteRevisionRef = useRef(0);
+  const watchListItemsRef = useRef(watchListItems);
+  useEffect(() => {
+    watchListItemsRef.current = watchListItems;
+  }, [watchListItems]);
   const marketNetworkIds = useMemo(
     () =>
       Array.from(
@@ -461,104 +527,145 @@ export function useNativeHomeSupplementalData({
   );
 
   const isTokenFavorite = useCallback(
-    (record: IFavoriteTokenDisplay) => {
-      if (record.perpsCoin) {
-        return watchListItems.some(
-          (item) => item.perpsCoin === record.perpsCoin,
-        );
-      }
-      return watchListItems.some((item) =>
-        equalTokenNoCaseSensitive({
-          token1: {
-            networkId: record.chainId,
-            contractAddress: record.contractAddress,
-          },
-          token2: {
-            networkId: item.chainId,
-            contractAddress: item.contractAddress,
-          },
-        }),
-      );
-    },
+    (record: IFavoriteTokenDisplay) =>
+      watchListItems.some((item) =>
+        isNativeHomeWatchListItemForToken(item, record),
+      ),
     [watchListItems],
   );
 
   const toggleMarketFavorite = useCallback(
     async (record: IFavoriteTokenDisplay) => {
-      const checked = isTokenFavorite(record);
-      const firstSortIndex = watchListItems[0]?.sortIndex ?? 1000;
-      if (record.perpsCoin) {
-        if (checked) {
+      const tokenKey = getNativeHomeMarketTokenKey(record);
+      if (marketFavoriteToggleInFlightRef.current.has(tokenKey)) return;
+
+      const currentItems = watchListItemsRef.current;
+      const previousItem = currentItems.find((item) =>
+        isNativeHomeWatchListItemForToken(item, record),
+      );
+      const checked = Boolean(previousItem);
+      const optimisticItems = setNativeHomeWatchListTokenFavorite({
+        favorite: !checked,
+        items: currentItems,
+        previousItem,
+        token: record,
+      });
+      marketFavoriteToggleInFlightRef.current.add(tokenKey);
+      marketFavoriteRevisionRef.current += 1;
+      watchListItemsRef.current = optimisticItems;
+      watchList.setResult({
+        requestKey: watchListRequestKey,
+        items: optimisticItems,
+      });
+
+      try {
+        const firstSortIndex = currentItems[0]?.sortIndex ?? 1000;
+        if (record.perpsCoin) {
+          if (checked) {
+            await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+              items: [
+                {
+                  chainId: '',
+                  contractAddress: '',
+                  perpsCoin: record.perpsCoin,
+                },
+              ],
+              callerName: 'NativeHomePage',
+            });
+            void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
+              coin: record.perpsCoin,
+              action: 'remove',
+            });
+          } else {
+            await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+              watchList: [
+                {
+                  chainId: '',
+                  contractAddress: '',
+                  perpsCoin: record.perpsCoin,
+                  sortIndex: firstSortIndex - 1,
+                },
+              ],
+              callerName: 'NativeHomePage',
+            });
+            void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
+              coin: record.perpsCoin,
+              action: 'add',
+            });
+          }
+        } else if (checked) {
           await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
             items: [
               {
-                chainId: '',
-                contractAddress: '',
-                perpsCoin: record.perpsCoin,
+                chainId: record.chainId,
+                contractAddress: record.contractAddress,
               },
             ],
             callerName: 'NativeHomePage',
           });
-          void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
-            coin: record.perpsCoin,
-            action: 'remove',
+          defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
+            network: record.chainId,
+            tokenSymbol: record.symbol || '',
+            tokenContract: record.contractAddress,
+            removeFrom: EWatchlistFrom.Homepage,
           });
         } else {
           await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
             watchList: [
               {
-                chainId: '',
-                contractAddress: '',
-                perpsCoin: record.perpsCoin,
+                chainId: record.chainId,
+                contractAddress: record.contractAddress,
+                isNative: record.isNative,
                 sortIndex: firstSortIndex - 1,
               },
             ],
             callerName: 'NativeHomePage',
           });
-          void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
-            coin: record.perpsCoin,
-            action: 'add',
+          defaultLogger.dex.watchlist.dexAddToWatchlist({
+            network: record.chainId,
+            tokenSymbol: record.symbol || '',
+            tokenContract: record.contractAddress,
+            addFrom: EWatchlistFrom.Homepage,
           });
         }
-      } else if (checked) {
-        await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
-          items: [
-            {
-              chainId: record.chainId,
-              contractAddress: record.contractAddress,
-            },
-          ],
-          callerName: 'NativeHomePage',
+        appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
+      } catch (error) {
+        const rollbackItems = setNativeHomeWatchListTokenFavorite({
+          favorite: checked,
+          items: watchListItemsRef.current,
+          previousItem,
+          token: record,
         });
-        defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
-          network: record.chainId,
-          tokenSymbol: record.symbol || '',
-          tokenContract: record.contractAddress,
-          removeFrom: EWatchlistFrom.Homepage,
+        watchListItemsRef.current = rollbackItems;
+        watchList.setResult({
+          requestKey: watchListRequestKey,
+          items: rollbackItems,
         });
-      } else {
-        await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
-          watchList: [
-            {
-              chainId: record.chainId,
-              contractAddress: record.contractAddress,
-              isNative: record.isNative,
-              sortIndex: firstSortIndex - 1,
-            },
-          ],
-          callerName: 'NativeHomePage',
-        });
-        defaultLogger.dex.watchlist.dexAddToWatchlist({
-          network: record.chainId,
-          tokenSymbol: record.symbol || '',
-          tokenContract: record.contractAddress,
-          addFrom: EWatchlistFrom.Homepage,
-        });
+        throw error;
+      } finally {
+        marketFavoriteToggleInFlightRef.current.delete(tokenKey);
+        if (marketFavoriteToggleInFlightRef.current.size === 0) {
+          const reconcileRevision = marketFavoriteRevisionRef.current;
+          try {
+            const refreshedWatchList =
+              await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
+            if (
+              marketFavoriteToggleInFlightRef.current.size === 0 &&
+              marketFavoriteRevisionRef.current === reconcileRevision
+            ) {
+              watchListItemsRef.current = refreshedWatchList.data;
+              watchList.setResult({
+                requestKey: watchListRequestKey,
+                items: refreshedWatchList.data,
+              });
+            }
+          } catch {
+            // Keep the optimistic or rolled-back main-runtime snapshot until polling retries.
+          }
+        }
       }
-      appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
-      await watchList.run();
     },
-    [isTokenFavorite, watchList, watchListItems],
+    [watchList],
   );
 
   const addRecommendedMarketTokens = useCallback(async () => {
@@ -671,7 +778,8 @@ export function useNativeHomeSupplementalData({
   return {
     earn: earn.result ?? [],
     favoriteCount:
-      favoriteMarket.result?.requestKey === favoriteRequestKey
+      favoriteMarket.result &&
+      (isCurrentFavoriteMarketResult || hasSettledFavoriteMarketResult)
         ? favoriteMarket.result.total
         : 0,
     isTokenFavorite,
