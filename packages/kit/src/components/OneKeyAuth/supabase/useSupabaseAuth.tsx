@@ -9,6 +9,7 @@ import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/auth
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OAuthPopup } from '../OAuthPopup';
@@ -91,12 +92,33 @@ export function useSupabaseAuth() {
       accessToken: string;
       refreshToken: string;
     }): Promise<void> => {
-      await (
+      const { data, error } = await (
         await getKeylessSupabaseClient()
       ).client.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
       });
+      // setSession returns AuthErrors instead of throwing them. Swallowing
+      // one leaves the shared keyless session slot EMPTY while the caller
+      // continues as if the login stuck — apiOAuthLogin then commits on the
+      // server but the local commit cannot read the token back, surfacing
+      // only as a generic "unknown error" much later. Fail here with the
+      // underlying reason instead (setSession internally performs
+      // GET /auth/v1/user, so e.g. a gateway/WAF rejection of that endpoint
+      // shows up as its HTTP status).
+      if (error || !data?.session) {
+        const statusPart = error?.status ? ` status=${error.status}` : '';
+        const codePart = error?.code ? ` code=${error.code}` : '';
+        const reason = `Failed to persist Keyless OAuth session: ${
+          error?.message || 'no session returned'
+        }${statusPart}${codePart}`;
+        // Mirror into exported logs — the thrown error itself only reaches
+        // the UI toast, which is not diagnosable after the fact.
+        defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
+          reason,
+        });
+        throw new OneKeyLocalError(reason);
+      }
     },
     [],
   );

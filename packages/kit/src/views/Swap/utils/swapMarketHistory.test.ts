@@ -16,6 +16,7 @@ import {
   getSwapMarketPendingHistoryCount,
   getSwapMarketPendingHistoryKey,
   isStockSwapHistoryItem,
+  isSwapLimitHistoryTypeSupported,
   isSwapLimitOpenOrder,
   isSwapMarketHistoryItem,
 } from './swapMarketHistory';
@@ -96,6 +97,12 @@ function createLimitOrder(status: ESwapLimitOrderStatus): IFetchLimitOrderRes {
 }
 
 describe('swapMarketHistory', () => {
+  it('supports the Limit history category only outside native apps', () => {
+    expect(isSwapLimitHistoryTypeSupported({ isNative: false })).toBe(true);
+    expect(isSwapLimitHistoryTypeSupported({})).toBe(true);
+    expect(isSwapLimitHistoryTypeSupported({ isNative: true })).toBe(false);
+  });
+
   it('keeps stock orders in the market history bucket', () => {
     expect(
       isSwapMarketHistoryItem(

@@ -1,6 +1,6 @@
 # Code Map
 
-Use these anchors to orient in the current repository. Prefer nearby patterns over parallel abstractions. The executable anchor map was reviewed at `ec605542881e`; run the readiness script before relying on it.
+Use these anchors to orient in the current repository. Prefer nearby patterns over parallel abstractions. Run the readiness script before relying on this map.
 
 ## Routes And Hosts
 

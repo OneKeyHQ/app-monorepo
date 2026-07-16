@@ -18,6 +18,7 @@ export const MarketTestIDs = {
   // Token detail
   detailPage: 'market-detail-page',
   detailChart: 'market-detail-chart',
+  detailChartFullscreenInfo: 'market-detail-chart-fullscreen-info',
   detailBuyButton: 'market-detail-buy-button',
   detailSwapButton: 'market-detail-swap-button',
   detailAbout: 'market-detail-about',
