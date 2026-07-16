@@ -5,6 +5,8 @@ import {
   shouldClearPerpsMarketDataForInstrument,
   shouldUpdatePerpsBbo,
   shouldUpdatePerpsL2Book,
+  shouldWritePerpsL2BookColdCacheTarget,
+  upsertPerpsL2BookColdCacheTarget,
   withPerpsBboLocalReceivedAt,
   withPerpsL2BookLocalReceivedAt,
 } from './l2BookUtils';
@@ -192,6 +194,62 @@ describe('shouldUpdatePerpsL2Book', () => {
 });
 
 describe('perps market data local receive helpers', () => {
+  it('allows a new target into the cold cache while another target is throttled', () => {
+    const cache = {
+      eth: {
+        data: withPerpsL2BookLocalReceivedAt(
+          buildBook({ time: 1000, coin: 'ETH' }),
+          1000,
+        ),
+        updatedAt: 1000,
+      },
+    };
+
+    expect(
+      shouldWritePerpsL2BookColdCacheTarget({
+        cache,
+        targetKey: 'btc',
+        now: 1001,
+        minWriteIntervalMs: 30_000,
+      }),
+    ).toBe(true);
+    expect(
+      shouldWritePerpsL2BookColdCacheTarget({
+        cache,
+        targetKey: 'eth',
+        now: 1001,
+        minWriteIntervalMs: 30_000,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps an existing target when another target enters the cold cache', () => {
+    const ethBook = withPerpsL2BookLocalReceivedAt(
+      buildBook({ time: 1000, coin: 'ETH' }),
+      1000,
+    );
+    const btcBook = withPerpsL2BookLocalReceivedAt(
+      buildBook({ time: 2000, coin: 'BTC' }),
+      2000,
+    );
+    const cache = {
+      eth: { data: ethBook, updatedAt: 1000 },
+    };
+
+    expect(
+      upsertPerpsL2BookColdCacheTarget({
+        cache,
+        targetKeys: ['btc', 'btc-latest'],
+        data: btcBook,
+        updatedAt: 2000,
+      }),
+    ).toEqual({
+      eth: { data: ethBook, updatedAt: 1000 },
+      btc: { data: btcBook, updatedAt: 2000 },
+      'btc-latest': { data: btcBook, updatedAt: 2000 },
+    });
+  });
+
   it('marks hydrated snapshots as cached without changing their payload', () => {
     expect(
       withPerpsL2BookLocalReceivedAt(buildBook({ time: 1000 }), 2000, true),

@@ -126,6 +126,8 @@ import {
   shouldClearPerpsMarketDataForInstrument,
   shouldUpdatePerpsBbo,
   shouldUpdatePerpsL2Book,
+  shouldWritePerpsL2BookColdCacheTarget,
+  upsertPerpsL2BookColdCacheTarget,
   withPerpsBboLocalReceivedAt,
   withPerpsL2BookLocalReceivedAt,
 } from './utils/l2BookUtils';
@@ -154,7 +156,6 @@ const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
 const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
 const TWAP_SLICE_FILLS_MAX_COUNT = 2000;
-let lastL2BookColdCacheWriteAt = 0;
 
 const setAbstractionWithUserWalletTimeout = makeTimeoutPromise<
   void,
@@ -1378,36 +1379,41 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const nextBook = withPerpsL2BookLocalReceivedAt(data);
       set(l2BookAtom(), nextBook);
       const now = Date.now();
+      const storedTickOptions = getPerpsOrderBookTickOptionWithCache({
+        coin: data.coin,
+        options: get(orderBookTickOptionsAtom()),
+      });
+      const keys = getPerpsL2BookSnapshotCacheKeys({
+        coin: data.coin,
+        nSigFigs: nextBook.nSigFigs ?? storedTickOptions?.nSigFigs ?? null,
+        mantissa:
+          nextBook.mantissa === undefined &&
+          storedTickOptions?.mantissa === undefined
+            ? undefined
+            : (nextBook.mantissa ?? storedTickOptions?.mantissa),
+      });
+      const currentColdCache = get(perpsL2BookColdCacheAtom());
+      const targetKey = keys[0];
       if (
         hasL2BookCacheableLevels(nextBook) &&
-        now - lastL2BookColdCacheWriteAt >=
-          PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS
+        targetKey &&
+        shouldWritePerpsL2BookColdCacheTarget({
+          cache: currentColdCache,
+          targetKey,
+          now,
+          minWriteIntervalMs: PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
+        })
       ) {
-        lastL2BookColdCacheWriteAt = now;
-        const storedTickOptions = getPerpsOrderBookTickOptionWithCache({
-          coin: data.coin,
-          options: get(orderBookTickOptionsAtom()),
-        });
-        const keys = getPerpsL2BookSnapshotCacheKeys({
-          coin: data.coin,
-          nSigFigs: nextBook.nSigFigs ?? storedTickOptions?.nSigFigs ?? null,
-          mantissa:
-            nextBook.mantissa === undefined &&
-            storedTickOptions?.mantissa === undefined
-              ? undefined
-              : (nextBook.mantissa ?? storedTickOptions?.mantissa),
-        });
         const updatedAt = nextBook.localReceivedAt ?? now;
-        const nextColdCache = Object.fromEntries(
-          keys.map((key) => [
-            key,
-            {
-              data: nextBook,
-              updatedAt,
-            },
-          ]),
+        set(
+          perpsL2BookColdCacheAtom(),
+          upsertPerpsL2BookColdCacheTarget({
+            cache: currentColdCache,
+            targetKeys: keys,
+            data: nextBook,
+            updatedAt,
+          }),
         );
-        set(perpsL2BookColdCacheAtom(), nextColdCache);
       }
     } else {
       const currentBook = get(l2BookAtom());
