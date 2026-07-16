@@ -633,7 +633,11 @@ mod win {
             .map_err(we)?;
 
         let seen: &'static Mutex<HashSet<u64>> = Box::leak(Box::new(Mutex::new(HashSet::new())));
-        let hits: &'static Mutex<Vec<(u64, String, u32)>> = Box::leak(Box::new(Mutex::new(vec![])));
+        // (addr, name, count, rssi_min, rssi_max). No per-packet logging — a scan
+        // sees hundreds of adverts and printing each one buries the pairing flow.
+        // Signal is kept as a min/max range per device, summarized once at the end.
+        let hits: &'static Mutex<Vec<(u64, String, u32, i16, i16)>> =
+            Box::leak(Box::new(Mutex::new(vec![])));
 
         let handler = TypedEventHandler::<
             BluetoothLEAdvertisementWatcher,
@@ -642,10 +646,6 @@ mod win {
             if let Ok(args) = args.ok() {
                 let addr = args.BluetoothAddress()?;
                 let rssi = args.RawSignalStrengthInDBm().unwrap_or(0);
-                let adv_type = args
-                    .AdvertisementType()
-                    .map(|v| format!("{v:?}"))
-                    .unwrap_or_else(|_| "<err>".into());
                 let addr_type = args
                     .BluetoothAddressType()
                     .map(addr_type_name)
@@ -656,37 +656,25 @@ mod win {
                     .map(|v| v.to_string())
                     .unwrap_or_else(|_| String::new());
 
-                let mut uuids: Vec<String> = Vec::new();
-                if let Ok(list) = adv.ServiceUuids() {
-                    let size = list.Size().unwrap_or(0);
-                    for i in 0..size {
-                        if let Ok(u) = list.GetAt(i) {
-                            uuids.push(format!("{u:?}"));
-                        }
-                    }
-                }
-
+                // Accumulate only — no per-packet log line. Track the signal as a
+                // min/max range and keep the advert count.
+                let r = rssi as i16;
                 if let Ok(mut hits) = hits.lock() {
-                    if let Some(entry) = hits.iter_mut().find(|(a, _, _)| *a == addr) {
-                        entry.2 += 1;
+                    if let Some(e) = hits.iter_mut().find(|(a, ..)| *a == addr) {
+                        e.2 += 1;
+                        if r < e.3 { e.3 = r; }
+                        if r > e.4 { e.4 = r; }
                     } else {
-                        hits.push((addr, name.clone(), 1));
+                        hits.push((addr, name.clone(), 1, r, r));
                     }
                 }
-
-                // EVERY Trezor packet is logged, never deduped. Deduping by
-                // address is what hid the truth last time: it showed only the
-                // first sighting, so "device silent" and "device on air but the
-                // app is blind to it" looked identical. The full on-air timeline
-                // is the whole point. Other devices stay deduped (they are just
-                // ambient noise and would drown the log).
-                let is_trezor = name.contains("Trezor");
-                let first_time = seen.lock().map(|mut s| s.insert(addr)).unwrap_or(false);
-                if is_trezor || first_time {
+                // Log ONLY the first time we ever see a Trezor, so the pairing
+                // address is easy to grab without scrolling through the summary.
+                if name.contains("Trezor")
+                    && seen.lock().map(|mut s| s.insert(addr)).unwrap_or(false)
+                {
                     diag(&format!(
-                        "adv{} addr={addr:012x} addrType={addr_type} randomKind={} \
-                         type={adv_type} rssi={rssi} name='{name}' serviceUuids={uuids:?}",
-                        if is_trezor { "[TREZOR]" } else { "" },
+                        "found {name} addr={addr:012x} addrType={addr_type} randomKind={} rssi={rssi}",
                         classify_random_address(addr)
                     ));
                 }
@@ -702,10 +690,19 @@ mod win {
 
         let _ = watcher.Stop();
         if let Ok(hits) = hits.lock() {
-            diag(&format!("watch done: {} distinct address(es)", hits.len()));
-            for (addr, name, count) in hits.iter() {
+            let trezor: Vec<_> = hits.iter().filter(|(_, n, ..)| n.contains("Trezor")).collect();
+            let named = hits.iter().filter(|(_, n, ..)| !n.is_empty()).count();
+            diag(&format!(
+                "watch done: {} devices ({} named, {} Trezor)",
+                hits.len(),
+                named,
+                trezor.len()
+            ));
+            // Only Trezors get a line, with the signal range — everything else is
+            // ambient noise and would bury it.
+            for (addr, name, count, rmin, rmax) in trezor {
                 diag(&format!(
-                    "  addr={addr:012x} adverts={count} name='{name}'"
+                    "  TREZOR addr={addr:012x} name='{name}' adverts={count} rssi=[{rmax}..{rmin}]dBm"
                 ));
             }
         }
