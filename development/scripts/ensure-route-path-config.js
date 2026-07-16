@@ -25,6 +25,15 @@ const isRouteSourceFile = (filePath) =>
 const normalizeWatchPath = (filePath) =>
   filePath?.toString().replaceAll('\\', '/');
 
+const shouldWatchRoutePathConfig = (args = process.argv.slice(2)) =>
+  args.some(
+    (arg) =>
+      arg === '--watch' ||
+      arg === '--watch=true' ||
+      arg === '--watchAll' ||
+      arg === '--watchAll=true',
+  );
+
 const isViewRouterSourceFile = (filePath) => {
   if (!isRouteSourceFile(filePath)) {
     return false;
@@ -108,5 +117,6 @@ const watchRoutePathConfig = (targetNames) => {
 module.exports = {
   ensureRoutePathConfig,
   isViewRouterSourceFile,
+  shouldWatchRoutePathConfig,
   watchRoutePathConfig,
 };

@@ -1,4 +1,7 @@
-const { isViewRouterSourceFile } = require('./ensure-route-path-config');
+const {
+  isViewRouterSourceFile,
+  shouldWatchRoutePathConfig,
+} = require('./ensure-route-path-config');
 
 describe('route config source watcher', () => {
   it.each([
@@ -22,5 +25,21 @@ describe('route config source watcher', () => {
     expect(
       isViewRouterSourceFile(`Feature/${'.'.repeat(20_000)}router.tsx`),
     ).toBe(false);
+  });
+
+  it.each(['--watch', '--watch=true', '--watchAll', '--watchAll=true'])(
+    'starts the route watcher for explicit Jest flag %s',
+    (flag) => {
+      expect(shouldWatchRoutePathConfig([flag])).toBe(true);
+    },
+  );
+
+  it.each([
+    [[]],
+    [['--runInBand']],
+    [['--watch=false']],
+    [['--watchAll=false']],
+  ])('does not start the route watcher for a one-shot Jest run: %j', (args) => {
+    expect(shouldWatchRoutePathConfig(args)).toBe(false);
   });
 });
