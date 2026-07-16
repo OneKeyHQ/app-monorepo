@@ -831,6 +831,50 @@ describe('useAccountSelectorActions', () => {
         networkId: 'tron--0x2b6653dc',
       });
     });
+
+    it('drops a stale fallback result when a newer selection completes first', async () => {
+      const resolvers = new Map<string, (value: string | undefined) => void>();
+      mockGetAllNetworksFallbackNetworkId.mockImplementation(
+        ({ walletId }) =>
+          new Promise<string | undefined>((resolve) => {
+            resolvers.set(walletId, resolve);
+          }),
+      );
+
+      const { store, Wrapper } = createWrapper();
+      seedSelection(store, getNetworkIdsMap().onekeyall);
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        const staleSelect = result.current.confirmAccountSelect({
+          indexedAccount: {
+            id: 'hd-2--0',
+            walletId: 'hd-2',
+          } as IIndexedAccount,
+          othersWalletAccount: undefined,
+          num: 0,
+        });
+        const latestSelect = result.current.confirmAccountSelect({
+          indexedAccount: qrIndexedAccount,
+          othersWalletAccount: undefined,
+          num: 0,
+        });
+        // The later selection resolves first...
+        resolvers.get('qr-1')?.('btc--0');
+        await latestSelect;
+        // ...then the earlier one resolves last and must be dropped.
+        resolvers.get('hd-2')?.('evm--1');
+        await staleSelect;
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'qr-1',
+        indexedAccountId: 'qr-1--0',
+        networkId: 'btc--0',
+      });
+    });
   });
 
   it('normalizes imported account network pairs before saving to storage', async () => {

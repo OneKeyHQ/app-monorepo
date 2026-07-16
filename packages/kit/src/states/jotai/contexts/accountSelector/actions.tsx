@@ -1337,6 +1337,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  // Keyed by scene + selector num so concurrent selections in different
+  // scenes cannot cancel each other.
+  confirmAccountSelectLatestRequestIdMap = new Map<string, number>();
+
   confirmAccountSelect = contextAtomMethod(
     async (
       get,
@@ -1375,6 +1379,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         );
       }
 
+      const requestContextData = get(accountSelectorContextDataAtom());
+      const confirmRequestKey = `${requestContextData?.sceneName ?? ''}__${
+        requestContextData?.sceneUrl ?? ''
+      }__${num}`;
+      const confirmRequestId =
+        (this.confirmAccountSelectLatestRequestIdMap.get(confirmRequestKey) ??
+          0) + 1;
+      this.confirmAccountSelectLatestRequestIdMap.set(
+        confirmRequestKey,
+        confirmRequestId,
+      );
+
       const accountNetworkId: string =
         forceSelectToNetworkId ||
         this.getAutoSelectNetworkIdForAccount.call(set, {
@@ -1411,6 +1427,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         } catch {
           // keep the All Networks selection if the check fails
         }
+      }
+
+      // A newer selection may have started while the fallback query was in
+      // flight; committing this stale result would overwrite the user's
+      // latest choice, so drop it.
+      if (
+        this.confirmAccountSelectLatestRequestIdMap.get(confirmRequestKey) !==
+        confirmRequestId
+      ) {
+        return;
       }
 
       const newSelectedAccount: IAccountSelectorSelectedAccount = {
