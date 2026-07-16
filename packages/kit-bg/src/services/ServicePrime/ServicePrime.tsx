@@ -1602,7 +1602,7 @@ class ServicePrime extends ServiceBase {
         ...v,
         avatar: serverUserInfo?.avatar,
         nickname: serverUserInfo?.nickname,
-        email: userEmail, // TODO update from PrimeGlobalEffect
+        email: userEmail,
         displayEmail,
         onekeyUserId: serverUserId,
         onekeyAccount:
