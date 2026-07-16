@@ -478,9 +478,50 @@ mod win {
             format!("{}ms", t_ms().saturating_sub(accepted_at))
         };
         let status = result.Status().map_err(we)?;
+        // ProtectionLevelUsed tells us what security tier the ceremony actually
+        // negotiated (None/Encryption/EncryptionAndAuthentication) — a mismatch
+        // here vs the device's required level is one concrete way SMP fails.
+        let prot_used = result
+            .ProtectionLevelUsed()
+            .map(|v| format!("{v:?}"))
+            .unwrap_or_else(|_| "<err>".into());
         diag(&format!(
-            "PairAsync returned status={status:?} sinceAccept={since_accept}"
+            "PairAsync returned status={status:?} protectionLevelUsed={prot_used} sinceAccept={since_accept}"
         ));
+
+        // Deep probe on FAILURE: separate "never connected" from "connected but
+        // SMP/GATT failed". Status 19 flattens both. We ask three questions the
+        // device can only answer if the link is actually reachable:
+        //   - ConnectionStatus right now
+        //   - whether an unpaired GATT service query reaches it (the earliest
+        //     failures in this whole saga were GetGattServicesAsync=Unreachable,
+        //     which is far more specific than 19)
+        //   - the current DeviceAccessInformation
+        if status != DevicePairingResultStatus::Paired {
+            let conn = device
+                .ConnectionStatus()
+                .map(|v| format!("{v:?}"))
+                .unwrap_or_else(|_| "<err>".into());
+            diag(&format!("[probe] connectionStatus={conn}"));
+
+            match device.GetGattServicesAsync() {
+                Ok(op) => match op.await {
+                    Ok(res) => {
+                        let gatt_status = res
+                            .Status()
+                            .map(|v| format!("{v:?}"))
+                            .unwrap_or_else(|_| "<err>".into());
+                        let count = res.Services().and_then(|s| s.Size()).unwrap_or(0);
+                        diag(&format!(
+                            "[probe] GetGattServices status={gatt_status} serviceCount={count} \
+                             (Unreachable => link never formed; Success => link is fine, SMP is the problem)"
+                        ));
+                    }
+                    Err(e) => diag(&format!("[probe] GetGattServices await error: {e}")),
+                },
+                Err(e) => diag(&format!("[probe] GetGattServices call error: {e}")),
+            }
+        }
 
         // State AFTER the ceremony but BEFORE our cleanup unpair — this is the
         // window in which "Failed but actually bonded" would be visible, and the
