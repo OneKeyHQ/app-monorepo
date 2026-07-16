@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
@@ -14,6 +15,7 @@ import { Dimensions, I18nManager } from 'react-native';
 
 import {
   Accordion,
+  Button,
   Checkbox,
   Dialog,
   ESwitchSize,
@@ -109,6 +111,11 @@ import {
   SearchFilterItem,
   matchesDevSearchQuery,
 } from './DevSettingsSearchContext';
+import {
+  addDevSettingsSearchHistoryItem,
+  parseDevSettingsSearchHistory,
+  removeDevSettingsSearchHistoryItem,
+} from './devSettingsSearchHistoryUtils';
 import { DiscoverySearchDebugTool } from './DiscoverySearchDebugTool';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
@@ -223,6 +230,59 @@ const DevSettingsAccordionTrigger = ({
     )}
   </Accordion.Trigger>
 );
+
+function DevSettingsSavedSearchItem({
+  searchText,
+  removeLabel,
+  onSelect,
+  onRemove,
+}: {
+  searchText: string;
+  removeLabel: string;
+  onSelect: (value: string) => void;
+  onRemove: (value: string) => void;
+}) {
+  const handleSelect = useCallback(() => {
+    onSelect(searchText);
+  }, [onSelect, searchText]);
+  const handleRemove = useCallback(() => {
+    onRemove(searchText);
+  }, [onRemove, searchText]);
+
+  return (
+    <XStack
+      maxWidth="100%"
+      minWidth={0}
+      alignItems="center"
+      borderRadius="$2"
+      bg="$bgStrong"
+      overflow="hidden"
+    >
+      <Button
+        size="small"
+        variant="tertiary"
+        icon="ClockTimeHistoryOutline"
+        borderRadius="$0"
+        minWidth={0}
+        flexShrink={1}
+        textEllipsis
+        onPress={handleSelect}
+      >
+        {searchText}
+      </Button>
+      <IconButton
+        icon="CrossedSmallOutline"
+        iconSize="$4"
+        size="small"
+        variant="tertiary"
+        m="$0"
+        mr="$1"
+        title={removeLabel}
+        onPress={handleRemove}
+      />
+    </XStack>
+  );
+}
 
 function getSearchableString(value: unknown) {
   return typeof value === 'string' ? value : undefined;
@@ -690,10 +750,8 @@ const BaseDevSettingsSection = () => {
   const inPageDialog = useInPageDialog();
 
   // ---------------------------------------------------------------------------
-  // Search & Pin (MMKV sync read/write for instant restore)
+  // Search, pin, and history (MMKV sync read/write for instant restore)
   // ---------------------------------------------------------------------------
-  const PINNED_STORAGE_KEY = 'onekey_dev_settings_pinned_sections';
-
   const [searchText, setSearchText] = useState('');
   const debouncedSearchText = useDebounce(searchText, 300);
   const normalizedSearchText = (searchText.trim() ? debouncedSearchText : '')
@@ -701,7 +759,9 @@ const BaseDevSettingsSection = () => {
     .trim();
   const [pinnedSections, setPinnedSections] = useState<string[]>(() => {
     try {
-      const raw = appStorage.syncStorage.getString(PINNED_STORAGE_KEY as any);
+      const raw = appStorage.syncStorage.getString(
+        EAppSyncStorageKeys.onekey_dev_settings_pinned_sections,
+      );
       return raw ? (JSON.parse(raw) as string[]) : [];
     } catch {
       return [];
@@ -714,12 +774,57 @@ const BaseDevSettingsSection = () => {
         ? prev.filter((k) => k !== sectionKey)
         : [...prev, sectionKey];
       appStorage.syncStorage.set(
-        PINNED_STORAGE_KEY as any,
+        EAppSyncStorageKeys.onekey_dev_settings_pinned_sections,
         JSON.stringify(next),
       );
       return next;
     });
   }, []);
+
+  const [devSettingsSearchHistory, setDevSettingsSearchHistory] = useState<
+    string[]
+  >(() =>
+    parseDevSettingsSearchHistory(
+      appStorage.syncStorage.getString(
+        EAppSyncStorageKeys.onekey_dev_settings_search_history,
+      ),
+    ),
+  );
+  const devSettingsSearchHistoryRef = useRef(devSettingsSearchHistory);
+  const persistDevSettingsSearchHistory = useCallback((next: string[]) => {
+    devSettingsSearchHistoryRef.current = next;
+    appStorage.syncStorage.set(
+      EAppSyncStorageKeys.onekey_dev_settings_search_history,
+      JSON.stringify(next),
+    );
+    setDevSettingsSearchHistory(next);
+  }, []);
+  const handleSaveSearch = useCallback(() => {
+    const nextSearchText = searchText.trim();
+    if (!nextSearchText) {
+      return;
+    }
+    persistDevSettingsSearchHistory(
+      addDevSettingsSearchHistoryItem(
+        devSettingsSearchHistoryRef.current,
+        nextSearchText,
+      ),
+    );
+  }, [persistDevSettingsSearchHistory, searchText]);
+  const handleSelectSavedSearch = useCallback((value: string) => {
+    setSearchText(value);
+  }, []);
+  const handleRemoveSavedSearch = useCallback(
+    (value: string) => {
+      persistDevSettingsSearchHistory(
+        removeDevSettingsSearchHistoryItem(
+          devSettingsSearchHistoryRef.current,
+          value,
+        ),
+      );
+    },
+    [persistDevSettingsSearchHistory],
+  );
 
   const sectionMeta: {
     key: string;
@@ -823,14 +928,52 @@ const BaseDevSettingsSection = () => {
       title={intl.formatMessage({ id: ETranslations.global_dev_mode })}
       titleProps={{ color: '$textCritical' }}
     >
+      {devSettingsSearchHistory.length ? (
+        <YStack px="$3" pb="$2" gap="$2">
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.global_recents })}
+          </SizableText>
+          <XStack gap="$2" flexWrap="wrap">
+            {devSettingsSearchHistory.map((savedSearchText) => (
+              <DevSettingsSavedSearchItem
+                key={savedSearchText}
+                searchText={savedSearchText}
+                removeLabel={intl.formatMessage({
+                  id: ETranslations.global_remove,
+                })}
+                onSelect={handleSelectSavedSearch}
+                onRemove={handleRemoveSavedSearch}
+              />
+            ))}
+          </XStack>
+        </YStack>
+      ) : null}
       {/* Search bar */}
       <Stack px="$3" pb="$2">
-        <Input
-          placeholder="Search sections and items..."
-          value={searchText}
-          onChangeText={setSearchText}
-          leftIconName="SearchOutline"
-        />
+        <Stack position="relative">
+          <Input
+            testID="dev-settings-search-input"
+            placeholder="Search sections and items..."
+            value={searchText}
+            onChangeText={setSearchText}
+            leftIconName="SearchOutline"
+            containerProps={{ width: '100%' }}
+            InputComponentStyle={{ pr: '$10' }}
+          />
+          <IconButton
+            testID="dev-settings-search-save"
+            position="absolute"
+            top="$1"
+            right="$1"
+            m="$0"
+            size="small"
+            variant="tertiary"
+            icon="BookmarkPlusOutline"
+            disabled={!searchText.trim()}
+            title={intl.formatMessage({ id: ETranslations.action_save })}
+            onPress={handleSaveSearch}
+          />
+        </Stack>
       </Stack>
       {normalizedSearchText ? (
         <BundleCommitSearch searchText={debouncedSearchText} />
