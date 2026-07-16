@@ -70,6 +70,7 @@ import type {
   IOrderAmendKind,
   IOrderCloseParams,
   IOrderOpenParams,
+  IPlaceOrderByCoinParams,
   IPlaceOrderParams,
   IPlaceScaleOrderParams,
   IPlaceTwapOrderParams,
@@ -90,6 +91,10 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import {
+  buildCoinScopedOrderOpenParams,
+  getOrderOpenGrouping,
+} from './utils/coinScopedOrder';
 import { createLoggedHyperLiquidClient } from './utils/logHyperLiquidApiFailure';
 import { buildHyperliquidModifyOrder } from './utils/orderAmend';
 
@@ -1150,7 +1155,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       const response = await this.placeOrderRaw(
         {
           orders,
-          grouping: orders.length > 1 ? 'normalTpsl' : 'na',
+          grouping: getOrderOpenGrouping(orders.length),
         },
         {
           action: 'orderOpen',
@@ -1541,6 +1546,41 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       orderType: { limit: { tif: params.tif ?? 'Gtc' } },
       reduceOnly: params.reduceOnly,
     });
+  }
+
+  @backgroundMethod()
+  async placeOrderByCoin(
+    params: IPlaceOrderByCoinParams,
+  ): Promise<IOrderResponse> {
+    const activeAccount = await perpsActiveAccountAtom.get();
+    if (
+      !activeAccount?.accountAddress ||
+      activeAccount.accountAddress.toLowerCase() !==
+        params.expectedAccountAddress.toLowerCase()
+    ) {
+      throw new OneKeyLocalError(
+        'The active trading account changed before position increase',
+      );
+    }
+    const symbolMeta =
+      await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
+        coin: normalizePerpsCoin(params.coin),
+      });
+    if (!symbolMeta) {
+      throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
+    }
+    if (symbolMeta.isSpot) {
+      throw new OneKeyLocalError(
+        `Position increase is not available for spot asset: ${params.coin}`,
+      );
+    }
+
+    return this.orderOpen(
+      buildCoinScopedOrderOpenParams({
+        params,
+        assetId: symbolMeta.assetId,
+      }),
+    );
   }
 
   @backgroundMethod()

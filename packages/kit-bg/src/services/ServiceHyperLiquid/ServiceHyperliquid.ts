@@ -75,6 +75,7 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IHyperliquidPortfolioSnapshot } from '@onekeyhq/shared/types/hyperliquid/portfolio';
 import type {
+  IActiveAssetData,
   IApiRequestError,
   IApiRequestResult,
   IBook,
@@ -1538,6 +1539,19 @@ export default class ServiceHyperliquid extends ServiceBase {
         ? openInterestNotionalBN.toFixed()
         : null,
     };
+  }
+
+  @backgroundMethod()
+  async getActiveAssetDataByCoin({
+    coin,
+    user,
+  }: {
+    coin: string;
+    user: IHex;
+  }): Promise<IActiveAssetData> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin } = this.resolveInfoRequestCoin(coin);
+    return infoClient.activeAssetData({ coin: apiCoin, user });
   }
 
   @backgroundMethod()

@@ -84,6 +84,7 @@ import {
   ETriggerOrderType,
   type IL2BookOptions,
   type IPerpOrderBookTickOptionPersist,
+  type IPlaceOrderByCoinParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
@@ -2475,6 +2476,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  placeOrderByCoin = contextAtomMethod(
+    async (_get, _set, params: IPlaceOrderByCoinParams) => {
+      return withToast({
+        asyncFn: () =>
+          backgroundApiProxy.serviceHyperliquidExchange.placeOrderByCoin(
+            params,
+          ),
+        actionType: EActionType.ORDER_OPEN,
+      });
+    },
+  );
+
   triggerOrder = contextAtomMethod(
     async (
       get,
@@ -3658,6 +3671,7 @@ export function useHyperliquidActions() {
   const placeOrder = actions.placeOrder.use();
   const placeSpotOrder = actions.placeSpotOrder.use();
   const orderOpen = actions.orderOpen.use();
+  const placeOrderByCoin = actions.placeOrderByCoin.use();
   const triggerOrder = actions.triggerOrder.use();
   const placeScaleOrder = actions.placeScaleOrder.use();
   const placeTwapOrder = actions.placeTwapOrder.use();
@@ -3733,6 +3747,7 @@ export function useHyperliquidActions() {
     placeOrder,
     placeSpotOrder,
     orderOpen,
+    placeOrderByCoin,
     triggerOrder,
     placeScaleOrder,
     placeTwapOrder,

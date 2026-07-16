@@ -100,6 +100,19 @@ export interface IOrderOpenParams {
   reduceOnly?: boolean;
 }
 
+export interface IPlaceOrderByCoinParams {
+  coin: string;
+  expectedAccountAddress: string;
+  isBuy: boolean;
+  size: string;
+  price: string;
+  orderType: 'market' | 'limit';
+  tif?: ITIF;
+  tpTriggerPx?: string;
+  slTriggerPx?: string;
+  slippage?: number;
+}
+
 export interface IOrderCloseParams {
   assetId: number;
   isBuy: boolean;
