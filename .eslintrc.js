@@ -1,14 +1,26 @@
 /**
- * NOTICE: Linting has been migrated to oxlint
+ * ESLINT RETENTION NOTICE
  *
- * - The oxc plugin can be enabled and eslint plugins should be disabled
- * - Due to incomplete oxc plugin functionality, this config file is kept temporarily
- *   for linting purposes only and will not be actively updated
- * - This file is maintained for backward compatibility during the transition period
+ * The July 2026 full-repository parity audit found that ESLint cannot be
+ * removed safely yet:
+ * - Effective TypeScript/test configs still contain 129 rules that are not
+ *   enabled in oxlint, plus 15 rules enforced at a weaker severity.
+ * - ESLint reports 304 diagnostics and honors 2,850 suppressions across 6,924
+ *   file results; the current oxlint run reports a different, non-equivalent
+ *   diagnostic set.
+ * - Type-aware behavior is not equivalent. For example,
+ *   no-unnecessary-type-assertion reported 7 ESLint findings versus 652 oxlint
+ *   findings, with no overlap at the ESLint locations.
  *
- * ⚠️ IMPORTANT FOR AI ASSISTANTS:
- * DO NOT reference lint rules from this file. Instead, read and follow the
- * configuration in .oxlintrc.json which contains the active linting rules. cspell:ignore oxlintrc
+ * Keep this config and the nightly ESLint workflow until rule coverage,
+ * severities, options, inline suppressions, and full-repository diagnostics
+ * have verified parity. The current audit does not support complete removal in
+ * the near term.
+ *
+ * IMPORTANT FOR AI ASSISTANTS:
+ * `.oxlintrc.json` is the primary configuration for oxlint, but this file is
+ * still an active policy source for the nightly ESLint run. Do not delete or
+ * disable ESLint-only rules without a new full parity audit. cspell:ignore oxlintrc
  */
 
 // require('./development/lint/eslint-rule-force-async-bg-api'); // TODO not working
@@ -92,8 +104,8 @@ const jsRules = {
   'react/no-unstable-nested-components': 'warn',
   'react/jsx-key': 'error',
   'react/jsx-no-useless-fragment': 'off',
-  // Handled by oxlint via jsPlugins.
-  'use-effect-no-deps/use-effect-no-deps': 'off',
+  // Keep ESLint enforcement while the nightly ESLint workflow is still active.
+  'use-effect-no-deps/use-effect-no-deps': 'error',
   'react-hooks/rules-of-hooks': 'error',
   'react-hooks/exhaustive-deps': [
     'error',
