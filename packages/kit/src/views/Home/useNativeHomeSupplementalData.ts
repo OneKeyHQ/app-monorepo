@@ -34,8 +34,17 @@ import {
   mapMarketPerpsTokenToDisplay,
   mapMarketTokenToDisplay,
 } from './components/PopularTrading/utils';
+import {
+  HOME_MARKET_FAVORITES_CACHE_COUNT,
+  HOME_MARKET_VISIBLE_FAVORITES_COUNT,
+  buildNativeHomeFavoriteTokensResult,
+  getNativeHomeWatchListContentKey,
+  isNativeHomeWatchListItemForToken,
+  setNativeHomeWatchListTokenFavorite,
+} from './nativeHomeMarketFavorites';
 
 import type { IFavoriteTokenDisplay } from './components/PopularTrading/types';
+import type { IFavoriteTokensResult } from './nativeHomeMarketFavorites';
 
 const DEFERRED_FETCH_DELAY_MS = 1200;
 const REFRESH_INTERVAL = timerUtils.getTimeDurationMs({ seconds: 30 });
@@ -47,71 +56,6 @@ function getNativeHomeMarketTokenKey(token: IFavoriteTokenDisplay): string {
     : `${token.chainId}:${token.contractAddress}`;
 }
 
-function getNativeHomeWatchListContentKey(
-  items: IMarketWatchListItemV2[],
-): string {
-  return items
-    .map(
-      (item) =>
-        `${item.perpsCoin ?? ''}:${item.chainId}:${item.contractAddress}:${
-          item.sortIndex ?? ''
-        }`,
-    )
-    .join('|');
-}
-
-function isNativeHomeWatchListItemForToken(
-  item: IMarketWatchListItemV2,
-  token: IFavoriteTokenDisplay,
-): boolean {
-  if (token.perpsCoin) {
-    return item.perpsCoin === token.perpsCoin;
-  }
-  return equalTokenNoCaseSensitive({
-    token1: {
-      networkId: token.chainId,
-      contractAddress: token.contractAddress,
-    },
-    token2: {
-      networkId: item.chainId,
-      contractAddress: item.contractAddress,
-    },
-  });
-}
-
-function setNativeHomeWatchListTokenFavorite({
-  favorite,
-  items,
-  previousItem,
-  token,
-}: {
-  favorite: boolean;
-  items: IMarketWatchListItemV2[];
-  previousItem?: IMarketWatchListItemV2;
-  token: IFavoriteTokenDisplay;
-}): IMarketWatchListItemV2[] {
-  const filteredItems = items.filter(
-    (item) => !isNativeHomeWatchListItemForToken(item, token),
-  );
-  if (!favorite) return filteredItems;
-
-  const firstSortIndex = filteredItems[0]?.sortIndex ?? 1000;
-  const nextItem: IMarketWatchListItemV2 = token.perpsCoin
-    ? {
-        chainId: '',
-        contractAddress: '',
-        perpsCoin: token.perpsCoin,
-        sortIndex: previousItem?.sortIndex ?? firstSortIndex - 1,
-      }
-    : {
-        chainId: token.chainId,
-        contractAddress: token.contractAddress,
-        isNative: token.isNative,
-        sortIndex: previousItem?.sortIndex ?? firstSortIndex - 1,
-      };
-  return [nextItem, ...filteredItems];
-}
-
 export interface INativeHomeMarketCategory {
   id: string;
   name: string;
@@ -119,13 +63,6 @@ export interface INativeHomeMarketCategory {
   iconOnly?: boolean;
   leadingIcon?: 'star';
 }
-
-type IFavoriteTokensResult = {
-  isRecommendation: boolean;
-  requestKey: string;
-  total: number;
-  tokens: IFavoriteTokenDisplay[];
-};
 
 type IWatchListResult = {
   requestKey: string;
@@ -179,7 +116,7 @@ async function fetchNativeHomeFavoriteTokens(
     };
   }
 
-  const targetItems = watchList.slice(0, 3);
+  const targetItems = watchList.slice(0, HOME_MARKET_FAVORITES_CACHE_COUNT);
   const spotTargets = targetItems.filter(
     (item) => !item.perpsCoin && item.chainId,
   );
@@ -349,6 +286,17 @@ export function useNativeHomeSupplementalData({
   const favoriteRequestKey = `favorites:${
     hasCurrentWatchList ? watchListContentKey : 'loading'
   }`;
+  const favoriteRecommendations = usePromiseResult<IFavoriteTokensResult>(
+    async () => ({
+      requestKey: 'recommendations',
+      ...(await fetchNativeHomeFavoriteTokens([])),
+    }),
+    [],
+    {
+      revalidateOnFocus: true,
+      undefinedResultIfReRun: false,
+    },
+  );
   const favoriteMarket = usePromiseResult<IFavoriteTokensResult>(
     async () => {
       const requestKey = `favorites:${
@@ -362,10 +310,18 @@ export function useNativeHomeSupplementalData({
           tokens: [],
         };
       }
-      const result = await fetchNativeHomeFavoriteTokens(watchListItems);
-      return { requestKey, ...result };
+      const result =
+        watchListItems.length === 0 && favoriteRecommendations.result
+          ? favoriteRecommendations.result
+          : await fetchNativeHomeFavoriteTokens(watchListItems);
+      return { ...result, requestKey };
     },
-    [hasCurrentWatchList, watchListContentKey, watchListItems],
+    [
+      favoriteRecommendations.result,
+      hasCurrentWatchList,
+      watchListContentKey,
+      watchListItems,
+    ],
     {
       initResult: {
         isRecommendation: false,
@@ -389,10 +345,18 @@ export function useNativeHomeSupplementalData({
     if (resolvedMarketCategoryId !== FAVORITES_CATEGORY_ID) {
       return categoryMarket.categoryTokens;
     }
-    return favoriteMarket.result &&
-      (isCurrentFavoriteMarketResult || hasSettledFavoriteMarketResult)
+    if (
+      !favoriteMarket.result ||
+      (!isCurrentFavoriteMarketResult && !hasSettledFavoriteMarketResult)
+    ) {
+      return EMPTY_DISPLAY_TOKENS;
+    }
+    return favoriteMarket.result.isRecommendation
       ? favoriteMarket.result.tokens
-      : EMPTY_DISPLAY_TOKENS;
+      : favoriteMarket.result.tokens.slice(
+          0,
+          HOME_MARKET_VISIBLE_FAVORITES_COUNT,
+        );
   }, [
     categoryMarket.categoryTokens,
     favoriteMarket.result,
@@ -490,20 +454,27 @@ export function useNativeHomeSupplementalData({
   const addRecommendedMarketTokensInFlightRef = useRef(false);
   const marketFavoriteToggleInFlightRef = useRef(new Set<string>());
   const marketFavoriteRevisionRef = useRef(0);
+  const favoriteMarketResultRef = useRef(favoriteMarket.result);
   const watchListItemsRef = useRef(watchListItems);
   useEffect(() => {
+    favoriteMarketResultRef.current = favoriteMarket.result;
     watchListItemsRef.current = watchListItems;
-  }, [watchListItems]);
+  }, [favoriteMarket.result, watchListItems]);
+  const marketImageCacheTokens =
+    resolvedMarketCategoryId === FAVORITES_CATEGORY_ID &&
+    favoriteMarket.result?.isRecommendation === false
+      ? favoriteMarket.result.tokens
+      : market;
   const marketNetworkIds = useMemo(
     () =>
       Array.from(
         new Set(
-          market
+          marketImageCacheTokens
             .filter((token) => !token.perpsCoin && token.chainId)
             .map((token) => token.chainId),
         ),
       ),
-    [market],
+    [marketImageCacheTokens],
   );
   const marketNetworkImages = usePromiseResult<Record<string, string>>(
     async () => {
@@ -540,15 +511,26 @@ export function useNativeHomeSupplementalData({
       if (marketFavoriteToggleInFlightRef.current.has(tokenKey)) return;
 
       const currentItems = watchListItemsRef.current;
-      const previousItem = currentItems.find((item) =>
+      const previousIndex = currentItems.findIndex((item) =>
         isNativeHomeWatchListItemForToken(item, record),
       );
+      const previousItem = currentItems[previousIndex];
       const checked = Boolean(previousItem);
       const optimisticItems = setNativeHomeWatchListTokenFavorite({
         favorite: !checked,
         items: currentItems,
+        previousIndex,
         previousItem,
         token: record,
+      });
+      const currentFavoriteTokens =
+        favoriteMarketResultRef.current?.tokens ?? EMPTY_DISPLAY_TOKENS;
+      const optimisticFavoriteResult = buildNativeHomeFavoriteTokensResult({
+        cachedTokens: checked
+          ? currentFavoriteTokens
+          : [record, ...currentFavoriteTokens],
+        recommendationResult: favoriteRecommendations.result,
+        watchListItems: optimisticItems,
       });
       marketFavoriteToggleInFlightRef.current.add(tokenKey);
       marketFavoriteRevisionRef.current += 1;
@@ -557,6 +539,10 @@ export function useNativeHomeSupplementalData({
         requestKey: watchListRequestKey,
         items: optimisticItems,
       });
+      if (optimisticFavoriteResult) {
+        favoriteMarketResultRef.current = optimisticFavoriteResult;
+        favoriteMarket.setResult(optimisticFavoriteResult);
+      }
 
       try {
         const firstSortIndex = currentItems[0]?.sortIndex ?? 1000;
@@ -633,14 +619,30 @@ export function useNativeHomeSupplementalData({
         const rollbackItems = setNativeHomeWatchListTokenFavorite({
           favorite: checked,
           items: watchListItemsRef.current,
+          previousIndex,
           previousItem,
           token: record,
+        });
+        const rollbackFavoriteResult = buildNativeHomeFavoriteTokensResult({
+          cachedTokens: checked
+            ? [
+                record,
+                ...(favoriteMarketResultRef.current?.tokens ??
+                  EMPTY_DISPLAY_TOKENS),
+              ]
+            : (favoriteMarketResultRef.current?.tokens ?? EMPTY_DISPLAY_TOKENS),
+          recommendationResult: favoriteRecommendations.result,
+          watchListItems: rollbackItems,
         });
         watchListItemsRef.current = rollbackItems;
         watchList.setResult({
           requestKey: watchListRequestKey,
           items: rollbackItems,
         });
+        if (rollbackFavoriteResult) {
+          favoriteMarketResultRef.current = rollbackFavoriteResult;
+          favoriteMarket.setResult(rollbackFavoriteResult);
+        }
         throw error;
       } finally {
         marketFavoriteToggleInFlightRef.current.delete(tokenKey);
@@ -653,11 +655,23 @@ export function useNativeHomeSupplementalData({
               marketFavoriteToggleInFlightRef.current.size === 0 &&
               marketFavoriteRevisionRef.current === reconcileRevision
             ) {
+              const reconciledFavoriteResult =
+                buildNativeHomeFavoriteTokensResult({
+                  cachedTokens:
+                    favoriteMarketResultRef.current?.tokens ??
+                    EMPTY_DISPLAY_TOKENS,
+                  recommendationResult: favoriteRecommendations.result,
+                  watchListItems: refreshedWatchList.data,
+                });
               watchListItemsRef.current = refreshedWatchList.data;
               watchList.setResult({
                 requestKey: watchListRequestKey,
                 items: refreshedWatchList.data,
               });
+              if (reconciledFavoriteResult) {
+                favoriteMarketResultRef.current = reconciledFavoriteResult;
+                favoriteMarket.setResult(reconciledFavoriteResult);
+              }
             }
           } catch {
             // Keep the optimistic or rolled-back main-runtime snapshot until polling retries.
@@ -665,7 +679,7 @@ export function useNativeHomeSupplementalData({
         }
       }
     },
-    [watchList],
+    [favoriteMarket, favoriteRecommendations.result, watchList],
   );
 
   const addRecommendedMarketTokens = useCallback(async () => {
@@ -702,7 +716,7 @@ export function useNativeHomeSupplementalData({
         refreshedWatchList.data,
       );
       const optimisticTokens = refreshedWatchList.data
-        .slice(0, 3)
+        .slice(0, HOME_MARKET_FAVORITES_CACHE_COUNT)
         .map((item) =>
           recommendedTokens.find((token) =>
             equalTokenNoCaseSensitive({
@@ -719,16 +733,19 @@ export function useNativeHomeSupplementalData({
         )
         .filter((token): token is IFavoriteTokenDisplay => Boolean(token));
 
-      watchList.setResult({
-        requestKey: watchListRequestKey,
-        items: refreshedWatchList.data,
-      });
-      favoriteMarket.setResult({
+      const optimisticFavoriteResult: IFavoriteTokensResult = {
         isRecommendation: false,
         requestKey: `favorites:${refreshedContentKey}`,
         total: refreshedWatchList.data.length,
         tokens: optimisticTokens,
+      };
+      watchListItemsRef.current = refreshedWatchList.data;
+      watchList.setResult({
+        requestKey: watchListRequestKey,
+        items: refreshedWatchList.data,
       });
+      favoriteMarketResultRef.current = optimisticFavoriteResult;
+      favoriteMarket.setResult(optimisticFavoriteResult);
       appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
       return true;
     } finally {

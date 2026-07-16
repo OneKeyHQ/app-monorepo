@@ -1117,3 +1117,77 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - `yarn agent:check --profile commit` 日志位于 `node_modules/.cache/agent-checks/2026-07-16T09-49-36-449Z`。`lint-worktree-js`、`lint-staged`、`agent-context` 通过；`lint-worktree-ts` / `tsc-staged` 被共享工作区已有的 Desktop、Rspack、DeFi、TradingView、WebView、Navigator、AppUpdate、Firmware、ReferFriends、Swap、旧 `NativeHomePageView.native.tsx` 等错误阻断，日志中没有本轮 hook 报错。不得修改这些无关文件制造绿色结果。
 - `1k-trade-swap-market` readiness 仍被共享工作区已有的 `quoteProgress.ts` reviewed-ref drift 及 `SwapHeaderContainer.tsx` / `SwapHeaderRightActionContainer.tsx` dirty files 阻断；本轮没有修改或回滚这些 Swap 文件。
 - 本轮提交只能 stage `ANDROID_NATIVE_HOME_HANDOFF.md`、`packages/kit/src/views/Home/useNativeHomeSupplementalData.ts`、`packages/native-components/ios/HomeContainerView.swift`。其余大量用户/其他任务 dirty files 必须原样保留，不得混入 commit/push。
+
+## 2026-07-16 Favorites 删除语义与严格全帧验收（本轮完成）
+
+### 用户纠正与产品语义
+
+- 上一节只解决了整块 `rows -> loading/empty -> rows`，但 stale-while-revalidate 会让 Favorites 中被取消的 Token 暂时保留为空心 Star，用户会感知为“不会移除”。这不符合原版：**Favorites 中取消收藏必须移除该行；Trending、Stocks、Perps 中取消收藏只改变 Star，分类行仍保留。**
+- Favorites 的目标不是靠保留旧行规避闪烁，而是 main 首帧乐观删除并使用已缓存的下一条收藏补位。bg service 仍负责权威写入和 reread；失败时才按原索引平滑恢复。
+- 数量语义：`5 -> 4` 时前三行用第 4 条缓存补位，Market 高度不变；`3 -> 2` 时允许减少一行，但 Earn 只能单向连续移动一次；`1 -> 0` 必须从最后一行直接过渡到 2×2 推荐卡，中间不能出现空白或 loading。
+
+### 严格验收标准
+
+- 之前的 8fps contact sheet 只能算初步证据，不能证明不存在短于 125ms 的空窗；本节明确降级上一节“无闪烁”结论，待新的全帧证据后再判定。
+- 每个场景从点击前至少 1 秒录到 bg 权威 reread 后至少 2 秒，尽可能使用 60fps 原始录制；验收脚本必须检查录制文件中的**每一个实际帧**，不能只抽样 contact sheet。
+- 每帧固定追踪 Market 标题、分类栏、可见数据/推荐卡、View more、Earn 标题和外层 content offset。任何一帧出现 loading/empty renderer、整块 rows 消失、旧行先恢复再消失、非目标行图片串图或第二次反向位移都失败。
+- `5 -> 4`：分类栏、View more、Earn 的 y 坐标和外层 offset 全程容差不超过 1px；被删行与补位行只允许一个连续过渡。`3 -> 2`：Earn 允许随单行删除连续移动 56pt，但不得瞬时往返。`1 -> 0`：最后一行和推荐卡直接交接，不得先出现空白/loading。
+- UI 证据必须同时配对 bg 权威 watchlist 前后内容，确认点击没有误命中整行或其他 View more；误跳 Market 全页、坐标漂移、截图黑块或分类变化的录屏一律作废。
+- 最终证据包含原始录屏、全帧检测 JSON/摘要、关键帧 contact sheet、before/after 截图和 bg watchlist 前后值。代码编译、元素存在、最终 settled frame、8fps 抽帧任一项都不能单独判定通过。
+
+### owner-correct 实现设计
+
+- main 缓存 Favorites 前 4 条 display DTO，但 Native 只渲染前 3 条；删除时按乐观 watchlist 顺序从缓存映射新的前三行，并同步写入匹配的新 `favoriteRequestKey`，不再让被删 Token 以空心 Star 滞留。
+- 有收藏时也预取空收藏推荐 Token；最后一条被删时直接提交 recommendation snapshot。Native diffable data source 只在 Market 结构变化且分类选择没有变化时启用局部行动画，价格轮询和分类切换不触发该动画。
+- **main runtime：** display DTO cache、推荐预取、乐观删除/回滚、request identity、Native section patch。**bg runtime：** watchlist service 与持久化唯一写入者。两个 Hermes heap 独立，proxy 数据独立序列化/反序列化，初始化顺序独立。
+- 图片/字体 cache 继续是进程级共享 Native 资源；row/cell constraint、represented image/favorite identity、request cancellation 和 pressed/transition state 属于 per-view 状态。
+
+### 自动走查首先发现的真实抖动与二次根因
+
+- 第一版 owner-correct DTO 修复已能让 `5 -> 4` 从 `WLFI / UNI / SOLdiers` 直接得到 `UNI / SOLdiers / SHIB`，bg 也真实从 5 条变成 4 条，但第一段有效录屏的 settled frame 中 `Show less` 和 Market 标题重新进入视口，证明 outer/body content offset 跳了约一行。列表最终正确不等于“不抖”，该段明确判失败并触发二次根因分析。
+- 根因在 iOS `UITableViewDiffableDataSource` 的结构动画：同一 snapshot 删除首行并插入缓存的第 4 行时，UIKit 会为保持自身锚点自动改写 nested table 的 `contentOffset`；它再与 Native Home 的 outer/nested 协同滚动叠加，造成整页跳动。继续改 JS debounce、Star path 或 row constraint 都不会解决这个 offset owner 问题。
+- 最终实现只在 Market 结构 mutation 且分类没有变化时启用 diffable 局部动画，并在动画期间钉住 mutation 前的 body content offset。UIKit 内部改写会在 delegate 回调和 apply completion 中恢复；如果用户真实开始 tracking/dragging/decelerating，则立即放弃钉住，不能与手势抢 offset。
+
+### 最终 main 状态机与回滚语义
+
+- main 预取空收藏推荐 Token，同时缓存 Favorites 前 4 条 display DTO，Native 正常态只渲染前 3 条。Star action 在调用 bg proxy 前，同一 main update 同时提交乐观 watchlist 和匹配新 request key 的 favorite snapshot。
+- `5 -> 4` 由第 4 条 DTO 首帧补位；`3 -> 2` 直接减少一行；`1 -> 0` 直接切到已预取的 2×2 推荐卡。不会先提交 empty/loading，也不会让被删 Token 暂时保留为空心 Star。
+- bg 写入失败时按删除前的真实 index 恢复 item，而不是错误 prepend；权威 reread 继续受 per-action in-flight set 和 revision guard 保护，较早请求不能覆盖较新的乐观状态。
+- Trending、Stocks、Perps 的取消收藏仍只改变当前分类行的 Star，不删除服务端分类行；只有 Favorites 执行结构移除。Add 4 recommendations 继续使用上一节已验证的单次 main snapshot 更新。
+
+### 严格录屏与每个实际帧的自动结果
+
+- 有效原始录屏：`.tmp/ui/favorites-remove-5-to-4-debug.mov`（135 帧 / 6.43s）、`.tmp/ui/favorites-remove-3-to-2-debug.mov`（98 帧 / 6.42s）、`.tmp/ui/favorites-remove-1-to-0-debug.mov`（170 帧 / 7.50s）。simulator recorder 使用可变帧率；虽然请求目标为 60fps，但最终只按实际编码帧计数，禁止把它误报成 60fps 证据。
+- 每段对应 `-before.png`、`-after.png` 和 `-contact-sheet.png`。contact sheet 只用于肉眼复核；pass/fail 来自 `.tmp/ui/favorites-remove-debug-frame-analysis.json`，脚本 `.tmp/ui/analyze-native-home-favorites-frames.py` 对解码出的 135 / 98 / 170 个实际帧逐一检查，没有按 8fps 抽样代替全帧。
+- `5 -> 4`：Market anchor 全帧固定 y=415，View more 固定 y=684，Earn 固定 y=737；内容最小暗像素比例 0.073289，bg 5 条变 4 条，最终前三行 `UNI / SOLdiers / SHIB`。无 empty/loading、无 anchor 位移、无旧状态恢复。
+- `3 -> 2`：Market anchor 全帧固定 y=415，Earn 只从 y=689 单向移动到 y=633，没有反向步进；内容最小暗像素比例 0.067382，bg 3 条变 2 条，最终 `SHIB / LINK`。
+- `1 -> 0`：Market anchor 全帧固定 y=415，Earn 只从 y=577 单向移动到 y=657；内容最小暗像素比例 0.028084，bg 最终为空。最后 LINK 行与 `LINK / SHIB / WLFI / UNI` 推荐卡在同一段结构动画中交接，中间没有 blank/loading；第 72–99 帧展开图为 `.tmp/ui/favorites-remove-1-to-0-transition-frames-72-99.png`。
+- 自动分类曾把 `Add 4 tokens` header 先出现、推荐卡仍在进入的中间帧误判成 settled after，随后又标成 before。逐帧展开证明不是旧行恢复；判定模型改为“内容接近 after 且 Earn 已到目标几何位置”后，first settled after 为第 103 帧，后续没有 state reversal。不能通过简单放宽 pixel threshold 消除失败。
+- 多段录屏明确作废：点到分类 Star、XCTest coordinate no-op、以及 DeFi 异步位移后误入 Aave 的录屏都没有进入最终结果。Nitro subtree 仍只向 accessibility snapshot 暴露 Application/Window 两个节点；本轮最终使用稳定后的 screenshot + 原生 idb tap + bg 权威 reread。误命中规则继续强制执行。
+
+### 该自动对比流程是否有效
+
+- 本轮结论是非常有效，并继续作为 Native Home 的主要走查方式：同 simulator/account/config 下先做 legacy/Native 等业务状态 A/B；稳定视觉用对齐 ROI/pixel diff；交互结构变化用原始录屏的每个实际帧追踪固定锚点、内容密度和单向位移；最后用 bg service 权威结果确认没有误命中。
+- 这套流程本轮先抓到“数据已正确但 content offset 仍跳”的真实失败，又排除了多个坐标误命中和一个自动分类 false positive。编译通过、最终截图、元素存在、单一 contact sheet 和 bg 写入成功仍不能互相替代。
+- DeFi/Earn 会异步改变 Market 的屏幕 y；后续 coordinate fallback 必须先等 section settle，并使用截图后立即点击。必要时优先继续改善 Native accessibility 暴露，而不是复用几秒前的绝对坐标。
+
+### Debug、数据安全与 runtime 边界
+
+- 本轮两次从仓库根目录执行标准 `yarn app:ios`，两次均为 `Build Succeeded`、0 error，并由命令完成 `Debug-iphonesimulator/OneKeyWallet.app` 的签名、更新安装和启动。没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`。
+- 没有执行 uninstall、reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据。`Account #1`、余额和资产列表正常，应用全程持续存活。
+- 最终 main runtime：`$$onekeyJsReadyAt=1784199661886`、`$$onekeyUIVisibleAt=1784199663362`、transport ready。bg 独立 ready payload：`runtime=background/status=ready/protocolVersion=1/bootId=1784199663483-eismks7v`，独立 background page 的 Jotai bridge 存在；没有用 main ready 代替 bg ready。
+- 验收前权威 watchlist 为 `SOLdiers(sortIndex 995) / SHIB(998) / LINK(999)`。为覆盖 `5 -> 4` 仅通过正常 bg service 临时加入 WLFI/UNI；完成 `1 -> 0` 后又通过正常 service 恢复原三条及顺序，最终截图 `.tmp/ui/favorites-removal-restored-initial-three.png`。没有直接修改 DB。
+- **main scope：** DTO/推荐预取、乐观删除与 rollback、request identity、snapshot/section patch、diffable mutation 和 per-view offset pin。**bg scope：** config/category/watchlist service 与权威持久化读写。两个 Hermes heap 独立，经 proxy 序列化/反序列化，各自持有副本，初始化顺序独立。
+- 图片/字体 cache 和底层持久化句柄属于进程级共享 Native 资源；constraint、represented image/favorite signature、request cancellation、Star/pressed/transition、mutation offset pin 属于具体 view/main 状态。
+
+### 本节完成边界
+
+- 本节只通过 Favorites 的 `5 -> 4`、`3 -> 2`、`1 -> 0` 删除语义、无 blank/loading、单向结构动画、offset 稳定和 bg 权威结果。Stocks logo fallback、Trending BTC volume、失败回滚注入态、Dark mode、pressed/hover 与连续分类切换等仍按前文继续验收，不能据此声明整个 Market UI 已完成。
+
+### 检查与提交门禁
+
+- `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 通过；本轮指定 Native Home 文件的 `git diff --check` 通过。
+- 聚焦 ESLint、type-aware Oxlint 均为 0 error；本轮三个 TS 文件的 Prettier check 通过。Swift 不在 Prettier parser 范围，handoff 也不做整文件机械重排。
+- 聚焦 Jest：`useNativeHomeSupplementalData.test.ts`、`HomeContainerController.test.ts`、`nativeHomeDataAdapters.test.ts`、`PopularTrading/utils.test.ts` 共 4 suites / 22 tests 全部通过，其中新加 5 个测试覆盖第 4 行补位、`3 -> 2`、`1 -> 0` 推荐直切、原 index rollback 与分类加星置顶。
+- `yarn agent:check --profile commit` 日志位于 `node_modules/.cache/agent-checks/2026-07-16T11-31-15-755Z`。`lint-worktree-js`、`agent-context`、`lint-staged` 通过；`lint-worktree-ts` / `tsc-staged` 仅被共享工作区已有的 Desktop、Rspack、DeFi、TradingView、WebView、Navigator、AppUpdate、Firmware、ReferFriends、Swap 和旧 `NativeHomePageView.native.tsx` 等问题阻断，日志中没有本轮 helper/hook/test/Swift 错误。没有回滚或顺手修改这些无关文件。
+- 本轮提交只允许 stage 本节涉及的 handoff、Favorites helper/test、supplemental hook 与 iOS HomeContainer；大量其他用户/任务 dirty files 必须继续保留且不得混入。

@@ -921,6 +921,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   private var theme: HomeContainerTheme?
   private var sections: [HomeContainerSection] = []
   private var suppressContentOffsetCallback = false
+  private var pinnedMarketMutationContentOffsetY: CGFloat?
   private var mountedSlotKeys = Set<String>()
   private var visibleSlotHosts: [String: HomeContainerSlotHostView] = [:]
 
@@ -1066,11 +1067,55 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     } else {
       nextSnapshot.reloadItems(changedIds)
     }
-    dataSource.apply(nextSnapshot, animatingDifferences: false) { [weak self] in
+    let animatesMarketMutation = shouldAnimateMarketMutation(
+      previousRows: previousRows,
+      nextRows: rowsById,
+      changedIds: changedIds
+    )
+    if animatesMarketMutation,
+       !tableView.isTracking,
+       !tableView.isDragging,
+       !tableView.isDecelerating {
+      pinnedMarketMutationContentOffsetY = tableView.contentOffset.y
+    }
+    dataSource.apply(nextSnapshot, animatingDifferences: animatesMarketMutation) { [weak self] in
       DispatchQueue.main.async {
+        self?.restorePinnedMarketMutationContentOffset()
+        self?.pinnedMarketMutationContentOffsetY = nil
         self?.onSlotLayoutChange?()
       }
     }
+    restorePinnedMarketMutationContentOffset()
+  }
+
+  private func shouldAnimateMarketMutation(
+    previousRows: [String: HomeContainerRow],
+    nextRows: [String: HomeContainerRow],
+    changedIds: [String]
+  ) -> Bool {
+    let previousIds = Set(previousRows.keys)
+    let nextIds = Set(nextRows.keys)
+    let structuralIds = previousIds.symmetricDifference(nextIds)
+    guard !structuralIds.isEmpty,
+          structuralIds.allSatisfy(isMarketMutationRowId) else { return false }
+
+    return changedIds.allSatisfy { id in
+      isMarketMutationRowId(id) || id == "section:portfolio-market"
+    }
+  }
+
+  private func isMarketMutationRowId(_ id: String) -> Bool {
+    id.hasPrefix("item:portfolio-market:market:") ||
+      id == "item:portfolio-market:market-show-more" ||
+      id.hasPrefix("market-recommendations:portfolio-market:")
+  }
+
+  private func restorePinnedMarketMutationContentOffset() {
+    guard let offsetY = pinnedMarketMutationContentOffsetY,
+          abs(tableView.contentOffset.y - offsetY) > 0.5 else { return }
+    suppressContentOffsetCallback = true
+    tableView.contentOffset.y = offsetY
+    suppressContentOffsetCallback = false
   }
 
   func slotHostView(forKey key: String) -> UIView? {
@@ -1193,6 +1238,14 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
 
   func scrollViewDidScroll(_ scrollView: UIScrollView) {
     guard !suppressContentOffsetCallback else { return }
+    if pinnedMarketMutationContentOffsetY != nil {
+      if tableView.isTracking || tableView.isDragging || tableView.isDecelerating {
+        pinnedMarketMutationContentOffsetY = nil
+      } else {
+        restorePinnedMarketMutationContentOffset()
+        return
+      }
+    }
     onContentOffsetChange?(self)
   }
 
