@@ -293,11 +293,12 @@ describe('generated cold-start route config', () => {
     expect(parseExtensionHash(`#${path}`)).toBeUndefined();
   });
 
-  it.each([
-    '/modal/DAppConnectionModal/ConnectionModal',
-  ])('keeps Extension approval path %s private from Web', (path) => {
-    expect(getWebStateFromPath(path, { screens })).toBeUndefined();
-  });
+  it.each(['/modal/DAppConnectionModal/ConnectionModal'])(
+    'keeps Extension approval path %s private from Web',
+    (path) => {
+      expect(getWebStateFromPath(path, { screens })).toBeUndefined();
+    },
+  );
 
   it.each([
     [
