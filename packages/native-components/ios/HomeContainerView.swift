@@ -3228,31 +3228,177 @@ private enum HomeContainerMarketArtwork {
   static func recognized(size: CGFloat) -> UIImage {
     let format = UIGraphicsImageRendererFormat()
     format.opaque = false
-    let rendered = UIGraphicsImageRenderer(size: CGSize(width: size, height: size), format: format).image { context in
+    let rendered = UIGraphicsImageRenderer(
+      size: CGSize(width: size, height: size),
+      format: format
+    ).image { context in
       let scale = size / 24
       context.cgContext.scaleBy(x: scale, y: scale)
-      let seal = UIBezierPath()
-      let center = CGPoint(x: 12, y: 12)
-      let points = 16
-      for index in 0..<(points * 2) {
-        let angle = -CGFloat.pi / 2 + CGFloat(index) * CGFloat.pi / CGFloat(points)
-        let radius: CGFloat = index.isMultiple(of: 2) ? 10.4 : 8.8
-        let point = CGPoint(
-          x: center.x + cos(angle) * radius,
-          y: center.y + sin(angle) * radius
-        )
-        index == 0 ? seal.move(to: point) : seal.addLine(to: point)
-      }
-      seal.close()
-      UIColor.black.setFill()
-      seal.fill()
 
-      UIColor.clear.setFill()
-      context.cgContext.setBlendMode(.clear)
-      let thumb = UIBezierPath(roundedRect: CGRect(x: 8.5, y: 10.2, width: 8.8, height: 6), cornerRadius: 1.8)
-      thumb.append(UIBezierPath(roundedRect: CGRect(x: 7, y: 10.2, width: 1.5, height: 6), cornerRadius: 0.4))
-      thumb.fill()
-      context.cgContext.setBlendMode(.normal)
+      let sealAndThumb = UIBezierPath()
+      sealAndThumb.move(to: CGPoint(x: 10.4667, y: 2.69823))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 13.5321, y: 2.69823),
+        controlPoint1: CGPoint(x: 11.276, y: 1.76682),
+        controlPoint2: CGPoint(x: 12.7227, y: 1.76704)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 14.8905, y: 4.26171))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 14.9179, y: 4.27245),
+        controlPoint1: CGPoint(x: 14.8973, y: 4.26949),
+        controlPoint2: CGPoint(x: 14.9077, y: 4.2739)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 16.9638, y: 3.94726))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 19.3114, y: 5.91796),
+        controlPoint1: CGPoint(x: 18.1826, y: 3.75404),
+        controlPoint2: CGPoint(x: 19.2902, y: 4.68411)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 19.3476, y: 7.98827))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 19.3622, y: 8.01366),
+        controlPoint1: CGPoint(x: 19.3478, y: 7.99873),
+        controlPoint2: CGPoint(x: 19.3533, y: 8.00827)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 21.1376, y: 9.08007))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 21.6698, y: 12.0986),
+        controlPoint1: CGPoint(x: 22.1955, y: 9.71542),
+        controlPoint2: CGPoint(x: 22.4466, y: 11.1398)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 20.3661, y: 13.708))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 20.3612, y: 13.7373),
+        controlPoint1: CGPoint(x: 20.3596, y: 13.7161),
+        controlPoint2: CGPoint(x: 20.3579, y: 13.7274)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 21.0361, y: 15.6943))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 19.5029, y: 18.3496),
+        controlPoint1: CGPoint(x: 21.4381, y: 16.8611),
+        controlPoint2: CGPoint(x: 20.7143, y: 18.1144)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 17.4696, y: 18.7441))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 17.4472, y: 18.7627),
+        controlPoint1: CGPoint(x: 17.4596, y: 18.7462),
+        controlPoint2: CGPoint(x: 17.4509, y: 18.7531)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 16.706, y: 20.6963))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 13.8251, y: 21.7451),
+        controlPoint1: CGPoint(x: 16.264, y: 21.8485),
+        controlPoint2: CGPoint(x: 14.9043, y: 22.3437)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 12.0146, y: 20.7402))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 11.9853, y: 20.7402),
+        controlPoint1: CGPoint(x: 12.0055, y: 20.7352),
+        controlPoint2: CGPoint(x: 11.9944, y: 20.7353)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 10.1737, y: 21.7451))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 7.29387, y: 20.6963),
+        controlPoint1: CGPoint(x: 9.09459, y: 22.3434),
+        controlPoint2: CGPoint(x: 7.7358, y: 21.8484)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 6.55168, y: 18.7627))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 6.52922, y: 18.7441),
+        controlPoint1: CGPoint(x: 6.54788, y: 18.7531),
+        controlPoint2: CGPoint(x: 6.53939, y: 18.7461)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 4.49601, y: 18.3496))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 2.96379, y: 15.6943),
+        controlPoint1: CGPoint(x: 3.28479, y: 18.1142),
+        controlPoint2: CGPoint(x: 2.56177, y: 16.861)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 3.63859, y: 13.7373))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 3.63371, y: 13.708),
+        controlPoint1: CGPoint(x: 3.64197, y: 13.7275),
+        controlPoint2: CGPoint(x: 3.64015, y: 13.7161)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 2.33, y: 12.0986))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 2.86223, y: 9.08007),
+        controlPoint1: CGPoint(x: 1.55313, y: 11.1397),
+        controlPoint2: CGPoint(x: 1.80424, y: 9.71542)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 4.63762, y: 8.01366))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 4.65226, y: 7.98827),
+        controlPoint1: CGPoint(x: 4.64644, y: 8.00825),
+        controlPoint2: CGPoint(x: 4.65209, y: 7.99864)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 4.68742, y: 5.91796))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 7.03605, y: 3.94726),
+        controlPoint1: CGPoint(x: 4.70866, y: 4.68405),
+        controlPoint2: CGPoint(x: 5.8172, y: 3.75391)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 9.08098, y: 4.27245))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 9.1093, y: 4.26171),
+        controlPoint1: CGPoint(x: 9.09131, y: 4.27409),
+        controlPoint2: CGPoint(x: 9.10243, y: 4.26961)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 10.4667, y: 2.69823))
+      sealAndThumb.close()
+
+      sealAndThumb.move(to: CGPoint(x: 11.9833, y: 6.458))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 11.5361, y: 6.73437),
+        controlPoint1: CGPoint(x: 11.7941, y: 6.45812),
+        controlPoint2: CGPoint(x: 11.6207, y: 6.56517)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 9.67473, y: 10.458))
+      sealAndThumb.addLine(to: CGPoint(x: 8.48332, y: 10.458))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 7.48332, y: 11.458),
+        controlPoint1: CGPoint(x: 7.93131, y: 10.4582),
+        controlPoint2: CGPoint(x: 7.48352, y: 10.906)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 7.48332, y: 14.958))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 8.48332, y: 15.958),
+        controlPoint1: CGPoint(x: 7.48332, y: 15.5102),
+        controlPoint2: CGPoint(x: 7.93118, y: 15.9578)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 15.1747, y: 15.958))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 17.1562, y: 14.2285),
+        controlPoint1: CGPoint(x: 16.1747, y: 15.9578),
+        controlPoint2: CGPoint(x: 17.0211, y: 15.2193)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 17.497, y: 11.7285))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 15.5155, y: 9.458),
+        controlPoint1: CGPoint(x: 17.6607, y: 10.5278),
+        controlPoint2: CGPoint(x: 16.7273, y: 9.45819)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 13.5761, y: 9.458))
+      sealAndThumb.addLine(to: CGPoint(x: 13.7734, y: 8.18945))
+      sealAndThumb.addCurve(
+        to: CGPoint(x: 12.2919, y: 6.458),
+        controlPoint1: CGPoint(x: 13.9151, y: 7.28003),
+        controlPoint2: CGPoint(x: 13.2122, y: 6.45827)
+      )
+      sealAndThumb.addLine(to: CGPoint(x: 11.9833, y: 6.458))
+      sealAndThumb.close()
+      sealAndThumb.usesEvenOddFillRule = true
+
+      let thumbStem = UIBezierPath()
+      thumbStem.move(to: CGPoint(x: 9.48332, y: 11.458))
+      thumbStem.addLine(to: CGPoint(x: 9.48332, y: 14.958))
+      thumbStem.addLine(to: CGPoint(x: 8.48332, y: 14.958))
+      thumbStem.addLine(to: CGPoint(x: 8.48332, y: 11.458))
+      thumbStem.close()
+
+      UIColor.black.setFill()
+      sealAndThumb.fill()
+      thumbStem.fill()
     }
     return rendered.withRenderingMode(.alwaysTemplate)
   }
