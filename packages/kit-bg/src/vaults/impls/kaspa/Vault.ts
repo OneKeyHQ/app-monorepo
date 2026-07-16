@@ -1,3 +1,4 @@
+import { Transaction } from '@onekeyfe/kaspa-core-lib';
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
@@ -19,6 +20,7 @@ import {
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import { RestAPIClient as ClientKaspa } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
 import sdk from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
+import type { IKaspaGetTransactionResponse } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/types';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
 import {
@@ -84,6 +86,31 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
+
+// hd-core defines this internally but doesn't export it; derive from the params.
+export type IKaspaRefTransaction = NonNullable<
+  KaspaSignTransactionParams['refTxs']
+>[number];
+
+// Shape of a kaspa REST-decoded previous transaction (api.kaspa.org style).
+interface IKaspaRestTx {
+  version?: number;
+  lock_time?: number | string;
+  subnetwork_id?: string;
+  gas?: number | string;
+  payload?: string;
+  inputs?: {
+    previous_outpoint_hash: string;
+    previous_outpoint_index: string | number;
+    sequence?: number | string;
+  }[];
+  outputs?: {
+    amount: number | string;
+    script_public_key: string;
+    script_public_key_version?: number;
+  }[];
+}
 
 // Minimum spendable KAS required to fund a KRC20 commit transaction, surfaced to
 // the user via Toast when their balance is too low (instead of the generic
@@ -803,6 +830,113 @@ export default class Vault extends VaultBase {
       ...params.signedTx,
       txid: txId,
     };
+  }
+
+  // Fetch the raw previous transactions for the given txids (the txs being spent
+  // as inputs), keyed by txid. Mirrors the BTC vault so a future hardware refTx
+  // (previous-transaction) flow can verify each input's amount/script on-device.
+  //
+  // NOTE: not wired into signing yet — hd-core's KaspaSignTransactionParams has
+  // no `refTxs` field and the firmware doesn't verify prev-txs yet. Once it does:
+  // dedupe input txids -> collectTxsByApi -> build a Kaspa RefTransaction
+  // (outputs: value + scriptPublicKey) -> pass as refTxs in kaspaSignTransaction.
+  // Backend: POST /wallet/v1/network/raw-transaction/list needs kaspa support.
+  async collectTxsByApi(txids: string[]): Promise<{ [txid: string]: string }> {
+    const lookup: { [txid: string]: string } = {};
+    const txs = await this.backgroundApi.serviceSend.getRawTransactions({
+      networkId: this.networkId,
+      txids,
+    });
+    Object.keys(txs).forEach((txid) => {
+      lookup[txid] = txs[txid].rawTx;
+    });
+    return lookup;
+  }
+
+  // Build a KaspaRefTransaction (previous tx) from a backend rawTx. Handles both
+  // a kaspa-core-lib consensus hex and a REST JSON string (starting with '{').
+  // txId is passed in (authoritative) — kaspa-core-lib's own hash doesn't match
+  // the network txid.
+  buildPrevTx(txId: string, rawTx: string): IKaspaRefTransaction {
+    const trimmed = rawTx.trim();
+    if (trimmed.startsWith('{')) {
+      const j = JSON.parse(trimmed) as IKaspaRestTx;
+      return {
+        txId,
+        version: Number(j.version ?? 0),
+        inputs: (j.inputs ?? []).map((input) => ({
+          prevTxId: input.previous_outpoint_hash,
+          outputIndex: Number(input.previous_outpoint_index ?? 0),
+          sequenceNumber: input.sequence ?? 0,
+        })),
+        outputs: (j.outputs ?? []).map((output) => ({
+          satoshis: output.amount,
+          script: output.script_public_key,
+          scriptVersion: Number(output.script_public_key_version ?? 0),
+        })),
+        lockTime: j.lock_time ?? 0,
+        subNetworkID: j.subnetwork_id,
+        gas: j.gas ?? 0,
+        payload: j.payload ?? '',
+      };
+    }
+    const tx = new Transaction(trimmed);
+    return {
+      txId,
+      version: tx.version,
+      inputs: tx.inputs.map((input) => ({
+        prevTxId: input.prevTxId.toString('hex'),
+        outputIndex: input.outputIndex,
+        sequenceNumber: input.sequenceNumber.toString(),
+      })),
+      outputs: tx.outputs.map((output) => ({
+        satoshis: output.satoshis.toString(),
+        script: output.script.toBuffer().toString('hex'),
+        scriptVersion: 0,
+      })),
+      lockTime: tx.nLockTime.toString(),
+      payload: '',
+    };
+  }
+
+  // Fetch previous transactions as refTxs for on-device input verification, via
+  // the kaspa REST RPC proxy (network-aware, transparently forwards to
+  // api.kaspa.org).
+  async collectRefTxsByApi(txids: string[]): Promise<IKaspaRefTransaction[]> {
+    // Cap the fetch at 30s: refTx is a best-effort verification aid, so a slow or
+    // huge (many-input) request must not block signing — on timeout the caller
+    // falls back to blind signing.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const prevTxs = await Promise.race([
+        this.backgroundApi.serviceAccountProfile.sendProxyRequest<IKaspaGetTransactionResponse>(
+          {
+            networkId: this.networkId,
+            body: txids.map((txid) => ({
+              route: 'rpc',
+              params: {
+                method: 'GET',
+                params: [],
+                url: `/transactions/${txid}?inputs=true&outputs=true&resolve_previous_outpoints=light`,
+              },
+            })),
+          },
+        ),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new OneKeyLocalError('kaspa refTx fetch timeout')),
+            timerUtils.getTimeDurationMs({ seconds: 30 }),
+          );
+        }),
+      ]);
+      return prevTxs
+        .filter((tx) => tx?.transaction_id)
+        .map((tx) => this.buildPrevTx(tx.transaction_id, JSON.stringify(tx)));
+    } finally {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    }
   }
 
   // -------------------KRC20-----------------------------------------

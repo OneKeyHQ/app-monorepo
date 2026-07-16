@@ -25,6 +25,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -39,6 +40,8 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type Vault from './Vault';
+import type { IKaspaRefTransaction } from './Vault';
 import type {
   AllNetworkAddressParams,
   KaspaSignTransactionParams,
@@ -197,6 +200,34 @@ export class KeyringHardware extends KeyringHardwareBase {
         `Transaction size is too large, please try to reduce the amount of the transaction. UTXO Count: ${txn?.inputs?.length}`,
       );
     }
+    // Collect previous transactions (refTxs) so the device can verify each input's
+    // amount/script. Any failure or incomplete coverage → skip refTxs and
+    // blind-sign (fallback); log it so a later "signing degraded / no on-device
+    // verification" report can be traced to the refTx fetch rather than the tx.
+    const prevTxids = Array.from(
+      new Set(encodedTx.inputs.map((i) => i.txid)),
+    ).filter(Boolean);
+    let refTxs: IKaspaRefTransaction[] | undefined;
+    try {
+      const built = await (this.vault as Vault).collectRefTxsByApi(prevTxids);
+      // Require every input's prev tx; a partial set makes the device request a
+      // missing prev-tx mid-stream and fail.
+      const covered = new Set(built.map((t) => t.txId.toLowerCase()));
+      if (!prevTxids.every((t) => covered.has(t.toLowerCase()))) {
+        throw new OneKeyLocalError(
+          `incomplete refTxs: got ${built.length} of ${prevTxids.length}`,
+        );
+      }
+      refTxs = built;
+    } catch (e) {
+      defaultLogger.transaction.send.refTxFetchFailed({
+        network: this.networkId,
+        txids: prevTxids,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      refTxs = undefined;
+    }
+
     const unSignTx: KaspaSignTransactionParams = {
       version: txn.version,
       inputs: txn.inputs.map((input) => ({
@@ -212,16 +243,42 @@ export class KeyringHardware extends KeyringHardwareBase {
         },
         sigOpCount: input?.output?.script?.getSignatureOperationsCount() ?? 1,
       })),
-      outputs: txn.outputs.map((output) => ({
-        satoshis: output.satoshis.toString(),
-        script: bufferUtils.bytesToHex(output.script.toBuffer()),
-        scriptVersion: 0,
-      })),
+      // Send both script (legacy blind-sign) and address/addressN (streaming) so
+      // the SDK blind-signs without refTxs and streams once they exist. Change
+      // returns to our account address → addressN (device shows KASPA_PAYTOCHANGE);
+      // a custom change address falls back to address.
+      outputs: txn.outputs.map((output, index) => {
+        const satoshis = output.satoshis.toString();
+        const script = bufferUtils.bytesToHex(output.script.toBuffer());
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const isChange = index === (txn as any)._changeIndex;
+        if (
+          isChange &&
+          (!encodedTx.changeAddress ||
+            encodedTx.changeAddress === dbAccount.address)
+        ) {
+          return {
+            satoshis,
+            script,
+            scriptVersion: 0,
+            addressN: dbAccount.path,
+          };
+        }
+        return {
+          satoshis,
+          script,
+          scriptVersion: 0,
+          address: isChange
+            ? (encodedTx.changeAddress ?? dbAccount.address)
+            : encodedTx.outputs[0]?.address,
+        };
+      }),
       lockTime: txn.nLockTime.toString(),
       sigHashType: SignatureType.SIGHASH_ALL,
       sigOpCount: 1,
       scheme: EKaspaSignType.Schnorr,
       prefix: chainId,
+      refTxs,
       useTweak: addressEncoding !== EAddressEncodings.KASPA_ORG,
     };
 

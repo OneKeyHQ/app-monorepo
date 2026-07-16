@@ -417,4 +417,20 @@ export class SendScene extends BaseScene {
       retriesLeft,
     };
   }
+
+  public refTxFetchFailed({
+    network,
+    txids,
+    error,
+  }: {
+    network: string | undefined;
+    txids: string[];
+    error: string;
+  }) {
+    return {
+      network,
+      txids,
+      error,
+    };
+  }
 }
