@@ -37,6 +37,7 @@ import type {
   IIpTableRemoteConfig,
 } from '@onekeyhq/shared/src/request/types/ipTable';
 import {
+  computeIpTableConfigHash,
   isSupportIpTablePlatform,
   isValidIpTableRemoteConfigShape,
   mergeIpTableConfigs,
@@ -386,6 +387,28 @@ class ServiceIpTable extends ServiceBase {
 
       const currentConfig = await this.getConfig();
       const localConfig = currentConfig.config;
+      const lastVerified = currentConfig.runtime?.lastVerified;
+
+      // Rollback protection: a valid signature is not enough — refuse
+      // configs older than what we already verified, so a stale (but
+      // legitimately signed) file cannot displace a newer one.
+      const remoteGeneratedAtMs = Date.parse(remoteConfig.generated_at);
+      const lastVerifiedGeneratedAtMs = lastVerified
+        ? Date.parse(lastVerified.generatedAt)
+        : Number.NaN;
+      const isVersionRegression =
+        remoteConfig.version < localConfig.version ||
+        (lastVerified !== undefined &&
+          remoteConfig.version === lastVerified.version &&
+          !Number.isNaN(remoteGeneratedAtMs) &&
+          !Number.isNaN(lastVerifiedGeneratedAtMs) &&
+          remoteGeneratedAtMs < lastVerifiedGeneratedAtMs);
+      if (isVersionRegression) {
+        defaultLogger.ipTable.request.error({
+          info: `[IpTable] Rejecting CDN config rollback: remote v${remoteConfig.version}@${remoteConfig.generated_at} is older than local v${localConfig.version}`,
+        });
+        return false;
+      }
 
       const mergedConfig = mergeIpTableConfigs(localConfig, remoteConfig);
 
@@ -395,7 +418,9 @@ class ServiceIpTable extends ServiceBase {
         } domains`,
       });
 
-      await this.saveConfig(mergedConfig);
+      await this.backgroundApi.simpleDb.ipTable.saveConfig(mergedConfig, {
+        payloadHash: computeIpTableConfigHash(remoteConfig),
+      });
 
       defaultLogger.ipTable.request.info({
         info: '[IpTable] CDN config updated successfully',
