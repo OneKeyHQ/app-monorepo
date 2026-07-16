@@ -1,5 +1,5 @@
 diff --git a/node_modules/@react-native/virtualized-lists/Lists/VirtualizedList.js b/node_modules/@react-native/virtualized-lists/Lists/VirtualizedList.js
-index 5b8aaa5..6db20ca 100644
+index 5b8aaa5..a6e2662 100644
 --- a/node_modules/@react-native/virtualized-lists/Lists/VirtualizedList.js
 +++ b/node_modules/@react-native/virtualized-lists/Lists/VirtualizedList.js
 @@ -1210,9 +1210,19 @@ class VirtualizedList extends StateSafePureComponent<
@@ -25,33 +25,3 @@ index 5b8aaa5..6db20ca 100644
    }
  
    _cellRefs: {[string]: null | CellRenderer<any>} = {};
-@@ -1575,12 +1585,28 @@ class VirtualizedList extends StateSafePureComponent<
-     const isWithinStartThreshold = distanceFromStart <= startThreshold;
-     const isWithinEndThreshold = distanceFromEnd <= endThreshold;
- 
-+    // OneKey patch (OK-57069): the stock fire condition requires BOTH the
-+    // render window to include the very last item AND the offset to sit
-+    // within the end threshold of the laid-out content. With a small
-+    // windowSize and heavy rows (Android history list) these two are
-+    // anti-correlated: while the user is clamped at the bottom of the
-+    // partially-rendered content the window is still expanding, and every
-+    // rendered batch grows the content, pushing the user back out of the
-+    // threshold — on slow devices onEndReached then never fires. A user
-+    // pinned to the absolute bottom of everything currently laid out cannot
-+    // scroll any further, so treat that hard clamp as end-reached even when
-+    // the render window has not caught up yet. The sentEndForContentLength
-+    // dedupe still limits this to one call per content-length plateau.
-+    const isRenderWindowAtEnd =
-+      this.state.cellsAroundViewport.last === getItemCount(data) - 1;
-+    const isPinnedToContentBottom = distanceFromEnd <= DEFAULT_THRESHOLD_PX;
-+
-     // First check if the user just scrolled within the end threshold
-     // and call onEndReached only once for a given content length,
-     // and only if onStartReached is not being executed
-     if (
-       onEndReached &&
--      this.state.cellsAroundViewport.last === getItemCount(data) - 1 &&
-+      (isRenderWindowAtEnd || isPinnedToContentBottom) &&
-       isWithinEndThreshold &&
-       this._listMetrics.getContentLength() !== this._sentEndForContentLength
-     ) {
