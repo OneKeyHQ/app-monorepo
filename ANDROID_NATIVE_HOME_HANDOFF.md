@@ -1036,3 +1036,39 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - **main runtime：** Native Home UI、Market selection/cache/snapshot/section patch、推荐卡选择和格式化。**bg runtime：** Market config/category/watchlist/service 数据。两侧 Hermes heap 与反序列化副本独立，初始化顺序也独立。
 - 图片与字体 cache 是进程级共享 Native 资源；cell constraint、represented image signature、request cancellation、pressed/hover 和推荐卡渲染状态属于 per-view 状态。
 - 已有真实证据覆盖 Favorites 2×2 空态、选择/恢复、Trending 小额精确价格、Stocks 三张真实 logo、Perps 配置态和连续分类无空窗/无高度跳动。仍未覆盖 Dark mode、pressed/hover、行内 Star 点击不冒泡、所有降级态及 CASHCAT 当前行，因此不能声明整个 Market UI 已完成。
+
+## 2026-07-16 真实空收藏 A/B、Add 4 刷新与 Plus 尺寸修复
+
+### 用户发现的问题与根因
+
+- 用户在 Native 空 Favorites 点击 `Add 4 tokens` 后看到四层 `Added to market favorites`，但页面仍停留在 2×2 推荐卡。bg 批量写入实际成功，问题在 main：写入通过 proxy 返回后只依赖通用异步 refresh，没有让当前 main heap 的 watchlist/favorites snapshot 首帧切换；重复进入 action 时还会叠加提示。
+- Native header 使用 14pt SF Symbol `plus`。原版实际使用 small Button 的 `PlusSmallOutline`：18pt 画布、24×24 path 中 2pt 笔画，视觉主体约 9pt；因此 Native 的 `+` 明显更大，不能只按 SF Symbol pointSize 猜测。
+
+### 等业务状态 A/B 成为强制前置条件
+
+- 仅保证同 simulator/account/config 仍不够；A/B 前必须让两边处于相同业务状态。本轮在 legacy Debug 中先确认真实空收藏推荐态，再点击原版 `Add 4 tokens`：原版只出现一条成功提示并立即切成普通收藏行。随后依次点击 UNI、SHIB、WLFI、LINK 的实心 Star，每次截图确认当前行消失，最后重新出现 4 个推荐 Token 与 `Add 4 tokens`。
+- 后续 Favorites 空态的主要走查流程固定为：legacy 真实 Add -> 逐 Star remove -> 确认空态 -> 截图；恢复 Native -> 确认同一 watchlist 为空 -> 截图；对齐 Market ROI 后生成 A/B。禁止通过清数据、改 DB、Native 写死空态或只比较元素存在来伪造相同状态。
+- legacy 空态：`.tmp/ui/ab-empty-favorites-legacy.png` 与 `-402.png`。Native 修复后空态：`.tmp/ui/ab-empty-favorites-native-after-fix.png` 与 `-402.png`。Market ROI 并排图：`.tmp/ui/ab-empty-favorites-legacy-vs-native-after-fix-402.png`。
+- Nitro Market 的延迟坐标仍不可靠。本轮一次延迟点击因 DeFi 高度变化误入 Pendle，该录屏已明确作废。最终证据使用一个 agent-device 短 batch，在同一 daemon request 内执行截图、立即点击、首帧截图和后续截图；误命中不得计入通过或失败。
+
+### 实现与真实交互结果
+
+- `useNativeHomeSupplementalData.ts` 为 Add recommended 增加 in-flight guard。bg 批量写入返回后，main 再通过 proxy 读取权威 watchlist，并在同一次 main 更新中写入 watchlist result 与匹配 request key 的非推荐 favorites snapshot；因此无需等待下一轮 polling，也不会出现 `recommendations -> empty -> rows`。
+- `HomeContainerView.swift` 用原版 `PlusSmallOutline` 的精确 path 生成 18pt template image，替换 SF Symbol；A/B 截图中 `+` 的画布和视觉笔画已与原版对齐。
+- 最终短 batch 点击后第一张可读帧已直接显示 UNI、WLFI、SHIB 三条收藏行，`Add 4 tokens` 和四张推荐卡同时消失，只出现一条成功提示；7 秒后仍保持收藏列表。录屏 `.tmp/ui/native-home-market-add4-refresh-after-fix.mov`，2fps 抽帧 `.tmp/ui/native-home-market-add4-refresh-contact-sheet.png`，最终截图 `.tmp/ui/native-home-market-add4-after-fix.png` 与 `-402.png`。录屏抽帧中没有 `rows -> empty -> rows`，单张黑块是 agent-device 截图采集异常，不是录屏中的 UI 空窗。
+
+### Debug 构建、数据安全与 runtime 边界
+
+- 从仓库根目录执行 `yarn app:ios`，结果 `Build Succeeded`、0 error；标准流程完成 Debug build、签名、更新安装和启动。没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`。
+- 没有执行 uninstall、reinstall、erase、clear data，没有删除 app container、钱包数据库或持久化数据。`Account #1` 与资产列表正常，应用持续存活。
+- Hermes page 1 实测 `$$onekeyJsReadyAt=1784190633508`、`$$onekeyUIVisibleAt=1784190635251`，并收到独立 bg ready payload：`runtime=background/status=ready/protocolVersion=1/bootId=1784190635340-pfxqripz`。page 2 独立识别为 background runtime，background Jotai bridge 存在；main ready 没有被当作 bg ready。
+- **main scope：** Add action guard、推荐选择、watchlist/favorites 的反序列化副本、Native snapshot 与首帧切换。**bg scope：** watchlist SimpleDB/service 写入和权威读取。main/bg Hermes heap 独立、对象经 proxy 序列化，不共享 JS 对象，初始化顺序也独立。
+- 图片/font cache 与底层持久化资源是进程级共享 Native 资源；constraint、represented image signature、request cancellation、pressed/hover、action in-flight 与 cell 状态仍是 per-view/main 状态。
+- 本节只证明真实空态 A/B、Plus 尺寸和 Add 4 后即时刷新/单提示。Dark mode、pressed/hover、全部降级态、CASHCAT 当前行等前述剩余项仍未因此自动通过，不能声明整个 Market UI 完成。
+
+### 检查与提交门禁
+
+- `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 通过；指定 Native Home 文件的 `git diff --check` 通过；临时 A/B 开关 `nativeHomeFeatureFlag.native.ts` 已恢复且最终零 diff。
+- `yarn exec eslint` 聚焦检查 `useNativeHomeSupplementalData.ts` 与 `NativeHomePage.native.tsx` 通过。
+- 聚焦 Jest：`HomeContainerController.test.ts`、`nativeHomeDataAdapters.test.ts`、`PopularTrading/utils.test.ts` 共 3 suites / 17 tests 全部通过。
+- `yarn agent:check --profile commit` 日志位于 `node_modules/.cache/agent-checks/2026-07-16T08-52-42-632Z`。`lint-staged`、`lint-worktree-js`、`agent-context` 通过；`lint-worktree-ts` / `tsc-staged` 仅被共享工作区已有的 Rspack、DeFi、TradingView、WebView、Navigator、Firmware、ReferFriends、Swap、旧 `NativeHomePageView.native.tsx` 等错误阻断，日志中没有本轮 hook/Swift/handoff 错误。不得回滚或顺手修改这些无关文件制造绿色结果。
