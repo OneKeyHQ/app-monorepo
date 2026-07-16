@@ -63,11 +63,71 @@ const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
     await response.clone().json();
   } catch {
     throw new TypeError(
-      `Supabase non-JSON HTTP ${response.status} error response treated as network failure to preserve the persisted session`,
+      `Supabase non-JSON HTTP ${response.status} error response treated as network failure to preserve the persisted session ${await buildInterceptedResponseFingerprint(
+        response,
+      )}`,
     );
   }
   return response;
 };
+
+/**
+ * Identify WHICH intermediary produced a non-JSON error page. Supabase auth
+ * hosts sit behind Cloudflare, so every response that genuinely traversed
+ * the edge carries a `cf-ray` header:
+ * - no `cf-ray`            -> produced by a local proxy/VPN on the device's
+ *                             network path (never reached Cloudflare);
+ * - `cf-ray` + cf-mitigated/challenge markers -> blocked by Cloudflare
+ *                             itself (WAF / bot management);
+ * - `cf-ray` + server!=cloudflare -> passed the edge, rejected by the origin
+ *                             gateway/reverse proxy in front of GoTrue.
+ * The fingerprint is embedded in the thrown error message so it reaches the
+ * login-failure toast and exported logs without extra plumbing. It carries
+ * response headers and a body CLASSIFICATION only — never raw body content:
+ * this string flows into server-side failure logging, and intermediary
+ * pages (captive portals, corporate proxies) can embed user- or
+ * network-identifying details.
+ */
+async function buildInterceptedResponseFingerprint(
+  response: Response,
+): Promise<string> {
+  const header = (name: string) => response.headers?.get?.(name) || 'none';
+  return `[server=${header('server')} content-type=${header(
+    'content-type',
+  )} cf-ray=${header('cf-ray')} cf-mitigated=${header(
+    'cf-mitigated',
+  )} body=${await classifyInterceptedResponseBody(response)}]`;
+}
+
+// Whitelist classification of an intercepted error-page body. Only fixed
+// labels leave this function (see the privacy note above); the labels keep
+// the Cloudflare-vs-other discrimination the raw snippet used to provide.
+async function classifyInterceptedResponseBody(
+  response: Response,
+): Promise<string> {
+  let text = '';
+  try {
+    text = (await response.clone().text()).slice(0, 2048);
+  } catch {
+    return 'unreadable';
+  }
+  if (!text.trim()) {
+    return 'empty';
+  }
+  const lowerText = text.toLowerCase();
+  if (
+    lowerText.includes('cloudflare') ||
+    lowerText.includes('cf-error') ||
+    lowerText.includes('just a moment') ||
+    lowerText.includes('attention required')
+  ) {
+    return 'cloudflare-page';
+  }
+  if (lowerText.includes('<html') || lowerText.includes('<!doctype')) {
+    return 'html';
+  }
+  return 'text';
+}
 
 /**
  * Whether THIS JS runtime is allowed to perform Supabase refresh-token

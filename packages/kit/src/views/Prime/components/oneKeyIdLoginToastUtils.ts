@@ -2,6 +2,7 @@ import { Toast } from '@onekeyhq/components';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import type { IntlShape } from 'react-intl';
 
@@ -35,6 +36,21 @@ export function showOneKeyIdLoginFailedToast({
     return;
   }
 
+  const err = error as IOneKeyError | undefined;
+  // Surface the underlying failure reason as the toast body: this manual
+  // toast is the fallback for errors the global auto toast did NOT handle,
+  // and collapsing them all into a bare "unknown error" hides actionable
+  // causes (e.g. a rejected Supabase GET /auth/v1/user) from users and from
+  // exported bug-report logs.
+  const errorMessage =
+    typeof err?.message === 'string' && err.message ? err.message : undefined;
+
+  // Mirror the toast body into exported logs — toast content is otherwise
+  // unrecoverable after the fact.
+  defaultLogger.prime.subscription.onekeyIdLoginFailedToast({
+    reason: errorMessage || err?.className || 'unknown',
+  });
+
   Toast.error({
     // NOTE: the dedicated `id_login_failed` key is not present in the current
     // auto-generated translations (dropped when merging the newer x i18n
@@ -44,5 +60,6 @@ export function showOneKeyIdLoginFailedToast({
     title: intl.formatMessage({
       id: ETranslations.global_unknown_error_retry_message,
     }),
+    message: errorMessage,
   });
 }
