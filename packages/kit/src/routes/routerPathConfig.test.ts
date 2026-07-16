@@ -16,6 +16,7 @@ import {
   EOnboardingPagesV2,
   EOnboardingV2Routes,
   ERootRoutes,
+  ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
 import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
 
@@ -107,7 +108,7 @@ describe('generated cold-start route config', () => {
       ERootRoutes.Modal,
       ...(platformEnv.isDev ? [ERootRoutes.NotFound] : []),
     ]);
-    expect(countRoutes(rootRouterPathConfig)).toBe(platformEnv.isDev ? 21 : 20);
+    expect(countRoutes(rootRouterPathConfig)).toBe(platformEnv.isDev ? 27 : 24);
 
     const visit = (routes: IRoutePathConfig[]) => {
       for (const route of routes) {
@@ -150,9 +151,11 @@ describe('generated cold-start route config', () => {
     expect(modalNames).toEqual([
       EModalRoutes.MainModal,
       EModalRoutes.SettingModal,
+      EModalRoutes.SignatureConfirmModal,
       EModalRoutes.AppUpdateModal,
       EModalRoutes.StakingModal,
       EModalRoutes.ReferFriendsModal,
+      ...(platformEnv.isDev ? [EModalRoutes.TestModal] : []),
     ]);
   });
 
@@ -244,6 +247,30 @@ describe('generated cold-start route config', () => {
       ],
     ],
     [
+      '/ManagePosition?accountId=legacy-account',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.StakingModal,
+        EModalStakingRoutes.ManagePosition,
+      ],
+    ],
+    [
+      '/modal/SignatureConfirmModal/TxConfirmFromDApp?query=transaction',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.SignatureConfirmModal,
+        EModalSignatureConfirmRoutes.TxConfirmFromDApp,
+      ],
+    ],
+    [
+      '/modal/SignatureConfirmModal/MessageConfirmFromDApp?query=message',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.SignatureConfirmModal,
+        EModalSignatureConfirmRoutes.MessageConfirmFromDApp,
+      ],
+    ],
+    [
       '/modal/ReferFriendsModal/ReferAFriend',
       [
         ERootRoutes.Modal,
@@ -268,7 +295,6 @@ describe('generated cold-start route config', () => {
 
   it.each([
     '/modal/DAppConnectionModal/ConnectionModal',
-    '/iOSFullScreen/SignatureConfirmModal/TxConfirmFromDApp',
   ])('keeps Extension approval path %s private from Web', (path) => {
     expect(getWebStateFromPath(path, { screens })).toBeUndefined();
   });
@@ -308,6 +334,29 @@ describe('generated cold-start route config', () => {
     ],
   ])('parses Extension standalone approval hash %s', (hash, names) => {
     expect(getFocusedRouteNames(parseExtensionHash(hash))).toEqual(names);
+  });
+
+  it('preserves the v6.4.0 Extension permission display URL', () => {
+    expect(
+      getFocusedRouteNames(
+        parseExtensionHash('#/permission/web-device?requestId=legacy'),
+      ),
+    ).toEqual([ERootRoutes.PermissionWebDevice]);
+  });
+
+  it('preserves the v6.4.0 development-only displayed modal URL', () => {
+    if (!platformEnv.isDev) {
+      return;
+    }
+    expect(
+      getFocusedRouteNames(
+        getWebStateFromPath('/modal/TestModal/TestSimpleModal', { screens }),
+      ),
+    ).toEqual([
+      ERootRoutes.Modal,
+      EModalRoutes.TestModal,
+      ETestModalPages.TestSimpleModal,
+    ]);
   });
 
   it('keeps allowed deep routes and excludes internal runtime routes', () => {

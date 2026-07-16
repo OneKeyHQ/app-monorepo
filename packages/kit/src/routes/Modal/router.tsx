@@ -139,7 +139,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.SignatureConfirmModal,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
     children: ModalSignatureConfirmStack,
   },
   {
@@ -249,6 +249,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
 if (platformEnv.isDev) {
   router.push({
     name: EModalRoutes.TestModal,
+    allowColdStart: true,
     children: TestModalRouter,
   });
 }

@@ -102,12 +102,12 @@ export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<
   {
     name: EModalSignatureConfirmRoutes.TxConfirmFromDApp,
     component: TxConfirmFromDApp,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
   {
     name: EModalSignatureConfirmRoutes.MessageConfirmFromDApp,
     component: MessageConfirmFromDApp,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
   {
     name: EModalSignatureConfirmRoutes.TxConfirmFromSwap,
