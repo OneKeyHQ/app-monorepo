@@ -134,7 +134,9 @@ export interface IHomeContainerItem {
   imageUrls?: string[];
   secondaryImageUrl?: string;
   titleAccessoryImageUrl?: string;
+  titleAccessoryIcon?: 'gas';
   badge?: string;
+  badges?: string[];
   badgeImageUrl?: string;
   communityRecognized?: boolean;
   accentColor?: string;

@@ -73,7 +73,9 @@ struct HomeContainerItem: Decodable {
   let imageUrls: [String]?
   let secondaryImageUrl: String?
   let titleAccessoryImageUrl: String?
+  let titleAccessoryIcon: String?
   let badge: String?
+  let badges: [String]?
   let badgeImageUrl: String?
   let communityRecognized: Bool?
   let accentColor: String?

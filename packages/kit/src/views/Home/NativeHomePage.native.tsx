@@ -61,6 +61,7 @@ import {
   type IHomeContainerTabId,
   type IHomeContainerTheme,
 } from '@onekeyhq/native-components';
+import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
@@ -85,6 +86,7 @@ import {
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   type IFormatDisplayNumberPart,
   formatBalance,
@@ -131,6 +133,7 @@ import { SupportHub } from './components/SupportHub';
 import { Upgrade } from './components/Upgrade';
 import { ActionItem } from './components/WalletActions/RawActions';
 import { useShowWalletActionMore } from './components/WalletActions/WalletActionMore';
+import { useHomeWalletTabSupport } from './hooks/useHomeWalletTabSupport';
 import {
   NATIVE_HOME_ACTION_IDS,
   buildNativeDeFiSections,
@@ -153,6 +156,10 @@ import { useNativeHomePortfolioData } from './useNativeHomePortfolioData';
 import { useNativeHomeSupplementalData } from './useNativeHomeSupplementalData';
 
 import type { INativeHomePageProps } from './NativeHomePage.types';
+
+const filterScamHistorySupportedNetworkIds = new Set(
+  getNetworksSupportFilterScamHistory().map((item) => item.id),
+);
 
 function isHomeTabId(value: string): value is IHomeContainerTabId {
   return HOME_CONTAINER_TAB_IDS.some((tabId) => tabId === value);
@@ -283,6 +290,18 @@ export function NativeHomePage({
   const showWalletActionMore = useShowWalletActionMore();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user } = useOneKeyAuth();
+  const { isDeFiSupported, isPerpsSupported } = useHomeWalletTabSupport({
+    network,
+  });
+  const isNFTEnabled = Boolean(
+    network?.isAllNetworks ||
+    (vaultSettings?.NFTEnabled &&
+      networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? '')),
+  );
+  const filterScamHistorySupported = Boolean(
+    network?.isAllNetworks ||
+    filterScamHistorySupportedNetworkIds.has(network?.id ?? ''),
+  );
   const isWalletNotBackedUp = Boolean(
     wallet?.type === WALLET_TYPE_HD && !wallet.backuped,
   );
@@ -346,6 +365,9 @@ export function NativeHomePage({
   const [selectedMarketCategoryId, setSelectedMarketCategoryId] = useState(
     FAVORITES_CATEGORY_ID,
   );
+  const [prefetchedPerpsScopeKey, setPrefetchedPerpsScopeKey] =
+    useState<string>();
+  const perpsScopeKey = indexedAccount?.id ?? account?.id ?? '';
 
   const portfolio = useNativeHomePortfolioData({ enabled: true });
   const lpTokens = useNativeHomeLpTokenData();
@@ -374,14 +396,16 @@ export function NativeHomePage({
     toggleMarketFavorite,
   } = supplemental;
   const perps = usePerpsHomePortfolio({
-    isTabFocused: activeTabId === 'perps',
+    isTabFocused:
+      isPerpsSupported &&
+      (activeTabId === 'perps' || prefetchedPerpsScopeKey !== perpsScopeKey),
   });
   const deFi = useNativeHomeDeFiData({
-    enabled: true,
+    enabled: isDeFiSupported,
     visible: activeTabId === 'defi' || activeTabId === 'portfolio',
   });
   const nft = useNativeHomeNFTData({
-    enabled: visitedTabs.has('nft'),
+    enabled: isNFTEnabled && visitedTabs.has('nft'),
     visible: activeTabId === 'nft',
   });
   const history = useNativeHomeHistoryData({
@@ -390,20 +414,45 @@ export function NativeHomePage({
   });
   const loadMoreHistory = history.loadMore;
 
+  useEffect(() => {
+    if (
+      isPerpsSupported &&
+      perpsScopeKey &&
+      perps.viewState !== 'loading' &&
+      prefetchedPerpsScopeKey !== perpsScopeKey
+    ) {
+      setPrefetchedPerpsScopeKey(perpsScopeKey);
+    }
+  }, [
+    isPerpsSupported,
+    perps.viewState,
+    perpsScopeKey,
+    prefetchedPerpsScopeKey,
+  ]);
+
   const formatters = useMemo(() => {
-    const formatFiat = (
+    const convertNativeFiat = (
       value: string | number | undefined,
       sourceCurrency = settings.currencyInfo.id,
     ) => {
       if (value === undefined) {
-        return '--';
+        return undefined;
       }
-      const converted = convertFiat({
+      return convertFiat({
         value,
         sourceCurrency,
         targetCurrency: settings.currencyInfo.id,
         currencyMap,
       });
+    };
+    const formatFiat = (
+      value: string | number | undefined,
+      sourceCurrency = settings.currencyInfo.id,
+    ) => {
+      const converted = convertNativeFiat(value, sourceCurrency);
+      if (converted === undefined) {
+        return '--';
+      }
       return displayNumberToString(
         formatDisplayNumber(
           formatValue(converted, {
@@ -416,6 +465,22 @@ export function NativeHomePage({
       formatBalance: (value: string) =>
         displayNumberToString(formatDisplayNumber(formatBalance(value))),
       formatFiat,
+      formatPrice: (
+        value: string | number | undefined,
+        sourceCurrency = settings.currencyInfo.id,
+      ) => {
+        const converted = convertNativeFiat(value, sourceCurrency);
+        if (converted === undefined) {
+          return '--';
+        }
+        return displayNumberToString(
+          formatDisplayNumber(
+            formatPrice(converted.toString(), {
+              currency: settings.currencyInfo.symbol,
+            }),
+          ),
+        );
+      },
     };
   }, [currencyMap, settings.currencyInfo.id, settings.currencyInfo.symbol]);
 
@@ -474,7 +539,9 @@ export function NativeHomePage({
           !lpTokens.showLpTokensOnly && Boolean(network?.isAllNetworks),
         stateLabels,
         formatters,
-        networkImageById: nftNetworkImageById,
+        networkImageById: network?.isAllNetworks
+          ? nftNetworkImageById
+          : undefined,
         expanded: portfolioAssetsExpanded,
         footer: {
           addTokenEnabled: manageTokenEnabled,
@@ -545,7 +612,7 @@ export function NativeHomePage({
       stateLabels,
       formatters,
     });
-    if (supplemental.perpsMarket.length > 0) {
+    if (perps.viewState === 'ready' && supplemental.perpsMarket.length > 0) {
       sections.push({
         id: 'perps-hot-markets',
         title: intl.formatMessage({
@@ -569,6 +636,20 @@ export function NativeHomePage({
           actionId: NATIVE_HOME_ACTION_IDS.openPerps,
         })),
       });
+      sections.push({
+        id: 'perps-hot-markets-more',
+        items: [
+          {
+            id: 'perps-hot-markets-more',
+            renderer: 'showMore',
+            title: intl.formatMessage({
+              id: ETranslations.global_view_more,
+            }),
+            showChevron: true,
+            actionId: NATIVE_HOME_ACTION_IDS.openPerpsMarket,
+          },
+        ],
+      });
     }
     return sections;
   }, [
@@ -586,9 +667,11 @@ export function NativeHomePage({
       buildNativeDeFiSections({
         protocols: deFi.protocols,
         protocolMap: deFi.protocolMap,
+        supportedActions: deFi.supportedActions,
         initialized: deFi.initialized,
         stateLabels,
         formatters,
+        formatActionLabel: (labelId) => intl.formatMessage({ id: labelId }),
         labels: {
           positions: intl.formatMessage({ id: ETranslations.earn_positions }),
           showMore: intl.formatMessage({
@@ -606,6 +689,7 @@ export function NativeHomePage({
       deFi.initialized,
       deFi.protocolMap,
       deFi.protocols,
+      deFi.supportedActions,
       formatters,
       intl,
       stateLabels,
@@ -616,16 +700,17 @@ export function NativeHomePage({
       buildNativeNFTSections({
         nfts: nft.data,
         initialized: nft.initialized,
-        sectionTitle: tabTitles.nft,
         stateLabels,
-        networkImageById: nftNetworkImageById,
+        networkImageById: network?.isAllNetworks
+          ? nftNetworkImageById
+          : undefined,
       }),
     [
       nft.data,
       nft.initialized,
       nftNetworkImageById,
+      network?.isAllNetworks,
       stateLabels,
-      tabTitles.nft,
     ],
   );
   const historySections = useMemo(
@@ -640,9 +725,6 @@ export function NativeHomePage({
           receive: intl.formatMessage({ id: ETranslations.global_receive }),
           send: intl.formatMessage({ id: ETranslations.global_send }),
           status: {
-            [EDecodedTxStatus.Confirmed]: intl.formatMessage({
-              id: ETranslations.global_success,
-            }),
             [EDecodedTxStatus.Failed]: intl.formatMessage({
               id: ETranslations.global_failed,
             }),
@@ -655,18 +737,24 @@ export function NativeHomePage({
           unlimited: intl.formatMessage({
             id: ETranslations.approve_edit_unlimited_amount,
           }),
+          revokeApprove: (symbol) =>
+            intl.formatMessage(
+              { id: ETranslations.global_revoke_approve },
+              { symbol },
+            ),
         },
         formatBalance: formatters.formatBalance,
         formatFiat: formatters.formatFiat,
         formatSectionDate: (timestamp) =>
           formatDate(timestampToDate(timestamp), {
-            formatTemplate: 'yyyy/MM/dd',
+            formatTemplate: 'MM/dd/yyyy',
           }),
         formatTimestamp: (timestamp) =>
           formatTime(timestampToDate(timestamp), { hideSeconds: true }),
         loadMoreActionId: history.hasMore
           ? NATIVE_HOME_ACTION_IDS.loadMoreHistory
           : undefined,
+        isAllNetworks: Boolean(network?.isAllNetworks),
       }),
     [
       formatters.formatBalance,
@@ -675,6 +763,7 @@ export function NativeHomePage({
       history.hasMore,
       history.initialized,
       intl,
+      network?.isAllNetworks,
       stateLabels,
     ],
   );
@@ -691,9 +780,11 @@ export function NativeHomePage({
         ...buildNativeDeFiSections({
           protocols: deFi.protocols,
           protocolMap: deFi.protocolMap,
+          supportedActions: deFi.supportedActions,
           initialized: deFi.initialized,
           stateLabels,
           formatters,
+          formatActionLabel: (labelId) => intl.formatMessage({ id: labelId }),
           labels: {
             positions: intl.formatMessage({
               id: ETranslations.earn_positions,
@@ -850,6 +941,7 @@ export function NativeHomePage({
     deFi.initialized,
     deFi.protocolMap,
     deFi.protocols,
+    deFi.supportedActions,
     formatters,
     intl,
     nftNetworkImageById,
@@ -970,7 +1062,7 @@ export function NativeHomePage({
     Object.values(deFi.protocolMap).forEach((protocol) => {
       total = total.plus(protocol.netWorth || 0);
     });
-    if (perps.view) {
+    if (isPerpsSupported && perps.view) {
       total = total.plus(
         convertFiat({
           value: perps.view.accountValueUsd,
@@ -986,6 +1078,7 @@ export function NativeHomePage({
     deFi.protocolMap,
     formatters,
     hideValue,
+    isPerpsSupported,
     perps.view,
     portfolio.map,
     settings.currencyInfo.id,
@@ -1015,7 +1108,18 @@ export function NativeHomePage({
 
   const initialTabs = useMemo<IHomeContainerTab[]>(
     () =>
-      HOME_CONTAINER_TAB_IDS.map((id) => {
+      HOME_CONTAINER_TAB_IDS.filter((id) => {
+        if (id === 'perps') {
+          return isPerpsSupported;
+        }
+        if (id === 'defi') {
+          return isDeFiSupported;
+        }
+        if (id === 'nft') {
+          return isNFTEnabled;
+        }
+        return true;
+      }).map((id) => {
         let toolbarAction: IHomeContainerAction | undefined;
         if (id === 'portfolio' && manageTokenEnabled) {
           toolbarAction = {
@@ -1039,7 +1143,13 @@ export function NativeHomePage({
           sections: [],
         };
       }),
-    [manageTokenEnabled, tabTitles],
+    [
+      isDeFiSupported,
+      isNFTEnabled,
+      isPerpsSupported,
+      manageTokenEnabled,
+      tabTitles,
+    ],
   );
   const contentStateSlots = useMemo<
     NonNullable<IHomeContainerSlots['contentStates']>
@@ -1215,8 +1325,10 @@ export function NativeHomePage({
           <SizableText
             flexShrink={1}
             minWidth={0}
+            position="relative"
+            top={11}
             fontSize={48}
-            lineHeight={58}
+            lineHeight={48}
             fontWeight={500}
             numberOfLines={1}
             adjustsFontSizeToFit
@@ -1227,8 +1339,10 @@ export function NativeHomePage({
             <SizableText
               flexShrink={0}
               color="$textDisabled"
+              position="relative"
+              top={11}
               fontSize={48}
-              lineHeight={58}
+              lineHeight={48}
               fontWeight={500}
               numberOfLines={1}
             >
@@ -1517,28 +1631,40 @@ export function NativeHomePage({
     network?.name,
   ]);
   useEffect(() => {
+    const currentTabs = controller.getSnapshot().tabs;
     controller.updateTabs(
-      controller.getSnapshot().tabs.map((tab) => ({
+      initialTabs.map((tab) => ({
         ...tab,
-        title: tabTitles[tab.id],
+        sections:
+          currentTabs.find((current) => current.id === tab.id)?.sections ?? [],
       })),
     );
-  }, [controller, tabTitles]);
+    if (!initialTabs.some((tab) => tab.id === activeTabId)) {
+      controller.selectTab('portfolio', false);
+      setActiveTabId('portfolio');
+      setVisitedTabs((previous) => {
+        if (previous.has('portfolio')) {
+          return previous;
+        }
+        return new Set(previous).add('portfolio');
+      });
+    }
+  }, [activeTabId, controller, initialTabs]);
   useEffect(() => {
     controller.updateTabSections('portfolio', portfolioSections);
-  }, [controller, portfolioSections]);
+  }, [controller, initialTabs, portfolioSections]);
   useEffect(() => {
     controller.updateTabSections('perps', perpsSections);
-  }, [controller, perpsSections]);
+  }, [controller, initialTabs, perpsSections]);
   useEffect(() => {
     controller.updateTabSections('defi', deFiSections);
-  }, [controller, deFiSections]);
+  }, [controller, deFiSections, initialTabs]);
   useEffect(() => {
     controller.updateTabSections('nft', nftSections);
-  }, [controller, nftSections]);
+  }, [controller, initialTabs, nftSections]);
   useEffect(() => {
     controller.updateTabSections('history', historySections);
-  }, [controller, historySections]);
+  }, [controller, historySections, initialTabs]);
   useEffect(
     () => () => {
       controller.detach();
@@ -1746,11 +1872,28 @@ export function NativeHomePage({
                 title={intl.formatMessage({
                   id: ETranslations.wallet_history_settings_hide_risk_transaction_title,
                 })}
+                subtitle={
+                  filterScamHistorySupported
+                    ? intl.formatMessage({
+                        id: ETranslations.wallet_history_settings_hide_risk_transaction_desc,
+                      })
+                    : intl.formatMessage(
+                        {
+                          id: ETranslations.wallet_history_settings_hide_risk_transaction_desc_unsupported,
+                        },
+                        { networkName: network?.name ?? '' },
+                      )
+                }
               >
                 <Switch
                   testID="native-home-hide-risk-transactions"
                   size={ESwitchSize.small}
-                  value={settings.isFilterScamHistoryEnabled}
+                  disabled={!filterScamHistorySupported}
+                  value={
+                    filterScamHistorySupported
+                      ? settings.isFilterScamHistoryEnabled
+                      : false
+                  }
                   onChange={(value) => {
                     setSettings((previous) => ({
                       ...previous,
@@ -1766,6 +1909,9 @@ export function NativeHomePage({
               <ListItem
                 title={intl.formatMessage({
                   id: ETranslations.wallet_history_settings_hide_small_transaction_title,
+                })}
+                subtitle={intl.formatMessage({
+                  id: ETranslations.wallet_history_settings_hide_small_transaction_desc,
                 })}
               >
                 <Switch
@@ -2020,7 +2166,21 @@ export function NativeHomePage({
         }
       }
       if (actionId === NATIVE_HOME_ACTION_IDS.openPerps) {
+        const coin = itemId.startsWith('perps-market:')
+          ? itemId.slice('perps-market:'.length)
+          : undefined;
+        if (coin) {
+          navigateToPerps(coin);
+          return;
+        }
         navigation.switchTab(ETabRoutes.Perp);
+        return;
+      }
+      if (actionId === NATIVE_HOME_ACTION_IDS.openPerpsMarket) {
+        navigateToMarketTab({
+          tabToSelect: EMarketHomeTab.Perps,
+          perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+        });
         return;
       }
 
@@ -2092,6 +2252,7 @@ export function NativeHomePage({
       deriveInfo,
       deriveInfoItems,
       deriveType,
+      filterScamHistorySupported,
       handleOnManageToken,
       history.data,
       hideValue,

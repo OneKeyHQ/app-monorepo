@@ -44,7 +44,7 @@ const HomeContainerSlot =
   HomeContainerSlotNativeComponent as unknown as ComponentType<
     PropsWithChildren<IHomeContainerSlotNativeProps>
   >;
-const HOME_HEADER_HORIZONTAL_INSET = 16;
+const HOME_HEADER_HORIZONTAL_INSET = 20;
 
 const styles = StyleSheet.create({
   engine: {
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     height: 58,
   },
   headerActionRowSlot: {
-    height: 72,
+    height: 62,
   },
   tabAccessorySlot: {
     width: 36,
