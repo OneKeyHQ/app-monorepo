@@ -3528,20 +3528,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@cspell/eslint-plugin@npm:9.6.0":
-  version: 9.6.0
-  resolution: "@cspell/eslint-plugin@npm:9.6.0"
-  dependencies:
-    "@cspell/cspell-types": "npm:9.6.0"
-    "@cspell/url": "npm:9.6.0"
-    cspell-lib: "npm:9.6.0"
-    synckit: "npm:^0.11.11"
-  peerDependencies:
-    eslint: ^7 || ^8 || ^9
-  checksum: 10/f0f5a66f1c322dbc646afae9f818cc09a8bae500168d5171ec7fd3edf89a053e6e7447197ba4479e56738634d3547bd4c91e53057c4f09efa799cdfb669a13c4
-  languageName: node
-  linkType: hard
-
 "@cspell/filetypes@npm:9.6.0":
   version: 9.6.0
   resolution: "@cspell/filetypes@npm:9.6.0"
@@ -9554,7 +9540,6 @@ __metadata:
     "@benfen/bfc.js": "npm:0.2.7"
     "@cityofzion/neon-core": "npm:^5.7.0"
     "@cowprotocol/contracts": "npm:^1.7.0"
-    "@cspell/eslint-plugin": "npm:9.6.0"
     "@emurgo/cardano-message-signing-nodejs": "npm:^1.0.1"
     "@emurgo/cardano-serialization-lib-nodejs": "npm:13.2.0"
     "@expo/plist": "npm:^0.3.0"
@@ -9731,6 +9716,7 @@ __metadata:
     openpgp: "npm:5.11.3"
     oxfmt: "npm:0.58.0"
     oxlint: "npm:1.73.0"
+    oxlint-plugin-cspell: "npm:0.1.0"
     oxlint-tsgolint: "npm:^0.24.0"
     p-limit: "npm:^6.2.0"
     p-retry: "npm:^6.2.1"
@@ -10970,6 +10956,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@oxlint/plugins@npm:1.73.0":
+  version: 1.73.0
+  resolution: "@oxlint/plugins@npm:1.73.0"
+  checksum: 10/a18851c1c3757f3d208a08a52a963e2005ecc5647c8829429d95a39f926513a6bd598bb395b530affb2d7635fdc89be6f05fec30c22f0e12fb9da9581b10fa44
+  languageName: node
+  linkType: hard
+
 "@parcel/watcher-android-arm64@npm:2.3.0":
   version: 2.3.0
   resolution: "@parcel/watcher-android-arm64@npm:2.3.0"
@@ -11174,10 +11167,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@pkgr/core@npm:^0.3.6":
-  version: 0.3.6
-  resolution: "@pkgr/core@npm:0.3.6"
-  checksum: 10/29082aa13d36f13fc41cdc64cb1feb36b630de0d6ebde84e2ff68e3d7a7f1dce4462cca91f76176c46e50bbca6b1e7f1fd9cf907af12d5d70da83bc981ca4ccf
+"@pkgr/core@npm:^0.2.9":
+  version: 0.2.10
+  resolution: "@pkgr/core@npm:0.2.10"
+  checksum: 10/9488c4aafa29a7ee2dde73439be5b6b4bdb0b4cda3978673a8f2f168a7fcad908602ce32789cd315b9dbd7cd01637da256d9184d28bc4a703e0c5f5450a38f12
   languageName: node
   linkType: hard
 
@@ -37908,6 +37901,27 @@ __metadata:
   languageName: node
   linkType: hard
 
+"oxlint-plugin-cspell@npm:0.1.0":
+  version: 0.1.0
+  resolution: "oxlint-plugin-cspell@npm:0.1.0"
+  dependencies:
+    "@cspell/cspell-types": "npm:9.6.0"
+    "@cspell/url": "npm:9.6.0"
+    "@oxlint/plugins": "npm:1.73.0"
+    cspell-lib: "npm:9.6.0"
+    synckit: "npm:0.11.11"
+  peerDependencies:
+    eslint: ^7 || ^8 || ^9
+    oxlint: ">=1.73.0"
+  peerDependenciesMeta:
+    eslint:
+      optional: true
+    oxlint:
+      optional: true
+  checksum: 10/2b691326b6e5080d42d8919056afd8a6f3aa4700512b182244b3b45da386152bc907a0b94ac4aae1795c2fc5e671338d6fc32287daaaf4c484cdc8807bee1a63
+  languageName: node
+  linkType: hard
+
 "oxlint-tsgolint@npm:^0.24.0":
   version: 0.24.0
   resolution: "oxlint-tsgolint@npm:0.24.0"
@@ -44783,12 +44797,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"synckit@npm:^0.11.11":
-  version: 0.11.13
-  resolution: "synckit@npm:0.11.13"
+"synckit@npm:0.11.11":
+  version: 0.11.11
+  resolution: "synckit@npm:0.11.11"
   dependencies:
-    "@pkgr/core": "npm:^0.3.6"
-  checksum: 10/188544a829dbd38abd144281960835c1f8027aaa495b7c40d39ebf0c1c63a4a41c0edc42818b7ada9b5c0c15fba2f625b472220d128798fe98f9181fed84e6a2
+    "@pkgr/core": "npm:^0.2.9"
+  checksum: 10/6ecd88212b5be80004376b6ea74babcba284566ff59a50d8803afcaa78c165b5d268635c1dd84532ee3f690a979409e1eda225a8a35bed2d135ffdcea06ce7b0
   languageName: node
   linkType: hard
 
