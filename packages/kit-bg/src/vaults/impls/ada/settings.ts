@@ -44,6 +44,7 @@ const settings: IVaultSettings = {
     EDeviceType.Mini,
     EDeviceType.Touch,
     EDeviceType.Pro,
+    EDeviceType.Pro2,
   ],
 
   dappInteractionEnabled: true,
