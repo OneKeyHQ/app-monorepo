@@ -4118,7 +4118,7 @@
   "swap_page.approve_and_sign": "स्वीकृति दें और हस्ताक्षर करें",
   "swap_page.approve_and_swap": "स्वीकृति दें और अदला-बदली करें",
   "swap_page.approve_button": "अनुमोदन करें {token}",
-  "swap_page.bridge": "पुल",
+  "swap_page.bridge": "ब्रिज",
   "swap_page.button_approve_unlimited": "असीमित अनुमोदन करें",
   "swap_page.button_enter_a_recipient": "प्राप्तकर्ता दर्ज करें",
   "swap_page.button_enter_amount": "राशि दर्ज करें",
