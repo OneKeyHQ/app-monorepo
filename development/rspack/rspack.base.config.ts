@@ -333,6 +333,13 @@ const buildBaseCache: (
   configName?: string,
 ) => RspackOptions['cache'] = (basePath, configName) => ({
   type: 'persistent',
+  // The CLI only auto-tracks the app-level rspack.config.ts as a build
+  // dependency, so edits to these imported config modules would otherwise
+  // never invalidate warm persistent caches.
+  buildDependencies: fs
+    .readdirSync(__dirname)
+    .filter((file) => file.endsWith('.ts'))
+    .map((file) => path.join(__dirname, file)),
   storage: {
     type: 'filesystem',
     // Use separate cache directories for each config to avoid conflicts
@@ -754,7 +761,7 @@ export function createBaseConfig({
           resolve: { fullySpecified: false },
         },
         {
-          test: /@onekeyfe[\\/]bitcoinforksjs-lib.*\.(ts|js)x?$/,
+          test: /node_modules[\\/].*@onekeyfe[\\/]bitcoinforksjs-lib.*\.(ts|js)x?$/,
           resolve: { fullySpecified: false },
         },
         {
@@ -788,7 +795,7 @@ export function createBaseConfig({
         ...(enableImportMetaCompat
           ? [
               {
-                test: /@polkadot/,
+                test: /node_modules[\\/].*@polkadot/,
                 loader: require.resolve('@open-wc/webpack-import-meta-loader'),
               },
             ]
