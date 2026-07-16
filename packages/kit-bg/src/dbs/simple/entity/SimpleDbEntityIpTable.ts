@@ -105,6 +105,36 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
     });
   }
 
+  /**
+   * Record the best IP measured by the latest speed test, independent of the
+   * final selection. Consumed by fast failover when the domain starts failing.
+   */
+  @backgroundMethod()
+  async updateLastBestIp(domain: string, ip: string): Promise<void> {
+    await this.setRawData((data) => {
+      const runtime = data?.runtime ?? {
+        enabled: true,
+        lastUpdated: 0,
+        lastRegionCheck: 0,
+        selections: {},
+      };
+
+      return {
+        ...data,
+        config: data?.config ?? null,
+        currentRegion: data?.currentRegion ?? 'AUTO',
+        runtime: {
+          ...runtime,
+          lastBestIp: {
+            ...runtime.lastBestIp,
+            [domain]: ip,
+          },
+        },
+        version: data?.version ?? 1,
+      };
+    });
+  }
+
   @backgroundMethod()
   async setEnabled(enabled: boolean): Promise<void> {
     await this.setRawData((data) => ({
