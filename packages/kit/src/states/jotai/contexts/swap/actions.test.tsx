@@ -30,6 +30,7 @@ import {
 import { useSwapActions } from './actions';
 import {
   ProviderJotaiContextSwap,
+  swapActiveSelectedFromTokenBalanceAtom,
   swapAlertsAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
@@ -45,9 +46,11 @@ import {
   swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
+  swapSelectedFromTokenBalanceAtom,
   swapSelectedTokensColdStartContextAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
+  swapStockSelectedFromTokenBalanceAtom,
   swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
@@ -991,6 +994,7 @@ describe('useSwapActions', () => {
       storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
       storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
       storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
+      storeInstance.set(swapStockSelectedFromTokenBalanceAtom(), '999');
       storeInstance.set(swapFromTokenAmountAtom(), {
         value: '10',
         isInput: true,
@@ -1039,6 +1043,8 @@ describe('useSwapActions', () => {
     expect(store.get(swapSelectedTokensColdStartContextAtom())).toBeUndefined();
     expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
     expect(store.get(swapLastNonLimitSelectedTokensAtom())).toBeUndefined();
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('');
+    expect(store.get(swapStockSelectedFromTokenBalanceAtom())).toBe('');
 
     await act(async () => {
       await result.current.actions.swapTypeSwitchAction(
@@ -1056,11 +1062,12 @@ describe('useSwapActions', () => {
     });
   });
 
-  it('restores the previous Swap pair after visiting Stock', async () => {
+  it('restores the previous Swap pair without exposing the Stock balance', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
       storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
       storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
       storeInstance.set(swapSelectToTokenAtom(), usdtToken);
+      storeInstance.set(swapSelectedFromTokenBalanceAtom(), '0.1724');
     });
     const { result } = renderHook(
       () => {
@@ -1082,8 +1089,14 @@ describe('useSwapActions', () => {
       );
     });
 
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('0.1724');
+    expect(store.get(swapStockSelectedFromTokenBalanceAtom())).toBe('');
+    expect(store.get(swapActiveSelectedFromTokenBalanceAtom())).toBe('');
+
     store.set(swapSelectFromTokenAtom(), usdcToken);
     store.set(swapSelectToTokenAtom(), appleStockToken);
+    store.set(swapStockSelectedFromTokenBalanceAtom(), '999');
+    expect(store.get(swapActiveSelectedFromTokenBalanceAtom())).toBe('999');
 
     await act(async () => {
       await result.current.actions.swapTypeSwitchAction(
@@ -1105,6 +1118,12 @@ describe('useSwapActions', () => {
       value: '',
       isInput: false,
     });
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('0.1724');
+    expect(store.get(swapStockSelectedFromTokenBalanceAtom())).toBe('');
+    expect(store.get(swapActiveSelectedFromTokenBalanceAtom())).toBe('0.1724');
+
+    store.set(swapStockSelectedFromTokenBalanceAtom(), '999');
+    expect(store.get(swapActiveSelectedFromTokenBalanceAtom())).toBe('0.1724');
   });
 
   it('blocks Stock quote before Stock execution tokens own the selected pair', async () => {

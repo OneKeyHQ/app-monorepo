@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { type ReactNode, memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,6 +14,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { CalendarPanelPopover } from '../calendarControls/CalendarPanelPopover';
 import { ChartSettingsDialogContent } from '../chartSettings/ChartSettingsDialogContent';
 import { ChartTypeSelect } from '../chartType/ChartTypeSelect';
+import { canToggleTradingViewNativeIndicatorOn } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
 import {
   IndicatorListDialogContent,
   IndicatorPopover,
@@ -52,14 +53,21 @@ export type { ITradingViewNativeIntervalControlMode } from '../intervalSelector/
 export type { ICalendarPanelSubmitPayload } from '../calendarControls/CalendarPanelPopover';
 export { useNativeIndicatorActiveValues } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
 export {
+  getTradingViewNativeSubIndicatorCount,
+  getTradingViewNativeSubIndicatorCountFromOptions,
+} from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
+export {
   TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
   TradingViewNativeIndicatorQuickBar,
 } from '../indicatorControls/NativeIndicatorControls';
+
+export const TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT = 48;
 
 interface ITradingViewNativeChartControlsProps {
   intervalConfig: ITradingViewIntervalConfigData | null;
   nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData | null;
   nativeIndicatorState: ITradingViewNativeIndicatorState;
+  maxSubIndicatorCount?: number;
   isControlsReady?: boolean;
   chartTypeControlMode?: ITradingViewNativeChartTypeControlMode;
   indicatorControlMode?: ITradingViewNativeIndicatorControlMode;
@@ -68,6 +76,7 @@ interface ITradingViewNativeChartControlsProps {
   layoutMode?: ITradingViewNativeControlsLayoutMode;
   chartTimezone: string;
   isFullscreen?: boolean;
+  fullscreenHeader?: ReactNode;
   onIntervalChange: (interval: string) => void;
   onIndicatorSelect: (indicatorName: string, desiredActive: boolean) => void;
   onChartTypeChange: (chartType: number) => void;
@@ -87,12 +96,14 @@ function ToolbarSeparator() {
 }
 
 const DESKTOP_CONTROLS_HEIGHT = 38;
+const DESKTOP_FULLSCREEN_CONTROLS_HEIGHT = 64;
 
 export const TradingViewNativeChartControls = memo(
   ({
     intervalConfig,
     nativeChartControlsConfig,
     nativeIndicatorState,
+    maxSubIndicatorCount,
     isControlsReady = true,
     chartTypeControlMode = 'toggle',
     indicatorControlMode = 'dialog',
@@ -101,6 +112,7 @@ export const TradingViewNativeChartControls = memo(
     layoutMode = 'mobile',
     chartTimezone,
     isFullscreen = false,
+    fullscreenHeader,
     onIntervalChange,
     onIndicatorSelect,
     onChartTypeChange,
@@ -115,13 +127,16 @@ export const TradingViewNativeChartControls = memo(
     onFullscreenChange,
   }: ITradingViewNativeChartControlsProps) => {
     const intl = useIntl();
-    const { updateActiveIndicatorValue } = nativeIndicatorState;
+    const { getActiveIndicatorValues, updateActiveIndicatorValue } =
+      nativeIndicatorState;
     const isDesktopLayout = layoutMode === 'desktop';
     const hasCalendarControl = Boolean(
       isDesktopLayout && onCalendarPanelSubmit,
     );
     const hasFullscreenControl = Boolean(onFullscreenChange);
     const hasHistoryControls = Boolean(isDesktopLayout && onUndo && onRedo);
+    const desktopFullscreenHeader =
+      isDesktopLayout && isFullscreen ? fullscreenHeader : null;
     const {
       activeChartType,
       activeIndicatorValues,
@@ -164,10 +179,27 @@ export const TradingViewNativeChartControls = memo(
 
     const handleIndicatorPress = useCallback(
       (indicator: ITradingViewIndicatorOption) => {
-        const desiredActive = !activeIndicatorValues.has(indicator.value);
+        const currentActiveIndicatorValues = getActiveIndicatorValues();
+        if (
+          !canToggleTradingViewNativeIndicatorOn({
+            indicatorValue: indicator.value,
+            activeIndicatorValues: currentActiveIndicatorValues,
+            maxSubIndicatorCount,
+          })
+        ) {
+          return;
+        }
+
+        const desiredActive = !currentActiveIndicatorValues.has(
+          indicator.value,
+        );
         handleNativeIndicatorSelect(indicator.label, desiredActive);
       },
-      [activeIndicatorValues, handleNativeIndicatorSelect],
+      [
+        getActiveIndicatorValues,
+        handleNativeIndicatorSelect,
+        maxSubIndicatorCount,
+      ],
     );
 
     const showIndicatorsDialog = useCallback(() => {
@@ -180,6 +212,7 @@ export const TradingViewNativeChartControls = memo(
           <IndicatorListDialogContent
             indicators={indicators}
             resetLayout={resetLayout}
+            maxSubIndicatorCount={maxSubIndicatorCount}
             onSelect={handleNativeIndicatorSelect}
             onResetLayout={onResetLayout}
           />
@@ -189,6 +222,7 @@ export const TradingViewNativeChartControls = memo(
       handleNativeIndicatorSelect,
       indicators,
       indicatorsTitle,
+      maxSubIndicatorCount,
       onControlInteraction,
       onResetLayout,
       resetLayout,
@@ -311,6 +345,7 @@ export const TradingViewNativeChartControls = memo(
             title={indicatorsTitle}
             indicators={indicators}
             activeIndicatorValues={activeIndicatorValues}
+            maxSubIndicatorCount={maxSubIndicatorCount}
             onIndicatorPress={handleIndicatorPress}
             onControlInteraction={onControlInteraction}
           />
@@ -335,6 +370,7 @@ export const TradingViewNativeChartControls = memo(
       hasVisibleIndicators,
       indicators,
       indicatorsTitle,
+      maxSubIndicatorCount,
       onControlInteraction,
       showIndicatorPopover,
       showIndicatorsDialog,
@@ -433,7 +469,8 @@ export const TradingViewNativeChartControls = memo(
       !hasVisibleControls &&
       !hasCalendarControl &&
       !hasFullscreenControl &&
-      !hasHistoryControls
+      !hasHistoryControls &&
+      !desktopFullscreenHeader
     ) {
       return null;
     }
@@ -457,9 +494,14 @@ export const TradingViewNativeChartControls = memo(
       return (
         <Stack
           bg="$bgApp"
-          px="$4"
+          px={desktopFullscreenHeader ? '$2' : '$4'}
           py="$1"
-          h={DESKTOP_CONTROLS_HEIGHT}
+          h={
+            desktopFullscreenHeader
+              ? DESKTOP_FULLSCREEN_CONTROLS_HEIGHT
+              : DESKTOP_CONTROLS_HEIGHT
+          }
+          justifyContent="center"
           zIndex={3}
         >
           <XStack
@@ -469,6 +511,8 @@ export const TradingViewNativeChartControls = memo(
             opacity={isControlsReady ? 1 : 0}
             pointerEvents={isControlsReady ? 'auto' : 'none'}
           >
+            {desktopFullscreenHeader}
+
             <ScrollView
               horizontal
               flex={1}

@@ -46,7 +46,7 @@ export const useWebSiteHandler = () => {
       }
 
       if (useSystemBrowser) {
-        openUrlExternal(url);
+        openUrlExternal(url, { useSystemBrowser: true });
       } else {
         handleOpenWebSite({
           webSite,

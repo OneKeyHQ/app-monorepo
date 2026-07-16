@@ -40,6 +40,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -417,6 +418,7 @@ const BaseDevSettingsSection = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
+  const { loginOneKeyIdWithLegacyEmail } = useOneKeyAuth();
   const localTradingViewUrlSubtitle = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
@@ -589,6 +591,15 @@ const BaseDevSettingsSection = () => {
       });
     }, 10_000);
   }, []);
+
+  const handleLegacyOneKeyIdEmailLogin = useCallback(() => {
+    void loginOneKeyIdWithLegacyEmail({
+      toOneKeyIdPageOnLoginSuccess: true,
+      // A dev tool must never wipe the shared keyless session slot — it may
+      // hold the wallet's only local credential.
+      preserveLocalKeylessAuth: true,
+    });
+  }, [loginOneKeyIdWithLegacyEmail]);
 
   const handleOpenMockTradingViewKLineEmptyIntervalsDialog = useCallback(() => {
     Dialog.show({
@@ -2049,6 +2060,16 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      {platformEnv.isNative ? (
+                        <SectionFieldItem
+                          icon="ArrowTopRightOutline"
+                          name="useSystemBrowserForExternalLinks"
+                          title="外部链接使用系统浏览器"
+                          subtitle="跳过 in-app browser（SFSafariViewController / Custom Tabs），外链直接跳出到系统浏览器"
+                        >
+                          <Switch size={ESwitchSize.small} />
+                        </SectionFieldItem>
+                      ) : null}
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>,
@@ -2259,6 +2280,14 @@ const BaseDevSettingsSection = () => {
                       <SearchFilterItem keywords="TestAccounts 测试账户">
                         <TestAccountsDevSetting />
                       </SearchFilterItem>
+
+                      <SectionPressItem
+                        icon="EmailOutline"
+                        title="Legacy OneKeyID Email Login"
+                        subtitle="旧版本 Email/OTP 登录入口"
+                        searchKeywords="OneKeyID Legacy Email OTP Login 旧版本 登录"
+                        onPress={handleLegacyOneKeyIdEmailLogin}
+                      />
 
                       <SectionPressItem
                         icon="AppleBrand"

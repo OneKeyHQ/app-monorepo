@@ -45,6 +45,11 @@ export type IChainSelectorParams = {
   hideLowValueNetworkValue?: boolean;
   indexedAccountId?: string;
   accountId?: string;
+  featuredNetwork?: {
+    networkId: string;
+    badgeText: string;
+    disabled?: boolean;
+  };
 };
 
 export type IChainSelectorParamList = {
