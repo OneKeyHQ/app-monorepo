@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
+  IP_TABLE_DOMAIN_FAILOVER_THRESHOLD,
   IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS,
   IP_TABLE_PERFORMANCE_IMPROVEMENT_THRESHOLD,
   IP_TABLE_SNI_FAILURE_THRESHOLD,
@@ -28,6 +29,7 @@ import {
   testDomainSpeed,
   testIpSpeed,
 } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
+import { decideEndpoint } from '@onekeyhq/shared/src/request/helpers/ipTableEndpointDecision';
 import { isSniSupported } from '@onekeyhq/shared/src/request/helpers/sniRequest';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import type {
@@ -182,14 +184,12 @@ class ServiceIpTable extends ServiceBase {
     const configWithRuntime = await this.getConfig();
     const currentSelection = configWithRuntime.runtime?.selections?.[domain];
 
-    // Check if current active endpoint is failing
-    if (currentSelection === undefined) {
-      // No selection yet, don't trigger
-      return false;
-    }
-
-    if (currentSelection === '') {
-      // Using domain directly
+    // Check if current active endpoint is failing.
+    // undefined means no selection was ever made — real traffic goes direct
+    // to the domain in that state, so judge by the domain's health instead of
+    // never triggering (the old `return false` deadlocked selection forever
+    // when the initial speed test had not completed).
+    if (currentSelection === undefined || currentSelection === '') {
       return (
         stats.domainDirect.consecutiveFailures >= IP_TABLE_SNI_FAILURE_THRESHOLD
       );
@@ -486,11 +486,16 @@ class ServiceIpTable extends ServiceBase {
 
   /**
    * Select best endpoint for a domain
-   * Compares domain direct connection vs all IPs with SNI
-   * Prefers domain if IP is not significantly faster (30% threshold)
+   * Compares domain direct connection vs all IPs with SNI via the pure
+   * decision policy (reachability-first + hysteresis). When triggered by
+   * real-traffic domain failures, any reachable IP wins regardless of the
+   * latency threshold.
    */
   @backgroundMethod()
-  async selectBestEndpointForDomain(domain: string): Promise<void> {
+  async selectBestEndpointForDomain(
+    domain: string,
+    opts?: { trigger?: 'domain_failure' | 'ip_failure' | 'periodic' },
+  ): Promise<void> {
     // Check if IP Table is enabled
     if (!(await this.isIpTableEnabled())) {
       defaultLogger.ipTable.request.info({
@@ -554,88 +559,56 @@ class ServiceIpTable extends ServiceBase {
         });
       }
 
-      // 3. Find best IP
-      let bestIp = '';
-      let bestIpLatency = Infinity;
-
-      for (const [ip, latency] of ipResults) {
-        if (latency < bestIpLatency) {
-          bestIpLatency = latency;
-          bestIp = ip;
-        }
-      }
-
-      // 4. Compare and decide
-      if (domainLatency === Infinity) {
-        // Domain test failed
-        if (bestIpLatency !== Infinity) {
-          // Use best IP
-          defaultLogger.ipTable.request.info({
-            info: `[IpTable] Domain failed, using IP: ${domain} -> ${bestIp}`,
-          });
-          await this.backgroundApi.simpleDb.ipTable.updateSelection(
-            domain,
-            bestIp,
-          );
-        } else {
-          // All tests failed
-          defaultLogger.ipTable.request.info({
-            info: `[IpTable] All tests failed for ${domain}`,
-          });
-        }
-        return;
-      }
-
-      if (bestIpLatency === Infinity) {
-        // All IP tests failed, use domain
-        defaultLogger.ipTable.request.info({
-          info: `[IpTable] All IP tests failed, using domain: ${domain}`,
-        });
-        await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, '');
-        return;
-      }
-
-      // Check if forceIpTableStrict mode is enabled
+      // 3. Decide via pure policy (reachability-first + hysteresis)
       const { enabled: devSettingEnabled, settings } =
         await devSettingsPersistAtom.get();
-      const forceIpTableStrict =
-        devSettingEnabled && settings?.forceIpTableStrict;
-      // In strict mode, always use IP if available (regardless of domain speed)
-      if (forceIpTableStrict) {
-        defaultLogger.ipTable.request.info({
-          info: `[IpTable] [STRICT MODE] Using best IP: ${domain} -> ${bestIp} (${bestIpLatency}ms)`,
-        });
-        await this.backgroundApi.simpleDb.ipTable.updateSelection(
-          domain,
-          bestIp,
-        );
-        return;
+      const strictMode = Boolean(
+        devSettingEnabled && settings?.forceIpTableStrict,
+      );
+      const currentSelection = configWithRuntime.runtime?.selections?.[domain];
+
+      const ipLatencies: Record<string, number> = {};
+      for (const [ip, latency] of ipResults) {
+        ipLatencies[ip] = latency;
       }
 
-      // Normal mode: use threshold-based decision
-      // Calculate performance improvement
-      const improvement = (domainLatency - bestIpLatency) / domainLatency;
+      const decision = decideEndpoint({
+        domainLatency,
+        ipLatencies,
+        currentSelection,
+        domainFailingRealTraffic: opts?.trigger === 'domain_failure',
+        strictMode,
+        improvementThreshold: IP_TABLE_PERFORMANCE_IMPROVEMENT_THRESHOLD,
+      });
 
-      if (improvement > IP_TABLE_PERFORMANCE_IMPROVEMENT_THRESHOLD) {
-        // IP is significantly faster (>30%), use IP
-        defaultLogger.ipTable.request.info({
-          info: `[IpTable] IP is ${(improvement * 100).toFixed(
-            1,
-          )}% faster, using IP: ${domain} -> ${bestIp}`,
-        });
+      // Persist the best measured IP for fast failover, regardless of the
+      // final decision — it is the candidate we switch to when the direct
+      // domain starts failing real traffic.
+      const bestMeasuredIp = Object.entries(ipLatencies)
+        .filter(([, latency]) => latency !== Infinity)
+        .toSorted((a, b) => a[1] - b[1])[0]?.[0];
+      if (bestMeasuredIp) {
+        await this.backgroundApi.simpleDb.ipTable.updateLastBestIp(
+          domain,
+          bestMeasuredIp,
+        );
+      }
+
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] Endpoint decision for ${domain}: ${decision.action} (${
+          decision.reason
+        }) trigger=${opts?.trigger ?? 'periodic'} domainLatency=${domainLatency}ms`,
+      });
+
+      if (decision.action === 'select_ip') {
         await this.backgroundApi.simpleDb.ipTable.updateSelection(
           domain,
-          bestIp,
+          decision.ip,
         );
-      } else {
-        // Domain is competitive, prefer domain for stability
-        defaultLogger.ipTable.request.info({
-          info: `[IpTable] Domain is competitive (IP only ${(
-            improvement * 100
-          ).toFixed(1)}% faster), using domain: ${domain}`,
-        });
+      } else if (decision.action === 'select_domain') {
         await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, '');
       }
+      // no_change: keep the previous selection untouched.
 
       // Clean up health stats for unused endpoints after speed test
       await this.cleanupHealthStatsAfterSpeedTest(domain);
@@ -718,6 +691,28 @@ class ServiceIpTable extends ServiceBase {
       }) for ${domain} (${target})`,
     });
 
+    // Fast failover: after a few consecutive real-request failures on the
+    // direct domain, switch to the last known-good IP immediately instead of
+    // waiting for the slow failure threshold + a full speed test round.
+    if (
+      requestType === 'domain' &&
+      endpointHealth.consecutiveFailures === IP_TABLE_DOMAIN_FAILOVER_THRESHOLD
+    ) {
+      const configWithRuntime = await this.getConfig();
+      const currentSelection = configWithRuntime.runtime?.selections?.[domain];
+      const lastBestIp = configWithRuntime.runtime?.lastBestIp?.[domain];
+      const failoverDisabled = await this.isFailoverDisabledByDevSettings();
+      if (!failoverDisabled && (currentSelection ?? '') === '' && lastBestIp) {
+        defaultLogger.ipTable.request.warn({
+          info: `[IpTable] Fast failover: domain ${domain} failing real traffic, switching to last-best IP immediately`,
+        });
+        await this.backgroundApi.simpleDb.ipTable.updateSelection(
+          domain,
+          lastBestIp,
+        );
+      }
+    }
+
     // Check if speed test should be triggered
     const shouldTrigger = await this.shouldTriggerSpeedTest(domain, stats);
 
@@ -753,7 +748,21 @@ class ServiceIpTable extends ServiceBase {
     });
 
     // Trigger speed test to find and switch to better endpoint
-    void this.selectBestEndpointForDomain(domain);
+    void this.selectBestEndpointForDomain(domain, {
+      trigger: requestType === 'domain' ? 'domain_failure' : 'ip_failure',
+    });
+  }
+
+  private async isFailoverDisabledByDevSettings(): Promise<boolean> {
+    try {
+      const devSettings = await devSettingsPersistAtom.get();
+      return Boolean(
+        devSettings.enabled && devSettings.settings?.disableIpTableFailover,
+      );
+    } catch {
+      // Default to enabled when dev settings are unreadable.
+      return false;
+    }
   }
 
   private scheduleSpeedTest(reason: string): void {
