@@ -5,7 +5,11 @@ import {
   ESwapStockTradeSide,
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
+  isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
+  isStockTradeReadyForQuote,
+  resolveStockBalanceSeed,
+  resolveStockBalanceSnapshot,
   resolveStockChannelSwapPair,
   resolveStockKLineToken,
   shouldLoadDefaultStockToken,
@@ -233,9 +237,47 @@ describe('swapStockChannelUtils', () => {
     ).toBe(false);
   });
 
+  it('keeps Stock quote execution ready when only market detail is unavailable', () => {
+    expect(
+      isStockTradeReadyForQuote({
+        currentStockToken: appleStockToken,
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Empty,
+        payToken: usdcToken,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(true);
+  });
+
+  it('blocks Stock quote execution only when the market is explicitly closed', () => {
+    expect(
+      isStockTradeReadyForQuote({
+        currentStockToken: appleStockToken,
+        marketOpen: false,
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Ready,
+        payToken: usdcToken,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(false);
+  });
+
+  it('waits for the initial Stock market detail request to settle', () => {
+    expect(
+      isStockTradeReadyForQuote({
+        currentStockToken: appleStockToken,
+        marketStatusStatus: ESwapStockChannelAsyncStatus.Initializing,
+        payToken: usdcToken,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(false);
+  });
+
   it('keeps the buy-side pay token visible during non-initial readiness refreshes', () => {
     expect(
       shouldRenderStockTradeInputSkeleton({
+        inputTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
         inputTokenReady: false,
         inputTokenVisible: false,
         isBuySide: true,
@@ -244,6 +286,7 @@ describe('swapStockChannelUtils', () => {
 
     expect(
       shouldRenderStockTradeInputSkeleton({
+        inputTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
         inputTokenReady: false,
         inputTokenVisible: true,
         isBuySide: true,
@@ -251,14 +294,153 @@ describe('swapStockChannelUtils', () => {
     ).toBe(false);
   });
 
+  it('shows Stock balance loading only before the first scoped balance lands', () => {
+    expect(
+      isStockBalanceInitializing({
+        balance: undefined,
+        requestPending: true,
+      }),
+    ).toBe(true);
+    expect(
+      isStockBalanceInitializing({
+        balance: '12.34',
+        requestPending: true,
+      }),
+    ).toBe(false);
+    expect(
+      isStockBalanceInitializing({
+        balance: '0',
+        requestPending: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('uses a Stock balance seed only when it belongs to the active account', () => {
+    const tokenWithBalanceOwner: ISwapToken = {
+      ...usdcToken,
+      accountAddress: '0xAccountA',
+      balanceParsed: '0.24',
+    };
+
+    expect(
+      resolveStockBalanceSeed({
+        hasActiveAccount: true,
+        networkAccountAddress: '0xaccounta',
+        token: tokenWithBalanceOwner,
+      }),
+    ).toBe('0.24');
+    expect(
+      resolveStockBalanceSeed({
+        hasActiveAccount: true,
+        networkAccountAddress: '0xAccountB',
+        token: tokenWithBalanceOwner,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockBalanceSeed({
+        hasActiveAccount: true,
+        token: tokenWithBalanceOwner,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockBalanceSeed({
+        hasActiveAccount: true,
+        networkAccountAddress: '0xAccountA',
+        token: {
+          ...usdcToken,
+          balanceParsed: '0.24',
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps an unscoped Stock balance seed when no account is active', () => {
+    expect(
+      resolveStockBalanceSeed({
+        hasActiveAccount: false,
+        token: {
+          ...usdcToken,
+          balanceParsed: '0.24',
+        },
+      }),
+    ).toBe('0.24');
+  });
+
+  it('keeps a scoped Stock balance visible from seed through authoritative refresh', () => {
+    const seededSnapshot = resolveStockBalanceSnapshot({
+      ownerScope: 'account-1:usdc',
+      seededBalance: '0.24',
+      seededTokenDetail: usdcToken,
+    });
+    expect(seededSnapshot).toEqual({
+      ownerScope: 'account-1:usdc',
+      balance: '0.24',
+      tokenDetail: usdcToken,
+    });
+
+    expect(
+      resolveStockBalanceSnapshot({
+        ownerScope: 'account-1:usdc',
+        previousSnapshot: seededSnapshot,
+        seededBalance: '0.10',
+      }),
+    ).toBe(seededSnapshot);
+
+    expect(
+      resolveStockBalanceSnapshot({
+        authoritativeBalance: '0.25',
+        authoritativeTokenDetail: usdcToken,
+        ownerScope: 'account-1:usdc',
+        previousSnapshot: seededSnapshot,
+      }),
+    ).toEqual({
+      ownerScope: 'account-1:usdc',
+      balance: '0.25',
+      tokenDetail: usdcToken,
+    });
+  });
+
+  it('does not reuse a Stock balance snapshot across owner scopes', () => {
+    expect(
+      resolveStockBalanceSnapshot({
+        ownerScope: 'account-2:usdc',
+        previousSnapshot: {
+          ownerScope: 'account-1:usdc',
+          balance: '0.24',
+          tokenDetail: usdcToken,
+        },
+      }),
+    ).toBeUndefined();
+  });
+
   it('keeps sell-side stock input skeleton tied to full readiness', () => {
     expect(
       shouldRenderStockTradeInputSkeleton({
+        inputTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
         inputTokenReady: false,
         inputTokenVisible: true,
         isBuySide: false,
       }),
     ).toBe(true);
+  });
+
+  it('stops showing the Stock input skeleton after an empty state lands', () => {
+    expect(
+      shouldRenderStockTradeInputSkeleton({
+        inputTokenStatus: ESwapStockChannelAsyncStatus.Empty,
+        inputTokenReady: false,
+        inputTokenVisible: false,
+        isBuySide: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRenderStockTradeInputSkeleton({
+        inputTokenStatus: ESwapStockChannelAsyncStatus.Empty,
+        inputTokenReady: false,
+        inputTokenVisible: true,
+        isBuySide: false,
+      }),
+    ).toBe(false);
   });
 
   it('marks only stock market tokens as stock swap tokens', () => {
