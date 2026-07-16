@@ -13,7 +13,7 @@ export type IPrimeUserInfo = {
   isEnablePrime: boolean | undefined;
   isEnableSandboxPay: boolean | undefined;
   isPrimeDeviceLimitExceeded: boolean | undefined;
-  email: string | undefined; // update by local supabase sdk
+  email: string | undefined; // update by server api (normalizedEmail)
   displayEmail: string | undefined; // update by server api
   nickname: string | undefined; // update by server api
   avatar: string | undefined; // update by server api
