@@ -237,9 +237,13 @@ const SwapHeaderContainer = ({
     pageType !== 'modal' &&
     !platformEnv.isNative &&
     !platformEnv.isExtensionUiSidePanel;
-  const swapBridgeLabel = `${intl.formatMessage({
-    id: ETranslations.swap_page_swap,
-  })} & ${intl.formatMessage({ id: ETranslations.swap_page_bridge })}`;
+  // Single source key shared with the history modal title/dropdown so the
+  // tab label never drifts from them per locale; composing
+  // `swap_page_swap & swap_page_bridge` also hardcodes the "&" connector,
+  // which is wrong for locales like bn/hi. (OK-58055)
+  const swapBridgeLabel = intl.formatMessage({
+    id: ETranslations.swap_history_title,
+  });
   const stockLabel = intl.formatMessage({
     id: ETranslations.perps_token_selector_stocks,
   });
