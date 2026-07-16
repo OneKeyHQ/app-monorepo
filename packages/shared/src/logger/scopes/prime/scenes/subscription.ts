@@ -1,9 +1,14 @@
+/* cspell:ignore Infini */
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
+
+// Payment channel dimension: 'iap' = native in-app purchase (RevenueCat),
+// 'stripe' = RevenueCat web billing (Stripe), 'crypto' = Infini crypto checkout
+export type IPrimePaymentMethod = 'iap' | 'stripe' | 'crypto';
 
 export class PrimeSubscriptionScene extends BaseScene {
   /**
@@ -83,15 +88,18 @@ export class PrimeSubscriptionScene extends BaseScene {
     subscriptionPeriod,
     featureName,
     isLoggedIn,
+    paymentMethod,
   }: {
     subscriptionPeriod: ISubscriptionPeriod;
     featureName?: EPrimeFeatures;
     isLoggedIn: boolean;
+    paymentMethod?: IPrimePaymentMethod;
   }) {
     return {
       subscriptionPeriod,
       featureName,
       isLoggedIn,
+      paymentMethod,
     };
   }
 
@@ -105,15 +113,18 @@ export class PrimeSubscriptionScene extends BaseScene {
     subscriptionPeriod,
     featureName,
     currency,
+    paymentMethod,
   }: {
     subscriptionPeriod: ISubscriptionPeriod;
     featureName?: EPrimeFeatures;
     currency?: string;
+    paymentMethod?: IPrimePaymentMethod;
   }) {
     return {
       subscriptionPeriod,
       featureName,
       currency,
+      paymentMethod,
     };
   }
 
@@ -167,17 +178,20 @@ export class PrimeSubscriptionScene extends BaseScene {
     amount,
     currency,
     featureName,
+    paymentMethod,
   }: {
     planType: 'monthly' | 'yearly';
     amount: number;
     currency: string;
     featureName?: EPrimeFeatures;
+    paymentMethod?: IPrimePaymentMethod;
   }) {
     return {
       planType,
       amount,
       currency,
       featureName,
+      paymentMethod,
     };
   }
 

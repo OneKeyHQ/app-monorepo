@@ -2,6 +2,7 @@ import { BigNumber } from 'bignumber.js';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IPrimePaymentMethod } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
@@ -165,11 +166,17 @@ function trackPrimeSubscriptionSuccess({
   currency,
   subscriptionPeriod,
   featureName,
+  paymentMethod,
 }: {
   amount: number;
   currency?: string;
   subscriptionPeriod: ISubscriptionPeriod;
   featureName?: EPrimeFeatures;
+  // Required so every success event carries its payment channel: the event
+  // pairs with primeSubscribeIntent (logged per channel) to measure the
+  // attempt → success rate per channel, which breaks if success events
+  // report paymentMethod: undefined
+  paymentMethod: IPrimePaymentMethod;
 }) {
   const planType = subscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
   defaultLogger.prime.subscription.primeSubscribeSuccess({
@@ -177,6 +184,7 @@ function trackPrimeSubscriptionSuccess({
     amount,
     currency: currency || 'USD',
     featureName,
+    paymentMethod,
   });
 }
 

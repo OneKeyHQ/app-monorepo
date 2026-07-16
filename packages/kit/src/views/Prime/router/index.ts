@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -28,6 +29,9 @@ const OneKeyIdProfileEdit = LazyLoadPage(
   () => import('../pages/OneKeyId/ProfileEditPage'),
 );
 const PrimeMyOrders = LazyLoadPage(() => import('../pages/PrimeMyOrders'));
+const PrimeInfiniSubscription = LazyLoadPage(
+  () => import('../pages/PrimeInfiniSubscription'),
+);
 
 export const PrimeRouter: IModalFlowNavigatorConfig<
   EPrimePages,
@@ -86,5 +90,9 @@ export const PrimeRouter: IModalFlowNavigatorConfig<
   {
     name: EPrimePages.PrimeMyOrders,
     component: PrimeMyOrders,
+  },
+  {
+    name: EPrimePages.PrimeInfiniSubscription,
+    component: PrimeInfiniSubscription,
   },
 ];

@@ -345,6 +345,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
             currency: offering.product.currencyCode,
             subscriptionPeriod,
             featureName,
+            // react-native-purchases = StoreKit / Play Billing in-app purchase
+            paymentMethod: 'iap',
           });
 
           void Dialog.confirm({

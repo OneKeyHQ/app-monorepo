@@ -1,7 +1,9 @@
+/* cspell:ignore Infini */
 import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IActionListItemProps } from '@onekeyhq/components';
 import {
   ActionList,
   Dialog,
@@ -9,14 +11,17 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IPrimePaymentMethod } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
+import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import {
   finishPrimeSubscriptionPurchaseSuccess,
@@ -39,6 +44,7 @@ export function usePrimePurchaseCallback({
   const intl = useIntl();
 
   const purchaseByWebview = usePurchasePackageWebview();
+  const { purchaseByCrypto } = usePrimeInfiniPurchase();
 
   const purchaseByNative = useCallback(
     async ({
@@ -60,6 +66,49 @@ export function usePrimePurchaseCallback({
     [purchasePackageNative],
   );
 
+  const purchaseByWebStripe = useCallback(
+    async ({
+      selectedSubscriptionPeriod,
+      currency,
+      featureName,
+    }: {
+      selectedSubscriptionPeriod: ISubscriptionPeriod;
+      currency?: string;
+      featureName?: EPrimeFeatures;
+    }) => {
+      let successfulPurchase:
+        | IPrimeSubscriptionPurchaseSuccessPayload
+        | undefined;
+      try {
+        const purchaseUserId = user?.onekeyUserId;
+        const purchaseResult = await purchasePackageWeb?.({
+          subscriptionPeriod: selectedSubscriptionPeriod,
+          email: supabaseUser?.email || '',
+          locale: intl.locale,
+          currency,
+          featureName,
+        });
+        if (
+          purchaseUserId &&
+          purchaseResult?.customerInfo.entitlements.active.Prime?.isActive
+        ) {
+          successfulPurchase =
+            await preparePrimeSubscriptionPurchaseSuccess(purchaseUserId);
+        }
+        // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
+        //   onekeyUserId: user.onekeyUserId || '',
+        // });
+        // await backgroundApiProxy.servicePrime.purchasePaywallPackage({
+        //   packageId: selectedPackageId,
+        //   email: user?.email || '',
+        // });
+      } finally {
+        await finishPrimeSubscriptionPurchaseSuccess(successfulPurchase);
+      }
+    },
+    [intl.locale, purchasePackageWeb, supabaseUser?.email, user?.onekeyUserId],
+  );
+
   // TODO move to jotai context method
   const purchase = useCallback(
     async ({
@@ -73,17 +122,23 @@ export function usePrimePurchaseCallback({
     }) => {
       onPurchase?.();
 
-      defaultLogger.prime.subscription.primeSubscribeIntent({
-        subscriptionPeriod: selectedSubscriptionPeriod,
-        featureName,
-        currency,
-      });
+      // primeSubscribeIntent must fire exactly once per actual payment
+      // attempt with its channel (see the scene doc: it pairs with
+      // primeSubscribeSuccess to measure attempt → success rate), so it is
+      // logged in each concrete channel branch instead of when the payment
+      // method picker is shown. The crypto path logs it inside
+      // usePrimeInfiniPurchase with paymentMethod: 'crypto'.
+      const logSubscribeIntent = (paymentMethod: IPrimePaymentMethod) => {
+        defaultLogger.prime.subscription.primeSubscribeIntent({
+          subscriptionPeriod: selectedSubscriptionPeriod,
+          featureName,
+          currency,
+          paymentMethod,
+        });
+      };
 
-      // The native and webview branches below own their own refresh/emit
-      // sequencing (native IAP hook, WebView modal close handler); only the
-      // web checkout at the bottom runs the claim -> refresh -> emit tail
-      // in this layer.
       if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
+        logSubscribeIntent('iap');
         void purchaseByNative({
           selectedSubscriptionPeriod,
           featureName,
@@ -91,91 +146,117 @@ export function usePrimePurchaseCallback({
         return;
       }
 
+      // Crypto pay (Infini) is visible on every remaining branch:
+      // !isNativeIOS && !isNativeAndroidGooglePlay
       if (platformEnv.isNativeAndroid) {
         const isGooglePlayServiceAvailable =
           await googlePlayService.isAvailable();
-        if (isGooglePlayServiceAvailable) {
-          ActionList.show({
-            title: intl.formatMessage({
-              id: ETranslations.prime_subscribe,
-            }),
-            onClose: () => {},
-            sections: [
-              {
-                items: [
-                  {
-                    label: 'Purchase by GooglePlay',
-                    onPress: () => {
-                      void purchaseByNative({
-                        selectedSubscriptionPeriod,
-                        featureName,
-                      });
-                    },
+        const payWithCryptoItem: IActionListItemProps = {
+          // TODO: i18n pending translation key
+          label: 'Pay with crypto',
+          onPress: () => {
+            void purchaseByCrypto({
+              selectedSubscriptionPeriod,
+              featureName,
+            });
+          },
+        };
+        const purchaseByWebviewItem: IActionListItemProps = {
+          label: 'Purchase by Webview',
+          onPress: () => {
+            // The webview flow is RevenueCat web billing (Stripe) hosted in
+            // an in-app webview
+            logSubscribeIntent('stripe');
+            void purchaseByWebview({
+              selectedSubscriptionPeriod,
+              currency,
+              featureName,
+            });
+          },
+        };
+        const androidItems: IActionListItemProps[] =
+          isGooglePlayServiceAvailable
+            ? [
+                {
+                  label: 'Purchase by GooglePlay',
+                  onPress: () => {
+                    logSubscribeIntent('iap');
+                    void purchaseByNative({
+                      selectedSubscriptionPeriod,
+                      featureName,
+                    });
                   },
-                  {
-                    label: 'Purchase by Webview',
-                    onPress: () => {
-                      void purchaseByWebview({
-                        selectedSubscriptionPeriod,
-                        currency,
-                        featureName,
-                      });
-                    },
-                  },
-                ],
-              },
-            ],
-          });
-        } else {
-          void purchaseByWebview({
-            selectedSubscriptionPeriod,
-            currency,
-            featureName,
-          });
-        }
+                },
+                purchaseByWebviewItem,
+                payWithCryptoItem,
+              ]
+            : [purchaseByWebviewItem, payWithCryptoItem];
+        // Native Android only: ActionList.show renders as a bottom Sheet on
+        // native, so no popover trigger anchor is needed here
+        ActionList.show({
+          title: intl.formatMessage({
+            id: ETranslations.prime_subscribe,
+          }),
+          onClose: () => {},
+          sections: [
+            {
+              items: androidItems,
+            },
+          ],
+        });
         return;
       }
 
-      let successfulPurchase:
-        | IPrimeSubscriptionPurchaseSuccessPayload
-        | undefined;
-      try {
-        if (selectedSubscriptionPeriod) {
-          const purchaseUserId = user?.onekeyUserId;
-          const purchaseResult = await purchasePackageWeb?.({
-            subscriptionPeriod: selectedSubscriptionPeriod,
-            email: supabaseUser?.email || '',
-            locale: intl.locale,
-            currency,
-            featureName,
-          });
-          if (
-            purchaseUserId &&
-            purchaseResult?.customerInfo.entitlements.active.Prime?.isActive
-          ) {
-            successfulPurchase =
-              await preparePrimeSubscriptionPurchaseSuccess(purchaseUserId);
-          }
-          // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
-          //   onekeyUserId: user.onekeyUserId || '',
-          // });
-          // await backgroundApiProxy.servicePrime.purchasePaywallPackage({
-          //   packageId: selectedPackageId,
-          //   email: user?.email || '',
-          // });
-        }
-      } finally {
-        await finishPrimeSubscriptionPurchaseSuccess(successfulPurchase);
-      }
+      // Desktop / Web / Extension: ActionList.show() has no trigger anchor
+      // here, and on gtMd its Popover never adapts to a Sheet, so it would
+      // render detached at the window corner. Use an imperative Dialog as
+      // the payment method picker instead.
+      const paymentMethodDialog = Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslations.prime_subscribe,
+        }),
+        showFooter: false,
+        renderContent: (
+          <YStack mx="$-5" mt="$-1" mb="$-3" $md={{ pb: '$3', mb: '$0' }}>
+            <ListItem
+              drillIn
+              testID="prime-pay-with-card"
+              // TODO: i18n pending translation key
+              title="Pay with card"
+              onPress={() => {
+                void paymentMethodDialog.close();
+                logSubscribeIntent('stripe');
+                void purchaseByWebStripe({
+                  selectedSubscriptionPeriod,
+                  currency,
+                  featureName,
+                });
+              }}
+            />
+            <ListItem
+              drillIn
+              testID="prime-pay-with-crypto"
+              // TODO: i18n pending translation key
+              title="Pay with crypto"
+              onPress={() => {
+                void paymentMethodDialog.close();
+                void purchaseByCrypto({
+                  selectedSubscriptionPeriod,
+                  featureName,
+                });
+              }}
+            />
+          </YStack>
+        ),
+      });
     },
     [
       onPurchase,
       purchaseByNative,
+      purchaseByCrypto,
       intl,
       purchaseByWebview,
-      purchasePackageWeb,
-      supabaseUser,
-      user?.onekeyUserId,
+      purchaseByWebStripe,
     ],
   );
 
@@ -189,11 +270,14 @@ export function usePrimePurchaseCallback({
 export const PrimePurchaseDialog = (props: {
   onPurchase: () => void;
   featureName?: EPrimeFeatures;
+  // Preselected plan, e.g. the renew flow defaults to the plan of the
+  // current Infini subscription (integration plan §7.2)
+  defaultSelectedSubscriptionPeriod?: ISubscriptionPeriod;
 }) => {
-  const { onPurchase, featureName } = props;
+  const { onPurchase, featureName, defaultSelectedSubscriptionPeriod } = props;
   const intl = useIntl();
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
-    useState<ISubscriptionPeriod>('P1Y');
+    useState<ISubscriptionPeriod>(defaultSelectedSubscriptionPeriod ?? 'P1Y');
 
   const { getPackagesNative, getPackagesWeb } = usePrimePayment();
 

@@ -1,4 +1,5 @@
-import { useCallback, useEffect } from 'react';
+/* cspell:ignore Infini */
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,14 +16,33 @@ import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickSt
 import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPrimeInfiniSubscription } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { PrimeTestIDs } from '../../testIDs';
+import { isInfiniSubscriptionInPeriod } from '../PrimeInfiniSubscription/infiniSubscriptionUtils';
+
+// Crypto pay is not available on iOS / Android Google Play builds (store
+// policy, integration plan §2), so those builds must not surface the Infini
+// management entry either (plan §10 regression criterion): skip the Infini
+// lookup entirely and keep the original RevenueCat manage-url behavior.
+const isInfiniManageSupported =
+  !platformEnv.isNativeIOS && !platformEnv.isNativeAndroidGooglePlay;
+
+// Upper bound for awaiting an in-flight Infini lookup inside the click
+// handler: on web, window.open must run within the click's transient user
+// activation (~5s in Chromium) or the popup blocker silently eats it.
+const INFINI_LOOKUP_CLICK_TIMEOUT_MS = 3000;
 
 function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose,
@@ -41,6 +61,55 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const { purchase } = usePrimePurchaseCallback();
+  const navigation = useAppNavigation();
+
+  // Prefetched when the dropdown opens so the Manage-subscription click can
+  // usually resolve the channel routing instantly (integration plan §5.3(d));
+  // the promise ref lets an early click await the in-flight lookup instead of
+  // racing the reactive result. The result is wrapped in an object so that
+  // "settled with no Infini subscription" can be told apart from "still
+  // loading" (both would otherwise be a plain undefined).
+  const infiniSubscriptionPromiseRef = useRef<
+    Promise<IPrimeInfiniSubscription | undefined> | undefined
+  >(undefined);
+  const { result: infiniLookup } = usePromiseResult(async () => {
+    if (!isPrime || !isInfiniManageSupported) {
+      infiniSubscriptionPromiseRef.current = undefined;
+      return { subscription: undefined };
+    }
+    // Lookup failures fall back to the original RevenueCat manage url flow,
+    // so RevenueCat-only users see zero behavior change
+    const promise = backgroundApiProxy.servicePrime
+      .apiGetInfiniSubscription()
+      .catch(() => undefined);
+    infiniSubscriptionPromiseRef.current = promise;
+    return { subscription: await promise };
+  }, [isPrime]);
+  const infiniSubscription = infiniLookup?.subscription;
+
+  const handleManageSubscription = useCallback(async () => {
+    let latestInfiniSubscription = infiniLookup?.subscription;
+    if (!infiniLookup) {
+      // The prefetch has not settled yet: await it, but bounded — on web the
+      // fallback openUrlExternal below is window.open, which must run within
+      // the click's transient user activation or the popup blocker silently
+      // eats it. On timeout fall back to the RevenueCat manage url, matching
+      // the pre-Infini behavior.
+      latestInfiniSubscription = await Promise.race([
+        infiniSubscriptionPromiseRef.current ?? Promise.resolve(undefined),
+        timerUtils.wait(INFINI_LOOKUP_CLICK_TIMEOUT_MS).then(() => undefined),
+      ]);
+    }
+    // Infini takes priority while its paid period has not ended, including
+    // canceled-but-not-expired subscriptions (integration plan §5.3(d))
+    if (isInfiniSubscriptionInPeriod(latestInfiniSubscription)) {
+      navigation.push(EPrimePages.PrimeInfiniSubscription);
+      return;
+    }
+    if (subscriptionManageUrl) {
+      openUrlUtils.openUrlExternal(subscriptionManageUrl);
+    }
+  }, [infiniLookup, navigation, subscriptionManageUrl]);
 
   const refreshUserInfo = useCallback(async () => {
     void getCustomerInfo();
@@ -111,15 +180,17 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       {/*
        Sometimes, the local payment is successful (for example, sandbox payment), but the server status is incorrect, so even if the subscriptionManageUrl exists, you need to expose the management subscription entry to allow the user to cancel the subscription
       */}
-      {isPrime && subscriptionManageUrl ? (
+      {isPrime &&
+      (subscriptionManageUrl ||
+        isInfiniSubscriptionInPeriod(infiniSubscription)) ? (
         <ActionList.Item
           label={intl.formatMessage({
             id: ETranslations.prime_manage_subscription,
           })}
           icon="CreditCardOutline"
           onClose={handleActionListClose}
-          onPress={() => {
-            openUrlUtils.openUrlExternal(subscriptionManageUrl);
+          onPress={async () => {
+            await handleManageSubscription();
           }}
         />
       ) : null}

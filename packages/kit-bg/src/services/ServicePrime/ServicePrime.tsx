@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { type AuthResponse } from '@supabase/supabase-js';
 import { Semaphore } from 'async-mutex';
 import { chunk, cloneDeep, isString } from 'lodash';
@@ -52,6 +53,8 @@ import type {
   IOneKeyIdOAuthLoginResponse,
   IOneKeyIdProfileResponse,
   IPrimeDeviceInfo,
+  IPrimeInfiniSubscription,
+  IPrimeInfiniSubscriptionPlan,
   IPrimeServerUserInfo,
   IPrimeSubscriptionInfo,
   IPrimeUserInfo,
@@ -3452,6 +3455,57 @@ class ServicePrime extends ServiceBase {
       '/prime/v1/user/shopify-orders',
     );
     return result?.data?.data ?? [];
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiGetInfiniCheckoutUrl({
+    plan,
+  }: {
+    plan: IPrimeInfiniSubscriptionPlan;
+  }): Promise<{ checkoutUrl: string }> {
+    const client = await this.getPrimeClient();
+    // NOTE: response schema pending backend confirmation, assumed { checkoutUrl }
+    const result = await client.post<
+      IApiClientResponse<{ checkoutUrl: string }>
+    >('/prime/v1/infini/checkout', {
+      plan,
+    });
+    return result?.data?.data;
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniSubscription(): Promise<
+    IPrimeInfiniSubscription | undefined
+  > {
+    const client = await this.getPrimeClient();
+    // NOTE: response schema pending backend confirmation (see IPrimeInfiniSubscription)
+    const result = await client.get<
+      IApiClientResponse<IPrimeInfiniSubscription | undefined>
+    >('/prime/v1/infini/subscription');
+    return result?.data?.data ?? undefined;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiCancelInfiniSubscription({
+    note,
+  }: {
+    note?: string;
+  } = {}): Promise<void> {
+    const client = await this.getPrimeClient();
+    // note is an optional cancel reason, max 200 chars enforced by the server
+    await client.post('/prime/v1/infini/subscription/cancel', {
+      note,
+    });
+  }
+
+  @backgroundMethod()
+  async apiSyncInfiniWebhook(): Promise<void> {
+    const client = await this.getPrimeClient();
+    // Ask the server to proactively sync the latest Infini payment state,
+    // used as a nudge right after the user returns from the checkout page
+    await client.post('/prime/v1/infini/webhook/sync');
   }
 
   @backgroundMethod()
