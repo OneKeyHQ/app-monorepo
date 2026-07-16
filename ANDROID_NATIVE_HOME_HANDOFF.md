@@ -1262,3 +1262,52 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 通过，完整 `yarn app:ios` 也真实编译该 Swift 文件成功；指定 iOS/Android Native Home 文件 `git diff --check` 通过。
 - `yarn agent:check --profile commit` 日志为 `node_modules/.cache/agent-checks/2026-07-16T14-23-37-670Z`。`lint-worktree-js`、`lint-staged`、`agent-context` 通过；`lint-worktree-ts` / `tsc-staged` 被共享工作区已有的 Desktop、Rspack、DeFi、TradingView、WebView、Navigator、AppUpdate、Firmware、Receive、ReferFriends、Swap、旧 `NativeHomePageView.native.tsx` 等错误阻断，日志没有本轮 Swift/handoff 错误。没有修改或回滚这些无关文件制造绿色结果。
 - 本节只通过 iOS Community Recognized 图标映射和最新 Debug 实图。Android 仍缺独立 build/真机截图验收；Stocks 服务端 logo 成功态、CASHCAT 当前行、Dark mode、pressed/hover、失败回滚注入态等继续保持未完成，不能据此声明整个 Market UI 完成。
+
+## 2026-07-16 iOS Wallet 五 Tab Legacy/Native 全页 UI Differ 走查
+
+### 自动对比方法与工具结论
+
+- 本轮继续使用 `1k-ui-verify`：固定 iPhone 17 Pro / iOS 26.5、同一 `Account #1`、同一 Ethereum 网络和当前 Debug Metro 数据，只临时把 `nativeHomeFeatureFlag.native.ts` 切到 `false` 采集 legacy；采集完已恢复 `enabledByDeveloperMode && isHomeContainerAvailable()`，该文件最终零 diff，默认仍是 Native Home。
+- Ethereum 下 legacy 与 Native 都有 Spot / Perps / DeFi / NFT / History，分别采集 `00-top / 01-body / 02-mid / 03-lower / 04-bottom` 共 25 组原图；每张原图为 1206×2622，并统一缩到 402×874 后比较。History 额外采集筛选面板打开态。
+- 直接使用 `agent-device diff screenshot --threshold 0.08` 生成像素差、差异区域、文字 frame delta 和疑似缺失 icon/chevron；同时在 `.tmp/ui/home-tabs-diff/analyze.py` 生成 absolute heatmap、edge differ、三列 comparison 和五阶段 contact sheet。原图在 `.tmp/ui/home-tabs-diff/legacy/`、`.tmp/ui/home-tabs-diff/native/`，产物在 `.tmp/ui/home-tabs-diff/diff/`。
+- 五张同锚点顶部截图的 agent-device mismatch 为：Spot 9.34%、Perps 6.72%、DeFi 8.81%、NFT 6.24%、History 10.12%。自定义 edge differ 也把 History 排为差异最大项。该数字只用于定位排序，不是 UI 完成率；Perps 的大块纯白空占位反而会降低像素差百分比，动态价格、余额、轮播图和异步 NFT 图片也必须从语义结论中排除。
+- 汇总证据：
+  - `.tmp/ui/home-tabs-diff/diff/spot-contact-sheet.png`
+  - `.tmp/ui/home-tabs-diff/diff/perps-contact-sheet.png`
+  - `.tmp/ui/home-tabs-diff/diff/defi-contact-sheet.png`
+  - `.tmp/ui/home-tabs-diff/diff/nft-contact-sheet.png`
+  - `.tmp/ui/home-tabs-diff/diff/history-contact-sheet.png`
+  - `.tmp/ui/home-tabs-diff/diff/metrics.json` 与 `tab-summary.json`
+  - 各 Tab 顶部内置差异图为 `.tmp/ui/home-tabs-diff/diff/<tab>-00-agent-device.png`。
+- 这套流程对稳定几何、字体、缺失组件和内容语义非常有效，后续继续作为 Native Home 主要走查方法。滚动 owner、pressed、Tab 连续切换和点击跳转仍需真实触摸录屏/多帧；相同 `scroll` 命令落到不同 nested scroll owner 时，后续阶段截图只能作为问题线索，不能单独宣称滚动通过或失败。
+
+### P1：Tab 能力、共享 Header 与 Tab 样式不一致
+
+- **All Networks 能力 gating 不一致。** legacy 在当前 All Networks 只显示 Spot / NFT / History，`home-tab-perps` 与 `home-tab-defi` 不存在；证据为 `.tmp/ui/home-tabs-diff-legacy-return.png`。Native 恢复 All Networks 后仍显示五个 Tab；证据为 `.tmp/ui/home-tabs-diff/native/all-networks-restored-2.png`。源码原因是 legacy `HomePageView.tsx` 使用 `isPerpsEnabled / isDeFiEnabled / isNFTEnabled` 过滤配置，而 Native `initialTabs` 无条件遍历全部 `HOME_CONTAINER_TAB_IDS`。必须复用相同 capability gating，不能因为 Native 有空页面就强行展示。
+- **折叠 Header 缺组件。** legacy 折叠后仍在 Search 与 Tab 之间保留 compact `Account #1`、copy 和当前 network；Native 折叠时整个 account/network row 被移走，Tab 直接贴在 Search 下方。因此 Perps、DeFi、NFT、History 的 Native 顶部都比 legacy 提前约一个 compact row，高度差不是单个 section padding。
+- **Tab 字体和高度明确不一致。** legacy text variant 固定 `$headingLg` 18px，选中 weight 600、未选中 500，可点击 item 实测约 36pt；Native `HomeContainerTabsView` 固定 15pt system semibold，所有状态只有颜色变化，容器固定 52pt。完整 Spot 同锚点图中 Native Tab 和 Tokens 内容整体比 legacy 提前约 35–50pt。后续应先统一 font/weight/item height/header total height，再做下方像素差，不能用整体 crop 平移掩盖真实高度问题。
+
+### P1：Perps、DeFi 与 History 的组件/功能缺失
+
+- **Perps 不是样式小差异，而是主组件缺失。** legacy 有 `Perps · $10.26`、Deposit、Name/Balance、Value/PNL、USDC 10.256 和 Hot Markets；Native 顶部全部缺失，只在约 1100pt 空白后出现 Hot Markets。源码中 empty `perps-state` 在 initialized 且 itemCount 为 0 时使用 `displayHeight: 1100`，同时仍追加 supplemental Hot Markets，正好形成实图中的大块空占位。需要先查清 Native `perps.view`/holdings 为何没有得到 legacy 同一份 USDC 数据，再修 empty-state 与 supplemental section 组合；禁止继续猜 padding。
+- Native Perps Hot Markets 的 ONDO / SNDK / SPCX / SILVER 被压成 `ON... / SN... / SP... / SIL...`，legacy 完整显示；Native 也没有 legacy 底部可见的 View more。Deposit 和 View more 因组件缺失无法做点击验收。
+- **DeFi 快捷操作缺失。** legacy Aave V3 有 Withdraw / Repay，Sky 与 Fluid 有 Withdraw，Uniswap V4 有 Remove & Claim rewards；Native 每行只剩 chevron，相关操作入口没有 DTO/renderer。legacy 行之间还有 separator，Native 全白连续排列。协议名称、position 数和净值本身一致，Show more 也存在，因此问题集中在行内 action 与 row style，而不是 DeFi service 数据整体丢失。
+- **History 展示语义没有复用原版。** 同一条交易 legacy 显示 `Revoke USDC allowance / Uniswap`，Native 显示 `Approve / Revoke USDC allowance + Success`；legacy Swap 显示应用名和双向资产，Native 多处退化为 `Unknown / Swap` 与单边 transfer。Native 还给全部 confirmed row 增加 Success badge，单屏密度、icon 组合和 value/detail 都与原版不同。
+- History 日期 legacy 使用本地 `07/16/2026`，Native 写死 `yyyy/MM/dd` 为 `2026/07/16`；Native 在无应用描述时用时间作 subtitle，legacy 使用地址/协议显示规则。这里应复用 `TxHistoryListView` 的 display adapter/formatter，而不是继续扩展另一套近似 `getHistoryTitle/getHistoryTransferDisplay`。
+- History filter 可以真实打开，但 Native Dialog 缺少原版两段说明文字，也缺 `filterScamHistorySupported` 的 network gating/disabled 状态；因此面板高度明显更短，且在不支持网络上会错误允许风险过滤开关。legacy 证据为 `.tmp/ui/home-tabs-diff/legacy/history-filter-open.png`，Native 为 `.tmp/ui/home-tabs-diff/native/history-filter-open.png`。
+
+### P2：Spot 与 NFT 的稳定视觉/降级差异
+
+- Spot 完整 Header 的账户、network、余额、Send/Receive/Buy & Sell/More 和 banner 都存在；同时间余额为 legacy `$21.56`、Native `$21.55`，属于实时刷新噪声，不列为缺失。
+- 单链 Ethereum 下 legacy Token icon 不叠 network badge，Native 每行仍叠 Ethereum badge；legacy ETH 标题后还有行内 asset accessory，Native 缺失。Native 价格格式被压到两位，例如 legacy cUSD `$0.9998`，Native `$1.00`，需要与原版 token price formatter 对齐。
+- NFT legacy 不显示额外 section 标题，Native 在已选中的 NFT Tab 下又增加一行 `NFT`，造成冗余高度。图片失败时 legacy placeholder 有 broken-image indicator，Native 只有空灰块；metadata name 为空时 legacy 显示 `-`，Native 回退到 itemId（如 `125656/116659`）。Native 单链 NFT 卡也额外叠 Ethereum badge。真实已加载的 `Ten Years Of Ethereum` 图片两边均能显示，说明不是整个 Native 图片 loader 失效。
+
+### 交互、恢复现场与完成边界
+
+- 五个 Tab 都通过截图后立即点击真实切换，选中态与对应内容变化可见；History filter 可打开。DeFi 行内快捷操作、Perps Deposit/View more 在 Native 根本不存在，无法记为交互通过。NFT 详情、History 详情、load-more、Tab 横滑、连续切换 offset、Dark mode 和动态字体仍需下一轮录屏/交互证据。
+- 采集后已通过正常 UI 的 All networks selector 与底部确认按钮恢复 All Networks，没有清理或直接改持久化数据。Native Home flag 已恢复，当前截图 `.tmp/ui/home-tabs-diff/native/all-networks-restored-2.png` 显示 `BTC / ETH / +16`、余额 `$54.38` 和资产列表，钱包数据正常。
+- 当前前台 bundle 仍为 `so.onekey.wallet`。最新 Hermes page 1 为 main：`$$onekeyJsReadyAt=1784216449365`、`$$onekeyUIVisibleAt=1784216451289`，并收到独立 bg ready payload `runtime=background/status=ready/protocolVersion=1/bootId=1784216450931-61myhbqk`；page 2 独立报告 `runtime=background`。没有用 main ready 替代 bg ready。
+- 本轮没有执行 uninstall、reinstall、erase、clear data，没有删除 app container、钱包数据库或持久化数据。本轮是当前 Debug 包上的 Metro A/B 审计，没有 Native/TS 实现修改，因此没有重复运行 `yarn app:ios`；当前安装包仍来自前文最后一次标准 `yarn app:ios` Debug build，不涉及 Release、自定义 `xcodebuild` 或关闭签名。
+- **Runtime scope：main UI + bg 数据读取。** Tab/Header/layout、截图、filter Dialog、section renderer 和 per-view scroll/represented state 属于 main；Perps/DeFi/History/portfolio service 数据来自 bg，经 proxy 序列化到独立 main Hermes heap。main/bg 初始化独立，不能假设 bg 先 ready。图片/字体 cache 与底层持久化句柄是进程级共享 Native 资源；cell constraint、represented image signature、request cancellation、Tab selected/pressed 和 scroll owner 是 per-view 状态。
+- 本轮只新增 handoff 审计记录；`.tmp/ui/home-tabs-diff/analyze.py` 与全部图片是 ignored 临时证据，不进入提交。Android 没有新增修改或验收。本轮不修复这些跨模块差异，下一轮优先顺序为：capability gating + Tab/Header metrics → Perps 数据/空态 → History 复用原版 display/filter → DeFi inline actions → Spot/NFT 细节；每组修复后重新执行同锚点 differ 与真实触摸录屏。未完成这些项前不得声明 Wallet 五 Tab 或整个 Native Home UI 完成。
+- 指定 Native Home 文件的 `git diff --check` 通过。本轮无实现代码变更，因此没有新增 Swift/Jest/ESLint 聚焦范围。`yarn agent:check --profile commit` 日志为 `node_modules/.cache/agent-checks/2026-07-16T16-04-31-814Z`：`lint-worktree-js`、`agent-context`、`lint-staged` 通过；`lint-worktree-ts` / `tsc-staged` 被共享工作区已有的 Desktop、Receive、Swap、Discovery、Rspack、DeFi、TradingView、WebView、Navigator、AppUpdate、Firmware、ReferFriends 和旧 `NativeHomePageView.native.tsx` 等错误阻断，日志中没有本轮 handoff 错误。没有回滚或修改这些无关文件制造绿色结果。
