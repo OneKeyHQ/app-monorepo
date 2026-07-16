@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Stack, useTheme } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -7,12 +7,25 @@ import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
 
 import type { ITradingViewNativeProps } from './types';
+import type { ITradingViewIntervalOption } from '../TradingViewV2/types';
 
-const KLINE_INTERVAL = '1H';
-const KLINE_RANGE_SECONDS = 7 * 24 * 60 * 60;
+const DEFAULT_KLINE_INTERVAL = '60';
+const MIN_KLINE_RANGE_SECONDS = 2 * 24 * 60 * 60;
+const MAX_KLINE_RANGE_SECONDS = 5 * 365 * 24 * 60 * 60;
 const MAX_VISIBLE_CANDLES = 160;
 const CHART_UP_COLOR = '#30A46C';
 const CHART_DOWN_COLOR = '#E5484D';
+
+const KLINE_INTERVALS: (ITradingViewIntervalOption & {
+  seconds: number;
+})[] = [
+  { label: '1m', value: '1', seconds: 60 },
+  { label: '15m', value: '15', seconds: 15 * 60 },
+  { label: '1H', value: '60', seconds: 60 * 60 },
+  { label: '4H', value: '240', seconds: 4 * 60 * 60 },
+  { label: '1D', value: '1D', seconds: 24 * 60 * 60 },
+  { label: '1W', value: '1W', seconds: 7 * 24 * 60 * 60 },
+];
 
 interface IChartColors {
   background: string;
@@ -127,9 +140,24 @@ export const TradingViewNative = memo(
   }: ITradingViewNativeProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [points, setPoints] = useState<IMarketTokenKLineDataPoint[]>([]);
+    const [kLineInterval, setKLineInterval] = useState(DEFAULT_KLINE_INTERVAL);
     const theme = useTheme();
     const background = theme.bgApp.val;
     const grid = theme.borderSubdued.val;
+
+    const intervalConfig = useMemo(
+      () => ({
+        intervals: KLINE_INTERVALS,
+        activeInterval: kLineInterval,
+      }),
+      [kLineInterval],
+    );
+
+    const handleIntervalChange = useCallback((interval: string) => {
+      if (KLINE_INTERVALS.some((option) => option.value === interval)) {
+        setKLineInterval(interval);
+      }
+    }, []);
 
     useEffect(() => {
       let isActive = true;
@@ -141,13 +169,23 @@ export const TradingViewNative = memo(
         };
       }
 
+      const selectedInterval =
+        KLINE_INTERVALS.find((option) => option.value === kLineInterval) ??
+        KLINE_INTERVALS[2];
+      const kLineRangeSeconds = Math.min(
+        MAX_KLINE_RANGE_SECONDS,
+        Math.max(
+          MIN_KLINE_RANGE_SECONDS,
+          selectedInterval.seconds * MAX_VISIBLE_CANDLES,
+        ),
+      );
       const timeTo = Math.floor(Date.now() / 1000);
       void backgroundApiProxy.serviceMarketV2
         .fetchMarketTokenKline({
           tokenAddress,
           networkId,
-          interval: KLINE_INTERVAL,
-          timeFrom: timeTo - KLINE_RANGE_SECONDS,
+          interval: selectedInterval.label,
+          timeFrom: timeTo - kLineRangeSeconds,
           timeTo,
           autoHandleError: false,
         })
@@ -170,7 +208,7 @@ export const TradingViewNative = memo(
       return () => {
         isActive = false;
       };
-    }, [networkId, tokenAddress]);
+    }, [kLineInterval, networkId, tokenAddress]);
 
     useEffect(() => {
       const canvas = canvasRef.current;
@@ -199,7 +237,9 @@ export const TradingViewNative = memo(
     return (
       <Stack flex={1} w="100%" h="100%" bg="$bgApp">
         <TradingViewNativeChartControlsContainer
+          intervalConfig={intervalConfig}
           layoutMode={nativeControlsLayoutMode}
+          onIntervalChange={handleIntervalChange}
         />
         <Stack flex={1} minHeight={0}>
           <canvas

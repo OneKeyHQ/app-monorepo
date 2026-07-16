@@ -20,7 +20,7 @@ import {
   sortIntervalValues,
 } from '../NativeIntervalUtils';
 
-import type { ITradingViewIntervalConfigData } from '../../../types';
+import type { ITradingViewIntervalConfigData } from '../../../TradingViewV2/types';
 
 export type ITradingViewNativeIntervalControlMode = 'dialog' | 'popover';
 

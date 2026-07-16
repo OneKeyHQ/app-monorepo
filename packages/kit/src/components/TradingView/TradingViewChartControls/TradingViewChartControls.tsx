@@ -8,13 +8,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { CalendarPanelPopover } from '../TradingViewV2/components/calendarControls/CalendarPanelPopover';
 import { ChartTypeSelect } from '../TradingViewV2/components/chartType/ChartTypeSelect';
-import { IndicatorPopover } from '../TradingViewV2/components/indicatorControls/NativeIndicatorControls';
-import { TradingViewNativeIntervalSelector } from '../TradingViewV2/components/intervalSelector/NativeIntervalSelector';
 import { PriceMarketCapSelect } from '../TradingViewV2/components/priceMarketCap/PriceMarketCapSelect';
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../TradingViewV2/components/utils/NativeChartControlsShared';
 
+import { IndicatorPopover } from './indicatorSelector/NativeIndicatorSelector';
+import { TradingViewNativeIntervalSelector } from './intervalSelector/NativeIntervalSelector';
+
+import type { ITradingViewNativeIntervalControlMode } from './intervalSelector/NativeIntervalSelector';
 import type { ICalendarPanelSubmitPayload } from '../TradingViewV2/components/calendarControls/CalendarPanelPopover';
-import type { ITradingViewNativeIntervalControlMode } from '../TradingViewV2/components/intervalSelector/NativeIntervalSelector';
 import type { ITradingViewNativeControlsLayoutMode } from '../TradingViewV2/components/utils/NativeChartControlsShared';
 import type {
   ITradingViewChartTypeOption,

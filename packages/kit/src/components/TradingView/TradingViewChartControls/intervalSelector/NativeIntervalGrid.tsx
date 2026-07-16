@@ -13,7 +13,7 @@ import {
   isIntervalOptionDisabled,
 } from './NativeIntervalUtils';
 
-import type { ITradingViewIntervalOption } from '../../types';
+import type { ITradingViewIntervalOption } from '../../TradingViewV2/types';
 
 function IntervalPill({
   option,
@@ -150,11 +150,11 @@ export function IntervalGrid({
                     option.label,
                   )}
                   section={section}
-                  isActive={
-                    highlightActiveInterval && option.value === activeInterval
-                  }
+                  isActive={Boolean(
+                    highlightActiveInterval && option.value === activeInterval,
+                  )}
                   isSelected={isSelected}
-                  showCheckMark={showSelectedCheckMarks && isSelected}
+                  showCheckMark={Boolean(showSelectedCheckMarks && isSelected)}
                   disabled={isDisabled}
                   onPress={() => {
                     if (!isDisabled) {

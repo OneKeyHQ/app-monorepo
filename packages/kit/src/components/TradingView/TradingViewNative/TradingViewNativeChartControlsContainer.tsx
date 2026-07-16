@@ -7,24 +7,19 @@ import { TradingViewChartControls } from '@onekeyhq/kit/src/components/TradingVi
 import type { ITradingViewChartControlsProps } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-const INTERVAL_CONFIG: ITradingViewChartControlsProps['intervalConfig'] = {
-  intervals: [
-    { label: '1m', value: '1' },
-    { label: '15m', value: '15' },
-    { label: '1H', value: '60' },
-    { label: '4H', value: '240' },
-  ],
-  activeInterval: '60',
-};
 const ACTIVE_INDICATOR_VALUES = new Set<string>();
 
 interface ITradingViewNativeChartControlsContainerProps {
+  intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
+  onIntervalChange: ITradingViewChartControlsProps['onIntervalChange'];
 }
 
 export const TradingViewNativeChartControlsContainer = memo(
   ({
+    intervalConfig,
     layoutMode = 'mobile',
+    onIntervalChange,
   }: ITradingViewNativeChartControlsContainerProps) => {
     const intl = useIntl();
     const chartStyleTitle = intl.formatMessage({
@@ -33,7 +28,7 @@ export const TradingViewNativeChartControlsContainer = memo(
 
     return (
       <TradingViewChartControls
-        intervalConfig={INTERVAL_CONFIG}
+        intervalConfig={intervalConfig}
         activeChartType={undefined}
         activeIndicatorValues={ACTIVE_INDICATOR_VALUES}
         chartSettingsTitle={intl.formatMessage({
@@ -57,11 +52,11 @@ export const TradingViewNativeChartControlsContainer = memo(
         showIndicatorPopover={false}
         showPriceMarketCapSelect={false}
         isControlsReady
-        intervalControlMode="dialog"
+        intervalControlMode={layoutMode === 'desktop' ? 'popover' : 'dialog'}
         layoutMode={layoutMode}
         chartTimezone="UTC"
         isFullscreen={false}
-        onIntervalChange={noop}
+        onIntervalChange={onIntervalChange}
         onIndicatorPress={noop}
         onShowIndicatorsDialog={noop}
         onChartTypeChange={noop}

@@ -1,11 +1,14 @@
 import { type ReactNode, memo, useCallback } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
-import { TradingViewChartControls } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
+import {
+  IndicatorListDialogContent,
+  TradingViewChartControls,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
+import type { ITradingViewNativeIntervalControlMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 
 import { ChartSettingsDialogContent } from '../chartSettings/ChartSettingsDialogContent';
 import { canToggleTradingViewNativeIndicatorOn } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
-import { IndicatorListDialogContent } from '../indicatorControls/NativeIndicatorControls';
 
 import { useNativeChartControls } from './hooks/useNativeChartControls';
 
@@ -18,7 +21,6 @@ import type {
 } from '../../types';
 import type { ICalendarPanelSubmitPayload } from '../calendarControls/CalendarPanelPopover';
 import type { ITradingViewNativeIndicatorState } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
-import type { ITradingViewNativeIntervalControlMode } from '../intervalSelector/NativeIntervalSelector';
 import type {
   ITradingViewNativeChartTypeControlMode,
   ITradingViewNativeControlsLayoutMode,
@@ -33,7 +35,7 @@ export type {
   ITradingViewNativePriceMarketCapControlMode,
 } from '../utils/NativeChartControlsShared';
 export type { ITradingViewNativeIndicatorState } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
-export type { ITradingViewNativeIntervalControlMode } from '../intervalSelector/NativeIntervalSelector';
+export type { ITradingViewNativeIntervalControlMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 export type { ICalendarPanelSubmitPayload } from '../calendarControls/CalendarPanelPopover';
 export { useNativeIndicatorActiveValues } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
 export {
