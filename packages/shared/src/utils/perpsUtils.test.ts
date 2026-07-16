@@ -26,6 +26,7 @@ import {
   formatSpotPriceToValid,
   formatWithPrecision,
   getDisplayPriceScaleDecimals,
+  getHlPriceTick,
   getHyperliquidTokenImageUrl,
   getMostFrequentDecimalPlaces,
   getOrderBookSizeDisplaySymbol,
@@ -34,7 +35,9 @@ import {
   getValidPriceDecimals,
   isHyperLiquidAbstractionModeEnabled,
   isPredictionMarketInstrument,
+  resolveBboOrderPrice,
   resolveTradingSizeBN,
+  snapHlPriceToGrid,
 } from './perpsUtils';
 
 describe('findTokensByAlias', () => {
@@ -504,6 +507,65 @@ describe('HyperLiquid wire-safe formatters', () => {
   test('formatSpotPriceToValid truncates instead of rounding up', () => {
     expect(formatSpotPriceToValid('60.123456789', 2)).toBe('60.123');
     expect(formatSpotPriceToValid('0.00123456789', 2)).toBe('0.001234');
+  });
+});
+
+describe('HyperLiquid BBO price ticks', () => {
+  test.each([
+    ['100000', 0, '1'],
+    ['60000', 0, '1'],
+    ['3000.5', 4, '0.1'],
+    ['150.25', 2, '0.01'],
+    ['0.0012345', 0, '0.000001'],
+  ])('resolves the valid tick for price %s', (price, szDecimals, expected) => {
+    expect(getHlPriceTick(price, szDecimals)?.toFixed()).toBe(expected);
+  });
+
+  test.each([
+    ['long', 'counterparty', 0, '101'],
+    ['long', 'counterparty', 5, '101.05'],
+    ['long', 'queue', 0, '100'],
+    ['long', 'queue', 5, '99.95'],
+    ['short', 'counterparty', 0, '100'],
+    ['short', 'counterparty', 5, '99.95'],
+    ['short', 'queue', 0, '101'],
+    ['short', 'queue', 5, '101.05'],
+  ] as const)(
+    'resolves %s %s with %i offset ticks',
+    (side, type, offsetTicks, expected) => {
+      expect(
+        resolveBboOrderPrice({
+          bid: '100',
+          ask: '101',
+          side,
+          type,
+          offsetTicks,
+          szDecimals: 4,
+        })?.toFixed(),
+      ).toBe(expected);
+    },
+  );
+
+  test.each([
+    ['9.9999', '10.004'],
+    ['99999', '100004'],
+    ['0.99999', '1.0004'],
+  ])('recomputes the tick across the %s boundary', (ask, expected) => {
+    expect(
+      resolveBboOrderPrice({
+        bid: ask,
+        ask,
+        side: 'long',
+        type: 'counterparty',
+        offsetTicks: 5,
+        szDecimals: 0,
+      })?.toFixed(),
+    ).toBe(expected);
+  });
+
+  test('snaps upward and downward without moving toward the market', () => {
+    expect(snapHlPriceToGrid('1.23456', 'up', 2)?.toFixed()).toBe('1.2346');
+    expect(snapHlPriceToGrid('1.23456', 'down', 2)?.toFixed()).toBe('1.2345');
   });
 });
 

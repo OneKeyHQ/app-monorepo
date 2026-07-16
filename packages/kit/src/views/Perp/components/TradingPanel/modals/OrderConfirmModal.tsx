@@ -348,7 +348,7 @@ function OrderConfirmContent({
   ]);
 
   const priceDisplay = useMemo(() => {
-    if (formData.type === 'market' || !formData.price) {
+    if (formData.type === 'market') {
       return (
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({
@@ -359,7 +359,7 @@ function OrderConfirmContent({
     }
 
     if (formData.bboPriceMode) {
-      const { type } = formData.bboPriceMode;
+      const { offsetTicks, type } = formData.bboPriceMode;
       const modeName = intl.formatMessage({
         id:
           type === 'counterparty'
@@ -369,8 +369,20 @@ function OrderConfirmContent({
 
       return (
         <YStack alignItems="flex-end" gap="$1">
-          <SizableText size="$bodyMdMedium">{modeName}</SizableText>
+          <SizableText size="$bodyMdMedium">
+            {offsetTicks === 5 ? `${modeName} +5` : modeName}
+          </SizableText>
         </YStack>
+      );
+    }
+
+    if (!formData.price) {
+      return (
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_market,
+          })}
+        </SizableText>
       );
     }
 
