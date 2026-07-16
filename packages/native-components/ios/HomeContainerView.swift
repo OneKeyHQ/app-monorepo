@@ -425,6 +425,11 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     case settling(targetIndex: Int)
   }
 
+  private enum VerticalScrollOwner {
+    case header
+    case body
+  }
+
   var onAction: ((String, String, String) -> Void)?
   var onRefresh: ((String, String) -> Void)?
   var onVisibleTabChange: ((String) -> Void)?
@@ -454,6 +459,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private var pagerTransitionState = PagerTransitionState.idle
   private var pendingPagerNotify = false
   private var isCoordinatingNestedScroll = false
+  private var verticalScrollOwner = VerticalScrollOwner.header
+  private var isVerticalGestureActive = false
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -661,7 +668,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     DispatchQueue.main.async { [weak self] in
       guard let self else { return }
       self.refreshEnabled = enabled
-      self.refreshControl.isEnabled = enabled
+      self.refreshControl.isEnabled = enabled && self.verticalScrollOwner == .header
     }
   }
 
@@ -754,6 +761,12 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     page.onContentOffsetChange = { [weak self] source in
       self?.coordinateNestedScroll(source: source)
     }
+    page.onBeginDragging = { [weak self] source in
+      self?.beginVerticalGesture(source: source)
+    }
+    page.onEndDragging = { [weak self] source in
+      self?.endVerticalGesture(source: source)
+    }
     page.onSlotLayoutChange = { [weak self] in
       self?.slotLayoutDidChange?()
     }
@@ -782,6 +795,12 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+    if scrollView === outerScrollView {
+      if let page = pages.first(where: { $0.tabId == selectedTabId }) {
+        beginVerticalGesture(source: page)
+      }
+      return
+    }
     guard scrollView === pager,
           let startIndex = pages.firstIndex(where: { $0.tabId == selectedTabId }) else { return }
     pagerTransitionState = .dragging(startIndex: startIndex)
@@ -795,6 +814,12 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+    if scrollView === outerScrollView {
+      if let page = pages.first(where: { $0.tabId == selectedTabId }) {
+        endVerticalGesture(source: page)
+      }
+      return
+    }
     if scrollView === pager, !decelerate {
       finishPaging(notify: pendingPagerNotify)
     }
@@ -825,6 +850,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     pendingPagerNotify = false
     selectedTabId = nextTabId
     updateSelectedTab(nextTabId)
+    synchronizeVerticalScrollOwner(source: pages[index])
     coordinateNestedScroll(source: pages[index])
     slotLayoutDidChange?()
     if notify, didChangeTab {
@@ -853,18 +879,28 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       return
     }
     var targetOffset = outerScrollView.contentOffset.y
-    let isPullingDown = outerScrollView.panGestureRecognizer.velocity(in: outerScrollView).y > 0
-    if targetOffset > maximumOffset {
-      targetOffset = maximumOffset
-    } else if isPullingDown, page.bodyContentOffset > 0.5, targetOffset < maximumOffset {
-      targetOffset = maximumOffset
+    let velocityY = outerScrollView.panGestureRecognizer.velocity(in: outerScrollView).y
+    switch verticalScrollOwner {
+    case .header:
+      if targetOffset > maximumOffset {
+        targetOffset = maximumOffset
+      }
+      if targetOffset >= maximumOffset - 0.5, velocityY < 0 {
+        targetOffset = maximumOffset
+        verticalScrollOwner = .body
+        refreshControl.isEnabled = false
+      }
+    case .body:
+      if page.bodyContentOffset <= 0.5, velocityY > 0 {
+        verticalScrollOwner = .header
+        refreshControl.isEnabled = refreshEnabled
+        targetOffset = min(targetOffset, maximumOffset)
+      } else {
+        targetOffset = maximumOffset
+      }
     }
     if abs(targetOffset - outerScrollView.contentOffset.y) > 0.5 {
       outerScrollView.contentOffset.y = targetOffset
-    }
-    if outerScrollView.contentOffset.y < maximumOffset - 0.5,
-       page.bodyContentOffset > 0.5 {
-      page.setBodyContentOffset(0)
     }
     updateSharedChromeLayout()
   }
@@ -878,16 +914,70 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     if source.bodyContentOffset < 0 {
       source.setBodyContentOffset(0)
     }
-    if outerScrollView.contentOffset.y < maximumOffset - 0.5,
-       source.bodyContentOffset > 0.5,
-       pageVelocity <= 0 {
-      source.setBodyContentOffset(0)
+    switch verticalScrollOwner {
+    case .header:
+      if source.bodyContentOffset > 0.5 {
+        source.setBodyContentOffset(0)
+      }
+      if outerScrollView.contentOffset.y >= maximumOffset - 0.5,
+         pageVelocity < 0 {
+        outerScrollView.contentOffset.y = maximumOffset
+        verticalScrollOwner = .body
+        refreshControl.isEnabled = false
+      }
+    case .body:
+      if outerScrollView.contentOffset.y < maximumOffset - 0.5 {
+        outerScrollView.contentOffset.y = maximumOffset
+      }
+      if source.bodyContentOffset <= 0.5, pageVelocity > 0 {
+        source.setBodyContentOffset(0)
+        verticalScrollOwner = .header
+        refreshControl.isEnabled = refreshEnabled
+      }
     }
     updateSharedChromeLayout()
   }
 
+  private func beginVerticalGesture(source: HomeContainerPageView) {
+    guard source.tabId == selectedTabId, !isVerticalGestureActive else { return }
+    isVerticalGestureActive = true
+    let maximumOffset = headerHeight
+    let outerVelocity = outerScrollView.panGestureRecognizer.velocity(in: outerScrollView).y
+    let bodyVelocity = source.panVelocityY
+    let velocityY = abs(bodyVelocity) > abs(outerVelocity) ? bodyVelocity : outerVelocity
+    if source.bodyContentOffset > 0.5 {
+      verticalScrollOwner = .body
+    } else if outerScrollView.contentOffset.y < maximumOffset - 0.5 {
+      verticalScrollOwner = .header
+    } else {
+      verticalScrollOwner = velocityY > 0 ? .header : .body
+    }
+    refreshControl.isEnabled = refreshEnabled && verticalScrollOwner == .header
+  }
+
+  private func endVerticalGesture(source: HomeContainerPageView) {
+    guard source.tabId == selectedTabId else { return }
+    isVerticalGestureActive = false
+    refreshControl.isEnabled = refreshEnabled && verticalScrollOwner == .header
+  }
+
+  private func synchronizeVerticalScrollOwner(source: HomeContainerPageView) {
+    isVerticalGestureActive = false
+    if source.bodyContentOffset > 0.5 {
+      verticalScrollOwner = .body
+    } else if outerScrollView.contentOffset.y < headerHeight - 0.5 {
+      verticalScrollOwner = .header
+    }
+    refreshControl.isEnabled = refreshEnabled && verticalScrollOwner == .header
+  }
+
   @objc private func refreshRequested() {
-    guard refreshEnabled else {
+    let bodyContentOffset = pages.first(where: {
+      $0.tabId == selectedTabId
+    })?.bodyContentOffset ?? 0
+    guard refreshEnabled,
+          verticalScrollOwner == .header,
+          bodyContentOffset <= 0.5 else {
       refreshControl.endRefreshing()
       return
     }
@@ -913,6 +1003,8 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   let tabId: String
   var onAction: ((String, String, String) -> Void)?
   var onContentOffsetChange: ((HomeContainerPageView) -> Void)?
+  var onBeginDragging: ((HomeContainerPageView) -> Void)?
+  var onEndDragging: ((HomeContainerPageView) -> Void)?
   var onSlotLayoutChange: (() -> Void)?
 
   private let tableView = HomeContainerNestedTableView(frame: .zero, style: .plain)
@@ -1247,6 +1339,14 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       }
     }
     onContentOffsetChange?(self)
+  }
+
+  func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+    onBeginDragging?(self)
+  }
+
+  func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+    onEndDragging?(self)
   }
 
   private func makeDataSource() -> UITableViewDiffableDataSource<Int, String> {
