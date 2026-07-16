@@ -227,7 +227,7 @@ describe('useLiquidationPrice', () => {
 
     const { result } = renderHook(() => useLiquidationPrice('long'));
 
-    expect(result.current?.toNumber()).toBeCloseTo(189.473_684, 6);
+    expect(result.current?.toNumber()).toBeCloseTo(189.473684, 6);
   });
 
   test('returns null when current account snapshot cannot support any trigger size', () => {

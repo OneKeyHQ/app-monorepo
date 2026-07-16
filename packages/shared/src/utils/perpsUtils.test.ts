@@ -620,7 +620,7 @@ describe('calculateLiquidationPrice', () => {
       maxLeverage: 10,
     });
 
-    expect(liquidationPrice?.toNumber()).toBeCloseTo(94.736_842, 6);
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(94.736842, 6);
   });
 
   test('uses execution price directly when clamp is disabled', () => {
@@ -637,7 +637,7 @@ describe('calculateLiquidationPrice', () => {
       maxLeverage: 10,
     });
 
-    expect(liquidationPrice?.toNumber()).toBeCloseTo(104.210_526, 6);
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(104.210526, 6);
   });
 
   test('handles same-direction adds with an existing cross position', () => {
@@ -658,7 +658,7 @@ describe('calculateLiquidationPrice', () => {
       newOrderSide: 'long',
     });
 
-    expect(liquidationPrice?.toNumber()).toBeCloseTo(77.192_982, 6);
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(77.192982, 6);
   });
 
   test('handles flip scenarios with an existing cross position', () => {
@@ -679,7 +679,7 @@ describe('calculateLiquidationPrice', () => {
       newOrderSide: 'long',
     });
 
-    expect(liquidationPrice?.toNumber()).toBeCloseTo(25.789_474, 6);
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(25.789474, 6);
   });
 });
 

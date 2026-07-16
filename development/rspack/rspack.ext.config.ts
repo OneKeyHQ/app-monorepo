@@ -3,12 +3,10 @@ import path from 'path';
 
 import { rspack } from '@rspack/core';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
-import lodash from 'lodash';
 import { merge } from 'webpack-merge';
 
 import {
   isDev,
-  isManifestV2,
   isManifestV3,
   nodeEnv,
   targetBrowser,
@@ -23,118 +21,106 @@ import type {
   Compiler,
   RspackOptions,
   RspackPluginInstance,
-  sources,
 } from '@rspack/core';
 
 const platform = 'ext';
 
-const consts = {
-  configName: {
-    bg: 'bg',
-    offscreen: 'offscreen',
-    ui: 'ui',
-    cs: 'cs',
-    passkey: 'ui-passkey',
-  },
-  entry: {
-    'ui-passkey': 'ui-passkey',
-    'ui-popup': 'ui-popup',
-    'ui-devtools': 'ui-devtools',
-    background: 'background',
-    offscreen: 'offscreen',
-    'content-script': 'content-script',
-  },
-};
+const compilerNames = {
+  pages: 'pages',
+  background: 'background',
+  contentScript: 'content-script',
+} as const;
+
+const entries = {
+  uiPopup: 'ui-popup',
+  uiPasskey: 'ui-passkey',
+  background: 'background',
+  offscreen: 'offscreen',
+  contentScript: 'content-script',
+} as const;
+
+interface IReplacementConfig {
+  regexToFind: RegExp;
+  replacement: string;
+}
 
 class ChromeExtensionV3ViolationPlugin implements RspackPluginInstance {
-  private replaceConfigs: Array<{ regexToFind: RegExp; replacement: string }>;
+  private readonly replaceConfigs: IReplacementConfig[];
 
-  constructor(
-    replaceConfigs: Array<{ regexToFind: RegExp; replacement: string }>,
-  ) {
+  constructor(replaceConfigs: IReplacementConfig[]) {
     this.replaceConfigs = replaceConfigs;
   }
 
   apply(compiler: Compiler): void {
-    compiler.hooks.emit.tap(
+    compiler.hooks.thisCompilation.tap(
       'ChromeExtensionV3ViolationPlugin',
       (compilation) => {
-        const files = Object.keys(compilation.assets);
-        files.forEach((file) => {
-          // Only process JS files to reduce unnecessary operations
-          if (!file.endsWith('.js')) {
-            return;
-          }
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'ChromeExtensionV3ViolationPlugin',
+            stage: rspack.Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE,
+          },
+          (assets) => {
+            for (const [file, asset] of Object.entries(assets)) {
+              if (file.endsWith('.js')) {
+                let content = asset.source().toString();
+                let changed = false;
 
-          const asset = compilation.assets[file];
-          const content = asset.source().toString();
+                for (const config of this.replaceConfigs) {
+                  config.regexToFind.lastIndex = 0;
+                  if (config.regexToFind.test(content)) {
+                    config.regexToFind.lastIndex = 0;
+                    content = content.replace(
+                      config.regexToFind,
+                      config.replacement,
+                    );
+                    changed = true;
+                  }
+                }
 
-          // Check if any replacement is needed before modifying
-          let needsReplacement = false;
-          for (const config of this.replaceConfigs) {
-            // Reset lastIndex for global regexes to avoid stateful matching issues
-            config.regexToFind.lastIndex = 0;
-            if (config.regexToFind.test(content)) {
-              needsReplacement = true;
-              break;
+                if (changed) {
+                  compilation.updateAsset(
+                    file,
+                    new rspack.sources.RawSource(content),
+                  );
+                }
+              }
             }
-          }
-
-          if (!needsReplacement) {
-            return;
-          }
-
-          // Perform all replacements
-          let modifiedContent = content;
-          for (const config of this.replaceConfigs) {
-            config.regexToFind.lastIndex = 0;
-            modifiedContent = modifiedContent.replace(
-              config.regexToFind,
-              config.replacement,
-            );
-          }
-
-          compilation.assets[file] = new rspack.sources.RawSource(
-            modifiedContent,
-          ) as unknown as sources.Source;
-        });
+          },
+        );
       },
     );
   }
 }
 
-const chromeExtensionV3ViolationPlugin = new ChromeExtensionV3ViolationPlugin([
-  // @sentry/react
-  {
-    regexToFind: /https:\/\/browser\.sentry-cdn\.com/g,
-    replacement: '',
-  },
-  // @privy-io/react-auth
-  {
-    regexToFind: /https:\/\/svelte-stripe-js\.vercel\.app/g,
-    replacement: '',
-  },
-  // @privy-io/react-auth
-  {
-    regexToFind: /r\.src=`\${n}\/js\/telegram-login\.js`/g,
-    replacement: 'r.src=``',
-  },
-  // @privy-io/react-auth
-  {
-    regexToFind: /g\.src=`\${v}\/js\/telegram-login\.js`/g,
-    replacement: 'g.src=``',
-  },
-  // maps.googleapis.com
-  {
-    regexToFind: /https:\/\/maps\.googleapis\.com\/maps\/api\/js/g,
-    replacement: '',
-  },
-  // js.stripe.com
-  {
-    regexToFind: /\.p="https:\/\/js\.stripe\.com\/v3\/"/g,
-    replacement: '.p=""',
-  },
-]);
+function createChromeExtensionV3ViolationPlugin(): RspackPluginInstance {
+  return new ChromeExtensionV3ViolationPlugin([
+    {
+      regexToFind: /https:\/\/browser\.sentry-cdn\.com/g,
+      replacement: '',
+    },
+    {
+      regexToFind: /https:\/\/svelte-stripe-js\.vercel\.app/g,
+      replacement: '',
+    },
+    {
+      regexToFind: /r\.src=`\$\{n\}\/js\/telegram-login\.js`/g,
+      replacement: 'r.src=``',
+    },
+    {
+      regexToFind: /g\.src=`\$\{v\}\/js\/telegram-login\.js`/g,
+      replacement: 'g.src=``',
+    },
+    {
+      regexToFind: /https:\/\/maps\.googleapis\.com\/maps\/api\/js/g,
+      replacement: '',
+    },
+    {
+      regexToFind: /https:\/\/js\.stripe\.com\/v3\//g,
+      replacement: '',
+    },
+  ]);
+}
 
 function createHtmlPlugin({
   name,
@@ -144,14 +130,14 @@ function createHtmlPlugin({
   name: string;
   chunks?: string[];
   basePath: string;
-}): RspackPluginInstance[] {
+}): RspackPluginInstance {
   const filename = `${name}.html`;
   const htmlHeadPreloadCode = fs.readFileSync(
     path.resolve(basePath, 'src/assets/preload-html-head.js'),
     { encoding: 'utf-8' },
   );
 
-  const htmlWebpackPlugin = new HtmlWebpackPlugin({
+  return new HtmlWebpackPlugin({
     template: `!!ejs-loader?esModule=false!${path.join(
       __dirname,
       '../../packages/shared/src/web/index.html.ejs',
@@ -168,9 +154,8 @@ function createHtmlPlugin({
     chunks: chunks || [name],
     cache: false,
     hash: isDev,
+    minify: !isDev,
   }) as unknown as RspackPluginInstance;
-
-  return [htmlWebpackPlugin];
 }
 
 function createCopyPlugin(basePath: string): RspackPluginInstance {
@@ -199,296 +184,271 @@ function createCopyPlugin(basePath: string): RspackPluginInstance {
   });
 }
 
-function enableCodeSplitChunks(config: RspackOptions): void {
-  const isFirefox = targetBrowser === 'firefox';
-  let maxSizeMb = 4;
-  if (isFirefox) {
-    maxSizeMb = 1;
-  }
-  config.optimization = config.optimization || {};
-  config.optimization.splitChunks = {
-    ...config.optimization.splitChunks,
-    chunks: 'all',
-    minSize: 100 * 1024,
-    maxSize: maxSizeMb * 1024 * 1024,
-    name: false,
-    hidePathInfo: false,
-    automaticNameDelimiter: '.',
+function getCompilerOutputPath({
+  basePath,
+  compilerName,
+}: {
+  basePath: string;
+  compilerName: string;
+}): string {
+  const outputFolder = getOutputFolder();
+  return isDev
+    ? path.resolve(basePath, 'build', outputFolder)
+    : path.resolve(basePath, 'build', '.rspack', outputFolder, compilerName);
+}
+
+function createOutputConfig({
+  basePath,
+  compilerName,
+}: {
+  basePath: string;
+  compilerName: string;
+}): RspackOptions {
+  return {
+    output: {
+      clean: false,
+      path: getCompilerOutputPath({ basePath, compilerName }),
+      filename: '[name].bundle.js',
+      chunkFilename: isDev
+        ? `${compilerName}.[name].chunk.js`
+        : `${compilerName}.[name]-[contenthash:8].chunk.js`,
+      publicPath: '/',
+      globalObject: 'this',
+      uniqueName: `onekey-ext-${compilerName}`,
+    },
   };
 }
 
-function disableCodeSplitChunks(config: RspackOptions): void {
+function removeDefaultHtmlPlugin(config: RspackOptions): void {
+  config.plugins = (config.plugins || []).filter(
+    (plugin) =>
+      !(plugin as { constructor?: { name?: string } })?.constructor?.name
+        ?.toLowerCase()
+        .includes('html'),
+  );
+}
+
+function getSwcTargets(): Record<string, string> {
+  return targetBrowser === 'firefox' ? { firefox: '115' } : { chrome: '111' };
+}
+
+function createCompilerConfig({
+  basePath,
+  compilerName,
+  configName,
+  entry,
+  plugins = [],
+}: {
+  basePath: string;
+  compilerName: string;
+  configName: string;
+  entry: NonNullable<RspackOptions['entry']>;
+  plugins?: RspackPluginInstance[];
+}): RspackOptions {
+  const baseConfig = createBaseConfig({
+    platform,
+    basePath,
+    configName,
+    target: ['web', 'es2022'],
+    swcTargets: getSwcTargets(),
+    enableImportMetaCompat: true,
+    enableSentryMinimalCompat: true,
+  });
+  removeDefaultHtmlPlugin(baseConfig);
+
+  const environmentConfig =
+    nodeEnv === 'production'
+      ? createProductionConfig({ platform, basePath })
+      : createDevelopmentConfig({ basePath });
+
+  const config = merge(
+    baseConfig,
+    environmentConfig,
+    createOutputConfig({ basePath, compilerName }),
+  );
+  config.name = compilerName;
+  config.entry = entry;
+  config.plugins = [
+    ...(config.plugins || []),
+    ...plugins,
+    createChromeExtensionV3ViolationPlugin(),
+  ];
+  return config;
+}
+
+function enablePagesCodeSplitting(config: RspackOptions): void {
   config.optimization = config.optimization || {};
-  delete config.optimization.splitChunks;
+  const currentSplitChunks =
+    typeof config.optimization.splitChunks === 'object'
+      ? config.optimization.splitChunks
+      : {};
+  const currentCacheGroups =
+    typeof currentSplitChunks.cacheGroups === 'object'
+      ? currentSplitChunks.cacheGroups
+      : {};
+
+  config.optimization.chunkIds = 'deterministic';
+  config.optimization.moduleIds = 'deterministic';
+  config.optimization.runtimeChunk = { name: 'ext-pages-runtime' };
+  config.optimization.splitChunks = {
+    ...currentSplitChunks,
+    chunks: 'all',
+    minSize: 100 * 1024,
+    maxSize: targetBrowser === 'firefox' ? 1024 * 1024 : 4 * 1024 * 1024,
+    hidePathInfo: true,
+    automaticNameDelimiter: '.',
+    name: false,
+    maxInitialRequests: 20,
+    maxAsyncRequests: 40,
+    cacheGroups: {
+      ...currentCacheGroups,
+      defaultVendors: {
+        test: /[\\/]node_modules[\\/]/,
+        priority: -10,
+        reuseExistingChunk: true,
+      },
+      default: {
+        minChunks: 2,
+        priority: -20,
+        reuseExistingChunk: true,
+      },
+    },
+  };
+}
+
+function disableCodeSplitting(config: RspackOptions): void {
+  config.optimization = config.optimization || {};
+  config.optimization.runtimeChunk = false;
+  config.optimization.splitChunks = false;
   config.output = config.output || {};
   config.output.asyncChunks = false;
+  config.output.chunkLoading = false;
 }
 
-interface IExtConfigOptions {
-  basePath: string;
-}
-
-function createMultipleEntryConfigs(
-  createConfig: (options: { config: RspackOptions }) => RspackOptions,
-  multipleEntryConfigs: Array<{
-    config: RspackOptions;
-    configUpdater: (config: RspackOptions) => RspackOptions;
-  }>,
-): RspackOptions[] {
-  return multipleEntryConfigs.map(({ config, configUpdater }) => {
-    const rspackConfig = createConfig({ config });
-    const configMerged = lodash.merge(rspackConfig, config);
-    return configUpdater(configMerged);
-  });
-}
-
-export function createExtConfig({
-  basePath,
-}: IExtConfigOptions): RspackOptions[] {
-  const outputPath = path.resolve(basePath, 'build', getOutputFolder());
-
+function createPagesConfig(basePath: string): RspackOptions {
   const uiHtmlPlugins = [
     'ui-popup',
     'ui-expand-tab',
     'ui-side-panel',
     'ui-standalone-window',
     'ui-content-script-iframe',
-  ].flatMap((name) =>
-    createHtmlPlugin({ name, chunks: ['ui-popup'], basePath }),
+  ].map((name) =>
+    createHtmlPlugin({ name, chunks: [entries.uiPopup], basePath }),
   );
 
-  const backgroundHtmlPlugins = createHtmlPlugin({
-    name: consts.entry.background,
+  const config = createCompilerConfig({
     basePath,
+    compilerName: compilerNames.pages,
+    configName: compilerNames.pages,
+    entry: {
+      [entries.uiPopup]: path.join(basePath, 'src/entry/ui-popup.tsx'),
+      [entries.uiPasskey]: path.join(basePath, 'src/entry/ui-passkey.tsx'),
+      [entries.offscreen]: path.join(basePath, 'src/entry/offscreen.ts'),
+    },
+    plugins: [
+      ...uiHtmlPlugins,
+      createHtmlPlugin({ name: entries.uiPasskey, basePath }),
+      createHtmlPlugin({ name: entries.offscreen, basePath }),
+      createCopyPlugin(basePath),
+    ],
   });
 
-  const offscreenHtmlPlugins = createHtmlPlugin({
-    name: consts.entry.offscreen,
+  enablePagesCodeSplitting(config);
+  const currentDevServer =
+    config.devServer && typeof config.devServer === 'object'
+      ? config.devServer
+      : {};
+  const currentDevServerClient =
+    currentDevServer.client && typeof currentDevServer.client === 'object'
+      ? currentDevServer.client
+      : {};
+  config.devServer = {
+    ...currentDevServer,
+    open: false,
+    devMiddleware: {
+      publicPath: `http://localhost:${webPort}/`,
+      writeToDisk: true,
+    },
+    client: {
+      ...currentDevServerClient,
+      overlay: false,
+      webSocketURL: {
+        hostname: 'localhost',
+        pathname: '/ws',
+        port: parseInt(webPort, 10),
+        protocol: 'ws',
+      },
+    },
+  } as RspackOptions['devServer'];
+  return config;
+}
+
+function createBackgroundConfig(basePath: string): RspackOptions {
+  const config = createCompilerConfig({
     basePath,
+    compilerName: compilerNames.background,
+    configName: 'bg',
+    entry: {
+      [entries.background]: {
+        import: path.join(basePath, 'src/entry/background.ts'),
+        filename: 'background.bundle.js',
+        runtime: false,
+        chunkLoading: false,
+        asyncChunks: false,
+      },
+    },
+    plugins: [createHtmlPlugin({ name: entries.background, basePath })],
   });
 
-  const passkeyHtmlPlugins = createHtmlPlugin({
-    name: consts.entry['ui-passkey'],
+  disableCodeSplitting(config);
+  if (process.env.PERF_MONITOR_ENABLED === '1') {
+    config.optimization = config.optimization || {};
+    config.optimization.minimize = false;
+    config.optimization.minimizer = [];
+  }
+  delete config.devServer;
+  return config;
+}
+
+function createContentScriptConfig(basePath: string): RspackOptions {
+  const config = createCompilerConfig({
     basePath,
-  });
-
-  const extBaseConfig = (configName: string): RspackOptions => ({
-    optimization: {
-      splitChunks: {
-        chunks: 'all',
-        minSize: 102_400,
-        maxSize: 4_194_304,
-        hidePathInfo: true,
-        automaticNameDelimiter: '.',
-        name: false,
-        maxInitialRequests: 20,
-        maxAsyncRequests: 50_000,
-        cacheGroups: {},
-      },
-    },
-    output: {
-      clean: false,
-      path: outputPath,
-      filename: '[name].bundle.js',
-      chunkFilename: isDev
-        ? `${configName}.[name].chunk.js`
-        : `${configName}.[name]-[chunkhash:6].chunk.js`,
-      publicPath: '/',
-      globalObject: 'this',
-    },
-    devServer: {
-      open: false,
-      devMiddleware: {
-        publicPath: `http://localhost:${webPort}/`,
-        writeToDisk: true,
-      },
-      client: {
-        webSocketURL: {
-          hostname: 'localhost',
-          pathname: '/ws',
-          port: parseInt(webPort, 10),
-          protocol: 'ws',
-        },
+    compilerName: compilerNames.contentScript,
+    configName: 'cs',
+    entry: {
+      [entries.contentScript]: {
+        import: path.join(basePath, 'src/entry/content-script.ts'),
+        filename: 'content-script.bundle.js',
+        runtime: false,
+        chunkLoading: false,
+        asyncChunks: false,
       },
     },
   });
 
-  const multipleEntryConfigs: Array<{
-    config: RspackOptions;
-    configUpdater: (config: RspackOptions) => RspackOptions;
-  }> = [
-    // UI build (always code-split)
-    {
-      config: {
-        name: consts.configName.ui,
-        entry: {
-          [consts.entry['ui-popup']]: path.join(
-            basePath,
-            'src/entry/ui-popup.tsx',
-          ),
-        },
-      },
-      configUpdater(config: RspackOptions) {
-        enableCodeSplitChunks(config);
-        config.plugins = [...(config.plugins || []), ...uiHtmlPlugins].filter(
-          Boolean,
-        );
-        return config;
-      },
-    },
+  disableCodeSplitting(config);
+  delete config.devServer;
+  return config;
+}
 
-    // Passkey standalone entry build
-    {
-      config: {
-        name: consts.configName.passkey,
-        entry: {
-          [consts.entry['ui-passkey']]: path.join(
-            basePath,
-            'src/entry/ui-passkey.tsx',
-          ),
-        },
-      },
-      configUpdater(config: RspackOptions) {
-        enableCodeSplitChunks(config);
-        config.plugins = [
-          ...(config.plugins || []),
-          ...passkeyHtmlPlugins,
-        ].filter(Boolean);
-        return config;
-      },
-    },
+interface IExtConfigOptions {
+  basePath: string;
+}
 
-    // Background standalone build
-    ...(isManifestV3 || isManifestV2
-      ? [
-          {
-            config: {
-              name: consts.configName.bg,
-              dependencies: [consts.configName.ui],
-              entry: {
-                [consts.entry.background]: path.join(
-                  basePath,
-                  'src/entry/background.ts',
-                ),
-              },
-            },
-            configUpdater(config: RspackOptions) {
-              if (isManifestV2) {
-                enableCodeSplitChunks(config);
-              } else {
-                // manifest v3 background can NOT split code
-                disableCodeSplitChunks(config);
-              }
-
-              config.plugins = [
-                ...(config.plugins || []),
-                ...backgroundHtmlPlugins,
-                new rspack.ProvidePlugin({
-                  process: 'process/browser',
-                }),
-              ].filter(Boolean);
-              return config;
-            },
-          },
-        ]
-      : []),
-
-    // Manifest v3 offscreen standalone build
-    ...(isManifestV3
-      ? [
-          {
-            config: {
-              name: consts.configName.offscreen,
-              entry: {
-                [consts.entry.offscreen]: path.join(
-                  basePath,
-                  'src/entry/offscreen.ts',
-                ),
-              },
-              dependencies: [consts.configName.ui, consts.configName.bg],
-            },
-            configUpdater(config: RspackOptions) {
-              enableCodeSplitChunks(config);
-              config.plugins = [
-                ...(config.plugins || []),
-                ...offscreenHtmlPlugins,
-              ].filter(Boolean);
-              return config;
-            },
-          },
-        ]
-      : []),
-
-    // Content-script build (do NOT code-split)
-    {
-      config: {
-        name: consts.configName.cs,
-        dependencies: isManifestV3
-          ? [
-              consts.configName.ui,
-              consts.configName.bg,
-              consts.configName.offscreen,
-            ]
-          : [consts.configName.ui, consts.configName.bg],
-        entry: {
-          [consts.entry['content-script']]: path.join(
-            basePath,
-            'src/entry/content-script.ts',
-          ),
-        },
-      },
-      configUpdater(config: RspackOptions) {
-        // content-script can NOT split code
-        disableCodeSplitChunks(config);
-        config.plugins = [
-          ...(config.plugins || []),
-          createCopyPlugin(basePath),
-          chromeExtensionV3ViolationPlugin,
-        ].filter(Boolean);
-        return config;
-      },
-    },
-  ];
-
-  const createConfigForEntry = ({
-    config,
-  }: {
-    config: RspackOptions;
-  }): RspackOptions => {
-    const configName = config.name as string;
-    const baseConfig = createBaseConfig({
-      platform,
-      basePath,
-      configName,
-    });
-
-    // Remove default HtmlWebpackPlugin from base config
-    baseConfig.plugins = (baseConfig.plugins || []).filter(
-      (plugin) =>
-        !(plugin as { constructor?: { name?: string } })?.constructor?.name
-          ?.toLowerCase()
-          .includes('html'),
-    );
-
-    const envConfig =
-      nodeEnv === 'production'
-        ? createProductionConfig({ platform, basePath })
-        : createDevelopmentConfig({ basePath });
-
-    return merge(baseConfig, envConfig, extBaseConfig(configName));
-  };
-
-  const entryConfigs = createMultipleEntryConfigs(
-    createConfigForEntry,
-    multipleEntryConfigs,
-  );
-
-  // Remove devServer from all but the first entry
-  for (let index = 1; index < entryConfigs.length; index += 1) {
-    delete entryConfigs[index].devServer;
+export function createExtConfig({
+  basePath,
+}: IExtConfigOptions): RspackOptions[] {
+  if (!isManifestV3) {
+    // Build configuration errors are not application-domain errors.
+    // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error
+    throw new Error('The Rspack extension build supports Manifest V3 only.');
   }
 
-  return entryConfigs;
+  return [
+    createPagesConfig(basePath),
+    createBackgroundConfig(basePath),
+    createContentScriptConfig(basePath),
+  ];
 }
 
 export default createExtConfig;

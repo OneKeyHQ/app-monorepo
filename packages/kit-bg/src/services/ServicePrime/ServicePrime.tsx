@@ -733,6 +733,28 @@ class ServicePrime extends ServiceBase {
         throw new OneKeyLocalError('apiOAuthLogin ERROR: Invalid accessToken');
       }
 
+      // Fail fast when the shared keyless session slot is empty: the login
+      // POST below would succeed on the server while the local commit
+      // (commitAuthSessionSourceBeforeAtomUpdate) is guaranteed to fail with
+      // "Active auth token not found" — leaving the server logged in and the
+      // client rolled back to logged-out. An empty slot here means the
+      // UI-side persistence failed (persistKeylessOAuthSession) or was
+      // skipped; surface that BEFORE any server-side state changes. Local
+      // storage read only — no network, safe under loginMutex.
+      const persistedKeylessAccessToken =
+        await readPersistedAccessTokenBySessionSource(
+          EPrimeAuthSessionSource.KeylessOAuth,
+        );
+      if (!persistedKeylessAccessToken) {
+        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+          reason:
+            'ServicePrime.apiOAuthLogin: keyless session slot is empty, skip server login',
+        });
+        throw new OneKeyLocalError(
+          'apiOAuthLogin ERROR: Keyless OAuth session is not persisted locally',
+        );
+      }
+
       // Invalidation site (OAuth login): same as apiLogin — drop any
       // pre-login cached user info before the session changes.
       this.clearPrimeUserInfoCache();

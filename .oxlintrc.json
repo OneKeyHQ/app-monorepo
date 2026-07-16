@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "jsPlugins": [
-    { "name": "@cspell", "specifier": "oxlint-plugin-cspell" },
+    "@cspell/eslint-plugin",
     "eslint-plugin-import-path",
     "eslint-plugin-props-checker",
     "eslint-plugin-ban",

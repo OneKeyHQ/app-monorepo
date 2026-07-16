@@ -1,6 +1,6 @@
 # Code Map
 
-Use these anchors to orient in the current repository. Prefer the local pattern around the anchor over inventing a parallel path. The executable anchor map was reviewed at `ec605542881e`; run the readiness script before relying on it.
+Use these anchors to orient in the current repository. Prefer the local pattern around the anchor over inventing a parallel path. Run the readiness script before relying on this map.
 
 ## Shared Swap Core
 

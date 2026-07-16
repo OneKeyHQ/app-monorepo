@@ -33,7 +33,7 @@ describe('useParseQRCode', () => {
           partSize: 9,
           fullData: undefined,
           parts: [],
-          'progress': 0.063_492_063_492_063_49,
+          'progress': 0.06349206349206349,
         }),
       }),
     );

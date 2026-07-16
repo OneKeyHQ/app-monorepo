@@ -18,7 +18,7 @@ describe('calculateSpotHoldingPnl', () => {
     });
 
     expect(result.pnl).toBe('-0.0049901861332');
-    expect(result.pnlPercent).toBeCloseTo(-9.699_990_170_524_91, 12);
+    expect(result.pnlPercent).toBeCloseTo(-9.69999017052491, 12);
   });
 
   it('formats sub-cent non-zero pnl like Hyperliquid', () => {
