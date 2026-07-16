@@ -1072,3 +1072,48 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - `yarn exec eslint` 聚焦检查 `useNativeHomeSupplementalData.ts` 与 `NativeHomePage.native.tsx` 通过。
 - 聚焦 Jest：`HomeContainerController.test.ts`、`nativeHomeDataAdapters.test.ts`、`PopularTrading/utils.test.ts` 共 3 suites / 17 tests 全部通过。
 - `yarn agent:check --profile commit` 日志位于 `node_modules/.cache/agent-checks/2026-07-16T08-52-42-632Z`。`lint-staged`、`lint-worktree-js`、`agent-context` 通过；`lint-worktree-ts` / `tsc-staged` 仅被共享工作区已有的 Rspack、DeFi、TradingView、WebView、Navigator、Firmware、ReferFriends、Swap、旧 `NativeHomePageView.native.tsx` 等错误阻断，日志中没有本轮 hook/Swift/handoff 错误。不得回滚或顺手修改这些无关文件制造绿色结果。
+
+## 2026-07-16 Native Market Star 无闪烁乐观更新
+
+### 用户问题、真实根因与预期
+
+- 用户实测在 Native Home Market 点击行内实心/空心 Star 时会闪烁。Star 本身虽然已经是独立 28pt button，但旧流程要先等待 bg watchlist 写入，再 `watchList.run()`；新 watchlist 到 main 后，`favoriteRequestKey` 立即变化，而 `favoriteMarket.result` 仍持有旧 key。该间隙被解释为 `market=[] / marketLoading=true`，于是整个 Market 从 rows 切成 loading/empty，等 bg/service 数据返回后再切回 rows。
+- iOS `UITableViewDiffableDataSource` 已使用 `animatingDifferences: false` 与 `reconfigureItems`，因此根因不是 diffable animation、cell 复用或 Star path。通过继续微调 cell layout 无法解决这个数据状态空窗。
+- 通过条件是：点击后 main 首帧直接改变 Star；Market 标题、分类、三行/替换行、View more、Earn 和外层 offset 不消失、不上下跳；bg 写入失败时回滚；不能用“最终 watchlist 写成功”代替逐帧 UI 证据。
+
+### 实现
+
+- main 在调用 bg proxy 前先基于当前 watchlist 生成乐观副本，立刻写入 `watchList.setResult`。Favorites 请求 key 变化时采用 stale-while-revalidate：已有 `favoriteMarket` 行继续渲染，不再回退到 empty/loading；新详情返回后再以无动画 diff 替换对应行。
+- 同一 token 的重复连点使用 per-token in-flight set 去重；不同 token 可继续并发。每次操作持有 revision，最后一次权威 reread 只有在没有更新操作开始时才允许覆盖 main 乐观副本，避免较早 reread 反向覆盖较新的 Star。
+- bg 写入失败时只回滚当前 token，不回滚其他并发 token 的乐观结果。写入成功后仍发出原有 `RefreshMarketWatchList`，并在所有 in-flight 操作结束后通过 bg service reread 权威 watchlist。
+- iOS cell 记录 `representedFavoriteItemId/state`。同一 item 的 Star 状态变化使用 160ms `transitionCrossDissolve + beginFromCurrentState`；初次渲染、新 item 和复用后的 cell 不做错误过渡。represented 状态与 constraint、request cancellation、pressed/highlight 一样属于 per-view 状态。
+
+### 自动走查方法与误命中规则
+
+- 继续沿用同机 Debug legacy/Native 等业务状态 A/B 作为整体视觉主流程；Star 这种瞬时状态必须额外执行“截图后立即点击 + 全时长录屏 + contact sheet + bg 权威 reread”。仅比较 before/after 单帧不足以证明中间没有 empty。
+- 当前 Nitro Market 子树仍不进入 accessibility snapshot；虽然 cell 已设置 `native-home-market-favorite-*` identifier，XCTest direct selector 在本环境仍无法解析。agent-device/Computer Use 的长 drag 也会合并 touch move并误触 Token/Search。滚到 Market 时改用本机 `idb ui swipe --delta 5` 产生连续触点；到位后回到 agent-device 截图、录屏和短坐标点击。
+- 第一段使用 Star hit area 边缘坐标时命中整行并跳到 Market 全页，已明确作废。最终证据只使用截图换算后的 28pt Star 中心点；点击后还必须确认底部仍为 Wallet、分类不变、bg watchlist 数量/首项真实变化。任何跳页、误入 Show more/View more 或黑块帧继续判废。
+- 本轮证明该组合对“异步数据导致的瞬时闪烁”非常有效，后续把 `legacy/Native 等状态 A/B + 交互短录屏/contact sheet + 权威 service 结果` 固定为主要自动走查方式。pixel diff 负责稳定视觉差异，逐帧录屏负责闪烁/高度/offset，service reread 负责确认交互没有误命中；三者不能互相替代。
+
+### 最新 Debug 实证
+
+- 从仓库根目录执行标准 `yarn app:ios`，结果 `Build Succeeded`、0 error，并由该命令完成 Debug 自动签名、更新安装和启动。没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`。
+- 没有执行 uninstall、reinstall、erase、clear data，也没有删除 app container、钱包数据库或持久化数据。`Account #1`、余额和 Token 列表正常，应用在全部 Star 操作后持续存活。
+- Hermes page 1 为 main：`$$onekeyJsReadyAt=1784193850660`、`$$onekeyUIVisibleAt=1784193852145`，transport 为 `ready`，收到独立 bg ready payload `runtime=background/status=ready/protocolVersion=1/bootId=1784193852272-q2xdclyd`。page 2 独立为 background，background Jotai bridge 存在；没有用 main ready 代替 bg ready。
+- Favorites 取消 PONS：bg 权威 watchlist 从 5 条变成 4 条；最终行由 `PONS / TrumpCoin / BTC` 变为 `TrumpCoin / BTC / SHIB`。录屏 `.tmp/ui/handoff-ui-market-star-remove-smooth.mov`，before/after 为 `.tmp/ui/handoff-ui-market-star-remove-before.png`、`handoff-ui-market-star-remove-after.png`，8fps 全时长抽帧为 `.tmp/ui/handoff-ui-market-star-remove-smooth-contact-sheet.png`。
+- Trending 给 SOLdiers 加星：bg 权威 watchlist 从 4 条变成 5 条，新首项为 `sol--101:B4ptaVsUe6YbtBwAS38WFeweSrVNfQLCcj9JRrtjU8vn`；三条 Trending 行保持原位，SOLdiers 只从空心 Star 变为实心 Star。录屏 `.tmp/ui/handoff-ui-market-star-add-smooth.mov`，before/after 为 `.tmp/ui/handoff-ui-market-star-add-before.png`、`handoff-ui-market-star-add-after.png`，8fps 全时长抽帧为 `.tmp/ui/handoff-ui-market-star-add-smooth-contact-sheet.png`。
+- 两段有效 contact sheet 中 Market 标题、分类、行、View more 和 Earn 全程存在，没有 `rows -> empty -> rows`，没有 section 高度或外层 offset 跳动；两次 bg 权威结果与 UI 动作一致。该证据只通过本轮 Star 加/减无闪烁，不自动覆盖 Dark mode、pressed/hover、失败回滚注入态、CASHCAT 当前行或全部降级态。
+
+### Runtime 与资源边界
+
+- **main runtime：** 乐观 watchlist 副本、favorite request key、stale-while-revalidate 行、selection/cache/snapshot/section patch 与 in-flight/revision guard。**bg runtime：** Market config/category/watchlist service 与权威持久化写入/读取。
+- main/bg 使用独立 Hermes JS heap，同一 watchlist 通过 proxy 序列化/反序列化，各自持有副本，不共享 JS 对象；两边独立初始化，main 乐观首帧不能假设 bg 已 ready，bg 最终返回也不能重置外层 UI 状态。
+- 图片与字体 cache 仍是进程级共享 Native 资源；cell constraint、represented image signature、request cancellation、Star represented state、pressed/hover 属于具体 view。底层存储是共享 Native 资源，但本轮只通过 bg service 访问，没有从 main 直接修改数据库。
+
+### 检查、门禁与提交边界
+
+- `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 通过；指定 Native Home 文件 `git diff --check` 通过。
+- `useNativeHomeSupplementalData.ts` 的聚焦 ESLint、Prettier 和 type-aware oxlint 均通过；聚焦 Jest `HomeContainerController.test.ts`、`nativeHomeDataAdapters.test.ts`、`PopularTrading/utils.test.ts` 共 3 suites / 17 tests 全部通过。
+- `yarn agent:check --profile commit` 日志位于 `node_modules/.cache/agent-checks/2026-07-16T09-49-36-449Z`。`lint-worktree-js`、`lint-staged`、`agent-context` 通过；`lint-worktree-ts` / `tsc-staged` 被共享工作区已有的 Desktop、Rspack、DeFi、TradingView、WebView、Navigator、AppUpdate、Firmware、ReferFriends、Swap、旧 `NativeHomePageView.native.tsx` 等错误阻断，日志中没有本轮 hook 报错。不得修改这些无关文件制造绿色结果。
+- `1k-trade-swap-market` readiness 仍被共享工作区已有的 `quoteProgress.ts` reviewed-ref drift 及 `SwapHeaderContainer.tsx` / `SwapHeaderRightActionContainer.tsx` dirty files 阻断；本轮没有修改或回滚这些 Swap 文件。
+- 本轮提交只能 stage `ANDROID_NATIVE_HOME_HANDOFF.md`、`packages/kit/src/views/Home/useNativeHomeSupplementalData.ts`、`packages/native-components/ios/HomeContainerView.swift`。其余大量用户/其他任务 dirty files 必须原样保留，不得混入 commit/push。

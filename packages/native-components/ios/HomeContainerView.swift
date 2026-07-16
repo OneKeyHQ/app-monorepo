@@ -3171,6 +3171,8 @@ private final class HomeContainerItemCell: UITableViewCell {
   private var usesCard = false
   private var favoriteActionId: String?
   private var favoriteItemId = ""
+  private var representedFavoriteItemId: String?
+  private var representedFavoriteState: Bool?
   private var onFavoriteAction: ((String, String) -> Void)?
 
   override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -3465,6 +3467,8 @@ private final class HomeContainerItemCell: UITableViewCell {
     recognizedImageView.isHidden = true
     favoriteActionId = nil
     favoriteItemId = ""
+    representedFavoriteItemId = nil
+    representedFavoriteState = nil
     onFavoriteAction = nil
   }
 
@@ -3488,16 +3492,36 @@ private final class HomeContainerItemCell: UITableViewCell {
     favoriteButton.accessibilityIdentifier = showsFavorite
       ? "native-home-market-favorite-\(item.id)"
       : nil
-    favoriteButton.tintColor = UIColor(
-      homeContainerColor: item.favorite == true
-        ? theme.primaryTextColor
-        : theme.subduedIconColor ?? theme.secondaryTextColor,
-      fallback: item.favorite == true ? .label : .secondaryLabel
-    )
-    favoriteButton.setImage(
-      HomeContainerMarketArtwork.star(filled: item.favorite == true, size: 20),
-      for: .normal
-    )
+    let favoriteState = item.favorite == true
+    let applyFavoriteArtwork = {
+      self.favoriteButton.tintColor = UIColor(
+        homeContainerColor: favoriteState
+          ? theme.primaryTextColor
+          : theme.subduedIconColor ?? theme.secondaryTextColor,
+        fallback: favoriteState ? .label : .secondaryLabel
+      )
+      self.favoriteButton.setImage(
+        HomeContainerMarketArtwork.star(filled: favoriteState, size: 20),
+        for: .normal
+      )
+    }
+    let shouldAnimateFavoriteChange =
+      showsFavorite &&
+      representedFavoriteItemId == item.id &&
+      representedFavoriteState != nil &&
+      representedFavoriteState != favoriteState
+    if shouldAnimateFavoriteChange {
+      UIView.transition(
+        with: favoriteButton,
+        duration: 0.16,
+        options: [.transitionCrossDissolve, .beginFromCurrentState, .allowAnimatedContent],
+        animations: applyFavoriteArtwork
+      )
+    } else {
+      applyFavoriteArtwork()
+    }
+    representedFavoriteItemId = showsFavorite ? item.id : nil
+    representedFavoriteState = showsFavorite ? favoriteState : nil
     favoriteActionId = item.favoriteActionId
     favoriteItemId = item.id
     onFavoriteAction = onAction
