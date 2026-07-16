@@ -1,4 +1,3 @@
-import { Transaction } from '@onekeyfe/kaspa-core-lib';
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
@@ -20,6 +19,7 @@ import {
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import { RestAPIClient } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
 import sdk from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
+import type { IKaspaGetTransactionResponse } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/types';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
 import {
@@ -92,25 +92,6 @@ import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
 export type IKaspaRefTransaction = NonNullable<
   KaspaSignTransactionParams['refTxs']
 >[number];
-
-// Shape of a kaspa REST-decoded previous transaction (api.kaspa.org style).
-interface IKaspaRestTx {
-  version?: number;
-  lock_time?: number | string;
-  subnetwork_id?: string;
-  gas?: number | string;
-  payload?: string;
-  inputs?: {
-    previous_outpoint_hash: string;
-    previous_outpoint_index: string | number;
-    sequence?: number | string;
-  }[];
-  outputs?: {
-    amount: number | string;
-    script_public_key: string;
-    script_public_key_version?: number;
-  }[];
-}
 
 // Minimum spendable KAS required to fund a KRC20 commit transaction, surfaced to
 // the user via Toast when their balance is too low (instead of the generic
@@ -832,49 +813,27 @@ export default class Vault extends VaultBase {
     };
   }
 
-  // Build a KaspaRefTransaction (previous tx) from a backend rawTx. Handles both
-  // a kaspa-core-lib consensus hex and a REST JSON string (starting with '{').
-  // txId is passed in (authoritative) — kaspa-core-lib's own hash doesn't match
-  // the network txid.
-  buildPrevTx(txId: string, rawTx: string): IKaspaRefTransaction {
-    const trimmed = rawTx.trim();
-    if (trimmed.startsWith('{')) {
-      const j = JSON.parse(trimmed) as IKaspaRestTx;
-      return {
-        txId,
-        version: Number(j.version ?? 0),
-        inputs: (j.inputs ?? []).map((input) => ({
-          prevTxId: input.previous_outpoint_hash,
-          outputIndex: Number(input.previous_outpoint_index ?? 0),
-          sequenceNumber: input.sequence ?? 0,
-        })),
-        outputs: (j.outputs ?? []).map((output) => ({
-          satoshis: output.amount,
-          script: output.script_public_key,
-          scriptVersion: Number(output.script_public_key_version ?? 0),
-        })),
-        lockTime: j.lock_time ?? 0,
-        subNetworkID: j.subnetwork_id,
-        gas: j.gas ?? 0,
-        payload: j.payload ?? '',
-      };
-    }
-    const tx = new Transaction(trimmed);
+  // Map a REST tx to the refTx shape the device recomputes the txid from. The REST
+  // API doesn't return lockTime/gas/sequenceNumber/scriptVersion; they are 0 on the
+  // v0 txs this is gated to below.
+  buildPrevTx(tx: IKaspaGetTransactionResponse): IKaspaRefTransaction {
     return {
-      txId,
+      txId: tx.transaction_id,
       version: tx.version,
-      inputs: tx.inputs.map((input) => ({
-        prevTxId: input.prevTxId.toString('hex'),
-        outputIndex: input.outputIndex,
-        sequenceNumber: input.sequenceNumber.toString(),
+      inputs: (tx.inputs ?? []).map((input) => ({
+        prevTxId: input.previous_outpoint_hash,
+        outputIndex: Number(input.previous_outpoint_index),
+        sequenceNumber: 0,
       })),
       outputs: tx.outputs.map((output) => ({
-        satoshis: output.satoshis.toString(),
-        script: output.script.toBuffer().toString('hex'),
+        satoshis: Number(output.amount),
+        script: output.script_public_key,
         scriptVersion: 0,
       })),
-      lockTime: tx.nLockTime.toString(),
-      payload: '',
+      lockTime: 0,
+      subNetworkID: tx.subnetwork_id,
+      gas: 0,
+      payload: tx.payload ?? '',
     };
   }
 
@@ -887,7 +846,7 @@ export default class Vault extends VaultBase {
     const prevTxs = await client.getTransactions(txids);
     const refTxs = prevTxs
       .filter((tx) => tx?.transaction_id)
-      .map((tx) => this.buildPrevTx(tx.transaction_id, JSON.stringify(tx)));
+      .map((tx) => this.buildPrevTx(tx));
     // Only trust version-0 txs: the REST API returns bad fields for non-standard
     // txs (a v1 tx's subnetwork_id mirrors its txid prefix), which would make the
     // device hard-reject. Bail → caller blind-signs. TODO: handle v1 via wasm SDK.
