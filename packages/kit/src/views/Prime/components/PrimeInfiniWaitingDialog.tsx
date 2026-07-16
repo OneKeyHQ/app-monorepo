@@ -96,11 +96,13 @@ function PrimeInfiniWaitingDialogContent({
         // the Infini period, so the merged account expiry (max of channels)
         // never moves past the baseline above and the payment would look
         // undetected forever. The Infini record's own currentPeriodEnd moving
-        // past its captured baseline is the direct signal that the renewal
-        // invoice was paid. Only enabled when the caller captured a concrete
-        // Infini baseline (the invoice-renewal path), because without one a
-        // pre-existing period end would fire a false success.
-        if (renewalBaselineInfiniPeriodEnd) {
+        // past its captured baseline is the direct signal that the payment
+        // landed. Only enabled when the caller captured a concrete Infini
+        // baseline — 0 means a confirmed absence of an Infini subscription at
+        // purchase time (any period end appearing later is the signal) —
+        // because without one a pre-existing period end would fire a false
+        // success.
+        if (renewalBaselineInfiniPeriodEnd !== undefined) {
           const infiniSubscription =
             await backgroundApiProxy.servicePrime.apiGetInfiniSubscription();
           if (
@@ -219,11 +221,12 @@ export function showPrimeInfiniWaitingDialog({
   // Pass the current expiry when the dialog waits for a renewal payment of a
   // still-active subscription; success is then detected by expiry extension
   renewalBaselineExpiresAt?: number;
-  // Additionally pass the Infini record's own currentPeriodEnd when renewing
-  // an existing Infini subscription (invoice-renewal path): for dual-channel
-  // users the merged account expiry may never move (see the dual-channel
-  // guard in checkPaymentStatus), so the Infini period end moving forward is
-  // polled as a second success signal
+  // Additionally pass the Infini record's own currentPeriodEnd (0 when no
+  // Infini subscription exists yet) whenever the buyer is already Prime: for
+  // dual-channel users the merged account expiry may never move (see the
+  // dual-channel guard in checkPaymentStatus), so the Infini period end
+  // moving forward is polled as a second success signal. Leave undefined
+  // only when the pre-purchase Infini state is unknown.
   renewalBaselineInfiniPeriodEnd?: number;
 }) {
   void activeWaitingDialog?.close();

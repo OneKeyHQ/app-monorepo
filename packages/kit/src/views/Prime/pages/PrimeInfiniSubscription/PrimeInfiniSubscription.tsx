@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { IBadgeType } from '@onekeyhq/components';
 import {
@@ -223,7 +224,11 @@ export default function PrimeInfiniSubscription() {
     void run();
   }, [run]);
 
-  const handleRenewNow = useCallback(
+  // Leading-edge debounce: a rapid double tap on "Renew now" would otherwise
+  // open the invoice URL in two browser tabs (or stack two purchase dialogs).
+  // useDebouncedCallback always invokes the latest render's closure, so no
+  // dependency array is needed.
+  const handleRenewNow = useDebouncedCallback(
     (currentSubscription: IPrimeInfiniSubscription) => {
       // Normalized defensively: the raw server enum is unconfirmed
       // (integration plan §11-3) and must not misclassify the plan
@@ -282,7 +287,8 @@ export default function PrimeInfiniSubscription() {
         onClose: refreshSubscription,
       });
     },
-    [primeUserInfo.primeSubscription?.expiresAt, refreshSubscription],
+    300,
+    { leading: true, trailing: false },
   );
 
   const handleCancelRenewal = useCallback(

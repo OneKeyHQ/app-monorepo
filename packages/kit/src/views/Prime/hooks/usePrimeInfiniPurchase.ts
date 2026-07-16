@@ -74,15 +74,32 @@ export function usePrimeInfiniPurchase() {
         // checkout creation so the extra roundtrip adds no latency; if the
         // fetch fails, fall back to the local atom snapshot, which is never
         // worse than trusting it directly.
-        const [checkoutResult, baselinePrimeSubscription] = await Promise.all([
-          backgroundApiProxy.servicePrime.apiGetInfiniCheckoutUrl({
-            plan,
-          }),
-          backgroundApiProxy.servicePrime
-            .apiFetchPrimeUserInfo()
-            .then((userInfo) => userInfo.primeSubscription)
-            .catch(() => primeSubscription),
-        ]);
+        const [checkoutResult, baselinePrimeSubscription, infiniBaseline] =
+          await Promise.all([
+            backgroundApiProxy.servicePrime.apiGetInfiniCheckoutUrl({
+              plan,
+            }),
+            backgroundApiProxy.servicePrime
+              .apiFetchPrimeUserInfo()
+              .then((userInfo) => userInfo.primeSubscription)
+              .catch(() => primeSubscription),
+            // Infini-channel baseline for the waiting dialog's dual-channel
+            // guard: for a buyer whose merged Prime expiry is dominated by a
+            // longer-lived channel (e.g. IAP), a successful crypto payment
+            // never moves the merged expiry, so the Infini record's own
+            // currentPeriodEnd advancing past this baseline is the only
+            // reliable success signal. 0 records a confirmed absence of an
+            // Infini subscription (any period end appearing later means the
+            // payment landed); undefined (record without a period end, or a
+            // failed fetch) disables the guard, because guessing a baseline
+            // could fire a false success on a pre-existing period end.
+            backgroundApiProxy.servicePrime
+              .apiGetInfiniSubscription()
+              .then((infiniSubscription) =>
+                infiniSubscription ? infiniSubscription.currentPeriodEnd : 0,
+              )
+              .catch(() => undefined),
+          ]);
         const checkoutUrl = checkoutResult?.checkoutUrl;
         if (!checkoutUrl) {
           // Guards the unconfirmed backend response schema: a 200 response
@@ -109,9 +126,17 @@ export function usePrimeInfiniPurchase() {
         // would report success before any payment. Capture the current merged
         // expiry as the renewal baseline so success is detected by expiry
         // extension instead.
+        // `|| undefined` treats a malformed zero expiry as "no baseline",
+        // consistent with the renew flow in PrimeInfiniSubscription
         const renewalBaselineExpiresAt = baselinePrimeSubscription?.isActive
-          ? baselinePrimeSubscription.expiresAt
+          ? baselinePrimeSubscription.expiresAt || undefined
           : undefined;
+
+        // The dual-channel guard only runs inside the renewal branch gated by
+        // renewalBaselineExpiresAt; a not-yet-Prime buyer uses isPrime itself
+        // as the success signal and needs no Infini baseline
+        const renewalBaselineInfiniPeriodEnd =
+          renewalBaselineExpiresAt === undefined ? undefined : infiniBaseline;
 
         // checkoutUrl is passed down so the waiting dialog can offer an
         // "Open checkout page" affordance: on web the window.open above runs
@@ -121,6 +146,7 @@ export function usePrimeInfiniPurchase() {
           featureName,
           checkoutUrl,
           renewalBaselineExpiresAt,
+          renewalBaselineInfiniPeriodEnd,
         });
       } finally {
         isCryptoPurchaseInFlight = false;
