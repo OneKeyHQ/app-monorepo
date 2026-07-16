@@ -212,9 +212,8 @@ export function usePrimePurchaseCallback({
       // render detached at the window corner. Use an imperative Dialog as
       // the payment method picker instead.
       const paymentMethodDialog = Dialog.show({
-        title: intl.formatMessage({
-          id: ETranslations.prime_subscribe,
-        }),
+        // TODO: i18n pending translation key
+        title: 'Payment method',
         showFooter: false,
         renderContent: (
           <YStack mx="$-5" mt="$-1" mb="$-3" $md={{ pb: '$3', mb: '$0' }}>
@@ -222,7 +221,7 @@ export function usePrimePurchaseCallback({
               drillIn
               testID="prime-pay-with-card"
               // TODO: i18n pending translation key
-              title="Pay with card"
+              title="Pay with credit card"
               onPress={() => {
                 void paymentMethodDialog.close();
                 logSubscribeIntent('stripe');

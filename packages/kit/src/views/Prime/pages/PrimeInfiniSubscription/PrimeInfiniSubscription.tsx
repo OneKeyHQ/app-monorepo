@@ -200,7 +200,7 @@ export default function PrimeInfiniSubscription() {
 
   const primeExpiresAt = primeUserInfo.primeSubscription?.expiresAt;
 
-  const { result, isLoading, run } = usePromiseResult(
+  const { result, run } = usePromiseResult(
     async () => {
       // primeExpiresAt is a real dependency: a successful (renewal) payment
       // bumps the merged Prime expiry in primePersistAtom (via the waiting
@@ -219,7 +219,13 @@ export default function PrimeInfiniSubscription() {
       }
     },
     [primeExpiresAt],
-    { watchLoading: true },
+    // Debounced so the renew flow's overlapping triggers (waiting-dialog
+    // onClose refresh, the atom expiry bump, and the focus refetch) collapse
+    // into a single apiGetInfiniSubscription call instead of firing several
+    // back to back. watchLoading is intentionally omitted: refreshes keep the
+    // current content in place (see renderContent) rather than flipping the
+    // page into a full spinner.
+    { debounced: 300 },
   );
   const subscription = result?.subscription;
 
@@ -288,15 +294,16 @@ export default function PrimeInfiniSubscription() {
         });
         return;
       }
-      // Priority 2: no invoice url available — start a fresh purchase with
-      // the current plan preselected; the user confirms inside the dialog
+      // Priority 2: no invoice url available — start a fresh purchase. The plan
+      // picker defaults to yearly (PrimePurchaseDialog's own 'P1Y' default)
+      // regardless of the user's current plan, to nudge the annual option on
+      // renewal.
       const purchaseDialog = Dialog.show({
         renderContent: (
           <PrimePurchaseDialog
             onPurchase={() => {
               void purchaseDialog.close();
             }}
-            defaultSelectedSubscriptionPeriod={subscriptionPeriod}
           />
         ),
         onClose: refreshSubscription,
@@ -462,11 +469,11 @@ export default function PrimeInfiniSubscription() {
   );
 
   const renderContent = () => {
-    // usePromiseResult only flips isLoading inside a post-commit effect, so
-    // the first render sees isLoading === undefined with no result yet —
-    // treat that as loading too, otherwise the definitive empty state would
-    // flash before the spinner on every page entry
-    if (isLoading || result === undefined) {
+    // Only the first load (no data yet) blocks the whole page with a spinner.
+    // Later refreshes (renew onClose, expiry bumps) keep the current content
+    // visible and update in place, so the page never flashes back to a
+    // full-page spinner while re-fetching.
+    if (result === undefined) {
       return (
         <Stack flex={1} alignItems="center" justifyContent="center">
           <Spinner size="large" />
