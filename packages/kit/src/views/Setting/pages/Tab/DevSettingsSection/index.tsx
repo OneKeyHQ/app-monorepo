@@ -1158,6 +1158,17 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
+                      <SectionFieldItem
+                        icon="OnekeyDeviceCustom"
+                        name="enablePortfolioSyncDev"
+                        title="Enable Portfolio Sync"
+                        subtitle="Enable Pro 2 portfolio package synchronization"
+                        testID="enable-portfolio-sync"
+                        searchKeywords="Pro2 portfolio hardware sync package"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+
                       {platformEnv.isDesktop ? (
                         <SectionPressItem
                           icon="SpeedLowOutline"
