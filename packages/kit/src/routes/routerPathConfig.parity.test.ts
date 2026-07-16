@@ -333,6 +333,18 @@ describe.each(routeTargets)('generated %s route config parity', (target) => {
   );
 });
 
+describe.each([['production'], ['development']] as const)(
+  'generated %s route topology',
+  (mode) => {
+    it('is shared by every platform target', () => {
+      const expected = readGeneratedRouteConfig('web', mode).routes;
+      for (const target of routeTargets) {
+        expect(readGeneratedRouteConfig(target, mode).routes).toEqual(expected);
+      }
+    });
+  },
+);
+
 describe('generated mode isolation', () => {
   it('keeps development-only routes out of the production asset', () => {
     const production = fs.readFileSync(

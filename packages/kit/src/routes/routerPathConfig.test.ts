@@ -7,17 +7,21 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
   EDAppConnectionModal,
+  EModalFirmwareUpdateRoutes,
   EModalReferFriendsRoutes,
   EModalRewardCenterRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
   EModalStakingRoutes,
+  EOnboardingPages,
   EOnboardingPagesV2,
   EOnboardingV2Routes,
   ERootRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
+import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
+import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
 
 import { getStateFromPath as getWebStateFromPath } from './config/getStateFromPath';
@@ -106,9 +110,11 @@ describe('generated cold-start route config', () => {
       ERootRoutes.Main,
       ERootRoutes.Onboarding,
       ERootRoutes.Modal,
+      ERootRoutes.iOSFullScreen,
+      ERootRoutes.PermissionWebDevice,
       ...(platformEnv.isDev ? [ERootRoutes.NotFound] : []),
     ]);
-    expect(countRoutes(rootRouterPathConfig)).toBe(platformEnv.isDev ? 27 : 24);
+    expect(countRoutes(rootRouterPathConfig)).toBe(platformEnv.isDev ? 98 : 95);
 
     const visit = (routes: IRoutePathConfig[]) => {
       for (const route of routes) {
@@ -151,9 +157,13 @@ describe('generated cold-start route config', () => {
     expect(modalNames).toEqual([
       EModalRoutes.MainModal,
       EModalRoutes.SettingModal,
+      EModalRoutes.OnboardingModal,
+      EModalRoutes.FirmwareUpdateModal,
       EModalRoutes.SignatureConfirmModal,
+      EModalRoutes.DAppConnectionModal,
       EModalRoutes.AppUpdateModal,
       EModalRoutes.StakingModal,
+      EModalRoutes.NotificationsModal,
       EModalRoutes.ReferFriendsModal,
       ...(platformEnv.isDev ? [EModalRoutes.TestModal] : []),
     ]);
@@ -293,12 +303,16 @@ describe('generated cold-start route config', () => {
     expect(parseExtensionHash(`#${path}`)).toBeUndefined();
   });
 
-  it.each(['/modal/DAppConnectionModal/ConnectionModal'])(
-    'keeps Extension approval path %s private from Web',
-    (path) => {
-      expect(getWebStateFromPath(path, { screens })).toBeUndefined();
-    },
-  );
+  it('shares a route discovered from an Extension entry with Web', () => {
+    const path = '/modal/DAppConnectionModal/ConnectionModal';
+    expect(
+      getFocusedRouteNames(getWebStateFromPath(path, { screens })),
+    ).toEqual([
+      ERootRoutes.Modal,
+      EModalRoutes.DAppConnectionModal,
+      EDAppConnectionModal.ConnectionModal,
+    ]);
+  });
 
   it.each([
     [
@@ -335,6 +349,94 @@ describe('generated cold-start route config', () => {
     ],
   ])('parses Extension standalone approval hash %s', (hash, names) => {
     expect(getFocusedRouteNames(parseExtensionHash(hash))).toEqual(names);
+  });
+
+  it.each([
+    [
+      '#/modal/FirmwareUpdateModal/ChangeLog?connectId=device-1&firmwareType=bitcoinonly',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.FirmwareUpdateModal,
+        EModalFirmwareUpdateRoutes.ChangeLog,
+      ],
+    ],
+    [
+      '#/modal/FirmwareUpdateModal/Install',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.FirmwareUpdateModal,
+        EModalFirmwareUpdateRoutes.Install,
+      ],
+    ],
+    [
+      '#/modal/FirmwareUpdateModal/InstallV2',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.FirmwareUpdateModal,
+        EModalFirmwareUpdateRoutes.InstallV2,
+      ],
+    ],
+    [
+      '#/modal/OnboardingModal/V4MigrationGetStarted',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.OnboardingModal,
+        EOnboardingPages.V4MigrationGetStarted,
+      ],
+    ],
+    [
+      '#/modal/NotificationsModal/NotificationList',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.NotificationsModal,
+        EModalNotificationsRoutes.NotificationList,
+      ],
+    ],
+    [
+      '#/modal/MainModal/AssetDetail_HistoryDetails?transactionHash=0x01',
+      [
+        ERootRoutes.Modal,
+        EModalRoutes.MainModal,
+        EModalAssetDetailRoutes.HistoryDetails,
+      ],
+    ],
+  ])('parses shared product cold-start entry %s', (hash, names) => {
+    expect(getFocusedRouteNames(parseExtensionHash(hash))).toEqual(names);
+    expect(
+      getFocusedRouteNames(
+        getWebStateFromPath(hash.slice(1), {
+          screens,
+        }),
+      ),
+    ).toEqual(names);
+  });
+
+  it('preserves Firmware Update cold-start query parameters', () => {
+    const state = parseExtensionHash(
+      '#/modal/FirmwareUpdateModal/ChangeLog?connectId=device-1&firmwareType=bitcoinonly',
+    );
+    let currentState = state;
+    let focusedRoute:
+      | {
+          params?: Record<string, unknown>;
+          state?: IPartialNavigationState;
+        }
+      | undefined;
+    while (currentState) {
+      focusedRoute = currentState.routes[
+        currentState.index ?? currentState.routes.length - 1
+      ] as
+        | {
+            params?: Record<string, unknown>;
+            state?: IPartialNavigationState;
+          }
+        | undefined;
+      currentState = focusedRoute?.state;
+    }
+    expect(focusedRoute?.params).toMatchObject({
+      connectId: 'device-1',
+      firmwareType: 'bitcoinonly',
+    });
   });
 
   it('preserves the v6.4.0 Extension permission display URL', () => {

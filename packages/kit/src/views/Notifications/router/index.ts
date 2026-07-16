@@ -19,6 +19,7 @@ export const ModalNotificationsRouter: IModalFlowNavigatorConfig<
   {
     name: EModalNotificationsRoutes.NotificationList,
     component: NotificationList,
+    allowColdStart: true,
   },
 
   {

@@ -96,6 +96,7 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.V4MigrationGetStarted,
     component: V4MigrationGetStarted,
+    allowColdStart: true,
   },
   {
     name: EOnboardingPages.V4MigrationPreview,
