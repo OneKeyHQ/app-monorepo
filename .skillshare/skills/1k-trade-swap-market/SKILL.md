@@ -19,13 +19,32 @@ During an incremental quote stream, keep three readiness contracts separate:
 
 - provider selection readiness: the active request has at least one actionable
   candidate, so the provider picker can open and record manual intent
-- display readiness: the UI shows a retained or terminal-committed quote and
-  does not publish each streaming candidate into the main amount/rate
-- execution readiness: the active request has settled with an executable quote,
-  so Review, build, sign, and send can proceed
+- display readiness: the UI shows a retained quote until the active request
+  returns its first actionable candidate, then pins that candidate instead of
+  publishing every later provider update into the main amount/rate
+- Review readiness: the active request has an actionable candidate accepted by
+  its request id and intent fingerprint, so Review can freeze that exact quote
+- execution readiness: Review owns an immutable current-request snapshot and
+  all account, receiver, slippage, balance, expiry, and signer guards pass
 
-The first actionable provider may unlock selection before the stream completes.
-It must not replace the main display quote or unlock Review/build/send.
+The first actionable current-request provider unlocks provider selection and
+pins both display and execution before the stream completes. Review can open
+from that pin when the remaining safety gates pass. Later streaming updates for
+the same provider may enrich non-economic metadata, such as the AUTO slippage
+recommendation, but must not change pinned amounts, rate, fees, or route. A
+user-selected provider may change the pin explicitly, and terminal settlement
+may publish at most one final update. Once Review opens, neither transition may
+mutate the frozen Review/build inputs.
+
+An actionable provider has no `errorMessage`, has a finite positive `toAmount`,
+and satisfies well-formed min/max bounds against `fromAmount` for both BUY and
+SELL. Picker readiness and Review readiness are still distinct: the picker can
+open from the first actionable candidate. While the stream is active, early
+Review in effective AUTO mode remains fail-closed until that candidate has an
+AUTO slippage recommendation. An effective CUSTOM override does not wait for
+the AUTO recommendation. Read the effective session override, not only the
+persisted global mode. Early Review must freeze the pin and keep prebuild off
+while the stream is active.
 
 Treat Swap as the execution spine below visible surfaces. Market speed-swap,
 Bridge, Limit, PrivateSend-like flows, stock/order channels, and funding
@@ -133,6 +152,22 @@ PrivateSend-like channels and future stock-trading channels should be evaluated 
     or Wallet handoff regressions, run
     [swap-cold-start-frame-checklist.md](references/swap-cold-start-frame-checklist.md).
 
+For Stock display restoration, use one physical cache slot per account and
+independent region owners: token detail is account + stock + display currency;
+balance is account + live input token; chart is account + stock + fixed source
+currency; amount is account + stock + pay + side; selection is account-owned.
+Cached amount and balance are display-only. Until the canonical live Stock
+owner is ready, the amount is not editable. Max, percentage, balance validation,
+quote, and Review additionally require the exact live balance and matching
+shared-atom publication. Keep a chart's visible range separate from a newer
+requested range during silent refresh.
+
+Crossing the Stock boundary must use the centralized `swapTypeSwitchAction`.
+Before the new surface paints, synchronously clear shared from/to amounts and
+selected balances and invalidate the old quote session. The matching Stock
+snapshot may then restore display-only regions under its own owners; an
+ordinary Swap amount or balance must never appear as a Stock first frame.
+
 ## Reference Map
 
 | Need                                                                                | Reference                                                                           |
@@ -168,8 +203,14 @@ Use these drills to judge whether the skill is complete enough for a new require
   handoff params, Swap route initialization, channel-specific state such as
   Stock, native/mobile host behavior, or the quote/review/build spine?
 - Incremental provider quote: can the first actionable candidate open the
-  provider picker while the main amount stays stable and Review remains locked
-  until the active request settles?
+  provider picker, pin display/execution, and open Review when AUTO/CUSTOM and
+  the other safety gates pass; do same-provider streaming updates preserve the
+  economic fields, does terminal settlement update at most once, and does an
+  already-open Review remain unchanged?
+- Stock silent refresh: can one account slot restore each region only for its
+  exact owner, keep cached amount/balance non-executable and non-editable before
+  canonical live readiness, and label a retained chart with its visible rather
+  than requested range?
 
 If a drill cannot be completed from the references, update the abstraction instead of adding another one-off case.
 
@@ -182,8 +223,27 @@ If a drill cannot be completed from the references, update the abstraction inste
 - Do not let page atoms drift into review/confirm; confirm must use a frozen quote/build snapshot.
 - Do not bind provider-picker availability to terminal quote completion when
   the active request already has an actionable provider candidate.
-- Do not publish a streaming candidate as the current display or executable
-  quote merely to make provider selection available.
+- Do not execute a retained stale quote. The first actionable candidate must
+  belong to the active request/fingerprint and pass token, amount mode,
+  protocol, slippage, account, receiver, and execution guards before Review.
+- Do not rotate the pinned main quote for every later provider event. Only an
+  explicit manual selection or the bounded terminal commit may change it, and
+  neither may mutate an already-frozen Review snapshot.
+- Do not classify a provider row as selectable when it has an error, a missing,
+  non-finite, or non-positive output, or malformed/violated limits. Compare
+  provider min/max with `fromAmount` in both BUY and SELL modes.
+- Do not let effective AUTO mode enter early Review while the stream is active
+  and its recommendation has not landed; do not apply that early gate to an
+  effective CUSTOM override or to picker access.
+- Do not prebuild from a quote while its SSE stream is active. Early Review may
+  freeze the current pin, but `supportPreBuild` remains false until transport
+  completion.
+- Do not use a Stock display cache as execution truth. A restored amount or
+  balance stays display-only and the amount stays non-editable until the exact
+  canonical live account/token owner is ready.
+- Do not set `swapType` directly across the Stock boundary. Use the centralized
+  transition so ordinary Swap/Limit/Pro amounts, balances, and quote ownership
+  are revoked before the next surface paints.
 - Do not reuse token-list state from another surface as proof for Swap selection.
 - Do not treat Wallet/Receive DeFi-token list regressions as Swap selector bugs unless the failing owner is the Swap/Market selector or handoff state.
 - Do not collapse account, network, provider, token, and receiver resets into one path without checking dependents.

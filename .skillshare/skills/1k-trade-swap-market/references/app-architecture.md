@@ -76,19 +76,23 @@ When multiple providers race, only the active request/provider/token tuple can u
 An SSE transport phase is not a single UI readiness flag. Model these owners
 independently:
 
-| Capability           | Source of truth                                                                                   | Allowed transition                                                              |
-| -------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Provider picker      | Any actionable `pendingQuotes` candidate accepted by the active request id and intent fingerprint | Open the live provider list and record manual provider intent                   |
-| Main quote display   | Retained display while requesting; terminal committed quote after settlement                      | Update the visible amount, rate, and provider summary without streaming flicker |
-| Review and execution | Settled `executableQuote` for the active request and fingerprint                                  | Freeze Review, then build/sign/send                                             |
+| Capability           | Source of truth                                                                                                     | Allowed transition                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Provider picker      | Any actionable `pendingQuotes` candidate accepted by the active request id and intent fingerprint                   | Open the live provider list and record manual provider intent                                                            |
+| Main quote display   | Retained display until the first actionable current candidate, then the pinned current-request quote                | Publish the first pin; preserve economic fields during streaming; allow one manual change or one bounded terminal update |
+| Review and execution | The pinned active-request `executableQuote` plus slippage, account, receiver, balance, expiry, and signer readiness | Freeze Review before `done` when all gates pass, then build/sign/send from the immutable snapshot                        |
 
-The first actionable provider quote can make the picker available even when
-other providers or a Stock total-count event are still pending. A stale,
-non-actionable, wrong-fingerprint, or invalidated candidate cannot do so.
-Manual selection during streaming is provider intent only. At settlement,
-rebind that intent by provider identity to a candidate from the active settled
-set before committing display and execution. Amount, token, account, receiver,
-or request invalidation must clear picker readiness.
+The first actionable provider quote can make the picker available, pin display
+and execution, and open Review before other providers or a Stock total-count
+event finish. Actionable means no provider error, a finite positive output, and
+well-formed min/max bounds checked against `fromAmount` for both BUY and SELL.
+A stale, wrong-fingerprint, invalidated, or non-actionable candidate cannot do
+so. While the stream is active, effective AUTO keeps early Review waiting for
+the candidate's AUTO slippage recommendation; effective CUSTOM does not wait.
+Manual selection rebinds by provider identity to the active candidate. Later
+same-provider stream events keep economic fields pinned, and settlement can
+publish at most one final update. Amount, token, account, receiver, slippage,
+or request invalidation clears execution readiness.
 
 For native and extension paths, `bg` owns SSE transport and `main` owns Jotai
 candidate aggregation and UI readiness. Their JS heaps are isolated and

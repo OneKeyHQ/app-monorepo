@@ -1,7 +1,7 @@
 # Swap Runtime Boundaries
 
-Production native apps run `main` and `bg` JavaScript runtimes in the same
-native process. They initialize independently and do not share JavaScript
+Production iOS and Android apps run `main` and `bg` JavaScript runtimes in the
+same native process. They initialize independently and do not share JavaScript
 objects. Extension UI and its background service worker are also separate JS
 contexts. Desktop/web normally call the local BackgroundApi in the same JS
 runtime; `kit-bg` is still the logical service owner, but it is not proof of a
@@ -38,7 +38,7 @@ not bg-versus-main bundle versions.
 
 ## Required Reasoning For Every Change
 
-State all five explicitly:
+State all six explicitly:
 
 1. Target platform and physical topology: local JS runtime, native `main`/`bg`,
    extension UI/background, or another proven worker/process boundary.
@@ -56,9 +56,10 @@ State all five explicitly:
    across the native/extension background boundary.
 3. The UI runtime records event progress and selects an actionable quote.
 4. An early provider error remains non-terminal while the event is incomplete
-   and a later provider can still return `toAmount`.
-5. Review freezes the chosen quote/build inputs; later page atom changes do not
-   mutate the confirmation.
+   and a later provider can still return an actionable quote.
+5. The first actionable current-request quote pins display/execution. Review
+   may freeze it before `done` once effective AUTO/CUSTOM, live balance, account,
+   receiver, expiry, and signer gates pass; later events do not mutate it.
 6. The logical service owner builds/sends or tracks the order, then writes
    status/history.
 7. The UI renders the result; it is separately deserialized only on a proven
@@ -99,21 +100,25 @@ let a service result from an earlier identity update the new UI state.
 
 ## Stock Display Snapshot Runtime Model
 
-- Desktop/web: the Swap UI and local BackgroundApi normally share one JS
-  runtime, but `swapStockDisplaySnapshotStorage` remains the sole logical
-  display-cache writer.
-- Native: UI `main` reads and writes the dedicated cold-start key. Native MMKV
-  is a shared process resource, while `main` and `bg` have separate JS heaps
-  and module caches. `bg` may clear storage during a broader reset, but
+- Desktop/web: the Swap UI and local BackgroundApi use one app JS runtime, but
+  `swapStockDisplaySnapshotStorage` remains the sole logical display-cache
+  writer.
+- iOS/Android: UI `main` reads and writes the dedicated cold-start key. Mobile
+  MMKV is a shared process resource, while `main` and `bg` have separate JS
+  heaps and module caches. `bg` may clear storage during a broader reset, but
   `ServiceSwap` never reads the snapshot for quote/build/send decisions.
 - Extension: UI and service worker are separate JS contexts, but the current
   `coldStartCacheStorage` adapter is a no-op for extension. Cross-restart Stock
   display restoration is therefore not covered and must not be claimed.
-- Initialization order: establish the current cold/default owner, build the
-  exact account + stock + pay + side + currency identity, restore matching
-  regions, resolve the live account, then refresh token detail, execution
-  balance, and chart independently. Identity changes reject old regions and
-  late patches in the same render.
-- Cached token detail, balance, market state, and chart are per-runtime display
-  copies only. Max, percentage actions, Review, quote, build, sign, and send
+- Initialization order: establish the account physical slot, restore only
+  regions whose owner matches (token detail = account + stock + display
+  currency; balance = account + input token; chart = account + stock + fixed
+  source currency; amount = account + stock + pay + side; selection = account),
+  resolve the canonical live Stock owner, then refresh each region. Owner
+  changes reject old regions and late patches in the same render.
+- Cached token detail, amount, balance, market state, and chart are UI display
+  copies only. Before the canonical live owner is ready, the amount is not
+  editable. Max, percentage actions, quote, Review, build, sign, and send
   require current live owners and never consume the snapshot.
+- Chart `visibleRange` describes retained data; `requestedRange` describes the
+  fetch in flight. A silent refresh must not label old data with the new range.

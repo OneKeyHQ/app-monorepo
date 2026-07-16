@@ -2,23 +2,29 @@ id: quote-provider-selection-before-settlement
 type:
   - golden
   - verification
-prompt: 'Swap SSE returns one usable provider while other providers are still pending, but the provider picker stays disabled until the stream completes. Fix that regression without bringing quote-amount flicker back, and prove Review remains safe.'
+prompt: 'Swap SSE returns one usable provider while other providers are still pending, but the main Review button still waits for stream completion. Fix that regression without bringing quote-amount flicker back, keep the provider picker usable, and prove the frozen Review remains safe.'
 expected:
   must_include:
     - 'name the target platform topology, then map logical SSE service ownership separately from UI Jotai candidate aggregation, picker UI, committed display, and Review execution'
     - 'derive provider-picker readiness from any actionable candidate accepted by the active request id and intent fingerprint'
-    - 'keep the retained or terminal-committed main amount, rate, swapQuoteCurrentSelectAtom, and executable quote unchanged while requesting'
-    - 'record manual provider intent during streaming and rebind it by provider identity to the active settled candidate at done'
+    - 'replace a retained stale display once with the first actionable current-request candidate, then pin the main amount, rate, and swapQuoteCurrentSelectAtom while later providers stream'
+    - 'reject provider errors, non-finite or non-positive output, and malformed or violated min/max checked against fromAmount for both BUY and SELL'
+    - 'while streaming, unlock early Review from that guarded candidate only after effective AUTO has its recommendation or effective CUSTOM overrides it, then freeze request id, intent revision, provider, amount, account, receiver, and slippage'
+    - 'derive AUTO/CUSTOM from the effective session override and keep supportPreBuild false while SSE remains active'
+    - 'keep same-provider economic fields pinned, allow at most one terminal update, and keep an already-frozen Review unchanged'
+    - 'record manual provider intent during streaming and rebind it by provider identity to the active candidate'
     - 'cover first actionable candidate, selected provider not yet returned, stale and non-actionable events, invalidation, and Stock quote-before-total ordering'
-    - 'prove the real provider picker opens before done while Review and build remain disabled until settlement'
+    - 'prove the real provider picker and Review open before done while later provider events and settlement cannot mutate the frozen Review'
   must_not_include:
-    - 'make swapQuoteCurrentSelectAtom return a streaming candidate'
-    - 'clear global quote loading or unlock Review and build on the first message'
+    - 'make swapQuoteCurrentSelectAtom return a stale, non-actionable, or wrong-request candidate'
+    - 'clear global transport loading merely because one actionable candidate arrived'
     - "use a stale retained provider as proof of the new request's provider result"
 score:
   pass: 90
   critical_fail_if:
     - 'provider selection is still gated by terminal completion after an actionable current-request candidate exists'
-    - 'a pending or stale quote becomes executable or changes the main amount before settlement'
-    - 'a matching manually selected settled provider is discarded in favor of auto-best'
+    - 'a stale or wrong-request quote becomes executable, or later provider events repeatedly change the main amount'
+    - 'a matching manually selected current provider is discarded in favor of auto-best'
     - 'a non-actionable provider candidate unlocks selection'
+    - 'while streaming, effective AUTO opens early Review without its recommendation, or effective CUSTOM is incorrectly held by that AUTO gate'
+    - 'early Review prebuilds from an active SSE stream'

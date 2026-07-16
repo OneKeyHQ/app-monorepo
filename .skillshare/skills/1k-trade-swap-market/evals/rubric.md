@@ -27,12 +27,20 @@ Critical failures:
 - treats an early provider error as terminal before quote settlement
 - keeps the provider picker locked until terminal settlement after an
   actionable active-request candidate already exists
-- publishes a streaming candidate as the main current/executable quote or
-  unlocks Review/build before settlement
-- leaks a Stock display snapshot across account, stock token, pay token, side,
-  or currency, even for one frame or one late patch
-- lets cached balance, market-open state, description, or chart unlock Max,
-  percentage actions, Review, quote, build, sign, or send
+- executes a retained stale quote, a non-actionable quote, or a candidate from
+  the wrong request/fingerprint
+- keeps Review locked after the active request has an actionable candidate and
+  all other execution guards pass
+- rotates the pinned main quote for every provider event or mutates a frozen
+  Review when a later provider/terminal event arrives
+- changes same-provider economic fields during streaming, commits more than one
+  automatic terminal update, mischecks provider limits, or bypasses the early
+  effective AUTO recommendation gate while streaming
+- leaks a Stock snapshot region across its account/token/currency/side owner,
+  even for one frame or one late patch
+- lets cached amount, balance, market-open state, description, or chart unlock
+  editing, Max, percentage actions, Review, quote, build, sign, or send
+- labels retained chart data with a requested range that has not committed
 - turns a same-identity Stock silent refresh into a
   snapshot-to-skeleton-to-live round trip, or clears matching display data on a
   transient refresh failure

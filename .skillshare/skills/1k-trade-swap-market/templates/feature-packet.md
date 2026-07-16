@@ -32,8 +32,10 @@
 - Capability and asset universe:
 - Account/network/token/provider/receiver identity:
 - Quote session/event identity and stale guard:
-- Provider-picker, retained-display, and settled-execution readiness:
-- Manual provider intent and settlement rebind:
+- Actionability predicate, provider-picker, first-current display/execution pin, AUTO/CUSTOM Review gate, and frozen execution:
+- Same-provider enrichment policy, manual provider intent, and bounded terminal update:
+- Persisted physical slot and region-specific display owners:
+- Cached display-only versus canonical live edit/Max/Review gates:
 - Frozen review fields:
 - Approval/setup/build/send/order sequence:
 - Pending/history identity and terminal mapping:

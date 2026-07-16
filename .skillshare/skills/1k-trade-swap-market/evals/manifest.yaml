@@ -1,8 +1,8 @@
 skill: 1k-trade-swap-market
-version: 3
+version: 4
 pass_threshold: 90
 critical_fail_policy: zero
-reviewed_code_ref: efbde7c98190097110fa7acf22116e44fb11c7e9
+reviewed_code_ref: f7790b70e249809e38cced3cbc272419f217ac36
 cases:
   - cases/quote-provider-selection-before-settlement.yaml
   - cases/stock-display-snapshot-silent-refresh.yaml

@@ -1,6 +1,9 @@
 # Code Map
 
-Use these anchors to orient in the current repository. Prefer the local pattern around the anchor over inventing a parallel path. The committed baseline was reviewed at `efbde7c98190`; run the readiness script before relying on current-worktree additions, and advance the reviewed ref after those additions have a commit.
+Use these anchors to orient in the current repository. Prefer the local pattern
+around the anchor over inventing a parallel path. Reviewed committed baseline:
+`f7790b70e249809e38cced3cbc272419f217ac36`. Keep the same full commit in the report, eval
+manifest, and readiness script, then run readiness before relying on the map.
 
 ## Shared Swap Core
 
@@ -122,6 +125,7 @@ Entry-specific anchors:
 - `packages/kit/src/views/Swap/components/SwapQuoteResultRate.tsx`
 - `packages/kit/src/views/Swap/pages/components/SwapQuoteResult.tsx`
 - `packages/kit/src/views/Swap/components/ProtocolFeeComparisonList.tsx`
+- `packages/shared/src/utils/swapQuoteSortUtils.ts`
 
 Important anchors:
 
@@ -129,14 +133,24 @@ Important anchors:
 - `swapQuoteStreamingCurrentSelectAtom`
 - `swapQuoteCurrentSelectAtom`
 - `hasSwapQuoteSelectableProviderCandidate`
+- `isSwapQuoteCommittedActiveCandidate`
+- `mergeSwapQuoteStreamingEnrichment`
+- `isSwapQuoteActionable`
+- `isSwapActionWaitingAutoSlippage`
+- `isSwapProviderQuoteSelectable`
+- `sortSwapQuotes`
+- `selectBestQuote`
 - `ESwapQuoteCommitPhase`
+- `swapTypeSwitchAction`
 
 Keep manual provider intent, picker readiness, stable display, executable quote,
 transport progress, and provider availability separate. The picker can open
-from an actionable current-request pending candidate; the visible amount and
-`swapQuoteCurrentSelectAtom` remain terminal-committed. Manual intent selected
-while streaming is rebound to the active settled candidate by provider key at
-`done`.
+from an actionable current-request pending candidate. The first such candidate
+also pins `swapQuoteCurrentSelectAtom` and executable state. Review can open
+before `done` after the effective AUTO recommendation (or CUSTOM override) and
+all other safety gates pass. Same-provider streaming only enriches explicitly
+safe non-economic fields; manual intent rebinds by provider key, terminal may
+publish at most one final update, and neither can mutate a frozen Review.
 
 For Stock and other multi-provider quote events, the closest error-settlement
 pattern is `selectSwapCurrentQuote` with
@@ -144,8 +158,14 @@ pattern is `selectSwapCurrentQuote` with
 Track `totalQuoteCountReceived`, `quoteEventCompleted`, actionable `toAmount`,
 manual provider intent, and current event identity separately. An early error
 must not replace a later actionable quote. A Stock quote can make provider
-selection ready before the total-count event arrives, but it cannot make the
-quote executable before settlement.
+selection and Review ready before the total-count event arrives, provided the
+live execution balance and the remaining Stock gates are ready.
+
+`swapQuoteSortUtils.ts` owns provider sort order and badges. Limit availability
+must prefer each candidate quote's `fromAmount`; the UI-level input amount is
+only a compatibility fallback when the candidate omits that field. This is
+required for exact-out BUY as well as SELL and must stay aligned with row-level
+limit/actionability checks.
 
 ## Stock Channel Owners
 
@@ -168,12 +188,16 @@ Important anchors:
 
 These owners keep Stock/pay-token identity, default restoration, amount side,
 market readiness, trade alerts, and analytics distinct from ordinary Swap.
+Every transition into or out of Stock must route through `swapTypeSwitchAction`
+so shared amount, selected balance, and quote execution ownership are revoked
+synchronously before the next surface paints.
 
 ## Stock Display Snapshot And Silent Refresh
 
 - `packages/kit/src/views/Swap/hooks/useSwapStockDisplaySnapshot.ts`
 - `packages/kit/src/views/Swap/hooks/swapStockDisplaySnapshotUtils.ts`
 - `packages/kit/src/views/Swap/hooks/swapStockDisplaySnapshotStorage.ts`
+- `packages/kit/src/hooks/useIdentityScopedSilentRefresh.ts`
 - `packages/kit/src/views/Swap/hooks/useSwapStockTradeInputs.ts`
 - `packages/kit/src/views/Swap/hooks/swapStockExecutionBalanceUtils.ts`
 - `packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.tsx`
@@ -183,26 +207,41 @@ market readiness, trade alerts, and analytics distinct from ordinary Swap.
 Important anchors:
 
 - `resolveSwapStockDisplayAccountKey`
-- `buildSwapStockDisplayIdentityKey`
+- `buildSwapStockDisplayAccountIdentityKey`
+- `buildSwapStockDisplayTokenDetailIdentityKey`
+- `buildSwapStockDisplayBalanceIdentityKey`
+- `buildSwapStockDisplayChartIdentityKey`
+- `buildSwapStockDisplayAmountIdentityKey`
+- `getSwapStockDisplayAccountSnapshot`
 - `getMatchingSwapStockDisplaySnapshot`
 - `mergeSwapStockDisplaySnapshot`
 - `swapStockDisplaySnapshotStorage`
+- `useIdentityScopedSilentRefresh`
+- `isStockAmountInputEditable`
+- `resolveStockAmountInputTokens`
+- `resolveStockAmountDisplayOwnerKey`
+- `resolveStockAmountInputValue`
+- `resolveStockAmountAtomInitialization`
+- `commitStockAmountInputSnapshot`
 - `buildStockExecutionNetworkAccountScope`
 - `buildStockExecutionBalanceScope`
 - `runStockExecutionBalanceRequestWithRetry`
 - `isStockExecutionBalanceScopeReady`
 - `isStockExecutionBalancePublished`
-- `createStockChartStateFromSnapshot`
-- `getStockChartVisibleState`
+- `resolveStockChartControlRange`
+- `getStockChartDisplayState`
 
 The physical store is the dedicated UI-owned
-`onekey_swap_stock_display_snapshot` key. It keeps at most eight account slots;
-each logical display identity is account + stock token + pay token + side +
-currency, while chart range is scoped inside the chart region. Token detail,
-balance, and chart carry independent timestamps and replace independently:
-`RESTORE_MATCH -> LIVE_DETAIL / LIVE_BALANCE / CHART_DONE`. A refresh failure
-retains display data, but cached balance, market state, and chart data never
-become quote/build/execution truth.
+`onekey_swap_stock_display_snapshot` key and keeps at most eight account slots.
+Each region has its own owner: token detail = account + stock + display
+currency; balance = account + live input token; chart = account + stock + fixed
+USD source; amount = account + stock + pay + side; selection = account. The
+generic silent-refresh hook rejects stale owner/request results and retains the
+last-good visible value. Chart `visibleRange` remains distinct from the newer
+`requestedRange`. Cached amount/balance remain display-only. Amount input stays
+disabled until the canonical live Stock owner is ready; Max, percentage,
+balance validation, quote, and Review additionally require the exact current
+execution balance and its matching shared-atom publication.
 
 ## Review And Execution
 
@@ -263,13 +302,15 @@ For disconnected-wallet display, Stock pending counts, and order-backed
 channels, treat visibility filters, local row retention, txid/order id choice,
 and detail-route fallback as separate decisions.
 
-`useShouldShowSwapLocalData` and `shouldShowSwapLocalData` are `main` visibility
-owners. `ServiceSwap` and `SimpleDbEntitySwapHistory` are `bg` read/write
-owners. Recent pairs, pending rows, Swap history, Limit history, and Stock
-history may hide when account-selector readiness is false, but a visibility
-requirement must not call the SimpleDB delete/clean paths.
+`useShouldShowSwapLocalData` and `shouldShowSwapLocalData` are logical UI
+visibility owners. `ServiceSwap` and `SimpleDbEntitySwapHistory` are logical
+service read/write owners. iOS / Android and Extension place those owners in
+separate JS contexts; Desktop / Web keep them in one app JS runtime. Recent
+pairs, pending rows, Swap history, Limit history, and Stock history may hide
+when account-selector readiness is false, but a visibility requirement must not
+call the SimpleDB delete/clean paths.
 
-Protected `main` consumers include:
+Protected logical UI consumers include:
 
 - `packages/kit/src/views/Swap/components/SwapRecentTokenPairsGroup.tsx`
 - `packages/kit/src/views/Swap/pages/components/SwapPendingHistoryList.tsx`

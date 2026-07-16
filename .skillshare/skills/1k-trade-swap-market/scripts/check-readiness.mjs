@@ -10,7 +10,9 @@ import { parse } from 'yaml';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const skillRoot = resolve(scriptDir, '..');
 const repoRoot = resolve(skillRoot, '../../..');
-const reviewedCodeRef = 'efbde7c98190097110fa7acf22116e44fb11c7e9';
+// Keep this full commit aligned with the report, code map, and eval manifest.
+// An unresolved token deliberately fails the readiness gate.
+const reviewedCodeRef = 'f7790b70e249809e38cced3cbc272419f217ac36';
 
 const anchors = [
   [
@@ -25,9 +27,19 @@ const anchors = [
     'packages/kit/src/views/Swap/hooks/useSwapStockTradeInputs.ts',
     [
       'useSwapStockAmountInputState',
+      'isStockAmountInputEditable',
+      'resolveStockAmountInputTokens',
+      'resolveStockAmountDisplayOwnerKey',
+      'resolveStockAmountInputValue',
+      'resolveStockAmountAtomInitialization',
+      'commitStockAmountInputSnapshot',
       'isStockExecutionBalanceScopeReady',
       'isStockExecutionBalancePublished',
     ],
+  ],
+  [
+    'packages/kit/src/hooks/useIdentityScopedSilentRefresh.ts',
+    ['useIdentityScopedSilentRefresh'],
   ],
   [
     'packages/kit/src/views/Swap/hooks/useSwapStockDisplaySnapshot.ts',
@@ -37,7 +49,12 @@ const anchors = [
     'packages/kit/src/views/Swap/hooks/swapStockDisplaySnapshotUtils.ts',
     [
       'resolveSwapStockDisplayAccountKey',
-      'buildSwapStockDisplayIdentityKey',
+      'buildSwapStockDisplayAccountIdentityKey',
+      'buildSwapStockDisplayTokenDetailIdentityKey',
+      'buildSwapStockDisplayBalanceIdentityKey',
+      'buildSwapStockDisplayChartIdentityKey',
+      'buildSwapStockDisplayAmountIdentityKey',
+      'getSwapStockDisplayAccountSnapshot',
       'getMatchingSwapStockDisplaySnapshot',
       'mergeSwapStockDisplaySnapshot',
     ],
@@ -57,8 +74,8 @@ const anchors = [
   [
     'packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.utils.ts',
     [
-      'createStockChartStateFromSnapshot',
-      'getStockChartVisibleState',
+      'resolveStockChartControlRange',
+      'getStockChartDisplayState',
       'shouldShowStockBalanceRetryAction',
     ],
   ],
@@ -69,7 +86,15 @@ const anchors = [
   ['packages/kit/src/views/Swap/hooks/useSwapStockDefaultToken.ts', []],
   [
     'packages/kit/src/states/jotai/contexts/swap/quoteProgress.ts',
-    ['selectSwapCurrentQuote', 'totalQuoteCountReceived'],
+    [
+      'selectSwapCurrentQuote',
+      'totalQuoteCountReceived',
+      'isSwapQuoteActionable',
+    ],
+  ],
+  [
+    'packages/kit/src/states/jotai/contexts/swap/actions.ts',
+    ['swapTypeSwitchAction'],
   ],
   [
     'packages/kit/src/states/jotai/contexts/swap/quoteSessionV2.ts',
@@ -84,8 +109,18 @@ const anchors = [
     'packages/kit/src/states/jotai/contexts/swap/quoteCommittedState.ts',
     [
       'reduceSwapQuoteCommittedState',
+      'mergeSwapQuoteStreamingEnrichment',
+      'isSwapQuoteCommittedActiveCandidate',
       'hasSwapQuoteSelectableProviderCandidate',
     ],
+  ],
+  [
+    'packages/kit/src/views/Swap/hooks/useSwapState.ts',
+    ['isSwapActionWaitingAutoSlippage'],
+  ],
+  [
+    'packages/kit/src/views/Swap/utils/swapProviderQuoteAvailability.ts',
+    ['isSwapProviderQuoteSelectable'],
   ],
   [
     'packages/kit/src/states/jotai/contexts/swap/atoms.ts',
@@ -100,11 +135,16 @@ const anchors = [
     ['providerSelectorTestID', 'onOpenProviderList', 'quoting'],
   ],
   [
+    'packages/shared/src/utils/swapQuoteSortUtils.ts',
+    ['sortSwapQuotes', 'selectBestQuote', 'quote.fromAmount'],
+  ],
+  [
     'packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.tsx',
     [
-      'stockChannel.stockDisplay.snapshot',
-      'createStockChartStateFromSnapshot',
-      'getStockChartVisibleState',
+      'stockChannel.stockDisplay.chart',
+      'useIdentityScopedSilentRefresh',
+      'resolveStockChartControlRange',
+      'getStockChartDisplayState',
       'shouldShowStockBalanceRetryAction',
     ],
   ],
@@ -152,6 +192,7 @@ const anchors = [
 ];
 
 const driftScopes = [
+  'packages/kit/src/hooks/useIdentityScopedSilentRefresh.ts',
   'packages/kit/src/views/Swap',
   'packages/kit/src/states/jotai/contexts/swap',
   'packages/kit/src/views/Receive',
@@ -160,6 +201,7 @@ const driftScopes = [
   'packages/kit-bg/src/services/ServiceSwapQuoteSession.ts',
   'packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapHistory.ts',
   'packages/shared/src/utils/swapHistoryUtils.ts',
+  'packages/shared/src/utils/swapQuoteSortUtils.ts',
   'packages/shared/src/utils/tokenSelectorFilterUtils.ts',
   'packages/shared/src/storage/syncStorageKeys.ts',
   'packages/shared/types/swap',
