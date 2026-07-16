@@ -783,13 +783,17 @@ const BaseDevSettingsSection = () => {
 
   const [devSettingsSearchHistory, setDevSettingsSearchHistory] = useState<
     string[]
-  >(() =>
-    parseDevSettingsSearchHistory(
-      appStorage.syncStorage.getString(
-        EAppSyncStorageKeys.onekey_dev_settings_search_history,
-      ),
-    ),
-  );
+  >(() => {
+    try {
+      return parseDevSettingsSearchHistory(
+        appStorage.syncStorage.getString(
+          EAppSyncStorageKeys.onekey_dev_settings_search_history,
+        ),
+      );
+    } catch {
+      return [];
+    }
+  });
   const devSettingsSearchHistoryRef = useRef(devSettingsSearchHistory);
   const persistDevSettingsSearchHistory = useCallback((next: string[]) => {
     devSettingsSearchHistoryRef.current = next;
