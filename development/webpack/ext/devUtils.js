@@ -6,7 +6,6 @@ const fse = require('fs-extra');
 // const util = require('util');
 const stringify = require('json-stringify-safe');
 const lodash = require('lodash');
-const prettier = require('prettier');
 
 const manifest = require('../../../apps/ext/src/manifest');
 
@@ -58,7 +57,7 @@ function addPluginName(config) {
   config.plugins.forEach(pluginWithName);
 }
 
-function writePreviewWebpackConfigJson(webpackConfig, filename) {
+async function writePreviewWebpackConfigJson(webpackConfig, filename) {
   [].concat(webpackConfig).forEach(addPluginName);
 
   // eslint-disable-next-line no-extend-native
@@ -68,10 +67,9 @@ function writePreviewWebpackConfigJson(webpackConfig, filename) {
     // return `[ Function ${this.name}() ] ${this.toString()} `;
     return `[ Function ${this.name}() ]`;
   };
-  fse.writeFileSync(
-    filename,
-    prettier.format(stringify(webpackConfig), { parser: 'json' }),
-  );
+  const { format } = await import('oxfmt');
+  const { code } = await format(filename, stringify(webpackConfig));
+  fse.writeFileSync(filename, code);
   // fs.writeFileSync(filename, util.inspect(webpackConfig), {
   //   encoding: 'utf-8',
   // });

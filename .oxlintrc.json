@@ -6,7 +6,6 @@
     "eslint-plugin-props-checker",
     "eslint-plugin-ban",
     "eslint-plugin-use-effect-no-deps",
-    "eslint-plugin-prettier",
     { "name": "import-js", "specifier": "eslint-plugin-import" },
     "./development/plugins/eslint-plugin-onekey.js"
   ],
@@ -39,7 +38,6 @@
   },
   "rules": {
     "max-classes-per-file": ["error", 1],
-    "prettier/prettier": ["error"],
     "@cspell/spellchecker": [
       "warn",
       {

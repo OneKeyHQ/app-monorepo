@@ -81,9 +81,8 @@ const jsRules = {
   ],
   'import/no-cycle': 'off',
   'import/prefer-default-export': 'off',
-  // --- Project-specific rules ---
-  // eslint-disable-next-line global-require
-  'prettier/prettier': ['error', require('./.prettierrc.js')],
+  // Formatting is enforced separately by Oxfmt; nightly ESLint must not run Prettier.
+  'prettier/prettier': 'off',
   'no-unused-vars': 'off',
   'no-use-before-define': 'off',
   'no-shadow': 'off',
@@ -320,7 +319,6 @@ module.exports = {
     'ban',
     'unicorn',
     'props-checker',
-    'prettier',
     'react',
     'react-hooks',
     'import',

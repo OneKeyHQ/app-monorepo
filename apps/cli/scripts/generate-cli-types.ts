@@ -13,6 +13,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { format } from 'oxfmt';
+
 // Populate the registry
 import '../src/schemas/register-all';
 import { getSchemaRegistry } from '../src/schemas/registry';
@@ -254,5 +256,13 @@ function generate(): string {
 
 const outPath = path.resolve(__dirname, '..', 'cli-api.d.ts');
 const content = generate();
-fs.writeFileSync(outPath, content, 'utf-8');
-console.log(`Generated ${outPath} (${content.split('\n').length} lines)`);
+
+void format(outPath, content, {
+  printWidth: 80,
+  quoteProps: 'preserve',
+  singleQuote: true,
+  trailingComma: 'all',
+}).then(({ code }) => {
+  fs.writeFileSync(outPath, code, 'utf-8');
+  console.log(`Generated ${outPath} (${code.split('\n').length} lines)`);
+});

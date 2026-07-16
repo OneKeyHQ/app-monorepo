@@ -3,7 +3,6 @@ const fs = require('fs');
 const path = require('path');
 
 const lodash = require('lodash');
-const prettier = require('prettier');
 
 const base = path.resolve(__dirname, './react');
 const dirs = fs.readdirSync(base);
@@ -89,7 +88,14 @@ const extractIconSymbols = (source) => {
   return set;
 };
 
-prettier.format(typesTemplate, { parser: 'typescript' }).then((formatted) => {
+async function buildIcons() {
+  const { format } = await import('oxfmt');
+  const { code: formatted } = await format(iconsFilePath, typesTemplate, {
+    printWidth: 80,
+    quoteProps: 'preserve',
+    singleQuote: true,
+    trailingComma: 'all',
+  });
   fs.writeFileSync(iconsFilePath, formatted, 'utf8');
 
   const committedSource = readCommittedIconsSource();
@@ -126,5 +132,10 @@ prettier.format(typesTemplate, { parser: 'typescript' }).then((formatted) => {
       '',
     ].join('\n'),
   );
+  process.exit(1);
+}
+
+void buildIcons().catch((error) => {
+  console.error(error);
   process.exit(1);
 });
