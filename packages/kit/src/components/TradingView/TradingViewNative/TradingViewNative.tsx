@@ -13,6 +13,12 @@ const DEFAULT_KLINE_INTERVAL = '60';
 const MIN_KLINE_RANGE_SECONDS = 2 * 24 * 60 * 60;
 const MAX_KLINE_RANGE_SECONDS = 5 * 365 * 24 * 60 * 60;
 const MAX_VISIBLE_CANDLES = 160;
+const VOLUME_HEIGHT_RATIO = 0.2;
+const PRICE_VOLUME_GAP_RATIO = 0.04;
+const VOLUME_OPACITY = 0.8;
+const SWITCHING_INTERVAL_OPACITY = 0.8;
+const PRICE_AXIS_WIDTH = 80;
+const PRICE_AXIS_TICK_COUNT = 5;
 const CHART_UP_COLOR = '#30A46C';
 const CHART_DOWN_COLOR = '#E5484D';
 
@@ -28,6 +34,7 @@ const KLINE_INTERVALS: (ITradingViewIntervalOption & {
 ];
 
 interface IChartColors {
+  axisText: string;
   background: string;
   grid: string;
   up: string;
@@ -78,31 +85,57 @@ function drawKLineChart(
   }
 
   const padding = 24;
-  const chartWidth = width - padding * 2;
-  const chartHeight = height - padding * 2;
+  const priceAxisX = width - PRICE_AXIS_WIDTH;
+  const chartWidth = priceAxisX - padding;
+  const contentHeight = height - padding * 2;
+  if (chartWidth <= 0 || contentHeight <= 0) {
+    return;
+  }
+
+  const volumeHeight = contentHeight * VOLUME_HEIGHT_RATIO;
+  const priceChartHeight =
+    contentHeight * (1 - VOLUME_HEIGHT_RATIO - PRICE_VOLUME_GAP_RATIO);
+  const volumeBottom = height - padding;
   let minPrice = Number.POSITIVE_INFINITY;
   let maxPrice = Number.NEGATIVE_INFINITY;
+  let maxVolume = 0;
 
   for (const point of points) {
     minPrice = Math.min(minPrice, point.l);
     maxPrice = Math.max(maxPrice, point.h);
-  }
-
-  context.strokeStyle = colors.grid;
-  context.lineWidth = 1;
-  for (let index = 1; index < 4; index += 1) {
-    const y = padding + (chartHeight * index) / 4;
-    context.beginPath();
-    context.moveTo(padding, y);
-    context.lineTo(width - padding, y);
-    context.stroke();
+    if (Number.isFinite(point.v)) {
+      maxVolume = Math.max(maxVolume, point.v);
+    }
   }
 
   const priceRange = maxPrice - minPrice;
+  context.strokeStyle = colors.grid;
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(priceAxisX, padding);
+  context.lineTo(priceAxisX, padding + priceChartHeight);
+  context.stroke();
+
+  context.fillStyle = colors.axisText;
+  context.font = '11px sans-serif';
+  context.textAlign = 'right';
+  context.textBaseline = 'middle';
+  const priceTickCount = priceRange === 0 ? 1 : PRICE_AXIS_TICK_COUNT;
+  for (let index = 0; index < priceTickCount; index += 1) {
+    const progress = priceTickCount === 1 ? 0.5 : index / (priceTickCount - 1);
+    const y = padding + priceChartHeight * progress;
+    const price = maxPrice - priceRange * progress;
+    context.beginPath();
+    context.moveTo(padding, y);
+    context.lineTo(priceAxisX + 4, y);
+    context.stroke();
+    context.fillText(Number(price.toPrecision(6)).toString(), width - 8, y);
+  }
+
   const toY = (price: number) =>
     priceRange === 0
-      ? height / 2
-      : padding + ((maxPrice - price) / priceRange) * chartHeight;
+      ? padding + priceChartHeight / 2
+      : padding + ((maxPrice - price) / priceRange) * priceChartHeight;
   const candleStep = chartWidth / points.length;
   const candleWidth = Math.max(1, Math.min(candleStep * 0.65, 10));
 
@@ -128,6 +161,18 @@ function drawKLineChart(
       candleWidth,
       Math.max(Math.abs(closeY - openY), 1),
     );
+
+    if (maxVolume > 0 && Number.isFinite(point.v) && point.v > 0) {
+      const volumeBarHeight = Math.max((point.v / maxVolume) * volumeHeight, 1);
+      context.globalAlpha = VOLUME_OPACITY;
+      context.fillRect(
+        x - candleWidth / 2,
+        volumeBottom - volumeBarHeight,
+        candleWidth,
+        volumeBarHeight,
+      );
+      context.globalAlpha = 1;
+    }
   });
 }
 
@@ -139,11 +184,14 @@ export const TradingViewNative = memo(
     nativeControlsLayoutMode,
   }: ITradingViewNativeProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const marketIdentityRef = useRef({ networkId, tokenAddress });
     const [points, setPoints] = useState<IMarketTokenKLineDataPoint[]>([]);
     const [kLineInterval, setKLineInterval] = useState(DEFAULT_KLINE_INTERVAL);
+    const [isSwitchingInterval, setIsSwitchingInterval] = useState(false);
     const theme = useTheme();
     const background = theme.bgApp.val;
     const grid = theme.borderSubdued.val;
+    const axisText = theme.textSubdued.val;
 
     const intervalConfig = useMemo(
       () => ({
@@ -153,15 +201,31 @@ export const TradingViewNative = memo(
       [kLineInterval],
     );
 
-    const handleIntervalChange = useCallback((interval: string) => {
-      if (KLINE_INTERVALS.some((option) => option.value === interval)) {
-        setKLineInterval(interval);
-      }
-    }, []);
+    const handleIntervalChange = useCallback(
+      (interval: string) => {
+        if (
+          interval !== kLineInterval &&
+          KLINE_INTERVALS.some((option) => option.value === interval)
+        ) {
+          setIsSwitchingInterval(true);
+          setKLineInterval(interval);
+        }
+      },
+      [kLineInterval],
+    );
 
     useEffect(() => {
       let isActive = true;
-      setPoints([]);
+      const previousMarketIdentity = marketIdentityRef.current;
+      const hasMarketIdentityChanged =
+        previousMarketIdentity.networkId !== networkId ||
+        previousMarketIdentity.tokenAddress !== tokenAddress;
+      marketIdentityRef.current = { networkId, tokenAddress };
+
+      if (hasMarketIdentityChanged) {
+        setIsSwitchingInterval(false);
+        setPoints([]);
+      }
 
       if (!networkId) {
         return () => {
@@ -197,11 +261,12 @@ export const TradingViewNative = memo(
                 .toSorted((a, b) => a.t - b.t)
                 .slice(-MAX_VISIBLE_CANDLES),
             );
+            setIsSwitchingInterval(false);
           }
         })
         .catch(() => {
           if (isActive) {
-            setPoints([]);
+            setIsSwitchingInterval(false);
           }
         });
 
@@ -218,6 +283,7 @@ export const TradingViewNative = memo(
 
       const renderChart = () => {
         drawKLineChart(canvas, points, {
+          axisText,
           background,
           grid,
           up: CHART_UP_COLOR,
@@ -232,7 +298,7 @@ export const TradingViewNative = memo(
       return () => {
         resizeObserver.disconnect();
       };
-    }, [background, grid, points]);
+    }, [axisText, background, grid, points]);
 
     return (
       <Stack flex={1} w="100%" h="100%" bg="$bgApp">
@@ -241,7 +307,11 @@ export const TradingViewNative = memo(
           layoutMode={nativeControlsLayoutMode}
           onIntervalChange={handleIntervalChange}
         />
-        <Stack flex={1} minHeight={0}>
+        <Stack
+          flex={1}
+          minHeight={0}
+          opacity={isSwitchingInterval ? SWITCHING_INTERVAL_OPACITY : 1}
+        >
           <canvas
             ref={canvasRef}
             data-testid={testID}
