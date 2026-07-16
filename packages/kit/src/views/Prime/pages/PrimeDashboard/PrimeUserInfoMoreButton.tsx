@@ -9,8 +9,10 @@ import {
   IconButton,
   SizableText,
   Stack,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
@@ -85,31 +87,66 @@ function PrimeUserInfoMoreButtonDropDownMenu({
     infiniSubscriptionPromiseRef.current = promise;
     return { subscription: await promise };
   }, [isPrime]);
-  const infiniSubscription = infiniLookup?.subscription;
 
   const handleManageSubscription = useCallback(async () => {
-    let latestInfiniSubscription = infiniLookup?.subscription;
-    if (!infiniLookup) {
-      // The prefetch has not settled yet: await it, but bounded — on web the
-      // fallback openUrlExternal below is window.open, which must run within
-      // the click's transient user activation or the popup blocker silently
-      // eats it. On timeout fall back to the RevenueCat manage url, matching
-      // the pre-Infini behavior.
-      latestInfiniSubscription = await Promise.race([
-        infiniSubscriptionPromiseRef.current ?? Promise.resolve(undefined),
-        timerUtils.wait(INFINI_LOOKUP_CLICK_TIMEOUT_MS).then(() => undefined),
-      ]);
+    // The menu item shows as soon as isPrime is known, so this click handler
+    // may run before the channel routing data (Infini lookup / manage url)
+    // has settled — a loading dialog bridges any wait instead of hiding the
+    // entry until everything is prefetched.
+    let loadingDialog: IDialogInstance | undefined;
+    const showLoadingOnce = () => {
+      loadingDialog =
+        loadingDialog ??
+        Dialog.loading({
+          title: intl.formatMessage({ id: ETranslations.global_preparing }),
+        });
+    };
+    try {
+      let latestInfiniSubscription = infiniLookup?.subscription;
+      if (!infiniLookup) {
+        // The prefetch has not settled yet: await it, but bounded — on web
+        // the fallback openUrlExternal below is window.open, which must run
+        // within the click's transient user activation or the popup blocker
+        // silently eats it. On timeout fall back to the RevenueCat manage
+        // url, matching the pre-Infini behavior.
+        showLoadingOnce();
+        latestInfiniSubscription = await Promise.race([
+          infiniSubscriptionPromiseRef.current ?? Promise.resolve(undefined),
+          timerUtils.wait(INFINI_LOOKUP_CLICK_TIMEOUT_MS).then(() => undefined),
+        ]);
+      }
+      // Infini takes priority while its paid period has not ended, including
+      // canceled-but-not-expired subscriptions (integration plan §5.3(d))
+      if (isInfiniSubscriptionInPeriod(latestInfiniSubscription)) {
+        navigation.push(EPrimePages.PrimeInfiniSubscription);
+        return;
+      }
+      if (subscriptionManageUrl) {
+        openUrlUtils.openUrlExternal(subscriptionManageUrl);
+        return;
+      }
+      // Neither channel resolved (e.g. the manage url has not been synced
+      // yet): refresh the user info once (deduped/TTL-cached in bg) and
+      // retry the server-provided manage url. This path may exceed the web
+      // popup-activation window in the worst case; acceptable for a rare
+      // fallback that previously had no entry at all.
+      showLoadingOnce();
+      const freshManageUrl = await backgroundApiProxy.servicePrime
+        .apiFetchPrimeUserInfo()
+        .then(({ userInfo }) => userInfo.subscriptionManageUrl)
+        .catch(() => undefined);
+      if (freshManageUrl) {
+        openUrlUtils.openUrlExternal(freshManageUrl);
+        return;
+      }
+      Toast.error({
+        // TODO: i18n pending translation key
+        title: 'Unable to open subscription management, please try again',
+      });
+    } finally {
+      void loadingDialog?.close();
     }
-    // Infini takes priority while its paid period has not ended, including
-    // canceled-but-not-expired subscriptions (integration plan §5.3(d))
-    if (isInfiniSubscriptionInPeriod(latestInfiniSubscription)) {
-      navigation.push(EPrimePages.PrimeInfiniSubscription);
-      return;
-    }
-    if (subscriptionManageUrl) {
-      openUrlUtils.openUrlExternal(subscriptionManageUrl);
-    }
-  }, [infiniLookup, navigation, subscriptionManageUrl]);
+  }, [infiniLookup, intl, navigation, subscriptionManageUrl]);
 
   const refreshUserInfo = useCallback(async () => {
     void getCustomerInfo();
@@ -177,12 +214,13 @@ function PrimeUserInfoMoreButtonDropDownMenu({
     <>
       {userInfoView}
 
-      {/*
-       Sometimes, the local payment is successful (for example, sandbox payment), but the server status is incorrect, so even if the subscriptionManageUrl exists, you need to expose the management subscription entry to allow the user to cancel the subscription
-      */}
-      {isPrime &&
-      (subscriptionManageUrl ||
-        isInfiniSubscriptionInPeriod(infiniSubscription)) ? (
+      {/* Shown for every Prime user immediately — waiting for the channel
+       routing data (Infini lookup / RevenueCat manage url) made the item pop
+       in noticeably late. The click handler resolves the destination behind
+       a loading dialog instead, and falls back to a refresh + toast when
+       neither channel resolves (e.g. sandbox payment succeeded locally but
+       the server state lags). */}
+      {isPrime ? (
         <ActionList.Item
           label={intl.formatMessage({
             id: ETranslations.prime_manage_subscription,
