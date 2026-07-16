@@ -10053,6 +10053,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    adm-zip: "npm:0.5.17"
     rimraf: "npm:3.0.2"
   languageName: unknown
   linkType: soft

@@ -96,6 +96,7 @@ import {
   buildSwapStockMetadataKey,
   buildSwapStockSelectableNetworks,
   buildSwapTokenSelectorDisableNetworks,
+  buildSwapTokenSelectorNetworkView,
   getSwapStockTokenDisplayName,
   isSwapStockMetadataPending,
   isSwapStockTokenSearchMatch,
@@ -737,12 +738,19 @@ const SwapTokenSelectPage = ({
   }, [getClipboard]);
 
   const disableNetworksOnClick = useCallback(() => {
+    // STOCK keeps the legacy copy until stock-specific copy is defined
+    let disabledNetworkTipId = ETranslations.swap_toast_bridge_tip;
+    if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
+      disabledNetworkTipId = ETranslations.trade_swap_network_only_cross;
+    } else if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+      disabledNetworkTipId = ETranslations.trade_limit_network_only_swap;
+    }
     Toast.message({
       title: intl.formatMessage({
-        id: ETranslations.swap_toast_bridge_tip,
+        id: disabledNetworkTipId,
       }),
     });
-  }, [intl]);
+  }, [intl, swapTypeSwitch]);
 
   const disableNetworks = useMemo(() => {
     return buildSwapTokenSelectorDisableNetworks({
@@ -922,49 +930,26 @@ const SwapTokenSelectPage = ({
     ],
   );
 
-  const disableMoreNetworks = useMemo(() => {
-    let res = false;
-    const liveNetworksCount =
-      swapNetworksIncludeAllNetwork.length - disableNetworks.length;
-    if (md) {
-      if (liveNetworksCount <= swapNetworksCommonCountMD) {
-        res = true;
-      }
-    } else if (liveNetworksCount <= swapNetworksCommonCount) {
-      res = true;
-    }
-    return res;
-  }, [disableNetworks.length, md, swapNetworksIncludeAllNetwork.length]);
-
   const networkFilterData = useMemo(() => {
-    let swapNetworksCommon: ISwapNetwork[] = [];
-    let swapNetworksMoreCount;
-    if (swapNetworksIncludeAllNetwork && swapNetworksIncludeAllNetwork.length) {
-      if (md) {
-        swapNetworksCommon =
-          swapNetworksIncludeAllNetwork.length > swapNetworksCommonCountMD
-            ? swapNetworksIncludeAllNetwork.slice(0, swapNetworksCommonCountMD)
-            : swapNetworksIncludeAllNetwork;
-        swapNetworksMoreCount =
-          swapNetworksIncludeAllNetwork.length - swapNetworksCommonCountMD > 0
-            ? swapNetworksIncludeAllNetwork.length - swapNetworksCommonCountMD
-            : undefined;
-      } else {
-        swapNetworksCommon =
-          swapNetworksIncludeAllNetwork.length > swapNetworksCommonCount
-            ? swapNetworksIncludeAllNetwork.slice(0, swapNetworksCommonCount)
-            : swapNetworksIncludeAllNetwork;
-        swapNetworksMoreCount =
-          swapNetworksIncludeAllNetwork.length - swapNetworksCommonCount > 0
-            ? swapNetworksIncludeAllNetwork.length - swapNetworksCommonCount
-            : undefined;
-      }
-    }
-    return {
-      swapNetworksCommon,
-      swapNetworksMoreCount,
-    };
-  }, [md, swapNetworksIncludeAllNetwork]);
+    return buildSwapTokenSelectorNetworkView({
+      type,
+      swapTypeSwitch,
+      isSwapStockSelectTarget,
+      fromToken,
+      toToken,
+      swapNetworksIncludeAllNetwork,
+    });
+  }, [
+    fromToken,
+    isSwapStockSelectTarget,
+    swapNetworksIncludeAllNetwork,
+    swapTypeSwitch,
+    toToken,
+    type,
+  ]);
+  const sameChainBadgeText = intl.formatMessage({
+    id: ETranslations.trade_token_same_chain,
+  });
 
   const openChainSelector = useConfigurableChainSelector();
   const { bottom } = useSafeAreaInsets();
@@ -1070,10 +1055,24 @@ const SwapTokenSelectPage = ({
           onMoreNetwork={() => {
             openChainSelector({
               defaultNetworkId: currentSelectNetwork?.networkId,
-              networkIds: swapAllSupportNetworks
+              networkIds: [
+                ...(networkFilterData.sameChainNetwork
+                  ? [networkFilterData.sameChainNetwork]
+                  : []),
+                ...networkFilterData.networks,
+              ]
                 .filter((item) => !item.isAllNetworks)
-                .filter((item) => !disableNetworks.includes(item.networkId))
                 .map((item) => item.networkId),
+              disableNetworkIds: disableNetworks,
+              featuredNetwork: networkFilterData.sameChainNetwork
+                ? {
+                    networkId: networkFilterData.sameChainNetwork.networkId,
+                    badgeText: sameChainBadgeText,
+                    disabled: disableNetworks.includes(
+                      networkFilterData.sameChainNetwork.networkId,
+                    ),
+                  }
+                : undefined,
               grouped: false,
               onSelect: (network) => {
                 if (!network) return;
@@ -1086,11 +1085,17 @@ const SwapTokenSelectPage = ({
               },
             });
           }}
-          networks={networkFilterData.swapNetworksCommon}
-          moreNetworksCount={networkFilterData.swapNetworksMoreCount}
+          networks={networkFilterData.networks}
+          sameChainNetwork={networkFilterData.sameChainNetwork}
+          sameChainBadgeText={sameChainBadgeText}
+          maxVisibleNetworks={
+            md
+              ? swapNetworksCommonCountMD -
+                (networkFilterData.sameChainNetwork ? 1 : 0)
+              : swapNetworksCommonCount
+          }
           selectedNetwork={currentSelectNetwork}
           disableNetworks={disableNetworks}
-          disableMoreNetworks={disableMoreNetworks}
           onSelectNetwork={onSelectCurrentNetwork}
           onDisableNetworksClick={disableNetworksOnClick}
         />

@@ -733,6 +733,28 @@ class ServicePrime extends ServiceBase {
         throw new OneKeyLocalError('apiOAuthLogin ERROR: Invalid accessToken');
       }
 
+      // Fail fast when the shared keyless session slot is empty: the login
+      // POST below would succeed on the server while the local commit
+      // (commitAuthSessionSourceBeforeAtomUpdate) is guaranteed to fail with
+      // "Active auth token not found" — leaving the server logged in and the
+      // client rolled back to logged-out. An empty slot here means the
+      // UI-side persistence failed (persistKeylessOAuthSession) or was
+      // skipped; surface that BEFORE any server-side state changes. Local
+      // storage read only — no network, safe under loginMutex.
+      const persistedKeylessAccessToken =
+        await readPersistedAccessTokenBySessionSource(
+          EPrimeAuthSessionSource.KeylessOAuth,
+        );
+      if (!persistedKeylessAccessToken) {
+        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+          reason:
+            'ServicePrime.apiOAuthLogin: keyless session slot is empty, skip server login',
+        });
+        throw new OneKeyLocalError(
+          'apiOAuthLogin ERROR: Keyless OAuth session is not persisted locally',
+        );
+      }
+
       // Invalidation site (OAuth login): same as apiLogin — drop any
       // pre-login cached user info before the session changes.
       this.clearPrimeUserInfoCache();
@@ -771,7 +793,21 @@ class ServicePrime extends ServiceBase {
           loginResponse: data,
         });
       });
-      await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      // Best-effort hygiene: the login is already committed atomically
+      // above, so a failure here (e.g. transient storage error while
+      // clearing the legacy slot) must not reject the whole login — the UI
+      // would tear down the just-validated OAuth session and show a login
+      // failure for a login that succeeded. Leftovers are re-cleaned by the
+      // next login/bind/logout.
+      try {
+        await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      } catch (cleanupError) {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason: `ServicePrime.apiOAuthLogin: post-commit legacy session cleanup failed: ${String(
+            cleanupError,
+          )}`,
+        });
+      }
       await this.cleanupLegacyKeylessSessionStorage({
         callerName: 'ServicePrime.apiOAuthLogin',
       });
@@ -1023,7 +1059,21 @@ class ServicePrime extends ServiceBase {
           onekeyAccount: data.onekeyAccount,
         });
       });
-      await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      // Best-effort hygiene (same commit boundary as apiOAuthLogin): the
+      // bind is already committed atomically above, so a failure while
+      // clearing the legacy slot must not reject the whole bind — the UI
+      // catch would clear the just-persisted keyless OAuth session for a
+      // bind that succeeded on the server. Leftovers are re-cleaned by the
+      // next login/bind/logout.
+      try {
+        await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      } catch (cleanupError) {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason: `ServicePrime.apiBindLegacyOneKeyIdOAuth: post-commit legacy session cleanup failed: ${String(
+            cleanupError,
+          )}`,
+        });
+      }
       await this.cleanupLegacyKeylessSessionStorage({
         callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
       });
@@ -1566,7 +1616,7 @@ class ServicePrime extends ServiceBase {
         ...v,
         avatar: serverUserInfo?.avatar,
         nickname: serverUserInfo?.nickname,
-        email: userEmail, // TODO update from PrimeGlobalEffect
+        email: userEmail,
         displayEmail,
         onekeyUserId: serverUserId,
         onekeyAccount:
