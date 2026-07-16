@@ -61,7 +61,7 @@ describe('distributePercents (largest-remainder method)', () => {
       [1, 2, 3, 4, 5, 6, 7],
       [0.1, 0.2, 0.3],
       [99, 1],
-      [16.666666, 16.666666, 16.666666, 16.666666, 16.666666, 16.666666],
+      [16.666_666, 16.666_666, 16.666_666, 16.666_666, 16.666_666, 16.666_666],
     ];
     for (const c of cases) {
       const out = distributePercents(c);

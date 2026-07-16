@@ -11,10 +11,10 @@ type ILetterAvatarProps = {
   size?: IStackProps['width'];
 } & IStackProps;
 
-const a = -19.7066004937894;
-const b = 4.22374087403456;
-const c = -0.118638455363439;
-const d = 0.00138657758442369;
+const a = -19.706_600_493_789_4;
+const b = 4.223_740_874_034_56;
+const c = -0.118_638_455_363_439;
+const d = 0.001_386_577_584_423_69;
 
 // uses a cubic polynomial (ax³ + bx² + cx + d) to calculate the lineHeight based on the input size
 //  where data from packages/components/tamagui.config.ts.

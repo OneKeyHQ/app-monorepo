@@ -70,6 +70,9 @@ jobs:
           set -e
           exit "$status"
 
+      - name: Verify generated icons are up to date
+        run: yarn workspace @onekeyhq/components icon:check
+
       - name: Upload lint AI diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

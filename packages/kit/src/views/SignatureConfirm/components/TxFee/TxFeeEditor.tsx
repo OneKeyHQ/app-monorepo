@@ -93,7 +93,7 @@ const DEFAULT_FEER_ATE_MIN = 0;
 const DEFAULT_FEE_RATE_MAX = 1_000_000; // shared cross multi-networks
 
 // TODO: 最好提取至settings.ts
-const BENFEN_MIN_GAS_PRICE = 0.0000001;
+const BENFEN_MIN_GAS_PRICE = 0.000_000_1;
 const BENFEN_MIN_GAS_BUDGET = 100_000;
 
 const getPresetIndex = (

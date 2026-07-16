@@ -67,26 +67,26 @@ const fixtures = {
     ],
   },
   MEME: {
-    price: 0.002699,
+    price: 0.002_699,
     decimals: 6,
     options: [
-      { targetTick: 0.000001, nSigFigs: 4, mantissa: null },
-      { targetTick: 0.00001, nSigFigs: 3, mantissa: null },
+      { targetTick: 0.000_001, nSigFigs: 4, mantissa: null },
+      { targetTick: 0.000_01, nSigFigs: 3, mantissa: null },
       { targetTick: 0.0001, nSigFigs: 2, mantissa: null },
     ],
   },
   HMSTR: {
-    price: 0.000749,
+    price: 0.000_749,
     decimals: 6,
     options: [
-      { targetTick: 0.000001, nSigFigs: 3, mantissa: null },
-      { targetTick: 0.00001, nSigFigs: 2, mantissa: null },
+      { targetTick: 0.000_001, nSigFigs: 3, mantissa: null },
+      { targetTick: 0.000_01, nSigFigs: 2, mantissa: null },
     ],
   },
   FLY: {
-    price: 0.000009,
+    price: 0.000_009,
     decimals: 6,
-    options: [{ targetTick: 0.0000001, nSigFigs: 2, mantissa: null }],
+    options: [{ targetTick: 0.000_000_1, nSigFigs: 2, mantissa: null }],
   },
 };
 

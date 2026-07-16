@@ -1,3 +1,5 @@
+// Derived from webpack-retry-chunk-load-plugin v3.1.1.
+// See RetryChunkLoadWebpackPlugin.LICENSE for the upstream MIT license.
 const { RuntimeGlobals } = require('webpack');
 
 const PLUGIN_NAME = 'RetryChunkLoadWebpackPlugin';

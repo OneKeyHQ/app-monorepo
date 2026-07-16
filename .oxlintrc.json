@@ -332,7 +332,14 @@
     // ============================================
     // Unicorn rules (matching ESLint config)
     // ============================================
-    "unicorn/numeric-separators-style": "error",
+    "unicorn/numeric-separators-style": [
+      "error",
+      {
+        "number": {
+          "fractionGroupLength": 3
+        }
+      }
+    ],
 
     // ============================================
     // Import rules
