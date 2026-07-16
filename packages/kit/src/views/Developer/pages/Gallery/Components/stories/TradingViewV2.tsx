@@ -14,6 +14,12 @@ import {
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import {
+  TradingViewChartSettings,
+  TradingViewIndicatorSettings,
+  createTradingViewChartSettingsValue,
+  createTradingViewIndicatorSettingsValue,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/chartSettings';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -68,6 +74,18 @@ const DEFAULT_DISABLED_FEATURES = ALL_DISABLED_FEATURES.filter(
 );
 const DEFAULT_STORAGE_NAMESPACE = 'tradingview-v2-demo';
 
+function TradingViewChartSettingsGalleryExample() {
+  const [value, setValue] = useState(createTradingViewChartSettingsValue);
+
+  return <TradingViewChartSettings value={value} onConfirm={setValue} />;
+}
+
+function TradingViewIndicatorSettingsGalleryExample() {
+  const [value, setValue] = useState(createTradingViewIndicatorSettingsValue);
+
+  return <TradingViewIndicatorSettings value={value} onConfirm={setValue} />;
+}
+
 const TradingViewV2Gallery = () => {
   const [disabledFeatures, setDisabledFeatures] = useState<
     ITradingViewDisabledFeature[]
@@ -111,6 +129,14 @@ const TradingViewV2Gallery = () => {
         getFilePath={() => __CURRENT_FILE_PATH__}
         componentName="TradingViewV2"
         elements={[
+          {
+            title: 'OKX-style chart settings UI mock',
+            element: <TradingViewChartSettingsGalleryExample />,
+          },
+          {
+            title: 'OKX-style indicator settings UI mock',
+            element: <TradingViewIndicatorSettingsGalleryExample />,
+          },
           {
             title: 'Market USDC',
             element: (

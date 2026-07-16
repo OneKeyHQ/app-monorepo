@@ -117,6 +117,23 @@ export const GOOGLE_OAUTH_DEFAULT_SCOPES = [
 
 export const EXTENSION_OAUTH_USE_PKCE_FLOW = true;
 
+// Extension OneKey ID auth expand-tab handoff.
+// chrome.identity.launchWebAuthFlow opens a separate auth window that steals
+// focus, and the extension action popup is destroyed by Chrome as soon as it
+// loses focus — killing the pending OAuth flow (temporary Supabase client,
+// PKCE code exchange, session persistence, api login) with it. OneKey ID
+// OAuth flows started from the action popup must therefore be redirected to
+// the expand tab first (side panel and standalone window survive focus loss
+// and run the flow in place). These URL params tell the expand tab which
+// flow to auto-resume on mount.
+export const EXT_ONEKEY_ID_AUTH_FLOW_PARAM = 'oneKeyIdAuthFlow';
+export const EXT_ONEKEY_ID_AUTH_TO_PAGE_PARAM = 'oneKeyIdAuthToPageOnSuccess';
+
+export enum EExtOneKeyIdAuthFlow {
+  Login = 'login',
+  LegacyOAuthBind = 'legacyOAuthBind',
+}
+
 // Apple Sign-In nonce support
 // When enabled, a nonce will be generated and passed to Apple Sign-In for replay attack protection
 // Reference: https://developer.apple.com/documentation/authenticationservices/asauthorizationopenidrequest/nonce

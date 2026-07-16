@@ -1,6 +1,6 @@
 ---
 name: 1k-coding-patterns
-description: Coding patterns and best practices — React components, promise handling, and TypeScript conventions.
+description: OneKey coding patterns for TypeScript, React, promises, date formatting, and error handling.
 allowed-tools: Read, Grep, Glob, Write, Edit
 ---
 
@@ -13,6 +13,8 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 | Promise handling | [promise-handling.md](references/rules/promise-handling.md) | Always await or use `void`, never floating promises |
 | React components | [react-components.md](references/rules/react-components.md) | Named imports, functional components, no FC type |
 | Restricted patterns | [restricted-patterns.md](references/rules/restricted-patterns.md) | Forbidden: `toLocaleLowerCase`, direct hd-core import |
+| Date formatting | [date-formatting.md](references/date-formatting.md) | Use OneKey `dateUtils`, not native date formatting |
+| Error handling | [error-handling.md](references/error-handling.md) | Preserve errors across RPC/runtime boundaries |
 
 ## Critical Rules Summary
 
@@ -56,12 +58,9 @@ import { localDb } from '...';
 
 ## Related Skills
 
-- `/1k-date-formatting` - Date and time formatting
 - `/1k-i18n` - Internationalization and translations
-- `/1k-error-handling` - Error handling patterns
 - `/1k-cross-platform` - Platform-specific code
 - `/1k-code-quality` - Linting and code quality
 - `/1k-performance` - Performance optimization
 - `/1k-state-management` - Jotai atom patterns
 - `/1k-architecture` - Project structure and import rules
-- `/1k-code-quality` - Lint fixes, pre-commit tasks

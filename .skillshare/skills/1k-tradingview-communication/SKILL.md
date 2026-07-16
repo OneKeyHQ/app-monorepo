@@ -1,6 +1,6 @@
 ---
 name: 1k-tradingview-communication
-description: OneKey TradingView app bridge guide. Use when changing or debugging TradingView/WebView/iframe communication, chart URL params, kline/history/realtime messages, marks, Hyperliquid price scale, Perps SYMBOL_CHANGE, chart lines, order draft/cancel/drag-amend messages, FORCE_RECOVER_WS, or tradingview_* methods between the app repo and the chart repo. 适用于 TradingView 通信、图表 WebView 通信、K 线、perps 线、marks、消息桥排查。
+description: OneKey TradingView bridge communication for WebView/iframe messages, K-line data, marks, Perps symbols/lines, order events, and websocket recovery.
 allowed-tools: Read, Grep, Glob
 ---
 
