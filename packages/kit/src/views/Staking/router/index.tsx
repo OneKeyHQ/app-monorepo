@@ -110,6 +110,7 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.ManagePosition,
     component: ManagePosition,
+    allowColdStart: true,
     exact: true,
   },
   {

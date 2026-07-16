@@ -17,5 +17,6 @@ export const TestModalRouter: IModalFlowNavigatorConfig<
   {
     name: ETestModalPages.TestSimpleModal,
     component: TestSimpleModal,
+    allowColdStart: true,
   },
 ];
