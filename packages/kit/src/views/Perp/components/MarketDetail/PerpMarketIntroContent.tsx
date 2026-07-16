@@ -126,17 +126,23 @@ function IntroInfoItem({
 
   return (
     <YStack flex={1} flexBasis={0} minWidth={0} gap="$1">
-      <DashText
-        size="$bodyMd"
-        color="$textSubdued"
-        dashColor={tooltip ? '$borderStrong' : '$transparent'}
-        dashThickness={0.5}
-        tooltip={tooltip}
-        tooltipTitle={label}
-        numberOfLines={1}
-      >
-        {label}
-      </DashText>
+      {tooltip ? (
+        <DashText
+          size="$bodyMd"
+          color="$textSubdued"
+          dashColor="$borderStrong"
+          dashThickness={0.5}
+          tooltip={tooltip}
+          tooltipTitle={label}
+          numberOfLines={1}
+        >
+          {label}
+        </DashText>
+      ) : (
+        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+          {label}
+        </SizableText>
+      )}
       <SizableText size="$headingSm" numberOfLines={1}>
         {value}
       </SizableText>
@@ -165,23 +171,31 @@ function IntroInfoRows({
     }>
   >;
 }) {
+  const visibleRows = rows.filter((row) =>
+    row.some((item) => item.value && item.value !== '--'),
+  );
+
   return (
     <YStack gap="$4">
-      {rows.map((row) => (
+      {visibleRows.map((row) => (
         <XStack
           key={row[0]?.label}
           gap={INTRO_INFO_COLUMN_GAP}
           justifyContent="space-between"
           alignItems="flex-start"
         >
-          {row.map((item) => (
-            <IntroInfoItem
-              key={item.label}
-              label={item.label}
-              value={item.value}
-              tooltip={item.tooltip}
-            />
-          ))}
+          {row.map((item) =>
+            item.value && item.value !== '--' ? (
+              <IntroInfoItem
+                key={item.label}
+                label={item.label}
+                value={item.value}
+                tooltip={item.tooltip}
+              />
+            ) : (
+              <YStack key={item.label} flex={1} flexBasis={0} />
+            ),
+          )}
           {row.length === 1 ? <YStack flex={1} flexBasis={0} /> : null}
         </XStack>
       ))}

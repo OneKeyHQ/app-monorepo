@@ -291,16 +291,22 @@ function DetailInfoTable({
           gap="$4"
         >
           <XStack flex={1} minWidth={0}>
-            <DashText
-              size="$bodyMd"
-              color="$textSubdued"
-              dashColor={item.tooltip ? '$borderStrong' : '$transparent'}
-              dashThickness={0.5}
-              tooltip={item.tooltip}
-              tooltipTitle={item.label}
-            >
-              {item.label}
-            </DashText>
+            {item.tooltip ? (
+              <DashText
+                size="$bodyMd"
+                color="$textSubdued"
+                dashColor="$borderStrong"
+                dashThickness={0.5}
+                tooltip={item.tooltip}
+                tooltipTitle={item.label}
+              >
+                {item.label}
+              </DashText>
+            ) : (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {item.label}
+              </SizableText>
+            )}
           </XStack>
           <YStack flex={1} alignItems="flex-end" minWidth={0} gap="$0.5">
             <SizableText
