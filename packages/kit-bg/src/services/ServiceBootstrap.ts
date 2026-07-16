@@ -8,6 +8,8 @@ import localDb from '../dbs/local/localDb';
 
 import ServiceBase from './ServiceBase';
 
+const WALLET_PROFILE_ANALYTICS_IDLE_DELAY_MS = 30 * 1000;
+
 @backgroundClass()
 class ServiceBootstrap extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -139,9 +141,16 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('serviceContextMenu.init', () =>
         this.backgroundApi.serviceContextMenu.init(),
       ),
-      timedDeferred('serviceDevSetting.initAnalytics', () =>
-        this.backgroundApi.serviceDevSetting.initAnalytics(),
-      ),
+      timedDeferred('serviceDevSetting.initAnalytics', async () => {
+        await this.backgroundApi.serviceDevSetting.initAnalytics();
+        setTimeout(() => {
+          void timedDeferred(
+            'serviceAccount.reportWalletProfileAnalyticsIfNeeded',
+            () =>
+              this.backgroundApi.serviceAccount.reportWalletProfileAnalyticsIfNeeded(),
+          );
+        }, WALLET_PROFILE_ANALYTICS_IDLE_DELAY_MS);
+      }),
       // ext MV3 only: re-warm providers of already-connected dapps after a
       // service-worker restart so notifyDApp* can reach them. Native/desktop
       // rebuild their webviews on restart (dapp reconnects), so no warmup

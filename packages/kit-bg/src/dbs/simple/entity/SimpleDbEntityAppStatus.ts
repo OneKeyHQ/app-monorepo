@@ -28,6 +28,7 @@ export interface ISimpleDBAppStatus {
   fixHardwareLtcXPubMigrated?: boolean;
   btcFreshAddressSettingMigrated?: boolean;
   removeDeviceHomeScreenMigrated?: boolean;
+  lastWalletProfileAnalyticsAt?: number;
   walletAssetStatusAnalytics?: IWalletAssetStatusAnalyticsState;
   // OneKey IDs (onekeyUserId) that have already seen the KYT intro dialog.
   // Scoped per Prime user so each account is prompted once.
