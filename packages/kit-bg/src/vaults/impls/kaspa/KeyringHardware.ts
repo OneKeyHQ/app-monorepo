@@ -1,3 +1,4 @@
+// cspell:ignore PAYTOCHANGE
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Transaction } from '@onekeyfe/kaspa-core-lib';
 
@@ -32,6 +33,8 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
+import type Vault from './Vault';
+import type { IKaspaRefTransaction } from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,
@@ -40,8 +43,6 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type Vault from './Vault';
-import type { IKaspaRefTransaction } from './Vault';
 import type {
   AllNetworkAddressParams,
   KaspaSignTransactionParams,
