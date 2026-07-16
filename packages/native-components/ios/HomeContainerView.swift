@@ -38,6 +38,31 @@ private extension UIImage {
 }
 
 private enum HomeContainerIcons {
+  static let plusSmall: UIImage = {
+    let size: CGFloat = 18
+    let scale = size / 24
+    let path = UIBezierPath()
+    path.move(to: CGPoint(x: 13 * scale, y: 11 * scale))
+    path.addLine(to: CGPoint(x: 18 * scale, y: 11 * scale))
+    path.addLine(to: CGPoint(x: 18 * scale, y: 13 * scale))
+    path.addLine(to: CGPoint(x: 13 * scale, y: 13 * scale))
+    path.addLine(to: CGPoint(x: 13 * scale, y: 18 * scale))
+    path.addLine(to: CGPoint(x: 11 * scale, y: 18 * scale))
+    path.addLine(to: CGPoint(x: 11 * scale, y: 13 * scale))
+    path.addLine(to: CGPoint(x: 6 * scale, y: 13 * scale))
+    path.addLine(to: CGPoint(x: 6 * scale, y: 11 * scale))
+    path.addLine(to: CGPoint(x: 11 * scale, y: 11 * scale))
+    path.addLine(to: CGPoint(x: 11 * scale, y: 6 * scale))
+    path.addLine(to: CGPoint(x: 13 * scale, y: 6 * scale))
+    path.close()
+
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
+    return renderer.image { _ in
+      UIColor.black.setFill()
+      path.fill()
+    }.withRenderingMode(.alwaysTemplate)
+  }()
+
   static let crossedSmall: UIImage = {
     let size: CGFloat = 20
     let scale = size / 24
@@ -2317,10 +2342,7 @@ private final class HomeContainerSectionTitleCell: UITableViewCell {
     )
     actionButton.setImage(
       isMarketRecommendation
-        ? UIImage(
-            systemName: "plus",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .regular)
-          )
+        ? HomeContainerIcons.plusSmall
         : nil,
       for: .normal
     )

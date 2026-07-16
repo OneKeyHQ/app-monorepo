@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -45,6 +45,19 @@ function getNativeHomeMarketTokenKey(token: IFavoriteTokenDisplay): string {
   return token.perpsCoin
     ? `perps:${token.perpsCoin}`
     : `${token.chainId}:${token.contractAddress}`;
+}
+
+function getNativeHomeWatchListContentKey(
+  items: IMarketWatchListItemV2[],
+): string {
+  return items
+    .map(
+      (item) =>
+        `${item.perpsCoin ?? ''}:${item.chainId}:${item.contractAddress}:${
+          item.sortIndex ?? ''
+        }`,
+    )
+    .join('|');
 }
 
 export interface INativeHomeMarketCategory {
@@ -280,14 +293,7 @@ export function useNativeHomeSupplementalData({
         : EMPTY_WATCH_LIST_ITEMS,
     [hasCurrentWatchList, watchList.result?.items],
   );
-  const watchListContentKey = watchListItems
-    .map(
-      (item) =>
-        `${item.perpsCoin ?? ''}:${item.chainId}:${item.contractAddress}:${
-          item.sortIndex ?? ''
-        }`,
-    )
-    .join('|');
+  const watchListContentKey = getNativeHomeWatchListContentKey(watchListItems);
   const favoriteRequestKey = `favorites:${
     hasCurrentWatchList ? watchListContentKey : 'loading'
   }`;
@@ -421,6 +427,7 @@ export function useNativeHomeSupplementalData({
       ),
     [market, selectedMarketRecommendationTokenIds],
   );
+  const addRecommendedMarketTokensInFlightRef = useRef(false);
   const marketNetworkIds = useMemo(
     () =>
       Array.from(
@@ -555,32 +562,73 @@ export function useNativeHomeSupplementalData({
   );
 
   const addRecommendedMarketTokens = useCallback(async () => {
+    if (addRecommendedMarketTokensInFlightRef.current) return false;
     if (!marketIsRecommendation || market.length === 0) return false;
     const recommendedTokens = selectedMarketRecommendationTokens.filter(
       (token) => !token.perpsCoin,
     );
     if (recommendedTokens.length === 0) return false;
-    await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
-      watchList: recommendedTokens.map((token, index) => ({
-        chainId: token.chainId,
-        contractAddress: token.contractAddress,
-        isNative: token.isNative,
-        sortIndex: 1000 - (index + 1),
-      })),
-      callerName: 'NativeHomePage',
-    });
-    recommendedTokens.forEach((token) => {
-      defaultLogger.dex.watchlist.dexAddToWatchlist({
-        network: token.chainId,
-        tokenSymbol: token.symbol || '',
-        tokenContract: token.contractAddress,
-        addFrom: EWatchlistFrom.Recommend,
+
+    addRecommendedMarketTokensInFlightRef.current = true;
+    try {
+      await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+        watchList: recommendedTokens.map((token, index) => ({
+          chainId: token.chainId,
+          contractAddress: token.contractAddress,
+          isNative: token.isNative,
+          sortIndex: 1000 - (index + 1),
+        })),
+        callerName: 'NativeHomePage',
       });
-    });
-    appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
-    await watchList.run();
-    return true;
+      recommendedTokens.forEach((token) => {
+        defaultLogger.dex.watchlist.dexAddToWatchlist({
+          network: token.chainId,
+          tokenSymbol: token.symbol || '',
+          tokenContract: token.contractAddress,
+          addFrom: EWatchlistFrom.Recommend,
+        });
+      });
+
+      const refreshedWatchList =
+        await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
+      const refreshedContentKey = getNativeHomeWatchListContentKey(
+        refreshedWatchList.data,
+      );
+      const optimisticTokens = refreshedWatchList.data
+        .slice(0, 3)
+        .map((item) =>
+          recommendedTokens.find((token) =>
+            equalTokenNoCaseSensitive({
+              token1: {
+                networkId: item.chainId,
+                contractAddress: item.contractAddress,
+              },
+              token2: {
+                networkId: token.chainId,
+                contractAddress: token.contractAddress,
+              },
+            }),
+          ),
+        )
+        .filter((token): token is IFavoriteTokenDisplay => Boolean(token));
+
+      watchList.setResult({
+        requestKey: watchListRequestKey,
+        items: refreshedWatchList.data,
+      });
+      favoriteMarket.setResult({
+        isRecommendation: false,
+        requestKey: `favorites:${refreshedContentKey}`,
+        total: refreshedWatchList.data.length,
+        tokens: optimisticTokens,
+      });
+      appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
+      return true;
+    } finally {
+      addRecommendedMarketTokensInFlightRef.current = false;
+    }
   }, [
+    favoriteMarket,
     market.length,
     marketIsRecommendation,
     selectedMarketRecommendationTokens,
