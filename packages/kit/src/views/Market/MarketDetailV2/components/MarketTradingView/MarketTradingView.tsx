@@ -1,9 +1,7 @@
 import { type ReactNode, memo, useCallback } from 'react';
 
-import {
-  TRADING_VIEW_DISABLED_FEATURES,
-  TradingViewV2,
-} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import { TRADING_VIEW_DISABLED_FEATURES } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type {
   ITradingViewDisabledFeature,
   ITradingViewPriceUpdateData,
@@ -159,7 +157,7 @@ export const MarketTradingView = memo(
     );
 
     return (
-      <TradingViewV2
+      <TradingViewNative
         testID={MarketTestIDs.detailChart}
         symbol={tokenSymbol}
         tokenAddress={tokenAddress}
