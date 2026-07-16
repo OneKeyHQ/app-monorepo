@@ -20,7 +20,7 @@ import {
 } from './NativeIntervalUtils';
 
 import type { ITradingViewNativeIntervalControlMode } from './hooks/useNativeIntervalSelector';
-import type { ITradingViewIntervalConfigData } from '../../TradingViewV2/types';
+import type { ITradingViewIntervalConfigData } from '../types';
 
 export type { ITradingViewNativeIntervalControlMode } from './hooks/useNativeIntervalSelector';
 

@@ -13,7 +13,7 @@ import {
   isIntervalOptionDisabled,
 } from './NativeIntervalUtils';
 
-import type { ITradingViewIntervalOption } from '../../TradingViewV2/types';
+import type { ITradingViewIntervalOption } from '../types';
 
 function IntervalPill({
   option,

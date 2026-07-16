@@ -6,24 +6,23 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import { IconButton, ScrollView, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { CalendarPanelPopover } from '../TradingViewV2/components/calendarControls/CalendarPanelPopover';
-import { ChartTypeSelect } from '../TradingViewV2/components/chartType/ChartTypeSelect';
-import { PriceMarketCapSelect } from '../TradingViewV2/components/priceMarketCap/PriceMarketCapSelect';
-import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../TradingViewV2/components/utils/NativeChartControlsShared';
-
+import { CalendarPanelPopover } from './calendarControls/CalendarPanelPopover';
+import { ChartTypeSelect } from './chartType/ChartTypeSelect';
 import { IndicatorPopover } from './indicatorSelector/NativeIndicatorSelector';
 import { TradingViewNativeIntervalSelector } from './intervalSelector/NativeIntervalSelector';
+import { PriceMarketCapSelect } from './priceMarketCap/PriceMarketCapSelect';
+import { HEADER_ICON_BUTTON_STYLE_PROPS } from './utils/NativeChartControlsShared';
 
+import type { ICalendarPanelSubmitPayload } from './calendarControls/CalendarPanelPopover';
 import type { ITradingViewNativeIntervalControlMode } from './intervalSelector/NativeIntervalSelector';
-import type { ICalendarPanelSubmitPayload } from '../TradingViewV2/components/calendarControls/CalendarPanelPopover';
-import type { ITradingViewNativeControlsLayoutMode } from '../TradingViewV2/components/utils/NativeChartControlsShared';
 import type {
   ITradingViewChartTypeOption,
   ITradingViewIndicatorOption,
   ITradingViewIntervalConfigData,
   ITradingViewNativeChartControlsConfigData,
+  ITradingViewNativeControlsLayoutMode,
   ITradingViewPriceMarketCapMode,
-} from '../TradingViewV2/types';
+} from './types';
 
 type IPriceMarketCapConfig =
   ITradingViewNativeChartControlsConfigData['priceMarketCap'];

@@ -11,7 +11,7 @@ import {
   sortIntervalValues,
 } from '../NativeIntervalUtils';
 
-import type { ITradingViewIntervalOption } from '../../../TradingViewV2/types';
+import type { ITradingViewIntervalOption } from '../../types';
 
 export function useNativeIntervalsDialogState({
   options,

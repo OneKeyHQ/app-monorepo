@@ -1,7 +1,7 @@
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
-import type { ITradingViewIntervalOption } from '../../TradingViewV2/types';
+import type { ITradingViewIntervalOption } from '../types';
 import type { IntlShape } from 'react-intl';
 
 export const MAX_VISIBLE_INTERVAL_COUNT = 4;

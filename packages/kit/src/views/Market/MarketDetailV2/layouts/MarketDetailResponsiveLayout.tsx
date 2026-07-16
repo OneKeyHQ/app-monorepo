@@ -24,5 +24,11 @@ export function MarketDetailResponsiveLayout({
     );
   }
 
-  return <MobileLayout disableTrade={disableTrade} />;
+  return (
+    <MobileLayout
+      disableTrade={disableTrade}
+      networkId={networkId}
+      tokenAddress={tokenAddress}
+    />
+  );
 }

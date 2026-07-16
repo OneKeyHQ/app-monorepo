@@ -15,17 +15,18 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShared';
+
 import {
   canToggleTradingViewNativeIndicatorOn,
   getIndicatorSections,
   getNativeIndicatorSelectionUpdates,
-} from '../../TradingViewV2/components/indicatorControls/hooks/useNativeIndicatorActiveValues';
-import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../../TradingViewV2/components/utils/NativeChartControlsShared';
+} from './indicatorUtils';
 
 import type {
   ITradingViewIndicatorOption,
   ITradingViewNativeChartControlsConfigData,
-} from '../../TradingViewV2/types';
+} from '../types';
 
 const INDICATOR_GRID_COLUMN_COUNT = 4;
 const INDICATOR_GRID_ITEM_LAYOUT_PROPS = {

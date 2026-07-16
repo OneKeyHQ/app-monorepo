@@ -9,3 +9,16 @@ export {
 } from './indicatorSelector/NativeIndicatorSelector';
 export { TradingViewNativeIntervalSelector } from './intervalSelector/NativeIntervalSelector';
 export type { ITradingViewNativeIntervalControlMode } from './intervalSelector/NativeIntervalSelector';
+export type {
+  ITradingViewChartTypeOption,
+  ITradingViewIndicatorOption,
+  ITradingViewIntervalConfigData,
+  ITradingViewIntervalOption,
+  ITradingViewNativeChartControlsConfigData,
+  ITradingViewNativeChartTypeControlMode,
+  ITradingViewNativeControlsLayoutMode,
+  ITradingViewNativeIndicatorControlMode,
+  ITradingViewNativePriceMarketCapControlMode,
+  ITradingViewPriceMarketCapMode,
+  ITradingViewPriceScaleMode,
+} from './types';
