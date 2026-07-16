@@ -51,6 +51,7 @@ import {
   shouldResetStockTradeReceiveAmount,
 } from './swapStockChannelUtils';
 import { useSwapStockDefaultToken } from './useSwapStockDefaultToken';
+import { useSwapStockDisplaySnapshot } from './useSwapStockDisplaySnapshot';
 import { useSwapStockMarketWebSocket } from './useSwapStockMarketWebSocket';
 import { useSwapStockPayTokens } from './useSwapStockPayTokens';
 
@@ -330,6 +331,12 @@ export function useSwapStockChannel() {
   const disableNativePayToken = isOndoStockSource(
     activeStockTokenDetail?.stock?.source,
   );
+  const stockDisplay = useSwapStockDisplaySnapshot({
+    currentStockToken,
+    liveTokenDetail: activeStockTokenDetail,
+    payToken,
+    tradeSide,
+  });
 
   const syncStockExecutionTokens = useCallback(
     async ({
@@ -731,6 +738,7 @@ export function useSwapStockChannel() {
       stockPerpsInfo,
       activeStockTokenDetail,
       realtimeChartPoint,
+      stockDisplay,
       currentStockToken,
       payToken,
       fromToken,
@@ -766,6 +774,7 @@ export function useSwapStockChannel() {
       selectStockToken,
       switchTradeSide,
       speedConfigReady,
+      stockDisplay,
       activeStockTokenDetail,
       stockMarketStatus,
       stockNetworkId,

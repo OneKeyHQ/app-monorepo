@@ -39,6 +39,8 @@ interface ISwapQuoteResultRateProps {
   isLoading?: boolean;
   showNoProvider?: boolean;
   onOpenResult?: () => void;
+  onOpenProviderList?: () => void;
+  providerSelectorTestID?: string;
   refreshAction: (manual?: boolean) => void;
   openResult?: boolean;
 }
@@ -56,6 +58,8 @@ const SwapQuoteResultRate = ({
   isLoading,
   showNoProvider,
   onOpenResult,
+  onOpenProviderList,
+  providerSelectorTestID,
   openResult,
   refreshAction,
 }: ISwapQuoteResultRateProps) => {
@@ -174,10 +178,40 @@ const SwapQuoteResultRate = ({
         alignItems="center"
         userSelect="none"
         gap="$1"
+        justifyContent="flex-end"
         flex={shouldUseInlineSlippageLayout ? undefined : 1}
         flexShrink={shouldUseInlineSlippageLayout ? 0 : undefined}
       >
-        {!providerIcon ||
+        {onOpenProviderList ? (
+          <XStack
+            testID={providerSelectorTestID}
+            alignItems="center"
+            justifyContent="flex-end"
+            cursor="pointer"
+            hoverStyle={{ opacity: 0.5 }}
+            onPress={(event) => {
+              event.stopPropagation();
+              onOpenProviderList();
+            }}
+          >
+            <LottieView
+              source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
+              autoPlay
+              loop
+              style={{
+                width: 48,
+                height: 20,
+              }}
+            />
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          </XStack>
+        ) : null}
+        {onOpenProviderList ||
+        !providerIcon ||
         !fromToken ||
         !toToken ||
         !onOpenResult ||
@@ -247,36 +281,9 @@ const SwapQuoteResultRate = ({
             </Stack>
           </XStack>
         )}
-        {!quoting && onOpenResult ? (
-          <Stack
-            animation="quick"
-            animateOnly={ANIMATE_ONLY_TRANSFORM}
-            rotate={openResult ? '180deg' : '0deg'}
-          >
-            <Icon
-              name="ChevronDownSmallOutline"
-              color={openResult ? '$iconActive' : '$iconSubdued'}
-              size="$5"
-            />
-          </Stack>
-        ) : (
-          <XStack
-            justifyContent="flex-end"
-            flex={shouldUseInlineSlippageLayout ? undefined : 1}
-            flexShrink={shouldUseInlineSlippageLayout ? 0 : undefined}
-          >
-            {quoting ? (
-              <LottieView
-                source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
-                autoPlay
-                loop
-                style={{
-                  width: 48,
-                  height: 20,
-                }}
-              />
-            ) : null}
-            {onOpenResult ? (
+        {!onOpenProviderList && (
+          <>
+            {!quoting && onOpenResult ? (
               <Stack
                 animation="quick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
@@ -288,8 +295,39 @@ const SwapQuoteResultRate = ({
                   size="$5"
                 />
               </Stack>
-            ) : null}
-          </XStack>
+            ) : (
+              <XStack
+                justifyContent="flex-end"
+                flex={shouldUseInlineSlippageLayout ? undefined : 1}
+                flexShrink={shouldUseInlineSlippageLayout ? 0 : undefined}
+              >
+                {quoting ? (
+                  <LottieView
+                    source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
+                    autoPlay
+                    loop
+                    style={{
+                      width: 48,
+                      height: 20,
+                    }}
+                  />
+                ) : null}
+                {onOpenResult ? (
+                  <Stack
+                    animation="quick"
+                    animateOnly={ANIMATE_ONLY_TRANSFORM}
+                    rotate={openResult ? '180deg' : '0deg'}
+                  >
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      color={openResult ? '$iconActive' : '$iconSubdued'}
+                      size="$5"
+                    />
+                  </Stack>
+                ) : null}
+              </XStack>
+            )}
+          </>
         )}
       </XStack>
     </XStack>

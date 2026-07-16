@@ -133,6 +133,7 @@ import { useSwapQuote } from '../../hooks/useSwapQuote';
 import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
+  useSwapQuoteProgressState,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
@@ -186,6 +187,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
+  const { displayQuote: displayQuoteResult } = useSwapQuoteProgressState();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapQuoteIntervalCount] = useSwapQuoteIntervalCountAtom();
@@ -1374,6 +1376,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           onToAnotherAddressModal={onToAnotherAddressModal}
           onOpenProviderList={onOpenProviderList}
           refreshAction={refreshAction}
+          displayQuoteResult={displayQuoteResult}
           quoteResult={quoteResult}
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}
@@ -1404,6 +1407,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           onToAnotherAddressModal={onToAnotherAddressModal}
           onOpenProviderList={onOpenProviderList}
           refreshAction={refreshAction}
+          displayQuoteResult={displayQuoteResult}
           quoteResult={quoteResult}
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}
@@ -1482,6 +1486,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     onToAnotherAddressModal,
     onOpenProviderList,
     refreshAction,
+    displayQuoteResult,
     quoteResult,
     quoteLoading,
     quoteEventFetching,

@@ -3,7 +3,20 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import { ESwapStockTradeSide } from '../../hooks/swapStockChannelUtils';
 import { normalizeSwapKLineWalletChartTimestamp } from '../modal/swapKLineChartUtils';
 
-export type IStockChartRange = '1D' | '1W' | '1M' | '1Y';
+import type {
+  ISwapStockDisplayChartRange,
+  ISwapStockDisplayChartSnapshot,
+} from '../../hooks/swapStockDisplaySnapshotUtils';
+
+export type IStockChartRange = ISwapStockDisplayChartRange;
+
+export type IStockChartState = {
+  displayScope: string;
+  requestScope: string;
+  data: IMarketTokenChart;
+  range: IStockChartRange;
+  status: 'waiting' | 'settled' | 'failed';
+};
 
 export const STOCK_CHART_DEFAULT_RANGE: IStockChartRange = '1W';
 
@@ -25,6 +38,52 @@ export const STOCK_CHART_RANGE_ITEMS: {
   { label: '1Y', interval: '1D', seconds: 365 * 24 * 60 * 60 },
 ];
 
+export function createStockChartStateFromSnapshot({
+  displayScope,
+  snapshot,
+}: {
+  displayScope: string;
+  snapshot?: ISwapStockDisplayChartSnapshot;
+}): IStockChartState | undefined {
+  if (!displayScope || !snapshot) {
+    return undefined;
+  }
+  return {
+    displayScope,
+    requestScope: '',
+    data: snapshot.data,
+    range: snapshot.range,
+    status: 'settled',
+  };
+}
+
+export function getStockChartVisibleState({
+  displayScope,
+  range,
+  requestScope,
+  requestState,
+  retainedState,
+}: {
+  displayScope: string;
+  range: IStockChartRange;
+  requestScope: string;
+  requestState?: IStockChartState;
+  retainedState?: IStockChartState;
+}): IStockChartState | undefined {
+  if (
+    requestState?.status === 'settled' &&
+    requestState.displayScope === displayScope &&
+    requestState.requestScope === requestScope &&
+    requestState.range === range
+  ) {
+    return requestState;
+  }
+  if (retainedState?.displayScope === displayScope) {
+    return retainedState;
+  }
+  return undefined;
+}
+
 export function getStockDisabledActionButtonProps(
   tradeSide: ESwapStockTradeSide,
 ) {
@@ -38,6 +97,26 @@ export function getStockDisabledActionButtonProps(
       opacity: 0.6,
     },
   } as const;
+}
+
+export function canMountStockSwapActions({
+  balanceReadyForExecution,
+  readyForQuote,
+}: {
+  balanceReadyForExecution: boolean;
+  readyForQuote: boolean;
+}) {
+  return balanceReadyForExecution && readyForQuote;
+}
+
+export function shouldShowStockBalanceRetryAction({
+  balanceFailed,
+  readyForQuote,
+}: {
+  balanceFailed: boolean;
+  readyForQuote: boolean;
+}) {
+  return balanceFailed && readyForQuote;
 }
 
 export function mergeStockChartRealtimePoint({
@@ -82,13 +161,13 @@ export function mergeStockChartRealtimePoint({
 
 export function getStockChartDisplayState({
   baseChartData,
+  hasCurrentRequestFailed,
   isChartStateForCurrentScope,
-  isLoading,
   realtimeChartPoint,
 }: {
   baseChartData: IMarketTokenChart;
+  hasCurrentRequestFailed?: boolean;
   isChartStateForCurrentScope: boolean;
-  isLoading?: boolean;
   realtimeChartPoint?: IMarketTokenChart[number];
 }) {
   return {
@@ -99,7 +178,8 @@ export function getStockChartDisplayState({
         : undefined,
     }),
     shouldShowChartLoading:
+      !hasCurrentRequestFailed &&
       baseChartData.length === 0 &&
-      (Boolean(isLoading) || !isChartStateForCurrentScope),
+      !isChartStateForCurrentScope,
   };
 }

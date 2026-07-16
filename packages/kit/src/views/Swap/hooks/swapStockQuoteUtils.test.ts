@@ -3,7 +3,10 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { isQuoteResultForStockTrade } from './swapStockQuoteUtils';
+import {
+  isQuoteResultForStockTrade,
+  resolveStockEstimatedReceiveQuoteState,
+} from './swapStockQuoteUtils';
 
 const sendToken: ISwapToken = {
   networkId: 'evm--1',
@@ -61,5 +64,48 @@ describe('swapStockQuoteUtils', () => {
         sendToken,
       }),
     ).toBe(false);
+  });
+
+  it('retains a matching display quote during refresh without publishing it for execution', () => {
+    expect(
+      resolveStockEstimatedReceiveQuoteState({
+        displayQuoteResult: quoteResult,
+        receiveToken,
+        sendAmount: '1000',
+        sendToken,
+      }),
+    ).toEqual({
+      displayQuote: quoteResult,
+      executionQuoteToAmount: undefined,
+    });
+  });
+
+  it('rejects a retained display quote after the amount owner changes', () => {
+    expect(
+      resolveStockEstimatedReceiveQuoteState({
+        displayQuoteResult: quoteResult,
+        receiveToken,
+        sendAmount: '5',
+        sendToken,
+      }),
+    ).toEqual({
+      displayQuote: undefined,
+      executionQuoteToAmount: undefined,
+    });
+  });
+
+  it('publishes the receive amount only from the matching execution quote', () => {
+    expect(
+      resolveStockEstimatedReceiveQuoteState({
+        displayQuoteResult: { ...quoteResult, toAmount: '9.9' },
+        executionQuoteResult: quoteResult,
+        receiveToken,
+        sendAmount: '1000',
+        sendToken,
+      }),
+    ).toEqual({
+      displayQuote: { ...quoteResult, toAmount: '9.9' },
+      executionQuoteToAmount: '10',
+    });
   });
 });

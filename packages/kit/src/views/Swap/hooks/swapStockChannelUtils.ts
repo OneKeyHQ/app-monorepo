@@ -3,7 +3,10 @@ import BigNumber from 'bignumber.js';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  equalTokenNoCaseSensitive,
+  normalizeTokenContractAddress,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 import type {
   ISwapToken,
@@ -49,9 +52,73 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   if (!token?.networkId) {
     return '';
   }
-  return `${token.networkId}:${token.contractAddress ?? ''}:${
+  const contractAddress = normalizeTokenContractAddress({
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+  });
+  return `${token.networkId}:${contractAddress ?? ''}:${
     token.isNative ? 'native' : 'token'
   }`;
+}
+
+export function getValidStockExecutionBalance(balance?: string) {
+  if (typeof balance !== 'string' || balance.trim() === '') {
+    return undefined;
+  }
+  const balanceBN = new BigNumber(balance);
+  if (balanceBN.isNaN() || !balanceBN.isFinite() || balanceBN.isNegative()) {
+    return undefined;
+  }
+  return balance;
+}
+
+export function resolveStockDisplayBalance({
+  liveBalance,
+  snapshotBalance,
+}: {
+  liveBalance?: string;
+  snapshotBalance?: string;
+}) {
+  return (
+    getValidStockExecutionBalance(liveBalance) ??
+    getValidStockExecutionBalance(snapshotBalance)
+  );
+}
+
+export function isStockExecutionBalanceScopeReady({
+  balance,
+  displayIdentityKey,
+  expectedIdentityKey,
+  inputTokenKey,
+  loading,
+}: {
+  balance?: string;
+  displayIdentityKey: string;
+  expectedIdentityKey: string;
+  inputTokenKey: string;
+  loading: boolean;
+}) {
+  return Boolean(
+    expectedIdentityKey &&
+    inputTokenKey &&
+    getValidStockExecutionBalance(balance) !== undefined &&
+    !loading &&
+    displayIdentityKey === expectedIdentityKey,
+  );
+}
+
+export function isStockExecutionBalancePublished({
+  balance,
+  liveScopeReady,
+  publishedBalance,
+}: {
+  balance?: string;
+  liveScopeReady: boolean;
+  publishedBalance: string;
+}) {
+  return Boolean(
+    liveScopeReady && balance !== undefined && publishedBalance === balance,
+  );
 }
 
 export function shouldResetStockTradeReceiveAmount({
@@ -228,15 +295,17 @@ export function isStockPayTokenReadyForTradeInput({
 }
 
 export function shouldRenderStockTradeInputSkeleton({
-  inputTokenReady,
   inputTokenVisible,
-  isBuySide,
 }: {
   inputTokenReady: boolean;
   inputTokenVisible: boolean;
   isBuySide: boolean;
 }) {
-  return isBuySide ? !inputTokenVisible : !inputTokenReady;
+  // Token visibility is a display-readiness contract. Live channel and
+  // balance readiness still gate market status, quote, Max/percentage, and
+  // execution, but they must not replace a restored input card with a full
+  // skeleton while those independent requests settle.
+  return !inputTokenVisible;
 }
 
 function getStockDefaultPayTokenCandidates(candidates: IToken[]) {

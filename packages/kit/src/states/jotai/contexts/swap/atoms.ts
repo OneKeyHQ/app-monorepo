@@ -56,6 +56,7 @@ import { createJotaiContext } from '../../utils/createJotaiContext';
 
 import {
   type ISwapQuoteCommittedState,
+  hasSwapQuoteSelectableProviderCandidate,
   initialSwapQuoteCommittedState,
   isSwapQuoteCommittedSettledCandidate,
 } from './quoteCommittedState';
@@ -440,6 +441,16 @@ export const {
     deferNonActionableQuoteUntilEventSettled:
       swapTypeSwitch === ESwapTabSwitchType.STOCK,
   });
+});
+
+export const {
+  atom: swapQuoteProviderSelectionReadyAtom,
+  use: useSwapQuoteProviderSelectionReadyAtom,
+} = contextAtomComputed((get) => {
+  // This atom may open the provider picker only; display and execution keep
+  // consuming the terminal committed quote below.
+  const committedState = get(swapQuoteCommittedStateAtom());
+  return hasSwapQuoteSelectableProviderCandidate(committedState);
 });
 
 export const {

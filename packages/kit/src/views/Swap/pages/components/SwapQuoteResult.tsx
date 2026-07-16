@@ -21,6 +21,7 @@ import {
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
   useSwapQuoteListAtom,
+  useSwapQuoteProviderSelectionReadyAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTokenMetadataAtom,
@@ -87,6 +88,7 @@ const SwapQuoteResult = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
   const [swapQuoteList] = useSwapQuoteListAtom();
+  const [providerSelectionReady] = useSwapQuoteProviderSelectionReadyAtom();
 
   const [
     { swapApprovingTransaction, swapApprovingLoading },
@@ -108,10 +110,17 @@ const SwapQuoteResult = ({
   const isQuoteDisplayRequesting =
     quoteUiPhase === ESwapQuoteUiPhase.Waiting ||
     quoteUiPhase === ESwapQuoteUiPhase.StaleRefreshing;
+  const onSelectProviderWhileRequesting =
+    isQuoteDisplayRequesting && providerSelectionReady
+      ? onOpenProviderList
+      : undefined;
   const quoteResultForDisplay = isQuoteDisplayRequesting
     ? displayQuote
     : (quoteResult ?? displayQuote);
   const hasQuoteResultForDisplay = isSwapQuoteActionable(quoteResultForDisplay);
+  const isWaitingForQuote =
+    quoteUiPhase === ESwapQuoteUiPhase.Waiting && !hasQuoteResultForDisplay;
+  const displayQuoteLoading = isWaitingForQuote;
   const quoteDuration = formatSwapQuoteDuration({
     estTime: quoteResultForDisplay?.estTime,
     estimatedTime: quoteResultForDisplay?.estimatedTime,
@@ -154,14 +163,14 @@ const SwapQuoteResult = ({
             },
             { token: tokenInfo?.symbol ?? '' },
           )}
-          isLoading={swapQuoteLoading}
+          isLoading={displayQuoteLoading}
           valueComponent={
             <SizableText size="$bodyMdMedium">{`${finalShowTax}%`}</SizableText>
           }
         />
       );
     },
-    [intl, swapQuoteLoading],
+    [displayQuoteLoading, intl],
   );
 
   const tokenMetadataParse = useCallback(
@@ -214,8 +223,6 @@ const SwapQuoteResult = ({
 
   const { limitOrderExpiryStepMap, limitOrderPartiallyFillStepMap } =
     useSwapLimitConfigMaps();
-  const isWaitingForQuote =
-    quoteUiPhase === ESwapQuoteUiPhase.Waiting && !hasQuoteResultForDisplay;
   const isStaleRefreshing = quoteUiPhase === ESwapQuoteUiPhase.StaleRefreshing;
   const showNoProvider =
     quoteUiPhase === ESwapQuoteUiPhase.ZeroProvider &&
@@ -254,7 +261,19 @@ const SwapQuoteResult = ({
   }
   if (isWaitingForQuote) {
     return (
-      <XStack alignItems="center">
+      <XStack
+        testID={
+          onSelectProviderWhileRequesting
+            ? SwapTestIDs.providerSelector
+            : undefined
+        }
+        alignItems="center"
+        cursor={onSelectProviderWhileRequesting ? 'pointer' : undefined}
+        hoverStyle={
+          onSelectProviderWhileRequesting ? { opacity: 0.5 } : undefined
+        }
+        onPress={onSelectProviderWhileRequesting}
+      >
         <XStack gap="$2">
           <SizableText size="$bodyMd" color="$text">
             {intl.formatMessage({
@@ -262,7 +281,7 @@ const SwapQuoteResult = ({
             })}
           </SizableText>
         </XStack>
-        <XStack flex={1} justifyContent="flex-end">
+        <XStack flex={1} justifyContent="flex-end" alignItems="center">
           <LottieView
             source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
             autoPlay
@@ -272,6 +291,13 @@ const SwapQuoteResult = ({
               height: 20,
             }}
           />
+          {onSelectProviderWhileRequesting ? (
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          ) : null}
         </XStack>
       </XStack>
     );
@@ -299,13 +325,12 @@ const SwapQuoteResult = ({
             percentageFee={quoteResultForDisplay?.fee?.percentageFee}
             percentOriginFee={quoteResultForDisplay?.fee?.percentOriginFee}
             onPress={
-              quoteResultForDisplay?.info.provider &&
+              onSelectProviderWhileRequesting ??
+              (quoteResultForDisplay?.info.provider &&
               swapQuoteList?.length > 1 &&
               onOpenProviderList
-                ? () => {
-                    onOpenProviderList();
-                  }
-                : undefined
+                ? onOpenProviderList
+                : undefined)
             }
           />
           {quoteDuration ? (
@@ -313,7 +338,7 @@ const SwapQuoteResult = ({
               title={intl.formatMessage({
                 id: ETranslations.provider_swap_duration,
               })}
-              isLoading={swapQuoteLoading}
+              isLoading={displayQuoteLoading}
               value={quoteDuration}
             />
           ) : null}
@@ -352,8 +377,8 @@ const SwapQuoteResult = ({
             cursor="pointer"
             disabled={
               !quoteResultForDisplay?.info.provider ||
-              swapQuoteLoading ||
-              isStaleRefreshing
+              (!onSelectProviderWhileRequesting &&
+                (swapQuoteLoading || isStaleRefreshing))
             }
           >
             {({ open }: { open: boolean }) => (
@@ -368,9 +393,11 @@ const SwapQuoteResult = ({
                 customSlippageTextColor={mobileCustomSlippageInfo?.textColor}
                 customSlippageIconColor={mobileCustomSlippageInfo?.iconColor}
                 providerIcon={quoteResultForDisplay?.info.providerLogo ?? ''}
-                isLoading={swapQuoteLoading}
+                isLoading={displayQuoteLoading}
                 showNoProvider={showNoProvider}
                 refreshAction={refreshAction}
+                providerSelectorTestID={SwapTestIDs.providerSelector}
+                onOpenProviderList={onSelectProviderWhileRequesting}
                 onOpenResult={
                   quoteResultForDisplay?.info.provider &&
                   !swapQuoteLoading &&
@@ -395,7 +422,7 @@ const SwapQuoteResult = ({
                 <SwapApproveAllowanceSelectContainer
                   allowanceResult={quoteResultForDisplay?.allowanceResult}
                   fromTokenSymbol={fromToken?.symbol ?? ''}
-                  isLoading={swapQuoteLoading}
+                  isLoading={displayQuoteLoading}
                 />
               ) : null}
               {quoteResultForDisplay?.info.provider ? (
@@ -403,7 +430,7 @@ const SwapQuoteResult = ({
                   providerIcon={quoteResultForDisplay?.info.providerLogo ?? ''} // TODO default logo
                   providerName={quoteResultForDisplay?.info.providerName ?? ''}
                   isBest={quoteResultForDisplay?.isBest}
-                  isLoading={swapQuoteLoading}
+                  isLoading={displayQuoteLoading}
                   fromToken={fromToken}
                   toToken={toToken}
                   showLock={!!quoteResultForDisplay?.allowanceResult}
@@ -413,9 +440,7 @@ const SwapQuoteResult = ({
                   }
                   onPress={
                     quoteResultForDisplay?.info.provider && onOpenProviderList
-                      ? () => {
-                          onOpenProviderList();
-                        }
+                      ? onOpenProviderList
                       : undefined
                   }
                 />
@@ -425,7 +450,7 @@ const SwapQuoteResult = ({
                   title={intl.formatMessage({
                     id: ETranslations.provider_swap_duration,
                   })}
-                  isLoading={swapQuoteLoading}
+                  isLoading={displayQuoteLoading}
                   value={quoteDuration}
                 />
               ) : null}
@@ -433,7 +458,7 @@ const SwapQuoteResult = ({
               !quoteResultForDisplay?.unSupportSlippage &&
               !quoteResultForDisplay.isWrapped ? (
                 <SwapSlippageTriggerContainer
-                  isLoading={swapQuoteLoading}
+                  isLoading={displayQuoteLoading}
                   onPress={onSlippageHandleClick}
                   slippageItem={slippageItem}
                 />
@@ -445,7 +470,7 @@ const SwapQuoteResult = ({
                   title={intl.formatMessage({
                     id: ETranslations.swap_page_provider_est_network_fee,
                   })}
-                  isLoading={swapQuoteLoading}
+                  isLoading={displayQuoteLoading}
                   valueComponent={
                     quoteResultForDisplay?.fee?.isFreeNetworkFee ? (
                       <XStack gap="$1" alignItems="center">

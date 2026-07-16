@@ -3,6 +3,7 @@ import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ESwapQuoteCommitPhase,
+  hasSwapQuoteSelectableProviderCandidate,
   initialSwapQuoteCommittedState,
   isSwapQuoteCommittedSettledCandidate,
   reduceSwapQuoteCommittedState,
@@ -57,6 +58,7 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-1',
       requestId: 'request-2',
     });
+    expect(hasSwapQuoteSelectableProviderCandidate(state)).toBe(false);
 
     expect(selectSwapQuoteCommittedSnapshot(state)).toEqual({
       displayQuote: previousQuote,
@@ -73,6 +75,7 @@ describe('swap quote committed state', () => {
     });
     expect(state.displayQuote).toBe(previousQuote);
     expect(state.executableQuote).toBeUndefined();
+    expect(hasSwapQuoteSelectableProviderCandidate(state)).toBe(true);
 
     state = reduceSwapQuoteCommittedState(state, {
       type: 'candidatesUpdated',
@@ -91,6 +94,7 @@ describe('swap quote committed state', () => {
     expect(state.executableQuote).toBe(bestCandidate);
     expect(state.settledQuotes).toEqual([bestCandidate, firstCandidate]);
     expect(state.phase).toBe(ESwapQuoteCommitPhase.Settled);
+    expect(hasSwapQuoteSelectableProviderCandidate(state)).toBe(false);
   });
 
   it('retains every settled candidate and accepts a selected candidate for execution', () => {
@@ -111,7 +115,12 @@ describe('swap quote committed state', () => {
       type: 'requestSettled',
       intentFingerprint: 'intent-1',
       requestId: 'request-1',
-      selectedQuote: manualCandidate,
+      selectedQuote: {
+        ...manualCandidate,
+        isBest: false,
+        minGasCost: false,
+        receivedBest: false,
+      },
     });
 
     expect(state.executableQuote).toBe(manualCandidate);
@@ -296,6 +305,7 @@ describe('swap quote committed state', () => {
       requestId: 'request-2',
       quotes: [errorQuote],
     });
+    expect(hasSwapQuoteSelectableProviderCandidate(state)).toBe(false);
     state = reduceSwapQuoteCommittedState(state, {
       type: 'requestFailed',
       intentFingerprint: 'intent-1',

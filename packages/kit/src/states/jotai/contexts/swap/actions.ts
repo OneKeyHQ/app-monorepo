@@ -1025,19 +1025,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               );
               const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
               const quoteResultEventId = quoteResultData.data?.[0]?.eventId;
-              const shouldSeedStockQuoteEventFromResult =
-                isStockProtocol(event.params.protocol) &&
-                Boolean(quoteResultEventId) &&
-                !quoteEventTotalCount.eventId;
+              const shouldSeedQuoteEventFromResult =
+                Boolean(quoteResultEventId) && !quoteEventTotalCount.eventId;
               const activeQuoteEventTotalCount =
-                shouldSeedStockQuoteEventFromResult && quoteResultEventId
+                shouldSeedQuoteEventFromResult && quoteResultEventId
                   ? {
                       eventId: quoteResultEventId,
                       count: quoteResultData.data.length,
                       totalQuoteCountReceived: false,
                     }
                   : quoteEventTotalCount;
-              if (shouldSeedStockQuoteEventFromResult && quoteResultEventId) {
+              if (shouldSeedQuoteEventFromResult && quoteResultEventId) {
                 set(swapQuoteEventTotalCountAtom(), activeQuoteEventTotalCount);
               }
               if (

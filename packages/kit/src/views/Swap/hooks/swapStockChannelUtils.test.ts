@@ -5,8 +5,13 @@ import {
   ESwapStockTradeSide,
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
+  getTokenIdentityKey,
+  getValidStockExecutionBalance,
+  isStockExecutionBalancePublished,
+  isStockExecutionBalanceScopeReady,
   isStockPayTokenReadyForTradeInput,
   resolveStockChannelSwapPair,
+  resolveStockDisplayBalance,
   resolveStockKLineToken,
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
@@ -62,6 +67,86 @@ const micronStockToken: ISwapToken = {
 };
 
 describe('swapStockChannelUtils', () => {
+  it('normalizes case-insensitive contract addresses in Stock identity keys', () => {
+    expect(
+      getTokenIdentityKey({
+        networkId: 'evm--56',
+        contractAddress: '0xAaBb',
+      }),
+    ).toBe('evm--56:0xaabb:token');
+  });
+
+  it('accepts only explicit finite non-negative live execution balances', () => {
+    expect(getValidStockExecutionBalance('0')).toBe('0');
+    expect(getValidStockExecutionBalance('12.5')).toBe('12.5');
+    expect(getValidStockExecutionBalance(undefined)).toBeUndefined();
+    expect(getValidStockExecutionBalance('')).toBeUndefined();
+    expect(getValidStockExecutionBalance('NaN')).toBeUndefined();
+    expect(getValidStockExecutionBalance('Infinity')).toBeUndefined();
+    expect(getValidStockExecutionBalance('-1')).toBeUndefined();
+  });
+
+  it('renders only exact live or account-scoped snapshot balances', () => {
+    expect(
+      resolveStockDisplayBalance({
+        liveBalance: '8',
+        snapshotBalance: '5',
+      }),
+    ).toBe('8');
+    expect(resolveStockDisplayBalance({ snapshotBalance: '5' })).toBe('5');
+    expect(resolveStockDisplayBalance({})).toBeUndefined();
+    expect(
+      resolveStockDisplayBalance({ snapshotBalance: 'not-a-balance' }),
+    ).toBeUndefined();
+  });
+
+  it('requires the exact display owner before publishing an execution balance', () => {
+    const params = {
+      balance: '12.5',
+      displayIdentityKey: 'account-a|stock|pay|buy|usd',
+      expectedIdentityKey: 'account-a|stock|pay|buy|usd',
+      inputTokenKey: 'network:pay:token',
+      loading: false,
+    };
+    expect(isStockExecutionBalanceScopeReady(params)).toBe(true);
+    expect(
+      isStockExecutionBalanceScopeReady({
+        ...params,
+        displayIdentityKey: 'account-b|stock|pay|buy|usd',
+      }),
+    ).toBe(false);
+    expect(
+      isStockExecutionBalanceScopeReady({ ...params, loading: true }),
+    ).toBe(false);
+    expect(
+      isStockExecutionBalanceScopeReady({ ...params, balance: undefined }),
+    ).toBe(false);
+  });
+
+  it('unlocks execution only after the exact live balance reaches the shared atom', () => {
+    expect(
+      isStockExecutionBalancePublished({
+        balance: '12.5',
+        liveScopeReady: true,
+        publishedBalance: '12.5',
+      }),
+    ).toBe(true);
+    expect(
+      isStockExecutionBalancePublished({
+        balance: '1',
+        liveScopeReady: true,
+        publishedBalance: '99',
+      }),
+    ).toBe(false);
+    expect(
+      isStockExecutionBalancePublished({
+        balance: '1',
+        liveScopeReady: false,
+        publishedBalance: '1',
+      }),
+    ).toBe(false);
+  });
+
   it('loads the default stock when no stock token has been selected', () => {
     expect(
       shouldLoadDefaultStockToken({
@@ -251,14 +336,14 @@ describe('swapStockChannelUtils', () => {
     ).toBe(false);
   });
 
-  it('keeps sell-side stock input skeleton tied to full readiness', () => {
+  it('keeps a restored sell-side stock input visible while live readiness settles', () => {
     expect(
       shouldRenderStockTradeInputSkeleton({
         inputTokenReady: false,
         inputTokenVisible: true,
         isBuySide: false,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('marks only stock market tokens as stock swap tokens', () => {

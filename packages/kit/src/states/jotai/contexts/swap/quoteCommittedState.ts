@@ -1,7 +1,10 @@
 import { selectBestQuote } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
-import { isSwapQuoteActionable } from './quoteProgress';
+import {
+  buildSwapQuoteProviderKey,
+  isSwapQuoteActionable,
+} from './quoteProgress';
 
 export enum ESwapQuoteCommitPhase {
   Idle = 'idle',
@@ -150,11 +153,19 @@ export function reduceSwapQuoteCommittedState(
   }
 
   const settledQuotes = action.quotes ?? state.pendingQuotes;
+  const selectedQuote = action.selectedQuote;
+  // Quote sorting projects cloned rows, so manual intent must be rebound to
+  // the guarded candidate from the active request before it becomes executable.
+  const selectedSettledQuote = selectedQuote
+    ? settledQuotes.find(
+        (quote) =>
+          buildSwapQuoteProviderKey(quote) ===
+          buildSwapQuoteProviderKey(selectedQuote),
+      )
+    : undefined;
   const committedQuote =
-    action.selectedQuote &&
-    settledQuotes.includes(action.selectedQuote) &&
-    isSwapQuoteActionable(action.selectedQuote)
-      ? action.selectedQuote
+    selectedSettledQuote && isSwapQuoteActionable(selectedSettledQuote)
+      ? selectedSettledQuote
       : selectBestSettledQuote(settledQuotes);
 
   return {
@@ -192,4 +203,15 @@ export function selectSwapQuoteCommittedSnapshot(
       state.executableQuote,
     ),
   };
+}
+
+export function hasSwapQuoteSelectableProviderCandidate(
+  state: ISwapQuoteCommittedState,
+) {
+  // Picker readiness is intentionally independent from settled display and
+  // execution readiness so the first usable SSE candidate can be selected.
+  return (
+    state.phase === ESwapQuoteCommitPhase.Requesting &&
+    state.pendingQuotes.some(isSwapQuoteActionable)
+  );
 }
