@@ -43,6 +43,7 @@ import {
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import type { EOneKeyIdOAuthProvider } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { showOneKeyIdLoginSuccessToast } from '../oneKeyIdLoginToastUtils';
@@ -291,7 +292,12 @@ function OneKeyIdLegacyOAuthBindActions({
           accessToken: oauthAccessToken,
         });
       } catch (error) {
-        if (didUseOAuthSignIn) {
+        // Only tear the temp session down on definitive rejections: a
+        // transient failure (network down, 5xx, transient session-storage
+        // read) says nothing about the just-validated OAuth session, and
+        // keeping it lets the retry skip a fresh Google/Apple OAuth
+        // round-trip (same policy as PrimeLoginOAuthDialog).
+        if (didUseOAuthSignIn && !isTransientNetworkLikeError(error)) {
           await clearOAuthSignInTempSession();
         }
         throw error;

@@ -771,7 +771,21 @@ class ServicePrime extends ServiceBase {
           loginResponse: data,
         });
       });
-      await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      // Best-effort hygiene: the login is already committed atomically
+      // above, so a failure here (e.g. transient storage error while
+      // clearing the legacy slot) must not reject the whole login — the UI
+      // would tear down the just-validated OAuth session and show a login
+      // failure for a login that succeeded. Leftovers are re-cleaned by the
+      // next login/bind/logout.
+      try {
+        await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      } catch (cleanupError) {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason: `ServicePrime.apiOAuthLogin: post-commit legacy session cleanup failed: ${String(
+            cleanupError,
+          )}`,
+        });
+      }
       await this.cleanupLegacyKeylessSessionStorage({
         callerName: 'ServicePrime.apiOAuthLogin',
       });
