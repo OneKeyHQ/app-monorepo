@@ -1236,6 +1236,10 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
     networkInfoMap: result?.networkInfoMap ?? {},
     enabledNetworksCompatibleWithWalletId,
     enabledNetworksWithoutAccount,
+    // usePromiseResult resets result to the memoized initResult reference on
+    // scope (swrKey) change, so identity tells "not resolved for this scope
+    // yet" apart from a resolved-but-empty compatible set.
+    isReady: result !== initResult,
     run,
   };
 }
