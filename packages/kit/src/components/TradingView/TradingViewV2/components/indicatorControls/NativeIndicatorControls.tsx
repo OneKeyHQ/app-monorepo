@@ -18,7 +18,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShared';
 
 import {
+  canToggleTradingViewNativeIndicatorOn,
   getIndicatorSections,
+  getNativeIndicatorSelectionUpdates,
   useNativeIndicatorControls,
 } from './hooks/useNativeIndicatorActiveValues';
 
@@ -51,14 +53,29 @@ function buildIndicatorQuickBarItemTestID(value: string): string {
     .slice(0, 80)}`;
 }
 
+function getIndicatorTextColor({
+  isActive,
+  isDisabled,
+}: {
+  isActive: boolean;
+  isDisabled: boolean;
+}) {
+  if (isDisabled) {
+    return '$textDisabled';
+  }
+  return isActive ? '$text' : '$textSubdued';
+}
+
 function IndicatorPill({
   indicator,
   isActive,
+  isDisabled,
   onPress,
 }: {
   indicator: ITradingViewIndicatorOption;
   isActive: boolean;
-  onPress: () => void;
+  isDisabled: boolean;
+  onPress?: () => void;
 }) {
   return (
     <XStack
@@ -77,16 +94,17 @@ function IndicatorPill({
       pressStyle={{
         bg: '$bgStrongActive',
       }}
-      cursor="pointer"
+      opacity={isDisabled ? 0.45 : 1}
+      cursor={isDisabled ? 'not-allowed' : 'pointer'}
       userSelect="none"
-      onPress={onPress}
+      onPress={isDisabled ? undefined : onPress}
     >
       <SizableText
         size="$bodyMdMedium"
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.82}
-        color={isActive ? '$text' : '$textSubdued'}
+        color={getIndicatorTextColor({ isActive, isDisabled })}
       >
         {indicator.label}
       </SizableText>
@@ -97,10 +115,12 @@ function IndicatorPill({
 function IndicatorGrid({
   indicators,
   activeIndicatorValues,
+  maxSubIndicatorCount,
   onIndicatorPress,
 }: {
   indicators: ITradingViewIndicatorOption[];
   activeIndicatorValues: Set<string>;
+  maxSubIndicatorCount?: number;
   onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
 }) {
   const rows = useMemo(() => {
@@ -121,14 +141,23 @@ function IndicatorGrid({
         const placeholderCount = INDICATOR_GRID_COLUMN_COUNT - row.length;
         return (
           <XStack key={`indicator-row-${rowIndex}`} gap="$2">
-            {row.map((indicator) => (
-              <IndicatorPill
-                key={indicator.value}
-                indicator={indicator}
-                isActive={activeIndicatorValues.has(indicator.value)}
-                onPress={() => onIndicatorPress(indicator)}
-              />
-            ))}
+            {row.map((indicator) => {
+              const isDisabled = !canToggleTradingViewNativeIndicatorOn({
+                indicatorValue: indicator.value,
+                activeIndicatorValues,
+                maxSubIndicatorCount,
+              });
+
+              return (
+                <IndicatorPill
+                  key={indicator.value}
+                  indicator={indicator}
+                  isActive={activeIndicatorValues.has(indicator.value)}
+                  isDisabled={isDisabled}
+                  onPress={() => onIndicatorPress(indicator)}
+                />
+              );
+            })}
             {Array.from({ length: placeholderCount }).map((_, index) => (
               <Stack
                 key={`indicator-placeholder-${rowIndex}-${index}`}
@@ -149,11 +178,13 @@ function IndicatorSection({
   title,
   indicators,
   activeIndicatorValues,
+  maxSubIndicatorCount,
   onIndicatorPress,
 }: {
   title: string;
   indicators: ITradingViewIndicatorOption[];
   activeIndicatorValues: Set<string>;
+  maxSubIndicatorCount?: number;
   onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
 }) {
   if (!indicators.length) {
@@ -168,6 +199,7 @@ function IndicatorSection({
       <IndicatorGrid
         indicators={indicators}
         activeIndicatorValues={activeIndicatorValues}
+        maxSubIndicatorCount={maxSubIndicatorCount}
         onIndicatorPress={onIndicatorPress}
       />
     </YStack>
@@ -177,11 +209,13 @@ function IndicatorSection({
 function IndicatorQuickBarItem({
   indicator,
   isActive,
+  isDisabled,
   onPress,
 }: {
   indicator: ITradingViewIndicatorOption;
   isActive: boolean;
-  onPress: () => void;
+  isDisabled: boolean;
+  onPress?: () => void;
 }) {
   const content = (
     <SizableText
@@ -189,7 +223,7 @@ function IndicatorQuickBarItem({
       numberOfLines={1}
       adjustsFontSizeToFit
       minimumFontScale={0.82}
-      color={isActive ? '$text' : '$textSubdued'}
+      color={getIndicatorTextColor({ isActive, isDisabled })}
     >
       {indicator.label}
     </SizableText>
@@ -201,11 +235,12 @@ function IndicatorQuickBarItem({
       h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
       alignItems="center"
       justifyContent="center"
-      cursor="pointer"
+      opacity={isDisabled ? 0.45 : 1}
+      cursor={isDisabled ? 'not-allowed' : 'pointer'}
       userSelect="none"
       accessibilityRole="button"
-      accessibilityState={{ selected: isActive }}
-      onPress={onPress}
+      accessibilityState={{ selected: isActive, disabled: isDisabled }}
+      onPress={isDisabled ? undefined : onPress}
     >
       {content}
     </XStack>
@@ -216,11 +251,13 @@ export const TradingViewNativeIndicatorQuickBar = memo(
   ({
     nativeChartControlsConfig,
     nativeIndicatorState,
+    maxSubIndicatorCount,
     onIndicatorSelect,
     onControlInteraction,
   }: {
     nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData | null;
     nativeIndicatorState: ITradingViewNativeIndicatorState;
+    maxSubIndicatorCount?: number;
     onIndicatorSelect: (indicatorName: string, desiredActive: boolean) => void;
     onControlInteraction?: () => void;
   }) => {
@@ -229,10 +266,12 @@ export const TradingViewNativeIndicatorQuickBar = memo(
       mainIndicators,
       subIndicators,
       hasVisibleIndicators,
+      canToggleIndicatorOn,
       handleIndicatorPress,
     } = useNativeIndicatorControls({
       nativeChartControlsConfig,
       nativeIndicatorState,
+      maxSubIndicatorCount,
       onIndicatorSelect,
     });
 
@@ -252,6 +291,7 @@ export const TradingViewNativeIndicatorQuickBar = memo(
             key={indicator.value}
             indicator={indicator}
             isActive={activeIndicatorValues.has(indicator.value)}
+            isDisabled={!canToggleIndicatorOn(indicator.value)}
             onPress={() => {
               onControlInteraction?.();
               handleIndicatorPress(indicator);
@@ -266,6 +306,7 @@ export const TradingViewNativeIndicatorQuickBar = memo(
             key={indicator.value}
             indicator={indicator}
             isActive={activeIndicatorValues.has(indicator.value)}
+            isDisabled={!canToggleIndicatorOn(indicator.value)}
             onPress={() => {
               onControlInteraction?.();
               handleIndicatorPress(indicator);
@@ -296,11 +337,13 @@ TradingViewNativeIndicatorQuickBar.displayName =
 export function IndicatorListDialogContent({
   indicators,
   resetLayout,
+  maxSubIndicatorCount,
   onSelect,
   onResetLayout,
 }: {
   indicators: ITradingViewIndicatorOption[];
   resetLayout?: ITradingViewNativeChartControlsConfigData['resetLayout'];
+  maxSubIndicatorCount?: number;
   onSelect: (indicatorName: string, desiredActive: boolean) => void;
   onResetLayout: () => void;
 }) {
@@ -323,6 +366,16 @@ export function IndicatorListDialogContent({
 
   const handleIndicatorPress = useCallback(
     (indicator: ITradingViewIndicatorOption) => {
+      if (
+        !canToggleTradingViewNativeIndicatorOn({
+          indicatorValue: indicator.value,
+          activeIndicatorValues: activeIndicatorValuesRef.current,
+          maxSubIndicatorCount,
+        })
+      ) {
+        return;
+      }
+
       const nextValues = new Set(activeIndicatorValuesRef.current);
       const desiredActive = !nextValues.has(indicator.value);
       if (desiredActive) {
@@ -334,17 +387,18 @@ export function IndicatorListDialogContent({
       activeIndicatorValuesRef.current = nextValues;
       setActiveIndicatorValues(nextValues);
     },
-    [],
+    [maxSubIndicatorCount],
   );
 
   const handleConfirmPress = useCallback(() => {
     const originalValues = originalActiveIndicatorValuesRef.current;
     const nextValues = activeIndicatorValuesRef.current;
-    indicators.forEach((indicator) => {
-      const desiredActive = nextValues.has(indicator.value);
-      if (originalValues.has(indicator.value) !== desiredActive) {
-        onSelect(indicator.label, desiredActive);
-      }
+    getNativeIndicatorSelectionUpdates({
+      indicators,
+      originalActiveIndicatorValues: originalValues,
+      nextActiveIndicatorValues: nextValues,
+    }).forEach(([indicatorName, desiredActive]) => {
+      onSelect(indicatorName, desiredActive);
     });
     void dialog.close();
   }, [dialog, indicators, onSelect]);
@@ -393,6 +447,7 @@ export function IndicatorListDialogContent({
             })}
             indicators={mainIndicators}
             activeIndicatorValues={activeIndicatorValues}
+            maxSubIndicatorCount={maxSubIndicatorCount}
             onIndicatorPress={handleIndicatorPress}
           />
           <IndicatorSection
@@ -401,6 +456,7 @@ export function IndicatorListDialogContent({
             })}
             indicators={subIndicators}
             activeIndicatorValues={activeIndicatorValues}
+            maxSubIndicatorCount={maxSubIndicatorCount}
             onIndicatorPress={handleIndicatorPress}
           />
         </YStack>
@@ -416,10 +472,12 @@ export function IndicatorListDialogContent({
 function IndicatorListPopoverContent({
   indicators,
   activeIndicatorValues,
+  maxSubIndicatorCount,
   onIndicatorPress,
 }: {
   indicators: ITradingViewIndicatorOption[];
   activeIndicatorValues: Set<string>;
+  maxSubIndicatorCount?: number;
   onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
 }) {
   const intl = useIntl();
@@ -436,6 +494,7 @@ function IndicatorListPopoverContent({
         })}
         indicators={mainIndicators}
         activeIndicatorValues={activeIndicatorValues}
+        maxSubIndicatorCount={maxSubIndicatorCount}
         onIndicatorPress={onIndicatorPress}
       />
       <IndicatorSection
@@ -444,6 +503,7 @@ function IndicatorListPopoverContent({
         })}
         indicators={subIndicators}
         activeIndicatorValues={activeIndicatorValues}
+        maxSubIndicatorCount={maxSubIndicatorCount}
         onIndicatorPress={onIndicatorPress}
       />
     </YStack>
@@ -454,12 +514,14 @@ export function IndicatorPopover({
   title,
   indicators,
   activeIndicatorValues,
+  maxSubIndicatorCount,
   onIndicatorPress,
   onControlInteraction,
 }: {
   title: string;
   indicators: ITradingViewIndicatorOption[];
   activeIndicatorValues: Set<string>;
+  maxSubIndicatorCount?: number;
   onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
   onControlInteraction?: () => void;
 }) {
@@ -492,6 +554,7 @@ export function IndicatorPopover({
         <IndicatorListPopoverContent
           indicators={indicators}
           activeIndicatorValues={activeIndicatorValues}
+          maxSubIndicatorCount={maxSubIndicatorCount}
           onIndicatorPress={onIndicatorPress}
         />
       }

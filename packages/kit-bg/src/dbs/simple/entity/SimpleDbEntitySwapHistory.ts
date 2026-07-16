@@ -1,4 +1,5 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { normalizeSwapHistoryNetworkInfo } from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
 import {
   isSwapHistoryTerminalStatus,
   markUnreadTerminalAsRead,
@@ -9,6 +10,7 @@ import {
   isStockSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   EProtocolOfExchange,
   ESwapTxHistoryStatus,
@@ -166,6 +168,30 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         : i.txInfo.txId !== txInfo.txId,
     );
     await this.setRawData({ ...data, histories: newHistories });
+  }
+
+  @backgroundMethod()
+  async repairSwapHistoryNetworkInfo(networks: IServerNetwork[]) {
+    const data = await this.getRawData();
+    const histories = data?.histories ?? [];
+    const preview = normalizeSwapHistoryNetworkInfo({ histories, networks });
+    if (!preview.changed) {
+      return { histories, changed: false };
+    }
+
+    let changed = false;
+    const repairedData = await this.setRawData((currentData) => {
+      const currentHistories = currentData?.histories ?? [];
+      const repaired = normalizeSwapHistoryNetworkInfo({
+        histories: currentHistories,
+        networks,
+      });
+      changed = repaired.changed;
+      return repaired.changed
+        ? { ...currentData, histories: repaired.histories }
+        : (currentData ?? { histories: [] });
+    });
+    return { histories: repairedData.histories, changed };
   }
 
   @backgroundMethod()

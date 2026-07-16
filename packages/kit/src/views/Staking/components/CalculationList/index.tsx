@@ -28,8 +28,12 @@ function CalculationListItem({ children, ...rest }: IXStackProps) {
 function CalculationListItemLabel({
   children,
   tooltip,
+  tooltipTextProps,
   ...rest
-}: ISizableTextProps & { tooltip?: string }) {
+}: ISizableTextProps & {
+  tooltip?: string;
+  tooltipTextProps?: Pick<ISizableTextProps, 'color' | 'size'>;
+}) {
   const content = (
     <SizableText color="$textSubdued" flex={1} flexWrap="wrap" {...rest}>
       {children}
@@ -46,6 +50,18 @@ function CalculationListItemLabel({
         tooltip={tooltip}
         placement="top"
         triggerProps={{ variant: 'tertiary', size: 'small', m: 0 }}
+        renderContent={
+          tooltipTextProps ? (
+            <YStack p="$5">
+              <SizableText
+                size={tooltipTextProps.size ?? '$bodyLg'}
+                color={tooltipTextProps.color}
+              >
+                {tooltip}
+              </SizableText>
+            </YStack>
+          ) : undefined
+        }
       />
     </XStack>
   ) : (
