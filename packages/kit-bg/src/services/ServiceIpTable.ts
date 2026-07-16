@@ -484,6 +484,11 @@ class ServiceIpTable extends ServiceBase {
     }
   }
 
+  // Coalesce concurrent speed tests per domain (anti probe-storm): the log
+  // of the 2026-07-16 incident shows ~20 concurrent rounds saturating an
+  // already congested network and polluting the latency measurements.
+  private speedTestInFlight = new Map<string, Promise<void>>();
+
   /**
    * Select best endpoint for a domain
    * Compares domain direct connection vs all IPs with SNI via the pure
@@ -493,6 +498,26 @@ class ServiceIpTable extends ServiceBase {
    */
   @backgroundMethod()
   async selectBestEndpointForDomain(
+    domain: string,
+    opts?: { trigger?: 'domain_failure' | 'ip_failure' | 'periodic' },
+  ): Promise<void> {
+    const inflight = this.speedTestInFlight.get(domain);
+    if (inflight) {
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] Speed test already in flight for ${domain}, coalescing`,
+      });
+      return inflight;
+    }
+    const run = this.selectBestEndpointForDomainInternal(domain, opts).finally(
+      () => {
+        this.speedTestInFlight.delete(domain);
+      },
+    );
+    this.speedTestInFlight.set(domain, run);
+    return run;
+  }
+
+  private async selectBestEndpointForDomainInternal(
     domain: string,
     opts?: { trigger?: 'domain_failure' | 'ip_failure' | 'periodic' },
   ): Promise<void> {
@@ -765,13 +790,23 @@ class ServiceIpTable extends ServiceBase {
     }
   }
 
+  private pendingInitialSpeedTestTimer: ReturnType<typeof setTimeout> | null =
+    null;
+
   private scheduleSpeedTest(reason: string): void {
+    if (this.pendingInitialSpeedTestTimer) {
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] ${reason}, speed test already scheduled, skipping`,
+      });
+      return;
+    }
     defaultLogger.ipTable.request.info({
       info: `[IpTable] ${reason}, scheduling speed test in ${
         IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS / 1000
       } s`,
     });
-    setTimeout(() => {
+    this.pendingInitialSpeedTestTimer = setTimeout(() => {
+      this.pendingInitialSpeedTestTimer = null;
       void this.runFullSpeedTest();
     }, IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS);
   }
