@@ -1,7 +1,15 @@
 import { verifyMessage } from '@ethersproject/wallet';
-import { random, range } from 'lodash';
+import { networks as BitcoinJsNetworks, Psbt } from 'bitcoinjs-lib';
+import { isEqual, random, range } from 'lodash';
 
+import {
+  buildPsbt,
+  decodedPsbt,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
+import { packUnsignedTxForSignEvm } from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -359,6 +367,121 @@ class ServiceDemo extends ServiceBase {
       accountId,
       extraInfo: null,
     });
+  }
+
+  @backgroundMethodForDev()
+  async demoQrWalletGetEvmSignRequestData() {
+    const encodedTx: IEncodedTxEvm = {
+      from: '0x02bA7fd1b0aCdd0E4F8c6DA7C4bA8Fd7F963bA50',
+      to: '0x02bA7fd1b0aCdd0E4F8c6DA7C4bA8Fd7F963bA50',
+      gasLimit: '0x8a10',
+      maxPriorityFeePerGas: '0x128ed',
+      maxFeePerGas: '0x1d1ac',
+      data: '0x',
+      nonce: '0x1',
+      value: '0x12a05f200',
+      chainId: '0x1',
+    };
+    const { digest, serializedTx, serializedTxWithout0x } =
+      packUnsignedTxForSignEvm({ encodedTx });
+    return { digest, serializedTx, serializedTxWithout0x };
+  }
+
+  @backgroundMethodForDev()
+  async demoQrWalletBuildBtcPsbt() {
+    const encodedTx: IEncodedTxBtc = {
+      inputs: [
+        {
+          address:
+            'bc1pw8tt6lrnkwva9l3twexqzl857pgga9uq570nmgemvhfr7c5hhlkq33puph',
+          path: "m/86'/0'/0'/0/0",
+          vout: 1,
+          txid: '606b35ac8b72a7e04faaabf28a31e6df7526f8316ecddc9a66997c9cfbd7914c',
+          value: '84744',
+        },
+      ],
+      outputs: [
+        {
+          address:
+            'bc1pw8tt6lrnkwva9l3twexqzl857pgga9uq570nmgemvhfr7c5hhlkq33puph',
+          value: '34000',
+        },
+        {
+          address:
+            'bc1pw8tt6lrnkwva9l3twexqzl857pgga9uq570nmgemvhfr7c5hhlkq33puph',
+          value: '45000',
+          payload: { isChange: true, bip44Path: "m/86'/0'/0'/0/0" },
+        },
+      ],
+      inputsForCoinSelect: [],
+      outputsForCoinSelect: [],
+      fee: '5744',
+      txSize: undefined,
+    };
+    const builtPsbt = await buildPsbt({
+      network: BitcoinJsNetworks.bitcoin,
+      unsignedTx: { encodedTx },
+      btcExtraInfo: {
+        inputAddressesEncodings: [
+          EAddressEncodings.P2TR,
+          EAddressEncodings.P2TR,
+        ],
+        pathToAddresses: {},
+        addressToPath: {},
+      },
+      buildInputMixinInfo: async () => ({
+        pubkey: bufferUtils.toBuffer(
+          '0286211e179c218d3dfd345271f92fcaa95d2d7491ee3d44db2da016f17953b71b',
+          'hex',
+        ),
+        bip32Derivation: [
+          {
+            leafHashes: [],
+            pubkey: bufferUtils.toBuffer(
+              '0286211e179c218d3dfd345271f92fcaa95d2d7491ee3d44db2da016f17953b71b',
+              'hex',
+            ),
+            masterFingerprint: bufferUtils.toBuffer('fc885a5e', 'hex'),
+            path: "m/86'/0'/0'/0/0",
+          },
+        ],
+      }),
+    });
+    const psbtHex2 = builtPsbt.toHex();
+    const txDecoded2 = decodedPsbt({
+      psbt: builtPsbt,
+      psbtNetwork: BitcoinJsNetworks.bitcoin,
+    });
+    const psbtHex1 =
+      '70736274ff01008902000000014c91d7fb9c7c99669adccd6e31f82675dfe6318af2abaa4fe0a7728bac356b600100000000ffffffff02b80b00000000000022512071d6bd7c73b399d2fe2b764c017cf4f0508e9780a79f3da33b65d23f6297bfec202a01000000000022512071d6bd7c73b399d2fe2b764c017cf4f0508e9780a79f3da33b65d23f6297bfec000000000001012b084b01000000000022512071d6bd7c73b399d2fe2b764c017cf4f0508e9780a79f3da33b65d23f6297bfec01172086211e179c218d3dfd345271f92fcaa95d2d7491ee3d44db2da016f17953b71b000000';
+    const expectedPsbt = Psbt.fromHex(psbtHex1, {
+      network: BitcoinJsNetworks.bitcoin,
+    });
+    const txDecoded1 = decodedPsbt({
+      psbt: expectedPsbt,
+      psbtNetwork: BitcoinJsNetworks.bitcoin,
+    });
+    const serializeDecodedPsbt = (decoded: ReturnType<typeof decodedPsbt>) => ({
+      ...decoded,
+      inputInfos: decoded.inputInfos.map((input) => ({
+        ...input,
+        value: input.value?.toString(),
+      })),
+      outputInfos: decoded.outputInfos.map((output) => ({
+        ...output,
+        value: output.value.toString(),
+      })),
+    });
+
+    return {
+      encodedTx,
+      psbtHexEquals: psbtHex1 === psbtHex2,
+      psbtHex1,
+      txDecoded1: serializeDecodedPsbt(txDecoded1),
+      psbtHex2,
+      txDecoded2: serializeDecodedPsbt(txDecoded2),
+      txDecodedEquals: isEqual(txDecoded1, txDecoded2),
+    };
   }
 
   @backgroundMethodForDev()
