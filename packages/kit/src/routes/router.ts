@@ -42,16 +42,14 @@ const buildPermissionRouter = () => {
       import('@onekeyhq/kit/src/views/Permission/PromptWebDeviceAccessPage'),
   );
   return [
-    platformEnv.isExtension
-      ? {
-          name: ERootRoutes.PermissionWebDevice,
-          component: PromptWebDeviceAccessPage,
-          allowColdStart: true,
-          rewrite: '/permission/web-device',
-          exact: true,
-        }
-      : undefined,
-  ].filter(Boolean);
+    {
+      name: ERootRoutes.PermissionWebDevice,
+      component: PromptWebDeviceAccessPage,
+      allowColdStart: true,
+      rewrite: '/permission/web-device',
+      exact: true,
+    },
+  ];
 };
 
 export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
@@ -76,7 +74,7 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
     name: ERootRoutes.iOSFullScreen,
     component: IOSFullScreenNavigator,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
     type: 'iOSFullScreen',
   },
   {

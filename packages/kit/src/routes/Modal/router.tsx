@@ -66,6 +66,7 @@ const onboardingRouterConfig = {
     await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
   },
   name: EModalRoutes.OnboardingModal,
+  allowColdStart: true,
   children: OnboardingRouter,
 };
 
@@ -123,6 +124,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.FirmwareUpdateModal,
+    allowColdStart: true,
     children: ModalFirmwareUpdateStack,
   },
   {
@@ -148,7 +150,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.DAppConnectionModal,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
     children: DAppConnectionRouter,
   },
   {
@@ -204,6 +206,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.NotificationsModal,
+    allowColdStart: true,
     children: ModalNotificationsRouter,
   },
   {
@@ -263,7 +266,7 @@ export const fullModalRouter = [
   },
   {
     name: EModalRoutes.DAppConnectionModal,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
     children: DAppConnectionRouter,
   },
   {
@@ -276,7 +279,7 @@ export const fullModalRouter = [
   },
   {
     name: EModalRoutes.SignatureConfirmModal,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
     children: ModalSignatureConfirmStack,
   },
 ];

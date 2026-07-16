@@ -1,5 +1,4 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSignatureConfirmParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -87,17 +86,17 @@ export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<
   IModalSignatureConfirmParamList
 >[] = [
   // Extension standalone windows cold-start from a hash URL built by
-  // ServiceDApp.openModal. Keep every screen in this stack available to the
-  // Extension compiler target without exposing these internal routes on Web.
+  // ServiceDApp.openModal. Cold-start route declarations are shared by every
+  // platform even when only one platform currently opens a specific entry.
   {
     name: EModalSignatureConfirmRoutes.TxConfirm,
     component: TxConfirm,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
   {
     name: EModalSignatureConfirmRoutes.MessageConfirm,
     component: MessageConfirm,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
   {
     name: EModalSignatureConfirmRoutes.TxConfirmFromDApp,
@@ -112,65 +111,65 @@ export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<
   {
     name: EModalSignatureConfirmRoutes.TxConfirmFromSwap,
     component: TxConfirmFromSwap,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.TxDataInput,
     component: TxDataInput,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.TxAmountInput,
     component: TxAmountInput,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.TxReplace,
     component: TxReplace,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.TxSelectToken,
     component: TxTokenSelector,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
   {
     name: EModalSignatureConfirmRoutes.TxSelectAggregateToken,
     component: TxAggregateTokenSelector,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.TxSelectDeriveAddress,
     component: TxDeriveTypesAddress,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.LnurlPayRequest,
     component: LnurlPayRequestModal,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.LnurlWithdraw,
     component: LnurlWithdrawModal,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.WeblnSendPayment,
     component: WeblnSendPaymentModal,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.LnurlAuth,
     component: LnurlAuthModal,
-    allowColdStart: platformEnv.isExtension,
+    allowColdStart: true,
   },
 ];

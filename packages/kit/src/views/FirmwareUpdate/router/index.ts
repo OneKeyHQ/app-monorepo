@@ -25,13 +25,16 @@ export const ModalFirmwareUpdateStack: IModalFlowNavigatorConfig<
   {
     name: EModalFirmwareUpdateRoutes.ChangeLog,
     component: PageFirmwareUpdateChangeLog,
+    allowColdStart: true,
   },
   {
     name: EModalFirmwareUpdateRoutes.Install,
     component: PageFirmwareUpdateInstall,
+    allowColdStart: true,
   },
   {
     name: EModalFirmwareUpdateRoutes.InstallV2,
     component: PageFirmwareUpdateInstallV2,
+    allowColdStart: true,
   },
 ];

@@ -12,6 +12,18 @@ const outputDirectory = path.join(
   'packages/kit/src/routes/generated',
 );
 const rootRouterFile = path.join(repoRoot, 'packages/kit/src/routes/router.ts');
+const extensionColdStartSourceDirectories = [
+  path.join(repoRoot, 'packages/kit/src'),
+  path.join(repoRoot, 'packages/kit-bg/src'),
+  path.join(repoRoot, 'packages/shared/src'),
+];
+const extensionRouteInfoMethods = new Set([
+  'openExtensionExpandTab',
+  'openExpandTab',
+  'openExpandTabOrSidePanel',
+  'openSidePanel',
+  'openStandaloneWindow',
+]);
 
 const targets = [
   'web',
@@ -36,6 +48,7 @@ const generatedTargets = new Set();
 const sourceContentCache = new Map();
 const sourceFileCache = new Map();
 let enumRegistryCache;
+let extensionColdStartContractsCache;
 let temporaryFileCounter = 0;
 
 const normalizePath = (filePath) => path.normalize(filePath);
@@ -113,6 +126,44 @@ const propertyName = (node) => {
   }
   return undefined;
 };
+
+const objectPropertyInitializer = (object, name) => {
+  for (const property of object.properties) {
+    if (
+      ts.isPropertyAssignment(property) &&
+      propertyName(property.name) === name
+    ) {
+      return property.initializer;
+    }
+    if (
+      ts.isShorthandPropertyAssignment(property) &&
+      property.name.text === name
+    ) {
+      return property.name;
+    }
+  }
+  return undefined;
+};
+
+const findEnclosingFunction = (node) => {
+  let current = node.parent;
+  while (current) {
+    if (
+      ts.isArrowFunction(current) ||
+      ts.isFunctionDeclaration(current) ||
+      ts.isFunctionExpression(current) ||
+      ts.isMethodDeclaration(current)
+    ) {
+      return current;
+    }
+    current = current.parent;
+  }
+  return undefined;
+};
+
+const isTestSourceFile = (filePath) =>
+  /[\\/](?:__tests__|__mocks__)[\\/]/u.test(filePath) ||
+  /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(filePath);
 
 const loadEnumRegistry = () => {
   if (enumRegistryCache) {
@@ -847,6 +898,184 @@ class RouteCompiler {
     });
   }
 
+  evaluateStringArray(node, context) {
+    const expression = unwrapExpression(node);
+    if (!ts.isArrayLiteralExpression(expression)) {
+      return undefined;
+    }
+    const values = [];
+    for (const element of expression.elements) {
+      if (ts.isSpreadElement(element)) {
+        return undefined;
+      }
+      const value = this.evaluatePrimitive(element, context, new Map());
+      if (typeof value !== 'string') {
+        fail(element, 'Extension cold-start route entries must be strings');
+      }
+      values.push(value);
+    }
+    return values;
+  }
+
+  collectAssignedStringArrays(identifier, call, context) {
+    const owner = findEnclosingFunction(call);
+    if (!owner?.body || !ts.isBlock(owner.body)) {
+      return [];
+    }
+    const arrays = [];
+    const visit = (node) => {
+      if (
+        ts.isVariableDeclaration(node) &&
+        ts.isIdentifier(node.name) &&
+        node.name.text === identifier &&
+        node.initializer
+      ) {
+        const value = this.evaluateStringArray(node.initializer, context);
+        if (value?.length) {
+          arrays.push({ node: node.initializer, routes: value });
+        }
+      } else if (
+        ts.isBinaryExpression(node) &&
+        node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+        ts.isIdentifier(node.left) &&
+        node.left.text === identifier
+      ) {
+        const value = this.evaluateStringArray(node.right, context);
+        if (value?.length) {
+          arrays.push({ node: node.right, routes: value });
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(owner.body);
+    return arrays;
+  }
+
+  collectRouteInfoContracts(call, context) {
+    const argument = call.arguments[0]
+      ? unwrapExpression(call.arguments[0])
+      : undefined;
+    if (!argument || !ts.isObjectLiteralExpression(argument)) {
+      return [];
+    }
+    const initializer = objectPropertyInitializer(argument, 'routes');
+    if (!initializer) {
+      return [];
+    }
+    const routes = this.evaluateStringArray(initializer, context);
+    if (routes) {
+      return routes.length ? [{ node: initializer, routes }] : [];
+    }
+    const expression = unwrapExpression(initializer);
+    return ts.isIdentifier(expression)
+      ? this.collectAssignedStringArrays(expression.text, call, context)
+      : [];
+  }
+
+  collectDAppModalContracts(call, context) {
+    const callee = unwrapExpression(call.expression);
+    if (
+      !ts.isPropertyAccessExpression(callee) ||
+      callee.name.text !== 'openModal' ||
+      !callee.expression.getText().includes('serviceDApp')
+    ) {
+      return [];
+    }
+    const argument = call.arguments[0]
+      ? unwrapExpression(call.arguments[0])
+      : undefined;
+    if (!argument || !ts.isObjectLiteralExpression(argument)) {
+      return [];
+    }
+    const initializer = objectPropertyInitializer(argument, 'screens');
+    if (!initializer) {
+      return [];
+    }
+    const routes = this.evaluateStringArray(initializer, context);
+    return routes?.length ? [{ node: initializer, routes }] : [];
+  }
+
+  assertRouteChain(routes, routeNames, node) {
+    let currentRoutes = routes;
+    for (const routeName of routeNames) {
+      const route = currentRoutes.find((item) => item.name === routeName);
+      if (!route) {
+        fail(
+          node,
+          `Cold-start entry is missing from the ${this.target} generated routes: ${routeNames.join(
+            ' > ',
+          )}`,
+        );
+      }
+      currentRoutes = route.children || [];
+    }
+  }
+
+  collectExtensionColdStartContracts() {
+    if (extensionColdStartContractsCache) {
+      return extensionColdStartContractsCache;
+    }
+    const contracts = [];
+    const visitSourceNode = (node, context) => {
+      if (ts.isCallExpression(node)) {
+        const callee = unwrapExpression(node.expression);
+        const method = ts.isPropertyAccessExpression(callee)
+          ? callee.name.text
+          : undefined;
+        if (method && extensionRouteInfoMethods.has(method)) {
+          contracts.push(...this.collectRouteInfoContracts(node, context));
+        }
+        for (const contract of this.collectDAppModalContracts(node, context)) {
+          contracts.push(
+            {
+              node: contract.node,
+              routes: [
+                this.enumValue('ERootRoutes', 'Modal', contract.node),
+                ...contract.routes,
+              ],
+            },
+            {
+              node: contract.node,
+              routes: [
+                this.enumValue('ERootRoutes', 'iOSFullScreen', contract.node),
+                ...contract.routes,
+              ],
+            },
+          );
+        }
+      }
+      ts.forEachChild(node, (child) => visitSourceNode(child, context));
+    };
+
+    for (const directory of extensionColdStartSourceDirectories) {
+      for (const filePath of walkFiles(directory)) {
+        if (isTestSourceFile(filePath)) {
+          continue;
+        }
+        const source = readSourceContent(filePath);
+        if (
+          !source.includes('openExtensionExpandTab') &&
+          !source.includes('openExpandTab') &&
+          !source.includes('openSidePanel') &&
+          !source.includes('openStandaloneWindow') &&
+          !source.includes('serviceDApp.openModal')
+        ) {
+          continue;
+        }
+        const context = this.contextFor(filePath);
+        visitSourceNode(context.sourceFile, context);
+      }
+    }
+    extensionColdStartContractsCache = contracts;
+    return contracts;
+  }
+
+  validateExtensionColdStartEntries(routes) {
+    for (const contract of this.collectExtensionColdStartContracts()) {
+      this.assertRouteChain(routes, contract.routes, contract.node);
+    }
+  }
+
   compileRoot() {
     const roots = this.resolveExport(rootRouterFile, 'rootRouter');
     if (!Array.isArray(roots)) {
@@ -893,7 +1122,12 @@ class RouteCompiler {
       root.children = children;
     }
     this.validateRoutes(roots, this.contextFor(rootRouterFile).sourceFile);
-    return this.projectColdStartRoutes(roots);
+    const coldStartRoutes = this.projectColdStartRoutes(roots);
+    // Extension entry points reveal routes that must cold-start correctly, but
+    // the route manifest itself is shared: every target must contain the same
+    // discovered route chain.
+    this.validateExtensionColdStartEntries(coldStartRoutes);
+    return coldStartRoutes;
   }
 }
 
@@ -965,6 +1199,7 @@ const generateRoutePathConfig = ({
     sourceContentCache.clear();
     sourceFileCache.clear();
     enumRegistryCache = undefined;
+    extensionColdStartContractsCache = undefined;
   }
   const selectedTargets = [
     ...new Set(targetNames.map((target) => normalizeTarget(target))),
