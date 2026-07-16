@@ -4,6 +4,11 @@ import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import { memoizee } from '../../utils/cacheUtils';
+import {
+  DEFAULT_IP_TABLE_CONFIG,
+  IP_TABLE_ADAPTER_FAILOVER_TTL_MS,
+  IP_TABLE_DOMAIN_FAILOVER_THRESHOLD,
+} from '../constants/ipTableDefaults';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
@@ -149,6 +154,157 @@ async function getMappedDomainForIpLookup(
   }
 }
 
+// getSelectedIpForHostInternal is a hoisted function declaration, so wiring
+// the memoized wrapper up here (before the fail-open helpers that clear its
+// cache) is safe at module-evaluation time.
+const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
+  promise: true,
+  maxAge: 5000, // 5 seconds cache
+  max: 100, // Max 100 hostname cached
+  primitive: true, // hostname is a string primitive, use simple equality check
+});
+
+// ========== Fail-open on domain network failures ==========
+//
+// When real requests on the direct domain keep failing at the transport
+// level (timeouts, resets — NOT HTTP error responses), the adapter opens a
+// time-boxed window during which hosts of that root domain resolve to a
+// fallback IP (runtime last-best IP when available, builtin config
+// otherwise). This is the only protection available in runtimes where the
+// simpleDb-backed config is absent: the main runtime on split-runtime
+// targets and the cold-start window before background init completes.
+// Failing requests are never replayed — a wallet must not double-send
+// mutating POSTs — only subsequent requests take the fail-open route.
+
+interface IAdapterFailoverState {
+  consecutiveNetworkFailures: number;
+  failOpenUntil: number;
+  /** Rotates across activations so a dead builtin endpoint is not retried forever */
+  fallbackIpIndex: number;
+}
+
+const adapterFailoverStates = new Map<string, IAdapterFailoverState>();
+
+/** Test-only helper: clears fail-open state and the selection memo cache. */
+export function resetAdapterFailoverStatesForTesting(): void {
+  adapterFailoverStates.clear();
+  getSelectedIpForHost.clear();
+}
+
+function isNetworkLevelError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  // An HTTP response means the network path works; only transport-level
+  // failures (timeout, reset, dns) should trigger fail-open.
+  if ('response' in error && (error as { response?: unknown }).response) {
+    return false;
+  }
+  return true;
+}
+
+async function isFailoverDisabledByDevSettings(): Promise<boolean> {
+  try {
+    const devSettings = await requestHelper.getDevSettingsPersistAtom();
+    return !!devSettings.settings?.disableIpTableFailover;
+  } catch {
+    // Default to enabled when dev settings are unreadable.
+    return false;
+  }
+}
+
+function getFailoverState(lookupDomain: string): IAdapterFailoverState {
+  let state = adapterFailoverStates.get(lookupDomain);
+  if (!state) {
+    state = {
+      consecutiveNetworkFailures: 0,
+      failOpenUntil: 0,
+      fallbackIpIndex: 0,
+    };
+    adapterFailoverStates.set(lookupDomain, state);
+  }
+  return state;
+}
+
+function isFailoverActive(lookupDomain: string): boolean {
+  const state = adapterFailoverStates.get(lookupDomain);
+  return Boolean(state && state.failOpenUntil > Date.now());
+}
+
+async function resolveFailoverLookupDomain(
+  rootDomain: string,
+): Promise<string> {
+  const mappedDomain = await getMappedDomainForIpLookup(rootDomain);
+  return mappedDomain || rootDomain;
+}
+
+async function recordDomainRequestOutcome(options: {
+  rootDomain: string;
+  ok: boolean;
+  error?: unknown;
+}): Promise<void> {
+  const { rootDomain, ok, error } = options;
+  const lookupDomain = await resolveFailoverLookupDomain(rootDomain);
+  const state = getFailoverState(lookupDomain);
+
+  if (ok) {
+    if (state.consecutiveNetworkFailures > 0 || state.failOpenUntil > 0) {
+      if (state.failOpenUntil > Date.now()) {
+        logIpTableEvent('info', 'adapter_failover_deactivated', {
+          lookupDomain,
+          cause: 'domain_recovered',
+        });
+      }
+      state.consecutiveNetworkFailures = 0;
+      state.failOpenUntil = 0;
+      getSelectedIpForHost.clear();
+    }
+    return;
+  }
+
+  if (!isNetworkLevelError(error)) {
+    return;
+  }
+  if (await isFailoverDisabledByDevSettings()) {
+    return;
+  }
+
+  state.consecutiveNetworkFailures += 1;
+  if (
+    state.consecutiveNetworkFailures >= IP_TABLE_DOMAIN_FAILOVER_THRESHOLD &&
+    state.failOpenUntil <= Date.now()
+  ) {
+    state.failOpenUntil = Date.now() + IP_TABLE_ADAPTER_FAILOVER_TTL_MS;
+    state.fallbackIpIndex += 1;
+    getSelectedIpForHost.clear();
+    logIpTableEvent('warn', 'adapter_failover_activated', {
+      lookupDomain,
+      consecutiveNetworkFailures: state.consecutiveNetworkFailures,
+      ttlMs: IP_TABLE_ADAPTER_FAILOVER_TTL_MS,
+    });
+  }
+}
+
+function getFailoverFallbackIp(lookupDomain: string): string | null {
+  const endpoints = DEFAULT_IP_TABLE_CONFIG.domains[lookupDomain]?.endpoints;
+  if (!endpoints || endpoints.length === 0) {
+    return null;
+  }
+  const state = getFailoverState(lookupDomain);
+  return endpoints[state.fallbackIpIndex % endpoints.length].ip;
+}
+
+/**
+ * Resolve the fail-open IP for a lookup domain, preferring the last-best IP
+ * measured by the background speed test when a runtime is available.
+ */
+function resolveFailoverIp(
+  lookupDomain: string,
+  runtimeLastBestIp: string | undefined,
+): string | null {
+  return runtimeLastBestIp || getFailoverFallbackIp(lookupDomain);
+}
+
 /**
  * Check if IP Table should be used based on environment and dev settings
  * @returns true if IP Table should be used, false otherwise
@@ -216,6 +372,29 @@ async function getSelectedIpForHostInternal(
 
     // Check if config exists and is enabled
     if (!configWithRuntime || configWithRuntime.runtime?.enabled === false) {
+      // No config = the main runtime or the cold-start window before the
+      // background init completes. When the domain is failing at transport
+      // level, fail-open to a builtin IP so those runtimes have protection
+      // too. runtime.enabled === false is explicit user intent: no fail-open.
+      if (!configWithRuntime) {
+        const lookupDomain = await resolveFailoverLookupDomain(rootDomain);
+        if (isFailoverActive(lookupDomain)) {
+          const failoverIp = resolveFailoverIp(lookupDomain, undefined);
+          if (failoverIp) {
+            logIpTableEvent('warn', 'iptable_selection', {
+              hostname,
+              rootDomain,
+              lookupDomain,
+              mapped: lookupDomain !== rootDomain,
+              strictMode: false,
+              runtimeEnabled: false,
+              decision: 'fail_open',
+              selectedIpHash: hashForLog(failoverIp),
+            });
+            return failoverIp;
+          }
+        }
+      }
       logIpTableEvent('info', 'iptable_selection', {
         hostname,
         rootDomain,
@@ -269,6 +448,25 @@ async function getSelectedIpForHostInternal(
     // In strict mode, override this and use fallback IP from config
     if (selectedIp === '') {
       if (!strictMode) {
+        if (isFailoverActive(lookupDomain)) {
+          const failoverIp = resolveFailoverIp(
+            lookupDomain,
+            runtime?.lastBestIp?.[lookupDomain],
+          );
+          if (failoverIp) {
+            logIpTableEvent('warn', 'iptable_selection', {
+              hostname,
+              rootDomain,
+              lookupDomain,
+              mapped: Boolean(mappedDomain),
+              strictMode: false,
+              runtimeEnabled: runtime?.enabled !== false,
+              decision: 'fail_open',
+              selectedIpHash: hashForLog(failoverIp),
+            });
+            return failoverIp;
+          }
+        }
         debugLog(
           `[IpTableAdapter] Explicitly using domain for: ${lookupDomain}`,
         );
@@ -308,6 +506,26 @@ async function getSelectedIpForHostInternal(
       }
     }
 
+    if (isFailoverActive(lookupDomain)) {
+      const failoverIp = resolveFailoverIp(
+        lookupDomain,
+        runtime?.lastBestIp?.[lookupDomain],
+      );
+      if (failoverIp) {
+        logIpTableEvent('warn', 'iptable_selection', {
+          hostname,
+          rootDomain,
+          lookupDomain,
+          mapped: Boolean(mappedDomain),
+          strictMode: Boolean(strictMode),
+          runtimeEnabled: runtime?.enabled !== false,
+          decision: 'fail_open',
+          selectedIpHash: hashForLog(failoverIp),
+        });
+        return failoverIp;
+      }
+    }
+
     logIpTableEvent('info', 'iptable_selection', {
       hostname,
       rootDomain,
@@ -343,13 +561,6 @@ async function getSelectedIpForHostInternal(
     return null;
   }
 }
-
-const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
-  promise: true,
-  maxAge: 5000, // 5 seconds cache
-  max: 100, // Max 100 hostname cached
-  primitive: true, // hostname is a string primitive, use simple equality check
-});
 
 /**
  * Convert AxiosHeaders to plain object
@@ -521,8 +732,21 @@ export function createIpTableAdapter(
         );
       }
 
+      if (rootDomain) {
+        // A completed domain request (any HTTP status) proves the network
+        // path works: reset the adapter fail-open counter.
+        await recordDomainRequestOutcome({ rootDomain, ok: true });
+      }
+
       return response;
     } catch (error) {
+      if (rootDomain) {
+        // Track transport-level failures for adapter fail-open. The failing
+        // request itself is never replayed (no double-send of POSTs); only
+        // subsequent requests take the fail-open route.
+        await recordDomainRequestOutcome({ rootDomain, ok: false, error });
+      }
+
       // Only report domain failures if this is NOT a fallback request
       if (
         !isFallback &&
