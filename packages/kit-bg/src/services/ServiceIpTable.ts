@@ -38,8 +38,9 @@ import type {
 } from '@onekeyhq/shared/src/request/types/ipTable';
 import {
   isSupportIpTablePlatform,
+  isValidIpTableRemoteConfigShape,
   mergeIpTableConfigs,
-  verifyIpTableConfigSignature,
+  verifyIpTableConfigSignatureDetailed,
 } from '@onekeyhq/shared/src/utils/ipTableUtils';
 
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
@@ -316,6 +317,16 @@ class ServiceIpTable extends ServiceBase {
         return null;
       }
 
+      // A misconfigured CDN edge can return HTML or a truncated body that
+      // still parses; reject it here so the log points at the delivery
+      // layer instead of a bogus "signature verification failed".
+      if (!isValidIpTableRemoteConfigShape(remoteConfig)) {
+        defaultLogger.ipTable.request.error({
+          info: '[IpTable] Skipping CDN config update: invalid config shape (delivery-layer problem)',
+        });
+        return null;
+      }
+
       defaultLogger.ipTable.request.info({
         info: `[IpTable] Remote config fetched successfully, version: ${remoteConfig.version}`,
       });
@@ -356,11 +367,15 @@ class ServiceIpTable extends ServiceBase {
         return false;
       }
 
-      const isValidSignature = await verifyIpTableConfigSignature(remoteConfig);
+      const verifyResult =
+        await verifyIpTableConfigSignatureDetailed(remoteConfig);
 
-      if (!isValidSignature) {
+      if (!verifyResult.ok) {
+        // Keep the failure stage in the message: `verifier_load_failed` is a
+        // packaging/runtime problem (e.g. split-bundle segment refused),
+        // NOT an untrusted signature — they need different owners.
         defaultLogger.ipTable.request.error({
-          info: '[IpTable] Skipping CDN config update: signature verification failed',
+          info: `[IpTable] Skipping CDN config update: signature verification failed, reason=${verifyResult.reason}`,
         });
         return false;
       }
