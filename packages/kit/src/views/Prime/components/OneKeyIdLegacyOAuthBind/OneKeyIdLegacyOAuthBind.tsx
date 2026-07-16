@@ -43,6 +43,7 @@ import {
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import type { EOneKeyIdOAuthProvider } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { showOneKeyIdLoginSuccessToast } from '../oneKeyIdLoginToastUtils';
@@ -291,7 +292,14 @@ function OneKeyIdLegacyOAuthBindActions({
           accessToken: oauthAccessToken,
         });
       } catch (error) {
-        if (didUseOAuthSignIn) {
+        // Only tear the temp session down on definitive rejections (same
+        // policy as PrimeLoginOAuthDialog): a transient failure (network
+        // blip, transient session-storage read) says nothing about the
+        // just-validated session, and keeping it lets a retry re-login
+        // without a fresh OAuth round-trip — especially important here,
+        // where the legacy account was already logged out above and clearing
+        // the session would strand the user fully logged out.
+        if (didUseOAuthSignIn && !isTransientNetworkLikeError(error)) {
           await clearOAuthSignInTempSession();
         }
         throw error;
@@ -358,7 +366,10 @@ function OneKeyIdLegacyOAuthBindActions({
               });
               return;
             }
-            if (didUseOAuthSignIn) {
+            // Definitive rejections only (same policy as
+            // PrimeLoginOAuthDialog): keep the just-persisted session on
+            // transient failures so a retry can reuse it.
+            if (didUseOAuthSignIn && !isTransientNetworkLikeError(error)) {
               await clearOAuthSignInTempSession();
             }
             throw error;
