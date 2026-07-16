@@ -124,12 +124,18 @@ export function buildReferenceTickOptions({
   for (const multiplier of multipliers) {
     const targetTick = minimumTick.multipliedBy(multiplier).toNumber();
     const mapped = mapTickToParams(priceNumber, targetTick);
-    const apiTickKey = new BigNumber(mapped.apiTick).toFixed();
-    if (!seenApiTicks.has(apiTickKey)) {
+    const apiTick = new BigNumber(mapped.apiTick);
+    const apiTickKey = apiTick.toFixed();
+    if (
+      apiTick.isGreaterThanOrEqualTo(minimumTick) &&
+      !seenApiTicks.has(apiTickKey)
+    ) {
       seenApiTicks.add(apiTickKey);
       tickOptions.push({
         ...mapped,
         multiplier,
+        label: apiTickKey,
+        value: apiTickKey,
       });
     }
   }

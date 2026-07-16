@@ -119,6 +119,34 @@ describe('buildReferenceTickOptions', () => {
       }),
     ).toBeNull();
   });
+
+  it('does not expose spot tick options finer than the protocol decimal limit', () => {
+    const result = buildReferenceTickOptions({
+      symbol: '@591',
+      price: '0.0000004',
+      szDecimals: 1,
+      isSpot: true,
+    });
+
+    expect(result?.tickOptions.map((option) => option.value)).toEqual([
+      '0.0000001',
+    ]);
+  });
+
+  it('formats small tick options without scientific notation', () => {
+    const result = buildReferenceTickOptions({
+      symbol: 'TEST',
+      price: '0.002699',
+      szDecimals: 0,
+      isSpot: true,
+    });
+
+    expect(
+      result?.tickOptions.every(
+        (option) => !option.label.includes('e') && !option.value.includes('e'),
+      ),
+    ).toBe(true);
+  });
 });
 
 describe('shouldInitializeOrderBookTickOption', () => {
