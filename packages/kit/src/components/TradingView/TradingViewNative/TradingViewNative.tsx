@@ -1,45 +1,37 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 
 import { Stack, useTheme } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import type { ITradingViewNativeProps } from './types';
 
-const FULL_CIRCLE_RADIANS = Math.PI * 2;
+const KLINE_INTERVAL = '1H';
+const KLINE_RANGE_SECONDS = 7 * 24 * 60 * 60;
+const MAX_VISIBLE_CANDLES = 160;
 
-interface IClockColors {
+interface IChartColors {
   background: string;
-  border: string;
-  primary: string;
-  secondary: string;
-  accent: string;
+  grid: string;
+  up: string;
+  down: string;
 }
 
-function drawHand({
-  context,
-  angle,
-  length,
-  lineWidth,
-  color,
-}: {
-  context: CanvasRenderingContext2D;
-  angle: number;
-  length: number;
-  lineWidth: number;
-  color: string;
-}) {
-  context.save();
-  context.rotate(angle);
-  context.beginPath();
-  context.moveTo(0, length * 0.12);
-  context.lineTo(0, -length);
-  context.lineCap = 'round';
-  context.lineWidth = lineWidth;
-  context.strokeStyle = color;
-  context.stroke();
-  context.restore();
+function isValidKLinePoint(point: IMarketTokenKLineDataPoint) {
+  return (
+    Number.isFinite(point.o) &&
+    Number.isFinite(point.h) &&
+    Number.isFinite(point.l) &&
+    Number.isFinite(point.c) &&
+    point.h >= point.l
+  );
 }
 
-function drawClock(canvas: HTMLCanvasElement, now: Date, colors: IClockColors) {
+function drawKLineChart(
+  canvas: HTMLCanvasElement,
+  points: IMarketTokenKLineDataPoint[],
+  colors: IChartColors,
+) {
   const context = canvas.getContext('2d');
   if (!context) {
     return;
@@ -64,121 +56,147 @@ function drawClock(canvas: HTMLCanvasElement, now: Date, colors: IClockColors) {
   context.fillStyle = colors.background;
   context.fillRect(0, 0, width, height);
 
-  const centerX = width / 2;
-  const centerY = height / 2;
-  const radius = Math.min(width, height) * 0.36;
+  if (!points.length) {
+    return;
+  }
 
-  context.save();
-  context.translate(centerX, centerY);
+  const padding = 24;
+  const chartWidth = width - padding * 2;
+  const chartHeight = height - padding * 2;
+  let minPrice = Number.POSITIVE_INFINITY;
+  let maxPrice = Number.NEGATIVE_INFINITY;
 
-  context.beginPath();
-  context.arc(0, 0, radius, 0, FULL_CIRCLE_RADIANS);
-  context.lineWidth = Math.max(radius * 0.018, 1);
-  context.strokeStyle = colors.border;
-  context.stroke();
+  for (const point of points) {
+    minPrice = Math.min(minPrice, point.l);
+    maxPrice = Math.max(maxPrice, point.h);
+  }
 
-  for (let index = 0; index < 12; index += 1) {
-    const angle = (index / 12) * FULL_CIRCLE_RADIANS;
-    const markerLength = index % 3 === 0 ? radius * 0.1 : radius * 0.05;
-    const outerRadius = radius * 0.86;
-
+  context.strokeStyle = colors.grid;
+  context.lineWidth = 1;
+  for (let index = 1; index < 4; index += 1) {
+    const y = padding + (chartHeight * index) / 4;
     context.beginPath();
-    context.moveTo(
-      Math.sin(angle) * (outerRadius - markerLength),
-      -Math.cos(angle) * (outerRadius - markerLength),
-    );
-    context.lineTo(
-      Math.sin(angle) * outerRadius,
-      -Math.cos(angle) * outerRadius,
-    );
-    context.lineCap = 'round';
-    context.lineWidth = Math.max(radius * 0.018, 1);
-    context.strokeStyle = colors.secondary;
+    context.moveTo(padding, y);
+    context.lineTo(width - padding, y);
     context.stroke();
   }
 
-  const seconds = now.getSeconds();
-  const minutes = now.getMinutes() + seconds / 60;
-  const hours = (now.getHours() % 12) + minutes / 60;
+  const priceRange = maxPrice - minPrice;
+  const toY = (price: number) =>
+    priceRange === 0
+      ? height / 2
+      : padding + ((maxPrice - price) / priceRange) * chartHeight;
+  const candleStep = chartWidth / points.length;
+  const candleWidth = Math.max(1, Math.min(candleStep * 0.65, 10));
 
-  drawHand({
-    context,
-    angle: (hours / 12) * FULL_CIRCLE_RADIANS,
-    length: radius * 0.48,
-    lineWidth: Math.max(radius * 0.055, 2),
-    color: colors.primary,
-  });
-  drawHand({
-    context,
-    angle: (minutes / 60) * FULL_CIRCLE_RADIANS,
-    length: radius * 0.68,
-    lineWidth: Math.max(radius * 0.035, 1.5),
-    color: colors.primary,
-  });
-  drawHand({
-    context,
-    angle: (seconds / 60) * FULL_CIRCLE_RADIANS,
-    length: radius * 0.76,
-    lineWidth: Math.max(radius * 0.012, 1),
-    color: colors.accent,
-  });
+  points.forEach((point, index) => {
+    const color = point.c >= point.o ? colors.up : colors.down;
+    const x = padding + candleStep * (index + 0.5);
+    const openY = toY(point.o);
+    const highY = toY(point.h);
+    const lowY = toY(point.l);
+    const closeY = toY(point.c);
 
-  context.beginPath();
-  context.arc(0, 0, Math.max(radius * 0.045, 2), 0, FULL_CIRCLE_RADIANS);
-  context.fillStyle = colors.accent;
-  context.fill();
-  context.restore();
+    context.strokeStyle = color;
+    context.beginPath();
+    context.moveTo(x, highY);
+    context.lineTo(x, lowY);
+    context.stroke();
+
+    context.fillStyle = color;
+    context.fillRect(
+      x - candleWidth / 2,
+      Math.min(openY, closeY),
+      candleWidth,
+      Math.max(Math.abs(closeY - openY), 1),
+    );
+  });
 }
 
-export const TradingViewNative = memo(({ testID }: ITradingViewNativeProps) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const theme = useTheme();
-  const background = theme.bgApp.val;
-  const border = theme.borderSubdued.val;
-  const primary = theme.text.val;
-  const secondary = theme.textSubdued.val;
-  const accent = theme.textInfo.val;
+export const TradingViewNative = memo(
+  ({ testID, networkId = '', tokenAddress = '' }: ITradingViewNativeProps) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [points, setPoints] = useState<IMarketTokenKLineDataPoint[]>([]);
+    const theme = useTheme();
+    const background = theme.bgApp.val;
+    const grid = theme.borderSubdued.val;
+    const up = theme.textSuccess.val;
+    const down = theme.borderCritical.val;
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return undefined;
-    }
+    useEffect(() => {
+      let isActive = true;
+      setPoints([]);
 
-    const renderClock = () => {
-      drawClock(canvas, new Date(), {
-        background,
-        border,
-        primary,
-        secondary,
-        accent,
-      });
-    };
+      if (!networkId) {
+        return () => {
+          isActive = false;
+        };
+      }
 
-    renderClock();
-    const timer = globalThis.setInterval(renderClock, 1000);
-    const resizeObserver = new ResizeObserver(renderClock);
-    resizeObserver.observe(canvas);
+      const timeTo = Math.floor(Date.now() / 1000);
+      void backgroundApiProxy.serviceMarketV2
+        .fetchMarketTokenKline({
+          tokenAddress,
+          networkId,
+          interval: KLINE_INTERVAL,
+          timeFrom: timeTo - KLINE_RANGE_SECONDS,
+          timeTo,
+          autoHandleError: false,
+        })
+        .then((data) => {
+          if (isActive) {
+            setPoints(
+              (data?.points ?? [])
+                .filter(isValidKLinePoint)
+                .toSorted((a, b) => a.t - b.t)
+                .slice(-MAX_VISIBLE_CANDLES),
+            );
+          }
+        })
+        .catch(() => {
+          if (isActive) {
+            setPoints([]);
+          }
+        });
 
-    return () => {
-      globalThis.clearInterval(timer);
-      resizeObserver.disconnect();
-    };
-  }, [accent, background, border, primary, secondary]);
+      return () => {
+        isActive = false;
+      };
+    }, [networkId, tokenAddress]);
 
-  return (
-    <Stack flex={1} w="100%" h="100%" bg="$bgApp">
-      <canvas
-        ref={canvasRef}
-        data-testid={testID}
-        style={{
-          display: 'block',
-          width: '100%',
-          height: '100%',
-        }}
-      />
-    </Stack>
-  );
-});
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        return undefined;
+      }
+
+      const renderChart = () => {
+        drawKLineChart(canvas, points, { background, grid, up, down });
+      };
+      renderChart();
+
+      const resizeObserver = new ResizeObserver(renderChart);
+      resizeObserver.observe(canvas);
+
+      return () => {
+        resizeObserver.disconnect();
+      };
+    }, [background, down, grid, points, up]);
+
+    return (
+      <Stack flex={1} w="100%" h="100%" bg="$bgApp">
+        <canvas
+          ref={canvasRef}
+          data-testid={testID}
+          style={{
+            display: 'block',
+            width: '100%',
+            height: '100%',
+          }}
+        />
+      </Stack>
+    );
+  },
+);
 
 TradingViewNative.displayName = 'TradingViewNative';
