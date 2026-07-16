@@ -4,6 +4,8 @@ import { Stack, useTheme } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
+import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
+
 import type { ITradingViewNativeProps } from './types';
 
 const KLINE_INTERVAL = '1H';
@@ -117,7 +119,12 @@ function drawKLineChart(
 }
 
 export const TradingViewNative = memo(
-  ({ testID, networkId = '', tokenAddress = '' }: ITradingViewNativeProps) => {
+  ({
+    testID,
+    networkId = '',
+    tokenAddress = '',
+    nativeControlsLayoutMode,
+  }: ITradingViewNativeProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [points, setPoints] = useState<IMarketTokenKLineDataPoint[]>([]);
     const theme = useTheme();
@@ -191,15 +198,20 @@ export const TradingViewNative = memo(
 
     return (
       <Stack flex={1} w="100%" h="100%" bg="$bgApp">
-        <canvas
-          ref={canvasRef}
-          data-testid={testID}
-          style={{
-            display: 'block',
-            width: '100%',
-            height: '100%',
-          }}
+        <TradingViewNativeChartControlsContainer
+          layoutMode={nativeControlsLayoutMode}
         />
+        <Stack flex={1} minHeight={0}>
+          <canvas
+            ref={canvasRef}
+            data-testid={testID}
+            style={{
+              display: 'block',
+              width: '100%',
+              height: '100%',
+            }}
+          />
+        </Stack>
       </Stack>
     );
   },

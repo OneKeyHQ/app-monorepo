@@ -213,6 +213,7 @@ export function DesktopLayout({
               tokenAddress={tokenAddress}
               symbol={tokenDetail?.symbol ?? ''}
               decimal={tokenDetail?.decimals ?? 8}
+              nativeControlsLayoutMode="desktop"
             />
           </Stack>
 
