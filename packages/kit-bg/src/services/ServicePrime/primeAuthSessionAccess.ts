@@ -133,6 +133,42 @@ export function clearSupabaseStorageCache() {
 }
 
 /**
+ * Clear ONLY this runtime's Supabase session storage read cache, without
+ * emitting the cross-runtime cache-clear event. Use before a local read that
+ * must not serve a stale (up-to-30s memoized) value — e.g. a pre-login guard
+ * that would otherwise abort on a stale empty slot.
+ */
+export function clearSupabaseStorageLocalCache() {
+  supabaseStorageInstance.clearCache({ syncRemote: false });
+}
+
+/**
+ * Strict variant of readPersistedAccessTokenBySessionSource for callers that
+ * make a DESTRUCTIVE decision on the result. Unlike the best-effort reader
+ * (which degrades EVERY failure to ''), this distinguishes a definitely-empty
+ * slot (returns '') from a transiently-unreadable one (rethrows): a transient
+ * storage failure (e.g. SupabaseStorageTransientError from the sealed codec)
+ * or a present-but-unparseable value must NOT be collapsed into "no session",
+ * or the caller destroys a still-recoverable session.
+ */
+export async function readPersistedAccessTokenBySessionSourceStrict(
+  authSessionSource: EPrimeAuthSessionSource,
+): Promise<string> {
+  const sessionKey =
+    getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
+  // getItem rethrows transient device-key/storage failures — let them
+  // propagate so the caller treats the slot as "unknown", not "empty".
+  const rawValue = await supabaseStorageInstance.getItem(sessionKey);
+  if (!rawValue) {
+    return '';
+  }
+  // A present-but-unparseable value throws here and propagates (unknown), not
+  // returns '' (empty) — the same "never collapse into no-session" rule.
+  const parsed = JSON.parse(rawValue) as { access_token?: string } | null;
+  return parsed?.access_token || '';
+}
+
+/**
  * Per-realm serial queue for session-slot DELETIONS (bg-owned). Every
  * destructive session-slot mutation — unconditional clears here and the
  * generation-gated clear in ServicePrime — runs inside the realm's

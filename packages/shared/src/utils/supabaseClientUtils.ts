@@ -45,81 +45,45 @@ const storage = supabaseStorageInstance;
 const isTransientSupabaseHttpStatus = (status: number) =>
   status === 408 || status === 429 || (status >= 500 && status < 600);
 
-const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
-  const response = await fetch(input, init);
-  if (response.ok) {
-    return response;
+// Whether an intercepted error-page body parses as JSON. A parseable JSON
+// body on a non-OK response is a definitive GoTrue verdict (invalid_grant,
+// rate-limit, ...) and must reach auth-js unchanged; a non-JSON body is an
+// intermediary error page (proxy / CDN / WAF) that must be masked as a
+// network failure so auth-js does not drop the persisted session.
+function isJsonParseableBody(bodyText: string): boolean {
+  const trimmed = bodyText.trim();
+  if (!trimmed) {
+    return false;
   }
-  if (isTransientSupabaseHttpStatus(response.status)) {
-    throw new TypeError(
-      `Supabase transient HTTP ${response.status} treated as network failure to preserve the persisted session`,
-    );
-  }
-  // A non-OK response whose body is not JSON is an intermediary error page
-  // (corporate proxy / CDN bot challenge), never a GoTrue verdict on the
-  // credential — treat it as transient too, otherwise auth-js turns it into
-  // a non-retryable AuthUnknownError and drops the persisted session.
   try {
-    await response.clone().json();
+    JSON.parse(trimmed);
+    return true;
   } catch {
-    throw new TypeError(
-      `Supabase non-JSON HTTP ${response.status} error response treated as network failure to preserve the persisted session ${await buildInterceptedResponseFingerprint(
-        response,
-      )}`,
-    );
+    return false;
   }
-  return response;
-};
-
-/**
- * Identify WHICH intermediary produced a non-JSON error page. Supabase auth
- * hosts sit behind Cloudflare, so every response that genuinely traversed
- * the edge carries a `cf-ray` header:
- * - no `cf-ray`            -> produced by a local proxy/VPN on the device's
- *                             network path (never reached Cloudflare);
- * - `cf-ray` + cf-mitigated/challenge markers -> blocked by Cloudflare
- *                             itself (WAF / bot management);
- * - `cf-ray` + server!=cloudflare -> passed the edge, rejected by the origin
- *                             gateway/reverse proxy in front of GoTrue.
- * The fingerprint is embedded in the thrown error message so it reaches the
- * login-failure toast and exported logs without extra plumbing. It carries
- * response headers and a body CLASSIFICATION only — never raw body content:
- * this string flows into server-side failure logging, and intermediary
- * pages (captive portals, corporate proxies) can embed user- or
- * network-identifying details.
- */
-async function buildInterceptedResponseFingerprint(
-  response: Response,
-): Promise<string> {
-  const header = (name: string) => response.headers?.get?.(name) || 'none';
-  return `[server=${header('server')} content-type=${header(
-    'content-type',
-  )} cf-ray=${header('cf-ray')} cf-mitigated=${header(
-    'cf-mitigated',
-  )} body=${await classifyInterceptedResponseBody(response)}]`;
 }
 
-// Whitelist classification of an intercepted error-page body. Only fixed
-// labels leave this function (see the privacy note above); the labels keep
-// the Cloudflare-vs-other discrimination the raw snippet used to provide.
-async function classifyInterceptedResponseBody(
-  response: Response,
-): Promise<string> {
-  let text = '';
-  try {
-    text = (await response.clone().text()).slice(0, 2048);
-  } catch {
-    return 'unreadable';
-  }
+// Whitelist classification of an intercepted error-page body from ALREADY-READ
+// text. Only fixed labels leave this function (see the privacy note on
+// buildInterceptedResponseFingerprint); the labels keep the
+// Cloudflare-vs-other discrimination the raw snippet used to provide.
+function classifyInterceptedResponseBody(bodyText: string): string {
+  const text = bodyText.slice(0, 2048);
   if (!text.trim()) {
     return 'empty';
   }
   const lowerText = text.toLowerCase();
+  // Anchor Cloudflare detection to markers that appear in CF's OWN block /
+  // challenge pages — never the bare word 'cloudflare', which also appears
+  // when an unrelated proxy / captive-portal page merely loads a
+  // cdnjs.cloudflare.com asset (that would contradict the cf-ray header half
+  // of the fingerprint).
   if (
-    lowerText.includes('cloudflare') ||
+    lowerText.includes('cloudflare ray id') ||
     lowerText.includes('cf-error') ||
     lowerText.includes('just a moment') ||
-    lowerText.includes('attention required')
+    lowerText.includes('attention required') ||
+    lowerText.includes('performance & security by cloudflare')
   ) {
     return 'cloudflare-page';
   }
@@ -128,6 +92,91 @@ async function classifyInterceptedResponseBody(
   }
   return 'text';
 }
+
+/**
+ * Identify WHICH intermediary produced an intercepted error response. Supabase
+ * auth hosts sit behind Cloudflare, so a response that genuinely traversed the
+ * edge carries a `cf-ray` header:
+ * - no `cf-ray`            -> produced by a local proxy/VPN on the device's
+ *                             network path (never reached Cloudflare);
+ * - `cf-ray` + cf-mitigated/challenge markers -> blocked by Cloudflare
+ *                             itself (WAF / bot management);
+ * - `cf-ray` + server!=cloudflare -> passed the edge, rejected by the origin
+ *                             gateway/reverse proxy in front of GoTrue.
+ *
+ * IMPORTANT: header evidence is only authoritative on NATIVE. On browser-CORS
+ * runtimes (web / desktop renderer / extension) `server`/`cf-ray`/`cf-mitigated`
+ * are not exposed to page JS by CORS and read `none` even for responses that
+ * DID traverse Cloudflare, so `cf-ray=none` there means "CORS-hidden", not
+ * "local proxy". The emitted `platform` field lets log triage tell the two
+ * apart; body classification and `content-type` (a CORS-exposed header) stay
+ * trustworthy everywhere.
+ *
+ * The fingerprint is embedded in the thrown error message so it reaches the
+ * login-failure toast and exported logs without extra plumbing. It carries
+ * response headers and a body CLASSIFICATION only — never raw body content:
+ * this string flows into server-side failure logging, and intermediary pages
+ * (captive portals, corporate proxies) can embed user- or network-identifying
+ * details.
+ */
+function buildInterceptedResponseFingerprint(
+  response: Response,
+  bodyText: string,
+): string {
+  const header = (name: string) => response.headers?.get?.(name) || 'none';
+  return `[platform=${platformEnv.appPlatform} server=${header(
+    'server',
+  )} content-type=${header('content-type')} cf-ray=${header(
+    'cf-ray',
+  )} cf-mitigated=${header(
+    'cf-mitigated',
+  )} body=${classifyInterceptedResponseBody(bodyText)}]`;
+}
+
+const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
+  const response = await fetch(input, init);
+  if (response.ok) {
+    return response;
+  }
+  // Read the error body ONCE from a clone; the original stays unread so
+  // auth-js can still consume it on the JSON pass-through path below.
+  let bodyText: string | undefined;
+  try {
+    bodyText = await response.clone().text();
+  } catch {
+    bodyText = undefined;
+  }
+  if (isTransientSupabaseHttpStatus(response.status)) {
+    // 408/429/5xx: mask as a fetch-level failure so auth-js's _removeSession()
+    // cannot destroy the persisted session over a transient outage. Attach the
+    // fingerprint too — Cloudflare's legacy 503 challenge / 429 rate-limit
+    // pages are exactly the intermediary responses worth identifying.
+    throw new TypeError(
+      `Supabase transient HTTP ${
+        response.status
+      } treated as network failure to preserve the persisted session ${buildInterceptedResponseFingerprint(
+        response,
+        bodyText ?? '',
+      )}`,
+    );
+  }
+  // A non-OK response with a parseable JSON body is a definitive GoTrue verdict
+  // — pass it through UNCHANGED so auth-js/callers surface the real error. Only
+  // a non-JSON body is an intermediary error page (corporate proxy / CDN bot
+  // challenge), which must be masked, otherwise auth-js turns it into a
+  // non-retryable AuthUnknownError and drops the persisted session.
+  if (bodyText !== undefined && isJsonParseableBody(bodyText)) {
+    return response;
+  }
+  throw new TypeError(
+    `Supabase non-JSON HTTP ${
+      response.status
+    } error response treated as network failure to preserve the persisted session ${buildInterceptedResponseFingerprint(
+      response,
+      bodyText ?? '',
+    )}`,
+  );
+};
 
 /**
  * Whether THIS JS runtime is allowed to perform Supabase refresh-token
