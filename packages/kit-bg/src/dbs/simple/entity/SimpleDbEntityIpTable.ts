@@ -60,7 +60,10 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
   }
 
   @backgroundMethod()
-  async saveConfig(config: IIpTableRemoteConfig): Promise<void> {
+  async saveConfig(
+    config: IIpTableRemoteConfig,
+    verifiedMeta?: { payloadHash: string },
+  ): Promise<void> {
     await this.setRawData((data) => ({
       ...data,
       config,
@@ -72,6 +75,18 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
           selections: {},
         }),
         lastUpdated: Date.now(),
+        // Provenance of the last successfully verified config; consumed by
+        // rollback protection and diagnostics.
+        ...(verifiedMeta
+          ? {
+              lastVerified: {
+                at: Date.now(),
+                version: config.version,
+                generatedAt: config.generated_at,
+                payloadHash: verifiedMeta.payloadHash,
+              },
+            }
+          : {}),
       },
     }));
   }
