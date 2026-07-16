@@ -178,11 +178,7 @@ export function TokenDetailHeaderLeft({
             {showMediaAndSecurity ? (
               <>
                 {address && networkId ? (
-                  <>
-                    <Divider vertical backgroundColor="$borderSubdued" h="$3" />
-
-                    <TokenSecurityAlert />
-                  </>
+                  <TokenSecurityAlert showLeadingDivider />
                 ) : null}
 
                 {website || twitter || address ? (

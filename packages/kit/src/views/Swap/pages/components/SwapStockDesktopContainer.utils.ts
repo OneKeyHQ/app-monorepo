@@ -1,6 +1,9 @@
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
-import { ESwapStockTradeSide } from '../../hooks/swapStockChannelUtils';
+import {
+  ESwapStockChannelStage,
+  ESwapStockTradeSide,
+} from '../../hooks/swapStockChannelUtils';
 import { normalizeSwapKLineWalletChartTimestamp } from '../modal/swapKLineChartUtils';
 
 export type IStockChartRange = '1D' | '1W' | '1M' | '1Y';
@@ -38,6 +41,15 @@ export function getStockDisabledActionButtonProps(
       opacity: 0.6,
     },
   } as const;
+}
+
+export function isStockMarketPanelLoadingStage(
+  channelStage: ESwapStockChannelStage,
+) {
+  return (
+    channelStage === ESwapStockChannelStage.InitializingStock ||
+    channelStage === ESwapStockChannelStage.CheckingMarketStatus
+  );
 }
 
 export function mergeStockChartRealtimePoint({
