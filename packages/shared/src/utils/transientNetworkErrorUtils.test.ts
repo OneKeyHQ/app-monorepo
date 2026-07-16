@@ -1,8 +1,33 @@
 import { EOneKeyErrorClassNames } from '../errors/types/errorTypes';
 
+import { SupabaseStorageTransientError } from './supabaseAuthErrorUtils';
 import { isTransientNetworkLikeError } from './transientNetworkErrorUtils';
 
 describe('isTransientNetworkLikeError', () => {
+  describe('retryable supabase auth/storage errors (name-based, bridge-safe)', () => {
+    test.each([
+      'AuthRetryableFetchError',
+      'SupabaseStorageTransientError',
+      'AuthUnknownError',
+    ])('error name %s is transient', (name) => {
+      expect(isTransientNetworkLikeError({ name })).toBe(true);
+    });
+
+    test('SupabaseStorageTransientError instance is transient', () => {
+      expect(
+        isTransientNetworkLikeError(
+          new SupabaseStorageTransientError('device key store unavailable'),
+        ),
+      ).toBe(true);
+    });
+
+    test('definitive auth rejections (AuthApiError 400) are not transient', () => {
+      expect(
+        isTransientNetworkLikeError({ name: 'AuthApiError', status: 400 }),
+      ).toBe(false);
+    });
+  });
+
   describe('className-based classification (bridge-serialized OneKey errors)', () => {
     test('AxiosNetworkError className is transient', () => {
       expect(
