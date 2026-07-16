@@ -1660,6 +1660,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   ): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
     try {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      if (
+        !activeAccount?.accountAddress ||
+        activeAccount.accountAddress.toLowerCase() !==
+          params.expectedAccountAddress.toLowerCase()
+      ) {
+        throw new OneKeyLocalError(
+          'The active trading account changed before setting position TP/SL',
+        );
+      }
       const {
         assetId,
         positionSize,

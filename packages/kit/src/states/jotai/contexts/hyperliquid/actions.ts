@@ -3347,6 +3347,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set,
       params: {
         assetId: number;
+        expectedAccountAddress: string;
         positionSize: string;
         isBuy: boolean;
         tpTriggerPx?: string;
@@ -3363,6 +3364,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               await backgroundApiProxy.serviceHyperliquidExchange.setPositionTpsl(
                 {
                   assetId: params.assetId,
+                  expectedAccountAddress: params.expectedAccountAddress,
                   positionSize: params.positionSize,
                   isBuy: params.isBuy,
                   tpTriggerPx: params.tpTriggerPx,

@@ -124,6 +124,8 @@ export interface IPerpContractInfo {
 
 // Orders
 export type IPerpsFrontendOrder = HL.OpenOrdersWsEvent['orders'][number];
+export type IFrontendOpenOrdersParameters = HL.FrontendOpenOrdersParameters;
+export type IFrontendOpenOrdersResponse = HL.FrontendOpenOrdersResponse;
 export type IOrderParams = HL.OrderParameters['orders'][number];
 export type IOrderResponse = HL.OrderSuccessResponse;
 export type ICancelResponse = HL.CancelSuccessResponse;

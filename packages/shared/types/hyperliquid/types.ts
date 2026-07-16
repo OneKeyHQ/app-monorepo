@@ -190,6 +190,7 @@ export interface IAgentApprovalRequest {
 
 export interface IPositionTpslOrderParams {
   assetId: number;
+  expectedAccountAddress: string;
   positionSize: string;
   isBuy: boolean;
   tpTriggerPx?: string;
