@@ -203,9 +203,6 @@ export function LimitOrderForm({
   const [tpValue, setTpValue] = useState('');
   const [slType, setSlType] = useState<'price' | 'percentage'>('price');
   const [slValue, setSlValue] = useState('');
-  // Bumped whenever TP/SL inputs are programmatically re-seeded (TpSlFormInput
-  // does not re-sync its internalValue on prop change).
-  const [tpslSeedKey, setTpslSeedKey] = useState(0);
 
   const isBBOActive = !isSpot && Boolean(bboPriceMode);
 
@@ -732,7 +729,6 @@ export function LimitOrderForm({
     if (!checked) {
       setTpValue('');
       setSlValue('');
-      setTpslSeedKey((key) => key + 1);
     }
   }, []);
 
@@ -1221,7 +1217,6 @@ export function LimitOrderForm({
           {hasTpsl ? (
             <YStack gap="$2">
               <TpSlFormInput
-                key={`tp-${tpslSeedKey}`}
                 type="tp"
                 label={intl.formatMessage({
                   id: ETranslations.perp_trade_tp_price,
@@ -1234,7 +1229,6 @@ export function LimitOrderForm({
                 onTypeChange={setTpType}
               />
               <TpSlFormInput
-                key={`sl-${tpslSeedKey}`}
                 type="sl"
                 label={intl.formatMessage({
                   id: ETranslations.perp_trade_sl_price,

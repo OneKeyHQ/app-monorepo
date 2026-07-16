@@ -42,6 +42,11 @@ import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { isPerpsAccountAddressMatched } from '../../utils/accountScopedData';
+import { resolveTpSlTriggerPx } from '../../utils/resolveTpSlTriggerPx';
+import {
+  buildDefaultTpSlPercent,
+  shouldSeedPositionTpSlLeg,
+} from '../../utils/tpslSeed';
 import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
@@ -408,6 +413,64 @@ const SetTpslForm = memo(
       amount: '',
       percentage: 100,
     }));
+    const tpslUserEditedRef = useRef({ tp: false, sl: false });
+    const tpslSeededRef = useRef({ tp: false, sl: false });
+
+    useEffect(() => {
+      if (!isOpenOrdersReady || !new BigNumber(entryPrice).gt(0)) {
+        return;
+      }
+      const defaultPrices = resolveTpSlTriggerPx({
+        hasTpsl: true,
+        ...buildDefaultTpSlPercent(),
+        referencePrice: new BigNumber(entryPrice),
+        side: isLongPosition ? 'long' : 'short',
+        leverage,
+      });
+      setFormData((previous) => {
+        const shouldSeedTp = shouldSeedPositionTpSlLeg({
+          hasExistingOrder: Boolean(tpOrder),
+          hasPreset: Boolean(presetTriggerPrice && presetTpsl === 'tp'),
+          currentValue: previous.tpPrice,
+          userEdited: tpslUserEditedRef.current.tp,
+          seeded: tpslSeededRef.current.tp,
+        });
+        const shouldSeedSl = shouldSeedPositionTpSlLeg({
+          hasExistingOrder: Boolean(slOrder),
+          hasPreset: Boolean(presetTriggerPrice && presetTpsl === 'sl'),
+          currentValue: previous.slPrice,
+          userEdited: tpslUserEditedRef.current.sl,
+          seeded: tpslSeededRef.current.sl,
+        });
+        if (!shouldSeedTp && !shouldSeedSl) {
+          return previous;
+        }
+        if (shouldSeedTp) {
+          tpslSeededRef.current.tp = true;
+        }
+        if (shouldSeedSl) {
+          tpslSeededRef.current.sl = true;
+        }
+        return {
+          ...previous,
+          tpPrice: shouldSeedTp
+            ? (defaultPrices.tpTriggerPx ?? '')
+            : previous.tpPrice,
+          slPrice: shouldSeedSl
+            ? (defaultPrices.slTriggerPx ?? '')
+            : previous.slPrice,
+        };
+      });
+    }, [
+      entryPrice,
+      isLongPosition,
+      isOpenOrdersReady,
+      leverage,
+      presetTpsl,
+      presetTriggerPrice,
+      slOrder,
+      tpOrder,
+    ]);
 
     const [configureAmount, setConfigureAmount] = useState(false);
 
@@ -429,11 +492,19 @@ const SetTpslForm = memo(
 
     const handleTpslChange = useCallback(
       (data: { tpPrice: string; slPrice: string }) => {
-        setFormData((prev) => ({
-          ...prev,
-          tpPrice: data.tpPrice,
-          slPrice: data.slPrice,
-        }));
+        setFormData((prev) => {
+          if (data.tpPrice !== prev.tpPrice) {
+            tpslUserEditedRef.current.tp = true;
+          }
+          if (data.slPrice !== prev.slPrice) {
+            tpslUserEditedRef.current.sl = true;
+          }
+          return {
+            ...prev,
+            tpPrice: data.tpPrice,
+            slPrice: data.slPrice,
+          };
+        });
       },
       [],
     );

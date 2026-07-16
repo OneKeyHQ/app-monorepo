@@ -96,6 +96,7 @@ import {
   type ITradeSide,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { buildDefaultTpSlPercent } from '../../../utils/tpslSeed';
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpIpRestrictionNotice } from '../components/PerpIpRestrictionNotice';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
@@ -1516,16 +1517,31 @@ function PerpTradingForm({
 
   const handleTpslCheckboxChange = useCallback(
     (checked: ICheckedState) => {
-      updateForm({ hasTpsl: !!checked });
-
-      if (!checked) {
+      if (checked) {
         updateForm({
+          hasTpsl: true,
+          ...buildDefaultTpSlPercent({
+            tpType: formData.tpType,
+            tpValue: formData.tpValue,
+            slType: formData.slType,
+            slValue: formData.slValue,
+          }),
+        });
+      } else {
+        updateForm({
+          hasTpsl: false,
           tpTriggerPx: '',
           slTriggerPx: '',
         });
       }
     },
-    [updateForm],
+    [
+      formData.slType,
+      formData.slValue,
+      formData.tpType,
+      formData.tpValue,
+      updateForm,
+    ],
   );
 
   const handleTpValueChange = useCallback(

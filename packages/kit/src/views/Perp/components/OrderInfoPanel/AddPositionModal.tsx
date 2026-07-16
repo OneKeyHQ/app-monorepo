@@ -1,9 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Checkbox,
   Dialog,
   Divider,
   Icon,
@@ -34,12 +36,15 @@ import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccoun
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { PerpTestIDs } from '../../testIDs';
+import { resolveTpSlTriggerPx } from '../../utils/resolveTpSlTriggerPx';
+import { buildDefaultTpSlPercent } from '../../utils/tpslSeed';
 import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { PriceInput } from '../TradingPanel/inputs/PriceInput';
+import { TpSlFormInput } from '../TradingPanel/inputs/TpSlFormInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
 import {
@@ -82,6 +87,11 @@ const AddPositionForm = memo(
     const [orderType, setOrderType] = useState<IAddPositionOrderType>('market');
     const [amount, setAmount] = useState('');
     const [limitPrice, setLimitPrice] = useState('');
+    const [hasTpsl, setHasTpsl] = useState(false);
+    const [tpType, setTpType] = useState<'price' | 'percentage'>('price');
+    const [tpValue, setTpValue] = useState('');
+    const [slType, setSlType] = useState<'price' | 'percentage'>('price');
+    const [slValue, setSlValue] = useState('');
     const [assetData, setAssetData] = useState<IActiveAssetData>();
     const [szDecimals, setSzDecimals] = useState<number>();
     const [isLoadingAssetData, setIsLoadingAssetData] = useState(true);
@@ -169,6 +179,25 @@ const AddPositionForm = memo(
       !validation.error,
     );
 
+    const handleTpslCheckboxChange = useCallback(
+      (checked: boolean) => {
+        setHasTpsl(checked);
+        if (checked) {
+          const seed = buildDefaultTpSlPercent({
+            tpType,
+            tpValue,
+            slType,
+            slValue,
+          });
+          setTpType(seed.tpType);
+          setTpValue(seed.tpValue);
+          setSlType(seed.slType);
+          setSlValue(seed.slValue);
+        }
+      },
+      [slType, slValue, tpType, tpValue],
+    );
+
     const handleSubmit = useCallback(async () => {
       if (!isFormValid || isSubmitting) {
         return;
@@ -209,6 +238,19 @@ const AddPositionForm = memo(
           );
         }
 
+        const latestPosition = currentPositionRef.current;
+        const latestLeverage = latestPosition?.leverage?.value ?? leverage;
+        const { tpTriggerPx, slTriggerPx } = resolveTpSlTriggerPx({
+          hasTpsl,
+          tpType,
+          tpValue,
+          slType,
+          slValue,
+          referencePrice: new BigNumber(latestPrice),
+          side: isBuy ? 'long' : 'short',
+          leverage: latestLeverage,
+        });
+
         await actions.current.placeOrderByCoin({
           coin,
           expectedAccountAddress: accountAddress,
@@ -217,6 +259,8 @@ const AddPositionForm = memo(
           price: latestPrice,
           orderType,
           tif: orderType === 'limit' ? 'Gtc' : undefined,
+          tpTriggerPx,
+          slTriggerPx,
         });
         onClose();
       } catch (error) {
@@ -237,13 +281,19 @@ const AddPositionForm = memo(
       amount,
       coin,
       fetchTargetAssetData,
+      hasTpsl,
       intl,
       isBuy,
       isFormValid,
       isSubmitting,
       limitPrice,
+      leverage,
       onClose,
       orderType,
+      slType,
+      slValue,
+      tpType,
+      tpValue,
     ]);
 
     return (
@@ -340,6 +390,43 @@ const AddPositionForm = memo(
           }
           ifOnDialog
         />
+        <Checkbox
+          testID="perp-add-position-tpsl-checkbox"
+          value={hasTpsl}
+          onChange={(checked) => handleTpslCheckboxChange(Boolean(checked))}
+          label={intl.formatMessage({
+            id: ETranslations.perp_position_tp_sl,
+          })}
+          containerProps={{ alignItems: 'center' }}
+        />
+        {hasTpsl ? (
+          <YStack gap="$2">
+            <TpSlFormInput
+              type="tp"
+              label={intl.formatMessage({
+                id: ETranslations.perp_trade_tp_price,
+              })}
+              value={tpValue}
+              inputType={tpType}
+              referencePrice={effectivePrice}
+              szDecimals={szDecimals ?? 0}
+              onChange={setTpValue}
+              onTypeChange={setTpType}
+            />
+            <TpSlFormInput
+              type="sl"
+              label={intl.formatMessage({
+                id: ETranslations.perp_trade_sl_price,
+              })}
+              value={slValue}
+              inputType={slType}
+              referencePrice={effectivePrice}
+              szDecimals={szDecimals ?? 0}
+              onChange={setSlValue}
+              onTypeChange={setSlType}
+            />
+          </YStack>
+        ) : null}
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
