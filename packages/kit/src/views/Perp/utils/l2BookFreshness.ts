@@ -14,6 +14,11 @@ export type IPerpsL2BookColdCache = Record<
   }
 >;
 
+type IPerpsCachedL2Book = HL.IBook & {
+  localReceivedAt?: number;
+  isCachedSnapshot?: boolean;
+};
+
 type IPerpsL2BookColdCacheGlobal = typeof globalThis & {
   __ONEKEY_PERPS_L2_BOOK_COLD_CACHE__?: IPerpsL2BookColdCache;
 };
@@ -68,7 +73,11 @@ export function getFreshL2BookSnapshotFromColdCache({
       isL2BookForTarget(entry?.data, coin, options) &&
       Date.now() - entry.updatedAt <= maxAgeMs
     ) {
-      return entry.data;
+      return {
+        ...entry.data,
+        localReceivedAt: entry.updatedAt,
+        isCachedSnapshot: true,
+      } as IPerpsCachedL2Book;
     }
   }
   return undefined;
@@ -77,13 +86,15 @@ export function getFreshL2BookSnapshotFromColdCache({
 export function isPerpsL2BookInteractive({
   bookTime,
   bookReceivedAt,
+  isCachedSnapshot,
   now = Date.now(),
 }: {
   bookTime: number | undefined;
   bookReceivedAt?: number;
+  isCachedSnapshot?: boolean;
   now?: number;
 }) {
-  if (!bookTime || !Number.isFinite(bookTime)) {
+  if (isCachedSnapshot || !bookTime || !Number.isFinite(bookTime)) {
     return false;
   }
   const freshnessTime =
@@ -98,13 +109,15 @@ export function isPerpsL2BookInteractive({
 export function getPerpsL2BookInteractiveRefreshDelayMs({
   bookTime,
   bookReceivedAt,
+  isCachedSnapshot,
   now = Date.now(),
 }: {
   bookTime: number | undefined;
   bookReceivedAt?: number;
+  isCachedSnapshot?: boolean;
   now?: number;
 }) {
-  if (!bookTime || !Number.isFinite(bookTime)) {
+  if (isCachedSnapshot || !bookTime || !Number.isFinite(bookTime)) {
     return undefined;
   }
   const freshnessTime =

@@ -3,6 +3,7 @@ import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 export type IPerpsL2BookWithLocalReceivedAt = HL.IBook & {
   localReceivedAt?: number;
+  isCachedSnapshot?: boolean;
 };
 
 export type IPerpsBboWithLocalReceivedAt = HL.IWsBbo & {
@@ -17,13 +18,13 @@ const PERPS_L2_BOOK_FRESHNESS_REFRESH_MIN_INTERVAL_MS =
 export function withPerpsL2BookLocalReceivedAt(
   book: HL.IBook,
   localReceivedAt?: number,
+  isCachedSnapshot?: boolean,
 ): IPerpsL2BookWithLocalReceivedAt {
+  const current = book as IPerpsL2BookWithLocalReceivedAt;
   return {
     ...book,
-    localReceivedAt:
-      localReceivedAt ??
-      (book as IPerpsL2BookWithLocalReceivedAt).localReceivedAt ??
-      Date.now(),
+    localReceivedAt: localReceivedAt ?? current.localReceivedAt ?? Date.now(),
+    isCachedSnapshot: isCachedSnapshot ?? current.isCachedSnapshot,
   };
 }
 
@@ -99,6 +100,16 @@ export function shouldUpdatePerpsL2Book({
   currentBook: HL.IBook | null;
   nextBook: HL.IBook;
 }) {
+  const isCurrentCached = Boolean(
+    (currentBook as IPerpsL2BookWithLocalReceivedAt | null)?.isCachedSnapshot,
+  );
+  const isNextCached = Boolean(
+    (nextBook as IPerpsL2BookWithLocalReceivedAt).isCachedSnapshot,
+  );
+  if (isCurrentCached !== isNextCached) {
+    return isCurrentCached && !isNextCached;
+  }
+
   if (!arePerpsL2BookLevelsEqual(currentBook, nextBook)) {
     return true;
   }

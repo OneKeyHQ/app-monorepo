@@ -48,6 +48,32 @@ describe('shouldUpdatePerpsL2Book', () => {
     ).toBe(true);
   });
 
+  it('replaces a cached snapshot with the first identical live frame', () => {
+    const cachedBook = Object.assign(buildBook({ time: 1000 }), {
+      isCachedSnapshot: true,
+    });
+
+    expect(
+      shouldUpdatePerpsL2Book({
+        currentBook: cachedBook,
+        nextBook: buildBook({ time: 1001 }),
+      }),
+    ).toBe(true);
+  });
+
+  it('does not let a late cached snapshot replace a live book', () => {
+    const cachedBook = Object.assign(buildBook({ time: 2000, bidPx: '99' }), {
+      isCachedSnapshot: true,
+    });
+
+    expect(
+      shouldUpdatePerpsL2Book({
+        currentBook: buildBook({ time: 1000 }),
+        nextBook: cachedBook,
+      }),
+    ).toBe(false);
+  });
+
   it('updates when the incoming book belongs to a different coin', () => {
     expect(
       shouldUpdatePerpsL2Book({
@@ -166,6 +192,17 @@ describe('shouldUpdatePerpsL2Book', () => {
 });
 
 describe('perps market data local receive helpers', () => {
+  it('marks hydrated snapshots as cached without changing their payload', () => {
+    expect(
+      withPerpsL2BookLocalReceivedAt(buildBook({ time: 1000 }), 2000, true),
+    ).toMatchObject({
+      coin: 'ETH',
+      time: 1000,
+      localReceivedAt: 2000,
+      isCachedSnapshot: true,
+    });
+  });
+
   it('adds local receive timestamps without changing market payload fields', () => {
     expect(
       withPerpsL2BookLocalReceivedAt(buildBook({ time: 1000 }), 2000),

@@ -258,7 +258,7 @@ function getFreshL2BookSnapshotFromSwr({
       entry?.data?.coin === coin &&
       Date.now() - entry.updatedAt <= PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS
     ) {
-      return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt);
+      return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt, true);
     }
   }
   return undefined;

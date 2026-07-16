@@ -155,6 +155,19 @@ export function isOrderBookOptionsTargetReady(
   return !currentCoin || !optionsCoin || currentCoin === optionsCoin;
 }
 
+export function getSubscriptionResumeAction({
+  isOpen,
+  isClosedOrClosing,
+}: {
+  isOpen: boolean;
+  isClosedOrClosing: boolean;
+}): 'reconcile' | 'reconnect' | 'waitForOpen' {
+  if (isOpen) {
+    return 'reconcile';
+  }
+  return isClosedOrClosing ? 'reconnect' : 'waitForOpen';
+}
+
 export function generateSubscriptionKey<T extends ESubscriptionType>(
   type: T,
   params: IPerpsSubscriptionParams[T],

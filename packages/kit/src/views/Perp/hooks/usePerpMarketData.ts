@@ -57,6 +57,7 @@ export interface IL2BookData extends HL.IBook {
   bids: HL.IBookLevel[];
   asks: HL.IBookLevel[];
   localReceivedAt?: number;
+  isCachedSnapshot?: boolean;
 }
 
 export function getFreshL2BookSnapshotFromSwr({
@@ -80,7 +81,11 @@ export function getFreshL2BookSnapshotFromSwr({
         isL2BookForTarget(entry.data, coin, options) &&
         Date.now() - entry.updatedAt <= PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS
       ) {
-        return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt);
+        return withPerpsL2BookLocalReceivedAt(
+          entry.data,
+          entry.updatedAt,
+          true,
+        );
       }
     }
     return undefined;
@@ -114,6 +119,8 @@ export function normalizeL2BookData({
     nSigFigs: bookData.nSigFigs,
     mantissa: bookData.mantissa,
     localReceivedAt: getPerpsMarketDataLocalReceivedAt(bookData),
+    isCachedSnapshot: (bookData as HL.IBook & { isCachedSnapshot?: boolean })
+      .isCachedSnapshot,
     bids: bids || [],
     asks: asks || [],
   };
@@ -217,12 +224,14 @@ export function useL2Book(options?: IL2BookOptions): {
   const isOrderBookInteractive = isPerpsL2BookInteractive({
     bookTime: l2Book?.time,
     bookReceivedAt: l2Book?.localReceivedAt,
+    isCachedSnapshot: l2Book?.isCachedSnapshot,
   });
 
   useEffect(() => {
     const refreshDelayMs = getPerpsL2BookInteractiveRefreshDelayMs({
       bookTime: l2Book?.time,
       bookReceivedAt: l2Book?.localReceivedAt,
+      isCachedSnapshot: l2Book?.isCachedSnapshot,
     });
     if (refreshDelayMs === undefined) {
       return undefined;
@@ -233,7 +242,7 @@ export function useL2Book(options?: IL2BookOptions): {
     }, refreshDelayMs);
 
     return () => clearTimeout(timer);
-  }, [l2Book?.localReceivedAt, l2Book?.time]);
+  }, [l2Book?.isCachedSnapshot, l2Book?.localReceivedAt, l2Book?.time]);
 
   const getBestBid = (): string | null => {
     if (!l2Book?.bids || l2Book.bids.length === 0) return null;

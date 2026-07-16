@@ -85,12 +85,14 @@ import {
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
+  getSubscriptionResumeAction,
   isOrderBookOptionsTargetReady,
   normalizeL2BookForSubscriptionSpec,
 } from './utils/SubscriptionConfig';
 import {
   PerKeyMutationQueue,
   executeOrderBookSubscriptionTransition,
+  executeSubscriptionTasksWithOrderBookPriority,
 } from './utils/SubscriptionMutationQueue';
 import { LatestSubscriptionReconcileQueue } from './utils/SubscriptionReconcileQueue';
 
@@ -601,6 +603,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._currentState = newState;
     this._emitConnectionStatus();
     await this._executeSubscriptionChanges();
+    if (this._activeSubscriptions.size > 0) {
+      this._startPostOpenDataCheck();
+    }
     this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
   }
 
@@ -1031,21 +1036,31 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     const client = await this.getWebSocketClient();
-    if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
+    const readyState = client?.transport?.socket?.readyState;
+    const action = getSubscriptionResumeAction({
+      isOpen: readyState === WebSocket.OPEN,
+      isClosedOrClosing:
+        readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING,
+    });
+    if (action === 'reconnect') {
       console.log('resumeSubscriptions__force_reconnect_transport');
       await this._forceReconnectTransport();
-    } else {
-      // OK-53014: re-install atom watcher since pauseSubscriptions() tore
-      // it down.  The socket is still OPEN here, so socketOpenHandler will
-      // not fire again to reinstall it for us.
-      this._watchSubscriptionAtoms();
-      await this._reconcileOpenSocketSubscriptionsOnResume({
-        forceRebuild: params?.forceRebuild,
-        reason: params?.forceRebuild
-          ? 'force_rebuild'
-          : 'native_resume_stale_data',
-      });
+      return;
     }
+    if (action === 'waitForOpen') {
+      return;
+    }
+
+    // OK-53014: re-install atom watcher since pauseSubscriptions() tore
+    // it down. The socket is already OPEN, so socketOpenHandler will not
+    // fire again to reinstall it for us.
+    this._watchSubscriptionAtoms();
+    await this._reconcileOpenSocketSubscriptionsOnResume({
+      forceRebuild: params?.forceRebuild,
+      reason: params?.forceRebuild
+        ? 'force_rebuild'
+        : 'native_resume_stale_data',
+    });
   }
 
   @backgroundMethod()
@@ -1247,7 +1262,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         );
         this._currentState.isConnected = true;
         this._startPingLoop();
-        this._startPostOpenDataCheck();
         return;
       }
 
@@ -1471,8 +1485,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (wasConnected === false && this._lastMessageAt !== null) {
         appEventBus.emit(EAppEventBusNames.PerpsWebSocketRecovered, undefined);
       }
-
-      this._startPostOpenDataCheck();
     } catch (error) {
       defaultLogger.perp.hyperliquid.subscriptionSocketOpenError({ error });
     }
@@ -1781,13 +1793,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const otherTasks = [
       ...toDestroySubscriptions
         .filter((spec) => !isOrderBookSpec(spec))
-        .map((spec) => this._destroySubscription(spec)),
+        .map((spec) => () => this._destroySubscription(spec)),
       ...toCreateSubscriptions
         .filter((spec) => !isOrderBookSpec(spec))
-        .map((spec) => this._createSubscription(spec)),
+        .map((spec) => () => this._createSubscription(spec)),
     ];
 
-    const orderBookTask =
+    const orderBookTask = () =>
       orderBookToDestroy.length > 0 || orderBookToCreate.length > 0
         ? executeOrderBookSubscriptionTransition({
             toDestroy: orderBookToDestroy,
@@ -1804,7 +1816,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           })
         : Promise.resolve(true);
 
-    await Promise.all([...otherTasks, orderBookTask]);
+    await executeSubscriptionTasksWithOrderBookPriority({
+      orderBookTask,
+      otherTasks,
+    });
   }
 
   private async _createSubscription<T extends ESubscriptionType>(

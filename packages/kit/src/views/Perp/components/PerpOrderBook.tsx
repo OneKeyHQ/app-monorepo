@@ -782,6 +782,7 @@ export function PerpOrderBook({
         !isPerpsL2BookInteractive({
           bookTime: visibleL2Book?.time,
           bookReceivedAt: visibleL2Book?.localReceivedAt,
+          isCachedSnapshot: visibleL2Book?.isCachedSnapshot,
         })
       ) {
         return;
@@ -801,6 +802,7 @@ export function PerpOrderBook({
       actionsRef,
       formData.type,
       visibleL2Book?.localReceivedAt,
+      visibleL2Book?.isCachedSnapshot,
       visibleL2Book?.time,
     ],
   );
@@ -810,9 +812,11 @@ export function PerpOrderBook({
       isPerpsL2BookInteractive({
         bookTime: visibleL2Book?.time,
         bookReceivedAt: visibleL2Book?.localReceivedAt,
+        isCachedSnapshot: visibleL2Book?.isCachedSnapshot,
       }),
     [
       isOrderBookInteractive,
+      visibleL2Book?.isCachedSnapshot,
       visibleL2Book?.localReceivedAt,
       visibleL2Book?.time,
     ],

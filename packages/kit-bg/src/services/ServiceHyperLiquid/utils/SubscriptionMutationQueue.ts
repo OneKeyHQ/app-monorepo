@@ -51,3 +51,15 @@ export async function executeOrderBookSubscriptionTransition<T>({
   }
   return succeeded;
 }
+
+export async function executeSubscriptionTasksWithOrderBookPriority({
+  orderBookTask,
+  otherTasks,
+}: {
+  orderBookTask: () => Promise<unknown>;
+  otherTasks: Array<() => Promise<unknown>>;
+}): Promise<void> {
+  const orderBookPromise = orderBookTask();
+  const otherPromises = otherTasks.map((task) => task());
+  await Promise.all([orderBookPromise, ...otherPromises]);
+}

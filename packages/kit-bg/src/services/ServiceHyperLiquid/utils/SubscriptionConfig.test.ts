@@ -3,11 +3,38 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   calculateRequiredSubscriptions,
+  getSubscriptionResumeAction,
   isOrderBookOptionsTargetReady,
   normalizeL2BookForSubscriptionSpec,
 } from './SubscriptionConfig';
 
 import type { ISubscriptionSpec } from './SubscriptionConfig';
+
+describe('getSubscriptionResumeAction', () => {
+  it('keeps a connecting transport and lets the open handler reconcile', () => {
+    expect(
+      getSubscriptionResumeAction({
+        isOpen: false,
+        isClosedOrClosing: false,
+      }),
+    ).toBe('waitForOpen');
+  });
+
+  it('reconciles open transports and reconnects closed transports', () => {
+    expect(
+      getSubscriptionResumeAction({
+        isOpen: true,
+        isClosedOrClosing: false,
+      }),
+    ).toBe('reconcile');
+    expect(
+      getSubscriptionResumeAction({
+        isOpen: false,
+        isClosedOrClosing: true,
+      }),
+    ).toBe('reconnect');
+  });
+});
 
 describe('isOrderBookOptionsTargetReady', () => {
   it('waits for order book options to catch up with the active coin', () => {

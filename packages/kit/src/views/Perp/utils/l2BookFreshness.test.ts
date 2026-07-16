@@ -98,21 +98,24 @@ describe('getFreshL2BookSnapshotFromColdCache', () => {
       mantissa: null,
     };
 
+    const snapshot = getFreshL2BookSnapshotFromColdCache({
+      coin: 'ETH',
+      options: {
+        nSigFigs: 5,
+        mantissa: null,
+      },
+      cache: {
+        'perpsL2Book:v1:ETH:latest': {
+          data: book,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+
+    expect(snapshot).toMatchObject(book);
     expect(
-      getFreshL2BookSnapshotFromColdCache({
-        coin: 'ETH',
-        options: {
-          nSigFigs: 5,
-          mantissa: null,
-        },
-        cache: {
-          'perpsL2Book:v1:ETH:latest': {
-            data: book,
-            updatedAt: Date.now(),
-          },
-        },
-      }),
-    ).toBe(book);
+      (snapshot as HL.IBook & { isCachedSnapshot?: boolean })?.isCachedSnapshot,
+    ).toBe(true);
   });
 
   it('rejects stale or wrong-coin cold cache entries', () => {
@@ -168,6 +171,26 @@ describe('getPerpsL2BookColdCacheGlobalSnapshot', () => {
 });
 
 describe('isPerpsL2BookInteractive', () => {
+  it('keeps cached snapshots visual-only even when recently received', () => {
+    expect(
+      isPerpsL2BookInteractive({
+        bookTime: now,
+        bookReceivedAt: now,
+        isCachedSnapshot: true,
+        now,
+      }),
+    ).toBe(false);
+
+    expect(
+      getPerpsL2BookInteractiveRefreshDelayMs({
+        bookTime: now,
+        bookReceivedAt: now,
+        isCachedSnapshot: true,
+        now,
+      }),
+    ).toBeUndefined();
+  });
+
   it('allows only fresh order book snapshots to be interactive', () => {
     expect(
       isPerpsL2BookInteractive({

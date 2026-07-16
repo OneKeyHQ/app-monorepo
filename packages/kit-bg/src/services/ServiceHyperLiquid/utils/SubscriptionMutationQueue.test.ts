@@ -1,6 +1,7 @@
 import {
   PerKeyMutationQueue,
   executeOrderBookSubscriptionTransition,
+  executeSubscriptionTasksWithOrderBookPriority,
 } from './SubscriptionMutationQueue';
 
 describe('PerKeyMutationQueue', () => {
@@ -47,5 +48,35 @@ describe('executeOrderBookSubscriptionTransition', () => {
     expect(result).toBe(false);
     expect(create).not.toHaveBeenCalled();
     expect(reconnect).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('executeSubscriptionTasksWithOrderBookPriority', () => {
+  it('starts the order book request first without blocking other requests', async () => {
+    const events: string[] = [];
+    let releaseOrderBook: (() => void) | undefined;
+    const orderBookBlocked = new Promise<void>((resolve) => {
+      releaseOrderBook = resolve;
+    });
+
+    const task = executeSubscriptionTasksWithOrderBookPriority({
+      orderBookTask: async () => {
+        events.push('orderBook:start');
+        await orderBookBlocked;
+        events.push('orderBook:end');
+      },
+      otherTasks: [
+        async () => {
+          events.push('other');
+        },
+      ],
+    });
+
+    await Promise.resolve();
+    expect(events).toEqual(['orderBook:start', 'other']);
+
+    releaseOrderBook?.();
+    await task;
+    expect(events).toEqual(['orderBook:start', 'other', 'orderBook:end']);
   });
 });
