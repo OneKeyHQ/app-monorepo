@@ -1,0 +1,19 @@
+[
+  {
+    "seq": 1,
+    "commit": "0cc2138e09e08c98655b55af8b1b4f76098c8e81",
+    "date": "2026-07-16T02:12:06Z",
+    "prs": [
+      "#12180",
+      "#12436",
+      "#12461",
+      "#12468",
+      "#12481",
+      "#12490",
+      "#12494",
+      "#12499",
+      "#12505"
+    ],
+    "notes": "Align swap k-line and same-chain token selection (#12436); consolidate pending issue fixes (#12461); resolve Jira UI issues (#12468); adjust market chart height (#12180); ignore network filter for market stocks (#12490); add attempt-level firmware update tracking (#12481); translate Perps fallback strings (#12499); correct Swap and Market display states (#12494); refine Japanese Perps translations (#12505)"
+  }
+]
