@@ -7,11 +7,12 @@ import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import localDb from '../dbs/local/localDb';
 
 import ServiceBase from './ServiceBase';
-
-const WALLET_PROFILE_ANALYTICS_IDLE_DELAY_MS = 30 * 1000;
+import { scheduleWalletProfileAnalyticsChecks } from './walletProfileAnalyticsScheduler';
 
 @backgroundClass()
 class ServiceBootstrap extends ServiceBase {
+  private walletProfileAnalyticsChecksScheduled = false;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -143,13 +144,16 @@ class ServiceBootstrap extends ServiceBase {
       ),
       timedDeferred('serviceDevSetting.initAnalytics', async () => {
         await this.backgroundApi.serviceDevSetting.initAnalytics();
-        setTimeout(() => {
-          void timedDeferred(
-            'serviceAccount.reportWalletProfileAnalyticsIfNeeded',
-            () =>
-              this.backgroundApi.serviceAccount.reportWalletProfileAnalyticsIfNeeded(),
+        if (!this.walletProfileAnalyticsChecksScheduled) {
+          this.walletProfileAnalyticsChecksScheduled = true;
+          scheduleWalletProfileAnalyticsChecks(() =>
+            timedDeferred(
+              'serviceAccount.reportWalletProfileAnalyticsIfNeeded',
+              () =>
+                this.backgroundApi.serviceAccount.reportWalletProfileAnalyticsIfNeeded(),
+            ),
           );
-        }, WALLET_PROFILE_ANALYTICS_IDLE_DELAY_MS);
+        }
       }),
       // ext MV3 only: re-warm providers of already-connected dapps after a
       // service-worker restart so notifyDApp* can reach them. Native/desktop
