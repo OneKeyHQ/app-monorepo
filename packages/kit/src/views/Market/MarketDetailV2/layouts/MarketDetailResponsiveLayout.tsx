@@ -7,6 +7,8 @@ export function MarketDetailResponsiveLayout({
   isDesktopLayout,
   isChartFullscreen,
   onChartFullscreenChange,
+  networkId,
+  tokenAddress,
   showFavoriteButton,
   disableTrade,
 }: IMarketDetailResponsiveLayoutProps) {
@@ -15,6 +17,8 @@ export function MarketDetailResponsiveLayout({
       <DesktopLayout
         isChartFullscreen={isChartFullscreen}
         onChartFullscreenChange={onChartFullscreenChange}
+        networkId={networkId}
+        tokenAddress={tokenAddress}
         showFavoriteButton={showFavoriteButton}
       />
     );

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ComponentProps, RefObject } from 'react';
 
 import {
@@ -9,6 +9,7 @@ import {
   YStack,
   useOverlayZIndex,
 } from '@onekeyhq/components';
+import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import {
   TRADING_VIEW_LOCALHOST_ORIGIN,
   TRADING_VIEW_URL,
@@ -18,6 +19,7 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { MarketTestIDs } from '../../testIDs';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
@@ -26,13 +28,9 @@ import { TokenActivityOverview } from '../components/TokenActivityOverview/Token
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { StockTradingActivity } from '../components/TokenSupplementaryInfo/StockTradingActivity';
 import { TokenSupplementaryInfo } from '../components/TokenSupplementaryInfo/TokenSupplementaryInfo';
-import {
-  useMarketTradingViewParams,
-  useTokenDetail,
-} from '../hooks/useTokenDetail';
+import { useTokenDetail } from '../hooks/useTokenDetail';
 
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
-import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
 
 const MARKET_DETAIL_LAYOUT = {
   chartHeight: 550,
@@ -78,25 +76,8 @@ function ModuleLoadingFallback({ minHeight }: { minHeight?: number }) {
   );
 }
 
-const chartLoadingFallback = (
-  <ModuleLoadingFallback minHeight={MARKET_DETAIL_LAYOUT.chartHeight} />
-);
-
 const infoTabsLoadingFallback = (
   <ModuleLoadingFallback minHeight={MARKET_DETAIL_LAYOUT.infoTabsHeight} />
-);
-
-const LazyMarketTradingView = LazyLoad<IMarketTradingViewProps>(
-  () =>
-    import(
-      /* webpackChunkName: "market-detail-v2-tradingview" */ '../components/MarketTradingView/MarketTradingView'
-    ).then(({ MarketTradingView }) => ({
-      default: (props: IMarketTradingViewProps) => (
-        <MarketTradingView {...props} />
-      ),
-    })),
-  undefined,
-  chartLoadingFallback,
 );
 
 const LazyDesktopInformationTabs = LazyLoad<IDesktopInformationTabsProps>(
@@ -145,22 +126,18 @@ function useIframeWheelPassthrough({
 export interface IDesktopLayoutProps {
   isChartFullscreen: boolean;
   onChartFullscreenChange: (isFullscreen: boolean) => void;
+  networkId: string;
+  tokenAddress: string;
   showFavoriteButton?: boolean;
 }
 
 export function DesktopLayout({
   isChartFullscreen,
-  onChartFullscreenChange,
+  networkId,
+  tokenAddress,
   showFavoriteButton = true,
 }: IDesktopLayoutProps) {
-  const {
-    tokenAddress,
-    networkId,
-    tokenDetail,
-    isNative,
-    websocketConfig,
-    isStockToken,
-  } = useTokenDetail();
+  const { tokenDetail, isStockToken } = useTokenDetail();
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
   const chartFullscreenZIndex = useOverlayZIndex(isChartFullscreen);
@@ -199,60 +176,6 @@ export function DesktopLayout({
     disabled: isChartFullscreen,
     scrollRef: scrollContainerRef,
   });
-  const handleChartFullscreenChange = useCallback(
-    (isFullscreen: boolean) => {
-      onChartFullscreenChange(isFullscreen);
-    },
-    [onChartFullscreenChange],
-  );
-  const handleTradingViewTouchScroll = useCallback(
-    (deltaY: number) => {
-      if (isChartFullscreen) {
-        return;
-      }
-      scrollContainerRef.current?.scrollBy({ top: deltaY });
-    },
-    [isChartFullscreen],
-  );
-
-  const marketTradingViewParams = useMarketTradingViewParams({
-    tokenAddress,
-    networkId,
-    tokenDetail,
-    isNative,
-    websocketConfig,
-  });
-
-  const marketTradingView = useMemo(() => {
-    if (!marketTradingViewParams) {
-      return null;
-    }
-
-    return (
-      <LazyMarketTradingView
-        tokenAddress={marketTradingViewParams.tokenAddress}
-        networkId={marketTradingViewParams.networkId}
-        tokenSymbol={marketTradingViewParams.tokenSymbol}
-        isNative={marketTradingViewParams.isNative}
-        dataSource={marketTradingViewParams.dataSource}
-        onTouchScroll={handleTradingViewTouchScroll}
-        nativeChartTypeControlMode="select"
-        nativeIndicatorControlMode="popover"
-        nativeIntervalControlMode="popover"
-        nativePriceMarketCapControlMode="select"
-        nativeControlsLayoutMode="desktop"
-        isNativeChartFullscreen={isChartFullscreen}
-        showNativeIndicatorQuickBar={false}
-        onNativeChartFullscreenChange={handleChartFullscreenChange}
-      />
-    );
-  }, [
-    handleChartFullscreenChange,
-    handleTradingViewTouchScroll,
-    isChartFullscreen,
-    marketTradingViewParams,
-  ]);
-
   return (
     <Stack
       ref={scrollContainerRef as any}
@@ -284,7 +207,13 @@ export function DesktopLayout({
                 flexShrink={0}
               />
             ) : null}
-            {marketTradingView}
+            <TradingViewNative
+              testID={MarketTestIDs.detailChart}
+              networkId={networkId}
+              tokenAddress={tokenAddress}
+              symbol={tokenDetail?.symbol ?? ''}
+              decimal={tokenDetail?.decimals ?? 8}
+            />
           </Stack>
 
           <Stack

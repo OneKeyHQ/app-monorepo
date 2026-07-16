@@ -9,6 +9,8 @@ import type { ITradingViewNativeProps } from './types';
 const KLINE_INTERVAL = '1H';
 const KLINE_RANGE_SECONDS = 7 * 24 * 60 * 60;
 const MAX_VISIBLE_CANDLES = 160;
+const CHART_UP_COLOR = '#30A46C';
+const CHART_DOWN_COLOR = '#E5484D';
 
 interface IChartColors {
   background: string;
@@ -96,14 +98,15 @@ function drawKLineChart(
     const highY = toY(point.h);
     const lowY = toY(point.l);
     const closeY = toY(point.c);
-
-    context.strokeStyle = color;
-    context.beginPath();
-    context.moveTo(x, highY);
-    context.lineTo(x, lowY);
-    context.stroke();
+    const wickWidth = Math.max(1, Math.min(candleWidth * 0.2, 2));
 
     context.fillStyle = color;
+    context.fillRect(
+      x - wickWidth / 2,
+      highY,
+      wickWidth,
+      Math.max(lowY - highY, 1),
+    );
     context.fillRect(
       x - candleWidth / 2,
       Math.min(openY, closeY),
@@ -120,8 +123,6 @@ export const TradingViewNative = memo(
     const theme = useTheme();
     const background = theme.bgApp.val;
     const grid = theme.borderSubdued.val;
-    const up = theme.textSuccess.val;
-    const down = theme.borderCritical.val;
 
     useEffect(() => {
       let isActive = true;
@@ -171,7 +172,12 @@ export const TradingViewNative = memo(
       }
 
       const renderChart = () => {
-        drawKLineChart(canvas, points, { background, grid, up, down });
+        drawKLineChart(canvas, points, {
+          background,
+          grid,
+          up: CHART_UP_COLOR,
+          down: CHART_DOWN_COLOR,
+        });
       };
       renderChart();
 
@@ -181,7 +187,7 @@ export const TradingViewNative = memo(
       return () => {
         resizeObserver.disconnect();
       };
-    }, [background, down, grid, points, up]);
+    }, [background, grid, points]);
 
     return (
       <Stack flex={1} w="100%" h="100%" bg="$bgApp">
