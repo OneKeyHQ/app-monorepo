@@ -300,7 +300,7 @@ function FeaturedChangelogContent({
       <FeaturedFooter
         ctaText={ctaText}
         onCtaPress={() => void onCtaPress()}
-        showFullChangelog={!isLocked && !isPreview}
+        showFullChangelog={Boolean(!isLocked && !isPreview)}
         isPreInstall={isPreInstall}
         closeDialog={closeDialog}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
