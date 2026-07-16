@@ -7,7 +7,7 @@
 
 ## 0. 2026-07-16 实施补充
 
-本轮最终代码基线：`f7790b70e249809e38cced3cbc272419f217ac36`；该值与 skill manifest、code map 和 readiness script 完全一致。在既有 Quote Session V2 与冷启动身份门闩之上，本轮补齐了以下可审计闭环：
+本轮最终代码基线：`783b1c18432d3fd831061fcc4acaa0a0bf30dd6c`（已合并 `origin/x@f76289e26288b3ef7b9ef9ec77672215d3827df8`）；该值与 skill manifest、code map 和 readiness script 完全一致。在既有 Quote Session V2 与冷启动身份门闩之上，本轮补齐了以下可审计闭环：
 
 | 领域                    | 已实现状态                                                                                                                                      | 不可突破的安全边界                                                                                                                    |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -17,11 +17,14 @@
 | Stock 存储              | UI owner 使用专用 `onekey_swap_stock_display_snapshot`；最多 8 个账户槽，500 ms 合并写，生命周期 flush，坏数据自愈；chart 最多 500 点并保留端点 | iOS / Android 的 UI `main` 独占逻辑写入；Desktop / Web 同 runtime 仍保持单 writer；Extension adapter 当前 no-op；`ServiceSwap` 不读取 |
 | Stock execution balance | canonical live Stock account + input-token owner ready 后请求精确 live balance；有界重试、focus / reconnect 恢复、显式 Retry                    | 请求失败继续 fail-closed；只有当前 account / input token scope 的 live balance 且已发布到共享 atom 后才允许 Max / Review              |
 | Chart                   | owner 匹配时首帧恢复；`visibleRange` 表示屏幕数据，`requestedRange` 表示在途请求；live exact result 静默替换                                    | pending / failed 新 range 不得给 retained 旧 chart 贴错标签；旧 owner、旧请求和旧 realtime point 不得进入当前图表                     |
+| Swap / Stock 余额投影   | 普通 Swap 与 Stock 使用独立 from-balance atom；active projection 只暴露当前 surface，切换同步清空共享 amount、target / Stock balance 与旧 quote | 普通 Swap 缓存只能在自身 account / token request owner 仍精确时复用；Stock 永远不能读取它                                             |
+| Swap Pro 冷启动账号     | Market 入口首帧前准备 root Swap Pro context；account、network、recipient、alert、positions 均按当前 scope 解析                                  | 旧 account/network 异步结果不可进入新 scope；custom recipient 关闭时 TO 地址必须使用 source account                                   |
+| History network repair  | 按 token-owned network id 用当前 server registry 修复历史元数据，并在 SimpleDB 锁内保留并发写入                                                 | registry 失败时 best-effort 返回；展示隐藏逻辑不得触发删除或清理                                                                      |
 
 ### 0.1 本轮自动化证据
 
-- 最终 focused Jest：`36 suites / 458 tests / 0 failed / exit 0`。
-- 最终 type-aware Oxlint：`PASS：35 files / 0 warnings / 0 errors / exit 0`。
+- 合并 `origin/x` 后最终 focused Jest 并集：`51 suites / 626 tests / 0 failed / exit 0`。
+- 最终 type-aware Oxlint：冲突核心 `9 files / 0 warnings / 0 errors / exit 0`；完整 staged merge 另由 `agent:check` 覆盖。
 - 最终 `git diff --check`：`PASS / exit 0`。
 - 最终 `yarn agent:check --profile commit`：code commit `PASS：lint-worktree-js、lint-worktree-ts、agent-context、lint-staged、tsc-staged`；docs-only finalization `PASS：lint-worktree-js、agent-context、lint-staged、tsc-staged`。
 
@@ -36,7 +39,7 @@
 5. `STOCK-DISPLAY-ISOLATION-001`：切账户或任一 region owner 后，旧 region 不得出现一帧，旧异步结果不得 patch 当前 owner。
 6. `STOCK-BALANCE-FAIL-CLOSED-001`：cached amount / balance 可展示，但 canonical live owner ready 前输入不可编辑，Max、百分比、quote、Review 不可用；精确 live balance 发布后才解锁。
 7. `STOCK-CHART-RANGE-001`：切换 range 时可保留 last-good chart，但控件必须显示 `visibleRange`；新 range commit 后才切换标签，旧 request / realtime point 不得写入。
-8. `STOCK-SWAP-BOUNDARY-001`：普通 Swap ETH-USDC 已有 amount / balance 时进入 Stock BSC-USDC，切换 action 必须在新页面首帧前同步清空共享 amount / selected balance 并失效旧 quote；只允许当前账户匹配的 Stock snapshot 接管展示。反向切换同样不得泄漏 Stock 数值。
+8. `STOCK-SWAP-BOUNDARY-001`：普通 Swap ETH-USDC 已有 amount / balance 时进入 Stock BSC-USDC，切换 action 必须在新页面首帧前同步清空共享 amount、target / Stock-owned balance 并失效旧 quote；普通 Swap from-balance 只能隐藏在 active projection 后，且仅在原 account / token owner 仍精确时复用。只允许当前账户匹配的 Stock snapshot 接管展示，反向切换同样不得泄漏 Stock 数值。
 
 ## 1. 执行结论
 
@@ -755,7 +758,7 @@ Stock display cache 的物理槽只按 account 划分，最多保留 8 个账户
 
 `useIdentityScopedSilentRefresh` 提供 `idle / initial-loading / refreshing / ready / empty / stale-empty / failed / stale-error` phase，并同时守护 `ownerKey + requestKey`。同 owner 的 last-good 可在新 request 期间显示；owner 变化必须在同一 render 拒绝旧 visible，旧 Promise / realtime point / `finally` 也不得提交。
 
-Stock 从普通 Swap 切入或离开时，from / to amount 与 selected balance 的共享 atom 必须在 `swapType` transition 中同步清理，避免普通 ETH-USDC 金额在 Stock BSC-USDC 首帧闪现。cached Stock amount 只能在 live canonical stock/pay/account owner 完全落地后写回输入 atom并触发新报价；在此之前输入框为只读展示。
+Stock 从普通 Swap 切入或离开时，from / to amount、target balance、Stock-owned from-balance 与旧 quote 必须在 `swapType` transition 中同步清理，避免普通 ETH-USDC 金额在 Stock BSC-USDC 首帧闪现。普通 Swap from-balance 可暂存于独立 atom，但 Stock 只能读取 active projection 的 Stock atom；账户或 token owner 变化仍由 token-detail request guard 同步清空普通缓存。cached Stock amount 只能在 live canonical stock/pay/account owner 完全落地后写回输入 atom并触发新报价；在此之前输入框为只读展示。
 
 ## 11. Review、Build、Sign 与 Send
 
@@ -1034,7 +1037,7 @@ Case 跟踪表使用以下覆盖层标记：`U`（纯函数 / reducer）、`H`�
 
 ### 16.2 当前实际测试清单
 
-最终 diff 已执行一条显式 Jest 命令，逐个列出下表测试文件并使用 `--runInBand`；没有使用模糊的根 `yarn test`，也没有把子 Agent 的历史数字相加。最终统一结果为 **`36 suites / 458 tests / 0 failed / exit 0`**。
+合并 `origin/x` 后的最终 diff 已执行一条显式 Jest 命令，逐个列出下表及新增账户/历史修复测试并使用 `--runInBand`；没有使用模糊的根 `yarn test`，也没有把多次运行数字相加。最终统一结果为 **`51 suites / 626 tests / 0 failed / exit 0`**。
 
 | 责任                                | 实际测试文件                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | 当前结果           |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
@@ -1052,6 +1055,8 @@ Case 跟踪表使用以下覆盖层标记：`U`（纯函数 / reducer）、`H`�
 | Frozen Review                       | [`buildSwapReviewState.test.ts`](../packages/kit/src/views/Swap/utils/buildSwapReviewState.test.ts)、[`swapExecutionSnapshotGuard.test.ts`](../packages/kit/src/views/Swap/utils/swapExecutionSnapshotGuard.test.ts)、[`SwapReviewInitializer.test.tsx`](../packages/kit/src/views/Swap/pages/components/SwapReviewInitializer.test.tsx)                                                                                                                                                                                                                                                                                                                                                                                               | `PASS（统一矩阵）` |
 | signed-order build settlement       | [`swapBuildExecutionResult.test.ts`](../packages/kit/src/views/Swap/utils/swapBuildExecutionResult.test.ts)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `PASS（统一矩阵）` |
 | Market Review store isolation       | [`MarketSwapReviewInitializer.test.tsx`](../packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/MarketSwapReviewInitializer.test.tsx)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `PASS（统一矩阵）` |
+| Swap Pro entry / account owner      | [`actions.test.tsx`](../packages/kit/src/states/jotai/contexts/accountSelector/actions.test.tsx)、[`prepareSwapProEntry.test.tsx`](../packages/kit/src/states/jotai/contexts/swap/prepareSwapProEntry.test.tsx)、[`useSwapAccount.utils.test.ts`](../packages/kit/src/views/Swap/hooks/useSwapAccount.utils.test.ts)、[`swapProAccountUtils.test.ts`](../packages/kit/src/views/Swap/utils/swapProAccountUtils.test.ts)、[`SwapProPositionsList.utils.test.ts`](../packages/kit/src/views/Swap/pages/components/SwapProPositionsList.utils.test.ts)                                                                                                                                                                                    | `PASS（统一矩阵）` |
+| History network repair              | [`SimpleDbEntitySwapHistory.test.ts`](../packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapHistory.test.ts)、[`ServiceSwap.networkInfo.test.ts`](../packages/kit-bg/src/services/ServiceSwap.networkInfo.test.ts)、[`swapHistoryNetworkUtils.test.ts`](../packages/shared/src/utils/swapHistoryNetworkUtils.test.ts)                                                                                                                                                                                                                                                                                                                                                                                                             | `PASS（统一矩阵）` |
 
 不存在 `swapBootCoordinator.test.ts` 或 `quoteCoordinatorV2.test.ts`；它们对应的完整 coordinator 尚未实现，不得写入测试报告。最终回填必须记录实际命令、suite / test 数、退出码和失败原因，不能只写“targeted tests passed”。
 
@@ -1076,7 +1081,7 @@ Case 跟踪表使用以下覆盖层标记：`U`（纯函数 / reducer）、`H`�
 
 canonical live balance owner 前的输入、Max 与 Review fail-closed 由 Hook / Jotai 自动化覆盖；空钱包 real-surface 没有构造出有余额的可点击前后对照，因此该项继续保留 Pending-R。没有为了让开发构建冷重启样本“通过”而改变全局 hydration 策略。
 
-以下是本轮实现之前的**历史 Desktop 基线样本**，只用于解释原问题和旧性能，不得作为 `f7790b70e249809e38cced3cbc272419f217ac36` 的通过证据：macOS Apple M4 Pro、开发构建、旧 `x` 依赖、独立 `3002 / 9223` 端口、独立 `/tmp` 用户目录、测试时新建助记词钱包，网络使用 Desktop harness 的 Slow 4G（562.5 ms latency、180,000 B/s download、84,375 B/s upload）。测试结束后已关闭进程并删除临时用户目录；未读取或复用真实钱包，也未记录助记词。
+以下是本轮实现之前的**历史 Desktop 基线样本**，只用于解释原问题和旧性能，不得作为 `783b1c18432d3fd831061fcc4acaa0a0bf30dd6c` 的通过证据：macOS Apple M4 Pro、开发构建、旧 `x` 依赖、独立 `3002 / 9223` 端口、独立 `/tmp` 用户目录、测试时新建助记词钱包，网络使用 Desktop harness 的 Slow 4G（562.5 ms latency、180,000 B/s download、84,375 B/s upload）。测试结束后已关闭进程并删除临时用户目录；未读取或复用真实钱包，也未记录助记词。
 
 | 场景                      | 观测到的状态序列                                                                                        | 结果 / 边界                                                                                    |
 | ------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -1104,7 +1109,7 @@ canonical live balance owner 前的输入、Max 与 Review fail-closed 由 Hook 
 
 ### 16.5 Coverage Appendix：86 个基础 case + 本轮 8 个专项 gate
 
-状态含义：`Auto-core` 表示有直接相关自动化，最终统一命令已通过 `36 suites / 458 tests`；`Historical Desktop sample` 仅表示第 16.4 节旧基线；`Desktop dev Partial PASS` 表示最终代码只覆盖了列出的真实表面竞态层；`Pending-R` 表示仍需真实 Runtime；`Not implemented` 表示所需生产能力尚未实现，Release 必须阻断。下表覆盖第 13 节 86 个基础 case，并增加第 0.2 节 8 个专项 gate；没有任何分组可仅凭静态检查标记为完整 Release PASS。
+状态含义：`Auto-core` 表示有直接相关自动化，合并后最终统一命令已通过 `51 suites / 626 tests`；`Historical Desktop sample` 仅表示第 16.4 节旧基线；`Desktop dev Partial PASS` 表示最终代码只覆盖了列出的真实表面竞态层；`Pending-R` 表示仍需真实 Runtime；`Not implemented` 表示所需生产能力尚未实现，Release 必须阻断。下表覆盖第 13 节 86 个基础 case，并增加第 0.2 节 8 个专项 gate；没有任何分组可仅凭静态检查标记为完整 Release PASS。
 
 | Case 分组                                     | Case IDs                                                                                                                                                                                                                                                                                       | 自动化证据                                                                                                                                     | 必需 Runtime 证据                                                                                | 当前状态 / 缺口                                                         |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
@@ -1138,8 +1143,8 @@ canonical live balance owner 前的输入、Max 与 Review fail-closed 由 Hook 
 
 | Gate                            | 命令 / 场景                               | Suite / Test / 样本数           | 结果         | 证据路径 / 失败说明                                                                            |
 | ------------------------------- | ----------------------------------------- | ------------------------------- | ------------ | ---------------------------------------------------------------------------------------------- |
-| Target Jest                     | 显式路径，`--runInBand`                   | `36 suites / 458 tests`         | PASS         | `0 failed / exit 0`；最终 code diff 单次统一执行                                               |
-| Type-aware oxlint               | 改动 TS / TSX，`--deny-warnings`          | `35 files`                      | PASS         | `0 warnings / 0 errors / exit 0`                                                               |
+| Target Jest                     | 显式路径，`--runInBand`                   | `51 suites / 626 tests`         | PASS         | `0 failed / exit 0`；合并后最终 code diff 单次统一执行                                         |
+| Type-aware oxlint               | 冲突核心 TS / TSX，`--deny-warnings`      | `9 files`                       | PASS         | `0 warnings / 0 errors / exit 0`；完整 staged diff 由 commit profile 覆盖                      |
 | `git diff --check`              | 当前最终 diff                             | n/a                             | PASS         | `exit 0`                                                                                       |
 | `agent:check --profile commit`  | code 与 docs staged diff 分别执行         | repo commit profile             | PASS         | code 含 JS / TS worktree lint；docs 含 JS worktree lint；两次均通过 context、staged lint / tsc |
 | Desktop real-surface            | 首 actionable、Swap→Stock、snapshot/range | 新建隔离测试钱包                | Partial PASS | production cold restart 与未列场景 Pending-R                                                   |
@@ -1264,7 +1269,7 @@ Flag 最终应支持按平台、版本、surface、executionType 和账户类型
 下列勾选表示当前证据已经完成；任何未勾选项都要求 PR 保持 Draft，并阻止 Ready / Release：
 
 - [x] zero-provider、manual-provider、signed-order、late build、active-input display intent、balance overlap 最终审计无未解决 P0 / P1。
-- [x] 第 16.2 节全部目标 Jest 以当前最终 code diff 一次性运行：36 suites / 458 tests / 0 failed。
+- [x] 第 16.2 节目标与合并新增测试以当前最终 code diff 一次性运行：51 suites / 626 tests / 0 failed。
 - [x] `yarn agent:check --profile commit` 以 staged diff 运行通过；PR readiness 另按仓库合同执行。
 - [x] `git diff --check`、Markdown 本地链接 / readiness 检查完成；skill reviewed ref 已替换为真实 code commit。
 - [ ] 真实 Desktop surface 至少完成 cold pair、快速 SELL / LIMIT BUY 输入、账户 / token owner、Tab + Modal / Private Send 隔离、Review drift 最小 spine，并保存 screenshot + console + network / event timeline。

@@ -2,7 +2,7 @@
 
 Use these anchors to orient in the current repository. Prefer the local pattern
 around the anchor over inventing a parallel path. Reviewed committed baseline:
-`f7790b70e249809e38cced3cbc272419f217ac36`. Keep the same full commit in the
+`783b1c18432d3fd831061fcc4acaa0a0bf30dd6c`. Keep the same full commit in the
 report, eval manifest, and readiness script, then run readiness before relying
 on the map.
 
