@@ -3,3 +3,5 @@ declare module '*.png' {
   const value: IImageRequireSource;
   export default value;
 }
+
+declare module '*.css';

@@ -322,7 +322,7 @@ export class OAuthPopup extends OAuthPopupBase {
         // Generate and hash nonce
         const rawNonce = crypto.randomUUID();
         const encoder = new TextEncoder();
-        const nonceData = encoder.encode(rawNonce);
+        const nonceData = Uint8Array.from(encoder.encode(rawNonce));
         const hashBuffer = await crypto.subtle.digest('SHA-256', nonceData);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashedNonce = hashArray
