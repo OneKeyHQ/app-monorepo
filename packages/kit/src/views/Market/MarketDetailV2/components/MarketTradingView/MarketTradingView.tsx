@@ -94,6 +94,8 @@ export interface IMarketTradingViewProps {
   onNativeIndicatorQuickBarChange?: (quickBar: ReactNode | null) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
+  onNativeSubIndicatorCountChange?: (count: number | null) => void;
+  maxNativeSubIndicatorCount?: number;
 }
 
 export const MarketTradingView = memo(
@@ -116,6 +118,8 @@ export const MarketTradingView = memo(
     onNativeIndicatorQuickBarChange,
     onIndicatorsDialogOpenChange,
     onInteractionOverlayOpenChange,
+    onNativeSubIndicatorCountChange,
+    maxNativeSubIndicatorCount,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
@@ -164,6 +168,8 @@ export const MarketTradingView = memo(
         onTouchScroll={onTouchScroll}
         onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
         onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
+        onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
+        maxNativeSubIndicatorCount={maxNativeSubIndicatorCount}
         onPriceUpdate={handlePriceUpdate}
         disabledFeatures={MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES}
         enableNativeChartControls

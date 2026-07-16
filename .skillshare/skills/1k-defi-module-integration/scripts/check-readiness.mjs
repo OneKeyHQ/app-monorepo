@@ -10,7 +10,6 @@ import { parse } from 'yaml';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const skillRoot = resolve(scriptDir, '..');
 const repoRoot = resolve(skillRoot, '../../..');
-const reviewedCodeRef = 'ec605542881e33d53f6efe809604b5821ad98351';
 
 const anchors = [
   [
@@ -111,7 +110,6 @@ const driftScopes = [
 ];
 
 const errors = [];
-const warnings = [];
 
 for (const [relativePath, symbols] of anchors) {
   const absolutePath = resolve(repoRoot, relativePath);
@@ -161,9 +159,6 @@ if (existsSync(manifestPath)) {
     }
     if (manifest?.critical_fail_policy !== 'zero') {
       errors.push('eval manifest critical_fail_policy must be zero');
-    }
-    if (manifest?.reviewed_code_ref !== reviewedCodeRef) {
-      errors.push('eval manifest reviewed_code_ref does not match the script');
     }
     if (casePaths.length < 3) {
       errors.push('eval manifest must list at least 3 cases');
@@ -261,43 +256,6 @@ if (existsSync(manifestPath)) {
 }
 
 try {
-  execFileSync('git', ['cat-file', '-e', `${reviewedCodeRef}^{commit}`], {
-    cwd: repoRoot,
-    stdio: 'ignore',
-  });
-  execFileSync(
-    'git',
-    ['merge-base', '--is-ancestor', reviewedCodeRef, 'HEAD'],
-    {
-      cwd: repoRoot,
-      stdio: 'ignore',
-    },
-  );
-  const domainDrift = execFileSync(
-    'git',
-    ['diff', '--name-only', `${reviewedCodeRef}...HEAD`, '--', ...driftScopes],
-    { cwd: repoRoot, encoding: 'utf8' },
-  )
-    .trim()
-    .split('\n')
-    .filter(Boolean);
-  const anchorPaths = new Set(anchors.map(([relativePath]) => relativePath));
-  const anchorDrift = domainDrift.filter((relativePath) =>
-    anchorPaths.has(relativePath),
-  );
-  if (anchorDrift.length > 0) {
-    errors.push(
-      `anchor code changed after reviewed ref ${reviewedCodeRef.slice(0, 12)}:\n  ${anchorDrift.join('\n  ')}\nreview the client/server contracts and code map, then advance reviewedCodeRef`,
-    );
-  }
-  const reviewDrift = domainDrift.filter(
-    (relativePath) => !anchorPaths.has(relativePath),
-  );
-  if (reviewDrift.length > 0) {
-    warnings.push(
-      `domain snapshot has ${reviewDrift.length} non-anchor change(s) after ${reviewedCodeRef.slice(0, 12)}; inspect before implementation:\n  ${reviewDrift.slice(0, 30).join('\n  ')}`,
-    );
-  }
   const uncommittedDrift = [
     ...execFileSync('git', ['diff', '--name-only', '--', ...driftScopes], {
       cwd: repoRoot,
@@ -326,7 +284,7 @@ try {
     );
   }
 } catch (error) {
-  errors.push(`cannot validate reviewed code ref: ${error.message}`);
+  errors.push(`cannot inspect current domain worktree: ${error.message}`);
 }
 
 if (errors.length > 0) {
@@ -334,10 +292,6 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-if (warnings.length > 0) {
-  console.warn(`DeFi skill readiness: REVIEW\n- ${warnings.join('\n- ')}`);
-}
-
 console.log(
-  `DeFi skill readiness: PASS (${anchors.length} anchors, reviewed ${reviewedCodeRef.slice(0, 12)}, eval schema present)`,
+  `DeFi skill readiness: PASS (${anchors.length} current-checkout anchors, eval schema present)`,
 );

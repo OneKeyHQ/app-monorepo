@@ -1,10 +1,40 @@
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  getSwapAddressAccountSelectorNum,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldUseSwapCustomRecipientAddress,
 } from './useSwapAccount.utils';
+
+describe('getSwapAddressAccountSelectorNum', () => {
+  it('uses the source account for the FROM address', () => {
+    expect(
+      getSwapAddressAccountSelectorNum({
+        type: ESwapDirectionType.FROM,
+        swapToAnotherAccountSwitchOn: true,
+      }),
+    ).toBe(0);
+  });
+
+  it('uses the source account for the TO address when custom recipient is off', () => {
+    expect(
+      getSwapAddressAccountSelectorNum({
+        type: ESwapDirectionType.TO,
+        swapToAnotherAccountSwitchOn: false,
+      }),
+    ).toBe(0);
+  });
+
+  it('uses the recipient account for the TO address when custom recipient is on', () => {
+    expect(
+      getSwapAddressAccountSelectorNum({
+        type: ESwapDirectionType.TO,
+        swapToAnotherAccountSwitchOn: true,
+      }),
+    ).toBe(1);
+  });
+});
 
 describe('shouldResetSwapRecipientOnAccountNetworkSync', () => {
   it('keeps a saved recipient while the current tab temporarily uses another token network', () => {
