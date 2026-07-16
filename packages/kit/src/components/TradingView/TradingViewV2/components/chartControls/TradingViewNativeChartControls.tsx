@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { type ReactNode, memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -68,6 +68,7 @@ interface ITradingViewNativeChartControlsProps {
   layoutMode?: ITradingViewNativeControlsLayoutMode;
   chartTimezone: string;
   isFullscreen?: boolean;
+  fullscreenHeader?: ReactNode;
   onIntervalChange: (interval: string) => void;
   onIndicatorSelect: (indicatorName: string, desiredActive: boolean) => void;
   onChartTypeChange: (chartType: number) => void;
@@ -87,6 +88,7 @@ function ToolbarSeparator() {
 }
 
 const DESKTOP_CONTROLS_HEIGHT = 38;
+const DESKTOP_FULLSCREEN_CONTROLS_HEIGHT = 64;
 
 export const TradingViewNativeChartControls = memo(
   ({
@@ -101,6 +103,7 @@ export const TradingViewNativeChartControls = memo(
     layoutMode = 'mobile',
     chartTimezone,
     isFullscreen = false,
+    fullscreenHeader,
     onIntervalChange,
     onIndicatorSelect,
     onChartTypeChange,
@@ -122,6 +125,8 @@ export const TradingViewNativeChartControls = memo(
     );
     const hasFullscreenControl = Boolean(onFullscreenChange);
     const hasHistoryControls = Boolean(isDesktopLayout && onUndo && onRedo);
+    const desktopFullscreenHeader =
+      isDesktopLayout && isFullscreen ? fullscreenHeader : null;
     const {
       activeChartType,
       activeIndicatorValues,
@@ -433,7 +438,8 @@ export const TradingViewNativeChartControls = memo(
       !hasVisibleControls &&
       !hasCalendarControl &&
       !hasFullscreenControl &&
-      !hasHistoryControls
+      !hasHistoryControls &&
+      !desktopFullscreenHeader
     ) {
       return null;
     }
@@ -457,9 +463,14 @@ export const TradingViewNativeChartControls = memo(
       return (
         <Stack
           bg="$bgApp"
-          px="$4"
+          px={desktopFullscreenHeader ? '$2' : '$4'}
           py="$1"
-          h={DESKTOP_CONTROLS_HEIGHT}
+          h={
+            desktopFullscreenHeader
+              ? DESKTOP_FULLSCREEN_CONTROLS_HEIGHT
+              : DESKTOP_CONTROLS_HEIGHT
+          }
+          justifyContent="center"
           zIndex={3}
         >
           <XStack
@@ -469,6 +480,8 @@ export const TradingViewNativeChartControls = memo(
             opacity={isControlsReady ? 1 : 0}
             pointerEvents={isControlsReady ? 'auto' : 'none'}
           >
+            {desktopFullscreenHeader}
+
             <ScrollView
               horizontal
               flex={1}

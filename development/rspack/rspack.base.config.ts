@@ -333,6 +333,13 @@ const buildBaseCache: (
   configName?: string,
 ) => RspackOptions['cache'] = (basePath, configName) => ({
   type: 'persistent',
+  // The CLI only auto-tracks the app-level rspack.config.ts as a build
+  // dependency, so edits to these imported config modules would otherwise
+  // never invalidate warm persistent caches.
+  buildDependencies: fs
+    .readdirSync(__dirname)
+    .filter((file) => file.endsWith('.ts'))
+    .map((file) => path.join(__dirname, file)),
   storage: {
     type: 'filesystem',
     // Use separate cache directories for each config to avoid conflicts
@@ -516,7 +523,7 @@ export function createBaseConfig({
         // Reanimated files need babel-loader with worklets plugin
         {
           test: /\.(js|mjs|jsx|ts|tsx)$/,
-          include: [/react-native-reanimated/],
+          include: [/node_modules[\\/].*react-native-reanimated/],
           use: [
             {
               loader: 'builtin:swc-loader',
@@ -642,8 +649,16 @@ export function createBaseConfig({
           ],
           resolve: { fullySpecified: false },
         },
+        // Vendor-transpile rules below require a node_modules segment BEFORE the
+        // package-name substring on purpose: a fully unanchored regex matches
+        // the absolute path, and on EAS build machines the checkout lives under
+        // /Users/expo/, so a bare /(@?expo-*)/ matched EVERY first-party file
+        // and chained an swc pass without decorator support ("Unexpected token
+        // `@`"). Keep the substring semantics after node_modules — packages
+        // like @onekeyfe/react-native-text-input (scoped, raw .ts sources)
+        // rely on it to get transpiled at all.
         {
-          test: /(@?react-(navigation|native)).*\.(ts|js)x?$/,
+          test: /node_modules[\\/].*(@?react-(navigation|native)).*\.(ts|js)x?$/,
 
           use: [
             {
@@ -710,9 +725,9 @@ export function createBaseConfig({
           : []),
         {
           test: [
-            /(@?expo-*).*\.(c|m)?(ts|js)x?$/,
-            /(@?set-interval-async).*\.(c|m)?(ts|js)x?$/,
-            /(@?react-aria).*\.(c|m)?(ts|js)x?$/,
+            /node_modules[\\/].*(@?expo-*).*\.(c|m)?(ts|js)x?$/,
+            /node_modules[\\/].*(@?set-interval-async).*\.(c|m)?(ts|js)x?$/,
+            /node_modules[\\/].*(@?react-aria).*\.(c|m)?(ts|js)x?$/,
           ],
 
           use: [
@@ -746,11 +761,11 @@ export function createBaseConfig({
           resolve: { fullySpecified: false },
         },
         {
-          test: /@onekeyfe[\\/]bitcoinforksjs-lib.*\.(ts|js)x?$/,
+          test: /node_modules[\\/].*@onekeyfe[\\/]bitcoinforksjs-lib.*\.(ts|js)x?$/,
           resolve: { fullySpecified: false },
         },
         {
-          test: /lru-cache.*\.(ts|js)x?$/,
+          test: /node_modules[\\/].*lru-cache.*\.(ts|js)x?$/,
           use: [
             {
               loader: 'builtin:swc-loader',
@@ -780,7 +795,7 @@ export function createBaseConfig({
         ...(enableImportMetaCompat
           ? [
               {
-                test: /@polkadot/,
+                test: /node_modules[\\/].*@polkadot/,
                 loader: require.resolve('@open-wc/webpack-import-meta-loader'),
               },
             ]
