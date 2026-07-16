@@ -151,8 +151,11 @@ export function shouldUpdatePerpsL2Book({
   currentBook: HL.IBook | null;
   nextBook: HL.IBook;
 }) {
+  if (!currentBook) {
+    return true;
+  }
   const isCurrentCached = Boolean(
-    (currentBook as IPerpsL2BookWithLocalReceivedAt | null)?.isCachedSnapshot,
+    (currentBook as IPerpsL2BookWithLocalReceivedAt).isCachedSnapshot,
   );
   const isNextCached = Boolean(
     (nextBook as IPerpsL2BookWithLocalReceivedAt).isCachedSnapshot,

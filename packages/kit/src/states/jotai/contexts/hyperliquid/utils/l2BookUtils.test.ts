@@ -50,6 +50,19 @@ describe('shouldUpdatePerpsL2Book', () => {
     ).toBe(true);
   });
 
+  it('hydrates a cached snapshot when there is no current book', () => {
+    const cachedBook = Object.assign(buildBook({ time: 1000 }), {
+      isCachedSnapshot: true,
+    });
+
+    expect(
+      shouldUpdatePerpsL2Book({
+        currentBook: null,
+        nextBook: cachedBook,
+      }),
+    ).toBe(true);
+  });
+
   it('replaces a cached snapshot with the first identical live frame', () => {
     const cachedBook = Object.assign(buildBook({ time: 1000 }), {
       isCachedSnapshot: true,
