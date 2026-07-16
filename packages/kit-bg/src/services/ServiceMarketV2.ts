@@ -270,7 +270,17 @@ class ServiceMarketV2 extends ServiceBase {
       return undefined;
     }
     const locale = await this._getMarketTokenBatchCacheLocale();
-    return this.memoizedFetchMarketStockByTicker(normalizedTicker, locale);
+    const detail = await this.memoizedFetchMarketStockByTicker(
+      normalizedTicker,
+      locale,
+    );
+    if (!detail) {
+      await this.memoizedFetchMarketStockByTicker.delete(
+        normalizedTicker,
+        locale,
+      );
+    }
+    return detail;
   }
 
   private memoizedFetchMarketChains = memoizee(
