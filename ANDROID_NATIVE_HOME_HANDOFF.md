@@ -1191,3 +1191,41 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - 聚焦 Jest：`useNativeHomeSupplementalData.test.ts`、`HomeContainerController.test.ts`、`nativeHomeDataAdapters.test.ts`、`PopularTrading/utils.test.ts` 共 4 suites / 22 tests 全部通过，其中新加 5 个测试覆盖第 4 行补位、`3 -> 2`、`1 -> 0` 推荐直切、原 index rollback 与分类加星置顶。
 - `yarn agent:check --profile commit` 日志位于 `node_modules/.cache/agent-checks/2026-07-16T11-31-15-755Z`。`lint-worktree-js`、`agent-context`、`lint-staged` 通过；`lint-worktree-ts` / `tsc-staged` 仅被共享工作区已有的 Desktop、Rspack、DeFi、TradingView、WebView、Navigator、AppUpdate、Firmware、ReferFriends、Swap 和旧 `NativeHomePageView.native.tsx` 等问题阻断，日志中没有本轮 helper/hook/test/Swift 错误。没有回滚或顺手修改这些无关文件。
 - 本轮提交只允许 stage 本节涉及的 handoff、Favorites helper/test、supplemental hook 与 iOS HomeContainer；大量其他用户/任务 dirty files 必须继续保留且不得混入。
+
+## 2026-07-16 iOS Native Home 纵向滚动 owner 与 Support hub 跳顶修复
+
+### 真实复现与根因
+
+- 最新 Debug 包在 Spot 页滚到 Support hub 后，可以通过小幅反向或连续短拖触发偶发跳变：inner body 不是按手指距离连续移动，而是直接回到 body 顶部。真实跳变前后截图为 `.tmp/ui/native-home-scroll-jump-single-touch-sharp-after.png` 与 `.tmp/ui/native-home-scroll-jump-midbody.png`；相同手势也可能正常，因此必须重复录制，单次未命中不能否定问题。
+- 根因不是 DeFi/Earn 异步高度，也不是 Market diffable mutation。`HomeContainerNestedScrollView` 与 `HomeContainerNestedTableView` 同时识别同一纵向 pan，但此前没有手势期 scroll owner。outer 临界 offset 与 inner velocity 的回调时序短暂交叉时，`coordinateOuterScroll()` 或 `coordinateNestedScroll()` 会直接执行 `setBodyContentOffset(0)`，把已经滚到 Support hub 的深层 body 归零。
+- 这也解释了问题的偶发性：最终 frame、普通单向 swipe 和编译结果都可能正常；只有 outer/inner 两个 delegate 在边界帧以特定顺序到达时才跳。后续此类 nested scroll 问题必须先录到真实异常，再审计 owner 和每帧 offset，不能用最终截图替代。
+
+### owner-correct 修复
+
+- `HomeContainerView` 新增明确的 `header/body` 纵向 owner。每次真实拖动开始时，根据当前 outer header offset、inner body offset 和 pan velocity 选择 owner；同一手势期间不再由临界回调重新猜测深层内容归属。
+- body 仍有 offset 时，outer 被钉在折叠完成位置，只让 inner table 消费位移；inner 真正回到 0 且手指继续下拉后才交给 header。反向上推时，header 真正折叠完成后才交给 body。
+- 删除了“outer 未完全折叠且 body > 0 就把 body 直接清零”的深层冲突处理。header owner 下仍允许把同一边界帧产生的微量 inner 位移归零，但它只会发生在手势开始时 body 本来就是 0 的状态。
+- tab 完成切换时按目标 page 的真实 offset 同步 owner。refresh control 只在 header owner 下启用；深层 body 手势不能借 outer 的同步 pan 触发刷新。
+
+### 最新 Debug 真机证据
+
+- 最终源码两次都通过仓库根目录的标准 `yarn app:ios` 更新安装；两次均为 `Build Succeeded`、0 error。最终运行的是 `Debug-iphonesimulator/OneKeyWallet.app`，没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`。
+- 没有执行 uninstall、reinstall、erase、clear data，没有删除 app container、钱包数据库或持久化数据。`Account #1`、余额和 Token 列表正常，应用前台持续为 `so.onekey.wallet`。
+- 最终 CDP：page 1 为 main，`$$onekeyJsReadyAt=1784208140749`、`$$onekeyUIVisibleAt=1784208142375`，并收到 bg ready payload `runtime=background/status=ready/protocolVersion=1/bootId=1784208142449-4kji658a`；page 2 独立为 `background`。没有用 main ready 代替 bg ready。
+- 最终原始录屏 `.tmp/ui/native-home-scroll-fix-final-repeated-gestures.mov` 为 275 个实际帧 / 6.99s，在 Support hub 连续执行 3 组 110pt 下拉/上推。before/after 为 `.tmp/ui/native-home-scroll-fix-final-repeated-before.png` 与 `-after.png`，contact sheet 为 `.tmp/ui/native-home-scroll-fix-final-repeated-contact-sheet.png`。
+- 全帧结果 `.tmp/ui/native-home-scroll-fix-frame-analysis.json`：`Support hub` 锚点 `1215 -> 1496 -> 1215px`，最大单帧位移 25px，超过 30px 的突变为 0，最终精确回到初始位置；没有 body 归零、外层跳顶或第二次反向位移。
+- 同一 owner 修复还保留了完整 body→header handoff：`.tmp/ui/native-home-scroll-fix-body-header-handoff.mov` 从 Support hub 连续回到包含 `Account #1`、余额与 Tokens 的 Home 顶部，没有冻结在 header/body 边界。
+- 录屏边界偶尔出现的蓝色 `Refreshing...` 是 iOS Debug Metro 的 `RCTDevLoadingView`，不是 `UIRefreshControl`，且全帧锚点没有随它变化；不能把 Debug loading overlay 误判成滚动刷新或 offset 跳变。
+
+### Runtime 与资源边界
+
+- **Runtime scope：main。** outer/header offset、inner table offset、手势 owner、tab 同步和 refresh eligibility 都是 Native Home main UI 状态。bg 不拥有 UIKit scroll view，也不参与本次跳变判断。
+- main/bg 仍是独立 Hermes heap，独立初始化并通过 proxy 序列化/反序列化业务数据；bg ready 与本次 main per-view 手势状态没有共享 JS 对象或先后依赖。
+- 图片/字体 cache、底层存储句柄属于进程级共享 Native 资源；scroll owner、pan velocity、content offset、diffable mutation pin、represented image signature、pressed/hover 属于具体 view/per-view 状态。本轮没有修改 bg service、Market DTO 或持久化数据。
+
+### 本节修改与验收边界
+
+- 本节只修改 `packages/native-components/ios/HomeContainerView.swift` 和本 handoff。诊断时临时扩展过本机 agent-device XCTest runner 以生成不抬手折返轨迹，验收后已恢复原 runner 源码并重新 prepare；该诊断改动不在仓库，也没有修改或重装钱包 App。
+- 本节通过的是 iOS Native Home Support hub 深层短拖、连续反向、body/header handoff 和无跳顶。Market 的 Stocks 服务端 logo 成功态、CASHCAT 当前行、Dark mode、pressed/hover、失败回滚注入态等仍按前文保持未完成，不能据此声明整个 Native Home UI 完成。
+- `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 与指定 Native Home 文件的 `git diff --check` 通过；两次完整 Debug Xcode build 也已经编译该 Swift 文件成功。本节没有修改 TS/JS，因此没有新增聚焦 Jest/ESLint 范围。
+- `yarn agent:check --profile commit` 日志为 `node_modules/.cache/agent-checks/2026-07-16T13-31-53-119Z`。`lint-worktree-js`、`lint-staged`、`agent-context` 通过；`lint-worktree-ts` / `tsc-staged` 被共享工作区已有的 Desktop、Rspack、DeFi、TradingView、WebView、Navigator、AppUpdate、Firmware、ReferFriends、Swap、旧 `NativeHomePageView.native.tsx` 等问题阻断，日志没有本轮 Swift/handoff 错误。没有回滚或修改这些无关文件制造绿色结果。
