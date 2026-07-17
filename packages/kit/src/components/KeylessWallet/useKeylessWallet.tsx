@@ -110,6 +110,10 @@ async function cacheKeylessOnboardingToken({ token }: { token: string }) {
   await keylessOnboardingCacheSet('socialLoginToken', token);
 }
 
+function clearKeylessOnboardingToken() {
+  keylessOnboardingCache.delete('socialLoginToken');
+}
+
 async function getKeylessOnboardingToken() {
   const token = keylessOnboardingCacheGet('socialLoginToken');
   return token;
@@ -331,13 +335,18 @@ export function useKeylessWallet() {
         handleKeylessOnboardingTimeout();
         return;
       }
-      await cacheKeylessOnboardingToken({ token });
-      await cacheKeylessOnboardingPinConfirmStatusUpdated({ updated: false });
-
       // ResetPin or VerifyPinOnly: validate token matches local keyless wallet
       const isKeylessIdentityVerifyMode =
         mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin ||
         mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly;
+      // In identity-verify modes the token is cached only AFTER it passes
+      // validateTokenMatchesKeylessWallet below; caching a wrong-account
+      // OAuth token here would keep it alive for the whole cache TTL and
+      // break a correct-account retry.
+      if (!isKeylessIdentityVerifyMode) {
+        await cacheKeylessOnboardingToken({ token });
+        await cacheKeylessOnboardingPinConfirmStatusUpdated({ updated: false });
+      }
       const checkLoginMatchedKeylessWallet = async () => {
         if (isKeylessIdentityVerifyMode) {
           const { isValid } =
@@ -345,6 +354,15 @@ export function useKeylessWallet() {
               { token },
             );
           if (!isValid) {
+            // Drop any previously cached onboarding token (e.g. from an
+            // earlier flow still within the cache TTL): the account that
+            // just OAuth'd does not match the local keyless wallet, and a
+            // stale token must not survive as "the onboarding token" when
+            // the user retries with the correct account. Other cache
+            // entries (pin, same-email status) are unrelated to this token
+            // and left intact.
+            clearKeylessOnboardingToken();
+
             // When refreshToken is provided, the mismatched session came from
             // a fresh OAuth sign-in that was never persisted, so the
             // currently persisted keyless session (which may back the active
@@ -389,6 +407,11 @@ export function useKeylessWallet() {
       };
       await checkLoginMatchedKeylessWallet();
       if (isKeylessIdentityVerifyMode) {
+        // The token matches the local keyless wallet, so it is now safe to
+        // cache as the onboarding token for downstream consumers
+        // (VerifyPin page, finalize/reset-pin flow).
+        await cacheKeylessOnboardingToken({ token });
+        await cacheKeylessOnboardingPinConfirmStatusUpdated({ updated: false });
         if (refreshToken) {
           // The fresh session matches the local keyless wallet, but it may
           // still belong to a DIFFERENT account than the one backing the
@@ -630,7 +653,17 @@ export function useKeylessWallet() {
         // directly and don't depend on the Prime login, and keeping the
         // session lets the next attempt reuse it instead of forcing a fresh
         // Google/Apple OAuth round-trip.
-        if (!isTransientNetworkLikeError(error)) {
+        if (
+          !isTransientNetworkLikeError(error) &&
+          // Slot-replaced is definitive for THIS flow, but the shared
+          // keyless slot now holds ANOTHER account's valid session —
+          // tearing it down would fail the winning login too.
+          !errorUtils.isErrorByClassName({
+            error,
+            className:
+              EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
+          })
+        ) {
           await logout();
           await backgroundApiProxy.simpleDb.prime.clearLocalAuthSession();
         }

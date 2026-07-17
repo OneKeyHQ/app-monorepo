@@ -33,6 +33,7 @@ import {
   type IOneKeyError,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type { IOneKeyIdLoginWithLocalKeylessPrepareResult } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -298,7 +299,18 @@ function OneKeyIdLegacyOAuthBindActions({
         // read) says nothing about the just-validated OAuth session, and
         // keeping it lets the retry skip a fresh Google/Apple OAuth
         // round-trip (same policy as PrimeLoginOAuthDialog).
-        if (didUseOAuthSignIn && !isTransientNetworkLikeError(error)) {
+        if (
+          didUseOAuthSignIn &&
+          !isTransientNetworkLikeError(error) &&
+          // Slot-replaced is definitive for THIS flow, but the shared
+          // keyless slot now holds ANOTHER account's valid session —
+          // tearing it down would fail the winning login too.
+          !errorUtils.isErrorByClassName({
+            error,
+            className:
+              EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
+          })
+        ) {
           await clearOAuthSignInTempSession();
         }
         throw error;
@@ -371,7 +383,18 @@ function OneKeyIdLegacyOAuthBindActions({
             // OAuth session, and keeping it lets the retry skip a fresh
             // Google/Apple OAuth round-trip (same policy as
             // PrimeLoginOAuthDialog and handleSwitchToBoundOneKeyId).
-            if (didUseOAuthSignIn && !isTransientNetworkLikeError(error)) {
+            if (
+              didUseOAuthSignIn &&
+              !isTransientNetworkLikeError(error) &&
+              // Slot-replaced is definitive for THIS flow, but the shared
+              // keyless slot now holds ANOTHER account's valid session —
+              // tearing it down would fail the winning login too.
+              !errorUtils.isErrorByClassName({
+                error,
+                className:
+                  EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
+              })
+            ) {
               await clearOAuthSignInTempSession();
             }
             throw error;
