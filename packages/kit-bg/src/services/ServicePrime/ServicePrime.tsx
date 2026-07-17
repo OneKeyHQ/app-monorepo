@@ -55,8 +55,10 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import {
+  clearSupabaseStorageLocalCache,
   readAuthTokenAllowingRetryableAuthError,
   readPersistedAccessTokenBySessionSource,
+  readPersistedAccessTokenBySessionSourceStrict,
   removeAuthSessionStorageBySessionSource,
   revokeAuthSessionTokenOnServerBestEffort,
   runExclusiveOnAuthSessionSlot,
@@ -722,6 +724,41 @@ class ServicePrime extends ServiceBase {
     });
   }
 
+  // Guard shared by every flow that POSTs a keyless-realm login/bind and then
+  // commits KeylessOAuth: prove the shared keyless session slot is actually
+  // persisted BEFORE any server-side state change, so the server login can
+  // never succeed while the local commit fails (server logged in / client
+  // rolled back). Definitive bad slot states (empty / corrupt) abort here;
+  // a TRANSIENT storage failure is rethrown as-is instead of proceeding —
+  // the slot state is unknown, so running the server mutation could recreate
+  // the very split this guard prevents, while the retryable error type
+  // (recognized by isTransientNetworkLikeError) keeps callers from tearing
+  // down a possibly-valid just-persisted session.
+  private async assertKeylessSessionPersistedBeforeLogin(callerName: string) {
+    // Force a fresh local read: on split-runtime targets the bg storage cache
+    // may still hold a pre-login empty probe (up to 30s), whose cross-runtime
+    // invalidation after the UI-side persist is best-effort.
+    clearSupabaseStorageLocalCache();
+    const slot = await readPersistedAccessTokenBySessionSourceStrict(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    if (slot.status === 'ok') {
+      return;
+    }
+    defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
+      reason: `${callerName}: keyless session slot is ${slot.status}, skip server login`,
+    });
+    // Both remaining states are deterministic — a corrupt slot re-reads the
+    // same bytes and would fail the post-POST commit identically — so a
+    // definitive abort (which lets callers clear the unusable slot) is
+    // correct for both.
+    throw new OneKeyLocalError(
+      slot.status === 'corrupt'
+        ? `${callerName} ERROR: Keyless OAuth session slot is corrupt`
+        : `${callerName} ERROR: Keyless OAuth session is not persisted locally`,
+    );
+  }
+
   @backgroundMethod()
   async apiOAuthLogin({
     accessToken,
@@ -733,28 +770,6 @@ class ServicePrime extends ServiceBase {
         throw new OneKeyLocalError('apiOAuthLogin ERROR: Invalid accessToken');
       }
 
-      // Fail fast when the shared keyless session slot is empty: the login
-      // POST below would succeed on the server while the local commit
-      // (commitAuthSessionSourceBeforeAtomUpdate) is guaranteed to fail with
-      // "Active auth token not found" — leaving the server logged in and the
-      // client rolled back to logged-out. An empty slot here means the
-      // UI-side persistence failed (persistKeylessOAuthSession) or was
-      // skipped; surface that BEFORE any server-side state changes. Local
-      // storage read only — no network, safe under loginMutex.
-      const persistedKeylessAccessToken =
-        await readPersistedAccessTokenBySessionSource(
-          EPrimeAuthSessionSource.KeylessOAuth,
-        );
-      if (!persistedKeylessAccessToken) {
-        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-          reason:
-            'ServicePrime.apiOAuthLogin: keyless session slot is empty, skip server login',
-        });
-        throw new OneKeyLocalError(
-          'apiOAuthLogin ERROR: Keyless OAuth session is not persisted locally',
-        );
-      }
-
       // Invalidation site (OAuth login): same as apiLogin — drop any
       // pre-login cached user info before the session changes.
       this.clearPrimeUserInfoCache();
@@ -764,6 +779,13 @@ class ServicePrime extends ServiceBase {
       // getEffectiveAuthSessionSource) and would permanently orphan a
       // still-valid keyless session. The source is committed after success.
       await this.backgroundApi.simpleDb.prime.clearCachedAuthToken();
+      // Fail fast when the shared keyless session slot is empty (run AFTER the
+      // cache clear above so the read cannot serve a stale pre-login probe):
+      // the POST below would otherwise succeed on the server while the local
+      // commit fails, leaving the server logged in and the client rolled back.
+      await this.assertKeylessSessionPersistedBeforeLogin(
+        'ServicePrime.apiOAuthLogin',
+      );
       const client = await this.getPrimeClient();
       const result = await client.post<
         IApiClientResponse<IOneKeyIdOAuthLoginResponse>
@@ -1021,6 +1043,14 @@ class ServicePrime extends ServiceBase {
           'apiBindLegacyOneKeyIdOAuth ERROR: Legacy auth token not found',
         );
       }
+
+      // Same fail-fast as apiOAuthLogin — and it matters MORE here: the bind
+      // POST below is an irreversible server-side identity bind, so a
+      // subsequent KeylessOAuth commit failing on an empty slot would leave the
+      // account bound on the server while the client rolls its login state back.
+      await this.assertKeylessSessionPersistedBeforeLogin(
+        'ServicePrime.apiBindLegacyOneKeyIdOAuth',
+      );
 
       const client = await this.getPrimeClient();
       let result: {
