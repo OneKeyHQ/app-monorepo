@@ -19,11 +19,12 @@ import { type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   cancelAnimation,
+  useAnimatedReaction,
   useDerivedValue,
   useSharedValue,
   withDecay,
 } from 'react-native-reanimated';
-import { scheduleOnUI } from 'react-native-worklets';
+import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 
 import { SizableText, Stack, useTheme } from '@onekeyhq/components';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
@@ -32,10 +33,15 @@ import {
   TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
   TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+} from '../chartConstants';
+import {
+  type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
   getTradingViewNativeMaxPanOffset,
+  getTradingViewNativePriceRange,
+  getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
-} from '../chartConstants';
+} from '../utils/chartViewport';
 
 const CHART_PADDING = 24;
 const VOLUME_HEIGHT_RATIO = 0.2;
@@ -83,14 +89,21 @@ interface ITradingViewNativeChartProps {
   testID?: string;
 }
 
+interface IVisiblePointRangeState extends ITradingViewNativeVisiblePointRange {
+  chartWidth: number;
+  points: IMarketTokenKLineDataPoint[];
+}
+
 function createKLineChartPictures({
   colors,
   height,
   points,
+  visiblePointRange,
   width,
 }: IChartSize & {
   colors: IChartColors;
   points: IMarketTokenKLineDataPoint[];
+  visiblePointRange: ITradingViewNativeVisiblePointRange;
 }): IChartPictureData | null {
   if (width <= 0 || height <= 0) {
     return null;
@@ -121,23 +134,25 @@ function createKLineChartPictures({
     const priceAxisX = width - PRICE_AXIS_WIDTH;
     const chartWidth = priceAxisX - CHART_PADDING;
     const contentHeight = height - CHART_PADDING * 2;
+    const visiblePriceRange = getTradingViewNativePriceRange({
+      ...visiblePointRange,
+      points,
+    });
 
-    if (chartWidth > 0 && contentHeight > 0) {
+    if (chartWidth > 0 && contentHeight > 0 && visiblePriceRange) {
       const volumeHeight = contentHeight * VOLUME_HEIGHT_RATIO;
       const priceChartHeight =
         contentHeight * (1 - VOLUME_HEIGHT_RATIO - PRICE_VOLUME_GAP_RATIO);
       const volumeBottom = height - CHART_PADDING;
-      let minPrice = Number.POSITIVE_INFINITY;
-      let maxPrice = Number.NEGATIVE_INFINITY;
       let maxVolume = 0;
 
       for (const point of points) {
-        minPrice = Math.min(minPrice, point.l);
-        maxPrice = Math.max(maxPrice, point.h);
         if (Number.isFinite(point.v)) {
           maxVolume = Math.max(maxVolume, point.v);
         }
       }
+
+      const { maxPrice, minPrice } = visiblePriceRange;
 
       const gridPaint = Skia.Paint();
       gridPaint.setAntiAlias(true);
@@ -270,6 +285,79 @@ export const TradingViewNativeChart = memo(
     const priceAxisX = chartSize.width - PRICE_AXIS_WIDTH;
     const chartWidth = Math.max(priceAxisX - CHART_PADDING, 0);
     const pointCount = points.length;
+    const [visiblePointRangeState, setVisiblePointRangeState] =
+      useState<IVisiblePointRangeState>(() => ({
+        chartWidth: 0,
+        endIndex: points.length,
+        points,
+        startIndex: 0,
+      }));
+    const defaultVisiblePointRange = useMemo(
+      () =>
+        getTradingViewNativeVisiblePointRange({
+          candleGap: NATIVE_CANDLE_GAP,
+          chartWidth,
+          offset: 0,
+          pointCount,
+          zoomScale: TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+        }),
+      [chartWidth, pointCount],
+    );
+    const visiblePointRange: ITradingViewNativeVisiblePointRange =
+      visiblePointRangeState.points === points &&
+      visiblePointRangeState.chartWidth === chartWidth
+        ? visiblePointRangeState
+        : defaultVisiblePointRange;
+
+    const handleVisiblePointRangeChange = useCallback(
+      (startIndex: number, endIndex: number) => {
+        setVisiblePointRangeState((currentState) =>
+          currentState.points === points &&
+          currentState.chartWidth === chartWidth &&
+          currentState.startIndex === startIndex &&
+          currentState.endIndex === endIndex
+            ? currentState
+            : {
+                chartWidth,
+                endIndex,
+                points,
+                startIndex,
+              },
+        );
+      },
+      [chartWidth, points],
+    );
+
+    useAnimatedReaction(
+      () => {
+        const range = getTradingViewNativeVisiblePointRange({
+          candleGap: NATIVE_CANDLE_GAP,
+          chartWidth,
+          offset: panOffset.value,
+          pointCount,
+          zoomScale: zoomScale.value,
+        });
+        return {
+          chartWidth,
+          ...range,
+        };
+      },
+      (currentRange, previousRange) => {
+        'worklet';
+
+        if (
+          currentRange.chartWidth !== previousRange?.chartWidth ||
+          currentRange.startIndex !== previousRange?.startIndex ||
+          currentRange.endIndex !== previousRange?.endIndex
+        ) {
+          scheduleOnRN(
+            handleVisiblePointRangeChange,
+            currentRange.startIndex,
+            currentRange.endIndex,
+          );
+        }
+      },
+    );
 
     const chartPictureData = useMemo(
       () =>
@@ -282,8 +370,9 @@ export const TradingViewNativeChart = memo(
             down: CHART_DOWN_COLOR,
           },
           points,
+          visiblePointRange,
         }),
-      [background, chartSize, grid, points],
+      [background, chartSize, grid, points, visiblePointRange],
     );
 
     useLayoutEffect(() => {
