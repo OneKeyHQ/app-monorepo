@@ -6,6 +6,7 @@ import {
 
 import {
   computeIpTableConfigHash,
+  isIpTableConfigRegression,
   isValidIpTableRemoteConfigShape,
   mergeIpTableConfigs,
   verifyIpTableConfigSignature,
@@ -278,6 +279,78 @@ describe('isValidIpTableRemoteConfigShape', () => {
         domains: { 'example.com': { endpoints: [{ ip: 123 }] } },
       }),
     ).toBe(false);
+  });
+});
+
+describe('isIpTableConfigRegression', () => {
+  function makeConfig(version: number, generatedAt: string) {
+    return {
+      ...DEFAULT_IP_TABLE_CONFIG,
+      version,
+      generated_at: generatedAt,
+    };
+  }
+
+  test('without lastVerified, the active config generated_at anchors same-version comparison', () => {
+    // Pre-upgrade installs have no runtime.lastVerified; a same-version but
+    // older signed config must still be rejected against the active config.
+    const result = isIpTableConfigRegression({
+      remoteConfig: makeConfig(1, '2025-10-01T00:00:00.000Z'),
+      localConfig: makeConfig(1, '2025-11-06T08:30:54.066Z'),
+      lastVerified: undefined,
+    });
+    expect(result).toEqual({
+      regression: true,
+      reason: 'generated_at_regression',
+    });
+  });
+
+  test('same version with newer generated_at is accepted', () => {
+    const result = isIpTableConfigRegression({
+      remoteConfig: makeConfig(1, '2026-01-01T00:00:00.000Z'),
+      localConfig: makeConfig(1, '2025-11-06T08:30:54.066Z'),
+    });
+    expect(result).toEqual({ regression: false });
+  });
+
+  test('lower version is always a regression', () => {
+    const result = isIpTableConfigRegression({
+      remoteConfig: makeConfig(1, '2026-01-01T00:00:00.000Z'),
+      localConfig: makeConfig(2, '2025-11-06T08:30:54.066Z'),
+    });
+    expect(result).toEqual({ regression: true, reason: 'version_regression' });
+  });
+
+  test('unparseable remote generated_at is rejected', () => {
+    const result = isIpTableConfigRegression({
+      remoteConfig: makeConfig(2, 'not-a-date'),
+      localConfig: makeConfig(1, '2025-11-06T08:30:54.066Z'),
+    });
+    expect(result).toEqual({
+      regression: true,
+      reason: 'unparseable_generated_at',
+    });
+  });
+
+  test('lastVerified anchor takes precedence over the active config', () => {
+    const result = isIpTableConfigRegression({
+      remoteConfig: makeConfig(1, '2025-12-01T00:00:00.000Z'),
+      localConfig: makeConfig(1, '2025-11-06T08:30:54.066Z'),
+      lastVerified: { version: 1, generatedAt: '2026-01-01T00:00:00.000Z' },
+    });
+    expect(result).toEqual({
+      regression: true,
+      reason: 'generated_at_regression',
+    });
+  });
+
+  test('higher version wins regardless of generated_at', () => {
+    const result = isIpTableConfigRegression({
+      remoteConfig: makeConfig(3, '2025-01-01T00:00:00.000Z'),
+      localConfig: makeConfig(2, '2025-11-06T08:30:54.066Z'),
+      lastVerified: { version: 2, generatedAt: '2025-11-06T08:30:54.066Z' },
+    });
+    expect(result).toEqual({ regression: false });
   });
 });
 

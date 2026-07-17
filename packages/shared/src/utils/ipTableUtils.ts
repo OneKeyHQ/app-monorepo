@@ -186,6 +186,44 @@ export async function verifyIpTableConfigSignature(
   return result.ok;
 }
 
+/**
+ * Rollback protection: a valid signature is not enough — a stale but
+ * legitimately signed config must not displace a newer one. When no
+ * `lastVerified` anchor exists yet (installs that predate provenance
+ * tracking), the currently active config's own version/generated_at serves
+ * as the anchor, so the monotonic guarantee holds from the first update.
+ */
+export function isIpTableConfigRegression(options: {
+  remoteConfig: IIpTableRemoteConfig;
+  localConfig: IIpTableRemoteConfig;
+  lastVerified?: { version: number; generatedAt: string };
+}): { regression: boolean; reason?: string } {
+  const { remoteConfig, localConfig, lastVerified } = options;
+
+  const remoteGeneratedAtMs = Date.parse(remoteConfig.generated_at);
+  if (Number.isNaN(remoteGeneratedAtMs)) {
+    return { regression: true, reason: 'unparseable_generated_at' };
+  }
+
+  if (remoteConfig.version < localConfig.version) {
+    return { regression: true, reason: 'version_regression' };
+  }
+
+  const anchorVersion = lastVerified?.version ?? localConfig.version;
+  const anchorGeneratedAtMs = Date.parse(
+    lastVerified?.generatedAt ?? localConfig.generated_at,
+  );
+  if (
+    remoteConfig.version === anchorVersion &&
+    !Number.isNaN(anchorGeneratedAtMs) &&
+    remoteGeneratedAtMs < anchorGeneratedAtMs
+  ) {
+    return { regression: true, reason: 'generated_at_regression' };
+  }
+
+  return { regression: false };
+}
+
 export function mergeIpTableConfigs(
   localConfig: IIpTableRemoteConfig,
   remoteConfig: IIpTableRemoteConfig,

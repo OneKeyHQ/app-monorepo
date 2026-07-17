@@ -40,6 +40,7 @@ import type {
 } from '@onekeyhq/shared/src/request/types/ipTable';
 import {
   computeIpTableConfigHash,
+  isIpTableConfigRegression,
   isSupportIpTablePlatform,
   isValidIpTableRemoteConfigShape,
   mergeIpTableConfigs,
@@ -402,23 +403,19 @@ class ServiceIpTable extends ServiceBase {
       const localConfig = currentConfig.config;
       const lastVerified = currentConfig.runtime?.lastVerified;
 
-      // Rollback protection: a valid signature is not enough — refuse
-      // configs older than what we already verified, so a stale (but
-      // legitimately signed) file cannot displace a newer one.
-      const remoteGeneratedAtMs = Date.parse(remoteConfig.generated_at);
-      const lastVerifiedGeneratedAtMs = lastVerified
-        ? Date.parse(lastVerified.generatedAt)
-        : Number.NaN;
-      const isVersionRegression =
-        remoteConfig.version < localConfig.version ||
-        (lastVerified !== undefined &&
-          remoteConfig.version === lastVerified.version &&
-          !Number.isNaN(remoteGeneratedAtMs) &&
-          !Number.isNaN(lastVerifiedGeneratedAtMs) &&
-          remoteGeneratedAtMs < lastVerifiedGeneratedAtMs);
-      if (isVersionRegression) {
+      // Rollback protection: refuse configs older than what we already
+      // verified. Falls back to the active config's own version/generated_at
+      // as the anchor when no lastVerified exists yet (pre-upgrade installs).
+      const regressionCheck = isIpTableConfigRegression({
+        remoteConfig,
+        localConfig,
+        lastVerified,
+      });
+      if (regressionCheck.regression) {
         defaultLogger.ipTable.request.error({
-          info: `[IpTable] Rejecting CDN config rollback: remote v${remoteConfig.version}@${remoteConfig.generated_at} is older than local v${localConfig.version}`,
+          info: `[IpTable] Rejecting CDN config update: ${
+            regressionCheck.reason ?? 'regression'
+          } (remote v${remoteConfig.version}@${remoteConfig.generated_at}, local v${localConfig.version})`,
         });
         return false;
       }
