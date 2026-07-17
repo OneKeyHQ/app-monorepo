@@ -30,8 +30,6 @@ import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2
 
 import {
   TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
-  TRADING_VIEW_NATIVE_CANDLE_GAP,
-  TRADING_VIEW_NATIVE_CANDLE_STEP,
   TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
   clampTradingViewNativePanOffset,
@@ -47,6 +45,9 @@ const SWITCHING_INTERVAL_OPACITY = 0.8;
 const PRICE_AXIS_WIDTH = 80;
 const PRICE_AXIS_TICK_COUNT = 5;
 const PRICE_AXIS_LABEL_HEIGHT = 18;
+const NATIVE_CANDLE_GAP = 1;
+const NATIVE_CANDLE_STEP =
+  TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + NATIVE_CANDLE_GAP;
 const PAN_DRAG_RATIO = 1.1;
 const PAN_DECELERATION = 0.9982;
 const MIN_FLING_VELOCITY = 100;
@@ -101,11 +102,11 @@ function createKLineChartPictures({
   );
   const candleDataWidth = points.length
     ? TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH +
-      (points.length - 1) * TRADING_VIEW_NATIVE_CANDLE_STEP
+      (points.length - 1) * NATIVE_CANDLE_STEP
     : 0;
   const candleCullLeft = Math.min(
     0,
-    width - PRICE_AXIS_WIDTH - TRADING_VIEW_NATIVE_CANDLE_GAP - candleDataWidth,
+    width - PRICE_AXIS_WIDTH - NATIVE_CANDLE_GAP - candleDataWidth,
   );
   const candlesRecorder = Skia.PictureRecorder();
   const candlesCanvas = candlesRecorder.beginRecording(
@@ -176,15 +177,14 @@ function createKLineChartPictures({
             ((maxPrice - price) / priceRange) * priceChartHeight;
       const lastCandleX =
         priceAxisX -
-        TRADING_VIEW_NATIVE_CANDLE_GAP -
+        NATIVE_CANDLE_GAP -
         TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2;
 
       points.forEach((point, index) => {
         const color = point.c >= point.o ? colors.up : colors.down;
         const skColor = Skia.Color(color);
         const x =
-          lastCandleX -
-          (points.length - index - 1) * TRADING_VIEW_NATIVE_CANDLE_STEP;
+          lastCandleX - (points.length - index - 1) * NATIVE_CANDLE_STEP;
         const openY = toY(point.o);
         const highY = toY(point.h);
         const lowY = toY(point.l);
@@ -299,6 +299,7 @@ export const TradingViewNativeChart = memo(
           return;
         }
         panOffset.value = clampTradingViewNativePanOffset({
+          candleGap: NATIVE_CANDLE_GAP,
           chartWidth,
           offset: panOffset.value,
           pointCount,
@@ -326,6 +327,7 @@ export const TradingViewNativeChart = memo(
           'worklet';
 
           panStartOffset.value = clampTradingViewNativePanOffset({
+            candleGap: NATIVE_CANDLE_GAP,
             chartWidth,
             offset: panOffset.value,
             pointCount,
@@ -336,6 +338,7 @@ export const TradingViewNativeChart = memo(
           'worklet';
 
           panOffset.value = clampTradingViewNativePanOffset({
+            candleGap: NATIVE_CANDLE_GAP,
             chartWidth,
             offset: panStartOffset.value + event.translationX * PAN_DRAG_RATIO,
             pointCount,
@@ -346,6 +349,7 @@ export const TradingViewNativeChart = memo(
           'worklet';
 
           const maxOffset = getTradingViewNativeMaxPanOffset({
+            candleGap: NATIVE_CANDLE_GAP,
             chartWidth,
             pointCount,
             zoomScale: zoomScale.value,
@@ -370,6 +374,7 @@ export const TradingViewNativeChart = memo(
 
           cancelAnimation(panOffset);
           pinchStartOffset.value = clampTradingViewNativePanOffset({
+            candleGap: NATIVE_CANDLE_GAP,
             chartWidth,
             offset: panOffset.value,
             pointCount,
@@ -383,6 +388,7 @@ export const TradingViewNativeChart = memo(
 
           const nextViewport = getTradingViewNativeZoomedViewport({
             anchorX: pinchAnchorX.value,
+            candleGap: NATIVE_CANDLE_GAP,
             chartWidth,
             currentOffset: pinchStartOffset.value,
             currentZoomScale: pinchStartZoomScale.value,

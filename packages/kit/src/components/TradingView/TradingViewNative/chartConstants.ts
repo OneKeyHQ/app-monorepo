@@ -17,10 +17,12 @@ export function clampTradingViewNativeZoomScale(scale: number) {
 }
 
 export function getTradingViewNativeMaxPanOffset({
+  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
   chartWidth,
   pointCount,
   zoomScale,
 }: {
+  candleGap?: number;
   chartWidth: number;
   pointCount: number;
   zoomScale: number;
@@ -32,24 +34,23 @@ export function getTradingViewNativeMaxPanOffset({
   }
 
   const clampedZoomScale = clampTradingViewNativeZoomScale(zoomScale);
+  const candleStep = TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + candleGap;
   const dataWidth =
-    (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH +
-      (pointCount - 1) * TRADING_VIEW_NATIVE_CANDLE_STEP) *
+    (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + (pointCount - 1) * candleStep) *
     clampedZoomScale;
-  const visibleWidth = Math.max(
-    chartWidth - TRADING_VIEW_NATIVE_CANDLE_GAP * clampedZoomScale,
-    0,
-  );
+  const visibleWidth = Math.max(chartWidth - candleGap * clampedZoomScale, 0);
 
   return Math.max(dataWidth - visibleWidth, 0);
 }
 
 export function clampTradingViewNativePanOffset({
+  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
   chartWidth,
   offset,
   pointCount,
   zoomScale,
 }: {
+  candleGap?: number;
   chartWidth: number;
   offset: number;
   pointCount: number;
@@ -60,6 +61,7 @@ export function clampTradingViewNativePanOffset({
   return Math.min(
     Math.max(offset, 0),
     getTradingViewNativeMaxPanOffset({
+      candleGap,
       chartWidth,
       pointCount,
       zoomScale,
@@ -69,6 +71,7 @@ export function clampTradingViewNativePanOffset({
 
 export function getTradingViewNativeZoomedViewport({
   anchorX,
+  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
   chartWidth,
   currentOffset,
   currentZoomScale,
@@ -76,6 +79,7 @@ export function getTradingViewNativeZoomedViewport({
   pointCount,
 }: {
   anchorX: number;
+  candleGap?: number;
   chartWidth: number;
   currentOffset: number;
   currentZoomScale: number;
@@ -88,15 +92,14 @@ export function getTradingViewNativeZoomedViewport({
   const zoomScale = clampTradingViewNativeZoomScale(nextZoomScale);
   const clampedAnchorX = Math.min(Math.max(anchorX, 0), chartWidth);
   const offset = clampTradingViewNativePanOffset({
+    candleGap,
     chartWidth,
     offset: currentOffset,
     pointCount,
     zoomScale: currentScale,
   });
-  const currentContentRight =
-    chartWidth - TRADING_VIEW_NATIVE_CANDLE_GAP * currentScale;
-  const nextContentRight =
-    chartWidth - TRADING_VIEW_NATIVE_CANDLE_GAP * zoomScale;
+  const currentContentRight = chartWidth - candleGap * currentScale;
+  const nextContentRight = chartWidth - candleGap * zoomScale;
   const anchorDistance =
     (currentContentRight + offset - clampedAnchorX) / currentScale;
   const nextOffset =
@@ -104,6 +107,7 @@ export function getTradingViewNativeZoomedViewport({
 
   return {
     offset: clampTradingViewNativePanOffset({
+      candleGap,
       chartWidth,
       offset: nextOffset,
       pointCount,

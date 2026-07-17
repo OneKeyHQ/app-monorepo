@@ -53,6 +53,26 @@ describe('TradingViewNative chart layout', () => {
     ).toBe(maxOffset);
   });
 
+  it('supports a platform-specific candle gap', () => {
+    const maxOffset = getTradingViewNativeMaxPanOffset({
+      candleGap: 1,
+      chartWidth: 100,
+      pointCount: 20,
+      zoomScale: 1,
+    });
+
+    expect(maxOffset).toBe(20);
+    expect(
+      clampTradingViewNativePanOffset({
+        candleGap: 1,
+        chartWidth: 100,
+        offset: 30,
+        pointCount: 20,
+        zoomScale: 1,
+      }),
+    ).toBe(maxOffset);
+  });
+
   it('keeps zoom within the supported range', () => {
     expect(clampTradingViewNativeZoomScale(0.1)).toBe(
       TRADING_VIEW_NATIVE_MIN_ZOOM_SCALE,
