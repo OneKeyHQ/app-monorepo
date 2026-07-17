@@ -69,9 +69,8 @@ function ShareContent({
     async (action: (base64: string) => Promise<void>) => {
       setIsActionLoading(true);
       try {
-        const base64: string = presetImage
-          ? presetImage
-          : ((await generatorRef.current?.generate()) ?? '');
+        const base64: string =
+          presetImage || ((await generatorRef.current?.generate()) ?? '');
         if (!base64) {
           Toast.error({
             title: intl.formatMessage({
