@@ -31,6 +31,7 @@ import {
   type IKeylessCreateWithOneKeyIdPrepareResult,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
@@ -46,6 +47,10 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { showOneKeyIdLegacyOAuthBindDialog } from '../../views/Prime/components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
+import {
+  markOneKeyIdFailureServerLogged,
+  showOneKeyIdLoginFailedToast,
+} from '../../views/Prime/components/oneKeyIdLoginToastUtils';
 import { shouldRunOneKeyIdAuthInExtExpandTab } from '../OneKeyAuth/extOneKeyIdAuthExpandTab';
 import { getDisplayEmailOrUnknown } from '../OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
@@ -277,6 +282,20 @@ export function useKeylessWallet() {
   enableKeylessWalletLoadingRef.current = enableKeylessWalletLoading;
 
   const handleKeylessOnboardingTimeout = useCallback(() => {
+    // Dialog also invokes user onClose after a confirm-close, so onConfirm
+    // and onClose would both fire for a single "Got it" tap and pop the
+    // stack twice (~300ms apart), dismissing an unrelated screen below.
+    // Guard with a closure flag so cleanup + popStack run at most once
+    // across the three callbacks.
+    let handled = false;
+    const handleDialogDismiss = () => {
+      if (handled) {
+        return;
+      }
+      handled = true;
+      keylessOnboardingCache.clear();
+      navigation.popStack();
+    };
     Dialog.show({
       title: intl.formatMessage({
         id: ETranslations.create_keyless_wallet_session_expired,
@@ -288,18 +307,9 @@ export function useKeylessWallet() {
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_got_it,
       }),
-      onCancel: () => {
-        keylessOnboardingCache.clear();
-        navigation.popStack();
-      },
-      onClose: () => {
-        keylessOnboardingCache.clear();
-        navigation.popStack();
-      },
-      onConfirm: () => {
-        keylessOnboardingCache.clear();
-        navigation.popStack();
-      },
+      onCancel: handleDialogDismiss,
+      onClose: handleDialogDismiss,
+      onConfirm: handleDialogDismiss,
     });
     throw new OneKeyLocalError('Keyless Wallet onboarding timed out');
   }, [intl, navigation]);
@@ -432,6 +442,19 @@ export function useKeylessWallet() {
             'Failed to auto login OneKey ID after Keyless identity verification:',
             error,
           );
+          // Best-effort login: keyless identity verification already
+          // succeeded, so the wallet flow must continue even when this
+          // fails. Log the reason at the source (the deduped fallback toast
+          // below is skipped for user-cancel / already-auto-toasted errors)
+          // and mark the error so the toast does not emit a second server
+          // event for the same failure.
+          defaultLogger.prime.subscription.onekeyIdLoginFailedToast({
+            reason: `Auto OneKey ID login after keyless identity verification failed: ${
+              (error as Error | undefined)?.message || 'unknown'
+            }`,
+          });
+          markOneKeyIdFailureServerLogged(error);
+          showOneKeyIdLoginFailedToast({ error, intl });
         }
       }
       await cacheKeylessOnboardingSameEmailAccountStatus({
