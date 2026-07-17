@@ -150,10 +150,15 @@ export function setReportRequestSuccessCallback(
  */
 const IDEMPOTENT_HTTP_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+// SNI_NETWORK_UNREACHABLE is deliberately NOT in this set: on iOS the native
+// module maps NSURLErrorNetworkConnectionLost — which can fire after the body
+// was fully sent and the server executed the request — to that code
+// (SniConnectClient.swift maps NotConnectedToInternet and
+// NetworkConnectionLost to the same .networkUnreachable case), so it cannot
+// prove the request was never written.
 const SNI_PRE_WRITE_ERROR_CODES = new Set([
   'SNI_CONNECTION_REFUSED',
   'SNI_DNS_FAILED',
-  'SNI_NETWORK_UNREACHABLE',
   'SNI_INVALID_URL',
 ]);
 
@@ -348,7 +353,13 @@ function deactivateFailover(lookupDomain: string, cause: string): void {
       action: 'deactivated',
     });
   }
-  state.hostFailures.clear();
+  // Reset counters but PRESERVE each hostname's lastOutcomeAt watermark:
+  // clearing entries would let failures from requests started before the
+  // recovery re-apply on fresh entries and reopen a circuit that the link
+  // already proved healthy.
+  state.hostFailures.forEach((entry) => {
+    entry.consecutiveFailures = 0;
+  });
   state.failOpenUntil = 0;
   state.activatedAt = 0;
   state.activatedHostnames.clear();
