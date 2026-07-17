@@ -473,6 +473,18 @@ function FinalizeWalletSetupPage({
                     'autoResetKeylessWalletPinAfterRestoreForSameEmailAccount error:',
                     autoResetError,
                   );
+                  // A swallowed failure here leaves the server share under
+                  // the old provider/PIN while the UI reports success —
+                  // an inconsistent keyless wallet state. Mirror the reason
+                  // into exported logs so it stays diagnosable in production
+                  // (the bg-side @toastIfError decorator already surfaces a
+                  // toast for this rejected background call).
+                  defaultLogger.wallet.keyless.dataCorruptedError({
+                    reason: `autoResetKeylessWalletPinAfterRestoreForSameEmailAccount failed: ${
+                      (autoResetError as Error | undefined)?.message ||
+                      String(autoResetError)
+                    }`,
+                  });
                 }
               })();
             }
