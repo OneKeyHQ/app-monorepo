@@ -1,5 +1,3 @@
-/* cspell:words tsgo */
-
 const { execSync, execFileSync } = require('child_process');
 const path = require('path');
 const { exit } = require('process');
@@ -48,11 +46,10 @@ try {
   console.log(`[${getTimestamp()}] Using tsconfig: ${tsConfigPath}`);
   console.log(`[${getTimestamp()}] Using cache folder: ${cacheFolder}`);
   const tsBuildInfoPath = path.join(cacheFolder, '.app-mono-ts-cache');
-  const tsgoPackage =
-    require.resolve('@typescript/native-preview/package.json');
-  const tsgoEntry = path.join(path.dirname(tsgoPackage), 'bin', 'tsgo.js');
+  const typescriptPackage = require.resolve('@typescript/native/package.json');
+  const tscEntry = path.join(path.dirname(typescriptPackage), 'bin', 'tsc');
   const result = execFileSync(process.execPath, [
-    tsgoEntry,
+    tscEntry,
     '-p',
     tsConfigPath,
     '--noEmit',
