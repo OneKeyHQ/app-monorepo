@@ -630,7 +630,17 @@ export function useKeylessWallet() {
         // directly and don't depend on the Prime login, and keeping the
         // session lets the next attempt reuse it instead of forcing a fresh
         // Google/Apple OAuth round-trip.
-        if (!isTransientNetworkLikeError(error)) {
+        if (
+          !isTransientNetworkLikeError(error) &&
+          // Slot-replaced is definitive for THIS flow, but the shared
+          // keyless slot now holds ANOTHER account's valid session —
+          // tearing it down would fail the winning login too.
+          !errorUtils.isErrorByClassName({
+            error,
+            className:
+              EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
+          })
+        ) {
           await logout();
           await backgroundApiProxy.simpleDb.prime.clearLocalAuthSession();
         }

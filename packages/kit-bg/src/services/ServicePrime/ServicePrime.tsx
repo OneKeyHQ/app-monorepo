@@ -12,6 +12,7 @@ import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_MESSAGE_ID,
+  OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
   OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
@@ -854,9 +855,13 @@ class ServicePrime extends ServiceBase {
       defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
         reason: `${callerName}: keyless session slot was replaced by a different account, skip server login`,
       });
-      throw new OneKeyLocalError(
-        `${callerName} ERROR: keyless session slot was replaced by a different account`,
-      );
+      // Typed error (NOT OneKeyLocalError): unlike the empty/corrupt/
+      // undecodable branches above (whose slot is unusable, so caller
+      // cleanup is harmless), here the slot holds the WINNING concurrent
+      // flow's valid session. Main-runtime definitive-failure cleanup keys
+      // off this className to skip its session teardown — wiping the slot
+      // would fail BOTH concurrent logins.
+      throw new OneKeyErrorOneKeyIdKeylessSessionSlotReplaced();
     }
   }
 

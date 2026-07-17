@@ -162,9 +162,13 @@ jest.mock('./primeAuthSessionAccess', () => ({
 }));
 
 const {
+  OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
 } = require('@onekeyhq/shared/src/errors');
+const {
+  EOneKeyErrorClassNames,
+} = require('@onekeyhq/shared/src/errors/types/errorTypes');
 const {
   EAppEventBusNames,
   appEventBus,
@@ -1092,14 +1096,22 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
       accessToken: buildFakeJwt({ sub: 'user-b' }),
     });
 
-    await expect(
-      service.apiOAuthLogin({
-        accessToken: buildFakeJwt({ sub: 'user-a' }),
-      }),
-    ).rejects.toThrow(
-      'keyless session slot was replaced by a different account',
+    const loginPromise = service.apiOAuthLogin({
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
+    await expect(loginPromise).rejects.toBeDefined();
+    const error: unknown = await loginPromise.then(
+      () => undefined,
+      (e: unknown) => e,
     );
 
+    // The typed class (not a plain OneKeyLocalError) is load-bearing: the
+    // slot holds the WINNING flow's valid session, and main-runtime cleanup
+    // matches this className to skip its session teardown.
+    expect(error).toBeInstanceOf(OneKeyErrorOneKeyIdKeylessSessionSlotReplaced);
+    expect((error as { className?: string }).className).toBe(
+      EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
+    );
     expect(post).not.toHaveBeenCalled();
   });
 
