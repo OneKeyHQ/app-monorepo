@@ -34,7 +34,11 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  type IPerpsActiveAccountAtom,
+  perpsActiveAccountAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { USDC_TOKEN_INFO } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import {
@@ -43,6 +47,7 @@ import {
   UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL,
   UNIFOLD_PERPS_PUBLISHABLE_KEY,
 } from '../../../consts/unifold';
+import { getSafeUnifoldRecipient } from '../../../utils/unifoldRecipient';
 
 import './PerpsUnifoldDepositModal.css';
 
@@ -459,6 +464,22 @@ function showStandaloneUnifoldDepositModal({
     return;
   }
 
+  // Fail-closed: re-read the active account at mount time and require the
+  // recipient to equal it. A mismatch aborts instead of depositing to a stale
+  // or empty address.
+  const activeAccount = jotaiDefaultStore.get(perpsActiveAccountAtom.atom());
+  const safeRecipient = getSafeUnifoldRecipient({
+    recipient: selectedAccount.accountAddress,
+    activeAccountAddress: activeAccount.accountAddress,
+  });
+  if (!safeRecipient) {
+    Toast.error({
+      title: 'Deposit unavailable',
+      message: 'Account address mismatch',
+    });
+    return;
+  }
+
   const container = document.createElement('div');
   document.body.appendChild(container);
   document.body.classList.add(PERPS_UNIFOLD_MODAL_OPEN_CLASS);
@@ -476,13 +497,12 @@ function showStandaloneUnifoldDepositModal({
   };
 
   const depositConfig: DepositConfig = {
-    externalUserId:
-      selectedAccount.accountAddress || selectedAccount.accountId || '',
+    externalUserId: safeRecipient,
     destinationChainType: 'ethereum',
     destinationChainId: UNIFOLD_HYPERCORE_CHAIN_ID,
     destinationTokenAddress: UNIFOLD_HYPERCORE_USDC_PERP_ADDRESS,
     destinationTokenSymbol: UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL,
-    recipientAddress: selectedAccount.accountAddress || '',
+    recipientAddress: safeRecipient,
     defaultSourceChainType: 'ethereum',
     defaultSourceChainId: '42161',
     defaultSourceTokenAddress: USDC_TOKEN_INFO.address,
