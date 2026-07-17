@@ -10164,6 +10164,7 @@ __metadata:
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
     "@onekeyhq/components": "npm:*"
+    "@stripe/crypto": "npm:1.1.1"
     "@tanstack/react-query": "npm:5.101.2"
     "@types/d3-scale": "npm:^4.0.3"
     "@types/d3-shape": "npm:^3.1.1"
@@ -17055,6 +17056,15 @@ __metadata:
     "@stoprocent/bluetooth-hci-socket":
       optional: true
   checksum: 10/59e9a3c5abeb9fbc3efbbb3bf12ca282810e8aeaf8ca6a5921cb01dc4d027436c0fc99a63cee126ec461c2ab1cfef629acdfb03e419d42ee8b74d98d4a47b163
+  languageName: node
+  linkType: hard
+
+"@stripe/crypto@npm:1.1.1":
+  version: 1.1.1
+  resolution: "@stripe/crypto@npm:1.1.1"
+  peerDependencies:
+    "@stripe/stripe-js": ^1.46.0
+  checksum: 10/f40813681ef5e3445f1b26e6cd65e73336950bcf4c45baa36cd90a70e0f348f1f4493570d325bff29c26a835088d29ff6a135fb6fd9e9ff78dbeec60c62f3314
   languageName: node
   linkType: hard
 

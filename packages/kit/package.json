@@ -5,6 +5,7 @@
   "main": "src/index.tsx",
   "dependencies": {
     "@onekeyhq/components": "*",
+    "@stripe/crypto": "1.1.1",
     "@tanstack/react-query": "5.101.2",
     "@types/url-parse": "^1.4.8",
     "@unifold/connect-react": "0.1.69",
