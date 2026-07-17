@@ -121,7 +121,7 @@ const SwapProTradingPanel = ({
   useSwapProActionsQuote();
 
   return (
-    <YStack gap="$2.5" flex={1} justifyContent="space-between">
+    <YStack gap="$2.5" flex={1}>
       <TradeTypeSelector
         value={swapProDirection}
         size="small"
@@ -220,6 +220,10 @@ const SwapProTradingPanel = ({
           </>
         ) : null}
       </YStack>
+      {/* Collect the column's spare height here (instead of space-between)
+          so the groups above keep fixed, symmetric spacing and only the
+          action button is pushed to the bottom. */}
+      <YStack flex={1} />
       <SwapProActionButton
         onSwapProActionClick={onSwapProActionClick}
         hasEnoughBalance={hasEnoughBalance}

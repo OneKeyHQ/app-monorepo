@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useSwapProDirectionAtom,
@@ -125,18 +125,22 @@ const SwapProPayTokenSelector = ({
         </SizableText>
         <Icon size="$4" name="ChevronDownSmallOutline" color="$iconSubdued" />
       </XStack>
-      <TokenSelectorPopover
-        currentSelectToken={swapProSelectToken}
-        isOpen={isPopoverOpen}
-        onOpenChange={setIsPopoverOpen}
-        tokens={defaultTokensFromType as IToken[]}
-        onTokenPress={handlePayTokenSelect}
-        onTradePress={() => {
-          setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
-        }}
-        disabledOnSwitchToTrade
-        disableNativeToken={disableNativePayToken}
-      />
+      {/* The popover renders a zero-height trigger; absolute-position it so
+          it does not consume the panel column gap as an invisible sibling. */}
+      <Stack position="absolute">
+        <TokenSelectorPopover
+          currentSelectToken={swapProSelectToken}
+          isOpen={isPopoverOpen}
+          onOpenChange={setIsPopoverOpen}
+          tokens={defaultTokensFromType as IToken[]}
+          onTokenPress={handlePayTokenSelect}
+          onTradePress={() => {
+            setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
+          }}
+          disabledOnSwitchToTrade
+          disableNativeToken={disableNativePayToken}
+        />
+      </Stack>
     </>
   );
 };

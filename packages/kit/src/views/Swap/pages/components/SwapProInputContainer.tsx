@@ -101,10 +101,10 @@ const SwapProInputContainer = ({
   useSwapLimitPriceCheck(inputToken, toToken);
 
   return (
-    // No extra gap/margin here: the slider's 24px native hit area already
-    // leaves symmetric whitespace above and below its track, and the panel
-    // column gap owns the spacing between sibling controls.
-    <YStack>
+    // gap $2.5 + the slider's built-in 11px half hit-area ≈ 21px above the
+    // track, matching the 11px below it + the $2.5 panel gap to the next
+    // group, so the slider sits vertically centered between its neighbors.
+    <YStack gap="$2.5">
       <YStack
         borderRadius="$2"
         bg="$bgStrong"
