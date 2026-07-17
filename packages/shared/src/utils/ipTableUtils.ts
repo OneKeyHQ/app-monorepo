@@ -224,38 +224,49 @@ export function isIpTableConfigRegression(options: {
   return { regression: false };
 }
 
-export function mergeIpTableConfigs(
-  localConfig: IIpTableRemoteConfig,
-  remoteConfig: IIpTableRemoteConfig,
-): IIpTableRemoteConfig {
-  const mergedDomains = { ...localConfig.domains };
+/**
+ * Drop runtime selections and last-best IPs that the current signed config
+ * no longer endorses. The persisted effective config is the signed remote
+ * envelope verbatim (never an additive merge), so a revoked or compromised
+ * endpoint removed from the CDN config must also stop being routable via
+ * previously persisted runtime state.
+ */
+export function pruneIpTableRuntimeSelections(options: {
+  config: IIpTableRemoteConfig;
+  selections?: Record<string, string>;
+  lastBestIp?: Record<string, string>;
+}): {
+  selections: Record<string, string>;
+  lastBestIp: Record<string, string>;
+  prunedCount: number;
+} {
+  const allowedIpsByDomain = new Map<string, Set<string>>();
+  for (const [domain, domainConfig] of Object.entries(options.config.domains)) {
+    allowedIpsByDomain.set(
+      domain,
+      new Set(domainConfig.endpoints.map((endpoint) => endpoint.ip)),
+    );
+  }
 
-  for (const [domain, remoteDomainConfig] of Object.entries(
-    remoteConfig.domains,
-  )) {
-    if (mergedDomains[domain]) {
-      const localEndpoints = mergedDomains[domain].endpoints;
-      const remoteEndpoints = remoteDomainConfig.endpoints;
-
-      const existingIps = new Set(localEndpoints.map((ep) => ep.ip));
-
-      const newEndpoints = remoteEndpoints.filter(
-        (ep) => !existingIps.has(ep.ip),
-      );
-
-      mergedDomains[domain] = {
-        endpoints: [...localEndpoints, ...newEndpoints],
-      };
+  let prunedCount = 0;
+  const selections: Record<string, string> = {};
+  for (const [domain, ip] of Object.entries(options.selections ?? {})) {
+    // '' is the explicit "use the domain" choice and is always allowed.
+    if (ip === '' || allowedIpsByDomain.get(domain)?.has(ip)) {
+      selections[domain] = ip;
     } else {
-      mergedDomains[domain] = remoteDomainConfig;
+      prunedCount += 1;
     }
   }
 
-  return {
-    version: remoteConfig.version,
-    ttl_sec: remoteConfig.ttl_sec,
-    generated_at: remoteConfig.generated_at,
-    signature: remoteConfig.signature,
-    domains: mergedDomains,
-  };
+  const lastBestIp: Record<string, string> = {};
+  for (const [domain, ip] of Object.entries(options.lastBestIp ?? {})) {
+    if (allowedIpsByDomain.get(domain)?.has(ip)) {
+      lastBestIp[domain] = ip;
+    } else {
+      prunedCount += 1;
+    }
+  }
+
+  return { selections, lastBestIp, prunedCount };
 }
