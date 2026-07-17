@@ -34,12 +34,12 @@ import {
   type ITradingViewNativeIndicatorControlMode,
   type ITradingViewNativeIntervalControlMode,
   type ITradingViewNativePriceMarketCapControlMode,
-  TradingViewNativeChartControls,
   TradingViewNativeIndicatorQuickBar,
+  TradingViewV2ChartControlsContainer,
   getTradingViewNativeSubIndicatorCount,
   getTradingViewNativeSubIndicatorCountFromOptions,
   useNativeIndicatorActiveValues,
-} from '../TradingViewNativeChartControls';
+} from '../TradingViewV2ChartControls';
 
 import {
   useAutoKLineUpdate,
@@ -768,7 +768,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   return (
     <Stack flex={1} {...stackStyle}>
       {enableNativeIntervalSelector ? (
-        <TradingViewNativeChartControls
+        <TradingViewV2ChartControlsContainer
           intervalConfig={intervalConfig}
           nativeChartControlsConfig={nativeChartControlsConfig}
           nativeIndicatorState={nativeIndicatorState}
