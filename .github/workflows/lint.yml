@@ -71,7 +71,7 @@ jobs:
           exit "$status"
 
       - name: Test developer scripts
-        run: node --test development/scripts/command-batches.test.js
+        run: node --test development/scripts/command-batches.node-test.js
 
       - name: Build CLI
         run: yarn workspace @onekeyfe/cli build

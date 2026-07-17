@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 
-import { defineConfig } from 'tsup';
-import * as ts from 'typescript';
+import { defineConfig } from '@onekeyfe/cli-toolchain';
+import * as ts from '@onekeyfe/cli-toolchain/typescript';
 
 import type { Plugin } from 'esbuild';
 
