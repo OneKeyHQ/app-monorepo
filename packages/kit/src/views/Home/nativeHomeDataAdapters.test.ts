@@ -494,6 +494,7 @@ describe('nativeHomeDataAdapters', () => {
       formatBalance: (value) => value,
       formatSectionDate: () => 'Today',
       formatTimestamp: () => '10:00',
+      positiveValueColor: '#008000',
     });
 
     expect(sections[0].items[0]).toMatchObject({
@@ -503,6 +504,7 @@ describe('nativeHomeDataAdapters', () => {
       secondaryImageUrl: 'https://example.com/usdc.png',
       value: '+3000 USDC',
       detail: '-1 ETH',
+      accentColor: '#008000',
     });
   });
 

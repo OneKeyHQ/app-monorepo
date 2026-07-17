@@ -12,6 +12,7 @@ import { useIntl } from 'react-intl';
 import { Image } from 'react-native';
 
 import {
+  Button,
   Dialog,
   ESwitchSize,
   IconButton,
@@ -21,6 +22,7 @@ import {
   Switch,
   Toast,
   XStack,
+  YStack,
   useTheme,
 } from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorActiveAccount';
@@ -69,6 +71,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
   EModalAssetListRoutes,
@@ -105,6 +108,7 @@ import { ListItem } from '../../components/ListItem';
 import { showResourceDetailsDialog } from '../../components/Resource';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
 import { useCopyAddressWithDeriveType } from '../../hooks/useCopyAccountAddress';
 import { useManageToken } from '../../hooks/useManageToken';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
@@ -270,6 +274,10 @@ export function NativeHomePage({
       wallet,
     },
   } = useActiveAccount({ num: 0 });
+  const { openExplorer, requiresNetworkSelection } = useBlockExplorerNavigation(
+    network,
+    wallet?.id,
+  );
   const { showAccountSelector } = useAccountSelectorTrigger({
     num: 0,
     editable: true,
@@ -357,9 +365,6 @@ export function NativeHomePage({
   }, [wallet]);
   const [activeTabId, setActiveTabId] =
     useState<IHomeContainerTabId>('portfolio');
-  const [visitedTabs, setVisitedTabs] = useState<Set<IHomeContainerTabId>>(
-    () => new Set(['portfolio']),
-  );
   const [portfolioAssetsExpanded, setPortfolioAssetsExpanded] = useState(false);
   const [portfolioDeFiExpanded, setPortfolioDeFiExpanded] = useState(false);
   const [deFiExpanded, setDeFiExpanded] = useState(false);
@@ -406,11 +411,11 @@ export function NativeHomePage({
     visible: activeTabId === 'defi' || activeTabId === 'portfolio',
   });
   const nft = useNativeHomeNFTData({
-    enabled: isNFTEnabled && visitedTabs.has('nft'),
+    enabled: isNFTEnabled,
     visible: activeTabId === 'nft',
   });
   const history = useNativeHomeHistoryData({
-    enabled: visitedTabs.has('history'),
+    enabled: true,
     visible: activeTabId === 'history',
   });
   const loadMoreHistory = history.loadMore;
@@ -761,6 +766,7 @@ export function NativeHomePage({
           ? NATIVE_HOME_ACTION_IDS.loadMoreHistory
           : undefined,
         isAllNetworks: Boolean(network?.isAllNetworks),
+        positiveValueColor: theme.textSuccess.val,
       }),
     [
       formatters.formatBalance,
@@ -772,6 +778,7 @@ export function NativeHomePage({
       intl,
       network?.isAllNetworks,
       stateLabels,
+      theme.textSuccess.val,
     ],
   );
 
@@ -1531,6 +1538,21 @@ export function NativeHomePage({
     perps.viewState,
     settings.currencyInfo.symbol,
   ]);
+  const handleOpenHistoryExplorer = useCallback(async () => {
+    await openExplorer({
+      accountId: account?.id,
+      indexedAccountId: indexedAccount?.id,
+      networkId: account?.createAtNetwork ?? network?.id,
+      address: account?.address,
+    });
+  }, [
+    account?.address,
+    account?.createAtNetwork,
+    account?.id,
+    indexedAccount?.id,
+    network?.id,
+    openExplorer,
+  ]);
   const contentFooterSlots = useMemo<
     NonNullable<IHomeContainerSlots['contentFooters']>
   >(() => {
@@ -1591,13 +1613,69 @@ export function NativeHomePage({
           content: <SupportHub nativeSlot />,
         },
       },
+      ...(platformEnv.isNativeIOS &&
+      history.initialized &&
+      history.data.length > 0 &&
+      !history.hasMore &&
+      !history.isLoadingMore &&
+      (network?.isAllNetworks || !vaultSettings?.hideBlockExplorer)
+        ? {
+            history: {
+              historyEnd: {
+                interaction: 'tap' as const,
+                content: (
+                  <YStack
+                    flex={1}
+                    alignItems="center"
+                    justifyContent="center"
+                    gap="$2"
+                    px="$pagePadding"
+                  >
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      textAlign="center"
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.wallet_history_footer_view_full_history_in_explorer,
+                      })}
+                    </SizableText>
+                    <Button
+                      testID="native-home-history-explorer"
+                      size="small"
+                      variant="secondary"
+                      iconAfter={
+                        requiresNetworkSelection ? undefined : 'OpenOutline'
+                      }
+                      onPress={() => {
+                        void handleOpenHistoryExplorer();
+                      }}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.global_block_explorer,
+                      })}
+                    </Button>
+                  </YStack>
+                ),
+              },
+            },
+          }
+        : {}),
     };
   }, [
+    handleOpenHistoryExplorer,
+    history.data.length,
+    history.hasMore,
+    history.initialized,
+    history.isLoadingMore,
     intl,
     isPrimeAvailable,
+    network?.isAllNetworks,
     perps.viewState,
+    requiresNetworkSelection,
     user?.onekeyUserId,
     user?.primeSubscription?.isActive,
+    vaultSettings?.hideBlockExplorer,
   ]);
   const homeSlots = useMemo<IHomeContainerSlots>(
     () => ({
@@ -1700,12 +1778,6 @@ export function NativeHomePage({
     if (!initialTabs.some((tab) => tab.id === activeTabId)) {
       controller.selectTab('portfolio', false);
       setActiveTabId('portfolio');
-      setVisitedTabs((previous) => {
-        if (previous.has('portfolio')) {
-          return previous;
-        }
-        return new Set(previous).add('portfolio');
-      });
     }
   }, [activeTabId, controller, initialTabs]);
   useEffect(() => {
@@ -1745,14 +1817,6 @@ export function NativeHomePage({
       }
       controller.recordSelectedTab(value);
       setActiveTabId(value);
-      setVisitedTabs((previous) => {
-        if (previous.has(value)) {
-          return previous;
-        }
-        const next = new Set(previous);
-        next.add(value);
-        return next;
-      });
     },
     [controller],
   );

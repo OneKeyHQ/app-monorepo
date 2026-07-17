@@ -87,29 +87,19 @@ export function useHomeWalletTabSupport({
         };
       }
 
-      const deFiEnabledNetworksMap =
-        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
-
       if (isAllNetworks) {
-        const [allNetworksState, { networks }] = await Promise.all([
-          backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
-          backgroundApiProxy.serviceNetwork.getAllNetworks({
-            excludeTestNetwork: true,
-            excludeAllNetworkItem: true,
-          }),
-        ]);
-
         return {
           scopeKey,
           ...buildHomeWalletTabSupport({
             network: currentNetwork,
-            allNetworks: networks,
-            allNetworksState,
-            deFiEnabledNetworksMap,
+            deFiEnabledNetworksMap: {},
             perpDisabled,
           }),
         };
       }
+
+      const deFiEnabledNetworksMap =
+        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
 
       return {
         scopeKey,
@@ -124,7 +114,13 @@ export function useHomeWalletTabSupport({
     {
       initResult: {
         scopeKey,
-        ...HOME_WALLET_TAB_SUPPORT_INIT,
+        ...(isAllNetworks
+          ? buildHomeWalletTabSupport({
+              network: currentNetwork,
+              deFiEnabledNetworksMap: {},
+              perpDisabled,
+            })
+          : HOME_WALLET_TAB_SUPPORT_INIT),
       },
       undefinedResultIfReRun: true,
     },

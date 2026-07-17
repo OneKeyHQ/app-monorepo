@@ -62,6 +62,7 @@ export interface INativeHomeValueFormatters {
     value: string | number | undefined,
     sourceCurrency?: string,
   ) => string;
+  positiveValueColor?: string;
 }
 
 interface INativeHomeListStateLabels {
@@ -570,6 +571,7 @@ function getHistoryTransferDisplay(
   isAllNetworks: boolean,
   addressMap: Record<string, IAddressBadge>,
 ): {
+  accentColor?: string;
   badgeImageUrl?: string;
   detail?: string;
   imageUrl?: string;
@@ -725,6 +727,7 @@ function getHistoryTransferDisplay(
     badgeImageUrl: buildBadgeImageUrl(secondaryItem?.icon || imageUrl),
     value: `${sign}${formatters.formatBalance(item.amount)} ${item.symbol}`,
     detail,
+    accentColor: item === send ? undefined : formatters.positiveValueColor,
   };
 }
 
@@ -750,6 +753,7 @@ interface IBuildNativeHistorySectionsParams {
   formatTimestamp: (timestamp: number) => string;
   isAllNetworks?: boolean;
   loadMoreActionId?: string;
+  positiveValueColor?: string;
 }
 
 export function buildNativeHistorySections({
@@ -764,6 +768,7 @@ export function buildNativeHistorySections({
   formatTimestamp,
   isAllNetworks = false,
   loadMoreActionId,
+  positiveValueColor,
 }: IBuildNativeHistorySectionsParams): IHomeContainerSection[] {
   const stateSection = buildStateSection({
     id: 'history-state',
@@ -798,6 +803,7 @@ export function buildNativeHistorySections({
         {
           formatBalance,
           formatFiat,
+          positiveValueColor,
         },
         labels,
         formatTimestamp,
@@ -814,6 +820,7 @@ export function buildNativeHistorySections({
         imageUrl: transfer.imageUrl,
         secondaryImageUrl: transfer.secondaryImageUrl,
         badgeImageUrl: transfer.badgeImageUrl,
+        accentColor: transfer.accentColor,
         badge: getHistoryStatusLabel(
           item.displayStatus ?? item.decodedTx.status,
           labels,

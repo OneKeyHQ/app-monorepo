@@ -92,6 +92,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 371,
   },
+  footerHistoryEndSlot: {
+    width: '100%',
+    height: 136,
+  },
   slotContent: {
     flex: 1,
   },
@@ -137,6 +141,9 @@ function getSlotLayoutStyle(key: string) {
   }
   if (key.endsWith('.support') && key.startsWith('content.footer.')) {
     return styles.footerSupportSlot;
+  }
+  if (key.endsWith('.historyEnd') && key.startsWith('content.footer.')) {
+    return styles.footerHistoryEndSlot;
   }
   if (key.startsWith('tab.accessory.')) {
     return styles.tabAccessorySlot;

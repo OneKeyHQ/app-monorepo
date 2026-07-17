@@ -14,7 +14,7 @@ export const HOME_CONTAINER_TAB_IDS = [
 
 export type IHomeContainerTabId = (typeof HOME_CONTAINER_TAB_IDS)[number];
 
-export type IHomeContainerFooterSlotId = 'support' | 'upgrade';
+export type IHomeContainerFooterSlotId = 'historyEnd' | 'support' | 'upgrade';
 
 export type IHomeContainerSlotKey =
   | 'header.account-row'

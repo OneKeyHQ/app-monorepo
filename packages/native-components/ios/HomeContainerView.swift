@@ -10,7 +10,7 @@ private enum HomeContainerMetrics {
   static let emptyRowHeight: CGFloat = 108
   static let horizontalRowHeight: CGFloat = 132
   static let sectionTitleHeight: CGFloat = 56
-  static let footerSlotIds = ["upgrade", "support"]
+  static let footerSlotIds = ["upgrade", "support", "historyEnd"]
 
   static func contentHeaderHeight(tabId: String) -> CGFloat? {
     switch tabId {
@@ -23,6 +23,7 @@ private enum HomeContainerMetrics {
   static func footerSlotHeight(key: String) -> CGFloat? {
     if key.hasSuffix(".upgrade") { return 152 }
     if key.hasSuffix(".support") { return 371 }
+    if key.hasSuffix(".historyEnd") { return 136 }
     return nil
   }
 }
@@ -855,6 +856,10 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       }
       self?.slotLayoutDidChange?()
     }
+    page.onContentSizeChange = { [weak self, weak page] in
+      guard let self, let page else { return }
+      self.updateUnifiedVerticalContentSize(source: page)
+    }
     return page
   }
 
@@ -864,6 +869,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     preparePagesForPagerTransition()
     pagerTransitionState = .settling(targetIndex: index)
     pendingPagerNotify = notify
+    if usesUnifiedVerticalDriver {
+      updateUnifiedVerticalContentSize(source: pages[index])
+    }
     let targetOffset = CGPoint(x: CGFloat(index) * pager.bounds.width, y: 0)
     pager.setContentOffset(targetOffset, animated: animated)
     if !animated || abs(pager.contentOffset.x - targetOffset.x) <= 0.5 {
@@ -973,13 +981,30 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   private func updateUnifiedVerticalContentSize(source: HomeContainerPageView) {
     guard usesUnifiedVerticalDriver,
-          source.tabId == selectedTabId,
           bounds.height > 0 else { return }
-    source.layoutIfNeeded()
+    let bodyRange: CGFloat
+    switch pagerTransitionState {
+    case .idle:
+      guard source.tabId == selectedTabId else { return }
+      source.layoutIfNeeded()
+      bodyRange = source.maximumBodyContentOffset
+    case .dragging, .settling:
+      pages.forEach { $0.layoutIfNeeded() }
+      bodyRange = pages.map(\.maximumBodyContentOffset).max() ?? 0
+    }
     outerScrollView.contentSize = CGSize(
       width: bounds.width,
-      height: bounds.height + maximumHeaderOffset + source.maximumBodyContentOffset
+      height: bounds.height + maximumHeaderOffset + bodyRange
     )
+    let maximumOffset = max(0, outerScrollView.contentSize.height - outerScrollView.bounds.height)
+    if pagerTransitionState == .idle,
+       !outerScrollView.isTracking,
+       !outerScrollView.isDragging,
+       !outerScrollView.isDecelerating,
+       outerScrollView.contentOffset.y > maximumOffset {
+      outerScrollView.contentOffset.y = maximumOffset
+      updateSharedChromeLayout()
+    }
   }
 
   private func synchronizeUnifiedVerticalPage(source: HomeContainerPageView) {
@@ -1136,6 +1161,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   var onBeginDragging: ((HomeContainerPageView) -> Void)?
   var onEndDragging: ((HomeContainerPageView) -> Void)?
   var onSlotLayoutChange: (() -> Void)?
+  var onContentSizeChange: (() -> Void)?
 
   private let tableView = HomeContainerNestedTableView(frame: .zero, style: .plain)
   private var rowsById: [String: HomeContainerRow] = [:]
@@ -1146,6 +1172,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   private var pinnedMarketMutationContentOffsetY: CGFloat?
   private var mountedSlotKeys = Set<String>()
   private var visibleSlotHosts: [String: HomeContainerSlotHostView] = [:]
+  private var contentSizeObservation: NSKeyValueObservation?
 
   var bodyContentOffset: CGFloat {
     tableView.contentOffset.y
@@ -1188,6 +1215,12 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     tableView.register(HomeContainerSlotHostCell.self, forCellReuseIdentifier: "slot-host")
     addSubview(tableView)
     _ = dataSource
+    contentSizeObservation = tableView.observe(\.contentSize, options: [.new]) {
+      [weak self] _, _ in
+      DispatchQueue.main.async { [weak self] in
+        self?.onContentSizeChange?()
+      }
+    }
   }
 
   required init?(coder: NSCoder) {
@@ -1899,7 +1932,13 @@ private final class HomeContainerHeaderView: UIView {
       pinnedOffset + HomeContainerMetrics.compactAccountTopInset - naturalFrame.minY
     )
     accountRow.transform = CGAffineTransform(translationX: 0, y: translationY)
-    compactBackdropView.frame = accountRow.convert(accountRow.bounds, to: self)
+    let pinnedAccountFrame = accountRow.convert(accountRow.bounds, to: self)
+    compactBackdropView.frame = CGRect(
+      x: 0,
+      y: 0,
+      width: bounds.width,
+      height: max(0, pinnedAccountFrame.maxY)
+    )
     compactBackdropView.isHidden = accountRow.isHidden
   }
 
@@ -2875,7 +2914,15 @@ private final class HomeContainerMarketRecommendationCardControl: UIControl {
     checkImageView.frame = CGRect(x: bounds.width - 30, y: 20, width: 20, height: 20)
     let textX: CGFloat = 54
     let textWidth = max(0, checkImageView.frame.minX - textX - 4)
-    titleStack.frame = CGRect(x: textX, y: 10, width: textWidth, height: 20)
+    let intrinsicTitleWidth = titleStack.systemLayoutSizeFitting(
+      UIView.layoutFittingCompressedSize
+    ).width
+    titleStack.frame = CGRect(
+      x: textX,
+      y: 10,
+      width: min(textWidth, ceil(intrinsicTitleWidth)),
+      height: 20
+    )
     subtitleLabel.frame = CGRect(x: textX, y: 31, width: textWidth, height: 18)
     leverageLabel.frame.size.height = 16
     titleAccessoryImageView.frame.size = CGSize(width: 14, height: 14)
@@ -3766,6 +3813,7 @@ private final class HomeContainerItemCell: UITableViewCell {
     subtitleStack.spacing = 6
     let leftStack = UIStackView(arrangedSubviews: [titleStack, subtitleStack])
     leftStack.axis = .vertical
+    leftStack.alignment = .leading
     leftStack.spacing = 0
     leftStack.translatesAutoresizingMaskIntoConstraints = false
     inlineBadgesStack.axis = .horizontal
