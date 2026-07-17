@@ -492,11 +492,14 @@ export function MobileLayout({
   );
 
   const informationHeader = useMemo(() => {
-    const chartAreaHorizontalSwipeHandler = platformEnv.isNativeAndroid
-      ? undefined
-      : handleHeaderHorizontalSwipe;
+    const chartAreaHorizontalSwipeHandler =
+      useTradingViewNative || platformEnv.isNativeAndroid
+        ? undefined
+        : handleHeaderHorizontalSwipe;
     const chartAreaPanFailOffsetX: [number, number] =
-      platformEnv.isNativeAndroid ? [-12, 12] : [-40, 40];
+      useTradingViewNative || platformEnv.isNativeAndroid
+        ? [-12, 12]
+        : [-40, 40];
     const chartAreaExcludeRightEdgeRatio = platformEnv.isNativeAndroid
       ? 0.16
       : 0.1;
@@ -524,6 +527,7 @@ export function MobileLayout({
               TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
             }
             scrollScale={1.2}
+            verticalPanMaxPointers={useTradingViewNative ? 1 : undefined}
             onHorizontalSwipe={chartAreaHorizontalSwipeHandler}
             horizontalSwipeThreshold={24}
             horizontalSwipeVelocityThreshold={900}
