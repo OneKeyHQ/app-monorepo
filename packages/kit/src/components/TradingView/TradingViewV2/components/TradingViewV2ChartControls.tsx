@@ -1,12 +1,12 @@
 export {
   TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT,
   TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
-  TradingViewNativeChartControls,
   TradingViewNativeIndicatorQuickBar,
+  TradingViewV2ChartControlsContainer,
   getTradingViewNativeSubIndicatorCount,
   getTradingViewNativeSubIndicatorCountFromOptions,
   useNativeIndicatorActiveValues,
-} from './chartControls/TradingViewNativeChartControls';
+} from './chartControls/TradingViewV2ChartControlsContainer';
 export type {
   ICalendarPanelSubmitPayload,
   ITradingViewNativeChartTypeControlMode,
@@ -15,4 +15,4 @@ export type {
   ITradingViewNativeIndicatorState,
   ITradingViewNativeIntervalControlMode,
   ITradingViewNativePriceMarketCapControlMode,
-} from './chartControls/TradingViewNativeChartControls';
+} from './chartControls/TradingViewV2ChartControlsContainer';
