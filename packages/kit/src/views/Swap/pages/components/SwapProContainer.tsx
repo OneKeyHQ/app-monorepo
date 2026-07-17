@@ -350,7 +350,6 @@ const SwapProContainer = ({
               configLoading={isLoading}
               balanceLoading={balanceLoading}
               limitPriceUseMarketPrice={limitPriceUseMarketPrice}
-              isMev={!!isMEV}
               onBalanceMax={onBalanceMaxPress}
               onSelectPercentageStage={onSelectPercentageStage}
               onSwapProActionClick={onSwapProActionClick}

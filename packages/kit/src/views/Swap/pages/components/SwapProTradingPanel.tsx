@@ -25,7 +25,6 @@ import SwapProAccountSelect from './SwapProAccountSelect';
 import SwapProActionButton from './SwapProActionButton';
 import SwapProInputContainer from './SwapProInputContainer';
 import SwapProLimitPriceValue from './SwapProLimitPriceValue';
-import { SwapProSlippageSetting } from './SwapProSlippageSetting';
 import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
@@ -36,7 +35,6 @@ interface ISwapProTradingPanelProps {
   balanceLoading: boolean;
   configLoading: boolean;
   supportSpeedSwap: boolean;
-  isMev: boolean;
   onSwapProActionClick: () => void;
   hasEnoughBalance: boolean;
   handleSelectAccountClick: () => void;
@@ -51,7 +49,6 @@ const SwapProTradingPanel = ({
   supportSpeedSwap,
   swapProConfig,
   balanceLoading,
-  isMev,
   configLoading,
   onBalanceMax,
   onSwapProActionClick,
@@ -108,10 +105,6 @@ const SwapProTradingPanel = ({
     },
     [setSwapProDirection, swapProDirection],
   );
-  const showSwapProSlippageSetting =
-    swapProTradeType === ESwapProTradeType.MARKET &&
-    (!marketPresetSettings ||
-      (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
   const isMarketPresetActionDisabled =
     swapProTradeType === ESwapProTradeType.MARKET &&
     !!marketPresetSettings?.isLoading;
@@ -138,9 +131,6 @@ const SwapProTradingPanel = ({
         ) : null}
         <SwapProInputContainer
           isLoading={configLoading}
-          defaultTokens={swapProConfig.defaultTokens}
-          defaultLimitTokens={swapProConfig.defaultLimitTokens}
-          cleanInputAmount={cleanInputAmount}
           onSelectPercentageStage={onSelectPercentageStage}
         />
       </YStack>
@@ -150,11 +140,9 @@ const SwapProTradingPanel = ({
           onBalanceMax={onBalanceMax}
           defaultTokens={swapProConfig.defaultTokens}
           defaultLimitTokens={swapProConfig.defaultLimitTokens}
+          cleanInputAmount={cleanInputAmount}
         />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
-        {showSwapProSlippageSetting ? (
-          <SwapProSlippageSetting isMEV={isMev} />
-        ) : null}
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <>
             <LimitExpirySelect

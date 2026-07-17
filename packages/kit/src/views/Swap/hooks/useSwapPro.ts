@@ -680,9 +680,16 @@ export function useSwapProTokenInit() {
   }, [savedPreference, defaultTokensFromType]);
 
   useEffect(() => {
+    // Stock tokens must be paid with stable coins: drop the native coin from
+    // the candidate pool (and ignore a persisted native-coin preference) so a
+    // previously selected native coin is forced back to a stable coin.
+    const isStockPay = !!swapProSelectToken?.isStock;
+    const candidateTokens = isStockPay
+      ? defaultTokensFromType.filter((item) => !item.isNative)
+      : defaultTokensFromType;
     if (
-      (!swapProUseSelectBuyTokenAtom && defaultTokensFromType.length > 0) ||
-      !defaultTokensFromType.some((item) =>
+      (!swapProUseSelectBuyTokenAtom && candidateTokens.length > 0) ||
+      !candidateTokens.some((item) =>
         equalTokenNoCaseSensitive({
           token1: item,
           token2: swapProUseSelectBuyTokenAtom,
@@ -690,10 +697,11 @@ export function useSwapProTokenInit() {
       )
     ) {
       // Prefer persisted preference, fallback to first default token
-      const preferred = findPreferredToken();
+      const preferredToken = findPreferredToken();
+      const preferred =
+        isStockPay && preferredToken?.isNative ? undefined : preferredToken;
       let selectedDefaultToken =
-        (preferred as (typeof defaultTokensFromType)[0]) ??
-        defaultTokensFromType[0];
+        (preferred as (typeof defaultTokensFromType)[0]) ?? candidateTokens[0];
       if (
         equalTokenNoCaseSensitive({
           token1: selectedDefaultToken,
@@ -703,13 +711,12 @@ export function useSwapProTokenInit() {
           },
         })
       ) {
-        selectedDefaultToken =
-          defaultTokensFromType[1] ?? defaultTokensFromType[0];
+        selectedDefaultToken = candidateTokens[1] ?? candidateTokens[0];
       }
       setSwapProUseSelectBuyTokenAtom(selectedDefaultToken);
     } else if (
       swapProUseSelectBuyTokenAtom &&
-      defaultTokensFromType.length > 0 &&
+      candidateTokens.length > 0 &&
       equalTokenNoCaseSensitive({
         token1: swapProUseSelectBuyTokenAtom,
         token2: {
@@ -718,7 +725,7 @@ export function useSwapProTokenInit() {
         },
       })
     ) {
-      const noEqualToken = defaultTokensFromType.find(
+      const noEqualToken = candidateTokens.find(
         (item) =>
           !equalTokenNoCaseSensitive({
             token1: item,
@@ -732,6 +739,7 @@ export function useSwapProTokenInit() {
   }, [
     swapProSelectToken?.contractAddress,
     swapProSelectToken?.networkId,
+    swapProSelectToken?.isStock,
     swapProUseSelectBuyTokenAtom,
     setSwapProUseSelectBuyTokenAtom,
     defaultTokensFromType,

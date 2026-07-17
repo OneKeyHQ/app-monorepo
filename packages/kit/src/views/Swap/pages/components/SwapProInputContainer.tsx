@@ -1,96 +1,53 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
-import {
-  Divider,
-  Icon,
-  Input,
-  SizableText,
-  Skeleton,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Input, SizableText, Skeleton, YStack } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   useSwapFromTokenAmountAtom,
-  useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
-  useSwapProSelectTokenAtom,
-  useSwapProSellToTokenAtom,
   useSwapProTradeTypeAtom,
-  useSwapProUseSelectBuyTokenAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  swapProBuyInputSegmentItems,
-  swapProSellInputSegmentItems,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
-import {
   ESwapProTradeType,
-  ESwapTabSwitchType,
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { TokenSelectorPopover } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenSelectorPopover';
-import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
-import SwapProInputSegment from '../../components/SwapProInputSegment';
 import {
   useSwapLimitPriceCheck,
   useSwapProInputToken,
   useSwapProToToken,
 } from '../../hooks/useSwapPro';
+import { useSwapProAmountSlider } from '../../hooks/useSwapProAmountSlider';
 import { SwapTestIDs } from '../../testIDs';
 
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
+import SwapProAmountSlider from './SwapProAmountSlider';
 
-import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
 import type { TextInput } from 'react-native';
 
 interface ISwapProInputContainerProps {
-  defaultTokens: ISwapTokenBase[];
-  defaultLimitTokens: ISwapTokenBase[];
   isLoading?: boolean;
-  cleanInputAmount: () => void;
   onSelectPercentageStage: (stage: number) => void;
 }
 
 const SwapProInputContainer = ({
-  defaultTokens,
-  defaultLimitTokens,
   isLoading,
-  cleanInputAmount,
   onSelectPercentageStage,
 }: ISwapProInputContainerProps) => {
   const intl = useIntl();
-  const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
     useSwapProInputAmountAtom();
-  const [swapProUseSelectBuyToken, setSwapProUseSelectBuyToken] =
-    useSwapProUseSelectBuyTokenAtom();
-  const [, setSwapProSellToToken] = useSwapProSellToTokenAtom();
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const inputRef = useRef<IInputRef & TextInput>(null);
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
-  const defaultTokensFromType = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return defaultTokens;
-    }
-    return defaultLimitTokens;
-  }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
   const handleInputChange = useCallback(
     (text: string) => {
       if (validateAmountInput(text, inputToken?.decimals)) {
@@ -111,77 +68,6 @@ const SwapProInputContainer = ({
       swapProTradeType,
     ],
   );
-  const handleTokenSelect = useCallback(
-    (token: IToken) => {
-      cleanInputAmount();
-      setSwapProUseSelectBuyToken(token);
-      // Sync SELL counterparty so both directions use the same token
-      setSwapProSellToToken(token);
-      setIsPopoverOpen(false);
-      // Save preference (shared with Instant Mode) via simpledb
-      const networkId = swapProSelectToken?.networkId || '';
-      if (networkId) {
-        void backgroundApiProxy.simpleDb.marketTokenPreference.setPreference({
-          networkId,
-          preference: {
-            contractAddress: token.contractAddress,
-            symbol: token.symbol,
-            networkId: token.networkId,
-          },
-        });
-      }
-    },
-    [
-      setSwapProUseSelectBuyToken,
-      setSwapProSellToToken,
-      cleanInputAmount,
-      swapProSelectToken?.networkId,
-    ],
-  );
-  const isTokenSelectorVisible =
-    swapProDirection === ESwapDirection.BUY && defaultTokensFromType.length > 1;
-
-  const inputSegmentItems = useMemo(() => {
-    if (swapProDirection === ESwapDirection.SELL) {
-      return swapProSellInputSegmentItems;
-    }
-    const buyAmountDefaultInput =
-      swapProUseSelectBuyToken?.speedSwapDefaultAmount;
-    if (buyAmountDefaultInput?.length) {
-      return buyAmountDefaultInput.map((item) => ({
-        label: item.toString(),
-        value: item.toString(),
-      }));
-    }
-    return swapProBuyInputSegmentItems;
-  }, [swapProDirection, swapProUseSelectBuyToken?.speedSwapDefaultAmount]);
-
-  const onSelectInputSegment = useCallback(
-    (value: string) => {
-      if (swapProDirection === ESwapDirection.BUY) {
-        handleInputChange(value);
-      } else {
-        const percentage = new BigNumber(value);
-        if (inputToken?.balanceParsed) {
-          const balanceBN = new BigNumber(inputToken.balanceParsed);
-          const inputNewAmount = balanceBN
-            .multipliedBy(percentage)
-            .decimalPlaces(
-              Number(inputToken?.decimals ?? 0),
-              BigNumber.ROUND_DOWN,
-            )
-            .toFixed();
-          handleInputChange(inputNewAmount);
-        }
-      }
-    },
-    [
-      swapProDirection,
-      handleInputChange,
-      inputToken?.balanceParsed,
-      inputToken?.decimals,
-    ],
-  );
 
   const isFocusedRef = useRef(false);
   const inputValue = useMemo(() => {
@@ -189,6 +75,12 @@ const SwapProInputContainer = ({
       ? swapProInputAmount
       : fromInputAmount.value;
   }, [swapProTradeType, swapProInputAmount, fromInputAmount.value]);
+
+  const { sliderValue, sliderDisabled, onSliderChange, onSlideComplete } =
+    useSwapProAmountSlider({
+      inputAmount: inputValue,
+      onAmountChange: handleInputChange,
+    });
 
   // Reset scroll position to show text from the beginning when value changes and input is not focused
   useEffect(() => {
@@ -209,23 +101,39 @@ const SwapProInputContainer = ({
   useSwapLimitPriceCheck(inputToken, toToken);
 
   return (
-    <YStack borderRadius="$2" bg="$bgStrong" mb="$2">
-      <XStack borderTopLeftRadius="$2" borderTopRightRadius="$2">
+    <YStack gap="$1" mb="$2">
+      <YStack
+        borderRadius="$2"
+        bg="$bgStrong"
+        alignItems="center"
+        pt="$1.5"
+        pb="$0.5"
+      >
+        {isLoading ? (
+          <Skeleton width="$10" height="$4" borderRadius="$full" />
+        ) : (
+          <SizableText
+            size="$bodySm"
+            color="$textDisabled"
+            textAlign="center"
+            numberOfLines={1}
+            maxWidth="$40"
+          >
+            {inputToken?.symbol ?? '-'}
+          </SizableText>
+        )}
         <Input
           ref={inputRef}
           testID={SwapTestIDs.fromAmountInput}
           size="small"
+          textAlign="center"
           containerProps={{
-            flex: 1,
+            width: '100%',
             borderWidth: 0,
-            py: '$1',
+            bg: '$transparent',
           }}
           keyboardType="decimal-pad"
-          value={
-            swapProTradeType === ESwapProTradeType.MARKET
-              ? swapProInputAmount
-              : fromInputAmount.value
-          }
+          value={inputValue}
           onBlur={onInputBlur}
           onFocus={onInputFocus}
           onChangeText={handleInputChange}
@@ -235,64 +143,13 @@ const SwapProInputContainer = ({
           placeholder={intl.formatMessage({
             id: ETranslations.content__amount,
           })}
-          addOns={[
-            {
-              renderContent: isLoading ? (
-                <XStack alignItems="center" gap="$1" px="$2">
-                  <Skeleton width="$10" height="$5" borderRadius="$full" />
-                </XStack>
-              ) : (
-                <XStack
-                  alignItems="center"
-                  gap="$1"
-                  px="$2"
-                  {...(isTokenSelectorVisible && {
-                    onPress: () => setIsPopoverOpen(true),
-                    userSelect: 'none',
-                    hoverStyle: { bg: '$bgHover' },
-                    pressStyle: { bg: '$bgActive' },
-                    borderCurve: 'continuous',
-                  })}
-                >
-                  {inputToken?.logoURI ? (
-                    <Token
-                      size="xs"
-                      tokenImageUri={inputToken.logoURI}
-                      networkId={inputToken.networkId}
-                      showNetworkIcon
-                    />
-                  ) : null}
-                  <SizableText size="$bodyMd" maxWidth="$16" numberOfLines={1}>
-                    {inputToken?.symbol}
-                  </SizableText>
-                  {isTokenSelectorVisible ? (
-                    <Icon
-                      name="ChevronDownSmallOutline"
-                      size="$4"
-                      color="$iconSubdued"
-                    />
-                  ) : null}
-                </XStack>
-              ),
-            },
-          ]}
         />
-        <TokenSelectorPopover
-          currentSelectToken={swapProSelectToken}
-          isOpen={isPopoverOpen}
-          onOpenChange={setIsPopoverOpen}
-          tokens={defaultTokensFromType as IToken[]}
-          onTokenPress={handleTokenSelect}
-          onTradePress={() => {
-            setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
-          }}
-          disabledOnSwitchToTrade
-        />
-      </XStack>
-      <Divider />
-      <SwapProInputSegment
-        items={inputSegmentItems}
-        onSelect={onSelectInputSegment}
+      </YStack>
+      <SwapProAmountSlider
+        value={sliderValue}
+        disabled={sliderDisabled}
+        onChange={onSliderChange}
+        onSlideComplete={onSlideComplete}
       />
       {platformEnv.isNativeIOS ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>

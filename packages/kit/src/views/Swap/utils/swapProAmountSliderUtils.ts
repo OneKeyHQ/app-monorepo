@@ -1,0 +1,69 @@
+import BigNumber from 'bignumber.js';
+
+export const SWAP_PRO_SLIDER_MAX_PERCENT = 100;
+
+export function calcSwapProSliderAvailableBalance({
+  balanceParsed,
+  isNative,
+  reserveGas,
+}: {
+  balanceParsed?: string;
+  isNative?: boolean;
+  reserveGas?: string | number;
+}): BigNumber {
+  const balanceBN = new BigNumber(balanceParsed ?? '0');
+  if (balanceBN.isNaN() || balanceBN.lte(0)) {
+    return new BigNumber(0);
+  }
+  if (isNative) {
+    const reserveGasBN = new BigNumber(reserveGas ?? '');
+    if (reserveGasBN.isFinite() && reserveGasBN.gt(0)) {
+      return BigNumber.max(0, balanceBN.minus(reserveGasBN));
+    }
+  }
+  return balanceBN;
+}
+
+export function calcSwapProSliderPercent({
+  amount,
+  availableBalance,
+}: {
+  amount: string;
+  availableBalance: BigNumber;
+}): number {
+  if (availableBalance.lte(0)) {
+    return 0;
+  }
+  const amountBN = new BigNumber(amount || '0');
+  if (amountBN.isNaN() || amountBN.lte(0)) {
+    return 0;
+  }
+  const percent = amountBN
+    .dividedBy(availableBalance)
+    .multipliedBy(SWAP_PRO_SLIDER_MAX_PERCENT)
+    .integerValue(BigNumber.ROUND_HALF_UP)
+    .toNumber();
+  return Math.min(Math.max(percent, 0), SWAP_PRO_SLIDER_MAX_PERCENT);
+}
+
+export function calcSwapProSliderAmount({
+  percent,
+  availableBalance,
+  decimals,
+}: {
+  percent: number;
+  availableBalance: BigNumber;
+  decimals?: number;
+}): string | undefined {
+  if (availableBalance.lte(0) || percent <= 0) {
+    return undefined;
+  }
+  const amountBN = availableBalance
+    .multipliedBy(percent)
+    .dividedBy(SWAP_PRO_SLIDER_MAX_PERCENT)
+    .decimalPlaces(Number(decimals ?? 6), BigNumber.ROUND_DOWN);
+  if (amountBN.isNaN() || amountBN.lt(0)) {
+    return undefined;
+  }
+  return amountBN.toFixed();
+}
