@@ -5,10 +5,6 @@ import type {
   ITradingViewChartTypeOption,
   ITradingViewIntervalConfigData,
   ITradingViewNativeChartControlsConfigData,
-  ITradingViewNativeChartTypeControlMode,
-  ITradingViewNativeControlsLayoutMode,
-  ITradingViewNativeIndicatorControlMode,
-  ITradingViewNativePriceMarketCapControlMode,
 } from '../types';
 import type { IntlShape } from 'react-intl';
 
