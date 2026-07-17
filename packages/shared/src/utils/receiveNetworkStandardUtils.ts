@@ -43,7 +43,7 @@ export function resolveReceiveNetworkStandard({
       }
       const trimmed = value.trim();
       // explicit empty string means force-hide, overriding bundled defaults
-      return trimmed ? trimmed : undefined;
+      return trimmed || undefined;
     }
   }
   return undefined;
