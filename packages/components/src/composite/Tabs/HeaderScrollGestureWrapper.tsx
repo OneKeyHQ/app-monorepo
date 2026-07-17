@@ -7,6 +7,7 @@ export interface IHeaderScrollGestureWrapperProps {
   disableMomentum?: boolean;
   panActiveOffsetY?: [number, number];
   panFailOffsetX?: [number, number];
+  verticalPanMaxPointers?: number;
   excludeRightEdgeRatio?: number;
   scrollScale?: number;
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
