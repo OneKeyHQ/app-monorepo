@@ -1392,3 +1392,38 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - 聚焦 Jest `nativeHomeDataAdapters.test.ts` 与 `HomeContainerController.test.ts` 共 2 suites / 18 tests 全部通过；新增覆盖 Perps holding DTO、History addressMap 标签和双图标顺序。
 - 最终 staged 内容执行 `yarn agent:check --profile commit`，日志为 `node_modules/.cache/agent-checks/2026-07-17T04-02-37-678Z`。`lint-worktree-js`、`agent-context`、`lint-staged` 通过；`lint-worktree-ts` 被共享工作区既有 Desktop、Receive、TokenList、Discovery、Swap 等 2 warnings / 10 errors 阻断，`tsc-staged` 被 DeFi、TradingView、WebView、Navigator、AppUpdate、ChainSelector、Firmware、旧 `NativeHomePageView.native.tsx`、ReferFriends 和 Swap 共 12 errors / 10 files 阻断。日志中没有本轮 `NativeHomePage.native.tsx`、adapter、history hook 或 native-components 文件错误；没有修改或回滚这些无关文件制造绿色结果。
 - 本节通过的是当前 BNB 服务状态下四个 Tab 的顶部内容、实际数据语义、连续切换与 History full-to-compact 短滑。Dark mode、动态字体、所有 pressed/hover、所有 History 交易类型、NFT 图片失败/取消请求、DeFi/Perps 详情跳转、失败回滚和离线降级仍没有完整真实证据，不能据此声明 Native Home UI 已全部完成。
+
+## 2026-07-17 iOS 17.4+ body → header 向下惯性连续传递
+
+### 复现、失败标准与二次根因
+
+- 用户在最终 Debug 包中确认了一个方向不对称问题：手指向上滑、由 Header 进入 body 时有正常惯性；页面已经滚到 DeFi / Upgrade / Support hub 后，手指向下轻扫、由 body 返回 Header 时只移动接触距离，松手后的惯性在 body 顶部被截断。
+- 稳定复现方式是在 DeFi 的 Support hub 锚点，使用同一条 120pt / 90ms 真实触摸：`(380, 520) -> (380, 640)`。旧实现的 nested `UITableView` 先减速到自身 `contentOffset = 0`，随后 outer `UIScrollView` 才获得 header owner；这时 pan velocity 已经归零，因此无法继续展开 Header。仅看最终 Header 是否出现、只做长拖动，或只验证向上方向都不能证明修复。
+- 第一版只在 iOS 17.4+ 显式设置 `transfersVerticalScrollingToParent = true`，编译和 Debug 安装均成功，但用户实测仍然是“向上有、向下没有”，因此该版明确判失败。Apple SDK 中该属性从 iOS 17.4 提供且默认已经为 true；当前 Native Home 同时还有手写 owner、clamp 和两个 deceleration owner，系统 edge transfer 不能单独维持同一条速度时间线。
+- 成熟的 JXPagingView / JXPagingSmoothView 一类方案通过单一 list scroll view 移动并 pin header，从结构上避免两个纵向 physics owner。Native Home 当前页面与 Nitro section patch 耦合较深，本轮没有引入新依赖或重写整个容器，而是只修复跨越 body → header 的一次减速交接。
+
+### iOS 17.4+ 实现与低版本边界
+
+- `scrollViewWillEndDragging` 读取真实 release velocity 和 UIKit 的 deceleration rate。只有 selected page、当前 owner 为 body、手指向下速度超过 80pt/s、body/outer 都有可消费 offset，且预计减速距离确实会跨过 body 顶部时，才拦截内层目标 offset。
+- iOS 17.4+ 使用一个 `CADisplayLink` 和同一条 UIScrollView deceleration 曲线：先连续消费 body offset，剩余 travel 在同一帧序列中继续消费 outer header offset。跨界后 owner 切为 header；新手势、页面切换、完成最大 travel 或速度衰减结束都会停止 handoff。向上和不跨界的手势仍走 UIKit 原生减速，没有被这条路径接管。
+- 这是 main runtime 的 per-view UIKit 状态，不经过 bg proxy，也没有新增共享 Native singleton。`VerticalMomentumHandoff`、display link、scroll owner、offset 和 gesture state 都归当前 `HomeContainerView`；图片/字体 cache 和底层持久化资源仍是进程级共享资源。
+- 按用户决定，iOS 17.4 以下继续保留旧的 per-scroll-view 边界体验，不为旧系统复制自定义减速物理。源码英文注释明确记录：17.4+ 使用一条跨 body/header 的 deceleration timeline，旧版本保留现有行为。
+
+### 最终 Debug 双向真实触摸证据
+
+- 最终源码后重新执行标准 `yarn app:ios`，结果 `Build Succeeded`、0 errors、11 个既有 warnings；命令完成 Debug build、签名、更新安装并启动 `so.onekey.wallet`。没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`。
+- 向下跨边界有效录屏为 `.tmp/ui/native-home-inertia-17_4/handoff-v2-down-120pt-90ms.mp4`，触摸遥测为同目录 `handoff-v2-down-120pt-90ms.gesture-telemetry.json`，before/after 和 contact sheet 分别为 `handoff-v2-before.png`、`handoff-v2-after.png`、`handoff-v2-down-120pt-90ms-contact.png`。松手后页面继续移动数百点，从 compact Support hub 连续经过 body 顶部并展开完整 Header，显著超过 120pt 接触距离；逐帧可见内容连续，没有 blank/empty、瞬间跳顶或反向回弹。本场景通过。
+- 向上回归录屏为 `.tmp/ui/native-home-inertia-17_4/up-regression-120pt-90ms.mp4`，遥测、before/after 和 contact sheet 使用同名前缀。`(380, 640) -> (380, 520)` 松手后继续从完整 Header 滚入 DeFi / Upgrade / Support 内容，没有丢失原有向上惯性，也没有 blank 或跳变。本场景通过。Support carousel 在录制过程中异步切换 Sifu / Quiz 是原版业务轮播，不是空态或滚动回弹。
+- 两段手势、截图、开始录制和结束录制放在同一个 `agent-device batch`，避免 daemon/session 漂移；分离命令导致 session 消失的旧点击证据已作废，没有用于通过结论。
+
+### 运行时、数据安全与完成边界
+
+- 最新 main probe：`runtime=main`、`jsReadyAt=1784270673395`、`uiVisibleAt=1784270675072`、`backgroundTransportState=ready`。独立 bg ready payload 为 `runtime=background/status=ready/protocolVersion=1/bootId=1784270675125-tlbjdcng/ts=1784270675454`；独立 background target 的 Jotai bridge 存在。main/bg 均 ready，没有用 main ready 代替 bg ready。
+- `Account #1`、BNB 网络、余额、资产和 DeFi 内容正常，watchlist 权威读取仍为 4 条，app 持续存活。没有执行 uninstall、reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据。
+- **main runtime：** Native Home UI、selected page、outer/body offset、scroll owner 和本轮 per-view momentum handoff。**bg runtime：** Market/watchlist/portfolio/DeFi 等 service 数据和权威持久化。iOS main/bg 为独立 Hermes JS heap，proxy 数据各自序列化/反序列化，初始化顺序独立；本轮滚动物理不跨 runtime。
+- 本节只通过 iPhone 17 Pro / iOS 26.5 Debug 包上的向下跨边界惯性和向上回归。iOS 17.4 以下按产品决定接受较弱体验；Dark mode、动态字体、所有横滑/pressed/hover、所有降级态和 Native Home 其余未完成项不由本节覆盖，仍不能声明整个 Native Home UI 已完成。
+
+### 检查门禁
+
+- `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 通过；指定 Native Home 文件的 `git diff --check` 通过。纯 Swift per-view 滚动物理没有新增 TS/Jest 聚焦范围，最终 Debug 编译与双向真实手势是本轮风险相称的主要验证。
+- 最终 staged 内容执行 `yarn agent:check --profile commit`，日志为 `node_modules/.cache/agent-checks/2026-07-17T06-50-30-405Z`。`lint-worktree-js`、`agent-context`、`lint-staged` 通过；`lint-worktree-ts` 被共享工作区既有 Desktop、Receive、Discovery、TokenList、Swap 等 2 warnings / 10 errors 阻断，`tsc-staged` 被 DeFi、TradingView、WebView、Navigator、AppUpdate、ChainSelector、Firmware、旧 `NativeHomePageView.native.tsx`、ReferFriends 和 Swap 共 12 errors / 10 files 阻断。日志中没有本轮 Swift/handoff 错误；没有修改或回滚这些无关代码制造绿色结果。
