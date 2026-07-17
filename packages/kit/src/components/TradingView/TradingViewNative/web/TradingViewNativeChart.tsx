@@ -10,10 +10,14 @@ import {
   TRADING_VIEW_NATIVE_CANDLE_STEP,
   TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+} from '../chartConstants';
+import {
   clampTradingViewNativePanOffset,
   clampTradingViewNativeZoomScale,
+  getTradingViewNativePriceRange,
+  getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
-} from '../chartConstants';
+} from '../utils/chartViewport';
 
 const CHART_PADDING = 24;
 const VOLUME_HEIGHT_RATIO = 0.2;
@@ -127,18 +131,28 @@ function drawKLineChart(
   const priceChartHeight =
     contentHeight * (1 - VOLUME_HEIGHT_RATIO - PRICE_VOLUME_GAP_RATIO);
   const volumeBottom = height - CHART_PADDING;
-  let minPrice = Number.POSITIVE_INFINITY;
-  let maxPrice = Number.NEGATIVE_INFINITY;
   let maxVolume = 0;
 
   for (const point of points) {
-    minPrice = Math.min(minPrice, point.l);
-    maxPrice = Math.max(maxPrice, point.h);
     if (Number.isFinite(point.v)) {
       maxVolume = Math.max(maxVolume, point.v);
     }
   }
 
+  const visiblePointRange = getTradingViewNativeVisiblePointRange({
+    chartWidth,
+    offset: clampedPanOffset,
+    pointCount: points.length,
+    zoomScale: clampedZoomScale,
+  });
+  const visiblePriceRange = getTradingViewNativePriceRange({
+    ...visiblePointRange,
+    points,
+  });
+  if (!visiblePriceRange) {
+    return;
+  }
+  const { maxPrice, minPrice } = visiblePriceRange;
   const priceRange = maxPrice - minPrice;
   context.strokeStyle = colors.grid;
   context.lineWidth = 1;
