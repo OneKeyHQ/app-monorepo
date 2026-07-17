@@ -1449,3 +1449,40 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - 该自动录屏确认当前上下方向走了不同路径：向下最终进入自定义完整 Header 展开，向上仍由 inner/owner 协调；两者不是同一条 UIKit deceleration timeline。agent-device/XCTest 的 90ms swipe 仍有事件采样与命令 round-trip 偏差，不能用这段录屏否定用户真实手感，也不能据此声明已精确复现“两个方向都完全无惯性”。用户的 Simulator 连续触摸结果仍是当前产品失败事实。
 - 本节只做诊断与结论降级，没有修改滚动实现，没有重新构建或更新安装 App，也没有执行 uninstall、reinstall、erase、clear data。后续修复前必须先定义红框起点的双向 pass 条件：同一短甩距离/时长下，松手后必须连续移动、速度单调衰减、无 owner 切换停顿/二次启动、无空白/跳顶，并与同状态 Legacy 录屏比较 travel 和 duration。
 - `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 与 handoff `git diff --check` 通过。staged handoff 执行 `yarn agent:check --profile commit`，日志为 `node_modules/.cache/agent-checks/2026-07-17T07-10-12-633Z`：`lint-worktree-js`、`agent-context`、`lint-staged` 通过；`lint-worktree-ts` / `tsc-staged` 仍由共享工作区既有 Desktop、Receive、Discovery、TokenList、DeFi、TradingView、WebView、Navigator、AppUpdate、ChainSelector、Firmware、旧 Home view、ReferFriends 与 Swap 错误阻断，没有本节 handoff 错误。没有修改或回滚这些无关文件。
+
+## 2026-07-17 iOS 17.4+ Native Home 单一纵向物理驱动修复
+
+### 最终根因与修复结构
+
+- 用户红框 Support hub 位置的双向短甩失败不是 `decelerationRate` 数值问题，而是纵向同时存在 outer `UIScrollView` 与 page `UITableView` 两个 UIKit physics owner。固定 `header/body` owner 能避免深层 body 被错误清零，但边界 clamp 会截断一个 scroll view 的减速；后续 `CADisplayLink` 只模拟 body → header 的一条路径，又产生方向、阈值和速度曲线不一致。
+- iOS 17.4+ 最终改为只有 outer `HomeContainerNestedScrollView` 接收真实纵向 tracking/deceleration。page table 关闭用户滚动，只保留渲染、复用和由 outer combined offset 驱动的程序化 `contentOffset`。combined offset 的前半段折叠 Header，超过 `maximumHeaderOffset` 的部分映射为 body offset；Header、Tab 和 pager 通过同一个连续 compensation transform 保持 pinned 结构。
+- outer content size 同时包含 viewport、可折叠 Header 距离和当前 page 的最大 body offset；page slot 高度变化、布局和 Tab 完成切换都会重新计算，并把目标 page 的真实 body offset 映射回同一个 outer offset。原 `VerticalMomentumHandoff`、`CADisplayLink`、inner target offset 截断和 iOS 17.4 `transfersVerticalScrollingToParent` 依赖全部删除。
+- iOS 17.4 以下按产品决定继续使用原 nested owner fallback；源码英文注释明确这是有意保留的低版本弱体验，不复制自定义滚动物理。
+
+### React Native 手势二次根因
+
+- 第一版单驱动 Debug 包中，LLDB 确认 outer `contentSize={402,1473}`、`isScrollEnabled=true`、方向 gate 通过，但 `gestureRecognizer(_:shouldRecognizeSimultaneouslyWith:)` 的另一个手势实际是 React Native 根 `RCTSurfaceTouchHandler`。原白名单只允许 Native table 和 horizontal pager，返回 false 后 RN root touch handler 抑制 outer pan，自动短甩会退化成 DeFi 行或 action 点击。
+- 最终只在 outer unified driver 的 simultaneous 白名单中增加 `RCTSurfaceTouchHandler`。纵向 outer pan 因此能在位移达到阈值后取消 row tap；horizontal pager 仍由方向 gate 保护。修复后的普通 Uniswap V4 行点击仍能打开 Portfolio details，证明不是简单吞掉所有 RN touch。
+- 第一版单驱动但尚未加入该白名单的截图/录屏全部作废，不能用于通过结论；最终只使用 `.tmp/ui/native-home-unified-inertia/final/v3-*` 证据。
+
+### 最终 Debug 真实交互证据
+
+- 用户红框附近的局部双向短甩分别为 `.tmp/ui/native-home-unified-inertia/final/v3-support-short-down.mp4` 与 `v3-support-short-up.mp4`，配套 `*.gesture-telemetry.json`、`*-after.png` 和 `*-contact.png`。两个方向在松手后都有连续多帧位移，逐帧时序没有停住后第二次启动、瞬间跳顶、blank/loading renderer 或反向回弹。
+- body → header 单手势边界证据为 `v3-body-header-boundary-down.mp4`、`v3-body-header-boundary-down-after.png` 和 `v3-body-header-boundary-down-contact.png`：从 DeFi body 连续展开余额、快捷操作和完整 Header，没有边界平台期。反向 Header → body 为 `v3-header-body-boundary-up.mp4`、`v3-header-body-boundary-up-after.png` 和 `v3-header-body-boundary-up-contact.png`：从完整 Header 一次短甩连续进入 DeFi / Upgrade / Support hub。
+- 录屏顶部偶尔出现的蓝色 `Refreshing...` 仍是 Debug Metro `RCTDevLoadingView`，不是 Native Home `UIRefreshControl`；settled 截图 `v3-refresh-settled.png` 已恢复，不能把该 Debug overlay 计作内容空态或滚动跳变。
+- 交互回归：`v3-row-tap-before.png` / `v3-row-tap-after.png` 证明同一实现下 Uniswap V4 行仍打开真实 Portfolio details；`v3-horizontal-tab-nft.png` / `v3-horizontal-tab-spot-back.png` 证明 Spot/NFT 点击切换仍生效，纵向 driver 没有抢走横向分类交互。
+- 本轮通过的是 iPhone 17 Pro / iOS 26.5 Debug 包的红框局部双向惯性、两个方向跨 Header/body 边界、无 blank/跳顶以及点击/Tab 基础回归。没有用编译通过、元素存在或单张 settled 截图代替手势证据；iOS 17.4 以下体验、Dark mode、动态字体和其他尚未完成的 Market/降级态仍不由本节覆盖，不能声明整个 Native Home UI 完成。
+
+### Debug、运行时与数据安全
+
+- 最终 `RCTSurfaceTouchHandler` 修复后从仓库根目录重新执行标准 `yarn app:ios`，结果 `Build Succeeded`，由命令完成 `Debug-iphonesimulator/OneKeyWallet.app` 的签名、更新安装和启动。没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`。
+- 构建期间曾遇到 CoreSimulator install/terminate 服务挂起，只中断了挂起命令并重启 Simulator/CoreSimulator 服务；没有执行 uninstall、reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据。后续标准 `yarn app:ios` 成功完成更新安装。
+- 最终 appstate 前台为 `so.onekey.wallet`；`Account #1`、余额、Token、NFT 和 DeFi/Portfolio 数据正常，应用持续存活。main probe 为 `runtime=main/jsReadyAt=1784278961289/uiVisibleAt=1784278963196/backgroundTransportState=ready`；独立 bg ready 为 `runtime=background/status=ready/protocolVersion=1/bootId=1784278962967-41ulw4m8/ts=1784278963272`，background target 的 Jotai bridge 存在。没有用 main ready 代替 bg ready。
+- **Runtime scope：main。** outer combined offset、Header/body 映射、content size、gesture gate、transform、selected page 和 scroll state 都是当前 Native Home view 的 UIKit 状态；bg 只继续提供 Market/watchlist/portfolio/DeFi 等 service 数据和权威持久化，不参与滚动物理。
+- iOS main/bg 是独立 Hermes JS heap，proxy 数据分别序列化/反序列化，初始化顺序独立。图片/字体 cache 与底层持久化句柄属于进程级共享 Native 资源；scroll offset、constraint、gesture、transform、represented image signature、request cancellation 和 pressed/hover 属于 per-view/main 状态。
+
+### 检查与提交边界
+
+- 本节只修改 `packages/native-components/ios/HomeContainerView.swift` 和本 handoff；没有修改或回滚共享工作区里的性能、TradingView、Discovery、Swap 等无关 dirty files。
+- `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 与指定 Native Home 文件的 `git diff --check` 通过。纯 Swift/UIKit 修复没有新增 TS/Jest 聚焦范围；标准 Debug build、双向录屏、边界逐帧 contact sheet、普通行点击和 Tab 切换是风险相称的聚焦验证。
+- 最终 staged 内容执行 `yarn agent:check --profile commit`，日志为 `node_modules/.cache/agent-checks/2026-07-17T09-08-35-251Z`。`lint-worktree-js`、`lint-worktree-ts`、`format-worktree`、`agent-context` 和 `lint-staged` 全部通过；唯一失败的 `tsc-staged` 来自共享工作区既有的 Desktop `config.perfReady`、旧 `NativeHomePageView.native.tsx` header export，以及 `useNativeHomeSupplementalData.ts` 的 prefetch/refresh 类型错误。日志中没有本轮 Swift/handoff 错误，没有修改或回滚这些无关代码制造绿色结果。
