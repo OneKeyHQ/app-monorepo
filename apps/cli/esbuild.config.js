@@ -1,28 +1,24 @@
-import { readFile } from 'node:fs/promises';
-import * as path from 'node:path';
+const { rm, readFile } = require('node:fs/promises');
+const path = require('node:path');
 
-import { defineConfig } from 'tsup';
-import * as ts from 'typescript';
+const { parse } = require('@babel/parser');
+const traverse = require('@babel/traverse').default;
+const esbuild = require('esbuild');
 
-import type { Plugin } from 'esbuild';
-
-const resolvePath = (...paths: string[]) => path.resolve(...paths);
-const pathSeparator = path.sep as string;
-const readFileText = readFile as (
-  filePath: string,
-  encoding: BufferEncoding,
-) => Promise<string>;
+const resolvePath = (...paths) => path.resolve(...paths);
+const pathSeparator = path.sep;
+const readFileText = readFile;
 
 const repoRoot = resolvePath(__dirname, '../..');
 const browserStorageGuardRoots = [
   resolvePath(repoRoot, 'apps'),
   resolvePath(repoRoot, 'packages'),
 ];
-const browserStorageAllowlist = new Set<string>([
+const browserStorageAllowlist = new Set([
   resolvePath(repoRoot, 'packages/shared/src/utils/devModeUtils.ts'),
 ]);
 
-function shouldGuardBrowserStorageSource(filePath: string): boolean {
+function shouldGuardBrowserStorageSource(filePath) {
   const normalizedPath = resolvePath(filePath);
 
   if (browserStorageAllowlist.has(normalizedPath)) {
@@ -42,102 +38,63 @@ function shouldGuardBrowserStorageSource(filePath: string): boolean {
   );
 }
 
-function isDeclarationIdentifier(
-  node: ts.Identifier,
-  parent: ts.Node | undefined,
-): boolean {
-  if (!parent) {
-    return false;
-  }
-
-  return (
-    (ts.isVariableDeclaration(parent) && parent.name === node) ||
-    (ts.isParameter(parent) && parent.name === node) ||
-    (ts.isFunctionDeclaration(parent) && parent.name === node) ||
-    (ts.isClassDeclaration(parent) && parent.name === node) ||
-    (ts.isInterfaceDeclaration(parent) && parent.name === node) ||
-    (ts.isTypeAliasDeclaration(parent) && parent.name === node) ||
-    (ts.isEnumDeclaration(parent) && parent.name === node) ||
-    (ts.isBindingElement(parent) && parent.name === node) ||
-    (ts.isPropertyDeclaration(parent) && parent.name === node) ||
-    (ts.isPropertySignature(parent) && parent.name === node) ||
-    (ts.isMethodDeclaration(parent) && parent.name === node) ||
-    (ts.isMethodSignature(parent) && parent.name === node) ||
-    (ts.isImportSpecifier(parent) &&
-      (parent.propertyName === node || parent.name === node)) ||
-    (ts.isImportClause(parent) && parent.name === node) ||
-    (ts.isNamespaceImport(parent) && parent.name === node) ||
-    (ts.isImportEqualsDeclaration(parent) && parent.name === node) ||
-    (ts.isExportSpecifier(parent) &&
-      (parent.propertyName === node || parent.name === node))
-  );
-}
-
-function collectBrowserStorageViolations(
-  filePath: string,
-  contents: string,
-): Array<{ text: string; line: number; column: number }> {
-  const sourceFile = ts.createSourceFile(
-    filePath,
-    contents,
-    ts.ScriptTarget.Latest,
-    true,
-  );
-  const violations = new Map<
-    string,
-    { text: string; line: number; column: number }
-  >();
+function collectBrowserStorageViolations(filePath, contents) {
+  const sourceFile = parse(contents, {
+    sourceFilename: filePath,
+    sourceType: 'unambiguous',
+    allowAwaitOutsideFunction: true,
+    allowReturnOutsideFunction: true,
+    plugins: ['decorators-legacy', 'importAttributes', 'jsx', 'typescript'],
+  });
+  const violations = new Map();
   const storageNames = new Set(['localStorage', 'sessionStorage']);
+  const globalNames = new Set(['globalThis', 'window', 'self']);
 
-  const addViolation = (node: ts.Node, accessText: string) => {
-    const start = node.getStart(sourceFile);
-    const { line, character } = sourceFile.getLineAndCharacterOfPosition(start);
-    const key = `${line}:${character}:${accessText}`;
+  const addViolation = (node) => {
+    const line = node.loc?.start.line ?? 1;
+    const column = node.loc?.start.column ?? 0;
+    const accessText = contents.slice(node.start ?? 0, node.end ?? 0);
+    const key = `${line}:${column}:${accessText}`;
 
     if (!violations.has(key)) {
       violations.set(key, {
         text: accessText,
-        line: line + 1,
-        column: character,
+        line,
+        column,
       });
     }
   };
 
-  const visit = (node: ts.Node) => {
-    if (ts.isPropertyAccessExpression(node)) {
-      const objectName = node.expression.getText(sourceFile);
-      const propertyName = node.name.text;
-
-      if (
-        storageNames.has(objectName) ||
-        ((objectName === 'globalThis' ||
-          objectName === 'window' ||
-          objectName === 'self') &&
-          storageNames.has(propertyName))
-      ) {
-        addViolation(node, node.getText(sourceFile));
-      }
+  const visitMemberExpression = (node) => {
+    if (
+      node.object.type === 'Identifier' &&
+      globalNames.has(node.object.name) &&
+      node.property.type === 'Identifier' &&
+      storageNames.has(node.property.name) &&
+      !node.computed
+    ) {
+      addViolation(node);
     }
-
-    if (ts.isIdentifier(node) && storageNames.has(node.text)) {
-      const parent = node.parent;
-      const isPropertyAccessName =
-        ts.isPropertyAccessExpression(parent) && parent.name === node;
-
-      if (!isDeclarationIdentifier(node, parent) && !isPropertyAccessName) {
-        addViolation(node, node.getText(sourceFile));
-      }
-    }
-
-    ts.forEachChild(node, visit);
   };
 
-  visit(sourceFile);
+  traverse(sourceFile, {
+    ReferencedIdentifier(identifierPath) {
+      if (storageNames.has(identifierPath.node.name)) {
+        addViolation(identifierPath.node);
+      }
+    },
+    MemberExpression(memberPath) {
+      visitMemberExpression(memberPath.node);
+    },
+    OptionalMemberExpression(memberPath) {
+      visitMemberExpression(memberPath.node);
+    },
+  });
 
   return [...violations.values()];
 }
 
-const guardBrowserStoragePlugin: Plugin = {
+const guardBrowserStoragePlugin = {
   name: 'guard-browser-storage',
   setup(build) {
     build.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, async (args) => {
@@ -168,7 +125,7 @@ const guardBrowserStoragePlugin: Plugin = {
 };
 
 // Shim non-English locale JSON files — CLI only outputs English, saves ~10MB
-const shimLocalePlugin: Plugin = {
+const shimLocalePlugin = {
   name: 'shim-locale',
   setup(build) {
     // Dynamic imports like: import('./json/ru.json')
@@ -193,7 +150,7 @@ const shimLocalePlugin: Plugin = {
   },
 };
 
-const shimHdCorePackageJsonPlugin: Plugin = {
+const shimHdCorePackageJsonPlugin = {
   name: 'shim-hd-core-package-json',
   setup(build) {
     build.onResolve({ filter: /^@onekeyfe\/hd-core\/package\.json$/ }, () => ({
@@ -207,9 +164,7 @@ const shimHdCorePackageJsonPlugin: Plugin = {
     build.onLoad(
       { filter: /.*/, namespace: 'hd-core-package-json-shim' },
       async (args) => {
-        const pkg = JSON.parse(await readFileText(args.path, 'utf8')) as {
-          version?: string;
-        };
+        const pkg = JSON.parse(await readFileText(args.path, 'utf8'));
         return {
           contents: `module.exports = ${JSON.stringify({
             version: pkg.version ?? '0.0.0',
@@ -221,7 +176,7 @@ const shimHdCorePackageJsonPlugin: Plugin = {
   },
 };
 
-const shimReactNativePlugin: Plugin = {
+const shimReactNativePlugin = {
   name: 'shim-react-native',
   setup(build) {
     // Only shim modules that contain native RN code (Flow/JSI)
@@ -286,7 +241,7 @@ const shimReactNativePlugin: Plugin = {
   },
 };
 
-const shimCrossInpageProviderDebugBrowserPlugin: Plugin = {
+const shimCrossInpageProviderDebugBrowserPlugin = {
   name: 'shim-cross-inpage-provider-debug-browser',
   setup(build) {
     // Intercept the hardcoded `import browser from './browser'` inside
@@ -352,7 +307,7 @@ const shimCrossInpageProviderDebugBrowserPlugin: Plugin = {
   },
 };
 
-const shimCrossInpageProviderLoggerPlugin: Plugin = {
+const shimCrossInpageProviderLoggerPlugin = {
   name: 'shim-cross-inpage-provider-logger',
   setup(build) {
     build.onResolve({ filter: /^\.\/loggerConsole$/ }, (args) => {
@@ -429,11 +384,7 @@ const shimCrossInpageProviderLoggerPlugin: Plugin = {
   },
 };
 
-function replaceExact(
-  contents: string,
-  filePath: string,
-  replacements: Array<{ search: string; replace: string }>,
-): string {
+function replaceExact(contents, filePath, replacements) {
   return replacements.reduce((currentContents, replacement) => {
     if (!currentContents.includes(replacement.search)) {
       throw new TypeError(
@@ -445,7 +396,7 @@ function replaceExact(
   }, contents);
 }
 
-function isNodeModuleFile(filePath: string, segments: string[]): boolean {
+function isNodeModuleFile(filePath, segments) {
   return resolvePath(filePath).endsWith(segments.join(pathSeparator));
 }
 
@@ -463,7 +414,7 @@ const deprecatedBufferPatchFilter = new RegExp(
   ].join('|')})\\.js$`,
 );
 
-const patchDeprecatedBufferConstructorPlugin: Plugin = {
+const patchDeprecatedBufferConstructorPlugin = {
   name: 'patch-deprecated-buffer-constructors',
   setup(build) {
     build.onLoad({ filter: deprecatedBufferPatchFilter }, async (args) => {
@@ -628,16 +579,24 @@ const patchDeprecatedBufferConstructorPlugin: Plugin = {
   },
 };
 
-export default defineConfig((options) => {
-  const isProductionBuild = !options.watch;
-
+function createBuildOptions({ watch }) {
   return {
-    entry: ['src/cli.ts'],
-    format: ['cjs'],
+    absWorkingDir: __dirname,
+    entryPoints: ['src/cli.ts'],
+    outfile: 'dist/cli.js',
+    tsconfig: 'tsconfig.json',
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
     target: 'node22',
-    clean: true,
-    noExternal: [/.*/],
-    external: [],
+    external: [
+      // Native USB dependencies are loaded only when the hardware flag is used.
+      '@onekeyfe/hd-common-connect-sdk',
+      '@onekeyfe/hd-core',
+      '@onekeyfe/hd-transport-usb',
+      // Native N-API addons are distributed beside the CLI bundle.
+      '@napi-rs/keyring',
+    ],
     banner: {
       js: [
         '#!/usr/bin/env node',
@@ -649,8 +608,7 @@ export default defineConfig((options) => {
         'Object.defineProperty(globalThis,"sessionStorage",{configurable:true,writable:true,value:undefined});',
       ].join('\n'),
     },
-    splitting: false,
-    esbuildPlugins: [
+    plugins: [
       guardBrowserStoragePlugin,
       shimLocalePlugin,
       shimHdCorePackageJsonPlugin,
@@ -659,29 +617,44 @@ export default defineConfig((options) => {
       shimCrossInpageProviderLoggerPlugin,
       patchDeprecatedBufferConstructorPlugin,
     ],
-    esbuildOptions(esbuildOptions) {
-      // hd-common-connect-sdk has native USB deps (libusb) — must stay external // cspell:disable-line
-      // Only loaded at runtime when --hardware flag is used
-      const ext = new Set(esbuildOptions.external ?? []);
-      ext.add('@onekeyfe/hd-common-connect-sdk');
-      ext.add('@onekeyfe/hd-core');
-      ext.add('@onekeyfe/hd-transport-usb');
-      // Native N-API addon packages must remain external and be distributed
-      // beside the CLI bundle for each target platform.
-      ext.add('@napi-rs/keyring');
-      esbuildOptions.external = [...ext];
-
-      if (!isProductionBuild) {
-        return;
-      }
-
-      const drop = new Set(esbuildOptions.drop ?? []);
-      drop.add('console');
-      drop.add('debugger');
-      esbuildOptions.drop = [...drop];
+    define: {
+      'process.env.NODE_ENV': '"production"',
     },
-    env: {
-      NODE_ENV: 'production',
-    },
+    drop: watch ? [] : ['console', 'debugger'],
+    logLevel: 'info',
   };
-});
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const watch = args.length === 1 && args[0] === '--watch';
+
+  if (args.length && !watch) {
+    process.stderr.write(`Unknown argument: ${args.join(' ')}\n`);
+    process.exitCode = 1;
+    return;
+  }
+
+  await rm(resolvePath(__dirname, 'dist'), { force: true, recursive: true });
+  const buildOptions = createBuildOptions({ watch });
+
+  if (watch) {
+    const buildContext = await esbuild.context(buildOptions);
+    await buildContext.watch();
+    return;
+  }
+
+  await esbuild.build(buildOptions);
+}
+
+module.exports = {
+  collectBrowserStorageViolations,
+  createBuildOptions,
+};
+
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`${error.stack || error.message || String(error)}\n`);
+    process.exitCode = 1;
+  });
+}

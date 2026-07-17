@@ -133,6 +133,56 @@ export function clearSupabaseStorageCache() {
 }
 
 /**
+ * Clear ONLY this runtime's Supabase session storage read cache, without
+ * emitting the cross-runtime cache-clear event. Use before a local read that
+ * must not serve a stale (up-to-30s memoized) value — e.g. a pre-login guard
+ * that would otherwise abort on a stale empty slot.
+ */
+export function clearSupabaseStorageLocalCache() {
+  supabaseStorageInstance.clearCache({ syncRemote: false });
+}
+
+export type IPersistedAccessTokenStrictReadResult =
+  | { status: 'empty' }
+  | { status: 'corrupt' }
+  | { status: 'ok'; accessToken: string };
+
+/**
+ * Strict variant of readPersistedAccessTokenBySessionSource for callers that
+ * make a DESTRUCTIVE decision on the result. Unlike the best-effort reader
+ * (which degrades EVERY failure to ''), this separates three definitive slot
+ * states from a transient failure:
+ * - `empty`   — no value persisted;
+ * - `corrupt` — a value is persisted but is not a usable session (unparseable
+ *   JSON or no access_token). DETERMINISTIC: re-reading yields the same
+ *   bytes, and the auth-js commit read would fail on it the same way;
+ * - `ok`      — a usable access token is persisted;
+ * - transient storage failures (e.g. SupabaseStorageTransientError from the
+ *   sealed codec) are RETHROWN — the slot state is unknown, and collapsing
+ *   that into "no session" would let callers destroy a still-recoverable
+ *   session.
+ */
+export async function readPersistedAccessTokenBySessionSourceStrict(
+  authSessionSource: EPrimeAuthSessionSource,
+): Promise<IPersistedAccessTokenStrictReadResult> {
+  const sessionKey =
+    getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
+  // getItem rethrows transient device-key/storage failures — let them
+  // propagate so the caller treats the slot as "unknown", not "empty".
+  const rawValue = await supabaseStorageInstance.getItem(sessionKey);
+  if (!rawValue) {
+    return { status: 'empty' };
+  }
+  try {
+    const parsed = JSON.parse(rawValue) as { access_token?: string } | null;
+    const accessToken = parsed?.access_token || '';
+    return accessToken ? { status: 'ok', accessToken } : { status: 'corrupt' };
+  } catch {
+    return { status: 'corrupt' };
+  }
+}
+
+/**
  * Per-realm serial queue for session-slot DELETIONS (bg-owned). Every
  * destructive session-slot mutation — unconditional clears here and the
  * generation-gated clear in ServicePrime — runs inside the realm's
