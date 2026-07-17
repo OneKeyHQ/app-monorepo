@@ -45,7 +45,7 @@ const SwapProTokenTransactionList = ({
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
       return swapProTokenTransactionList?.slice(0, 10) ?? [];
     }
-    return swapProTokenTransactionList?.slice(0, 4) ?? [];
+    return swapProTokenTransactionList?.slice(0, 5) ?? [];
   }, [swapProTokenTransactionList, swapProTradeType]);
   return (
     <YStack>
@@ -77,21 +77,21 @@ const SwapProTokenTransactionList = ({
           finallyTransactionList.length === 0 ? (
             <YStack>
               {swapProTradeType === ESwapProTradeType.MARKET
-                ? Array.from({ length: 4 }).map((_, index) => (
+                ? Array.from({ length: 5 }).map((_, index) => (
                     <Skeleton
                       w="100%"
-                      h="$6"
+                      h="$5"
                       radius="square"
-                      py="$1"
+                      py="$0.5"
                       key={index}
                     />
                   ))
                 : Array.from({ length: 10 }).map((_, index) => (
                     <Skeleton
                       w="100%"
-                      h="$6"
+                      h="$5"
                       radius="square"
-                      py="$1"
+                      py="$0.5"
                       key={index}
                     />
                   ))}

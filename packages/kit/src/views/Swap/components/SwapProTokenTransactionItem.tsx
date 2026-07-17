@@ -87,7 +87,7 @@ const SwapProTokenTransactionItem = ({
     item.type,
   ]);
   return (
-    <XStack alignItems="center" justifyContent="space-between" py="$1">
+    <XStack alignItems="center" justifyContent="space-between" py="$0.5">
       {formatPrice}
       {formatTokenValue}
     </XStack>

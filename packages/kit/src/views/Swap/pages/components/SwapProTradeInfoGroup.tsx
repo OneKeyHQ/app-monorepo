@@ -232,14 +232,6 @@ const SwapProTradeInfoGroup = ({
         title={intl.formatMessage({ id: ETranslations.global_balance })}
         valueComponent={
           <XStack alignItems="center" gap="$1">
-            <XStack
-              onPress={handleDepositPress}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
-              hoverStyle={{ opacity: 0.7 }}
-              pressStyle={{ opacity: 0.5 }}
-            >
-              <Icon name="PlusCircleOutline" size="$4" color="$iconSubdued" />
-            </XStack>
             <NumberSizeableText
               size="$bodySmMedium"
               formatter="balance"
@@ -269,6 +261,14 @@ const SwapProTradeInfoGroup = ({
                 renderSelectorTrigger={selectorTrigger}
               />
             ) : null}
+            <XStack
+              onPress={handleDepositPress}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+              hoverStyle={{ opacity: 0.7 }}
+              pressStyle={{ opacity: 0.5 }}
+            >
+              <Icon name="PlusCircleOutline" size="$4" color="$iconSubdued" />
+            </XStack>
           </XStack>
         }
         titleProps={ITEM_TITLE_PROPS}
