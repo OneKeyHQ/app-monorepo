@@ -4,10 +4,12 @@ import type { IHomeContainerSection } from '@onekeyhq/native-components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
+import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { sortTokensByFiatValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type {
   IDeFiProtocol,
   IDeFiSupportedProtocolAction,
@@ -22,9 +24,13 @@ import {
   EDecodedTxActionType,
   EDecodedTxDirection,
   EDecodedTxStatus,
+  type IDecodedTxActionAssetTransfer,
 } from '@onekeyhq/shared/types/tx';
 
 import { getProtocolActionBadgeLabelIds } from '../../utils/defiPositionUtils';
+
+const HYPER_EVM_LOGO_URI =
+  'https://uni.onekey-asset.com/static/chain/hyper-evm.png';
 
 export const NATIVE_HOME_ACTION_IDS = {
   manageTokens: 'home.portfolio.manageTokens',
@@ -61,6 +67,14 @@ export interface INativeHomeValueFormatters {
 interface INativeHomeListStateLabels {
   empty: string;
   loading: string;
+}
+
+function getPerpsPnlColor(
+  pnlUsd: number | undefined,
+  colors?: { negative: string; positive: string },
+): string | undefined {
+  if (pnlUsd === undefined) return undefined;
+  return pnlUsd < 0 ? colors?.negative : colors?.positive;
 }
 
 function buildStateSection({
@@ -275,6 +289,7 @@ export function buildNativePerpsSections({
   labels,
   stateLabels,
   formatters,
+  colors,
 }: {
   view: IPerpsHomeView | undefined;
   initialized: boolean;
@@ -287,6 +302,10 @@ export function buildNativePerpsSections({
   };
   stateLabels: INativeHomeListStateLabels;
   formatters: INativeHomeValueFormatters;
+  colors?: {
+    negative: string;
+    positive: string;
+  };
 }): IHomeContainerSection[] {
   const itemCount = view ? view.holdings.length + view.positions.length : 0;
   const stateSection = buildStateSection({
@@ -310,12 +329,17 @@ export function buildNativePerpsSections({
         renderer: 'perps',
         title: holding.displaySymbol,
         imageUrl: getHyperliquidTokenImageUrl(holding.symbol),
-        subtitle: `${labels.pnl}: ${formatters.formatFiat(
-          holding.pnlUsd,
-          'usd',
-        )}`,
-        value: `${formatters.formatBalance(holding.balance)} ${holding.symbol}`,
-        detail: formatters.formatFiat(holding.valueUsd, 'usd'),
+        badgeImageUrl: HYPER_EVM_LOGO_URI,
+        subtitle: formatters.formatBalance(holding.balance),
+        value: formatters.formatFiat(holding.valueUsd, 'usd'),
+        detail:
+          holding.pnlUsd === undefined
+            ? '--'
+            : `${holding.pnlUsd < 0 ? '-' : '+'}${formatters.formatFiat(
+                Math.abs(holding.pnlUsd),
+                'usd',
+              )}`,
+        accentColor: getPerpsPnlColor(holding.pnlUsd, colors),
         actionId: NATIVE_HOME_ACTION_IDS.openPerpsHolding,
       })),
     });
@@ -497,12 +521,54 @@ function getHistoryAction(history: IAccountHistoryTx) {
   return getDisplayedActions({ decodedTx: history.decodedTx })[0];
 }
 
+function getHistoryAddressLabel({
+  address,
+  addressMap,
+  networkId,
+}: {
+  address?: string;
+  addressMap: Record<string, IAddressBadge>;
+  networkId: string;
+}): string | undefined {
+  if (!address) return undefined;
+  return addressMap[buildAddressMapInfoKey({ networkId, address })]?.label;
+}
+
+function getHistoryTransferTarget(
+  transfer: IDecodedTxActionAssetTransfer,
+): string {
+  const isZeroAddress = (address?: string) =>
+    address?.toLowerCase() === '0x0000000000000000000000000000000000000000';
+  if (transfer.sends.length > 0 && transfer.receives.length === 0) {
+    const targets = Array.from(
+      new Set(
+        transfer.sends
+          .map((item) => item.to)
+          .filter((address) => address && !isZeroAddress(address)),
+      ),
+    );
+    return targets.length === 1 ? targets[0] : transfer.to;
+  }
+  if (transfer.sends.length === 0 && transfer.receives.length > 0) {
+    const targets = Array.from(
+      new Set(
+        transfer.receives
+          .map((item) => item.from)
+          .filter((address) => address && !isZeroAddress(address)),
+      ),
+    );
+    return targets.length === 1 ? targets[0] : transfer.to || transfer.from;
+  }
+  return transfer.to;
+}
+
 function getHistoryTransferDisplay(
   history: IAccountHistoryTx,
   formatters: INativeHomeValueFormatters,
   labels: IBuildNativeHistorySectionsParams['labels'],
   formatTimestamp: (timestamp: number) => string,
   isAllNetworks: boolean,
+  addressMap: Record<string, IAddressBadge>,
 ): {
   badgeImageUrl?: string;
   detail?: string;
@@ -516,6 +582,7 @@ function getHistoryTransferDisplay(
   const timestamp =
     history.decodedTx.updatedAt ?? history.decodedTx.createdAt ?? 0;
   const networkLogoURI = history.decodedTx.networkLogoURI;
+  const networkId = history.decodedTx.networkId;
   const buildBadgeImageUrl = (imageUrl?: string) =>
     isAllNetworks && networkLogoURI && networkLogoURI !== imageUrl
       ? networkLogoURI
@@ -533,6 +600,11 @@ function getHistoryTransferDisplay(
       approve?.label ||
       (isRevoke ? labels.revokeApprove(approve?.symbol ?? '') : labels.approve);
     const subtitle =
+      getHistoryAddressLabel({
+        address: approve?.spender,
+        addressMap,
+        networkId,
+      }) ||
       history.decodedTx.interactInfo?.name ||
       accountUtils.shortenAddress({ address: approve?.spender ?? '' }) ||
       formatTimestamp(timestamp);
@@ -558,6 +630,11 @@ function getHistoryTransferDisplay(
     return {
       title: functionCall?.functionName || labels.contract,
       subtitle:
+        getHistoryAddressLabel({
+          address: functionCall?.to,
+          addressMap,
+          networkId,
+        }) ||
         history.decodedTx.interactInfo?.name ||
         accountUtils.shortenAddress({ address: functionCall?.to ?? '' }) ||
         formatTimestamp(timestamp),
@@ -572,6 +649,11 @@ function getHistoryTransferDisplay(
     return {
       title: action?.unknownAction?.label || labels.contract,
       subtitle:
+        getHistoryAddressLabel({
+          address: action?.unknownAction?.to,
+          addressMap,
+          networkId,
+        }) ||
         history.decodedTx.interactInfo?.name ||
         accountUtils.shortenAddress({
           address: action?.unknownAction?.to ?? '',
@@ -592,6 +674,7 @@ function getHistoryTransferDisplay(
   const item = hasSend && !hasReceive ? send : (receive ?? send);
   const secondaryItem = hasSend && hasReceive ? send : undefined;
   const imageUrl = item?.icon || networkLogoURI;
+  const transferTarget = getHistoryTransferTarget(transfer);
   let defaultTitle = isOutgoing ? labels.send : labels.receive;
   if (transfer.isInternalSwap) {
     defaultTitle = labels.swap;
@@ -602,10 +685,15 @@ function getHistoryTransferDisplay(
   }
   const title = transfer.label || defaultTitle;
   const subtitle =
+    getHistoryAddressLabel({
+      address: transferTarget,
+      addressMap,
+      networkId,
+    }) ||
     transfer.application?.name ||
     history.decodedTx.interactInfo?.name ||
     accountUtils.shortenAddress({
-      address: transfer.to || transfer.from || '',
+      address: transferTarget,
     }) ||
     formatTimestamp(timestamp);
   if (!item) {
@@ -632,15 +720,16 @@ function getHistoryTransferDisplay(
   return {
     title,
     subtitle,
-    imageUrl,
-    secondaryImageUrl: secondaryItem?.icon,
-    badgeImageUrl: buildBadgeImageUrl(imageUrl),
+    imageUrl: secondaryItem?.icon || imageUrl,
+    secondaryImageUrl: secondaryItem ? item?.icon : undefined,
+    badgeImageUrl: buildBadgeImageUrl(secondaryItem?.icon || imageUrl),
     value: `${sign}${formatters.formatBalance(item.amount)} ${item.symbol}`,
     detail,
   };
 }
 
 interface IBuildNativeHistorySectionsParams {
+  addressMap?: Record<string, IAddressBadge>;
   history: IAccountHistoryTx[];
   initialized: boolean;
   stateLabels: INativeHomeListStateLabels;
@@ -664,6 +753,7 @@ interface IBuildNativeHistorySectionsParams {
 }
 
 export function buildNativeHistorySections({
+  addressMap = {},
   history,
   initialized,
   stateLabels,
@@ -712,6 +802,7 @@ export function buildNativeHistorySections({
         labels,
         formatTimestamp,
         isAllNetworks,
+        addressMap,
       );
       return {
         id: item.id,

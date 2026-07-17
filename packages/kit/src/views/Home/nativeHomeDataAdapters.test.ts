@@ -338,6 +338,10 @@ describe('nativeHomeDataAdapters', () => {
       'perps-positions',
     ]);
     expect(sections[0].items[0]).toMatchObject({
+      subtitle: '100',
+      value: '$100',
+      detail: '+$0',
+      badgeImageUrl: 'https://uni.onekey-asset.com/static/chain/hyper-evm.png',
       imageUrl: 'https://uni.onekey-asset.com/static/hyperliquid/USDC.png',
     });
     expect(sections[1].items[0]).toMatchObject({
@@ -416,6 +420,90 @@ describe('nativeHomeDataAdapters', () => {
       actionId: NATIVE_HOME_ACTION_IDS.openHistory,
     });
     expect(sections[0].items[0].badge).toBeUndefined();
+  });
+
+  it('matches legacy history address labels and paired transfer icon order', () => {
+    const history = {
+      id: 'history-swap',
+      decodedTx: {
+        txid: '0xswap',
+        owner: '0xowner',
+        signer: '0xowner',
+        nonce: 2,
+        actions: [
+          {
+            type: EDecodedTxActionType.ASSET_TRANSFER,
+            direction: EDecodedTxDirection.OUT,
+            assetTransfer: {
+              from: '0xowner',
+              to: '0xrouter',
+              isInternalSwap: true,
+              sends: [
+                {
+                  from: '0xowner',
+                  to: '0xrouter',
+                  amount: '1',
+                  icon: 'https://example.com/eth.png',
+                  name: 'Ethereum',
+                  symbol: 'ETH',
+                  tokenIdOnNetwork: '',
+                },
+              ],
+              receives: [
+                {
+                  from: '0xrouter',
+                  to: '0xowner',
+                  amount: '3000',
+                  icon: 'https://example.com/usdc.png',
+                  name: 'USD Coin',
+                  symbol: 'USDC',
+                  tokenIdOnNetwork: '0xusdc',
+                },
+              ],
+            },
+          },
+        ],
+        createdAt: 100,
+        status: EDecodedTxStatus.Confirmed,
+        networkId: 'evm--1',
+        accountId: 'account-1',
+        extraInfo: null,
+      },
+    } satisfies IAccountHistoryTx;
+
+    const sections = buildNativeHistorySections({
+      addressMap: {
+        'evm--1_0xrouter': {
+          label: 'Uniswap',
+          type: 'default',
+        },
+      },
+      history: [history],
+      initialized: true,
+      stateLabels,
+      labels: {
+        approve: 'Approve',
+        contract: 'Contract',
+        receive: 'Receive',
+        send: 'Send',
+        status: {},
+        swap: 'Swap',
+        unknown: 'Unknown',
+        revokeApprove: (symbol) => `Revoke ${symbol}`,
+      },
+      formatBalance: (value) => value,
+      formatSectionDate: () => 'Today',
+      formatTimestamp: () => '10:00',
+    });
+
+    expect(sections[0].items[0]).toMatchObject({
+      title: 'Swap',
+      subtitle: 'Uniswap',
+      imageUrl: 'https://example.com/eth.png',
+      secondaryImageUrl: 'https://example.com/usdc.png',
+      value: '+3000 USDC',
+      detail: '-1 ETH',
+    });
   });
 
   it('uses a stable NFT identity across account refreshes', () => {

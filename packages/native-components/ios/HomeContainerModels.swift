@@ -3,6 +3,9 @@ import UIKit
 struct HomeContainerTheme: Decodable {
   let backgroundColor: String
   let cardColor: String
+  let strongColor: String?
+  let infoBackgroundColor: String?
+  let infoTextColor: String?
   let hoverColor: String?
   let activeColor: String?
   let subduedIconColor: String?
