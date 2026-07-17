@@ -5,7 +5,7 @@ import { useRoute } from '@react-navigation/core';
 
 import {
   Divider,
-  Icon,
+  LottieView,
   NumberSizeableText,
   Page,
   SizableText,
@@ -164,19 +164,14 @@ function HeadlessBuySuccessPage() {
               mirroring the amount hero on the buy screen. */}
           <Stack flex={1} jc="center" ai="center">
             <YStack ai="center" gap="$6">
-              <Stack
-                bg="$bgSuccessStrong"
-                borderRadius="$full"
-                p="$5"
-                ai="center"
-                jc="center"
-              >
-                <Icon
-                  name="CheckLargeOutline"
-                  size="$12"
-                  color="$iconInverse"
-                />
-              </Stack>
+              {/* Same landing animation the Swap/DeFi success results use. */}
+              <LottieView
+                source={require('@onekeyhq/kit/assets/animations/lottie-swap-done.json')}
+                width={110}
+                height={110}
+                autoPlay
+                loop={false}
+              />
               <YStack ai="center" gap="$2">
                 <SizableText size="$headingXl" textAlign="center">
                   支付成功
