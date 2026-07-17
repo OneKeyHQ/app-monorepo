@@ -1,7 +1,4 @@
-import type {
-  IFiatCryptoToken,
-  IFiatCryptoType,
-} from '@onekeyhq/shared/types/fiatCrypto';
+import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import type { IDeriveTypesAddressParams } from './walletAddress';
@@ -23,11 +20,12 @@ export type IModalFiatCryptoParamList = {
     defaultTab?: 'buy' | 'sell';
   };
   [EModalFiatCryptoRoutes.DeriveTypesAddress]: IDeriveTypesAddressParams;
+  // Buy-only by design — sell always stays on the web widget, so the page
+  // carries no `type` param.
   [EModalFiatCryptoRoutes.HeadlessBuy]: {
     networkId: string;
     accountId?: string;
     tokenAddress: string;
-    type: IFiatCryptoType;
     // Full token object when navigating from the token list; direct-buy entry
     // points pass only tokenAddress and the page resolves the rest.
     token?: IFiatCryptoToken;

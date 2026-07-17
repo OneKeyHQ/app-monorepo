@@ -9,7 +9,6 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
-  IFetchOnramperSessionParams,
   IFiatCryptoToken,
   IFiatCryptoType,
   IGenerateWidgetUrl,
@@ -138,10 +137,9 @@ class ServiceFiatCrypto extends ServiceBase {
   // SigV2-signs and forwards to Onramper partners/v2 client-sessions, returning
   // the { sessionId, sessionToken } pair the SDK consumes.
   @backgroundMethod()
-  public async fetchOnramperSession(
-    params?: IFetchOnramperSessionParams,
-  ): Promise<IOnramperSessionResponse> {
-    const scope = params?.scope ?? ['quotes:read', 'checkout:write'];
+  public async fetchOnramperSession(): Promise<IOnramperSessionResponse> {
+    // The backend restricts sessions to exactly this scope pair anyway.
+    const scope = ['quotes:read', 'checkout:write'];
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{ data: IOnramperSessionResponse }>(
       '/wallet/v1/fiat-pay/onramper-session',

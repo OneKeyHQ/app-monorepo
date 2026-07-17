@@ -24,8 +24,9 @@ function HeadlessBuyGallery() {
         <YStack p="$5" gap="$4">
           <SizableText size="$bodyMd" color="$textSubdued">
             Opens the native Headless buy page backed by the mock client. Type
-            an amount to see the debounced quote + button swap; enter 1 to force
-            the web-fallback (S5) and 2 to force a retryable error (S4).
+            an amount to see the debounced quote + button swap; enter 111111 to
+            force the web-fallback (S5) and 222222 to force a retryable error
+            (S4).
           </SizableText>
           <Button
             testID="open-headless-buy"
@@ -37,7 +38,6 @@ function HeadlessBuyGallery() {
                 params: {
                   networkId: PREVIEW_TOKEN.networkId,
                   tokenAddress: PREVIEW_TOKEN.address,
-                  type: 'buy',
                   token: PREVIEW_TOKEN,
                 },
               });

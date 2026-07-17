@@ -21,7 +21,10 @@ import {
   usePreventRemove,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { NativeAmountKeypad } from '@onekeyhq/kit/src/components/NativeAmountKeypad';
+import {
+  NativeAmountKeypad,
+  applyAmountKeypadKey,
+} from '@onekeyhq/kit/src/components/NativeAmountKeypad';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
@@ -47,6 +50,7 @@ import {
   MOTION_MICRO_MS,
 } from '../../components/Headless/motionTokens';
 import { PresetRow } from '../../components/Headless/PresetRow';
+import { getProviderDisplayName } from '../../components/Headless/ProviderLogo';
 import { EBuyActionState } from '../../components/Headless/types';
 import { useOnramperCheckout } from '../../components/Headless/useOnramperCheckout';
 import { toOnramperNetworkCode } from '../../utils/onramperCodes';
@@ -91,7 +95,7 @@ function HeadlessBuyPage() {
     useRoute<
       RouteProp<IModalFiatCryptoParamList, EModalFiatCryptoRoutes.HeadlessBuy>
     >();
-  const { networkId, accountId, tokenAddress, type, token } = route.params;
+  const { networkId, accountId, tokenAddress, token } = route.params;
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
 
@@ -123,28 +127,19 @@ function HeadlessBuyPage() {
     setAmountText(value);
   }, []);
 
-  const handleKeyPress = useCallback(
-    (key: string) => {
-      if (key === 'backspace') {
-        handleAmountChange(amountText.slice(0, -1));
-        return;
-      }
-      if (key === '.') {
-        if (amountText.includes('.')) {
-          return;
-        }
-        handleAmountChange(amountText ? `${amountText}.` : '0.');
-        return;
-      }
-      const next = amountText === '0' ? key : `${amountText}${key}`;
-      handleAmountChange(next);
-    },
-    [amountText, handleAmountChange],
-  );
+  // Dep-free functional updaters: the memoized keypad's cells sit on the
+  // typing hot path and must not re-render per keystroke.
+  const handleKeyPress = useCallback((key: string) => {
+    setAmountText((prev) => {
+      const next = applyAmountKeypadKey(prev, key);
+      // USD input → 2 decimal places.
+      return validateAmountInput(next, 2) ? next : prev;
+    });
+  }, []);
 
   const handleBackspaceLongPress = useCallback(() => {
-    handleAmountChange('');
-  }, [handleAmountChange]);
+    setAmountText('');
+  }, []);
 
   const amount = Number(amountText) || 0;
 
@@ -166,16 +161,18 @@ function HeadlessBuyPage() {
   // review-mode leave interception below lets that removal through.
   const allowLeaveRef = useRef(false);
 
-  // Resolve the route token from the network's buy list when the entry passed
-  // only an address.
+  // Resolve the route token from the network's buy list — only when the entry
+  // passed just an address (the list fetch is wasted otherwise).
   const { result: buyTokens } = usePromiseResult(
     () =>
-      backgroundApiProxy.serviceFiatCrypto.getTokensList({
-        networkId,
-        type: 'buy',
-        accountId,
-      }),
-    [networkId, accountId],
+      token
+        ? Promise.resolve(undefined)
+        : backgroundApiProxy.serviceFiatCrypto.getTokensList({
+            networkId,
+            type: 'buy',
+            accountId,
+          }),
+    [token, networkId, accountId],
   );
   const tokenFromList = useMemo(
     () =>
@@ -214,13 +211,13 @@ function HeadlessBuyPage() {
     });
   }, [accountId, networkId]);
 
-  // Network display name for the review card's network row.
+  // Network display name for the review card's network row. Keyed on the
+  // ROUTE id, not activeToken (the token is resolved by matching this very
+  // network/address, so the values are identical — depending on activeToken
+  // would just re-fire the fetch when the async list resolves).
   const { result: activeNetwork } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceNetwork.getNetwork({
-        networkId: activeToken?.networkId ?? networkId,
-      }),
-    [activeToken?.networkId, networkId],
+    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+    [networkId],
   );
 
   // USD market price of the token, from OneKey's own feed — the review card
@@ -231,8 +228,12 @@ function HeadlessBuyPage() {
     try {
       const detail =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
-          activeToken?.address ?? tokenAddress,
-          activeToken?.networkId ?? networkId,
+          // Route params, not activeToken: identical values (the token is
+          // matched by this address), and this endpoint is un-memoized — an
+          // activeToken dep would duplicate the HTTP call once the list
+          // resolves.
+          tokenAddress,
+          networkId,
           { skipConvertCurrency: true, autoHandleError: false },
         );
       const price = Number(detail?.data?.token?.price);
@@ -242,15 +243,13 @@ function HeadlessBuyPage() {
       // the parenthetical instead of substituting a different-meaning number.
       return undefined;
     }
-  }, [activeToken?.address, activeToken?.networkId, tokenAddress, networkId]);
+  }, [tokenAddress, networkId]);
 
   // The address actually used for quoting; also shown on the review card so
   // the user can confirm the destination before paying.
   const effectiveAddress =
     address ??
     (platformEnv.isDev && !accountId ? DEV_PREVIEW_ETH_ADDRESS : undefined);
-
-  const buttonStyle = useMemo(() => HEADLESS_BUY_BUTTON_STYLE, []);
 
   // Reference-stable: this is a dependency of the hook's debounce effect.
   const onlyOnramps = useMemo(
@@ -310,12 +309,13 @@ function HeadlessBuyPage() {
         networkId,
         tokenAddress: activeToken?.address ?? tokenAddress,
         accountId,
-        type,
+        // This page is buy-only (sell always stays on the web widget).
+        type: 'buy',
       });
     if (url) {
       openFiatCryptoUrl(url);
     }
-  }, [networkId, activeToken?.address, tokenAddress, accountId, type]);
+  }, [networkId, activeToken?.address, tokenAddress, accountId]);
 
   const {
     actionState,
@@ -330,14 +330,14 @@ function HeadlessBuyPage() {
   } = useOnramperCheckout({
     amount,
     // Quote from the first digit — the ≈crypto estimate is live while typing.
-    isAmountValid: amountText !== '' && amount > 0 && Boolean(activeToken),
+    isAmountValid: amount > 0 && Boolean(activeToken),
     source: 'usd',
     destination: activeToken?.symbol?.toLowerCase() ?? '',
     // Onramper speaks its own network slugs (e.g. 'ethereum'), not OneKey ids.
-    network:
-      toOnramperNetworkCode(activeToken?.networkId ?? networkId) ??
-      activeToken?.networkId ??
-      networkId,
+    // The entry gate refuses unmapped networks, so this only misses for direct
+    // navigations (e.g. Gallery) — '' fails the quote cleanly rather than
+    // sending a raw OneKey id as a slug.
+    network: toOnramperNetworkCode(networkId) ?? '',
     address: effectiveAddress,
     // TEMPORARY(onramper-staging): wave-1 headless providers cover US/EU only,
     // and providers enforce country == device IP == verified-phone country, so
@@ -345,7 +345,7 @@ function HeadlessBuyPage() {
     // EU/Paybis path is untested. Production must omit country (geo-detect).
     country: platformEnv.isDev ? 'us' : undefined,
     onlyOnramps,
-    buttonStyle,
+    buttonStyle: HEADLESS_BUY_BUTTON_STYLE,
     onCompleted: handleCompleted,
   });
   quoteRef.current = quote;
@@ -479,7 +479,7 @@ function HeadlessBuyPage() {
               onPress: () => setSelectedProvider(undefined),
             },
             ...providerOptions.map((slug) => ({
-              label: slug.charAt(0).toUpperCase() + slug.slice(1),
+              label: getProviderDisplayName(slug),
               onPress: () => setSelectedProvider(slug),
             })),
           ],
@@ -546,7 +546,7 @@ function HeadlessBuyPage() {
                   <Stack h="$6" jc="center" ai="center">
                     <Animated.View style={heroErrorStyle}>
                       <SizableText size="$bodySm" color="$textCritical">
-                        {heroError ?? lastHeroErrorRef.current ?? ''}
+                        {lastHeroErrorRef.current ?? ''}
                       </SizableText>
                     </Animated.View>
                   </Stack>

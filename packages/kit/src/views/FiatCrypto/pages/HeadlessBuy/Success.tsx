@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
@@ -19,28 +18,14 @@ import type {
   IModalFiatCryptoParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { ProviderLogo } from '../../components/Headless/ProviderLogo';
+import { DetailRow, formatPrice } from '../../components/Headless/DetailRow';
+import {
+  ProviderLogo,
+  getProviderDisplayName,
+} from '../../components/Headless/ProviderLogo';
 
 import type { RouteProp } from '@react-navigation/core';
-
-function DetailRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <XStack jc="space-between" ai="center">
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {label}
-      </SizableText>
-      {children}
-    </XStack>
-  );
-}
 
 // 中: post-payment result page. One centered group — the success landing
 // animation (the same Lottie the Swap/DeFi results use), title/description,
@@ -102,10 +87,7 @@ function HeadlessBuySuccessPage() {
             <YStack bg="$bgSubdued" borderRadius="$3" p="$4" w="100%" gap="$3">
               <DetailRow label="支付金額">
                 <SizableText size="$bodyMdMedium">
-                  {numberFormat(String(fiatAmount), {
-                    formatter: 'price',
-                    formatterOptions: { currency: '$' },
-                  })}
+                  {formatPrice(fiatAmount)}
                 </SizableText>
               </DetailRow>
               {payout !== undefined ? (
@@ -124,8 +106,7 @@ function HeadlessBuySuccessPage() {
                   <XStack ai="center" gap="$1.5">
                     <ProviderLogo provider={providerName} />
                     <SizableText size="$bodyMdMedium">
-                      {providerName.charAt(0).toUpperCase() +
-                        providerName.slice(1)}
+                      {getProviderDisplayName(providerName)}
                     </SizableText>
                   </XStack>
                 </DetailRow>

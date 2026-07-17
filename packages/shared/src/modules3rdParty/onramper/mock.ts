@@ -1,3 +1,5 @@
+import timerUtils from '../../utils/timerUtils';
+
 import type {
   ICreateOnramperClientParams,
   IOnramperCheckoutRequest,
@@ -6,10 +8,7 @@ import type {
   IOnramperEventName,
 } from './type';
 
-const delay = (ms: number) =>
-  new Promise<void>((resolve) => {
-    setTimeout(resolve, ms);
-  });
+const delay = (ms: number) => timerUtils.wait(ms);
 
 function mockError(code: string, message: string) {
   const err = new Error(message) as Error & { code: string };

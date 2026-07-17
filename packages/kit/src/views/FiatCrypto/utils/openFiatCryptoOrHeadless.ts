@@ -6,6 +6,8 @@ import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes/fiatCrypto';
 import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
 
+import { toOnramperNetworkCode } from './onramperCodes';
+
 // TEMPORARY(onramper-demo): the backend `headlessSupported` flags (OK-58060)
 // haven't shipped, so production entries can't route headless yet. Dev builds
 // treat the staging-tested native coins as supported so the flow can be
@@ -31,6 +33,12 @@ export type ITryOpenHeadlessBuyParams = {
 // the native Headless buy page (the caller must stop); returns false when the
 // native path isn't available, so the caller runs its existing web-widget flow
 // unchanged. Buy-only — sell always stays on the web widget.
+//
+// Spliced in ahead of `generateWidgetUrl` at every buy entry — keep this list
+// in sync when adding an 8th: ActionBuy's openFiatCryptoWidget (also serves
+// the aggregate Overview tab), SellOrBuy list, WalletActionBuy,
+// WalletActions/index, Market tradeHook, Send SendAmountInputContainer,
+// ReceiveSelector.
 export async function tryOpenHeadlessBuy({
   networkId,
   tokenAddress,
@@ -38,6 +46,14 @@ export async function tryOpenHeadlessBuy({
   token,
 }: ITryOpenHeadlessBuyParams): Promise<boolean> {
   if (!canUseHeadless()) {
+    return false;
+  }
+
+  // The headless page must translate the OneKey network id into an Onramper
+  // slug; a network outside that map can never quote, so refuse BEFORE any
+  // network I/O — this also keeps the web-fallback tap latency unchanged for
+  // every unmapped network.
+  if (toOnramperNetworkCode(networkId) === undefined) {
     return false;
   }
 
@@ -63,7 +79,7 @@ export async function tryOpenHeadlessBuy({
     screen: EModalRoutes.FiatCryptoModal,
     params: {
       screen: EModalFiatCryptoRoutes.HeadlessBuy,
-      params: { networkId, accountId, tokenAddress, type: 'buy', token },
+      params: { networkId, accountId, tokenAddress, token },
     },
   });
   return true;

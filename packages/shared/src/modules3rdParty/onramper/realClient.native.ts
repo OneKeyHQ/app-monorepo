@@ -16,15 +16,33 @@ import type {
 // Onramper credentials. BOTH are required by the SDK's configure() — apiKey is
 // the publishable key (the hosted widget embeds the same key in its URL, it is
 // not the backend partner secret), clientId identifies the partner app.
-// Staging and production use different pairs.
-const ONRAMPER_CLIENT_ID = '01KJD2DBBGF9Q8G133QK2A3DC1';
-// TODO(onramper): fill with the staging publishable API key before device runs.
-const ONRAMPER_API_KEY = 'pk_test_01KWHMBRP4ABPB5DE4EB0CHNC6';
+// Staging and production use DIFFERENT pairs, so the pair is selected with the
+// same isDev switch as `environment` — a production build can never ship the
+// staging key by accident.
+const STAGING_CREDENTIALS = {
+  clientId: '01KJD2DBBGF9Q8G133QK2A3DC1',
+  apiKey: 'pk_test_01KWHMBRP4ABPB5DE4EB0CHNC6',
+};
+// TODO(onramper): fill once Onramper issues the production pair (post
+// Coinbase KYB). While empty, hasOnramperCredentials() keeps production
+// builds on the web widget instead of crashing at client creation.
+const PRODUCTION_CREDENTIALS = {
+  clientId: '',
+  apiKey: '',
+};
+
+function getCredentials() {
+  return platformEnv.isDev ? STAGING_CREDENTIALS : PRODUCTION_CREDENTIALS;
+}
+
+export function hasOnramperCredentials(): boolean {
+  const credentials = getCredentials();
+  return Boolean(credentials.apiKey && credentials.clientId);
+}
 
 export function getOnramperConfig(): IOnramperConfig {
   return {
-    apiKey: ONRAMPER_API_KEY,
-    clientId: ONRAMPER_CLIENT_ID,
+    ...getCredentials(),
     // The SDK only knows 'development' | 'production'; any other string is
     // silently coerced to production on the Swift side, so map dev builds to
     // 'development' explicitly (our staging session tokens only work there).

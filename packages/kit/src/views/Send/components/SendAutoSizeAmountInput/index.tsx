@@ -46,6 +46,24 @@ const AMOUNT_FONT_FAMILY = platformEnv.isNative
 // iOS-only hidden marker used to force a native prop delta without visible UI change.
 const IOS_FORCE_WRITE_BACK_MARKER = '\u200B';
 
+// Size token \u2192 the Skeleton variant whose total height matches that token's
+// lineHeight (the Skeleton statics are built on that contract).
+const VALUE_SIZE_SKELETONS: Record<
+  string,
+  (props: { children?: React.ReactNode }) => React.ReactNode
+> = {
+  '$bodySm': Skeleton.BodySm,
+  '$bodyMd': Skeleton.BodyMd,
+  '$bodyMdMedium': Skeleton.BodyMd,
+  '$bodyLg': Skeleton.BodyLg,
+  '$bodyLgMedium': Skeleton.BodyLg,
+  '$headingSm': Skeleton.HeadingSm,
+  '$headingMd': Skeleton.HeadingMd,
+  '$headingLg': Skeleton.HeadingLg,
+  '$headingXl': Skeleton.HeadingXl,
+  '$heading2xl': Skeleton.Heading2Xl,
+};
+
 const stripIOSForceWriteBackMarker = (text: string) =>
   text.replace(/\u200B/g, '');
 
@@ -408,9 +426,10 @@ function SendAutoSizeAmountInputComponent(
 
   const valueSize = valueProps?.size ?? '$headingLg';
   // Typography-matched: each Skeleton variant's total height equals the same
-  // token's lineHeight, so the loading toggle never shifts layout.
-  const valueLoadingSkeleton =
-    valueSize === '$bodyLg' ? <Skeleton.BodyLg /> : <Skeleton.HeadingLg />;
+  // token's lineHeight, so the loading toggle never shifts layout. Keep this
+  // map covering every size the prop accepts in practice.
+  const ValueSkeleton =
+    VALUE_SIZE_SKELETONS[valueSize as string] ?? Skeleton.HeadingLg;
 
   const amountInputNode = isLoading ? (
     <Stack py="$4">
@@ -493,7 +512,7 @@ function SendAutoSizeAmountInputComponent(
           })}
         >
           {valueProps?.loading ? (
-            valueLoadingSkeleton
+            <ValueSkeleton />
           ) : (
             <>
               <NumberSizeableText

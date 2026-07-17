@@ -281,17 +281,13 @@ export function useOnramperCheckout({
             message?: string;
             info?: Record<string, unknown>;
           };
-          defaultLogger.fiatCrypto.onramper.checkoutFailed({
-            ...logCtxRef.current,
+          // Same classification policy as the SDK's `failed` event —
+          // structural → web fallback, everything else retryable.
+          handleFailedRef.current({
             errorCode: err?.code,
+            message: err?.message,
+            info: err?.info,
           });
-          if (isStructuralOnramperError(err)) {
-            goWebFallback(err?.code);
-          } else {
-            setErrorMessage(getOnramperErrorMessage(err));
-            setErrorCode(err?.code);
-            setActionState(EBuyActionState.RetryableError);
-          }
         }
       })();
     }, DEBOUNCE_MS);

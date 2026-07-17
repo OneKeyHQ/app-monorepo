@@ -4,7 +4,10 @@ import { Platform } from 'react-native';
 import platformEnv from '../../platformEnv';
 
 import { createMockOnramperClient } from './mock';
-import { createRealOnramperClient } from './realClient.native';
+import {
+  createRealOnramperClient,
+  hasOnramperCredentials,
+} from './realClient.native';
 
 import type { ICreateOnramperClientParams, IOnramperClient } from './type';
 
@@ -18,6 +21,12 @@ const ONRAMPER_MIN_IOS = 16;
 
 export function canUseHeadless(): boolean {
   if (!platformEnv.isNativeIOS) {
+    return false;
+  }
+  // A build flavor without its credentials pair (production until the
+  // post-KYB key lands) must stay on the web widget — the real client throws
+  // at creation when credentials are missing.
+  if (!hasOnramperCredentials()) {
     return false;
   }
   const iosVersion = parseInt(String(Platform.Version), 10);
