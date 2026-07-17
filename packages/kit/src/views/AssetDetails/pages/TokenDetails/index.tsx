@@ -188,48 +188,54 @@ function TokenDetailsView() {
                 networkId: aggregateToken.networkId ?? '',
               }),
             ]);
-            if (!accountUtils.isOthersWallet({ walletId })) {
-              try {
-                const { accounts } =
-                  await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
-                    {
-                      indexedAccountIds: [indexedAccountId ?? ''],
-                      networkId: aggregateToken.networkId ?? '',
-                      deriveType: deriveType ?? 'default',
-                    },
-                  );
-                tokenAccountId = accounts[0]?.id ?? '';
-                tokenAccountAddress = accounts[0]?.address ?? '';
-              } catch {
-                tokenAccountId = undefined;
-                tokenAccountAddress = undefined;
+
+            // Skip networks this build no longer bundles: a stale
+            // aggregate-token cache persisted by an older app version may
+            // still reference delisted networks.
+            if (tokenNetwork) {
+              if (!accountUtils.isOthersWallet({ walletId })) {
+                try {
+                  const { accounts } =
+                    await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
+                      {
+                        indexedAccountIds: [indexedAccountId ?? ''],
+                        networkId: aggregateToken.networkId ?? '',
+                        deriveType: deriveType ?? 'default',
+                      },
+                    );
+                  tokenAccountId = accounts[0]?.id ?? '';
+                  tokenAccountAddress = accounts[0]?.address ?? '';
+                } catch {
+                  tokenAccountId = undefined;
+                  tokenAccountAddress = undefined;
+                }
               }
-            }
 
-            const originalToken = aggregateTokensParam?.find(
-              (t) =>
-                t.address === aggregateToken.address &&
-                t.networkId === aggregateToken.networkId,
-            );
+              const originalToken = aggregateTokensParam?.find(
+                (t) =>
+                  t.address === aggregateToken.address &&
+                  t.networkId === aggregateToken.networkId,
+              );
 
-            if (originalToken) {
-              aggregateTokens.push({
-                ...originalToken,
-                accountId: originalToken.accountId ?? tokenAccountId ?? '',
-                networkShortName: tokenNetwork?.shortname ?? '',
-              });
-            } else {
-              aggregateTokens.push({
-                ...aggregateToken,
-                accountId: tokenAccountId ?? '',
-                networkName: tokenNetwork?.name ?? '',
-                networkShortName: tokenNetwork?.shortname ?? '',
-                $key: buildTokenListMapKey({
-                  networkId: aggregateToken.networkId ?? '',
-                  accountAddress: tokenAccountAddress ?? '',
-                  tokenAddress: aggregateToken.address ?? '',
-                }),
-              });
+              if (originalToken) {
+                aggregateTokens.push({
+                  ...originalToken,
+                  accountId: originalToken.accountId ?? tokenAccountId ?? '',
+                  networkShortName: tokenNetwork.shortname,
+                });
+              } else {
+                aggregateTokens.push({
+                  ...aggregateToken,
+                  accountId: tokenAccountId ?? '',
+                  networkName: tokenNetwork.name,
+                  networkShortName: tokenNetwork.shortname,
+                  $key: buildTokenListMapKey({
+                    networkId: aggregateToken.networkId ?? '',
+                    accountAddress: tokenAccountAddress ?? '',
+                    tokenAddress: aggregateToken.address ?? '',
+                  }),
+                });
+              }
             }
           }
         }

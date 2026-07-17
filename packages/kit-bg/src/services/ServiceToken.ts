@@ -5,7 +5,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  getListedNetworkMap,
+  getNetworkIdsMap,
+} from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import {
@@ -1383,8 +1386,23 @@ class ServiceToken extends ServiceBase {
   public async getAllAggregateTokenInfo() {
     const rawData =
       await this.backgroundApi.simpleDb.aggregateToken.getRawData();
+    // Drop tokens on networks this build no longer bundles: the cached wallet
+    // config may have been persisted by an older app version whose preset
+    // network list included networks that were delisted since.
+    const listedNetworkMap = getListedNetworkMap();
+    const allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }> =
+      {};
+    Object.entries(rawData?.allAggregateTokenMap ?? {}).forEach(
+      ([key, value]) => {
+        allAggregateTokenMap[key] = {
+          tokens: value.tokens.filter(
+            (token) => token.networkId && listedNetworkMap[token.networkId],
+          ),
+        };
+      },
+    );
     return {
-      allAggregateTokenMap: rawData?.allAggregateTokenMap ?? {},
+      allAggregateTokenMap,
       allAggregateTokens: rawData?.allAggregateTokens ?? [],
     };
   }

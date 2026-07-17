@@ -981,6 +981,10 @@ class ServiceSetting extends ServiceBase {
         homeDefaultTokenMap,
         allAggregateTokenMap,
         aggregateTokenSymbolMap,
+        configSyncMeta: {
+          appVersion: platformEnv.version ?? '',
+          syncedAt: Date.now(),
+        },
       }),
       this.backgroundApi.simpleDb.approval.updateApprovalResurfaceDaysConfig({
         approvalResurfaceDays,
@@ -989,6 +993,37 @@ class ServiceSetting extends ServiceBase {
     ]);
 
     return aggregateTokenConfigMap;
+  }
+
+  _syncWalletConfigIfNeededPromise: Promise<void> | undefined;
+
+  @backgroundMethod()
+  public async syncWalletConfigIfNeeded() {
+    if (this._syncWalletConfigIfNeededPromise) {
+      return this._syncWalletConfigIfNeededPromise;
+    }
+    this._syncWalletConfigIfNeededPromise = (async () => {
+      const rawData =
+        await this.backgroundApi.simpleDb.aggregateToken.getRawData();
+      const configSyncMeta = rawData?.configSyncMeta;
+      const appVersion = platformEnv.version ?? '';
+      // Re-sync when the config has never been synced, when the app version
+      // changed (the bundled preset network list may differ, leaving stale
+      // networks in the cached aggregate-token maps), or when the cache is
+      // older than the TTL.
+      const shouldSync =
+        !rawData?.aggregateTokenConfigMap ||
+        !configSyncMeta ||
+        configSyncMeta.appVersion !== appVersion ||
+        Date.now() - configSyncMeta.syncedAt >
+          timerUtils.getTimeDurationMs({ day: 1 });
+      if (shouldSync) {
+        await this.syncWalletConfig();
+      }
+    })().finally(() => {
+      this._syncWalletConfigIfNeededPromise = undefined;
+    });
+    return this._syncWalletConfigIfNeededPromise;
   }
 
   @backgroundMethod()
