@@ -21,10 +21,11 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import {
   TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT,
   TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
-} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewNativeChartControls';
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewV2ChartControls';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -39,6 +40,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../MarketWatchListProviderMirrorV2';
+import { MarketTestIDs } from '../../testIDs';
 import { InformationPanel } from '../components/InformationPanel/InformationPanel';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
@@ -48,6 +50,7 @@ import {
   useMarketTradingViewParams,
   useTokenDetail,
 } from '../hooks/useTokenDetail';
+import { useTradingViewNativeInMarketDetail } from '../hooks/useTradingViewNativeInMarketDetail';
 
 import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
 import type { SwapPanel } from '../components/SwapPanel/SwapPanel';
@@ -206,17 +209,26 @@ function MobileMarketTradingView({
 
 export interface IMobileLayoutProps {
   disableTrade?: boolean;
+  networkId?: string;
+  tokenAddress?: string;
 }
 
-export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
+export function MobileLayout({
+  disableTrade,
+  networkId: routeNetworkId = '',
+  tokenAddress: routeTokenAddress = '',
+}: IMobileLayoutProps) {
   const {
-    tokenAddress,
-    networkId,
+    tokenAddress: storeTokenAddress,
+    networkId: storeNetworkId,
     tokenDetail,
     isNative,
     websocketConfig,
     isStockToken,
   } = useTokenDetail();
+  const useTradingViewNative = useTradingViewNativeInMarketDetail();
+  const networkId = storeNetworkId || routeNetworkId;
+  const tokenAddress = storeNetworkId ? storeTokenAddress : routeTokenAddress;
   const tokenSymbol = tokenDetail?.symbol;
   const marketTradingViewParams = useMarketTradingViewParams({
     tokenAddress,
@@ -225,13 +237,20 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
     isNative,
     websocketConfig,
   });
-  const marketTradingViewKey = marketTradingViewParams
-    ? [
-        marketTradingViewParams.networkId,
-        marketTradingViewParams.tokenAddress,
-        marketTradingViewParams.tokenSymbol,
-      ].join(':')
-    : '';
+  let marketTradingViewKey = 'v2';
+  if (useTradingViewNative) {
+    marketTradingViewKey = ['native', networkId, tokenAddress].join(':');
+  } else if (marketTradingViewParams) {
+    marketTradingViewKey = [
+      'v2',
+      marketTradingViewParams.networkId,
+      marketTradingViewParams.tokenAddress,
+      marketTradingViewParams.tokenSymbol,
+    ].join(':');
+  }
+  const defaultSubIndicatorCount = useTradingViewNative
+    ? 0
+    : MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT;
   const intl = useIntl();
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
 
@@ -296,14 +315,14 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
   const [tradingViewSubIndicatorState, setTradingViewSubIndicatorState] =
     useState(() => ({
       key: marketTradingViewKey,
-      count: MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT,
+      count: defaultSubIndicatorCount,
     }));
   const activeMarketTradingViewKeyRef = useRef(marketTradingViewKey);
   activeMarketTradingViewKeyRef.current = marketTradingViewKey;
   const tradingViewSubIndicatorCount =
     tradingViewSubIndicatorState.key === marketTradingViewKey
       ? tradingViewSubIndicatorState.count
-      : MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT;
+      : defaultSubIndicatorCount;
   const isTradingViewScrollLocked =
     isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;
   const secondTabTouchStartRef = useRef<{
@@ -354,7 +373,10 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
   useEffect(() => {
     setIsTradingViewIndicatorsDialogOpen(false);
     setIsTradingViewInteractionOverlayOpen(false);
-  }, [networkId, tokenAddress, tokenSymbol]);
+    if (useTradingViewNative) {
+      setNativeIndicatorQuickBar(null);
+    }
+  }, [networkId, tokenAddress, tokenSymbol, useTradingViewNative]);
 
   const handleIndicatorsDialogOpenChange = useCallback((isOpen: boolean) => {
     setIsTradingViewIndicatorsDialogOpen(isOpen);
@@ -376,7 +398,7 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
 
       const nextCount =
         count === null
-          ? MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT
+          ? defaultSubIndicatorCount
           : normalizeTradingViewSubIndicatorCount(count);
       setTradingViewSubIndicatorState((prevState) =>
         prevState.key === marketTradingViewKey && prevState.count === nextCount
@@ -384,7 +406,7 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
           : { key: marketTradingViewKey, count: nextCount },
       );
     },
-    [marketTradingViewKey],
+    [defaultSubIndicatorCount, marketTradingViewKey],
   );
 
   const handleHeaderHorizontalSwipe = useCallback(
@@ -470,11 +492,14 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
   );
 
   const informationHeader = useMemo(() => {
-    const chartAreaHorizontalSwipeHandler = platformEnv.isNativeAndroid
-      ? undefined
-      : handleHeaderHorizontalSwipe;
+    const chartAreaHorizontalSwipeHandler =
+      useTradingViewNative || platformEnv.isNativeAndroid
+        ? undefined
+        : handleHeaderHorizontalSwipe;
     const chartAreaPanFailOffsetX: [number, number] =
-      platformEnv.isNativeAndroid ? [-12, 12] : [-40, 40];
+      useTradingViewNative || platformEnv.isNativeAndroid
+        ? [-12, 12]
+        : [-40, 40];
     const chartAreaExcludeRightEdgeRatio = platformEnv.isNativeAndroid
       ? 0.16
       : 0.1;
@@ -502,6 +527,7 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
               TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
             }
             scrollScale={1.2}
+            verticalPanMaxPointers={useTradingViewNative ? 1 : undefined}
             onHorizontalSwipe={chartAreaHorizontalSwipeHandler}
             horizontalSwipeThreshold={24}
             horizontalSwipeVelocityThreshold={900}
@@ -510,9 +536,27 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
           >
             <Stack h={tradingViewChartHeight} overflow="hidden">
               {(() => {
+                if (useTradingViewNative) {
+                  return networkId ? (
+                    <TradingViewNative
+                      key={marketTradingViewKey}
+                      testID={MarketTestIDs.detailChart}
+                      tokenAddress={tokenAddress}
+                      networkId={networkId}
+                      symbol={tokenSymbol ?? ''}
+                      decimal={tokenDetail?.decimals ?? 8}
+                      nativeControlsLayoutMode="mobile"
+                      onNativeSubIndicatorCountChange={
+                        handleNativeSubIndicatorCountChange
+                      }
+                    />
+                  ) : null;
+                }
+
                 if (!marketTradingViewParams) {
                   return null;
                 }
+
                 if (platformEnv.isNativeAndroid || platformEnv.isNativeIOS) {
                   return (
                     <MobileMarketTradingView
@@ -576,7 +620,12 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
     marketTradingViewKey,
     marketTradingViewParams,
     nativeIndicatorQuickBar,
+    networkId,
+    tokenAddress,
+    tokenDetail?.decimals,
+    tokenSymbol,
     tradingViewChartHeight,
+    useTradingViewNative,
   ]);
 
   const renderInformationHeader = useCallback(
