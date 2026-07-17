@@ -479,6 +479,32 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     case body
   }
 
+  private final class VerticalMomentumHandoff {
+    let source: HomeContainerPageView
+    let initialVelocity: CGFloat
+    let decelerationRate: CGFloat
+    let initialBodyOffset: CGFloat
+    let initialOuterOffset: CGFloat
+    let maximumTravel: CGFloat
+    var startTimestamp: CFTimeInterval?
+
+    init(
+      source: HomeContainerPageView,
+      initialVelocity: CGFloat,
+      decelerationRate: CGFloat,
+      initialBodyOffset: CGFloat,
+      initialOuterOffset: CGFloat,
+      maximumTravel: CGFloat
+    ) {
+      self.source = source
+      self.initialVelocity = initialVelocity
+      self.decelerationRate = decelerationRate
+      self.initialBodyOffset = initialBodyOffset
+      self.initialOuterOffset = initialOuterOffset
+      self.maximumTravel = maximumTravel
+    }
+  }
+
   var onAction: ((String, String, String) -> Void)?
   var onRefresh: ((String, String) -> Void)?
   var onVisibleTabChange: ((String) -> Void)?
@@ -510,9 +536,18 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private var isCoordinatingNestedScroll = false
   private var verticalScrollOwner = VerticalScrollOwner.header
   private var isVerticalGestureActive = false
+  private var verticalMomentumHandoff: VerticalMomentumHandoff?
+  private var verticalMomentumDisplayLink: CADisplayLink?
 
   private var maximumHeaderOffset: CGFloat {
     max(0, headerHeight - HomeContainerMetrics.compactHeaderHeight)
+  }
+
+  private var supportsNativeVerticalScrollTransfer: Bool {
+    if #available(iOS 17.4, *) {
+      return true
+    }
+    return false
   }
 
   override init(frame: CGRect) {
@@ -729,6 +764,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     lifecycleLock.lock()
     disposed = true
     lifecycleLock.unlock()
+    DispatchQueue.main.async { [weak self] in
+      self?.stopVerticalMomentumHandoff()
+    }
   }
 
   private func applySnapshot(_ next: HomeContainerSnapshot) {
@@ -819,6 +857,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     }
     page.onEndDragging = { [weak self] source in
       self?.endVerticalGesture(source: source)
+    }
+    page.onWillEndDragging = { [weak self] source, velocityY in
+      self?.beginVerticalMomentumHandoff(source: source, velocityY: velocityY) ?? false
     }
     page.onSlotLayoutChange = { [weak self] in
       self?.slotLayoutDidChange?()
@@ -945,7 +986,11 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
         refreshControl.isEnabled = false
       }
     case .body:
-      if page.bodyContentOffset <= 0.5, velocityY > 0 {
+      let receivedNativeTransfer = supportsNativeVerticalScrollTransfer &&
+        page.bodyContentOffset <= 0.5 &&
+        targetOffset < maximumOffset - 0.5
+      if page.bodyContentOffset <= 0.5,
+         velocityY > 0 || receivedNativeTransfer {
         verticalScrollOwner = .header
         refreshControl.isEnabled = refreshEnabled
         targetOffset = min(targetOffset, maximumOffset)
@@ -993,6 +1038,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   private func beginVerticalGesture(source: HomeContainerPageView) {
+    stopVerticalMomentumHandoff()
     guard source.tabId == selectedTabId, !isVerticalGestureActive else { return }
     isVerticalGestureActive = true
     let maximumOffset = maximumHeaderOffset
@@ -1023,6 +1069,82 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       verticalScrollOwner = .header
     }
     refreshControl.isEnabled = refreshEnabled && verticalScrollOwner == .header
+  }
+
+  private func beginVerticalMomentumHandoff(
+    source: HomeContainerPageView,
+    velocityY: CGFloat
+  ) -> Bool {
+    guard supportsNativeVerticalScrollTransfer,
+          source.tabId == selectedTabId,
+          verticalScrollOwner == .body,
+          velocityY > 80 else { return false }
+
+    let bodyOffset = max(0, source.bodyContentOffset)
+    let outerOffset = max(0, min(outerScrollView.contentOffset.y, maximumHeaderOffset))
+    guard bodyOffset > 0.5, outerOffset > 0.5 else { return false }
+
+    let rate = source.bodyDecelerationRate
+    let projectedTravel = velocityY / 1_000 * rate / (1 - rate)
+    guard projectedTravel > bodyOffset + 0.5 else { return false }
+
+    stopVerticalMomentumHandoff()
+    let handoff = VerticalMomentumHandoff(
+      source: source,
+      initialVelocity: velocityY,
+      decelerationRate: rate,
+      initialBodyOffset: bodyOffset,
+      initialOuterOffset: outerOffset,
+      maximumTravel: min(projectedTravel, bodyOffset + outerOffset)
+    )
+    verticalMomentumHandoff = handoff
+    let displayLink = CADisplayLink(target: self, selector: #selector(stepVerticalMomentumHandoff))
+    verticalMomentumDisplayLink = displayLink
+    displayLink.add(to: .main, forMode: .common)
+    return true
+  }
+
+  @objc private func stepVerticalMomentumHandoff(_ displayLink: CADisplayLink) {
+    guard let handoff = verticalMomentumHandoff,
+          handoff.source.tabId == selectedTabId else {
+      stopVerticalMomentumHandoff()
+      return
+    }
+    if handoff.startTimestamp == nil {
+      handoff.startTimestamp = displayLink.timestamp
+    }
+    let elapsedMilliseconds = max(
+      0,
+      (displayLink.timestamp - (handoff.startTimestamp ?? displayLink.timestamp)) * 1_000
+    )
+    let decay = pow(handoff.decelerationRate, elapsedMilliseconds)
+    let projectedTravel = handoff.initialVelocity / 1_000 *
+      handoff.decelerationRate * (1 - decay) / (1 - handoff.decelerationRate)
+    let travel = min(handoff.maximumTravel, projectedTravel)
+    let nextBodyOffset = max(0, handoff.initialBodyOffset - travel)
+    let outerTravel = max(0, travel - handoff.initialBodyOffset)
+    let nextOuterOffset = max(0, handoff.initialOuterOffset - outerTravel)
+
+    isCoordinatingNestedScroll = true
+    handoff.source.setBodyContentOffset(nextBodyOffset)
+    outerScrollView.contentOffset.y = nextOuterOffset
+    isCoordinatingNestedScroll = false
+    if nextBodyOffset <= 0.5 {
+      verticalScrollOwner = .header
+    }
+    refreshControl.isEnabled = refreshEnabled && verticalScrollOwner == .header
+    updateSharedChromeLayout()
+
+    let currentVelocity = handoff.initialVelocity * decay
+    if travel >= handoff.maximumTravel - 0.5 || currentVelocity < 15 {
+      stopVerticalMomentumHandoff()
+    }
+  }
+
+  private func stopVerticalMomentumHandoff() {
+    verticalMomentumDisplayLink?.invalidate()
+    verticalMomentumDisplayLink = nil
+    verticalMomentumHandoff = nil
   }
 
   @objc private func refreshRequested() {
@@ -1059,6 +1181,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   var onContentOffsetChange: ((HomeContainerPageView) -> Void)?
   var onBeginDragging: ((HomeContainerPageView) -> Void)?
   var onEndDragging: ((HomeContainerPageView) -> Void)?
+  var onWillEndDragging: ((HomeContainerPageView, CGFloat) -> Bool)?
   var onSlotLayoutChange: (() -> Void)?
 
   private let tableView = HomeContainerNestedTableView(frame: .zero, style: .plain)
@@ -1079,6 +1202,10 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     tableView.panGestureRecognizer.velocity(in: tableView).y
   }
 
+  var bodyDecelerationRate: CGFloat {
+    tableView.decelerationRate.rawValue
+  }
+
   init(tabId: String) {
     self.tabId = tabId
     super.init(frame: .zero)
@@ -1088,6 +1215,10 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     tableView.alwaysBounceVertical = false
     tableView.bounces = false
     tableView.contentInsetAdjustmentBehavior = .never
+    if #available(iOS 17.4, *) {
+      // Keep UIKit edge transfer enabled alongside the coordinated momentum handoff.
+      tableView.transfersVerticalScrollingToParent = true
+    }
     tableView.contentInset.bottom = 112
     tableView.verticalScrollIndicatorInsets.bottom = 112
     tableView.delegate = self
@@ -1401,6 +1532,17 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
 
   func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
     onBeginDragging?(self)
+  }
+
+  func scrollViewWillEndDragging(
+    _ scrollView: UIScrollView,
+    withVelocity velocity: CGPoint,
+    targetContentOffset: UnsafeMutablePointer<CGPoint>
+  ) {
+    guard onWillEndDragging?(self, -velocity.y) == true else { return }
+    // iOS 17.4+ uses one deceleration timeline across the body and header.
+    // Older releases retain UIKit's existing per-scroll-view behavior.
+    targetContentOffset.pointee = tableView.contentOffset
   }
 
   func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
