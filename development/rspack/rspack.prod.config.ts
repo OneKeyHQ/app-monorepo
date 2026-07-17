@@ -27,14 +27,17 @@ const WEB_RETRY_CHUNK_LOAD_DELAY_CODE =
 interface IProdConfigOptions {
   platform: string;
   basePath: string;
+  dropConsole?: boolean;
 }
 
 export function createProductionConfig({
   platform,
   basePath,
+  dropConsole,
 }: IProdConfigOptions): RspackOptions {
   const isExt = platform === developmentConsts.platforms.ext;
   const isWeb = platform === developmentConsts.platforms.web;
+  const shouldDropConsole = dropConsole ?? isWeb;
   const rootPath = isExt
     ? path.join(basePath, 'build', getOutputFolder())
     : path.join(basePath, 'web-build');
@@ -67,9 +70,9 @@ export function createProductionConfig({
         new rspack.SwcJsMinimizerRspackPlugin({
           minimizerOptions: {
             compress: {
-              // web prod parity with babel-plugin-transform-remove-console.
-              // ext console output is preserved (guard is web-only).
-              drop_console: isWeb,
+              // Preserve the platform's webpack production behavior. Extension
+              // console output remains enabled unless explicitly overridden.
+              drop_console: shouldDropConsole,
             },
             mangle: {
               keep_classnames: true,
@@ -80,17 +83,16 @@ export function createProductionConfig({
       ],
       splitChunks: {
         chunks: 'all',
-        minSize: 102_400,
+        minSize: isWeb ? 153_600 : 102_400,
         maxSize: isWeb ? 614_400 : 4_194_304,
         hidePathInfo: true,
         automaticNameDelimiter: '.',
         name: false,
-        maxInitialRequests: isWeb ? 60 : 20,
+        maxInitialRequests: 20,
         maxAsyncRequests: 50_000,
         // Vendor cache groups for long-term caching (web/desktop only).
-        // Extension uses its own code splitting via HtmlWebpackPlugin chunks,
-        // and named vendor chunks would NOT be included in ext HTML files,
-        // breaking the extension UI in production.
+        // Extension compiler domains add their cache groups after this shared
+        // production config is merged.
         cacheGroups: isExt
           ? {}
           : {

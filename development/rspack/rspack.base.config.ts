@@ -140,12 +140,14 @@ interface IBaseResolveOptions {
   platform: string;
   configName?: string;
   basePath: string;
+  enableSentryMinimalCompat: boolean;
 }
 
 const baseResolve = ({
   platform,
   configName,
   basePath,
+  enableSentryMinimalCompat,
 }: IBaseResolveOptions): RspackOptions['resolve'] => ({
   mainFields: ['browser', 'module', 'main'],
   aliasFields: ['browser', 'module', 'main'],
@@ -189,6 +191,14 @@ const baseResolve = ({
       basePath,
       '../../node_modules/@react-aria/utils/src/index.ts',
     ),
+    ...(enableSentryMinimalCompat
+      ? {
+          '@sentry/minimal$': path.join(
+            __dirname,
+            '../module-resolver/sentry-minimal-compat',
+          ),
+        }
+      : {}),
     'bn.js$': require.resolve('bn.js'),
   },
   fallback: {
@@ -314,25 +324,32 @@ function buildCssLoaders(platform: string) {
   ];
 }
 
-const buildBaseExperiments: (
+const buildBaseExperiments: () => RspackOptions['experiments'] = () => ({
+  asyncWebAssembly: true,
+});
+
+const buildBaseCache: (
   basePath: string,
   configName?: string,
-) => RspackOptions['experiments'] = (basePath, configName) => ({
-  cache: {
-    type: 'persistent',
-    storage: {
-      type: 'filesystem',
-      // Use separate cache directories for each config to avoid conflicts
-      // in multi-config builds (ext has 5 parallel configs)
-      directory: path.join(
-        basePath,
-        'node_modules/.cache/rspack',
-        configName || 'default',
-      ),
-    },
+) => RspackOptions['cache'] = (basePath, configName) => ({
+  type: 'persistent',
+  // The CLI only auto-tracks the app-level rspack.config.ts as a build
+  // dependency, so edits to these imported config modules would otherwise
+  // never invalidate warm persistent caches.
+  buildDependencies: fs
+    .readdirSync(__dirname)
+    .filter((file) => file.endsWith('.ts'))
+    .map((file) => path.join(__dirname, file)),
+  storage: {
+    type: 'filesystem',
+    // Use separate cache directories for each compiler domain to avoid
+    // persistent cache conflicts in multi-config builds.
+    directory: path.join(
+      basePath,
+      'node_modules/.cache/rspack',
+      configName || 'default',
+    ),
   },
-  asyncWebAssembly: true,
-  incremental: true,
 });
 
 const basePerformance: RspackOptions['performance'] = {
@@ -344,12 +361,22 @@ interface IBaseConfigOptions {
   platform: string;
   basePath: string;
   configName?: string;
+  target?: RspackOptions['target'];
+  swcTargets?: string | Record<string, string>;
+  enableImportMetaCompat?: boolean;
+  enableSentryMinimalCompat?: boolean;
+  transpileDependencies?: RegExp[];
 }
 
 export function createBaseConfig({
   platform,
   basePath,
   configName,
+  target = ['web'],
+  swcTargets = 'defaults',
+  enableImportMetaCompat = false,
+  enableSentryMinimalCompat = false,
+  transpileDependencies = [],
 }: IBaseConfigOptions): RspackOptions {
   // platformEnv.* folding (mirrors webpack babel transform-define). Applied in
   // the first-party babel-loader pass below.
@@ -365,7 +392,7 @@ export function createBaseConfig({
     entry: path.join(basePath, 'index.js'),
     context: path.resolve(basePath),
     bail: false,
-    target: ['web'],
+    target,
     watchOptions: {
       aggregateTimeout: 5,
       ignored: [
@@ -377,11 +404,35 @@ export function createBaseConfig({
         '**/.#*',
       ],
     },
-    // Build logs stay quiet ('errors-warnings'), but `--json` reuses this same
-    // stats config, and 'errors-warnings' (all:false) omits assets/chunks — so
-    // the bundle-size diff CI job would see an empty stats.json. The `stats:web`
-    // script sets RSPACK_FULL_STATS=1 to emit a full preset for the JSON path.
-    stats: process.env.RSPACK_FULL_STATS === '1' ? 'normal' : 'errors-warnings',
+    // Build logs stay quiet, while JSON stats retain the module-to-chunk graph
+    // needed for bundle-size audits. Rspack's `normal` preset is string-output
+    // oriented and omits assets, chunks, and modules from `toJson()`.
+    stats:
+      process.env.RSPACK_FULL_STATS === '1'
+        ? {
+            all: false,
+            assets: true,
+            builtAt: true,
+            cachedModules: true,
+            chunkGroups: true,
+            chunkRelations: true,
+            chunks: true,
+            children: true,
+            entrypoints: true,
+            errors: true,
+            errorsCount: true,
+            hash: true,
+            ids: true,
+            modules: true,
+            outputPath: true,
+            publicPath: true,
+            source: false,
+            timings: true,
+            version: true,
+            warnings: true,
+            warningsCount: true,
+          }
+        : 'errors-warnings',
     infrastructureLogging: { debug: false, level: 'none' },
     output: {
       publicPath: publicUrl || '/',
@@ -437,6 +488,15 @@ export function createBaseConfig({
       ...buildBasePlugins(platform, basePath).filter(Boolean),
     ],
     module: {
+      // Webpack used strictExportPresence=false. Keep the same behavior for
+      // native-only React Native exports that are guarded by platformEnv.
+      parser: {
+        javascript: {
+          exportsPresence: false,
+          importExportsPresence: false,
+          reexportExportsPresence: false,
+        },
+      },
       rules: [
         // `.text-js` = JS source imported as a RAW STRING (default export = the
         // file contents), matching babel-plugin-inline-import in the webpack
@@ -487,7 +547,7 @@ export function createBaseConfig({
         // Reanimated files need babel-loader with worklets plugin
         {
           test: /\.(js|mjs|jsx|ts|tsx)$/,
-          include: [/react-native-reanimated/],
+          include: [/node_modules[\\/].*react-native-reanimated/],
           use: [
             {
               loader: 'builtin:swc-loader',
@@ -511,7 +571,7 @@ export function createBaseConfig({
                 },
                 isModule: 'unknown',
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
               },
             },
@@ -554,21 +614,19 @@ export function createBaseConfig({
                 },
                 isModule: 'unknown',
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
                 // lodash cherry-pick, mirrors babel-plugin-import in the webpack
                 // chain (`import { x } from 'lodash'` -> `import x from 'lodash/x'`).
                 // camelToDashComponentName:false mirrors camel2DashComponentName:false.
-                rspackExperiments: {
-                  import: [
-                    {
-                      libraryName: 'lodash',
-                      customName: 'lodash/{{ member }}',
-                      camelToDashComponentName: false,
-                      transformToDefaultImport: true,
-                    },
-                  ],
-                },
+                transformImport: [
+                  {
+                    libraryName: 'lodash',
+                    customName: 'lodash/{{ member }}',
+                    camelToDashComponentName: false,
+                    transformToDefaultImport: true,
+                  },
+                ],
               },
             },
             {
@@ -580,6 +638,7 @@ export function createBaseConfig({
                   ['@babel/preset-typescript', { allowDeclareFields: true }],
                 ],
                 plugins: [
+                  '@babel/plugin-syntax-jsx',
                   ...(platform === 'web'
                     ? [
                         path.join(
@@ -614,8 +673,16 @@ export function createBaseConfig({
           ],
           resolve: { fullySpecified: false },
         },
+        // Vendor-transpile rules below require a node_modules segment BEFORE the
+        // package-name substring on purpose: a fully unanchored regex matches
+        // the absolute path, and on EAS build machines the checkout lives under
+        // /Users/expo/, so a bare /(@?expo-*)/ matched EVERY first-party file
+        // and chained an swc pass without decorator support ("Unexpected token
+        // `@`"). Keep the substring semantics after node_modules — packages
+        // like @onekeyfe/react-native-text-input (scoped, raw .ts sources)
+        // rely on it to get transpiled at all.
         {
-          test: /(@?react-(navigation|native)).*\.(ts|js)x?$/,
+          test: /node_modules[\\/].*(@?react-(navigation|native)).*\.(ts|js)x?$/,
 
           use: [
             {
@@ -640,18 +707,51 @@ export function createBaseConfig({
                 },
                 isModule: 'unknown',
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
               },
             },
           ],
           resolve: { fullySpecified: false },
         },
+        ...(transpileDependencies.length > 0
+          ? [
+              {
+                test: /\.(c|m)?(js|jsx)$/,
+                include: transpileDependencies,
+                loader: 'builtin:swc-loader',
+                options: {
+                  jsc: {
+                    parser: {
+                      syntax: 'ecmascript',
+                      jsx: true,
+                    },
+                    transform: {
+                      react: {
+                        runtime: 'automatic',
+                        development: isDev,
+                        refresh: isDev,
+                      },
+                    },
+                    externalHelpers: true,
+                    experimental: {
+                      cacheRoot: path.join(basePath, 'node_modules/.cache/swc'),
+                    },
+                  },
+                  isModule: 'unknown',
+                  env: {
+                    targets: swcTargets,
+                  },
+                },
+                resolve: { fullySpecified: false },
+              },
+            ]
+          : []),
         {
           test: [
-            /(@?expo-*).*\.(c|m)?(ts|js)x?$/,
-            /(@?set-interval-async).*\.(c|m)?(ts|js)x?$/,
-            /(@?react-aria).*\.(c|m)?(ts|js)x?$/,
+            /node_modules[\\/].*(@?expo-*).*\.(c|m)?(ts|js)x?$/,
+            /node_modules[\\/].*(@?set-interval-async).*\.(c|m)?(ts|js)x?$/,
+            /node_modules[\\/].*(@?react-aria).*\.(c|m)?(ts|js)x?$/,
           ],
 
           use: [
@@ -677,7 +777,7 @@ export function createBaseConfig({
                 },
                 isModule: 'unknown',
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
               },
             },
@@ -685,11 +785,11 @@ export function createBaseConfig({
           resolve: { fullySpecified: false },
         },
         {
-          test: /@onekeyfe[\\/]bitcoinforksjs-lib.*\.(ts|js)x?$/,
+          test: /node_modules[\\/].*@onekeyfe[\\/]bitcoinforksjs-lib.*\.(ts|js)x?$/,
           resolve: { fullySpecified: false },
         },
         {
-          test: /lru-cache.*\.(ts|js)x?$/,
+          test: /node_modules[\\/].*lru-cache.*\.(ts|js)x?$/,
           use: [
             {
               loader: 'builtin:swc-loader',
@@ -709,13 +809,21 @@ export function createBaseConfig({
                   noInterop: false,
                 },
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
               },
             },
           ],
           resolve: { fullySpecified: false },
         },
+        ...(enableImportMetaCompat
+          ? [
+              {
+                test: /node_modules[\\/].*@polkadot/,
+                loader: require.resolve('@open-wc/webpack-import-meta-loader'),
+              },
+            ]
+          : []),
         {
           test: /\.(css)$/,
           use: buildCssLoaders(platform),
@@ -741,14 +849,21 @@ export function createBaseConfig({
         },
       ],
     },
-    resolve: baseResolve({ platform, configName, basePath }),
+    resolve: baseResolve({
+      platform,
+      configName,
+      basePath,
+      enableSentryMinimalCompat,
+    }),
     resolveLoader: {
       alias: {
         'worker-loader': require.resolve('worker-rspack-loader'),
       },
     },
     lazyCompilation: false,
-    experiments: buildBaseExperiments(basePath, configName),
+    incremental: true,
+    cache: buildBaseCache(basePath, configName),
+    experiments: buildBaseExperiments(),
     performance: basePerformance,
     optimization: {
       splitChunks: {

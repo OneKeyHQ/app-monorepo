@@ -118,6 +118,7 @@ export type IEarnWithdrawApproveInfo = {
   approveTarget?: string;
   tokenAddress?: string;
   allowance?: string;
+  receiptTokenRate?: string;
 };
 
 export type IStakeProviderInfo = {

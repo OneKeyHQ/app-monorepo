@@ -43,6 +43,7 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
+  useSwapActiveSelectedFromTokenBalanceAtom,
   useSwapAlertsAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
@@ -59,7 +60,6 @@ import {
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
   useSwapSlippageOverrideAtom,
@@ -71,6 +71,7 @@ import {
   SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
   getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
+  isSwapNoProviderSupportsTrade,
   isSwapQuoteEventFetching,
   isSwapQuoteInputAmountMatched,
   isSwapZeroProviderQuoteCompleted,
@@ -95,7 +96,7 @@ function useSwapWarningCheck() {
   const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+  const [fromTokenBalance] = useSwapActiveSelectedFromTokenBalanceAtom();
   const { checkSwapWarning } = useSwapActions().current;
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [accountSelectorStorageInitDone] =
@@ -401,7 +402,8 @@ export function useSwapActionState() {
     useSwapQuoteApproveAllowanceUnLimitAtom();
   useSwapWarningCheck();
   const [alerts] = useSwapAlertsAtom();
-  const [selectedFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+  const [selectedFromTokenBalance] =
+    useSwapActiveSelectedFromTokenBalanceAtom();
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
@@ -470,28 +472,39 @@ export function useSwapActionState() {
     swapTypeSwitchValue,
     toTokenAmount.value,
   ]);
+  // Pair identity must match the quote ingestion path, which accepts quotes
+  // via equalTokenNoCaseSensitive (e.g. checksum vs lowercase EVM contract
+  // addresses); a raw !== compare would flag those quotes as a stale pair.
+  const quoteResultPairNoMatch = useMemo(
+    () =>
+      Boolean(
+        quoteCurrentSelect &&
+        !(
+          equalTokenNoCaseSensitive({
+            token1: quoteCurrentSelect.fromTokenInfo,
+            token2: fromToken,
+          }) &&
+          equalTokenNoCaseSensitive({
+            token1: quoteCurrentSelect.toTokenInfo,
+            token2: toToken,
+          })
+        ),
+      ),
+    [fromToken, quoteCurrentSelect, toToken],
+  );
   const quoteResultNoMatch = useMemo(
     () =>
-      (quoteCurrentSelect &&
-        (quoteCurrentSelect.fromTokenInfo.networkId !== fromToken?.networkId ||
-          quoteCurrentSelect.toTokenInfo.networkId !== toToken?.networkId ||
-          quoteCurrentSelect.fromTokenInfo.contractAddress !==
-            fromToken?.contractAddress ||
-          quoteCurrentSelect.toTokenInfo.contractAddress !==
-            toToken?.contractAddress)) ||
+      quoteResultPairNoMatch ||
       quoteInputAmountNoMatch ||
       (quoteCurrentSelect?.protocol !== EProtocolOfExchange.LIMIT &&
         quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
         quoteCurrentSelect?.allowanceResult &&
         quoteCurrentSelect.allowanceResult.amount !== fromTokenAmount.value),
     [
-      fromToken?.contractAddress,
-      fromToken?.networkId,
       fromTokenAmount,
       quoteCurrentSelect,
       quoteInputAmountNoMatch,
-      toToken?.contractAddress,
-      toToken?.networkId,
+      quoteResultPairNoMatch,
     ],
   );
   const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 10);
@@ -511,6 +524,19 @@ export function useSwapActionState() {
       quoteEventTotalCount.count,
       swapSlippagePercentageMode,
     ],
+  );
+  // "The CURRENT pair's quote round completed and no provider supports it."
+  // The veto must be pair-identity based only: provider-error quotes carry
+  // no amount fields, so the amount-aware quoteResultNoMatch would
+  // permanently veto the genuine no-provider verdict. (OK-57545)
+  const noProviderSupportsTrade = useMemo(
+    () =>
+      isSwapNoProviderSupportsTrade({
+        zeroProviderQuoteCompleted: isZeroProviderQuoteCompleted,
+        quote: quoteCurrentSelect,
+        quoteResultPairNoMatch,
+      }),
+    [isZeroProviderQuoteCompleted, quoteCurrentSelect, quoteResultPairNoMatch],
   );
   const actionInfo = useMemo(() => {
     const infoRes = {
@@ -561,12 +587,7 @@ export function useSwapActionState() {
     ) {
       infoRes.disable = true;
     } else {
-      if (
-        isZeroProviderQuoteCompleted ||
-        (quoteCurrentSelect &&
-          !quoteCurrentSelect.toAmount &&
-          !quoteCurrentSelect.limit)
-      ) {
+      if (noProviderSupportsTrade) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_alert_no_provider_supports_trade,
         });
@@ -646,7 +667,15 @@ export function useSwapActionState() {
         infoRes.disable = true;
       }
 
-      if (isRefreshQuote || quoteResultNoMatchDebounce) {
+      // Keep the disabled "no provider supports trade" state instead of
+      // flipping to an actionable "Refresh quotes" button when no provider
+      // supports the current pair. stepState.isRefreshQuote excludes this
+      // state too, which keeps the rate-line refresh (auto interval + manual
+      // tap) alive as the recovery path. (OK-57545)
+      if (
+        (isRefreshQuote || quoteResultNoMatchDebounce) &&
+        !noProviderSupportsTrade
+      ) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_refresh_quotes,
         });
@@ -681,7 +710,7 @@ export function useSwapActionState() {
     toToken,
     quoteResultNoMatchDebounce,
     swapUseLimitPrice.rate,
-    isZeroProviderQuoteCompleted,
+    noProviderSupportsTrade,
   ]);
   const stepState: ISwapState = {
     label: actionInfo.label,
@@ -699,10 +728,14 @@ export function useSwapActionState() {
     shoutResetApprove:
       !!quoteCurrentSelect?.allowanceResult?.shouldResetApprove,
     isWrapped: !!quoteCurrentSelect?.isWrapped,
+    // Excluded for noProviderSupportsTrade so SwapRefreshButton keeps its
+    // auto interval and manual tap alive while the action button stays
+    // disabled with "no provider supports trade". (OK-57545)
     isRefreshQuote:
       (isRefreshQuote || quoteResultNoMatchDebounce) &&
       !quoteLoading &&
-      !quoteEventFetching,
+      !quoteEventFetching &&
+      !noProviderSupportsTrade,
     isWaitingAutoSlippage,
   };
   return stepState;

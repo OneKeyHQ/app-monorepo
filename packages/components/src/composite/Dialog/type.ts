@@ -109,6 +109,8 @@ interface IBasicDialogProps extends TMDialogProps {
    * forceMount controls whether to force show the overlay in this case.
    */
   forceMount?: boolean;
+  /** Fall back to the initial window bottom inset when the current safe-area inset is zero. */
+  useInitialSafeAreaBottomInsetFallback?: boolean;
 }
 
 export type IDialogProps = IBasicDialogProps &

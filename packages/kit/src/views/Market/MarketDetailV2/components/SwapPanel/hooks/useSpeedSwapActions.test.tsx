@@ -1011,6 +1011,73 @@ describe('buildMarketSwapHistoryItem', () => {
         gasFeeInNative: '0.00042',
       }),
     );
+    expect(swapHistoryItem.baseInfo.fromNetwork?.networkId).toBe(
+      usdcToken.networkId,
+    );
+    expect(swapHistoryItem.baseInfo.toNetwork?.networkId).toBe(
+      btcToken.networkId,
+    );
+    expect(swapHistoryItem.baseInfo.fromNetwork).toMatchObject({
+      name: 'Ethereum',
+      symbol: 'ETH',
+    });
+    expect(swapHistoryItem.baseInfo.toNetwork).toMatchObject({
+      name: 'Ethereum',
+      symbol: 'ETH',
+    });
+  });
+
+  it('keeps a dynamic network id for background history enrichment', () => {
+    const dynamicToken: ISwapToken = {
+      ...btcToken,
+      networkId: 'evm--4663',
+      networkLogoURI: 'https://example.com/robinhood.png',
+    };
+    const swapInfo: ISwapTxInfo = {
+      protocol: EProtocolOfExchange.SWAP,
+      sender: {
+        amount: '1',
+        token: dynamicToken,
+        accountInfo: {
+          networkId: dynamicToken.networkId,
+        },
+      },
+      receiver: {
+        amount: '1',
+        token: dynamicToken,
+        accountInfo: {
+          networkId: dynamicToken.networkId,
+        },
+      },
+      accountAddress: '0xsender',
+      receivingAddress: '0xreceiver',
+      swapBuildResData: {
+        result: {
+          info: {
+            provider: 'onekey',
+            providerName: 'OneKey',
+          },
+          fromTokenInfo: dynamicToken,
+          toTokenInfo: dynamicToken,
+          fromAmount: '1',
+          toAmount: '1',
+          instantRate: '1',
+        },
+      },
+    };
+
+    const { swapHistoryItem } = buildMarketSwapHistoryItem({ swapInfo });
+
+    expect(swapHistoryItem.baseInfo.fromNetwork).toEqual({
+      networkId: 'evm--4663',
+      name: '',
+      symbol: '',
+      shortcode: '',
+      logoURI: 'https://example.com/robinhood.png',
+    });
+    expect(swapHistoryItem.baseInfo.toNetwork).toEqual(
+      swapHistoryItem.baseInfo.fromNetwork,
+    );
   });
 });
 

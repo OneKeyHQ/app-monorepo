@@ -166,6 +166,28 @@ export function isSwapZeroProviderQuoteCompleted({
   );
 }
 
+export function isSwapNoProviderSupportsTrade({
+  zeroProviderQuoteCompleted,
+  quote,
+  quoteResultPairNoMatch,
+}: {
+  zeroProviderQuoteCompleted: boolean;
+  quote?: Pick<IFetchQuoteResult, 'toAmount' | 'limit'>;
+  quoteResultPairNoMatch: boolean;
+}) {
+  // Only trust the no-provider verdict when the quote belongs to the current
+  // token pair; a stale quote left over from a previous pair must not lock
+  // the action button out of its "Refresh quotes" recovery state. The veto
+  // must stay identity-based: provider-error quotes carry no amount fields
+  // at all, so an amount-based mismatch check would permanently veto the
+  // genuine no-provider signal. (OK-57545)
+  return (
+    (zeroProviderQuoteCompleted ||
+      Boolean(quote && !quote.toAmount && !quote.limit)) &&
+    !quoteResultPairNoMatch
+  );
+}
+
 export const SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP = 2;
 
 export function getSwapQuoteEventProgressTotalCount({

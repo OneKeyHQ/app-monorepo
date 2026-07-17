@@ -1,6 +1,6 @@
 ---
 name: 1k-ui-verify
-description: AI-agent-driven UI verification for OneKey. Use to actually drive the running app and confirm a visual/interactive change works — Electron desktop via Chrome DevTools Protocol (CDP) on port 9222 with playwright-core, and React Native (iOS/Android) via callstack agent-device. Triggers on "verify the UI", "drive the app", "screenshot the change", "check it on desktop/simulator", "CDP 9222", "agent-device", "UI 验证", "跑一下看看", "截图确认".
+description: Drive OneKey desktop or mobile apps to verify real visual and interactive behavior using CDP/Playwright or agent-device. Use for UI 验证 or screenshot confirmation.
 ---
 
 # UI Verification (Desktop CDP + RN agent-device)

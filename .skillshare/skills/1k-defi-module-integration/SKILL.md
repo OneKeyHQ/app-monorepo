@@ -1,6 +1,6 @@
 ---
 name: 1k-defi-module-integration
-description: App-side OneKey DeFi guide for Earn, native Discovery-hosted Earn, Borrow, Staking, DeFi Portfolio actions, vaults, lending, protocol integrations, ABI-backed operations, native/provider-backed operations, pending transactions, history, route handoffs, risk display, and DeFi regression review.
+description: OneKey app DeFi integration for Earn, Borrow, Staking, portfolio actions, vault/lending protocols, transactions, history, routing, and risk display.
 ---
 
 # DeFi Module Integration
@@ -52,9 +52,10 @@ Run the readiness check first:
 node .skillshare/skills/1k-defi-module-integration/scripts/check-readiness.mjs
 ```
 
-The check fails when reviewed domain anchors drift. Refresh current client and
-server contracts, code maps, tests, and the reviewed ref before implementation;
-do not bypass it. Use
+The check fails when current stable anchors or required eval assets are
+missing, or when pre-existing uncommitted domain code makes intake ambiguous.
+Reconcile current client and server contracts, code maps, and tests before
+implementation; do not bypass it. Use
 [runtime-boundaries.md](references/runtime-boundaries.md) for any background
 service, event, persistence, restart, account-switch, native-host, or crash path
 and [test-map.md](references/test-map.md) for exact validation lanes.
@@ -136,8 +137,9 @@ If a drill cannot be completed from the references, improve the abstraction befo
 - Do not hide a DeFi Portfolio position only because its protocol has no supported action.
 - Do not create a new abstraction, hook, or state owner until the closest
   existing repo pattern and its semantic mismatch have been named.
-- Do not continue from a failing readiness drift check. Reconcile current
-  client/server truth, actual PR scope, anchors, tests, and reviewed ref first.
+- Do not continue from a failing readiness check. Reconcile current
+  client/server truth, actual PR scope, anchors, tests, and pre-existing
+  worktree changes first.
 - Do not ask the user to supply Jira, Slack, Git, client, or accessible server
   context that current tools can retrieve.
 - Do not let one oversized hook own route sync, data loading, operation state,

@@ -125,11 +125,13 @@ function CustomAppRequestDeviceQR() {
               await timerUtils.wait(1000);
               // eslint-disable-next-line @typescript-eslint/no-shadow
               const { decodedPsbt } =
+                // oxlint-disable-next-line no-restricted-imports -- Developer-only Core API test harness.
                 await import('@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils');
               const tx = decodedPsbt({ psbt, psbtNetwork: network });
-              const coreChainApi = (
-                await import('@onekeyhq/core/src/instance/coreChainApi')
-              ).default;
+              const coreChainApi =
+                // oxlint-disable-next-line no-restricted-imports -- Developer-only Core API test harness.
+                (await import('@onekeyhq/core/src/instance/coreChainApi'))
+                  .default;
               const signedTx = await coreChainApi.btc.hd.extractPsbtToSignedTx({
                 psbt,
               });

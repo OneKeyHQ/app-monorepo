@@ -641,7 +641,6 @@ export default class ServicePassword extends ServiceBase {
     let keylessDataUpdateRollback: (() => Promise<void>) | undefined;
     try {
       await this.saveBiologyAuthPassword(newPassword);
-      await this.setCachedPassword({ password: newPassword });
       await this.setPasswordSetStatus(true, passwordMode);
       ({ rollback: masterPasswordUpdateRollback } =
         await this.backgroundApi.serviceMasterPassword.updatePasscodeForMasterPassword(
@@ -658,6 +657,13 @@ export default class ServicePassword extends ServiceBase {
           },
         ));
       await localDb.updatePassword({ oldPassword, newPassword });
+      // Cache the new passcode only after every passcode-encrypted store
+      // (master password, keyless blobs, local DB) has been re-encrypted:
+      // setCachedPassword fires the passive keyless migration, which decrypts
+      // the legacy OAuth blob with the cached passcode — caching the new one
+      // first would let that run read old-passcode blobs, misclassify them as
+      // corrupted and delete the credential.
+      await this.setCachedPassword({ password: newPassword });
       await this.backgroundApi.serviceV4Migration.updateV4Password({
         oldPassword,
         newPassword,
@@ -665,12 +671,9 @@ export default class ServicePassword extends ServiceBase {
       await timerUtils.wait(2000);
       return newPassword;
     } catch (e) {
-      try {
-        await this.rollbackPassword(oldPassword);
-      } catch (rollbackError) {
-        console.error(rollbackError);
-      }
-
+      // Restore the passcode-encrypted stores BEFORE rollbackPassword: it
+      // re-caches the old passcode, which fires the passive keyless
+      // migration again — that run must only ever see old-passcode blobs.
       try {
         await masterPasswordUpdateRollback?.();
       } catch (rollbackError) {
@@ -679,6 +682,12 @@ export default class ServicePassword extends ServiceBase {
 
       try {
         await keylessDataUpdateRollback?.();
+      } catch (rollbackError) {
+        console.error(rollbackError);
+      }
+
+      try {
+        await this.rollbackPassword(oldPassword);
       } catch (rollbackError) {
         console.error(rollbackError);
       }

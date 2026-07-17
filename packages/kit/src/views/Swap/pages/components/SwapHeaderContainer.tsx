@@ -25,6 +25,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -140,6 +141,7 @@ const SwapHeaderContainer = ({
   const { gtLg } = useMedia();
   const navigation = useAppNavigation<IPageNavigationProp<ITabSwapParamList>>();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [swapProEntryIntent] = useSwapProJumpTokenAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
@@ -151,17 +153,30 @@ const SwapHeaderContainer = ({
   if (networkIdRef.current !== fromToken?.networkId) {
     networkIdRef.current = fromToken?.networkId;
   }
+  const hasPendingSwapProEntry = Boolean(
+    platformEnv.isNative && pageType !== 'modal' && swapProEntryIntent.token,
+  );
+  const hadPendingSwapProEntryOnMountRef = useRef(hasPendingSwapProEntry);
   useEffect(() => {
-    if (defaultSwapType) {
-      // Avoid switching the default toToken before it has been loaded,
-      // resulting in the default network toToken across chains
-      setTimeout(
-        () => {
-          void swapTypeSwitchAction(defaultSwapType, networkIdRef.current);
-        },
-        platformEnv.isExtension ? 100 : 10,
-      );
+    if (hasPendingSwapProEntry) {
+      navigation.setParams({
+        tab: getRouteTabParamFromSwapType(ESwapTabSwitchType.LIMIT),
+      });
     }
+  }, [hasPendingSwapProEntry, navigation]);
+  useEffect(() => {
+    if (hadPendingSwapProEntryOnMountRef.current || !defaultSwapType) {
+      return;
+    }
+    // Avoid switching the default toToken before it has been loaded,
+    // resulting in the default network toToken across chains
+    const timer = setTimeout(
+      () => {
+        void swapTypeSwitchAction(defaultSwapType, networkIdRef.current);
+      },
+      platformEnv.isExtension ? 100 : 10,
+    );
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -237,9 +252,13 @@ const SwapHeaderContainer = ({
     pageType !== 'modal' &&
     !platformEnv.isNative &&
     !platformEnv.isExtensionUiSidePanel;
-  const swapBridgeLabel = `${intl.formatMessage({
-    id: ETranslations.swap_page_swap,
-  })} & ${intl.formatMessage({ id: ETranslations.swap_page_bridge })}`;
+  // Single source key shared with the history modal title/dropdown so the
+  // tab label never drifts from them per locale; composing
+  // `swap_page_swap & swap_page_bridge` also hardcodes the "&" connector,
+  // which is wrong for locales like bn/hi. (OK-58055)
+  const swapBridgeLabel = intl.formatMessage({
+    id: ETranslations.swap_history_title,
+  });
   const stockLabel = intl.formatMessage({
     id: ETranslations.perps_token_selector_stocks,
   });

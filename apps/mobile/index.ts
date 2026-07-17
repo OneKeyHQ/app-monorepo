@@ -7,7 +7,7 @@
 // When OFF this is a single `if (enabled) return;` check with no observable
 // overhead. When ON it monkey-patches Metro's `__r` so every module's factory
 // is timed; results are flushed after `main entry evaluated`.
-// See `.skillshare/skills/1k-startup-profile/skill.md` for how to enable.
+// See `.skillshare/skills/1k-startup-profile/SKILL.md` for how to enable.
 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
 require('./src/startupProfile').installStartupProfileJs();
 

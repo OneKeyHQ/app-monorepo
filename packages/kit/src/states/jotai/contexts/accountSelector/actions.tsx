@@ -112,7 +112,9 @@ import type {
 const { serviceAccount } = backgroundApiProxy;
 
 const RECENT_ACCOUNT_SWITCH_COLD_START_MS = 5 * 60 * 1000;
-const ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION = 1;
+// Version 1 can contain a Swap num 1 fallback that was selected from an
+// incomplete map. Do not restore that recipient state after this fix lands.
+const ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION = 2;
 
 type IAccountSelectorRecentSelectionCacheItem = {
   version: typeof ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION;
@@ -545,6 +547,42 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         now - meta.updatedAt >= 0 &&
         now - meta.updatedAt <= RECENT_ACCOUNT_SWITCH_COLD_START_MS,
     );
+  }
+
+  mergeColdStartSelectedAccountsWithStorage({
+    selectedAccountsMap,
+    selectedAccountsMapInDB,
+  }: {
+    selectedAccountsMap: ISelectedAccountsAtomMap;
+    selectedAccountsMapInDB: IAccountSelectorSelectedAccountsMap | undefined;
+  }) {
+    const mergedSelectedAccountsMap = cloneDeep(selectedAccountsMap);
+    Object.entries(selectedAccountsMapInDB ?? {}).forEach(
+      ([numKey, dbAccount]) => {
+        const targetNum = Number(numKey);
+        const current = mergedSelectedAccountsMap[targetNum];
+        // A wallet-only slot still triggers automatic selection of index 0,
+        // so only a complete account identity can override the storage value.
+        const currentHasAccount = Boolean(
+          current?.othersWalletAccountId ||
+          (current?.walletId && current?.indexedAccountId),
+        );
+        const dbHasAccount = Boolean(
+          dbAccount?.othersWalletAccountId ||
+          (dbAccount?.walletId && dbAccount?.indexedAccountId),
+        );
+        if (!currentHasAccount && dbAccount && dbHasAccount) {
+          // Keep the slot's freshly restored network context while filling the
+          // missing identity from the normalized storage map.
+          mergedSelectedAccountsMap[targetNum] =
+            accountSelectorUtils.buildMergedSelectedAccount({
+              data: current,
+              mergedByData: dbAccount,
+            });
+        }
+      },
+    );
+    return mergedSelectedAccountsMap;
   }
 
   mutex = new Semaphore(1);
@@ -2744,9 +2782,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             updateMeta: recentSelectionCache.updateMeta,
           })
         ) {
+          const mergedRecentSelectionCacheSelectedAccountsMap =
+            this.mergeColdStartSelectedAccountsWithStorage({
+              selectedAccountsMap: recentSelectionCacheSelectedAccountsMap,
+              selectedAccountsMapInDB,
+            });
           this.setSelectedAccountsAtom(
             set,
-            () => recentSelectionCacheSelectedAccountsMap,
+            () => mergedRecentSelectionCacheSelectedAccountsMap,
             'initFromRecentSelectionCache',
           );
           set(accountSelectorUpdateMetaAtom(), (v) => ({
@@ -2801,35 +2844,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           // (home-merged) DB; else a sibling scene (e.g. swap on the Perps
           // route) leaves num0 empty, auto-selects index 0, and clobbers home's
           // restored num0 via the home<->swap sync. Non-empty slots untouched.
-          const mergedSelectedAccountsMap = cloneDeep(selectedAccountsMap);
-          Object.entries(selectedAccountsMapInDB ?? {}).forEach(
-            ([numKey, dbAccount]) => {
-              const targetNum = Number(numKey);
-              const current = mergedSelectedAccountsMap[targetNum];
-              // "Resolved" means a usable account identity: an others-wallet
-              // account, or an HD/HW wallet WITH an index. A wallet-only slot
-              // (no index) still auto-selects index 0, so treat it as fillable.
-              const currentHasAccount = Boolean(
-                current?.othersWalletAccountId ||
-                (current?.walletId && current?.indexedAccountId),
-              );
-              const dbHasAccount = Boolean(
-                dbAccount?.othersWalletAccountId ||
-                (dbAccount?.walletId && dbAccount?.indexedAccountId),
-              );
-              if (!currentHasAccount && dbAccount && dbHasAccount) {
-                // Field-level merge: take only the account identity from DB and
-                // keep the slot's already-restored scene context (networkId/
-                // deriveType), else filling the account would also revert those
-                // to stale DB values and re-propagate them via home<->swap sync.
-                mergedSelectedAccountsMap[targetNum] =
-                  accountSelectorUtils.buildMergedSelectedAccount({
-                    data: current,
-                    mergedByData: dbAccount,
-                  });
-              }
-            },
-          );
+          const mergedSelectedAccountsMap =
+            this.mergeColdStartSelectedAccountsWithStorage({
+              selectedAccountsMap,
+              selectedAccountsMapInDB,
+            });
           // Compare against the raw atom value: repair/clear results must
           // reach memory even when the fill step adds nothing.
           if (!isEqual(mergedSelectedAccountsMap, currentSelectedAccountsMap)) {

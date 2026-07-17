@@ -307,6 +307,14 @@ function runWorktreeLintChecks(logDir) {
     );
   }
 
+  results.push(
+    runCommand(logDir, 'format-worktree', npx, [
+      'oxfmt',
+      '--no-error-on-unmatched-pattern',
+      ...files,
+    ]),
+  );
+
   return results;
 }
 
@@ -579,6 +587,7 @@ function runLocalChecks(logDir) {
   humanLog('\nLocal checks');
   return [
     ...runWorktreeLintChecks(logDir),
+    runCommand(logDir, 'agent-context', 'yarn', ['lint:agent-context']),
     runCommand(logDir, 'lint-staged', 'yarn', ['lint:staged']),
     runCommand(logDir, 'tsc-staged', 'yarn', ['tsc:staged']),
   ];
