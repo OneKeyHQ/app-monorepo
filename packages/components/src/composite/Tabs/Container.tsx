@@ -275,7 +275,8 @@ export function Container({
   const isSwitchingTabRef = useRef(false);
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
-  const observedElementRef = useRef<HTMLElement | null>(null);
+  const mutationObserverRef = useRef<MutationObserver | null>(null);
+  const observedElementsRef = useRef<HTMLElement[]>([]);
   // Last height written to listContainerRef. Because listContainerRef is the
   // single shared scroll content whose height always tracks the focused tab,
   // this is "the previous tab's height" — comparing the next tab against it
@@ -369,6 +370,27 @@ export function Container({
       !registeredElement && element
         ? ((element.firstElementChild as HTMLElement | null) ?? element)
         : element;
+    // A registered ScrollView can temporarily keep the same border-box while
+    // its thawed/async content makes scrollHeight grow. Observing only the
+    // root misses that transition, which leaves the shared list container at
+    // the shorter tab's height. Keep the root as the measurement source, but
+    // also observe its direct content nodes as generic change signals.
+    const getObservedElements = () =>
+      element
+        ? [
+            observedElement,
+            ...(registeredElement?.classList.contains('onekey-tabs-scroll-view')
+              ? Array.from(registeredElement.children).filter(
+                  (child): child is HTMLElement => child instanceof HTMLElement,
+                )
+              : []),
+          ].filter(
+            (candidate, index, elements): candidate is HTMLElement =>
+              candidate instanceof HTMLElement &&
+              elements.indexOf(candidate) === index,
+          )
+        : [];
+    const observedElements = getObservedElements();
     const apply = (targetElement: HTMLElement) => {
       const containerElement = listContainerRef.current as HTMLElement | null;
       if (!containerElement) return;
@@ -410,8 +432,13 @@ export function Container({
         containerElement.style.height = '';
       }
     };
-    // Same element + already observing -> nothing to do.
-    if (element && observedElementRef.current === observedElement) {
+    const isObservingSameElements =
+      observedElements.length === observedElementsRef.current.length &&
+      observedElements.every(
+        (candidate, index) => candidate === observedElementsRef.current[index],
+      );
+    // Same measurement source and signal elements -> nothing to re-attach.
+    if (element && isObservingSameElements) {
       apply(element);
       return;
     }
@@ -419,16 +446,57 @@ export function Container({
       resizeObserverRef.current.disconnect();
       resizeObserverRef.current = null;
     }
-    observedElementRef.current = observedElement;
-    if (!element || !observedElement) {
+    if (mutationObserverRef.current) {
+      mutationObserverRef.current.disconnect();
+      mutationObserverRef.current = null;
+    }
+    observedElementsRef.current = observedElements;
+    if (!element || observedElements.length === 0) {
       return;
     }
     // Synchronous initial measurement so the container doesn't flicker
     // between 0-height and the first observer callback.
     apply(element);
     const ro = new ResizeObserver(() => apply(element));
-    ro.observe(observedElement);
+    observedElements.forEach((candidate) => ro.observe(candidate));
     resizeObserverRef.current = ro;
+
+    // React can replace the focused ScrollView's direct content node after
+    // the initial skeleton/data render. The old node remains the RO target,
+    // while the ScrollView's pinned border box can stay unchanged even though
+    // its scrollHeight has grown. Observe structural changes so the RO target
+    // set follows the live children and remeasure the registered root. This is
+    // intentionally generic to Tabs.ScrollView; business tabs do not need to
+    // report their loading phases or schedule delayed retries.
+    if (
+      registeredElement?.classList.contains('onekey-tabs-scroll-view') &&
+      typeof MutationObserver !== 'undefined'
+    ) {
+      const mo = new MutationObserver(() => {
+        if (
+          !isEffectValid.current ||
+          scrollTabElementsRef.current?.[focusedTab.value]?.element !==
+            registeredElement
+        ) {
+          return;
+        }
+        const nextObservedElements = getObservedElements();
+        const targetsChanged =
+          nextObservedElements.length !== observedElementsRef.current.length ||
+          nextObservedElements.some(
+            (candidate, index) =>
+              candidate !== observedElementsRef.current[index],
+          );
+        if (targetsChanged) {
+          ro.disconnect();
+          nextObservedElements.forEach((candidate) => ro.observe(candidate));
+          observedElementsRef.current = nextObservedElements;
+        }
+        apply(element);
+      });
+      mo.observe(registeredElement, { childList: true, subtree: true });
+      mutationObserverRef.current = mo;
+    }
   }, [focusedTab, getTabContentHeight, tabNames, refreshScrollExtent]);
 
   // Keep the requestRemeasure context callback pointing at the latest
@@ -448,7 +516,11 @@ export function Container({
         resizeObserverRef.current.disconnect();
         resizeObserverRef.current = null;
       }
-      observedElementRef.current = null;
+      if (mutationObserverRef.current) {
+        mutationObserverRef.current.disconnect();
+        mutationObserverRef.current = null;
+      }
+      observedElementsRef.current = [];
     };
   }, [attachObserverForFocusedTab]);
 
