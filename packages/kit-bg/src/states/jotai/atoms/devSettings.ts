@@ -79,6 +79,8 @@ export interface IDevSettings {
   showPerformanceMonitorV2?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
+  // use the data-only native chart in Market Detail
+  useTradingViewNativeInMarketDetail?: boolean;
   showPerpsRenderStats?: boolean;
   mockTradingViewKLineEmptyEnabled?: boolean;
   mockTradingViewKLineEmptyIntervals?: ITradingViewKLineMockEmptyInterval[];
@@ -163,6 +165,7 @@ export const {
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
+      useTradingViewNativeInMarketDetail: false,
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,

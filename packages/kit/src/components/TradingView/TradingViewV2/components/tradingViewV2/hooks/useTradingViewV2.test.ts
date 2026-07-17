@@ -1,9 +1,8 @@
+import { sliceKLineRequest } from '@onekeyhq/kit/src/components/TradingView/utils/sliceKLineRequest';
 import type {
   IMarketTokenKLineDataPoint,
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
-
-import { sliceRequest } from '../sliceRequest';
 
 import { fetchTradingViewV2DataWithSlicing } from './useTradingViewV2';
 
@@ -28,12 +27,15 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-jest.mock('../sliceRequest', () => ({
-  sliceRequest: jest.fn(),
-}));
+jest.mock(
+  '@onekeyhq/kit/src/components/TradingView/utils/sliceKLineRequest',
+  () => ({
+    sliceKLineRequest: jest.fn(),
+  }),
+);
 
-const mockSliceRequest = sliceRequest as jest.MockedFunction<
-  typeof sliceRequest
+const mockSliceRequest = sliceKLineRequest as jest.MockedFunction<
+  typeof sliceKLineRequest
 >;
 
 function buildPoint(t: number, close = t): IMarketTokenKLineDataPoint {

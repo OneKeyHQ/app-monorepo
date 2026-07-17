@@ -117,7 +117,7 @@ export function FirmwareUpdatePageHeader({
       }
       headerTitle={headerTitle ? () => headerTitle : undefined}
       headerRight={headerRight}
-      headerRightNoGlass={platformEnv.isNativeIOS && Boolean(headerRight)}
+      headerRightNoGlass={Boolean(platformEnv.isNativeIOS && headerRight)}
     />
   );
 }
