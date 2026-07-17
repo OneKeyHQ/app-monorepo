@@ -32,7 +32,11 @@ import {
   testIpSpeed,
 } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
 import { decideEndpoint } from '@onekeyhq/shared/src/request/helpers/ipTableEndpointDecision';
-import { isSniSupported } from '@onekeyhq/shared/src/request/helpers/sniRequest';
+import {
+  isProxyActiveForUrl,
+  isSniSupported,
+  sniRequest,
+} from '@onekeyhq/shared/src/request/helpers/sniRequest';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import type {
   IIpTableConfigWithRuntime,
@@ -361,6 +365,98 @@ class ServiceIpTable extends ServiceBase {
           }`,
         });
       }
+      // The adapter's fail-open needs 3 accumulated transport failures in
+      // THIS runtime, which a fresh install's single config GET can never
+      // reach. The config GET is idempotent, so replaying it over SNI with
+      // known candidate IPs is safe and gives first-run devices on walled
+      // networks a working config path.
+      return this.fetchRemoteConfigViaSniFallback();
+    }
+  }
+
+  /**
+   * Direct SNI fallback for the CDN config GET: selection -> last-best IP ->
+   * builtin endpoints, first parseable and well-shaped response wins.
+   */
+  private async fetchRemoteConfigViaSniFallback(): Promise<IIpTableRemoteConfig | null> {
+    try {
+      if (!isSupportIpTablePlatform() || !isSniSupported()) {
+        return null;
+      }
+      let proxyActive: boolean | null = null;
+      try {
+        proxyActive = await isProxyActiveForUrl(IP_TABLE_CDN_URL);
+      } catch {
+        return null;
+      }
+      if (proxyActive === true) {
+        // A user proxy owns routing; do not bypass it with SNI.
+        return null;
+      }
+
+      const url = new URL(IP_TABLE_CDN_URL);
+      const rootDomain = url.hostname.split('.').slice(-2).join('.');
+      const configWithRuntime = await this.getConfig();
+
+      const candidates: string[] = [];
+      const selectedIp = configWithRuntime.runtime?.selections?.[rootDomain];
+      const lastBestIp = configWithRuntime.runtime?.lastBestIp?.[rootDomain];
+      if (selectedIp) {
+        candidates.push(selectedIp);
+      }
+      if (lastBestIp) {
+        candidates.push(lastBestIp);
+      }
+      for (const endpoint of configWithRuntime.config.domains[rootDomain]
+        ?.endpoints ?? []) {
+        candidates.push(endpoint.ip);
+      }
+      const uniqueCandidates = [...new Set(candidates)].slice(0, 3);
+      if (uniqueCandidates.length === 0) {
+        return null;
+      }
+
+      const headers = await getRequestHeaders();
+      for (const ip of uniqueCandidates) {
+        try {
+          defaultLogger.ipTable.request.info({
+            info: `[IpTable] CDN fetch fallback: trying SNI candidate for ${url.hostname}`,
+          });
+          const response = await sniRequest({
+            ip,
+            hostname: url.hostname,
+            path: `${url.pathname}${url.search}`,
+            headers,
+            method: 'GET',
+            body: null,
+            timeout: IP_TABLE_CDN_FETCH_TIMEOUT_MS,
+          });
+          const body = response?.body ?? response?.data;
+          if (body) {
+            const parsed: unknown =
+              typeof body === 'string' ? JSON.parse(body) : body;
+            if (isValidIpTableRemoteConfigShape(parsed)) {
+              defaultLogger.ipTable.request.info({
+                info: `[IpTable] CDN fetch fallback succeeded via SNI, version: ${parsed.version}`,
+              });
+              return parsed;
+            }
+          }
+        } catch (error) {
+          defaultLogger.ipTable.request.warn({
+            info: `[IpTable] CDN fetch fallback candidate failed: ${
+              error instanceof Error ? error.message : 'Unknown error'
+            }`,
+          });
+        }
+      }
+      return null;
+    } catch (error) {
+      defaultLogger.ipTable.request.warn({
+        info: `[IpTable] CDN fetch fallback error: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      });
       return null;
     }
   }
