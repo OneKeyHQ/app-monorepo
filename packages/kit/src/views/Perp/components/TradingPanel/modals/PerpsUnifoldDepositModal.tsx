@@ -18,6 +18,7 @@ import {
   getIntegrationExchanges,
   getPreferredIconUrl,
   getProjectConfig,
+  getSupportedDestinationTokens,
 } from '@unifold/core';
 import { createRoot } from 'react-dom/client';
 
@@ -33,6 +34,7 @@ import {
   YStack,
   useThemeName,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   type IPerpsActiveAccountAtom,
@@ -47,6 +49,7 @@ import {
   UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL,
   UNIFOLD_PERPS_PUBLISHABLE_KEY,
 } from '../../../consts/unifold';
+import { validateHypercoreDestination } from '../../../utils/unifoldDestination';
 import { getSafeUnifoldRecipient } from '../../../utils/unifoldRecipient';
 
 import './PerpsUnifoldDepositModal.css';
@@ -54,6 +57,35 @@ import './PerpsUnifoldDepositModal.css';
 const unifoldQueryClient = new QueryClient();
 const UNIFOLD_QUERY_STALE_TIME = 5 * 60 * 1000;
 const PERPS_UNIFOLD_MODAL_OPEN_CLASS = 'perps-unifold-modal-open';
+
+const UNIFOLD_DESTINATION_CHECK_TTL = 10 * 60 * 1000;
+let cachedDestinationCheck: { ok: boolean; time: number } | undefined;
+
+// Confirm the hardcoded HyperCore destination is still present in Unifold's
+// supported list (veto only). Fails closed on any error. Result is cached to
+// avoid a network round-trip on every deposit-modal open.
+async function isHypercoreDestinationSupported(): Promise<boolean> {
+  if (
+    cachedDestinationCheck &&
+    Date.now() - cachedDestinationCheck.time < UNIFOLD_DESTINATION_CHECK_TTL
+  ) {
+    return cachedDestinationCheck.ok;
+  }
+  let ok = false;
+  try {
+    const supported = await getSupportedDestinationTokens(
+      UNIFOLD_PERPS_PUBLISHABLE_KEY,
+    );
+    ok = validateHypercoreDestination(supported.data, {
+      chainId: UNIFOLD_HYPERCORE_CHAIN_ID,
+      tokenAddress: UNIFOLD_HYPERCORE_USDC_PERP_ADDRESS,
+    });
+  } catch {
+    ok = false;
+  }
+  cachedDestinationCheck = { ok, time: Date.now() };
+  return ok;
+}
 
 type IPerpsDepositAction =
   | 'onekey'
@@ -376,7 +408,7 @@ function PerpsUnifoldDepositModal({
       const nextScreen = UNIFOLD_SCREEN_MAP[action];
       if (nextScreen) {
         onOpenChange(false);
-        showStandaloneUnifoldDepositModal({
+        void showStandaloneUnifoldDepositModal({
           selectedAccount,
           initialScreen: nextScreen,
           theme: unifoldTheme,
@@ -450,7 +482,7 @@ function UnifoldDepositLauncher({ config }: { config: DepositConfig }) {
   return null;
 }
 
-function showStandaloneUnifoldDepositModal({
+async function showStandaloneUnifoldDepositModal({
   selectedAccount,
   initialScreen,
   theme,
@@ -476,6 +508,16 @@ function showStandaloneUnifoldDepositModal({
     Toast.error({
       title: 'Deposit unavailable',
       message: 'Account address mismatch',
+    });
+    return;
+  }
+
+  // Veto: the hardcoded HyperCore destination must still be in Unifold's
+  // supported list. Remote config can disable the flow, never redirect it.
+  if (!(await isHypercoreDestinationSupported())) {
+    Toast.error({
+      title: 'Deposit unavailable',
+      message: 'Destination config mismatch',
     });
     return;
   }
@@ -510,6 +552,9 @@ function showStandaloneUnifoldDepositModal({
     initialScreen,
     onSuccess: ({ message }) => {
       Toast.success({ title: message || 'Deposit submitted' });
+      // Mirror the native deposit flow: force the ledger subscription so the
+      // credited balance and account history refresh without a manual reload.
+      void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
     },
     onError: ({ message }) => {
       Toast.error({ title: message || 'Deposit failed' });
@@ -548,7 +593,7 @@ export function showPerpsUnifoldDepositTracker({
   selectedAccount: IPerpsActiveAccountAtom;
   theme: 'light' | 'dark';
 }) {
-  showStandaloneUnifoldDepositModal({
+  void showStandaloneUnifoldDepositModal({
     selectedAccount,
     initialScreen: 'tracker',
     theme,
