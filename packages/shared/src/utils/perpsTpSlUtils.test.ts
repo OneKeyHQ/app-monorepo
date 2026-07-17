@@ -2,6 +2,7 @@ import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk
 
 import {
   classifyTpSlOrder,
+  getPerpsChaseOrderAmendKind,
   getPerpsOrderAmendKind,
   getTpSlKind,
 } from './perpsTpSlUtils';
@@ -169,5 +170,36 @@ describe('perpsTpSlUtils', () => {
         ),
       ).toBeNull();
     });
+  });
+
+  describe('getPerpsChaseOrderAmendKind', () => {
+    test('builds a Gtc limit amend for an eligible chase order', () => {
+      expect(
+        getPerpsChaseOrderAmendKind(
+          mkOrder({
+            orderType: 'Limit',
+            isTrigger: false,
+            isPositionTpsl: false,
+            tif: 'Gtc',
+          }),
+        ),
+      ).toEqual({ kind: 'limit', tif: 'Gtc' });
+    });
+
+    test.each(['Alo', 'Ioc', null] as const)(
+      'rejects a latest order snapshot with TIF %s',
+      (tif) => {
+        expect(
+          getPerpsChaseOrderAmendKind(
+            mkOrder({
+              orderType: 'Limit',
+              isTrigger: false,
+              isPositionTpsl: false,
+              tif,
+            }),
+          ),
+        ).toBeNull();
+      },
+    );
   });
 });

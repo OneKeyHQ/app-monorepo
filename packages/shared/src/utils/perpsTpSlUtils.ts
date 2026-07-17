@@ -103,3 +103,18 @@ export function getPerpsOrderAmendKind(
 
   return null;
 }
+
+export function getPerpsChaseOrderAmendKind(
+  order: IPerpsFrontendOrder,
+): Extract<IOrderAmendKind, { kind: 'limit' }> | null {
+  if (
+    order.orderType !== 'Limit' ||
+    order.tif !== 'Gtc' ||
+    order.isTrigger ||
+    order.isPositionTpsl
+  ) {
+    return null;
+  }
+
+  return { kind: 'limit', tif: 'Gtc' };
+}

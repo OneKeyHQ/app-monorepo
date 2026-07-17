@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getPerpsChaseOrderAmendKind } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
   calculateHyperliquidSpotHoldingPnl,
   formatSpotPairDisplayName,
@@ -208,10 +209,7 @@ export function canChasePerpsOrder(order: IPerpsFrontendOrder): boolean {
   const remainingSize = new BigNumber(order.sz);
   return Boolean(
     !isSpotInstrument(order.coin) &&
-    order.orderType === 'Limit' &&
-    order.tif === 'Gtc' &&
-    !order.isTrigger &&
-    !order.isPositionTpsl &&
+    getPerpsChaseOrderAmendKind(order) &&
     remainingSize.isFinite() &&
     remainingSize.gt(0),
   );

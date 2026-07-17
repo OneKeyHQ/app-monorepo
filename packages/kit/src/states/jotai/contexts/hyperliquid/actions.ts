@@ -58,7 +58,10 @@ import {
   getPerpsOrderBookTickOptionsWithCache,
   setPerpsOrderBookTickOptionsCache,
 } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
-import { getPerpsOrderAmendKind } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
+import {
+  getPerpsChaseOrderAmendKind,
+  getPerpsOrderAmendKind,
+} from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
   findTokensByAlias,
   formatPriceToSignificantDigits,
@@ -3210,6 +3213,53 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  chaseOrder = contextAtomMethod(
+    async (
+      get,
+      _set,
+      params: {
+        coin: string;
+        oid: number;
+        newPrice: string;
+      },
+    ) => {
+      return withToast({
+        asyncFn: async () => {
+          const existing = await this.findChartOrder(get, params.oid);
+          if (!existing) {
+            throw new OneKeyLocalError(`Order ${params.oid} not found`);
+          }
+          const amendKind = getPerpsChaseOrderAmendKind(existing);
+          const remainingSize = new BigNumber(existing.sz);
+          if (
+            existing.coin !== params.coin ||
+            isSpotInstrument(existing.coin) ||
+            !amendKind ||
+            !remainingSize.isFinite() ||
+            remainingSize.lte(0)
+          ) {
+            throw new OneKeyLocalError(
+              `Order ${params.oid} is no longer eligible for chase`,
+            );
+          }
+          return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
+            {
+              coin: params.coin,
+              oid: params.oid,
+              newPrice: params.newPrice,
+              isBuy: existing.side === 'B',
+              size: existing.sz,
+              reduceOnly: existing.reduceOnly,
+              amendKind,
+              cloid: existing.cloid,
+            },
+          );
+        },
+        actionType: EActionType.MODIFY_ORDER,
+      });
+    },
+  );
+
   cancelChartOrder = contextAtomMethod(
     async (
       get,
@@ -3684,6 +3734,7 @@ export function useHyperliquidActions() {
     actions.updateAccountAbstractionMode.use();
   const ordersClose = actions.ordersClose.use();
   const amendChartOrder = actions.amendChartOrder.use();
+  const chaseOrder = actions.chaseOrder.use();
   const cancelChartOrder = actions.cancelChartOrder.use();
   const cancelOrder = actions.cancelOrder.use();
   const cancelTwapOrder = actions.cancelTwapOrder.use();
@@ -3759,6 +3810,7 @@ export function useHyperliquidActions() {
     updateAccountAbstractionMode,
     ordersClose,
     amendChartOrder,
+    chaseOrder,
     cancelChartOrder,
     cancelOrder,
     cancelTwapOrder,

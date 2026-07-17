@@ -3,7 +3,13 @@ import { memo, useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  Spinner,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -49,6 +55,8 @@ const priceFormatter: INumberFormatProps = {
     currency: '$',
   },
 };
+
+const CHASE_ORDER_LABEL = 'Chase';
 
 interface IOpenOrdersRowProps {
   order: IPerpsFrontendOrder;
@@ -298,8 +306,9 @@ const OpenOrdersRow = memo(
                   loading={isChasingOrder}
                   disabled={isChasingOrder}
                   onPress={handleChaseOrder}
+                  childrenAsText={false}
                 >
-                  {intl.formatMessage({ id: ETranslations.global_refresh })}
+                  <SizableText size="$bodySm">{CHASE_ORDER_LABEL}</SizableText>
                 </Button>
               ) : null}
               <Button
@@ -591,16 +600,32 @@ const OpenOrdersRow = memo(
           >
             <XStack gap="$3" alignItems="center">
               {canChaseOrder ? (
-                <Button
+                <XStack
                   testID={PerpTestIDs.ChaseOrderButton(order.oid)}
-                  size="small"
-                  variant="tertiary"
-                  loading={isChasingOrder}
-                  disabled={isChasingOrder}
-                  onPress={handleChaseOrder}
+                  gap="$1"
+                  alignItems="center"
+                  cursor={isChasingOrder ? 'default' : 'pointer'}
+                  onPress={isChasingOrder ? undefined : handleChaseOrder}
                 >
-                  {intl.formatMessage({ id: ETranslations.global_refresh })}
-                </Button>
+                  {isChasingOrder ? (
+                    <Spinner
+                      size="small"
+                      color="$textInteractive"
+                      scale={0.65}
+                    />
+                  ) : null}
+                  <SizableText
+                    color={isChasingOrder ? '$textDisabled' : '$bgAccent'}
+                    hoverStyle={
+                      isChasingOrder
+                        ? undefined
+                        : { size: '$bodySmMedium', fontWeight: 600 }
+                    }
+                    size="$bodySmMedium"
+                  >
+                    {CHASE_ORDER_LABEL}
+                  </SizableText>
+                </XStack>
               ) : null}
               <SizableText
                 color="$bgAccent"

@@ -553,11 +553,13 @@ function PerpOpenOrdersList({
           throw new OneKeyLocalError('The active trading account changed');
         }
 
-        await actions.current.amendChartOrder({
-          coin: order.coin,
-          oid: order.oid,
-          newPrice: nextPrice.toFixed(),
-        });
+        await actions.current
+          .chaseOrder({
+            coin: order.coin,
+            oid: order.oid,
+            newPrice: nextPrice.toFixed(),
+          })
+          .catch(() => undefined);
       } catch (error) {
         Toast.error({
           title:
