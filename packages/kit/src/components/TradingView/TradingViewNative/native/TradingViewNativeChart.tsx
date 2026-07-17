@@ -47,7 +47,9 @@ const SWITCHING_INTERVAL_OPACITY = 0.8;
 const PRICE_AXIS_WIDTH = 80;
 const PRICE_AXIS_TICK_COUNT = 5;
 const PRICE_AXIS_LABEL_HEIGHT = 18;
-const PAN_DECELERATION = 0.9975;
+const PAN_DRAG_RATIO = 1.1;
+const PAN_DECELERATION = 0.9982;
+const MIN_FLING_VELOCITY = 100;
 const CHART_UP_COLOR = '#30A46C';
 const CHART_DOWN_COLOR = '#E5484D';
 
@@ -335,7 +337,7 @@ export const TradingViewNativeChart = memo(
 
           panOffset.value = clampTradingViewNativePanOffset({
             chartWidth,
-            offset: panStartOffset.value + event.translationX,
+            offset: panStartOffset.value + event.translationX * PAN_DRAG_RATIO,
             pointCount,
             zoomScale: zoomScale.value,
           });
@@ -352,10 +354,13 @@ export const TradingViewNativeChart = memo(
             panOffset.value = 0;
             return;
           }
+          if (Math.abs(event.velocityX) < MIN_FLING_VELOCITY) {
+            return;
+          }
           panOffset.value = withDecay({
             clamp: [0, maxOffset],
             deceleration: PAN_DECELERATION,
-            velocity: event.velocityX,
+            velocity: event.velocityX * PAN_DRAG_RATIO,
           });
         });
 
