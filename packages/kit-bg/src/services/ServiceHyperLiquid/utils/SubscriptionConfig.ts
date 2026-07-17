@@ -155,6 +155,15 @@ export function isOrderBookOptionsTargetReady(
   return !currentCoin || !optionsCoin || currentCoin === optionsCoin;
 }
 
+// Order-book transitions overlap-check by coin: L2 params use `c`,
+// L2_BOOK params use `coin`; fall back to the key for non-book specs.
+export function getOrderBookSubscriptionCoin(
+  spec: ISubscriptionSpec<ESubscriptionType>,
+): string {
+  const params = spec.params as { c?: string; coin?: string };
+  return params.c ?? params.coin ?? spec.key;
+}
+
 export function getSubscriptionResumeAction({
   isOpen,
   isClosedOrClosing,

@@ -85,6 +85,7 @@ import {
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
+  getOrderBookSubscriptionCoin,
   getSubscriptionResumeAction,
   isOrderBookOptionsTargetReady,
   normalizeL2BookForSubscriptionSpec,
@@ -1809,6 +1810,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             destroy: (spec) => this._destroySubscription(spec),
             create: (spec) => this._createSubscription(spec),
             isPending: (spec) => this._isSubscriptionSpecPending(spec),
+            getConflictKey: (spec) => getOrderBookSubscriptionCoin(spec),
             runExclusive: (task) =>
               this._subscriptionMutationQueue.enqueue(
                 ServiceHyperliquidSubscription.ORDER_BOOK_MUTATION_KEY,

@@ -3,6 +3,7 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   calculateRequiredSubscriptions,
+  getOrderBookSubscriptionCoin,
   getSubscriptionResumeAction,
   isOrderBookOptionsTargetReady,
   normalizeL2BookForSubscriptionSpec,
@@ -83,6 +84,27 @@ describe('normalizeL2BookForSubscriptionSpec', () => {
     ) as ISubscriptionSpec<ESubscriptionType.L2_BOOK>;
 
     expect(normalizeL2BookForSubscriptionSpec(data, spec)).toBeUndefined();
+  });
+});
+
+describe('getOrderBookSubscriptionCoin', () => {
+  it('extracts the coin from L2 and L2_BOOK params', () => {
+    expect(
+      getOrderBookSubscriptionCoin({
+        type: ESubscriptionType.L2,
+        key: 'l2-key',
+        params: { c: 'BTC', s: 4 },
+        priority: 3,
+      } as ISubscriptionSpec<ESubscriptionType>),
+    ).toBe('BTC');
+    expect(
+      getOrderBookSubscriptionCoin({
+        type: ESubscriptionType.L2_BOOK,
+        key: 'l2book-key',
+        params: { coin: 'ETH', nSigFigs: null, mantissa: null },
+        priority: 3,
+      } as ISubscriptionSpec<ESubscriptionType>),
+    ).toBe('ETH');
   });
 });
 

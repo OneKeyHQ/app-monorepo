@@ -15,12 +15,15 @@ export class PerKeyMutationQueue {
   }
 }
 
-export async function executeOrderBookSubscriptionTransition<T>({
+export async function executeOrderBookSubscriptionTransition<
+  T extends { key: string },
+>({
   toDestroy,
   toCreate,
   destroy,
   create,
   isPending,
+  getConflictKey,
   runExclusive,
   reconnect,
 }: {
@@ -29,21 +32,47 @@ export async function executeOrderBookSubscriptionTransition<T>({
   destroy: (spec: T) => Promise<boolean>;
   create: (spec: T) => Promise<void>;
   isPending: (spec: T) => boolean;
+  getConflictKey: (spec: T) => string;
   runExclusive: <R>(task: () => Promise<R>) => Promise<R>;
   reconnect: () => Promise<void>;
 }): Promise<boolean> {
+  // Overlapping targets (same coin, e.g. a grouping change or same-key
+  // re-create) must stay destroy-first: frames carry only the coin, so the
+  // old stream is indistinguishable and would corrupt the new book. Distinct
+  // coins subscribe first to save one server RTT; stale-coin frames are
+  // dropped by coin checks.
+  const destroyConflictKeys = new Set(toDestroy.map(getConflictKey));
+  const hasTargetOverlap = toCreate.some((spec) =>
+    destroyConflictKeys.has(getConflictKey(spec)),
+  );
+
   const succeeded = await runExclusive(async () => {
-    for (const spec of toDestroy) {
-      if (!(await destroy(spec))) {
+    const destroyAll = async () => {
+      for (const spec of toDestroy) {
+        if (!(await destroy(spec))) {
+          return false;
+        }
+      }
+      return true;
+    };
+    const createAllPending = async () => {
+      for (const spec of toCreate) {
+        if (isPending(spec)) {
+          await create(spec);
+        }
+      }
+    };
+
+    if (hasTargetOverlap) {
+      if (!(await destroyAll())) {
         return false;
       }
+      await createAllPending();
+      return true;
     }
-    for (const spec of toCreate) {
-      if (isPending(spec)) {
-        await create(spec);
-      }
-    }
-    return true;
+
+    await createAllPending();
+    return destroyAll();
   });
 
   if (!succeeded) {
