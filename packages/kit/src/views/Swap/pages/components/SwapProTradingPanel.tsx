@@ -25,8 +25,10 @@ import SwapProAccountSelect from './SwapProAccountSelect';
 import SwapProActionButton from './SwapProActionButton';
 import SwapProInputContainer from './SwapProInputContainer';
 import SwapProLimitPriceValue from './SwapProLimitPriceValue';
+import SwapProPresetSelector from './SwapProPresetSelector';
 import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
 
+import type { IEstimateMarketPresetPriorityFeeFiatValues } from '../../../Market/MarketDetailV2/components/SwapPanel/components/MarketPresetSelector';
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 import type { ITradeType } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 
@@ -43,6 +45,9 @@ interface ISwapProTradingPanelProps {
   onSelectPercentageStage: (stage: number) => void;
   limitPriceUseMarketPrice: { value: string; change: boolean };
   marketPresetSettings?: IMarketPresetSettingsState;
+  showMarketPresetSelector?: boolean;
+  antiMEV?: boolean;
+  estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
 }
 
 const SwapProTradingPanel = ({
@@ -58,6 +63,9 @@ const SwapProTradingPanel = ({
   hasEnoughBalance,
   cleanInputAmount,
   marketPresetSettings,
+  showMarketPresetSelector,
+  antiMEV,
+  estimatePriorityFeeFiatValues,
 }: ISwapProTradingPanelProps) => {
   const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
@@ -143,6 +151,13 @@ const SwapProTradingPanel = ({
           cleanInputAmount={cleanInputAmount}
         />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
+        {showMarketPresetSelector && marketPresetSettings ? (
+          <SwapProPresetSelector
+            antiMEV={antiMEV}
+            estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
+            presetSettings={marketPresetSettings}
+          />
+        ) : null}
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <>
             <LimitExpirySelect

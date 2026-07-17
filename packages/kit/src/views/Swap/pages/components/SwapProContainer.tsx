@@ -38,11 +38,6 @@ import type {
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import {
-  type IEstimateMarketPresetPriorityFeeFiatValues,
-  type IMarketPresetPriorityFeeFiatEstimateMap,
-  MarketPresetSelector,
-} from '../../../Market/MarketDetailV2/components/SwapPanel/components/MarketPresetSelector';
-import {
   estimateMarketPresetGasFeeFiatValues,
   resolveMarketPresetNativeTokenPrice,
 } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
@@ -63,6 +58,10 @@ import SwapProTradeInfoPanel from './SwapProTradeInfoPanel';
 import SwapProTradingPanel from './SwapProTradingPanel';
 import SwapTipsContainer from './SwapTipsContainer';
 
+import type {
+  IEstimateMarketPresetPriorityFeeFiatValues,
+  IMarketPresetPriorityFeeFiatEstimateMap,
+} from '../../../Market/MarketDetailV2/components/SwapPanel/components/MarketPresetSelector';
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
 interface ISwapProContainerProps {
@@ -357,6 +356,9 @@ const SwapProContainer = ({
               handleSelectAccountClick={handleSelectAccountClick}
               cleanInputAmount={cleanInputAmount}
               marketPresetSettings={marketPresetSettings}
+              showMarketPresetSelector={showMarketPresetSelector}
+              antiMEV={isMEV}
+              estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
             />
           ) : (
             <YStack gap="$6" flex={1} p="$3">
@@ -369,16 +371,6 @@ const SwapProContainer = ({
           )}
         </YStack>
       </XStack>
-      {showMarketPresetSelector && marketPresetSettings ? (
-        <YStack pb="$3">
-          <MarketPresetSelector
-            antiMEV={isMEV}
-            estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
-            presetSettings={marketPresetSettings}
-            showAutoSlippageLabel
-          />
-        </YStack>
-      ) : null}
       {isProStockMarketClosed ? (
         <StockMarketStatusAlert
           statusCase={resolveStockMarketStatusCase({

@@ -136,7 +136,7 @@ function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
   return ETranslations.transaction_normal;
 }
 
-function getMarketPresetLabel({
+export function getMarketPresetLabel({
   intl,
   label,
   presetKey,
@@ -155,7 +155,7 @@ function getMarketPresetLabel({
   return label ?? presetKey.toUpperCase();
 }
 
-function getPriorityFeeLabel({
+export function getPriorityFeeLabel({
   intl,
   settings,
   unit,
@@ -696,7 +696,7 @@ function MarketPresetTabBar({
   );
 }
 
-function MarketPresetSettingsDialog({
+export function MarketPresetSettingsDialog({
   antiMEV,
   close,
   estimatePriorityFeeFiatValues,
