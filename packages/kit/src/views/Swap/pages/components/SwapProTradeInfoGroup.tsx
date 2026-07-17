@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -27,18 +27,13 @@ import {
   useSwapSpeedQuoteFetchingAtom,
   useSwapSpeedQuoteResultAtom,
   useSwapToTokenAmountAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapProTradeType,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SellForSelector from '../../../Market/MarketDetailV2/components/SwapPanel/components/SellForSelector';
-import { TokenSelectorPopover } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenSelectorPopover';
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import {
@@ -56,7 +51,6 @@ interface ISwapProTradeInfoGroupProps {
   defaultTokens: ISwapTokenBase[];
   defaultLimitTokens: ISwapTokenBase[];
   onBalanceMax: () => void;
-  cleanInputAmount: () => void;
 }
 
 const SwapProTradeInfoGroup = ({
@@ -64,7 +58,6 @@ const SwapProTradeInfoGroup = ({
   onBalanceMax,
   defaultTokens,
   defaultLimitTokens,
-  cleanInputAmount,
 }: ISwapProTradeInfoGroupProps) => {
   const intl = useIntl();
   const inputToken = useSwapProInputToken();
@@ -82,8 +75,6 @@ const SwapProTradeInfoGroup = ({
     useSwapProSellToTokenAtom();
   const [, setSwapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
   const [swapLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
-  const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
-  const [isPayTokenPopoverOpen, setIsPayTokenPopoverOpen] = useState(false);
   const navigation = useAppNavigation();
   const defaultTokensFromType = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
@@ -91,13 +82,6 @@ const SwapProTradeInfoGroup = ({
     }
     return defaultLimitTokens;
   }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
-  // Pay-token switching only applies to BUY (SELL spends the traded token and
-  // picks its counterparty via SellForSelector). Hidden on single-token networks.
-  const isPayTokenSwitchVisible =
-    swapProDirection === ESwapDirection.BUY && defaultTokensFromType.length > 1;
-  // Stock tokens must be paid with stable coins; gray out the native coin.
-  const disableNativePayToken =
-    swapProDirection === ESwapDirection.BUY && !!swapProSelectToken?.isStock;
 
   const handleDepositPress = useCallback(() => {
     if (!inputToken || !activeAccount) {
@@ -123,35 +107,6 @@ const SwapProTradeInfoGroup = ({
     });
   }, [navigation, inputToken, activeAccount]);
 
-  const handlePayTokenSelect = useCallback(
-    (token: IToken) => {
-      // Reset amount/slider and drop the in-flight quote before re-quoting
-      // against the newly selected pay token.
-      cleanInputAmount();
-      setSwapProUseSelectBuyToken(token);
-      // Sync SELL counterparty so both directions use the same token
-      setSwapProSellToToken(token);
-      setIsPayTokenPopoverOpen(false);
-      // Save preference (shared with Instant Mode) via simpledb
-      const networkId = swapProSelectToken?.networkId || '';
-      if (networkId) {
-        void backgroundApiProxy.simpleDb.marketTokenPreference.setPreference({
-          networkId,
-          preference: {
-            contractAddress: token.contractAddress,
-            symbol: token.symbol,
-            networkId: token.networkId,
-          },
-        });
-      }
-    },
-    [
-      cleanInputAmount,
-      setSwapProUseSelectBuyToken,
-      setSwapProSellToToken,
-      swapProSelectToken?.networkId,
-    ],
-  );
   const { result: enableAddressTypeSelector } = usePromiseResult(async () => {
     const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
       networkId: inputToken?.networkId ?? '',
@@ -294,40 +249,14 @@ const SwapProTradeInfoGroup = ({
             >
               {balanceValue}
             </NumberSizeableText>
-            {isPayTokenSwitchVisible ? (
-              // Symbol + chevron share one hit area so the token name itself
-              // reads (and works) as the pay-token switch entry.
-              <XStack
-                alignItems="center"
-                gap="$0.5"
-                onPress={() => setIsPayTokenPopoverOpen(true)}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
-                hoverStyle={{ opacity: 0.7 }}
-                pressStyle={{ opacity: 0.5 }}
-              >
-                <SizableText
-                  size="$bodySmMedium"
-                  numberOfLines={1}
-                  maxWidth="$36"
-                >
-                  {inputToken?.symbol ?? '-'}
-                </SizableText>
-                <Icon
-                  name="ChevronRightSmallOutline"
-                  size="$4"
-                  color="$iconSubdued"
-                />
-              </XStack>
-            ) : (
-              <SizableText
-                size="$bodySmMedium"
-                numberOfLines={1}
-                textAlign="right"
-                maxWidth="$36"
-              >
-                {inputToken?.symbol ?? '-'}
-              </SizableText>
-            )}
+            <SizableText
+              size="$bodySmMedium"
+              numberOfLines={1}
+              textAlign="right"
+              maxWidth="$36"
+            >
+              {inputToken?.symbol ?? '-'}
+            </SizableText>
             {!!inputToken && enableAddressTypeSelector ? (
               <AddressTypeSelector
                 refreshOnOpen
@@ -349,20 +278,6 @@ const SwapProTradeInfoGroup = ({
           py: '$1',
         }}
       />
-      {isPayTokenSwitchVisible ? (
-        <TokenSelectorPopover
-          currentSelectToken={swapProSelectToken}
-          isOpen={isPayTokenPopoverOpen}
-          onOpenChange={setIsPayTokenPopoverOpen}
-          tokens={defaultTokensFromType as IToken[]}
-          onTokenPress={handlePayTokenSelect}
-          onTradePress={() => {
-            setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
-          }}
-          disabledOnSwitchToTrade
-          disableNativeToken={disableNativePayToken}
-        />
-      ) : null}
       {swapProDirection === ESwapDirection.SELL ? (
         <SellForSelector
           defaultTokens={defaultTokensFromType}

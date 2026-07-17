@@ -25,6 +25,7 @@ import SwapProAccountSelect from './SwapProAccountSelect';
 import SwapProActionButton from './SwapProActionButton';
 import SwapProInputContainer from './SwapProInputContainer';
 import SwapProLimitPriceValue from './SwapProLimitPriceValue';
+import SwapProPayTokenSelector from './SwapProPayTokenSelector';
 import SwapProPresetSelector from './SwapProPresetSelector';
 import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
 
@@ -132,6 +133,11 @@ const SwapProTradingPanel = ({
           onSelectTradeType={onTypeSelected}
           selectItems={selectTradeTypeItems}
         />
+        <SwapProPayTokenSelector
+          defaultTokens={swapProConfig.defaultTokens}
+          defaultLimitTokens={swapProConfig.defaultLimitTokens}
+          cleanInputAmount={cleanInputAmount}
+        />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <SwapProLimitPriceValue
             externalTokenPrice={limitPriceUseMarketPrice}
@@ -148,7 +154,6 @@ const SwapProTradingPanel = ({
           onBalanceMax={onBalanceMax}
           defaultTokens={swapProConfig.defaultTokens}
           defaultLimitTokens={swapProConfig.defaultLimitTokens}
-          cleanInputAmount={cleanInputAmount}
         />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
         {showMarketPresetSelector && marketPresetSettings ? (
