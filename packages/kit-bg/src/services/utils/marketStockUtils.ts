@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 
 export interface IMarketStockUnderlyingMetaApiData {
+  averageVolume1y?: string;
   debtToEquityRatioTTM?: string;
   dividendPerShareTTM?: string;
   dividendYieldTTM?: string;
@@ -43,6 +44,7 @@ export function buildMarketStockDetail(
       volume24h: meta?.volume24h,
       volumeShares: meta?.volumeShares,
       turnoverRate: meta?.turnoverRate24h,
+      avgDailyVolume1y: meta?.averageVolume1y,
       weekHigh52: meta?.weekHigh52,
       weekLow52: meta?.weekLow52,
     },
