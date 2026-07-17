@@ -10,3 +10,12 @@ export interface IDeviceInfo {
 }
 
 export type IGetDeviceInfo = () => Promise<IDeviceInfo>;
+
+export interface IAnalyticsUserProfile {
+  walletCount?: number;
+  appWalletCount?: number;
+  hwWalletCount?: number;
+  keylessWalletCount?: number;
+  hwVendors?: string[];
+  primaryHwVendor?: string;
+}
