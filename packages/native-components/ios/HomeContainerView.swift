@@ -1393,6 +1393,12 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   }
 
   func setUnifiedVerticalDriverEnabled(_ enabled: Bool) {
+    // The unified pager remains one compact-header height taller than the visible
+    // viewport after the shared chrome collapses, so keep the final row above the
+    // floating app tab bar by compensating for that off-screen portion as well.
+    let bottomInset = 112 + (enabled ? HomeContainerMetrics.compactHeaderHeight : 0)
+    tableView.contentInset.bottom = bottomInset
+    tableView.verticalScrollIndicatorInsets.bottom = bottomInset
     tableView.isScrollEnabled = !enabled
     tableView.scrollsToTop = !enabled
   }

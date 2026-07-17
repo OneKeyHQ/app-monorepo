@@ -29,6 +29,7 @@ import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/A
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerHome';
 import { AllNetworksManagerTrigger } from '@onekeyhq/kit/src/components/AccountSelector/AllNetworksManagerTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
+import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import {
   EmptyAccount,
   EmptyDeFi,
@@ -112,6 +113,7 @@ import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigati
 import { useCopyAddressWithDeriveType } from '../../hooks/useCopyAccountAddress';
 import { useManageToken } from '../../hooks/useManageToken';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 import { convertFiat } from '../../utils/fiatConvert';
 import {
   buildAprRangeText,
@@ -1640,21 +1642,51 @@ export function NativeHomePage({
                         id: ETranslations.wallet_history_footer_view_full_history_in_explorer,
                       })}
                     </SizableText>
-                    <Button
-                      testID="native-home-history-explorer"
-                      size="small"
-                      variant="secondary"
-                      iconAfter={
-                        requiresNetworkSelection ? undefined : 'OpenOutline'
-                      }
-                      onPress={() => {
-                        void handleOpenHistoryExplorer();
-                      }}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.global_block_explorer,
-                      })}
-                    </Button>
+                    {!isOthersWallet &&
+                    vaultSettings?.mergeDeriveAssetsEnabled ? (
+                      <AddressTypeSelector
+                        walletId={wallet?.id ?? ''}
+                        networkId={network?.id ?? ''}
+                        indexedAccountId={
+                          indexedAccount?.id ?? account?.indexedAccountId ?? ''
+                        }
+                        renderSelectorTrigger={
+                          <Button
+                            testID="native-home-history-address-type-selector"
+                            size="small"
+                            variant="secondary"
+                            onPress={() => {}}
+                          >
+                            {intl.formatMessage({
+                              id: ETranslations.global_block_explorer,
+                            })}
+                          </Button>
+                        }
+                        onSelect={async ({ account: selectedAccount }) => {
+                          await openExplorerAddressUrl({
+                            networkId: network?.id,
+                            address: selectedAccount?.address,
+                          });
+                        }}
+                        doubleConfirm
+                      />
+                    ) : (
+                      <Button
+                        testID="native-home-history-explorer"
+                        size="small"
+                        variant="secondary"
+                        iconAfter={
+                          requiresNetworkSelection ? undefined : 'OpenOutline'
+                        }
+                        onPress={() => {
+                          void handleOpenHistoryExplorer();
+                        }}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_block_explorer,
+                        })}
+                      </Button>
+                    )}
                   </YStack>
                 ),
               },
@@ -1663,19 +1695,25 @@ export function NativeHomePage({
         : {}),
     };
   }, [
+    account?.indexedAccountId,
     handleOpenHistoryExplorer,
     history.data.length,
     history.hasMore,
     history.initialized,
     history.isLoadingMore,
+    indexedAccount?.id,
     intl,
     isPrimeAvailable,
+    isOthersWallet,
+    network?.id,
     network?.isAllNetworks,
     perps.viewState,
     requiresNetworkSelection,
     user?.onekeyUserId,
     user?.primeSubscription?.isActive,
     vaultSettings?.hideBlockExplorer,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    wallet?.id,
   ]);
   const homeSlots = useMemo<IHomeContainerSlots>(
     () => ({

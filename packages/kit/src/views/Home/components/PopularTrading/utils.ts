@@ -23,6 +23,85 @@ function getTokenKey(token: {
 
 const EMPTY_DISPLAY_TOKENS: IFavoriteTokenDisplay[] = [];
 
+function getMarketCategoryTokensRequestKey({
+  minLiquidity,
+  selectedMarketCategoryId,
+}: {
+  minLiquidity: number;
+  selectedMarketCategoryId?: string;
+}) {
+  return `${selectedMarketCategoryId ?? ''}:${minLiquidity}`;
+}
+
+function createHomeMarketCategoryTokensCache<T>() {
+  let nextRequestId = 0;
+  const latestRequestIdByKey: Record<string, number> = {};
+  let tokensByRequestKey: Record<string, T[]> = {};
+
+  return {
+    beginRequest({
+      categoryIds,
+      minLiquidity,
+    }: {
+      categoryIds: string[];
+      minLiquidity: number;
+    }) {
+      nextRequestId += 1;
+      categoryIds.forEach((categoryId) => {
+        latestRequestIdByKey[
+          getMarketCategoryTokensRequestKey({
+            minLiquidity,
+            selectedMarketCategoryId: categoryId,
+          })
+        ] = nextRequestId;
+      });
+      return nextRequestId;
+    },
+    commitCategory({
+      categoryId,
+      minLiquidity,
+      requestId,
+      tokens,
+    }: {
+      categoryId: string;
+      minLiquidity: number;
+      requestId: number;
+      tokens: T[];
+    }) {
+      const requestKey = getMarketCategoryTokensRequestKey({
+        minLiquidity,
+        selectedMarketCategoryId: categoryId,
+      });
+      if (latestRequestIdByKey[requestKey] !== requestId) {
+        return false;
+      }
+
+      tokensByRequestKey = {
+        ...tokensByRequestKey,
+        [requestKey]: tokens,
+      };
+      return true;
+    },
+    getSnapshot() {
+      return tokensByRequestKey;
+    },
+    getTokens({
+      minLiquidity,
+      selectedMarketCategoryId,
+    }: {
+      minLiquidity: number;
+      selectedMarketCategoryId?: string;
+    }) {
+      return tokensByRequestKey[
+        getMarketCategoryTokensRequestKey({
+          minLiquidity,
+          selectedMarketCategoryId,
+        })
+      ];
+    },
+  };
+}
+
 function getMarketCategoryIds({
   prefetchMarketCategoryIds,
   selectedMarketCategoryId,
@@ -131,7 +210,9 @@ function mapMarketPerpsTokenToDisplay({
 
 export {
   EMPTY_DISPLAY_TOKENS,
+  createHomeMarketCategoryTokensCache,
   getMarketCategoryIds,
+  getMarketCategoryTokensRequestKey,
   getMarketTokenDisplayMarketCap,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,

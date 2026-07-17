@@ -1536,3 +1536,48 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - 本节修改文件为 `HomeContainerView.swift`、`HomeContainer.native.tsx`、`HomeContainer.types.ts`、`NativeHomePage.native.tsx`、History adapter/测试、Home Tab support hook/helper/测试、Market category prefetch hook/纯工具/测试和本 handoff；没有修改 Android renderer，也没有把 yarn.lock、Performance、Discovery、Swap、TradingView 等共享工作区 dirty files 混入。
 - `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift`、指定 Native Home 文件的 `git diff --check`、聚焦 `oxfmt --check` 和 type-aware `oxlint --deny-warnings` 均通过。聚焦 Jest 为 3 suites / 24 tests 全部通过；Market prefetch 的纯工具测试覆盖 selected/prefetch 去重排序与空 selected，且不会为测试该规则而加载完整 bg proxy/WalletConnect runtime。最终 staged 内容执行 `yarn agent:check --profile commit`，日志为 `node_modules/.cache/agent-checks/2026-07-17T14-26-56-450Z`：`lint-worktree-js`、`lint-worktree-ts`、`format-worktree`、`agent-context` 和 `lint-staged` 全部通过；`tsc-staged` 中本轮原有的 `prefetchMarketCategoryIds` / `refresh()` 两条错误已经消失，只剩 Desktop `config.perfReady` 和旧 `NativeHomePageView.native.tsx` header export 两条共享工作区既有错误。早先聚焦 `npx eslint` 在加载配置前被当前 `node_modules` 缺失的 `typescript` 依赖阻断；没有修改依赖或 yarn.lock 掩盖环境问题，也没有回滚无关代码制造绿色结果。
 - 本节通过的是上述九项、Market 三类当前成功态和列出的真实切换/触底/点击证据；Dark mode、动态字体、所有 pressed/hover、全部图片候选失败/取消/缓存失效降级态、更多 History 交易类型和 iOS 17.4 以下滚动体验仍未全量覆盖，不能声明整个 Native Home UI 已完成。
+
+## 2026-07-18 九项回归 subagent 复核修正与最终 Debug 验收
+
+### 复核结论与旧结论修正
+
+- 本轮在上一节实现后由独立 subagent 做两轮只读复核，并按其发现重新检查代码与真机证据。复核要求严格区分普通 All Networks explorer、merge-derive 地址类型选择器、Market 已真实点击分类和仅由 config 出现的分类；元素存在、编译通过和错误坐标命中都不算通过。
+- 上一节关于 Market “首次与二次切换均通过”的表述只对有效录屏中真实点击的 Favorites、Trending、Stocks 成立，不能外推到 Perps。当前 Perps 受真实服务端 hot config 与现场交互条件限制，没有同等级的首帧点击证据，因此九项中的 Market 四分类验收仍为 **Partial**，不是完整通过。Native 没有为截图写死 Perps。
+- subagent 复核发现 BTC 等 merge-derive 单链的深分页还有一个独立终止态缺陷：真正的末页已经返回 `hasMore=false`，但 15 秒 polling 的 page-1 响应仍可能携带 `hasMore=true`；旧 hook 在保留已加载区间时会把终止态重新打开。此时最后一个 cell 已经保持可见，`willDisplay/onEndReached` 不保证再次触发，于是 UI 停在最大 offset 且 footer 永远不出现。此前 All Networks footer 通过不能外推到该分支。
+
+### 按复核结果完成的修正
+
+- `useHistoryListLoadMore` 增加当前 pagination generation 的 terminal-page ref。深 cursor 一旦没有有效新页，就在保留已加载区间期间拒绝 page-1 polling 把 `hasMore` 重开；账户、网络、过滤条件或 hard reset 开启新 generation 时才清除该终止态。新增聚焦测试覆盖“末页 false → polling first page true → 已加载区间保留但 hasMore 仍为 false → 不再发起额外 load-more”。
+- 修复前 BTC 失败现场为 `.tmp/ui/native-home-nine-regressions-20260717/final-after-subreview-fix/history-bitcoin-scroll-command.png`：已到非移动的最大 offset，但 footer 不存在。修复后的真实深滚图 `.tmp/ui/native-home-nine-regressions-20260717/final-after-terminal-fix/bitcoin-history-scroll-1.png` 与 `bitcoin-history-footer-after-trigger-fix.png` 显示完整说明和 `Block explorer` 按钮。
+- merge-derive footer 复用原版 `AddressTypeSelector`。实际交互又发现：把 selector trigger 的 Button 包在仅用于 testID 的 Stack 中会破坏 Popover 向直接 trigger 注入 press handler，导致按钮存在但点击不弹出 selector；最终恢复为 **Button 直接作为 `renderSelectorTrigger`**，testID 直接放在 Button 上。实点证据 `.tmp/ui/native-home-nine-regressions-20260717/final-after-terminal-fix/bitcoin-history-selector-direct-trigger-click.png` 已打开真实 `Select address type`，并显示 Taproot、Nested SegWit、Native SegWit、Legacy 与确认操作。普通 All Networks 分支的真实 `Select network` 证据仍为 `.tmp/ui/native-home-nine-regressions-20260717/final-after-subreview-fix/history-all-networks-select-network.png`。
+- unified outer driver 的最终 bottom inset 为 `112 + compactHeaderHeight = 172pt`。有效触底证据 `.tmp/ui/native-home-nine-regressions-20260717/final-after-subreview-fix/portfolio-support-bottom-inset-172-valid.png` 和 `portfolio-support-bottom-inset-172-valid-extra-swipe.png` 中 `Help center` 完整位于浮动底栏上方，额外上推不再改变最终位置。
+- Market cache owner 继续按 `category + minLiquidity` 独立保存最新 request id；每个分类成功后立即提交并触发渲染，不等待其他分类 settle；同 key 的旧请求不能覆盖新结果，某个分类失败不清空兄弟分类。纯工具测试覆盖 key 隔离、早提交、失败保留、同 key stale rejection 和并行 liquidity scope。
+
+### 最终九项状态和有效证据边界
+
+1. Favorites 标题/recognized 间距：**Pass**，以最新 Favorites Debug 图和 402 图为证据。
+2. 底部触达与底栏遮挡：**Pass**，以 172pt inset 的触底及 extra-swipe 两帧为证据。
+3. Stocks 标题/source icon 间距：**Pass**，以最新 Stocks Debug 图和 402 图为证据。
+4. Market Favorites/Trending/Stocks/Perps 首帧预取：**Partial**。Favorites、Trending、Stocks 有首帧真实行；Perps 没有同等级真实点击证据，不能声明四分类全部通过。
+5. All Networks 顶部 Tab 数量：**Pass**，当前真实 All Networks 显示 Spot / Perps / DeFi / NFT / History，并保留 Perps 全局 disabled 时隐藏的共享规则。
+6. History 末尾文案与按钮：**Pass**。All Networks 普通分支真实打开 Select network；BTC merge-derive 分支真实到达 footer 并打开 Select address type。BTC 选择具体地址后的外部区块浏览器最终跳转没有单独录证，不把 selector 打开外推为该末端链路也已通过。
+7. NFT 深处切 History 大空白：**Pass**，以此前列出的真实切换录屏和首帧/settled 多帧为证据。
+8. History incoming value 绿色：**Pass**，以真实 incoming 行截图为证据。
+9. compact Header 余额穿透：**Pass**，以完整 Header 到 compact Header 的有效折叠截图为证据。
+
+- 有效 Market 最新 Debug 图仍为 `.tmp/ui/handoff-ui-market-favorites-after-debug.png`、`handoff-ui-market-trending-after-debug.png`、`handoff-ui-market-stocks-after-debug.png` 及各自真正的 402×874 `*-402.png`。旧 verified 图、坐标漂移后误入详情/Discover、Dev mode 误点、Debug LogBox 覆盖和红色错误帧全部排除，不能用于通过或失败结论。
+- 最终干净现场图为 `.tmp/ui/native-home-nine-regressions-20260717/final-after-terminal-fix/home-after-final-yarn-app-ios-clean.png`。`Account #1`、All Networks 图标、余额和真实 Token 行正常，应用持续存活。
+
+### 最终 Debug、运行时与数据安全
+
+- 所有上述最终源码修改后再次从仓库根目录执行标准 `yarn app:ios`。结果 `Build Succeeded`、0 errors、11 个既有 warnings；命令构建、签名、更新安装 `Debug-iphonesimulator/OneKeyWallet.app` 并启动 `so.onekey.wallet`。没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`。
+- 没有执行 uninstall、reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据。钱包数据正常，app 持续前台存活。
+- 最终 main probe 为 `runtime=main/jsReadyAt=1784325360874/uiVisibleAt=1784325362374/backgroundTransportState=ready`；main 收到独立 bg ready payload `runtime=background/status=ready/protocolVersion=1/bootId=1784325362507-xltdpcyk/ts=1784325362797`，独立 background target 报告 `runtime=background/backgroundJotaiBridge=true`。main ready 没有代替 bg ready。
+- **Runtime scope：main + bg。** Native Home UI、History pagination generation/footer/AddressTypeSelector、Market hook cache、snapshot/section patch、content offset 和每个 view 的交互状态属于 main/per-view；Market config/category/watchlist、History/NFT/DeFi/portfolio service 数据和权威持久化属于 bg。iOS main/bg 使用独立 Hermes JS heap，跨 runtime 数据经 proxy 分别序列化/反序列化，初始化顺序独立，不能假设 bg 先 ready。图片/字体 cache 与底层持久化句柄是进程级共享 Native 资源；constraint、represented image signature、request cancellation、pressed/hover、Market cache instance 和 pagination refs 是 per-view/main 状态。
+
+### 文件、检查与完成边界
+
+- 本次复核修正只涉及 `HomeContainerView.swift`、`NativeHomePage.native.tsx`、Market category hook/纯工具/测试、History pagination hook/测试和本 handoff。没有修改 Android renderer，也没有把 `yarn.lock`、Performance、Discovery、Swap、TradingView 等共享工作区 dirty files 混入。
+- 聚焦 Jest 最终为 4 suites / 36 tests 全部通过；聚焦 `oxlint`、`oxfmt --check`、Swift parse 和完整指定文件 `git diff --check` 通过。最终 staged `yarn agent:check --profile commit` 日志为 `node_modules/.cache/agent-checks/2026-07-17T22-03-15-244Z`：`lint-worktree-js`、`lint-worktree-ts`、`format-worktree`、`agent-context` 和 `lint-staged` 全部通过；`tsc-staged` 仅被共享工作区既有的 Desktop `config.perfReady` 缺失和旧 `NativeHomePageView.native.tsx` header export 两条错误阻断。日志中没有本轮 8 个文件的类型错误；没有修改或回滚无关代码制造绿色结果。
+- 独立 subagent 最终只读审查未发现 P1/P2，确认当前聚焦代码可以提交；其唯一九项证据缺口同样是 Perps 首帧，并提醒 BTC 选择地址后的外部浏览器最终跳转没有单独录证。
+- 本节通过的是九项中的八项和 Market 三个当前成功分类；Perps 四分类首帧仍为 Partial，Dark mode、动态字体、所有 pressed/hover、全部图片失败/取消/缓存降级态、更多 History 交易类型和 iOS 17.4 以下滚动体验仍未全量覆盖。不得声明整个 Native Home 或整个 Market UI 已完成。
