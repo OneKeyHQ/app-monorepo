@@ -218,7 +218,7 @@ export function HomePageView({
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
     useIsAccountSelectorActiveAccountInitDone(0);
-  const { result: walletListResult } = usePromiseResult(
+  const { result: walletListResult, run: refreshWalletList } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccount.getWallets({
         ignoreEmptySingletonWalletAccounts: true,
@@ -835,7 +835,7 @@ export function HomePageView({
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
-        headerHeight={platformEnv.isNative ? 312 : undefined}
+        headerHeight={platformEnv.isNative ? 292 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
@@ -904,10 +904,28 @@ export function HomePageView({
     const clearCache = async () => {
       await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
     };
+    // Keep the no-wallet gate's wallet list fresh: it feeds
+    // shouldShowNoWalletContent, and a stale mount-time list can hold Home on
+    // the blank fallback after wallets are removed while mounted.
+    const refreshWalletListForNoWalletGate = () => {
+      void refreshWalletList();
+    };
 
     appEventBus.on(EAppEventBusNames.WalletUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AccountUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AddressBookUpdate, clearCache);
+    appEventBus.on(
+      EAppEventBusNames.WalletUpdate,
+      refreshWalletListForNoWalletGate,
+    );
+    appEventBus.on(
+      EAppEventBusNames.AccountUpdate,
+      refreshWalletListForNoWalletGate,
+    );
+    appEventBus.on(
+      EAppEventBusNames.AccountRemove,
+      refreshWalletListForNoWalletGate,
+    );
     appEventBus.on(
       EAppEventBusNames.SwitchWalletHomeTab,
       handleSwitchWalletHomeTab,
@@ -917,11 +935,23 @@ export function HomePageView({
       appEventBus.off(EAppEventBusNames.AccountUpdate, clearCache);
       appEventBus.off(EAppEventBusNames.AddressBookUpdate, clearCache);
       appEventBus.off(
+        EAppEventBusNames.WalletUpdate,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
+        EAppEventBusNames.AccountUpdate,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
+        EAppEventBusNames.AccountRemove,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
         EAppEventBusNames.SwitchWalletHomeTab,
         handleSwitchWalletHomeTab,
       );
     };
-  }, [handleSwitchWalletHomeTab]);
+  }, [handleSwitchWalletHomeTab, refreshWalletList]);
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {

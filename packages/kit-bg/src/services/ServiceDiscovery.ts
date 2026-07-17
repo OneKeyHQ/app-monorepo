@@ -225,7 +225,8 @@ class ServiceDiscovery extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       let authToken = '';
       try {
-        authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
+        authToken =
+          await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
       } catch {
         // ignore auth token errors, proceed without it
       }

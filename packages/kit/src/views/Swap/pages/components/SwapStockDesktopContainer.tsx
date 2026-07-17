@@ -100,6 +100,7 @@ import {
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
+import SwapFAQ from '../../components/SwapFAQ';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
@@ -109,6 +110,7 @@ import {
 } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 import {
+  ESwapStockChannelAsyncStatus,
   ESwapStockChannelStage,
   ESwapStockTradeSide,
   type IUseSwapStockChannelReturn,
@@ -130,7 +132,6 @@ import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 import {
   getSwapKLineWalletChartDays,
   normalizeSwapKLineWalletChartData,
-  normalizeSwapKLineWalletChartTimestamp,
 } from '../modal/swapKLineChartUtils';
 
 import SwapActionsState from './SwapActionsState';
@@ -148,7 +149,9 @@ import {
   STOCK_CHART_DEFAULT_RANGE,
   STOCK_CHART_RANGE_ITEMS,
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
+  getStockChartDisplayState,
   getStockDisabledActionButtonProps,
+  isStockMarketPanelLoadingStage,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
 import { isCurrentStockQuoteEventError } from './SwapStockTradeAlertUtils';
@@ -200,6 +203,13 @@ type IStockChartHoverData = {
   price: number;
   x: number;
   y: number;
+};
+
+type IStockChartState = {
+  assetScope: string;
+  data: IMarketTokenChart;
+  range: IStockChartRange;
+  scope: string;
 };
 
 function useOpenStockTokenSelector({
@@ -408,6 +418,7 @@ function useCurrentStockMarketDetail() {
   return {
     stockChannel,
     tokenDetail: stockChannel.activeStockTokenDetail,
+    currentStockToken,
     tokenAddress: currentStockToken?.contractAddress,
     networkId: currentStockToken?.networkId,
     isNative: currentStockToken?.isNative,
@@ -807,9 +818,11 @@ function StockActionGate({
     [isDesktopModalPage, keyboardPercentageStage],
   );
   const isStockChannelInitializing =
-    stockChannel.channelStage === ESwapStockChannelStage.InitializingStock ||
-    stockChannel.channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
-    stockChannel.channelStage === ESwapStockChannelStage.InitializingPayToken;
+    stockChannel.stockTokenStatus ===
+      ESwapStockChannelAsyncStatus.Initializing ||
+    stockChannel.marketStatusStatus ===
+      ESwapStockChannelAsyncStatus.Initializing ||
+    stockChannel.payTokenStatus === ESwapStockChannelAsyncStatus.Initializing;
   const disabledLabel = useMemo(() => {
     switch (stockChannel.channelStage) {
       case ESwapStockChannelStage.MissingStock:
@@ -1299,9 +1312,11 @@ function StockMarketHeaderSkeleton({ proAligned }: { proAligned?: boolean }) {
 }
 
 function StockMarketTokenHeader({
+  loading,
   storeName,
   proAligned,
 }: {
+  loading?: boolean;
   storeName: EJotaiContextStoreNames;
   // The mobile layout passes true so the header visually matches Pro mode's
   // token selector (see SwapProTokenSelect): symbol at $headingLg with a
@@ -1311,27 +1326,40 @@ function StockMarketTokenHeader({
   // $headingSm heading and fixed row height (OK-57348).
   proAligned?: boolean;
 }) {
-  const { tokenDetail, networkId } = useCurrentStockMarketDetail();
-  const stockTokenNetworkId = tokenDetail?.networkId ?? networkId;
+  const intl = useIntl();
+  const { currentStockToken, tokenDetail, networkId } =
+    useCurrentStockMarketDetail();
+  const stockTokenNetworkId =
+    tokenDetail?.networkId ?? currentStockToken?.networkId ?? networkId;
   const effectiveNetworkLogoUri = useNetworkLogoUri({
     logoUri: undefined,
     networkId: stockTokenNetworkId,
   });
   const stock = tokenDetail?.stock;
+  const tokenSymbol = tokenDetail?.symbol ?? currentStockToken?.symbol;
+  const tokenDisplaySymbol =
+    tokenSymbol ??
+    intl.formatMessage({
+      id: ETranslations.swap_page_button_select_token,
+    });
+  const tokenName =
+    tokenDetail?.name ?? currentStockToken?.name ?? tokenSymbol ?? '';
+  const tokenSubtitle =
+    stock?.subtitle ?? (tokenDetail ? undefined : currentStockToken?.name);
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockTokenNetworkId,
     storeName,
   });
 
-  if (!tokenDetail) {
+  if (!tokenDetail && loading) {
     return <StockMarketHeaderSkeleton proAligned={proAligned} />;
   }
 
   const tokenIcon = (
     <Token
       size="md"
-      tokenImageUri={tokenDetail.logoUrl}
-      tokenImageUris={tokenDetail.logoUrls}
+      tokenImageUri={tokenDetail?.logoUrl ?? currentStockToken?.logoURI}
+      tokenImageUris={tokenDetail?.logoUrls}
       networkImageUri={effectiveNetworkLogoUri}
       showNetworkIconBorder={false}
       bg="$transparent"
@@ -1348,7 +1376,7 @@ function StockMarketTokenHeader({
         maxWidth={proAligned ? '$40' : 132}
         flexShrink={1}
       >
-        {tokenDetail.symbol}
+        {tokenDisplaySymbol}
       </SizableText>
       <Icon
         name="ChevronDownSmallOutline"
@@ -1360,14 +1388,14 @@ function StockMarketTokenHeader({
   );
   const tokenLabelsRow = (
     <XStack h={18} alignItems="center" gap="$1" maxWidth="100%">
-      {stock?.subtitle ? (
+      {tokenSubtitle ? (
         <SizableText
           size="$bodySm"
           color="$textSubdued"
           numberOfLines={1}
           flexShrink={1}
         >
-          {stock.subtitle}
+          {tokenSubtitle}
         </SizableText>
       ) : null}
       <StockSourceLogo stock={stock} />
@@ -1419,22 +1447,30 @@ function StockMarketTokenHeader({
       >
         {tokenInfoContent}
       </XStack>
-      <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
-        <BaseMarketTokenPrice
-          size="$bodyLg"
-          color="$text"
-          numberOfLines={1}
-          textAlign="right"
-          price={tokenDetail.price ?? tokenDetail.priceConverted ?? ''}
-          tokenName={tokenDetail.name}
-          tokenSymbol={tokenDetail.symbol}
-          lastUpdated={String(tokenDetail.lastUpdated ?? '')}
-          currency="$"
-        />
-        <PriceChangePercentage size="$bodySm">
-          {tokenDetail.priceChange24hPercent}
-        </PriceChangePercentage>
-      </YStack>
+      {tokenDetail ? (
+        <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+          <BaseMarketTokenPrice
+            size="$bodyLg"
+            color="$text"
+            numberOfLines={1}
+            textAlign="right"
+            price={tokenDetail.price ?? tokenDetail.priceConverted ?? ''}
+            tokenName={tokenName}
+            tokenSymbol={tokenSymbol ?? ''}
+            lastUpdated={String(tokenDetail.lastUpdated ?? '')}
+            currency="$"
+          />
+          <PriceChangePercentage size="$bodySm">
+            {tokenDetail.priceChange24hPercent}
+          </PriceChangePercentage>
+        </YStack>
+      ) : (
+        <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+          <SizableText size="$bodyLg" color="$textSubdued">
+            --
+          </SizableText>
+        </YStack>
+      )}
     </XStack>
   );
 }
@@ -1488,6 +1524,12 @@ function StockPriceChart({
     isNative ? 'native' : 'token'
   }:${normalizedCoinGeckoId ?? ''}`;
   const chartScope = `${chartAssetScope}:${range}`;
+  const [visibleChartState, setVisibleChartState] = useState<IStockChartState>({
+    assetScope: '',
+    data: [],
+    range,
+    scope: '',
+  });
   useEffect(() => {
     setHoverData(null);
   }, [chartScope]);
@@ -1502,6 +1544,7 @@ function StockPriceChart({
         return {
           scope: chartScope,
           assetScope: chartAssetScope,
+          range,
           data: [] as IMarketTokenChart,
         };
       }
@@ -1516,6 +1559,7 @@ function StockPriceChart({
       return {
         scope: chartScope,
         assetScope: chartAssetScope,
+        range,
         data: normalizeSwapKLineWalletChartData({
           chartData: response,
           timeFrom,
@@ -1530,67 +1574,54 @@ function StockPriceChart({
       isNative,
       networkId,
       normalizedCoinGeckoId,
+      range,
       tokenAddress,
     ],
     {
       initResult: {
         scope: '',
         assetScope: '',
+        range,
         data: [] as IMarketTokenChart,
       },
       watchLoading: true,
     },
   );
-  const isChartStateForCurrentScope = chartState.scope === chartScope;
-  const canReusePreviousRangeChartData =
-    chartState.assetScope === chartAssetScope;
+  useEffect(() => {
+    if (
+      chartState.scope === chartScope &&
+      chartState.assetScope === chartAssetScope
+    ) {
+      setVisibleChartState(chartState);
+    }
+  }, [chartAssetScope, chartScope, chartState]);
+  const isVisibleChartStateForCurrentAsset =
+    visibleChartState.assetScope === chartAssetScope;
+  const isVisibleChartStateForCurrentScope =
+    isVisibleChartStateForCurrentAsset &&
+    visibleChartState.scope === chartScope;
+  const visibleRange = isVisibleChartStateForCurrentAsset
+    ? visibleChartState.range
+    : range;
   const baseChartData = useMemo<IMarketTokenChart>(
+    () => (isVisibleChartStateForCurrentAsset ? visibleChartState.data : []),
+    [isVisibleChartStateForCurrentAsset, visibleChartState.data],
+  );
+  const { chartData, shouldShowChartLoading } = useMemo(
     () =>
-      isChartStateForCurrentScope || canReusePreviousRangeChartData
-        ? chartState.data
-        : [],
+      getStockChartDisplayState({
+        baseChartData,
+        isChartStateForCurrentScope: isVisibleChartStateForCurrentScope,
+        isLoading,
+        realtimeChartPoint,
+      }),
     [
-      canReusePreviousRangeChartData,
-      chartState.data,
-      isChartStateForCurrentScope,
+      baseChartData,
+      isLoading,
+      isVisibleChartStateForCurrentScope,
+      realtimeChartPoint,
     ],
   );
-  const chartData = useMemo<IMarketTokenChart>(() => {
-    if (!realtimeChartPoint) {
-      return baseChartData;
-    }
-
-    const [timestamp, price] = realtimeChartPoint;
-    const normalizedTimestamp =
-      normalizeSwapKLineWalletChartTimestamp(timestamp);
-    const normalizedPrice = Number(price);
-    if (
-      !Number.isFinite(normalizedTimestamp) ||
-      !Number.isFinite(normalizedPrice)
-    ) {
-      return baseChartData;
-    }
-
-    const pointsByTimestamp = new Map<number, number>();
-    for (const [pointTimestamp, pointPrice] of baseChartData) {
-      const normalizedPointTimestamp =
-        normalizeSwapKLineWalletChartTimestamp(pointTimestamp);
-      const normalizedPointPrice = Number(pointPrice);
-      if (
-        Number.isFinite(normalizedPointTimestamp) &&
-        Number.isFinite(normalizedPointPrice)
-      ) {
-        pointsByTimestamp.set(normalizedPointTimestamp, normalizedPointPrice);
-      }
-    }
-    pointsByTimestamp.set(normalizedTimestamp, normalizedPrice);
-
-    return Array.from(pointsByTimestamp.entries()).toSorted(
-      (a, b) => a[0] - b[0],
-    );
-  }, [baseChartData, realtimeChartPoint]);
-  const shouldShowChartLoading =
-    chartData.length === 0 && (isLoading || !isChartStateForCurrentScope);
   const priceFormatter = useCallback(
     (price: number) =>
       numberFormat(String(price), {
@@ -1733,6 +1764,7 @@ function StockPriceChart({
           seriesType="dotted-area"
           showPriceScale
           showLastPointMarker={false}
+          preserveChartInstanceOnDataChange
           // Pulse the chart tail only while the market is open (live updating);
           // it stops when the market is closed.
           pulseLastPoint={pulseLastPoint}
@@ -1762,7 +1794,7 @@ function StockPriceChart({
           w={156}
           h="$5"
           fullWidth
-          value={range}
+          value={visibleRange}
           options={rangeOptions}
           onChange={handleRangeChange}
           slotBackgroundColor="$transparent"
@@ -1919,6 +1951,26 @@ function StockMobilePositionsSection({
   );
 }
 
+function StockMarketChartEmptyState() {
+  const intl = useIntl();
+  return (
+    <YStack
+      h={274}
+      w="100%"
+      alignItems="center"
+      justifyContent="center"
+      gap="$2"
+      bg="$bgSubdued"
+      borderRadius="$3"
+    >
+      <Icon name="InfoCircleOutline" size="$6" color="$iconSubdued" />
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.global_no_data })}
+      </SizableText>
+    </YStack>
+  );
+}
+
 function StockMarketContextPanel({
   storeName,
 }: {
@@ -1936,8 +1988,30 @@ function StockMarketContextPanel({
   );
   const chartReady =
     !!networkId && !!tokenDetail?.stock && !!tokenDetail?.symbol;
+  const marketPanelLoading = isStockMarketPanelLoadingStage(
+    stockChannel.channelStage,
+  );
   // Only pulse the chart tail while the market is open (live updating).
   const isMarketOpen = stockChannel.stockMarketStatus?.open === true;
+  let chartContent: ReactNode;
+  if (chartReady) {
+    chartContent = (
+      <StockPriceChart
+        coinGeckoId={coinGeckoId}
+        tokenAddress={tokenAddress ?? ''}
+        networkId={networkId ?? ''}
+        isNative={isNative}
+        range={range}
+        onRangeChange={setRange}
+        pulseLastPoint={isMarketOpen}
+        realtimeChartPoint={stockChannel.realtimeChartPoint}
+      />
+    );
+  } else if (marketPanelLoading) {
+    chartContent = <Skeleton w="100%" h={274} />;
+  } else {
+    chartContent = <StockMarketChartEmptyState />;
+  }
 
   return (
     <YStack
@@ -1961,24 +2035,12 @@ function StockMarketContextPanel({
         shadowRadius: 24,
       }}
     >
-      <StockMarketTokenHeader storeName={storeName} />
+      <StockMarketTokenHeader
+        storeName={storeName}
+        loading={marketPanelLoading}
+      />
 
-      <Stack mt="$6">
-        {chartReady ? (
-          <StockPriceChart
-            coinGeckoId={coinGeckoId}
-            tokenAddress={tokenAddress ?? ''}
-            networkId={networkId ?? ''}
-            isNative={isNative}
-            range={range}
-            onRangeChange={setRange}
-            pulseLastPoint={isMarketOpen}
-            realtimeChartPoint={stockChannel.realtimeChartPoint}
-          />
-        ) : (
-          <Skeleton w="100%" h={274} />
-        )}
-      </Stack>
+      <Stack mt="$6">{chartContent}</Stack>
 
       <Divider mt="$2.5" mb="$3" />
       <StockMarketDataGrid tokenDetail={tokenDetail} />
@@ -2108,7 +2170,7 @@ function SwapStockDesktopContent({
         ) : null}
         <YStack width="100%" maxWidth={STOCK_DESKTOP_CONTENT_MAX_WIDTH}>
           <XStack width="100%" gap="$1" px="$5" alignItems="flex-start">
-            <YStack p="$5" flexBasis="50%" minWidth={0}>
+            <YStack p="$5" flexBasis="50%" minWidth={0} gap="$12">
               <YStack
                 width="100%"
                 minWidth={0}
@@ -2207,6 +2269,7 @@ function SwapStockDesktopContent({
                   protocol={EProtocolOfExchange.STOCK}
                 />
               </YStack>
+              <SwapFAQ variant="stock" />
             </YStack>
             <YStack p="$5" flexBasis="50%" minWidth={0}>
               <StockMarketContextPanel storeName={storeName} />
@@ -2235,6 +2298,9 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const stockChannel = useSwapStockTradeContext();
+  const marketPanelLoading = isStockMarketPanelLoadingStage(
+    stockChannel.channelStage,
+  );
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
   // The desktop trade modal reuses this mobile content; positions/order-history
   // don't belong in that compact modal, so hide them there (native/web tabs keep
@@ -2279,7 +2345,11 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
         gap="$2"
         flex={1}
       >
-        <StockMarketTokenHeader storeName={props.storeName} proAligned />
+        <StockMarketTokenHeader
+          storeName={props.storeName}
+          loading={marketPanelLoading}
+          proAligned
+        />
         <StockTradeTicket
           onSelectToken={props.onSelectToken}
           fetchLoading={props.fetchLoading}

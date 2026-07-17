@@ -36,7 +36,8 @@ export function PerpTips() {
         if (href) {
           if (hrefType === 'external') {
             if (useSystemBrowser) {
-              openUrlExternal(href);
+              // The backend flag promises the OS browser, not the in-app one.
+              openUrlExternal(href, { useSystemBrowser: true });
             } else {
               openUrlInApp(href);
             }

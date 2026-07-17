@@ -1,4 +1,10 @@
-import { ESwapStockTradeSide } from '../../hooks/swapStockChannelUtils';
+import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
+
+import {
+  ESwapStockChannelStage,
+  ESwapStockTradeSide,
+} from '../../hooks/swapStockChannelUtils';
+import { normalizeSwapKLineWalletChartTimestamp } from '../modal/swapKLineChartUtils';
 
 export type IStockChartRange = '1D' | '1W' | '1M' | '1Y';
 
@@ -35,4 +41,77 @@ export function getStockDisabledActionButtonProps(
       opacity: 0.6,
     },
   } as const;
+}
+
+export function isStockMarketPanelLoadingStage(
+  channelStage: ESwapStockChannelStage,
+) {
+  return (
+    channelStage === ESwapStockChannelStage.InitializingStock ||
+    channelStage === ESwapStockChannelStage.CheckingMarketStatus
+  );
+}
+
+export function mergeStockChartRealtimePoint({
+  baseChartData,
+  realtimeChartPoint,
+}: {
+  baseChartData: IMarketTokenChart;
+  realtimeChartPoint?: IMarketTokenChart[number];
+}): IMarketTokenChart {
+  if (baseChartData.length === 0 || !realtimeChartPoint) {
+    return baseChartData;
+  }
+
+  const [timestamp, price] = realtimeChartPoint;
+  const normalizedTimestamp = normalizeSwapKLineWalletChartTimestamp(timestamp);
+  const normalizedPrice = Number(price);
+  if (
+    !Number.isFinite(normalizedTimestamp) ||
+    !Number.isFinite(normalizedPrice)
+  ) {
+    return baseChartData;
+  }
+
+  const pointsByTimestamp = new Map<number, number>();
+  for (const [pointTimestamp, pointPrice] of baseChartData) {
+    const normalizedPointTimestamp =
+      normalizeSwapKLineWalletChartTimestamp(pointTimestamp);
+    const normalizedPointPrice = Number(pointPrice);
+    if (
+      Number.isFinite(normalizedPointTimestamp) &&
+      Number.isFinite(normalizedPointPrice)
+    ) {
+      pointsByTimestamp.set(normalizedPointTimestamp, normalizedPointPrice);
+    }
+  }
+  pointsByTimestamp.set(normalizedTimestamp, normalizedPrice);
+
+  return Array.from(pointsByTimestamp.entries()).toSorted(
+    (a, b) => a[0] - b[0],
+  );
+}
+
+export function getStockChartDisplayState({
+  baseChartData,
+  isChartStateForCurrentScope,
+  isLoading,
+  realtimeChartPoint,
+}: {
+  baseChartData: IMarketTokenChart;
+  isChartStateForCurrentScope: boolean;
+  isLoading?: boolean;
+  realtimeChartPoint?: IMarketTokenChart[number];
+}) {
+  return {
+    chartData: mergeStockChartRealtimePoint({
+      baseChartData,
+      realtimeChartPoint: isChartStateForCurrentScope
+        ? realtimeChartPoint
+        : undefined,
+    }),
+    shouldShowChartLoading:
+      baseChartData.length === 0 &&
+      (Boolean(isLoading) || !isChartStateForCurrentScope),
+  };
 }

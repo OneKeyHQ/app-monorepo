@@ -22,6 +22,7 @@ import {
   PERPS_FILTERED_LEDGER_TYPES,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_HL_PORTFOLIO_STALE_SERVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -154,6 +155,10 @@ import {
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
+import {
+  buildPerpsAccountStatusCheckInitialDetails,
+  canApplyPerpsNotActivatedZeroState,
+} from './utils/perpsAccountStatusCheckUtils';
 
 import type ServiceHyperliquidCache from './ServiceHyperliquidCache';
 import type { IPerpsActiveAssetCtxSnapshotCacheHydration } from './ServiceHyperliquidCache';
@@ -633,6 +638,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return {
           ...prev,
           tokens: tokensMap,
+          serverTokens: tokens,
           defaultTokens,
           currentPerpsDepositSelectedToken: selectedToken,
           depositTokenListSource: 'serverConfig',
@@ -669,6 +675,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       return {
         ...prev,
         tokens: tokensMap,
+        serverTokens: tokens,
         defaultTokens,
         currentPerpsDepositSelectedToken: selectedToken,
         depositTokenListSource: 'serverConfig',
@@ -1042,6 +1049,11 @@ export default class ServiceHyperliquid extends ServiceBase {
     async (address: string): Promise<IHyperliquidPortfolioSnapshot> => {
       const { infoClient } = hyperLiquidApiClients;
       const user = address.toLowerCase() as IHex;
+      // The abstraction mode request only depends on the address, so run it
+      // alongside the clearinghouse fetches instead of as a second serial wave.
+      const abstractionModePromise = this._getPortfolioAbstractionMode(
+        user,
+      ).catch((): undefined => undefined);
       const [clearinghouseStates, spot] = await Promise.all([
         this._fetchAllDexsClearinghouseStates(user),
         infoClient.spotClearinghouseState({ user }).catch(() => undefined),
@@ -1082,7 +1094,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         needsPrices
           ? this._getAllMidsMemo().catch(() => hyperLiquidCache.allMids?.mids)
           : Promise.resolve(undefined),
-        this._getPortfolioAbstractionMode(user).catch(() => undefined),
+        abstractionModePromise,
       ]);
       if (!abstractionMode) {
         throw new OneKeyLocalError(
@@ -1153,8 +1165,28 @@ export default class ServiceHyperliquid extends ServiceBase {
       );
       allowCachedFallback = !isCachedModeStale;
     }
-    if (!force && cached) {
-      if (allowCachedFallback && isHyperliquidPortfolioSnapshotFresh(cached)) {
+    if (!force && cached && allowCachedFallback) {
+      if (isHyperliquidPortfolioSnapshotFresh(cached)) {
+        return cached;
+      }
+      if (
+        !cached.isDegraded &&
+        Date.now() - cached.fetchedAt <=
+          PERPS_HL_PORTFOLIO_STALE_SERVE_MAX_AGE_MS
+      ) {
+        // Stale-while-revalidate: account switches render the last snapshot
+        // immediately instead of blocking on the network; pollers pick up the
+        // refreshed snapshot on their next tick. Degraded snapshots hold
+        // incomplete dex aggregates, so they never serve stale.
+        void this.fetchHyperliquidPortfolioByAddress(normalized)
+          .then((fresh) =>
+            this.backgroundApi.simpleDb.perp.setHyperliquidPortfolioSnapshot(
+              fresh,
+            ),
+          )
+          .catch(() => {
+            void this._fetchHlPortfolioMemo.delete(normalized);
+          });
         return cached;
       }
     }
@@ -2738,6 +2770,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   hideEnableTradingLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
+  // Monotonic id so concurrent checkPerpsAccountStatus() calls resolving out
+  // of order cannot overwrite newer results with stale ones
+  private perpsAccountStatusCheckSeq = 0;
+
   fetchUserAbstractionRawWithCache = createFetchUserAbstractionRawWithCache(
     async (accountAddress) => {
       const { infoClient } = hyperLiquidApiClients;
@@ -2911,17 +2947,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     isEnableTradingTrigger?: boolean;
   } = {}): Promise<void> {
     const { infoClient } = hyperLiquidApiClients;
+    this.perpsAccountStatusCheckSeq += 1;
+    const checkSeq = this.perpsAccountStatusCheckSeq;
     markPerpsColdStartPerf('service_check_account_status_start', {
       isEnableTradingTrigger,
     });
-    const statusDetails: IPerpsActiveAccountStatusDetails = {
-      activatedOk: false,
-      agentOk: false,
-      referralCodeOk: false,
-      builderFeeOk: false,
-      internalRebateBoundOk: false,
-      abstractionOk: false,
-    };
+    const statusDetails: IPerpsActiveAccountStatusDetails =
+      buildPerpsAccountStatusCheckInitialDetails();
     let status: IPerpsActiveAccountStatusInfoAtom | undefined;
 
     const selectedAccount = await perpsActiveAccountAtom.get();
@@ -2972,6 +3004,22 @@ export default class ServiceHyperliquid extends ServiceBase {
           isEnableTradingTrigger,
           statusDetails: { ...statusDetails },
         });
+        const latestActiveAccount = await perpsActiveAccountAtom.get();
+        if (
+          canApplyPerpsNotActivatedZeroState({
+            checkSeq,
+            latestCheckSeq: this.perpsAccountStatusCheckSeq,
+            checkedAddress: accountAddress,
+            activeAddress: latestActiveAccount?.accountAddress,
+          })
+        ) {
+          await spotBalancesAtom.set({ balances: [], isLoaded: true });
+          await perpsSpotBalancesAtom.set({
+            accountAddress,
+            balances: [],
+            spotTotalUsd: '0',
+          });
+        }
         // await this.checkBuilderFeeStatus({
         //   accountAddress,
         //   isEnableTradingTrigger,
@@ -3041,29 +3089,33 @@ export default class ServiceHyperliquid extends ServiceBase {
         }
       }
     } finally {
-      status = {
-        accountAddress: accountAddress || null,
-        details: statusDetails,
-      };
-      await perpsActiveAccountStatusInfoAtom.set(status);
-      await perpsAccountLoadingInfoAtom.set(
-        (prev): IPerpsAccountLoadingInfo => ({
-          ...prev,
-          enableTradingStatusPending: false,
-        }),
-      );
-
-      clearTimeout(this.hideEnableTradingLoadingTimer);
-      this.hideEnableTradingLoadingTimer = setTimeout(async () => {
+      // Only the latest check may commit shared status/loading state; a stale
+      // check resolving late must not clobber a newer check's result
+      if (checkSeq === this.perpsAccountStatusCheckSeq) {
+        status = {
+          accountAddress: accountAddress || null,
+          details: statusDetails,
+        };
+        await perpsActiveAccountStatusInfoAtom.set(status);
         await perpsAccountLoadingInfoAtom.set(
           (prev): IPerpsAccountLoadingInfo => ({
             ...prev,
-            enableTradingLoading: false,
-            enableTradingTriggered: false,
             enableTradingStatusPending: false,
           }),
         );
-      }, 0);
+
+        clearTimeout(this.hideEnableTradingLoadingTimer);
+        this.hideEnableTradingLoadingTimer = setTimeout(async () => {
+          await perpsAccountLoadingInfoAtom.set(
+            (prev): IPerpsAccountLoadingInfo => ({
+              ...prev,
+              enableTradingLoading: false,
+              enableTradingTriggered: false,
+              enableTradingStatusPending: false,
+            }),
+          );
+        }, 0);
+      }
       markPerpsColdStartPerf('service_check_account_status_end', {
         accountAddress: accountAddress ? 'set' : 'empty',
         activatedOk: statusDetails.activatedOk,
@@ -3764,14 +3816,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     await perpsActiveAccountStatusInfoAtom.set(
       (_prev): IPerpsActiveAccountStatusInfoAtom => ({
         accountAddress: null,
-        details: {
-          activatedOk: false,
-          agentOk: false,
-          builderFeeOk: false,
-          referralCodeOk: false,
-          internalRebateBoundOk: false,
-          abstractionOk: false,
-        },
+        details: buildPerpsAccountStatusCheckInitialDetails(),
       }),
     );
   }

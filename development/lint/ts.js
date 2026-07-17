@@ -46,8 +46,10 @@ try {
   console.log(`[${getTimestamp()}] Using tsconfig: ${tsConfigPath}`);
   console.log(`[${getTimestamp()}] Using cache folder: ${cacheFolder}`);
   const tsBuildInfoPath = path.join(cacheFolder, '.app-mono-ts-cache');
-  const result = execFileSync('npx', [
-    'tsgo',
+  const typescriptPackage = require.resolve('@typescript/native/package.json');
+  const tscEntry = path.join(path.dirname(typescriptPackage), 'bin', 'tsc');
+  const result = execFileSync(process.execPath, [
+    tscEntry,
     '-p',
     tsConfigPath,
     '--noEmit',
@@ -56,8 +58,16 @@ try {
   ]).toString('utf-8');
   console.log(result);
 } catch (error) {
-  const errorMsg = error.stdout.toString('utf-8');
-  handleProblems(errorMsg);
+  const stdout = error.stdout?.toString('utf-8') ?? '';
+  const stderr = error.stderr?.toString('utf-8') ?? '';
+  const compilerOutput = [stdout, stderr].filter(Boolean).join('\n');
+  if (compilerOutput) {
+    handleProblems(compilerOutput);
+    console.error(compilerOutput);
+  } else {
+    console.error(error.message);
+  }
+  failToExit();
 }
 
 console.log(

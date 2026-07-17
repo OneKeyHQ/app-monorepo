@@ -70,11 +70,13 @@ import {
   getResolvableDefaultSwapKLineSide,
   getSwapKLineStableTokenKey,
   getSwapKLineStableTokenStatusFromMap,
+  haveSameSwapKLineTokenSymbol,
   isKnownSwapKLineUnsupportedToken,
 } from './swapKLineTokenUtils';
 
 const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE = 'swap-kline';
 const SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES = [
+  TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
   TRADING_VIEW_DISABLED_FEATURES.TIME_SCALE,
   TRADING_VIEW_DISABLED_FEATURES.PRICE_SCALE,
   TRADING_VIEW_DISABLED_FEATURES.PRICE_MARKET_CAP_TOGGLE,
@@ -87,7 +89,6 @@ const SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES = [
 ] as const satisfies readonly ITradingViewDisabledFeature[];
 
 const SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES = [
-  TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
   ...SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES,
 ] as const satisfies readonly ITradingViewDisabledFeature[];
 const SWAP_KLINE_TOKEN_DETAIL_POLLING_INTERVAL = 6000;
@@ -508,6 +509,10 @@ function SwapKLineTokenSwitch({
   toToken?: ISwapToken;
   compact?: boolean;
 }) {
+  const tokensHaveSameSymbol = haveSameSwapKLineTokenSymbol({
+    fromToken,
+    toToken,
+  });
   const tokenSize = compact ? 'xxs' : 'xs';
   const labelSize = compact ? '$bodySmMedium' : '$bodyMdMedium';
   const labelGap = compact ? '$1' : '$1.5';
@@ -586,7 +591,7 @@ function SwapKLineTokenSwitch({
     [onChange],
   );
 
-  if (options.length <= 1) {
+  if (tokensHaveSameSymbol || options.length <= 1) {
     return null;
   }
 
@@ -664,6 +669,9 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   const kLineFallbackChainRef = useRef<string[]>([]);
 
   const resolvedSelectedSide = useMemo(() => {
+    if (haveSameSwapKLineTokenSymbol({ fromToken, toToken })) {
+      return defaultSide;
+    }
     if (selectedSide) {
       const selectedToken =
         selectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
@@ -987,7 +995,6 @@ function SwapKLineTokenPriceInfo({
       {price ? (
         <NumberSizeableText
           size={compact ? '$bodyMdMedium' : '$bodyLgMedium'}
-          fontFamily="$monoMedium"
           formatter="price"
           formatterOptions={{ currency: '$' }}
           numberOfLines={1}
@@ -999,7 +1006,6 @@ function SwapKLineTokenPriceInfo({
         <SizableText
           size={compact ? '$bodyMdMedium' : '$bodyLgMedium'}
           color="$textSubdued"
-          fontFamily="$monoMedium"
           numberOfLines={1}
         >
           --
@@ -1008,7 +1014,6 @@ function SwapKLineTokenPriceInfo({
       {priceChange ? (
         <PriceChangePercentage
           size={compact ? '$bodyXsMedium' : '$bodySmMedium'}
-          fontFamily="$monoMedium"
           numberOfLines={1}
         >
           {priceChange}
@@ -1017,7 +1022,6 @@ function SwapKLineTokenPriceInfo({
         <SizableText
           size="$bodySmMedium"
           color="$textSubdued"
-          fontFamily="$monoMedium"
           numberOfLines={1}
         >
           --
@@ -1076,11 +1080,17 @@ function SwapKLineTokenInfoRow({
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {token.symbol}
           </SizableText>
-          {networkName ? (
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {networkName}
-            </SizableText>
-          ) : null}
+          <Stack minHeight="$5">
+            {networkName ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {networkName}
+              </SizableText>
+            ) : null}
+          </Stack>
         </YStack>
         <SwapKLineTokenPriceInfo
           tokenMarketDetail={tokenMarketDetail}
@@ -1095,49 +1105,109 @@ function SwapKLineTokenInfoRow({
   );
 }
 
+function SwapKLineTokenInfoRowSkeleton({
+  compact,
+  headerRight,
+}: {
+  compact?: boolean;
+  headerRight?: ReactNode;
+}) {
+  return (
+    <XStack
+      ai="center"
+      jc="space-between"
+      gap={compact ? '$2.5' : '$3'}
+      minHeight={compact ? '$11' : '$10'}
+      width="100%"
+    >
+      <XStack
+        ai="center"
+        gap={compact ? '$2.5' : '$3'}
+        flex={compact ? 1 : undefined}
+        flexShrink={1}
+        minWidth={0}
+      >
+        <Skeleton
+          w={compact ? '$8' : '$10'}
+          h={compact ? '$8' : '$10'}
+          radius="round"
+          flexShrink={0}
+        />
+        <YStack
+          minWidth={0}
+          flex={compact ? 1 : undefined}
+          maxWidth={compact ? undefined : '$28'}
+          gap="$0.5"
+        >
+          <Skeleton h="$6" w="$16" />
+          <Skeleton h="$5" w="$24" />
+        </YStack>
+        <YStack
+          ai="flex-end"
+          gap={compact ? '$0' : '$0.5'}
+          minWidth={compact ? '$24' : '$14'}
+          maxWidth={compact ? '$30' : '$28'}
+        >
+          <Skeleton h={compact ? '$5' : '$6'} w="$16" />
+          <Skeleton h="$4" w="$10" />
+        </YStack>
+      </XStack>
+      {headerRight ? <Stack flexShrink={0}>{headerRight}</Stack> : null}
+    </XStack>
+  );
+}
+
 function SwapKLineResolvingTokenContent({
   chartMinHeight,
+  compact,
+  showHeaderRight,
   showSeparateChartDivider,
 }: {
   chartMinHeight: number;
+  compact?: boolean;
+  showHeaderRight?: boolean;
   showSeparateChartDivider?: boolean;
 }) {
-  const chartSkeleton = (
-    <Skeleton
-      flex={1}
-      minHeight={chartMinHeight}
-      borderRadius="$2"
-      borderTopWidth={showSeparateChartDivider ? undefined : '$px'}
-      borderTopColor={showSeparateChartDivider ? undefined : '$borderSubdued'}
+  const headerRightSkeleton = showHeaderRight ? (
+    <Skeleton h={compact ? '$7' : '$9'} w="$32" borderRadius="$full" />
+  ) : undefined;
+  const tokenInfoRowSkeleton = (
+    <SwapKLineTokenInfoRowSkeleton
+      compact={compact}
+      headerRight={compact ? undefined : headerRightSkeleton}
     />
   );
-  const chartSectionSkeleton = showSeparateChartDivider ? (
-    <YStack flex={1} gap="$5">
-      <Stack h="$px" bg="$borderSubdued" />
-      {chartSkeleton}
+  const tokenInfoSkeleton = compact ? (
+    <YStack gap={headerRightSkeleton ? '$4' : undefined}>
+      {headerRightSkeleton ? (
+        <XStack jc="flex-end" width="100%">
+          {headerRightSkeleton}
+        </XStack>
+      ) : null}
+      {tokenInfoRowSkeleton}
     </YStack>
   ) : (
-    chartSkeleton
+    tokenInfoRowSkeleton
+  );
+  const chartSectionSkeleton = (
+    <YStack
+      flex={1}
+      minHeight={showSeparateChartDivider ? undefined : chartMinHeight}
+    >
+      <Stack h="$px" bg="$borderSubdued" />
+      <YStack
+        flex={1}
+        minHeight={showSeparateChartDivider ? chartMinHeight : undefined}
+        pt="$2"
+      >
+        <Skeleton flex={1} borderRadius="$2" />
+      </YStack>
+    </YStack>
   );
 
   return (
     <>
-      <XStack
-        ai="center"
-        jc="space-between"
-        gap="$3"
-        minHeight="$10"
-        width="100%"
-      >
-        <XStack ai="center" gap="$3" flexShrink={1} minWidth={0}>
-          <Skeleton w="$10" h="$10" radius="round" />
-          <YStack gap="$1">
-            <Skeleton h="$4" w="$16" />
-            <Skeleton h="$3" w="$24" />
-          </YStack>
-        </XStack>
-        <Skeleton h="$8" w="$32" borderRadius="$full" />
-      </XStack>
+      {tokenInfoSkeleton}
       {chartSectionSkeleton}
     </>
   );
@@ -1167,34 +1237,41 @@ function SwapKLineContentBody({
     ? SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES
     : SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES;
   const showSeparateChartDivider = separateChartDivider && gtMd;
+  const showHeaderRight = Boolean(
+    headerRight &&
+    state.fromToken &&
+    state.toToken &&
+    !haveSameSwapKLineTokenSymbol({
+      fromToken: state.fromToken,
+      toToken: state.toToken,
+    }),
+  );
 
   let tokenInfoContent: ReactNode = null;
   if (selectedToken) {
-    tokenInfoContent =
-      !gtMd && headerRight ? (
-        <YStack gap="$4">
+    const tokenInfoRow = (
+      <SwapKLineTokenInfoRow
+        token={selectedToken}
+        tokenMarketDetail={state.tokenMarketDetail}
+        walletMarketInfo={state.walletMarketInfo}
+        displayPrice={state.displayPrice}
+        fallbackUsdPrice={state.tokenUsdFallbackPrice}
+        headerRight={gtMd && showHeaderRight ? headerRight : undefined}
+        compact={!gtMd}
+      />
+    );
+    tokenInfoContent = gtMd ? (
+      tokenInfoRow
+    ) : (
+      <YStack gap={showHeaderRight ? '$4' : undefined}>
+        {showHeaderRight ? (
           <XStack jc="flex-end" width="100%">
             {headerRight}
           </XStack>
-          <SwapKLineTokenInfoRow
-            token={selectedToken}
-            tokenMarketDetail={state.tokenMarketDetail}
-            walletMarketInfo={state.walletMarketInfo}
-            displayPrice={state.displayPrice}
-            fallbackUsdPrice={state.tokenUsdFallbackPrice}
-            compact
-          />
-        </YStack>
-      ) : (
-        <SwapKLineTokenInfoRow
-          token={selectedToken}
-          tokenMarketDetail={state.tokenMarketDetail}
-          walletMarketInfo={state.walletMarketInfo}
-          displayPrice={state.displayPrice}
-          fallbackUsdPrice={state.tokenUsdFallbackPrice}
-          headerRight={headerRight}
-        />
-      );
+        ) : null}
+        {tokenInfoRow}
+      </YStack>
+    );
   }
 
   const chartContent = (
@@ -1215,6 +1292,7 @@ function SwapKLineContentBody({
         decimal={selectedToken?.decimals ?? 0}
         dataSource="polling"
         disabledFeatures={disabledTradingViewFeatures}
+        enableNativeChartControls
         storageNamespace={SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE}
         forceEmptyKLineData={state.shouldForceEmptyKLineData}
         emptyKLineDataOnError
@@ -1231,7 +1309,7 @@ function SwapKLineContentBody({
     </Stack>
   );
   const chartSectionContent = showSeparateChartDivider ? (
-    <YStack flex={1} gap="$5">
+    <YStack flex={1}>
       <Stack h="$px" bg="$borderSubdued" />
       {chartContent}
     </YStack>
@@ -1251,6 +1329,8 @@ function SwapKLineContentBody({
       <YStack flex={1} px={px} pt={pt} pb={pb} gap={gap}>
         <SwapKLineResolvingTokenContent
           chartMinHeight={chartMinHeight}
+          compact={!gtMd}
+          showHeaderRight={showHeaderRight}
           showSeparateChartDivider={showSeparateChartDivider}
         />
       </YStack>

@@ -16,6 +16,8 @@ import appGlobals from '../appGlobals';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { ETranslations } from '../locale';
 
+import { parseUrl } from './uriUtils';
+
 import type { IPrefType } from '../../types/desktop';
 import type { EWebEmbedRoutePath } from '../consts/webEmbedConsts';
 
@@ -116,12 +118,138 @@ export const openUrlInApp = (url: string, title?: string) => {
   }
 };
 
-export const openUrlExternal = (url: string) => {
-  if (platformEnv.isNative) {
-    void linkingOpenURL(url.trim());
-  } else {
-    openUrlOutsideNative(url.trim());
+export interface IOpenUrlExternalOptions {
+  /**
+   * Skip the in-app browser and hand the URL to the OS. Use for OAuth
+   * redirects, WebUSB tool pages, store links, and explicit
+   * "open in external browser" user actions.
+   */
+  useSystemBrowser?: boolean;
+}
+
+// Store/social links must reach the native app via universal links;
+// in-app browsers never trigger universal-link handoff. Server-driven
+// URLs (banners, notifications) may carry these, so enforce centrally.
+const STORE_HOSTS = new Set([
+  'apps.apple.com',
+  'itunes.apple.com',
+  'testflight.apple.com',
+  'play.google.com',
+]);
+const SOCIAL_APP_HOSTS = new Set([
+  'twitter.com',
+  'mobile.twitter.com',
+  'x.com',
+  't.me',
+  'telegram.me',
+  'discord.com',
+  'discordapp.com',
+  'discord.gg',
+]);
+// The hardware web tools need WebUSB, which in-app browsers cannot provide.
+const WEBUSB_TOOL_HOSTS = new Set(['firmware.onekey.so']);
+
+// Dev-settings kill switch, pushed in from kit (shared cannot import kit-bg).
+let forceSystemBrowserForDebug = false;
+export const setForceSystemBrowserForDebug = (value: boolean) => {
+  forceSystemBrowserForDebug = value;
+};
+
+const isSystemBrowserOnlyHost = (hostname: string): boolean => {
+  const host = hostname.toLowerCase().replace(/^www\./, '');
+  return (
+    STORE_HOSTS.has(host) ||
+    SOCIAL_APP_HOSTS.has(host) ||
+    WEBUSB_TOOL_HOSTS.has(host)
+  );
+};
+
+const trackOpenUrl = (
+  parsedUrl: ReturnType<typeof parseUrl>,
+  method: 'inApp' | 'system',
+) => {
+  // Host-level only: never report the full URL or its query params.
+  const host = parsedUrl?.hostname || parsedUrl?.urlSchema || 'unknown';
+  appGlobals.$defaultLogger?.app.page.openExternalUrl({ host, method });
+};
+
+// Result typed structurally ({ type: string }) because the precise enum
+// lives in expo-web-browser, which must stay behind the lazy import.
+const openUrlInAppBrowserNative = async (
+  url: string,
+): Promise<{ type: string }> => {
+  // Lazy import: must never load on the native background JS runtime,
+  // and web/ext/desktop bundles don't need it.
+  const webBrowser = await import('expo-web-browser');
+  // createTask:false keeps the Custom Tab inside OneKey's Android task
+  // (BACK returns to the app; singleTask MainActivity clears it on
+  // deep-link re-entry). iOS presents SFSafariViewController full screen,
+  // dismissed via the X button (no swipe-down); OVER_FULL_SCREEN keeps the
+  // RN view hierarchy mounted underneath, unlike FULL_SCREEN. The promise
+  // only resolves once the browser is dismissed. presentationStyle/
+  // dismissButtonStyle are iOS-only, enableBarCollapsing applies to both
+  // platforms.
+  return webBrowser.openBrowserAsync(url, {
+    createTask: false,
+    presentationStyle: webBrowser.WebBrowserPresentationStyle.OVER_FULL_SCREEN,
+    dismissButtonStyle: 'close',
+    enableBarCollapsing: true,
+  });
+};
+
+export const openUrlExternal = (
+  url: string,
+  options?: IOpenUrlExternalOptions,
+) => {
+  const trimmedUrl = url.trim();
+  if (!platformEnv.isNative) {
+    openUrlOutsideNative(trimmedUrl);
+    return;
   }
+  const parsedUrl = parseUrl(trimmedUrl);
+  const openViaSystemBrowser = () => {
+    trackOpenUrl(parsedUrl, 'system');
+    void linkingOpenURL(trimmedUrl);
+  };
+  if (
+    options?.useSystemBrowser ||
+    forceSystemBrowserForDebug ||
+    // The background JS runtime cannot present a native view controller.
+    platformEnv.isNativeBackgroundThread
+  ) {
+    openViaSystemBrowser();
+    return;
+  }
+  const isHttpUrl =
+    parsedUrl?.urlSchema === 'http' || parsedUrl?.urlSchema === 'https';
+  if (!parsedUrl || !isHttpUrl || isSystemBrowserOnlyHost(parsedUrl.hostname)) {
+    openViaSystemBrowser();
+    return;
+  }
+  openUrlInAppBrowserNative(trimmedUrl)
+    .then((result) => {
+      // 'locked' (iOS) means a browser was already presenting and nothing
+      // new opened, so it doesn't count. Real opens resolve at launch on
+      // Android but only at dismissal on iOS, so the report may lag the tap.
+      if (result.type !== 'locked') {
+        trackOpenUrl(parsedUrl, 'inApp');
+      }
+    })
+    .catch(() => {
+      // e.g. Android NoMatchingActivityException when no installed browser
+      // supports Custom Tabs — fall back to the system browser.
+      openViaSystemBrowser();
+    });
+};
+
+export const dismissNativeInAppBrowser = () => {
+  // iOS-only API; Android Custom Tabs are cleared by singleTask re-entry.
+  if (!platformEnv.isNativeIOS) {
+    return;
+  }
+  void import('expo-web-browser')
+    .then((webBrowser) => webBrowser.dismissBrowser())
+    .catch(() => {});
 };
 
 export const openSettings = (prefType: IPrefType) => {
@@ -216,6 +344,7 @@ const openUrlUtils = {
   openUrlByWebviewPro,
   openUrlInApp,
   openUrlExternal,
+  dismissNativeInAppBrowser,
   openUrlInDiscovery,
   openFiatCryptoUrl,
   gotoDiscoveryTab,

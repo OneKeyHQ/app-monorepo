@@ -2864,7 +2864,7 @@ function PerpTradingForm({
         <YStack gap="$2.5" flexShrink={0}>
           {isSpot ? null : (
             <XStack alignItems="center" gap="$2.5" width="100%">
-              <YStack flex={1} flexBasis={0} minWidth={0}>
+              <YStack flex={1.2} flexBasis={0} minWidth={0}>
                 <MarginModeSelector
                   disabled={isSubmitting}
                   isMobile={isMobile}
@@ -3075,7 +3075,7 @@ function PerpTradingForm({
               <XStack justifyContent="space-between">
                 <SizableText size="$bodySm" color="$textSubdued">
                   {intl.formatMessage({
-                    id: ETranslations.perp_trade_account_overview_avbl,
+                    id: ETranslations.perp_trade_account_overview_available,
                   })}
                 </SizableText>
                 <XStack alignItems="center" gap="$1">

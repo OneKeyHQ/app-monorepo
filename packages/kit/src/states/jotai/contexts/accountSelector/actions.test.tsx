@@ -8,6 +8,7 @@ import { createStore } from 'jotai';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorAutoSelectTriggerBy,
@@ -58,6 +59,9 @@ type ISaveSelectedAccountParams = {
 };
 type IMergeHomeDataToSwapMapParams = {
   swapMap: ISelectedAccountsMap | undefined;
+};
+type IFixOthersWalletAccountNetworkPairParams = {
+  selectedAccount: ISelectedAccount;
 };
 type IIndexedAccount = NonNullable<
   ReturnType<typeof defaultActiveAccountInfo>['indexedAccount']
@@ -110,6 +114,11 @@ const mockMergeHomeDataToSwapMap: jest.MockedFunction<
   (
     params: IMergeHomeDataToSwapMapParams,
   ) => Promise<ISelectedAccountsMap | undefined>
+> = jest.fn();
+const mockFixOthersWalletAccountNetworkPair: jest.MockedFunction<
+  (
+    params: IFixOthersWalletAccountNetworkPairParams,
+  ) => Promise<ISelectedAccount>
 > = jest.fn();
 const mockGetGlobalDeriveType: jest.MockedFunction<() => Promise<string>> =
   jest.fn();
@@ -289,6 +298,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fixDeriveTypesForInitAccountSelectorMap: (
         params: IFixDeriveTypesForInitAccountSelectorMapParams,
       ) => mockFixDeriveTypesForInitAccountSelectorMap(params),
+      fixOthersWalletAccountNetworkPair: (
+        params: IFixOthersWalletAccountNetworkPairParams,
+      ) => mockFixOthersWalletAccountNetworkPair(params),
       getGlobalDeriveType: () => mockGetGlobalDeriveType(),
       mergeHomeDataToSwapMap: (params: IMergeHomeDataToSwapMapParams) =>
         mockMergeHomeDataToSwapMap(params),
@@ -358,6 +370,17 @@ function createWrapper(
   };
 }
 
+function createHdSelectedAccount(indexedAccountId: string): ISelectedAccount {
+  return {
+    ...defaultSelectedAccount(),
+    walletId: 'hd-1',
+    indexedAccountId,
+    networkId: 'tron--0x2b6653dc',
+    deriveType: 'default',
+    focusedWallet: 'hd-1',
+  };
+}
+
 describe('useAccountSelectorActions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -379,6 +402,9 @@ describe('useAccountSelectorActions', () => {
     mockSaveGlobalDeriveType.mockResolvedValue(undefined);
     mockMergeHomeDataToSwapMap.mockImplementation(
       async (params) => params.swapMap,
+    );
+    mockFixOthersWalletAccountNetworkPair.mockImplementation(
+      async ({ selectedAccount }) => selectedAccount,
     );
     mockGetGlobalDeriveType.mockResolvedValue('default');
     mockShouldUseGlobalDeriveType.mockResolvedValue(true);
@@ -513,6 +539,503 @@ describe('useAccountSelectorActions', () => {
     });
   });
 
+  it('normalizes imported account network pairs before saving to storage', async () => {
+    const btcAccountId =
+      'imported--0--xpub6CgTVumLgde7C8aBr9Zfbn6LeJN347raED9oW6ZCfbwEqeQodRGLUvrjK3ec3uNbGYxMcxRJ5Q5grxip4Bd5XWmnai12tkdTLkTepQiAdnR--P2TR';
+    const mismatchedSelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: WALLET_TYPE_IMPORTED,
+      focusedWallet: WALLET_TYPE_IMPORTED,
+      networkId: 'cfx--1029',
+      deriveType: 'default' as const,
+      othersWalletAccountId: btcAccountId,
+    };
+    mockGetSelectedAccount.mockResolvedValue(undefined);
+    mockGetDBAccount.mockResolvedValue({
+      id: btcAccountId,
+      impl: 'btc',
+      createAtNetwork: 'btc--0',
+      networks: ['btc--0'],
+    } as IDBAccount);
+    mockFixOthersWalletAccountNetworkPair.mockImplementation(
+      async ({ selectedAccount }) => ({
+        ...selectedAccount,
+        networkId: 'btc--0',
+      }),
+    );
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: mismatchedSelectedAccount,
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.saveToStorage({
+        selectedAccount: mismatchedSelectedAccount,
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccountUpdatedAt: Date.now(),
+      });
+    });
+
+    expect(mockSaveSelectedAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccount: expect.objectContaining({
+          walletId: WALLET_TYPE_IMPORTED,
+          focusedWallet: WALLET_TYPE_IMPORTED,
+          networkId: 'btc--0',
+          othersWalletAccountId: btcAccountId,
+        }),
+      }),
+    );
+  });
+
+  it('skips persisting an all-default selected account', async () => {
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.saveToStorage({
+        selectedAccount: defaultSelectedAccount(),
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccountUpdatedAt: Date.now(),
+      });
+    });
+
+    expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
+    expect(mockSaveGlobalDeriveType).not.toHaveBeenCalled();
+  });
+
+  it('does not persist a network-only cold-start selection over a saved account', async () => {
+    mockGetSelectedAccount.mockResolvedValue(
+      createHdSelectedAccount('hd-1--1'),
+    );
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.saveToStorage({
+        selectedAccount: {
+          ...defaultSelectedAccount(),
+          networkId: 'tron--0x2b6653dc',
+          deriveType: 'default',
+          focusedWallet: 'hd-1',
+        },
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccountUpdatedAt: Date.now(),
+      });
+    });
+
+    expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
+    expect(mockSaveGlobalDeriveType).not.toHaveBeenCalled();
+  });
+
+  it('does not persist a stale selected account after the current account changes', async () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: createHdSelectedAccount('hd-1--1'),
+    });
+    store.set(accountSelectorUpdateMetaAtom(), {
+      0: {
+        eventEmitDisabled: false,
+        updatedAt: 2000,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.saveToStorage({
+        selectedAccount: createHdSelectedAccount('hd-1--0'),
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccountUpdatedAt: 1000,
+      });
+    });
+
+    expect(mockGetSelectedAccount).not.toHaveBeenCalled();
+    expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
+    expect(mockSaveGlobalDeriveType).not.toHaveBeenCalled();
+  });
+
+  it('does not persist an incompatible others wallet account and network pair', async () => {
+    const currentBtcAccount = {
+      id: 'imported--btc-p2tr',
+      impl: 'btc',
+      createAtNetwork: 'btc--0',
+      networks: ['btc--0'],
+    } as IDBAccount;
+    const selectedAccount: ISelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: WALLET_TYPE_IMPORTED,
+      othersWalletAccountId: currentBtcAccount.id,
+      networkId: 'evm--42161',
+      deriveType: 'default',
+      focusedWallet: WALLET_TYPE_IMPORTED,
+    };
+
+    mockGetDBAccount.mockResolvedValue(currentBtcAccount);
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.saveToStorage({
+        selectedAccount,
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccountUpdatedAt: Date.now(),
+      });
+    });
+
+    expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
+    expect(mockSaveGlobalDeriveType).not.toHaveBeenCalled();
+  });
+
+  it('does not sync an event-disabled swap source save back to home', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--0');
+    mockShouldSyncWithHomeSource.mockResolvedValue(true);
+
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    store.set(accountSelectorUpdateMetaAtom(), {
+      0: {
+        eventEmitDisabled: true,
+        updatedAt: 2000,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.saveToStorage({
+        selectedAccount,
+        sceneName: EAccountSelectorSceneName.swap,
+        num: 0,
+        selectedAccountUpdatedAt: 2000,
+      });
+    });
+
+    expect(mockSaveSelectedAccount).toHaveBeenCalledTimes(1);
+    expect(mockShouldSyncWithHomeSource).not.toHaveBeenCalled();
+  });
+
+  it('ignores stale home-swap sync events when current selection is newer', async () => {
+    mockShouldSyncHomeAndSwapSelectedAccount.mockResolvedValue(true);
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: createHdSelectedAccount('hd-1--1'),
+    });
+    store.set(accountSelectorUpdateMetaAtom(), {
+      0: {
+        eventEmitDisabled: false,
+        updatedAt: 2000,
+      },
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+    const staleEventPayload = {
+      selectedAccount: createHdSelectedAccount('hd-1--0'),
+      selectedAccountUpdatedAt: 1000,
+      sceneName: EAccountSelectorSceneName.swap,
+      num: 0,
+    };
+
+    await act(async () => {
+      await result.current.syncHomeAndSwapSelectedAccount({
+        eventPayload: staleEventPayload,
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      indexedAccountId: 'hd-1--1',
+    });
+  });
+
+  it('keeps a restored indexed account when active account is temporarily incomplete', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--1');
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: { id: 'hd-1' } as IWallet,
+        network: { id: 'tron--0x2b6653dc' } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--1',
+      focusedWallet: 'hd-1',
+    });
+  });
+
+  it('keeps a restored indexed account when active wallet is temporarily missing', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--1');
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--1',
+      focusedWallet: 'hd-1',
+    });
+  });
+
+  it('restores the active indexed account from a network-only cold-start selection', async () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        networkId: 'tron--0x2b6653dc',
+        deriveType: 'default' as const,
+      },
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: { id: 'hd-1' } as IWallet,
+        indexedAccount: { id: 'hd-1--1', walletId: 'hd-1' } as IIndexedAccount,
+        account: {
+          id: "hd-1--m/44'/195'/1'/0/0",
+          indexedAccountId: 'hd-1--1',
+        } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['account']
+        >,
+        dbAccount: {
+          id: "hd-1--m/44'/195'/1'/0/0",
+          indexedAccountId: 'hd-1--1',
+        } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['dbAccount']
+        >,
+        network: { id: 'tron--0x2b6653dc' } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--1',
+      focusedWallet: 'hd-1',
+      networkId: 'tron--0x2b6653dc',
+      deriveType: 'default',
+    });
+  });
+
+  it('falls back to the first indexed account when restored indexed account no longer exists', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--99');
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: { id: 'hd-1' } as IWallet,
+        network: { id: 'tron--0x2b6653dc' } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      focusedWallet: 'hd-1',
+    });
+  });
+
+  it('keeps swap all-network auto-select fallback local to swap', async () => {
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        networkId: getNetworkIdsMap().onekeyall,
+        deriveType: 'default' as const,
+      },
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: { id: 'hd-1' } as IWallet,
+        network: { id: getNetworkIdsMap().onekeyall } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      focusedWallet: 'hd-1',
+      networkId: getNetworkIdsMap().onekeyall,
+      deriveType: 'default',
+    });
+    expect(store.get(accountSelectorUpdateMetaAtom())[0]).toMatchObject({
+      eventEmitDisabled: true,
+    });
+  });
+
+  it('repairs an incompatible others wallet pair kept from a recent in-memory selection', async () => {
+    const currentBtcAccount = {
+      id: 'imported--btc-p2tr',
+      impl: 'btc',
+      createAtNetwork: 'btc--0',
+      networks: ['btc--0'],
+    } as IDBAccount;
+    const matchingEvmAccount = {
+      id: 'imported--evm-account',
+      impl: 'evm',
+      createAtNetwork: 'evm--1',
+    } as IDBAccount;
+
+    mockGetSelectedAccountsMap.mockResolvedValue(undefined);
+    mockGetDBAccount.mockResolvedValue(currentBtcAccount);
+    mockGetSingletonAccountsOfWallet.mockResolvedValue({
+      accounts: [currentBtcAccount, matchingEvmAccount],
+    });
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        walletId: WALLET_TYPE_IMPORTED,
+        othersWalletAccountId: currentBtcAccount.id,
+        networkId: 'evm--42161',
+        deriveType: 'default' as const,
+        focusedWallet: WALLET_TYPE_IMPORTED,
+      },
+    });
+    store.set(accountSelectorUpdateMetaAtom(), {
+      0: {
+        eventEmitDisabled: false,
+        updatedAt: Date.now(),
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: WALLET_TYPE_IMPORTED,
+      focusedWallet: WALLET_TYPE_IMPORTED,
+      indexedAccountId: undefined,
+      othersWalletAccountId: matchingEvmAccount.id,
+      networkId: 'evm--42161',
+      deriveType: 'default',
+    });
+  });
+
   it('clears a restored mocked hardware wallet selection during storage init', async () => {
     const staleSelection = {
       ...defaultSelectedAccount(),
@@ -630,6 +1153,106 @@ describe('useAccountSelectorActions', () => {
         sceneName: EAccountSelectorSceneName.swap,
       }),
     );
+  });
+
+  it('fills a missing Swap recipient account when restoring a partial recent-selection cache', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--1');
+    mockGetSelectedAccountsMap.mockResolvedValue({
+      0: selectedAccount,
+    });
+    mockMergeHomeDataToSwapMap.mockResolvedValue({
+      0: selectedAccount,
+      1: selectedAccount,
+    });
+
+    getAccountSelectorActions().setRecentAccountSelectorSelectionCache({
+      sceneName: EAccountSelectorSceneName.swap,
+      selectedAccountsMap: {
+        0: selectedAccount,
+      },
+      updateMeta: {
+        0: {
+          eventEmitDisabled: false,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())).toMatchObject({
+      0: {
+        indexedAccountId: selectedAccount.indexedAccountId,
+      },
+      1: {
+        indexedAccountId: selectedAccount.indexedAccountId,
+      },
+    });
+  });
+
+  it('ignores an affected-version Swap recent cache with the wrong recipient account', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--1');
+    const wrongRecipientAccount = createHdSelectedAccount('hd-1--0');
+    mockGetSelectedAccountsMap.mockResolvedValue({
+      0: selectedAccount,
+      1: selectedAccount,
+    });
+    mockMergeHomeDataToSwapMap.mockResolvedValue({
+      0: selectedAccount,
+      1: selectedAccount,
+    });
+    mockColdStartCacheStorageData.set(
+      EAppSyncStorageKeys.onekey_account_selector_recent_selection,
+      {
+        [EAccountSelectorSceneName.swap]: {
+          version: 1,
+          updatedAt: Date.now(),
+          selectedAccountsMap: {
+            0: selectedAccount,
+            1: wrongRecipientAccount,
+          },
+          updateMeta: {
+            0: {
+              eventEmitDisabled: false,
+              updatedAt: Date.now(),
+            },
+            1: {
+              eventEmitDisabled: true,
+              updatedAt: Date.now(),
+            },
+          },
+        },
+      },
+    );
+
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())).toMatchObject({
+      0: {
+        indexedAccountId: selectedAccount.indexedAccountId,
+      },
+      1: {
+        indexedAccountId: selectedAccount.indexedAccountId,
+      },
+    });
   });
 
   it('keeps a locked temp hidden wallet selection during storage init', async () => {

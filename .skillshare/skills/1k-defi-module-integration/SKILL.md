@@ -1,6 +1,6 @@
 ---
 name: 1k-defi-module-integration
-description: App-side OneKey DeFi guide for Earn, native Discovery-hosted Earn, Borrow, Staking, DeFi Portfolio actions, vaults, lending, protocol integrations, ABI-backed operations, native/provider-backed operations, pending transactions, history, route handoffs, risk display, and DeFi regression review.
+description: OneKey app DeFi integration for Earn, Borrow, Staking, portfolio actions, vault/lending protocols, transactions, history, routing, and risk display.
 ---
 
 # DeFi Module Integration
@@ -38,6 +38,32 @@ If source evidence conflicts, stop and name the conflict before picking a fix
 shape. Use `1k-earn-bugfix` only as historical risk input; this skill remains
 the App implementation owner for Earn/DeFi flow changes.
 
+## Autonomous Implementation Contract
+
+For a sufficiently clear feature or bug request, recover the source packet,
+fill the operation capability packet, implement, test, and validate without
+waiting for a human to map the App. Read
+[autonomous-feature-workflow.md](references/autonomous-feature-workflow.md)
+before editing and use [feature-packet.md](templates/feature-packet.md).
+
+Run the readiness check first:
+
+```bash
+node .skillshare/skills/1k-defi-module-integration/scripts/check-readiness.mjs
+```
+
+The check fails when current stable anchors or required eval assets are
+missing, or when pre-existing uncommitted domain code makes intake ambiguous.
+Reconcile current client and server contracts, code maps, and tests before
+implementation; do not bypass it. Use
+[runtime-boundaries.md](references/runtime-boundaries.md) for any background
+service, event, persistence, restart, account-switch, native-host, or crash path
+and [test-map.md](references/test-map.md) for exact validation lanes.
+
+Autonomy does not authorize inventing product behavior, silently resolving
+source conflicts, using unavailable secrets, making irreversible external
+writes, or claiming runtime proof from static checks.
+
 ## Scenario Router
 
 Classify the change first:
@@ -55,27 +81,35 @@ If the scenario is unclear, map its operation contract before choosing UI struct
 
 ## Default Workflow
 
-1. Read [app-architecture.md](references/app-architecture.md) to place the feature in the App flow.
-2. Use [code-map.md](references/code-map.md) to find stable anchors.
-3. Define the operation contract in [operation-flow.md](references/operation-flow.md): operation type, parameters, setup tx, business tx, status, risk, and refresh.
-4. For DeFi Portfolio actions, read [portfolio-actions-guide.md](references/portfolio-actions-guide.md) and verify the portfolio, supported-action, and build-transaction contracts separately.
-5. Define route, state, pending, and platform ownership in [state-and-routing.md](references/state-and-routing.md).
-6. Identify the closest valid repo pattern before inventing a new hook, state
+1. Run the readiness script, fill the feature packet, and state `main`, `bg`,
+   native/web resource, JS-copy, and initialization ownership.
+2. Read [app-architecture.md](references/app-architecture.md) to place the feature in the App flow.
+3. Use [code-map.md](references/code-map.md) to find stable anchors.
+4. Define the operation contract in [operation-flow.md](references/operation-flow.md): operation type, parameters, setup tx, business tx, status, risk, and refresh.
+5. For DeFi Portfolio actions, read [portfolio-actions-guide.md](references/portfolio-actions-guide.md) and verify the portfolio, supported-action, and build-transaction contracts separately.
+6. Define route, state, pending, and platform ownership in [state-and-routing.md](references/state-and-routing.md).
+7. Identify the closest valid repo pattern before inventing a new hook, state
    owner, operation adapter, or protocol abstraction. Reuse the shell only when
    provider, network, account, token, route, and operation semantics match.
-7. Run [checklists.md](references/checklists.md), including ABI/native readiness drills when adding a protocol integration.
-8. Validate on the route and platform that own the behavior.
+8. Run [checklists.md](references/checklists.md), including ABI/native readiness drills when adding a protocol integration.
+9. Run [test-map.md](references/test-map.md), then validate on the route and
+   platform that own the behavior using [validation.md](references/validation.md).
 
 ## Reference Map
 
 | Need | Reference |
 | --- | --- |
 | Understand Earn/Borrow/Staking flow | [app-architecture.md](references/app-architecture.md) |
+| Execute a feature end to end | [autonomous-feature-workflow.md](references/autonomous-feature-workflow.md) |
+| Fill the implementation capability packet | [feature-packet.md](templates/feature-packet.md) |
 | Find current repo anchors | [code-map.md](references/code-map.md) |
+| Reason about main/bg/persistence/init timing | [runtime-boundaries.md](references/runtime-boundaries.md) |
 | Define operation and transaction contracts | [operation-flow.md](references/operation-flow.md) |
 | DeFi Portfolio one-click action contracts | [portfolio-actions-guide.md](references/portfolio-actions-guide.md) |
 | Route, state, pending, history, and platform ownership | [state-and-routing.md](references/state-and-routing.md) |
 | Prevent common integration failures | [checklists.md](references/checklists.md) |
+| Run exact focused test lanes | [test-map.md](references/test-map.md) |
+| Prove route/platform/runtime behavior | [validation.md](references/validation.md) |
 
 ## Readiness Drills
 
@@ -103,6 +137,11 @@ If a drill cannot be completed from the references, improve the abstraction befo
 - Do not hide a DeFi Portfolio position only because its protocol has no supported action.
 - Do not create a new abstraction, hook, or state owner until the closest
   existing repo pattern and its semantic mismatch have been named.
+- Do not continue from a failing readiness check. Reconcile current
+  client/server truth, actual PR scope, anchors, tests, and pre-existing
+  worktree changes first.
+- Do not ask the user to supply Jira, Slack, Git, client, or accessible server
+  context that current tools can retrieve.
 - Do not let one oversized hook own route sync, data loading, operation state,
   listener refresh, pending/history, and view model. Split stateful business
   logic by stable responsibility when that clarifies ownership.

@@ -1,6 +1,6 @@
 # Code Map
 
-Use these anchors to orient in the current repository. Prefer nearby patterns over parallel abstractions.
+Use these anchors to orient in the current repository. Prefer nearby patterns over parallel abstractions. Run the readiness script before relying on this map.
 
 ## Routes And Hosts
 
@@ -57,14 +57,20 @@ Important anchors:
 - `packages/kit/src/views/Home/components/DeFiListBlock/Protocol.tsx`
 - `packages/kit/src/views/Home/components/DeFiListBlock/ProtocolPositionCell.tsx`
 - `packages/kit/src/views/AssetDetails/pages/DeFiProtocolDetails.tsx`
+- `packages/kit/src/views/AssetDetails/pages/DeFiProtocolAction.tsx`
 - `packages/shared/src/routes/assetDetails.ts`
 - `packages/kit/src/components/DeFi/ProtocolPositionActionButton.tsx`
 - `packages/kit/src/components/DeFi/ProtocolPositionActionDialog.tsx`
+- `packages/kit/src/components/DeFi/ProtocolLendingActionDialog.ts`
+- `packages/kit/src/components/DeFi/ProtocolLendingActionDialogContent.tsx`
 - `packages/kit-bg/src/services/ServiceDeFi.ts`
 
 Important anchors:
 
 - `EModalAssetDetailRoutes.DeFiProtocolDetails`
+- `EModalAssetDetailRoutes.DeFiProtocolAction`
+- `actionPresentation: 'dialog' | 'modal-route'`
+- `renderMode: 'dialog' | 'page'`
 - `serviceDeFi.fetchSupportedDeFiProtocols`
 - `serviceDeFi.refreshAccountDeFiPositionsAfterAction`
 - route params and protocol payload fields carrying `accountId` and
@@ -74,12 +80,22 @@ AssetDetails modal pages are separate route hosts from Home tab content. When
 an action needs account identity, pass it through the route or protocol payload
 rather than reading Home-only context from the modal.
 
+Native uses the `DeFiProtocolAction` modal route with page rendering. Extension
+and desktop can use the in-page dialog. Keep the host decision separate from
+the shared typed action content.
+
 ## Action, Order, Permit, And Error Anchors
 
 - `packages/kit/src/components/DeFi/ProtocolPositionActionDialog.tsx`
+- `packages/kit/src/components/DeFi/DeFiActionTxConfirmResult.tsx`
+- `packages/kit/src/components/DeFi/protocolPositionActionPercentUtils.ts`
 - `packages/kit-bg/src/services/ServiceDeFi.ts`
 - `packages/kit-bg/src/services/ServiceStaking.ts`
 - `packages/kit/src/views/Borrow/hooks/useUniversalBorrowHooks.ts`
+- `packages/kit/src/views/Borrow/hooks/useUniversalBorrowWithdrawRepayHooks.ts`
+- `packages/kit/src/views/Borrow/components/ManagePosition/hooks/useBorrowApproveAndSubmit.ts`
+- `packages/shared/src/utils/defiActionUtils.ts`
+- `packages/shared/src/utils/defiPositionMetadataUtils.ts`
 - `packages/shared/src/utils/defiPermitUtils.ts`
 - `packages/shared/types/defi.ts`
 
@@ -90,13 +106,69 @@ Important anchors:
 - `/earn/v1/defi/build-transaction`
 - `refreshAccountDeFiPositionsAfterAction`
 - `syncBorrowOrder`
+- `attachBorrowOrderId`
 - `handleBorrowSuccess`
+- `useBorrowApproveAndSubmit`
+- `showDeFiActionTxConfirmDialog`
 - `addEarnOrder`
 - `validateLidoWithdrawPermitTypedData`
 
 Use these paths for build response shape, `orderId` tracking, approval/permit
 handling, duplicate-submit prevention, operation-level error diagnostics, and
 post-action refresh.
+
+The current lending sequence must preserve approval handoff, business confirm,
+all success/fail/cancel terminals, `orderId` attachment after broadcast, settle,
+and refresh. Percent/max input is part of execution correctness, not layout.
+
+## Portfolio Refresh, Events, And Persistence
+
+- `packages/kit/src/views/Home/components/DeFiListBlock/DeFiListBlock.tsx`
+- `packages/kit/src/states/jotai/contexts/deFiList/atoms.ts`
+- `packages/kit/src/states/jotai/contexts/deFiList/actions.ts`
+- `packages/shared/src/eventBus/appEventBus.ts`
+- `packages/shared/src/eventBus/appEventBusNames.ts`
+- `packages/kit-bg/src/services/ServiceDeFi.ts`
+- `packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityDeFi.ts`
+- `packages/kit-bg/src/dbs/simple/base/SimpleDbEntityBase.ts`
+
+Important anchors:
+
+- `currentOwnerKey` and `loadedOwnerKey`
+- `AccountDataUpdate` and `DeFiPositionRefreshed`
+- `_runDeFiForceRefresh`
+- `refreshAccountDeFiPositionsAfterAction`
+- `consumeManualForceRefreshQuota`
+- account/network-keyed immediate plus 40s/80s refresh
+
+`DeFiListBlock` is the `main` reconciliation owner. `ServiceDeFi` and
+`SimpleDbEntityDeFi` are `bg` owners. The underlying storage persists, but the
+UI, service, entity wrapper, and event payload are separate JS objects.
+`SimpleDbEntityDeFi.enableCache` is `false`, so it reads persistent storage
+instead of keeping a reusable `cachedRawData` copy.
+
+## External Discovery Boundary
+
+- `packages/kit/src/states/jotai/contexts/discovery/actions.ts`
+- `packages/kit/src/views/Discovery/pages/Browser/Browser.native.tsx`
+- `packages/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror.tsx`
+- `packages/kit/src/views/Discovery/components/WebContent/WebContent.native.tsx`
+- `packages/kit/src/views/Discovery/components/WebContent/WebContent.desktop.tsx`
+- `packages/kit/src/views/Discovery/hooks/useDiscoveryMessageHandler.ts`
+- `packages/kit-bg/src/services/ServiceDApp.ts`
+- `packages/kit/src/views/SignatureConfirm/router/index.tsx`
+- `packages/shared/src/routes/signatureConfirm.ts`
+
+Important anchors:
+
+- `useBrowserAction`
+- `handleOpenWebSite`
+- `ServiceDApp.openSignAndSendTransactionModal`
+- `EModalSignatureConfirmRoutes.TxConfirmFromDApp`
+
+Opening an external protocol page does not create an App-owned DeFi action.
+Before a website sends a chain RPC, no internal build, confirm, pending row,
+order, or portfolio refresh should be introduced.
 
 ## Staking Operation Stack
 

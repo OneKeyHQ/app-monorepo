@@ -15,10 +15,11 @@ import type {
 } from '@onekeyhq/shared/src/routes/perp';
 
 import {
-  DepositTokenSelectionContent,
+  getPerpsDepositTokenDisplayList,
   mergePerpsDepositTokensPreservingOrder,
   shouldUsePerpsDepositLiveWalletTokens,
-} from './DepositWithdrawModal';
+} from './depositTokenDisplayUtils';
+import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
 
 import type { RouteProp } from '@react-navigation/native';
 
@@ -40,7 +41,7 @@ function DepositSelectTokenModal() {
     [route.params.depositTokensWithPrice],
   );
   const atomDepositTokens = useMemo(
-    () => Object.values(tokens).flat(),
+    () => getPerpsDepositTokenDisplayList(tokens),
     [tokens],
   );
   const liveDepositTokens = useMemo(() => {

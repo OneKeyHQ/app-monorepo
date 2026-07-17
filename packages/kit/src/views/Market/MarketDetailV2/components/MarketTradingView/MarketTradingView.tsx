@@ -9,9 +9,12 @@ import type {
   ITradingViewPriceUpdateData,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
+
+import { MarketChartFullscreenHeader } from './MarketChartFullscreenHeader';
 
 const MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingViewDisabledFeature[] =
   [
@@ -94,6 +97,8 @@ export interface IMarketTradingViewProps {
   onNativeIndicatorQuickBarChange?: (quickBar: ReactNode | null) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
+  onNativeSubIndicatorCountChange?: (count: number | null) => void;
+  maxNativeSubIndicatorCount?: number;
 }
 
 export const MarketTradingView = memo(
@@ -116,6 +121,8 @@ export const MarketTradingView = memo(
     onNativeIndicatorQuickBarChange,
     onIndicatorsDialogOpenChange,
     onInteractionOverlayOpenChange,
+    onNativeSubIndicatorCountChange,
+    maxNativeSubIndicatorCount,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
@@ -164,6 +171,8 @@ export const MarketTradingView = memo(
         onTouchScroll={onTouchScroll}
         onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
         onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
+        onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
+        maxNativeSubIndicatorCount={maxNativeSubIndicatorCount}
         onPriceUpdate={handlePriceUpdate}
         disabledFeatures={MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES}
         enableNativeChartControls
@@ -173,6 +182,11 @@ export const MarketTradingView = memo(
         nativePriceMarketCapControlMode={nativePriceMarketCapControlMode}
         nativeControlsLayoutMode={nativeControlsLayoutMode}
         isNativeChartFullscreen={isNativeChartFullscreen}
+        nativeChartFullscreenHeader={
+          !platformEnv.isNative && nativeControlsLayoutMode === 'desktop' ? (
+            <MarketChartFullscreenHeader />
+          ) : undefined
+        }
         showNativeIndicatorQuickBar={showNativeIndicatorQuickBar}
         onNativeChartFullscreenChange={onNativeChartFullscreenChange}
         onNativeIndicatorQuickBarChange={onNativeIndicatorQuickBarChange}

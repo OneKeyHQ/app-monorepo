@@ -20,6 +20,7 @@ skillshare
 bitrefill
 Bitrefill
 BITREFILL
+Bitway
 worktree
 googleusercontent
 0xf7ad23226db5c1c00ca0ca1468fd49c8f8bbc1489bc1c382de5adc557a69c229
@@ -1405,6 +1406,7 @@ avd
 AVD
 oxlint
 oxlintrc
+oxfmt
 serviceworker
 newtab
 hrstart
@@ -1559,3 +1561,6 @@ mysten
 # web service worker / workbox (rspack migration) comments + cache names
 precaches
 navigations
+
+# OpenType tabular-figures feature tag
+tnum

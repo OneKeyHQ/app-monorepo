@@ -23,6 +23,7 @@ import {
 } from '../utils/tokenListHelpers';
 
 import { fetchMarketTokenListForPlatform } from './marketTokenListPlatformApi';
+import { getMarketTokenListApiNetworkId } from './marketTokenListQueryUtils';
 
 import type { IMarketTokenListResponseWithSource } from './marketTokenListPlatformApiTypes';
 import type { IMarketTimeRangeValue } from '../../../types';
@@ -34,6 +35,7 @@ interface IUseMarketTokenListParams {
   initialSortType?: 'asc' | 'desc';
   pageSize?: number;
   type?: string;
+  category?: string;
   timeRange?: IMarketTimeRangeValue;
   pollingInterval?: number;
 }
@@ -180,6 +182,7 @@ export function useMarketTokenList({
   initialSortType = 'desc',
   pageSize = 20,
   type,
+  category,
   timeRange,
   pollingInterval = timerUtils.getTimeDurationMs({ seconds: 60 }),
 }: IUseMarketTokenListParams) {
@@ -215,8 +218,12 @@ export function useMarketTokenList({
     [networkId],
   );
 
-  // For API calls, use empty string when "All Networks" is selected
-  const apiNetworkId = isAllNetworks ? '' : networkId;
+  // Stocks and All Networks both request the unfiltered asset universe.
+  const apiNetworkId = getMarketTokenListApiNetworkId({
+    networkId,
+    isAllNetworks,
+    type,
+  });
   const currentQueryKey = useMemo(
     () =>
       JSON.stringify({
@@ -226,6 +233,7 @@ export function useMarketTokenList({
         pageSize,
         minLiquidity,
         type,
+        category,
         timeFrame,
         networkId,
       }),
@@ -236,6 +244,7 @@ export function useMarketTokenList({
       pageSize,
       minLiquidity,
       type,
+      category,
       timeFrame,
       networkId,
     ],
@@ -255,6 +264,7 @@ export function useMarketTokenList({
       pageSize,
       minLiquidity,
       type,
+      category,
       timeFrame,
     });
   }, [
@@ -264,6 +274,7 @@ export function useMarketTokenList({
     pageSize,
     sortBy,
     sortType,
+    category,
     timeFrame,
     type,
   ]);
@@ -282,6 +293,7 @@ export function useMarketTokenList({
     pageSize === 20 &&
     minLiquidity === 5000 &&
     type === 'trending' &&
+    category === undefined &&
     timeFrame === '2';
   const marketTokenListSeedInitResult = useMemo(() => {
     // The HTML bootstrap seed is only a first-page fallback for a brand-new
@@ -360,6 +372,7 @@ export function useMarketTokenList({
             limit: pageSize,
             minLiquidity,
             type,
+            category,
             timeFrame,
           },
           shouldBypassWebSeed ? { forceRemote: true } : undefined,
@@ -423,6 +436,7 @@ export function useMarketTokenList({
       pageSize,
       minLiquidity,
       type,
+      category,
       timeFrame,
     ],
     {
@@ -550,6 +564,7 @@ export function useMarketTokenList({
         source: apiResult.__fromSeed ? 'seed' : 'remote',
         networkId,
         type,
+        category,
         timeFrame,
       },
     });
@@ -575,6 +590,7 @@ export function useMarketTokenList({
     timeFrame,
     trackNetworkLoading,
     type,
+    category,
   ]);
 
   // Reset pagination when networkId, sortBy, or sortType changes
@@ -584,7 +600,7 @@ export function useMarketTokenList({
     setHasReachedEnd(false);
     // Don't clear data immediately to avoid UI flicker
     // The data will be replaced when new API result arrives
-  }, [networkId, sortBy, sortType, type, timeFrame]);
+  }, [networkId, sortBy, sortType, type, category, timeFrame]);
 
   // Handle network switching - separate effect to track networkId changes specifically
   useEffect(() => {
@@ -644,6 +660,7 @@ export function useMarketTokenList({
         limit: pageSize,
         minLiquidity,
         type,
+        category,
         timeFrame,
       });
 
@@ -700,6 +717,7 @@ export function useMarketTokenList({
     pageSize,
     minLiquidity,
     type,
+    category,
     timeFrame,
     trackNetworkLoading,
     networkLogoUri,

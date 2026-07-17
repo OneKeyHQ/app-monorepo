@@ -43,10 +43,10 @@ on:
       web_embed_artifact:
         # Name of an upstream actions/upload-artifact entry containing a
         # pre-built apps/web-embed/web-build/. When set, the platform job
-        # downloads it and skips its local webpack run. Used by
+        # downloads it and skips its local Rspack run. Used by
         # release-app-bundles.yml to share ONE web-embed build across the
         # iOS and Android slots. Empty for direct workflow_dispatch — each
-        # platform falls back to running webpack locally.
+        # platform falls back to running the Rspack build locally.
         type: string
         required: false
         default: ''
@@ -205,11 +205,11 @@ jobs:
   # web-embed prebuild lives in the orchestrator (release-app-bundles.yml) so
   # iOS and Android — which here are sibling workflow_call invocations of this
   # workflow — can share ONE web-embed artifact. Without that lift, each
-  # workflow_call would internally re-run webpack (the symptom: two
+  # workflow_call would internally re-run Rspack (the symptom: two
   # web-embed-build nodes in the orchestrator UI).
   #
   # Direct workflow_dispatch on this workflow has no upstream artifact:
-  # buildWebEmbed() in build-bundle-base.js falls back to running webpack
+  # buildWebEmbed() in build-bundle-base.js falls back to running Rspack
   # locally per-platform. Acceptable for ad-hoc testing.
   release-native-bundle:
     # `needs:` alone gives us the right gating: if prepare-bundle-version
@@ -360,7 +360,7 @@ jobs:
         # job in the orchestrator (release-app-bundles.yml). When running via
         # direct workflow_dispatch with no upstream artifact, this step is
         # skipped and buildWebEmbed() in build-bundle-base.js falls back to
-        # running webpack locally.
+        # running Rspack locally.
         if: ${{ inputs.web_embed_artifact != '' }}
         uses: actions/download-artifact@v4
         with:

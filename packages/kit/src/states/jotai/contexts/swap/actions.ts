@@ -135,6 +135,7 @@ import {
   swapSpeedQuoteResultAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
+  swapStockSelectedFromTokenBalanceAtom,
   swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
   swapTokenFetchingAtom,
@@ -913,6 +914,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               set(swapQuoteEventTotalCountAtom(), {
                 eventId,
                 count: totalQuoteCount,
+                totalQuoteCountReceived: true,
               });
               const isZeroProviderQuoteEvent = hasSwapZeroProviderQuoteEvent({
                 quoteEventTotalCount: {
@@ -951,6 +953,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   ? {
                       eventId: quoteResultEventId,
                       count: quoteResultData.data.length,
+                      totalQuoteCountReceived: false,
                     }
                   : quoteEventTotalCount;
               if (shouldSeedStockQuoteEventFromResult && quoteResultEventId) {
@@ -2706,6 +2709,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       const oldType = get(swapTypeSwitchAtom());
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
+      const isCrossingStockBoundary =
+        (oldType === ESwapTabSwitchType.STOCK) !==
+        (normalizedType === ESwapTabSwitchType.STOCK);
+      if (isCrossingStockBoundary) {
+        set(swapStockSelectedFromTokenBalanceAtom(), '');
+      }
+      if (
+        oldType === ESwapTabSwitchType.STOCK &&
+        normalizedType === ESwapTabSwitchType.LIMIT
+      ) {
+        set(swapSelectedFromTokenBalanceAtom(), '');
+      }
       let currentFromToken = get(swapSelectFromTokenAtom());
       let currentToToken = get(swapSelectToTokenAtom());
       const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;

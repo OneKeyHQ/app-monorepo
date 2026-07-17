@@ -25,6 +25,7 @@ import {
   Image,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
+  NATIVE_HIT_SLOP,
   NumberSizeableText,
   Page,
   ScrollView,
@@ -4084,6 +4085,57 @@ function SendAmountInputContainer() {
             gap="$1"
             flexShrink={1}
             minWidth={0}
+            px={shouldUsePrivateSendQuoteCollapse ? '$1' : undefined}
+            py={shouldUsePrivateSendQuoteCollapse ? '$1' : undefined}
+            mr={shouldUsePrivateSendQuoteCollapse ? '$-1' : undefined}
+            borderRadius={shouldUsePrivateSendQuoteCollapse ? '$2' : undefined}
+            borderCurve={
+              shouldUsePrivateSendQuoteCollapse ? 'continuous' : undefined
+            }
+            userSelect={shouldUsePrivateSendQuoteCollapse ? 'none' : undefined}
+            hitSlop={
+              shouldUsePrivateSendQuoteCollapse ? NATIVE_HIT_SLOP : undefined
+            }
+            role={shouldUsePrivateSendQuoteCollapse ? 'button' : undefined}
+            aria-expanded={
+              shouldUsePrivateSendQuoteCollapse
+                ? isPrivateSendQuoteDetailsExpanded
+                : undefined
+            }
+            focusable={shouldUsePrivateSendQuoteCollapse || undefined}
+            cursor={shouldUsePrivateSendQuoteCollapse ? 'pointer' : undefined}
+            hoverStyle={
+              shouldUsePrivateSendQuoteCollapse ? { bg: '$bgHover' } : undefined
+            }
+            pressStyle={
+              shouldUsePrivateSendQuoteCollapse
+                ? { bg: '$bgActive' }
+                : undefined
+            }
+            focusVisibleStyle={
+              shouldUsePrivateSendQuoteCollapse
+                ? {
+                    outlineColor: '$focusRing',
+                    outlineWidth: 2,
+                    outlineStyle: 'solid',
+                    outlineOffset: 1,
+                  }
+                : undefined
+            }
+            onPress={
+              shouldUsePrivateSendQuoteCollapse
+                ? handleTogglePrivateSendQuoteDetails
+                : undefined
+            }
+            {...(shouldUsePrivateSendQuoteCollapse &&
+              !platformEnv.isNative && {
+                onKeyDown: (event: KeyboardEvent) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleTogglePrivateSendQuoteDetails();
+                },
+              })}
           >
             {showPrivateSendQuoteSkeleton ? (
               <Skeleton h="$4" w="$24" />
@@ -4130,10 +4182,6 @@ function SendAmountInputContainer() {
                 alignItems="center"
                 justifyContent="center"
                 borderRadius="$full"
-                cursor="pointer"
-                hoverStyle={{ bg: '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-                onPress={handleTogglePrivateSendQuoteDetails}
               >
                 <Stack
                   animation="quick"

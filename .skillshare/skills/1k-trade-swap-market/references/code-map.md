@@ -1,6 +1,6 @@
 # Code Map
 
-Use these anchors to orient in the current repository. Prefer the local pattern around the anchor over inventing a parallel path.
+Use these anchors to orient in the current repository. Prefer the local pattern around the anchor over inventing a parallel path. Run the readiness script before relying on this map.
 
 ## Shared Swap Core
 
@@ -82,6 +82,17 @@ Use these paths when a bug starts from Home Token, Send, Receive, Market,
 Earn, or Buy but lands in Swap. The source surface owns the handoff params;
 Swap owns quote, review, build, send, and history once the route is mounted.
 
+Receive DeFi-token filtering is an explicit adjacent-owner exception:
+
+- `packages/kit/src/views/Receive/pages/ReceiveSelector.tsx` passes
+  `showDeFiTokenSwitch`.
+- `packages/kit/src/views/AssetSelector/pages/TokenSelector.tsx` owns the
+  selector/filter composition.
+- `packages/shared/src/utils/tokenSelectorFilterUtils.ts` owns the pure filter.
+
+Do not edit the Swap selector for this path unless runtime/source tracing proves
+the failure occurs after the handoff reaches Swap.
+
 Entry-specific anchors:
 
 - Wallet Home action opens `SwapMainLand` with `importNetworkId` and
@@ -105,6 +116,35 @@ Entry-specific anchors:
 
 Keep manual provider selection, quote progress, and provider availability separate.
 
+For Stock and other multi-provider quote events, the closest error-settlement
+pattern is `selectSwapCurrentQuote` with
+`deferNonActionableQuoteUntilEventSettled`, wired from swap atoms/actions.
+Track `totalQuoteCountReceived`, `quoteEventCompleted`, actionable `toAmount`,
+manual provider intent, and current event identity separately. An early error
+must not replace a later actionable quote.
+
+## Stock Channel Owners
+
+- `packages/kit/src/views/Swap/hooks/useSwapStockChannel.ts`
+- `packages/kit/src/views/Swap/hooks/swapStockChannelUtils.ts`
+- `packages/kit/src/views/Swap/hooks/useSwapStockTradeInputs.ts`
+- `packages/kit/src/views/Swap/hooks/useSwapStockDefaultToken.ts`
+- `packages/kit/src/views/Swap/utils/stockTokenDetailFreshness.ts`
+- `packages/kit/src/views/Swap/utils/swapStockTradeControl.ts`
+- `packages/kit/src/views/Swap/utils/swapStockAnalytics.ts`
+- `packages/kit/src/views/Swap/pages/components/SwapStockTradeAlertUtils.ts`
+
+Important anchors:
+
+- `resolveStockChannelSwapPair`
+- `useSwapStockAmountInputState`
+- `isStockTokenDetailStateLanded`
+- `getStockQuoteTradeControl`
+- `getStockTradeAnalyticsPayload`
+
+These owners keep Stock/pay-token identity, default restoration, amount side,
+market readiness, trade alerts, and analytics distinct from ordinary Swap.
+
 ## Review And Execution
 
 - `packages/kit/src/views/Swap/utils/buildSwapReviewState.ts`
@@ -126,9 +166,13 @@ Important anchors:
 - `packages/kit/src/views/Swap/pages/modal/SwapHistoryDetailModal.tsx`
 - `packages/kit/src/views/Swap/utils/privateSendHistory.ts`
 - `packages/kit/src/views/Swap/utils/swapMarketHistory.ts`
+- `packages/kit/src/views/Swap/utils/swapHistoryIdentity.ts`
+- `packages/kit/src/views/Swap/hooks/useSwapLocalDataVisibility.ts`
+- `packages/kit/src/views/Swap/utils/swapNoWalletWarningGuard.ts`
 - `packages/shared/src/utils/swapHistoryUtils.ts`
 - `packages/kit-bg/src/services/ServiceHistory.ts`
 - `packages/kit-bg/src/services/ServiceSwap.ts`
+- `packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapHistory.ts`
 - `packages/kit-bg/src/vaults/impls/*/Vault.ts`
 
 Important anchors:
@@ -159,6 +203,22 @@ rendering has a richer replacement source.
 For disconnected-wallet display, Stock pending counts, and order-backed
 channels, treat visibility filters, local row retention, txid/order id choice,
 and detail-route fallback as separate decisions.
+
+`useShouldShowSwapLocalData` and `shouldShowSwapLocalData` are `main` visibility
+owners. `ServiceSwap` and `SimpleDbEntitySwapHistory` are `bg` read/write
+owners. Recent pairs, pending rows, Swap history, Limit history, and Stock
+history may hide when account-selector readiness is false, but a visibility
+requirement must not call the SimpleDB delete/clean paths.
+
+Protected `main` consumers include:
+
+- `packages/kit/src/views/Swap/components/SwapRecentTokenPairsGroup.tsx`
+- `packages/kit/src/views/Swap/pages/components/SwapPendingHistoryList.tsx`
+- `packages/kit/src/views/Swap/pages/modal/SwapHistoryListModal.tsx`
+- `packages/kit/src/views/Swap/pages/components/LimitOrderList.tsx`
+- `packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.tsx`
+- `packages/kit/src/components/TabPageHeader/components/WebAccountPanel/WebAccountPanelMain.tsx`
+  for the real web disconnect transition
 
 ## Market Speed-Swap
 

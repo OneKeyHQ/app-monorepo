@@ -32,6 +32,84 @@ type IActionBuyContentProps = Omit<IActionProps, 'isTabView'> & {
   focusParam: boolean;
 };
 
+// Shared with the aggregate Overview tab, which resolves the concrete network
+// via the aggregate network selector before opening the fiat widget.
+export async function openFiatCryptoWidget({
+  type,
+  networkId,
+  tokenAddress,
+  tokenSymbol,
+  accountId,
+  walletId,
+  walletType,
+  source,
+  isSoftwareWalletOnlyUser,
+}: {
+  type: IFiatCryptoType;
+  networkId: string;
+  tokenAddress: string;
+  tokenSymbol: string;
+  accountId: string;
+  walletId: string;
+  walletType?: string;
+  source: IActionProps['source'];
+  isSoftwareWalletOnlyUser: boolean;
+}) {
+  if (
+    await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+      walletId,
+    })
+  ) {
+    return;
+  }
+
+  if (type === 'buy') {
+    defaultLogger.wallet.walletActions.buyStarted({
+      tokenAddress,
+      tokenSymbol,
+      networkID: networkId,
+    });
+    defaultLogger.wallet.walletActions.actionBuy({
+      walletType: walletType ?? '',
+      networkId: networkId ?? '',
+      source,
+      isSoftwareWalletOnlyUser,
+    });
+  } else if (type === 'sell') {
+    defaultLogger.wallet.walletActions.actionSell({
+      walletType: walletType ?? '',
+      networkId: networkId ?? '',
+      source,
+      isSoftwareWalletOnlyUser,
+    });
+  }
+
+  // Native Headless buy intercept — after the analytics above so the buy
+  // funnel stays intact; falls through to the web widget when unavailable.
+  if (
+    type === 'buy' &&
+    (await tryOpenHeadlessBuy({ networkId, tokenAddress, accountId }))
+  ) {
+    return;
+  }
+
+  const { url } = await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+    networkId,
+    tokenAddress,
+    accountId,
+    type,
+  });
+  if (!url) {
+    Toast.error({ title: 'Failed to get widget url' });
+    return;
+  }
+  if (platformEnv.isDesktop || platformEnv.isNative) {
+    openFiatCryptoUrl(url);
+  } else {
+    openUrlExternal(url);
+  }
+}
+
 function ActionBuyContent({
   networkId,
   tokenAddress,
@@ -99,61 +177,21 @@ function ActionBuyContent({
     async (type: IFiatCryptoType) => {
       if (loadingRef.current) return;
 
-      if (
-        await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
-          walletId,
-        })
-      ) {
-        return;
-      }
-
       loadingRef.current = true;
       setLoading(true);
 
-      if (type === 'buy') {
-        defaultLogger.wallet.walletActions.buyStarted({
+      try {
+        await openFiatCryptoWidget({
+          type,
+          networkId,
           tokenAddress,
           tokenSymbol,
-          networkID: networkId,
-        });
-        defaultLogger.wallet.walletActions.actionBuy({
-          walletType: walletType ?? '',
-          networkId: networkId ?? '',
+          accountId,
+          walletId,
+          walletType,
           source,
           isSoftwareWalletOnlyUser,
         });
-      } else if (type === 'sell') {
-        defaultLogger.wallet.walletActions.actionSell({
-          walletType: walletType ?? '',
-          networkId: networkId ?? '',
-          source,
-          isSoftwareWalletOnlyUser,
-        });
-      }
-
-      try {
-        if (
-          type === 'buy' &&
-          (await tryOpenHeadlessBuy({ networkId, tokenAddress, accountId }))
-        ) {
-          return;
-        }
-        const { url } =
-          await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
-            networkId,
-            tokenAddress,
-            accountId,
-            type,
-          });
-        if (!url) {
-          Toast.error({ title: 'Failed to get widget url' });
-          return;
-        }
-        if (platformEnv.isDesktop || platformEnv.isNative) {
-          openFiatCryptoUrl(url);
-        } else {
-          openUrlExternal(url);
-        }
       } finally {
         loadingRef.current = false;
         setLoading(false);

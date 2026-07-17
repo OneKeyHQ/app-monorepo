@@ -1,0 +1,8 @@
+skill: 1k-trade-swap-market
+version: 1
+pass_threshold: 90
+critical_fail_policy: zero
+cases:
+  - cases/stock-channel-autonomous-implementation.yaml
+  - cases/receive-wrong-owner.yaml
+  - cases/history-hide-not-delete-runtime.yaml
