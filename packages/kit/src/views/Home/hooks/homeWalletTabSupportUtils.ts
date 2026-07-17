@@ -68,8 +68,6 @@ export function hasDeFiSupportedEnabledNetwork({
 
 export function buildHomeWalletTabSupport({
   network,
-  allNetworks,
-  allNetworksState,
   deFiEnabledNetworksMap,
   perpDisabled,
 }: {
@@ -83,13 +81,10 @@ export function buildHomeWalletTabSupport({
 
   if (network?.id) {
     if (networkUtils.isAllNetwork({ networkId: network.id })) {
-      isDeFiSupported =
-        !!allNetworksState &&
-        hasDeFiSupportedEnabledNetwork({
-          allNetworks: allNetworks ?? [],
-          allNetworksState,
-          deFiEnabledNetworksMap,
-        });
+      // All Networks is an aggregate product surface. Keep DeFi available even
+      // while the enabled-network capability map is refreshing or temporarily
+      // incomplete; Perps still respects its independent global kill switch.
+      isDeFiSupported = true;
     } else {
       isDeFiSupported = !!deFiEnabledNetworksMap[network.id];
     }

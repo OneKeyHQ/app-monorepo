@@ -1,6 +1,7 @@
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  getMarketCategoryIds,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
@@ -8,6 +9,24 @@ import {
 } from './utils';
 
 describe('PopularTrading market token display utils', () => {
+  test('deduplicates and sorts selected and prefetched categories', () => {
+    expect(
+      getMarketCategoryIds({
+        prefetchMarketCategoryIds: ['stocks', 'trending', 'stocks'],
+        selectedMarketCategoryId: 'perps-hot',
+      }),
+    ).toEqual(['perps-hot', 'stocks', 'trending']);
+  });
+
+  test('omits an absent selected category', () => {
+    expect(
+      getMarketCategoryIds({
+        prefetchMarketCategoryIds: [],
+        selectedMarketCategoryId: undefined,
+      }),
+    ).toEqual([]);
+  });
+
   test('normalizes placeholder market values instead of returning NaN', () => {
     const item: IMarketTokenListItem = {
       networkId: 'evm--56',

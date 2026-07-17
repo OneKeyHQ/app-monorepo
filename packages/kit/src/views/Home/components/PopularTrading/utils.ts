@@ -23,6 +23,22 @@ function getTokenKey(token: {
 
 const EMPTY_DISPLAY_TOKENS: IFavoriteTokenDisplay[] = [];
 
+function getMarketCategoryIds({
+  prefetchMarketCategoryIds,
+  selectedMarketCategoryId,
+}: {
+  prefetchMarketCategoryIds?: string[];
+  selectedMarketCategoryId?: string;
+}) {
+  return Array.from(
+    new Set(
+      [...(prefetchMarketCategoryIds ?? []), selectedMarketCategoryId].filter(
+        (categoryId): categoryId is string => Boolean(categoryId),
+      ),
+    ),
+  ).toSorted();
+}
+
 function parseMarketValue(value?: string | number | null) {
   const normalizedValue = normalizeStockMetadataValue(value);
   if (!normalizedValue) {
@@ -115,6 +131,7 @@ function mapMarketPerpsTokenToDisplay({
 
 export {
   EMPTY_DISPLAY_TOKENS,
+  getMarketCategoryIds,
   getMarketTokenDisplayMarketCap,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,

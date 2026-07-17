@@ -48,7 +48,7 @@ describe('Home wallet tab support', () => {
     });
   });
 
-  it('shows All Networks tabs when at least one enabled network supports DeFi', () => {
+  it('shows All Networks tabs when an enabled network supports DeFi', () => {
     expect(
       buildHomeWalletTabSupport({
         network: makeNetwork('onekeyall--0', { isAllNetworks: true }),
@@ -64,7 +64,7 @@ describe('Home wallet tab support', () => {
     });
   });
 
-  it('hides All Networks tabs when no enabled network supports DeFi', () => {
+  it('keeps All Networks tabs while the capability map is incomplete', () => {
     expect(
       buildHomeWalletTabSupport({
         network: makeNetwork('onekeyall--0', { isAllNetworks: true }),
@@ -75,7 +75,23 @@ describe('Home wallet tab support', () => {
       }),
     ).toEqual({
       isReady: true,
-      isDeFiSupported: false,
+      isDeFiSupported: true,
+      isPerpsSupported: true,
+    });
+  });
+
+  it('keeps All Networks Perps hidden when Perps is globally disabled', () => {
+    expect(
+      buildHomeWalletTabSupport({
+        network: makeNetwork('onekeyall--0', { isAllNetworks: true }),
+        allNetworks: [],
+        allNetworksState,
+        deFiEnabledNetworksMap: {},
+        perpDisabled: true,
+      }),
+    ).toEqual({
+      isReady: true,
+      isDeFiSupported: true,
       isPerpsSupported: false,
     });
   });
