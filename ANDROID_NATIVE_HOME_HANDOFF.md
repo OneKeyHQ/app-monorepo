@@ -1427,3 +1427,25 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 
 - `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 通过；指定 Native Home 文件的 `git diff --check` 通过。纯 Swift per-view 滚动物理没有新增 TS/Jest 聚焦范围，最终 Debug 编译与双向真实手势是本轮风险相称的主要验证。
 - 最终 staged 内容执行 `yarn agent:check --profile commit`，日志为 `node_modules/.cache/agent-checks/2026-07-17T06-50-30-405Z`。`lint-worktree-js`、`agent-context`、`lint-staged` 通过；`lint-worktree-ts` 被共享工作区既有 Desktop、Receive、Discovery、TokenList、Swap 等 2 warnings / 10 errors 阻断，`tsc-staged` 被 DeFi、TradingView、WebView、Navigator、AppUpdate、ChainSelector、Firmware、旧 `NativeHomePageView.native.tsx`、ReferFriends 和 Swap 共 12 errors / 10 files 阻断。日志中没有本轮 Swift/handoff 错误；没有修改或回滚这些无关代码制造绿色结果。
+
+## 2026-07-17 重新打开：Support hub 边界双向惯性手感仍失败
+
+### 用户实测与旧结论降级
+
+- 用户在 iPhone 17 Pro / iOS 26.5 最新 Debug 包中再次确认：页面处于 compact account + DeFi 首行 + Upgrade + Support hub 同屏的位置，从 Support hub 标题右侧空白区域起手，无论向上还是向下短甩都没有原版的自然惯性，上一节“向下跨边界惯性和向上回归通过”的结论必须降级，当前问题仍为失败。
+- `2026-07-16 iOS Native Home 纵向滚动 owner 与 Support hub 跳顶修复` 的旧自动验收只执行 3 组固定 110pt 下拉/上推，并检查 `Support hub` 锚点是否出现超过 30px 的单帧跳变、最终是否回到原位。该证据只证明“没有直接跳回 body 顶部”，没有量测松手后的 travel、velocity decay 或 deceleration duration，因此不能证明惯性正确。
+- 上一节的 120pt / 90ms 录屏只证明某一次 body → header 路径在松手后仍继续移动，并且向上路径没有 blank/jump；它没有固定在用户红框起点分别比较双向原版速度曲线，也没有检查 handoff 与 UIKit 原生减速的距离/时长是否一致，因此不能再作为手感通过证据。
+
+### 提交历史与引入链路
+
+- 根架构由 `f752d0f138`（`fix: stabilize native home paging and refresh`）引入：原来的 container interaction pan 被替换为 outer `HomeContainerNestedScrollView` + per-page `HomeContainerNestedTableView`，两者 simultaneous recognition，并各自保留 UIKit tracking/deceleration。这产生了两个纵向 physics owner，边界交接从此必须额外协调。
+- 当前惯性边界问题的直接引入点是 `a61b94335f`（`fix: stabilize native home vertical scrolling`）。该提交为了修复 Support hub 深层内容偶发直接跳回 body 顶部，新增固定 `header/body` owner；手势开始后 owner 被锁定，`coordinateOuterScroll` 在 body owner 下持续把 outer 钉在最大 offset，`coordinateNestedScroll` 在 header owner 下持续把 body 钉在 0。该策略成功阻止两个 delegate 交叉回调时清空深层 body，但也阻止 UIKit 的某一个 scroll view 携带剩余速度自然越过 owner 边界。
+- `444e1889a5`（`fix: preserve native home scroll momentum`）是对该回归的局部补丁，不是最初引入点。它只在 iOS 17.4+、body owner、手指向下、body/outer offset 都大于 0 且预计 travel 跨界时接管；同时把 inner `targetContentOffset` 重置为当前值，再用单独 `CADisplayLink` 模拟 body → header 曲线。用户红框位置接近 `bodyOffset = 0 / outerOffset = maximum` 的临界状态，guard 可能不命中；命中时又从 UIKit 曲线切换为手算曲线，最终表现为停住、突然展开或上下方向手感不一致。
+- 因此不能继续给 `444e1889a5` 增加更多方向判断或阈值。正确修复边界是让一次纵向手势和其 deceleration 始终只有一个 physics owner，再把统一的 combined vertical offset 映射到 header/body；或者采用单 list scroll view + pinned header 的成熟 paging 结构。必须保留 `a61b94335f` 所解决的“深层 body 不得被清零”语义，但不能继续依赖两个独立 UIScrollView 同时减速并互相 clamp。
+
+### 当前自动证据与限制
+
+- 当前 Debug 包在同一 DeFi/Support hub 锚点的原始录屏为 `.tmp/ui/support-hub-local-inertia-current.mp4`，触摸遥测为同目录 `support-hub-local-inertia-current.gesture-telemetry.json`，before/after 为 `support-hub-local-inertia-before.png`、`support-hub-local-inertia-after.png`，关键时序图为 `support-hub-local-inertia-timing-strip.png`。手势都从用户标记的 Slot 空白区域附近开始，先向上 120pt / 90ms，再向下 120pt / 90ms。
+- 该自动录屏确认当前上下方向走了不同路径：向下最终进入自定义完整 Header 展开，向上仍由 inner/owner 协调；两者不是同一条 UIKit deceleration timeline。agent-device/XCTest 的 90ms swipe 仍有事件采样与命令 round-trip 偏差，不能用这段录屏否定用户真实手感，也不能据此声明已精确复现“两个方向都完全无惯性”。用户的 Simulator 连续触摸结果仍是当前产品失败事实。
+- 本节只做诊断与结论降级，没有修改滚动实现，没有重新构建或更新安装 App，也没有执行 uninstall、reinstall、erase、clear data。后续修复前必须先定义红框起点的双向 pass 条件：同一短甩距离/时长下，松手后必须连续移动、速度单调衰减、无 owner 切换停顿/二次启动、无空白/跳顶，并与同状态 Legacy 录屏比较 travel 和 duration。
+- `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 与 handoff `git diff --check` 通过。staged handoff 执行 `yarn agent:check --profile commit`，日志为 `node_modules/.cache/agent-checks/2026-07-17T07-10-12-633Z`：`lint-worktree-js`、`agent-context`、`lint-staged` 通过；`lint-worktree-ts` / `tsc-staged` 仍由共享工作区既有 Desktop、Receive、Discovery、TokenList、DeFi、TradingView、WebView、Navigator、AppUpdate、ChainSelector、Firmware、旧 Home view、ReferFriends 与 Swap 错误阻断，没有本节 handoff 错误。没有修改或回滚这些无关文件。
