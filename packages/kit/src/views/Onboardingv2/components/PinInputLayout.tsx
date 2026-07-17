@@ -147,10 +147,12 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
     );
 
     const handleSubmitEditing = useCallback(() => {
-      if (!isSubmitDisabled) {
+      // Match the submit button gate so double-Enter cannot fire a second
+      // submission while one is already in flight.
+      if (!isSubmitDisabled && !isLoading) {
         onSubmit();
       }
-    }, [isSubmitDisabled, onSubmit]);
+    }, [isSubmitDisabled, isLoading, onSubmit]);
 
     const submitButtonProps = useMemo<ComponentProps<typeof Button>>(
       () => ({
