@@ -78,22 +78,10 @@ const SwapProTokenTransactionList = ({
             <YStack>
               {swapProTradeType === ESwapProTradeType.MARKET
                 ? Array.from({ length: 5 }).map((_, index) => (
-                    <Skeleton
-                      w="100%"
-                      h="$5"
-                      radius="square"
-                      py="$0.5"
-                      key={index}
-                    />
+                    <Skeleton w="100%" h={22} radius="square" key={index} />
                   ))
                 : Array.from({ length: 10 }).map((_, index) => (
-                    <Skeleton
-                      w="100%"
-                      h="$5"
-                      radius="square"
-                      py="$0.5"
-                      key={index}
-                    />
+                    <Skeleton w="100%" h={22} radius="square" key={index} />
                   ))}
             </YStack>
           ) : (
