@@ -122,6 +122,63 @@ function relativeLogPath(logPath) {
   return path.relative(process.cwd(), logPath);
 }
 
+function resolvePackageBinary(packageName) {
+  const manifestPath = require.resolve(`${packageName}/package.json`, {
+    paths: [process.cwd()],
+  });
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const relativeBinPath =
+    typeof manifest.bin === 'string'
+      ? manifest.bin
+      : manifest.bin &&
+        (manifest.bin[packageName] || Object.values(manifest.bin)[0]);
+
+  if (!relativeBinPath) {
+    throw new Error(`Unable to resolve binary for package: ${packageName}`);
+  }
+
+  return path.resolve(path.dirname(manifestPath), relativeBinPath);
+}
+
+function resolveYarnCli() {
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'),
+  );
+  const match = /^yarn@(.+)$/u.exec(manifest.packageManager || '');
+
+  if (!match) {
+    throw new Error('Unable to resolve the repository Yarn version.');
+  }
+
+  return path.join(process.cwd(), '.yarn', 'releases', `yarn-${match[1]}.cjs`);
+}
+
+function resolveCommand(command, args) {
+  if (process.platform !== 'win32') {
+    return { command, args };
+  }
+
+  if (command === 'npx.cmd') {
+    const [packageName, ...packageArgs] = args;
+    if (!packageName) {
+      throw new Error('npx.cmd requires a package binary name.');
+    }
+    return {
+      command: process.execPath,
+      args: [resolvePackageBinary(packageName), ...packageArgs],
+    };
+  }
+
+  if (command === 'yarn') {
+    return {
+      command: process.execPath,
+      args: [resolveYarnCli(), ...args],
+    };
+  }
+
+  return { command, args };
+}
+
 function writeCommandLog(logDir, name, command, args, result, durationMs) {
   const fileName = `${name.replace(/[^a-zA-Z0-9._-]/g, '_')}.log`;
   const logPath = path.join(logDir, fileName);
@@ -129,6 +186,7 @@ function writeCommandLog(logDir, name, command, args, result, durationMs) {
     `$ ${[command, ...args].join(' ')}`,
     `exitCode: ${String(result.status)}`,
     `signal: ${result.signal || ''}`,
+    `spawnError: ${result.error ? result.error.message : ''}`,
     `duration: ${formatDuration(durationMs)}`,
     '',
     '--- stdout ---',
@@ -157,7 +215,8 @@ function compactCommandResult(result) {
 
 function runCommand(logDir, name, command, args) {
   const startedAt = Date.now();
-  const result = spawnSync(command, args, {
+  const resolved = resolveCommand(command, args);
+  const result = spawnSync(resolved.command, resolved.args, {
     cwd: process.cwd(),
     encoding: 'utf8',
     maxBuffer: 1024 * 1024 * 50,
