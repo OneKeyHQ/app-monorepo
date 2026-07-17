@@ -691,6 +691,86 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
     expect(mockedSniRequest).not.toHaveBeenCalled();
   });
 
+  test('after recovery closes the circuit, old failures landing later stay stale', async () => {
+    // Three slow requests start BEFORE anything goes wrong. The circuit then
+    // opens, recovers (which must preserve the per-hostname watermark), and
+    // only afterwards do the three old failures land: they must all be
+    // stale — if deactivation had cleared the ledger they would re-open the
+    // circuit on a link that already proved healthy.
+    let releaseOldFailures: (() => void) | undefined;
+    const oldFailureGate = new Promise<void>((resolve) => {
+      releaseOldFailures = resolve;
+    });
+    fallbackAdapter.mockImplementation(async (config) => {
+      if (config.url?.includes('old-slow-fail')) {
+        await oldFailureGate;
+        throw networkError();
+      }
+      if (config.url?.includes('ok-probe')) {
+        return {
+          data: { probe: true },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          request: {},
+        };
+      }
+      throw networkError();
+    });
+
+    const oldSlowFailures = [1, 2, 3].map((i) =>
+      createIpTableAdapter({})(
+        buildConfig(`https://wallet.onekeycn.com/wallet/v1/old-slow-fail-${i}`),
+      ),
+    );
+    await new Promise((resolve) => {
+      setTimeout(resolve, 5);
+    });
+
+    // Open the circuit with 3 fresh transport failures.
+    for (let i = 0; i < 3; i += 1) {
+      await expect(
+        createIpTableAdapter({})(
+          buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+        ),
+      ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+
+    // Recover: circuit is open, so the probe goes SNI first; an ambiguous
+    // timeout on a GET falls back to the domain, and that domain success
+    // (activated hostname, started after activation) closes the circuit.
+    mockedSniRequest.mockRejectedValueOnce(
+      Object.assign(new Error('sni timeout'), { code: 'SNI_TIMEOUT' }),
+    );
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/ok-probe'),
+      ),
+    ).resolves.toMatchObject({ data: { probe: true } });
+
+    // Old failures land only now — after recovery.
+    releaseOldFailures?.();
+    for (const pending of oldSlowFailures) {
+      await expect(pending).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+
+    // Circuit must still be closed: next request goes via domain, not SNI.
+    mockedSniRequest.mockClear();
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/ok-probe'),
+      ),
+    ).resolves.toMatchObject({ data: { probe: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
   test('a late success from a request started before activation does not close the circuit', async () => {
     // One shared implementation routed by URL marker so the in-flight stale
     // request is unaffected when the failing behavior is exercised.
@@ -868,6 +948,23 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
       ),
     ).resolves.toMatchObject({ data: { fallback: true } });
     expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+  });
+
+  test('POST does NOT fall back on SNI_NETWORK_UNREACHABLE (iOS maps connection-lost to it)', async () => {
+    // NSURLErrorNetworkConnectionLost — which can fire after the body was
+    // sent — maps to SNI_NETWORK_UNREACHABLE on iOS, so this code cannot
+    // prove the request was never written.
+    mockedSniRequest.mockRejectedValue(
+      Object.assign(new Error('network unreachable'), {
+        code: 'SNI_NETWORK_UNREACHABLE',
+      }),
+    );
+    await expect(
+      createIpTableAdapter({})(
+        buildMethodConfig('https://api.example.com/v1', 'post'),
+      ),
+    ).rejects.toMatchObject({ code: 'SNI_NETWORK_UNREACHABLE' });
+    expect(fallbackAdapter).not.toHaveBeenCalled();
   });
 
   test('POST does NOT fall back when SNI returns a null response', async () => {
