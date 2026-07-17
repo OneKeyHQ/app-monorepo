@@ -10165,6 +10165,7 @@ __metadata:
   dependencies:
     "@onekeyhq/components": "npm:*"
     "@stripe/crypto": "npm:1.1.1"
+    "@stripe/stripe-js": "npm:^1.46.0"
     "@types/d3-scale": "npm:^4.0.3"
     "@types/d3-shape": "npm:^3.1.1"
     "@types/mime": "npm:^3"
@@ -17064,6 +17065,13 @@ __metadata:
   peerDependencies:
     "@stripe/stripe-js": ^1.46.0
   checksum: 10/f40813681ef5e3445f1b26e6cd65e73336950bcf4c45baa36cd90a70e0f348f1f4493570d325bff29c26a835088d29ff6a135fb6fd9e9ff78dbeec60c62f3314
+  languageName: node
+  linkType: hard
+
+"@stripe/stripe-js@npm:^1.46.0":
+  version: 1.54.2
+  resolution: "@stripe/stripe-js@npm:1.54.2"
+  checksum: 10/52d6e814dd6e4979a050d9c06d8aa463f583138bb6b1aaf6e8856e92dcfa3ce7fd2231ce86882b44ffd0299b8e1d93f6c6dd9d1461b957ef2a6d548a801e506f
   languageName: node
   linkType: hard
 
