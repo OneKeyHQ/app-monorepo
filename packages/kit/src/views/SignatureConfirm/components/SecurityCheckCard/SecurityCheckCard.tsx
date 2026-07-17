@@ -92,6 +92,13 @@ const STATUS_WEIGHT: Record<ISecurityCheckStatus, number> = {
   info: 1,
 };
 
+const STATUS_LABEL_ID: Record<ISecurityCheckStatus, ETranslations> = {
+  critical: ETranslations.global_risk,
+  warning: ETranslations.global_warning,
+  unknown: ETranslations.global_unverified,
+  info: ETranslations.global_info,
+};
+
 const SECURITY_CHECK_ACCORDION_VALUE = 'security-check';
 
 const SITE_RISK_FINDING_CONFIG: Partial<
@@ -558,6 +565,24 @@ function getCategoryLabel({
   });
 }
 
+function getCategorySourceLabel({
+  category,
+  kind,
+  intl,
+}: {
+  category: ISecurityCheckCategory;
+  kind: ISecurityCheckKind;
+  intl: ReturnType<typeof useIntl>;
+}) {
+  let id = ETranslations.dapp_connect_transaction_analysis__title;
+  if (category === 'site') {
+    id = ETranslations.dapp_connect_site_security__title;
+  } else if (kind === 'message') {
+    id = ETranslations.dapp_connect_signature_analysis__title;
+  }
+  return intl.formatMessage({ id });
+}
+
 function SecurityCheckFindingRow({
   finding,
 }: {
@@ -826,6 +851,22 @@ function SecurityCheckCard(props: IProps) {
     [decodedTxs, intl, kind, messageDisplay, origin, urlSecurityInfo],
   );
 
+  const highestStatusSourceTitle = useMemo(() => {
+    if (!highestStatus) {
+      return '';
+    }
+    // Risk-state subtitles name only the categories contributing to the
+    // visible badge. The success state keeps the full resolved coverage.
+    return CATEGORY_ORDER.filter((category) =>
+      findings.some(
+        (finding) =>
+          finding.category === category && finding.status === highestStatus,
+      ),
+    )
+      .map((category) => getCategorySourceLabel({ category, kind, intl }))
+      .join(' · ');
+  }, [findings, highestStatus, intl, kind]);
+
   const hasNoCardFindings = findings.length === 0;
 
   const renderSummary = useCallback(() => {
@@ -833,47 +874,17 @@ function SecurityCheckCard(props: IProps) {
       return null;
     }
     const style = getFindingStyle(highestStatus);
-    const criticalCount = findings.filter(
-      (finding) => finding.status === 'critical',
-    ).length;
-    const warningCount = findings.filter(
-      (finding) => finding.status === 'warning',
-    ).length;
-    const unknownCount = findings.filter(
-      (finding) => finding.status === 'unknown',
-    ).length;
-    // Surface every non-zero tier so a warning can't hide a co-existing
-    // unverified finding. (The `${count} ${noun}` form is not ICU-pluralized —
-    // grammatically-correct plurals would need dedicated i18n keys.)
-    const title = [
-      criticalCount > 0
-        ? `${criticalCount} ${intl.formatMessage({
-            id: ETranslations.global_risk,
-          })}`
-        : '',
-      warningCount > 0
-        ? `${warningCount} ${intl.formatMessage({
-            id: ETranslations.global_warning,
-          })}`
-        : '',
-      unknownCount > 0
-        ? `${unknownCount} ${intl.formatMessage({
-            id: ETranslations.global_unverified,
-          })}`
-        : '',
-    ]
-      .filter(Boolean)
-      .join(' · ');
+    const title = intl.formatMessage({
+      id: STATUS_LABEL_ID[highestStatus],
+    });
     return (
       <XStack gap="$2" alignItems="center" flexShrink={0}>
-        {title ? (
-          <Badge badgeType={style.badgeType} badgeSize="sm">
-            {title}
-          </Badge>
-        ) : null}
+        <Badge badgeType={style.badgeType} badgeSize="sm">
+          {title}
+        </Badge>
       </XStack>
     );
-  }, [findings, highestStatus, intl]);
+  }, [highestStatus, intl]);
 
   const hasAssets = (simulationComponents ?? []).some(
     (component) => component.assets.length > 0,
@@ -916,34 +927,29 @@ function SecurityCheckCard(props: IProps) {
           }}
         >
           {({ open }: { open: boolean }) => (
-            <>
-              <YStack flex={1} minWidth={0} alignItems="flex-start">
+            <XStack flex={1} minWidth={0} alignItems="center" gap="$2">
+              <YStack flex={1} minWidth={0} gap="$0.5">
                 <SizableText
                   size="$bodyMdMedium"
-                  numberOfLines={1}
+                  numberOfLines={2}
                   textAlign="left"
                 >
                   {headerTitle}
                 </SizableText>
-                {coverageTitle ? (
+                {highestStatusSourceTitle ? (
                   <SizableText
                     size="$bodySm"
                     color="$textSubdued"
-                    numberOfLines={1}
+                    numberOfLines={2}
                     textAlign="left"
                   >
-                    {coverageTitle}
+                    {highestStatusSourceTitle}
                   </SizableText>
                 ) : null}
               </YStack>
-              <XStack
-                gap="$2"
-                alignItems="center"
-                justifyContent="flex-end"
-                flexShrink={0}
-              >
+              <XStack alignItems="center" gap="$2" flexShrink={0}>
                 {renderSummary()}
-                <YStack rotate={open ? '180deg' : '0deg'}>
+                <YStack flexShrink={0} rotate={open ? '180deg' : '0deg'}>
                   <Icon
                     name="ChevronDownSmallOutline"
                     color="$iconSubdued"
@@ -951,7 +957,7 @@ function SecurityCheckCard(props: IProps) {
                   />
                 </YStack>
               </XStack>
-            </>
+            </XStack>
           )}
         </Accordion.Trigger>
         <Accordion.Content unstyled px="$3" pb="$3" pt="$0" bg="$transparent">
@@ -981,12 +987,12 @@ function SecurityCheckCard(props: IProps) {
     hasCoverageTitle: Boolean(coverageTitle),
   });
   const noIssueSection = shouldShowNoIssue ? (
-    <XStack alignItems="center" gap="$3" px="$3" py="$2.5">
-      <YStack flex={1} minWidth={0} alignItems="flex-start">
-        <SizableText size="$bodyMdMedium" numberOfLines={1}>
+    <XStack alignItems="center" gap="$2" px="$3" py="$2.5">
+      <YStack flex={1} minWidth={0} gap="$0.5">
+        <SizableText size="$bodyMdMedium" numberOfLines={2}>
           {headerTitle}
         </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={2}>
           {coverageTitle}
         </SizableText>
       </YStack>

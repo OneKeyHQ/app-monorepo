@@ -143,11 +143,10 @@ describe('SecurityCheckCard parser alert display', () => {
       'a decimal point',
       'The request transfers 0.5 ETH to an unverified recipient. Confirm the amount and recipient before continuing.',
     ],
-  ])('uses the fallback for a long alert containing %s', (_case, alert) => {
+  ])('shows a long alert containing %s only once', (_case, alert) => {
     expect(alert.length).toBeGreaterThan(80);
     expect(getParserAlertDisplay(alert)).toEqual({
-      title: `${alert.slice(0, 80).trim()}...`,
-      description: alert,
+      title: alert,
     });
   });
 

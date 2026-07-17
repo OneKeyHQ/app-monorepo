@@ -75,8 +75,7 @@ export function getParserAlertDisplay(alert: string) {
   }
 
   return {
-    title: `${normalizedAlert.slice(0, 80).trim()}...`,
-    description: normalizedAlert,
+    title: normalizedAlert,
   };
 }
 
