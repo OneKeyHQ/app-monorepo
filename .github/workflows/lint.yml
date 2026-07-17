@@ -70,6 +70,12 @@ jobs:
           set -e
           exit "$status"
 
+      - name: Test developer scripts
+        run: node --test development/scripts/command-batches.test.js
+
+      - name: Build CLI
+        run: yarn workspace @onekeyfe/cli build
+
       - name: Upload lint AI diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

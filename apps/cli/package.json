@@ -10,8 +10,11 @@
     "dist/",
     "bin/"
   ],
+  "installConfig": {
+    "hoistingLimits": "workspaces"
+  },
   "scripts": {
-    "build": "tsup && node scripts/assert-no-deprecated-buffer.js",
+    "build": "node scripts/assert-typescript-isolation.js && tsup && node scripts/assert-no-deprecated-buffer.js",
     "dev": "tsup --watch",
     "test": "yarn test:unit && yarn test:integration:cli",
     "test:unit": "npx jest",

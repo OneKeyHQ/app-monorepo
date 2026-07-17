@@ -11,6 +11,7 @@ const {
   rootComment,
   threadComments,
 } = require('./agent-github-review');
+const { splitArgumentsByLength } = require('./command-batches');
 
 const SCHEMA_VERSION = 1;
 const VALID_PROFILES = new Set(['commit', 'pr', 'ci']);
@@ -252,6 +253,24 @@ function runCommand(logDir, name, command, args) {
   };
 }
 
+function runCommandInBatches(logDir, name, command, fixedArgs, files) {
+  const resolved = resolveCommand(command, fixedArgs);
+  const batches = splitArgumentsByLength({
+    command: resolved.command,
+    fixedArgs: resolved.args,
+    values: files,
+  });
+
+  return batches.map((batch, index) =>
+    runCommand(
+      logDir,
+      batches.length === 1 ? name : `${name}-${index + 1}-of-${batches.length}`,
+      command,
+      [...fixedArgs, ...batch],
+    ),
+  );
+}
+
 function runJsonCommand(logDir, name, command, args) {
   const result = runCommand(logDir, name, command, args);
   let data = null;
@@ -343,35 +362,43 @@ function runWorktreeLintChecks(logDir) {
 
   if (js.length) {
     results.push(
-      runCommand(logDir, 'lint-worktree-js', npx, [
-        'oxlint',
-        '--fix',
-        '--deny-warnings',
-        ...js,
-      ]),
+      ...runCommandInBatches(
+        logDir,
+        'lint-worktree-js',
+        npx,
+        ['oxlint', '--fix', '--deny-warnings'],
+        js,
+      ),
     );
   }
 
   if (ts.length) {
     results.push(
-      runCommand(logDir, 'lint-worktree-ts', npx, [
-        'oxlint',
-        '--tsconfig',
-        './tsconfig.json',
-        '--type-aware',
-        '--fix',
-        '--deny-warnings',
-        ...ts,
-      ]),
+      ...runCommandInBatches(
+        logDir,
+        'lint-worktree-ts',
+        npx,
+        [
+          'oxlint',
+          '--tsconfig',
+          './tsconfig.json',
+          '--type-aware',
+          '--fix',
+          '--deny-warnings',
+        ],
+        ts,
+      ),
     );
   }
 
   results.push(
-    runCommand(logDir, 'format-worktree', npx, [
-      'oxfmt',
-      '--no-error-on-unmatched-pattern',
-      ...files,
-    ]),
+    ...runCommandInBatches(
+      logDir,
+      'format-worktree',
+      npx,
+      ['oxfmt', '--no-error-on-unmatched-pattern'],
+      files,
+    ),
   );
 
   return results;

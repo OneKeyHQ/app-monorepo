@@ -4,6 +4,8 @@ const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { splitArgumentsByLength } = require('./command-batches');
+
 const FORMAT_FILE_RE = /\.(?:cjs|js|jsx|mjs|ts|tsx)$/u;
 const TYPESCRIPT_FILE_RE = /\.(?:ts|tsx)$/u;
 const TYPESCRIPT_LINT_EXCLUDED_FILES = new Set([
@@ -54,10 +56,19 @@ function resolvePackageBinary(packageName) {
   return path.resolve(path.dirname(manifestPath), relativeBinPath);
 }
 
-function runPackageBinary(packageName, args) {
-  run(process.execPath, [resolvePackageBinary(packageName), ...args], {
-    stdio: 'inherit',
+function runPackageBinaryInBatches(packageName, fixedArgs, files) {
+  const binaryPath = resolvePackageBinary(packageName);
+  const batches = splitArgumentsByLength({
+    command: process.execPath,
+    fixedArgs: [binaryPath, ...fixedArgs],
+    values: files,
   });
+
+  for (const batch of batches) {
+    run(process.execPath, [binaryPath, ...fixedArgs, ...batch], {
+      stdio: 'inherit',
+    });
+  }
 }
 
 function getStagedFiles() {
@@ -78,7 +89,11 @@ function format(files) {
     return;
   }
 
-  runPackageBinary('oxfmt', ['--no-error-on-unmatched-pattern', ...files]);
+  runPackageBinaryInBatches(
+    'oxfmt',
+    ['--no-error-on-unmatched-pattern'],
+    files,
+  );
 }
 
 function lint(files) {
@@ -86,14 +101,17 @@ function lint(files) {
     return;
   }
 
-  runPackageBinary('oxlint', [
-    '--tsconfig',
-    './tsconfig.json',
-    '--type-aware',
-    '--fix',
-    '--deny-warnings',
-    ...files,
-  ]);
+  runPackageBinaryInBatches(
+    'oxlint',
+    [
+      '--tsconfig',
+      './tsconfig.json',
+      '--type-aware',
+      '--fix',
+      '--deny-warnings',
+    ],
+    files,
+  );
 }
 
 function main() {
