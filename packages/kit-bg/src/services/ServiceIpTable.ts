@@ -48,7 +48,6 @@ import {
   isIpTableConfigRegression,
   isSupportIpTablePlatform,
   isValidIpTableRemoteConfigShape,
-  mergeIpTableConfigs,
   verifyIpTableConfigSignatureDetailed,
 } from '@onekeyhq/shared/src/utils/ipTableUtils';
 
@@ -81,8 +80,14 @@ interface IEndpointHealth {
 interface IDomainHealthStats {
   /** Health stats for each IP endpoint */
   ipEndpoints: Map<string, IEndpointHealth>;
-  /** Health stats for direct domain connection */
-  domainDirect: IEndpointHealth;
+  /**
+   * Direct-domain health tracked per hostname (wallet./utility./...): a
+   * success on one hostname must not clear another hostname's failures, and
+   * different hostnames' failures must not jointly reach a threshold. Root
+   * domain routing decisions aggregate over these explicitly. Mirrors the
+   * adapter-side per-hostname ledger so main and bg runtimes agree.
+   */
+  directHosts: Map<string, IEndpointHealth>;
   /** Timestamp of last speed test */
   lastSpeedTestTime: number;
 }
@@ -144,12 +149,7 @@ class ServiceIpTable extends ServiceBase {
     if (!stats) {
       stats = {
         ipEndpoints: new Map(),
-        domainDirect: {
-          failureCount: 0,
-          consecutiveFailures: 0,
-          lastFailureTime: 0,
-          lastOutcomeAt: 0,
-        },
+        directHosts: new Map(),
         lastSpeedTestTime: 0,
       };
       this.domainHealthMap.set(domain, stats);
@@ -165,11 +165,12 @@ class ServiceIpTable extends ServiceBase {
     requestType: 'ip' | 'domain',
     target: string,
   ): IEndpointHealth {
-    if (requestType === 'domain') {
-      return stats.domainDirect;
-    }
-
-    let endpointHealth = stats.ipEndpoints.get(target);
+    // For domain requests, target is the hostname; for ip requests it is the
+    // ip. Both are tracked per target so outcomes of one never contaminate
+    // another's counters.
+    const bucket =
+      requestType === 'domain' ? stats.directHosts : stats.ipEndpoints;
+    let endpointHealth = bucket.get(target);
     if (!endpointHealth) {
       endpointHealth = {
         failureCount: 0,
@@ -177,9 +178,18 @@ class ServiceIpTable extends ServiceBase {
         lastFailureTime: 0,
         lastOutcomeAt: 0,
       };
-      stats.ipEndpoints.set(target, endpointHealth);
+      bucket.set(target, endpointHealth);
     }
     return endpointHealth;
+  }
+
+  /** Highest consecutive direct-domain failure count across hostnames */
+  private getMaxDirectConsecutiveFailures(stats: IDomainHealthStats): number {
+    let max = 0;
+    stats.directHosts.forEach((health) => {
+      max = Math.max(max, health.consecutiveFailures);
+    });
+    return max;
   }
 
   /**
@@ -208,8 +218,11 @@ class ServiceIpTable extends ServiceBase {
     // never triggering (the old `return false` deadlocked selection forever
     // when the initial speed test had not completed).
     if (currentSelection === undefined || currentSelection === '') {
+      // Aggregate across hostnames: any single hostname consistently failing
+      // is enough to justify a probing round for the root domain.
       return (
-        stats.domainDirect.consecutiveFailures >= IP_TABLE_SNI_FAILURE_THRESHOLD
+        this.getMaxDirectConsecutiveFailures(stats) >=
+        IP_TABLE_SNI_FAILURE_THRESHOLD
       );
     }
 
@@ -471,7 +484,7 @@ class ServiceIpTable extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchAndMergeRemoteConfig(): Promise<boolean> {
+  async fetchAndApplyRemoteConfig(): Promise<boolean> {
     try {
       const remoteConfig = await this.fetchRemoteConfig();
 
@@ -525,15 +538,19 @@ class ServiceIpTable extends ServiceBase {
         return false;
       }
 
-      const mergedConfig = mergeIpTableConfigs(localConfig, remoteConfig);
-
+      // Persist the signed remote envelope VERBATIM. Merging local endpoints
+      // in would make the effective config diverge from what the signature
+      // (and the persisted payloadHash) covers, and would make endpoints
+      // irrevocable: a compromised or rotated-out IP removed from the CDN
+      // config must actually disappear, including any runtime selection or
+      // last-best IP that still points at it (pruned inside saveConfig).
       defaultLogger.ipTable.request.info({
-        info: `[IpTable] Merged config has ${
-          Object.keys(mergedConfig.domains).length
+        info: `[IpTable] Applying signed remote config with ${
+          Object.keys(remoteConfig.domains).length
         } domains`,
       });
 
-      await this.backgroundApi.simpleDb.ipTable.saveConfig(mergedConfig, {
+      await this.backgroundApi.simpleDb.ipTable.saveConfig(remoteConfig, {
         payloadHash: computeIpTableConfigHash(remoteConfig),
       });
 
@@ -543,7 +560,7 @@ class ServiceIpTable extends ServiceBase {
       return true;
     } catch (error) {
       defaultLogger.ipTable.request.error({
-        info: `[IpTable] Error in fetchAndMergeRemoteConfig: ${
+        info: `[IpTable] Error in fetchAndApplyRemoteConfig: ${
           error instanceof Error ? error.message : 'Unknown error'
         }`,
       });
@@ -684,6 +701,21 @@ class ServiceIpTable extends ServiceBase {
     domain: string,
     opts?: { trigger?: 'domain_failure' | 'ip_failure' | 'periodic' },
   ): Promise<void> {
+    // The kill switch must disable EVERY failover behavior, including the
+    // reachability-first override that `domain_failure` grants inside
+    // decideEndpoint (which ignores the 30% threshold). Downgrading the
+    // trigger here covers the decision override, the stale-write authority
+    // and the coalescing escalation in one place.
+    if (
+      opts?.trigger === 'domain_failure' &&
+      (await this.isFailoverDisabledByDevSettings())
+    ) {
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] Failover disabled by dev settings: downgrading domain_failure trigger to periodic for ${domain}`,
+      });
+      // eslint-disable-next-line no-param-reassign
+      opts = { trigger: 'periodic' };
+    }
     const inflight = this.speedTestInFlight.get(domain);
     if (inflight) {
       // Do not let a stronger trigger be swallowed by a weaker in-flight
@@ -1026,7 +1058,9 @@ class ServiceIpTable extends ServiceBase {
     stats.lastSpeedTestTime = now;
 
     // Reset all consecutive failure counters for this domain (they'll be recounted after speed test)
-    stats.domainDirect.consecutiveFailures = 0;
+    stats.directHosts.forEach((health) => {
+      health.consecutiveFailures = 0;
+    });
     stats.ipEndpoints.forEach((health) => {
       health.consecutiveFailures = 0;
     });
@@ -1126,7 +1160,7 @@ class ServiceIpTable extends ServiceBase {
       defaultLogger.ipTable.request.info({
         info: '[IpTable] CDN config refresh needed, fetching remote config',
       });
-      const configUpdated = await this.fetchAndMergeRemoteConfig();
+      const configUpdated = await this.fetchAndApplyRemoteConfig();
 
       needSpeedTest = true;
       if (configUpdated) {
