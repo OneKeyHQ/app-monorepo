@@ -1,6 +1,7 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useReducer, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -12,7 +13,9 @@ import {
 } from './constants';
 import {
   EMPTY_DISPLAY_TOKENS,
+  createHomeMarketCategoryTokensCache,
   getMarketCategoryIds,
+  getMarketCategoryTokensRequestKey,
   mapMarketPerpsTokenToDisplay,
   mapMarketTokenToDisplay,
 } from './utils';
@@ -29,16 +32,6 @@ type ICategoryTokensResult = {
   requestKey: string;
   tokensByRequestKey: Record<string, IFavoriteTokenDisplay[]>;
 };
-
-function getMarketCategoryTokensRequestKey({
-  minLiquidity,
-  selectedMarketCategoryId,
-}: {
-  minLiquidity: number;
-  selectedMarketCategoryId?: string;
-}) {
-  return `${selectedMarketCategoryId ?? ''}:${minLiquidity}`;
-}
 
 async function fetchHomeMarketCategoryTokens({
   categoryId,
@@ -111,42 +104,46 @@ function useHomeMarketCategoryTokens({
     minLiquidity,
     selectedMarketCategoryId,
   });
-  const tokensByRequestKeyRef = useRef<Record<string, IFavoriteTokenDisplay[]>>(
-    {},
+  const tokensCacheRef = useRef(
+    createHomeMarketCategoryTokensCache<IFavoriteTokenDisplay>(),
   );
+  const isMountedRef = useIsMounted();
+  const [, renderCommittedCategory] = useReducer((version: number) => {
+    return version + 1;
+  }, 0);
 
   const { result: categoryTokensResult, run: refresh } =
     usePromiseResult<ICategoryTokensResult>(
       async () => {
-        const settledResults = await Promise.allSettled(
-          categoryIds.map(async (categoryId) => ({
-            categoryId,
-            tokens: await fetchHomeMarketCategoryTokens({
+        const requestId = tokensCacheRef.current.beginRequest({
+          categoryIds,
+          minLiquidity,
+        });
+        await Promise.allSettled(
+          categoryIds.map(async (categoryId) => {
+            const tokens = await fetchHomeMarketCategoryTokens({
               categoryId,
               minLiquidity,
-            }),
-          })),
-        );
-        const tokensByRequestKey = { ...tokensByRequestKeyRef.current };
-        settledResults.forEach((result) => {
-          if (result.status !== 'fulfilled') {
-            return;
-          }
-          tokensByRequestKey[
-            getMarketCategoryTokensRequestKey({
+            });
+            const didCommit = tokensCacheRef.current.commitCategory({
+              categoryId,
               minLiquidity,
-              selectedMarketCategoryId: result.value.categoryId,
-            })
-          ] = result.value.tokens;
-        });
-        tokensByRequestKeyRef.current = tokensByRequestKey;
+              requestId,
+              tokens,
+            });
+            if (didCommit && isMountedRef.current) {
+              renderCommittedCategory();
+            }
+            return { categoryId, tokens };
+          }),
+        );
 
         return {
           requestKey,
-          tokensByRequestKey,
+          tokensByRequestKey: tokensCacheRef.current.getSnapshot(),
         };
       },
-      [categoryIds, minLiquidity, requestKey],
+      [categoryIds, isMountedRef, minLiquidity, requestKey],
       {
         initResult: {
           requestKey: 'initial',
@@ -161,8 +158,10 @@ function useHomeMarketCategoryTokens({
 
   const hasSelectedMarketCategory = Boolean(selectedMarketCategoryId);
   const selectedCategoryTokens =
-    categoryTokensResult.tokensByRequestKey[selectedRequestKey] ??
-    tokensByRequestKeyRef.current[selectedRequestKey];
+    tokensCacheRef.current.getTokens({
+      minLiquidity,
+      selectedMarketCategoryId,
+    }) ?? categoryTokensResult.tokensByRequestKey[selectedRequestKey];
 
   return {
     categoryTokens: selectedCategoryTokens ?? EMPTY_DISPLAY_TOKENS,
