@@ -27,6 +27,7 @@ import {
   createAxiosWithIpTable,
   getSelectedIpForHost,
   setReportRequestFailureCallback,
+  setReportRequestSuccessCallback,
   testDomainSpeed,
   testIpSpeed,
 } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
@@ -539,7 +540,30 @@ class ServiceIpTable extends ServiceBase {
   // Coalesce concurrent speed tests per domain (anti probe-storm): the log
   // of the 2026-07-16 incident shows ~20 concurrent rounds saturating an
   // already congested network and polluting the latency measurements.
-  private speedTestInFlight = new Map<string, Promise<void>>();
+  private speedTestInFlight = new Map<
+    string,
+    {
+      promise: Promise<void>;
+      trigger: 'domain_failure' | 'ip_failure' | 'periodic';
+    }
+  >();
+
+  // Monotonic per-domain token bumped on every selection write. A speed test
+  // captures it at start and must not apply a stale result if someone else
+  // (e.g. fast failover) wrote a selection while it was probing.
+  private selectionGeneration = new Map<string, number>();
+
+  private bumpSelectionGeneration(domain: string): void {
+    this.selectionGeneration.set(
+      domain,
+      (this.selectionGeneration.get(domain) ?? 0) + 1,
+    );
+  }
+
+  private async applySelection(domain: string, ip: string): Promise<void> {
+    this.bumpSelectionGeneration(domain);
+    await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, ip);
+  }
 
   /**
    * Select best endpoint for a domain
@@ -548,6 +572,11 @@ class ServiceIpTable extends ServiceBase {
    * real-traffic domain failures, any reachable IP wins regardless of the
    * latency threshold.
    */
+  // Domains that reported real-traffic domain failures while a weaker-trigger
+  // speed test was in flight; a follow-up domain_failure round runs for them
+  // so the reachability-first escalation is never silently coalesced away.
+  private pendingDomainFailureRerun = new Set<string>();
+
   @backgroundMethod()
   async selectBestEndpointForDomain(
     domain: string,
@@ -555,18 +584,39 @@ class ServiceIpTable extends ServiceBase {
   ): Promise<void> {
     const inflight = this.speedTestInFlight.get(domain);
     if (inflight) {
-      defaultLogger.ipTable.request.info({
-        info: `[IpTable] Speed test already in flight for ${domain}, coalescing`,
-      });
-      return inflight;
+      // Do not let a stronger trigger be swallowed by a weaker in-flight
+      // run: the merged run would compute with domainFailingRealTraffic set
+      // to false and could keep a failing domain selected (the exact
+      // 2026-07-16 incident shape). Queue one follow-up round instead.
+      if (
+        opts?.trigger === 'domain_failure' &&
+        inflight.trigger !== 'domain_failure'
+      ) {
+        this.pendingDomainFailureRerun.add(domain);
+        defaultLogger.ipTable.request.warn({
+          info: `[IpTable] Speed test in flight for ${domain} (trigger=${inflight.trigger}); queueing domain_failure follow-up round`,
+        });
+      } else {
+        defaultLogger.ipTable.request.info({
+          info: `[IpTable] Speed test already in flight for ${domain}, coalescing`,
+        });
+      }
+      return inflight.promise;
     }
-    const run = this.selectBestEndpointForDomainInternal(domain, opts).finally(
-      () => {
-        this.speedTestInFlight.delete(domain);
-      },
-    );
-    this.speedTestInFlight.set(domain, run);
-    return run;
+    const trigger = opts?.trigger ?? 'periodic';
+    const promise = this.selectBestEndpointForDomainInternal(
+      domain,
+      opts,
+    ).finally(() => {
+      this.speedTestInFlight.delete(domain);
+      if (this.pendingDomainFailureRerun.delete(domain)) {
+        void this.selectBestEndpointForDomain(domain, {
+          trigger: 'domain_failure',
+        });
+      }
+    });
+    this.speedTestInFlight.set(domain, { promise, trigger });
+    return promise;
   }
 
   private async selectBestEndpointForDomainInternal(
@@ -594,6 +644,11 @@ class ServiceIpTable extends ServiceBase {
       });
       return;
     }
+
+    // A probing round can take tens of seconds; capture the selection
+    // generation so a stale result cannot overwrite a fast failover that
+    // happened while we were measuring.
+    const startGeneration = this.selectionGeneration.get(domain) ?? 0;
 
     try {
       // 1. Test domain directly
@@ -677,11 +732,25 @@ class ServiceIpTable extends ServiceBase {
         }) trigger=${opts?.trigger ?? 'periodic'} domainLatency=${domainLatency}ms`,
       });
 
+      // Compare-and-set: someone (fast failover, another round) wrote a
+      // selection while this round was probing. A weaker-trigger result
+      // computed from pre-write state must not clobber it; domain_failure
+      // results stay authoritative because they encode live traffic reality.
+      const currentGeneration = this.selectionGeneration.get(domain) ?? 0;
+      if (
+        currentGeneration !== startGeneration &&
+        opts?.trigger !== 'domain_failure'
+      ) {
+        defaultLogger.ipTable.request.warn({
+          info: `[IpTable] Discarding stale speed test result for ${domain}: selection changed while probing (trigger=${
+            opts?.trigger ?? 'periodic'
+          })`,
+        });
+        return;
+      }
+
       if (decision.action === 'select_ip') {
-        await this.backgroundApi.simpleDb.ipTable.updateSelection(
-          domain,
-          decision.ip,
-        );
+        await this.applySelection(domain, decision.ip);
         if ((currentSelection ?? '') === '') {
           defaultLogger.ipTable.metrics.endpointSwitched({
             domain,
@@ -692,7 +761,7 @@ class ServiceIpTable extends ServiceBase {
           });
         }
       } else if (decision.action === 'select_domain') {
-        await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, '');
+        await this.applySelection(domain, '');
         if (currentSelection) {
           defaultLogger.ipTable.metrics.endpointSwitched({
             domain,
@@ -801,10 +870,7 @@ class ServiceIpTable extends ServiceBase {
         defaultLogger.ipTable.request.warn({
           info: `[IpTable] Fast failover: domain ${domain} failing real traffic, switching to last-best IP immediately`,
         });
-        await this.backgroundApi.simpleDb.ipTable.updateSelection(
-          domain,
-          lastBestIp,
-        );
+        await this.applySelection(domain, lastBestIp);
         defaultLogger.ipTable.metrics.endpointSwitched({
           domain,
           from: 'domain',
@@ -907,6 +973,24 @@ class ServiceIpTable extends ServiceBase {
     // Register request failure callback (handles both IP and domain failures)
     setReportRequestFailureCallback(({ domain, requestType, target }) => {
       void this.reportRequestFailure(domain, requestType, target);
+    });
+
+    // Successes reset the consecutive-failure counters, so "consecutive"
+    // means what it says: interleaved successes prevent sporadic errors
+    // accumulated over hours from ever tripping the failover threshold.
+    setReportRequestSuccessCallback(({ domain, requestType, target }) => {
+      const stats = this.domainHealthMap.get(domain);
+      if (!stats) {
+        return;
+      }
+      if (requestType === 'domain') {
+        stats.domainDirect.consecutiveFailures = 0;
+      } else {
+        const ipHealth = stats.ipEndpoints.get(target);
+        if (ipHealth) {
+          ipHealth.consecutiveFailures = 0;
+        }
+      }
     });
 
     // Try to refresh CDN config if needed
