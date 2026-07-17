@@ -1289,7 +1289,12 @@ function TokenListBlock({
         // from the persisted aggregate-token maps. Not awaited: the current
         // refresh renders with the cached data and the next one picks up the
         // fresh config.
-        void backgroundApiProxy.serviceSetting.syncWalletConfigIfNeeded();
+        backgroundApiProxy.serviceSetting
+          .syncWalletConfigIfNeeded()
+          .catch(() => {
+            // Background refresh failure is non-fatal; the stale cache heals on
+            // the next refresh attempt.
+          });
       }
 
       customTokensRawData.current = c ?? undefined;

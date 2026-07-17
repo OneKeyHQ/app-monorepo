@@ -1394,16 +1394,19 @@ class ServiceToken extends ServiceBase {
       {};
     Object.entries(rawData?.allAggregateTokenMap ?? {}).forEach(
       ([key, value]) => {
-        allAggregateTokenMap[key] = {
-          tokens: value.tokens.filter(
-            (token) => token.networkId && listedNetworkMap[token.networkId],
-          ),
-        };
+        const tokens = value.tokens.filter(
+          (token) => token.networkId && listedNetworkMap[token.networkId],
+        );
+        if (tokens.length > 0) {
+          allAggregateTokenMap[key] = { tokens };
+        }
       },
     );
     return {
       allAggregateTokenMap,
-      allAggregateTokens: rawData?.allAggregateTokens ?? [],
+      allAggregateTokens: (rawData?.allAggregateTokens ?? []).filter(
+        (token) => allAggregateTokenMap[token.$key]?.tokens.length,
+      ),
     };
   }
 

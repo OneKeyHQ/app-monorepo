@@ -36,6 +36,22 @@ function buildToken(networkId: string) {
   };
 }
 
+// Mirrors the aggregate descriptor shape built by
+// ServiceSetting.syncWalletConfig from the map keys.
+function buildAggregateToken($key: string) {
+  return {
+    $key,
+    isAggregateToken: true,
+    name: 'Tether',
+    symbol: 'USDT',
+    commonSymbol: 'USDT',
+    networkId: '',
+    address: $key,
+    decimals: 0,
+    isNative: false,
+  };
+}
+
 describe('ServiceToken.getAllAggregateTokenInfo', () => {
   it('drops tokens on networks missing from the bundled preset list', async () => {
     // evm--810180 (zkLink Nova) was removed from presetNetworks and
@@ -76,6 +92,32 @@ describe('ServiceToken.getAllAggregateTokenInfo', () => {
     expect(
       allAggregateTokenMap.sameSymbol_USDT.tokens.map((t) => t.networkId),
     ).toEqual(['evm--1', 'tron--0x2b6653dc']);
+  });
+
+  it('drops aggregate groups whose networks were all delisted', async () => {
+    // evm--100 (Gnosis) was removed from presetNetworks, so the whole
+    // XDAI aggregate group becomes empty after filtering and must be
+    // dropped from both the map and the flat descriptor list.
+    const service = buildService({
+      allAggregateTokenMap: {
+        sameSymbol_USDT: {
+          tokens: [buildToken('evm--1'), buildToken('evm--810180')],
+        },
+        sameSymbol_XDAI: {
+          tokens: [buildToken('evm--100')],
+        },
+      },
+      allAggregateTokens: [
+        buildAggregateToken('sameSymbol_USDT'),
+        buildAggregateToken('sameSymbol_XDAI'),
+      ],
+    });
+
+    const { allAggregateTokenMap, allAggregateTokens } =
+      await service.getAllAggregateTokenInfo();
+
+    expect(Object.keys(allAggregateTokenMap)).toEqual(['sameSymbol_USDT']);
+    expect(allAggregateTokens.map((t) => t.$key)).toEqual(['sameSymbol_USDT']);
   });
 
   it('returns empty structures when nothing is cached', async () => {
