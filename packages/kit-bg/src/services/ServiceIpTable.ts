@@ -1016,9 +1016,10 @@ class ServiceIpTable extends ServiceBase {
   private async isFailoverDisabledByDevSettings(): Promise<boolean> {
     try {
       const devSettings = await devSettingsPersistAtom.get();
-      return Boolean(
-        devSettings.enabled && devSettings.settings?.disableIpTableFailover,
-      );
+      // Intentionally ignores devSettings.enabled to match the adapter-side
+      // check (and the existing disableIpTableInProd convention): main and
+      // bg runtimes must reach the same conclusion for the same settings.
+      return Boolean(devSettings.settings?.disableIpTableFailover);
     } catch {
       // Default to enabled when dev settings are unreadable.
       return false;
