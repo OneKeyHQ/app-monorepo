@@ -40,7 +40,6 @@ import type {
   IDBDeviceSettings as IDBDeviceDbSettings,
 } from '../../dbs/local/types';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
-import type { DeviceSettings as ProtocolV2DeviceSettings } from '@onekeyfe/hd-transport';
 import type { Response as ThirdPartyResponse } from '@onekeyfe/hwk-adapter-core';
 
 const jpeg = require('jpeg-js') as {
@@ -75,6 +74,10 @@ export type ISetLanguageParams = IBaseDeviceProcessingParams & {
 
 export type ISetHapticFeedbackParams = IBaseDeviceProcessingParams & {
   hapticFeedback: boolean;
+};
+
+export type ISetBrightnessParams = IBaseDeviceProcessingParams & {
+  brightness?: number;
 };
 
 export type ISetPassphraseEnabledParams = IBaseDeviceProcessingParams & {
@@ -139,29 +142,6 @@ type ITrezorDeviceSettingsAction = (params: {
   device: IDBDevice;
 }) => Promise<ThirdPartyResponse<Record<string, unknown>>>;
 
-type IProtocolV2SettingsCoreApi = CoreApi & {
-  deviceSettingsSet: (
-    connectId: string,
-    params: { settings: ProtocolV2DeviceSettings },
-  ) => ReturnType<CoreApi['deviceSettings']>;
-  deviceSettingsPageShow: (
-    connectId: string,
-    params: {
-      page: 'DevicePassphrase' | 'DevicePinChange' | 'DeviceReset';
-      fieldName?: string;
-    },
-  ) => ReturnType<CoreApi['deviceSettings']>;
-  deviceUploadWallpaper: (
-    connectId: string,
-    params: {
-      width: number;
-      height: number;
-      rgba: Uint8Array;
-      fileName?: string;
-    },
-  ) => ReturnType<CoreApi['deviceSettings']>;
-};
-
 export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   private async _getDeviceForSettings({
     walletId,
@@ -197,10 +177,6 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
 
   private _isPro2Device(device: IDBDevice | undefined): boolean {
     return device?.deviceType === EDeviceType.Pro2;
-  }
-
-  private _getProtocolV2SettingsSDK(sdk: CoreApi): IProtocolV2SettingsCoreApi {
-    return sdk as IProtocolV2SettingsCoreApi;
   }
 
   private async _withTrezorDeviceProcessing({
@@ -397,10 +373,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         dbDevice: device,
         debugMethodName: 'deviceSettings.changePin.pro2',
         action: async (sdk, compatibleConnectId) =>
-          this._getProtocolV2SettingsSDK(sdk).deviceSettingsPageShow(
-            compatibleConnectId,
-            { page: 'DevicePinChange' },
-          ),
+          sdk.deviceSettingsPageShow(compatibleConnectId, {
+            page: 'DevicePinChange',
+          }),
       });
     }
     return this._withDeviceProcessing({
@@ -545,10 +520,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         dbDevice: device,
         debugMethodName: 'deviceSettings.setDeviceLabel.pro2',
         action: async (sdk, compatibleConnectId) =>
-          this._getProtocolV2SettingsSDK(sdk).deviceSettingsSet(
-            compatibleConnectId,
-            { settings: { label } },
-          ),
+          sdk.deviceSettingsSet(compatibleConnectId, {
+            settings: { label },
+          }),
       });
     }
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -626,15 +600,12 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
               connectId: compatibleConnectId,
             });
             const response = await convertDeviceResponse(() =>
-              this._getProtocolV2SettingsSDK(hardwareSDK).deviceUploadWallpaper(
-                compatibleConnectId,
-                {
-                  width: decoded.width,
-                  height: decoded.height,
-                  rgba: decoded.data,
-                  fileName: screenItem.id.replace(/[^A-Za-z0-9_-]/g, '-'),
-                },
-              ),
+              hardwareSDK.deviceUploadWallpaper(compatibleConnectId, {
+                width: decoded.width,
+                height: decoded.height,
+                rgba: decoded.data,
+                fileName: screenItem.id.replace(/[^A-Za-z0-9_-]/g, '-'),
+              }),
             );
             return {
               ...response,
@@ -729,7 +700,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         dbDevice: device,
         debugMethodName: 'deviceSettings.setPassphraseEnabled.pro2',
         action: async (sdk, compatibleConnectId, targetDevice) =>
-          this._getProtocolV2SettingsSDK(sdk)
+          sdk
             .deviceSettingsPageShow(compatibleConnectId, {
               page: 'DevicePassphrase',
               fieldName: 'passphrase_enable',
@@ -812,11 +783,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         dbDevice: device,
         debugMethodName: 'deviceSettings.setAutoLockDelayMs.pro2',
         action: async (sdk, compatibleConnectId) =>
-          this._getProtocolV2SettingsSDK(sdk).deviceSettingsSet(
-            compatibleConnectId,
+          sdk.deviceSettingsSet(compatibleConnectId, {
             // cspell:disable-next-line
-            { settings: { autolock_delay_ms: autoLockDelayMs } },
-          ),
+            settings: { autolock_delay_ms: autoLockDelayMs },
+          }),
       });
     }
     return this._withDeviceProcessing({
@@ -867,11 +837,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         dbDevice: device,
         debugMethodName: 'deviceSettings.setAutoShutDownDelayMs.pro2',
         action: async (sdk, compatibleConnectId) =>
-          this._getProtocolV2SettingsSDK(sdk).deviceSettingsSet(
-            compatibleConnectId,
+          sdk.deviceSettingsSet(compatibleConnectId, {
             // cspell:disable-next-line
-            { settings: { autoshutdown_delay_ms: autoShutdownDelayMs } },
-          ),
+            settings: { autoshutdown_delay_ms: autoShutdownDelayMs },
+          }),
       });
     }
     return this._withDeviceProcessing({
@@ -932,10 +901,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         dbDevice: device,
         debugMethodName: 'deviceSettings.setLanguage.pro2',
         action: async (sdk, compatibleConnectId) =>
-          this._getProtocolV2SettingsSDK(sdk).deviceSettingsSet(
-            compatibleConnectId,
-            { settings: { language } },
-          ),
+          sdk.deviceSettingsSet(compatibleConnectId, {
+            settings: { language },
+          }),
       });
     }
     return this._withDeviceProcessing({
@@ -968,7 +936,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     walletId,
     connectId,
     featuresDeviceId,
-  }: IBaseDeviceProcessingParams) {
+    brightness,
+  }: ISetBrightnessParams) {
     const device = await this._getDeviceForSettings({
       walletId,
       connectId,
@@ -992,6 +961,22 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           }
           return adapter.setBrightness(targetConnectId);
         },
+      });
+    }
+    if (this._isPro2Device(device)) {
+      if (typeof brightness !== 'number') {
+        throw new OneKeyLocalError('Pro2 brightness value is required');
+      }
+      return this._withDeviceProcessing({
+        walletId,
+        connectId,
+        featuresDeviceId,
+        dbDevice: device,
+        debugMethodName: 'deviceSettings.setBrightness.pro2',
+        action: async (sdk, compatibleConnectId) =>
+          sdk.deviceSettingsSet(compatibleConnectId, {
+            settings: { brightness },
+          }),
       });
     }
     return this._withDeviceProcessing({
@@ -1037,10 +1022,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         dbDevice: device,
         debugMethodName: 'deviceSettings.setHapticFeedback.pro2',
         action: async (sdk, compatibleConnectId) =>
-          this._getProtocolV2SettingsSDK(sdk).deviceSettingsSet(
-            compatibleConnectId,
-            { settings: { haptic_feedback: hapticFeedback } },
-          ),
+          sdk.deviceSettingsSet(compatibleConnectId, {
+            settings: { haptic_feedback: hapticFeedback },
+          }),
       });
     }
     return this._withDeviceProcessing({
@@ -1104,10 +1088,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         dbDevice: device,
         debugMethodName: 'deviceSettings.wipeDevice.pro2',
         action: async (sdk, compatibleConnectId) =>
-          this._getProtocolV2SettingsSDK(sdk).deviceSettingsPageShow(
-            compatibleConnectId,
-            { page: 'DeviceReset' },
-          ),
+          sdk.deviceSettingsPageShow(compatibleConnectId, {
+            page: 'DeviceReset',
+          }),
       });
     }
     return this._withDeviceProcessing({

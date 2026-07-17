@@ -122,16 +122,20 @@ export type ICheckAllFirmwareReleaseResult = {
   pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
 };
 
+export const PRO2_FIRMWARE_UPDATE_TARGETS = [
+  'boot',
+  'app_v1',
+  'app_v2',
+  'coprocessor',
+  'resource',
+  'se01',
+  'se02',
+  'se03',
+  'se04',
+] as const;
+
 export type IPro2FirmwareUpdateTarget =
-  | 'boot'
-  | 'app_v1'
-  | 'app_v2'
-  | 'coprocessor'
-  | 'resource'
-  | 'se01'
-  | 'se02'
-  | 'se03'
-  | 'se04';
+  (typeof PRO2_FIRMWARE_UPDATE_TARGETS)[number];
 
 export type IDeviceResponseUnsuccessful = Unsuccessful;
 export type IDeviceResponseSuccess<T> = Success<T>;

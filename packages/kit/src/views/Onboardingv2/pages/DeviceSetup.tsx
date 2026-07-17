@@ -163,9 +163,9 @@ function DeviceSetupPage({
       }
       setCurrentDevice(device);
       const status =
-        (await backgroundApiProxy.serviceHardware.getPro2OnboardingStatus({
+        await backgroundApiProxy.serviceHardware.getPro2OnboardingStatus({
           connectId: device.connectId,
-        })) as IPro2OnboardingStatus;
+        });
       if (!isPageActiveRef.current) {
         return;
       }

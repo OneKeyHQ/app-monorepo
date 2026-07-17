@@ -17,22 +17,14 @@ import {
   HARDWARE_CONFIG_URL_LOCAL,
   HARDWARE_CONFIG_URL_PRO2_DEDICATED,
 } from '@onekeyhq/shared/src/hardware/configUrls';
+import { PRO2_FIRMWARE_UPDATE_TARGETS } from '@onekeyhq/shared/types/device';
 
 import { FirmwareUpdateActions } from '../Tab/DevSettingsSection/FirmwareUpdateActions';
 
-const PRO2_FIRMWARE_UPDATE_TARGETS: {
+const PRO2_FIRMWARE_UPDATE_TARGET_OPTIONS: {
   value: IPro2FirmwareUpdateTarget;
   label: string;
-}[] = [
-  { value: 'boot', label: 'boot' },
-  { value: 'app_v1', label: 'app_v1' },
-  { value: 'app_v2', label: 'app_v2' },
-  { value: 'resource', label: 'resource' },
-  { value: 'se01', label: 'se01' },
-  { value: 'se02', label: 'se02' },
-  { value: 'se03', label: 'se03' },
-  { value: 'se04', label: 'se04' },
-];
+}[] = PRO2_FIRMWARE_UPDATE_TARGETS.map((value) => ({ value, label: value }));
 
 const EMPTY_PRO2_FIRMWARE_UPDATE_TARGETS: IPro2FirmwareUpdateTarget[] = [];
 
@@ -86,7 +78,7 @@ function HardwareConfigUrlDevButtons() {
 function Pro2FirmwareUpdateTargetRow({
   target,
 }: {
-  target: (typeof PRO2_FIRMWARE_UPDATE_TARGETS)[number];
+  target: (typeof PRO2_FIRMWARE_UPDATE_TARGET_OPTIONS)[number];
 }) {
   const [devSetting, setDevSetting] = useFirmwareUpdateDevSettingsPersistAtom();
   const targets =
@@ -201,10 +193,10 @@ function FirmwareUpdatePro2DevSettings() {
       <HardwareConfigUrlDevButtons />
       <ListItem
         title="Pro2 force targets"
-        subtitle="boot / app_v1 / app_v2 / resource / se01-se04"
+        subtitle="boot / app_v1 / app_v2 / coprocessor / resource / se01-se04"
         titleProps={{ color: '$textCritical' }}
       />
-      {PRO2_FIRMWARE_UPDATE_TARGETS.map((target) => (
+      {PRO2_FIRMWARE_UPDATE_TARGET_OPTIONS.map((target) => (
         <Pro2FirmwareUpdateTargetRow key={target.value} target={target} />
       ))}
       <ListItem

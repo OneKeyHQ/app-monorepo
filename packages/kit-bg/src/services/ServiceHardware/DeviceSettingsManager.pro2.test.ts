@@ -93,6 +93,7 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
       { autoshutdown_delay_ms: 300_000 },
     ],
     ['setHapticFeedback', { hapticFeedback: true }, { haptic_feedback: true }],
+    ['setBrightness', { brightness: 60 }, { brightness: 60 }],
   ] as const)(
     'routes %s through deviceSettingsSet',
     async (methodName, params, settings) => {

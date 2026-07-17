@@ -31,6 +31,9 @@ export function buildPro2DeviceMetaState({
   return {
     isVerified,
     unlocked: Boolean(status.unlocked),
+    initialized: Boolean(status.init_states),
+    backupRequired: Boolean(status.backup_required),
+    unlockedByAttachToPin: Boolean(status.unlocked_by_attach_to_pin),
     passphraseEnabled: Boolean(status.passphrase_enabled),
     pinOnAppEnabled: Boolean(status.attach_to_pin_enabled),
     // cspell:disable-next-line
@@ -38,6 +41,7 @@ export function buildPro2DeviceMetaState({
     // cspell:disable-next-line
     autoShutDownDelayMs: settings?.autoshutdown_delay_ms,
     language: settings?.language,
+    brightness: settings?.brightness,
     hapticFeedback: Boolean(settings?.haptic_feedback),
     isReady: true,
   };

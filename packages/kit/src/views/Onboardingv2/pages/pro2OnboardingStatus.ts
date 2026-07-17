@@ -1,3 +1,12 @@
+import {
+  DevOnboardingPhase,
+  DevOnboardingSetupKind,
+  DevOnboardingSetupMethod,
+  DevOnboardingStep,
+} from '@onekeyfe/hd-transport';
+
+import type { DevOnboardingStatus } from '@onekeyfe/hd-transport';
+
 export type IPro2OnboardingPhase =
   | 'checking'
   | 'personalization'
@@ -18,16 +27,7 @@ export type IPro2SetupSubStatus =
   | { kind: 'create'; card: 'recoveryPhrase' | 'seedCard' }
   | { kind: 'restore'; method?: 'recoveryPhrase' | 'seedCard' };
 
-export type IPro2OnboardingStatus = {
-  step?: number | string | null;
-  phase?: number | string | null;
-  setup?: {
-    kind?: number | string | null;
-    method?: number | string | null;
-  } | null;
-  pin_set?: boolean | null;
-  wallet_initialized?: boolean | null;
-};
+export type IPro2OnboardingStatus = DevOnboardingStatus;
 
 type TNormalizedStep =
   | 'unknown'
@@ -41,19 +41,19 @@ export type IPro2OnboardingViewState = {
   phase: IPro2OnboardingPhase;
   step: EPro2OnboardingStep;
   setup?: IPro2SetupSubStatus;
-  devicePhase?: number | string | null;
+  devicePhase?: DevOnboardingPhase;
   pinSet: boolean;
   walletInitialized: boolean;
   ready: boolean;
 };
 
 const STEP_BY_VALUE: Record<number | string, TNormalizedStep> = {
-  0: 'unknown',
-  1: 'checking',
-  2: 'personalization',
-  3: 'pin',
-  4: 'setup',
-  5: 'done',
+  [DevOnboardingStep.DEV_ONBOARDING_STEP_UNKNOWN]: 'unknown',
+  [DevOnboardingStep.DEV_ONBOARDING_STEP_CHECKING]: 'checking',
+  [DevOnboardingStep.DEV_ONBOARDING_STEP_PERSONALIZATION]: 'personalization',
+  [DevOnboardingStep.DEV_ONBOARDING_STEP_PIN]: 'pin',
+  [DevOnboardingStep.DEV_ONBOARDING_STEP_SETUP]: 'setup',
+  [DevOnboardingStep.DEV_ONBOARDING_STEP_DONE]: 'done',
   DEV_ONBOARDING_STEP_UNKNOWN: 'unknown',
   DEV_ONBOARDING_STEP_CHECKING: 'checking',
   DEV_ONBOARDING_STEP_PERSONALIZATION: 'personalization',
@@ -73,13 +73,13 @@ function normalizeSetupKind(
   kind: unknown,
 ): 'choice' | 'create' | 'restore' | undefined {
   switch (kind) {
-    case 1:
+    case DevOnboardingSetupKind.DEV_ONBOARDING_SETUP_KIND_CHOICE:
     case 'DEV_ONBOARDING_SETUP_KIND_CHOICE':
       return 'choice';
-    case 2:
+    case DevOnboardingSetupKind.DEV_ONBOARDING_SETUP_KIND_CREATE:
     case 'DEV_ONBOARDING_SETUP_KIND_CREATE':
       return 'create';
-    case 3:
+    case DevOnboardingSetupKind.DEV_ONBOARDING_SETUP_KIND_RESTORE:
     case 'DEV_ONBOARDING_SETUP_KIND_RESTORE':
       return 'restore';
     default:
@@ -91,15 +91,26 @@ function normalizeSetupMethod(
   method: unknown,
 ): 'recoveryPhrase' | 'seedCard' | undefined {
   switch (method) {
-    case 1:
+    case DevOnboardingSetupMethod.DEV_ONBOARDING_SETUP_METHOD_RECOVERY_PHRASE:
     case 'DEV_ONBOARDING_SETUP_METHOD_RECOVERY_PHRASE':
       return 'recoveryPhrase';
-    case 2:
+    case DevOnboardingSetupMethod.DEV_ONBOARDING_SETUP_METHOD_SEEDCARD:
     case 'DEV_ONBOARDING_SETUP_METHOD_SEEDCARD':
       return 'seedCard';
     default:
       return undefined;
   }
+}
+
+function isBackupPhase(phase: unknown): boolean {
+  return [
+    DevOnboardingPhase.DEV_ONBOARDING_PHASE_WALLET_READY,
+    DevOnboardingPhase.DEV_ONBOARDING_PHASE_SEEDCARD_BACKUP_PROMPT,
+    DevOnboardingPhase.DEV_ONBOARDING_PHASE_SEEDCARD_BACKUP,
+    'DEV_ONBOARDING_PHASE_WALLET_READY',
+    'DEV_ONBOARDING_PHASE_SEEDCARD_BACKUP_PROMPT',
+    'DEV_ONBOARDING_PHASE_SEEDCARD_BACKUP',
+  ].includes(phase as DevOnboardingPhase);
 }
 
 function mapSetup(
@@ -162,7 +173,7 @@ export function mapPro2OnboardingStatus(
       };
     case 'setup':
       return {
-        phase: 'setup',
+        phase: isBackupPhase(status.phase) ? 'backup' : 'setup',
         step: EPro2OnboardingStep.Setup,
         setup: mapSetup(status),
         devicePhase: status.phase,

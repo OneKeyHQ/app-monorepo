@@ -11,11 +11,15 @@ describe('buildPro2DeviceMetaState', () => {
         snapshot: {
           status: {
             unlocked: true,
+            init_states: true,
+            backup_required: true,
             passphrase_enabled: true,
             attach_to_pin_enabled: true,
+            unlocked_by_attach_to_pin: true,
           },
           settings: {
             language: 'ja-JP',
+            brightness: 60,
             // cspell:disable-next-line
             autolock_delay_ms: 60_000,
             // cspell:disable-next-line
@@ -27,11 +31,15 @@ describe('buildPro2DeviceMetaState', () => {
     ).toEqual({
       isVerified: true,
       unlocked: true,
+      initialized: true,
+      backupRequired: true,
+      unlockedByAttachToPin: true,
       passphraseEnabled: true,
       pinOnAppEnabled: true,
       autoLockDelayMs: 60_000,
       autoShutDownDelayMs: 300_000,
       language: 'ja-JP',
+      brightness: 60,
       hapticFeedback: true,
       isReady: true,
     });
@@ -52,11 +60,15 @@ describe('buildPro2DeviceMetaState', () => {
     ).toEqual({
       isVerified: false,
       unlocked: false,
+      initialized: false,
+      backupRequired: false,
+      unlockedByAttachToPin: false,
       passphraseEnabled: false,
       pinOnAppEnabled: false,
       autoLockDelayMs: undefined,
       autoShutDownDelayMs: undefined,
       language: undefined,
+      brightness: undefined,
       hapticFeedback: false,
       isReady: true,
     });

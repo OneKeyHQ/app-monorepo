@@ -1,15 +1,22 @@
 import {
+  DevOnboardingPhase,
+  DevOnboardingSetupKind,
+  DevOnboardingSetupMethod,
+  DevOnboardingStep,
+} from '@onekeyfe/hd-transport';
+
+import {
   EPro2OnboardingStep,
   mapPro2OnboardingStatus,
 } from './pro2OnboardingStatus';
 
 describe('mapPro2OnboardingStatus', () => {
   it.each([
-    ['DEV_ONBOARDING_STEP_UNKNOWN', 'checking'],
-    ['DEV_ONBOARDING_STEP_CHECKING', 'checking'],
-    ['DEV_ONBOARDING_STEP_PERSONALIZATION', 'personalization'],
-    ['DEV_ONBOARDING_STEP_PIN', 'setup'],
-    ['DEV_ONBOARDING_STEP_SETUP', 'setup'],
+    [DevOnboardingStep.DEV_ONBOARDING_STEP_UNKNOWN, 'checking'],
+    [DevOnboardingStep.DEV_ONBOARDING_STEP_CHECKING, 'checking'],
+    [DevOnboardingStep.DEV_ONBOARDING_STEP_PERSONALIZATION, 'personalization'],
+    [DevOnboardingStep.DEV_ONBOARDING_STEP_PIN, 'setup'],
+    [DevOnboardingStep.DEV_ONBOARDING_STEP_SETUP, 'setup'],
   ] as const)('maps %s to %s', (step, expectedPhase) => {
     expect(mapPro2OnboardingStatus({ step }).phase).toBe(expectedPhase);
   });
@@ -17,11 +24,12 @@ describe('mapPro2OnboardingStatus', () => {
   it('maps create recovery phrase setup from explicit setup fields', () => {
     expect(
       mapPro2OnboardingStatus({
-        step: 'DEV_ONBOARDING_STEP_SETUP',
-        phase: 'DEV_ONBOARDING_PHASE_RECOVERY_PHRASE_VIEW',
+        step: DevOnboardingStep.DEV_ONBOARDING_STEP_SETUP,
+        phase: DevOnboardingPhase.DEV_ONBOARDING_PHASE_RECOVERY_PHRASE_VIEW,
         setup: {
-          kind: 'DEV_ONBOARDING_SETUP_KIND_CREATE',
-          method: 'DEV_ONBOARDING_SETUP_METHOD_RECOVERY_PHRASE',
+          kind: DevOnboardingSetupKind.DEV_ONBOARDING_SETUP_KIND_CREATE,
+          method:
+            DevOnboardingSetupMethod.DEV_ONBOARDING_SETUP_METHOD_RECOVERY_PHRASE,
         },
         pin_set: true,
         wallet_initialized: false,
@@ -48,10 +56,34 @@ describe('mapPro2OnboardingStatus', () => {
     });
   });
 
+  it.each([
+    DevOnboardingPhase.DEV_ONBOARDING_PHASE_WALLET_READY,
+    DevOnboardingPhase.DEV_ONBOARDING_PHASE_SEEDCARD_BACKUP_PROMPT,
+    DevOnboardingPhase.DEV_ONBOARDING_PHASE_SEEDCARD_BACKUP,
+  ])('maps backup phase %s to the backup presentation', (phase) => {
+    expect(
+      mapPro2OnboardingStatus({
+        step: DevOnboardingStep.DEV_ONBOARDING_STEP_SETUP,
+        phase,
+        setup: {
+          kind: DevOnboardingSetupKind.DEV_ONBOARDING_SETUP_KIND_CREATE,
+          method: DevOnboardingSetupMethod.DEV_ONBOARDING_SETUP_METHOD_SEEDCARD,
+        },
+        pin_set: true,
+        wallet_initialized: true,
+      }),
+    ).toMatchObject({
+      phase: 'backup',
+      step: EPro2OnboardingStep.Setup,
+      setup: { kind: 'create', card: 'seedCard' },
+      ready: false,
+    });
+  });
+
   it('requires DONE, PIN and initialized wallet before becoming ready', () => {
     expect(
       mapPro2OnboardingStatus({
-        step: 'DEV_ONBOARDING_STEP_DONE',
+        step: DevOnboardingStep.DEV_ONBOARDING_STEP_DONE,
         pin_set: true,
         wallet_initialized: true,
       }),
@@ -63,7 +95,7 @@ describe('mapPro2OnboardingStatus', () => {
 
     expect(
       mapPro2OnboardingStatus({
-        step: 'DEV_ONBOARDING_STEP_DONE',
+        step: DevOnboardingStep.DEV_ONBOARDING_STEP_DONE,
         pin_set: true,
         wallet_initialized: false,
       }),
@@ -75,7 +107,11 @@ describe('mapPro2OnboardingStatus', () => {
   });
 
   it('keeps unknown future enum values in checking state', () => {
-    expect(mapPro2OnboardingStatus({ step: 999 })).toMatchObject({
+    expect(
+      mapPro2OnboardingStatus({
+        step: 999 as DevOnboardingStep,
+      }),
+    ).toMatchObject({
       phase: 'checking',
       step: EPro2OnboardingStep.Checking,
       ready: false,

@@ -85,7 +85,6 @@ import type {
   IThirdPartyHardwareAdapter,
 } from './adapters/types';
 import type {
-  IBaseDeviceProcessingParams,
   IChangePinParams,
   IDeviceHomeScreenConfig,
   IGetDeviceAdvanceSettingsParams,
@@ -93,6 +92,7 @@ import type {
   IHardwareHomeScreenData,
   ISetAutoLockDelayMsParams,
   ISetAutoShutDownDelayMsParams,
+  ISetBrightnessParams,
   ISetDeviceHomeScreenParams,
   ISetDeviceLabelParams,
   ISetHapticFeedbackParams,
@@ -173,6 +173,12 @@ export type IPro2DeviceManagementSnapshot = {
   status: ProtocolV2DeviceStatus;
   settings?: ProtocolV2DeviceSettings;
 };
+
+export type IPro2DeviceSettingsPage =
+  | 'DeviceReset'
+  | 'DevicePinChange'
+  | 'DevicePassphrase'
+  | 'DeviceAirgap';
 
 const nullableToUndefined = (value?: string | null) => value ?? undefined;
 
@@ -1411,6 +1417,81 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
+  async getPro2DeviceSettings({ connectId }: { connectId: string }) {
+    const hardwareCallContext =
+      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext,
+    });
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+      hardwareCallContext,
+    });
+    return convertDeviceResponse(() =>
+      hardwareSDK.deviceSettingsGet(compatibleConnectId, {
+        connectProtocol: 'V2',
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async setPro2DeviceSettings({
+    connectId,
+    settings,
+  }: {
+    connectId: string;
+    settings: Omit<
+      ProtocolV2DeviceSettings,
+      'passphrase_enable' | 'airgap_mode'
+    >;
+  }) {
+    const hardwareCallContext = EHardwareCallContext.USER_INTERACTION;
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext,
+    });
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+      hardwareCallContext,
+    });
+    return convertDeviceResponse(() =>
+      hardwareSDK.deviceSettingsSet(compatibleConnectId, {
+        connectProtocol: 'V2',
+        settings,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async showPro2DeviceSettingsPage({
+    connectId,
+    page,
+    fieldName,
+  }: {
+    connectId: string;
+    page: IPro2DeviceSettingsPage;
+    fieldName?: string;
+  }) {
+    const hardwareCallContext = EHardwareCallContext.USER_INTERACTION;
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext,
+    });
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+      hardwareCallContext,
+    });
+    return convertDeviceResponse(() =>
+      hardwareSDK.deviceSettingsPageShow(compatibleConnectId, {
+        connectProtocol: 'V2',
+        page,
+        ...(fieldName ? { fieldName } : {}),
+      }),
+    );
+  }
+
   private handlerConnectError = (e: any) => {
     const error: deviceErrors.OneKeyHardwareError | undefined =
       e as deviceErrors.OneKeyHardwareError;
@@ -1887,7 +1968,7 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async setBrightness(p: IBaseDeviceProcessingParams) {
+  async setBrightness(p: ISetBrightnessParams) {
     return this.deviceSettingsManager.setBrightness(p);
   }
 

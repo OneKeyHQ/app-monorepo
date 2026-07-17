@@ -132,11 +132,15 @@ async function buildDeviceMetaState(
   return {
     isVerified,
     unlocked: features.unlocked !== false,
+    initialized: features.initialized !== false,
+    backupRequired: Boolean(features.needs_backup),
+    unlockedByAttachToPin: false,
     passphraseEnabled: Boolean(features?.passphraseProtection),
     pinOnAppEnabled: Boolean(device.settings?.inputPinOnSoftware),
     autoLockDelayMs,
     autoShutDownDelayMs,
     language,
+    brightness: undefined,
     hapticFeedback,
     isReady: true,
   };
@@ -261,13 +265,17 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
     await this.refresh.call(set);
   });
 
-  updateBrightness = contextAtomMethod(async (get, _set) => {
+  updateBrightness = contextAtomMethod(async (get, set, value?: number) => {
     const walletId = get(currentWalletIdAtom());
     if (!walletId) return;
 
     await backgroundApiProxy.serviceHardware.setBrightness({
       walletId,
+      brightness: value,
     });
+    if (typeof value === 'number') {
+      await this.refresh.call(set);
+    }
   });
 
   updateHapticFeedback = contextAtomMethod(async (get, set, value: boolean) => {

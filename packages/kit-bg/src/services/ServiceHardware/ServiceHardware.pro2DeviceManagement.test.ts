@@ -70,8 +70,8 @@ const createService = ({ unlocked }: { unlocked: boolean }) => {
     payload: {
       device_id: 'PRO2_DEVICE_ID',
       unlocked,
-      initialized: true,
-      pin_set: true,
+      init_states: true,
+      backup_required: false,
     },
   });
   const deviceSettingsGet = jest.fn().mockResolvedValue({
@@ -81,6 +81,14 @@ const createService = ({ unlocked }: { unlocked: boolean }) => {
       language: 'en-US',
     },
   });
+  const deviceSettingsSet = jest.fn().mockResolvedValue({
+    success: true,
+    payload: { message: 'Success' },
+  });
+  const deviceSettingsPageShow = jest.fn().mockResolvedValue({
+    success: true,
+    payload: { message: 'Success' },
+  });
   const service = new ServiceHardware({
     backgroundApi: {} as unknown as IBackgroundApi,
   });
@@ -89,6 +97,8 @@ const createService = ({ unlocked }: { unlocked: boolean }) => {
     deviceInfoGet,
     deviceStatusGet,
     deviceSettingsGet,
+    deviceSettingsSet,
+    deviceSettingsPageShow,
   } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
 
   return {
@@ -96,6 +106,8 @@ const createService = ({ unlocked }: { unlocked: boolean }) => {
     deviceInfoGet,
     deviceStatusGet,
     deviceSettingsGet,
+    deviceSettingsSet,
+    deviceSettingsPageShow,
   };
 };
 
@@ -114,8 +126,8 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
       status: {
         device_id: 'PRO2_DEVICE_ID',
         unlocked: false,
-        initialized: true,
-        pin_set: true,
+        init_states: true,
+        backup_required: false,
       },
     });
 
@@ -146,8 +158,8 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
       payload: {
         device_id: 'PRO2_DEVICE_ID',
         unlocked: true,
-        initialized: true,
-        pin_set: true,
+        init_states: true,
+        backup_required: false,
       },
     });
 
@@ -161,8 +173,8 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
       status: {
         device_id: 'PRO2_DEVICE_ID',
         unlocked: true,
-        initialized: true,
-        pin_set: true,
+        init_states: true,
+        backup_required: false,
       },
       settings: {
         label: 'OneKey Pro 2',
@@ -214,5 +226,77 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
     ]);
 
     expect(deviceStatusGet).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServiceHardware Pro 2 settings API', () => {
+  it('gets and sets raw Protocol V2 settings', async () => {
+    const { service, deviceSettingsGet, deviceSettingsSet } = createService({
+      unlocked: true,
+    });
+
+    await expect(
+      service.getPro2DeviceSettings({ connectId: 'ORIGINAL_ID' }),
+    ).resolves.toEqual({
+      label: 'OneKey Pro 2',
+      language: 'en-US',
+    });
+    await service.setPro2DeviceSettings({
+      connectId: 'ORIGINAL_ID',
+      settings: {
+        bt_enable: true,
+        animation_enable: false,
+        tap_to_wake: true,
+        device_name_display_enabled: true,
+        fido_enabled: true,
+        experimental_features: false,
+        usb_lock_enable: true,
+        random_keypad: true,
+      },
+    });
+
+    expect(deviceSettingsGet).toHaveBeenCalledWith('PRO2_USB', {
+      connectProtocol: 'V2',
+    });
+    expect(deviceSettingsSet).toHaveBeenCalledWith('PRO2_USB', {
+      connectProtocol: 'V2',
+      settings: {
+        bt_enable: true,
+        animation_enable: false,
+        tap_to_wake: true,
+        device_name_display_enabled: true,
+        fido_enabled: true,
+        experimental_features: false,
+        usb_lock_enable: true,
+        random_keypad: true,
+      },
+    });
+  });
+
+  it('opens every firmware-supported settings page', async () => {
+    const { service, deviceSettingsPageShow } = createService({
+      unlocked: true,
+    });
+
+    for (const page of [
+      'DeviceReset',
+      'DevicePinChange',
+      'DevicePassphrase',
+      'DeviceAirgap',
+    ] as const) {
+      await service.showPro2DeviceSettingsPage({
+        connectId: 'ORIGINAL_ID',
+        page,
+      });
+    }
+
+    expect(deviceSettingsPageShow.mock.calls).toEqual(
+      [
+        'DeviceReset',
+        'DevicePinChange',
+        'DevicePassphrase',
+        'DeviceAirgap',
+      ].map((page) => ['PRO2_USB', { connectProtocol: 'V2', page }]),
+    );
   });
 });

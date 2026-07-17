@@ -73,11 +73,15 @@ export const { atom: deviceMetaStaticAtom, use: useDeviceMetaStaticAtom } =
 export type IDeviceMetaState = {
   isVerified: boolean;
   unlocked: boolean;
+  initialized: boolean;
+  backupRequired: boolean;
+  unlockedByAttachToPin: boolean;
   passphraseEnabled: boolean;
   pinOnAppEnabled: boolean;
   autoLockDelayMs: number | undefined;
   autoShutDownDelayMs: number | undefined;
   language: string | undefined;
+  brightness: number | undefined;
   hapticFeedback: boolean;
   /** false = still the loading placeholder; true = real device data resolved */
   isReady: boolean;
@@ -86,11 +90,15 @@ export type IDeviceMetaState = {
 export const emptyMetaState: IDeviceMetaState = {
   isVerified: false,
   unlocked: false,
+  initialized: false,
+  backupRequired: false,
+  unlockedByAttachToPin: false,
   passphraseEnabled: false,
   pinOnAppEnabled: false,
   autoLockDelayMs: undefined,
   autoShutDownDelayMs: undefined,
   language: undefined,
+  brightness: undefined,
   hapticFeedback: false,
   isReady: false,
 };
@@ -118,6 +126,9 @@ export const {
 
 export const { atom: deviceLanguageAtom, use: useDeviceLanguageAtom } =
   contextAtomComputed((get) => get(deviceMetaStateAtom())?.language);
+
+export const { atom: deviceBrightnessAtom, use: useDeviceBrightnessAtom } =
+  contextAtomComputed((get) => get(deviceMetaStateAtom())?.brightness);
 
 export const {
   atom: deviceHapticFeedbackAtom,

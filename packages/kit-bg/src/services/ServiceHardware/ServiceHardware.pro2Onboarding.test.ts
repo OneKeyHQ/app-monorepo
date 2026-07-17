@@ -1,3 +1,10 @@
+import {
+  DevOnboardingPhase,
+  DevOnboardingSetupKind,
+  DevOnboardingSetupMethod,
+  DevOnboardingStep,
+} from '@onekeyfe/hd-transport';
+
 import ServiceHardware from './ServiceHardware';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -58,13 +65,22 @@ jest.mock('../../states/jotai/atoms', () => ({
 }));
 
 describe('ServiceHardware.getPro2OnboardingStatus', () => {
+  it('uses the current Pro 2 onboarding protobuf contract', () => {
+    expect(DevOnboardingStep.DEV_ONBOARDING_STEP_DONE).toBe(5);
+    expect(DevOnboardingPhase.DEV_ONBOARDING_PHASE_SEEDCARD_BACKUP).toBe(13);
+    expect(DevOnboardingSetupKind.DEV_ONBOARDING_SETUP_KIND_RESTORE).toBe(3);
+  });
+
   it('uses the compatible connect ID and forces Protocol V2', async () => {
     const deviceGetOnboardingStatus = jest.fn().mockResolvedValue({
       success: true,
       payload: {
-        step: 'DEV_ONBOARDING_STEP_SETUP',
-        phase: 'DEV_ONBOARDING_PHASE_SETUP_CHOICE',
-        setup: { kind: 'DEV_ONBOARDING_SETUP_KIND_CHOICE' },
+        step: DevOnboardingStep.DEV_ONBOARDING_STEP_SETUP,
+        phase: DevOnboardingPhase.DEV_ONBOARDING_PHASE_SETUP_CHOICE,
+        setup: {
+          kind: DevOnboardingSetupKind.DEV_ONBOARDING_SETUP_KIND_CHOICE,
+          method: DevOnboardingSetupMethod.DEV_ONBOARDING_SETUP_METHOD_UNKNOWN,
+        },
         pin_set: true,
         wallet_initialized: false,
       },
@@ -80,9 +96,12 @@ describe('ServiceHardware.getPro2OnboardingStatus', () => {
     await expect(
       service.getPro2OnboardingStatus({ connectId: 'ORIGINAL_ID' }),
     ).resolves.toEqual({
-      step: 'DEV_ONBOARDING_STEP_SETUP',
-      phase: 'DEV_ONBOARDING_PHASE_SETUP_CHOICE',
-      setup: { kind: 'DEV_ONBOARDING_SETUP_KIND_CHOICE' },
+      step: DevOnboardingStep.DEV_ONBOARDING_STEP_SETUP,
+      phase: DevOnboardingPhase.DEV_ONBOARDING_PHASE_SETUP_CHOICE,
+      setup: {
+        kind: DevOnboardingSetupKind.DEV_ONBOARDING_SETUP_KIND_CHOICE,
+        method: DevOnboardingSetupMethod.DEV_ONBOARDING_SETUP_METHOD_UNKNOWN,
+      },
       pin_set: true,
       wallet_initialized: false,
     });

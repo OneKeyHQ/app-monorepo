@@ -61,6 +61,7 @@ import type {
 import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
+  PRO2_FIRMWARE_UPDATE_TARGETS,
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
@@ -122,16 +123,9 @@ const PRO2_APP_FIRMWARE_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
   'app_v2',
 ]);
 
-const PRO2_NON_BOOT_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
-  'app_v1',
-  'app_v2',
-  'coprocessor',
-  'resource',
-  'se01',
-  'se02',
-  'se03',
-  'se04',
-]);
+const PRO2_NON_BOOT_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>(
+  PRO2_FIRMWARE_UPDATE_TARGETS.filter((target) => target !== 'boot'),
+);
 
 const PRO2_COMPONENT_TARGET_MAP: Partial<
   Record<string, IPro2FirmwareUpdateTarget>

@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -12,6 +13,7 @@ import {
   useDeviceAtom,
   useDeviceAutoLockDelayMsAtom,
   useDeviceAutoShutDownDelayMsAtom,
+  useDeviceBrightnessAtom,
   useDeviceDetailsActions,
   useDeviceHapticFeedbackAtom,
   useDeviceLanguageAtom,
@@ -49,6 +51,11 @@ type IDeviceDelayOption = {
   hour: number;
   day: number;
 };
+
+const PRO2_BRIGHTNESS_OPTIONS = Array.from({ length: 10 }, (_, index) => {
+  const value = (index + 1) * 10;
+  return { label: `${value}%`, value };
+});
 
 function getDurationLabel({
   intl,
@@ -343,6 +350,53 @@ export function HapticFeedbackListItem({
   );
 }
 
+function Pro2BrightnessListItem({ disabled }: { disabled?: boolean }) {
+  const intl = useIntl();
+  const actions = useDeviceDetailsActions();
+  const [brightness] = useDeviceBrightnessAtom();
+  const stateful = useStatefulAction<number>({
+    value: brightness ?? 50,
+    onAction: actions.updateBrightness,
+  });
+
+  return (
+    <Select
+      offset={{ mainAxis: -4, crossAxis: -10 }}
+      items={PRO2_BRIGHTNESS_OPTIONS}
+      value={stateful.value}
+      onChange={stateful.onChange}
+      placement="bottom-end"
+      title={intl.formatMessage({ id: ETranslations.global_brightness })}
+      disabled={disabled || stateful.loading}
+      testID={DeviceManagementTestIDs.brightnessItem}
+      renderTrigger={() => (
+        <ListItem
+          mx="$0"
+          px="$5"
+          py="$3"
+          borderRadius="$0"
+          $gtMd={{ py: '$0' }}
+          title={intl.formatMessage({ id: ETranslations.global_brightness })}
+          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          disabled={disabled || stateful.loading}
+        >
+          <XStack alignItems="center">
+            <ListItem.Text
+              primary={`${stateful.value}%`}
+              align="right"
+              primaryTextProps={{
+                size: '$bodyMdMedium',
+                color: '$textSubdued',
+              }}
+            />
+            <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
+          </XStack>
+        </ListItem>
+      )}
+    />
+  );
+}
+
 function DeviceSectionGeneral() {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
@@ -572,6 +626,22 @@ function DeviceSectionGeneral() {
     return null;
   }
 
+  const brightnessItem =
+    deviceType === EDeviceType.Pro2 ? (
+      <Pro2BrightnessListItem disabled={!deviceSettingsAccessible} />
+    ) : (
+      <ListItem
+        key="changeBrightness"
+        title={intl.formatMessage({
+          id: ETranslations.global_brightness,
+        })}
+        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+        drillIn
+        onPress={onPressBrightness}
+        testID={DeviceManagementTestIDs.brightnessItem}
+      />
+    );
+
   return (
     <ListItemGroup
       withSeparator
@@ -598,18 +668,7 @@ function DeviceSectionGeneral() {
           testID={DeviceManagementTestIDs.wallpaperItem}
         />
       ) : null}
-      {showBrightness ? (
-        <ListItem
-          key="changeBrightness"
-          title={intl.formatMessage({
-            id: ETranslations.global_brightness,
-          })}
-          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-          drillIn
-          onPress={onPressBrightness}
-          testID={DeviceManagementTestIDs.brightnessItem}
-        />
-      ) : null}
+      {showBrightness ? brightnessItem : null}
       {showAutoLock ? (
         <AutoLockListItem
           autoLockOptions={autoLockOptions}

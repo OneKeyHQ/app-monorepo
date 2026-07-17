@@ -822,6 +822,10 @@ function supportSettings({
   firmwareVersion: string;
   setting: ESupportSettings;
 }) {
+  if (deviceType === EDeviceType.Pro2) {
+    return true;
+  }
+
   if (setting === ESupportSettings.AutoLock) {
     if ([EDeviceType.Pro].includes(deviceType)) {
       return true;
