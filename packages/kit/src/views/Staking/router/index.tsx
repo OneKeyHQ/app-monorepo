@@ -89,24 +89,28 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.ProtocolDetails,
     component: ProtocolDetails,
+    allowColdStart: true,
     exact: true,
     rewrite: '/defi/staking/:symbol/:provider',
   },
   {
     name: EModalStakingRoutes.ProtocolDetailsV2,
     component: ProtocolDetailsV2,
+    allowColdStart: true,
     exact: true,
     rewrite: '/defi/staking/v2/:symbol/:provider',
   },
   {
     name: EModalStakingRoutes.ProtocolDetailsV2Share,
     component: ProtocolDetailsV2,
+    allowColdStart: true,
     exact: true,
     rewrite: '/defi/:network/:symbol/:provider',
   },
   {
     name: EModalStakingRoutes.ManagePosition,
     component: ManagePosition,
+    allowColdStart: true,
     exact: true,
   },
   {

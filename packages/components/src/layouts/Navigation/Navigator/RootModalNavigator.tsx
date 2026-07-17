@@ -15,6 +15,8 @@ import type { EPageType } from '../../../hocs';
 export interface IModalRootNavigatorConfig<RouteName extends string> {
   name: RouteName;
   children: IModalFlowNavigatorConfig<any, any>[];
+  /** Explicit inbound URL opt-in. Every route in a nested path must opt in. */
+  allowColdStart?: boolean;
   onMounted?: () => void;
   onUnmounted?: () => void;
   rewrite?: string;

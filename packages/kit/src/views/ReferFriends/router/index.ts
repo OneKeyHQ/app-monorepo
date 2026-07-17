@@ -53,6 +53,7 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   {
     name: EModalReferFriendsRoutes.ReferAFriend,
     component: ReferFriends,
+    allowColdStart: true,
   },
   {
     name: EModalReferFriendsRoutes.InvitedByFriend,

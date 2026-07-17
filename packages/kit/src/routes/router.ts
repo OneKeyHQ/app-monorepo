@@ -5,13 +5,7 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
-import {
-  fullModalRouterPathConfig,
-  fullScreenPushRouterPathConfig,
-  modalRouterPathConfig,
-  onboardingRouterV2PathConfig,
-  webViewRouterPathConfig,
-} from './routerPathConfig';
+import { rootRouterPathConfig } from './routerPathConfig';
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
 
@@ -48,36 +42,39 @@ const buildPermissionRouter = () => {
       import('@onekeyhq/kit/src/views/Permission/PromptWebDeviceAccessPage'),
   );
   return [
-    platformEnv.isExtension
-      ? {
-          name: ERootRoutes.PermissionWebDevice,
-          component: PromptWebDeviceAccessPage,
-          rewrite: '/permission/web-device',
-          exact: true,
-        }
-      : undefined,
-  ].filter(Boolean);
+    {
+      name: ERootRoutes.PermissionWebDevice,
+      component: PromptWebDeviceAccessPage,
+      allowColdStart: true,
+      rewrite: '/permission/web-device',
+      exact: true,
+    },
+  ];
 };
 
 export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
     name: ERootRoutes.Main,
     component: TabNavigator,
+    allowColdStart: true,
     initialRoute: true,
   },
   {
     name: ERootRoutes.Onboarding,
     component: OnboardingNavigator,
+    allowColdStart: true,
     type: 'onboarding',
   },
   {
     name: ERootRoutes.Modal,
     component: ModalNavigator,
+    allowColdStart: true,
     type: 'modal',
   },
   {
     name: ERootRoutes.iOSFullScreen,
     component: IOSFullScreenNavigator,
+    allowColdStart: true,
     type: 'iOSFullScreen',
   },
   {
@@ -93,45 +90,55 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   ...buildPermissionRouter(),
 ];
 
+export const rootRouterPathConfigSources = [
+  {
+    name: ERootRoutes.Onboarding,
+    pathConfigFile: './Modal/router',
+    pathConfigExport: 'onboardingRouterV2Config',
+  },
+  {
+    name: ERootRoutes.Modal,
+    pathConfigFile: './Modal/router',
+    pathConfigExport: 'modalRouter',
+  },
+  {
+    name: ERootRoutes.iOSFullScreen,
+    pathConfigFile: './Modal/router',
+    pathConfigExport: 'fullModalRouter',
+  },
+  {
+    name: ERootRoutes.FullScreenPush,
+    pathConfigFile: './Modal/router',
+    pathConfigExport: 'fullScreenPushRouterConfig',
+  },
+  {
+    name: ERootRoutes.WebView,
+    pathConfigFile: './WebView/router',
+    pathConfigExport: 'webViewRouter',
+  },
+] as const;
+
 if (platformEnv.isDev) {
   const NotFound = LazyLoad(() => import('../components/NotFound'));
   rootRouter.push({
     name: ERootRoutes.NotFound,
     component: NotFound,
+    allowColdStart: true,
   });
 }
 
 export const useRootRouter = () => {
   const tabRouter = useTabRouterConfig();
   return useMemo(
-    () => [
-      {
-        name: ERootRoutes.Main,
-        children: tabRouter,
-      },
-      {
-        name: ERootRoutes.Onboarding,
-        children: onboardingRouterV2PathConfig,
-      },
-      {
-        name: ERootRoutes.Modal,
-        children: modalRouterPathConfig,
-      },
-      {
-        name: ERootRoutes.iOSFullScreen,
-        children: fullModalRouterPathConfig,
-      },
-      {
-        name: ERootRoutes.FullScreenPush,
-        children: fullScreenPushRouterPathConfig,
-      },
-      {
-        name: ERootRoutes.WebView,
-        children: webViewRouterPathConfig,
-      },
-
-      ...buildPermissionRouter(),
-    ],
+    () =>
+      rootRouterPathConfig.map((route) =>
+        route.name === ERootRoutes.Main
+          ? {
+              ...route,
+              children: tabRouter,
+            }
+          : route,
+      ),
     [tabRouter],
   );
 };

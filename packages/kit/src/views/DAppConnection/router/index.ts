@@ -64,61 +64,78 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   EDAppConnectionModal,
   IDAppConnectionModalParamList
 >[] = [
+  // Extension standalone windows cold-start from a hash URL built by
+  // ServiceDApp.openModal. Cold-start route declarations are shared by every
+  // platform even when only one platform currently opens a specific entry.
   {
     name: EDAppConnectionModal.ConnectionModal,
     component: ConnectionModal,
+    allowColdStart: true,
     dismissOnOverlayPress: false,
   },
   {
     name: EDAppConnectionModal.ConnectionList,
     component: ConnectionList,
+    allowColdStart: true,
   },
   {
     name: EDAppConnectionModal.WalletConnectSessionProposalModal,
     component: WalletConnectSessionProposalModal,
+    allowColdStart: true,
   },
   {
     name: EDAppConnectionModal.SignMessageModal,
     component: SignMessageModal,
+    allowColdStart: true,
   },
   {
     name: EDAppConnectionModal.AddCustomNetworkModal,
     component: SettingCustomNetworkModal,
+    allowColdStart: true,
   },
   {
     name: EDAppConnectionModal.AddCustomTokenModal,
     component: AddCustomTokenModal,
+    allowColdStart: true,
   },
   {
     name: EDAppConnectionModal.CurrentConnectionModal,
     component: CurrentConnectionModal,
+    allowColdStart: true,
   },
   {
     name: EDAppConnectionModal.DefaultWalletSettingsModal,
     component: DefaultWalletSettingsModal,
+    allowColdStart: true,
   },
   {
     name: EDAppConnectionModal.MakeInvoice,
     component: MakeInvoiceModal,
+    allowColdStart: true,
   },
   {
     name: EDAppConnectionModal.NostrSignEventModal,
     component: NostrSignEventModal,
+    allowColdStart: true,
   },
   {
     name: EDAppConnectionModal.CosmosEnigmaUnlockModal,
     component: CosmosEnigmaUnlockModal,
+    allowColdStart: true,
   },
   {
     name: EDAppConnectionModal.RiskWhiteListModal,
     component: RiskWhiteListModal,
+    allowColdStart: true,
   },
   {
     name: EDAppConnectionModal.ClipboardPermissionModal,
     component: ClipboardPermissionModal,
+    allowColdStart: true,
   },
   {
     name: EDAppConnectionModal.DeriveContextHashModal,
     component: DeriveContextHashModal,
+    allowColdStart: true,
   },
 ];

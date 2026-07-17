@@ -51,6 +51,8 @@ import { usePrepareUSBConnectForFirmwareUpdate } from '../hooks/usePrepareUSBCon
 import { OnboardingTestIDs } from '../testIDs';
 import { getForceTransportType } from '../utils';
 
+import { isValidCheckAndUpdateRouteParams } from './routeParamGuards';
+
 import type { Features, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
 enum ECheckAndUpdateStepState {
@@ -1231,6 +1233,19 @@ export default function CheckAndUpdate({
   IOnboardingParamListV2,
   EOnboardingPagesV2.CheckAndUpdate
 >) {
+  const appNavigation = useAppNavigation();
+  const hasValidRouteParams = isValidCheckAndUpdateRouteParams(route?.params);
+
+  useEffect(() => {
+    if (!hasValidRouteParams) {
+      appNavigation.popStack();
+    }
+  }, [appNavigation, hasValidRouteParams]);
+
+  if (!hasValidRouteParams) {
+    return null;
+  }
+
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

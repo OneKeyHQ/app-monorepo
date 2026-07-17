@@ -46,6 +46,7 @@ export const ModalAssetDetailsStack: IModalFlowNavigatorConfig<
   {
     name: EModalAssetDetailRoutes.HistoryDetails,
     component: HistoryDetails,
+    allowColdStart: true,
   },
   {
     name: EModalAssetDetailRoutes.UTXODetails,

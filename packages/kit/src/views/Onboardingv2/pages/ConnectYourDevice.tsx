@@ -93,6 +93,7 @@ import {
 } from '../utils';
 
 import { ConnectionIndicator } from './ConnectionIndicator';
+import { isValidConnectYourDeviceRouteParams } from './routeParamGuards';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
@@ -1291,6 +1292,21 @@ export function ConnectYourDevice({
   IOnboardingParamListV2,
   EOnboardingPagesV2.ConnectYourDevice
 >) {
+  const appNavigation = useAppNavigation();
+  const hasValidRouteParams = isValidConnectYourDeviceRouteParams(
+    route?.params,
+  );
+
+  useEffect(() => {
+    if (!hasValidRouteParams) {
+      appNavigation.popStack();
+    }
+  }, [appNavigation, hasValidRouteParams]);
+
+  if (!hasValidRouteParams) {
+    return null;
+  }
+
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

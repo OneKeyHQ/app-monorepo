@@ -85,73 +85,91 @@ export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList
 >[] = [
+  // Extension standalone windows cold-start from a hash URL built by
+  // ServiceDApp.openModal. Cold-start route declarations are shared by every
+  // platform even when only one platform currently opens a specific entry.
   {
     name: EModalSignatureConfirmRoutes.TxConfirm,
     component: TxConfirm,
+    allowColdStart: true,
   },
   {
     name: EModalSignatureConfirmRoutes.MessageConfirm,
     component: MessageConfirm,
+    allowColdStart: true,
   },
   {
     name: EModalSignatureConfirmRoutes.TxConfirmFromDApp,
     component: TxConfirmFromDApp,
+    allowColdStart: true,
   },
   {
     name: EModalSignatureConfirmRoutes.MessageConfirmFromDApp,
     component: MessageConfirmFromDApp,
+    allowColdStart: true,
   },
   {
     name: EModalSignatureConfirmRoutes.TxConfirmFromSwap,
     component: TxConfirmFromSwap,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.TxDataInput,
     component: TxDataInput,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.TxAmountInput,
     component: TxAmountInput,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.TxReplace,
     component: TxReplace,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.TxSelectToken,
     component: TxTokenSelector,
+    allowColdStart: true,
   },
   {
     name: EModalSignatureConfirmRoutes.TxSelectAggregateToken,
     component: TxAggregateTokenSelector,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.TxSelectDeriveAddress,
     component: TxDeriveTypesAddress,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.LnurlPayRequest,
     component: LnurlPayRequestModal,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.LnurlWithdraw,
     component: LnurlWithdrawModal,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.WeblnSendPayment,
     component: WeblnSendPaymentModal,
+    allowColdStart: true,
   },
 
   {
     name: EModalSignatureConfirmRoutes.LnurlAuth,
     component: LnurlAuthModal,
+    allowColdStart: true,
   },
 ];

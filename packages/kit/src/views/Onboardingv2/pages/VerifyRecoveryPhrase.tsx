@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import bip39Wordlists from 'bip39/src/wordlists/english.json';
@@ -27,6 +27,8 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 import { OnboardingTestIDs } from '../testIDs';
 import { shuffleWordsIndices } from '../utils';
 
+import { isValidRecoveryPhraseRouteParams } from './routeParamGuards';
+
 import type { RouteProp } from '@react-navigation/core';
 
 export default function VerifyRecoveryPhrase() {
@@ -36,17 +38,25 @@ export default function VerifyRecoveryPhrase() {
     useRoute<
       RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.VerifyRecoveryPhrase>
     >();
+  const routeMnemonic = route.params?.mnemonic;
+  const walletId = route.params?.walletId;
+  const hasValidRouteParams = isValidRecoveryPhraseRouteParams(route.params);
+
+  useEffect(() => {
+    if (!hasValidRouteParams) {
+      navigation.popStack();
+    }
+  }, [hasValidRouteParams, navigation]);
 
   const { result: mnemonic = '' } = usePromiseResult(async () => {
-    const routeMnemonic = route.params?.mnemonic;
-    if (routeMnemonic) {
-      ensureSensitiveTextEncoded(routeMnemonic);
-      return backgroundApiProxy.servicePassword.decodeSensitiveText({
-        encodedText: routeMnemonic,
-      });
+    if (!hasValidRouteParams) {
+      return '';
     }
-    return backgroundApiProxy.serviceAccount.generateMnemonic();
-  }, [route.params?.mnemonic]);
+    ensureSensitiveTextEncoded(routeMnemonic);
+    return backgroundApiProxy.servicePassword.decodeSensitiveText({
+      encodedText: routeMnemonic,
+    });
+  }, [hasValidRouteParams, routeMnemonic]);
   const recoveryPhrase = useMemo(
     () => mnemonic.split(' ').filter(Boolean),
     [mnemonic],
@@ -110,9 +120,9 @@ export default function VerifyRecoveryPhrase() {
           );
 
           if (verifyResult) {
-            if (route.params?.walletId) {
+            if (walletId) {
               await backgroundApiProxy.serviceAccount.updateWalletBackupStatus({
-                walletId: route.params?.walletId,
+                walletId,
                 isBackedUp: true,
               });
             }
@@ -137,15 +147,12 @@ export default function VerifyRecoveryPhrase() {
         }
       });
     },
-    [
-      answerIndices,
-      intl,
-      navigation,
-      recoveryPhrase,
-      route.params?.walletId,
-      selectedWords,
-    ],
+    [answerIndices, intl, navigation, recoveryPhrase, selectedWords, walletId],
   );
+
+  if (!hasValidRouteParams || !mnemonic) {
+    return null;
+  }
 
   return (
     <Page testID={OnboardingTestIDs.verifyRecoveryPhrasePage}>

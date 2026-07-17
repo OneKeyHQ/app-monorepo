@@ -1,10 +1,23 @@
 // https://jestjs.io/docs/configuration
 const util = require('node:util');
-
-const { defaults } = require('jest-config');
 const exec = util.promisify(require('node:child_process').exec);
 
+const { defaults } = require('jest-config');
+
+const {
+  targets: routePathConfigTargets,
+} = require('./development/scripts/compile-route-path-config');
+const {
+  ensureRoutePathConfig,
+  shouldWatchRoutePathConfig,
+  watchRoutePathConfig,
+} = require('./development/scripts/ensure-route-path-config');
+
 module.exports = async () => {
+  ensureRoutePathConfig(routePathConfigTargets);
+  if (shouldWatchRoutePathConfig()) {
+    watchRoutePathConfig(routePathConfigTargets);
+  }
   const { stdout } = await exec('yarn config get cacheFolder');
   const cacheDirectory = stdout.trim().replace('\n', '');
   return {
@@ -71,7 +84,7 @@ module.exports = async () => {
     },
     // TODO unify with transpile modules
     transformIgnorePatterns: [
-      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth|@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39))/)',
+      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth|@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39)|@react-navigation/(core|routers))/)',
     ],
     transform: {
       'node_modules/(@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39))/.+\\.m?js$':
