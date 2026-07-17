@@ -1403,6 +1403,7 @@ avd
 AVD
 oxlint
 oxlintrc
+oxfmt
 serviceworker
 newtab
 hrstart

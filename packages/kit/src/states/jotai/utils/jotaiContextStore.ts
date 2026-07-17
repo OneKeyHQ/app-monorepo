@@ -29,9 +29,9 @@ function setStoreColdStartScopeKey({
   store: IJotaiContextStore;
   storeId: string;
 }) {
-  (store as IJotaiContextStoreWithColdStartScope)[
-    '__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__'
-  ] = `store:${storeId}`;
+  (
+    store as IJotaiContextStoreWithColdStartScope
+  ).__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__ = `store:${storeId}`;
 }
 
 // AccountSelectorStore

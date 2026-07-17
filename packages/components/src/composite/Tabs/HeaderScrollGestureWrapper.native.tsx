@@ -26,6 +26,7 @@ export function HeaderScrollGestureWrapper({
   disableMomentum = false,
   panActiveOffsetY = [-10, 10],
   panFailOffsetX = [-10, 10],
+  verticalPanMaxPointers,
   excludeRightEdgeRatio = 0,
   scrollScale = 1,
   onHorizontalSwipe,
@@ -121,6 +122,12 @@ export function HeaderScrollGestureWrapper({
       .enabled(!disabled && !disableVerticalScroll)
       .activeOffsetY(panActiveOffsetY)
       .failOffsetX(panFailOffsetX);
+
+    if (verticalPanMaxPointers !== undefined) {
+      verticalPanGesture = verticalPanGesture.maxPointers(
+        verticalPanMaxPointers,
+      );
+    }
 
     if (gestureHitSlop) {
       verticalPanGesture = verticalPanGesture.hitSlop(gestureHitSlop);
@@ -241,6 +248,7 @@ export function HeaderScrollGestureWrapper({
     disableMomentum,
     panActiveOffsetY,
     panFailOffsetX,
+    verticalPanMaxPointers,
     excludeRightEdgeRatio,
     excludeBottomEdgeHeight,
     scrollScale,
