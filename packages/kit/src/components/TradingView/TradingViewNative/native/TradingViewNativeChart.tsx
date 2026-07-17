@@ -19,11 +19,11 @@ import { type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   cancelAnimation,
-  runOnUI,
   useDerivedValue,
   useSharedValue,
   withDecay,
 } from 'react-native-reanimated';
+import { scheduleOnUI } from 'react-native-worklets';
 
 import { SizableText, Stack, useTheme } from '@onekeyhq/components';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
@@ -287,7 +287,7 @@ export const TradingViewNativeChart = memo(
     useLayoutEffect(() => {
       const shouldResetViewport = previousPointsRef.current !== points;
       previousPointsRef.current = points;
-      runOnUI(() => {
+      scheduleOnUI(() => {
         'worklet';
 
         cancelAnimation(panOffset);
@@ -302,7 +302,7 @@ export const TradingViewNativeChart = memo(
           pointCount,
           zoomScale: zoomScale.value,
         });
-      })();
+      });
     }, [chartWidth, panOffset, pointCount, points, zoomScale]);
 
     const chartTransform = useDerivedValue(() => [
