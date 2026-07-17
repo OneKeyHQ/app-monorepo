@@ -793,7 +793,21 @@ class ServicePrime extends ServiceBase {
           loginResponse: data,
         });
       });
-      await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      // Best-effort hygiene: the login is already committed atomically
+      // above, so a failure here (e.g. transient storage error while
+      // clearing the legacy slot) must not reject the whole login — the UI
+      // would tear down the just-validated OAuth session and show a login
+      // failure for a login that succeeded. Leftovers are re-cleaned by the
+      // next login/bind/logout.
+      try {
+        await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      } catch (cleanupError) {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason: `ServicePrime.apiOAuthLogin: post-commit legacy session cleanup failed: ${String(
+            cleanupError,
+          )}`,
+        });
+      }
       await this.cleanupLegacyKeylessSessionStorage({
         callerName: 'ServicePrime.apiOAuthLogin',
       });
@@ -1045,7 +1059,21 @@ class ServicePrime extends ServiceBase {
           onekeyAccount: data.onekeyAccount,
         });
       });
-      await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      // Best-effort hygiene (same commit boundary as apiOAuthLogin): the
+      // bind is already committed atomically above, so a failure while
+      // clearing the legacy slot must not reject the whole bind — the UI
+      // catch would clear the just-persisted keyless OAuth session for a
+      // bind that succeeded on the server. Leftovers are re-cleaned by the
+      // next login/bind/logout.
+      try {
+        await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
+      } catch (cleanupError) {
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason: `ServicePrime.apiBindLegacyOneKeyIdOAuth: post-commit legacy session cleanup failed: ${String(
+            cleanupError,
+          )}`,
+        });
+      }
       await this.cleanupLegacyKeylessSessionStorage({
         callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
       });
@@ -1447,10 +1475,11 @@ class ServicePrime extends ServiceBase {
         'X-Onekey-Request-Token': requestAuthToken,
       },
     };
+    type IProfileApiResponse =
+      IPrimeApiClientResponse<IOneKeyIdProfileResponse>;
+    type IUserInfoApiResponse = IPrimeApiClientResponse<IPrimeServerUserInfo>;
     const profileRequest = client
-      .get<
-        IPrimeApiClientResponse<IOneKeyIdProfileResponse>
-      >('/prime/v1/account/profile', requestConfig)
+      .get<IProfileApiResponse>('/prime/v1/account/profile', requestConfig)
       .then((response) =>
         this.getPrimeApiResponseData({
           response,
@@ -1459,9 +1488,7 @@ class ServicePrime extends ServiceBase {
         }),
       );
     const serverUserInfoRequest = client
-      .get<
-        IPrimeApiClientResponse<IPrimeServerUserInfo>
-      >('/prime/v1/user/info', requestConfig)
+      .get<IUserInfoApiResponse>('/prime/v1/user/info', requestConfig)
       .then((response) =>
         this.getPrimeApiResponseData({
           response,
@@ -1588,7 +1615,7 @@ class ServicePrime extends ServiceBase {
         ...v,
         avatar: serverUserInfo?.avatar,
         nickname: serverUserInfo?.nickname,
-        email: userEmail, // TODO update from PrimeGlobalEffect
+        email: userEmail,
         displayEmail,
         onekeyUserId: serverUserId,
         onekeyAccount:
