@@ -13,8 +13,8 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { showPerpsUnifoldDepositDialog } from '../components/TradingPanel/modals/PerpsUnifoldDepositModal';
 import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
+import { loadPerpsUnifoldDepositModal } from '../utils/preloadPerpsUnifoldDepositModal';
 
 type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
@@ -84,6 +84,8 @@ export function useShowDepositWithdrawModal() {
         return;
       }
 
+      const { showPerpsUnifoldDepositDialog } =
+        await loadPerpsUnifoldDepositModal();
       showPerpsUnifoldDepositDialog({
         selectedAccount,
         onOneKeyWalletPress: () => {

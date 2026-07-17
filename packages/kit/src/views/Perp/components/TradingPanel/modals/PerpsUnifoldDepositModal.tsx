@@ -2,11 +2,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
-  QueryClient,
-  QueryClientProvider,
-  useQuery,
-} from '@tanstack/react-query';
-import {
   type DepositConfig,
   UnifoldProvider,
   useUnifold,
@@ -36,6 +31,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   type IPerpsActiveAccountAtom,
   perpsActiveAccountAtom,
@@ -54,7 +50,6 @@ import { getSafeUnifoldRecipient } from '../../../utils/unifoldRecipient';
 
 import './PerpsUnifoldDepositModal.css';
 
-const unifoldQueryClient = new QueryClient();
 const UNIFOLD_QUERY_STALE_TIME = 5 * 60 * 1000;
 const PERPS_UNIFOLD_MODAL_OPEN_CLASS = 'perps-unifold-modal-open';
 
@@ -176,29 +171,60 @@ const PERPS_DEPOSIT_ACTION_GROUPS: Record<
   cash: ['card', 'exchangePay', 'cashApp', 'tracker'],
 };
 
+interface IUnifoldHintLogosSource {
+  projectConfig: Awaited<ReturnType<typeof getProjectConfig>> | undefined;
+  integrationExchanges:
+    | Awaited<ReturnType<typeof getIntegrationExchanges>>
+    | undefined;
+  exchangeProviders: Awaited<ReturnType<typeof getExchanges>> | undefined;
+}
+
+let cachedHintLogosSource:
+  | { time: number; promise: Promise<IUnifoldHintLogosSource> }
+  | undefined;
+
+// Module-level cache replaces react-query's staleTime; allSettled keeps the
+// three requests independent (one failure must not blank the other logos).
+function fetchHintLogosSource(): Promise<IUnifoldHintLogosSource> {
+  if (
+    !cachedHintLogosSource ||
+    Date.now() - cachedHintLogosSource.time > UNIFOLD_QUERY_STALE_TIME
+  ) {
+    const promise = Promise.allSettled([
+      getProjectConfig(UNIFOLD_PERPS_PUBLISHABLE_KEY),
+      getIntegrationExchanges(UNIFOLD_PERPS_PUBLISHABLE_KEY),
+      getExchanges(undefined, UNIFOLD_PERPS_PUBLISHABLE_KEY),
+    ]).then(([projectConfig, integrationExchanges, exchangeProviders]) => ({
+      projectConfig:
+        projectConfig.status === 'fulfilled' ? projectConfig.value : undefined,
+      integrationExchanges:
+        integrationExchanges.status === 'fulfilled'
+          ? integrationExchanges.value
+          : undefined,
+      exchangeProviders:
+        exchangeProviders.status === 'fulfilled'
+          ? exchangeProviders.value
+          : undefined,
+    }));
+    cachedHintLogosSource = { time: Date.now(), promise };
+  }
+  return cachedHintLogosSource.promise;
+}
+
 function usePerpsDepositHintLogos() {
-  const { data: projectConfig } = useQuery({
-    queryKey: ['unifold', 'project-config', UNIFOLD_PERPS_PUBLISHABLE_KEY],
-    queryFn: () => getProjectConfig(UNIFOLD_PERPS_PUBLISHABLE_KEY),
-    enabled: Boolean(UNIFOLD_PERPS_PUBLISHABLE_KEY),
-    staleTime: UNIFOLD_QUERY_STALE_TIME,
-  });
-  const { data: integrationExchanges } = useQuery({
-    queryKey: [
-      'unifold',
-      'integration-exchanges',
-      UNIFOLD_PERPS_PUBLISHABLE_KEY,
-    ],
-    queryFn: () => getIntegrationExchanges(UNIFOLD_PERPS_PUBLISHABLE_KEY),
-    enabled: Boolean(UNIFOLD_PERPS_PUBLISHABLE_KEY),
-    staleTime: UNIFOLD_QUERY_STALE_TIME,
-  });
-  const { data: exchangeProviders } = useQuery({
-    queryKey: ['unifold', 'exchange-providers', UNIFOLD_PERPS_PUBLISHABLE_KEY],
-    queryFn: () => getExchanges(undefined, UNIFOLD_PERPS_PUBLISHABLE_KEY),
-    enabled: Boolean(UNIFOLD_PERPS_PUBLISHABLE_KEY),
-    staleTime: UNIFOLD_QUERY_STALE_TIME,
-  });
+  const { result } = usePromiseResult(
+    async () => {
+      if (!UNIFOLD_PERPS_PUBLISHABLE_KEY) {
+        return undefined;
+      }
+      return fetchHintLogosSource();
+    },
+    [],
+    { watchLoading: false },
+  );
+  const projectConfig = result?.projectConfig;
+  const integrationExchanges = result?.integrationExchanges;
+  const exchangeProviders = result?.exchangeProviders;
 
   return useMemo<Partial<Record<IPerpsDepositAction, string[]>>>(() => {
     const transferLogos = (projectConfig?.transfer_crypto.networks ?? [])
@@ -616,17 +642,15 @@ export function showPerpsUnifoldDepositDialog({
     title: 'Deposit',
     showFooter: false,
     renderContent: (
-      <QueryClientProvider client={unifoldQueryClient}>
-        <PerpsUnifoldDepositModal
-          selectedAccount={selectedAccount}
-          onOneKeyWalletPress={onOneKeyWalletPress}
-          onOpenChange={(open) => {
-            if (!open) {
-              void dialog.close();
-            }
-          }}
-        />
-      </QueryClientProvider>
+      <PerpsUnifoldDepositModal
+        selectedAccount={selectedAccount}
+        onOneKeyWalletPress={onOneKeyWalletPress}
+        onOpenChange={(open) => {
+          if (!open) {
+            void dialog.close();
+          }
+        }}
+      />
     ),
   });
 }

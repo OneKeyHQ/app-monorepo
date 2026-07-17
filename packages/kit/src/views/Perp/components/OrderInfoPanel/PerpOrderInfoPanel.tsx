@@ -39,7 +39,7 @@ import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
-import { showPerpsUnifoldDepositTracker } from '../TradingPanel/modals/PerpsUnifoldDepositModal';
+import { loadPerpsUnifoldDepositModal } from '../../utils/preloadPerpsUnifoldDepositModal';
 
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
@@ -215,10 +215,12 @@ function PerpOrderInfoPanel() {
     tabsRef.current?.jumpToTab('Open Orders');
   };
 
-  const handleOpenDepositTracker = () => {
+  const handleOpenDepositTracker = async () => {
     if (!currentUser?.accountId || !currentUser.accountAddress) {
       return;
     }
+    const { showPerpsUnifoldDepositTracker } =
+      await loadPerpsUnifoldDepositModal();
     showPerpsUnifoldDepositTracker({
       selectedAccount: currentUser,
       theme: themeName === 'dark' ? 'dark' : 'light',
@@ -266,7 +268,7 @@ function PerpOrderInfoPanel() {
                   disabled={
                     !currentUser?.accountId || !currentUser.accountAddress
                   }
-                  onPress={handleOpenDepositTracker}
+                  onPress={() => void handleOpenDepositTracker()}
                 >
                   Deposit Tracker
                 </Button>
