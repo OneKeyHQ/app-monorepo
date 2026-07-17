@@ -58,14 +58,24 @@ export function getTickOptionsDataDuringTransition<
   return reference?.symbol === symbol ? reference : null;
 }
 
-export function shouldInitializeOrderBookTickOption({
-  hasMarketData,
+export function shouldPersistOrderBookTickOption({
+  isReady,
   persisted,
+  next,
 }: {
-  hasMarketData: boolean;
+  isReady: boolean;
   persisted: IOrderBookTickOptionState | undefined;
+  next: IOrderBookTickOptionState;
 }) {
-  return hasMarketData && !persisted;
+  if (!isReady) {
+    return false;
+  }
+
+  return (
+    persisted?.value !== next.value ||
+    (persisted?.nSigFigs ?? null) !== (next.nSigFigs ?? null) ||
+    (persisted?.mantissa ?? null) !== (next.mantissa ?? null)
+  );
 }
 
 function floorLog10(x: number): number {

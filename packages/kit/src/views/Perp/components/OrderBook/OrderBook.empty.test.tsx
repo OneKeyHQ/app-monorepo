@@ -3,10 +3,10 @@
 import type { ReactNode } from 'react';
 
 import { OrderBook } from '.';
+
 import { render } from '@testing-library/react';
 
 import { getVerticalOrderBookLayout } from '../../layouts/perpLayoutUtils';
-
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({

@@ -6,7 +6,7 @@ import {
   buildReferenceTickOptions,
   buildTickOptions,
   getTickOptionsDataDuringTransition,
-  shouldInitializeOrderBookTickOption,
+  shouldPersistOrderBookTickOption,
 } from './tickSizeUtils';
 
 describe('getTickOptionsDataDuringTransition', () => {
@@ -149,30 +149,47 @@ describe('buildReferenceTickOptions', () => {
   });
 });
 
-describe('shouldInitializeOrderBookTickOption', () => {
+describe('shouldPersistOrderBookTickOption', () => {
   it('does not replace precision while order book data is transitioning', () => {
     expect(
-      shouldInitializeOrderBookTickOption({
-        hasMarketData: false,
+      shouldPersistOrderBookTickOption({
+        isReady: false,
         persisted: { value: '0.2', nSigFigs: 5, mantissa: 2 },
+        next: { value: '0.1', nSigFigs: 5, mantissa: null },
       }),
     ).toBe(false);
   });
 
-  it('does not overwrite a persisted selection from a live market frame', () => {
+  it('does not rewrite a matching persisted selection', () => {
     expect(
-      shouldInitializeOrderBookTickOption({
-        hasMarketData: true,
+      shouldPersistOrderBookTickOption({
+        isReady: true,
         persisted: { value: '0.1', nSigFigs: 5, mantissa: null },
+        next: { value: '0.1', nSigFigs: 5, mantissa: null },
       }),
     ).toBe(false);
   });
 
   it('initializes a missing selection after market data arrives', () => {
     expect(
-      shouldInitializeOrderBookTickOption({
-        hasMarketData: true,
+      shouldPersistOrderBookTickOption({
+        isReady: true,
         persisted: undefined,
+        next: { value: '0.1', nSigFigs: 5, mantissa: null },
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    ['value', { value: '0.2', nSigFigs: 5 as const, mantissa: 2 as const }],
+    ['nSigFigs', { value: '0.1', nSigFigs: 4 as const, mantissa: null }],
+    ['mantissa', { value: '0.1', nSigFigs: 5 as const, mantissa: 2 as const }],
+  ])('syncs a selection whose %s changed', (_field, persisted) => {
+    expect(
+      shouldPersistOrderBookTickOption({
+        isReady: true,
+        persisted,
+        next: { value: '0.1', nSigFigs: 5, mantissa: null },
       }),
     ).toBe(true);
   });

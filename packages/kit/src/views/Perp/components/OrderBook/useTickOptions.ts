@@ -20,7 +20,7 @@ import {
   buildTickOptions,
   getDefaultTickOption,
   getTickOptionsDataDuringTransition,
-  shouldInitializeOrderBookTickOption,
+  shouldPersistOrderBookTickOption,
 } from './tickSizeUtils';
 
 interface ITickOptionsResult {
@@ -221,9 +221,10 @@ export function useTickOptions({
     };
 
     if (
-      shouldInitializeOrderBookTickOption({
-        hasMarketData: Boolean(tickOptionsData),
+      shouldPersistOrderBookTickOption({
+        isReady: Boolean(tickOptionsData),
         persisted,
+        next: currentPersist,
       })
     ) {
       void actions.current.setOrderBookTickOption({
