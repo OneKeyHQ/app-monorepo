@@ -12,7 +12,7 @@ const skillRoot = resolve(scriptDir, '..');
 const repoRoot = resolve(skillRoot, '../../..');
 // Keep this full commit aligned with the code map and eval manifest.
 // An unresolved token deliberately fails the readiness gate.
-const reviewedCodeRef = 'b686873c44b514b820db21fadc2566d067405607';
+const reviewedCodeRef = '80c9bdaa408077939ffae061517a5cc718f025b1';
 
 const anchors = [
   [
