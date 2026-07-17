@@ -263,28 +263,47 @@ export class HardwareConnectionManager {
   async determineOptimalTransportType(
     hardwareCallContext?: IHardwareCallContext,
   ): Promise<EHardwareTransportType> {
+    // [BLE-TRACE] Per-step timing for the transport decision that runs before
+    // (potentially) every SDK call. Same console filter keyword as the SDK/main
+    // process BLE events — this is where a webusb-vs-ble misroute shows up.
+    const startedAt = Date.now();
     const currentSettingType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
 
     if (platformEnv.isSupportDesktopBle) {
       const mode = await this.getDesktopUsbSetting();
       const webUsbAvailable = await this.detectUSBDeviceAvailability();
+      const usbDetectMs = Date.now() - startedAt;
       if (webUsbAvailable) {
-        return mode === 'bridge'
-          ? EHardwareTransportType.Bridge
-          : EHardwareTransportType.WEBUSB;
+        const targetType =
+          mode === 'bridge'
+            ? EHardwareTransportType.Bridge
+            : EHardwareTransportType.WEBUSB;
+        console.log(
+          `[BLE-TRACE] app transport.decision {target: ${targetType}, usbDetectMs: ${usbDetectMs}, usbAvailable: true}`,
+        );
+        return targetType;
       }
 
       // No USB devices, check if Bluetooth is available before fallback
       const bluetoothAvailable =
         await this.detectBluetoothAvailability(hardwareCallContext);
+      const totalMs = Date.now() - startedAt;
       if (bluetoothAvailable) {
+        console.log(
+          `[BLE-TRACE] app transport.decision {target: DesktopWebBle, usbDetectMs: ${usbDetectMs}, totalMs: ${totalMs}}`,
+        );
         return EHardwareTransportType.DesktopWebBle;
       }
 
-      return mode === 'bridge'
-        ? EHardwareTransportType.Bridge
-        : EHardwareTransportType.WEBUSB;
+      const fallbackType =
+        mode === 'bridge'
+          ? EHardwareTransportType.Bridge
+          : EHardwareTransportType.WEBUSB;
+      console.log(
+        `[BLE-TRACE] app transport.decision {target: ${fallbackType}, usbDetectMs: ${usbDetectMs}, totalMs: ${totalMs}, note: neither-usb-nor-ble-available}`,
+      );
+      return fallbackType;
     }
 
     return currentSettingType;

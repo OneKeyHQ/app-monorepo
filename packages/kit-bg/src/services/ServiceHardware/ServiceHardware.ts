@@ -345,6 +345,13 @@ class ServiceHardware extends ServiceBase {
             currentTransportType ?? 'null'
           } → ${hardwareTransportType}`,
         );
+        // [BLE-TRACE] An SDK cold reboot mid-session tears down any live BLE
+        // link — if this fires between two calls, it explains a reconnect.
+        console.log(
+          `[BLE-TRACE] app sdk.reset {from: ${
+            currentTransportType ?? 'null'
+          }, to: ${hardwareTransportType}}`,
+        );
 
         // Reset SDK instance to use new transport type
         await resetHardwareSDKInstance();

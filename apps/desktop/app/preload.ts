@@ -91,6 +91,28 @@ const isTrayWindow =
   // eslint-disable-next-line no-restricted-globals
   new URLSearchParams(location.search).get('render') === 'tray';
 
+// BLE debug trace: main-process BLE handlers (OneKey noble handler and the
+// Trezor electron-ble connector) push key lifecycle events on this channel so
+// they can be watched in THIS window's DevTools console with a single
+// "BLE-TRACE" filter keyword. Channel string is shared by value with the SDK.
+ipcRenderer.on(
+  '$onekey-ble-trace',
+  (
+    _event,
+    payload: { src: string; ts: number; event: string; data?: unknown },
+  ) => {
+    const time = new Date(payload.ts).toISOString().slice(11, 23);
+    console.log(
+      `[BLE-TRACE] ${time} ${payload.src} ${payload.event}`,
+      payload.data ?? '',
+    );
+  },
+);
+// Prints unconditionally at window load. If this line is missing from the
+// DevTools console, the running app was built before the trace code existed
+// (restart `yarn dev` to rebuild app/dist) — as opposed to "no BLE events yet".
+console.log('[BLE-TRACE] listener ready (preload loaded)');
+
 // --- desktopApi: legacy API surface (plain object, contextBridge-compatible) ---
 
 const desktopApi = {
