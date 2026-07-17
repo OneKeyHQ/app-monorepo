@@ -16,6 +16,7 @@ import {
   ActionList,
   Badge,
   Button,
+  Empty,
   Icon,
   IconButton,
   Page,
@@ -272,6 +273,27 @@ function TokenDetailsView() {
     },
   );
 
+  // A stale aggregate-token cache may shrink a group below two members after
+  // the delisted-network filtering above. Degrade instead of letting the page
+  // fall back to the aggregate descriptor (mock networkId `aggregate--0`):
+  // a single surviving member becomes the current token, and an empty group
+  // renders an unavailable state.
+  const effectiveTokenInfo = useMemo(() => {
+    if (
+      tokenInfo.isAggregateToken &&
+      isLoadingTokens === false &&
+      tokens.length === 1
+    ) {
+      return tokens[0];
+    }
+    return tokenInfo;
+  }, [tokenInfo, isLoadingTokens, tokens]);
+
+  const isAggregateTokenUnavailable =
+    tokenInfo.isAggregateToken &&
+    isLoadingTokens === false &&
+    tokens.length === 0;
+
   const { result: allNetworksState, run: refreshAllNetworkState } =
     usePromiseResult(
       async () => {
@@ -405,6 +427,15 @@ function TokenDetailsView() {
   const headerRight = useCallback(() => {
     const sections: IActionListSection[] = [];
 
+    // While the aggregate group is still resolving, or resolved with no valid
+    // member, there is no concrete network to copy a contract from or jump to.
+    if (
+      tokenInfo.isAggregateToken &&
+      (isLoadingTokens !== false || tokens.length === 0)
+    ) {
+      return null;
+    }
+
     if (
       tokenInfo.isAggregateToken &&
       tokens.length > 1 &&
@@ -434,7 +465,7 @@ function TokenDetailsView() {
       );
     }
 
-    if (!tokenInfo?.isNative) {
+    if (!effectiveTokenInfo?.isNative) {
       sections.push({
         items: [
           {
@@ -442,12 +473,12 @@ function TokenDetailsView() {
               id: ETranslations.global_copy_token_contract,
             }),
             icon: 'Copy3Outline',
-            onPress: () => copyText(tokenInfo?.address ?? ''),
+            onPress: () => copyText(effectiveTokenInfo?.address ?? ''),
           },
         ],
       });
 
-      if (tokenInfo?.address) {
+      if (effectiveTokenInfo?.address) {
         sections[0].items.push({
           label: intl.formatMessage({
             id: ETranslations.global_view_in_blockchain_explorer,
@@ -455,8 +486,8 @@ function TokenDetailsView() {
           icon: 'OpenOutline',
           onPress: () =>
             openTokenDetailsUrl({
-              networkId: tokenInfo.networkId ?? '',
-              tokenAddress: tokenInfo?.address,
+              networkId: effectiveTokenInfo.networkId ?? '',
+              tokenAddress: effectiveTokenInfo?.address,
             }),
         });
       }
@@ -477,8 +508,10 @@ function TokenDetailsView() {
   }, [
     tokenInfo.isAggregateToken,
     tokenInfo?.isNative,
-    tokenInfo?.address,
-    tokenInfo.networkId,
+    effectiveTokenInfo?.isNative,
+    effectiveTokenInfo?.address,
+    effectiveTokenInfo.networkId,
+    isLoadingTokens,
     tokens.length,
     intl,
     renderAggregateTokens,
@@ -753,7 +786,13 @@ function TokenDetailsView() {
   );
 
   const tokenDetailsViewElement = useMemo(() => {
-    if (isLoading || isLoadingTokens)
+    if (
+      isLoading ||
+      isLoadingTokens ||
+      // Keep aggregate tokens on the spinner until the group is resolved so
+      // the aggregate descriptor never reaches the single-token fallback.
+      (tokenInfo.isAggregateToken && isLoadingTokens !== false)
+    )
       return (
         <Stack
           flex={1}
@@ -764,6 +803,22 @@ function TokenDetailsView() {
           <Spinner size="large" />
         </Stack>
       );
+    if (isAggregateTokenUnavailable) {
+      return (
+        <Stack
+          flex={1}
+          height="100%"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Empty
+            title={intl.formatMessage({
+              id: ETranslations.global_no_data,
+            })}
+          />
+        </Stack>
+      );
+    }
     if (
       (!accountUtils.isOthersWallet({ walletId }) &&
         vaultSettings?.mergeDeriveAssetsEnabled) ||
@@ -797,10 +852,10 @@ function TokenDetailsView() {
 
     return (
       <TokenDetailsViews
-        accountId={tokenInfo.accountId ?? accountId}
-        networkId={tokenInfo.networkId ?? networkId}
+        accountId={effectiveTokenInfo.accountId ?? accountId}
+        networkId={effectiveTokenInfo.networkId ?? networkId}
         walletId={walletId}
-        tokenInfo={tokenInfo}
+        tokenInfo={effectiveTokenInfo}
         tokenMap={tokenMap}
         isAllNetworks={isAllNetworks}
         indexedAccountId={indexedAccountId}
@@ -810,10 +865,12 @@ function TokenDetailsView() {
   }, [
     isLoading,
     isLoadingTokens,
+    isAggregateTokenUnavailable,
     walletId,
     vaultSettings?.mergeDeriveAssetsEnabled,
     tokens,
     tokenInfo,
+    effectiveTokenInfo,
     tokenMap,
     accountId,
     networkId,
@@ -824,6 +881,7 @@ function TokenDetailsView() {
     pageWidth,
     handleTabIndexChange,
     jumpToMemberTab,
+    intl,
   ]);
 
   const headerTitle = useCallback(() => {
@@ -842,10 +900,11 @@ function TokenDetailsView() {
         </SizableText>
         {!isLoadingTokens &&
         !isLoading &&
+        !isAggregateTokenUnavailable &&
         (tokens?.length <= 1 || !tokenInfo.isAggregateToken) &&
         gtMd ? (
           <Badge badgeSize="sm">
-            <Badge.Text>{tokenInfo.networkName ?? ''}</Badge.Text>
+            <Badge.Text>{effectiveTokenInfo.networkName ?? ''}</Badge.Text>
           </Badge>
         ) : null}
       </XStack>
@@ -856,7 +915,8 @@ function TokenDetailsView() {
     tokenInfo.symbol,
     tokenInfo.name,
     tokenInfo.isAggregateToken,
-    tokenInfo.networkName,
+    effectiveTokenInfo.networkName,
+    isAggregateTokenUnavailable,
     tokens.length,
     gtMd,
     network?.logoURI,
