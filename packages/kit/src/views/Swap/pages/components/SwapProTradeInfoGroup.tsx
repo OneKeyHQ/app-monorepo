@@ -294,14 +294,40 @@ const SwapProTradeInfoGroup = ({
             >
               {balanceValue}
             </NumberSizeableText>
-            <SizableText
-              size="$bodySmMedium"
-              numberOfLines={1}
-              textAlign="right"
-              maxWidth="$36"
-            >
-              {inputToken?.symbol ?? '-'}
-            </SizableText>
+            {isPayTokenSwitchVisible ? (
+              // Symbol + chevron share one hit area so the token name itself
+              // reads (and works) as the pay-token switch entry.
+              <XStack
+                alignItems="center"
+                gap="$0.5"
+                onPress={() => setIsPayTokenPopoverOpen(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                hoverStyle={{ opacity: 0.7 }}
+                pressStyle={{ opacity: 0.5 }}
+              >
+                <SizableText
+                  size="$bodySmMedium"
+                  numberOfLines={1}
+                  maxWidth="$36"
+                >
+                  {inputToken?.symbol ?? '-'}
+                </SizableText>
+                <Icon
+                  name="ChevronRightSmallOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                />
+              </XStack>
+            ) : (
+              <SizableText
+                size="$bodySmMedium"
+                numberOfLines={1}
+                textAlign="right"
+                maxWidth="$36"
+              >
+                {inputToken?.symbol ?? '-'}
+              </SizableText>
+            )}
             {!!inputToken && enableAddressTypeSelector ? (
               <AddressTypeSelector
                 refreshOnOpen
@@ -313,20 +339,6 @@ const SwapProTradeInfoGroup = ({
                 activeDeriveInfo={activeAccount?.deriveInfo}
                 renderSelectorTrigger={selectorTrigger}
               />
-            ) : null}
-            {isPayTokenSwitchVisible ? (
-              <XStack
-                onPress={() => setIsPayTokenPopoverOpen(true)}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
-                hoverStyle={{ opacity: 0.7 }}
-                pressStyle={{ opacity: 0.5 }}
-              >
-                <Icon
-                  name="ChevronRightSmallOutline"
-                  size="$4"
-                  color="$iconSubdued"
-                />
-              </XStack>
             ) : null}
           </XStack>
         }
