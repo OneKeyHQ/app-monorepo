@@ -210,6 +210,16 @@ export class KeyringHardware extends KeyringHardwareBase {
     ).filter(Boolean);
     let refTxs: IKaspaRefTransaction[] | undefined;
     try {
+      const devSettings =
+        await this.backgroundApi.serviceDevSetting.getDevSetting();
+      if (
+        devSettings.enabled &&
+        devSettings.settings?.mockKaspaRefTxFetchFailed
+      ) {
+        throw new OneKeyLocalError(
+          'mock kaspa refTx fetch failed (dev setting)',
+        );
+      }
       const built = await (this.vault as Vault).collectRefTxsByApi(prevTxids);
       // Require every input's prev tx; a partial set makes the device request a
       // missing prev-tx mid-stream and fail.
