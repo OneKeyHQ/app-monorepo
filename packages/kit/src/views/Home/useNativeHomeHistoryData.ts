@@ -12,6 +12,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
@@ -19,6 +20,7 @@ import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useHistoryListLoadMore } from './pages/hooks/useHistoryListLoadMore';
 
 export interface INativeHomeHistoryData {
+  addressMap: Record<string, IAddressBadge>;
   data: IAccountHistoryTx[];
   errorCode: string | undefined;
   hasMore: boolean;
@@ -52,6 +54,9 @@ export function useNativeHomeHistoryData({
   currencyMapRef.current = currencyMap;
 
   const [data, setData] = useState<IAccountHistoryTx[]>([]);
+  const [addressMap, setAddressMap] = useState<Record<string, IAddressBadge>>(
+    {},
+  );
   const [initialized, setInitialized] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorCode, setErrorCode] = useState<string>();
@@ -64,6 +69,12 @@ export function useNativeHomeHistoryData({
     vaultSettings?.mergeDeriveAssetsEnabled;
   const loadMoreEnabled =
     enabled && !network?.isAllNetworks && Boolean(networkId);
+  const mergeAddressMap = useCallback(
+    (nextAddressMap: Record<string, IAddressBadge>) => {
+      setAddressMap((previous) => ({ ...previous, ...nextAddressMap }));
+    },
+    [],
+  );
 
   const {
     appendedTxs,
@@ -83,6 +94,7 @@ export function useNativeHomeHistoryData({
     currencyMap,
     mergeDerive,
     indexedAccountId: indexedAccount?.id ?? '',
+    onAddressMap: mergeAddressMap,
   });
 
   const ownerKey = useMemo(
@@ -136,6 +148,7 @@ export function useNativeHomeHistoryData({
             });
         if (requestIdRef.current === requestId) {
           setData(result.txs);
+          setAddressMap(result.addressMap ?? {});
           onFirstPageResponse({
             txs: result.txs,
             next: result.next,
@@ -171,6 +184,7 @@ export function useNativeHomeHistoryData({
   useEffect(() => {
     requestIdRef.current += 1;
     setData([]);
+    setAddressMap({});
     setInitialized(false);
     setErrorCode(undefined);
     resetLoadMore();
@@ -215,6 +229,7 @@ export function useNativeHomeHistoryData({
 
   return useMemo(
     () => ({
+      addressMap,
       data: mergedData,
       errorCode,
       hasMore,
@@ -225,6 +240,7 @@ export function useNativeHomeHistoryData({
       refresh,
     }),
     [
+      addressMap,
       errorCode,
       hasMore,
       initialized,

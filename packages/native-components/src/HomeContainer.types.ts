@@ -64,6 +64,9 @@ export type IHomeContainerActionIcon =
 export interface IHomeContainerTheme {
   backgroundColor: string;
   cardColor: string;
+  strongColor?: string;
+  infoBackgroundColor?: string;
+  infoTextColor?: string;
   hoverColor?: string;
   activeColor?: string;
   subduedIconColor?: string;

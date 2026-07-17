@@ -124,6 +124,7 @@ import { showBalanceDetailsDialog } from './components/BalanceDetailsDialog';
 import { formatPortfolioTotal } from './components/DeFiListBlock/formatPortfolioTotal';
 import {
   FAVORITES_CATEGORY_ID,
+  HOME_PERPS_GUIDE_URL,
   HOME_PERPS_HOT_CATEGORY_ID,
   HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
 } from './components/PopularTrading/constants';
@@ -611,6 +612,10 @@ export function NativeHomePage({
       },
       stateLabels,
       formatters,
+      colors: {
+        negative: theme.textCritical.val,
+        positive: theme.textSuccess.val,
+      },
     });
     if (perps.viewState === 'ready' && supplemental.perpsMarket.length > 0) {
       sections.push({
@@ -620,12 +625,12 @@ export function NativeHomePage({
         }),
         items: supplemental.perpsMarket.map((token) => ({
           id: `perps-market:${token.name}`,
-          renderer: 'market',
+          renderer: 'perps',
           title: token.displayName,
           subtitle: `$${displayNumberToString(
             formatDisplayNumber(formatMarketCap(token.volume24h)),
           )}`,
-          value: formatters.formatFiat(token.markPrice, 'usd'),
+          value: formatters.formatPrice?.(token.markPrice, 'usd') ?? '--',
           detail: formatNativePriceChange(token.change24hPercent),
           badge: `${token.maxLeverage}x`,
           imageUrl: token.tokenImageUrl,
@@ -716,6 +721,7 @@ export function NativeHomePage({
   const historySections = useMemo(
     () =>
       buildNativeHistorySections({
+        addressMap: history.addressMap,
         history: history.data,
         initialized: history.initialized,
         stateLabels,
@@ -735,7 +741,7 @@ export function NativeHomePage({
           swap: intl.formatMessage({ id: ETranslations.global_swap }),
           unknown: intl.formatMessage({ id: ETranslations.global_unknown }),
           unlimited: intl.formatMessage({
-            id: ETranslations.approve_edit_unlimited_amount,
+            id: ETranslations.swap_page_provider_approve_amount_un_limit,
           }),
           revokeApprove: (symbol) =>
             intl.formatMessage(
@@ -759,6 +765,7 @@ export function NativeHomePage({
     [
       formatters.formatBalance,
       formatters.formatFiat,
+      history.addressMap,
       history.data,
       history.hasMore,
       history.initialized,
@@ -968,6 +975,9 @@ export function NativeHomePage({
     () => ({
       backgroundColor: theme.bgApp.val,
       cardColor: theme.bgSubdued.val,
+      strongColor: theme.bgStrong.val,
+      infoBackgroundColor: theme.bgInfo.val,
+      infoTextColor: theme.textInfo.val,
       hoverColor: theme.bgHover.val,
       activeColor: theme.bgActive.val,
       subduedIconColor: theme.iconSubdued.val,
@@ -983,11 +993,14 @@ export function NativeHomePage({
       theme.bgActive.val,
       theme.bgHover.val,
       theme.bgSubdued.val,
+      theme.bgStrong.val,
+      theme.bgInfo.val,
       theme.borderSubdued.val,
       theme.brand9.val,
       theme.iconSubdued.val,
       theme.text.val,
       theme.textCritical.val,
+      theme.textInfo.val,
       theme.textSubdued.val,
       theme.textSuccess.val,
     ],
@@ -1539,8 +1552,53 @@ export function NativeHomePage({
           content: <SupportHub nativeSlot />,
         },
       },
+      perps:
+        perps.viewState === 'ready'
+          ? {
+              ...(shouldShowUpgrade
+                ? {
+                    upgrade: {
+                      interaction: 'tap' as const,
+                      content: <Upgrade />,
+                    },
+                  }
+                : {}),
+              support: {
+                interaction: 'tap',
+                content: (
+                  <SupportHub
+                    nativeSlot
+                    helpCenterTitle={intl.formatMessage({
+                      id: ETranslations.perp_guide_title,
+                    })}
+                    helpCenterLink={HOME_PERPS_GUIDE_URL}
+                  />
+                ),
+              },
+            }
+          : {},
+      defi: {
+        ...(shouldShowUpgrade
+          ? {
+              upgrade: {
+                interaction: 'tap' as const,
+                content: <Upgrade />,
+              },
+            }
+          : {}),
+        support: {
+          interaction: 'tap',
+          content: <SupportHub nativeSlot />,
+        },
+      },
     };
-  }, [isPrimeAvailable, user?.onekeyUserId, user?.primeSubscription?.isActive]);
+  }, [
+    intl,
+    isPrimeAvailable,
+    perps.viewState,
+    user?.onekeyUserId,
+    user?.primeSubscription?.isActive,
+  ]);
   const homeSlots = useMemo<IHomeContainerSlots>(
     () => ({
       backgroundColor: nativeTheme.backgroundColor,

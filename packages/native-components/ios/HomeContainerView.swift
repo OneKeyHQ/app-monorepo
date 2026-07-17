@@ -2,7 +2,8 @@ import UIKit
 
 private enum HomeContainerMetrics {
   static let tabHeight: CGFloat = 60
-  static let compactHeaderHeight: CGFloat = 48
+  static let compactHeaderHeight: CGFloat = 60
+  static let compactAccountTopInset: CGFloat = 16
   static let headerBottomPadding: CGFloat = 40
   static let rowHeight: CGFloat = 68
   static let nftRowHeight: CGFloat = 92
@@ -1310,11 +1311,14 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     case .horizontal(let section):
       return section.items.first?.renderer == "supportPromo" ? 163 : HomeContainerMetrics.horizontalRowHeight
     case .sectionTitle:
-      return row.id.hasPrefix("section:history:") ? 44 : HomeContainerMetrics.sectionTitleHeight
+      if row.id.hasPrefix("section:history:") {
+        return row.id.hasPrefix("section:history:0:") ? 44 : 52
+      }
+      return HomeContainerMetrics.sectionTitleHeight
     case .item(let item):
       switch item.renderer {
       case "nft": return HomeContainerMetrics.nftRowHeight
-      case "history": return 60
+      case "history": return 68
       case "defi": return 64
       case "marketTabs": return 48
       case "showMore": return 48
@@ -1802,7 +1806,10 @@ private final class HomeContainerHeaderView: UIView {
   private func updatePinnedAccountRow() {
     accountRow.transform = .identity
     let naturalFrame = accountRow.convert(accountRow.bounds, to: self)
-    let translationY = max(0, pinnedOffset - naturalFrame.minY)
+    let translationY = max(
+      0,
+      pinnedOffset + HomeContainerMetrics.compactAccountTopInset - naturalFrame.minY
+    )
     accountRow.transform = CGAffineTransform(translationX: 0, y: translationY)
     compactBackdropView.frame = accountRow.convert(accountRow.bounds, to: self)
     compactBackdropView.isHidden = accountRow.isHidden
@@ -3032,9 +3039,9 @@ private final class HomeContainerNFTCardControl: UIControl {
     imageView.contentMode = .scaleAspectFill
     imageView.clipsToBounds = true
     imageView.layer.cornerRadius = 10
-    collectionLabel.font = .systemFont(ofSize: 13)
+    collectionLabel.font = HomeContainerTypography.regular(12)
     collectionLabel.numberOfLines = 1
-    titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
+    titleLabel.font = HomeContainerTypography.medium(16)
     titleLabel.numberOfLines = 1
     amountLabel.font = .systemFont(ofSize: 13, weight: .semibold)
     amountLabel.textColor = .white
@@ -3067,7 +3074,7 @@ private final class HomeContainerNFTCardControl: UIControl {
     collectionLabel.frame = CGRect(
       x: padding,
       y: collectionTop,
-      width: max(0, imageWidth - 22),
+      width: max(0, imageWidth - (networkImageView.isHidden ? 0 : 22)),
       height: 18
     )
     titleLabel.frame = CGRect(x: padding, y: collectionTop + 20, width: imageWidth, height: 22)
@@ -3096,7 +3103,7 @@ private final class HomeContainerNFTCardControl: UIControl {
     self.onAction = onAction
     backgroundColor = UIColor(homeContainerColor: theme.backgroundColor, fallback: .systemBackground)
     imageView.backgroundColor = UIColor(
-      homeContainerColor: theme.cardColor,
+      homeContainerColor: theme.strongColor ?? theme.cardColor,
       fallback: .secondarySystemBackground
     )
     imagePlaceholderColor = UIColor(
@@ -3561,6 +3568,10 @@ private final class HomeContainerItemCell: UITableViewCell {
   private var marketIconLeadingConstraint: NSLayoutConstraint?
   private var iconWidthConstraint: NSLayoutConstraint?
   private var iconHeightConstraint: NSLayoutConstraint?
+  private var iconImageWidthConstraint: NSLayoutConstraint?
+  private var iconImageHeightConstraint: NSLayoutConstraint?
+  private var secondaryIconWidthConstraint: NSLayoutConstraint?
+  private var secondaryIconHeightConstraint: NSLayoutConstraint?
   private var titleMaxWidthConstraint: NSLayoutConstraint?
   private var subtitleMaxWidthConstraint: NSLayoutConstraint?
   private var centerButtonTopConstraint: NSLayoutConstraint?
@@ -3731,6 +3742,10 @@ private final class HomeContainerItemCell: UITableViewCell {
     )
     let iconWidthConstraint = iconContainer.widthAnchor.constraint(equalToConstant: 40)
     let iconHeightConstraint = iconContainer.heightAnchor.constraint(equalToConstant: 40)
+    let iconImageWidthConstraint = iconImageView.widthAnchor.constraint(equalToConstant: 40)
+    let iconImageHeightConstraint = iconImageView.heightAnchor.constraint(equalToConstant: 40)
+    let secondaryIconWidthConstraint = secondaryIconImageView.widthAnchor.constraint(equalToConstant: 26)
+    let secondaryIconHeightConstraint = secondaryIconImageView.heightAnchor.constraint(equalToConstant: 26)
     let titleMaxWidthConstraint = titleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 128)
     let subtitleMaxWidthConstraint = subtitleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 66)
     let centerButtonTopConstraint = centerButton.topAnchor.constraint(
@@ -3745,6 +3760,10 @@ private final class HomeContainerItemCell: UITableViewCell {
     self.marketIconLeadingConstraint = marketIconLeadingConstraint
     self.iconWidthConstraint = iconWidthConstraint
     self.iconHeightConstraint = iconHeightConstraint
+    self.iconImageWidthConstraint = iconImageWidthConstraint
+    self.iconImageHeightConstraint = iconImageHeightConstraint
+    self.secondaryIconWidthConstraint = secondaryIconWidthConstraint
+    self.secondaryIconHeightConstraint = secondaryIconHeightConstraint
     self.titleMaxWidthConstraint = titleMaxWidthConstraint
     self.subtitleMaxWidthConstraint = subtitleMaxWidthConstraint
     self.centerButtonTopConstraint = centerButtonTopConstraint
@@ -3763,13 +3782,13 @@ private final class HomeContainerItemCell: UITableViewCell {
       iconWidthConstraint,
       iconHeightConstraint,
       iconImageView.leadingAnchor.constraint(equalTo: iconContainer.leadingAnchor),
-      iconImageView.trailingAnchor.constraint(equalTo: iconContainer.trailingAnchor),
       iconImageView.topAnchor.constraint(equalTo: iconContainer.topAnchor),
-      iconImageView.bottomAnchor.constraint(equalTo: iconContainer.bottomAnchor),
+      iconImageWidthConstraint,
+      iconImageHeightConstraint,
       secondaryIconImageView.trailingAnchor.constraint(equalTo: iconContainer.trailingAnchor),
       secondaryIconImageView.bottomAnchor.constraint(equalTo: iconContainer.bottomAnchor),
-      secondaryIconImageView.widthAnchor.constraint(equalToConstant: 26),
-      secondaryIconImageView.heightAnchor.constraint(equalToConstant: 26),
+      secondaryIconWidthConstraint,
+      secondaryIconHeightConstraint,
       titleAccessoryImageView.widthAnchor.constraint(equalToConstant: 14),
       titleAccessoryImageView.heightAnchor.constraint(equalToConstant: 14),
       recognizedImageView.widthAnchor.constraint(equalToConstant: 16),
@@ -3812,7 +3831,7 @@ private final class HomeContainerItemCell: UITableViewCell {
       ),
       marketTabsStack.centerYAnchor.constraint(equalTo: marketTabsScrollView.frameLayoutGuide.centerYAnchor),
       marketTabsStack.heightAnchor.constraint(equalToConstant: 32),
-      divider.leadingAnchor.constraint(equalTo: leftStack.leadingAnchor),
+      divider.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
       divider.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
       divider.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
       divider.heightAnchor.constraint(equalToConstant: 0.5),
@@ -3950,10 +3969,25 @@ private final class HomeContainerItemCell: UITableViewCell {
     iconLeadingConstraint?.isActive = !showsFavorite
     marketIconLeadingConstraint?.isActive = showsFavorite
     let usesMarketGeometry = item.renderer == "market"
+    let usesPairedHistoryIcons =
+      item.renderer == "history" && item.secondaryImageUrl?.isEmpty == false
     titleMaxWidthConstraint?.isActive = usesMarketGeometry
     subtitleMaxWidthConstraint?.isActive = usesMarketGeometry && item.subtitle?.isEmpty == false
     iconWidthConstraint?.constant = usesMarketGeometry ? 32 : 40
     iconHeightConstraint?.constant = usesMarketGeometry ? 32 : 40
+    let primaryIconSize: CGFloat = usesPairedHistoryIcons ? 24 : (usesMarketGeometry ? 32 : 40)
+    let secondaryIconSize: CGFloat = usesPairedHistoryIcons ? 24 : 26
+    iconImageWidthConstraint?.constant = primaryIconSize
+    iconImageHeightConstraint?.constant = primaryIconSize
+    secondaryIconWidthConstraint?.constant = secondaryIconSize
+    secondaryIconHeightConstraint?.constant = secondaryIconSize
+    iconImageView.layer.cornerRadius = usesPairedHistoryIcons ? 12 : 0
+    secondaryIconImageView.layer.cornerRadius = secondaryIconSize / 2
+    secondaryIconImageView.layer.borderWidth = usesPairedHistoryIcons ? 2 : 0
+    secondaryIconImageView.layer.borderColor = UIColor(
+      homeContainerColor: theme.backgroundColor,
+      fallback: .systemBackground
+    ).cgColor
     contentView.alpha = item.renderer == "empty" || item.renderer == "loading" ? 0 : 1
     backgroundColor = UIColor(homeContainerColor: theme.backgroundColor, fallback: .systemBackground)
     titleLabel.textColor = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
@@ -3963,7 +3997,7 @@ private final class HomeContainerItemCell: UITableViewCell {
       fallback: .secondaryLabel
     )
     valueLabel.textColor = UIColor(
-      homeContainerColor: item.renderer == "market"
+      homeContainerColor: item.renderer == "market" || item.renderer == "perps"
         ? theme.primaryTextColor
         : item.accentColor ?? theme.primaryTextColor,
       fallback: .label
@@ -3986,11 +4020,15 @@ private final class HomeContainerItemCell: UITableViewCell {
       fallback: .systemGreen
     )
     leverageLabel.textColor = UIColor(
-      homeContainerColor: theme.accentColor,
+      homeContainerColor: item.renderer == "perps"
+        ? theme.infoTextColor ?? theme.accentColor
+        : theme.accentColor,
       fallback: .systemBlue
     )
     leverageLabel.backgroundColor = UIColor(
-      homeContainerColor: theme.cardColor,
+      homeContainerColor: item.renderer == "perps"
+        ? theme.infoBackgroundColor ?? theme.cardColor
+        : theme.cardColor,
       fallback: .secondarySystemBackground
     )
     iconLabel.textColor = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
@@ -4004,6 +4042,9 @@ private final class HomeContainerItemCell: UITableViewCell {
       iconContainer.backgroundColor = Self.cryptoCoinFallbackBackgroundColor(
         for: UIColor(homeContainerColor: theme.backgroundColor, fallback: .systemBackground)
       )
+    }
+    if usesPairedHistoryIcons {
+      iconContainer.backgroundColor = .clear
     }
     switch item.leadingIcon {
     case "star": iconLabel.text = "★"
@@ -4128,23 +4169,21 @@ private final class HomeContainerItemCell: UITableViewCell {
       iconLabel.textColor = .black
     }
 
-    titleLabel.font = item.renderer == "market"
+    let usesRoobertTypography = ["market", "perps", "defi", "history"].contains(item.renderer)
+    titleLabel.font = usesRoobertTypography
       ? HomeContainerTypography.medium(16)
       : .systemFont(ofSize: 16, weight: .medium)
-    subtitleLabel.font = item.renderer == "market"
+    subtitleLabel.font = usesRoobertTypography
       ? HomeContainerTypography.regular(14)
       : .systemFont(ofSize: 14)
     subtitleDetailLabel.font = subtitleLabel.font
-    valueLabel.font = item.renderer == "market"
+    valueLabel.font = usesRoobertTypography
       ? HomeContainerTypography.medium(16)
       : .systemFont(ofSize: 16, weight: .medium)
-    detailLabel.font = item.renderer == "market"
+    detailLabel.font = usesRoobertTypography
       ? HomeContainerTypography.regular(14)
       : .systemFont(ofSize: 14)
-    if item.renderer == "history" {
-      titleLabel.font = .systemFont(ofSize: 16, weight: .medium)
-    }
-    if item.renderer == "market" {
+    if item.renderer == "market" || item.renderer == "perps" {
       detailLabel.textColor = UIColor(
         homeContainerColor: item.accentColor ?? theme.secondaryTextColor,
         fallback: .secondaryLabel
@@ -4261,11 +4300,11 @@ private final class HomeContainerItemCell: UITableViewCell {
     badges.prefix(2).forEach { value in
       let label = HomeContainerInsetLabel()
       label.text = value
-      label.font = .systemFont(ofSize: 10, weight: .medium)
+      label.font = HomeContainerTypography.medium(12)
       label.textColor = color
       label.backgroundColor = color.withAlphaComponent(0.12)
-      label.contentInsets = UIEdgeInsets(top: 2, left: 5, bottom: 2, right: 5)
-      label.layer.cornerRadius = 5
+      label.contentInsets = UIEdgeInsets(top: 2, left: 6, bottom: 2, right: 6)
+      label.layer.cornerRadius = 6
       label.clipsToBounds = true
       label.numberOfLines = 1
       label.setContentCompressionResistancePriority(.required, for: .horizontal)

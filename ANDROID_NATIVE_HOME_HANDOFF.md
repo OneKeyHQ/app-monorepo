@@ -1359,3 +1359,36 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` 通过；聚焦 Prettier 通过。聚焦 type-aware Oxlint 为 0 warning / 0 error；`nativeHomeDataAdapters.test.ts` 与 `HomeContainerController.test.ts` 共 2 suites / 17 tests 通过。
 - 一次错误使用 `yarn eslint <files>` 时仓库脚本忽略文件参数并扫描全仓，输出 281 个既有 error / 9 warnings，分布于 CLI、Desktop、TradingView、Swap 等无关范围；随后使用正确的聚焦 `npx oxlint --tsconfig ./tsconfig.json --type-aware --deny-warnings` 验证本轮 6 个 TS 文件为绿色。没有回滚或修改无关代码制造结果。
 - 最终 staged 内容的 `yarn agent:check --profile commit` 日志为 `node_modules/.cache/agent-checks/2026-07-16T19-26-37-089Z`。`lint-worktree-js`、`agent-context`、`lint-staged` 通过；`lint-worktree-ts` 仍由共享工作区既有的 Desktop/Discovery 测试等问题阻断，`tsc-staged` 剩余 12 errors / 10 files，均位于 DeFi、TradingView、WebView、Navigator、AppUpdate、ChainSelector、Firmware、旧 `NativeHomePageView.native.tsx`、ReferFriends 和 Swap。本轮第一次 profile 暴露的 4 个 `nativeHomeDataAdapters.test.ts` fixture 类型错误已经修复，最终日志不再包含本轮 `NativeHomePage.native.tsx`、adapter、controller 或 native-components 错误。
+
+## 2026-07-17 iOS Wallet Perps / DeFi / NFT / History 等状态最终复比
+
+### 等状态 A/B 与自动 differ 结论
+
+- 本轮继续使用已经验证有效的主要走查方式：同一 iPhone 17 Pro simulator、`Account #1`、BNB 网络、Debug 包和服务端数据，Legacy 与 Native 分别从完整 Header 开始，按 Perps、DeFi、NFT、History 顺序截图；Native 额外保留连续切换录屏。Legacy 采集期间只临时把 `nativeHomeFeatureFlag.native.ts` 设为 `false`，完成后恢复原表达式，最终该文件为零 diff，新首页仍是默认路径。
+- Legacy 原图位于 `.tmp/ui/home-tabs-recompare-20260717-final/legacy/`；最终 Native 原图为 `perps-top-latest.png`、`defi-top-latest.png`、`nft-top-latest.png`、`history-top-latest.png`。四个 Tab 连续真实点击录屏为 `.tmp/ui/home-tabs-recompare-20260717-final/native/four-tabs-final.mp4`（492 个实际编码帧 / 16.4s），不是用元素存在或编译通过替代交互证据。
+- 宽度 402 的三列 comparison、absolute heatmap 和 edge differ 位于 `.tmp/ui/home-tabs-recompare-20260717-final/diff/<tab>/comparison.png`。最终顶部 `mean_abs_rgb / pixels_changed_ge_16 / edge disagreement` 分别为：Perps `6.008 / 5.308% / 3.870%`，DeFi `7.866 / 6.286% / 5.071%`，NFT `2.500 / 2.259% / 1.313%`，History `9.936 / 7.422% / 4.931%`。这些数字只用于排差优先级；实时价格、余额、交易新增时间和异步图片会制造差异，不能解释为完成率。
+- History body 的 raw pixel differ 因两边滚动距离和新增交易不同而不可比较，已明确判为无效数值，不用于通过或失败。有效做法是分别核对固定 compact Header / Tab frame，再逐行核对同一交易语义。Legacy 多次旧坐标误点到 Spot/DeFi、Native 后续尝试滚 DeFi footer 时误进 Pendle 详情并打开 Search 的帧同样全部作废。
+
+### 本轮集中修复与真实结果
+
+- Perps holding 按原版恢复为 `USDC / 10.256 / $10.26 / PNL`，叠 HyperEVM badge；Hot Markets 使用独立 Perps renderer、Roobert 字体、完整 symbol、蓝色 leverage badge、原版价格精度与涨跌色，不再沿用 Market 列约束。真实最终图中 `kBONK / SILVER / ONDO / EIGEN / SPCX` 均未出现 `ON...` 等异常截断，Deposit、真实 holding 和 Hot Markets 同时存在。
+- Perps 与 DeFi 的 Native slot 补齐 Upgrade / Support hub；Perps Support 使用 Trading Guide 链接。DeFi 当前 BNB 实际服务数据与 Legacy 都是 `Bitway Earn / 5 Positions / $10.01` 和 `Pendle V2 / 2 Positions / $1.68`，Native 显示顺序、separator、数值和 chevron 一致；当前样本不存在可直接显示的行内 Withdraw/Repay action，不能用其他网络的旧样本强行判失败。
+- NFT 当前 BNB 是真实空态。Native 与 Legacy 都显示 `No NFTs / No NFTs found at this address`；移除了重复 NFT section 标题，空态/卡片使用 Native theme 的 strong color，卡片 collection/title 改为 Roobert，单链 network badge 语义保持与 Legacy 一致。该结论只覆盖当前空态，不覆盖图片全部失败或 NFT 详情跳转。
+- History main 从 bg snapshot 同时接收 `addressMap`，按 network/address key 恢复 PancakeSwap、Bitway 等原版应用标签；send/receive target、approve spender、function/unknown target 都使用相同规则。Swap 恢复发送/接收双图标、双边 amount，`Unlimited` 使用与 Legacy 相同翻译，日期、68pt 行高、分组间距和 Roobert 16/14 typography 对齐。
+- 最终 History 实图真实显示 `Request withdrawal / Bitway / -0.0009608 bwUSDT`、`Send / 0x5cb306...cbe28e`、`Approve / PancakeSwap / Unlimited`、`Revoke USDC allowance` 和 Swap 双图标；`Request withdrawal` 不再被截断。对应顶部为 `history-top-latest.png`，收起后为 `history-small-pan-account-inset.png`。
+- 折叠 Header 根据 A/B 实测把 compact height 从 48pt 调整为 60pt，并给 pinned account row 保留 16pt top inset。History 短上滑录屏为 `.tmp/ui/home-tabs-recompare-20260717-final/native/history-small-pan-account-inset.mp4`（380 个实际帧 / 12.67s）；转场 90 帧 contact sheet 为 `history-small-pan-account-inset-transition-all-frames.png`。可见 full Header 到 compact account/Tab/rows 只做连续单向位移，Market/History 内容全程存在，没有 blank/loading，也没有瞬间跳回顶部。
+
+### 最终 Debug、运行时与数据安全
+
+- 最后一处 compact account inset 修改后，重新从仓库根目录执行标准 `yarn app:ios`；结果 `Build Succeeded`、0 errors、11 warnings，并由该命令更新安装 `Debug-iphonesimulator/OneKeyWallet.app`、启动 `so.onekey.wallet`。没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`。
+- 没有执行 uninstall、reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据。最终 appstate 前台仍为 `so.onekey.wallet`；`Account #1`、BNB 网络、`$23.47` 余额、USDT/USDC/BNB 资产和 Perps/DeFi 非零仓位均正常，应用持续存活。
+- 最终 main probe：`runtime=main`、`jsReadyAt=1784260244937`、`uiVisibleAt=1784260246536`、`backgroundTransportState=ready`。独立 bg ready payload 为 `runtime=background/status=ready/protocolVersion=1/bootId=1784260246629-i4vk3j7r/ts=1784260246941`，独立 background target 的 Jotai bridge 存在；没有用 main ready 代替 bg ready。
+- **main scope：** Native Home Header/Tab/UI、Perps/DeFi/NFT/History display adapter、selection/cache/snapshot/section patch、scroll owner 和 compact pin。**bg scope：** Perps/DeFi/History/portfolio/Market service 数据、address map 与权威持久化。iOS main/bg 是独立 Hermes JS heap，proxy 数据分别序列化/反序列化，各自持有副本，初始化顺序独立。
+- 图片/字体 cache 和底层持久化句柄是进程级共享 Native 资源；cell constraint、represented image/favorite signature、request cancellation、paired icon frame、selected/pressed/hover、compact transform 与 scroll owner 是 per-view/main 状态。
+
+### 检查与剩余边界
+
+- `xcrun swiftc -parse HomeContainerView.swift HomeContainerModels.swift` 通过；指定 Native Home 文件的 `git diff --check` 通过；5 个 TS 文件的 type-aware Oxlint 为 0 warning / 0 error；聚焦 Prettier 通过。
+- 聚焦 Jest `nativeHomeDataAdapters.test.ts` 与 `HomeContainerController.test.ts` 共 2 suites / 18 tests 全部通过；新增覆盖 Perps holding DTO、History addressMap 标签和双图标顺序。
+- 最终 staged 内容执行 `yarn agent:check --profile commit`，日志为 `node_modules/.cache/agent-checks/2026-07-17T04-02-37-678Z`。`lint-worktree-js`、`agent-context`、`lint-staged` 通过；`lint-worktree-ts` 被共享工作区既有 Desktop、Receive、TokenList、Discovery、Swap 等 2 warnings / 10 errors 阻断，`tsc-staged` 被 DeFi、TradingView、WebView、Navigator、AppUpdate、ChainSelector、Firmware、旧 `NativeHomePageView.native.tsx`、ReferFriends 和 Swap 共 12 errors / 10 files 阻断。日志中没有本轮 `NativeHomePage.native.tsx`、adapter、history hook 或 native-components 文件错误；没有修改或回滚这些无关文件制造绿色结果。
+- 本节通过的是当前 BNB 服务状态下四个 Tab 的顶部内容、实际数据语义、连续切换与 History full-to-compact 短滑。Dark mode、动态字体、所有 pressed/hover、所有 History 交易类型、NFT 图片失败/取消请求、DeFi/Perps 详情跳转、失败回滚和离线降级仍没有完整真实证据，不能据此声明 Native Home UI 已全部完成。
