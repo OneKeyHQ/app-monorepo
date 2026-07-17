@@ -35,6 +35,7 @@ import {
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import type { IOneKeyIdLoginWithLocalKeylessPrepareResult } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   getBoundOAuthProviders,
   getOAuthSocialLoginProviderName,
@@ -375,8 +376,37 @@ function OneKeyIdLegacyOAuthBindActions({
             }
             throw error;
           }
-          await legacySupabaseSignOut();
-          await onBindSuccess?.();
+          // The bind POST has committed irreversibly at this point (server
+          // identity added, bg auth source/atom already switched to
+          // KeylessOAuth), so the flow must settle as a success from here on:
+          // post-commit failures must not flow into withErrorAutoToast /
+          // onBindError, which would report a committed bind as failed —
+          // and a retry can never succeed because the legacy auth slot is
+          // already cleared by the bg method.
+          try {
+            // Main-runtime hygiene only (bg already cleared its own legacy
+            // session slot); mirrors the bg method's best-effort policy.
+            await legacySupabaseSignOut();
+          } catch (cleanupError) {
+            defaultLogger.prime.subscription.onekeyIdLogout({
+              reason: `OneKeyIdLegacyOAuthBindActions: legacy Supabase sign-out failed after bind committed: ${String(
+                cleanupError,
+              )}`,
+            });
+          }
+          try {
+            await onBindSuccess?.();
+          } catch (bindSuccessHandlerError) {
+            // onBindSuccess settles/closes the host dialog (it resolves
+            // didBind=true before a dialog-close failure can propagate
+            // here); any follow-up continuation errors surface through the
+            // continuation's own error handling, so only log here.
+            defaultLogger.prime.subscription.onekeyIdLogout({
+              reason: `OneKeyIdLegacyOAuthBindActions: onBindSuccess failed after bind committed: ${String(
+                bindSuccessHandlerError,
+              )}`,
+            });
+          }
           Toast.success({
             title: intl.formatMessage({ id: ETranslations.global_success }),
           });
@@ -721,8 +751,16 @@ export async function showOneKeyIdLegacyOAuthBindDialog({
             onBindSuccess={async () => {
               if (!isSettled) {
                 isSettled = true;
-                await dialog.close({ flag: 'confirm' });
-                resolve(true);
+                // The bind has already committed when this runs, and
+                // isSettled=true blocks onClose/onCancel from settling, so
+                // didBind must resolve true even if closing the dialog
+                // throws; the close error itself is logged (not toasted) by
+                // the bind actions.
+                try {
+                  await dialog.close({ flag: 'confirm' });
+                } finally {
+                  resolve(true);
+                }
               }
             }}
             onBeforeShowNestedDialog={async () => {

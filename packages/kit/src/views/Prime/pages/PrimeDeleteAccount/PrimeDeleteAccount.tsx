@@ -66,13 +66,11 @@ export default function PrimeDeleteAccount() {
     await sendEmailOTP({
       scene: EPrimeEmailOTPScene.DeleteOneKeyId,
       onConfirm: async ({ code, uuid }) => {
-        console.log('emailOTP>>>>>>', code, uuid);
         const deleteResult =
           await backgroundApiProxy.servicePrime.apiDeleteAccount({
             uuid,
             emailOTP: code,
           });
-        console.log('deleteResult>>>>>>', deleteResult);
 
         if (!deleteResult?.ok) {
           Toast.error({
