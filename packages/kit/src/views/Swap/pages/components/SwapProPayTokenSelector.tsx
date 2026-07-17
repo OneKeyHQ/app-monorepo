@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   useSwapProDirectionAtom,
   useSwapProSelectTokenAtom,
@@ -114,27 +113,16 @@ const SwapProPayTokenSelector = ({
         hoverStyle={{ bg: '$bgStrongHover' }}
         pressStyle={{ bg: '$bgStrongActive' }}
       >
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.global_pay })}
-        </SizableText>
-        <XStack
+        <SizableText
           flex={1}
-          alignItems="center"
-          justifyContent="flex-end"
-          gap="$1.5"
+          size="$bodyMd"
+          textAlign="center"
+          numberOfLines={1}
         >
-          {swapProUseSelectBuyToken?.logoURI ? (
-            <Token
-              size="xs"
-              tokenImageUri={swapProUseSelectBuyToken.logoURI}
-              networkId={swapProUseSelectBuyToken.networkId}
-              showNetworkIcon
-            />
-          ) : null}
-          <SizableText size="$bodyMd" numberOfLines={1} maxWidth="$24">
-            {swapProUseSelectBuyToken?.symbol ?? '-'}
-          </SizableText>
-        </XStack>
+          {`${intl.formatMessage({ id: ETranslations.global_pay })} (${
+            swapProUseSelectBuyToken?.symbol ?? '-'
+          })`}
+        </SizableText>
         <Icon size="$4" name="ChevronDownSmallOutline" color="$iconSubdued" />
       </XStack>
       <TokenSelectorPopover
