@@ -37,6 +37,8 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import { analytics } from '@onekeyhq/shared/src/analytics';
+import type { IAnalyticsUserProfile } from '@onekeyhq/shared/src/analytics/type';
 import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   clearPbkdf2InvocationByProbeId,
@@ -197,6 +199,10 @@ import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessS
 import { isBotWalletInCurrentKeylessSyncScope } from '../ServicePrimeCloudSync/botWalletCloudSyncUtils';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
+import {
+  buildAnalyticsWalletProfile,
+  shouldReportAnalyticsWalletProfile,
+} from './analyticsWalletProfile';
 import {
   buildDefaultBotWalletName,
   isDefaultBotWalletName,
@@ -714,6 +720,44 @@ class ServiceAccount extends ServiceBase {
       ...r,
       wallets,
     };
+  }
+
+  private async getWalletProfileForAnalytics(): Promise<
+    IAnalyticsUserProfile | undefined
+  > {
+    const [{ wallets }, botWalletMetadata] = await Promise.all([
+      this.getWallets({
+        nestedHiddenWallets: true,
+        ignoreEmptySingletonWalletAccounts: true,
+      }),
+      simpleDb.botWallet.getMetadataMap(),
+    ]);
+    return buildAnalyticsWalletProfile({ wallets, botWalletMetadata });
+  }
+
+  @backgroundMethod()
+  async reportWalletProfileAnalyticsIfNeeded() {
+    const now = Date.now();
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (
+      !shouldReportAnalyticsWalletProfile({
+        lastReportedAt: appStatus?.lastWalletProfileAnalyticsAt,
+        now,
+      })
+    ) {
+      return;
+    }
+
+    const walletProfile = await this.getWalletProfileForAnalytics();
+    if (walletProfile) {
+      analytics.updateUserProfile(walletProfile);
+    }
+    await simpleDb.appStatus.setRawData(
+      (value): ISimpleDBAppStatus => ({
+        ...value,
+        lastWalletProfileAnalyticsAt: now,
+      }),
+    );
   }
 
   @backgroundMethod()

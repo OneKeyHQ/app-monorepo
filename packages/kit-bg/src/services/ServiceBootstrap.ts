@@ -7,9 +7,12 @@ import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import localDb from '../dbs/local/localDb';
 
 import ServiceBase from './ServiceBase';
+import { scheduleWalletProfileAnalyticsChecks } from './walletProfileAnalyticsScheduler';
 
 @backgroundClass()
 class ServiceBootstrap extends ServiceBase {
+  private walletProfileAnalyticsChecksScheduled = false;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -139,9 +142,19 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('serviceContextMenu.init', () =>
         this.backgroundApi.serviceContextMenu.init(),
       ),
-      timedDeferred('serviceDevSetting.initAnalytics', () =>
-        this.backgroundApi.serviceDevSetting.initAnalytics(),
-      ),
+      timedDeferred('serviceDevSetting.initAnalytics', async () => {
+        await this.backgroundApi.serviceDevSetting.initAnalytics();
+        if (!this.walletProfileAnalyticsChecksScheduled) {
+          this.walletProfileAnalyticsChecksScheduled = true;
+          scheduleWalletProfileAnalyticsChecks(() =>
+            timedDeferred(
+              'serviceAccount.reportWalletProfileAnalyticsIfNeeded',
+              () =>
+                this.backgroundApi.serviceAccount.reportWalletProfileAnalyticsIfNeeded(),
+            ),
+          );
+        }
+      }),
       // ext MV3 only: re-warm providers of already-connected dapps after a
       // service-worker restart so notifyDApp* can reach them. Native/desktop
       // rebuild their webviews on restart (dapp reconnects), so no warmup
