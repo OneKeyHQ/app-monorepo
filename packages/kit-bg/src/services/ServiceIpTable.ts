@@ -65,6 +65,12 @@ interface IEndpointHealth {
   consecutiveFailures: number;
   /** Timestamp of last failure */
   lastFailureTime: number;
+  /**
+   * Transport start time (Date.now) of the newest outcome applied to this
+   * endpoint. Success/failure reports race through async callbacks; an
+   * outcome whose request started before this point is stale and ignored.
+   */
+  lastOutcomeAt: number;
 }
 
 /**
@@ -141,6 +147,7 @@ class ServiceIpTable extends ServiceBase {
           failureCount: 0,
           consecutiveFailures: 0,
           lastFailureTime: 0,
+          lastOutcomeAt: 0,
         },
         lastSpeedTestTime: 0,
       };
@@ -167,6 +174,7 @@ class ServiceIpTable extends ServiceBase {
         failureCount: 0,
         consecutiveFailures: 0,
         lastFailureTime: 0,
+        lastOutcomeAt: 0,
       };
       stats.ipEndpoints.set(target, endpointHealth);
     }
@@ -921,6 +929,7 @@ class ServiceIpTable extends ServiceBase {
     domain: string,
     requestType: 'ip' | 'domain',
     target: string,
+    startedAtMs?: number,
   ): Promise<void> {
     // Check if IP Table is enabled
     if (!(await this.isIpTableEnabled())) {
@@ -928,12 +937,25 @@ class ServiceIpTable extends ServiceBase {
     }
 
     const now = Date.now();
+    const outcomeAt = startedAtMs ?? now;
 
     // Get or initialize domain health stats
     const stats = this.getDomainHealth(domain);
 
     // Get or initialize endpoint health
     const endpointHealth = this.getEndpointHealth(stats, requestType, target);
+
+    // Outcomes arrive through async callbacks with no ordering guarantee:
+    // ignore a failure whose request started before the newest outcome we
+    // already applied, so an old failure landing late cannot re-increment a
+    // counter that a newer success just cleared.
+    if (outcomeAt < endpointHealth.lastOutcomeAt) {
+      defaultLogger.ipTable.request.info({
+        info: `[IpTable] Ignoring stale ${requestType} failure for ${domain} (${target}): request predates the newest applied outcome`,
+      });
+      return;
+    }
+    endpointHealth.lastOutcomeAt = outcomeAt;
 
     // Update failure statistics
     endpointHealth.failureCount += 1;
@@ -1065,27 +1087,42 @@ class ServiceIpTable extends ServiceBase {
     });
 
     // Register request failure callback (handles both IP and domain failures)
-    setReportRequestFailureCallback(({ domain, requestType, target }) => {
-      void this.reportRequestFailure(domain, requestType, target);
-    });
+    setReportRequestFailureCallback(
+      ({ domain, requestType, target, startedAtMs }) => {
+        void this.reportRequestFailure(
+          domain,
+          requestType,
+          target,
+          startedAtMs,
+        );
+      },
+    );
 
     // Successes reset the consecutive-failure counters, so "consecutive"
     // means what it says: interleaved successes prevent sporadic errors
     // accumulated over hours from ever tripping the failover threshold.
-    setReportRequestSuccessCallback(({ domain, requestType, target }) => {
-      const stats = this.domainHealthMap.get(domain);
-      if (!stats) {
-        return;
-      }
-      if (requestType === 'domain') {
-        stats.domainDirect.consecutiveFailures = 0;
-      } else {
-        const ipHealth = stats.ipEndpoints.get(target);
-        if (ipHealth) {
-          ipHealth.consecutiveFailures = 0;
+    // Ordered by request start time: a slow success that started before the
+    // newest applied outcome must not clear failures that came after it.
+    setReportRequestSuccessCallback(
+      ({ domain, requestType, target, startedAtMs }) => {
+        const stats = this.domainHealthMap.get(domain);
+        if (!stats) {
+          return;
         }
-      }
-    });
+        const endpointHealth =
+          requestType === 'domain'
+            ? stats.domainDirect
+            : stats.ipEndpoints.get(target);
+        if (!endpointHealth) {
+          return;
+        }
+        if (startedAtMs < endpointHealth.lastOutcomeAt) {
+          return;
+        }
+        endpointHealth.lastOutcomeAt = startedAtMs;
+        endpointHealth.consecutiveFailures = 0;
+      },
+    );
 
     // Try to refresh CDN config if needed
     const shouldRefresh = await this.shouldRefreshConfig();

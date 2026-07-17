@@ -7,6 +7,7 @@ import requestHelper from '../requestHelper';
 import {
   createIpTableAdapter,
   resetAdapterFailoverStatesForTesting,
+  setReportRequestFailureCallback,
   testIpSpeed,
 } from './ipTableAdapter';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
@@ -362,6 +363,37 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
     }
 
     // Next request still goes direct domain: fail-open must not be active.
+    fallbackAdapter.mockImplementation(async (config) => ({
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    }));
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
+  test('an http error response resets the consecutive failure counter', async () => {
+    // 2 transport failures, then a 500 response, then 2 more transport
+    // failures: without the reset this would be 4 "consecutive" failures
+    // and the circuit would open despite proof the path works.
+    await failNTimes(2);
+    fallbackAdapter.mockImplementation(async () => {
+      throw httpError(500);
+    });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      ),
+    ).rejects.toMatchObject({ response: { status: 500 } });
+    await failNTimes(2);
+
     fallbackAdapter.mockImplementation(async (config) => ({
       data: { fallback: true },
       status: 200,
@@ -778,5 +810,33 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
       message: expect.stringContaining('not idempotent'),
     });
     expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('one sni attempt reports at most one ip failure (null response + blocked fallback)', async () => {
+    // The null-response branch reports an ip failure, then throws for
+    // non-idempotent requests; the outer catch must not report the same
+    // failure a second time.
+    const failureSpy = jest.fn();
+    setReportRequestFailureCallback(failureSpy);
+    try {
+      mockedSniRequest.mockResolvedValue(null);
+      await expect(
+        createIpTableAdapter({})(
+          buildMethodConfig('https://api.example.com/v1', 'post'),
+        ),
+      ).rejects.toMatchObject({
+        message: expect.stringContaining('not idempotent'),
+      });
+      expect(failureSpy).toHaveBeenCalledTimes(1);
+      expect(failureSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestType: 'ip',
+          target: '93.184.216.34',
+          startedAtMs: expect.any(Number),
+        }),
+      );
+    } finally {
+      setReportRequestFailureCallback(() => undefined);
+    }
   });
 });

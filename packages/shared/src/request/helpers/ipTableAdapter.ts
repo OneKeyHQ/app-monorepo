@@ -105,6 +105,12 @@ interface IRequestFailureParams {
   target: string;
   /** Error message */
   error: string;
+  /**
+   * Date.now() captured when the request was handed to the transport.
+   * Outcomes race through async callbacks; consumers order them by request
+   * start time instead of processing time.
+   */
+  startedAtMs: number;
 }
 
 let reportRequestFailureCallback:
@@ -120,6 +126,8 @@ interface IRequestSuccessParams {
   domain: string;
   requestType: 'ip' | 'domain';
   target: string;
+  /** Date.now() captured when the request was handed to the transport */
+  startedAtMs: number;
 }
 
 let reportRequestSuccessCallback:
@@ -875,23 +883,53 @@ export function createIpTableAdapter(
             domain: rootDomain,
             requestType: 'domain',
             target: hostname,
+            startedAtMs,
           });
         }
       }
 
       return response;
     } catch (error) {
+      // A rejected promise carrying an HTTP response (validateStatus said
+      // no to a 4xx/5xx) still proves the transport path works: reset the
+      // counters exactly like a success before surfacing the error, so
+      // transport failures separated by healthy responses can never
+      // accumulate to the fail-open threshold.
+      const httpResponseReceived = Boolean(
+        error &&
+        typeof error === 'object' &&
+        'response' in error &&
+        (error as { response?: unknown }).response,
+      );
+
       if (rootDomain && hostname) {
-        // Track transport-level failures for adapter fail-open. The failing
-        // request itself is never replayed (no double-send of POSTs); only
-        // subsequent requests take the fail-open route.
-        await recordDomainRequestOutcome({
-          rootDomain,
-          hostname,
-          ok: false,
-          startedAtMs,
-          error,
-        });
+        if (httpResponseReceived) {
+          await recordDomainRequestOutcome({
+            rootDomain,
+            hostname,
+            ok: true,
+            startedAtMs,
+          });
+          if (reportRequestSuccessCallback) {
+            reportRequestSuccessCallback({
+              domain: rootDomain,
+              requestType: 'domain',
+              target: hostname,
+              startedAtMs,
+            });
+          }
+        } else {
+          // Track transport-level failures for adapter fail-open. The
+          // failing request itself is never replayed (no double-send of
+          // POSTs); only subsequent requests take the fail-open route.
+          await recordDomainRequestOutcome({
+            rootDomain,
+            hostname,
+            ok: false,
+            startedAtMs,
+            error,
+          });
+        }
       }
 
       // Only report domain failures if this is NOT a fallback request, and
@@ -913,6 +951,7 @@ export function createIpTableAdapter(
           requestType: 'domain',
           target: hostname,
           error: error instanceof Error ? error.message : String(error),
+          startedAtMs,
         });
       }
 
@@ -1158,6 +1197,26 @@ export function createIpTableAdapter(
       requestBody ? requestBody.substring(0, 200) : 'null',
     );
 
+    const sniStartedAtMs = Date.now();
+    // One SNI attempt must produce at most one ip-failure report: the
+    // null-response branch throws for non-idempotent requests and that
+    // throw lands in the same catch below, which would otherwise report the
+    // same failure a second time.
+    let ipFailureReported = false;
+    const reportIpFailureOnce = (errorMessage: string) => {
+      if (ipFailureReported || !reportRequestFailureCallback) {
+        return;
+      }
+      ipFailureReported = true;
+      reportRequestFailureCallback({
+        domain: rootDomain,
+        requestType: 'ip',
+        target: selectedIp,
+        error: errorMessage,
+        startedAtMs: sniStartedAtMs,
+      });
+    };
+
     try {
       const sniResponse = await sniRequest({
         ip: selectedIp,
@@ -1172,15 +1231,7 @@ export function createIpTableAdapter(
       // If SNI request fails, use original adapter
       if (!sniResponse) {
         debugLog('[IpTableAdapter] SNI request returned null, using fallback');
-        // Report IP failure
-        if (reportRequestFailureCallback) {
-          reportRequestFailureCallback({
-            domain: rootDomain,
-            requestType: 'ip',
-            target: selectedIp,
-            error: 'SNI response null',
-          });
-        }
+        reportIpFailureOnce('SNI response null');
         // A null response is ambiguous — the request may have reached the
         // server. Re-sending over the domain is only safe for idempotent
         // methods; anything else must surface the failure to the caller.
@@ -1215,6 +1266,7 @@ export function createIpTableAdapter(
           domain: rootDomain,
           requestType: 'ip',
           target: selectedIp,
+          startedAtMs: sniStartedAtMs,
         });
       }
 
@@ -1267,15 +1319,11 @@ export function createIpTableAdapter(
         throw error;
       }
 
-      // Report IP failure if callback is registered
-      if (reportRequestFailureCallback) {
-        reportRequestFailureCallback({
-          domain: rootDomain,
-          requestType: 'ip',
-          target: selectedIp,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
+      // Report IP failure if callback is registered (at most once per SNI
+      // attempt — the null-response branch may already have reported).
+      reportIpFailureOnce(
+        error instanceof Error ? error.message : String(error),
+      );
 
       // Once the request was handed to the SNI transport it may have been
       // written to the wire (e.g. SNI_TIMEOUT after send). Re-sending over
