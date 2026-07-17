@@ -45,6 +45,10 @@ import {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import {
+  getPermit2ServerDisplayExtras,
+  shouldUseLocalPermit2Display,
+} from './utils/permit2SignatureConfirmUtils';
 
 import type { IBuildDecodedTxParams } from '../vaults/types';
 
@@ -354,11 +358,23 @@ class ServiceSignatureConfirm extends ServiceBase {
     if (
       parsedTx &&
       (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
-      parsedTx?.type === EParseTxType.Unknown &&
+      parsedTx.type === EParseTxType.Unknown &&
       !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow)
     ) {
       parsedTx.display = null;
     }
+
+    const useLocalPermit2Display = shouldUseLocalPermit2Display({
+      hasPermit2ApproveInfo: Boolean(unsignedTx.approveInfo?.permit2Info),
+      parsedTx,
+    });
+
+    const {
+      simulationComponents: serverSimulationComponents,
+      alerts: serverAlerts,
+    } = getPermit2ServerDisplayExtras(
+      useLocalPermit2Display ? parsedTx?.display : undefined,
+    );
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const decodedTx = await vault.buildDecodedTx({
@@ -385,7 +401,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.txABI = parsedTx.parsedTx?.data;
     }
 
-    if (parsedTx && parsedTx.display) {
+    if (parsedTx?.display && !useLocalPermit2Display) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
       const vaultSettings =
@@ -403,8 +419,8 @@ class ServiceSignatureConfirm extends ServiceBase {
 
       decodedTx.txDisplay = {
         title: '',
-        components: txDisplayComponents,
-        alerts: [],
+        components: [...txDisplayComponents, ...serverSimulationComponents],
+        alerts: serverAlerts,
       };
       decodedTx.isLocalParsed = true;
     }
