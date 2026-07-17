@@ -55,6 +55,7 @@ import {
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
+import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import {
@@ -2094,6 +2095,15 @@ function SendAmountInputContainer() {
   const handleBuyToken = useCallback(async () => {
     setIsBuyLoading(true);
     try {
+      if (
+        await tryOpenHeadlessBuy({
+          networkId,
+          tokenAddress: tokenInfo?.address ?? '',
+          accountId: currentAccountId,
+        })
+      ) {
+        return;
+      }
       const { url } =
         await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
           networkId,

@@ -92,7 +92,7 @@ index 7578579..e71b494 100644
  private:
    static constexpr auto TAG = "JSICache";
 diff --git a/node_modules/react-native-nitro-modules/cpp/prototype/HybridObjectPrototype.cpp b/node_modules/react-native-nitro-modules/cpp/prototype/HybridObjectPrototype.cpp
-index c4fc0f6..33d418d 100644
+index 62ab82a..0b88ad2 100644
 --- a/node_modules/react-native-nitro-modules/cpp/prototype/HybridObjectPrototype.cpp
 +++ b/node_modules/react-native-nitro-modules/cpp/prototype/HybridObjectPrototype.cpp
 @@ -13,7 +13,8 @@
@@ -154,7 +154,7 @@ index c4fc0f6..33d418d 100644
  
    // 2. Get the base prototype of this prototype (recursively), then create the individual prototypes downwards
    //    until we reach our current prototype.
-@@ -93,13 +118,30 @@ jsi::Value HybridObjectPrototype::createPrototype(jsi::Runtime& runtime, const s
+@@ -93,16 +118,33 @@ jsi::Value HybridObjectPrototype::createPrototype(jsi::Runtime& runtime, const s
    CommonGlobals::Object::freeze(runtime, object);
  #endif
  
@@ -162,8 +162,11 @@ index c4fc0f6..33d418d 100644
 +  // 8. Throw it into our cache so the next lookup can be cached and therefore faster.
 +  //    `JSICache::getOrCreateCache(...)` and `makeShared(...)` run outside the lock (they re-enter
 +  //    the cache machinery on this thread); only the write into the inner map is locked.
-   JSICacheReference jsiCache = JSICache::getOrCreateCache(runtime);
-   BorrowingReference<jsi::Object> sharedObject = jsiCache.makeShared(std::move(object));
+   BorrowingReference<jsi::Object> sharedObject;
+   {
+     JSICacheReference jsiCache = JSICache::getOrCreateCache(runtime);
+     sharedObject = jsiCache.makeShared(std::move(object));
+   }
    const NativeInstanceId& instanceId = prototype->getNativeInstanceId();
 -  prototypeCache[instanceId] = sharedObject;
 +  BorrowingReference<jsi::Object> existingObject;
@@ -218,7 +221,7 @@ index 522f991..4e7b133 100644
  protected:
    /**
 diff --git a/node_modules/react-native-nitro-modules/cpp/prototype/Prototype.hpp b/node_modules/react-native-nitro-modules/cpp/prototype/Prototype.hpp
-index 7019337..d1ff55d 100644
+index 4bc81f6..98cbd1d 100644
 --- a/node_modules/react-native-nitro-modules/cpp/prototype/Prototype.hpp
 +++ b/node_modules/react-native-nitro-modules/cpp/prototype/Prototype.hpp
 @@ -9,6 +9,7 @@
@@ -242,10 +245,10 @@ index 7019337..d1ff55d 100644
 +    static std::mutex mutex;
 +    std::lock_guard<std::mutex> lock(mutex);
  
-     const auto& found = _prototypesCache.find(typeId);
-     if (found != _prototypesCache.end()) {
+     auto [it, inserted] = _prototypesCache.try_emplace(typeId);
+     if (inserted) {
 diff --git a/node_modules/react-native-nitro-modules/cpp/threading/Dispatcher.cpp b/node_modules/react-native-nitro-modules/cpp/threading/Dispatcher.cpp
-index 00ba8f4..b027abe 100644
+index 84fc2bb..7580b3e 100644
 --- a/node_modules/react-native-nitro-modules/cpp/threading/Dispatcher.cpp
 +++ b/node_modules/react-native-nitro-modules/cpp/threading/Dispatcher.cpp
 @@ -11,6 +11,7 @@
@@ -308,7 +311,7 @@ index 00ba8f4..b027abe 100644
      std::shared_ptr<Dispatcher> strongDispatcher = weakDispatcher.lock();
      if (strongDispatcher) {
        // the weak reference we cached is still valid - return it!
-@@ -47,12 +69,16 @@ std::shared_ptr<Dispatcher> Dispatcher::getRuntimeGlobalDispatcher(jsi::Runtime&
+@@ -53,12 +75,16 @@ std::shared_ptr<Dispatcher> Dispatcher::getRuntimeGlobalDispatcher(jsi::Runtime&
  
    Logger::log(LogLevel::Warning, TAG, "Unknown Runtime (%s), looking for Dispatcher through JSI global lookup...",
                getRuntimeId(runtime).c_str());
@@ -353,7 +356,7 @@ index dfe3070..b8dee5f 100644
  private:
    static constexpr auto TAG = "Dispatcher";
 diff --git a/node_modules/react-native-nitro-modules/cpp/utils/CommonGlobals.cpp b/node_modules/react-native-nitro-modules/cpp/utils/CommonGlobals.cpp
-index 020a884..b300e94 100644
+index 126fe49..3476399 100644
 --- a/node_modules/react-native-nitro-modules/cpp/utils/CommonGlobals.cpp
 +++ b/node_modules/react-native-nitro-modules/cpp/utils/CommonGlobals.cpp
 @@ -22,7 +22,8 @@ namespace margelo::nitro {
@@ -366,7 +369,7 @@ index 020a884..b300e94 100644
  
  // pragma MARK: Object
  
-@@ -187,26 +188,55 @@ const jsi::PropNameID& CommonGlobals::getKnownGlobalPropertyName(jsi::Runtime& r
+@@ -187,20 +188,40 @@ const jsi::PropNameID& CommonGlobals::getKnownGlobalPropertyName(jsi::Runtime& r
  
  const jsi::Function& CommonGlobals::getGlobalFunction(jsi::Runtime& runtime, const char* key,
                                                        std::function<jsi::Function(jsi::Runtime&)> getFunction) {
@@ -392,11 +395,10 @@ index 020a884..b300e94 100644
 +    auto& slot = _cache[&runtime];
 +    if (!slot) {
 +      slot = std::make_shared<RuntimeEntry>();
-     }
++    }
 +    entry = slot;
-   }
- 
--  // We haven't found the function with the given key in cache - so let's get it:
++  }
++
 +  // Let's try to find the function in cache under the entry's own lock.
 +  {
 +    std::lock_guard<std::mutex> elk(entry->mutex);
@@ -409,16 +411,19 @@ index 020a884..b300e94 100644
 +        // heap (stable address), so it is safe to return the reference after releasing the lock.
 +        return *function;
 +      }
-+    }
-+  }
-+
+     }
+   }
+ 
+-  // We haven't found the function with the given key in cache - so let's get it:
 +  // We haven't found the function with the given key in cache - so let's get it. This MUST happen
 +  // outside any of our locks because `JSICache::getOrCreateCache(...)` can re-enter this function.
    jsi::Function function = getFunction(runtime);
  
    // Let's throw it in cache!
-   JSICacheReference jsiCache = JSICache::getOrCreateCache(runtime);
-   BorrowingReference<jsi::Function> sharedFunction = jsiCache.makeShared(std::move(function));
+@@ -209,7 +230,16 @@ const jsi::Function& CommonGlobals::getGlobalFunction(jsi::Runtime& runtime, con
+     JSICacheReference jsiCache = JSICache::getOrCreateCache(runtime);
+     sharedFunction = jsiCache.makeShared(std::move(function));
+   }
 -  functionCache[stringKey] = sharedFunction;
 +
 +  // Store it (double-checked: another thread may have inserted it while we were unlocked).
@@ -471,7 +476,7 @@ index 388e74b..03eb9a9 100644
  
  } // namespace margelo::nitro
 diff --git a/node_modules/react-native-nitro-modules/cpp/utils/PropNameIDCache.cpp b/node_modules/react-native-nitro-modules/cpp/utils/PropNameIDCache.cpp
-index 5c83355..fc13fc9 100644
+index e238bd7..fc13fc9 100644
 --- a/node_modules/react-native-nitro-modules/cpp/utils/PropNameIDCache.cpp
 +++ b/node_modules/react-native-nitro-modules/cpp/utils/PropNameIDCache.cpp
 @@ -12,28 +12,57 @@ namespace margelo::nitro {
@@ -528,7 +533,7 @@ index 5c83355..fc13fc9 100644
    auto sharedPropName = jsiCache.makeShared(std::move(propName));
  
 -  // store it in cache...
--  cache.emplace(value, sharedPropName);
+-  cache.insert_or_assign(value, sharedPropName);
 +  // Store it in cache (double-checked: another thread may have inserted it while we were unlocked).
 +  {
 +    std::lock_guard<std::mutex> elk(entry->mutex);

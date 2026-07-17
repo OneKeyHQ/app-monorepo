@@ -20,7 +20,11 @@ import {
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
-import type { IInputProps, IStackProps } from '@onekeyhq/components';
+import type {
+  IInputProps,
+  ISizableTextProps,
+  IStackProps,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -212,6 +216,8 @@ type ISendAmountAutoSizeInputProps = {
   valueProps?: {
     value?: string;
     color?: string;
+    // Typography of the converted-value line. Defaults to '$headingLg'.
+    size?: ISizableTextProps['size'];
     onPress?: () => void;
     loading?: boolean;
     currency?: string;
@@ -429,6 +435,12 @@ function SendAutoSizeAmountInputComponent(
     autoSizeValue = platformEnv.isNativeIOS ? '0' : '';
   }
 
+  const valueSize = valueProps?.size ?? '$headingLg';
+  // Typography-matched: each Skeleton variant's total height equals the same
+  // token's lineHeight, so the loading toggle never shifts layout.
+  const valueLoadingSkeleton =
+    valueSize === '$bodyLg' ? <Skeleton.BodyLg /> : <Skeleton.HeadingLg />;
+
   const amountInputNode = isLoading ? (
     <Stack py="$4">
       <Skeleton h="$12" w="$40" />
@@ -506,7 +518,7 @@ function SendAutoSizeAmountInputComponent(
           })}
         >
           {valueProps?.loading ? (
-            <Skeleton h="$6" w="$28" />
+            valueLoadingSkeleton
           ) : (
             <>
               <NumberSizeableText
@@ -515,7 +527,7 @@ function SendAutoSizeAmountInputComponent(
                   currency: valueProps?.currency,
                   tokenSymbol: valueProps?.tokenSymbol,
                 }}
-                size="$headingLg"
+                size={valueSize}
                 color={valueProps?.color ?? '$textSubdued'}
                 numberOfLines={1}
                 flexShrink={1}

@@ -124,7 +124,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - BleUtils (0.1.5):
+  - BleUtils (0.1.6):
     - boost
     - DoubleConversion
     - fast_float
@@ -610,7 +610,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - NitroModules (0.33.2):
+  - NitroModules (0.35.2):
     - boost
     - DoubleConversion
     - fast_float
@@ -622,6 +622,35 @@ PODS:
     - RCTRequired
     - RCTTypeSafety
     - React-callinvoker
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
+  - OnramperReactNative (1.1.0):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - NitroModules
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
     - React-Core
     - React-debug
     - React-Fabric
@@ -4869,6 +4898,7 @@ DEPENDENCIES:
   - NetworkInfo (from `../../../node_modules/react-native-network-info`)
   - NitroMmkv (from `../../../node_modules/react-native-mmkv`)
   - NitroModules (from `../../../node_modules/react-native-nitro-modules`)
+  - "OnramperReactNative (from `../../../node_modules/@onramper/onramper-react-native`)"
   - Pbkdf2 (from `../../../node_modules/react-native-fast-pbkdf2`)
   - "PerpDepthBar (from `../../../node_modules/@onekeyfe/react-native-perp-depth-bar`)"
   - Ping (from `../../../node_modules/react-native-ping`)
@@ -5142,6 +5172,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-mmkv"
   NitroModules:
     :path: "../../../node_modules/react-native-nitro-modules"
+  OnramperReactNative:
+    :path: "../../../node_modules/@onramper/onramper-react-native"
   Pbkdf2:
     :path: "../../../node_modules/react-native-fast-pbkdf2"
   PerpDepthBar:
@@ -5398,7 +5430,7 @@ SPEC CHECKSUMS:
   AsyncStorage: c412e811f40580575ae1349fe3a00ba20abbd7b9
   AutoSizeInput: 058768d2d7b2eba06620d9a3fabe260d08de1218
   BackgroundThread: 2716941fdd405d1e2b782579834ded774968bd62
-  BleUtils: 100aa150e12ea28847766790f44f673628827abb
+  BleUtils: 3ab85e1bcf3c7a5594488ee144a0b9bbf4537d55
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   Burnt: e3a3397e26172fca31a59bb27421475a58068836
   ChartWebview: 91e4e32693e817baee0d449695939d98a66fbb8e
@@ -5463,7 +5495,8 @@ SPEC CHECKSUMS:
   MultiplatformBleAdapter: b1fddd0d499b96b607e00f0faa8e60648343dc1d
   NetworkInfo: 8f477bda9569e9f5cf6ac784df616540037fb4a4
   NitroMmkv: ce1df9b9f0e06dfbde2455d863047e0411fceb6e
-  NitroModules: 11bba9d065af151eae51e38a6425e04c3b223ff3
+  NitroModules: 17f56ebb3581e74931c870a789834582ce75470c
+  OnramperReactNative: b95bf6306f881e2728a8a8539aa806c112523645
   OpenSSL-Universal: ecee7b138fa75a74ecf00d7ffd248fb584739b9e
   Pbkdf2: 76a41c21cebe8b04bd539c0070a7dc6a69f50068
   PerpDepthBar: ea764fd9ca6dde336b3b6ca292e783e2b9c66c69

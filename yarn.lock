@@ -10225,6 +10225,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    "@onramper/onramper-react-native": "npm:1.1.0"
     "@phantom/react-native-juicebox-sdk": "npm:0.3.17"
     "@react-native-async-storage/async-storage": "npm:@onekeyfe/react-native-async-storage@3.0.78"
     "@react-native-community/netinfo": "npm:11.4.1"
@@ -10304,7 +10305,7 @@ __metadata:
     react-native-modal: "npm:^13.0.1"
     react-native-network-info: "npm:@onekeyfe/react-native-network-info@3.0.78"
     react-native-network-logger: "npm:2.0.1"
-    react-native-nitro-modules: "npm:0.33.2"
+    react-native-nitro-modules: "npm:0.35.2"
     react-native-pager-view: "npm:@onekeyfe/react-native-pager-view@3.0.78"
     react-native-passkeys: "npm:0.3.3"
     react-native-permissions: "npm:5.4.4"
@@ -10390,6 +10391,17 @@ __metadata:
     rimraf: "npm:3.0.2"
   languageName: unknown
   linkType: soft
+
+"@onramper/onramper-react-native@npm:1.1.0":
+  version: 1.1.0
+  resolution: "@onramper/onramper-react-native@npm:1.1.0"
+  peerDependencies:
+    react: ">=19.0.0"
+    react-native: ">=0.79.0"
+    react-native-nitro-modules: ">=0.35.0"
+  checksum: 10/35841ab37f2b55d9a5a426140fc8bf2d7bf9bfb303dcd738ba98e80ede34b06011381698ec4108772032e981da8d5f159efbe1afda478ac89232cca94f5a5f80
+  languageName: node
+  linkType: hard
 
 "@open-wc/webpack-import-meta-loader@npm:^0.4.7":
   version: 0.4.7
@@ -41909,13 +41921,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-nitro-modules@npm:0.33.2":
-  version: 0.33.2
-  resolution: "react-native-nitro-modules@npm:0.33.2"
+"react-native-nitro-modules@npm:0.35.2":
+  version: 0.35.2
+  resolution: "react-native-nitro-modules@npm:0.35.2"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/fece339c9f69b256d4e18e6fbf29bc52a16e2e8ea7e70551d8265dbaf455402a67fd8ca9f4e8abe5b6e6d3e33bf6c598d4e980dbbed00a3b791f6fa49c98be17
+  checksum: 10/22977e5e22c63fb91526c90fa59fcfe5c7f97978c583400f433a1d3ef8ee32fbceb0ad1b009b5bf0d1794e94a11716ad752fd7702c2d67fc808a0256c6e35488
   languageName: node
   linkType: hard
 

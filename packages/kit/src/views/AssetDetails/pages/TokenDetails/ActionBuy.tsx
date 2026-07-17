@@ -14,6 +14,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { ActionItem } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -131,6 +132,12 @@ function ActionBuyContent({
       }
 
       try {
+        if (
+          type === 'buy' &&
+          (await tryOpenHeadlessBuy({ networkId, tokenAddress, accountId }))
+        ) {
+          return;
+        }
         const { url } =
           await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
             networkId,
