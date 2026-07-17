@@ -10170,8 +10170,8 @@ __metadata:
     "@types/mime": "npm:^3"
     "@types/socket.io-client": "npm:^3.0.0"
     "@types/url-parse": "npm:^1.4.8"
-    "@unifold/core": "npm:0.1.67"
-    "@unifold/ui-react": "npm:0.1.67"
+    "@unifold/connect-react": "npm:0.1.69"
+    "@unifold/core": "npm:0.1.69"
     date-fns: "npm:2.30.0"
     expo-camera: "npm:16.1.10"
     fuse.js: "npm:^7.0.0"
@@ -20718,27 +20718,59 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@unifold/core@npm:0.1.67":
-  version: 0.1.67
-  resolution: "@unifold/core@npm:0.1.67"
+"@unifold/connect-react@npm:0.1.69":
+  version: 0.1.69
+  resolution: "@unifold/connect-react@npm:0.1.69"
+  dependencies:
+    "@tanstack/react-query": "npm:^5.90.11"
+    "@unifold/core": "npm:0.1.69"
+    "@unifold/react-provider": "npm:0.1.69"
+    "@unifold/ui-react": "npm:0.1.69"
+  peerDependencies:
+    "@solana/web3.js": ^1.87.0
+    "@stripe/crypto": ">=1.1.1"
+    react: ^18.2.0 || ^19.0.0
+    react-dom: ^18.2.0 || ^19.0.0
+  peerDependenciesMeta:
+    "@stripe/crypto":
+      optional: true
+  checksum: 10/2e76e2caa6d6a7927ddeca7f14267c4f94fd47f98fb525808be89549d97b2788ee52e11a060def6285061939d3736ebd5518023f5599a850b25e31743c0c177d
+  languageName: node
+  linkType: hard
+
+"@unifold/core@npm:0.1.69":
+  version: 0.1.69
+  resolution: "@unifold/core@npm:0.1.69"
   dependencies:
     "@tanstack/react-query": "npm:^5.90.11"
   peerDependencies:
     react: ^18.2.0 || ^19.0.0
-  checksum: 10/6f333aca2a7cd955ab2e66914ee709c5de8f84e83f49a94d33ee75d0acf5af47e13a9bce420d8cbc5a96e39d5a1c5360e07e7597577eb370df33d2d69ae06be1
+  checksum: 10/94bece67e509839d7cdc9a840149d51bbf2b0d1e1b18c480a488d4c129aa3f3e7b3100aa44f45a4edb100301a09f303f4e11909288bf9f699625c846b47b8127
   languageName: node
   linkType: hard
 
-"@unifold/ui-react@npm:0.1.67":
-  version: 0.1.67
-  resolution: "@unifold/ui-react@npm:0.1.67"
+"@unifold/react-provider@npm:0.1.69":
+  version: 0.1.69
+  resolution: "@unifold/react-provider@npm:0.1.69"
+  dependencies:
+    "@tanstack/react-query": "npm:^5.90.11"
+  peerDependencies:
+    react: ^18.2.0 || ^19.0.0
+    react-dom: ^18.2.0 || ^19.0.0
+  checksum: 10/84e224689c6060776dc39923e2e113d332f84e9ff7607b7b91be02bf1bab992e246a39f1e74b7b01349587e5da6026ecfc07ccd9bb924b291044483439e7c732
+  languageName: node
+  linkType: hard
+
+"@unifold/ui-react@npm:0.1.69":
+  version: 0.1.69
+  resolution: "@unifold/ui-react@npm:0.1.69"
   dependencies:
     "@radix-ui/react-dialog": "npm:^1.0.5"
     "@radix-ui/react-select": "npm:^2.0.0"
     "@radix-ui/react-slot": "npm:^1.0.2"
     "@radix-ui/react-tooltip": "npm:^1.0.7"
     "@tanstack/react-query": "npm:^5.90.11"
-    "@unifold/core": "npm:0.1.67"
+    "@unifold/core": "npm:0.1.69"
     class-variance-authority: "npm:^0.7.0"
     clsx: "npm:^2.0.0"
     fuse.js: "npm:^7.4.0"
@@ -20748,9 +20780,13 @@ __metadata:
     tailwind-merge: "npm:^2.0.0"
   peerDependencies:
     "@solana/web3.js": ^1.87.0
+    "@stripe/crypto": ">=1.1.1"
     react: ^18.2.0 || ^19.0.0
     react-dom: ^18.2.0 || ^19.0.0
-  checksum: 10/a4601e73baac472a9891109e582255a237bedc641645a973c9bcc5a07e9fb204fd66f5778fd546f2c57e05564c050c1379e5fda65d6906064c4edb8506a54f27
+  peerDependenciesMeta:
+    "@stripe/crypto":
+      optional: true
+  checksum: 10/9f062b2818d4037b7c604f26601be1490d8e07f630e351ee057cd4b6c758b782e353012671f0bb209e4352691f6b5d02a162a171945e2745aac916a322a621eb
   languageName: node
   linkType: hard
 
