@@ -91,9 +91,8 @@ export function createProductionConfig({
         maxInitialRequests: 20,
         maxAsyncRequests: 50_000,
         // Vendor cache groups for long-term caching (web/desktop only).
-        // Extension uses its own code splitting via HtmlWebpackPlugin chunks,
-        // and named vendor chunks would NOT be included in ext HTML files,
-        // breaking the extension UI in production.
+        // Extension compiler domains add their cache groups after this shared
+        // production config is merged.
         cacheGroups: isExt
           ? {}
           : {

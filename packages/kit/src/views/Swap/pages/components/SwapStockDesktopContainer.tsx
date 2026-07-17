@@ -100,6 +100,7 @@ import {
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
+import SwapFAQ from '../../components/SwapFAQ';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
@@ -2169,7 +2170,7 @@ function SwapStockDesktopContent({
         ) : null}
         <YStack width="100%" maxWidth={STOCK_DESKTOP_CONTENT_MAX_WIDTH}>
           <XStack width="100%" gap="$1" px="$5" alignItems="flex-start">
-            <YStack p="$5" flexBasis="50%" minWidth={0}>
+            <YStack p="$5" flexBasis="50%" minWidth={0} gap="$12">
               <YStack
                 width="100%"
                 minWidth={0}
@@ -2268,6 +2269,7 @@ function SwapStockDesktopContent({
                   protocol={EProtocolOfExchange.STOCK}
                 />
               </YStack>
+              <SwapFAQ variant="stock" />
             </YStack>
             <YStack p="$5" flexBasis="50%" minWidth={0}>
               <StockMarketContextPanel storeName={storeName} />

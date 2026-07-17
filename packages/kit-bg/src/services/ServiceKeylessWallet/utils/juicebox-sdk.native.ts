@@ -54,7 +54,9 @@ export class Client {
     // Get callback from global
     // @ts-ignore
     // eslint-disable-next-line
-    const getAuthToken = globalThis.JuiceboxGetAuthToken as (realmId: Uint8Array) => Promise<string>;
+    const getAuthToken = globalThis.JuiceboxGetAuthToken as (
+      realmId: Uint8Array,
+    ) => Promise<string>;
     if (!getAuthToken) {
       throw new OneKeyLocalError('JuiceboxGetAuthToken not set');
     }
