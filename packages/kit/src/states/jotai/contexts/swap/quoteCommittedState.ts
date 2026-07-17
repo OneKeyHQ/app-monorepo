@@ -39,6 +39,8 @@ export type ISwapQuoteCommittedAction =
       intentFingerprint: string;
       requestId: string;
       quotes: IFetchQuoteResult[];
+      promoteStreamingBest?: boolean;
+      selectedQuote?: IFetchQuoteResult;
     }
   | {
       type: 'requestSettled';
@@ -121,9 +123,11 @@ export function mergeSwapQuoteStreamingEnrichment({
 /**
  * Keeps a retained quote display-only until the active request returns an
  * actionable candidate. The first accepted provider is then pinned for the
- * main display and Review while later providers continue streaming. Settlement
- * may publish the final best/manual provider once, but it cannot mutate a
- * Review snapshot that has already been frozen by the caller.
+ * main display and Review while later providers continue streaming. A newly
+ * arrived provider may replace it only when the normal recommendation sorter
+ * identifies a better provider. Settlement publishes the final best/manual
+ * provider, but it cannot mutate a Review snapshot already frozen by the
+ * caller.
  */
 export function reduceSwapQuoteCommittedState(
   state: ISwapQuoteCommittedState,
@@ -191,9 +195,22 @@ export function reduceSwapQuoteCommittedState(
       providerKey: state.preferredProviderKey,
       quotes: action.quotes,
     });
+    const selectedActionableQuote = findActionableQuoteByProvider({
+      providerKey: action.selectedQuote
+        ? buildSwapQuoteProviderKey(action.selectedQuote)
+        : undefined,
+      quotes: action.quotes,
+    });
+    const bestActionableQuote =
+      selectedActionableQuote ?? selectBestActionableQuote(action.quotes);
     const executableProviderKey = state.executableQuote
       ? buildSwapQuoteProviderKey(state.executableQuote)
       : undefined;
+    const bestProviderKey = bestActionableQuote
+      ? buildSwapQuoteProviderKey(bestActionableQuote)
+      : undefined;
+    const shouldPromoteStreamingBest =
+      action.promoteStreamingBest === true && !state.preferredProviderKey;
     const shouldAdoptPreferredProvider = Boolean(
       state.preferredProviderKey &&
       preferredQuote &&
@@ -202,16 +219,26 @@ export function reduceSwapQuoteCommittedState(
     let nextExecutableQuote: IFetchQuoteResult | undefined;
     if (shouldAdoptPreferredProvider) {
       nextExecutableQuote = preferredQuote;
-    } else if (state.executableQuote && latestAcceptedProviderQuote) {
+    } else if (
+      state.executableQuote &&
+      latestAcceptedProviderQuote &&
+      executableProviderKey === bestProviderKey
+    ) {
       nextExecutableQuote = mergeSwapQuoteStreamingEnrichment({
         pinnedQuote: state.executableQuote,
         latestQuote: latestAcceptedProviderQuote,
       });
     } else if (!state.executableQuote && state.preferredProviderKey) {
-      nextExecutableQuote =
-        preferredQuote ?? selectBestActionableQuote(action.quotes);
+      nextExecutableQuote = preferredQuote ?? bestActionableQuote;
+    } else if (shouldPromoteStreamingBest && bestActionableQuote) {
+      nextExecutableQuote = bestActionableQuote;
+    } else if (state.executableQuote && latestAcceptedProviderQuote) {
+      nextExecutableQuote = mergeSwapQuoteStreamingEnrichment({
+        pinnedQuote: state.executableQuote,
+        latestQuote: latestAcceptedProviderQuote,
+      });
     } else if (!state.executableQuote) {
-      nextExecutableQuote = selectBestActionableQuote(action.quotes);
+      nextExecutableQuote = bestActionableQuote;
     }
     const keepsAcceptedProvider = Boolean(
       executableProviderKey &&

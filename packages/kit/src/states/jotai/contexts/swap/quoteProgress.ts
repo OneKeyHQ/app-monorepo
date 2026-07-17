@@ -423,9 +423,9 @@ export function getSwapQuoteProgressState({
       ? displayPreviousQuote
       : undefined;
   } else if (hasActionableQuote) {
-    // The committed-state owner pins the first actionable provider for this
-    // request, so publishing it here ends the skeleton without exposing every
-    // later provider update to the main amount or Review button.
+    // The committed-state owner accepts the first actionable provider and
+    // publishes only meaningful selection changes (for example, a newly
+    // recommended Swap provider), rather than every raw provider update.
     phase = ESwapQuoteUiPhase.HasQuote;
     displayQuote = currentQuote;
   } else if (isQuoteRequesting && hasPreviousActionableQuote) {

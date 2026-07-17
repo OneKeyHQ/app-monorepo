@@ -222,6 +222,33 @@ function isStockProtocol(protocol?: string) {
   );
 }
 
+function isSameSwapAmountValue({
+  currentAmount,
+  eventAmount,
+}: {
+  currentAmount?: string;
+  eventAmount?: string;
+}) {
+  if (eventAmount === undefined) {
+    return true;
+  }
+  const normalizedCurrentAmount = currentAmount ?? '';
+  if (!eventAmount && !normalizedCurrentAmount) {
+    return true;
+  }
+  const eventAmountBN = new BigNumber(eventAmount);
+  const currentAmountBN = new BigNumber(normalizedCurrentAmount);
+  if (
+    eventAmountBN.isFinite() &&
+    !eventAmountBN.isNaN() &&
+    currentAmountBN.isFinite() &&
+    !currentAmountBN.isNaN()
+  ) {
+    return eventAmountBN.eq(currentAmountBN);
+  }
+  return eventAmount === normalizedCurrentAmount;
+}
+
 function isQuoteEventErrorSelectedTokenPair({
   fromTokenAmount,
   quoteEventError,
@@ -251,33 +278,6 @@ function isQuoteEventErrorSelectedTokenPair({
         eventAmount: quoteEventError.fromTokenAmount,
       })),
   );
-}
-
-function isSameSwapAmountValue({
-  currentAmount,
-  eventAmount,
-}: {
-  currentAmount?: string;
-  eventAmount?: string;
-}) {
-  if (eventAmount === undefined) {
-    return true;
-  }
-  const normalizedCurrentAmount = currentAmount ?? '';
-  if (!eventAmount && !normalizedCurrentAmount) {
-    return true;
-  }
-  const eventAmountBN = new BigNumber(eventAmount);
-  const currentAmountBN = new BigNumber(normalizedCurrentAmount);
-  if (
-    eventAmountBN.isFinite() &&
-    !eventAmountBN.isNaN() &&
-    currentAmountBN.isFinite() &&
-    !currentAmountBN.isNaN()
-  ) {
-    return eventAmountBN.eq(currentAmountBN);
-  }
-  return eventAmount === normalizedCurrentAmount;
 }
 
 function isCurrentStockQuoteEventParams({
@@ -952,6 +952,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 count: totalQuoteCount,
                 totalQuoteCountReceived: true,
               });
+              const currentEventProviderKeys = get(
+                swapQuoteCurrentEventProviderKeysAtom(),
+              );
+              set(
+                swapQuoteCurrentEventReceivedCountAtom(),
+                Math.min(totalQuoteCount, currentEventProviderKeys.length),
+              );
               const isZeroProviderQuoteEvent = hasSwapZeroProviderQuoteEvent({
                 quoteEventTotalCount: {
                   eventId,
@@ -1095,19 +1102,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       activeQuoteEventTotalCount.eventId === q.eventId,
                   );
                 set(swapQuoteListAtom(), [...newQuoteList]);
-                const activeSession = get(
-                  swapQuoteSessionStateAtom(),
-                ).activeSession;
-                if (activeSession) {
-                  set(swapQuoteCommittedStateAtom(), (state) =>
-                    reduceSwapQuoteCommittedState(state, {
-                      type: 'candidatesUpdated',
-                      intentFingerprint: activeSession.fingerprint,
-                      requestId: activeSession.requestId,
-                      quotes: newQuoteList,
-                    }),
-                  );
-                }
                 const currentEventProviderKeys = [
                   ...new Set(
                     newQuoteList.map((quote) =>
@@ -1126,6 +1120,47 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     currentEventProviderKeys.length,
                   ),
                 );
+                const activeSession = get(
+                  swapQuoteSessionStateAtom(),
+                ).activeSession;
+                if (activeSession) {
+                  const promoteStreamingBest =
+                    get(swapTypeSwitchAtom()) === ESwapTabSwitchType.SWAP;
+                  const manualSelection = get(
+                    swapManualSelectQuoteProvidersAtom(),
+                  );
+                  set(swapQuoteCommittedStateAtom(), (state) =>
+                    reduceSwapQuoteCommittedState(state, {
+                      type: 'candidatesUpdated',
+                      intentFingerprint: activeSession.fingerprint,
+                      requestId: activeSession.requestId,
+                      quotes: newQuoteList,
+                      promoteStreamingBest,
+                      selectedQuote:
+                        !promoteStreamingBest ||
+                        manualSelection?.type === 'manual-provider'
+                          ? undefined
+                          : get(swapQuoteStreamingCurrentSelectAtom()),
+                    }),
+                  );
+                }
+                const committedState = get(swapQuoteCommittedStateAtom());
+                const selectedQuote = get(swapQuoteCurrentSelectAtom());
+                if (
+                  committedState.phase === ESwapQuoteCommitPhase.Requesting &&
+                  committedState.intentFingerprint ===
+                    activeSession?.fingerprint &&
+                  committedState.requestId === activeSession?.requestId &&
+                  isSwapQuoteActionable(selectedQuote) &&
+                  get(swapTypeSwitchAtom()) === ESwapTabSwitchType.SWAP &&
+                  selectedQuote?.eventId === activeQuoteEventTotalCount.eventId
+                ) {
+                  // `swapQuoteFetching` covers request startup. Provider-round
+                  // progress is tracked separately by quoteEventFetching, so a
+                  // slow provider must not keep the main quote in loading once
+                  // the active request has an actionable candidate.
+                  set(swapQuoteFetchingAtom(), false);
+                }
               }
               if (!get(swapQuoteSessionStateAtom()).activeSession) {
                 set(swapQuoteFetchingAtom(), false);
@@ -1144,6 +1179,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 type: 'requestSettled',
                 intentFingerprint: activeSession.fingerprint,
                 requestId: activeSession.requestId,
+                quotes: get(swapQuoteCurrentEventListAtom()),
                 selectedQuote,
               }),
             );

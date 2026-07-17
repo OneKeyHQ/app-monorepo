@@ -38,7 +38,7 @@ function buildQuote(provider: string, toAmount: string): IFetchQuoteResult {
 }
 
 describe('swap quote committed state', () => {
-  it('publishes and pins the first actionable candidate while later providers stream', () => {
+  it('publishes the first actionable quote and promotes a better Swap provider as it arrives', () => {
     const previousQuote = buildQuote('previous', '10');
     const firstCandidate = buildQuote('first', '11');
     const bestCandidate = buildQuote('best', '12');
@@ -87,19 +87,24 @@ describe('swap quote committed state', () => {
       type: 'candidatesUpdated',
       intentFingerprint: 'intent-1',
       requestId: 'request-2',
-      quotes: [bestCandidate, firstCandidate],
+      quotes: [firstCandidate, bestCandidate],
+      promoteStreamingBest: true,
+      selectedQuote: bestCandidate,
     });
-    expect(state.displayQuote).toBe(firstCandidate);
-    expect(state.executableQuote).toBe(firstCandidate);
+    expect(state.phase).toBe(ESwapQuoteCommitPhase.Requesting);
+    expect(state.displayQuote).toBe(bestCandidate);
+    expect(state.executableQuote).toBe(bestCandidate);
 
     state = reduceSwapQuoteCommittedState(state, {
       type: 'requestSettled',
       intentFingerprint: 'intent-1',
       requestId: 'request-2',
+      quotes: [firstCandidate, bestCandidate],
+      selectedQuote: bestCandidate,
     });
     expect(state.displayQuote).toBe(bestCandidate);
     expect(state.executableQuote).toBe(bestCandidate);
-    expect(state.settledQuotes).toEqual([bestCandidate, firstCandidate]);
+    expect(state.settledQuotes).toEqual([firstCandidate, bestCandidate]);
     expect(state.phase).toBe(ESwapQuoteCommitPhase.Settled);
     expect(hasSwapQuoteSelectableProviderCandidate(state)).toBe(false);
   });
@@ -143,6 +148,32 @@ describe('swap quote committed state', () => {
 
     expect(state.displayQuote).toBe(laterCandidate);
     expect(state.executableQuote?.toAmount).toBe('9.7');
+  });
+
+  it('does not promote a streaming best quote without an explicit Swap-tab owner', () => {
+    const firstCandidate = buildQuote('first', '11');
+    const bestCandidate = buildQuote('best', '12');
+    let state = reduceSwapQuoteCommittedState(initialSwapQuoteCommittedState, {
+      type: 'requestStarted',
+      intentFingerprint: 'intent-non-swap',
+      requestId: 'request-non-swap',
+    });
+    state = reduceSwapQuoteCommittedState(state, {
+      type: 'candidatesUpdated',
+      intentFingerprint: 'intent-non-swap',
+      requestId: 'request-non-swap',
+      quotes: [firstCandidate],
+    });
+    state = reduceSwapQuoteCommittedState(state, {
+      type: 'candidatesUpdated',
+      intentFingerprint: 'intent-non-swap',
+      requestId: 'request-non-swap',
+      quotes: [firstCandidate, bestCandidate],
+      selectedQuote: bestCandidate,
+    });
+
+    expect(state.displayQuote).toBe(firstCandidate);
+    expect(state.executableQuote).toBe(firstCandidate);
   });
 
   it('retains every settled candidate and accepts a selected candidate for execution', () => {

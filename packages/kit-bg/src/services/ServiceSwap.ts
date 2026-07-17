@@ -517,6 +517,46 @@ type ISwapQuoteSessionEventDataV2 =
     }
   | { kind: 'cancelled' };
 
+type IEventSourcePolyfillErrorEvent = {
+  data?: unknown;
+  error?: unknown;
+  message?: unknown;
+  status?: unknown;
+  statusText?: unknown;
+  type?: unknown;
+  xhrStatus?: unknown;
+};
+
+export function isEventSourcePolyfillCleanEof(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const errorEvent = error as IEventSourcePolyfillErrorEvent;
+  const hasErrorField = Object.prototype.hasOwnProperty.call(
+    errorEvent,
+    'error',
+  );
+  const hasStatus =
+    (errorEvent.status !== null && errorEvent.status !== undefined) ||
+    (errorEvent.xhrStatus !== null && errorEvent.xhrStatus !== undefined);
+  const hasErrorMetadata = [
+    errorEvent.message,
+    errorEvent.data,
+    errorEvent.statusText,
+  ].some((value) => value !== null && value !== undefined && value !== '');
+
+  // event-source-polyfill reports a clean HTTP EOF through onerror with an
+  // explicitly nullish `error`. HTTP failures use status metadata, while
+  // network failures carry an Error/string and timeouts have their own type.
+  return (
+    hasErrorField &&
+    errorEvent.type === 'error' &&
+    (errorEvent.error === null || errorEvent.error === undefined) &&
+    !hasStatus &&
+    !hasErrorMetadata
+  );
+}
+
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
   private _speedSwapQuoteAbortController?: AbortController;
@@ -1210,6 +1250,10 @@ export default class ServiceSwap extends ServiceBase {
       eventSource.addEventListener('done', handleTerminalEvent);
       eventSource.addEventListener('close', handleTerminalEvent);
       eventSource.onerror = async (event) => {
+        if (isEventSourcePolyfillCleanEof(event)) {
+          await handleTerminalEvent();
+          return;
+        }
         const transportError = normalizeSwapQuoteSessionTransportErrorV2(event);
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'error',
@@ -1446,6 +1490,10 @@ export default class ServiceSwap extends ServiceBase {
         eventSource.addEventListener('done', handleTerminalEvent);
         eventSource.addEventListener('close', handleTerminalEvent);
         eventSource.onerror = (event) => {
+          if (isEventSourcePolyfillCleanEof(event)) {
+            handleTerminalEvent();
+            return;
+          }
           this.emitQuoteSessionEventV2({
             event: buildSwapQuoteSessionTransportErrorEventV2(event),
             lease,
