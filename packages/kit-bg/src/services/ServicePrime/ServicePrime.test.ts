@@ -1117,12 +1117,18 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
 
   it('accepts a rotated slot token carrying the same identity', async () => {
     // bg auto-refresh legitimately rotates tokens: different bytes, same
-    // `sub` claim — the guard must not reject that.
+    // `sub` claim — neither the pre-POST guard nor the in-lock commit
+    // re-check must reject that.
     const { service } = createService();
     const post = mockOAuthLoginClient(service);
+    // First read: pre-POST guard. Second read: in-lock commit re-check.
     mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
       status: 'ok',
       accessToken: buildFakeJwt({ sub: 'user-a', iat: 1_752_000_000 }),
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a', iat: 1_752_000_500 }),
     });
 
     await service.apiOAuthLogin({
@@ -1130,6 +1136,43 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
     });
 
     expect(post).toHaveBeenCalled();
+  });
+
+  it('rolls back but keeps the replacement session when the slot is replaced during the commit', async () => {
+    // The pre-POST guard cannot cover the guard->POST->commit window: the
+    // main-runtime persist takes no bg mutex, so account B can overwrite
+    // the shared slot while account A's POST is in flight. The in-lock
+    // commit re-check must then abort (typed slot-replaced error) and roll
+    // back source + atom — WITHOUT which the commit would persist
+    // atom=A / slot=B and every later authenticated request would use B's
+    // token while the UI shows A.
+    const { service, simpleDbPrime } = createService();
+    const post = mockOAuthLoginClient(service);
+    // Guard read: slot still holds account A.
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
+    // Commit read: account B replaced the slot during the POST.
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'user-b' }),
+    });
+
+    const loginPromise = service.apiOAuthLogin({
+      accessToken: buildFakeJwt({ sub: 'user-a' }),
+    });
+    await expect(loginPromise).rejects.toBeDefined();
+    const error: unknown = await loginPromise.then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(error).toBeInstanceOf(OneKeyErrorOneKeyIdKeylessSessionSlotReplaced);
+    expect(post).toHaveBeenCalled();
+    // Rollback resets only the simpleDb source/token pair; the session slot
+    // (B's valid session) is deliberately untouched.
+    expect(simpleDbPrime.clearAuthTokens).toHaveBeenCalled();
   });
 
   it('aborts definitively when the in-flight token payload is undecodable', async () => {

@@ -611,8 +611,9 @@ class ServicePrime extends ServiceBase {
   /**
    * Login-side atomic commit of the shared auth-state pair, always run
    * inside authStateWriteMutex: persist authSessionSource, verify the
-   * committed source's session slot, announce the commit, then run the
-   * caller's prime-atom update. Every step is LOCAL — the slot check is a
+   * committed source's session slot (occupancy, and for keyless callers the
+   * slot identity via expectedSlotTokenSub), announce the commit, then run
+   * the caller's prime-atom update. Every step is LOCAL — the slot check is a
    * strict persisted-bytes read, never the Supabase SDK's getSession()
    * (which can trigger a NETWORK token refresh or throw transient
    * sealed-storage errors), so this section obeys the authStateWriteMutex
@@ -635,11 +636,19 @@ class ServicePrime extends ServiceBase {
     authSessionSource,
     callerName,
     updatePrimeAtom,
+    expectedSlotTokenSub,
   }: {
     authSessionSource: EPrimeAuthSessionSource;
     callerName: string;
     // In-lock prime-atom update matching this commit (local writes only).
     updatePrimeAtom: () => Promise<void>;
+    // Keyless-realm callers pass the guard-verified in-flight `sub` so the
+    // identity invariant is re-asserted INSIDE the commit lock: the
+    // pre-POST guard cannot cover the guard->POST->commit window, in which
+    // a concurrent main-runtime persist can still replace the shared slot
+    // with another account's session. Legacy-realm logins have no keyless
+    // identity to compare and omit it.
+    expectedSlotTokenSub?: string;
   }) {
     await this.backgroundApi.simpleDb.prime.setAuthSessionSource(
       authSessionSource,
@@ -647,8 +656,8 @@ class ServicePrime extends ServiceBase {
     try {
       // Strict LOCAL read of the committed source's slot (both realms are
       // supported): an expired-but-persisted token passes — proving slot
-      // occupancy is all that is needed here, refreshes happen later
-      // outside the lock.
+      // occupancy (plus, for keyless, slot identity below) is all that is
+      // needed here, refreshes happen later outside the lock.
       const slot =
         await readPersistedAccessTokenBySessionSourceStrict(authSessionSource);
       if (slot.status !== 'ok') {
@@ -658,6 +667,36 @@ class ServicePrime extends ServiceBase {
         throw new OneKeyLocalError(
           `${callerName} ERROR: Active auth token not found`,
         );
+      }
+      if (expectedSlotTokenSub) {
+        const slotTokenSub =
+          (
+            stringUtils.decodeJWT(
+              slot.accessToken,
+            ) as ISupabaseJWTPayload | null
+          )?.sub || '';
+        if (!slotTokenSub) {
+          // Undecodable slot payload: identity cannot be proven and a
+          // re-read yields the same bytes — definitive abort like a corrupt
+          // slot (caller cleanup of an unusable slot is harmless).
+          defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+            reason: `${callerName}: committed slot token payload is not decodable`,
+          });
+          throw new OneKeyLocalError(
+            `${callerName} ERROR: Keyless OAuth session token payload is not decodable`,
+          );
+        }
+        if (slotTokenSub !== expectedSlotTokenSub) {
+          defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+            reason: `${callerName}: keyless session slot was replaced by a different account during commit`,
+          });
+          // Same typed error as the pre-POST guard: the slot now holds the
+          // winning concurrent flow's valid session, so main-runtime
+          // definitive-failure cleanup must skip its session teardown. The
+          // rollback below resets only source + atom; the slot itself is
+          // untouched.
+          throw new OneKeyErrorOneKeyIdKeylessSessionSlotReplaced();
+        }
       }
       // Notify main-runtime session holders (SupabaseAuthProvider) that the
       // source changed. This must not rely on a primePersistAtom.isLoggedIn
@@ -863,6 +902,10 @@ class ServicePrime extends ServiceBase {
       // would fail BOTH concurrent logins.
       throw new OneKeyErrorOneKeyIdKeylessSessionSlotReplaced();
     }
+    // Callers re-assert this identity inside the commit lock: the slot can
+    // still be replaced during the server POST that runs between this guard
+    // and the commit.
+    return { verifiedTokenSub: inFlightTokenSub };
   }
 
   @backgroundMethod()
@@ -891,10 +934,11 @@ class ServicePrime extends ServiceBase {
       // otherwise succeed on the server while the local commit fails or
       // serves the wrong slot, leaving the server logged in and the client
       // rolled back (or logged in as another account locally).
-      await this.assertKeylessSessionPersistedBeforeLogin({
-        accessToken,
-        callerName: 'ServicePrime.apiOAuthLogin',
-      });
+      const { verifiedTokenSub } =
+        await this.assertKeylessSessionPersistedBeforeLogin({
+          accessToken,
+          callerName: 'ServicePrime.apiOAuthLogin',
+        });
       const client = await this.getPrimeClient();
       const result = await client.post<
         IApiClientResponse<IOneKeyIdOAuthLoginResponse>
@@ -919,6 +963,7 @@ class ServicePrime extends ServiceBase {
         await this.commitAuthSessionSourceAndPrimeAtom({
           authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
           callerName: 'ServicePrime.apiOAuthLogin',
+          expectedSlotTokenSub: verifiedTokenSub,
           updatePrimeAtom: async () => {
             await this.updatePrimeAtomByOAuthLoginResponse({
               loginResponse: data,
@@ -1162,10 +1207,11 @@ class ServicePrime extends ServiceBase {
       // overwrote meanwhile — would leave the account bound on the server
       // while the client rolls its login state back or presents the wrong
       // identity.
-      await this.assertKeylessSessionPersistedBeforeLogin({
-        accessToken: oauthAccessToken,
-        callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
-      });
+      const { verifiedTokenSub } =
+        await this.assertKeylessSessionPersistedBeforeLogin({
+          accessToken: oauthAccessToken,
+          callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
+        });
 
       const client = await this.getPrimeClient();
       let result: {
@@ -1202,6 +1248,7 @@ class ServicePrime extends ServiceBase {
         await this.commitAuthSessionSourceAndPrimeAtom({
           authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
           callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
+          expectedSlotTokenSub: verifiedTokenSub,
           updatePrimeAtom: async () => {
             await this.updatePrimeAtomByOneKeyIdAccount({
               onekeyAccount: data.onekeyAccount,
