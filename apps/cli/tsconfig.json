@@ -6,7 +6,6 @@
   "include": [
     "../../@types/**/*.d.ts",
     "../../packages/components/tamagui.config.ts",
-    "src/**/*",
-    "tsup.config.ts"
+    "src/**/*"
   ]
 }

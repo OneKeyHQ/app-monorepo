@@ -11,8 +11,8 @@
     "bin/"
   ],
   "scripts": {
-    "build": "node scripts/assert-typescript-isolation.js && node ../cli-toolchain/bin.js && node scripts/assert-no-deprecated-buffer.js",
-    "dev": "node ../cli-toolchain/bin.js --watch",
+    "build": "node esbuild.config.js && node scripts/assert-no-deprecated-buffer.js",
+    "dev": "node esbuild.config.js --watch",
     "test": "yarn test:unit && yarn test:integration:cli",
     "test:unit": "npx jest",
     "test:integration:cli": "yarn build && npx jest --runInBand --runTestsByPath src/__tests__/cli.integration.test.ts --testPathIgnorePatterns='-smoke\\.test\\.ts$'",
@@ -27,13 +27,15 @@
     "generate:cli-types": "node -r esbuild-register scripts/generate-cli-types.ts"
   },
   "devDependencies": {
-    "@onekeyfe/cli-toolchain": "workspace:*",
+    "@babel/parser": "7.27.2",
+    "@babel/traverse": "7.27.1",
     "@onekeyhq/core": "workspace:*",
     "@onekeyhq/shared": "workspace:*",
     "@types/proper-lockfile": "^4",
     "axios": "1.15.2",
     "chalk": "^4.1.2",
     "commander": "^12.0.0",
+    "esbuild": "0.27.2",
     "expect-type": "^1.3.0",
     "postject": "1.0.0-alpha.6",
     "qrcode": "^1.5.0",
