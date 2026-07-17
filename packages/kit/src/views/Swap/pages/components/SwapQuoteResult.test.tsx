@@ -25,6 +25,7 @@ let mockQuoteProgressState: {
 const mockSwapQuoteResultRate = jest.fn(
   (props: { onOpenProviderList?: () => void }) => (
     <button
+      aria-label="Open provider list"
       data-testid="mock-rate-provider-selector"
       type="button"
       onClick={props.onOpenProviderList}

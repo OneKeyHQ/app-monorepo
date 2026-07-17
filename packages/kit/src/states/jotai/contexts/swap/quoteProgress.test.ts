@@ -12,6 +12,7 @@ import {
   hasSwapQuoteEventTotalCount,
   hasSwapZeroProviderQuoteEvent,
   isSwapNoProviderSupportsTrade,
+  isSwapPreBuildTransportSettled,
   isSwapQuoteActionable,
   isSwapQuoteEventFetching,
   isSwapQuoteFromCurrentEvent,
@@ -153,6 +154,44 @@ describe('swap quote progress', () => {
         quoteEventCompleted: false,
       }),
     ).toBe(false);
+  });
+
+  it('keeps pre-build disabled until the exact SSE session settles', () => {
+    expect(
+      isSwapPreBuildTransportSettled({
+        isLegacySpeedSwap: false,
+        quoteEventCompleted: false,
+        quoteSessionSettled: false,
+      }),
+    ).toBe(false);
+    expect(
+      isSwapPreBuildTransportSettled({
+        isLegacySpeedSwap: false,
+        quoteEventCompleted: false,
+        quoteSessionSettled: true,
+      }),
+    ).toBe(false);
+    expect(
+      isSwapPreBuildTransportSettled({
+        isLegacySpeedSwap: false,
+        quoteEventCompleted: true,
+        quoteSessionSettled: false,
+      }),
+    ).toBe(false);
+    expect(
+      isSwapPreBuildTransportSettled({
+        isLegacySpeedSwap: false,
+        quoteEventCompleted: true,
+        quoteSessionSettled: true,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapPreBuildTransportSettled({
+        isLegacySpeedSwap: true,
+        quoteEventCompleted: false,
+        quoteSessionSettled: false,
+      }),
+    ).toBe(true);
   });
 
   it('keeps seeded Stock quote events fetching before total quote count arrives', () => {

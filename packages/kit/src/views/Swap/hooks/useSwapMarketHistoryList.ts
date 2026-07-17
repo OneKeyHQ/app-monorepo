@@ -11,6 +11,8 @@ import { getSwapMarketPendingHistoryKey } from '../utils/swapMarketHistory';
 
 import { useShouldShowSwapLocalData } from './useSwapLocalDataVisibility';
 
+export const SWAP_HISTORY_PREVIEW_SWR_KEY = 'swapHistoryPreviewList';
+
 // Reads the persisted swap history and keeps it fresh on the two signals that
 // can change it: a pending order transitioning (via the derived key, which also
 // drives pending-status polling) and the explicit RefreshSwapHistoryList event
@@ -33,7 +35,19 @@ export function useSwapMarketHistoryList(protocol?: EProtocolOfExchange) {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [marketPendingKey, shouldShowSwapLocalData],
-    { watchLoading: true },
+    {
+      watchLoading: true,
+      // Swap, Stock and the history surfaces all read the same full SimpleDB
+      // list. Keep that list available across their conditional remounts, then
+      // revalidate it from the canonical service owner.
+      // Keep the key disabled until wallet/account initialization is ready.
+      // Otherwise the gated `[]` result would overwrite the retained history
+      // and recreate an empty -> rows flash as soon as the gate opens.
+      swrKey: shouldShowSwapLocalData
+        ? SWAP_HISTORY_PREVIEW_SWR_KEY
+        : undefined,
+      overrideIsFocused: () => true,
+    },
   );
   useEffect(() => {
     const handleRefresh = () => {

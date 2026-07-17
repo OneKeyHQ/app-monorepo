@@ -281,7 +281,7 @@ const SwapQuoteResultRate = ({
             </Stack>
           </XStack>
         )}
-        {!onOpenProviderList && (
+        {!onOpenProviderList ? (
           <>
             {!quoting && onOpenResult ? (
               <Stack
@@ -328,7 +328,7 @@ const SwapQuoteResultRate = ({
               </XStack>
             )}
           </>
-        )}
+        ) : null}
       </XStack>
     </XStack>
   );

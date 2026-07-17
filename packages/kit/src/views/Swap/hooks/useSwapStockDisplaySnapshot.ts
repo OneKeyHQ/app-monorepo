@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
+  useSwapAmountInputTabSessionAtom,
   useSwapInitialSelectedTokensSyncedAtom,
   useSwapSelectedTokensColdStartContextAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -37,6 +38,64 @@ import {
   projectSwapStockDisplayTokenDetail,
   resolveSwapStockDisplayAccountKey,
 } from './swapStockDisplaySnapshotUtils';
+import { getSwapStockColdStartAccountKeyFromGlobalSnapshot } from './useSwapColdStartDisplayTokens';
+
+function useSwapStockDisplayAccountOwner() {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const [coldStartContext] = useSwapSelectedTokensColdStartContextAtom();
+  const [initialSelectedTokensSynced] =
+    useSwapInitialSelectedTokensSyncedAtom();
+  const hasResolvedLiveAccountRef = useRef(activeAccount.ready);
+  if (activeAccount.ready) {
+    hasResolvedLiveAccountRef.current = true;
+  }
+  const activeAccountCandidateKey = useMemo(
+    () => buildSwapSelectedTokensColdStartAccountKey(activeAccount),
+    [activeAccount],
+  );
+  const mayUseColdStartOwner =
+    !hasResolvedLiveAccountRef.current && !initialSelectedTokensSynced;
+  const globalColdStartAccountKey = mayUseColdStartOwner
+    ? getSwapStockColdStartAccountKeyFromGlobalSnapshot()
+    : undefined;
+  const coldStartAccountKey =
+    mayUseColdStartOwner &&
+    coldStartContext?.swapType === ESwapTabSwitchType.STOCK
+      ? coldStartContext.accountKey
+      : globalColdStartAccountKey;
+  const accountKey = resolveSwapStockDisplayAccountKey({
+    activeAccountCandidateKey,
+    activeAccountReady: activeAccount.ready,
+    coldStartAccountKey,
+    initialSelectedTokensSynced,
+  });
+
+  return {
+    accountKey,
+    accountIdentityKey: buildSwapStockDisplayAccountIdentityKey(
+      accountKey ? { accountKey } : undefined,
+    ),
+  };
+}
+
+export function useSwapStockDisplaySelectionBootstrap() {
+  const { accountKey } = useSwapStockDisplayAccountOwner();
+  const snapshot = useMemo(
+    () =>
+      getSwapStockDisplayAccountSnapshot({
+        accountKey,
+        snapshot: accountKey
+          ? swapStockDisplaySnapshotStorage.get(accountKey)
+          : undefined,
+      }),
+    [accountKey],
+  );
+
+  return {
+    accountKey,
+    selection: snapshot?.selection,
+  };
+}
 
 export function useSwapStockDisplaySnapshot({
   currentStockToken,
@@ -49,32 +108,12 @@ export function useSwapStockDisplaySnapshot({
   payToken?: ISwapToken;
   tradeSide: ESwapStockTradeSide;
 }) {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const [coldStartContext] = useSwapSelectedTokensColdStartContextAtom();
-  const [initialSelectedTokensSynced] =
-    useSwapInitialSelectedTokensSyncedAtom();
+  const { accountIdentityKey, accountKey } = useSwapStockDisplayAccountOwner();
+  const [amountSessionId] = useSwapAmountInputTabSessionAtom();
   const [settings] = useSettingsPersistAtom();
-  const activeAccountCandidateKey = useMemo(
-    () => buildSwapSelectedTokensColdStartAccountKey(activeAccount),
-    [activeAccount],
-  );
-  const coldStartAccountKey =
-    !initialSelectedTokensSynced &&
-    coldStartContext?.swapType === ESwapTabSwitchType.STOCK
-      ? coldStartContext.accountKey
-      : undefined;
   // During real cold start the validated cold-start context can paint before
   // the account store is ready. During an account switch, however, a visible
   // candidate owner must match that context or the snapshot is rejected.
-  const accountKey = resolveSwapStockDisplayAccountKey({
-    activeAccountCandidateKey,
-    activeAccountReady: activeAccount.ready,
-    coldStartAccountKey,
-    initialSelectedTokensSynced,
-  });
-  const accountIdentityKey = buildSwapStockDisplayAccountIdentityKey(
-    accountKey ? { accountKey } : undefined,
-  );
   const stockTokenKey = getTokenIdentityKey(currentStockToken);
   const payTokenKey = getTokenIdentityKey(payToken);
   const currency = settings.currencyInfo.id;
@@ -88,8 +127,16 @@ export function useSwapStockDisplaySnapshot({
       payTokenKey,
       tradeSide,
       currency,
+      amountSessionId,
     };
-  }, [accountKey, currency, payTokenKey, stockTokenKey, tradeSide]);
+  }, [
+    accountKey,
+    amountSessionId,
+    currency,
+    payTokenKey,
+    stockTokenKey,
+    tradeSide,
+  ]);
   const identityKey = buildSwapStockDisplayIdentityKey(identity);
   const chartIdentity = useMemo<ISwapStockDisplayChartIdentity | undefined>(
     () =>
@@ -106,9 +153,15 @@ export function useSwapStockDisplaySnapshot({
   const amountIdentity = useMemo<ISwapStockDisplayAmountIdentity | undefined>(
     () =>
       accountKey && stockTokenKey && payTokenKey
-        ? { accountKey, stockTokenKey, payTokenKey, tradeSide }
+        ? {
+            accountKey,
+            stockTokenKey,
+            payTokenKey,
+            tradeSide,
+            amountSessionId,
+          }
         : undefined,
-    [accountKey, payTokenKey, stockTokenKey, tradeSide],
+    [accountKey, amountSessionId, payTokenKey, stockTokenKey, tradeSide],
   );
   const amountOwnerKey = buildSwapStockDisplayAmountIdentityKey(amountIdentity);
   const tokenDetailOwnerKey = buildSwapStockDisplayTokenDetailIdentityKey(
@@ -351,6 +404,7 @@ export function useSwapStockDisplaySnapshot({
           stockTokenKey: selectedStockTokenKey,
           payTokenKey: selectedPayTokenKey,
           tradeSide: selectionSnapshot.tradeSide,
+          amountSessionId,
         }
       : undefined;
   // Before live pay-token selection lands, an account-owned selection can

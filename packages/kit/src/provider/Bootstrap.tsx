@@ -72,6 +72,7 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
 import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { setForceSystemBrowserForDebug } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -662,7 +663,11 @@ export const useCheckUpdateOnDesktop =
 export const useClearStorageOnExtension = platformEnv.isExtension
   ? () => {
       useEffect(() => {
-        appEventBus.on(EAppEventBusNames.ClearStorageOnExtension, () => {
+        const handleClearStorageOnExtension = () => {
+          // Every extension foreground is a separate JS heap. Keep its
+          // intervals and persistence writers quiesced until the background
+          // reloads the whole extension after the shared storage wipe.
+          resetUtils.startResetting();
           try {
             globalThis.localStorage.clear();
           } catch {
@@ -673,7 +678,17 @@ export const useClearStorageOnExtension = platformEnv.isExtension
           } catch {
             console.error('window.sessionStorage.clear() error');
           }
-        });
+        };
+        appEventBus.on(
+          EAppEventBusNames.ClearStorageOnExtension,
+          handleClearStorageOnExtension,
+        );
+        return () => {
+          appEventBus.off(
+            EAppEventBusNames.ClearStorageOnExtension,
+            handleClearStorageOnExtension,
+          );
+        };
       }, []);
     }
   : noop;

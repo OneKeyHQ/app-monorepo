@@ -48,12 +48,16 @@ import {
   filterStockPayTokenCandidates,
   getTokenIdentityKey,
   isStockTradeReadyForQuote,
-  resolveStockChannelOwnedPayToken,
+  resolveStockChannelBootstrapSelection,
+  resolveStockChannelPayTokenStatus,
   resolveStockChannelSwapPair,
   shouldResetStockTradeReceiveAmount,
 } from './swapStockChannelUtils';
 import { useSwapStockDefaultToken } from './useSwapStockDefaultToken';
-import { useSwapStockDisplaySnapshot } from './useSwapStockDisplaySnapshot';
+import {
+  useSwapStockDisplaySelectionBootstrap,
+  useSwapStockDisplaySnapshot,
+} from './useSwapStockDisplaySnapshot';
 import { useSwapStockMarketWebSocket } from './useSwapStockMarketWebSocket';
 import { useSwapStockPayTokens } from './useSwapStockPayTokens';
 
@@ -137,6 +141,8 @@ export function useSwapStockChannel() {
   const manualStockPayTokenKeyRef = useRef('');
   const stockTokenSnapshotRef = useRef<ISwapToken | undefined>(undefined);
   const payTokenSnapshotRef = useRef<ISwapToken | undefined>(undefined);
+  const { selection: displaySelection } =
+    useSwapStockDisplaySelectionBootstrap();
 
   const selectedTokensStockPair = useMemo(
     () =>
@@ -160,21 +166,25 @@ export function useSwapStockChannel() {
   const stockPair = hasStockExecutionPair
     ? executionTokensStockPair
     : selectedTokensStockPair;
-  const tradeSide =
-    tradeSideState ?? stockPair.tradeSide ?? ESwapStockTradeSide.Buy;
   const persistedStockSelectedToken = stockSelectedToken?.isStock
     ? stockSelectedToken
     : undefined;
-  const selectedStockToken =
-    stockTokenState ?? persistedStockSelectedToken ?? stockPair.stockToken;
-  const selectedStockTokenKey = getTokenIdentityKey(selectedStockToken);
-  const currentStockToken = selectedStockToken;
-  const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
-  const payToken = resolveStockChannelOwnedPayToken({
-    explicitPayToken: payTokenState,
-    stockPair,
+  const {
+    currentStockToken: bootstrapStockToken,
+    payToken,
     tradeSide,
+  } = resolveStockChannelBootstrapSelection({
+    explicitPayToken: payTokenState,
+    explicitStockToken: stockTokenState ?? persistedStockSelectedToken,
+    explicitTradeSide: tradeSideState,
+    snapshotSelection: displaySelection,
+    stockPair,
   });
+  const currentStockToken = bootstrapStockToken
+    ? normalizeSelectedStockSwapToken(bootstrapStockToken)
+    : undefined;
+  const selectedStockTokenKey = getTokenIdentityKey(currentStockToken);
+  const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
   const stockNetworkId = currentStockToken?.networkId ?? '';
   const stockTokenDetailScope = currentStockTokenKey;
   const lastGoodStockTokenDetailRef =
@@ -501,7 +511,7 @@ export function useSwapStockChannel() {
   }, []);
 
   const {
-    payTokenStatus,
+    payTokenStatus: livePayTokenStatus,
     payTokenOptionsLoading,
     payTokens,
     selectablePayTokens,
@@ -578,7 +588,11 @@ export function useSwapStockChannel() {
       );
       const nextPayToken = shouldUseSellSide ? pairToToken : pairFromToken;
 
-      resetStockTradeAmounts();
+      if (nextTradeSide === tradeSide) {
+        resetStockTradeReceiveAmount();
+      } else {
+        resetStockTradeAmounts();
+      }
       setTradeSideState(nextTradeSide);
       setStockTokenState(nextStockToken);
       setStockSelectedToken(nextStockToken);
@@ -592,7 +606,13 @@ export function useSwapStockChannel() {
         payToken: nextPayToken,
       });
     },
-    [resetStockTradeAmounts, setStockSelectedToken, syncStockExecutionTokens],
+    [
+      resetStockTradeAmounts,
+      resetStockTradeReceiveAmount,
+      setStockSelectedToken,
+      syncStockExecutionTokens,
+      tradeSide,
+    ],
   );
 
   const stockTokenStatus = useMemo(() => {
@@ -612,6 +632,10 @@ export function useSwapStockChannel() {
     shouldLoadDefaultStockToken,
     stockCategoryType,
   ]);
+  const payTokenStatus = resolveStockChannelPayTokenStatus({
+    payTokenStatus: livePayTokenStatus,
+    stockTokenStatus,
+  });
 
   const marketStatusStatus = useMemo(() => {
     if (!currentStockTokenKey) {

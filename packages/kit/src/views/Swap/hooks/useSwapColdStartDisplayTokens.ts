@@ -6,6 +6,7 @@ import { parseColdStartSnapshotRaw } from '@onekeyhq/shared/src/utils/coldStartC
 import {
   getSwapColdStartSelectedTokensFromSnapshot,
   isSwapColdStartAllNetworkContextNetworkId,
+  normalizeSwapColdStartCacheSnapshot,
 } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
@@ -270,6 +271,38 @@ export function getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
       });
       if (defaultTokens?.fromToken?.symbol || defaultTokens?.toToken?.symbol) {
         return defaultTokens;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+export function getSwapStockColdStartAccountKeyFromGlobalSnapshot() {
+  for (const snapshot of getColdStartSnapshotCandidatesFromGlobal()) {
+    const normalizedSnapshot = normalizeSwapColdStartCacheSnapshot({
+      ...snapshot,
+    });
+    if (isSnapshotRecord(normalizedSnapshot)) {
+      const cachedContext =
+        getSnapshotValue<ISwapSelectedTokensColdStartContext>({
+          snapshot: normalizedSnapshot,
+          coldStartScopeKey: SWAP_STORE_SCOPE_KEY,
+          coldStartCacheKey:
+            CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+        });
+      const visibleSwapType = getSnapshotValue<ESwapTabSwitchType>({
+        snapshot: normalizedSnapshot,
+        coldStartScopeKey: SWAP_STORE_SCOPE_KEY,
+        coldStartCacheKey:
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
+      });
+      if (
+        cachedContext?.accountKey &&
+        cachedContext.swapType === ESwapTabSwitchType.STOCK &&
+        visibleSwapType === ESwapTabSwitchType.STOCK
+      ) {
+        return cachedContext.accountKey;
       }
     }
   }

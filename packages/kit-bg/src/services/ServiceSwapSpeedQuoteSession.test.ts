@@ -129,4 +129,55 @@ describe('SwapSpeedQuoteSessionRegistry', () => {
     );
     expect(staleController.abort).toHaveBeenCalledTimes(1);
   });
+
+  it('rejects stale intents after settle and exact cancel', () => {
+    const registry = new SwapSpeedQuoteSessionRegistry();
+    const settledLease = registry.reserve(
+      buildIdentity('request-2', 'main:swap-pro', 2),
+    );
+    expect(registry.finish(settledLease)).toBe(true);
+
+    const staleAfterSettle = registry.reserve(
+      buildIdentity('request-stale', 'main:swap-pro', 1),
+    );
+    expect(staleAfterSettle.status).toBe('cancelled');
+
+    const currentLease = registry.reserve(
+      buildIdentity('request-3', 'main:swap-pro', 3),
+    );
+    expect(
+      registry.cancelExact({
+        surfaceId: currentLease.session.surfaceId,
+        requestId: currentLease.session.requestId,
+      }),
+    ).toBe(true);
+
+    const duplicateAfterCancel = registry.reserve(
+      buildIdentity('request-duplicate', 'main:swap-pro', 3),
+    );
+    expect(duplicateAfterCancel.status).toBe('cancelled');
+    expect(registry.getRetiredSurfaceCount()).toBe(1);
+  });
+
+  it('bounds retired surfaces without restoring captured request authority', () => {
+    const registry = new SwapSpeedQuoteSessionRegistry(2);
+    const firstLease = registry.reserve(
+      buildIdentity('request-1', 'main:first', 1),
+    );
+    const secondLease = registry.reserve(
+      buildIdentity('request-1', 'main:second', 1),
+    );
+    const thirdLease = registry.reserve(
+      buildIdentity('request-1', 'main:third', 1),
+    );
+
+    expect(registry.finish(firstLease)).toBe(true);
+    expect(registry.finish(secondLease)).toBe(true);
+    expect(registry.finish(thirdLease)).toBe(true);
+
+    expect(registry.getRetiredSurfaceCount()).toBe(2);
+    expect(registry.isCurrent(firstLease)).toBe(false);
+    expect(registry.isCurrent(secondLease)).toBe(false);
+    expect(registry.isCurrent(thirdLease)).toBe(false);
+  });
 });

@@ -1,6 +1,7 @@
 import { registerColdStartFlushTrigger } from '@onekeyhq/shared/src/storage/coldStartFlushTrigger';
 import { coldStartCacheStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
 import type { ISwapStockDisplaySnapshot } from './swapStockDisplaySnapshotUtils';
 
@@ -22,6 +23,29 @@ let storeCache: ISwapStockDisplayStore | undefined;
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
 let dirty = false;
 let flushTriggerRegistered = false;
+const runtimeResetGeneration = resetUtils.getResetGeneration();
+const runtimeInitializedDuringReset = resetUtils.getIsResetting();
+
+function discardRuntimeStore(): void {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = undefined;
+  }
+  storeCache = undefined;
+  dirty = false;
+}
+
+function isRuntimeStoreDisabled(): boolean {
+  if (
+    !runtimeInitializedDuringReset &&
+    !resetUtils.getIsResetting() &&
+    resetUtils.getResetGeneration() === runtimeResetGeneration
+  ) {
+    return false;
+  }
+  discardRuntimeStore();
+  return true;
+}
 
 function buildAccountSlotKey(accountKey: string) {
   return encodeURIComponent(accountKey);
@@ -29,6 +53,31 @@ function buildAccountSlotKey(accountKey: string) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function omitRuntimeOnlyAmount(
+  snapshot: ISwapStockDisplaySnapshot,
+): ISwapStockDisplaySnapshot {
+  const persistentSnapshot = { ...snapshot };
+  delete persistentSnapshot.amount;
+  return persistentSnapshot;
+}
+
+function buildPersistentStore(
+  store: ISwapStockDisplayStore,
+): ISwapStockDisplayStore {
+  return {
+    ...store,
+    entries: Object.fromEntries(
+      Object.entries(store.entries).map(([slotKey, entry]) => [
+        slotKey,
+        {
+          ...entry,
+          snapshot: omitRuntimeOnlyAmount(entry.snapshot),
+        },
+      ]),
+    ),
+  };
 }
 
 function readStore(): ISwapStockDisplayStore {
@@ -57,7 +106,11 @@ function readStore(): ISwapStockDisplayStore {
           return;
         }
         entries[slotKey] = {
-          snapshot: entry.snapshot as ISwapStockDisplaySnapshot,
+          // Amount input follows ordinary Swap semantics: it is scoped to the
+          // current UI runtime and must never hydrate from a previous process.
+          snapshot: omitRuntimeOnlyAmount(
+            entry.snapshot as ISwapStockDisplaySnapshot,
+          ),
           updatedAt: entry.updatedAt as number,
         };
       });
@@ -82,13 +135,16 @@ function flushNow(): void {
     clearTimeout(flushTimer);
     flushTimer = undefined;
   }
+  if (isRuntimeStoreDisabled()) {
+    return;
+  }
   if (!dirty || !storeCache) {
     return;
   }
   try {
     coldStartCacheStorage.setObject(
       EAppSyncStorageKeys.onekey_swap_stock_display_snapshot,
-      storeCache,
+      buildPersistentStore(storeCache),
     );
     dirty = false;
   } catch {
@@ -117,14 +173,14 @@ function scheduleFlush(): void {
 }
 
 function get(accountKey: string): ISwapStockDisplaySnapshot | undefined {
-  if (!accountKey) {
+  if (!accountKey || isRuntimeStoreDisabled()) {
     return undefined;
   }
   return readStore().entries[buildAccountSlotKey(accountKey)]?.snapshot;
 }
 
 function set(accountKey: string, snapshot: ISwapStockDisplaySnapshot): void {
-  if (!accountKey) {
+  if (!accountKey || isRuntimeStoreDisabled()) {
     return;
   }
   try {
@@ -155,6 +211,9 @@ function set(accountKey: string, snapshot: ISwapStockDisplaySnapshot): void {
 }
 
 function reload(): void {
+  if (isRuntimeStoreDisabled()) {
+    return;
+  }
   flushNow();
   storeCache = undefined;
   dirty = false;

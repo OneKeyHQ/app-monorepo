@@ -157,13 +157,16 @@ const SwapProContainer = ({
     useSwapPositionsSupportTokenListAction();
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([
-      fetchTokenMarketDetailInfo(),
-      swapProLoadSupportNetworksTokenListRun(supportNetworksList),
-      syncInputTokenBalance(),
-      syncToTokenPrice(),
-    ]);
-    setRefreshing(false);
+    try {
+      await Promise.all([
+        fetchTokenMarketDetailInfo(),
+        swapProLoadSupportNetworksTokenListRun(supportNetworksList),
+        syncInputTokenBalance(),
+        syncToTokenPrice(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
   }, [
     fetchTokenMarketDetailInfo,
     swapProLoadSupportNetworksTokenListRun,

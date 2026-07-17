@@ -46,6 +46,9 @@ import {
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapFromTokenAmountAtom,
   useSwapInitialSelectedTokensSyncedAtom,
+  useSwapLimitExpirationTimeAtom,
+  useSwapLimitPartiallyFillAtom,
+  useSwapLimitPriceUseRateAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -62,7 +65,10 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
-import { buildSwapQuoteSemanticIntent } from '../../../states/jotai/contexts/swap/quoteSemanticIntent';
+import {
+  buildSwapQuoteLimitSemanticSettings,
+  buildSwapQuoteSemanticIntent,
+} from '../../../states/jotai/contexts/swap/quoteSemanticIntent';
 import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
 import { getSwapQuoteReadiness } from '../utils/swapQuoteReadiness';
 import {
@@ -145,6 +151,9 @@ export function useSwapQuote() {
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount, setToTokenAmount] = useSwapToTokenAmountAtom();
+  const [swapLimitExpirationTime] = useSwapLimitExpirationTimeAtom();
+  const [swapLimitPartiallyFill] = useSwapLimitPartiallyFillAtom();
+  const [swapLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const [swapQuoteResultList] = useSwapQuoteListAtom();
   const [, setSwapManualSelectQuoteProviders] =
     useSwapManualSelectQuoteProvidersAtom();
@@ -257,32 +266,47 @@ export function useSwapQuote() {
     Boolean(fromTokenAmount.value) &&
     fromTokenAmount.value !== fromAmountDebounce.value;
 
-  const semanticIntent = useMemo(
-    () =>
-      buildSwapQuoteSemanticIntent({
-        accountId: swapAddressInfo.accountInfo?.account?.id,
-        accountNetworkId: swapAddressInfo.networkId,
-        fromAmount: fromTokenAmount,
-        fromToken,
-        protocol: swapTabSwitchType,
-        receivingAddress: swapToAddressInfo.address,
-        slippage: slippageItem,
-        toAmount: toTokenAmount,
-        toToken,
-        userAddress: swapAddressInfo.address,
-      }),
-    [
+  const semanticIntent = useMemo(() => {
+    const limitSettings = buildSwapQuoteLimitSemanticSettings({
+      expirationTime: swapLimitExpirationTime.value,
       fromToken,
-      fromTokenAmount,
-      slippageItem,
-      swapAddressInfo.accountInfo?.account?.id,
-      swapAddressInfo.address,
-      swapAddressInfo.networkId,
-      swapTabSwitchType,
-      swapToAddressInfo.address,
+      limitPartiallyFillable: swapLimitPartiallyFill.value,
+      limitPriceUseRate: swapLimitPriceUseRate,
+      protocol: swapTabSwitchType,
       toToken,
-      toTokenAmount,
-    ],
+    });
+    return buildSwapQuoteSemanticIntent({
+      accountId: swapAddressInfo.accountInfo?.account?.id,
+      accountNetworkId: swapAddressInfo.networkId,
+      fromAmount: fromTokenAmount,
+      fromToken,
+      limitSettings,
+      protocol: swapTabSwitchType,
+      receivingAddress: swapToAddressInfo.address,
+      slippage: slippageItem,
+      toAmount: toTokenAmount,
+      toToken,
+      userAddress: swapAddressInfo.address,
+    });
+  }, [
+    fromToken,
+    fromTokenAmount,
+    slippageItem,
+    swapAddressInfo.accountInfo?.account?.id,
+    swapAddressInfo.address,
+    swapAddressInfo.networkId,
+    swapLimitExpirationTime.value,
+    swapLimitPartiallyFill.value,
+    swapLimitPriceUseRate,
+    swapTabSwitchType,
+    swapToAddressInfo.address,
+    toToken,
+    toTokenAmount,
+  ]);
+  const limitSettingsKeyDebounce = useDebounce(
+    semanticIntent.limitSettingsKey,
+    500,
+    { leading: true },
   );
   const semanticIntentKeyRef = useRef(semanticIntent.key);
 
@@ -545,7 +569,10 @@ export function useSwapQuote() {
         activeAccountRef.current?.accountInfo?.account?.id &&
       swapQuoteActionLockRef.current?.address === swapAddressInfo.address &&
       swapQuoteActionLockRef.current?.receivingAddress ===
-        swapToAddressInfo.address
+        swapToAddressInfo.address &&
+      (swapTabSwitchTypeRef.current !== ESwapTabSwitchType.LIMIT ||
+        swapQuoteActionLockRef.current?.limitSettingsKey ===
+          limitSettingsKeyDebounce)
     ) {
       return;
     }
@@ -577,6 +604,7 @@ export function useSwapQuote() {
     swapStockExecutionTokenSyncId,
     alignmentDecimal,
     fromAmountDebounce,
+    limitSettingsKeyDebounce,
     shouldPauseQuote,
   ]);
 
@@ -668,7 +696,9 @@ export function useSwapQuote() {
         activeAccountRef.current?.accountInfo?.account?.id &&
       swapQuoteActionLockRef.current?.address === swapAddressInfo.address &&
       swapQuoteActionLockRef.current?.receivingAddress ===
-        swapToAddressInfo.address
+        swapToAddressInfo.address &&
+      swapQuoteActionLockRef.current?.limitSettingsKey ===
+        limitSettingsKeyDebounce
     ) {
       return;
     }
@@ -695,6 +725,7 @@ export function useSwapQuote() {
     toToken?.networkId,
     toToken?.contractAddress,
     alignmentToDecimal,
+    limitSettingsKeyDebounce,
     toAmountDebounce,
     shouldPauseQuote,
   ]);

@@ -547,6 +547,70 @@ describe('buildSwapReviewState', () => {
     );
   });
 
+  it('keeps LIMIT order semantics in the frozen review identity', () => {
+    const baseInput = {
+      accountId: 'hd-1--m/44/60/0/0/0',
+      networkId: fromToken.networkId,
+      fromToken,
+      toToken,
+      fromTokenAmount: '1',
+      toTokenAmount: '2500',
+      quoteResult: createQuoteResult({
+        protocol: EProtocolOfExchange.LIMIT,
+        fromAmount: '1',
+        toAmount: '2500',
+      }),
+      swapType: ESwapTabSwitchType.LIMIT,
+      supportPreBuild: false,
+      slippage: 1,
+      executionContext: {
+        reviewRevision: 'review-limit-1',
+        senderAddress: '0xsender',
+        receivingAddress: '0xreceiver',
+        recipientMode: ESwapExecutionRecipientMode.Custom,
+        limitSettings: {
+          expirationTime: '3600',
+          rate: '2500',
+          priceFromAmount: '1',
+          priceToAmount: '2500',
+          partiallyFillable: true,
+        },
+      },
+      texts,
+    };
+    const result = buildSwapReviewState(baseInput);
+    const fingerprint = result.provenance.executionFingerprint;
+
+    expect(result.executionSnapshot?.limitSettings).toEqual(
+      baseInput.executionContext.limitSettings,
+    );
+    expect(
+      buildSwapReviewState({
+        ...baseInput,
+        executionContext: {
+          ...baseInput.executionContext,
+          limitSettings: {
+            ...baseInput.executionContext.limitSettings,
+            rate: '2600',
+          },
+        },
+      }).provenance.executionFingerprint,
+    ).not.toBe(fingerprint);
+    expect(
+      buildSwapReviewState({
+        ...baseInput,
+        executionContext: {
+          ...baseInput.executionContext,
+          limitSettings: {
+            ...baseInput.executionContext.limitSettings,
+            expirationTime: '7200',
+            partiallyFillable: false,
+          },
+        },
+      }).provenance.executionFingerprint,
+    ).not.toBe(fingerprint);
+  });
+
   it('deep-freezes a detached execution snapshot', () => {
     const quote = createQuoteResult({
       fromAmount: '1',

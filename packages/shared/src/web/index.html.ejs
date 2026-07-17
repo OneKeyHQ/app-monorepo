@@ -36,23 +36,24 @@
       //
       // WHY: the cold-start IDB read costs ~1.5s when it happens during the boot
       // JS storm (the IDB onsuccess callback is starved by jotaiInit / React /
-      // render work), but only ~3ms pre-bundle. AND hydrate.ts skips cold-start
-      // entirely in dev (production-only, to avoid schema drift between code
-      // changes). This pre-read populates ONLY the webColdStartStorage in-memory
-      // Map with the single `onekey_jotai_context_atoms_snapshot` blob — NOT the
+      // render work), but only ~3ms pre-bundle. Generic context-atom hydration
+      // stays disabled in dev to avoid schema drift between local code changes.
+      // This pre-read populates ONLY the webColdStartStorage in-memory
+      // Map with only explicitly allowlisted cache blobs — NOT the
       // `__ONEKEY_CTX_ATOM_SNAPSHOT__` global — so the self-contained,
       // currency-gated, provisional SLC token-list slim cold-start activates in
       // dev for local verification, while the generic L2 context-atom hydration
-      // (the schema-drift-prone part) stays OFF. We also pre-read the SWR blob
-      // so localhost can verify web cold-start cache paths that use
-      // usePromiseResult({ swrKey }). Prod keeps its real hydrate.ts path
-      // untouched.
+      // (the schema-drift-prone part) stays OFF. We also pre-read the individually
+      // versioned SWR blob and the dedicated, versioned Stock display snapshot so
+      // they are available before React's first paint. Prod keeps its real
+      // hydrate.ts path untouched.
       (function () {
         try {
           var DBN = 'onekey-cold-start-cache';
           var SNAP_KEY = 'onekey_jotai_context_atoms_snapshot';
           var SWR_KEY = 'onekey_swr_cache';
-          var KEYS = [SNAP_KEY, SWR_KEY];
+          var STOCK_DISPLAY_KEY = 'onekey_swap_stock_display_snapshot';
+          var KEYS = [SNAP_KEY, SWR_KEY, STOCK_DISPLAY_KEY];
           navigator.storageBuckets
             .open(DBN, { persisted: true, durability: 'strict' })
             .then(function (bk) {

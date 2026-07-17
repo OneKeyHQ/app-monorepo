@@ -173,6 +173,56 @@ describe('SwapQuoteSessionRegistry', () => {
 
     expect(staleLease.status).toBe('cancelled');
     expect(registry.getActiveSessionCount()).toBe(0);
+    expect(registry.getRetiredSurfaceCount()).toBe(1);
+  });
+
+  it('retains exact-cancel authority while bounding retired surfaces', () => {
+    const registry = new SwapQuoteSessionRegistry(2);
+    const firstLease = registry.reserve(
+      buildIdentity('request-current', 'main:first', 2),
+    );
+    expect(
+      registry.cancelExact({
+        surfaceId: firstLease.session.surfaceId,
+        requestId: firstLease.session.requestId,
+      }),
+    ).toBe(true);
+
+    const staleFirstLease = registry.reserve(
+      buildIdentity('request-stale', 'main:first', 1),
+    );
+    expect(staleFirstLease.status).toBe('cancelled');
+
+    const secondLease = registry.reserve(
+      buildIdentity('request-1', 'main:second', 1),
+    );
+    const thirdLease = registry.reserve(
+      buildIdentity('request-1', 'main:third', 1),
+    );
+    expect(registry.finish(secondLease)).toBe(true);
+    expect(registry.finish(thirdLease)).toBe(true);
+
+    expect(registry.getRetiredSurfaceCount()).toBe(2);
+    expect(registry.nextSequence(firstLease)).toBeUndefined();
+    expect(registry.nextSequence(secondLease)).toBeUndefined();
+    expect(registry.nextSequence(thirdLease)).toBeUndefined();
+  });
+
+  it('moves a retired surface back to active ownership only for a newer intent', () => {
+    const registry = new SwapQuoteSessionRegistry();
+    const settledLease = registry.reserve(
+      buildIdentity('request-2', 'main:swap', 2),
+    );
+    expect(registry.finish(settledLease)).toBe(true);
+    expect(registry.getRetiredSurfaceCount()).toBe(1);
+
+    const currentLease = registry.reserve(
+      buildIdentity('request-3', 'main:swap', 3),
+    );
+
+    expect(registry.isCurrent(currentLease)).toBe(true);
+    expect(registry.getRetiredSurfaceCount()).toBe(0);
+    expect(registry.nextSequence(settledLease)).toBeUndefined();
   });
 
   it('finishes only the currently captured lease', () => {

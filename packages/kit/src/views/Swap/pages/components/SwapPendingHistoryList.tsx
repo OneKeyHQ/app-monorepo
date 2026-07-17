@@ -33,6 +33,7 @@ import {
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
 import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
+import { SWAP_HISTORY_PREVIEW_SWR_KEY } from '../../hooks/useSwapMarketHistoryList';
 import { SwapTestIDs } from '../../testIDs';
 import {
   filterSwapMarketHistoryItems,
@@ -68,7 +69,9 @@ const SwapPendingHistoryListComponent = ({
       // Sync-read the cached list on (re)mount so returning to this surface
       // (e.g. from the Stock/Limit tab, which unmounts this component) shows
       // the rows immediately instead of flashing empty before the async fetch.
-      swrKey: 'swapHistoryPreviewList',
+      swrKey: shouldShowSwapLocalData
+        ? SWAP_HISTORY_PREVIEW_SWR_KEY
+        : undefined,
       // Keep re-fetching even while the Swap tab is blurred, so archiving on
       // leave (mark-all-read) is reflected before the user returns instead of
       // briefly showing the stale rows and removing them on refocus.

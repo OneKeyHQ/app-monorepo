@@ -4,6 +4,7 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchQuoteResult,
+  ISwapLimitPriceInfo,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -25,6 +26,7 @@ type ISwapQuoteSemanticIntentInput = {
   accountNetworkId?: string;
   fromAmount: ISwapAmountInput;
   fromToken?: ISwapToken;
+  limitSettings?: ISwapQuoteLimitSemanticSettings;
   protocol: ESwapTabSwitchType;
   receivingAddress?: string;
   slippage: {
@@ -35,6 +37,55 @@ type ISwapQuoteSemanticIntentInput = {
   toToken?: ISwapToken;
   userAddress?: string;
 };
+
+export type ISwapQuoteLimitSemanticSettings = Readonly<{
+  expirationTime: number;
+  limitPartiallyFillable: boolean;
+  userMarketPriceRate?: string;
+}>;
+
+export function buildSwapQuoteLimitSemanticSettings({
+  expirationTime,
+  fromToken,
+  limitPartiallyFillable,
+  limitPriceUseRate,
+  protocol,
+  toToken,
+}: {
+  expirationTime: number | string;
+  fromToken?: ISwapToken;
+  limitPartiallyFillable: boolean;
+  limitPriceUseRate: ISwapLimitPriceInfo;
+  protocol: ESwapTabSwitchType;
+  toToken?: ISwapToken;
+}): ISwapQuoteLimitSemanticSettings | undefined {
+  if (protocol !== ESwapTabSwitchType.LIMIT) {
+    return undefined;
+  }
+
+  const isSelectedPair =
+    Boolean(limitPriceUseRate.rate) &&
+    equalTokenNoCaseSensitive({
+      token1: limitPriceUseRate.fromToken,
+      token2: fromToken,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: limitPriceUseRate.toToken,
+      token2: toToken,
+    });
+
+  return {
+    expirationTime: Number(expirationTime),
+    limitPartiallyFillable,
+    userMarketPriceRate: isSelectedPair ? limitPriceUseRate.rate : undefined,
+  };
+}
+
+export function buildSwapQuoteLimitSemanticSettingsKey(
+  limitSettings?: ISwapQuoteLimitSemanticSettings,
+) {
+  return stableStringify({ limitSettings });
+}
 
 export function getSwapQuoteKindForCurrentInput({
   protocol,
@@ -56,6 +107,10 @@ export function buildSwapQuoteSemanticIntent(
     input.slippage.key === ESwapSlippageSegmentKey.CUSTOM
       ? input.slippage.value
       : undefined;
+  const limitSettings =
+    input.protocol === ESwapTabSwitchType.LIMIT
+      ? input.limitSettings
+      : undefined;
 
   return {
     hasValidInput: Boolean(
@@ -76,6 +131,7 @@ export function buildSwapQuoteSemanticIntent(
         : undefined,
       inputAmount,
       kind,
+      limitSettings,
       protocol: input.protocol,
       receivingAddress: input.receivingAddress,
       slippageKey: input.slippage.key,
@@ -89,6 +145,7 @@ export function buildSwapQuoteSemanticIntent(
       userAddress: input.userAddress,
     }),
     kind,
+    limitSettingsKey: buildSwapQuoteLimitSemanticSettingsKey(limitSettings),
   };
 }
 

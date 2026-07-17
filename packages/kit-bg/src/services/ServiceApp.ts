@@ -76,6 +76,17 @@ class ServiceApp extends ServiceBase {
     //   v4migrationPersistData?.v4migrationAutoStartDisabled;
     // ----------------------------------------------
 
+    if (platformEnv.isExtensionBackground) {
+      // Extension foregrounds have independent JS heaps but share the same
+      // origin storage. Quiesce every open popup/tab/side-panel before the bg
+      // clears IndexedDB, otherwise a stale foreground writer can recreate
+      // data after the wipe. The foreground guard intentionally lives until
+      // chrome.runtime.reload tears that runtime down.
+      appEventBus.emit(EAppEventBusNames.ClearStorageOnExtension, undefined);
+      await timerUtils.wait(1200);
+      defaultLogger.setting.page.clearDataStep('extensionForegrounds-quiesced');
+    }
+
     // clean app storage
     try {
       await appStorage.clear();
@@ -250,9 +261,6 @@ class ServiceApp extends ServiceBase {
         } catch {
           console.error('window.sessionStorage.clear() error');
         }
-      } else if (platformEnv.isExtensionBackground) {
-        appEventBus.emit(EAppEventBusNames.ClearStorageOnExtension, undefined);
-        await timerUtils.wait(1200);
       }
 
       if (platformEnv.isExtension) {
@@ -308,43 +316,53 @@ class ServiceApp extends ServiceBase {
     }
     await timerUtils.wait(1000);
 
-    resetUtils.startResetting();
-    defaultLogger.setting.page.clearDataStep('startResetting');
     try {
-      defaultLogger.setting.page.clearDataStep('resetData-start');
-      await this.resetData();
-      defaultLogger.setting.page.clearDataStep('resetData-end');
-    } catch (e) {
-      console.error('resetData error', e);
+      // Desktop/web can execute this service in the same JS runtime as the UI,
+      // while native/extension use an independent bg heap. Each runtime keeps
+      // the reset guard it owns until restart has quiesced that runtime; ending
+      // it after resetData would let stale intervals rewrite shared native
+      // storage while appRestart is still awaiting its pre-restart work.
+      await resetUtils.runWithResettingGuard(async () => {
+        defaultLogger.setting.page.clearDataStep('startResetting');
+        try {
+          defaultLogger.setting.page.clearDataStep('resetData-start');
+          await this.resetData();
+          defaultLogger.setting.page.clearDataStep('resetData-end');
+        } catch (e) {
+          console.error('resetData error', e);
+        }
+
+        if (
+          !platformEnv.isNative &&
+          (platformEnv.isWeb || platformEnv.isDesktop)
+        ) {
+          // reset route/href
+          try {
+            appGlobals.$navigationRef.current?.navigate(ERootRoutes.Main, {
+              screen: ETabRoutes.Home,
+              params: {
+                screen: ETabHomeRoutes.TabHome,
+              },
+            });
+          } catch {
+            console.error('reset route error');
+          }
+          defaultLogger.setting.page.clearData({ action: 'ResetApp' });
+          await timerUtils.wait(600);
+        }
+
+        // resetData wipes localDb / appStorage / v4 db — the background runtime
+        // is now holding stale state and bundle moduleIds may have re-keyed via
+        // OTA. mode=All forces both runtimes cold so nothing reads from the
+        // dead state.
+        await this.restartApp({
+          mode: EAppRestartMode.All,
+          reason: 'auth.resetData',
+        });
+      });
     } finally {
-      resetUtils.endResetting();
       defaultLogger.setting.page.clearDataStep('endResetting');
     }
-
-    if (!platformEnv.isNative && (platformEnv.isWeb || platformEnv.isDesktop)) {
-      // reset route/href
-      try {
-        appGlobals.$navigationRef.current?.navigate(ERootRoutes.Main, {
-          screen: ETabRoutes.Home,
-          params: {
-            screen: ETabHomeRoutes.TabHome,
-          },
-        });
-      } catch {
-        console.error('reset route error');
-      }
-      defaultLogger.setting.page.clearData({ action: 'ResetApp' });
-      await timerUtils.wait(600);
-    }
-
-    // resetData wipes localDb / appStorage / v4 db — the background runtime
-    // is now holding stale state and bundle moduleIds may have re-keyed via
-    // OTA. mode=All forces both runtimes cold so nothing reads from the
-    // dead state.
-    await this.restartApp({
-      mode: EAppRestartMode.All,
-      reason: 'auth.resetData',
-    });
   }
 
   @backgroundMethod()

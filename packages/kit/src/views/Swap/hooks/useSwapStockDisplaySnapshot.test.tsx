@@ -10,7 +10,10 @@ import {
   getTokenIdentityKey,
 } from './swapStockChannelUtils';
 import { mergeSwapStockDisplaySnapshot } from './swapStockDisplaySnapshotUtils';
-import { useSwapStockDisplaySnapshot } from './useSwapStockDisplaySnapshot';
+import {
+  useSwapStockDisplaySelectionBootstrap,
+  useSwapStockDisplaySnapshot,
+} from './useSwapStockDisplaySnapshot';
 
 import type { ISwapStockDisplayIdentity } from './swapStockDisplaySnapshotUtils';
 
@@ -31,13 +34,16 @@ let mockActiveAccount: {
   deriveType: 'default',
 };
 let mockInitialSelectedTokensSynced = true;
+let mockAmountSessionId = 0;
 let mockCurrency = 'usd';
+let mockGlobalColdStartAccountKey: string | undefined;
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({ activeAccount: mockActiveAccount }),
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/swap', () => ({
+  useSwapAmountInputTabSessionAtom: () => [mockAmountSessionId],
   useSwapInitialSelectedTokensSyncedAtom: () => [
     mockInitialSelectedTokensSynced,
   ],
@@ -52,6 +58,11 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
       },
     },
   ],
+}));
+
+jest.mock('./useSwapColdStartDisplayTokens', () => ({
+  getSwapStockColdStartAccountKeyFromGlobalSnapshot: () =>
+    mockGlobalColdStartAccountKey,
 }));
 
 jest.mock('./swapStockDisplaySnapshotStorage', () => ({
@@ -112,6 +123,22 @@ function seedSnapshot(identity: ISwapStockDisplayIdentity, value: string) {
   );
 }
 
+function seedSelectionSnapshot(identity: ISwapStockDisplayIdentity) {
+  mockCache.set(
+    identity.accountKey,
+    mergeSwapStockDisplaySnapshot({
+      identity,
+      patch: {
+        selection: {
+          payToken,
+          stockToken: stockA,
+          tradeSide: ESwapStockTradeSide.Buy,
+        },
+      },
+    }),
+  );
+}
+
 describe('useSwapStockDisplaySnapshot', () => {
   beforeEach(() => {
     mockCache.clear();
@@ -123,7 +150,104 @@ describe('useSwapStockDisplaySnapshot', () => {
       deriveType: 'default',
     };
     mockInitialSelectedTokensSynced = true;
+    mockAmountSessionId = 0;
     mockCurrency = 'usd';
+    mockGlobalColdStartAccountKey = undefined;
+  });
+
+  it('restores the exact-account Stock selection before live tokens exist', () => {
+    const identityA = buildIdentity();
+    seedSelectionSnapshot(identityA);
+
+    const { result } = renderHook(() =>
+      useSwapStockDisplaySelectionBootstrap(),
+    );
+
+    expect(result.current.accountKey).toBe(identityA.accountKey);
+    expect(result.current.selection).toMatchObject({
+      stockToken: { symbol: 'AAPL' },
+      payToken: { symbol: 'USDC' },
+      tradeSide: ESwapStockTradeSide.Buy,
+    });
+  });
+
+  it('never restores a Stock selection from another account slot', () => {
+    seedSelectionSnapshot(buildIdentity());
+    mockActiveAccount = {
+      ready: true,
+      wallet: { id: 'wallet-b' },
+      indexedAccount: { id: 'account-b' },
+      deriveType: 'default',
+    };
+
+    const { result } = renderHook(() =>
+      useSwapStockDisplaySelectionBootstrap(),
+    );
+
+    expect(result.current.accountKey).toBe('wallet-b|account-b|default');
+    expect(result.current.selection).toBeUndefined();
+  });
+
+  it('restores the exact Stock slot from a validated raw cold-start owner', () => {
+    const identityA = buildIdentity();
+    seedSelectionSnapshot(identityA);
+    mockActiveAccount = { ready: false };
+    mockInitialSelectedTokensSynced = false;
+    mockGlobalColdStartAccountKey = identityA.accountKey;
+
+    const { result } = renderHook(() =>
+      useSwapStockDisplaySelectionBootstrap(),
+    );
+
+    expect(result.current.accountKey).toBe(identityA.accountKey);
+    expect(result.current.selection?.stockToken.symbol).toBe('AAPL');
+  });
+
+  it('rejects the cold-start Stock owner when a different live account is visible', () => {
+    const identityA = buildIdentity();
+    seedSelectionSnapshot(identityA);
+    mockActiveAccount = {
+      ready: false,
+      wallet: { id: 'wallet-b' },
+      indexedAccount: { id: 'account-b' },
+      deriveType: 'default',
+    };
+    mockInitialSelectedTokensSynced = false;
+    mockGlobalColdStartAccountKey = identityA.accountKey;
+
+    const { result } = renderHook(() =>
+      useSwapStockDisplaySelectionBootstrap(),
+    );
+
+    expect(result.current.accountKey).toBeUndefined();
+    expect(result.current.selection).toBeUndefined();
+  });
+
+  it('never reuses the boot owner after the live account has resolved', () => {
+    const identityA = buildIdentity();
+    seedSelectionSnapshot(identityA);
+    mockActiveAccount = { ready: false };
+    mockInitialSelectedTokensSynced = false;
+    mockGlobalColdStartAccountKey = identityA.accountKey;
+    const { result, rerender } = renderHook(() =>
+      useSwapStockDisplaySelectionBootstrap(),
+    );
+    expect(result.current.accountKey).toBe(identityA.accountKey);
+
+    mockActiveAccount = {
+      ready: true,
+      wallet: { id: 'wallet-a' },
+      indexedAccount: { id: 'account-a' },
+      deriveType: 'default',
+    };
+    rerender();
+    expect(result.current.accountKey).toBe(identityA.accountKey);
+
+    mockActiveAccount = { ready: false };
+    rerender();
+
+    expect(result.current.accountKey).toBeUndefined();
+    expect(result.current.selection).toBeUndefined();
   });
 
   it('rejects stock-owned regions but retains the same input-token balance', () => {
@@ -387,7 +511,7 @@ describe('useSwapStockDisplaySnapshot', () => {
     ).toBe(false);
   });
 
-  it('restores display amount from account selection before live pay token lands', () => {
+  it('restores an in-tab amount but rejects it after the visible tab session changes', () => {
     const identityA = buildIdentity();
     mockCache.set(
       identityA.accountKey,
@@ -404,7 +528,7 @@ describe('useSwapStockDisplaySnapshot', () => {
       }),
     );
 
-    const { result } = renderHook(() =>
+    const { result, rerender } = renderHook(() =>
       useSwapStockDisplaySnapshot({
         currentStockToken: stockA,
         tradeSide: ESwapStockTradeSide.Buy,
@@ -415,5 +539,12 @@ describe('useSwapStockDisplaySnapshot', () => {
     expect(result.current.restoredSelection).toMatchObject({ symbol: 'AAPL' });
     expect(result.current.restoredAmount).toBe('42.5');
     expect(result.current.amount.ownerKey).not.toBe('');
+
+    mockAmountSessionId = 1;
+    rerender();
+
+    expect(result.current.restoredSelection).toMatchObject({ symbol: 'AAPL' });
+    expect(result.current.restoredAmount).toBeUndefined();
+    expect(result.current.amount.snapshot).toBeUndefined();
   });
 });

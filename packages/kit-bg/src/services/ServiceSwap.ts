@@ -143,6 +143,10 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 import { normalizeSwapTokenListCurrency } from './ServiceSwap.utils';
 import {
+  buildSwapQuoteSessionTransportErrorEventV2,
+  normalizeSwapQuoteSessionTransportErrorV2,
+} from './ServiceSwapQuoteEvent';
+import {
   type ISwapQuoteSessionLease,
   SwapQuoteSessionRegistry,
 } from './ServiceSwapQuoteSession';
@@ -513,35 +517,6 @@ type ISwapQuoteSessionEventDataV2 =
     }
   | { kind: 'cancelled' };
 
-function normalizeSwapQuoteSessionTransportErrorV2(
-  error: unknown,
-): ISwapQuoteSessionTransportErrorV2 {
-  if (!error || typeof error !== 'object') {
-    return typeof error === 'string' ? { message: error } : {};
-  }
-  const errorRecord = error as {
-    message?: unknown;
-    type?: unknown;
-    xhrState?: unknown;
-    xhrStatus?: unknown;
-  };
-  let message: string | undefined;
-  if (typeof errorRecord.message === 'string') {
-    message = errorRecord.message;
-  } else if (errorRecord.type === 'timeout') {
-    message = 'Swap quote event timeout';
-  }
-  return {
-    ...(message ? { message } : {}),
-    ...(typeof errorRecord.xhrState === 'number'
-      ? { xhrState: errorRecord.xhrState }
-      : {}),
-    ...(typeof errorRecord.xhrStatus === 'number'
-      ? { xhrStatus: errorRecord.xhrStatus }
-      : {}),
-  };
-}
-
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
   private _speedSwapQuoteAbortController?: AbortController;
@@ -815,6 +790,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     lpToken,
     currency,
+    throwOnError,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
     if (!isAllNetworkFetchAccountTokens) {
       await this.cancelFetchTokenList();
@@ -924,6 +900,9 @@ export default class ServiceSwap extends ServiceBase {
           title: error?.message,
           message: error?.requestId,
         });
+        if (throwOnError) {
+          throw e;
+        }
         return [];
       }
     }
@@ -1196,7 +1175,15 @@ export default class ServiceSwap extends ServiceBase {
       this._quoteEventSourcePolyfill = new EventSourcePolyfill(swapEventUrl, {
         headers: headers as Record<string, string>,
       });
-      this._quoteEventSourcePolyfill.onmessage = (event) => {
+      const eventSource = this._quoteEventSourcePolyfill;
+      const closeEventSource = async () => {
+        if (this._quoteEventSourcePolyfill === eventSource) {
+          await this.cancelFetchQuoteEvents();
+        } else {
+          eventSource.close();
+        }
+      };
+      eventSource.onmessage = (event) => {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'message',
           event: {
@@ -1210,37 +1197,35 @@ export default class ServiceSwap extends ServiceBase {
           accountId,
         });
       };
-      this._quoteEventSourcePolyfill.onerror = async (event) => {
-        const errorEvent = event as {
-          error?: string;
-          type: string;
-          target: any;
-        };
-        if (!errorEvent?.error) {
-          appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
-            type: 'done',
-            event: { type: 'done' },
-            params,
-            accountId,
-            tokenPairs: { fromToken, toToken },
-          });
-        } else {
-          appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
-            type: 'error',
-            event: {
-              type: 'error',
-              message: errorEvent.error,
-              xhrState: this._quoteEventSourcePolyfill?.readyState ?? 0,
-              xhrStatus: this._quoteEventSourcePolyfill?.readyState ?? 0,
-            },
-            params,
-            accountId,
-            tokenPairs: { fromToken, toToken },
-          });
-        }
-        await this.cancelFetchQuoteEvents();
+      const handleTerminalEvent = async () => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'done',
+          event: { type: 'done' },
+          params,
+          accountId,
+          tokenPairs: { fromToken, toToken },
+        });
+        await closeEventSource();
       };
-      this._quoteEventSourcePolyfill.onopen = () => {
+      eventSource.addEventListener('done', handleTerminalEvent);
+      eventSource.addEventListener('close', handleTerminalEvent);
+      eventSource.onerror = async (event) => {
+        const transportError = normalizeSwapQuoteSessionTransportErrorV2(event);
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'error',
+          event: {
+            type: 'error',
+            message: transportError.message ?? 'Swap quote transport error',
+            xhrState: transportError.xhrState ?? 0,
+            xhrStatus: transportError.xhrStatus ?? 0,
+          },
+          params,
+          accountId,
+          tokenPairs: { fromToken, toToken },
+        });
+        await closeEventSource();
+      };
+      eventSource.onopen = () => {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'open',
           event: { type: 'open' },
@@ -1451,29 +1436,18 @@ export default class ServiceSwap extends ServiceBase {
             lease,
           });
         };
-        eventSource.onerror = (event) => {
-          const errorEvent = event as {
-            error?: string;
-            type: string;
-            target: unknown;
-          };
-          if (!errorEvent.error) {
-            this.emitQuoteSessionEventV2({
-              event: { kind: 'done' },
-              lease,
-              terminal: true,
-            });
-            return;
-          }
+        const handleTerminalEvent = () => {
           this.emitQuoteSessionEventV2({
-            event: {
-              kind: 'transportError',
-              error: {
-                message: errorEvent.error,
-                xhrState: eventSource.readyState ?? 0,
-                xhrStatus: eventSource.readyState ?? 0,
-              },
-            },
+            event: { kind: 'done' },
+            lease,
+            terminal: true,
+          });
+        };
+        eventSource.addEventListener('done', handleTerminalEvent);
+        eventSource.addEventListener('close', handleTerminalEvent);
+        eventSource.onerror = (event) => {
+          this.emitQuoteSessionEventV2({
+            event: buildSwapQuoteSessionTransportErrorEventV2(event),
             lease,
             terminal: true,
           });
@@ -1488,6 +1462,8 @@ export default class ServiceSwap extends ServiceBase {
         const attached = this._quoteSessionRegistryV2.attachConnection(lease, {
           close: () => eventSource.close(),
           removeAllListeners: () => {
+            eventSource.removeEventListener('done', handleTerminalEvent);
+            eventSource.removeEventListener('close', handleTerminalEvent);
             eventSource.onmessage = null;
             eventSource.onerror = null;
             eventSource.onopen = null;

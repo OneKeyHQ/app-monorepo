@@ -41,10 +41,18 @@ export function useResetApp(
 
   const doReset = useCallback(async () => {
     // reset app
-    try {
-      // disable setInterval on ext popup
-      if (platformEnv.isExtensionUiPopup) {
+    let hasResetStateLease = false;
+    const acquireResetState = () => {
+      if (!hasResetStateLease) {
+        hasResetStateLease = true;
         resetUtils.startResetting();
+      }
+    };
+    try {
+      // Preserve the extension popup's existing protection window: its
+      // intervals must stop before OneKey ID logout begins.
+      if (platformEnv.isExtensionUiPopup) {
+        acquireResetState();
       }
       try {
         defaultLogger.prime.subscription.onekeyIdLogout({
@@ -54,12 +62,15 @@ export function useResetApp(
       } catch (error) {
         console.error('failed to logoutSupabase', error);
       }
+      // Native main/bg heaps initialize independently while sharing native
+      // storage. Every UI runtime must stop delayed cache writers before the
+      // background runtime clears that storage.
+      acquireResetState();
       await backgroundApiProxy.serviceApp.resetApp();
     } catch (e) {
       console.error('failed to reset app with error', e);
     } finally {
-      // able setInterval on ext popup
-      if (platformEnv.isExtensionUiPopup) {
+      if (hasResetStateLease) {
         resetUtils.endResetting();
       }
     }

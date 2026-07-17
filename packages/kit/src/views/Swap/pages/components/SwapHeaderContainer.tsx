@@ -141,6 +141,8 @@ const SwapHeaderContainer = ({
   const { gtLg } = useMedia();
   const navigation = useAppNavigation<IPageNavigationProp<ITabSwapParamList>>();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const visibleSwapTypeSwitch =
+    getVisibleSwapTabSwitchType(swapTypeSwitch) ?? swapTypeSwitch;
   const [swapProEntryIntent] = useSwapProJumpTokenAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -165,7 +167,11 @@ const SwapHeaderContainer = ({
     }
   }, [hasPendingSwapProEntry, navigation]);
   useEffect(() => {
-    if (hadPendingSwapProEntryOnMountRef.current || !defaultSwapType) {
+    if (
+      hadPendingSwapProEntryOnMountRef.current ||
+      !defaultSwapType ||
+      swapTypeSwitch === defaultSwapType
+    ) {
       return;
     }
     // Avoid switching the default toToken before it has been loaded,
@@ -288,7 +294,7 @@ const SwapHeaderContainer = ({
         <SegmentControl
           width={DESKTOP_TRADE_TAB_GROUP_WIDTH}
           fullWidth
-          value={swapTypeSwitch}
+          value={visibleSwapTypeSwitch}
           options={segmentOptions.map((opt) => ({
             ...opt,
             label: (
@@ -296,7 +302,9 @@ const SwapHeaderContainer = ({
                 size="$headingSm"
                 textAlign="center"
                 numberOfLines={1}
-                color={swapTypeSwitch === opt.value ? '$text' : '$textSubdued'}
+                color={
+                  visibleSwapTypeSwitch === opt.value ? '$text' : '$textSubdued'
+                }
               >
                 {opt.label}
               </SizableText>
@@ -334,7 +342,7 @@ const SwapHeaderContainer = ({
       <CustomTabItem
         itemId={ESwapTabSwitchType.SWAP}
         compact={isCompactLayout}
-        isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}
+        isSelected={visibleSwapTypeSwitch === ESwapTabSwitchType.SWAP}
         onPress={() => {
           void handleSwapTypeChange(ESwapTabSwitchType.SWAP);
         }}
@@ -344,7 +352,7 @@ const SwapHeaderContainer = ({
       <CustomTabItem
         itemId={ESwapTabSwitchType.STOCK}
         compact={isCompactLayout}
-        isSelected={swapTypeSwitch === ESwapTabSwitchType.STOCK}
+        isSelected={visibleSwapTypeSwitch === ESwapTabSwitchType.STOCK}
         onPress={() => {
           void handleSwapTypeChange(ESwapTabSwitchType.STOCK);
         }}
@@ -354,7 +362,7 @@ const SwapHeaderContainer = ({
       <CustomTabItem
         itemId={ESwapTabSwitchType.LIMIT}
         compact={isCompactLayout}
-        isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
+        isSelected={visibleSwapTypeSwitch === ESwapTabSwitchType.LIMIT}
         onPress={() => {
           void handleSwapTypeChange(ESwapTabSwitchType.LIMIT);
         }}
@@ -384,7 +392,7 @@ const SwapHeaderContainer = ({
     >
       <Stack flex={1} minWidth={0}>
         <ScrollableFilterBar
-          selectedItemId={swapTypeSwitch}
+          selectedItemId={visibleSwapTypeSwitch}
           itemGap="$1.5"
           itemPr="$5"
         >

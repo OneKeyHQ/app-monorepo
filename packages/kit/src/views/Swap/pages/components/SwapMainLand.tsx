@@ -44,6 +44,7 @@ import {
   useSwapQuoteActionLockAtom,
   useSwapQuoteCommittedStateAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventCompletedAtom,
   useSwapQuoteIntervalCountAtom,
   useSwapQuoteSessionStateAtom,
   useSwapReviewExecutionSnapshotAtom,
@@ -57,6 +58,11 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { isSwapQuoteCommittedActiveCandidate } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteCommittedState';
+import { isSwapPreBuildTransportSettled } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import {
+  buildSwapQuoteLimitSemanticSettings,
+  buildSwapQuoteLimitSemanticSettingsKey,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteSemanticIntent';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import {
@@ -148,6 +154,7 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import PreSwapDialogContent from './PreSwapDialogContent';
 import SwapHeaderContainer from './SwapHeaderContainer';
+import { SwapInitialStockTypeGate } from './SwapInitialStockTypeGate';
 import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
 import {
@@ -187,13 +194,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
+  const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const { displayQuote: displayQuoteResult } = useSwapQuoteProgressState();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapQuoteIntervalCount] = useSwapQuoteIntervalCountAtom();
   const { selectFromToken, selectToToken, quoteAction, cleanQuoteInterval } =
     useSwapActions().current;
-  const [{ actionLock }] = useSwapQuoteActionLockAtom();
+  const [{ actionLock, limitSettingsKey: activeLimitSettingsKey }] =
+    useSwapQuoteActionLockAtom();
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
@@ -748,10 +757,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     if (isWrapped || !currentQuoteRes) {
       return false;
     }
-    // Review may open on the first actionable provider, but pre-build should
-    // not race the still-changing provider set. Confirm/build will consume the
-    // immutable Review snapshot instead.
-    if (quoteEventFetching) {
+    const isLegacySpeedSwap = Boolean(
+      focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET,
+    );
+    // Review may open on the first actionable provider, but pre-build must wait
+    // for the exact SSE session to settle. A capped provider count can make the
+    // progress indicator idle before the transport emits its terminal event.
+    if (
+      quoteEventFetching ||
+      !isSwapPreBuildTransportSettled({
+        isLegacySpeedSwap,
+        quoteEventCompleted,
+        quoteSessionSettled: quoteSessionState.phase === 'settled',
+      })
+    ) {
       return false;
     }
     if (currentQuoteRes && !currentQuoteRes?.allowanceResult) {
@@ -765,9 +784,13 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     );
   }, [
     currentQuoteRes,
+    focusSwapPro,
     fromSelectToken?.networkId,
     isWrapped,
+    quoteEventCompleted,
     quoteEventFetching,
+    quoteSessionState.phase,
+    swapProTradeType,
   ]);
 
   const reviewStepTexts = useMemo(
@@ -829,6 +852,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 
     const isSpeedSwapReview =
       focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET;
+    const executionSwapType =
+      getSwapExecutionTypeFromQuoteResult(currentQuoteRes);
+    const executionLimitSettings = buildSwapQuoteLimitSemanticSettings({
+      expirationTime: swapLimitExpirationTime.value,
+      fromToken: fromSelectToken,
+      limitPartiallyFillable: swapLimitPartiallyFill.value,
+      limitPriceUseRate: swapLimitUseRate,
+      protocol: executionSwapType,
+      toToken: toSelectToken,
+    });
     const activeQuoteSession = quoteSessionState.activeSession;
     const isActiveExecutableQuote = Boolean(
       !isSpeedSwapReview &&
@@ -838,7 +871,13 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       quoteCommittedState.requestId === activeQuoteSession.requestId &&
       quoteCommittedState.intentFingerprint ===
         activeQuoteSession.fingerprint &&
-      isSwapQuoteCommittedActiveCandidate(quoteCommittedState, currentQuoteRes),
+      isSwapQuoteCommittedActiveCandidate(
+        quoteCommittedState,
+        currentQuoteRes,
+      ) &&
+      (executionSwapType !== ESwapTabSwitchType.LIMIT ||
+        activeLimitSettingsKey ===
+          buildSwapQuoteLimitSemanticSettingsKey(executionLimitSettings)),
     );
 
     // Speed Swap still uses its legacy single-response endpoint. Every SSE
@@ -884,7 +923,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             instantRate: currentQuoteRes.instantRate,
           })
         : rateDifference;
-
     const nextReviewState = buildSwapReviewState({
       accountId: executionAccountId,
       networkId: executionNetworkId,
@@ -897,7 +935,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           : fromTokenAmount.value,
       toTokenAmount: swapToAmount.value,
       quoteResult: currentQuoteRes,
-      swapType: getSwapExecutionTypeFromQuoteResult(currentQuoteRes),
+      swapType: executionSwapType,
       shouldFallback:
         SwapBuildShouldFallBackNetworkIds.includes(
           fromSelectToken?.networkId ?? '',
@@ -934,11 +972,18 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         addressEncoding:
           swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
         limitSettings: {
-          expirationTime: swapLimitExpirationTime.value,
-          rate: swapLimitUseRate.rate,
-          priceFromAmount: swapLimitPriceFromAmount,
-          priceToAmount: swapLimitPriceToAmount,
-          partiallyFillable: swapLimitPartiallyFill.value,
+          expirationTime: String(
+            executionLimitSettings?.expirationTime ??
+              swapLimitExpirationTime.value,
+          ),
+          rate: executionLimitSettings?.userMarketPriceRate,
+          priceFromAmount: executionLimitSettings
+            ? swapLimitPriceFromAmount
+            : '',
+          priceToAmount: executionLimitSettings ? swapLimitPriceToAmount : '',
+          partiallyFillable:
+            executionLimitSettings?.limitPartiallyFillable ??
+            swapLimitPartiallyFill.value,
         },
       },
       texts: reviewStepTexts,
@@ -958,6 +1003,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     return true;
   }, [
     currentQuoteRes,
+    activeLimitSettingsKey,
     setSwapSteps,
     fromSelectToken,
     toSelectToken,
@@ -996,7 +1042,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapLimitPartiallyFill.value,
     swapLimitPriceFromAmount,
     swapLimitPriceToAmount,
-    swapLimitUseRate.rate,
+    swapLimitUseRate,
   ]);
   const onActionHandler = useCallback(() => {
     const executionSnapshot = swapReviewExecutionSnapshotRef.current;
@@ -1650,13 +1696,17 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
       }
       initialSelectedTokensOnInit={initialSelectedTokensOnInit}
     >
-      <MarketWatchListProviderMirrorV2
-        storeName={EJotaiContextStoreNames.marketWatchListV2}
+      <SwapInitialStockTypeGate
+        initialSwapType={swapInitParams?.swapTabSwitchType}
       >
-        <LazyPageContainer>
-          <SwapMainLoad {...props} pageType={pageType} />
-        </LazyPageContainer>
-      </MarketWatchListProviderMirrorV2>
+        <MarketWatchListProviderMirrorV2
+          storeName={EJotaiContextStoreNames.marketWatchListV2}
+        >
+          <LazyPageContainer>
+            <SwapMainLoad {...props} pageType={pageType} />
+          </LazyPageContainer>
+        </MarketWatchListProviderMirrorV2>
+      </SwapInitialStockTypeGate>
     </SwapProviderMirror>
   );
 };

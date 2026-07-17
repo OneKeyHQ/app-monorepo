@@ -96,6 +96,30 @@ describe('quoteSessionV2', () => {
     );
   });
 
+  it.each([
+    ['rate', { userMarketPriceRate: '11' }],
+    ['expiration', { expirationTime: 7200 }],
+    ['partial-fill policy', { limitPartiallyFillable: false }],
+  ])('changes LIMIT fingerprints when %s changes', (_name, overrides) => {
+    const current = buildRequest({
+      expirationTime: 3600,
+      limitPartiallyFillable: true,
+      protocol: ESwapTabSwitchType.LIMIT,
+      userMarketPriceRate: '10',
+    });
+    const changed = buildRequest({
+      ...current,
+      ...overrides,
+    });
+
+    expect(buildSwapQuoteExecutionFingerprint(changed)).not.toBe(
+      buildSwapQuoteExecutionFingerprint(current),
+    );
+    expect(buildSwapQuoteDisplayIntentFingerprint(changed)).not.toBe(
+      buildSwapQuoteDisplayIntentFingerprint(current),
+    );
+  });
+
   it('keeps AUTO display intent stable when only the suggested percentage changes', () => {
     const first = buildRequest({
       autoSlippage: true,

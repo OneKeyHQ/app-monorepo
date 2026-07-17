@@ -31,6 +31,25 @@ interface IUseImageOptions extends ImageLoadOptions {
   onSuccess?: (image: ImageRef) => void;
 }
 
+type IImageRequestScope = {
+  lifecycleGeneration: number;
+  requestGeneration: number;
+  sourceUri: string;
+};
+
+function isSameImageRequestScope(
+  left?: IImageRequestScope | null,
+  right?: IImageRequestScope | null,
+) {
+  return Boolean(
+    left &&
+    right &&
+    left.lifecycleGeneration === right.lifecycleGeneration &&
+    left.requestGeneration === right.requestGeneration &&
+    left.sourceUri === right.sourceUri,
+  );
+}
+
 export function useImage(
   source: ImageSource | string | number | undefined,
   options: IUseImageOptions = {},
@@ -39,10 +58,15 @@ export function useImage(
   image: ImageRef | ImageSource | null;
   reFetchImage: () => void;
 } {
-  const [image, setImage] = useState<ImageRef | null>(null);
+  const [loadedImage, setLoadedImage] = useState<{
+    image: ImageRef;
+    sourceUri: string;
+  } | null>(null);
   const resolvedSource = useMemo(() => {
     return resolveSource(source);
   }, [source]);
+  const sourceUri = resolvedSource?.uri ?? '';
+  const image = loadedImage?.sourceUri === sourceUri ? loadedImage.image : null;
   const cachedImageRef = useMemo(() => {
     if (resolvedSource?.uri && !/^https?:\/\//.test(resolvedSource.uri)) {
       return null;
@@ -82,58 +106,89 @@ export function useImage(
   const optionsRef = useRef<IUseImageOptions>(options);
   optionsRef.current = options;
 
-  // We're doing some asynchronous action in this effect, so we should keep track
-  // if the effect was already cleaned up. In that case, the async action shouldn't change the state.
-  const isEffectValid = useRef(true);
+  const lifecycleGenerationRef = useRef(0);
+  const requestGenerationRef = useRef(0);
+  const activeRequestScopeRef = useRef<IImageRequestScope | null>(null);
 
-  const loadImage = useCallback(() => {
-    if (!resolvedSource || isEmptyResolvedSource(resolvedSource)) {
-      setImage(null);
-      return;
-    }
-    Image.loadAsync(resolvedSource, optionsRef.current)
-      .then((remoteImage) => {
-        if (isEffectValid.current) {
-          optionsRef.current.onSuccess?.(remoteImage);
-          setImage(remoteImage);
-          const uri = resolvedSource?.uri;
-          if (uri) {
-            void refreshCachedImagePath(uri);
-          }
-        }
-      })
-      .catch((error) => {
-        if (!isEffectValid.current) {
+  const loadImage = useCallback(
+    (requestScope: IImageRequestScope) => {
+      const runLoad = () => {
+        if (
+          !isSameImageRequestScope(activeRequestScopeRef.current, requestScope)
+        ) {
           return;
         }
-        setImage(null);
-        if (optionsRef.current.onError) {
-          optionsRef.current.onError(error, loadImage);
-        } else {
-          // Print unhandled errors to the console.
-          console.error(
-            `Loading an image from '${
-              resolvedSource?.uri || ''
-            }' failed, use 'onError' option to handle errors and suppress this message`,
-          );
-          console.error(error);
+        if (!resolvedSource || isEmptyResolvedSource(resolvedSource)) {
+          setLoadedImage(null);
+          return;
         }
-      });
-  }, [resolvedSource]);
+        Image.loadAsync(resolvedSource, optionsRef.current)
+          .then((remoteImage) => {
+            if (
+              !isSameImageRequestScope(
+                activeRequestScopeRef.current,
+                requestScope,
+              )
+            ) {
+              remoteImage.release();
+              return;
+            }
+            optionsRef.current.onSuccess?.(remoteImage);
+            setLoadedImage({ image: remoteImage, sourceUri });
+            if (sourceUri) {
+              void refreshCachedImagePath(sourceUri);
+            }
+          })
+          .catch((error) => {
+            if (
+              !isSameImageRequestScope(
+                activeRequestScopeRef.current,
+                requestScope,
+              )
+            ) {
+              return;
+            }
+            setLoadedImage(null);
+            if (optionsRef.current.onError) {
+              optionsRef.current.onError(error, runLoad);
+            } else {
+              // Print unhandled errors to the console.
+              console.error(
+                `Loading an image from '${
+                  resolvedSource?.uri || ''
+                }' failed, use 'onError' option to handle errors and suppress this message`,
+              );
+              console.error(error);
+            }
+          });
+      };
+      runLoad();
+    },
+    [resolvedSource, sourceUri],
+  );
 
   const fetchImageTimesLimit = useRef(0);
   const reFetchImage = useCallback(() => {
     if (!resolvedSource) {
       return;
     }
-    if (resolvedSource?.uri) {
-      deleteCachedImagePath(resolvedSource?.uri);
+    const activeScope = activeRequestScopeRef.current;
+    if (!activeScope || activeScope.sourceUri !== sourceUri) {
+      return;
     }
-    if (isEffectValid.current) {
-      fetchImageTimesLimit.current += 1;
-      loadImage();
+    if (sourceUri) {
+      deleteCachedImagePath(sourceUri);
     }
-  }, [loadImage, resolvedSource]);
+    const nextRequestScope = {
+      lifecycleGeneration: activeScope.lifecycleGeneration,
+      requestGeneration: requestGenerationRef.current + 1,
+      sourceUri,
+    };
+    requestGenerationRef.current = nextRequestScope.requestGeneration;
+    activeRequestScopeRef.current = nextRequestScope;
+    fetchImageTimesLimit.current += 1;
+    loadImage(nextRequestScope);
+  }, [loadImage, resolvedSource, sourceUri]);
 
   // Track the current ImageRef for proper lifecycle management.
   // Using a ref avoids the closure capture bug where the effect cleanup
@@ -165,16 +220,27 @@ export function useImage(
   }, [cachedImageRef, resolvedSource?.uri]);
 
   useEffect(() => {
-    isEffectValid.current = true;
-    if (cachedImage) {
-      return;
+    const requestScope = {
+      lifecycleGeneration: lifecycleGenerationRef.current + 1,
+      requestGeneration: requestGenerationRef.current + 1,
+      sourceUri,
+    };
+    lifecycleGenerationRef.current = requestScope.lifecycleGeneration;
+    requestGenerationRef.current = requestScope.requestGeneration;
+    activeRequestScopeRef.current = requestScope;
+    if (!cachedImage) {
+      loadImage(requestScope);
     }
-    loadImage();
     return () => {
-      isEffectValid.current = false;
+      if (
+        activeRequestScopeRef.current?.lifecycleGeneration ===
+        requestScope.lifecycleGeneration
+      ) {
+        activeRequestScopeRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedSource?.uri, cachedImage, loadImage, ...dependencies]);
+  }, [sourceUri, cachedImage, loadImage, ...dependencies]);
 
   return useMemo(() => {
     return {

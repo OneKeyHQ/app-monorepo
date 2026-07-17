@@ -1,10 +1,19 @@
 import { useIntl } from 'react-intl';
 
-import { Empty, Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Empty,
+  Skeleton,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useIdentityScopedSilentRefresh } from '@onekeyhq/kit/src/hooks/useIdentityScopedSilentRefresh';
 import {
   useSwapProEnableCurrentSymbolAtom,
+  useSwapProPositionsCacheAtom,
+  useSwapProPositionsRequestStateAtom,
   useSwapProSupportNetworksTokenListAtom,
   useSwapProSupportNetworksTokenListLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -18,7 +27,20 @@ import SwapProPositionListHeader from '../../components/SwapProPositionListHeade
 import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
 import { useSwapProPositionsPnl } from '../../hooks/useSwapProPositionsPnl';
 
-import { shouldRenderStockPositionsSkeleton } from './SwapProPositionsList.utils';
+import {
+  buildStockPositionsMetadataOwnerKey,
+  buildStockPositionsMetadataRequestKey,
+  getExactStockPositionsMetadataSnapshot,
+  getSwapProPositionTokenIdentity,
+  getSwapProPositionsFailureState,
+  isStockPositionsMetadataSnapshotUsable,
+  isSwapProPositionsSourceReady,
+  loadStockPositionsMetadataWithRetry,
+  requireCompleteStockPositionsMetadataList,
+  retrySwapProPositionsFailures,
+  shouldRenderStockPositionsSkeleton,
+  shouldRenderSwapProPositionsSourceSkeleton,
+} from './SwapProPositionsList.utils';
 
 function SwapProPositionItemSkeleton() {
   return (
@@ -65,6 +87,10 @@ interface ISwapProPositionsListProps {
   filterToken?: ISwapToken[];
   cachedTokenList?: ISwapToken[];
   hasCachedTokenList?: boolean;
+  positionOwnerKey?: string;
+  hasSettledPositionOwnerRequest?: boolean;
+  positionSourceUnavailable?: boolean;
+  onPositionSourceRetry?: () => void;
   // Stock context: only show stock tokens, and hide the "find your token" footer.
   stockOnly?: boolean;
   hideSearch?: boolean;
@@ -76,6 +102,10 @@ const SwapProPositionsList = ({
   filterToken,
   cachedTokenList,
   hasCachedTokenList,
+  positionOwnerKey,
+  hasSettledPositionOwnerRequest,
+  positionSourceUnavailable,
+  onPositionSourceRetry,
   stockOnly,
   hideSearch,
 }: ISwapProPositionsListProps) => {
@@ -84,14 +114,40 @@ const SwapProPositionsList = ({
     useSwapProSupportNetworksTokenListLoadingAtom();
   const [swapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
+  const [swapProPositionsCache, setSwapProPositionsCache] =
+    useSwapProPositionsCacheAtom();
+  const [swapProPositionsRequestState] = useSwapProPositionsRequestStateAtom();
+  const isRequestOwnerCurrent = Boolean(
+    positionOwnerKey &&
+    swapProPositionsRequestState.ownerKey === positionOwnerKey,
+  );
+  const exactPositionEntry = positionOwnerKey
+    ? swapProPositionsCache.byOwner[positionOwnerKey]
+    : undefined;
+  const isExactSourceFailed =
+    isRequestOwnerCurrent && swapProPositionsRequestState.status === 'error';
+  const isOwnerSourceReady = isSwapProPositionsSourceReady({
+    exactPositionTokenCount: exactPositionEntry?.tokens.length ?? 0,
+    hasExactPositionSnapshot: Boolean(exactPositionEntry),
+    hasSettledCurrentOwnerRequest: Boolean(hasSettledPositionOwnerRequest),
+    sourceUnavailable: Boolean(positionSourceUnavailable),
+  });
   const shouldUseCachedTokenList =
     !!hasCachedTokenList &&
     !!cachedTokenList?.length &&
     (swapProSupportNetworksTokenListLoading ||
       swapProSupportNetworksTokenList.length === 0);
+  let scopedPositionTokenList: ISwapToken[] | undefined;
+  if (positionOwnerKey !== undefined) {
+    scopedPositionTokenList = isRequestOwnerCurrent
+      ? swapProSupportNetworksTokenList
+      : (exactPositionEntry?.tokens ?? []);
+  } else if (shouldUseCachedTokenList) {
+    scopedPositionTokenList = cachedTokenList;
+  }
   const { finallyTokenList } = useSwapProPositionsListFilter(
     filterToken,
-    shouldUseCachedTokenList ? cachedTokenList : undefined,
+    scopedPositionTokenList,
     stockOnly,
   );
   const [settings] = useSettingsPersistAtom();
@@ -99,66 +155,149 @@ const SwapProPositionsList = ({
   // In the stock context, resolve which holdings are actually stocks by
   // querying the server market metadata (account-holding tokens do NOT carry
   // isStock, so the client-side field is unreliable here).
-  const { result: stockTokenList, isLoading: isStockMetadataLoading } =
-    usePromiseResult(
-      async () => {
-        if (!stockOnly) {
-          return undefined;
-        }
-        if (!finallyTokenList.length) {
-          return [] as ISwapToken[];
-        }
-        // Let a fetch failure throw rather than swallowing it into an empty
-        // list. usePromiseResult preserves a previous successful result while
-        // its loading state still lets the first failed request exit skeleton.
-        const response =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-            requestLocale: settings.locale,
-            tokenAddressList: finallyTokenList.map((token) => ({
-              contractAddress: token.contractAddress ?? '',
-              chainId: token.networkId,
-              isNative: !!token.isNative,
-            })),
-          });
-        const list = response.list ?? [];
-        // response.list is index-aligned with tokenAddressList: keep only the
-        // holdings whose server entry has a truthy .stock field, and mark the
-        // selected row as Stock-owned before downstream swap handlers.
-        return finallyTokenList.flatMap((token, i) =>
-          list[i]?.stock
-            ? [
-                {
-                  ...token,
-                  isStock: true,
-                },
-              ]
-            : [],
-        );
-      },
-      [finallyTokenList, settings.locale, stockOnly],
-      { watchLoading: true },
-    );
-
-  // The stock list is undefined until the first batch resolves; treat that as a
-  // loading state (skeleton below) so the list never flashes "No results" while
-  // holdings are still being classified. usePromiseResult keeps the prior result
-  // across subsequent fetches and on failure, so a defined value is always the
-  // last good one.
-  const isStockListLoading = shouldRenderStockPositionsSkeleton({
-    isStockMetadataLoading,
-    stockOnly: Boolean(stockOnly),
-    stockTokenListResolved: stockTokenList !== undefined,
+  const stockMetadataOwnerKey = buildStockPositionsMetadataOwnerKey({
+    filterToken,
+    sourceOwnerKey: isOwnerSourceReady ? (positionOwnerKey ?? '') : '',
   });
+  const stockMetadataRequestKey = buildStockPositionsMetadataRequestKey({
+    locale: settings.locale,
+    tokens: finallyTokenList,
+  });
+  const restoredStockMetadataSnapshot = getExactStockPositionsMetadataSnapshot({
+    ownerKey: stockMetadataOwnerKey,
+    requestKey: stockMetadataRequestKey,
+    snapshot: exactPositionEntry?.stockMetadataSnapshot,
+  });
+  const stockMetadataRefresh = useIdentityScopedSilentRefresh<string[]>({
+    enabled: Boolean(
+      stockOnly && isOwnerSourceReady && finallyTokenList.length,
+    ),
+    ownerKey: stockMetadataOwnerKey,
+    requestKey: stockMetadataRequestKey,
+    restored: restoredStockMetadataSnapshot,
+    load: () =>
+      loadStockPositionsMetadataWithRetry({
+        load: async () => {
+          const tokenAddressList = finallyTokenList.map((token) => ({
+            contractAddress: token.contractAddress ?? '',
+            chainId: token.networkId,
+            isNative: !!token.isNative,
+          }));
+          const response =
+            await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+              requestLocale: settings.locale,
+              tokenAddressList,
+            });
+          const list = requireCompleteStockPositionsMetadataList({
+            expectedCount: tokenAddressList.length,
+            list: response.list,
+          });
+          return {
+            status: 'success' as const,
+            data: finallyTokenList.flatMap((token, index) =>
+              list[index].stock ? [getSwapProPositionTokenIdentity(token)] : [],
+            ),
+          };
+        },
+      }),
+    onCommit: ({ data, ownerKey, requestKey }) => {
+      if (!positionOwnerKey || ownerKey !== stockMetadataOwnerKey) {
+        return;
+      }
+      setSwapProPositionsCache((prev) => {
+        const entry = prev.byOwner[positionOwnerKey];
+        if (!entry) {
+          return prev;
+        }
+        return {
+          byOwner: {
+            ...prev.byOwner,
+            [positionOwnerKey]: {
+              ...entry,
+              stockMetadataSnapshot: {
+                data,
+                ownerKey,
+                requestKey,
+              },
+            },
+          },
+        };
+      });
+    },
+  });
+  const visibleStockTokenIdentitySet = new Set(
+    stockMetadataRefresh.visible?.data ?? [],
+  );
   const displayTokenList = stockOnly
-    ? (stockTokenList ?? [])
+    ? finallyTokenList.flatMap((token) =>
+        visibleStockTokenIdentitySet.has(getSwapProPositionTokenIdentity(token))
+          ? [{ ...token, isStock: true }]
+          : [],
+      )
     : finallyTokenList;
+  const hasUsableMetadataSnapshot = isStockPositionsMetadataSnapshotUsable({
+    displayTokenCount: displayTokenList.length,
+    isVisibleExact: stockMetadataRefresh.isVisibleExact,
+    visibleTokenIdentityCount: stockMetadataRefresh.visible?.data.length,
+  });
+  const isStockListLoading = shouldRenderStockPositionsSkeleton({
+    hasUsableMetadataSnapshot,
+    metadataPhase: stockMetadataRefresh.phase,
+    metadataRequired: Boolean(stockOnly && finallyTokenList.length),
+    sourceReady: isOwnerSourceReady,
+    stockOnly: Boolean(stockOnly),
+  });
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
-  const pnlMap = useSwapProPositionsPnl(displayTokenList);
+  const pnlMap = useSwapProPositionsPnl(displayTokenList, positionOwnerKey);
+  const positionsFailureState = getSwapProPositionsFailureState({
+    hasExactPositionSnapshot: Boolean(exactPositionEntry),
+    hasUsableMetadataSnapshot,
+    isExactPositionRequestFailed: isExactSourceFailed,
+    metadataPhase: stockMetadataRefresh.phase,
+  });
+  const isMetadataRequestFailed =
+    stockMetadataRefresh.phase === 'failed' ||
+    stockMetadataRefresh.phase === 'stale-error';
+  const canRetryPositions = Boolean(
+    (isExactSourceFailed && onPositionSourceRetry) || isMetadataRequestFailed,
+  );
+  const retryPositions = canRetryPositions
+    ? () =>
+        retrySwapProPositionsFailures({
+          isExactPositionRequestFailed: isExactSourceFailed,
+          metadataPhase: stockMetadataRefresh.phase,
+          onMetadataRetry: stockMetadataRefresh.refresh,
+          onPositionSourceRetry,
+        })
+    : undefined;
+  const isPositionsSourceLoading = shouldRenderSwapProPositionsSourceSkeleton({
+    hasScopedSource: positionOwnerKey !== undefined,
+    hasUsableLegacyCache: shouldUseCachedTokenList,
+    legacyLoading: swapProSupportNetworksTokenListLoading,
+    sourceReady: isOwnerSourceReady,
+    stockOnly: Boolean(stockOnly),
+  });
 
-  if (
-    (swapProSupportNetworksTokenListLoading && !shouldUseCachedTokenList) ||
-    isStockListLoading
-  ) {
+  if (positionsFailureState === 'blocking') {
+    return (
+      <YStack>
+        <SwapProPositionListHeader />
+        <Empty
+          icon="BrokenLinkOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_network_error,
+          })}
+          buttonProps={{
+            children: intl.formatMessage({ id: ETranslations.global_retry }),
+            disabled: !retryPositions,
+            onPress: retryPositions,
+            testID: 'swap-stock-positions-retry',
+          }}
+        />
+      </YStack>
+    );
+  }
+  if (isPositionsSourceLoading || isStockListLoading) {
     return <SwapProPositionsListSkeleton rowCount={stockOnly ? 3 : 2} />;
   }
   return (
@@ -184,6 +323,17 @@ const SwapProPositionsList = ({
       hideSearch ? undefined : (
         <SwapProPositionListFooter onSearchClick={onSearchClick} />
       )}
+      {positionsFailureState === 'stale' && retryPositions ? (
+        <Button
+          testID="swap-stock-positions-stale-retry"
+          variant="tertiary"
+          size="small"
+          alignSelf="center"
+          onPress={retryPositions}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      ) : null}
     </YStack>
   );
 };

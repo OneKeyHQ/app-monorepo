@@ -1,20 +1,19 @@
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
-import {
-  ESwapStockChannelStage,
-  ESwapStockTradeSide,
-} from '../../hooks/swapStockChannelUtils';
+import { ESwapStockChannelStage } from '../../hooks/swapStockChannelUtils';
 
 import {
   STOCK_CHART_DEFAULT_RANGE,
   STOCK_CHART_RANGE_ITEMS,
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
   canMountStockSwapActions,
+  getStockAmountInputInteractionProps,
   getStockChartDisplayState,
-  getStockDisabledActionButtonProps,
+  getStockMaxAmountState,
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
   resolveStockChartControlRange,
+  resolveStockTokenNetworkLogoURI,
   shouldShowStockBalanceRetryAction,
 } from './SwapStockDesktopContainer.utils';
 
@@ -52,26 +51,79 @@ describe('SwapStockDesktopContainer utils', () => {
     });
   });
 
-  it('keeps disabled buy actions in the buy color family', () => {
-    expect(getStockDisabledActionButtonProps(ESwapStockTradeSide.Buy)).toEqual({
-      bg: '$bgSuccessStrong',
-      color: '$textOnColor',
-      disabledStyle: {
-        opacity: 0.6,
+  it('keeps the Stock Max affordance visible while its live balance refreshes', () => {
+    expect(getStockMaxAmountState({ balanceReadyForExecution: false })).toEqual(
+      {
+        enableMaxAmount: true,
+        canPressMaxAmount: false,
       },
+    );
+  });
+
+  it('enables the persistent Stock Max affordance after the live balance lands', () => {
+    expect(getStockMaxAmountState({ balanceReadyForExecution: true })).toEqual({
+      enableMaxAmount: true,
+      canPressMaxAmount: true,
     });
   });
 
-  it('keeps disabled sell actions in the sell color family', () => {
-    expect(getStockDisabledActionButtonProps(ESwapStockTradeSide.Sell)).toEqual(
-      {
-        bg: '$bgCriticalStrong',
-        color: '$textOnColor',
-        disabledStyle: {
-          opacity: 0.6,
+  it('gates Stock input interaction without painting a disabled input layer', () => {
+    const pendingProps = getStockAmountInputInteractionProps(false);
+    const readyProps = getStockAmountInputInteractionProps(true);
+
+    expect(pendingProps).toEqual({ readonly: true });
+    expect(readyProps).toEqual({ readonly: false });
+    expect(pendingProps).not.toHaveProperty('editable');
+    expect(readyProps).not.toHaveProperty('editable');
+  });
+
+  it('uses the current Stock token network logo on the first frame', () => {
+    expect(
+      resolveStockTokenNetworkLogoURI({
+        currentToken: {
+          networkId: 'evm--1',
+          networkLogoURI: 'current-network-logo',
         },
-      },
-    );
+        localNetworkLogoURI: 'local-network-logo',
+        networkId: 'evm--1',
+        snapshotToken: {
+          networkId: 'evm--1',
+          networkLogoURI: 'snapshot-network-logo',
+        },
+      }),
+    ).toBe('current-network-logo');
+  });
+
+  it('restores the matching snapshot network logo before the live token enriches', () => {
+    expect(
+      resolveStockTokenNetworkLogoURI({
+        currentToken: {
+          networkId: 'evm--1',
+        },
+        localNetworkLogoURI: 'local-network-logo',
+        networkId: 'evm--1',
+        snapshotToken: {
+          networkId: 'evm--1',
+          networkLogoURI: 'snapshot-network-logo',
+        },
+      }),
+    ).toBe('snapshot-network-logo');
+  });
+
+  it('rejects a stale snapshot logo and falls back to local network info', () => {
+    expect(
+      resolveStockTokenNetworkLogoURI({
+        currentToken: {
+          networkId: 'evm--1',
+        },
+        localNetworkLogoURI: 'local-network-logo',
+        networkId: 'evm--1',
+        snapshotToken: {
+          networkId: 'sol--101',
+          networkLogoURI: 'stale-network-logo',
+        },
+      }),
+    ).toBe('local-network-logo');
   });
 
   it('mounts Stock review actions only after the exact live balance lands', () => {

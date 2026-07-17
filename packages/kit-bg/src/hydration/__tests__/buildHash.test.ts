@@ -4,9 +4,12 @@
 // no signal is available — anything else would silently disable the
 // schema-invalidation gate across deploys.
 
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+
 import {
   computeEffectiveBuildHash,
   countNonMetaEntries,
+  getDevColdStartPrimeEntries,
   shouldProceedAfterReset,
 } from '../hydrate';
 
@@ -113,5 +116,41 @@ describe('countNonMetaEntries', () => {
       ['swr:cache', '{}'],
     ]);
     expect(countNonMetaEntries(m)).toBe(2);
+  });
+});
+
+describe('getDevColdStartPrimeEntries', () => {
+  it('primes only versioned SWR and Stock display stores in development', () => {
+    const entries = new Map<string, unknown>([
+      [EAppSyncStorageKeys.onekey_swr_cache, '{"version":1}'],
+      [
+        EAppSyncStorageKeys.onekey_swap_stock_display_snapshot,
+        '{"version":1,"entries":{}}',
+      ],
+      [
+        EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+        '{"sensitiveOrSchemaDrifting":true}',
+      ],
+      ['__meta:buildHash', 'abc'],
+    ]);
+
+    expect(getDevColdStartPrimeEntries(entries)).toEqual([
+      [EAppSyncStorageKeys.onekey_swr_cache, '{"version":1}'],
+      [
+        EAppSyncStorageKeys.onekey_swap_stock_display_snapshot,
+        '{"version":1,"entries":{}}',
+      ],
+    ]);
+  });
+
+  it('ignores malformed non-string display entries', () => {
+    expect(
+      getDevColdStartPrimeEntries(
+        new Map([
+          [EAppSyncStorageKeys.onekey_swr_cache, { version: 1 }],
+          [EAppSyncStorageKeys.onekey_swap_stock_display_snapshot, null],
+        ]),
+      ),
+    ).toEqual([]);
   });
 });

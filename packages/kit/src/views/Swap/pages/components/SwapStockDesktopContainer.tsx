@@ -83,6 +83,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
@@ -101,15 +102,15 @@ import {
 import SwapFAQ from '../../components/SwapFAQ';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import {
   type ISwapStockDisplayChartSnapshot,
   type ISwapStockDisplayTokenDetail,
 } from '../../hooks/swapStockDisplaySnapshotUtils';
+import { useStockHeaderImageReveal } from '../../hooks/useStockHeaderImageReveal';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
-import {
-  useShouldShowSwapLocalData,
-  useSwapLimitOrdersLocalDataVisibility,
-} from '../../hooks/useSwapLocalDataVisibility';
+import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
+import { useSwapMarketHistoryList } from '../../hooks/useSwapMarketHistoryList';
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 import {
   ESwapStockChannelAsyncStatus,
@@ -126,7 +127,6 @@ import {
   type ISwapRecentTokenPair,
   buildSwapRecentTokenPairsFromHistory,
   getSwapLimitOpenOrderCount,
-  getSwapMarketPendingHistoryKey,
   getSwapMarketPendingHistoryList,
   isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
@@ -152,10 +152,12 @@ import {
   STOCK_CHART_RANGE_ITEMS,
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
   canMountStockSwapActions,
+  getStockAmountInputInteractionProps,
   getStockChartDisplayState,
-  getStockDisabledActionButtonProps,
+  getStockMaxAmountState,
   isStockMarketPanelLoadingStage,
   resolveStockChartControlRange,
+  resolveStockTokenNetworkLogoURI,
   shouldShowStockBalanceRetryAction,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
@@ -906,6 +908,7 @@ function StockActionGate({
       <Button
         testID={SwapTestIDs.swapButton}
         size={isDesktopModalPage ? 'medium' : 'large'}
+        minHeight={isDesktopModalPage ? '$9' : '$12'}
         variant="primary"
         disabled
         loading
@@ -914,12 +917,6 @@ function StockActionGate({
     );
   }
 
-  const isMarketClosed =
-    stockChannel.channelStage === ESwapStockChannelStage.MarketClosed;
-  const disabledButtonProps = isMarketClosed
-    ? undefined
-    : getStockDisabledActionButtonProps(stockChannel.tradeSide);
-
   return renderActionButton(
     <Button
       testID={SwapTestIDs.swapButton}
@@ -927,7 +924,6 @@ function StockActionGate({
       variant="primary"
       disabled
       borderRadius="$full"
-      {...disabledButtonProps}
     >
       {disabledLabel}
     </Button>,
@@ -1119,6 +1115,28 @@ function StockAmountInput({
   );
   const showTokenSelectorLoading =
     !inputToken && (fetchLoading || (isBuySide && payTokenOptionsLoading));
+  const maxAmountState = getStockMaxAmountState({
+    balanceReadyForExecution,
+  });
+  const inputTokenIdentityKey = getTokenIdentityKey(inputToken);
+  const {
+    degraded: inputTokenImagesDegraded,
+    identityKey: inputTokenImageIdentityKey,
+    onNetworkImageDisplay: onInputTokenNetworkImageDisplay,
+    onTokenImageDisplay: onInputTokenImageDisplay,
+    reveal: revealInputTokenImages,
+  } = useStockHeaderImageReveal({
+    enabled: Boolean(
+      platformEnv.isNative &&
+      !shouldRenderSkeleton &&
+      !showTokenSelectorLoading &&
+      inputTokenIdentityKey,
+    ),
+    networkId: inputToken?.networkId,
+    networkImageUri: inputTokenNetworkLogoURI,
+    tokenIdentityKey: inputTokenIdentityKey,
+    tokenImageUris: inputToken?.logoURI ? [inputToken.logoURI] : [],
+  });
 
   if (shouldRenderSkeleton) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
@@ -1162,7 +1180,9 @@ function StockAmountInput({
         balanceProps={{
           value: inputToken ? displayBalance : undefined,
           loading: balanceLoading,
-          onPress: balanceReadyForExecution ? onBalanceMaxPress : undefined,
+          onPress: maxAmountState.canPressMaxAmount
+            ? onBalanceMaxPress
+            : undefined,
           hideIcon: true,
           tokenSymbol: inputToken?.symbol,
           testID: SwapTestIDs.maxButton,
@@ -1170,8 +1190,7 @@ function StockAmountInput({
         maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
         inputProps={{
           placeholder: '0.0',
-          editable: inputEditable,
-          readonly: !inputEditable,
+          ...getStockAmountInputInteractionProps(inputEditable),
           inputAccessoryViewID: platformEnv.isNativeIOS
             ? SwapAmountInputAccessoryViewID
             : undefined,
@@ -1180,6 +1199,16 @@ function StockAmountInput({
           testID: SwapTestIDs.fromAmountInput,
         }}
         tokenSelectorTriggerProps={{
+          contentReveal: platformEnv.isNative
+            ? {
+                degraded: inputTokenImagesDegraded,
+                identityKey: inputTokenImageIdentityKey,
+                onNetworkImageDisplay: onInputTokenNetworkImageDisplay,
+                onTokenImageDisplay: onInputTokenImageDisplay,
+                reveal: revealInputTokenImages,
+                showNetworkBadge: Boolean(inputToken?.networkId),
+              }
+            : undefined,
           testID: SwapTestIDs.fromTokenSelector,
           m: '$1.5',
           mb: '$0',
@@ -1214,7 +1243,7 @@ function StockAmountInput({
                 }
               : undefined,
         }}
-        enableMaxAmount={balanceReadyForExecution}
+        enableMaxAmount={maxAmountState.enableMaxAmount}
       />
       {platformEnv.isNativeIOS ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
@@ -1355,12 +1384,35 @@ function StockMarketHeaderSkeleton({ proAligned }: { proAligned?: boolean }) {
         w="$20"
         minWidth={0}
         flexShrink={0}
-        gap="$1"
+        gap={proAligned ? '$0' : '$1'}
       >
         <Skeleton h="$6" w="$16" />
         <Skeleton h="$4" w="$12" />
       </YStack>
     </XStack>
+  );
+}
+
+function StockMarketTokenImageFallback({
+  showNetworkBadge,
+}: {
+  showNetworkBadge: boolean;
+}) {
+  return (
+    <Stack position="relative" w="$8" h="$8">
+      <Stack w="$8" h="$8" borderRadius="$full" bg="$gray5" />
+      {showNetworkBadge ? (
+        <Stack
+          position="absolute"
+          right="$-1"
+          bottom="$-1"
+          w="$4"
+          h="$4"
+          borderRadius="$full"
+          bg="$bgStrong"
+        />
+      ) : null}
+    </Stack>
   );
 }
 
@@ -1380,13 +1432,69 @@ function StockMarketTokenHeader({
   proAligned?: boolean;
 }) {
   const intl = useIntl();
-  const { currentStockToken, liveTokenDetail, tokenDetail, networkId } =
-    useCurrentStockMarketDetail();
+  const {
+    currentStockToken,
+    liveTokenDetail,
+    networkId,
+    stockChannel,
+    tokenDetail,
+  } = useCurrentStockMarketDetail();
+  const snapshotStockToken =
+    stockChannel.stockDisplay.selection.snapshot?.stockToken;
   const stockTokenNetworkId =
-    tokenDetail?.networkId ?? currentStockToken?.networkId ?? networkId;
-  const effectiveNetworkLogoUri = useNetworkLogoUri({
-    logoUri: undefined,
+    tokenDetail?.networkId ??
+    currentStockToken?.networkId ??
+    snapshotStockToken?.networkId ??
+    networkId;
+  const initialNetworkLogoURI = resolveStockTokenNetworkLogoURI({
+    currentToken: currentStockToken,
+    localNetworkLogoURI: stockTokenNetworkId
+      ? networkUtils.getLocalNetworkInfo(stockTokenNetworkId)?.logoURI
+      : undefined,
     networkId: stockTokenNetworkId,
+    snapshotToken: snapshotStockToken,
+  });
+  const effectiveNetworkLogoUri = useNetworkLogoUri({
+    logoUri: initialNetworkLogoURI,
+    networkId: stockTokenNetworkId,
+  });
+  const tokenImageUris = useMemo(() => {
+    const detailImageUris = (tokenDetail?.logoUrls ?? []).filter(
+      (uri): uri is string => Boolean(uri),
+    );
+    if (detailImageUris.length > 0) {
+      return detailImageUris;
+    }
+    const tokenImageUri =
+      tokenDetail?.logoUrl ??
+      currentStockToken?.logoURI ??
+      snapshotStockToken?.logoURI;
+    return tokenImageUri ? [tokenImageUri] : [];
+  }, [
+    currentStockToken?.logoURI,
+    snapshotStockToken?.logoURI,
+    tokenDetail?.logoUrl,
+    tokenDetail?.logoUrls,
+  ]);
+  const stockTokenIdentityKey = tokenDetail
+    ? getTokenIdentityKey({
+        networkId: tokenDetail.networkId ?? stockTokenNetworkId ?? '',
+        contractAddress: tokenDetail.address,
+      })
+    : getTokenIdentityKey(currentStockToken) ||
+      getTokenIdentityKey(snapshotStockToken);
+  const {
+    degraded: stockHeaderImagesDegraded,
+    identityKey: stockHeaderImageIdentityKey,
+    onNetworkImageDisplay,
+    onTokenImageDisplay,
+    reveal: revealStockHeaderImages,
+  } = useStockHeaderImageReveal({
+    enabled: Boolean(platformEnv.isNative && stockTokenIdentityKey),
+    networkId: stockTokenNetworkId,
+    networkImageUri: effectiveNetworkLogoUri,
+    tokenIdentityKey: stockTokenIdentityKey,
+    tokenImageUris,
   });
   const stock = tokenDetail?.stock;
   const liveStock = liveTokenDetail?.stock;
@@ -1405,20 +1513,60 @@ function StockMarketTokenHeader({
     storeName,
   });
 
-  if (!tokenDetail && loading) {
-    return <StockMarketHeaderSkeleton proAligned={proAligned} />;
-  }
-
-  const tokenIcon = (
+  const liveTokenIcon = (
     <Token
+      key={stockHeaderImageIdentityKey || stockTokenIdentityKey}
       size="md"
-      tokenImageUri={tokenDetail?.logoUrl ?? currentStockToken?.logoURI}
-      tokenImageUris={tokenDetail?.logoUrls}
+      tokenImageUri={tokenImageUris[0]}
+      tokenImageUris={
+        tokenDetail?.logoUrls?.length ? tokenImageUris : undefined
+      }
       networkImageUri={effectiveNetworkLogoUri}
+      networkId={stockTokenNetworkId}
+      showNetworkIcon={Boolean(stockTokenNetworkId)}
       showNetworkIconBorder={false}
       bg="$transparent"
       fallbackIcon="CryptoCoinOutline"
+      onDisplay={onTokenImageDisplay}
+      onNetworkImageDisplay={onNetworkImageDisplay}
     />
+  );
+  // Keep the pending image tree mounted after timeout so a late native ImageRef
+  // can finish its normal lifecycle. The visible fallback remains frozen even
+  // if the hidden image reports onDisplay later.
+  const tokenIcon = (
+    <Stack position="relative" w="$8" h="$8">
+      <Stack
+        w="$8"
+        h="$8"
+        opacity={stockHeaderImagesDegraded ? 0 : 1}
+        pointerEvents="none"
+        aria-hidden={stockHeaderImagesDegraded}
+        accessibilityElementsHidden={stockHeaderImagesDegraded}
+        importantForAccessibility={
+          stockHeaderImagesDegraded ? 'no-hide-descendants' : 'auto'
+        }
+      >
+        {liveTokenIcon}
+      </Stack>
+      {stockHeaderImagesDegraded ? (
+        <Stack
+          position="absolute"
+          top={0}
+          right={0}
+          bottom={0}
+          left={0}
+          pointerEvents="none"
+          aria-hidden
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <StockMarketTokenImageFallback
+            showNetworkBadge={Boolean(stockTokenNetworkId)}
+          />
+        </Stack>
+      ) : null}
+    </Stack>
   );
   const tokenSymbolRow = (
     <XStack h="$6" alignItems="center" gap="$1" maxWidth="100%" minWidth={0}>
@@ -1482,7 +1630,7 @@ function StockMarketTokenHeader({
     </XStack>
   );
 
-  return (
+  const headerContent = (
     <XStack
       alignItems="center"
       justifyContent="space-between"
@@ -1526,6 +1674,39 @@ function StockMarketTokenHeader({
         </YStack>
       )}
     </XStack>
+  );
+  const shouldMaskHeader =
+    (!tokenDetail && loading) || !revealStockHeaderImages;
+
+  return (
+    <Stack position="relative" w="100%">
+      <Stack
+        opacity={shouldMaskHeader ? 0 : 1}
+        pointerEvents={shouldMaskHeader ? 'none' : 'auto'}
+        aria-hidden={shouldMaskHeader}
+        accessibilityElementsHidden={shouldMaskHeader}
+        importantForAccessibility={
+          shouldMaskHeader ? 'no-hide-descendants' : 'auto'
+        }
+      >
+        {headerContent}
+      </Stack>
+      {shouldMaskHeader ? (
+        <Stack
+          position="absolute"
+          top={0}
+          right={0}
+          bottom={0}
+          left={0}
+          pointerEvents="none"
+          aria-hidden
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <StockMarketHeaderSkeleton proAligned={proAligned} />
+        </Stack>
+      ) : null}
+    </Stack>
   );
 }
 
@@ -1895,8 +2076,17 @@ function StockMobilePositionsSection({
   const [swapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken] = useSwapSelectToTokenAtom();
   const { selectStockSwapToken } = stockChannel;
-  const { cachedPositionTokenList, hasCachedPositionTokenList } =
-    useSwapProSupportNetworksTokenList(supportNetworksList);
+  const {
+    cachedPositionTokenList,
+    hasSettledPositionOwnerRequest,
+    hasCachedPositionTokenList,
+    positionOwnerKey,
+    positionSourceUnavailable,
+    swapProLoadSupportNetworksTokenListRun,
+  } = useSwapProSupportNetworksTokenList(supportNetworksList);
+  const handlePositionSourceRetry = useCallback(() => {
+    void swapProLoadSupportNetworksTokenListRun(supportNetworksList);
+  }, [supportNetworksList, swapProLoadSupportNetworksTokenListRun]);
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockChannel.stockNetworkId || undefined,
     storeName,
@@ -1988,6 +2178,10 @@ function StockMobilePositionsSection({
             filterToken={filterToken}
             cachedTokenList={cachedPositionTokenList}
             hasCachedTokenList={hasCachedPositionTokenList}
+            positionOwnerKey={positionOwnerKey}
+            hasSettledPositionOwnerRequest={hasSettledPositionOwnerRequest}
+            positionSourceUnavailable={positionSourceUnavailable}
+            onPositionSourceRetry={handlePositionSourceRetry}
             stockOnly
             hideSearch
           />
@@ -2143,25 +2337,9 @@ function StockMarketContextPanel({
 }
 
 function useSwapStockRecentTokenPairs() {
-  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
-  const shouldShowSwapLocalData = useShouldShowSwapLocalData();
-  const stockPendingKey = useMemo(
-    () =>
-      getSwapMarketPendingHistoryKey(
-        swapHistoryPendingList,
-        EProtocolOfExchange.STOCK,
-      ),
-    [swapHistoryPendingList],
+  const { swapTxHistoryList } = useSwapMarketHistoryList(
+    EProtocolOfExchange.STOCK,
   );
-  const { result: swapTxHistoryList } = usePromiseResult(async () => {
-    if (!shouldShowSwapLocalData) {
-      return [];
-    }
-    const histories =
-      await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
-    return histories;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stockPendingKey, shouldShowSwapLocalData]);
 
   return useMemo(
     () =>

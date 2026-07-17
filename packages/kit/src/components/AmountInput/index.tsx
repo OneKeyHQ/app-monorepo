@@ -28,6 +28,13 @@ import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { LetterAvatar } from '../LetterAvatar';
 
+import {
+  getTokenSelectorContentRevealStage,
+  shouldShowTokenSelectorFallbackNetworkBadge,
+} from './tokenSelectorContentReveal';
+
+import type { ITokenSelectorContentReveal } from './tokenSelectorContentReveal';
+
 export type ITokenSelectorPopoverProps = {
   title: string;
   content:
@@ -69,6 +76,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       onPress?: () => void;
     };
     tokenSelectorTriggerProps?: {
+      contentReveal?: ITokenSelectorContentReveal;
       selectedTokenImageUri?: string;
       selectedNetworkImageUri?: string;
       selectedTokenSymbol?: string;
@@ -201,6 +209,7 @@ export function AmountInput({
 
   const TokenSelectorTrigger = useMemo(() => {
     const {
+      contentReveal,
       popover: popoverProps,
       selectedTokenImageUri,
       selectedNetworkImageUri,
@@ -227,96 +236,93 @@ export function AmountInput({
 
     const hasPopover = !!popoverProps?.content;
     const hasOnPress = !!onPress || hasPopover;
+    const contentRevealStage =
+      getTokenSelectorContentRevealStage(contentReveal);
+    const shouldShowLiveContent =
+      contentRevealStage === 'direct' || contentRevealStage === 'ready';
+    const shouldShowPendingContent = contentRevealStage === 'pending';
+    const shouldShowStableFallback = contentRevealStage === 'degraded';
+    const showStableFallbackNetworkBadge = contentReveal
+      ? shouldShowTokenSelectorFallbackNetworkBadge({
+          contentReveal,
+          isCustomNetwork,
+        })
+      : false;
 
-    const triggerContent = (
-      <XStack
-        alignItems="center"
-        m="$1.5"
-        mb="$0"
-        p="$2"
-        borderRadius="$2"
-        userSelect="none"
-        {...(selectedTokenSymbol && {
-          maxWidth: '$44',
-        })}
-        {...triggerStackProps}
-        {...(hasOnPress && {
-          role: 'button',
-          hoverStyle: {
-            bg: '$bgHover',
-          },
-          pressStyle: {
-            bg: '$bgActive',
-          },
-        })}
-        disabled={disabled}
-        onPress={hasPopover ? undefined : onPress}
-      >
-        <Stack mr="$2">
-          <Image
-            size="$7"
-            borderRadius="$full"
-            source={{
-              uri: selectedTokenImageUri,
-            }}
-            fallback={
-              <Image.Fallback
-                borderRadius="$full"
-                alignItems="center"
-                justifyContent="center"
-                bg="$gray5"
-              >
-                <Icon
-                  size="$6"
-                  m="$1"
-                  name="CryptoCoinOutline"
-                  color="$iconSubdued"
-                />
-              </Image.Fallback>
-            }
-          />
-          {selectedNetworkImageUri ? (
-            <Stack
-              position="absolute"
-              right="$-1"
-              bottom="$-1"
-              p={showNetworkIconBorder ? '$0.5' : '$0'}
+    const tokenIcon = (
+      <Stack mr="$2">
+        <Image
+          key={contentReveal?.identityKey}
+          size="$7"
+          borderRadius="$full"
+          source={{
+            uri: selectedTokenImageUri,
+          }}
+          onDisplay={contentReveal?.onTokenImageDisplay}
+          fallback={
+            <Image.Fallback
               borderRadius="$full"
-              flexShrink={1}
-              bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
+              alignItems="center"
+              justifyContent="center"
+              bg="$gray5"
             >
-              <Image
-                size="$3"
-                borderRadius="$full"
-                source={{
-                  uri: selectedNetworkImageUri,
-                }}
-                fallback={
-                  <Image.Fallback bg="$gray5" delayMs={1000}>
-                    <Icon
-                      size="$3"
-                      name="QuestionmarkSolid"
-                      color="$iconSubdued"
-                    />
-                  </Image.Fallback>
-                }
+              <Icon
+                size="$6"
+                m="$1"
+                name="CryptoCoinOutline"
+                color="$iconSubdued"
               />
-            </Stack>
-          ) : null}
-          {isCustomNetwork && selectedNetworkName ? (
-            <Stack
-              position="absolute"
-              right="$-1"
-              bottom="$-1"
-              p={showNetworkIconBorder ? '$0.5' : '$0'}
+            </Image.Fallback>
+          }
+        />
+        {selectedNetworkImageUri ? (
+          <Stack
+            position="absolute"
+            right="$-1"
+            bottom="$-1"
+            p={showNetworkIconBorder ? '$0.5' : '$0'}
+            borderRadius="$full"
+            flexShrink={1}
+            bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
+          >
+            <Image
+              key={contentReveal?.identityKey}
+              size="$3"
               borderRadius="$full"
-              flexShrink={1}
-              bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
-            >
-              <LetterAvatar size="$3" letter={selectedNetworkName[0]} />
-            </Stack>
-          ) : null}
-        </Stack>
+              source={{
+                uri: selectedNetworkImageUri,
+              }}
+              onDisplay={contentReveal?.onNetworkImageDisplay}
+              fallback={
+                <Image.Fallback bg="$gray5" delayMs={1000}>
+                  <Icon
+                    size="$3"
+                    name="QuestionmarkSolid"
+                    color="$iconSubdued"
+                  />
+                </Image.Fallback>
+              }
+            />
+          </Stack>
+        ) : null}
+        {isCustomNetwork && selectedNetworkName ? (
+          <Stack
+            position="absolute"
+            right="$-1"
+            bottom="$-1"
+            p={showNetworkIconBorder ? '$0.5' : '$0'}
+            borderRadius="$full"
+            flexShrink={1}
+            bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
+          >
+            <LetterAvatar size="$3" letter={selectedNetworkName[0]} />
+          </Stack>
+        ) : null}
+      </Stack>
+    );
+
+    const tokenLabel = (
+      <>
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {selectedTokenSymbol ||
             intl.formatMessage({ id: ETranslations.token_selector_title })}
@@ -330,6 +336,126 @@ export function AmountInput({
             color="$iconSubdued"
           />
         ) : null}
+      </>
+    );
+
+    const stableFallback = (
+      <>
+        <Stack
+          position="relative"
+          w="$7"
+          h="$7"
+          mr="$2"
+          borderRadius="$full"
+          bg="$gray5"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon size="$6" name="CryptoCoinOutline" color="$iconSubdued" />
+          {showStableFallbackNetworkBadge ? (
+            <Stack
+              position="absolute"
+              right="$-1"
+              bottom="$-1"
+              w="$3"
+              h="$3"
+              borderRadius="$full"
+              bg="$bgStrong"
+            />
+          ) : null}
+        </Stack>
+        {tokenLabel}
+      </>
+    );
+
+    const triggerContent = (
+      <XStack
+        alignItems="center"
+        m="$1.5"
+        mb="$0"
+        p="$2"
+        borderRadius="$2"
+        userSelect="none"
+        {...(selectedTokenSymbol && {
+          maxWidth: '$44',
+        })}
+        {...triggerStackProps}
+        {...(contentReveal && {
+          accessible: true,
+          accessibilityLabel:
+            selectedTokenSymbol ||
+            intl.formatMessage({ id: ETranslations.token_selector_title }),
+        })}
+        {...(hasOnPress && {
+          role: 'button',
+          hoverStyle: {
+            bg: '$bgHover',
+          },
+          pressStyle: {
+            bg: '$bgActive',
+          },
+        })}
+        disabled={disabled}
+        onPress={hasPopover ? undefined : onPress}
+      >
+        {contentReveal ? (
+          <XStack position="relative" alignItems="center" minWidth={0}>
+            <XStack
+              alignItems="center"
+              minWidth={0}
+              opacity={shouldShowLiveContent ? 1 : 0}
+              pointerEvents={shouldShowLiveContent ? 'auto' : 'none'}
+              aria-hidden={!shouldShowLiveContent}
+              accessibilityElementsHidden={!shouldShowLiveContent}
+              importantForAccessibility={
+                shouldShowLiveContent ? 'auto' : 'no-hide-descendants'
+              }
+            >
+              {tokenIcon}
+              {tokenLabel}
+            </XStack>
+            {shouldShowPendingContent ? (
+              <XStack
+                position="absolute"
+                top={0}
+                right={0}
+                bottom={0}
+                left={0}
+                alignItems="center"
+                pointerEvents="none"
+                aria-hidden
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+              >
+                <Skeleton w="$7" h="$7" radius="round" />
+                <Stack pl="$2" py="$1.5">
+                  <Skeleton h="$4" w="$10" />
+                </Stack>
+              </XStack>
+            ) : null}
+            {shouldShowStableFallback ? (
+              <XStack
+                position="absolute"
+                top={0}
+                right={0}
+                bottom={0}
+                left={0}
+                alignItems="center"
+                pointerEvents="none"
+                aria-hidden
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+              >
+                {stableFallback}
+              </XStack>
+            ) : null}
+          </XStack>
+        ) : (
+          <>
+            {tokenIcon}
+            {tokenLabel}
+          </>
+        )}
       </XStack>
     );
 

@@ -72,6 +72,7 @@ const PERPS_TOKEN_SELECTOR_PRIORITY_COINS = [
 const SWAP_TOKEN_CACHE_KEYS = [
   CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
   CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
 ] as const;
 
 function getColdStartSnapshot() {

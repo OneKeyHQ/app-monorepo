@@ -14,6 +14,8 @@ import type {
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 
+import type { ISwapStockDisplayTokenDescriptor } from './swapStockDisplaySnapshotUtils';
+
 export enum ESwapStockChannelAsyncStatus {
   Idle = 'idle',
   Initializing = 'initializing',
@@ -271,6 +273,85 @@ export function resolveStockChannelOwnedPayToken({
     return undefined;
   }
   return stockPair.payToken;
+}
+
+export function resolveStockChannelBootstrapSelection({
+  explicitPayToken,
+  explicitStockToken,
+  explicitTradeSide,
+  snapshotSelection,
+  stockPair,
+}: {
+  explicitPayToken?: ISwapToken;
+  explicitStockToken?: ISwapToken;
+  explicitTradeSide?: ESwapStockTradeSide;
+  snapshotSelection?: {
+    payToken?: ISwapStockDisplayTokenDescriptor;
+    stockToken: ISwapStockDisplayTokenDescriptor;
+    tradeSide: ESwapStockTradeSide;
+  };
+  stockPair: {
+    stockToken?: ISwapToken;
+    payToken?: ISwapToken;
+    tradeSide?: ESwapStockTradeSide;
+  };
+}) {
+  const normalizedSnapshotStockToken = snapshotSelection?.stockToken
+    ? {
+        ...snapshotSelection.stockToken,
+        contractAddress: snapshotSelection.stockToken.contractAddress ?? '',
+      }
+    : undefined;
+  const normalizedSnapshotPayToken = snapshotSelection?.payToken
+    ? {
+        ...snapshotSelection.payToken,
+        contractAddress: snapshotSelection.payToken.contractAddress ?? '',
+      }
+    : undefined;
+  const currentStockToken =
+    explicitStockToken ?? stockPair.stockToken ?? normalizedSnapshotStockToken;
+  const snapshotMatchesCurrentStock = Boolean(
+    currentStockToken &&
+    normalizedSnapshotStockToken &&
+    getTokenIdentityKey(currentStockToken) ===
+      getTokenIdentityKey(normalizedSnapshotStockToken),
+  );
+  const tradeSide =
+    explicitTradeSide ??
+    stockPair.tradeSide ??
+    (snapshotMatchesCurrentStock ? snapshotSelection?.tradeSide : undefined) ??
+    ESwapStockTradeSide.Buy;
+  const livePayToken = resolveStockChannelOwnedPayToken({
+    explicitPayToken,
+    stockPair,
+    tradeSide,
+  });
+  const snapshotPayToken =
+    snapshotMatchesCurrentStock && snapshotSelection?.tradeSide === tradeSide
+      ? normalizedSnapshotPayToken
+      : undefined;
+
+  return {
+    currentStockToken,
+    payToken: livePayToken ?? snapshotPayToken,
+    tradeSide,
+  };
+}
+
+export function resolveStockChannelPayTokenStatus({
+  payTokenStatus,
+  stockTokenStatus,
+}: {
+  payTokenStatus: ESwapStockChannelAsyncStatus;
+  stockTokenStatus: ESwapStockChannelAsyncStatus;
+}) {
+  if (
+    stockTokenStatus === ESwapStockChannelAsyncStatus.Initializing &&
+    payTokenStatus === ESwapStockChannelAsyncStatus.Idle
+  ) {
+    return ESwapStockChannelAsyncStatus.Initializing;
+  }
+  return payTokenStatus;
 }
 
 export function isStockCanonicalInputOwnerReady({

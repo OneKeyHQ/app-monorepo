@@ -21,6 +21,8 @@ type ICancelCallback = (params: {
   sequence: number;
 }) => void;
 
+const MAX_RETIRED_SURFACE_REVISIONS = 64;
+
 /**
  * Owns the quote transport lifecycle in the background runtime.
  *
@@ -32,16 +34,21 @@ type ICancelCallback = (params: {
 export class SwapQuoteSessionRegistry {
   private readonly sessions = new Map<string, ISwapQuoteSessionLease>();
 
-  private readonly latestIntentRevisionBySurface = new Map<string, number>();
+  private readonly retiredIntentRevisionBySurface = new Map<string, number>();
 
   private nextGeneration = 0;
+
+  constructor(
+    private readonly maxRetiredSurfaceRevisions = MAX_RETIRED_SURFACE_REVISIONS,
+  ) {}
 
   reserve(session: ISwapQuoteSessionIdentity): ISwapQuoteSessionLease {
     this.nextGeneration += 1;
     const bgGeneration = this.nextGeneration;
-    const latestIntentRevision = this.latestIntentRevisionBySurface.get(
-      session.surfaceId,
-    );
+    const current = this.sessions.get(session.surfaceId);
+    const latestIntentRevision =
+      current?.session.intentRevision ??
+      this.getRetiredIntentRevision(session.surfaceId);
     if (
       latestIntentRevision !== undefined &&
       session.intentRevision <= latestIntentRevision
@@ -54,15 +61,10 @@ export class SwapQuoteSessionRegistry {
       };
     }
 
-    const current = this.sessions.get(session.surfaceId);
     if (current) {
       this.invalidate(current, 'cancelled');
     }
-
-    this.latestIntentRevisionBySurface.set(
-      session.surfaceId,
-      session.intentRevision,
-    );
+    this.retiredIntentRevisionBySurface.delete(session.surfaceId);
 
     const lease: ISwapQuoteSessionLease = {
       session,
@@ -128,11 +130,16 @@ export class SwapQuoteSessionRegistry {
     lease.sequence += 1;
     onCancel?.({ lease, sequence: lease.sequence });
     this.disposeLeaseConnection(lease);
+    this.rememberRetiredIntentRevision(lease);
     return true;
   }
 
   getActiveSessionCount(): number {
     return this.sessions.size;
+  }
+
+  getRetiredSurfaceCount(): number {
+    return this.retiredIntentRevisionBySurface.size;
   }
 
   private invalidate(
@@ -144,6 +151,40 @@ export class SwapQuoteSessionRegistry {
     }
     lease.status = status;
     this.disposeLeaseConnection(lease);
+    if (status === 'terminal') {
+      this.rememberRetiredIntentRevision(lease);
+    }
+  }
+
+  private getRetiredIntentRevision(surfaceId: string) {
+    const revision = this.retiredIntentRevisionBySurface.get(surfaceId);
+    if (revision !== undefined) {
+      this.retiredIntentRevisionBySurface.delete(surfaceId);
+      this.retiredIntentRevisionBySurface.set(surfaceId, revision);
+    }
+    return revision;
+  }
+
+  private rememberRetiredIntentRevision(lease: ISwapQuoteSessionLease) {
+    const { intentRevision, surfaceId } = lease.session;
+    const retiredRevision = this.retiredIntentRevisionBySurface.get(surfaceId);
+    this.retiredIntentRevisionBySurface.delete(surfaceId);
+    this.retiredIntentRevisionBySurface.set(
+      surfaceId,
+      Math.max(retiredRevision ?? 0, intentRevision),
+    );
+    while (
+      this.retiredIntentRevisionBySurface.size >
+      Math.max(0, this.maxRetiredSurfaceRevisions)
+    ) {
+      const oldestSurfaceId = this.retiredIntentRevisionBySurface
+        .keys()
+        .next().value;
+      if (oldestSurfaceId === undefined) {
+        break;
+      }
+      this.retiredIntentRevisionBySurface.delete(oldestSurfaceId);
+    }
   }
 
   private disposeLeaseConnection(lease: ISwapQuoteSessionLease) {

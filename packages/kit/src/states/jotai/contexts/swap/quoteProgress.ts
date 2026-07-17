@@ -144,6 +144,18 @@ export function isSwapQuoteEventFetching({
   );
 }
 
+export function isSwapPreBuildTransportSettled({
+  isLegacySpeedSwap,
+  quoteEventCompleted,
+  quoteSessionSettled,
+}: {
+  isLegacySpeedSwap: boolean;
+  quoteEventCompleted: boolean;
+  quoteSessionSettled: boolean;
+}) {
+  return isLegacySpeedSwap || (quoteEventCompleted && quoteSessionSettled);
+}
+
 export function hasSwapQuoteEventTotalCount({
   quoteEventTotalCount,
   quoteEventCompleted,

@@ -129,6 +129,13 @@ export const { atom: swapTypeSwitchAtom, use: useSwapTypeSwitchAtom } =
     coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
   });
 
+// Amount drafts may survive token changes within one visible Swap tab, but
+// they must not cross a top-level Swap / Limit / Stock tab transition.
+export const {
+  atom: swapAmountInputTabSessionAtom,
+  use: useSwapAmountInputTabSessionAtom,
+} = contextAtom(0);
+
 // swap networks & tokens
 export const { atom: swapNetworks, use: useSwapNetworksAtom } = contextAtom<
   ISwapNetwork[]
@@ -360,6 +367,7 @@ export const {
   kind?: ESwapQuoteKind;
   address?: string;
   receivingAddress?: string;
+  limitSettingsKey?: string;
 }>({ actionLock: false });
 
 export const {
@@ -585,8 +593,8 @@ export const {
   atom: swapSelectTokenDetailFetchingAtom,
   use: useSwapSelectTokenDetailFetchingAtom,
 } = contextAtom<Record<ESwapDirectionType, boolean>>({
-  'from': false,
-  'to': false,
+  from: false,
+  to: false,
 });
 
 export const {
@@ -879,7 +887,10 @@ export const defaultTimeRangeItem =
   swapProTimeRangeItems[swapProTimeRangeItems.length - 1];
 
 export const { atom: swapProTimeRangeAtom, use: useSwapProTimeRangeAtom } =
-  contextAtom<{ label: string; value: ESwapProTimeRange }>({
+  contextAtom<{
+    label: string;
+    value: ESwapProTimeRange;
+  }>({
     label: defaultTimeRangeItem.label,
     value: defaultTimeRangeItem.value,
   });
@@ -896,6 +907,11 @@ export type ISwapProPositionsCacheEntry = {
   networkIdsKey: string;
   tokens: ISwapToken[];
   updatedAt: number;
+  stockMetadataSnapshot?: {
+    ownerKey: string;
+    requestKey: string;
+    data: string[];
+  };
 };
 
 export function buildSwapProPositionsOwnerKey({
@@ -924,6 +940,21 @@ export const {
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
   },
 );
+
+export type ISwapProPositionsRequestState = {
+  ownerKey: string;
+  requestId: number;
+  status: 'idle' | 'loading' | 'settled' | 'error';
+};
+
+export const {
+  atom: swapProPositionsRequestStateAtom,
+  use: useSwapProPositionsRequestStateAtom,
+} = contextAtom<ISwapProPositionsRequestState>({
+  ownerKey: '',
+  requestId: 0,
+  status: 'idle',
+});
 
 export const {
   atom: swapProSupportNetworksTokenListLoadingAtom,

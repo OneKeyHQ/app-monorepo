@@ -34,7 +34,8 @@
 //      releases regardless of value.
 //
 // Failure modes (all caught, all degrade to defaults):
-//   • Dev (NODE_ENV !== 'production') — skip entirely to avoid schema drift
+//   • Dev (NODE_ENV !== 'production') — prime only versioned display/SWR
+//     stores; generic L2 remains disabled to avoid schema drift
 //   • Kill switch — localStorage.__cold_start_kill__ set
 //   • Private mode / quota=0 — openIDB rejects
 //   • Build hash mismatch — clear DB, fall back to defaults
@@ -74,6 +75,17 @@ const COLD_START_RESULT_GLOBAL = '__ONEKEY_COLD_START_RESULT__';
 const CTX_SNAPSHOT_KEY =
   EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot;
 const SWR_CACHE_KEY = EAppSyncStorageKeys.onekey_swr_cache;
+const STOCK_DISPLAY_CACHE_KEY =
+  EAppSyncStorageKeys.onekey_swap_stock_display_snapshot;
+
+export function getDevColdStartPrimeEntries(
+  entries: Map<string, unknown>,
+): [string, unknown][] {
+  return [SWR_CACHE_KEY, STOCK_DISPLAY_CACHE_KEY].flatMap((key) => {
+    const value = entries.get(key);
+    return typeof value === 'string' ? [[key, value]] : [];
+  });
+}
 // Hard cap on how long we wait for IDB before giving up and degrading to
 // defaults. The ready gate is awaited by GlobalJotaiReady on web/desktop,
 // so an unbounded await here would block React mount on a stalled IDB.
@@ -247,21 +259,20 @@ export function shouldProceedAfterReset(
 
 const promise: Promise<void> = (async () => {
   // In development, keep generic L2 context-atom hydration disabled to avoid
-  // schema drift between local code changes. We still prime the SWR blob so
-  // localhost can verify web cold-start cache paths that use usePromiseResult
-  // with swrKey. SWR entries are individually versioned by their key builders.
+  // schema drift between local code changes. SWR entries are individually
+  // versioned by their key builders, and the dedicated Stock display store is
+  // versioned and normalized by its sole UI owner, so both are safe to prime.
   if (process.env.NODE_ENV !== 'production') {
     defaultLogger.app.appUpdate.log(
-      '[ColdStartHydration] dev mode, priming SWR only',
+      '[ColdStartHydration] dev mode, priming versioned display stores only',
     );
     try {
       const result = await withTimeout(
         readAllColdStartEntriesFromIdb(),
         HYDRATION_TIMEOUT_MS,
       );
-      const swrCache = result?.get(SWR_CACHE_KEY);
-      if (typeof swrCache === 'string') {
-        primeColdStartCacheMap([[SWR_CACHE_KEY, swrCache]]);
+      if (result) {
+        primeColdStartCacheMap(getDevColdStartPrimeEntries(result));
       }
     } catch {
       // Dev-only best effort: keep the old skipped behavior if IDB is missing

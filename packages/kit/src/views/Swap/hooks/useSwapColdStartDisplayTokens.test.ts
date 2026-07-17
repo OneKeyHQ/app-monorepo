@@ -8,6 +8,7 @@ import {
   getSwapColdStartDisplayTokensFromGlobalSnapshot,
   getSwapDefaultSelectedTokensFromGlobalHomeSnapshot,
   getSwapDisplayTokenPair,
+  getSwapStockColdStartAccountKeyFromGlobalSnapshot,
 } from './useSwapColdStartDisplayTokens';
 
 const SWAP_STORE_SCOPE_KEY = 'store:swap';
@@ -25,6 +26,21 @@ function setGlobalSnapshot(snapshot: Record<string, unknown>) {
 
   globalCache.__ONEKEY_COLD_START_CACHE_MAP__ = new Map([
     [EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot, snapshot],
+  ]);
+  globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = undefined;
+}
+
+function setGlobalRawSnapshot(snapshot: Record<string, unknown>) {
+  const globalCache = globalThis as typeof globalThis & {
+    __ONEKEY_COLD_START_CACHE_MAP__?: Map<string, unknown>;
+    __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+  };
+
+  globalCache.__ONEKEY_COLD_START_CACHE_MAP__ = new Map([
+    [
+      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+      JSON.stringify(snapshot),
+    ],
   ]);
   globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = undefined;
 }
@@ -120,9 +136,82 @@ function buildSelectedTokenSnapshot({
   };
 }
 
+function buildStockOwnerSnapshot({
+  contextAccountKey = 'wallet-1|indexed-account-1|default',
+  snapshotSwapType = ESwapTabSwitchType.STOCK,
+}: {
+  contextAccountKey?: string;
+  snapshotSwapType?: ESwapTabSwitchType;
+} = {}) {
+  const networkId = 'evm--56';
+  return {
+    [scopedKey(
+      ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom,
+    )]: {
+      0: {
+        ready: true,
+        wallet: { id: 'wallet-1' },
+        indexedAccount: { id: 'indexed-account-1' },
+        deriveType: 'default',
+        network: { id: networkId },
+      },
+    },
+    [scopedKey(
+      SWAP_STORE_SCOPE_KEY,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+    )]: {
+      accountKey: contextAccountKey,
+      networkId,
+      swapType: ESwapTabSwitchType.STOCK,
+      updatedAt: 1,
+    } satisfies ISwapSelectedTokensColdStartContext,
+    [scopedKey(
+      SWAP_STORE_SCOPE_KEY,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
+    )]: snapshotSwapType,
+    [scopedKey(
+      SWAP_STORE_SCOPE_KEY,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+    )]: { networkId, symbol: 'USDC' },
+    [scopedKey(
+      SWAP_STORE_SCOPE_KEY,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
+    )]: { networkId, symbol: 'AAPL', isStock: true },
+  };
+}
+
 describe('getSwapColdStartDisplayTokensFromGlobalSnapshot', () => {
   afterEach(() => {
     clearGlobalSnapshot();
+  });
+
+  it('resolves the Stock owner from the validated raw pre-read snapshot', () => {
+    setGlobalRawSnapshot(buildStockOwnerSnapshot());
+
+    expect(getSwapStockColdStartAccountKeyFromGlobalSnapshot()).toBe(
+      'wallet-1|indexed-account-1|default',
+    );
+  });
+
+  it('rejects a raw Stock owner that does not match the persisted account', () => {
+    setGlobalRawSnapshot(
+      buildStockOwnerSnapshot({
+        contextAccountKey: 'wallet-2|indexed-account-2|default',
+      }),
+    );
+
+    expect(getSwapStockColdStartAccountKeyFromGlobalSnapshot()).toBeUndefined();
+  });
+
+  it('rejects a Stock owner when the persisted visible tab is no longer Stock', () => {
+    setGlobalRawSnapshot(
+      buildStockOwnerSnapshot({
+        snapshotSwapType: ESwapTabSwitchType.SWAP,
+      }),
+    );
+
+    expect(getSwapStockColdStartAccountKeyFromGlobalSnapshot()).toBeUndefined();
   });
 
   it('uses home-network defaults when no selected token snapshot exists yet', () => {

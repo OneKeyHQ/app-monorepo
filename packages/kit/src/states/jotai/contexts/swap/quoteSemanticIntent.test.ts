@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildSwapQuoteLimitSemanticSettings,
   buildSwapQuoteSemanticIntent,
   getSwapQuoteAmountProjection,
 } from './quoteSemanticIntent';
@@ -149,6 +150,104 @@ describe('swap quote semantic intent', () => {
     });
 
     expect(suggested.key).toBe(first.key);
+  });
+
+  it.each([
+    [
+      'rate',
+      {
+        expirationTime: 3600,
+        limitPartiallyFillable: true,
+        userMarketPriceRate: '11',
+      },
+    ],
+    [
+      'expiration',
+      {
+        expirationTime: 7200,
+        limitPartiallyFillable: true,
+        userMarketPriceRate: '10',
+      },
+    ],
+    [
+      'partial-fill policy',
+      {
+        expirationTime: 3600,
+        limitPartiallyFillable: false,
+        userMarketPriceRate: '10',
+      },
+    ],
+  ] as const)(
+    'invalidates LIMIT intent when %s changes',
+    (_name, limitSettings) => {
+      const current = buildIntent({
+        limitSettings: {
+          expirationTime: 3600,
+          limitPartiallyFillable: true,
+          userMarketPriceRate: '10',
+        },
+        protocol: ESwapTabSwitchType.LIMIT,
+      });
+
+      expect(
+        buildIntent({
+          limitSettings,
+          protocol: ESwapTabSwitchType.LIMIT,
+        }).key,
+      ).not.toBe(current.key);
+    },
+  );
+
+  it('ignores LIMIT-only settings outside the LIMIT protocol', () => {
+    expect(
+      buildIntent({
+        limitSettings: {
+          expirationTime: 3600,
+          limitPartiallyFillable: true,
+          userMarketPriceRate: '10',
+        },
+      }).key,
+    ).toBe(buildIntent().key);
+  });
+
+  it('uses a limit rate only for the selected token pair', () => {
+    const selected = buildSwapQuoteLimitSemanticSettings({
+      expirationTime: '3600',
+      fromToken,
+      limitPartiallyFillable: true,
+      limitPriceUseRate: { fromToken, toToken, rate: '10' },
+      protocol: ESwapTabSwitchType.LIMIT,
+      toToken,
+    });
+    const stalePair = buildSwapQuoteLimitSemanticSettings({
+      expirationTime: '3600',
+      fromToken,
+      limitPartiallyFillable: true,
+      limitPriceUseRate: {
+        fromToken: { ...fromToken, contractAddress: '0xstale' },
+        toToken,
+        rate: '10',
+      },
+      protocol: ESwapTabSwitchType.LIMIT,
+      toToken,
+    });
+
+    expect(selected).toEqual({
+      expirationTime: 3600,
+      limitPartiallyFillable: true,
+      userMarketPriceRate: '10',
+    });
+    expect(stalePair?.userMarketPriceRate).toBeUndefined();
+    expect(
+      buildSwapQuoteLimitSemanticSettings({
+        expirationTime: '3600',
+        fromToken,
+        limitPartiallyFillable: true,
+        limitPriceUseRate: { fromToken, toToken, rate: '10' },
+        protocol: ESwapTabSwitchType.SWAP,
+        toToken,
+      }),
+    ).toBeUndefined();
   });
 
   it('projects a SELL quote only when token, kind, and input amount match', () => {

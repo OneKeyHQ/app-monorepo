@@ -1,9 +1,7 @@
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import {
-  ESwapStockChannelStage,
-  ESwapStockTradeSide,
-} from '../../hooks/swapStockChannelUtils';
+import { ESwapStockChannelStage } from '../../hooks/swapStockChannelUtils';
 import { normalizeSwapKLineWalletChartTimestamp } from '../modal/swapKLineChartUtils';
 
 import type { ISwapStockDisplayChartRange } from '../../hooks/swapStockDisplaySnapshotUtils';
@@ -42,19 +40,37 @@ export function resolveStockChartControlRange({
   return visibleRange ?? requestedRange;
 }
 
-export function getStockDisabledActionButtonProps(
-  tradeSide: ESwapStockTradeSide,
-) {
-  return {
-    bg:
-      tradeSide === ESwapStockTradeSide.Sell
-        ? '$bgCriticalStrong'
-        : '$bgSuccessStrong',
-    color: '$textOnColor',
-    disabledStyle: {
-      opacity: 0.6,
-    },
-  } as const;
+type IStockTokenNetworkLogoSource = Pick<
+  ISwapToken,
+  'networkId' | 'networkLogoURI'
+>;
+
+export function resolveStockTokenNetworkLogoURI({
+  currentToken,
+  localNetworkLogoURI,
+  networkId,
+  snapshotToken,
+}: {
+  currentToken?: IStockTokenNetworkLogoSource;
+  localNetworkLogoURI?: string;
+  networkId?: string;
+  snapshotToken?: IStockTokenNetworkLogoSource;
+}) {
+  if (
+    currentToken &&
+    currentToken.networkId === networkId &&
+    currentToken.networkLogoURI
+  ) {
+    return currentToken.networkLogoURI;
+  }
+  if (
+    snapshotToken &&
+    snapshotToken.networkId === networkId &&
+    snapshotToken.networkLogoURI
+  ) {
+    return snapshotToken.networkLogoURI;
+  }
+  return localNetworkLogoURI;
 }
 
 export function canMountStockSwapActions({
@@ -65,6 +81,26 @@ export function canMountStockSwapActions({
   readyForQuote: boolean;
 }) {
   return balanceReadyForExecution && readyForQuote;
+}
+
+export function getStockMaxAmountState({
+  balanceReadyForExecution,
+}: {
+  balanceReadyForExecution: boolean;
+}) {
+  return {
+    // Stock's only amount input is always the FROM side. Match ordinary Swap:
+    // keep Max enabled whenever the balance row can render, while separately
+    // gating the press handler on a live balance owned by the active token.
+    enableMaxAmount: true,
+    canPressMaxAmount: balanceReadyForExecution,
+  } as const;
+}
+
+export function getStockAmountInputInteractionProps(inputEditable: boolean) {
+  return {
+    readonly: !inputEditable,
+  } as const;
 }
 
 export function shouldShowStockBalanceRetryAction({

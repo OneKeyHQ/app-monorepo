@@ -11,6 +11,7 @@ import {
   getMarketListTokenKey,
   shouldLoadDefaultStockToken,
 } from './swapStockChannelUtils';
+import { isDefaultStockTokenRequestPending } from './swapStockDefaultTokenUtils';
 
 export function useSwapStockDefaultToken({
   selectStockSwapToken,
@@ -83,6 +84,13 @@ export function useSwapStockDefaultToken({
     defaultStockTokenState.scope === defaultStockTokenScope
       ? defaultStockTokenState.token
       : undefined;
+  const defaultStockTokenRequestPending = isDefaultStockTokenRequestPending({
+    isLoading: !!defaultStockTokenLoading,
+    requestReady: Boolean(stockCategoryType),
+    requestScope: defaultStockTokenScope,
+    resultScope: defaultStockTokenState.scope,
+    shouldLoad: shouldLoadDefaultStockTokenValue,
+  });
   const defaultStockTokenKey = getMarketListTokenKey(defaultStockToken);
 
   useEffect(() => {
@@ -109,7 +117,7 @@ export function useSwapStockDefaultToken({
   ]);
 
   return {
-    defaultStockTokenLoading: !!defaultStockTokenLoading,
+    defaultStockTokenLoading: defaultStockTokenRequestPending,
     shouldLoadDefaultStockToken: shouldLoadDefaultStockTokenValue,
     stockCategoryType,
   };

@@ -252,6 +252,8 @@ export interface IFetchTokensParams {
   isAllNetworkFetchAccountTokens?: boolean;
   lpToken?: boolean;
   currency?: string;
+  /** Rethrow non-cancellation request errors instead of returning an empty list. */
+  throwOnError?: boolean;
 }
 
 export interface IFetchTokenListParams {

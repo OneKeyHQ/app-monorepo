@@ -15,7 +15,9 @@ import {
   isStockTradeReadyForQuote,
   resolveStockBalanceSeed,
   resolveStockBalanceSnapshot,
+  resolveStockChannelBootstrapSelection,
   resolveStockChannelOwnedPayToken,
+  resolveStockChannelPayTokenStatus,
   resolveStockChannelSwapPair,
   resolveStockDisplayBalance,
   resolveStockKLineToken,
@@ -167,6 +169,56 @@ describe('swapStockChannelUtils', () => {
         selectedStockTokenKey: appleStockToken.contractAddress ?? '',
       }),
     ).toBe(false);
+  });
+
+  it('bootstraps the exact cached Stock selection before live channel state lands', () => {
+    expect(
+      resolveStockChannelBootstrapSelection({
+        snapshotSelection: {
+          stockToken: appleStockToken,
+          payToken: usdcToken,
+          tradeSide: ESwapStockTradeSide.Sell,
+        },
+        stockPair: {},
+      }),
+    ).toEqual({
+      currentStockToken: appleStockToken,
+      payToken: usdcToken,
+      tradeSide: ESwapStockTradeSide.Sell,
+    });
+  });
+
+  it('does not leak a cached pay token or side into a different live Stock owner', () => {
+    expect(
+      resolveStockChannelBootstrapSelection({
+        explicitStockToken: micronStockToken,
+        snapshotSelection: {
+          stockToken: appleStockToken,
+          payToken: usdcToken,
+          tradeSide: ESwapStockTradeSide.Sell,
+        },
+        stockPair: {},
+      }),
+    ).toEqual({
+      currentStockToken: micronStockToken,
+      payToken: undefined,
+      tradeSide: ESwapStockTradeSide.Buy,
+    });
+  });
+
+  it('keeps the buy-side input skeleton while the default Stock owner is pending', () => {
+    expect(
+      resolveStockChannelPayTokenStatus({
+        payTokenStatus: ESwapStockChannelAsyncStatus.Idle,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Initializing);
+    expect(
+      resolveStockChannelPayTokenStatus({
+        payTokenStatus: ESwapStockChannelAsyncStatus.Idle,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Empty,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Idle);
   });
 
   it('filters stock pay token candidates to USDC and USDT only', () => {

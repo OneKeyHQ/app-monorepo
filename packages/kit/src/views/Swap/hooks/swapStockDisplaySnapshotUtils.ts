@@ -29,6 +29,7 @@ export type ISwapStockDisplayIdentity = {
   payTokenKey: string;
   tradeSide: ESwapStockTradeSide;
   currency: string;
+  amountSessionId?: number;
 };
 
 export type ISwapStockDisplayAccountIdentity = {
@@ -57,6 +58,7 @@ export type ISwapStockDisplayAmountIdentity = {
   stockTokenKey: string;
   payTokenKey: string;
   tradeSide: ESwapStockTradeSide;
+  amountSessionId: number;
 };
 
 export type ISwapStockDisplayWriteContext = ISwapStockDisplayAccountIdentity &
@@ -254,7 +256,11 @@ export function buildSwapStockDisplayChartIdentityKey(
 export function buildSwapStockDisplayAmountIdentityKey(
   identity?: ISwapStockDisplayAmountIdentity,
 ) {
-  if (!identity?.tradeSide) {
+  if (
+    !identity?.tradeSide ||
+    !Number.isSafeInteger(identity.amountSessionId) ||
+    identity.amountSessionId < 0
+  ) {
     return '';
   }
   return buildIdentityKey([
@@ -262,6 +268,7 @@ export function buildSwapStockDisplayAmountIdentityKey(
     identity.stockTokenKey,
     identity.payTokenKey,
     identity.tradeSide,
+    String(identity.amountSessionId),
   ]);
 }
 
@@ -680,6 +687,7 @@ function normalizeAmountRegion({
             ? value.identity.payTokenKey.trim()
             : '',
         tradeSide,
+        amountSessionId: Number(value.identity.amountSessionId),
       }
     : undefined;
   const updatedAt = Number(value.updatedAt);
@@ -840,6 +848,7 @@ export function getMatchingSwapStockDisplaySnapshot({
     stockTokenKey: identity.stockTokenKey,
     payTokenKey: identity.payTokenKey,
     tradeSide: identity.tradeSide,
+    amountSessionId: identity.amountSessionId ?? 0,
   };
   const tokenDetail =
     buildSwapStockDisplayTokenDetailIdentityKey(
@@ -957,6 +966,7 @@ export function mergeSwapStockDisplaySnapshot({
         stockTokenKey: identity.stockTokenKey,
         payTokenKey: identity.payTokenKey,
         tradeSide: identity.tradeSide,
+        amountSessionId: identity.amountSessionId ?? 0,
       },
       value: patch.amount.value,
       updatedAt: now,

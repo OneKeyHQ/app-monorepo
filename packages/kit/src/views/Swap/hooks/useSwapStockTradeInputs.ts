@@ -13,6 +13,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
+  useSwapActions,
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
   useSwapStockSelectedFromTokenBalanceAtom,
@@ -75,7 +76,9 @@ import type {
 
 export type IStockAmountAtomOwnerState = {
   ownerKey?: string;
+  identity?: ISwapStockDisplayAmountIdentity;
   initialized: boolean;
+  hasResolvedOwner?: boolean;
 };
 
 export function buildStockAmountQuoteIntent(value: string) {
@@ -196,6 +199,84 @@ export function resolveStockAmountInputValue({
     return restoredValue;
   }
   return '';
+}
+
+export function resolveStockAmountOwnerTransition({
+  amountAtomOwnerState,
+  atomValue,
+  nextIdentity,
+  nextOwnerKey,
+  restoredValue,
+}: {
+  amountAtomOwnerState: IStockAmountAtomOwnerState;
+  atomValue: string;
+  nextIdentity?: ISwapStockDisplayAmountIdentity;
+  nextOwnerKey: string;
+  restoredValue?: string;
+}) {
+  const ownerChanged = amountAtomOwnerState.ownerKey !== nextOwnerKey;
+  const hadResolvedOwner =
+    amountAtomOwnerState.hasResolvedOwner ??
+    Boolean(amountAtomOwnerState.ownerKey);
+  const hasNextOwner = Boolean(nextOwnerKey && nextIdentity);
+  const shouldPreserveInput = Boolean(
+    ownerChanged &&
+    hadResolvedOwner &&
+    amountAtomOwnerState.initialized &&
+    nextIdentity &&
+    amountAtomOwnerState.identity &&
+    amountAtomOwnerState.identity.accountKey === nextIdentity.accountKey &&
+    amountAtomOwnerState.identity.tradeSide === nextIdentity.tradeSide &&
+    (amountAtomOwnerState.identity.stockTokenKey !==
+      nextIdentity.stockTokenKey ||
+      amountAtomOwnerState.identity.payTokenKey !== nextIdentity.payTokenKey),
+  );
+  const isFirstResolvedOwner = Boolean(hasNextOwner && !hadResolvedOwner);
+  const atomValueAfterTransition = shouldPreserveInput ? atomValue : '';
+  let displayValue = '';
+  if (shouldPreserveInput) {
+    displayValue = atomValue;
+  } else if (isFirstResolvedOwner) {
+    displayValue = restoredValue ?? '';
+  }
+
+  return {
+    atomValue: atomValueAfterTransition,
+    displayValue,
+    nextState: {
+      ownerKey: nextOwnerKey,
+      identity: nextIdentity ?? amountAtomOwnerState.identity,
+      initialized: Boolean(
+        shouldPreserveInput || (hasNextOwner && hadResolvedOwner),
+      ),
+      hasResolvedOwner: hadResolvedOwner || hasNextOwner,
+    } satisfies IStockAmountAtomOwnerState,
+    ownerChanged,
+    shouldCommitSnapshot: Boolean(hasNextOwner && hadResolvedOwner),
+    shouldPreserveInput,
+  };
+}
+
+export function markStockAmountOwnerInitialized({
+  amountAtomOwnerState,
+  amountIdentity,
+  amountOwnerKey,
+}: {
+  amountAtomOwnerState: IStockAmountAtomOwnerState;
+  amountIdentity?: ISwapStockDisplayAmountIdentity;
+  amountOwnerKey: string;
+}) {
+  const resolvedIdentity = amountIdentity ?? amountAtomOwnerState.identity;
+  return {
+    ...amountAtomOwnerState,
+    ownerKey: amountOwnerKey,
+    identity: resolvedIdentity,
+    initialized: true,
+    hasResolvedOwner: Boolean(
+      amountAtomOwnerState.hasResolvedOwner ||
+      (amountOwnerKey && resolvedIdentity),
+    ),
+  } satisfies IStockAmountAtomOwnerState;
 }
 
 export function resolveStockAmountAtomInitialization({
@@ -753,11 +834,13 @@ export function useSwapStockAmountInputState({
   stockChannel: IUseSwapStockChannelReturn;
 }) {
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const [, setSwapAlerts] = useSwapAlertsAtom();
   const [fromTokenBalance, setFromTokenBalance] =
     useSwapStockSelectedFromTokenBalanceAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const { resetQuoteAction } = useSwapActions().current;
   const {
     currentStockToken,
     payToken,
@@ -817,6 +900,7 @@ export function useSwapStockAmountInputState({
     useState<IStockAmountAtomOwnerState>({
       ownerKey: undefined,
       initialized: false,
+      hasResolvedOwner: false,
     });
   const amountAtomOwnerStateRef = useRef(amountAtomOwnerState);
   amountAtomOwnerStateRef.current = amountAtomOwnerState;
@@ -834,31 +918,60 @@ export function useSwapStockAmountInputState({
   const canonicalAmountOwnerKey = inputEditable ? amountOwnerKey : '';
   const canonicalAmountOwnerKeyRef = useRef(canonicalAmountOwnerKey);
   canonicalAmountOwnerKeyRef.current = canonicalAmountOwnerKey;
-  const inputValue = resolveStockAmountInputValue({
+  const nextAmountIdentity = amountOwnerKey
+    ? stockDisplay.amount.identity
+    : undefined;
+  const pendingOwnerTransition = resolveStockAmountOwnerTransition({
     amountAtomOwnerState,
-    amountOwnerKey,
     atomValue: fromTokenAmount.value,
+    nextIdentity: nextAmountIdentity,
+    nextOwnerKey: amountOwnerKey,
     restoredValue: restoredAmountValue,
   });
+  const inputValue = pendingOwnerTransition.ownerChanged
+    ? pendingOwnerTransition.displayValue
+    : resolveStockAmountInputValue({
+        amountAtomOwnerState,
+        amountOwnerKey,
+        atomValue: fromTokenAmount.value,
+        restoredValue: restoredAmountValue,
+      });
 
   useLayoutEffect(() => {
-    if (amountAtomOwnerStateRef.current.ownerKey === amountOwnerKey) {
+    const transition = resolveStockAmountOwnerTransition({
+      amountAtomOwnerState: amountAtomOwnerStateRef.current,
+      atomValue: fromTokenAmount.value,
+      nextIdentity: nextAmountIdentity,
+      nextOwnerKey: amountOwnerKey,
+      restoredValue: restoredAmountValue,
+    });
+    if (!transition.ownerChanged) {
       return;
     }
-    setAmountAtomOwnerStateWithRef({
-      ownerKey: amountOwnerKey,
-      initialized: false,
-    });
-    // The amount atom is shared by generic Swap. Clear it before paint so an
-    // account/stock/pay/side transition cannot expose or execute the old
-    // owner's amount while the new canonical channel settles.
+    setAmountAtomOwnerStateWithRef(transition.nextState);
+    // Revoke dependent state before paint. Stock/pay-token transitions rebind
+    // the current input; account and side changes stay fail-closed.
+    void resetQuoteAction();
     setSwapAlerts({ quoteId: '', states: [] });
-    setFromTokenAmount(buildStockAmountQuoteIntent(''));
+    setToTokenAmount({ value: '', isInput: false });
+    setFromTokenAmount(buildStockAmountQuoteIntent(transition.atomValue));
+    if (transition.shouldCommitSnapshot && amountOwnerKey) {
+      commitStockDisplayAmountSnapshot({
+        expectedOwnerKey: amountOwnerKey,
+        value: transition.atomValue,
+      });
+    }
   }, [
     amountOwnerKey,
+    commitStockDisplayAmountSnapshot,
+    fromTokenAmount.value,
+    nextAmountIdentity,
+    resetQuoteAction,
+    restoredAmountValue,
     setAmountAtomOwnerStateWithRef,
     setFromTokenAmount,
     setSwapAlerts,
+    setToTokenAmount,
   ]);
 
   useEffect(() => {
@@ -872,10 +985,13 @@ export function useSwapStockAmountInputState({
     if (!initialization.shouldInitialize) {
       return;
     }
-    setAmountAtomOwnerStateWithRef({
-      ownerKey: amountOwnerKey,
-      initialized: true,
-    });
+    setAmountAtomOwnerStateWithRef(
+      markStockAmountOwnerInitialized({
+        amountAtomOwnerState: amountAtomOwnerStateRef.current,
+        amountIdentity: nextAmountIdentity,
+        amountOwnerKey,
+      }),
+    );
     if (initialization.seedValue === undefined) {
       return;
     }
@@ -887,6 +1003,7 @@ export function useSwapStockAmountInputState({
   }, [
     amountOwnerKey,
     canonicalAmountOwnerKey,
+    nextAmountIdentity,
     restoredAmountValue,
     setAmountAtomOwnerStateWithRef,
     setFromTokenAmount,
@@ -966,10 +1083,13 @@ export function useSwapStockAmountInputState({
       if (!committed) {
         return false;
       }
-      setAmountAtomOwnerStateWithRef({
-        ownerKey: amountOwnerKey,
-        initialized: true,
-      });
+      setAmountAtomOwnerStateWithRef(
+        markStockAmountOwnerInitialized({
+          amountAtomOwnerState: amountAtomOwnerStateRef.current,
+          amountIdentity: nextAmountIdentity,
+          amountOwnerKey,
+        }),
+      );
       setSwapAlerts({ quoteId: '', states: [] });
       setFromTokenAmount(buildStockAmountQuoteIntent(value));
       return true;
@@ -977,6 +1097,7 @@ export function useSwapStockAmountInputState({
     [
       amountOwnerKey,
       commitStockDisplayAmountSnapshot,
+      nextAmountIdentity,
       setAmountAtomOwnerStateWithRef,
       setFromTokenAmount,
       setSwapAlerts,

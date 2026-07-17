@@ -72,8 +72,17 @@ const SwapProTabListContainer = memo(
     const [swapToToken] = useSwapSelectToTokenAtom();
     const [shouldRenderLists, setShouldRenderLists] = useState(false);
 
-    const { cachedPositionTokenList, hasCachedPositionTokenList } =
-      useSwapProSupportNetworksTokenList(supportNetworksList);
+    const {
+      cachedPositionTokenList,
+      hasSettledPositionOwnerRequest,
+      hasCachedPositionTokenList,
+      positionOwnerKey,
+      positionSourceUnavailable,
+      swapProLoadSupportNetworksTokenListRun,
+    } = useSwapProSupportNetworksTokenList(supportNetworksList);
+    const handlePositionSourceRetry = useCallback(() => {
+      void swapProLoadSupportNetworksTokenListRun(supportNetworksList);
+    }, [supportNetworksList, swapProLoadSupportNetworksTokenListRun]);
     const focusSwapPro = useMemo(() => {
       return (
         platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT
@@ -179,6 +188,10 @@ const SwapProTabListContainer = memo(
                 filterToken={filterToken}
                 cachedTokenList={cachedPositionTokenList}
                 hasCachedTokenList={hasCachedPositionTokenList}
+                positionOwnerKey={positionOwnerKey}
+                hasSettledPositionOwnerRequest={hasSettledPositionOwnerRequest}
+                positionSourceUnavailable={positionSourceUnavailable}
+                onPositionSourceRetry={handlePositionSourceRetry}
               />
             ) : (
               <SwapProTabListSkeleton />
