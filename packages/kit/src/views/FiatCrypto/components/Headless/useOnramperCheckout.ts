@@ -198,9 +198,20 @@ export function useOnramperCheckout({
     return () => {
       cancelled = true;
       removeListeners.forEach((remove) => remove());
-      client.destroy();
       // The disposed instance must not be reused — see the recreate guard above.
       clientRef.current = null;
+      // Defer the native teardown out of the unmount/navigation-transition
+      // window: dispose() cancels SDK tasks and releases the @MainActor client
+      // from the JS thread, and doing that while the modal dismissal is
+      // animating has produced intermittent hard freezes on close. By 400ms
+      // the transition is over.
+      setTimeout(() => {
+        try {
+          client.destroy();
+        } catch {
+          // Best-effort teardown; the instance is already unreachable.
+        }
+      }, 400);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -18,6 +18,7 @@ import {
   Stack,
   Toast,
   YStack,
+  usePreventRemove,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NativeAmountKeypad } from '@onekeyhq/kit/src/components/NativeAmountKeypad';
@@ -358,22 +359,23 @@ function HeadlessBuyPage() {
   }, [retry]);
 
   // In review, every page-leave intent (header X / back arrow, Android back,
-  // swipe-dismiss) returns to the input view instead of closing the modal.
+  // iOS swipe) returns to the input view instead of closing the modal.
   // A screen-level headerLeft override can't do this reliably: on iOS 26 the
   // modal close is a navigator-level `unstable_headerLeftItems` bar item that
-  // takes the slot over `headerLeft`.
-  useEffect(() => {
-    if (mode !== 'review') {
-      return undefined;
+  // takes the slot over `headerLeft`. usePreventRemove (NOT a raw beforeRemove
+  // preventDefault): it registers the prevented state with the native stack so
+  // gesture-driven dismissals are blocked up front — cancelling a native
+  // gesture after the fact leaves native and JS navigation state out of sync
+  // and has frozen the app on close (intermittent hard-hang, device-observed).
+  usePreventRemove(mode === 'review', ({ data }) => {
+    if (allowLeaveRef.current) {
+      // Completed checkout: let the blocked action (the success-page reset)
+      // through.
+      reactNavigation.dispatch(data.action);
+      return;
     }
-    return reactNavigation.addListener('beforeRemove', (e) => {
-      if (allowLeaveRef.current) {
-        return;
-      }
-      e.preventDefault();
-      exitReview();
-    });
-  }, [mode, exitReview, reactNavigation]);
+    exitReview();
+  });
 
   // Amount-level failures are fixed on the input screen, not retried in place.
   // The quote error stays visible under the amount (heroError below) until the
