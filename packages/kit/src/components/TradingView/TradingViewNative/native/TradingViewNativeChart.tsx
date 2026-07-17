@@ -30,10 +30,20 @@ import { SizableText, Stack, useTheme } from '@onekeyhq/components';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  TRADING_VIEW_NATIVE_CHART_DOWN_COLOR as CHART_DOWN_COLOR,
+  TRADING_VIEW_NATIVE_CHART_PADDING as CHART_PADDING,
+  TRADING_VIEW_NATIVE_CHART_UP_COLOR as CHART_UP_COLOR,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT as PRICE_AXIS_TICK_COUNT,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH as PRICE_AXIS_WIDTH,
+  TRADING_VIEW_NATIVE_PRICE_VOLUME_GAP_RATIO as PRICE_VOLUME_GAP_RATIO,
+  TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
   TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+  TRADING_VIEW_NATIVE_VOLUME_HEIGHT_RATIO as VOLUME_HEIGHT_RATIO,
+  TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
 } from '../chartConstants';
+import { formatTradingViewNativePriceTick } from '../utils/chartLayout';
 import {
   type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
@@ -43,13 +53,11 @@ import {
   getTradingViewNativeZoomedViewport,
 } from '../utils/chartViewport';
 
-const CHART_PADDING = 24;
-const VOLUME_HEIGHT_RATIO = 0.2;
-const PRICE_VOLUME_GAP_RATIO = 0.04;
-const VOLUME_OPACITY = 0.8;
-const SWITCHING_INTERVAL_OPACITY = 0.8;
-const PRICE_AXIS_WIDTH = 80;
-const PRICE_AXIS_TICK_COUNT = 5;
+import type {
+  ITradingViewNativeChartColors,
+  ITradingViewNativeChartProps,
+} from '../types';
+
 const PRICE_AXIS_LABEL_HEIGHT = 18;
 const NATIVE_CANDLE_GAP = 1;
 const NATIVE_CANDLE_STEP =
@@ -57,19 +65,10 @@ const NATIVE_CANDLE_STEP =
 const PAN_DRAG_RATIO = 1.1;
 const PAN_DECELERATION = 0.9982;
 const MIN_FLING_VELOCITY = 100;
-const CHART_UP_COLOR = '#30A46C';
-const CHART_DOWN_COLOR = '#E5484D';
 
 interface IChartSize {
   height: number;
   width: number;
-}
-
-interface IChartColors {
-  background: string;
-  grid: string;
-  up: string;
-  down: string;
 }
 
 interface IPriceTick {
@@ -81,12 +80,6 @@ interface IChartPictureData {
   candlesPicture: SkPicture;
   gridPicture: SkPicture;
   priceTicks: IPriceTick[];
-}
-
-interface ITradingViewNativeChartProps {
-  isSwitchingInterval: boolean;
-  points: IMarketTokenKLineDataPoint[];
-  testID?: string;
 }
 
 interface IVisiblePointRangeState extends ITradingViewNativeVisiblePointRange {
@@ -101,7 +94,7 @@ function createKLineChartPictures({
   visiblePointRange,
   width,
 }: IChartSize & {
-  colors: IChartColors;
+  colors: ITradingViewNativeChartColors;
   points: IMarketTokenKLineDataPoint[];
   visiblePointRange: ITradingViewNativeVisiblePointRange;
 }): IChartPictureData | null {
@@ -257,10 +250,6 @@ function createKLineChartPictures({
   backgroundPaint.dispose();
 
   return { candlesPicture, gridPicture, priceTicks };
-}
-
-function formatPriceTick(price: number) {
-  return Number(price.toPrecision(6)).toString();
 }
 
 export const TradingViewNativeChart = memo(
@@ -554,7 +543,7 @@ export const TradingViewNativeChart = memo(
             textAlign="right"
             opacity={chartOpacity}
           >
-            {formatPriceTick(price)}
+            {formatTradingViewNativePriceTick(price)}
           </SizableText>
         ))}
       </Stack>

@@ -5,12 +5,22 @@ import { Stack, useTheme } from '@onekeyhq/components';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  TRADING_VIEW_NATIVE_CHART_DOWN_COLOR as CHART_DOWN_COLOR,
+  TRADING_VIEW_NATIVE_CHART_PADDING as CHART_PADDING,
+  TRADING_VIEW_NATIVE_CHART_UP_COLOR as CHART_UP_COLOR,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT as PRICE_AXIS_TICK_COUNT,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH as PRICE_AXIS_WIDTH,
+  TRADING_VIEW_NATIVE_PRICE_VOLUME_GAP_RATIO as PRICE_VOLUME_GAP_RATIO,
+  TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
   TRADING_VIEW_NATIVE_CANDLE_GAP,
   TRADING_VIEW_NATIVE_CANDLE_STEP,
   TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+  TRADING_VIEW_NATIVE_VOLUME_HEIGHT_RATIO as VOLUME_HEIGHT_RATIO,
+  TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
 } from '../chartConstants';
+import { formatTradingViewNativePriceTick } from '../utils/chartLayout';
 import {
   clampTradingViewNativePanOffset,
   clampTradingViewNativeZoomScale,
@@ -19,32 +29,18 @@ import {
   getTradingViewNativeZoomedViewport,
 } from '../utils/chartViewport';
 
-const CHART_PADDING = 24;
-const VOLUME_HEIGHT_RATIO = 0.2;
-const PRICE_VOLUME_GAP_RATIO = 0.04;
-const VOLUME_OPACITY = 0.8;
-const SWITCHING_INTERVAL_OPACITY = 0.8;
+import type {
+  ITradingViewNativeChartColors,
+  ITradingViewNativeChartProps,
+} from '../types';
+
 const WHEEL_ZOOM_SENSITIVITY = 0.0015;
 const WHEEL_DELTA_MODE_LINE = 1;
 const WHEEL_DELTA_MODE_PAGE = 2;
 const WHEEL_DELTA_LINE_HEIGHT = 16;
-const PRICE_AXIS_WIDTH = 80;
-const PRICE_AXIS_TICK_COUNT = 5;
-const CHART_UP_COLOR = '#30A46C';
-const CHART_DOWN_COLOR = '#E5484D';
 
-interface IChartColors {
+interface IChartColors extends ITradingViewNativeChartColors {
   axisText: string;
-  background: string;
-  grid: string;
-  up: string;
-  down: string;
-}
-
-interface ITradingViewNativeChartProps {
-  isSwitchingInterval: boolean;
-  points: IMarketTokenKLineDataPoint[];
-  testID?: string;
 }
 
 interface IChartViewportState {
@@ -174,7 +170,7 @@ function drawKLineChart(
     context.moveTo(CHART_PADDING, y);
     context.lineTo(priceAxisX + 4, y);
     context.stroke();
-    context.fillText(Number(price.toPrecision(6)).toString(), width - 8, y);
+    context.fillText(formatTradingViewNativePriceTick(price), width - 8, y);
   }
 
   const toY = (price: number) =>
