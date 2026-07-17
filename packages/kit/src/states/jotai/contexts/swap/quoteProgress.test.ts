@@ -261,7 +261,7 @@ describe('swap quote progress', () => {
       isSwapNoProviderSupportsTrade({
         zeroProviderQuoteCompleted: true,
         quote: undefined,
-        quoteResultNoMatch: false,
+        quoteResultPairNoMatch: false,
       }),
     ).toBe(true);
 
@@ -270,7 +270,19 @@ describe('swap quote progress', () => {
       isSwapNoProviderSupportsTrade({
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: '' },
-        quoteResultNoMatch: false,
+        quoteResultPairNoMatch: false,
+      }),
+    ).toBe(true);
+
+    // Real server shape for an unsupported pair: totalQuoteCount > 0 and
+    // every provider returns an error quote WITHOUT any amount fields
+    // (e.g. "Provider error" / "Insufficient liquidity"). Amount mismatch
+    // against the user input must not veto the verdict here.
+    expect(
+      isSwapNoProviderSupportsTrade({
+        zeroProviderQuoteCompleted: false,
+        quote: { toAmount: undefined, limit: undefined },
+        quoteResultPairNoMatch: false,
       }),
     ).toBe(true);
 
@@ -279,7 +291,7 @@ describe('swap quote progress', () => {
       isSwapNoProviderSupportsTrade({
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: '', limit: { min: '1' } },
-        quoteResultNoMatch: false,
+        quoteResultPairNoMatch: false,
       }),
     ).toBe(false);
 
@@ -288,17 +300,17 @@ describe('swap quote progress', () => {
       isSwapNoProviderSupportsTrade({
         zeroProviderQuoteCompleted: false,
         quote: { toAmount: '10' },
-        quoteResultNoMatch: false,
+        quoteResultPairNoMatch: false,
       }),
     ).toBe(false);
 
-    // A stale quote that no longer matches the current inputs must not lock
-    // the action button out of its "Refresh quotes" recovery state.
+    // A stale quote left over from a DIFFERENT token pair must not lock the
+    // action button out of its "Refresh quotes" recovery state.
     expect(
       isSwapNoProviderSupportsTrade({
         zeroProviderQuoteCompleted: true,
         quote: { toAmount: '' },
-        quoteResultNoMatch: true,
+        quoteResultPairNoMatch: true,
       }),
     ).toBe(false);
   });

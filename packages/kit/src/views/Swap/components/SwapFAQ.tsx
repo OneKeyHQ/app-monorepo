@@ -15,41 +15,55 @@ import {
 } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-function SwapFAQ() {
+type ISwapFAQVariant = 'swap' | 'stock';
+
+const SWAP_FAQ_ITEM_IDS: {
+  question: ETranslations;
+  answer: ETranslations;
+}[] = [
+  { question: ETranslations.swap_faq_q1, answer: ETranslations.swap_faq_a1 },
+  { question: ETranslations.swap_faq_q2, answer: ETranslations.swap_faq_a2 },
+  { question: ETranslations.swap_faq_q8, answer: ETranslations.swap_faq_a8 },
+  { question: ETranslations.swap_faq_q4, answer: ETranslations.swap_faq_a4 },
+  { question: ETranslations.swap_faq_q5, answer: ETranslations.swap_faq_a5 },
+  { question: ETranslations.swap_faq_q6, answer: ETranslations.swap_faq_a6 },
+  { question: ETranslations.swap_faq_q7, answer: ETranslations.swap_faq_a7 },
+];
+
+const STOCK_FAQ_ITEM_IDS: {
+  question: ETranslations;
+  answer: ETranslations;
+}[] = [
+  {
+    question: ETranslations.stocksfaq_am_i_buying_real_stocks,
+    answer: ETranslations.stocksfaq_am_i_buying_real_stocks_answer,
+  },
+  {
+    question: ETranslations.stocksfaq_why_does_token_price_differ,
+    answer: ETranslations.stocksfaq_why_does_token_price_differ_answer,
+  },
+  {
+    question: ETranslations.stocksfaq_do_tokens_pay_dividends,
+    answer: ETranslations.stocksfaq_do_tokens_pay_dividends_answer,
+  },
+  {
+    question: ETranslations.stocksfaq_are_tokens_safe,
+    answer: ETranslations.stocksfaq_are_tokens_safe_answer,
+  },
+];
+
+function SwapFAQ({ variant = 'swap' }: { variant?: ISwapFAQVariant }) {
   const intl = useIntl();
 
   const faqItems = useMemo(
-    () => [
-      {
-        question: intl.formatMessage({ id: ETranslations.swap_faq_q1 }),
-        answer: intl.formatMessage({ id: ETranslations.swap_faq_a1 }),
-      },
-      {
-        question: intl.formatMessage({ id: ETranslations.swap_faq_q2 }),
-        answer: intl.formatMessage({ id: ETranslations.swap_faq_a2 }),
-      },
-      {
-        question: intl.formatMessage({ id: ETranslations.swap_faq_q8 }),
-        answer: intl.formatMessage({ id: ETranslations.swap_faq_a8 }),
-      },
-      {
-        question: intl.formatMessage({ id: ETranslations.swap_faq_q4 }),
-        answer: intl.formatMessage({ id: ETranslations.swap_faq_a4 }),
-      },
-      {
-        question: intl.formatMessage({ id: ETranslations.swap_faq_q5 }),
-        answer: intl.formatMessage({ id: ETranslations.swap_faq_a5 }),
-      },
-      {
-        question: intl.formatMessage({ id: ETranslations.swap_faq_q6 }),
-        answer: intl.formatMessage({ id: ETranslations.swap_faq_a6 }),
-      },
-      {
-        question: intl.formatMessage({ id: ETranslations.swap_faq_q7 }),
-        answer: intl.formatMessage({ id: ETranslations.swap_faq_a7 }),
-      },
-    ],
-    [intl],
+    () =>
+      (variant === 'stock' ? STOCK_FAQ_ITEM_IDS : SWAP_FAQ_ITEM_IDS).map(
+        (item) => ({
+          question: intl.formatMessage({ id: item.question }),
+          answer: intl.formatMessage({ id: item.answer }),
+        }),
+      ),
+    [intl, variant],
   );
 
   return (
