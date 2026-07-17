@@ -1,9 +1,22 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { canUseHeadless } from '@onekeyhq/shared/src/modules3rdParty/onramper';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes/fiatCrypto';
 import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
+
+// TEMPORARY(onramper-demo): the backend `headlessSupported` flags (OK-58060)
+// haven't shipped, so production entries can't route headless yet. Dev builds
+// treat the staging-tested native coins as supported so the flow can be
+// demoed from the REAL entries (Home → 買入 → pick a token) instead of the
+// Gallery. Remove when the backend flag lands. Keys are OneKey network ids;
+// values are lowercase token addresses ('' = the chain's native coin).
+const DEV_HEADLESS_ALLOWLIST: Record<string, Set<string>> = {
+  'evm--1': new Set(['']),
+  'btc--0': new Set(['']),
+  'sol--101': new Set(['']),
+};
 
 export type ITryOpenHeadlessBuyParams = {
   networkId: string;
@@ -29,13 +42,18 @@ export async function tryOpenHeadlessBuy({
   }
 
   let headlessSupported = Boolean(token?.headlessSupported);
-  if (token === undefined) {
+  if (!headlessSupported && token === undefined) {
     headlessSupported =
       await backgroundApiProxy.serviceFiatCrypto.isHeadlessSupported({
         networkId,
         tokenAddress,
         accountId,
       });
+  }
+  if (!headlessSupported && platformEnv.isDev) {
+    headlessSupported =
+      DEV_HEADLESS_ALLOWLIST[networkId]?.has(tokenAddress.toLowerCase()) ??
+      false;
   }
   if (!headlessSupported) {
     return false;
