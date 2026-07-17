@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { ColorTokens } from '@onekeyhq/components';
 import {
   Accordion,
+  Badge,
   Button,
   Icon,
   IconButton,
@@ -294,15 +295,30 @@ function BulkRevokeItem(props: IProps) {
                 flex={1}
                 justifyContent="space-between"
               >
-                <YStack flex={1}>
-                  <SizableText
-                    size="$bodyLgMedium"
-                    numberOfLines={1}
-                    flex={1}
-                    textAlign="left"
-                  >
-                    {approveInfo.tokenInfo?.symbol}
-                  </SizableText>
+                <YStack flex={1} minWidth={0}>
+                  <XStack alignItems="center" gap="$1.5" minWidth={0}>
+                    <SizableText
+                      size="$bodyLgMedium"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      flexShrink={1}
+                      minWidth={0}
+                      textAlign="left"
+                    >
+                      {approveInfo.tokenInfo?.symbol}
+                    </SizableText>
+                    {approveInfo.permit2Info ? (
+                      <Badge
+                        badgeSize="sm"
+                        bg="$transparent"
+                        borderWidth={1}
+                        borderColor="$borderSubdued"
+                        flexShrink={0}
+                      >
+                        <Badge.Text>Permit2</Badge.Text>
+                      </Badge>
+                    ) : null}
+                  </XStack>
                   <SizableText
                     size="$bodyMd"
                     color="$textSubdued"
