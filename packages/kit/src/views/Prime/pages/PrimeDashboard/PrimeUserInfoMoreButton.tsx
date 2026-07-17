@@ -108,7 +108,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
     <>
       {userInfoView}
 
-      {/* 
+      {/*
        Sometimes, the local payment is successful (for example, sandbox payment), but the server status is incorrect, so even if the subscriptionManageUrl exists, you need to expose the management subscription entry to allow the user to cancel the subscription
       */}
       {isPrime && subscriptionManageUrl ? (
