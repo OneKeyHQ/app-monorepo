@@ -3,7 +3,12 @@ import {
   isSwapQuoteActionable,
   isSwapQuoteInputAmountMatched,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
-import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  type IFetchQuoteResult,
+} from '@onekeyhq/shared/types/swap/types';
+
+import { isStockQuoteInputAmountMatched } from './swapStockTradeControl';
 
 export function isSwapProviderQuoteSelectable({
   currentEventId,
@@ -22,10 +27,14 @@ export function isSwapProviderQuoteSelectable({
   // candidate against its own transport contract instead of reusing the
   // currently selected provider's derived input amount. Input matching remains
   // kind-aware so retained rows from the previous request are display-only.
+  const inputAmountMatched =
+    quote.protocol === EProtocolOfExchange.STOCK
+      ? isStockQuoteInputAmountMatched({ quote, fromAmount, toAmount })
+      : isSwapQuoteInputAmountMatched({ quote, fromAmount, toAmount });
   return (
     hasSwapCurrentEventProvider(quote, currentEventProviderKeys) &&
     (!currentEventId || quote.eventId === currentEventId) &&
-    isSwapQuoteInputAmountMatched({ quote, fromAmount, toAmount }) &&
+    inputAmountMatched &&
     isSwapQuoteActionable(quote)
   );
 }

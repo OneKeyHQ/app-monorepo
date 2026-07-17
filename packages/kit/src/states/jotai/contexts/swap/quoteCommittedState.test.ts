@@ -6,9 +6,7 @@ import {
   hasSwapQuoteSelectableProviderCandidate,
   initialSwapQuoteCommittedState,
   isSwapQuoteCommittedActiveCandidate,
-  isSwapQuoteCommittedSettledCandidate,
   reduceSwapQuoteCommittedState,
-  selectSwapQuoteCommittedSnapshot,
 } from './quoteCommittedState';
 
 function buildQuote(provider: string, toAmount: string): IFetchQuoteResult {
@@ -38,7 +36,7 @@ function buildQuote(provider: string, toAmount: string): IFetchQuoteResult {
 }
 
 describe('swap quote committed state', () => {
-  it('publishes the first actionable quote and promotes a better Swap provider as it arrives', () => {
+  it('pins the first actionable quote while providers stream and publishes the final best quote once', () => {
     const previousQuote = buildQuote('previous', '10');
     const firstCandidate = buildQuote('first', '11');
     const bestCandidate = buildQuote('best', '12');
@@ -61,23 +59,30 @@ describe('swap quote committed state', () => {
     });
     expect(hasSwapQuoteSelectableProviderCandidate(state)).toBe(false);
 
-    expect(selectSwapQuoteCommittedSnapshot(state)).toEqual({
-      displayQuote: previousQuote,
-      executableQuote: undefined,
-      isRequesting: true,
-      canExecute: false,
-    });
+    expect(state).toEqual(
+      expect.objectContaining({
+        phase: ESwapQuoteCommitPhase.Requesting,
+        displayQuote: previousQuote,
+        executableQuote: undefined,
+      }),
+    );
+    expect(
+      isSwapQuoteCommittedActiveCandidate(state, state.executableQuote),
+    ).toBe(false);
 
     state = reduceSwapQuoteCommittedState(state, {
       type: 'candidatesUpdated',
       intentFingerprint: 'intent-1',
       requestId: 'request-2',
       quotes: [firstCandidate],
+      preferredProviderKey: undefined,
     });
     expect(state.displayQuote).toBe(firstCandidate);
     expect(state.executableQuote).toBe(firstCandidate);
     expect(state.committedAt).toEqual(expect.any(Number));
-    expect(selectSwapQuoteCommittedSnapshot(state).canExecute).toBe(true);
+    expect(
+      isSwapQuoteCommittedActiveCandidate(state, state.executableQuote),
+    ).toBe(true);
     expect(isSwapQuoteCommittedActiveCandidate(state, firstCandidate)).toBe(
       true,
     );
@@ -88,12 +93,11 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-1',
       requestId: 'request-2',
       quotes: [firstCandidate, bestCandidate],
-      promoteStreamingBest: true,
-      selectedQuote: bestCandidate,
+      preferredProviderKey: undefined,
     });
     expect(state.phase).toBe(ESwapQuoteCommitPhase.Requesting);
-    expect(state.displayQuote).toBe(bestCandidate);
-    expect(state.executableQuote).toBe(bestCandidate);
+    expect(state.displayQuote).toBe(firstCandidate);
+    expect(state.executableQuote).toBe(firstCandidate);
 
     state = reduceSwapQuoteCommittedState(state, {
       type: 'requestSettled',
@@ -126,12 +130,14 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-1',
       requestId: 'request-1',
       quotes: [firstCandidate],
+      preferredProviderKey: undefined,
     });
     state = reduceSwapQuoteCommittedState(state, {
       type: 'candidatesUpdated',
       intentFingerprint: 'intent-1',
       requestId: 'request-1',
       quotes: [laterCandidate],
+      preferredProviderKey: undefined,
     });
 
     expect(state.displayQuote).toBe(firstCandidate);
@@ -150,32 +156,6 @@ describe('swap quote committed state', () => {
     expect(state.executableQuote?.toAmount).toBe('9.7');
   });
 
-  it('does not promote a streaming best quote without an explicit Swap-tab owner', () => {
-    const firstCandidate = buildQuote('first', '11');
-    const bestCandidate = buildQuote('best', '12');
-    let state = reduceSwapQuoteCommittedState(initialSwapQuoteCommittedState, {
-      type: 'requestStarted',
-      intentFingerprint: 'intent-non-swap',
-      requestId: 'request-non-swap',
-    });
-    state = reduceSwapQuoteCommittedState(state, {
-      type: 'candidatesUpdated',
-      intentFingerprint: 'intent-non-swap',
-      requestId: 'request-non-swap',
-      quotes: [firstCandidate],
-    });
-    state = reduceSwapQuoteCommittedState(state, {
-      type: 'candidatesUpdated',
-      intentFingerprint: 'intent-non-swap',
-      requestId: 'request-non-swap',
-      quotes: [firstCandidate, bestCandidate],
-      selectedQuote: bestCandidate,
-    });
-
-    expect(state.displayQuote).toBe(firstCandidate);
-    expect(state.executableQuote).toBe(firstCandidate);
-  });
-
   it('retains every settled candidate and accepts a selected candidate for execution', () => {
     const bestCandidate = buildQuote('best', '12');
     const manualCandidate = buildQuote('manual', '11');
@@ -189,6 +169,7 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-1',
       requestId: 'request-1',
       quotes: [bestCandidate, manualCandidate],
+      preferredProviderKey: undefined,
     });
     state = reduceSwapQuoteCommittedState(state, {
       type: 'requestSettled',
@@ -204,10 +185,10 @@ describe('swap quote committed state', () => {
 
     expect(state.executableQuote).toBe(manualCandidate);
     expect(state.settledQuotes).toEqual([bestCandidate, manualCandidate]);
-    expect(isSwapQuoteCommittedSettledCandidate(state, bestCandidate)).toBe(
+    expect(isSwapQuoteCommittedActiveCandidate(state, bestCandidate)).toBe(
       true,
     );
-    expect(isSwapQuoteCommittedSettledCandidate(state, manualCandidate)).toBe(
+    expect(isSwapQuoteCommittedActiveCandidate(state, manualCandidate)).toBe(
       true,
     );
 
@@ -217,7 +198,7 @@ describe('swap quote committed state', () => {
       requestId: 'request-2',
     });
     expect(state.settledQuotes).toEqual([]);
-    expect(isSwapQuoteCommittedSettledCandidate(state, manualCandidate)).toBe(
+    expect(isSwapQuoteCommittedActiveCandidate(state, manualCandidate)).toBe(
       false,
     );
   });
@@ -234,6 +215,7 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-auto',
       requestId: 'request-auto',
       quotes: [candidate],
+      preferredProviderKey: undefined,
     });
 
     state = reduceSwapQuoteCommittedState(state, {
@@ -249,11 +231,11 @@ describe('swap quote committed state', () => {
     expect(state.executableQuote?.autoSuggestedSlippage).toBe(1.2);
     expect(state.settledQuotes[0]?.autoSuggestedSlippage).toBe(1.2);
     expect(
-      isSwapQuoteCommittedSettledCandidate(state, state.executableQuote),
+      isSwapQuoteCommittedActiveCandidate(state, state.executableQuote),
     ).toBe(true);
   });
 
-  it('falls back immediately, then pins the preferred provider when it returns', () => {
+  it('keeps a manual provider fail-closed until that provider returns', () => {
     const bestCandidate = buildQuote('best', '12');
     const manualCandidate = buildQuote('manual', '11');
     const refreshedBestCandidate = {
@@ -296,12 +278,14 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-1',
       requestId: 'request-2',
       quotes: [refreshedBestCandidate],
+      preferredProviderKey: 'manual-manual',
     });
-    expect(state.displayQuote).toBe(refreshedBestCandidate);
-    expect(state.executableQuote).toBe(refreshedBestCandidate);
-    expect(selectSwapQuoteCommittedSnapshot(state).canExecute).toBe(true);
-    const fallbackCommittedAt = state.committedAt ?? 0;
-    const preferredCommittedAt = fallbackCommittedAt + 1000;
+    expect(state.displayQuote).toBe(manualCandidate);
+    expect(state.executableQuote).toBeUndefined();
+    expect(
+      isSwapQuoteCommittedActiveCandidate(state, state.executableQuote),
+    ).toBe(false);
+    const preferredCommittedAt = (state.committedAt ?? 0) + 1000;
     const dateNowSpy = jest
       .spyOn(Date, 'now')
       .mockReturnValue(preferredCommittedAt);
@@ -311,18 +295,22 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-1',
       requestId: 'request-2',
       quotes: [refreshedBestCandidate, refreshedManualCandidate],
+      preferredProviderKey: 'manual-manual',
     });
     dateNowSpy.mockRestore();
     expect(state.displayQuote).toBe(refreshedManualCandidate);
     expect(state.executableQuote).toBe(refreshedManualCandidate);
     expect(state.committedAt).toBe(preferredCommittedAt);
-    expect(selectSwapQuoteCommittedSnapshot(state).canExecute).toBe(true);
+    expect(
+      isSwapQuoteCommittedActiveCandidate(state, state.executableQuote),
+    ).toBe(true);
 
     state = reduceSwapQuoteCommittedState(state, {
       type: 'candidatesUpdated',
       intentFingerprint: 'intent-1',
       requestId: 'request-2',
       quotes: [refreshedBestCandidate, laterManualCandidate],
+      preferredProviderKey: 'manual-manual',
     });
     expect(state.displayQuote).toBe(refreshedManualCandidate);
     expect(state.executableQuote).toBe(refreshedManualCandidate);
@@ -336,6 +324,49 @@ describe('swap quote committed state', () => {
     });
     expect(state.displayQuote).toBe(laterManualCandidate);
     expect(state.executableQuote).toBe(laterManualCandidate);
+  });
+
+  it('does not execute another provider when the preferred provider never returns', () => {
+    const previousManualQuote = buildQuote('manual', '11');
+    const refreshedBestCandidate = {
+      ...buildQuote('best', '12'),
+      eventId: 'event-2',
+    };
+    let state = reduceSwapQuoteCommittedState(initialSwapQuoteCommittedState, {
+      type: 'requestStarted',
+      intentFingerprint: 'intent-1',
+      requestId: 'request-1',
+    });
+    state = reduceSwapQuoteCommittedState(state, {
+      type: 'requestSettled',
+      intentFingerprint: 'intent-1',
+      requestId: 'request-1',
+      quotes: [previousManualQuote],
+    });
+    state = reduceSwapQuoteCommittedState(state, {
+      type: 'requestStarted',
+      intentFingerprint: 'intent-1',
+      requestId: 'request-2',
+      preferredDisplayQuote: previousManualQuote,
+    });
+    state = reduceSwapQuoteCommittedState(state, {
+      type: 'candidatesUpdated',
+      intentFingerprint: 'intent-1',
+      requestId: 'request-2',
+      quotes: [refreshedBestCandidate],
+      preferredProviderKey: 'manual-manual',
+    });
+    state = reduceSwapQuoteCommittedState(state, {
+      type: 'requestSettled',
+      intentFingerprint: 'intent-1',
+      requestId: 'request-2',
+      selectedQuote: refreshedBestCandidate,
+    });
+
+    expect(state.phase).toBe(ESwapQuoteCommitPhase.Settled);
+    expect(state.settledQuotes).toEqual([refreshedBestCandidate]);
+    expect(state.displayQuote).toBeUndefined();
+    expect(state.executableQuote).toBeUndefined();
   });
 
   it('does not retain a preferred display from a different intent', () => {
@@ -417,6 +448,7 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-old',
       requestId: 'request-old',
       quotes: [staleQuote],
+      preferredProviderKey: undefined,
     });
     expect(afterStaleCandidate).toBe(state);
     expect(afterStaleCandidate.displayQuote).toBeUndefined();
@@ -457,6 +489,7 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-1',
       requestId: 'request-2',
       quotes: [errorQuote],
+      preferredProviderKey: undefined,
     });
     expect(hasSwapQuoteSelectableProviderCandidate(state)).toBe(false);
     state = reduceSwapQuoteCommittedState(state, {
@@ -467,7 +500,9 @@ describe('swap quote committed state', () => {
 
     expect(state.phase).toBe(ESwapQuoteCommitPhase.Error);
     expect(state.displayQuote).toBe(previousQuote);
-    expect(selectSwapQuoteCommittedSnapshot(state).canExecute).toBe(false);
+    expect(
+      isSwapQuoteCommittedActiveCandidate(state, state.executableQuote),
+    ).toBe(false);
   });
 
   it('rejects positive-output quotes with limit or error semantics', () => {
@@ -489,12 +524,15 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-1',
       requestId: 'request-1',
       quotes: [belowMinimum, providerError],
+      preferredProviderKey: undefined,
     });
 
     expect(hasSwapQuoteSelectableProviderCandidate(state)).toBe(false);
     expect(state.displayQuote).toBeUndefined();
     expect(state.executableQuote).toBeUndefined();
-    expect(selectSwapQuoteCommittedSnapshot(state).canExecute).toBe(false);
+    expect(
+      isSwapQuoteCommittedActiveCandidate(state, state.executableQuote),
+    ).toBe(false);
 
     state = reduceSwapQuoteCommittedState(state, {
       type: 'requestSettled',

@@ -1,4 +1,5 @@
 import {
+  EProtocolOfExchange,
   ESwapQuoteKind,
   type IFetchQuoteResult,
 } from '@onekeyhq/shared/types/swap/types';
@@ -157,6 +158,29 @@ describe('isSwapProviderQuoteSelectable', () => {
         toAmount: '',
       }),
     ).toBe(false);
+  });
+
+  it.each([
+    {
+      fromAmount: '1000.0',
+      quote: buildQuote({
+        fromAmount: '1000',
+        protocol: EProtocolOfExchange.STOCK,
+      }),
+      toAmount: '',
+    },
+    {
+      fromAmount: '',
+      quote: buildQuote({
+        fromAmount: '5',
+        kind: ESwapQuoteKind.BUY,
+        protocol: EProtocolOfExchange.STOCK,
+        toAmount: '10',
+      }),
+      toAmount: '10.00',
+    },
+  ])('accepts numerically equivalent Stock input amounts', (params) => {
+    expect(isSelectable(params)).toBe(true);
   });
 
   it('keeps same-input retained rows display-only until their event arrives', () => {

@@ -1124,8 +1124,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   swapQuoteSessionStateAtom(),
                 ).activeSession;
                 if (activeSession) {
-                  const promoteStreamingBest =
-                    get(swapTypeSwitchAtom()) === ESwapTabSwitchType.SWAP;
                   const manualSelection = get(
                     swapManualSelectQuoteProvidersAtom(),
                   );
@@ -1135,12 +1133,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       intentFingerprint: activeSession.fingerprint,
                       requestId: activeSession.requestId,
                       quotes: newQuoteList,
-                      promoteStreamingBest,
-                      selectedQuote:
-                        !promoteStreamingBest ||
+                      preferredProviderKey:
                         manualSelection?.type === 'manual-provider'
-                          ? undefined
-                          : get(swapQuoteStreamingCurrentSelectAtom()),
+                          ? buildSwapQuoteProviderKey(manualSelection)
+                          : undefined,
                     }),
                   );
                 }
@@ -1179,7 +1175,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 type: 'requestSettled',
                 intentFingerprint: activeSession.fingerprint,
                 requestId: activeSession.requestId,
-                quotes: get(swapQuoteCurrentEventListAtom()),
                 selectedQuote,
               }),
             );
@@ -1381,6 +1376,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const displayIntentFingerprint =
         buildSwapQuoteDisplayIntentFingerprint(request);
       const manualSelection = get(swapManualSelectQuoteProvidersAtom());
+      const preferredProviderKey =
+        manualSelection?.type === 'manual-provider'
+          ? buildSwapQuoteProviderKey(manualSelection)
+          : undefined;
       const preferredDisplayQuote =
         manualSelection?.type === 'manual-provider'
           ? committedState.settledQuotes.find(
@@ -1398,6 +1397,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           displayIntentFingerprint,
           requestId: activeSession.requestId,
           preferredDisplayQuote,
+          preferredProviderKey,
         }),
       );
       set(swapQuoteEventErrorAtom(), undefined);

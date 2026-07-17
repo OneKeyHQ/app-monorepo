@@ -363,7 +363,7 @@ describe('swapStockDisplaySnapshotUtils', () => {
     });
   });
 
-  it('never replaces a last-good chart with an empty refresh', () => {
+  it('persists an exact empty chart result for the current owner and range', () => {
     const original = createSnapshot();
     const next = mergeSwapStockDisplaySnapshot({
       identity: { ...identity, payTokenKey: 'evm--1:0xusdt:token' },
@@ -377,7 +377,16 @@ describe('swapStockDisplaySnapshotUtils', () => {
       now: NOW + 1,
     });
 
-    expect(next.chart).toEqual(original.chart);
+    expect(next.chart).toEqual({
+      identity: {
+        accountKey: identity.accountKey,
+        stockTokenKey: identity.stockTokenKey,
+        sourceCurrency: 'usd',
+      },
+      range: '1M',
+      data: [],
+      updatedAt: NOW + 1,
+    });
   });
 
   it('stores account selection but scopes display amount to stock/pay/side', () => {

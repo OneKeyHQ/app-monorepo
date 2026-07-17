@@ -323,4 +323,53 @@ describe('swap quote semantic intent', () => {
       }),
     ).toBeUndefined();
   });
+
+  it.each([
+    {
+      expectedKind: ESwapQuoteKind.SELL,
+      fromAmount: '1000.0',
+      quote: buildQuote({
+        fromAmount: '1000',
+        protocol: EProtocolOfExchange.STOCK,
+      }),
+      toAmount: '',
+      expected: { direction: ESwapDirectionType.TO, value: '10' },
+    },
+    {
+      expectedKind: ESwapQuoteKind.BUY,
+      fromAmount: '',
+      quote: buildQuote({
+        fromAmount: '5',
+        kind: ESwapQuoteKind.BUY,
+        protocol: EProtocolOfExchange.STOCK,
+        toAmount: '10',
+      }),
+      toAmount: '10.00',
+      expected: { direction: ESwapDirectionType.FROM, value: '5' },
+    },
+  ])(
+    'accepts numerically equivalent Stock $expectedKind input amounts',
+    ({ expected, ...params }) => {
+      expect(
+        getSwapQuoteAmountProjection({
+          ...params,
+          fromToken,
+          toToken,
+        }),
+      ).toEqual(expected);
+    },
+  );
+
+  it('keeps ordinary Swap amount matching representation-strict', () => {
+    expect(
+      getSwapQuoteAmountProjection({
+        expectedKind: ESwapQuoteKind.SELL,
+        fromAmount: '1.0',
+        fromToken,
+        quote: buildQuote({ fromAmount: '1' }),
+        toAmount: '',
+        toToken,
+      }),
+    ).toBeUndefined();
+  });
 });

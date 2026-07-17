@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { isStockQuoteInputAmountMatched } from '@onekeyhq/kit/src/views/Swap/utils/swapStockTradeControl';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
@@ -8,6 +9,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapSlippageSegmentKey,
@@ -170,6 +172,10 @@ export function getSwapQuoteAmountProjection({
     }
   | undefined {
   const quoteKind = quote?.kind ?? ESwapQuoteKind.SELL;
+  const inputAmountMatched =
+    quote?.protocol === EProtocolOfExchange.STOCK
+      ? isStockQuoteInputAmountMatched({ quote, fromAmount, toAmount })
+      : isSwapQuoteInputAmountMatched({ quote, fromAmount, toAmount });
   if (
     !quote ||
     quoteKind !== expectedKind ||
@@ -181,11 +187,7 @@ export function getSwapQuoteAmountProjection({
       token1: toToken,
       token2: quote.toTokenInfo,
     }) ||
-    !isSwapQuoteInputAmountMatched({
-      quote,
-      fromAmount,
-      toAmount,
-    })
+    !inputAmountMatched
   ) {
     return undefined;
   }

@@ -503,9 +503,7 @@ export const {
         : undefined;
     let guardedQuote =
       selectionIntent?.type === 'manual-provider'
-        ? (committedManualQuote ??
-          manualLiveQuote ??
-          committedState.executableQuote)
+        ? (committedManualQuote ?? manualLiveQuote)
         : committedState.executableQuote;
     const manualQuoteSnapshot = selectionIntent?.quoteSnapshot;
     if (

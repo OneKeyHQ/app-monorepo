@@ -536,15 +536,19 @@ describe('useSwapStockDisplaySnapshot', () => {
     );
 
     expect(result.current.identityKey).toBe('');
-    expect(result.current.restoredSelection).toMatchObject({ symbol: 'AAPL' });
-    expect(result.current.restoredAmount).toBe('42.5');
+    expect(result.current.selection.restoredToken).toMatchObject({
+      symbol: 'AAPL',
+    });
+    expect(result.current.amount.restoredValue).toBe('42.5');
     expect(result.current.amount.ownerKey).not.toBe('');
 
     mockAmountSessionId = 1;
     rerender();
 
-    expect(result.current.restoredSelection).toMatchObject({ symbol: 'AAPL' });
-    expect(result.current.restoredAmount).toBeUndefined();
+    expect(result.current.selection.restoredToken).toMatchObject({
+      symbol: 'AAPL',
+    });
+    expect(result.current.amount.restoredValue).toBeUndefined();
     expect(result.current.amount.snapshot).toBeUndefined();
   });
 });

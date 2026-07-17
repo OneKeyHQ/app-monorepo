@@ -519,13 +519,5 @@ export function useSwapStockDisplaySnapshot({
       restoredValue: amountSnapshot?.value,
       commitSnapshot: commitAmountSnapshot,
     },
-    // Convenience aliases for a future cold-start consumer. These are display
-    // seeds only; execution readiness must still come from live channel state.
-    restoredSelection: selectionSnapshot?.stockToken,
-    restoredAmount: amountSnapshot?.value,
   };
 }
-
-export type IUseSwapStockDisplaySnapshotReturn = ReturnType<
-  typeof useSwapStockDisplaySnapshot
->;

@@ -272,21 +272,6 @@ export function buildSwapStockDisplayAmountIdentityKey(
   ]);
 }
 
-export function isSwapStockDisplayIdentityMatched({
-  current,
-  expected,
-}: {
-  current?: ISwapStockDisplayIdentity;
-  expected?: ISwapStockDisplayIdentity;
-}) {
-  return Boolean(
-    current &&
-    expected &&
-    buildSwapStockDisplayIdentityKey(current) ===
-      buildSwapStockDisplayIdentityKey(expected),
-  );
-}
-
 export function projectSwapStockDisplayTokenDetail(
   tokenDetail: IMarketTokenDetail,
 ): ISwapStockDisplayTokenDetail {
@@ -929,20 +914,16 @@ export function mergeSwapStockDisplaySnapshot({
   }
   if (patch.chart && identity.stockTokenKey) {
     const data = sanitizeSwapStockDisplayChartData(patch.chart.data);
-    // An empty refresh is not a new last-good value. Keep any previous region
-    // (which may belong to another stock and remain hidden by its owner key).
-    if (data.length > 0) {
-      next.chart = {
-        identity: {
-          accountKey: identity.accountKey,
-          stockTokenKey: identity.stockTokenKey,
-          sourceCurrency: SWAP_STOCK_DISPLAY_CHART_SOURCE_CURRENCY,
-        },
-        range: patch.chart.range,
-        data,
-        updatedAt: now,
-      };
-    }
+    next.chart = {
+      identity: {
+        accountKey: identity.accountKey,
+        stockTokenKey: identity.stockTokenKey,
+        sourceCurrency: SWAP_STOCK_DISPLAY_CHART_SOURCE_CURRENCY,
+      },
+      range: patch.chart.range,
+      data,
+      updatedAt: now,
+    };
   }
   if (patch.selection) {
     next.selection = {

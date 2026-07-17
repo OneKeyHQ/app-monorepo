@@ -1800,9 +1800,7 @@ function StockPriceChart({
       timeFrom,
       timeTo,
     });
-    return data.length > 0
-      ? { status: 'success' as const, data: { range, data } }
-      : { status: 'empty' as const };
+    return { status: 'success' as const, data: { range, data } };
   }, [activeRange, normalizedCoinGeckoId, range]);
   const handleChartCommit = useCallback(
     ({

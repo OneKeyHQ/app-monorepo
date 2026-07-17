@@ -33,14 +33,14 @@ export type ISwapQuoteCommittedAction =
       displayIntentFingerprint?: string;
       requestId: string;
       preferredDisplayQuote?: IFetchQuoteResult;
+      preferredProviderKey?: string;
     }
   | {
       type: 'candidatesUpdated';
       intentFingerprint: string;
       requestId: string;
       quotes: IFetchQuoteResult[];
-      promoteStreamingBest?: boolean;
-      selectedQuote?: IFetchQuoteResult;
+      preferredProviderKey: string | undefined;
     }
   | {
       type: 'requestSettled';
@@ -123,11 +123,9 @@ export function mergeSwapQuoteStreamingEnrichment({
 /**
  * Keeps a retained quote display-only until the active request returns an
  * actionable candidate. The first accepted provider is then pinned for the
- * main display and Review while later providers continue streaming. A newly
- * arrived provider may replace it only when the normal recommendation sorter
- * identifies a better provider. Settlement publishes the final best/manual
- * provider, but it cannot mutate a Review snapshot already frozen by the
- * caller.
+ * main display and Review while later providers continue streaming. Only an
+ * explicit manual provider selection or terminal settlement may replace that
+ * pin, and neither can mutate a Review snapshot already frozen by the caller.
  */
 export function reduceSwapQuoteCommittedState(
   state: ISwapQuoteCommittedState,
@@ -155,15 +153,19 @@ export function reduceSwapQuoteCommittedState(
     const retainedDisplayQuote = isSameDisplayIntent
       ? (preferredDisplayQuote ?? state.displayQuote)
       : undefined;
+    const preferredProviderKey = isSameDisplayIntent
+      ? (action.preferredProviderKey ??
+        (preferredDisplayQuote
+          ? buildSwapQuoteProviderKey(preferredDisplayQuote)
+          : undefined))
+      : undefined;
 
     return {
       phase: ESwapQuoteCommitPhase.Requesting,
       intentFingerprint: action.intentFingerprint,
       displayIntentFingerprint: nextDisplayIntentFingerprint,
       requestId: action.requestId,
-      preferredProviderKey: preferredDisplayQuote
-        ? buildSwapQuoteProviderKey(preferredDisplayQuote)
-        : undefined,
+      preferredProviderKey,
       pendingQuotes: [],
       settledQuotes: [],
       displayQuote: retainedDisplayQuote,
@@ -185,6 +187,7 @@ export function reduceSwapQuoteCommittedState(
   }
 
   if (action.type === 'candidatesUpdated') {
+    const { preferredProviderKey } = action;
     const latestAcceptedProviderQuote = findActionableQuoteByProvider({
       providerKey: state.executableQuote
         ? buildSwapQuoteProviderKey(state.executableQuote)
@@ -192,53 +195,30 @@ export function reduceSwapQuoteCommittedState(
       quotes: action.quotes,
     });
     const preferredQuote = findActionableQuoteByProvider({
-      providerKey: state.preferredProviderKey,
+      providerKey: preferredProviderKey,
       quotes: action.quotes,
     });
-    const selectedActionableQuote = findActionableQuoteByProvider({
-      providerKey: action.selectedQuote
-        ? buildSwapQuoteProviderKey(action.selectedQuote)
-        : undefined,
-      quotes: action.quotes,
-    });
-    const bestActionableQuote =
-      selectedActionableQuote ?? selectBestActionableQuote(action.quotes);
     const executableProviderKey = state.executableQuote
       ? buildSwapQuoteProviderKey(state.executableQuote)
       : undefined;
-    const bestProviderKey = bestActionableQuote
-      ? buildSwapQuoteProviderKey(bestActionableQuote)
-      : undefined;
-    const shouldPromoteStreamingBest =
-      action.promoteStreamingBest === true && !state.preferredProviderKey;
-    const shouldAdoptPreferredProvider = Boolean(
-      state.preferredProviderKey &&
-      preferredQuote &&
-      executableProviderKey !== state.preferredProviderKey,
-    );
     let nextExecutableQuote: IFetchQuoteResult | undefined;
-    if (shouldAdoptPreferredProvider) {
-      nextExecutableQuote = preferredQuote;
-    } else if (
-      state.executableQuote &&
-      latestAcceptedProviderQuote &&
-      executableProviderKey === bestProviderKey
-    ) {
-      nextExecutableQuote = mergeSwapQuoteStreamingEnrichment({
-        pinnedQuote: state.executableQuote,
-        latestQuote: latestAcceptedProviderQuote,
-      });
-    } else if (!state.executableQuote && state.preferredProviderKey) {
-      nextExecutableQuote = preferredQuote ?? bestActionableQuote;
-    } else if (shouldPromoteStreamingBest && bestActionableQuote) {
-      nextExecutableQuote = bestActionableQuote;
+    if (preferredProviderKey) {
+      nextExecutableQuote =
+        state.executableQuote &&
+        executableProviderKey === preferredProviderKey &&
+        preferredQuote
+          ? mergeSwapQuoteStreamingEnrichment({
+              pinnedQuote: state.executableQuote,
+              latestQuote: preferredQuote,
+            })
+          : preferredQuote;
     } else if (state.executableQuote && latestAcceptedProviderQuote) {
       nextExecutableQuote = mergeSwapQuoteStreamingEnrichment({
         pinnedQuote: state.executableQuote,
         latestQuote: latestAcceptedProviderQuote,
       });
     } else if (!state.executableQuote) {
-      nextExecutableQuote = bestActionableQuote;
+      nextExecutableQuote = selectBestActionableQuote(action.quotes);
     }
     const keepsAcceptedProvider = Boolean(
       executableProviderKey &&
@@ -251,6 +231,7 @@ export function reduceSwapQuoteCommittedState(
     }
     return {
       ...state,
+      preferredProviderKey,
       pendingQuotes: [...action.quotes],
       displayQuote: nextExecutableQuote ?? state.displayQuote,
       executableQuote: nextExecutableQuote,
@@ -273,13 +254,13 @@ export function reduceSwapQuoteCommittedState(
   const selectedQuote = action.selectedQuote;
   // Quote sorting projects cloned rows, so manual intent must be rebound to
   // the guarded candidate from the active request before it becomes executable.
-  const selectedSettledCandidate = selectedQuote
-    ? settledQuotes.find(
-        (quote) =>
-          buildSwapQuoteProviderKey(quote) ===
-          buildSwapQuoteProviderKey(selectedQuote),
-      )
-    : undefined;
+  const selectedProviderKey =
+    state.preferredProviderKey ??
+    (selectedQuote ? buildSwapQuoteProviderKey(selectedQuote) : undefined);
+  const selectedSettledCandidate = findActionableQuoteByProvider({
+    providerKey: selectedProviderKey,
+    quotes: settledQuotes,
+  });
   const selectedSettledQuote =
     selectedSettledCandidate && selectedQuote
       ? mergeSwapQuoteStreamingEnrichment({
@@ -292,10 +273,10 @@ export function reduceSwapQuoteCommittedState(
         quote === selectedSettledCandidate ? selectedSettledQuote : quote,
       )
     : settledQuotes;
-  const committedQuote =
-    selectedSettledQuote && isSwapQuoteActionable(selectedSettledQuote)
-      ? selectedSettledQuote
-      : selectBestActionableQuote(committedSettledQuotes);
+  const committedQuote = state.preferredProviderKey
+    ? selectedSettledQuote
+    : (selectedSettledQuote ??
+      selectBestActionableQuote(committedSettledQuotes));
 
   return {
     ...state,
@@ -307,18 +288,6 @@ export function reduceSwapQuoteCommittedState(
     executableQuote: committedQuote,
     committedAt: Date.now(),
   };
-}
-
-export function isSwapQuoteCommittedSettledCandidate(
-  state: ISwapQuoteCommittedState,
-  quote: IFetchQuoteResult | undefined,
-): quote is IFetchQuoteResult {
-  return Boolean(
-    state.phase === ESwapQuoteCommitPhase.Settled &&
-    quote &&
-    state.settledQuotes.includes(quote) &&
-    isSwapQuoteActionable(quote),
-  );
 }
 
 export function isSwapQuoteCommittedActiveCandidate(
@@ -340,20 +309,6 @@ export function isSwapQuoteCommittedActiveCandidate(
       buildSwapQuoteProviderKey(candidate) === quoteProviderKey &&
       isSwapQuoteActionable(candidate),
   );
-}
-
-export function selectSwapQuoteCommittedSnapshot(
-  state: ISwapQuoteCommittedState,
-) {
-  return {
-    displayQuote: state.displayQuote,
-    executableQuote: state.executableQuote,
-    isRequesting: state.phase === ESwapQuoteCommitPhase.Requesting,
-    canExecute: isSwapQuoteCommittedActiveCandidate(
-      state,
-      state.executableQuote,
-    ),
-  };
 }
 
 export function hasSwapQuoteSelectableProviderCandidate(
