@@ -433,11 +433,11 @@ export async function encryptWithPrfKey(
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
 
   // Encrypt the data
-  const encodedData = Uint8Array.from(new TextEncoder().encode(data));
+  const encodedData = new TextEncoder().encode(data);
   const encrypted = await globalThis.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     cryptoKey,
-    encodedData,
+    encodedData as BufferSource,
   );
 
   // Combine IV and encrypted data, then encode as base64
@@ -592,11 +592,11 @@ export async function encryptWithMasterKey(
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
 
   // Encrypt the data
-  const encodedData = Uint8Array.from(new TextEncoder().encode(data));
+  const encodedData = new TextEncoder().encode(data);
   const encrypted = await globalThis.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     cryptoKey,
-    encodedData,
+    encodedData as BufferSource,
   );
 
   // Combine IV and encrypted data, then encode as base64
