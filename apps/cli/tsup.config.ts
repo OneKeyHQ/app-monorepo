@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 
-import * as ts from '@typescript/typescript6';
 import { defineConfig } from 'tsup';
+import * as ts from 'typescript';
 
 import type { Plugin } from 'esbuild';
 
