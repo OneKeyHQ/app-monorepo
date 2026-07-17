@@ -1,9 +1,10 @@
 /**
- * Web, desktop, and extension device capability classification.
+ * Native device performance classification.
  *
- * Logical processor count and memory are exposed as independent capabilities.
- * Browser-provided values may be reduced or rounded for privacy, so consumers
- * must keep conservative fallbacks for unknown devices.
+ * CPU benchmark mappings and physical memory are exposed as independent
+ * capabilities. Feature owners combine only the signals relevant to their
+ * policy. Startup timing is intentionally excluded because it is an
+ * application outcome rather than a stable hardware capability.
  */
 
 import { syncStorage } from '../storage/instance/syncStorageInstance';
@@ -12,7 +13,7 @@ import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 import { getDeviceCpuTierMatch } from './deviceCpuTier';
 import { getDeviceMemoryGBSync, isLowEndMemory } from './deviceMemory';
 import {
-  NON_NATIVE_DEVICE_PERFORMANCE_DATA_VERSION,
+  NATIVE_DEVICE_PERFORMANCE_DATA_VERSION,
   resolveDevicePerformanceProfile,
 } from './devicePerformanceTierResolver';
 import {
@@ -26,8 +27,8 @@ import {
 export { EDeviceCpuTier, EDeviceMemoryClass, EDevicePerformanceTier };
 export type { IDevicePerformanceProfile };
 
-// Cache per JS context so repeated consumers do not reread browser capability
-// inputs. Each web, desktop, or extension context keeps its own JS snapshot.
+// Native main and background runtimes have separate JS heaps, so each runtime
+// keeps its own snapshot and reads native-backed capability inputs at most once.
 let cachedProfile: IDevicePerformanceProfile | undefined;
 
 const CPU_TIER_BY_LEGACY_PERFORMANCE_TIER: Record<
@@ -60,7 +61,7 @@ function createDevicePerformanceProfile(): IDevicePerformanceProfile {
     memoryGB,
     isMemoryConstrained: memoryGB !== null ? isLowEndMemory(memoryGB) : false,
     overrideCpuTier: getStoredCpuOverride(),
-    dataVersion: NON_NATIVE_DEVICE_PERFORMANCE_DATA_VERSION,
+    dataVersion: NATIVE_DEVICE_PERFORMANCE_DATA_VERSION,
   });
 }
 
@@ -85,14 +86,16 @@ function cpuTierToLegacyPerformanceTier(
   return EDevicePerformanceTier.medium;
 }
 
-/** @deprecated Use getDevicePerformanceProfile and a feature-specific policy. */
+/**
+ * @deprecated Use getDevicePerformanceProfile and a feature-specific policy.
+ */
 export function getDevicePerformanceTier(): EDevicePerformanceTier {
   return cpuTierToLegacyPerformanceTier(getDeviceCpuTier());
 }
 
 /**
- * Kept for API compatibility. Web capabilities are available synchronously and
- * are not calibrated from application startup timing.
+ * Kept for API compatibility with non-native targets. Native classification is
+ * deterministic and does not calibrate from startup timing.
  */
 export async function calibrateDevicePerformanceTier(): Promise<EDevicePerformanceTier> {
   return getDevicePerformanceTier();
