@@ -112,6 +112,52 @@ let reportRequestFailureCallback:
   | null = null;
 
 /**
+ * Request success callback parameters. Successes must flow to the service so
+ * its consecutive-failure counters reset on real recovery instead of only
+ * ever incrementing.
+ */
+interface IRequestSuccessParams {
+  domain: string;
+  requestType: 'ip' | 'domain';
+  target: string;
+}
+
+let reportRequestSuccessCallback:
+  | ((params: IRequestSuccessParams) => void)
+  | null = null;
+
+export function setReportRequestSuccessCallback(
+  callback: (params: IRequestSuccessParams) => void,
+) {
+  reportRequestSuccessCallback = callback;
+}
+
+/**
+ * Once a request has been handed to the SNI transport it may have reached
+ * the server even when we got no usable response back. Re-sending it over
+ * the domain is only safe for idempotent methods, or when the error code
+ * proves the connection was never established (nothing was written).
+ */
+const IDEMPOTENT_HTTP_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+const SNI_PRE_WRITE_ERROR_CODES = new Set([
+  'SNI_CONNECTION_REFUSED',
+  'SNI_DNS_FAILED',
+  'SNI_NETWORK_UNREACHABLE',
+  'SNI_INVALID_URL',
+]);
+
+function canFallbackAfterSniStarted(method: string, error?: unknown): boolean {
+  if (IDEMPOTENT_HTTP_METHODS.has(method.toUpperCase())) {
+    return true;
+  }
+  if (error && SNI_PRE_WRITE_ERROR_CODES.has(getErrorCode(error))) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Extract root domain from hostname
  * Example: wallet.example.com -> example.com
  * Example: api.example.so -> example.so
@@ -167,18 +213,30 @@ const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
 // ========== Fail-open on domain network failures ==========
 //
 // When real requests on the direct domain keep failing at the transport
-// level (timeouts, resets — NOT HTTP error responses), the adapter opens a
-// time-boxed window during which hosts of that root domain resolve to a
-// fallback IP (runtime last-best IP when available, builtin config
-// otherwise). This is the only protection available in runtimes where the
-// simpleDb-backed config is absent: the main runtime on split-runtime
+// level (timeouts, resets — NOT HTTP error responses or cancellations), the
+// adapter opens a time-boxed window during which hosts of that root domain
+// resolve to a fallback IP (runtime last-best IP when available, builtin
+// config otherwise). This is the only protection available in runtimes where
+// the simpleDb-backed config is absent: the main runtime on split-runtime
 // targets and the cold-start window before background init completes.
-// Failing requests are never replayed — a wallet must not double-send
-// mutating POSTs — only subsequent requests take the fail-open route.
+// The request that trips the threshold is never replayed — only subsequent
+// requests take the fail-open route — and once a request has been handed to
+// the SNI transport, falling back to the domain (which re-sends it) is
+// restricted to idempotent methods or provably-unsent errors; see
+// canFallbackAfterSniStarted.
+
+interface IHostFailureRecord {
+  consecutive: number;
+  lastFailureAt: number;
+}
 
 interface IAdapterFailoverState {
-  consecutiveNetworkFailures: number;
+  /** Consecutive transport failures tracked per hostname, not per root domain */
+  hostFailures: Map<string, IHostFailureRecord>;
   failOpenUntil: number;
+  activatedAt: number;
+  /** Hostnames whose failures opened the circuit; only they may close it early */
+  activatedHostnames: Set<string>;
   /** Rotates across activations so a dead builtin endpoint is not retried forever */
   fallbackIpIndex: number;
 }
@@ -191,16 +249,36 @@ export function resetAdapterFailoverStatesForTesting(): void {
   getSelectedIpForHost.clear();
 }
 
-function isNetworkLevelError(error: unknown): boolean {
+/**
+ * Transport-level failure allowlist. Only errors that prove the network path
+ * itself is broken may open the circuit. Cancellations (AbortController,
+ * axios dedup, page unload) and HTTP error responses must never count: a
+ * cancel says nothing about the network, and a response proves it works.
+ */
+const TRANSPORT_ERROR_CODES = new Set([
+  'ERR_NETWORK', // axios v1 generic network failure (xhr/fetch)
+  'ECONNABORTED', // axios timeout
+  'ETIMEDOUT',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'ENETUNREACH',
+  'EHOSTUNREACH',
+  'EAI_AGAIN',
+]);
+
+function isTransportLevelError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false;
   }
-  // An HTTP response means the network path works; only transport-level
-  // failures (timeout, reset, dns) should trigger fail-open.
+  if (axios.isCancel(error)) {
+    return false;
+  }
   if ('response' in error && (error as { response?: unknown }).response) {
     return false;
   }
-  return true;
+  const code = getErrorCode(error);
+  return TRANSPORT_ERROR_CODES.has(code);
 }
 
 async function isFailoverDisabledByDevSettings(): Promise<boolean> {
@@ -217,8 +295,10 @@ function getFailoverState(lookupDomain: string): IAdapterFailoverState {
   let state = adapterFailoverStates.get(lookupDomain);
   if (!state) {
     state = {
-      consecutiveNetworkFailures: 0,
+      hostFailures: new Map(),
       failOpenUntil: 0,
+      activatedAt: 0,
+      activatedHostnames: new Set(),
       fallbackIpIndex: 0,
     };
     adapterFailoverStates.set(lookupDomain, state);
@@ -231,6 +311,28 @@ function isFailoverActive(lookupDomain: string): boolean {
   return Boolean(state && state.failOpenUntil > Date.now());
 }
 
+function deactivateFailover(lookupDomain: string, cause: string): void {
+  const state = adapterFailoverStates.get(lookupDomain);
+  if (!state) {
+    return;
+  }
+  if (state.failOpenUntil > Date.now()) {
+    logIpTableEvent('info', 'adapter_failover_deactivated', {
+      lookupDomain,
+      cause,
+    });
+    defaultLogger.ipTable.metrics.adapterFailover({
+      lookupDomain,
+      action: 'deactivated',
+    });
+  }
+  state.hostFailures.clear();
+  state.failOpenUntil = 0;
+  state.activatedAt = 0;
+  state.activatedHostnames.clear();
+  getSelectedIpForHost.clear();
+}
+
 async function resolveFailoverLookupDomain(
   rootDomain: string,
 ): Promise<string> {
@@ -240,56 +342,69 @@ async function resolveFailoverLookupDomain(
 
 async function recordDomainRequestOutcome(options: {
   rootDomain: string;
+  hostname: string;
   ok: boolean;
+  /** Date.now() captured when the request was handed to the transport */
+  startedAtMs: number;
   error?: unknown;
 }): Promise<void> {
-  const { rootDomain, ok, error } = options;
+  const { rootDomain, hostname, ok, startedAtMs, error } = options;
   const lookupDomain = await resolveFailoverLookupDomain(rootDomain);
   const state = getFailoverState(lookupDomain);
 
   if (ok) {
-    if (state.consecutiveNetworkFailures > 0 || state.failOpenUntil > 0) {
-      if (state.failOpenUntil > Date.now()) {
-        logIpTableEvent('info', 'adapter_failover_deactivated', {
-          lookupDomain,
-          cause: 'domain_recovered',
-        });
-        defaultLogger.ipTable.metrics.adapterFailover({
-          lookupDomain,
-          action: 'deactivated',
-        });
-      }
-      state.consecutiveNetworkFailures = 0;
-      state.failOpenUntil = 0;
-      getSelectedIpForHost.clear();
+    const hostFailure = state.hostFailures.get(hostname);
+    // A success only proves the path that was exercised: it resets its own
+    // hostname's counter, and it may close the circuit only when it comes
+    // from a hostname that opened it AND started after activation (a
+    // long-in-flight request resolving late says nothing about recovery).
+    if (hostFailure && startedAtMs >= hostFailure.lastFailureAt) {
+      state.hostFailures.delete(hostname);
+    }
+    if (
+      state.failOpenUntil > Date.now() &&
+      state.activatedHostnames.has(hostname) &&
+      startedAtMs >= state.activatedAt
+    ) {
+      deactivateFailover(lookupDomain, 'domain_recovered');
     }
     return;
   }
 
-  if (!isNetworkLevelError(error)) {
+  if (!isTransportLevelError(error)) {
     return;
   }
   if (await isFailoverDisabledByDevSettings()) {
     return;
   }
 
-  state.consecutiveNetworkFailures += 1;
-  if (
-    state.consecutiveNetworkFailures >= IP_TABLE_DOMAIN_FAILOVER_THRESHOLD &&
-    state.failOpenUntil <= Date.now()
-  ) {
-    state.failOpenUntil = Date.now() + IP_TABLE_ADAPTER_FAILOVER_TTL_MS;
-    state.fallbackIpIndex += 1;
-    getSelectedIpForHost.clear();
-    logIpTableEvent('warn', 'adapter_failover_activated', {
-      lookupDomain,
-      consecutiveNetworkFailures: state.consecutiveNetworkFailures,
-      ttlMs: IP_TABLE_ADAPTER_FAILOVER_TTL_MS,
-    });
-    defaultLogger.ipTable.metrics.adapterFailover({
-      lookupDomain,
-      action: 'activated',
-    });
+  const now = Date.now();
+  const hostFailure = state.hostFailures.get(hostname) ?? {
+    consecutive: 0,
+    lastFailureAt: 0,
+  };
+  hostFailure.consecutive += 1;
+  hostFailure.lastFailureAt = now;
+  state.hostFailures.set(hostname, hostFailure);
+
+  if (hostFailure.consecutive >= IP_TABLE_DOMAIN_FAILOVER_THRESHOLD) {
+    state.activatedHostnames.add(hostname);
+    if (state.failOpenUntil <= now) {
+      state.failOpenUntil = now + IP_TABLE_ADAPTER_FAILOVER_TTL_MS;
+      state.activatedAt = now;
+      state.fallbackIpIndex += 1;
+      getSelectedIpForHost.clear();
+      logIpTableEvent('warn', 'adapter_failover_activated', {
+        lookupDomain,
+        hostname,
+        consecutiveNetworkFailures: hostFailure.consecutive,
+        ttlMs: IP_TABLE_ADAPTER_FAILOVER_TTL_MS,
+      });
+      defaultLogger.ipTable.metrics.adapterFailover({
+        lookupDomain,
+        action: 'activated',
+      });
+    }
   }
 }
 
@@ -303,13 +418,23 @@ function getFailoverFallbackIp(lookupDomain: string): string | null {
 }
 
 /**
- * Resolve the fail-open IP for a lookup domain, preferring the last-best IP
- * measured by the background speed test when a runtime is available.
+ * Resolve the fail-open IP for a lookup domain when the circuit is open.
+ * Prefers the last-best IP measured by the background speed test when a
+ * runtime is available. Honors the kill switch immediately: flipping
+ * `disableIpTableFailover` while a circuit is open clears the state instead
+ * of waiting for the TTL to expire.
  */
-function resolveFailoverIp(
+async function getActiveFailoverIp(
   lookupDomain: string,
   runtimeLastBestIp: string | undefined,
-): string | null {
+): Promise<string | null> {
+  if (!isFailoverActive(lookupDomain)) {
+    return null;
+  }
+  if (await isFailoverDisabledByDevSettings()) {
+    deactivateFailover(lookupDomain, 'kill_switch');
+    return null;
+  }
   return runtimeLastBestIp || getFailoverFallbackIp(lookupDomain);
 }
 
@@ -386,21 +511,19 @@ async function getSelectedIpForHostInternal(
       // too. runtime.enabled === false is explicit user intent: no fail-open.
       if (!configWithRuntime) {
         const lookupDomain = await resolveFailoverLookupDomain(rootDomain);
-        if (isFailoverActive(lookupDomain)) {
-          const failoverIp = resolveFailoverIp(lookupDomain, undefined);
-          if (failoverIp) {
-            logIpTableEvent('warn', 'iptable_selection', {
-              hostname,
-              rootDomain,
-              lookupDomain,
-              mapped: lookupDomain !== rootDomain,
-              strictMode: false,
-              runtimeEnabled: false,
-              decision: 'fail_open',
-              selectedIpHash: hashForLog(failoverIp),
-            });
-            return failoverIp;
-          }
+        const failoverIp = await getActiveFailoverIp(lookupDomain, undefined);
+        if (failoverIp) {
+          logIpTableEvent('warn', 'iptable_selection', {
+            hostname,
+            rootDomain,
+            lookupDomain,
+            mapped: lookupDomain !== rootDomain,
+            strictMode: false,
+            runtimeEnabled: false,
+            decision: 'fail_open',
+            selectedIpHash: hashForLog(failoverIp),
+          });
+          return failoverIp;
         }
       }
       logIpTableEvent('info', 'iptable_selection', {
@@ -456,24 +579,22 @@ async function getSelectedIpForHostInternal(
     // In strict mode, override this and use fallback IP from config
     if (selectedIp === '') {
       if (!strictMode) {
-        if (isFailoverActive(lookupDomain)) {
-          const failoverIp = resolveFailoverIp(
+        const failoverIp = await getActiveFailoverIp(
+          lookupDomain,
+          runtime?.lastBestIp?.[lookupDomain],
+        );
+        if (failoverIp) {
+          logIpTableEvent('warn', 'iptable_selection', {
+            hostname,
+            rootDomain,
             lookupDomain,
-            runtime?.lastBestIp?.[lookupDomain],
-          );
-          if (failoverIp) {
-            logIpTableEvent('warn', 'iptable_selection', {
-              hostname,
-              rootDomain,
-              lookupDomain,
-              mapped: Boolean(mappedDomain),
-              strictMode: false,
-              runtimeEnabled: runtime?.enabled !== false,
-              decision: 'fail_open',
-              selectedIpHash: hashForLog(failoverIp),
-            });
-            return failoverIp;
-          }
+            mapped: Boolean(mappedDomain),
+            strictMode: false,
+            runtimeEnabled: runtime?.enabled !== false,
+            decision: 'fail_open',
+            selectedIpHash: hashForLog(failoverIp),
+          });
+          return failoverIp;
         }
         debugLog(
           `[IpTableAdapter] Explicitly using domain for: ${lookupDomain}`,
@@ -514,24 +635,22 @@ async function getSelectedIpForHostInternal(
       }
     }
 
-    if (isFailoverActive(lookupDomain)) {
-      const failoverIp = resolveFailoverIp(
+    const noSelectionFailoverIp = await getActiveFailoverIp(
+      lookupDomain,
+      runtime?.lastBestIp?.[lookupDomain],
+    );
+    if (noSelectionFailoverIp) {
+      logIpTableEvent('warn', 'iptable_selection', {
+        hostname,
+        rootDomain,
         lookupDomain,
-        runtime?.lastBestIp?.[lookupDomain],
-      );
-      if (failoverIp) {
-        logIpTableEvent('warn', 'iptable_selection', {
-          hostname,
-          rootDomain,
-          lookupDomain,
-          mapped: Boolean(mappedDomain),
-          strictMode: Boolean(strictMode),
-          runtimeEnabled: runtime?.enabled !== false,
-          decision: 'fail_open',
-          selectedIpHash: hashForLog(failoverIp),
-        });
-        return failoverIp;
-      }
+        mapped: Boolean(mappedDomain),
+        strictMode: Boolean(strictMode),
+        runtimeEnabled: runtime?.enabled !== false,
+        decision: 'fail_open',
+        selectedIpHash: hashForLog(noSelectionFailoverIp),
+      });
+      return noSelectionFailoverIp;
     }
 
     logIpTableEvent('info', 'iptable_selection', {
@@ -684,6 +803,7 @@ export function createIpTableAdapter(
     rootDomain?: string;
   }): Promise<AxiosResponse> => {
     const { config, isFallback = false, hostname, rootDomain } = options;
+    const startedAtMs = Date.now();
     debugLog('[IpTableAdapter] About to call original adapter...');
     debugLog(
       '[IpTableAdapter] Original adapter type:',
@@ -740,27 +860,50 @@ export function createIpTableAdapter(
         );
       }
 
-      if (rootDomain) {
+      if (rootDomain && hostname) {
         // A completed domain request (any HTTP status) proves the network
-        // path works: reset the adapter fail-open counter.
-        await recordDomainRequestOutcome({ rootDomain, ok: true });
+        // path works for THIS hostname: reset its fail-open counter and
+        // notify the service so its health stats reset too.
+        await recordDomainRequestOutcome({
+          rootDomain,
+          hostname,
+          ok: true,
+          startedAtMs,
+        });
+        if (reportRequestSuccessCallback) {
+          reportRequestSuccessCallback({
+            domain: rootDomain,
+            requestType: 'domain',
+            target: hostname,
+          });
+        }
       }
 
       return response;
     } catch (error) {
-      if (rootDomain) {
+      if (rootDomain && hostname) {
         // Track transport-level failures for adapter fail-open. The failing
         // request itself is never replayed (no double-send of POSTs); only
         // subsequent requests take the fail-open route.
-        await recordDomainRequestOutcome({ rootDomain, ok: false, error });
+        await recordDomainRequestOutcome({
+          rootDomain,
+          hostname,
+          ok: false,
+          startedAtMs,
+          error,
+        });
       }
 
-      // Only report domain failures if this is NOT a fallback request
+      // Only report domain failures if this is NOT a fallback request, and
+      // only for transport-level failures: HTTP responses prove the network
+      // path works and cancellations say nothing about it, so neither may
+      // drive the service's failover/speed-test counters.
       if (
         !isFallback &&
         hostname &&
         rootDomain &&
-        reportRequestFailureCallback
+        reportRequestFailureCallback &&
+        isTransportLevelError(error)
       ) {
         debugLog(
           `[IpTableAdapter] Domain request failed (not fallback): ${hostname}`,
@@ -1038,6 +1181,21 @@ export function createIpTableAdapter(
             error: 'SNI response null',
           });
         }
+        // A null response is ambiguous — the request may have reached the
+        // server. Re-sending over the domain is only safe for idempotent
+        // methods; anything else must surface the failure to the caller.
+        const method = (config.method || 'GET').toUpperCase();
+        if (!canFallbackAfterSniStarted(method)) {
+          logIpTableEvent('warn', 'sni_fallback_blocked', {
+            hostname,
+            rootDomain,
+            method,
+            reason: 'non_idempotent_after_sni_started',
+          });
+          throw new OneKeyLocalError(
+            'IP Table Adapter: SNI response missing and request is not idempotent',
+          );
+        }
         // Fallback to domain (isFallback = true, so domain failure won't be counted)
         return await callOriginalAdapter({
           config,
@@ -1051,6 +1209,14 @@ export function createIpTableAdapter(
       debugLog(
         `[IpTableAdapter] SNI request successful: ${sniResponse.statusCode}`,
       );
+
+      if (reportRequestSuccessCallback) {
+        reportRequestSuccessCallback({
+          domain: rootDomain,
+          requestType: 'ip',
+          target: selectedIp,
+        });
+      }
 
       // Parse response body
       let responseData: any = null;
@@ -1109,6 +1275,23 @@ export function createIpTableAdapter(
           target: selectedIp,
           error: error instanceof Error ? error.message : String(error),
         });
+      }
+
+      // Once the request was handed to the SNI transport it may have been
+      // written to the wire (e.g. SNI_TIMEOUT after send). Re-sending over
+      // the domain risks double-executing mutating requests, so fallback is
+      // restricted to idempotent methods or errors that prove the
+      // connection was never established.
+      const method = (config.method || 'GET').toUpperCase();
+      if (!canFallbackAfterSniStarted(method, error)) {
+        logIpTableEvent('warn', 'sni_fallback_blocked', {
+          hostname,
+          rootDomain,
+          method,
+          errorCode: getErrorCode(error),
+          reason: 'non_idempotent_after_sni_started',
+        });
+        throw error;
       }
 
       // If SNI request throws error, use original adapter
