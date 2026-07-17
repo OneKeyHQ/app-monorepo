@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { markOneKeyIdFailureServerLogged } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -107,17 +108,35 @@ export function useSupabaseAuth() {
       // GET /auth/v1/user, so e.g. a gateway/WAF rejection of that endpoint
       // shows up as its HTTP status).
       if (error || !data?.session) {
-        const statusPart = error?.status ? ` status=${error.status}` : '';
+        // Check the type, not truthiness: AuthRetryableFetchError (produced
+        // when sessionPreservingSupabaseFetch masks an intercepted response)
+        // carries status 0, which a truthiness check would silently drop.
+        const statusPart =
+          typeof error?.status === 'number' ? ` status=${error.status}` : '';
         const codePart = error?.code ? ` code=${error.code}` : '';
         const reason = `Failed to persist Keyless OAuth session: ${
           error?.message || 'no session returned'
         }${statusPart}${codePart}`;
-        // Mirror into exported logs — the thrown error itself only reaches
-        // the UI toast, which is not diagnosable after the fact.
+        // Mirror into exported logs at the failure source — this covers paths
+        // where the error is later swallowed and never reaches the fallback
+        // toast (e.g. useKeylessWallet's apiOAuthLogin try/catch).
         defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
           reason,
         });
-        throw new OneKeyLocalError(reason);
+        // autoToast so callers WITHOUT their own catch/toast (e.g. the
+        // verify-PIN flow, whose onPress rethrows into a voided promise) still
+        // surface the failure via the global handler instead of dying
+        // silently; httpStatusCode kept for transient-vs-definitive
+        // classification. Mark it server-logged so the fallback toast does not
+        // emit a duplicate @LogToServer event for the same failure.
+        const persistError = new OneKeyLocalError({
+          message: reason,
+          autoToast: true,
+          httpStatusCode:
+            typeof error?.status === 'number' ? error.status : undefined,
+        });
+        markOneKeyIdFailureServerLogged(persistError);
+        throw persistError;
       }
     },
     [],
