@@ -158,7 +158,7 @@ export function createDesktopConfig({
     case 'production':
       return merge(
         baseConfig,
-        createProductionConfig({ platform, basePath, dropConsole: true }),
+        createProductionConfig({ platform, basePath }),
         commonDesktopConfig,
         {
           output: {
