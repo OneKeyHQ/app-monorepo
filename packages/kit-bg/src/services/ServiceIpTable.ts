@@ -32,6 +32,7 @@ import {
   testIpSpeed,
 } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
 import { decideEndpoint } from '@onekeyhq/shared/src/request/helpers/ipTableEndpointDecision';
+import { applyOutcome } from '@onekeyhq/shared/src/request/helpers/ipTableOutcomeLedger';
 import {
   isProxyActiveForUrl,
   isSniSupported,
@@ -946,20 +947,21 @@ class ServiceIpTable extends ServiceBase {
     const endpointHealth = this.getEndpointHealth(stats, requestType, target);
 
     // Outcomes arrive through async callbacks with no ordering guarantee:
-    // ignore a failure whose request started before the newest outcome we
-    // already applied, so an old failure landing late cannot re-increment a
-    // counter that a newer success just cleared.
-    if (outcomeAt < endpointHealth.lastOutcomeAt) {
+    // the shared ledger orders them by transport start time, so a failure
+    // whose request predates the newest applied outcome (e.g. a success
+    // that landed first) never re-increments the counter.
+    if (
+      applyOutcome(endpointHealth, { ok: false, startedAtMs: outcomeAt }) ===
+      'stale'
+    ) {
       defaultLogger.ipTable.request.info({
         info: `[IpTable] Ignoring stale ${requestType} failure for ${domain} (${target}): request predates the newest applied outcome`,
       });
       return;
     }
-    endpointHealth.lastOutcomeAt = outcomeAt;
 
-    // Update failure statistics
+    // Update failure statistics (consecutiveFailures is owned by the ledger)
     endpointHealth.failureCount += 1;
-    endpointHealth.consecutiveFailures += 1;
     endpointHealth.lastFailureTime = now;
 
     defaultLogger.ipTable.request.warn({
@@ -1099,28 +1101,20 @@ class ServiceIpTable extends ServiceBase {
     );
 
     // Successes reset the consecutive-failure counters, so "consecutive"
-    // means what it says: interleaved successes prevent sporadic errors
-    // accumulated over hours from ever tripping the failover threshold.
-    // Ordered by request start time: a slow success that started before the
-    // newest applied outcome must not clear failures that came after it.
+    // means what it says. The success path MUST create the ledger entry when
+    // none exists yet: a later-started success completing before an
+    // early-started slow failure has to leave its ordering mark, otherwise
+    // the old failure would create the entry afterwards and count against a
+    // link that already proved healthy.
     setReportRequestSuccessCallback(
       ({ domain, requestType, target, startedAtMs }) => {
-        const stats = this.domainHealthMap.get(domain);
-        if (!stats) {
-          return;
-        }
-        const endpointHealth =
-          requestType === 'domain'
-            ? stats.domainDirect
-            : stats.ipEndpoints.get(target);
-        if (!endpointHealth) {
-          return;
-        }
-        if (startedAtMs < endpointHealth.lastOutcomeAt) {
-          return;
-        }
-        endpointHealth.lastOutcomeAt = startedAtMs;
-        endpointHealth.consecutiveFailures = 0;
+        const stats = this.getDomainHealth(domain);
+        const endpointHealth = this.getEndpointHealth(
+          stats,
+          requestType,
+          target,
+        );
+        applyOutcome(endpointHealth, { ok: true, startedAtMs });
       },
     );
 

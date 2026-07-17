@@ -12,10 +12,12 @@ import {
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
+import { applyOutcome, createOutcomeLedgerEntry } from './ipTableOutcomeLedger';
 import { isSniFailClosedError } from './sniFailClosedError';
 import { redactIpLiterals, safeSniLogValue } from './sniLogRedaction';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
+import type { IIpTableOutcomeLedgerEntry } from './ipTableOutcomeLedger';
 import type {
   AxiosAdapter,
   AxiosRequestConfig,
@@ -233,20 +235,32 @@ const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
 // restricted to idempotent methods or provably-unsent errors; see
 // canFallbackAfterSniStarted.
 
-interface IHostFailureRecord {
-  consecutive: number;
-  lastFailureAt: number;
-}
-
 interface IAdapterFailoverState {
-  /** Consecutive transport failures tracked per hostname, not per root domain */
-  hostFailures: Map<string, IHostFailureRecord>;
+  /**
+   * Per-hostname outcome ledger (consecutive transport failures + newest
+   * applied outcome ordered by transport start time). Entries persist across
+   * successes so a late-arriving old failure can always be recognized as
+   * stale — deleting them would lose the ordering mark.
+   */
+  hostFailures: Map<string, IIpTableOutcomeLedgerEntry>;
   failOpenUntil: number;
   activatedAt: number;
   /** Hostnames whose failures opened the circuit; only they may close it early */
   activatedHostnames: Set<string>;
   /** Rotates across activations so a dead builtin endpoint is not retried forever */
   fallbackIpIndex: number;
+}
+
+function getHostOutcomeLedger(
+  state: IAdapterFailoverState,
+  hostname: string,
+): IIpTableOutcomeLedgerEntry {
+  let entry = state.hostFailures.get(hostname);
+  if (!entry) {
+    entry = createOutcomeLedgerEntry();
+    state.hostFailures.set(hostname, entry);
+  }
+  return entry;
 }
 
 const adapterFailoverStates = new Map<string, IAdapterFailoverState>();
@@ -360,16 +374,20 @@ async function recordDomainRequestOutcome(options: {
   const lookupDomain = await resolveFailoverLookupDomain(rootDomain);
   const state = getFailoverState(lookupDomain);
 
+  // Both success and failure go through the same start-time-ordered ledger:
+  // a success records its order even on a fresh entry (so an older failure
+  // arriving later is recognized as stale), and a failure whose request
+  // started before the newest applied outcome never counts.
+  const ledger = getHostOutcomeLedger(state, hostname);
+
   if (ok) {
-    const hostFailure = state.hostFailures.get(hostname);
-    // A success only proves the path that was exercised: it resets its own
-    // hostname's counter, and it may close the circuit only when it comes
-    // from a hostname that opened it AND started after activation (a
-    // long-in-flight request resolving late says nothing about recovery).
-    if (hostFailure && startedAtMs >= hostFailure.lastFailureAt) {
-      state.hostFailures.delete(hostname);
-    }
+    const applied = applyOutcome(ledger, { ok: true, startedAtMs });
+    // A success only proves the path that was exercised: it may close the
+    // circuit only when it comes from a hostname that opened it AND started
+    // after activation (a long-in-flight request resolving late says
+    // nothing about recovery).
     if (
+      applied === 'applied' &&
       state.failOpenUntil > Date.now() &&
       state.activatedHostnames.has(hostname) &&
       startedAtMs >= state.activatedAt
@@ -386,16 +404,12 @@ async function recordDomainRequestOutcome(options: {
     return;
   }
 
-  const now = Date.now();
-  const hostFailure = state.hostFailures.get(hostname) ?? {
-    consecutive: 0,
-    lastFailureAt: 0,
-  };
-  hostFailure.consecutive += 1;
-  hostFailure.lastFailureAt = now;
-  state.hostFailures.set(hostname, hostFailure);
+  if (applyOutcome(ledger, { ok: false, startedAtMs }) === 'stale') {
+    return;
+  }
 
-  if (hostFailure.consecutive >= IP_TABLE_DOMAIN_FAILOVER_THRESHOLD) {
+  if (ledger.consecutiveFailures >= IP_TABLE_DOMAIN_FAILOVER_THRESHOLD) {
+    const now = Date.now();
     state.activatedHostnames.add(hostname);
     if (state.failOpenUntil <= now) {
       state.failOpenUntil = now + IP_TABLE_ADAPTER_FAILOVER_TTL_MS;
@@ -405,7 +419,7 @@ async function recordDomainRequestOutcome(options: {
       logIpTableEvent('warn', 'adapter_failover_activated', {
         lookupDomain,
         hostname,
-        consecutiveNetworkFailures: hostFailure.consecutive,
+        consecutiveNetworkFailures: ledger.consecutiveFailures,
         ttlMs: IP_TABLE_ADAPTER_FAILOVER_TTL_MS,
       });
       defaultLogger.ipTable.metrics.adapterFailover({

@@ -621,6 +621,76 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
     expect(lastSniCall.hostname).toBe('wallet.onekeycn.com');
   });
 
+  test('a late failure from a request started before a newer success does not count', async () => {
+    // Request A starts first and fails slowly; request B starts later and
+    // succeeds before A's failure lands. B's success must leave its ledger
+    // mark even though no failure entry existed yet, making A's late
+    // failure stale — otherwise a recovered hostname would accumulate
+    // toward fail-open.
+    let releaseSlowFail: (() => void) | undefined;
+    const slowFailGate = new Promise<void>((resolve) => {
+      releaseSlowFail = resolve;
+    });
+    fallbackAdapter.mockImplementation(async (config) => {
+      if (config.url?.includes('slow-fail')) {
+        await slowFailGate;
+        throw networkError();
+      }
+      if (config.url?.includes('ok-probe')) {
+        return {
+          data: { probe: true },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          request: {},
+        };
+      }
+      throw networkError();
+    });
+
+    const slowFailing = createIpTableAdapter({})(
+      buildConfig('https://wallet.onekeycn.com/wallet/v1/slow-fail'),
+    );
+    await new Promise((resolve) => {
+      setTimeout(resolve, 5);
+    });
+
+    // Later-started success completes first.
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/ok-probe'),
+      ),
+    ).resolves.toMatchObject({ data: { probe: true } });
+
+    // Now the early-started failure lands: it must be ignored as stale.
+    releaseSlowFail?.();
+    await expect(slowFailing).rejects.toMatchObject({ code: 'ECONNABORTED' });
+
+    // Two fresh failures: total applied failures is 2, not 3.
+    for (let i = 0; i < 2; i += 1) {
+      await expect(
+        createIpTableAdapter({})(
+          buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+        ),
+      ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+
+    // The circuit must still be closed: the next request goes via domain.
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/ok-probe'),
+      ),
+    ).resolves.toMatchObject({ data: { probe: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
   test('a late success from a request started before activation does not close the circuit', async () => {
     // One shared implementation routed by URL marker so the in-flight stale
     // request is unaffected when the failing behavior is exercised.
