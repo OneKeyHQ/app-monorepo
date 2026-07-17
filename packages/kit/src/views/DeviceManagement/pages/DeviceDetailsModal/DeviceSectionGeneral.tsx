@@ -16,6 +16,7 @@ import {
   useDeviceHapticFeedbackAtom,
   useDeviceLanguageAtom,
   useDeviceMetaStaticAtom,
+  useDeviceSettingsAccessibleAtom,
   useDeviceTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -84,8 +85,10 @@ function isBooleanFeature(features: Record<string, unknown>, field: string) {
 
 export function LanguageListItem({
   languageOptions,
+  disabled,
 }: {
   languageOptions: Array<{ label: string; value: string }>;
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
@@ -114,7 +117,7 @@ export function LanguageListItem({
       title={intl.formatMessage({
         id: ETranslations.global_language,
       })}
-      disabled={stateful.loading}
+      disabled={disabled || stateful.loading}
       testID={DeviceManagementTestIDs.languageSelect}
       renderTrigger={() => (
         <ListItem
@@ -127,7 +130,7 @@ export function LanguageListItem({
             id: ETranslations.global_language,
           })}
           titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-          disabled={stateful.loading}
+          disabled={disabled || stateful.loading}
         >
           <XStack alignItems="center">
             <ListItem.Text
@@ -148,8 +151,10 @@ export function LanguageListItem({
 
 export function AutoLockListItem({
   autoLockOptions,
+  disabled,
 }: {
   autoLockOptions: Array<{ label: string; value: number }>;
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
@@ -188,7 +193,7 @@ export function AutoLockListItem({
       title={intl.formatMessage({
         id: ETranslations.global_auto_lock,
       })}
-      disabled={stateful.loading}
+      disabled={disabled || stateful.loading}
       testID={DeviceManagementTestIDs.autoLockSelect}
       renderTrigger={() => (
         <ListItem
@@ -201,7 +206,7 @@ export function AutoLockListItem({
             id: ETranslations.global_auto_lock,
           })}
           titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-          disabled={stateful.loading}
+          disabled={disabled || stateful.loading}
         >
           <XStack alignItems="center">
             <ListItem.Text
@@ -222,8 +227,10 @@ export function AutoLockListItem({
 
 export function AutoShutDownListItem({
   autoShutDownOptions,
+  disabled,
 }: {
   autoShutDownOptions: Array<{ label: string; value: number }>;
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
@@ -264,7 +271,7 @@ export function AutoShutDownListItem({
       title={intl.formatMessage({
         id: ETranslations.global_auto_shutdown,
       })}
-      disabled={stateful.loading}
+      disabled={disabled || stateful.loading}
       testID={DeviceManagementTestIDs.autoShutDownSelect}
       renderTrigger={() => (
         <ListItem
@@ -277,7 +284,7 @@ export function AutoShutDownListItem({
             id: ETranslations.global_auto_shutdown,
           })}
           titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-          disabled={stateful.loading}
+          disabled={disabled || stateful.loading}
         >
           <XStack alignItems="center">
             <ListItem.Text
@@ -296,7 +303,11 @@ export function AutoShutDownListItem({
   );
 }
 
-export function HapticFeedbackListItem() {
+export function HapticFeedbackListItem({
+  disabled: settingsDisabled,
+}: {
+  disabled?: boolean;
+}) {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
   const [hapticFeedback] = useDeviceHapticFeedbackAtom();
@@ -319,12 +330,12 @@ export function HapticFeedbackListItem() {
       value={hapticFeedback}
       onAction={onUpdateHapticFeedback}
     >
-      {({ value, disabled, onChange }) => (
+      {({ value, disabled: actionDisabled, onChange }) => (
         <Switch
           size="small"
           value={value}
           onChange={onChange}
-          disabled={disabled}
+          disabled={settingsDisabled || actionDisabled}
           testID={DeviceManagementTestIDs.hapticFeedbackSwitch}
         />
       )}
@@ -339,6 +350,7 @@ function DeviceSectionGeneral() {
 
   const [deviceMeta] = useDeviceMetaStaticAtom();
   const [deviceType] = useDeviceTypeAtom();
+  const [deviceSettingsAccessible] = useDeviceSettingsAccessibleAtom();
   const [device] = useDeviceAtom();
   const isTrezor = device?.vendor === EHardwareVendor.trezor;
   const trezorFeatures = useMemo(
@@ -569,7 +581,10 @@ function DeviceSectionGeneral() {
       })}
     >
       {showLanguage ? (
-        <LanguageListItem languageOptions={languageOptions} />
+        <LanguageListItem
+          languageOptions={languageOptions}
+          disabled={!deviceSettingsAccessible}
+        />
       ) : null}
       {showWallpaper ? (
         <ListItem
@@ -596,12 +611,20 @@ function DeviceSectionGeneral() {
         />
       ) : null}
       {showAutoLock ? (
-        <AutoLockListItem autoLockOptions={autoLockOptions} />
+        <AutoLockListItem
+          autoLockOptions={autoLockOptions}
+          disabled={!deviceSettingsAccessible}
+        />
       ) : null}
       {showAutoShutDown ? (
-        <AutoShutDownListItem autoShutDownOptions={autoShutDownOptions} />
+        <AutoShutDownListItem
+          autoShutDownOptions={autoShutDownOptions}
+          disabled={!deviceSettingsAccessible}
+        />
       ) : null}
-      {showHapticFeedback ? <HapticFeedbackListItem /> : null}
+      {showHapticFeedback ? (
+        <HapticFeedbackListItem disabled={!deviceSettingsAccessible} />
+      ) : null}
     </ListItemGroup>
   );
 }

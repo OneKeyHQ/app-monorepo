@@ -21,6 +21,8 @@ import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUt
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
+import { getPro2DeviceInfoDisplayFields } from './pro2DeviceInfo';
+
 const VERSION_PLACEHOLDER = '--';
 
 function isValidVersion(version?: string) {
@@ -116,17 +118,30 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
       const vendorProfile = getVendorProfile(
         device.vendor ?? EHardwareVendor.onekey,
       );
-      const deviceProfile = vendorProfile.isThirdParty
-        ? undefined
-        : await backgroundApiProxy.serviceHardware
-            .getDeviceInfo({
-              connectId: device.connectId,
-              params: {
-                scope: 'versions',
-              },
-              silentMode: true,
-            })
-            .catch(() => undefined);
+      const isPro2 = device.deviceType === EDeviceType.Pro2;
+      const pro2Info = isPro2
+        ? getPro2DeviceInfoDisplayFields(
+            (
+              await backgroundApiProxy.serviceHardware
+                .getPro2DeviceManagementSnapshot({
+                  connectId: device.connectId,
+                })
+                .catch(() => undefined)
+            )?.info,
+          )
+        : undefined;
+      let deviceProfile;
+      if (!vendorProfile.isThirdParty && !isPro2) {
+        deviceProfile = await backgroundApiProxy.serviceHardware
+          .getDeviceInfo({
+            connectId: device.connectId,
+            params: {
+              scope: 'versions',
+            },
+            silentMode: true,
+          })
+          .catch(() => undefined);
+      }
 
       let versions;
       if (vendorProfile.isThirdParty) {
@@ -134,6 +149,12 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
           device,
           features: device.featuresInfo,
         });
+      } else if (pro2Info) {
+        versions = {
+          firmwareVersion: pro2Info.firmwareVersion,
+          bootloaderVersion: pro2Info.bootloaderVersion,
+          bleVersion: pro2Info.bleVersion,
+        };
       } else if (deviceProfile) {
         versions = deviceUtils.getDeviceVersionFromProfile({
           deviceInfo: deviceProfile,
@@ -191,21 +212,26 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
       return {
         model: model ?? VERSION_PLACEHOLDER,
         bleName:
-          deviceUtils.buildDeviceBleNameFromProfile({
+          pro2Info?.bleName ??
+          (deviceUtils.buildDeviceBleNameFromProfile({
             deviceInfo: deviceProfile,
-          }) ??
-          deviceUtils.buildDeviceBleName({ features: device.featuresInfo }) ??
+          }) ||
+            deviceUtils.buildDeviceBleName({
+              features: device.featuresInfo,
+            })) ??
           VERSION_PLACEHOLDER,
         bleVersion: getDisplayVersion(versions?.bleVersion),
         bootloaderVersion: getDisplayVersion(versions?.bootloaderVersion),
         firmwareVersion,
         serialNumber:
+          pro2Info?.serialNumber ??
           (vendorProfile.isThirdParty
             ? thirdPartyDeviceUtils.getSerialNo(device.featuresInfo)
             : (deviceUtils.getDeviceSerialNoFromProfile(deviceProfile) ??
               deviceUtils.getDeviceSerialNoFromFeatures(
                 device.featuresInfo,
-              ))) ?? VERSION_PLACEHOLDER,
+              ))) ??
+          VERSION_PLACEHOLDER,
         certifications: [
           EDeviceType.Pro,
           EDeviceType.Classic1s,

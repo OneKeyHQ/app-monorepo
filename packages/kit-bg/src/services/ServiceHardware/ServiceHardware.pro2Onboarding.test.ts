@@ -61,7 +61,13 @@ describe('ServiceHardware.getPro2OnboardingStatus', () => {
   it('uses the compatible connect ID and forces Protocol V2', async () => {
     const deviceGetOnboardingStatus = jest.fn().mockResolvedValue({
       success: true,
-      payload: { stage: 2, status_code: 3 },
+      payload: {
+        step: 'DEV_ONBOARDING_STEP_SETUP',
+        phase: 'DEV_ONBOARDING_PHASE_SETUP_CHOICE',
+        setup: { kind: 'DEV_ONBOARDING_SETUP_KIND_CHOICE' },
+        pin_set: true,
+        wallet_initialized: false,
+      },
     });
     const service = new ServiceHardware({
       backgroundApi: {} as unknown as IBackgroundApi,
@@ -73,7 +79,13 @@ describe('ServiceHardware.getPro2OnboardingStatus', () => {
 
     await expect(
       service.getPro2OnboardingStatus({ connectId: 'ORIGINAL_ID' }),
-    ).resolves.toEqual({ stage: 2, status_code: 3 });
+    ).resolves.toEqual({
+      step: 'DEV_ONBOARDING_STEP_SETUP',
+      phase: 'DEV_ONBOARDING_PHASE_SETUP_CHOICE',
+      setup: { kind: 'DEV_ONBOARDING_SETUP_KIND_CHOICE' },
+      pin_set: true,
+      wallet_initialized: false,
+    });
 
     expect(deviceGetOnboardingStatus).toHaveBeenCalledWith('PRO2_USB', {
       connectProtocol: 'V2',

@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Page, XStack, YStack, useMedia } from '@onekeyhq/components';
@@ -94,24 +95,45 @@ function DeviceDetailsModalV2Cmp({
     hasLoadedDevice,
   });
 
-  useEffect(() => {
+  const refreshCurrentDevice = useCallback(async () => {
     if (!walletId) return;
-    const fn = async () => {
-      const data = await refresh(walletId);
-      if (!data) {
-        void handleBackPress?.();
-      }
-    };
-    void fn();
-    appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
-    appEventBus.on(EAppEventBusNames.HardwareFeaturesUpdate, fn);
-    appEventBus.on(EAppEventBusNames.FinishFirmwareUpdate, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
-      appEventBus.off(EAppEventBusNames.HardwareFeaturesUpdate, fn);
-      appEventBus.off(EAppEventBusNames.FinishFirmwareUpdate, fn);
-    };
+    const data = await refresh(walletId);
+    if (!data) {
+      void handleBackPress?.();
+    }
   }, [refresh, walletId, handleBackPress]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshCurrentDevice();
+    }, [refreshCurrentDevice]),
+  );
+
+  useEffect(() => {
+    const refreshAfterFirmwareUpdate = async () => {
+      await refresh(walletId, { refreshPro2Info: true });
+    };
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refreshCurrentDevice);
+    appEventBus.on(
+      EAppEventBusNames.HardwareFeaturesUpdate,
+      refreshCurrentDevice,
+    );
+    appEventBus.on(
+      EAppEventBusNames.FinishFirmwareUpdate,
+      refreshAfterFirmwareUpdate,
+    );
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refreshCurrentDevice);
+      appEventBus.off(
+        EAppEventBusNames.HardwareFeaturesUpdate,
+        refreshCurrentDevice,
+      );
+      appEventBus.off(
+        EAppEventBusNames.FinishFirmwareUpdate,
+        refreshAfterFirmwareUpdate,
+      );
+    };
+  }, [refresh, refreshCurrentDevice, walletId]);
 
   const actions = useFirmwareUpdateActions();
   const localActions = useDeviceDetailsActions();

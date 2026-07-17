@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
@@ -15,14 +17,21 @@ import {
   deviceMetaStaticAtom,
   emptyMetaState,
   emptyMetaStatic,
+  pro2DeviceManagementSnapshotAtom,
   refreshSettledAtom,
   walletWithDeviceStateAtom,
 } from './atoms';
+import {
+  buildPro2DeviceMetaState,
+  getPro2DeviceMetaStaticOverrides,
+} from './pro2DeviceManagement';
 
 import type { IDeviceMetaState, IDeviceMetaStatic } from './atoms';
+import type { IPro2DeviceManagementSnapshot } from './pro2DeviceManagement';
 
 async function buildDeviceMetaStatic(
   walletWithDevice?: IHwQrWalletWithDevice,
+  pro2Snapshot?: IPro2DeviceManagementSnapshot,
 ): Promise<IDeviceMetaStatic | undefined> {
   if (!walletWithDevice?.device?.featuresInfo) {
     return undefined;
@@ -63,8 +72,13 @@ async function buildDeviceMetaStatic(
     firmwareType,
     displayFormat: 'withSpace',
   });
-  const firmwareVersionDisplay = versions?.firmwareVersion
-    ? `${firmwareTypeLabel}v${versions.firmwareVersion}`
+  const pro2Overrides = pro2Snapshot
+    ? getPro2DeviceMetaStaticOverrides(pro2Snapshot)
+    : undefined;
+  const firmwareVersion =
+    pro2Overrides?.firmwareVersion ?? versions?.firmwareVersion;
+  const firmwareVersionDisplay = firmwareVersion
+    ? `${firmwareTypeLabel}v${firmwareVersion}`
     : '-';
 
   const deviceName = isThirdParty
@@ -78,10 +92,10 @@ async function buildDeviceMetaStatic(
       });
 
   return {
-    deviceName,
+    deviceName: pro2Overrides?.deviceName ?? deviceName,
     deviceType,
     firmwareType,
-    firmwareVersion: versions?.firmwareVersion ?? '0.0.0',
+    firmwareVersion: firmwareVersion ?? '0.0.0',
     firmwareVersionDisplay,
     firmwareTypeLabel,
     addWallpaperTitleId: deviceUtils.isTouchDevice(deviceType)
@@ -92,6 +106,7 @@ async function buildDeviceMetaStatic(
 
 async function buildDeviceMetaState(
   walletWithDevice?: IHwQrWalletWithDevice,
+  pro2Snapshot?: IPro2DeviceManagementSnapshot,
 ): Promise<IDeviceMetaState | undefined> {
   if (!walletWithDevice?.device?.featuresInfo) {
     return undefined;
@@ -103,6 +118,12 @@ async function buildDeviceMetaState(
     return undefined;
   }
   const isVerified = Boolean(device.verifiedAtVersion);
+  if (device.deviceType === EDeviceType.Pro2 && pro2Snapshot) {
+    return buildPro2DeviceMetaState({
+      isVerified,
+      snapshot: pro2Snapshot,
+    });
+  }
   const autoLockDelayMs = features.autoLockDelayMs ?? 0;
   const autoShutDownDelayMs = features.autoLockDelayMs ?? 0;
   const language = features.language ?? undefined;
@@ -110,6 +131,7 @@ async function buildDeviceMetaState(
 
   return {
     isVerified,
+    unlocked: features.unlocked !== false,
     passphraseEnabled: Boolean(features?.passphraseProtection),
     pinOnAppEnabled: Boolean(device.settings?.inputPinOnSoftware),
     autoLockDelayMs,
@@ -124,7 +146,10 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
   updateDeviceMetaStatic = contextAtomMethod(
     async (get, set, walletId?: string) => {
       const data = get(walletWithDeviceStateAtom());
-      const metaStatic = await buildDeviceMetaStatic(data);
+      const metaStatic = await buildDeviceMetaStatic(
+        data,
+        get(pro2DeviceManagementSnapshotAtom()),
+      );
       // Superseded by a newer device switch during the await — drop this write.
       if (walletId && get(currentWalletIdAtom()) !== walletId) return;
       if (metaStatic) {
@@ -136,7 +161,10 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
   updateDeviceMetaState = contextAtomMethod(
     async (get, set, walletId?: string) => {
       const data = get(walletWithDeviceStateAtom());
-      const metaState = await buildDeviceMetaState(data);
+      const metaState = await buildDeviceMetaState(
+        data,
+        get(pro2DeviceManagementSnapshotAtom()),
+      );
       if (walletId && get(currentWalletIdAtom()) !== walletId) return;
       if (metaState) {
         set(deviceMetaStateAtom(), metaState);
@@ -144,42 +172,67 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
     },
   );
 
-  refresh = contextAtomMethod(async (get, set, incomingWalletId?: string) => {
-    const walletId = incomingWalletId ?? get(currentWalletIdAtom());
-    if (!walletId) return;
+  refresh = contextAtomMethod(
+    async (
+      get,
+      set,
+      incomingWalletId?: string,
+      options?: { refreshPro2Info?: boolean },
+    ) => {
+      const walletId = incomingWalletId ?? get(currentWalletIdAtom());
+      if (!walletId) return;
 
-    // Device switched: reset header state so the skeleton re-engages.
-    if (walletId !== get(currentWalletIdAtom())) {
-      set(currentWalletIdAtom(), walletId);
-      set(walletWithDeviceStateAtom(), undefined);
-      set(deviceMetaStaticAtom(), emptyMetaStatic);
-      set(deviceMetaStateAtom(), emptyMetaState);
-      set(refreshSettledAtom(), false);
-    }
+      // Device switched: reset header state so the skeleton re-engages.
+      if (walletId !== get(currentWalletIdAtom())) {
+        set(currentWalletIdAtom(), walletId);
+        set(walletWithDeviceStateAtom(), undefined);
+        set(pro2DeviceManagementSnapshotAtom(), undefined);
+        set(deviceMetaStaticAtom(), emptyMetaStatic);
+        set(deviceMetaStateAtom(), emptyMetaState);
+        set(refreshSettledAtom(), false);
+      }
 
-    try {
-      const r =
-        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-          filterHiddenWallet: true,
-        });
+      try {
+        const r =
+          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+            filterHiddenWallet: true,
+          });
 
-      const data = r?.[walletId];
-      // Drop a superseded response (device switched mid-flight).
-      if (get(currentWalletIdAtom()) !== walletId) {
+        const data = r?.[walletId];
+        // Drop a superseded response (device switched mid-flight).
+        if (get(currentWalletIdAtom()) !== walletId) {
+          return data;
+        }
+        set(currentWalletIdAtom(), walletId);
+        set(walletWithDeviceStateAtom(), data);
+        if (
+          data?.device?.deviceType === EDeviceType.Pro2 &&
+          data.device.connectId
+        ) {
+          const snapshot = await backgroundApiProxy.serviceHardware
+            .getPro2DeviceManagementSnapshot({
+              connectId: data.device.connectId,
+              refreshInfo: options?.refreshPro2Info,
+            })
+            .catch(() => undefined);
+          if (get(currentWalletIdAtom()) !== walletId) {
+            return data;
+          }
+          set(pro2DeviceManagementSnapshotAtom(), snapshot);
+        } else {
+          set(pro2DeviceManagementSnapshotAtom(), undefined);
+        }
+        await this.updateDeviceMetaStatic.call(set, walletId);
+        await this.updateDeviceMetaState.call(set, walletId);
         return data;
+      } finally {
+        // Don't mark settled if a newer refresh already took over.
+        if (get(currentWalletIdAtom()) === walletId) {
+          set(refreshSettledAtom(), true);
+        }
       }
-      set(currentWalletIdAtom(), walletId);
-      set(walletWithDeviceStateAtom(), data);
-      await this.updateDeviceMetaStatic.call(set, walletId);
-      await this.updateDeviceMetaState.call(set, walletId);
-      return data;
-    } finally {
-      // Don't mark settled if a newer refresh already took over.
-      if (get(currentWalletIdAtom()) === walletId) {
-        set(refreshSettledAtom(), true);
-      }
-    }
-  });
+    },
+  );
 
   getCurrentWalletId = contextAtomMethod(async (get) => {
     return get(currentWalletIdAtom());
@@ -205,6 +258,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       walletId,
       language: value,
     });
+    await this.refresh.call(set);
   });
 
   updateBrightness = contextAtomMethod(async (get, _set) => {
@@ -224,6 +278,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       walletId,
       hapticFeedback: value,
     });
+    await this.refresh.call(set);
   });
 
   updateAutoLockDelayMs = contextAtomMethod(async (get, set, value: number) => {

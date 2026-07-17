@@ -134,6 +134,11 @@ import type {
   UiEvent,
 } from '@onekeyfe/hd-core';
 import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
+import type {
+  ProtocolV2DeviceInfo,
+  DeviceSettings as ProtocolV2DeviceSettings,
+  DeviceStatus as ProtocolV2DeviceStatus,
+} from '@onekeyfe/hd-transport';
 
 const DEVICE_PIN_ON_DEVICE_TYPES = new Set<IDeviceType>([
   EDeviceType.Touch,
@@ -161,6 +166,12 @@ export type IDeviceGetInfoOptions = Omit<
     GetDeviceInfoParams & {
       allowEmptyConnectId?: boolean;
     };
+};
+
+export type IPro2DeviceManagementSnapshot = {
+  info?: ProtocolV2DeviceInfo;
+  status: ProtocolV2DeviceStatus;
+  settings?: ProtocolV2DeviceSettings;
 };
 
 const nullableToUndefined = (value?: string | null) => value ?? undefined;
@@ -275,6 +286,18 @@ const LINUX_UDEV_RULES_INSTALL_MAX_ATTEMPTS = 2;
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
   private activeHardwareConnectIds = new Set<string>();
+
+  /** Pro2 的 DeviceInfo 是连接生命周期内的静态信息，避免页面刷新时重复读取。 */
+  private pro2DeviceInfoCache = new Map<
+    string,
+    { info: ProtocolV2DeviceInfo; deviceId?: string }
+  >();
+
+  /** 合并同一连接并发发起的设备管理读取，避免硬件请求互相争用。 */
+  private pro2DeviceManagementSnapshotInFlight = new Map<
+    string,
+    Promise<IPro2DeviceManagementSnapshot>
+  >();
 
   private bridgeAvailabilityChecked = false;
 
@@ -1279,6 +1302,115 @@ class ServiceHardware extends ServiceBase {
     );
   }
 
+  @backgroundMethod()
+  async invalidatePro2DeviceManagementInfo({
+    connectId,
+  }: {
+    connectId?: string;
+  } = {}) {
+    if (connectId) {
+      this.pro2DeviceInfoCache.delete(connectId);
+      return;
+    }
+    this.pro2DeviceInfoCache.clear();
+  }
+
+  @backgroundMethod()
+  async getPro2DeviceManagementSnapshot({
+    connectId,
+    refreshInfo = false,
+  }: {
+    connectId: string;
+    refreshInfo?: boolean;
+  }): Promise<IPro2DeviceManagementSnapshot> {
+    const hardwareCallContext =
+      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext,
+    });
+    const existingRequest =
+      this.pro2DeviceManagementSnapshotInFlight.get(compatibleConnectId);
+    if (existingRequest) {
+      return existingRequest;
+    }
+
+    const request = (async () => {
+      const hardwareSDK = await this.getSDKInstance({
+        connectId: compatibleConnectId,
+        hardwareCallContext,
+      });
+      const cachedEntry = refreshInfo
+        ? undefined
+        : this.pro2DeviceInfoCache.get(compatibleConnectId);
+      const status = await convertDeviceResponse(() =>
+        hardwareSDK.deviceStatusGet(compatibleConnectId, {
+          connectProtocol: 'V2',
+        }),
+      );
+      const deviceChanged = Boolean(
+        cachedEntry?.deviceId &&
+        status.device_id &&
+        cachedEntry.deviceId !== status.device_id,
+      );
+      const info =
+        cachedEntry && !deviceChanged
+          ? cachedEntry.info
+          : await convertDeviceResponse(() =>
+              hardwareSDK.deviceInfoGet(compatibleConnectId, {
+                connectProtocol: 'V2',
+                targets: {
+                  hw: true,
+                  fw: true,
+                  coprocessor: true,
+                  se1: true,
+                  se2: true,
+                  se3: true,
+                  se4: true,
+                },
+                types: {
+                  version: true,
+                  build_id: true,
+                  hash: true,
+                  specific: true,
+                },
+              }),
+            );
+      if (!cachedEntry || deviceChanged) {
+        this.pro2DeviceInfoCache.set(compatibleConnectId, {
+          info,
+          deviceId: status.device_id,
+        });
+      }
+
+      const settings = status.unlocked
+        ? await convertDeviceResponse(() =>
+            hardwareSDK.deviceSettingsGet(compatibleConnectId, {
+              connectProtocol: 'V2',
+            }),
+          )
+        : undefined;
+
+      return {
+        info,
+        status,
+        ...(settings ? { settings } : {}),
+      };
+    })();
+    this.pro2DeviceManagementSnapshotInFlight.set(compatibleConnectId, request);
+
+    try {
+      return await request;
+    } finally {
+      if (
+        this.pro2DeviceManagementSnapshotInFlight.get(compatibleConnectId) ===
+        request
+      ) {
+        this.pro2DeviceManagementSnapshotInFlight.delete(compatibleConnectId);
+      }
+    }
+  }
+
   private handlerConnectError = (e: any) => {
     const error: deviceErrors.OneKeyHardwareError | undefined =
       e as deviceErrors.OneKeyHardwareError;
@@ -1768,7 +1900,9 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async wipeDevice(p: IWipeDeviceParams) {
-    return this.deviceSettingsManager.wipeDevice(p);
+    const result = await this.deviceSettingsManager.wipeDevice(p);
+    this.pro2DeviceInfoCache.clear();
+    return result;
   }
 
   @backgroundMethod()

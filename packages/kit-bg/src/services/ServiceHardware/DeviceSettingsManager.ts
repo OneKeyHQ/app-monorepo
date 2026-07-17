@@ -40,6 +40,7 @@ import type {
   IDBDeviceSettings as IDBDeviceDbSettings,
 } from '../../dbs/local/types';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
+import type { DeviceSettings as ProtocolV2DeviceSettings } from '@onekeyfe/hd-transport';
 import type { Response as ThirdPartyResponse } from '@onekeyfe/hwk-adapter-core';
 
 const jpeg = require('jpeg-js') as {
@@ -138,20 +139,10 @@ type ITrezorDeviceSettingsAction = (params: {
   device: IDBDevice;
 }) => Promise<ThirdPartyResponse<Record<string, unknown>>>;
 
-type IProtocolV2DeviceSettings = {
-  label?: string;
-  language?: string;
-  // cspell:disable-next-line
-  autolock_delay_ms?: number;
-  // cspell:disable-next-line
-  autoshutdown_delay_ms?: number;
-  haptic_feedback?: boolean;
-};
-
 type IProtocolV2SettingsCoreApi = CoreApi & {
   deviceSettingsSet: (
     connectId: string,
-    params: { settings: IProtocolV2DeviceSettings },
+    params: { settings: ProtocolV2DeviceSettings },
   ) => ReturnType<CoreApi['deviceSettings']>;
   deviceSettingsPageShow: (
     connectId: string,

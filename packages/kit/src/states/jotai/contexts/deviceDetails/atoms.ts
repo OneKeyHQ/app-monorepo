@@ -3,6 +3,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
+import type { IPro2DeviceManagementSnapshot } from './pro2DeviceManagement';
 import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 const {
@@ -26,6 +27,11 @@ export const {
   atom: walletWithDeviceStateAtom,
   use: useWalletWithDeviceStateAtom,
 } = contextAtom<IHwQrWalletWithDevice | undefined>(undefined);
+
+export const {
+  atom: pro2DeviceManagementSnapshotAtom,
+  use: usePro2DeviceManagementSnapshotAtom,
+} = contextAtom<IPro2DeviceManagementSnapshot | undefined>(undefined);
 
 // True once the first refresh settles; distinguishes "still loading" from
 // "loaded, no device" for the header skeleton gate.
@@ -66,6 +72,7 @@ export const { atom: deviceMetaStaticAtom, use: useDeviceMetaStaticAtom } =
 
 export type IDeviceMetaState = {
   isVerified: boolean;
+  unlocked: boolean;
   passphraseEnabled: boolean;
   pinOnAppEnabled: boolean;
   autoLockDelayMs: number | undefined;
@@ -78,6 +85,7 @@ export type IDeviceMetaState = {
 
 export const emptyMetaState: IDeviceMetaState = {
   isVerified: false,
+  unlocked: false,
   passphraseEnabled: false,
   pinOnAppEnabled: false,
   autoLockDelayMs: undefined,
@@ -115,6 +123,11 @@ export const {
   atom: deviceHapticFeedbackAtom,
   use: useDeviceHapticFeedbackAtom,
 } = contextAtomComputed((get) => get(deviceMetaStateAtom())?.hapticFeedback);
+
+export const {
+  atom: deviceSettingsAccessibleAtom,
+  use: useDeviceSettingsAccessibleAtom,
+} = contextAtomComputed((get) => get(deviceMetaStateAtom())?.unlocked);
 
 export const {
   atom: devicePassphraseEnabledAtom,

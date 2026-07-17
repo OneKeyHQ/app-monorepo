@@ -42,8 +42,8 @@ import {
   supportsDeviceDrivenOnboarding,
 } from './deviceSetupPro2';
 
+import type { IPro2OnboardingStatus } from './pro2OnboardingStatus';
 import type { SearchDevice } from '@onekeyfe/hd-core';
-import type { DevOnboardingStatus } from '@onekeyfe/hd-transport';
 
 const deviceSetupMessages = defineMessages({
   checking: {
@@ -90,7 +90,7 @@ function DeviceSetupPage({
     deviceData?.device as SearchDevice | undefined,
   );
   const [onboardingStatus, setOnboardingStatus] =
-    useState<DevOnboardingStatus>();
+    useState<IPro2OnboardingStatus>();
 
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData?.device as SearchDevice | undefined,
@@ -163,9 +163,9 @@ function DeviceSetupPage({
       }
       setCurrentDevice(device);
       const status =
-        await backgroundApiProxy.serviceHardware.getPro2OnboardingStatus({
+        (await backgroundApiProxy.serviceHardware.getPro2OnboardingStatus({
           connectId: device.connectId,
-        });
+        })) as IPro2OnboardingStatus;
       if (!isPageActiveRef.current) {
         return;
       }

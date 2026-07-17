@@ -1,7 +1,3 @@
-import { DevOnboardingStage } from '@onekeyfe/hd-transport';
-
-import type { DevOnboardingStatus } from '@onekeyfe/hd-transport';
-
 export type IPro2OnboardingPhase =
   | 'checking'
   | 'personalization'
@@ -22,112 +18,169 @@ export type IPro2SetupSubStatus =
   | { kind: 'create'; card: 'recoveryPhrase' | 'seedCard' }
   | { kind: 'restore'; method?: 'recoveryPhrase' | 'seedCard' };
 
+export type IPro2OnboardingStatus = {
+  step?: number | string | null;
+  phase?: number | string | null;
+  setup?: {
+    kind?: number | string | null;
+    method?: number | string | null;
+  } | null;
+  pin_set?: boolean | null;
+  wallet_initialized?: boolean | null;
+};
+
+type TNormalizedStep =
+  | 'unknown'
+  | 'checking'
+  | 'personalization'
+  | 'pin'
+  | 'setup'
+  | 'done';
+
 export type IPro2OnboardingViewState = {
   phase: IPro2OnboardingPhase;
   step: EPro2OnboardingStep;
   setup?: IPro2SetupSubStatus;
-  stage: DevOnboardingStage;
-  statusCode?: number;
-  detailCode?: number;
+  devicePhase?: number | string | null;
+  pinSet: boolean;
+  walletInitialized: boolean;
+  ready: boolean;
 };
 
-function normalizeOnboardingStage(stage: unknown): DevOnboardingStage {
-  if (typeof stage === 'number') {
-    return stage as DevOnboardingStage;
+const STEP_BY_VALUE: Record<number | string, TNormalizedStep> = {
+  0: 'unknown',
+  1: 'checking',
+  2: 'personalization',
+  3: 'pin',
+  4: 'setup',
+  5: 'done',
+  DEV_ONBOARDING_STEP_UNKNOWN: 'unknown',
+  DEV_ONBOARDING_STEP_CHECKING: 'checking',
+  DEV_ONBOARDING_STEP_PERSONALIZATION: 'personalization',
+  DEV_ONBOARDING_STEP_PIN: 'pin',
+  DEV_ONBOARDING_STEP_SETUP: 'setup',
+  DEV_ONBOARDING_STEP_DONE: 'done',
+};
+
+function normalizeStep(step: unknown): TNormalizedStep {
+  if (typeof step !== 'number' && typeof step !== 'string') {
+    return 'unknown';
   }
-  if (typeof stage === 'string') {
-    const enumValue =
-      DevOnboardingStage[stage as keyof typeof DevOnboardingStage];
-    if (typeof enumValue === 'number') {
-      return enumValue;
-    }
-  }
-  return DevOnboardingStage.DEV_ONBOARDING_STAGE_UNKNOWN;
+  return STEP_BY_VALUE[step] ?? 'unknown';
 }
 
-function getStepperState(stage: DevOnboardingStage): {
-  step: EPro2OnboardingStep;
-  setup?: IPro2SetupSubStatus;
-} {
-  switch (stage) {
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_PERSONALIZATION:
-      return { step: EPro2OnboardingStep.Personalization };
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SELECT_SETUP_METHOD:
-      return { step: EPro2OnboardingStep.Pin };
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_NEW_DEVICE:
-      return {
-        step: EPro2OnboardingStep.Setup,
-        setup: { kind: 'create', card: 'recoveryPhrase' },
-      };
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SELECT_RESTORE_METHOD:
-      return {
-        step: EPro2OnboardingStep.Setup,
-        setup: { kind: 'restore' },
-      };
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_RESTORE_MNEMONIC:
-      return {
-        step: EPro2OnboardingStep.Setup,
-        setup: { kind: 'restore', method: 'recoveryPhrase' },
-      };
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_RESTORE_SEEDCARD:
-      return {
-        step: EPro2OnboardingStep.Setup,
-        setup: { kind: 'restore', method: 'seedCard' },
-      };
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_WALLET_READY:
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SEEDCARD_BACKUP_PROMPT:
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SELECT_SEEDCARD_BACKUP_METHOD:
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SEEDCARD_BACKUP:
-      return {
-        step: EPro2OnboardingStep.Setup,
-        setup: { kind: 'create', card: 'seedCard' },
-      };
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_DONE:
-      return { step: EPro2OnboardingStep.Done };
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_UNKNOWN:
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SAFETY_CHECK:
+function normalizeSetupKind(
+  kind: unknown,
+): 'choice' | 'create' | 'restore' | undefined {
+  switch (kind) {
+    case 1:
+    case 'DEV_ONBOARDING_SETUP_KIND_CHOICE':
+      return 'choice';
+    case 2:
+    case 'DEV_ONBOARDING_SETUP_KIND_CREATE':
+      return 'create';
+    case 3:
+    case 'DEV_ONBOARDING_SETUP_KIND_RESTORE':
+      return 'restore';
     default:
-      return { step: EPro2OnboardingStep.Checking };
+      return undefined;
   }
 }
 
-function getPhase(stage: DevOnboardingStage): IPro2OnboardingPhase {
-  switch (stage) {
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_PERSONALIZATION:
-      return 'personalization';
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SELECT_SETUP_METHOD:
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_NEW_DEVICE:
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SELECT_RESTORE_METHOD:
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_RESTORE_MNEMONIC:
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_RESTORE_SEEDCARD:
-      return 'setup';
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_WALLET_READY:
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SEEDCARD_BACKUP_PROMPT:
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SELECT_SEEDCARD_BACKUP_METHOD:
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SEEDCARD_BACKUP:
-      return 'backup';
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_DONE:
-      return 'ready';
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_UNKNOWN:
-    case DevOnboardingStage.DEV_ONBOARDING_STAGE_SAFETY_CHECK:
+function normalizeSetupMethod(
+  method: unknown,
+): 'recoveryPhrase' | 'seedCard' | undefined {
+  switch (method) {
+    case 1:
+    case 'DEV_ONBOARDING_SETUP_METHOD_RECOVERY_PHRASE':
+      return 'recoveryPhrase';
+    case 2:
+    case 'DEV_ONBOARDING_SETUP_METHOD_SEEDCARD':
+      return 'seedCard';
     default:
-      return 'checking';
+      return undefined;
   }
+}
+
+function mapSetup(
+  status: IPro2OnboardingStatus,
+): IPro2SetupSubStatus | undefined {
+  const kind = normalizeSetupKind(status.setup?.kind);
+  const method = normalizeSetupMethod(status.setup?.method);
+  if (kind === 'choice') {
+    return { kind: 'choice' };
+  }
+  if (kind === 'create') {
+    return {
+      kind: 'create',
+      card: method === 'seedCard' ? 'seedCard' : 'recoveryPhrase',
+    };
+  }
+  if (kind === 'restore') {
+    return { kind: 'restore', ...(method ? { method } : {}) };
+  }
+  return undefined;
 }
 
 export function mapPro2OnboardingStatus(
-  status: DevOnboardingStatus,
+  status: IPro2OnboardingStatus,
 ): IPro2OnboardingViewState {
-  const stage = normalizeOnboardingStage(status.stage);
-  return {
-    phase: getPhase(stage),
-    ...getStepperState(stage),
-    stage,
-    ...(status.status_code === undefined
-      ? {}
-      : { statusCode: status.status_code }),
-    ...(status.detail_code === undefined
-      ? {}
-      : { detailCode: status.detail_code }),
-  };
+  const normalizedStep = normalizeStep(status.step);
+  const pinSet = status.pin_set === true;
+  const walletInitialized = status.wallet_initialized === true;
+  const ready = normalizedStep === 'done' && pinSet && walletInitialized;
+
+  if (ready) {
+    return {
+      phase: 'ready',
+      step: EPro2OnboardingStep.Done,
+      devicePhase: status.phase,
+      pinSet,
+      walletInitialized,
+      ready: true,
+    };
+  }
+
+  switch (normalizedStep) {
+    case 'personalization':
+      return {
+        phase: 'personalization',
+        step: EPro2OnboardingStep.Personalization,
+        devicePhase: status.phase,
+        pinSet,
+        walletInitialized,
+        ready: false,
+      };
+    case 'pin':
+      return {
+        phase: 'setup',
+        step: EPro2OnboardingStep.Pin,
+        devicePhase: status.phase,
+        pinSet,
+        walletInitialized,
+        ready: false,
+      };
+    case 'setup':
+      return {
+        phase: 'setup',
+        step: EPro2OnboardingStep.Setup,
+        setup: mapSetup(status),
+        devicePhase: status.phase,
+        pinSet,
+        walletInitialized,
+        ready: false,
+      };
+    case 'checking':
+    case 'unknown':
+    case 'done':
+    default:
+      return {
+        phase: 'checking',
+        step: EPro2OnboardingStep.Checking,
+        devicePhase: status.phase,
+        pinSet,
+        walletInitialized,
+        ready: false,
+      };
+  }
 }

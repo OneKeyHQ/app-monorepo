@@ -17,8 +17,8 @@ import {
   mapPro2OnboardingStatus,
 } from './pro2OnboardingStatus';
 
+import type { IPro2OnboardingStatus } from './pro2OnboardingStatus';
 import type { IDeviceType } from '@onekeyfe/hd-core';
-import type { DevOnboardingStatus } from '@onekeyfe/hd-transport';
 
 const pro2Avatar = HwWalletAvatarImages[EDeviceType.Pro2];
 
@@ -142,7 +142,7 @@ export function supportsDeviceDrivenOnboarding(
 export type IDeviceSetupPhase = 'checking' | 'needsSetup' | 'ready';
 
 export function onboardingStatusToPhase(
-  status: DevOnboardingStatus | undefined,
+  status: IPro2OnboardingStatus | undefined,
 ): IDeviceSetupPhase {
   if (!status) {
     return 'checking';
@@ -432,7 +432,7 @@ const STEPPER_STEPS = [
 export function Pro2OnboardingStepper({
   status,
 }: {
-  status: DevOnboardingStatus;
+  status: IPro2OnboardingStatus;
 }) {
   const intl = useIntl();
   const viewState = mapPro2OnboardingStatus(status);
