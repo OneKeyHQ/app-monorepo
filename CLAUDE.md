@@ -120,3 +120,36 @@ yarn agent:review-thread --pr <number> --list
 - `apps/cli/` has its own guidance. External OneKey wallet CLI skill packs live
   in `https://github.com/OneKeyHQ/onekey-wallet-skills`; do not re-add them to
   this monorepo.
+
+## Cursor Cloud specific instructions
+
+Environment: Linux cloud VM, Node 22, Yarn 4 (pinned via `.yarn/releases`, run
+`yarn` — do not use npm/corepack). Dependencies are refreshed automatically by
+the startup update script (`yarn install`); `postinstall` runs automatically via
+the yarn `afterInstall` hook.
+
+- Runnable surface here: only the **web app** (`yarn app:web`, serves
+  `http://localhost:3000`). It exercises the same `kit`/`kit-bg`/`components`/
+  `core` logic as every platform, so it is the target for end-to-end dev testing.
+  Desktop (Electron, needs a display), the browser extension (needs a headed
+  Chrome with the unpacked build loaded), and mobile iOS/Android (need
+  simulators/devices) cannot be fully run in this headless Linux VM.
+- `rsync` is a required system dependency: the `postinstall` → `copy:inject` →
+  `web-embed` build runs `apps/web-embed/postbuild.sh`, which uses `rsync` to sync
+  web-embed assets into the mobile app folders. Without `rsync`, `yarn install`
+  fails at the root workspace build step (`YN0009 ... couldn't be built`). It is
+  preinstalled in the VM snapshot; if a future run reports `rsync: command not
+  found`, install it with `sudo apt-get install -y rsync` and re-run `yarn`.
+- The web app starts in **dapp mode by default** (Market/Trade/Perps header with
+  a "Connect" button and no create-wallet onboarding). To use the full
+  standalone wallet (create/import HD wallet), switch it to wallet mode: open the
+  site, run `localStorage.setItem('$onekey_web_dapp_mode','wallet')` in the
+  browser console, and reload. The app then auto-redirects to
+  `/onboarding/get-started` where you can create a seed-phrase wallet. This flag
+  is controlled by `isWebInDappMode()` in
+  `packages/shared/src/utils/devModeUtils.ts`.
+- Lint/test/build (details already in "Git And Commands" above and root
+  `package.json` scripts): lint via `yarn lint` (whole-monorepo, slow — prefer
+  `npx oxlint --tsconfig ./tsconfig.json <path>` for a targeted check); tests via
+  `yarn jest <path>` (jest preset is `jest-expo/web`); web dev build via
+  `yarn app:web`.
