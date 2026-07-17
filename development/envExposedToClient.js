@@ -24,7 +24,6 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'WORKFLOW_GITHUB_SHA',
     'STORYBOOK_ENABLED',
     'WALLETCONNECT_PROJECT_ID',
-    'UNIFOLD_PUBLISHABLE_KEY',
     'SENTRY_DSN_EXT',
     'SENTRY_DSN_DESKTOP',
     'SENTRY_DSN_MAS',
