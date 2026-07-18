@@ -28,7 +28,8 @@ const TIME_RANGE_OPTIONS: IMarketTimeRangeValue[] = ['5m', '1h', '4h', '24h'];
 // Keeps the SegmentControl tabs and Reset/Confirm footer always visible by
 // capping only the scrollable tier-rows section. Matches the precedent set
 // by NETWORKS_SEARCH_PANEL_MAX_HEIGHT for popovers in this feature area.
-const MARKET_FILTERS_POPOVER_CONTENT_MAX_HEIGHT = 420;
+// Keep tabs and footer reachable even in short windows (~450px viewport).
+const MARKET_FILTERS_POPOVER_CONTENT_MAX_HEIGHT = 300;
 
 const AUDIT_TIER_OPTIONS: IMarketFilterTier[] = [
   { label: '≤ 10%', value: 10 },
