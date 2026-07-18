@@ -8,6 +8,7 @@ import {
   useMarketRenderCommitProbe,
 } from '../../../utils/marketReactPerf';
 
+import { useClientSortResult } from './hooks/useClientSortResult';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { type IMarketToken } from './MarketTokenData';
 import { MarketTokenListBase } from './MarketTokenListBase';
@@ -79,6 +80,11 @@ function MarketNormalTokenList({
     [normalResult.data],
   );
 
+  // Stocks keep server-driven behavior; trending gets full-pool client sort.
+  const clientSortEnabled = selectedCategory === 'trending' && !stockCategory;
+  const clientSortResult = useClientSortResult(normalResult);
+  const listResult = clientSortEnabled ? clientSortResult : normalResult;
+
   useEffect(() => {
     if (selectedCategory) {
       onStockDataChange?.(selectedCategory, isStockData);
@@ -111,8 +117,9 @@ function MarketNormalTokenList({
       networkId={networkId}
       onItemPress={onItemPress}
       toolbar={toolbar}
-      result={normalResult}
+      result={listResult}
       isWatchlistMode={false}
+      clientSort={clientSortEnabled}
       showEndReachedIndicator
       tabIntegrated={tabIntegrated}
       tabName={tabName}

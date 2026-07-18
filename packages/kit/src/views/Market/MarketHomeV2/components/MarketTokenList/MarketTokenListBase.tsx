@@ -83,11 +83,24 @@ const SORTABLE_COLUMNS = {
   turnover: 'v24hUSD',
 } as const;
 
-// Map sort keys to ESortWay enum values for logging
+// Map sort keys to ESortWay enum values for logging.
+// clientSort mode keys sortBy by dataIndex, so this also covers the full
+// client-sortable column set (see MARKET_CLIENT_SORT_FIELD_MAP).
 const SORT_KEY_TO_ENUM: Record<string, ESortWay> = {
   liquidity: ESortWay.Liquidity,
   mc: ESortWay.MC,
   v24hUSD: ESortWay.Volume,
+  price: ESortWay.Price,
+  change24h: ESortWay.Change,
+  marketCap: ESortWay.MC,
+  turnover: ESortWay.Volume,
+  transactions: ESortWay.Txns,
+  uniqueTraders: ESortWay.Traders,
+  holders: ESortWay.Holders,
+  tokenAge: ESortWay.TokenAge,
+  // Task 10 redesign mode merges Name/Token Age into one column; bucket its
+  // analytics under TokenAge. No-op while that column stays unsortable.
+  name: ESortWay.TokenAge,
 };
 
 const STOCK_METADATA_COLUMN_DATA_INDEXES = new Set([
