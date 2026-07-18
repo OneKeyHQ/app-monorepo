@@ -264,6 +264,7 @@ type IMarketTokenListBaseProps = {
   enableWebSocket?: boolean;
   rowBg?: string;
   testID?: string;
+  redesignEnabled?: boolean;
 };
 
 function MarketTokenListBase({
@@ -294,6 +295,7 @@ function MarketTokenListBase({
   enableWebSocket,
   rowBg,
   testID,
+  redesignEnabled,
 }: IMarketTokenListBaseProps) {
   useMarketRenderCommitProbe('MarketTokenListBase', {
     tabName,
@@ -484,6 +486,7 @@ function MarketTokenListBase({
     change24hColumnTitle,
     useStockMetadataColumns,
     deferRichRowAfterIndex,
+    { redesignEnabled },
   );
 
   const data = useMemo(() => {

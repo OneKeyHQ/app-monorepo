@@ -153,6 +153,10 @@ function MarketNormalTokenList({
       result={listResult}
       isWatchlistMode={false}
       clientSort={clientSortEnabled}
+      clientSortFieldMapOverride={
+        marketListRedesignEnabled ? { name: 'firstTradeTime' } : undefined
+      }
+      redesignEnabled={marketListRedesignEnabled}
       showEndReachedIndicator
       tabIntegrated={tabIntegrated}
       tabName={tabName}

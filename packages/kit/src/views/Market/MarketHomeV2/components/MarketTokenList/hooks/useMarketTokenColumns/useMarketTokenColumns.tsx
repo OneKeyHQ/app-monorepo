@@ -24,6 +24,7 @@ export const useMarketTokenColumns = (
   change24hColumnTitle?: string,
   useStockMetadataColumns?: boolean,
   deferRichRowAfterIndex?: number,
+  options?: { redesignEnabled?: boolean },
 ): ITableColumn<IMarketToken>[] => {
   const desktopColumns = useColumnsDesktop(
     networkId,
@@ -37,6 +38,7 @@ export const useMarketTokenColumns = (
     change24hColumnTitle,
     useStockMetadataColumns,
     deferRichRowAfterIndex,
+    options?.redesignEnabled,
   );
   const mobileColumns = useColumnsMobile(
     showStockSubtitle,

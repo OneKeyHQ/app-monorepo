@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
 import {
@@ -49,8 +49,116 @@ const TOKEN_AGE_TRANSLATION_MAP = {
 
 const EMPTY_MARKET_VALUE = '--';
 
+// Redesign (flag-on) desktop column order: merges Name/Token Age into one
+// column and drops the standalone uniqueTraders/tokenAge columns.
+const REDESIGN_COLUMN_ORDER = [
+  'star',
+  'name',
+  'price',
+  'change24h',
+  'marketCap',
+  'liquidity',
+  'transactions',
+  'holders',
+  'turnover',
+];
+
 function getDefaultMarketValue(text: number) {
   return text === 0 ? EMPTY_MARKET_VALUE : text;
+}
+
+// Shared by the flag-off tokenAge column and the flag-on Name cell subtitle.
+function formatTokenAgeLabel(
+  intl: IntlShape,
+  firstTradeTime: number | undefined,
+): string | undefined {
+  const ageInfo = getTokenAgeInfo(firstTradeTime);
+  if (!ageInfo) {
+    return undefined;
+  }
+
+  return intl.formatMessage(
+    { id: TOKEN_AGE_TRANSLATION_MAP[ageInfo.unit] },
+    { amount: ageInfo.amount },
+  );
+}
+
+function buildRedesignNameSubtitle(intl: IntlShape, record: IMarketToken) {
+  const ageLabel = formatTokenAgeLabel(intl, record.firstTradeTime);
+  const shortAddress = record.address
+    ? accountUtils.shortenAddress({
+        address: record.address,
+        leadingLength: 6,
+        trailingLength: 4,
+      })
+    : '';
+
+  if (!ageLabel) {
+    return shortAddress;
+  }
+
+  return shortAddress ? `${ageLabel} · ${shortAddress}` : ageLabel;
+}
+
+function renderRedesignTokenIdentity(
+  record: IMarketToken,
+  intl: IntlShape,
+  showReasonTag: boolean,
+) {
+  return (
+    <XStack
+      alignItems="center"
+      gap="$3"
+      userSelect="none"
+      minWidth={0}
+      overflow="hidden"
+    >
+      <Token
+        size="md"
+        borderRadius="$full"
+        tokenImageUri={record.tokenImageUri}
+        tokenImageUris={record.tokenImageUris}
+        networkImageUri={record.networkLogoUri}
+        fallbackIcon="CryptoCoinOutline"
+      />
+      <Stack flex={1} minWidth={0}>
+        <XStack alignItems="center" gap="$1" minWidth={0}>
+          <SizableText
+            size="$bodyLgMedium"
+            numberOfLines={1}
+            maxWidth="$32"
+            flexShrink={1}
+            ellipsizeMode="tail"
+          >
+            {record.symbol}
+          </SizableText>
+          {showReasonTag ? (
+            // Mock reason tag placeholder (P1-3 scope wires real data later).
+            <XStack
+              alignItems="center"
+              gap="$0.5"
+              px="$1"
+              borderRadius="$1"
+              bg="$bgSubdued"
+              flexShrink={0}
+            >
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                𝕏 #1
+              </SizableText>
+            </XStack>
+          ) : null}
+        </XStack>
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {buildRedesignNameSubtitle(intl, record)}
+        </SizableText>
+      </Stack>
+    </XStack>
+  );
 }
 
 function shouldUseLightweightCell(
@@ -159,6 +267,7 @@ export const useColumnsDesktop = (
   change24hColumnTitle?: string,
   useStockMetadataColumns?: boolean,
   deferRichRowAfterIndex?: number,
+  redesignEnabled?: boolean,
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const intl = useIntl();
@@ -208,7 +317,11 @@ export const useColumnsDesktop = (
         ),
       },
       {
-        title: intl.formatMessage({ id: ETranslations.global_name }),
+        // Redesign merges the standalone tokenAge column into this one;
+        // title is a mock hardcoded label per Figma (not localized yet).
+        title: redesignEnabled
+          ? 'Name/Token Age'
+          : intl.formatMessage({ id: ETranslations.global_name }),
         dataIndex: 'name',
         columnWidth: (() => {
           if (isWatchlistMode) return watchlistNameWidth;
@@ -219,6 +332,10 @@ export const useColumnsDesktop = (
           const renderRichCell = shouldRenderRichCell(index);
           if (!renderRichCell) {
             return renderLightweightTokenIdentity(record);
+          }
+
+          if (redesignEnabled && !record.perpsCoin) {
+            return renderRedesignTokenIdentity(record, intl, gtXl);
           }
 
           return record.perpsCoin ? (
@@ -499,16 +616,11 @@ export const useColumnsDesktop = (
                 return renderLightweightText(EMPTY_MARKET_VALUE);
               }
 
-              const ageInfo = getTokenAgeInfo(record.firstTradeTime);
+              const ageLabel = formatTokenAgeLabel(intl, record.firstTradeTime);
 
-              if (!ageInfo) {
+              if (!ageLabel) {
                 return <SizableText size="$bodyMd">--</SizableText>;
               }
-
-              const ageLabel = intl.formatMessage(
-                { id: TOKEN_AGE_TRANSLATION_MAP[ageInfo.unit] },
-                { amount: ageInfo.amount },
-              );
 
               return <SizableText size="$bodyMd">{ageLabel}</SizableText>;
             },
@@ -517,11 +629,19 @@ export const useColumnsDesktop = (
         : undefined,
     ].filter(Boolean) as ITableColumn<IMarketToken>[];
 
+    // Redesign reorders/filters via a fixed key list rather than mutating
+    // the generation above, so the flag-off path stays byte-identical.
+    const orderedColumns = redesignEnabled
+      ? REDESIGN_COLUMN_ORDER.map((key) =>
+          columns.find((c) => String(c.dataIndex) === key),
+        ).filter((c): c is NonNullable<typeof c> => Boolean(c))
+      : columns;
+
     if (!hiddenDesktopColumns?.length) {
-      return columns;
+      return orderedColumns;
     }
 
-    return columns.filter(
+    return orderedColumns.filter(
       (column) => !hiddenDesktopColumns.includes(String(column.dataIndex)),
     );
   }, [
@@ -536,6 +656,7 @@ export const useColumnsDesktop = (
     intl,
     isWatchlistMode,
     networkId,
+    redesignEnabled,
     showStockSubtitle,
     useStockMetadataColumns,
     watchlistFrom,
