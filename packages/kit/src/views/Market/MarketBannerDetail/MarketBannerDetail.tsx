@@ -55,6 +55,11 @@ type IMarketBannerDetailRouteParams = RouteProp<
   ETabMarketRoutes.MarketBannerDetail | EModalMarketRoutes.MarketBannerDetail
 >;
 
+// Banner detail's sort state (useMarketBannerDetail) only supports
+// change24h — keep the rest of the client-sortable columns from
+// MARKET_CLIENT_SORT_FIELD_MAP from becoming clickable no-ops here.
+const BANNER_DETAIL_CLIENT_SORTABLE_COLUMNS = ['change24h'] as const;
+
 function MarketBannerDetailContent({ title }: { title: string }) {
   const route = useRoute<IMarketBannerDetailRouteParams>();
   const { tokenListId, type } = route.params;
@@ -207,6 +212,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         onItemPress={handleItemPress}
         hideTokenAge
         clientSort
+        clientSortableColumns={BANNER_DETAIL_CLIENT_SORTABLE_COLUMNS}
         watchlistFrom={EWatchlistFrom.BannerList}
         copyFrom={ECopyFrom.BannerList}
         showEndReachedIndicator

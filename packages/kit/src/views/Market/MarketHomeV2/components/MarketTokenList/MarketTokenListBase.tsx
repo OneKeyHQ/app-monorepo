@@ -238,6 +238,11 @@ type IMarketTokenListBaseProps = {
   isWatchlistMode?: boolean;
   clientSort?: boolean;
   clientSortFieldMapOverride?: Record<string, keyof IMarketToken>;
+  // Restricts which dataIndexes are sortable in clientSort mode (intersected
+  // with clientSortFieldMap). Omit to keep all mapped columns sortable
+  // (trending behavior). Banner detail passes ['change24h'] only, since its
+  // sort state (useMarketBannerDetail) supports nothing else.
+  clientSortableColumns?: readonly string[];
   showEndReachedIndicator?: boolean;
   hideTokenAge?: boolean;
   watchlistFrom?: EWatchlistFrom;
@@ -275,6 +280,7 @@ function MarketTokenListBase({
   isWatchlistMode = false,
   clientSort = false,
   clientSortFieldMapOverride,
+  clientSortableColumns,
   showEndReachedIndicator = false,
   hideTokenAge = false,
   watchlistFrom,
@@ -340,6 +346,10 @@ function MarketTokenListBase({
   const clientSortFieldMap = useMemo(
     () => ({ ...MARKET_CLIENT_SORT_FIELD_MAP, ...clientSortFieldMapOverride }),
     [clientSortFieldMapOverride],
+  );
+  const clientSortableColumnSet = useMemo(
+    () => (clientSortableColumns ? new Set(clientSortableColumns) : undefined),
+    [clientSortableColumns],
   );
   const orderedData = useMemo(() => {
     if (!clientSort || !currentSortBy || !currentSortType) {
@@ -575,7 +585,10 @@ function MarketTokenListBase({
       const columnKey = String(column.dataIndex);
       let sortKey: string | undefined;
       if (clientSort) {
-        sortKey = clientSortFieldMap[columnKey] ? columnKey : undefined;
+        const isColumnClientSortable =
+          Boolean(clientSortFieldMap[columnKey]) &&
+          (!clientSortableColumnSet || clientSortableColumnSet.has(columnKey));
+        sortKey = isColumnClientSortable ? columnKey : undefined;
       } else {
         sortKey =
           SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
@@ -600,6 +613,7 @@ function MarketTokenListBase({
       isWatchlistMode,
       clientSort,
       clientSortFieldMap,
+      clientSortableColumnSet,
       currentSortBy,
       currentSortType,
       useStockMetadataColumns,
