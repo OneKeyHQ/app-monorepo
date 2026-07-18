@@ -1581,3 +1581,44 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - 聚焦 Jest 最终为 4 suites / 36 tests 全部通过；聚焦 `oxlint`、`oxfmt --check`、Swift parse 和完整指定文件 `git diff --check` 通过。最终 staged `yarn agent:check --profile commit` 日志为 `node_modules/.cache/agent-checks/2026-07-17T22-03-15-244Z`：`lint-worktree-js`、`lint-worktree-ts`、`format-worktree`、`agent-context` 和 `lint-staged` 全部通过；`tsc-staged` 仅被共享工作区既有的 Desktop `config.perfReady` 缺失和旧 `NativeHomePageView.native.tsx` header export 两条错误阻断。日志中没有本轮 8 个文件的类型错误；没有修改或回滚无关代码制造绿色结果。
 - 独立 subagent 最终只读审查未发现 P1/P2，确认当前聚焦代码可以提交；其唯一九项证据缺口同样是 Perps 首帧，并提醒 BTC 选择地址后的外部浏览器最终跳转没有单独录证。
 - 本节通过的是九项中的八项和 Market 三个当前成功分类；Perps 四分类首帧仍为 Partial，Dark mode、动态字体、所有 pressed/hover、全部图片失败/取消/缓存降级态、更多 History 交易类型和 iOS 17.4 以下滚动体验仍未全量覆盖。不得声明整个 Native Home 或整个 Market UI 已完成。
+
+## 2026-07-18 iOS Native Home 自适应、交互与图片失败态审计
+
+### 后续主要走查方式：同状态 Legacy / Native 自动 A/B
+
+- 本轮再次确认“同一 Debug 包中临时切换 Legacy 与 Native、按相同状态逐屏截图、同位置 crop 后做 overlay/absolute/edge differ，再用真实点击或录屏复核差异”非常有效，后续应作为 Native Home 的主要走查方式。每组 A/B 必须固定 simulator、账户/网络、主题、Dynamic Type、locale、服务端 config、滚动锚点和数据状态；价格、轮播和异步图片等动态区域需要先 mask 或单独解释。
+- 自动 differ 只用于发现区域和排优先级，不是通过证明。最终通过仍要求真实页面、选中态、内容首帧/稳定帧、点击结果和必要录屏；旧坐标因 DeFi/Earn 异步位移而误点详情或其他 View more 的帧全部作废。Nitro Market 子树未进入 accessibility snapshot 时，使用“截图后立即点击”的短 `agent-device` batch，禁止延迟复用旧 y 坐标。
+- 原版 feature flag 只允许在 A/B 采样期间临时切换；完成后必须恢复 Native 默认路径并重新执行 `yarn app:ios`。不能删除 Legacy 代码，也不能退回 Legacy 规避 Native 问题。A/B 差异需要集中按 layout / typography / missing component / behavior / failure state 分类修复，再对相同状态重跑一轮 differ。
+
+### 本轮问题、根因与实现
+
+- 图片 loader 现在为每个 represented signature 持有可取消 request；候选 URL 顺序加载，cell 复用、signature 改变或离屏时取消。SDWebImage 内存缓存可能同步回调，因此最终 completion 强制投递到下一次 main run loop，避免旧请求在回调后覆盖新 active request；移除了可能双回调的 `.refreshCached`。网络失败只做初次 + 2s / 4s / 30s 三次有界恢复，request / retry closure 都为弱引用并受 cancel/identifier 保护，不会产生离屏无限流量。
+- `ONEKEY_NATIVE_HOME_IMAGE_AUDIT=all-fail` 仅在 Debug 生效，用来强制全部远端候选失败。所有候选失败时：普通 Token/Stocks 使用 CryptoCoin 或字母 fallback；All Networks 每个网络槽独立 fallback；NFT、network badge、recognized/source accessory 等没有合法 fallback 的装饰隐藏；空 URL banner 收起，非空 banner 主图失败使用稳定 photo fallback；Header 账户/网络 URL 变化时先立即应用新 fallback，避免上一账户或网络图片短暂串图。最终正常 Debug 启动前已清除该环境变量。
+- fallback 类型、URL candidates、badge/accessory、theme 都进入 represented signature；失败、成功和复用回调只有 signature 仍匹配才允许落图。图片与字体 cache 仍是进程共享 Native 资源，但 request、represented signature、cancel/retry token 和 fallback 显示属于每个 view/cell。
+- Dark mode 变更会更新完整 theme signature，并强制可见 cell 重新配置；Token/NFT/banner/card/slot fallback 与边框使用当前 theme，不再把 light 背景缓存进 dark cell。最终 Light 与 Dark 真实帧分别为 `.tmp/ui/native-home-final-20260718/market-light-large-final.png` 和 `market-dark-large-restored-final.png`。
+- Dynamic Type 通过 capped `UIFontMetrics` 同步缩放标题、正文、Header、row/footer 高度和 Market segment；顶层 Tab 改为水平滚动，AXXXL 不再互相覆盖或挤掉尾部 Tab。最终 XXXL Market 真机帧为 `.tmp/ui/native-home-final-20260718/market-AXXXL-final.png`，恢复系统 Large 后为 `market-large-restored-final.png`。该证据覆盖当前 Market/邻接 section 的可读性，不代表所有语言和全部页面字号组合均已完成。
+- pressed/hover/selected 统一覆盖 row tap、Header/action/button、顶部 Tab/toolbar、Market category/item/favorite、recommendation、NFT、horizontal/banner dismiss 和 section action；favorite 是独立 control，不触发行跳转。iPhone simulator 能验证 press/selected，不能把源码审计外推为真实 pointer hover 证据。
+- Market category 变更使用无动画 diffable snapshot，以缓存数据直接替换 rows；结构高度变化仍 pin/restore outer content offset。Favorites 的结构性增删仍保留 diffable 动画，因此移除收藏会由下一行平滑补位而不是空块闪烁。Market segment 的 server icon 为 18pt、图文约 8pt 间距、独立 icon-only width，selected accessibility trait 随真实状态更新。
+
+### 三分类、星标和 BTC DTO 最终 Debug 证据
+
+- 最终 `yarn app:ios` 安装包中的三张稳定图为 `.tmp/ui/handoff-ui-market-favorites-after-debug.png`、`handoff-ui-market-trending-after-debug.png`、`handoff-ui-market-stocks-after-debug.png`，并生成了真正的 402×874 `*-402.png`。Favorites 的 LINK / SHIB / WLFI / UNI 标题均完整，不再出现 `LI...` / `S...` / `W...` / `...` 的异常压缩；localized subtitle 仍按原版上限正常省略。
+- 分类最终连续录屏为 `.tmp/ui/native-home-final-20260718/market-category-final.mp4`。Trending、Stocks、Favorites 的点击后首帧与 1s 稳定帧都已有真实 rows，没有 `rows -> empty -> rows`；Market 锚点、Earn 等下方 section 和外层 offset 没有跳变。当前真实 config 显示 Perps label，但本轮没有对 Perps 取得与三分类同等级的首帧点击证据，因此四分类整体仍是 **Partial**，Native 没有写死 hot config。
+- Trending 当前真实前三行为 BTC / Jimothy / BRIAN。BTC 第二行为空不是 Native 丢字段：对与 app 相同的 prod endpoint/参数读取原始 DTO，BTC `volume24h` 为字符串 `"-"`；共享 formatter 归一化为 0，Legacy 同样隐藏。Jimothy/BRIAN 的真实 volume 正常显示。继续禁止为 BTC 增加假占位或伪造 volume。
+- Stocks 的 AAPLOn、SLVOn、CRCLOn 均显示各自真实服务端 logo、source icon、network badge 和 volume，无 CryptoCoin fallback、无串图；首次帧与稳定帧一致。该组证明正常候选成功态，全部候选失败态由 Debug seam 的独立截图/录屏证明，不能互相替代。
+- Star 最终录屏为 `.tmp/ui/native-home-final-20260718/market-star-toggle-final.mp4`：Trending BTC 点击后只把 star 平滑切为实心，再点击恢复空心；三行位置和 Market 高度不变，没有空块、闪烁或冒泡进入详情。最终已恢复原空收藏业务状态。
+- 全候选失败态证据为 `.tmp/ui/native-home-accessibility-fix-20260718/image-all-fail-top-rebuilt.png`、`image-all-fail-market-favorites-rebuilt.png`、`image-all-fail-market-stocks-first-frame-rebuilt.png` / settled 和 `image-all-fail-category-switch.mp4`。这些帧验证稳定 fallback、隐藏无 fallback 装饰和分类切换不串图；没有真实模拟网络在 36s 后恢复，因此“相同 signature 在全部重试结束后自动无限恢复”不属于本轮通过项，后续需由 refresh/reconfigure/cell reuse 触发新请求。
+
+### 最终 Debug、运行时与数据安全
+
+- 所有最终源码后从仓库根目录执行标准 `yarn app:ios`，结果 `Build Succeeded`、0 errors；由它构建、签名、更新安装并启动 `Debug-iphonesimulator/OneKeyWallet.app`。最终 binary mtime 为 `2026-07-18 13:10:27`。没有使用 Release、自定义 `xcodebuild`、`CODE_SIGNING_ALLOWED=NO`，也没有执行 uninstall、reinstall、erase、clear data 或删除 simulator app container/钱包数据库。
+- 最终前台 bundle 为 `so.onekey.wallet`；`Account #1`、All Networks、余额和真实 Token/Earn 数据正常，钱包持久化数据仍在，应用持续存活。干净钱包现场为 `.tmp/ui/native-home-final-20260718/final-debug-wallet-clean-2.png`。
+- 最终 main target probe 为 `jsReady=true/runtime=main/transportState=ready`；独立 background target 为 `runtime=background/bgHandlerReady=true`。main ready 没有替代 bg ready。
+- **Runtime scope：main + bg。** Native Home UIKit UI、Market selection/cache/snapshot/section patch、Dynamic Type/theme、diffable mutation、scroll/pressed/hover、image request/signature 属于 main/per-view；Market config/category/watchlist 和各 service 数据、权威持久化属于 bg。iOS main/bg 是独立 Hermes JS heap，数据经 proxy 分别序列化/反序列化，双方持有独立 JS 副本并独立初始化，不能假设 bg 先 ready。图片/字体 cache 与底层持久化句柄是进程级共享 Native 资源。
+
+### subagent 复核、文件与完成边界
+
+- 图片失败/复用、accessibility/interaction、九项回归分别由三个独立 subagent 多轮只读审计；每轮发现后由主 agent 修复，再交回同一审计方向复核。最终三方均报告无 P0/P1/P2：图片审计接受有界重试的明确 tradeoff；interaction 审计确认 selected trait、独立 Star 和 pressed coverage；九项审计确认未回归既有修复。subagent 结论只是源码复核，真实截图与录屏仍以上述证据为准。
+- 本轮拟提交文件只包括 `packages/native-components/ios/HomeContainerImageLoader.swift`、`packages/native-components/ios/HomeContainerView.swift` 和本 handoff。没有修改 Android renderer，也不会把 `yarn.lock`、Discovery、Swap、TradingView、Performance 或其他共享工作区 dirty files 混入。
+- `xcrun swiftc -parse HomeContainerImageLoader.swift HomeContainerView.swift`、指定 Native Home 文件的 `git diff --check` 和 `HomeContainerController.test.ts` 8 个聚焦 Jest 均通过。最终 staged `yarn agent:check --profile commit` 日志为 `node_modules/.cache/agent-checks/2026-07-18T05-34-58-332Z`：`lint-worktree-js`、`lint-worktree-ts`、`format-worktree`、`agent-context`、`lint-staged` 全部通过；`tsc-staged` 仅被共享工作区既有的 Desktop `config.perfReady` 缺失和旧 `NativeHomePageView.native.tsx` header export 两条错误阻断。日志没有本轮 Swift/handoff 文件错误，没有修改或回滚无关文件制造绿色结果。
+- 本节通过的是当前 Debug 包的 Dark/Light、当前 XXXL/Large、Favorites/Trending/Stocks、Star 平滑增删、成功图片候选和强制全部失败降级态。真实 pointer hover、真实断网后跨 36s 自动恢复、更多语言/字号组合、Perps 分类首帧、所有详情跳转和所有业务失败回滚仍没有同等级真机证据，因此不能声明整个 Native Home UI 已完成。
