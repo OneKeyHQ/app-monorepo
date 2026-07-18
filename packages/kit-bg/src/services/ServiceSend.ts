@@ -799,6 +799,36 @@ class ServiceSend extends ServiceBase {
               });
         let signedTx: Awaited<ReturnType<typeof buildSignedTx>>;
         try {
+          const stockToken =
+            isMultiTxs && i > 0
+              ? [
+                  unsignedTx.swapInfo?.sender.token,
+                  unsignedTx.swapInfo?.receiver.token,
+                ].find((token) => token?.isStock)
+              : undefined;
+          if (stockToken?.networkId && stockToken.contractAddress) {
+            let isExplicitlyClosed = false;
+            try {
+              const response =
+                await this.backgroundApi.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+                  stockToken.contractAddress,
+                  stockToken.networkId,
+                  { autoHandleError: false },
+                );
+              isExplicitlyClosed =
+                response?.data?.token?.stock?.isOpen === false;
+            } catch {
+              // Preserve the existing Stock fail-open contract when market
+              // detail is unavailable. Only an authoritative close blocks.
+            }
+            if (isExplicitlyClosed) {
+              throw new OneKeyLocalError({
+                message: appLocale.intl.formatMessage({
+                  id: ETranslations.dexmarket_stock_status_closed_error,
+                }),
+              });
+            }
+          }
           signedTx = await buildSignedTx();
           if (!signOnly && !signedTx.txid) {
             throw new OneKeyLocalError(

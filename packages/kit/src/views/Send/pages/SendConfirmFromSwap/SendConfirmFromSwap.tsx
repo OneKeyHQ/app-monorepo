@@ -7,11 +7,10 @@ import { AppState } from 'react-native';
 import { Page, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import type {
-  EModalSendRoutes,
-  IModalSendParamList,
+import {
+  EModalSignatureConfirmRoutes,
+  type IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
-import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type {
@@ -33,7 +32,10 @@ function SendConfirmFromSwap() {
 
   const route =
     useRoute<
-      RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirmFromSwap>
+      RouteProp<
+        IModalSignatureConfirmParamList,
+        EModalSignatureConfirmRoutes.TxConfirmFromSwap
+      >
     >();
 
   const { networkId, accountId, unsignedTxs, onSuccess, onFail, onCancel } =

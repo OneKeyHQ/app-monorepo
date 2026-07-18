@@ -55,6 +55,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import type { ITxConfirmBeforeConfirm } from '@onekeyhq/shared/src/routes/signatureConfirm';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -84,6 +85,11 @@ import {
   runTxConfirmPostSendTask,
   syncBatchSendSuccessfullySentTxsFromError,
 } from './txConfirmPostSendUtils';
+import {
+  runTxConfirmBatchSignAndSendWithPreflight,
+  runTxConfirmExclusiveSubmit,
+  runTxConfirmPreflight,
+} from './txConfirmPreflight';
 
 function muteHandledErrorToast(error: unknown) {
   const e = error as IOneKeyError | undefined;
@@ -107,6 +113,7 @@ type IProps = {
   isQueueMode?: boolean;
   unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
   gasAccountScenario?: IGasAccountScenario;
+  beforeConfirm?: ITxConfirmBeforeConfirm;
   // External risk signal (e.g. WalletConnect verify-api downgrade). Forces
   // the take-risk checkbox on top of the decodedTx-level signal so a spoofed
   // peer can't push through an `eth_sendTransaction` without acknowledgement.
@@ -129,6 +136,7 @@ function TxConfirmActions(props: IProps) {
     isQueueMode,
     unsignedTxQueue,
     gasAccountScenario,
+    beforeConfirm,
     forceTakeRiskAlert,
   } = props;
   const intl = useIntl();
@@ -166,6 +174,7 @@ function TxConfirmActions(props: IProps) {
   // aborted from the cancel handler. Rotated on every fresh submit; cleared
   // once the attempt has terminated (success / failure / cancel).
   const gasAccountSubmitIdRef = useRef<string | null>(null);
+  const submitAttemptInFlightRef = useRef(false);
   const { bottom } = useSafeAreaInsets();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
@@ -283,8 +292,23 @@ function TxConfirmActions(props: IProps) {
     ],
   );
 
-  const submitTxs = useCallback(async () => {
+  const showBeforeConfirmError = useCallback((error: unknown) => {
+    Toast.error({
+      title: error instanceof Error ? error.message : String(error),
+    });
+  }, []);
+
+  const submitTxsImpl = useCallback(async () => {
     const { serviceSend, serviceAccount } = backgroundApiProxy;
+
+    if (beforeConfirm) {
+      try {
+        await runTxConfirmPreflight(beforeConfirm, 'submit');
+      } catch (error) {
+        showBeforeConfirmError(error);
+        return;
+      }
+    }
 
     if (sourceInfo) {
       const walletId = accountUtils.getWalletIdFromAccountId({
@@ -463,22 +487,39 @@ function TxConfirmActions(props: IProps) {
         }
       }
 
-      const result =
-        await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
-          accountId,
-          networkId,
-          unsignedTxs: newUnsignedTxs,
-          feeInfos: sendSelectedFeeInfo?.feeInfos,
-          signOnly,
-          sourceInfo,
-          replaceTxInfo,
-          transferPayload,
-          successfullySentTxs: successfullySentTxs.current,
-          tronResourceRentalInfo,
-          gasAccountUiState,
-          gasAccountSubmitId: submitId,
-          useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
-        });
+      const signAndSendResult = await runTxConfirmBatchSignAndSendWithPreflight(
+        {
+          beforeConfirm,
+          isAttemptActive: () => gasAccountSubmitIdRef.current === submitId,
+          onPreflightError: (error) => {
+            updateSendTxStatus({ isSubmitting: false });
+            setGasAccountRetryState(null);
+            isSubmitted.current = false;
+            gasAccountSubmitIdRef.current = null;
+            showBeforeConfirmError(error);
+          },
+          serviceSend,
+          request: {
+            accountId,
+            networkId,
+            unsignedTxs: newUnsignedTxs,
+            feeInfos: sendSelectedFeeInfo?.feeInfos,
+            signOnly,
+            sourceInfo,
+            replaceTxInfo,
+            transferPayload,
+            successfullySentTxs: successfullySentTxs.current,
+            tronResourceRentalInfo,
+            gasAccountUiState,
+            gasAccountSubmitId: submitId,
+            useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
+          },
+        },
+      );
+      if (!signAndSendResult.executed) {
+        return;
+      }
+      const result = signAndSendResult.result;
       const signedTx = result[0]?.signedTx;
       hasBroadcastReceipt = !signOnly && Boolean(signedTx?.txid);
       const runPostSendTask = ({
@@ -725,6 +766,9 @@ function TxConfirmActions(props: IProps) {
             if (unsignedTxQueue.current) {
               updateUnsignedTxs([unsignedTxQueue.current]);
             }
+            // The current item is terminal, but the same mounted
+            // component must accept the next queue item.
+            isSubmitted.current = false;
           },
         });
         return;
@@ -812,6 +856,8 @@ function TxConfirmActions(props: IProps) {
     }
   }, [
     sourceInfo,
+    beforeConfirm,
+    showBeforeConfirmError,
     updateSendTxStatus,
     accountId,
     networkId,
@@ -848,6 +894,16 @@ function TxConfirmActions(props: IProps) {
     nativeTokenInfo.info?.symbol,
     isFeeSponsored,
   ]);
+
+  const submitTxs = useCallback(
+    () =>
+      runTxConfirmExclusiveSubmit({
+        inFlightRef: submitAttemptInFlightRef,
+        terminalRef: isSubmitted,
+        submit: submitTxsImpl,
+      }),
+    [submitTxsImpl],
+  );
 
   const handleOnConfirm = useCallback(async () => {
     if (decodedTxs[0]?.isCustomHexData) {

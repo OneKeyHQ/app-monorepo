@@ -233,6 +233,10 @@ export function getMissingCachedImageUris(uris: string[]) {
   return uris.filter((uri) => !IMAGE_CACHE_MAP.has(uri));
 }
 
+export function getMissingCachedImageRefUris(uris: string[]) {
+  return uris.filter((uri) => !getCachedImageRef(uri));
+}
+
 export async function primeCachedImagePaths({
   uris,
   timeoutMs,

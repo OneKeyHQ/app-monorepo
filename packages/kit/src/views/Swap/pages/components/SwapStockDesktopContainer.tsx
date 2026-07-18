@@ -529,7 +529,7 @@ function StockTradeSideSwitch({
   );
 }
 
-function StockEstimatedReceive({
+export function StockEstimatedReceive({
   displayQuoteResult,
   quoteResult,
   quoteLoading,

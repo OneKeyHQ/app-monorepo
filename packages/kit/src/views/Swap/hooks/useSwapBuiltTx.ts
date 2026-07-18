@@ -35,7 +35,11 @@ import {
   BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { OneKeyAppError, OneKeyError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyAppError,
+  OneKeyError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
@@ -46,6 +50,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
+import type { ITxConfirmPreflightPhase } from '@onekeyhq/shared/src/routes/signatureConfirm';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
@@ -124,9 +129,11 @@ import {
   useSwapProInputAmountAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
+  useSwapQuoteSessionStateAtom,
   useSwapReviewExecutionSnapshotAtom,
   useSwapStepNetFeeLevelAtom,
   useSwapStepsAtom,
+  useSwapStockMarketQuoteGateAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -155,6 +162,7 @@ import {
   assertSwapExecutionSignerMatches,
   isSwapExecutionRevisionCurrent,
   resolveSwapExecutionValues,
+  resolveSwapReviewExecutionGuardState,
 } from '../utils/swapExecutionSnapshotGuard';
 import {
   getStockTradeAnalyticsPayload,
@@ -249,6 +257,8 @@ export function useSwapBuildTx() {
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [liveSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [executionSnapshot] = useSwapReviewExecutionSnapshotAtom();
+  const [quoteSessionState] = useSwapQuoteSessionStateAtom();
+  const [stockMarketQuoteGate] = useSwapStockMarketQuoteGateAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapProAccount = useSwapProAccount();
@@ -426,14 +436,54 @@ export function useSwapBuildTx() {
   if (executionSnapshotRef.current !== executionSnapshot) {
     executionSnapshotRef.current = executionSnapshot;
   }
+  const quoteSessionStateRef = useRef(quoteSessionState);
+  quoteSessionStateRef.current = quoteSessionState;
+  const stockMarketQuoteGateRef = useRef(stockMarketQuoteGate);
+  stockMarketQuoteGateRef.current = stockMarketQuoteGate;
+  const liveExecutionSignerRef = useRef({
+    accountId: liveFromAccountId,
+    networkId: liveFromAccountNetworkId,
+    senderAddress: liveFromUserAddress,
+  });
+  liveExecutionSignerRef.current = {
+    accountId: liveFromAccountId,
+    networkId: liveFromAccountNetworkId,
+    senderAddress: liveFromUserAddress,
+  };
+  const getReviewExecutionGuardState = useCallback(
+    () =>
+      resolveSwapReviewExecutionGuardState({
+        snapshot: executionSnapshotRef.current,
+        quoteSessionState: quoteSessionStateRef.current,
+        stockMarketQuoteGate: stockMarketQuoteGateRef.current,
+      }),
+    [],
+  );
+  const isReviewExecutionCurrent = useCallback(
+    () => !getReviewExecutionGuardState().blocked,
+    [getReviewExecutionGuardState],
+  );
+  const assertReviewExecutionCurrent = useCallback(() => {
+    const guardState = getReviewExecutionGuardState();
+    if (!guardState.blocked) {
+      return;
+    }
+    throw new OneKeyLocalError({
+      message: intl.formatMessage({
+        id: guardState.explicitClosed
+          ? ETranslations.dexmarket_stock_status_closed_error
+          : ETranslations.swap_page_button_refresh_quotes,
+      }),
+    });
+  }, [getReviewExecutionGuardState, intl]);
   const assertExecutionSignerUnchanged = useCallback(() => {
     assertSwapExecutionSignerMatches({
       snapshot: executionSnapshotRef.current,
-      currentAccountId: liveFromAccountId,
-      currentNetworkId: liveFromAccountNetworkId,
-      currentSenderAddress: liveFromUserAddress,
+      currentAccountId: liveExecutionSignerRef.current.accountId,
+      currentNetworkId: liveExecutionSignerRef.current.networkId,
+      currentSenderAddress: liveExecutionSignerRef.current.senderAddress,
     });
-  }, [liveFromAccountId, liveFromAccountNetworkId, liveFromUserAddress]);
+  }, []);
   const isExecutionRevisionCurrent = useCallback(
     (expectedRevision?: string) =>
       isSwapExecutionRevisionCurrent({
@@ -441,6 +491,111 @@ export function useSwapBuildTx() {
         currentSnapshot: executionSnapshotRef.current,
       }),
     [],
+  );
+  const createExecutionSignPreflight = useCallback(
+    ({
+      operationRevision,
+      quoteResult,
+    }: {
+      operationRevision?: string;
+      quoteResult?: IFetchQuoteResult;
+    }) => {
+      const snapshotAtHandoff = executionSnapshotRef.current;
+      const executionQuote = quoteResult ?? snapshotAtHandoff?.quoteResult;
+      const isStockExecution =
+        snapshotAtHandoff?.swapType === ESwapTabSwitchType.STOCK ||
+        getSwapExecutionTypeFromQuoteResult(executionQuote) ===
+          ESwapTabSwitchType.STOCK;
+      const stockToken = isStockExecution
+        ? [
+            executionQuote?.fromTokenInfo,
+            executionQuote?.toTokenInfo,
+            snapshotAtHandoff?.fromToken,
+            snapshotAtHandoff?.toToken,
+          ].find((token) => token?.isStock)
+        : undefined;
+      const assertLocalExecutionLease = () => {
+        if (
+          isStockExecution &&
+          (!operationRevision || !isExecutionRevisionCurrent(operationRevision))
+        ) {
+          throw new OneKeyLocalError({
+            message: intl.formatMessage({
+              id: ETranslations.swap_page_button_refresh_quotes,
+            }),
+          });
+        }
+        assertReviewExecutionCurrent();
+        assertExecutionSignerUnchanged();
+      };
+
+      const assertMarketOpen = async () => {
+        assertLocalExecutionLease();
+        if (
+          isStockExecution &&
+          (!stockToken?.networkId || !stockToken.contractAddress)
+        ) {
+          throw new OneKeyLocalError({
+            message: intl.formatMessage({
+              id: ETranslations.swap_page_button_refresh_quotes,
+            }),
+          });
+        }
+        let isExplicitlyClosed = false;
+        if (stockToken?.networkId && stockToken.contractAddress) {
+          try {
+            const response =
+              await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+                stockToken.contractAddress,
+                stockToken.networkId,
+                { autoHandleError: false },
+              );
+            isExplicitlyClosed = response?.data?.token?.stock?.isOpen === false;
+          } catch {
+            // Market detail unavailable is fail-open, matching the existing
+            // Stock quote gate. Only an explicit closed state blocks submit.
+          }
+        }
+        assertLocalExecutionLease();
+        if (isExplicitlyClosed) {
+          throw new OneKeyLocalError({
+            message: intl.formatMessage({
+              id: ETranslations.dexmarket_stock_status_closed_error,
+            }),
+          });
+        }
+      };
+
+      return {
+        assertLocalExecutionLease,
+        assertMarketOpen,
+      };
+    },
+    [
+      assertExecutionSignerUnchanged,
+      assertReviewExecutionCurrent,
+      intl,
+      isExecutionRevisionCurrent,
+    ],
+  );
+  const createFallbackTxConfirmPreflight = useCallback(
+    ({
+      operationRevision,
+      quoteResult,
+    }: {
+      operationRevision?: string;
+      quoteResult?: IFetchQuoteResult;
+    }) => {
+      const preflight = createExecutionSignPreflight({
+        operationRevision,
+        quoteResult,
+      });
+      return (phase: ITxConfirmPreflightPhase) =>
+        phase === 'sign'
+          ? preflight.assertMarketOpen()
+          : preflight.assertLocalExecutionLease();
+    },
+    [createExecutionSignPreflight],
   );
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const [{ isFirstTimeSwap }, setPersistSettings] = useSettingsPersistAtom();
@@ -1006,6 +1161,7 @@ export function useSwapBuildTx() {
       accountId,
       unsignedTxItem,
       gasInfo,
+      quoteResult,
       operationRevision,
     }: {
       stepIndex: number;
@@ -1013,11 +1169,13 @@ export function useSwapBuildTx() {
       accountId: string;
       unsignedTxItem: IUnsignedTxPro;
       gasInfo: ISwapGasInfo;
+      quoteResult?: IFetchQuoteResult;
       operationRevision?: string;
     }) => {
       if (!isExecutionRevisionCurrent(operationRevision)) {
         return undefined;
       }
+      assertReviewExecutionCurrent();
       assertExecutionSignerUnchanged();
       if (!gasInfo.common) {
         throw new OneKeyError('gasInfo.common is required');
@@ -1186,7 +1344,11 @@ export function useSwapBuildTx() {
       let res: Awaited<
         ReturnType<typeof backgroundApiProxy.serviceSend.signAndSendTransaction>
       >;
-      assertExecutionSignerUnchanged();
+      const signPreflight = createExecutionSignPreflight({
+        operationRevision,
+        quoteResult,
+      });
+      await signPreflight.assertMarketOpen();
       try {
         res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
           ...sendTxParams,
@@ -1219,7 +1381,7 @@ export function useSwapBuildTx() {
           // quote and resend once as user-paid so the swap can still go through
           // when the user has native for gas. A user-paid failure (e.g. no
           // native) then propagates honestly.
-          assertExecutionSignerUnchanged();
+          await signPreflight.assertMarketOpen();
           res =
             await backgroundApiProxy.serviceSend.signAndSendTransaction(
               sendTxParams,
@@ -1272,8 +1434,10 @@ export function useSwapBuildTx() {
       };
     },
     [
+      assertReviewExecutionCurrent,
       checkLatestNativeTokenBalance,
       assertExecutionSignerUnchanged,
+      createExecutionSignPreflight,
       getSwapBtcOutputValidationToast,
       intl,
       isExecutionRevisionCurrent,
@@ -1696,6 +1860,7 @@ export function useSwapBuildTx() {
       if (!isExecutionRevisionCurrent(operationRevision)) {
         return undefined;
       }
+      assertReviewExecutionCurrent();
       assertExecutionSignerUnchanged();
       if (!fromToken || !fromAccountId || !fromUserAddress) {
         throw new OneKeyError('account error');
@@ -1782,6 +1947,7 @@ export function useSwapBuildTx() {
                   accountId,
                   unsignedTxItem,
                   gasInfo: gasInfoFinal,
+                  quoteResult,
                   operationRevision,
                 });
                 if (i === unsignedTxArr.length - 1) {
@@ -1876,6 +2042,7 @@ export function useSwapBuildTx() {
                   accountId,
                   unsignedTxItem,
                   gasInfo,
+                  quoteResult,
                   operationRevision,
                 });
                 if (i === unsignedTxArr.length - 1) {
@@ -1961,6 +2128,7 @@ export function useSwapBuildTx() {
                   accountId,
                   unsignedTxItem,
                   gasInfo: gasInfoFinal,
+                  quoteResult,
                   operationRevision,
                 });
                 if (i === unsignedTxArr.length - 1) {
@@ -2066,6 +2234,7 @@ export function useSwapBuildTx() {
                 accountId,
                 unsignedTxItem,
                 gasInfo: lastTxGasInfo,
+                quoteResult,
                 operationRevision,
               });
               if (!isExecutionRevisionCurrent(operationRevision)) {
@@ -2110,6 +2279,7 @@ export function useSwapBuildTx() {
                 accountId,
                 unsignedTxItem,
                 gasInfo: gasParseInfo,
+                quoteResult,
                 operationRevision,
               });
               if (!isExecutionRevisionCurrent(operationRevision)) {
@@ -2136,6 +2306,7 @@ export function useSwapBuildTx() {
               accountId,
               unsignedTxItem: unsignedTx,
               gasInfo: gasInfoFinal,
+              quoteResult,
               operationRevision,
             });
             if (!isExecutionRevisionCurrent(operationRevision)) {
@@ -2210,6 +2381,7 @@ export function useSwapBuildTx() {
               accountId,
               unsignedTxItem: unsignedTx,
               gasInfo: gasParseInfo,
+              quoteResult,
               operationRevision,
             });
             if (!isExecutionRevisionCurrent(operationRevision)) {
@@ -2259,6 +2431,7 @@ export function useSwapBuildTx() {
       return lastTxRes;
     },
     [
+      assertReviewExecutionCurrent,
       assertExecutionSignerUnchanged,
       fromToken,
       fromAccountId,
@@ -2333,6 +2506,7 @@ export function useSwapBuildTx() {
       if (!isExecutionRevisionCurrent(operationRevision)) {
         return undefined;
       }
+      assertReviewExecutionCurrent();
       assertExecutionSignerUnchanged();
       if (data?.allowanceResult?.allowanceTarget && fromUserAddress) {
         const approveInfo: IApproveInfo = {
@@ -2353,9 +2527,14 @@ export function useSwapBuildTx() {
             if (!isExecutionRevisionCurrent(operationRevision)) {
               return undefined;
             }
+            assertReviewExecutionCurrent();
             assertExecutionSignerUnchanged();
             await navigationToTxConfirm({
               isInternalSwap: true,
+              beforeConfirm: createFallbackTxConfirmPreflight({
+                operationRevision,
+                quoteResult: data,
+              }),
               approvesInfo: [approveInfo],
               onSuccess: (successData: ISendTxOnSuccessData[]) =>
                 handleApproveFallbackOnSuccess(
@@ -2395,7 +2574,9 @@ export function useSwapBuildTx() {
       }
     },
     [
+      assertReviewExecutionCurrent,
       assertExecutionSignerUnchanged,
+      createFallbackTxConfirmPreflight,
       onApproveTxSuccess,
       handleApproveFallbackOnCancel,
       handleApproveFallbackOnSuccess,
@@ -2889,6 +3070,7 @@ export function useSwapBuildTx() {
       if (!isExecutionRevisionCurrent(operationRevision)) {
         return undefined;
       }
+      assertReviewExecutionCurrent();
       assertExecutionSignerUnchanged();
       if (
         data?.fromTokenInfo &&
@@ -2936,6 +3118,7 @@ export function useSwapBuildTx() {
         if (!isExecutionRevisionCurrent(operationRevision)) {
           return;
         }
+        assertReviewExecutionCurrent();
         if (swapInfo) {
           if (skipSendTransAction) {
             void handleBuildTxSuccessWithSignedNoSend({
@@ -2950,6 +3133,10 @@ export function useSwapBuildTx() {
             assertExecutionSignerUnchanged();
             await navigationToTxConfirm({
               isInternalSwap: true,
+              beforeConfirm: createFallbackTxConfirmPreflight({
+                operationRevision,
+                quoteResult: data,
+              }),
               transfersInfo: transferInfo ? [transferInfo] : undefined,
               encodedTx,
               approvesInfo:
@@ -3022,7 +3209,9 @@ export function useSwapBuildTx() {
       }
     },
     [
+      assertReviewExecutionCurrent,
       assertExecutionSignerUnchanged,
+      createFallbackTxConfirmPreflight,
       slippageItem,
       fromUserAddress,
       toUserAddress,
@@ -3053,6 +3242,7 @@ export function useSwapBuildTx() {
       if (!isExecutionRevisionCurrent(operationRevision)) {
         return undefined;
       }
+      assertReviewExecutionCurrent();
       assertExecutionSignerUnchanged();
       if (
         data?.fromTokenInfo &&
@@ -3182,7 +3372,12 @@ export function useSwapBuildTx() {
               if (!isExecutionRevisionCurrent(operationRevision)) {
                 return;
               }
+              assertReviewExecutionCurrent();
               assertExecutionSignerUnchanged();
+              await createExecutionSignPreflight({
+                operationRevision,
+                quoteResult: selectQuoteRes,
+              }).assertMarketOpen();
               const signHash = await backgroundApiProxy.serviceSend.signMessage(
                 {
                   unsignedMessage: {
@@ -3241,7 +3436,12 @@ export function useSwapBuildTx() {
               if (!isExecutionRevisionCurrent(operationRevision)) {
                 return;
               }
+              assertReviewExecutionCurrent();
               assertExecutionSignerUnchanged();
+              await createExecutionSignPreflight({
+                operationRevision,
+                quoteResult: selectQuoteRes,
+              }).assertMarketOpen();
               const signHash = await backgroundApiProxy.serviceSend.signMessage(
                 {
                   unsignedMessage: {
@@ -3287,9 +3487,11 @@ export function useSwapBuildTx() {
       }
     },
     [
+      assertReviewExecutionCurrent,
       assertExecutionSignerUnchanged,
       buildTxNew,
       checkLatestFromTokenBalance,
+      createExecutionSignPreflight,
       slippageItem,
       fromAccountId,
       fromUserAddress,
@@ -3315,6 +3517,7 @@ export function useSwapBuildTx() {
       if (!isExecutionRevisionCurrent(operationRevision)) {
         return undefined;
       }
+      assertReviewExecutionCurrent();
       if (
         fromTokenInfo &&
         toTokenInfo &&
@@ -3399,6 +3602,7 @@ export function useSwapBuildTx() {
       }
     },
     [
+      assertReviewExecutionCurrent,
       fromUserAddress,
       toUserAddress,
       fromAccountId,
@@ -3509,6 +3713,7 @@ export function useSwapBuildTx() {
       if (!isExecutionRevisionCurrent(operationRevision)) {
         return;
       }
+      assertReviewExecutionCurrent();
       if (
         data?.fromTokenInfo &&
         data?.toTokenInfo &&
@@ -3540,6 +3745,7 @@ export function useSwapBuildTx() {
       }
     },
     [
+      assertReviewExecutionCurrent,
       slippageItem,
       fromUserAddress,
       fromAccountNetworkId,
@@ -3951,6 +4157,9 @@ export function useSwapBuildTx() {
       if (!isExecutionRevisionCurrent(executionRevision)) {
         return;
       }
+      if (!isReviewExecutionCurrent()) {
+        return;
+      }
       assertExecutionSignerUnchanged();
       if (
         executionQuote?.fromTokenInfo &&
@@ -3982,6 +4191,7 @@ export function useSwapBuildTx() {
           if (!isExecutionRevisionCurrent(executionRevision)) {
             return;
           }
+          assertReviewExecutionCurrent();
           const { unsignedTxArr } = await getApproveUnSignedTxArr(
             executionQuote,
             executionRevision,
@@ -3989,6 +4199,7 @@ export function useSwapBuildTx() {
           if (!isExecutionRevisionCurrent(executionRevision)) {
             return;
           }
+          assertReviewExecutionCurrent();
           const estimateNetworkFeeResult = await estimateNetworkFee(
             fromAccountNetworkId ?? '',
             fromAccountId ?? '',
@@ -4005,6 +4216,7 @@ export function useSwapBuildTx() {
           if (!isExecutionRevisionCurrent(executionRevision)) {
             return;
           }
+          assertReviewExecutionCurrent();
           if (estimateNetworkFeeResult.fallbackToSeparateTxConfirm) {
             const separateSteps =
               buildSeparateApproveAndSwapSteps(executionQuote);
@@ -4038,12 +4250,13 @@ export function useSwapBuildTx() {
           if (!isExecutionRevisionCurrent(executionRevision)) {
             return;
           }
+          const reviewExecutionBlocked = getReviewExecutionGuardState().blocked;
           setSwapSteps((prev) => ({
             ...prev,
             preSwapData: {
               ...prev.preSwapData,
               stepBeforeActionsLoading: false,
-              stepBeforeActionsError: true,
+              stepBeforeActionsError: reviewExecutionBlocked ? undefined : true,
               netWorkFee: undefined,
             },
           }));
@@ -4051,6 +4264,7 @@ export function useSwapBuildTx() {
       }
     },
     [
+      assertReviewExecutionCurrent,
       assertExecutionSignerUnchanged,
       buildSwapAction,
       estimateNetworkFee,
@@ -4063,6 +4277,8 @@ export function useSwapBuildTx() {
       fromUserAddress,
       toUserAddress,
       isExecutionRevisionCurrent,
+      isReviewExecutionCurrent,
+      getReviewExecutionGuardState,
     ],
   );
 
@@ -4076,8 +4292,23 @@ export function useSwapBuildTx() {
       operationRevisionOverride?: string,
     ) => {
       const currentExecutionSnapshot = executionSnapshotRef.current;
+      const quoteResultAtInvocation =
+        currentExecutionSnapshot?.quoteResult ??
+        swapStepsValues?.quoteResult ??
+        swapSteps.quoteResult;
+      const isStockExecution =
+        executionSnapshot?.swapType === ESwapTabSwitchType.STOCK ||
+        currentExecutionSnapshot?.swapType === ESwapTabSwitchType.STOCK ||
+        getSwapExecutionTypeFromQuoteResult(quoteResultAtInvocation) ===
+          ESwapTabSwitchType.STOCK;
       const operationRevision =
-        operationRevisionOverride ?? currentExecutionSnapshot?.reviewRevision;
+        operationRevisionOverride ??
+        (executionSnapshot?.swapType === ESwapTabSwitchType.STOCK
+          ? executionSnapshot.reviewRevision
+          : currentExecutionSnapshot?.reviewRevision);
+      if (isStockExecution && !operationRevision) {
+        return;
+      }
       if (!isExecutionRevisionCurrent(operationRevision)) {
         return;
       }
@@ -4096,10 +4327,7 @@ export function useSwapBuildTx() {
             slippage: currentExecutionSnapshot.slippage,
           }
         : livePreSwapData;
-      const quoteResultFinal =
-        currentExecutionSnapshot?.quoteResult ??
-        swapStepsValues?.quoteResult ??
-        swapSteps.quoteResult;
+      const quoteResultFinal = quoteResultAtInvocation;
       if (swapStepsValuesFinal.length > 0) {
         for (let i = 0; i < swapStepsValuesFinal.length; i += 1) {
           if (!isExecutionRevisionCurrent(operationRevision)) {
@@ -4113,6 +4341,7 @@ export function useSwapBuildTx() {
             (canRetry && status === ESwapStepStatus.FAILED)
           ) {
             try {
+              assertReviewExecutionCurrent();
               setSwapSteps(
                 (prevSteps: {
                   steps: ISwapStep[];
@@ -4412,6 +4641,7 @@ export function useSwapBuildTx() {
       }
     },
     [
+      assertReviewExecutionCurrent,
       assertExecutionSignerUnchanged,
       goBackQrCodeModal,
       swapSteps.steps,
@@ -4428,6 +4658,7 @@ export function useSwapBuildTx() {
       buildTxNew,
       signMessage,
       batchApproveSwap,
+      executionSnapshot,
       isExecutionRevisionCurrent,
     ],
   );

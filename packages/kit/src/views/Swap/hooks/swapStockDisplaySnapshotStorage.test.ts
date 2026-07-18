@@ -161,6 +161,38 @@ describe('swapStockDisplaySnapshotStorage', () => {
     ).toBeUndefined();
   });
 
+  it('drops an aged display balance on cold start while retaining selection', () => {
+    const updatedAt = Date.now() - 2 * 24 * 60 * 60 * 1000;
+    const snapshot = {
+      ...buildSnapshotWithRuntimeAmount('account-a', updatedAt),
+      balance: {
+        identity: {
+          accountKey: 'account-a',
+          inputTokenKey: 'evm--56:0xusdc:token',
+        },
+        inputTokenKey: 'evm--56:0xusdc:token',
+        value: '12.5',
+        updatedAt,
+      },
+    } satisfies ISwapStockDisplaySnapshot;
+    mockStoredValue = {
+      version: 1,
+      entries: {
+        [encodeURIComponent('account-a')]: {
+          snapshot,
+          updatedAt,
+        },
+      },
+    };
+
+    swapStockDisplaySnapshotStorage.reload();
+
+    expect(swapStockDisplaySnapshotStorage.get('account-a')).toMatchObject({
+      selection: { payToken: { symbol: 'USDC' } },
+      balance: undefined,
+    });
+  });
+
   it('ignores legacy persisted amounts during cold-start hydration', () => {
     const snapshot = buildSnapshotWithRuntimeAmount('account-a', Date.now());
     mockStoredValue = {

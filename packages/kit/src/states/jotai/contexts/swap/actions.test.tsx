@@ -12,6 +12,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
+import { getSwapTokenIdentityKey } from '@onekeyhq/shared/src/utils/swapTokenIdentity';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   ICancelSwapQuoteEventsV2Params,
@@ -83,6 +84,7 @@ import {
   swapSpeedQuoteSessionStateAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
+  swapStockMarketQuoteGateAtom,
   swapStockSelectedFromTokenBalanceAtom,
   swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
@@ -94,7 +96,10 @@ import {
   useSwapSelectedToTokenBalanceAtom,
   useSwapStockSelectedTokenAtom,
 } from './atoms';
-import { ESwapQuoteCommitPhase } from './quoteCommittedState';
+import {
+  ESwapQuoteCommitPhase,
+  initialSwapQuoteCommittedState,
+} from './quoteCommittedState';
 import {
   ESwapQuoteUiPhase,
   buildSwapManualProviderSelectionIntent,
@@ -106,6 +111,7 @@ import {
   buildSwapQuoteDisplayIntentFingerprint,
   buildSwapQuoteExecutionFingerprint,
 } from './quoteSessionV2';
+import { ESwapStockMarketQuoteGateStatus } from './stockMarketQuoteGate';
 
 type IFetchSwapTokenDetailsParams = {
   networkId: string;
@@ -2588,6 +2594,187 @@ describe('useSwapActions', () => {
     expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      name: 'the owned market is closed',
+      ownerStockKey: getSwapTokenIdentityKey(stockTokenA),
+      status: ESwapStockMarketQuoteGateStatus.Closed,
+    },
+    {
+      name: 'the owned market status is still checking',
+      ownerStockKey: getSwapTokenIdentityKey(stockTokenA),
+      status: ESwapStockMarketQuoteGateStatus.Checking,
+    },
+    {
+      name: 'an allowed gate belongs to another stock',
+      ownerStockKey: getSwapTokenIdentityKey(appleStockToken),
+      status: ESwapStockMarketQuoteGateStatus.Allowed,
+    },
+  ])(
+    'does not start a Stock quote when $name',
+    async ({ ownerStockKey, status }) => {
+      const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+        storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+        storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+        storeInstance.set(swapSelectToTokenAtom(), stockTokenA);
+        storeInstance.set(swapStockExecutionTokenSyncIdAtom(), 1);
+        storeInstance.set(swapStockExecutionTokensAtom(), {
+          syncId: 1,
+          fromToken: usdcToken,
+          toToken: stockTokenA,
+        });
+        storeInstance.set(swapStockSelectedTokenAtom(), stockTokenA);
+        storeInstance.set(swapStockMarketQuoteGateAtom(), {
+          ownerStockKey,
+          status,
+        });
+        storeInstance.set(swapFromTokenAmountAtom(), {
+          value: '7',
+          isInput: true,
+        });
+        storeInstance.set(swapToTokenAmountAtom(), {
+          value: 'stale-derived-amount',
+          isInput: false,
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.quoteAction(
+          { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+          '0xabc',
+          evmAccount.id,
+          undefined,
+          undefined,
+          ESwapQuoteKind.SELL,
+        );
+      });
+
+      expect(mockFetchQuotesEventsV2).not.toHaveBeenCalled();
+      expect(
+        store.get(swapQuoteSessionStateAtom()).activeSession,
+      ).toBeUndefined();
+      expect(store.get(swapQuoteFetchingAtom())).toBe(false);
+      expect(store.get(swapQuoteActionLockAtom()).actionLock).toBe(false);
+      if (status === ESwapStockMarketQuoteGateStatus.Closed) {
+        expect(store.get(swapToTokenAmountAtom())).toEqual({
+          value: '',
+          isInput: false,
+        });
+      }
+    },
+  );
+
+  it('closes a Stock quote once while preserving the input draft, provider, and execution ownership', () => {
+    const session = {
+      surfaceId: 'main:stock:market-close-idempotence',
+      requestId: 'request-stock-before-idempotent-close',
+      fingerprint: 'fingerprint-stock-before-idempotent-close',
+      intentRevision: 3,
+    };
+    const activeQuote = {
+      quoteId: 'stock-quote-before-idempotent-close',
+      fromAmount: '21',
+      toAmount: '0.0683',
+      kind: ESwapQuoteKind.SELL,
+      protocol: EProtocolOfExchange.STOCK,
+      fromTokenInfo: usdcToken,
+      toTokenInfo: stockTokenA,
+      info: { provider: 'stock', providerName: 'Stock' },
+    } as IFetchQuoteResult;
+    const manualProvider = buildSwapManualProviderSelectionIntent(activeQuote);
+    const executionTokens = {
+      syncId: 11,
+      fromToken: usdcToken,
+      toToken: stockTokenA,
+    };
+    const ownerStockKey = getSwapTokenIdentityKey(stockTokenA);
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+      storeInstance.set(swapSelectToTokenAtom(), stockTokenA);
+      storeInstance.set(swapStockSelectedTokenAtom(), stockTokenA);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '21',
+        isInput: true,
+      });
+      storeInstance.set(swapToTokenAmountAtom(), {
+        value: '0.0683',
+        isInput: false,
+      });
+      storeInstance.set(swapStockExecutionTokenSyncIdAtom(), 11);
+      storeInstance.set(swapStockExecutionTokensAtom(), executionTokens);
+      storeInstance.set(swapManualSelectQuoteProvidersAtom(), manualProvider);
+      storeInstance.set(swapStockMarketQuoteGateAtom(), {
+        ownerStockKey,
+        status: ESwapStockMarketQuoteGateStatus.Allowed,
+      });
+      storeInstance.set(swapQuoteSessionStateAtom(), {
+        surfaceId: session.surfaceId,
+        intentRevision: session.intentRevision,
+        activeSession: session,
+        bgGeneration: 1,
+        lastSequence: 0,
+        phase: 'streaming',
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    const closedGate = {
+      ownerStockKey,
+      status: ESwapStockMarketQuoteGateStatus.Closed,
+    };
+
+    act(() => {
+      result.current.setSwapStockMarketQuoteGate(closedGate);
+    });
+
+    const sessionAfterFirstClose = store.get(swapQuoteSessionStateAtom());
+    expect(sessionAfterFirstClose.intentRevision).toBeGreaterThan(
+      session.intentRevision,
+    );
+    expect(sessionAfterFirstClose.activeSession).toBeUndefined();
+    expect(mockCancelFetchQuoteEventsV2).toHaveBeenCalledTimes(1);
+    expect(mockCancelFetchQuoteEventsV2).toHaveBeenCalledWith({
+      surfaceId: session.surfaceId,
+      requestId: session.requestId,
+    });
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: activeQuote.fromAmount,
+      isInput: true,
+    });
+    expect(store.get(swapToTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+    expect(store.get(swapManualSelectQuoteProvidersAtom())).toEqual(
+      manualProvider,
+    );
+    expect(store.get(swapStockExecutionTokenSyncIdAtom())).toBe(11);
+    expect(store.get(swapStockExecutionTokensAtom())).toEqual(executionTokens);
+
+    act(() => {
+      result.current.setSwapStockMarketQuoteGate(closedGate);
+    });
+
+    expect(store.get(swapQuoteSessionStateAtom()).intentRevision).toBe(
+      sessionAfterFirstClose.intentRevision,
+    );
+    expect(mockCancelFetchQuoteEventsV2).toHaveBeenCalledTimes(1);
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: activeQuote.fromAmount,
+      isInput: true,
+    });
+    expect(store.get(swapManualSelectQuoteProvidersAtom())).toEqual(
+      manualProvider,
+    );
+    expect(store.get(swapStockExecutionTokenSyncIdAtom())).toBe(11);
+    expect(store.get(swapStockExecutionTokensAtom())).toEqual(executionTokens);
+  });
+
   it('rejects an incomplete non-native empty-address token before opening a quote session', async () => {
     const incompleteToken: ISwapToken = {
       ...ethToken,
@@ -2635,6 +2822,10 @@ describe('useSwapActions', () => {
         syncId: 1,
         fromToken: usdcToken,
         toToken: stockTokenA,
+      });
+      storeInstance.set(swapStockMarketQuoteGateAtom(), {
+        ownerStockKey: getSwapTokenIdentityKey(stockTokenA),
+        status: ESwapStockMarketQuoteGateStatus.Allowed,
       });
       storeInstance.set(swapStockSelectedTokenAtom(), stockTokenA);
       storeInstance.set(swapFromTokenAmountAtom(), {
@@ -4827,6 +5018,150 @@ describe('useSwapActions', () => {
       }),
     );
   });
+
+  it.each([
+    {
+      gateOwnerStockKey: getSwapTokenIdentityKey(stockTokenA),
+      gateStatus: ESwapStockMarketQuoteGateStatus.Closed,
+      name: 'closed',
+    },
+    {
+      gateOwnerStockKey: getSwapTokenIdentityKey(stockTokenA),
+      gateStatus: ESwapStockMarketQuoteGateStatus.Checking,
+      name: 'checking',
+    },
+    {
+      gateOwnerStockKey: getSwapTokenIdentityKey(appleStockToken),
+      gateStatus: ESwapStockMarketQuoteGateStatus.Allowed,
+      name: 'allowed for another owner',
+    },
+  ])(
+    'invalidates a Stock quote session when the market gate becomes $name and rejects its late event',
+    ({ gateOwnerStockKey, gateStatus }) => {
+      const session = {
+        surfaceId: 'main:stock:market-closed',
+        requestId: 'request-stock-before-close',
+        fingerprint: 'fingerprint-stock-before-close',
+        intentRevision: 3,
+      };
+      const activeQuote = {
+        quoteId: 'stock-quote-before-close',
+        fromAmount: '21',
+        toAmount: '0.0683',
+        kind: ESwapQuoteKind.SELL,
+        protocol: EProtocolOfExchange.STOCK,
+        fromTokenInfo: usdcToken,
+        toTokenInfo: stockTokenA,
+        info: { provider: 'stock', providerName: 'Stock' },
+      } as IFetchQuoteResult;
+      const lateQuote = {
+        ...activeQuote,
+        quoteId: 'late-stock-quote-after-close',
+        toAmount: '0.07',
+      };
+      const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+        storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+        storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+        storeInstance.set(swapSelectToTokenAtom(), stockTokenA);
+        storeInstance.set(swapFromTokenAmountAtom(), {
+          value: '21',
+          isInput: true,
+        });
+        storeInstance.set(swapToTokenAmountAtom(), {
+          value: '0.0683',
+          isInput: false,
+        });
+        storeInstance.set(swapStockMarketQuoteGateAtom(), {
+          ownerStockKey: getSwapTokenIdentityKey(stockTokenA),
+          status: ESwapStockMarketQuoteGateStatus.Allowed,
+        });
+        storeInstance.set(swapQuoteListAtom(), [activeQuote]);
+        storeInstance.set(swapQuoteFetchingAtom(), true);
+        storeInstance.set(swapQuoteSessionStateAtom(), {
+          surfaceId: session.surfaceId,
+          intentRevision: session.intentRevision,
+          activeSession: session,
+          bgGeneration: 1,
+          lastSequence: 0,
+          phase: 'streaming',
+        });
+        storeInstance.set(swapQuoteCommittedStateAtom(), {
+          phase: ESwapQuoteCommitPhase.Requesting,
+          intentFingerprint: session.fingerprint,
+          requestId: session.requestId,
+          pendingQuotes: [activeQuote],
+          settledQuotes: [],
+          displayQuote: activeQuote,
+          executableQuote: activeQuote,
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+
+      act(() => {
+        result.current.setSwapStockMarketQuoteGate({
+          ownerStockKey: gateOwnerStockKey,
+          status: gateStatus,
+        });
+      });
+
+      expect(store.get(swapStockMarketQuoteGateAtom())).toEqual({
+        ownerStockKey: gateOwnerStockKey,
+        status: gateStatus,
+      });
+      expect(mockCancelFetchQuoteEventsV2).toHaveBeenCalledWith({
+        surfaceId: session.surfaceId,
+        requestId: session.requestId,
+      });
+      expect(
+        store.get(swapQuoteSessionStateAtom()).activeSession,
+      ).toBeUndefined();
+      expect(store.get(swapQuoteFetchingAtom())).toBe(false);
+      expect(store.get(swapQuoteListAtom())).toEqual([]);
+      expect(store.get(swapQuoteCommittedStateAtom())).toEqual(
+        initialSwapQuoteCommittedState,
+      );
+      if (gateStatus === ESwapStockMarketQuoteGateStatus.Closed) {
+        expect(store.get(swapToTokenAmountAtom())).toEqual({
+          value: '',
+          isInput: false,
+        });
+      }
+
+      act(() => {
+        result.current.quoteEventHandlerV2({
+          version: 2,
+          kind: 'message',
+          session,
+          bgGeneration: 1,
+          sequence: 1,
+          emittedAt: 1,
+          params: {
+            fromNetworkId: usdcToken.networkId,
+            fromTokenAddress: usdcToken.contractAddress,
+            fromTokenAmount: '21',
+            protocol: EProtocolOfExchange.STOCK,
+            slippagePercentage: 0.5,
+            toNetworkId: stockTokenA.networkId,
+            toTokenAddress: stockTokenA.contractAddress,
+          },
+          tokenPairs: { fromToken: usdcToken, toToken: stockTokenA },
+          data: JSON.stringify({ data: [lateQuote] }),
+          lastEventId: null,
+        });
+      });
+
+      expect(
+        store.get(swapQuoteSessionStateAtom()).activeSession,
+      ).toBeUndefined();
+      expect(store.get(swapQuoteFetchingAtom())).toBe(false);
+      expect(store.get(swapQuoteListAtom())).toEqual([]);
+      expect(store.get(swapQuoteCommittedStateAtom())).toEqual(
+        initialSwapQuoteCommittedState,
+      );
+    },
+  );
 
   it('does not revive an old protocol quote after switching tabs', async () => {
     const session = {

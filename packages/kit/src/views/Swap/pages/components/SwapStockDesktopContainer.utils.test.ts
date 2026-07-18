@@ -210,18 +210,6 @@ describe('SwapStockDesktopContainer utils', () => {
     },
   );
 
-  it('settles closed-market receive state without making a ready amount input readonly', () => {
-    expect(
-      shouldHideStockEstimatedReceive({
-        channelStage: ESwapStockChannelStage.MarketClosed,
-        hasQuoteBlocker: false,
-      }),
-    ).toBe(true);
-    expect(getStockAmountInputInteractionProps(true)).toEqual({
-      readonly: false,
-    });
-  });
-
   it('keeps Stock header content visible while detail and images load for a known token', () => {
     expect(
       shouldRenderStockMarketHeaderSkeleton({

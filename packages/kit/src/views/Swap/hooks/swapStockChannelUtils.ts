@@ -90,19 +90,15 @@ export function getValidStockExecutionBalance(balance?: string) {
 }
 
 export function resolveStockDisplayBalance({
-  allowSnapshotBalance = true,
   liveBalance,
   snapshotBalance,
 }: {
-  allowSnapshotBalance?: boolean;
   liveBalance?: string;
   snapshotBalance?: string;
 }) {
   return (
     getValidStockExecutionBalance(liveBalance) ??
-    (allowSnapshotBalance
-      ? getValidStockExecutionBalance(snapshotBalance)
-      : undefined)
+    getValidStockExecutionBalance(snapshotBalance)
   );
 }
 

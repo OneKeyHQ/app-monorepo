@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -11,6 +18,7 @@ import {
   useSwapStockSelectedTokenAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { ESwapStockMarketQuoteGateStatus } from '@onekeyhq/kit/src/states/jotai/contexts/swap/stockMarketQuoteGate';
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
@@ -130,7 +138,8 @@ export function useSwapStockChannel() {
     useSwapStockSelectedTokenAtom();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const { selectStockExecutionTokens } = useSwapActions().current;
+  const { selectStockExecutionTokens, setSwapStockMarketQuoteGate } =
+    useSwapActions().current;
   const { spotCategories } = useMarketBasicConfig();
   const [tradeSideState, setTradeSideState] = useState<
     ESwapStockTradeSide | undefined
@@ -730,6 +739,32 @@ export function useSwapStockChannel() {
     payTokenStatus,
     stockTokenStatus,
   });
+  const stockMarketQuoteGate = useMemo(() => {
+    if (!currentStockTokenKey) {
+      return undefined;
+    }
+    let status = ESwapStockMarketQuoteGateStatus.Checking;
+    if (channelStage === ESwapStockChannelStage.MarketClosed) {
+      status = ESwapStockMarketQuoteGateStatus.Closed;
+    } else if (readyForQuote) {
+      status = ESwapStockMarketQuoteGateStatus.Allowed;
+    }
+    return {
+      ownerStockKey: currentStockTokenKey,
+      status,
+    };
+  }, [channelStage, currentStockTokenKey, readyForQuote]);
+
+  useLayoutEffect(() => {
+    setSwapStockMarketQuoteGate(stockMarketQuoteGate);
+  }, [setSwapStockMarketQuoteGate, stockMarketQuoteGate]);
+
+  useLayoutEffect(
+    () => () => {
+      setSwapStockMarketQuoteGate(undefined);
+    },
+    [setSwapStockMarketQuoteGate],
+  );
 
   useEffect(() => {
     if (!readyForQuote) {

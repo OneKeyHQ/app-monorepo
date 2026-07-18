@@ -466,7 +466,7 @@ describe('swapStockDisplaySnapshotUtils', () => {
     ).toBeUndefined();
   });
 
-  it('expires dynamic trading data before selection and a recent draft', () => {
+  it('expires dynamic trading data and balance before selection and a recent draft', () => {
     const snapshot = mergeSwapStockDisplaySnapshot({
       identity,
       previous: createSnapshot(),
@@ -513,8 +513,16 @@ describe('swapStockDisplaySnapshotUtils', () => {
       }),
     ).toMatchObject({
       selection: { stockToken: { symbol: 'AAPL' } },
+      balance: undefined,
       amount: undefined,
     });
+    expect(
+      getSwapStockDisplayAccountSnapshot({
+        accountKey: identity.accountKey,
+        snapshot,
+        now: NOW + SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS + 1,
+      }),
+    ).toBeUndefined();
   });
 
   it('persists an explicit cleared amount so an older value cannot revive', () => {

@@ -11,14 +11,20 @@ import {
   getTokenIdentityKey,
   getValidStockExecutionBalance,
 } from './swapStockChannelUtils';
+import { SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS } from './swapStockDisplaySnapshotConstants';
+
+export { SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS } from './swapStockDisplaySnapshotConstants';
 
 const SWAP_STOCK_DISPLAY_SNAPSHOT_LEGACY_VERSION = 1 as const;
 
 export const SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION = 2 as const;
-export const SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS =
-  timerUtils.getTimeDurationMs({ week: 1 });
 export const SWAP_STOCK_DISPLAY_DYNAMIC_MAX_AGE_MS =
   timerUtils.getTimeDurationMs({ seconds: 30 });
+// The balance snapshot is presentation-only and never grants quote, Max, or
+// execution readiness. Keep it only across a very recent restart; older
+// balances would look authoritative even though holdings may have changed.
+export const SWAP_STOCK_DISPLAY_BALANCE_MAX_AGE_MS =
+  SWAP_STOCK_DISPLAY_DYNAMIC_MAX_AGE_MS;
 export const SWAP_STOCK_DISPLAY_AMOUNT_MAX_AGE_MS =
   timerUtils.getTimeDurationMs({ minute: 5 });
 export const SWAP_STOCK_DISPLAY_CHART_MAX_POINTS = 500;
@@ -66,7 +72,7 @@ export type ISwapStockDisplayAmountIdentity = {
   amountSessionId: number;
 };
 
-export type ISwapStockDisplayWriteContext = ISwapStockDisplayAccountIdentity &
+type ISwapStockDisplayWriteContext = ISwapStockDisplayAccountIdentity &
   Partial<Omit<ISwapStockDisplayIdentity, 'accountKey'>>;
 
 export type ISwapStockDisplayTokenDetail = Pick<
@@ -799,16 +805,16 @@ export function getSwapStockDisplayAccountSnapshot({
     })
       ? region
       : undefined;
-  // Dynamic trading data is only a brief cold-start bridge. Selection and a
-  // recent user draft may live longer, but an old balance, price, or chart must
-  // never look current after a later app launch.
+  // Prices and charts are brief cold-start bridges. The exact account/token
+  // balance may remain as a display-only projection; execution still requires
+  // the separately scoped live balance request.
   const tokenDetail = keepFresh(
     normalized.tokenDetail,
     SWAP_STOCK_DISPLAY_DYNAMIC_MAX_AGE_MS,
   );
   const balance = keepFresh(
     normalized.balance,
-    SWAP_STOCK_DISPLAY_DYNAMIC_MAX_AGE_MS,
+    SWAP_STOCK_DISPLAY_BALANCE_MAX_AGE_MS,
   );
   const chart = keepFresh(
     normalized.chart,

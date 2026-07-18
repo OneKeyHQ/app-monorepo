@@ -1,9 +1,6 @@
-export type ISwapQuoteSurfaceVisibility =
-  | 'focused'
-  | 'temporarily-hidden'
-  | 'exited';
+type ISwapQuoteSurfaceVisibility = 'focused' | 'temporarily-hidden' | 'exited';
 
-export type ISwapQuoteFocusLifecycleTransition = {
+type ISwapQuoteFocusLifecycleTransition = {
   visibility: ISwapQuoteSurfaceVisibility;
   shouldAttachSessionListeners: boolean;
   shouldDetachSessionListeners: boolean;

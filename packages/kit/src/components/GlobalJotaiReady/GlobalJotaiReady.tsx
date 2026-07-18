@@ -9,6 +9,7 @@ import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { prewarmColdStartImagesFromSnapshot } from '../../utils/coldStartImagePreload';
+import { SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS } from '../../views/Swap/hooks/swapStockDisplaySnapshotConstants';
 
 // Web/desktop gate the React mount on BOTH:
 //   - globalJotaiStorageReadyHandler: source-of-truth atoms have been
@@ -32,6 +33,7 @@ const isWebOrDesktop = platformEnv.isWeb || platformEnv.isDesktop;
 // the app forever.
 const GATE_SAFETY_TIMEOUT_MS = 5000;
 const COLD_START_IMAGE_PRIME_TIMEOUT_MS = isWebOrDesktop ? 160 : 0;
+const STOCK_CRITICAL_IMAGE_WAIT_MS = 80;
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -91,11 +93,21 @@ async function waitForJotaiReadyOnWebOrDesktop(): Promise<void> {
 
 async function primeColdStartImagesBeforeRender(): Promise<void> {
   await prewarmColdStartImagesFromSnapshot({
-    // Do not block the React gate. On iOS, decode the prioritized selected
-    // Swap icons in the background so the first Trade mount can reuse an
-    // ImageRef instead of painting an empty icon slot first.
+    // Keep the global image budget non-blocking. Only the exact persisted
+    // Stock pair gets a short bounded head start before the first Trade paint.
     decode: platformEnv.isNativeIOS,
     primeTimeoutMs: COLD_START_IMAGE_PRIME_TIMEOUT_MS,
+    stockCriticalOptions: platformEnv.isNativeIOS
+      ? {
+          awaitPreload: true,
+          awaitPreloadTimeoutMs: STOCK_CRITICAL_IMAGE_WAIT_MS,
+          decode: platformEnv.isNativeIOS,
+          decodeTimeoutMs: STOCK_CRITICAL_IMAGE_WAIT_MS,
+          maxSelectionAgeMs: SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS,
+          preload: false,
+          requireActiveStock: true,
+        }
+      : undefined,
   });
 }
 

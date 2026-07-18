@@ -30,7 +30,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -51,6 +50,8 @@ import {
   resolveStockDisplayBalance,
   shouldRenderStockTradeInputSkeleton,
 } from './swapStockChannelUtils';
+import { resolveStockSnapshotBalanceForDisplay } from './swapStockDisplayBalanceUtils';
+import { swapStockDisplaySnapshotStorage } from './swapStockDisplaySnapshotStorage';
 import {
   buildStockExecutionBalanceScope,
   buildStockExecutionNetworkAccountScope,
@@ -71,6 +72,7 @@ import {
 
 import type {
   ISwapStockDisplayAmountIdentity,
+  ISwapStockDisplayBalanceSnapshot,
   ISwapStockDisplaySelectionSnapshot,
   ISwapStockDisplayTokenDescriptor,
 } from './swapStockDisplaySnapshotUtils';
@@ -340,6 +342,27 @@ function getNetworkLogoURI(networkId?: string) {
 
 function getStockInputTokenIdentityKey(token?: Partial<ISwapToken>) {
   return getTokenIdentityKey(token);
+}
+
+export function resolveStockRenderedBalanceSnapshot({
+  displayAccountKey,
+  displayInputToken,
+  matchingSnapshotBalance,
+}: {
+  displayAccountKey?: string;
+  displayInputToken?: Partial<ISwapToken>;
+  matchingSnapshotBalance?: ISwapStockDisplayBalanceSnapshot;
+}) {
+  // This fallback is presentation-only. Execution readiness below continues
+  // to consume only the live owner-scoped balance request and published atom.
+  const storedDisplayBalance = displayAccountKey
+    ? swapStockDisplaySnapshotStorage.get(displayAccountKey)?.balance
+    : undefined;
+  return resolveStockSnapshotBalanceForDisplay({
+    displayAccountKey,
+    displayInputToken,
+    snapshotBalance: matchingSnapshotBalance ?? storedDisplayBalance,
+  });
 }
 
 function useStockInputTokenBalance({
@@ -1016,11 +1039,13 @@ export function useSwapStockAmountInputState({
     enabled: canonicalInputOwnerReady,
     token: executionInputToken,
   });
-  const snapshotBalance =
-    !stockInputTokenBalance.failed &&
-    stockDisplay.snapshot?.balance?.inputTokenKey === inputTokenKey
-      ? stockDisplay.snapshot.balance
-      : undefined;
+  const displayAccountKey =
+    stockDisplay.selection.snapshot?.identity.accountKey;
+  const snapshotBalance = resolveStockRenderedBalanceSnapshot({
+    displayAccountKey,
+    displayInputToken,
+    matchingSnapshotBalance: stockDisplay.snapshot?.balance,
+  });
   const liveBalanceReadyForExecution = isStockExecutionBalanceScopeReady({
     balance: stockInputTokenBalance.balance,
     displayIdentityKey: stockInputTokenBalance.displayIdentityKey,
@@ -1034,7 +1059,6 @@ export function useSwapStockAmountInputState({
     publishedBalance: fromTokenBalance,
   });
   const displayBalance = resolveStockDisplayBalance({
-    allowSnapshotBalance: !platformEnv.isNative,
     liveBalance: stockInputTokenBalance.balance,
     snapshotBalance: snapshotBalance?.value,
   });

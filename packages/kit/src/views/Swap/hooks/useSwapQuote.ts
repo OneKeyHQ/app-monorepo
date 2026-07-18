@@ -40,6 +40,7 @@ import type {
 
 import { useDebounce } from '../../../hooks/useDebounce';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
+import { usePrevious } from '../../../hooks/usePrevious';
 import {
   useAccountSelectorStorageInitDoneAtom,
   useIsAccountSelectorActiveAccountInitDone,
@@ -64,6 +65,7 @@ import {
   useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
   useSwapStockExecutionTokenSyncIdAtom,
+  useSwapStockMarketQuoteGateAtom,
   useSwapToAnotherAccountAddressAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
@@ -76,6 +78,7 @@ import {
   getSwapQuoteKindForCurrentInput,
 } from '../../../states/jotai/contexts/swap/quoteSemanticIntent';
 import { isSwapQuoteSessionEventForCurrentSession } from '../../../states/jotai/contexts/swap/quoteSessionV2';
+import { isSwapStockMarketQuoteBlocked } from '../../../states/jotai/contexts/swap/stockMarketQuoteGate';
 import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
 import { isSameSwapExecutionAddress } from '../utils/swapExecutionSnapshotGuard';
 import { getSwapQuoteReadiness } from '../utils/swapQuoteReadiness';
@@ -111,6 +114,7 @@ export function useSwapQuote() {
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapStockExecutionTokenSyncId] =
     useSwapStockExecutionTokenSyncIdAtom();
+  const [swapStockMarketQuoteGate] = useSwapStockMarketQuoteGateAtom();
   const [swapFromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
@@ -139,11 +143,7 @@ export function useSwapQuote() {
     fromAddressInfoReady: isFromAddressInfoReady,
     toAddressInfoReady: isToAddressInfoReady,
   });
-  const shouldPauseQuote = !quoteReadiness.ready;
-  const shouldPauseQuoteRef = useRef(shouldPauseQuote);
-  if (shouldPauseQuoteRef.current !== shouldPauseQuote) {
-    shouldPauseQuoteRef.current = shouldPauseQuote;
-  }
+  const shouldPauseQuoteForReadiness = !quoteReadiness.ready;
   const swapProInputToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
   const focusSwapPro = useMemo(() => {
@@ -163,6 +163,26 @@ export function useSwapQuote() {
     }
     return swapToToken;
   }, [focusSwapPro, swapProToToken, swapToToken]);
+  const isStockMarketQuoteBlocked =
+    swapTabSwitchType === ESwapTabSwitchType.STOCK &&
+    isSwapStockMarketQuoteBlocked({
+      fromToken,
+      gate: swapStockMarketQuoteGate,
+      toToken,
+    });
+  const shouldPauseQuote =
+    shouldPauseQuoteForReadiness || isStockMarketQuoteBlocked;
+  const previousShouldPauseQuote = usePrevious(shouldPauseQuote);
+  const previousSwapTabSwitchType = usePrevious(swapTabSwitchType);
+  const isStockQuoteResumeRef = useRef(false);
+  isStockQuoteResumeRef.current = Boolean(
+    previousSwapTabSwitchType === ESwapTabSwitchType.STOCK &&
+    swapTabSwitchType === ESwapTabSwitchType.STOCK &&
+    previousShouldPauseQuote &&
+    !shouldPauseQuote,
+  );
+  const shouldPauseQuoteRef = useRef(shouldPauseQuote);
+  shouldPauseQuoteRef.current = shouldPauseQuote;
   const [swapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
   const [swapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
@@ -210,6 +230,7 @@ export function useSwapQuote() {
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
   const shouldRefreshPreservedInputQuoteOnFocusRef = useRef(false);
+  const stockQuoteRefreshedBeforeRouteFocusRef = useRef(false);
   if (
     fromTokenAmountRef.current?.value !== fromTokenAmount.value ||
     fromTokenAmountRef.current?.isInput !== fromTokenAmount.isInput
@@ -266,6 +287,8 @@ export function useSwapQuote() {
   if (isFocusRef.current !== isFocused) {
     isFocusRef.current = isFocused;
   }
+  const stockQuoteRouteFocus =
+    swapTabSwitchType === ESwapTabSwitchType.STOCK ? isFocused : undefined;
   const activeAccountRef = useRef<
     ReturnType<typeof useSwapAddressInfo> | undefined
   >(undefined);
@@ -359,7 +382,9 @@ export function useSwapQuote() {
     if (tokenPairChanged) {
       setSwapManualSelectQuoteProviders(undefined);
     }
-    invalidateQuoteIntent({ isPending: semanticIntent.hasValidInput });
+    invalidateQuoteIntent({
+      isPending: semanticIntent.hasValidInput && !shouldPauseQuoteRef.current,
+    });
     if (!isFocusRef.current && semanticIntent.hasValidInput) {
       shouldRefreshPreservedInputQuoteOnFocusRef.current = true;
     }
@@ -371,19 +396,26 @@ export function useSwapQuote() {
   ]);
 
   useEffect(() => {
-    if (shouldPauseQuote) {
+    if (shouldPauseQuoteForReadiness) {
       closeQuoteEvent();
     }
-  }, [closeQuoteEvent, shouldPauseQuote]);
+  }, [closeQuoteEvent, shouldPauseQuoteForReadiness]);
 
   useEffect(() => {
     if (swapTabSwitchType !== ESwapTabSwitchType.STOCK) {
       return;
     }
-    if (isStockFromAmountDebouncing && !swapQuoteFetching) {
+    if (
+      isStockFromAmountDebouncing &&
+      !shouldPauseQuoteRef.current &&
+      !swapQuoteFetching
+    ) {
       setSwapQuoteFetching(true);
     }
-    if (!fromTokenAmount.value && swapQuoteFetching) {
+    if (
+      (!fromTokenAmount.value || shouldPauseQuoteRef.current) &&
+      swapQuoteFetching
+    ) {
       setSwapQuoteFetching(false);
     }
   }, [
@@ -440,10 +472,9 @@ export function useSwapQuote() {
       }));
     }
   }, [toToken?.decimals, toAmountDebounce, setToTokenAmount]);
-
   useEffect(() => {
     if (!isFocusRef.current) return;
-    if (shouldPauseQuote) return;
+    if (shouldPauseQuoteRef.current) return;
     if (!fromTokenAmount.value && fromTokenAmount.isInput) {
       void quoteAction(
         swapSlippageRef.current,
@@ -460,7 +491,7 @@ export function useSwapQuote() {
 
   useEffect(() => {
     if (!isFocusRef.current) return;
-    if (shouldPauseQuote) return;
+    if (shouldPauseQuoteRef.current) return;
     if (
       !toTokenAmount.value &&
       toTokenAmount.isInput &&
@@ -483,7 +514,10 @@ export function useSwapQuote() {
     if (!isFocusRef.current) {
       return;
     }
-    if (shouldPauseQuote) {
+    if (shouldPauseQuoteRef.current) {
+      return;
+    }
+    if (isStockQuoteResumeRef.current) {
       return;
     }
     if (
@@ -506,7 +540,6 @@ export function useSwapQuote() {
     quoteAction,
     swapApproveAllowanceSelectOpen,
     swapSlippageDialogOpening,
-    shouldPauseQuote,
     getCurrentQuoteKind,
   ]);
 
@@ -542,7 +575,10 @@ export function useSwapQuote() {
     if (!keyChanged && !customValueChanged) {
       return;
     }
-    if (shouldPauseQuote) {
+    if (shouldPauseQuoteRef.current) {
+      return;
+    }
+    if (isStockQuoteResumeRef.current) {
       return;
     }
 
@@ -565,11 +601,18 @@ export function useSwapQuote() {
   ]);
 
   useEffect(() => {
-    if (shouldPauseQuote) {
+    if (shouldPauseQuoteRef.current) {
       return;
     }
     if (!isFocusRef.current) {
       return;
+    }
+    if (swapTabSwitchTypeRef.current === ESwapTabSwitchType.STOCK) {
+      if (stockQuoteRefreshedBeforeRouteFocusRef.current) {
+        stockQuoteRefreshedBeforeRouteFocusRef.current = false;
+        return;
+      }
+      shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
     }
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
@@ -626,13 +669,17 @@ export function useSwapQuote() {
     fromAmountDebounce,
     limitSettingsKeyDebounce,
     shouldPauseQuote,
+    stockQuoteRouteFocus,
   ]);
 
   useEffect(() => {
     if (!isFocusRef.current) {
       return;
     }
-    if (shouldPauseQuote) {
+    if (
+      shouldPauseQuoteRef.current ||
+      swapTabSwitchType === ESwapTabSwitchType.STOCK
+    ) {
       return;
     }
     void quoteAction(
@@ -938,6 +985,12 @@ export function useSwapQuote() {
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (!isModalPage) {
+        if (
+          swapTabSwitchTypeRef.current === ESwapTabSwitchType.STOCK &&
+          (!isFocus || isHiddenModel)
+        ) {
+          stockQuoteRefreshedBeforeRouteFocusRef.current = false;
+        }
         const shouldPreserveUserInputAmount =
           shouldPreserveSwapUserInputAmountOnAccountSwitch({
             fromTokenAmount: fromTokenAmountRef.current,
@@ -980,6 +1033,12 @@ export function useSwapQuote() {
             swapApprovingSuccessAction,
           );
           if (focusTransition.shouldRefreshPreservedInput) {
+            if (
+              swapTabSwitchTypeRef.current === ESwapTabSwitchType.STOCK &&
+              !isFocusRef.current
+            ) {
+              stockQuoteRefreshedBeforeRouteFocusRef.current = true;
+            }
             void quoteAction(
               swapSlippageRef.current,
               activeAccountRef.current?.address,

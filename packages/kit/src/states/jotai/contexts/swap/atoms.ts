@@ -77,6 +77,7 @@ import {
   SWAP_SPEED_QUOTE_SESSION_V2_INITIAL_STATE,
 } from './speedQuoteSessionV2';
 
+import type { ISwapStockMarketQuoteGate } from './stockMarketQuoteGate';
 import type { ISwapTokenDetailRequestState } from './tokenDetailRequest';
 import type { IAccountSelectorActiveAccountInfo } from '../accountSelector';
 
@@ -227,6 +228,11 @@ export const {
     }
   | undefined
 >(undefined);
+
+export const {
+  atom: swapStockMarketQuoteGateAtom,
+  use: useSwapStockMarketQuoteGateAtom,
+} = contextAtom<ISwapStockMarketQuoteGate | undefined>(undefined);
 
 export const {
   atom: swapStockSelectedTokenAtom,

@@ -30,6 +30,11 @@ import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
 
+export type ITxConfirmPreflightPhase = 'submit' | 'sign';
+export type ITxConfirmBeforeConfirm = (
+  phase: ITxConfirmPreflightPhase,
+) => void | Promise<void>;
+
 export enum EModalSignatureConfirmRoutes {
   TxDataInput = 'TxDataInput',
   TxAmountInput = 'TxAmountInput',
@@ -106,6 +111,7 @@ export type IModalSignatureConfirmParamList = {
     isQueueMode?: boolean;
     unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
     gasAccountScenario?: IGasAccountScenario;
+    beforeConfirm?: ITxConfirmBeforeConfirm;
   };
   [EModalSignatureConfirmRoutes.MessageConfirm]: {
     accountId: string;
@@ -134,6 +140,7 @@ export type IModalSignatureConfirmParamList = {
     onCancel?: () => void;
     transferPayload?: ITransferPayload;
     gasAccountScenario?: IGasAccountScenario;
+    beforeConfirm?: ITxConfirmBeforeConfirm;
   };
   [EModalSignatureConfirmRoutes.TxReplace]: {
     networkId: string;

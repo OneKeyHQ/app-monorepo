@@ -38,6 +38,11 @@ function buildQuote(provider: string, toAmount: string): IFetchQuoteResult {
 
 describe('swap quote committed state', () => {
   it('pins the first actionable quote while providers stream and publishes the final best quote once', () => {
+    const nowSpy = jest
+      .spyOn(Date, 'now')
+      .mockReturnValueOnce(1000)
+      .mockReturnValueOnce(2000)
+      .mockReturnValueOnce(3000);
     const previousQuote = buildQuote('previous', '10');
     const firstCandidate = buildQuote('first', '11');
     const bestCandidate = buildQuote('best', '12');
@@ -53,6 +58,7 @@ describe('swap quote committed state', () => {
       requestId: 'request-1',
       quotes: [previousQuote],
     });
+    const previousCommittedAt = state.committedAt;
     state = reduceSwapQuoteCommittedState(state, {
       type: 'requestStarted',
       intentFingerprint: 'intent-1',
@@ -80,7 +86,8 @@ describe('swap quote committed state', () => {
     });
     expect(state.displayQuote).toBe(firstCandidate);
     expect(state.executableQuote).toBe(firstCandidate);
-    expect(state.committedAt).toEqual(expect.any(Number));
+    expect(previousCommittedAt).toBe(1000);
+    expect(state.committedAt).toBe(2000);
     expect(
       isSwapQuoteCommittedActiveCandidate(state, state.executableQuote),
     ).toBe(true);
@@ -99,6 +106,7 @@ describe('swap quote committed state', () => {
     expect(state.phase).toBe(ESwapQuoteCommitPhase.Requesting);
     expect(state.displayQuote).toBe(firstCandidate);
     expect(state.executableQuote).toBe(firstCandidate);
+    const firstCandidateCommittedAt = state.committedAt;
 
     state = reduceSwapQuoteCommittedState(state, {
       type: 'requestSettled',
@@ -111,7 +119,10 @@ describe('swap quote committed state', () => {
     expect(state.executableQuote).toBe(bestCandidate);
     expect(state.settledQuotes).toEqual([firstCandidate, bestCandidate]);
     expect(state.phase).toBe(ESwapQuoteCommitPhase.Settled);
+    expect(firstCandidateCommittedAt).toBe(2000);
+    expect(state.committedAt).toBe(3000);
     expect(hasSwapQuoteSelectableProviderCandidate(state)).toBe(false);
+    nowSpy.mockRestore();
   });
 
   it('pins economic fields when the accepted provider streams an updated quote', () => {
@@ -287,11 +298,6 @@ describe('swap quote committed state', () => {
     expect(
       isSwapQuoteCommittedActiveCandidate(state, state.executableQuote),
     ).toBe(false);
-    const preferredCommittedAt = (state.committedAt ?? 0) + 1000;
-    const dateNowSpy = jest
-      .spyOn(Date, 'now')
-      .mockReturnValue(preferredCommittedAt);
-
     state = reduceSwapQuoteCommittedState(state, {
       type: 'candidatesUpdated',
       intentFingerprint: 'intent-1',
@@ -299,10 +305,8 @@ describe('swap quote committed state', () => {
       quotes: [refreshedBestCandidate, refreshedManualCandidate],
       preferredProviderKey: manualProviderKey,
     });
-    dateNowSpy.mockRestore();
     expect(state.displayQuote).toBe(refreshedManualCandidate);
     expect(state.executableQuote).toBe(refreshedManualCandidate);
-    expect(state.committedAt).toBe(preferredCommittedAt);
     expect(
       isSwapQuoteCommittedActiveCandidate(state, state.executableQuote),
     ).toBe(true);
@@ -316,7 +320,6 @@ describe('swap quote committed state', () => {
     });
     expect(state.displayQuote).toBe(refreshedManualCandidate);
     expect(state.executableQuote).toBe(refreshedManualCandidate);
-    expect(state.committedAt).toBe(preferredCommittedAt);
 
     state = reduceSwapQuoteCommittedState(state, {
       type: 'requestSettled',
@@ -466,6 +469,53 @@ describe('swap quote committed state', () => {
       },
     );
     expect(afterStaleSettle).toBe(afterStaleCandidate);
+  });
+
+  it('clears an in-flight committed quote and rejects late events after the intent is invalidated', () => {
+    const activeQuote = buildQuote('active', '10');
+    const lateQuote = buildQuote('late', '99');
+    let state = reduceSwapQuoteCommittedState(initialSwapQuoteCommittedState, {
+      type: 'requestStarted',
+      intentFingerprint: 'intent-active',
+      requestId: 'request-active',
+    });
+    state = reduceSwapQuoteCommittedState(state, {
+      type: 'candidatesUpdated',
+      intentFingerprint: 'intent-active',
+      requestId: 'request-active',
+      quotes: [activeQuote],
+      preferredProviderKey: undefined,
+    });
+
+    expect(state).toEqual(
+      expect.objectContaining({
+        phase: ESwapQuoteCommitPhase.Requesting,
+        displayQuote: activeQuote,
+        executableQuote: activeQuote,
+      }),
+    );
+
+    state = reduceSwapQuoteCommittedState(state, { type: 'reset' });
+
+    expect(state).toEqual(initialSwapQuoteCommittedState);
+
+    const afterLateCandidate = reduceSwapQuoteCommittedState(state, {
+      type: 'candidatesUpdated',
+      intentFingerprint: 'intent-active',
+      requestId: 'request-active',
+      quotes: [lateQuote],
+      preferredProviderKey: undefined,
+    });
+    const afterLateSettle = reduceSwapQuoteCommittedState(afterLateCandidate, {
+      type: 'requestSettled',
+      intentFingerprint: 'intent-active',
+      requestId: 'request-active',
+      quotes: [lateQuote],
+      selectedQuote: lateQuote,
+    });
+
+    expect(afterLateCandidate).toBe(state);
+    expect(afterLateSettle).toBe(state);
   });
 
   it('commits only actionable quotes and keeps failed refreshes non-executable', () => {

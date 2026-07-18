@@ -4,10 +4,7 @@ import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type {
-  IDialogInstance,
-  IPageNavigationProp,
-} from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Dialog,
   EPageType,
@@ -54,6 +51,7 @@ import {
   useSwapShouldRefreshQuoteAtom,
   useSwapSpeedQuoteResultAtom,
   useSwapStepsAtom,
+  useSwapStockMarketQuoteGateAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -64,6 +62,7 @@ import {
   buildSwapQuoteLimitSemanticSettingsKey,
   getSwapQuoteKindForCurrentInput,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteSemanticIntent';
+import { isSwapStockMarketQuoteBlocked } from '@onekeyhq/kit/src/states/jotai/contexts/swap/stockMarketQuoteGate';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import {
@@ -145,9 +144,15 @@ import {
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapReviewState } from '../../utils/buildSwapReviewState';
 import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
-import { resolveSwapReviewRiskCheckInput } from '../../utils/swapExecutionSnapshotGuard';
+import {
+  resolveSwapReviewExecutionGuardState,
+  resolveSwapReviewRiskCheckInput,
+} from '../../utils/swapExecutionSnapshotGuard';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
-import { ESwapExecutionRecipientMode } from '../../utils/swapReviewState';
+import {
+  ESwapExecutionRecipientMode,
+  type ISwapExecutionSnapshot,
+} from '../../utils/swapReviewState';
 import { getSwapAnalyticsTokenListType } from '../../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -160,8 +165,9 @@ import SwapProContainer from './SwapProContainer';
 import {
   SwapStockDesktopContainer,
   SwapStockMobileContainer,
-} from './SwapStockContainerLazy';
+} from './SwapStockDesktopContainer';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
+import { useSwapReviewDialogLifecycle } from './useSwapReviewDialogLifecycle';
 
 import type { ScrollView as ScrollViewNative } from 'react-native';
 
@@ -183,6 +189,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [quoteCommittedState] = useSwapQuoteCommittedStateAtom();
   const [alerts] = useSwapAlertsAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [stockMarketQuoteGate] = useSwapStockMarketQuoteGateAtom();
   const focusSwapPro =
     platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const [rateDifference] = useRateDifferenceAtom();
@@ -450,7 +457,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
   }
-  const dialogRef = useRef<IDialogInstance>(null);
   const InTabDialog = useInTabDialog();
   const InModalDialog = useInModalDialog();
   const storeName = useMemo(
@@ -465,6 +471,21 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   if (swapReviewExecutionSnapshotRef.current !== swapReviewExecutionSnapshot) {
     swapReviewExecutionSnapshotRef.current = swapReviewExecutionSnapshot;
   }
+  const quoteSessionStateRef = useRef(quoteSessionState);
+  quoteSessionStateRef.current = quoteSessionState;
+  const stockMarketQuoteGateRef = useRef(stockMarketQuoteGate);
+  stockMarketQuoteGateRef.current = stockMarketQuoteGate;
+  const isReviewSnapshotCurrent = useCallback(
+    (snapshot: ISwapExecutionSnapshot) =>
+      swapReviewExecutionSnapshotRef.current?.reviewRevision ===
+        snapshot.reviewRevision &&
+      !resolveSwapReviewExecutionGuardState({
+        snapshot,
+        quoteSessionState: quoteSessionStateRef.current,
+        stockMarketQuoteGate: stockMarketQuoteGateRef.current,
+      }).blocked,
+    [],
+  );
   const confirmInFlightRevisionRef = useRef<string | undefined>(undefined);
 
   const swapStepsRef = useRef<ISwapStep[]>([]);
@@ -994,17 +1015,19 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     });
 
     if (!nextReviewState.executionSnapshot) {
+      swapReviewExecutionSnapshotRef.current = undefined;
       setSwapReviewExecutionSnapshot(undefined);
-      return false;
+      return undefined;
     }
 
+    swapReviewExecutionSnapshotRef.current = nextReviewState.executionSnapshot;
     setSwapReviewExecutionSnapshot(nextReviewState.executionSnapshot);
     setSwapSteps({
       steps: [...nextReviewState.steps],
       preSwapData: nextReviewState.preSwapData,
       quoteResult: { ...(nextReviewState.quoteResult as IFetchQuoteResult) },
     });
-    return true;
+    return nextReviewState.executionSnapshot;
   }, [
     currentQuoteRes,
     activeLimitSettingsKey,
@@ -1201,27 +1224,49 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     });
   }, [intl, onActionHandlerBefore]);
 
-  const dialogClose = useCallback(() => {
-    void dialogRef.current?.close();
-  }, []);
-
-  const onPreSwapClose = useCallback(() => {
-    dialogClose();
-    setSwapBuildTxFetching(false);
-    setSwapReviewExecutionSnapshot(undefined);
-    void backgroundApiProxy.serviceGas.abortEstimateFee();
-    setTimeout(() => {
+  const getCurrentReviewRevision = useCallback(
+    () => swapReviewExecutionSnapshotRef.current?.reviewRevision,
+    [],
+  );
+  const isReviewRevisionCurrent = useCallback(
+    (reviewRevision: string) => {
+      const snapshot = swapReviewExecutionSnapshotRef.current;
+      return Boolean(
+        snapshot?.reviewRevision === reviewRevision &&
+        isReviewSnapshotCurrent(snapshot),
+      );
+    },
+    [isReviewSnapshotCurrent],
+  );
+  const { scheduleReview } = useSwapReviewDialogLifecycle({
+    currentReviewRevision: swapReviewExecutionSnapshot?.reviewRevision,
+    isCurrentReviewValid: Boolean(
+      swapReviewExecutionSnapshot &&
+      isReviewSnapshotCurrent(swapReviewExecutionSnapshot),
+    ),
+    getCurrentReviewRevision,
+    isReviewRevisionCurrent,
+    onSettleReview: () => setSwapBuildTxFetching(false),
+    onClearCurrentReview: (reviewRevision) => {
+      if (
+        swapReviewExecutionSnapshotRef.current?.reviewRevision !==
+        reviewRevision
+      ) {
+        return;
+      }
+      swapReviewExecutionSnapshotRef.current = undefined;
+      setSwapReviewExecutionSnapshot(undefined);
+    },
+    onAbortEstimateFee: () => {
+      void backgroundApiProxy.serviceGas.abortEstimateFee();
+    },
+    onClearReviewSteps: () => {
       setSwapSteps({
         steps: [],
         preSwapData: {},
       });
-    }, 100);
-  }, [
-    setSwapBuildTxFetching,
-    dialogClose,
-    setSwapReviewExecutionSnapshot,
-    setSwapSteps,
-  ]);
+    },
+  });
 
   const handleSelectAccountClick = useCallback(() => {
     dismissKeyboard();
@@ -1247,113 +1292,124 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     if (!currentQuoteRes) {
       return;
     }
+    if (
+      swapTypeSwitch === ESwapTabSwitchType.STOCK &&
+      isSwapStockMarketQuoteBlocked({
+        fromToken: fromSelectTokenAtom,
+        gate: stockMarketQuoteGate,
+        toToken: toSelectTokenAtom,
+      })
+    ) {
+      return;
+    }
     if (!focusSwapPro) {
       setSwapShouldRefreshQuote(true);
     }
-    if (!parseQuoteResultToSteps()) {
+    const reviewSnapshot = parseQuoteResultToSteps();
+    if (!reviewSnapshot) {
       return;
     }
     setSwapBuildTxFetching(true);
-    setTimeout(() => {
-      dialogRef.current =
-        pageType === EPageType.modal
-          ? InModalDialog.show({
-              onClose: onPreSwapClose,
-              title: intl.formatMessage({
-                id: ETranslations.global_review_order,
-              }),
-              showFooter: false,
-              renderContent: (
-                <AccountSelectorProviderMirror
-                  config={{
-                    sceneName: EAccountSelectorSceneName.swap,
-                    sceneUrl: '',
-                  }}
-                  enabledNum={[0, 1]}
+    const reviewRevision = reviewSnapshot.reviewRevision;
+    scheduleReview(reviewRevision, ({ onClose, onDone }) =>
+      pageType === EPageType.modal
+        ? InModalDialog.show({
+            onClose,
+            title: intl.formatMessage({
+              id: ETranslations.global_review_order,
+            }),
+            showFooter: false,
+            renderContent: (
+              <AccountSelectorProviderMirror
+                config={{
+                  sceneName: EAccountSelectorSceneName.swap,
+                  sceneUrl: '',
+                }}
+                enabledNum={[0, 1]}
+              >
+                <SwapProviderMirror
+                  storeName={
+                    pageType === EPageType.modal
+                      ? EJotaiContextStoreNames.swapModal
+                      : EJotaiContextStoreNames.swap
+                  }
                 >
-                  <SwapProviderMirror
-                    storeName={
-                      pageType === EPageType.modal
-                        ? EJotaiContextStoreNames.swapModal
-                        : EJotaiContextStoreNames.swap
+                  <PreSwapDialogContent
+                    preSwapBeforeStepActions={preSwapBeforeStepActions}
+                    preSwapStepsStart={preSwapStepsStart}
+                    defaultNetworkFeeLevel={swapProReviewDefaultNetworkFeeLevel}
+                    defaultCustomPriorityFee={
+                      swapProReviewDefaultCustomPriorityFee
                     }
-                  >
-                    <PreSwapDialogContent
-                      preSwapBeforeStepActions={preSwapBeforeStepActions}
-                      preSwapStepsStart={preSwapStepsStart}
-                      defaultNetworkFeeLevel={
-                        swapProReviewDefaultNetworkFeeLevel
-                      }
-                      defaultCustomPriorityFee={
-                        swapProReviewDefaultCustomPriorityFee
-                      }
-                      showCustomNetworkFeeOption={
-                        showSwapProReviewCustomNetworkFeeOption
-                      }
-                      onConfirm={handleConfirm}
-                      onDone={onPreSwapClose}
-                    />
-                  </SwapProviderMirror>
-                </AccountSelectorProviderMirror>
-              ),
-              showCancelButton: false,
-              showConfirmButton: false,
-            })
-          : InTabDialog.show({
-              onClose: onPreSwapClose,
-              title: intl.formatMessage({
-                id: ETranslations.global_review_order,
-              }),
-              showFooter: false,
-              renderContent: (
-                <AccountSelectorProviderMirror
-                  config={{
-                    sceneName: EAccountSelectorSceneName.swap,
-                    sceneUrl: '',
-                  }}
-                  enabledNum={[0, 1]}
+                    showCustomNetworkFeeOption={
+                      showSwapProReviewCustomNetworkFeeOption
+                    }
+                    onConfirm={handleConfirm}
+                    onDone={onDone}
+                  />
+                </SwapProviderMirror>
+              </AccountSelectorProviderMirror>
+            ),
+            showCancelButton: false,
+            showConfirmButton: false,
+          })
+        : InTabDialog.show({
+            onClose,
+            title: intl.formatMessage({
+              id: ETranslations.global_review_order,
+            }),
+            showFooter: false,
+            renderContent: (
+              <AccountSelectorProviderMirror
+                config={{
+                  sceneName: EAccountSelectorSceneName.swap,
+                  sceneUrl: '',
+                }}
+                enabledNum={[0, 1]}
+              >
+                <SwapProviderMirror
+                  storeName={
+                    pageType === EPageType.modal
+                      ? EJotaiContextStoreNames.swapModal
+                      : EJotaiContextStoreNames.swap
+                  }
                 >
-                  <SwapProviderMirror
-                    storeName={
-                      pageType === EPageType.modal
-                        ? EJotaiContextStoreNames.swapModal
-                        : EJotaiContextStoreNames.swap
+                  <PreSwapDialogContent
+                    preSwapBeforeStepActions={preSwapBeforeStepActions}
+                    preSwapStepsStart={preSwapStepsStart}
+                    defaultNetworkFeeLevel={swapProReviewDefaultNetworkFeeLevel}
+                    defaultCustomPriorityFee={
+                      swapProReviewDefaultCustomPriorityFee
                     }
-                  >
-                    <PreSwapDialogContent
-                      preSwapBeforeStepActions={preSwapBeforeStepActions}
-                      preSwapStepsStart={preSwapStepsStart}
-                      defaultNetworkFeeLevel={
-                        swapProReviewDefaultNetworkFeeLevel
-                      }
-                      defaultCustomPriorityFee={
-                        swapProReviewDefaultCustomPriorityFee
-                      }
-                      showCustomNetworkFeeOption={
-                        showSwapProReviewCustomNetworkFeeOption
-                      }
-                      onDone={onPreSwapClose}
-                      onConfirm={handleConfirm}
-                    />
-                  </SwapProviderMirror>
-                </AccountSelectorProviderMirror>
-              ),
-              showCancelButton: false,
-              showConfirmButton: false,
-            });
-    }, 100);
+                    showCustomNetworkFeeOption={
+                      showSwapProReviewCustomNetworkFeeOption
+                    }
+                    onDone={onDone}
+                    onConfirm={handleConfirm}
+                  />
+                </SwapProviderMirror>
+              </AccountSelectorProviderMirror>
+            ),
+            showCancelButton: false,
+            showConfirmButton: false,
+          }),
+    );
   }, [
     focusSwapPro,
     swapProAccount?.result?.addressDetail.address,
     isSwapProMarketPresetLoading,
     currentQuoteRes,
+    swapTypeSwitch,
+    fromSelectTokenAtom,
+    stockMarketQuoteGate,
+    toSelectTokenAtom,
     parseQuoteResultToSteps,
+    scheduleReview,
     setSwapBuildTxFetching,
     handleSelectAccountClick,
     setSwapShouldRefreshQuote,
     pageType,
     InModalDialog,
-    onPreSwapClose,
     intl,
     preSwapBeforeStepActions,
     preSwapStepsStart,

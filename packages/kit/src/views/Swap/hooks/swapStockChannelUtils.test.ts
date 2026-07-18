@@ -93,7 +93,7 @@ describe('swapStockChannelUtils', () => {
     expect(getValidStockExecutionBalance('-1')).toBeUndefined();
   });
 
-  it('can suppress a cached numeric balance until mobile live data arrives', () => {
+  it('uses a valid snapshot for display until a live balance replaces it', () => {
     expect(
       resolveStockDisplayBalance({
         liveBalance: '8',
@@ -101,19 +101,6 @@ describe('swapStockChannelUtils', () => {
       }),
     ).toBe('8');
     expect(resolveStockDisplayBalance({ snapshotBalance: '5' })).toBe('5');
-    expect(
-      resolveStockDisplayBalance({
-        allowSnapshotBalance: false,
-        snapshotBalance: '5',
-      }),
-    ).toBeUndefined();
-    expect(
-      resolveStockDisplayBalance({
-        allowSnapshotBalance: false,
-        liveBalance: '8',
-        snapshotBalance: '5',
-      }),
-    ).toBe('8');
     expect(resolveStockDisplayBalance({})).toBeUndefined();
     expect(
       resolveStockDisplayBalance({ snapshotBalance: 'not-a-balance' }),
@@ -144,6 +131,16 @@ describe('swapStockChannelUtils', () => {
   });
 
   it('unlocks execution only after the exact live balance reaches the shared atom', () => {
+    expect(resolveStockDisplayBalance({ snapshotBalance: '12.5' })).toBe(
+      '12.5',
+    );
+    expect(
+      isStockExecutionBalancePublished({
+        balance: undefined,
+        liveScopeReady: false,
+        publishedBalance: '',
+      }),
+    ).toBe(false);
     expect(
       isStockExecutionBalancePublished({
         balance: '12.5',

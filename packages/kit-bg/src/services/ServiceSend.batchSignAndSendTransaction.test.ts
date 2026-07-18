@@ -74,6 +74,36 @@ function buildUnsignedTx(uuid: string): IUnsignedTxPro {
   };
 }
 
+function buildSwapUnsignedTx(
+  uuid: string,
+  stockSide: 'sender' | 'receiver',
+): IUnsignedTxPro {
+  const payToken = {
+    contractAddress: '0xpay',
+    decimals: 6,
+    networkId,
+    symbol: 'USDC',
+  };
+  const stockToken = {
+    contractAddress: '0xstock',
+    decimals: 18,
+    isStock: true,
+    networkId,
+    symbol: 'STOCK',
+  };
+  return {
+    ...buildUnsignedTx(uuid),
+    swapInfo: {
+      receiver: {
+        token: stockSide === 'receiver' ? stockToken : payToken,
+      },
+      sender: {
+        token: stockSide === 'sender' ? stockToken : payToken,
+      },
+    },
+  } as IUnsignedTxPro;
+}
+
 function buildDecodedTx(): IDecodedTx {
   return {
     txid: '',
@@ -120,6 +150,13 @@ function buildService({
     refreshUnsignedTxBeforeBatchSign,
   });
   const backgroundApi = {
+    serviceMarketV2: {
+      fetchMarketTokenDetailByTokenAddress: jest
+        .fn<Promise<unknown>, [string, string, { autoHandleError: boolean }]>()
+        .mockResolvedValue({
+          data: { token: { stock: { isOpen: true } } },
+        }),
+    },
     serviceSignature: {
       addItemFromSendProcess: signatureItem,
     },
@@ -139,6 +176,8 @@ function buildService({
 
   return {
     decode,
+    fetchMarketTokenDetailByTokenAddress:
+      backgroundApi.serviceMarketV2.fetchMarketTokenDetailByTokenAddress,
     refreshUnsignedTxBeforeBatchSign,
     saveHistory,
     send,
@@ -280,7 +319,8 @@ describe('ServiceSend.batchSignAndSendTransaction irreversible checkpoint', () =
   });
 
   it('checkpoints each broadcast and skips it on a cross-runtime retry', async () => {
-    const { send, service } = buildService();
+    const { fetchMarketTokenDetailByTokenAddress, send, service } =
+      buildService();
     const secondSendError = new OneKeyLocalError('second send failed');
     send
       .mockResolvedValueOnce(buildSignedTx('txid-tx-1'))
@@ -321,5 +361,77 @@ describe('ServiceSend.batchSignAndSendTransaction irreversible checkpoint', () =
     expect(result).toHaveLength(1);
     expect(result[0].signedTx.txid).toBe('txid-tx-2');
     expect(retryCheckpoint).toEqual(['tx-1', 'tx-2']);
+    expect(fetchMarketTokenDetailByTokenAddress).not.toHaveBeenCalled();
+  });
+
+  it.each(['sender', 'receiver'] as const)(
+    'blocks the %s-side Stock swap when the market closes after an approval broadcast',
+    async (stockSide) => {
+      const { fetchMarketTokenDetailByTokenAddress, send, service } =
+        buildService();
+      fetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+        data: { token: { stock: { isOpen: false } } },
+      });
+      const successfullySentTxs: string[] = [];
+
+      await expect(
+        service.batchSignAndSendTransaction({
+          accountId,
+          networkId,
+          unsignedTxs: [
+            buildUnsignedTx('approve-1'),
+            buildSwapUnsignedTx('swap-1', stockSide),
+          ],
+          signOnly: false,
+          transferPayload: undefined,
+          successfullySentTxs,
+        }),
+      ).rejects.toMatchObject({
+        message: 'dexmarket.stock_status_closed_error',
+        data: {
+          batchSendSuccessfullySentTxs: ['approve-1'],
+        },
+      });
+
+      expect(send.mock.calls.map(([params]) => params.unsignedTx.uuid)).toEqual(
+        ['approve-1'],
+      );
+      expect(successfullySentTxs).toEqual(['approve-1']);
+      expect(fetchMarketTokenDetailByTokenAddress).toHaveBeenCalledWith(
+        '0xstock',
+        networkId,
+        { autoHandleError: false },
+      );
+      expect(send.mock.invocationCallOrder[0]).toBeLessThan(
+        fetchMarketTokenDetailByTokenAddress.mock.invocationCallOrder[0],
+      );
+    },
+  );
+
+  it('keeps the Stock batch fail-open when the per-swap market check is unavailable', async () => {
+    const { fetchMarketTokenDetailByTokenAddress, send, service } =
+      buildService();
+    fetchMarketTokenDetailByTokenAddress.mockRejectedValueOnce(
+      new OneKeyLocalError('market unavailable'),
+    );
+
+    await expect(
+      service.batchSignAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTxs: [
+          buildUnsignedTx('approve-1'),
+          buildSwapUnsignedTx('swap-1', 'receiver'),
+        ],
+        signOnly: false,
+        transferPayload: undefined,
+        successfullySentTxs: [],
+      }),
+    ).resolves.toHaveLength(2);
+
+    expect(send.mock.calls.map(([params]) => params.unsignedTx.uuid)).toEqual([
+      'approve-1',
+      'swap-1',
+    ]);
   });
 });

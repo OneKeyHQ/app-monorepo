@@ -108,7 +108,20 @@ if ((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__) {
 
   const { prewarmColdStartImagesFromSnapshot } =
     require('@onekeyhq/kit/src/utils/coldStartImagePreload') as typeof import('@onekeyhq/kit/src/utils/coldStartImagePreload');
-  void prewarmColdStartImagesFromSnapshot();
+  const { SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS } =
+    require('@onekeyhq/kit/src/views/Swap/hooks/swapStockDisplaySnapshotConstants') as typeof import('@onekeyhq/kit/src/views/Swap/hooks/swapStockDisplaySnapshotConstants');
+  setTimeout(() => {
+    void prewarmColdStartImagesFromSnapshot({
+      // Yield the synchronous entry stack before parsing the dedicated Stock
+      // display cache. iOS decodes refs; Android uses native prefetch.
+      stockCriticalOptions: {
+        decode: true,
+        maxSelectionAgeMs: SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS,
+        preload: false,
+        requireActiveStock: true,
+      },
+    });
+  }, 0);
 }
 
 // Install native error logger for Release mode debugging.

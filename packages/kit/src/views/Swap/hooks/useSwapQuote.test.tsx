@@ -6,6 +6,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getSwapTokenIdentityKey } from '@onekeyhq/shared/src/utils/swapTokenIdentity';
 import type {
   ISwapApproveTransaction,
   ISwapToken,
@@ -18,10 +19,16 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import {
+  ESwapStockMarketQuoteGateStatus,
+  type ISwapStockMarketQuoteGate,
+} from '../../../states/jotai/contexts/swap/stockMarketQuoteGate';
+
 import { useSwapQuote } from './useSwapQuote';
 
 import type { ISwapQuoteSessionState } from '../../../states/jotai/contexts/swap/quoteSessionV2';
 
+const mockQuoteDispatchedFromAmounts: string[] = [];
 const mockQuoteAction = jest.fn();
 const mockCloseQuoteEvent = jest.fn();
 const mockQuoteEventHandlerV2 = jest.fn();
@@ -39,6 +46,8 @@ let mockSenderAddress = '0xsender';
 let mockToAddressInfoReady = true;
 let mockToAddress: string | undefined = '0xreceiver';
 let mockCurrentSelectNetwork: { networkId: string } | undefined;
+let mockStockMarketQuoteGate: ISwapStockMarketQuoteGate | undefined;
+let mockIsFocused = true;
 
 let mockTabFocusCallback:
   | ((isFocused: boolean, isHiddenByOverlay: boolean) => void)
@@ -55,6 +64,12 @@ const mockToToken: ISwapToken = {
   contractAddress: '0xto',
   decimals: 6,
   symbol: 'TO',
+};
+const mockStockToken: ISwapToken = {
+  ...mockToToken,
+  contractAddress: '0xstock',
+  isStock: true,
+  symbol: 'STOCK',
 };
 const mockOtherToken: ISwapToken = {
   ...mockFromToken,
@@ -78,7 +93,7 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
+  useRouteIsFocused: () => mockIsFocused,
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -154,6 +169,7 @@ jest.mock('../../../states/jotai/contexts/swap', () => ({
   useSwapShouldRefreshQuoteAtom: () => [false],
   useSwapSlippageDialogOpeningAtom: () => [mockState.dialog],
   useSwapStockExecutionTokenSyncIdAtom: () => [0],
+  useSwapStockMarketQuoteGateAtom: () => [mockStockMarketQuoteGate],
   useSwapToAnotherAccountAddressAtom: () => [undefined],
   useSwapToTokenAmountAtom: () => [mockState.toAmount, mockSetToAmount],
   useSwapTypeSwitchAtom: () => [mockState.protocol],
@@ -218,11 +234,14 @@ function buildApproval(
 describe('useSwapQuote semantic re-quote ownership', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockQuoteDispatchedFromAmounts.length = 0;
     mockTabFocusCallback = undefined;
     mockSenderAddress = '0xsender';
     mockToAddressInfoReady = true;
     mockToAddress = '0xreceiver';
     mockCurrentSelectNetwork = undefined;
+    mockStockMarketQuoteGate = undefined;
+    mockIsFocused = true;
     mockSelectedFromToken = mockFromToken;
     mockSelectedToToken = mockToToken;
     mockState = {
@@ -237,6 +256,9 @@ describe('useSwapQuote semantic re-quote ownership', () => {
       slippage: { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
       toAmount: { value: '10', isInput: true },
     };
+    mockQuoteAction.mockImplementation(() => {
+      mockQuoteDispatchedFromAmounts.push(mockState.fromAmount.value);
+    });
   });
 
   afterEach(() => {
@@ -262,6 +284,362 @@ describe('useSwapQuote semantic re-quote ownership', () => {
       undefined,
       expect.anything(),
     );
+  });
+
+  it('does not dispatch a Stock quote when the amount changes while the owned market is closed', () => {
+    mockState.protocol = ESwapTabSwitchType.STOCK;
+    mockState.fromAmount = { value: '5', isInput: true };
+    mockState.toAmount = { value: '10', isInput: false };
+    mockSelectedToToken = mockStockToken;
+    mockStockMarketQuoteGate = {
+      ownerStockKey: getSwapTokenIdentityKey(mockStockToken),
+      status: ESwapStockMarketQuoteGateStatus.Closed,
+    };
+    const { rerender } = renderHook(() => useSwapQuote());
+    mockQuoteAction.mockClear();
+    mockInvalidateQuoteIntent.mockClear();
+
+    mockState.fromAmount = { value: '7', isInput: true };
+    rerender();
+
+    expect(mockQuoteAction).not.toHaveBeenCalled();
+    expect(mockInvalidateQuoteIntent).toHaveBeenCalledWith({
+      isPending: false,
+    });
+  });
+
+  it('dispatches exactly one Stock quote with the latest amount and saved slippage when Closed becomes Allowed', () => {
+    mockState.protocol = ESwapTabSwitchType.STOCK;
+    mockState.fromAmount = { value: '5', isInput: true };
+    mockState.toAmount = { value: '10', isInput: false };
+    mockSelectedToToken = mockStockToken;
+    const ownerStockKey = getSwapTokenIdentityKey(mockStockToken);
+    mockStockMarketQuoteGate = {
+      ownerStockKey,
+      status: ESwapStockMarketQuoteGateStatus.Closed,
+    };
+    const { rerender } = renderHook(() => useSwapQuote());
+    mockQuoteAction.mockClear();
+
+    mockState.fromAmount = { value: '7', isInput: true };
+    mockState.slippage = {
+      key: ESwapSlippageSegmentKey.CUSTOM,
+      value: 1.25,
+    };
+    mockState.dialog = { status: false, flag: 'save' };
+    rerender();
+    expect(mockQuoteAction).not.toHaveBeenCalled();
+
+    mockStockMarketQuoteGate = {
+      ownerStockKey,
+      status: ESwapStockMarketQuoteGateStatus.Allowed,
+    };
+    rerender();
+
+    expect(mockQuoteAction).toHaveBeenCalledTimes(1);
+    expect(mockQuoteAction).toHaveBeenCalledWith(
+      mockState.slippage,
+      expect.anything(),
+      expect.anything(),
+      undefined,
+      undefined,
+      ESwapQuoteKind.SELL,
+      undefined,
+      expect.anything(),
+    );
+    expect(mockQuoteDispatchedFromAmounts).toEqual(['7']);
+  });
+
+  it('dispatches exactly one Stock quote when gate, amount, and saved slippage change in the same resume commit', () => {
+    mockState.protocol = ESwapTabSwitchType.STOCK;
+    mockState.fromAmount = { value: '5', isInput: true };
+    mockState.toAmount = { value: '10', isInput: false };
+    mockSelectedToToken = mockStockToken;
+    const ownerStockKey = getSwapTokenIdentityKey(mockStockToken);
+    mockStockMarketQuoteGate = {
+      ownerStockKey,
+      status: ESwapStockMarketQuoteGateStatus.Closed,
+    };
+    const { rerender } = renderHook(() => useSwapQuote());
+    mockQuoteAction.mockClear();
+
+    mockState.fromAmount = { value: '7', isInput: true };
+    mockState.slippage = {
+      key: ESwapSlippageSegmentKey.CUSTOM,
+      value: 1.25,
+    };
+    mockState.dialog = { status: false, flag: 'save' };
+    mockStockMarketQuoteGate = {
+      ownerStockKey,
+      status: ESwapStockMarketQuoteGateStatus.Allowed,
+    };
+    rerender();
+
+    expect(mockQuoteAction).toHaveBeenCalledTimes(1);
+    expect(mockQuoteAction).toHaveBeenCalledWith(
+      mockState.slippage,
+      expect.anything(),
+      expect.anything(),
+      undefined,
+      undefined,
+      ESwapQuoteKind.SELL,
+      undefined,
+      expect.anything(),
+    );
+    expect(mockQuoteDispatchedFromAmounts).toEqual(['7']);
+  });
+
+  it('waits for focus and dispatches the latest Stock quote once when the market reopens behind an overlay', () => {
+    mockState.protocol = ESwapTabSwitchType.STOCK;
+    mockState.fromAmount = { value: '5', isInput: true };
+    mockState.toAmount = { value: '10', isInput: false };
+    mockSelectedToToken = mockStockToken;
+    const ownerStockKey = getSwapTokenIdentityKey(mockStockToken);
+    mockStockMarketQuoteGate = {
+      ownerStockKey,
+      status: ESwapStockMarketQuoteGateStatus.Allowed,
+    };
+    const { rerender } = renderHook(() => useSwapQuote());
+    mockQuoteAction.mockClear();
+    mockQuoteDispatchedFromAmounts.length = 0;
+
+    mockIsFocused = false;
+    rerender();
+    act(() => {
+      mockTabFocusCallback?.(true, true);
+    });
+
+    mockStockMarketQuoteGate = {
+      ownerStockKey,
+      status: ESwapStockMarketQuoteGateStatus.Closed,
+    };
+    rerender();
+    mockState.fromAmount = { value: '7', isInput: true };
+    mockState.slippage = {
+      key: ESwapSlippageSegmentKey.CUSTOM,
+      value: 1.25,
+    };
+    rerender();
+    mockStockMarketQuoteGate = {
+      ownerStockKey,
+      status: ESwapStockMarketQuoteGateStatus.Allowed,
+    };
+    rerender();
+
+    expect(mockQuoteAction).not.toHaveBeenCalled();
+
+    // The tab-focus signal can arrive before route focus updates.
+    act(() => {
+      mockTabFocusCallback?.(true, false);
+    });
+    mockIsFocused = true;
+    rerender();
+    act(() => {
+      mockTabFocusCallback?.(true, false);
+    });
+    rerender();
+
+    expect(mockQuoteAction).toHaveBeenCalledTimes(1);
+    expect(mockQuoteAction).toHaveBeenCalledWith(
+      mockState.slippage,
+      expect.anything(),
+      expect.anything(),
+      undefined,
+      undefined,
+      ESwapQuoteKind.SELL,
+      undefined,
+      expect.anything(),
+    );
+    expect(mockQuoteDispatchedFromAmounts).toEqual(['7']);
+  });
+
+  it('does not duplicate a Stock quote when route focus recovers before the tab-focus callback', () => {
+    mockState.protocol = ESwapTabSwitchType.STOCK;
+    mockState.fromAmount = { value: '5', isInput: true };
+    mockState.toAmount = { value: '10', isInput: false };
+    mockSelectedToToken = mockStockToken;
+    const ownerStockKey = getSwapTokenIdentityKey(mockStockToken);
+    mockStockMarketQuoteGate = {
+      ownerStockKey,
+      status: ESwapStockMarketQuoteGateStatus.Closed,
+    };
+    const { rerender } = renderHook(() => useSwapQuote());
+    mockQuoteAction.mockClear();
+    mockQuoteDispatchedFromAmounts.length = 0;
+
+    mockIsFocused = false;
+    rerender();
+    act(() => {
+      mockTabFocusCallback?.(true, true);
+    });
+    mockStockMarketQuoteGate = {
+      ownerStockKey,
+      status: ESwapStockMarketQuoteGateStatus.Allowed,
+    };
+    rerender();
+    expect(mockQuoteAction).not.toHaveBeenCalled();
+
+    mockIsFocused = true;
+    rerender();
+    act(() => {
+      mockTabFocusCallback?.(true, false);
+      mockTabFocusCallback?.(true, false);
+    });
+    rerender();
+
+    expect(mockQuoteAction).toHaveBeenCalledTimes(1);
+    expect(mockQuoteDispatchedFromAmounts).toEqual(['5']);
+  });
+
+  it('dispatches exactly one Stock quote when slippage is saved while the owned market is allowed', () => {
+    mockState.protocol = ESwapTabSwitchType.STOCK;
+    mockState.fromAmount = { value: '5', isInput: true };
+    mockState.toAmount = { value: '10', isInput: false };
+    mockSelectedToToken = mockStockToken;
+    mockStockMarketQuoteGate = {
+      ownerStockKey: getSwapTokenIdentityKey(mockStockToken),
+      status: ESwapStockMarketQuoteGateStatus.Allowed,
+    };
+    const { rerender } = renderHook(() => useSwapQuote());
+    mockQuoteAction.mockClear();
+    mockQuoteDispatchedFromAmounts.length = 0;
+
+    // Saving updates settings before the dialog's async close callback fires.
+    mockState.dialog = { status: true };
+    mockState.slippage = {
+      key: ESwapSlippageSegmentKey.CUSTOM,
+      value: 1.25,
+    };
+    rerender();
+    expect(mockQuoteAction).not.toHaveBeenCalled();
+
+    mockState.dialog = { status: false, flag: 'save' };
+    rerender();
+
+    expect(mockQuoteAction).toHaveBeenCalledTimes(1);
+    expect(mockQuoteAction).toHaveBeenCalledWith(
+      mockState.slippage,
+      expect.anything(),
+      expect.anything(),
+      undefined,
+      undefined,
+      ESwapQuoteKind.SELL,
+      undefined,
+      expect.anything(),
+    );
+    expect(mockQuoteDispatchedFromAmounts).toEqual(['5']);
+  });
+
+  it('does not dispatch a Stock quote for an allowed gate owned by another stock', () => {
+    mockState.protocol = ESwapTabSwitchType.STOCK;
+    mockState.fromAmount = { value: '5', isInput: true };
+    mockState.toAmount = { value: '10', isInput: false };
+    mockSelectedToToken = mockStockToken;
+    mockStockMarketQuoteGate = {
+      ownerStockKey: `${mockStockToken.networkId}:0x1234:token`,
+      status: ESwapStockMarketQuoteGateStatus.Allowed,
+    };
+    const { rerender } = renderHook(() => useSwapQuote());
+    mockQuoteAction.mockClear();
+
+    mockState.fromAmount = { value: '7', isInput: true };
+    rerender();
+
+    expect(mockQuoteAction).not.toHaveBeenCalled();
+  });
+
+  it('keeps a Stock sell paused while Closed, then quotes only the latest amount once when its owner becomes Allowed', () => {
+    mockState.protocol = ESwapTabSwitchType.STOCK;
+    mockState.fromAmount = { value: '5', isInput: true };
+    mockState.toAmount = { value: '', isInput: false };
+    mockSelectedFromToken = mockStockToken;
+    mockSelectedToToken = mockToToken;
+    const ownerStockKey = getSwapTokenIdentityKey(mockStockToken);
+    mockStockMarketQuoteGate = {
+      ownerStockKey,
+      status: ESwapStockMarketQuoteGateStatus.Closed,
+    };
+    const { rerender } = renderHook(() => useSwapQuote());
+    mockQuoteAction.mockClear();
+    mockQuoteDispatchedFromAmounts.length = 0;
+
+    mockState.fromAmount = { value: '7', isInput: true };
+    rerender();
+
+    expect(mockQuoteAction).not.toHaveBeenCalled();
+
+    mockState.fromAmount = { value: '9', isInput: true };
+    rerender();
+    expect(mockQuoteAction).not.toHaveBeenCalled();
+
+    mockStockMarketQuoteGate = {
+      ownerStockKey,
+      status: ESwapStockMarketQuoteGateStatus.Allowed,
+    };
+    rerender();
+
+    expect(mockQuoteAction).toHaveBeenCalledTimes(1);
+    expect(mockQuoteAction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      undefined,
+      undefined,
+      ESwapQuoteKind.SELL,
+      undefined,
+      expect.anything(),
+    );
+    expect(mockQuoteDispatchedFromAmounts).toEqual(['9']);
+  });
+
+  it('does not quote a Stock sell when an Allowed gate belongs to another stock', () => {
+    mockState.protocol = ESwapTabSwitchType.STOCK;
+    mockState.fromAmount = { value: '5', isInput: true };
+    mockState.toAmount = { value: '', isInput: false };
+    mockSelectedFromToken = mockStockToken;
+    mockSelectedToToken = mockToToken;
+    mockStockMarketQuoteGate = {
+      ownerStockKey: `${getSwapTokenIdentityKey(mockStockToken)}:stale`,
+      status: ESwapStockMarketQuoteGateStatus.Allowed,
+    };
+    const { rerender } = renderHook(() => useSwapQuote());
+    mockQuoteAction.mockClear();
+
+    mockState.fromAmount = { value: '7', isInput: true };
+    rerender();
+
+    expect(mockQuoteAction).not.toHaveBeenCalled();
+  });
+
+  it('keeps ordinary ERC20 Swap quoting even when a Closed Stock gate remains in the atom', () => {
+    mockState.protocol = ESwapTabSwitchType.SWAP;
+    mockState.fromAmount = { value: '5', isInput: true };
+    mockState.toAmount = { value: '', isInput: false };
+    mockSelectedFromToken = mockFromToken;
+    mockSelectedToToken = mockToToken;
+    mockStockMarketQuoteGate = {
+      ownerStockKey: getSwapTokenIdentityKey(mockStockToken),
+      status: ESwapStockMarketQuoteGateStatus.Closed,
+    };
+    const { rerender } = renderHook(() => useSwapQuote());
+    mockQuoteAction.mockClear();
+    mockQuoteDispatchedFromAmounts.length = 0;
+
+    mockState.fromAmount = { value: '7', isInput: true };
+    rerender();
+
+    expect(mockQuoteAction).toHaveBeenCalledTimes(1);
+    expect(mockQuoteAction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      undefined,
+      undefined,
+      ESwapQuoteKind.SELL,
+      undefined,
+      expect.anything(),
+    );
+    expect(mockQuoteDispatchedFromAmounts).toEqual(['7']);
   });
 
   it('keeps LIMIT BUY kind when settings change slippage mode', () => {

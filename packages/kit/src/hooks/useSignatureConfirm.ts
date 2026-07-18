@@ -21,6 +21,7 @@ import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { ITxConfirmBeforeConfirm } from '@onekeyhq/shared/src/routes/signatureConfirm';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type {
@@ -66,6 +67,7 @@ type IBuildUnsignedTxParams = {
   // When omitted, resolved from stakingInfo/swapInfo/isInternalSwap flags; defaults to 'send'.
   // Callers with scenarios not derivable from those flags (perps, dapp) must set it explicitly.
   gasAccountScenario?: IGasAccountScenario;
+  beforeConfirm?: ITxConfirmBeforeConfirm;
 };
 
 function resolveGasAccountScenario(
@@ -137,6 +139,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         encodedTx,
         unsignedTxs: unsignedTxsFromParams,
         transfersInfo,
+        beforeConfirm,
         ...rest
       } = params;
       let transferPayload = transferPayloadBase;
@@ -248,6 +251,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
             useFeeInTx,
             feeInfoEditable,
             gasAccountScenario,
+            beforeConfirm,
           });
         } else {
           navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
@@ -264,6 +268,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               useFeeInTx,
               feeInfoEditable,
               gasAccountScenario,
+              beforeConfirm,
             },
           });
         }

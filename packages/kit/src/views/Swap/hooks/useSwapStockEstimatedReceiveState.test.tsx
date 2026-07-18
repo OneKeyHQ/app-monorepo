@@ -7,18 +7,36 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { shouldHideStockEstimatedReceive } from '../pages/components/SwapStockDesktopContainer.utils';
+import {
+  getStockAmountInputInteractionProps,
+  shouldHideStockEstimatedReceive,
+} from '../pages/components/SwapStockDesktopContainer.utils';
 
 import {
+  ESwapStockChannelAsyncStatus,
   ESwapStockChannelStage,
   ESwapStockTradeSide,
+  getTokenIdentityKey,
 } from './swapStockChannelUtils';
-import { useSwapStockEstimatedReceiveState } from './useSwapStockTradeInputs';
+import {
+  useSwapStockAmountInputState,
+  useSwapStockEstimatedReceiveState,
+} from './useSwapStockTradeInputs';
 
 import type { IUseSwapStockChannelReturn } from './useSwapStockChannel';
 
 const mockSetToTokenAmount = jest.fn();
 const mockSelectPayToken = jest.fn();
+const mockSetFromTokenAmount = jest.fn();
+const mockSetSwapAlerts = jest.fn();
+const mockSetFromTokenBalance = jest.fn();
+const mockResetQuoteAction = jest.fn();
+
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
+  useActiveAccount: () => ({
+    activeAccount: { ready: false },
+  }),
+}));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -26,11 +44,26 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: jest.fn(),
+  usePromiseResult: (
+    _callback: unknown,
+    _dependencies: unknown,
+    options?: { initResult?: unknown },
+  ) => ({
+    result: options?.initResult,
+    isLoading: false,
+  }),
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/swap', () => ({
-  useSwapFromTokenAmountAtom: () => [{ value: '1000', isInput: true }],
+  useSwapActions: () => ({
+    current: { resetQuoteAction: mockResetQuoteAction },
+  }),
+  useSwapAlertsAtom: () => [undefined, mockSetSwapAlerts],
+  useSwapFromTokenAmountAtom: () => [
+    { value: '1000', isInput: true },
+    mockSetFromTokenAmount,
+  ],
+  useSwapStockSelectedFromTokenBalanceAtom: () => ['', mockSetFromTokenBalance],
   useSwapToTokenAmountAtom: () => [
     { value: 'stale-atom-amount', isInput: false },
     mockSetToTokenAmount,
@@ -95,6 +128,47 @@ function buildStockChannel(
   } as unknown as IUseSwapStockChannelReturn;
 }
 
+function buildAmountInputStockChannel({
+  channelStage,
+  tradeSide,
+}: {
+  channelStage: ESwapStockChannelStage;
+  tradeSide: ESwapStockTradeSide;
+}): IUseSwapStockChannelReturn {
+  const amountIdentity = {
+    accountKey: 'account-1',
+    stockTokenKey: getTokenIdentityKey(stockToken),
+    payTokenKey: getTokenIdentityKey(payToken),
+    tradeSide,
+    amountSessionId: 0,
+  };
+  return {
+    channelStage,
+    currentStockToken: stockToken,
+    disableNativePayToken: false,
+    payToken,
+    payTokenOptionsLoading: false,
+    payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+    payTokens: [payToken],
+    selectablePayTokens: [payToken],
+    selectPayToken: mockSelectPayToken,
+    stockDisplay: {
+      amount: {
+        commitSnapshot: jest.fn(),
+        identity: amountIdentity,
+        ownerKey: 'account-1|stock|pay|side',
+        restoredValue: '1000',
+      },
+      commitSnapshotPatch: jest.fn(),
+      identityKey: 'display-owner',
+      selection: { snapshot: undefined },
+      snapshot: undefined,
+    },
+    stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+    tradeSide,
+  } as unknown as IUseSwapStockChannelReturn;
+}
+
 function buildQuote(tradeSide: ESwapStockTradeSide): IFetchQuoteResult {
   const isBuySide = tradeSide === ESwapStockTradeSide.Buy;
   return {
@@ -108,9 +182,43 @@ function buildQuote(tradeSide: ESwapStockTradeSide): IFetchQuoteResult {
 
 describe('useSwapStockEstimatedReceiveState', () => {
   beforeEach(() => {
+    mockResetQuoteAction.mockClear();
+    mockSetFromTokenAmount.mockClear();
+    mockSetFromTokenBalance.mockClear();
+    mockSetSwapAlerts.mockClear();
     mockSetToTokenAmount.mockClear();
     mockSelectPayToken.mockClear();
   });
+
+  it.each([
+    { tradeSide: ESwapStockTradeSide.Buy },
+    { tradeSide: ESwapStockTradeSide.Sell },
+  ])(
+    'keeps the canonical $tradeSide amount owner editable across a ready-to-closed transition',
+    ({ tradeSide }) => {
+      const readyChannel = buildAmountInputStockChannel({
+        channelStage: ESwapStockChannelStage.Ready,
+        tradeSide,
+      });
+      const closedChannel = buildAmountInputStockChannel({
+        channelStage: ESwapStockChannelStage.MarketClosed,
+        tradeSide,
+      });
+      const { result, rerender } = renderHook(
+        ({ stockChannel }: { stockChannel: IUseSwapStockChannelReturn }) => {
+          const inputState = useSwapStockAmountInputState({ stockChannel });
+          return getStockAmountInputInteractionProps(inputState.inputEditable);
+        },
+        { initialProps: { stockChannel: readyChannel } },
+      );
+
+      expect(result.current).toEqual({ readonly: false });
+
+      rerender({ stockChannel: closedChannel });
+
+      expect(result.current).toEqual({ readonly: false });
+    },
+  );
 
   it.each([
     {
@@ -183,7 +291,7 @@ describe('useSwapStockEstimatedReceiveState', () => {
       state: 'explicitly closed',
     },
   ])(
-    'reports quote-request loading as $expectedLoading when the market is $state',
+    'maps the upstream loading signal to $expectedLoading when the market is $state',
     ({ channelStage, expectedLoading }) => {
       const { result } = renderHook(() =>
         useSwapStockEstimatedReceiveState({

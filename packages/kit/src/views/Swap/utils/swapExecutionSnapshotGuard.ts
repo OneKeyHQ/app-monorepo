@@ -1,16 +1,23 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type {
-  ESwapTabSwitchType,
   IFetchQuoteResult,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+
+import {
+  isSwapStockMarketQuoteBlocked,
+  isSwapStockMarketQuoteClosed,
+} from '../../../states/jotai/contexts/swap/stockMarketQuoteGate';
 
 import type {
   ISwapExecutionLimitSettings,
   ISwapExecutionSnapshot,
 } from './swapReviewState';
+import type { ISwapQuoteSessionState } from '../../../states/jotai/contexts/swap/quoteSessionV2';
+import type { ISwapStockMarketQuoteGate } from '../../../states/jotai/contexts/swap/stockMarketQuoteGate';
 
 export type ISwapLiveExecutionValues = {
   accountId?: string;
@@ -124,6 +131,84 @@ export function isSwapExecutionRevisionCurrent({
     expectedRevision === undefined ||
     expectedRevision === currentSnapshot?.reviewRevision
   );
+}
+
+export type ISwapReviewExecutionGuardState = Readonly<{
+  blocked: boolean;
+  explicitClosed: boolean;
+}>;
+
+// Stock quotes are refreshed every 15 seconds while the surface is active.
+// Two refresh windows bound a frozen Review without changing ordinary Swap.
+export const SWAP_STOCK_EXECUTION_QUOTE_MAX_AGE_MS = 30_000;
+
+/**
+ * Stock Review keeps its execution payload frozen, but its permission to use
+ * that payload is a live lease. Both the market owner and the quote session
+ * that produced the snapshot must still match when execution starts.
+ */
+export function resolveSwapReviewExecutionGuardState({
+  now = Date.now(),
+  quoteSessionState,
+  snapshot,
+  stockMarketQuoteGate,
+}: {
+  now?: number;
+  quoteSessionState: ISwapQuoteSessionState;
+  snapshot?: ISwapExecutionSnapshot;
+  stockMarketQuoteGate?: ISwapStockMarketQuoteGate;
+}): ISwapReviewExecutionGuardState {
+  if (snapshot?.swapType !== ESwapTabSwitchType.STOCK) {
+    return {
+      blocked: false,
+      explicitClosed: false,
+    };
+  }
+
+  const marketGateInput = {
+    fromToken: snapshot.fromToken,
+    gate: stockMarketQuoteGate,
+    toToken: snapshot.toToken,
+  };
+  const explicitClosed = isSwapStockMarketQuoteClosed(marketGateInput);
+  if (isSwapStockMarketQuoteBlocked(marketGateInput)) {
+    return {
+      blocked: true,
+      explicitClosed,
+    };
+  }
+
+  const quoteCommittedAt = snapshot.provenance.quoteCommittedAt;
+  const isFreshQuote = Boolean(
+    typeof quoteCommittedAt === 'number' &&
+    Number.isFinite(quoteCommittedAt) &&
+    quoteCommittedAt <= now &&
+    now - quoteCommittedAt <= SWAP_STOCK_EXECUTION_QUOTE_MAX_AGE_MS,
+  );
+  if (!isFreshQuote) {
+    return {
+      blocked: true,
+      explicitClosed,
+    };
+  }
+
+  const { quoteIntentRevision, quoteRequestId } = snapshot.provenance;
+  const activeSession = quoteSessionState.activeSession;
+  const isExecutableSessionPhase =
+    quoteSessionState.phase === 'streaming' ||
+    quoteSessionState.phase === 'settled';
+  const isExactQuoteSession = Boolean(
+    quoteRequestId &&
+    quoteIntentRevision !== undefined &&
+    activeSession?.requestId === quoteRequestId &&
+    activeSession.intentRevision === quoteIntentRevision &&
+    quoteSessionState.intentRevision === quoteIntentRevision,
+  );
+
+  return {
+    blocked: !isExecutableSessionPhase || !isExactQuoteSession,
+    explicitClosed,
+  };
 }
 
 export function resolveSwapReviewRiskCheckInput(

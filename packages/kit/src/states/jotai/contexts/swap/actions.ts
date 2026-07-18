@@ -146,6 +146,7 @@ import {
   swapSpeedQuoteSessionStateAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
+  swapStockMarketQuoteGateAtom,
   swapStockSelectedFromTokenBalanceAtom,
   swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
@@ -191,11 +192,18 @@ import {
   settleSwapSpeedQuoteSession,
 } from './speedQuoteSessionV2';
 import {
+  ESwapStockMarketQuoteGateStatus,
+  isSwapStockMarketQuoteBlocked,
+  isSwapStockMarketQuoteClosed,
+} from './stockMarketQuoteGate';
+import {
   buildSwapTokenDetailRequestKey,
   isCurrentSwapTokenDetailRequest,
   isSwapTokenDetailAddressInfoReady,
   startSwapTokenDetailRequest,
 } from './tokenDetailRequest';
+
+import type { ISwapStockMarketQuoteGate } from './stockMarketQuoteGate';
 
 function isQuoteResultSelectedTokenPair({
   quoteResult,
@@ -762,6 +770,40 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         if (get(swapStockExecutionTokenSyncIdAtom()) !== syncId) {
           return;
         }
+      }
+    },
+  );
+
+  setSwapStockMarketQuoteGate = contextAtomMethod(
+    (get, set, gate: ISwapStockMarketQuoteGate | undefined) => {
+      const previousGate = get(swapStockMarketQuoteGateAtom());
+      if (
+        previousGate?.ownerStockKey === gate?.ownerStockKey &&
+        previousGate?.status === gate?.status
+      ) {
+        return;
+      }
+      set(swapStockMarketQuoteGateAtom(), gate);
+      if (get(swapTypeSwitchAtom()) !== ESwapTabSwitchType.STOCK) {
+        return;
+      }
+
+      const ownerChanged = previousGate?.ownerStockKey !== gate?.ownerStockKey;
+      const quoteBlocked =
+        gate?.status !== ESwapStockMarketQuoteGateStatus.Allowed;
+      if (!ownerChanged && !quoteBlocked) {
+        return;
+      }
+      this.invalidateQuoteIntent.call(set, { isPending: false });
+      if (gate?.status !== ESwapStockMarketQuoteGateStatus.Closed) {
+        return;
+      }
+      const fromTokenAmount = get(swapFromTokenAmountAtom());
+      const toTokenAmount = get(swapToTokenAmountAtom());
+      if (fromTokenAmount.isInput || !toTokenAmount.isInput) {
+        set(swapToTokenAmountAtom(), { value: '', isInput: false });
+      } else {
+        set(swapFromTokenAmountAtom(), { value: '', isInput: false });
       }
     },
   );
@@ -1600,6 +1642,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const toTokenAmount = get(swapToTokenAmountAtom());
       const swapProTradeType = get(swapProTradeTypeAtom());
       const swapProDirection = get(swapProDirectionAtom());
+      const stockMarketQuoteGate = get(swapStockMarketQuoteGateAtom());
+      if (
+        swapTabSwitchType === ESwapTabSwitchType.STOCK &&
+        isSwapStockMarketQuoteBlocked({
+          fromToken,
+          gate: stockMarketQuoteGate,
+          toToken,
+        })
+      ) {
+        const marketClosed = isSwapStockMarketQuoteClosed({
+          fromToken,
+          gate: stockMarketQuoteGate,
+          toToken,
+        });
+        this.invalidateQuoteIntent.call(set, { isPending: false });
+        if (marketClosed) {
+          if (fromTokenAmount.isInput || !toTokenAmount.isInput) {
+            set(swapToTokenAmountAtom(), { value: '', isInput: false });
+          } else {
+            set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+          }
+        }
+        return;
+      }
       set(swapQuoteEventErrorAtom(), undefined);
       if (
         swapTabSwitchType === ESwapTabSwitchType.LIMIT &&
@@ -3976,6 +4042,7 @@ export const useSwapActions = () => {
   const selectFromToken = actions.selectFromToken.use();
   const selectToToken = actions.selectToToken.use();
   const selectStockExecutionTokens = actions.selectStockExecutionTokens.use();
+  const setSwapStockMarketQuoteGate = actions.setSwapStockMarketQuoteGate.use();
   const alternationToken = actions.alternationToken.use();
   const syncNetworksSort = actions.syncNetworksSort.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
@@ -4008,6 +4075,7 @@ export const useSwapActions = () => {
     quoteAction,
     selectToToken,
     selectStockExecutionTokens,
+    setSwapStockMarketQuoteGate,
     alternationToken,
     syncNetworksSort,
     catchSwapTokensMap,

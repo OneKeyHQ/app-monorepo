@@ -11,12 +11,19 @@ import {
   resolveStockAmountInputTokens,
   resolveStockAmountInputValue,
   resolveStockAmountOwnerTransition,
+  resolveStockRenderedBalanceSnapshot,
 } from './useSwapStockTradeInputs';
 
 import type {
   ISwapStockDisplayAmountIdentity,
   ISwapStockDisplaySelectionSnapshot,
+  ISwapStockDisplaySnapshot,
 } from './swapStockDisplaySnapshotUtils';
+
+const mockGetStockDisplaySnapshot = jest.fn<
+  ISwapStockDisplaySnapshot | undefined,
+  [string]
+>();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -35,6 +42,11 @@ jest.mock('./useSwapStockChannel', () => ({
   ESwapStockTradeSide: {
     Buy: 'buy',
     Sell: 'sell',
+  },
+}));
+jest.mock('./swapStockDisplaySnapshotStorage', () => ({
+  swapStockDisplaySnapshotStorage: {
+    get: (accountKey: string) => mockGetStockDisplaySnapshot(accountKey),
   },
 }));
 
@@ -90,6 +102,10 @@ const appleUsdcBuyIdentity: ISwapStockDisplayAmountIdentity = {
 };
 
 describe('useSwapStockTradeInputs amount ownership helpers', () => {
+  beforeEach(() => {
+    mockGetStockDisplaySnapshot.mockReset();
+  });
+
   it('uses an account-owned selection only as the display token while live execution is absent', () => {
     const result = resolveStockAmountInputTokens({
       currentStockToken: appleStockToken,
@@ -103,6 +119,47 @@ describe('useSwapStockTradeInputs amount ownership helpers', () => {
       contractAddress: usdcToken.contractAddress,
       symbol: usdcToken.symbol,
     });
+    expect(
+      isStockAmountInputEditable({
+        amountOwnerKey: 'owner-1',
+        canonicalOwnerReady: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('uses an exact stored balance only for display before the execution token hydrates', () => {
+    const { displayInputToken, executionInputToken } =
+      resolveStockAmountInputTokens({
+        currentStockToken: appleStockToken,
+        payToken: undefined,
+        selection: buildSelection(),
+        tradeSide: ESwapStockTradeSide.Buy,
+      });
+    const now = Date.now();
+    mockGetStockDisplaySnapshot.mockReturnValue({
+      version: 2,
+      identity: { accountKey: 'account-1' },
+      balance: {
+        identity: {
+          accountKey: 'account-1',
+          inputTokenKey: 'evm--56:0xusdc:token',
+        },
+        inputTokenKey: 'evm--56:0xusdc:token',
+        value: '12.5',
+        updatedAt: now,
+      },
+      updatedAt: now,
+    });
+
+    const displayBalance = resolveStockRenderedBalanceSnapshot({
+      displayAccountKey: 'account-1',
+      displayInputToken,
+      matchingSnapshotBalance: undefined,
+    });
+
+    expect(executionInputToken).toBeUndefined();
+    expect(mockGetStockDisplaySnapshot).toHaveBeenCalledWith('account-1');
+    expect(displayBalance?.value).toBe('12.5');
     expect(
       isStockAmountInputEditable({
         amountOwnerKey: 'owner-1',

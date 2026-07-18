@@ -423,7 +423,8 @@ describe('buildSwapReviewState', () => {
     expect(result.preSwapData.unSupportSlippage).toBe(true);
   });
 
-  it('adds immutable quote provenance without inventing unavailable fields', () => {
+  it('adds immutable quote provenance from the accepted executable quote', () => {
+    const quoteCommittedAt = 1_000_000;
     const result = buildSwapReviewState({
       accountId: 'hd-1--m/44/60/0/0/0',
       networkId: fromToken.networkId,
@@ -444,13 +445,13 @@ describe('buildSwapReviewState', () => {
       slippage: 1,
       quoteRequestId: 'request-1',
       quoteIntentRevision: 7,
-      quoteCommittedAt: 123_456,
+      quoteCommittedAt,
       texts,
     });
 
     expect(result.provenance.quoteRequestId).toBe('request-1');
     expect(result.provenance.quoteIntentRevision).toBe(7);
-    expect(result.provenance.quoteCommittedAt).toBe(123_456);
+    expect(result.provenance.quoteCommittedAt).toBe(quoteCommittedAt);
     expect(result.provenance.executionFingerprint).toMatch(/^[a-f0-9]{64}$/);
     expect(Object.isFrozen(result.provenance)).toBe(true);
 

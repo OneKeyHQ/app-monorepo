@@ -26,7 +26,7 @@ export type ISwapQuoteCommittedState = {
   committedAt?: number;
 };
 
-export type ISwapQuoteCommittedAction =
+type ISwapQuoteCommittedAction =
   | {
       type: 'requestStarted';
       intentFingerprint: string;
@@ -286,7 +286,7 @@ export function reduceSwapQuoteCommittedState(
     preferredProviderKey: undefined,
     displayQuote: committedQuote,
     executableQuote: committedQuote,
-    committedAt: Date.now(),
+    committedAt: committedQuote ? Date.now() : undefined,
   };
 }
 

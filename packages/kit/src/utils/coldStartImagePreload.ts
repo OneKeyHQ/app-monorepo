@@ -1,10 +1,13 @@
 import {
+  getMissingCachedImageRefUris,
   primeCachedImagePaths,
   primeCachedImageRefs,
 } from '@onekeyhq/components/src/primitives/Image/cache';
 import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { coldStartCacheStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   getHyperliquidTokenImageUrl,
@@ -20,10 +23,22 @@ type IGlobalColdStartSnapshot = typeof globalThis & {
 type IImagePreloadOptions = {
   limit?: number;
   awaitPreload?: boolean;
+  awaitPreloadTimeoutMs?: number;
   decode?: boolean;
   decodeTimeoutMs?: number;
   primeTimeoutMs?: number;
   preload?: boolean;
+};
+
+type IStockCriticalImagePreloadOptions = IImagePreloadOptions & {
+  maxSelectionAgeMs?: number;
+  now?: number;
+  requireActiveStock?: boolean;
+};
+
+type IColdStartImagePreloadOptions = IImagePreloadOptions & {
+  snapshot?: IColdStartSnapshot;
+  stockCriticalOptions?: IStockCriticalImagePreloadOptions;
 };
 
 type ITokenSelectorImageItem = {
@@ -44,6 +59,11 @@ const PERPS_OPEN_ORDER_LIMIT = 16;
 const PERPS_ALIAS_LOGO_LIMIT = 24;
 const PERPS_TOKEN_SELECTOR_LOGO_LIMIT = 72;
 const PERPS_TOKEN_SELECTOR_CRITICAL_LOGO_LIMIT = 24;
+const MAIN_SWAP_STORE_SCOPE_KEY = 'store:swap';
+const stockDisplayStoreCache = new WeakMap<
+  IColdStartSnapshot,
+  { value: unknown }
+>();
 const PERPS_TOKEN_SELECTOR_PRIORITY_COINS = [
   'BTC',
   'ETH',
@@ -72,7 +92,6 @@ const PERPS_TOKEN_SELECTOR_PRIORITY_COINS = [
 const SWAP_TOKEN_CACHE_KEYS = [
   CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
   CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
-  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
 ] as const;
 
 function getColdStartSnapshot() {
@@ -134,6 +153,50 @@ function getSnapshotValuesByColdStartKey({
   return Object.entries(snapshot)
     .filter(([key]) => key.endsWith(`::${coldStartCacheKey}`))
     .map(([, value]) => value);
+}
+
+function getMainSwapSnapshotValue({
+  snapshot,
+  coldStartCacheKey,
+}: {
+  snapshot: IColdStartSnapshot;
+  coldStartCacheKey: string;
+}) {
+  return snapshot[`${MAIN_SWAP_STORE_SCOPE_KEY}::${coldStartCacheKey}`];
+}
+
+function isMainStockColdStartContextActive(snapshot: IColdStartSnapshot) {
+  const mainSwapContext = getMainSwapSnapshotValue({
+    snapshot,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+  });
+  const visibleSwapType = getMainSwapSnapshotValue({
+    snapshot,
+    coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
+  });
+  return Boolean(
+    isRecord(mainSwapContext) &&
+    mainSwapContext.swapType === 'stock' &&
+    visibleSwapType === 'stock',
+  );
+}
+
+function getStockDisplayStoreOnce(snapshot: IColdStartSnapshot) {
+  const cached = stockDisplayStoreCache.get(snapshot);
+  if (cached) {
+    return cached.value;
+  }
+  let value: unknown;
+  try {
+    value = coldStartCacheStorage.getObject<unknown>(
+      EAppSyncStorageKeys.onekey_swap_stock_display_snapshot,
+    );
+  } catch {
+    // Dedicated Stock display restoration is optional during startup.
+  }
+  stockDisplayStoreCache.set(snapshot, { value });
+  return value;
 }
 
 function getUpdatedAt(value: unknown) {
@@ -203,6 +266,74 @@ function collectSwapImageUris({
       }
     }
   }
+}
+
+export function getStockColdStartImageUrisFromSnapshot(
+  snapshot = getColdStartSnapshot(),
+  stockDisplayStore?: unknown,
+  {
+    maxSelectionAgeMs,
+    now = Date.now(),
+    requireActiveStock = false,
+  }: Pick<
+    IStockCriticalImagePreloadOptions,
+    'maxSelectionAgeMs' | 'now' | 'requireActiveStock'
+  > = {},
+) {
+  const uris = new Set<string>();
+  if (!snapshot) {
+    return [];
+  }
+
+  const mainSwapContext = getMainSwapSnapshotValue({
+    snapshot,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+  });
+  if (requireActiveStock && !isMainStockColdStartContextActive(snapshot)) {
+    return [];
+  }
+  const mainAccountKey =
+    isRecord(mainSwapContext) && typeof mainSwapContext.accountKey === 'string'
+      ? mainSwapContext.accountKey
+      : undefined;
+  const stockEntry =
+    mainAccountKey &&
+    isRecord(stockDisplayStore) &&
+    stockDisplayStore.version === 1 &&
+    isRecord(stockDisplayStore.entries)
+      ? stockDisplayStore.entries[encodeURIComponent(mainAccountKey)]
+      : undefined;
+  const stockSnapshot = isRecord(stockEntry) ? stockEntry.snapshot : undefined;
+  const stockIdentity = isRecord(stockSnapshot)
+    ? stockSnapshot.identity
+    : undefined;
+  const stockSelection = isRecord(stockSnapshot)
+    ? stockSnapshot.selection
+    : undefined;
+  const selectionUpdatedAt = isRecord(stockSelection)
+    ? stockSelection.updatedAt
+    : undefined;
+  const isFreshSelection =
+    maxSelectionAgeMs === undefined ||
+    (typeof selectionUpdatedAt === 'number' &&
+      Number.isFinite(selectionUpdatedAt) &&
+      selectionUpdatedAt <= now &&
+      now - selectionUpdatedAt <= maxSelectionAgeMs);
+  if (
+    mainAccountKey &&
+    isRecord(stockIdentity) &&
+    stockIdentity.accountKey === mainAccountKey &&
+    isRecord(stockSelection) &&
+    isRecord(stockSelection.identity) &&
+    stockSelection.identity.accountKey === mainAccountKey &&
+    isFreshSelection
+  ) {
+    addTokenLikeImageUris(uris, stockSelection.stockToken);
+    addTokenLikeImageUris(uris, stockSelection.payToken);
+  }
+
+  return [...uris];
 }
 
 function collectPerpsInstrumentImageUris({
@@ -304,11 +435,8 @@ export function getColdStartImageUrisFromSnapshot(
     return [];
   }
 
-  // The selected Swap pair is a tiny, first-interaction critical set. Prime it
-  // before wallet lists so a slow connection cannot leave token/network icons
-  // behind the first Trade paint while dozens of Home assets are queued.
-  collectSwapImageUris({ uris, snapshot });
   collectWalletTokenImageUris({ uris, snapshot });
+  collectSwapImageUris({ uris, snapshot });
   collectPerpsImageUris({ uris, snapshot });
 
   return [...uris].slice(0, limit);
@@ -346,6 +474,7 @@ export async function prewarmImageUris(
   {
     limit = COLD_START_IMAGE_PRELOAD_LIMIT,
     awaitPreload = false,
+    awaitPreloadTimeoutMs,
     decode = false,
     decodeTimeoutMs,
     primeTimeoutMs,
@@ -371,7 +500,29 @@ export async function prewarmImageUris(
     tasks.push(primeCachedImageRefs({ uris, timeoutMs: decodeTimeoutMs }));
   }
   if (awaitPreload) {
-    await Promise.allSettled(tasks);
+    const settleTask = Promise.allSettled(tasks);
+    if (awaitPreloadTimeoutMs && awaitPreloadTimeoutMs > 0) {
+      await new Promise<void>((resolve) => {
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          resolve();
+        }, awaitPreloadTimeoutMs);
+        void settleTask.then(() => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          clearTimeout(timer);
+          resolve();
+        });
+      });
+    } else {
+      await settleTask;
+    }
   } else {
     tasks.forEach((task) => {
       void task.catch(() => undefined);
@@ -381,14 +532,48 @@ export async function prewarmImageUris(
 }
 
 export async function prewarmColdStartImagesFromSnapshot(
-  options: IImagePreloadOptions & {
-    snapshot?: IColdStartSnapshot;
-  } = {},
+  options: IColdStartImagePreloadOptions = {},
 ) {
-  return prewarmImageUris(
-    getColdStartImageUrisFromSnapshot(options.snapshot, options.limit),
-    options,
-  );
+  const {
+    snapshot: suppliedSnapshot,
+    stockCriticalOptions,
+    ...imageOptions
+  } = options;
+  const { maxSelectionAgeMs, now, requireActiveStock, ...stockImageOptions } =
+    stockCriticalOptions ?? {};
+  const snapshot = suppliedSnapshot ?? getColdStartSnapshot();
+  const stockDisplayStore =
+    snapshot &&
+    stockCriticalOptions &&
+    (!requireActiveStock || isMainStockColdStartContextActive(snapshot))
+      ? getStockDisplayStoreOnce(snapshot)
+      : undefined;
+
+  const stockImageUris = stockCriticalOptions
+    ? getStockColdStartImageUrisFromSnapshot(snapshot, stockDisplayStore, {
+        maxSelectionAgeMs,
+        now,
+        requireActiveStock,
+      })
+    : [];
+  const criticalStockImageUris =
+    stockImageOptions.decode && platformEnv.isNativeIOS
+      ? getMissingCachedImageRefUris(stockImageUris)
+      : stockImageUris;
+  const [, globalPrewarmCount] = await Promise.all([
+    prewarmImageUris(criticalStockImageUris, {
+      ...imageOptions,
+      ...stockImageOptions,
+      // The current Stock pair is a separate critical budget. It must not be
+      // evicted when the x-compatible wallet-first global list reaches 96 URIs.
+      limit: criticalStockImageUris.length,
+    }),
+    prewarmImageUris(
+      getColdStartImageUrisFromSnapshot(snapshot, imageOptions.limit),
+      imageOptions,
+    ),
+  ]);
+  return globalPrewarmCount;
 }
 
 export function prewarmPerpsTokenSelectorImages(
