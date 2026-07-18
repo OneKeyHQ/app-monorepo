@@ -1,5 +1,6 @@
 import {
   calculateMarketTokenLivePriceChange,
+  filterInjectedBtcRow,
   getStockMarketCapValue,
   getStockPeRatioValue,
   getStockVolume24hValue,
@@ -8,6 +9,8 @@ import {
   shouldUseStockMetadataColumnsForTokens,
   transformApiItemToToken,
 } from './tokenListHelpers';
+
+import type { IMarketToken } from '../MarketTokenData';
 
 describe('stock metadata values', () => {
   test('normalizes numeric metadata values', () => {
@@ -371,5 +374,19 @@ describe('shouldUseStockMetadataColumnsForTokens', () => {
         { stock: undefined },
       ]),
     ).toBe(false);
+  });
+});
+
+describe('filterInjectedBtcRow', () => {
+  it('removes the backend-injected native BTC row only', () => {
+    const tokens = [
+      { id: 'btc', networkId: 'btc--0', isNative: true, symbol: 'BTC' },
+      { id: 'wbtc', networkId: 'evm--1', isNative: false, symbol: 'WBTC' },
+      { id: 'sol', networkId: 'sol--101', isNative: true, symbol: 'SOL' },
+    ] as IMarketToken[];
+    expect(filterInjectedBtcRow(tokens).map((t) => t.id)).toEqual([
+      'wbtc',
+      'sol',
+    ]);
   });
 });

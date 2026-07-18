@@ -4,6 +4,17 @@ import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
 
+// Temporarily hide the backend-injected native BTC row in the trending list.
+// Plan of record (PRD P0-1/P1-1): BTC moves to the curated Majors tab once it
+// ships. Flip to false at dev handoff to show the injected row again.
+export const HIDE_INJECTED_BTC_ROW = true;
+
+export function filterInjectedBtcRow(tokens: IMarketToken[]): IMarketToken[] {
+  return tokens.filter(
+    (token) => !(token.isNative && token.networkId === 'btc--0'),
+  );
+}
+
 // Helper function to check if token is native and get normalized address for matching
 // Only uses fallback address length check when isNative field is not present (undefined)
 // This ensures online data with isNative field won't use fallback logic

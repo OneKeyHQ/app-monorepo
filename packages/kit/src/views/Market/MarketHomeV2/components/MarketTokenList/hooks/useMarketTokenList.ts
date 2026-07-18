@@ -18,6 +18,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { TIME_RANGE_TO_API_MAP } from '../../../types';
 import {
+  HIDE_INJECTED_BTC_ROW,
+  filterInjectedBtcRow,
   getNetworkLogoUri,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
@@ -553,6 +555,10 @@ export function useMarketTokenList({
         timeRange: timeRangeRef.current,
       }),
     );
+    const visibleTokens =
+      type === 'trending' && HIDE_INJECTED_BTC_ROW
+        ? filterInjectedBtcRow(transformed)
+        : transformed;
     const transformDuration =
       transformStart > 0 ? performance.now() - transformStart : undefined;
     markMarketReactPerf({
@@ -572,7 +578,7 @@ export function useMarketTokenList({
     // Update only rows whose visible fields changed so Table row memoization can
     // survive seed -> remote refresh and polling updates.
     setTransformedData((prev) =>
-      reuseStableMarketTokenRows({ prev, next: transformed }),
+      reuseStableMarketTokenRows({ prev, next: visibleTokens }),
     );
     setCurrentPage(1);
     setHasReachedEnd(false);
