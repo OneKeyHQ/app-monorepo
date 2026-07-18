@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { SizableText } from '@onekeyhq/components';
@@ -29,11 +29,29 @@ function CreatePinPage() {
   const intl = useIntl();
   const [pin, setPin] = useState('');
 
+  const isContinuingRef = useRef(false);
+
+  // Re-arm the submit guard when navigating back from ConfirmPin
+  useFocusEffect(
+    useCallback(() => {
+      isContinuingRef.current = false;
+    }, []),
+  );
+
   const handleContinue = useCallback(async () => {
-    if (pin) {
+    if (!pin || isContinuingRef.current) {
+      return;
+    }
+    // Close the same-tick re-entry window (double Enter) so ConfirmPin
+    // cannot be pushed twice; navigation.push does not dedupe.
+    isContinuingRef.current = true;
+    try {
       await cacheKeylessOnboardingPin({ pin });
       setPin('');
       navigation.push(EOnboardingPagesV2.ConfirmPin, { action });
+    } catch (e) {
+      isContinuingRef.current = false;
+      throw e;
     }
   }, [action, cacheKeylessOnboardingPin, navigation, pin]);
 

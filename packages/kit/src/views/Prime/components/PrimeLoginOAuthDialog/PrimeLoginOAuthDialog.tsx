@@ -26,6 +26,8 @@ import {
   EOAuthSocialLoginProvider,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type { IOneKeyIdLoginWithLocalKeylessPrepareResult } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -142,7 +144,17 @@ function PrimeLoginOAuthDialog(props: {
           // just-validated session, and keeping it lets the retry skip a
           // fresh Google/Apple OAuth round-trip (same policy as
           // startKeylessCreateWithOAuthProvider).
-          if (!isTransientNetworkLikeError(error)) {
+          if (
+            !isTransientNetworkLikeError(error) &&
+            // Slot-replaced is definitive for THIS flow, but the shared
+            // keyless slot now holds ANOTHER account's valid session —
+            // tearing it down would fail the winning login too.
+            !errorUtils.isErrorByClassName({
+              error,
+              className:
+                EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
+            })
+          ) {
             if (didUseOAuthSignIn && isLocalKeylessOAuthMode) {
               await clearOAuthSignInTempSession();
             } else if (didUseOAuthSignIn) {

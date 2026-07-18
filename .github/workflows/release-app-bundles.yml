@@ -252,8 +252,12 @@ jobs:
           # shellcheck disable=SC2088
           URL_PREFIX='~/web-embed'
           npx sentry-cli releases new "$RELEASE" || true
-          if ! npx sentry-cli sourcemaps inject ./apps/web-embed/web-build; then
-            echo "::warning::Web-embed Sentry debug-id injection failed; continuing with release-based upload."
+          if [ -f ./apps/web-embed/scripts/check-browser-compat.js ]; then
+            if ! npx sentry-cli sourcemaps inject ./apps/web-embed/web-build; then
+              echo "::warning::Web-embed Sentry debug-id injection failed; continuing with release-based upload."
+            fi
+          else
+            echo "::notice::Skipping Sentry debug-id injection for a legacy checkout without the post-injection browser compatibility check."
           fi
           if npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web-embed/web-build; then
             npx sentry-cli releases finalize "$RELEASE" || true
@@ -264,7 +268,12 @@ jobs:
           fi
 
       - name: Verify injected Web-embed Chromium 67 compatibility
-        run: node ./apps/web-embed/scripts/check-browser-compat.js
+        run: |
+          if [ -f ./apps/web-embed/scripts/check-browser-compat.js ]; then
+            node ./apps/web-embed/scripts/check-browser-compat.js
+          else
+            echo "::notice::Skipping the Chromium 67 compatibility check for a legacy checkout."
+          fi
 
       - name: Upload Web-embed Sourcemap Diagnostic Artifact
         if: always() && steps.upload_web_embed_sourcemaps.outputs.uploaded != 'true'
@@ -280,7 +289,25 @@ jobs:
 
       - name: Finalize Web-embed Production Assets
         if: always()
-        run: node ./apps/web-embed/scripts/finalize-production-assets.js --strip-only
+        run: |
+          if [ -f ./apps/web-embed/scripts/finalize-production-assets.js ]; then
+            node ./apps/web-embed/scripts/finalize-production-assets.js --strip-only
+          else
+            echo "::notice::Using legacy web-embed production asset cleanup."
+            find ./apps/web-embed/web-build -type f \( \
+              -name '*.css.map' -o \
+              -name '*.js.map' -o \
+              -name '*.LICENSE.txt' \
+            \) -print -delete
+            if find ./apps/web-embed/web-build -type f \( \
+              -name '*.css.map' -o \
+              -name '*.js.map' -o \
+              -name '*.LICENSE.txt' \
+            \) -print -quit | grep -q .; then
+              echo "::error::Legacy web-embed production asset cleanup left sourcemap or license files behind."
+              exit 1
+            fi
+          fi
 
       - name: Upload web-embed artifact
         uses: actions/upload-artifact@v4

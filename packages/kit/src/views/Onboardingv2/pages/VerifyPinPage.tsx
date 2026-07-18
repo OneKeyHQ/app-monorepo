@@ -255,7 +255,14 @@ function VerifyPinPage() {
   }, [intl, mode]);
 
   const isSubmitSuccessRef = useRef(false);
+  const isVerifyingRef = useRef(false);
   const handleVerify = useCallback(async () => {
+    if (isVerifyingRef.current) {
+      return;
+    }
+    // Close the same-tick re-entry window before React state updates commit;
+    // a duplicate submit would burn an extra Juicebox PIN guess.
+    isVerifyingRef.current = true;
     try {
       isSubmitSuccessRef.current = false;
       setIsLoading(true);
@@ -294,6 +301,7 @@ function VerifyPinPage() {
         throw e;
       }
     } finally {
+      isVerifyingRef.current = false;
       setIsLoading(false);
       setPin('');
       // Focus the input after clearing PIN
