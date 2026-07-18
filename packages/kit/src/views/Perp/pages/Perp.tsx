@@ -37,6 +37,7 @@ import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterActi
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
+import { PerpsUnifoldDepositHost } from '../components/TradingPanel/modals/PerpsUnifoldDepositHost';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
@@ -222,6 +223,7 @@ function PerpView() {
   ) : (
     <>
       <PerpsGlobalEffects />
+      <PerpsUnifoldDepositHost />
       <PerpContent />
     </>
   );

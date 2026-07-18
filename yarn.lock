@@ -10172,6 +10172,7 @@ __metadata:
     "@types/socket.io-client": "npm:^3.0.0"
     "@types/url-parse": "npm:^1.4.8"
     "@unifold/connect-react": "npm:0.1.69"
+    "@unifold/connect-react-native": "npm:0.1.57"
     "@unifold/core": "npm:0.1.69"
     date-fns: "npm:2.30.0"
     expo-camera: "npm:16.1.10"
@@ -10245,6 +10246,7 @@ __metadata:
     "@sentry/react-native": "npm:6.22.0"
     "@shopify/flash-list": "npm:2.2.0"
     "@shopify/react-native-skia": "npm:2.6.2"
+    "@stripe/stripe-react-native": "npm:0.69.0"
     "@types/react-native-canvas": "npm:^0.1.13"
     "@walletconnect/react-native-compat": "npm:2.21.9"
     burnt: "npm:0.12.2"
@@ -17075,6 +17077,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@stripe/stripe-react-native@npm:0.69.0":
+  version: 0.69.0
+  resolution: "@stripe/stripe-react-native@npm:0.69.0"
+  peerDependencies:
+    expo: ">=46.0.9"
+    react: "*"
+    react-native: "*"
+    react-native-webview: "*"
+  peerDependenciesMeta:
+    expo:
+      optional: true
+    react-native-webview:
+      optional: true
+  checksum: 10/67e5b7a91a39d2dd38c7572c516a84cf76c1ba376f0ff6a45257372fd263d97e2cfcc4ad6a1db0514d492000357b51ce855fac4a162a9c4ecd45d6855bdb74a7
+  languageName: node
+  linkType: hard
+
 "@substrate/connect-extension-protocol@npm:^2.0.0":
   version: 2.0.0
   resolution: "@substrate/connect-extension-protocol@npm:2.0.0"
@@ -20732,6 +20751,31 @@ __metadata:
   version: 1.3.0
   resolution: "@ungap/structured-clone@npm:1.3.0"
   checksum: 10/80d6910946f2b1552a2406650051c91bbd1f24a6bf854354203d84fe2714b3e8ce4618f49cc3410494173a1c1e8e9777372fe68dce74bd45faf0a7a1a6ccf448
+  languageName: node
+  linkType: hard
+
+"@unifold/connect-react-native@npm:0.1.57":
+  version: 0.1.57
+  resolution: "@unifold/connect-react-native@npm:0.1.57"
+  dependencies:
+    react-native-qrcode-svg: "npm:^6.3.2"
+  peerDependencies:
+    "@react-native-async-storage/async-storage": ">=1.19.0"
+    "@stripe/stripe-react-native": ">=0.62.0"
+    expo: ">=49.0.0"
+    expo-clipboard: ">=5.0.0"
+    react: ^18.2.0 || ^19.0.0
+    react-native: ">=0.72.0"
+    react-native-gesture-handler: ">=2.14.0"
+    react-native-reanimated: ">=3.0.0"
+    react-native-svg: ">=13.0.0"
+    react-native-webview: ">=13.0.0"
+  peerDependenciesMeta:
+    expo:
+      optional: true
+    expo-clipboard:
+      optional: true
+  checksum: 10/4117d6e57eaed0208f69dbfdaa3eabe43c4ade9d120b610e906cc0cfd1c7dc4f8c10eb27e5460280c4c9e313ef606ef5b0fa2613a3976808158379f40673286a
   languageName: node
   linkType: hard
 
@@ -41453,7 +41497,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prop-types@npm:^15.5.10, prop-types@npm:^15.6.2, prop-types@npm:^15.7.2, prop-types@npm:^15.8.1":
+"prop-types@npm:^15.5.10, prop-types@npm:^15.6.2, prop-types@npm:^15.7.2, prop-types@npm:^15.8.0, prop-types@npm:^15.8.1":
   version: 15.8.1
   resolution: "prop-types@npm:15.8.1"
   dependencies:
@@ -41721,7 +41765,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"qrcode@npm:1.5.4":
+"qrcode@npm:1.5.4, qrcode@npm:^1.5.4":
   version: 1.5.4
   resolution: "qrcode@npm:1.5.4"
   dependencies:
@@ -42626,6 +42670,21 @@ __metadata:
     react-native: "*"
     react-native-svg: "*"
   checksum: 10/db2fa369750ed02456cd224afbf34946a029124b3dfa1185fc2571dd7bda4486d91d758362398ff3a38915d2d0636fbea117a35fa5116f0dcf8a3e7985076462
+  languageName: node
+  linkType: hard
+
+"react-native-qrcode-svg@npm:^6.3.2":
+  version: 6.3.21
+  resolution: "react-native-qrcode-svg@npm:6.3.21"
+  dependencies:
+    prop-types: "npm:^15.8.0"
+    qrcode: "npm:^1.5.4"
+    text-encoding: "npm:^0.7.0"
+  peerDependencies:
+    react: "*"
+    react-native: ">=0.63.4"
+    react-native-svg: ">=14.0.0"
+  checksum: 10/83ce3e00502b42ecf7b5a1a3ef4323120532e0635e640ca00b0a5b69b7b61fd117e29604339af3b4a2d869bf00a701f85329f9a123afa81595798f9d7956c181
   languageName: node
   linkType: hard
 

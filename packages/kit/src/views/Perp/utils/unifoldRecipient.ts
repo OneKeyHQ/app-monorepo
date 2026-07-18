@@ -9,8 +9,8 @@ export function getSafeUnifoldRecipient({
   recipient,
   activeAccountAddress,
 }: {
-  recipient: string | undefined;
-  activeAccountAddress: string | undefined;
+  recipient: string | null | undefined;
+  activeAccountAddress: string | null | undefined;
 }): string | null {
   if (!recipient || !activeAccountAddress) {
     return null;

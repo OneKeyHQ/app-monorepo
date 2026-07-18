@@ -19,6 +19,12 @@ describe('getSafeUnifoldRecipient', () => {
         activeAccountAddress: undefined,
       }),
     ).toBeNull();
+    expect(
+      getSafeUnifoldRecipient({ recipient: null, activeAccountAddress: ADDR }),
+    ).toBeNull();
+    expect(
+      getSafeUnifoldRecipient({ recipient: ADDR, activeAccountAddress: null }),
+    ).toBeNull();
   });
 
   it('returns null for a malformed address', () => {

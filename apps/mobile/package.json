@@ -92,6 +92,7 @@
     "@sentry/react-native": "6.22.0",
     "@shopify/flash-list": "2.2.0",
     "@shopify/react-native-skia": "2.6.2",
+    "@stripe/stripe-react-native": "0.69.0",
     "@types/react-native-canvas": "^0.1.13",
     "@walletconnect/react-native-compat": "2.21.9",
     "burnt": "0.12.2",

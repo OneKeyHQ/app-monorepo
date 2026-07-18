@@ -9,6 +9,7 @@
     "@stripe/stripe-js": "^1.46.0",
     "@types/url-parse": "^1.4.8",
     "@unifold/connect-react": "0.1.69",
+    "@unifold/connect-react-native": "0.1.57",
     "@unifold/core": "0.1.69",
     "date-fns": "2.30.0",
     "expo-camera": "16.1.10",
