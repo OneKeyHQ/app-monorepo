@@ -32,7 +32,6 @@ import {
   useBulkExportHistoryTaskPolling,
   useBulkExportHistoryTasks,
 } from '../hooks/useBulkExportHistoryTasks';
-import { isBulkExportHistoryMockTaskId } from '../utils/bulkExportHistoryTaskMocks';
 
 import BulkExportHistoryTaskStatus from './BulkExportHistoryTaskStatus';
 import {
@@ -124,10 +123,9 @@ function BulkExportHistoryTaskDetail({
     () => (task ? getExportHistoryTaskStatusMeta(task) : undefined),
     [task],
   );
-  const isMockTask = Boolean(task && isBulkExportHistoryMockTaskId(task.id));
 
   useBulkExportHistoryTaskPolling({
-    enabled: Boolean(statusMeta?.isInProgress && !isMockTask),
+    enabled: Boolean(statusMeta?.isInProgress),
     isLoading,
     run,
   });

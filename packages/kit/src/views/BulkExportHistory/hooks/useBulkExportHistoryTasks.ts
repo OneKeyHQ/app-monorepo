@@ -6,7 +6,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IFetchExportTransactionHistoryTasksResp } from '@onekeyhq/shared/types/history';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { withBulkExportHistoryStatusMocks } from '../utils/bulkExportHistoryTaskMocks';
 
 const EXPORT_HISTORY_TASK_POLLING_INTERVAL_MS = timerUtils.getTimeDurationMs({
   seconds: 5,
@@ -15,14 +14,8 @@ const EXPORT_HISTORY_TASK_POLLING_INTERVAL_MS = timerUtils.getTimeDurationMs({
 export function useBulkExportHistoryTasks() {
   const promiseResult =
     usePromiseResult<IFetchExportTransactionHistoryTasksResp>(
-      async () => {
-        const response =
-          await backgroundApiProxy.serviceHistory.fetchExportTransactionHistoryTasks();
-        return {
-          ...response,
-          list: withBulkExportHistoryStatusMocks(response.list),
-        };
-      },
+      async () =>
+        backgroundApiProxy.serviceHistory.fetchExportTransactionHistoryTasks(),
       [],
       { watchLoading: true },
     );

@@ -17,10 +17,6 @@ import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
 import type { IExportTransactionHistoryTask } from '@onekeyhq/shared/types/history';
 
 import { formatExportHistoryTaskFilenameDay } from '../pages/bulkExportHistoryTaskUtils';
-import {
-  getBulkExportHistoryMockCsv,
-  isBulkExportHistoryMockTaskId,
-} from '../utils/bulkExportHistoryTaskMocks';
 
 type IBulkExportHistoryDownloadButtonProps = Omit<
   IButtonProps,
@@ -60,11 +56,10 @@ function useBulkExportHistoryDownload(task: IExportTransactionHistoryTask) {
     isDownloadingRef.current = true;
     setIsDownloading(true);
     try {
-      const csvData = isBulkExportHistoryMockTaskId(task.id)
-        ? getBulkExportHistoryMockCsv(task)
-        : await backgroundApiProxy.serviceHistory.downloadExportTransactionHistoryTaskCsv(
-            { id: task.id },
-          );
+      const csvData =
+        await backgroundApiProxy.serviceHistory.downloadExportTransactionHistoryTaskCsv(
+          { id: task.id },
+        );
 
       const formatFilenameDay = (timestampMs: number) =>
         formatExportHistoryTaskFilenameDay(timestampMs, task.query.timeZone);

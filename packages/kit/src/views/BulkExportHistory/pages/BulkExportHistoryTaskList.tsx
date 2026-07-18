@@ -46,7 +46,6 @@ import {
   getBulkExportHistoryAccountNetworkCompatibility,
   resolveBulkExportHistoryAccountIdentity,
 } from '../utils/bulkExportHistoryAccountUtils';
-import { isBulkExportHistoryMockTaskId } from '../utils/bulkExportHistoryTaskMocks';
 
 import BulkExportHistoryTaskStatus from './BulkExportHistoryTaskStatus';
 import {
@@ -384,11 +383,9 @@ function BulkExportHistoryTaskListContent({
   const accountFilterNetworkIdsKey = JSON.stringify(
     Array.from(
       new Set(
-        tasks
-          .filter((task) => !isBulkExportHistoryMockTaskId(task.id))
-          .flatMap((task) =>
-            Object.keys(task.query?.networkIdToAddressArray ?? {}),
-          ),
+        tasks.flatMap((task) =>
+          Object.keys(task.query?.networkIdToAddressArray ?? {}),
+        ),
       ),
     ).toSorted(),
   );
@@ -529,25 +526,21 @@ function BulkExportHistoryTaskListContent({
       return tasks;
     }
     return tasks.filter((task) =>
-      isBulkExportHistoryMockTaskId(task.id)
-        ? true
-        : Object.entries(task.query?.networkIdToAddressArray ?? {}).some(
-            ([networkId, taskAddresses]) =>
-              (taskAddresses ?? []).some((address) =>
-                accountAddressSetMap[networkId]?.has(
-                  normalizeAddressForTaskFilter({ networkId, address }),
-                ),
-              ),
+      Object.entries(task.query?.networkIdToAddressArray ?? {}).some(
+        ([networkId, taskAddresses]) =>
+          (taskAddresses ?? []).some((address) =>
+            accountAddressSetMap[networkId]?.has(
+              normalizeAddressForTaskFilter({ networkId, address }),
+            ),
           ),
+      ),
     );
   }, [accountAddressResult, isTaskFilterReady, tasks]);
 
   const hasInProgressTask = useMemo(
     () =>
       displayTasks.some(
-        (task) =>
-          !isBulkExportHistoryMockTaskId(task.id) &&
-          getExportHistoryTaskStatusMeta(task).isInProgress,
+        (task) => getExportHistoryTaskStatusMeta(task).isInProgress,
       ),
     [displayTasks],
   );
