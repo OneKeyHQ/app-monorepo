@@ -54,6 +54,10 @@ import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 import {
+  MARKET_CLIENT_SORT_FIELD_MAP,
+  sortMarketTokensClient,
+} from './utils/marketListClientSort';
+import {
   shouldShowStockSubtitleForTokens,
   shouldUseStockMetadataColumnsForTokens,
 } from './utils/tokenListHelpers';
@@ -78,16 +82,6 @@ const SORTABLE_COLUMNS = {
   marketCap: 'mc',
   turnover: 'v24hUSD',
 } as const;
-
-// Client sort mode is used by banner detail and only supports 24h change.
-const CLIENT_SORTABLE_COLUMNS: Record<string, string> = {
-  change24h: 'change24h',
-};
-
-// Sort key → IMarketToken field mapping for client-side sorting
-const CLIENT_SORT_FIELD_MAP: Record<string, keyof IMarketToken> = {
-  change24h: 'change24h',
-};
 
 // Map sort keys to ESortWay enum values for logging
 const SORT_KEY_TO_ENUM: Record<string, ESortWay> = {
@@ -230,6 +224,7 @@ type IMarketTokenListBaseProps = {
   result: IMarketTokenListResult;
   isWatchlistMode?: boolean;
   clientSort?: boolean;
+  clientSortFieldMapOverride?: Record<string, keyof IMarketToken>;
   showEndReachedIndicator?: boolean;
   hideTokenAge?: boolean;
   watchlistFrom?: EWatchlistFrom;
@@ -265,6 +260,7 @@ function MarketTokenListBase({
   result,
   isWatchlistMode = false,
   clientSort = false,
+  clientSortFieldMapOverride,
   showEndReachedIndicator = false,
   hideTokenAge = false,
   watchlistFrom,
@@ -326,22 +322,22 @@ function MarketTokenListBase({
     canEnableWebSocket &&
     (!platformEnv.isWeb || !webTabIntegrated || enableDeferredWebFeatures),
   );
+  const clientSortFieldMap = useMemo(
+    () => ({ ...MARKET_CLIENT_SORT_FIELD_MAP, ...clientSortFieldMapOverride }),
+    [clientSortFieldMapOverride],
+  );
   const orderedData = useMemo(() => {
     if (!clientSort || !currentSortBy || !currentSortType) {
       return rawData;
     }
 
-    const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
+    const field = clientSortFieldMap[currentSortBy];
     if (!field) {
       return rawData;
     }
 
-    return [...rawData].toSorted((a, b) => {
-      const aVal = (a[field] as number) ?? 0;
-      const bVal = (b[field] as number) ?? 0;
-      return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
-    });
-  }, [clientSort, currentSortBy, currentSortType, rawData]);
+    return sortMarketTokensClient(rawData, field, currentSortType);
+  }, [clientSort, clientSortFieldMap, currentSortBy, currentSortType, rawData]);
   const [subscriptionRange, setSubscriptionRange] =
     useState<IMarketHomeSubscriptionRange>({ start: 0, end: 0 });
   const updateSubscriptionRange = useCallback(() => {
@@ -557,12 +553,14 @@ function MarketTokenListBase({
         return undefined;
       }
 
-      // Client sort mode is used by banner detail for 24h change sorting,
-      // watchlist mode uses restricted server-side sortable columns.
-      const columnsMap = clientSort
-        ? CLIENT_SORTABLE_COLUMNS
-        : SORTABLE_COLUMNS;
-      const sortKey = columnsMap[column.dataIndex as keyof typeof columnsMap];
+      // Client sort mode allows any column mapped by clientSortFieldMap
+      // (sortKey === dataIndex); watchlist mode uses restricted
+      // server-side sortable columns.
+      const sortKey = clientSort
+        ? clientSortFieldMap[String(column.dataIndex)]
+          ? String(column.dataIndex)
+          : undefined
+        : SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
 
       if (sortKey) {
         const isCurrentSort = currentSortBy === sortKey;
@@ -582,6 +580,7 @@ function MarketTokenListBase({
       handleSortChange,
       isWatchlistMode,
       clientSort,
+      clientSortFieldMap,
       currentSortBy,
       currentSortType,
       useStockMetadataColumns,
