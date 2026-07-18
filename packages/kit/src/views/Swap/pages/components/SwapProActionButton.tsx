@@ -487,9 +487,19 @@ const SwapProActionButton = ({
   // accent variant labels use $textInverse, destructive uses $textOnColor;
   // childrenAsText is false, so the label color must be set explicitly.
   const labelColor = isBuy ? '$textInverse' : '$textOnColor';
+  // A quote turns stale the moment the typed amount no longer matches the
+  // amount it was requested with (the debounce window before the next quote
+  // fires), so treat that window as quoting too — otherwise the button briefly
+  // shows the previous amount's label between edits and jumps in height.
+  const isQuoteAmountStale =
+    Boolean(currentQuoteRes) && currentQuoteRes?.fromAmount !== inputAmount;
   // While a quote for the entered amount is in flight, show only the spinner
   // (no stale label) so the locked button reads as "quoting", not broken.
-  const isQuoting = currentQuoteLoading && Boolean(inputAmount);
+  const isQuoting =
+    Boolean(inputAmount) &&
+    hasEnoughBalance &&
+    !shouldShowNoProviderSupport &&
+    (currentQuoteLoading || isQuoteAmountStale);
 
   return (
     <Button
