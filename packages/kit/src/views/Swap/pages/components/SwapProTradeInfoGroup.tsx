@@ -19,10 +19,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import {
   useSwapLimitPriceUseRateAtom,
   useSwapProDirectionAtom,
-  useSwapProSelectTokenAtom,
-  useSwapProSellToTokenAtom,
   useSwapProTradeTypeAtom,
-  useSwapProUseSelectBuyTokenAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSpeedQuoteFetchingAtom,
   useSwapSpeedQuoteResultAtom,
@@ -30,10 +27,8 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
-import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
-import SellForSelector from '../../../Market/MarketDetailV2/components/SwapPanel/components/SellForSelector';
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import {
@@ -44,26 +39,19 @@ import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 
 import { ITEM_TITLE_PROPS, ITEM_VALUE_PROPS } from './SwapProTokenDetailGroup';
 
-import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
-
 interface ISwapProTradeInfoGroupProps {
   balanceLoading: boolean;
-  defaultTokens: ISwapTokenBase[];
-  defaultLimitTokens: ISwapTokenBase[];
   onBalanceMax: () => void;
 }
 
 const SwapProTradeInfoGroup = ({
   balanceLoading,
   onBalanceMax,
-  defaultTokens,
-  defaultLimitTokens,
 }: ISwapProTradeInfoGroupProps) => {
   const intl = useIntl();
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProQuoteResultPro] = useSwapSpeedQuoteResultAtom();
   const [swapProQuoteFetchingPro] = useSwapSpeedQuoteFetchingAtom();
   const [swapCurrentQuoteResult] = useSwapQuoteCurrentSelectAtom();
@@ -71,17 +59,8 @@ const SwapProTradeInfoGroup = ({
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
-  const [swapProSellToToken, setSwapProSellToToken] =
-    useSwapProSellToTokenAtom();
-  const [, setSwapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
   const [swapLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const navigation = useAppNavigation();
-  const defaultTokensFromType = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return defaultTokens;
-    }
-    return defaultLimitTokens;
-  }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
 
   const handleDepositPress = useCallback(() => {
     if (!inputToken || !activeAccount) {
@@ -189,31 +168,6 @@ const SwapProTradeInfoGroup = ({
     return '';
   }, [toTokenAmount?.value, swapProQuoteResult?.toAmount, swapProTradeType]);
 
-  const handleTokenSelect = useCallback(
-    (token: IToken) => {
-      setSwapProSellToToken(token);
-      // Sync BUY counterparty so both directions use the same token
-      setSwapProUseSelectBuyToken(token);
-      // Save preference (shared with Instant Mode) via simpledb
-      const networkId = swapProSelectToken?.networkId || '';
-      if (networkId) {
-        void backgroundApiProxy.simpleDb.marketTokenPreference.setPreference({
-          networkId,
-          preference: {
-            contractAddress: token.contractAddress,
-            symbol: token.symbol,
-            networkId: token.networkId,
-          },
-        });
-      }
-    },
-    [
-      setSwapProSellToToken,
-      setSwapProUseSelectBuyToken,
-      swapProSelectToken?.networkId,
-    ],
-  );
-
   const selectorTrigger = useMemo(
     () => (
       <DeriveTypeSelectorTriggerIconRenderer
@@ -278,15 +232,6 @@ const SwapProTradeInfoGroup = ({
           py: '$1',
         }}
       />
-      {swapProDirection === ESwapDirection.SELL ? (
-        <SellForSelector
-          defaultTokens={defaultTokensFromType}
-          currentSelectToken={swapProSelectToken as ISwapTokenBase}
-          onTokenSelect={(token) => handleTokenSelect(token as IToken)}
-          symbol={swapProSellToToken?.symbol ?? '-'}
-          isLoading={swapProQuoteFetching}
-        />
-      ) : null}
       {swapProTradeType === ESwapProTradeType.LIMIT ? (
         <SwapCommonInfoItem
           title={intl.formatMessage({

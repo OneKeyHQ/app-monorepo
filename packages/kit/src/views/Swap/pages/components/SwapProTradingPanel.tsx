@@ -155,8 +155,6 @@ const SwapProTradingPanel = ({
         <SwapProTradeInfoGroup
           balanceLoading={balanceLoading}
           onBalanceMax={onBalanceMax}
-          defaultTokens={swapProConfig.defaultTokens}
-          defaultLimitTokens={swapProConfig.defaultLimitTokens}
         />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
         {showMarketPresetSelector && marketPresetSettings ? (

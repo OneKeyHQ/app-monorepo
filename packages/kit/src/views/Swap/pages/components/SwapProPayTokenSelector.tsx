@@ -30,10 +30,11 @@ interface ISwapProPayTokenSelectorProps {
   cleanInputAmount: () => void;
 }
 
-// Explicit "Pay" row (styled like the order-type selector) so the pay-token
-// switch is discoverable at a glance; the Balance row keeps only display and
-// the deposit entry. BUY only — SELL spends the traded token and picks its
-// counterparty via SellForSelector.
+// Explicit counterparty-token row styled like the order-type selector, so the
+// switch entry is discoverable at a glance and BUY/SELL share one interaction:
+// BUY shows "Pay (USDC)" (the token being spent), SELL shows "Sell for (USDC)"
+// (the token received). The Balance row keeps only display and the deposit
+// entry.
 const SwapProPayTokenSelector = ({
   defaultTokens,
   defaultLimitTokens,
@@ -45,9 +46,12 @@ const SwapProPayTokenSelector = ({
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProUseSelectBuyToken, setSwapProUseSelectBuyToken] =
     useSwapProUseSelectBuyTokenAtom();
-  const [, setSwapProSellToToken] = useSwapProSellToTokenAtom();
+  const [swapProSellToToken, setSwapProSellToToken] =
+    useSwapProSellToTokenAtom();
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+
+  const isBuy = swapProDirection === ESwapDirection.BUY;
 
   const defaultTokensFromType = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
@@ -57,15 +61,19 @@ const SwapProPayTokenSelector = ({
   }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
 
   // Stock tokens must be paid with stable coins; gray out the native coin.
-  const disableNativePayToken = !!swapProSelectToken?.isStock;
+  const disableNativePayToken = isBuy && !!swapProSelectToken?.isStock;
 
-  const handlePayTokenSelect = useCallback(
+  const displayToken = isBuy ? swapProUseSelectBuyToken : swapProSellToToken;
+
+  const handleTokenSelect = useCallback(
     (token: IToken) => {
-      // Reset amount/slider and drop the in-flight quote before re-quoting
-      // against the newly selected pay token.
-      cleanInputAmount();
+      if (isBuy) {
+        // The BUY amount is denominated in the pay token, so reset it (and
+        // the in-flight quote) before re-quoting against the new token.
+        cleanInputAmount();
+      }
+      // Keep both directions on the same token so switching sides is stable.
       setSwapProUseSelectBuyToken(token);
-      // Sync SELL counterparty so both directions use the same token
       setSwapProSellToToken(token);
       setIsPopoverOpen(false);
       // Save preference (shared with Instant Mode) via simpledb
@@ -82,6 +90,7 @@ const SwapProPayTokenSelector = ({
       }
     },
     [
+      isBuy,
       cleanInputAmount,
       setSwapProUseSelectBuyToken,
       setSwapProSellToToken,
@@ -90,10 +99,7 @@ const SwapProPayTokenSelector = ({
   );
 
   // Hidden on single-token networks (no switch entry per requirement).
-  if (
-    swapProDirection !== ESwapDirection.BUY ||
-    defaultTokensFromType.length <= 1
-  ) {
+  if (defaultTokensFromType.length <= 1) {
     return null;
   }
 
@@ -119,9 +125,11 @@ const SwapProPayTokenSelector = ({
           textAlign="center"
           numberOfLines={1}
         >
-          {`${intl.formatMessage({ id: ETranslations.global_pay })} (${
-            swapProUseSelectBuyToken?.symbol ?? '-'
-          })`}
+          {`${intl.formatMessage({
+            id: isBuy
+              ? ETranslations.global_pay
+              : ETranslations.promode_limit_sell_for,
+          })} (${displayToken?.symbol ?? '-'})`}
         </SizableText>
         <Icon size="$4" name="ChevronDownSmallOutline" color="$iconSubdued" />
       </XStack>
@@ -133,7 +141,7 @@ const SwapProPayTokenSelector = ({
           isOpen={isPopoverOpen}
           onOpenChange={setIsPopoverOpen}
           tokens={defaultTokensFromType as IToken[]}
-          onTokenPress={handlePayTokenSelect}
+          onTokenPress={handleTokenSelect}
           onTradePress={() => {
             setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
           }}

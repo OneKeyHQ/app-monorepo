@@ -75,7 +75,7 @@ const formatCompactValue = (value: string, currencySymbol: string): string => {
  * Format amount within character limit
  * Rules:
  * 1. Display as much as possible within the character limit
- * 2. Use rounding for truncation
+ * 2. Truncate (round down) so the shown amount never exceeds the real one
  * 3. Special cases (may exceed limit, accept line break):
  *    - At least 1 significant digit must be shown (e.g., 0.00000001)
  *    - At least 4 decimal places if the number has decimals
@@ -133,7 +133,9 @@ const formatAmountWithLimit = (amount: string, maxChars: number): string => {
     maxAvailableDecimals >= minDecimals ? maxAvailableDecimals : minDecimals;
 
   if (finalDecimals > 0 && hasDecimal) {
-    return amountBN.toFixed(finalDecimals, BigNumber.ROUND_HALF_UP);
+    // Truncate instead of rounding half-up so the shown amount can never
+    // exceed what will actually be traded.
+    return amountBN.toFixed(finalDecimals, BigNumber.ROUND_DOWN);
   }
 
   // No decimals
@@ -438,14 +440,11 @@ const SwapProActionButton = ({
       ? formatCompactValue(inputTokenValue, currencySymbol)
       : '';
 
-    // Calculate fixed parts length
-    // Format: "{direction} {amount} {symbol} {value}"
-    // Fixed length = direction + space + symbol + (space + value if exists)
-    const fixedLength =
-      directionText.length +
-      1 +
-      tokenSymbol.length +
-      (formattedValue ? 1 + formattedValue.length : 0);
+    // Calculate fixed parts length for the FIRST line only:
+    // "{direction} {amount} {symbol}" — the fiat value renders on its own
+    // second line, so it must not eat into the amount's character budget
+    // (that would round the displayed amount away from the typed one).
+    const fixedLength = directionText.length + 1 + tokenSymbol.length;
 
     // Available characters for amount (subtract 1 for space before symbol)
     const availableForAmount = MAX_BUTTON_CHARS - fixedLength - 1;
