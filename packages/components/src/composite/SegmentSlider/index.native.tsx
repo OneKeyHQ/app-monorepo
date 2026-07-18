@@ -159,13 +159,12 @@ function SegmentSliderComponent({
       callback((node: ISegmentSliderHybridRef) => {
         sliderRef.current = node;
         // Catch-up: the native view's `defaultValue` only captures the FIRST
-        // value. If `value` advanced before this ref attached (async native view
-        // creation), the value-sync effect's setValue was a no-op against a null
-        // ref — push the latest value now so it isn't lost.
-        if (
-          !draggingRef.current &&
-          latestValueRef.current !== lastValueRef.current
-        ) {
+        // value, and on a native view rebuild (unmount/remount of the host
+        // tree, Fabric recycling) the fresh view can sit at a stale position
+        // while the JS refs still believe it is in sync. Push the latest value
+        // unconditionally — `setValue` is idempotent, so a redundant push is
+        // harmless while a skipped one strands the thumb.
+        if (!draggingRef.current) {
           lastValueRef.current = latestValueRef.current;
           node.setValue(latestValueRef.current);
         }
