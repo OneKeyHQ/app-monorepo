@@ -32,6 +32,7 @@ import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeEr
 import { NavigationContainer } from './NavigationContainer';
 import PageTrackerContainer from './PageTrackerContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
+import { PerpsUnifoldDepositHostContainer } from './PerpsUnifoldDepositHostContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeGlobalEffectLazy } from './PrimeGlobalEffectLazy';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
@@ -82,6 +83,7 @@ function DetailRouter() {
       <WebPerformanceMonitorContainer />
       <PasswordVerifyPortalContainer />
       <RookieShareContainerLazy />
+      <PerpsUnifoldDepositHostContainer />
     </NavigationContainer>
   );
 }

@@ -19,6 +19,15 @@ import { getNativeUnifoldBeginDeposit } from './unifoldNativeBridge';
 
 import type { DepositConfig } from '@unifold/connect-react-native';
 
+// Hard fuse: @unifold/connect-react-native 0.1.57 (latest as of 2026-07-19)
+// does not support the HyperCore destination at all (chain 1337 is absent from
+// its chain mapping — the sheet silently closes), and its deposit sheet can
+// freeze the whole app behind a transparent Modal when a request hangs.
+// Keep native on the existing OneKey flow until a Unifold RN SDK release
+// supports HyperCore, then flip this to false and gate rollout via the
+// perp-config remote switch (Task 9).
+const NATIVE_UNIFOLD_DISABLED = true;
+
 // RN SDK 0.1.57 has no exchange screens, and Cash App is iOS-only per the
 // Unifold platform matrix, so those menu entries are hidden on native.
 const NATIVE_EXCLUDED_ACTIONS: IPerpsDepositAction[] = [
@@ -99,9 +108,33 @@ async function showStandaloneUnifoldDepositModal({
     },
   };
 
-  // Rejection means the user cancelled the flow; UI feedback comes from
-  // onError, so swallow it to avoid an unhandled rejection.
-  void beginDeposit(depositConfig).catch(() => undefined);
+  void beginDeposit(depositConfig).catch((error: unknown) => {
+    // The SDK also rejects on plain user cancellation; only surface real
+    // failures so a manual dismiss stays silent.
+    const errorRecord =
+      error && typeof error === 'object'
+        ? (error as Record<string, unknown>)
+        : undefined;
+    const message =
+      (typeof errorRecord?.message === 'string' && errorRecord.message) ||
+      (error instanceof Error ? error.message : '') ||
+      (() => {
+        try {
+          return JSON.stringify(
+            error,
+            error instanceof Error ? Object.getOwnPropertyNames(error) : null,
+          );
+        } catch {
+          return String(error);
+        }
+      })();
+    console.error('[unifold-native] beginDeposit rejected:', error);
+    if (message && !/cancel/i.test(message)) {
+      const code =
+        typeof errorRecord?.code === 'string' ? ` (${errorRecord.code})` : '';
+      Toast.error({ title: 'Deposit failed', message: `${message}${code}` });
+    }
+  });
 }
 
 export function showPerpsUnifoldDepositTracker({
@@ -110,6 +143,9 @@ export function showPerpsUnifoldDepositTracker({
   selectedAccount: IPerpsActiveAccountAtom;
   theme: 'light' | 'dark';
 }) {
+  if (NATIVE_UNIFOLD_DISABLED) {
+    return;
+  }
   void showStandaloneUnifoldDepositModal({
     selectedAccount,
     initialScreen: 'tracker',
@@ -123,7 +159,7 @@ export function showPerpsUnifoldDepositDialog({
   selectedAccount: IPerpsActiveAccountAtom;
   onOneKeyWalletPress: () => void;
 }) {
-  if (!UNIFOLD_PERPS_PUBLISHABLE_KEY) {
+  if (NATIVE_UNIFOLD_DISABLED || !UNIFOLD_PERPS_PUBLISHABLE_KEY) {
     onOneKeyWalletPress();
     return;
   }
