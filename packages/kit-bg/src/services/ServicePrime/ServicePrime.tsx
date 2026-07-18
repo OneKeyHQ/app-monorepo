@@ -12,6 +12,7 @@ import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_MESSAGE_ID,
+  OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
   OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
@@ -22,6 +23,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { ISupabaseJWTPayload } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { EOneKeyIdLoginWithLocalKeylessPrepareStatus } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
@@ -386,14 +388,15 @@ class ServicePrime extends ServiceBase {
 
   // Narrow mutex serializing WRITES to the shared auth-state pair
   // (persisted authSessionSource in simpleDb + primePersistAtom): the
-  // login-side commit (commitAuthSessionSourceBeforeAtomUpdate + the atom
-  // update that immediately follows it) versus the invalid-token cleanup
-  // (handlePrimeLoginInvalidToken) and the logout clear
-  // (clearOneKeyIdAuthState). Without it, the cleanup's multi-await
-  // read -> guard -> clear sequence can interleave with a login commit and
-  // either reset the atom right after a successful login, or wipe the
-  // source while the atom still says logged-in (orphaning a KeylessOAuth
-  // session — a wiped KeylessOAuth source is never re-inferred).
+  // login-side commit (commitAuthSessionSourceAndPrimeAtom, source +
+  // slot check + atom update as one rollback-on-failure section) versus
+  // the invalid-token cleanup (handlePrimeLoginInvalidToken) and the
+  // logout clear (clearOneKeyIdAuthState). Without it, the cleanup's
+  // multi-await read -> guard -> clear sequence can interleave with a
+  // login commit and either reset the atom right after a successful
+  // login, or wipe the source while the atom still says logged-in
+  // (orphaning a KeylessOAuth session — a wiped KeylessOAuth source is
+  // never re-inferred).
   //
   // Deliberately NOT loginMutex: the invalid-token response interceptor
   // fires for the login POST itself while loginMutex is held, so taking
@@ -404,9 +407,13 @@ class ServicePrime extends ServiceBase {
   // either mutex and must never await a OneKey-ID-client HTTP request
   // (whose response interceptor could re-enter the cleanup handler and
   // thus this mutex). Only local simpleDb/atom writes belong inside; the
-  // Supabase getSession token reads used by the guards are the single
-  // documented exception (they can refresh over the network, but go
-  // directly to Supabase, never through the intercepted client).
+  // Supabase getSession token reads used by the CLEANUP guards
+  // (evaluateInvalidTokenClearGuards, clearOneKeyIdAuthStateIfNoActiveToken)
+  // are the single documented exception (they can refresh over the
+  // network, but go directly to Supabase, never through the intercepted
+  // client). The login-side commit takes no part in that exception: its
+  // slot check is a strict persisted-bytes read
+  // (readPersistedAccessTokenBySessionSourceStrict), never getSession.
   authStateWriteMutex = new Semaphore(1);
 
   /**
@@ -601,38 +608,119 @@ class ServicePrime extends ServiceBase {
     return lockResult;
   }
 
-  private async commitAuthSessionSourceBeforeAtomUpdate({
+  /**
+   * Login-side atomic commit of the shared auth-state pair, always run
+   * inside authStateWriteMutex: persist authSessionSource, verify the
+   * committed source's session slot (occupancy, and for keyless callers the
+   * slot identity via expectedSlotTokenSub), announce the commit, then run
+   * the caller's prime-atom update. Every step is LOCAL — the slot check is a
+   * strict persisted-bytes read, never the Supabase SDK's getSession()
+   * (which can trigger a NETWORK token refresh or throw transient
+   * sealed-storage errors), so this section obeys the authStateWriteMutex
+   * lock policy. Callers do not need a token refresh here either: each one
+   * just had its access token accepted by the server (the login/bind POST
+   * outside the lock), so the read only has to prove the session is
+   * persisted locally — steady-state token reads (with refresh) still go
+   * through getActiveAuthToken outside the lock.
+   *
+   * Failure atomicity: ANY failure after the source write — empty/corrupt
+   * slot, a transient slot-read error rethrown by the strict reader, or a
+   * failed prime-atom update — rolls the whole pair back (clearAuthTokens +
+   * setPrimePersistAtomNotLoggedIn) before rethrowing, so no path can exit
+   * with the source committed but the atom not updated. The rollback resets
+   * to logged-out even on the bind path (which stays logged in on success);
+   * that mirrors the long-standing empty-slot behavior — the session slot
+   * itself is untouched, so a retry can log back in.
+   */
+  private async commitAuthSessionSourceAndPrimeAtom({
     authSessionSource,
     callerName,
+    updatePrimeAtom,
+    expectedSlotTokenSub,
   }: {
     authSessionSource: EPrimeAuthSessionSource;
     callerName: string;
+    // In-lock prime-atom update matching this commit (local writes only).
+    updatePrimeAtom: () => Promise<void>;
+    // Keyless-realm callers pass the guard-verified in-flight `sub` so the
+    // identity invariant is re-asserted INSIDE the commit lock: the
+    // pre-POST guard cannot cover the guard->POST->commit window, in which
+    // a concurrent main-runtime persist can still replace the shared slot
+    // with another account's session. Legacy-realm logins have no keyless
+    // identity to compare and omit it.
+    expectedSlotTokenSub?: string;
   }) {
     await this.backgroundApi.simpleDb.prime.setAuthSessionSource(
       authSessionSource,
     );
-    const authToken =
-      await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
-    if (!authToken) {
-      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-        reason: `${callerName}: auth session source committed but active token is not readable`,
+    try {
+      // Strict LOCAL read of the committed source's slot (both realms are
+      // supported): an expired-but-persisted token passes — proving slot
+      // occupancy (plus, for keyless, slot identity below) is all that is
+      // needed here, refreshes happen later outside the lock.
+      const slot =
+        await readPersistedAccessTokenBySessionSourceStrict(authSessionSource);
+      if (slot.status !== 'ok') {
+        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+          reason: `${callerName}: auth session source committed but the session slot is ${slot.status}`,
+        });
+        throw new OneKeyLocalError(
+          `${callerName} ERROR: Active auth token not found`,
+        );
+      }
+      if (expectedSlotTokenSub) {
+        const slotTokenSub =
+          (
+            stringUtils.decodeJWT(
+              slot.accessToken,
+            ) as ISupabaseJWTPayload | null
+          )?.sub || '';
+        if (!slotTokenSub) {
+          // Undecodable slot payload: identity cannot be proven and a
+          // re-read yields the same bytes — definitive abort like a corrupt
+          // slot (caller cleanup of an unusable slot is harmless).
+          defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+            reason: `${callerName}: committed slot token payload is not decodable`,
+          });
+          throw new OneKeyLocalError(
+            `${callerName} ERROR: Keyless OAuth session token payload is not decodable`,
+          );
+        }
+        if (slotTokenSub !== expectedSlotTokenSub) {
+          defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+            reason: `${callerName}: keyless session slot was replaced by a different account during commit`,
+          });
+          // Same typed error as the pre-POST guard: the slot now holds the
+          // winning concurrent flow's valid session, so main-runtime
+          // definitive-failure cleanup must skip its session teardown. The
+          // rollback below resets only source + atom; the slot itself is
+          // untouched.
+          throw new OneKeyErrorOneKeyIdKeylessSessionSlotReplaced();
+        }
+      }
+      // Notify main-runtime session holders (SupabaseAuthProvider) that the
+      // source changed. This must not rely on a primePersistAtom.isLoggedIn
+      // flip: apiBindLegacyOneKeyIdOAuth switches LegacyEmailSupabase ->
+      // KeylessOAuth while staying logged in, and bg-side setSession writes
+      // (legacy keyless migration) emit no auth events in the main runtime.
+      // On desktop/web (single runtime) the event is a harmless self-delivery.
+      // Emitting before the atom update preserves the pre-existing ordering;
+      // the handler is a pure projection refresh that re-reads persisted
+      // state, so an event followed by the rollback below is benign.
+      appEventBus.emit(EAppEventBusNames.PrimeAuthSessionSourceCommitted, {
+        authSessionSource,
+        callerName,
       });
+      await updatePrimeAtom();
+    } catch (error) {
+      // Roll back to a consistent logged-out pair before rethrowing — the
+      // exact rollback the empty-slot branch has always performed. Without
+      // it, a throw here would escape with the source already persisted:
+      // server logged in, source committed, atom still logged out.
       await this.backgroundApi.simpleDb.prime.clearAuthTokens();
       await this.setPrimePersistAtomNotLoggedIn();
-      throw new OneKeyLocalError(
-        `${callerName} ERROR: Active auth token not found`,
-      );
+      throw error;
     }
-    // Notify main-runtime session holders (SupabaseAuthProvider) that the
-    // source changed. This must not rely on a primePersistAtom.isLoggedIn
-    // flip: apiBindLegacyOneKeyIdOAuth switches LegacyEmailSupabase ->
-    // KeylessOAuth while staying logged in, and bg-side setSession writes
-    // (legacy keyless migration) emit no auth events in the main runtime.
-    // On desktop/web (single runtime) the event is a harmless self-delivery.
-    appEventBus.emit(EAppEventBusNames.PrimeAuthSessionSourceCommitted, {
-      authSessionSource,
-      callerName,
-    });
   }
 
   @backgroundMethod()
@@ -677,16 +765,19 @@ class ServicePrime extends ServiceBase {
         );
         // Commit section (authStateWriteMutex, inner to loginMutex):
         // persist the auth session source and update the prime atom as one
-        // atomic write, so the invalid-token cleanup can never observe —
-        // and wipe — a half-committed login. The network POST above stays
-        // outside this lock; it is held only for the few-ms local commit.
+        // atomic (local-only) write, so the invalid-token cleanup can never
+        // observe — and wipe — a half-committed login, and any commit
+        // failure rolls the pair back. The network POST above stays outside
+        // this lock; it is held only for the few-ms local commit.
         await this.authStateWriteMutex.runExclusive(async () => {
-          await this.commitAuthSessionSourceBeforeAtomUpdate({
+          await this.commitAuthSessionSourceAndPrimeAtom({
             authSessionSource: nextAuthSessionSource,
             callerName: 'ServicePrime.apiLogin',
-          });
-          await this.updatePrimeAtomByServerUserInfo({
-            serverUserInfo: response.data.data,
+            updatePrimeAtom: async () => {
+              await this.updatePrimeAtomByServerUserInfo({
+                serverUserInfo: response.data.data,
+              });
+            },
           });
         });
       } catch (error) {
@@ -716,25 +807,37 @@ class ServicePrime extends ServiceBase {
             await this.backgroundApi.simpleDb.prime.clearAuthTokens();
           });
         }
-        // For any other failure (e.g. transient network error), keep the
-        // persisted authSessionSource so the existing session stays usable
-        // on retry.
+        // For any other POST failure (e.g. transient network error), keep
+        // the persisted authSessionSource so the existing session stays
+        // usable on retry — the failure happened before any source write.
+        // A COMMIT failure has already rolled the source/atom pair back
+        // inside commitAuthSessionSourceAndPrimeAtom and only needs the
+        // rethrow.
         throw error;
       }
     });
   }
 
   // Guard shared by every flow that POSTs a keyless-realm login/bind and then
-  // commits KeylessOAuth: prove the shared keyless session slot is actually
-  // persisted BEFORE any server-side state change, so the server login can
-  // never succeed while the local commit fails (server logged in / client
-  // rolled back). Definitive bad slot states (empty / corrupt) abort here;
-  // a TRANSIENT storage failure is rethrown as-is instead of proceeding —
-  // the slot state is unknown, so running the server mutation could recreate
-  // the very split this guard prevents, while the retryable error type
-  // (recognized by isTransientNetworkLikeError) keeps callers from tearing
-  // down a possibly-valid just-persisted session.
-  private async assertKeylessSessionPersistedBeforeLogin(callerName: string) {
+  // commits KeylessOAuth: prove the shared keyless session slot actually
+  // persists THIS caller's identity BEFORE any server-side state change, so
+  // the server login can never succeed while the local commit fails or
+  // serves another account (server logged in / client rolled back, or
+  // committed local state backed by a different account's slot session).
+  // Definitive bad slot states (empty / corrupt / identity mismatch) abort
+  // here; a TRANSIENT storage failure is rethrown as-is instead of
+  // proceeding — the slot state is unknown, so running the server mutation
+  // could recreate the very split this guard prevents, while the retryable
+  // error type (recognized by isTransientNetworkLikeError) keeps callers
+  // from tearing down a possibly-valid just-persisted session.
+  private async assertKeylessSessionPersistedBeforeLogin({
+    accessToken,
+    callerName,
+  }: {
+    // The in-flight keyless-realm access token the caller is about to POST.
+    accessToken: string;
+    callerName: string;
+  }) {
     // Force a fresh local read: on split-runtime targets the bg storage cache
     // may still hold a pre-login empty probe (up to 30s), whose cross-runtime
     // invalidation after the UI-side persist is best-effort.
@@ -742,21 +845,67 @@ class ServicePrime extends ServiceBase {
     const slot = await readPersistedAccessTokenBySessionSourceStrict(
       EPrimeAuthSessionSource.KeylessOAuth,
     );
-    if (slot.status === 'ok') {
-      return;
+    if (slot.status !== 'ok') {
+      defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
+        reason: `${callerName}: keyless session slot is ${slot.status}, skip server login`,
+      });
+      // Both states are deterministic — a corrupt slot re-reads the same
+      // bytes and would fail the post-POST commit identically — so a
+      // definitive abort (which lets callers clear the unusable slot) is
+      // correct for both.
+      throw new OneKeyLocalError(
+        slot.status === 'corrupt'
+          ? `${callerName} ERROR: Keyless OAuth session slot is corrupt`
+          : `${callerName} ERROR: Keyless OAuth session is not persisted locally`,
+      );
     }
-    defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
-      reason: `${callerName}: keyless session slot is ${slot.status}, skip server login`,
-    });
-    // Both remaining states are deterministic — a corrupt slot re-reads the
-    // same bytes and would fail the post-POST commit identically — so a
-    // definitive abort (which lets callers clear the unusable slot) is
-    // correct for both.
-    throw new OneKeyLocalError(
-      slot.status === 'corrupt'
-        ? `${callerName} ERROR: Keyless OAuth session slot is corrupt`
-        : `${callerName} ERROR: Keyless OAuth session is not persisted locally`,
-    );
+    // Identity check, not just occupancy: persistKeylessOAuthSession runs in
+    // the main runtime OUTSIDE loginMutex, so between the caller's persist
+    // and this bg-side guard a concurrent flow (e.g. ext popup vs expand
+    // tab) can overwrite the shared slot with ANOTHER account's session.
+    // Occupancy alone would then let the POST proceed with account A's
+    // token while the committed local state serves account B's slot.
+    // Compare the JWT `sub` claims (payload decode only, no signature or
+    // expiry verification — the server validates the POSTed token), NOT raw
+    // token bytes: bg auto-refresh legitimately rotates tokens for the same
+    // identity.
+    const slotTokenSub =
+      (stringUtils.decodeJWT(slot.accessToken) as ISupabaseJWTPayload | null)
+        ?.sub || '';
+    const inFlightTokenSub =
+      (stringUtils.decodeJWT(accessToken) as ISupabaseJWTPayload | null)?.sub ||
+      '';
+    if (!slotTokenSub || !inFlightTokenSub) {
+      // Undecodable payload on either side: identity cannot be proven, and
+      // a re-read yields the same bytes — definitive abort, like a corrupt
+      // slot. Never log token material, only which side failed to decode.
+      defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
+        reason: `${callerName}: keyless session identity is undecodable (slot sub readable: ${String(
+          Boolean(slotTokenSub),
+        )}, in-flight sub readable: ${String(
+          Boolean(inFlightTokenSub),
+        )}), skip server login`,
+      });
+      throw new OneKeyLocalError(
+        `${callerName} ERROR: Keyless OAuth session token payload is not decodable`,
+      );
+    }
+    if (slotTokenSub !== inFlightTokenSub) {
+      defaultLogger.prime.subscription.onekeyIdSessionPersistFailed({
+        reason: `${callerName}: keyless session slot was replaced by a different account, skip server login`,
+      });
+      // Typed error (NOT OneKeyLocalError): unlike the empty/corrupt/
+      // undecodable branches above (whose slot is unusable, so caller
+      // cleanup is harmless), here the slot holds the WINNING concurrent
+      // flow's valid session. Main-runtime definitive-failure cleanup keys
+      // off this className to skip its session teardown — wiping the slot
+      // would fail BOTH concurrent logins.
+      throw new OneKeyErrorOneKeyIdKeylessSessionSlotReplaced();
+    }
+    // Callers re-assert this identity inside the commit lock: the slot can
+    // still be replaced during the server POST that runs between this guard
+    // and the commit.
+    return { verifiedTokenSub: inFlightTokenSub };
   }
 
   @backgroundMethod()
@@ -779,13 +928,17 @@ class ServicePrime extends ServiceBase {
       // getEffectiveAuthSessionSource) and would permanently orphan a
       // still-valid keyless session. The source is committed after success.
       await this.backgroundApi.simpleDb.prime.clearCachedAuthToken();
-      // Fail fast when the shared keyless session slot is empty (run AFTER the
-      // cache clear above so the read cannot serve a stale pre-login probe):
-      // the POST below would otherwise succeed on the server while the local
-      // commit fails, leaving the server logged in and the client rolled back.
-      await this.assertKeylessSessionPersistedBeforeLogin(
-        'ServicePrime.apiOAuthLogin',
-      );
+      // Fail fast when the shared keyless session slot is empty or holds a
+      // different account's session (run AFTER the cache clear above so the
+      // read cannot serve a stale pre-login probe): the POST below would
+      // otherwise succeed on the server while the local commit fails or
+      // serves the wrong slot, leaving the server logged in and the client
+      // rolled back (or logged in as another account locally).
+      const { verifiedTokenSub } =
+        await this.assertKeylessSessionPersistedBeforeLogin({
+          accessToken,
+          callerName: 'ServicePrime.apiOAuthLogin',
+        });
       const client = await this.getPrimeClient();
       const result = await client.post<
         IApiClientResponse<IOneKeyIdOAuthLoginResponse>
@@ -803,16 +956,19 @@ class ServicePrime extends ServiceBase {
         throw new OneKeyLocalError('apiOAuthLogin ERROR: Empty response data');
       }
       // Commit section (authStateWriteMutex, inner to loginMutex): source +
-      // atom written as one atomic pair — see apiLogin. The POST above and
-      // the legacy-session cleanup below (Supabase signOut, network-capable)
-      // stay outside the lock.
+      // atom written as one atomic (local-only, rollback-on-failure) pair —
+      // see apiLogin. The POST above and the legacy-session cleanup below
+      // (Supabase signOut, network-capable) stay outside the lock.
       await this.authStateWriteMutex.runExclusive(async () => {
-        await this.commitAuthSessionSourceBeforeAtomUpdate({
+        await this.commitAuthSessionSourceAndPrimeAtom({
           authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
           callerName: 'ServicePrime.apiOAuthLogin',
-        });
-        await this.updatePrimeAtomByOAuthLoginResponse({
-          loginResponse: data,
+          expectedSlotTokenSub: verifiedTokenSub,
+          updatePrimeAtom: async () => {
+            await this.updatePrimeAtomByOAuthLoginResponse({
+              loginResponse: data,
+            });
+          },
         });
       });
       // Best-effort hygiene: the login is already committed atomically
@@ -1044,13 +1200,18 @@ class ServicePrime extends ServiceBase {
         );
       }
 
-      // Same fail-fast as apiOAuthLogin — and it matters MORE here: the bind
-      // POST below is an irreversible server-side identity bind, so a
-      // subsequent KeylessOAuth commit failing on an empty slot would leave the
-      // account bound on the server while the client rolls its login state back.
-      await this.assertKeylessSessionPersistedBeforeLogin(
-        'ServicePrime.apiBindLegacyOneKeyIdOAuth',
-      );
+      // Same fail-fast (occupancy + identity) as apiOAuthLogin — and it
+      // matters MORE here: the bind POST below is an irreversible
+      // server-side identity bind, so a subsequent KeylessOAuth commit
+      // failing on an empty slot — or serving a slot another account
+      // overwrote meanwhile — would leave the account bound on the server
+      // while the client rolls its login state back or presents the wrong
+      // identity.
+      const { verifiedTokenSub } =
+        await this.assertKeylessSessionPersistedBeforeLogin({
+          accessToken: oauthAccessToken,
+          callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
+        });
 
       const client = await this.getPrimeClient();
       let result: {
@@ -1077,16 +1238,22 @@ class ServicePrime extends ServiceBase {
       }
 
       // Commit section (authStateWriteMutex, inner to loginMutex): source +
-      // atom written as one atomic pair — see apiLogin. The bind POST above
-      // and the legacy-session cleanup below (Supabase signOut,
-      // network-capable) stay outside the lock.
+      // atom written as one atomic (local-only, rollback-on-failure) pair —
+      // see apiLogin. The bind POST above and the legacy-session cleanup
+      // below (Supabase signOut, network-capable) stay outside the lock. A
+      // commit failure here rolls back to logged-out even though the bind
+      // stays committed server-side — the documented empty-slot precedent;
+      // re-login recovers.
       await this.authStateWriteMutex.runExclusive(async () => {
-        await this.commitAuthSessionSourceBeforeAtomUpdate({
+        await this.commitAuthSessionSourceAndPrimeAtom({
           authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
           callerName: 'ServicePrime.apiBindLegacyOneKeyIdOAuth',
-        });
-        await this.updatePrimeAtomByOneKeyIdAccount({
-          onekeyAccount: data.onekeyAccount,
+          expectedSlotTokenSub: verifiedTokenSub,
+          updatePrimeAtom: async () => {
+            await this.updatePrimeAtomByOneKeyIdAccount({
+              onekeyAccount: data.onekeyAccount,
+            });
+          },
         });
       });
       // Best-effort hygiene (same commit boundary as apiOAuthLogin): the
@@ -1225,8 +1392,8 @@ class ServicePrime extends ServiceBase {
    *    removal] execute atomically w.r.t. login commits — both are local
    *    writes, allowed under the lock policy. A commit that already
    *    finished bumped the generation, so the validation skips; a commit
-   *    still waiting on the mutex re-reads its active token AFTER this
-   *    removal and fails safe (clears + throws), so the worst racing
+   *    still waiting on the mutex re-reads its session slot AFTER this
+   *    removal and fails safe (rolls back + throws), so the worst racing
    *    outcome is one visibly failed login retry — never a logged-in
    *    atom/source pointing at an empty session slot.
    * 3. Server-side revocation (network-capable) runs after the gated
