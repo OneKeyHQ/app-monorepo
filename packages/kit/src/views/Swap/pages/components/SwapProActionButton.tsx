@@ -487,34 +487,41 @@ const SwapProActionButton = ({
   // accent variant labels use $textInverse, destructive uses $textOnColor;
   // childrenAsText is false, so the label color must be set explicitly.
   const labelColor = isBuy ? '$textInverse' : '$textOnColor';
+  // While a quote for the entered amount is in flight, show only the spinner
+  // (no stale label) so the locked button reads as "quoting", not broken.
+  const isQuoting = currentQuoteLoading && Boolean(inputAmount);
 
   return (
     <Button
       testID="swap-sub-value-btn"
       disabled={actionButtonDisabled}
-      // Show a spinner while a quote for the entered amount is in flight so
-      // the locked button reads as "quoting" instead of broken.
-      loading={currentQuoteLoading && Boolean(inputAmount)}
+      loading={isQuoting}
       onPress={debouncedOnSwapProActionClick}
       variant={isBuy ? 'accent' : 'destructive'}
       size="small"
       childrenAsText={false}
       py={5}
     >
-      <YStack alignItems="center">
-        <SizableText size="$bodyMdMedium" color={labelColor} textAlign="center">
-          {actionButtonText.resValue}
-        </SizableText>
-        {actionButtonText.subValue ? (
+      {isQuoting ? null : (
+        <YStack alignItems="center">
           <SizableText
             size="$bodyMdMedium"
             color={labelColor}
             textAlign="center"
           >
-            {actionButtonText.subValue}
+            {actionButtonText.resValue}
           </SizableText>
-        ) : null}
-      </YStack>
+          {actionButtonText.subValue ? (
+            <SizableText
+              size="$bodyMdMedium"
+              color={labelColor}
+              textAlign="center"
+            >
+              {actionButtonText.subValue}
+            </SizableText>
+          ) : null}
+        </YStack>
+      )}
     </Button>
   );
 };
