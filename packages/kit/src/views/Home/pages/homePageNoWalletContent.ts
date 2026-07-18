@@ -1,5 +1,6 @@
 type IWalletListItemForNoWalletCheck =
   | {
+      id?: string;
       isMocked?: boolean;
       deprecated?: boolean;
     }
@@ -47,4 +48,63 @@ export function shouldShowNoWalletContent({
       (!!activeWalletUnavailable &&
         walletListResolvedCurrentUnusableWalletOnly))
   );
+}
+
+export function resolveHomeWalletContentReadiness({
+  walletListPending,
+  wallets,
+  hasNoUsableWallet,
+  accountSelectorStorageInitDone,
+  accountSelectorActiveAccountInitDone,
+  activeAccountReady,
+  activeWalletUnavailable,
+  activeWalletId,
+}: {
+  walletListPending: boolean;
+  wallets: IWalletListItemForNoWalletCheck[] | undefined;
+  hasNoUsableWallet: boolean;
+  accountSelectorStorageInitDone: boolean;
+  accountSelectorActiveAccountInitDone: boolean;
+  activeAccountReady: boolean;
+  activeWalletUnavailable?: boolean;
+  activeWalletId?: string;
+}): 'pending' | 'wallet' | 'no-wallet' {
+  if (
+    walletListPending ||
+    !wallets ||
+    !accountSelectorStorageInitDone ||
+    !accountSelectorActiveAccountInitDone ||
+    !activeAccountReady
+  ) {
+    return 'pending';
+  }
+
+  const walletListWalletIds = wallets.flatMap((wallet) =>
+    wallet && 'id' in wallet && typeof wallet.id === 'string'
+      ? [wallet.id]
+      : [],
+  );
+  const walletListResolvedNoWallet = isWalletListResolvedNoWallet({ wallets });
+  if (
+    shouldShowNoWalletContent({
+      hasNoUsableWallet,
+      accountSelectorStorageInitDone,
+      accountSelectorActiveAccountInitDone,
+      walletListResolvedNoWallet,
+      activeWalletUnavailable,
+      activeWalletId,
+      walletListWalletIds,
+    })
+  ) {
+    return 'no-wallet';
+  }
+
+  if (
+    !hasNoUsableWallet &&
+    !!activeWalletId &&
+    walletListWalletIds.includes(activeWalletId)
+  ) {
+    return 'wallet';
+  }
+  return 'pending';
 }

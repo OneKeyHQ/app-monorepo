@@ -110,6 +110,7 @@ import { act, render, renderHook, screen } from '@testing-library/react';
 const g = globalThis as any;
 
 let svc: any;
+let launchGate: typeof import('../views/Onboarding/components/onboardingLaunchGate');
 
 async function flushMicrotasks() {
   await act(async () => {
@@ -123,6 +124,7 @@ function freshSplash() {
   jest.isolateModules(() => {
     jest.mock('react', () => (globalThis as any).__sharedReact);
     mod = require('./SplashProvider');
+    launchGate = require('../views/Onboarding/components/onboardingLaunchGate');
   });
   svc = g.__mockSvc;
   svc.processPendingInstallTask.mockResolvedValue(undefined);
@@ -270,6 +272,42 @@ describe('useCanDismissSplash', () => {
     await flushMicrotasks();
 
     expect(svc.processPendingInstallTask).toHaveBeenCalledTimes(1);
+  });
+
+  test('native launch stays behind splash until the bg onboarding verdict resolves', async () => {
+    jest.useFakeTimers();
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.isDesktop = false;
+    platformEnvMock.isNative = true;
+    platformEnvMock.isWeb = false;
+
+    const { useCanDismissSplash } = freshSplash();
+    const { result } = renderHook(() => useCanDismissSplash());
+
+    await flushMicrotasks();
+    expect(result.current).toBe(false);
+
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+    expect(result.current).toBe(false);
+
+    act(() => {
+      launchGate.setOnboardingLaunchDecision('onboarding');
+    });
+    expect(result.current).toBe(false);
+
+    act(() => {
+      launchGate.setOnboardingLaunchForeground('onboarding');
+    });
+    expect(result.current).toBe(true);
+
+    act(() => {
+      launchGate.setOnboardingLaunchDecision('main');
+    });
+    expect(result.current).toBe(true);
+    jest.useRealTimers();
   });
 });
 

@@ -84,6 +84,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 320,
   },
+  bodySlot: {
+    width: '100%',
+    height: '100%',
+  },
   footerUpgradeSlot: {
     width: '100%',
     height: 152,
@@ -135,6 +139,9 @@ function getSlotLayoutStyle(key: string) {
   }
   if (key.startsWith('content.state.')) {
     return styles.contentStateSlot;
+  }
+  if (key === 'content.body') {
+    return styles.bodySlot;
   }
   if (key.endsWith('.upgrade') && key.startsWith('content.footer.')) {
     return styles.footerUpgradeSlot;
@@ -327,6 +334,9 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           key: 'header.action-row',
           slot: slots.headerActionRow,
         });
+      }
+      if (slots.body) {
+        values.push({ key: 'content.body', slot: slots.body });
       }
       Object.entries(slots.contentHeaders ?? {}).forEach(([tabId, slot]) => {
         if (slot) {

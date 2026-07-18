@@ -12,6 +12,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { hasPendingInstallTask } from '@onekeyhq/shared/src/utils/pendingTaskUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import {
+  isNativeLaunchReady,
+  useOnboardingLaunchSnapshot,
+} from '../views/Onboarding/components/onboardingLaunchGate';
 
 const SPLASH_SAFETY_TIMEOUT = 5000;
 const jsEntryStart: number =
@@ -170,13 +174,18 @@ const useCanDismissSplashForOtherPlatforms =
  * │ In all paths, processPendingInstallTask runs as fire-and-forget    │
  * │ in the background — it never blocks splash dismissal.              │
  * │                                                                    │
- * │ Safety: 5s timeout guarantees splash dismissal if any path stalls. │
+ * │ Safety: 5s timeout releases only this cache/task strategy. The      │
+ * │ native onboarding gate still requires a real background verdict.  │
  * └─────────────────────────────────────────────────────────────────────┘
  */
 export const useCanDismissSplash =
   platformEnv.isDesktop || platformEnv.isNative
     ? () => {
         const hasCachedStates = hasBalanceCacheInSnapshot();
+        const onboardingLaunchSnapshot = useOnboardingLaunchSnapshot();
+        const isOnboardingLaunchDecisionReady =
+          !platformEnv.isNative ||
+          isNativeLaunchReady(onboardingLaunchSnapshot);
 
         const [canDismissSplash, setCanDismissSplash] = useState(false);
         const hasLaunchCallbackStartedRef = useRef(false);
@@ -191,14 +200,14 @@ export const useCanDismissSplash =
           setCanDismissSplash(true);
         }, []);
 
-        // Unconditional safety timer: mounts once and guarantees dismissal
-        // regardless of which path (cached/pending/none) is taken, or whether
-        // `hasCachedStates` changes mid-session (which would cancel the main
-        // effect's cleanup and leave a stale, cleared timer otherwise).
+        // The cache/task strategy has an unconditional safety timer so a
+        // missing HomePageReady or OTA event cannot hold it forever. Native
+        // launch still keeps the OS splash visible while the independent
+        // onboarding verdict is unknown.
         useEffect(() => {
           const timer = setTimeout(() => {
             defaultLogger.app.appUpdate.log(
-              `SplashProvider: safety timer fired after ${SPLASH_SAFETY_TIMEOUT}ms, forcing splash hide`,
+              `SplashProvider: safety timer fired after ${SPLASH_SAFETY_TIMEOUT}ms, releasing cache/task gate`,
             );
             logSplashProvider('safety timer fired');
             setCanDismissSplash(true);
@@ -293,10 +302,22 @@ export const useCanDismissSplash =
         }, [hasCachedStates]);
 
         useEffect(() => {
-          logSplashProvider(`canDismissSplash=${canDismissSplash}`);
-        }, [canDismissSplash]);
+          logSplashProvider(
+            `canDismissSplash=${
+              canDismissSplash && isOnboardingLaunchDecisionReady
+            }, onboardingLaunchDecision=${onboardingLaunchSnapshot.decision}, foreground=${onboardingLaunchSnapshot.foreground}`,
+          );
+        }, [
+          canDismissSplash,
+          isOnboardingLaunchDecisionReady,
+          onboardingLaunchSnapshot,
+        ]);
 
-        return canDismissSplash;
+        // The timeout and cache strategy may declare the UI ready, but native
+        // startup must keep the OS splash opaque until the background runtime
+        // has returned the onboarding verdict and the selected root content is
+        // ready. A main-runtime timer must never stand in for that bg verdict.
+        return canDismissSplash && isOnboardingLaunchDecisionReady;
       }
     : useCanDismissSplashForOtherPlatforms;
 

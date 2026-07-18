@@ -10,6 +10,7 @@ import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useShouldUseSplitView } from '../../hooks/useShouldUseSplitView';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
+import { OnboardingOnMount } from '../../views/Onboarding/components';
 import { Bootstrap } from '../Bootstrap';
 
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
@@ -54,6 +55,7 @@ function DetailRouter() {
     <NavigationContainer>
       <InAppNotification />
       <GlobalRootAppNavigationUpdate />
+      <OnboardingOnMount />
       <JotaiContextRootProvidersAutoMount />
       <Bootstrap />
       <FullWindowOverlayContainer />

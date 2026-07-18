@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Stack, useIsDesktopModeUIInTabPages } from '@onekeyhq/components';
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -11,19 +13,31 @@ import { ExtOneKeyIdAuthOnMount } from '../../../components/OneKeyAuth/ExtOneKey
 import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { ProviderJotaiContextAccountOverview } from '../../../states/jotai/contexts/accountOverview';
 import {
+  useAccountSelectorStorageInitDoneAtom,
   useActiveAccount,
+  useIsAccountSelectorActiveAccountInitDone,
   useSelectedAccount,
   useSelectedAccountsAtom,
 } from '../../../states/jotai/contexts/accountSelector';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import { NotificationRegisterDaily } from '../../Notifications/components/NotificationRegisterDaily';
-import { OnboardingOnMount } from '../../Onboarding/components';
+import {
+  isMainHomeReadyToReveal,
+  markCurrentHomeGenerationReady,
+  useOnboardingLaunchSnapshot,
+} from '../../Onboarding/components/onboardingLaunchGate';
 import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
 import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
 import { isNativeHomeEnabled } from '../nativeHomeFeatureFlag';
 import { NativeHomePageView } from '../NativeHomePageView';
 
+import { shouldMountHomeForegroundEffects } from './homeLaunchVisibility';
+import { resolveHomeWalletContentReadiness } from './homePageNoWalletContent';
 import { HomePageView } from './HomePageView';
+import {
+  HomeWalletListProvider,
+  useHomeWalletList,
+} from './HomeWalletListProvider';
 
 function EmptyRenderTest() {
   // console.log('AccountSelectorAtomChanged EmptyRenderTest render');
@@ -57,10 +71,116 @@ function SelectedAccountsMapTest() {
   return null;
 }
 
+function HomeLaunchGatedContent({
+  nativeHomeEnabled,
+  sceneName,
+  onPressHide,
+}: {
+  nativeHomeEnabled: boolean;
+  sceneName: EAccountSelectorSceneName;
+  onPressHide: () => void;
+}) {
+  const {
+    activeAccount: { ready: activeAccountReady, wallet, account },
+  } = useActiveAccount({ num: 0 });
+  const { result: walletListResult, pending: walletListPending } =
+    useHomeWalletList();
+  const launchSnapshot = useOnboardingLaunchSnapshot();
+  const [accountSelectorStorageInitDone] =
+    useAccountSelectorStorageInitDoneAtom();
+  const accountSelectorActiveAccountInitDone =
+    useIsAccountSelectorActiveAccountInitDone(0);
+  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
+    wallet,
+    account,
+  });
+  const walletContentReadiness = resolveHomeWalletContentReadiness({
+    walletListPending,
+    wallets: walletListResult?.wallets,
+    hasNoUsableWallet,
+    accountSelectorStorageInitDone,
+    accountSelectorActiveAccountInitDone,
+    activeAccountReady,
+    activeWalletUnavailable: accountUtils.isWalletDeprecatedOrMocked(wallet),
+    activeWalletId: wallet?.id,
+  });
+  const mainHomeReady = isMainHomeReadyToReveal({
+    launchDecision: launchSnapshot.decision,
+    accountSelectorStorageInitDone,
+    accountSelectorActiveAccountInitDone,
+    activeAccountReady,
+    walletListReady: !walletListPending,
+    activeWalletReady: walletContentReadiness !== 'pending',
+  });
+  const shouldGateHome = platformEnv.isNative;
+  const currentGenerationReady =
+    launchSnapshot.readyHomeGeneration >= launchSnapshot.requiredHomeGeneration;
+  const isHomeVisible =
+    !shouldGateHome ||
+    (launchSnapshot.decision === 'main' &&
+      (currentGenerationReady || mainHomeReady));
+
+  useEffect(() => {
+    if (shouldGateHome && mainHomeReady) {
+      markCurrentHomeGenerationReady(launchSnapshot.requiredHomeGeneration);
+    }
+  }, [launchSnapshot.requiredHomeGeneration, mainHomeReady, shouldGateHome]);
+
+  return (
+    <>
+      <Stack
+        flex={1}
+        opacity={isHomeVisible ? 1 : 0}
+        pointerEvents={isHomeVisible ? 'auto' : 'none'}
+        accessibilityElementsHidden={!isHomeVisible}
+        importantForAccessibility={
+          isHomeVisible ? 'auto' : 'no-hide-descendants'
+        }
+      >
+        {nativeHomeEnabled ? (
+          <NativeHomePageView
+            key={`native-${sceneName}`}
+            sceneName={sceneName}
+            onPressHide={onPressHide}
+          />
+        ) : (
+          <HomePageView
+            key={sceneName}
+            sceneName={sceneName}
+            onPressHide={onPressHide}
+          />
+        )}
+        {/* <UrlAccountAutoReplaceHistory num={0} /> */}
+
+        {process.env.NODE_ENV !== 'production' ? (
+          <>
+            <SelectedAccountsMapTest />
+            <SelectedAccountTest />
+            <ActiveAccountTest />
+            <EmptyRenderTest />
+          </>
+        ) : null}
+      </Stack>
+      {shouldMountHomeForegroundEffects({ isHomeVisible }) ? (
+        <>
+          <DAppConnectExtensionFloatingTrigger />
+          <ExtOneKeyIdAuthOnMount />
+          <NotificationRegisterDaily />
+          <KYTIntroOnMount />
+          <BTCFreshAddressProvider />
+        </>
+      ) : null}
+    </>
+  );
+}
+
 function HomePageContainer() {
   const [isHide, setIsHide] = useState(false);
   const isDesktopModeUI = useIsDesktopModeUIInTabPages();
   const nativeHomeEnabled = isNativeHomeEnabled();
+  const handlePressHide = useCallback(() => {
+    setIsHide((value) => !value);
+  }, []);
 
   useDebugComponentRemountLog({ name: 'HomePageContainer' });
 
@@ -82,35 +202,13 @@ function HomePageContainer() {
           }}
           enabledNum={[0]}
         >
-          {nativeHomeEnabled ? (
-            <NativeHomePageView
-              key={`native-${sceneName}`}
+          <HomeWalletListProvider>
+            <HomeLaunchGatedContent
+              nativeHomeEnabled={nativeHomeEnabled}
               sceneName={sceneName}
-              onPressHide={() => setIsHide((v) => !v)}
+              onPressHide={handlePressHide}
             />
-          ) : (
-            <HomePageView
-              key={sceneName}
-              sceneName={sceneName}
-              onPressHide={() => setIsHide((v) => !v)}
-            />
-          )}
-          <DAppConnectExtensionFloatingTrigger />
-          <OnboardingOnMount />
-          <ExtOneKeyIdAuthOnMount />
-          <NotificationRegisterDaily />
-          <KYTIntroOnMount />
-          <BTCFreshAddressProvider />
-          {/* <UrlAccountAutoReplaceHistory num={0} /> */}
-
-          {process.env.NODE_ENV !== 'production' ? (
-            <>
-              <SelectedAccountsMapTest />
-              <SelectedAccountTest />
-              <ActiveAccountTest />
-              <EmptyRenderTest />
-            </>
-          ) : null}
+          </HomeWalletListProvider>
         </AccountSelectorProviderMirror>
       </Stack>
     </TabletHomeContainer>
