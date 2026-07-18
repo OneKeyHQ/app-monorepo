@@ -492,6 +492,9 @@ const SwapProActionButton = ({
     <Button
       testID="swap-sub-value-btn"
       disabled={actionButtonDisabled}
+      // Show a spinner while a quote for the entered amount is in flight so
+      // the locked button reads as "quoting" instead of broken.
+      loading={currentQuoteLoading && Boolean(inputAmount)}
       onPress={debouncedOnSwapProActionClick}
       variant={isBuy ? 'accent' : 'destructive'}
       size="small"
