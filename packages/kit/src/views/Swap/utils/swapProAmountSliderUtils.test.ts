@@ -103,26 +103,41 @@ describe('swapProAmountSliderUtils', () => {
   });
 
   describe('calcSwapProSliderAmount', () => {
-    const base = new BigNumber('0.0050905');
-
-    it('computes the percentage amount floored to token decimals', () => {
+    it('keeps mid-drag amounts at the balance display precision (4 decimals)', () => {
+      expect(
+        calcSwapProSliderAmount({
+          percent: 37,
+          availableBalance: new BigNumber('62.4826'),
+          decimals: 18,
+        }),
+      ).toBe('23.1185');
       expect(
         calcSwapProSliderAmount({
           percent: 50,
-          availableBalance: base,
+          availableBalance: new BigNumber('0.0050905'),
           decimals: 18,
         }),
-      ).toBe('0.00254525');
+      ).toBe('0.0025');
+    });
+
+    it('fills the full available balance at token precision on 100%', () => {
       expect(
         calcSwapProSliderAmount({
           percent: 100,
-          availableBalance: base,
+          availableBalance: new BigNumber('0.0050905'),
           decimals: 18,
         }),
       ).toBe('0.0050905');
+      expect(
+        calcSwapProSliderAmount({
+          percent: 100,
+          availableBalance: new BigNumber('15.620650675161812992'),
+          decimals: 18,
+        }),
+      ).toBe('15.620650675161812992');
     });
 
-    it('rounds down instead of exceeding the available balance', () => {
+    it('never exceeds the token decimals when they are below display precision', () => {
       expect(
         calcSwapProSliderAmount({
           percent: 33,
@@ -132,11 +147,21 @@ describe('swapProAmountSliderUtils', () => {
       ).toBe('0.33');
     });
 
+    it('falls back to token precision when 4 decimals would collapse to zero', () => {
+      expect(
+        calcSwapProSliderAmount({
+          percent: 50,
+          availableBalance: new BigNumber('0.0000505'),
+          decimals: 18,
+        }),
+      ).toBe('0.00002525');
+    });
+
     it('returns undefined for zero percent or empty balance', () => {
       expect(
         calcSwapProSliderAmount({
           percent: 0,
-          availableBalance: base,
+          availableBalance: new BigNumber('0.0050905'),
           decimals: 18,
         }),
       ).toBeUndefined();

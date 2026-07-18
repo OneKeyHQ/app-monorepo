@@ -2,6 +2,10 @@ import BigNumber from 'bignumber.js';
 
 export const SWAP_PRO_SLIDER_MAX_PERCENT = 100;
 
+// Mid-drag amounts mirror the balance row's display precision (4 decimals)
+// instead of the full token precision.
+export const SWAP_PRO_SLIDER_DISPLAY_DECIMALS = 4;
+
 export function calcSwapProSliderAvailableBalance({
   balanceParsed,
   isNative,
@@ -58,12 +62,37 @@ export function calcSwapProSliderAmount({
   if (availableBalance.lte(0) || percent <= 0) {
     return undefined;
   }
+  const tokenDecimals = Number(decimals ?? 6);
+  // 100% fills the entire available balance at full token precision (the
+  // balance passed in already excludes the native-token gas reserve).
+  if (percent >= SWAP_PRO_SLIDER_MAX_PERCENT) {
+    const fullBN = availableBalance.decimalPlaces(
+      tokenDecimals,
+      BigNumber.ROUND_DOWN,
+    );
+    if (fullBN.isNaN() || fullBN.lte(0)) {
+      return undefined;
+    }
+    return fullBN.toFixed();
+  }
   const amountBN = availableBalance
     .multipliedBy(percent)
-    .dividedBy(SWAP_PRO_SLIDER_MAX_PERCENT)
-    .decimalPlaces(Number(decimals ?? 6), BigNumber.ROUND_DOWN);
+    .dividedBy(SWAP_PRO_SLIDER_MAX_PERCENT);
   if (amountBN.isNaN() || amountBN.lt(0)) {
     return undefined;
   }
-  return amountBN.toFixed();
+  const displayBN = amountBN.decimalPlaces(
+    Math.min(SWAP_PRO_SLIDER_DISPLAY_DECIMALS, tokenDecimals),
+    BigNumber.ROUND_DOWN,
+  );
+  if (displayBN.gt(0)) {
+    return displayBN.toFixed();
+  }
+  // Tiny balances would collapse to zero at display precision; keep the full
+  // token precision so a drag still produces a usable amount.
+  const preciseBN = amountBN.decimalPlaces(tokenDecimals, BigNumber.ROUND_DOWN);
+  if (preciseBN.isNaN() || preciseBN.lte(0)) {
+    return undefined;
+  }
+  return preciseBN.toFixed();
 }

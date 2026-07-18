@@ -110,9 +110,12 @@ const SwapProTradingPanel = ({
   const onDirectionSelected = useCallback(
     (value: ITradeType) => {
       if (!value || value === swapProDirection) return;
+      // The input token flips between the pay token (BUY) and the traded
+      // token (SELL), so a typed amount changes meaning — clear it.
+      cleanInputAmount();
       setSwapProDirection(value);
     },
-    [setSwapProDirection, swapProDirection],
+    [cleanInputAmount, setSwapProDirection, swapProDirection],
   );
   const isMarketPresetActionDisabled =
     swapProTradeType === ESwapProTradeType.MARKET &&
