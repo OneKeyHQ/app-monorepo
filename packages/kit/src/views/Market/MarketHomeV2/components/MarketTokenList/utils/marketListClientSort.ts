@@ -29,7 +29,7 @@ export function sortMarketTokensClient(
   field: keyof IMarketToken,
   direction: 'asc' | 'desc',
 ): IMarketToken[] {
-  return [...tokens].sort((a, b) => {
+  return tokens.toSorted((a, b) => {
     const aVal = a[field] as number | undefined;
     const bVal = b[field] as number | undefined;
     const aMissing = isMissingSortValue(aVal);
