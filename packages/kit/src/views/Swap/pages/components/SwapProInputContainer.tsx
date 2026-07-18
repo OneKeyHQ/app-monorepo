@@ -144,7 +144,7 @@ const SwapProInputContainer = ({
             platformEnv.isNativeIOS ? SwapAmountInputAccessoryViewID : undefined
           }
           placeholder={intl.formatMessage({
-            id: ETranslations.content__amount,
+            id: ETranslations.dexmarket_details_history_amount,
           })}
         />
       </YStack>

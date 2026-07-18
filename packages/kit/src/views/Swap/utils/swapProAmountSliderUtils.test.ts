@@ -4,6 +4,7 @@ import {
   calcSwapProSliderAmount,
   calcSwapProSliderAvailableBalance,
   calcSwapProSliderPercent,
+  getSwapProSliderDragDecimals,
 } from './swapProAmountSliderUtils';
 
 describe('swapProAmountSliderUtils', () => {
@@ -102,8 +103,21 @@ describe('swapProAmountSliderUtils', () => {
     });
   });
 
+  describe('getSwapProSliderDragDecimals', () => {
+    it('uses 4 decimals for balances >= 1', () => {
+      expect(getSwapProSliderDragDecimals(new BigNumber('62.4826'))).toBe(4);
+      expect(getSwapProSliderDragDecimals(new BigNumber('100'))).toBe(4);
+    });
+
+    it('extends by the leading zero decimals for sub-1 balances', () => {
+      expect(getSwapProSliderDragDecimals(new BigNumber('0.000258'))).toBe(7);
+      expect(getSwapProSliderDragDecimals(new BigNumber('0.0050905'))).toBe(6);
+      expect(getSwapProSliderDragDecimals(new BigNumber('0.0000505'))).toBe(8);
+    });
+  });
+
   describe('calcSwapProSliderAmount', () => {
-    it('keeps mid-drag amounts at the balance display precision (4 decimals)', () => {
+    it('keeps mid-drag amounts at the balance display precision', () => {
       expect(
         calcSwapProSliderAmount({
           percent: 37,
@@ -117,7 +131,24 @@ describe('swapProAmountSliderUtils', () => {
           availableBalance: new BigNumber('0.0050905'),
           decimals: 18,
         }),
-      ).toBe('0.0025');
+      ).toBe('0.002545');
+    });
+
+    it('keeps resolution when dragging small balances so steps stay visible', () => {
+      expect(
+        calcSwapProSliderAmount({
+          percent: 44,
+          availableBalance: new BigNumber('0.000258'),
+          decimals: 18,
+        }),
+      ).toBe('0.0001135');
+      expect(
+        calcSwapProSliderAmount({
+          percent: 45,
+          availableBalance: new BigNumber('0.000258'),
+          decimals: 18,
+        }),
+      ).toBe('0.0001161');
     });
 
     it('fills the full available balance at token precision on 100%', () => {
@@ -147,7 +178,7 @@ describe('swapProAmountSliderUtils', () => {
       ).toBe('0.33');
     });
 
-    it('falls back to token precision when 4 decimals would collapse to zero', () => {
+    it('keeps tiny balances usable across the whole drag range', () => {
       expect(
         calcSwapProSliderAmount({
           percent: 50,
@@ -155,6 +186,13 @@ describe('swapProAmountSliderUtils', () => {
           decimals: 18,
         }),
       ).toBe('0.00002525');
+      expect(
+        calcSwapProSliderAmount({
+          percent: 1,
+          availableBalance: new BigNumber('0.000258'),
+          decimals: 18,
+        }),
+      ).toBe('0.0000025');
     });
 
     it('returns undefined for zero percent or empty balance', () => {
