@@ -3,7 +3,10 @@ import { coldStartCacheStorage } from '@onekeyhq/shared/src/storage/instance/syn
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
-import type { ISwapStockDisplaySnapshot } from './swapStockDisplaySnapshotUtils';
+import {
+  type ISwapStockDisplaySnapshot,
+  getSwapStockDisplayAccountSnapshot,
+} from './swapStockDisplaySnapshotUtils';
 
 const SWAP_STOCK_DISPLAY_STORE_VERSION = 1 as const;
 const SWAP_STOCK_DISPLAY_MAX_ACCOUNTS = 8;
@@ -18,6 +21,16 @@ type ISwapStockDisplayStore = {
   version: typeof SWAP_STOCK_DISPLAY_STORE_VERSION;
   entries: Record<string, ISwapStockDisplayStoreEntry>;
 };
+
+function boundStoreEntries(
+  entries: Record<string, ISwapStockDisplayStoreEntry>,
+) {
+  return Object.fromEntries(
+    Object.entries(entries)
+      .toSorted(([, left], [, right]) => right.updatedAt - left.updatedAt)
+      .slice(0, SWAP_STOCK_DISPLAY_MAX_ACCOUNTS),
+  );
+}
 
 let storeCache: ISwapStockDisplayStore | undefined;
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
@@ -97,26 +110,35 @@ function readStore(): ISwapStockDisplayStore {
       Object.entries(stored.entries).forEach(([slotKey, entry]) => {
         if (
           !isRecord(entry) ||
-          !Number.isFinite(entry.updatedAt) ||
           !isRecord(entry.snapshot) ||
           !isRecord(entry.snapshot.identity) ||
-          typeof entry.snapshot.identity.accountKey !== 'string' ||
-          slotKey !== buildAccountSlotKey(entry.snapshot.identity.accountKey)
+          typeof entry.snapshot.identity.accountKey !== 'string'
+        ) {
+          return;
+        }
+        const accountKey = entry.snapshot.identity.accountKey;
+        const snapshot = getSwapStockDisplayAccountSnapshot({
+          accountKey,
+          snapshot: omitRuntimeOnlyAmount(
+            entry.snapshot as ISwapStockDisplaySnapshot,
+          ),
+        });
+        if (
+          !snapshot ||
+          slotKey !== buildAccountSlotKey(snapshot.identity.accountKey)
         ) {
           return;
         }
         entries[slotKey] = {
           // Amount input follows ordinary Swap semantics: it is scoped to the
           // current UI runtime and must never hydrate from a previous process.
-          snapshot: omitRuntimeOnlyAmount(
-            entry.snapshot as ISwapStockDisplaySnapshot,
-          ),
-          updatedAt: entry.updatedAt as number,
+          snapshot,
+          updatedAt: snapshot.updatedAt,
         };
       });
       storeCache = {
         version: SWAP_STOCK_DISPLAY_STORE_VERSION,
-        entries,
+        entries: boundStoreEntries(entries),
       };
       return storeCache;
     }
@@ -193,15 +215,9 @@ function set(accountKey: string, snapshot: ISwapStockDisplaySnapshot): void {
         updatedAt: snapshot.updatedAt,
       },
     };
-    const sortedEntries = Object.entries(entries).toSorted(
-      ([, left], [, right]) => right.updatedAt - left.updatedAt,
-    );
-    const boundedEntries = Object.fromEntries(
-      sortedEntries.slice(0, SWAP_STOCK_DISPLAY_MAX_ACCOUNTS),
-    );
     storeCache = {
       version: SWAP_STOCK_DISPLAY_STORE_VERSION,
-      entries: boundedEntries,
+      entries: boundStoreEntries(entries),
     };
     dirty = true;
     scheduleFlush();

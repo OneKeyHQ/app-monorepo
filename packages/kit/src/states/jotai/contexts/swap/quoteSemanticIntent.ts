@@ -1,8 +1,11 @@
 import BigNumber from 'bignumber.js';
 
-import { isStockQuoteInputAmountMatched } from '@onekeyhq/kit/src/views/Swap/utils/swapStockTradeControl';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  getSwapTokenIdentityKey,
+  isSameSwapTokenIdentity,
+  isValidSwapTokenIdentity,
+} from '@onekeyhq/shared/src/utils/swapTokenIdentity';
 import type {
   IFetchQuoteResult,
   ISwapLimitPriceInfo,
@@ -16,7 +19,10 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { isSwapQuoteInputAmountMatched } from './quoteProgress';
+import {
+  isStockQuoteInputAmountMatched,
+  isSwapQuoteInputAmountMatched,
+} from './quoteProgress';
 
 type ISwapAmountInput = {
   value: string;
@@ -46,6 +52,8 @@ export type ISwapQuoteLimitSemanticSettings = Readonly<{
   userMarketPriceRate?: string;
 }>;
 
+export const isValidSwapQuoteToken = isValidSwapTokenIdentity;
+
 export function buildSwapQuoteLimitSemanticSettings({
   expirationTime,
   fromToken,
@@ -67,11 +75,11 @@ export function buildSwapQuoteLimitSemanticSettings({
 
   const isSelectedPair =
     Boolean(limitPriceUseRate.rate) &&
-    equalTokenNoCaseSensitive({
+    isSameSwapTokenIdentity({
       token1: limitPriceUseRate.fromToken,
       token2: fromToken,
     }) &&
-    equalTokenNoCaseSensitive({
+    isSameSwapTokenIdentity({
       token1: limitPriceUseRate.toToken,
       token2: toToken,
     });
@@ -116,8 +124,8 @@ export function buildSwapQuoteSemanticIntent(
 
   return {
     hasValidInput: Boolean(
-      input.fromToken &&
-      input.toToken &&
+      isValidSwapQuoteToken(input.fromToken) &&
+      isValidSwapQuoteToken(input.toToken) &&
       inputAmountBN.isFinite() &&
       inputAmountBN.gt(0),
     ),
@@ -125,12 +133,7 @@ export function buildSwapQuoteSemanticIntent(
     key: stableStringify({
       accountId: input.accountId,
       accountNetworkId: input.accountNetworkId,
-      fromToken: input.fromToken
-        ? {
-            contractAddress: input.fromToken.contractAddress,
-            networkId: input.fromToken.networkId,
-          }
-        : undefined,
+      fromTokenIdentity: getSwapTokenIdentityKey(input.fromToken) || undefined,
       inputAmount,
       kind,
       limitSettings,
@@ -138,12 +141,7 @@ export function buildSwapQuoteSemanticIntent(
       receivingAddress: input.receivingAddress,
       slippageKey: input.slippage.key,
       slippageValue,
-      toToken: input.toToken
-        ? {
-            contractAddress: input.toToken.contractAddress,
-            networkId: input.toToken.networkId,
-          }
-        : undefined,
+      toTokenIdentity: getSwapTokenIdentityKey(input.toToken) || undefined,
       userAddress: input.userAddress,
     }),
     kind,
@@ -179,11 +177,11 @@ export function getSwapQuoteAmountProjection({
   if (
     !quote ||
     quoteKind !== expectedKind ||
-    !equalTokenNoCaseSensitive({
+    !isSameSwapTokenIdentity({
       token1: fromToken,
       token2: quote.fromTokenInfo,
     }) ||
-    !equalTokenNoCaseSensitive({
+    !isSameSwapTokenIdentity({
       token1: toToken,
       token2: quote.toTokenInfo,
     }) ||

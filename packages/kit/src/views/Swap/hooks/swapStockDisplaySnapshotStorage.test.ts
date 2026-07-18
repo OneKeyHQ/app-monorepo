@@ -144,7 +144,7 @@ describe('swapStockDisplaySnapshotStorage', () => {
   it('drops amount after a process-style storage reload while retaining display selection', () => {
     swapStockDisplaySnapshotStorage.set(
       'account-a',
-      buildSnapshotWithRuntimeAmount('account-a', 1),
+      buildSnapshotWithRuntimeAmount('account-a', Date.now()),
     );
     swapStockDisplaySnapshotStorage.flushNow();
 
@@ -162,13 +162,13 @@ describe('swapStockDisplaySnapshotStorage', () => {
   });
 
   it('ignores legacy persisted amounts during cold-start hydration', () => {
-    const snapshot = buildSnapshotWithRuntimeAmount('account-a', 1);
+    const snapshot = buildSnapshotWithRuntimeAmount('account-a', Date.now());
     mockStoredValue = {
       version: 1,
       entries: {
         [encodeURIComponent('account-a')]: {
           snapshot,
-          updatedAt: 1,
+          updatedAt: snapshot.updatedAt,
         },
       },
     };
@@ -205,24 +205,118 @@ describe('swapStockDisplaySnapshotStorage', () => {
   });
 
   it('drops one malformed entry without blocking later checkpoints', () => {
-    const snapshotA = buildSnapshot('account-a', 1);
+    const snapshotA = buildSnapshotWithRuntimeAmount('account-a', Date.now());
     mockStoredValue = {
       version: 1,
       entries: {
         [encodeURIComponent('account-a')]: {
           snapshot: snapshotA,
-          updatedAt: 1,
+          updatedAt: snapshotA.updatedAt,
         },
         bad: null,
       },
     };
     swapStockDisplaySnapshotStorage.reload();
 
-    const snapshotB = buildSnapshot('account-b', 2);
+    const snapshotB = buildSnapshot('account-b', Date.now() + 1);
     swapStockDisplaySnapshotStorage.set('account-b', snapshotB);
 
-    expect(swapStockDisplaySnapshotStorage.get('account-a')).toEqual(snapshotA);
+    expect(swapStockDisplaySnapshotStorage.get('account-a')).toEqual({
+      ...snapshotA,
+      amount: undefined,
+    });
     expect(swapStockDisplaySnapshotStorage.get('account-b')).toEqual(snapshotB);
+  });
+
+  it('drops unsupported and future persisted snapshots before they can occupy account slots', () => {
+    const now = Date.now();
+    const validSnapshot = buildSnapshotWithRuntimeAmount('account-a', now);
+    const corruptSnapshot = {
+      ...buildSnapshotWithRuntimeAmount('corrupt-account', now),
+      version: 999,
+    };
+    const futureSnapshot = buildSnapshotWithRuntimeAmount(
+      'future-account',
+      now + 60_000,
+    );
+    mockStoredValue = {
+      version: 1,
+      entries: {
+        [encodeURIComponent('account-a')]: {
+          snapshot: validSnapshot,
+          updatedAt: now,
+        },
+        [encodeURIComponent('corrupt-account')]: {
+          snapshot: corruptSnapshot,
+          updatedAt: Number.MAX_SAFE_INTEGER,
+        },
+        [encodeURIComponent('future-account')]: {
+          snapshot: futureSnapshot,
+          updatedAt: Number.MAX_SAFE_INTEGER,
+        },
+      },
+    };
+    swapStockDisplaySnapshotStorage.reload();
+
+    expect(
+      swapStockDisplaySnapshotStorage.get('corrupt-account'),
+    ).toBeUndefined();
+    expect(
+      swapStockDisplaySnapshotStorage.get('future-account'),
+    ).toBeUndefined();
+    expect(swapStockDisplaySnapshotStorage.get('account-a')).toMatchObject({
+      selection: { stockToken: { symbol: 'AAPL' } },
+    });
+
+    const nextSnapshot = buildSnapshot('account-b', now + 1);
+    swapStockDisplaySnapshotStorage.set('account-b', nextSnapshot);
+    expect(swapStockDisplaySnapshotStorage.get('account-b')).toEqual(
+      nextSnapshot,
+    );
+  });
+
+  it('drops non-canonical persisted slots before bounding account entries', () => {
+    const now = Date.now();
+    const validSnapshot = buildSnapshotWithRuntimeAmount(
+      'account-valid',
+      now - 1000,
+    );
+    const nonCanonicalEntries = Object.fromEntries(
+      Array.from({ length: 8 }, (_, index) => {
+        const accountKey = `account-misaligned-${index}`;
+        const snapshot = buildSnapshotWithRuntimeAmount(accountKey, now);
+        return [
+          `arbitrary-slot-${index}`,
+          { snapshot, updatedAt: snapshot.updatedAt },
+        ];
+      }),
+    );
+    mockStoredValue = {
+      version: 1,
+      entries: {
+        ...nonCanonicalEntries,
+        [encodeURIComponent('account-valid')]: {
+          snapshot: validSnapshot,
+          updatedAt: validSnapshot.updatedAt,
+        },
+      },
+    };
+    swapStockDisplaySnapshotStorage.reload();
+
+    expect(swapStockDisplaySnapshotStorage.get('account-valid')).toMatchObject({
+      selection: { stockToken: { symbol: 'AAPL' } },
+    });
+    for (let index = 0; index < 8; index += 1) {
+      expect(
+        swapStockDisplaySnapshotStorage.get(`account-misaligned-${index}`),
+      ).toBeUndefined();
+    }
+
+    const nextSnapshot = buildSnapshot('account-next', now + 1);
+    swapStockDisplaySnapshotStorage.set('account-next', nextSnapshot);
+    expect(swapStockDisplaySnapshotStorage.get('account-next')).toEqual(
+      nextSnapshot,
+    );
   });
 
   it('discards delayed checkpoints while Reset App owns the UI runtime', () => {

@@ -11,6 +11,7 @@ import {
   swapStepsAtom,
   useSwapStepsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IFetchQuoteResult,
@@ -271,6 +272,108 @@ describe('useMarketSwapReviewActions', () => {
         networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
       }),
     );
+  });
+
+  it('runs confirm once per review revision and allows a new revision while the old one is pending', async () => {
+    const adapter = createAdapter();
+    const pendingResolvers: Array<() => void> = [];
+    adapter.sendSwapTx.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          pendingResolvers.push(resolve);
+        }),
+    );
+    const initialReviewState = createReviewState({
+      steps: [
+        {
+          type: ESwapStepType.SEND_TX,
+          status: ESwapStepStatus.READY,
+        },
+      ],
+    });
+    let reviewRevision = 'review-1';
+    const { result, rerender } = renderHook(
+      () => {
+        const actions = useMarketSwapReviewActions({
+          adapter,
+          reviewRevision,
+        });
+        const [, setSwapSteps] = useSwapStepsAtom();
+        return { actions, setSwapSteps };
+      },
+      { wrapper: createWrapper(initialReviewState) },
+    );
+
+    act(() => {
+      result.current.actions.onConfirm();
+      result.current.actions.onConfirm();
+    });
+    expect(adapter.sendSwapTx).toHaveBeenCalledTimes(1);
+
+    reviewRevision = 'review-2';
+    act(() => {
+      result.current.setSwapSteps({
+        steps: initialReviewState.steps,
+        preSwapData: initialReviewState.preSwapData,
+        quoteResult: initialReviewState.quoteResult,
+      });
+    });
+    rerender();
+    act(() => {
+      result.current.actions.onConfirm();
+    });
+    expect(adapter.sendSwapTx).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      pendingResolvers.forEach((resolve) => resolve());
+      await Promise.resolve();
+    });
+  });
+
+  it('releases the revision lease after a failed attempt so the user can retry', async () => {
+    const adapter = createAdapter();
+    adapter.sendSwapTx.mockRejectedValue(new Error('send failed'));
+    const { result } = renderHook(
+      () => {
+        const actions = useMarketSwapReviewActions({
+          adapter,
+          reviewRevision: 'review-1',
+        });
+        const [swapSteps] = useSwapStepsAtom();
+        return { actions, swapSteps };
+      },
+      {
+        wrapper: createWrapper(
+          createReviewState({
+            steps: [
+              {
+                type: ESwapStepType.SEND_TX,
+                status: ESwapStepStatus.READY,
+                canRetry: true,
+              },
+            ],
+          }),
+        ),
+      },
+    );
+
+    act(() => {
+      result.current.actions.onConfirm();
+      result.current.actions.onConfirm();
+    });
+    expect(adapter.sendSwapTx).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(result.current.swapSteps.steps[0].status).toBe(
+        ESwapStepStatus.FAILED,
+      );
+    });
+
+    act(() => {
+      result.current.actions.onConfirm();
+    });
+    await waitFor(() => {
+      expect(adapter.sendSwapTx).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('keeps preSwapStepsStart stable across swap step updates', async () => {
@@ -971,5 +1074,56 @@ describe('useMarketSwapReviewActions', () => {
         'send failed',
       );
     });
+  });
+
+  it('does not downgrade a published transaction when the adapter throws afterward', async () => {
+    const adapter = createAdapter();
+    adapter.sendSwapTx.mockImplementation(
+      async (params: ISendMarketSwapParams) => {
+        params?.onBroadcast?.({
+          txHash: '0xalready-broadcast',
+          orderId: 'order-1',
+        });
+        throw new OneKeyLocalError('post-broadcast bookkeeping failed');
+      },
+    );
+
+    const { result } = renderHook(
+      () => {
+        const actions = useMarketSwapReviewActions({ adapter });
+        const [swapSteps] = useSwapStepsAtom();
+        return {
+          actions,
+          swapSteps,
+        };
+      },
+      {
+        wrapper: createWrapper(
+          createReviewState({
+            steps: [
+              {
+                type: ESwapStepType.SEND_TX,
+                status: ESwapStepStatus.READY,
+                canRetry: true,
+              },
+            ],
+          }),
+        ),
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.preSwapStepsStart();
+    });
+
+    expect(result.current.swapSteps.steps[0]).toEqual(
+      expect.objectContaining({
+        status: ESwapStepStatus.PENDING,
+        txHash: '0xalready-broadcast',
+        orderId: 'order-1',
+        errorMessage: undefined,
+      }),
+    );
+    expect(adapter.sendSwapTx).toHaveBeenCalledTimes(1);
   });
 });

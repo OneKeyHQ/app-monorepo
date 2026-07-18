@@ -6,6 +6,7 @@ import requestHelper from '../requestHelper';
 import { createIpTableAdapter, testIpSpeed } from './ipTableAdapter';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
+import type { IIpTableRequestConfig } from './ipTableAdapter';
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
 jest.mock('../requestHelper', () => ({
@@ -44,11 +45,15 @@ const mockedIsProxyActiveForUrl = isProxyActiveForUrl as jest.Mock;
 const mockedIsSniSupported = isSniSupported as jest.Mock;
 const mockedSniRequest = sniRequest as jest.Mock;
 
-function buildConfig(url: string): InternalAxiosRequestConfig {
+function buildConfig(
+  url: string,
+  overrides: IIpTableRequestConfig = {},
+): InternalAxiosRequestConfig {
   return {
     url,
     method: 'get',
     headers: axios.AxiosHeaders.from({}),
+    ...overrides,
   } as InternalAxiosRequestConfig;
 }
 
@@ -123,7 +128,11 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
     const adapter = createIpTableAdapter({});
 
     await expect(
-      adapter(buildConfig('https://api.example.com/v1')),
+      adapter(
+        buildConfig('https://api.example.com/v1', {
+          ipTableFailClosedAfterSniAttempt: true,
+        }),
+      ),
     ).resolves.toMatchObject({
       status: 200,
       data: { fallback: true },
@@ -178,6 +187,83 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
     expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
     expect(mockedSniRequest).not.toHaveBeenCalled();
     expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps the default fallback after an ambiguous SNI failure', async () => {
+    mockedSniRequest.mockRejectedValue(new Error('connection reset'));
+    const adapter = createIpTableAdapter({});
+
+    await expect(
+      adapter(buildConfig('https://api.example.com/v1')),
+    ).resolves.toMatchObject({
+      status: 200,
+      data: { fallback: true },
+    });
+
+    expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+    expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps the default fallback when an SNI attempt returns no response', async () => {
+    mockedSniRequest.mockResolvedValue(null);
+    const adapter = createIpTableAdapter({});
+
+    await expect(
+      adapter(buildConfig('https://api.example.com/v1')),
+    ).resolves.toMatchObject({
+      status: 200,
+      data: { fallback: true },
+    });
+
+    expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+    expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+  });
+
+  test('fails closed after an ambiguous SNI error when requested', async () => {
+    const sniError = new Error('connection reset');
+    mockedSniRequest.mockRejectedValue(sniError);
+    const adapter = createIpTableAdapter({});
+
+    await expect(
+      adapter(
+        buildConfig('https://api.example.com/v1', {
+          data: { amount: '1' },
+          headers: axios.AxiosHeaders.from({ 'X-Test': 'value' }),
+          ipTableFailClosedAfterSniAttempt: true,
+          method: 'post',
+        }),
+      ),
+    ).rejects.toBe(sniError);
+
+    expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+    const sniConfig = mockedSniRequest.mock.calls[0][0];
+    expect(sniConfig).toMatchObject({
+      body: '{"amount":"1"}',
+      headers: { 'X-Test': 'value', 'Content-Type': 'application/json' },
+      method: 'POST',
+    });
+    expect(sniConfig).not.toHaveProperty('ipTableFailClosedAfterSniAttempt');
+    expect(sniConfig.headers).not.toHaveProperty(
+      'ipTableFailClosedAfterSniAttempt',
+    );
+    expect(sniConfig.body).not.toContain('ipTableFailClosedAfterSniAttempt');
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('fails closed when an SNI attempt returns no response', async () => {
+    mockedSniRequest.mockResolvedValue(null);
+    const adapter = createIpTableAdapter({});
+
+    await expect(
+      adapter(
+        buildConfig('https://api.example.com/v1', {
+          ipTableFailClosedAfterSniAttempt: true,
+        }),
+      ),
+    ).rejects.toThrow('SNI request outcome is unknown');
+
+    expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+    expect(fallbackAdapter).not.toHaveBeenCalled();
   });
 
   test('does not fallback after SNI starts and returns a fail-closed error', async () => {

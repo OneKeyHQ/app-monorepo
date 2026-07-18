@@ -1,5 +1,6 @@
 import {
   hasSwapCurrentEventProvider,
+  isStockQuoteInputAmountMatched,
   isSwapQuoteActionable,
   isSwapQuoteInputAmountMatched,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
@@ -7,8 +8,6 @@ import {
   EProtocolOfExchange,
   type IFetchQuoteResult,
 } from '@onekeyhq/shared/types/swap/types';
-
-import { isStockQuoteInputAmountMatched } from './swapStockTradeControl';
 
 export function isSwapProviderQuoteSelectable({
   currentEventId,

@@ -1,14 +1,14 @@
 import BigNumber from 'bignumber.js';
 
+import { isSameSwapQuoteAmount } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { isSameSwapTokenIdentity } from '@onekeyhq/shared/src/utils/swapTokenIdentity';
 import type {
   IFetchQuoteResult,
   ISwapToken,
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapQuoteKind } from '@onekeyhq/shared/types/swap/types';
 
 import type { IntlShape } from 'react-intl';
 
@@ -16,43 +16,6 @@ export type IStockQuoteTradeControl = {
   message: string;
   reason: 'limit' | 'error';
 };
-
-export function isSameStockTradeAmount({
-  left,
-  right,
-}: {
-  left?: string;
-  right?: string;
-}) {
-  const leftBN = new BigNumber(left ?? '');
-  const rightBN = new BigNumber(right ?? '');
-  return leftBN.isFinite() && rightBN.isFinite() && leftBN.eq(rightBN);
-}
-
-export function isStockQuoteInputAmountMatched({
-  fromAmount,
-  quote,
-  toAmount,
-}: {
-  fromAmount: string;
-  quote?: Pick<IFetchQuoteResult, 'kind' | 'fromAmount' | 'toAmount'>;
-  toAmount: string;
-}) {
-  if (!quote) {
-    return false;
-  }
-  return isSameStockTradeAmount(
-    quote.kind === ESwapQuoteKind.BUY
-      ? {
-          left: quote.toAmount,
-          right: toAmount,
-        }
-      : {
-          left: quote.fromAmount,
-          right: fromAmount,
-        },
-  );
-}
 
 export function isQuoteResultForStockTrade({
   quoteResult,
@@ -67,11 +30,11 @@ export function isQuoteResultForStockTrade({
 }) {
   if (
     !quoteResult ||
-    !equalTokenNoCaseSensitive({
+    !isSameSwapTokenIdentity({
       token1: quoteResult.fromTokenInfo,
       token2: sendToken,
     }) ||
-    !equalTokenNoCaseSensitive({
+    !isSameSwapTokenIdentity({
       token1: quoteResult.toTokenInfo,
       token2: receiveToken,
     })
@@ -83,7 +46,7 @@ export function isQuoteResultForStockTrade({
     return false;
   }
 
-  return isSameStockTradeAmount({
+  return isSameSwapQuoteAmount({
     left: quoteResult.fromAmount,
     right: sendAmount,
   });

@@ -21,7 +21,10 @@ import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/sce
 import type { ISwapQuoteProvideResult } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapQuote';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  getSwapTokenIdentityKey,
+  isSameSwapTokenIdentity,
+} from '@onekeyhq/shared/src/utils/swapTokenIdentity';
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
@@ -54,6 +57,7 @@ import {
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteFetchingAtom,
   useSwapQuoteListAtom,
+  useSwapQuoteSessionStateAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenNetworkAtom,
@@ -64,12 +68,16 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { isSwapAddressInfoReadyForOwner } from '../../../states/jotai/contexts/swap/addressInfoReadiness';
 import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
 import {
   buildSwapQuoteLimitSemanticSettings,
   buildSwapQuoteSemanticIntent,
+  getSwapQuoteKindForCurrentInput,
 } from '../../../states/jotai/contexts/swap/quoteSemanticIntent';
+import { isSwapQuoteSessionEventForCurrentSession } from '../../../states/jotai/contexts/swap/quoteSessionV2';
 import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
+import { isSameSwapExecutionAddress } from '../utils/swapExecutionSnapshotGuard';
 import { getSwapQuoteReadiness } from '../utils/swapQuoteReadiness';
 import {
   getStockTradeAnalyticsPayload,
@@ -90,7 +98,6 @@ import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 export function useSwapQuote() {
   const {
     quoteAction,
-    cleanQuoteInterval,
     quoteEventHandlerV2,
     syncNetworksSort,
     closeQuoteEvent,
@@ -114,13 +121,23 @@ export function useSwapQuote() {
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
     useIsAccountSelectorActiveAccountInitDone(0);
+  const isFromAddressInfoReady = isSwapAddressInfoReadyForOwner({
+    address: swapAddressInfo.address,
+    isAddressInfoReady: swapAddressInfo.isAddressInfoReady,
+    owner: swapAddressInfo.accountInfo ?? swapAddressInfo.activeAccount,
+  });
+  const isToAddressInfoReady = isSwapAddressInfoReadyForOwner({
+    address: swapToAddressInfo.address,
+    isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
+    owner: swapToAddressInfo.accountInfo ?? swapToAddressInfo.activeAccount,
+  });
   const quoteReadiness = getSwapQuoteReadiness({
     networkSelectorReady: !currentSelectNetwork?.networkId,
     initialSelectedTokensSynced,
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
-    fromAddressInfoReady: swapAddressInfo.isAddressInfoReady,
-    toAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
+    fromAddressInfoReady: isFromAddressInfoReady,
+    toAddressInfoReady: isToAddressInfoReady,
   });
   const shouldPauseQuote = !quoteReadiness.ready;
   const shouldPauseQuoteRef = useRef(shouldPauseQuote);
@@ -155,6 +172,7 @@ export function useSwapQuote() {
   const [swapLimitPartiallyFill] = useSwapLimitPartiallyFillAtom();
   const [swapLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const [swapQuoteResultList] = useSwapQuoteListAtom();
+  const [swapQuoteSessionState] = useSwapQuoteSessionStateAtom();
   const [, setSwapManualSelectQuoteProviders] =
     useSwapManualSelectQuoteProvidersAtom();
   const [swapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
@@ -222,6 +240,10 @@ export function useSwapQuote() {
   const swapQuoteEventTotalCountRef = useRef(swapQuoteEventTotalCount);
   if (swapQuoteEventTotalCountRef.current !== swapQuoteEventTotalCount) {
     swapQuoteEventTotalCountRef.current = swapQuoteEventTotalCount;
+  }
+  const swapQuoteSessionStateRef = useRef(swapQuoteSessionState);
+  if (swapQuoteSessionStateRef.current !== swapQuoteSessionState) {
+    swapQuoteSessionStateRef.current = swapQuoteSessionState;
   }
   if (swapQuoteActionLockRef.current !== swapQuoteActionLock) {
     swapQuoteActionLockRef.current = swapQuoteActionLock;
@@ -309,6 +331,10 @@ export function useSwapQuote() {
     { leading: true },
   );
   const semanticIntentKeyRef = useRef(semanticIntent.key);
+  const fromTokenIdentityKey = getSwapTokenIdentityKey(fromToken);
+  const toTokenIdentityKey = getSwapTokenIdentityKey(toToken);
+  const tokenPairIdentityKey = `${fromTokenIdentityKey}>${toTokenIdentityKey}`;
+  const tokenPairIdentityKeyRef = useRef(tokenPairIdentityKey);
 
   useEffect(() => {
     // Root modals and the lock screen make route focus false while the Swap
@@ -326,12 +352,23 @@ export function useSwapQuote() {
     if (semanticIntentKeyRef.current === semanticIntent.key) {
       return;
     }
+    const tokenPairChanged =
+      tokenPairIdentityKeyRef.current !== tokenPairIdentityKey;
     semanticIntentKeyRef.current = semanticIntent.key;
+    tokenPairIdentityKeyRef.current = tokenPairIdentityKey;
+    if (tokenPairChanged) {
+      setSwapManualSelectQuoteProviders(undefined);
+    }
     invalidateQuoteIntent({ isPending: semanticIntent.hasValidInput });
     if (!isFocusRef.current && semanticIntent.hasValidInput) {
       shouldRefreshPreservedInputQuoteOnFocusRef.current = true;
     }
-  }, [invalidateQuoteIntent, semanticIntent]);
+  }, [
+    invalidateQuoteIntent,
+    semanticIntent,
+    setSwapManualSelectQuoteProviders,
+    tokenPairIdentityKey,
+  ]);
 
   useEffect(() => {
     if (shouldPauseQuote) {
@@ -370,10 +407,14 @@ export function useSwapQuote() {
     };
   }, [isFocused, setSwapQuoteFetching, swapTabSwitchType]);
 
-  const toAmountDebounceRef = useRef(toAmountDebounce);
-  if (toAmountDebounceRef.current !== toAmountDebounce) {
-    toAmountDebounceRef.current = toAmountDebounce;
-  }
+  const getCurrentQuoteKind = useCallback(
+    () =>
+      getSwapQuoteKindForCurrentInput({
+        protocol: swapTabSwitchTypeRef.current,
+        toAmount: toTokenAmountRef.current,
+      }),
+    [],
+  );
   const alignmentDecimal = useCallback(() => {
     const checkedDecimal = truncateDecimalPlaces(
       fromAmountDebounce.value,
@@ -445,10 +486,9 @@ export function useSwapQuote() {
     if (shouldPauseQuote) {
       return;
     }
-    if (swapSlippageDialogOpening.status || swapApproveAllowanceSelectOpen) {
-      // cleanQuoteInterval();
-    } else if (
+    if (
       !swapSlippageDialogOpening.status &&
+      !swapApproveAllowanceSelectOpen &&
       swapSlippageDialogOpening.flag === 'save'
     ) {
       void quoteAction(
@@ -457,17 +497,17 @@ export function useSwapQuote() {
         activeAccountRef.current?.accountInfo?.account?.id,
         undefined,
         undefined,
-        ESwapQuoteKind.SELL,
+        getCurrentQuoteKind(),
         undefined,
         swapToAddressInfoRef.current.address,
       );
     }
   }, [
     quoteAction,
-    cleanQuoteInterval,
     swapApproveAllowanceSelectOpen,
     swapSlippageDialogOpening,
     shouldPauseQuote,
+    getCurrentQuoteKind,
   ]);
 
   // Re-quote when slippage is changed via the settings dialog (not via the main
@@ -512,7 +552,7 @@ export function useSwapQuote() {
       activeAccountRef.current?.accountInfo?.account?.id,
       undefined,
       undefined,
-      ESwapQuoteKind.SELL,
+      getCurrentQuoteKind(),
       undefined,
       swapToAddressInfoRef.current.address,
     );
@@ -521,6 +561,7 @@ export function useSwapQuote() {
     swapSlippageDialogOpening.status,
     quoteAction,
     shouldPauseQuote,
+    getCurrentQuoteKind,
   ]);
 
   useEffect(() => {
@@ -532,16 +573,7 @@ export function useSwapQuote() {
     }
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
-      equalTokenNoCaseSensitive({
-        token1: {
-          networkId: fromToken?.networkId,
-          contractAddress: fromToken?.contractAddress,
-        },
-        token2: {
-          networkId: toToken?.networkId,
-          contractAddress: toToken?.contractAddress,
-        },
-      })
+      (fromTokenIdentityKey && fromTokenIdentityKey === toTokenIdentityKey)
     ) {
       return;
     }
@@ -551,20 +583,10 @@ export function useSwapQuote() {
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.fromTokenAmount ===
         fromAmountDebounce.value &&
-      equalTokenNoCaseSensitive({
-        token1: swapQuoteActionLockRef.current?.fromToken,
-        token2: {
-          networkId: fromToken?.networkId,
-          contractAddress: fromToken?.contractAddress,
-        },
-      }) &&
-      equalTokenNoCaseSensitive({
-        token1: swapQuoteActionLockRef.current?.toToken,
-        token2: {
-          networkId: toToken?.networkId,
-          contractAddress: toToken?.contractAddress,
-        },
-      }) &&
+      getSwapTokenIdentityKey(swapQuoteActionLockRef.current?.fromToken) ===
+        fromTokenIdentityKey &&
+      getSwapTokenIdentityKey(swapQuoteActionLockRef.current?.toToken) ===
+        toTokenIdentityKey &&
       swapQuoteActionLockRef.current.accountId ===
         activeAccountRef.current?.accountInfo?.account?.id &&
       swapQuoteActionLockRef.current?.address === swapAddressInfo.address &&
@@ -592,15 +614,13 @@ export function useSwapQuote() {
     );
   }, [
     swapToAnotherAccountAddress?.address,
-    cleanQuoteInterval,
     quoteAction,
     swapAddressInfo.address,
     swapAddressInfo.networkId,
     swapToAddressInfo.address,
     fromToken?.networkId,
-    fromToken?.contractAddress,
-    toToken?.networkId,
-    toToken?.contractAddress,
+    fromTokenIdentityKey,
+    toTokenIdentityKey,
     swapStockExecutionTokenSyncId,
     alignmentDecimal,
     fromAmountDebounce,
@@ -615,33 +635,23 @@ export function useSwapQuote() {
     if (shouldPauseQuote) {
       return;
     }
-    let kind = ESwapQuoteKind.SELL;
-    if (swapTabSwitchType === ESwapTabSwitchType.LIMIT) {
-      if (
-        toAmountDebounceRef.current.isInput &&
-        toAmountDebounceRef.current.value
-      ) {
-        kind = ESwapQuoteKind.BUY;
-      }
-    }
     void quoteAction(
       swapSlippageRef.current,
       activeAccountRef.current?.address,
       activeAccountRef.current?.accountInfo?.account?.id,
       undefined,
       undefined,
-      kind,
+      getCurrentQuoteKind(),
       undefined,
       swapToAddressInfoRef.current.address,
     );
-  }, [quoteAction, swapTabSwitchType, shouldPauseQuote]);
+  }, [getCurrentQuoteKind, quoteAction, swapTabSwitchType, shouldPauseQuote]);
 
   useEffect(
     () => () => {
-      cleanQuoteInterval();
       closeQuoteEvent();
     },
-    [cleanQuoteInterval, closeQuoteEvent],
+    [closeQuoteEvent],
   );
 
   useEffect(() => {
@@ -659,16 +669,7 @@ export function useSwapQuote() {
     }
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
-      equalTokenNoCaseSensitive({
-        token1: {
-          networkId: fromToken?.networkId,
-          contractAddress: fromToken?.contractAddress,
-        },
-        token2: {
-          networkId: toToken?.networkId,
-          contractAddress: toToken?.contractAddress,
-        },
-      })
+      (fromTokenIdentityKey && fromTokenIdentityKey === toTokenIdentityKey)
     ) {
       return;
     }
@@ -678,20 +679,10 @@ export function useSwapQuote() {
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.toTokenAmount ===
         toAmountDebounce.value &&
-      equalTokenNoCaseSensitive({
-        token1: swapQuoteActionLockRef.current?.fromToken,
-        token2: {
-          networkId: fromToken?.networkId,
-          contractAddress: fromToken?.contractAddress,
-        },
-      }) &&
-      equalTokenNoCaseSensitive({
-        token1: swapQuoteActionLockRef.current?.toToken,
-        token2: {
-          networkId: toToken?.networkId,
-          contractAddress: toToken?.contractAddress,
-        },
-      }) &&
+      getSwapTokenIdentityKey(swapQuoteActionLockRef.current?.fromToken) ===
+        fromTokenIdentityKey &&
+      getSwapTokenIdentityKey(swapQuoteActionLockRef.current?.toToken) ===
+        toTokenIdentityKey &&
       swapQuoteActionLockRef.current.accountId ===
         activeAccountRef.current?.accountInfo?.account?.id &&
       swapQuoteActionLockRef.current?.address === swapAddressInfo.address &&
@@ -715,15 +706,13 @@ export function useSwapQuote() {
     );
   }, [
     swapToAnotherAccountAddress?.address,
-    cleanQuoteInterval,
     quoteAction,
     swapAddressInfo.address,
     swapAddressInfo.networkId,
     swapToAddressInfo.address,
     fromToken?.networkId,
-    fromToken?.contractAddress,
-    toToken?.networkId,
-    toToken?.contractAddress,
+    fromTokenIdentityKey,
+    toTokenIdentityKey,
     alignmentToDecimal,
     limitSettingsKeyDebounce,
     toAmountDebounce,
@@ -738,14 +727,6 @@ export function useSwapQuote() {
       if (swapShouldRefreshRef.current) {
         return;
       }
-      setSwapManualSelectQuoteProviders(
-        buildSwapManualProviderSelectionIntent({
-          info: {
-            provider: data.approvedSwapInfo.provider,
-            providerName: data.approvedSwapInfo.providerName,
-          },
-        }),
-      );
       const { approvedSwapInfo, enableFilled } = data;
       const {
         fromToken: fromTokenInfo,
@@ -756,17 +737,45 @@ export function useSwapQuote() {
         swapType,
         blockNumber,
       } = approvedSwapInfo;
+      const isCurrentApprovalOwner = () => {
+        if (shouldPauseQuoteRef.current) {
+          return false;
+        }
+        const currentSenderAddress = activeAccountRef.current?.address;
+        return Boolean(
+          approvedSwapInfo.useAddress &&
+          currentSenderAddress &&
+          isSameSwapExecutionAddress({
+            networkId: fromTokenInfo.networkId,
+            left: approvedSwapInfo.useAddress,
+            right: currentSenderAddress,
+          }),
+        );
+      };
+      const setApprovedProvider = () => {
+        setSwapManualSelectQuoteProviders(
+          buildSwapManualProviderSelectionIntent({
+            info: {
+              provider: approvedSwapInfo.provider,
+              providerName: approvedSwapInfo.providerName,
+            },
+          }),
+        );
+      };
       if (
-        equalTokenNoCaseSensitive({
+        swapTabSwitchTypeRef.current === swapType &&
+        isSameSwapTokenIdentity({
           token1: fromTokenInfo,
           token2: fromTokenRef.current,
         }) &&
-        equalTokenNoCaseSensitive({
+        isSameSwapTokenIdentity({
           token1: toTokenInfo,
           token2: toTokenRef.current,
         }) &&
-        amount === fromTokenAmountRef.current?.value
+        amount === fromTokenAmountRef.current?.value &&
+        isCurrentApprovalOwner()
       ) {
+        setApprovedProvider();
         void quoteAction(
           swapSlippageRef.current,
           activeAccountRef.current?.address,
@@ -784,6 +793,11 @@ export function useSwapQuote() {
         setSwapSelectFromToken(fromTokenInfo);
         setSwapSelectToToken(toTokenInfo);
         await syncNetworksSort(fromTokenInfo.networkId);
+        // Network sorting is asynchronous; re-read the live sender before
+        // restoring a provider so an account switch cannot inherit it.
+        if (isCurrentApprovalOwner()) {
+          setApprovedProvider();
+        }
         if (kind === ESwapQuoteKind.BUY && toAmount) {
           setToTokenAmount({ value: toAmount, isInput: true });
         } else {
@@ -886,7 +900,13 @@ export function useSwapQuote() {
 
   const swapQuoteMixEvent = useCallback(
     async (event: ISwapQuoteSessionEventV2) => {
-      if (event.kind === 'transportError') {
+      if (
+        event.kind === 'transportError' &&
+        isSwapQuoteSessionEventForCurrentSession({
+          event,
+          state: swapQuoteSessionStateRef.current,
+        })
+      ) {
         swapQuoteMixEventAction(JSON.stringify(event.error));
       }
     },
@@ -960,19 +980,13 @@ export function useSwapQuote() {
             swapApprovingSuccessAction,
           );
           if (focusTransition.shouldRefreshPreservedInput) {
-            const quoteKind =
-              swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT &&
-              toTokenAmountRef.current.isInput &&
-              toTokenAmountRef.current.value
-                ? ESwapQuoteKind.BUY
-                : ESwapQuoteKind.SELL;
             void quoteAction(
               swapSlippageRef.current,
               activeAccountRef.current?.address,
               activeAccountRef.current?.accountInfo?.account?.id,
               undefined,
               undefined,
-              quoteKind,
+              getCurrentQuoteKind(),
               undefined,
               swapToAddressInfoRef.current.address,
             );

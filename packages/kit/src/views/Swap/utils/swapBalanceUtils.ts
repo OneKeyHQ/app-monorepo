@@ -4,6 +4,7 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { isSameSwapTokenIdentity } from '@onekeyhq/shared/src/utils/swapTokenIdentity';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IQuoteResultFeeOtherFeeInfo,
@@ -30,6 +31,23 @@ export type ISwapLatestBalanceCheckResult =
       requiredAmount: string;
       tokenSymbol: string;
     };
+
+export function getSwapOtherFeeRequiredAmount({
+  feeAmount,
+  feeToken,
+  fromAmount,
+  fromToken,
+}: {
+  feeAmount?: string;
+  feeToken: ISwapToken;
+  fromAmount?: string;
+  fromToken?: ISwapToken;
+}) {
+  const feeAmountBN = new BigNumber(feeAmount ?? 0);
+  return isSameSwapTokenIdentity({ token1: feeToken, token2: fromToken })
+    ? feeAmountBN.plus(new BigNumber(fromAmount ?? 0)).toFixed()
+    : feeAmountBN.toFixed();
+}
 
 function toFiniteNonNegativeBigNumber(value?: string) {
   const valueBN = new BigNumber(value ?? '');

@@ -14,6 +14,8 @@ import {
   mergeStockChartRealtimePoint,
   resolveStockChartControlRange,
   resolveStockTokenNetworkLogoURI,
+  shouldDiscardRestoredStockChart,
+  shouldRenderStockMarketHeaderSkeleton,
   shouldShowStockBalanceRetryAction,
 } from './SwapStockDesktopContainer.utils';
 
@@ -173,6 +175,30 @@ describe('SwapStockDesktopContainer utils', () => {
     ).toBe(false);
   });
 
+  it('keeps Stock header content visible while detail and images load for a known token', () => {
+    expect(
+      shouldRenderStockMarketHeaderSkeleton({
+        hasDisplayToken: true,
+        loading: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('shows the Stock header skeleton only while no token identity is available', () => {
+    expect(
+      shouldRenderStockMarketHeaderSkeleton({
+        hasDisplayToken: false,
+        loading: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRenderStockMarketHeaderSkeleton({
+        hasDisplayToken: false,
+        loading: false,
+      }),
+    ).toBe(false);
+  });
+
   it('keeps the chart in loading state when only realtime price has arrived', () => {
     expect(
       getStockChartDisplayState({
@@ -202,6 +228,27 @@ describe('SwapStockDesktopContainer utils', () => {
       chartData: previousChartData,
       shouldShowChartLoading: false,
     });
+  });
+
+  it('drops a restored chart after its first live refresh fails', () => {
+    expect(
+      shouldDiscardRestoredStockChart({
+        phase: 'stale-error',
+        source: 'snapshot',
+      }),
+    ).toBe(true);
+    expect(
+      shouldDiscardRestoredStockChart({
+        phase: 'stale-empty',
+        source: 'snapshot',
+      }),
+    ).toBe(true);
+    expect(
+      shouldDiscardRestoredStockChart({
+        phase: 'stale-error',
+        source: 'live',
+      }),
+    ).toBe(false);
   });
 
   it('merges realtime stock points only after chart data matches the active range', () => {

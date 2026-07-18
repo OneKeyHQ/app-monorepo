@@ -35,8 +35,10 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapToAnotherAccountAddressAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { getSwapQuoteKindForCurrentInput } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteSemanticIntent';
 import {
   useSettingsAtom,
   useSettingsPersistAtom,
@@ -55,7 +57,6 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   ESwapDirectionType,
-  ESwapQuoteKind,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -102,10 +103,14 @@ const SwapActionsState = ({
   const [, setSwapQuoteList] = useSwapQuoteListAtom();
   const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
+  const currentQuoteKind = getSwapQuoteKindForCurrentInput({
+    protocol: swapTypeSwitch,
+    toAmount: toTokenAmount,
+  });
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const { cleanQuoteInterval, closeQuoteEvent, quoteAction } =
-    useSwapActions().current;
+  const { closeQuoteEvent, quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
@@ -311,7 +316,7 @@ const SwapActionsState = ({
         swapFromAddressInfo?.accountInfo?.account?.id,
         undefined,
         undefined,
-        currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
+        currentQuoteKind,
         true,
         swapToAddressInfo?.address,
         swapIncognitoMode,
@@ -320,7 +325,7 @@ const SwapActionsState = ({
     }
     onPreSwap();
   }, [
-    currentQuoteRes?.kind,
+    currentQuoteKind,
     navigation,
     onPreSwap,
     quoteAction,
@@ -393,7 +398,6 @@ const SwapActionsState = ({
         buildSwapIncognitoSettingsUpdate(settings, value),
       );
 
-      cleanQuoteInterval();
       closeQuoteEvent();
       setSwapManualSelectQuoteProvider(undefined);
       setSwapQuoteEventTotalCount({ count: 0 });
@@ -412,16 +416,15 @@ const SwapActionsState = ({
         swapFromAddressInfo?.accountInfo?.account?.id,
         undefined,
         undefined,
-        currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
+        currentQuoteKind,
         true,
         swapToAddressInfo?.address,
         value,
       );
     },
     [
-      cleanQuoteInterval,
       closeQuoteEvent,
-      currentQuoteRes?.kind,
+      currentQuoteKind,
       quoteAction,
       setSettings,
       setSwapManualSelectQuoteProvider,

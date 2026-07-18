@@ -1,10 +1,19 @@
 import BigNumber from 'bignumber.js';
 
+import {
+  isSameSwapQuoteAmount,
+  isSwapQuoteActionable,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import { isSameSwapTokenIdentity } from '@onekeyhq/shared/src/utils/swapTokenIdentity';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
+  IFetchSwapQuoteParams,
 } from '@onekeyhq/shared/types/swap/types';
-import { SwapBuildShouldFallBackNetworkIds } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapQuoteKind,
+  SwapBuildShouldFallBackNetworkIds,
+} from '@onekeyhq/shared/types/swap/types';
 
 export function buildMarketReviewShouldFallback({
   networkId,
@@ -63,6 +72,39 @@ export function pickMarketQuoteResultByProvider({
     quotes.find((item) => item.info.provider === provider) ??
     quotes.find((item) => item.info.providerName === providerName)
   );
+}
+
+export function filterMarketSpeedQuoteFallbackResults({
+  quotes,
+  request,
+}: {
+  quotes: IFetchQuoteResult[];
+  request: IFetchSwapQuoteParams;
+}) {
+  const expectedKind = request.kind ?? ESwapQuoteKind.SELL;
+  const expectedAmount =
+    expectedKind === ESwapQuoteKind.BUY
+      ? request.toTokenAmount
+      : request.fromTokenAmount;
+
+  return quotes.filter((quote) => {
+    const quoteKind = quote.kind ?? ESwapQuoteKind.SELL;
+    const quoteAmount =
+      quoteKind === ESwapQuoteKind.BUY ? quote.toAmount : quote.fromAmount;
+    return (
+      quoteKind === expectedKind &&
+      isSameSwapTokenIdentity({
+        token1: quote.fromTokenInfo,
+        token2: request.fromToken,
+      }) &&
+      isSameSwapTokenIdentity({
+        token1: quote.toTokenInfo,
+        token2: request.toToken,
+      }) &&
+      isSameSwapQuoteAmount({ left: quoteAmount, right: expectedAmount }) &&
+      isSwapQuoteActionable(quote)
+    );
+  });
 }
 
 export function mergeMarketBuildResultWithQuote({

@@ -3,6 +3,7 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import {
   buildSwapTokenDetailRequestKey,
   isCurrentSwapTokenDetailRequest,
+  isSwapTokenDetailAddressInfoReady,
   isSwapTokenDetailBalanceVisible,
   startSwapTokenDetailRequest,
 } from './tokenDetailRequest';
@@ -34,6 +35,56 @@ describe('swap token detail request ownership', () => {
     expect(second).not.toBe(first);
   });
 
+  it('changes the key when the same owner becomes address-ready', () => {
+    const pending = buildSwapTokenDetailRequestKey({
+      direction: ESwapDirectionType.FROM,
+      token,
+      accountId: 'account-a',
+      accountAddress: '0xA',
+      addressInfoReady: false,
+      resolvedNetworkId: 'evm--1',
+    });
+    const ready = buildSwapTokenDetailRequestKey({
+      direction: ESwapDirectionType.FROM,
+      token,
+      accountId: 'account-a',
+      accountAddress: '0xA',
+      addressInfoReady: true,
+      resolvedNetworkId: 'evm--1',
+    });
+
+    expect(ready).not.toBe(pending);
+  });
+
+  it('requires the corresponding address owners before loading token details', () => {
+    expect(
+      isSwapTokenDetailAddressInfoReady({
+        direction: ESwapDirectionType.FROM,
+        addressInfoReady: false,
+      }),
+    ).toBe(false);
+    expect(
+      isSwapTokenDetailAddressInfoReady({
+        direction: ESwapDirectionType.FROM,
+        addressInfoReady: true,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapTokenDetailAddressInfoReady({
+        direction: ESwapDirectionType.TO,
+        addressInfoReady: true,
+        targetAddressInfoReady: false,
+      }),
+    ).toBe(false);
+    expect(
+      isSwapTokenDetailAddressInfoReady({
+        direction: ESwapDirectionType.TO,
+        addressInfoReady: true,
+        targetAddressInfoReady: true,
+      }),
+    ).toBe(true);
+  });
+
   it('keeps the effect dependency stable across non-semantic token detail writes', () => {
     const beforeDetailWrite = buildSwapTokenDetailRequestKey({
       direction: ESwapDirectionType.FROM,
@@ -51,6 +102,54 @@ describe('swap token detail request ownership', () => {
     });
 
     expect(afterDetailWrite).toBe(beforeDetailWrite);
+  });
+
+  it('does not classify a native token and an incomplete non-native token as the same resource', () => {
+    const nativeKey = buildSwapTokenDetailRequestKey({
+      direction: ESwapDirectionType.FROM,
+      token: {
+        ...token,
+        contractAddress: '',
+        isNative: true,
+      },
+      accountId: 'account-a',
+      accountAddress: '0xA',
+      resolvedNetworkId: 'evm--1',
+    });
+    const incompleteTokenKey = buildSwapTokenDetailRequestKey({
+      direction: ESwapDirectionType.FROM,
+      token: {
+        ...token,
+        contractAddress: '',
+        isNative: false,
+      },
+      accountId: 'account-a',
+      accountAddress: '0xA',
+      resolvedNetworkId: 'evm--1',
+    });
+    const nativeRequest = startSwapTokenDetailRequest({
+      direction: ESwapDirectionType.FROM,
+      key: nativeKey,
+      state: {},
+    });
+    const incompleteRequest = startSwapTokenDetailRequest({
+      direction: ESwapDirectionType.FROM,
+      key: incompleteTokenKey,
+      state: nativeRequest.state,
+    });
+
+    expect(incompleteTokenKey).not.toBe(nativeKey);
+    expect(incompleteRequest.isSameResource).toBe(false);
+    expect(
+      isSwapTokenDetailBalanceVisible({
+        addressInfoReady: true,
+        direction: ESwapDirectionType.FROM,
+        initialSelectedTokensSynced: true,
+        isCurrentDisplayToken: true,
+        key: nativeKey,
+        state: incompleteRequest.state,
+      }),
+    ).toBe(false);
   });
 
   it('changes the TO resource key when the target derive owner changes', () => {
@@ -147,6 +246,7 @@ describe('swap token detail request ownership', () => {
 
     expect(
       isSwapTokenDetailBalanceVisible({
+        addressInfoReady: true,
         direction: ESwapDirectionType.FROM,
         initialSelectedTokensSynced: false,
         isCurrentDisplayToken: true,
@@ -156,6 +256,7 @@ describe('swap token detail request ownership', () => {
     ).toBe(false);
     expect(
       isSwapTokenDetailBalanceVisible({
+        addressInfoReady: true,
         direction: ESwapDirectionType.FROM,
         initialSelectedTokensSynced: true,
         isCurrentDisplayToken: true,
@@ -163,10 +264,21 @@ describe('swap token detail request ownership', () => {
         state: bootState,
       }),
     ).toBe(true);
+    expect(
+      isSwapTokenDetailBalanceVisible({
+        addressInfoReady: false,
+        direction: ESwapDirectionType.FROM,
+        initialSelectedTokensSynced: true,
+        isCurrentDisplayToken: true,
+        key: accountAKey,
+        state: bootState,
+      }),
+    ).toBe(false);
     // When initialSelectedTokensSynced flips for account B, the UI checks B's
     // semantic key synchronously and must not expose account A's balance atom.
     expect(
       isSwapTokenDetailBalanceVisible({
+        addressInfoReady: true,
         direction: ESwapDirectionType.FROM,
         initialSelectedTokensSynced: true,
         isCurrentDisplayToken: true,

@@ -45,7 +45,6 @@ export type ITokenProps = {
   showNetworkIconBorder?: boolean;
   networkId?: string;
   isAggregateToken?: boolean;
-  onNetworkImageDisplay?: IImageProps['onDisplay'];
 } & Omit<IImageProps, 'size'>;
 
 const sizeMap: Record<
@@ -75,7 +74,6 @@ export function Token({
   showNetworkIconBorder = true,
   fallbackIcon,
   isAggregateToken,
-  onNetworkImageDisplay,
   bg: bgProp,
   ...rest
 }: ITokenProps) {
@@ -170,11 +168,7 @@ export function Token({
           bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
           borderRadius="$full"
         >
-          <NetworkAvatarBase
-            size={chainImageSize}
-            logoURI={networkImageUri}
-            onDisplay={onNetworkImageDisplay}
-          />
+          <NetworkAvatarBase size={chainImageSize} logoURI={networkImageUri} />
         </Stack>
       </Stack>
     );
@@ -192,11 +186,7 @@ export function Token({
           bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
           borderRadius="$full"
         >
-          <NetworkAvatar
-            networkId={networkId}
-            size={chainImageSize}
-            onDisplay={onNetworkImageDisplay}
-          />
+          <NetworkAvatar networkId={networkId} size={chainImageSize} />
         </Stack>
       </Stack>
     );

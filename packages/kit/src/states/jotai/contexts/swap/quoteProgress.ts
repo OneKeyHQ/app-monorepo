@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { selectBestQuote } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import {
   ESwapQuoteKind,
@@ -87,10 +88,47 @@ export enum ESwapQuoteUiPhase {
   StaleRefreshing = 'staleRefreshing',
 }
 
+export function isSameSwapQuoteAmount({
+  left,
+  right,
+}: {
+  left?: string;
+  right?: string;
+}) {
+  const leftBN = new BigNumber(left ?? '');
+  const rightBN = new BigNumber(right ?? '');
+  return leftBN.isFinite() && rightBN.isFinite() && leftBN.eq(rightBN);
+}
+
+export function isStockQuoteInputAmountMatched({
+  fromAmount,
+  quote,
+  toAmount,
+}: {
+  fromAmount: string;
+  quote?: Pick<IFetchQuoteResult, 'kind' | 'fromAmount' | 'toAmount'>;
+  toAmount: string;
+}) {
+  if (!quote) {
+    return false;
+  }
+  return isSameSwapQuoteAmount(
+    quote.kind === ESwapQuoteKind.BUY
+      ? {
+          left: quote.toAmount,
+          right: toAmount,
+        }
+      : {
+          left: quote.fromAmount,
+          right: fromAmount,
+        },
+  );
+}
+
 export function buildSwapQuoteProviderKey(quote: {
   info: ISwapQuoteProviderIdentity;
 }) {
-  return `${quote.info.provider}-${quote.info.providerName}`;
+  return stableStringify([quote.info.provider, quote.info.providerName]);
 }
 
 export function buildSwapManualProviderSelectionIntent(
@@ -234,16 +272,20 @@ export function isSwapQuoteActionable(
   if (quoteCurrentSelect?.errorMessage) {
     return false;
   }
-  const toAmount = new BigNumber(quoteCurrentSelect?.toAmount ?? 0);
-  if (!toAmount.isFinite() || !toAmount.gt(0)) {
+  const fromAmount = new BigNumber(quoteCurrentSelect.fromAmount ?? 0);
+  const toAmount = new BigNumber(quoteCurrentSelect.toAmount ?? 0);
+  if (
+    !fromAmount.isFinite() ||
+    !fromAmount.gt(0) ||
+    !toAmount.isFinite() ||
+    !toAmount.gt(0)
+  ) {
     return false;
   }
   if (!quoteCurrentSelect.limit) {
     return true;
   }
-  const inputAmount = new BigNumber(
-    quoteCurrentSelect.fromAmount ?? Number.NaN,
-  );
+  const inputAmount = fromAmount;
   if (!inputAmount.isFinite() || inputAmount.isNegative()) {
     return false;
   }
@@ -274,10 +316,11 @@ export function isSwapQuoteInputAmountMatched({
   if (!quote) {
     return false;
   }
-  if (quote.kind === ESwapQuoteKind.BUY) {
-    return quote.toAmount === toAmount;
-  }
-  return quote.fromAmount === fromAmount;
+  return isSameSwapQuoteAmount(
+    quote.kind === ESwapQuoteKind.BUY
+      ? { left: quote.toAmount, right: toAmount }
+      : { left: quote.fromAmount, right: fromAmount },
+  );
 }
 
 export function isSwapQuoteFromCurrentEvent({

@@ -1,4 +1,5 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IFetchQuoteResult,
   ISwapApproveTransaction,
@@ -14,6 +15,12 @@ import {
 import {
   buildMarketReviewState,
   findMarketTxConfirmFeeInfo,
+  isMarketReviewUserCancelledError,
+  normalizeMarketReviewInternalError,
+  publishMarketExecutionResultBestEffort,
+  requireMarketReviewExecutionSnapshot,
+  runMarketPostExecutionActionBestEffort,
+  settleMarketExecutionWithBestEffortHistory,
   shouldAutoContinueMarketResetApprove,
   shouldSkipMarketSignedPrebuild,
 } from './marketReviewExecutionUtils';
@@ -65,6 +72,247 @@ function createQuoteResult(
 }
 
 describe('marketReviewExecutionUtils', () => {
+  describe('settleMarketExecutionWithBestEffortHistory', () => {
+    it.each([
+      ['swap', { txHash: '0xswap' }],
+      ['wrap', { txHash: '0xwrap' }],
+      ['signed order', { orderId: 'order-1' }],
+    ])(
+      'keeps a successful %s execution successful when history persistence fails',
+      async (_path, executionResult) => {
+        const calls: string[] = [];
+        const executeIrreversibleAction = jest.fn(async () => {
+          calls.push('execute');
+          return executionResult;
+        });
+        const onBroadcast = jest.fn(() => {
+          calls.push('broadcast');
+        });
+        const onBroadcastError = jest.fn();
+        const persistHistory = jest.fn(async () => {
+          calls.push('history');
+          throw new OneKeyLocalError('storage unavailable');
+        });
+        const onHistoryError = jest.fn(() => {
+          calls.push('history-error');
+        });
+
+        const result = await executeIrreversibleAction();
+
+        await expect(
+          settleMarketExecutionWithBestEffortHistory({
+            result,
+            onBroadcast,
+            onBroadcastError,
+            persistHistory,
+            onHistoryError,
+          }),
+        ).resolves.toBeUndefined();
+
+        expect(executeIrreversibleAction).toHaveBeenCalledTimes(1);
+        expect(onBroadcast).toHaveBeenCalledTimes(1);
+        expect(onBroadcast).toHaveBeenCalledWith(executionResult);
+        expect(onBroadcastError).not.toHaveBeenCalled();
+        expect(persistHistory).toHaveBeenCalledTimes(1);
+        expect(onHistoryError).toHaveBeenCalledTimes(1);
+        expect(calls).toEqual([
+          'execute',
+          'broadcast',
+          'history',
+          'history-error',
+        ]);
+      },
+    );
+
+    it('does not expose an already-broadcast execution as retryable when the UI callback throws', async () => {
+      const onBroadcast = jest.fn(() => {
+        throw new OneKeyLocalError('state update failed');
+      });
+      const onBroadcastError = jest.fn();
+      const persistHistory = jest.fn(async () => {});
+
+      await expect(
+        settleMarketExecutionWithBestEffortHistory({
+          result: { txHash: '0xswap' },
+          onBroadcast,
+          onBroadcastError,
+          persistHistory,
+          onHistoryError: jest.fn(),
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(onBroadcast).toHaveBeenCalledTimes(1);
+      expect(onBroadcastError).toHaveBeenCalledTimes(1);
+      expect(persistHistory).toHaveBeenCalledTimes(1);
+    });
+
+    it('stays successful even when best-effort error reporters throw', async () => {
+      const onBroadcast = jest.fn(() => {
+        throw new OneKeyLocalError('state update failed');
+      });
+      const persistHistory = jest.fn(async () => {
+        throw new OneKeyLocalError('storage unavailable');
+      });
+
+      await expect(
+        settleMarketExecutionWithBestEffortHistory({
+          result: { txHash: '0xswap' },
+          onBroadcast,
+          onBroadcastError: () => {
+            throw new OneKeyLocalError('publish logging failed');
+          },
+          persistHistory,
+          onHistoryError: () => {
+            throw new OneKeyLocalError('history logging failed');
+          },
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(onBroadcast).toHaveBeenCalledTimes(1);
+      expect(persistHistory).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('keeps an already-broadcast approval successful when its UI callback throws', () => {
+    const onBroadcast = jest.fn(() => {
+      throw new OneKeyLocalError('state update failed');
+    });
+    const onBroadcastError = jest.fn();
+
+    expect(() =>
+      publishMarketExecutionResultBestEffort({
+        result: { txHash: '0xapprove', amount: '1' },
+        onBroadcast,
+        onBroadcastError,
+      }),
+    ).not.toThrow();
+
+    expect(onBroadcast).toHaveBeenCalledTimes(1);
+    expect(onBroadcastError).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps post-broadcast state settlement from escaping into the send catch', () => {
+    const action = jest.fn(() => {
+      throw new OneKeyLocalError('atom update failed');
+    });
+    const onError = jest.fn(() => {
+      throw new OneKeyLocalError('logging failed');
+    });
+
+    expect(() =>
+      runMarketPostExecutionActionBestEffort({ action, onError }),
+    ).not.toThrow();
+
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  describe('Market review error classification', () => {
+    it.each([
+      [{ key: 'global.cancel' }],
+      [{ code: 803 }],
+      [{ code: 822 }],
+      [{ code: 4001 }],
+      [new Error('User rejected the request')],
+      [new Error('Request rejected by user')],
+      [new Error('User cancelled signing')],
+      [new Error('Action cancelled by user')],
+    ])('recognizes an explicit user cancellation %#', (error) => {
+      expect(isMarketReviewUserCancelledError(error)).toBe(true);
+    });
+
+    it('does not swallow ordinary local failures that use the default error code', () => {
+      expect(
+        isMarketReviewUserCancelledError(
+          new OneKeyLocalError('Market sign build failed.'),
+        ),
+      ).toBe(false);
+      expect(
+        isMarketReviewUserCancelledError({
+          code: -99_999,
+          message: 'Unknown OneKey internal error',
+        }),
+      ).toBe(false);
+    });
+
+    it('localizes only internal Market diagnostics and preserves the cause', () => {
+      const cause = new OneKeyLocalError('Market review snapshot missing.');
+      const localized = normalizeMarketReviewInternalError({
+        error: cause,
+        fallbackMessage: 'Swap failed',
+      });
+      const serverError = new Error('Provider temporarily unavailable');
+
+      expect(localized).toBeInstanceOf(OneKeyLocalError);
+      expect((localized as Error).message).toBe('Swap failed');
+      expect((localized as Error).cause).toBe(cause);
+      expect(
+        normalizeMarketReviewInternalError({
+          error: serverError,
+          fallbackMessage: 'Swap failed',
+        }),
+      ).toBe(serverError);
+    });
+  });
+
+  describe('requireMarketReviewExecutionSnapshot', () => {
+    const snapshot = {
+      kind: 'swap' as const,
+      accountAddress: '0xAbCd',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+    };
+
+    it('accepts the same live EVM signer and ignores address casing', () => {
+      expect(
+        requireMarketReviewExecutionSnapshot({
+          snapshot,
+          expectedKind: 'swap',
+          currentSigner: {
+            accountAddress: '0xaBcD',
+            accountId: 'account-1',
+            networkId: 'evm--1',
+          },
+        }),
+      ).toBe(snapshot);
+    });
+
+    it.each([
+      ['account', { accountId: 'account-2' }],
+      ['network', { networkId: 'evm--137' }],
+      ['address', { accountAddress: '0xother' }],
+    ])('rejects a changed live %s before execution', (_label, changed) => {
+      expect(() =>
+        requireMarketReviewExecutionSnapshot({
+          snapshot,
+          expectedKind: 'swap',
+          currentSigner: {
+            accountAddress: '0xAbCd',
+            accountId: 'account-1',
+            networkId: 'evm--1',
+            ...changed,
+          },
+        }),
+      ).toThrow('Market signing account changed');
+    });
+
+    it('rejects missing and wrong-kind snapshots', () => {
+      expect(() =>
+        requireMarketReviewExecutionSnapshot({
+          expectedKind: 'swap',
+          currentSigner: snapshot,
+        }),
+      ).toThrow('Market review snapshot missing');
+      expect(() =>
+        requireMarketReviewExecutionSnapshot({
+          snapshot,
+          expectedKind: 'wrap',
+          currentSigner: snapshot,
+        }),
+      ).toThrow('Market review snapshot type mismatch');
+    });
+  });
+
   it('keeps the Market review flow on separate approve then send steps', () => {
     const reviewState = buildMarketReviewState({
       accountId: 'account-1',

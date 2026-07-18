@@ -1,12 +1,13 @@
-import type {
-  IFetchQuotesParams,
-  IFetchSwapQuoteParams,
-  ISwapQuoteSessionEventV2,
-} from '@onekeyhq/shared/types/swap/types';
+import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   EProtocolOfExchange,
   ESwapQuoteKind,
   ESwapTabSwitchType,
+  type IFetchQuoteResult,
+  type IFetchQuotesParams,
+  type IFetchSwapQuoteParams,
+  type ISwapQuoteEventAutoSlippage,
+  type ISwapQuoteSessionEventV2,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -15,12 +16,16 @@ import {
   buildPrivateSendQuoteCancelParams,
   buildPrivateSendQuoteSurfaceId,
   createPrivateSendQuoteSessionState,
+  isPrivateSendProviderQuote,
+  isPrivateSendQuoteTokenValid,
+  normalizePrivateSendQuoteEventResults,
   parsePrivateSendQuoteEventDataSafe,
 } from './privateSendQuoteSession';
 
 const fromToken = {
   networkId: 'btc--0',
   contractAddress: '',
+  isNative: true,
   symbol: 'BTC',
   decimals: 8,
 };
@@ -103,6 +108,76 @@ function buildEvent({
 }
 
 describe('privateSendQuoteSession', () => {
+  it('accepts a native Private Send token and rejects incomplete non-native identity', () => {
+    expect(isPrivateSendQuoteTokenValid(fromToken)).toBe(true);
+    expect(
+      isPrivateSendQuoteTokenValid({ ...fromToken, isNative: false }),
+    ).toBe(false);
+  });
+
+  it('applies address-only auto slippage only after the full session token pair matches', () => {
+    const quote = {
+      eventId: 'event-1',
+      protocol: EProtocolOfExchange.PRIVATE_SEND,
+      info: { provider: privateSendProvider, providerName: 'Provider' },
+      fromTokenInfo: fromToken,
+      toTokenInfo: toToken,
+      fromAmount: '1',
+      toAmount: '0.9',
+    } as IFetchQuoteResult;
+    const autoSlippage = {
+      eventId: 'event-1',
+      fromNetworkId: fromToken.networkId,
+      fromTokenAddress: fromToken.contractAddress,
+      toNetworkId: toToken.networkId,
+      toTokenAddress: toToken.contractAddress,
+      autoSuggestedSlippage: 0.5,
+    } as ISwapQuoteEventAutoSlippage;
+
+    expect(
+      normalizePrivateSendQuoteEventResults({
+        quotes: [quote],
+        request,
+        eventId: 'event-1',
+        autoSlippage,
+      })[0]?.autoSuggestedSlippage,
+    ).toBe(0.5);
+    expect(
+      normalizePrivateSendQuoteEventResults({
+        quotes: [
+          {
+            ...quote,
+            fromTokenInfo: { ...fromToken, isNative: false },
+          },
+        ],
+        request,
+        eventId: 'event-1',
+        autoSlippage,
+      }),
+    ).toEqual([]);
+  });
+
+  it('filters quotes from a provider that cannot own the Private Send build', () => {
+    const foreignQuote = {
+      eventId: 'event-1',
+      protocol: EProtocolOfExchange.PRIVATE_SEND,
+      info: { provider: 'foreign', providerName: 'Foreign' },
+      fromTokenInfo: fromToken,
+      toTokenInfo: toToken,
+      fromAmount: '1',
+      toAmount: '0.9',
+    } as IFetchQuoteResult;
+
+    expect(isPrivateSendProviderQuote(foreignQuote)).toBe(false);
+    expect(
+      normalizePrivateSendQuoteEventResults({
+        quotes: [foreignQuote],
+        request,
+        eventId: 'event-1',
+      }),
+    ).toEqual([]);
+  });
+
   it('builds a stable surface id from the runtime node and component instance', () => {
     expect(
       buildPrivateSendQuoteSurfaceId({
@@ -136,6 +211,26 @@ describe('privateSendQuoteSession', () => {
     expect(second.session.fingerprint).toBe(first.session.fingerprint);
     expect(changedRequest.session.fingerprint).not.toBe(
       second.session.fingerprint,
+    );
+  });
+
+  it('does not reuse a native quote fingerprint for an incomplete non-native token', () => {
+    const native = createPrivateSendQuoteSessionState({
+      intentRevision: 1,
+      request,
+      surfaceId: 'surface-1',
+    });
+    const incompleteNonNative = createPrivateSendQuoteSessionState({
+      intentRevision: 2,
+      request: {
+        ...request,
+        fromToken: { ...request.fromToken, isNative: false },
+      },
+      surfaceId: 'surface-1',
+    });
+
+    expect(incompleteNonNative.session.fingerprint).not.toBe(
+      native.session.fingerprint,
     );
   });
 

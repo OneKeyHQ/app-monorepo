@@ -25,14 +25,16 @@ import {
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchUSMarketStatusResult,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSelectTokenSource } from '@onekeyhq/shared/types/swap/types';
 
-import { isStockTokenDetailStateLanded } from '../utils/stockTokenDetailFreshness';
+import {
+  isStockTokenDetailFreshForCheckpoint,
+  isStockTokenDetailStateLanded,
+} from '../utils/stockTokenDetailFreshness';
 import {
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_DEFAULT,
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
@@ -47,6 +49,7 @@ import {
   buildStockSwapTokenFromMarketToken,
   filterStockPayTokenCandidates,
   getTokenIdentityKey,
+  isStockExecutionPairSynced,
   isStockTradeReadyForQuote,
   resolveStockChannelBootstrapSelection,
   resolveStockChannelPayTokenStatus,
@@ -187,6 +190,10 @@ export function useSwapStockChannel() {
   const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
   const stockNetworkId = currentStockToken?.networkId ?? '';
   const stockTokenDetailScope = currentStockTokenKey;
+  const stockTokenDetailScopeStart = useMemo(
+    () => ({ scope: stockTokenDetailScope, startedAt: Date.now() }),
+    [stockTokenDetailScope],
+  );
   const lastGoodStockTokenDetailRef =
     useRef<IStockTokenDetailFetchState | null>(null);
   const stockDetailMountIdRef = useRef('');
@@ -257,17 +264,26 @@ export function useSwapStockChannel() {
               )
             : undefined;
           if (
-            cached?.data?.scope === stockTokenDetailScope &&
-            cached.data.fetchedAt
+            cached?.data &&
+            isStockTokenDetailStateLanded({
+              state: cached.data,
+              scope: stockTokenDetailScope,
+              mountId: '',
+              ttlMs: SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS,
+            })
           ) {
             lastGood = cached.data;
             lastGoodStockTokenDetailRef.current = lastGood;
           }
         }
         if (
-          lastGood?.scope === stockTokenDetailScope &&
-          lastGood.fetchedAt &&
-          Date.now() - lastGood.fetchedAt <= SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS
+          lastGood &&
+          isStockTokenDetailStateLanded({
+            state: lastGood,
+            scope: stockTokenDetailScope,
+            mountId: '',
+            ttlMs: SWAP_STOCK_DETAIL_LAST_GOOD_TTL_MS,
+          })
         ) {
           return lastGood;
         }
@@ -327,6 +343,14 @@ export function useSwapStockChannel() {
     : undefined;
   const stockTokenDetailPending =
     !!currentStockTokenKey && !stockTokenDetailLanded;
+  const stockTokenDetailCheckpointReady = Boolean(
+    stockTokenDetailLanded &&
+    isStockTokenDetailFreshForCheckpoint({
+      scope: stockTokenDetailScopeStart.scope,
+      scopeStartedAt: stockTokenDetailScopeStart.startedAt,
+      state: stockTokenDetailState,
+    }),
+  );
   const { realtimeChartPoint, realtimeTokenDetail: activeStockTokenDetail } =
     useSwapStockMarketWebSocket({
       currentStockToken,
@@ -339,6 +363,8 @@ export function useSwapStockChannel() {
   const stockDisplay = useSwapStockDisplaySnapshot({
     currentStockToken,
     liveTokenDetail: activeStockTokenDetail,
+    liveTokenDetailCheckpointReady: stockTokenDetailCheckpointReady,
+    liveTokenDetailSettled: stockTokenDetailLanded,
     payToken,
     tradeSide,
   });
@@ -718,18 +744,12 @@ export function useSwapStockChannel() {
       stockToken: currentStockToken,
       tradeSide,
     });
-    const executionPairSynced = Boolean(
-      stockExecutionFromToken &&
-      stockExecutionToToken &&
-      equalTokenNoCaseSensitive({
-        token1: fromToken,
-        token2: stockExecutionFromToken,
-      }) &&
-      equalTokenNoCaseSensitive({
-        token1: toToken,
-        token2: stockExecutionToToken,
-      }),
-    );
+    const executionPairSynced = isStockExecutionPairSynced({
+      executionFromToken: stockExecutionFromToken,
+      executionToToken: stockExecutionToToken,
+      fromToken,
+      toToken,
+    });
     if (executionPairSynced) {
       return;
     }

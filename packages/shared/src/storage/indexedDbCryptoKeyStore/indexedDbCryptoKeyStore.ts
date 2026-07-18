@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '../../errors';
+import resetUtils from '../../utils/resetUtils';
 import appStorage from '../appStorage';
 
 /**
@@ -52,6 +53,14 @@ function invariant(condition: boolean, message: string): asserts condition {
   if (!condition) {
     throw new OneKeyLocalError(message);
   }
+}
+
+function runResetSensitiveCryptoKeyTask<T>(
+  task: (resetGeneration: number) => Promise<T>,
+): Promise<T> {
+  resetUtils.checkNotInResetting();
+  const resetGeneration = resetUtils.getResetGeneration();
+  return resetUtils.trackResetSensitiveTask(task(resetGeneration));
 }
 
 function requestToPromise<TResult>(request: IDBRequest<TResult>) {
@@ -213,21 +222,25 @@ export async function readCryptoKeyRecord({
   indexedDBInstance?: IDBFactory | null;
   keyRef: string;
 }): Promise<IIndexedDbCryptoKeyRecord | undefined> {
-  const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
-  try {
-    const transaction = db.transaction(
-      INDEXED_DB_CRYPTO_KEY_STORE_NAME,
-      'readonly',
-    );
-    const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_STORE_NAME);
-    const record = await requestToPromise(
-      store.get(keyRef) as IDBRequest<IIndexedDbCryptoKeyRecord | undefined>,
-    );
-    await transactionDone(transaction);
-    return record;
-  } finally {
-    db.close();
-  }
+  return runResetSensitiveCryptoKeyTask(async (resetGeneration) => {
+    const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
+    try {
+      resetUtils.checkResetGeneration(resetGeneration);
+      const transaction = db.transaction(
+        INDEXED_DB_CRYPTO_KEY_STORE_NAME,
+        'readonly',
+      );
+      const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_STORE_NAME);
+      const record = await requestToPromise(
+        store.get(keyRef) as IDBRequest<IIndexedDbCryptoKeyRecord | undefined>,
+      );
+      await transactionDone(transaction);
+      resetUtils.checkResetGeneration(resetGeneration);
+      return record;
+    } finally {
+      db.close();
+    }
+  });
 }
 
 export async function writeCryptoKeyRecord({
@@ -241,26 +254,30 @@ export async function writeCryptoKeyRecord({
   key: CryptoKey;
   keyRef: string;
 }): Promise<void> {
-  const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
-  try {
-    const transaction = db.transaction(
-      INDEXED_DB_CRYPTO_KEY_STORE_NAME,
-      'readwrite',
-    );
-    const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_STORE_NAME);
-    const now = Date.now();
-    await requestToPromise(
-      store.put({
-        createdAt: now,
-        id: keyRef,
-        key,
-        updatedAt: now,
-      } satisfies IIndexedDbCryptoKeyRecord),
-    );
-    await transactionDone(transaction);
-  } finally {
-    db.close();
-  }
+  return runResetSensitiveCryptoKeyTask(async (resetGeneration) => {
+    const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
+    try {
+      resetUtils.checkResetGeneration(resetGeneration);
+      const transaction = db.transaction(
+        INDEXED_DB_CRYPTO_KEY_STORE_NAME,
+        'readwrite',
+      );
+      const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_STORE_NAME);
+      const now = Date.now();
+      await requestToPromise(
+        store.put({
+          createdAt: now,
+          id: keyRef,
+          key,
+          updatedAt: now,
+        } satisfies IIndexedDbCryptoKeyRecord),
+      );
+      await transactionDone(transaction);
+      resetUtils.checkResetGeneration(resetGeneration);
+    } finally {
+      db.close();
+    }
+  });
 }
 
 export async function deleteCryptoKeyRecord({
@@ -272,18 +289,22 @@ export async function deleteCryptoKeyRecord({
   indexedDBInstance?: IDBFactory | null;
   keyRef: string;
 }): Promise<void> {
-  const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
-  try {
-    const transaction = db.transaction(
-      INDEXED_DB_CRYPTO_KEY_STORE_NAME,
-      'readwrite',
-    );
-    const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_STORE_NAME);
-    await requestToPromise(store.delete(keyRef));
-    await transactionDone(transaction);
-  } finally {
-    db.close();
-  }
+  return runResetSensitiveCryptoKeyTask(async (resetGeneration) => {
+    const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
+    try {
+      resetUtils.checkResetGeneration(resetGeneration);
+      const transaction = db.transaction(
+        INDEXED_DB_CRYPTO_KEY_STORE_NAME,
+        'readwrite',
+      );
+      const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_STORE_NAME);
+      await requestToPromise(store.delete(keyRef));
+      await transactionDone(transaction);
+      resetUtils.checkResetGeneration(resetGeneration);
+    } finally {
+      db.close();
+    }
+  });
 }
 
 export async function generateNonExtractableAesGcmKey({
@@ -324,33 +345,41 @@ export async function getOrCreateCryptoKey({
   indexedDBInstance?: IDBFactory | null;
   keyRef: string;
 }): Promise<CryptoKey> {
-  const candidateKey = await generateNonExtractableAesGcmKey({ cryptoGlobal });
-  const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
-  try {
-    const transaction = db.transaction(
-      INDEXED_DB_CRYPTO_KEY_STORE_NAME,
-      'readwrite',
-    );
-    const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_STORE_NAME);
-    const existingRecord = await requestToPromise(
-      store.get(keyRef) as IDBRequest<IIndexedDbCryptoKeyRecord | undefined>,
-    );
-    if (existingRecord?.key) {
+  return runResetSensitiveCryptoKeyTask(async (resetGeneration) => {
+    const candidateKey = await generateNonExtractableAesGcmKey({
+      cryptoGlobal,
+    });
+    resetUtils.checkResetGeneration(resetGeneration);
+    const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
+    try {
+      resetUtils.checkResetGeneration(resetGeneration);
+      const transaction = db.transaction(
+        INDEXED_DB_CRYPTO_KEY_STORE_NAME,
+        'readwrite',
+      );
+      const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_STORE_NAME);
+      const existingRecord = await requestToPromise(
+        store.get(keyRef) as IDBRequest<IIndexedDbCryptoKeyRecord | undefined>,
+      );
+      if (existingRecord?.key) {
+        await transactionDone(transaction);
+        resetUtils.checkResetGeneration(resetGeneration);
+        return existingRecord.key;
+      }
+      const now = Date.now();
+      await requestToPromise(
+        store.put({
+          createdAt: now,
+          id: keyRef,
+          key: candidateKey,
+          updatedAt: now,
+        } satisfies IIndexedDbCryptoKeyRecord),
+      );
       await transactionDone(transaction);
-      return existingRecord.key;
+      resetUtils.checkResetGeneration(resetGeneration);
+      return candidateKey;
+    } finally {
+      db.close();
     }
-    const now = Date.now();
-    await requestToPromise(
-      store.put({
-        createdAt: now,
-        id: keyRef,
-        key: candidateKey,
-        updatedAt: now,
-      } satisfies IIndexedDbCryptoKeyRecord),
-    );
-    await transactionDone(transaction);
-    return candidateKey;
-  } finally {
-    db.close();
-  }
+  });
 }

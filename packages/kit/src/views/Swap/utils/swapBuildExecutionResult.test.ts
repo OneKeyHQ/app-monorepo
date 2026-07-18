@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
   IFetchBuildTxResponse,
@@ -13,6 +14,8 @@ import {
   buildSwapExecutionResultFromBuildResponse,
   isSwapSignedNoSendBuildResult,
   isSwapTerminalSignedNoSendBuildResult,
+  persistSwapHistoryBestEffort,
+  runSwapSideEffectBestEffort,
   settleSwapSignedNoSendResult,
 } from './swapBuildExecutionResult';
 
@@ -145,6 +148,7 @@ describe('swapBuildExecutionResult', () => {
       isRevisionCurrent: false,
       onCurrentRevision,
       persistHistory,
+      onHistoryError: jest.fn(),
     });
 
     expect(onCurrentRevision).not.toHaveBeenCalled();
@@ -159,9 +163,92 @@ describe('swapBuildExecutionResult', () => {
       isRevisionCurrent: true,
       onCurrentRevision,
       persistHistory,
+      onHistoryError: jest.fn(),
     });
 
     expect(onCurrentRevision).toHaveBeenCalledTimes(1);
     expect(persistHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['decode', 'history'] as const)(
+    'does not reject or repeat a broadcast when %s bookkeeping fails',
+    async (failureStage) => {
+      const executeBroadcast = jest.fn(async () => '0xtx');
+      const buildDecodedTx = jest.fn(async () => {
+        if (failureStage === 'decode') {
+          throw new OneKeyLocalError('decode unavailable');
+        }
+        return { txid: '0xtx' };
+      });
+      const saveHistory = jest.fn(async (_decodedTx: { txid: string }) => {
+        if (failureStage === 'history') {
+          throw new OneKeyLocalError('storage unavailable');
+        }
+      });
+      const persistHistory = jest.fn(async () => {
+        const decodedTx = await buildDecodedTx();
+        await saveHistory(decodedTx);
+      });
+      const onHistoryError = jest.fn();
+
+      const txId = await executeBroadcast();
+
+      await expect(
+        persistSwapHistoryBestEffort({
+          persistHistory,
+          onHistoryError,
+        }),
+      ).resolves.toBe(false);
+
+      expect(txId).toBe('0xtx');
+      expect(executeBroadcast).toHaveBeenCalledTimes(1);
+      expect(buildDecodedTx).toHaveBeenCalledTimes(1);
+      expect(saveHistory).toHaveBeenCalledTimes(
+        failureStage === 'history' ? 1 : 0,
+      );
+      expect(persistHistory).toHaveBeenCalledTimes(1);
+      expect(onHistoryError).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([true, false])(
+    'does not reject a signed-no-send result when history fails (current=%s)',
+    async (isRevisionCurrent) => {
+      const onCurrentRevision = jest.fn();
+      const persistHistory = jest.fn(async () => {
+        throw new OneKeyLocalError('storage unavailable');
+      });
+      const onHistoryError = jest.fn();
+
+      await expect(
+        settleSwapSignedNoSendResult({
+          isRevisionCurrent,
+          onCurrentRevision,
+          persistHistory,
+          onHistoryError,
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(onCurrentRevision).toHaveBeenCalledTimes(
+        isRevisionCurrent ? 1 : 0,
+      );
+      expect(persistHistory).toHaveBeenCalledTimes(1);
+      expect(onHistoryError).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('contains post-broadcast side-effect and error-reporter failures', () => {
+    const action = jest.fn(() => {
+      throw new OneKeyLocalError('navigation unavailable');
+    });
+    const onError = jest.fn(() => {
+      throw new OneKeyLocalError('logger unavailable');
+    });
+
+    expect(() =>
+      runSwapSideEffectBestEffort({ action, onError }),
+    ).not.toThrow();
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledTimes(1);
   });
 });

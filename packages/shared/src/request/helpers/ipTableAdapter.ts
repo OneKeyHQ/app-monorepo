@@ -18,6 +18,16 @@ import type {
   InternalAxiosRequestConfig,
 } from 'axios';
 
+export type IIpTableRequestConfig<D = unknown> = AxiosRequestConfig<D> & {
+  // A retried non-idempotent request can create a second external order when
+  // the SNI attempt completed remotely but its response was lost locally.
+  ipTableFailClosedAfterSniAttempt?: boolean;
+};
+
+type IIpTableInternalRequestConfig<D = unknown> =
+  InternalAxiosRequestConfig<D> &
+    Pick<IIpTableRequestConfig<D>, 'ipTableFailClosedAfterSniAttempt'>;
+
 /**
  * Debug logging helper - only logs in development mode
  */
@@ -783,6 +793,10 @@ export function createIpTableAdapter(
       requestBody ? requestBody.substring(0, 200) : 'null',
     );
 
+    const failClosedAfterSniAttempt =
+      (config as IIpTableInternalRequestConfig)
+        .ipTableFailClosedAfterSniAttempt === true;
+
     try {
       const sniResponse = await sniRequest({
         ip: selectedIp,
@@ -794,9 +808,9 @@ export function createIpTableAdapter(
         timeout: config.timeout || 60_000,
       });
 
-      // If SNI request fails, use original adapter
+      // If SNI request fails, use original adapter unless this request can
+      // cause a non-idempotent external side effect.
       if (!sniResponse) {
-        debugLog('[IpTableAdapter] SNI request returned null, using fallback');
         // Report IP failure
         if (reportRequestFailureCallback) {
           reportRequestFailureCallback({
@@ -806,6 +820,12 @@ export function createIpTableAdapter(
             error: 'SNI response null',
           });
         }
+        if (failClosedAfterSniAttempt) {
+          throw new OneKeyLocalError(
+            'IP Table Adapter: SNI request outcome is unknown; automatic fallback is disabled',
+          );
+        }
+        debugLog('[IpTableAdapter] SNI request returned null, using fallback');
         // Fallback to domain (isFallback = true, so domain failure won't be counted)
         return await callOriginalAdapter({
           config,
@@ -856,7 +876,7 @@ export function createIpTableAdapter(
         request: {},
       };
     } catch (error) {
-      if (isSniFailClosedError(error)) {
+      if (isSniFailClosedError(error) || failClosedAfterSniAttempt) {
         debugError('[IpTableAdapter] SNI fail-closed error:', error);
         logIpTableEvent('error', 'sni_fail_closed', {
           hostname,
@@ -864,6 +884,9 @@ export function createIpTableAdapter(
           selectedIpHash: hashForLog(selectedIp),
           code: getErrorCode(error),
           messageClass: error instanceof Error ? error.name : typeof error,
+          requestPolicy: failClosedAfterSniAttempt
+            ? 'fail_closed_after_sni_attempt'
+            : 'default',
           decision: 'throw_no_fallback',
         });
         throw error;

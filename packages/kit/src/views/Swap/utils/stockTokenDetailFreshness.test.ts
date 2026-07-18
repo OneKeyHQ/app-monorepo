@@ -1,4 +1,7 @@
-import { isStockTokenDetailStateLanded } from './stockTokenDetailFreshness';
+import {
+  isStockTokenDetailFreshForCheckpoint,
+  isStockTokenDetailStateLanded,
+} from './stockTokenDetailFreshness';
 
 import type { IStockTokenDetailFetchState } from './stockTokenDetailFreshness';
 
@@ -43,6 +46,20 @@ describe('isStockTokenDetailStateLanded', () => {
         fetchedAt: NOW - TTL - 1,
       }),
     ).toBe(false);
+  });
+
+  it('rejects future and non-finite fetchedAt values', () => {
+    [NOW + 1, Number.NaN, Number.POSITIVE_INFINITY].forEach((fetchedAt) => {
+      expect(
+        landed({
+          scope: SCOPE,
+          token: stockToken,
+          perpsInfo: undefined,
+          fetchedAt,
+          fallbackOfMountId: MOUNT,
+        }),
+      ).toBe(false);
+    });
   });
 
   it('rejects legacy payloads without fetchedAt (untrustworthy cache-entry timestamps)', () => {
@@ -94,5 +111,60 @@ describe('isStockTokenDetailStateLanded', () => {
       }),
     ).toBe(false);
     expect(landed(undefined)).toBe(false);
+  });
+
+  it('checkpoints only a server response fetched after the current token scope started', () => {
+    expect(
+      isStockTokenDetailFreshForCheckpoint({
+        now: NOW,
+        scope: SCOPE,
+        scopeStartedAt: NOW,
+        state: {
+          scope: SCOPE,
+          token: stockToken,
+          perpsInfo: undefined,
+          fetchedAt: NOW,
+        },
+      }),
+    ).toBe(true);
+    expect(
+      isStockTokenDetailFreshForCheckpoint({
+        now: NOW,
+        scope: SCOPE,
+        scopeStartedAt: NOW,
+        state: {
+          scope: SCOPE,
+          token: stockToken,
+          perpsInfo: undefined,
+          fetchedAt: NOW - 1,
+        },
+      }),
+    ).toBe(false);
+    expect(
+      isStockTokenDetailFreshForCheckpoint({
+        now: NOW,
+        scope: SCOPE,
+        scopeStartedAt: NOW,
+        state: {
+          scope: 'evm--1:0xother:token',
+          token: stockToken,
+          perpsInfo: undefined,
+          fetchedAt: NOW + 1,
+        },
+      }),
+    ).toBe(false);
+    expect(
+      isStockTokenDetailFreshForCheckpoint({
+        now: NOW,
+        scope: SCOPE,
+        scopeStartedAt: NOW,
+        state: {
+          scope: SCOPE,
+          token: stockToken,
+          perpsInfo: undefined,
+          fetchedAt: NOW + 1,
+        },
+      }),
+    ).toBe(false);
   });
 });

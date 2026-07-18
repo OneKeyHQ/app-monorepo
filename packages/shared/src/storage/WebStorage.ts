@@ -52,21 +52,25 @@ export enum EWebStorageKeyPrefix {
   GlobalStates = 'g_states_v5:',
 }
 
-async function migrateFromLegacyStorage({
+async function migrateFromLegacyStorageTask({
   indexed,
   legacyKeyPrefix,
+  resetGeneration,
   tableName,
 }: {
   indexed: IndexedDBPromised;
   legacyKeyPrefix: EWebStorageKeyPrefix;
+  resetGeneration: number;
   tableName: string;
 }) {
-  if (!legacyKeyPrefix) {
-    return;
-  }
-  if (legacyKeyPrefix === EWebStorageKeyPrefix.AppStorage) {
-    return;
-  }
+  const canCommitMigrationWrite = () => {
+    try {
+      resetUtils.checkResetGeneration(resetGeneration);
+      return true;
+    } catch {
+      return false;
+    }
+  };
   const allKeys = await indexed.getAllKeys(tableName);
   if (allKeys.length > 0) {
     console.log(
@@ -92,6 +96,12 @@ async function migrateFromLegacyStorage({
     if (key.startsWith(legacyKeyPrefix)) {
       const value = await legacyStorage.getItem(key, undefined);
       if (value) {
+        // The task itself is part of Reset App's drain. This generation fence
+        // handles the complementary race where reset starts while a legacy
+        // read is pending, before the IndexedDB write transaction is created.
+        if (!canCommitMigrationWrite()) {
+          return;
+        }
         try {
           await indexed.put(tableName, value, key);
         } catch (error) {
@@ -99,6 +109,9 @@ async function migrateFromLegacyStorage({
             'migrateFromLegacyStorage put ERROR: ',
             (error as Error | undefined)?.message,
           );
+          if (!canCommitMigrationWrite()) {
+            return;
+          }
           try {
             await indexed.add(tableName, value, key);
           } catch (error2) {
@@ -117,6 +130,38 @@ async function migrateFromLegacyStorage({
   }
 }
 
+export async function migrateFromLegacyStorage({
+  indexed,
+  legacyKeyPrefix,
+  tableName,
+}: {
+  indexed: IndexedDBPromised;
+  legacyKeyPrefix: EWebStorageKeyPrefix;
+  tableName: string;
+}) {
+  if (
+    !legacyKeyPrefix ||
+    legacyKeyPrefix === EWebStorageKeyPrefix.AppStorage ||
+    resetUtils.getIsResetting()
+  ) {
+    // A constructor created during reset must still resolve its IndexedDB
+    // handle. Skipping a legacy migration is safe because the runtime is
+    // about to reload; rejecting here would strand every caller on this
+    // instance's initialization promise.
+    return;
+  }
+
+  const resetGeneration = resetUtils.getResetGeneration();
+  await resetUtils.trackResetSensitiveTask(
+    migrateFromLegacyStorageTask({
+      indexed,
+      legacyKeyPrefix,
+      resetGeneration,
+      tableName,
+    }),
+  );
+}
+
 class WebStorage implements AsyncStorageStatic {
   constructor({
     dbName,
@@ -130,26 +175,25 @@ class WebStorage implements AsyncStorageStatic {
     legacyKeyPrefix: EWebStorageKeyPrefix;
   }) {
     this.tableName = tableName;
-    // eslint-disable-next-line no-async-promise-executor
-    this.indexed = new Promise(async (resolve) => {
-      const indexed = new IndexedDBPromised({
-        name: dbName,
-        bucketName,
-        version: undefined as unknown as number,
-        upgrade: (db) => {
-          if (!db.nativeDB.objectStoreNames.contains(this.tableName)) {
-            db.nativeDB.createObjectStore(this.tableName);
-          }
-        },
-      });
+    const indexed = new IndexedDBPromised({
+      name: dbName,
+      bucketName,
+      version: undefined as unknown as number,
+      upgrade: (db) => {
+        if (!db.nativeDB.objectStoreNames.contains(this.tableName)) {
+          db.nativeDB.createObjectStore(this.tableName);
+        }
+      },
+    });
+    this.indexed = (async () => {
       await indexed.open();
       await migrateFromLegacyStorage({
         indexed,
         legacyKeyPrefix,
         tableName,
       });
-      resolve(indexed);
-    });
+      return indexed;
+    })();
   }
 
   tableName: string;
@@ -224,11 +268,17 @@ class WebStorage implements AsyncStorageStatic {
     this.checkDiskFull({ method: 'setItem', key, value });
 
     const indexed = await this.indexed;
+    // A write may have passed the synchronous appStorage guard and then
+    // waited for IndexedDB to open while another runtime began Reset App.
+    // Re-check immediately before the transaction so it cannot repopulate a
+    // database that the background has just cleared.
+    resetUtils.checkNotInResetting();
     try {
       await indexed.put(this.tableName, value, key);
       // await localforage.setItem(key, value, callback);
       return await Promise.resolve(undefined);
     } catch (error) {
+      resetUtils.checkNotInResetting();
       try {
         await indexed.add(this.tableName, value, key);
       } catch (error2) {

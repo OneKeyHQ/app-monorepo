@@ -62,6 +62,7 @@ import { isSwapPreBuildTransportSettled } from '@onekeyhq/kit/src/states/jotai/c
 import {
   buildSwapQuoteLimitSemanticSettings,
   buildSwapQuoteLimitSemanticSettingsKey,
+  getSwapQuoteKindForCurrentInput,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteSemanticIntent';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
@@ -107,7 +108,6 @@ import {
   EProtocolOfExchange,
   ESwapDirectionType,
   ESwapProTradeType,
-  ESwapQuoteKind,
   ESwapSelectTokenSource,
   ESwapSource,
   ESwapTabSwitchType,
@@ -160,7 +160,7 @@ import SwapProContainer from './SwapProContainer';
 import {
   SwapStockDesktopContainer,
   SwapStockMobileContainer,
-} from './SwapStockDesktopContainer';
+} from './SwapStockContainerLazy';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
 
 import type { ScrollView as ScrollViewNative } from 'react-native';
@@ -183,6 +183,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [quoteCommittedState] = useSwapQuoteCommittedStateAtom();
   const [alerts] = useSwapAlertsAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const focusSwapPro =
+    platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const [rateDifference] = useRateDifferenceAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -199,7 +201,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapQuoteIntervalCount] = useSwapQuoteIntervalCountAtom();
-  const { selectFromToken, selectToToken, quoteAction, cleanQuoteInterval } =
+  const { selectFromToken, selectToToken, quoteAction } =
     useSwapActions().current;
   const [{ actionLock, limitSettingsKey: activeLimitSettingsKey }] =
     useSwapQuoteActionLockAtom();
@@ -214,6 +216,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [currentQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapSteps] = useSwapStepsAtom();
   const [swapToAmount] = useSwapToTokenAmountAtom();
+  const currentQuoteKind = getSwapQuoteKindForCurrentInput({
+    protocol: swapTypeSwitch,
+    toAmount: swapToAmount,
+  });
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [swapLimitExpirationTime] = useSwapLimitExpirationTimeAtom();
   const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
@@ -242,9 +248,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapToTokenRef.current = toSelectTokenAtom;
   }
 
-  const focusSwapPro = useMemo(() => {
-    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
-  }, [swapTypeSwitch]);
   const [marketPresetTokenContext, setMarketPresetTokenContext] = useState<
     IMarketPresetTokenContext | undefined
   >(
@@ -261,7 +264,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     isMEV,
     hasEnoughBalance,
     supportSpeedSwap,
-  } = useSwapProTokenInit();
+  } = useSwapProTokenInit(focusSwapPro);
 
   useEffect(() => {
     if (incomingMarketPresetToken) {
@@ -462,6 +465,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   if (swapReviewExecutionSnapshotRef.current !== swapReviewExecutionSnapshot) {
     swapReviewExecutionSnapshotRef.current = swapReviewExecutionSnapshot;
   }
+  const confirmInFlightRevisionRef = useRef<string | undefined>(undefined);
 
   const swapStepsRef = useRef<ISwapStep[]>([]);
   if (
@@ -580,7 +584,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           swapFromAddressInfo?.accountInfo?.account?.id,
           undefined,
           undefined,
-          quoteResult?.kind ?? ESwapQuoteKind.SELL,
+          currentQuoteKind,
           undefined,
           toAddressInfo?.address,
         );
@@ -595,7 +599,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           swapFromAddressInfo?.accountInfo?.account?.id,
           undefined,
           true,
-          quoteResult?.kind ?? ESwapQuoteKind.SELL,
+          currentQuoteKind,
           undefined,
           toAddressInfo?.address,
         );
@@ -603,10 +607,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     },
     [
       actionLock,
+      currentQuoteKind,
       quoteAction,
       swapFromAddressInfo?.address,
       swapFromAddressInfo?.accountInfo?.account?.id,
-      quoteResult?.kind,
       setSwapQuoteIntervalCount,
       toAddressInfo?.address,
     ],
@@ -1044,14 +1048,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapLimitPriceToAmount,
     swapLimitUseRate,
   ]);
-  const onActionHandler = useCallback(() => {
+  const onActionHandler = useCallback(async () => {
     const executionSnapshot = swapReviewExecutionSnapshotRef.current;
     if (
       executionSnapshot &&
       swapStepsRef.current.length > 0 &&
       preSwapDataRef.current
     ) {
-      void preSwapStepsStart({
+      await preSwapStepsStart({
         steps: swapStepsRef.current,
         preSwapData: {
           ...preSwapDataRef.current,
@@ -1067,21 +1071,17 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
   }, [preSwapStepsStart]);
 
-  const onActionHandlerBefore = useCallback(() => {
+  const onActionHandlerBefore = useCallback((): Promise<void> => {
     const executionSnapshot = swapReviewExecutionSnapshotRef.current;
     const riskCheckInput = resolveSwapReviewRiskCheckInput(executionSnapshot);
     if (!executionSnapshot || !riskCheckInput) {
-      return;
+      return Promise.resolve();
     }
     const { reviewRevision, quoteResult: frozenQuoteResult } = riskCheckInput;
-    if (
-      frozenQuoteResult.networkCostExceedInfo &&
-      !frozenQuoteResult.allowanceResult
-    ) {
-      let percentage = frozenQuoteResult.networkCostExceedInfo?.exceedPercent;
-      const netCost = new BigNumber(
-        frozenQuoteResult.networkCostExceedInfo?.cost ?? '0',
-      );
+    const frozenNetworkCostExceedInfo = frozenQuoteResult.networkCostExceedInfo;
+    if (frozenNetworkCostExceedInfo && !frozenQuoteResult.allowanceResult) {
+      let percentage = frozenNetworkCostExceedInfo.exceedPercent;
+      const netCost = new BigNumber(frozenNetworkCostExceedInfo.cost ?? '0');
       if (
         frozenQuoteResult.protocol === EProtocolOfExchange.LIMIT &&
         netCost.gt(0)
@@ -1109,55 +1109,97 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         const calculateNetworkCostExceedPercent =
           netCost.dividedBy(toRealAmount);
         if (calculateNetworkCostExceedPercent.lte(new BigNumber(0.1))) {
-          onActionHandler();
-          return;
+          return onActionHandler();
         }
         percentage = calculateNetworkCostExceedPercent
           .multipliedBy(100)
           .toFixed(2);
       }
-      Dialog.confirm({
-        title: intl.formatMessage({
-          id: ETranslations.swap_network_cost_dialog_title,
-        }),
-        description: intl.formatMessage(
-          {
-            id: ETranslations.swap_network_cost_dialog_description,
-          },
-          {
-            number: ` ${percentage}%`,
-          },
-        ),
-        renderContent: (
-          <TransactionLossNetworkFeeExceedDialog
-            protocol={frozenQuoteResult.protocol ?? EProtocolOfExchange.SWAP}
-            networkCostExceedInfo={{
-              ...frozenQuoteResult.networkCostExceedInfo,
-              exceedPercent: percentage,
-            }}
-          />
-        ),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_continue,
-        }),
-        onConfirm: () => {
-          if (
-            swapReviewExecutionSnapshotRef.current?.reviewRevision !==
-            reviewRevision
-          ) {
-            return;
+      return new Promise<void>((resolve) => {
+        const networkCostExceedInfo = {
+          tokenInfo: frozenNetworkCostExceedInfo.tokenInfo,
+          cost: frozenNetworkCostExceedInfo.cost,
+          exceedPercent: percentage,
+        };
+        let settled = false;
+        const resolveOnce = () => {
+          if (!settled) {
+            settled = true;
+            resolve();
           }
-          onActionHandler();
-        },
+        };
+        Dialog.confirm({
+          title: intl.formatMessage({
+            id: ETranslations.swap_network_cost_dialog_title,
+          }),
+          description: intl.formatMessage(
+            {
+              id: ETranslations.swap_network_cost_dialog_description,
+            },
+            {
+              number: ` ${percentage}%`,
+            },
+          ),
+          renderContent: (
+            <TransactionLossNetworkFeeExceedDialog
+              protocol={frozenQuoteResult.protocol ?? EProtocolOfExchange.SWAP}
+              networkCostExceedInfo={networkCostExceedInfo}
+            />
+          ),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_continue,
+          }),
+          onConfirm: async () => {
+            try {
+              if (
+                swapReviewExecutionSnapshotRef.current?.reviewRevision !==
+                reviewRevision
+              ) {
+                return;
+              }
+              await onActionHandler();
+            } finally {
+              // The confirmation dialog owns error presentation. Settle this
+              // outer lease as well so a failed attempt can be retried.
+              resolveOnce();
+            }
+          },
+          onClose: resolveOnce,
+        });
       });
-    } else {
-      onActionHandler();
     }
+    return onActionHandler();
   }, [intl, onActionHandler]);
 
-  const handleConfirm = useCallback(async () => {
-    onActionHandlerBefore();
-  }, [onActionHandlerBefore]);
+  const handleConfirm = useCallback(() => {
+    const reviewRevision =
+      swapReviewExecutionSnapshotRef.current?.reviewRevision;
+    if (
+      !reviewRevision ||
+      confirmInFlightRevisionRef.current === reviewRevision
+    ) {
+      return;
+    }
+    confirmInFlightRevisionRef.current = reviewRevision;
+    const clearInFlightRevision = () => {
+      if (confirmInFlightRevisionRef.current === reviewRevision) {
+        confirmInFlightRevisionRef.current = undefined;
+      }
+    };
+    void onActionHandlerBefore().then(clearInFlightRevision, (error) => {
+      clearInFlightRevision();
+      defaultLogger.app.error.log(
+        `Swap review execution failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_toast_swap_failed,
+        }),
+      });
+    });
+  }, [intl, onActionHandlerBefore]);
 
   const dialogClose = useCallback(() => {
     void dialogRef.current?.close();
@@ -1206,7 +1248,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       return;
     }
     if (!focusSwapPro) {
-      cleanQuoteInterval();
       setSwapShouldRefreshQuote(true);
     }
     if (!parseQuoteResultToSteps()) {
@@ -1309,7 +1350,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     parseQuoteResultToSteps,
     setSwapBuildTxFetching,
     handleSelectAccountClick,
-    cleanQuoteInterval,
     setSwapShouldRefreshQuote,
     pageType,
     InModalDialog,
@@ -1370,7 +1410,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     ],
   );
 
-  const { networkList: SwapProSupportNetworksList } = useSwapProInit();
+  const { networkList: SwapProSupportNetworksList } =
+    useSwapProInit(focusSwapPro);
   const [swapNetworks] = useSwapNetworksAtom();
 
   // Filter and sort networks, then stabilize reference to prevent unnecessary re-renders

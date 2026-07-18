@@ -24,10 +24,10 @@ import {
   type ISwapStockDisplayIdentity,
   type ISwapStockDisplaySnapshot,
   type ISwapStockDisplaySnapshotPatch,
+  type ISwapStockDisplayTokenDescriptor,
   SWAP_STOCK_DISPLAY_CHART_SOURCE_CURRENCY,
   buildSwapStockDisplayAccountIdentityKey,
   buildSwapStockDisplayAmountIdentityKey,
-  buildSwapStockDisplayBalanceIdentityKey,
   buildSwapStockDisplayChartIdentityKey,
   buildSwapStockDisplayIdentityKey,
   buildSwapStockDisplayTokenDetailIdentityKey,
@@ -39,6 +39,37 @@ import {
   resolveSwapStockDisplayAccountKey,
 } from './swapStockDisplaySnapshotUtils';
 import { getSwapStockColdStartAccountKeyFromGlobalSnapshot } from './useSwapColdStartDisplayTokens';
+
+function buildSelectionCheckpointKey({
+  payToken,
+  stockToken,
+  tradeSide,
+}: {
+  payToken?: ISwapStockDisplayTokenDescriptor;
+  stockToken?: ISwapStockDisplayTokenDescriptor;
+  tradeSide?: ESwapStockTradeSide;
+}) {
+  if (!stockToken || !tradeSide) {
+    return '';
+  }
+  const buildTokenDescriptorKey = (token?: ISwapStockDisplayTokenDescriptor) =>
+    token
+      ? [
+          getTokenIdentityKey(token),
+          token.symbol,
+          token.decimals,
+          token.name ?? '',
+          token.logoURI ?? '',
+          token.networkLogoURI ?? '',
+          token.isStock ? '1' : '0',
+        ]
+      : [];
+  return JSON.stringify([
+    tradeSide,
+    buildTokenDescriptorKey(stockToken),
+    buildTokenDescriptorKey(payToken),
+  ]);
+}
 
 function useSwapStockDisplayAccountOwner() {
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -92,7 +123,6 @@ export function useSwapStockDisplaySelectionBootstrap() {
   );
 
   return {
-    accountKey,
     selection: snapshot?.selection,
   };
 }
@@ -100,11 +130,15 @@ export function useSwapStockDisplaySelectionBootstrap() {
 export function useSwapStockDisplaySnapshot({
   currentStockToken,
   liveTokenDetail,
+  liveTokenDetailCheckpointReady = false,
+  liveTokenDetailSettled = false,
   payToken,
   tradeSide,
 }: {
   currentStockToken?: ISwapToken;
   liveTokenDetail?: IMarketTokenDetail;
+  liveTokenDetailCheckpointReady?: boolean;
+  liveTokenDetailSettled?: boolean;
   payToken?: ISwapToken;
   tradeSide: ESwapStockTradeSide;
 }) {
@@ -169,14 +203,6 @@ export function useSwapStockDisplaySnapshot({
       ? { accountKey, stockTokenKey, currency }
       : undefined,
   );
-  const inputTokenKey =
-    identity?.tradeSide === 'buy'
-      ? identity.payTokenKey
-      : identity?.stockTokenKey;
-  const balanceOwnerKey = buildSwapStockDisplayBalanceIdentityKey(
-    accountKey && inputTokenKey ? { accountKey, inputTokenKey } : undefined,
-  );
-
   // The physical cache slot changes only with account. Region selectors below
   // synchronously reject mismatched stock/pay/side owners within that slot.
   const storedAccountSnapshot = useMemo(
@@ -395,6 +421,7 @@ export function useSwapStockDisplaySnapshot({
   const selectionAmountIdentity =
     accountKey &&
     selectionSnapshot?.tradeSide &&
+    selectionSnapshot.tradeSide === tradeSide &&
     selectedStockTokenKey &&
     selectedPayTokenKey &&
     (!stockTokenKey || stockTokenKey === selectedStockTokenKey) &&
@@ -431,7 +458,12 @@ export function useSwapStockDisplaySnapshot({
   );
   const tokenDetailCheckpointIdentityRef = useRef('');
   useEffect(() => {
-    if (!projectedLiveTokenDetail || !identityKey || !tokenDetailOwnerKey) {
+    if (
+      !liveTokenDetailCheckpointReady ||
+      !projectedLiveTokenDetail ||
+      !identityKey ||
+      !tokenDetailOwnerKey
+    ) {
       return;
     }
     if (tokenDetailCheckpointIdentityRef.current === tokenDetailOwnerKey) {
@@ -450,14 +482,25 @@ export function useSwapStockDisplaySnapshot({
   }, [
     commitSnapshotPatch,
     identityKey,
+    liveTokenDetailCheckpointReady,
     projectedLiveTokenDetail,
     tokenDetailOwnerKey,
   ]);
 
-  const currentSelectionKey = `${selectedStockTokenKey}|${selectedPayTokenKey}|${
-    selectionSnapshot?.tradeSide ?? ''
-  }`;
-  const nextSelectionKey = `${stockTokenKey}|${payTokenKey}|${tradeSide}`;
+  const currentSelectionKey = buildSelectionCheckpointKey({
+    payToken: selectionSnapshot?.payToken,
+    stockToken: selectionSnapshot?.stockToken,
+    tradeSide: selectionSnapshot?.tradeSide,
+  });
+  const nextSelectionKey = buildSelectionCheckpointKey({
+    payToken: payToken
+      ? projectSwapStockDisplayTokenDescriptor(payToken)
+      : undefined,
+    stockToken: currentStockToken
+      ? projectSwapStockDisplayTokenDescriptor(currentStockToken)
+      : undefined,
+    tradeSide,
+  });
   useEffect(() => {
     if (
       !currentStockToken ||
@@ -486,36 +529,23 @@ export function useSwapStockDisplaySnapshot({
   ]);
 
   return {
-    accountKey,
-    identity,
     identityKey,
     snapshot: matchingSnapshot,
-    displayTokenDetail: projectedLiveTokenDetail ?? tokenDetailSnapshot?.data,
+    displayTokenDetail:
+      projectedLiveTokenDetail ??
+      (liveTokenDetailSettled ? undefined : tokenDetailSnapshot?.data),
     commitSnapshotPatch,
-    tokenDetail: {
-      ownerKey: tokenDetailOwnerKey,
-      snapshot: tokenDetailSnapshot,
-    },
-    balance: {
-      ownerKey: balanceOwnerKey,
-      snapshot: matchingSnapshot?.balance,
-    },
     chart: {
-      identity: chartIdentity,
       ownerKey: chartOwnerKey,
       snapshot: chartSnapshot,
       commitSnapshot: commitChartSnapshot,
     },
     selection: {
-      ownerKey: accountIdentityKey,
       snapshot: selectionSnapshot,
-      restoredToken: selectionSnapshot?.stockToken,
-      commitSnapshot: commitSelectionSnapshot,
     },
     amount: {
       identity: displayAmountIdentity,
       ownerKey: displayAmountOwnerKey,
-      snapshot: amountSnapshot,
       restoredValue: amountSnapshot?.value,
       commitSnapshot: commitAmountSnapshot,
     },

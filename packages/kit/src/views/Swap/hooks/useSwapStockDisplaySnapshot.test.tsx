@@ -163,8 +163,8 @@ describe('useSwapStockDisplaySnapshot', () => {
       useSwapStockDisplaySelectionBootstrap(),
     );
 
-    expect(result.current.accountKey).toBe(identityA.accountKey);
     expect(result.current.selection).toMatchObject({
+      identity: { accountKey: identityA.accountKey },
       stockToken: { symbol: 'AAPL' },
       payToken: { symbol: 'USDC' },
       tradeSide: ESwapStockTradeSide.Buy,
@@ -184,7 +184,6 @@ describe('useSwapStockDisplaySnapshot', () => {
       useSwapStockDisplaySelectionBootstrap(),
     );
 
-    expect(result.current.accountKey).toBe('wallet-b|account-b|default');
     expect(result.current.selection).toBeUndefined();
   });
 
@@ -199,8 +198,10 @@ describe('useSwapStockDisplaySnapshot', () => {
       useSwapStockDisplaySelectionBootstrap(),
     );
 
-    expect(result.current.accountKey).toBe(identityA.accountKey);
-    expect(result.current.selection?.stockToken.symbol).toBe('AAPL');
+    expect(result.current.selection).toMatchObject({
+      identity: { accountKey: identityA.accountKey },
+      stockToken: { symbol: 'AAPL' },
+    });
   });
 
   it('rejects the cold-start Stock owner when a different live account is visible', () => {
@@ -219,7 +220,6 @@ describe('useSwapStockDisplaySnapshot', () => {
       useSwapStockDisplaySelectionBootstrap(),
     );
 
-    expect(result.current.accountKey).toBeUndefined();
     expect(result.current.selection).toBeUndefined();
   });
 
@@ -232,7 +232,9 @@ describe('useSwapStockDisplaySnapshot', () => {
     const { result, rerender } = renderHook(() =>
       useSwapStockDisplaySelectionBootstrap(),
     );
-    expect(result.current.accountKey).toBe(identityA.accountKey);
+    expect(result.current.selection?.identity.accountKey).toBe(
+      identityA.accountKey,
+    );
 
     mockActiveAccount = {
       ready: true,
@@ -241,12 +243,13 @@ describe('useSwapStockDisplaySnapshot', () => {
       deriveType: 'default',
     };
     rerender();
-    expect(result.current.accountKey).toBe(identityA.accountKey);
+    expect(result.current.selection?.identity.accountKey).toBe(
+      identityA.accountKey,
+    );
 
     mockActiveAccount = { ready: false };
     rerender();
 
-    expect(result.current.accountKey).toBeUndefined();
     expect(result.current.selection).toBeUndefined();
   });
 
@@ -333,6 +336,7 @@ describe('useSwapStockDisplaySnapshot', () => {
       }),
     );
     expect(result.current.snapshot?.balance?.value).toBe('10');
+    const accountAIdentityKey = result.current.identityKey;
 
     mockActiveAccount = {
       ready: true,
@@ -342,7 +346,7 @@ describe('useSwapStockDisplaySnapshot', () => {
     };
     rerender();
 
-    expect(result.current.accountKey).toBe('wallet-b|account-b|default');
+    expect(result.current.identityKey).not.toBe(accountAIdentityKey);
     expect(result.current.snapshot).toBeUndefined();
   });
 
@@ -361,21 +365,61 @@ describe('useSwapStockDisplaySnapshot', () => {
       useSwapStockDisplaySnapshot({
         currentStockToken: stockA,
         liveTokenDetail,
+        liveTokenDetailCheckpointReady: true,
         payToken,
         tradeSide: ESwapStockTradeSide.Buy,
       }),
     );
-    expect(result.current.accountKey).toBe('wallet-a|account-a|default');
+    expect(result.current.identityKey).not.toBe('');
     mockStorageSet.mockClear();
 
     mockActiveAccount = { ready: false };
     rerender();
 
-    expect(result.current.accountKey).toBeUndefined();
     expect(result.current.identityKey).toBe('');
     expect(result.current.chart.ownerKey).toBe('');
     expect(result.current.amount.ownerKey).toBe('');
     expect(mockStorageSet).not.toHaveBeenCalled();
+  });
+
+  it('drops persisted token detail when the live request settles empty', () => {
+    const identityA = buildIdentity();
+    mockCache.set(
+      identityA.accountKey,
+      mergeSwapStockDisplaySnapshot({
+        identity: identityA,
+        patch: {
+          tokenDetail: {
+            address: stockA.contractAddress,
+            decimals: stockA.decimals,
+            logoUrl: 'https://example.com/aapl.png',
+            name: 'Apple Inc.',
+            networkId: stockA.networkId,
+            price: '100',
+            stock: { sourceLogoUri: '', subtitle: stockA.symbol },
+            symbol: stockA.symbol,
+          },
+        },
+      }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ settled }: { settled: boolean }) =>
+        useSwapStockDisplaySnapshot({
+          currentStockToken: stockA,
+          liveTokenDetailSettled: settled,
+          payToken,
+          tradeSide: ESwapStockTradeSide.Buy,
+        }),
+      { initialProps: { settled: false } },
+    );
+
+    expect(result.current.displayTokenDetail).toMatchObject({
+      symbol: 'AAPL',
+      price: '100',
+    });
+    rerender({ settled: true });
+    expect(result.current.displayTokenDetail).toBeUndefined();
   });
 
   it('checkpoints token detail once per active identity instead of every live tick', () => {
@@ -396,34 +440,89 @@ describe('useSwapStockDisplaySnapshot', () => {
         symbol: token.symbol,
       }) as IMarketTokenDetail;
     const { rerender } = renderHook(
-      ({ currentStockToken, liveTokenDetail }) =>
+      ({ checkpointReady, currentStockToken, liveTokenDetail }) =>
         useSwapStockDisplaySnapshot({
           currentStockToken,
           liveTokenDetail,
+          liveTokenDetailCheckpointReady: checkpointReady,
           payToken,
           tradeSide: ESwapStockTradeSide.Buy,
         }),
       {
         initialProps: {
+          checkpointReady: false,
           currentStockToken: stockA,
           liveTokenDetail: buildLiveDetail(stockA, '100'),
         },
       },
     );
 
+    // The selection may paint from cache, but a landed SWR token detail must
+    // not renew the display checkpoint before this scope's server response.
+    expect(mockStorageSet).toHaveBeenCalledTimes(1);
+
+    rerender({
+      checkpointReady: true,
+      currentStockToken: stockA,
+      liveTokenDetail: buildLiveDetail(stockA, '100'),
+    });
     expect(mockStorageSet).toHaveBeenCalledTimes(2);
 
     rerender({
+      checkpointReady: true,
       currentStockToken: stockA,
       liveTokenDetail: buildLiveDetail(stockA, '101'),
     });
     expect(mockStorageSet).toHaveBeenCalledTimes(2);
 
     rerender({
+      checkpointReady: true,
       currentStockToken: stockB,
       liveTokenDetail: buildLiveDetail(stockB, '200'),
     });
     expect(mockStorageSet).toHaveBeenCalledTimes(4);
+  });
+
+  it('refreshes same-token display metadata in the selection checkpoint', () => {
+    const identityA = buildIdentity();
+    seedSelectionSnapshot(identityA);
+    const enrichedStockToken = {
+      ...stockA,
+      logoURI: 'https://example.com/aapl.png',
+      name: 'Apple Inc.',
+      networkLogoURI: 'https://example.com/ethereum.png',
+    };
+    const enrichedPayToken = {
+      ...payToken,
+      logoURI: 'https://example.com/usdc.png',
+      networkLogoURI: 'https://example.com/ethereum.png',
+    };
+
+    renderHook(() =>
+      useSwapStockDisplaySnapshot({
+        currentStockToken: enrichedStockToken,
+        payToken: enrichedPayToken,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    );
+
+    expect(mockStorageSet).toHaveBeenCalledTimes(1);
+    expect(mockStorageSet).toHaveBeenLastCalledWith(
+      identityA.accountKey,
+      expect.objectContaining({
+        selection: expect.objectContaining({
+          stockToken: expect.objectContaining({
+            logoURI: enrichedStockToken.logoURI,
+            name: enrichedStockToken.name,
+            networkLogoURI: enrichedStockToken.networkLogoURI,
+          }),
+          payToken: expect.objectContaining({
+            logoURI: enrichedPayToken.logoURI,
+            networkLogoURI: enrichedPayToken.networkLogoURI,
+          }),
+        }),
+      }),
+    );
   });
 
   it('restores chart before pay token lands and keeps its owner across side and currency changes', () => {
@@ -536,7 +635,7 @@ describe('useSwapStockDisplaySnapshot', () => {
     );
 
     expect(result.current.identityKey).toBe('');
-    expect(result.current.selection.restoredToken).toMatchObject({
+    expect(result.current.selection.snapshot?.stockToken).toMatchObject({
       symbol: 'AAPL',
     });
     expect(result.current.amount.restoredValue).toBe('42.5');
@@ -545,10 +644,38 @@ describe('useSwapStockDisplaySnapshot', () => {
     mockAmountSessionId = 1;
     rerender();
 
-    expect(result.current.selection.restoredToken).toMatchObject({
+    expect(result.current.selection.snapshot?.stockToken).toMatchObject({
       symbol: 'AAPL',
     });
     expect(result.current.amount.restoredValue).toBeUndefined();
-    expect(result.current.amount.snapshot).toBeUndefined();
+  });
+
+  it('never restores an amount from the opposite trade side while pay token is pending', () => {
+    const identityA = buildIdentity();
+    mockCache.set(
+      identityA.accountKey,
+      mergeSwapStockDisplaySnapshot({
+        identity: identityA,
+        patch: {
+          selection: {
+            stockToken: stockA,
+            payToken,
+            tradeSide: ESwapStockTradeSide.Buy,
+          },
+          amount: { value: '42.5' },
+        },
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useSwapStockDisplaySnapshot({
+        currentStockToken: stockA,
+        tradeSide: ESwapStockTradeSide.Sell,
+      }),
+    );
+
+    expect(result.current.identityKey).toBe('');
+    expect(result.current.amount.ownerKey).toBe('');
+    expect(result.current.amount.restoredValue).toBeUndefined();
   });
 });

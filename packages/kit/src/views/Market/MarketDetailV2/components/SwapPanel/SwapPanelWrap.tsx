@@ -39,6 +39,7 @@ import {
   EMarketPresetTradeSide,
   shouldShowMarketPresetReviewCustomNetworkFeeOption,
 } from './hooks/marketPresetSettings';
+import { normalizeMarketReviewInternalError } from './hooks/marketReviewExecutionUtils';
 import { useMarketPresetSettings } from './hooks/useMarketPresetSettings';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
@@ -592,10 +593,16 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         if (reviewDialogRequestIdRef.current !== requestId) {
           return;
         }
+        const displayError = normalizeMarketReviewInternalError({
+          error,
+          fallbackMessage: intl.formatMessage({
+            id: ETranslations.swap_page_toast_swap_failed,
+          }),
+        });
         Toast.error({
           title:
-            error instanceof Error
-              ? error.message
+            displayError instanceof Error
+              ? displayError.message
               : intl.formatMessage({
                   id: ETranslations.global_unknown_error,
                 }),

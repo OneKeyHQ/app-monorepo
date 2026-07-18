@@ -107,7 +107,6 @@ import {
   type ISwapStockDisplayChartSnapshot,
   type ISwapStockDisplayTokenDetail,
 } from '../../hooks/swapStockDisplaySnapshotUtils';
-import { useStockHeaderImageReveal } from '../../hooks/useStockHeaderImageReveal';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapMarketHistoryList } from '../../hooks/useSwapMarketHistoryList';
@@ -158,6 +157,8 @@ import {
   isStockMarketPanelLoadingStage,
   resolveStockChartControlRange,
   resolveStockTokenNetworkLogoURI,
+  shouldDiscardRestoredStockChart,
+  shouldRenderStockMarketHeaderSkeleton,
   shouldShowStockBalanceRetryAction,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
@@ -169,7 +170,7 @@ import {
 
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
-interface ISwapStockDesktopContainerProps {
+export interface ISwapStockDesktopContainerProps {
   headerContent?: ReactNode;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
@@ -1118,25 +1119,6 @@ function StockAmountInput({
   const maxAmountState = getStockMaxAmountState({
     balanceReadyForExecution,
   });
-  const inputTokenIdentityKey = getTokenIdentityKey(inputToken);
-  const {
-    degraded: inputTokenImagesDegraded,
-    identityKey: inputTokenImageIdentityKey,
-    onNetworkImageDisplay: onInputTokenNetworkImageDisplay,
-    onTokenImageDisplay: onInputTokenImageDisplay,
-    reveal: revealInputTokenImages,
-  } = useStockHeaderImageReveal({
-    enabled: Boolean(
-      platformEnv.isNative &&
-      !shouldRenderSkeleton &&
-      !showTokenSelectorLoading &&
-      inputTokenIdentityKey,
-    ),
-    networkId: inputToken?.networkId,
-    networkImageUri: inputTokenNetworkLogoURI,
-    tokenIdentityKey: inputTokenIdentityKey,
-    tokenImageUris: inputToken?.logoURI ? [inputToken.logoURI] : [],
-  });
 
   if (shouldRenderSkeleton) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
@@ -1199,16 +1181,6 @@ function StockAmountInput({
           testID: SwapTestIDs.fromAmountInput,
         }}
         tokenSelectorTriggerProps={{
-          contentReveal: platformEnv.isNative
-            ? {
-                degraded: inputTokenImagesDegraded,
-                identityKey: inputTokenImageIdentityKey,
-                onNetworkImageDisplay: onInputTokenNetworkImageDisplay,
-                onTokenImageDisplay: onInputTokenImageDisplay,
-                reveal: revealInputTokenImages,
-                showNetworkBadge: Boolean(inputToken?.networkId),
-              }
-            : undefined,
           testID: SwapTestIDs.fromTokenSelector,
           m: '$1.5',
           mb: '$0',
@@ -1217,6 +1189,7 @@ function StockAmountInput({
           minWidth: 132,
           justifyContent: 'flex-end',
           loading: showTokenSelectorLoading,
+          selectedTokenIdentityKey: getTokenIdentityKey(inputToken),
           selectedTokenImageUri: inputToken?.logoURI,
           selectedNetworkImageUri: inputTokenNetworkLogoURI,
           selectedTokenSymbol: inputToken?.symbol,
@@ -1393,29 +1366,6 @@ function StockMarketHeaderSkeleton({ proAligned }: { proAligned?: boolean }) {
   );
 }
 
-function StockMarketTokenImageFallback({
-  showNetworkBadge,
-}: {
-  showNetworkBadge: boolean;
-}) {
-  return (
-    <Stack position="relative" w="$8" h="$8">
-      <Stack w="$8" h="$8" borderRadius="$full" bg="$gray5" />
-      {showNetworkBadge ? (
-        <Stack
-          position="absolute"
-          right="$-1"
-          bottom="$-1"
-          w="$4"
-          h="$4"
-          borderRadius="$full"
-          bg="$bgStrong"
-        />
-      ) : null}
-    </Stack>
-  );
-}
-
 function StockMarketTokenHeader({
   loading,
   storeName,
@@ -1483,39 +1433,45 @@ function StockMarketTokenHeader({
       })
     : getTokenIdentityKey(currentStockToken) ||
       getTokenIdentityKey(snapshotStockToken);
-  const {
-    degraded: stockHeaderImagesDegraded,
-    identityKey: stockHeaderImageIdentityKey,
-    onNetworkImageDisplay,
-    onTokenImageDisplay,
-    reveal: revealStockHeaderImages,
-  } = useStockHeaderImageReveal({
-    enabled: Boolean(platformEnv.isNative && stockTokenIdentityKey),
-    networkId: stockTokenNetworkId,
-    networkImageUri: effectiveNetworkLogoUri,
-    tokenIdentityKey: stockTokenIdentityKey,
-    tokenImageUris,
-  });
   const stock = tokenDetail?.stock;
   const liveStock = liveTokenDetail?.stock;
-  const tokenSymbol = tokenDetail?.symbol ?? currentStockToken?.symbol;
+  const tokenSymbol =
+    tokenDetail?.symbol ??
+    currentStockToken?.symbol ??
+    snapshotStockToken?.symbol;
   const tokenDisplaySymbol =
     tokenSymbol ??
     intl.formatMessage({
       id: ETranslations.swap_page_button_select_token,
     });
   const tokenName =
-    tokenDetail?.name ?? currentStockToken?.name ?? tokenSymbol ?? '';
+    tokenDetail?.name ??
+    currentStockToken?.name ??
+    snapshotStockToken?.name ??
+    tokenSymbol ??
+    '';
   const tokenSubtitle =
-    stock?.subtitle ?? (tokenDetail ? undefined : currentStockToken?.name);
+    stock?.subtitle ??
+    (tokenDetail
+      ? undefined
+      : (currentStockToken?.name ?? snapshotStockToken?.name));
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockTokenNetworkId,
     storeName,
   });
 
-  const liveTokenIcon = (
+  if (
+    shouldRenderStockMarketHeaderSkeleton({
+      hasDisplayToken: Boolean(stockTokenIdentityKey && tokenSymbol),
+      loading: Boolean(loading),
+    })
+  ) {
+    return <StockMarketHeaderSkeleton proAligned={proAligned} />;
+  }
+
+  const tokenIcon = (
     <Token
-      key={stockHeaderImageIdentityKey || stockTokenIdentityKey}
+      key={stockTokenIdentityKey}
       size="md"
       tokenImageUri={tokenImageUris[0]}
       tokenImageUris={
@@ -1527,46 +1483,7 @@ function StockMarketTokenHeader({
       showNetworkIconBorder={false}
       bg="$transparent"
       fallbackIcon="CryptoCoinOutline"
-      onDisplay={onTokenImageDisplay}
-      onNetworkImageDisplay={onNetworkImageDisplay}
     />
-  );
-  // Keep the pending image tree mounted after timeout so a late native ImageRef
-  // can finish its normal lifecycle. The visible fallback remains frozen even
-  // if the hidden image reports onDisplay later.
-  const tokenIcon = (
-    <Stack position="relative" w="$8" h="$8">
-      <Stack
-        w="$8"
-        h="$8"
-        opacity={stockHeaderImagesDegraded ? 0 : 1}
-        pointerEvents="none"
-        aria-hidden={stockHeaderImagesDegraded}
-        accessibilityElementsHidden={stockHeaderImagesDegraded}
-        importantForAccessibility={
-          stockHeaderImagesDegraded ? 'no-hide-descendants' : 'auto'
-        }
-      >
-        {liveTokenIcon}
-      </Stack>
-      {stockHeaderImagesDegraded ? (
-        <Stack
-          position="absolute"
-          top={0}
-          right={0}
-          bottom={0}
-          left={0}
-          pointerEvents="none"
-          aria-hidden
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        >
-          <StockMarketTokenImageFallback
-            showNetworkBadge={Boolean(stockTokenNetworkId)}
-          />
-        </Stack>
-      ) : null}
-    </Stack>
   );
   const tokenSymbolRow = (
     <XStack h="$6" alignItems="center" gap="$1" maxWidth="100%" minWidth={0}>
@@ -1630,7 +1547,7 @@ function StockMarketTokenHeader({
     </XStack>
   );
 
-  const headerContent = (
+  return (
     <XStack
       alignItems="center"
       justifyContent="space-between"
@@ -1674,39 +1591,6 @@ function StockMarketTokenHeader({
         </YStack>
       )}
     </XStack>
-  );
-  const shouldMaskHeader =
-    (!tokenDetail && loading) || !revealStockHeaderImages;
-
-  return (
-    <Stack position="relative" w="100%">
-      <Stack
-        opacity={shouldMaskHeader ? 0 : 1}
-        pointerEvents={shouldMaskHeader ? 'none' : 'auto'}
-        aria-hidden={shouldMaskHeader}
-        accessibilityElementsHidden={shouldMaskHeader}
-        importantForAccessibility={
-          shouldMaskHeader ? 'no-hide-descendants' : 'auto'
-        }
-      >
-        {headerContent}
-      </Stack>
-      {shouldMaskHeader ? (
-        <Stack
-          position="absolute"
-          top={0}
-          right={0}
-          bottom={0}
-          left={0}
-          pointerEvents="none"
-          aria-hidden
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        >
-          <StockMarketHeaderSkeleton proAligned={proAligned} />
-        </Stack>
-      ) : null}
-    </Stack>
   );
 }
 
@@ -1832,12 +1716,19 @@ function StockPriceChart({
     load: loadChart,
     onCommit: handleChartCommit,
   });
-  const visibleChartState = chartRefresh.visible?.data;
+  const shouldDiscardRestoredChart = shouldDiscardRestoredStockChart({
+    phase: chartRefresh.phase,
+    source: chartRefresh.visible?.source,
+  });
+  const visibleChartState = shouldDiscardRestoredChart
+    ? undefined
+    : chartRefresh.visible?.data;
   const visibleRange = resolveStockChartControlRange({
     requestedRange: range,
     visibleRange: visibleChartState?.range,
   });
-  const isVisibleChartStateForCurrentScope = chartRefresh.isVisibleExact;
+  const isVisibleChartStateForCurrentScope =
+    !shouldDiscardRestoredChart && chartRefresh.isVisibleExact;
   const baseChartData = useMemo<IMarketTokenChart>(
     () => visibleChartState?.data ?? [],
     [visibleChartState?.data],
@@ -1845,6 +1736,7 @@ function StockPriceChart({
   const hasCurrentRequestFailed =
     chartRefresh.phase === 'failed' ||
     chartRefresh.phase === 'empty' ||
+    shouldDiscardRestoredChart ||
     (!coinGeckoIdLoading && !normalizedCoinGeckoId);
   const { chartData, shouldShowChartLoading } = useMemo(
     () =>

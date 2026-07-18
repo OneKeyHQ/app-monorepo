@@ -10,7 +10,12 @@ function buildIdentity(
   surfaceId: string,
   intentRevision: number,
 ): ISwapSpeedQuoteSessionIdentity {
-  return { surfaceId, requestId, intentRevision };
+  return {
+    surfaceId,
+    requestId,
+    fingerprint: `fingerprint:${requestId}`,
+    intentRevision,
+  };
 }
 
 function buildAbortController(): ISwapSpeedQuoteAbortController & {

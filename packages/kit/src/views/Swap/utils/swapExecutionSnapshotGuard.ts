@@ -64,7 +64,7 @@ export function resolveSwapExecutionValues({
   };
 }
 
-function isSameExecutionAddress({
+export function isSameSwapExecutionAddress({
   networkId,
   left,
   right,
@@ -100,7 +100,7 @@ export function assertSwapExecutionSignerMatches({
   const matches =
     snapshot.accountId === currentAccountId &&
     snapshot.networkId === currentNetworkId &&
-    isSameExecutionAddress({
+    isSameSwapExecutionAddress({
       networkId: snapshot.networkId,
       left: snapshot.senderAddress,
       right: currentSenderAddress,

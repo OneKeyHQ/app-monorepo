@@ -5,16 +5,15 @@ import {
   ESwapStockTradeSide,
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
+  findTokenFromCandidates,
   getTokenIdentityKey,
   getValidStockExecutionBalance,
-  isStockBalanceInitializing,
   isStockCanonicalInputOwnerReady,
   isStockExecutionBalancePublished,
   isStockExecutionBalanceScopeReady,
+  isStockExecutionPairSynced,
   isStockPayTokenReadyForTradeInput,
   isStockTradeReadyForQuote,
-  resolveStockBalanceSeed,
-  resolveStockBalanceSnapshot,
   resolveStockChannelBootstrapSelection,
   resolveStockChannelOwnedPayToken,
   resolveStockChannelPayTokenStatus,
@@ -94,7 +93,7 @@ describe('swapStockChannelUtils', () => {
     expect(getValidStockExecutionBalance('-1')).toBeUndefined();
   });
 
-  it('renders only exact live or account-scoped snapshot balances', () => {
+  it('can suppress a cached numeric balance until mobile live data arrives', () => {
     expect(
       resolveStockDisplayBalance({
         liveBalance: '8',
@@ -102,6 +101,19 @@ describe('swapStockChannelUtils', () => {
       }),
     ).toBe('8');
     expect(resolveStockDisplayBalance({ snapshotBalance: '5' })).toBe('5');
+    expect(
+      resolveStockDisplayBalance({
+        allowSnapshotBalance: false,
+        snapshotBalance: '5',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockDisplayBalance({
+        allowSnapshotBalance: false,
+        liveBalance: '8',
+        snapshotBalance: '5',
+      }),
+    ).toBe('8');
     expect(resolveStockDisplayBalance({})).toBeUndefined();
     expect(
       resolveStockDisplayBalance({ snapshotBalance: 'not-a-balance' }),
@@ -231,6 +243,32 @@ describe('swapStockChannelUtils', () => {
 
   it('fails closed when the speed config has no USDC or USDT pay token', () => {
     expect(filterStockPayTokenCandidates([ethToken])).toEqual([]);
+  });
+
+  it('does not select an incomplete non-native candidate for a native token', () => {
+    expect(
+      findTokenFromCandidates({
+        candidates: [
+          {
+            ...ethToken,
+            isNative: false,
+            speedSwapDefaultAmount: [],
+          },
+        ],
+        token: ethToken,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('does not treat native and incomplete non-native execution pairs as synced', () => {
+    expect(
+      isStockExecutionPairSynced({
+        fromToken: ethToken,
+        executionFromToken: { ...ethToken, isNative: false },
+        toToken: appleStockToken,
+        executionToToken: appleStockToken,
+      }),
+    ).toBe(false);
   });
 
   it('resolves a buy-side stock execution pair from swap selected tokens', () => {
@@ -472,148 +510,23 @@ describe('swapStockChannelUtils', () => {
     expect(
       shouldRenderStockTradeInputSkeleton({
         inputTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
-        inputTokenReady: false,
         inputTokenVisible: false,
-        isBuySide: true,
       }),
     ).toBe(true);
 
     expect(
       shouldRenderStockTradeInputSkeleton({
         inputTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
-        inputTokenReady: false,
         inputTokenVisible: true,
-        isBuySide: true,
       }),
     ).toBe(false);
-  });
-
-  it('shows Stock balance loading only before the first scoped balance lands', () => {
-    expect(
-      isStockBalanceInitializing({
-        balance: undefined,
-        requestPending: true,
-      }),
-    ).toBe(true);
-    expect(
-      isStockBalanceInitializing({
-        balance: '12.34',
-        requestPending: true,
-      }),
-    ).toBe(false);
-    expect(
-      isStockBalanceInitializing({
-        balance: '0',
-        requestPending: true,
-      }),
-    ).toBe(false);
-  });
-
-  it('uses a Stock balance seed only when it belongs to the active account', () => {
-    const tokenWithBalanceOwner: ISwapToken = {
-      ...usdcToken,
-      accountAddress: '0xAccountA',
-      balanceParsed: '0.24',
-    };
-
-    expect(
-      resolveStockBalanceSeed({
-        hasActiveAccount: true,
-        networkAccountAddress: '0xaccounta',
-        token: tokenWithBalanceOwner,
-      }),
-    ).toBe('0.24');
-    expect(
-      resolveStockBalanceSeed({
-        hasActiveAccount: true,
-        networkAccountAddress: '0xAccountB',
-        token: tokenWithBalanceOwner,
-      }),
-    ).toBeUndefined();
-    expect(
-      resolveStockBalanceSeed({
-        hasActiveAccount: true,
-        token: tokenWithBalanceOwner,
-      }),
-    ).toBeUndefined();
-    expect(
-      resolveStockBalanceSeed({
-        hasActiveAccount: true,
-        networkAccountAddress: '0xAccountA',
-        token: {
-          ...usdcToken,
-          balanceParsed: '0.24',
-        },
-      }),
-    ).toBeUndefined();
-  });
-
-  it('keeps an unscoped Stock balance seed when no account is active', () => {
-    expect(
-      resolveStockBalanceSeed({
-        hasActiveAccount: false,
-        token: {
-          ...usdcToken,
-          balanceParsed: '0.24',
-        },
-      }),
-    ).toBe('0.24');
-  });
-
-  it('keeps a scoped Stock balance visible from seed through authoritative refresh', () => {
-    const seededSnapshot = resolveStockBalanceSnapshot({
-      ownerScope: 'account-1:usdc',
-      seededBalance: '0.24',
-      seededTokenDetail: usdcToken,
-    });
-    expect(seededSnapshot).toEqual({
-      ownerScope: 'account-1:usdc',
-      balance: '0.24',
-      tokenDetail: usdcToken,
-    });
-
-    expect(
-      resolveStockBalanceSnapshot({
-        ownerScope: 'account-1:usdc',
-        previousSnapshot: seededSnapshot,
-        seededBalance: '0.10',
-      }),
-    ).toBe(seededSnapshot);
-
-    expect(
-      resolveStockBalanceSnapshot({
-        authoritativeBalance: '0.25',
-        authoritativeTokenDetail: usdcToken,
-        ownerScope: 'account-1:usdc',
-        previousSnapshot: seededSnapshot,
-      }),
-    ).toEqual({
-      ownerScope: 'account-1:usdc',
-      balance: '0.25',
-      tokenDetail: usdcToken,
-    });
-  });
-
-  it('does not reuse a Stock balance snapshot across owner scopes', () => {
-    expect(
-      resolveStockBalanceSnapshot({
-        ownerScope: 'account-2:usdc',
-        previousSnapshot: {
-          ownerScope: 'account-1:usdc',
-          balance: '0.24',
-          tokenDetail: usdcToken,
-        },
-      }),
-    ).toBeUndefined();
   });
 
   it('keeps a restored sell-side stock input visible while live readiness settles', () => {
     expect(
       shouldRenderStockTradeInputSkeleton({
         inputTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
-        inputTokenReady: false,
         inputTokenVisible: true,
-        isBuySide: false,
       }),
     ).toBe(false);
   });
@@ -622,17 +535,13 @@ describe('swapStockChannelUtils', () => {
     expect(
       shouldRenderStockTradeInputSkeleton({
         inputTokenStatus: ESwapStockChannelAsyncStatus.Empty,
-        inputTokenReady: false,
         inputTokenVisible: false,
-        isBuySide: true,
       }),
     ).toBe(false);
     expect(
       shouldRenderStockTradeInputSkeleton({
         inputTokenStatus: ESwapStockChannelAsyncStatus.Empty,
-        inputTokenReady: false,
         inputTokenVisible: true,
-        isBuySide: false,
       }),
     ).toBe(false);
   });

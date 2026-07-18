@@ -64,7 +64,6 @@ jest.mock('./useSwapStockDefaultToken', () => ({
 
 jest.mock('./useSwapStockDisplaySnapshot', () => ({
   useSwapStockDisplaySelectionBootstrap: () => ({
-    accountKey: 'account-1',
     selection: undefined,
   }),
   useSwapStockDisplaySnapshot: () => ({}),

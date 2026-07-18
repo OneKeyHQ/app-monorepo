@@ -1,7 +1,3 @@
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-const STOCK_EXECUTION_BALANCE_RETRY_DELAYS_MS = [500, 1500, 4000] as const;
-
 export function buildStockExecutionNetworkAccountScope({
   accountKey,
   displayIdentityKey,
@@ -46,38 +42,23 @@ export function buildStockExecutionBalanceScope({
   };
 }
 
-export async function runStockExecutionBalanceRequestWithRetry<T>({
+export async function runStockExecutionBalanceRequest<T>({
   isUsable,
   request,
   shouldContinue = () => true,
-  wait = timerUtils.wait,
 }: {
   isUsable: (value: T | undefined) => boolean;
   request: () => Promise<T | undefined>;
   shouldContinue?: () => boolean;
-  wait?: (delayMs: number) => Promise<unknown>;
 }): Promise<T | undefined> {
-  for (
-    let attempt = 0;
-    attempt <= STOCK_EXECUTION_BALANCE_RETRY_DELAYS_MS.length;
-    attempt += 1
-  ) {
-    if (!shouldContinue()) {
-      return undefined;
-    }
-    let value: T | undefined;
-    try {
-      value = await request();
-    } catch {
-      value = undefined;
-    }
-    if (isUsable(value)) {
-      return value;
-    }
-    const retryDelay = STOCK_EXECUTION_BALANCE_RETRY_DELAYS_MS[attempt];
-    if (retryDelay !== undefined) {
-      await wait(retryDelay);
-    }
+  if (!shouldContinue()) {
+    return undefined;
   }
-  return undefined;
+  let value: T | undefined;
+  try {
+    value = await request();
+  } catch {
+    return undefined;
+  }
+  return shouldContinue() && isUsable(value) ? value : undefined;
 }

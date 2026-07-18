@@ -132,17 +132,60 @@ export function buildSwapExecutionResultFromBuildResponse({
   return { orderId, swapInfo };
 }
 
+export async function persistSwapHistoryBestEffort({
+  persistHistory,
+  onHistoryError,
+}: {
+  persistHistory: () => Promise<void>;
+  onHistoryError: (error: unknown) => void;
+}) {
+  try {
+    await persistHistory();
+    return true;
+  } catch (error) {
+    try {
+      onHistoryError(error);
+    } catch {
+      // Error reporting is also best effort after irreversible execution.
+    }
+    return false;
+  }
+}
+
+export function runSwapSideEffectBestEffort({
+  action,
+  onError,
+}: {
+  action: () => void;
+  onError: (error: unknown) => void;
+}) {
+  try {
+    action();
+  } catch (error) {
+    try {
+      onError(error);
+    } catch {
+      // Error reporting is also best effort after irreversible execution.
+    }
+  }
+}
+
 export async function settleSwapSignedNoSendResult({
   isRevisionCurrent,
   onCurrentRevision,
   persistHistory,
+  onHistoryError,
 }: {
   isRevisionCurrent: boolean;
   onCurrentRevision: () => void;
   persistHistory: () => Promise<void>;
+  onHistoryError: (error: unknown) => void;
 }) {
   if (isRevisionCurrent) {
-    onCurrentRevision();
+    runSwapSideEffectBestEffort({
+      action: onCurrentRevision,
+      onError: onHistoryError,
+    });
   }
-  await persistHistory();
+  await persistSwapHistoryBestEffort({ persistHistory, onHistoryError });
 }

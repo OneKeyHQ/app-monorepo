@@ -1,3 +1,4 @@
+import type { IIdentityScopedSilentRefreshPhase } from '@onekeyhq/kit/src/hooks/useIdentityScopedSilentRefresh';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -122,6 +123,16 @@ export function isStockMarketPanelLoadingStage(
   );
 }
 
+export function shouldRenderStockMarketHeaderSkeleton({
+  hasDisplayToken,
+  loading,
+}: {
+  hasDisplayToken: boolean;
+  loading: boolean;
+}) {
+  return !hasDisplayToken && loading;
+}
+
 export function mergeStockChartRealtimePoint({
   baseChartData,
   realtimeChartPoint,
@@ -185,4 +196,17 @@ export function getStockChartDisplayState({
       baseChartData.length === 0 &&
       !isChartStateForCurrentScope,
   };
+}
+
+export function shouldDiscardRestoredStockChart({
+  phase,
+  source,
+}: {
+  phase: IIdentityScopedSilentRefreshPhase;
+  source?: 'snapshot' | 'live';
+}) {
+  return (
+    source === 'snapshot' &&
+    (phase === 'stale-empty' || phase === 'stale-error')
+  );
 }

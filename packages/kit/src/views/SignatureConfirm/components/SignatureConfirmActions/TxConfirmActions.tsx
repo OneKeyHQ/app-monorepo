@@ -80,6 +80,11 @@ import { SignatureConfirmTestIDs } from '../../testIDs';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
 
+import {
+  runTxConfirmPostSendTask,
+  syncBatchSendSuccessfullySentTxsFromError,
+} from './txConfirmPostSendUtils';
+
 function muteHandledErrorToast(error: unknown) {
   const e = error as IOneKeyError | undefined;
   if (e) {
@@ -306,6 +311,7 @@ function TxConfirmActions(props: IProps) {
         accountId,
         networkId,
       });
+    let hasBroadcastReceipt = false;
     try {
       if (
         unsignedTx?.isInternalTransfer &&
@@ -473,6 +479,26 @@ function TxConfirmActions(props: IProps) {
           gasAccountSubmitId: submitId,
           useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
         });
+      const signedTx = result[0]?.signedTx;
+      hasBroadcastReceipt = !signOnly && Boolean(signedTx?.txid);
+      const runPostSendTask = ({
+        stage,
+        action,
+      }: {
+        stage: string;
+        action: () => Promise<void>;
+      }) =>
+        runTxConfirmPostSendTask({
+          hasBroadcastReceipt,
+          action,
+          onError: (error) => {
+            defaultLogger.app.error.log(
+              `Post-send ${stage} failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          },
+        });
 
       // If the user clicked Cancel while `broadcastOnce` was mid-HTTP, the
       // abort signal only unblocks `abortableWait` sleeps — the in-flight
@@ -491,138 +517,258 @@ function TxConfirmActions(props: IProps) {
         return;
       }
 
+      if (hasBroadcastReceipt) {
+        isSubmitted.current = true;
+        gasAccountSubmitIdRef.current = null;
+      }
+
       if (vaultSettings?.afterSendTxActionEnabled) {
-        await backgroundApiProxy.serviceSignatureConfirm.afterSendTxAction({
-          networkId,
-          accountId,
-          result,
+        await runPostSendTask({
+          stage: 'transaction action',
+          action: () =>
+            backgroundApiProxy.serviceSignatureConfirm.afterSendTxAction({
+              networkId,
+              accountId,
+              result,
+            }),
         });
       }
 
       const transferInfo = newUnsignedTxs?.[0].transfersInfo?.[0];
       const swapInfo = newUnsignedTxs?.[0].swapInfo;
       const stakingInfo = newUnsignedTxs?.[0].stakingInfo;
-      const isTronNetwork = networkUtils.isTronNetworkByNetworkId(networkId);
-      defaultLogger.transaction.send.sendConfirm({
-        network: networkId,
-        txnType: getTxnType({
-          actions: result?.[0].decodedTx.actions,
-          swapInfo,
-          stakingInfo,
-        }),
-        txnParseType: isUndefined(result?.[0].decodedTx.txParseType)
-          ? undefined
-          : result?.[0].decodedTx.txParseType,
-        txnOrigin: isUndefined(sourceInfo?.origin)
-          ? undefined
-          : sourceInfo.origin,
-        feeToken: isUndefined(sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative)
-          ? undefined
-          : `${sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative} ${nativeTokenInfo.info?.symbol}`,
-        feeFiatValue: isUndefined(sendSelectedFeeInfo?.feeInfos?.[0]?.totalFiat)
-          ? undefined
-          : `${sendSelectedFeeInfo?.feeInfos?.[0]?.totalFiat} ${settings?.currencyInfo.id}`,
-        tokenAddress: transferInfo?.tokenInfo?.address,
-        tokenSymbol: transferInfo?.tokenInfo?.symbol,
-        tokenType: transferInfo?.nftInfo ? 'NFT' : 'Token',
-        interactContract: undefined,
-        tronIsResourceRentalNeeded: isTronNetwork
-          ? tronResourceRentalInfo?.isResourceRentalNeeded
-          : undefined,
-        tronIsResourceRentalEnabled: isTronNetwork
-          ? tronResourceRentalInfo?.isResourceRentalEnabled
-          : undefined,
-        tronIsSwapTrxEnabled: isTronNetwork
-          ? tronResourceRentalInfo?.isSwapTrxEnabled
-          : undefined,
-        tronPayCoinCode: isTronNetwork
-          ? tronResourceRentalInfo?.payTokenInfo?.symbol
-          : undefined,
-        tronUseCredit: isTronNetwork
-          ? tronResourceRentalInfo?.isResourceClaimed
-          : undefined,
-        tronUseRedemptionCode: isTronNetwork
-          ? tronResourceRentalInfo?.isResourceRedeemed
-          : undefined,
-        tronIsCreditAutoClaimed: isTronNetwork
-          ? transferPayload?.isTronResourceAutoClaimed
-          : undefined,
-      });
-
-      Toast.success({
-        title: isFeeSponsored
-          ? intl.formatMessage({
-              id: ETranslations.wallet_gas_sponsored_transaction_submitted__msg,
-            })
-          : intl.formatMessage({
-              id: ETranslations.feedback_transaction_submitted,
+      await runPostSendTask({
+        stage: 'analytics',
+        action: async () => {
+          const isTronNetwork =
+            networkUtils.isTronNetworkByNetworkId(networkId);
+          defaultLogger.transaction.send.sendConfirm({
+            network: networkId,
+            txnType: getTxnType({
+              actions: result?.[0].decodedTx.actions,
+              swapInfo,
+              stakingInfo,
             }),
-        icon: isFeeSponsored ? 'GiftSolid' : undefined,
+            txnParseType: isUndefined(result?.[0].decodedTx.txParseType)
+              ? undefined
+              : result?.[0].decodedTx.txParseType,
+            txnOrigin: isUndefined(sourceInfo?.origin)
+              ? undefined
+              : sourceInfo.origin,
+            feeToken: isUndefined(
+              sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative,
+            )
+              ? undefined
+              : `${sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative} ${nativeTokenInfo.info?.symbol}`,
+            feeFiatValue: isUndefined(
+              sendSelectedFeeInfo?.feeInfos?.[0]?.totalFiat,
+            )
+              ? undefined
+              : `${sendSelectedFeeInfo?.feeInfos?.[0]?.totalFiat} ${settings?.currencyInfo.id}`,
+            tokenAddress: transferInfo?.tokenInfo?.address,
+            tokenSymbol: transferInfo?.tokenInfo?.symbol,
+            tokenType: transferInfo?.nftInfo ? 'NFT' : 'Token',
+            interactContract: undefined,
+            tronIsResourceRentalNeeded: isTronNetwork
+              ? tronResourceRentalInfo?.isResourceRentalNeeded
+              : undefined,
+            tronIsResourceRentalEnabled: isTronNetwork
+              ? tronResourceRentalInfo?.isResourceRentalEnabled
+              : undefined,
+            tronIsSwapTrxEnabled: isTronNetwork
+              ? tronResourceRentalInfo?.isSwapTrxEnabled
+              : undefined,
+            tronPayCoinCode: isTronNetwork
+              ? tronResourceRentalInfo?.payTokenInfo?.symbol
+              : undefined,
+            tronUseCredit: isTronNetwork
+              ? tronResourceRentalInfo?.isResourceClaimed
+              : undefined,
+            tronUseRedemptionCode: isTronNetwork
+              ? tronResourceRentalInfo?.isResourceRedeemed
+              : undefined,
+            tronIsCreditAutoClaimed: isTronNetwork
+              ? transferPayload?.isTronResourceAutoClaimed
+              : undefined,
+          });
+        },
       });
 
-      const signedTx = result[0].signedTx;
+      await runPostSendTask({
+        stage: 'success Toast',
+        action: async () => {
+          Toast.success({
+            title: isFeeSponsored
+              ? intl.formatMessage({
+                  id: ETranslations.wallet_gas_sponsored_transaction_submitted__msg,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.feedback_transaction_submitted,
+                }),
+            icon: isFeeSponsored ? 'GiftSolid' : undefined,
+          });
+        },
+      });
 
-      isSubmitted.current = true;
-      gasAccountSubmitIdRef.current = null;
+      if (!hasBroadcastReceipt) {
+        isSubmitted.current = true;
+        gasAccountSubmitIdRef.current = null;
+      }
 
-      void dappApprove.resolve({ result: signedTx });
+      await runPostSendTask({
+        stage: 'dApp resolve',
+        action: async () => {
+          if (hasBroadcastReceipt) {
+            void dappApprove.resolve({ result: signedTx }).catch((error) => {
+              defaultLogger.app.error.log(
+                `Post-send dApp resolve failed: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              );
+            });
+          } else {
+            void dappApprove.resolve({ result: signedTx });
+          }
+        },
+      });
 
       if (accountUtils.isQrAccount({ accountId })) {
-        navigation.popStack();
-      }
-
-      updateSendTxStatus({ isSubmitting: false });
-      onSuccess?.(result);
-
-      // Save recent recipient for all transfer types
-      const isLightningNetwork =
-        networkUtils.isLightningNetworkByNetworkId(networkId);
-      let addressToSave: undefined | string | null =
-        transferPayload?.originalRecipient;
-
-      if (isLightningNetwork) {
-        addressToSave = (unsignedTxs[0].encodedTx as IEncodedTxLightning)
-          ?.lightningAddress;
-
-        if (!addressToSave) {
-          addressToSave = transferInfo?.lnurl;
-        }
-      }
-
-      // Fallback to transferInfo.to only for send flows (transferPayload present)
-      // to avoid saving contract addresses from dApp interactions
-      if (!addressToSave && transferInfo?.to && transferPayload) {
-        addressToSave = transferInfo.to;
-      }
-
-      if (addressToSave) {
-        void backgroundApiProxy.serviceSignatureConfirm.updateRecentRecipients({
-          networkId,
-          accountId,
-          address: addressToSave,
-          memo:
-            transferPayload?.memo ||
-            transferPayload?.note ||
-            (transferPayload?.paymentId
-              ? String(transferPayload.paymentId)
-              : undefined),
+        await runPostSendTask({
+          stage: 'QR navigation',
+          action: async () => {
+            navigation.popStack();
+          },
         });
       }
 
+      await runPostSendTask({
+        stage: 'submit state settlement',
+        action: async () => {
+          updateSendTxStatus({ isSubmitting: false });
+        },
+      });
+      await runPostSendTask({
+        stage: 'onSuccess callback',
+        action: async () => {
+          const callbackResult = onSuccess?.(result);
+          if (hasBroadcastReceipt) {
+            void Promise.resolve(callbackResult).catch((error) => {
+              defaultLogger.app.error.log(
+                `Post-send onSuccess callback failed: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              );
+            });
+          } else {
+            await Promise.resolve(callbackResult);
+          }
+        },
+      });
+
+      await runPostSendTask({
+        stage: 'recent recipient update',
+        action: async () => {
+          // Save recent recipient for all transfer types
+          const isLightningNetwork =
+            networkUtils.isLightningNetworkByNetworkId(networkId);
+          let addressToSave: undefined | string | null =
+            transferPayload?.originalRecipient;
+
+          if (isLightningNetwork) {
+            addressToSave = (unsignedTxs[0].encodedTx as IEncodedTxLightning)
+              ?.lightningAddress;
+
+            if (!addressToSave) {
+              addressToSave = transferInfo?.lnurl;
+            }
+          }
+
+          // Fallback to transferInfo.to only for send flows (transferPayload present)
+          // to avoid saving contract addresses from dApp interactions
+          if (!addressToSave && transferInfo?.to && transferPayload) {
+            addressToSave = transferInfo.to;
+          }
+
+          if (addressToSave) {
+            const updatePromise =
+              backgroundApiProxy.serviceSignatureConfirm.updateRecentRecipients(
+                {
+                  networkId,
+                  accountId,
+                  address: addressToSave,
+                  memo:
+                    transferPayload?.memo ||
+                    transferPayload?.note ||
+                    (transferPayload?.paymentId
+                      ? String(transferPayload.paymentId)
+                      : undefined),
+                },
+              );
+            if (hasBroadcastReceipt) {
+              void updatePromise.catch((error) => {
+                defaultLogger.app.error.log(
+                  `Post-send recent recipient update failed: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                );
+              });
+            }
+          }
+        },
+      });
+
       if (isQueueMode && unsignedTxQueue && unsignedTxQueue.size > 1) {
-        unsignedTxQueue.removeCurrent();
-        if (unsignedTxQueue.current) {
-          updateUnsignedTxs([unsignedTxQueue.current]);
-        }
+        await runPostSendTask({
+          stage: 'queue navigation',
+          action: async () => {
+            unsignedTxQueue.removeCurrent();
+            if (unsignedTxQueue.current) {
+              updateUnsignedTxs([unsignedTxQueue.current]);
+            }
+          },
+        });
         return;
       }
 
-      if (popStack) {
-        navigation.popStack();
-      } else {
-        navigation.pop();
-      }
+      await runPostSendTask({
+        stage: 'navigation',
+        action: async () => {
+          if (popStack) {
+            navigation.popStack();
+          } else {
+            navigation.pop();
+          }
+        },
+      });
     } catch (e: any) {
+      syncBatchSendSuccessfullySentTxsFromError({
+        error: e,
+        successfullySentTxs: successfullySentTxs.current,
+      });
+      if (hasBroadcastReceipt) {
+        muteHandledErrorToast(e);
+        isSubmitted.current = true;
+        gasAccountSubmitIdRef.current = null;
+        await runTxConfirmPostSendTask({
+          hasBroadcastReceipt: true,
+          action: async () => {
+            updateSendTxStatus({ isSubmitting: false });
+          },
+          onError: () => undefined,
+        });
+        await runTxConfirmPostSendTask({
+          hasBroadcastReceipt: true,
+          action: async () => {
+            defaultLogger.app.error.log(
+              `Unexpected post-broadcast settlement failed: ${
+                e instanceof Error ? e.message : String(e)
+              }`,
+            );
+          },
+          onError: () => undefined,
+        });
+        return;
+      }
       // User aborted a 90212 retry via Cancel: modal is closing, dappApprove
       // was already rejected in handleOnCancel. Skip toast, skip re-estimate,
       // skip dappApprove propagation — just unwind submit state.

@@ -45,6 +45,7 @@ function SwapReviewDialogContent({
   defaultNetworkFeeLevel,
   showCustomNetworkFeeOption,
   onDone,
+  reviewRevision,
 }: {
   adapter: ISwapReviewAdapter;
   approveTransactionSource: ESwapReviewApproveTransactionSource;
@@ -53,11 +54,13 @@ function SwapReviewDialogContent({
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
   onDone: () => void;
+  reviewRevision: string;
 }) {
   const { onConfirm, preSwapBeforeStepActions, preSwapStepsStart } =
     useSwapReviewActions({
       adapter,
       approveTransactionSource,
+      reviewRevision,
     });
 
   return (
@@ -119,6 +122,11 @@ export function SwapReviewDialog({
             defaultCustomPriorityFee={defaultCustomPriorityFee}
             showCustomNetworkFeeOption={showCustomNetworkFeeOption}
             onDone={onDone}
+            reviewRevision={
+              reviewState.executionSnapshot?.reviewRevision ??
+              reviewState.provenance?.executionFingerprint ??
+              'active-review'
+            }
           />
         </SwapReviewInitializer>
       </SwapProviderMirror>

@@ -104,6 +104,30 @@ describe('SwapStockTradeAlert utils', () => {
     ).toBe(true);
   });
 
+  it('ignores a native-token error for an incomplete non-native current pair', () => {
+    const nativeToken: ISwapToken = {
+      networkId: 'evm--1',
+      contractAddress: '',
+      symbol: 'ETH',
+      decimals: 18,
+      isNative: true,
+    };
+    expect(
+      isCurrentStockQuoteEventError({
+        fromToken: { ...nativeToken, isNative: false },
+        fromTokenAmount: '2',
+        quoteEventError: {
+          message: 'Old error',
+          fromToken: nativeToken,
+          toToken: appleStockToken,
+          fromTokenAmount: '2',
+          isStock: true,
+        },
+        toToken: appleStockToken,
+      }),
+    ).toBe(false);
+  });
+
   it('keeps Stock min amount errors as warning alerts', () => {
     expect(
       getStockErrorAlertLevel({

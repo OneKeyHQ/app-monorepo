@@ -95,6 +95,7 @@ import {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
+import { isSameSwapTokenIdentity } from '@onekeyhq/shared/src/utils/swapTokenIdentity';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
@@ -156,8 +157,17 @@ import {
   buildPrivateSendQuoteCancelParams,
   buildPrivateSendQuoteSurfaceId,
   createPrivateSendQuoteSessionState,
+  isPrivateSendProviderQuote,
+  isPrivateSendQuoteTokenValid,
+  normalizePrivateSendQuoteEventResults,
   parsePrivateSendQuoteEventDataSafe,
 } from './privateSendQuoteSession';
+import {
+  type IPrivateSendSubmissionLease,
+  PrivateSendSubmissionLeaseCoordinator,
+  createPrivateSendCreatedOrderLifecycle,
+  runPrivateSendOrderBuild,
+} from './privateSendSubmissionLease';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -311,7 +321,7 @@ function getSendSwapDefaultFromToken({
   return candidates.find(
     (candidate) =>
       candidate &&
-      !equalTokenNoCaseSensitive({
+      !isSameSwapTokenIdentity({
         token1: candidate,
         token2: targetToken,
       }),
@@ -454,11 +464,11 @@ function isPrivateSendQuoteEventMatched({
     event.params.userAddress === request.userAddress &&
     event.params.receivingAddress === request.receivingAddress &&
     event.params.kind === ESwapQuoteKind.SELL &&
-    equalTokenNoCaseSensitive({
+    isSameSwapTokenIdentity({
       token1: event.tokenPairs.fromToken,
       token2: request.fromToken,
     }) &&
-    equalTokenNoCaseSensitive({
+    isSameSwapTokenIdentity({
       token1: event.tokenPairs.toToken,
       token2: request.toToken,
     })
@@ -479,69 +489,6 @@ function buildPrivateSendQuoteRequest(
     kind: ESwapQuoteKind.SELL,
     accountId: request.accountId,
   };
-}
-
-function applyPrivateSendAutoSlippage({
-  quote,
-  autoSlippage,
-}: {
-  quote: IFetchQuoteResult;
-  autoSlippage?: ISwapQuoteEventAutoSlippage;
-}) {
-  if (
-    !autoSlippage ||
-    quote.autoSuggestedSlippage ||
-    quote.eventId !== autoSlippage.eventId ||
-    !equalTokenNoCaseSensitive({
-      token1: quote.fromTokenInfo,
-      token2: {
-        networkId: autoSlippage.fromNetworkId,
-        contractAddress: autoSlippage.fromTokenAddress,
-      },
-    }) ||
-    !equalTokenNoCaseSensitive({
-      token1: quote.toTokenInfo,
-      token2: {
-        networkId: autoSlippage.toNetworkId,
-        contractAddress: autoSlippage.toTokenAddress,
-      },
-    })
-  ) {
-    return quote;
-  }
-  return {
-    ...quote,
-    autoSuggestedSlippage: autoSlippage.autoSuggestedSlippage,
-  };
-}
-
-function normalizePrivateSendQuoteEventResults({
-  quotes,
-  request,
-  eventId,
-  autoSlippage,
-}: {
-  quotes: IFetchQuoteResult[];
-  request: IPrivateSendQuoteEventRequest;
-  eventId?: string;
-  autoSlippage?: ISwapQuoteEventAutoSlippage;
-}) {
-  return quotes
-    .map((quote) => applyPrivateSendAutoSlippage({ quote, autoSlippage }))
-    .filter(
-      (quote) =>
-        quote.info.provider &&
-        quote.protocol === EProtocolOfExchange.PRIVATE_SEND &&
-        (!eventId || quote.eventId === eventId) &&
-        equalTokenNoCaseSensitive({
-          token1: quote.fromTokenInfo,
-          token2: request.fromToken,
-        }) &&
-        equalTokenNoCaseSensitive({
-          token1: quote.toTokenInfo,
-          token2: request.toToken,
-        }),
-    );
 }
 
 function mergePrivateSendQuoteEventResults({
@@ -818,6 +765,15 @@ function PrivateSendValueDropWarningContent({
 
 function SendAmountInputContainer() {
   const intl = useIntl();
+  const privateSendPostCreateFailureMessage = useMemo(
+    () =>
+      `${intl.formatMessage({
+        id: ETranslations.private_send_failed,
+      })}. ${intl.formatMessage({
+        id: ETranslations.global_network_doctor_action_contact_support_persist,
+      })}`,
+    [intl],
+  );
   const media = useMedia();
   const isRouteFocused = useRouteIsFocused();
   const privateSendQuoteSurfaceIdRef = useRef<string | undefined>(undefined);
@@ -829,6 +785,9 @@ function SendAmountInputContainer() {
     });
   privateSendQuoteSurfaceIdRef.current = privateSendQuoteSurfaceId;
   const privateSendQuoteIntentRevisionRef = useRef(0);
+  const privateSendSubmissionLeaseCoordinatorRef = useRef(
+    new PrivateSendSubmissionLeaseCoordinator(),
+  );
   const privateSendActiveQuoteRequestRef = useRef<
     IPrivateSendQuoteEventsHandle | undefined
   >(undefined);
@@ -843,6 +802,10 @@ function SendAmountInputContainer() {
 
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [privateSendCreatedOrderPending, setPrivateSendCreatedOrderPending] =
+    useState(false);
+  const [privateSendPostCreateFailure, setPrivateSendPostCreateFailure] =
+    useState(false);
   const [isMaxSend, setIsMaxSend] = useState(false);
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -878,7 +841,12 @@ function SendAmountInputContainer() {
   const nft = nfts?.[0];
   const [tokenInfo] = useState(token);
 
-  const onSubmitRef = useRef<() => Promise<void>>(undefined);
+  const onSubmitRef =
+    useRef<
+      (
+        privateSendSubmissionLease?: IPrivateSendSubmissionLease,
+      ) => Promise<void>
+    >(undefined);
   const navigation = useAppNavigation();
 
   const [currentAccountId, setCurrentAccountId] = useState(accountId);
@@ -1374,7 +1342,7 @@ function SendAmountInputContainer() {
     () =>
       sendMode === ESendMode.PRIVATE &&
       isPrivateSendSupported &&
-      !!privateSendToken &&
+      isPrivateSendQuoteTokenValid(privateSendToken) &&
       !!account?.address &&
       !!recipientAddress &&
       !privateSendAmountBN.isNaN() &&
@@ -1413,6 +1381,8 @@ function SendAmountInputContainer() {
       sendMode,
     ],
   );
+  const privateSendQuoteScopeKeyRef = useRef(privateSendQuoteScopeKey);
+  privateSendQuoteScopeKeyRef.current = privateSendQuoteScopeKey;
   const privateSendQuoteRequestKey = useMemo(
     () => `${privateSendQuoteScopeKey}:${privateSendQuoteRefreshNonce}`,
     [privateSendQuoteRefreshNonce, privateSendQuoteScopeKey],
@@ -1426,7 +1396,7 @@ function SendAmountInputContainer() {
       if (
         sendMode !== ESendMode.PRIVATE ||
         !isPrivateSendSupported ||
-        !privateSendToken ||
+        !isPrivateSendQuoteTokenValid(privateSendToken) ||
         !account?.address ||
         !privateSendQuoteRecipientAddress
       ) {
@@ -2630,7 +2600,7 @@ function SendAmountInputContainer() {
   );
 
   onSubmitRef.current = useCallback(
-    async () =>
+    async (privateSendSubmissionLease?: IPrivateSendSubmissionLease) =>
       errorToastUtils.withErrorAutoToast(async () => {
         setIsSubmitting(true);
         try {
@@ -2640,6 +2610,17 @@ function SendAmountInputContainer() {
 
           const recipientValidation = await validateRecipientBeforeSubmit();
           if (!recipientValidation) {
+            return;
+          }
+
+          if (
+            sendMode === ESendMode.PRIVATE &&
+            (!privateSendSubmissionLease ||
+              !privateSendSubmissionLeaseCoordinatorRef.current.isPreBuildOwner(
+                privateSendSubmissionLease,
+                privateSendQuoteScopeKeyRef.current,
+              ))
+          ) {
             return;
           }
 
@@ -2704,6 +2685,7 @@ function SendAmountInputContainer() {
               !privateSendToken ||
               !isPrivateSendQuoteScopeMatched ||
               !isPrivateSendQuoteUsable(privateSendQuote) ||
+              !isPrivateSendProviderQuote(privateSendQuote) ||
               !tokenDetails
             ) {
               throw new OneKeyLocalError(
@@ -2721,88 +2703,125 @@ function SendAmountInputContainer() {
                 amount: privateSendAmount,
                 sendMode,
               });
-            if (submitPrivateSendQuoteScopeKey !== privateSendQuoteScopeKey) {
+            if (
+              submitPrivateSendQuoteScopeKey !==
+                privateSendQuoteScopeKeyRef.current ||
+              submitPrivateSendQuoteScopeKey !==
+                privateSendSubmissionLease?.scopeKey
+            ) {
               throw new OneKeyLocalError(
                 intl.formatMessage({
                   id: ETranslations.swap_page_alert_no_provider_supports_trade,
                 }),
               );
+            }
+
+            if (!privateSendSubmissionLease) {
+              return;
             }
 
             const privateSendFromAmount =
               privateSendQuote.fromAmount ?? realAmount;
             const privateSendToAmount = privateSendQuote.toAmount;
 
-            const buildSwapRes =
-              await backgroundApiProxy.serviceSwap.fetchBuildTx({
-                fromToken: privateSendToken,
-                toToken: privateSendToken,
-                toTokenAmount: privateSendToAmount,
-                fromTokenAmount: privateSendFromAmount,
-                provider: privateSendProvider,
-                userAddress: account.address,
-                receivingAddress: submitRecipientAddress,
-                slippagePercentage: swapSlippageAutoValue,
-                accountId: currentAccountId,
-                quoteResultCtx: privateSendQuote.quoteResultCtx,
-                protocol: EProtocolOfExchange.PRIVATE_SEND,
-                kind: privateSendQuote.kind ?? ESwapQuoteKind.SELL,
-              });
-
-            if (!buildSwapRes?.changellyOrder) {
-              throw new OneKeyLocalError(
-                intl.formatMessage({
-                  id: ETranslations.swap_page_alert_no_provider_supports_trade,
-                }),
-              );
+            const confirmedValueDrop =
+              await confirmPrivateSendValueDrop(privateSendQuote);
+            if (!confirmedValueDrop) {
+              return;
             }
-            const privateSendPayinAddress =
-              buildSwapRes.changellyOrder.payinAddress;
-            const privateSendPayinAmount =
-              buildSwapRes.changellyOrder.amountExpectedFrom;
-            const payinAddressStatus =
-              privateSendPayinAddress &&
-              (await backgroundApiProxy.serviceValidator.validateAddress({
-                networkId: privateSendToken.networkId,
-                address: privateSendPayinAddress,
-              }));
-            if (
-              payinAddressStatus !== 'valid' ||
-              !isPositivePrivateSendAmount(privateSendPayinAmount)
-            ) {
-              throw new OneKeyLocalError(
-                intl.formatMessage({
-                  id: ETranslations.swap_page_alert_no_provider_supports_trade,
+            const privateSendBuildResult = await runPrivateSendOrderBuild({
+              coordinator: privateSendSubmissionLeaseCoordinatorRef.current,
+              lease: privateSendSubmissionLease,
+              liveScopeKey: privateSendQuoteScopeKeyRef.current,
+              build: () =>
+                backgroundApiProxy.serviceSwap.fetchBuildTx({
+                  fromToken: privateSendToken,
+                  toToken: privateSendToken,
+                  toTokenAmount: privateSendToAmount,
+                  fromTokenAmount: privateSendFromAmount,
+                  provider: privateSendProvider,
+                  userAddress: account.address,
+                  receivingAddress: submitRecipientAddress,
+                  slippagePercentage: swapSlippageAutoValue,
+                  accountId: currentAccountId,
+                  quoteResultCtx: privateSendQuote.quoteResultCtx,
+                  protocol: EProtocolOfExchange.PRIVATE_SEND,
+                  kind: privateSendQuote.kind ?? ESwapQuoteKind.SELL,
                 }),
-              );
+              validate: async (result) => {
+                if (!result?.changellyOrder) {
+                  throw new OneKeyLocalError(
+                    intl.formatMessage({
+                      id: ETranslations.swap_page_alert_no_provider_supports_trade,
+                    }),
+                  );
+                }
+                const payinAddress = result.changellyOrder.payinAddress;
+                const payinAmount = result.changellyOrder.amountExpectedFrom;
+                const payinAddressStatus =
+                  payinAddress &&
+                  (await backgroundApiProxy.serviceValidator.validateAddress({
+                    networkId: privateSendToken.networkId,
+                    address: payinAddress,
+                  }));
+                if (
+                  payinAddressStatus !== 'valid' ||
+                  !isPositivePrivateSendAmount(payinAmount)
+                ) {
+                  throw new OneKeyLocalError(
+                    intl.formatMessage({
+                      id: ETranslations.swap_page_alert_no_provider_supports_trade,
+                    }),
+                  );
+                }
+                const providerOrderId = result.changellyOrder.orderId;
+                const rocketXOrderId = getPrivateSendRocketXOrderId(result.ctx);
+                const backendOrderId = result.orderId;
+                if (
+                  !providerOrderId ||
+                  !rocketXOrderId ||
+                  providerOrderId !== rocketXOrderId ||
+                  !backendOrderId
+                ) {
+                  throw new OneKeyLocalError(
+                    intl.formatMessage({
+                      id: ETranslations.swap_page_alert_no_provider_supports_trade,
+                    }),
+                  );
+                }
+                const buildToAmount =
+                  result.result.toAmount ?? privateSendToAmount;
+                if (!isPositivePrivateSendAmount(buildToAmount)) {
+                  throw new OneKeyLocalError(
+                    intl.formatMessage({
+                      id: ETranslations.swap_page_alert_no_provider_supports_trade,
+                    }),
+                  );
+                }
+                return {
+                  buildSwapRes: result,
+                  privateSendBackendOrderId: backendOrderId,
+                  privateSendBuildToAmount: buildToAmount,
+                  privateSendPayinAddress: payinAddress,
+                  privateSendPayinExtraId: result.changellyOrder.payinExtraId,
+                  privateSendPayinAmount: payinAmount,
+                  privateSendRocketXOrderId: rocketXOrderId,
+                };
+              },
+            });
+            if (privateSendBuildResult.status === 'scopeChanged') {
+              return;
             }
-            const privateSendProviderOrderId =
-              buildSwapRes.changellyOrder.orderId;
-            const privateSendRocketXOrderId = getPrivateSendRocketXOrderId(
-              buildSwapRes.ctx,
-            );
-            const privateSendBackendOrderId = buildSwapRes.orderId;
-            if (
-              !privateSendProviderOrderId ||
-              !privateSendRocketXOrderId ||
-              privateSendProviderOrderId !== privateSendRocketXOrderId ||
-              !privateSendBackendOrderId
-            ) {
-              throw new OneKeyLocalError(
-                intl.formatMessage({
-                  id: ETranslations.swap_page_alert_no_provider_supports_trade,
-                }),
-              );
-            }
-            const privateSendBuildToAmount =
-              buildSwapRes.result.toAmount ?? privateSendToAmount;
-            if (!isPositivePrivateSendAmount(privateSendBuildToAmount)) {
-              throw new OneKeyLocalError(
-                intl.formatMessage({
-                  id: ETranslations.swap_page_alert_no_provider_supports_trade,
-                }),
-              );
-            }
+            const {
+              buildSwapRes,
+              privateSendBackendOrderId,
+              privateSendBuildToAmount,
+              privateSendPayinAddress,
+              privateSendPayinExtraId,
+              privateSendPayinAmount,
+              privateSendRocketXOrderId,
+            } = privateSendBuildResult.value;
+            setPrivateSendCreatedOrderPending(true);
 
             const privateSendProviderInfo = {
               ...privateSendQuote.info,
@@ -2830,11 +2849,25 @@ function SendAmountInputContainer() {
                   buildSwapRes.result.supportUrl ?? privateSendHelpCenterUrl,
               },
             };
-            const confirmedValueDrop = await confirmPrivateSendValueDrop(
+            const quotedValueDrop =
+              getPrivateSendValueDropPercent(privateSendQuote);
+            const builtValueDrop = getPrivateSendValueDropPercent(
               normalizedBuildSwapRes.result,
             );
-            if (!confirmedValueDrop) {
-              return;
+            if (
+              typeof builtValueDrop === 'number' &&
+              builtValueDrop >= privateSendValueDropWarningPercent &&
+              (typeof quotedValueDrop !== 'number' ||
+                builtValueDrop > quotedValueDrop)
+            ) {
+              // The provider order already exists and there is no cancellation
+              // API. Continue the frozen submission instead of orphaning it,
+              // while recording the drift for compensation/ops follow-up.
+              defaultLogger.app.error.log(
+                `Private Send value drop worsened after order creation: ${String(
+                  quotedValueDrop,
+                )} -> ${builtValueDrop}`,
+              );
             }
             const privateSendOrderSendAmount =
               normalizedBuildSwapRes.result.fromAmount ?? privateSendFromAmount;
@@ -2862,7 +2895,7 @@ function SendAmountInputContainer() {
                 tokenInfo: tokenDetails.info,
                 to: privateSendPayinAddress,
                 amount: privateSendPayinAmount,
-                memo: buildSwapRes.changellyOrder.payinExtraId,
+                memo: privateSendPayinExtraId,
                 selectedUtxoKeys: currentSelectedUtxoKeys,
                 utxoSelectionStrategy: currentUtxoSelectionStrategy,
               },
@@ -2908,103 +2941,134 @@ function SendAmountInputContainer() {
                   networkId: network.id,
                 }
               : undefined;
-            const addPrivateSendHistoryItem = async (
-              data: ISendTxOnSuccessData[],
-            ) => {
-              const txId = data?.[0]?.signedTx?.txid;
-              const created = Date.now();
-              const swapHistoryItem: ISwapTxHistory = {
-                protocol: EProtocolOfExchange.PRIVATE_SEND,
-                status: ESwapTxHistoryStatus.PENDING,
-                currency: settings.currencyInfo.symbol,
-                accountInfo: {
-                  sender: {
-                    accountId: currentAccountId,
-                    networkId: privateSendToken.networkId,
-                  },
-                  receiver: {
-                    accountId: currentAccountId,
-                    networkId: privateSendToken.networkId,
-                  },
+            const created = Date.now();
+            const privateSendPendingHistoryItem: ISwapTxHistory = {
+              protocol: EProtocolOfExchange.PRIVATE_SEND,
+              status: ESwapTxHistoryStatus.PENDING,
+              currency: settings.currencyInfo.symbol,
+              accountInfo: {
+                sender: {
+                  accountId: currentAccountId,
+                  networkId: privateSendToken.networkId,
                 },
-                baseInfo: {
-                  toAmount:
-                    normalizedBuildSwapRes.result.toAmount ??
-                    privateSendToAmount,
-                  fromAmount:
-                    normalizedBuildSwapRes.result.fromAmount ??
-                    privateSendFromAmount,
-                  fromToken: swapInfo.sender.token,
-                  toToken: swapInfo.receiver.token,
-                  fromNetwork: privateSendNetworkInfo,
-                  toNetwork: privateSendNetworkInfo,
+                receiver: {
+                  accountId: currentAccountId,
+                  networkId: privateSendToken.networkId,
                 },
-                txInfo: {
-                  txId,
-                  useOrderId: !!privateSendOrderId,
-                  orderId: privateSendOrderId,
-                  sender: account.address,
-                  receiver: submitRecipientAddress,
-                },
-                date: {
-                  created,
-                  updated: created,
-                },
-                swapInfo: {
-                  instantRate: normalizedBuildSwapRes.result.instantRate ?? '',
-                  provider: privateSendProviderInfo,
-                  oneKeyFee: normalizedBuildSwapRes.result.fee?.percentageFee,
-                  protocolFee: normalizedBuildSwapRes.result.fee?.protocolFees,
-                  otherFeeInfos:
-                    normalizedBuildSwapRes.result.fee?.otherFeeInfos ?? [],
-                  orderId: privateSendOrderId,
-                  supportUrl:
-                    normalizedBuildSwapRes.result.supportUrl ??
-                    privateSendHelpCenterUrl,
-                  orderSupportUrl:
-                    normalizedBuildSwapRes.result.orderSupportUrl,
-                  oneKeyFeeExtraInfo:
-                    normalizedBuildSwapRes.result.oneKeyFeeExtraInfo,
-                },
-                ctx: {
-                  ...normalizedBuildSwapRes.ctx,
-                  rocketXOrderId: privateSendRocketXOrderId,
-                },
-              };
-              try {
-                await backgroundApiProxy.serviceSwap.fetchPrivateSendInitialTxState(
-                  swapHistoryItem,
-                );
-              } catch (error) {
-                defaultLogger.app.error.log(
-                  `Fetch private send initial tx state failed: ${
-                    error instanceof Error ? error.message : String(error)
-                  }`,
-                );
-              }
-              await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
-                swapHistoryItem,
-              );
+              },
+              baseInfo: {
+                toAmount:
+                  normalizedBuildSwapRes.result.toAmount ?? privateSendToAmount,
+                fromAmount:
+                  normalizedBuildSwapRes.result.fromAmount ??
+                  privateSendFromAmount,
+                fromToken: swapInfo.sender.token,
+                toToken: swapInfo.receiver.token,
+                fromNetwork: privateSendNetworkInfo,
+                toNetwork: privateSendNetworkInfo,
+              },
+              txInfo: {
+                useOrderId: !!privateSendOrderId,
+                orderId: privateSendOrderId,
+                sender: account.address,
+                receiver: submitRecipientAddress,
+              },
+              date: {
+                created,
+                updated: created,
+              },
+              swapInfo: {
+                instantRate: normalizedBuildSwapRes.result.instantRate ?? '',
+                provider: privateSendProviderInfo,
+                oneKeyFee: normalizedBuildSwapRes.result.fee?.percentageFee,
+                protocolFee: normalizedBuildSwapRes.result.fee?.protocolFees,
+                otherFeeInfos:
+                  normalizedBuildSwapRes.result.fee?.otherFeeInfos ?? [],
+                orderId: privateSendOrderId,
+                supportUrl:
+                  normalizedBuildSwapRes.result.supportUrl ??
+                  privateSendHelpCenterUrl,
+                orderSupportUrl: normalizedBuildSwapRes.result.orderSupportUrl,
+                oneKeyFeeExtraInfo:
+                  normalizedBuildSwapRes.result.oneKeyFeeExtraInfo,
+              },
+              ctx: {
+                ...normalizedBuildSwapRes.ctx,
+                rocketXOrderId: privateSendRocketXOrderId,
+              },
             };
+
+            // The provider order already exists. Persist its recovery identity
+            // before any network lookup, signing UI, or navigation can fail.
+            await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
+              privateSendPendingHistoryItem,
+            );
+
+            const privateSendCreatedOrderLifecycle =
+              createPrivateSendCreatedOrderLifecycle<ISendTxOnSuccessData[]>({
+                coordinator: privateSendSubmissionLeaseCoordinatorRef.current,
+                lease: privateSendSubmissionLease,
+                onSuccess: async (data) => {
+                  try {
+                    const txId = data?.[0]?.signedTx?.txid;
+                    if (txId) {
+                      const signedHistoryItem = {
+                        ...privateSendPendingHistoryItem,
+                        txInfo: {
+                          ...privateSendPendingHistoryItem.txInfo,
+                          txId,
+                        },
+                        date: {
+                          ...privateSendPendingHistoryItem.date,
+                          updated: Date.now(),
+                        },
+                      };
+                      await backgroundApiProxy.serviceSwap.updateSwapHistoryItem(
+                        signedHistoryItem,
+                        { shouldShowToast: false },
+                      );
+                      void backgroundApiProxy.serviceSwap
+                        .fetchPrivateSendInitialTxState(signedHistoryItem)
+                        .catch((error) => {
+                          defaultLogger.app.error.log(
+                            `Fetch private send initial tx state failed: ${
+                              error instanceof Error
+                                ? error.message
+                                : String(error)
+                            }`,
+                          );
+                        });
+                    }
+                  } catch (error) {
+                    defaultLogger.app.error.log(
+                      `Update private send history tx id failed: ${
+                        error instanceof Error ? error.message : String(error)
+                      }`,
+                    );
+                  } finally {
+                    setPrivateSendCreatedOrderPending(false);
+                    onSuccess?.(data);
+                  }
+                },
+                onFail,
+                onCancel,
+                onPostCreateFailure: (reason, error) => {
+                  setPrivateSendCreatedOrderPending(false);
+                  setPrivateSendPostCreateFailure(true);
+                  defaultLogger.app.error.log(
+                    `Private Send provider order ${reason} after creation. Do not retry this submission; contact support. ${
+                      error?.message ?? ''
+                    }`,
+                  );
+                },
+              });
 
             await signatureConfirm.navigationToTxConfirm({
               transfersInfo,
               sameModal: true,
-              onSuccess: async (data: ISendTxOnSuccessData[]) => {
-                try {
-                  await addPrivateSendHistoryItem(data);
-                } catch (error) {
-                  defaultLogger.app.error.log(
-                    `Add private send history item failed: ${
-                      error instanceof Error ? error.message : String(error)
-                    }`,
-                  );
-                } finally {
-                  onSuccess?.(data);
-                }
-              },
-              onFail,
-              onCancel,
+              onSuccess: privateSendCreatedOrderLifecycle.onSuccess,
+              onFail: privateSendCreatedOrderLifecycle.onFail,
+              onCancel: privateSendCreatedOrderLifecycle.onCancel,
               transferPayload: {
                 amountToSend: privateSendAmountToSend,
                 isMaxSend: false,
@@ -3095,7 +3159,33 @@ function SendAmountInputContainer() {
             },
             isInternalTransfer: true,
           });
+        } catch (error) {
+          if (
+            privateSendSubmissionLease &&
+            (privateSendSubmissionLeaseCoordinatorRef.current.shouldContinueCreatedOrder(
+              privateSendSubmissionLease,
+            ) ||
+              privateSendSubmissionLease.phase === 'postCreateFailure')
+          ) {
+            privateSendSubmissionLeaseCoordinatorRef.current.markPostCreateFailure(
+              privateSendSubmissionLease,
+            );
+            setPrivateSendCreatedOrderPending(false);
+            setPrivateSendPostCreateFailure(true);
+            defaultLogger.app.error.log(
+              `Private Send provider order failed after creation. Do not retry this submission; contact support. ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+            throw new OneKeyLocalError(privateSendPostCreateFailureMessage);
+          }
+          throw error;
         } finally {
+          if (privateSendSubmissionLease) {
+            privateSendSubmissionLeaseCoordinatorRef.current.releasePreOrderFailure(
+              privateSendSubmissionLease,
+            );
+          }
           setIsSubmitting(false);
         }
       }),
@@ -3127,8 +3217,8 @@ function SendAmountInputContainer() {
       onSuccess,
       isPrivateSendQuoteScopeMatched,
       privateSendAmount,
+      privateSendPostCreateFailureMessage,
       privateSendQuote,
-      privateSendQuoteScopeKey,
       privateSendToken,
       recipientMemo,
       recipientNote,
@@ -3149,6 +3239,8 @@ function SendAmountInputContainer() {
 
   const isSubmitDisabled = useMemo(() => {
     if (isSubmitting) return true;
+    if (privateSendCreatedOrderPending) return true;
+    if (privateSendPostCreateFailure) return true;
     if (!form.formState.isValid) return true;
     if (!recipientAddress) return true;
     if (isInsufficientBalance) return true;
@@ -3169,13 +3261,18 @@ function SendAmountInputContainer() {
       if (isPrivateSendQuoteRefreshing) return true;
       if (privateSendQuoteError) return true;
       if (isPrivateSendAmountBelowMin) return true;
-      if (!isPrivateSendQuoteUsable(privateSendQuote)) {
+      if (
+        !isPrivateSendQuoteUsable(privateSendQuote) ||
+        !isPrivateSendProviderQuote(privateSendQuote)
+      ) {
         return true;
       }
     }
     return false;
   }, [
     isSubmitting,
+    privateSendCreatedOrderPending,
+    privateSendPostCreateFailure,
     form.formState.isValid,
     recipientAddress,
     isInsufficientBalance,
@@ -3197,19 +3294,56 @@ function SendAmountInputContainer() {
 
   const handleConfirm = useCallback(async () => {
     const shouldLockPrivateSend = sendMode === ESendMode.PRIVATE;
+    const privateSendSubmissionLease = shouldLockPrivateSend
+      ? privateSendSubmissionLeaseCoordinatorRef.current.acquire(
+          privateSendQuoteScopeKey,
+        )
+      : undefined;
+    if (shouldLockPrivateSend && !privateSendSubmissionLease) {
+      return;
+    }
     if (shouldLockPrivateSend) {
       setIsSubmitting(true);
     }
     const isValid = await form.trigger();
     if (!isValid) {
       if (shouldLockPrivateSend) {
+        if (privateSendSubmissionLease) {
+          privateSendSubmissionLeaseCoordinatorRef.current.releasePreOrderFailure(
+            privateSendSubmissionLease,
+          );
+        }
         setIsSubmitting(false);
       }
       return;
     }
 
-    await onSubmitRef.current?.();
-  }, [form, sendMode]);
+    if (
+      privateSendSubmissionLease &&
+      !privateSendSubmissionLeaseCoordinatorRef.current.isPreBuildOwner(
+        privateSendSubmissionLease,
+        privateSendQuoteScopeKeyRef.current,
+      )
+    ) {
+      privateSendSubmissionLeaseCoordinatorRef.current.releasePreOrderFailure(
+        privateSendSubmissionLease,
+      );
+      setIsSubmitting(false);
+      return;
+    }
+
+    const submit = onSubmitRef.current;
+    if (!submit) {
+      if (privateSendSubmissionLease) {
+        privateSendSubmissionLeaseCoordinatorRef.current.releasePreOrderFailure(
+          privateSendSubmissionLease,
+        );
+      }
+      setIsSubmitting(false);
+      return;
+    }
+    await submit(privateSendSubmissionLease);
+  }, [form, privateSendQuoteScopeKey, sendMode]);
 
   // Keyboard shortcuts for desktop (when input is not focused)
   // M = Max, Enter = confirm

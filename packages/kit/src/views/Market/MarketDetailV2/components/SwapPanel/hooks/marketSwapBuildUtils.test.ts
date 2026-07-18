@@ -1,11 +1,18 @@
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
+  IFetchSwapQuoteParams,
+} from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapQuoteKind,
+  ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildDefaultMarketSpeedCheckState,
   buildMarketReviewShouldFallback,
+  filterMarketSpeedQuoteFallbackResults,
   mergeMarketBuildResultWithQuote,
   pickMarketQuoteResultByProvider,
   shouldFetchMarketQuoteFallbackData,
@@ -15,6 +22,7 @@ function createQuoteResult(
   overrides: Partial<IFetchQuoteResult> = {},
 ): IFetchQuoteResult {
   return {
+    protocol: EProtocolOfExchange.SWAP,
     info: {
       provider: 'provider-a',
       providerName: 'Provider A',
@@ -130,6 +138,59 @@ describe('marketSwapBuildUtils', () => {
         providerName: 'Provider B',
       }),
     ).toBe(matchedQuote);
+  });
+
+  it('accepts only actionable fallback quotes for the exact request intent', () => {
+    const request: IFetchSwapQuoteParams = {
+      fromToken: createQuoteResult().fromTokenInfo,
+      toToken: createQuoteResult().toTokenInfo,
+      fromTokenAmount: '1.0',
+      userAddress: '0xuser',
+      receivingAddress: '0xuser',
+      slippagePercentage: 1,
+      accountId: 'account-1',
+      protocol: ESwapTabSwitchType.SWAP,
+      kind: ESwapQuoteKind.SELL,
+    };
+    const valid = createQuoteResult({ fromAmount: '1' });
+    const wrongPair = createQuoteResult({
+      fromTokenInfo: {
+        ...createQuoteResult().fromTokenInfo,
+        contractAddress: '0xother',
+      },
+    });
+    const wrongKind = createQuoteResult({ kind: ESwapQuoteKind.BUY });
+    const wrongAmount = createQuoteResult({ fromAmount: '2' });
+    const nonActionable = createQuoteResult({ toAmount: '0' });
+
+    expect(
+      filterMarketSpeedQuoteFallbackResults({
+        quotes: [wrongPair, wrongKind, wrongAmount, nonActionable, valid],
+        request,
+      }),
+    ).toEqual([valid]);
+  });
+
+  it('matches BUY fallback quotes against the requested to amount', () => {
+    const request: IFetchSwapQuoteParams = {
+      fromToken: createQuoteResult().fromTokenInfo,
+      toToken: createQuoteResult().toTokenInfo,
+      toTokenAmount: '1000.0',
+      userAddress: '0xuser',
+      receivingAddress: '0xuser',
+      slippagePercentage: 1,
+      accountId: 'account-1',
+      protocol: ESwapTabSwitchType.SWAP,
+      kind: ESwapQuoteKind.BUY,
+    };
+    const valid = createQuoteResult({
+      kind: ESwapQuoteKind.BUY,
+      toAmount: '1000',
+    });
+
+    expect(
+      filterMarketSpeedQuoteFallbackResults({ quotes: [valid], request }),
+    ).toEqual([valid]);
   });
 
   it('hydrates missing gasLimit and routesData from the selected quote', () => {

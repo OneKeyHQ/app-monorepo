@@ -64,6 +64,51 @@ export function buildSwapProPositionsNetworkIdsKey(
     .join(',');
 }
 
+export function resolveSwapProPositionsDisplayCache({
+  accountId,
+  byOwner,
+  networkIdsKey,
+  ownerKey,
+}: {
+  accountId?: string;
+  byOwner: Record<
+    string,
+    {
+      networkIdsKey: string;
+      ownerKey: string;
+      tokens: ISwapToken[];
+      updatedAt: number;
+    }
+  >;
+  networkIdsKey: string;
+  ownerKey: string;
+}) {
+  if (!accountId || !networkIdsKey || !ownerKey) {
+    return { entry: undefined, tokens: [] as ISwapToken[] };
+  }
+
+  const exactEntry = byOwner[ownerKey];
+  if (exactEntry) {
+    return { entry: exactEntry, tokens: exactEntry.tokens };
+  }
+
+  const ownerPrefix = `${accountId}__`;
+  const sameAccountEntry = Object.values(byOwner)
+    .filter((entry) => entry.ownerKey.startsWith(ownerPrefix))
+    .toSorted((a, b) => b.updatedAt - a.updatedAt)[0];
+  if (!sameAccountEntry) {
+    return { entry: undefined, tokens: [] as ISwapToken[] };
+  }
+
+  const currentNetworkIds = new Set(networkIdsKey.split(','));
+  return {
+    entry: sameAccountEntry,
+    tokens: sameAccountEntry.tokens.filter((token) =>
+      currentNetworkIds.has(token.networkId),
+    ),
+  };
+}
+
 export function isSwapProPositionsSourceUnavailable({
   accountId,
   identityReady,
@@ -162,13 +207,10 @@ export function useSwapProPositionsGenerationGuardedCallback<TPayload>({
   return useCallback(
     (payload: TPayload) => {
       const currentRequestState = currentRequestStateRef.current;
-      if (
-        !isSwapProPositionsRequestGenerationCurrent({
-          current: currentRequestState,
-          expectedOwnerKey: ownerKey,
-          expectedRequestId: currentRequestState.requestId,
-        })
-      ) {
+      // Balance events do not carry a positions generation. Reject a retained
+      // listener from another owner here, then freeze the current generation
+      // for the asynchronous fetch/commit guard downstream.
+      if (!ownerKey || currentRequestState.ownerKey !== ownerKey) {
         return undefined;
       }
       return onCurrentGenerationEvent(payload, {

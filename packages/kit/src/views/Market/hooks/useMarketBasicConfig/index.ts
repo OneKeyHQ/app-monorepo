@@ -29,9 +29,12 @@ const EMPTY_HOME_TABS: IMarketBasicConfigHomeTab[] = [];
  * Hook to fetch and manage market basic configuration
  * Provides default network, recommended tokens, and other market settings
  */
-export function useMarketBasicConfig() {
+export function useMarketBasicConfig(enabled = true) {
   const { result, isLoading } = usePromiseResult(
     async () => {
+      if (!enabled) {
+        return null;
+      }
       const response = await fetchMarketBasicConfigForPlatform();
       const configData = response?.data;
 
@@ -67,7 +70,7 @@ export function useMarketBasicConfig() {
         stockCategories,
       };
     },
-    [],
+    [enabled],
     {
       checkIsFocused: !platformEnv.isWeb,
       watchLoading: true,

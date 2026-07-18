@@ -152,6 +152,7 @@ describe('SwapReviewDialog', () => {
     expect(useSwapReviewActionsMock).toHaveBeenCalledWith({
       adapter,
       approveTransactionSource: ESwapReviewApproveTransactionSource.SpeedSwap,
+      reviewRevision: 'active-review',
     });
 
     fireEvent.click(screen.getByTestId('review-confirm'));

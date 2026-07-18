@@ -45,8 +45,10 @@ import {
   useSwapTokenFetchingAtom,
   useSwapTokenMapAtom,
 } from '../../../states/jotai/contexts/swap';
+import { isSwapAddressInfoReadyForOwner } from '../../../states/jotai/contexts/swap/addressInfoReadiness';
 import {
   buildSwapTokenDetailRequestKey,
+  isSwapTokenDetailAddressInfoReady,
   isSwapTokenDetailBalanceVisible,
 } from '../../../states/jotai/contexts/swap/tokenDetailRequest';
 import {
@@ -652,12 +654,28 @@ export function useSwapSelectedTokenInfo({
     swapAddressInfo.accountInfo ?? swapAddressInfo.activeAccount;
   const targetAccountInfo =
     swapAddressInfoTo.accountInfo ?? swapAddressInfoTo.activeAccount;
+  const isOwnerAddressInfoReady = isSwapAddressInfoReadyForOwner({
+    address: swapAddressInfo.address,
+    isAddressInfoReady: swapAddressInfo.isAddressInfoReady,
+    owner: ownerAccountInfo,
+  });
+  const isTargetAddressInfoReady = isSwapAddressInfoReadyForOwner({
+    address: swapAddressInfoTo.address,
+    isAddressInfoReady: swapAddressInfoTo.isAddressInfoReady,
+    owner: targetAccountInfo,
+  });
+  const isTokenDetailAddressInfoReady = isSwapTokenDetailAddressInfoReady({
+    direction: type,
+    addressInfoReady: isOwnerAddressInfoReady,
+    targetAddressInfoReady: isTargetAddressInfoReady,
+  });
   const expectedTokenDetailRequestKey = buildSwapTokenDetailRequestKey({
     direction: type,
     token,
     walletId: ownerAccountInfo?.wallet?.id,
     indexedAccountId: ownerAccountInfo?.indexedAccount?.id,
     accountId: ownerAccountInfo?.account?.id,
+    addressInfoReady: isOwnerAddressInfoReady,
     dbAccountId: ownerAccountInfo?.dbAccount?.id,
     deriveType: ownerAccountInfo?.deriveType,
     accountAddress:
@@ -697,11 +715,10 @@ export function useSwapSelectedTokenInfo({
         ? (swapAddressInfoTo.networkId ?? token?.networkId)
         : undefined,
     targetAddressInfoReady:
-      type === ESwapDirectionType.TO
-        ? swapAddressInfoTo.isAddressInfoReady
-        : undefined,
+      type === ESwapDirectionType.TO ? isTargetAddressInfoReady : undefined,
   });
   const isSelectedTokenDetailBalanceVisible = isSwapTokenDetailBalanceVisible({
+    addressInfoReady: isTokenDetailAddressInfoReady,
     direction: type,
     initialSelectedTokensSynced,
     isCurrentDisplayToken,

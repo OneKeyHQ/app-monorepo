@@ -28,6 +28,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
+import type { IIpTableRequestConfig } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { prunePerpsDepositHistoryConfirmationMarkers } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
@@ -54,6 +55,7 @@ import {
   hasUnifiedCrossChainSwapProviderManagers,
   mergeDenyProviderStrings,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
+import { buildSwapQuoteExecutionFingerprint } from '@onekeyhq/shared/src/utils/swapQuoteFingerprint';
 import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/swapRecentTokenPairsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
@@ -1383,11 +1385,6 @@ export default class ServiceSwap extends ServiceBase {
     // Reserve synchronously before the first await. Any older async start for
     // this surface becomes stale immediately and can no longer attach a source.
     const lease = this._quoteSessionRegistryV2.reserve(session);
-    this._quoteSessionEventContextV2.set(lease, {
-      params: initialParams,
-      accountId,
-      tokenPairs: { fromToken, toToken },
-    });
     const buildStartResult = (
       accepted: boolean,
     ): ISwapQuoteSessionStartResult => ({
@@ -1399,6 +1396,15 @@ export default class ServiceSwap extends ServiceBase {
     if (!isCurrent()) {
       return buildStartResult(false);
     }
+    if (session.fingerprint !== buildSwapQuoteExecutionFingerprint(request)) {
+      this._quoteSessionRegistryV2.finish(lease);
+      return buildStartResult(false);
+    }
+    this._quoteSessionEventContextV2.set(lease, {
+      params: initialParams,
+      accountId,
+      tokenPairs: { fromToken, toToken },
+    });
 
     try {
       const [denyCrossChainProvider, denySingleSwapProvider, walletDevice] =
@@ -1665,15 +1671,19 @@ export default class ServiceSwap extends ServiceBase {
       walletType,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const requestConfig: IIpTableRequestConfig = {
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
+      ...(protocol === EProtocolOfExchange.PRIVATE_SEND
+        ? { ipTableFailClosedAfterSniAttempt: true }
+        : {}),
+    };
     const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
       '/swap/v1/build-tx',
       params,
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
+      requestConfig,
     );
     return data?.data;
   }
@@ -3654,6 +3664,10 @@ export default class ServiceSwap extends ServiceBase {
     if (!isCurrent()) {
       return rejectedResult();
     }
+    if (session.fingerprint !== buildSwapQuoteExecutionFingerprint(request)) {
+      this._speedSwapQuoteSessionRegistryV2.finish(lease);
+      return rejectedResult();
+    }
 
     try {
       const [walletDevice, client] = await Promise.all([
@@ -3682,13 +3696,7 @@ export default class ServiceSwap extends ServiceBase {
         kind,
         walletDeviceType: walletDevice?.deviceType,
       };
-      let quotes: IFetchQuoteResult[] = [
-        {
-          info: { provider: '', providerName: '' },
-          fromTokenInfo: fromToken,
-          toTokenInfo: toToken,
-        },
-      ];
+      let quotes: IFetchQuoteResult[] = [];
       try {
         const headers =
           await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
@@ -3717,9 +3725,15 @@ export default class ServiceSwap extends ServiceBase {
         if (!isCurrent()) {
           return rejectedResult();
         }
-        if (data?.code === 0 && data?.data?.length) {
-          quotes = data.data;
+        if (data?.code !== 0) {
+          throw new OneKeyError(
+            data?.message || 'Speed swap quote request failed',
+          );
         }
+        if (!Array.isArray(data?.data)) {
+          throw new OneKeyError('Invalid speed swap quote response');
+        }
+        quotes = data.data;
       } catch (error) {
         if (!isCurrent()) {
           return rejectedResult();
@@ -3730,6 +3744,7 @@ export default class ServiceSwap extends ServiceBase {
             cause: ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL,
           });
         }
+        throw error;
       }
 
       if (!this._speedSwapQuoteSessionRegistryV2.finish(lease)) {

@@ -1,8 +1,10 @@
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { buildSwapQuoteExecutionFingerprint } from '@onekeyhq/shared/src/utils/swapQuoteFingerprint';
 import type {
   ICancelFetchSpeedSwapQuoteV2Params,
   IFetchSpeedSwapQuoteV2Result,
+  IFetchSwapQuoteParams,
   ISwapSpeedQuoteSessionIdentity,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -10,6 +12,11 @@ export type ISwapSpeedQuoteSessionState = {
   surfaceId?: string;
   intentRevision: number;
   activeSession?: ISwapSpeedQuoteSessionIdentity;
+};
+
+type IPreparedSwapSpeedQuoteSessionState = ISwapSpeedQuoteSessionState & {
+  surfaceId: string;
+  activeSession: ISwapSpeedQuoteSessionIdentity;
 };
 
 export const SWAP_SPEED_QUOTE_SESSION_V2_INITIAL_STATE: ISwapSpeedQuoteSessionState =
@@ -24,13 +31,15 @@ function isSameIdentity(
   return (
     left?.surfaceId === right.surfaceId &&
     left.requestId === right.requestId &&
+    left.fingerprint === right.fingerprint &&
     left.intentRevision === right.intentRevision
   );
 }
 
 export function prepareSwapSpeedQuoteSession(
   state: ISwapSpeedQuoteSessionState,
-): ISwapSpeedQuoteSessionState {
+  request: IFetchSwapQuoteParams,
+): IPreparedSwapSpeedQuoteSessionState {
   const surfaceId =
     state.surfaceId ??
     `${appEventBus.nodeId}:speedSwap:${generateUUID({ removeDashes: true })}`;
@@ -41,6 +50,7 @@ export function prepareSwapSpeedQuoteSession(
     activeSession: {
       surfaceId,
       requestId: generateUUID(),
+      fingerprint: buildSwapQuoteExecutionFingerprint(request),
       intentRevision,
     },
   };

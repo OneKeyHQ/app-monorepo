@@ -3,17 +3,14 @@ import BigNumber from 'bignumber.js';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import type { ISwapExecutionSnapshot } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
-import { isStockQuoteInputAmountMatched } from '@onekeyhq/kit/src/views/Swap/utils/swapStockTradeControl';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
-import {
-  checkWrappedTokenPair,
-  equalTokenNoCaseSensitive,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
+import { isSameSwapTokenPairIdentity } from '@onekeyhq/shared/src/utils/swapTokenIdentity';
+import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketPerpsInfo,
   IMarketTokenDetail,
@@ -27,29 +24,27 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   EProtocolOfExchange,
+  type ESwapDirectionType,
   ESwapNetworkFeeLevel,
   ESwapProTradeType,
+  ESwapQuoteKind,
+  type ESwapRateDifferenceUnit,
+  type ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
+  type IFetchQuoteResult,
+  type ISwapAlertState,
+  type ISwapAutoSlippageSuggestedValue,
+  type ISwapLimitPriceInfo,
+  type ISwapNativeTokenReserveGas,
+  type ISwapNetwork,
+  type ISwapPreSwapData,
+  type ISwapStep,
+  type ISwapTips,
+  type ISwapToken,
+  type ISwapTokenCatch,
+  type ISwapTokenMetadata,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
-} from '@onekeyhq/shared/types/swap/types';
-import type {
-  ESwapDirectionType,
-  ESwapQuoteKind,
-  ESwapRateDifferenceUnit,
-  ESwapSlippageSegmentKey,
-  IFetchQuoteResult,
-  ISwapAlertState,
-  ISwapAutoSlippageSuggestedValue,
-  ISwapLimitPriceInfo,
-  ISwapNativeTokenReserveGas,
-  ISwapNetwork,
-  ISwapPreSwapData,
-  ISwapStep,
-  ISwapTips,
-  ISwapToken,
-  ISwapTokenCatch,
-  ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -66,6 +61,7 @@ import {
   type ISwapQuoteEventTotalCount,
   type ISwapQuoteSelectionIntent,
   buildSwapQuoteProviderKey,
+  isStockQuoteInputAmountMatched,
   selectSwapCurrentQuote,
 } from './quoteProgress';
 import {
@@ -545,6 +541,7 @@ export const {
     const fromAmount = get(swapFromTokenAmountAtom());
     const toAmount = get(swapToTokenAmountAtom());
     const protocol = get(swapTypeSwitchAtom());
+    const actionLock = get(swapQuoteActionLockAtom());
     const expectedKind = getSwapQuoteKindForCurrentInput({
       protocol,
       toAmount,
@@ -566,7 +563,12 @@ export const {
         protocol !== ESwapTabSwitchType.LIMIT &&
         quote.protocol !== EProtocolOfExchange.STOCK &&
         quote.protocol !== EProtocolOfExchange.LIMIT);
-    return amountProjection && protocolMatched ? quote : undefined;
+    const quoteKind = quote.kind ?? ESwapQuoteKind.SELL;
+    const actionKindMatched =
+      actionLock.kind === undefined || quoteKind === actionLock.kind;
+    return amountProjection && protocolMatched && actionKindMatched
+      ? quote
+      : undefined;
   }
   return get(swapQuoteStreamingCurrentSelectAtom());
 });
@@ -977,6 +979,15 @@ export const {
   use: useSwapSpeedQuoteFetchingAtom,
 } = contextAtom<boolean>(false);
 
+export type ISwapSpeedQuoteOutcome =
+  | { status: 'idle' | 'loading' | 'zeroProvider' | 'success' }
+  | { status: 'error'; message?: string };
+
+export const {
+  atom: swapSpeedQuoteOutcomeAtom,
+  use: useSwapSpeedQuoteOutcomeAtom,
+} = contextAtom<ISwapSpeedQuoteOutcome>({ status: 'idle' });
+
 export const { atom: swapSpeedQuoteSessionStateAtom } =
   contextAtom<ISwapSpeedQuoteSessionState>(
     SWAP_SPEED_QUOTE_SESSION_V2_INITIAL_STATE,
@@ -1026,13 +1037,11 @@ export const {
   if (
     fromTokenPriceInfo &&
     toTokenPriceInfo &&
-    equalTokenNoCaseSensitive({
-      token1: fromToken,
-      token2: fromTokenPriceInfo.tokenInfo,
-    }) &&
-    equalTokenNoCaseSensitive({
-      token1: toToken,
-      token2: toTokenPriceInfo.tokenInfo,
+    isSameSwapTokenPairIdentity({
+      fromToken1: fromToken,
+      fromToken2: fromTokenPriceInfo.tokenInfo,
+      toToken1: toToken,
+      toToken2: toTokenPriceInfo.tokenInfo,
     }) &&
     !checkWrappedTokenPair({
       fromToken,

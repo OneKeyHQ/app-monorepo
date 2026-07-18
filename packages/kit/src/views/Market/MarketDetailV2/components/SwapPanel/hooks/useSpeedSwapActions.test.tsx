@@ -8,6 +8,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
+  ISwapApproveTransaction,
   ISwapToken,
   ISwapTokenBase,
   ISwapTxInfo,
@@ -20,6 +21,9 @@ import {
 import {
   buildMarketReviewTokens,
   buildMarketSwapHistoryItem,
+  isMatchingMarketApproveTransaction,
+  shouldPersistMarketSwapHistory,
+  shouldRefreshMarketBalanceForTokens,
   useSpeedSwapActions,
 } from './useSpeedSwapActions';
 import { ESwapDirection } from './useTradeType';
@@ -271,6 +275,22 @@ const solToken: ISwapTokenBase = {
   contractAddress: '0xsol',
   symbol: 'SOL',
   decimals: 9,
+  isNative: false,
+};
+
+const nativeEthToken: ISwapTokenBase = {
+  networkId: 'evm--1',
+  contractAddress: '',
+  symbol: 'ETH',
+  decimals: 18,
+  isNative: true,
+};
+
+const incompleteToken: ISwapTokenBase = {
+  networkId: 'evm--1',
+  contractAddress: '',
+  symbol: 'UNKNOWN',
+  decimals: 18,
   isNative: false,
 };
 
@@ -949,7 +969,64 @@ describe('useSpeedSwapActions', () => {
   });
 });
 
+describe('Market token identity guards', () => {
+  const approvingTransaction = {
+    amount: '1',
+    resetApproveValue: '0',
+    fromToken: nativeEthToken,
+    toToken: usdcToken,
+  } as ISwapApproveTransaction;
+
+  it('does not continue a native approval for an incomplete empty-address token', () => {
+    expect(
+      isMatchingMarketApproveTransaction({
+        approvingTransaction,
+        amount: '1',
+        currentFromToken: incompleteToken,
+        currentToToken: usdcToken,
+      }),
+    ).toBe(false);
+    expect(
+      isMatchingMarketApproveTransaction({
+        approvingTransaction,
+        amount: '1',
+        currentFromToken: nativeEthToken,
+        currentToToken: usdcToken,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not refresh a native balance for an incomplete empty-address token event', () => {
+    expect(
+      shouldRefreshMarketBalanceForTokens({
+        balanceToken: nativeEthToken,
+        orderFromToken: incompleteToken,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRefreshMarketBalanceForTokens({
+        balanceToken: nativeEthToken,
+        orderFromToken: nativeEthToken,
+      }),
+    ).toBe(true);
+  });
+});
+
 describe('buildMarketSwapHistoryItem', () => {
+  it.each([
+    [EProtocolOfExchange.SWAP, false, true],
+    [EProtocolOfExchange.STOCK, false, true],
+    [EProtocolOfExchange.LIMIT, false, false],
+    [EProtocolOfExchange.LIMIT, true, true],
+  ])(
+    'persists protocol %s with wrapped=%s only when Market owns its history',
+    (protocol, isWrapped, expected) => {
+      expect(shouldPersistMarketSwapHistory({ protocol, isWrapped })).toBe(
+        expected,
+      );
+    },
+  );
+
   it('includes the selected fiat currency id in market swap history', () => {
     const swapInfo: ISwapTxInfo = {
       protocol: EProtocolOfExchange.SWAP,
@@ -1005,6 +1082,7 @@ describe('buildMarketSwapHistoryItem', () => {
     expect(historyOrderId).toBe('cow-order-1');
     expect(swapHistoryItem).toEqual(
       expect.objectContaining({
+        protocol: EProtocolOfExchange.SWAP,
         status: ESwapTxHistoryStatus.PENDING,
         currency: '$',
         currencyId: 'usd',

@@ -7,10 +7,19 @@ import type {
   IGlobalStatesSyncBroadcastParams,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
+  EXTENSION_FOREGROUND_RESET_COMMIT_METHOD_NAME,
+  EXTENSION_FOREGROUND_RESET_METHOD_NAME,
+  EXTENSION_FOREGROUND_RESET_RESUME_METHOD_NAME,
   GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME,
   GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+
+import {
+  commitExtensionForegroundReset,
+  quiesceExtensionForeground,
+  resumeExtensionForeground,
+} from './extensionForegroundReset';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -27,6 +36,18 @@ function init() {
       await jotaiUpdateFromUiByBgBroadcast(
         params as IGlobalStatesSyncBroadcastParams,
       );
+    }
+    if (method === EXTENSION_FOREGROUND_RESET_METHOD_NAME) {
+      await quiesceExtensionForeground();
+      return { quiesced: true };
+    }
+    if (method === EXTENSION_FOREGROUND_RESET_COMMIT_METHOD_NAME) {
+      commitExtensionForegroundReset();
+      return { committed: true };
+    }
+    if (method === EXTENSION_FOREGROUND_RESET_RESUME_METHOD_NAME) {
+      resumeExtensionForeground();
+      return { resumed: true };
     }
     if (method === GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME) {
       // console.log('background event bus sync', params);

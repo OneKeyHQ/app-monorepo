@@ -358,6 +358,7 @@ export type ISwapQuoteSessionEventV2 = ISwapQuoteSessionEventBaseV2 &
 export interface ISwapSpeedQuoteSessionIdentity {
   surfaceId: string;
   requestId: string;
+  fingerprint: string;
   intentRevision: number;
 }
 

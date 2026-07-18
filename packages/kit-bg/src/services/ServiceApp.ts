@@ -42,8 +42,24 @@ import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
 import { biologyAuthUtils } from './ServicePassword/biologyAuthUtils';
+import {
+  EXTENSION_FOREGROUND_RESET_DEADLINE_MS,
+  createExtensionForegroundConnectionTracker,
+  prepareAndCommitExtensionForegrounds,
+  quiesceExtensionForegrounds,
+  resumeExtensionForegrounds,
+} from './utils';
 
+import type { IExtensionForegroundConnectionTracker } from './utils';
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
+
+const extensionForegroundPreWipeBarrierErrors = new WeakSet<Error>();
+
+const buildExtensionForegroundPreWipeBarrierError = (message: string) => {
+  const error = new OneKeyLocalError(message);
+  extensionForegroundPreWipeBarrierErrors.add(error);
+  return error;
+};
 
 @backgroundClass()
 class ServiceApp extends ServiceBase {
@@ -70,42 +86,109 @@ class ServiceApp extends ServiceBase {
     });
   }
 
-  private async resetData() {
+  private async resetData(
+    extensionForegroundResetAttempt = 0,
+    preparedExtensionForegroundPorts = new Set<chrome.runtime.Port>(),
+    extensionForegroundConnectionTracker?: IExtensionForegroundConnectionTracker,
+    resetFailures: string[] = [],
+  ): Promise<void> {
     // const v4migrationPersistData = await v4migrationPersistAtom.get();
     // const v4migrationAutoStartDisabled =
     //   v4migrationPersistData?.v4migrationAutoStartDisabled;
     // ----------------------------------------------
 
-    if (platformEnv.isExtensionBackground) {
-      // Extension foregrounds have independent JS heaps but share the same
-      // origin storage. Quiesce every open popup/tab/side-panel before the bg
-      // clears IndexedDB, otherwise a stale foreground writer can recreate
-      // data after the wipe. The foreground guard intentionally lives until
-      // chrome.runtime.reload tears that runtime down.
-      appEventBus.emit(EAppEventBusNames.ClearStorageOnExtension, undefined);
-      await timerUtils.wait(1200);
-      defaultLogger.setting.page.clearDataStep('extensionForegrounds-quiesced');
-    }
+    const recordResetFailure = (step: string, error: unknown) => {
+      console.error(`${step} error`, error);
+      resetFailures.push(step);
+    };
 
+    let extensionForegroundPortIdsBeforeClear: string[] = [];
+    const extensionForegroundRevisionBeforeClear =
+      extensionForegroundConnectionTracker?.getRevision();
+    let initialForegroundCommitFailed = false;
+    let initialForegroundCommitError: unknown;
+    let postCommitPrepareError: unknown;
+    if (platformEnv.isExtensionBackground) {
+      const initialBarrierDeadlineAt =
+        Date.now() + EXTENSION_FOREGROUND_RESET_DEADLINE_MS;
+      try {
+        // Let writes that entered before this runtime's guard finish their
+        // generation fence before asking the independent UI heaps to stop.
+        await resetUtils.waitForResetSensitiveTasksToSettle();
+
+        // Fail closed: no shared store is touched until every connected UI
+        // has guarded its own heap and acknowledged the write barrier.
+        extensionForegroundPortIdsBeforeClear =
+          await quiesceExtensionForegrounds({
+            acknowledgedPorts: preparedExtensionForegroundPorts,
+            bridgeExtBg: this.backgroundApi.bridgeExtBg,
+            deadlineAt: initialBarrierDeadlineAt,
+          });
+      } catch (error) {
+        const message = `Extension foreground reset barrier failed: ${
+          error instanceof Error ? error.message : 'unknown barrier error'
+        }`;
+        if (extensionForegroundResetAttempt === 0) {
+          throw buildExtensionForegroundPreWipeBarrierError(message);
+        }
+        throw new OneKeyLocalError(message);
+      }
+      try {
+        // PREPARE is reversible and only acquires/drains foreground leases.
+        // Once every UI has acknowledged, COMMIT freezes timers and clears
+        // their browser stores before the background touches shared data.
+        extensionForegroundPortIdsBeforeClear =
+          await prepareAndCommitExtensionForegrounds({
+            bridgeExtBg: this.backgroundApi.bridgeExtBg,
+            connectionTracker: extensionForegroundConnectionTracker,
+            deadlineAt: initialBarrierDeadlineAt,
+            preparedPorts: preparedExtensionForegroundPorts,
+          });
+      } catch (error) {
+        // Some foregrounds may already have committed their local clear. Do
+        // not resume or restart against an uncleared background store: record
+        // the failure, guard any newly joined UI, and continue the full wipe.
+        initialForegroundCommitFailed = true;
+        initialForegroundCommitError = error;
+        console.error('extensionForegrounds-initial-commit error', error);
+        try {
+          extensionForegroundPortIdsBeforeClear =
+            await quiesceExtensionForegrounds({
+              acknowledgedPorts: preparedExtensionForegroundPorts,
+              bridgeExtBg: this.backgroundApi.bridgeExtBg,
+              deadlineAt: initialBarrierDeadlineAt,
+            });
+        } catch (prepareError) {
+          postCommitPrepareError = prepareError;
+          console.error(
+            'extensionForegrounds-post-commit-prepare error',
+            prepareError,
+          );
+        }
+      }
+      defaultLogger.setting.page.clearDataStep('extensionForegrounds-quiesced');
+    } else {
+      await resetUtils.waitForResetSensitiveTasksToSettle();
+    }
     // clean app storage
     try {
       await appStorage.clear();
-    } catch {
-      console.error('appStorage.clear() error');
+    } catch (error) {
+      recordResetFailure('appStorage.clear', error);
     }
     defaultLogger.setting.page.clearDataStep('appStorage-clear');
 
     // clean secure storage (WebAuth password)
     try {
       await biologyAuthUtils.deletePassword();
-    } catch {
-      console.error('deleteWebAuthPassword error');
+    } catch (error) {
+      recordResetFailure('deleteWebAuthPassword', error);
     }
 
     try {
       appStorage.syncStorage.clearAll();
-    } catch {
-      console.error('syncStorage.clear() error');
+    } catch (error) {
+      recordResetFailure('syncStorage.clearAll', error);
     }
     defaultLogger.setting.page.clearDataStep('syncStorage-clearAll');
 
@@ -116,8 +199,8 @@ class ServiceApp extends ServiceBase {
         const { default: jotaiMMKV } =
           require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
         jotaiMMKV.clearAll();
-      } catch {
-        console.error('jotaiMMKV.clearAll() error');
+      } catch (error) {
+        recordResetFailure('jotaiMMKV.clearAll', error);
       }
       defaultLogger.setting.page.clearDataStep('jotaiMMKV-clearAll');
     }
@@ -144,8 +227,8 @@ class ServiceApp extends ServiceBase {
           require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
         coldStartCacheStorage.clearAll();
       }
-    } catch {
-      console.error('coldStartCacheStorage.clearAll() error');
+    } catch (error) {
+      recordResetFailure('coldStartCacheStorage.clearAll', error);
     }
     defaultLogger.setting.page.clearDataStep('coldStartCache-clearAll');
 
@@ -153,8 +236,8 @@ class ServiceApp extends ServiceBase {
 
     try {
       await v4appStorage.clear();
-    } catch {
-      console.error('v4appStorage.clear() error');
+    } catch (error) {
+      recordResetFailure('v4appStorage.clear', error);
     }
     defaultLogger.setting.page.clearDataStep('v4appStorage-clear');
     await timerUtils.wait(100);
@@ -165,8 +248,8 @@ class ServiceApp extends ServiceBase {
     try {
       // clean local db
       await localDb.reset();
-    } catch {
-      console.error('localDb.reset() error');
+    } catch (error) {
+      recordResetFailure('localDb.reset', error);
     }
     defaultLogger.setting.page.clearDataStep('localDb-reset');
 
@@ -179,8 +262,8 @@ class ServiceApp extends ServiceBase {
           await timerUtils.wait(600);
         }
       }
-    } catch (_error) {
-      //
+    } catch (error) {
+      recordResetFailure('v4localDb.reset', error);
     }
     defaultLogger.setting.page.clearDataStep('v4localDb-reset');
 
@@ -195,12 +278,12 @@ class ServiceApp extends ServiceBase {
               try {
                 await storageBuckets?.delete(name);
               } catch (error) {
-                console.error('storageBuckets.delete() error', error);
+                recordResetFailure(`storageBuckets.delete:${name}`, error);
               }
             }
           }
-        } catch {
-          console.error('storageBuckets.delete() error');
+        } catch (error) {
+          recordResetFailure('storageBuckets.delete', error);
         }
         await timerUtils.wait(100);
         defaultLogger.setting.page.clearDataStep('storageBuckets-delete');
@@ -233,7 +316,7 @@ class ServiceApp extends ServiceBase {
                       };
                     });
                   } catch (error) {
-                    console.error('deleteIndexedDB error', error);
+                    recordResetFailure(`deleteIndexedDB:${name}`, error);
                   }
                 }
               }
@@ -241,7 +324,7 @@ class ServiceApp extends ServiceBase {
             await deleteAllIndexedDBs();
           }
         } catch (error) {
-          console.error('deleteAllIndexedDBs error', error);
+          recordResetFailure('deleteAllIndexedDBs', error);
         }
         await timerUtils.wait(100);
         defaultLogger.setting.page.clearDataStep(
@@ -253,46 +336,159 @@ class ServiceApp extends ServiceBase {
       if (platformEnv.isRuntimeBrowser) {
         try {
           globalThis.localStorage.clear();
-        } catch {
-          console.error('window.localStorage.clear() error');
+        } catch (error) {
+          recordResetFailure('window.localStorage.clear', error);
         }
         try {
           globalThis.sessionStorage.clear();
-        } catch {
-          console.error('window.sessionStorage.clear() error');
+        } catch (error) {
+          recordResetFailure('window.sessionStorage.clear', error);
         }
-      }
-
-      if (platformEnv.isExtension) {
-        try {
-          await globalThis.chrome.storage.local.clear();
-        } catch {
-          console.error('chrome.storage.local.clear() error');
-        }
-        // try {
-        //   await globalThis.chrome.storage.sync.clear();
-        // } catch {
-        //   console.error('chrome.storage.sync.clear() error');
-        // }
-        try {
-          await globalThis.chrome.storage.session.clear();
-        } catch {
-          console.error('chrome.storage.session.clear() error');
-        }
-        // try {
-        //   await globalThis.chrome.storage.managed.clear();
-        // } catch {
-        //   console.error('chrome.storage.managed.clear() error');
-        // }
       }
 
       if (platformEnv.isDesktop) {
         try {
           await globalThis.desktopApiProxy?.storage.storeClear();
         } catch (error) {
-          console.error('desktopApi.storeClear() error', error);
+          recordResetFailure('desktopApi.storeClear', error);
         }
       }
+    }
+
+    if (platformEnv.isExtensionBackground) {
+      const finalAckDeadlineAt =
+        Date.now() + EXTENSION_FOREGROUND_RESET_DEADLINE_MS;
+      let finalQuiesceError: unknown;
+      try {
+        await prepareAndCommitExtensionForegrounds({
+          bridgeExtBg: this.backgroundApi.bridgeExtBg,
+          connectionTracker: extensionForegroundConnectionTracker,
+          deadlineAt: finalAckDeadlineAt,
+          preparedPorts: preparedExtensionForegroundPorts,
+        });
+      } catch (error) {
+        finalQuiesceError = error;
+        console.error('extensionForegrounds-final-quiesce error', error);
+      }
+
+      if (finalQuiesceError) {
+        if (extensionForegroundResetAttempt >= 2) {
+          recordResetFailure(
+            'extensionForegrounds-final-quiesce',
+            finalQuiesceError,
+          );
+        } else {
+          defaultLogger.setting.page.clearDataStep(
+            'extensionForegrounds-final-quiesce-retry',
+          );
+          return this.resetData(
+            extensionForegroundResetAttempt + 1,
+            // Start each full re-wipe with fresh Port-object acknowledgements;
+            // a replacement runtime may reuse the same bridge id.
+            new Set<chrome.runtime.Port>(),
+            extensionForegroundConnectionTracker,
+            resetFailures,
+          );
+        }
+      } else {
+        if (
+          initialForegroundCommitFailed &&
+          extensionForegroundResetAttempt < 2
+        ) {
+          defaultLogger.setting.page.clearDataStep(
+            'extensionForegrounds-initial-commit-rewipe',
+          );
+          return this.resetData(
+            extensionForegroundResetAttempt + 1,
+            new Set<chrome.runtime.Port>(),
+            extensionForegroundConnectionTracker,
+            resetFailures,
+          );
+        }
+        if (initialForegroundCommitFailed) {
+          recordResetFailure(
+            'extensionForegrounds-initial-commit',
+            initialForegroundCommitError,
+          );
+          if (postCommitPrepareError) {
+            recordResetFailure(
+              'extensionForegrounds-post-commit-prepare',
+              postCommitPrepareError,
+            );
+          }
+        }
+        // Foregrounds clear window/session storage in their final COMMIT.
+        // Clear extension-owned stores only after that barrier succeeds;
+        // otherwise an unguarded foreground could rewrite behind this clear.
+        try {
+          await globalThis.chrome.storage.local.clear();
+        } catch (error) {
+          recordResetFailure('chrome.storage.local.clear', error);
+        }
+        try {
+          await globalThis.chrome.storage.session.clear();
+        } catch (error) {
+          recordResetFailure('chrome.storage.session.clear', error);
+        }
+        let currentExtensionForegroundPortIds: string[] = [];
+        let finalPortCheckError: unknown;
+        try {
+          currentExtensionForegroundPortIds = await quiesceExtensionForegrounds(
+            {
+              acknowledgedPorts: preparedExtensionForegroundPorts,
+              bridgeExtBg: this.backgroundApi.bridgeExtBg,
+              deadlineAt: finalAckDeadlineAt,
+            },
+          );
+        } catch (error) {
+          finalPortCheckError = error;
+          console.error('extensionForegrounds-final-port-check error', error);
+        }
+        const portIdsBeforeClear = new Set(
+          extensionForegroundPortIdsBeforeClear,
+        );
+        const foregroundJoinedWhileClearing =
+          (extensionForegroundRevisionBeforeClear !== undefined &&
+            extensionForegroundConnectionTracker?.getRevision() !==
+              extensionForegroundRevisionBeforeClear) ||
+          currentExtensionForegroundPortIds.some(
+            (portId) => !portIdsBeforeClear.has(portId),
+          );
+        if (finalPortCheckError || foregroundJoinedWhileClearing) {
+          if (extensionForegroundResetAttempt >= 2) {
+            if (finalPortCheckError) {
+              recordResetFailure(
+                'extensionForegrounds-final-port-check',
+                finalPortCheckError,
+              );
+            }
+            if (foregroundJoinedWhileClearing) {
+              recordResetFailure(
+                'extensionForegrounds-kept-changing',
+                new OneKeyLocalError(
+                  'Extension foregrounds kept changing during Reset App',
+                ),
+              );
+            }
+          } else {
+            defaultLogger.setting.page.clearDataStep(
+              'extensionForegrounds-changed-retry',
+            );
+            return this.resetData(
+              extensionForegroundResetAttempt + 1,
+              new Set<chrome.runtime.Port>(),
+              extensionForegroundConnectionTracker,
+              resetFailures,
+            );
+          }
+        }
+      }
+    }
+
+    if (resetFailures.length > 0) {
+      throw new OneKeyLocalError(
+        `Reset App data clear failed: ${[...new Set(resetFailures)].join(', ')}`,
+      );
     }
   }
 
@@ -324,12 +520,53 @@ class ServiceApp extends ServiceBase {
       // storage while appRestart is still awaiting its pre-restart work.
       await resetUtils.runWithResettingGuard(async () => {
         defaultLogger.setting.page.clearDataStep('startResetting');
+        let resetDataError: Error | undefined;
+        let resetFailedBeforeStorageClear = false;
+        const extensionForegroundConnectionTracker =
+          platformEnv.isExtensionBackground
+            ? createExtensionForegroundConnectionTracker()
+            : undefined;
+        const disposeExtensionForegroundConnectionTracker = () => {
+          extensionForegroundConnectionTracker?.dispose();
+        };
         try {
           defaultLogger.setting.page.clearDataStep('resetData-start');
-          await this.resetData();
+          await this.resetData(
+            0,
+            new Set<chrome.runtime.Port>(),
+            extensionForegroundConnectionTracker,
+          );
           defaultLogger.setting.page.clearDataStep('resetData-end');
         } catch (e) {
+          resetFailedBeforeStorageClear =
+            e instanceof Error &&
+            extensionForegroundPreWipeBarrierErrors.has(e);
+          resetDataError =
+            e instanceof Error
+              ? e
+              : new OneKeyLocalError('Reset App data clear failed');
           console.error('resetData error', e);
+        }
+
+        if (resetFailedBeforeStorageClear) {
+          let resumeError: unknown;
+          try {
+            await resumeExtensionForegrounds({
+              bridgeExtBg: this.backgroundApi.bridgeExtBg,
+            });
+          } catch (error) {
+            resumeError = error;
+            console.error('resumeExtensionForegrounds error', error);
+          }
+          disposeExtensionForegroundConnectionTracker();
+          throw new OneKeyLocalError(
+            [
+              resetDataError?.message,
+              resumeError instanceof Error ? resumeError.message : undefined,
+            ]
+              .filter(Boolean)
+              .join('; '),
+          );
         }
 
         if (
@@ -355,10 +592,40 @@ class ServiceApp extends ServiceBase {
         // is now holding stale state and bundle moduleIds may have re-keyed via
         // OTA. mode=All forces both runtimes cold so nothing reads from the
         // dead state.
-        await this.restartApp({
-          mode: EAppRestartMode.All,
-          reason: 'auth.resetData',
-        });
+        try {
+          await this.restartApp({
+            mode: EAppRestartMode.All,
+            reason: resetDataError ? 'auth.resetData.failed' : 'auth.resetData',
+          });
+        } catch (restartError) {
+          let resumeError: unknown;
+          if (platformEnv.isExtensionBackground) {
+            try {
+              await resumeExtensionForegrounds({
+                bridgeExtBg: this.backgroundApi.bridgeExtBg,
+              });
+            } catch (error) {
+              resumeError = error;
+              console.error('resumeExtensionForegrounds error', error);
+            }
+          }
+          disposeExtensionForegroundConnectionTracker();
+          const failureMessages = [
+            resetDataError?.message,
+            restartError instanceof Error
+              ? restartError.message
+              : 'App restart failed',
+            resumeError instanceof Error ? resumeError.message : undefined,
+          ].filter(Boolean);
+          throw new OneKeyLocalError(failureMessages.join('; '));
+        }
+        // chrome.runtime.reload() only schedules teardown. Keep the connection
+        // tracker alive together with appRestart's retained reset lease until
+        // Chrome destroys this background runtime. Disposing here would reopen
+        // an unobserved connection window after the final port barrier.
+        if (resetDataError) {
+          throw new OneKeyLocalError(resetDataError.message);
+        }
       });
     } finally {
       defaultLogger.setting.page.clearDataStep('endResetting');

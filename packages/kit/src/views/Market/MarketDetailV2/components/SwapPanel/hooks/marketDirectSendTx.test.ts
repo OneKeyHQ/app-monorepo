@@ -1,5 +1,7 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 const mockPrepareSendConfirmUnsignedTx = jest.fn();
 const mockBuildUnsignedTx = jest.fn();
@@ -94,6 +96,23 @@ function createEstimateFeeResult() {
   };
 }
 
+function createDecodedTx(overrides: Partial<IDecodedTx> = {}): IDecodedTx {
+  return {
+    txid: '0xtx',
+    owner: '0xuser',
+    signer: '0xuser',
+    nonce: 1,
+    actions: [],
+    status: EDecodedTxStatus.Pending,
+    networkId: 'evm--1',
+    accountId: 'account-1',
+    totalFeeFiatValue: '0.12',
+    totalFeeInNative: '0.0001',
+    extraInfo: null,
+    ...overrides,
+  };
+}
+
 function createMarketPresetToken(overrides = {}) {
   return {
     contractAddress: '',
@@ -137,12 +156,7 @@ describe('marketDirectSendTx', () => {
       txid: '0xtx',
       rawTx: '0xraw',
     });
-    mockBuildDecodedTx.mockResolvedValue({
-      txid: '0xtx',
-      networkId: 'evm--1',
-      totalFeeFiatValue: '0.12',
-      totalFeeInNative: '0.0001',
-    });
+    mockBuildDecodedTx.mockResolvedValue(createDecodedTx());
     mockSaveSendConfirmHistoryTxs.mockResolvedValue(undefined);
     mockPreActionsBeforeSending.mockResolvedValue(undefined);
     mockAfterSendTxAction.mockResolvedValue(undefined);
@@ -278,6 +292,143 @@ describe('marketDirectSendTx', () => {
     expect(mockBatchEstimateFee).not.toHaveBeenCalled();
   });
 
+  it('keeps a broadcast successful when local decoding fails', async () => {
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    mockBuildDecodedTx.mockRejectedValueOnce(new Error('decode failed'));
+
+    const result = await sendMarketDirectUnsignedTxs({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: {
+          data: '0xencoded',
+        } as never,
+        isInternalSwap: true,
+      },
+    });
+
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(result[0]).toMatchObject({
+      signedTx: { txid: '0xtx' },
+      decodedTx: {
+        txid: '0xtx',
+        status: EDecodedTxStatus.Pending,
+      },
+    });
+    expect(mockSaveSendConfirmHistoryTxs).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a broadcast successful when local history persistence fails', async () => {
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    mockSaveSendConfirmHistoryTxs.mockRejectedValueOnce(
+      new Error('history failed'),
+    );
+
+    const result = await sendMarketDirectUnsignedTxs({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: {
+          data: '0xencoded',
+        } as never,
+        isInternalSwap: true,
+      },
+    });
+
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(result[0]).toMatchObject({
+      signedTx: { txid: '0xtx' },
+      decodedTx: { status: EDecodedTxStatus.Pending },
+    });
+  });
+
+  it('keeps a broadcast successful when the legacy after-send hook fails', async () => {
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    mockGetVaultSettings.mockResolvedValue({
+      afterSendTxActionEnabled: true,
+    });
+    mockAfterSendTxAction.mockRejectedValueOnce(new Error('after-send failed'));
+
+    const result = await sendMarketDirectUnsignedTxs({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: {
+          data: '0xencoded',
+        } as never,
+        isInternalSwap: true,
+      },
+    });
+
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(mockAfterSendTxAction).toHaveBeenCalledTimes(1);
+    expect(result[0]).toMatchObject({
+      signedTx: { txid: '0xtx' },
+      decodedTx: { status: EDecodedTxStatus.Pending },
+    });
+  });
+
+  it('still rejects a failure before a broadcast receipt exists', async () => {
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    mockSignAndSendTransaction.mockRejectedValueOnce(
+      new Error('broadcast failed'),
+    );
+
+    await expect(
+      sendMarketDirectUnsignedTxs({
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        buildUnsignedParams: {
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          encodedTx: {
+            data: '0xencoded',
+          } as never,
+          isInternalSwap: true,
+        },
+      }),
+    ).rejects.toThrow('broadcast failed');
+
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(mockBuildDecodedTx).not.toHaveBeenCalled();
+    expect(mockSaveSendConfirmHistoryTxs).not.toHaveBeenCalled();
+  });
+
+  it('does not invent a successful receipt when broadcast returns no txid', async () => {
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    mockSignAndSendTransaction.mockResolvedValueOnce({ rawTx: '0xraw' });
+
+    await expect(
+      sendMarketDirectUnsignedTxs({
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        buildUnsignedParams: {
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          encodedTx: {
+            data: '0xencoded',
+          } as never,
+          isInternalSwap: true,
+        },
+      }),
+    ).rejects.toThrow('Transaction broadcast receipt is missing txid');
+
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(mockBuildDecodedTx).not.toHaveBeenCalled();
+    expect(mockSaveSendConfirmHistoryTxs).not.toHaveBeenCalled();
+  });
+
   it('sends batch approve plus swap with batch fee estimation when supported', async () => {
     const approveUnsignedTx = createUnsignedTx({
       encodedTx: {
@@ -323,6 +474,61 @@ describe('marketDirectSendTx', () => {
     expect(mockUpdateUnsignedTx).toHaveBeenCalledTimes(2);
     expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(2);
     expect(mockSaveSendConfirmHistoryTxs).toHaveBeenCalledTimes(2);
+  });
+
+  it('continues an approve plus swap batch after approve decoding fails', async () => {
+    const approveUnsignedTx = createUnsignedTx({
+      encodedTx: {
+        data: '0xapprove',
+      } as never,
+      nonce: 1,
+    });
+    const swapUnsignedTx = createUnsignedTx({
+      encodedTx: {
+        data: '0xswap',
+      } as never,
+      nonce: 2,
+    });
+
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(swapUnsignedTx);
+    mockGetVaultSettings.mockResolvedValue({
+      supportBatchEstimateFee: {
+        'evm--1': true,
+      },
+    });
+    mockBatchEstimateFee.mockResolvedValue({
+      common: createEstimateFeeResult().common,
+      txFees: [createEstimateFeeResult(), createEstimateFeeResult()],
+    });
+    mockSignAndSendTransaction
+      .mockResolvedValueOnce({ txid: '0xapprove', rawTx: '0xapprove-raw' })
+      .mockResolvedValueOnce({ txid: '0xswap', rawTx: '0xswap-raw' });
+    mockBuildDecodedTx
+      .mockRejectedValueOnce(new Error('approve decode failed'))
+      .mockResolvedValueOnce(createDecodedTx({ txid: '0xswap', nonce: 2 }));
+
+    const result = await sendMarketDirectUnsignedTxs({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: {
+          data: '0xswap',
+        } as never,
+        isInternalSwap: true,
+      },
+      approveUnsignedTxArr: [approveUnsignedTx],
+    });
+
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(2);
+    expect(result).toHaveLength(2);
+    expect(result.map((item) => item.signedTx.txid)).toEqual([
+      '0xapprove',
+      '0xswap',
+    ]);
+    expect(result[0].decodedTx.status).toBe(EDecodedTxStatus.Pending);
   });
 
   it('falls back to sequential estimation when batch tx fee results are shorter than expected for direct send', async () => {

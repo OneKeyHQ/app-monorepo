@@ -368,6 +368,13 @@ export type IGlobalEventBusSyncBroadcastParams = {
   originNodeId?: string;
 };
 
+export const EXTENSION_FOREGROUND_RESET_METHOD_NAME =
+  'extensionForegroundReset';
+export const EXTENSION_FOREGROUND_RESET_COMMIT_METHOD_NAME =
+  'extensionForegroundResetCommit';
+export const EXTENSION_FOREGROUND_RESET_RESUME_METHOD_NAME =
+  'extensionForegroundResetResume';
+
 export const REPLACE_WHOLE_STATE = 'REPLACE_WHOLE_STATE';
 
 export async function fetchData<T>(

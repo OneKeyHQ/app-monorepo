@@ -1,8 +1,7 @@
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
-import type {
-  ESwapDirectionType,
-  ISwapToken,
-} from '@onekeyhq/shared/types/swap/types';
+import { getSwapTokenIdentityKey } from '@onekeyhq/shared/src/utils/swapTokenIdentity';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 export type ISwapTokenDetailRequestIdentity = {
   key: string;
@@ -16,6 +15,7 @@ export type ISwapTokenDetailRequestState = Partial<
 export function buildSwapTokenDetailRequestKey({
   accountAddress,
   accountId,
+  addressInfoReady,
   dbAccountId,
   deriveType,
   direction,
@@ -37,6 +37,7 @@ export function buildSwapTokenDetailRequestKey({
   walletId?: string;
   indexedAccountId?: string;
   accountId?: string;
+  addressInfoReady?: boolean;
   dbAccountId?: string;
   deriveType?: string;
   accountAddress?: string;
@@ -52,16 +53,12 @@ export function buildSwapTokenDetailRequestKey({
 }) {
   return stableStringify({
     direction,
-    token: token
-      ? {
-          networkId: token.networkId,
-          contractAddress: token.contractAddress,
-        }
-      : undefined,
+    token: token ? getSwapTokenIdentityKey(token) : undefined,
     owner: {
       walletId,
       indexedAccountId,
       accountId,
+      isAddressInfoReady: addressInfoReady,
       dbAccountId,
       deriveType,
       accountAddress,
@@ -78,6 +75,21 @@ export function buildSwapTokenDetailRequestKey({
       isAddressInfoReady: targetAddressInfoReady,
     },
   });
+}
+
+export function isSwapTokenDetailAddressInfoReady({
+  direction,
+  addressInfoReady,
+  targetAddressInfoReady,
+}: {
+  direction: ESwapDirectionType;
+  addressInfoReady: boolean;
+  targetAddressInfoReady?: boolean;
+}) {
+  return Boolean(
+    addressInfoReady &&
+    (direction !== ESwapDirectionType.TO || targetAddressInfoReady),
+  );
 }
 
 export function startSwapTokenDetailRequest({
@@ -119,7 +131,7 @@ export function isCurrentSwapTokenDetailRequest({
   );
 }
 
-export function isSwapTokenDetailRequestKeyCurrent({
+function isSwapTokenDetailRequestKeyCurrent({
   direction,
   key,
   state,
@@ -132,12 +144,14 @@ export function isSwapTokenDetailRequestKeyCurrent({
 }
 
 export function isSwapTokenDetailBalanceVisible({
+  addressInfoReady,
   direction,
   initialSelectedTokensSynced,
   isCurrentDisplayToken,
   key,
   state,
 }: {
+  addressInfoReady: boolean;
   direction: ESwapDirectionType;
   initialSelectedTokensSynced: boolean;
   isCurrentDisplayToken: boolean;
@@ -145,6 +159,7 @@ export function isSwapTokenDetailBalanceVisible({
   state: ISwapTokenDetailRequestState;
 }) {
   return Boolean(
+    addressInfoReady &&
     initialSelectedTokensSynced &&
     isCurrentDisplayToken &&
     isSwapTokenDetailRequestKeyCurrent({ direction, key, state }),

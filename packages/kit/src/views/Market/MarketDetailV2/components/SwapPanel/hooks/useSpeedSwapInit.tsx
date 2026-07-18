@@ -24,6 +24,7 @@ const defaultSpeedSwapConfig: ISpeedSwapConfig = {
 export function useSpeedSwapInit(
   networkId: string,
   enableNoNetworkCheck?: boolean,
+  enabled = true,
 ) {
   const requestIdRef = useRef(0);
   const speedSwapConfigScope = `${enableNoNetworkCheck ? '1' : '0'}:${networkId}`;
@@ -50,6 +51,16 @@ export function useSpeedSwapInit(
     };
 
     void (async () => {
+      if (!enabled) {
+        updateIfCurrent(() => {
+          setSpeedSwapConfigLoading(false);
+          setSpeedSwapConfigState({
+            config: defaultSpeedSwapConfig,
+            scope: speedSwapConfigScope,
+          });
+        });
+        return;
+      }
       if (enableNoNetworkCheck && !networkId) {
         updateIfCurrent(() => {
           setSpeedSwapConfigLoading(false);
@@ -85,7 +96,7 @@ export function useSpeedSwapInit(
         });
       }
     })();
-  }, [enableNoNetworkCheck, networkId, speedSwapConfigScope]);
+  }, [enableNoNetworkCheck, enabled, networkId, speedSwapConfigScope]);
 
   return {
     defaultTokens: speedSwapConfig?.speedConfig.defaultTokens as IToken[],

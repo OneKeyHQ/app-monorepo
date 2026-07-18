@@ -3,8 +3,10 @@ import {
   type ISwapReviewStepTexts,
   buildSwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
+import { isSameSwapExecutionAddress } from '@onekeyhq/kit/src/views/Swap/utils/swapExecutionSnapshotGuard';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
 import { getSwapExecutionTypeFromQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/swapTypeUtils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
@@ -22,6 +24,170 @@ import {
 import { isEncodedTxMatch } from './marketEncodedTxUtils';
 
 import type { IMarketGasInfoEntry } from './marketDirectSendTx';
+
+export type IMarketReviewExecutionSigner = {
+  accountAddress?: string;
+  accountId?: string;
+  networkId?: string;
+};
+
+export type IMarketReviewExecutionSnapshotGuard = {
+  accountAddress: string;
+  accountId: string;
+  networkId: string;
+  kind: 'swap' | 'wrap';
+};
+
+export function isMarketReviewUserCancelledError(error: unknown) {
+  const normalizedError = error as
+    | {
+        code?: number;
+        key?: string;
+        message?: string;
+      }
+    | undefined;
+  const message = normalizedError?.message?.toLowerCase() ?? '';
+
+  return (
+    normalizedError?.key === 'global.cancel' ||
+    normalizedError?.code === 803 ||
+    normalizedError?.code === 822 ||
+    normalizedError?.code === 4001 ||
+    message.includes('user rejected') ||
+    message.includes('rejected by user') ||
+    message.includes('user denied') ||
+    message.includes('denied by user') ||
+    message.includes('user cancelled') ||
+    message.includes('user canceled') ||
+    message.includes('cancelled by user') ||
+    message.includes('canceled by user')
+  );
+}
+
+export function normalizeMarketReviewInternalError({
+  error,
+  fallbackMessage,
+}: {
+  error: unknown;
+  fallbackMessage: string;
+}) {
+  if (!(error instanceof Error) || !error.message.startsWith('Market ')) {
+    return error;
+  }
+
+  const normalizedError = new OneKeyLocalError(fallbackMessage);
+  normalizedError.cause = error;
+  return normalizedError;
+}
+
+export function requireMarketReviewExecutionSnapshot<
+  T extends IMarketReviewExecutionSnapshotGuard,
+>({
+  currentSigner,
+  expectedKind,
+  snapshot,
+}: {
+  currentSigner?: IMarketReviewExecutionSigner;
+  expectedKind?: IMarketReviewExecutionSnapshotGuard['kind'];
+  snapshot?: T;
+}) {
+  if (!snapshot) {
+    throw new OneKeyLocalError('Market review snapshot missing.');
+  }
+
+  if (expectedKind && snapshot.kind !== expectedKind) {
+    throw new OneKeyLocalError('Market review snapshot type mismatch.');
+  }
+
+  const signerMatches = Boolean(
+    snapshot.accountAddress &&
+    snapshot.accountId &&
+    snapshot.networkId &&
+    currentSigner?.accountAddress &&
+    currentSigner.accountId &&
+    currentSigner.networkId &&
+    snapshot.accountId === currentSigner.accountId &&
+    snapshot.networkId === currentSigner.networkId &&
+    isSameSwapExecutionAddress({
+      networkId: snapshot.networkId,
+      left: snapshot.accountAddress,
+      right: currentSigner.accountAddress,
+    }),
+  );
+
+  if (!signerMatches) {
+    throw new OneKeyLocalError(
+      'Market signing account changed. Close Review and try again.',
+    );
+  }
+
+  return snapshot;
+}
+
+export function runMarketPostExecutionActionBestEffort({
+  action,
+  onError,
+}: {
+  action: () => void;
+  onError: (error: unknown) => void;
+}) {
+  try {
+    action();
+  } catch (error) {
+    try {
+      onError(error);
+    } catch {
+      // Error reporting is also best effort after irreversible execution.
+    }
+  }
+}
+
+export function publishMarketExecutionResultBestEffort<T>({
+  result,
+  onBroadcast,
+  onBroadcastError,
+}: {
+  result: T;
+  onBroadcast?: (result: T) => void;
+  onBroadcastError: (error: unknown) => void;
+}) {
+  runMarketPostExecutionActionBestEffort({
+    action: () => onBroadcast?.(result),
+    onError: onBroadcastError,
+  });
+}
+
+export async function settleMarketExecutionWithBestEffortHistory<T>({
+  result,
+  onBroadcast,
+  onBroadcastError,
+  persistHistory,
+  onHistoryError,
+}: {
+  result: T;
+  onBroadcast?: (result: T) => void;
+  onBroadcastError: (error: unknown) => void;
+  persistHistory: () => Promise<unknown>;
+  onHistoryError: (error: unknown) => void;
+}) {
+  // The irreversible action already succeeded. Publish that result before any
+  // local bookkeeping so a storage failure can never make the review retry it.
+  publishMarketExecutionResultBestEffort({
+    result,
+    onBroadcast,
+    onBroadcastError,
+  });
+
+  try {
+    await persistHistory();
+  } catch (error) {
+    try {
+      onHistoryError(error);
+    } catch {
+      // Error reporting is also best effort after irreversible execution.
+    }
+  }
+}
 
 function shouldEnableMarketReviewFeeLevel(steps: ISwapStep[]) {
   return steps.some((step) => step.type === ESwapStepType.APPROVE_TX);

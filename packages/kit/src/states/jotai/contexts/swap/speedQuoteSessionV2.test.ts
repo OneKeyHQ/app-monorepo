@@ -1,4 +1,8 @@
-import type { IFetchSpeedSwapQuoteV2Result } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchSpeedSwapQuoteV2Result,
+  IFetchSwapQuoteParams,
+} from '@onekeyhq/shared/types/swap/types';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   SWAP_SPEED_QUOTE_SESSION_V2_INITIAL_STATE,
@@ -9,10 +13,31 @@ import {
   settleSwapSpeedQuoteSession,
 } from './speedQuoteSessionV2';
 
+const request: IFetchSwapQuoteParams = {
+  fromToken: {
+    networkId: 'evm--1',
+    contractAddress: '',
+    isNative: true,
+    symbol: 'ETH',
+    decimals: 18,
+  },
+  toToken: {
+    networkId: 'evm--1',
+    contractAddress: '0xusdc',
+    isNative: false,
+    symbol: 'USDC',
+    decimals: 6,
+  },
+  fromTokenAmount: '1',
+  protocol: ESwapTabSwitchType.SWAP,
+  slippagePercentage: 0.5,
+};
+
 describe('speedQuoteSessionV2', () => {
   it('creates an owner-scoped request and advances its intent revision', () => {
     const prepared = prepareSwapSpeedQuoteSession(
       SWAP_SPEED_QUOTE_SESSION_V2_INITIAL_STATE,
+      request,
     );
 
     expect(prepared.surfaceId).toBeTruthy();
@@ -28,8 +53,12 @@ describe('speedQuoteSessionV2', () => {
   it('rejects a stale completion after a newer request starts', () => {
     const first = prepareSwapSpeedQuoteSession(
       SWAP_SPEED_QUOTE_SESSION_V2_INITIAL_STATE,
+      request,
     );
-    const second = prepareSwapSpeedQuoteSession(first);
+    const second = prepareSwapSpeedQuoteSession(first, {
+      ...request,
+      fromTokenAmount: '2',
+    });
     const staleResult: IFetchSpeedSwapQuoteV2Result = {
       accepted: true,
       session: first.activeSession!,
@@ -51,6 +80,7 @@ describe('speedQuoteSessionV2', () => {
   it('invalidates the active request and builds an exact cancel identity', () => {
     const prepared = prepareSwapSpeedQuoteSession(
       SWAP_SPEED_QUOTE_SESSION_V2_INITIAL_STATE,
+      request,
     );
     const cancelParams = buildSwapSpeedQuoteCancelParams(
       prepared.activeSession!,

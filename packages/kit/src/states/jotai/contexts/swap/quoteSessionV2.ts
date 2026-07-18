@@ -1,9 +1,9 @@
-import { sha256 as sha256ByNoble } from '@noble/hashes/sha256';
-import { bytesToHex } from '@noble/hashes/utils';
-
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  buildSwapQuoteDisplayIntentFingerprint,
+  buildSwapQuoteExecutionFingerprint,
+} from '@onekeyhq/shared/src/utils/swapQuoteFingerprint';
 import type {
   IFetchSwapQuoteParams,
   ISwapQuoteEventData,
@@ -11,7 +11,11 @@ import type {
   ISwapQuoteSessionIdentity,
   ISwapQuoteSessionStartResult,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapQuoteKind } from '@onekeyhq/shared/types/swap/types';
+
+export {
+  buildSwapQuoteDisplayIntentFingerprint,
+  buildSwapQuoteExecutionFingerprint,
+};
 
 export type ISwapQuoteSessionPhase =
   | 'idle'
@@ -28,6 +32,11 @@ export type ISwapQuoteSessionState = {
   bgGeneration?: number;
   lastSequence: number;
   phase: ISwapQuoteSessionPhase;
+};
+
+type IPreparedSwapQuoteSessionState = ISwapQuoteSessionState & {
+  surfaceId: string;
+  activeSession: ISwapQuoteSessionIdentity;
 };
 
 export const SWAP_QUOTE_SESSION_V2_INITIAL_STATE: ISwapQuoteSessionState = {
@@ -53,108 +62,22 @@ function isSameSessionIdentity(
   );
 }
 
-function encodeUtf8(value: string) {
-  const encoded = encodeURIComponent(value);
-  const bytes: number[] = [];
-  for (let index = 0; index < encoded.length; index += 1) {
-    if (encoded[index] === '%') {
-      bytes.push(Number.parseInt(encoded.slice(index + 1, index + 3), 16));
-      index += 2;
-    } else {
-      bytes.push(encoded.charCodeAt(index));
-    }
-  }
-  return Uint8Array.from(bytes);
+export function isSwapQuoteSessionEventForCurrentSession({
+  event,
+  state,
+}: {
+  event: ISwapQuoteSessionEventV2;
+  state: ISwapQuoteSessionState;
+}) {
+  return (
+    isSameSessionIdentity(state.activeSession, event.session) &&
+    (state.bgGeneration === undefined ||
+      state.bgGeneration === event.bgGeneration)
+  );
 }
 
-export function buildSwapQuoteSurfaceId() {
+function buildSwapQuoteSurfaceId() {
   return `${appEventBus.nodeId}:swap:${generateUUID()}`;
-}
-
-function buildSwapQuoteCanonicalRequest(
-  request: IFetchSwapQuoteParams,
-  slippage: unknown,
-  {
-    includeBlockNumber,
-    includeInactiveAmount,
-  }: {
-    includeBlockNumber: boolean;
-    includeInactiveAmount: boolean;
-  },
-) {
-  const kind = request.kind ?? ESwapQuoteKind.SELL;
-  return {
-    protocol: request.protocol,
-    kind,
-    fromToken: {
-      networkId: request.fromToken.networkId,
-      contractAddress: request.fromToken.contractAddress,
-    },
-    toToken: {
-      networkId: request.toToken.networkId,
-      contractAddress: request.toToken.contractAddress,
-    },
-    fromTokenAmount:
-      includeInactiveAmount || kind === ESwapQuoteKind.SELL
-        ? request.fromTokenAmount
-        : undefined,
-    toTokenAmount:
-      includeInactiveAmount || kind === ESwapQuoteKind.BUY
-        ? request.toTokenAmount
-        : undefined,
-    accountId: request.accountId,
-    userAddress: request.userAddress,
-    receivingAddress: request.receivingAddress,
-    slippage,
-    ...(includeBlockNumber ? { blockNumber: request.blockNumber } : {}),
-    expirationTime: request.expirationTime,
-    limitPartiallyFillable: request.limitPartiallyFillable,
-    userMarketPriceRate: request.userMarketPriceRate,
-    incognito: request.incognito,
-  };
-}
-
-function hashSwapQuoteCanonicalRequest(canonicalRequest: unknown) {
-  const serialized = stableStringify(canonicalRequest);
-  return bytesToHex(sha256ByNoble(encodeUtf8(serialized)));
-}
-
-export function buildSwapQuoteExecutionFingerprint(
-  request: IFetchSwapQuoteParams,
-) {
-  return hashSwapQuoteCanonicalRequest(
-    buildSwapQuoteCanonicalRequest(
-      request,
-      {
-        autoSlippage: request.autoSlippage,
-        percentage: request.slippagePercentage,
-      },
-      { includeBlockNumber: true, includeInactiveAmount: true },
-    ),
-  );
-}
-
-/**
- * Display ownership follows the user's slippage mode. Backend AUTO
- * suggestions may change the concrete percentage between refreshes, but that
- * must not erase the last committed amount. Execution ownership continues to
- * use the exact fingerprint above and is revoked for every new request.
- */
-export function buildSwapQuoteDisplayIntentFingerprint(
-  request: IFetchSwapQuoteParams,
-) {
-  return hashSwapQuoteCanonicalRequest(
-    buildSwapQuoteCanonicalRequest(
-      request,
-      request.autoSlippage
-        ? { autoSlippage: true }
-        : {
-            autoSlippage: false,
-            percentage: request.slippagePercentage,
-          },
-      { includeBlockNumber: false, includeInactiveAmount: false },
-    ),
-  );
 }
 
 export function prepareSwapQuoteSession({
@@ -165,7 +88,7 @@ export function prepareSwapQuoteSession({
   intentRevision?: number;
   request: IFetchSwapQuoteParams;
   state: ISwapQuoteSessionState;
-}): ISwapQuoteSessionState {
+}): IPreparedSwapQuoteSessionState {
   const surfaceId = state.surfaceId ?? buildSwapQuoteSurfaceId();
   const nextIntentRevision = intentRevision ?? state.intentRevision + 1;
   return {

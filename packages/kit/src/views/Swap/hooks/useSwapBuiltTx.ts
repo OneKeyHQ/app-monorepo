@@ -56,7 +56,6 @@ import {
   numberFormat,
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IEstimateFeeParams,
@@ -140,6 +139,7 @@ import {
   type ISwapBtcOutputValidationError,
   checkSwapLatestBalanceSufficient,
   getSwapEncodedTxSize,
+  getSwapOtherFeeRequiredAmount,
   getSwapRequiredNativeBalanceAmount,
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
@@ -147,6 +147,8 @@ import {
   buildSwapExecutionResultFromBuildResponse,
   isSwapSignedNoSendBuildResult,
   isSwapTerminalSignedNoSendBuildResult,
+  persistSwapHistoryBestEffort,
+  runSwapSideEffectBestEffort,
   settleSwapSignedNoSendResult,
 } from '../utils/swapBuildExecutionResult';
 import {
@@ -173,6 +175,30 @@ const getEthers = createLazySdkLoader(() => import('ethers'));
 const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
+
+function logSwapHistoryPersistenceError(error: unknown) {
+  try {
+    defaultLogger.app.error.log(
+      `Persist swap history failed after execution: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  } catch {
+    // Logging must not change an already-completed execution result.
+  }
+}
+
+function logSwapPostExecutionSideEffectError(error: unknown) {
+  try {
+    defaultLogger.app.error.log(
+      `Settle swap result locally failed after execution: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  } catch {
+    // Logging must not change an already-completed execution result.
+  }
+}
 
 type ISwapGasFeeInfo = {
   encodeTx: IEncodedTx;
@@ -540,47 +566,59 @@ export function useSwapBuildTx() {
     ) => {
       if (swapInfo) {
         if (isExecutionRevisionCurrent(operationRevision)) {
-          clearQuoteData();
-          setSwapSteps(
-            (prevSteps: {
-              steps: ISwapStep[];
-              preSwapData: ISwapPreSwapData;
-              quoteResult?: IFetchQuoteResult | undefined;
-            }) => {
-              const newSteps = [...prevSteps.steps];
-              newSteps[newSteps.length - 1] = {
-                ...newSteps[newSteps.length - 1],
-                status: ESwapStepStatus.PENDING,
-                txHash: txId,
-                orderId,
-              };
-              return {
-                ...prevSteps,
-                steps: newSteps,
-              };
+          runSwapSideEffectBestEffort({
+            action: () => {
+              clearQuoteData();
+              setSwapSteps(
+                (prevSteps: {
+                  steps: ISwapStep[];
+                  preSwapData: ISwapPreSwapData;
+                  quoteResult?: IFetchQuoteResult | undefined;
+                }) => {
+                  const newSteps = [...prevSteps.steps];
+                  newSteps[newSteps.length - 1] = {
+                    ...newSteps[newSteps.length - 1],
+                    status: ESwapStepStatus.PENDING,
+                    txHash: txId,
+                    orderId,
+                  };
+                  return {
+                    ...prevSteps,
+                    steps: newSteps,
+                  };
+                },
+              );
+              if (
+                accountUtils.isQrAccount({
+                  accountId: fromAccountId ?? '',
+                })
+              ) {
+                void goBackQrCodeModal();
+              }
             },
-          );
-          if (
-            accountUtils.isQrAccount({
-              accountId: fromAccountId ?? '',
-            })
-          ) {
-            void goBackQrCodeModal();
-          }
+            onError: logSwapPostExecutionSideEffectError,
+          });
         }
-        await generateSwapHistoryItem({
-          txId,
-          swapTxInfo: swapInfo,
-          gasFeeFiatValue,
-          gasFeeInNative,
+        const historyPersisted = await persistSwapHistoryBestEffort({
+          persistHistory: () =>
+            generateSwapHistoryItem({
+              txId,
+              swapTxInfo: swapInfo,
+              gasFeeFiatValue,
+              gasFeeInNative,
+            }),
+          onHistoryError: logSwapHistoryPersistenceError,
         });
         if (
+          historyPersisted &&
           swapInfo.sender.token.networkId === swapInfo.receiver.token.networkId
         ) {
-          void backgroundApiProxy.serviceNotification.blockNotificationForTxId({
-            networkId: swapInfo.sender.token.networkId,
-            tx: txId,
-          });
+          void backgroundApiProxy.serviceNotification
+            .blockNotificationForTxId({
+              networkId: swapInfo.sender.token.networkId,
+              tx: txId,
+            })
+            .catch(logSwapHistoryPersistenceError);
         }
       }
     },
@@ -639,6 +677,7 @@ export function useSwapBuildTx() {
             generateSwapHistoryItem({
               swapTxInfo: swapInfo,
             }),
+          onHistoryError: logSwapHistoryPersistenceError,
         });
       }
     },
@@ -726,17 +765,12 @@ export function useSwapBuildTx() {
       if (otherFeeInfo?.length) {
         await Promise.all(
           otherFeeInfo.map(async (item) => {
-            const shouldAddFromAmount = equalTokenNoCaseSensitive({
-              token1: item.token,
-              token2: fromToken,
+            const finalTokenAmount = getSwapOtherFeeRequiredAmount({
+              feeAmount: item.amount,
+              feeToken: item.token,
+              fromAmount: selectQuote?.fromAmount,
+              fromToken,
             });
-            const tokenAmountBN = new BigNumber(item.amount ?? 0);
-            const fromTokenAmountBN = new BigNumber(
-              selectQuote?.fromAmount ?? 0,
-            );
-            const finalTokenAmount = shouldAddFromAmount
-              ? tokenAmountBN.plus(fromTokenAmountBN).toFixed()
-              : tokenAmountBN.toFixed();
             const checkResult = await checkSwapLatestBalanceSufficient({
               token: item.token,
               amount: finalTokenAmount,
@@ -748,7 +782,7 @@ export function useSwapBuildTx() {
                 ...getSwapBalanceInsufficientToast({
                   networkId: item.token.networkId,
                   tokenSymbol: checkResult.tokenSymbol,
-                  reserveAmount: tokenAmountBN.toFixed(),
+                  reserveAmount: new BigNumber(item.amount ?? 0).toFixed(),
                 }),
               });
               checkRes = false;
@@ -1197,29 +1231,39 @@ export function useSwapBuildTx() {
           throw new OneKeyAppError({ message, autoToast: false });
         }
       }
-      const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
-        networkId,
-        accountId,
-        unsignedTx: updatedUnsignedTxItem,
-        feeInfo: {
-          feeInfo: gasInfo as IFeeInfoUnit,
-          total,
-          totalNative,
-          totalFiat,
-          totalNativeForDisplay,
-          totalFiatForDisplay,
+      if (!res.txid) {
+        throw new OneKeyError('Transaction broadcast receipt is missing txid');
+      }
+      await persistSwapHistoryBestEffort({
+        persistHistory: async () => {
+          const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx(
+            {
+              networkId,
+              accountId,
+              unsignedTx: updatedUnsignedTxItem,
+              feeInfo: {
+                feeInfo: gasInfo as IFeeInfoUnit,
+                total,
+                totalNative,
+                totalFiat,
+                totalNativeForDisplay,
+                totalFiatForDisplay,
+              },
+              saveToLocalHistory: true,
+            },
+          );
+          await backgroundApiProxy.serviceHistory.saveSendConfirmHistoryTxs({
+            networkId,
+            accountId,
+            data: {
+              signedTx: res,
+              decodedTx,
+              approveInfo: updatedUnsignedTxItem.approveInfo,
+              feeInfo: gasInfo as IFeeInfoUnit,
+            },
+          });
         },
-        saveToLocalHistory: true,
-      });
-      await backgroundApiProxy.serviceHistory.saveSendConfirmHistoryTxs({
-        networkId,
-        accountId,
-        data: {
-          signedTx: res,
-          decodedTx,
-          approveInfo: updatedUnsignedTxItem.approveInfo,
-          feeInfo: gasInfo as IFeeInfoUnit,
-        },
+        onHistoryError: logSwapHistoryPersistenceError,
       });
       return {
         ...res,
@@ -1243,34 +1287,40 @@ export function useSwapBuildTx() {
       networkId: string,
       accountId: string,
       message?: string,
-      encodedTx?: string,
+      encodedTx?: unknown,
       swapInfo?: ISwapTxInfo,
       isBatch?: boolean,
     ) => {
-      const swapType = getSwapExecutionTypeFromQuoteResult(
-        swapInfo?.swapBuildResData.result,
-      );
-      defaultLogger.swap.swapEstimateFee.swapEstimateFee({
-        status,
-        message,
-        orderId: swapInfo?.swapBuildResData.orderId ?? '',
-        swapType,
-        slippage: slippageItem.value.toString(),
-        router: JSON.stringify(
-          swapInfo?.swapBuildResData.result.routesData ?? [],
-        ),
-        fromNetworkId: swapInfo?.sender.token.networkId ?? '',
-        toNetworkId: swapInfo?.receiver.token.networkId ?? '',
-        fromTokenSymbol: swapInfo?.sender.token.symbol ?? '',
-        toTokenSymbol: swapInfo?.receiver.token.symbol ?? '',
-        fromTokenAmount: swapInfo?.sender.amount ?? '',
-        toTokenAmount: swapInfo?.receiver.amount ?? '',
-        provider: swapInfo?.swapBuildResData.result.info.provider ?? '',
-        providerName: swapInfo?.swapBuildResData.result.info.providerName ?? '',
-        networkId,
-        accountId,
-        encodedTx: encodedTx ?? '',
-        isBatch,
+      runSwapSideEffectBestEffort({
+        action: () => {
+          const swapType = getSwapExecutionTypeFromQuoteResult(
+            swapInfo?.swapBuildResData.result,
+          );
+          defaultLogger.swap.swapEstimateFee.swapEstimateFee({
+            status,
+            message,
+            orderId: swapInfo?.swapBuildResData.orderId ?? '',
+            swapType,
+            slippage: slippageItem.value.toString(),
+            router: JSON.stringify(
+              swapInfo?.swapBuildResData.result.routesData ?? [],
+            ),
+            fromNetworkId: swapInfo?.sender.token.networkId ?? '',
+            toNetworkId: swapInfo?.receiver.token.networkId ?? '',
+            fromTokenSymbol: swapInfo?.sender.token.symbol ?? '',
+            toTokenSymbol: swapInfo?.receiver.token.symbol ?? '',
+            fromTokenAmount: swapInfo?.sender.amount ?? '',
+            toTokenAmount: swapInfo?.receiver.amount ?? '',
+            provider: swapInfo?.swapBuildResData.result.info.provider ?? '',
+            providerName:
+              swapInfo?.swapBuildResData.result.info.providerName ?? '',
+            networkId,
+            accountId,
+            encodedTx: JSON.stringify(encodedTx ?? ''),
+            isBatch,
+          });
+        },
+        onError: logSwapPostExecutionSideEffectError,
       });
     },
     [slippageItem.value],
@@ -1282,36 +1332,42 @@ export function useSwapBuildTx() {
       networkId: string,
       accountId: string,
       message?: string,
-      encodedTx?: string,
+      encodedTx?: unknown,
       swapInfo?: ISwapTxInfo,
       quoteResult?: IFetchQuoteResult,
     ) => {
-      const swapType = getSwapExecutionTypeFromQuoteResult(
-        swapInfo?.swapBuildResData.result,
-      );
-      defaultLogger.swap.swapSendTx.swapSendTx({
-        fromAddress: fromUserAddress ?? '',
-        toAddress: toUserAddress ?? '',
-        status,
-        message,
-        orderId: swapInfo?.swapBuildResData.orderId ?? '',
-        swapType,
-        slippage: slippageItem.value.toString(),
-        fromNetworkId: swapInfo?.sender.token.networkId ?? '',
-        toNetworkId: swapInfo?.receiver.token.networkId ?? '',
-        fromTokenSymbol: swapInfo?.sender.token.symbol ?? '',
-        toTokenSymbol: swapInfo?.receiver.token.symbol ?? '',
-        fromTokenAmount: swapInfo?.sender.amount ?? '',
-        toTokenAmount: swapInfo?.receiver.amount ?? '',
-        quoteToTokenAmount: quoteResult?.toAmount ?? '',
-        router: JSON.stringify(
-          swapInfo?.swapBuildResData.result.routesData ?? [],
-        ),
-        provider: swapInfo?.swapBuildResData.result.info.provider ?? '',
-        providerName: swapInfo?.swapBuildResData.result.info.providerName ?? '',
-        networkId,
-        accountId,
-        encodedTx: encodedTx ?? '',
+      runSwapSideEffectBestEffort({
+        action: () => {
+          const swapType = getSwapExecutionTypeFromQuoteResult(
+            swapInfo?.swapBuildResData.result,
+          );
+          defaultLogger.swap.swapSendTx.swapSendTx({
+            fromAddress: fromUserAddress ?? '',
+            toAddress: toUserAddress ?? '',
+            status,
+            message,
+            orderId: swapInfo?.swapBuildResData.orderId ?? '',
+            swapType,
+            slippage: slippageItem.value.toString(),
+            fromNetworkId: swapInfo?.sender.token.networkId ?? '',
+            toNetworkId: swapInfo?.receiver.token.networkId ?? '',
+            fromTokenSymbol: swapInfo?.sender.token.symbol ?? '',
+            toTokenSymbol: swapInfo?.receiver.token.symbol ?? '',
+            fromTokenAmount: swapInfo?.sender.amount ?? '',
+            toTokenAmount: swapInfo?.receiver.amount ?? '',
+            quoteToTokenAmount: quoteResult?.toAmount ?? '',
+            router: JSON.stringify(
+              swapInfo?.swapBuildResData.result.routesData ?? [],
+            ),
+            provider: swapInfo?.swapBuildResData.result.info.provider ?? '',
+            providerName:
+              swapInfo?.swapBuildResData.result.info.providerName ?? '',
+            networkId,
+            accountId,
+            encodedTx: JSON.stringify(encodedTx ?? ''),
+          });
+        },
+        onError: logSwapPostExecutionSideEffectError,
       });
     },
     [slippageItem.value, fromUserAddress, toUserAddress],
@@ -1331,46 +1387,51 @@ export function useSwapBuildTx() {
         const transactionSignedInfo = res[0].signedTx;
         const approveInfo = res[0].approveInfo;
         const txId = transactionSignedInfo.txid;
-        setInAppNotificationAtom((prev) => {
-          if (prev.swapApprovingTransaction) {
-            return {
-              ...prev,
-              swapApprovingTransaction: {
-                ...prev.swapApprovingTransaction,
-                txId,
-                status: shouldWaitApprove
-                  ? prev.swapApprovingTransaction.status
-                  : ESwapApproveTransactionStatus.SUCCESS,
-                resetApproveIsMax: !!approveInfo?.isMax,
-                ...(approveInfo
-                  ? {
-                      amount: approveInfo.amount,
-                    }
-                  : {}),
-              },
-            };
-          }
-          return prev;
+        runSwapSideEffectBestEffort({
+          action: () => {
+            setInAppNotificationAtom((prev) => {
+              if (prev.swapApprovingTransaction) {
+                return {
+                  ...prev,
+                  swapApprovingTransaction: {
+                    ...prev.swapApprovingTransaction,
+                    txId,
+                    status: shouldWaitApprove
+                      ? prev.swapApprovingTransaction.status
+                      : ESwapApproveTransactionStatus.SUCCESS,
+                    resetApproveIsMax: !!approveInfo?.isMax,
+                    ...(approveInfo
+                      ? {
+                          amount: approveInfo.amount,
+                        }
+                      : {}),
+                  },
+                };
+              }
+              return prev;
+            });
+            if (!shouldWaitApprove) {
+              setSwapSteps(
+                (prev: {
+                  steps: ISwapStep[];
+                  preSwapData: ISwapPreSwapData;
+                  quoteResult?: IFetchQuoteResult | undefined;
+                }) => {
+                  const newSteps = cloneDeep(prev.steps);
+                  newSteps[stepIndex] = {
+                    ...newSteps[stepIndex],
+                    status: ESwapStepStatus.SUCCESS,
+                  };
+                  return {
+                    ...prev,
+                    steps: newSteps,
+                  };
+                },
+              );
+            }
+          },
+          onError: logSwapPostExecutionSideEffectError,
         });
-        if (!shouldWaitApprove) {
-          setSwapSteps(
-            (prev: {
-              steps: ISwapStep[];
-              preSwapData: ISwapPreSwapData;
-              quoteResult?: IFetchQuoteResult | undefined;
-            }) => {
-              const newSteps = cloneDeep(prev.steps);
-              newSteps[stepIndex] = {
-                ...newSteps[stepIndex],
-                status: ESwapStepStatus.SUCCESS,
-              };
-              return {
-                ...prev,
-                steps: newSteps,
-              };
-            },
-          );
-        }
       }
     },
     [isExecutionRevisionCurrent, setInAppNotificationAtom, setSwapSteps],
@@ -1408,21 +1469,27 @@ export function useSwapBuildTx() {
       operationRevision?: string,
     ) => {
       if (res?.[0]) {
-        const transactionSignedInfo = res[0].signedTx;
-        const txId = transactionSignedInfo.txid;
-        const { swapInfo } = transactionSignedInfo;
-        const transactionDecodedInfo = res[0].decodedTx;
-        const { totalFeeInNative, totalFeeFiatValue } = transactionDecodedInfo;
-        if (swapInfo) {
-          void onBuildTxSuccess(
-            txId,
-            swapInfo,
-            orderId,
-            totalFeeFiatValue,
-            totalFeeInNative,
-            operationRevision,
-          );
-        }
+        runSwapSideEffectBestEffort({
+          action: () => {
+            const transactionSignedInfo = res[0].signedTx;
+            const txId = transactionSignedInfo.txid;
+            const { swapInfo } = transactionSignedInfo;
+            const transactionDecodedInfo = res[0].decodedTx;
+            const { totalFeeInNative, totalFeeFiatValue } =
+              transactionDecodedInfo;
+            if (swapInfo) {
+              void onBuildTxSuccess(
+                txId,
+                swapInfo,
+                orderId,
+                totalFeeFiatValue,
+                totalFeeInNative,
+                operationRevision,
+              ).catch(logSwapPostExecutionSideEffectError);
+            }
+          },
+          onError: logSwapPostExecutionSideEffectError,
+        });
       }
     },
     [onBuildTxSuccess],
@@ -1482,13 +1549,18 @@ export function useSwapBuildTx() {
   );
 
   const onApproveTxSuccess = useCallback(() => {
-    if (
-      accountUtils.isQrAccount({
-        accountId: fromAccountId ?? '',
-      })
-    ) {
-      goBackQrCodeModal();
-    }
+    runSwapSideEffectBestEffort({
+      action: () => {
+        if (
+          accountUtils.isQrAccount({
+            accountId: fromAccountId ?? '',
+          })
+        ) {
+          goBackQrCodeModal();
+        }
+      },
+      onError: logSwapPostExecutionSideEffectError,
+    });
   }, [goBackQrCodeModal, fromAccountId]);
 
   const findGasInfo = useCallback(
@@ -1729,7 +1801,7 @@ export function useSwapBuildTx() {
                     networkId,
                     accountId,
                     undefined,
-                    JSON.stringify(unsignedTxItem.encodedTx ?? ''),
+                    unsignedTxItem.encodedTx,
                     swapInfo,
                     quoteResult,
                   );
@@ -1742,7 +1814,7 @@ export function useSwapBuildTx() {
                     accountId,
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                     e?.message ?? 'unknown error',
-                    JSON.stringify(unsignedTxItem.encodedTx ?? ''),
+                    unsignedTxItem.encodedTx,
                     swapInfo,
                     quoteResult,
                   );
@@ -1780,9 +1852,7 @@ export function useSwapBuildTx() {
                 networkId,
                 accountId,
                 undefined,
-                JSON.stringify(
-                  estimateFeeParamsArr.map((o) => o.encodedTx ?? {}) ?? '',
-                ),
+                estimateFeeParamsArr.map((o) => o.encodedTx ?? {}),
                 swapInfo,
                 true,
               );
@@ -1825,7 +1895,7 @@ export function useSwapBuildTx() {
                     networkId,
                     accountId,
                     undefined,
-                    JSON.stringify(unsignedTxItem.encodedTx ?? ''),
+                    unsignedTxItem.encodedTx,
                     swapInfo,
                     quoteResult,
                   );
@@ -1838,7 +1908,7 @@ export function useSwapBuildTx() {
                     accountId,
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                     e?.message ?? 'unknown error',
-                    JSON.stringify(unsignedTxItem.encodedTx ?? ''),
+                    unsignedTxItem.encodedTx,
                     swapInfo,
                     quoteResult,
                   );
@@ -1854,9 +1924,7 @@ export function useSwapBuildTx() {
                 accountId,
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 e?.message ?? 'unknown error',
-                JSON.stringify(
-                  estimateFeeParamsArr.map((o) => o.encodedTx ?? {}) ?? '',
-                ),
+                estimateFeeParamsArr.map((o) => o.encodedTx ?? {}),
                 swapInfo,
                 true,
               );
@@ -1912,7 +1980,7 @@ export function useSwapBuildTx() {
                     networkId,
                     accountId,
                     undefined,
-                    JSON.stringify(unsignedTxItem.encodedTx ?? ''),
+                    unsignedTxItem.encodedTx,
                     swapInfo,
                     quoteResult,
                   );
@@ -1925,7 +1993,7 @@ export function useSwapBuildTx() {
                     accountId,
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                     e?.message ?? 'unknown error',
-                    JSON.stringify(unsignedTxItem.encodedTx ?? ''),
+                    unsignedTxItem.encodedTx,
                     swapInfo,
                     quoteResult,
                   );
@@ -2081,7 +2149,7 @@ export function useSwapBuildTx() {
                 accountId,
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 e?.message ?? 'unknown error',
-                JSON.stringify(unsignedTx.encodedTx ?? ''),
+                unsignedTx.encodedTx,
                 swapInfo,
                 quoteResult,
               );
@@ -2126,7 +2194,7 @@ export function useSwapBuildTx() {
               networkId,
               accountId,
               undefined,
-              JSON.stringify(unsignedTx.encodedTx ?? ''),
+              unsignedTx.encodedTx,
               swapInfo,
             );
           }
@@ -2153,7 +2221,7 @@ export function useSwapBuildTx() {
                 networkId,
                 accountId,
                 undefined,
-                JSON.stringify(unsignedTx.encodedTx ?? ''),
+                unsignedTx.encodedTx,
                 swapInfo,
                 quoteResult,
               );
@@ -2166,7 +2234,7 @@ export function useSwapBuildTx() {
                 accountId,
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 e?.message ?? 'unknown error',
-                JSON.stringify(unsignedTx.encodedTx ?? ''),
+                unsignedTx.encodedTx,
                 swapInfo,
                 quoteResult,
               );
@@ -2181,7 +2249,7 @@ export function useSwapBuildTx() {
               accountId,
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               e?.message ?? 'unknown error',
-              JSON.stringify(unsignedTx.encodedTx ?? ''),
+              unsignedTx.encodedTx,
               swapInfo,
             );
           }
@@ -2946,7 +3014,7 @@ export function useSwapBuildTx() {
                 sendTxRes.gasFeeFiatValue,
                 sendTxRes.gasFeeInNative,
                 operationRevision,
-              );
+              ).catch(logSwapPostExecutionSideEffectError);
               return sendTxRes;
             }
           }
@@ -3316,7 +3384,7 @@ export function useSwapBuildTx() {
             void syncRecentTokenPairs({
               swapFromToken: fromTokenInfo,
               swapToToken: toTokenInfo,
-            });
+            }).catch(logSwapPostExecutionSideEffectError);
           }
           void onBuildTxSuccess(
             sendTxRes.txid,
@@ -3325,7 +3393,7 @@ export function useSwapBuildTx() {
             sendTxRes.gasFeeFiatValue,
             sendTxRes.gasFeeInNative,
             operationRevision,
-          );
+          ).catch(logSwapPostExecutionSideEffectError);
           return sendTxRes;
         }
       }
@@ -3568,9 +3636,7 @@ export function useSwapBuildTx() {
               networkId,
               accountId,
               undefined,
-              JSON.stringify(
-                estimateFeeParamsArr.map((o) => o.encodedTx ?? {}) ?? '',
-              ),
+              estimateFeeParamsArr.map((o) => o.encodedTx ?? {}),
               swapInfo,
               true,
             );
@@ -3598,9 +3664,7 @@ export function useSwapBuildTx() {
               accountId,
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               e?.message ?? 'unknown error',
-              JSON.stringify(
-                estimateFeeParamsArr.map((o) => o.encodedTx ?? {}) ?? '',
-              ),
+              estimateFeeParamsArr.map((o) => o.encodedTx ?? {}),
               swapInfo,
               true,
             );
@@ -3759,7 +3823,7 @@ export function useSwapBuildTx() {
               networkId,
               accountId,
               undefined,
-              JSON.stringify(unsignedTx.encodedTx ?? ''),
+              unsignedTx.encodedTx,
               swapInfo,
             );
             const gasParseInfo = buildGasInfo(
@@ -3785,7 +3849,7 @@ export function useSwapBuildTx() {
               accountId,
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               e?.message ?? 'unknown error',
-              JSON.stringify(unsignedTx.encodedTx ?? ''),
+              unsignedTx.encodedTx,
               swapInfo,
             );
 

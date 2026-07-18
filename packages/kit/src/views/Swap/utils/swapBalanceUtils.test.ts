@@ -5,6 +5,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   checkSwapLatestBalanceSufficient,
   getSwapEncodedTxSize,
+  getSwapOtherFeeRequiredAmount,
   getSwapRequiredNativeBalanceAmount,
   validateSwapBtcOutputs,
 } from './swapBalanceUtils';
@@ -69,6 +70,30 @@ const evmGasInfo = {
     gasPrice: '1',
   },
 };
+
+describe('getSwapOtherFeeRequiredAmount', () => {
+  it('does not add the swap amount to an incomplete non-native fee token', () => {
+    expect(
+      getSwapOtherFeeRequiredAmount({
+        feeAmount: '0.01',
+        feeToken: { ...ethToken, isNative: false },
+        fromAmount: '1',
+        fromToken: ethToken,
+      }),
+    ).toBe('0.01');
+  });
+
+  it('adds the swap amount when the fee token is the semantic from token', () => {
+    expect(
+      getSwapOtherFeeRequiredAmount({
+        feeAmount: '0.01',
+        feeToken: ethToken,
+        fromAmount: '1',
+        fromToken: ethToken,
+      }),
+    ).toBe('1.01');
+  });
+});
 
 const btcToken = {
   networkId: 'btc--0',

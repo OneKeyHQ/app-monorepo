@@ -9,6 +9,7 @@ import {
   normalizeSwapColdStartCacheSnapshot,
 } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { isSameSwapTokenIdentity } from '@onekeyhq/shared/src/utils/swapTokenIdentity';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -91,6 +92,21 @@ function getSelectedAccountFromSnapshot({
   return selectedAccounts?.[0] ?? selectedAccounts?.['0'];
 }
 
+function hasActiveAccountSnapshot({
+  snapshot,
+  coldStartScopeKey,
+}: {
+  snapshot: Record<string, unknown>;
+  coldStartScopeKey: string;
+}) {
+  const activeAccounts = getSnapshotValue<Record<string | number, unknown>>({
+    snapshot,
+    coldStartScopeKey,
+    coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom,
+  });
+  return Boolean(activeAccounts?.[0] ?? activeAccounts?.['0']);
+}
+
 function buildSelectedAccountKey(selectedAccount?: ISelectedAccountSnapshot) {
   const walletId = selectedAccount?.walletId ?? '';
   const accountId =
@@ -163,6 +179,24 @@ function getColdStartSnapshotCandidatesFromGlobal() {
 }
 
 function shouldUseRawSwapSelectedTokens(snapshot: Record<string, unknown>) {
+  // The normalized candidate above validates persisted active-account owners.
+  // Raw fallback exists only for the earliest pre-read snapshot where active
+  // accounts have not been persisted yet. Once either runtime has an active
+  // account snapshot, bypassing normalization could revive another owner's
+  // token/network metadata during an account-switch persistence race.
+  if (
+    hasActiveAccountSnapshot({
+      snapshot,
+      coldStartScopeKey: ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
+    }) ||
+    hasActiveAccountSnapshot({
+      snapshot,
+      coldStartScopeKey: ACCOUNT_SELECTOR_SWAP_SCOPE_KEY,
+    })
+  ) {
+    return false;
+  }
+
   const homeSelectedAccount = getSelectedAccountFromSnapshot({
     snapshot,
     coldStartScopeKey: ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
@@ -316,6 +350,58 @@ function hasCompleteDisplayTokenPair(
   return Boolean(tokens.fromToken?.symbol && tokens.toToken?.symbol);
 }
 
+function stripColdStartAccountOwnedTokenFields(token: ISwapToken): ISwapToken {
+  const {
+    accountAddress: _accountAddress,
+    balanceParsed: _balanceParsed,
+    fiatValue: _fiatValue,
+    reservationValue: _reservationValue,
+    ...displayToken
+  } = token;
+  return displayToken;
+}
+
+function sanitizeColdStartDisplayTokens(
+  tokens: IDisplayTokens,
+): IDisplayTokens {
+  return {
+    fromToken: tokens.fromToken
+      ? stripColdStartAccountOwnedTokenFields(tokens.fromToken)
+      : undefined,
+    toToken: tokens.toToken
+      ? stripColdStartAccountOwnedTokenFields(tokens.toToken)
+      : undefined,
+  };
+}
+
+function mergeMatchingColdStartDisplayMetadata({
+  coldStartToken,
+  liveToken,
+}: {
+  coldStartToken?: ISwapToken;
+  liveToken: ISwapToken;
+}) {
+  if (
+    !coldStartToken ||
+    !isSameSwapTokenIdentity({
+      token1: coldStartToken,
+      token2: liveToken,
+    })
+  ) {
+    return liveToken;
+  }
+
+  // These fields are presentation-only and safe to show while the exact live
+  // token detail refreshes. Account-owned balance/reservation fields must stay
+  // on the live token and remain behind their request-owner guards.
+  return {
+    ...liveToken,
+    logoURI: liveToken.logoURI || coldStartToken.logoURI,
+    name: liveToken.name || coldStartToken.name,
+    networkLogoURI: liveToken.networkLogoURI || coldStartToken.networkLogoURI,
+  };
+}
+
 export function getSwapDisplayTokenPair({
   coldStartTokens,
   defaultTokens,
@@ -329,6 +415,26 @@ export function getSwapDisplayTokenPair({
   initialSelectedTokensSynced: boolean;
   toToken?: ISwapToken;
 }): IDisplayTokens {
+  const liveTokens = { fromToken, toToken };
+  if (hasCompleteDisplayTokenPair(liveTokens)) {
+    let displaySeedTokens: Required<IDisplayTokens> | undefined;
+    if (hasCompleteDisplayTokenPair(coldStartTokens)) {
+      displaySeedTokens = coldStartTokens;
+    } else if (defaultTokens && hasCompleteDisplayTokenPair(defaultTokens)) {
+      displaySeedTokens = defaultTokens;
+    }
+    return {
+      fromToken: mergeMatchingColdStartDisplayMetadata({
+        coldStartToken: displaySeedTokens?.fromToken,
+        liveToken: liveTokens.fromToken,
+      }),
+      toToken: mergeMatchingColdStartDisplayMetadata({
+        coldStartToken: displaySeedTokens?.toToken,
+        liveToken: liveTokens.toToken,
+      }),
+    };
+  }
+
   if (!initialSelectedTokensSynced) {
     if (hasCompleteDisplayTokenPair(coldStartTokens)) {
       return coldStartTokens;
@@ -342,7 +448,7 @@ export function getSwapDisplayTokenPair({
   // Live selections are one candidate. Returning them together avoids mixing
   // one hydrated side with the other side of a boot seed during reconciliation.
   if (fromToken || toToken) {
-    return { fromToken, toToken };
+    return liveTokens;
   }
   if (defaultTokens && hasCompleteDisplayTokenPair(defaultTokens)) {
     return defaultTokens;
@@ -364,7 +470,7 @@ export function getSwapColdStartDisplayTokensFromGlobalSnapshot() {
       defaultTokens,
     ]) {
       if (hasCompleteDisplayTokenPair(candidateTokens)) {
-        return candidateTokens;
+        return sanitizeColdStartDisplayTokens(candidateTokens);
       }
     }
   }

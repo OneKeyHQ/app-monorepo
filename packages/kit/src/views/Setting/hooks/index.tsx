@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Input, Portal } from '@onekeyhq/components';
+import { Dialog, Input, Portal, Toast } from '@onekeyhq/components';
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -66,15 +66,21 @@ export function useResetApp(
       // storage. Every UI runtime must stop delayed cache writers before the
       // background runtime clears that storage.
       acquireResetState();
+      await resetUtils.waitForResetSensitiveTasksToSettle();
       await backgroundApiProxy.serviceApp.resetApp();
     } catch (e) {
       console.error('failed to reset app with error', e);
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.global_failed }),
+        message: e instanceof Error ? e.message : undefined,
+      });
+      throw e;
     } finally {
       if (hasResetStateLease) {
         resetUtils.endResetting();
       }
     }
-  }, [logoutOnekeyID]);
+  }, [intl, logoutOnekeyID]);
 
   return useCallback(async () => {
     await timerUtils.wait(50);

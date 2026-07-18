@@ -11,6 +11,7 @@ import {
   isSwapProPositionsSourceUnavailable,
   mergeSwapProPositionTokenDetails,
   resolveSwapProPositionsAccountIdentity,
+  resolveSwapProPositionsDisplayCache,
   useSwapProPositionsGenerationGuardedCallback,
 } from './swapProPositionsUtils';
 
@@ -84,6 +85,113 @@ describe('swapProPositionsUtils', () => {
         { networkId: 'network-a' },
       ]),
     ).toBe('network-a,network-b');
+  });
+
+  it('uses only the exact owner snapshot when it exists, including an empty one', () => {
+    const exactEntry = {
+      networkIdsKey: 'network-a,network-b',
+      ownerKey: 'account-a__network-a,network-b',
+      tokens: [],
+      updatedAt: 2,
+    };
+    const result = resolveSwapProPositionsDisplayCache({
+      accountId: 'account-a',
+      byOwner: {
+        [exactEntry.ownerKey]: exactEntry,
+        'account-a__network-a': {
+          networkIdsKey: 'network-a',
+          ownerKey: 'account-a__network-a',
+          tokens: [
+            {
+              contractAddress: 'token-a',
+              decimals: 18,
+              networkId: 'network-a',
+              symbol: 'A',
+            },
+          ],
+          updatedAt: 1,
+        },
+      },
+      networkIdsKey: exactEntry.networkIdsKey,
+      ownerKey: exactEntry.ownerKey,
+    });
+
+    expect(result).toEqual({ entry: exactEntry, tokens: [] });
+  });
+
+  it('bridges an owner network-set refresh with same-account supported tokens only', () => {
+    const result = resolveSwapProPositionsDisplayCache({
+      accountId: 'account-a',
+      byOwner: {
+        'account-a__network-a,network-removed': {
+          networkIdsKey: 'network-a,network-removed',
+          ownerKey: 'account-a__network-a,network-removed',
+          tokens: [
+            {
+              contractAddress: 'token-a',
+              decimals: 18,
+              networkId: 'network-a',
+              symbol: 'A',
+            },
+            {
+              contractAddress: 'token-removed',
+              decimals: 18,
+              networkId: 'network-removed',
+              symbol: 'REMOVED',
+            },
+          ],
+          updatedAt: 2,
+        },
+        'account-b__network-a': {
+          networkIdsKey: 'network-a',
+          ownerKey: 'account-b__network-a',
+          tokens: [
+            {
+              contractAddress: 'token-b',
+              decimals: 18,
+              networkId: 'network-a',
+              symbol: 'B',
+            },
+          ],
+          updatedAt: 3,
+        },
+      },
+      networkIdsKey: 'network-a,network-new',
+      ownerKey: 'account-a__network-a,network-new',
+    });
+
+    expect(result.tokens).toEqual([
+      expect.objectContaining({ networkId: 'network-a', symbol: 'A' }),
+    ]);
+    expect(result.tokens).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ symbol: 'B' }),
+        expect.objectContaining({ symbol: 'REMOVED' }),
+      ]),
+    );
+  });
+
+  it('does not expose any cache before account and network ownership are ready', () => {
+    const entry = {
+      networkIdsKey: 'network-a',
+      ownerKey: 'account-a__network-a',
+      tokens: [
+        {
+          contractAddress: 'token-a',
+          decimals: 18,
+          networkId: 'network-a',
+          symbol: 'A',
+        },
+      ],
+      updatedAt: 1,
+    };
+    expect(
+      resolveSwapProPositionsDisplayCache({
+        byOwner: { [entry.ownerKey]: entry },
+        networkIdsKey: '',
+        ownerKey: '',
+      }),
+    ).toEqual({ entry: undefined, tokens: [] });
   });
 
   it('distinguishes identity hydration from a settled no-wallet state', () => {

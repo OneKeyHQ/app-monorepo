@@ -11,6 +11,8 @@ import {
   getSwapQuoteProgressState,
   hasSwapQuoteEventTotalCount,
   hasSwapZeroProviderQuoteEvent,
+  isSameSwapQuoteAmount,
+  isStockQuoteInputAmountMatched,
   isSwapNoProviderSupportsTrade,
   isSwapPreBuildTransportSettled,
   isSwapQuoteActionable,
@@ -51,6 +53,18 @@ function buildQuote({
 }
 
 describe('swap quote progress', () => {
+  it('builds collision-free provider owner keys', () => {
+    expect(
+      buildSwapQuoteProviderKey({
+        info: { provider: 'a-b', providerName: 'c' },
+      }),
+    ).not.toBe(
+      buildSwapQuoteProviderKey({
+        info: { provider: 'a', providerName: 'b-c' },
+      }),
+    );
+  });
+
   it('treats provider errors and input limit violations as non-actionable', () => {
     expect(
       isSwapQuoteActionable({
@@ -86,6 +100,35 @@ describe('swap quote progress', () => {
     ).toBe(true);
   });
 
+  it('requires positive finite amounts on both sides for SELL and BUY quotes', () => {
+    expect(
+      isSwapQuoteActionable({
+        kind: ESwapQuoteKind.BUY,
+        toAmount: '1',
+      }),
+    ).toBe(false);
+    expect(
+      isSwapQuoteActionable({
+        fromAmount: '0',
+        kind: ESwapQuoteKind.BUY,
+        toAmount: '1',
+      }),
+    ).toBe(false);
+    expect(
+      isSwapQuoteActionable({
+        fromAmount: '1',
+        kind: ESwapQuoteKind.SELL,
+      }),
+    ).toBe(false);
+    expect(
+      isSwapQuoteActionable({
+        fromAmount: '1',
+        kind: ESwapQuoteKind.SELL,
+        toAmount: '0',
+      }),
+    ).toBe(false);
+  });
+
   it('caps quote event total count for scoped provider flows', () => {
     expect(
       getSwapQuoteEventProgressTotalCount({
@@ -111,7 +154,7 @@ describe('swap quote progress', () => {
     expect(
       isSwapQuoteInputAmountMatched({
         quote: sellQuote,
-        fromAmount: '1',
+        fromAmount: '1.0',
         toAmount: '99',
       }),
     ).toBe(true);
@@ -126,7 +169,7 @@ describe('swap quote progress', () => {
       isSwapQuoteInputAmountMatched({
         quote: buyQuote,
         fromAmount: '99',
-        toAmount: '25',
+        toAmount: '25.00',
       }),
     ).toBe(true);
     expect(
@@ -136,6 +179,51 @@ describe('swap quote progress', () => {
         toAmount: '26',
       }),
     ).toBe(false);
+    expect(
+      isSwapQuoteInputAmountMatched({
+        quote: sellQuote,
+        fromAmount: '',
+        toAmount: '99',
+      }),
+    ).toBe(false);
+    expect(
+      isSwapQuoteInputAmountMatched({
+        quote: { ...sellQuote, fromAmount: 'NaN' },
+        fromAmount: '1',
+        toAmount: '99',
+      }),
+    ).toBe(false);
+  });
+
+  it('matches Stock input amounts by numeric value without accepting invalid values', () => {
+    const sellQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'sell',
+      kind: ESwapQuoteKind.SELL,
+    });
+    const buyQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'buy',
+      kind: ESwapQuoteKind.BUY,
+      toAmount: '25.00',
+    });
+
+    expect(isSameSwapQuoteAmount({ left: '1.0', right: '1.00' })).toBe(true);
+    expect(isSameSwapQuoteAmount({ left: '', right: '' })).toBe(false);
+    expect(
+      isStockQuoteInputAmountMatched({
+        quote: sellQuote,
+        fromAmount: '1.00',
+        toAmount: '99',
+      }),
+    ).toBe(true);
+    expect(
+      isStockQuoteInputAmountMatched({
+        quote: buyQuote,
+        fromAmount: '99',
+        toAmount: '25',
+      }),
+    ).toBe(true);
   });
 
   it('keeps quote event fetching active until the capped count is received', () => {

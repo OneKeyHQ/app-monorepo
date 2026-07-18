@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type {
@@ -44,9 +45,11 @@ import type {
 import { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type {
+  IDecodedTx,
   ISendTxBaseParams,
   ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { isEncodedTxMatch } from './marketEncodedTxUtils';
 
@@ -90,6 +93,24 @@ export type IMarketPresetFeeEstimateFakeTxToken = Pick<
 const MARKET_PRESET_SOL_DEFAULT_COMPUTE_UNIT_LIMIT = '200000';
 const MARKET_PRESET_SOL_BASE_FEE = '5000';
 const MARKET_PRESET_SOL_COMPUTE_UNIT_PRICE_DECIMALS = 6;
+
+function logMarketSendBookkeepingError({
+  error,
+  stage,
+}: {
+  error: unknown;
+  stage: 'decode' | 'history' | 'afterSend';
+}) {
+  try {
+    defaultLogger.app.error.log(
+      `Market transaction ${stage} failed after broadcast: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  } catch {
+    // Logging must not change an already-completed broadcast result.
+  }
+}
 
 function pickFeeLevelValue<T>(
   values: T[] | undefined,
@@ -1001,6 +1022,7 @@ export async function estimateMarketApproveGasInfos({
 }
 
 async function updateUnsignedTxAndSendTx({
+  accountAddress,
   accountId,
   networkId,
   unsignedTxItem,
@@ -1009,6 +1031,7 @@ async function updateUnsignedTxAndSendTx({
   tronResourceRentalInfo,
   useDefaultRpc,
 }: {
+  accountAddress: string;
   accountId: string;
   networkId: string;
   unsignedTxItem: IUnsignedTxPro;
@@ -1116,32 +1139,61 @@ async function updateUnsignedTxAndSendTx({
     signedTx =
       await backgroundApiProxy.serviceSend.signAndSendTransaction(sendTxParams);
   }
+  if (!signedTx.txid) {
+    throw new OneKeyError('Transaction broadcast receipt is missing txid');
+  }
 
-  const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
-    networkId,
-    accountId,
-    unsignedTx: updatedUnsignedTxItem,
-    feeInfo: {
+  let decodedTx: IDecodedTx;
+  try {
+    decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
+      networkId,
+      accountId,
+      unsignedTx: updatedUnsignedTxItem,
+      feeInfo: {
+        feeInfo,
+        total,
+        totalNative,
+        totalFiat,
+        totalNativeForDisplay,
+        totalFiatForDisplay,
+      },
+      saveToLocalHistory: true,
+    });
+  } catch (error) {
+    logMarketSendBookkeepingError({ error, stage: 'decode' });
+    // A txid proves broadcast even when local decoding fails. Keep a minimal
+    // pending receipt so Market cannot turn this completed send into a retry.
+    decodedTx = {
+      txid: signedTx.txid,
+      owner: accountAddress,
+      signer: accountAddress,
+      nonce: updatedUnsignedTxItem.nonce ?? 0,
+      actions: [],
+      status: EDecodedTxStatus.Pending,
+      networkId,
+      accountId,
       feeInfo,
-      total,
-      totalNative,
-      totalFiat,
-      totalNativeForDisplay,
-      totalFiatForDisplay,
-    },
-    saveToLocalHistory: true,
-  });
+      totalFeeInNative: totalNativeForDisplay,
+      totalFeeFiatValue: totalFiatForDisplay,
+      extraInfo: null,
+      encodedTx: updatedUnsignedTxItem.encodedTx,
+    };
+  }
 
-  await backgroundApiProxy.serviceHistory.saveSendConfirmHistoryTxs({
-    networkId,
-    accountId,
-    data: {
-      signedTx,
-      decodedTx,
-      approveInfo: updatedUnsignedTxItem.approveInfo,
-      feeInfo,
-    },
-  });
+  try {
+    await backgroundApiProxy.serviceHistory.saveSendConfirmHistoryTxs({
+      networkId,
+      accountId,
+      data: {
+        signedTx,
+        decodedTx,
+        approveInfo: updatedUnsignedTxItem.approveInfo,
+        feeInfo,
+      },
+    });
+  } catch (error) {
+    logMarketSendBookkeepingError({ error, stage: 'history' });
+  }
 
   const result = {
     signedTx,
@@ -1150,17 +1202,21 @@ async function updateUnsignedTxAndSendTx({
     feeInfo,
   };
 
-  const vaultSettings =
-    await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId,
-    });
+  try {
+    const vaultSettings =
+      await backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId,
+      });
 
-  if (vaultSettings?.afterSendTxActionEnabled) {
-    await backgroundApiProxy.serviceSignatureConfirm.afterSendTxAction({
-      networkId,
-      accountId,
-      result: [result],
-    });
+    if (vaultSettings?.afterSendTxActionEnabled) {
+      await backgroundApiProxy.serviceSignatureConfirm.afterSendTxAction({
+        networkId,
+        accountId,
+        result: [result],
+      });
+    }
+  } catch (error) {
+    logMarketSendBookkeepingError({ error, stage: 'afterSend' });
   }
 
   return result;
@@ -1232,6 +1288,7 @@ export async function sendMarketDirectUnsignedTxs({
 
     results.push(
       await updateUnsignedTxAndSendTx({
+        accountAddress,
         accountId,
         networkId,
         unsignedTxItem,

@@ -10,22 +10,41 @@ import { SwapInitialStockTypeGate } from './SwapInitialStockTypeGate';
 
 let mockSwapTypeSwitch = ESwapTabSwitchType.SWAP;
 const mockSwapTypeSwitchAction = jest.fn();
+const mockLogInitialStockTypeSwitchError = jest.fn();
+const mockUseSwapActions = jest.fn(() => ({
+  current: { swapTypeSwitchAction: mockSwapTypeSwitchAction },
+}));
+const mockUseSwapAddressInfo = jest.fn(() => ({ networkId: 'evm--56' }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/swap', () => ({
-  useSwapActions: () => ({
-    current: { swapTypeSwitchAction: mockSwapTypeSwitchAction },
-  }),
+  useSwapActions: () => mockUseSwapActions(),
   useSwapTypeSwitchAtom: () => [mockSwapTypeSwitch],
 }));
 
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    app: {
+      error: {
+        log: (...args: unknown[]) => {
+          mockLogInitialStockTypeSwitchError(...args);
+        },
+      },
+    },
+  },
+}));
+
 jest.mock('../../hooks/useSwapAccount', () => ({
-  useSwapAddressInfo: () => ({ networkId: 'evm--56' }),
+  useSwapAddressInfo: () => mockUseSwapAddressInfo(),
 }));
 
 describe('SwapInitialStockTypeGate', () => {
   beforeEach(() => {
     mockSwapTypeSwitch = ESwapTabSwitchType.SWAP;
     mockSwapTypeSwitchAction.mockReset();
+    mockSwapTypeSwitchAction.mockResolvedValue(undefined);
+    mockUseSwapActions.mockClear();
+    mockUseSwapAddressInfo.mockClear();
+    mockLogInitialStockTypeSwitchError.mockClear();
   });
 
   it('gates the default Swap paint and runs the existing Stock switch action', () => {
@@ -74,6 +93,8 @@ describe('SwapInitialStockTypeGate', () => {
 
     expect(screen.queryByText('Swap content')).not.toBeNull();
     expect(mockSwapTypeSwitchAction).not.toHaveBeenCalled();
+    expect(mockUseSwapActions).not.toHaveBeenCalled();
+    expect(mockUseSwapAddressInfo).not.toHaveBeenCalled();
 
     rerender(
       <SwapInitialStockTypeGate initialSwapType={ESwapTabSwitchType.LIMIT}>
@@ -83,6 +104,19 @@ describe('SwapInitialStockTypeGate', () => {
 
     expect(screen.queryByText('Swap content')).not.toBeNull();
     expect(mockSwapTypeSwitchAction).not.toHaveBeenCalled();
+    expect(mockUseSwapActions).not.toHaveBeenCalled();
+    expect(mockUseSwapAddressInfo).not.toHaveBeenCalled();
+
+    rerender(
+      <SwapInitialStockTypeGate initialSwapType={ESwapTabSwitchType.STOCK}>
+        <div>Swap content</div>
+      </SwapInitialStockTypeGate>,
+    );
+
+    expect(screen.queryByText('Swap content')).not.toBeNull();
+    expect(mockSwapTypeSwitchAction).not.toHaveBeenCalled();
+    expect(mockUseSwapActions).not.toHaveBeenCalled();
+    expect(mockUseSwapAddressInfo).not.toHaveBeenCalled();
   });
 
   it('never re-gates later user tab changes after initial Stock resolves', () => {
@@ -103,5 +137,22 @@ describe('SwapInitialStockTypeGate', () => {
 
     expect(screen.queryByText('Trade content')).not.toBeNull();
     expect(mockSwapTypeSwitchAction).not.toHaveBeenCalled();
+  });
+
+  it('releases the blank gate when the initial Stock switch fails', async () => {
+    mockSwapTypeSwitchAction.mockRejectedValueOnce(
+      new Error('Stock switch failed'),
+    );
+
+    render(
+      <SwapInitialStockTypeGate initialSwapType={ESwapTabSwitchType.STOCK}>
+        <div>Fallback trade content</div>
+      </SwapInitialStockTypeGate>,
+    );
+
+    expect(await screen.findByText('Fallback trade content')).not.toBeNull();
+    expect(mockLogInitialStockTypeSwitchError).toHaveBeenCalledWith(
+      'swap_initialStockType_switchError: Stock switch failed',
+    );
   });
 });

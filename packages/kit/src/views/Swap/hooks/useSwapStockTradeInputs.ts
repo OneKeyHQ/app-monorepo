@@ -30,6 +30,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -53,7 +54,7 @@ import {
 import {
   buildStockExecutionBalanceScope,
   buildStockExecutionNetworkAccountScope,
-  runStockExecutionBalanceRequestWithRetry,
+  runStockExecutionBalanceRequest,
 } from './swapStockExecutionBalanceUtils';
 import {
   STOCK_PRICE_SOURCE_CURRENCY,
@@ -396,7 +397,7 @@ function useStockInputTokenBalance({
           };
         }
         try {
-          const account = await runStockExecutionBalanceRequestWithRetry({
+          const account = await runStockExecutionBalanceRequest({
             request: async () => {
               const defaultDeriveType =
                 await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
@@ -533,7 +534,7 @@ function useStockInputTokenBalance({
         };
       }
       try {
-        const detail = await runStockExecutionBalanceRequestWithRetry({
+        const detail = await runStockExecutionBalanceRequest({
           request: async () => {
             const details =
               await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
@@ -1016,6 +1017,7 @@ export function useSwapStockAmountInputState({
     token: executionInputToken,
   });
   const snapshotBalance =
+    !stockInputTokenBalance.failed &&
     stockDisplay.snapshot?.balance?.inputTokenKey === inputTokenKey
       ? stockDisplay.snapshot.balance
       : undefined;
@@ -1032,6 +1034,7 @@ export function useSwapStockAmountInputState({
     publishedBalance: fromTokenBalance,
   });
   const displayBalance = resolveStockDisplayBalance({
+    allowSnapshotBalance: !platformEnv.isNative,
     liveBalance: stockInputTokenBalance.balance,
     snapshotBalance: snapshotBalance?.value,
   });
@@ -1252,7 +1255,8 @@ export function useSwapStockAmountInputState({
   return {
     amountFiatValue,
     balanceFailed: stockInputTokenBalance.failed,
-    balanceLoading: !snapshotBalance && stockInputTokenBalance.loading,
+    balanceLoading:
+      displayBalance === undefined && stockInputTokenBalance.loading,
     balanceReadyForExecution,
     currencySymbol,
     disableNativePayToken,
@@ -1274,9 +1278,7 @@ export function useSwapStockAmountInputState({
     selectPayToken,
     shouldRenderSkeleton: shouldRenderStockTradeInputSkeleton({
       inputTokenStatus,
-      inputTokenReady,
       inputTokenVisible: displayInputTokenVisible,
-      isBuySide,
     }),
   };
 }

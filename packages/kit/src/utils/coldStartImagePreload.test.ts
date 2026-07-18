@@ -18,4 +18,29 @@ describe('getColdStartImageUrisFromSnapshot', () => {
       ]),
     );
   });
+
+  it('keeps the selected Swap pair ahead of wallet-list images under a tight limit', () => {
+    expect(
+      getColdStartImageUrisFromSnapshot(
+        {
+          'wallet-store::ctx:tokenListSlimColdCache': {
+            compactMeta: {
+              wallet: {
+                logoURI: 'https://example.com/wallet-token.png',
+              },
+            },
+          },
+          'swap-store::ctx:swapSelectFromTokenAtom': {
+            networkId: 'evm--1',
+            logoURI: 'https://example.com/swap-token.png',
+            networkLogoURI: 'https://example.com/swap-network.png',
+          },
+        },
+        2,
+      ),
+    ).toEqual([
+      'https://example.com/swap-token.png',
+      'https://example.com/swap-network.png',
+    ]);
+  });
 });

@@ -4,7 +4,9 @@ import { ESwapStockTradeSide } from './swapStockChannelUtils';
 import {
   type ISwapStockDisplayIdentity,
   type ISwapStockDisplaySnapshot,
+  SWAP_STOCK_DISPLAY_AMOUNT_MAX_AGE_MS,
   SWAP_STOCK_DISPLAY_CHART_MAX_POINTS,
+  SWAP_STOCK_DISPLAY_DYNAMIC_MAX_AGE_MS,
   SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS,
   SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION,
   getMatchingSwapStockDisplaySnapshot,
@@ -276,9 +278,36 @@ describe('swapStockDisplaySnapshotUtils', () => {
     ).toBeUndefined();
   });
 
+  it('rejects token detail whose payload does not match its region owner', () => {
+    const snapshot = createSnapshot();
+    const mismatchedTokenDetail = snapshot.tokenDetail
+      ? {
+          ...snapshot.tokenDetail,
+          data: {
+            ...snapshot.tokenDetail.data,
+            address: '0xtsla',
+            coingeckoId: 'tesla-tokenized-stock',
+            symbol: 'TSLA',
+          },
+        }
+      : undefined;
+
+    expect(
+      getMatchingSwapStockDisplaySnapshot({
+        identity,
+        snapshot: { ...snapshot, tokenDetail: mismatchedTokenDetail },
+        now: NOW,
+      }),
+    ).toMatchObject({
+      tokenDetail: undefined,
+      balance: { value: '125.5' },
+      chart: { range: '1W' },
+    });
+  });
+
   it('does not renew untouched region TTLs when another region is updated', () => {
     const original = createSnapshot();
-    const balanceUpdatedAt = NOW + SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS - 10;
+    const balanceUpdatedAt = NOW + SWAP_STOCK_DISPLAY_DYNAMIC_MAX_AGE_MS - 10;
     const withFreshBalance = mergeSwapStockDisplaySnapshot({
       identity,
       previous: original,
@@ -299,7 +328,7 @@ describe('swapStockDisplaySnapshotUtils', () => {
       getMatchingSwapStockDisplaySnapshot({
         identity,
         snapshot: withFreshBalance,
-        now: NOW + SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS + 1,
+        now: NOW + SWAP_STOCK_DISPLAY_DYNAMIC_MAX_AGE_MS + 1,
       }),
     ).toMatchObject({
       tokenDetail: undefined,
@@ -435,6 +464,57 @@ describe('swapStockDisplaySnapshotUtils', () => {
         now: NOW,
       }),
     ).toBeUndefined();
+  });
+
+  it('expires dynamic trading data before selection and a recent draft', () => {
+    const snapshot = mergeSwapStockDisplaySnapshot({
+      identity,
+      previous: createSnapshot(),
+      patch: {
+        selection: {
+          stockToken: {
+            networkId: 'evm--1',
+            contractAddress: '0xaapl',
+            symbol: 'AAPL',
+            decimals: 18,
+            isStock: true,
+          },
+          payToken: {
+            networkId: 'evm--1',
+            contractAddress: '0xusdc',
+            symbol: 'USDC',
+            decimals: 6,
+          },
+          tradeSide: ESwapStockTradeSide.Buy,
+        },
+        amount: { value: '12.5' },
+      },
+      now: NOW,
+    });
+
+    expect(
+      getSwapStockDisplayAccountSnapshot({
+        accountKey: identity.accountKey,
+        snapshot,
+        now: NOW + SWAP_STOCK_DISPLAY_DYNAMIC_MAX_AGE_MS + 1,
+      }),
+    ).toMatchObject({
+      tokenDetail: undefined,
+      balance: undefined,
+      chart: undefined,
+      selection: { stockToken: { symbol: 'AAPL' } },
+      amount: { value: '12.5' },
+    });
+    expect(
+      getSwapStockDisplayAccountSnapshot({
+        accountKey: identity.accountKey,
+        snapshot,
+        now: NOW + SWAP_STOCK_DISPLAY_AMOUNT_MAX_AGE_MS + 1,
+      }),
+    ).toMatchObject({
+      selection: { stockToken: { symbol: 'AAPL' } },
+      amount: undefined,
+    });
   });
 
   it('persists an explicit cleared amount so an older value cannot revive', () => {

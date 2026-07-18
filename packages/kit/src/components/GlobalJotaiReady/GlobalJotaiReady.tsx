@@ -91,6 +91,10 @@ async function waitForJotaiReadyOnWebOrDesktop(): Promise<void> {
 
 async function primeColdStartImagesBeforeRender(): Promise<void> {
   await prewarmColdStartImagesFromSnapshot({
+    // Do not block the React gate. On iOS, decode the prioritized selected
+    // Swap icons in the background so the first Trade mount can reuse an
+    // ImageRef instead of painting an empty icon slot first.
+    decode: platformEnv.isNativeIOS,
     primeTimeoutMs: COLD_START_IMAGE_PRIME_TIMEOUT_MS,
   });
 }

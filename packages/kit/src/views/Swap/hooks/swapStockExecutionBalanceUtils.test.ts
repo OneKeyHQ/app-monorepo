@@ -1,7 +1,7 @@
 import {
   buildStockExecutionBalanceScope,
   buildStockExecutionNetworkAccountScope,
-  runStockExecutionBalanceRequestWithRetry,
+  runStockExecutionBalanceRequest,
 } from './swapStockExecutionBalanceUtils';
 
 describe('Stock execution balance request scopes', () => {
@@ -28,64 +28,95 @@ describe('Stock execution balance request scopes', () => {
   });
 });
 
-describe('runStockExecutionBalanceRequestWithRetry', () => {
-  it('recovers from a transient empty response without accepting it', async () => {
+describe('runStockExecutionBalanceRequest', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('returns one usable response without another request', async () => {
     const request = jest
       .fn<Promise<string | undefined>, []>()
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce('10');
-    const wait = jest.fn().mockResolvedValue(undefined);
+      .mockResolvedValue('10');
 
     await expect(
-      runStockExecutionBalanceRequestWithRetry({
+      runStockExecutionBalanceRequest({
         request,
         isUsable: (value) => value !== undefined,
-        wait,
       }),
     ).resolves.toBe('10');
-
-    expect(request).toHaveBeenCalledTimes(2);
-    expect(wait).toHaveBeenCalledWith(500);
+    expect(request).toHaveBeenCalledTimes(1);
   });
 
-  it('bounds retries when the request keeps failing', async () => {
-    const request = jest.fn<Promise<string | undefined>, []>(() =>
-      Promise.reject(new Error('offline')),
-    );
-    const wait = jest.fn().mockResolvedValue(undefined);
-
-    await expect(
-      runStockExecutionBalanceRequestWithRetry({
-        request,
-        isUsable: (value) => value !== undefined,
-        wait,
-      }),
-    ).resolves.toBeUndefined();
-
-    expect(request).toHaveBeenCalledTimes(4);
-    expect(wait).toHaveBeenNthCalledWith(1, 500);
-    expect(wait).toHaveBeenNthCalledWith(2, 1500);
-    expect(wait).toHaveBeenNthCalledWith(3, 4000);
-  });
-
-  it('stops before dispatching a retry after its owner scope changes', async () => {
-    let currentScope = 'scope-a';
+  it('fails fast after one unusable response and leaves no hidden loading timer', async () => {
+    jest.useFakeTimers();
     const request = jest
       .fn<Promise<string | undefined>, []>()
       .mockResolvedValue(undefined);
-    const wait = jest.fn(async () => {
-      currentScope = 'scope-b';
+    let loading = true;
+
+    const resultPromise = runStockExecutionBalanceRequest({
+      request,
+      isUsable: (value) => value !== undefined,
+    }).finally(() => {
+      loading = false;
     });
 
+    await expect(resultPromise).resolves.toBeUndefined();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(loading).toBe(false);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('fails fast after one rejected request', async () => {
+    const request = jest.fn<Promise<string | undefined>, []>(() =>
+      Promise.reject(new Error('offline')),
+    );
+
     await expect(
-      runStockExecutionBalanceRequestWithRetry({
+      runStockExecutionBalanceRequest({
         request,
         isUsable: (value) => value !== undefined,
-        shouldContinue: () => currentScope === 'scope-a',
-        wait,
       }),
     ).resolves.toBeUndefined();
 
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not dispatch a request after its owner scope changes', async () => {
+    let currentScope = 'scope-a';
+    const request = jest.fn<Promise<string | undefined>, []>();
+    currentScope = 'scope-b';
+
+    await expect(
+      runStockExecutionBalanceRequest({
+        request,
+        isUsable: (value) => value !== undefined,
+        shouldContinue: () => currentScope === 'scope-a',
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('drops an in-flight result after its owner scope changes', async () => {
+    let currentScope = 'scope-a';
+    let resolveRequest!: (value: string | undefined) => void;
+    const request = jest.fn(
+      () =>
+        new Promise<string | undefined>((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+
+    const resultPromise = runStockExecutionBalanceRequest({
+      request,
+      isUsable: (value) => value !== undefined,
+      shouldContinue: () => currentScope === 'scope-a',
+    });
+    currentScope = 'scope-b';
+    resolveRequest('10');
+
+    await expect(resultPromise).resolves.toBeUndefined();
     expect(request).toHaveBeenCalledTimes(1);
   });
 });

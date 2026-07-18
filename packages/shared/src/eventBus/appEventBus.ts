@@ -525,7 +525,6 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.MarketWatchlistOnlyChanged]: {
     showWatchlistOnly: boolean;
   };
-  [EAppEventBusNames.ClearStorageOnExtension]: undefined;
   [EAppEventBusNames.SupabaseStorageCacheCleared]: {
     sourceId: string;
   };

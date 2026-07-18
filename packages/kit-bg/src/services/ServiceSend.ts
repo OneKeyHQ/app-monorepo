@@ -56,6 +56,7 @@ import type { IParseTransactionResp } from '@onekeyhq/shared/types/signatureConf
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import type {
   EReplaceTxType,
+  IBatchSendTxCheckpointErrorData,
   IDecodedTx,
   ISendTxBaseParams,
   ISendTxOnSuccessData,
@@ -77,6 +78,59 @@ import type {
   ITransferInfo,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
+
+function attachBatchSendCheckpointToError({
+  error,
+  successfullySentTxs,
+}: {
+  error: unknown;
+  successfullySentTxs: string[];
+}): unknown {
+  if (successfullySentTxs.length === 0) {
+    return error;
+  }
+
+  const checkpoint = [...new Set(successfullySentTxs)];
+  if ((typeof error !== 'object' && typeof error !== 'function') || !error) {
+    return new OneKeyLocalError<unknown, IBatchSendTxCheckpointErrorData>({
+      message: String(error),
+      data: {
+        batchSendSuccessfullySentTxs: checkpoint,
+      },
+    });
+  }
+
+  const errorWithData = error as {
+    data?: unknown;
+    message?: string;
+  };
+  const originalData = errorWithData.data;
+  const existingData =
+    originalData &&
+    typeof originalData === 'object' &&
+    !Array.isArray(originalData)
+      ? (originalData as Record<string, unknown>)
+      : {};
+
+  try {
+    errorWithData.data = {
+      ...existingData,
+      ...(originalData !== undefined && existingData !== originalData
+        ? { batchSendOriginalErrorData: originalData }
+        : {}),
+      batchSendSuccessfullySentTxs: checkpoint,
+    } satisfies IBatchSendTxCheckpointErrorData;
+    return error;
+  } catch {
+    return new OneKeyLocalError<unknown, IBatchSendTxCheckpointErrorData>({
+      message: errorWithData.message ?? 'Batch transaction send failed.',
+      data: {
+        batchSendOriginalErrorData: originalData,
+        batchSendSuccessfullySentTxs: checkpoint,
+      },
+    });
+  }
+}
 
 @backgroundClass()
 class ServiceSend extends ServiceBase {
@@ -635,6 +689,7 @@ class ServiceSend extends ServiceBase {
     // abort it.
     const effectiveGasAccountSubmitId =
       isMultiTxs || isPrivateSend ? undefined : gasAccountSubmitId;
+    const sentTxUuids = new Set(successfullySentTxs ?? []);
 
     // Replace (speed up / cancel) txs reuse the original pending tx's nonce.
     // Re-validate that nonce against the on-chain nonce at the last moment
@@ -664,14 +719,65 @@ class ServiceSend extends ServiceBase {
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       let unsignedTx = unsignedTxs[i];
       const feeInfo = sendSelectedFeeInfos?.[i];
-      if (
-        !successfullySentTxs ||
-        !unsignedTx.uuid ||
-        !successfullySentTxs.includes(unsignedTx.uuid)
-      ) {
-        if (isMultiTxs && i > 0) {
-          unsignedTx = await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
+      if (!unsignedTx.uuid || !sentTxUuids.has(unsignedTx.uuid)) {
+        let decodedTx: IDecodedTx;
+        try {
+          if (isMultiTxs && i > 0) {
+            unsignedTx =
+              await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
+          }
+          // Decode before the irreversible send boundary. A decode failure is
+          // safe to surface only while no transaction has been broadcast.
+          decodedTx = await this.buildDecodedTx({
+            networkId,
+            accountId,
+            unsignedTx,
+            feeInfo,
+            transferPayload,
+            saveToLocalHistory: true,
+          });
+          if (isPrivateSend) {
+            decodedTx.payload = {
+              value:
+                transferPayload?.amountToSend ?? decodedTx.payload?.value ?? '',
+              label:
+                decodedTx.payload?.label ?? EOnChainHistoryTxType.PrivateSend,
+              type: EOnChainHistoryTxType.PrivateSend,
+              privateSend: {
+                ...transferPayload?.privateSend,
+                originalRecipient: transferPayload?.originalRecipient,
+              },
+            };
+            decodedTx.actions = decodedTx.actions.map((action) =>
+              action.assetTransfer
+                ? {
+                    ...action,
+                    assetTransfer: {
+                      ...action.assetTransfer,
+                      isInternalSwap: false,
+                    },
+                  }
+                : action,
+            );
+            decodedTx.outputActions = decodedTx.outputActions?.map((action) =>
+              action.assetTransfer
+                ? {
+                    ...action,
+                    assetTransfer: {
+                      ...action.assetTransfer,
+                      isInternalSwap: false,
+                    },
+                  }
+                : action,
+            );
+          }
+        } catch (error) {
+          throw attachBatchSendCheckpointToError({
+            error,
+            successfullySentTxs: [...sentTxUuids],
+          });
         }
+
         const buildSignedTx = () =>
           signOnly
             ? this.signTransaction({
@@ -694,6 +800,11 @@ class ServiceSend extends ServiceBase {
         let signedTx: Awaited<ReturnType<typeof buildSignedTx>>;
         try {
           signedTx = await buildSignedTx();
+          if (!signOnly && !signedTx.txid) {
+            throw new OneKeyLocalError(
+              'Broadcast transaction result is missing txid.',
+            );
+          }
         } catch (error) {
           // Safety net for the residual race between the pre-broadcast nonce
           // check and the actual broadcast: the backend rejected the replace
@@ -704,56 +815,35 @@ class ServiceSend extends ServiceBase {
             (this.isReplaceTxNonceAlreadyUsedServerError(error) ||
               this.isReplaceTxNonceAlreadyUsedRpcError(error))
           ) {
-            await this.cleanupStaleReplaceTxAndThrow({
-              accountId,
-              networkId,
-              replaceHistoryId: replaceTxInfo.replaceHistoryId,
-            });
+            try {
+              await this.cleanupStaleReplaceTxAndThrow({
+                accountId,
+                networkId,
+                replaceHistoryId: replaceTxInfo.replaceHistoryId,
+              });
+            } catch (cleanupError) {
+              throw attachBatchSendCheckpointToError({
+                error: cleanupError,
+                successfullySentTxs: [...sentTxUuids],
+              });
+            }
           }
-          throw error;
+          throw attachBatchSendCheckpointToError({
+            error,
+            successfullySentTxs: [...sentTxUuids],
+          });
         }
-        const decodedTx = await this.buildDecodedTx({
-          networkId,
-          accountId,
-          unsignedTx,
-          feeInfo,
-          transferPayload,
-          saveToLocalHistory: true,
-        });
-        if (isPrivateSend) {
-          decodedTx.payload = {
-            value:
-              transferPayload?.amountToSend ?? decodedTx.payload?.value ?? '',
-            label:
-              decodedTx.payload?.label ?? EOnChainHistoryTxType.PrivateSend,
-            type: EOnChainHistoryTxType.PrivateSend,
-            privateSend: {
-              ...transferPayload?.privateSend,
-              originalRecipient: transferPayload?.originalRecipient,
-            },
-          };
-          decodedTx.actions = decodedTx.actions.map((action) =>
-            action.assetTransfer
-              ? {
-                  ...action,
-                  assetTransfer: {
-                    ...action.assetTransfer,
-                    isInternalSwap: false,
-                  },
-                }
-              : action,
-          );
-          decodedTx.outputActions = decodedTx.outputActions?.map((action) =>
-            action.assetTransfer
-              ? {
-                  ...action,
-                  assetTransfer: {
-                    ...action.assetTransfer,
-                    isInternalSwap: false,
-                  },
-                }
-              : action,
-          );
+
+        if (!signOnly && unsignedTx.uuid) {
+          // Checkpoint before every repairable local side effect so retrying
+          // a partially completed batch never re-broadcasts this tx.
+          sentTxUuids.add(unsignedTx.uuid);
+          if (
+            successfullySentTxs &&
+            !successfullySentTxs.includes(unsignedTx.uuid)
+          ) {
+            successfullySentTxs.push(unsignedTx.uuid);
+          }
         }
 
         const data = {
@@ -779,24 +869,38 @@ class ServiceSend extends ServiceBase {
           result.push(data);
         }
 
-        await this.backgroundApi.serviceSignature.addItemFromSendProcess(
-          data,
-          sourceInfo,
-        );
-        if (signedTx && !signOnly) {
-          await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
-            networkId,
-            accountId,
-            data: {
-              signedTx,
-              decodedTx,
-            },
-            replaceTxInfo,
-          });
+        // Signature records and local history can be repaired later. Once
+        // broadcast returned successfully they must remain best-effort.
+        try {
+          await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+            data,
+            sourceInfo,
+          );
+        } catch (error) {
+          defaultLogger.app.error.log(
+            `Record sent transaction signature item failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
         }
-
-        if (!signOnly && unsignedTx.uuid && successfullySentTxs) {
-          successfullySentTxs.push(unsignedTx.uuid);
+        if (signedTx && !signOnly) {
+          try {
+            await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
+              networkId,
+              accountId,
+              data: {
+                signedTx,
+                decodedTx,
+              },
+              replaceTxInfo,
+            });
+          } catch (error) {
+            defaultLogger.app.error.log(
+              `Save sent transaction local history failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          }
         }
       }
     }

@@ -70,4 +70,21 @@ describe('resetUtils.runWithResettingGuard', () => {
 
     expect(resetUtils.getIsResetting()).toBe(false);
   });
+
+  it('fails a reset-sensitive task drain at its explicit deadline', async () => {
+    let finishTask: (() => void) | undefined;
+    const pendingTask = new Promise<void>((resolve) => {
+      finishTask = resolve;
+    });
+    void resetUtils.trackResetSensitiveTask(pendingTask);
+
+    await expect(
+      resetUtils.waitForResetSensitiveTasksToSettle({
+        deadlineAt: Date.now(),
+      }),
+    ).rejects.toThrow('Reset-sensitive task drain deadline exceeded');
+
+    finishTask?.();
+    await resetUtils.waitForResetSensitiveTasksToSettle();
+  });
 });

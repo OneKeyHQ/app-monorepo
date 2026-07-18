@@ -14,6 +14,7 @@ import {
   buildSwapQuoteDisplayIntentFingerprint,
   buildSwapQuoteExecutionFingerprint,
   invalidateSwapQuoteSession,
+  isSwapQuoteSessionEventForCurrentSession,
   parseSwapQuoteEventDataSafe,
   prepareSwapQuoteSession,
 } from './quoteSessionV2';
@@ -93,6 +94,28 @@ describe('quoteSessionV2', () => {
   ])('changes fingerprint when %s changes', (_name, overrides) => {
     expect(buildSwapQuoteExecutionFingerprint(buildRequest())).not.toBe(
       buildSwapQuoteExecutionFingerprint(buildRequest(overrides)),
+    );
+  });
+
+  it('distinguishes a native asset from an incomplete empty-address token', () => {
+    const nativeToken = {
+      ...buildRequest().fromToken,
+      contractAddress: '',
+      isNative: true,
+    };
+    const incompleteToken = {
+      ...nativeToken,
+      isNative: false,
+    };
+
+    const nativeRequest = buildRequest({ fromToken: nativeToken });
+    const incompleteRequest = buildRequest({ fromToken: incompleteToken });
+
+    expect(buildSwapQuoteExecutionFingerprint(nativeRequest)).not.toBe(
+      buildSwapQuoteExecutionFingerprint(incompleteRequest),
+    );
+    expect(buildSwapQuoteDisplayIntentFingerprint(nativeRequest)).not.toBe(
+      buildSwapQuoteDisplayIntentFingerprint(incompleteRequest),
     );
   });
 
@@ -306,6 +329,49 @@ describe('quoteSessionV2', () => {
         state: accepted.state,
         event: buildEvent(prepared, { bgGeneration: 1, sequence: 2 }),
       }).accepted,
+    ).toBe(false);
+  });
+
+  it('attributes analytics only to the active surface and background generation', () => {
+    const prepared = prepareSwapQuoteSession({
+      request: buildRequest(),
+      state: SWAP_QUOTE_SESSION_V2_INITIAL_STATE,
+    });
+    const currentEvent = buildEvent(prepared, {
+      bgGeneration: 2,
+      kind: 'transportError',
+      error: { message: 'transport failed' },
+    });
+    const currentState = {
+      ...prepared,
+      bgGeneration: 2,
+      lastSequence: currentEvent.sequence,
+      phase: 'error' as const,
+    };
+
+    expect(
+      isSwapQuoteSessionEventForCurrentSession({
+        event: currentEvent,
+        state: currentState,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapQuoteSessionEventForCurrentSession({
+        event: {
+          ...currentEvent,
+          session: {
+            ...currentEvent.session,
+            surfaceId: 'private-send:surface',
+          },
+        },
+        state: currentState,
+      }),
+    ).toBe(false);
+    expect(
+      isSwapQuoteSessionEventForCurrentSession({
+        event: { ...currentEvent, bgGeneration: 1 },
+        state: currentState,
+      }),
     ).toBe(false);
   });
 

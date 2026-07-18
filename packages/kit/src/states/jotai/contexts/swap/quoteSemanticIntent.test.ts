@@ -141,6 +141,24 @@ describe('swap quote semantic intent', () => {
     expect(buildIntent(overrides).key).not.toBe(buildIntent().key);
   });
 
+  it('treats native identity as semantic and rejects non-native empty-address input', () => {
+    const nativeFromToken = {
+      ...fromToken,
+      contractAddress: '',
+      isNative: true,
+    };
+    const incompleteFromToken = {
+      ...nativeFromToken,
+      isNative: false,
+    };
+    const nativeIntent = buildIntent({ fromToken: nativeFromToken });
+    const incompleteIntent = buildIntent({ fromToken: incompleteFromToken });
+
+    expect(nativeIntent.hasValidInput).toBe(true);
+    expect(incompleteIntent.hasValidInput).toBe(false);
+    expect(incompleteIntent.key).not.toBe(nativeIntent.key);
+  });
+
   it('does not treat an auto-slippage suggestion update as user intent', () => {
     const first = buildIntent({
       slippage: { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
@@ -360,7 +378,7 @@ describe('swap quote semantic intent', () => {
     },
   );
 
-  it('keeps ordinary Swap amount matching representation-strict', () => {
+  it('accepts numerically equivalent ordinary Swap input amounts', () => {
     expect(
       getSwapQuoteAmountProjection({
         expectedKind: ESwapQuoteKind.SELL,
@@ -370,6 +388,6 @@ describe('swap quote semantic intent', () => {
         toAmount: '',
         toToken,
       }),
-    ).toBeUndefined();
+    ).toEqual({ direction: ESwapDirectionType.TO, value: '10' });
   });
 });

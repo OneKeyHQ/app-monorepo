@@ -135,15 +135,24 @@ const SwapProPositionsList = ({
   const shouldUseCachedTokenList =
     !!hasCachedTokenList &&
     !!cachedTokenList?.length &&
-    (swapProSupportNetworksTokenListLoading ||
-      swapProSupportNetworksTokenList.length === 0);
-  let scopedPositionTokenList: ISwapToken[] | undefined;
-  if (positionOwnerKey !== undefined) {
-    scopedPositionTokenList = isRequestOwnerCurrent
-      ? swapProSupportNetworksTokenList
-      : (exactPositionEntry?.tokens ?? []);
-  } else if (shouldUseCachedTokenList) {
-    scopedPositionTokenList = cachedTokenList;
+    !exactPositionEntry &&
+    ((!isRequestOwnerCurrent && Boolean(positionOwnerKey)) ||
+      (swapProPositionsRequestState.status === 'loading' &&
+        swapProSupportNetworksTokenListLoading));
+  let scopedPositionTokenList: ISwapToken[] = [];
+  if (positionOwnerKey) {
+    if (isRequestOwnerCurrent && exactPositionEntry) {
+      scopedPositionTokenList = swapProSupportNetworksTokenList;
+    } else if (exactPositionEntry) {
+      scopedPositionTokenList = exactPositionEntry.tokens;
+    } else if (shouldUseCachedTokenList) {
+      // A previous network-set snapshot from the same account is display-only
+      // while the exact owner refreshes. The hook filters removed networks;
+      // execution state never consumes this list.
+      scopedPositionTokenList = cachedTokenList;
+    } else {
+      scopedPositionTokenList = [];
+    }
   }
   const { finallyTokenList } = useSwapProPositionsListFilter(
     filterToken,
@@ -271,7 +280,7 @@ const SwapProPositionsList = ({
         })
     : undefined;
   const isPositionsSourceLoading = shouldRenderSwapProPositionsSourceSkeleton({
-    hasScopedSource: positionOwnerKey !== undefined,
+    hasScopedSource: Boolean(positionOwnerKey),
     hasUsableLegacyCache: shouldUseCachedTokenList,
     legacyLoading: swapProSupportNetworksTokenListLoading,
     sourceReady: isOwnerSourceReady,

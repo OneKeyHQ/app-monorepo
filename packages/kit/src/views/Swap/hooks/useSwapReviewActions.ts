@@ -123,9 +123,11 @@ function useReviewStepStateActions() {
 export function useSwapReviewActions({
   adapter,
   approveTransactionSource = ESwapReviewApproveTransactionSource.None,
+  reviewRevision = 'active-review',
 }: {
   adapter: ISwapReviewAdapter;
   approveTransactionSource?: ESwapReviewApproveTransactionSource;
+  reviewRevision?: string;
 }) {
   const intl = useIntl();
   const [swapStepsState, setSwapSteps] = useSwapStepsAtom();
@@ -138,6 +140,8 @@ export function useSwapReviewActions({
   const networkFeeLevelRef = useRef(swapStepNetFeeLevel.networkFeeLevel);
   const customPriorityFeeRef = useRef(swapStepNetFeeLevel.customPriorityFee);
   const swapStepsStateRef = useRef(swapStepsState);
+  const reviewRevisionRef = useRef(reviewRevision);
+  const confirmInFlightRevisionRef = useRef<string | undefined>(undefined);
   const { replaceReviewState, setBeforeActionsLoading, updateStep } =
     useReviewStepStateActions();
 
@@ -146,6 +150,7 @@ export function useSwapReviewActions({
   networkFeeLevelRef.current = swapStepNetFeeLevel.networkFeeLevel;
   customPriorityFeeRef.current = swapStepNetFeeLevel.customPriorityFee;
   swapStepsStateRef.current = swapStepsState;
+  reviewRevisionRef.current = reviewRevision;
 
   const clearPreSwapGasInfos = useCallback(
     (preSwapData: ISwapPreSwapData) => {
@@ -263,6 +268,7 @@ export function useSwapReviewActions({
           (step.canRetry && step.status === ESwapStepStatus.FAILED);
 
         if (canStart) {
+          let hasIrreversibleReceipt = false;
           try {
             updateStep(i, {
               status: ESwapStepStatus.LOADING,
@@ -285,6 +291,7 @@ export function useSwapReviewActions({
                 customPriorityFee,
                 quoteResult,
                 onBroadcast: ({ txHash }) => {
+                  hasIrreversibleReceipt = Boolean(txHash);
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,
                     txHash,
@@ -306,6 +313,7 @@ export function useSwapReviewActions({
                 networkFeeLevel,
                 customPriorityFee,
                 onBroadcast: ({ txHash, orderId }) => {
+                  hasIrreversibleReceipt = Boolean(txHash || orderId);
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,
                     txHash,
@@ -325,6 +333,7 @@ export function useSwapReviewActions({
                 networkFeeLevel,
                 customPriorityFee,
                 onBroadcast: ({ txHash, orderId }) => {
+                  hasIrreversibleReceipt = Boolean(txHash || orderId);
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,
                     txHash,
@@ -343,6 +352,7 @@ export function useSwapReviewActions({
                 networkFeeLevel,
                 customPriorityFee,
                 onBroadcast: ({ txHash, orderId }) => {
+                  hasIrreversibleReceipt = Boolean(txHash || orderId);
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,
                     txHash,
@@ -368,6 +378,7 @@ export function useSwapReviewActions({
                 networkFeeLevel,
                 customPriorityFee,
                 onBroadcast: ({ txHash, orderId }) => {
+                  hasIrreversibleReceipt = Boolean(txHash || orderId);
                   updateStep(i, {
                     status: ESwapStepStatus.PENDING,
                     txHash,
@@ -381,6 +392,12 @@ export function useSwapReviewActions({
               break;
             }
           } catch (error) {
+            if (hasIrreversibleReceipt) {
+              // An adapter may still report a local callback/bookkeeping error
+              // after publishing a tx/order receipt. Never downgrade that
+              // irreversible result to FAILED, which would make it retryable.
+              break;
+            }
             markStepFailed(
               i,
               error instanceof Error ? error.message : undefined,
@@ -474,7 +491,17 @@ export function useSwapReviewActions({
   ]);
 
   const onConfirm = useCallback(() => {
-    void preSwapStepsStart();
+    const currentReviewRevision = reviewRevisionRef.current;
+    if (confirmInFlightRevisionRef.current === currentReviewRevision) {
+      return;
+    }
+    confirmInFlightRevisionRef.current = currentReviewRevision;
+    const clearInFlightRevision = () => {
+      if (confirmInFlightRevisionRef.current === currentReviewRevision) {
+        confirmInFlightRevisionRef.current = undefined;
+      }
+    };
+    void preSwapStepsStart().then(clearInFlightRevision, clearInFlightRevision);
   }, [preSwapStepsStart]);
 
   return {

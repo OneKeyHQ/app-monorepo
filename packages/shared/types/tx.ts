@@ -282,6 +282,11 @@ export type ISendTxOnSuccessData = {
   approveInfo?: IApproveInfo;
 };
 
+export type IBatchSendTxCheckpointErrorData = {
+  batchSendSuccessfullySentTxs?: string[];
+  batchSendOriginalErrorData?: unknown;
+};
+
 export type IReplaceTxInfo = {
   replaceType: EReplaceTxType;
   replaceHistoryId: string;

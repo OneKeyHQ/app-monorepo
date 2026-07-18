@@ -1,11 +1,10 @@
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { isSameSwapQuoteAmount } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import { isSameSwapTokenPairIdentity } from '@onekeyhq/shared/src/utils/swapTokenIdentity';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   EStockTradeAlertType,
   ESwapAlertLevel,
 } from '@onekeyhq/shared/types/swap/types';
-
-import { isSameStockTradeAmount } from '../../utils/swapStockTradeControl';
 
 export type ISwapStockQuoteEventErrorForAlert = {
   fromToken?: ISwapToken;
@@ -87,22 +86,19 @@ export function isCurrentStockQuoteEventError({
   if (!quoteEventError || !fromToken || !toToken) {
     return false;
   }
-  const isSameTokenPair =
-    equalTokenNoCaseSensitive({
-      token1: quoteEventError.fromToken,
-      token2: fromToken,
-    }) &&
-    equalTokenNoCaseSensitive({
-      token1: quoteEventError.toToken,
-      token2: toToken,
-    });
+  const isSameTokenPair = isSameSwapTokenPairIdentity({
+    fromToken1: quoteEventError.fromToken,
+    fromToken2: fromToken,
+    toToken1: quoteEventError.toToken,
+    toToken2: toToken,
+  });
   if (!isSameTokenPair) {
     return false;
   }
   if (!quoteEventError.isStock) {
     return true;
   }
-  return isSameStockTradeAmount({
+  return isSameSwapQuoteAmount({
     left: quoteEventError.fromTokenAmount,
     right: fromTokenAmount,
   });

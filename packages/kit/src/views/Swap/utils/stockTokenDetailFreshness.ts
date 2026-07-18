@@ -59,8 +59,35 @@ export function isStockTokenDetailStateLanded({
   if (!state || state.scope !== scope) {
     return false;
   }
-  if (state.fetchedAt && now - state.fetchedAt <= ttlMs) {
-    return true;
+  const fetchedAt = state.fetchedAt;
+  if (fetchedAt !== undefined) {
+    return Boolean(
+      typeof fetchedAt === 'number' &&
+      Number.isFinite(fetchedAt) &&
+      fetchedAt <= now &&
+      now - fetchedAt <= ttlMs,
+    );
   }
   return !!mountId && state.fallbackOfMountId === mountId;
+}
+
+export function isStockTokenDetailFreshForCheckpoint({
+  now = Date.now(),
+  scope,
+  scopeStartedAt,
+  state,
+}: {
+  now?: number;
+  scope: string;
+  scopeStartedAt: number;
+  state: IStockTokenDetailFetchState | undefined;
+}) {
+  const fetchedAt = state?.fetchedAt;
+  return Boolean(
+    state?.scope === scope &&
+    typeof fetchedAt === 'number' &&
+    Number.isFinite(fetchedAt) &&
+    fetchedAt >= scopeStartedAt &&
+    fetchedAt <= now,
+  );
 }

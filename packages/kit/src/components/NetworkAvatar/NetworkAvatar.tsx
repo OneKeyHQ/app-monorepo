@@ -25,7 +25,6 @@ export const NetworkAvatarBase = ({
   isAllNetworks,
   allNetworksIconProps,
   isAggregateToken,
-  onDisplay,
 }: {
   logoURI: string;
   size?: IImageProps['size'];
@@ -34,7 +33,6 @@ export const NetworkAvatarBase = ({
   isAllNetworks?: boolean;
   allNetworksIconProps?: ComponentProps<typeof Icon>;
   isAggregateToken?: boolean;
-  onDisplay?: IImageProps['onDisplay'];
 }) => {
   if (isCustomNetwork) {
     return <LetterAvatar letter={networkName?.[0]} size={size} />;
@@ -65,7 +63,6 @@ export const NetworkAvatarBase = ({
       bg="$bgApp"
       borderRadius="$full"
       source={{ uri: logoURI }}
-      onDisplay={onDisplay}
       fallback={
         <Icon
           size={size as FontSizeTokens}
@@ -82,14 +79,12 @@ type INetworkAvatarProps = {
   size?: IImageProps['size'];
   isCustomNetwork?: boolean;
   allNetworksIconProps?: ComponentProps<typeof Icon>;
-  onDisplay?: IImageProps['onDisplay'];
 };
 
 export function NetworkAvatar({
   networkId,
   size = '$6',
   allNetworksIconProps,
-  onDisplay,
 }: INetworkAvatarProps) {
   const { serviceNetwork } = backgroundApiProxy;
   const { networksMap } = useTokenListViewContext();
@@ -137,7 +132,6 @@ export function NetworkAvatar({
       logoURI={logoURI}
       isAllNetworks={isAllNetworks}
       allNetworksIconProps={allNetworksIconProps}
-      onDisplay={onDisplay}
     />
   ) : null;
 }

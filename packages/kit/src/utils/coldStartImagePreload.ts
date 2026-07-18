@@ -304,8 +304,11 @@ export function getColdStartImageUrisFromSnapshot(
     return [];
   }
 
-  collectWalletTokenImageUris({ uris, snapshot });
+  // The selected Swap pair is a tiny, first-interaction critical set. Prime it
+  // before wallet lists so a slow connection cannot leave token/network icons
+  // behind the first Trade paint while dozens of Home assets are queued.
   collectSwapImageUris({ uris, snapshot });
+  collectWalletTokenImageUris({ uris, snapshot });
   collectPerpsImageUris({ uris, snapshot });
 
   return [...uris].slice(0, limit);

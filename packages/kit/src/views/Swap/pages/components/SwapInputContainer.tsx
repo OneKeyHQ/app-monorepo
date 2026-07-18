@@ -36,9 +36,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
-  checkWrappedTokenPair,
-  equalTokenNoCaseSensitive,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
+  getSwapTokenIdentityKey,
+  isSameSwapTokenIdentity,
+} from '@onekeyhq/shared/src/utils/swapTokenIdentity';
+import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
@@ -176,23 +177,24 @@ const SwapInputContainer = ({
   });
   const tokenSelectorDisplayToken =
     direction === ESwapDirectionType.FROM ? displayFromToken : displayToToken;
-  const isCurrentLaunchDisplayToken = Boolean(
-    initialSelectedTokensSynced &&
+  const tokenSelectorDisplayIdentityKey =
+    getSwapTokenIdentityKey(tokenSelectorDisplayToken) || undefined;
+  const isCurrentDisplayToken = Boolean(
     tokenSelectorDisplayToken &&
-    equalTokenNoCaseSensitive({
+    isSameSwapTokenIdentity({
       token1: token,
       token2: tokenSelectorDisplayToken,
     }),
   );
   const { isSelectedTokenDetailBalanceVisible } = useSwapSelectedTokenInfo({
     initialSelectedTokensSynced,
-    isCurrentDisplayToken: isCurrentLaunchDisplayToken,
+    isCurrentDisplayToken,
     token,
     type: direction,
   });
   const amountPrice = useMemo(() => {
     return getSwapTokenDisplayFiatValue({
-      token: isCurrentLaunchDisplayToken ? token : undefined,
+      token: isCurrentDisplayToken ? tokenSelectorDisplayToken : undefined,
       amount: amountValue ?? '',
       targetCurrency: settingsPersistAtom.currencyInfo.id,
       currencyMap,
@@ -200,9 +202,9 @@ const SwapInputContainer = ({
   }, [
     amountValue,
     currencyMap,
-    isCurrentLaunchDisplayToken,
+    isCurrentDisplayToken,
     settingsPersistAtom.currencyInfo.id,
-    token,
+    tokenSelectorDisplayToken,
   ]);
   const isInitialTokenSelectionPending =
     direction === ESwapDirectionType.FROM
@@ -240,7 +242,8 @@ const SwapInputContainer = ({
   const showBalanceSkeleton = useMemo(
     () =>
       Boolean(
-        isCurrentLaunchDisplayToken &&
+        initialSelectedTokensSynced &&
+        isCurrentDisplayToken &&
         token &&
         address &&
         !displayBalance &&
@@ -251,7 +254,8 @@ const SwapInputContainer = ({
       balance,
       balanceLoading,
       displayBalance,
-      isCurrentLaunchDisplayToken,
+      initialSelectedTokensSynced,
+      isCurrentDisplayToken,
       isSelectedTokenDetailBalanceVisible,
       token,
     ],
@@ -271,6 +275,7 @@ const SwapInputContainer = ({
       direction === ESwapDirectionType.FROM &&
       !!fromToken &&
       !!address &&
+      isSelectedTokenDetailBalanceVisible &&
       balanceBN.lt(amountValueBN);
     return {
       accountError,
@@ -284,10 +289,12 @@ const SwapInputContainer = ({
     fromTokenBalance,
     fromTokenAmount,
     fromToken,
+    isSelectedTokenDetailBalanceVisible,
   ]);
   const valueMoreComponent = useMemo(() => {
     if (
-      isCurrentLaunchDisplayToken &&
+      initialSelectedTokensSynced &&
+      isCurrentDisplayToken &&
       rateDifference &&
       direction === ESwapDirectionType.TO &&
       swapTypeSwitch !== ESwapTabSwitchType.LIMIT
@@ -303,7 +310,8 @@ const SwapInputContainer = ({
   }, [
     direction,
     inputLoading,
-    isCurrentLaunchDisplayToken,
+    initialSelectedTokensSynced,
+    isCurrentDisplayToken,
     rateDifference,
     swapTypeSwitch,
   ]);
@@ -370,7 +378,8 @@ const SwapInputContainer = ({
   const showActionBuy = useMemo(
     () =>
       direction === ESwapDirectionType.FROM &&
-      isCurrentLaunchDisplayToken &&
+      initialSelectedTokensSynced &&
+      isCurrentDisplayToken &&
       !!accountInfo?.account?.id &&
       !!fromToken &&
       fromInputHasError.hasBalanceError,
@@ -379,7 +388,8 @@ const SwapInputContainer = ({
       accountInfo?.account?.id,
       fromToken,
       fromInputHasError,
-      isCurrentLaunchDisplayToken,
+      initialSelectedTokensSynced,
+      isCurrentDisplayToken,
     ],
   );
   const readOnly = useMemo(() => {
@@ -422,7 +432,10 @@ const SwapInputContainer = ({
           value: displayBalance,
           loading: showBalanceSkeleton,
           onPress:
-            direction === ESwapDirectionType.FROM && isCurrentLaunchDisplayToken
+            direction === ESwapDirectionType.FROM &&
+            initialSelectedTokensSynced &&
+            isCurrentDisplayToken &&
+            isSelectedTokenDetailBalanceVisible
               ? onBalanceMaxPress
               : undefined,
           testID:
@@ -470,6 +483,7 @@ const SwapInputContainer = ({
           minWidth: tokenSelectorMinWidth,
           justifyContent: 'flex-end',
           loading: showTokenSelectorSkeleton,
+          selectedTokenIdentityKey: tokenSelectorDisplayIdentityKey,
           selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
           selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
           onPress: () => {

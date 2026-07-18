@@ -14,7 +14,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { isSameSwapTokenIdentity } from '@onekeyhq/shared/src/utils/swapTokenIdentity';
 import {
   ESwapProviderSort,
   swapQuoteIntervalMaxCount,
@@ -72,18 +72,17 @@ import {
   SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
   getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
+  isStockQuoteInputAmountMatched,
   isSwapNoProviderSupportsTrade,
   isSwapQuoteEventFetching,
   isSwapQuoteInputAmountMatched,
   isSwapZeroProviderQuoteCompleted,
   selectSwapPreviousActionableQuote,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
+import { getSwapQuoteKindForCurrentInput } from '../../../states/jotai/contexts/swap/quoteSemanticIntent';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
 import { shouldAllowSwapNoConnectWalletWarning } from '../utils/swapNoWalletWarningGuard';
-import {
-  getStockQuoteTradeControl,
-  isStockQuoteInputAmountMatched,
-} from '../utils/swapStockTradeControl';
+import { getStockQuoteTradeControl } from '../utils/swapStockTradeControl';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 
@@ -136,20 +135,8 @@ function useSwapWarningCheck() {
     ],
   );
   const refContainer = useRef<ISwapCheckWarningDef>({
-    swapFromAddressInfo: {
-      address: undefined,
-      networkId: undefined,
-      accountInfo: undefined,
-      activeAccount: undefined,
-      isAddressInfoReady: false,
-    },
-    swapToAddressInfo: {
-      address: undefined,
-      networkId: undefined,
-      accountInfo: undefined,
-      activeAccount: undefined,
-      isAddressInfoReady: false,
-    },
+    swapFromAddressInfo,
+    swapToAddressInfo,
   });
   const isFocused = useIsFocused();
   const asyncRefContainer = useCallback(() => {
@@ -252,11 +239,11 @@ export function useSwapQuoteProgressState() {
         return false;
       }
       if (
-        !equalTokenNoCaseSensitive({
+        !isSameSwapTokenIdentity({
           token1: quote.fromTokenInfo,
           token2: fromToken,
         }) ||
-        !equalTokenNoCaseSensitive({
+        !isSameSwapTokenIdentity({
           token1: quote.toTokenInfo,
           token2: toToken,
         })
@@ -458,11 +445,11 @@ export function useSwapActionState() {
       (fromTokenAmount.value === swapApprovingTransaction?.amount ||
         fromTokenAmount.value ===
           swapApprovingTransaction?.resetApproveValue) &&
-      equalTokenNoCaseSensitive({
+      isSameSwapTokenIdentity({
         token1: swapApprovingTransaction?.fromToken,
         token2: fromToken,
       }) &&
-      equalTokenNoCaseSensitive({
+      isSameSwapTokenIdentity({
         token1: swapApprovingTransaction?.toToken,
         token2: toToken,
       })
@@ -510,19 +497,18 @@ export function useSwapActionState() {
     swapTypeSwitchValue,
     toTokenAmount.value,
   ]);
-  // Pair identity must match the quote ingestion path, which accepts quotes
-  // via equalTokenNoCaseSensitive (e.g. checksum vs lowercase EVM contract
-  // addresses); a raw !== compare would flag those quotes as a stale pair.
+  // Pair identity follows quote ingestion's normalized address semantics and
+  // also distinguishes native assets from incomplete empty-address tokens.
   const quoteResultPairNoMatch = useMemo(
     () =>
       Boolean(
         quoteCurrentSelect &&
         !(
-          equalTokenNoCaseSensitive({
+          isSameSwapTokenIdentity({
             token1: quoteCurrentSelect.fromTokenInfo,
             token2: fromToken,
           }) &&
-          equalTokenNoCaseSensitive({
+          isSameSwapTokenIdentity({
             token1: quoteCurrentSelect.toTokenInfo,
             token2: toToken,
           })
@@ -530,9 +516,18 @@ export function useSwapActionState() {
       ),
     [fromToken, quoteCurrentSelect, toToken],
   );
+  const expectedQuoteKind = getSwapQuoteKindForCurrentInput({
+    protocol: swapTypeSwitchValue,
+    toAmount: toTokenAmount,
+  });
+  const quoteResultKindNoMatch = Boolean(
+    quoteCurrentSelect &&
+    (quoteCurrentSelect.kind ?? ESwapQuoteKind.SELL) !== expectedQuoteKind,
+  );
   const quoteResultNoMatch = useMemo(
     () =>
       quoteResultPairNoMatch ||
+      quoteResultKindNoMatch ||
       quoteInputAmountNoMatch ||
       (quoteCurrentSelect?.protocol !== EProtocolOfExchange.LIMIT &&
         quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
@@ -542,6 +537,7 @@ export function useSwapActionState() {
       fromTokenAmount,
       quoteCurrentSelect,
       quoteInputAmountNoMatch,
+      quoteResultKindNoMatch,
       quoteResultPairNoMatch,
     ],
   );

@@ -19,11 +19,12 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSpeedQuoteFetchingAtom,
+  useSwapSpeedQuoteOutcomeAtom,
   useSwapSpeedQuoteResultAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { isSameSwapTokenIdentity } from '@onekeyhq/shared/src/utils/swapTokenIdentity';
 import {
   ESwapProTradeType,
   ESwapTabSwitchType,
@@ -168,6 +169,7 @@ const SwapProActionButton = ({
   );
   const [swapQuoteResult] = useSwapQuoteCurrentSelectAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
+  const [speedQuoteOutcome] = useSwapSpeedQuoteOutcomeAtom();
   const swapProAccount = useSwapProAccount();
   const { isWaitingActionableQuote } = useSwapQuoteProgressState();
   const isZeroProviderQuoteCompleted = useSwapZeroProviderQuoteCompleted();
@@ -284,7 +286,7 @@ const SwapProActionButton = ({
     void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
     if (swapProDirection === ESwapDirection.BUY) {
       if (
-        equalTokenNoCaseSensitive({
+        isSameSwapTokenIdentity({
           token1: swapSelectToken,
           token2: swapProSelectToken,
         }) &&
@@ -300,7 +302,7 @@ const SwapProActionButton = ({
       }
     } else {
       if (
-        equalTokenNoCaseSensitive({
+        isSameSwapTokenIdentity({
           token1: swapSelectToToken,
           token2: swapProSelectToken,
         }) &&
@@ -365,10 +367,17 @@ const SwapProActionButton = ({
     () =>
       (swapProTradeType !== ESwapProTradeType.MARKET &&
         isZeroProviderQuoteCompleted) ||
+      (swapProTradeType === ESwapProTradeType.MARKET &&
+        speedQuoteOutcome.status === 'zeroProvider') ||
       Boolean(
         currentQuoteRes && !currentQuoteRes.toAmount && !currentQuoteRes.limit,
       ),
-    [currentQuoteRes, isZeroProviderQuoteCompleted, swapProTradeType],
+    [
+      currentQuoteRes,
+      isZeroProviderQuoteCompleted,
+      speedQuoteOutcome.status,
+      swapProTradeType,
+    ],
   );
   const actionButtonDisabled = useMemo(() => {
     let originalDisabled =
@@ -433,6 +442,17 @@ const SwapProActionButton = ({
         subValue: '',
       };
     }
+    if (
+      swapProTradeType === ESwapProTradeType.MARKET &&
+      speedQuoteOutcome.status === 'error'
+    ) {
+      return {
+        resValue: intl.formatMessage({
+          id: ETranslations.global_network_error,
+        }),
+        subValue: '',
+      };
+    }
     // Format value with compact notation (k, M, B, T)
     const formattedValue = inputTokenValue
       ? formatCompactValue(inputTokenValue, currencySymbol)
@@ -477,6 +497,8 @@ const SwapProActionButton = ({
     hasEnoughBalance,
     swapProAccount?.result?.addressDetail.address,
     shouldShowNoProviderSupport,
+    speedQuoteOutcome.status,
+    swapProTradeType,
     inputTokenValue,
     toToken?.symbol,
     quoteToAmount,

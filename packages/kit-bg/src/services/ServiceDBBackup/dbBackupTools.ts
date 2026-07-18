@@ -1,4 +1,5 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import type { IInstanceMetaBackup } from '@onekeyhq/shared/types/desktop';
 import {
   EDesktopStoreKeys,
@@ -6,35 +7,39 @@ import {
 } from '@onekeyhq/shared/types/desktop';
 
 async function backupInstanceMeta(instanceMeta: IInstanceMetaBackup) {
-  try {
-    if (platformEnv.isExtension) {
-      await globalThis.chrome.storage.local.set({
-        [INSTANCE_META_BACKUP_KEY]: instanceMeta,
-      });
+  resetUtils.checkNotInResetting();
+  const backupTask = (async () => {
+    try {
+      if (platformEnv.isExtension) {
+        await globalThis.chrome.storage.local.set({
+          [INSTANCE_META_BACKUP_KEY]: instanceMeta,
+        });
+      }
+    } catch (error) {
+      console.error('isExtension backupInstanceMeta error', error);
     }
-  } catch (error) {
-    console.error('isExtension backupInstanceMeta error', error);
-  }
-  try {
-    if (platformEnv.isDesktop) {
-      await globalThis.desktopApiProxy?.storage?.storeSetItemAsync(
-        EDesktopStoreKeys.AppInstanceMetaBackup, // INSTANCE_META_BACKUP_KEY,
-        instanceMeta,
-      );
+    try {
+      if (platformEnv.isDesktop) {
+        await globalThis.desktopApiProxy?.storage?.storeSetItemAsync(
+          EDesktopStoreKeys.AppInstanceMetaBackup, // INSTANCE_META_BACKUP_KEY,
+          instanceMeta,
+        );
+      }
+    } catch (error) {
+      console.error('isDesktop backupInstanceMeta error', error);
     }
-  } catch (error) {
-    console.error('isDesktop backupInstanceMeta error', error);
-  }
-  try {
-    if (platformEnv.isRuntimeBrowser) {
-      globalThis.localStorage.setItem(
-        INSTANCE_META_BACKUP_KEY,
-        JSON.stringify(instanceMeta),
-      );
+    try {
+      if (platformEnv.isRuntimeBrowser) {
+        globalThis.localStorage.setItem(
+          INSTANCE_META_BACKUP_KEY,
+          JSON.stringify(instanceMeta),
+        );
+      }
+    } catch (error) {
+      console.error('isRuntimeBrowser backupInstanceMeta error', error);
     }
-  } catch (error) {
-    console.error('isRuntimeBrowser backupInstanceMeta error', error);
-  }
+  })();
+  return resetUtils.trackResetSensitiveTask(backupTask);
 }
 
 async function getBackupedInstanceMeta(): Promise<

@@ -8,6 +8,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ESwapStockTradeSide,
+  getTokenIdentityKey,
   getValidStockExecutionBalance,
 } from './swapStockChannelUtils';
 
@@ -16,6 +17,10 @@ const SWAP_STOCK_DISPLAY_SNAPSHOT_LEGACY_VERSION = 1 as const;
 export const SWAP_STOCK_DISPLAY_SNAPSHOT_VERSION = 2 as const;
 export const SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS =
   timerUtils.getTimeDurationMs({ week: 1 });
+export const SWAP_STOCK_DISPLAY_DYNAMIC_MAX_AGE_MS =
+  timerUtils.getTimeDurationMs({ seconds: 30 });
+export const SWAP_STOCK_DISPLAY_AMOUNT_MAX_AGE_MS =
+  timerUtils.getTimeDurationMs({ minute: 5 });
 export const SWAP_STOCK_DISPLAY_CHART_MAX_POINTS = 500;
 export const SWAP_STOCK_DISPLAY_CHART_SOURCE_CURRENCY = 'usd' as const;
 
@@ -42,7 +47,7 @@ export type ISwapStockDisplayTokenDetailIdentity = {
   currency: string;
 };
 
-export type ISwapStockDisplayBalanceIdentity = {
+type ISwapStockDisplayBalanceIdentity = {
   accountKey: string;
   inputTokenKey: string;
 };
@@ -237,7 +242,7 @@ export function buildSwapStockDisplayTokenDetailIdentityKey(
   ]);
 }
 
-export function buildSwapStockDisplayBalanceIdentityKey(
+function buildSwapStockDisplayBalanceIdentityKey(
   identity?: ISwapStockDisplayBalanceIdentity,
 ) {
   return buildIdentityKey([identity?.accountKey, identity?.inputTokenKey]);
@@ -330,6 +335,7 @@ function isValidDisplayTokenDetail(
   }
   return (
     typeof value.address === 'string' &&
+    typeof value.networkId === 'string' &&
     typeof value.logoUrl === 'string' &&
     typeof value.name === 'string' &&
     typeof value.symbol === 'string' &&
@@ -493,15 +499,25 @@ function normalizeTokenDetailRegion({
         : (fallbackIdentity?.currency.toLowerCase() ?? ''),
   };
   const updatedAt = Number(value.updatedAt);
+  const data = isValidDisplayTokenDetail(value.data)
+    ? projectSwapStockDisplayTokenDetail(
+        value.data as unknown as IMarketTokenDetail,
+      )
+    : undefined;
   if (
     identity.accountKey !== accountKey ||
     !buildSwapStockDisplayTokenDetailIdentityKey(identity) ||
     !Number.isFinite(updatedAt) ||
-    !isValidDisplayTokenDetail(value.data)
+    !data ||
+    getTokenIdentityKey({
+      networkId: data.networkId,
+      contractAddress: data.address,
+      isNative: data.isNative,
+    }) !== identity.stockTokenKey
   ) {
     return undefined;
   }
-  return { identity, data: value.data, updatedAt };
+  return { identity, data, updatedAt };
 }
 
 function normalizeBalanceRegion({
@@ -754,7 +770,7 @@ function normalizeSwapStockDisplaySnapshot(
 export function getSwapStockDisplayAccountSnapshot({
   accountKey,
   snapshot,
-  maxAgeMs = SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS,
+  maxAgeMs,
   now = Date.now(),
 }: {
   accountKey?: string;
@@ -771,16 +787,41 @@ export function getSwapStockDisplayAccountSnapshot({
   ) {
     return undefined;
   }
-  const keepFresh = <T extends { updatedAt: number }>(region?: T) =>
+  const keepFresh = <T extends { updatedAt: number }>(
+    region: T | undefined,
+    defaultMaxAgeMs: number,
+  ) =>
     region &&
-    isUsableSnapshotTimestamp({ maxAgeMs, now, timestamp: region.updatedAt })
+    isUsableSnapshotTimestamp({
+      maxAgeMs: maxAgeMs ?? defaultMaxAgeMs,
+      now,
+      timestamp: region.updatedAt,
+    })
       ? region
       : undefined;
-  const tokenDetail = keepFresh(normalized.tokenDetail);
-  const balance = keepFresh(normalized.balance);
-  const chart = keepFresh(normalized.chart);
-  const selection = keepFresh(normalized.selection);
-  const amount = keepFresh(normalized.amount);
+  // Dynamic trading data is only a brief cold-start bridge. Selection and a
+  // recent user draft may live longer, but an old balance, price, or chart must
+  // never look current after a later app launch.
+  const tokenDetail = keepFresh(
+    normalized.tokenDetail,
+    SWAP_STOCK_DISPLAY_DYNAMIC_MAX_AGE_MS,
+  );
+  const balance = keepFresh(
+    normalized.balance,
+    SWAP_STOCK_DISPLAY_DYNAMIC_MAX_AGE_MS,
+  );
+  const chart = keepFresh(
+    normalized.chart,
+    SWAP_STOCK_DISPLAY_DYNAMIC_MAX_AGE_MS,
+  );
+  const selection = keepFresh(
+    normalized.selection,
+    SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS,
+  );
+  const amount = keepFresh(
+    normalized.amount,
+    SWAP_STOCK_DISPLAY_AMOUNT_MAX_AGE_MS,
+  );
   if (!tokenDetail && !balance && !chart && !selection && !amount) {
     return undefined;
   }
@@ -790,7 +831,7 @@ export function getSwapStockDisplayAccountSnapshot({
 export function getMatchingSwapStockDisplaySnapshot({
   identity,
   snapshot,
-  maxAgeMs = SWAP_STOCK_DISPLAY_SNAPSHOT_MAX_AGE_MS,
+  maxAgeMs,
   now = Date.now(),
 }: {
   identity?: ISwapStockDisplayIdentity;

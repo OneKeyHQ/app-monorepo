@@ -141,7 +141,6 @@ export enum EAppEventBusNames {
   // Unlocked = 'Unlocked',
   // HttpServerRequest = 'HttpServerRequest',
   AddressBookUpdate = 'AddressBookUpdate',
-  ClearStorageOnExtension = 'ClearStorageOnExtension',
   SupabaseStorageCacheCleared = 'SupabaseStorageCacheCleared',
   MarketWSDataUpdate = 'MarketWSDataUpdate',
   MarketWatchlistOnlyChanged = 'MarketWatchlistOnlyChanged',

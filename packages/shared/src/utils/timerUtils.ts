@@ -1,8 +1,25 @@
+type ITimerMethod = 'setTimeout' | 'setInterval';
+type IInterceptedTimer = typeof globalThis.setTimeout & {
+  __onekeyOriginalTimer__?: typeof globalThis.setTimeout;
+  __onekeyTimerInterceptor__?:
+    | '$$onekeyDisabledSetTimeout'
+    | '$$onekeyDisabledSetInterval';
+};
+
+const originalTimers: Partial<
+  Record<ITimerMethod, typeof globalThis.setTimeout>
+> = {};
+
 function interceptTimeout(
-  method: 'setTimeout' | 'setInterval',
+  method: ITimerMethod,
   checkProp: '$$onekeyDisabledSetTimeout' | '$$onekeyDisabledSetInterval',
 ) {
-  const methodOld = global[method];
+  const methodOld = global[method] as IInterceptedTimer;
+  const originalTimer = methodOld.__onekeyOriginalTimer__ ?? methodOld;
+  originalTimers[method] ??= originalTimer;
+  if (methodOld.__onekeyTimerInterceptor__ === checkProp) {
+    return;
+  }
   console.log('interceptTimeout methodOld', methodOld.toString());
 
   const interceptedTimer = function oneKeyTimerInterceptor(
@@ -25,9 +42,23 @@ function interceptTimeout(
     value: checkProp,
     writable: false,
   });
+  Reflect.defineProperty(interceptedTimer, '__onekeyOriginalTimer__', {
+    configurable: false,
+    enumerable: false,
+    value: originalTimer,
+    writable: false,
+  });
 
   // @ts-ignore
   global[method] = interceptedTimer;
+}
+
+function setTimeoutUnrestricted(
+  callback: (...args: unknown[]) => void,
+  timeout: number,
+) {
+  const method = originalTimers.setTimeout ?? globalThis.setTimeout;
+  return method(callback, timeout);
 }
 
 function interceptTimerWithDisable() {
@@ -154,4 +185,5 @@ export default {
   wait,
   getTimeDurationMs,
   setTimeoutPromised,
+  setTimeoutUnrestricted,
 };

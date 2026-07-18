@@ -4,11 +4,14 @@ import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swap
 
 export function useMarketSwapReviewActions({
   adapter,
+  reviewRevision,
 }: {
   adapter: ISwapReviewAdapter;
+  reviewRevision?: string;
 }) {
   return useSwapReviewActions({
     adapter,
     approveTransactionSource: ESwapReviewApproveTransactionSource.SpeedSwap,
+    reviewRevision,
   });
 }

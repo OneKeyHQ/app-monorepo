@@ -16,6 +16,7 @@ import {
 } from 'expo-image';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import {
   deleteCachedImagePath,
@@ -34,6 +35,7 @@ interface IUseImageOptions extends ImageLoadOptions {
 type IImageRequestScope = {
   lifecycleGeneration: number;
   requestGeneration: number;
+  sourceKey: string;
   sourceUri: string;
 };
 
@@ -46,8 +48,32 @@ function isSameImageRequestScope(
     right &&
     left.lifecycleGeneration === right.lifecycleGeneration &&
     left.requestGeneration === right.requestGeneration &&
+    left.sourceKey === right.sourceKey &&
     left.sourceUri === right.sourceUri,
   );
+}
+
+function isPlainUriImageSource(
+  source: ImageSource | null,
+): source is ImageSource & { uri: string } {
+  return Boolean(
+    source &&
+    typeof source.uri === 'string' &&
+    Object.keys(source).length === 1,
+  );
+}
+
+function getImageSourceKey(source: ImageSource | null) {
+  if (!source) {
+    return 'null';
+  }
+  // Token and network icons overwhelmingly use a plain URI. Keep that hot
+  // path allocation-light while still preserving every source option for
+  // authenticated/custom-cache requests.
+  if (isPlainUriImageSource(source)) {
+    return `uri:${source.uri}`;
+  }
+  return stableStringify(source);
 }
 
 export function useImage(
@@ -60,45 +86,62 @@ export function useImage(
 } {
   const [loadedImage, setLoadedImage] = useState<{
     image: ImageRef;
+    sourceKey: string;
     sourceUri: string;
   } | null>(null);
-  const resolvedSource = useMemo(() => {
-    return resolveSource(source);
-  }, [source]);
+  const resolvedSourceCandidate = resolveSource(source);
+  const sourceKey = getImageSourceKey(resolvedSourceCandidate);
+  const stableResolvedSourceRef = useRef<{
+    source: ImageSource | null;
+    sourceKey: string;
+  }>({ source: resolvedSourceCandidate, sourceKey });
+  if (stableResolvedSourceRef.current.sourceKey !== sourceKey) {
+    stableResolvedSourceRef.current = {
+      source: resolvedSourceCandidate,
+      sourceKey,
+    };
+  }
+  const resolvedSource = stableResolvedSourceRef.current.source;
   const sourceUri = resolvedSource?.uri ?? '';
-  const image = loadedImage?.sourceUri === sourceUri ? loadedImage.image : null;
+  const image = loadedImage?.sourceKey === sourceKey ? loadedImage.image : null;
+  const isCustomCacheEligible = Boolean(
+    isPlainUriImageSource(resolvedSource) && /^https?:\/\//.test(sourceUri),
+  );
   const cachedImageRef = useMemo(() => {
-    if (resolvedSource?.uri && !/^https?:\/\//.test(resolvedSource.uri)) {
+    if (!isCustomCacheEligible || platformEnv.isNativeAndroid) {
       return null;
     }
-    if (platformEnv.isNativeAndroid) {
-      return null;
-    }
-    const imageUri = resolvedSource?.uri;
-    return getCachedImageRef(imageUri) ?? null;
-  }, [resolvedSource?.uri]);
+    return getCachedImageRef(sourceUri) ?? null;
+  }, [isCustomCacheEligible, sourceUri]);
 
   const cachedImage: ImageRef | ImageSource | null = useMemo(() => {
-    if (resolvedSource?.uri && !/^https?:\/\//.test(resolvedSource.uri)) {
-      return {
-        uri: resolvedSource.uri,
-      };
+    if (sourceUri && !/^https?:\/\//.test(sourceUri)) {
+      return resolvedSource;
+    }
+    // Native ExpoImage can render a stable URI directly and reuse its own
+    // memory/disk cache. Forcing every view through Image.loadAsync first
+    // guarantees a React skeleton frame on a cold cache. Keep the custom iOS
+    // cache as the preferred fast path, then fall back to the URI itself.
+    if (platformEnv.isNativeAndroid && isCustomCacheEligible) {
+      return resolvedSource;
     }
     if (cachedImageRef) {
       return cachedImageRef;
     }
-    if (platformEnv.isNativeAndroid) {
+    if (!isCustomCacheEligible || platformEnv.isNativeAndroid) {
       return null;
     }
-    const imageUri = resolvedSource?.uri;
-    const cachedPath = getCachedImagePath(imageUri);
+    const cachedPath = getCachedImagePath(sourceUri);
     if (cachedPath) {
       return {
         uri: cachedPath,
       };
     }
+    if (platformEnv.isNativeIOS && isCustomCacheEligible) {
+      return resolvedSource;
+    }
     return null;
-  }, [cachedImageRef, resolvedSource?.uri]);
+  }, [cachedImageRef, isCustomCacheEligible, resolvedSource, sourceUri]);
 
   // Since options are not dependencies of the below effect, we store them in a ref.
   // Once the image is asynchronously loaded, the effect will use the most recent options,
@@ -134,8 +177,8 @@ export function useImage(
               return;
             }
             optionsRef.current.onSuccess?.(remoteImage);
-            setLoadedImage({ image: remoteImage, sourceUri });
-            if (sourceUri) {
+            setLoadedImage({ image: remoteImage, sourceKey, sourceUri });
+            if (isCustomCacheEligible) {
               void refreshCachedImagePath(sourceUri);
             }
           })
@@ -164,31 +207,32 @@ export function useImage(
       };
       runLoad();
     },
-    [resolvedSource, sourceUri],
+    [isCustomCacheEligible, resolvedSource, sourceKey, sourceUri],
   );
 
-  const fetchImageTimesLimit = useRef(0);
+  const refetchSourceKeyRef = useRef<string | null>(null);
   const reFetchImage = useCallback(() => {
     if (!resolvedSource) {
       return;
     }
     const activeScope = activeRequestScopeRef.current;
-    if (!activeScope || activeScope.sourceUri !== sourceUri) {
+    if (!activeScope || activeScope.sourceKey !== sourceKey) {
       return;
     }
-    if (sourceUri) {
+    if (isCustomCacheEligible) {
       deleteCachedImagePath(sourceUri);
     }
     const nextRequestScope = {
       lifecycleGeneration: activeScope.lifecycleGeneration,
       requestGeneration: requestGenerationRef.current + 1,
+      sourceKey,
       sourceUri,
     };
     requestGenerationRef.current = nextRequestScope.requestGeneration;
     activeRequestScopeRef.current = nextRequestScope;
-    fetchImageTimesLimit.current += 1;
+    refetchSourceKeyRef.current = sourceKey;
     loadImage(nextRequestScope);
-  }, [loadImage, resolvedSource, sourceUri]);
+  }, [isCustomCacheEligible, loadImage, resolvedSource, sourceKey, sourceUri]);
 
   // Track the current ImageRef for proper lifecycle management.
   // Using a ref avoids the closure capture bug where the effect cleanup
@@ -209,26 +253,36 @@ export function useImage(
   }, [image]);
 
   useEffect(() => {
-    const imageUri = resolvedSource?.uri;
-    if (!cachedImageRef || !imageUri) {
+    if (!cachedImageRef || !sourceUri) {
       return;
     }
-    retainCachedImageRef(imageUri);
+    retainCachedImageRef(sourceUri);
     return () => {
-      releaseCachedImageRef(imageUri);
+      releaseCachedImageRef(sourceUri);
     };
-  }, [cachedImageRef, resolvedSource?.uri]);
+  }, [cachedImageRef, sourceUri]);
 
   useEffect(() => {
+    refetchSourceKeyRef.current = null;
     const requestScope = {
       lifecycleGeneration: lifecycleGenerationRef.current + 1,
       requestGeneration: requestGenerationRef.current + 1,
+      sourceKey,
       sourceUri,
     };
     lifecycleGenerationRef.current = requestScope.lifecycleGeneration;
     requestGenerationRef.current = requestScope.requestGeneration;
     activeRequestScopeRef.current = requestScope;
-    if (!cachedImage) {
+    if (cachedImage) {
+      setLoadedImage(null);
+    } else {
+      // A loaded ImageRef belongs to one exact source descriptor. Clear a previous
+      // source before loading the next one so a network/token icon can never
+      // be rendered under the new semantic label. Same-source dependency
+      // refreshes retain the current image until their replacement lands.
+      setLoadedImage((current) =>
+        current?.sourceKey === sourceKey ? current : null,
+      );
       loadImage(requestScope);
     }
     return () => {
@@ -240,15 +294,15 @@ export function useImage(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceUri, cachedImage, loadImage, ...dependencies]);
+  }, [sourceKey, cachedImage, loadImage, ...dependencies]);
 
   return useMemo(() => {
     return {
       image:
-        fetchImageTimesLimit.current > 0 && image
+        refetchSourceKeyRef.current === sourceKey && image
           ? image
           : cachedImage || image,
       reFetchImage,
     };
-  }, [cachedImage, image, reFetchImage]);
+  }, [cachedImage, image, reFetchImage, sourceKey]);
 }
