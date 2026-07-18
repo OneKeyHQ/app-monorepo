@@ -101,14 +101,14 @@ function DeFiActionTxConfirmResult({
   );
 }
 
-function getLastTxid(
+export function getLastSignedTxid(
   data: ISendTxOnSuccessData[] | undefined,
 ): string | undefined {
   if (!Array.isArray(data)) {
     return undefined;
   }
   for (let i = data.length - 1; i >= 0; i -= 1) {
-    const txid = data[i]?.signedTx?.txid || data[i]?.decodedTx?.txid;
+    const txid = data[i]?.signedTx?.txid ?? data[i]?.decodedTx?.txid;
     if (txid) {
       return txid;
     }
@@ -116,20 +116,25 @@ function getLastTxid(
   return undefined;
 }
 
-// Show the confirming sheet for the last broadcast tx in `data` and resolve once
-// the user dismisses it (Done / close). Resolves immediately when there's no
-// account or no txid, so callers can `await` it unconditionally before running
-// their refresh.
+// Show the confirming sheet for the last broadcast tx in `data`. By default the
+// promise resolves as soon as the final status lands, while the dialog stays
+// open. With `resolveOnClose: true` it instead resolves only when the user
+// dismisses the dialog (Done / close), so a chained next step can never push a
+// signature sheet under a still-open dialog. Resolves immediately when there's
+// no account or no txid, so callers can `await` it unconditionally before
+// running their refresh.
 export function showDeFiActionTxConfirmDialog({
   accountId,
   networkId,
   data,
+  resolveOnClose,
 }: {
   accountId?: string;
   networkId: string;
   data: ISendTxOnSuccessData[];
+  resolveOnClose?: boolean;
 }): Promise<IDeFiActionTxConfirmDialogResult> {
-  const txid = getLastTxid(data);
+  const txid = getLastSignedTxid(data);
   if (!accountId || !txid) {
     return Promise.resolve(undefined);
   }
@@ -152,6 +157,9 @@ export function showDeFiActionTxConfirmDialog({
           txid={txid}
           onStatusChange={(result) => {
             latestResult = result;
+            if (!resolveOnClose) {
+              finish(result);
+            }
           }}
           onDone={(result) => {
             finish(result);

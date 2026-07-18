@@ -12,6 +12,10 @@ export const BorrowTestIDs = {
   supplyZeroBalanceSwitch: 'borrow-supply-zero-balance-switch',
   supplyTableList: 'borrow-supply-table-list',
 
+  // --- Supplied Card ---
+  suppliedCollateralSwitch: 'borrow-supplied-collateral-switch',
+  collateralConfirmBtn: 'borrow-collateral-confirm-btn',
+
   // --- Borrow Card ---
   borrowCard: 'borrow-borrow-card',
   borrowTableList: 'borrow-borrow-table-list',
@@ -19,6 +23,9 @@ export const BorrowTestIDs = {
   // --- Manage Position ---
   amountInput: 'borrow-amount-input',
   actionConfirmBtn: 'borrow-action-confirm-btn',
+
+  // --- E-Mode Need Action ---
+  eModeNeedActionConfirmBtn: 'borrow-e-mode-need-action-confirm-btn',
 
   // --- Claim Rewards Dialog ---
   claimItemBtn: 'borrow-claim-item-btn',
@@ -30,6 +37,7 @@ export const BorrowTestIDs = {
 
   // --- Borrow Action ---
   borrowActionBtn: 'borrow-action-btn',
+  marketSelect: 'borrow-market-select',
 
   // --- History ---
   historyFilterSelect: 'borrow-history-filter-select',

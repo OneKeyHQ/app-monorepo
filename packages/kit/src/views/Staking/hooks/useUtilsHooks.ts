@@ -77,7 +77,26 @@ export function useTrackTokenAllowance({
 }) {
   const isLegacyApprove = approveType === EApproveType.Legacy;
   const isExistApproveTarget = !!spenderAddress;
-  const [allowance, setAllowance] = useState<string>(initialValue);
+  const allowanceTargetKey = [
+    accountId,
+    networkId,
+    tokenAddress,
+    spenderAddress,
+    approveType ?? '',
+  ].join('|');
+  const allowanceTargetKeyRef = useRef(allowanceTargetKey);
+  allowanceTargetKeyRef.current = allowanceTargetKey;
+  const [allowanceState, setAllowanceState] = useState<{
+    targetKey: string;
+    value: string;
+  }>(() => ({
+    targetKey: allowanceTargetKey,
+    value: initialValue,
+  }));
+  const allowance =
+    allowanceState.targetKey === allowanceTargetKey
+      ? allowanceState.value
+      : '0';
   const [trackTxId, setTrackTxId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>();
   const txDetails = useTxTrack({
@@ -86,8 +105,13 @@ export function useTrackTokenAllowance({
     trackTxId,
   });
   useEffect(() => {
-    setAllowance(initialValue);
-  }, [initialValue]);
+    setTrackTxId('');
+    setLoading(false);
+    setAllowanceState((prev) => ({
+      targetKey: allowanceTargetKey,
+      value: prev.targetKey === allowanceTargetKey ? initialValue : '0',
+    }));
+  }, [allowanceTargetKey, initialValue]);
   const fetchAllowanceResponse = useCallback(
     async () =>
       backgroundApiProxy.serviceStaking.fetchTokenAllowance({
@@ -110,8 +134,14 @@ export function useTrackTokenAllowance({
         }
         try {
           const allowanceInfo = await fetchAllowanceResponse();
-          if (allowanceInfo) {
-            setAllowance(allowanceInfo.allowanceParsed);
+          if (
+            allowanceInfo &&
+            allowanceTargetKeyRef.current === allowanceTargetKey
+          ) {
+            setAllowanceState({
+              targetKey: allowanceTargetKey,
+              value: allowanceInfo.allowanceParsed,
+            });
           }
         } finally {
           setLoading(false);
@@ -127,6 +157,7 @@ export function useTrackTokenAllowance({
     tokenAddress,
     approveType,
     fetchAllowanceResponse,
+    allowanceTargetKey,
     isLegacyApprove,
     isExistApproveTarget,
   ]);

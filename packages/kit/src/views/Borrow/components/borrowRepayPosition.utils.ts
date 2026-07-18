@@ -1,10 +1,320 @@
 import BigNumber from 'bignumber.js';
 
 import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EBorrowProviderEnum,
+  type IBorrowAsset,
+  type IBorrowBalance,
+} from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
+
+const collateralRepayProviderAllowlist = new Set<string>([
+  EBorrowProviderEnum.Kamino,
+]);
 
 export function hasPositiveDebtBalance(debtBalance?: string) {
   const debtBalanceBN = new BigNumber(debtBalance || '0');
   return !debtBalanceBN.isNaN() && debtBalanceBN.gt(0);
+}
+
+export function getBorrowBalanceAmount(balance?: Partial<IBorrowBalance>) {
+  return balance?.amount ?? balance?.title?.text ?? '0';
+}
+
+export function hasPositiveBorrowBalance(balance?: Partial<IBorrowBalance>) {
+  const balanceBN = new BigNumber(getBorrowBalanceAmount(balance));
+  return !balanceBN.isNaN() && balanceBN.gt(0);
+}
+
+function isSameBorrowReserveAddress({
+  reserveAddress,
+  targetReserveAddress,
+}: {
+  reserveAddress?: string;
+  targetReserveAddress?: string;
+}) {
+  if (reserveAddress === undefined || targetReserveAddress === undefined) {
+    return false;
+  }
+
+  if (reserveAddress === targetReserveAddress) {
+    return true;
+  }
+
+  if (!reserveAddress || !targetReserveAddress) {
+    return false;
+  }
+
+  if (
+    reserveAddress.startsWith('0x') &&
+    targetReserveAddress.startsWith('0x')
+  ) {
+    return reserveAddress.toLowerCase() === targetReserveAddress.toLowerCase();
+  }
+
+  return false;
+}
+
+export function getBorrowAssetByReserveAddress({
+  assets,
+  reserveAddress,
+}: {
+  assets?: IBorrowAsset[];
+  reserveAddress?: string;
+}) {
+  return assets?.find((asset) =>
+    isSameBorrowReserveAddress({
+      reserveAddress: asset.reserveAddress,
+      targetReserveAddress: reserveAddress,
+    }),
+  );
+}
+
+export function shouldUseAaveNativeGateway({
+  networkId,
+  providerName,
+  reserveAddress,
+}: {
+  networkId?: string;
+  providerName?: string;
+  reserveAddress?: string;
+}) {
+  return (
+    networkId === getNetworkIdsMap().eth &&
+    providerName?.toLowerCase() === EBorrowProviderEnum.Aave &&
+    reserveAddress === ''
+  );
+}
+
+export function isAaveBorrowProvider({
+  providerName,
+}: {
+  providerName?: string;
+}) {
+  return providerName?.toLowerCase() === EBorrowProviderEnum.Aave;
+}
+
+export function isUnsupportedAaveNativeReserve({
+  networkId,
+  providerName,
+  reserveAddress,
+}: {
+  networkId?: string;
+  providerName?: string;
+  reserveAddress?: string;
+}) {
+  return (
+    reserveAddress === '' &&
+    isAaveBorrowProvider({ providerName }) &&
+    !shouldUseAaveNativeGateway({ networkId, providerName, reserveAddress })
+  );
+}
+
+export function filterUnsupportedAaveNativeReserveAssets<
+  T extends { reserveAddress: string },
+>({
+  assets,
+  networkId,
+  providerName,
+}: {
+  assets?: T[];
+  networkId?: string;
+  providerName?: string;
+}) {
+  return (assets ?? []).filter(
+    (asset) =>
+      !isUnsupportedAaveNativeReserve({
+        networkId,
+        providerName,
+        reserveAddress: asset.reserveAddress,
+      }),
+  );
+}
+
+export function getValidBorrowSelectedAsset({
+  assets,
+  selectedAsset,
+}: {
+  assets?: IBorrowAsset[];
+  selectedAsset?: IBorrowAsset | null;
+}) {
+  if (!selectedAsset) {
+    return undefined;
+  }
+
+  return getBorrowAssetByReserveAddress({
+    assets,
+    reserveAddress: selectedAsset.reserveAddress,
+  });
+}
+
+export function buildBorrowTokenFromAsset({
+  asset,
+  networkId,
+}: {
+  asset?: {
+    reserveAddress: string;
+    token: IBorrowAsset['token'] | IToken;
+  } | null;
+  networkId: string;
+}) {
+  if (!asset) {
+    return undefined;
+  }
+
+  const isNativeReserve = asset.reserveAddress === '';
+
+  return {
+    ...asset.token,
+    address: isNativeReserve ? '' : asset.token.address,
+    isNative: isNativeReserve,
+    networkId,
+  } as IToken;
+}
+
+export function buildAaveNativeGatewayReceiveToken({
+  token,
+  nativeToken,
+  networkId,
+}: {
+  token?: IToken;
+  nativeToken?: IToken;
+  networkId: string;
+}) {
+  const baseToken = nativeToken ?? token;
+  if (!baseToken) {
+    return undefined;
+  }
+
+  return {
+    ...baseToken,
+    address: '',
+    isNative: true,
+    networkId,
+    name: nativeToken?.name ?? 'Ether',
+    symbol: nativeToken?.symbol ?? 'ETH',
+  } as IToken;
+}
+
+export function shouldDowngradeAaveNativeRepayAll({
+  action,
+  networkId,
+  providerName,
+  reserveAddress,
+}: {
+  action?: string;
+  networkId?: string;
+  providerName?: string;
+  reserveAddress?: string;
+}) {
+  return (
+    action === 'repay' &&
+    shouldUseAaveNativeGateway({
+      networkId,
+      providerName,
+      reserveAddress,
+    })
+  );
+}
+
+export function resolveBorrowTokenApproveSpenderAddress({
+  providerName,
+  marketAddress,
+  backendApproveTarget,
+  tokenIsNative,
+}: {
+  providerName?: string;
+  marketAddress?: string;
+  backendApproveTarget?: string;
+  tokenIsNative?: boolean;
+}) {
+  if (backendApproveTarget) {
+    return backendApproveTarget;
+  }
+
+  if (
+    isAaveBorrowProvider({ providerName }) &&
+    tokenIsNative === false &&
+    marketAddress
+  ) {
+    return marketAddress;
+  }
+
+  return '';
+}
+
+export function getBorrowRepayDebtBalance({
+  selectedAsset,
+  fallbackDebtBalance,
+}: {
+  selectedAsset?: IBorrowAsset | null;
+  fallbackDebtBalance?: string;
+}) {
+  if (selectedAsset) {
+    return getBorrowBalanceAmount(selectedAsset.borrowed);
+  }
+  return fallbackDebtBalance ?? '0';
+}
+
+export function getBorrowRepayWalletBalance({
+  selectedAsset,
+  fallbackWalletBalance,
+}: {
+  selectedAsset?: IBorrowAsset | null;
+  fallbackWalletBalance?: string;
+}) {
+  if (selectedAsset) {
+    if (!selectedAsset.walletBalance) {
+      return {
+        balance: '0',
+        missingWalletBalance: true,
+      };
+    }
+    return {
+      balance: getBorrowBalanceAmount(selectedAsset.walletBalance),
+      missingWalletBalance: false,
+    };
+  }
+
+  return {
+    balance: fallbackWalletBalance ?? '0',
+    missingWalletBalance: false,
+  };
+}
+
+export function getBorrowRepayMaxInputBalance({
+  walletBalance,
+  debtBalance,
+}: {
+  walletBalance?: string;
+  debtBalance?: string;
+}) {
+  const walletBalanceBN = new BigNumber(walletBalance || '0');
+  const debtBalanceBN = new BigNumber(debtBalance || '0');
+
+  if (walletBalanceBN.isNaN() || debtBalanceBN.isNaN()) {
+    return '0';
+  }
+
+  return BigNumber.min(walletBalanceBN, debtBalanceBN).toFixed();
+}
+
+export function isBorrowRepayAllAmount({
+  amount,
+  debtBalance,
+}: {
+  amount: string;
+  debtBalance?: string;
+}) {
+  const amountBN = new BigNumber(amount || '0');
+  const debtBalanceBN = new BigNumber(debtBalance || '0');
+
+  if (amountBN.isNaN() || debtBalanceBN.isNaN()) {
+    return false;
+  }
+
+  return amountBN.gt(0) && debtBalanceBN.gt(0) && amountBN.gte(debtBalanceBN);
 }
 
 export function buildBorrowRepayPositionKey({
@@ -91,14 +401,23 @@ export function getEffectiveBorrowRepayNeedsSetupLut({
 }
 
 export function isCollateralRepayEnabled({
+  providerName,
   collateralAssetCount,
   collateralLoading,
   debtBalance,
 }: {
+  providerName?: string;
   collateralAssetCount: number;
   collateralLoading?: boolean;
   debtBalance?: string;
 }) {
+  if (
+    !providerName ||
+    !collateralRepayProviderAllowlist.has(providerName.toLowerCase())
+  ) {
+    return false;
+  }
+
   return (
     hasPositiveDebtBalance(debtBalance) &&
     (!!collateralLoading || collateralAssetCount > 0)

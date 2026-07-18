@@ -34,7 +34,12 @@ export function BorrowFAQSection({
   const intl = useIntl();
   const { result: faqData, isLoading } = usePromiseResult(
     async () => {
-      if (!networkId || !provider || !marketAddress || !reserveAddress) {
+      if (
+        !networkId ||
+        !provider ||
+        !marketAddress ||
+        reserveAddress === undefined
+      ) {
         return undefined;
       }
       return backgroundApiProxy.serviceStaking.getBorrowFaqList({

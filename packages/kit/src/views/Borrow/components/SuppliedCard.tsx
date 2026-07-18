@@ -15,6 +15,10 @@ import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
 import {
+  filterUnsupportedAaveNativeReserveAssets,
+  hasPositiveBorrowBalance,
+} from './borrowRepayPosition.utils';
+import {
   ActionField,
   AmountField,
   AssetField,
@@ -25,6 +29,7 @@ import {
   BorrowTableList,
 } from './BorrowTableList';
 import { Card } from './Card';
+import { CollateralSwitchCell } from './CollateralSwitchCell';
 
 type ISuppliedAsset = IBorrowReserveItem['supplied']['assets'][number];
 
@@ -70,7 +75,7 @@ const SuppliedHeader = ({
   );
 };
 
-export const SuppliedCard = () => {
+export const SuppliedCard = ({ eModeId }: { eModeId?: number }) => {
   const { reserves, market, borrowDataStatus, earnAccount } =
     useBorrowContext();
   const intl = useIntl();
@@ -133,6 +138,22 @@ export const SuppliedCard = () => {
     borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
     borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
     borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+  const suppliedAssets = useMemo(
+    () =>
+      filterUnsupportedAaveNativeReserveAssets({
+        assets: reserves.data?.supplied?.assets,
+        networkId: market?.networkId,
+        providerName: market?.provider,
+      }).filter((asset) => hasPositiveBorrowBalance(asset.suppliedAmount)),
+    [market?.networkId, market?.provider, reserves.data?.supplied?.assets],
+  );
+
+  // Field presence gates the UI: no usageAsCollateral anywhere ⇒ provider
+  // unsupported (e.g. Kamino) ⇒ the whole column disappears, not just cells.
+  const showCollateralColumn = useMemo(
+    () => suppliedAssets.some((asset) => asset.usageAsCollateral !== undefined),
+    [suppliedAssets],
+  );
 
   const labels = useMemo(() => {
     const asset = intl.formatMessage({ id: ETranslations.global_asset });
@@ -146,6 +167,7 @@ export const SuppliedCard = () => {
         id: ETranslations.defi_supplied_balance,
       }),
       supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
+      collateral: intl.formatMessage({ id: ETranslations.defi_collateral }),
       withdraw: intl.formatMessage({ id: ETranslations.global_withdraw }),
       apy: intl.formatMessage({ id: ETranslations.global_apy }),
       assetSupplied: `${asset} / ${supplied}`,
@@ -153,7 +175,7 @@ export const SuppliedCard = () => {
     };
   }, [intl]);
 
-  // Mobile columns - 2 columns only
+  // Mobile columns - asset + APY, plus the collateral switch when supported
   const mobileColumns = useMemo(
     () => [
       {
@@ -177,8 +199,21 @@ export const SuppliedCard = () => {
         render: BorrowAPYField,
         flex: 1,
       },
+      ...(showCollateralColumn
+        ? [
+            {
+              label: labels.collateral,
+              align: 'flex-end' as const,
+              key: 'collateral',
+              render: (item: ISuppliedAsset) => (
+                <CollateralSwitchCell item={item} eModeId={eModeId} />
+              ),
+              flex: 0.8,
+            },
+          ]
+        : []),
     ],
-    [labels],
+    [eModeId, labels, showCollateralColumn],
   );
 
   // Desktop columns - all columns
@@ -215,6 +250,19 @@ export const SuppliedCard = () => {
         flex: 1,
         minWidth: BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
       },
+      ...(showCollateralColumn
+        ? [
+            {
+              label: labels.collateral,
+              align: 'center' as const,
+              key: 'collateral',
+              render: (item: ISuppliedAsset) => (
+                <CollateralSwitchCell item={item} eModeId={eModeId} />
+              ),
+              flex: 1,
+            },
+          ]
+        : []),
       {
         label: '',
         align: 'flex-end' as const,
@@ -234,12 +282,20 @@ export const SuppliedCard = () => {
         minWidth: BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
       },
     ],
-    [handleManageWithdraw, accountId, walletId, indexedAccountId, labels],
+    [
+      handleManageWithdraw,
+      accountId,
+      eModeId,
+      walletId,
+      indexedAccountId,
+      labels,
+      showCollateralColumn,
+    ],
   );
 
   const hasData = useMemo(
-    () => (reserves.data?.supplied?.assets || []).length > 0,
-    [reserves.data?.supplied?.assets],
+    () => suppliedAssets.length > 0,
+    [suppliedAssets.length],
   );
 
   return (
@@ -257,7 +313,7 @@ export const SuppliedCard = () => {
       }
     >
       <BorrowTableList<ISuppliedAsset>
-        data={reserves.data?.supplied?.assets || []}
+        data={suppliedAssets}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}

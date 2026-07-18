@@ -8,7 +8,6 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
-  EApproveType,
   EManagePositionType,
   type IEarnTokenInfo,
   type IEarnWithdrawActionIcon,
@@ -17,6 +16,8 @@ import {
 } from '@onekeyhq/shared/types/staking';
 
 import { buildLocalTxStatusSyncId } from '../../../utils/utils';
+
+import { buildManagePageApproveInfo } from './useManagePage.utils';
 
 export { EManagePositionType };
 
@@ -231,21 +232,13 @@ export const useManagePage = ({
     const withdrawAction = managePageData.withdraw as
       | IEarnWithdrawActionIcon
       | undefined;
-    let approve: IProtocolInfo['approve'];
-    if (managePageData.approve) {
-      approve = {
-        allowance: managePageData.approve.allowance ?? '0',
-        approveType:
-          (managePageData.approve.approveType as unknown as EApproveType) ??
-          EApproveType.Legacy,
-        approveTarget: managePageData.approve.approveTarget ?? '',
-      };
-    } else if (managePageData.approveTarget) {
-      approve = {
-        allowance: managePageData.borrowAllowance ?? '0',
-        approveType: EApproveType.Legacy,
-        approveTarget: managePageData.approveTarget,
-      };
+    const approve = buildManagePageApproveInfo({
+      approve: managePageData.approve,
+      approveAsset: managePageData.approveAsset,
+      approveTarget: managePageData.approveTarget,
+    });
+    if (approve && !managePageData.approve) {
+      approve.allowance = managePageData.borrowAllowance ?? approve.allowance;
     }
 
     return {
@@ -282,7 +275,7 @@ export const useManagePage = ({
       claimable: managePageData.nums?.claimable,
       // input decimals restriction
       protocolInputDecimals: managePageData.nums?.protocolInputDecimals,
-      // repay max balance (debt balance for max button)
+      // repay max input balance; repay-all debt semantics use debtBalance
       maxRepayBalance: managePageData.repay?.data?.maxBalance,
       // debt balance for collateral repay mode
       debtBalance: managePageData.debt?.data?.balance,
@@ -296,7 +289,8 @@ export const useManagePage = ({
       morphoTokenRate: matchingProtocol?.provider.morphoTokenRate,
       // approve
       approve,
-      approveAsset: managePageData.approveAsset,
+      approveAsset: approve?.approveAsset ?? managePageData.approveAsset,
+      borrowAllowance: managePageData.borrowAllowance,
       withdrawApprove: managePageData.withdrawApprove,
     } as IProtocolInfo;
   }, [

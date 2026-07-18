@@ -14,6 +14,7 @@ export enum EEarnProviderEnum {
   Lista = 'Lista',
   Stakefish = 'Stakefish',
   Kamino = 'Kamino',
+  Aave = 'Aave',
   Native = 'Native',
   Spark = 'Spark',
   Bitway = 'Bitway',

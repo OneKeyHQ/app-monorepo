@@ -11,6 +11,7 @@ import { AssetField } from './AssetField';
 import { AssetWithAmountField } from './AssetWithAmountField';
 import { BorrowAPYField } from './BorrowAPYField';
 import { BorrowListSkeleton, EmptyStateSkeleton } from './BorrowListSkeleton';
+import { CollateralBadge } from './CollateralBadge';
 import { FieldWrapper } from './FieldWrapper';
 
 import type { ISwapConfig } from './ActionField';
@@ -87,6 +88,7 @@ export {
   AssetWithAmountField,
   AmountField,
   BorrowAPYField,
+  CollateralBadge,
   FieldWrapper,
 };
 
