@@ -1622,3 +1622,11 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - 本轮拟提交文件只包括 `packages/native-components/ios/HomeContainerImageLoader.swift`、`packages/native-components/ios/HomeContainerView.swift` 和本 handoff。没有修改 Android renderer，也不会把 `yarn.lock`、Discovery、Swap、TradingView、Performance 或其他共享工作区 dirty files 混入。
 - `xcrun swiftc -parse HomeContainerImageLoader.swift HomeContainerView.swift`、指定 Native Home 文件的 `git diff --check` 和 `HomeContainerController.test.ts` 8 个聚焦 Jest 均通过。最终 staged `yarn agent:check --profile commit` 日志为 `node_modules/.cache/agent-checks/2026-07-18T05-34-58-332Z`：`lint-worktree-js`、`lint-worktree-ts`、`format-worktree`、`agent-context`、`lint-staged` 全部通过；`tsc-staged` 仅被共享工作区既有的 Desktop `config.perfReady` 缺失和旧 `NativeHomePageView.native.tsx` header export 两条错误阻断。日志没有本轮 Swift/handoff 文件错误，没有修改或回滚无关文件制造绿色结果。
 - 本节通过的是当前 Debug 包的 Dark/Light、当前 XXXL/Large、Favorites/Trending/Stocks、Star 平滑增删、成功图片候选和强制全部失败降级态。真实 pointer hover、真实断网后跨 36s 自动恢复、更多语言/字号组合、Perps 分类首帧、所有详情跳转和所有业务失败回滚仍没有同等级真机证据，因此不能声明整个 Native Home UI 已完成。
+
+## 2026-07-18 长期协作规则：产品实现与验收全部由 subagent 执行
+
+- 后续 Native Home 工作中，所有产品代码的编写、修改和修复均由 **编写 subagent** 执行；主 agent 不直接编写或修改产品代码。
+- 所有 UI 验收与代码验收均由 **验收 subagent** 执行。验收 subagent 必须给出可追溯的复现步骤、通过/失败条件、真实截图或录屏（UI 验收）以及源码审计和检查结果（代码验收）；主 agent 不直接执行 UI/代码验收，也不能根据编译通过、元素存在或自己的观察自行宣告通过。
+- 编写与验收必须角色分离：同一项工作的编写 subagent 不能同时作为最终验收 subagent。验收失败后，由主 agent 将失败证据和明确条件交回编写 subagent 修复，再由独立验收 subagent 复核；循环直到通过或记录真实阻断。
+- 主 agent 只负责需求拆解、subagent 调度、范围和冲突控制、结论与证据汇总、handoff/提交元数据协调、commit 和 push。主 agent 不代替 subagent 编写产品代码，不代替 subagent 做 UI/代码验收，也不自行扩大通过范围。
+- handoff 的维护与发布、提交范围核对以及 commit/push 由主 agent 统一协调；其中涉及产品行为、实现结论或验收结论的内容必须来自对应 subagent 的实际工作和证据，不能由主 agent 补做或推断。
