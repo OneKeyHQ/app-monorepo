@@ -2061,6 +2061,14 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
                       <SectionFieldItem
+                        icon="TradeOutline"
+                        name="showMarketListRedesign"
+                        title="Market list redesign demo"
+                        subtitle="Sort/filter chips + new columns (P2-9 demo)"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
                         icon="BrowserOutline"
                         name="allowLocalhostUrlInDAppBrowser"
                         title="Allow local URLs in DApp Browser"
