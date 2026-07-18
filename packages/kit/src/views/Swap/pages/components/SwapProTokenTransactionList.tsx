@@ -43,7 +43,7 @@ const SwapProTokenTransactionList = ({
 
   const finallyTransactionList = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
-      return swapProTokenTransactionList?.slice(0, 8) ?? [];
+      return swapProTokenTransactionList?.slice(0, 9) ?? [];
     }
     return swapProTokenTransactionList?.slice(0, 5) ?? [];
   }, [swapProTokenTransactionList, swapProTradeType]);
@@ -80,7 +80,7 @@ const SwapProTokenTransactionList = ({
                 ? Array.from({ length: 5 }).map((_, index) => (
                     <Skeleton w="100%" h={22} radius="square" key={index} />
                   ))
-                : Array.from({ length: 8 }).map((_, index) => (
+                : Array.from({ length: 9 }).map((_, index) => (
                     <Skeleton w="100%" h={22} radius="square" key={index} />
                   ))}
             </YStack>
