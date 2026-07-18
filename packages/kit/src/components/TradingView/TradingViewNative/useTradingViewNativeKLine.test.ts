@@ -72,12 +72,14 @@ describe('useTradingViewNativeKLine', () => {
       await initialRequest.promise;
     });
     await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    expect(result.current.candleIntervalSeconds).toBe(60 * 60);
 
     act(() => result.current.handleIntervalChange('1'));
     await waitFor(() =>
       expect(mockFetchMarketKLineDataWithSlicing).toHaveBeenCalledTimes(2),
     );
     expect(result.current.points[0]?.c).toBe(100);
+    expect(result.current.candleIntervalSeconds).toBe(60 * 60);
     expect(result.current.intervalConfig.activeInterval).toBe('1');
     expect(result.current.isSwitchingInterval).toBe(true);
 

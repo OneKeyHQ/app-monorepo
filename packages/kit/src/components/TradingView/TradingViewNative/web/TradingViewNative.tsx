@@ -17,6 +17,7 @@ export const TradingViewNative = memo(
     nativeControlsLayoutMode,
   }: ITradingViewNativeProps) => {
     const {
+      candleIntervalSeconds,
       points,
       intervalConfig,
       isSwitchingInterval,
@@ -31,6 +32,7 @@ export const TradingViewNative = memo(
           onIntervalChange={handleIntervalChange}
         />
         <TradingViewNativeChart
+          candleIntervalSeconds={candleIntervalSeconds}
           isSwitchingInterval={isSwitchingInterval}
           points={points}
           testID={testID}

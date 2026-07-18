@@ -21,6 +21,14 @@ export const TRADING_VIEW_NATIVE_KLINE_INTERVALS: IKLineInterval[] = [
   { label: '1W', value: '1W', seconds: 7 * 24 * 60 * 60 },
 ];
 
+function getKLineIntervalOption(interval: string) {
+  return (
+    TRADING_VIEW_NATIVE_KLINE_INTERVALS.find(
+      (option) => option.value === interval,
+    ) ?? TRADING_VIEW_NATIVE_KLINE_INTERVALS[4]
+  );
+}
+
 interface IChartData {
   interval: string;
   marketKey: string;
@@ -39,6 +47,7 @@ function normalizeKLinePoints(points: IMarketTokenKLineDataPoint[]) {
         Number.isFinite(point.h) &&
         Number.isFinite(point.l) &&
         Number.isFinite(point.c) &&
+        Number.isFinite(point.t) &&
         point.h >= point.l,
     )
     .toSorted((a, b) => a.t - b.t)
@@ -68,6 +77,9 @@ export function useTradingViewNativeKLine({
   const isSwitchingInterval = Boolean(
     visibleChartData && visibleChartData.interval !== activeInterval,
   );
+  const candleIntervalSeconds = getKLineIntervalOption(
+    visibleChartData?.interval ?? activeInterval,
+  ).seconds;
   const intervalConfig = useMemo(
     () => ({
       intervals: TRADING_VIEW_NATIVE_KLINE_INTERVALS,
@@ -103,10 +115,7 @@ export function useTradingViewNativeKLine({
       return;
     }
 
-    const requestedInterval =
-      TRADING_VIEW_NATIVE_KLINE_INTERVALS.find(
-        (option) => option.value === activeInterval,
-      ) ?? TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
+    const requestedInterval = getKLineIntervalOption(activeInterval);
     const timeTo = Math.floor(Date.now() / 1000);
     const timeFrom = timeTo - requestedInterval.seconds * MAX_VISIBLE_CANDLES;
 
@@ -155,6 +164,7 @@ export function useTradingViewNativeKLine({
   }, [activeInterval, marketKey, networkId, tokenAddress]);
 
   return {
+    candleIntervalSeconds,
     points: visibleChartData?.points ?? [],
     intervalConfig,
     isSwitchingInterval,

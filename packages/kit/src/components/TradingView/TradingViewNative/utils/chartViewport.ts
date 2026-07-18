@@ -135,6 +135,42 @@ export function getTradingViewNativeVisiblePointRange({
   };
 }
 
+export function getTradingViewNativeCandleX({
+  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  index,
+  offset,
+  pointCount,
+  priceAxisX,
+  zoomScale,
+}: {
+  candleGap?: number;
+  index: number;
+  offset: number;
+  pointCount: number;
+  priceAxisX: number;
+  zoomScale: number;
+}) {
+  'worklet';
+
+  if (pointCount <= 0) {
+    return priceAxisX;
+  }
+
+  const clampedZoomScale = clampTradingViewNativeZoomScale(zoomScale);
+  const clampedIndex = Math.min(Math.max(Math.floor(index), 0), pointCount - 1);
+  const distanceFromNewest = pointCount - clampedIndex - 1;
+  const candleStep = TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + candleGap;
+
+  return (
+    priceAxisX -
+    (candleGap +
+      TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2 +
+      distanceFromNewest * candleStep) *
+      clampedZoomScale +
+    offset
+  );
+}
+
 export function getTradingViewNativePriceRange({
   endIndex,
   points,
@@ -142,6 +178,8 @@ export function getTradingViewNativePriceRange({
 }: ITradingViewNativeVisiblePointRange & {
   points: IMarketTokenKLineDataPoint[];
 }): ITradingViewNativePriceRange | null {
+  'worklet';
+
   const clampedStartIndex = Math.min(
     Math.max(Math.floor(startIndex), 0),
     points.length,

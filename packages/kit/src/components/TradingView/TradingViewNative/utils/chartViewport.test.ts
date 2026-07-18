@@ -9,6 +9,7 @@ import {
 import {
   clampTradingViewNativePanOffset,
   clampTradingViewNativeZoomScale,
+  getTradingViewNativeCandleX,
   getTradingViewNativeMaxPanOffset,
   getTradingViewNativePriceRange,
   getTradingViewNativeVisiblePointRange,
@@ -161,6 +162,27 @@ describe('TradingViewNative chart viewport', () => {
         zoomScale: 2,
       }),
     ).toEqual({ endIndex: 5, startIndex: 3 });
+  });
+
+  it('positions time ticks on the same horizontal scale as candles', () => {
+    expect(
+      getTradingViewNativeCandleX({
+        index: 4,
+        offset: 10,
+        pointCount: 5,
+        priceAxisX: 100,
+        zoomScale: 2,
+      }),
+    ).toBe(99);
+    expect(
+      getTradingViewNativeCandleX({
+        index: 3,
+        offset: 10,
+        pointCount: 5,
+        priceAxisX: 100,
+        zoomScale: 2,
+      }),
+    ).toBe(83);
   });
 
   it('keeps the candle under the zoom anchor in place', () => {
