@@ -5,6 +5,7 @@ import {
   Button,
   Icon,
   Popover,
+  ScrollView,
   SegmentControl,
   SizableText,
   XStack,
@@ -23,6 +24,11 @@ import type {
 import type { IMarketTimeRangeValue } from '../../types';
 
 const TIME_RANGE_OPTIONS: IMarketTimeRangeValue[] = ['5m', '1h', '4h', '24h'];
+
+// Keeps the SegmentControl tabs and Reset/Confirm footer always visible by
+// capping only the scrollable tier-rows section. Matches the precedent set
+// by NETWORKS_SEARCH_PANEL_MAX_HEIGHT for popovers in this feature area.
+const MARKET_FILTERS_POPOVER_CONTENT_MAX_HEIGHT = 420;
 
 const AUDIT_TIER_OPTIONS: IMarketFilterTier[] = [
   { label: '≤ 10%', value: 10 },
@@ -149,7 +155,7 @@ export function MarketFiltersPopover({
         </XStack>
       }
       renderContent={
-        <YStack p="$4" gap="$3" width={420}>
+        <YStack p="$4" gap="$3" width="100%">
           <SegmentControl
             value={tabIndex}
             onChange={(v) => setTabIndex(v as number)}
@@ -166,72 +172,79 @@ export function MarketFiltersPopover({
               },
             ]}
           />
-          {tabIndex === 0 ? (
-            <YStack>
-              <XStack
-                alignItems="center"
-                justifyContent="space-between"
-                py="$2"
-              >
-                <SizableText size="$bodyMd" w={110}>
-                  Time range
-                </SizableText>
-                <XStack gap="$1">
-                  {TIME_RANGE_OPTIONS.map((option) => (
-                    <Button
-                      key={option}
-                      size="small"
-                      variant={option === timeRange ? 'primary' : 'tertiary'}
-                      onPress={() => onTimeRangeChange(option)}
-                      testID={`market-filters-popover-time-range-${option}`}
-                    >
-                      {option}
-                    </Button>
-                  ))}
+          <ScrollView
+            maxHeight={MARKET_FILTERS_POPOVER_CONTENT_MAX_HEIGHT}
+            showsVerticalScrollIndicator={false}
+          >
+            {tabIndex === 0 ? (
+              <YStack>
+                <XStack
+                  alignItems="center"
+                  justifyContent="space-between"
+                  py="$2"
+                  flexWrap="wrap"
+                  gap="$2"
+                >
+                  <SizableText size="$bodyMd" w={110}>
+                    Time range
+                  </SizableText>
+                  <XStack gap="$1" flexWrap="wrap">
+                    {TIME_RANGE_OPTIONS.map((option) => (
+                      <Button
+                        key={option}
+                        size="small"
+                        variant={option === timeRange ? 'primary' : 'tertiary'}
+                        onPress={() => onTimeRangeChange(option)}
+                        testID={`market-filters-popover-time-range-${option}`}
+                      >
+                        {option}
+                      </Button>
+                    ))}
+                  </XStack>
                 </XStack>
-              </XStack>
-              {MARKET_FILTER_FIELD_CONFIGS.map((config) => (
-                <FieldTierRow
-                  key={config.field}
-                  label={config.label}
-                  tiers={config.tiers}
-                  selectedValue={draft[config.field]}
-                  trailing={
-                    config.field === EMarketFilterField.InflowUsdMin
-                      ? 'Local demo: no data source yet'
-                      : undefined
-                  }
-                  onSelect={(value) => {
-                    setDraft((prev) => {
-                      const next = { ...prev };
-                      if (value === undefined) {
-                        delete next[config.field];
-                      } else {
-                        next[config.field] = value;
-                      }
-                      return next;
-                    });
-                  }}
-                  testIDPrefix={`market-filters-popover-field-${config.field}`}
-                />
-              ))}
-            </YStack>
-          ) : (
-            <YStack gap="$2" py="$2">
-              {AUDIT_ROW_LABELS.map((label, index) => (
-                <FieldTierRow
-                  key={label}
-                  label={label}
-                  disabled
-                  tiers={AUDIT_TIER_OPTIONS}
-                  testIDPrefix={`market-filters-popover-audit-${AUDIT_ROW_TEST_IDS[index]}`}
-                />
-              ))}
-              <SizableText size="$bodySm" color="$textSubdued">
-                Pending Spike A#8 boolean-direction verification
-              </SizableText>
-            </YStack>
-          )}
+                {MARKET_FILTER_FIELD_CONFIGS.map((config) => (
+                  <FieldTierRow
+                    key={config.field}
+                    label={config.label}
+                    tiers={config.tiers}
+                    selectedValue={draft[config.field]}
+                    trailing={
+                      config.field === EMarketFilterField.InflowUsdMin
+                        ? 'Local demo: no data source yet'
+                        : undefined
+                    }
+                    onSelect={(value) => {
+                      setDraft((prev) => {
+                        const next = { ...prev };
+                        if (value === undefined) {
+                          delete next[config.field];
+                        } else {
+                          next[config.field] = value;
+                        }
+                        return next;
+                      });
+                    }}
+                    testIDPrefix={`market-filters-popover-field-${config.field}`}
+                  />
+                ))}
+              </YStack>
+            ) : (
+              <YStack gap="$2" py="$2">
+                {AUDIT_ROW_LABELS.map((label, index) => (
+                  <FieldTierRow
+                    key={label}
+                    label={label}
+                    disabled
+                    tiers={AUDIT_TIER_OPTIONS}
+                    testIDPrefix={`market-filters-popover-audit-${AUDIT_ROW_TEST_IDS[index]}`}
+                  />
+                ))}
+                <SizableText size="$bodySm" color="$textSubdued">
+                  Pending Spike A#8 boolean-direction verification
+                </SizableText>
+              </YStack>
+            )}
+          </ScrollView>
           <XStack gap="$3" pt="$2">
             <Button
               flex={1}
