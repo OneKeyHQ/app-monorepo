@@ -20,7 +20,6 @@ export type IHomeContainerSlotKey =
   | 'header.account-row'
   | 'header.action-row'
   | 'header.balance'
-  | 'content.body'
   | `content.footer.${IHomeContainerTabId}.${IHomeContainerFooterSlotId}`
   | `content.header.${IHomeContainerTabId}`
   | `content.state.${IHomeContainerTabId}`
@@ -183,7 +182,6 @@ export interface IHomeContainerSlots {
   backgroundColor?: string;
   accountRow?: IHomeContainerSlot;
   balance?: IHomeContainerSlot;
-  body?: IHomeContainerSlot;
   headerActionRow?: IHomeContainerSlot;
   contentFooters?: Partial<
     Record<

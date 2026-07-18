@@ -8,8 +8,6 @@ import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   DelayedFreeze,
   Icon,
-  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
-  Keyboard,
   Page,
   ScrollView,
   Skeleton,
@@ -26,10 +24,7 @@ import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/T
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
-import {
-  WALLET_TYPE_HD,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/shared/src/consts/dbConsts';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -68,7 +63,6 @@ import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
-import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import {
   buildHomeWalletCapabilityTabModel,
@@ -358,13 +352,6 @@ export function HomePageView({
       }),
     [isDeFiEnabled, isHomeWalletTabSupportReady, isPerpsEnabled],
   );
-
-  const isWalletNotBackedUp = useMemo(() => {
-    if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
-      return true;
-    }
-    return false;
-  }, [wallet]);
 
   const isBulkRevokeApprovalEnabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING) {
@@ -867,19 +854,6 @@ export function HomePageView({
   );
 
   const tabs = useMemo(() => {
-    if (isWalletNotBackedUp) {
-      return (
-        <Keyboard.AwareScrollView
-          style={{ flex: 1 }}
-          nestedScrollEnabled={platformEnv.isNativeAndroid}
-          contentContainerStyle={{ paddingBottom: tabBarHeight }}
-          bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
-        >
-          {renderHeader()}
-          <NotBackedUpEmpty />
-        </Keyboard.AwareScrollView>
-      );
-    }
     // Exclude isDeFiEnabled/isNFTEnabled from key to prevent Tabs.Container
     // from being destroyed and recreated when these values change async.
     // Tabs render conditionally inside the container instead.
@@ -948,12 +922,10 @@ export function HomePageView({
       </Tabs.Container>
     );
   }, [
-    tabBarHeight,
     tabContainerWidth,
     wallet?.id,
     account?.id,
     account?.indexedAccountId,
-    isWalletNotBackedUp,
     renderHeader,
     renderTabBar,
     handleTabChange,

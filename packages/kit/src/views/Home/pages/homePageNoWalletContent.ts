@@ -6,6 +6,8 @@ type IWalletListItemForNoWalletCheck =
     }
   | undefined;
 
+export type IHomeWalletContentReadiness = 'pending' | 'wallet' | 'no-wallet';
+
 export function isWalletListResolvedNoWallet({
   wallets,
 }: {
@@ -68,7 +70,7 @@ export function resolveHomeWalletContentReadiness({
   activeAccountReady: boolean;
   activeWalletUnavailable?: boolean;
   activeWalletId?: string;
-}): 'pending' | 'wallet' | 'no-wallet' {
+}): IHomeWalletContentReadiness {
   if (
     walletListPending ||
     !wallets ||

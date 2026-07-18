@@ -1838,7 +1838,7 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 ### All Networks -> Ethereum：原 Fail、Swift 修复与仍未关闭的 UI 边界
 
 - foreground 修复后，在非零 Home offset 从 All Networks 切换到 Ethereum，真实录屏捕获到 Market 前方的异步 DeFi section 单帧硬插入，导致 Market 及下方 section 突然位移。该轮是明确的真实 UI **Fail**，不是 capability Tab 白屏，也不能用最终 settled 截图掩盖。证据：`.tmp/ui/native-home-after-foreground-fix-single-network-current-funded.mp4`、`.tmp/ui/native-home-after-foreground-fix-single-network-immediate-current-funded.png`、`.tmp/ui/native-home-after-foreground-fix-single-network-settled-current-funded.png`。
-- Swift 修复针对 DeFi section 的 structural diffable 更新：结构性插入/移除不再使用会暴露单帧位移的 animated diffable mutation，普通数据 patch 仍保留既有更新路径。独立代码 reviewer 已给出 **Pass**；这只代表根因路径和实现边界通过代码审计，不等于原非零锚点 UI 已验收。
+- Swift 修复针对 `portfolio-defi` section 的 structural diffable 更新：仅当结构变化全部属于该 DeFi section 时启用平滑 diffable animation，让 Market 及下方 section 单向连续移动，避免无动画替换造成的单帧硬插入；普通数据 patch 仍保留既有更新路径。独立代码 reviewer 已给出 **Pass**；这只代表根因路径和实现边界通过代码审计，不等于原非零锚点 UI 已验收。
 - 第三次标准 `yarn app:ios` 后，All Networks -> Ethereum 的顶部 offset 录屏切换平滑，未再捕获硬插入。证据：`.tmp/ui/native-home-after-defi-animation-fix-allnetworks-to-ethereum-current-funded.mp4`、`.tmp/ui/native-home-after-defi-animation-fix-allnetworks-to-ethereum-current-funded-contact-sheet.png`、`.tmp/ui/native-home-after-defi-animation-fix-ethereum-immediate-current-funded.png`、`.tmp/ui/native-home-after-defi-animation-fix-ethereum-settled-current-funded.png`。
 - 但原 Fail 发生在**非零 Market 锚点**。后续自动化尝试在该锚点录屏时误命中底部 Discover，`.tmp/ui/native-home-after-defi-animation-fix-nonzero-anchor-before-current-funded.png`、`.tmp/ui/native-home-after-defi-animation-fix-nonzero-retry-anchor-before-current-funded.png` 和 `.tmp/ui/native-home-after-defi-animation-fix-nonzero-final-drag-1-current-funded.png` 只能证明坐标漂移/误命中，不能作为通过或失败证据。因此本项当前结论是：Swift code **Pass**、顶部 offset UI **Pass**、原非零 Market 锚点 UI 仍 **Pending/Blocked**。下一轮必须截图后立即短 batch 点击正确 selector，并保留切换前、immediate、transition、settled 多帧；误命中不得计入结果。
 
@@ -1848,3 +1848,145 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - 以下状态仍没有隔离 fixture 的真实 Debug 证据，继续保持 **Blocked/Incomplete**：fresh/no-wallet 首次启动、未备份 HD、已备份零资产、Keyless、导入 mnemonic/KeyTag、真正 imported private-key/watching/external/hardware 单链钱包、EVM/BTC 真正单链 cold first frame，以及 Android Hybrid gesture 的真实双向惯性。不得拿当前有钱多链钱包切换 Ethereum 的结果冒充“真正单链钱包首次启动”。
 - iOS/Android 是 split-runtime：main runtime 负责 Navigation event store、foreground/launch visibility、Native Home snapshot/section patch、Market selection/cache、DeFi structural diffable 呈现和 UI offset；bg runtime 负责权威 onboarding verdict、wallet/account/capability、Market/DeFi service 与持久化数据。main 与 bg 使用独立 Hermes heap，proxy 数据会分别序列化/反序列化，初始化顺序独立，main ready 不能代替 bg ready。
 - DB/MMKV/file handles、图片/字体 cache 和 native singleton 属于进程级共享 Native 资源；navigation container event store 是 main heap 内的 per-container 状态；UIKit constraint、diffable snapshot、scroll/offset、represented image signature、request cancellation、pressed/selected/hover 属于 per-view 状态。不能把共享 cache 的命中推导成某个 cell/view 的约束或复用状态正确。
+
+## 2026-07-19 EmptyWallet 同状态 A/B、Native Fail 与 RN 页面级新决策
+
+### 本节结论与证据边界
+
+- 本轮已经在同一个未备份 HD 钱包状态下完成 Native 与 Legacy RN 的真实 iOS Debug A/B。Native `content.body` 方案为明确的真实 UI **Fail**；Legacy RN 是当前可交互的产品基准，不是仅凭源码推断或元素存在得出的结论。
+- A/B 使用当前 Debug/Metro 现场临时切换 `nativeHomeFeatureFlag.native.ts` 采集 Legacy，完成后已恢复 Native 默认值；`packages/kit/src/views/Home/nativeHomeFeatureFlag.native.ts` 当前无 git diff。没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`，没有执行 uninstall/reinstall/erase/clear data，也没有删除 app container、钱包数据库或持久化文件。
+- 本轮 A/B 没有完成真实 backup 流程，因此没有修改钱包 `backuped` 状态；Legacy 证据只真实打开并关闭了 More backup options 的 Backup sheet。Native Fail 和 Legacy 基准均来自同一未备份状态，不能外推为已备份零资产、fresh/no-wallet 或普通有钱钱包已经通过。
+- 全部证据位于 `.tmp/ui/native-home-empty-wallet-ab-20260719/`。核心并排图为 `native-home-empty-wallet-legacy-vs-native-402.png`，像素 differ 为 `native-home-empty-wallet-legacy-vs-native-diff-402.png`；Native 与 Legacy 的 viewport、录屏、contact sheet、gesture telemetry、Backup sheet 和 runtime/launch probe 均保留在同一目录。
+
+### 同状态量化 A/B 与交互结果
+
+| 检查项 | Legacy RN 基准 | 当前 Native `content.body` | 结论 |
+| --- | --- | --- | --- |
+| Header/body 分界线 y | 262 | 364 | Native 多保留 102pt Header 空间 |
+| illustration/body 内容位置 | 基准 | illustration、标题、描述和 CTA 整体下沉约 198.67pt | Native 几何 Fail |
+| 首帧 primary CTA | `Backup to iCloud` 完整可见且位于底部 Tab 之上 | 被浮动 Tab bar 覆盖 | Native Fail |
+| 首帧 secondary CTA | `More backup options` 完整可见 | 已超出屏幕 | Native Fail |
+| 向上/向下 swipe | 内容保持可用；当前短内容首帧已完整，不依赖补救性滚动 | body 不产生有效滚动，手势反而触发顶部 `Refreshing...` | Native scroll owner Fail |
+| More backup options | 真实打开标题为 `Backup` 的 sheet，显示 `Manual backup / OneKey Lite / OneKey KeyTag`，关闭后页面恢复 | 首帧无法触达 secondary CTA | Legacy 交互 Pass / Native Fail |
+
+- Native 首帧与滚动证据：`native-home-empty-wallet-native-before-viewport.png`、`native-home-empty-wallet-native-before-bottom.png`、`native-home-empty-wallet-native-before-scroll.mp4`、`native-home-empty-wallet-native-before-scroll-contact-sheet.png`、`native-home-empty-wallet-native-before-scroll-down.mp4`、`native-home-empty-wallet-native-before-scroll-down-settled.png` 以及对应 `.gesture-telemetry.json`。contact sheet 中真实出现了顶部蓝色 `Refreshing...`，但 backup body 的几何位置没有得到有效修正；不能把“收到 swipe”写成“RN body 能滚动”。
+- Legacy 首帧与交互证据：`native-home-empty-wallet-legacy-reference-viewport.png`、`native-home-empty-wallet-legacy-reference-bottom.png`、`native-home-empty-wallet-legacy-reference-scroll.mp4`、`native-home-empty-wallet-legacy-reference-scroll-contact-sheet.png`、`native-home-empty-wallet-legacy-reference-backup-entry.mp4`、`native-home-empty-wallet-legacy-reference-backup-sheet.png`、`native-home-empty-wallet-legacy-reference-backup-sheet-dismissed.png` 以及对应 `.gesture-telemetry.json`。
+- Legacy 的两个 CTA 在首帧都完整可见，并且 secondary CTA 的 tap 真实打开业务 sheet。Native primary CTA 后方只能透出部分文字，secondary CTA 完全不在 viewport 内；不能以“继续滑动可能可达”降级本轮 Fail。
+
+### main/bg、launch gate 与最终现场
+
+- Native A/B 前 probe 显示 main `jsReadyAt=1784391444138`、`uiVisibleAt=1784391447793`；独立 bg `bootId=1784391445824-4vq3ioo9`、`status=ready`，transport ready。launch gate 为 `decision=main`、`foreground=home`、generation `2/2`、`nativeLaunchReady=true`。证据：`native-home-empty-wallet-native-before-runtime-probe.json`、`native-home-empty-wallet-native-before-launch-gate.json`。
+- 最终恢复 Native 默认路径后的 probe 显示 main `jsReadyAt=1784395805680`、`uiVisibleAt=1784395808144`；独立 bg `bootId=1784395807275-kwuqq73k`、`status=ready`，transport ready。launch gate 仍为 `main/home/2/2` 且 `nativeLaunchReady=true`。证据：`native-home-empty-wallet-native-final-runtime-probe.json`、`native-home-empty-wallet-native-final-launch-gate.json`。
+- 恢复截图为 `native-home-empty-wallet-native-final-restored-proof.png` 与 `native-home-empty-wallet-native-final-restored-proof-clean.png`。main ready、bg ready、Home 可见和 feature flag 恢复分别有证据，但这些条件不能抵消 Native EmptyWallet 的几何/手势 Fail。
+- iOS 是 split-runtime：main runtime 负责 page surface 选择、RN/Native tree 挂载、Header/body layout、scroll/refresh、accessibility 和整页切换；bg runtime 负责权威 wallet/account/backup 状态、`updateWalletBackupStatus`、wallet list 和持久化。两个 Hermes heap 独立，wallet DTO 经 proxy 分别序列化/反序列化，main/bg 初始化顺序独立。
+- DB/MMKV/file handles 与部分 Native singleton 是进程级共享 Native 资源；RN component state、Native Header/body frame、ScrollView offset/refresh、pressed/selected 与 transition state 属于 main/per-view 状态。共享 DB 已更新不等于 main 已收到当前 wallet generation，也不能用共享 cache 代替页面分流的 scope identity。
+
+### 源码根因：为什么 Native 比 Legacy 下沉
+
+- Legacy `HomePageView.tsx` 对未备份 HD 的判断只有 `wallet.type === WALLET_TYPE_HD && !wallet.backuped`，没有余额条件；其未备份分支使用一个 `Keyboard.AwareScrollView` 顺序渲染 `renderHeader()` 与现有 RN `NotBackedUpEmpty`。`renderHeader()` 复用 `HomeHeaderContainer`。
+- Legacy `HomeHeaderContainer` 在未备份态隐藏普通 WalletActions 和 banner，并且不设置普通 Native 页面使用的 182/292 最小 Header 高度，因此 Header 随真实 account/balance 内容自然收缩。Legacy `$0` 是现有基准的一部分；本轮失败不是“存在 `$0`”，而是 Native 在 actions/banner 已隐藏后仍保留普通 Header 的空高度。
+- 当前 `NativeHomePage.native.tsx` 的 `content.body` 在 Header 后挂载 `Keyboard.AwareScrollView + NotBackedUpEmpty`；iOS `HomeContainerView.swift` 无 banner 时仍把 Header `preferredHeight` 固定为 `216 + headerBottomPadding(40) = 256pt`，Android 同类实现仍保留 216dp。body host 再从 `headerHeight` 开始，仅获得 `bounds.height - headerHeight`。
+- `NotBackedUpEmpty` 自身使用 `flex=1`、`justifyContent=center`、上下 padding，包含 180pt illustration、标题/描述与两枚大按钮；当 Native 固定 Header 吞掉额外高度后，整个 body 被迫下沉。iOS swipe 又落到 Native outer refresh owner，真实结果是显示 `Refreshing...` 而不是滚动 RN body。
+- 上述根因能够解释 102pt divider 差与约 198.67pt 内容下沉，但用户已经决定不再继续修补 `content.body` 的 Header 高度、inset 或 gesture forwarding。现有 Hybrid 代码可在页面级新路径验证完成前暂时保留，后续清理必须单独审计；不得继续在 Swift/Kotlin 复制未备份业务或堆更多特殊布局分支。
+
+### 用户确认的新产品与架构决策
+
+- 新增精简 RN `EmptyWalletHomePage`，使用 discriminated `variant`。本次只实现 `notBackedUp`；未来可增加 `backedZero`，但不能为了预留未来分支在本轮引入余额 owner、假数据或不可达 UI。
+- `notBackedUp` 表示“钱包真实存在、标准 HD、权威 `backuped=false`”，不是“余额等于零”。即使该钱包先收到资产，只要尚未完成备份，仍必须继续显示备份安全提示；禁止以充值、token rows 出现或 balance 变正为条件提前切 Native。
+- `backedZero` 是未来“已备份零资产”variant，届时才根据已定义的零资产权威状态决定页面及充值后切 Native。该未来 variant 不能与本次未备份安全态混为一谈。
+- fresh/no-wallet 继续由现有 onboarding/no-wallet gate 独立处理，不属于 `EmptyWalletHomePage`。在 bg onboarding verdict、wallet list、storage 与 active account/current generation 全部 settle 前，不能把 `undefined wallet` 当成未备份 wallet，也不能提前露出 EmptyWallet 或 Native Home。
+- 页面级分流放在 `HomePageContainer.tsx` 的 `HomeLaunchGatedContent`：该 owner 已同时持有 active wallet/account、bg wallet list、storage init、active-account init/ready 和 onboarding launch snapshot。只有 current wallet 属于已 settled wallet-list generation，且 active/list 两份 wallet 对同一 id 的 type/backuped verdict 一致，才提交页面 surface。
+- surface 顺序为：`pending/unknown -> opaque gate`；resolved HD + `backuped=false -> EmptyWalletHomePage(notBackedUp)`；resolved normal wallet -> feature enabled 时 `NativeHomePageView`，否则 Legacy；`no-wallet -> onboarding/no-wallet owner`。不得把 wallet 条件塞进全局 `nativeHomeFeatureFlag`，也不得用整个 Legacy fallback 规避 normal Native Home。
+- 用户接受备份完成后的整页重渲染。切换必须由 bg 权威 `serviceAccount.updateWalletBackupStatus()` 写 DB 并发送 `WalletUpdate` 后，等待 Home wallet-list 与 active wallet 同 scope 收敛到 `backuped=true`，再只执行一次 `EmptyWalletHomePage -> NativeHomePageView`。按钮点击不能本地伪造已备份状态。
+- WalletUpdate refetch pending 期间，同 wallet 可以保留上一已解决 RN surface，避免 `RN -> blank -> Native`；若 active wallet id 改变，必须立即禁止旧钱包 CTA 继续交互并 fail closed，等待新 scope verdict。不能把旧 wallet 的 sticky surface 显示成新 wallet。
+- 不挂载隐藏的 `NativeHomePageView` 做 UI 预热。`opacity=0` 只隐藏像素，不会停止 Native Home 内部 data hooks、RPC、snapshot/controller、image request 和 Native view 资源；同时挂 RN EmptyWallet 与隐藏 Native 会制造双 owner。若未来性能证据要求预热，只允许另行设计可取消、按 wallet scope 隔离的数据 cache，不在本轮挂隐藏 UI。
+
+### 精简页面内容与禁止带入的重型 owner
+
+- `EmptyWalletHomePage(notBackedUp)` 只复用现有 RN Page/Header shell、`Keyboard.AwareScrollView`、`useScrollContentTabBarOffset`、`HomeHeaderContainer` 和 `NotBackedUpEmpty`。`NotBackedUpEmpty` 继续持有现有 cloud/manual/Lite/KeyTag backup owner 和两个 CTA；不得在新页面复制 backup flow。
+- Legacy main Home 与 Native disabled/web/desktop 路径也应复用同一个 `EmptyWalletHomePage`，避免维护第二份未备份布局。基于当前 Legacy 基准，account row 与 `$0` 仍显示，WalletActions、banner、资产 Tabs/pager、Market、Earn 和普通列表不挂载；如产品未来决定删除 `$0`，必须作为新的视觉契约单独 A/B，不能在本轮把 Native 固定 Header 的 bug误写成 `$0` bug。
+- 不复用整个重型 `HomePageView` 作为未备份 fallback。该组件会初始化 capability、vault/network RPC、approval、focus/pager 以及 Portfolio/DeFi/NFT/History/Perps 树；即使最终 JSX 走未备份分支，前置 hooks 和 effects 仍已运行。
+- 新页面内不得重复创建 `AccountSelectorProviderMirror`、`HomeWalletListProvider` 或 `ProviderJotaiContextAccountOverview`；它们已经在 `HomePageContainer` 外层。DApp floating trigger、OneKey ID、notification registration、KYT 和 BTC fresh-address 等 foreground owner继续留在页面 variant 外，只由现有 `isHomeVisible` gate 决定是否挂载。
+- normal wallet 继续默认 Native；本次只是为 `notBackedUp` 建立明确的 RN 产品状态页，不允许重新引入“任意差异都退回 Legacy”的总开关。
+
+### 最小实现文件边界
+
+1. 新增 `packages/kit/src/views/Home/pages/EmptyWalletHomePage.tsx`，实现精简 Page shell 和 `variant='notBackedUp'`；未来 `backedZero` 只保留架构扩展点，本轮不实现余额逻辑。
+2. 新增或扩展纯 helper 与测试，例如 `pages/homeWalletPageSurface.ts` / `.test.ts`，输入 launch/readiness、active wallet、已 settled wallet-list wallet、feature capability 和上一 scope，输出 `pending | no-wallet | not-backed-up-rn | native | legacy`，不在 helper 内读全局 atom 或发 RPC。
+3. 修改 `pages/HomePageContainer.tsx`，在已有 authoritative readiness owner 中提交页面级 surface；保持外层 providers、launch visibility 和 foreground effects 不变。
+4. `pages/HomePageView.tsx` 只做 Legacy 同组件复用/去除 main Home 的重复未备份 JSX；URL account 等其他 caller 若仍可能进入旧分支，必须先独立审计，不能为减少 diff 破坏其行为。
+5. `components/NotBakcedUp/NotBackedUpEmpty.tsx`、`pages/HomeHeaderContainer.tsx` 原则上直接复用，不搬运业务；只有独立 code reviewer 证明精简页需要可复用 shell prop 时才做最小结构提取。
+6. 本轮不应修改 `packages/native-components/ios/HomeContainerView.swift`、Android `HomeContainerView.kt`、Nitro slot bridge或全局 feature flag来修 EmptyWallet。现有 `content.body` 清理是新页面真实通过后的独立 cleanup，不与首次实现混在一起。
+
+### 聚焦测试矩阵
+
+- helper cold matrix：wallet list pending、storage 未 ready、active account 未 ready、wallet 不在当前 list generation、HD `backuped` 未定义或 active/list 不一致均返回 pending，不能先挂 EmptyWallet 或 Native。
+- surface matrix：同 id HD/false -> `not-backed-up-rn`；同 id HD/true -> normal Native；imported/watching/hardware 即使 `backuped=false` 也不能误入未备份 HD 页；feature unavailable 只影响 normal wallet 的 Native/Legacy选择。
+- no-wallet matrix：`walletContentReadiness=no-wallet` 只进入 onboarding/no-wallet owner，永不进入 `EmptyWalletHomePage`；onboarding `unknown` 或 `onboarding` 时 Home surface不可见、不可 hit-test、不可进入 accessibility tree。
+- transition matrix：同 wallet 的 `not-backed-up-rn -> wallet-list pending -> active/list true -> native` 只提交一次最终切换；旧 request/result 不能反向恢复 RN；wallet id 切换立即使旧 CTA 不可交互；backup RPC失败继续 RN并保留重试能力。
+- 安全语义：未备份钱包 `balance 0 -> positive`、token rows 到达或 DeFi 数据到达均仍为 `not-backed-up-rn`；只有权威 `backuped=true` 才退出。未来 `backedZero` 的充值切换测试必须在实现该 variant 时另加，不能复用本轮断言。
+- component test：`EmptyWalletHomePage(notBackedUp)` 只挂一个 `NotBackedUpEmpty`，两个 testID 均存在；不挂 `HomeContainer`、Tabs、Market、Earn、WalletActions 或 banner；tabBar bottom inset 与 Large/XXXL 可滚区域可注入验证。
+- runtime/side-effect test：RN EmptyWallet 可见时不构造 Native Home controller/snapshot，不发 Native Home Market/DeFi/NFT/History请求；外层 foreground effects 仍只随 `isHomeVisible` 挂一次；StrictMode/remount 不重复 backup action。
+
+### 下一轮独立 UI Pass / Fail 条件
+
+- 使用与当前有钱钱包完全隔离且获授权的未备份 HD fixture；从 app process 启动前录制，确认首个 Home 内容帧直接是完整 RN `EmptyWalletHomePage(notBackedUp)`，无 Native Header/body 中间帧、白屏或普通 Home 闪现。
+- 首帧 divider、illustration、标题、描述和两枚 CTA 与本节 Legacy 402 基准一致；primary/secondary 都完整位于浮动 Tab bar 上方。小屏、Light/Dark、Large/XXXL 下必须能双向 drag/fling/decelerate，最终 CTA 可达且外层 refresh 不抢 body 手势。
+- 两枚 CTA 都要真实交互：primary 进入 cloud/manual权威流程；secondary 打开 Backup sheet，三种可用选项、关闭和返回正确。元素存在不能代替 sheet 内容与返回链路。
+- 在仍 `backuped=false` 时注入/取得正余额，页面必须继续显示备份提示；若到账后直接 Native，明确 Fail。随后完成真实 backup，录制 bg WalletUpdate、wallet-list/active wallet收敛、页面只切一次 Native、modal pop 后无 blank/双页/offset跳变。
+- 验收过程中必须确认 Debug 包、main ready、独立 bg ready/bootId、钱包数据与持久化数据正常；禁止 uninstall/reinstall/erase/clear data。没有隔离 fixture 时保持 Blocked，不得修改当前真实钱包制造绿色证据。
+- **当前状态：** Legacy RN 同状态视觉与 More options 交互基准 **Pass**；当前 Native `content.body` 视觉、底部可达性与 scroll owner **Fail**；`EmptyWalletHomePage` 新架构尚未编写、代码验收或 UI 验收，不能声明 EmptyWallet 已完成。
+
+### subagent 分工与完成门禁
+
+1. 编写 subagent 只实现 `EmptyWalletHomePage`、纯 surface helper/test 与 `HomePageContainer` 页面分流；不修改 Native renderer、无关 Market/Swap/Discovery/Performance 文件，不 commit/push。
+2. 独立代码验收 subagent 审计 launch/no-wallet/current-wallet generation、active/list一致性、backup transition、wallet-id switch、无 hidden Native和无重型 HomePageView owner，并运行聚焦 Jest/ESLint/format/diff-check；编写者不能自验收。
+3. 独立 UI 验收 subagent 使用标准 Debug 流程和隔离 fixture完成 cold first frame、Legacy基准、正余额仍提示、两 CTA、Backup sheet、backup成功一次切 Native、Dark/Dynamic Type/scroll证据；不能以本节旧 A/B 代替新实现验收。
+4. UI或代码 Fail 后由主 agent把具体证据交回编写 subagent，再由同一独立验收角色复核；循环到 Pass 或真实 Blocked。主 agent只负责调度、范围/dirty控制、handoff与最终 commit/push，不直接写产品代码或自行判 Pass。
+
+## 2026-07-19 EmptyWalletHomePage 抽离、刷新手势修复与 Debug 验收
+
+### 最终架构与状态边界
+
+- 本轮已经用精简 RN `EmptyWalletHomePage` 替换未备份 HD 的 Native Hybrid `content.body`。`HomePageContainer` 是唯一页面 surface resolver；任一时刻只挂载 Empty、Native、Legacy 或 no-wallet owner 中的一个，不做 `opacity=0` 的隐藏 Native 预热，也不让重型 `HomePageView` hooks 在 Empty 页面背后执行。
+- `notBackedUp` 只由权威钱包状态决定：active wallet 与当前 settled wallet-list wallet 必须是同一 id、同一 type，且两份 `backuped` 都为 `false`。同钱包 refetch/pending 或 active/list 暂时不一致时保留上一 RN safety surface；wallet id 一旦改变，旧 Empty 页面和 CTA 立即卸载并 fail closed。
+- 余额、token、portfolio、DeFi 或到账事件不参与 `notBackedUp` 的 surface 选择。HD 钱包即使已经充值，只要仍未备份，就继续显示安全提示；只有 bg 权威备份写入、`WalletUpdate` 和 active/list 同 scope 收敛为 `backuped=true` 后，才整页切换到正常 Native/Legacy Home。
+- 用户接受页面状态切换时进行一次完整整页重渲染，不要求维护两套页面或局部过渡。对本轮 `notBackedUp`，实际切换事件是“完成备份”而不是“充值”；未来如果实现 `backedZero`，到账后整页切换也可采用同一简单模型。
+- fresh/no-wallet 仍由 onboarding/no-wallet gate 独立处理；normal wallet 在 feature enabled 时继续 Native，feature disabled 时继续 Legacy。全局 `nativeHomeFeatureFlag` 没有改动。
+
+### 实现与清理范围
+
+- 新增 `pages/EmptyWalletHomePage.tsx`、`pages/homeWalletPageSurface.ts` 及相应 component/helper 测试；`HomePageContainer.tsx` 提交权威 surface，并增加生产 `HomeLaunchGatedContent` mount/rerender 集成测试。
+- `HomePageView.tsx` 删除重复的未备份 early branch；Legacy/no-wallet 与正常 Native 的路由继续由统一 owner 决定。`HomeHeaderContainer` 和 `NotBackedUpEmpty` 仍复用原 RN Header、backup illustration、文案和 CTA，不复制 backup 业务。
+- 已删除 `nativeHomeWalletState.ts` 及其旧测试，并从 `NativeHomePage.native.tsx` 删除 wallet-state/body-slot 分支。
+- TS Nitro types/bridge、iOS `HomeContainerView.swift`、Android `HomeContainerView.kt`/`HomeContainerSurfaceView.kt` 中的 `content.body` host、body gesture 特判和残留 symbol 已全部清理。Android 唯一仅服务于该特判的 JUnit 测试与依赖同时删除；JDK 17 compile 已证明 native-components 仍可编译。
+
+### 独立代码验收
+
+- 编写 subagent 完成实现后，独立 reviewer 第一轮没有发现 P0/P1，但指出纯 resolver 与直接 mount Empty 页面不足以证明生产 JSX owner，要求补 `HomeLaunchGatedContent` 的实际转场测试。补测后独立复核为 **Pass**，P0/P1/P2 全部清零。
+- 生产集成测试真实执行 `previousPageSurfaceRef + useLayoutEffect` 与互斥 JSX；覆盖 cold pending、HD 双 false、同 wallet refetch/mismatch sticky、双 true 只切一次 Native、wallet id 改变立即卸载旧 CTA、no-wallet、feature false Legacy 和 feature true Native。测试确认 Empty 可见时 Native mount count 为 0，不是隐藏预热。
+- 最终聚焦 Jest 为 4 suites / 40 tests Pass；刷新修复另有 2 suites / 2 tests Pass。type-aware Oxlint、Oxfmt、指定 `git diff --check`、Swift parse 均 Pass；Android JDK 17 `:onekeyhq_native-components:compileDebugKotlin` 为 `BUILD SUCCESSFUL`。
+- `yarn tsc:only` 的本轮文件没有新增错误，但全量仍被两个无关既有工作区问题阻断：desktop `config.perfReady` 缺失，以及 `NativeHomePageView.native.tsx` 引用未导出的 `HOME_HEADER_SEARCH_ROW_HEIGHT`。不得为制造绿色结果混改这些文件。
+
+### iOS Debug A/B 与交互验收
+
+- 独立 UI verifier 两次完整执行标准 `yarn app:ios`；最终一次 exit 0、`Build Succeeded`、0 errors / 13 warnings，并由该命令更新安装 Debug `OneKeyWallet.app`、启动 `so.onekey.wallet` 和 Metro dev-client。没有使用 Release、自定义 `xcodebuild`、`CODE_SIGNING_ALLOWED=NO`，也没有 uninstall/reinstall/erase/clear data、删除 container/DB 或执行真实备份。
+- 当前钱包仍为 `Account #1 / $0.00`，Dark mode。首帧只显示 RN EmptyWallet：Search、account、金额、divider、illustration、标题、描述和两枚 CTA；没有 Native tabs、Market、Earn、WalletActions 或 banner。两枚 CTA 都完整位于浮动底栏上方。
+- 与同状态 Legacy 402 基准对比，divider 与 illustration frame 一致；大于阈值的变化像素约 0.054%，集中于状态栏瞬态。证据：`.tmp/ui/native-home-empty-wallet-rn-page-20260719/empty-wallet-debug-command-launch-clean.png`、`empty-wallet-debug-vs-legacy-402.png`、`empty-wallet-debug-vs-legacy-diff-402.png`。
+- `More backup options` 真实打开 Backup sheet，显示 `Manual backup / OneKey Lite / OneKey KeyTag`，并安全关闭；最终回归证据位于 `.tmp/ui/native-home-empty-wallet-refresh-fix-20260719/after-fix-backup-sheet-open.png`、`after-fix-backup-sheet-snapshot.txt`、`after-fix-backup-sheet-closed.png`。主 CTA 仅验证可见、enabled/hittable，没有执行 iCloud 或其他真实备份流程。
+
+### `Refreshing...` 失败、根因与复验
+
+- 第一轮新页面 UI 验收的几何与 sheet 已 Pass，但同位置双向 swipe 会短暂显示蓝色 `Refreshing...`，因此当轮明确判 Fail，没有用静态首屏覆盖交互失败。证据：`.tmp/ui/native-home-empty-wallet-rn-page-20260719/empty-wallet-debug-swipe-both.mp4` 与 `empty-wallet-debug-swipe-both-contact.png`。
+- 根因不是 `Page`/`Keyboard.AwareScrollView` 的 `RefreshControl`。`HomeHeaderContainer` 的 `notBackedUp` variant 仍把余额区域放在 `HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}` 内；精简页不在 `Tabs.Container/CollapsibleTabContext`，wrapper 没有有效 `scrollYCurrent`，会把起点视为顶部并在超过阈值时触发全局 Home refresh。
+- 修复只让 `notBackedUp` 直接渲染原 `HomeOverviewContainer`，不再挂 nested refresh gesture owner；normal Home 的 Overview 与 WalletActions 两个 refresh owner、props 和 handler 保持不变。独立 reviewer确认 wrapper 本身无布局样式，因此该变化不改变 gap、padding、字体、pressed 或 accessibility。
+- 修复测试明确断言 Empty 外层 `refreshControl/onRefresh` 都为 undefined，`notBackedUp` header 为 0 个 refresh owner，normal header 仍为 2 个且都连接原 handler。代码独立复核为 Pass。
+- 第二次 `yarn app:ios` 更新 Debug 后，同坐标向上、向下 swipe 都有自然位移与回弹，手势阶段不再出现蓝色 `Refreshing...`，末帧恢复原布局。证据：`.tmp/ui/native-home-empty-wallet-refresh-fix-20260719/after-fix-swipe-both-clean.mp4`、`after-fix-swipe-both-clean-contact.png`、`after-fix-stable-after-pure-swipe.png`。
+- `agent-device record start`/XCUITest hierarchy 刷新会在录制前约 1 秒制造蓝色 `Refreshing...` 工具 pre-roll；最终证据从第一条真实手势开始前裁切，录制期间没有插入 screenshot/snapshot。原始文件 `after-fix-swipe-both-pure.mp4` 保留用于审计，不能把工具 pre-roll 当成 app 手势失败，也不能用裁切隐藏手势期问题。
+
+### runtime、资源所有权与仍未覆盖项
+
+- 最终 Debug 中 main 与 bg 均独立 ready。main 负责 surface 判定、RN/Native tree 挂载、Empty layout/scroll/pressed/accessibility；bg 是独立 CDP target，负责权威 wallet/account/backup service、DB 更新与 WalletUpdate。最终 bg bootId 为 `1784400579683-hvjzbw2o`、status ready；证据：`.tmp/ui/native-home-empty-wallet-refresh-fix-20260719/after-fix-runtime-globals.json`。
+- iOS main/bg 使用独立 Hermes heap并独立初始化，wallet DTO 经 proxy 分别序列化/反序列化；main ready 不能代替 bg ready。DB/MMKV/file handles、图片/字体 cache 和部分 Native singleton 是进程级共享 Native 资源；resolver sticky ref、scroll offset、gesture、pressed、accessibility 与页面 transition 属于 main/per-view 状态。
+- 本轮真实通过范围：当前 Dark mode 未备份 HD `$0` fixture 的首帧/Legacy 402 A/B、两枚 CTA 可见性、secondary Backup sheet、双向 swipe/回弹和无 app refresh、应用持续存活、main/bg ready。
+- 仍未覆盖：实际 primary backup、backup 完成后 `Empty -> Native` 的真实单次切换、正余额但未备份、Dynamic Type Large/XXXL、Light mode、Android Debug、fresh/no-wallet、已备份零资产/未来 `backedZero` 和真正单链 wallet-type。生产 JSX 测试覆盖权威转场，但这些真实 UI 项继续保持 Partial/Blocked，不能声称整个 Empty Wallet 或 Native Home 已全部完成。

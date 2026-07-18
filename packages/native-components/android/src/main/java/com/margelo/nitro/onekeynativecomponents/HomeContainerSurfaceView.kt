@@ -8,9 +8,6 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import kotlin.math.abs
 
-internal fun shouldHomeContainerSlotKeepGestureOwnership(slotKey: String): Boolean =
-  slotKey == "content.body"
-
 internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context) {
   private val reactChildren = mutableListOf<View>()
   private var engine: HomeContainerView? = null
@@ -69,16 +66,6 @@ internal class HomeContainerSurfaceView(context: Context) : FrameLayout(context)
       MotionEvent.ACTION_DOWN -> {
         resetSlotGesture()
         slotGestureCandidate = interactiveSlotAt(event.x, event.y)
-        if (
-          slotGestureCandidate?.let {
-            shouldHomeContainerSlotKeepGestureOwnership(it.slotKey)
-          } == true
-        ) {
-          // The full-body slot owns its RN ScrollView and momentum. Forwarding
-          // this drag would hand it to the hidden native pager instead.
-          resetSlotGesture()
-          return false
-        }
         if (slotGestureCandidate != null) {
           slotDownX = event.x
           slotDownY = event.y

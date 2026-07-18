@@ -17,8 +17,6 @@ import {
   Dialog,
   ESwitchSize,
   IconButton,
-  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
-  Keyboard,
   SizableText,
   Skeleton,
   Stack,
@@ -26,7 +24,6 @@ import {
   Toast,
   XStack,
   YStack,
-  useScrollContentTabBarOffset,
   useTheme,
 } from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorActiveAccount';
@@ -115,11 +112,7 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
 import { useCopyAddressWithDeriveType } from '../../hooks/useCopyAccountAddress';
 import { useManageToken } from '../../hooks/useManageToken';
-import {
-  useAccountSelectorStorageInitDoneAtom,
-  useActiveAccount,
-  useIsAccountSelectorActiveAccountInitDone,
-} from '../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 import { convertFiat } from '../../utils/fiatConvert';
 import {
@@ -135,7 +128,6 @@ import { maybeOpenPrivateSendHistoryDetail } from '../Swap/utils/privateSendHist
 
 import { showBalanceDetailsDialog } from './components/BalanceDetailsDialog';
 import { formatPortfolioTotal } from './components/DeFiListBlock/formatPortfolioTotal';
-import { NotBackedUpEmpty } from './components/NotBakcedUp';
 import {
   FAVORITES_CATEGORY_ID,
   HOME_PERPS_GUIDE_URL,
@@ -161,7 +153,6 @@ import {
   buildNativePerpsSections,
   buildNativePortfolioSections,
 } from './nativeHomeDataAdapters';
-import { resolveNativeHomeWalletState } from './nativeHomeWalletState';
 import {
   PerpsHomeHeaderSlot,
   PerpsHomeStateSlot,
@@ -285,15 +276,10 @@ export function NativeHomePage({
       indexedAccount,
       isOthersWallet,
       network,
-      ready,
       vaultSettings,
       wallet,
     },
   } = useActiveAccount({ num: 0 });
-  const [accountSelectorStorageInitDone] =
-    useAccountSelectorStorageInitDoneAtom();
-  const activeAccountInitDone = useIsAccountSelectorActiveAccountInitDone(0);
-  const tabBarHeight = useScrollContentTabBarOffset();
   const { openExplorer, requiresNetworkSelection } = useBlockExplorerNavigation(
     network,
     wallet?.id,
@@ -342,15 +328,6 @@ export function NativeHomePage({
     network?.isAllNetworks ||
     filterScamHistorySupportedNetworkIds.has(network?.id ?? ''),
   );
-  const nativeHomeWalletState = resolveNativeHomeWalletState({
-    activeAccountReady: Boolean(ready),
-    accountSelectorStorageInitDone,
-    activeAccountInitDone,
-    walletType: wallet?.type,
-    walletBackedUp: wallet?.backuped,
-  });
-  const isWalletNotBackedUp = nativeHomeWalletState === 'notBackedUp';
-  const hidesNormalHomeBody = nativeHomeWalletState !== 'normal';
   const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
     wallet,
     account,
@@ -1051,41 +1028,38 @@ export function NativeHomePage({
   );
 
   const headerActions = useMemo<IHomeContainerAction[]>(
-    () =>
-      hidesNormalHomeBody
-        ? []
-        : [
-            {
-              id: 'send',
-              title: intl.formatMessage({ id: ETranslations.global_send }),
-              icon: 'send',
-              actionId: 'home.header.send',
-            },
-            {
-              id: 'receive',
-              title: intl.formatMessage({ id: ETranslations.global_receive }),
-              icon: 'receive',
-              actionId: 'home.header.receive',
-            },
-            {
-              id: 'buy',
-              title: intl.formatMessage({ id: ETranslations.buy_and_sell }),
-              icon: 'buy',
-              actionId: 'home.header.buy',
-            },
-            {
-              id: 'more',
-              title: intl.formatMessage({ id: ETranslations.global_more }),
-              icon: 'more',
-              actionId: 'home.header.more',
-            },
-          ],
-    [hidesNormalHomeBody, intl],
+    () => [
+      {
+        id: 'send',
+        title: intl.formatMessage({ id: ETranslations.global_send }),
+        icon: 'send',
+        actionId: 'home.header.send',
+      },
+      {
+        id: 'receive',
+        title: intl.formatMessage({ id: ETranslations.global_receive }),
+        icon: 'receive',
+        actionId: 'home.header.receive',
+      },
+      {
+        id: 'buy',
+        title: intl.formatMessage({ id: ETranslations.buy_and_sell }),
+        icon: 'buy',
+        actionId: 'home.header.buy',
+      },
+      {
+        id: 'more',
+        title: intl.formatMessage({ id: ETranslations.global_more }),
+        icon: 'more',
+        actionId: 'home.header.more',
+      },
+    ],
+    [intl],
   );
 
   const headerBalanceActions = useMemo<IHomeContainerAction[]>(() => {
     const actions: IHomeContainerAction[] = [];
-    if (nativeHomeWalletState === 'normal' && vaultSettings?.hasFrozenBalance) {
+    if (vaultSettings?.hasFrozenBalance) {
       actions.push({
         id: 'balance-details',
         title: intl.formatMessage({
@@ -1094,15 +1068,8 @@ export function NativeHomePage({
         actionId: 'home.header.balanceDetails',
       });
     }
-    if (isWalletNotBackedUp && vaultSettings?.hasResource) {
-      actions.push({
-        id: 'resource-details',
-        title: intl.formatMessage({ id: vaultSettings.resourceKey }),
-        actionId: 'home.header.resourceDetails',
-      });
-    }
     return actions;
-  }, [intl, isWalletNotBackedUp, nativeHomeWalletState, vaultSettings]);
+  }, [intl, vaultSettings]);
 
   const headerBalance = useMemo(() => {
     let total = new BigNumber(0);
@@ -1152,7 +1119,7 @@ export function NativeHomePage({
 
   const headerBanners = useMemo(
     () =>
-      (hidesNormalHomeBody ? [] : banners.banners).map((banner) => ({
+      banners.banners.map((banner) => ({
         id: banner.id,
         title: banner.title,
         subtitle: banner.description,
@@ -1160,7 +1127,7 @@ export function NativeHomePage({
         actionId: 'home.banner.open',
         dismissActionId: banner.closeable ? 'home.banner.dismiss' : undefined,
       })),
-    [banners.banners, hidesNormalHomeBody],
+    [banners.banners],
   );
 
   const tabShells = useMemo<IHomeContainerTab[]>(() => {
@@ -1365,33 +1332,6 @@ export function NativeHomePage({
     visiblePortfolioInitialized,
     homeWalletCapabilityTabModel.shouldCommitTabs,
   ]);
-  const bodySlot = useMemo<IHomeContainerSlots['body']>(() => {
-    if (nativeHomeWalletState === 'normal') {
-      return undefined;
-    }
-    if (nativeHomeWalletState === 'pending') {
-      return {
-        interaction: 'none',
-        content: <Stack flex={1} bg="$bgApp" />,
-      };
-    }
-    return {
-      interaction: 'tap',
-      content: (
-        <Keyboard.AwareScrollView
-          style={{ flex: 1 }}
-          nestedScrollEnabled={platformEnv.isNativeAndroid}
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingBottom: tabBarHeight,
-          }}
-          bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
-        >
-          <NotBackedUpEmpty />
-        </Keyboard.AwareScrollView>
-      ),
-    };
-  }, [nativeHomeWalletState, tabBarHeight]);
   const nativeRef = useRef<IHomeContainerRef | null>(null);
   const slotActionRef = useRef<
     (actionId: string, itemId: string, tabId: string) => Promise<void>
@@ -1399,106 +1339,86 @@ export function NativeHomePage({
   const accountRowSlot = useMemo(
     () => ({
       interaction: 'tap' as const,
-      content:
-        nativeHomeWalletState === 'pending' ? (
-          <Stack flex={1} bg="$bgApp" />
-        ) : (
-          <XStack flex={1} alignItems="center" justifyContent="space-between">
-            <XStack flex={1} minWidth={0} gap="$3" alignItems="center">
-              <AccountSelectorTriggerHome num={0} />
-              {!isWalletNotBackedUp ? (
-                <AccountSelectorActiveAccountHome
-                  num={0}
-                  showAccountAddress={false}
-                  showCopyButton
-                  showCreateAddressButton={false}
-                  showNoAddressTip={false}
-                />
-              ) : null}
-            </XStack>
-            {!isWalletNotBackedUp ? (
-              <XStack
-                flexShrink={0}
-                alignItems="center"
-                justifyContent="flex-end"
-              >
-                {network?.isAllNetworks && !isOthersWallet ? (
-                  <AllNetworksManagerTrigger num={0} unifiedMode />
-                ) : (
-                  <NetworkSelectorTriggerHome
-                    num={0}
-                    size="small"
-                    recordNetworkHistoryEnabled
-                    hideOnNoAccount
-                    unifiedMode
-                  />
-                )}
-              </XStack>
-            ) : null}
+      content: (
+        <XStack flex={1} alignItems="center" justifyContent="space-between">
+          <XStack flex={1} minWidth={0} gap="$3" alignItems="center">
+            <AccountSelectorTriggerHome num={0} />
+            <AccountSelectorActiveAccountHome
+              num={0}
+              showAccountAddress={false}
+              showCopyButton
+              showCreateAddressButton={false}
+              showNoAddressTip={false}
+            />
           </XStack>
-        ),
+          <XStack flexShrink={0} alignItems="center" justifyContent="flex-end">
+            {network?.isAllNetworks && !isOthersWallet ? (
+              <AllNetworksManagerTrigger num={0} unifiedMode />
+            ) : (
+              <NetworkSelectorTriggerHome
+                num={0}
+                size="small"
+                recordNetworkHistoryEnabled
+                hideOnNoAccount
+                unifiedMode
+              />
+            )}
+          </XStack>
+        </XStack>
+      ),
     }),
-    [
-      isOthersWallet,
-      isWalletNotBackedUp,
-      nativeHomeWalletState,
-      network?.isAllNetworks,
-    ],
+    [isOthersWallet, network?.isAllNetworks],
   );
   const balanceSlot = useMemo(
     () => ({
       interaction: 'tap' as const,
-      content:
-        nativeHomeWalletState === 'pending' ? (
-          <Stack flex={1} bg="$bgApp" />
-        ) : (
-          <XStack
-            flex={1}
-            alignItems="center"
+      content: (
+        <XStack
+          flex={1}
+          alignItems="center"
+          minWidth={0}
+          onPress={() => {
+            void slotActionRef.current(
+              'home.header.balance',
+              'balance',
+              activeTabId,
+            );
+          }}
+        >
+          <SizableText
+            flexShrink={1}
             minWidth={0}
-            onPress={() => {
-              void slotActionRef.current(
-                'home.header.balance',
-                'balance',
-                activeTabId,
-              );
-            }}
+            position="relative"
+            top={11}
+            fontSize={48}
+            lineHeight={48}
+            fontWeight={500}
+            numberOfLines={1}
+            adjustsFontSizeToFit
           >
+            {headerBalanceParts.balance}
+          </SizableText>
+          {headerBalanceParts.balanceSecondary ? (
             <SizableText
-              flexShrink={1}
-              minWidth={0}
+              flexShrink={0}
+              color="$textDisabled"
               position="relative"
               top={11}
               fontSize={48}
               lineHeight={48}
               fontWeight={500}
               numberOfLines={1}
-              adjustsFontSizeToFit
             >
-              {headerBalanceParts.balance}
+              {headerBalanceParts.balanceSecondary}
             </SizableText>
-            {headerBalanceParts.balanceSecondary ? (
-              <SizableText
-                flexShrink={0}
-                color="$textDisabled"
-                position="relative"
-                top={11}
-                fontSize={48}
-                lineHeight={48}
-                fontWeight={500}
-                numberOfLines={1}
-              >
-                {headerBalanceParts.balanceSecondary}
-              </SizableText>
-            ) : null}
-          </XStack>
-        ),
+          ) : null}
+        </XStack>
+      ),
     }),
     [
       activeTabId,
       headerBalanceParts.balance,
       headerBalanceParts.balanceSecondary,
-      nativeHomeWalletState,
     ],
   );
   const headerActionRowSlot = useMemo<
@@ -1837,14 +1757,6 @@ export function NativeHomePage({
     wallet?.id,
   ]);
   const homeSlots = useMemo<IHomeContainerSlots>(() => {
-    if (bodySlot) {
-      return {
-        backgroundColor: nativeTheme.backgroundColor,
-        accountRow: accountRowSlot,
-        balance: balanceSlot,
-        body: bodySlot,
-      };
-    }
     if (!homeWalletCapabilityTabModel.shouldCommitTabs) {
       return {
         backgroundColor: nativeTheme.backgroundColor,
@@ -1867,7 +1779,6 @@ export function NativeHomePage({
   }, [
     accountRowSlot,
     balanceSlot,
-    bodySlot,
     contentFooterSlots,
     contentHeaderSlots,
     contentStateSlots,

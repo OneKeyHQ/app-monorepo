@@ -1,11 +1,10 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 
 import {
   HeaderScrollGestureWrapper,
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -21,7 +20,13 @@ import { HomeTestIDs } from '../testIDs';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
-function BaseHomeHeaderContainer() {
+export type IHomeHeaderContainerVariant = 'normal' | 'notBackedUp';
+
+function BaseHomeHeaderContainer({
+  variant = 'normal',
+}: {
+  variant?: IHomeHeaderContainerVariant;
+}) {
   const {
     activeAccount: { wallet, account, network, vaultSettings },
   } = useActiveAccount({
@@ -38,12 +43,7 @@ function BaseHomeHeaderContainer() {
   );
   const hasWalletBannerContent = banners.length > 0 || hasTronCard;
 
-  const isWalletNotBackedUp = useMemo(() => {
-    if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
-      return true;
-    }
-    return false;
-  }, [wallet]);
+  const isWalletNotBackedUp = variant === 'notBackedUp';
 
   // Banner only renders once we have actual banner content AND the balance is
   // confirmed positive. Treating 'unknown' as hidden avoids the show→hide
@@ -107,26 +107,28 @@ function BaseHomeHeaderContainer() {
         bg="$bgApp"
         pointerEvents="box-none"
       >
-        <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+        {isWalletNotBackedUp ? (
           <Stack gap="$2.5">
             <HomeOverviewContainer />
           </Stack>
-        </HeaderScrollGestureWrapper>
+        ) : (
+          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+            <Stack gap="$2.5">
+              <HomeOverviewContainer />
+            </Stack>
+          </HeaderScrollGestureWrapper>
+        )}
         {isWalletNotBackedUp ? null : (
           <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
             <WalletActions />
           </HeaderScrollGestureWrapper>
         )}
       </Stack>
-      {/* Always mount so initLocalBanners + remote fetch effects run.
-          Without this, gating on `shouldShowBanner` (which requires
-          banners.length > 0) creates a deadlock — banner data is only
-          written to the atom from WalletBanner's own useEffect, so the
-          atom would stay empty and the banner would never appear after
-          a fresh install + first import. The visual hide on
-          zero-balance / not-backed-up still works via the `hidden`
-          prop. */}
-      <WalletBanner hidden={!shouldShowBanner} />
+      {/* Keep mounted on the normal variant so initLocalBanners + remote fetch
+          effects run. Gating the component on `shouldShowBanner` would create
+          a deadlock because WalletBanner owns the effect that populates its
+          atom. The not-backed-up variant intentionally skips banner work. */}
+      {isWalletNotBackedUp ? null : <WalletBanner hidden={!shouldShowBanner} />}
     </YStack>
   );
 }
@@ -138,9 +140,11 @@ function BaseHomeHeaderContainer() {
 // written to the separate urlAccountHomeTokenList store, not this mirror's
 // homeTokenList store — the hook's owner-stamp guard absorbs the mismatch and
 // the holdings override simply stays inactive there (worth-only behavior).
-export const HomeHeaderContainer = memo(() => (
-  <HomeTokenListProviderMirror>
-    <BaseHomeHeaderContainer />
-  </HomeTokenListProviderMirror>
-));
+export const HomeHeaderContainer = memo(
+  ({ variant = 'normal' }: { variant?: IHomeHeaderContainerVariant }) => (
+    <HomeTokenListProviderMirror>
+      <BaseHomeHeaderContainer variant={variant} />
+    </HomeTokenListProviderMirror>
+  ),
+);
 HomeHeaderContainer.displayName = 'HomeHeaderContainer';
