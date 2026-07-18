@@ -1,3 +1,4 @@
+import { buildSwapQuoteProviderKey } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import {
   EProtocolOfExchange,
   ESwapQuoteKind,
@@ -44,9 +45,7 @@ function isSelectable(
   return isSwapProviderQuoteSelectable({
     ...params,
     currentEventId: params.quote.eventId,
-    currentEventProviderKeys: [
-      `${params.quote.info.provider}-${params.quote.info.providerName}`,
-    ],
+    currentEventProviderKeys: [buildSwapQuoteProviderKey(params.quote)],
   });
 }
 
@@ -199,7 +198,7 @@ describe('isSwapProviderQuoteSelectable', () => {
     expect(
       isSwapProviderQuoteSelectable({
         currentEventId: 'event-current',
-        currentEventProviderKeys: ['provider-a-Provider A'],
+        currentEventProviderKeys: [buildSwapQuoteProviderKey(previousQuote)],
         fromAmount: '1',
         quote: previousQuote,
         toAmount: '',

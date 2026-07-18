@@ -8,6 +8,7 @@ import {
   isSwapQuoteCommittedActiveCandidate,
   reduceSwapQuoteCommittedState,
 } from './quoteCommittedState';
+import { buildSwapQuoteProviderKey } from './quoteProgress';
 
 function buildQuote(provider: string, toAmount: string): IFetchQuoteResult {
   return {
@@ -251,6 +252,7 @@ describe('swap quote committed state', () => {
       quoteId: 'quote-manual-later',
       toAmount: '10.9',
     };
+    const manualProviderKey = buildSwapQuoteProviderKey(manualCandidate);
     let state = reduceSwapQuoteCommittedState(initialSwapQuoteCommittedState, {
       type: 'requestStarted',
       intentFingerprint: 'intent-1',
@@ -278,7 +280,7 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-1',
       requestId: 'request-2',
       quotes: [refreshedBestCandidate],
-      preferredProviderKey: 'manual-manual',
+      preferredProviderKey: manualProviderKey,
     });
     expect(state.displayQuote).toBe(manualCandidate);
     expect(state.executableQuote).toBeUndefined();
@@ -295,7 +297,7 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-1',
       requestId: 'request-2',
       quotes: [refreshedBestCandidate, refreshedManualCandidate],
-      preferredProviderKey: 'manual-manual',
+      preferredProviderKey: manualProviderKey,
     });
     dateNowSpy.mockRestore();
     expect(state.displayQuote).toBe(refreshedManualCandidate);
@@ -310,7 +312,7 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-1',
       requestId: 'request-2',
       quotes: [refreshedBestCandidate, laterManualCandidate],
-      preferredProviderKey: 'manual-manual',
+      preferredProviderKey: manualProviderKey,
     });
     expect(state.displayQuote).toBe(refreshedManualCandidate);
     expect(state.executableQuote).toBe(refreshedManualCandidate);
@@ -328,6 +330,7 @@ describe('swap quote committed state', () => {
 
   it('does not execute another provider when the preferred provider never returns', () => {
     const previousManualQuote = buildQuote('manual', '11');
+    const manualProviderKey = buildSwapQuoteProviderKey(previousManualQuote);
     const refreshedBestCandidate = {
       ...buildQuote('best', '12'),
       eventId: 'event-2',
@@ -354,7 +357,7 @@ describe('swap quote committed state', () => {
       intentFingerprint: 'intent-1',
       requestId: 'request-2',
       quotes: [refreshedBestCandidate],
-      preferredProviderKey: 'manual-manual',
+      preferredProviderKey: manualProviderKey,
     });
     state = reduceSwapQuoteCommittedState(state, {
       type: 'requestSettled',
