@@ -58,6 +58,10 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { convertFiat } from '../../../utils/fiatConvert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
+import {
+  type IHomePerfCacheState,
+  homePerformance,
+} from '../performance/homePerformance';
 import { HomeTestIDs } from '../testIDs';
 
 // Grace period (ms) after an account switch during which the previous
@@ -381,6 +385,11 @@ function HomeOverviewContainer() {
       }
 
       syncWorthRefreshingState();
+      homePerformance.refreshActivity(
+        HOME_OVERVIEW_REFRESH_TABS.some((refreshType) =>
+          Boolean(listRefreshKeys.current[refreshType]),
+        ),
+      );
       if (isRefreshing) {
         perfMark(`Home:refresh:start:${type}`, {
           refreshType: type,
@@ -521,12 +530,15 @@ function HomeOverviewContainer() {
   const handleRefreshWorth = useCallback(() => {
     if (isRefreshingWorth) return;
     setIsRefreshingWorth(true);
+    homePerformance.startRefresh({
+      networkScope: network?.isAllNetworks ? 'all_networks' : 'single_network',
+    });
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, {
       isManualRefresh: true,
       refreshSource: 'home-header',
     });
     defaultLogger.account.wallet.walletManualRefresh();
-  }, [isRefreshingWorth]);
+  }, [isRefreshingWorth, network?.isAllNetworks]);
 
   const isLoading =
     isRefreshingWorth ||
@@ -915,6 +927,50 @@ function HomeOverviewContainer() {
     !showSkeleton &&
     renderedBalanceString !== null &&
     renderedBalanceString !== undefined;
+  useEffect(() => {
+    const authoritativeZero =
+      shouldDisplayZeroBalancePlaceholder && overviewState.initialized;
+    if (!balanceReady && !authoritativeZero) return;
+
+    if (account?.id && network?.id && wallet?.id) {
+      homePerformance.scopeReady({
+        // Scope identifiers stay in memory and are never sent to the logger.
+        scopeKey: `${wallet.id}:${account.id}:${network.id}`,
+        networkScope: network.isAllNetworks ? 'all_networks' : 'single_network',
+      });
+    }
+
+    const hasCurrentOwnerCache =
+      !!currentConfirmedBalance ||
+      (isCurrentTokenCacheStateMatched &&
+        overviewTokenCacheState.hasCache === true);
+    let cacheState: IHomePerfCacheState = 'unknown';
+    if (canReuseLatestDisplayedBalance) {
+      cacheState = 'stale';
+    } else if (hasCurrentOwnerCache) {
+      cacheState = 'hit';
+    } else if (resolvedBalanceString !== undefined || authoritativeZero) {
+      cacheState = 'miss';
+    }
+    homePerformance.dataCandidate({
+      cacheState,
+      contentClass: authoritativeZero ? 'authoritative_empty' : 'normal',
+      snapshotApplied: hasCurrentOwnerCache,
+    });
+  }, [
+    account?.id,
+    balanceReady,
+    canReuseLatestDisplayedBalance,
+    currentConfirmedBalance,
+    isCurrentTokenCacheStateMatched,
+    network?.id,
+    network?.isAllNetworks,
+    overviewState.initialized,
+    overviewTokenCacheState.hasCache,
+    resolvedBalanceString,
+    shouldDisplayZeroBalancePlaceholder,
+    wallet?.id,
+  ]);
   useEffect(() => {
     if (balanceReady && !(globalThis as any).__onekeyBalanceDisplayed) {
       (globalThis as any).__onekeyBalanceDisplayed = true;

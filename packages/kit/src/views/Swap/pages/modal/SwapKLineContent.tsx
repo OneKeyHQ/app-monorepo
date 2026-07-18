@@ -34,6 +34,10 @@ import {
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import {
+  type IMarketChartJourneyToken,
+  swapKLineChartPerformance,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/performance/marketChartPerformance';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ProviderJotaiContextMarketV2 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
@@ -1233,6 +1237,16 @@ function SwapKLineContentBody({
   const selectedToken = state.selectedToken;
   const chartNetworkId = selectedToken?.networkId ?? '';
   const chartTokenAddress = selectedToken?.contractAddress ?? '';
+  const [performanceToken, setPerformanceToken] =
+    useState<IMarketChartJourneyToken>();
+  useEffect(() => {
+    if (!chartNetworkId) return;
+    // Token identity is an in-memory generation scope only.
+    const scopeKey = `${chartNetworkId}:${chartTokenAddress}`;
+    swapKLineChartPerformance.routeStart(scopeKey);
+    setPerformanceToken(swapKLineChartPerformance.paramsReady(scopeKey));
+    return () => swapKLineChartPerformance.leave();
+  }, [chartNetworkId, chartTokenAddress]);
   const disabledTradingViewFeatures = gtMd
     ? SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES
     : SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES;
@@ -1298,11 +1312,48 @@ function SwapKLineContentBody({
         emptyKLineDataOnError
         kLineDataFallback={state.coinGeckoKLineDataSource}
         primaryKLineDataUnavailable={state.primaryKLineDataUnavailable}
-        onPrimaryKLineDataUnavailable={state.handlePrimaryKLineDataUnavailable}
+        onPrimaryKLineDataUnavailable={() => {
+          state.handlePrimaryKLineDataUnavailable();
+          swapKLineChartPerformance.fallbackUsed(performanceToken);
+        }}
         onPriceUpdate={state.handleChartPriceUpdate}
-        onKLineDataReady={state.handleKLineDataReady}
-        onKLineLoadError={state.handleKLineLoadError}
-        onKLinePeriodChange={state.handleKLinePeriodChange}
+        onLoadStart={() =>
+          swapKLineChartPerformance.hostRequested(performanceToken)
+        }
+        onLoad={() => swapKLineChartPerformance.hostLoaded(performanceToken)}
+        onError={() => swapKLineChartPerformance.hostError(performanceToken)}
+        onKLineDataRequest={() =>
+          swapKLineChartPerformance.dataRequestStart(performanceToken)
+        }
+        onKLineDataReady={(data) => {
+          state.handleKLineDataReady(data);
+          swapKLineChartPerformance.firstBarReady(
+            performanceToken,
+            data.period,
+          );
+        }}
+        onKLineLoadError={(data) => {
+          state.handleKLineLoadError(data);
+          swapKLineChartPerformance.kLineError(performanceToken, data.status);
+        }}
+        onKLinePeriodChange={(data) => {
+          state.handleKLinePeriodChange(data);
+          setPerformanceToken(
+            swapKLineChartPerformance.periodChange(
+              performanceToken,
+              data.toPeriod,
+            ),
+          );
+        }}
+        onKLineSourceChange={(sourceClass) =>
+          swapKLineChartPerformance.sourceChanged(performanceToken, sourceClass)
+        }
+        onPriceScaleStart={() =>
+          swapKLineChartPerformance.priceScaleStart(performanceToken)
+        }
+        onPriceScaleDone={() =>
+          swapKLineChartPerformance.priceScaleDone(performanceToken)
+        }
         w="100%"
         h="100%"
       />

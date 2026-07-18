@@ -52,6 +52,11 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
+import {
+  getSwapPerformanceQuoteMode,
+  runSwapPerformanceSafely,
+  swapPerformance,
+} from '../performance/swapPerformance';
 import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
 import {
   getStockTradeAnalyticsPayload,
@@ -207,6 +212,28 @@ export function useSwapQuote() {
   if (isFocusRef.current !== isFocused) {
     isFocusRef.current = isFocused;
   }
+  const initialPerformanceQuoteModeRef = useRef(
+    getSwapPerformanceQuoteMode(swapTabSwitchType),
+  );
+  useEffect(() => {
+    runSwapPerformanceSafely(() =>
+      swapPerformance.pageEnter(initialPerformanceQuoteModeRef.current),
+    );
+    return () => {
+      runSwapPerformanceSafely(() => {
+        swapPerformance.pageLeave();
+        swapPerformance.cancelIntent();
+      });
+    };
+  }, []);
+  useEffect(() => {
+    runSwapPerformanceSafely(() => swapPerformance.setPageVisible(isFocused));
+  }, [isFocused]);
+  useEffect(() => {
+    if (isFocused && !shouldPauseQuote && fromToken && toToken) {
+      runSwapPerformanceSafely(() => swapPerformance.pageReady());
+    }
+  }, [fromToken, isFocused, shouldPauseQuote, toToken]);
   const activeAccountRef = useRef<
     ReturnType<typeof useSwapAddressInfo> | undefined
   >(undefined);
@@ -853,6 +880,9 @@ export function useSwapQuote() {
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
+      runSwapPerformanceSafely(() =>
+        swapPerformance.setPageVisible(isFocus && !isHiddenModel),
+      );
       if (!isModalPage) {
         if (isFocus) {
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);

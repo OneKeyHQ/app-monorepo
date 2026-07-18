@@ -402,6 +402,7 @@ export interface IAppEventBusPayload {
     event: ISwapQuoteEvent;
     params: IFetchQuotesParams;
     accountId?: string;
+    performanceRunId?: string;
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
   [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;

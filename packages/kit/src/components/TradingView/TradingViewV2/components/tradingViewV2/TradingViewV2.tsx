@@ -60,6 +60,7 @@ import type {
   ICustomReceiveHandlerData,
   ITradingViewIntervalConfigData,
   ITradingViewKLineDataReadyData,
+  ITradingViewKLineDataRequestData,
   ITradingViewKLineLoadErrorData,
   ITradingViewKLinePeriodChangeData,
   ITradingViewNativeChartControlsConfigData,
@@ -138,8 +139,12 @@ interface IBaseTradingViewV2Props {
   onNativeIndicatorQuickBarChange?: (quickBar: ReactNode | null) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
+  onKLineDataRequest?: (data: ITradingViewKLineDataRequestData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
+  onKLineSourceChange?: (sourceClass: 'market_api' | 'hyperliquid') => void;
+  onPriceScaleStart?: () => void;
+  onPriceScaleDone?: () => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -201,9 +206,15 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onNativeIndicatorQuickBarChange,
     onNativeChartFullscreenChange,
     onKLineDataReady,
+    onKLineDataRequest,
     onKLineLoadError,
     onKLinePeriodChange,
+    onKLineSourceChange,
+    onPriceScaleStart,
+    onPriceScaleDone,
     onLoadStart,
+    onLoad,
+    onError,
     ...stackStyle
   } = props;
   const enableNativeChartControls = Boolean(enableNativeChartControlsProp);
@@ -447,16 +458,27 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       ? handleNativeChartControlsConfigChange
       : undefined,
     onKLineDataReady,
+    onKLineDataRequest,
     onKLineLoadError,
     onKLinePeriodChange,
+    onPriceScaleStart,
+    onPriceScaleDone,
   });
 
-  const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
-    useHyperLiquidKlineSource(networkId, tokenAddress);
+  const {
+    isHyperLiquidSource,
+    symbol: hyperLiquidSymbol,
+    isLoading: isKLineSourceLoading,
+  } = useHyperLiquidKlineSource(networkId, tokenAddress);
   const useHyperLiquid = Boolean(isHyperLiquidSource && hyperLiquidSymbol);
   const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;
   const effectiveDataSource =
     dataSource === 'websocket' && !tokenAddress ? 'polling' : dataSource;
+  useEffect(() => {
+    if (!isKLineSourceLoading) {
+      onKLineSourceChange?.(isHyperLiquidSource ? 'hyperliquid' : 'market_api');
+    }
+  }, [isHyperLiquidSource, isKLineSourceLoading, onKLineSourceChange]);
   const mockEmptyKLineEnabled =
     devSettings.enabled &&
     devSettings.settings?.mockTradingViewKLineEmptyEnabled;
@@ -740,6 +762,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         onWebViewRef={handleWebViewRef}
         allowsBackForwardNavigationGestures={false}
         onLoadStart={handleLoadStart}
+        onLoad={onLoad}
+        onError={onError}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         displayProgressBar={false}
         pullToRefreshEnabled={false}
@@ -756,6 +780,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       customReceiveHandler,
       handleLoadStart,
       handleWebViewRef,
+      onError,
+      onLoad,
       onShouldStartLoadWithRequest,
       theme,
       tradingViewUrlWithParams,

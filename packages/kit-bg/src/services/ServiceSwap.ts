@@ -988,6 +988,7 @@ export default class ServiceSwap extends ServiceBase {
     kind,
     toTokenAmount,
     userMarketPriceRate,
+    performanceRunId,
   }: IFetchSwapQuoteParams) {
     await this.removeQuoteEventSourceListeners();
     const denyCrossChainProvider = await this.getDenyCrossChainProvider(
@@ -1065,6 +1066,7 @@ export default class ServiceSwap extends ServiceBase {
             url: swapEventUrl,
           },
           params,
+          performanceRunId,
           tokenPairs: { fromToken, toToken },
           accountId,
         });
@@ -1081,6 +1083,7 @@ export default class ServiceSwap extends ServiceBase {
             event: { type: 'done' },
             params,
             accountId,
+            performanceRunId,
             tokenPairs: { fromToken, toToken },
           });
         } else {
@@ -1094,6 +1097,7 @@ export default class ServiceSwap extends ServiceBase {
             },
             params,
             accountId,
+            performanceRunId,
             tokenPairs: { fromToken, toToken },
           });
         }
@@ -1105,6 +1109,7 @@ export default class ServiceSwap extends ServiceBase {
           event: { type: 'open' },
           params,
           accountId,
+          performanceRunId,
           tokenPairs: { fromToken, toToken },
         });
       };
@@ -1125,6 +1130,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          performanceRunId,
           tokenPairs: { fromToken, toToken },
         });
       });
@@ -1134,6 +1140,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          performanceRunId,
           tokenPairs: { fromToken, toToken },
         });
       });
@@ -1143,6 +1150,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          performanceRunId,
           tokenPairs: { fromToken, toToken },
         });
       });
@@ -1152,6 +1160,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          performanceRunId,
           tokenPairs: { fromToken, toToken },
         });
       });
@@ -1161,6 +1170,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          performanceRunId,
           tokenPairs: { fromToken, toToken },
         });
       });

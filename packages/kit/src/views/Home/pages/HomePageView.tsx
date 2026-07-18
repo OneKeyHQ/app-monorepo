@@ -69,6 +69,7 @@ import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
+import { homePerformance } from '../performance/homePerformance';
 import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
@@ -238,6 +239,7 @@ export function HomePageView({
   const wasBlurredRef = useRef(false);
   useFocusEffect(
     useCallback(() => {
+      homePerformance.enter();
       let idleHandle: ReturnType<typeof requestIdleCallback> | undefined;
       if (wasBlurredRef.current && tabsRef.current) {
         // Force PagerView to display the correct page after freeze/unfreeze.
@@ -248,6 +250,7 @@ export function HomePageView({
         });
       }
       return () => {
+        homePerformance.leave();
         if (idleHandle !== undefined) {
           cancelIdleCallback(idleHandle);
         }
@@ -1090,6 +1093,51 @@ export function HomePageView({
     activeWalletId,
     walletListWalletIds,
   });
+
+  useEffect(() => {
+    if (!ready) {
+      homePerformance.setShellInteractive(false);
+      return;
+    }
+    if (showNoWalletContent) {
+      homePerformance.scopeReady({
+        scopeKey: 'authoritative-no-wallet',
+        networkScope: 'single_network',
+      });
+      homePerformance.dataCandidate({
+        cacheState: 'unknown',
+        contentClass: 'no_wallet',
+      });
+      homePerformance.setShellInteractive(true);
+      return;
+    }
+    if (!hasNoUsableWallet && account?.id && network?.id && wallet?.id) {
+      homePerformance.scopeReady({
+        // Scope identifiers stay in memory and are never sent to the logger.
+        scopeKey: `${wallet.id}:${account.id}:${network.id}`,
+        networkScope: network.isAllNetworks ? 'all_networks' : 'single_network',
+      });
+      if (isWalletNotBackedUp) {
+        homePerformance.dataCandidate({
+          cacheState: 'unknown',
+          contentClass: 'unbacked',
+        });
+      }
+      homePerformance.setShellInteractive(true);
+      return;
+    }
+    // The account selector's transient empty state is intentionally not Ready.
+    homePerformance.setShellInteractive(false);
+  }, [
+    account?.id,
+    hasNoUsableWallet,
+    isWalletNotBackedUp,
+    network?.id,
+    network?.isAllNetworks,
+    ready,
+    showNoWalletContent,
+    wallet?.id,
+  ]);
 
   const homePage = useMemo(() => {
     if (!ready) {

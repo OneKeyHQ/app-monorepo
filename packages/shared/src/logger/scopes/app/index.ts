@@ -14,6 +14,7 @@ import { JsBundleDevScene } from './scenes/jsBundleDev';
 import { NetworkScene } from './scenes/network';
 import { PageScene } from './scenes/page';
 import { AppPerfScene } from './scenes/perf';
+import { PerformanceJourneyScene } from './scenes/performanceJourney';
 import { RouterScene } from './scenes/router';
 import { WebAuthScene } from './scenes/webAuth';
 import { WebembedScene } from './scenes/webembed';
@@ -36,6 +37,11 @@ export class AppScope extends BaseScope {
   eventBus = this.createScene('eventBus', EventBusScene);
 
   perf = this.createScene('perf', AppPerfScene);
+
+  performanceJourney = this.createScene(
+    'performanceJourney',
+    PerformanceJourneyScene,
+  );
 
   error = this.createScene('error', ErrorScene);
 

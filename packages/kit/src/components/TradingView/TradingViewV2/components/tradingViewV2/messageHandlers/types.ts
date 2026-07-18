@@ -3,6 +3,7 @@ import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import type {
   ICustomReceiveHandlerData,
   ITradingViewKLineDataReadyData,
+  ITradingViewKLineDataRequestData,
   ITradingViewKLineLoadErrorData,
   ITradingViewKLinePeriodChangeData,
 } from '../../../types';
@@ -41,6 +42,7 @@ export interface IMessageHandlerContext {
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
+  onKLineDataRequest?: (data: ITradingViewKLineDataRequestData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
 }

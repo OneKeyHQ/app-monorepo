@@ -604,6 +604,7 @@ export interface IFetchSwapQuoteParams {
   kind?: ESwapQuoteKind;
   toTokenAmount?: string;
   userMarketPriceRate?: string;
+  performanceRunId?: string;
 }
 
 export interface IFetchQuoteResult {

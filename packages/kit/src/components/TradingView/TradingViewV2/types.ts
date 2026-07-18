@@ -106,6 +106,11 @@ export interface ITradingViewKLineDataReadyData {
   period: string;
 }
 
+export interface ITradingViewKLineDataRequestData {
+  period: string;
+  firstDataRequest: boolean;
+}
+
 export interface ITradingViewKLinePeriodChangeData {
   fromPeriod: string;
   toPeriod: string;

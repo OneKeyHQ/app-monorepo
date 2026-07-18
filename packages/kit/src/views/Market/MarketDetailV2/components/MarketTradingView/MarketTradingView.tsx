@@ -1,4 +1,4 @@
-import { type ReactNode, memo, useCallback } from 'react';
+import { type ReactNode, memo, useCallback, useEffect, useState } from 'react';
 
 import {
   TRADING_VIEW_DISABLED_FEATURES,
@@ -8,6 +8,10 @@ import type {
   ITradingViewDisabledFeature,
   ITradingViewPriceUpdateData,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import {
+  type IMarketChartJourneyToken,
+  marketDetailChartPerformance,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/performance/marketChartPerformance';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import { MarketTestIDs } from '../../../testIDs';
@@ -123,6 +127,47 @@ export const MarketTradingView = memo(
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
+    const [performanceToken, setPerformanceToken] =
+      useState<IMarketChartJourneyToken>();
+
+    useEffect(() => {
+      // Token/network identifiers never leave this in-memory generation key.
+      setPerformanceToken(
+        marketDetailChartPerformance.paramsReady(
+          `${networkId}:${tokenAddress}`,
+        ),
+      );
+    }, [networkId, tokenAddress]);
+
+    const handleKLineDataReady = useCallback(
+      (data: { period: string }) => {
+        marketDetailChartPerformance.firstBarReady(
+          performanceToken,
+          data.period,
+        );
+      },
+      [performanceToken],
+    );
+    const handleKLineDataRequest = useCallback(() => {
+      marketDetailChartPerformance.dataRequestStart(performanceToken);
+    }, [performanceToken]);
+    const handleKLineLoadError = useCallback(
+      (data: { status: 'empty' | 'failed' }) => {
+        marketDetailChartPerformance.kLineError(performanceToken, data.status);
+      },
+      [performanceToken],
+    );
+    const handleKLinePeriodChange = useCallback(
+      (data: { toPeriod: string }) => {
+        setPerformanceToken(
+          marketDetailChartPerformance.periodChange(
+            performanceToken,
+            data.toPeriod,
+          ),
+        );
+      },
+      [performanceToken],
+    );
 
     const handlePriceUpdate = useCallback(
       (data: ITradingViewPriceUpdateData) => {
@@ -171,6 +216,30 @@ export const MarketTradingView = memo(
         onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
         maxNativeSubIndicatorCount={maxNativeSubIndicatorCount}
         onPriceUpdate={handlePriceUpdate}
+        onLoadStart={() =>
+          marketDetailChartPerformance.hostRequested(performanceToken)
+        }
+        onLoad={() => marketDetailChartPerformance.hostLoaded(performanceToken)}
+        onError={() => marketDetailChartPerformance.hostError(performanceToken)}
+        onKLineDataRequest={handleKLineDataRequest}
+        onKLineDataReady={handleKLineDataReady}
+        onKLineLoadError={handleKLineLoadError}
+        onKLinePeriodChange={handleKLinePeriodChange}
+        onKLineSourceChange={(sourceClass) =>
+          marketDetailChartPerformance.sourceChanged(
+            performanceToken,
+            sourceClass,
+          )
+        }
+        onPrimaryKLineDataUnavailable={() =>
+          marketDetailChartPerformance.fallbackUsed(performanceToken)
+        }
+        onPriceScaleStart={() =>
+          marketDetailChartPerformance.priceScaleStart(performanceToken)
+        }
+        onPriceScaleDone={() =>
+          marketDetailChartPerformance.priceScaleDone(performanceToken)
+        }
         disabledFeatures={MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES}
         enableNativeChartControls
         nativeChartTypeControlMode={nativeChartTypeControlMode}

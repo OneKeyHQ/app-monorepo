@@ -19,6 +19,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { marketDetailChartPerformance } from '../../../components/TradingView/TradingViewV2/performance/marketChartPerformance';
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
@@ -68,6 +69,14 @@ function MarketDetail({
   const networkId =
     networkUtils.getNetworkIdFromShortCode({ shortCode: network }) || network;
   const isNativeBoolean = normalizeRouteBooleanParam(isNative, false);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Route identifiers are used only as an in-memory generation scope.
+      marketDetailChartPerformance.routeStart(`${networkId}:${tokenAddress}`);
+      return () => marketDetailChartPerformance.leave();
+    }, [networkId, tokenAddress]),
+  );
 
   // Track market entry analytics
   useMarketEnterAnalytics();

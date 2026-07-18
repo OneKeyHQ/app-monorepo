@@ -22,6 +22,7 @@ import type {
   ITradingViewIntervalConfigData,
   ITradingViewIntervalOption,
   ITradingViewKLineDataReadyData,
+  ITradingViewKLineDataRequestData,
   ITradingViewKLineLoadErrorData,
   ITradingViewKLinePeriodChangeData,
   ITradingViewNativeChartControlsConfigData,
@@ -60,8 +61,11 @@ interface IUseTradingViewMessageHandlerParams {
     data: ITradingViewNativeChartControlsConfigData,
   ) => void;
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
+  onKLineDataRequest?: (data: ITradingViewKLineDataRequestData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
+  onPriceScaleStart?: () => void;
+  onPriceScaleDone?: () => void;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -625,8 +629,11 @@ export function useTradingViewMessageHandler({
   onIntervalConfigChange,
   onNativeChartControlsConfigChange,
   onKLineDataReady,
+  onKLineDataRequest,
   onKLineLoadError,
   onKLinePeriodChange,
+  onPriceScaleStart,
+  onPriceScaleDone,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async (payload: ICustomReceiveHandlerData) => {
@@ -648,6 +655,7 @@ export function useTradingViewMessageHandler({
         primaryKLineDataUnavailable,
         onPrimaryKLineDataUnavailable,
         onKLineDataReady,
+        onKLineDataRequest,
         onKLineLoadError,
         onKLinePeriodChange,
       };
@@ -680,10 +688,15 @@ export function useTradingViewMessageHandler({
         data.scope === '$private' &&
         data.method === 'tradingview_getHyperliquidPriceScale'
       ) {
-        await handleGetHyperliquidPriceScale({
-          request: data.data as { symbol?: string; requestId?: string },
-          webRef,
-        });
+        onPriceScaleStart?.();
+        try {
+          await handleGetHyperliquidPriceScale({
+            request: data.data as { symbol?: string; requestId?: string },
+            webRef,
+          });
+        } finally {
+          onPriceScaleDone?.();
+        }
       }
 
       if (
@@ -802,8 +815,11 @@ export function useTradingViewMessageHandler({
       onIntervalConfigChange,
       onNativeChartControlsConfigChange,
       onKLineDataReady,
+      onKLineDataRequest,
       onKLineLoadError,
       onKLinePeriodChange,
+      onPriceScaleStart,
+      onPriceScaleDone,
     ],
   );
 

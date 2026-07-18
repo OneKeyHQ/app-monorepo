@@ -5,6 +5,11 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
+import {
+  getSwapPerformanceQuoteMode,
+  runSwapPerformanceSafely,
+  swapPerformance,
+} from '@onekeyhq/kit/src/views/Swap/performance/swapPerformance';
 import { buildSwapDefaultSelectedTokensForNetwork } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
 import {
   removeSwapNoConnectWalletAlerts,
@@ -149,6 +154,7 @@ import {
   getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
   hasSwapZeroProviderQuoteEvent,
+  isSwapQuoteActionable,
   isSwapQuoteEventFetching,
 } from './quoteProgress';
 
@@ -209,6 +215,21 @@ function isStockProtocol(protocol?: string) {
     protocol === ESwapTabSwitchType.STOCK ||
     protocol === EProtocolOfExchange.STOCK
   );
+}
+
+function buildSwapPerformanceIntentFromEvent(params: IFetchQuotesParams) {
+  return {
+    amountKey:
+      params.kind === ESwapQuoteKind.BUY
+        ? (params.toTokenAmount ?? '')
+        : (params.fromTokenAmount ?? ''),
+    fromNetworkKey: params.fromNetworkId,
+    fromTokenKey: params.fromTokenAddress,
+    quoteKind: params.kind ?? ESwapQuoteKind.SELL,
+    quoteMode: getSwapPerformanceQuoteMode(params.protocol),
+    toNetworkKey: params.toNetworkId,
+    toTokenKey: params.toTokenAddress,
+  };
 }
 
 function isQuoteEventErrorSelectedTokenPair({
@@ -792,8 +813,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         params: IFetchQuotesParams;
         tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
         accountId?: string;
+        performanceRunId?: string;
       },
     ) => {
+      const performanceIntent = buildSwapPerformanceIntentFromEvent(
+        event.params,
+      );
       if (
         !isCurrentStockQuoteEventParams({
           currentSwapType: get(swapTypeSwitchAtom()),
@@ -816,6 +841,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             const dataJson = JSON.parse(data) as ISwapQuoteEventData;
             const errorData = dataJson as ISwapQuoteEventError;
             if (errorData?.errorMessage) {
+              runSwapPerformanceSafely(() =>
+                swapPerformance.error({
+                  eventId: errorData.eventId,
+                  intent: performanceIntent,
+                  runId: event.performanceRunId,
+                }),
+              );
               const isStockQuoteEventError =
                 Boolean(errorData.isStock) ||
                 isStockProtocol(event.params.protocol);
@@ -903,6 +935,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             ) {
               const { totalQuoteCount, eventId } =
                 dataJson as ISwapQuoteEventInfo;
+              runSwapPerformanceSafely(() =>
+                swapPerformance.expectedProviders({
+                  count: totalQuoteCount,
+                  eventId,
+                  intent: performanceIntent,
+                  runId: event.performanceRunId,
+                }),
+              );
               const quoteEventError = get(swapQuoteEventErrorAtom());
               const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
               const shouldResetCurrentEventProgress =
@@ -956,6 +996,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       totalQuoteCountReceived: false,
                     }
                   : quoteEventTotalCount;
+              runSwapPerformanceSafely(() =>
+                swapPerformance.quotesReceived({
+                  eventId: quoteResultEventId,
+                  expectedProviderCount: activeQuoteEventTotalCount.count,
+                  intent: performanceIntent,
+                  runId: event.performanceRunId,
+                  quotes: (quoteResultData.data ?? []).map((quote) => ({
+                    actionable: isSwapQuoteActionable(quote),
+                    // Provider identity is retained in memory only for de-dupe.
+                    providerKey: buildSwapQuoteProviderKey(quote),
+                  })),
+                }),
+              );
               if (shouldSeedStockQuoteEventFromResult && quoteResultEventId) {
                 set(swapQuoteEventTotalCountAtom(), activeQuoteEventTotalCount);
               }
@@ -1119,6 +1172,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       toTokenAmount?: string,
       receivingAddress?: string,
       incognito?: boolean,
+      performanceRunId?: string,
     ) => {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       const protocol = get(swapTypeSwitchAtom());
@@ -1161,6 +1215,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         protocol,
         receivingAddress,
         incognito: incognitoEnabled,
+        performanceRunId,
         userMarketPriceRate,
         ...(protocol === ESwapTabSwitchType.LIMIT
           ? {
@@ -1294,6 +1349,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapShouldRefreshQuoteAtom(), false);
 
       if (!hasValidQuoteInput || !fromToken || !toToken) {
+        runSwapPerformanceSafely(() => swapPerformance.cancelIntent());
         void this.resetQuoteAction.call(set);
         return;
       }
@@ -1309,6 +1365,23 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         void this.resetQuoteAction.call(set);
         return;
       }
+
+      let performanceRunId: string | undefined;
+      runSwapPerformanceSafely(() => {
+        performanceRunId = swapPerformance.beginIntent({
+          amountKey:
+            quoteKind === ESwapQuoteKind.BUY
+              ? toTokenAmount.value
+              : fromTokenAmount.value,
+          fromNetworkKey: fromToken.networkId,
+          fromTokenKey: fromToken.contractAddress ?? '',
+          manualRefresh: Boolean(reQuote),
+          quoteKind: quoteKind ?? ESwapQuoteKind.SELL,
+          quoteMode: getSwapPerformanceQuoteMode(swapTabSwitchType),
+          toNetworkKey: toToken.networkId,
+          toTokenKey: toToken.contractAddress ?? '',
+        });
+      });
 
       // check limit zero
       set(swapQuoteActionLockAtom(), (v) => ({
@@ -1338,6 +1411,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         toTokenAmount.value,
         receivingAddress,
         incognito,
+        performanceRunId,
       );
     },
   );

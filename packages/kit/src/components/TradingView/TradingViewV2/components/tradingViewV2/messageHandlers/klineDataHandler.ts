@@ -286,6 +286,11 @@ export async function handleKLineDataRequest({
     const to = safeData.to as number;
     const isFirstDataRequest = safeData.firstDataRequest === true;
 
+    context.onKLineDataRequest?.({
+      period: normalizeTradingViewKLineInterval(resolution),
+      firstDataRequest: isFirstDataRequest,
+    });
+
     if (context.onCurrentKLineResolutionChange) {
       context.onCurrentKLineResolutionChange(resolution);
     } else if (context.currentKLineResolution) {
