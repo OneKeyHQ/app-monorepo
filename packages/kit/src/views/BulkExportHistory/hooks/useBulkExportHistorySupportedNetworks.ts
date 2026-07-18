@@ -88,11 +88,9 @@ export function useBulkExportHistorySupportedNetworks({
   const [isRangeLoading, setIsRangeLoading] = useState(true);
   const [hasRangeError, setHasRangeError] = useState(false);
   const [isRangeRequestFinished, setIsRangeRequestFinished] = useState(false);
-  const [rangeRequestVersion, setRangeRequestVersion] = useState(0);
-  const [
-    networkCompatibilityRequestVersion,
-    setNetworkCompatibilityRequestVersion,
-  ] = useState(0);
+  // Bumped by retryRangeRequest; keyed into both the range request effect and
+  // the network-compatibility scope so a single retry refreshes both fetches.
+  const [requestVersion, setRequestVersion] = useState(0);
   const [networkCompatibilityResult, setNetworkCompatibilityResult] = useState<{
     scope: string;
     networkIds: string[];
@@ -200,7 +198,7 @@ export function useBulkExportHistorySupportedNetworks({
     networkCompatibilityIdentity = `wallet:${walletIdForNetworkCompatibility}`;
   }
   const networkCompatibilityScope = networkCompatibilityIdentity
-    ? `${networkCompatibilityIdentity}:${unfilteredSupportedNetworkIdsKey}:${networkCompatibilityRequestVersion}`
+    ? `${networkCompatibilityIdentity}:${unfilteredSupportedNetworkIdsKey}:${requestVersion}`
     : undefined;
 
   useEffect(() => {
@@ -335,11 +333,10 @@ export function useBulkExportHistorySupportedNetworks({
     return () => {
       cancelled = true;
     };
-  }, [rangeRequestVersion, setCachedSupportedNetworkIds]);
+  }, [requestVersion, setCachedSupportedNetworkIds]);
 
   const retryRangeRequest = useCallback(() => {
-    setRangeRequestVersion((version) => version + 1);
-    setNetworkCompatibilityRequestVersion((version) => version + 1);
+    setRequestVersion((version) => version + 1);
   }, []);
 
   const setSelectedNetworkIds = useCallback(

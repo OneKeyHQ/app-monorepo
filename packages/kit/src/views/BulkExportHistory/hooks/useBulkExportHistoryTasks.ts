@@ -1,9 +1,13 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
+import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IFetchExportTransactionHistoryTasksResp } from '@onekeyhq/shared/types/history';
+import type {
+  IExportTransactionHistoryTask,
+  IFetchExportTransactionHistoryTasksResp,
+} from '@onekeyhq/shared/types/history';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -20,13 +24,28 @@ export function useBulkExportHistoryTasks() {
       { watchLoading: true },
     );
 
-  const tasks = useMemo(
-    () =>
-      [...(promiseResult.result?.list ?? [])].toSorted(
-        (taskA, taskB) => taskB.createdAt - taskA.createdAt,
-      ),
-    [promiseResult.result],
-  );
+  // Polling delivers a fresh list object every tick even when nothing changed;
+  // reuse the previous sorted array in that case so memoized consumers (list
+  // rows, task detail derivations) can bail out on no-change ticks.
+  const sortedTasksRef = useRef<
+    | {
+        key: string;
+        tasks: IExportTransactionHistoryTask[];
+      }
+    | undefined
+  >(undefined);
+  const tasks = useMemo(() => {
+    const list = promiseResult.result?.list ?? [];
+    const key = JSON.stringify(list);
+    if (sortedTasksRef.current?.key === key) {
+      return sortedTasksRef.current.tasks;
+    }
+    const sortedTasks = [...list].toSorted(
+      (taskA, taskB) => taskB.createdAt - taskA.createdAt,
+    );
+    sortedTasksRef.current = { key, tasks: sortedTasks };
+    return sortedTasks;
+  }, [promiseResult.result]);
 
   return {
     ...promiseResult,
@@ -45,14 +64,12 @@ export function useBulkExportHistoryTaskPolling({
 }) {
   const isFocused = useRouteIsFocused();
 
-  useEffect(() => {
-    if (!isFocused || !enabled || isLoading) {
-      return undefined;
-    }
-
-    const timer = setInterval(() => {
+  useInterval(
+    () => {
       void run().catch(() => undefined);
-    }, EXPORT_HISTORY_TASK_POLLING_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [enabled, isFocused, isLoading, run]);
+    },
+    isFocused && enabled && !isLoading
+      ? EXPORT_HISTORY_TASK_POLLING_INTERVAL_MS
+      : null,
+  );
 }

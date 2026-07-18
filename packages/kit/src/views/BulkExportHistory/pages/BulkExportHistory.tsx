@@ -241,16 +241,6 @@ function BulkExportHistoryContent({
     !hasRangeError &&
     !hasEmptyRange,
   );
-  const areSelectedNetworksSupported = useMemo(() => {
-    if (!selectedNetworkIds.length) {
-      return false;
-    }
-    const supportedNetworkIdSet = new Set(supportedNetworkIds);
-    return selectedNetworkIds.every((networkId) =>
-      supportedNetworkIdSet.has(networkId),
-    );
-  }, [selectedNetworkIds, supportedNetworkIds]);
-
   const isDateRangeDisabled = useMemo(
     () => isRangeLoading || !hasRangeData,
     [hasRangeData, isRangeLoading],
@@ -377,11 +367,13 @@ function BulkExportHistoryContent({
   ]);
 
   const handleExport = useCallback(async () => {
+    // hasRangeData already implies the selection is non-empty and every
+    // selected network is supported (see selectedRangeMap in the hook).
     if (
       abortControllerRef.current ||
       isExporting ||
       !exportAccountIdentity ||
-      !areSelectedNetworksSupported
+      !hasRangeData
     ) {
       return;
     }
@@ -619,7 +611,7 @@ function BulkExportHistoryContent({
   }, [
     exportAccountIdentity,
     isExporting,
-    areSelectedNetworksSupported,
+    hasRangeData,
     selectedNetworkIds,
     dateRange,
     customDateRange,
@@ -629,15 +621,19 @@ function BulkExportHistoryContent({
     intl,
   ]);
 
+  const pageHeader = (
+    <Page.Header
+      title={intl.formatMessage({
+        id: ETranslations.global_export_transaction_history,
+      })}
+      headerRight={renderHeaderRight}
+    />
+  );
+
   if (isLoading || !isAccountSyncReady || !isAccountReady) {
     return (
       <Page>
-        <Page.Header
-          title={intl.formatMessage({
-            id: ETranslations.global_export_transaction_history,
-          })}
-          headerRight={renderHeaderRight}
-        />
+        {pageHeader}
         <Page.Body flex={1} alignItems="center" justifyContent="center">
           <Spinner size="large" />
         </Page.Body>
@@ -648,12 +644,7 @@ function BulkExportHistoryContent({
   if (hasRangeError) {
     return (
       <Page>
-        <Page.Header
-          title={intl.formatMessage({
-            id: ETranslations.global_export_transaction_history,
-          })}
-          headerRight={renderHeaderRight}
-        />
+        {pageHeader}
         <Page.Body>
           <PageFrame error onRefresh={retryRangeRequest} />
         </Page.Body>
@@ -664,12 +655,7 @@ function BulkExportHistoryContent({
   if (hasEmptyRange) {
     return (
       <Page>
-        <Page.Header
-          title={intl.formatMessage({
-            id: ETranslations.global_export_transaction_history,
-          })}
-          headerRight={renderHeaderRight}
-        />
+        {pageHeader}
         <Page.Body>
           <Empty
             pt="$24"
@@ -685,12 +671,7 @@ function BulkExportHistoryContent({
 
   return (
     <Page scrollEnabled>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.global_export_transaction_history,
-        })}
-        headerRight={renderHeaderRight}
-      />
+      {pageHeader}
       <Page.Body px="$5" pt="$3" gap="$6">
         {/* Export Account */}
         <Stack gap="$1.5">
@@ -795,7 +776,6 @@ function BulkExportHistoryContent({
             onPress: handleExport,
             disabled:
               !isExportAccountSupported ||
-              !areSelectedNetworksSupported ||
               !hasRangeData ||
               !isCustomDateRangeValid,
             loading: isExporting,

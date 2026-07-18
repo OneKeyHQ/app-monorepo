@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -63,6 +63,10 @@ const DESKTOP_TASK_LIST_CONTENT_STYLE = {
   marginBottom: '$5',
 } as const;
 const MAX_NAMED_NETWORKS_IN_TASK_LIST = 3;
+
+function taskListKeyExtractor(item: IExportTransactionHistoryTask) {
+  return String(item.id);
+}
 
 function normalizeAddressForTaskFilter({
   networkId,
@@ -133,7 +137,7 @@ async function resolveAccountAddressesOnNetwork({
   return address ? [address] : [];
 }
 
-function ExportTaskListItem({
+function ExportTaskListItemView({
   task,
   isDesktopLayout,
   networkOptions,
@@ -182,8 +186,14 @@ function ExportTaskListItem({
       remainingCount > 0 ? ` +${remainingCount}` : ''
     }`;
   }, [intl, networkIds.length, taskNetworkOptions.networks]);
-  const dateRangeText = formatExportHistoryTaskDateRange(task);
-  const statusMeta = getExportHistoryTaskStatusMeta(task);
+  const dateRangeText = useMemo(
+    () => formatExportHistoryTaskDateRange(task),
+    [task],
+  );
+  const statusMeta = useMemo(
+    () => getExportHistoryTaskStatusMeta(task),
+    [task],
+  );
   const statusLabel = intl.formatMessage({ id: statusMeta.labelId });
   const transactionCountText = statusMeta.isDownloadable
     ? intl.formatMessage(
@@ -211,33 +221,9 @@ function ExportTaskListItem({
     />
   );
 
-  if (!isDesktopLayout) {
-    return (
-      <ListItem
-        py="$3"
-        testID={`bulk-export-history-task-${task.id}`}
-        renderAvatar={
-          <BulkExportHistoryNetworkAvatars
-            networkIds={networkIds}
-            networkOptions={taskNetworkOptions}
-            maxVisible={1}
-            remainingCountMode="overlay"
-          />
-        }
-        title={dateRangeText}
-        titleProps={{ numberOfLines: 1 }}
-        subtitle={subtitleText}
-        subtitleProps={{ numberOfLines: 1 }}
-        drillIn
-        onPress={handlePress}
-      >
-        {statusIndicator}
-      </ListItem>
-    );
-  }
-
   return (
     <ListItem
+      py={isDesktopLayout ? undefined : '$3'}
       testID={`bulk-export-history-task-${task.id}`}
       renderAvatar={
         <BulkExportHistoryNetworkAvatars
@@ -255,18 +241,24 @@ function ExportTaskListItem({
       onPress={handlePress}
     >
       {statusIndicator}
-      <Stack width="$8" alignItems="center" flexShrink={0}>
-        {statusMeta.isDownloadable ? (
-          <BulkExportHistoryDownloadIconButton
-            task={task}
-            size="small"
-            testID={`bulk-export-history-task-download-${task.id}`}
-          />
-        ) : null}
-      </Stack>
+      {isDesktopLayout ? (
+        <Stack width="$8" alignItems="center" flexShrink={0}>
+          {statusMeta.isDownloadable ? (
+            <BulkExportHistoryDownloadIconButton
+              task={task}
+              size="small"
+              testID={`bulk-export-history-task-download-${task.id}`}
+            />
+          ) : null}
+        </Stack>
+      ) : null}
     </ListItem>
   );
 }
+
+// Rows re-render on every 5s poll otherwise; tasks keep stable identities
+// across no-change polls, so memo lets unchanged rows bail out.
+const ExportTaskListItem = memo(ExportTaskListItemView);
 
 function TaskListAccountSelector({
   selectorSceneUrl,
@@ -561,6 +553,18 @@ function BulkExportHistoryTaskListContent({
     );
   }, [isAccountReady, isAccountSyncReady, media.gtMd, selectorSceneUrl]);
 
+  const renderTaskItem = useCallback(
+    ({ item }: { item: IExportTransactionHistoryTask }) => (
+      <ExportTaskListItem
+        task={item}
+        isDesktopLayout={media.gtMd}
+        networkOptions={networkOptions}
+        onPress={onOpenTaskDetail}
+      />
+    ),
+    [media.gtMd, networkOptions, onOpenTaskDetail],
+  );
+
   return (
     <Page>
       <Page.Header
@@ -594,15 +598,8 @@ function BulkExportHistoryTaskListContent({
                 ? DESKTOP_TASK_LIST_CONTENT_STYLE
                 : undefined
             }
-            keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => (
-              <ExportTaskListItem
-                task={item}
-                isDesktopLayout={media.gtMd}
-                networkOptions={networkOptions}
-                onPress={onOpenTaskDetail}
-              />
-            )}
+            keyExtractor={taskListKeyExtractor}
+            renderItem={renderTaskItem}
             ListEmptyComponent={
               <Empty
                 icon="ClockTimeHistoryOutline"

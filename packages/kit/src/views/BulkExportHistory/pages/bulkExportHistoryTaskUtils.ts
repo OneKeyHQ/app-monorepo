@@ -103,15 +103,6 @@ export function getExportHistoryTaskStatusMeta(
         descriptionId: ETranslations.export_history_limit_reached__desc,
         descriptionColor: '$textCaution',
       };
-    case 'failed':
-      return {
-        ...common,
-        labelId: ETranslations.global_failed,
-        statusIndicatorColor: '$textCritical',
-        statusTextColor: '$textCritical',
-        descriptionId: ETranslations.export_history_failed__desc,
-        descriptionColor: '$textCritical',
-      };
     case 'expired':
       return {
         ...common,
@@ -121,6 +112,7 @@ export function getExportHistoryTaskStatusMeta(
         descriptionId: ETranslations.export_history_expired__desc,
         descriptionColor: '$textSubdued',
       };
+    case 'failed':
     default:
       return {
         ...common,
@@ -137,6 +129,24 @@ export function getExportHistoryTaskNetworkIds(
   task: Pick<IExportTransactionHistoryTask, 'query'>,
 ) {
   return Object.keys(task.query.networkIdToAddressArray ?? {});
+}
+
+// Intl.DateTimeFormat construction is expensive and formatter instances are
+// reusable; cache one per time zone since polling re-renders list rows.
+const dateTimeFormatCache = new Map<string, Intl.DateTimeFormat>();
+
+function getDateTimeFormatForTimeZone(timeZone: string) {
+  let formatter = dateTimeFormatCache.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-US-u-ca-gregory-nu-latn', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    dateTimeFormatCache.set(timeZone, formatter);
+  }
+  return formatter;
 }
 
 function getCalendarDateInTimeZone(timestampMs: number, timeZone?: string) {
@@ -162,12 +172,7 @@ function getCalendarDateInTimeZone(timestampMs: number, timeZone?: string) {
   }
 
   try {
-    const parts = new Intl.DateTimeFormat('en-US-u-ca-gregory-nu-latn', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(date);
+    const parts = getDateTimeFormatForTimeZone(timeZone).formatToParts(date);
     const values = Object.fromEntries(
       parts
         .filter((part) => part.type !== 'literal')

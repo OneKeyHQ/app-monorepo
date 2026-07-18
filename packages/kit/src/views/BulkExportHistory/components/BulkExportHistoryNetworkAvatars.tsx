@@ -111,38 +111,31 @@ function BulkExportHistoryNetworkAvatars({
             />
           </Stack>
         ))}
-        {remainingCount > 0 && remainingCountMode === 'overlay' ? (
+        {remainingCount > 0 ? (
           <XStack
-            position="absolute"
-            right="$-2"
-            bottom="$-1"
-            px="$0.5"
-            minWidth={20}
-            h={20}
-            bg="$bgSubdued"
             borderRadius="$full"
             borderWidth={2}
             borderColor="$bgApp"
             alignItems="center"
             justifyContent="center"
             zIndex={999}
-          >
-            <SizableText size="$bodySm">+{remainingCount}</SizableText>
-          </XStack>
-        ) : null}
-        {remainingCount > 0 && remainingCountMode === 'inline' ? (
-          <XStack
-            px="$1"
-            minWidth={28}
-            bg="$gray5"
-            borderRadius="$full"
-            ml="$-2"
-            borderWidth={2}
-            borderColor="$bgApp"
-            alignItems="center"
-            justifyContent="center"
-            h={28}
-            zIndex={999}
+            {...(remainingCountMode === 'overlay'
+              ? {
+                  position: 'absolute' as const,
+                  right: '$-2',
+                  bottom: '$-1',
+                  px: '$0.5',
+                  minWidth: 20,
+                  h: 20,
+                  bg: '$bgSubdued',
+                }
+              : {
+                  px: '$1',
+                  minWidth: 28,
+                  ml: '$-2',
+                  h: 28,
+                  bg: '$gray5',
+                })}
           >
             <SizableText size="$bodySm">+{remainingCount}</SizableText>
           </XStack>

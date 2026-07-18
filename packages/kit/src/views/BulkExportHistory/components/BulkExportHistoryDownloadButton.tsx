@@ -56,30 +56,30 @@ function useBulkExportHistoryDownload(task: IExportTransactionHistoryTask) {
     isDownloadingRef.current = true;
     setIsDownloading(true);
     try {
-      const csvData =
-        await backgroundApiProxy.serviceHistory.downloadExportTransactionHistoryTaskCsv(
-          { id: task.id },
-        );
+      await errorToastUtils.withErrorAutoToast(async () => {
+        const csvData =
+          await backgroundApiProxy.serviceHistory.downloadExportTransactionHistoryTaskCsv(
+            { id: task.id },
+          );
 
-      const formatFilenameDay = (timestampMs: number) =>
-        formatExportHistoryTaskFilenameDay(timestampMs, task.query.timeZone);
-      const filename = `transaction_history_${formatFilenameDay(
-        task.query.minTimestampMs,
-      )}_${formatFilenameDay(task.query.maxTimestampMs)}.csv`;
+        const formatFilenameDay = (timestampMs: number) =>
+          formatExportHistoryTaskFilenameDay(timestampMs, task.query.timeZone);
+        const filename = `transaction_history_${formatFilenameDay(
+          task.query.minTimestampMs,
+        )}_${formatFilenameDay(task.query.maxTimestampMs)}.csv`;
 
-      const saved = await csvExporterUtils.exportCSV(csvData, filename, true);
-      if (saved) {
-        Toast.success({
-          title: intl.formatMessage({ id: ETranslations.global_success }),
-        });
-      } else {
-        Toast.error({
-          title: intl.formatMessage({ id: ETranslations.global_failed }),
-        });
-      }
+        const saved = await csvExporterUtils.exportCSV(csvData, filename, true);
+        if (saved) {
+          Toast.success({
+            title: intl.formatMessage({ id: ETranslations.global_success }),
+          });
+        } else {
+          Toast.error({
+            title: intl.formatMessage({ id: ETranslations.global_failed }),
+          });
+        }
+      });
     } catch (error) {
-      errorToastUtils.toastIfError(error);
-      errorToastUtils.showToastOfError(error);
       defaultLogger.app.error.log(
         `Bulk export history CSV download failed: ${String(error)}`,
       );
