@@ -176,28 +176,50 @@ describe('SwapStockDesktopContainer utils', () => {
     ).toBe(false);
   });
 
-  it('settles estimated receive instead of showing quote loading while the market is closed', () => {
+  it.each([
+    {
+      channelStage: ESwapStockChannelStage.MarketClosed,
+      expectedWithoutBlocker: true,
+      state: 'closed',
+    },
+    {
+      channelStage: ESwapStockChannelStage.Ready,
+      expectedWithoutBlocker: false,
+      state: 'ready',
+    },
+    {
+      channelStage: ESwapStockChannelStage.MarketUnavailable,
+      expectedWithoutBlocker: false,
+      state: 'market detail unavailable',
+    },
+  ])(
+    'resolves estimated receive visibility for $state',
+    ({ channelStage, expectedWithoutBlocker }) => {
+      expect(
+        shouldHideStockEstimatedReceive({
+          channelStage,
+          hasQuoteBlocker: false,
+        }),
+      ).toBe(expectedWithoutBlocker);
+      expect(
+        shouldHideStockEstimatedReceive({
+          channelStage,
+          hasQuoteBlocker: true,
+        }),
+      ).toBe(true);
+    },
+  );
+
+  it('settles closed-market receive state without making a ready amount input readonly', () => {
     expect(
       shouldHideStockEstimatedReceive({
         channelStage: ESwapStockChannelStage.MarketClosed,
         hasQuoteBlocker: false,
       }),
     ).toBe(true);
-    expect(
-      shouldHideStockEstimatedReceive({
-        channelStage: ESwapStockChannelStage.Ready,
-        hasQuoteBlocker: false,
-      }),
-    ).toBe(false);
-  });
-
-  it('continues to hide estimated receive for current quote errors and controls', () => {
-    expect(
-      shouldHideStockEstimatedReceive({
-        channelStage: ESwapStockChannelStage.Ready,
-        hasQuoteBlocker: true,
-      }),
-    ).toBe(true);
+    expect(getStockAmountInputInteractionProps(true)).toEqual({
+      readonly: false,
+    });
   });
 
   it('keeps Stock header content visible while detail and images load for a known token', () => {

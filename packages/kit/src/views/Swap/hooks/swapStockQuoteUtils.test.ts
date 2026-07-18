@@ -109,7 +109,7 @@ describe('swapStockQuoteUtils', () => {
     });
   });
 
-  it('revokes both display and execution amounts when the current Stock state blocks quotes', () => {
+  it('hides both display and execution quote candidates when the current Stock state blocks quotes', () => {
     expect(
       resolveStockEstimatedReceiveQuoteState({
         displayQuoteResult: quoteResult,
