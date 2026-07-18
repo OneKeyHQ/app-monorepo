@@ -1,12 +1,15 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Icon, YStack } from '@onekeyhq/components';
 import {
+  useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
   useSwapProDirectionAtom,
+  useSwapProInputAmountAtom,
+  useSwapProSelectTokenAtom,
   useSwapProTokenSupportLimitAtom,
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -15,6 +18,7 @@ import type { ISwapProSpeedConfig } from '@onekeyhq/shared/types/swap/types';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import { TradeTypeSelector } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
+import type { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import LimitExpirySelect from '../../components/LimitExpirySelect';
 import LimitPartialFillSelect from '../../components/LimitPartialFillSelect';
 import SwapProTradeTypeSelector from '../../components/SwapProTradeTypeSelector';
@@ -70,6 +74,23 @@ const SwapProTradingPanel = ({
 }: ISwapProTradingPanelProps) => {
   const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProInputAmount, setSwapProInputAmount] =
+    useSwapProInputAmountAtom();
+  const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
+  // Per-direction amount stash: switching BUY/SELL restores what was typed on
+  // that side instead of clearing it (the two sides denominate in different
+  // tokens, so the values must never be shared directly).
+  const stashedAmountsRef = useRef<
+    Partial<Record<ESwapDirection, { market: string; limit: string }>>
+  >({});
+  const selectTokenKey = `${swapProSelectToken?.networkId ?? ''}_${
+    swapProSelectToken?.contractAddress ?? ''
+  }`;
+  useEffect(() => {
+    // Stashed amounts belong to one traded token; drop them on token switch.
+    stashedAmountsRef.current = {};
+  }, [selectTokenKey]);
   const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
     useSwapLimitExpirationTimeAtom();
   const [swapLimitPartiallyFill, setSwapLimitPartiallyFill] =
@@ -110,12 +131,29 @@ const SwapProTradingPanel = ({
   const onDirectionSelected = useCallback(
     (value: ITradeType) => {
       if (!value || value === swapProDirection) return;
-      // The input token flips between the pay token (BUY) and the traded
-      // token (SELL), so a typed amount changes meaning — clear it.
-      cleanInputAmount();
+      // Stash this side's typed amounts and restore what the target side had
+      // (empty when it was never typed) — the sides denominate in different
+      // tokens, so each keeps its own value instead of sharing or clearing.
+      stashedAmountsRef.current[swapProDirection] = {
+        market: swapProInputAmount,
+        limit: fromInputAmount.value,
+      };
+      const targetStash = stashedAmountsRef.current[value];
+      setSwapProInputAmount(targetStash?.market ?? '');
+      setFromInputAmount({
+        value: targetStash?.limit ?? '',
+        isInput: true,
+      });
       setSwapProDirection(value);
     },
-    [cleanInputAmount, setSwapProDirection, swapProDirection],
+    [
+      swapProDirection,
+      swapProInputAmount,
+      fromInputAmount.value,
+      setSwapProInputAmount,
+      setFromInputAmount,
+      setSwapProDirection,
+    ],
   );
   const isMarketPresetActionDisabled =
     swapProTradeType === ESwapProTradeType.MARKET &&
