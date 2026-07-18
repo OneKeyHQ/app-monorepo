@@ -380,15 +380,7 @@ function BulkExportHistoryTaskListContent({
     [tasks],
   );
   const networkOptions = useNetworkOptions(taskNetworkIds);
-  const accountFilterNetworkIdsKey = JSON.stringify(
-    Array.from(
-      new Set(
-        tasks.flatMap((task) =>
-          Object.keys(task.query?.networkIdToAddressArray ?? {}),
-        ),
-      ),
-    ).toSorted(),
-  );
+  const accountFilterNetworkIdsKey = JSON.stringify(taskNetworkIds);
   const accountFilterRequestScope = `${accountFilterScope}:${accountFilterNetworkIdsKey}`;
 
   // Tasks store public identifiers per network, so filter by intersecting them

@@ -10,6 +10,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { HISTORY_TIME_RANGE_MONTHS } from '@onekeyhq/shared/src/consts/walletConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -2343,7 +2344,13 @@ class ServiceHistory extends ServiceBase {
       data: IFetchAccountTransactionRangeResp;
     }>('/wallet/v1/account/transaction/export/range', {}, requestConfig);
 
-    return resp.data.data;
+    // autoHandleError: false lets code !== 0 responses resolve with no data;
+    // surface them as errors so the caller can render its retryable state.
+    const range = resp.data?.data;
+    if (!range) {
+      throw new OneKeyLocalError('Failed to fetch account transaction range');
+    }
+    return range;
   }
 
   @backgroundMethod()

@@ -719,7 +719,11 @@ function BulkExportHistoryContent({
           </SizableText>
           <BulkExportHistoryNetworkTrigger
             selectedNetworkIds={selectedNetworkIds}
-            disabled={isExporting || hasNoCompatibleExportNetwork}
+            disabled={
+              isExporting ||
+              hasNoCompatibleExportNetwork ||
+              !isExportAccountSupported
+            }
             onPress={handleOpenNetworkSelector}
           />
         </Stack>
