@@ -86,8 +86,16 @@ function MarketNormalTokenList({
   );
 
   const { filterState, filterRevision } = useMarketListFilter();
+
+  // Redesign features (local filter, client sort overrides, columns) apply only
+  // to trending; stocks keep server-driven behavior.
+  const redesignActive =
+    marketListRedesignEnabled &&
+    selectedCategory === 'trending' &&
+    !stockCategory;
+
   const filteredData = useMemo(() => {
-    if (!marketListRedesignEnabled) {
+    if (!redesignActive) {
       return normalResult.data;
     }
     let next = applyMarketListLocalFilter(
@@ -101,7 +109,7 @@ function MarketNormalTokenList({
     }
     return next;
   }, [
-    marketListRedesignEnabled,
+    redesignActive,
     normalResult.data,
     filterState.conditions,
     filterState.activePresetId,
@@ -154,9 +162,9 @@ function MarketNormalTokenList({
       isWatchlistMode={false}
       clientSort={clientSortEnabled}
       clientSortFieldMapOverride={
-        marketListRedesignEnabled ? { name: 'firstTradeTime' } : undefined
+        redesignActive ? { name: 'firstTradeTime' } : undefined
       }
-      redesignEnabled={marketListRedesignEnabled}
+      redesignEnabled={redesignActive}
       showEndReachedIndicator
       tabIntegrated={tabIntegrated}
       tabName={tabName}
