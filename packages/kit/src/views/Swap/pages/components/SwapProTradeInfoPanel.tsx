@@ -14,7 +14,10 @@ const SwapProTradeInfoPanel = ({
   supportSpeedSwap,
 }: ISwapProTradeInfoPanelProps) => {
   return (
-    <YStack gap="$2.5" flex={1} justifyContent="space-between">
+    // Natural flow (no space-between): otherwise the spare column height is
+    // dumped above the buy/sell ratio group as a stray gap, and the taller
+    // column keeps the whole panel (and the action button) pushed down.
+    <YStack gap="$2.5" flex={1}>
       <YStack gap="$3">
         <SwapProTokenDetailGroup />
         <SwapProPriceInfo onPricePress={onPricePress} />
