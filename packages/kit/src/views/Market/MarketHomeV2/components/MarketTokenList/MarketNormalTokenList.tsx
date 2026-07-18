@@ -7,11 +7,14 @@ import {
   markMarketReactPerf,
   useMarketRenderCommitProbe,
 } from '../../../utils/marketReactPerf';
+import { applyMarketListLocalFilter } from '../MarketFilterChipsBar/applyMarketListLocalFilter';
+import { useMarketListFilter } from '../MarketFilterChipsBar/MarketListFilterContext';
 
 import { useClientSortResult } from './hooks/useClientSortResult';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { type IMarketToken } from './MarketTokenData';
 import { MarketTokenListBase } from './MarketTokenListBase';
+import { sortMarketTokensClient } from './utils/marketListClientSort';
 import { shouldUseStockMetadataColumnsForTokens } from './utils/tokenListHelpers';
 
 import type { IMarketTokenListLiveOverride } from './MarketTokenListBase';
@@ -37,6 +40,7 @@ type IMarketNormalTokenListProps = {
   pollingInterval?: number;
   rowBg?: string;
   onStockDataChange?: (categoryId: string, isStockData: boolean) => void;
+  marketListRedesignEnabled?: boolean;
 };
 
 function MarketNormalTokenList({
@@ -57,6 +61,7 @@ function MarketNormalTokenList({
   pollingInterval,
   rowBg,
   onStockDataChange,
+  marketListRedesignEnabled,
 }: IMarketNormalTokenListProps) {
   useMarketRenderCommitProbe('MarketNormalTokenList', {
     networkId,
@@ -80,9 +85,37 @@ function MarketNormalTokenList({
     [normalResult.data],
   );
 
+  const { filterState, filterRevision } = useMarketListFilter();
+  const filteredData = useMemo(() => {
+    if (!marketListRedesignEnabled) {
+      return normalResult.data;
+    }
+    let next = applyMarketListLocalFilter(
+      normalResult.data,
+      filterState.conditions,
+    );
+    // Local simulation of the rankBy-passthrough "Top turnover" view (P2-2
+    // scope, PM decides keep/drop at handoff).
+    if (filterState.activePresetId === 'topTurnover') {
+      next = sortMarketTokensClient(next, 'turnover', 'desc');
+    }
+    return next;
+  }, [
+    marketListRedesignEnabled,
+    normalResult.data,
+    filterState.conditions,
+    filterState.activePresetId,
+  ]);
+
   // Stocks keep server-driven behavior; trending gets full-pool client sort.
   const clientSortEnabled = selectedCategory === 'trending' && !stockCategory;
-  const clientSortResult = useClientSortResult(normalResult);
+  const clientSortResult = useClientSortResult(
+    useMemo(
+      () => ({ ...normalResult, data: filteredData }),
+      [normalResult, filteredData],
+    ),
+    { resetKey: filterRevision },
+  );
   const listResult = clientSortEnabled ? clientSortResult : normalResult;
 
   useEffect(() => {
