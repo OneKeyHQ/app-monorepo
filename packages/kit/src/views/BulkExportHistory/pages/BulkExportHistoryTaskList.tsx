@@ -2,16 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IBadgeType } from '@onekeyhq/components';
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
-  Badge,
   Empty,
   ListView,
   Page,
   Skeleton,
   Stack,
-  Toast,
-  XStack,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -21,12 +18,14 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { useNetworkOptions } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useNetworkOptions';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IModalBulkExportHistoryParamList } from '@onekeyhq/shared/src/routes/bulkExportHistory';
+import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IExportTransactionHistoryTask } from '@onekeyhq/shared/types/history';
 
 import {
@@ -34,9 +33,49 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../Staking/components/PageFrame';
-import BulkExportHistoryNetworkAvatars from '../components/BulkExportHistoryNetworkAvatars';
+import { BulkExportHistoryDownloadIconButton } from '../components/BulkExportHistoryDownloadButton';
+import BulkExportHistoryNetworkAvatars, {
+  type IBulkExportHistoryNetworkOptions,
+} from '../components/BulkExportHistoryNetworkAvatars';
+import {
+  useBulkExportHistoryTaskPolling,
+  useBulkExportHistoryTasks,
+} from '../hooks/useBulkExportHistoryTasks';
+import {
+  buildBulkExportHistoryAccountIdentifierMap,
+  getBulkExportHistoryAccountNetworkCompatibility,
+  resolveBulkExportHistoryAccountIdentity,
+} from '../utils/bulkExportHistoryAccountUtils';
+import { isBulkExportHistoryMockTaskId } from '../utils/bulkExportHistoryTaskMocks';
 
-const TASK_POLLING_INTERVAL_MS = timerUtils.getTimeDurationMs({ seconds: 5 });
+import BulkExportHistoryTaskStatus from './BulkExportHistoryTaskStatus';
+import {
+  formatExportHistoryTaskDateRange,
+  getExportHistoryTaskNetworkIds,
+  getExportHistoryTaskStatusMeta,
+} from './bulkExportHistoryTaskUtils';
+
+const DESKTOP_TASK_LIST_CONTENT_STYLE = {
+  width: '100%',
+  maxWidth: 960,
+  alignSelf: 'center',
+  paddingHorizontal: '$2',
+  marginTop: '$2',
+  marginBottom: '$5',
+} as const;
+const MAX_NAMED_NETWORKS_IN_TASK_LIST = 3;
+
+function normalizeAddressForTaskFilter({
+  networkId,
+  address,
+}: {
+  networkId: string;
+  address: string;
+}) {
+  return networkUtils.isEvmNetwork({ networkId })
+    ? address.toLowerCase()
+    : address;
+}
 
 function TaskListSkeleton() {
   return (
@@ -95,152 +134,172 @@ async function resolveAccountAddressesOnNetwork({
   return address ? [address] : [];
 }
 
-function ExportTaskListItem({ task }: { task: IExportTransactionHistoryTask }) {
+function ExportTaskListItem({
+  task,
+  isDesktopLayout,
+  networkOptions,
+  onPress,
+}: {
+  task: IExportTransactionHistoryTask;
+  isDesktopLayout: boolean;
+  networkOptions: IBulkExportHistoryNetworkOptions;
+  onPress: (taskId: number, networkIds: string[]) => void;
+}) {
   const intl = useIntl();
 
   const networkIds = useMemo(
-    () => Object.keys(task.query?.networkIdToAddressArray ?? {}),
-    [task.query?.networkIdToAddressArray],
+    () => getExportHistoryTaskNetworkIds(task),
+    [task],
+  );
+  const taskNetworkOptions = useMemo(() => {
+    const networkMap = new Map(
+      networkOptions.networks.map((network) => [network.id, network]),
+    );
+    return {
+      isLoading: networkOptions.isLoading,
+      networks: networkIds
+        .map((networkId) => networkMap.get(networkId))
+        .filter((network): network is IServerNetwork => network !== undefined),
+    };
+  }, [networkIds, networkOptions.isLoading, networkOptions.networks]);
+  const networkTitle = useMemo(() => {
+    if (networkIds.length > MAX_NAMED_NETWORKS_IN_TASK_LIST) {
+      return intl.formatMessage(
+        { id: ETranslations.global_count_networks },
+        { count: networkIds.length },
+      );
+    }
+    const visibleNames = taskNetworkOptions.networks
+      .slice(0, MAX_NAMED_NETWORKS_IN_TASK_LIST)
+      .map((network) => network.name);
+    if (!visibleNames.length) {
+      return intl.formatMessage(
+        { id: ETranslations.global_count_networks },
+        { count: networkIds.length },
+      );
+    }
+    const remainingCount = Math.max(networkIds.length - visibleNames.length, 0);
+    return `${visibleNames.join(', ')}${
+      remainingCount > 0 ? ` +${remainingCount}` : ''
+    }`;
+  }, [intl, networkIds.length, taskNetworkOptions.networks]);
+  const dateRangeText = formatExportHistoryTaskDateRange(task);
+  const statusMeta = getExportHistoryTaskStatusMeta(task);
+  const statusLabel = intl.formatMessage({ id: statusMeta.labelId });
+  const transactionCountText = statusMeta.isDownloadable
+    ? intl.formatMessage(
+        {
+          id: ETranslations.export_history_transactions_count__desc,
+        },
+        { count: task.count },
+      )
+    : undefined;
+  const subtitleText = [networkTitle, transactionCountText]
+    .filter(Boolean)
+    .join(' · ');
+
+  const handlePress = useCallback(
+    () => onPress(task.id, networkIds),
+    [networkIds, onPress, task.id],
   );
 
-  const dateRangeText = useMemo(() => {
-    const formatDay = (timestampMs: number) =>
-      formatDate(new Date(timestampMs), { hideTimeForever: true });
-    return `${formatDay(task.query.minTimestampMs)} - ${formatDay(
-      task.query.maxTimestampMs,
-    )}`;
-  }, [task.query.maxTimestampMs, task.query.minTimestampMs]);
+  const statusIndicator = (
+    <BulkExportHistoryTaskStatus
+      label={statusLabel}
+      statusMeta={statusMeta}
+      justifyContent={isDesktopLayout ? 'flex-end' : undefined}
+      minWidth={isDesktopLayout ? '$24' : undefined}
+    />
+  );
 
-  const subtitle = useMemo(() => {
-    if (task.status === 'success') {
-      // a non-null `next` means the export hit the limit and is partial
-      const partialSuffix =
-        task.next === null || task.next === undefined ? '' : ' · Partial';
-      return `${task.count} transactions${partialSuffix}`;
-    }
-    if (task.status === 'failed' && task.message && task.message !== 'ok') {
-      return task.message;
-    }
-    return formatDate(new Date(task.createdAt), { hideSeconds: true });
-  }, [task.count, task.createdAt, task.message, task.next, task.status]);
-
-  const { badgeType, statusLabel } = useMemo((): {
-    badgeType: IBadgeType;
-    statusLabel: string;
-  } => {
-    switch (task.status) {
-      case 'pending':
-        return {
-          badgeType: 'info',
-          statusLabel: intl.formatMessage({ id: ETranslations.global_pending }),
-        };
-      case 'processing':
-        return {
-          badgeType: 'info',
-          statusLabel: intl.formatMessage({
-            id: ETranslations.global_processing,
-          }),
-        };
-      case 'success':
-        return {
-          badgeType: 'success',
-          statusLabel: intl.formatMessage({ id: ETranslations.global_success }),
-        };
-      case 'failed':
-        return {
-          badgeType: 'critical',
-          statusLabel: intl.formatMessage({ id: ETranslations.global_failed }),
-        };
-      case 'deprecated':
-        return {
-          badgeType: 'default',
-          statusLabel: intl.formatMessage({
-            id: ETranslations.limit_order_expired,
-          }),
-        };
-      default:
-        return {
-          badgeType: 'default',
-          statusLabel: task.status,
-        };
-    }
-  }, [intl, task.status]);
-
-  const [isDownloading, setIsDownloading] = useState(false);
-
-  const handleDownload = useCallback(async () => {
-    if (isDownloading) {
-      return;
-    }
-    setIsDownloading(true);
-    try {
-      const csvData =
-        await backgroundApiProxy.serviceHistory.downloadExportTransactionHistoryTaskCsv(
-          { id: task.id },
-        );
-
-      const formatFilenameDay = (timestampMs: number) =>
-        formatDate(new Date(timestampMs), { formatTemplate: 'ddMMyy' });
-      const filename = `transaction_history_${formatFilenameDay(
-        task.query.minTimestampMs,
-      )}_${formatFilenameDay(task.query.maxTimestampMs)}.csv`;
-
-      const saved = await csvExporterUtils.exportCSV(csvData, filename, true);
-      if (saved) {
-        Toast.success({
-          title: intl.formatMessage({ id: ETranslations.global_success }),
-        });
-      } else {
-        Toast.error({
-          title: 'Download failed, please try again.',
-        });
-      }
-    } catch (error) {
-      // HTTP errors are auto-toasted by the api client bridge; surface local
-      // errors too instead of failing silently. showToastOfError dedupes
-      // already-toasted errors.
-      errorToastUtils.toastIfError(error);
-      errorToastUtils.showToastOfError(error);
-      console.error(error);
-    } finally {
-      setIsDownloading(false);
-    }
-  }, [
-    intl,
-    isDownloading,
-    task.id,
-    task.query.maxTimestampMs,
-    task.query.minTimestampMs,
-  ]);
+  if (!isDesktopLayout) {
+    return (
+      <ListItem
+        py="$3"
+        testID={`bulk-export-history-task-${task.id}`}
+        renderAvatar={
+          <BulkExportHistoryNetworkAvatars
+            networkIds={networkIds}
+            networkOptions={taskNetworkOptions}
+            maxVisible={1}
+            remainingCountMode="overlay"
+          />
+        }
+        title={dateRangeText}
+        titleProps={{ numberOfLines: 1 }}
+        subtitle={subtitleText}
+        subtitleProps={{ numberOfLines: 1 }}
+        drillIn
+        onPress={handlePress}
+      >
+        {statusIndicator}
+      </ListItem>
+    );
+  }
 
   return (
     <ListItem
-      renderAvatar={<BulkExportHistoryNetworkAvatars networkIds={networkIds} />}
+      testID={`bulk-export-history-task-${task.id}`}
+      renderAvatar={
+        <BulkExportHistoryNetworkAvatars
+          networkIds={networkIds}
+          networkOptions={taskNetworkOptions}
+          maxVisible={1}
+          remainingCountMode="overlay"
+        />
+      }
       title={dateRangeText}
-      subtitle={subtitle}
+      titleProps={{ numberOfLines: 1 }}
+      subtitle={subtitleText}
       subtitleProps={{ numberOfLines: 1 }}
+      drillIn
+      onPress={handlePress}
     >
-      <XStack alignItems="center" gap="$3">
-        <Badge badgeType={badgeType} badgeSize="sm">
-          <Badge.Text>{statusLabel}</Badge.Text>
-        </Badge>
-        {task.status === 'success' ? (
-          <ListItem.IconButton
+      {statusIndicator}
+      <Stack width="$8" alignItems="center" flexShrink={0}>
+        {statusMeta.isDownloadable ? (
+          <BulkExportHistoryDownloadIconButton
+            task={task}
+            size="small"
             testID={`bulk-export-history-task-download-${task.id}`}
-            icon="DownloadOutline"
-            loading={isDownloading}
-            onPress={handleDownload}
           />
         ) : null}
-      </XStack>
+      </Stack>
     </ListItem>
+  );
+}
+
+function TaskListAccountSelector({
+  selectorSceneUrl,
+  showWalletName,
+}: {
+  selectorSceneUrl: string;
+  showWalletName: boolean;
+}) {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.bulkExportHistory,
+        sceneUrl: selectorSceneUrl,
+      }}
+      enabledNum={[0]}
+    >
+      <AccountSelectorTriggerBase
+        horizontalLayout
+        autoWidthForHome
+        num={0}
+        showWalletName={showWalletName}
+      />
+    </AccountSelectorProviderMirror>
   );
 }
 
 function BulkExportHistoryTaskListContent({
   selectorSceneUrl,
+  onOpenTaskDetail,
 }: {
   selectorSceneUrl: string;
+  onOpenTaskDetail: (taskId: number, networkIds: string[]) => void;
 }) {
   const intl = useIntl();
   const media = useMedia();
@@ -268,155 +327,297 @@ function BulkExportHistoryTaskListContent({
   }, [actions]);
 
   const {
-    activeAccount: { account, indexedAccount },
+    activeAccount: {
+      account,
+      dbAccount,
+      indexedAccount,
+      ready: isAccountReady,
+    },
   } = useActiveAccount({ num: 0 });
-
-  const { result, isLoading, run } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceHistory.fetchExportTransactionHistoryTasks(),
-    [],
-    { watchLoading: true },
-  );
-
-  const tasks = useMemo(
+  const indexedAccountId = indexedAccount?.id;
+  const indexedAccountWalletId = indexedAccount?.walletId;
+  const activeAccountId = dbAccount?.id ?? account?.id;
+  const exportAccountIdentity = useMemo(
     () =>
-      [...(result?.list ?? [])].toSorted((a, b) => b.createdAt - a.createdAt),
-    [result],
+      resolveBulkExportHistoryAccountIdentity({
+        accountId: activeAccountId,
+        indexedAccountId,
+      }),
+    [activeAccountId, indexedAccountId],
   );
+  const singletonAccountId =
+    exportAccountIdentity?.type === 'singleton'
+      ? exportAccountIdentity.accountId
+      : undefined;
+  const accountNetworkCompatibility = useMemo(
+    () =>
+      getBulkExportHistoryAccountNetworkCompatibility({
+        accountIdentity: exportAccountIdentity,
+        indexedAccountWalletId,
+      }),
+    [exportAccountIdentity, indexedAccountWalletId],
+  );
+  const hasSelectedAccount = Boolean(indexedAccountId || activeAccountId);
+  let accountFilterScope = 'account:all';
+  if (indexedAccountId) {
+    accountFilterScope = `indexed:${indexedAccountId}`;
+  } else if (singletonAccountId) {
+    accountFilterScope = `account:${singletonAccountId}`;
+  } else if (activeAccountId) {
+    accountFilterScope = `unsupported:${activeAccountId}`;
+  }
 
-  // Tasks only store per-network addresses, so filter by intersecting them
-  // with the addresses owned by the selected account.
-  const { result: filteredTaskIds } = usePromiseResult(
-    async () => {
-      if (!tasks.length) {
-        return [];
-      }
+  const { result, isLoading, run, tasks } = useBulkExportHistoryTasks();
 
-      const indexedAccountId = indexedAccount?.id;
-      const othersAccountAddress = indexedAccountId
-        ? undefined
-        : account?.address;
-
-      // No account selected: show all tasks.
-      if (!indexedAccountId && !othersAccountAddress) {
-        return tasks.map((task) => task.id);
-      }
-
-      const networkIds = Array.from(
+  const taskNetworkIds = useMemo(
+    () =>
+      Array.from(
         new Set(
           tasks.flatMap((task) =>
             Object.keys(task.query?.networkIdToAddressArray ?? {}),
           ),
         ),
-      );
+      ).toSorted(),
+    [tasks],
+  );
+  const networkOptions = useNetworkOptions(taskNetworkIds);
+  const accountFilterNetworkIdsKey = JSON.stringify(
+    Array.from(
+      new Set(
+        tasks
+          .filter((task) => !isBulkExportHistoryMockTaskId(task.id))
+          .flatMap((task) =>
+            Object.keys(task.query?.networkIdToAddressArray ?? {}),
+          ),
+      ),
+    ).toSorted(),
+  );
+  const accountFilterRequestScope = `${accountFilterScope}:${accountFilterNetworkIdsKey}`;
 
-      // Lowercased matching keeps hex (EVM-like) addresses case-insensitive;
-      // base58 case collisions are practically impossible here.
+  // Tasks store public identifiers per network, so filter by intersecting them
+  // with the addresses and xpubs owned by the selected account.
+  const {
+    result: accountAddressResult,
+    isLoading: isAccountAddressLoading,
+    run: runAccountAddressLookup,
+  } = usePromiseResult(
+    async () => {
+      // No account selected: show all tasks.
+      if (!hasSelectedAccount) {
+        return {
+          scope: accountFilterRequestScope,
+          accountAddressSetMap: undefined,
+        };
+      }
+
       const accountAddressSetMap: Record<string, Set<string>> = {};
+      if (!exportAccountIdentity) {
+        return {
+          scope: accountFilterRequestScope,
+          accountAddressSetMap,
+        };
+      }
+
+      const accountFilterNetworkIds = JSON.parse(
+        accountFilterNetworkIdsKey,
+      ) as string[];
+      if (!accountFilterNetworkIds.length) {
+        return {
+          scope: accountFilterRequestScope,
+          accountAddressSetMap,
+        };
+      }
+
+      let compatibleNetworkIdSet: Set<string> | undefined;
+      if (accountNetworkCompatibility) {
+        const { mainnetItems, testnetItems } =
+          await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+            {
+              ...accountNetworkCompatibility,
+              networkIds: accountFilterNetworkIds,
+              excludeTestNetwork: false,
+            },
+          );
+        compatibleNetworkIdSet = new Set(
+          [...mainnetItems, ...testnetItems].map((network) => network.id),
+        );
+      }
+      const singletonCompatibleNetworkIds =
+        singletonAccountId && compatibleNetworkIdSet
+          ? accountFilterNetworkIds.filter((networkId) =>
+              compatibleNetworkIdSet.has(networkId),
+            )
+          : [];
+      const singletonAccountMetaMap =
+        singletonAccountId && singletonCompatibleNetworkIds.length
+          ? await backgroundApiProxy.serviceAccount.getAccountMetaForNetworksBatch(
+              {
+                pairs: singletonCompatibleNetworkIds.map((networkId) => ({
+                  accountId: singletonAccountId,
+                  networkId,
+                })),
+              },
+            )
+          : undefined;
+      const {
+        networkIdToAddressArray: singletonAccountIdentifierMap,
+        missingNetworkIds: singletonMissingNetworkIds,
+      } = buildBulkExportHistoryAccountIdentifierMap({
+        networkIds: singletonCompatibleNetworkIds,
+        accountMetaMap: singletonAccountMetaMap,
+      });
+      if (singletonMissingNetworkIds.length) {
+        throw new OneKeyLocalError(
+          `Failed to resolve bulk export account on network: ${singletonMissingNetworkIds[0]}`,
+        );
+      }
+      // Keep account filtering atomic. A partially resolved address map would
+      // make missing tasks look authoritative; a failure instead shows the
+      // page retry state so the user never sees a silently incomplete history.
       await Promise.all(
-        networkIds.map(async (networkId) => {
+        accountFilterNetworkIds.map(async (networkId) => {
           let addresses: string[] = [];
-          if (indexedAccountId) {
-            try {
-              addresses = await resolveAccountAddressesOnNetwork({
-                networkId,
-                indexedAccountId,
-              });
-            } catch {
-              addresses = [];
-            }
-          } else if (othersAccountAddress) {
-            addresses = [othersAccountAddress];
+          if (indexedAccountId && compatibleNetworkIdSet?.has(networkId)) {
+            addresses = await resolveAccountAddressesOnNetwork({
+              networkId,
+              indexedAccountId,
+            });
+          } else if (
+            singletonAccountId &&
+            compatibleNetworkIdSet?.has(networkId)
+          ) {
+            addresses = singletonAccountIdentifierMap[networkId] ?? [];
           }
           accountAddressSetMap[networkId] = new Set(
-            addresses.map((address) => address.toLowerCase()),
+            addresses.map((address) =>
+              normalizeAddressForTaskFilter({ networkId, address }),
+            ),
           );
         }),
       );
 
-      return tasks
-        .filter((task) =>
-          Object.entries(task.query?.networkIdToAddressArray ?? {}).some(
-            ([networkId, taskAddresses]) =>
-              (taskAddresses ?? []).some((address) =>
-                accountAddressSetMap[networkId]?.has(address.toLowerCase()),
-              ),
-          ),
-        )
-        .map((task) => task.id);
+      return {
+        scope: accountFilterRequestScope,
+        accountAddressSetMap,
+      };
     },
-    [tasks, indexedAccount?.id, account?.address],
-    { checkIsFocused: false },
+    [
+      accountFilterRequestScope,
+      accountFilterNetworkIdsKey,
+      accountNetworkCompatibility,
+      exportAccountIdentity,
+      hasSelectedAccount,
+      indexedAccountId,
+      singletonAccountId,
+    ],
+    {
+      checkIsFocused: false,
+      watchLoading: true,
+      undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
+    },
   );
 
+  const isTaskFilterReady =
+    accountAddressResult?.scope === accountFilterRequestScope;
   const displayTasks = useMemo(() => {
-    if (!filteredTaskIds) {
+    if (!isTaskFilterReady || !accountAddressResult) {
+      return [];
+    }
+    const { accountAddressSetMap } = accountAddressResult;
+    if (!accountAddressSetMap) {
       return tasks;
     }
-    const filteredTaskIdSet = new Set(filteredTaskIds);
-    return tasks.filter((task) => filteredTaskIdSet.has(task.id));
-  }, [tasks, filteredTaskIds]);
+    return tasks.filter((task) =>
+      isBulkExportHistoryMockTaskId(task.id)
+        ? true
+        : Object.entries(task.query?.networkIdToAddressArray ?? {}).some(
+            ([networkId, taskAddresses]) =>
+              (taskAddresses ?? []).some((address) =>
+                accountAddressSetMap[networkId]?.has(
+                  normalizeAddressForTaskFilter({ networkId, address }),
+                ),
+              ),
+          ),
+    );
+  }, [accountAddressResult, isTaskFilterReady, tasks]);
 
   const hasInProgressTask = useMemo(
     () =>
-      tasks.some(
-        (task) => task.status === 'pending' || task.status === 'processing',
+      displayTasks.some(
+        (task) =>
+          !isBulkExportHistoryMockTaskId(task.id) &&
+          getExportHistoryTaskStatusMeta(task).isInProgress,
       ),
-    [tasks],
+    [displayTasks],
   );
 
-  useEffect(() => {
-    if (!hasInProgressTask) {
-      return undefined;
-    }
-    const timer = setInterval(() => {
-      // ignore transient polling errors; the current list stays visible
-      void run().catch(() => undefined);
-    }, TASK_POLLING_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [hasInProgressTask, run]);
+  useBulkExportHistoryTaskPolling({
+    enabled: hasInProgressTask,
+    isLoading,
+    run,
+  });
+
+  const isTaskListError = isErrorState({ result, isLoading });
+  const isAccountFilterError = isErrorState({
+    result: accountAddressResult,
+    isLoading: isAccountAddressLoading,
+  });
 
   const renderHeaderRight = useCallback(() => {
-    if (!isAccountSyncReady) {
+    if (!isAccountSyncReady || !isAccountReady) {
       return null;
     }
     return (
-      <AccountSelectorProviderMirror
-        config={{
-          sceneName: EAccountSelectorSceneName.bulkExportHistory,
-          sceneUrl: selectorSceneUrl,
-        }}
-        enabledNum={[0]}
-      >
-        <AccountSelectorTriggerBase
-          horizontalLayout
-          autoWidthForHome
-          num={0}
-          showWalletName={media.gtMd}
-        />
-      </AccountSelectorProviderMirror>
+      <TaskListAccountSelector
+        selectorSceneUrl={selectorSceneUrl}
+        showWalletName={media.gtMd}
+      />
     );
-  }, [isAccountSyncReady, media.gtMd, selectorSceneUrl]);
+  }, [isAccountReady, isAccountSyncReady, media.gtMd, selectorSceneUrl]);
 
   return (
     <Page>
       <Page.Header
-        title="Export history"
+        title={intl.formatMessage({
+          id: ETranslations.export_history__title,
+        })}
         headerRight={renderHeaderRight}
         headerRightNoGlass
       />
       <Page.Body>
         <PageFrame
           LoadingSkeleton={TaskListSkeleton}
-          loading={!isAccountSyncReady || isLoadingState({ result, isLoading })}
-          error={isErrorState({ result, isLoading })}
-          onRefresh={run}
+          loading={
+            !isAccountSyncReady ||
+            !isAccountReady ||
+            isLoadingState({ result, isLoading }) ||
+            (!isTaskFilterReady && !isAccountFilterError) ||
+            isLoadingState({
+              result: accountAddressResult,
+              isLoading: isAccountAddressLoading,
+            })
+          }
+          error={isTaskListError || isAccountFilterError}
+          onRefresh={isAccountFilterError ? runAccountAddressLookup : run}
         >
           <ListView
             data={displayTasks}
-            estimatedItemSize="$16"
+            estimatedItemSize={media.gtMd ? 64 : 72}
+            contentContainerStyle={
+              media.gtMd && displayTasks.length
+                ? DESKTOP_TASK_LIST_CONTENT_STYLE
+                : undefined
+            }
             keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => <ExportTaskListItem task={item} />}
+            renderItem={({ item }) => (
+              <ExportTaskListItem
+                task={item}
+                isDesktopLayout={media.gtMd}
+                networkOptions={networkOptions}
+                onPress={onOpenTaskDetail}
+              />
+            )}
             ListEmptyComponent={
               <Empty
                 icon="ClockTimeHistoryOutline"
@@ -437,8 +638,26 @@ function BulkExportHistoryTaskListContent({
 // mount-time syncFromScene below re-seeds the selection anyway.
 const TASK_LIST_SELECTOR_SCENE_URL = 'bulk-export-history-task-list';
 
-function BulkExportHistoryTaskList() {
+function BulkExportHistoryTaskList({
+  navigation,
+}: IPageScreenProps<
+  IModalBulkExportHistoryParamList,
+  EModalBulkExportHistoryRoutes.BulkExportHistoryTaskList
+>) {
   const selectorSceneUrl = TASK_LIST_SELECTOR_SCENE_URL;
+  const handleOpenTaskDetail = useCallback(
+    (taskId: number, selectedNetworkIds: string[]) => {
+      navigation.push(
+        EModalBulkExportHistoryRoutes.BulkExportHistoryTaskDetail,
+        {
+          taskId,
+          selectedNetworkIds,
+          accountSelectorSceneUrl: selectorSceneUrl,
+        },
+      );
+    },
+    [navigation, selectorSceneUrl],
+  );
 
   return (
     <AccountSelectorProviderMirror
@@ -448,7 +667,10 @@ function BulkExportHistoryTaskList() {
       }}
       enabledNum={[0]}
     >
-      <BulkExportHistoryTaskListContent selectorSceneUrl={selectorSceneUrl} />
+      <BulkExportHistoryTaskListContent
+        selectorSceneUrl={selectorSceneUrl}
+        onOpenTaskDetail={handleOpenTaskDetail}
+      />
     </AccountSelectorProviderMirror>
   );
 }

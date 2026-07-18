@@ -2,12 +2,15 @@ import { AccountSelectorTriggerBase } from './AccountSelectorTriggerBase';
 
 export function AccountSelectorTriggerBulkExportHistory({
   num,
+  disabled,
 }: {
   num: number;
+  disabled?: boolean;
 }) {
   return (
     <AccountSelectorTriggerBase
       num={num}
+      disabled={disabled}
       linkNetwork={false}
       showWalletName
       showWalletAvatar

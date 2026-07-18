@@ -2332,9 +2332,16 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchAccountTransactionRange() {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    // The caller renders a retryable in-page error state, so suppress the
+    // default request toast to avoid presenting the same failure twice.
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      autoHandleError: false,
+    };
     const resp = await client.post<{
       data: IFetchAccountTransactionRangeResp;
-    }>('/wallet/v1/account/transaction/export/range', {});
+    }>('/wallet/v1/account/transaction/export/range', {}, requestConfig);
 
     return resp.data.data;
   }

@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -6,12 +7,12 @@ import {
   Alert,
   Checkbox,
   Divider,
+  Empty,
   type IPageScreenProps,
   Page,
   SizableText,
   Spinner,
   Stack,
-  XStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
@@ -45,7 +46,8 @@ export function MultiNetworkSelector({
     initialSelectedNetworkIds,
   );
   const [searchText, setSearchText] = useState('');
-  const { networks, isLoading } = useNetworkOptions(networkIds);
+  const { networks, isLoading, hasError, retry } =
+    useNetworkOptions(networkIds);
   const fuseSearch = useFuseSearch(networks);
 
   const resolvedTitle =
@@ -164,6 +166,10 @@ export function MultiNetworkSelector({
     close();
   }, []);
 
+  const handleRetry = useCallback(() => {
+    void retry();
+  }, [retry]);
+
   const handleConfirm = useCallback(
     (close: () => void) => {
       const nextSelectedNetworkIds = sortSelectedNetworkIds(selectedNetworkIds);
@@ -203,28 +209,51 @@ export function MultiNetworkSelector({
             <Stack flex={1} alignItems="center" justifyContent="center">
               <Spinner size="large" />
             </Stack>
-          ) : (
+          ) : null}
+          {!isLoading && hasError ? (
+            <Empty
+              pt="$24"
+              icon="ErrorOutline"
+              title={intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.global_an_error_occurred_desc,
+              })}
+              buttonProps={{
+                onPress: handleRetry,
+                children: intl.formatMessage({
+                  id: ETranslations.global_retry,
+                }),
+              }}
+            />
+          ) : null}
+          {!isLoading && !hasError ? (
             <Stack gap="$4">
               {topAlert ? (
                 <Alert
-                  icon={topAlert.icon as any}
+                  icon={topAlert.icon as ComponentProps<typeof Alert>['icon']}
                   title={topAlert.title}
                   description={topAlert.description}
                 />
               ) : null}
               {visibleNetworks.length ? (
                 <Stack>
-                  <XStack alignItems="center" justifyContent="space-between">
-                    <SizableText size="$bodyLgMedium">
-                      {resolvedSelectAllLabel}
-                    </SizableText>
+                  <ListItem
+                    py="$2"
+                    px="$3"
+                    mx="$-3"
+                    title={resolvedSelectAllLabel}
+                    testID="multi-network-selector-select-all-item"
+                    onPress={handleToggleAll}
+                  >
                     <Checkbox
                       testID="multi-network-selector-select-all"
                       value={selectAllValue}
                       onChange={handleToggleAll}
                       shouldStopPropagation
                     />
-                  </XStack>
+                  </ListItem>
 
                   <Divider my="$5" />
                   {visibleNetworks.map((network) => {
@@ -272,7 +301,7 @@ export function MultiNetworkSelector({
                 </Stack>
               )}
             </Stack>
-          )}
+          ) : null}
         </Stack>
       </Page.Body>
       <Page.Footer>
@@ -282,7 +311,7 @@ export function MultiNetworkSelector({
           onCancelText={resolvedCancelButtonText}
           onConfirmText={resolvedConfirmButtonText}
           confirmButtonProps={{
-            disabled: selectedNetworkIds.length === 0,
+            disabled: selectedNetworkIds.length === 0 || isLoading || hasError,
           }}
         />
       </Page.Footer>

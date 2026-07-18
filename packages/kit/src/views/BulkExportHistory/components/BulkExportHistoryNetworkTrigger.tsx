@@ -1,7 +1,6 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 
-import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
-import { useNetworkOptions } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useNetworkOptions';
+import { Icon, Stack, XStack } from '@onekeyhq/components';
 
 import BulkExportHistoryNetworkAvatars from './BulkExportHistoryNetworkAvatars';
 
@@ -14,13 +13,6 @@ function BulkExportHistoryNetworkTrigger({
   disabled?: boolean;
   onPress?: () => void;
 }) {
-  const { networks: selectedNetworks } = useNetworkOptions(selectedNetworkIds);
-
-  const selectedNetworkNames = useMemo(
-    () => selectedNetworks.map((network) => network.name).join(', '),
-    [selectedNetworks],
-  );
-
   return (
     <Stack
       userSelect="none"
@@ -46,16 +38,16 @@ function BulkExportHistoryNetworkTrigger({
         opacity: 0.5,
       })}
     >
-      <XStack flex={1} alignItems="center" gap="$3">
-        <BulkExportHistoryNetworkAvatars networkIds={selectedNetworkIds} />
-        <SizableText
-          flex={1}
-          size="$bodyLg"
-          numberOfLines={1}
-          testID="bulk-export-history-network-trigger-text"
-        >
-          {selectedNetworkNames}
-        </SizableText>
+      <XStack flex={1} minWidth={0} alignItems="center" gap="$3">
+        <BulkExportHistoryNetworkAvatars
+          networkIds={selectedNetworkIds}
+          showNames
+          nameTextProps={{
+            size: '$bodyLg',
+            numberOfLines: 1,
+            testID: 'bulk-export-history-network-trigger-text',
+          }}
+        />
       </XStack>
       <Icon name="ChevronDownSmallOutline" mr="$-0.5" color="$iconSubdued" />
     </Stack>

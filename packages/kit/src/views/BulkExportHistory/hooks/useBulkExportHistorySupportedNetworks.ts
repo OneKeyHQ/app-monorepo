@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useBulkExportHistorySupportedNetworksPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IAccountTransactionRange,
   IFetchAccountTransactionRangeResp,
@@ -10,12 +12,16 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
+import type { IBulkExportHistoryAccountNetworkCompatibility } from '../utils/bulkExportHistoryAccountUtils';
+
 function resolveDefaultSelectedNetworkIds({
   homeNetworkId,
+  initialSelectedNetworkIds,
   supportedNetworkIds,
   allNetworkEnabledNetworkIds,
 }: {
   homeNetworkId?: string;
+  initialSelectedNetworkIds?: string[];
   supportedNetworkIds: string[];
   allNetworkEnabledNetworkIds?: string[];
 }) {
@@ -23,6 +29,16 @@ function resolveDefaultSelectedNetworkIds({
 
   if (!supportedNetworkIds.length) {
     return [];
+  }
+
+  if (initialSelectedNetworkIds?.length) {
+    const supportedSet = new Set(supportedNetworkIds);
+    const matched = Array.from(new Set(initialSelectedNetworkIds)).filter(
+      (networkId) => supportedSet.has(networkId),
+    );
+    if (matched.length > 0) {
+      return matched;
+    }
   }
 
   // When coming from all-networks mode, select the intersection of
@@ -58,15 +74,30 @@ function resolveDefaultSelectedNetworkIds({
 
 export function useBulkExportHistorySupportedNetworks({
   homeNetworkId,
+  initialSelectedNetworkIds,
+  accountNetworkCompatibility,
 }: {
   homeNetworkId?: string;
+  initialSelectedNetworkIds?: string[];
+  accountNetworkCompatibility?: IBulkExportHistoryAccountNetworkCompatibility;
 }) {
   const [cachedSupportedNetworkIds, setCachedSupportedNetworkIds] =
     useBulkExportHistorySupportedNetworksPersistAtom();
   const [rangeResp, setRangeResp] =
     useState<IFetchAccountTransactionRangeResp>();
   const [isRangeLoading, setIsRangeLoading] = useState(true);
+  const [hasRangeError, setHasRangeError] = useState(false);
   const [isRangeRequestFinished, setIsRangeRequestFinished] = useState(false);
+  const [rangeRequestVersion, setRangeRequestVersion] = useState(0);
+  const [
+    networkCompatibilityRequestVersion,
+    setNetworkCompatibilityRequestVersion,
+  ] = useState(0);
+  const [networkCompatibilityResult, setNetworkCompatibilityResult] = useState<{
+    scope: string;
+    networkIds: string[];
+    hasError: boolean;
+  }>();
   const [selectedNetworkIdsState, setSelectedNetworkIdsState] = useState<
     string[]
   >([]);
@@ -85,15 +116,33 @@ export function useBulkExportHistorySupportedNetworks({
     let cancelled = false;
     void (async () => {
       try {
-        const state =
-          await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+        const [state, { networks }] = await Promise.all([
+          backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+          backgroundApiProxy.serviceNetwork.getAllNetworks({
+            excludeTestNetwork: false,
+            excludeAllNetworkItem: true,
+          }),
+        ]);
         if (!cancelled) {
           setAllNetworkEnabledNetworkIds(
-            Object.keys(state.enabledNetworks ?? {}),
+            networks
+              .filter((network) =>
+                isEnabledNetworksInAllNetworks({
+                  networkId: network.id,
+                  disabledNetworks: state.disabledNetworks,
+                  enabledNetworks: state.enabledNetworks,
+                  isTestnet: network.isTestnet,
+                }),
+              )
+              .map((network) => network.id),
           );
         }
       } catch {
-        // ignore
+        if (!cancelled) {
+          // Mark the lookup as resolved so the page can fall back to one
+          // supported network instead of remaining in a loading state.
+          setAllNetworkEnabledNetworkIds([]);
+        }
       }
     })();
     return () => {
@@ -110,8 +159,14 @@ export function useBulkExportHistorySupportedNetworks({
     () => Object.keys(rangeResp ?? {}),
     [rangeResp],
   );
+  const hasEmptyRange = Boolean(
+    isRangeRequestFinished &&
+    !hasRangeError &&
+    rangeResp &&
+    apiSupportedNetworkIds.length === 0,
+  );
 
-  const supportedNetworkIds = useMemo(() => {
+  const unfilteredSupportedNetworkIds = useMemo(() => {
     if (apiSupportedNetworkIds.length > 0) {
       return apiSupportedNetworkIds;
     }
@@ -132,11 +187,123 @@ export function useBulkExportHistorySupportedNetworks({
     isRangeRequestFinished,
   ]);
 
+  const unfilteredSupportedNetworkIdsKey = JSON.stringify(
+    unfilteredSupportedNetworkIds,
+  );
+  const accountIdForNetworkCompatibility =
+    accountNetworkCompatibility?.accountId;
+  const walletIdForNetworkCompatibility = accountNetworkCompatibility?.walletId;
+  let networkCompatibilityIdentity: string | undefined;
+  if (accountIdForNetworkCompatibility) {
+    networkCompatibilityIdentity = `account:${accountIdForNetworkCompatibility}`;
+  } else if (walletIdForNetworkCompatibility) {
+    networkCompatibilityIdentity = `wallet:${walletIdForNetworkCompatibility}`;
+  }
+  const networkCompatibilityScope = networkCompatibilityIdentity
+    ? `${networkCompatibilityIdentity}:${unfilteredSupportedNetworkIdsKey}:${networkCompatibilityRequestVersion}`
+    : undefined;
+
+  useEffect(() => {
+    if (!networkCompatibilityIdentity || !networkCompatibilityScope) {
+      return;
+    }
+
+    let cancelled = false;
+    const networkIds = JSON.parse(unfilteredSupportedNetworkIdsKey) as string[];
+
+    const fetchCompatibleNetworkIds = async () => {
+      if (!networkIds.length) {
+        setNetworkCompatibilityResult({
+          scope: networkCompatibilityScope,
+          networkIds: [],
+          hasError: false,
+        });
+        return;
+      }
+
+      try {
+        const { mainnetItems, testnetItems } =
+          await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+            {
+              accountId: accountIdForNetworkCompatibility,
+              walletId: walletIdForNetworkCompatibility,
+              networkIds,
+              excludeTestNetwork: false,
+            },
+          );
+        if (cancelled) {
+          return;
+        }
+
+        const compatibleNetworkIdSet = new Set(
+          [...mainnetItems, ...testnetItems].map((network) => network.id),
+        );
+        setNetworkCompatibilityResult({
+          scope: networkCompatibilityScope,
+          networkIds: networkIds.filter((networkId) =>
+            compatibleNetworkIdSet.has(networkId),
+          ),
+          hasError: false,
+        });
+      } catch {
+        if (!cancelled) {
+          setNetworkCompatibilityResult({
+            scope: networkCompatibilityScope,
+            networkIds: [],
+            hasError: true,
+          });
+        }
+      }
+    };
+
+    void fetchCompatibleNetworkIds();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    accountIdForNetworkCompatibility,
+    networkCompatibilityScope,
+    networkCompatibilityIdentity,
+    unfilteredSupportedNetworkIdsKey,
+    walletIdForNetworkCompatibility,
+  ]);
+
+  const currentNetworkCompatibilityResult =
+    networkCompatibilityResult?.scope === networkCompatibilityScope
+      ? networkCompatibilityResult
+      : undefined;
+  const isNetworkCompatibilityReady = Boolean(
+    !networkCompatibilityIdentity || currentNetworkCompatibilityResult,
+  );
+  const hasNetworkCompatibilityError = Boolean(
+    networkCompatibilityIdentity &&
+    isNetworkCompatibilityReady &&
+    currentNetworkCompatibilityResult?.hasError,
+  );
+  const supportedNetworkIds = useMemo(() => {
+    if (!networkCompatibilityIdentity) {
+      return unfilteredSupportedNetworkIds;
+    }
+    if (
+      !currentNetworkCompatibilityResult ||
+      currentNetworkCompatibilityResult.hasError
+    ) {
+      return [];
+    }
+    return currentNetworkCompatibilityResult.networkIds;
+  }, [
+    currentNetworkCompatibilityResult,
+    networkCompatibilityIdentity,
+    unfilteredSupportedNetworkIds,
+  ]);
+
   useEffect(() => {
     let cancelled = false;
 
     const fetchRange = async () => {
       setIsRangeLoading(true);
+      setHasRangeError(false);
 
       try {
         const resp =
@@ -152,7 +319,9 @@ export function useBulkExportHistorySupportedNetworks({
           setCachedSupportedNetworkIds(nextSupportedNetworkIds);
         }
       } catch {
-        // Ignore range request errors and fall back to cache or static ids.
+        if (!cancelled) {
+          setHasRangeError(true);
+        }
       } finally {
         if (!cancelled) {
           setIsRangeLoading(false);
@@ -166,7 +335,12 @@ export function useBulkExportHistorySupportedNetworks({
     return () => {
       cancelled = true;
     };
-  }, [setCachedSupportedNetworkIds]);
+  }, [rangeRequestVersion, setCachedSupportedNetworkIds]);
+
+  const retryRangeRequest = useCallback(() => {
+    setRangeRequestVersion((version) => version + 1);
+    setNetworkCompatibilityRequestVersion((version) => version + 1);
+  }, []);
 
   const setSelectedNetworkIds = useCallback(
     (networkIds: string[]) => {
@@ -181,6 +355,7 @@ export function useBulkExportHistorySupportedNetworks({
             ? nextSelectedNetworkIds
             : resolveDefaultSelectedNetworkIds({
                 homeNetworkId,
+                initialSelectedNetworkIds,
                 supportedNetworkIds,
                 allNetworkEnabledNetworkIds,
               });
@@ -196,17 +371,28 @@ export function useBulkExportHistorySupportedNetworks({
         return nextValue;
       });
     },
-    [homeNetworkId, supportedNetworkIds, allNetworkEnabledNetworkIds],
+    [
+      homeNetworkId,
+      initialSelectedNetworkIds,
+      supportedNetworkIds,
+      allNetworkEnabledNetworkIds,
+    ],
   );
 
   useEffect(() => {
+    if (!isNetworkCompatibilityReady) {
+      return;
+    }
+
     if (!supportedNetworkIds.length) {
+      setSelectedNetworkIdsState([]);
       return;
     }
 
     const supportedNetworkIdSet = new Set(supportedNetworkIds);
     const nextDefaultSelectedNetworkIds = resolveDefaultSelectedNetworkIds({
       homeNetworkId,
+      initialSelectedNetworkIds,
       supportedNetworkIds,
       allNetworkEnabledNetworkIds,
     });
@@ -231,7 +417,13 @@ export function useBulkExportHistorySupportedNetworks({
 
       return nextDefaultSelectedNetworkIds;
     });
-  }, [homeNetworkId, supportedNetworkIds, allNetworkEnabledNetworkIds]);
+  }, [
+    homeNetworkId,
+    initialSelectedNetworkIds,
+    supportedNetworkIds,
+    allNetworkEnabledNetworkIds,
+    isNetworkCompatibilityReady,
+  ]);
 
   const selectedRangeMap = useMemo(() => {
     if (!rangeResp || !selectedNetworkIdsState.length) {
@@ -239,8 +431,12 @@ export function useBulkExportHistorySupportedNetworks({
     }
 
     const nextSelectedRangeMap: Record<string, IAccountTransactionRange> = {};
+    const supportedNetworkIdSet = new Set(supportedNetworkIds);
 
     for (const networkId of selectedNetworkIdsState) {
+      if (!supportedNetworkIdSet.has(networkId)) {
+        return undefined;
+      }
       const range = rangeResp[networkId];
       if (!range) {
         return undefined;
@@ -249,7 +445,7 @@ export function useBulkExportHistorySupportedNetworks({
     }
 
     return nextSelectedRangeMap;
-  }, [rangeResp, selectedNetworkIdsState]);
+  }, [rangeResp, selectedNetworkIdsState, supportedNetworkIds]);
 
   const effectiveRange = useMemo(() => {
     if (!selectedRangeMap) {
@@ -286,7 +482,15 @@ export function useBulkExportHistorySupportedNetworks({
     selectedRangeMap,
     effectiveRange,
     hasRangeData: Boolean(selectedRangeMap && effectiveRange),
-    isLoading: supportedNetworkIds.length === 0,
+    isLoading:
+      (!isRangeRequestFinished && unfilteredSupportedNetworkIds.length === 0) ||
+      (isRangeLoading && !rangeResp) ||
+      (isAllNetworkHome && allNetworkEnabledNetworkIds === undefined) ||
+      !isNetworkCompatibilityReady,
     isRangeLoading,
+    hasRangeError:
+      (hasRangeError && !rangeResp) || hasNetworkCompatibilityError,
+    hasEmptyRange,
+    retryRangeRequest,
   };
 }

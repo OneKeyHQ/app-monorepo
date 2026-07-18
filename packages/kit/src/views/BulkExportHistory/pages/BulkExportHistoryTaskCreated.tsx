@@ -35,16 +35,19 @@ function BulkExportHistoryTaskCreated() {
       />
       <Page.Body pt="$10">
         <Empty
-          icon="CheckRadioSolid"
-          iconProps={{ color: '$iconSuccess' }}
-          title="Export started"
-          description="Your CSV is being generated in the background. We'll notify you when it's ready. You can also view this export in Export History."
+          icon="TxStatusSuccessCircleIllus"
+          title={intl.formatMessage({
+            id: ETranslations.export_task_created__title,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.export_started__desc,
+          })}
         />
       </Page.Body>
       <Page.Footer>
         <Page.FooterActions
           onCancelText={intl.formatMessage({
-            id: ETranslations.redemption_btc_success_view_history,
+            id: ETranslations.view_export_history__action,
           })}
           cancelButtonProps={{
             onPress: handleViewHistory,

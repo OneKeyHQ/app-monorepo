@@ -84,7 +84,7 @@ function TxHistorySettingsContent({
   isFilterLowValueHistoryEnabled,
   onFilterScamHistoryChange,
   onFilterLowValueHistoryChange,
-  exportHistoryText,
+  exportHistoryDescription,
   exportHistoryTitle,
   isPrimeSubscriptionActive,
   networkId,
@@ -95,7 +95,7 @@ function TxHistorySettingsContent({
   isFilterLowValueHistoryEnabled: boolean;
   onFilterScamHistoryChange: (value: boolean) => void;
   onFilterLowValueHistoryChange: (value: boolean) => void;
-  exportHistoryText: string;
+  exportHistoryDescription: string;
   exportHistoryTitle: ReactNode;
   isPrimeSubscriptionActive: boolean;
   networkId: string | undefined;
@@ -174,11 +174,15 @@ function TxHistorySettingsContent({
           defaultChecked={isFilterLowValueHistoryEnabled}
         />
       </ListItem>
-      <ListItem onPress={handleExportHistoryPress} drillIn>
+      <ListItem
+        testID="home-export-transaction-history"
+        onPress={handleExportHistoryPress}
+        drillIn
+      >
         <ListItem.Text
           flex={1}
           primary={exportHistoryTitle}
-          secondary={exportHistoryText}
+          secondary={exportHistoryDescription}
         />
       </ListItem>
     </Stack>
@@ -189,17 +193,24 @@ function TxHistorySettings() {
   const intl = useIntl();
   const [settings, setSettings] = useSettingsPersistAtom();
   const { isPrimeSubscriptionActive } = useOneKeyAuth();
-  const exportHistoryText = useMemo(
+  const exportHistoryTitleText = useMemo(
     () =>
       intl.formatMessage({
         id: ETranslations.global_export_transaction_history,
       }),
     [intl],
   );
+  const exportHistoryDescription = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.export_transaction_history__desc,
+      }),
+    [intl],
+  );
   const exportHistoryTitle = useMemo(
     () => (
       <XStack alignItems="center" gap="$2">
-        <SizableText size="$bodyLgMedium">{exportHistoryText}</SizableText>
+        <SizableText size="$bodyLgMedium">{exportHistoryTitleText}</SizableText>
         {isPrimeSubscriptionActive ? null : (
           <Badge badgeSize="sm" badgeType="default">
             <Badge.Text size="$bodySmMedium">
@@ -211,7 +222,7 @@ function TxHistorySettings() {
         )}
       </XStack>
     ),
-    [exportHistoryText, intl, isPrimeSubscriptionActive],
+    [exportHistoryTitleText, intl, isPrimeSubscriptionActive],
   );
 
   const handleFilterScamHistoryOnChange = useCallback(
@@ -271,7 +282,7 @@ function TxHistorySettings() {
             }
             onFilterScamHistoryChange={handleFilterScamHistoryOnChange}
             onFilterLowValueHistoryChange={handleFilterLowValueHistoryOnChange}
-            exportHistoryText={exportHistoryText}
+            exportHistoryDescription={exportHistoryDescription}
             exportHistoryTitle={exportHistoryTitle}
             isPrimeSubscriptionActive={!!isPrimeSubscriptionActive}
             networkId={network?.id}

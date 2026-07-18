@@ -33,6 +33,7 @@ export function AccountSelectorTriggerBase({
   showWalletAvatar,
   showWalletName = true,
   showConnectWalletModalInDappMode,
+  disabled,
   linkNetworkId,
   linkNetwork,
   containerProps,
@@ -45,6 +46,7 @@ export function AccountSelectorTriggerBase({
   showWalletAvatar?: boolean;
   showWalletName?: boolean;
   showConnectWalletModalInDappMode?: boolean;
+  disabled?: boolean;
   containerProps?: IXStackProps;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const { sceneName } = useAccountSelectorSceneInfo();
@@ -66,12 +68,14 @@ export function AccountSelectorTriggerBase({
 
   const isWebDappModeWithNoWallet =
     platformEnv.isWebDappMode && !wallet && !accountName;
-  const isTriggerDisabled =
+  const isWebDappAccountLocked = Boolean(
     platformEnv.isWebDappMode &&
     sceneName === EAccountSelectorSceneName.homeUrlAccount &&
-    !isWebDappModeWithNoWallet;
+    !isWebDappModeWithNoWallet,
+  );
+  const isTriggerDisabled = Boolean(disabled || isWebDappAccountLocked);
   const displayLabel =
-    isTriggerDisabled && account?.address
+    isWebDappAccountLocked && account?.address
       ? accountUtils.shortenAddress({ address: account.address })
       : displayAccountName;
 
@@ -92,6 +96,7 @@ export function AccountSelectorTriggerBase({
           h="$8"
           shadowOpacity={0}
           elevation={0}
+          disabled={isTriggerDisabled}
           hoverStyle={{
             opacity: 0.9,
           }}
