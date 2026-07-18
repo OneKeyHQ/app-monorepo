@@ -132,6 +132,19 @@ export interface IDexSortParams {
   sortDirection?: 'asc' | 'desc';
 }
 
+export interface IDexFilterChipParams {
+  action:
+    | 'presetClick'
+    | 'conditionChange'
+    | 'conditionRemove'
+    | 'clearAll'
+    | 'popoverConfirm';
+  presetId?: string;
+  field?: string;
+  value?: number;
+  conditionCount?: number;
+}
+
 export interface IDexCopyCAParams {
   copyFrom: ECopyFrom;
   copiedContent: string;

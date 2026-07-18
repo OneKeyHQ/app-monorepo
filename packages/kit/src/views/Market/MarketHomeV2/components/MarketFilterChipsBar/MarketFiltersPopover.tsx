@@ -10,6 +10,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { MARKET_FILTER_FIELD_CONFIGS } from './marketListFilterConfig';
 import { useMarketListFilter } from './MarketListFilterContext';
@@ -244,6 +245,10 @@ export function MarketFiltersPopover({
               flex={1}
               variant="primary"
               onPress={() => {
+                defaultLogger.dex.list.dexFilterChip({
+                  action: 'popoverConfirm',
+                  conditionCount: Object.keys(draft).length,
+                });
                 setFilterState({
                   conditions: draft,
                   activePresetId: undefined,

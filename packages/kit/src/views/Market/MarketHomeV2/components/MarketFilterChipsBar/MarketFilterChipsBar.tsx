@@ -9,6 +9,7 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
   MARKET_FILTER_FIELD_CONFIG_MAP,
@@ -152,6 +153,10 @@ export function MarketFilterChipsBar({
     conditionEntries.length > 0 || Boolean(filterState.activePresetId);
 
   const removeField = (field: EMarketFilterField) => {
+    defaultLogger.dex.list.dexFilterChip({
+      action: 'conditionRemove',
+      field,
+    });
     const nextConditions = { ...filterState.conditions };
     delete nextConditions[field];
     setFilterState({
@@ -186,12 +191,16 @@ export function MarketFilterChipsBar({
               key={preset.id}
               size="small"
               variant="tertiary"
-              onPress={() =>
+              onPress={() => {
+                defaultLogger.dex.list.dexFilterChip({
+                  action: 'presetClick',
+                  presetId: preset.id,
+                });
                 setFilterState({
                   conditions: preset.conditions,
                   activePresetId: preset.id,
-                })
-              }
+                });
+              }}
               testID={`market-filter-preset-${preset.id}`}
             >
               {preset.label}
@@ -208,6 +217,11 @@ export function MarketFilterChipsBar({
               isOpen={openField === field}
               onOpenChange={(open) => setOpenField(open ? field : undefined)}
               onSelectTier={(tierValue) => {
+                defaultLogger.dex.list.dexFilterChip({
+                  action: 'conditionChange',
+                  field,
+                  value: tierValue,
+                });
                 setFilterState({
                   ...filterState,
                   conditions: {
@@ -227,9 +241,12 @@ export function MarketFilterChipsBar({
             icon="CrossedSmallOutline"
             size="small"
             variant="tertiary"
-            onPress={() =>
-              setFilterState({ conditions: {}, activePresetId: undefined })
-            }
+            onPress={() => {
+              defaultLogger.dex.list.dexFilterChip({
+                action: 'clearAll',
+              });
+              setFilterState({ conditions: {}, activePresetId: undefined });
+            }}
             testID="market-filter-chips-clear-all"
           />
         </>

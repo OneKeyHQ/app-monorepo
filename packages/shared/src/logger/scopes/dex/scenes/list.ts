@@ -2,6 +2,7 @@ import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 import type {
+  IDexFilterChipParams,
   IDexListParams,
   IDexNetworkLoadingParams,
   IDexNetworkParams,
@@ -45,6 +46,15 @@ export class ListScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public dexSort(params: IDexSortParams) {
+    return params;
+  }
+
+  /**
+   * Track trending quick-filter chip interactions (P2-9 demo).
+   */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public dexFilterChip(params: IDexFilterChipParams) {
     return params;
   }
 }
