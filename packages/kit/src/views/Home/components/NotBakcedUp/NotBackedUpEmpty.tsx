@@ -21,6 +21,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
+import { HomeTestIDs } from '../../testIDs';
+
 function NotBackedUp() {
   const intl = useIntl();
   const {
@@ -119,7 +121,7 @@ function NotBackedUp() {
           variant="primary"
           size="large"
           onPress={handlePrimaryBackup}
-          testID="home-not-backed-up-primary-backup"
+          testID={HomeTestIDs.notBackedUpPrimaryBackup}
         >
           {primaryButtonText}
         </Button>
@@ -128,7 +130,10 @@ function NotBackedUp() {
           hidePhrase={!enableCloudBackup}
           hideCloud={!!enableCloudBackup}
         >
-          <Button size="large" testID="home-not-backed-up-more-backup-options">
+          <Button
+            size="large"
+            testID={HomeTestIDs.notBackedUpMoreBackupOptions}
+          >
             {intl.formatMessage({ id: ETranslations.more_backup_options })}
           </Button>
         </WalletBackupActions>

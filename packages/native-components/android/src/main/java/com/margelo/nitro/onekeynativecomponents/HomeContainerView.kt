@@ -49,7 +49,6 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   private val adapter = HomePagerAdapter()
   private val headerView = HomeHeaderView(context)
   private val tabsView = HomeTabsView(context)
-  private val bodySlotTarget = FrameLayout(context)
   private val refreshPages = mutableMapOf<String, HomePageView>()
   private var snapshot: HomeContainerSnapshot? = null
   private var selectedTabId = ""
@@ -66,8 +65,6 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   private var chromeDownY = 0f
   private var chromeDownEvent: MotionEvent? = null
   private var externalHorizontalTarget: View? = null
-  private val isBodySlotMounted: Boolean
-    get() = mountedSlotKeys.contains("content.body")
 
   init {
     clipChildren = true
@@ -75,10 +72,8 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     pager.adapter = adapter
     pager.offscreenPageLimit = 5
     addView(pager, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-    addView(bodySlotTarget, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     addView(headerView, LayoutParams(LayoutParams.MATCH_PARENT, 0))
     addView(tabsView, LayoutParams(LayoutParams.MATCH_PARENT, dp(TAB_HEIGHT_DP)))
-    bodySlotTarget.visibility = GONE
     headerView.onAction = { actionId, itemId ->
       onAction?.invoke(actionId, itemId, selectedTabId)
     }
@@ -290,7 +285,6 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     val contentHeaderPrefix = "content.header."
     val footerPrefix = "content.footer.$selectedTabId."
     val target = when {
-      key == "content.body" && isBodySlotMounted -> bodySlotTarget
       key.startsWith(statePrefix) && key.removePrefix(statePrefix) == selectedTabId ->
         adapter.pageForTab(selectedTabId)?.stateSlotTarget()
       key.startsWith(contentHeaderPrefix) && key.removePrefix(contentHeaderPrefix) == selectedTabId ->
@@ -315,11 +309,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   }
 
   fun setFallbackBackgroundColor(value: String) {
-    post {
-      val color = parseHomeContainerColor(value, Color.WHITE)
-      setBackgroundColor(color)
-      bodySlotTarget.setBackgroundColor(color)
-    }
+    post { setBackgroundColor(parseHomeContainerColor(value, Color.WHITE)) }
   }
 
   fun setDebugOverlayEnabled(enabled: Boolean) {
@@ -365,9 +355,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     val current = snapshot
     if (current != null && next.revision < current.revision) return
     snapshot = next
-    val backgroundColor = parseHomeContainerColor(next.theme.backgroundColor, Color.WHITE)
-    setBackgroundColor(backgroundColor)
-    bodySlotTarget.setBackgroundColor(backgroundColor)
+    setBackgroundColor(parseHomeContainerColor(next.theme.backgroundColor, Color.WHITE))
     headerView.bind(next.header, next.theme)
     headerHeight = headerView.preferredHeight
     tabsView.bind(next.tabs, next.selectedTabId, next.theme)
@@ -568,27 +556,14 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       headerView.layoutParams = this
     }
     (tabsView.layoutParams as LayoutParams).apply {
-      height = if (isBodySlotMounted) 0 else dp(TAB_HEIGHT_DP)
+      height = dp(TAB_HEIGHT_DP)
       topMargin = headerHeight
       tabsView.layoutParams = this
-    }
-    pager.visibility = if (isBodySlotMounted) GONE else VISIBLE
-    tabsView.visibility = if (isBodySlotMounted) GONE else VISIBLE
-    bodySlotTarget.visibility = if (isBodySlotMounted) VISIBLE else GONE
-    if (isBodySlotMounted) {
-      collapseOffset = 0
-      refreshPullOffset = 0
     }
     updateSharedChromePosition()
   }
 
   private fun updateSharedChromePosition() {
-    if (isBodySlotMounted) {
-      headerView.translationY = 0f
-      tabsView.translationY = 0f
-      onSlotLayoutChange?.invoke()
-      return
-    }
     val boundedOffset = collapseOffset.coerceIn(0, headerHeight)
     headerView.translationY = (-boundedOffset + refreshPullOffset).toFloat()
     tabsView.translationY = (-boundedOffset + refreshPullOffset).toFloat()
@@ -597,9 +572,6 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
 
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
     super.onLayout(changed, left, top, right, bottom)
-    if (isBodySlotMounted) {
-      bodySlotTarget.layout(0, headerHeight, width, height)
-    }
     onSlotLayoutChange?.invoke()
   }
 

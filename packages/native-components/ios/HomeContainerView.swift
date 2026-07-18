@@ -554,7 +554,6 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private let pager = HomeContainerPagerScrollView()
   private let headerView = HomeContainerHeaderView()
   private let tabsView = HomeContainerTabsView()
-  private let bodySlotHost = HomeContainerSlotHostView()
   private let refreshControl = UIRefreshControl()
   private let parsingQueue = DispatchQueue(
     label: "so.onekey.home-container.decode",
@@ -579,10 +578,6 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   private var maximumHeaderOffset: CGFloat {
     max(0, headerHeight - HomeContainerMetrics.compactHeaderHeight)
-  }
-
-  private var isBodySlotMounted: Bool {
-    mountedSlotKeys.contains("content.body")
   }
 
   private var usesUnifiedVerticalDriver: Bool {
@@ -616,8 +611,6 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     outerScrollView.addSubview(headerView)
     outerScrollView.addSubview(pager)
     outerScrollView.addSubview(tabsView)
-    outerScrollView.addSubview(bodySlotHost)
-    bodySlotHost.isHidden = true
     headerView.onAction = { [weak self] actionId, itemId in
       guard let self else { return }
       self.onAction?(actionId, itemId, self.selectedTabId)
@@ -670,34 +663,6 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     }
     outerScrollView.frame = bounds
     headerView.frame = CGRect(x: 0, y: 0, width: bounds.width, height: headerHeight)
-    if isBodySlotMounted {
-      headerView.transform = .identity
-      tabsView.transform = .identity
-      pager.transform = .identity
-      headerView.setPinnedOffset(0)
-      tabsView.isHidden = true
-      pager.isHidden = true
-      bodySlotHost.isHidden = false
-      bodySlotHost.frame = CGRect(
-        x: 0,
-        y: headerHeight,
-        width: bounds.width,
-        height: max(0, bounds.height - headerHeight)
-      )
-      outerScrollView.isScrollEnabled = false
-      refreshControl.isEnabled = false
-      outerScrollView.contentSize = bounds.size
-      outerScrollView.contentOffset = .zero
-      slotLayoutDidChange?()
-      return
-    }
-    tabsView.isHidden = false
-    pager.isHidden = false
-    bodySlotHost.isHidden = true
-    outerScrollView.isScrollEnabled = true
-    refreshControl.isEnabled = usesUnifiedVerticalDriver
-      ? refreshEnabled
-      : refreshEnabled && verticalScrollOwner == .header
     let pagerHeight = max(0, bounds.height - HomeContainerMetrics.tabHeight)
     pager.frame = CGRect(
       x: 0,
@@ -833,9 +798,6 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   @objc(slotHostViewForKey:)
   func slotHostView(forKey key: String) -> UIView? {
-    if key == "content.body" {
-      return isBodySlotMounted && !bodySlotHost.isHidden ? bodySlotHost : nil
-    }
     if key.hasPrefix("header.") {
       return headerView.slotHostView(forKey: key)
     }
@@ -850,9 +812,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   func setFallbackBackgroundColor(_ value: String) {
     DispatchQueue.main.async { [weak self] in
-      let color = UIColor(homeContainerColor: value, fallback: .systemBackground)
-      self?.backgroundColor = color
-      self?.bodySlotHost.backgroundColor = color
+      self?.backgroundColor = UIColor(homeContainerColor: value, fallback: .systemBackground)
     }
   }
 
@@ -892,7 +852,6 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       fallback: .systemBackground
     )
     pager.backgroundColor = backgroundColor
-    bodySlotHost.backgroundColor = backgroundColor
 
     headerView.apply(header: next.header, theme: next.theme)
     headerHeight = headerView.preferredHeight
@@ -1082,13 +1041,6 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   private func updateSharedChromeLayout() {
-    if isBodySlotMounted {
-      headerView.transform = .identity
-      tabsView.transform = .identity
-      pager.transform = .identity
-      headerView.setPinnedOffset(0)
-      return
-    }
     tabsView.transform = .identity
     let combinedOffset = outerScrollView.contentOffset.y
     let pinnedOffset = max(0, min(combinedOffset, maximumHeaderOffset))

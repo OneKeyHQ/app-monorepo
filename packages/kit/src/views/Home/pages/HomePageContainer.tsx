@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { Stack, useIsDesktopModeUIInTabPages } from '@onekeyhq/components';
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
@@ -31,6 +38,7 @@ import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
 import { isNativeHomeEnabled } from '../nativeHomeFeatureFlag';
 import { NativeHomePageView } from '../NativeHomePageView';
 
+import { EmptyWalletHomePage } from './EmptyWalletHomePage';
 import { shouldMountHomeForegroundEffects } from './homeLaunchVisibility';
 import { resolveHomeWalletContentReadiness } from './homePageNoWalletContent';
 import { HomePageView } from './HomePageView';
@@ -38,6 +46,10 @@ import {
   HomeWalletListProvider,
   useHomeWalletList,
 } from './HomeWalletListProvider';
+import {
+  type IHomeWalletPageSurfaceState,
+  resolveHomeWalletPageSurface,
+} from './homeWalletPageSurface';
 
 function EmptyRenderTest() {
   // console.log('AccountSelectorAtomChanged EmptyRenderTest render');
@@ -71,7 +83,7 @@ function SelectedAccountsMapTest() {
   return null;
 }
 
-function HomeLaunchGatedContent({
+export function HomeLaunchGatedContent({
   nativeHomeEnabled,
   sceneName,
   onPressHide,
@@ -104,13 +116,30 @@ function HomeLaunchGatedContent({
     activeWalletUnavailable: accountUtils.isWalletDeprecatedOrMocked(wallet),
     activeWalletId: wallet?.id,
   });
+  const walletListWallet = walletListResult?.wallets.find(
+    (item) => item.id === wallet?.id,
+  );
+  const previousPageSurfaceRef = useRef<
+    IHomeWalletPageSurfaceState | undefined
+  >(undefined);
+  const pageSurface = resolveHomeWalletPageSurface({
+    launchDecision: launchSnapshot.decision,
+    walletContentReadiness,
+    activeWallet: wallet,
+    walletListWallet,
+    nativeHomeEnabled,
+    previous: previousPageSurfaceRef.current,
+  });
+  useLayoutEffect(() => {
+    previousPageSurfaceRef.current = pageSurface;
+  }, [pageSurface]);
   const mainHomeReady = isMainHomeReadyToReveal({
     launchDecision: launchSnapshot.decision,
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
     activeAccountReady,
     walletListReady: !walletListPending,
-    activeWalletReady: walletContentReadiness !== 'pending',
+    activeWalletReady: pageSurface.surface !== 'pending',
   });
   const shouldGateHome = platformEnv.isNative;
   const currentGenerationReady =
@@ -137,19 +166,28 @@ function HomeLaunchGatedContent({
           isHomeVisible ? 'auto' : 'no-hide-descendants'
         }
       >
-        {nativeHomeEnabled ? (
+        {pageSurface.surface === 'not-backed-up-rn' ? (
+          <EmptyWalletHomePage
+            key={`empty-wallet-${pageSurface.walletId ?? ''}`}
+            variant="notBackedUp"
+            sceneName={sceneName}
+          />
+        ) : null}
+        {pageSurface.surface === 'native' ? (
           <NativeHomePageView
-            key={`native-${sceneName}`}
+            key={`native-${sceneName}-${pageSurface.walletId ?? ''}`}
             sceneName={sceneName}
             onPressHide={onPressHide}
           />
-        ) : (
+        ) : null}
+        {pageSurface.surface === 'legacy' ||
+        pageSurface.surface === 'no-wallet' ? (
           <HomePageView
-            key={sceneName}
+            key={`${sceneName}-${pageSurface.walletId ?? pageSurface.surface}`}
             sceneName={sceneName}
             onPressHide={onPressHide}
           />
-        )}
+        ) : null}
         {/* <UrlAccountAutoReplaceHistory num={0} /> */}
 
         {process.env.NODE_ENV !== 'production' ? (
