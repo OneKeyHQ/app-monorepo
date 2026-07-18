@@ -36,6 +36,13 @@ const AUDIT_ROW_LABELS = [
   'Bundle holding %',
 ];
 
+const AUDIT_ROW_TEST_IDS = [
+  'top10-holding',
+  'dev-holding',
+  'suspicious-holding',
+  'bundle-holding',
+];
+
 // The Popover's own Trigger wrapper drives the open-on-press behavior; this
 // noop only exists so the trigger XStack keeps a Pressable press state for
 // hoverStyle/pressStyle to animate against (mirrors MarketFilterChipsBar.tsx).
@@ -134,7 +141,7 @@ export function MarketFiltersPopover({
           </SizableText>
           {activeConditionCount > 0 ? (
             <Badge badgeType="default" badgeSize="sm">
-              {activeConditionCount}
+              <Badge.Text>{activeConditionCount}</Badge.Text>
             </Badge>
           ) : null}
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
@@ -210,13 +217,13 @@ export function MarketFiltersPopover({
             </YStack>
           ) : (
             <YStack gap="$2" py="$2">
-              {AUDIT_ROW_LABELS.map((label) => (
+              {AUDIT_ROW_LABELS.map((label, index) => (
                 <FieldTierRow
                   key={label}
                   label={label}
                   disabled
                   tiers={AUDIT_TIER_OPTIONS}
-                  testIDPrefix={`market-filters-popover-audit-${label}`}
+                  testIDPrefix={`market-filters-popover-audit-${AUDIT_ROW_TEST_IDS[index]}`}
                 />
               ))}
               <SizableText size="$bodySm" color="$textSubdued">
