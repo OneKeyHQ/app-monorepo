@@ -554,6 +554,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private let pager = HomeContainerPagerScrollView()
   private let headerView = HomeContainerHeaderView()
   private let tabsView = HomeContainerTabsView()
+  private let bodySlotHost = HomeContainerSlotHostView()
   private let refreshControl = UIRefreshControl()
   private let parsingQueue = DispatchQueue(
     label: "so.onekey.home-container.decode",
@@ -578,6 +579,10 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   private var maximumHeaderOffset: CGFloat {
     max(0, headerHeight - HomeContainerMetrics.compactHeaderHeight)
+  }
+
+  private var isBodySlotMounted: Bool {
+    mountedSlotKeys.contains("content.body")
   }
 
   private var usesUnifiedVerticalDriver: Bool {
@@ -611,6 +616,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     outerScrollView.addSubview(headerView)
     outerScrollView.addSubview(pager)
     outerScrollView.addSubview(tabsView)
+    outerScrollView.addSubview(bodySlotHost)
+    bodySlotHost.isHidden = true
     headerView.onAction = { [weak self] actionId, itemId in
       guard let self else { return }
       self.onAction?(actionId, itemId, self.selectedTabId)
@@ -663,6 +670,34 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     }
     outerScrollView.frame = bounds
     headerView.frame = CGRect(x: 0, y: 0, width: bounds.width, height: headerHeight)
+    if isBodySlotMounted {
+      headerView.transform = .identity
+      tabsView.transform = .identity
+      pager.transform = .identity
+      headerView.setPinnedOffset(0)
+      tabsView.isHidden = true
+      pager.isHidden = true
+      bodySlotHost.isHidden = false
+      bodySlotHost.frame = CGRect(
+        x: 0,
+        y: headerHeight,
+        width: bounds.width,
+        height: max(0, bounds.height - headerHeight)
+      )
+      outerScrollView.isScrollEnabled = false
+      refreshControl.isEnabled = false
+      outerScrollView.contentSize = bounds.size
+      outerScrollView.contentOffset = .zero
+      slotLayoutDidChange?()
+      return
+    }
+    tabsView.isHidden = false
+    pager.isHidden = false
+    bodySlotHost.isHidden = true
+    outerScrollView.isScrollEnabled = true
+    refreshControl.isEnabled = usesUnifiedVerticalDriver
+      ? refreshEnabled
+      : refreshEnabled && verticalScrollOwner == .header
     let pagerHeight = max(0, bounds.height - HomeContainerMetrics.tabHeight)
     pager.frame = CGRect(
       x: 0,
@@ -783,6 +818,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     mountedSlotKeys = nextKeys
     tabsView.setMountedSlotKeys(nextKeys)
     pages.forEach { $0.setMountedSlotKeys(nextKeys) }
+    setNeedsLayout()
     slotLayoutDidChange?()
   }
 
@@ -797,6 +833,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   @objc(slotHostViewForKey:)
   func slotHostView(forKey key: String) -> UIView? {
+    if key == "content.body" {
+      return isBodySlotMounted && !bodySlotHost.isHidden ? bodySlotHost : nil
+    }
     if key.hasPrefix("header.") {
       return headerView.slotHostView(forKey: key)
     }
@@ -811,7 +850,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   func setFallbackBackgroundColor(_ value: String) {
     DispatchQueue.main.async { [weak self] in
-      self?.backgroundColor = UIColor(homeContainerColor: value, fallback: .systemBackground)
+      let color = UIColor(homeContainerColor: value, fallback: .systemBackground)
+      self?.backgroundColor = color
+      self?.bodySlotHost.backgroundColor = color
     }
   }
 
@@ -851,6 +892,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       fallback: .systemBackground
     )
     pager.backgroundColor = backgroundColor
+    bodySlotHost.backgroundColor = backgroundColor
 
     headerView.apply(header: next.header, theme: next.theme)
     headerHeight = headerView.preferredHeight
@@ -1040,6 +1082,13 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   private func updateSharedChromeLayout() {
+    if isBodySlotMounted {
+      headerView.transform = .identity
+      tabsView.transform = .identity
+      pager.transform = .identity
+      headerView.setPinnedOffset(0)
+      return
+    }
     tabsView.transform = .identity
     let combinedOffset = outerScrollView.contentOffset.y
     let pinnedOffset = max(0, min(combinedOffset, maximumHeaderOffset))
@@ -1431,13 +1480,23 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     // row animation; both paths pin the outer content offset.
     let animatesMarketMutation = isMarketMutation &&
       !changedIds.contains("item:portfolio-market:market-tabs")
+    // DeFi data settles after the initial single-network portfolio snapshot.
+    // Animate its structural rows so Market moves in one continuous direction
+    // instead of being replaced by the inserted section in a single frame.
+    let animatesPortfolioDeFiMutation = shouldAnimatePortfolioDeFiMutation(
+      previousRows: previousRows,
+      nextRows: rowsById
+    )
     if isMarketMutation,
        !tableView.isTracking,
        !tableView.isDragging,
        !tableView.isDecelerating {
       pinnedMarketMutationContentOffsetY = tableView.contentOffset.y
     }
-    dataSource.apply(nextSnapshot, animatingDifferences: animatesMarketMutation) { [weak self] in
+    dataSource.apply(
+      nextSnapshot,
+      animatingDifferences: animatesMarketMutation || animatesPortfolioDeFiMutation
+    ) { [weak self] in
       DispatchQueue.main.async {
         self?.restorePinnedMarketMutationContentOffset()
         self?.pinnedMarketMutationContentOffsetY = nil
@@ -1465,10 +1524,23 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     }
   }
 
+  private func shouldAnimatePortfolioDeFiMutation(
+    previousRows: [String: HomeContainerRow],
+    nextRows: [String: HomeContainerRow]
+  ) -> Bool {
+    let structuralIds = Set(previousRows.keys).symmetricDifference(nextRows.keys)
+    return !structuralIds.isEmpty && structuralIds.allSatisfy(isPortfolioDeFiMutationRowId)
+  }
+
   private func isMarketMutationRowId(_ id: String) -> Bool {
     id.hasPrefix("item:portfolio-market:market:") ||
       id == "item:portfolio-market:market-show-more" ||
       id.hasPrefix("market-recommendations:portfolio-market:")
+  }
+
+  private func isPortfolioDeFiMutationRowId(_ id: String) -> Bool {
+    id.hasPrefix("section:portfolio-defi-") ||
+      id.hasPrefix("item:portfolio-defi-")
   }
 
   private func restorePinnedMarketMutationContentOffset() {

@@ -3,7 +3,13 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
-import { Checkbox, Dialog, YStack } from '@onekeyhq/components';
+import {
+  Checkbox,
+  Dialog,
+  YStack,
+  rootNavigationRef,
+  useOnRouterChange,
+} from '@onekeyhq/components';
 import {
   isOnboardingFromExtensionUrl,
   useToOnBoardingPage,
@@ -18,8 +24,18 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
+
+import {
+  type ILaunchForeground,
+  classifyLaunchForeground,
+  createOnboardingLaunchRequestCoordinator,
+  getOnboardingLaunchDecision,
+  resetOnboardingLaunchGate,
+  resolveOnboardingLaunchDecision,
+  setOnboardingLaunchDecision,
+  syncOnboardingLaunchForegroundFromNavigationState,
+} from './onboardingLaunchGate';
 
 let lastAutoStartV4MigrationTime = 0;
 let isBaseSettingsMigrated = false;
@@ -78,16 +94,51 @@ function DowngradeWarningDialogContent({
   );
 }
 
+type INavigationStateLike = Parameters<typeof classifyLaunchForeground>[0];
+
 function OnboardingOnMountCmp() {
   const toOnBoardingPage = useToOnBoardingPage();
-  const navigation = useAppNavigation();
   const v4migrationActions = useV4MigrationActions();
+  const navigationStateRef = useRef<INavigationStateLike>(undefined);
+  const nativeV4MigrationCheckedRef = useRef(false);
+  const nativeV4MigrationRouteRef = useRef(false);
+  const foregroundWaitersRef = useRef(
+    new Set<{
+      foreground: ILaunchForeground;
+      resolve: (matched: boolean) => void;
+    }>(),
+  );
   const [v4migrationPersistData, setV4MigrationPersistAtom] =
     useV4migrationPersistAtom();
   const downgradeWarningConfirmed =
     v4migrationPersistData?.downgradeWarningConfirmed;
   const downgradeWarningConfirmedRef = useRef(downgradeWarningConfirmed);
   downgradeWarningConfirmedRef.current = downgradeWarningConfirmed;
+
+  const handleRouterChange = useCallback((state: INavigationStateLike) => {
+    navigationStateRef.current = state;
+    const foreground = platformEnv.isNative
+      ? syncOnboardingLaunchForegroundFromNavigationState(state)
+      : classifyLaunchForeground(state);
+    foregroundWaitersRef.current.forEach((waiter) => {
+      if (waiter.foreground === foreground) {
+        foregroundWaitersRef.current.delete(waiter);
+        waiter.resolve(true);
+      }
+    });
+  }, []);
+  useOnRouterChange(handleRouterChange);
+
+  const waitForForeground = useCallback((foreground: ILaunchForeground) => {
+    const currentState =
+      navigationStateRef.current ?? rootNavigationRef.current?.getRootState();
+    if (classifyLaunchForeground(currentState) === foreground) {
+      return Promise.resolve(true);
+    }
+    return new Promise<boolean>((resolve) => {
+      foregroundWaitersRef.current.add({ foreground, resolve });
+    });
+  }, []);
 
   const migrateBaseSettings = useCallback(async () => {
     const shouldMigrateFromV4: boolean =
@@ -100,7 +151,7 @@ function OnboardingOnMountCmp() {
     }
   }, []);
 
-  const checkOnboardingState = useCallback(
+  const checkOnboardingStateForOtherPlatforms = useCallback(
     async ({ checkingV4Migration }: { checkingV4Migration?: boolean } = {}) => {
       // if (!isFocused) {
       //   return;
@@ -148,7 +199,7 @@ function OnboardingOnMountCmp() {
       }
       const { isOnboardingDone } =
         await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
-      // dapp mode auto onboarding is conflict with url account landing page
+      // Dapp mode auto onboarding conflicts with URL account landing pages.
       if (
         !isOnboardingDone &&
         !platformEnv.isWebDappMode &&
@@ -188,7 +239,9 @@ function OnboardingOnMountCmp() {
                   ...v,
                   downgradeWarningConfirmed: true,
                 }));
-                void checkOnboardingState({ checkingV4Migration: true });
+                void checkOnboardingStateForOtherPlatforms({
+                  checkingV4Migration: true,
+                });
                 void dialog.close();
               }}
             />
@@ -198,8 +251,12 @@ function OnboardingOnMountCmp() {
       }
     }
 
-    await checkOnboardingState({ checkingV4Migration: true });
-  }, [checkOnboardingState, migrateBaseSettings, setV4MigrationPersistAtom]);
+    await checkOnboardingStateForOtherPlatforms({ checkingV4Migration: true });
+  }, [
+    checkOnboardingStateForOtherPlatforms,
+    migrateBaseSettings,
+    setV4MigrationPersistAtom,
+  ]);
 
   useEffect(() => {
     // console.log('OnboardingOnMountOnMount');
@@ -210,28 +267,117 @@ function OnboardingOnMountCmp() {
   }, [setV4MigrationPersistAtom]);
 
   useEffect(() => {
-    // console.log('OnboardingOnMount changed: navigation changed');
-  }, [navigation]);
-
-  useEffect(() => {
     // console.log('OnboardingOnMount changed: v4migrationActions changed');
   }, [v4migrationActions]);
 
   useEffect(() => {
-    // console.log('OnboardingOnMount: checkStateOnMount on mount');
-    void checkStateOnMount();
-  }, [checkStateOnMount]);
+    const foregroundWaiters = foregroundWaitersRef.current;
+    if (!platformEnv.isNative) {
+      void checkStateOnMount();
+      const handleWalletClear = () => {
+        void checkOnboardingStateForOtherPlatforms({
+          checkingV4Migration: false,
+        });
+      };
+      appEventBus.on(EAppEventBusNames.WalletClear, handleWalletClear);
+      return () => {
+        appEventBus.off(EAppEventBusNames.WalletClear, handleWalletClear);
+      };
+    }
 
-  useEffect(() => {
-    // console.log('OnboardingOnMount: checkOnboardingState on appEventBus');
-    const fn = () => {
-      void checkOnboardingState({ checkingV4Migration: false });
+    const coordinator = createOnboardingLaunchRequestCoordinator({
+      readVerdict: async () => {
+        if (!nativeV4MigrationCheckedRef.current) {
+          const shouldMigrateFromV4 =
+            await backgroundApiProxy.serviceV4Migration.checkShouldMigrateV4OnMount();
+          if (shouldMigrateFromV4) {
+            await migrateBaseSettings();
+            await timerUtils.wait(600);
+            if (!isAutoStartV4MigrationShown) {
+              isAutoStartV4MigrationShown = true;
+              await v4migrationActions.navigateToV4MigrationPage({
+                isAutoStartOnMount: true,
+              });
+            }
+            nativeV4MigrationRouteRef.current = true;
+          }
+          nativeV4MigrationCheckedRef.current = true;
+        }
+        const { isOnboardingDone } =
+          await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
+        return isOnboardingDone;
+      },
+      onAuthoritativeStart: resetOnboardingLaunchGate,
+      onAuthoritativeVerdict: async (isOnboardingDone, request) => {
+        if (!request.isCurrent()) {
+          return;
+        }
+        if (!isOnboardingDone && nativeV4MigrationRouteRef.current) {
+          const didReachOnboarding = await waitForForeground('onboarding');
+          if (!request.isCurrent()) {
+            return;
+          }
+          nativeV4MigrationRouteRef.current = false;
+          if (didReachOnboarding && request.isCurrent()) {
+            setOnboardingLaunchDecision('onboarding');
+          }
+          return;
+        }
+        const decision = await resolveOnboardingLaunchDecision({
+          isOnboardingDone,
+          shouldOpenOnboarding:
+            !platformEnv.isWebDappMode && !platformEnv.isExtensionUiSidePanel,
+          openOnboarding: async () => {
+            if (!request.isCurrent()) {
+              return;
+            }
+            await toOnBoardingPage();
+          },
+        });
+        if (!request.isCurrent()) {
+          return;
+        }
+        if (decision === 'onboarding') {
+          const didReachOnboarding = await waitForForeground('onboarding');
+          if (!request.isCurrent() || !didReachOnboarding) {
+            return;
+          }
+        }
+        if (request.isCurrent()) {
+          setOnboardingLaunchDecision(decision);
+        }
+      },
+      onMaintenanceMain: async (request) => {
+        if (request.isCurrent() && getOnboardingLaunchDecision() !== 'main') {
+          setOnboardingLaunchDecision('main');
+        }
+      },
+    });
+
+    void coordinator.startAuthoritative();
+    const handleWalletClear = () => {
+      void coordinator.startAuthoritative();
     };
-    appEventBus.on(EAppEventBusNames.WalletClear, fn);
+    const handleWalletUpdate = () => {
+      void coordinator.enqueueMaintenance();
+    };
+    appEventBus.on(EAppEventBusNames.WalletClear, handleWalletClear);
+    appEventBus.on(EAppEventBusNames.WalletUpdate, handleWalletUpdate);
     return () => {
-      appEventBus.off(EAppEventBusNames.WalletClear, fn);
+      coordinator.dispose();
+      foregroundWaiters.forEach((waiter) => waiter.resolve(false));
+      foregroundWaiters.clear();
+      appEventBus.off(EAppEventBusNames.WalletClear, handleWalletClear);
+      appEventBus.off(EAppEventBusNames.WalletUpdate, handleWalletUpdate);
     };
-  }, [checkOnboardingState]);
+  }, [
+    checkOnboardingStateForOtherPlatforms,
+    checkStateOnMount,
+    migrateBaseSettings,
+    toOnBoardingPage,
+    v4migrationActions,
+    waitForForeground,
+  ]);
 
   return null;
 }

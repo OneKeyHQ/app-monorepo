@@ -2,6 +2,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -16,6 +17,8 @@ import {
   Dialog,
   ESwitchSize,
   IconButton,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  Keyboard,
   SizableText,
   Skeleton,
   Stack,
@@ -23,6 +26,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useScrollContentTabBarOffset,
   useTheme,
 } from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorActiveAccount';
@@ -65,7 +69,6 @@ import {
   type IHomeContainerTheme,
 } from '@onekeyhq/native-components';
 import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -112,7 +115,11 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
 import { useCopyAddressWithDeriveType } from '../../hooks/useCopyAccountAddress';
 import { useManageToken } from '../../hooks/useManageToken';
-import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorStorageInitDoneAtom,
+  useActiveAccount,
+  useIsAccountSelectorActiveAccountInitDone,
+} from '../../states/jotai/contexts/accountSelector';
 import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 import { convertFiat } from '../../utils/fiatConvert';
 import {
@@ -128,6 +135,7 @@ import { maybeOpenPrivateSendHistoryDetail } from '../Swap/utils/privateSendHist
 
 import { showBalanceDetailsDialog } from './components/BalanceDetailsDialog';
 import { formatPortfolioTotal } from './components/DeFiListBlock/formatPortfolioTotal';
+import { NotBackedUpEmpty } from './components/NotBakcedUp';
 import {
   FAVORITES_CATEGORY_ID,
   HOME_PERPS_GUIDE_URL,
@@ -140,6 +148,10 @@ import { SupportHub } from './components/SupportHub';
 import { Upgrade } from './components/Upgrade';
 import { ActionItem } from './components/WalletActions/RawActions';
 import { useShowWalletActionMore } from './components/WalletActions/WalletActionMore';
+import {
+  buildHomeWalletAtomicTabState,
+  buildHomeWalletCapabilityTabModel,
+} from './homeWalletCapabilityTabModel';
 import { useHomeWalletTabSupport } from './hooks/useHomeWalletTabSupport';
 import {
   NATIVE_HOME_ACTION_IDS,
@@ -149,6 +161,7 @@ import {
   buildNativePerpsSections,
   buildNativePortfolioSections,
 } from './nativeHomeDataAdapters';
+import { resolveNativeHomeWalletState } from './nativeHomeWalletState';
 import {
   PerpsHomeHeaderSlot,
   PerpsHomeStateSlot,
@@ -272,10 +285,15 @@ export function NativeHomePage({
       indexedAccount,
       isOthersWallet,
       network,
+      ready,
       vaultSettings,
       wallet,
     },
   } = useActiveAccount({ num: 0 });
+  const [accountSelectorStorageInitDone] =
+    useAccountSelectorStorageInitDoneAtom();
+  const activeAccountInitDone = useIsAccountSelectorActiveAccountInitDone(0);
+  const tabBarHeight = useScrollContentTabBarOffset();
   const { openExplorer, requiresNetworkSelection } = useBlockExplorerNavigation(
     network,
     wallet?.id,
@@ -301,9 +319,20 @@ export function NativeHomePage({
   const showWalletActionMore = useShowWalletActionMore();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user } = useOneKeyAuth();
-  const { isDeFiSupported, isPerpsSupported } = useHomeWalletTabSupport({
-    network,
-  });
+  const {
+    isReady: isHomeWalletTabSupportReady,
+    isDeFiSupported,
+    isPerpsSupported,
+  } = useHomeWalletTabSupport({ network });
+  const homeWalletCapabilityTabModel = useMemo(
+    () =>
+      buildHomeWalletCapabilityTabModel({
+        isReady: isHomeWalletTabSupportReady,
+        isDeFiSupported,
+        isPerpsSupported,
+      }),
+    [isDeFiSupported, isHomeWalletTabSupportReady, isPerpsSupported],
+  );
   const isNFTEnabled = Boolean(
     network?.isAllNetworks ||
     (vaultSettings?.NFTEnabled &&
@@ -313,9 +342,15 @@ export function NativeHomePage({
     network?.isAllNetworks ||
     filterScamHistorySupportedNetworkIds.has(network?.id ?? ''),
   );
-  const isWalletNotBackedUp = Boolean(
-    wallet?.type === WALLET_TYPE_HD && !wallet.backuped,
-  );
+  const nativeHomeWalletState = resolveNativeHomeWalletState({
+    activeAccountReady: Boolean(ready),
+    accountSelectorStorageInitDone,
+    activeAccountInitDone,
+    walletType: wallet?.type,
+    walletBackedUp: wallet?.backuped,
+  });
+  const isWalletNotBackedUp = nativeHomeWalletState === 'notBackedUp';
+  const hidesNormalHomeBody = nativeHomeWalletState !== 'normal';
   const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
     wallet,
     account,
@@ -1017,7 +1052,7 @@ export function NativeHomePage({
 
   const headerActions = useMemo<IHomeContainerAction[]>(
     () =>
-      isWalletNotBackedUp
+      hidesNormalHomeBody
         ? []
         : [
             {
@@ -1045,12 +1080,12 @@ export function NativeHomePage({
               actionId: 'home.header.more',
             },
           ],
-    [intl, isWalletNotBackedUp],
+    [hidesNormalHomeBody, intl],
   );
 
   const headerBalanceActions = useMemo<IHomeContainerAction[]>(() => {
     const actions: IHomeContainerAction[] = [];
-    if (vaultSettings?.hasFrozenBalance) {
+    if (nativeHomeWalletState === 'normal' && vaultSettings?.hasFrozenBalance) {
       actions.push({
         id: 'balance-details',
         title: intl.formatMessage({
@@ -1067,7 +1102,7 @@ export function NativeHomePage({
       });
     }
     return actions;
-  }, [intl, isWalletNotBackedUp, vaultSettings]);
+  }, [intl, isWalletNotBackedUp, nativeHomeWalletState, vaultSettings]);
 
   const headerBalance = useMemo(() => {
     let total = new BigNumber(0);
@@ -1117,7 +1152,7 @@ export function NativeHomePage({
 
   const headerBanners = useMemo(
     () =>
-      (isWalletNotBackedUp ? [] : banners.banners).map((banner) => ({
+      (hidesNormalHomeBody ? [] : banners.banners).map((banner) => ({
         id: banner.id,
         title: banner.title,
         subtitle: banner.description,
@@ -1125,57 +1160,103 @@ export function NativeHomePage({
         actionId: 'home.banner.open',
         dismissActionId: banner.closeable ? 'home.banner.dismiss' : undefined,
       })),
-    [banners.banners, isWalletNotBackedUp],
+    [banners.banners, hidesNormalHomeBody],
   );
 
-  const initialTabs = useMemo<IHomeContainerTab[]>(
-    () =>
-      HOME_CONTAINER_TAB_IDS.filter((id) => {
-        if (id === 'perps') {
-          return isPerpsSupported;
-        }
-        if (id === 'defi') {
-          return isDeFiSupported;
-        }
-        if (id === 'nft') {
-          return isNFTEnabled;
-        }
-        return true;
-      }).map((id) => {
-        let toolbarAction: IHomeContainerAction | undefined;
-        if (id === 'portfolio' && manageTokenEnabled) {
-          toolbarAction = {
-            id: 'manage-tokens',
-            title: '',
-            icon: 'manage',
-            actionId: 'home.portfolio.manageTokens',
-          };
-        } else if (id === 'history') {
-          toolbarAction = {
-            id: 'history-filter',
-            title: '',
-            icon: 'filter',
-            actionId: 'home.history.filter',
-          };
-        }
-        return {
-          id,
-          title: tabTitles[id],
-          toolbarAction,
+  const tabShells = useMemo<IHomeContainerTab[]>(() => {
+    if (!homeWalletCapabilityTabModel.shouldCommitTabs) {
+      return [
+        {
+          id: 'portfolio',
+          title: '',
           sections: [],
+        },
+      ];
+    }
+    return HOME_CONTAINER_TAB_IDS.filter((id) => {
+      if (id === 'perps') {
+        return homeWalletCapabilityTabModel.isPerpsVisible;
+      }
+      if (id === 'defi') {
+        return homeWalletCapabilityTabModel.isDeFiVisible;
+      }
+      if (id === 'nft') {
+        return isNFTEnabled;
+      }
+      return true;
+    }).map((id) => {
+      let toolbarAction: IHomeContainerAction | undefined;
+      if (id === 'portfolio' && manageTokenEnabled) {
+        toolbarAction = {
+          id: 'manage-tokens',
+          title: '',
+          icon: 'manage',
+          actionId: 'home.portfolio.manageTokens',
         };
-      }),
+      } else if (id === 'history') {
+        toolbarAction = {
+          id: 'history-filter',
+          title: '',
+          icon: 'filter',
+          actionId: 'home.history.filter',
+        };
+      }
+      return {
+        id,
+        title: tabTitles[id],
+        toolbarAction,
+        sections: [],
+      };
+    });
+  }, [
+    homeWalletCapabilityTabModel,
+    isNFTEnabled,
+    manageTokenEnabled,
+    tabTitles,
+  ]);
+  const tabSectionsById = useMemo<
+    Partial<Record<IHomeContainerTabId, IHomeContainerSection[]>>
+  >(
+    () => ({
+      portfolio: portfolioSections,
+      perps: perpsSections,
+      defi: deFiSections,
+      nft: nftSections,
+      history: historySections,
+    }),
     [
-      isDeFiSupported,
-      isNFTEnabled,
-      isPerpsSupported,
-      manageTokenEnabled,
-      tabTitles,
+      deFiSections,
+      historySections,
+      nftSections,
+      perpsSections,
+      portfolioSections,
     ],
   );
+  const latestTabSectionsRef = useRef(tabSectionsById);
+  latestTabSectionsRef.current = tabSectionsById;
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
+  const initialAtomicTabState = buildHomeWalletAtomicTabState({
+    tabShells,
+    sectionsByTab: tabSectionsById,
+    shouldCommitTabs: homeWalletCapabilityTabModel.shouldCommitTabs,
+    selectedTabId: activeTabId,
+  });
   const contentStateSlots = useMemo<
     NonNullable<IHomeContainerSlots['contentStates']>
   >(() => {
+    if (!homeWalletCapabilityTabModel.shouldCommitTabs) {
+      return {
+        portfolio: {
+          interaction: 'none',
+          content: (
+            <Stack flex={1} bg="$bgApp" pt="$4" pointerEvents="none">
+              <ListLoading listCount={4} />
+            </Stack>
+          ),
+        },
+      };
+    }
     let content: ReactNode;
     let hasState = false;
     switch (activeTabId) {
@@ -1282,7 +1363,35 @@ export function NativeHomePage({
     portfolioAssetSections,
     wallet?.id,
     visiblePortfolioInitialized,
+    homeWalletCapabilityTabModel.shouldCommitTabs,
   ]);
+  const bodySlot = useMemo<IHomeContainerSlots['body']>(() => {
+    if (nativeHomeWalletState === 'normal') {
+      return undefined;
+    }
+    if (nativeHomeWalletState === 'pending') {
+      return {
+        interaction: 'none',
+        content: <Stack flex={1} bg="$bgApp" />,
+      };
+    }
+    return {
+      interaction: 'tap',
+      content: (
+        <Keyboard.AwareScrollView
+          style={{ flex: 1 }}
+          nestedScrollEnabled={platformEnv.isNativeAndroid}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingBottom: tabBarHeight,
+          }}
+          bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+        >
+          <NotBackedUpEmpty />
+        </Keyboard.AwareScrollView>
+      ),
+    };
+  }, [nativeHomeWalletState, tabBarHeight]);
   const nativeRef = useRef<IHomeContainerRef | null>(null);
   const slotActionRef = useRef<
     (actionId: string, itemId: string, tabId: string) => Promise<void>
@@ -1290,94 +1399,106 @@ export function NativeHomePage({
   const accountRowSlot = useMemo(
     () => ({
       interaction: 'tap' as const,
-      content: (
-        <XStack flex={1} alignItems="center" justifyContent="space-between">
-          <XStack flex={1} minWidth={0} gap="$3" alignItems="center">
-            <AccountSelectorTriggerHome num={0} />
+      content:
+        nativeHomeWalletState === 'pending' ? (
+          <Stack flex={1} bg="$bgApp" />
+        ) : (
+          <XStack flex={1} alignItems="center" justifyContent="space-between">
+            <XStack flex={1} minWidth={0} gap="$3" alignItems="center">
+              <AccountSelectorTriggerHome num={0} />
+              {!isWalletNotBackedUp ? (
+                <AccountSelectorActiveAccountHome
+                  num={0}
+                  showAccountAddress={false}
+                  showCopyButton
+                  showCreateAddressButton={false}
+                  showNoAddressTip={false}
+                />
+              ) : null}
+            </XStack>
             {!isWalletNotBackedUp ? (
-              <AccountSelectorActiveAccountHome
-                num={0}
-                showAccountAddress={false}
-                showCopyButton
-                showCreateAddressButton={false}
-                showNoAddressTip={false}
-              />
+              <XStack
+                flexShrink={0}
+                alignItems="center"
+                justifyContent="flex-end"
+              >
+                {network?.isAllNetworks && !isOthersWallet ? (
+                  <AllNetworksManagerTrigger num={0} unifiedMode />
+                ) : (
+                  <NetworkSelectorTriggerHome
+                    num={0}
+                    size="small"
+                    recordNetworkHistoryEnabled
+                    hideOnNoAccount
+                    unifiedMode
+                  />
+                )}
+              </XStack>
             ) : null}
           </XStack>
-          {!isWalletNotBackedUp ? (
-            <XStack
-              flexShrink={0}
-              alignItems="center"
-              justifyContent="flex-end"
-            >
-              {network?.isAllNetworks && !isOthersWallet ? (
-                <AllNetworksManagerTrigger num={0} unifiedMode />
-              ) : (
-                <NetworkSelectorTriggerHome
-                  num={0}
-                  size="small"
-                  recordNetworkHistoryEnabled
-                  hideOnNoAccount
-                  unifiedMode
-                />
-              )}
-            </XStack>
-          ) : null}
-        </XStack>
-      ),
+        ),
     }),
-    [isOthersWallet, isWalletNotBackedUp, network?.isAllNetworks],
+    [
+      isOthersWallet,
+      isWalletNotBackedUp,
+      nativeHomeWalletState,
+      network?.isAllNetworks,
+    ],
   );
   const balanceSlot = useMemo(
     () => ({
       interaction: 'tap' as const,
-      content: (
-        <XStack
-          flex={1}
-          alignItems="center"
-          minWidth={0}
-          onPress={() => {
-            void slotActionRef.current(
-              'home.header.balance',
-              'balance',
-              activeTabId,
-            );
-          }}
-        >
-          <SizableText
-            flexShrink={1}
+      content:
+        nativeHomeWalletState === 'pending' ? (
+          <Stack flex={1} bg="$bgApp" />
+        ) : (
+          <XStack
+            flex={1}
+            alignItems="center"
             minWidth={0}
-            position="relative"
-            top={11}
-            fontSize={48}
-            lineHeight={48}
-            fontWeight={500}
-            numberOfLines={1}
-            adjustsFontSizeToFit
+            onPress={() => {
+              void slotActionRef.current(
+                'home.header.balance',
+                'balance',
+                activeTabId,
+              );
+            }}
           >
-            {headerBalanceParts.balance}
-          </SizableText>
-          {headerBalanceParts.balanceSecondary ? (
             <SizableText
-              flexShrink={0}
-              color="$textDisabled"
+              flexShrink={1}
+              minWidth={0}
               position="relative"
               top={11}
               fontSize={48}
               lineHeight={48}
               fontWeight={500}
               numberOfLines={1}
+              adjustsFontSizeToFit
             >
-              {headerBalanceParts.balanceSecondary}
+              {headerBalanceParts.balance}
             </SizableText>
-          ) : null}
-        </XStack>
-      ),
+            {headerBalanceParts.balanceSecondary ? (
+              <SizableText
+                flexShrink={0}
+                color="$textDisabled"
+                position="relative"
+                top={11}
+                fontSize={48}
+                lineHeight={48}
+                fontWeight={500}
+                numberOfLines={1}
+              >
+                {headerBalanceParts.balanceSecondary}
+              </SizableText>
+            ) : null}
+          </XStack>
+        ),
     }),
     [
       activeTabId,
       headerBalanceParts.balance,
       headerBalanceParts.balanceSecondary,
+      nativeHomeWalletState,
     ],
   );
   const headerActionRowSlot = useMemo<
@@ -1715,8 +1836,25 @@ export function NativeHomePage({
     vaultSettings?.mergeDeriveAssetsEnabled,
     wallet?.id,
   ]);
-  const homeSlots = useMemo<IHomeContainerSlots>(
-    () => ({
+  const homeSlots = useMemo<IHomeContainerSlots>(() => {
+    if (bodySlot) {
+      return {
+        backgroundColor: nativeTheme.backgroundColor,
+        accountRow: accountRowSlot,
+        balance: balanceSlot,
+        body: bodySlot,
+      };
+    }
+    if (!homeWalletCapabilityTabModel.shouldCommitTabs) {
+      return {
+        backgroundColor: nativeTheme.backgroundColor,
+        accountRow: accountRowSlot,
+        balance: balanceSlot,
+        headerActionRow: headerActionRowSlot,
+        contentStates: contentStateSlots,
+      };
+    }
+    return {
       backgroundColor: nativeTheme.backgroundColor,
       accountRow: accountRowSlot,
       balance: balanceSlot,
@@ -1725,25 +1863,26 @@ export function NativeHomePage({
       contentHeaders: contentHeaderSlots,
       contentStates: contentStateSlots,
       tabAccessories: tabAccessorySlots,
-    }),
-    [
-      accountRowSlot,
-      balanceSlot,
-      contentFooterSlots,
-      contentHeaderSlots,
-      contentStateSlots,
-      headerActionRowSlot,
-      nativeTheme.backgroundColor,
-      tabAccessorySlots,
-    ],
-  );
+    };
+  }, [
+    accountRowSlot,
+    balanceSlot,
+    bodySlot,
+    contentFooterSlots,
+    contentHeaderSlots,
+    contentStateSlots,
+    headerActionRowSlot,
+    homeWalletCapabilityTabModel.shouldCommitTabs,
+    nativeTheme.backgroundColor,
+    tabAccessorySlots,
+  ]);
   const controllerRef = useRef<HomeContainerController | null>(null);
   if (!controllerRef.current) {
     controllerRef.current = new HomeContainerController({
       initialSnapshot: {
         schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
         revision: 0,
-        selectedTabId: 'portfolio',
+        selectedTabId: initialAtomicTabState.selectedTabId,
         header: {
           accountName: accountName ?? '',
           accountSubtitle: network?.name,
@@ -1761,7 +1900,7 @@ export function NativeHomePage({
           actions: headerActions,
           banners: headerBanners,
         },
-        tabs: initialTabs,
+        tabs: initialAtomicTabState.tabs,
         theme: nativeTheme,
       },
     });
@@ -1804,35 +1943,59 @@ export function NativeHomePage({
     network?.isAllNetworks,
     network?.name,
   ]);
-  useEffect(() => {
-    const currentTabs = controller.getSnapshot().tabs;
-    controller.updateTabs(
-      initialTabs.map((tab) => ({
-        ...tab,
-        sections:
-          currentTabs.find((current) => current.id === tab.id)?.sections ?? [],
-      })),
-    );
-    if (!initialTabs.some((tab) => tab.id === activeTabId)) {
-      controller.selectTab('portfolio', false);
-      setActiveTabId('portfolio');
+  useLayoutEffect(() => {
+    const nextTabState = buildHomeWalletAtomicTabState({
+      tabShells,
+      sectionsByTab: latestTabSectionsRef.current,
+      shouldCommitTabs: homeWalletCapabilityTabModel.shouldCommitTabs,
+      selectedTabId: activeTabIdRef.current,
+    });
+    controller.replaceSnapshot({
+      ...controller.getSnapshot(),
+      selectedTabId: nextTabState.selectedTabId,
+      tabs: nextTabState.tabs,
+    });
+    if (nextTabState.selectedTabId !== activeTabIdRef.current) {
+      setActiveTabId(nextTabState.selectedTabId);
     }
-  }, [activeTabId, controller, initialTabs]);
+  }, [controller, homeWalletCapabilityTabModel.shouldCommitTabs, tabShells]);
   useEffect(() => {
-    controller.updateTabSections('portfolio', portfolioSections);
-  }, [controller, initialTabs, portfolioSections]);
+    if (homeWalletCapabilityTabModel.shouldCommitTabs) {
+      controller.updateTabSections('portfolio', portfolioSections);
+    }
+  }, [
+    controller,
+    homeWalletCapabilityTabModel.shouldCommitTabs,
+    portfolioSections,
+  ]);
   useEffect(() => {
-    controller.updateTabSections('perps', perpsSections);
-  }, [controller, initialTabs, perpsSections]);
+    if (homeWalletCapabilityTabModel.shouldCommitTabs) {
+      controller.updateTabSections('perps', perpsSections);
+    }
+  }, [
+    controller,
+    homeWalletCapabilityTabModel.shouldCommitTabs,
+    perpsSections,
+  ]);
   useEffect(() => {
-    controller.updateTabSections('defi', deFiSections);
-  }, [controller, deFiSections, initialTabs]);
+    if (homeWalletCapabilityTabModel.shouldCommitTabs) {
+      controller.updateTabSections('defi', deFiSections);
+    }
+  }, [controller, deFiSections, homeWalletCapabilityTabModel.shouldCommitTabs]);
   useEffect(() => {
-    controller.updateTabSections('nft', nftSections);
-  }, [controller, initialTabs, nftSections]);
+    if (homeWalletCapabilityTabModel.shouldCommitTabs) {
+      controller.updateTabSections('nft', nftSections);
+    }
+  }, [controller, homeWalletCapabilityTabModel.shouldCommitTabs, nftSections]);
   useEffect(() => {
-    controller.updateTabSections('history', historySections);
-  }, [controller, historySections, initialTabs]);
+    if (homeWalletCapabilityTabModel.shouldCommitTabs) {
+      controller.updateTabSections('history', historySections);
+    }
+  }, [
+    controller,
+    historySections,
+    homeWalletCapabilityTabModel.shouldCommitTabs,
+  ]);
   useEffect(
     () => () => {
       controller.detach();

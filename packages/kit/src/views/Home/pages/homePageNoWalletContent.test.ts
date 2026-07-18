@@ -1,5 +1,6 @@
 import {
   isWalletListResolvedNoWallet,
+  resolveHomeWalletContentReadiness,
   shouldShowNoWalletContent,
 } from './homePageNoWalletContent';
 
@@ -99,6 +100,46 @@ describe('shouldShowNoWalletContent', () => {
         walletListResolvedNoWallet: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe('resolveHomeWalletContentReadiness', () => {
+  const readySignals = {
+    accountSelectorStorageInitDone: true,
+    accountSelectorActiveAccountInitDone: true,
+    activeAccountReady: true,
+  };
+
+  it('keeps wallet undefined plus a pending wallet list pending', () => {
+    expect(
+      resolveHomeWalletContentReadiness({
+        ...readySignals,
+        walletListPending: true,
+        wallets: undefined,
+        hasNoUsableWallet: true,
+      }),
+    ).toBe('pending');
+  });
+
+  it('waits until the active wallet belongs to the settled wallet generation', () => {
+    expect(
+      resolveHomeWalletContentReadiness({
+        ...readySignals,
+        walletListPending: false,
+        wallets: [{ id: 'wallet-new' }],
+        hasNoUsableWallet: false,
+        activeWalletId: 'wallet-old',
+      }),
+    ).toBe('pending');
+    expect(
+      resolveHomeWalletContentReadiness({
+        ...readySignals,
+        walletListPending: false,
+        wallets: [{ id: 'wallet-new' }],
+        hasNoUsableWallet: false,
+        activeWalletId: 'wallet-new',
+      }),
+    ).toBe('wallet');
   });
 });
 

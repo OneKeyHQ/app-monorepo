@@ -57,6 +57,12 @@ import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOve
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { convertFiat } from '../../../utils/fiatConvert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+import {
+  type IHomeWalletScopedWorthResult,
+  buildHomeWalletCapabilityTabModel,
+  commitHomeWalletScopedWorth,
+  resolveHomeWalletScopedWorth,
+} from '../homeWalletCapabilityTabModel';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
@@ -132,22 +138,58 @@ function HomeOverviewContainer() {
   } = useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
-  const { isPerpsSupported: isPerpsEnabled } = useHomeWalletTabSupport({
-    network,
-  });
+  const {
+    isReady: isHomeWalletTabSupportReady,
+    isDeFiSupported,
+    isPerpsSupported,
+  } = useHomeWalletTabSupport({ network });
+  const homeWalletCapabilityTabModel = useMemo(
+    () =>
+      buildHomeWalletCapabilityTabModel({
+        isReady: isHomeWalletTabSupportReady,
+        isDeFiSupported,
+        isPerpsSupported,
+      }),
+    [isDeFiSupported, isHomeWalletTabSupportReady, isPerpsSupported],
+  );
+  const perpsWorthScopeKey = account?.indexedAccountId ?? account?.id ?? '';
+  const lastPerpsWorthRef = useRef<IHomeWalletScopedWorthResult | undefined>(
+    undefined,
+  );
 
-  const { result: perpsNetWorthUsd } = usePromiseResult<string | undefined>(
+  const { result: perpsWorthResult } = usePromiseResult<
+    IHomeWalletScopedWorthResult | undefined
+  >(
     async () => {
-      if (!isPerpsEnabled) return undefined;
+      const requestScopeKey = perpsWorthScopeKey;
+      if (!requestScopeKey) {
+        return undefined;
+      }
+      if (!homeWalletCapabilityTabModel.shouldCommitTabs) {
+        return {
+          scopeKey: requestScopeKey,
+          value:
+            lastPerpsWorthRef.current?.scopeKey === requestScopeKey
+              ? lastPerpsWorthRef.current.value
+              : undefined,
+        };
+      }
+      if (!homeWalletCapabilityTabModel.isPerpsVisible) {
+        return { scopeKey: requestScopeKey, value: undefined };
+      }
       const accountId = account?.id;
       const indexedAccountId = account?.indexedAccountId;
-      if (!accountId && !indexedAccountId) return undefined;
+      if (!accountId && !indexedAccountId) {
+        return { scopeKey: requestScopeKey, value: undefined };
+      }
 
       const deriveType =
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: PERPS_NETWORK_ID,
         });
-      if (!deriveType) return undefined;
+      if (!deriveType) {
+        return { scopeKey: requestScopeKey, value: undefined };
+      }
 
       let address = '';
       try {
@@ -159,27 +201,47 @@ function HomeOverviewContainer() {
         });
         address = acc?.addressDetail?.normalizedAddress || acc?.address || '';
       } catch {
-        return undefined;
+        return { scopeKey: requestScopeKey, value: undefined };
       }
 
-      if (!address) return undefined;
+      if (!address) {
+        return { scopeKey: requestScopeKey, value: undefined };
+      }
 
       const snapshot =
         await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
           { address },
         );
 
-      return snapshot?.netWorthUsd;
+      return { scopeKey: requestScopeKey, value: snapshot?.netWorthUsd };
     },
-    [account?.id, account?.indexedAccountId, isPerpsEnabled],
+    [
+      account?.id,
+      account?.indexedAccountId,
+      homeWalletCapabilityTabModel.isPerpsVisible,
+      homeWalletCapabilityTabModel.shouldCommitTabs,
+      perpsWorthScopeKey,
+    ],
     {
       swrKey:
         account?.id || account?.indexedAccountId
           ? `home-overview-perps-worth:${account?.indexedAccountId ?? account?.id}`
           : undefined,
       pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
+      swrShouldPersist: (result) => result?.value !== undefined,
     },
   );
+  const perpsNetWorthUsd = resolveHomeWalletScopedWorth({
+    result: perpsWorthResult,
+    scopeKey: perpsWorthScopeKey,
+  });
+  useEffect(() => {
+    lastPerpsWorthRef.current = commitHomeWalletScopedWorth({
+      result: perpsWorthResult,
+      scopeKey: perpsWorthScopeKey,
+      current: lastPerpsWorthRef.current,
+    });
+  }, [perpsWorthResult, perpsWorthScopeKey]);
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -686,7 +748,16 @@ function HomeOverviewContainer() {
       targetCurrency: USD_CURRENCY_ID,
       currencyMap,
     });
-    const perpsWorthUsd = isPerpsEnabled ? (perpsNetWorthUsd ?? '0') : '0';
+    const cachedPerpsWorth =
+      lastPerpsWorthRef.current?.scopeKey === perpsWorthScopeKey
+        ? lastPerpsWorthRef.current.value
+        : undefined;
+    const shouldIncludePerpsWorth =
+      !homeWalletCapabilityTabModel.shouldCommitTabs ||
+      homeWalletCapabilityTabModel.isPerpsVisible;
+    const perpsWorthUsd = shouldIncludePerpsWorth
+      ? (perpsNetWorthUsd ?? cachedPerpsWorth ?? '0')
+      : '0';
 
     return calculateAccountTotalValue({
       tokensValue: tokenWorthUsd,
@@ -701,9 +772,11 @@ function HomeOverviewContainer() {
     currencyMap,
     isCurrentAccountDeFiReady,
     isCurrentAccountWorthReady,
-    isPerpsEnabled,
+    homeWalletCapabilityTabModel.isPerpsVisible,
+    homeWalletCapabilityTabModel.shouldCommitTabs,
     network?.isAllNetworks,
     perpsNetWorthUsd,
+    perpsWorthScopeKey,
     settings.currencyInfo.id,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);

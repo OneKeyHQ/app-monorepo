@@ -9,14 +9,22 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 import {
   HOME_WALLET_TAB_SUPPORT_INIT,
+  type IHomeWalletTabSupportConfirmedCache,
   type IHomeWalletTabSupportNetwork,
   type IScopedHomeWalletTabSupportState,
   buildHomeWalletTabSupport,
+  buildHomeWalletTabSupportScopeKey,
+  rememberConfirmedHomeWalletTabSupport,
   resolveHomeWalletTabSupport,
+  resolveHomeWalletTabSupportAccountScopeId,
 } from './homeWalletTabSupportUtils';
+
+export const HOME_WALLET_TAB_SUPPORT_RETRY_DELAY_MS = 30_500;
+export const HOME_WALLET_TAB_SUPPORT_MAX_AUTO_RETRIES = 2;
 
 export function useHomeWalletTabSupport({
   network,
@@ -24,8 +32,10 @@ export function useHomeWalletTabSupport({
   network?: IHomeWalletTabSupportNetwork | null;
 }) {
   const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
-  const [enabledNetworksChangedNonce, setEnabledNetworksChangedNonce] =
-    useState(0);
+  const {
+    activeAccount: { account, indexedAccount, wallet },
+  } = useActiveAccount({ num: 0 });
+  const [revalidationNonce, setRevalidationNonce] = useState(0);
   const networkId = network?.id;
   const isAllNetworks = networkUtils.isAllNetwork({ networkId });
   const isTestnet = network?.isTestnet ?? false;
@@ -42,12 +52,8 @@ export function useHomeWalletTabSupport({
   );
 
   useEffect(() => {
-    if (!isAllNetworks) {
-      return;
-    }
-
     const onEnabledNetworksChanged = () => {
-      setEnabledNetworksChangedNonce((value) => value + 1);
+      setRevalidationNonce((value) => value + 1);
     };
 
     appEventBus.on(
@@ -61,29 +67,33 @@ export function useHomeWalletTabSupport({
         onEnabledNetworksChanged,
       );
     };
-  }, [isAllNetworks]);
+  }, []);
 
+  const accountScopeId = resolveHomeWalletTabSupportAccountScopeId({
+    indexedAccountId: indexedAccount?.id,
+    accountId: account?.id,
+    walletId: wallet?.id,
+  });
   const scopeKey = useMemo(
     () =>
-      [
-        networkId ?? '',
-        isAllNetworks ? 'all' : 'single',
-        perpDisabled ? 'perp-disabled' : 'perp-enabled',
-        enabledNetworksChangedNonce,
-      ].join(':'),
-    [enabledNetworksChangedNonce, isAllNetworks, networkId, perpDisabled],
+      buildHomeWalletTabSupportScopeKey({
+        accountScopeId,
+        networkId: networkId ?? '',
+        isAllNetworks,
+      }),
+    [accountScopeId, isAllNetworks, networkId],
   );
+  const requestKey = `${scopeKey}:${perpDisabled ? 'perp-disabled' : 'perp-enabled'}:${revalidationNonce}`;
+  const hasResolvedScope = Boolean(accountScopeId && currentNetwork);
 
   const { result } = usePromiseResult<IScopedHomeWalletTabSupportState>(
     async () => {
-      if (!currentNetwork) {
+      // Refresh requests independently without changing the confirmed scope.
+      void requestKey;
+      if (!currentNetwork || !accountScopeId) {
         return {
           scopeKey,
-          ...buildHomeWalletTabSupport({
-            network: currentNetwork,
-            deFiEnabledNetworksMap: {},
-            perpDisabled,
-          }),
+          ...HOME_WALLET_TAB_SUPPORT_INIT,
         };
       }
 
@@ -98,23 +108,40 @@ export function useHomeWalletTabSupport({
         };
       }
 
-      const deFiEnabledNetworksMap =
-        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
+      try {
+        const { enabledNetworksMap, isReady } =
+          await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMapState({
+            syncIfEmpty: true,
+          });
 
-      return {
-        scopeKey,
-        ...buildHomeWalletTabSupport({
-          network: currentNetwork,
-          deFiEnabledNetworksMap,
-          perpDisabled,
-        }),
-      };
+        return {
+          scopeKey,
+          ...buildHomeWalletTabSupport({
+            network: currentNetwork,
+            deFiEnabledNetworksMap: enabledNetworksMap,
+            perpDisabled,
+            isReady,
+          }),
+        };
+      } catch {
+        return {
+          scopeKey,
+          ...HOME_WALLET_TAB_SUPPORT_INIT,
+        };
+      }
     },
-    [currentNetwork, isAllNetworks, scopeKey, perpDisabled],
+    [
+      accountScopeId,
+      currentNetwork,
+      isAllNetworks,
+      perpDisabled,
+      requestKey,
+      scopeKey,
+    ],
     {
       initResult: {
         scopeKey,
-        ...(isAllNetworks
+        ...(isAllNetworks && hasResolvedScope
           ? buildHomeWalletTabSupport({
               network: currentNetwork,
               deFiEnabledNetworksMap: {},
@@ -123,22 +150,58 @@ export function useHomeWalletTabSupport({
           : HOME_WALLET_TAB_SUPPORT_INIT),
       },
       undefinedResultIfReRun: true,
+      revalidateOnFocus: true,
     },
   );
 
-  const lastReadyResultRef = useRef<
-    IScopedHomeWalletTabSupportState | undefined
-  >(undefined);
+  const confirmedByScopeRef = useRef<IHomeWalletTabSupportConfirmedCache>(
+    new Map(),
+  );
   useEffect(() => {
-    if (result?.scopeKey === scopeKey && result.isReady) {
-      lastReadyResultRef.current = result;
-    }
+    rememberConfirmedHomeWalletTabSupport({
+      confirmedByScope: confirmedByScopeRef.current,
+      result,
+      scopeKey,
+    });
   }, [result, scopeKey]);
+
+  const retryStateRef = useRef({ scopeKey: '', attempts: 0 });
+  useEffect(() => {
+    if (retryStateRef.current.scopeKey !== scopeKey) {
+      retryStateRef.current = { scopeKey, attempts: 0 };
+    }
+    if (
+      !hasResolvedScope ||
+      isAllNetworks ||
+      result?.scopeKey !== scopeKey ||
+      result.isReady
+    ) {
+      if (result?.scopeKey === scopeKey && result.isReady) {
+        retryStateRef.current.attempts = 0;
+      }
+      return;
+    }
+    if (
+      retryStateRef.current.attempts >= HOME_WALLET_TAB_SUPPORT_MAX_AUTO_RETRIES
+    ) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (retryStateRef.current.scopeKey !== scopeKey) {
+        return;
+      }
+      retryStateRef.current.attempts += 1;
+      setRevalidationNonce((value) => value + 1);
+    }, HOME_WALLET_TAB_SUPPORT_RETRY_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [hasResolvedScope, isAllNetworks, result, scopeKey]);
 
   const tabSupport = resolveHomeWalletTabSupport({
     result,
     scopeKey,
-    lastReadyResult: lastReadyResultRef.current,
+    confirmedByScope: confirmedByScopeRef.current,
+    perpDisabled,
   });
 
   return {

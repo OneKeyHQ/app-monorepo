@@ -1630,3 +1630,221 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - 编写与验收必须角色分离：同一项工作的编写 subagent 不能同时作为最终验收 subagent。验收失败后，由主 agent 将失败证据和明确条件交回编写 subagent 修复，再由独立验收 subagent 复核；循环直到通过或记录真实阻断。
 - 主 agent 只负责需求拆解、subagent 调度、范围和冲突控制、结论与证据汇总、handoff/提交元数据协调、commit 和 push。主 agent 不代替 subagent 编写产品代码，不代替 subagent 做 UI/代码验收，也不自行扩大通过范围。
 - handoff 的维护与发布、提交范围核对以及 commit/push 由主 agent 统一协调；其中涉及产品行为、实现结论或验收结论的内容必须来自对应 subagent 的实际工作和证据，不能由主 agent 补做或推断。
+
+## 2026-07-18 Native Home 状态矩阵扩展：首次空钱包、首次启动与单链有钱钱包
+
+### 调研结论、证据等级与本节边界
+
+- 本节来自三个只读调研方向及一次独立交叉复核：首次创建空钱包、首次启动/no-wallet、单链有钱钱包。调研没有修改产品代码、Simulator 钱包、数据库或持久化数据，也没有执行 uninstall、reinstall、erase、clear data。
+- 独立复核对这三类新增状态的总体证据结论为 **Fail / Incomplete**：产品和架构方向已能够确定，但目前没有为三类状态分别准备安全、独立的真实 fixture，也没有同状态 Legacy / Native 全流程 A/B、首帧录屏和最终交互证据。以下“应 Native 化”的产品决策不能被误写成“已经通过”。
+- 本节严格区分四类信息：**代码事实**是当前源码能够直接证明的分支和时序；**推断**是根据代码时序得出的风险，尚未由真实录屏证明；**已有证据**只覆盖既有有钱多链钱包或部分切网状态；**证据缺口**必须由隔离 fixture 的真实 Debug 包补齐。代码编译、元素存在、旧截图和当前多链有钱钱包正常都不能外推为这些新状态通过。
+- 本轮已经开始调度两条 P0：`未备份 HD 空钱包的 Native shell + RN NotBackedUpEmpty Hybrid body` 与 `首次启动 onboarding verdict 前的可见性 gate`。两项都仍处于编写/复核流程，必须由独立验收 subagent 给出源码审查、聚焦检查和真实状态证据后才能更新为 Pass。
+
+### 总体产品状态矩阵
+
+| 场景 | 产品决策 | Native / Hybrid 边界 | 当前证据状态 |
+| --- | --- | --- | --- |
+| 首次创建、未备份的标准 mnemonic HD 空钱包 | **需要 Native Home 承接，但必须是 Hybrid 特殊内容态** | Header/页面容器继续 Native；body 复用现有 RN `NotBackedUpEmpty`，不在 Swift 重写备份流程；隐藏普通资产 Tab、Market、Earn、banner 和普通 WalletActions | P0，未验收 |
+| 已备份的零资产钱包 | **需要正常 Native Home** | 显示普通零资产 Native 页面；动作与 banner gating 必须和 Legacy 一致 | P1，未验收 |
+| Keyless create/recover、导入 mnemonic/KeyTag 的零资产钱包 | **需要正常 Native Home** | 这些路径按当前创建语义视为已备份，不显示未备份 CTA；仍需验证各 wallet type 的动作能力 | P1，未验收 |
+| 第一次启动且本地没有钱包 | **Onboarding 本身不 Native 化** | `unknown -> onboarding | main` gate 由现有 RN 导航/启动体系决定；Native Home 只可在不可见、不可点击、不可访问状态下预热，不能先露出任何 Home 像素 | P0，未验收 |
+| 普通单链 EVM 有钱钱包 | **需要 Native Home** | Header、Tab、资产列表、History、滚动和 snapshot Native；复杂 selector、More、Explorer、业务 modal 可继续 RN Hybrid | P0/P1，只有部分切网证据 |
+| BTC merge-derive 单链有钱钱包 | **需要 Native Home** | Native 列表/分页/footer；AddressTypeSelector、Explorer 等复用 RN；保持 BTC merge-derive 数据与分页语义 | P1，已有部分 BTC 证据但无完整 A/B |
+| imported private-key / watching / external / hardware 单链有钱钱包 | **需要 Native Home，不允许退回 Legacy 规避** | Native 页面只展示真实可用 action；账户管理、硬件通信和复杂业务仍由现有 RN/bg owner 负责 | P1，真实 fixture 与动作能力证据缺失 |
+
+### 场景一：首次创建的空钱包
+
+#### 代码事实与产品边界
+
+- 标准 mnemonic 创建路径在 `CreateNewWallet.tsx` 和 account selector action 中传入 `isWalletBackedUp: false`，并在进入 Home 前创建 wallet、indexed account 和默认网络账户。因此它不是“没有钱包”，而是 `HD + 未备份 + 零资产` 的独立内容态。
+- Legacy `HomePageView.tsx` 对该状态走 Header + RN `NotBackedUpEmpty`，不展示普通 WalletActions、资产 Tabs、Market、Earn 和 banners。现有 Native `NativeHomePage.native.tsx` 只隐藏了部分 Header 明细、actions 和 banners，仍可能构造 `$0`、Tabs、Market/Earn，且没有现有备份 CTA；这是当前明确的 **P0 行为缺口**。
+- 正确实现不是删除 Legacy，也不是把整页退回 Legacy，更不是在 Swift 复制备份业务。Native Home 保持 Header、容器和滚动 owner；特殊 body slot 直接挂载现有 RN `NotBackedUpEmpty`。进入该状态前必须等待 wallet list、active account 和 backup verdict 完成，不能先渲染普通 Native Home 再切换，以免出现完整 Home 闪现。
+- 备份完成后应由真实 wallet 状态驱动从 Hybrid 未备份 body 切换为普通 Native Home；不能靠局部按钮自行伪造已备份状态。Keyless create/recover、导入 mnemonic/KeyTag 等当前语义为已备份的路径，不得错误显示备份 CTA。
+- 已备份零资产是另一个普通 Native 状态。Legacy 在该状态的快捷动作是 `Add money + More`，而 Native 当前可能仍固定提供 `Send / Receive / Buy & Sell / More`；零资产 banner 也有正余额 gating。这两项列为 P1，不能用未备份 Hybrid body 掩盖。
+
+#### 安全复现与 Pass / Fail
+
+- 需要单独的“标准 mnemonic 新建但尚未备份”隔离 fixture，从创建确认前开始录屏，连续覆盖创建完成、首次进入 Home、备份 CTA 点击、备份流程返回 Home。另需已备份零资产、Keyless、导入 mnemonic/KeyTag 四类对照 fixture；每类先临时切 Legacy 获取同状态基准，再恢复 Native 默认路径执行 A/B。
+- **Pass：** 首个 Home 内容帧直接是 Native shell + 完整 RN 未备份 CTA；从未出现 `$0 + 普通 Tabs/Market/Earn`；CTA 可真实进入原备份流程；完成后普通 Native Home 单次稳定出现，无 `empty -> full -> empty`、无 content offset 跳变。已备份/Keyless/导入态不出现错误备份 CTA，零资产动作和 banner 与 Legacy 一致。
+- **Fail：** 任意一帧先出现普通 Home、Market/Earn 或错误动作；未备份 CTA 缺失/重复；点击只改变本地 UI 而未走权威备份流程；备份后仍停留旧 body；Keyless/导入态被当成未备份；用退回整页 Legacy 规避问题。
+- 当前只有历史 `.tmp/ui/home-after-onboarding-close.png` 可作为线索，不是当前同状态 A/B，也不能作为通过证据。
+
+### 场景二：第一次启动、no-wallet 与 onboarding gate
+
+#### 代码事实、时序推断与产品边界
+
+- 代码事实：Root 初始 route 是 Main；Main/Home 会挂载 `HomePageContainer`，Native feature flag 只检查 Nitro/dev switch；`OnboardingOnMount` 随后异步通过 bg `serviceOnboarding.isOnboardingDone()` 获取 verdict。该 bg service 依据本地 DB 数量判断，而不是单一同步 first-launch flag；false 后才把 root route 重置为 `[Main, Onboarding]`，让 RN Onboarding 位于最上层。
+- 代码事实：iOS main 与 bg 是独立 Hermes runtime，main ready 不能代表 bg 已完成 onboarding verdict。Splash 当前在 mount effect 中结束，Native 的 no-wallet 判断又比 Legacy 少 storage init、active account init、wallet list verdict 等 readiness 条件。
+- **尚未实证的 P0 推断：** 在慢 bg 冷启动或 transport 尚未 ready 时，Main/Native Home 可能短暂可见或可交互，然后才切入 Onboarding；已有有钱钱包也可能先出现 Native EmptyWallet 再变成真实账户。当前没有真实 fresh fixture 录到该泄漏，文档只能记为结构性高风险，不能宣称已发生隐私泄漏。
+- 产品决策是 Onboarding 本身继续使用现有 RN 页面，不做 Swift/UIKit 重写。启动状态必须明确为 `unknown -> onboarding | main`；在 bg 返回权威 verdict 前保持 opaque launch/splash gate。允许 Main/Native Home 在下面预热，但必须同时满足不可见、不可 hit-test、不可进入 accessibility tree，并且不能提前发送会改变业务状态的 Home 交互。
+- no-wallet gate 需要同时等待 storage、wallet list、active account 与 bg onboarding verdict，不能把“尚未初始化”当作“确定无钱包”。如果后续恢复 cache-aware splash，需要审计 Native Home 是否提供与 Legacy `HomePageReady` 等价且只在真实内容可展示时触发的 ready contract。
+
+#### 安全复现与 Pass / Fail
+
+- 需要一个从未完成 onboarding、没有钱包和账户数据的独立 fixture；必须在 app process 启动前开始录屏，并把 main ready、bg ready/bootId、transport ready、`isOnboardingDone` request/response 和 route reset 按时间关联。另需已有有钱钱包的真正 cold start 对照，检查是否出现 EmptyWallet 中间帧。
+- **Pass（fresh/no-wallet）：** Get Started/Onboarding 是首个可见且可交互业务帧；在此之前 0 个 Search、Account、Balance、Wallet Tab、Market、EmptyWallet 或普通 Wallet Home 像素，accessibility 也无法命中 Home。**Pass（已有钱包）：** gate 结束后首帧直接为正确账户的 Native Home，没有 EmptyWallet/Legacy/空白中间态。
+- **Fail：** verdict 前任意 Home 像素或可点击/accessibility 元素暴露；main ready 被当作 bg verdict；先显示 EmptyWallet/错误账户再替换；通过隐藏 Onboarding 或把 Onboarding 改成 Native 规避 gate 问题。
+- 当前有钱多链 Simulator 不能安全转换成 fresh/no-wallet fixture，因此该 P0 的真实 UI 通过目前受 fixture 阻断；可以先完成源码、聚焦单测与现有钱包的回归，但不得据此标记真实首次启动通过。
+
+### 场景三：单链有钱钱包
+
+#### Native 范围与当前代码事实
+
+- Native Home feature gate 当前没有 All Networks、资产数量或 wallet type 的 Legacy fallback，因此普通 EVM、BTC merge-derive、imported、watching、external 与 hardware 的单链有钱钱包都属于 Native Home 范围。后续发现差异必须修正能力和 Hybrid slot，不能为这些账户退回 Legacy。
+- Native owner：Header、顶层 Tab、Token/NFT/History/DeFi 列表、snapshot、cell、纵向/横向滚动和首帧 cache。RN Hybrid owner：Account/Network selector、More、AddressTypeSelector、Explorer 选择、复杂详情和业务 modal。硬件钱包通信继续由 bg 负责，严禁移入 main/UIKit。
+- 共享 `useHomeWalletTabSupport` 的 All Networks 语义是 DeFi 始终可用、Perps 只受全局 disabled；单链则由 bg capability map 和 NFT supported-network config 决定。单链第一次读取期间 `isReady=false`，DeFi/Perps 暂时 false。
+- 当前 support hook 使用单个 `lastReadyResultRef`，存在跨 scope 复用风险：从已支持的 EVM 切到不支持的 BTC 时，可能暂时复用前一网络的 Tabs。部分现有测试可能固化该行为。正确 owner 应按 account/network scope 保存 confirmed result，只允许同 scope stale-while-revalidate，禁止跨网络沿用 capability；这是单链连续切换的 P0 数据一致性项。
+- 单链数据语义与 All Networks 不同：只显示当前账户数据；BTC 还需要 merge-derive；行内通常不显示重复网络 badge，native coin 使用 gas accessory；Header 是单网络 selector；History 是单链 pagination；普通链 footer 直接走对应 Explorer，BTC merge-derive 复用 AddressTypeSelector。Native 不能把 All Networks DTO/交互原样套用。
+- imported private-key、watching、external 与 hardware 的可用 actions 不同。Native 当前动作若无条件展示 Send/Receive/Buy & Sell 等，会让不可写账户暴露无效操作；必须复用现有 capability owner，不能根据 wallet type 字符串在 Swift 猜测。
+
+#### 已有证据与证据缺口
+
+- BNB 有较强 Native 页面和交互证据，但 fixture 实际是多链 HD wallet 切换到 BNB，不等价于真正单链 imported/watching 钱包。BTC 已有 Native Spot/History、merge pagination、footer 与 AddressTypeSelector 证据，但没有最终完整同状态 Legacy / Native A/B，也没有 BTC 选择具体地址后外部 Explorer 的末端录屏。
+- 旧 Ethereum differ 早于近期滚动、Dynamic Type、图片和 History 修复，不能作为当前提交的通过证据。现有多链有钱钱包证据只能证明回归基线，不能外推为单链冷首帧和 wallet-type action 能力。
+- P0 缺口：supported EVM cold first frame；EVM -> BTC -> EVM 连续切换的 Tab capability、首帧、offset 和空白；按 scope cache 不串值。P1 缺口：Ethereum/BNB/BTC 最终 A/B；真正 imported private-key、watching、external、hardware fixtures 的 action 能力；已备份零资产动作；非空 NFT；DeFi action/detail；普通单链 Explorer 和 BTC 最终 Explorer 跳转。P2 缺口：这些状态组合下的 Dark mode、Dynamic Type、pressed/selected、图片全候选失败和业务失败回滚。
+
+#### 安全复现与 Pass / Fail
+
+- 为 EVM、BTC merge-derive、imported private-key、watching、external、hardware 分别准备独立 fixture；每个 fixture 固定 theme、Dynamic Type、locale、服务端 config 和真实数据，先在同一 Debug 包临时切 Legacy 采集基准，再恢复 Native 默认路径并重新执行标准 `yarn app:ios`。
+- supported EVM 冷启动必须从启动前录到 bg capability ready 后；连续执行 EVM -> BTC -> EVM 两轮，并对每次点击的首帧、1s settled、Tab 集合、选中态、outer/page offset 和内容高度逐帧检查。所有坐标操作必须截图后立即执行，旧坐标因异步 section 位移造成的误命中一律作废。
+- **Pass：** 每个 network scope 首帧直接使用同 scope cache 或稳定 skeleton，不出现前一网络独有 Tab/行；bg verdict 后只进行一次符合预期的稳定收敛；真实可用 action 与 Legacy/capability 相同；History、NFT、DeFi、Explorer 真实可交互；切换不白屏、不大空白、不跳 offset、不串 badge/logo/账户。
+- **Fail：** EVM 的 DeFi/Perps 暂时出现在 BTC；前一网络 rows 或图片串入下一网络；unsupported action 可点击后才报错；BTC merge-derive 数据丢失/重复；footer 或 selector 只存在但不可完成；用 Legacy fallback、假数据或硬编码 Tab 规避服务端能力。
+
+### 优先级与后续任务顺序
+
+1. **P0-A，已开始：** 编写 subagent 实现未备份 HD 的 Hybrid content state；保留 Native shell，复用 RN `NotBackedUpEmpty`，隐藏普通 Tabs/Market/Earn/actions，并建立 wallet/account/backup verdict readiness。独立验收 subagent 先做源码和聚焦测试审计；真实 UI 保持 blocked，直到有安全 fixture。
+2. **P0-B，已开始：** 编写 subagent实现 `unknown -> onboarding | main` 可见性 gate，确保 verdict 前 Home 不可见、不可点击、不可访问；同时收紧已有钱包的 no-wallet readiness。独立验收 subagent检查 main/bg 时序和测试，fresh fixture 未提供前不得宣称 UI Pass。
+3. **P0-C：** 将单链 capability cache 改为 account/network scope owner，补 EVM -> BTC -> EVM 竞态和 cold first-result 测试；由另一个编写 subagent执行，避免与前两项共享文件冲突，再由独立验收 subagent复核。
+4. **P1：** 已备份零资产 actions/banner parity；EVM/BTC DTO、badge/gas accessory、History footer/Explorer；imported/watching/external/hardware action capability；每项先做同状态 Legacy/Native 代码走查，再由编写 subagent修复。
+5. **P1/P2 UI：** 取得隔离 fixtures 后，由 UI 验收 subagent使用 Debug 包完成首次创建、首次启动、单链各类型的全流程录屏、首帧/settled 截图、自动 differ 和真实点击；最后覆盖 Dark mode、Dynamic Type、pressed/selected、全部图片候选失败及错误回滚。
+6. 每个子项只有在“编写 subagent完成 -> 独立代码验收 subagent通过 -> 标准 `yarn app:ios` 更新 Debug 包 -> 独立 UI 验收 subagent真实通过 -> handoff 更新”后才允许标为完成。若 fixture 不可安全取得，必须记录 Blocked/Partial，不能修改当前钱包制造绿色证据。
+
+### 绝对数据安全与 fixture 要求
+
+- 当前 Simulator `4837E819-A117-4E08-9936-445785D199E3` 是多链有钱钱包真实现场，必须保持钱包、账户、网络、收藏、数据库和持久化数据。绝对禁止把它改造成空钱包/no-wallet/首次启动 fixture；禁止 uninstall、reinstall、erase、clear data，禁止删除 app container、钱包数据库或持久化文件。
+- iOS 只允许从仓库根目录执行 `yarn app:ios`，由其完成 Debug build、更新安装和启动；不使用 Release、自定义 `xcodebuild`、`CODE_SIGNING_ALLOWED=NO`。fixture 若需要独立 Simulator、预置账户或 Debug seam，必须与当前现场隔离并经过主 agent 范围确认，不能靠清理当前设备获得。
+- 不得记录或提交 mnemonic、private key、seed、硬件钱包敏感信息或真实地址隐私数据。测试 fixture 只能使用授权的非敏感测试账户；硬件通信仍在 bg。
+- 隔离 fixture 缺失是有效阻断，不是授权扩张。代码测试可以先推进，但首次空钱包/首次启动/真正单链 wallet-type 的真实 UI 结论必须保持 Incomplete。
+
+### iOS runtime scope 与资源所有权
+
+- **main runtime：** Native Home/Hybrid body 的可见内容选择、Header、Tabs、snapshot/section patch、同 scope UI cache、scroll/content offset、pressed/selected、accessibility、图片 request 和 per-view state；Onboarding route 的可见呈现也在 main。
+- **bg runtime：** `isOnboardingDone` 权威 verdict、wallet/account/backup/capability service 数据、Market/History/NFT/DeFi service、watchlist 和持久化读写；hardware-wallet communication 继续只在 bg。main 只能经 proxy 请求和接收序列化结果。
+- iOS main/bg 使用独立 Hermes JS heap，wallet、account、capability 和 DTO 会分别序列化/反序列化并在两个 runtime 各有 JS 副本；main ready、transport ready、bg ready 和 onboarding/capability verdict 是不同事件，初始化顺序独立，不能假设 bg 先 ready。
+- MMKV、数据库/文件句柄、图片和字体 cache 以及部分 Native singleton 是进程级共享 Native 资源；具体 Header/body 状态、cell constraint、represented image signature、request cancellation/retry、gesture/offset、pressed/hover、Tab capability cache 和 transition token 都属于 per-view/main 状态。共享 cache 不等于共享 JS 对象，也不能替代 per-scope identity 校验。
+
+### 主 agent / subagent 职责矩阵
+
+| 工作 | 责任角色 | 强制边界 |
+| --- | --- | --- |
+| 需求拆解、P0/P1 排序、文件冲突与 dirty scope 控制 | 主 agent | 不直接编写产品代码，不自行做代码/UI Pass 判定 |
+| 未备份 Hybrid、启动 gate、单链 capability 和后续产品修复 | 对应编写 subagent | 每个 subagent 只改被分配范围；不得 reset/checkout/clean/stash，不得 commit/push，不得混入 Discovery/Swap/TradingView/Firmware/Performance 等无关改动 |
+| 源码审查、聚焦 Jest/ESLint/Swift parse/diff-check | 独立代码验收 subagent | 与编写角色分离；失败必须给出可定位证据，不能由编写者自验收 |
+| `yarn app:ios`、main/bg ready、真实截图/录屏、交互与 A/B differ | 独立 UI 验收 subagent | 只用 Debug；元素存在和编译通过不是 Pass；严格遵守数据安全与 fixture 边界 |
+| handoff 内容协调、stage/commit/push 与最终结论汇总 | 主 agent | 产品行为和 Pass/Fail 只能引用 subagent 的实际结果；每轮完成后更新 handoff，并按用户要求 commit/push，不夹带无关 dirty files |
+
+### 当前完成边界
+
+- 本节完成的是三类新增状态的产品决策、Native/Hybrid 边界、风险分级、复现/验收标准、fixture 安全边界和 subagent 工作拆分；不是产品代码或 UI 完成声明。
+- 当前可继续在不破坏真实钱包的前提下推进 P0 源码与聚焦测试；fresh/no-wallet、未备份 HD、已备份零资产、Keyless/导入和真正单链 wallet-type 的真实 UI 验收仍需隔离 fixture。后续 handoff 必须逐项填写实际修改文件、检查结果、Debug 更新、main/bg ready、截图/录屏路径和仍存在的阻断。
+
+## 2026-07-18 三类新状态：本轮实现与独立代码验收进展
+
+### 结论边界
+
+- 本轮按上一节职责矩阵，由不同编写 subagent 完成四组实现，再由独立代码验收 subagent 多轮审计。四组最终都达到**聚焦源码/测试 Pass**；过程中任何 P0、lint 或测试失败都先退回编写 subagent 修复，再重新验收，没有把作者自测当作最终结论。
+- 这里的 Pass 仅表示当前 diff 的 owner、竞态、类型、聚焦测试和平台 renderer 审计通过。fresh/no-wallet、未备份 HD、已备份零资产、Keyless、导入和真正单链 wallet-type 仍缺隔离 fixture 的真实 Debug UI 证据，不能据此声明首次启动、空钱包或单链 Native Home 已完成。
+- 当前多链有钱钱包仍是唯一允许直接使用的真实现场；本轮实现没有授权把它转换成新场景 fixture，也没有授权清理其数据。Android renderer 已通过编译和单元测试，但 Android Debug 真机/模拟器的 RN body 滚动惯性仍没有录屏证据。
+
+### P0-A：未备份 HD Hybrid content.body 与双平台 renderer
+
+- 实现新增 `pending | notBackedUp | normal` 的 Native Home wallet state。只有 storage、active account init 和 active account ready 都完成，且 wallet 确认为未备份 HD 时，才进入 `notBackedUp`；imported 或已备份钱包继续走 normal。wallet-list 与 active-wallet generation 的最终判定没有在这个局部 helper 中重复实现，而是交给统一 launch/Home gate。
+- `notBackedUp` 使用新的 `content.body` slot：Native Header 继续保留，普通 Tabs、pager、Market、Earn、banner 和普通 actions 不挂载；body 复用现有 RN `NotBackedUpEmpty` 与其键盘/滚动容器。`pending` 只提供不可交互的中性背景，不先暴露 `$0` 或普通 Home。
+- iOS `HomeContainerView` 和 Android `HomeContainerView` 都增加 full-body slot host：挂载时隐藏 tabs/pager、禁用 Native body 滚动/refresh，并让 RN body 占据 Header 下方区域；卸载后恢复普通 Native Home。TS slot bridge/types 同步加入 `content.body`，没有在 Swift/Kotlin 重写备份业务。
+- 第一轮独立审计为 **Fail**：Android Surface 的通用 gesture forwarding 会把 `content.body` 的 drag 转交给已经隐藏的 Native pager，属于 P0；同时 reviewer 指出 wallet-list verdict 不应只靠 Native 页面局部状态。修复后 `content.body` 明确保留 RN ScrollView 的 gesture ownership，普通 Header/footer slot 仍使用既有 Surface routing；wallet-list/current generation 纳入下面的统一 launch gate。
+- 最终独立代码验收为 **Pass**：JDK 17 下 Android `compileDebugKotlin` 与 `testDebugUnitTest` 通过；Hybrid 聚焦 Jest 为 2 suites / 15 tests；Swift parse、type-aware lint、format 和指定 diff-check 通过。该结果证明 renderer/gesture route 代码可编译且分支受测试覆盖，不证明 Android Debug 的真实 inertia 手感。
+
+### P0-B：always-mounted onboarding launch gate
+
+- `OnboardingOnMount` 从 lazy Home owner 移到长期存在的 app/detail container，首次启动、非 Home deep link 和 WalletClear 时都能持有权威启动检查。native 启动状态使用 `unknown | onboarding | main`，并额外记录真实 foreground、`requiredHomeGeneration` 和 `readyHomeGeneration`。
+- bg `serviceOnboarding.isOnboardingDone()` 是唯一 onboarding verdict；RPC reject 使用有界间隔持续 retry，不用 main timer 发布假 verdict。WalletClear 创建新的 authoritative token/generation；WalletUpdate 只排队做 maintenance，并等待当前权威检查完成，不能抢走启动 token。每次跨 `await` 后都检查 request 是否仍为 current，旧 handler 不能覆盖新 generation。
+- onboarding 只有在真实 route reset 完成且 foreground 已经变为 onboarding 后才发布可见决定；Home 只有在 `decision=main`、account selector storage/active-account 初始化完成、wallet list 已返回、当前 active wallet 属于已 settled 的 wallet-list generation 后才标记当前 Home generation ready。Splash 的 5s timer只释放原 cache/task gate，不能替代 bg verdict。
+- hidden prewarm 同时设置 `opacity=0`、`pointerEvents=none`、隐藏 accessibility descendants；DApp floating trigger、OneKey ID、notification registration、KYT、BTC fresh-address 等 foreground side effects 只在 Home generation 真正可见时挂载。desktop/web 继续走原单 runtime 分支，native split-runtime gate 没有全局套到其他平台。
+- 第一轮 reviewer 报告 **4 个 P0**：owner 仍位于 lazy Home、WalletUpdate 会抢 authoritative token、RPC reject 会永久停在 unknown、没有 wallet-list verdict；另有 foreground reset 只是伪 await、hidden side effects 仍挂载、Home generation 不完整及平台边界等问题。第二轮仍因 `main + foreground=onboarding` 组合可能 deadlock、authoritative handler 跨 await 后可能 stale commit，以及 3 个 lint 错误而 Fail；第三轮 P0 已修复但 3 个 lint 仍未通过，仍不得标 Pass。
+- 第四轮修复后独立 reviewer 才给出 **Pass**：launch 相关 4 suites / 52 tests 全部通过，覆盖 route foreground、bg reject retry、WalletUpdate serialization、WalletClear generation、旧 async handler 失效、wallet-list/current wallet readiness、hidden side-effect 和 Splash gate；type-aware lint、format、diff-check 通过。该结果仍需要 fresh/no-wallet 与已有钱包 cold launch 的真实逐帧验证。
+
+### P0-C：per-scope capability、bg readiness、LRU 与 lifecycle
+
+- Home 顶部 Tab capability scope 现在由 `indexedAccountId | accountId | walletId`、network id 和 all/single 标记共同组成，避免 EVM -> BTC -> EVM 或换账户时借用另一 owner 的 DeFi/Perps 结果。confirmed cache 只按相同 scope 读取，使用最大 8 项的 LRU；Perps global disabled 在读取 confirmed state 时重新应用，不把配置开关固化进旧 cache。
+- 单链结果改用 bg 返回的 `enabledNetworksMap + isReady`；`isReady=false` 保持 neutral pending，不把暂空 map 当成 unsupported。All Networks 在 account/network owner 已确定后仍按既有产品 invariant 直接 confirmed；单链 RPC failure 返回 pending，并通过 enabled-network 事件、focus revalidation 和有限自动 retry 收敛。cache/request lifecycle 受 scope identity 保护。
+- 第一轮独立审计为 **Fail**：丢失 bg `isReady`、consumer 忽略 readiness、Map 无界、hook 没有可靠 lifecycle revalidation。第二轮逻辑问题已修复，但 test cleanup 出现 TS2345，因此仍为 Fail。修复测试类型后独立 reviewer 给出 **Pass**：聚焦 capability 30 tests、type-aware lint、format、diff-check 全部通过。
+- 该代码 Pass 只证明 scope 不跨 owner、pending/confirmed 和 lifecycle state machine；EVM -> BTC -> EVM 的真实 Tab 首帧、offset、无白屏和实际 bg 时序仍必须在单链 fixture 中录屏。
+
+### P0-D：cold consumer 的 neutral pending、atomic snapshot 与 scoped Perps worth
+
+- Legacy 与 Native consumer 都消费统一 `pending/confirmed` model。cold single-network capability pending 时不提交一个看起来已经最终完成的错误 Tab 集合，也不允许点击/外部 SwitchWalletHomeTab 改变选中项；Legacy 展示中性 pending strip/content，Native 提交带明确 `loading` renderer row 的 neutral portfolio surface。
+- 第一版 consumer 仍会先把 Native tab shells 以空 sections 提交，再由 passive effects 分别 patch sections，可能产生首帧空白和选中项/内容不同步；pending RN slot 也没有 Native 可见 loading row。最终实现使用单次 full snapshot 原子提交 tabs、selected tab 与每个当前 section，后续实时数据更新才继续走 section patch。
+- Perps net worth 现在携带 account/network `scopeKey`；旧 owner 的异步结果不能写入或展示为新 owner cache。旧合法 selected tab 只在 confirmed 新集合确实移除它后回落到 portfolio，不能在 pending 中间态触发抖动。
+- 第一轮独立审计因此以“空 sections 的两阶段提交、pending 没有 loading row、Perps worth 跨 owner 污染”判 Fail。修复后 reviewer 给出 **Pass**：组合聚焦 Jest 2 suites / 39 tests、type-aware lint、format、diff-check 全部通过，其中覆盖 pending loading row、confirmed atomic snapshot 和 scoped worth 拒绝旧 owner 结果。
+
+### 本轮产品文件清单与归属
+
+- **Hybrid wallet/body：** `packages/kit/src/views/Home/nativeHomeWalletState.ts`、`nativeHomeWalletState.test.ts`、`NativeHomePage.native.tsx`；`packages/native-components/src/HomeContainer.types.ts`、`HomeContainer.native.tsx`；`packages/native-components/ios/HomeContainerView.swift`；`packages/native-components/android/build.gradle`、`HomeContainerSurfaceView.kt`、`HomeContainerView.kt`、`android/src/test/java/com/margelo/nitro/onekeynativecomponents/HomeContainerSurfaceGestureRoutingTest.kt`。
+- **Launch/onboarding：** `packages/kit/src/provider/Container/index.tsx`、`SplashProvider.tsx`、`SplashProvider.test.ts`；`packages/kit/src/views/Onboarding/components/OnboardingOnMount.tsx`、`onboardingLaunchGate.ts`、`onboardingLaunchGate.test.ts`；`packages/kit/src/views/Home/pages/HomePageContainer.tsx`、`HomeWalletListProvider.tsx`、`homeLaunchVisibility.ts`、`homeLaunchVisibility.test.ts`、`homePageNoWalletContent.ts`、`homePageNoWalletContent.test.ts`。
+- **Capability owner：** `packages/kit/src/views/Home/hooks/homeWalletTabSupportUtils.ts`、`useHomeWalletTabSupport.ts`、`useHomeWalletTabSupport.test.ts`。
+- **Cold consumer：** `packages/kit/src/views/Home/homeWalletCapabilityTabModel.ts`、`homeWalletCapabilityTabModel.test.ts`、`NativeHomePage.native.tsx`、`pages/HomePageView.tsx`、`pages/HomeOverviewContainer.tsx`。共享文件只列一次提交，但这里按行为归属注明重叠。
+- 本 handoff 只记录上述 subagent 结果。共享工作区既有 `yarn.lock`、Performance、Discovery、Swap、TradingView、Firmware 和其他未提交文件不属于本轮 Native Home 状态矩阵修复，不得为通过检查而回滚，也不得未经范围核对混入提交。
+
+### 检查、root TypeScript 阻断与仍未通过的 UI
+
+- 四组聚焦结果分别为：Hybrid 2 suites / 15 tests + Android JDK 17 compile/unit tests + Swift parse；launch 4 suites / 52 tests；capability 30 tests；cold consumer 2 suites / 39 tests。各组最终 reviewer 都报告 type-aware lint、format 和 diff-check 通过。数字存在组合测试重复，不能相加成“总测试数”。
+- root TypeScript 仍被两条共享工作区既有错误阻断：`apps/desktop/web-build/static/js-sdk/data/config.ts:2` 缺少 `config.perfReady`；`packages/kit/src/views/Home/NativeHomePageView.native.tsx:15` 引用的 `HOME_HEADER_SEARCH_ROW_HEIGHT` 没有 export。独立 reviewer 报告聚焦新增文件没有额外类型错误；禁止修改这两个无关 owner 只为制造全量绿色结果。
+- **仍无 UI Pass：** fresh/no-wallet 首次启动、未备份 HD、已备份零资产、Keyless、导入 mnemonic/KeyTag、真正 imported private-key/watching/external/hardware 单链钱包，以及 EVM/BTC 真正单链 cold first frame 都没有隔离 fixture 的 Legacy/Native A/B、逐帧录屏和完整交互证据。
+- 当前有钱多链钱包只允许做非破坏性 Debug 回归：标准更新后确认账户/余额/Token/NFT/DeFi/History 数据仍在；main 与独立 bg 都 ready；Home 首帧没有 opacity gate 卡死；All Networks 五个顶层 Tab 规则、Market 三类、History footer、BTC 已有 selector、滚动惯性、底部 inset、Dark/Light、Large/XXXL、Star、图片正常/强制失败态没有明显回归。它不能证明 no-wallet、未备份、Keyless、导入或真正单链状态。
+
+### 下一步 Debug 与独立 UI 验收
+
+1. 先由主 agent 核对产品 diff、无关 dirty 文件和提交范围；不能把本节代码 reviewer Pass 直接改成 UI Pass。
+2. 由独立 UI 验收 subagent 从仓库根目录执行唯一允许的 `yarn app:ios`，让它构建、签名、更新安装并启动 Debug 包；禁止 Release、自定义 `xcodebuild`、`CODE_SIGNING_ALLOWED=NO`，禁止 uninstall/reinstall/erase/clear data 和删除 container/数据库。
+3. 在当前有钱多链钱包完成上述非破坏性回归，并记录 Debug binary、main ready、独立 bg ready/bootId、钱包数据、真实截图/录屏和失败项。main ready 不能代替 bg ready。
+4. fresh/no-wallet、未备份 HD、已备份零资产、Keyless/导入和真正单链各 wallet type 继续保持 Blocked/Incomplete，直到主 agent 获得与当前钱包完全隔离且获授权的 fixture；届时由另一独立 UI subagent按上一节 Pass/Fail 标准执行同状态 Legacy/Native A/B。
+5. Android 仍需标准 Android Debug 包的真实 `content.body` 双向 drag、fling/deceleration、CTA 点击与退出 Hybrid body 录屏；Kotlin compile 和 unit test 不能替代惯性证据。在取得该证据前，Android Hybrid gesture 只能标记 code Pass / UI Pending。
+
+## 2026-07-19 iOS Debug：启动 gate、Market 回归与单链 DeFi 插入复测
+
+本节更新上一节的真实 Debug 状态。三轮均从仓库根目录执行标准 `yarn app:ios`，由该命令完成 Debug build、Metro、更新安装和启动；没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`，没有执行 uninstall/reinstall/erase/clear data，也没有删除 simulator app container、钱包数据库或其他持久化数据。
+
+### 第一轮：当前有钱钱包冷启动黑 Splash，真实 UI Fail
+
+- 第一轮 `yarn app:ios` 构建、更新安装和启动成功，但当前有钱多链钱包停留在黑色 Splash 超过 15 秒。该轮虽然 main runtime 已启动、独立 bg runtime 已 ready，仍属于真实 UI **Fail**，不能用编译成功或 runtime ready 代替 Home 可见。
+- 诊断快照为 `decision=main`、`foreground=unknown`、`readyHomeGeneration=2`、`requiredHomeGeneration=2`，真实 route 已是 `main > Home > TabHome`，但 `nativeLaunchReady=false`。bg 的 `bootId=1784361570900-9um2iao8`、`status=ready`，说明阻断不是“bg 未启动”，而是首次 React Navigation state 没有传给长期存在的 foreground/launch gate。
+- 关键证据：`.tmp/ui/native-home-launch-gate-diagnostic-20260718.json`；当轮应用日志证据为 `/Users/huhuanming/.agent-device/sessions/native-home-p0/app.log.1`。日志可能随后轮转，JSON 中的 route、generation、main/bg 状态是该次失败的稳定记录。
+
+### 初始 Navigation state 修复：独立代码验收 Pass
+
+- 修复为每个 `NavigationContainer` 独立维护 event store：`listeners`、`isReady` 和 `currentState`。`onReady` 从该 pane 的真实 navigation ref 读取 `getRootState()`，原子写入 ready/current state 并广播；重复 `onReady` 不产生第二次广播；ready 后的 `onStateChange` 才继续更新。
+- split view ref 不再混用：MAIN pane 使用 `tabletMainViewNavigationRef`，detail/SUB/普通容器使用 `rootNavigationRef`。晚订阅者只在 store 已 ready 时 replay 真实 `currentState`，不再根据另一个 ref 猜测首次状态。
+- listener 使用稳定 callback ref、`Set` 和 cleanup，避免 rerender/StrictMode 造成重复订阅；production `useRouterConfig().containerProps.onReady` 也进入集成测试，而不是只测辅助函数。该修复补齐 `event store + split ref + no-double + production onReady` 四个边界。
+- 多轮独立 review 曾因 split ref、重复 handshake 和 production 测试缺口判 Fail；修复后 reviewer 给出代码 **Pass**。最终聚焦结果为 6 suites / 60 tests，覆盖 Navigation events、production integration 和 launch gate；type-aware lint、format 与指定 diff-check 通过。root TypeScript 仍只有上一节已记录的 Desktop `config.perfReady` 和旧 Native Home header export 两个共享工作区阻断，未为制造绿色结果混修。
+
+### 第二轮：foreground 修复后的真实启动与 Market 回归 Pass
+
+- 第二次标准 `yarn app:ios` 后，命令启动和随后两次 relaunch 都直接进入当前有钱钱包；逐帧证据没有出现 Empty Wallet、backup onboarding 或白屏。账户、余额和钱包数据正常显示。
+- 第一次 relaunch 的 launch gate 为 `decision=main`、`foreground=home`、generation `2/2`、`nativeLaunchReady=true`，`jsReadyAt=1784388844373`、`uiVisibleAt=1784388848522`；独立 bg `bootId=1784388846110-3bg8vv7y` 且 transport ready。第二次 relaunch 同样为 `main/home/2/2`，`jsReadyAt=1784388905851`、`uiVisibleAt=1784388909797`，独立 bg `bootId=1784388907677-yl2tz32a` 且 ready。两次都证明 main ready、bg ready 和真实 Home 可见三个条件分别成立。
+- 启动证据：`.tmp/ui/native-home-after-foreground-fix-splash-to-home.mp4`、`.tmp/ui/native-home-after-foreground-fix-splash-to-home-contact-sheet.png`、`.tmp/ui/native-home-after-foreground-fix-home-clean.png`、`.tmp/ui/native-home-after-foreground-fix-relaunch-initial.png`、`.tmp/ui/native-home-after-foreground-fix-relaunch-settled.png`、`.tmp/ui/native-home-after-foreground-fix-launch-gate-diagnostic.json`、`.tmp/ui/native-home-after-foreground-fix-runtime-probe.json`、`.tmp/ui/native-home-after-foreground-fix-relaunch-gate-diagnostic.json`、`.tmp/ui/native-home-after-foreground-fix-relaunch-runtime-probe.json`。
+- 当前有钱钱包的 Market `Favorites -> Trending -> Stocks` 与返回切换获得 immediate/settled 截图和录屏；三个分类首帧直接显示缓存 rows，没有 `rows -> empty -> rows` 白屏。该项真实 UI **Pass**。证据：`.tmp/ui/native-home-after-foreground-fix-market-tab-switch-current-funded.mp4`、`.tmp/ui/native-home-after-foreground-fix-market-trending-immediate-current-funded.png`、`.tmp/ui/native-home-after-foreground-fix-market-trending-settled-current-funded.png`、`.tmp/ui/native-home-after-foreground-fix-market-trending-return-current-funded.png`、`.tmp/ui/native-home-after-foreground-fix-market-stocks-immediate-current-funded.png`、`.tmp/ui/native-home-after-foreground-fix-market-stocks-settled-current-funded.png`、`.tmp/ui/native-home-after-foreground-fix-market-stocks-switch-current-funded.mp4`。
+- Debug 中仍可见既有 Dev Gallery LogBox 历史外部告警；它不是本次 launch gate 或 Native Home 修改引入的问题，不得把 Discovery/Dev Gallery 无关代码混入本轮。留档证据：`.tmp/ui/native-home-after-foreground-fix-logbox-detail.png`、`.tmp/ui/native-home-after-foreground-fix-logbox-log-snippet.txt`、`.tmp/ui/native-home-after-foreground-fix-logbox-relaunch-2.png`。
+
+### All Networks -> Ethereum：原 Fail、Swift 修复与仍未关闭的 UI 边界
+
+- foreground 修复后，在非零 Home offset 从 All Networks 切换到 Ethereum，真实录屏捕获到 Market 前方的异步 DeFi section 单帧硬插入，导致 Market 及下方 section 突然位移。该轮是明确的真实 UI **Fail**，不是 capability Tab 白屏，也不能用最终 settled 截图掩盖。证据：`.tmp/ui/native-home-after-foreground-fix-single-network-current-funded.mp4`、`.tmp/ui/native-home-after-foreground-fix-single-network-immediate-current-funded.png`、`.tmp/ui/native-home-after-foreground-fix-single-network-settled-current-funded.png`。
+- Swift 修复针对 DeFi section 的 structural diffable 更新：结构性插入/移除不再使用会暴露单帧位移的 animated diffable mutation，普通数据 patch 仍保留既有更新路径。独立代码 reviewer 已给出 **Pass**；这只代表根因路径和实现边界通过代码审计，不等于原非零锚点 UI 已验收。
+- 第三次标准 `yarn app:ios` 后，All Networks -> Ethereum 的顶部 offset 录屏切换平滑，未再捕获硬插入。证据：`.tmp/ui/native-home-after-defi-animation-fix-allnetworks-to-ethereum-current-funded.mp4`、`.tmp/ui/native-home-after-defi-animation-fix-allnetworks-to-ethereum-current-funded-contact-sheet.png`、`.tmp/ui/native-home-after-defi-animation-fix-ethereum-immediate-current-funded.png`、`.tmp/ui/native-home-after-defi-animation-fix-ethereum-settled-current-funded.png`。
+- 但原 Fail 发生在**非零 Market 锚点**。后续自动化尝试在该锚点录屏时误命中底部 Discover，`.tmp/ui/native-home-after-defi-animation-fix-nonzero-anchor-before-current-funded.png`、`.tmp/ui/native-home-after-defi-animation-fix-nonzero-retry-anchor-before-current-funded.png` 和 `.tmp/ui/native-home-after-defi-animation-fix-nonzero-final-drag-1-current-funded.png` 只能证明坐标漂移/误命中，不能作为通过或失败证据。因此本项当前结论是：Swift code **Pass**、顶部 offset UI **Pass**、原非零 Market 锚点 UI 仍 **Pending/Blocked**。下一轮必须截图后立即短 batch 点击正确 selector，并保留切换前、immediate、transition、settled 多帧；误命中不得计入结果。
+
+### 最终现场、仍 Blocked 的状态与 runtime 边界
+
+- 最终已恢复 Wallet、All Networks 和 `+16` 多链选择器，当前有钱钱包数据仍在。恢复证据：`.tmp/ui/native-home-after-defi-animation-fix-nonzero-final-allnetworks-restored-current-funded.png`；第三轮命令启动证据：`.tmp/ui/native-home-after-defi-animation-fix-command-launch-current-funded.png`、`.tmp/ui/native-home-after-defi-animation-fix-home-clean-current-funded.png`。
+- 以下状态仍没有隔离 fixture 的真实 Debug 证据，继续保持 **Blocked/Incomplete**：fresh/no-wallet 首次启动、未备份 HD、已备份零资产、Keyless、导入 mnemonic/KeyTag、真正 imported private-key/watching/external/hardware 单链钱包、EVM/BTC 真正单链 cold first frame，以及 Android Hybrid gesture 的真实双向惯性。不得拿当前有钱多链钱包切换 Ethereum 的结果冒充“真正单链钱包首次启动”。
+- iOS/Android 是 split-runtime：main runtime 负责 Navigation event store、foreground/launch visibility、Native Home snapshot/section patch、Market selection/cache、DeFi structural diffable 呈现和 UI offset；bg runtime 负责权威 onboarding verdict、wallet/account/capability、Market/DeFi service 与持久化数据。main 与 bg 使用独立 Hermes heap，proxy 数据会分别序列化/反序列化，初始化顺序独立，main ready 不能代替 bg ready。
+- DB/MMKV/file handles、图片/字体 cache 和 native singleton 属于进程级共享 Native 资源；navigation container event store 是 main heap 内的 per-container 状态；UIKit constraint、diffable snapshot、scroll/offset、represented image signature、request cancellation、pressed/selected/hover 属于 per-view 状态。不能把共享 cache 的命中推导成某个 cell/view 的约束或复用状态正确。
