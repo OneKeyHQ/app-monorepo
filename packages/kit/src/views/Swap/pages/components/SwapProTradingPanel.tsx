@@ -33,6 +33,7 @@ import SwapProInputContainer from './SwapProInputContainer';
 import SwapProLimitPriceValue from './SwapProLimitPriceValue';
 import SwapProPayTokenSelector from './SwapProPayTokenSelector';
 import SwapProPresetSelector from './SwapProPresetSelector';
+import { SwapProSlippageSetting } from './SwapProSlippageSetting';
 import SwapProTradeInfoGroup from './SwapProTradeInfoGroup';
 
 import type { IEstimateMarketPresetPriorityFeeFiatValues } from '../../../Market/MarketDetailV2/components/SwapPanel/components/MarketPresetSelector';
@@ -222,6 +223,15 @@ const SwapProTradingPanel = ({
             estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
             presetSettings={marketPresetSettings}
           />
+        ) : null}
+        {/* Networks without an enabled market preset still quote with the
+            global slippage state, so keep the plain slippage entry visible
+            there — the preset selector replaces it only when presets are on. */}
+        {swapProTradeType === ESwapProTradeType.MARKET &&
+        (!marketPresetSettings ||
+          (!marketPresetSettings.enabled &&
+            !marketPresetSettings.isLoading)) ? (
+          <SwapProSlippageSetting isMEV={!!antiMEV} />
         ) : null}
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <>
