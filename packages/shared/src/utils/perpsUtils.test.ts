@@ -546,6 +546,29 @@ describe('HyperLiquid BBO price ticks', () => {
     },
   );
 
+  test('matches the observed ETH buy payloads for five-tick BBO prices', () => {
+    expect(
+      resolveBboOrderPrice({
+        bid: '1843.4',
+        ask: '1843.6',
+        side: 'long',
+        type: 'counterparty',
+        offsetTicks: 5,
+        szDecimals: 4,
+      })?.toFixed(),
+    ).toBe('1844.1');
+    expect(
+      resolveBboOrderPrice({
+        bid: '1843.4',
+        ask: '1843.6',
+        side: 'long',
+        type: 'queue',
+        offsetTicks: 5,
+        szDecimals: 4,
+      })?.toFixed(),
+    ).toBe('1842.9');
+  });
+
   test.each([
     ['9.9999', '10.004'],
     ['99999', '100004'],

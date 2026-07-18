@@ -43,6 +43,10 @@ import { showAdjustPositionMarginDialog } from '../AdjustPositionMarginModal';
 import { showClosePositionDialog } from '../ClosePositionModal';
 import { showSetTpslDialog } from '../SetTpslModal';
 import { calcCellAlign, getColumnStyle } from '../utils';
+import {
+  ADD_POSITION_LABEL,
+  MOBILE_POSITION_ACTION_TEXT_SIZE,
+} from '../utils/positionActionPresentation';
 
 import { DesktopActionIconButton } from './DesktopActionIconButton';
 
@@ -613,7 +617,7 @@ const PositionRowDesktopActions = memo(
               color="$bgAccent"
               size="$bodySmMedium"
             >
-              {intl.formatMessage({ id: ETranslations.global_add })}
+              {ADD_POSITION_LABEL}
             </SizableText>
           </XStack>
           <XStack onPress={() => onClosePosition('market')} cursor="default">
@@ -1328,8 +1332,11 @@ const PositionRowMobileActions = memo(
           variant="secondary"
           onPress={onAddPosition}
           flex={1}
+          childrenAsText={false}
         >
-          {intl.formatMessage({ id: ETranslations.global_add })}
+          <SizableText size={MOBILE_POSITION_ACTION_TEXT_SIZE}>
+            {ADD_POSITION_LABEL}
+          </SizableText>
         </Button>
         <Button
           size="medium"
@@ -1339,7 +1346,7 @@ const PositionRowMobileActions = memo(
           childrenAsText={false}
           testID="perp-intl-btn"
         >
-          <SizableText size="$bodySm">
+          <SizableText size={MOBILE_POSITION_ACTION_TEXT_SIZE}>
             {intl.formatMessage({
               id: ETranslations.perp_trade_set_tp_sl,
             })}
@@ -1353,7 +1360,7 @@ const PositionRowMobileActions = memo(
           flex={1}
           childrenAsText={false}
         >
-          <SizableText size="$bodySm">
+          <SizableText size={MOBILE_POSITION_ACTION_TEXT_SIZE}>
             {intl.formatMessage({
               id: ETranslations.perp_close_position_title,
             })}
@@ -1669,9 +1676,8 @@ const PositionRow = memo(
         coin,
         isBuy: new BigNumber(pos.szi || '0').gt(0),
         accountAddress: activeAccount.accountAddress,
-        intl,
       });
-    }, [activeAccount?.accountAddress, coin, intl, pos.szi]);
+    }, [activeAccount?.accountAddress, coin, pos.szi]);
 
     const handleChangeAsset = useCallback(() => {
       void actions.current.changeActiveAsset({

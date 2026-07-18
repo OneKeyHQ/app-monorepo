@@ -52,8 +52,7 @@ import {
   isAddPositionScopeValid,
   validateAddPositionOrder,
 } from './utils/addPosition';
-
-import type { IntlShape } from 'react-intl';
+import { ADD_POSITION_LABEL } from './utils/positionActionPresentation';
 
 type IAddPositionOrderType = 'market' | 'limit';
 
@@ -446,7 +445,7 @@ const AddPositionForm = memo(
             loading={isSubmitting}
             onPress={handleSubmit}
           >
-            {intl.formatMessage({ id: ETranslations.global_add })}
+            {ADD_POSITION_LABEL}
           </Button>
         </TradingGuardWrapper>
       </YStack>
@@ -460,10 +459,9 @@ export function showAddPositionDialog({
   coin,
   isBuy,
   accountAddress,
-  intl,
-}: IAddPositionParams & { intl: IntlShape }) {
+}: IAddPositionParams) {
   const dialogInstance = Dialog.show({
-    title: intl.formatMessage({ id: ETranslations.global_add }),
+    title: ADD_POSITION_LABEL,
     disableDrag: true,
     renderContent: (
       <PerpsAccountSelectorProviderMirror>

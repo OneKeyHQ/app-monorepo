@@ -4,6 +4,7 @@ import {
   buildPositionTpslScopeKey,
   buildPositionTpslSubmission,
   getPositionTpslDex,
+  getPositionTpslSnapshotViewState,
   hasPositionTpslSubmission,
   isPositionTpslSnapshotReady,
   selectPositionTpslOrders,
@@ -89,6 +90,38 @@ describe('position TP/SL snapshot helpers', () => {
         currentScopeKey: subDexScope,
       }),
     ).toBe(false);
+  });
+
+  it('shows a spinner while loading and retry only after an error', () => {
+    const scopeKey = 'account|dex|coin|1|100|5';
+    expect(
+      getPositionTpslSnapshotViewState({
+        status: 'ready',
+        snapshotScopeKey: scopeKey,
+        currentScopeKey: scopeKey,
+      }),
+    ).toBe('content');
+    expect(
+      getPositionTpslSnapshotViewState({
+        status: 'loading',
+        snapshotScopeKey: scopeKey,
+        currentScopeKey: scopeKey,
+      }),
+    ).toBe('loading');
+    expect(
+      getPositionTpslSnapshotViewState({
+        status: 'error',
+        snapshotScopeKey: scopeKey,
+        currentScopeKey: scopeKey,
+      }),
+    ).toBe('retry');
+    expect(
+      getPositionTpslSnapshotViewState({
+        status: 'ready',
+        snapshotScopeKey: scopeKey,
+        currentScopeKey: `${scopeKey}|changed`,
+      }),
+    ).toBe('loading');
   });
 
   it('rejects stale request ids and changed account/dex/position scopes', () => {

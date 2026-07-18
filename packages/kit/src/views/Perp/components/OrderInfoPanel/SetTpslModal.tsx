@@ -11,6 +11,7 @@ import {
   Divider,
   Page,
   SizableText,
+  Spinner,
   Toast,
   XStack,
   YStack,
@@ -62,8 +63,8 @@ import {
   buildPositionTpslScopeKey,
   buildPositionTpslSubmission,
   getPositionTpslDex,
+  getPositionTpslSnapshotViewState,
   hasPositionTpslSubmission,
-  isPositionTpslSnapshotReady,
   selectPositionTpslOrders,
   shouldApplyPositionTpslSnapshotResponse,
 } from './utils/positionTpslSnapshot';
@@ -324,11 +325,12 @@ const SetTpslForm = memo(
       void refreshOpenOrdersSnapshot().catch(() => undefined);
     }, [refreshOpenOrdersSnapshot]);
 
-    const isOpenOrdersReady = isPositionTpslSnapshotReady({
+    const openOrdersViewState = getPositionTpslSnapshotViewState({
       status: openOrdersSnapshot.status,
       snapshotScopeKey: openOrdersSnapshot.scopeKey,
       currentScopeKey,
     });
+    const isOpenOrdersReady = openOrdersViewState === 'content';
     const { tpOrder, slOrder } = isOpenOrdersReady
       ? openOrdersSnapshot.orders
       : { tpOrder: null, slOrder: null };
@@ -841,14 +843,18 @@ const SetTpslForm = memo(
                 </YStack>
               )}
             </>
-          ) : (
+          ) : null}
+          {openOrdersViewState === 'loading' ? (
+            <YStack alignItems="center" py="$4">
+              <Spinner size="small" />
+            </YStack>
+          ) : null}
+          {openOrdersViewState === 'retry' ? (
             <YStack alignItems="center" py="$4">
               <Button
                 testID="perp-position-tpsl-refresh"
                 size="small"
                 variant="secondary"
-                loading={openOrdersSnapshot.status === 'loading'}
-                disabled={openOrdersSnapshot.status === 'loading'}
                 onPress={() => {
                   void refreshOpenOrdersSnapshot().catch(() => undefined);
                 }}
@@ -856,7 +862,7 @@ const SetTpslForm = memo(
                 {intl.formatMessage({ id: ETranslations.global_refresh })}
               </Button>
             </YStack>
-          )}
+          ) : null}
 
           <YStack alignItems="flex-start" gap="$2" width="100%">
             <Checkbox

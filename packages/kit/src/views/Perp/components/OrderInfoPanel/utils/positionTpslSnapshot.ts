@@ -83,6 +83,17 @@ export function isPositionTpslSnapshotReady({
   );
 }
 
+export function getPositionTpslSnapshotViewState(params: {
+  status: IPositionTpslSnapshotStatus;
+  snapshotScopeKey: string;
+  currentScopeKey: string;
+}): 'content' | 'loading' | 'retry' {
+  if (isPositionTpslSnapshotReady(params)) {
+    return 'content';
+  }
+  return params.status === 'error' ? 'retry' : 'loading';
+}
+
 export function shouldApplyPositionTpslSnapshotResponse({
   requestId,
   latestRequestId,

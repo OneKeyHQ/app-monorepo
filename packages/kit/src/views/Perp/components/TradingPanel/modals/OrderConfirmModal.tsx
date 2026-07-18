@@ -53,6 +53,7 @@ import {
 } from '../../PerpDialogLayout';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
+import { formatBboModeLabel } from '../selectors/bboDisplay';
 
 import type { IEnableTradingWithDepositFallbackResult } from '../../../hooks/useEnableTradingWithDepositFallback';
 import type { IntlShape } from 'react-intl';
@@ -370,7 +371,7 @@ function OrderConfirmContent({
       return (
         <YStack alignItems="flex-end" gap="$1">
           <SizableText size="$bodyMdMedium">
-            {offsetTicks === 5 ? `${modeName} +5` : modeName}
+            {formatBboModeLabel(modeName, offsetTicks)}
           </SizableText>
         </YStack>
       );

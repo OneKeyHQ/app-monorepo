@@ -14,6 +14,8 @@ import type { IBBOPriceMode } from '@onekeyhq/kit/src/states/jotai/contexts/hype
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { formatBboModeLabel } from './bboDisplay';
+
 interface IBBOSelectorProps {
   value: IBBOPriceMode;
   onChange: (mode: IBBOPriceMode) => void;
@@ -42,10 +44,22 @@ export const BBOSelector = memo<IBBOSelectorProps>(
       });
 
       return [
-        { label: counterpartyLabel, value: 'counterparty-0' },
-        { label: `${counterpartyLabel} +5`, value: 'counterparty-5' },
-        { label: queueLabel, value: 'queue-0' },
-        { label: `${queueLabel} +5`, value: 'queue-5' },
+        {
+          label: formatBboModeLabel(counterpartyLabel, 0),
+          value: 'counterparty-0',
+        },
+        {
+          label: formatBboModeLabel(counterpartyLabel, 5),
+          value: 'counterparty-5',
+        },
+        {
+          label: formatBboModeLabel(queueLabel, 0),
+          value: 'queue-0',
+        },
+        {
+          label: formatBboModeLabel(queueLabel, 5),
+          value: 'queue-5',
+        },
       ];
     }, [intl]);
 
