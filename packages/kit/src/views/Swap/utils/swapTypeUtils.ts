@@ -12,6 +12,8 @@ import type {
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { filterStockPayTokenCandidates } from '../hooks/swapStockChannelUtils';
+
 export { getSwapSupportCheckType, getVisibleSwapTabSwitchType };
 
 export function getVisibleSwapTabSwitchUpdate({
@@ -93,8 +95,10 @@ export function getSwapExecutionTypeFromQuoteResult(
 }
 
 // Single owner of the "stock tokens trade only against stable coins" rule:
-// when the traded token is a stock, the counterparty candidate pool drops the
-// native coin (both BUY pay tokens and SELL receive tokens).
+// when the traded token is a stock, the counterparty candidate pool (both BUY
+// pay tokens and SELL receive tokens) is the same stable-coin whitelist the
+// stock channel uses — not merely "non-native", so WETH-class assets are
+// excluded too.
 export function filterSwapProCounterpartyTokens<T extends ISwapTokenBase>({
   tokens,
   isStockPair,
@@ -102,7 +106,7 @@ export function filterSwapProCounterpartyTokens<T extends ISwapTokenBase>({
   tokens: T[];
   isStockPair: boolean;
 }): T[] {
-  return isStockPair ? tokens.filter((item) => !item.isNative) : tokens;
+  return isStockPair ? filterStockPayTokenCandidates(tokens) : tokens;
 }
 
 // Single owner of the "LIMIT sources its pay tokens from defaultLimitTokens"

@@ -19,7 +19,10 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import { TokenSelectorPopover } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenSelectorPopover';
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
-import { getSwapProDefaultTokens } from '../../utils/swapTypeUtils';
+import {
+  filterSwapProCounterpartyTokens,
+  getSwapProDefaultTokens,
+} from '../../utils/swapTypeUtils';
 
 import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
 
@@ -62,10 +65,29 @@ const SwapProPayTokenSelector = ({
     [swapProTradeType, defaultTokens, defaultLimitTokens],
   );
 
-  // Stock tokens must trade against stable coins in BOTH directions — the
-  // counterparty selection is shared, so gray out the native coin whenever
-  // the traded token is a stock.
-  const disableNativePayToken = !!swapProSelectToken?.isStock;
+  // Stock tokens must trade against stable coins in BOTH directions. The
+  // selectable set is the SAME shared filter the default init and preference
+  // restore use (stable-coin whitelist for stock pairs), so the popover can
+  // never offer a token those paths would reject; everything outside it
+  // renders grayed out.
+  const counterpartyTokens = useMemo(
+    () =>
+      filterSwapProCounterpartyTokens({
+        tokens: defaultTokensFromType,
+        isStockPair: !!swapProSelectToken?.isStock,
+      }),
+    [defaultTokensFromType, swapProSelectToken?.isStock],
+  );
+  const isTokenDisabled = useCallback(
+    (token: IToken) =>
+      !counterpartyTokens.some((candidate) =>
+        equalTokenNoCaseSensitive({
+          token1: candidate,
+          token2: token,
+        }),
+      ),
+    [counterpartyTokens],
+  );
 
   const displayToken = isBuy ? swapProUseSelectBuyToken : swapProSellToToken;
 
@@ -185,7 +207,7 @@ const SwapProPayTokenSelector = ({
             setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
           }}
           disabledOnSwitchToTrade
-          disableNativeToken={disableNativePayToken}
+          isTokenDisabled={isTokenDisabled}
           // Keep the server-config order (native coin first, then stable
           // coins) so the list doesn't reshuffle once balances load in.
           sortTokensByValue={false}
