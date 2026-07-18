@@ -569,11 +569,14 @@ function MarketTokenListBase({
       // Client sort mode allows any column mapped by clientSortFieldMap
       // (sortKey === dataIndex); watchlist mode uses restricted
       // server-side sortable columns.
-      const sortKey = clientSort
-        ? clientSortFieldMap[String(column.dataIndex)]
-          ? String(column.dataIndex)
-          : undefined
-        : SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
+      const columnKey = String(column.dataIndex);
+      let sortKey: string | undefined;
+      if (clientSort) {
+        sortKey = clientSortFieldMap[columnKey] ? columnKey : undefined;
+      } else {
+        sortKey =
+          SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
+      }
 
       if (sortKey) {
         const isCurrentSort = currentSortBy === sortKey;
