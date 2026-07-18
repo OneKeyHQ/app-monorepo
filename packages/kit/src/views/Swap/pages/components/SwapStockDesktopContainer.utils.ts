@@ -123,6 +123,18 @@ export function isStockMarketPanelLoadingStage(
   );
 }
 
+export function shouldHideStockEstimatedReceive({
+  channelStage,
+  hasQuoteBlocker,
+}: {
+  channelStage: ESwapStockChannelStage;
+  hasQuoteBlocker: boolean;
+}) {
+  return (
+    hasQuoteBlocker || channelStage === ESwapStockChannelStage.MarketClosed
+  );
+}
+
 export function shouldRenderStockMarketHeaderSkeleton({
   hasDisplayToken,
   loading,

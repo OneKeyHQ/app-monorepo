@@ -108,4 +108,20 @@ describe('swapStockQuoteUtils', () => {
       executionQuoteToAmount: '10',
     });
   });
+
+  it('revokes both display and execution amounts when the current Stock state blocks quotes', () => {
+    expect(
+      resolveStockEstimatedReceiveQuoteState({
+        displayQuoteResult: quoteResult,
+        executionQuoteResult: quoteResult,
+        forceHideQuote: true,
+        receiveToken,
+        sendAmount: '1000',
+        sendToken,
+      }),
+    ).toEqual({
+      displayQuote: undefined,
+      executionQuoteToAmount: undefined,
+    });
+  });
 });

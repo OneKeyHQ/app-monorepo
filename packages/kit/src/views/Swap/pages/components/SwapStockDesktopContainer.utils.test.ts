@@ -15,6 +15,7 @@ import {
   resolveStockChartControlRange,
   resolveStockTokenNetworkLogoURI,
   shouldDiscardRestoredStockChart,
+  shouldHideStockEstimatedReceive,
   shouldRenderStockMarketHeaderSkeleton,
   shouldShowStockBalanceRetryAction,
 } from './SwapStockDesktopContainer.utils';
@@ -173,6 +174,30 @@ describe('SwapStockDesktopContainer utils', () => {
     expect(
       isStockMarketPanelLoadingStage(ESwapStockChannelStage.MarketUnavailable),
     ).toBe(false);
+  });
+
+  it('settles estimated receive instead of showing quote loading while the market is closed', () => {
+    expect(
+      shouldHideStockEstimatedReceive({
+        channelStage: ESwapStockChannelStage.MarketClosed,
+        hasQuoteBlocker: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldHideStockEstimatedReceive({
+        channelStage: ESwapStockChannelStage.Ready,
+        hasQuoteBlocker: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('continues to hide estimated receive for current quote errors and controls', () => {
+    expect(
+      shouldHideStockEstimatedReceive({
+        channelStage: ESwapStockChannelStage.Ready,
+        hasQuoteBlocker: true,
+      }),
+    ).toBe(true);
   });
 
   it('keeps Stock header content visible while detail and images load for a known token', () => {

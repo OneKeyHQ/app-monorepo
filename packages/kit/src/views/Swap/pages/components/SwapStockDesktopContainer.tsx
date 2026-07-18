@@ -158,6 +158,7 @@ import {
   resolveStockChartControlRange,
   resolveStockTokenNetworkLogoURI,
   shouldDiscardRestoredStockChart,
+  shouldHideStockEstimatedReceive,
   shouldRenderStockMarketHeaderSkeleton,
   shouldShowStockBalanceRetryAction,
 } from './SwapStockDesktopContainer.utils';
@@ -553,20 +554,22 @@ function StockEstimatedReceive({
         intl,
       }),
     );
-    return (
-      hasStockQuoteControl ||
-      isCurrentStockQuoteEventError({
-        fromToken: stockChannel.fromToken,
-        fromTokenAmount: fromTokenAmount.value,
-        quoteEventError,
-        toToken: stockChannel.toToken,
-      })
-    );
+    const hasCurrentQuoteEventError = isCurrentStockQuoteEventError({
+      fromToken: stockChannel.fromToken,
+      fromTokenAmount: fromTokenAmount.value,
+      quoteEventError,
+      toToken: stockChannel.toToken,
+    });
+    return shouldHideStockEstimatedReceive({
+      channelStage: stockChannel.channelStage,
+      hasQuoteBlocker: hasStockQuoteControl || hasCurrentQuoteEventError,
+    });
   }, [
     fromTokenAmount.value,
     intl,
     quoteEventError,
     quoteResult,
+    stockChannel.channelStage,
     stockChannel.fromToken,
     stockChannel.toToken,
   ]);
