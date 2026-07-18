@@ -1,29 +1,42 @@
 import UIKit
 
 private enum HomeContainerMetrics {
-  static let tabHeight: CGFloat = 60
-  static let compactHeaderHeight: CGFloat = 60
-  static let compactAccountTopInset: CGFloat = 16
-  static let headerBottomPadding: CGFloat = 40
-  static let rowHeight: CGFloat = 68
-  static let nftRowHeight: CGFloat = 92
-  static let emptyRowHeight: CGFloat = 108
-  static let horizontalRowHeight: CGFloat = 132
-  static let sectionTitleHeight: CGFloat = 56
+  static var contentSizeScale: CGFloat {
+    let scaled = UIFontMetrics(forTextStyle: .body).scaledValue(for: 1)
+    return min(max(scaled, 1), 1.4)
+  }
+
+  static func scaledHeight(_ value: CGFloat, maximumScale: CGFloat = 1.4) -> CGFloat {
+    value * min(contentSizeScale, maximumScale)
+  }
+
+  static var tabHeight: CGFloat { scaledHeight(60, maximumScale: 1.25) }
+  static var compactHeaderHeight: CGFloat { scaledHeight(60, maximumScale: 1.25) }
+  static var compactAccountTopInset: CGFloat { scaledHeight(16, maximumScale: 1.25) }
+  static var headerBottomPadding: CGFloat { scaledHeight(40, maximumScale: 1.25) }
+  static var rowHeight: CGFloat { scaledHeight(68) }
+  static var nftRowHeight: CGFloat { scaledHeight(92) }
+  static var emptyRowHeight: CGFloat { scaledHeight(108) }
+  static var horizontalRowHeight: CGFloat { scaledHeight(132) }
+  static var sectionTitleHeight: CGFloat { scaledHeight(56) }
+  static var marketSegmentHeight: CGFloat {
+    max(scaledHeight(32), ceil(HomeContainerTypography.medium(14).lineHeight) + 12)
+  }
+  static var marketTabsRowHeight: CGFloat { marketSegmentHeight + scaledHeight(16) }
   static let footerSlotIds = ["upgrade", "support", "historyEnd"]
 
   static func contentHeaderHeight(tabId: String) -> CGFloat? {
     switch tabId {
-    case "portfolio", "defi": return 56
-    case "perps": return 88
+    case "portfolio", "defi": return scaledHeight(56)
+    case "perps": return scaledHeight(88)
     default: return nil
     }
   }
 
   static func footerSlotHeight(key: String) -> CGFloat? {
-    if key.hasSuffix(".upgrade") { return 152 }
-    if key.hasSuffix(".support") { return 371 }
-    if key.hasSuffix(".historyEnd") { return 136 }
+    if key.hasSuffix(".upgrade") { return scaledHeight(152) }
+    if key.hasSuffix(".support") { return scaledHeight(371) }
+    if key.hasSuffix(".historyEnd") { return scaledHeight(136) }
     return nil
   }
 }
@@ -38,6 +51,31 @@ private extension UIImage {
     return renderer.image { _ in
       draw(in: CGRect(x: 0, y: 0, width: size, height: size))
     }
+  }
+}
+
+private extension UIColor {
+  var homeContainerSignature: String {
+    var red: CGFloat = 0
+    var green: CGFloat = 0
+    var blue: CGFloat = 0
+    var alpha: CGFloat = 0
+    guard getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+      return description
+    }
+    return String(format: "%.4f:%.4f:%.4f:%.4f", red, green, blue, alpha)
+  }
+}
+
+private extension UIView {
+  func homeContainerEnableDynamicTypeRecursively() {
+    if let label = self as? UILabel {
+      label.adjustsFontForContentSizeCategory = true
+    }
+    if let button = self as? UIButton {
+      button.titleLabel?.adjustsFontForContentSizeCategory = true
+    }
+    subviews.forEach { $0.homeContainerEnableDynamicTypeRecursively() }
   }
 }
 
@@ -161,6 +199,7 @@ private struct HomeContainerRow {
           item.imageUrls?.joined(separator: ",") ?? "",
           item.secondaryImageUrl ?? "",
           item.badgeImageUrl ?? "",
+          item.titleAccessoryImageUrl ?? "",
           item.titleAccessoryIcon ?? "",
           item.badges?.joined(separator: ",") ?? "",
         ].joined(separator: ":")
@@ -174,6 +213,7 @@ private struct HomeContainerRow {
           item.imageUrl ?? "",
           item.imageUrls?.joined(separator: ",") ?? "",
           item.badgeImageUrl ?? "",
+          item.titleAccessoryImageUrl ?? "",
           item.communityRecognized == true ? "recognized" : "",
           item.favorite == true ? "selected" : "unselected",
           item.actionId ?? "",
@@ -246,6 +286,27 @@ private struct HomeContainerRow {
       ]
       return fields.joined(separator: "|")
     }
+  }
+}
+
+private extension HomeContainerTheme {
+  var contentSignature: String {
+    [
+      backgroundColor,
+      cardColor,
+      strongColor ?? "",
+      infoBackgroundColor ?? "",
+      infoTextColor ?? "",
+      hoverColor ?? "",
+      activeColor ?? "",
+      subduedIconColor ?? "",
+      dividerColor,
+      primaryTextColor,
+      secondaryTextColor,
+      accentColor,
+      positiveColor,
+      negativeColor,
+    ].joined(separator: "|")
   }
 }
 
@@ -567,10 +628,30 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     tabsView.onSlotLayoutChange = { [weak self] in
       self?.slotLayoutDidChange?()
     }
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(contentSizeCategoryDidChange),
+      name: UIContentSizeCategory.didChangeNotification,
+      object: nil
+    )
   }
 
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
+  }
+
+  deinit {
+    NotificationCenter.default.removeObserver(self)
+  }
+
+  @objc private func contentSizeCategoryDidChange() {
+    headerView.contentSizeCategoryDidChange()
+    headerHeight = headerView.preferredHeight
+    homeContainerEnableDynamicTypeRecursively()
+    pages.forEach { $0.contentSizeCategoryDidChange() }
+    setNeedsLayout()
+    layoutIfNeeded()
+    slotLayoutDidChange?()
   }
 
   override func layoutSubviews() {
@@ -803,6 +884,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       : (next.tabs.first?.id ?? "")
     selectedTabId = requestedTab
     updateSelectedTab(requestedTab)
+    homeContainerEnableDynamicTypeRecursively()
     setNeedsLayout()
     layoutIfNeeded()
   }
@@ -1167,6 +1249,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   private var rowsById: [String: HomeContainerRow] = [:]
   private lazy var dataSource = makeDataSource()
   private var theme: HomeContainerTheme?
+  private var themeSignature = ""
   private var sections: [HomeContainerSection] = []
   private var suppressContentOffsetCallback = false
   private var pinnedMarketMutationContentOffsetY: CGFloat?
@@ -1236,17 +1319,23 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     tab: HomeContainerTab,
     theme: HomeContainerTheme
   ) {
+    let nextThemeSignature = theme.contentSignature
+    let shouldReconfigureAllRows = !themeSignature.isEmpty && themeSignature != nextThemeSignature
+    themeSignature = nextThemeSignature
     self.theme = theme
     backgroundColor = UIColor(
       homeContainerColor: theme.backgroundColor,
       fallback: .systemBackground
     )
-    updateSections(tab.sections)
+    updateSections(tab.sections, forceReconfigureAll: shouldReconfigureAllRows)
   }
 
-  func updateSections(_ sections: [HomeContainerSection]) {
+  func updateSections(
+    _ sections: [HomeContainerSection],
+    forceReconfigureAll: Bool = false
+  ) {
     self.sections = sections
-    rebuildRows()
+    rebuildRows(forceReconfigureAll: forceReconfigureAll)
   }
 
   func setMountedSlotKeys(_ keys: Set<String>) {
@@ -1255,7 +1344,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     rebuildRows()
   }
 
-  private func rebuildRows() {
+  private func rebuildRows(forceReconfigureAll: Bool = false) {
     var rows: [HomeContainerRow] = []
     if mountedSlotKeys.contains("content.header.\(tabId)"),
        HomeContainerMetrics.contentHeaderHeight(tabId: tabId) != nil {
@@ -1320,6 +1409,9 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     nextSnapshot.appendSections([0])
     nextSnapshot.appendItems(rows.map(\.id), toSection: 0)
     let changedIds = rows.compactMap { row -> String? in
+      if forceReconfigureAll {
+        return previousRows[row.id] == nil ? nil : row.id
+      }
       guard let previous = previousRows[row.id],
             previous.contentSignature != row.contentSignature else { return nil }
       return row.id
@@ -1329,12 +1421,17 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     } else {
       nextSnapshot.reloadItems(changedIds)
     }
-    let animatesMarketMutation = shouldAnimateMarketMutation(
+    let isMarketMutation = shouldAnimateMarketMutation(
       previousRows: previousRows,
       nextRows: rowsById,
       changedIds: changedIds
     )
-    if animatesMarketMutation,
+    // Category selection changes replace the Market rows without animating
+    // their insertion/deletion. Favorite mutations keep the original smooth
+    // row animation; both paths pin the outer content offset.
+    let animatesMarketMutation = isMarketMutation &&
+      !changedIds.contains("item:portfolio-market:market-tabs")
+    if isMarketMutation,
        !tableView.isTracking,
        !tableView.isDragging,
        !tableView.isDecelerating {
@@ -1362,7 +1459,9 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
           structuralIds.allSatisfy(isMarketMutationRowId) else { return false }
 
     return changedIds.allSatisfy { id in
-      isMarketMutationRowId(id) || id == "section:portfolio-market"
+      isMarketMutationRowId(id) ||
+        id == "section:portfolio-market" ||
+        id == "item:portfolio-market:market-tabs"
     }
   }
 
@@ -1390,6 +1489,13 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     suppressContentOffsetCallback = true
     tableView.contentOffset.y = value
     suppressContentOffsetCallback = false
+  }
+
+  func contentSizeCategoryDidChange() {
+    homeContainerEnableDynamicTypeRecursively()
+    tableView.reloadData()
+    tableView.layoutIfNeeded()
+    onContentSizeChange?()
   }
 
   func setUnifiedVerticalDriverEnabled(_ enabled: Bool) {
@@ -1432,27 +1538,31 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     case .footerSlot(let key):
       return HomeContainerMetrics.footerSlotHeight(key: key) ?? 0
     case .grid:
-      return tableView.bounds.width / 2 + 54
+      return tableView.bounds.width / 2 + HomeContainerMetrics.scaledHeight(54)
     case .marketRecommendations:
-      return 68
+      return HomeContainerMetrics.scaledHeight(68)
     case .horizontal(let section):
-      return section.items.first?.renderer == "supportPromo" ? 163 : HomeContainerMetrics.horizontalRowHeight
+      return section.items.first?.renderer == "supportPromo"
+        ? HomeContainerMetrics.scaledHeight(163)
+        : HomeContainerMetrics.horizontalRowHeight
     case .sectionTitle:
       if row.id.hasPrefix("section:history:") {
-        return row.id.hasPrefix("section:history:0:") ? 44 : 52
+        return HomeContainerMetrics.scaledHeight(
+          row.id.hasPrefix("section:history:0:") ? 44 : 52
+        )
       }
       return HomeContainerMetrics.sectionTitleHeight
     case .item(let item):
       switch item.renderer {
       case "nft": return HomeContainerMetrics.nftRowHeight
-      case "history": return 68
-      case "defi": return 64
-      case "marketTabs": return 48
-      case "showMore": return 48
-      case "asset": return 60
-      case "addToken", "earn", "market": return 56
-      case "supportAction": return 76
-      case "upgrade": return 96
+      case "history": return HomeContainerMetrics.scaledHeight(68)
+      case "defi": return HomeContainerMetrics.scaledHeight(64)
+      case "marketTabs": return HomeContainerMetrics.marketTabsRowHeight
+      case "showMore": return HomeContainerMetrics.scaledHeight(48)
+      case "asset": return HomeContainerMetrics.scaledHeight(60)
+      case "addToken", "earn", "market": return HomeContainerMetrics.scaledHeight(56)
+      case "supportAction": return HomeContainerMetrics.scaledHeight(76)
+      case "upgrade": return HomeContainerMetrics.scaledHeight(96)
       case "empty", "loading": return item.displayHeight ?? HomeContainerMetrics.emptyRowHeight
       default: return HomeContainerMetrics.rowHeight
       }
@@ -1474,6 +1584,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     willDisplay cell: UITableViewCell,
     forRowAt indexPath: IndexPath
   ) {
+    cell.homeContainerEnableDynamicTypeRecursively()
     if let slotCell = cell as? HomeContainerSlotHostCell,
        !slotCell.slotKey.isEmpty {
       visibleSlotHosts[slotCell.slotKey] = slotCell.slotHostView
@@ -1545,7 +1656,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
         let cell = tableView.dequeueReusableCell(withIdentifier: "slot-host", for: indexPath)
           as! HomeContainerSlotHostCell
         if let key = self.slotKey(for: row) {
-          cell.apply(slotKey: key)
+          cell.apply(slotKey: key, theme: theme)
         }
         return cell
       case .grid(let items):
@@ -1588,7 +1699,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
         if let key = self.slotKey(for: row) {
           let cell = tableView.dequeueReusableCell(withIdentifier: "slot-host", for: indexPath)
             as! HomeContainerSlotHostCell
-          cell.apply(slotKey: key)
+          cell.apply(slotKey: key, theme: theme)
           return cell
         }
         let cell = tableView.dequeueReusableCell(withIdentifier: "item", for: indexPath)
@@ -1629,8 +1740,15 @@ private final class HomeContainerSlotHostCell: UITableViewCell {
     slotKey = ""
   }
 
-  func apply(slotKey: String) {
+  func apply(slotKey: String, theme: HomeContainerTheme) {
     self.slotKey = slotKey
+    let color = UIColor(
+      homeContainerColor: theme.backgroundColor,
+      fallback: .systemBackground
+    )
+    backgroundColor = color
+    contentView.backgroundColor = color
+    slotHostView.backgroundColor = color
   }
 }
 
@@ -1658,16 +1776,21 @@ private final class HomeContainerHeaderView: UIView {
   private let balanceSlotHost = HomeContainerSlotHostView()
   private let actionRowSlotHost = HomeContainerSlotHostView()
   private var actionControls: [String: HomeContainerActionControl] = [:]
-  private var balanceActionButtons: [String: UIButton] = [:]
+  private var balanceActionButtons: [String: HomeContainerInteractiveButton] = [:]
   private var bannerControls: [String: HomeContainerBannerControl] = [:]
   private var accountImageTask: HomeContainerImageRequest?
   private var networkImageTask: HomeContainerImageRequest?
   private var networkGroupImageTasks: [HomeContainerImageRequest] = []
   private var representedAccountImageURL: URL?
   private var representedNetworkImageURL: URL?
-  private var representedNetworkGroupImageURLs: [URL] = []
+  private var representedNetworkGroupImageValues: [String] = []
   private var header: HomeContainerHeader?
-  private(set) var preferredHeight: CGFloat = 216
+  private var accountRowHeightConstraint: NSLayoutConstraint!
+  private var balanceHeightConstraint: NSLayoutConstraint!
+  private var balanceActionsHeightConstraint: NSLayoutConstraint!
+  private var actionsScrollHeightConstraint: NSLayoutConstraint!
+  private var bannersScrollHeightConstraint: NSLayoutConstraint!
+  private(set) var preferredHeight: CGFloat = HomeContainerMetrics.scaledHeight(216)
   private var pinnedOffset: CGFloat = 0
 
   override init(frame: CGRect) {
@@ -1685,8 +1808,15 @@ private final class HomeContainerHeaderView: UIView {
     accountRow.axis = .horizontal
     accountRow.alignment = .center
     accountRow.spacing = 8
-    accountRow.heightAnchor.constraint(equalToConstant: 32).isActive = true
-    accountButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+    accountRowHeightConstraint = accountRow.heightAnchor.constraint(
+      equalToConstant: HomeContainerMetrics.scaledHeight(32)
+    )
+    accountRowHeightConstraint.isActive = true
+    accountButton.titleLabel?.font = HomeContainerTypography.system(
+      17,
+      weight: .semibold,
+      textStyle: .headline
+    )
     accountButton.titleLabel?.numberOfLines = 1
     accountButton.titleLabel?.lineBreakMode = .byTruncatingTail
     accountButton.contentHorizontalAlignment = .leading
@@ -1740,7 +1870,7 @@ private final class HomeContainerHeaderView: UIView {
       networkSelectorStack.bottomAnchor.constraint(equalTo: networkSelectorControl.bottomAnchor),
     ])
     networkButton.isUserInteractionEnabled = false
-    networkButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
+    networkButton.titleLabel?.font = HomeContainerTypography.system(15, weight: .medium)
     networkButton.titleLabel?.numberOfLines = 1
     networkButton.titleLabel?.lineBreakMode = .byTruncatingTail
     networkButton.titleLabel?.numberOfLines = 1
@@ -1764,11 +1894,19 @@ private final class HomeContainerHeaderView: UIView {
     networkSelectorControl.alpha = 0
     networkSelectorControl.isUserInteractionEnabled = false
 
-    balanceButton.titleLabel?.font = .systemFont(ofSize: 48, weight: .medium)
+    balanceButton.titleLabel?.font = HomeContainerTypography.system(
+      48,
+      weight: .medium,
+      textStyle: .largeTitle,
+      maximumScale: 1.3
+    )
     balanceButton.titleLabel?.adjustsFontSizeToFitWidth = true
     balanceButton.titleLabel?.minimumScaleFactor = 0.6
     balanceButton.contentHorizontalAlignment = .leading
-    balanceButton.heightAnchor.constraint(equalToConstant: 58).isActive = true
+    balanceHeightConstraint = balanceButton.heightAnchor.constraint(
+      equalToConstant: HomeContainerMetrics.scaledHeight(58, maximumScale: 1.3)
+    )
+    balanceHeightConstraint.isActive = true
     balanceButton.addAction(UIAction { [weak self] _ in
       guard let self, let actionId = self.header?.balanceActionId, !actionId.isEmpty else { return }
       self.onAction?(actionId, "balance")
@@ -1780,11 +1918,22 @@ private final class HomeContainerHeaderView: UIView {
     balanceActionsStack.axis = .horizontal
     balanceActionsStack.alignment = .leading
     balanceActionsStack.spacing = 8
-    balanceActionsStack.heightAnchor.constraint(equalToConstant: 28).isActive = true
+    balanceActionsHeightConstraint = balanceActionsStack.heightAnchor.constraint(
+      equalToConstant: HomeContainerMetrics.scaledHeight(28)
+    )
+    balanceActionsHeightConstraint.isActive = true
     contentStack.addArrangedSubview(balanceActionsStack)
 
-    configureHorizontalStrip(scrollView: actionsScroll, stack: actionsStack, height: 62)
-    configureHorizontalStrip(scrollView: bannersScroll, stack: bannersStack, height: 88)
+    actionsScrollHeightConstraint = configureHorizontalStrip(
+      scrollView: actionsScroll,
+      stack: actionsStack,
+      height: 62
+    )
+    bannersScrollHeightConstraint = configureHorizontalStrip(
+      scrollView: bannersScroll,
+      stack: bannersStack,
+      height: 88
+    )
     contentStack.addArrangedSubview(actionsScroll)
     contentStack.addArrangedSubview(bannersScroll)
     contentStack.setCustomSpacing(26, after: balanceButton)
@@ -1808,10 +1957,32 @@ private final class HomeContainerHeaderView: UIView {
     )
     let primaryColor = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
     let secondaryColor = UIColor(homeContainerColor: theme.secondaryTextColor, fallback: .secondaryLabel)
+    networkSelectorControl.configureInteractiveColors(
+      normal: .clear,
+      hover: UIColor(
+        homeContainerColor: theme.hoverColor ?? theme.cardColor,
+        fallback: .tertiarySystemBackground
+      ),
+      active: UIColor(
+        homeContainerColor: theme.activeColor ?? theme.cardColor,
+        fallback: .systemGray5
+      )
+    )
     accountButton.setTitle("\(header.accountName) ⌄", for: .normal)
     accountButton.setTitleColor(primaryColor, for: .normal)
     accountButton.tintColor = primaryColor
     copyButton.tintColor = secondaryColor
+    networkIconViews.forEach { imageView in
+      imageView.tintColor = secondaryColor
+      imageView.backgroundColor = UIColor(
+        homeContainerColor: theme.cardColor,
+        fallback: .secondarySystemBackground
+      )
+      imageView.layer.borderColor = UIColor(
+        homeContainerColor: theme.backgroundColor,
+        fallback: .systemBackground
+      ).cgColor
+    }
     copyButton.isHidden = header.copyActionId?.isEmpty != false
     let networkCount = header.networkCount ?? 0
     let isNetworkGroup = networkCount > 1 && !(header.networkImageUrls ?? []).isEmpty
@@ -1855,8 +2026,28 @@ private final class HomeContainerHeaderView: UIView {
     actionsScroll.isHidden = header.actions.isEmpty
     bannersScroll.isHidden = header.banners.isEmpty
     let balanceActionsHeight: CGFloat = (header.balanceActions ?? []).isEmpty ? 0 : 38
-    preferredHeight = (header.banners.isEmpty ? 216 : 310) +
-      balanceActionsHeight + HomeContainerMetrics.headerBottomPadding
+    preferredHeight = HomeContainerMetrics.scaledHeight(
+      header.banners.isEmpty ? 216 : 310
+    ) + HomeContainerMetrics.scaledHeight(balanceActionsHeight) +
+      HomeContainerMetrics.headerBottomPadding
+    homeContainerEnableDynamicTypeRecursively()
+  }
+
+  func contentSizeCategoryDidChange() {
+    accountRowHeightConstraint.constant = HomeContainerMetrics.scaledHeight(32)
+    balanceHeightConstraint.constant = HomeContainerMetrics.scaledHeight(58, maximumScale: 1.3)
+    balanceActionsHeightConstraint.constant = HomeContainerMetrics.scaledHeight(28)
+    actionsScrollHeightConstraint.constant = HomeContainerMetrics.scaledHeight(62)
+    bannersScrollHeightConstraint.constant = HomeContainerMetrics.scaledHeight(88)
+    if let header {
+      let balanceActionsHeight: CGFloat = (header.balanceActions ?? []).isEmpty ? 0 : 38
+      preferredHeight = HomeContainerMetrics.scaledHeight(
+        header.banners.isEmpty ? 216 : 310
+      ) + HomeContainerMetrics.scaledHeight(balanceActionsHeight) +
+        HomeContainerMetrics.headerBottomPadding
+    }
+    homeContainerEnableDynamicTypeRecursively()
+    setNeedsLayout()
   }
 
   deinit {
@@ -1962,6 +2153,7 @@ private final class HomeContainerHeaderView: UIView {
     }
     accountImageTask?.cancel()
     representedAccountImageURL = url
+    accountButton.setImage(UIImage(systemName: "person.crop.circle.fill"), for: .normal)
     accountImageTask = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
       guard let self, self.representedAccountImageURL == url else { return }
       self.accountButton.setImage(
@@ -1985,6 +2177,7 @@ private final class HomeContainerHeaderView: UIView {
     }
     networkImageTask?.cancel()
     representedNetworkImageURL = url
+    networkButton.setImage(UIImage(systemName: "network"), for: .normal)
     networkImageTask = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
       guard let self, self.representedNetworkImageURL == url else { return }
       self.networkButton.setImage(
@@ -1995,21 +2188,27 @@ private final class HomeContainerHeaderView: UIView {
   }
 
   private func loadNetworkGroupImages(_ values: [String]) {
-    let urls = values.prefix(networkIconViews.count).compactMap { value -> URL? in
-      guard let url = URL(string: value),
-            url.scheme == "https" || url.scheme == "http" || url.isFileURL else { return nil }
-      return url
-    }
-    guard representedNetworkGroupImageURLs != urls else { return }
+    let imageValues = Array(values.prefix(networkIconViews.count))
+    guard representedNetworkGroupImageValues != imageValues else { return }
     clearNetworkGroupImages()
-    representedNetworkGroupImageURLs = urls
-    for (index, url) in urls.enumerated() {
+    representedNetworkGroupImageValues = imageValues
+    for (index, value) in imageValues.enumerated() {
+      let url = URL(string: value).flatMap {
+        $0.scheme == "https" || $0.scheme == "http" || $0.isFileURL ? $0 : nil
+      }
       networkIconViews[index].isHidden = false
+      applyNetworkGroupFallback(at: index)
+      guard let url else { continue }
       let task = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
         guard let self,
-              self.representedNetworkGroupImageURLs.indices.contains(index),
-              self.representedNetworkGroupImageURLs[index] == url else { return }
-        self.networkIconViews[index].image = image?.homeContainerThumbnail(size: 22)
+              self.representedNetworkGroupImageValues.indices.contains(index),
+              self.representedNetworkGroupImageValues[index] == value else { return }
+        if let image {
+          self.networkIconViews[index].contentMode = .scaleAspectFill
+          self.networkIconViews[index].image = image.homeContainerThumbnail(size: 22)
+        } else {
+          self.applyNetworkGroupFallback(at: index)
+        }
       }
       if let task {
         networkGroupImageTasks.append(task)
@@ -2020,22 +2219,32 @@ private final class HomeContainerHeaderView: UIView {
   private func clearNetworkGroupImages() {
     networkGroupImageTasks.forEach { $0.cancel() }
     networkGroupImageTasks.removeAll()
-    representedNetworkGroupImageURLs.removeAll()
+    representedNetworkGroupImageValues.removeAll()
     networkIconViews.forEach {
       $0.image = nil
       $0.isHidden = true
     }
   }
 
+  private func applyNetworkGroupFallback(at index: Int) {
+    guard networkIconViews.indices.contains(index) else { return }
+    let imageView = networkIconViews[index]
+    imageView.contentMode = .scaleAspectFit
+    imageView.image = UIImage(systemName: "network")
+  }
+
   private func configureHorizontalStrip(
     scrollView: UIScrollView,
     stack: UIStackView,
     height: CGFloat
-  ) {
+  ) -> NSLayoutConstraint {
     scrollView.showsHorizontalScrollIndicator = false
     scrollView.alwaysBounceHorizontal = true
     scrollView.isDirectionalLockEnabled = true
-    scrollView.heightAnchor.constraint(equalToConstant: height).isActive = true
+    let heightConstraint = scrollView.heightAnchor.constraint(
+      equalToConstant: HomeContainerMetrics.scaledHeight(height)
+    )
+    heightConstraint.isActive = true
     stack.axis = .horizontal
     stack.spacing = scrollView === bannersScroll ? 12 : 10
     stack.translatesAutoresizingMaskIntoConstraints = false
@@ -2047,6 +2256,7 @@ private final class HomeContainerHeaderView: UIView {
       stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
       stack.heightAnchor.constraint(equalTo: scrollView.frameLayoutGuide.heightAnchor),
     ])
+    return heightConstraint
   }
 
   private func updateActions(_ actions: [HomeContainerAction], theme: HomeContainerTheme) {
@@ -2076,9 +2286,9 @@ private final class HomeContainerHeaderView: UIView {
       balanceActionsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
       balanceActionButtons.removeAll()
       for action in actions {
-        let button = UIButton(type: .system)
+        let button = HomeContainerInteractiveButton(type: .system)
         button.accessibilityIdentifier = action.id
-        button.titleLabel?.font = .systemFont(ofSize: 13, weight: .medium)
+        button.titleLabel?.font = HomeContainerTypography.system(13, weight: .medium)
         button.setImage(UIImage(systemName: "info.circle"), for: .normal)
         button.semanticContentAttribute = .forceRightToLeft
         button.addAction(UIAction { [weak self] _ in
@@ -2094,6 +2304,18 @@ private final class HomeContainerHeaderView: UIView {
       button?.setTitle(" \(action.title)", for: .normal)
       button?.setTitleColor(foreground, for: .normal)
       button?.tintColor = foreground
+      button?.layer.cornerRadius = 10
+      button?.configureInteractiveColors(
+        normal: .clear,
+        hover: UIColor(
+          homeContainerColor: theme.hoverColor ?? theme.cardColor,
+          fallback: .tertiarySystemBackground
+        ),
+        active: UIColor(
+          homeContainerColor: theme.activeColor ?? theme.cardColor,
+          fallback: .systemGray5
+        )
+      )
     }
     balanceActionsStack.isHidden = actions.isEmpty
   }
@@ -2122,6 +2344,18 @@ private final class HomeContainerHeaderView: UIView {
 
 private class HomeContainerTapControl: UIControl {
   var onPress: (() -> Void)?
+  private var normalInteractiveColor: UIColor?
+  private var hoverInteractiveColor: UIColor?
+  private var activeInteractiveColor: UIColor?
+  private var isPointerHovering = false
+  private var hoverGestureRecognizer: UIHoverGestureRecognizer?
+
+  override var isHighlighted: Bool {
+    didSet {
+      guard oldValue != isHighlighted else { return }
+      updateInteractiveBackgroundColor()
+    }
+  }
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -2132,13 +2366,78 @@ private class HomeContainerTapControl: UIControl {
     fatalError("init(coder:) has not been implemented")
   }
 
+  func configureInteractiveColors(normal: UIColor, hover: UIColor, active: UIColor) {
+    normalInteractiveColor = normal
+    hoverInteractiveColor = hover
+    activeInteractiveColor = active
+    if hoverGestureRecognizer == nil {
+      let recognizer = UIHoverGestureRecognizer(
+        target: self,
+        action: #selector(handleBaseHover(_:))
+      )
+      addGestureRecognizer(recognizer)
+      hoverGestureRecognizer = recognizer
+    }
+    updateInteractiveBackgroundColor()
+  }
+
   @objc private func pressed() {
     onPress?()
+  }
+
+  @objc private func handleBaseHover(_ gestureRecognizer: UIHoverGestureRecognizer) {
+    switch gestureRecognizer.state {
+    case .began, .changed:
+      isPointerHovering = true
+    case .ended, .cancelled, .failed:
+      isPointerHovering = false
+    default:
+      break
+    }
+    updateInteractiveBackgroundColor()
+  }
+
+  private func updateInteractiveBackgroundColor() {
+    guard let normalInteractiveColor else { return }
+    if isHighlighted {
+      backgroundColor = activeInteractiveColor ?? normalInteractiveColor
+    } else if isPointerHovering {
+      backgroundColor = hoverInteractiveColor ?? normalInteractiveColor
+    } else {
+      backgroundColor = normalInteractiveColor
+    }
   }
 }
 
 private final class HomeContainerHitSlopButton: UIButton {
   var hitSlop = UIEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
+  private var normalInteractiveColor = UIColor.clear
+  private var hoverInteractiveColor = UIColor.clear
+  private var activeInteractiveColor = UIColor.clear
+  private var isPointerHovering = false
+
+  override var isHighlighted: Bool {
+    didSet {
+      guard oldValue != isHighlighted else { return }
+      updateInteractiveAppearance()
+    }
+  }
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    addGestureRecognizer(UIHoverGestureRecognizer(target: self, action: #selector(handleHover(_:))))
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  func configureInteractiveColors(normal: UIColor, hover: UIColor, active: UIColor) {
+    normalInteractiveColor = normal
+    hoverInteractiveColor = hover
+    activeInteractiveColor = active
+    updateInteractiveAppearance()
+  }
 
   override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
     guard !isHidden, isUserInteractionEnabled, alpha > 0.01 else { return false }
@@ -2149,12 +2448,95 @@ private final class HomeContainerHitSlopButton: UIButton {
       right: -hitSlop.right
     )).contains(point)
   }
+
+  @objc private func handleHover(_ gestureRecognizer: UIHoverGestureRecognizer) {
+    switch gestureRecognizer.state {
+    case .began, .changed:
+      isPointerHovering = true
+    case .ended, .cancelled, .failed:
+      isPointerHovering = false
+    default:
+      break
+    }
+    updateInteractiveAppearance()
+  }
+
+  private func updateInteractiveAppearance() {
+    if isHighlighted {
+      backgroundColor = activeInteractiveColor
+      alpha = 0.72
+    } else if isPointerHovering {
+      backgroundColor = hoverInteractiveColor
+      alpha = 1
+    } else {
+      backgroundColor = normalInteractiveColor
+      alpha = 1
+    }
+  }
+}
+
+private final class HomeContainerInteractiveButton: UIButton {
+  private var normalInteractiveColor = UIColor.clear
+  private var hoverInteractiveColor = UIColor.clear
+  private var activeInteractiveColor = UIColor.clear
+  private var isPointerHovering = false
+
+  override var isHighlighted: Bool {
+    didSet {
+      guard oldValue != isHighlighted else { return }
+      updateInteractiveAppearance()
+    }
+  }
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    addGestureRecognizer(UIHoverGestureRecognizer(target: self, action: #selector(handleHover(_:))))
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  func configureInteractiveColors(normal: UIColor, hover: UIColor, active: UIColor) {
+    normalInteractiveColor = normal
+    hoverInteractiveColor = hover
+    activeInteractiveColor = active
+    updateInteractiveAppearance()
+  }
+
+  @objc private func handleHover(_ gestureRecognizer: UIHoverGestureRecognizer) {
+    switch gestureRecognizer.state {
+    case .began, .changed:
+      isPointerHovering = true
+    case .ended, .cancelled, .failed:
+      isPointerHovering = false
+    default:
+      break
+    }
+    updateInteractiveAppearance()
+  }
+
+  private func updateInteractiveAppearance() {
+    if isHighlighted {
+      backgroundColor = activeInteractiveColor
+      alpha = 0.72
+    } else if isPointerHovering {
+      backgroundColor = hoverInteractiveColor
+      alpha = 1
+    } else {
+      backgroundColor = normalInteractiveColor
+      alpha = 1
+    }
+  }
 }
 
 private final class HomeContainerActionControl: HomeContainerTapControl {
   let itemId: String
   private let iconView = UIImageView()
   private let titleLabel = UILabel()
+  private var imageTask: HomeContainerImageRequest?
+  private var representedImageURL: URL?
+  private var representedImageSignature = ""
 
   init(action: HomeContainerAction, theme: HomeContainerTheme) {
     itemId = action.id
@@ -2163,7 +2545,7 @@ private final class HomeContainerActionControl: HomeContainerTapControl {
     widthAnchor.constraint(equalToConstant: 82).isActive = true
     iconView.contentMode = .scaleAspectFit
     iconView.translatesAutoresizingMaskIntoConstraints = false
-    titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
+    titleLabel.font = HomeContainerTypography.system(13, weight: .medium)
     titleLabel.textAlignment = .center
     titleLabel.translatesAutoresizingMaskIntoConstraints = false
     addSubview(iconView)
@@ -2186,11 +2568,39 @@ private final class HomeContainerActionControl: HomeContainerTapControl {
 
   func apply(action: HomeContainerAction, theme: HomeContainerTheme) {
     let foreground = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
-    backgroundColor = UIColor(homeContainerColor: theme.cardColor, fallback: .secondarySystemBackground)
+    configureInteractiveColors(
+      normal: UIColor(homeContainerColor: theme.cardColor, fallback: .secondarySystemBackground),
+      hover: UIColor(
+        homeContainerColor: theme.hoverColor ?? theme.cardColor,
+        fallback: .tertiarySystemBackground
+      ),
+      active: UIColor(
+        homeContainerColor: theme.activeColor ?? theme.cardColor,
+        fallback: .systemGray5
+      )
+    )
     titleLabel.textColor = foreground
     titleLabel.text = action.title
     iconView.tintColor = foreground
-    iconView.image = UIImage(systemName: Self.symbolName(for: action.icon))
+    let fallbackImage = UIImage(systemName: Self.symbolName(for: action.icon))
+    let url = action.iconUrl.flatMap(URL.init(string:)).flatMap {
+      $0.scheme == "https" || $0.scheme == "http" || $0.isFileURL ? $0 : nil
+    }
+    let signature = "\(url?.absoluteString ?? "")|\(Self.symbolName(for: action.icon))"
+    guard representedImageSignature != signature else { return }
+    representedImageSignature = signature
+    imageTask?.cancel()
+    representedImageURL = url
+    iconView.image = fallbackImage
+    guard let url else { return }
+    imageTask = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
+      guard let self, self.representedImageSignature == signature else { return }
+      self.iconView.image = image ?? fallbackImage
+    }
+  }
+
+  deinit {
+    imageTask?.cancel()
   }
 
   private static func symbolName(for icon: String?) -> String {
@@ -2213,9 +2623,10 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
   private let titleLabel = UILabel()
   private let subtitleLabel = UILabel()
   private let dismissButton = HomeContainerHitSlopButton(type: .system)
+  private var imageWidthConstraint: NSLayoutConstraint!
+  private var labelsLeadingConstraint: NSLayoutConstraint!
   private var imageTask: HomeContainerImageRequest?
-  private var representedImageURL: URL?
-  private var hasAppliedImage = false
+  private var representedImageValue: String?
   private var normalBackgroundColor = UIColor.secondarySystemBackground
   private var hoverBackgroundColor = UIColor.tertiarySystemBackground
   private var activeBackgroundColor = UIColor.systemGray5
@@ -2239,9 +2650,9 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     imageView.isUserInteractionEnabled = false
     imageView.translatesAutoresizingMaskIntoConstraints = false
     addSubview(imageView)
-    titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+    titleLabel.font = HomeContainerTypography.system(15, weight: .semibold)
     titleLabel.numberOfLines = 2
-    subtitleLabel.font = .systemFont(ofSize: 12)
+    subtitleLabel.font = HomeContainerTypography.system(12)
     subtitleLabel.numberOfLines = 2
     let labels = UIStackView(arrangedSubviews: [titleLabel, subtitleLabel])
     labels.axis = .vertical
@@ -2262,12 +2673,17 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
     isAccessibilityElement = true
     accessibilityIdentifier = "native-home-banner-item"
     accessibilityTraits = .button
+    imageWidthConstraint = imageView.widthAnchor.constraint(equalToConstant: 56)
+    labelsLeadingConstraint = labels.leadingAnchor.constraint(
+      equalTo: imageView.trailingAnchor,
+      constant: 12
+    )
     NSLayoutConstraint.activate([
       imageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
       imageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-      imageView.widthAnchor.constraint(equalToConstant: 56),
+      imageWidthConstraint,
       imageView.heightAnchor.constraint(equalToConstant: 56),
-      labels.leadingAnchor.constraint(equalTo: imageView.trailingAnchor, constant: 12),
+      labelsLeadingConstraint,
       labels.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
       labels.centerYAnchor.constraint(equalTo: centerYAnchor),
       dismissButton.topAnchor.constraint(equalTo: topAnchor, constant: 3),
@@ -2308,6 +2724,20 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
       homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
       fallback: .tertiaryLabel
     )
+    dismissButton.layer.cornerRadius = 10
+    dismissButton.configureInteractiveColors(
+      normal: .clear,
+      hover: hoverBackgroundColor,
+      active: activeBackgroundColor
+    )
+    imageView.tintColor = UIColor(
+      homeContainerColor: theme.subduedIconColor ?? theme.secondaryTextColor,
+      fallback: .tertiaryLabel
+    )
+    imageView.backgroundColor = UIColor(
+      homeContainerColor: theme.strongColor ?? theme.cardColor,
+      fallback: .tertiarySystemBackground
+    )
     accessibilityLabel = banner.title
     loadImage(banner.imageUrl)
   }
@@ -2335,22 +2765,41 @@ private final class HomeContainerBannerControl: HomeContainerTapControl {
   }
 
   private func loadImage(_ value: String?) {
-    let url = value.flatMap(URL.init(string:)).flatMap {
+    let normalizedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    guard representedImageValue != normalizedValue else { return }
+    representedImageValue = normalizedValue
+    let url = URL(string: normalizedValue).flatMap {
       $0.scheme == "https" || $0.scheme == "http" || $0.isFileURL ? $0 : nil
     }
-    guard !hasAppliedImage || representedImageURL != url else { return }
-    hasAppliedImage = true
     imageTask?.cancel()
     imageTask = nil
-    representedImageURL = url
     imageView.image = nil
     imageView.isHidden = true
+    if normalizedValue.isEmpty {
+      imageWidthConstraint.constant = 0
+      labelsLeadingConstraint.constant = 0
+      return
+    }
+    imageWidthConstraint.constant = 56
+    labelsLeadingConstraint.constant = 12
+    applyImageFallback()
     guard let url else { return }
     imageTask = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
-      guard let self, self.representedImageURL == url else { return }
-      self.imageView.image = image
-      self.imageView.isHidden = image == nil
+      guard let self, self.representedImageValue == normalizedValue else { return }
+      if let image {
+        self.imageView.contentMode = .scaleAspectFit
+        self.imageView.image = image
+        self.imageView.isHidden = false
+      } else {
+        self.applyImageFallback()
+      }
     }
+  }
+
+  private func applyImageFallback() {
+    imageView.contentMode = .center
+    imageView.image = UIImage(systemName: "photo")
+    imageView.isHidden = false
   }
 }
 
@@ -2360,9 +2809,9 @@ private final class HomeContainerTabsView: UIView {
   var onSlotLayoutChange: (() -> Void)?
   private let scrollView = HomeContainerHorizontalScrollView()
   private let stack = UIStackView()
-  private let toolbarButton = UIButton(type: .system)
+  private let toolbarButton = HomeContainerInteractiveButton(type: .system)
   private let toolbarSlotHost = HomeContainerSlotHostView()
-  private var buttons: [String: UIButton] = [:]
+  private var buttons: [String: HomeContainerInteractiveButton] = [:]
   private var tabsById: [String: HomeContainerTab] = [:]
   private var selectedTabId = ""
   private var theme: HomeContainerTheme?
@@ -2377,7 +2826,7 @@ private final class HomeContainerTabsView: UIView {
     stack.alignment = .center
     stack.spacing = 20
     stack.translatesAutoresizingMaskIntoConstraints = false
-    toolbarButton.titleLabel?.font = .systemFont(ofSize: 22, weight: .medium)
+    toolbarButton.titleLabel?.font = HomeContainerTypography.system(22, weight: .medium)
     toolbarButton.setTitle("≡", for: .normal)
     toolbarButton.addAction(UIAction { [weak self] _ in
       guard let self,
@@ -2434,13 +2883,14 @@ private final class HomeContainerTabsView: UIView {
     }
     buttons.removeAll()
     for tab in tabs {
-      let button = UIButton(type: .system)
+      let button = HomeContainerInteractiveButton(type: .system)
       button.setTitle(tab.title, for: .normal)
       button.titleLabel?.font = HomeContainerTypography.medium(18)
       button.titleLabel?.numberOfLines = 1
       button.titleLabel?.adjustsFontSizeToFitWidth = true
       button.titleLabel?.minimumScaleFactor = 0.85
       button.accessibilityIdentifier = "HomeContainer.Tab.\(tab.id)"
+      button.layer.cornerRadius = 12
       button.addAction(UIAction { [weak self] _ in self?.onSelect?(tab.id) }, for: .touchUpInside)
       button.alpha = 1
       button.isUserInteractionEnabled = true
@@ -2502,6 +2952,17 @@ private final class HomeContainerTabsView: UIView {
       button.titleLabel?.font = isSelected
         ? HomeContainerTypography.semibold(18)
         : HomeContainerTypography.medium(18)
+      button.configureInteractiveColors(
+        normal: .clear,
+        hover: UIColor(
+          homeContainerColor: theme.hoverColor ?? theme.cardColor,
+          fallback: .tertiarySystemBackground
+        ),
+        active: UIColor(
+          homeContainerColor: theme.activeColor ?? theme.cardColor,
+          fallback: .systemGray5
+        )
+      )
     }
   }
 
@@ -2513,6 +2974,17 @@ private final class HomeContainerTabsView: UIView {
     toolbarButton.tintColor = UIColor(
       homeContainerColor: theme.secondaryTextColor,
       fallback: .secondaryLabel
+    )
+    toolbarButton.configureInteractiveColors(
+      normal: .clear,
+      hover: UIColor(
+        homeContainerColor: theme.hoverColor ?? theme.cardColor,
+        fallback: .tertiarySystemBackground
+      ),
+      active: UIColor(
+        homeContainerColor: theme.activeColor ?? theme.cardColor,
+        fallback: .systemGray5
+      )
     )
     toolbarButton.alpha = 0
     toolbarButton.isUserInteractionEnabled = false
@@ -2600,9 +3072,9 @@ private final class HomeContainerHorizontalCardControl: HomeContainerTapControl 
     imageView.contentMode = .scaleAspectFill
     imageView.layer.cornerRadius = 20
     imageView.clipsToBounds = true
-    titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
+    titleLabel.font = HomeContainerTypography.system(16, weight: .semibold)
     titleLabel.numberOfLines = 2
-    subtitleLabel.font = .systemFont(ofSize: 13)
+    subtitleLabel.font = HomeContainerTypography.system(13)
     subtitleLabel.numberOfLines = 2
     labelsStack.axis = .vertical
     labelsStack.spacing = 4
@@ -2645,7 +3117,17 @@ private final class HomeContainerHorizontalCardControl: HomeContainerTapControl 
     isSupportPromo = item.renderer == "supportPromo"
     widthConstraint?.constant = isSupportPromo ? 361 : 250
     imageView.layer.cornerRadius = isSupportPromo ? 16 : 20
-    backgroundColor = UIColor(homeContainerColor: theme.cardColor, fallback: .secondarySystemBackground)
+    configureInteractiveColors(
+      normal: UIColor(homeContainerColor: theme.cardColor, fallback: .secondarySystemBackground),
+      hover: UIColor(
+        homeContainerColor: theme.hoverColor ?? theme.cardColor,
+        fallback: .tertiarySystemBackground
+      ),
+      active: UIColor(
+        homeContainerColor: theme.activeColor ?? theme.cardColor,
+        fallback: .systemGray5
+      )
+    )
     titleLabel.textColor = isSupportPromo
       ? UIColor.black
       : UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
@@ -2683,7 +3165,7 @@ private final class HomeContainerHorizontalCardControl: HomeContainerTapControl 
 
 private final class HomeContainerSectionTitleCell: UITableViewCell {
   private let titleLabel = UILabel()
-  private let actionButton = UIButton(type: .system)
+  private let actionButton = HomeContainerInteractiveButton(type: .system)
   private var onAction: (() -> Void)?
 
   override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -2744,9 +3226,21 @@ private final class HomeContainerSectionTitleCell: UITableViewCell {
     actionButton.accessibilityIdentifier = isMarketRecommendation
       ? "native-home-market-add-recommended"
       : "native-home-section-action-\(section.id)"
+    actionButton.layer.cornerRadius = 10
+    actionButton.configureInteractiveColors(
+      normal: .clear,
+      hover: UIColor(
+        homeContainerColor: theme.hoverColor ?? theme.cardColor,
+        fallback: .tertiarySystemBackground
+      ),
+      active: UIColor(
+        homeContainerColor: theme.activeColor ?? theme.cardColor,
+        fallback: .systemGray5
+      )
+    )
     self.onAction = onAction
     titleLabel.font = sectionId.hasPrefix("section:history:")
-      ? .systemFont(ofSize: 13, weight: .semibold)
+      ? HomeContainerTypography.system(13, weight: .semibold)
       : HomeContainerTypography.semibold(20)
     titleLabel.textColor = sectionId.hasPrefix("section:history:")
       ? UIColor(homeContainerColor: theme.secondaryTextColor, fallback: .secondaryLabel)
@@ -2784,7 +3278,7 @@ private final class HomeContainerMarketRecommendationGridCell: UITableViewCell {
         x: horizontalPadding + CGFloat(index) * (cardWidth + gap),
         y: 0,
         width: cardWidth,
-        height: 60
+        height: max(60, contentView.bounds.height - 8)
       )
     }
   }
@@ -2834,7 +3328,9 @@ private final class HomeContainerMarketRecommendationCardControl: UIControl {
   private var actionId = ""
   private var onAction: ((String, String) -> Void)?
   private var normalBackgroundColor = UIColor.clear
+  private var hoverBackgroundColor = UIColor.clear
   private var highlightedBackgroundColor = UIColor.clear
+  private var isPointerHovering = false
 
   override init(frame: CGRect) {
     titleStack = UIStackView(arrangedSubviews: [
@@ -2897,6 +3393,7 @@ private final class HomeContainerMarketRecommendationCardControl: UIControl {
       guard let self, !self.actionId.isEmpty else { return }
       self.onAction?(self.actionId, self.itemId)
     }, for: .touchUpInside)
+    addGestureRecognizer(UIHoverGestureRecognizer(target: self, action: #selector(handleHover(_:))))
   }
 
   required init?(coder: NSCoder) {
@@ -2905,32 +3402,70 @@ private final class HomeContainerMarketRecommendationCardControl: UIControl {
 
   override var isHighlighted: Bool {
     didSet {
-      backgroundColor = isHighlighted
-        ? highlightedBackgroundColor
-        : normalBackgroundColor
+      updateInteractiveBackgroundColor()
+    }
+  }
+
+  @objc private func handleHover(_ gestureRecognizer: UIHoverGestureRecognizer) {
+    switch gestureRecognizer.state {
+    case .began, .changed:
+      isPointerHovering = true
+    case .ended, .cancelled, .failed:
+      isPointerHovering = false
+    default:
+      break
+    }
+    updateInteractiveBackgroundColor()
+  }
+
+  private func updateInteractiveBackgroundColor() {
+    if isHighlighted {
+      backgroundColor = highlightedBackgroundColor
+    } else if isPointerHovering {
+      backgroundColor = hoverBackgroundColor
+    } else {
+      backgroundColor = normalBackgroundColor
     }
   }
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    iconContainer.frame = CGRect(x: 10, y: 14, width: 32, height: 32)
+    iconContainer.frame = CGRect(x: 10, y: (bounds.height - 32) / 2, width: 32, height: 32)
     iconImageView.frame = iconContainer.bounds
-    badgeContainerView.frame = CGRect(x: 32, y: 30, width: 20, height: 20)
+    badgeContainerView.frame = CGRect(
+      x: 32,
+      y: iconContainer.frame.maxY - 16,
+      width: 20,
+      height: 20
+    )
     badgeImageView.frame = CGRect(x: 2, y: 2, width: 16, height: 16)
-    checkImageView.frame = CGRect(x: bounds.width - 30, y: 20, width: 20, height: 20)
+    checkImageView.frame = CGRect(
+      x: bounds.width - 30,
+      y: (bounds.height - 20) / 2,
+      width: 20,
+      height: 20
+    )
     let textX: CGFloat = 54
     let textWidth = max(0, checkImageView.frame.minX - textX - 4)
+    let titleHeight = max(20, ceil(titleLabel.font.lineHeight))
+    let subtitleHeight = max(18, ceil(subtitleLabel.font.lineHeight))
+    let textTop = max(4, (bounds.height - titleHeight - subtitleHeight - 1) / 2)
     let intrinsicTitleWidth = titleStack.systemLayoutSizeFitting(
       UIView.layoutFittingCompressedSize
     ).width
     titleStack.frame = CGRect(
       x: textX,
-      y: 10,
+      y: textTop,
       width: min(textWidth, ceil(intrinsicTitleWidth)),
-      height: 20
+      height: titleHeight
     )
-    subtitleLabel.frame = CGRect(x: textX, y: 31, width: textWidth, height: 18)
-    leverageLabel.frame.size.height = 16
+    subtitleLabel.frame = CGRect(
+      x: textX,
+      y: titleStack.frame.maxY + 1,
+      width: textWidth,
+      height: subtitleHeight
+    )
+    leverageLabel.frame.size.height = max(16, ceil(leverageLabel.font.lineHeight) + 4)
     titleAccessoryImageView.frame.size = CGSize(width: 14, height: 14)
     recognizedImageView.frame.size = CGSize(width: 14, height: 14)
   }
@@ -2946,6 +3481,10 @@ private final class HomeContainerMarketRecommendationCardControl: UIControl {
     normalBackgroundColor = UIColor(
       homeContainerColor: theme.cardColor,
       fallback: .secondarySystemBackground
+    )
+    hoverBackgroundColor = UIColor(
+      homeContainerColor: theme.hoverColor ?? theme.cardColor,
+      fallback: .tertiarySystemBackground
     )
     highlightedBackgroundColor = UIColor(
       homeContainerColor: theme.activeColor ?? theme.hoverColor ?? theme.cardColor,
@@ -2999,9 +3538,9 @@ private final class HomeContainerMarketRecommendationCardControl: UIControl {
       theme: theme
     )
     loadBadgeImage(item.badgeImageUrl)
-    badgeContainerView.isHidden = item.badgeImageUrl?.isEmpty != false
+    badgeContainerView.isHidden = badgeImageView.image == nil
     loadTitleAccessoryImage(item.titleAccessoryImageUrl)
-    titleAccessoryImageView.isHidden = item.titleAccessoryImageUrl?.isEmpty != false
+    titleAccessoryImageView.isHidden = titleAccessoryImageView.image == nil
     setNeedsLayout()
   }
 
@@ -3035,7 +3574,8 @@ private final class HomeContainerMarketRecommendationCardControl: UIControl {
               !result.contains(url) else { return }
         result.append(url)
       }
-    let signature = candidates.map(\.absoluteString).joined(separator: "|") + "|\(theme.backgroundColor)"
+    let signature = candidates.map(\.absoluteString).joined(separator: "|") +
+      "|\(theme.backgroundColor)|\(theme.subduedIconColor ?? theme.secondaryTextColor)"
     guard representedImageSignature != signature else { return }
     imageTask?.cancel()
     imageTask = nil
@@ -3065,7 +3605,10 @@ private final class HomeContainerMarketRecommendationCardControl: UIControl {
   ) {
     guard candidates.indices.contains(index) else { return }
     let url = candidates[index]
-    imageTask = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
+    imageTask = HomeContainerImageLoader.shared.load(
+      url: url,
+      retryOnFailure: index == candidates.count - 1
+    ) { [weak self] image in
       guard let self, self.representedImageSignature == signature else { return }
       if let image {
         self.iconImageView.contentMode = .scaleAspectFill
@@ -3085,10 +3628,12 @@ private final class HomeContainerMarketRecommendationCardControl: UIControl {
     badgeImageTask = nil
     representedBadgeImageURL = url
     badgeImageView.image = nil
+    badgeContainerView.isHidden = true
     guard let url else { return }
     let request = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
       guard let self, self.representedBadgeImageURL == url else { return }
       self.badgeImageView.image = image
+      self.badgeContainerView.isHidden = image == nil
     }
     badgeImageTask = request
   }
@@ -3102,10 +3647,12 @@ private final class HomeContainerMarketRecommendationCardControl: UIControl {
     titleAccessoryImageTask = nil
     representedTitleAccessoryImageURL = url
     titleAccessoryImageView.image = nil
+    titleAccessoryImageView.isHidden = true
     guard let url else { return }
     let request = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
       guard let self, self.representedTitleAccessoryImageURL == url else { return }
       self.titleAccessoryImageView.image = image
+      self.titleAccessoryImageView.isHidden = image == nil
     }
     titleAccessoryImageTask = request
   }
@@ -3160,7 +3707,7 @@ private final class HomeContainerNFTGridCell: UITableViewCell {
   }
 }
 
-private final class HomeContainerNFTCardControl: UIControl {
+private final class HomeContainerNFTCardControl: HomeContainerTapControl {
   private let imageView = UIImageView()
   private let collectionLabel = UILabel()
   private let titleLabel = UILabel()
@@ -3171,6 +3718,7 @@ private final class HomeContainerNFTCardControl: UIControl {
   private var representedImageURL: URL?
   private var representedNetworkImageURL: URL?
   private var imagePlaceholderColor = UIColor.tertiaryLabel
+  private var hasLoadedPrimaryImage = false
   private var itemId = ""
   private var actionId = ""
   private var onAction: ((String, String) -> Void)?
@@ -3184,7 +3732,7 @@ private final class HomeContainerNFTCardControl: UIControl {
     collectionLabel.numberOfLines = 1
     titleLabel.font = HomeContainerTypography.medium(16)
     titleLabel.numberOfLines = 1
-    amountLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+    amountLabel.font = HomeContainerTypography.system(13, weight: .semibold)
     amountLabel.textColor = .white
     amountLabel.backgroundColor = UIColor.black.withAlphaComponent(0.75)
     amountLabel.textAlignment = .center
@@ -3196,10 +3744,10 @@ private final class HomeContainerNFTCardControl: UIControl {
     networkImageView.layer.borderWidth = 1
     networkImageView.layer.borderColor = UIColor.systemBackground.cgColor
     [imageView, collectionLabel, titleLabel, amountLabel, networkImageView].forEach(addSubview)
-    addAction(UIAction { [weak self] _ in
+    onPress = { [weak self] in
       guard let self, !self.actionId.isEmpty else { return }
       self.onAction?(self.actionId, self.itemId)
-    }, for: .touchUpInside)
+    }
   }
 
   required init?(coder: NSCoder) {
@@ -3212,13 +3760,20 @@ private final class HomeContainerNFTCardControl: UIControl {
     let imageWidth = max(0, bounds.width - padding * 2)
     imageView.frame = CGRect(x: padding, y: padding, width: imageWidth, height: imageWidth)
     let collectionTop = imageView.frame.maxY + 8
+    let collectionHeight = max(18, ceil(collectionLabel.font.lineHeight))
+    let titleHeight = max(22, ceil(titleLabel.font.lineHeight))
     collectionLabel.frame = CGRect(
       x: padding,
       y: collectionTop,
       width: max(0, imageWidth - (networkImageView.isHidden ? 0 : 22)),
-      height: 18
+      height: collectionHeight
     )
-    titleLabel.frame = CGRect(x: padding, y: collectionTop + 20, width: imageWidth, height: 22)
+    titleLabel.frame = CGRect(
+      x: padding,
+      y: collectionLabel.frame.maxY + 2,
+      width: imageWidth,
+      height: titleHeight
+    )
     networkImageView.frame = CGRect(
       x: bounds.width - padding - 16,
       y: collectionTop + 1,
@@ -3226,12 +3781,14 @@ private final class HomeContainerNFTCardControl: UIControl {
       height: 16
     )
     let amountWidth = max(30, amountLabel.intrinsicContentSize.width + 12)
+    let amountHeight = max(18, ceil(amountLabel.font.lineHeight) + 4)
     amountLabel.frame = CGRect(
       x: imageView.frame.maxX - amountWidth - 6,
-      y: imageView.frame.maxY - 24,
+      y: imageView.frame.maxY - amountHeight - 6,
       width: amountWidth,
-      height: 18
+      height: amountHeight
     )
+    amountLabel.layer.cornerRadius = amountHeight / 2
   }
 
   func apply(
@@ -3242,7 +3799,17 @@ private final class HomeContainerNFTCardControl: UIControl {
     itemId = item.id
     actionId = item.actionId ?? ""
     self.onAction = onAction
-    backgroundColor = UIColor(homeContainerColor: theme.backgroundColor, fallback: .systemBackground)
+    configureInteractiveColors(
+      normal: UIColor(homeContainerColor: theme.backgroundColor, fallback: .systemBackground),
+      hover: UIColor(
+        homeContainerColor: theme.hoverColor ?? theme.cardColor,
+        fallback: .tertiarySystemBackground
+      ),
+      active: UIColor(
+        homeContainerColor: theme.activeColor ?? theme.cardColor,
+        fallback: .systemGray5
+      )
+    )
     imageView.backgroundColor = UIColor(
       homeContainerColor: theme.strongColor ?? theme.cardColor,
       fallback: .secondarySystemBackground
@@ -3260,8 +3827,12 @@ private final class HomeContainerNFTCardControl: UIControl {
     titleLabel.textColor = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
     amountLabel.text = item.value
     amountLabel.isHidden = item.value?.isEmpty != false
+    networkImageView.layer.borderColor = UIColor(
+      homeContainerColor: theme.backgroundColor,
+      fallback: .systemBackground
+    ).cgColor
     accessibilityLabel = [collectionLabel.text, titleLabel.text].compactMap { $0 }.joined(separator: ", ")
-    if imageView.image == nil {
+    if !hasLoadedPrimaryImage {
       applyImagePlaceholder()
     }
     loadImage(item.imageUrl, target: imageView, isNetwork: false)
@@ -3277,6 +3848,7 @@ private final class HomeContainerNFTCardControl: UIControl {
     representedImageURL = nil
     representedNetworkImageURL = nil
     imageView.image = nil
+    hasLoadedPrimaryImage = false
     networkImageView.image = nil
     networkImageView.isHidden = true
     amountLabel.isHidden = true
@@ -3294,11 +3866,12 @@ private final class HomeContainerNFTCardControl: UIControl {
       networkImageTask?.cancel()
       representedNetworkImageURL = url
       networkImageView.image = nil
-      networkImageView.isHidden = url == nil
+      networkImageView.isHidden = true
     } else {
       guard representedImageURL != url else { return }
       imageTask?.cancel()
       representedImageURL = url
+      hasLoadedPrimaryImage = false
       applyImagePlaceholder()
     }
     guard let url else { return }
@@ -3311,9 +3884,11 @@ private final class HomeContainerNFTCardControl: UIControl {
       } else {
         guard self.representedImageURL == url else { return }
         if let image {
+          self.hasLoadedPrimaryImage = true
           self.imageView.contentMode = .scaleAspectFill
           self.imageView.image = image
         } else {
+          self.hasLoadedPrimaryImage = false
           self.applyImagePlaceholder()
         }
       }
@@ -3333,16 +3908,49 @@ private final class HomeContainerNFTCardControl: UIControl {
 }
 
 private enum HomeContainerTypography {
-  static func regular(_ size: CGFloat) -> UIFont {
-    UIFont(name: "Roobert-Regular", size: size) ?? .systemFont(ofSize: size)
+  private static func scaled(
+    _ font: UIFont,
+    textStyle: UIFont.TextStyle,
+    maximumScale: CGFloat = 1.4
+  ) -> UIFont {
+    UIFontMetrics(forTextStyle: textStyle).scaledFont(
+      for: font,
+      maximumPointSize: font.pointSize * maximumScale
+    )
   }
 
-  static func medium(_ size: CGFloat) -> UIFont {
-    UIFont(name: "Roobert-Medium", size: size) ?? .systemFont(ofSize: size, weight: .medium)
+  static func regular(_ size: CGFloat, textStyle: UIFont.TextStyle = .body) -> UIFont {
+    scaled(
+      UIFont(name: "Roobert-Regular", size: size) ?? .systemFont(ofSize: size),
+      textStyle: textStyle
+    )
   }
 
-  static func semibold(_ size: CGFloat) -> UIFont {
-    UIFont(name: "Roobert-SemiBold", size: size) ?? .systemFont(ofSize: size, weight: .semibold)
+  static func medium(_ size: CGFloat, textStyle: UIFont.TextStyle = .body) -> UIFont {
+    scaled(
+      UIFont(name: "Roobert-Medium", size: size) ?? .systemFont(ofSize: size, weight: .medium),
+      textStyle: textStyle
+    )
+  }
+
+  static func semibold(_ size: CGFloat, textStyle: UIFont.TextStyle = .headline) -> UIFont {
+    scaled(
+      UIFont(name: "Roobert-SemiBold", size: size) ?? .systemFont(ofSize: size, weight: .semibold),
+      textStyle: textStyle
+    )
+  }
+
+  static func system(
+    _ size: CGFloat,
+    weight: UIFont.Weight = .regular,
+    textStyle: UIFont.TextStyle = .body,
+    maximumScale: CGFloat = 1.4
+  ) -> UIFont {
+    scaled(
+      .systemFont(ofSize: size, weight: weight),
+      textStyle: textStyle,
+      maximumScale: maximumScale
+    )
   }
 }
 
@@ -3683,7 +4291,7 @@ private final class HomeContainerInsetLabel: UILabel {
 
 private final class HomeContainerItemCell: UITableViewCell {
   private let highlightView = UIView()
-  private let favoriteButton = UIButton(type: .system)
+  private let favoriteButton = HomeContainerInteractiveButton(type: .system)
   private let iconContainer = UIView()
   private let iconImageView = UIImageView()
   private let secondaryIconImageView = UIImageView()
@@ -3717,6 +4325,7 @@ private final class HomeContainerItemCell: UITableViewCell {
   private var subtitleMaxWidthConstraint: NSLayoutConstraint?
   private var centerButtonTopConstraint: NSLayoutConstraint?
   private var centerButtonBottomConstraint: NSLayoutConstraint?
+  private var marketTabsHeightConstraint: NSLayoutConstraint?
   private var imageTask: HomeContainerImageRequest?
   private var secondaryImageTask: HomeContainerImageRequest?
   private var badgeImageTask: HomeContainerImageRequest?
@@ -3731,6 +4340,7 @@ private final class HomeContainerItemCell: UITableViewCell {
   private var currentRenderer = ""
   private var isInteractive = false
   private var normalCenterBackgroundColor = UIColor.clear
+  private var hoverBackgroundColor = UIColor.tertiarySystemBackground
   private var activeBackgroundColor = UIColor.systemGray5
   private var normalCardBackgroundColor = UIColor.clear
   private var usesCard = false
@@ -3739,6 +4349,7 @@ private final class HomeContainerItemCell: UITableViewCell {
   private var representedFavoriteItemId: String?
   private var representedFavoriteState: Bool?
   private var onFavoriteAction: ((String, String) -> Void)?
+  private var isPointerHovering = false
 
   override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
     super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -3750,6 +4361,7 @@ private final class HomeContainerItemCell: UITableViewCell {
     favoriteButton.translatesAutoresizingMaskIntoConstraints = false
     favoriteButton.isHidden = true
     favoriteButton.addTarget(self, action: #selector(handleFavoritePress), for: .touchUpInside)
+    addGestureRecognizer(UIHoverGestureRecognizer(target: self, action: #selector(handleHover(_:))))
     iconContainer.layer.cornerRadius = 20
     iconContainer.layer.masksToBounds = true
     iconContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -3769,7 +4381,7 @@ private final class HomeContainerItemCell: UITableViewCell {
     badgeContainerView.clipsToBounds = true
     badgeContainerView.translatesAutoresizingMaskIntoConstraints = false
 
-    iconLabel.font = .systemFont(ofSize: 15, weight: .bold)
+    iconLabel.font = HomeContainerTypography.system(15, weight: .bold)
     iconLabel.textAlignment = .center
     iconLabel.translatesAutoresizingMaskIntoConstraints = false
     iconContainer.addSubview(iconLabel)
@@ -3836,7 +4448,7 @@ private final class HomeContainerItemCell: UITableViewCell {
     rightStack.setContentCompressionResistancePriority(.required, for: .horizontal)
     rightStack.setContentHuggingPriority(.required, for: .horizontal)
     chevronLabel.text = "›"
-    chevronLabel.font = .systemFont(ofSize: 28, weight: .regular)
+    chevronLabel.font = HomeContainerTypography.system(28)
     chevronLabel.textAlignment = .center
     chevronLabel.translatesAutoresizingMaskIntoConstraints = false
     centerButton.font = HomeContainerTypography.medium(16)
@@ -3898,6 +4510,9 @@ private final class HomeContainerItemCell: UITableViewCell {
       equalTo: contentView.bottomAnchor,
       constant: -6
     )
+    let marketTabsHeightConstraint = marketTabsStack.heightAnchor.constraint(
+      equalToConstant: HomeContainerMetrics.marketSegmentHeight
+    )
     self.iconLeadingConstraint = iconLeadingConstraint
     self.marketIconLeadingConstraint = marketIconLeadingConstraint
     self.iconWidthConstraint = iconWidthConstraint
@@ -3910,6 +4525,7 @@ private final class HomeContainerItemCell: UITableViewCell {
     self.subtitleMaxWidthConstraint = subtitleMaxWidthConstraint
     self.centerButtonTopConstraint = centerButtonTopConstraint
     self.centerButtonBottomConstraint = centerButtonBottomConstraint
+    self.marketTabsHeightConstraint = marketTabsHeightConstraint
     NSLayoutConstraint.activate([
       highlightView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
       highlightView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
@@ -3972,7 +4588,7 @@ private final class HomeContainerItemCell: UITableViewCell {
         constant: -20
       ),
       marketTabsStack.centerYAnchor.constraint(equalTo: marketTabsScrollView.frameLayoutGuide.centerYAnchor),
-      marketTabsStack.heightAnchor.constraint(equalToConstant: 32),
+      marketTabsHeightConstraint,
       divider.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
       divider.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
       divider.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
@@ -4000,20 +4616,39 @@ private final class HomeContainerItemCell: UITableViewCell {
 
   override func setHighlighted(_ highlighted: Bool, animated: Bool) {
     super.setHighlighted(highlighted, animated: animated)
+    updateInteractiveAppearance()
+  }
+
+  @objc private func handleHover(_ gestureRecognizer: UIHoverGestureRecognizer) {
+    switch gestureRecognizer.state {
+    case .began, .changed:
+      isPointerHovering = true
+    case .ended, .cancelled, .failed:
+      isPointerHovering = false
+    default:
+      break
+    }
+    updateInteractiveAppearance()
+  }
+
+  private func updateInteractiveAppearance() {
     guard isInteractive else {
       highlightView.isHidden = true
       return
     }
+    let interactiveColor = isHighlighted ? activeBackgroundColor : hoverBackgroundColor
+    let showsInteractiveState = isHighlighted || isPointerHovering
     if currentRenderer == "showMore" {
-      centerButton.backgroundColor = highlighted
-        ? activeBackgroundColor
+      centerButton.backgroundColor = showsInteractiveState
+        ? interactiveColor
         : normalCenterBackgroundColor
     } else if usesCard {
-      contentView.backgroundColor = highlighted
-        ? activeBackgroundColor
+      contentView.backgroundColor = showsInteractiveState
+        ? interactiveColor
         : normalCardBackgroundColor
     } else {
-      highlightView.isHidden = !highlighted
+      highlightView.backgroundColor = interactiveColor
+      highlightView.isHidden = !showsInteractiveState
     }
   }
 
@@ -4053,6 +4688,7 @@ private final class HomeContainerItemCell: UITableViewCell {
     representedFavoriteItemId = nil
     representedFavoriteState = nil
     onFavoriteAction = nil
+    isPointerHovering = false
   }
 
   func apply(
@@ -4061,7 +4697,12 @@ private final class HomeContainerItemCell: UITableViewCell {
     onAction: @escaping (String, String) -> Void
   ) {
     currentRenderer = item.renderer
+    marketTabsHeightConstraint?.constant = HomeContainerMetrics.marketSegmentHeight
     isInteractive = item.actionId?.isEmpty == false
+    hoverBackgroundColor = UIColor(
+      homeContainerColor: theme.hoverColor ?? theme.activeColor ?? theme.cardColor,
+      fallback: .tertiarySystemBackground
+    )
     activeBackgroundColor = UIColor(
       homeContainerColor: theme.activeColor ?? theme.hoverColor ?? theme.cardColor,
       fallback: .systemGray5
@@ -4071,6 +4712,9 @@ private final class HomeContainerItemCell: UITableViewCell {
     setNeedsLayout()
     let showsFavorite = item.renderer == "market" && item.favoriteActionId?.isEmpty == false
     favoriteButton.isHidden = !showsFavorite
+    // The original Market star keeps a transparent surface in every state.
+    // The button still dims while pressed and never forwards the tap to the row.
+    favoriteButton.configureInteractiveColors(normal: .clear, hover: .clear, active: .clear)
     favoriteButton.accessibilityLabel = item.favoriteLabel
     favoriteButton.accessibilityIdentifier = showsFavorite
       ? "native-home-market-favorite-\(item.id)"
@@ -4175,7 +4819,7 @@ private final class HomeContainerItemCell: UITableViewCell {
     )
     iconLabel.textColor = UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
     switch item.renderer {
-    case "portfolio", "perps", "market", "earn":
+    case "asset", "portfolio", "perps", "market", "earn":
       usesCryptoCoinFallback = true
     default:
       usesCryptoCoinFallback = false
@@ -4234,24 +4878,9 @@ private final class HomeContainerItemCell: UITableViewCell {
         )
       )
     }
-    loadAuxiliaryImage(
-      item.secondaryImageUrl,
-      representedURL: &representedSecondaryImageURL,
-      task: &secondaryImageTask,
-      imageView: secondaryIconImageView
-    )
-    loadAuxiliaryImage(
-      item.badgeImageUrl,
-      representedURL: &representedBadgeImageURL,
-      task: &badgeImageTask,
-      imageView: badgeImageView
-    )
-    loadAuxiliaryImage(
-      item.titleAccessoryImageUrl,
-      representedURL: &representedTitleAccessoryImageURL,
-      task: &titleAccessoryImageTask,
-      imageView: titleAccessoryImageView
-    )
+    loadAuxiliaryImage(item.secondaryImageUrl, kind: .secondary)
+    loadAuxiliaryImage(item.badgeImageUrl, kind: .badge)
+    loadAuxiliaryImage(item.titleAccessoryImageUrl, kind: .titleAccessory)
     if item.titleAccessoryIcon == "gas" {
       titleAccessoryImageTask?.cancel()
       titleAccessoryImageTask = nil
@@ -4276,13 +4905,13 @@ private final class HomeContainerItemCell: UITableViewCell {
     subtitleDetailLabel.isHidden = item.subtitleDetail?.isEmpty != false
     valueLabel.isHidden = item.value?.isEmpty != false
     detailLabel.isHidden = item.detail?.isEmpty != false
-    secondaryIconImageView.isHidden = item.secondaryImageUrl?.isEmpty != false
-    badgeContainerView.isHidden = item.badgeImageUrl?.isEmpty != false
+    secondaryIconImageView.isHidden = secondaryIconImageView.image == nil
+    badgeContainerView.isHidden = badgeImageView.image == nil
     badgeImageView.isHidden = badgeContainerView.isHidden
     leverageLabel.text = item.badge
     leverageLabel.isHidden = item.badge?.isEmpty != false
     titleAccessoryImageView.isHidden =
-      item.titleAccessoryImageUrl?.isEmpty != false && item.titleAccessoryIcon == nil
+      titleAccessoryImageView.image == nil && item.titleAccessoryIcon == nil
     recognizedImageView.isHidden = item.communityRecognized != true
     chevronLabel.isHidden = item.showChevron != true
     rightTrailingConstraint?.constant = item.showChevron == true ? -42 : -20
@@ -4314,17 +4943,17 @@ private final class HomeContainerItemCell: UITableViewCell {
     let usesRoobertTypography = ["market", "perps", "defi", "history"].contains(item.renderer)
     titleLabel.font = usesRoobertTypography
       ? HomeContainerTypography.medium(16)
-      : .systemFont(ofSize: 16, weight: .medium)
+      : HomeContainerTypography.system(16, weight: .medium)
     subtitleLabel.font = usesRoobertTypography
       ? HomeContainerTypography.regular(14)
-      : .systemFont(ofSize: 14)
+      : HomeContainerTypography.system(14)
     subtitleDetailLabel.font = subtitleLabel.font
     valueLabel.font = usesRoobertTypography
       ? HomeContainerTypography.medium(16)
-      : .systemFont(ofSize: 16, weight: .medium)
+      : HomeContainerTypography.system(16, weight: .medium)
     detailLabel.font = usesRoobertTypography
       ? HomeContainerTypography.regular(14)
-      : .systemFont(ofSize: 14)
+      : HomeContainerTypography.system(14)
     if item.renderer == "market" || item.renderer == "perps" {
       detailLabel.textColor = UIColor(
         homeContainerColor: item.accentColor ?? theme.secondaryTextColor,
@@ -4376,7 +5005,7 @@ private final class HomeContainerItemCell: UITableViewCell {
       )
     } else if item.renderer == "addToken" {
       centerButton.text = nil
-      centerButton.font = .systemFont(ofSize: 14)
+      centerButton.font = HomeContainerTypography.system(14)
       centerButton.layer.cornerRadius = 0
       centerButton.textAlignment = .center
       centerButton.backgroundColor = .clear
@@ -4455,23 +5084,82 @@ private final class HomeContainerItemCell: UITableViewCell {
     inlineBadgesStack.isHidden = badges.isEmpty
   }
 
-  private func loadAuxiliaryImage(
-    _ value: String?,
-    representedURL: inout URL?,
-    task: inout HomeContainerImageRequest?,
-    imageView: UIImageView
-  ) {
+  private enum AuxiliaryImageKind {
+    case secondary
+    case badge
+    case titleAccessory
+  }
+
+  private func loadAuxiliaryImage(_ value: String?, kind: AuxiliaryImageKind) {
     let url = value.flatMap(URL.init(string:)).flatMap {
       $0.scheme == "https" || $0.scheme == "http" || $0.isFileURL ? $0 : nil
     }
+    let representedURL: URL?
+    let task: HomeContainerImageRequest?
+    let imageView: UIImageView
+    switch kind {
+    case .secondary:
+      representedURL = representedSecondaryImageURL
+      task = secondaryImageTask
+      imageView = secondaryIconImageView
+    case .badge:
+      representedURL = representedBadgeImageURL
+      task = badgeImageTask
+      imageView = badgeImageView
+    case .titleAccessory:
+      representedURL = representedTitleAccessoryImageURL
+      task = titleAccessoryImageTask
+      imageView = titleAccessoryImageView
+    }
     guard representedURL != url else { return }
     task?.cancel()
-    task = nil
-    representedURL = url
+    switch kind {
+    case .secondary:
+      secondaryImageTask = nil
+      representedSecondaryImageURL = url
+    case .badge:
+      badgeImageTask = nil
+      representedBadgeImageURL = url
+    case .titleAccessory:
+      titleAccessoryImageTask = nil
+      representedTitleAccessoryImageURL = url
+    }
     imageView.image = nil
+    switch kind {
+    case .secondary:
+      secondaryIconImageView.isHidden = true
+    case .badge:
+      badgeContainerView.isHidden = true
+      badgeImageView.isHidden = true
+    case .titleAccessory:
+      titleAccessoryImageView.isHidden = true
+    }
     guard let url else { return }
-    task = HomeContainerImageLoader.shared.load(url: url) { [weak imageView] image in
-      imageView?.image = image
+    let request = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
+      guard let self else { return }
+      switch kind {
+      case .secondary:
+        guard self.representedSecondaryImageURL == url else { return }
+        self.secondaryIconImageView.image = image
+        self.secondaryIconImageView.isHidden = image == nil
+      case .badge:
+        guard self.representedBadgeImageURL == url else { return }
+        self.badgeImageView.image = image
+        self.badgeContainerView.isHidden = image == nil
+        self.badgeImageView.isHidden = image == nil
+      case .titleAccessory:
+        guard self.representedTitleAccessoryImageURL == url else { return }
+        self.titleAccessoryImageView.image = image
+        self.titleAccessoryImageView.isHidden = image == nil
+      }
+    }
+    switch kind {
+    case .secondary:
+      secondaryImageTask = request
+    case .badge:
+      badgeImageTask = request
+    case .titleAccessory:
+      titleAccessoryImageTask = request
     }
   }
 
@@ -4487,7 +5175,9 @@ private final class HomeContainerItemCell: UITableViewCell {
               !result.contains(url) else { return }
         result.append(url)
       }
-    let signature = candidates.map(\.absoluteString).joined(separator: "|")
+    let signature = candidates.map(\.absoluteString).joined(separator: "|") +
+      "|fallback:\(usesCryptoCoinFallback ? "crypto" : "letter")" +
+      ":\(fallbackColor.homeContainerSignature)"
     guard !hasAppliedImage || representedImageSignature != signature else { return }
     hasAppliedImage = true
     imageTask?.cancel()
@@ -4558,7 +5248,10 @@ private final class HomeContainerItemCell: UITableViewCell {
   private func loadImageCandidate(_ candidates: [URL], index: Int, signature: String) {
     guard candidates.indices.contains(index) else { return }
     let url = candidates[index]
-    imageTask = HomeContainerImageLoader.shared.load(url: url) { [weak self] image in
+    imageTask = HomeContainerImageLoader.shared.load(
+      url: url,
+      retryOnFailure: index == candidates.count - 1
+    ) { [weak self] image in
       guard let self, self.representedImageSignature == signature else { return }
       if let image {
         self.iconImageView.contentMode = .scaleAspectFill
@@ -4574,19 +5267,27 @@ private final class HomeContainerItemCell: UITableViewCell {
 private final class HomeContainerMarketSegmentButton: UIButton {
   var onPress: (() -> Void)?
   private let normalBackgroundColor: UIColor
+  private let hoverBackgroundColor: UIColor
   private let highlightedBackgroundColor: UIColor
+  private var imageTask: HomeContainerImageRequest?
+  private var representedImageURL: URL?
+  private var isPointerHovering = false
 
   init(segment: HomeContainerSegment, theme: HomeContainerTheme) {
     let selected = segment.selected == true
     normalBackgroundColor = selected
       ? UIColor(homeContainerColor: theme.activeColor ?? theme.cardColor, fallback: .systemGray5)
       : .clear
-    highlightedBackgroundColor = UIColor(
+    hoverBackgroundColor = UIColor(
       homeContainerColor: theme.hoverColor ?? theme.activeColor ?? theme.cardColor,
       fallback: .systemGray5
     )
+    highlightedBackgroundColor = UIColor(
+      homeContainerColor: theme.activeColor ?? theme.hoverColor ?? theme.cardColor,
+      fallback: .systemGray5
+    )
     super.init(frame: .zero)
-    layer.cornerRadius = 16
+    layer.cornerRadius = HomeContainerMetrics.marketSegmentHeight / 2
     clipsToBounds = true
     backgroundColor = normalBackgroundColor
     titleLabel?.font = HomeContainerTypography.medium(14)
@@ -4603,20 +5304,54 @@ private final class HomeContainerMarketSegmentButton: UIButton {
         : theme.subduedIconColor ?? theme.secondaryTextColor,
       fallback: selected ? .label : .secondaryLabel
     )
-    if segment.leadingIcon == "star" {
-      setImage(HomeContainerMarketArtwork.star(filled: false, size: 18), for: .normal)
+    let fallbackImage = segment.leadingIcon == "star"
+      ? HomeContainerMarketArtwork.star(filled: false, size: 18)
+      : UIImage(systemName: "square.grid.2x2")
+    let imageURL = segment.imageUrl.flatMap(URL.init(string:)).flatMap {
+      $0.scheme == "https" || $0.scheme == "http" || $0.isFileURL ? $0 : nil
+    }
+    let hasLeadingImage = segment.leadingIcon != nil || imageURL != nil
+    if hasLeadingImage {
+      setImage(fallbackImage?.homeContainerThumbnail(size: 18), for: .normal)
+    }
+    representedImageURL = imageURL
+    if let imageURL {
+      imageTask = HomeContainerImageLoader.shared.load(url: imageURL) { [weak self] image in
+        guard let self, self.representedImageURL == imageURL else { return }
+        self.setImage(
+          (image ?? fallbackImage)?.homeContainerThumbnail(size: 18),
+          for: .normal
+        )
+      }
     }
     if segment.iconOnly != true {
       setTitle(segment.title, for: .normal)
     }
-    contentEdgeInsets = UIEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
-    heightAnchor.constraint(equalToConstant: 32).isActive = true
+    let hasImageTitleSpacing = hasLeadingImage && segment.iconOnly != true
+    imageEdgeInsets = hasImageTitleSpacing
+      ? UIEdgeInsets(top: 0, left: -4, bottom: 0, right: 4)
+      : .zero
+    titleEdgeInsets = hasImageTitleSpacing
+      ? UIEdgeInsets(top: 0, left: 4, bottom: 0, right: -4)
+      : .zero
+    contentEdgeInsets = UIEdgeInsets(
+      top: 6,
+      left: hasImageTitleSpacing ? 14 : 10,
+      bottom: 6,
+      right: hasImageTitleSpacing ? 14 : 10
+    )
+    heightAnchor.constraint(equalToConstant: HomeContainerMetrics.marketSegmentHeight).isActive = true
     if segment.iconOnly == true {
-      widthAnchor.constraint(equalToConstant: 38).isActive = true
+      widthAnchor.constraint(
+        equalToConstant: max(38, HomeContainerMetrics.marketSegmentHeight + 6)
+      ).isActive = true
     }
     accessibilityIdentifier = "native-home-market-category-\(segment.id)"
     accessibilityLabel = segment.title
+    isSelected = selected
+    accessibilityTraits = selected ? [.button, .selected] : [.button]
     addTarget(self, action: #selector(handlePress), for: .touchUpInside)
+    addGestureRecognizer(UIHoverGestureRecognizer(target: self, action: #selector(handleHover(_:))))
   }
 
   required init?(coder: NSCoder) {
@@ -4625,13 +5360,37 @@ private final class HomeContainerMarketSegmentButton: UIButton {
 
   override var isHighlighted: Bool {
     didSet {
-      backgroundColor = isHighlighted
-        ? highlightedBackgroundColor
-        : normalBackgroundColor
+      updateInteractiveBackgroundColor()
+    }
+  }
+
+  @objc private func handleHover(_ gestureRecognizer: UIHoverGestureRecognizer) {
+    switch gestureRecognizer.state {
+    case .began, .changed:
+      isPointerHovering = true
+    case .ended, .cancelled, .failed:
+      isPointerHovering = false
+    default:
+      break
+    }
+    updateInteractiveBackgroundColor()
+  }
+
+  private func updateInteractiveBackgroundColor() {
+    if isHighlighted {
+      backgroundColor = highlightedBackgroundColor
+    } else if isPointerHovering {
+      backgroundColor = hoverBackgroundColor
+    } else {
+      backgroundColor = normalBackgroundColor
     }
   }
 
   @objc private func handlePress() {
     onPress?()
+  }
+
+  deinit {
+    imageTask?.cancel()
   }
 }
