@@ -18,9 +18,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { TIME_RANGE_TO_API_MAP } from '../../../types';
 import {
-  HIDE_INJECTED_BTC_ROW,
   filterInjectedBtcRow,
   getNetworkLogoUri,
+  hasReachedEndAfterFirstPage,
+  shouldHideInjectedBtcRowForType,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
 
@@ -555,10 +556,10 @@ export function useMarketTokenList({
         timeRange: timeRangeRef.current,
       }),
     );
-    const visibleTokens =
-      type === 'trending' && HIDE_INJECTED_BTC_ROW
-        ? filterInjectedBtcRow(transformed)
-        : transformed;
+    const hideInjectedBtcRow = shouldHideInjectedBtcRowForType(type);
+    const visibleTokens = hideInjectedBtcRow
+      ? filterInjectedBtcRow(transformed)
+      : transformed;
     const transformDuration =
       transformStart > 0 ? performance.now() - transformStart : undefined;
     markMarketReactPerf({
@@ -581,7 +582,16 @@ export function useMarketTokenList({
       reuseStableMarketTokenRows({ prev, next: visibleTokens }),
     );
     setCurrentPage(1);
-    setHasReachedEnd(false);
+    // If the API already returned the full pool on page 1, there is no next
+    // page — lock pagination now so a hidden-row-shrunk transformedData.length
+    // can never make canLoadMore re-open and re-fetch/re-append the same pool.
+    setHasReachedEnd(
+      hasReachedEndAfterFirstPage({
+        type,
+        rawListLength: apiResult.list.length,
+        total: apiResult.total ?? 0,
+      }),
+    );
 
     // Track network loading analytics
     trackNetworkLoading(networkId, apiResult.list.length);
@@ -686,6 +696,11 @@ export function useMarketTokenList({
             timeRange: timeRangeRef.current,
           }),
         );
+        // Keep the same BTC-hide gate as the first-page transform, otherwise
+        // a loadMore page can re-introduce the row the first page hid.
+        const visibleNewTokens = shouldHideInjectedBtcRowForType(type)
+          ? filterInjectedBtcRow(newTransformed)
+          : newTransformed;
 
         if (currentQueryKeyRef.current !== requestQueryKey) {
           return;
@@ -695,7 +710,7 @@ export function useMarketTokenList({
         trackNetworkLoading(networkId, response.list.length);
 
         // Append new data to existing data
-        setTransformedData((prev) => [...prev, ...newTransformed]);
+        setTransformedData((prev) => [...prev, ...visibleNewTokens]);
         setCurrentPage(nextPage);
       } else {
         // Empty response - stop loading immediately
