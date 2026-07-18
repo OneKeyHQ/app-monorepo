@@ -12,17 +12,23 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IExportHistoryDownloadEntryPoint } from '@onekeyhq/shared/src/logger/scopes/prime/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
 import type { IExportTransactionHistoryTask } from '@onekeyhq/shared/types/history';
 
-import { formatExportHistoryTaskFilenameDay } from '../pages/bulkExportHistoryTaskUtils';
+import {
+  formatExportHistoryTaskFilenameDay,
+  getExportHistoryTaskDisplayStatus,
+  getExportHistoryTaskNetworkIds,
+} from '../pages/bulkExportHistoryTaskUtils';
 
 type IBulkExportHistoryDownloadButtonProps = Omit<
   IButtonProps,
   'children' | 'icon' | 'loading' | 'onPress'
 > & {
   task: IExportTransactionHistoryTask;
+  entryPoint: IExportHistoryDownloadEntryPoint;
   testID: string;
 };
 
@@ -31,10 +37,17 @@ type IBulkExportHistoryDownloadIconButtonProps = Omit<
   'icon' | 'loading' | 'onPress'
 > & {
   task: IExportTransactionHistoryTask;
+  entryPoint: IExportHistoryDownloadEntryPoint;
   testID: string;
 };
 
-function useBulkExportHistoryDownload(task: IExportTransactionHistoryTask) {
+function useBulkExportHistoryDownload({
+  task,
+  entryPoint,
+}: {
+  task: IExportTransactionHistoryTask;
+  entryPoint: IExportHistoryDownloadEntryPoint;
+}) {
   const intl = useIntl();
   const [isDownloading, setIsDownloading] = useState(false);
   const isDownloadingRef = useRef(false);
@@ -70,6 +83,12 @@ function useBulkExportHistoryDownload(task: IExportTransactionHistoryTask) {
 
         const saved = await csvExporterUtils.exportCSV(csvData, filename, true);
         if (saved) {
+          defaultLogger.prime.usage.exportHistoryCsvDownloadSuccess({
+            entryPoint,
+            networkCount: getExportHistoryTaskNetworkIds(task).length,
+            transactionCount: task.count,
+            isPartial: getExportHistoryTaskDisplayStatus(task) === 'partial',
+          });
           Toast.success({
             title: intl.formatMessage({ id: ETranslations.global_success }),
           });
@@ -87,7 +106,7 @@ function useBulkExportHistoryDownload(task: IExportTransactionHistoryTask) {
       isDownloadingRef.current = false;
       setIsDownloading(false);
     }
-  }, [intl, task]);
+  }, [entryPoint, intl, task]);
 
   return {
     actionIcon,
@@ -99,11 +118,12 @@ function useBulkExportHistoryDownload(task: IExportTransactionHistoryTask) {
 
 function BulkExportHistoryDownloadButton({
   task,
+  entryPoint,
   testID,
   ...buttonProps
 }: IBulkExportHistoryDownloadButtonProps) {
   const { actionIcon, actionLabel, handleDownload, isDownloading } =
-    useBulkExportHistoryDownload(task);
+    useBulkExportHistoryDownload({ task, entryPoint });
 
   return (
     <Button
@@ -123,11 +143,12 @@ function BulkExportHistoryDownloadButton({
 
 export function BulkExportHistoryDownloadIconButton({
   task,
+  entryPoint,
   testID,
   ...iconButtonProps
 }: IBulkExportHistoryDownloadIconButtonProps) {
   const { actionIcon, actionLabel, handleDownload, isDownloading } =
-    useBulkExportHistoryDownload(task);
+    useBulkExportHistoryDownload({ task, entryPoint });
 
   return (
     <IconButton

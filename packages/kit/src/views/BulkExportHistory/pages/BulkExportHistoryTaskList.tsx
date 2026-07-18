@@ -223,7 +223,7 @@ function ExportTaskListItemView({
 
   return (
     <ListItem
-      py={isDesktopLayout ? undefined : '$3'}
+      py={isDesktopLayout ? '$2' : '$3'}
       testID={`bulk-export-history-task-${task.id}`}
       renderAvatar={
         <BulkExportHistoryNetworkAvatars
@@ -246,6 +246,7 @@ function ExportTaskListItemView({
           {statusMeta.isDownloadable ? (
             <BulkExportHistoryDownloadIconButton
               task={task}
+              entryPoint="taskList"
               size="small"
               testID={`bulk-export-history-task-download-${task.id}`}
             />

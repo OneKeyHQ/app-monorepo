@@ -59,6 +59,19 @@ export function resolveBulkExportHistoryAccountIdentity({
   };
 }
 
+export function getBulkExportHistoryAccountTypeForTracking(
+  accountIdentity: IBulkExportHistoryAccountIdentity,
+): 'indexed' | 'watching' | 'imported' {
+  if (accountIdentity.type === 'indexed') {
+    return 'indexed';
+  }
+  return accountUtils.isWatchingAccount({
+    accountId: accountIdentity.accountId,
+  })
+    ? 'watching'
+    : 'imported';
+}
+
 export function getBulkExportHistoryAccountIdentifiers(
   accountMeta: IBulkExportHistoryAccountMeta | undefined,
 ): string[] {

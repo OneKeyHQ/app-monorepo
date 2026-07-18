@@ -52,6 +52,7 @@ import { useBulkExportHistorySupportedNetworks } from '../hooks/useBulkExportHis
 import {
   buildBulkExportHistoryAccountIdentifierMap,
   getBulkExportHistoryAccountNetworkCompatibility,
+  getBulkExportHistoryAccountTypeForTracking,
   resolveBulkExportHistoryAccountIdentity,
 } from '../utils/bulkExportHistoryAccountUtils';
 
@@ -589,6 +590,26 @@ function BulkExportHistoryContent({
           timeZone: getLocalTimeZoneOffset(),
         },
       );
+
+      let rangeType: 'lastMonth' | 'last3Months' | 'custom' = 'lastMonth';
+      if (dateRange === EDateRange.Last3Months) {
+        rangeType = 'last3Months';
+      } else if (dateRange === EDateRange.Custom) {
+        rangeType = 'custom';
+      }
+      defaultLogger.prime.usage.exportHistoryTaskCreateSuccess({
+        networkCount: selectedNetworkIds.length,
+        networks: selectedNetworkIds,
+        rangeType,
+        rangeDays: Math.max(
+          1,
+          Math.round((maxTimestampMs - minTimestampMs) / (24 * 60 * 60 * 1000)),
+        ),
+        excludeRisky: hideRiskyTransactions,
+        accountType: getBulkExportHistoryAccountTypeForTracking(
+          exportAccountIdentity,
+        ),
+      });
 
       if (controller.signal.aborted) return;
 

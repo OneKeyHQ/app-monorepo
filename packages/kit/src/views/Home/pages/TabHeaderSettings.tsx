@@ -24,6 +24,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -105,6 +106,11 @@ function TxHistorySettingsContent({
   const { closePopover } = usePopoverContext();
 
   const handleExportHistoryPress = useCallback(async () => {
+    defaultLogger.prime.subscription.primeEntryClick({
+      featureName: EPrimeFeatures.HistoryExport,
+      entryPoint: 'historySettings',
+      isPrimeActive: isPrimeSubscriptionActive,
+    });
     await closePopover?.();
     await timerUtils.wait(150);
 

@@ -334,6 +334,7 @@ function BulkExportHistoryTaskDetail({
             {statusMeta?.isDownloadable ? (
               <BulkExportHistoryDownloadButton
                 task={task}
+                entryPoint="taskDetail"
                 width={media.gtMd ? undefined : '100%'}
                 size={media.gtMd ? 'medium' : 'large'}
                 testID={`bulk-export-history-task-detail-download-${task.id}`}

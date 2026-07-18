@@ -2,6 +2,7 @@ import {
   buildBulkExportHistoryAccountIdentifierMap,
   getBulkExportHistoryAccountIdentifiers,
   getBulkExportHistoryAccountNetworkCompatibility,
+  getBulkExportHistoryAccountTypeForTracking,
   resolveBulkExportHistoryAccountIdentity,
 } from './bulkExportHistoryAccountUtils';
 
@@ -108,5 +109,19 @@ describe('bulkExportHistoryAccountUtils', () => {
         indexedAccountWalletId: 'hd-1',
       }),
     ).toEqual({ walletId: 'hd-1' });
+  });
+
+  it.each([
+    [{ type: 'indexed' as const, indexedAccountId: 'hd-1--0' }, 'indexed'],
+    [
+      { type: 'singleton' as const, accountId: 'watching--60--0x1234' },
+      'watching',
+    ],
+    [
+      { type: 'singleton' as const, accountId: 'imported--60--public-key' },
+      'imported',
+    ],
+  ])('maps account identity %o to tracking type %s', (identity, expected) => {
+    expect(getBulkExportHistoryAccountTypeForTracking(identity)).toBe(expected);
   });
 });
