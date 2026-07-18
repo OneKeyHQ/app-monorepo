@@ -1,17 +1,11 @@
 # Code Map
 
-Use these anchors to orient in the current repository. Prefer the local pattern
-around the anchor over inventing a parallel path. Reviewed committed baseline:
-`80c9bdaa408077939ffae061517a5cc718f025b1`. Keep the same full commit in the
-eval manifest and readiness script, then run readiness before relying on the
-map.
+Use these anchors to orient in the current repository. Prefer the local pattern around the anchor over inventing a parallel path. Run the readiness script before relying on this map.
 
 ## Shared Swap Core
 
 - `packages/kit-bg/src/services/ServiceSwap.ts`
-- `packages/kit-bg/src/services/ServiceSwapQuoteSession.ts`
 - `packages/kit/src/states/jotai/contexts/swap/actions.ts`
-- `packages/kit/src/states/jotai/contexts/swap/quoteSessionV2.ts`
 - `packages/kit/src/states/jotai/contexts/swap/quoteProgress.ts`
 - `packages/kit/src/views/Swap/index.tsx`
 
@@ -19,14 +13,10 @@ Key operations:
 
 - `ServiceSwap.fetchQuotes`
 - `ServiceSwap.fetchQuotesEvents`
-- `ServiceSwap.fetchQuotesEventsV2`
 - `ServiceSwap.fetchBuildTx`
 - `ServiceSwap.fetchBuildSpeedSwapTx`
 - `ServiceSwap.fetchTxState`
 - `runQuoteEvent`
-- `prepareSwapQuoteSession`
-- `acceptSwapQuoteSessionEvent`
-- `SwapQuoteSessionRegistry`
 - `selectSwapCurrentQuote`
 
 ## Account And Token Selection
@@ -115,88 +105,23 @@ Entry-specific anchors:
 - `SwapMainLandModal` wraps the modal in the swap account selector mirror and
   forwards only `swapInitParams`; route params are not long-term state.
 
-## Swap Pro Entry And Account Ownership
-
-- `packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/SwapPanel.tsx`
-- `packages/kit/src/states/jotai/contexts/swap/prepareSwapProEntry.ts`
-- `packages/kit/src/views/Swap/hooks/useSwapPro.ts`
-- `packages/kit/src/views/Swap/utils/swapProAccountUtils.ts`
-- `packages/kit/src/views/Swap/pages/components/SwapProPositionsList.tsx`
-- `packages/kit/src/views/Swap/pages/components/SwapProPositionsList.utils.ts`
-
-Important anchors:
-
-- `prepareSwapProEntry`
-- `buildSwapProAccountScope`
-- `resolveSwapProAccountIdentity`
-- `resolveSwapProAccountStatus`
-- `getSwapProAccountForCurrentScope`
-- `getSwapProErrorAlertAction`
-- `shouldSyncSwapProAccountNetwork`
-- `shouldRenderStockPositionsSkeleton`
-
-Prepare the Swap Pro context before the Market entry paints. Account results,
-network synchronization, alerts, and positions must all be scoped to the
-current wallet/account/network identity. During account-selector cold start,
-retain the matching active account only through the established guard for
-incomplete selection; never publish an earlier scope into the current Swap Pro
-surface. Stock-only positions keep their loading skeleton until Stock metadata
-has definitively resolved.
-
 ## Quote Progress And Provider Selection
 
 - `packages/kit/src/states/jotai/contexts/swap/quoteProgress.ts`
 - `packages/kit/src/states/jotai/contexts/swap/actions.ts`
-- `packages/kit/src/states/jotai/contexts/swap/atoms.ts`
-- `packages/kit/src/states/jotai/contexts/swap/quoteCommittedState.ts`
 - `packages/kit/src/views/Swap/components/SwapProviderListPanel.tsx`
 - `packages/kit/src/views/Swap/components/ProviderManageComponent.tsx`
 - `packages/kit/src/views/Swap/components/SwapQuoteResultRate.tsx`
-- `packages/kit/src/views/Swap/pages/components/SwapQuoteResult.tsx`
 - `packages/kit/src/views/Swap/components/ProtocolFeeComparisonList.tsx`
-- `packages/shared/src/utils/swapQuoteSortUtils.ts`
 
-Important anchors:
-
-- `swapQuoteProviderSelectionReadyAtom`
-- `swapQuoteStreamingCurrentSelectAtom`
-- `swapQuoteCurrentSelectAtom`
-- `hasSwapQuoteSelectableProviderCandidate`
-- `isSwapQuoteCommittedActiveCandidate`
-- `mergeSwapQuoteStreamingEnrichment`
-- `isSwapQuoteActionable`
-- `isSwapActionWaitingAutoSlippage`
-- `isSwapProviderQuoteSelectable`
-- `sortSwapQuotes`
-- `selectBestQuote`
-- `ESwapQuoteCommitPhase`
-- `swapTypeSwitchAction`
-- `swapStockSelectedFromTokenBalanceAtom`
-- `swapActiveSelectedFromTokenBalanceAtom`
-
-Keep manual provider intent, picker readiness, stable display, executable quote,
-transport progress, and provider availability separate. The picker can open
-from an actionable current-request pending candidate. The first such candidate
-also pins `swapQuoteCurrentSelectAtom` and executable state. Review can open
-before `done` after the effective AUTO recommendation (or CUSTOM override) and
-all other safety gates pass. Same-provider streaming only enriches explicitly
-safe non-economic fields; manual intent rebinds by provider key, terminal may
-publish at most one final update, and neither can mutate a frozen Review.
+Keep manual provider selection, quote progress, and provider availability separate.
 
 For Stock and other multi-provider quote events, the closest error-settlement
 pattern is `selectSwapCurrentQuote` with
 `deferNonActionableQuoteUntilEventSettled`, wired from swap atoms/actions.
 Track `totalQuoteCountReceived`, `quoteEventCompleted`, actionable `toAmount`,
 manual provider intent, and current event identity separately. An early error
-must not replace a later actionable quote. A Stock quote can make provider
-selection and Review ready before the total-count event arrives, provided the
-live execution balance and the remaining Stock gates are ready.
-
-`swapQuoteSortUtils.ts` owns provider sort order and badges. Limit availability
-must prefer each candidate quote's `fromAmount`; the UI-level input amount is
-only a compatibility fallback when the candidate omits that field. This is
-required for exact-out BUY as well as SELL and must stay aligned with row-level
-limit/actionability checks.
+must not replace a later actionable quote.
 
 ## Stock Channel Owners
 
@@ -211,14 +136,7 @@ limit/actionability checks.
 
 Important anchors:
 
-- `isStockTradeReadyForQuote`
 - `resolveStockChannelSwapPair`
-- `resolveStockChannelOwnedPayToken`
-- `isStockCanonicalInputOwnerReady`
-- `resolveStockKLineToken`
-- `isStockPayTokenReadyForTradeInput`
-- `shouldRenderStockTradeInputSkeleton`
-- `resolveStockBalanceSnapshot`
 - `useSwapStockAmountInputState`
 - `isStockTokenDetailStateLanded`
 - `getStockQuoteTradeControl`
@@ -226,63 +144,6 @@ Important anchors:
 
 These owners keep Stock/pay-token identity, default restoration, amount side,
 market readiness, trade alerts, and analytics distinct from ordinary Swap.
-Every transition into or out of Stock must route through `swapTypeSwitchAction`
-so shared amounts, target/Stock-owned balances, and quote execution ownership
-are revoked synchronously before the next surface paints. The ordinary Swap
-from-balance can stay cached only behind the active surface projection; Stock
-must never read it, and account/token request ownership still controls reuse.
-
-## Stock Display Snapshot And Silent Refresh
-
-- `packages/kit/src/views/Swap/hooks/useSwapStockDisplaySnapshot.ts`
-- `packages/kit/src/views/Swap/hooks/swapStockDisplaySnapshotUtils.ts`
-- `packages/kit/src/views/Swap/hooks/swapStockDisplaySnapshotStorage.ts`
-- `packages/kit/src/hooks/useIdentityScopedSilentRefresh.ts`
-- `packages/kit/src/views/Swap/hooks/useSwapStockTradeInputs.ts`
-- `packages/kit/src/views/Swap/hooks/swapStockExecutionBalanceUtils.ts`
-- `packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.tsx`
-- `packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.utils.ts`
-- `packages/shared/src/storage/syncStorageKeys.ts`
-
-Important anchors:
-
-- `resolveSwapStockDisplayAccountKey`
-- `buildSwapStockDisplayAccountIdentityKey`
-- `buildSwapStockDisplayTokenDetailIdentityKey`
-- `buildSwapStockDisplayBalanceIdentityKey`
-- `buildSwapStockDisplayChartIdentityKey`
-- `buildSwapStockDisplayAmountIdentityKey`
-- `getSwapStockDisplayAccountSnapshot`
-- `getMatchingSwapStockDisplaySnapshot`
-- `mergeSwapStockDisplaySnapshot`
-- `swapStockDisplaySnapshotStorage`
-- `useIdentityScopedSilentRefresh`
-- `isStockAmountInputEditable`
-- `resolveStockAmountInputTokens`
-- `resolveStockAmountDisplayOwnerKey`
-- `resolveStockAmountInputValue`
-- `resolveStockAmountAtomInitialization`
-- `commitStockAmountInputSnapshot`
-- `buildStockExecutionNetworkAccountScope`
-- `buildStockExecutionBalanceScope`
-- `runStockExecutionBalanceRequestWithRetry`
-- `isStockExecutionBalanceScopeReady`
-- `isStockExecutionBalancePublished`
-- `resolveStockChartControlRange`
-- `getStockChartDisplayState`
-- `isStockMarketPanelLoadingStage`
-
-The physical store is the dedicated UI-owned
-`onekey_swap_stock_display_snapshot` key and keeps at most eight account slots.
-Each region has its own owner: token detail = account + stock + display
-currency; balance = account + live input token; chart = account + stock + fixed
-USD source; amount = account + stock + pay + side; selection = account. The
-generic silent-refresh hook rejects stale owner/request results and retains the
-last-good visible value. Chart `visibleRange` remains distinct from the newer
-`requestedRange`. Cached amount/balance remain display-only. Amount input stays
-disabled until the canonical live Stock owner is ready; Max, percentage,
-balance validation, quote, and Review additionally require the exact current
-execution balance and its matching shared-atom publication.
 
 ## Review And Execution
 
@@ -309,7 +170,6 @@ Important anchors:
 - `packages/kit/src/views/Swap/hooks/useSwapLocalDataVisibility.ts`
 - `packages/kit/src/views/Swap/utils/swapNoWalletWarningGuard.ts`
 - `packages/shared/src/utils/swapHistoryUtils.ts`
-- `packages/shared/src/utils/swapHistoryNetworkUtils.ts`
 - `packages/kit-bg/src/services/ServiceHistory.ts`
 - `packages/kit-bg/src/services/ServiceSwap.ts`
 - `packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapHistory.ts`
@@ -326,10 +186,6 @@ Important anchors:
 - `maybeOpenPrivateSendHistoryDetail`
 - `isSwapHistoryProtocolExcluded`
 - `swapHistoryIdentity`
-- `isSwapLimitHistoryTypeSupported`
-- `getSwapHistoryNetworkIdsToEnrich`
-- `normalizeSwapHistoryNetworkInfo`
-- `repairSwapHistoryNetworkInfo`
 - `ServiceHistory.batchUpdateLocalHistoryTxs`
 - chain-specific `Vault.buildDecodedTx`
 - channel-specific progress and detail display helpers
@@ -348,21 +204,13 @@ For disconnected-wallet display, Stock pending counts, and order-backed
 channels, treat visibility filters, local row retention, txid/order id choice,
 and detail-route fallback as separate decisions.
 
-Persisted history can carry incomplete or stale embedded network metadata.
-`swapHistoryNetworkUtils.ts` derives repair ids from token-owned network ids,
-normalizes the display metadata from the current server registry, and lets the
-service/SimpleDB owner persist the repaired list. A repair failure must not
-block history reads or turn a visibility decision into deletion.
+`useShouldShowSwapLocalData` and `shouldShowSwapLocalData` are `main` visibility
+owners. `ServiceSwap` and `SimpleDbEntitySwapHistory` are `bg` read/write
+owners. Recent pairs, pending rows, Swap history, Limit history, and Stock
+history may hide when account-selector readiness is false, but a visibility
+requirement must not call the SimpleDB delete/clean paths.
 
-`useShouldShowSwapLocalData` and `shouldShowSwapLocalData` are logical UI
-visibility owners. `ServiceSwap` and `SimpleDbEntitySwapHistory` are logical
-service read/write owners. iOS / Android and Extension place those owners in
-separate JS contexts; Desktop / Web keep them in one app JS runtime. Recent
-pairs, pending rows, Swap history, Limit history, and Stock history may hide
-when account-selector readiness is false, but a visibility requirement must not
-call the SimpleDB delete/clean paths.
-
-Protected logical UI consumers include:
+Protected `main` consumers include:
 
 - `packages/kit/src/views/Swap/components/SwapRecentTokenPairsGroup.tsx`
 - `packages/kit/src/views/Swap/pages/components/SwapPendingHistoryList.tsx`

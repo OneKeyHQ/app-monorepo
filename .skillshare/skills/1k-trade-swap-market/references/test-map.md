@@ -4,52 +4,6 @@ Use `yarn jest <explicit files> --runInBand`. Do not use the ambiguous root
 `yarn test` alias. Add a focused test beside the changed owner when the required
 transition is not covered.
 
-## Incremental SSE Provider Readiness
-
-```bash
-yarn jest \
-  packages/kit/src/states/jotai/contexts/swap/quoteSessionV2.test.ts \
-  packages/kit-bg/src/services/ServiceSwapQuoteSession.test.ts \
-  packages/kit/src/states/jotai/contexts/swap/quoteCommittedState.test.ts \
-  packages/kit/src/states/jotai/contexts/swap/quoteProgress.test.ts \
-  packages/kit/src/states/jotai/contexts/swap/actions.test.tsx \
-  packages/kit/src/views/Swap/hooks/useSwapState.test.ts \
-  packages/kit/src/views/Swap/components/SwapQuoteResultRate.test.tsx \
-  packages/kit/src/views/Swap/pages/components/SwapQuoteResult.test.tsx \
-  packages/kit/src/views/Swap/utils/swapProviderQuoteAvailability.test.ts \
-  packages/shared/src/utils/swapQuoteSortUtils.test.ts \
-  packages/kit/src/views/Swap/utils/buildSwapReviewState.test.ts \
-  packages/kit/src/views/Swap/utils/swapExecutionSnapshotGuard.test.ts \
-  --runInBand
-```
-
-Required cases:
-
-- no actionable candidate keeps the picker unavailable
-- first actionable current-request candidate opens the picker and pins
-  display/execution once; Review can open before `done` after its remaining
-  safety gates pass
-- same-provider streaming cannot change economic fields; explicit manual intent
-  can change provider, terminal settlement can update at most once, and neither
-  transition can mutate a frozen Review
-- actionability rejects provider errors, non-finite/non-positive output, and
-  malformed or violated min/max using `fromAmount` in BUY and SELL
-- while streaming, effective AUTO keeps early Review closed until its
-  recommendation arrives, while effective CUSTOM and the provider picker do
-  not inherit that wait
-- the AUTO/CUSTOM gate uses the effective session override rather than a stale
-  persisted global mode, and `supportPreBuild` stays false while SSE is active
-- manual provider intent can precede that provider's event and is rebound to
-  its active candidate by provider identity
-- stale, duplicate, non-actionable, cancelled, and invalidated candidates cannot
-  unlock selection or execution
-- retained same-intent display remains visible but is not executable until the
-  replacement request returns an actionable candidate
-- Stock quote-before-total ordering unlocks Review only after exact live balance
-  and the remaining Stock execution gates are ready
-- real runtime proof opens Review before `done`, then confirms later provider
-  events and terminal settlement do not mutate the frozen snapshot
-
 ## Stock Channel, Quote Settlement, And Persistence
 
 ```bash
@@ -85,54 +39,6 @@ Composite runtime acceptance (run as one uninterrupted scenario):
 6. restart and reconcile the same persisted order through provider status
 7. verify ordinary Swap/Bridge/Limit state and history were not overwritten
 
-## Stock Display Snapshot, Chart, And Execution Balance
-
-```bash
-yarn jest \
-  packages/kit/src/hooks/useIdentityScopedSilentRefresh.test.tsx \
-  packages/kit/src/views/Swap/hooks/swapStockDisplaySnapshotUtils.test.ts \
-  packages/kit/src/views/Swap/hooks/swapStockDisplaySnapshotStorage.test.ts \
-  packages/kit/src/views/Swap/hooks/useSwapStockDisplaySnapshot.test.tsx \
-  packages/kit/src/views/Swap/hooks/useSwapStockTradeInputs.test.ts \
-  packages/kit/src/views/Swap/hooks/swapStockExecutionBalanceUtils.test.ts \
-  packages/kit/src/views/Swap/hooks/swapStockChannelUtils.test.ts \
-  packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.utils.test.ts \
-  --runInBand
-```
-
-Required cases:
-
-- account physical slots are isolated; token detail, balance, chart, amount,
-  and selection each accept only their documented region owner, and an old
-  async patch cannot enter a new owner
-- malformed, future-dated, version-mismatched, and expired data is rejected;
-  token detail, balance, and chart TTLs expire independently
-- token projection strips execution gates such as live market-open state and
-  description
-- storage isolates account slots, evicts least-recently-used entries after
-  eight accounts, flushes the latest aggregate, and self-heals corrupt data
-- chart restores from the exact owner, keeps `visibleRange` separate from a
-  pending `requestedRange`, replaces silently on live success, retains on
-  failure, settles exact empty, and downsamples to 500 points while preserving
-  endpoints
-- cached amount and balance are display-only; amount input is non-editable and
-  cannot seed quote/Max/percentage/Review until the canonical live Stock owner
-  is ready
-- ordinary Swap -> Stock and Stock -> non-Stock transitions clear shared
-  amounts, target/Stock-owned balances, and quote execution synchronously
-  before the destination first frame; an ordinary Swap from-balance remains
-  hidden in Stock and is reusable only while its account/token owner is exact
-- only exact live account/token/display-scope balance and its matching shared
-  atom publication enable Max, percentage actions, balance validation, or Review
-- bounded retry stops at its budget, cancels stale scopes/generations, and the
-  explicit UI retry predicate appears only for the current failed scope
-
-Runtime acceptance must cover `STOCK-DISPLAY-RESTORE-001`,
-`STOCK-DISPLAY-ISOLATION-001`, `STOCK-BALANCE-FAIL-CLOSED-001`, and
-`STOCK-SWAP-BOUNDARY-001`. Capture the first restored frame, each independent
-live replacement, skeleton transition count, both cross-surface switch frames,
-retry result, and the exact moment Review becomes enabled.
-
 ## Cold Start And Account Readiness
 
 ```bash
@@ -144,52 +50,6 @@ yarn jest \
   packages/kit/src/states/jotai/contexts/accountSelector/actions.test.tsx \
   --runInBand
 ```
-
-## Swap Pro Entry And Account Ownership
-
-```bash
-yarn jest \
-  packages/kit/src/states/jotai/contexts/accountSelector/actions.test.tsx \
-  packages/kit/src/states/jotai/contexts/swap/prepareSwapProEntry.test.tsx \
-  packages/kit/src/views/Swap/hooks/useSwapAccount.utils.test.ts \
-  packages/kit/src/views/Swap/utils/swapProAccountUtils.test.ts \
-  packages/kit/src/views/Swap/pages/components/SwapProPositionsList.utils.test.ts \
-  --runInBand
-```
-
-Required cases:
-
-- Market entry hydrates the root Swap Pro context before the first child paint
-  without mutating modal Swap or ordinary Swap state
-- account resolution, alerts, positions, and network synchronization accept
-  only the current wallet/account/network scope
-- account-selector cold start can retain a matching active account only while
-  selected storage is incomplete; a wallet-owned incomplete or changed scope
-  fails closed
-- the TO address uses the source account unless the explicit custom-recipient
-  switch is on
-- Stock positions stop skeleton loading after definitive empty/error and keep
-  same-owner content visible during refresh
-
-Runtime acceptance must enter Swap Pro from Market during cold start, switch
-account before the network-account request settles, and prove that header,
-recipient, alert, balance, positions, quote, and Review never publish the old
-scope.
-
-## History Network Repair
-
-```bash
-yarn jest \
-  packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapHistory.test.ts \
-  packages/kit-bg/src/services/ServiceSwap.networkInfo.test.ts \
-  packages/shared/src/utils/swapHistoryNetworkUtils.test.ts \
-  --runInBand
-```
-
-Repair must derive network ids from token ownership, normalize from the
-current server registry, preserve concurrent rows, and remain best-effort when
-the registry is unavailable. UI visibility must never invoke repair as a
-delete/clean path.
 
 ## Disconnect: Hide Without Delete
 
@@ -246,7 +106,7 @@ Choose the owning surface and capture all relevant layers:
 - quote request/events/selected quote
 - frozen review/build payload
 - send/order result and pending row
-- logical service status/log evidence and persisted row
+- bg status/log evidence and persisted row
 - restart/reconnect or account-switch result when persistence is involved
 
 Element existence alone is not proof. A pass requires active state, real

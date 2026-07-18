@@ -32,15 +32,15 @@ duplicate quote/review/build/history/status ownership in isolated surfaces.
 
 Use this before deciding which file owns an entry bug.
 
-| Entry                           | Source owner                              | Swap owner after mount                                                          | Common validation                                                           |
-| ------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Wallet Home action              | `WalletActionSwap`                        | route init, selected network, quote/review/build/history                        | Home -> Swap first frame, All Networks/single network, disabled swap action |
-| Home Token row action           | `TokenActionsView`                        | imported token pair, unsupported-token fallback, Bridge default when applicable | BTC native, unsupported ordinary Swap, imported token icons and derive type |
-| Swap page/direct route          | `SwapPageContainer` / `SwapMainLandModal` | tab state, selected tokens, account mirror, quote state                         | direct `/swap?tab=...`, modal reopen, route-param reset                     |
-| Send insufficient-balance route | Send source surface                       | imported token and amount, quote readiness, no-wallet warning                   | Send -> Swap with wallet disconnected and unsupported account states        |
-| Earn/Staking funding route      | `useHandleSwap` / Earn source             | `ESwapSource.EARN`, imported `from/to` tokens, Swap execution                   | Earn -> Swap prefill, then quote/review owns execution                      |
-| Market speed-swap               | Market detail swap panel                  | execution payload, build/send/history                                           | Market token context and presets, then Swap payload proof                   |
-| Native/mobile Limit or K-line   | mobile host/dialog owner plus Swap hooks  | native-specific Limit focus and dialog/page variant                             | iOS/Android dialog, bottom sheet, keyboard/safe area, K-line variant        |
+| Entry | Source owner | Swap owner after mount | Common validation |
+| --- | --- | --- | --- |
+| Wallet Home action | `WalletActionSwap` | route init, selected network, quote/review/build/history | Home -> Swap first frame, All Networks/single network, disabled swap action |
+| Home Token row action | `TokenActionsView` | imported token pair, unsupported-token fallback, Bridge default when applicable | BTC native, unsupported ordinary Swap, imported token icons and derive type |
+| Swap page/direct route | `SwapPageContainer` / `SwapMainLandModal` | tab state, selected tokens, account mirror, quote state | direct `/swap?tab=...`, modal reopen, route-param reset |
+| Send insufficient-balance route | Send source surface | imported token and amount, quote readiness, no-wallet warning | Send -> Swap with wallet disconnected and unsupported account states |
+| Earn/Staking funding route | `useHandleSwap` / Earn source | `ESwapSource.EARN`, imported `from/to` tokens, Swap execution | Earn -> Swap prefill, then quote/review owns execution |
+| Market speed-swap | Market detail swap panel | execution payload, build/send/history | Market token context and presets, then Swap payload proof |
+| Native/mobile Limit or K-line | mobile host/dialog owner plus Swap hooks | native-specific Limit focus and dialog/page variant | iOS/Android dialog, bottom sheet, keyboard/safe area, K-line variant |
 
 The entry source owns only prefill, analytics source, and host navigation. Once
 the Swap route is mounted and quote starts, debug selected-token atoms, quote
@@ -70,34 +70,6 @@ The quote pipeline owns quote request identity and stale response guards:
 - quote progress and quote completion state
 
 When multiple providers race, only the active request/provider/token tuple can update the selected quote. Do not let an older quote replace the current quote after account, network, provider, or amount changes.
-
-### Incremental Quote Readiness
-
-An SSE transport phase is not a single UI readiness flag. Model these owners
-independently:
-
-| Capability           | Source of truth                                                                                                     | Allowed transition                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Provider picker      | Any actionable `pendingQuotes` candidate accepted by the active request id and intent fingerprint                   | Open the live provider list and record manual provider intent                                                            |
-| Main quote display   | Retained display until the first actionable current candidate, then the pinned current-request quote                | Publish the first pin; preserve economic fields during streaming; allow one manual change or one bounded terminal update |
-| Review and execution | The pinned active-request `executableQuote` plus slippage, account, receiver, balance, expiry, and signer readiness | Freeze Review before `done` when all gates pass, then build/sign/send from the immutable snapshot                        |
-
-The first actionable provider quote can make the picker available, pin display
-and execution, and open Review before other providers or a Stock total-count
-event finish. Actionable means no provider error, a finite positive output, and
-well-formed min/max bounds checked against `fromAmount` for both BUY and SELL.
-A stale, wrong-fingerprint, invalidated, or non-actionable candidate cannot do
-so. While the stream is active, effective AUTO keeps early Review waiting for
-the candidate's AUTO slippage recommendation; effective CUSTOM does not wait.
-Manual selection rebinds by provider identity to the active candidate. Later
-same-provider stream events keep economic fields pinned, and settlement can
-publish at most one final update. Amount, token, account, receiver, slippage,
-or request invalidation clears execution readiness.
-
-For native and extension paths, `bg` owns SSE transport and `main` owns Jotai
-candidate aggregation and UI readiness. Their JS heaps are isolated and
-initialize independently; this state transition does not imply a shared native
-resource.
 
 ## Review Snapshot
 

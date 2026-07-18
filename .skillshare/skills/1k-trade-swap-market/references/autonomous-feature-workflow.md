@@ -34,10 +34,8 @@ or unavailable runtime evidence that changes the decision.
    assumptions, and unresolved conflicts separate.
 4. Classify the owner chain:
    - entry/handoff owner
-   - target platform's physical JS runtime topology
-   - UI hooks, route, atoms, and visible-state owner
-   - logical `kit-bg` quote/build/status service and SimpleDB owner, including
-     whether it is local or across a runtime bridge on that platform
+   - `main` UI, hooks, route, atoms, and visible state
+   - `bg` quote/build/status service and SimpleDB owner
    - shared pure types/predicates
    - native or web persistence/resource boundary
 5. Freeze the state machine before editing: identity, readiness, quote event,
@@ -75,18 +73,16 @@ selector. Change Swap only after the failing owner reaches Swap state.
 
 ### Disconnect Or Local-History Bug
 
-Treat visibility and retention separately. UI visibility may hide rows while
-account readiness is false; the logical SimpleDB owner must retain them unless
-the requirement explicitly says delete. On desktop/web this can be the same JS
-runtime; on native/extension it can cross a runtime boundary. Prove disconnect,
-restart, and reconnect with unchanged row identity.
+Treat visibility and retention separately. `main` may hide rows while account
+readiness is false; `bg` SimpleDB must retain them unless the requirement
+explicitly says delete. Prove disconnect, restart, and reconnect with unchanged
+row identity.
 
 ### Cold Start Or Background/Restart Bug
 
 Capture first-frame selected tokens, `swapType`, account-selector readiness,
-Stock detail freshness, quote-event state, and persisted cache separately.
-Name the target platform topology instead of assuming every host has a separate
-background heap. Do not use the final settled frame as proof.
+Stock detail freshness, quote-event state, and persisted cache separately. Do
+not use the final settled frame as proof.
 
 ## Completion Contract
 

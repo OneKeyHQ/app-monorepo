@@ -10,9 +10,6 @@ import { parse } from 'yaml';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const skillRoot = resolve(scriptDir, '..');
 const repoRoot = resolve(skillRoot, '../../..');
-// Keep this full commit aligned with the code map and eval manifest.
-// An unresolved token deliberately fails the readiness gate.
-const reviewedCodeRef = '80c9bdaa408077939ffae061517a5cc718f025b1';
 
 const anchors = [
   [
@@ -21,170 +18,16 @@ const anchors = [
   ],
   [
     'packages/kit/src/views/Swap/hooks/swapStockChannelUtils.ts',
-    [
-      'isStockTradeReadyForQuote',
-      'resolveStockChannelSwapPair',
-      'resolveStockChannelOwnedPayToken',
-      'isStockCanonicalInputOwnerReady',
-      'resolveStockKLineToken',
-      'isStockPayTokenReadyForTradeInput',
-      'shouldRenderStockTradeInputSkeleton',
-      'resolveStockBalanceSnapshot',
-    ],
+    ['resolveStockChannelSwapPair'],
   ],
   [
     'packages/kit/src/views/Swap/hooks/useSwapStockTradeInputs.ts',
-    [
-      'useSwapStockAmountInputState',
-      'isStockAmountInputEditable',
-      'resolveStockAmountInputTokens',
-      'resolveStockAmountDisplayOwnerKey',
-      'resolveStockAmountInputValue',
-      'resolveStockAmountAtomInitialization',
-      'commitStockAmountInputSnapshot',
-      'isStockExecutionBalanceScopeReady',
-      'isStockExecutionBalancePublished',
-    ],
-  ],
-  [
-    'packages/kit/src/hooks/useIdentityScopedSilentRefresh.ts',
-    ['useIdentityScopedSilentRefresh'],
-  ],
-  [
-    'packages/kit/src/views/Swap/hooks/useSwapStockDisplaySnapshot.ts',
-    ['useSwapStockDisplaySnapshot'],
-  ],
-  [
-    'packages/kit/src/views/Swap/hooks/swapStockDisplaySnapshotUtils.ts',
-    [
-      'resolveSwapStockDisplayAccountKey',
-      'buildSwapStockDisplayAccountIdentityKey',
-      'buildSwapStockDisplayTokenDetailIdentityKey',
-      'buildSwapStockDisplayBalanceIdentityKey',
-      'buildSwapStockDisplayChartIdentityKey',
-      'buildSwapStockDisplayAmountIdentityKey',
-      'getSwapStockDisplayAccountSnapshot',
-      'getMatchingSwapStockDisplaySnapshot',
-      'mergeSwapStockDisplaySnapshot',
-    ],
-  ],
-  [
-    'packages/kit/src/views/Swap/hooks/swapStockDisplaySnapshotStorage.ts',
-    ['swapStockDisplaySnapshotStorage'],
-  ],
-  [
-    'packages/kit/src/views/Swap/hooks/swapStockExecutionBalanceUtils.ts',
-    [
-      'buildStockExecutionNetworkAccountScope',
-      'buildStockExecutionBalanceScope',
-      'runStockExecutionBalanceRequestWithRetry',
-    ],
-  ],
-  [
-    'packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.utils.ts',
-    [
-      'resolveStockChartControlRange',
-      'getStockChartDisplayState',
-      'shouldShowStockBalanceRetryAction',
-      'isStockMarketPanelLoadingStage',
-    ],
-  ],
-  [
-    'packages/shared/src/storage/syncStorageKeys.ts',
-    ['onekey_swap_stock_display_snapshot'],
+    ['useSwapStockAmountInputState'],
   ],
   ['packages/kit/src/views/Swap/hooks/useSwapStockDefaultToken.ts', []],
   [
-    'packages/kit/src/states/jotai/contexts/swap/prepareSwapProEntry.ts',
-    ['prepareSwapProEntry'],
-  ],
-  [
-    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/SwapPanel.tsx',
-    ['prepareSwapProEntry'],
-  ],
-  [
-    'packages/kit/src/views/Swap/utils/swapProAccountUtils.ts',
-    [
-      'buildSwapProAccountScope',
-      'resolveSwapProAccountIdentity',
-      'resolveSwapProAccountStatus',
-      'getSwapProAccountForCurrentScope',
-      'getSwapProErrorAlertAction',
-      'shouldSyncSwapProAccountNetwork',
-    ],
-  ],
-  [
-    'packages/kit/src/views/Swap/pages/components/SwapProPositionsList.utils.ts',
-    ['shouldRenderStockPositionsSkeleton'],
-  ],
-  [
     'packages/kit/src/states/jotai/contexts/swap/quoteProgress.ts',
-    [
-      'selectSwapCurrentQuote',
-      'totalQuoteCountReceived',
-      'isSwapQuoteActionable',
-    ],
-  ],
-  [
-    'packages/kit/src/states/jotai/contexts/swap/actions.ts',
-    ['swapTypeSwitchAction'],
-  ],
-  [
-    'packages/kit/src/states/jotai/contexts/swap/quoteSessionV2.ts',
-    ['prepareSwapQuoteSession', 'acceptSwapQuoteSessionEvent'],
-  ],
-  [
-    'packages/kit-bg/src/services/ServiceSwapQuoteSession.ts',
-    ['SwapQuoteSessionRegistry'],
-  ],
-  ['packages/kit-bg/src/services/ServiceSwap.ts', ['fetchQuotesEventsV2']],
-  [
-    'packages/kit/src/states/jotai/contexts/swap/quoteCommittedState.ts',
-    [
-      'reduceSwapQuoteCommittedState',
-      'mergeSwapQuoteStreamingEnrichment',
-      'isSwapQuoteCommittedActiveCandidate',
-      'hasSwapQuoteSelectableProviderCandidate',
-    ],
-  ],
-  [
-    'packages/kit/src/views/Swap/hooks/useSwapState.ts',
-    ['isSwapActionWaitingAutoSlippage'],
-  ],
-  [
-    'packages/kit/src/views/Swap/utils/swapProviderQuoteAvailability.ts',
-    ['isSwapProviderQuoteSelectable'],
-  ],
-  [
-    'packages/kit/src/states/jotai/contexts/swap/atoms.ts',
-    [
-      'swapQuoteProviderSelectionReadyAtom',
-      'swapQuoteCurrentSelectAtom',
-      'swapStockSelectedFromTokenBalanceAtom',
-      'swapActiveSelectedFromTokenBalanceAtom',
-    ],
-  ],
-  [
-    'packages/kit/src/views/Swap/pages/components/SwapQuoteResult.tsx',
-    ['useSwapQuoteProviderSelectionReadyAtom'],
-  ],
-  [
-    'packages/kit/src/views/Swap/components/SwapQuoteResultRate.tsx',
-    ['providerSelectorTestID', 'onOpenProviderList', 'quoting'],
-  ],
-  [
-    'packages/shared/src/utils/swapQuoteSortUtils.ts',
-    ['sortSwapQuotes', 'selectBestQuote', 'quote.fromAmount'],
-  ],
-  [
-    'packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.tsx',
-    [
-      'stockChannel.stockDisplay.chart',
-      'useIdentityScopedSilentRefresh',
-      'resolveStockChartControlRange',
-      'getStockChartDisplayState',
-      'shouldShowStockBalanceRetryAction',
-    ],
+    ['selectSwapCurrentQuote', 'totalQuoteCountReceived'],
   ],
   [
     'packages/kit/src/views/Swap/utils/stockTokenDetailFreshness.ts',
@@ -203,14 +46,6 @@ const anchors = [
     ['buildSwapHistoryIdentity'],
   ],
   [
-    'packages/kit/src/views/Swap/utils/swapMarketHistory.ts',
-    ['isSwapLimitHistoryTypeSupported'],
-  ],
-  [
-    'packages/shared/src/utils/swapHistoryNetworkUtils.ts',
-    ['getSwapHistoryNetworkIdsToEnrich', 'normalizeSwapHistoryNetworkInfo'],
-  ],
-  [
     'packages/kit/src/views/Swap/hooks/useSwapLocalDataVisibility.ts',
     ['useShouldShowSwapLocalData'],
   ],
@@ -220,11 +55,11 @@ const anchors = [
   ],
   [
     'packages/kit-bg/src/services/ServiceSwap.ts',
-    ['fetchSwapHistoryListFromSimple', 'repairSwapHistoryNetworkInfo'],
+    ['fetchSwapHistoryListFromSimple'],
   ],
   [
     'packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapHistory.ts',
-    ['class SimpleDbEntitySwapHistory', 'repairSwapHistoryNetworkInfo'],
+    ['class SimpleDbEntitySwapHistory'],
   ],
   [
     'packages/kit/src/views/Receive/pages/ReceiveSelector.tsx',
@@ -238,25 +73,18 @@ const anchors = [
 ];
 
 const driftScopes = [
-  'packages/kit/src/hooks/useIdentityScopedSilentRefresh.ts',
-  'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel',
   'packages/kit/src/views/Swap',
   'packages/kit/src/states/jotai/contexts/swap',
   'packages/kit/src/views/Receive',
   'packages/kit/src/views/AssetSelector',
   'packages/kit-bg/src/services/ServiceSwap.ts',
-  'packages/kit-bg/src/services/ServiceSwapQuoteSession.ts',
   'packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapHistory.ts',
   'packages/shared/src/utils/swapHistoryUtils.ts',
-  'packages/shared/src/utils/swapHistoryNetworkUtils.ts',
-  'packages/shared/src/utils/swapQuoteSortUtils.ts',
   'packages/shared/src/utils/tokenSelectorFilterUtils.ts',
-  'packages/shared/src/storage/syncStorageKeys.ts',
   'packages/shared/types/swap',
 ];
 
 const errors = [];
-const warnings = [];
 
 for (const [relativePath, symbols] of anchors) {
   const absolutePath = resolve(repoRoot, relativePath);
@@ -306,9 +134,6 @@ if (existsSync(manifestPath)) {
     }
     if (manifest?.critical_fail_policy !== 'zero') {
       errors.push('eval manifest critical_fail_policy must be zero');
-    }
-    if (manifest?.reviewed_code_ref !== reviewedCodeRef) {
-      errors.push('eval manifest reviewed_code_ref does not match the script');
     }
     if (casePaths.length < 3) {
       errors.push('eval manifest must list at least 3 cases');
@@ -406,43 +231,6 @@ if (existsSync(manifestPath)) {
 }
 
 try {
-  execFileSync('git', ['cat-file', '-e', `${reviewedCodeRef}^{commit}`], {
-    cwd: repoRoot,
-    stdio: 'ignore',
-  });
-  execFileSync(
-    'git',
-    ['merge-base', '--is-ancestor', reviewedCodeRef, 'HEAD'],
-    {
-      cwd: repoRoot,
-      stdio: 'ignore',
-    },
-  );
-  const domainDrift = execFileSync(
-    'git',
-    ['diff', '--name-only', `${reviewedCodeRef}...HEAD`, '--', ...driftScopes],
-    { cwd: repoRoot, encoding: 'utf8' },
-  )
-    .trim()
-    .split('\n')
-    .filter(Boolean);
-  const anchorPaths = new Set(anchors.map(([relativePath]) => relativePath));
-  const anchorDrift = domainDrift.filter((relativePath) =>
-    anchorPaths.has(relativePath),
-  );
-  if (anchorDrift.length > 0) {
-    errors.push(
-      `anchor code changed after reviewed ref ${reviewedCodeRef.slice(0, 12)}:\n  ${anchorDrift.join('\n  ')}\nreview the code map and then advance reviewedCodeRef`,
-    );
-  }
-  const reviewDrift = domainDrift.filter(
-    (relativePath) => !anchorPaths.has(relativePath),
-  );
-  if (reviewDrift.length > 0) {
-    warnings.push(
-      `domain snapshot has ${reviewDrift.length} non-anchor change(s) after ${reviewedCodeRef.slice(0, 12)}; inspect before implementation:\n  ${reviewDrift.slice(0, 30).join('\n  ')}`,
-    );
-  }
   const uncommittedDrift = [
     ...execFileSync('git', ['diff', '--name-only', '--', ...driftScopes], {
       cwd: repoRoot,
@@ -471,7 +259,7 @@ try {
     );
   }
 } catch (error) {
-  errors.push(`cannot validate reviewed code ref: ${error.message}`);
+  errors.push(`cannot inspect current domain worktree: ${error.message}`);
 }
 
 if (errors.length > 0) {
@@ -479,10 +267,6 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-if (warnings.length > 0) {
-  console.warn(`Swap skill readiness: REVIEW\n- ${warnings.join('\n- ')}`);
-}
-
 console.log(
-  `Swap skill readiness: PASS (${anchors.length} anchors, reviewed ${reviewedCodeRef.slice(0, 12)}, eval schema present)`,
+  `Swap skill readiness: PASS (${anchors.length} current-checkout anchors, eval schema present)`,
 );

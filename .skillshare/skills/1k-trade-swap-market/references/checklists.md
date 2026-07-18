@@ -6,14 +6,13 @@ Run this before shipping or approving Trade/Swap/Market work:
 
 0. Framework -> state machine -> hooks has been traced for cross-surface,
    modal, Home Token, Send, Market, Earn, Buy, Stock, Bridge, or Limit work.
-   0a. Source packet is current when the task came from Jira, Slack, review, or a
-   todo ledger: issue comments, Slack context, attachments, client branch, and
-   server DTO/status branch when relevant.
-   0b. Closest valid repo pattern is named, including why its account/network/token
-   provider, route, or execution semantics do or do not apply.
+0a. Source packet is current when the task came from Jira, Slack, review, or a
+    todo ledger: issue comments, Slack context, attachments, client branch, and
+    server DTO/status branch when relevant.
+0b. Closest valid repo pattern is named, including why its account/network/token
+    provider, route, or execution semantics do or do not apply.
 1. State owner is named: server config, quote payload, build payload, atom, simpleDb, local component state, or provider adapter.
 2. Async identity is guarded: request id, event id, provider key, token key, account, amount mode, and stale response handling.
-   2a. Incremental quote readiness is split: an actionable active-request candidate opens the provider picker and pins display/execution before `done`; Review additionally requires the effective AUTO recommendation or a CUSTOM override plus the other safety gates. Same-provider streaming cannot change economic fields, terminal settlement updates at most once, and a retained stale quote is never executable.
 3. Account/network/token/route identity is separated: source, target, All Networks, derive type, native/wrapped token, receiver, entry source, and behavior-changing route params such as `isNative`, `showFavoriteButton`, and `disableTrade`.
 4. Provider contract fields are interpreted: fees, rate, ETA, min/max, limits, quote context, order id, txid, and status.
 5. Review data is frozen: confirm does not keep reading mutable page state after the user enters review.
@@ -146,44 +145,6 @@ Complete this drill before wiring a stock-like protocol:
 - WebView bridge events are scoped to the active chart/token.
 - Desktop and native layout constraints are validated separately.
 
-## Stock Display Snapshot And Execution Gates
-
-- The physical storage slot is account-scoped. Region owners are narrower and
-  independent: token detail = account + stock + display currency; balance =
-  account + live input token; chart = account + stock + fixed source currency;
-  amount = account + stock + pay + side; selection = account. A changed region
-  owner rejects only that old region in the same render, and every late patch
-  must recheck its exact owner.
-- Cold/default ownership applies only before initial Stock token sync and must
-  be verified against the current account. Ordinary Swap defaults cannot
-  overwrite an initialized Stock pair.
-- Entering or leaving Stock uses the centralized swap-type transition and
-  clears shared from/to amount, the target balance, the Stock-owned from
-  balance, and old quote execution before paint. The ordinary Swap from-balance
-  may remain cached only behind the active surface projection and only while
-  its account/token request owner remains valid. A restored region can then
-  render only under its Stock owner; no ordinary Swap amount or balance may
-  appear for one frame.
-- Token detail, balance, and chart regions have independent timestamps and
-  TTLs. One expired region must not discard fresh sibling regions.
-- The snapshot is display-only. Cached amount or balance cannot enable editing,
-  Max, percentage shortcuts, balance validation, quote, Review, build, sign,
-  or send. The input becomes editable only after the canonical live Stock
-  account/token owner is ready.
-- Cached token detail excludes live market gates such as `stock.isOpen` and
-  `description`; cached chart cannot affect quote/build/sign/send.
-- Silent refresh success replaces only the matching region. Failure retains
-  the matching display snapshot; an exact live empty chart settles to empty
-  instead of returning to skeleton.
-- A requested chart range and the visible retained range are different state.
-  While the new range loads or fails, the control must label the data actually
-  visible rather than claiming the requested range is already on screen.
-- Persist at most eight account slots. Sanitize chart data to at most 500
-  points while preserving the first and last points.
-- Execution balance failure uses bounded scope-aware retry plus explicit Retry,
-  but remains fail-closed until an exact current-account/current-token live
-  balance is published to the shared atom.
-
 ## Review Checklist
 
 - Lead with confirmed behavior risk, not broad process notes.
@@ -206,29 +167,15 @@ the original incident details still apply.
 - A provider minimum/error can render before another provider settles. Do not
   display a terminal error or zero result until quote-event progress proves no
   actionable quote remains.
-- The first actionable SSE provider can unlock provider selection before
-  completion. It replaces a retained stale display with the current-request
-  pin and can unlock Review after every other gate passes. Effective AUTO waits
-  for its recommendation; effective CUSTOM does not. Do not clear global
-  transport loading, change same-provider economic fields for each later
-  event, allow more than one automatic terminal update, mutate a frozen Review,
-  or execute a retained/stale/non-actionable candidate. Cover manual intent,
-  terminal settlement, invalidation, limits/errors, and Stock quote-before-total
-  ordering.
 - Fiat display must identify which token/currency owns the price. Never reuse a
   source amount with an unrelated target price or treat missing conversion as
   already converted.
 - Disconnect is a visibility transition. Recent pairs and Swap/Limit/Stock
-  history hide in the UI; persisted rows remain with the logical SimpleDB owner
-  and must return after reconnect, including after restart. Desktop/web use one
-  app JS runtime; iOS/Android and extension UI/background cross a JS runtime or
-  context boundary.
+  history hide in `main`; persisted rows remain in bg SimpleDB and must return
+  after reconnect, including after restart.
 - Chart fixes must scope instance, token identity, currency/source currency,
   readiness, and cleanup. A mounted chart container is not proof that data or
   WebView events are current.
-- Stock display restoration must not leak across account, stock token, pay
-  token, side, or currency. It must not produce a snapshot -> skeleton -> live
-  round trip during a same-identity silent refresh.
 - Issue/PR titles are not authoritative scope. Inspect late Jira/Slack
   corrections, attachments, branch-only commits, and the actual PR file list;
   adjacent Stock, Market, Swap, or DeFi changes can be hidden in one squash.
