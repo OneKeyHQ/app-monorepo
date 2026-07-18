@@ -495,11 +495,14 @@ const SwapProActionButton = ({
     Boolean(currentQuoteRes) && currentQuoteRes?.fromAmount !== inputAmount;
   // While a quote for the entered amount is in flight, show only the spinner
   // (no stale label) so the locked button reads as "quoting", not broken.
+  // `!currentQuoteRes` covers the one-frame gap where the old quote has just
+  // been cleaned but loading has not flipped on yet (and the initial wait
+  // before the first quote of a fresh input lands).
   const isQuoting =
     Boolean(inputAmount) &&
     hasEnoughBalance &&
     !shouldShowNoProviderSupport &&
-    (currentQuoteLoading || isQuoteAmountStale);
+    (currentQuoteLoading || isQuoteAmountStale || !currentQuoteRes);
 
   return (
     <Button
