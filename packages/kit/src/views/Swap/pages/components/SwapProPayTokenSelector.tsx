@@ -13,14 +13,13 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapProTradeType,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import { TokenSelectorPopover } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenSelectorPopover';
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import { getSwapProDefaultTokens } from '../../utils/swapTypeUtils';
 
 import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
 
@@ -53,20 +52,68 @@ const SwapProPayTokenSelector = ({
 
   const isBuy = swapProDirection === ESwapDirection.BUY;
 
-  const defaultTokensFromType = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return defaultTokens;
-    }
-    return defaultLimitTokens;
-  }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
+  const defaultTokensFromType = useMemo(
+    () =>
+      getSwapProDefaultTokens({
+        tradeType: swapProTradeType,
+        defaultTokens,
+        defaultLimitTokens,
+      }),
+    [swapProTradeType, defaultTokens, defaultLimitTokens],
+  );
 
-  // Stock tokens must be paid with stable coins; gray out the native coin.
-  const disableNativePayToken = isBuy && !!swapProSelectToken?.isStock;
+  // Stock tokens must trade against stable coins in BOTH directions — the
+  // counterparty selection is shared, so gray out the native coin whenever
+  // the traded token is a stock.
+  const disableNativePayToken = !!swapProSelectToken?.isStock;
 
   const displayToken = isBuy ? swapProUseSelectBuyToken : swapProSellToToken;
 
   const handleTokenSelect = useCallback(
     (token: IToken) => {
+      const savePreference = () => {
+        // Save preference (shared with Instant Mode) via simpledb
+        const networkId = swapProSelectToken?.networkId || '';
+        if (networkId) {
+          void backgroundApiProxy.simpleDb.marketTokenPreference.setPreference({
+            networkId,
+            preference: {
+              contractAddress: token.contractAddress,
+              symbol: token.symbol,
+              networkId: token.networkId,
+            },
+          });
+        }
+      };
+      // Re-picking the already-selected token keeps the typed amount and the
+      // current atom (which carries enriched balance fields the popover token
+      // lacks), but still confirms the choice: persist the preference and pull
+      // a diverged other-direction atom onto the same token.
+      if (
+        equalTokenNoCaseSensitive({
+          token1: token,
+          token2: displayToken,
+        })
+      ) {
+        const otherDirectionToken = isBuy
+          ? swapProSellToToken
+          : swapProUseSelectBuyToken;
+        if (
+          !equalTokenNoCaseSensitive({
+            token1: token,
+            token2: otherDirectionToken,
+          })
+        ) {
+          if (isBuy) {
+            setSwapProSellToToken(token);
+          } else {
+            setSwapProUseSelectBuyToken(token);
+          }
+        }
+        savePreference();
+        setIsPopoverOpen(false);
+        return;
+      }
       if (isBuy) {
         // The BUY amount is denominated in the pay token, so reset it (and
         // the in-flight quote) before re-quoting against the new token.
@@ -76,21 +123,13 @@ const SwapProPayTokenSelector = ({
       setSwapProUseSelectBuyToken(token);
       setSwapProSellToToken(token);
       setIsPopoverOpen(false);
-      // Save preference (shared with Instant Mode) via simpledb
-      const networkId = swapProSelectToken?.networkId || '';
-      if (networkId) {
-        void backgroundApiProxy.simpleDb.marketTokenPreference.setPreference({
-          networkId,
-          preference: {
-            contractAddress: token.contractAddress,
-            symbol: token.symbol,
-            networkId: token.networkId,
-          },
-        });
-      }
+      savePreference();
     },
     [
       isBuy,
+      displayToken,
+      swapProSellToToken,
+      swapProUseSelectBuyToken,
       cleanInputAmount,
       setSwapProUseSelectBuyToken,
       setSwapProSellToToken,

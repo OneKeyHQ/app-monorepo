@@ -157,17 +157,27 @@ function SegmentSliderComponent({
   const hybridRef = useMemo(
     () =>
       callback((node: ISegmentSliderHybridRef) => {
+        // Android's generated Nitro updater never clears hybridRef.isDirty,
+        // so this callback re-fires on EVERY props commit there (iOS fires it
+        // only on real attach). Nitro caches the JS wrapper per native view,
+        // so a same-node re-fire must be a no-op — resetting draggingRef or
+        // pushing setValue here mid-drag would kill the live gesture.
+        if (sliderRef.current === node) {
+          return;
+        }
         sliderRef.current = node;
+        // A freshly attached native view cannot be mid-drag, but a teardown
+        // during a drag never delivers onSlideComplete, so clear the flag
+        // here or it stays stuck and blocks every future value sync.
+        draggingRef.current = false;
         // Catch-up: the native view's `defaultValue` only captures the FIRST
         // value, and on a native view rebuild (unmount/remount of the host
         // tree, Fabric recycling) the fresh view can sit at a stale position
         // while the JS refs still believe it is in sync. Push the latest value
         // unconditionally — `setValue` is idempotent, so a redundant push is
         // harmless while a skipped one strands the thumb.
-        if (!draggingRef.current) {
-          lastValueRef.current = latestValueRef.current;
-          node.setValue(latestValueRef.current);
-        }
+        lastValueRef.current = latestValueRef.current;
+        node.setValue(latestValueRef.current);
       }),
     [],
   );

@@ -41,12 +41,13 @@ const SwapProTokenTransactionList = ({
       supportSpeedSwap,
     );
 
-  const finallyTransactionList = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.LIMIT) {
-      return swapProTokenTransactionList?.slice(0, 9) ?? [];
-    }
-    return swapProTokenTransactionList?.slice(0, 5) ?? [];
-  }, [swapProTokenTransactionList, swapProTradeType]);
+  // Row caps tuned so the left column bottom-aligns with the trading column
+  // in each trade-type layout; the loading skeleton uses the same counts.
+  const maxRows = swapProTradeType === ESwapProTradeType.LIMIT ? 9 : 5;
+  const finallyTransactionList = useMemo(
+    () => swapProTokenTransactionList?.slice(0, maxRows) ?? [],
+    [swapProTokenTransactionList, maxRows],
+  );
   return (
     <YStack>
       <XStack justifyContent="space-between" py="$1">
@@ -72,17 +73,11 @@ const SwapProTokenTransactionList = ({
         </XStack>
       ) : (
         <>
-          {isRefreshing ||
-          !finallyTransactionList ||
-          finallyTransactionList.length === 0 ? (
+          {isRefreshing || finallyTransactionList.length === 0 ? (
             <YStack>
-              {swapProTradeType === ESwapProTradeType.MARKET
-                ? Array.from({ length: 5 }).map((_, index) => (
-                    <Skeleton w="100%" h={22} radius="square" key={index} />
-                  ))
-                : Array.from({ length: 9 }).map((_, index) => (
-                    <Skeleton w="100%" h={22} radius="square" key={index} />
-                  ))}
+              {Array.from({ length: maxRows }).map((_, index) => (
+                <Skeleton w="100%" h={22} radius="square" key={index} />
+              ))}
             </YStack>
           ) : (
             <YStack>

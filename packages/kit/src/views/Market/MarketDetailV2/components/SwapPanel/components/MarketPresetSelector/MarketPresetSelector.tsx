@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -136,7 +136,7 @@ function getPriorityFeeTranslationId(type?: EMarketPresetPriorityFeeType) {
   return ETranslations.transaction_normal;
 }
 
-export function getMarketPresetLabel({
+function getMarketPresetLabel({
   intl,
   label,
   presetKey,
@@ -696,7 +696,39 @@ function MarketPresetTabBar({
   );
 }
 
-export function MarketPresetSettingsDialog({
+// Single owner of the preset-settings dialog presentation, shared by the
+// Market panel selector and the Swap Pro preset row.
+export function showMarketPresetSettingsDialog({
+  intl,
+  antiMEV,
+  estimatePriorityFeeFiatValues,
+  presetSettings,
+}: {
+  intl: IntlShape;
+  antiMEV?: boolean;
+  estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
+  presetSettings: IMarketPresetSettingsState;
+}) {
+  const dialog = Dialog.show({
+    title: intl.formatMessage({
+      id: ETranslations.marketdex_edit_presets_title,
+    }),
+    renderContent: (
+      <MarketPresetSettingsDialog
+        close={() => {
+          void dialog.close();
+        }}
+        antiMEV={antiMEV}
+        estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
+        presetSettings={presetSettings}
+      />
+    ),
+    showFooter: false,
+  });
+  return dialog;
+}
+
+function MarketPresetSettingsDialog({
   antiMEV,
   close,
   estimatePriorityFeeFiatValues,
@@ -1544,21 +1576,11 @@ export function MarketPresetSelector({
   );
 
   const openPresetDialog = useCallback(() => {
-    const dialog = Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.marketdex_edit_presets_title,
-      }),
-      renderContent: (
-        <MarketPresetSettingsDialog
-          close={() => {
-            void dialog.close();
-          }}
-          antiMEV={antiMEV}
-          estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
-          presetSettings={presetSettings}
-        />
-      ),
-      showFooter: false,
+    showMarketPresetSettingsDialog({
+      intl,
+      antiMEV,
+      estimatePriorityFeeFiatValues,
+      presetSettings,
     });
   }, [antiMEV, estimatePriorityFeeFiatValues, intl, presetSettings]);
 

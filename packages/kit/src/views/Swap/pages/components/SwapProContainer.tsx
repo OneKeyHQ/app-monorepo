@@ -15,7 +15,6 @@ import {
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
-  useSwapProSliderValueAtom,
   useSwapProTokenMarketDetailInfoAtom,
   useSwapProTokenMarketDetailPerpsInfoAtom,
   useSwapProTradeTypeAtom,
@@ -116,7 +115,6 @@ const SwapProContainer = ({
   const [swapProInputAmount, setSwapProInputAmount] =
     useSwapProInputAmountAtom();
   const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const [, setSwapProSliderValue] = useSwapProSliderValueAtom();
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<ScrollView>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
@@ -176,8 +174,7 @@ const SwapProContainer = ({
       value: '',
       isInput: true,
     });
-    setSwapProSliderValue(0);
-  }, [setSwapProInputAmount, setFromInputAmount, setSwapProSliderValue]);
+  }, [setSwapProInputAmount, setFromInputAmount]);
 
   const onSearchClickCallback = useCallback(() => {
     onProSelectToken(true);

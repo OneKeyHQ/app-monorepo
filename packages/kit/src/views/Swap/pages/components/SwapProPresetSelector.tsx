@@ -2,20 +2,14 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Dialog,
-  Divider,
-  Icon,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
+import { Divider, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import {
   type IEstimateMarketPresetPriorityFeeFiatValues,
-  MarketPresetSettingsDialog,
   getPriorityFeeLabel,
+  showMarketPresetSettingsDialog,
 } from '../../../Market/MarketDetailV2/components/SwapPanel/components/MarketPresetSelector';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
@@ -41,21 +35,11 @@ const SwapProPresetSelector = ({
     presetSettings;
 
   const openPresetDialog = useCallback(() => {
-    const dialog = Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.marketdex_edit_presets_title,
-      }),
-      renderContent: (
-        <MarketPresetSettingsDialog
-          close={() => {
-            void dialog.close();
-          }}
-          antiMEV={antiMEV}
-          estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
-          presetSettings={presetSettings}
-        />
-      ),
-      showFooter: false,
+    showMarketPresetSettingsDialog({
+      intl,
+      antiMEV,
+      estimatePriorityFeeFiatValues,
+      presetSettings,
     });
   }, [antiMEV, estimatePriorityFeeFiatValues, intl, presetSettings]);
 

@@ -17,6 +17,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
+  SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
+  SWAP_QUOTE_INPUT_DEBOUNCE_MS,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
   EProtocolOfExchange,
   ESwapDirectionType,
   ESwapQuoteKind,
@@ -216,11 +220,13 @@ export function useSwapQuote() {
   const shouldUseLeadingAmountDebounce =
     swapTabSwitchType !== ESwapTabSwitchType.STOCK;
   // Limit orders re-quote on every price/amount edit and the action button
-  // stays locked until the new quote lands, so use a shorter trailing
-  // debounce there; swap/bridge keep 500ms to throttle the heavier
+  // stays locked until the new quote lands, so use the shorter Pro debounce
+  // there; swap/bridge keep the longer one to throttle the heavier
   // multi-provider quote stream.
   const amountDebounceMs =
-    swapTabSwitchType === ESwapTabSwitchType.LIMIT ? 300 : 500;
+    swapTabSwitchType === ESwapTabSwitchType.LIMIT
+      ? SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS
+      : SWAP_QUOTE_INPUT_DEBOUNCE_MS;
   const fromAmountDebounce = useDebounce(fromTokenAmount, amountDebounceMs, {
     leading: shouldUseLeadingAmountDebounce,
   });

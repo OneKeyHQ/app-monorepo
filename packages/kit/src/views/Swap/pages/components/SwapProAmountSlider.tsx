@@ -4,6 +4,7 @@ interface ISwapProAmountSliderProps {
   value: number;
   disabled?: boolean;
   onChange: (value: number) => void;
+  onSlideStart?: () => void;
   onSlideComplete?: () => void;
 }
 
@@ -15,6 +16,7 @@ const SwapProAmountSlider = ({
   value,
   disabled,
   onChange,
+  onSlideStart,
   onSlideComplete,
 }: ISwapProAmountSliderProps) => {
   return (
@@ -29,6 +31,7 @@ const SwapProAmountSlider = ({
         showBubble={false}
         disabled={disabled}
         onChange={onChange}
+        onSlideStart={onSlideStart}
         onSlideComplete={onSlideComplete}
       />
     </XStack>

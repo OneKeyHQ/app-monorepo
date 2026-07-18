@@ -24,7 +24,6 @@ import {
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
@@ -32,7 +31,7 @@ import {
   useSwapProInputToken,
   useSwapProToToken,
 } from '../../hooks/useSwapPro';
-import { useSwapQuoteLoading } from '../../hooks/useSwapState';
+import { pushSwapReceiveSelector } from '../../utils/swapDepositEntryUtils';
 
 import { ITEM_TITLE_PROPS, ITEM_VALUE_PROPS } from './SwapProTokenDetailGroup';
 
@@ -54,30 +53,16 @@ const SwapProTradeInfoGroup = ({
   const [swapCurrentQuoteResult] = useSwapQuoteCurrentSelectAtom();
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const swapQuoteLoading = useSwapQuoteLoading();
   const navigation = useAppNavigation();
 
   const handleDepositPress = useCallback(() => {
     if (!inputToken || !activeAccount) {
       return;
     }
-    navigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveSelector,
-      params: {
-        accountId: activeAccount.account?.id ?? '',
-        networkId: inputToken.networkId ?? '',
-        walletId: activeAccount.wallet?.id ?? '',
-        indexedAccountId: activeAccount.indexedAccount?.id,
-        token: {
-          networkId: inputToken.networkId ?? '',
-          address: inputToken.contractAddress ?? '',
-          name: inputToken.name ?? '',
-          symbol: inputToken.symbol ?? '',
-          decimals: inputToken.decimals,
-          logoURI: inputToken.logoURI,
-          isNative: inputToken.isNative,
-        },
-      },
+    pushSwapReceiveSelector({
+      navigation,
+      token: inputToken,
+      accountInfo: activeAccount,
     });
   }, [navigation, inputToken, activeAccount]);
 
@@ -102,12 +87,6 @@ const SwapProTradeInfoGroup = ({
     }
     return swapProQuoteResultPro;
   }, [swapProQuoteResultPro, swapCurrentQuoteResult, swapProTradeType]);
-  const swapProQuoteFetching = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.LIMIT) {
-      return swapQuoteLoading;
-    }
-    return swapProQuoteFetchingPro;
-  }, [swapProQuoteFetchingPro, swapQuoteLoading, swapProTradeType]);
 
   const receiveValue = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
@@ -208,7 +187,7 @@ const SwapProTradeInfoGroup = ({
         isLoading={
           swapProTradeType === ESwapProTradeType.LIMIT
             ? false
-            : swapProQuoteFetching
+            : swapProQuoteFetchingPro
         }
         containerProps={{
           py: '$1',

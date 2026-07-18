@@ -12,16 +12,18 @@ import {
   useSwapProSelectTokenAtom,
   useSwapProTokenSupportLimitAtom,
   useSwapProTradeTypeAtom,
+  useSwapProUseSelectBuyTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapProSpeedConfig } from '@onekeyhq/shared/types/swap/types';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import { TradeTypeSelector } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
-import type { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import LimitExpirySelect from '../../components/LimitExpirySelect';
 import LimitPartialFillSelect from '../../components/LimitPartialFillSelect';
 import SwapProTradeTypeSelector from '../../components/SwapProTradeTypeSelector';
+import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { useSwapLimitConfigMaps } from '../../hooks/useSwapGlobal';
 import { useSwapProActionsQuote } from '../../hooks/useSwapPro';
 
@@ -75,22 +77,24 @@ const SwapProTradingPanel = ({
   const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
     useSwapProInputAmountAtom();
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   // Per-direction amount stash: switching BUY/SELL restores what was typed on
   // that side instead of clearing it (the two sides denominate in different
-  // tokens, so the values must never be shared directly).
+  // tokens, so the values must never be shared directly). Each entry carries
+  // the context it was typed in (trade type + that side's input token); a
+  // restore only applies when the context still matches, so amounts can never
+  // resurrect across trade-type or pay-token switches in a different
+  // denomination.
   const stashedAmountsRef = useRef<
-    Partial<Record<ESwapDirection, { market: string; limit: string }>>
+    Partial<Record<ESwapDirection, { value: string; contextKey: string }>>
   >({});
-  const selectTokenKey = `${swapProSelectToken?.networkId ?? ''}_${
-    swapProSelectToken?.contractAddress ?? ''
-  }`;
   useEffect(() => {
     // Stashed amounts belong to one traded token; drop them on token switch.
     stashedAmountsRef.current = {};
-  }, [selectTokenKey]);
+  }, [swapProSelectToken?.networkId, swapProSelectToken?.contractAddress]);
   const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
     useSwapLimitExpirationTimeAtom();
   const [swapLimitPartiallyFill, setSwapLimitPartiallyFill] =
@@ -131,25 +135,42 @@ const SwapProTradingPanel = ({
   const onDirectionSelected = useCallback(
     (value: ITradeType) => {
       if (!value || value === swapProDirection) return;
-      // Stash this side's typed amounts and restore what the target side had
+      // Stash this side's typed amount and restore what the target side had
       // (empty when it was never typed) — the sides denominate in different
       // tokens, so each keeps its own value instead of sharing or clearing.
+      const buildStashContextKey = (direction: ESwapDirection) => {
+        const directionInputToken =
+          direction === ESwapDirection.BUY
+            ? swapProUseSelectBuyToken
+            : swapProSelectToken;
+        return `${swapProTradeType}_${getTokenIdentityKey(
+          directionInputToken,
+        )}`;
+      };
+      const isMarket = swapProTradeType === ESwapProTradeType.MARKET;
       stashedAmountsRef.current[swapProDirection] = {
-        market: swapProInputAmount,
-        limit: fromInputAmount.value,
+        value: isMarket ? swapProInputAmount : fromInputAmount.value,
+        contextKey: buildStashContextKey(swapProDirection),
       };
       const targetStash = stashedAmountsRef.current[value];
-      setSwapProInputAmount(targetStash?.market ?? '');
+      const restored =
+        targetStash && targetStash.contextKey === buildStashContextKey(value)
+          ? targetStash.value
+          : '';
+      setSwapProInputAmount(isMarket ? restored : '');
       setFromInputAmount({
-        value: targetStash?.limit ?? '',
+        value: isMarket ? '' : restored,
         isInput: true,
       });
       setSwapProDirection(value);
     },
     [
       swapProDirection,
+      swapProTradeType,
       swapProInputAmount,
       fromInputAmount.value,
+      swapProUseSelectBuyToken,
+      swapProSelectToken,
       setSwapProInputAmount,
       setFromInputAmount,
       setSwapProDirection,

@@ -4,9 +4,13 @@ import {
 } from '@onekeyhq/shared/src/utils/swapTypeUtils';
 import {
   EProtocolOfExchange,
+  ESwapProTradeType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
-import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchQuoteResult,
+  ISwapTokenBase,
+} from '@onekeyhq/shared/types/swap/types';
 
 export { getSwapSupportCheckType, getVisibleSwapTabSwitchType };
 
@@ -86,4 +90,34 @@ export function getSwapExecutionTypeFromQuoteResult(
     fromNetworkId: quoteResult?.fromTokenInfo.networkId,
     toNetworkId: quoteResult?.toTokenInfo.networkId,
   });
+}
+
+// Single owner of the "stock tokens trade only against stable coins" rule:
+// when the traded token is a stock, the counterparty candidate pool drops the
+// native coin (both BUY pay tokens and SELL receive tokens).
+export function filterSwapProCounterpartyTokens<T extends ISwapTokenBase>({
+  tokens,
+  isStockPair,
+}: {
+  tokens: T[];
+  isStockPair: boolean;
+}): T[] {
+  return isStockPair ? tokens.filter((item) => !item.isNative) : tokens;
+}
+
+// Single owner of the "LIMIT sources its pay tokens from defaultLimitTokens"
+// rule, so the pay-token popover and the default-token init can't diverge.
+export function getSwapProDefaultTokens<T extends ISwapTokenBase>({
+  tradeType,
+  defaultTokens,
+  defaultLimitTokens,
+}: {
+  tradeType: ESwapProTradeType;
+  defaultTokens: T[];
+  defaultLimitTokens: T[];
+}): T[] {
+  if (tradeType === ESwapProTradeType.MARKET) {
+    return defaultTokens;
+  }
+  return defaultLimitTokens;
 }

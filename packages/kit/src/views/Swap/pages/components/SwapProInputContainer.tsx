@@ -76,11 +76,16 @@ const SwapProInputContainer = ({
       : fromInputAmount.value;
   }, [swapProTradeType, swapProInputAmount, fromInputAmount.value]);
 
-  const { sliderValue, sliderDisabled, onSliderChange, onSlideComplete } =
-    useSwapProAmountSlider({
-      inputAmount: inputValue,
-      onAmountChange: handleInputChange,
-    });
+  const {
+    sliderValue,
+    sliderDisabled,
+    onSliderChange,
+    onSlideStart,
+    onSlideComplete,
+  } = useSwapProAmountSlider({
+    inputAmount: inputValue,
+    onAmountChange: handleInputChange,
+  });
 
   // Reset scroll position to show text from the beginning when value changes and input is not focused
   useEffect(() => {
@@ -152,6 +157,7 @@ const SwapProInputContainer = ({
         value={sliderValue}
         disabled={sliderDisabled}
         onChange={onSliderChange}
+        onSlideStart={onSlideStart}
         onSlideComplete={onSlideComplete}
       />
       {platformEnv.isNativeIOS ? (

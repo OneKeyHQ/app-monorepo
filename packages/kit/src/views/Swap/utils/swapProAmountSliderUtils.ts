@@ -1,27 +1,19 @@
 import BigNumber from 'bignumber.js';
 
+import { countLeadingZeroDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
+
 export const SWAP_PRO_SLIDER_MAX_PERCENT = 100;
 
 // Mid-drag amounts mirror the balance row's display precision, which follows
 // the shared `balance` formatter: 4 decimals for values >= 1, and 4 more
 // digits after the leading zero decimals for sub-1 balances (so a 0.000258
 // balance keeps its resolution instead of collapsing to a 4-decimal step).
+// Unlike `calcPercentBalance`, precision is anchored to the BALANCE's leading
+// zeros (not the computed amount's) so every drag step lands on the same grid.
 export function getSwapProSliderDragDecimals(
   availableBalance: BigNumber,
 ): number {
-  const absValue = availableBalance.abs();
-  if (absValue.gte(1)) {
-    return 4;
-  }
-  const fixed = absValue.toFixed();
-  const dotIndex = fixed.indexOf('.');
-  if (dotIndex === -1) {
-    return 4;
-  }
-  const decimals = fixed.slice(dotIndex + 1);
-  const trimmed = decimals.replace(/^0+/, '');
-  const leadingZeros = decimals.length - trimmed.length;
-  return 4 + leadingZeros;
+  return 4 + countLeadingZeroDecimals(availableBalance);
 }
 
 export function calcSwapProSliderAvailableBalance({

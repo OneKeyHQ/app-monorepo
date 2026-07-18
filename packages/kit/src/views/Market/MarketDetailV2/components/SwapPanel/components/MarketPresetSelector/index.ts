@@ -1,8 +1,7 @@
 export {
   MarketPresetSelector,
-  MarketPresetSettingsDialog,
-  getMarketPresetLabel,
   getPriorityFeeLabel,
+  showMarketPresetSettingsDialog,
 } from './MarketPresetSelector';
 export type {
   IEstimateMarketPresetPriorityFeeFiatValues,
