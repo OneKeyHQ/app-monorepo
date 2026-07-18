@@ -17,8 +17,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
-  useSwapLimitPriceUseRateAtom,
-  useSwapProDirectionAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSpeedQuoteFetchingAtom,
@@ -29,7 +27,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
-import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import {
   useSwapProInputToken,
@@ -57,9 +54,7 @@ const SwapProTradeInfoGroup = ({
   const [swapCurrentQuoteResult] = useSwapQuoteCurrentSelectAtom();
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const [swapProDirection] = useSwapProDirectionAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
-  const [swapLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const navigation = useAppNavigation();
 
   const handleDepositPress = useCallback(() => {
@@ -93,46 +88,6 @@ const SwapProTradeInfoGroup = ({
     return result?.mergeDeriveAssetsEnabled;
   }, [inputToken?.networkId]);
 
-  const limitPriceValue = useMemo(() => {
-    const swapLimitPriceUseRateBN = new BigNumber(
-      swapLimitPriceUseRate.rate || 0,
-    );
-    if (swapLimitPriceUseRateBN.isZero() || swapLimitPriceUseRateBN.isNaN()) {
-      return {
-        fromValue: '-',
-        toValue: '-',
-        toSymbol: '-',
-      };
-    }
-    const displayLimitRate =
-      swapProDirection === ESwapDirection.BUY
-        ? new BigNumber(1).dividedBy(swapLimitPriceUseRateBN)
-        : swapLimitPriceUseRateBN;
-    const fromSymbol =
-      swapProDirection === ESwapDirection.BUY
-        ? toToken?.symbol
-        : inputToken?.symbol;
-    const toSymbol =
-      swapProDirection === ESwapDirection.BUY
-        ? inputToken?.symbol
-        : toToken?.symbol;
-    if (displayLimitRate.isZero() || displayLimitRate.isNaN()) {
-      return {
-        fromValue: '-',
-        toValue: '-',
-      };
-    }
-    return {
-      fromValue: `1 ${fromSymbol ?? '-'} = `,
-      toValue: displayLimitRate.toFixed(),
-      toSymbol: toSymbol ?? '-',
-    };
-  }, [
-    swapLimitPriceUseRate.rate,
-    swapProDirection,
-    toToken?.symbol,
-    inputToken?.symbol,
-  ]);
   const balanceValue = useMemo(() => {
     const balanceBN = new BigNumber(inputToken?.balanceParsed ?? '0');
     if (balanceBN.isZero() || balanceBN.isNaN()) {
@@ -232,45 +187,6 @@ const SwapProTradeInfoGroup = ({
           py: '$1',
         }}
       />
-      {swapProTradeType === ESwapProTradeType.LIMIT ? (
-        <SwapCommonInfoItem
-          title={intl.formatMessage({
-            id: ETranslations.dexmarket_pro_trigger_price,
-          })}
-          valueComponent={
-            <YStack>
-              <SizableText
-                size="$bodySmMedium"
-                numberOfLines={1}
-                textAlign="right"
-                maxWidth="$36"
-              >
-                {limitPriceValue.fromValue}
-              </SizableText>
-              <NumberSizeableText
-                size="$bodySmMedium"
-                numberOfLines={1}
-                textAlign="right"
-                formatter="balance"
-                formatterOptions={{
-                  tokenSymbol: limitPriceValue.toSymbol,
-                }}
-                maxWidth="$36"
-              >
-                {limitPriceValue.toValue}
-              </NumberSizeableText>
-            </YStack>
-          }
-          titleProps={ITEM_TITLE_PROPS}
-          valueProps={ITEM_VALUE_PROPS}
-          isLoading={false}
-          containerProps={{
-            py: '$1',
-            alignItems: 'flex-start',
-            minHeight: '$10',
-          }}
-        />
-      ) : null}
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
         titleProps={ITEM_TITLE_PROPS}

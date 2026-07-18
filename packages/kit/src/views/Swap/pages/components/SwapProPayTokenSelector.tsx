@@ -147,6 +147,9 @@ const SwapProPayTokenSelector = ({
           }}
           disabledOnSwitchToTrade
           disableNativeToken={disableNativePayToken}
+          // Keep the server-config order (native coin first, then stable
+          // coins) so the list doesn't reshuffle once balances load in.
+          sortTokensByValue={false}
         />
       </Stack>
     </>
