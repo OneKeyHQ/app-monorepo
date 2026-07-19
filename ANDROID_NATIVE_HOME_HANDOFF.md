@@ -1990,3 +1990,94 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - iOS main/bg 使用独立 Hermes heap并独立初始化，wallet DTO 经 proxy 分别序列化/反序列化；main ready 不能代替 bg ready。DB/MMKV/file handles、图片/字体 cache 和部分 Native singleton 是进程级共享 Native 资源；resolver sticky ref、scroll offset、gesture、pressed、accessibility 与页面 transition 属于 main/per-view 状态。
 - 本轮真实通过范围：当前 Dark mode 未备份 HD `$0` fixture 的首帧/Legacy 402 A/B、两枚 CTA 可见性、secondary Backup sheet、双向 swipe/回弹和无 app refresh、应用持续存活、main/bg ready。
 - 仍未覆盖：实际 primary backup、backup 完成后 `Empty -> Native` 的真实单次切换、正余额但未备份、Dynamic Type Large/XXXL、Light mode、Android Debug、fresh/no-wallet、已备份零资产/未来 `backedZero` 和真正单链 wallet-type。生产 JSX 测试覆盖权威转场，但这些真实 UI 项继续保持 Partial/Blocked，不能声称整个 Empty Wallet 或 Native Home 已全部完成。
+
+## 2026-07-19 已备份 `$0` 钱包：Manual backup 安全边界与待走查问题
+
+### 本轮目标与当前状态
+
+- 用户已授权把当前未备份 HD `$0` fixture 通过 Manual backup 转成“已备份且总资产为 `$0`”，然后在同一个 Debug 包、同一账户、同一服务 config 和 Dark mode 下采集 Legacy/Native 全页 A/B，按真实截图和交互修复差异。
+- 已备份 `$0` 当前没有独立 `backedZero` surface；active wallet 与 settled wallet-list wallet 两份 `backuped=true` 后应进入普通 Home。feature enabled 走 Native，临时关闭 feature 只用于同状态 Legacy基准，采集后必须恢复。余额仍不参与页面 resolver。
+- 当前只完成源码和安全流程审计，尚未执行 Manual backup，也尚未取得已备份 `$0` 的真实 UI。不得把下面的源码差异写成最终 UI 结论。
+
+### Manual backup 与敏感数据边界
+
+- 真实链路为 `More backup options -> Manual backup -> bg getHDAccountMnemonic(Security) -> password/biometric verify -> BackupWalletReminder warning -> recovery phrase -> I saved -> bg updateWalletBackupStatus(true)`。Manual 路径没有 VerifyRecoveryPhrase quiz；`I saved` 直接触发权威备份状态写入。
+- bg 写 DB 后 emit `WalletUpdate`；main 的 wallet-list 与 active-account listener 独立 refetch。`HomePageContainer` 只有在同 wallet scope 的 active/list 两份数据都收敛为 `backuped=true` 后才从 Empty 卸载并挂正常 Home。
+- Manual item当前没有独立 testID；warning 与 recovery phrase 页面又复用同一个 `onboardingv2-btn`。恢复词明文渲染后会进入 accessibility tree。即使 CaptureProtection 阻止屏幕采集，selector失败、XCTest interaction failure 或 runner诊断仍可能输出 AX 内容。
+- 因此禁止由 agent-device、XCTest、Hermes 或日志工具无人值守跨越 recovery phrase 页面。敏感区间必须由用户本人接管：从 Backup sheet 选择 Manual backup开始，完成认证、私下保存恢复词并点击 `I saved`，确认敏感页面完全关闭并返回 Home后，再通知 agent恢复采证。
+- 敏感区间必须停止 screenshot、record、snapshot、get attrs、is visible、app/Metro/system logs、Hermes/CDP/eval和任何 selector/坐标点击。禁止把密码、passcode、恢复词或其顺序发送到对话、日志或提交文件。Simulator biometric match只能在真实系统认证 prompt已出现时模拟成功硬件事件，不能消除 recovery phrase 页的安全阻断。
+
+### Legacy 已备份 `$0` 契约与 Native 源码风险
+
+- Legacy 普通零资产 Header保留 account row、权威 `$0` 与 refresh owner；零资产时隐藏 banner，实际无 banner header约 182pt。金额/动作在权威 balance settle前不能先猜 `$0` 或业务态。
+- Legacy 零资产 actions不是 `Send / Receive / Buy & Sell / More` 四宫格，而是 `Add money to get started`、主按钮 `Add money` 与 icon-only `More`。Native 当前固定构造四个普通 actions，没有 balance-state分支，属于明确待真机复现的源码 Fail。
+- Native banner数据当前只按关闭状态、position和network过滤，没有 Legacy 的 positive-balance gate；已备份 `$0` 可能错误显示 banner或保留额外 Header高度，属于明确待真机复现的源码 Fail。
+- Legacy All Networks会过滤零余额 token，plainMode空数组最终显示 `Wallet-No-Token-Empty`；Native在 `portfolio.isEmptyAccount` 时可能显示 `Wallet-No-Address-Empty`，否则显示 EmptyToken。当前 fixture属于哪一种必须以同状态A/B决定，不能按类型名猜修。
+- Legacy Earn受 block-region gate；Native补充数据与 section当前缺少同等 gate，受限区可能多出 Earn。Tabs capability、hide-zero/filter、Market/Upgrade/Support整体顺序源码基本对齐，但都需要全页真实证据。
+
+### A/B 与 Pass / Fail 门禁
+
+- Manual backup完成后先确认 Empty testID消失、普通 Home真实显示、应用持续存活、钱包仍为同一 Account #1 / `$0`，main ready与独立 bg ready/新 bootId均有证据。由于敏感区间不可录制，不能声称已经取得 recovery phrase期间的连续转场录屏；只允许结合操作前/操作后安全帧和权威 resolver测试说明边界。
+- 在同状态临时切 Legacy采集首帧/100ms/300ms/settled、Header、actions、banner absence、Tabs、Spot空态、Market、Earn、Upgrade、Support、最底部、双向 fling/refresh和各 Tab点击前/首帧/settled；恢复 Native后重复同一序列。每次切换都要分别确认 main/bg ready。
+- 硬 Fail：任意额外/缺失 action、banner、tab、section、CTA或空态类型；首帧错误态/白屏；点击无真实结果；底部遮挡；失去惯性；offset跳变；Dark硬编码色块。几何误差：icon/文字基线/按钮不超过1pt，Header/section/底部 clearance不超过2pt；402pt differ在mask状态栏/远端瞬态后，静态非文本 changed-pixel ratio目标不超过0.5%。
+- 当前优先验证并预计需要修复：zero actions、zero banner gate、权威首帧金额/actions时序、All Networks EmptyToken/EmptyAccount，以及 Earn region gate。后续必须继续遵守“编写 subagent -> 独立代码 subagent -> `yarn app:ios` Debug -> 独立 UI subagent -> handoff -> commit/push”。
+
+## 2026-07-19 已备份 `$0` 钱包：Manual backup、同状态 A/B、集中修复与 Round5 最终验收
+
+### Manual backup 的真实执行、安全边界与页面切换
+
+- 用户明确授权对当前全新、零余额、未来不会入金的 disposable HD 钱包执行 Manual backup，并另行提供了认证密码。密码、恢复词及其顺序没有写入日志、截图、handoff、测试或提交文件；恢复词显示后的受保护区间没有执行 accessibility snapshot、OCR、CDP 读取或页面内容日志。
+- 为非敏感入口增加了稳定 testID：Backup sheet 的 `Manual backup / OneKey Lite / OneKey KeyTag`，以及 warning page、显示恢复词 CTA、确认已保存 CTA。测试只使用非 BIP39 fake words；真实恢复词没有进入测试或诊断。
+- 真实链路已经执行为 `More backup options -> Manual backup -> 认证 -> warning -> protected phrase -> I saved`。受保护页面由 `CaptureProtection` 把 app window 挂入 secure text-entry layer，因此 XCUITest tree 会消失；本轮只在显示敏感内容前缓存 CTA frame，敏感区用纯 HID 完成确认，不读取页面内容。
+- 随后再次执行标准 `yarn app:ios`，Debug 包更新安装并启动后直接进入普通 Native Home；未备份 Empty 页面消失，同一 `Account #1 / $0.00` 数据仍正常。该结果与 bg `updateWalletBackupStatus(true)`、WalletUpdate、active/list 两份 wallet 收敛后的页面 resolver 一致。不能用该状态外推 fresh/no-wallet、正余额未备份或其他 wallet type 已通过。
+- Debug 保护页排查期间曾有一次短暂 `simctl launch --console-pty` stdout attach 尝试，收到停止指令后立即终止，未继续交互，也不作为任何验收证据；没有 uninstall、reinstall、erase、clear data、删除 container/DB。全部合格构建、更新安装、启动和最终证据均来自标准 `yarn app:ios`。
+
+### 固化的主要自动走查方式
+
+- 本轮证明“同钱包、同余额、同主题、同服务 config、同 scroll offset 下切 Legacy/Native，完整采 first/settled、402 并排图和像素 differ”可以高效同时发现产品合同、布局、缺失组件、首帧、交互与滚动状态错误，后续把它作为 Native Home 的主要走查方式。
+- 标准顺序：先保持 Native 默认，采首帧/100ms/300ms/settled、全页 section、真实点击、触底和双向 fling；再临时切 Legacy，用标准 `yarn app:ios` 采完全相同路径；立即恢复 feature flag，并再次用标准命令确认 Native。临时 flag 最终必须无 git diff。
+- Tab/异步 section 的 y 坐标不能延迟复用。每次使用“截图后立即点击”，并为跨 Tab 保留点击前、first、3s/settled，必要时 10s；只存在元素或收到点击事件都不能判 Pass。
+- 基线证据：Native `.tmp/ui/native-home-backed-zero-ab-20260719/`；Legacy `.tmp/ui/legacy-home-backed-zero-ab-20260719/`；首轮 402 A/B/diff `.tmp/ui/native-home-backed-zero-ab-diff-20260719/`。最终 Round5 证据为 `.tmp/ui/native-home-mounted-slot-round5-20260719/`。
+
+### 同状态 Legacy / Native 首轮真实 Fail
+
+- Legacy `$0` 顶部真实合同为 `$0.00`、`Add money to get started. Withdraw anytime.`、主 `Add money`、icon-only More，并隐藏 banner。Native 原实现错误显示 `Send / Receive / Buy & Sell / More` 四宫格和 Robinhood banner。
+- Legacy Spot 真实显示 BTC、USDT、USDC、ETH、SOL、BNB 等默认零余额 Token rows；Native 原实现显示空资产 illustration。根因不是只选错 Empty 组件，而是 Native 缺少 Legacy default/custom retention、derive merge 和 aggregate fold。
+- 从 Spot 的 Support/Help center 底部 offset 切 Perps、NFT、History，Legacy first/settled 会立即 clamp 并显示真实内容/空态；Native first、3s、10s 都持续空白。History 只剩 filter accessory，`No activity yet / Block explorer` 缺失。
+- Legacy Help center 到浮动 tab bar 的 clearance 约 39–40 个截图物理像素；Native 原实现约 125px，统一滚动 inset 过大。
+
+### 集中修复后的代码边界
+
+- `useHomeBalanceState` 抽出共享 pure resolver；Native 对齐 Legacy 的 exact-owner 语义：只读 `buildOverviewOwnerKey(concrete account.id, network.id)` 的 `lastConfirmedOverviewBalance.byOwner`，禁止使用跨 owner `latest` 或无 network owner 的 `accountWorth`。
+- Native balance precedence 为：current regular/small funded 或 current scoped non-zero 值优先；exact-owner cached non-zero/zero；无 cache 时只有 current Portfolio authority success 才允许 zero；旧 scope、loading 或 error 保持 unknown。finite non-zero 包含负净值，risk rows 不算 funded。DeFi partial failure不作为 zero gate，但 current scoped 已知非零仍可提升 positive。
+- funded latch 与 Legacy 一致，以 `concrete account.id__network.id` 隔离并在 Wallet/Account remove 时清理；wallet sticky 在 render 期按 wallet id 同步 reset，同钱包切 owner 可 bridge，换钱包不能泄漏旧 positive。
+- unknown 保持 semantic unknown，因此 banner 不提前；presentation 降级为 standard actions，避免 62pt 空槽。zero 使用原版 `ZeroBalanceWalletActions`，Native slot 只补轻量 `HomeTokenListProviderMirrorWrapper`，不复制 Receive/More 业务、埋点、pressed 或 accessibility。
+- banner hook 继续挂载取数和 cache，只有 positive 才向 Native header DTO 提交。zero action layout 用显式 `actionLayout=zeroBalance` 与 82pt row；普通 actions 仍 62pt，TS/iOS/Android schema兼容。
+- default-token map 首次失败会安全降级为不隐藏零余额并每 3 秒重试；timer 可取消、旧 generation 丢弃，失败不会写 balance authority。custom token projection复用 Native Portfolio 已有 raw owner，避免再挂重型 `useTokenManagement` fan-out。
+- All Networks cache、progressive、final 三路统一复用 Legacy canonical response projection：same-network derive merge、aggregate fold、vault round flag与 row `mergeAssets` 同时成立、仅按 canonical `$key` 去重；regular/small/risk 三 map 分桶独立。aggregate config 缺失时先 `syncWalletConfig()` 再重读。该修复消除了 BNB 后重复 BTC，禁止用 symbol/address heuristic 吞合法同名资产。
+- iOS 17.4+ unified driver保留 transition max range与 per-tab offset，目标 offset在 settle前捕获并按 target max原子提交；底部 inset从原默认约172收敛到约136并保留至少112安全下限。iOS 17.4 以下仍走旧 nested fallback。
+- 持续空白的最终根因不是 offset：目标页 chrome已回顶部，但 empty/loading row 在 mounted state slot key变化时 row id/content signature不变，diffable未把透明 `HomeContainerItemCell` 换成 `HomeContainerSlotHostCell`，RN slot一直停在 hidden parking view。最终修复对 old/new `content.state.<tabId>` symmetric diff涉及的现存 empty/loading row执行明确 `reloadItems`；与 reconfigure集合排他，mount/unmount双向生效，apply completion后重建 visible slot host并回调 layout。
+
+### 失败轮次与重新分析
+
+- Round1：Build/静态测试均绿，但真机约10秒出现 `useContextStore ERROR: store not initialized`；同时 BNB 后重复 BTC。修复为轻量 provider mirror和 response-level canonical projection，未用渲染层 symbol去重。
+- Round2：Render Error和重复BTC已消失，但 zero actions长期缺失、保留约360px空槽。真实 Debug日志证明 DeFi 14 child中10成功、4个业务码40111；自定义“所有Portfolio+DeFi+Perps都成功才zero”偏离 Legacy。无本机证据的 Perps/bg/shared试验改动已精确撤销，最终使用上述Legacy exact-owner contract；没有硬编码40111为 authoritative empty。
+- Round3/Round4：zero顶部和按钮通过，但 Spot底部切Perps仍persistent blank。截图中Search/Account/Tabs完整展开，反证outer仍在Spot底部；随后从cell class、mountedSlotKeys、diffable signature与hidden parking链路重新定位并修复，不再继续猜scroll约束。
+- 每轮 Fail 后都停止完整矩阵、保留录屏/截图并由编写 subagent修、独立代码 subagent复核，再重新 `yarn app:ios`。编译通过、元素存在或源代码推断从未代替真实 UI。
+
+### Round5 最终 Debug UIKit 验收
+
+- 标准 `yarn app:ios` Debug Build Succeeded（0 errors / 13 warnings），由该命令更新安装并启动 `so.onekey.wallet`。应用保持 foreground，钱包仍为同一已备份 `Account #1 / $0.00`，数据正常；没有 Release、自定义 xcodebuild或关闭签名。
+- 20秒 smoke：zero说明、主 Add money、icon-only More均可见；无banner、无大块空槽、BTC/USDT/USDC/ETH/SOL/BNB各一次；无全屏Render Error。Add money真实打开Receive全屏并返回，More真实打开sheet并关闭，无冒泡误触。
+- Spot在Help center触底切Perps：first立即出现Perps chrome/Hot Markets/View more/slot，3s/10s显示真实rows；不再parking blank。回Spot保留Help center底部offset。第二轮Spot/Perps/DeFi/NFT/History均直接显示各自内容并保留per-tab offset。
+- DeFi first/settled显示`$0.00 / Start earning`，NFT显示`No NFTs`，History显示`No activity yet / Block explorer`。History footer和功能不再缺失。
+- Header、body、Support区域上下fling都有手指离开后的连续位移；从Support回Market/Tokens、再从header/body上滑到Help center均无跳顶或惯性丢失。
+- bottom clearance与Legacy并排约同为40个截图物理像素，Help center无遮挡。top/bottom与Perps/DeFi/NFT/History first/settled共10组402 A/B和diff、531.5秒录屏/contact sheet、`round5-verification.json`均位于 `.tmp/ui/native-home-mounted-slot-round5-20260719/`。
+- main Debug runtime transport ready，bg为独立Debug runtime并ready；main/bg是独立Hermes heap、独立初始化，main ready不能代替bg ready。main负责balance presentation、Native Home snapshot/section/slot、per-tab offset与UIKit view状态；bg负责wallet backup状态、Token/DeFi/Perps/Market服务与权威持久化。
+- DB/MMKV/file handles、图片/字体cache和Native singleton为进程级共享资源；proxy DTO在main/bg各自序列化/反序列化。UIKit constraint、diffable snapshot、mounted slot host、scroll/offset、pressed/selected、represented image signature与request cancellation属于per-view状态。
+
+### 仍需保持 Partial 的范围
+
+- Round5只覆盖iPhone 17 Pro / iOS 26.5 / Dark mode / 当前已备份All Networks `$0` HD钱包。Light、Dynamic Type Large/XXXL、Android真实Debug、fresh/no-wallet、单链有钱、正余额未备份、Keyless/imported/hardware以及其它服务错误矩阵仍不能声明通过。
+- Native目前只读既有 exact-owner `lastConfirmedOverviewBalance.byOwner`，没有新增 Native-only fully-confirmed combined-total writer。无cache时可靠依赖current Portfolio authority；DeFi-only/Perps-only且失败child隐藏真实资产时，zero判定按本轮真实Legacy parity而不是更严格全资产authority。未来若新增writer，必须只在current-owner fully confirmed后按USD写入，partial failure不得覆盖旧positive。
+- 标准launch约5秒曾出现一次自行消失的Debug-only toast（`OneKeyLocalError: screen component-Navi...`/debugger warning），20秒消失，Add money/More交互未再次触发；本轮未把它归为zero-home产品阻断，但继续保留在Round3证据中。

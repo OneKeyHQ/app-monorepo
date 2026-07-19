@@ -50,6 +50,8 @@ internal data class HomeContainerHeader(
   val balanceSecondary: String,
   val balanceActionId: String,
   val balanceActions: List<HomeContainerAction>,
+  val actionLayout: String,
+  val actionRowHeight: Int,
   val actions: List<HomeContainerAction>,
   val banners: List<HomeContainerBanner>,
 )
@@ -179,6 +181,8 @@ internal object HomeContainerJson {
     balanceSecondary = value.optString("balanceSecondary"),
     balanceActionId = value.optString("balanceActionId"),
     balanceActions = value.optJSONArray("balanceActions")?.mapObjects(::parseAction) ?: emptyList(),
+    actionLayout = value.optString("actionLayout", "standard"),
+    actionRowHeight = value.optInt("actionRowHeight", 62),
     actions = value.getJSONArray("actions").mapObjects(::parseAction),
     banners = value.getJSONArray("banners").mapObjects { banner ->
       HomeContainerBanner(

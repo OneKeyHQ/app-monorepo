@@ -371,6 +371,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
               styles.slot,
               getSlotLayoutStyle(key),
               getSlotWidthStyle(key, windowWidth),
+              slot.height === undefined ? undefined : { height: slot.height },
               { backgroundColor },
             ]}
           >

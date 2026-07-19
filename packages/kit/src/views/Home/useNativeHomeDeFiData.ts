@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -21,11 +22,26 @@ import type {
 import { useAllNetworkRequests } from '../../hooks/useAllNetwork';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 
+import {
+  createNativeHomeAllNetworkRequestOutcome,
+  filterNativeHomeAllNetworkAuthoritativeResponses,
+  recordNativeHomeAllNetworkFailure,
+  recordNativeHomeAllNetworkResponse,
+  resolveNativeHomeAllNetworkAuthorityStatus,
+} from './nativeHomeAllNetworkAuthority';
+import {
+  type INativeHomeBalanceAuthority,
+  type INativeHomeBalanceAuthorityToken,
+  buildNativeHomeBalanceScopeKey,
+  useNativeHomeBalanceAuthorityOwner,
+} from './nativeHomeBalanceAuthority';
+
 type INativeHomeDeFiResponse = Awaited<
   ReturnType<typeof backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions>
 >;
 
 export interface INativeHomeDeFiData {
+  balanceAuthority: INativeHomeBalanceAuthority;
   errorCode: string | undefined;
   initialized: boolean;
   isRefreshing: boolean;
@@ -71,6 +87,25 @@ export function useNativeHomeDeFiData({
   const networkId = network?.id;
   const walletId = wallet?.id;
   const isAllNetworks = Boolean(network?.isAllNetworks);
+  const balanceScopeKey = buildNativeHomeBalanceScopeKey({
+    accountId,
+    networkId,
+    walletId,
+  });
+  const {
+    authority: balanceAuthority,
+    begin: beginBalanceAuthority,
+    settle: settleBalanceAuthority,
+  } = useNativeHomeBalanceAuthorityOwner(balanceScopeKey);
+  const allNetworkAuthorityTokenRef = useRef<
+    INativeHomeBalanceAuthorityToken | undefined
+  >(undefined);
+  const allNetworkRequestOutcomeRef = useRef(
+    createNativeHomeAllNetworkRequestOutcome(),
+  );
+  const allNetworkExpectedRequestCountRef = useRef(0);
+  const allNetworkEmptyAccountsResolvedRef = useRef(false);
+  const allNetworkStartedSucceededRef = useRef(false);
   const sourceCurrencyInfo = currencyMap[settings.currencyInfo.id];
   const targetCurrencyInfo = currencyMap.usd;
 
@@ -95,6 +130,7 @@ export function useNativeHomeDeFiData({
       }
       requestIdRef.current += 1;
       const requestId = requestIdRef.current;
+      const authorityToken = beginBalanceAuthority();
       setIsRefreshing(true);
       setErrorCode(undefined);
       try {
@@ -113,11 +149,13 @@ export function useNativeHomeDeFiData({
           setProtocols(response.protocols);
           setProtocolMap(response.protocolMap);
           setInitialized(true);
+          settleBalanceAuthority(authorityToken, 'success');
         }
       } catch {
         if (requestIdRef.current === requestId) {
           setErrorCode('defi_fetch_failed');
           setInitialized(true);
+          settleBalanceAuthority(authorityToken, 'error');
         }
       } finally {
         if (requestIdRef.current === requestId) {
@@ -127,11 +165,13 @@ export function useNativeHomeDeFiData({
     },
     [
       accountId,
+      beginBalanceAuthority,
       enabled,
       indexedAccountId,
       isAllNetworks,
       networkId,
       sourceCurrencyInfo,
+      settleBalanceAuthority,
       targetCurrencyInfo,
     ],
   );
@@ -145,21 +185,36 @@ export function useNativeHomeDeFiData({
       accountId: string;
       networkId: string;
       allNetworkDataInit?: boolean;
-    }) =>
-      backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
-        accountId: childAccountId,
-        indexedAccountId,
-        networkId: childNetworkId,
-        isAllNetworks: true,
-        allNetworksAccountId: accountId,
-        allNetworksNetworkId: networkId,
-        saveToLocal: true,
-        excludeLowValueProtocols: true,
-        sourceCurrencyInfo,
-        targetCurrencyInfo,
-        isForceRefresh:
-          allNetworkForceRefreshRef.current || !allNetworkDataInit,
-      }),
+    }) => {
+      try {
+        const response =
+          await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
+            accountId: childAccountId,
+            indexedAccountId,
+            networkId: childNetworkId,
+            isAllNetworks: true,
+            allNetworksAccountId: accountId,
+            allNetworksNetworkId: networkId,
+            saveToLocal: true,
+            excludeLowValueProtocols: true,
+            sourceCurrencyInfo,
+            targetCurrencyInfo,
+            isForceRefresh:
+              allNetworkForceRefreshRef.current || !allNetworkDataInit,
+          });
+        allNetworkRequestOutcomeRef.current =
+          recordNativeHomeAllNetworkResponse(
+            allNetworkRequestOutcomeRef.current,
+            response,
+          );
+        return response;
+      } catch (error) {
+        allNetworkRequestOutcomeRef.current = recordNativeHomeAllNetworkFailure(
+          allNetworkRequestOutcomeRef.current,
+        );
+        throw error;
+      }
+    },
     [
       accountId,
       indexedAccountId,
@@ -194,6 +249,12 @@ export function useNativeHomeDeFiData({
       accountId?: string;
       networkId?: string;
     }) => {
+      allNetworkAuthorityTokenRef.current = beginBalanceAuthority();
+      allNetworkRequestOutcomeRef.current =
+        createNativeHomeAllNetworkRequestOutcome();
+      allNetworkExpectedRequestCountRef.current = 0;
+      allNetworkEmptyAccountsResolvedRef.current = false;
+      allNetworkStartedSucceededRef.current = false;
       setIsRefreshing(true);
       setErrorCode(undefined);
       if (ownerAccountId && ownerNetworkId) {
@@ -202,14 +263,33 @@ export function useNativeHomeDeFiData({
           networkId: ownerNetworkId,
         });
       }
+      allNetworkStartedSucceededRef.current = true;
+    },
+    [beginBalanceAuthority],
+  );
+  const handleAllNetworkAccountsData = useCallback(
+    ({ accounts }: { accounts: IAllNetworkAccountInfo[] }) => {
+      allNetworkExpectedRequestCountRef.current = accounts.length;
+      if (accounts.length === 0) {
+        allNetworkEmptyAccountsResolvedRef.current = true;
+      }
     },
     [],
   );
   const handleAllNetworkFinished = useCallback(async () => {
+    settleBalanceAuthority(
+      allNetworkAuthorityTokenRef.current,
+      resolveNativeHomeAllNetworkAuthorityStatus({
+        emptyAccountsResolved: allNetworkEmptyAccountsResolvedRef.current,
+        expectedRequestCount: allNetworkExpectedRequestCountRef.current,
+        outcome: allNetworkRequestOutcomeRef.current,
+        startedSucceeded: allNetworkStartedSucceededRef.current,
+      }),
+    );
     allNetworkForceRefreshRef.current = false;
     setIsRefreshing(false);
     setInitialized(true);
-  }, []);
+  }, [settleBalanceAuthority]);
 
   const {
     run: runAllNetwork,
@@ -221,6 +301,7 @@ export function useNativeHomeDeFiData({
     walletId,
     isAllNetworks,
     allNetworkRequests: fetchAllNetwork,
+    allNetworkAccountsData: handleAllNetworkAccountsData,
     clearAllNetworkData,
     disabled: !enabled,
     isDeFiRequests: true,
@@ -233,9 +314,14 @@ export function useNativeHomeDeFiData({
     if (!allNetworkResult) {
       return;
     }
+    const authoritativeResponses =
+      filterNativeHomeAllNetworkAuthoritativeResponses(allNetworkResult);
+    if (authoritativeResponses.length === 0) {
+      return;
+    }
     const nextProtocols = new Map<string, IDeFiProtocol>();
     const nextProtocolMap: Record<string, IProtocolSummary> = {};
-    allNetworkResult.forEach((response) => {
+    authoritativeResponses.forEach((response) => {
       response.protocols.forEach((item) => {
         nextProtocols.set(getProtocolKey(item), item);
       });
@@ -335,6 +421,7 @@ export function useNativeHomeDeFiData({
 
   return useMemo(
     () => ({
+      balanceAuthority,
       errorCode,
       initialized,
       isRefreshing,
@@ -344,6 +431,7 @@ export function useNativeHomeDeFiData({
       refresh,
     }),
     [
+      balanceAuthority,
       errorCode,
       initialized,
       isRefreshing,

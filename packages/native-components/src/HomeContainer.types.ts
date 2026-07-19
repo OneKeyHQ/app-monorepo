@@ -29,8 +29,11 @@ export type IHomeContainerSlotInteraction = 'none' | 'tap';
 
 export interface IHomeContainerSlot {
   content: ReactNode;
+  height?: number;
   interaction?: IHomeContainerSlotInteraction;
 }
+
+export type IHomeContainerHeaderActionLayout = 'standard' | 'zeroBalance';
 
 export type IHomeContainerItemRenderer =
   | 'action'
@@ -120,6 +123,8 @@ export interface IHomeContainerHeader {
   balanceSecondary?: string;
   balanceActionId?: string;
   balanceActions?: IHomeContainerAction[];
+  actionLayout?: IHomeContainerHeaderActionLayout;
+  actionRowHeight?: number;
   actions: IHomeContainerAction[];
   banners: IHomeContainerBanner[];
 }

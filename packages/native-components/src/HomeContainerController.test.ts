@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 import {
   HOME_CONTAINER_SCHEMA_VERSION,
   type IHomeContainerCapabilities,
@@ -271,5 +274,34 @@ describe('HomeContainerController', () => {
     expect(controller.recordSelectedTab('history')).toBe(true);
     expect(controller.getSnapshot().selectedTabId).toBe('history');
     expect(target.selectTab).not.toHaveBeenCalled();
+  });
+});
+
+describe('iOS HomeContainer slot cell-kind updates', () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, '../ios/HomeContainerView.swift'),
+    'utf8',
+  );
+
+  it('reloads state rows only when their mounted slot key changes', () => {
+    expect(source).toContain('.symmetricDifference(nextMountedSlotKeys)');
+    expect(source).toContain('reloadsStateSlotRows: reloadsStateSlotRows');
+    expect(source).toContain(
+      'nextSnapshot.reloadItems(cellUpdatePlan.reloadRowIds)',
+    );
+  });
+
+  it('keeps ordinary content updates on the reconfigure path', () => {
+    expect(source).toContain('.subtracting(reloadRowIdSet)');
+    expect(source).toContain(
+      'nextSnapshot.reconfigureItems(cellUpdatePlan.reconfigureRowIds)',
+    );
+  });
+
+  it('asks the cell provider for a slot-host cell after the reload', () => {
+    expect(source).toMatch(
+      /case \.item\(let item\):[\s\S]*?if let key = self\.slotKey\(for: row\)[\s\S]*?"slot-host"/,
+    );
+    expect(source).toContain('self?.refreshVisibleSlotHosts()');
   });
 });

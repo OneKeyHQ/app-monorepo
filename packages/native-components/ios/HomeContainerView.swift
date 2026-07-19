@@ -1,6 +1,9 @@
 import UIKit
 
 private enum HomeContainerMetrics {
+  // Provisional same-state Legacy/Native A/B measurements. Debug UI verification remains authoritative.
+  static let legacyABUnifiedBottomInsetReduction: CGFloat = 36
+
   static var contentSizeScale: CGFloat {
     let scaled = UIFontMetrics(forTextStyle: .body).scaledValue(for: 1)
     return min(max(scaled, 1), 1.4)
@@ -14,6 +17,7 @@ private enum HomeContainerMetrics {
   static var compactHeaderHeight: CGFloat { scaledHeight(60, maximumScale: 1.25) }
   static var compactAccountTopInset: CGFloat { scaledHeight(16, maximumScale: 1.25) }
   static var headerBottomPadding: CGFloat { scaledHeight(40, maximumScale: 1.25) }
+  static var legacyABZeroBalanceActionTrailingCompaction: CGFloat { scaledHeight(14) }
   static var rowHeight: CGFloat { scaledHeight(68) }
   static var nftRowHeight: CGFloat { scaledHeight(92) }
   static var emptyRowHeight: CGFloat { scaledHeight(108) }
@@ -169,6 +173,44 @@ private enum HomeContainerIcons {
       path.fill()
     }.withRenderingMode(.alwaysTemplate)
   }()
+}
+
+struct HomeContainerSlotCellUpdatePlan: Equatable {
+  let reloadRowIds: [String]
+  let reconfigureRowIds: [String]
+}
+
+enum HomeContainerSlotCellUpdatePlanner {
+  static func stateSlotCellKindChanged(
+    previousMountedSlotKeys: Set<String>,
+    nextMountedSlotKeys: Set<String>,
+    tabId: String
+  ) -> Bool {
+    previousMountedSlotKeys
+      .symmetricDifference(nextMountedSlotKeys)
+      .contains("content.state.\(tabId)")
+  }
+
+  static func makePlan(
+    currentRowIds: [String],
+    existingRowIds: Set<String>,
+    stateRowIds: Set<String>,
+    changedRowIds: Set<String>,
+    reloadsStateSlotRows: Bool
+  ) -> HomeContainerSlotCellUpdatePlan {
+    let currentRowIdSet = Set(currentRowIds)
+    let reloadRowIdSet = reloadsStateSlotRows
+      ? stateRowIds.intersection(existingRowIds).intersection(currentRowIdSet)
+      : []
+    let reconfigureRowIdSet = changedRowIds
+      .intersection(existingRowIds)
+      .intersection(currentRowIdSet)
+      .subtracting(reloadRowIdSet)
+    return HomeContainerSlotCellUpdatePlan(
+      reloadRowIds: currentRowIds.filter(reloadRowIdSet.contains),
+      reconfigureRowIds: currentRowIds.filter(reconfigureRowIdSet.contains)
+    )
+  }
 }
 
 private struct HomeContainerRow {
@@ -573,6 +615,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private var pagerTransitionState = PagerTransitionState.idle
   private var pendingPagerNotify = false
   private var isCoordinatingNestedScroll = false
+  private var isSynchronizingUnifiedVerticalPage = false
   private var verticalScrollOwner = VerticalScrollOwner.header
   private var isVerticalGestureActive = false
 
@@ -949,11 +992,12 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private func moveToTab(_ tabId: String, animated: Bool, notify: Bool) {
     guard let index = pages.firstIndex(where: { $0.tabId == tabId }) else { return }
     guard pagerTransitionState == .idle else { return }
+    let targetPage = pages[index]
     preparePagesForPagerTransition()
     pagerTransitionState = .settling(targetIndex: index)
     pendingPagerNotify = notify
     if usesUnifiedVerticalDriver {
-      updateUnifiedVerticalContentSize(source: pages[index])
+      updateUnifiedVerticalContentSize(source: targetPage)
     }
     let targetOffset = CGPoint(x: CGFloat(index) * pager.bounds.width, y: 0)
     pager.setContentOffset(targetOffset, animated: animated)
@@ -1022,14 +1066,23 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       0,
       min(pages.count - 1, Int(round(pager.contentOffset.x / pager.bounds.width)))
     )
-    let nextTabId = pages[index].tabId
+    let targetPage = pages[index]
+    targetPage.layoutIfNeeded()
+    let preservedTargetBodyOffset = max(
+      0,
+      min(targetPage.bodyContentOffset, targetPage.maximumBodyContentOffset)
+    )
+    let nextTabId = targetPage.tabId
     let didChangeTab = nextTabId != selectedTabId
     pagerTransitionState = .idle
     pendingPagerNotify = false
     selectedTabId = nextTabId
     updateSelectedTab(nextTabId)
     if usesUnifiedVerticalDriver {
-      synchronizeUnifiedVerticalPage(source: pages[index])
+      synchronizeUnifiedVerticalPage(
+        source: targetPage,
+        preservedBodyOffset: preservedTargetBodyOffset
+      )
     } else {
       synchronizeVerticalScrollOwner(source: pages[index])
       coordinateNestedScroll(source: pages[index])
@@ -1057,7 +1110,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       headerView.transform = compensation
       tabsView.transform = compensation
       pager.transform = compensation
-      pages.first(where: { $0.tabId == selectedTabId })?.setBodyContentOffset(bodyOffset)
+      if !isSynchronizingUnifiedVerticalPage {
+        pages.first(where: { $0.tabId == selectedTabId })?.setBodyContentOffset(bodyOffset)
+      }
     }
     outerScrollView.bringSubviewToFront(tabsView)
   }
@@ -1090,13 +1145,22 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     }
   }
 
-  private func synchronizeUnifiedVerticalPage(source: HomeContainerPageView) {
+  private func synchronizeUnifiedVerticalPage(
+    source: HomeContainerPageView,
+    preservedBodyOffset: CGFloat? = nil
+  ) {
     guard usesUnifiedVerticalDriver, source.tabId == selectedTabId else { return }
+    isSynchronizingUnifiedVerticalPage = true
+    defer { isSynchronizingUnifiedVerticalPage = false }
     updateUnifiedVerticalContentSize(source: source)
-    let bodyOffset = max(0, min(source.bodyContentOffset, source.maximumBodyContentOffset))
+    let bodyOffset = max(
+      0,
+      min(preservedBodyOffset ?? source.bodyContentOffset, source.maximumBodyContentOffset)
+    )
     let headerOffset = bodyOffset > 0.5
       ? maximumHeaderOffset
       : max(0, min(outerScrollView.contentOffset.y, maximumHeaderOffset))
+    source.setBodyContentOffset(bodyOffset)
     outerScrollView.contentOffset.y = headerOffset + bodyOffset
     updateSharedChromeLayout()
   }
@@ -1341,11 +1405,22 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
 
   func setMountedSlotKeys(_ keys: Set<String>) {
     guard mountedSlotKeys != keys else { return }
+    let reloadsStateSlotRows = HomeContainerSlotCellUpdatePlanner.stateSlotCellKindChanged(
+      previousMountedSlotKeys: mountedSlotKeys,
+      nextMountedSlotKeys: keys,
+      tabId: tabId
+    )
+    if reloadsStateSlotRows {
+      visibleSlotHosts.removeValue(forKey: "content.state.\(tabId)")
+    }
     mountedSlotKeys = keys
-    rebuildRows()
+    rebuildRows(reloadsStateSlotRows: reloadsStateSlotRows)
   }
 
-  private func rebuildRows(forceReconfigureAll: Bool = false) {
+  private func rebuildRows(
+    forceReconfigureAll: Bool = false,
+    reloadsStateSlotRows: Bool = false
+  ) {
     var rows: [HomeContainerRow] = []
     if mountedSlotKeys.contains("content.header.\(tabId)"),
        HomeContainerMetrics.contentHeaderHeight(tabId: tabId) != nil {
@@ -1417,10 +1492,26 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
             previous.contentSignature != row.contentSignature else { return nil }
       return row.id
     }
+    let existingRowIds = Set(dataSource.snapshot().itemIdentifiers)
+    let stateRowIds = Set(rows.compactMap { row -> String? in
+      guard case .item(let item) = row.kind,
+            item.renderer == "empty" || item.renderer == "loading" else { return nil }
+      return row.id
+    })
+    let cellUpdatePlan = HomeContainerSlotCellUpdatePlanner.makePlan(
+      currentRowIds: rows.map(\.id),
+      existingRowIds: existingRowIds,
+      stateRowIds: stateRowIds,
+      changedRowIds: Set(changedIds),
+      reloadsStateSlotRows: reloadsStateSlotRows
+    )
     if #available(iOS 15.0, *) {
-      nextSnapshot.reconfigureItems(changedIds)
+      nextSnapshot.reloadItems(cellUpdatePlan.reloadRowIds)
+      nextSnapshot.reconfigureItems(cellUpdatePlan.reconfigureRowIds)
     } else {
-      nextSnapshot.reloadItems(changedIds)
+      nextSnapshot.reloadItems(
+        cellUpdatePlan.reloadRowIds + cellUpdatePlan.reconfigureRowIds
+      )
     }
     let isMarketMutation = shouldAnimateMarketMutation(
       previousRows: previousRows,
@@ -1447,11 +1538,14 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     }
     dataSource.apply(
       nextSnapshot,
-      animatingDifferences: animatesMarketMutation || animatesPortfolioDeFiMutation
+      animatingDifferences: cellUpdatePlan.reloadRowIds.isEmpty &&
+        (animatesMarketMutation || animatesPortfolioDeFiMutation)
     ) { [weak self] in
       DispatchQueue.main.async {
         self?.restorePinnedMarketMutationContentOffset()
         self?.pinnedMarketMutationContentOffsetY = nil
+        self?.tableView.layoutIfNeeded()
+        self?.refreshVisibleSlotHosts()
         self?.onSlotLayoutChange?()
       }
     }
@@ -1503,6 +1597,17 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     suppressContentOffsetCallback = false
   }
 
+  private func refreshVisibleSlotHosts() {
+    var nextVisibleSlotHosts: [String: HomeContainerSlotHostView] = [:]
+    tableView.visibleCells.forEach { cell in
+      guard let slotCell = cell as? HomeContainerSlotHostCell,
+            !slotCell.slotKey.isEmpty,
+            mountedSlotKeys.contains(slotCell.slotKey) else { return }
+      nextVisibleSlotHosts[slotCell.slotKey] = slotCell.slotHostView
+    }
+    visibleSlotHosts = nextVisibleSlotHosts
+  }
+
   func slotHostView(forKey key: String) -> UIView? {
     guard key.contains(".\(tabId)") else { return nil }
     return visibleSlotHosts[key]
@@ -1523,10 +1628,15 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   }
 
   func setUnifiedVerticalDriverEnabled(_ enabled: Bool) {
-    // The unified pager remains one compact-header height taller than the visible
-    // viewport after the shared chrome collapses, so keep the final row above the
-    // floating app tab bar by compensating for that off-screen portion as well.
-    let bottomInset = 112 + (enabled ? HomeContainerMetrics.compactHeaderHeight : 0)
+    // Keep the floating-tab-bar clearance, but do not reserve the entire compact
+    // header again. The unified viewport already accounts for most of that
+    // collapsed region; only the measured residual is needed at the settled end.
+    let unifiedInset = max(
+      112,
+      112 + HomeContainerMetrics.compactHeaderHeight -
+        HomeContainerMetrics.legacyABUnifiedBottomInsetReduction
+    )
+    let bottomInset = enabled ? unifiedInset : 112
     tableView.contentInset.bottom = bottomInset
     tableView.verticalScrollIndicatorInsets.bottom = bottomInset
     tableView.isScrollEnabled = !enabled
@@ -1610,7 +1720,8 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   ) {
     cell.homeContainerEnableDynamicTypeRecursively()
     if let slotCell = cell as? HomeContainerSlotHostCell,
-       !slotCell.slotKey.isEmpty {
+       !slotCell.slotKey.isEmpty,
+       mountedSlotKeys.contains(slotCell.slotKey) {
       visibleSlotHosts[slotCell.slotKey] = slotCell.slotHostView
       DispatchQueue.main.async { [weak self] in
         self?.onSlotLayoutChange?()
@@ -2047,13 +2158,16 @@ private final class HomeContainerHeaderView: UIView {
     updateBalanceActions(header.balanceActions ?? [], theme: theme)
     updateActions(header.actions, theme: theme)
     updateBanners(header.banners, theme: theme)
+    let actionRowHeight = max(0, header.actionRowHeight ?? 62)
+    actionsScrollHeightConstraint.constant = HomeContainerMetrics.scaledHeight(actionRowHeight)
     actionsScroll.isHidden = header.actions.isEmpty
     bannersScroll.isHidden = header.banners.isEmpty
     let balanceActionsHeight: CGFloat = (header.balanceActions ?? []).isEmpty ? 0 : 38
+    let actionHeightAdjustment = preferredHeightAdjustment(for: header)
     preferredHeight = HomeContainerMetrics.scaledHeight(
       header.banners.isEmpty ? 216 : 310
     ) + HomeContainerMetrics.scaledHeight(balanceActionsHeight) +
-      HomeContainerMetrics.headerBottomPadding
+      HomeContainerMetrics.headerBottomPadding + actionHeightAdjustment
     homeContainerEnableDynamicTypeRecursively()
   }
 
@@ -2061,17 +2175,32 @@ private final class HomeContainerHeaderView: UIView {
     accountRowHeightConstraint.constant = HomeContainerMetrics.scaledHeight(32)
     balanceHeightConstraint.constant = HomeContainerMetrics.scaledHeight(58, maximumScale: 1.3)
     balanceActionsHeightConstraint.constant = HomeContainerMetrics.scaledHeight(28)
-    actionsScrollHeightConstraint.constant = HomeContainerMetrics.scaledHeight(62)
+    actionsScrollHeightConstraint.constant = HomeContainerMetrics.scaledHeight(
+      max(0, header?.actionRowHeight ?? 62)
+    )
     bannersScrollHeightConstraint.constant = HomeContainerMetrics.scaledHeight(88)
     if let header {
       let balanceActionsHeight: CGFloat = (header.balanceActions ?? []).isEmpty ? 0 : 38
+      let actionHeightAdjustment = preferredHeightAdjustment(for: header)
       preferredHeight = HomeContainerMetrics.scaledHeight(
         header.banners.isEmpty ? 216 : 310
       ) + HomeContainerMetrics.scaledHeight(balanceActionsHeight) +
-        HomeContainerMetrics.headerBottomPadding
+        HomeContainerMetrics.headerBottomPadding + actionHeightAdjustment
     }
     homeContainerEnableDynamicTypeRecursively()
     setNeedsLayout()
+  }
+
+  private func preferredHeightAdjustment(for header: HomeContainerHeader) -> CGFloat {
+    let actionHeightDelta = HomeContainerMetrics.scaledHeight(
+      max(0, (header.actionRowHeight ?? 62) - 62)
+    )
+    guard header.actionLayout == "zeroBalance" else { return actionHeightDelta }
+    return max(
+      0,
+      actionHeightDelta -
+        HomeContainerMetrics.legacyABZeroBalanceActionTrailingCompaction
+    )
   }
 
   deinit {

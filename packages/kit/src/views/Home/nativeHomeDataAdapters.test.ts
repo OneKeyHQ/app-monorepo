@@ -1,3 +1,4 @@
+import { buildHomeDefaultTokenMapKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -109,6 +110,100 @@ describe('nativeHomeDataAdapters', () => {
       expanded: true,
     });
     expect(expandedSections[0].items).toHaveLength(7);
+  });
+
+  it('keeps the same zero-balance default aggregate tokens as legacy Home', () => {
+    const tokens = ['BTC', 'USDT', 'OTHER'].map(
+      (symbol) =>
+        ({
+          $key: `aggregate_${symbol.toLowerCase()}`,
+          address: '',
+          decimals: 18,
+          isAggregateToken: true,
+          isNative: false,
+          name: symbol,
+          networkId: 'onekeyall--0',
+          symbol,
+        }) satisfies IAccountToken,
+    );
+    const tokenMap = Object.fromEntries(
+      tokens.map((token) => [
+        token.$key,
+        {
+          balance: '0',
+          balanceParsed: '0',
+          fiatValue: '0',
+          price: 1,
+        } satisfies ITokenFiat,
+      ]),
+    );
+
+    const sections = buildNativePortfolioSections({
+      tokens,
+      tokenMap,
+      initialized: true,
+      hideZeroBalanceTokens: true,
+      homeDefaultTokenMap: {
+        [buildHomeDefaultTokenMapKey({
+          networkId: 'onekeyall--0',
+          symbol: 'BTC',
+        })]: {
+          symbol: 'BTC',
+          networkId: 'onekeyall--0',
+          logoURI: '',
+          order: 1,
+        },
+        [buildHomeDefaultTokenMapKey({
+          networkId: 'onekeyall--0',
+          symbol: 'USDT',
+        })]: {
+          symbol: 'USDT',
+          networkId: 'onekeyall--0',
+          logoURI: '',
+          order: 2,
+        },
+      },
+      stateLabels,
+      formatters,
+    });
+
+    expect(sections[0].items.map((item) => item.id)).toEqual([
+      'aggregate_btc',
+      'aggregate_usdt',
+    ]);
+  });
+
+  it('keeps a zero-balance custom token under the legacy hide-zero predicate', () => {
+    const customToken = {
+      $key: 'custom_token',
+      address: '0x1234',
+      decimals: 18,
+      isNative: false,
+      name: 'Custom Token',
+      networkId: 'evm--1',
+      symbol: 'CUSTOM',
+    } satisfies IAccountToken;
+
+    const sections = buildNativePortfolioSections({
+      tokens: [customToken],
+      tokenMap: {
+        [customToken.$key]: {
+          balance: '0',
+          balanceParsed: '0',
+          fiatValue: '0',
+          price: 0,
+        },
+      },
+      initialized: true,
+      hideZeroBalanceTokens: true,
+      customTokens: [customToken],
+      stateLabels,
+      formatters,
+    });
+
+    expect(sections[0].items.map((item) => item.id)).toEqual([
+      customToken.$key,
+    ]);
   });
 
   it('matches the legacy Home fiat-value order before applying the row limit', () => {
