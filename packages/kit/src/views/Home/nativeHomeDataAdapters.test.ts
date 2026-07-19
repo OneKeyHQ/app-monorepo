@@ -357,30 +357,53 @@ describe('nativeHomeDataAdapters', () => {
     expect(expanded[1].items[0]).toMatchObject({ title: 'Show less' });
   });
 
-  it('preserves loading and empty as explicit native rows', () => {
-    expect(
-      buildNativeNFTSections({
-        nfts: [],
-        initialized: false,
-        sectionTitle: 'NFTs',
-        stateLabels,
-      })[0].items[0],
-    ).toMatchObject({
+  it('preserves loading and empty on one stable native state row', () => {
+    const loading = buildNativeNFTSections({
+      nfts: [],
+      initialized: false,
+      sectionTitle: 'NFTs',
+      stateLabels,
+    })[0].items[0];
+    const empty = buildNativeNFTSections({
+      nfts: [],
+      initialized: true,
+      sectionTitle: 'NFTs',
+      stateLabels,
+    })[0].items[0];
+
+    expect(loading).toMatchObject({
+      id: 'nft-state:state',
       renderer: 'loading',
       title: 'Loading',
       displayHeight: 760,
     });
-    expect(
-      buildNativeNFTSections({
-        nfts: [],
-        initialized: true,
-        sectionTitle: 'NFTs',
-        stateLabels,
-      })[0].items[0],
-    ).toMatchObject({
+    expect(empty).toMatchObject({
+      id: 'nft-state:state',
       renderer: 'empty',
       title: 'Empty',
       displayHeight: 320,
+    });
+  });
+
+  it('reserves the Perps empty state height for state and recommendations only', () => {
+    expect(
+      buildNativePerpsSections({
+        initialized: true,
+        view: undefined,
+        labels: {
+          long: 'Long',
+          margin: 'Margin',
+          pnl: 'PnL',
+          positions: 'Positions',
+          short: 'Short',
+        },
+        stateLabels,
+        formatters,
+      })[0].items[0],
+    ).toMatchObject({
+      id: 'perps-state:state',
+      renderer: 'empty',
+      displayHeight: 560,
     });
   });
 

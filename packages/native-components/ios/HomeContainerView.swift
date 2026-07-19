@@ -213,6 +213,19 @@ enum HomeContainerSlotCellUpdatePlanner {
   }
 }
 
+private enum HomeContainerAccessibilityIdentifier {
+  static func tabIdentifier(for tabId: String) -> String {
+    switch tabId {
+    case "portfolio": return "native-home-tab-spot"
+    case "perps": return "native-home-tab-perps"
+    case "defi": return "native-home-tab-defi"
+    case "nft": return "native-home-tab-nft"
+    case "history": return "native-home-tab-history"
+    default: return "native-home-tab-\(tabId)"
+    }
+  }
+}
+
 private struct HomeContainerRow {
   enum Kind {
     case grid([HomeContainerItem])
@@ -1530,6 +1543,10 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
       previousRows: previousRows,
       nextRows: rowsById
     )
+    let updatesStateRowHeight = stateRowHeightChanged(
+      previousRows: previousRows,
+      nextRows: rowsById
+    )
     if isMarketMutation,
        !tableView.isTracking,
        !tableView.isDragging,
@@ -1542,11 +1559,18 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
         (animatesMarketMutation || animatesPortfolioDeFiMutation)
     ) { [weak self] in
       DispatchQueue.main.async {
-        self?.restorePinnedMarketMutationContentOffset()
-        self?.pinnedMarketMutationContentOffsetY = nil
-        self?.tableView.layoutIfNeeded()
-        self?.refreshVisibleSlotHosts()
-        self?.onSlotLayoutChange?()
+        guard let self else { return }
+        self.restorePinnedMarketMutationContentOffset()
+        self.pinnedMarketMutationContentOffsetY = nil
+        if updatesStateRowHeight {
+          UIView.performWithoutAnimation {
+            self.tableView.beginUpdates()
+            self.tableView.endUpdates()
+          }
+        }
+        self.tableView.layoutIfNeeded()
+        self.refreshVisibleSlotHosts()
+        self.onSlotLayoutChange?()
       }
     }
     restorePinnedMarketMutationContentOffset()
@@ -1576,6 +1600,24 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   ) -> Bool {
     let structuralIds = Set(previousRows.keys).symmetricDifference(nextRows.keys)
     return !structuralIds.isEmpty && structuralIds.allSatisfy(isPortfolioDeFiMutationRowId)
+  }
+
+  private func stateRowHeightChanged(
+    previousRows: [String: HomeContainerRow],
+    nextRows: [String: HomeContainerRow]
+  ) -> Bool {
+    nextRows.contains { id, nextRow in
+      guard let previousRow = previousRows[id],
+            case .item(let previousItem) = previousRow.kind,
+            case .item(let nextItem) = nextRow.kind,
+            previousItem.renderer == "empty" || previousItem.renderer == "loading",
+            nextItem.renderer == "empty" || nextItem.renderer == "loading" else {
+        return false
+      }
+      let previousHeight = previousItem.displayHeight ?? HomeContainerMetrics.emptyRowHeight
+      let nextHeight = nextItem.displayHeight ?? HomeContainerMetrics.emptyRowHeight
+      return abs(previousHeight - nextHeight) > 0.5
+    }
   }
 
   private func isMarketMutationRowId(_ id: String) -> Bool {
@@ -2972,6 +3014,7 @@ private final class HomeContainerTabsView: UIView {
 
   override init(frame: CGRect) {
     super.init(frame: frame)
+    isAccessibilityElement = false
     scrollView.showsHorizontalScrollIndicator = false
     scrollView.alwaysBounceHorizontal = true
     scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -3042,7 +3085,9 @@ private final class HomeContainerTabsView: UIView {
       button.titleLabel?.numberOfLines = 1
       button.titleLabel?.adjustsFontSizeToFitWidth = true
       button.titleLabel?.minimumScaleFactor = 0.85
-      button.accessibilityIdentifier = "HomeContainer.Tab.\(tab.id)"
+      button.accessibilityLabel = tab.title
+      button.accessibilityIdentifier =
+        HomeContainerAccessibilityIdentifier.tabIdentifier(for: tab.id)
       button.layer.cornerRadius = 12
       button.addAction(UIAction { [weak self] _ in self?.onSelect?(tab.id) }, for: .touchUpInside)
       button.alpha = 1
@@ -3098,6 +3143,11 @@ private final class HomeContainerTabsView: UIView {
     guard let theme else { return }
     for (tabId, button) in buttons {
       let isSelected = tabId == selectedTabId
+      if isSelected {
+        button.accessibilityTraits.insert(.selected)
+      } else {
+        button.accessibilityTraits.remove(.selected)
+      }
       let color = isSelected
         ? UIColor(homeContainerColor: theme.primaryTextColor, fallback: .label)
         : UIColor(homeContainerColor: theme.secondaryTextColor, fallback: .secondaryLabel)

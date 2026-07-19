@@ -298,10 +298,67 @@ describe('iOS HomeContainer slot cell-kind updates', () => {
     );
   });
 
+  it('invalidates a stable state cell height without replacing the cell', () => {
+    expect(source).toContain(
+      'let updatesStateRowHeight = stateRowHeightChanged(',
+    );
+    expect(source).toContain('if updatesStateRowHeight {');
+    expect(source).toContain('UIView.performWithoutAnimation {');
+    expect(source).toContain('self.tableView.beginUpdates()');
+    expect(source).toContain('self.tableView.endUpdates()');
+  });
+
   it('asks the cell provider for a slot-host cell after the reload', () => {
     expect(source).toMatch(
       /case \.item\(let item\):[\s\S]*?if let key = self\.slotKey\(for: row\)[\s\S]*?"slot-host"/,
     );
-    expect(source).toContain('self?.refreshVisibleSlotHosts()');
+    expect(source).toContain('self.refreshVisibleSlotHosts()');
+  });
+});
+
+describe('iOS HomeContainer tab automation identifiers', () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, '../ios/HomeContainerView.swift'),
+    'utf8',
+  );
+  const surfaceSource = fs.readFileSync(
+    path.join(__dirname, '../ios/HomeContainerSurfaceComponentView.mm'),
+    'utf8',
+  );
+  it('maps every product tab to a stable automation identifier', () => {
+    expect(source).toContain('case "portfolio": return "native-home-tab-spot"');
+    expect(source).toContain('case "perps": return "native-home-tab-perps"');
+    expect(source).toContain('case "defi": return "native-home-tab-defi"');
+    expect(source).toContain('case "nft": return "native-home-tab-nft"');
+    expect(source).toContain(
+      'case "history": return "native-home-tab-history"',
+    );
+  });
+
+  it('keeps the product title as the accessibility label', () => {
+    expect(source).toContain('button.accessibilityLabel = tab.title');
+    expect(source).toContain(
+      'HomeContainerAccessibilityIdentifier.tabIdentifier(for: tab.id)',
+    );
+  });
+
+  it('uses natural UIKit traversal instead of a partial accessibility element list', () => {
+    expect(source).toMatch(
+      /private final class HomeContainerTabsView: UIView \{[\s\S]*?override init\(frame: CGRect\) \{[\s\S]*?isAccessibilityElement = false/,
+    );
+    expect(source).not.toContain('accessibilityElements =');
+    expect(surfaceSource).not.toContain('- (NSArray *)accessibilityElements');
+  });
+
+  it('exposes VoiceOver selection without activating UIKit selected styling', () => {
+    expect(source).not.toContain('button.isSelected = isSelected');
+    expect(source).toContain('button.accessibilityTraits.insert(.selected)');
+    expect(source).toContain('button.accessibilityTraits.remove(.selected)');
+  });
+
+  it('rebuilds buttons from the visible tab model and only selects the tab', () => {
+    expect(source).toContain('buttons.removeAll()');
+    expect(source).toContain('view.removeFromSuperview()');
+    expect(source).toContain('self?.onSelect?(tab.id)');
   });
 });

@@ -165,6 +165,7 @@ import {
   buildNativeNFTSections,
   buildNativePerpsSections,
   buildNativePortfolioSections,
+  resolveNativeHomeListStateSlot,
 } from './nativeHomeDataAdapters';
 import {
   PerpsHomeHeaderSlot,
@@ -191,14 +192,6 @@ const filterScamHistorySupportedNetworkIds = new Set(
 
 function isHomeTabId(value: string): value is IHomeContainerTabId {
   return HOME_CONTAINER_TAB_IDS.some((tabId) => tabId === value);
-}
-
-function hasNativeListState(sections: IHomeContainerSection[]): boolean {
-  return sections.some((section) =>
-    section.items.some(
-      (item) => item.renderer === 'empty' || item.renderer === 'loading',
-    ),
-  );
 }
 
 function displayNumberToString(
@@ -1341,86 +1334,91 @@ export function NativeHomePage({
         },
       };
     }
-    let content: ReactNode;
-    let hasState = false;
-    switch (activeTabId) {
-      case 'portfolio':
-        hasState = hasNativeListState(portfolioAssetSections);
-        if (!visiblePortfolioInitialized) {
-          content = <ListLoading listCount={4} />;
-        } else if (hasNoUsableWallet) {
-          content = <EmptyWallet />;
-        } else if (!account || portfolio.isEmptyAccount) {
-          content = (
-            <EmptyAccount
-              autoCreateAddress
-              createAllDeriveTypes
-              createAllEnabledNetworks
-              name={accountName ?? ''}
-              chain={network?.name ?? ''}
-              type={
-                (deriveInfo?.labelKey
-                  ? intl.formatMessage({ id: deriveInfo.labelKey })
-                  : deriveInfo?.label) ?? ''
-              }
-            />
-          );
-        } else {
-          content = <EmptyToken />;
-        }
-        break;
-      case 'perps':
-        hasState = hasNativeListState(perpsSections);
-        content =
-          perps.viewState === 'ready' ? null : (
-            <PerpsHomeStateSlot
-              viewState={perps.viewState}
-              canDeposit={perps.canDeposit}
-              isDepositDisabled={perps.isDepositDisabled}
-            />
-          );
-        break;
-      case 'defi':
-        hasState = hasNativeListState(deFiSections);
-        content = deFi.initialized ? (
-          <EmptyDeFi />
-        ) : (
-          <ListLoading listCount={4} />
-        );
-        break;
-      case 'nft':
-        hasState = hasNativeListState(nftSections);
-        content = nft.initialized ? <EmptyNFT /> : <NFTListLoadingView />;
-        break;
-      case 'history':
-        hasState = hasNativeListState(historySections);
-        content = history.initialized ? (
-          <EmptyHistory
-            showViewInExplorer
-            walletId={wallet?.id}
-            accountId={account?.id}
-            networkId={network?.id}
-            indexedAccountId={indexedAccount?.id}
-            tokenMap={portfolio.map}
-          />
-        ) : (
-          <HistoryLoadingView />
-        );
-        break;
-      default:
-        content = null;
-    }
-    if (!hasState || !content) return {};
-    return {
-      [activeTabId]: {
-        interaction: 'tap',
+    const committedTabIds = new Set(tabShells.map(({ id }) => id));
+    const slots: NonNullable<IHomeContainerSlots['contentStates']> = {};
+    const setSlot = (
+      tabId: IHomeContainerTabId,
+      sections: IHomeContainerSection[],
+      createContent: () => ReactNode,
+    ) => {
+      if (!committedTabIds.has(tabId)) {
+        return;
+      }
+      const { content, height } = resolveNativeHomeListStateSlot(
+        sections,
+        createContent,
+      );
+      slots[tabId] = {
+        height,
+        interaction: height === undefined ? 'none' : 'tap',
         content: (
           <Stack flex={1} bg="$bgApp">
             {content}
           </Stack>
         ),
-      },
+      };
     };
+
+    setSlot('portfolio', portfolioAssetSections, () => {
+      if (!visiblePortfolioInitialized) {
+        return <ListLoading listCount={4} />;
+      }
+      if (hasNoUsableWallet) {
+        return <EmptyWallet />;
+      }
+      if (!account || portfolio.isEmptyAccount) {
+        return (
+          <EmptyAccount
+            autoCreateAddress
+            createAllDeriveTypes
+            createAllEnabledNetworks
+            name={accountName ?? ''}
+            chain={network?.name ?? ''}
+            type={
+              (deriveInfo?.labelKey
+                ? intl.formatMessage({ id: deriveInfo.labelKey })
+                : deriveInfo?.label) ?? ''
+            }
+          />
+        );
+      }
+      return <EmptyToken />;
+    });
+    setSlot('perps', perpsSections, () => {
+      if (perps.viewState === 'ready') {
+        return null;
+      }
+      return (
+        <PerpsHomeStateSlot
+          viewState={perps.viewState}
+          canDeposit={perps.canDeposit}
+          isDepositDisabled={perps.isDepositDisabled}
+          isActive={activeTabId === 'perps'}
+        />
+      );
+    });
+    setSlot('defi', deFiSections, () =>
+      deFi.initialized ? <EmptyDeFi /> : <ListLoading listCount={4} />,
+    );
+    setSlot('nft', nftSections, () =>
+      nft.initialized ? <EmptyNFT /> : <NFTListLoadingView />,
+    );
+    setSlot('history', historySections, () =>
+      history.initialized ? (
+        <EmptyHistory
+          showViewInExplorer
+          isActive={activeTabId === 'history'}
+          walletId={wallet?.id}
+          accountId={account?.id}
+          networkId={network?.id}
+          indexedAccountId={indexedAccount?.id}
+          tokenMap={portfolio.map}
+        />
+      ) : (
+        <HistoryLoadingView />
+      ),
+    );
+    return slots;
   }, [
     account,
     accountName,
@@ -1445,6 +1443,7 @@ export function NativeHomePage({
     portfolio.isEmptyAccount,
     portfolio.map,
     portfolioAssetSections,
+    tabShells,
     wallet?.id,
     visiblePortfolioInitialized,
     homeWalletCapabilityTabModel.shouldCommitTabs,
@@ -1748,7 +1747,7 @@ export function NativeHomePage({
         },
       },
       perps:
-        perps.viewState === 'ready'
+        perps.viewState !== 'loading'
           ? {
               ...(shouldShowUpgrade
                 ? {
