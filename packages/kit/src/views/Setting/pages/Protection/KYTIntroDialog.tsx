@@ -27,19 +27,47 @@ import {
   isFirstLaunchAfterUpdated,
 } from '@onekeyhq/shared/src/appUpdate';
 import { RECEIVE_RISK_MONITORING_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { IReceiveKytIntroEntryPoint } from '@onekeyhq/shared/types/kyt';
+
+import {
+  type IPrimeSubscriptionPurchaseSuccessPayload,
+  getErrorMessage,
+} from '../../../Prime/primeSubscriptionPurchaseSuccess';
 
 import { promptKytNotificationPermissionIfNeeded } from './showKytNotificationPermissionDialog';
 
-const receiveKytIntroTrackingParams = {
-  featureName: EPrimeFeatures.ReceiveRiskMonitoring,
-  entryPoint: 'homeAutoIntro',
-  isPrimeActive: true,
-} as const;
+type IKytIntroActiveClaim = {
+  claimId: string;
+  entryPoint: IReceiveKytIntroEntryPoint;
+  isPresented: boolean;
+  onekeyUserId: string;
+};
+
+// The buffered purchase-success trigger for the current runtime; the claimId
+// is meaningless without the user it belongs to, so they travel as one value.
+type IKytIntroPendingPurchase = {
+  userId: string;
+  claimId?: string;
+};
+
+function buildReceiveKytIntroTrackingParams(
+  entryPoint: IReceiveKytIntroEntryPoint,
+) {
+  return {
+    featureName: EPrimeFeatures.ReceiveRiskMonitoring,
+    entryPoint,
+    isPrimeActive: true,
+  } as const;
+}
 
 const mobileFooterButtonProps = {
   flexGrow: 0,
@@ -49,7 +77,11 @@ const mobileFooterButtonProps = {
   textAlign: 'center',
 } as const;
 
-function KYTIntroDialogContent() {
+function KYTIntroDialogContent({
+  entryPoint,
+}: {
+  entryPoint: IReceiveKytIntroEntryPoint;
+}) {
   const intl = useIntl();
 
   return (
@@ -71,7 +103,7 @@ function KYTIntroDialogContent() {
         gap="$1"
         onPress={() => {
           defaultLogger.prime.usage.primeReceiveKytIntroAction({
-            ...receiveKytIntroTrackingParams,
+            ...buildReceiveKytIntroTrackingParams(entryPoint),
             action: 'learnMore',
           });
           openUrlExternal(RECEIVE_RISK_MONITORING_HELP_LINK);
@@ -113,6 +145,26 @@ function isKytBlockingRootOverlayOpen() {
   );
 }
 
+function isKytPurchaseSurfaceOpen() {
+  const rootState = rootNavigationRef.current?.getRootState();
+  if (!rootState) {
+    return true;
+  }
+  const top = rootState.routes[rootState.index ?? 0];
+  return top?.name === ERootRoutes.WebView;
+}
+
+function isKytHomeTabActuallyFocused() {
+  const rootState = rootNavigationRef.current?.getRootState();
+  const mainRoute = rootState?.routes.find(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  const tabState = mainRoute?.state as
+    | { index?: number; routes?: { name: string }[] }
+    | undefined;
+  return tabState?.routes?.[tabState.index ?? 0]?.name === ETabRoutes.Home;
+}
+
 function hasOpenBlockingDialog() {
   return getDialogInstances().some((instance) => instance.isExist());
 }
@@ -139,9 +191,18 @@ function useKYTIntroDialog() {
   // while Home is still doing its heavy cold-start render — the source of the
   // visible frame drops when both happen at once.
   const isHomeReadyRef = useRef(false);
+  const homeReadinessCleanupRef = useRef<(() => void) | undefined>(undefined);
   // True once the intro has been shown (or is mid-show) for the current Prime
   // user; reset on account switch so each user is still evaluated once.
   const dialogShownRef = useRef(false);
+  // Purchase-success prompts bypass the Home readiness gate but still share the
+  // same per-user eligibility and single-flight guards as the Home fallback.
+  const pendingPurchaseRef = useRef<IKytIntroPendingPurchase | undefined>(
+    undefined,
+  );
+  const activeClaimRef = useRef<IKytIntroActiveClaim | undefined>(undefined);
+  const isPrimeSubscriptionActiveRef = useRef(isPrimeSubscriptionActive);
+  isPrimeSubscriptionActiveRef.current = isPrimeSubscriptionActive;
   // Serializes async attempts so concurrent triggers can't open two dialogs.
   const attemptInFlightRef = useRef(false);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -159,78 +220,108 @@ function useKYTIntroDialog() {
   const onekeyUserIdRef = useRef(onekeyUserId);
   onekeyUserIdRef.current = onekeyUserId;
 
-  const showDialog = useCallback(() => {
-    defaultLogger.prime.usage.primeReceiveKytIntroShown(
-      receiveKytIntroTrackingParams,
-    );
-    Dialog.show({
-      icon: 'ShieldCheckDoneOutline',
-      title: intl.formatMessage({
-        id: ETranslations.prime_feature_receive_risk_monitoring__title,
-      }),
-      showFooter: true,
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.kyt_receive_risk_monitoring_enable__action,
-      }),
-      onCancelText: intl.formatMessage({ id: ETranslations.global_not_now }),
-      footerProps: md
-        ? {
-            flexDirection: 'column-reverse',
-            gap: '$2.5',
-            // No bottom safe-area inset here: the Dialog frame already pads by
-            // the safe-area bottom, so the footer keeps only its default "$5".
+  const showDialog = useCallback(
+    ({
+      claimId,
+      entryPoint,
+      targetUserId,
+    }: {
+      claimId: string;
+      entryPoint: IReceiveKytIntroEntryPoint;
+      targetUserId: string;
+    }) => {
+      const trackingParams = buildReceiveKytIntroTrackingParams(entryPoint);
+      defaultLogger.prime.usage.primeReceiveKytIntroShown(trackingParams);
+      Dialog.show({
+        icon: 'ShieldCheckDoneOutline',
+        title: intl.formatMessage({
+          id: ETranslations.prime_feature_receive_risk_monitoring__title,
+        }),
+        showFooter: true,
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.kyt_receive_risk_monitoring_enable__action,
+        }),
+        onCancelText: intl.formatMessage({ id: ETranslations.global_not_now }),
+        footerProps: md
+          ? {
+              flexDirection: 'column-reverse',
+              gap: '$2.5',
+              // No bottom safe-area inset here: the Dialog frame already pads by
+              // the safe-area bottom, so the footer keeps only its default "$5".
+            }
+          : undefined,
+        confirmButtonProps: md
+          ? {
+              ...mobileFooterButtonProps,
+              size: 'large',
+            }
+          : undefined,
+        cancelButtonProps: md
+          ? {
+              ...mobileFooterButtonProps,
+              mx: '$0',
+              my: '$0',
+              px: '$5',
+              py: '$3',
+              size: 'large',
+              variant: 'tertiary',
+            }
+          : undefined,
+        renderContent: <KYTIntroDialogContent entryPoint={entryPoint} />,
+        onConfirm: async (dialogInstance) => {
+          if (onekeyUserIdRef.current !== targetUserId) {
+            await dialogInstance.close({ flag: 'accountChanged' });
+            return;
           }
-        : undefined,
-      confirmButtonProps: md
-        ? {
-            ...mobileFooterButtonProps,
-            size: 'large',
-          }
-        : undefined,
-      cancelButtonProps: md
-        ? {
-            ...mobileFooterButtonProps,
-            mx: '$0',
-            my: '$0',
-            px: '$5',
-            py: '$3',
-            size: 'large',
-            variant: 'tertiary',
-          }
-        : undefined,
-      renderContent: <KYTIntroDialogContent />,
-      onConfirm: async (dialogInstance) => {
-        defaultLogger.prime.usage.primeReceiveKytIntroAction({
-          ...receiveKytIntroTrackingParams,
-          action: 'enable',
-        });
-        // Enabling here records server-side authorization; only close on success.
-        await backgroundApiProxy.serviceSetting.apiSetKytEnabled({
-          enabled: true,
-        });
-        await dialogInstance.close({ flag: 'confirm' });
-        // Close the KYT dialog first, then prompt to enable notifications so the
-        // user can actually receive high-risk push alerts.
-        await promptKytNotificationPermissionIfNeeded({ navigation, intl });
-      },
-      onClose: (extra) => {
-        // Mark "shown" only after the dialog is genuinely closed by the user
-        // (confirm or dismiss), never before showing it — so an intro that gets
-        // preempted/covered before the user sees it can still re-pop later.
-        if (onekeyUserId) {
-          void backgroundApiProxy.serviceSetting.setKytIntroShown({
-            onekeyUserId,
-          });
-        }
-        if (extra?.flag !== 'confirm') {
           defaultLogger.prime.usage.primeReceiveKytIntroAction({
-            ...receiveKytIntroTrackingParams,
-            action: 'dismiss',
+            ...trackingParams,
+            action: 'enable',
           });
-        }
-      },
-    });
-  }, [intl, md, navigation, onekeyUserId]);
+          // Enabling here records server-side authorization; only close on success.
+          const result =
+            await backgroundApiProxy.serviceSetting.apiSetKytEnabled({
+              enabled: true,
+              onekeyUserId: targetUserId,
+            });
+          if (
+            !result.applied ||
+            result.accountChanged ||
+            onekeyUserIdRef.current !== targetUserId
+          ) {
+            await dialogInstance.close({ flag: 'accountChanged' });
+            return;
+          }
+          await dialogInstance.close({ flag: 'confirm' });
+          // Close the KYT dialog first, then prompt to enable notifications so the
+          // user can actually receive high-risk push alerts.
+          await promptKytNotificationPermissionIfNeeded({ navigation, intl });
+        },
+        onClose: (extra) => {
+          // Mark "shown" only after the dialog is genuinely closed by the user
+          // (confirm or dismiss), never before showing it — so an intro that gets
+          // preempted/covered before the user sees it can still re-pop later.
+          void backgroundApiProxy.serviceSetting
+            .completeKytIntroClaim({ onekeyUserId: targetUserId })
+            .catch((error) => {
+              defaultLogger.prime.usage.primeReceiveKytIntroFlowFailed({
+                stage: 'claimComplete',
+                errorMessage: getErrorMessage(error),
+              });
+            });
+          if (activeClaimRef.current?.claimId === claimId) {
+            activeClaimRef.current = undefined;
+          }
+          if (extra?.flag !== 'confirm' && extra?.flag !== 'accountChanged') {
+            defaultLogger.prime.usage.primeReceiveKytIntroAction({
+              ...trackingParams,
+              action: 'dismiss',
+            });
+          }
+        },
+      });
+    },
+    [intl, md, navigation],
+  );
 
   // "Ready" = Home is the foreground tab, Home has finished its first load, and
   // the app-update flow is settled — everything except transient overlays. Both
@@ -255,6 +346,22 @@ function useKYTIntroDialog() {
     [isReadyExceptOverlays],
   );
 
+  // A confirmed purchase is allowed to prompt outside Home. It only waits for
+  // the purchase WebView and any currently visible dialog to finish closing.
+  const canShowKytIntroAfterPurchaseNow = useCallback(
+    () => !isKytPurchaseSurfaceOpen() && !hasOpenBlockingDialog(),
+    [],
+  );
+
+  // Single point for the per-entry-point show policy used at every gate check.
+  const canShowFor = useCallback(
+    (entryPoint: IReceiveKytIntroEntryPoint) =>
+      entryPoint === 'primeSubscribeSuccess'
+        ? canShowKytIntroAfterPurchaseNow()
+        : canAutoShowKytIntroNow(),
+    [canAutoShowKytIntroNow, canShowKytIntroAfterPurchaseNow],
+  );
+
   const clearRetry = useCallback(() => {
     if (retryTimerRef.current) {
       clearTimeout(retryTimerRef.current);
@@ -262,25 +369,96 @@ function useKYTIntroDialog() {
     }
   }, []);
 
-  // Covers the one gap router/atom triggers can't: a non-route Dialog.show()
-  // (e.g. the featured changelog) closing emits no navigation/atom change, so we
-  // re-check on a short, bounded timer while Home + update are otherwise ready.
-  const scheduleRetry = useCallback(() => {
-    if (retryTimerRef.current) {
-      return;
+  const releaseClaim = useCallback(
+    async (claim: Pick<IKytIntroActiveClaim, 'claimId' | 'onekeyUserId'>) => {
+      try {
+        await backgroundApiProxy.serviceSetting.releaseKytIntroClaim({
+          onekeyUserId: claim.onekeyUserId,
+          ownerId: appEventBus.nodeId,
+          claimId: claim.claimId,
+        });
+      } catch (error) {
+        defaultLogger.prime.usage.primeReceiveKytIntroFlowFailed({
+          stage: 'claimRelease',
+          errorMessage: getErrorMessage(error),
+        });
+      }
+    },
+    [],
+  );
+
+  // Releases and forgets the buffered purchase trigger when it can no longer
+  // apply (account switch, unmount, or an event for another user).
+  const releaseStalePendingPurchase = useCallback(() => {
+    const pending = pendingPurchaseRef.current;
+    pendingPurchaseRef.current = undefined;
+    if (
+      pending?.claimId &&
+      pending.claimId !== activeClaimRef.current?.claimId
+    ) {
+      void releaseClaim({
+        claimId: pending.claimId,
+        onekeyUserId: pending.userId,
+      });
     }
-    if (retryCountRef.current >= 15) {
-      return;
-    }
-    retryTimerRef.current = setTimeout(() => {
-      retryTimerRef.current = undefined;
-      retryCountRef.current += 1;
-      if (!isMountedRef.current || dialogShownRef.current) {
+  }, [releaseClaim]);
+
+  // Releases a claim this attempt no longer intends to present and clears the
+  // active-claim slot if it still points at that claim.
+  const abandonActiveClaim = useCallback(
+    async (claim: Pick<IKytIntroActiveClaim, 'claimId' | 'onekeyUserId'>) => {
+      await releaseClaim(claim);
+      if (activeClaimRef.current?.claimId === claim.claimId) {
+        activeClaimRef.current = undefined;
+      }
+    },
+    [releaseClaim],
+  );
+
+  // Covers non-route dialogs closing, transient RPC failures, and another UI
+  // runtime abandoning an expired lease. Overlay retries are bounded; a lease
+  // retry waits directly for the persisted expiry and does not consume them.
+  const scheduleRetry = useCallback(
+    ({
+      delayMs = 1000,
+      incrementRetryCount = true,
+    }: {
+      delayMs?: number;
+      incrementRetryCount?: boolean;
+    } = {}) => {
+      if (retryTimerRef.current) {
         return;
       }
-      attemptShowRef.current?.();
-    }, 1000);
-  }, []);
+      if (incrementRetryCount && retryCountRef.current >= 15) {
+        return;
+      }
+      retryTimerRef.current = setTimeout(
+        () => {
+          retryTimerRef.current = undefined;
+          if (incrementRetryCount) {
+            retryCountRef.current += 1;
+          }
+          if (!isMountedRef.current || dialogShownRef.current) {
+            return;
+          }
+          attemptShowRef.current?.();
+        },
+        Math.max(0, delayMs),
+      );
+    },
+    [],
+  );
+
+  // Purchase-success prompts always re-arm the retry timer; the Home fallback
+  // re-arms only while its durable readiness gates are already satisfied.
+  const armRetryFor = useCallback(
+    (entryPoint: IReceiveKytIntroEntryPoint) => {
+      if (entryPoint === 'primeSubscribeSuccess' || isReadyExceptOverlays()) {
+        scheduleRetry();
+      }
+    },
+    [isReadyExceptOverlays, scheduleRetry],
+  );
 
   const attemptShow = useCallback(() => {
     // Covers re-entries that bypass the timer's own guard (the finally-block
@@ -288,19 +466,39 @@ function useKYTIntroDialog() {
     if (!isMountedRef.current) {
       return;
     }
-    if (!isPrimeSubscriptionActive || !onekeyUserId) {
+
+    const currentUserId = onekeyUserIdRef.current;
+    if (
+      pendingPurchaseRef.current &&
+      pendingPurchaseRef.current.userId !== currentUserId
+    ) {
+      // A purchase event belongs to the account that initiated it. Never carry
+      // it across an account switch.
+      releaseStalePendingPurchase();
+    }
+
+    const isPurchaseSuccessTrigger =
+      !!currentUserId && pendingPurchaseRef.current?.userId === currentUserId;
+    if (
+      !currentUserId ||
+      (!isPurchaseSuccessTrigger && !isPrimeSubscriptionActiveRef.current)
+    ) {
       return;
     }
-    if (dialogShownRef.current || attemptInFlightRef.current) {
+    if (dialogShownRef.current) {
+      if (pendingPurchaseRef.current?.userId === currentUserId) {
+        pendingPurchaseRef.current = undefined;
+      }
+      return;
+    }
+    if (attemptInFlightRef.current) {
       return;
     }
 
-    if (!canAutoShowKytIntroNow()) {
-      // Only arm the fallback timer when the sole blocker is a transient
-      // overlay/dialog; otherwise wait for the next trigger (route/atom/tokens).
-      if (isReadyExceptOverlays()) {
-        scheduleRetry();
-      }
+    const requestEntryPoint: IReceiveKytIntroEntryPoint =
+      isPurchaseSuccessTrigger ? 'primeSubscribeSuccess' : 'homeAutoIntro';
+    if (!canShowFor(requestEntryPoint)) {
+      armRetryFor(requestEntryPoint);
       return;
     }
 
@@ -308,67 +506,164 @@ function useKYTIntroDialog() {
     // Snapshot the user this attempt is evaluating; if the Prime user switches
     // while we await below, the results belong to a stale user and must not be
     // applied to the (now different) current user's "shown" guard.
-    const requestUserId = onekeyUserId;
+    const requestUserId = currentUserId;
+    const pendingPurchaseUserIdAtStart = pendingPurchaseRef.current?.userId;
     void (async () => {
       try {
-        const isShown = await backgroundApiProxy.serviceSetting.isKytIntroShown(
-          {
-            onekeyUserId,
-          },
-        );
-        if (requestUserId !== onekeyUserIdRef.current) {
-          return;
-        }
-        if (isShown) {
-          dialogShownRef.current = true;
-          return;
-        }
-        // Only prompt when the server reports KYT is not yet enabled, so users
-        // who already turned it on never see the intro again.
-        const kytEnabled =
-          await backgroundApiProxy.serviceSetting.getKytEnabled({
-            onekeyUserId,
+        let claimResult =
+          await backgroundApiProxy.serviceSetting.tryClaimKytIntro({
+            onekeyUserId: requestUserId,
+            ownerId: appEventBus.nodeId,
+            entryPoint: requestEntryPoint,
+            claimId:
+              pendingPurchaseRef.current?.claimId ??
+              (activeClaimRef.current?.onekeyUserId === requestUserId
+                ? activeClaimRef.current.claimId
+                : undefined),
           });
-        if (requestUserId !== onekeyUserIdRef.current) {
-          return;
+
+        // A purchase event can arrive while a Home claim RPC is in flight. Run
+        // one serialized upgrade so the BG lease, not only the UI analytics,
+        // carries the higher-priority entry point.
+        if (
+          claimResult.status === 'claimed' &&
+          claimResult.entryPoint === 'homeAutoIntro' &&
+          pendingPurchaseRef.current?.userId === requestUserId
+        ) {
+          claimResult =
+            await backgroundApiProxy.serviceSetting.tryClaimKytIntro({
+              onekeyUserId: requestUserId,
+              ownerId: appEventBus.nodeId,
+              entryPoint: 'primeSubscribeSuccess',
+              claimId:
+                pendingPurchaseRef.current?.claimId ?? claimResult.claimId,
+            });
         }
-        if (kytEnabled) {
-          dialogShownRef.current = true;
-          return;
-        }
-        // The hook may have unmounted during the awaits — Dialog.show is a
-        // global imperative API, so without this check the intro could still
-        // pop after unmount.
-        if (!isMountedRef.current) {
-          return;
-        }
-        // Overlay state may have changed during the awaits — re-check.
-        if (!canAutoShowKytIntroNow()) {
-          if (isReadyExceptOverlays()) {
-            scheduleRetry();
+
+        if (claimResult.status !== 'claimed') {
+          if (
+            claimResult.status === 'shown' ||
+            claimResult.status === 'enabled'
+          ) {
+            dialogShownRef.current = true;
+            activeClaimRef.current = undefined;
+            if (pendingPurchaseRef.current?.userId === requestUserId) {
+              pendingPurchaseRef.current = undefined;
+            }
+          } else if (claimResult.status === 'claimedByOther') {
+            scheduleRetry({
+              delayMs: claimResult.retryAfterMs + 100,
+              incrementRetryCount: false,
+            });
           }
           return;
         }
-        dialogShownRef.current = true;
+
+        const entryPoint = claimResult.entryPoint;
+        const activeClaim: IKytIntroActiveClaim = {
+          claimId: claimResult.claimId,
+          entryPoint,
+          isPresented: false,
+          onekeyUserId: requestUserId,
+        };
+        activeClaimRef.current = activeClaim;
+
+        if (
+          requestUserId !== onekeyUserIdRef.current ||
+          !isMountedRef.current
+        ) {
+          await abandonActiveClaim(activeClaim);
+          return;
+        }
+        if (
+          entryPoint === 'homeAutoIntro' &&
+          !isPrimeSubscriptionActiveRef.current
+        ) {
+          await abandonActiveClaim(activeClaim);
+          return;
+        }
+
+        // Overlay state may have changed during the awaits — re-check the gate
+        // for the final (possibly upgraded) trigger.
+        if (!canShowFor(entryPoint)) {
+          armRetryFor(entryPoint);
+          return;
+        }
+
+        const isClaimPresented =
+          await backgroundApiProxy.serviceSetting.markKytIntroClaimPresented({
+            onekeyUserId: requestUserId,
+            ownerId: appEventBus.nodeId,
+            claimId: activeClaim.claimId,
+          });
+        if (!isClaimPresented) {
+          activeClaimRef.current = undefined;
+          scheduleRetry();
+          return;
+        }
+
+        const canShowAfterMarking =
+          requestUserId === onekeyUserIdRef.current &&
+          isMountedRef.current &&
+          canShowFor(entryPoint);
+        if (!canShowAfterMarking) {
+          await abandonActiveClaim(activeClaim);
+          armRetryFor(entryPoint);
+          return;
+        }
+
         clearRetry();
-        showDialog();
+        try {
+          showDialog({
+            claimId: activeClaim.claimId,
+            entryPoint,
+            targetUserId: requestUserId,
+          });
+        } catch (error) {
+          await abandonActiveClaim(activeClaim);
+          throw error;
+        }
+        activeClaim.isPresented = true;
+        dialogShownRef.current = true;
+        if (pendingPurchaseRef.current?.userId === requestUserId) {
+          pendingPurchaseRef.current = undefined;
+        }
+      } catch (error) {
+        defaultLogger.prime.usage.primeReceiveKytIntroFlowFailed({
+          stage: 'eligibility',
+          errorMessage: getErrorMessage(error),
+        });
+        if (
+          requestUserId === onekeyUserIdRef.current &&
+          isMountedRef.current &&
+          (pendingPurchaseRef.current?.userId === requestUserId ||
+            isReadyExceptOverlays())
+        ) {
+          scheduleRetry();
+        }
       } finally {
         attemptInFlightRef.current = false;
         // The user switched mid-flight: the early returns above intentionally
         // skipped the now-current user, and that switch's own trigger was
         // dropped by the in-flight guard. Re-evaluate once for the new user.
-        if (requestUserId !== onekeyUserIdRef.current) {
+        if (
+          requestUserId !== onekeyUserIdRef.current ||
+          (pendingPurchaseUserIdAtStart !==
+            pendingPurchaseRef.current?.userId &&
+            pendingPurchaseRef.current?.userId === onekeyUserIdRef.current)
+        ) {
           attemptShowRef.current?.();
         }
       }
     })();
   }, [
-    isPrimeSubscriptionActive,
-    onekeyUserId,
     isReadyExceptOverlays,
-    canAutoShowKytIntroNow,
+    canShowFor,
+    armRetryFor,
     scheduleRetry,
     clearRetry,
+    abandonActiveClaim,
+    releaseStalePendingPurchase,
     showDialog,
   ]);
 
@@ -376,40 +671,99 @@ function useKYTIntroDialog() {
     attemptShowRef.current = attemptShow;
   }, [attemptShow]);
 
-  // Defer the very first auto-pop until the Home token list has finished its
-  // initial load (or a fallback delay), so the dialog doesn't animate in during
-  // the heavy cold-start render and cause visible frame drops. Once Home is
-  // ready, subsequent attempts are driven by the route/atom/timer triggers.
   useEffect(() => {
-    const cleanup = runAfterTokensDone({
-      onRun: () => {
-        isHomeReadyRef.current = true;
-        attemptShowRef.current?.();
-      },
-    });
-    return cleanup;
-  }, []);
+    const handlePurchaseSuccess = (
+      payload: IPrimeSubscriptionPurchaseSuccessPayload,
+    ) => {
+      if (
+        !payload?.onekeyUserId ||
+        payload.onekeyUserId !== onekeyUserIdRef.current ||
+        dialogShownRef.current
+      ) {
+        if (
+          payload?.onekeyUserId &&
+          payload.claimId &&
+          payload.claimId !== activeClaimRef.current?.claimId
+        ) {
+          void releaseClaim({
+            claimId: payload.claimId,
+            onekeyUserId: payload.onekeyUserId,
+          });
+        }
+        return;
+      }
+      pendingPurchaseRef.current = {
+        userId: payload.onekeyUserId,
+        claimId: payload.claimId,
+      };
+      retryCountRef.current = 0;
+      clearRetry();
+      attemptShowRef.current?.();
+    };
+    appEventBus.on(
+      EAppEventBusNames.PrimeSubscriptionPurchaseSuccess,
+      handlePurchaseSuccess,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.PrimeSubscriptionPurchaseSuccess,
+        handlePurchaseSuccess,
+      );
+    };
+  }, [clearRetry, releaseClaim]);
 
   // Reset the per-user "shown" guard when the Prime user switches so each
   // account is evaluated once. Declared before the attempt triggers so that, on
   // a user change, the guard is cleared before attemptShow re-runs this commit.
   useEffect(() => {
     dialogShownRef.current = false;
+    const activeClaim = activeClaimRef.current;
+    if (
+      activeClaim &&
+      activeClaim.onekeyUserId !== onekeyUserId &&
+      !activeClaim.isPresented
+    ) {
+      void releaseClaim(activeClaim);
+      activeClaimRef.current = undefined;
+    }
+    if (
+      pendingPurchaseRef.current &&
+      pendingPurchaseRef.current.userId !== onekeyUserId
+    ) {
+      releaseStalePendingPurchase();
+    }
     retryCountRef.current = 0;
     clearRetry();
-  }, [onekeyUserId, clearRetry]);
+  }, [onekeyUserId, clearRetry, releaseClaim, releaseStalePendingPurchase]);
 
-  // Trigger A: re-attempt whenever an input captured by attemptShow changes
-  // (Prime status, Prime user, or app-update status/strategy transitions).
+  // Trigger A: re-attempt whenever an input read by attemptShow changes.
+  // isPrimeSubscriptionActive / onekeyUserId are read via refs (assigned during
+  // render above); they stay in the dep array purely to re-trigger the attempt.
   useEffect(() => {
     attemptShow();
-  }, [attemptShow]);
+  }, [attemptShow, isPrimeSubscriptionActive, onekeyUserId]);
 
   // Trigger B: any router change (modal/onboarding/full-screen open or close,
   // tab switch). Invoke via the ref so we always call the latest attemptShow —
   // useListenTabFocusState registers its callback only once at mount.
   useListenTabFocusState(ETabRoutes.Home, (isFocus) => {
     isHomeTabFocusedRef.current = isFocus;
+    if (
+      isFocus &&
+      !isHomeReadyRef.current &&
+      !homeReadinessCleanupRef.current &&
+      isKytHomeTabActuallyFocused()
+    ) {
+      // Match the previous Home-owned lifecycle: the cold-start fallback begins
+      // only when Home is first entered, not when the global Prime effect mounts.
+      homeReadinessCleanupRef.current = runAfterTokensDone({
+        onRun: () => {
+          homeReadinessCleanupRef.current = undefined;
+          isHomeReadyRef.current = true;
+          attemptShowRef.current?.();
+        },
+      });
+    }
     attemptShowRef.current?.();
   });
 
@@ -420,9 +774,17 @@ function useKYTIntroDialog() {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      homeReadinessCleanupRef.current?.();
+      homeReadinessCleanupRef.current = undefined;
       clearRetry();
+      const activeClaim = activeClaimRef.current;
+      if (activeClaim && !activeClaim.isPresented) {
+        void releaseClaim(activeClaim);
+        activeClaimRef.current = undefined;
+      }
+      releaseStalePendingPurchase();
     };
-  }, [clearRetry]);
+  }, [clearRetry, releaseClaim, releaseStalePendingPurchase]);
 }
 
 function BasicKYTIntroOnMount() {

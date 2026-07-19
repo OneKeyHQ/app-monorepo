@@ -9,7 +9,6 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
@@ -19,11 +18,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import { usePrimePayment } from '../../hooks/usePrimePayment';
+import {
+  finishPrimeSubscriptionPurchaseSuccess,
+  preparePrimeSubscriptionPurchaseSuccess,
+  refreshPrimeUserInfoAfterPurchase,
+} from '../../primeSubscriptionPurchaseSuccess';
 
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { usePurchasePackageWebview } from './usePurchasePackageWebview';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
+import type { IPrimeSubscriptionPurchaseSuccessPayload } from '../../primeSubscriptionPurchaseSuccess';
 
 export function usePrimePurchaseCallback({
   onPurchase,
@@ -31,7 +36,7 @@ export function usePrimePurchaseCallback({
   onPurchase?: () => void;
 } = {}) {
   const { purchasePackageNative, purchasePackageWeb } = usePrimePayment();
-  const { supabaseUser } = useOneKeyAuth();
+  const { supabaseUser, user } = useOneKeyAuth();
   const intl = useIntl();
 
   const purchaseByWebview = usePurchasePackageWebview();
@@ -51,7 +56,7 @@ export function usePrimePurchaseCallback({
         });
         console.log('purchasePackageNative result >>>>>>', result);
       } finally {
-        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        await refreshPrimeUserInfoAfterPurchase();
       }
     },
     [purchasePackageNative],
@@ -68,6 +73,9 @@ export function usePrimePurchaseCallback({
       currency?: string;
       featureName?: EPrimeFeatures;
     }) => {
+      let successfulPurchase:
+        | IPrimeSubscriptionPurchaseSuccessPayload
+        | undefined;
       try {
         onPurchase?.();
 
@@ -131,13 +139,21 @@ export function usePrimePurchaseCallback({
         }
 
         if (selectedSubscriptionPeriod) {
-          await purchasePackageWeb?.({
+          const purchaseUserId = user?.onekeyUserId;
+          const purchaseResult = await purchasePackageWeb?.({
             subscriptionPeriod: selectedSubscriptionPeriod,
             email: supabaseUser?.email || '',
             locale: intl.locale,
             currency,
             featureName,
           });
+          if (
+            purchaseUserId &&
+            purchaseResult?.customerInfo.entitlements.active.Prime?.isActive
+          ) {
+            successfulPurchase =
+              await preparePrimeSubscriptionPurchaseSuccess(purchaseUserId);
+          }
           // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
           //   onekeyUserId: user.onekeyUserId || '',
           // });
@@ -147,7 +163,7 @@ export function usePrimePurchaseCallback({
           // });
         }
       } finally {
-        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        await finishPrimeSubscriptionPurchaseSuccess(successfulPurchase);
       }
     },
     [
@@ -157,6 +173,7 @@ export function usePrimePurchaseCallback({
       purchaseByWebview,
       purchasePackageWeb,
       supabaseUser,
+      user?.onekeyUserId,
     ],
   );
 

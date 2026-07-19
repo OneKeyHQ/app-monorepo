@@ -23,6 +23,11 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import {
+  emitPrimeSubscriptionPurchaseSuccess,
+  preparePrimeSubscriptionPurchaseSuccess,
+  refreshPrimeUserInfoAfterPurchase,
+} from '../primeSubscriptionPurchaseSuccess';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
@@ -292,6 +297,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           throw new OneKeyLocalError('Offering not found');
         }
 
+        const purchaseUserId = user.onekeyUserId;
+        if (!purchaseUserId) {
+          throw new OneKeyLocalError('User not logged in');
+        }
         const makePurchaseResult =
           await PurchasesReactNative.purchasePackage(offering);
 
@@ -299,6 +308,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           makePurchaseResult?.customerInfo?.entitlements?.active?.Prime
             ?.isActive
         ) {
+          const purchaseSuccessPayload =
+            await preparePrimeSubscriptionPurchaseSuccess(purchaseUserId);
           // Set subscriptionManageUrl immediately from purchase result,
           // because the server may not yet have it (RevenueCat webhook delay).
           setPrimePersistAtom(
@@ -311,7 +322,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
                   '',
               }),
           );
-          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+          await refreshPrimeUserInfoAfterPurchase();
 
           const rawPrice =
             subscriptionPeriod === 'P1Y'
@@ -339,6 +350,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
             onConfirmText: intl.formatMessage({
               id: ETranslations.global_ok,
             }),
+            onClose: () => {
+              emitPrimeSubscriptionPurchaseSuccess(purchaseSuccessPayload);
+            },
           });
         }
         return makePurchaseResult;
@@ -352,7 +366,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
     },
-    [isReady, intl, loginPurchasesSdk, setPrimePersistAtom],
+    [isReady, intl, loginPurchasesSdk, setPrimePersistAtom, user.onekeyUserId],
   );
 
   return {
