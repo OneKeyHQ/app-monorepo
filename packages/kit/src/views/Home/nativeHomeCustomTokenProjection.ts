@@ -56,3 +56,33 @@ export async function commitNativeHomeSnapshotAfterProjection<
   commit({ projection, snapshot });
   return true;
 }
+
+export function commitNativeHomeSnapshotBeforeProjection<
+  TSnapshot,
+  TProjection,
+>({
+  commitProjection,
+  commitSnapshot,
+  isCurrent,
+  projectionTask,
+  snapshot,
+}: {
+  commitProjection: (projection: TProjection) => void;
+  commitSnapshot: (snapshot: TSnapshot) => void;
+  isCurrent: () => boolean;
+  projectionTask: Promise<TProjection>;
+  snapshot: TSnapshot;
+}): boolean {
+  if (!isCurrent()) {
+    return false;
+  }
+  commitSnapshot(snapshot);
+  void projectionTask
+    .then((projection) => {
+      if (isCurrent()) {
+        commitProjection(projection);
+      }
+    })
+    .catch(() => undefined);
+  return true;
+}

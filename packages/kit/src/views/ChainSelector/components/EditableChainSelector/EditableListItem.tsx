@@ -76,6 +76,7 @@ export const EditableListItem = ({
   return (
     <ListItem
       testID={item.id}
+      nativePressableTestID={`select-item-${item.id}`}
       title={
         item.isAllNetworks
           ? intl.formatMessage({ id: ETranslations.global_all_networks })

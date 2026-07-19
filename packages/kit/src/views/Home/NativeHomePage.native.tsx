@@ -1,4 +1,5 @@
 import {
+  type MutableRefObject,
   type ReactNode,
   useCallback,
   useEffect,
@@ -55,12 +56,13 @@ import {
   HOME_CONTAINER_SCHEMA_VERSION,
   HOME_CONTAINER_TAB_IDS,
   HomeContainer,
-  HomeContainerController,
+  type HomeContainerController,
   type IHomeContainerAction,
   type IHomeContainerCapabilities,
   type IHomeContainerRef,
   type IHomeContainerSection,
   type IHomeContainerSlots,
+  type IHomeContainerSnapshot,
   type IHomeContainerTab,
   type IHomeContainerTabId,
   type IHomeContainerTheme,
@@ -159,6 +161,10 @@ import {
   resolveNativeHomeWalletScopedBalanceState,
 } from './nativeHomeBalanceAuthority';
 import {
+  type INativeHomeContainerControllerOwner,
+  acquireNativeHomeContainerController,
+} from './nativeHomeContainerControllerOwner';
+import {
   NATIVE_HOME_ACTION_IDS,
   buildNativeDeFiSections,
   buildNativeHistorySections,
@@ -167,6 +173,10 @@ import {
   buildNativePortfolioSections,
   resolveNativeHomeListStateSlot,
 } from './nativeHomeDataAdapters';
+import {
+  buildNativeHomePortfolioScopeKey,
+  shouldShowNativeHomeMissingAccount,
+} from './nativeHomePortfolioRequestLifecycle';
 import {
   PerpsHomeHeaderSlot,
   PerpsHomeStateSlot,
@@ -263,11 +273,14 @@ function formatNativeEarnApr(
   );
 }
 
-export function NativeHomePage({
+function NativeHomePageContent({
+  controllerOwnerRef,
   debugOverlayEnabled,
   onAction,
   onRenderError,
-}: INativeHomePageProps) {
+}: INativeHomePageProps & {
+  controllerOwnerRef: MutableRefObject<INativeHomeContainerControllerOwner>;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const navigateToMarketTab = useNavigateToMarketTab();
@@ -401,7 +414,35 @@ export function NativeHomePage({
     useState<string>();
   const perpsScopeKey = indexedAccount?.id ?? account?.id ?? '';
 
-  const portfolio = useNativeHomePortfolioData({ enabled: true });
+  const portfolioSource = useNativeHomePortfolioData({ enabled: true });
+  const expectedPortfolioScopeKey = buildNativeHomePortfolioScopeKey({
+    accountId: account?.id,
+    enabled: true,
+    isAllNetworks: Boolean(network?.isAllNetworks),
+    networkId: network?.id,
+    walletId: wallet?.id,
+  });
+  const portfolio = useMemo(
+    () =>
+      portfolioSource.dataScopeKey === expectedPortfolioScopeKey
+        ? portfolioSource
+        : {
+            ...portfolioSource,
+            customTokens: [],
+            dataScopeKey: expectedPortfolioScopeKey,
+            errorCode: undefined,
+            initialized: false,
+            isEmptyAccount: false,
+            isRefreshing: false,
+            map: {},
+            riskMap: {},
+            riskTokens: [],
+            smallBalanceMap: {},
+            smallBalanceTokens: [],
+            tokens: [],
+          },
+    [expectedPortfolioScopeKey, portfolioSource],
+  );
   const { map: homeDefaultTokenMap, status: homeDefaultTokenMapStatus } =
     useNativeHomeDefaultTokenMap();
   const homeDefaultTokenProjection = resolveNativeHomeDefaultTokenProjection(
@@ -1916,38 +1957,42 @@ export function NativeHomePage({
     nativeTheme.backgroundColor,
     tabAccessorySlots,
   ]);
-  const controllerRef = useRef<HomeContainerController | null>(null);
-  if (!controllerRef.current) {
-    controllerRef.current = new HomeContainerController({
-      initialSnapshot: {
-        schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
-        revision: 0,
-        selectedTabId: initialAtomicTabState.selectedTabId,
-        header: {
-          accountName: accountName ?? '',
-          accountSubtitle: network?.name,
-          accountImageUrl,
-          accountActionId: 'home.header.account',
-          copyActionId: account?.address ? 'home.header.copy' : undefined,
-          networkName: network?.isAllNetworks ? undefined : network?.name,
-          networkImageUrls: headerNetworkImageUrls,
-          networkCount: headerNetworkCount,
-          networkActionId: 'home.header.network',
-          balance: headerBalanceParts.balance,
-          balanceSecondary: headerBalanceParts.balanceSecondary,
-          balanceActionId: 'home.header.balance',
-          balanceActions: headerBalanceActions,
-          actionLayout: headerActionLayout,
-          actionRowHeight: headerActionRowHeight,
-          actions: headerActions,
-          banners: headerBanners,
-        },
-        tabs: initialAtomicTabState.tabs,
-        theme: nativeTheme,
-      },
+  const currentScopeSnapshot: IHomeContainerSnapshot = {
+    schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
+    revision: 0,
+    selectedTabId: initialAtomicTabState.selectedTabId,
+    header: {
+      accountName: accountName ?? '',
+      accountSubtitle: network?.name,
+      accountImageUrl,
+      accountActionId: 'home.header.account',
+      copyActionId: account?.address ? 'home.header.copy' : undefined,
+      networkName: network?.isAllNetworks ? undefined : network?.name,
+      networkImageUrls: headerNetworkImageUrls,
+      networkCount: headerNetworkCount,
+      networkActionId: 'home.header.network',
+      balance: headerBalanceParts.balance,
+      balanceSecondary: headerBalanceParts.balanceSecondary,
+      balanceActionId: 'home.header.balance',
+      balanceActions: headerBalanceActions,
+      actionLayout: headerActionLayout,
+      actionRowHeight: headerActionRowHeight,
+      actions: headerActions,
+      banners: headerBanners,
+    },
+    tabs: initialAtomicTabState.tabs,
+    theme: nativeTheme,
+  };
+  const mountedControllerRef = useRef<HomeContainerController | null>(null);
+  if (!mountedControllerRef.current) {
+    mountedControllerRef.current = acquireNativeHomeContainerController({
+      owner: controllerOwnerRef.current,
+      scopeKey: expectedPortfolioScopeKey,
+      snapshot: currentScopeSnapshot,
     });
   }
-  const controller = controllerRef.current;
+  const controller = mountedControllerRef.current;
+  controllerOwnerRef.current.scopeKey = expectedPortfolioScopeKey;
 
   useEffect(() => {
     controller.updateTheme(nativeTheme);
@@ -2042,9 +2087,13 @@ export function NativeHomePage({
     historySections,
     homeWalletCapabilityTabModel.shouldCommitTabs,
   ]);
-  useEffect(
+  const attachedControllerTargetRef = useRef<IHomeContainerRef | undefined>(
+    undefined,
+  );
+  useLayoutEffect(
     () => () => {
-      controller.detach();
+      controller.detach(attachedControllerTargetRef.current);
+      attachedControllerTargetRef.current = undefined;
     },
     [controller],
   );
@@ -2052,7 +2101,10 @@ export function NativeHomePage({
   const handleReady = useCallback(
     (capabilities: IHomeContainerCapabilities) => {
       if (nativeRef.current) {
-        controller.attach(nativeRef.current, capabilities);
+        const target = nativeRef.current;
+        if (controller.attach(target, capabilities)) {
+          attachedControllerTargetRef.current = target;
+        }
       }
     },
     [controller],
@@ -2675,5 +2727,74 @@ export function NativeHomePage({
       onVisibleTabChange={handleVisibleTabChange}
       onRenderError={onRenderError}
     />
+  );
+}
+
+function NativeHomeMissingAccountPage() {
+  const intl = useIntl();
+  const {
+    activeAccount: { accountName, deriveInfo, network },
+  } = useActiveAccount({ num: 0 });
+
+  return (
+    <YStack flex={1} bg="$bgApp">
+      <XStack
+        px="$5"
+        py="$4"
+        alignItems="center"
+        justifyContent="space-between"
+      >
+        <XStack flex={1} minWidth={0} gap="$3" alignItems="center">
+          <AccountSelectorTriggerHome num={0} />
+          <AccountSelectorActiveAccountHome
+            num={0}
+            showAccountAddress={false}
+            showCopyButton={false}
+            showCreateAddressButton={false}
+            showNoAddressTip={false}
+          />
+        </XStack>
+        <NetworkSelectorTriggerHome
+          num={0}
+          size="small"
+          recordNetworkHistoryEnabled
+          unifiedMode
+        />
+      </XStack>
+      <Stack flex={1} justifyContent="center" pb="$24">
+        <EmptyAccount
+          autoCreateAddress
+          createAllDeriveTypes
+          createAllEnabledNetworks
+          name={accountName ?? ''}
+          chain={network?.name ?? ''}
+          type={
+            (deriveInfo?.labelKey
+              ? intl.formatMessage({ id: deriveInfo.labelKey })
+              : deriveInfo?.label) ?? ''
+          }
+        />
+      </Stack>
+    </YStack>
+  );
+}
+
+export function NativeHomePage(props: INativeHomePageProps) {
+  const controllerOwnerRef = useRef<INativeHomeContainerControllerOwner>({});
+  const {
+    activeAccount: { account, network, ready, wallet },
+  } = useActiveAccount({ num: 0 });
+  const shouldShowMissingAccount = shouldShowNativeHomeMissingAccount({
+    accountId: account?.id,
+    isAllNetworks: Boolean(network?.isAllNetworks),
+    networkId: network?.id,
+    ready,
+    walletId: wallet?.id,
+  });
+
+  return shouldShowMissingAccount ? (
+    <NativeHomeMissingAccountPage />
+  ) : (
+    <NativeHomePageContent {...props} controllerOwnerRef={controllerOwnerRef} />
   );
 }

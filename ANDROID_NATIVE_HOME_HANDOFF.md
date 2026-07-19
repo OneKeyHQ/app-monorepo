@@ -2153,3 +2153,147 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - **bg runtime：** wallet/account 权威数据、History/NFT/DeFi/Perps/Market service、Perps recommendation 请求、watchlist 与持久化。History/Perps hidden gate 控制 main 中的 hook 是否经 proxy 启动 bg RPC，但不会把 service owner 移到 main。
 - iOS main/bg 是独立 Hermes heap、独立初始化；DTO 经 proxy 序列化/反序列化，在两个 runtime 各有 JS 副本。main ready 不能替代 bg ready，也不能假设 bg 先 ready。DB/MMKV/file handles、图片/字体 cache 和部分 Native singleton 是进程级共享资源；cell constraint、diffable row/cell、mounted slot host、represented image signature、request cancellation、pressed/hover、selected 与 scroll offset 是 per-view/main 状态，共享 Native cache 不等于共享 JS 对象。
 - 后续继续执行职责分离：编写 subagent 只写被分配产品代码；独立 reviewer subagent 负责源码、类型和测试 Pass/Fail；独立 UI verifier subagent 负责标准 Debug、真实截图/录屏、A/B 与交互；主 agent 不直接写产品代码，也不自行验收。每轮完成后由 writer 更新本 handoff，再由主 agent按用户要求精确 stage/commit/push，禁止夹带无关 dirty 文件。
+
+## 2026-07-19 iOS Debug 六单链 Native/Legacy A/B 修复前审计
+
+本节是修复前基线，不代表 UI 已完成。当前 HEAD 为 `c371309f17f90579eadec1638409d03b32a961fd`，设备为 iPhone 17 Pro / iOS 26.5，UDID `4837E819-A117-4E08-9936-445785D199E3`，Bundle ID `so.onekey.wallet`，agent-device session 为 `native-home-p0`。Native 由仓库根目录标准 `yarn app:ios` 完成 Debug build、Metro、更新安装和启动；Legacy 仅在同一 Debug/Metro 工作区临时把 `nativeHomeFeatureFlag.native.ts` 切为 `false` 做同状态 A/B，审计后已经恢复默认 `true`，该文件为零 diff。没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`；没有执行手工 uninstall/reinstall、erase、clear data，没有删除 app container、钱包数据库或持久化数据。
+
+Native 运行探针记录 main `jsReadyAt=1784443304273`、`uiVisibleAt=1784443307191`、`transportState=ready`，bg `bootId=1784443305957-jt52io9l`、`status=ready`；Legacy 运行探针记录 main `jsReadyAt=1784446280550`、`uiVisibleAt=1784446283573`、`transportState=ready`，bg `bootId=1784446282276-mlegk65e`、`status=ready`。两次运行应用均持续存活，`Account #1 / $0.00` 和既有钱包数据正常。main ready 仍不能替代 bg ready。
+
+### A/B 证据目录与取证边界
+
+- Native：`.tmp/ui/native-home-single-network-native-20260719/`；完整录屏 `native-single-network-matrix.mp4`（1717.595s），运行探针、截图和索引见同目录 `runtime-probe.json`、`00-debug-after-yarn-app-ios.png`、`00-native-ready-clean.png`、`evidence-files.txt`。
+- Legacy：`.tmp/ui/native-home-single-network-legacy-20260719/`；完整录屏 `legacy-single-network-matrix.mp4`（2573.378333s），运行探针、截图和索引见同目录 `runtime-probe.json`、`00-after-yarn-app-ios.png`、`00-legacy-ready-clean.png`、`evidence-files.txt`。
+- Native Nitro 网络选择器和部分 Tab 子树在本次 session 的 accessibility snapshot 中不可观察，不能据此声称 identifier 不存在；坐标操作只采用“截图后立即点击，并再次核对目标网络标题/Tab”的帧。所有误点、旧 snapshot 和目标尚未 settled 的过渡帧均排除。
+- Native Tron 只采用 `tron-switch-confirmed-*`；最早的 `tron-switch-*` 实际误点到 Ethereum，排除。Legacy BTC 的 `btc-switch-first.png` 是仍在选择器内的帧，排除，采用 `btc-switch-300ms-valid.png`、`btc-switch-3s-valid.png`、`btc-switch-10s-valid.png`。Legacy ETH 的 `eth-switch-first.png` 仍是 Bitcoin 过渡帧，排除，采用目标网络 settled 帧。Legacy Polygon 采用最终复核的 `*-valid3.png`，早期重试帧排除。Legacy 顶层 Tab 只采用 `*-id-valid.png`，旧坐标尝试和 `all-home-restored-after-invalid-tab-attempt.png` 排除。
+
+### Tab capability 源码规则与当前服务端实际结果
+
+Native 和 Legacy 共用 `useHomeWalletTabSupport({ network })` / `buildHomeWalletTabSupport`：scope key 包含 account scope、network、All/单链；Spot、History 恒定存在；All Networks 的 DeFi 恒为 true，Perps 在全局 `perpDisabled` 为 false 时存在；单链 DeFi 由 bg `serviceDeFi.getDeFiEnabledNetworksMapState` 决定，Perps 仅在 DeFi 支持且未全局禁用时存在；NFT 在 All Networks 恒定存在，单链则同时受 `vaultSettings.NFTEnabled` 和 `networkUtils.getEnabledNFTNetworkIds()` 白名单约束。相关实现位于：
+
+- `packages/kit/src/views/Home/hooks/useHomeWalletTabSupport.ts`
+- `packages/kit/src/views/Home/hooks/homeWalletTabSupportUtils.ts`
+- `packages/kit/src/views/Home/NativeHomePage.native.tsx`
+- `packages/kit/src/views/Home/pages/HomePageView.tsx`
+
+当前 Account #1、当前 server config 的真实 Tab 矩阵为：
+
+| scope | 当前实际 Tab |
+| --- | --- |
+| All Networks | Spot、Perps、DeFi、NFT、History |
+| Bitcoin | Spot、History |
+| Ethereum | Spot、Perps、DeFi、NFT、History |
+| Solana | Spot、NFT、History |
+| Polygon | Spot、Perps、DeFi、NFT、History |
+| TON | Native 渲染 Spot、History；Legacy 因缺少 TON address/account，在页面层直接显示 `No address / Create address to enable network / Create address` |
+| Tron | Spot、History |
+
+通用数量规则不是“单链固定几个”：DeFi=false/NFT=false 为 2 个；DeFi=false/NFT=true 为 3 个；DeFi=true 且全局禁用 Perps时，NFT=false/true 分别为 3/4 个；DeFi=true、Perps 启用时，NFT=false/true 分别为 4/5 个；All Networks 通常为 5 个，全局禁用 Perps 时为 4 个。禁止为截图写死 Perps 或 Tab 数量。
+
+源码还暴露两个未被本次 `$0` fixture 覆盖的风险：hook 会返回 `perpTabShowWeb`，Legacy 会据此过滤 pager 或把点击路由到 Web Perps，但 Native 当前只消费 `isPerpsSupported`，未处理 Web handoff；正余额 Tron 的 Legacy action config 可能用 Staking 替换 Buy，而 Native header action 目前近似固定 Send/Receive/Buy/More。当前 `$0` 只显示零余额 Add money/More，不能据此宣称正余额行为一致。
+
+### 已确认 FAIL 1：All Networks 切到 Bitcoin 后旧 All rows 回灌并导致高度跳变
+
+复现：在 Native All Networks 已有 Spot rows 时打开网络选择器，切 Bitcoin，目标标题和 `Spot / History` 出现后连续保留 first、100ms、300ms、3s。`btc-switch-first.png` 首帧只有 BTC；从 `btc-switch-100ms.png` 起，旧 All Networks 的 USDT、USDC、ETH、SOL、BNB rows 回灌，Market 以下 section 和外层 content offset 随 section 高度一起跳。Legacy 的 `btc-switch-300ms-valid.png`、`btc-switch-3s-valid.png`、`btc-switch-10s-valid.png` 始终只保留 BTC，因此这是 Native FAIL，不是服务端正常渐进加载。
+
+根因在 main runtime 的 owner 生命周期，不在 bg 数据污染、Swift cell 复用或网络过滤：
+
+- `useNativeHomePortfolioData.ts` 的 `applyAllNetworkCache` 直接替换 All response map 并 `applySlice`；`handleAllNetworkStarted`、accounts/cache/settled/finished callback 和最终 `allNetworkResult` effect 都没有校验当前 live owner。
+- scope effect 会把 `allNetworkGenerationRef.current` 重置为 0，导致旧 All run 的 generation 在切到 BTC 后仍可能被判定为“更新”；generation 只能表达同一 owner 的 last-write-wins，不能充当 owner identity。
+- `useAllNetwork.ts` 在 owner 变化时重置初始化/run count，却没有取消或使已经外逸的 progressive/cache callback 失效；`makeColdRequestFactory.ts` 的 `onRequestSettled` 也直接外调，绕过 `usePromiseResult` 的 result nonce。
+- `NativeHomePage.native.tsx` 最终调用 `controller.updateTabSections('portfolio', portfolioSections)`；Controller/DTO/Swift section patch 没有 account/network/scope epoch，错误 rows 会被正常应用并重新计算高度，所以高度跳变是上游 scope 污染的可见症状。
+
+下一修复边界：为每次 All run 捕获不可变 owner signature（至少 wallet/account/network/isAll/requestKind），所有 cache、progressive、warm/cold settled、accounts、finished 和 UI commit callback 在写入前与 live owner ref 比对；stale run 只允许释放内部 fetching，不得写 UI。generation 仅在相同 owner 内做顺序控制。state/section patch 还应带 owner scope/epoch，或只让 consumer 暴露当前 scope slice，形成下游防线。禁止在 adapter 里按 BTC 过滤旧 rows、添加延迟或用猜测性动画掩盖。需要聚焦测试延迟触发 All cache/warm/cold/final/finished 后 All→BTC 均不回灌，并以真实 first/100ms/300ms/3s 和 content offset/section 高度复验。
+
+### 已确认 FAIL 2：TON 缺少 account/address 时 Native 永久 skeleton，Legacy 有终态
+
+复现：同一 Account #1 切到 TON。Native 从 first、100ms、300ms、3s 到约 47s，随后进入 History 再回 Spot 3s，始终是 4 行 skeleton；该序列合计持续约 90s。Legacy 的 `ton-first-valid.png`、`ton-300ms-valid.png`、`ton-3s-valid.png`、`ton-10s-valid.png`、`ton-20s-valid.png`、`ton-30s-valid.png` 均立即显示完整页面终态 `No address / Create address to enable network / Create address`，没有 Spot/History token skeleton。当前 fixture 的直接原因是 Account #1 没有 TON address/account，而不是已证明的 TON API 慢请求。
+
+Native 根因：`useNativeHomePortfolioData` 在 scope effect 先清 rows、置 `initialized=false`，随后因 `!accountId` 提前 return；`loadSingle` 也在缺 accountId 时直接 return。页面没有提交 `no-address` 终态，也没有在进入 Native data tree/tab shell 前复用 Legacy 页面级 guard，于是 adapter 永远把 empty+uninitialized 映射为 skeleton。
+
+同一 hook 还存在一个静态可证、但与本次缺 account 的实际 TON 帧要分开记录的 P0：裸 `setInterval(POLLING_INTERVAL_FOR_TOKEN=15_000)` 会周期调用 `loadSingle()`，没有同 scope in-flight guard；每次又递增 requestId，而全局 Axios timeout 为 30s。对一个有 account、耗时超过 15s 的 service 请求，或被 `commitNativeHomeSnapshotAfterProjection` 的 custom-token task 阻塞超过 15s 的请求，下一轮会把前一轮标记 stale，catch/commit/finally 都因 requestId 失效，随后循环自我取消，可能形成永久 skeleton。Legacy polling 是 request settle 后再计时且会 abort 旧 home-token-list 请求，custom-token projection 也不阻塞 token rows commit。
+
+下一修复边界：先在页面层恢复 Legacy no-account guard，缺 network account 时渲染明确 `No address` 和真实 `Create address` 路由，不 mount 会发数据请求的 Native Home owner；所有 disabled/missing-owner hook 分支必须 terminal-settle。有效 account 的 single-network poll 改为同 owner single-flight/queued poll，下一次从 finally/settle 后计时，owner generation 只在 scope 变化时递增；custom projection 与首屏 rows commit 解耦或设有界等待。测试至少覆盖 no account 不发 service RPC 且 Create address 可交互、20s 慢请求只有一个 in-flight 并能成功落地、owner switch 丢弃旧结果。
+
+### 同状态已存在于 Legacy、不能在本轮误判为 Native-only 的行为
+
+- Ethereum 和 Polygon 切换时都存在 skeleton 到 rows 的渐进插入/重排，Legacy 也可复现；这轮不能把它们当成仅 Native 回归，也不能用静态假数据消除。后续若优化首帧，必须以 scoped cache、同 owner snapshot 和稳定 section height 为基础。
+- Ethereum/Polygon 的 Perps 当前 service path 在 Legacy 也约 2–3s 才从 Hot Markets/View more 或已知 loading 状态补齐 rows。只要首帧不是全页白屏，不得伪造 Perps 数据；后续仍需量化 section 高度和 content offset 连续性。
+- 单链 BTC、ETH、Polygon、TON、Tron 下都能看到 SOL/Solana Earn row，Native 与 Legacy 一致，是当前全局 Earn 产品行为，不得在 Native adapter 中私自按当前 network 过滤。
+
+### 本轮未覆盖、仍必须保留的验收风险
+
+- 当前只是已有多链 `Account #1 / $0` 在六个单链 scope 间切换，不是“第一次创建的空钱包”“第一次启动进入”“真实单链有钱钱包”。不得外推到正余额或首次启动。
+- Native network selector identifier/row identifier 在这次 Nitro accessibility tree 中不可观察；后续需补稳定可观测 ID，或继续使用截图后立即点击并核对标题的短 batch，坐标误点不能作为结论。
+- `perpTabShowWeb` 路由、正余额 Tron action、缺 account/hardware account 创建与连接 guard 尚未通过真实交互。
+- 当前 `$0` History 主要覆盖空态；有 records 时的日期分组、金额颜色、底部 `Only recent transactions... / Block explorer` 和 NFT→History 保持 offset/无大空白仍未验收。
+- imported/private-key、watching、external、keyless、hardware、fresh/no-wallet、unbacked/positive 等钱包类型和状态未覆盖。
+- Light mode、Dynamic Type Large/XXXL、iOS 17.4 以下 fallback、Android Native/hybrid 均未覆盖。图片/字体 cache 是进程级共享 Native 资源，但 represented image signature、request cancellation、cell constraint、pressed/hover、selected、scroll offset 仍是 per-view 状态；不能因共享 cache 推断 per-view 正确。
+
+### Runtime scope 与后续 subagent 分工
+
+- **main runtime：** Native Home UI、network/Tab selection、scope cache/snapshot、portfolio/section patch、UIKit height/offset、no-account guard 和 per-view request lifecycle。BTC stale rows 与 TON 未提交终态均属于 main owner/渲染链问题。
+- **bg runtime：** account/network 权威数据、DeFi capability、portfolio/Market/History/NFT/Perps service。main/bg 使用独立 Hermes heap，DTO 经 proxy 序列化/反序列化，各 runtime 各持 JS 副本；两者独立初始化，不得假设 bg 先 ready。DB/MMKV/file handle、图片/字体 cache 和部分 Native singleton 可能是进程级共享资源。
+- owner/race writer subagent 只处理 All→single scope ownership、generation 和必要 tests；no-account/poll writer subagent 只处理 Legacy guard parity、terminal state、single-flight polling 和必要 tests。禁止顺手修改 Discovery、Swap、TradingView、Firmware、Android 或其他 dirty owner。
+- 独立 code reviewer subagent 不参与编写，负责复核 owner identity、所有 callback gate、type/lint/Jest、slow-request/no-account tests 和未混入无关 diff；发现问题必须退回 writer 修正后再复核。
+- 独立 UI verifier subagent 只使用标准 `yarn app:ios` Debug，在 main/bg 均 ready、钱包仍正常后录制真实 A/B：All→BTC first/100ms/300ms/3s 无旧 rows、无高度/offset 跳变；TON 无 account 直接出现 Create address 终态；慢请求/有 account fixture 若不可安全构造则明确列为阻断，不能凭代码存在判定通过。
+- 主 agent 只负责拆分范围、保护 dirty files、汇总 reviewer/verifier 结论，以及按用户要求精确 stage/commit/push；不直接编写产品代码，也不自行做 code/UI 验收。每轮 writer 负责同步本 handoff，最终不得在视觉、交互、连续切换、空态/降级态证据不全时宣称“Native Home 已完成”。
+
+## 2026-07-19 iOS Debug 六单链修复后最终验收
+
+本节追加在上一节“修复前审计”之后，不覆盖或改写历史 Fail。最终结论只针对 iPhone 17 Pro / iOS 26.5、当前已备份多链 `Account #1 / $0.00` 在 All Networks 与六个单链 scope 间切换的 Native Home Debug 现场；它不是第一次创建空钱包、第一次启动或真正单链有钱钱包的替代证据。
+
+### 修复前矩阵、Legacy A/B 边界与两轮证据
+
+- 修复前同状态 Native/Legacy A/B 的权威基线仍是上一节：Native `.tmp/ui/native-home-single-network-native-20260719/`，Legacy `.tmp/ui/native-home-single-network-legacy-20260719/`。原版 RN 代码仍保留；Legacy 只在同一个 Debug/Metro 现场临时把 `nativeHomeFeatureFlag.native.ts` 切为 `false` 采集基准，采集后恢复 `true` 且该文件保持零 diff。
+- 修复前明确的真实 UI **Fail** 保留为四类：All Networks 切 BTC 后旧 All rows 回灌；缺 TON account/address 时 Native 永久 skeleton 而 Legacy 直接给出 No address 终态；补第一轮修复后，Polygon -> TON missing -> Tron/All 会出现 Header/网络图标已切换、body 仍永久停留 Polygon tabs/rows 的持久旧 snapshot；Unified Network Selector 的真实 All Networks manager row 与 Single network row 外层 clickable Pressable 缺少稳定 `select-item-*` identifier。
+- 第一轮修复后的中间证据位于 `.tmp/ui/native-home-single-network-after-20260719/`，其中 `99-ton-to-tron-first.png`、`104-ton-to-tron-20s.png`、`107-tron-to-all-first.png`、`111-tron-to-all-20s-stale.png` 及 `native-single-network-after.mp4` 是 controller revision 问题的真实 Fail 证据：Header slot 已显示 Tron 或 All Networks，但 native body 20 秒后仍是 Polygon。它们不得被当成最终通过帧。
+- 最终 Native 证据位于 `.tmp/ui/native-home-single-network-final-20260719/`；完整录屏为 `native-single-network-final.mp4`，手势 telemetry 为 `native-single-network-final.gesture-telemetry.json`，双向 fling 聚焦片段为 `72-fling-bidirectional-clip.mp4`。本轮没有再临时切 Legacy；最终判定是修复后的 Native 对照前一节同状态 Legacy 基准及明确的逐帧 Pass 条件，不外推到其它 wallet fixture。
+
+### 根因与最终修复边界
+
+- All -> single stale rows 的根因是 All Networks 异步 cache、progressive、settled、finished 和最终 commit 没有统一绑定 live owner；单一 generation 在 scope effect 中重置，不能表达 wallet/account/network identity。修复后每次 request/run 捕获不可变 owner/epoch，所有外逸 callback 写入前校验 live owner；generation 只在同 owner 内处理顺序，旧 owner 只能完成内部清理，不能再写当前 rows 或 section patch。All -> BTC 的原生 body 因此不会被旧 All response 回灌。
+- single-network 请求改为 per-owner single-flight，并在当前请求 settle/finally 后再安排下一轮 polling；同 scope 的重复事件只合并为一次 queued refresh，scope 切换会使旧 generation 失效。这样避免 15 秒 interval 抢占尚未结束的慢请求并持续自我取消。真实 20 秒慢 service fixture 本轮没有安全构造，slow-request 只由聚焦 lifecycle 测试覆盖，不能夸大成真实网络 UI Pass。
+- custom-token projection 不再阻塞首屏 canonical token rows commit；projection 完成后只在 owner 仍相同时补充结果，旧 owner projection 被丢弃。服务 rows 可先进入当前 scope，不会因为辅助 projection 延迟而维持 skeleton。
+- 缺 account/address 的单链在页面级直接走现有明确的 missing-account terminal，不挂载会启动 portfolio RPC、polling、snapshot/controller 的重型 Native Home owner；TON 因此显示 `No address / Create address to enable network / Create address`，不再永久 skeleton。该页面仍由当前 wallet/network scope 决定，不能把 `undefined wallet` 或尚未 settled 的首次启动状态误判成 missing account。
+- Polygon -> TON missing 会条件卸载 `NativeHomePageContent`。此前 controller 位于该子树内，重挂 Tron/All 时 revision 从 0 重新开始；仍存活/复用的 Nitro Native view 已持有更高 revision，合法拒绝低 revision snapshot，于是独立 RN Header slot 更新了网络图标，而 native tabs/body 保留 Polygon。修复后 controller owner 位于条件分支外并跨 missing page 保持同一 revision；重挂前按新 scope 原子 `replaceSnapshot`，detach/attach 绑定真实 target，避免旧 cleanup 误 detach 新 target。Header、tabs、rows 现在属于同一个当前 scope snapshot。
+- selector 之前只有内部内容节点或旧 product testID，真实 clickable leaf 不可稳定定位。`ListItem` 新增专用 `nativePressableTestID`，All Networks manager 的 `NetworkListItem` 与 Single network 的 `EditableListItem` 都把 `select-item-${networkId}` 传给唯一外层 iOS RN `Pressable`，同时保留旧内层 testID。外层保持 `cancelable`、50ms press delay 和单一 `onPress`，拖动取消不会误触，内部 checkbox/内容不会造成同一次点击执行两次。
+- 独立 code reviewer 在 writer 修正 controller owner/revision 和 selector 真实 caller contract 后给出 code Pass。最终聚焦 Jest 为 7 suites / 24 tests 全部通过，覆盖 owner remount revision、All owner/generation、single-flight/queued refresh、missing account、projection、实际 selector caller 与 drag/click contract；oxlint、oxfmt 和指定 diff-check 通过。root TypeScript 仍只有 Desktop `config.perfReady` 缺失和旧 `HOME_HEADER_SEARCH_ROW_HEIGHT` export 两个共享工作区无关错误，未为制造绿色结果混修。
+
+### 标准 Debug、进程与数据安全
+
+- 独立 UI verifier 从仓库根目录执行标准 `yarn app:ios`，最终为 Debug `Build Succeeded`，由该命令负责 build、Metro、更新安装并启动 `so.onekey.wallet`；最终应用进程 PID 为 `11177`。没有改用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`。
+- main runtime 与独立 bg runtime 分别确认 ready，不能用 main ready 代替 bg ready。应用持续存活并保持 foreground，钱包仍为 `Account #1 / $0.00`，既有钱包数据正常；最终恢复帧为 `01-all-ready-clean.png`、`03-home-recovered.png`、`04-home-recovered.png` 和 `73-final-foreground.png`。
+- 全程没有执行独立 uninstall/reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据；`yarn app:ios` 的更新安装不是被禁止的手工 reinstall。没有执行真实创建地址、真实备份或其它会改钱包权威状态的流程。
+
+### All Networks 与六个单链最终结果
+
+以下只采用最终目录中的目标确认帧；selector 尚未关闭、目标标题未确认、坐标误点、上一轮 stale 帧均排除。
+
+| scope | 最终 Tabs | Spot/页面终态与逐帧结论 |
+| --- | --- | --- |
+| All Networks | Spot、Perps、DeFi、NFT、History | `26` 至 `30` 的 Tron -> All first/100ms/300ms/3s/20s 均进入 All scope；20 秒帧显示 All 聚合 rows（可见 BTC、USDT、USDC、ETH、SOL 等），没有保留 Tron 或 Polygon body。|
+| Bitcoin | Spot、History | `34-all-to-btc-first-valid.png` 首帧和 `35-all-to-btc-3s-valid.png` 都只显示 BTC token row；没有旧 All rows 回灌、`rows -> empty -> rows`、section 高度突增或 offset 跳变。|
+| Ethereum | Spot、Perps、DeFi、NFT、History | `36`/`37` 首帧与 3 秒帧进入 ETH scope；settled 可见 ETH、USDT、USDC、DAI、RNDR 等当前网络 rows，没有 BTC/All/Polygon 旧 body。|
+| Solana | Spot、NFT、History | `38`/`39` 首帧与 3 秒帧进入 SOL scope；settled 可见 SOL、USDT、USDC rows，Tab 数量与当前 capability 一致。|
+| Polygon | Spot、Perps、DeFi、NFT、History | `40`/`41` 首帧与 3 秒帧进入 POL scope；settled 可见 POL、USDT、USDC.e、BUSD、DAI rows。随后五个 Tab 分别获得独立 first/3s 证据。|
+| TON | 不挂载普通 Native tabs/body | `15` 至 `19` 的 Polygon -> TON first/100ms/300ms/3s/20s 始终为 `No address / Create address to enable network / Create address`；没有 skeleton，也没有 Polygon rows。|
+| Tron | Spot、History | `20` 至 `24` 的 TON -> Tron first/100ms/300ms/3s/20s 均显示 Tron scope；settled 可见 TRX、USDT、USDC rows，没有回到 Polygon 或 missing page。|
+
+Polygon 的完整 Tab 结果：Spot 使用当前 POL rows，并在 `50-polygon-spot-bottom.png` 抵达页面底部；Perps 的 `42/43` 显示 `Perps · $0.00`、Deposit 与真实 Hot Markets rows，不是白屏；DeFi 的 `44/45` 收敛为 `$0.00 / Start earning / Your positions will appear here`；NFT 的 `46/47` 收敛为 `No NFTs / No NFTs found at this address`；History 的 `48/49` 收敛为 `No activity yet / Block explorer`。五个 Tab first/3s 均没有跨 Tab 旧 rows、全页白屏或持久 skeleton。
+
+### Selector、底部 inset、惯性与一次性 warning
+
+- All networks/Portfolio panel 使用真实 row clickable leaf；`06-portfolio-arbitrum-off-once.png` 与 `07-portfolio-arbitrum-restored-once.png` 证明 Arbitrum 每次单击只切换一次，`08-portfolio-short-drag-no-toggle.png` 证明短拖动按 cancel 语义不改变 checkbox。旧 `all-networks-manager-item-*` content ID 仍保留，不与外层 ID 重复抢点击。
+- Single network panel 使用同一路径的真实外层 identifier；TON 的实际 ID 为 `select-item-ton--mainnet`，不是根据可见文本或旧坐标猜测。`09-selector-network-open.png` 与 `15-polygon-to-ton-first.png` 证明该 row 单击一次后切到 TON；两类 selector panel 都不再依赖不可观察的 Nitro 子树坐标命中来判定。
+- `50-polygon-spot-bottom.png` 显示 Help center 完整位于浮动底部 Tab bar 上方，保留约 22pt 可见 clearance，已经能够真正触底，没有被底栏遮挡。
+- `51` 至 `54` 为一个方向的 release/100ms/300ms/1s 连续帧，`55` 至 `58` 为相反方向；`70-fling-down-contact-sheet.png`、`71-fling-up-contact-sheet.png`、`72-fling-bidirectional-clip.mp4` 和 gesture telemetry 证明手指离开后两向都继续 decelerate，没有此前“一个方向有惯性、另一个方向立即停住”或轻滑跳顶。
+- 标准启动时出现过一次来自 Dev mode Gallery 的 `Alert / asyncImportTest` Debug warning，证据为 `02-system-alert.png`；dismiss 后 Home 正常恢复。`59-warning-repro-start.png` 至 `67-warning-cycle3-portfolio.png` 连续三轮 Single network/Portfolio 切换没有再次出现，因此本轮按一次性 Debug 外部 warning 记录为非阻断，不据此修改 Discovery/Dev Gallery 或扩大 Native Home scope；后续若稳定复现再单独建 owner 调查。
+
+### 未覆盖限制、runtime scope 与职责分工
+
+- 最终 **Pass** 只关闭上述同状态六单链切换、TON missing terminal、controller remount、selector row、22pt 底部 clearance 和 iOS 双向 fling。仍未覆盖：第一次创建空钱包、第一次启动 gate、真正单链有钱钱包、正余额未备份、已备份零资产的其它动作矩阵、Keyless/imported/private-key/watching/external/hardware、正余额 Tron Staking action、`perpTabShowWeb` handoff、TON Create address 完整创建流程、有 account 的真实 20 秒慢 service、非空 NFT/DeFi/History records 与完整 footer、Light mode、Dynamic Type Large/XXXL、iOS 17.4 以下和 Android Debug。不得把本轮 `$0` 多链钱包切 scope 的结果外推为这些状态已 Native 化或已完成。
+- **main runtime：** 页面 surface/no-address guard、network/Tab selection、owner/epoch/generation、single-flight/queued polling、custom-token projection、controller snapshot/revision、section patch、UIKit height/offset、selector Pressable、accessibility 与 per-view gesture state。Native view 可以跨 JS 条件子树存活或复用，因此 controller revision 必须由外层 main owner 保持。
+- **bg runtime：** wallet/account/address 与 capability 权威状态，以及 portfolio、Market、History、NFT、DeFi、Perps service 数据。main/bg 是独立 Hermes heap、独立初始化；DTO 经 proxy 序列化/反序列化并在两边各有 JS 副本，main ready 不能替代 bg ready，也不能假设 bg 先 ready。
+- DB/MMKV/file handles、图片/字体 cache 和部分 Native singleton 是进程级共享 Native 资源；controller JS owner/epoch/generation 属于 main heap，cell constraint、diffable snapshot/cell、represented image signature、request cancellation、pressed/hover/selected、selector drag cancellation 与 scroll offset 是 per-view 状态。共享图片或 DB cache 命中不能证明某个 view 的 revision、复用或手势状态正确。
+- 本轮继续固定职责：writer subagent 只编写被分配的产品代码/测试，并在结论稳定后更新本 handoff；独立 reviewer subagent 不参与编写，负责源码、owner/race、类型、lint 和聚焦测试 Pass/Fail；独立 UI verifier subagent 只用标准 Debug 包执行真实截图、逐帧、录屏、identifier 点击和 gesture 验收；主 agent 只负责拆分、汇总结论、保护 dirty files，以及按用户要求精确 stage/commit/push，不直接写产品代码，也不自行替代 reviewer/verifier。
