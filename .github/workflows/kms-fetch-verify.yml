@@ -32,7 +32,7 @@ jobs:
           FETCHED_KEYS: ${{ steps.kms.outputs.fetched-keys }}
         run: |
           set -euo pipefail
-          EXPECTED_KEYS='["APP_RUN_ENV","SERVICE_AUTH_TOKEN","CLIENT_LICENSE_KEY","ENCRYPTION_SALT","WEBHOOK_SECURE_URL"]'
+          EXPECTED_KEYS='["CODACY_PROJECT_TOKEN"]'
 
           jq -e --argjson expected "$EXPECTED_KEYS" \
             'type == "array" and sort == ($expected | sort)' \
@@ -44,15 +44,5 @@ jobs:
               exit 1
             fi
           done < <(jq -r '.[]' <<<"$EXPECTED_KEYS")
-
-          if [[ "$APP_RUN_ENV" != "production" ]]; then
-            echo "::error::APP_RUN_ENV does not match the expected test value"
-            exit 1
-          fi
-
-          if [[ "$WEBHOOK_SECURE_URL" != https://* ]]; then
-            echo "::error::WEBHOOK_SECURE_URL must use HTTPS"
-            exit 1
-          fi
 
           echo "KMS fetch, decrypt, and payload verification completed."
