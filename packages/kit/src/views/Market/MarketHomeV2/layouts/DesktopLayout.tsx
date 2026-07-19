@@ -20,7 +20,7 @@ import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
 import {
   MarketFilterChipsBar,
-  MarketFiltersPopover,
+  MarketFiltersTrigger,
   MarketListFilterProvider,
 } from '../components/MarketFilterChipsBar';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
@@ -349,12 +349,7 @@ export function DesktopLayout({
           <MarketFilterChipsBar
             timeRange={filterBarProps.timeRange}
             onTimeRangeChange={filterBarProps.onTimeRangeChange}
-            filtersTrigger={
-              <MarketFiltersPopover
-                timeRange={filterBarProps.timeRange}
-                onTimeRangeChange={filterBarProps.onTimeRangeChange}
-              />
-            }
+            filtersTrigger={<MarketFiltersTrigger />}
           />
         );
       } else if (isStockCategoryTab) {

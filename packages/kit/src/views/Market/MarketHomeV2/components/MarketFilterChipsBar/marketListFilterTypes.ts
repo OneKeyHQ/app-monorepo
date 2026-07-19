@@ -27,6 +27,15 @@ export type IMarketFilterOption = {
   max?: number;
 };
 
+// Section groups in the Filters modal (Binance convention: named groups
+// instead of tabs, so every condition is reachable by scrolling).
+export enum EMarketFilterGroup {
+  Basics = 'basics',
+  Metrics = 'metrics',
+  Activity = 'activity',
+  Safety = 'safety',
+}
+
 export type IMarketFilterDimensionConfig = {
   id: EMarketFilterDimension;
   label: string; // hardcoded EN copy, demo only
@@ -41,8 +50,7 @@ export type IMarketFilterDimensionConfig = {
   localField?: keyof IMarketToken;
   // firstTradeTime is a timestamp; compare (now - value) against min/max.
   isAge?: boolean;
-  // Low-frequency dimensions grouped under "More" in the Filters popover.
-  advanced?: boolean;
+  group: EMarketFilterGroup;
   // Extra note rendered next to the row (demo caveats).
   note?: string;
   options: IMarketFilterOption[];

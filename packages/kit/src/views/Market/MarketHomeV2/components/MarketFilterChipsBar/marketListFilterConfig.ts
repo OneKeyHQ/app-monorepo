@@ -1,4 +1,7 @@
-import { EMarketFilterDimension } from './marketListFilterTypes';
+import {
+  EMarketFilterDimension,
+  EMarketFilterGroup,
+} from './marketListFilterTypes';
 
 import type {
   IMarketFilterDimensionConfig,
@@ -26,6 +29,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.TokenAge,
     label: 'Token age',
+    group: EMarketFilterGroup.Basics,
     // No server-side age filter exists yet (PRD-confirmed); local demo only.
     localField: 'firstTradeTime',
     isAge: true,
@@ -41,6 +45,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   },
   {
     id: EMarketFilterDimension.MarketCap,
+    group: EMarketFilterGroup.Metrics,
     label: 'Market cap',
     // Unit is appended to the popover row title (Binance convention) so tier
     // pills stay short enough to fit four per row; toolbar chips keep the
@@ -81,6 +86,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.Liquidity,
     label: 'Liquidity',
+    group: EMarketFilterGroup.Metrics,
     unit: '$',
     minParam: 'liquidityMin',
     maxParam: 'liquidityMax',
@@ -95,6 +101,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.Turnover,
     label: 'Turnover',
+    group: EMarketFilterGroup.Metrics,
     unit: '$',
     minParam: 'volumeMin',
     maxParam: 'volumeMax',
@@ -109,10 +116,10 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.Holders,
     label: 'Holders',
+    group: EMarketFilterGroup.Activity,
     minParam: 'holdersMin',
     maxParam: 'holdersMax',
     localField: 'holders',
-    advanced: true,
     options: [100, 1000, 10_000].map((value) => ({
       id: `min-${value}`,
       label: `${value >= 1000 ? `${value / 1000}K` : value}+`,
@@ -123,10 +130,10 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.Change,
     label: 'Change',
+    group: EMarketFilterGroup.Activity,
     minParam: 'priceChangePercentMin',
     maxParam: 'priceChangePercentMax',
     localField: 'change24h',
-    advanced: true,
     options: [10, 50, 100].map((value) => ({
       id: `min-${value}`,
       label: `+${value}%+`,
@@ -137,10 +144,10 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.Txns,
     label: 'Txns',
+    group: EMarketFilterGroup.Activity,
     minParam: 'txsMin',
     maxParam: 'txsMax',
     localField: 'transactions',
-    advanced: true,
     options: [100, 1000, 10_000].map((value) => ({
       id: `min-${value}`,
       label: `${value >= 1000 ? `${value / 1000}K` : value}+`,
@@ -152,6 +159,22 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   // intentionally absent: the redesigned table no longer shows a Traders
   // column and inflow has no list column or local data source — filters
   // must not reference metrics the user cannot see in the table.
+];
+
+export const MARKET_FILTER_GROUP_LABELS: Record<EMarketFilterGroup, string> = {
+  [EMarketFilterGroup.Basics]: 'Token basics',
+  [EMarketFilterGroup.Metrics]: 'Market metrics',
+  [EMarketFilterGroup.Activity]: 'Trading activity',
+  [EMarketFilterGroup.Safety]: 'Safety checks',
+};
+
+// Group render order; safety-style audit conditions sit inline near the top
+// (reference-design convention) instead of behind a separate tab.
+export const MARKET_FILTER_GROUP_ORDER: EMarketFilterGroup[] = [
+  EMarketFilterGroup.Basics,
+  EMarketFilterGroup.Safety,
+  EMarketFilterGroup.Metrics,
+  EMarketFilterGroup.Activity,
 ];
 
 export const MARKET_FILTER_DIMENSION_MAP = new Map(

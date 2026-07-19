@@ -1,5 +1,5 @@
 export { MarketFilterChipsBar } from './MarketFilterChipsBar';
-export { MarketFiltersPopover } from './MarketFiltersPopover';
+export { MarketFiltersTrigger } from './MarketFiltersModal';
 export {
   MarketListFilterProvider,
   useMarketListFilter,
