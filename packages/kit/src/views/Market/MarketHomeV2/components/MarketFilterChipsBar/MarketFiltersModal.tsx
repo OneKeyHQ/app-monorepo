@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 
 import {
   Button,
@@ -26,12 +27,22 @@ import type {
   IMarketListFilterConditions,
   IMarketListFilterState,
 } from './marketListFilterTypes';
+import type { IMarketTimeRangeValue } from '../../types';
 
-// Uniform pill width: rows wrap naturally and leave trailing space instead
-// of stretching to fill (per design); identical widths keep columns aligned.
-// 84px is the widest value that still fits four pills plus gaps inside the
-// dialog's 400px content frame.
-const TIER_PILL_WIDTH = 84;
+const TIME_RANGE_OPTIONS: IMarketTimeRangeValue[] = ['5m', '1h', '4h', '24h'];
+
+// Row layout: a fixed label column on the left, tier pills filling the rest
+// (reference layout). Three pills fit comfortably; a four-option dimension
+// wraps to 2x2 so the pills stay readable instead of being squeezed.
+const ROW_LABEL_WIDTH = 104;
+const TIER_COLUMNS_DEFAULT = 3;
+const TIER_COLUMNS_FOR_FOUR_OPTIONS = 2;
+
+function getTierColumns(optionCount: number) {
+  return optionCount === 4
+    ? TIER_COLUMNS_FOR_FOUR_OPTIONS
+    : TIER_COLUMNS_DEFAULT;
+}
 
 const AUDIT_TIER_LABELS = ['≤ 10%', '≤ 30%', '≤ 50%'];
 
@@ -42,9 +53,10 @@ const AUDIT_ROWS = [
   { label: 'Bundle holding %', testId: 'bundle-holding' },
 ];
 
-// Uniform fixed-width tier pills that wrap with trailing space.
+// Equal-width pills laid out on a fixed column grid so every row lines up.
 function TierGrid({
   items,
+  columns,
 }: {
   items: {
     key: string;
@@ -54,20 +66,66 @@ function TierGrid({
     onPress?: () => void;
     testID?: string;
   }[];
+  columns: number;
+}) {
+  const rows: (typeof items)[] = [];
+  for (let i = 0; i < items.length; i += columns) {
+    rows.push(items.slice(i, i + columns));
+  }
+  return (
+    <YStack flex={1} gap="$2">
+      {rows.map((row) => (
+        <XStack key={row[0].key} gap="$2">
+          {row.map((item) => (
+            <TierPill
+              key={item.key}
+              grow
+              label={item.label}
+              selected={item.selected}
+              disabled={item.disabled}
+              onPress={item.onPress}
+              testID={item.testID}
+            />
+          ))}
+          {row.length < columns
+            ? Array.from({ length: columns - row.length }).map((_, index) => (
+                <XStack
+                  // eslint-disable-next-line react/no-array-index-key
+                  key={`spacer-${index}`}
+                  flexGrow={1}
+                  flexBasis={0}
+                />
+              ))
+            : null}
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
+
+// Label on the left, controls on the right (reference layout).
+function FilterRow({
+  label,
+  note,
+  children,
+}: {
+  label: string;
+  note?: string;
+  children: ReactNode;
 }) {
   return (
-    <XStack gap="$2" flexWrap="wrap">
-      {items.map((item) => (
-        <TierPill
-          key={item.key}
-          width={TIER_PILL_WIDTH}
-          label={item.label}
-          selected={item.selected}
-          disabled={item.disabled}
-          onPress={item.onPress}
-          testID={item.testID}
-        />
-      ))}
+    <XStack py="$2" gap="$2" alignItems="flex-start">
+      <YStack width={ROW_LABEL_WIDTH} py="$1.5" flexShrink={0}>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {label}
+        </SizableText>
+        {note ? (
+          <SizableText size="$bodyXs" color="$textDisabled">
+            {note}
+          </SizableText>
+        ) : null}
+      </YStack>
+      {children}
     </XStack>
   );
 }
@@ -82,13 +140,16 @@ function DimensionRow({
   onSelect: (optionId: string | undefined) => void;
 }) {
   return (
-    <YStack py="$2" gap="$2">
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {dimension.unit
+    <FilterRow
+      label={
+        dimension.unit
           ? `${dimension.label} (${dimension.unit})`
-          : dimension.label}
-      </SizableText>
+          : dimension.label
+      }
+      note={dimension.note}
+    >
       <TierGrid
+        columns={getTierColumns(dimension.options.length)}
         items={dimension.options.map((option) => ({
           key: option.id,
           label: option.label,
@@ -98,7 +159,7 @@ function DimensionRow({
           testID: `market-filters-modal-field-${dimension.id}-${option.id}`,
         }))}
       />
-    </YStack>
+    </FilterRow>
   );
 }
 
@@ -115,10 +176,14 @@ function GroupHeader({ label }: { label: string }) {
 // subtree, so context would resolve to the empty default there.
 function MarketFiltersModalContent({
   initialConditions,
+  timeRange,
+  onTimeRangeChange,
   onApply,
   onClose,
 }: {
   initialConditions: IMarketListFilterConditions;
+  timeRange: IMarketTimeRangeValue;
+  onTimeRangeChange: (v: IMarketTimeRangeValue) => void;
   onApply: (next: IMarketListFilterState) => void;
   onClose: () => void;
 }) {
@@ -154,14 +219,28 @@ function MarketFiltersModalContent({
             <YStack key={group} gap="$2">
               {groupIndex > 0 ? <Divider mt="$3" /> : null}
               <GroupHeader label={MARKET_FILTER_GROUP_LABELS[group]} />
-              {group === EMarketFilterGroup.Safety ? (
+              {group === EMarketFilterGroup.Metrics ? (
+                // Timeframe drives the whole list (not a filter condition), so
+                // it applies immediately and mirrors the toolbar segment.
+                <FilterRow label="Timeframe">
+                  <TierGrid
+                    columns={getTierColumns(TIME_RANGE_OPTIONS.length)}
+                    items={TIME_RANGE_OPTIONS.map((option) => ({
+                      key: option,
+                      label: option,
+                      selected: option === timeRange,
+                      onPress: () => onTimeRangeChange(option),
+                      testID: `market-filters-modal-time-range-${option}`,
+                    }))}
+                  />
+                </FilterRow>
+              ) : null}
+              {group === EMarketFilterGroup.Audit ? (
                 <YStack>
                   {AUDIT_ROWS.map((row) => (
-                    <YStack key={row.testId} py="$2" gap="$2">
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        {row.label}
-                      </SizableText>
+                    <FilterRow key={row.testId} label={row.label}>
                       <TierGrid
+                        columns={getTierColumns(AUDIT_TIER_LABELS.length)}
                         items={AUDIT_TIER_LABELS.map((tierLabel) => ({
                           key: tierLabel,
                           label: tierLabel,
@@ -169,7 +248,7 @@ function MarketFiltersModalContent({
                           testID: `market-filters-modal-audit-${row.testId}-${tierLabel}`,
                         }))}
                       />
-                    </YStack>
+                    </FilterRow>
                   ))}
                   <SizableText size="$bodySm" color="$textSubdued">
                     Pending Spike A#8 boolean-direction verification
@@ -223,7 +302,13 @@ function MarketFiltersModalContent({
 
 // Filters entry pill; opens the filter conditions modal. Lives inside the
 // Market provider subtree, so it snapshots state/setters for the dialog.
-export function MarketFiltersTrigger() {
+export function MarketFiltersTrigger({
+  timeRange,
+  onTimeRangeChange,
+}: {
+  timeRange: IMarketTimeRangeValue;
+  onTimeRangeChange: (v: IMarketTimeRangeValue) => void;
+}) {
   const { filterState, setFilterState, activeConditionCount } =
     useMarketListFilter();
 
@@ -234,6 +319,8 @@ export function MarketFiltersTrigger() {
       renderContent: (
         <MarketFiltersModalContent
           initialConditions={filterState.conditions}
+          timeRange={timeRange}
+          onTimeRangeChange={onTimeRangeChange}
           onApply={setFilterState}
           onClose={() => {
             void dialog.close();

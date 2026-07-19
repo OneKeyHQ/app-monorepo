@@ -27,13 +27,11 @@ export type IMarketFilterOption = {
   max?: number;
 };
 
-// Section groups in the Filters modal (Binance convention: named groups
-// instead of tabs, so every condition is reachable by scrolling).
+// Section groups in the Filters modal: named groups on one scrolling page
+// instead of tabs.
 export enum EMarketFilterGroup {
-  Basics = 'basics',
   Metrics = 'metrics',
-  Activity = 'activity',
-  Safety = 'safety',
+  Audit = 'audit',
 }
 
 export type IMarketFilterDimensionConfig = {

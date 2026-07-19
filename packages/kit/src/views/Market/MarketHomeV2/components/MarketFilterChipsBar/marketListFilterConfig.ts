@@ -29,7 +29,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.TokenAge,
     label: 'Token age',
-    group: EMarketFilterGroup.Basics,
+    group: EMarketFilterGroup.Metrics,
     // No server-side age filter exists yet (PRD-confirmed); local demo only.
     localField: 'firstTradeTime',
     isAge: true,
@@ -116,7 +116,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.Holders,
     label: 'Holders',
-    group: EMarketFilterGroup.Activity,
+    group: EMarketFilterGroup.Metrics,
     minParam: 'holdersMin',
     maxParam: 'holdersMax',
     localField: 'holders',
@@ -130,21 +130,21 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.Change,
     label: 'Change',
-    group: EMarketFilterGroup.Activity,
+    group: EMarketFilterGroup.Metrics,
     minParam: 'priceChangePercentMin',
     maxParam: 'priceChangePercentMax',
     localField: 'change24h',
     options: [10, 50, 100].map((value) => ({
       id: `min-${value}`,
-      label: `+${value}%+`,
-      chipLabel: `+${value}%+`,
+      label: `${value}%+`,
+      chipLabel: `${value}%+`,
       min: value,
     })),
   },
   {
     id: EMarketFilterDimension.Txns,
     label: 'Txns',
-    group: EMarketFilterGroup.Activity,
+    group: EMarketFilterGroup.Metrics,
     minParam: 'txsMin',
     maxParam: 'txsMax',
     localField: 'transactions',
@@ -162,19 +162,15 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
 ];
 
 export const MARKET_FILTER_GROUP_LABELS: Record<EMarketFilterGroup, string> = {
-  [EMarketFilterGroup.Basics]: 'Token basics',
-  [EMarketFilterGroup.Metrics]: 'Market metrics',
-  [EMarketFilterGroup.Activity]: 'Trading activity',
-  [EMarketFilterGroup.Safety]: 'Safety checks',
+  [EMarketFilterGroup.Metrics]: 'Metrics',
+  [EMarketFilterGroup.Audit]: 'Audit',
 };
 
-// Group render order; safety-style audit conditions sit inline near the top
-// (reference-design convention) instead of behind a separate tab.
+// Metrics first: those are the conditions the demo can actually apply; the
+// audit block is still a placeholder pending Spike A#8.
 export const MARKET_FILTER_GROUP_ORDER: EMarketFilterGroup[] = [
-  EMarketFilterGroup.Basics,
-  EMarketFilterGroup.Safety,
   EMarketFilterGroup.Metrics,
-  EMarketFilterGroup.Activity,
+  EMarketFilterGroup.Audit,
 ];
 
 export const MARKET_FILTER_DIMENSION_MAP = new Map(
