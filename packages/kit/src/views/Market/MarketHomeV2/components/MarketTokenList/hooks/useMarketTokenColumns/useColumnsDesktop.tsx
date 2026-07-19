@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { type IntlShape, useIntl } from 'react-intl';
@@ -207,6 +207,7 @@ function RedesignAddressWithCopy({
   copyFrom: ECopyFrom;
 }) {
   const { copyText } = useClipboard();
+  const [isHovered, setIsHovered] = useState(false);
   const handleCopy = useCallback(
     (e: GestureResponderEvent) => {
       // The row itself navigates to the detail page; copying must not.
@@ -226,15 +227,17 @@ function RedesignAddressWithCopy({
       gap={2}
       minWidth={0}
       cursor="pointer"
-      hoverStyle={{ opacity: 0.75 }}
-      pressStyle={{ opacity: 0.6 }}
       hitSlop={NATIVE_HIT_SLOP}
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
       onPress={handleCopy}
       role="button"
     >
+      {/* Hover recolors both text and glyph with no background, matching the
+          Clear text-button pattern the design defines for text+icon targets. */}
       <SizableText
         size="$bodySm"
-        color="$textDisabled"
+        color={isHovered ? '$textSubdued' : '$textDisabled'}
         numberOfLines={1}
         ellipsizeMode="tail"
       >
@@ -243,7 +246,7 @@ function RedesignAddressWithCopy({
       <Icon
         name="Copy3Outline"
         size={REDESIGN_COPY_ICON_SIZE}
-        color="$iconDisabled"
+        color={isHovered ? '$iconSubdued' : '$iconDisabled'}
         flexShrink={0}
       />
     </XStack>
