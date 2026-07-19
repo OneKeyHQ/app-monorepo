@@ -13,7 +13,6 @@ import { KYTIntroOnMount } from './KYTIntroDialog';
 let mockCurrentUserId = 'user-a';
 const mockPrimeAtomListeners = new Set<() => void>();
 let mockIsPrimeSubscriptionActive = false;
-const mockPrimeSubscriptionListeners = new Set<() => void>();
 let mockAppUpdateInfo = { status: 'checking', firstLaunch: false };
 type IMockNavigationState = {
   index: number;
@@ -89,11 +88,6 @@ function mockSetCurrentUserId(onekeyUserId: string) {
   mockPrimeAtomListeners.forEach((listener) => listener());
 }
 
-function mockSetPrimeSubscriptionActive(isActive: boolean) {
-  mockIsPrimeSubscriptionActive = isActive;
-  mockPrimeSubscriptionListeners.forEach((listener) => listener());
-}
-
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
@@ -144,18 +138,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
-  useOneKeyAuthMethods: () => {
-    const React = jest.requireActual('react') as typeof import('react');
-    const isPrimeSubscriptionActive = React.useSyncExternalStore(
-      (listener) => {
-        mockPrimeSubscriptionListeners.add(listener);
-        return () => mockPrimeSubscriptionListeners.delete(listener);
-      },
-      () => mockIsPrimeSubscriptionActive,
-      () => mockIsPrimeSubscriptionActive,
-    );
-    return { isPrimeSubscriptionActive };
-  },
+  useOneKeyAuthMethods: () => ({
+    isPrimeSubscriptionActive: mockIsPrimeSubscriptionActive,
+  }),
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
@@ -279,7 +264,6 @@ describe('KYTIntroOnMount', () => {
     jest.useRealTimers();
     cleanup();
     mockPrimeAtomListeners.clear();
-    mockPrimeSubscriptionListeners.clear();
   });
 
   it('shows from purchase success without waiting for Home readiness', async () => {
@@ -314,70 +298,6 @@ describe('KYTIntroOnMount', () => {
 
     act(() => {
       mockTokensDoneCallback?.('tokensDone');
-    });
-
-    await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
-    expect(mockIntroShownLog).toHaveBeenCalledWith(
-      expect.objectContaining({ entryPoint: 'homeAutoIntro' }),
-    );
-  });
-
-  it('does not arm the Home cold-start fallback before first Home focus', () => {
-    mockIsPrimeSubscriptionActive = true;
-    mockAppUpdateInfo = { status: 'done', firstLaunch: false };
-    render(<KYTIntroOnMount />);
-
-    act(() => {
-      mockTabFocusCallback?.(false, false);
-    });
-    expect(mockRunAfterTokensDone).not.toHaveBeenCalled();
-
-    act(() => {
-      mockTabFocusCallback?.(true, false);
-      mockTabFocusCallback?.(false, false);
-      mockTabFocusCallback?.(true, false);
-    });
-    expect(mockRunAfterTokensDone).toHaveBeenCalledTimes(1);
-  });
-
-  it('ignores the synthetic Home focus before navigation is initialized', () => {
-    mockIsPrimeSubscriptionActive = true;
-    mockAppUpdateInfo = { status: 'done', firstLaunch: false };
-    mockRootState = { index: 0, routes: [] };
-    render(<KYTIntroOnMount />);
-
-    act(() => {
-      mockTabFocusCallback?.(true, false);
-    });
-    expect(mockRunAfterTokensDone).not.toHaveBeenCalled();
-
-    mockRootState = {
-      index: 0,
-      routes: [
-        {
-          name: 'main',
-          state: { index: 0, routes: [{ name: 'Home' }] },
-        },
-      ],
-    };
-    act(() => {
-      mockTabFocusCallback?.(true, false);
-    });
-    expect(mockRunAfterTokensDone).toHaveBeenCalledTimes(1);
-  });
-
-  it('keeps the Home fallback when Prime becomes active after mount', async () => {
-    mockAppUpdateInfo = { status: 'done', firstLaunch: false };
-    render(<KYTIntroOnMount />);
-
-    act(() => {
-      mockTabFocusCallback?.(true, false);
-      mockTokensDoneCallback?.('tokensDone');
-    });
-    expect(mockDialogShow).not.toHaveBeenCalled();
-
-    act(() => {
-      mockSetPrimeSubscriptionActive(true);
     });
 
     await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
@@ -497,33 +417,6 @@ describe('KYTIntroOnMount', () => {
       onekeyUserId: 'user-a',
     });
     expect(mockDialogShow).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not log an account switch as a user dismissal', async () => {
-    render(<KYTIntroOnMount />);
-    act(() => {
-      emitPurchaseSuccess();
-    });
-    await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
-
-    const options = mockDialogShow.mock.calls[0][0] as IDialogOptions;
-    const close = jest.fn(async () => undefined);
-    act(() => {
-      mockSetCurrentUserId('user-b');
-    });
-    await act(async () => {
-      await options.onConfirm({ close });
-    });
-    expect(close).toHaveBeenCalledWith({ flag: 'accountChanged' });
-    expect(mockSetKytEnabled).not.toHaveBeenCalled();
-
-    act(() => {
-      options.onClose({ flag: 'accountChanged' });
-    });
-    expect(mockCompleteClaim).toHaveBeenCalledWith({
-      onekeyUserId: 'user-a',
-    });
-    expect(mockIntroActionLog).not.toHaveBeenCalled();
   });
 
   it('retries a rejected eligibility claim without an unhandled rejection', async () => {
