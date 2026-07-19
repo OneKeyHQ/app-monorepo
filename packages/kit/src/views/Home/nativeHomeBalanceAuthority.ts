@@ -25,15 +25,21 @@ export interface INativeHomeBalanceAuthorityToken {
 }
 
 export interface INativeHomeHeaderActionPresentation {
-  actionLayout: 'standard' | 'zeroBalance';
+  actionLayout: 'loading' | 'standard' | 'zeroBalance';
   rowHeight: 62 | 82;
-  slotKind: 'positive' | 'zero';
+  slotKind: 'loading' | 'positive' | 'zero';
 }
 
-export interface INativeHomeBalanceStickyState {
-  state: IHomeBalanceState;
-  walletId: string | undefined;
+export interface INativeHomeBalanceScopeCacheEntry {
+  scopeKey: string;
+  state: Exclude<IHomeBalanceState, 'unknown'>;
 }
+
+export interface INativeHomeBalanceScopeCache {
+  entries: INativeHomeBalanceScopeCacheEntry[];
+}
+
+export const NATIVE_HOME_BALANCE_SCOPE_CACHE_LIMIT = 8;
 
 const nativeHomeFundedOwners = new Set<string>();
 
@@ -102,6 +108,16 @@ export function hasNativeHomeNonZeroWorth(
     const worth = new BigNumber(value ?? 0);
     return worth.isFinite() && !worth.isZero();
   });
+}
+
+export function resolveNativeHomeConfirmedBalanceIsPositive(
+  value: string | undefined,
+): boolean | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const amount = new BigNumber(value);
+  return amount.isFinite() ? !amount.isZero() : undefined;
 }
 
 export function getNativeHomeLastConfirmedBalance({
@@ -245,28 +261,32 @@ export function resolveNativeHomeBalanceState({
   });
 }
 
-export function resolveNativeHomeWalletScopedBalanceState({
+export function resolveNativeHomeScopeCachedBalanceState({
   computed,
   previous,
-  walletId,
+  scopeKey,
 }: {
   computed: IHomeBalanceState;
-  previous: INativeHomeBalanceStickyState;
-  walletId: string | undefined;
+  previous: INativeHomeBalanceScopeCache;
+  scopeKey: string | undefined;
 }): {
   state: IHomeBalanceState;
-  sticky: INativeHomeBalanceStickyState;
+  cache: INativeHomeBalanceScopeCache;
 } {
-  let sticky =
-    previous.walletId === walletId
-      ? previous
-      : { state: 'unknown' as const, walletId };
-  if (computed !== 'unknown') {
-    sticky = { state: computed, walletId };
+  if (!scopeKey) {
+    return { state: 'unknown', cache: previous };
   }
+  const cached = previous.entries.find((entry) => entry.scopeKey === scopeKey);
+  if (computed === 'unknown') {
+    return { state: cached?.state ?? 'unknown', cache: previous };
+  }
+  const entries = previous.entries
+    .filter((entry) => entry.scopeKey !== scopeKey)
+    .concat({ scopeKey, state: computed })
+    .slice(-NATIVE_HOME_BALANCE_SCOPE_CACHE_LIMIT);
   return {
-    state: computed === 'unknown' ? sticky.state : computed,
-    sticky,
+    state: computed,
+    cache: { entries },
   };
 }
 
@@ -275,9 +295,9 @@ export function resolveNativeHomeHeaderActionPresentation(
 ): INativeHomeHeaderActionPresentation {
   if (balanceState === 'unknown') {
     return {
-      actionLayout: 'standard',
-      rowHeight: 62,
-      slotKind: 'positive',
+      actionLayout: 'loading',
+      rowHeight: 82,
+      slotKind: 'loading',
     };
   }
   if (balanceState === 'zero') {

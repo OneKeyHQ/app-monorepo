@@ -56,9 +56,9 @@ import {
   HOME_CONTAINER_SCHEMA_VERSION,
   HOME_CONTAINER_TAB_IDS,
   HomeContainer,
-  type HomeContainerController,
   type IHomeContainerAction,
   type IHomeContainerCapabilities,
+  type IHomeContainerHeader,
   type IHomeContainerRef,
   type IHomeContainerSection,
   type IHomeContainerSlots,
@@ -68,6 +68,7 @@ import {
   type IHomeContainerTheme,
 } from '@onekeyhq/native-components';
 import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -114,7 +115,10 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
 import { useCopyAddressWithDeriveType } from '../../hooks/useCopyAccountAddress';
 import { useManageToken } from '../../hooks/useManageToken';
-import { useLastConfirmedOverviewBalanceAtom } from '../../states/jotai/contexts/accountOverview';
+import {
+  buildOverviewOwnerKey,
+  useLastConfirmedOverviewBalanceAtom,
+} from '../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 import { convertFiat } from '../../utils/fiatConvert';
@@ -150,20 +154,17 @@ import {
 } from './homeWalletCapabilityTabModel';
 import { useHomeWalletTabSupport } from './hooks/useHomeWalletTabSupport';
 import {
-  type INativeHomeBalanceStickyState,
+  type INativeHomeBalanceScopeCache,
   buildNativeHomeBalanceScopeKey,
   getNativeHomeLastConfirmedBalance,
   hasNativeHomeNonZeroWorth,
   hasNativeHomePortfolioHoldings,
   resolveNativeHomeBalanceState,
+  resolveNativeHomeConfirmedBalanceIsPositive,
   resolveNativeHomeFundedHoldings,
   resolveNativeHomeHeaderActionPresentation,
-  resolveNativeHomeWalletScopedBalanceState,
+  resolveNativeHomeScopeCachedBalanceState,
 } from './nativeHomeBalanceAuthority';
-import {
-  type INativeHomeContainerControllerOwner,
-  acquireNativeHomeContainerController,
-} from './nativeHomeContainerControllerOwner';
 import {
   NATIVE_HOME_ACTION_IDS,
   buildNativeDeFiSections,
@@ -182,7 +183,14 @@ import {
   PerpsHomeStateSlot,
 } from './pages/PerpsContainer';
 import { usePerpsHomePortfolio } from './pages/usePerpsHomePortfolio';
+import {
+  applyNativeHomeBalanceAmountCommit,
+  convertNativeHomeBalanceUsdToDisplay,
+  convertNativeHomeConfirmedBalanceToUsd,
+  useNativeHomeBalanceAmountPresentation,
+} from './useNativeHomeBalanceAmountPresentation';
 import { useNativeHomeBannersData } from './useNativeHomeBannersData';
+import { useNativeHomeContainerScopeController } from './useNativeHomeContainerScopeController';
 import {
   resolveNativeHomeDefaultTokenProjection,
   useNativeHomeDefaultTokenMap,
@@ -194,6 +202,7 @@ import { useNativeHomeNFTData } from './useNativeHomeNFTData';
 import { useNativeHomePortfolioData } from './useNativeHomePortfolioData';
 import { useNativeHomeSupplementalData } from './useNativeHomeSupplementalData';
 
+import type { INativeHomeContainerControllerOwner } from './nativeHomeContainerControllerOwner';
 import type { INativeHomePageProps } from './NativeHomePage.types';
 
 const filterScamHistorySupportedNetworkIds = new Set(
@@ -289,7 +298,7 @@ function NativeHomePageContent({
   const [settings, setSettings] = useSettingsPersistAtom();
   const [{ hideValue }, setSettingsValue] = useSettingsValuePersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
-  const [{ byOwner: lastConfirmedBalanceByOwner }] =
+  const [lastConfirmedOverviewBalance, setLastConfirmedOverviewBalance] =
     useLastConfirmedOverviewBalanceAtom();
   const {
     activeAccount: {
@@ -1093,45 +1102,135 @@ function NativeHomePageContent({
     ],
   );
 
-  const headerBalanceValue = useMemo(() => {
-    let total = new BigNumber(0);
-    Object.values(portfolio.map).forEach((fiat) => {
-      total = total.plus(
-        convertFiat({
-          value: fiat.fiatValue || 0,
-          sourceCurrency: fiat.currency ?? settings.currencyInfo.id,
-          targetCurrency: settings.currencyInfo.id,
-          currencyMap,
-        }),
-      );
-    });
-    Object.values(deFi.protocolMap).forEach((protocol) => {
-      total = total.plus(protocol.netWorth || 0);
-    });
-    if (isPerpsSupported && perps.view) {
-      total = total.plus(
-        convertFiat({
-          value: perps.view.accountValueUsd,
-          sourceCurrency: 'usd',
-          targetCurrency: settings.currencyInfo.id,
-          currencyMap,
-        }),
-      );
-    }
-    return total;
-  }, [
-    currencyMap,
-    deFi.protocolMap,
-    isPerpsSupported,
-    perps.view,
-    portfolio.map,
-    settings.currencyInfo.id,
-  ]);
   const homeBalanceScopeKey = buildNativeHomeBalanceScopeKey({
     accountId: account?.id,
     networkId: network?.id,
     walletId: wallet?.id,
   });
+  const overviewOwnerKey = buildOverviewOwnerKey(account?.id, network?.id);
+  let expectedPerpsAmountScopeKey: string | undefined;
+  if (account?.indexedAccountId) {
+    expectedPerpsAmountScopeKey = `indexed:${account.indexedAccountId}`;
+  } else if (account?.id) {
+    expectedPerpsAmountScopeKey = `account:${account.id}`;
+  }
+  const isCurrentPerpsAmount = Boolean(
+    expectedPerpsAmountScopeKey &&
+    perps.amountAuthority.scopeKey === expectedPerpsAmountScopeKey,
+  );
+  const shouldIncludeDeFiAmount =
+    !homeWalletCapabilityTabModel.shouldCommitTabs ||
+    homeWalletCapabilityTabModel.isDeFiVisible;
+  const shouldIncludePerpsAmount =
+    !homeWalletCapabilityTabModel.shouldCommitTabs ||
+    homeWalletCapabilityTabModel.isPerpsVisible;
+  const liveHeaderBalanceUsd = useMemo(() => {
+    let total = new BigNumber(0);
+    const portfolioAmountMap =
+      portfolio.balanceAuthority.scopeKey === homeBalanceScopeKey
+        ? portfolio.map
+        : {};
+    const deFiAmountMap =
+      deFi.balanceAuthority.scopeKey === homeBalanceScopeKey
+        ? deFi.protocolMap
+        : {};
+    Object.values(portfolioAmountMap).forEach((fiat) => {
+      total = total.plus(
+        convertFiat({
+          value: fiat.fiatValue || 0,
+          sourceCurrency: fiat.currency ?? settings.currencyInfo.id,
+          targetCurrency: USD_CURRENCY_ID,
+          currencyMap,
+        }),
+      );
+    });
+    Object.values(deFiAmountMap).forEach((protocol) => {
+      total = total.plus(
+        convertFiat({
+          value: protocol.netWorth || 0,
+          sourceCurrency: settings.currencyInfo.id,
+          targetCurrency: USD_CURRENCY_ID,
+          currencyMap,
+        }),
+      );
+    });
+    if (shouldIncludePerpsAmount && isCurrentPerpsAmount && perps.view) {
+      total = total.plus(perps.view.accountValueUsd);
+    }
+    return total.toFixed();
+  }, [
+    currencyMap,
+    deFi.balanceAuthority.scopeKey,
+    deFi.protocolMap,
+    homeBalanceScopeKey,
+    isCurrentPerpsAmount,
+    perps.view,
+    portfolio.balanceAuthority.scopeKey,
+    portfolio.map,
+    settings.currencyInfo.id,
+    shouldIncludePerpsAmount,
+  ]);
+  const lastConfirmedBalance = getNativeHomeLastConfirmedBalance({
+    accountId: account?.id,
+    byOwner: lastConfirmedOverviewBalance.byOwner,
+    networkId: network?.id,
+  });
+  const lastConfirmedBalanceUsd = convertNativeHomeConfirmedBalanceToUsd({
+    confirmedCurrency: lastConfirmedOverviewBalance.currency,
+    confirmedValue: lastConfirmedBalance,
+    currencyMap,
+    displayCurrency: settings.currencyInfo.id,
+  });
+  const commitNativeHomeBalanceAmount = useCallback(
+    ({ ownerKey, valueUsd }: { ownerKey: string; valueUsd: string }) => {
+      setLastConfirmedOverviewBalance((previous) =>
+        applyNativeHomeBalanceAmountCommit(
+          previous,
+          { ownerKey, valueUsd },
+          {
+            currencyMap,
+            displayCurrency: settings.currencyInfo.id,
+          },
+        ),
+      );
+    },
+    [currencyMap, setLastConfirmedOverviewBalance, settings.currencyInfo.id],
+  );
+  const headerBalanceAmountPresentation =
+    useNativeHomeBalanceAmountPresentation({
+      confirmedValueUsd: lastConfirmedBalanceUsd,
+      deFi: {
+        included: shouldIncludeDeFiAmount,
+        scopeKey: deFi.balanceAuthority.scopeKey,
+        status: deFi.balanceAuthority.status,
+      },
+      liveValueUsd: liveHeaderBalanceUsd,
+      ownerKey: overviewOwnerKey,
+      perps: {
+        included: shouldIncludePerpsAmount,
+        scopeKey: isCurrentPerpsAmount ? homeBalanceScopeKey : undefined,
+        status: perps.amountAuthority.status,
+      },
+      portfolio: {
+        included: true,
+        scopeKey: portfolio.balanceAuthority.scopeKey,
+        status: portfolio.balanceAuthority.status,
+      },
+      scopeKey: homeBalanceScopeKey,
+      onCommit: commitNativeHomeBalanceAmount,
+    });
+  const headerBalanceValue = useMemo(() => {
+    const displayValue = convertNativeHomeBalanceUsdToDisplay({
+      currencyMap,
+      displayCurrency: settings.currencyInfo.id,
+      valueUsd: headerBalanceAmountPresentation.valueUsd,
+    });
+    return displayValue === undefined ? undefined : new BigNumber(displayValue);
+  }, [
+    currencyMap,
+    headerBalanceAmountPresentation.valueUsd,
+    settings.currencyInfo.id,
+  ]);
   const hasNativeHomeHoldingsNow = useMemo(
     () =>
       hasNativeHomePortfolioHoldings({
@@ -1148,21 +1247,15 @@ function NativeHomePageContent({
       hasHoldingsNow: hasNativeHomeHoldingsNow,
       networkId: network?.id,
     });
-  const lastConfirmedBalance = getNativeHomeLastConfirmedBalance({
-    accountId: account?.id,
-    byOwner: lastConfirmedBalanceByOwner,
-    networkId: network?.id,
-  });
   const lastConfirmedBalanceIsPositive =
-    lastConfirmedBalance === undefined
-      ? undefined
-      : hasNativeHomeNonZeroWorth([lastConfirmedBalance]);
+    resolveNativeHomeConfirmedBalanceIsPositive(lastConfirmedBalance);
   const currentDeFiBalanceIsPositive =
     deFi.balanceAuthority.scopeKey === homeBalanceScopeKey &&
     hasNativeHomeNonZeroWorth(
       Object.values(deFi.protocolMap).map((protocol) => protocol.netWorth),
     );
   const currentPerpsBalanceIsPositive =
+    isCurrentPerpsAmount &&
     perps.viewState === 'ready' &&
     hasNativeHomeNonZeroWorth([perps.view?.accountValueUsd]);
   const computedHomeBalanceState = resolveNativeHomeBalanceState({
@@ -1174,16 +1267,15 @@ function NativeHomePageContent({
     lastConfirmedBalanceIsPositive,
     portfolioAuthority: portfolio.balanceAuthority,
   });
-  const homeBalanceStickyRef = useRef<INativeHomeBalanceStickyState>({
-    state: 'unknown',
-    walletId: undefined,
+  const homeBalanceScopeCacheRef = useRef<INativeHomeBalanceScopeCache>({
+    entries: [],
   });
-  const homeBalanceResolution = resolveNativeHomeWalletScopedBalanceState({
+  const homeBalanceResolution = resolveNativeHomeScopeCachedBalanceState({
     computed: computedHomeBalanceState,
-    previous: homeBalanceStickyRef.current,
-    walletId: wallet?.id,
+    previous: homeBalanceScopeCacheRef.current,
+    scopeKey: homeBalanceScopeKey,
   });
-  homeBalanceStickyRef.current = homeBalanceResolution.sticky;
+  homeBalanceScopeCacheRef.current = homeBalanceResolution.cache;
   const homeBalanceState = homeBalanceResolution.state;
   const headerActionPresentation = useMemo(
     () => resolveNativeHomeHeaderActionPresentation(homeBalanceState),
@@ -1220,6 +1312,9 @@ function NativeHomePageContent({
     [intl],
   );
   const headerActions = useMemo<IHomeContainerAction[]>(() => {
+    if (homeBalanceState === 'unknown') {
+      return [];
+    }
     if (homeBalanceState === 'zero') {
       return [
         {
@@ -1249,11 +1344,14 @@ function NativeHomePageContent({
     return actions;
   }, [intl, vaultSettings]);
 
-  const headerBalance = useMemo(
-    () =>
-      hideValue ? '••••' : formatters.formatFiat(headerBalanceValue.toFixed()),
-    [formatters, headerBalanceValue, hideValue],
-  );
+  const headerBalance = useMemo(() => {
+    if (headerBalanceValue === undefined) {
+      return '';
+    }
+    return hideValue
+      ? '••••'
+      : formatters.formatFiat(headerBalanceValue.toFixed());
+  }, [formatters, headerBalanceValue, hideValue]);
   const headerBalanceParts = useMemo(() => {
     if (hideValue) {
       return { balance: headerBalance, balanceSecondary: undefined };
@@ -1354,12 +1452,22 @@ function NativeHomePageContent({
   latestTabSectionsRef.current = tabSectionsById;
   const activeTabIdRef = useRef(activeTabId);
   activeTabIdRef.current = activeTabId;
-  const initialAtomicTabState = buildHomeWalletAtomicTabState({
-    tabShells,
-    sectionsByTab: tabSectionsById,
-    shouldCommitTabs: homeWalletCapabilityTabModel.shouldCommitTabs,
-    selectedTabId: activeTabId,
-  });
+  const structuralAtomicTabState = useMemo(
+    () => ({
+      ...buildHomeWalletAtomicTabState({
+        tabShells,
+        sectionsByTab: latestTabSectionsRef.current,
+        shouldCommitTabs: homeWalletCapabilityTabModel.shouldCommitTabs,
+        selectedTabId: activeTabIdRef.current,
+      }),
+      scopeKey: expectedPortfolioScopeKey,
+    }),
+    [
+      expectedPortfolioScopeKey,
+      homeWalletCapabilityTabModel.shouldCommitTabs,
+      tabShells,
+    ],
+  );
   const contentStateSlots = useMemo<
     NonNullable<IHomeContainerSlots['contentStates']>
   >(() => {
@@ -1526,8 +1634,23 @@ function NativeHomePageContent({
     }),
     [isOthersWallet, network?.isAllNetworks],
   );
-  const balanceSlot = useMemo(
-    () => ({
+  const balanceSlot = useMemo(() => {
+    if (headerBalanceAmountPresentation.status === 'loading') {
+      return {
+        interaction: 'none' as const,
+        content: (
+          <XStack
+            flex={1}
+            alignItems="center"
+            minWidth={0}
+            pointerEvents="none"
+          >
+            <Skeleton.Heading5Xl w={160} />
+          </XStack>
+        ),
+      };
+    }
+    return {
       interaction: 'tap' as const,
       content: (
         <XStack
@@ -1571,16 +1694,27 @@ function NativeHomePageContent({
           ) : null}
         </XStack>
       ),
-    }),
-    [
-      activeTabId,
-      headerBalanceParts.balance,
-      headerBalanceParts.balanceSecondary,
-    ],
-  );
+    };
+  }, [
+    activeTabId,
+    headerBalanceAmountPresentation.status,
+    headerBalanceParts.balance,
+    headerBalanceParts.balanceSecondary,
+  ]);
   const headerActionRowSlot = useMemo<
     IHomeContainerSlots['headerActionRow']
   >(() => {
+    if (headerActionPresentation.slotKind === 'loading') {
+      return {
+        height: 82,
+        interaction: 'none' as const,
+        content: (
+          <XStack flex={1} alignItems="center" pointerEvents="none">
+            <Skeleton h="$12" w="100%" />
+          </XStack>
+        ),
+      };
+    }
     if (headerActionPresentation.slotKind === 'zero') {
       return {
         height: 82,
@@ -1957,11 +2091,8 @@ function NativeHomePageContent({
     nativeTheme.backgroundColor,
     tabAccessorySlots,
   ]);
-  const currentScopeSnapshot: IHomeContainerSnapshot = {
-    schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
-    revision: 0,
-    selectedTabId: initialAtomicTabState.selectedTabId,
-    header: {
+  const currentScopeHeader = useMemo<IHomeContainerHeader>(
+    () => ({
       accountName: accountName ?? '',
       accountSubtitle: network?.name,
       accountImageUrl,
@@ -1971,122 +2102,72 @@ function NativeHomePageContent({
       networkImageUrls: headerNetworkImageUrls,
       networkCount: headerNetworkCount,
       networkActionId: 'home.header.network',
-      balance: headerBalanceParts.balance,
-      balanceSecondary: headerBalanceParts.balanceSecondary,
-      balanceActionId: 'home.header.balance',
-      balanceActions: headerBalanceActions,
+      balance:
+        headerBalanceAmountPresentation.status === 'loading'
+          ? ''
+          : headerBalanceParts.balance,
+      balanceSecondary:
+        headerBalanceAmountPresentation.status === 'loading'
+          ? undefined
+          : headerBalanceParts.balanceSecondary,
+      balanceActionId:
+        headerBalanceAmountPresentation.status === 'loading'
+          ? undefined
+          : 'home.header.balance',
+      balanceActions:
+        headerBalanceAmountPresentation.status === 'loading'
+          ? []
+          : headerBalanceActions,
       actionLayout: headerActionLayout,
       actionRowHeight: headerActionRowHeight,
       actions: headerActions,
       banners: headerBanners,
+    }),
+    [
+      account?.address,
+      accountImageUrl,
+      accountName,
+      headerActionLayout,
+      headerActionRowHeight,
+      headerBalanceAmountPresentation.status,
+      headerActions,
+      headerBalanceActions,
+      headerBalanceParts.balance,
+      headerBalanceParts.balanceSecondary,
+      headerBanners,
+      headerNetworkCount,
+      headerNetworkImageUrls,
+      network?.isAllNetworks,
+      network?.name,
+    ],
+  );
+  const currentScopeSnapshot = useMemo<IHomeContainerSnapshot>(
+    () => ({
+      schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
+      revision: 0,
+      selectedTabId: structuralAtomicTabState.selectedTabId,
+      header: currentScopeHeader,
+      tabs: structuralAtomicTabState.tabs,
+      theme: nativeTheme,
+    }),
+    [currentScopeHeader, nativeTheme, structuralAtomicTabState],
+  );
+  const handleStructuralSelectedTabIdChange = useCallback(
+    (nextTabId: IHomeContainerTabId) => {
+      if (nextTabId !== activeTabIdRef.current) {
+        setActiveTabId(nextTabId);
+      }
     },
-    tabs: initialAtomicTabState.tabs,
-    theme: nativeTheme,
-  };
-  const mountedControllerRef = useRef<HomeContainerController | null>(null);
-  if (!mountedControllerRef.current) {
-    mountedControllerRef.current = acquireNativeHomeContainerController({
-      owner: controllerOwnerRef.current,
-      scopeKey: expectedPortfolioScopeKey,
-      snapshot: currentScopeSnapshot,
-    });
-  }
-  const controller = mountedControllerRef.current;
-  controllerOwnerRef.current.scopeKey = expectedPortfolioScopeKey;
-
-  useEffect(() => {
-    controller.updateTheme(nativeTheme);
-  }, [controller, nativeTheme]);
-  useEffect(() => {
-    controller.updateHeader({
-      accountName: accountName ?? '',
-      accountSubtitle: network?.name,
-      accountImageUrl,
-      accountActionId: 'home.header.account',
-      copyActionId: account?.address ? 'home.header.copy' : undefined,
-      networkName: network?.isAllNetworks ? undefined : network?.name,
-      networkImageUrls: headerNetworkImageUrls,
-      networkCount: headerNetworkCount,
-      networkActionId: 'home.header.network',
-      balance: headerBalanceParts.balance,
-      balanceSecondary: headerBalanceParts.balanceSecondary,
-      balanceActionId: 'home.header.balance',
-      balanceActions: headerBalanceActions,
-      actionLayout: headerActionLayout,
-      actionRowHeight: headerActionRowHeight,
-      actions: headerActions,
-      banners: headerBanners,
-    });
-  }, [
-    account?.address,
-    accountImageUrl,
-    accountName,
-    controller,
-    headerActionLayout,
-    headerActionRowHeight,
-    headerActions,
-    headerBalanceActions,
-    headerBalanceParts.balance,
-    headerBalanceParts.balanceSecondary,
-    headerBanners,
-    headerNetworkCount,
-    headerNetworkImageUrls,
-    network?.isAllNetworks,
-    network?.name,
-  ]);
-  useLayoutEffect(() => {
-    const nextTabState = buildHomeWalletAtomicTabState({
-      tabShells,
-      sectionsByTab: latestTabSectionsRef.current,
-      shouldCommitTabs: homeWalletCapabilityTabModel.shouldCommitTabs,
-      selectedTabId: activeTabIdRef.current,
-    });
-    controller.replaceSnapshot({
-      ...controller.getSnapshot(),
-      selectedTabId: nextTabState.selectedTabId,
-      tabs: nextTabState.tabs,
-    });
-    if (nextTabState.selectedTabId !== activeTabIdRef.current) {
-      setActiveTabId(nextTabState.selectedTabId);
-    }
-  }, [controller, homeWalletCapabilityTabModel.shouldCommitTabs, tabShells]);
-  useEffect(() => {
-    if (homeWalletCapabilityTabModel.shouldCommitTabs) {
-      controller.updateTabSections('portfolio', portfolioSections);
-    }
-  }, [
-    controller,
-    homeWalletCapabilityTabModel.shouldCommitTabs,
-    portfolioSections,
-  ]);
-  useEffect(() => {
-    if (homeWalletCapabilityTabModel.shouldCommitTabs) {
-      controller.updateTabSections('perps', perpsSections);
-    }
-  }, [
-    controller,
-    homeWalletCapabilityTabModel.shouldCommitTabs,
-    perpsSections,
-  ]);
-  useEffect(() => {
-    if (homeWalletCapabilityTabModel.shouldCommitTabs) {
-      controller.updateTabSections('defi', deFiSections);
-    }
-  }, [controller, deFiSections, homeWalletCapabilityTabModel.shouldCommitTabs]);
-  useEffect(() => {
-    if (homeWalletCapabilityTabModel.shouldCommitTabs) {
-      controller.updateTabSections('nft', nftSections);
-    }
-  }, [controller, homeWalletCapabilityTabModel.shouldCommitTabs, nftSections]);
-  useEffect(() => {
-    if (homeWalletCapabilityTabModel.shouldCommitTabs) {
-      controller.updateTabSections('history', historySections);
-    }
-  }, [
-    controller,
-    historySections,
-    homeWalletCapabilityTabModel.shouldCommitTabs,
-  ]);
+    [],
+  );
+  const controller = useNativeHomeContainerScopeController({
+    owner: controllerOwnerRef.current,
+    scopeSnapshot: currentScopeSnapshot,
+    structuralTabState: structuralAtomicTabState,
+    shouldCommitTabs: homeWalletCapabilityTabModel.shouldCommitTabs,
+    sectionsByTab: tabSectionsById,
+    onSelectedTabIdChange: handleStructuralSelectedTabIdChange,
+  });
   const attachedControllerTargetRef = useRef<IHomeContainerRef | undefined>(
     undefined,
   );

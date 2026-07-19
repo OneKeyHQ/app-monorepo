@@ -25,6 +25,7 @@ import {
   type IHomeContainerSlot,
   serializeHomeContainerPayload,
 } from './HomeContainer.types';
+import { resolveHomeContainerBackgroundColor } from './HomeContainerBackground';
 import HomeContainerSlotNativeComponent from './HomeContainerSlotNativeComponent';
 import HomeContainerSurfaceNativeComponent from './HomeContainerSurfaceNativeComponent';
 
@@ -310,6 +311,10 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       () => nitroCallback(stableHybridRef),
       [stableHybridRef],
     );
+    const resolvedBackgroundColor = resolveHomeContainerBackgroundColor({
+      snapshotBackgroundColor: snapshot?.theme.backgroundColor,
+      slotBackgroundColor: slots?.backgroundColor,
+    });
 
     const slotViews = useMemo(() => {
       if (!slots) {
@@ -355,10 +360,6 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           values.push({ key: `tab.accessory.${tabId}`, slot });
         }
       });
-      const backgroundColor =
-        slots.backgroundColor ??
-        snapshot?.theme.backgroundColor ??
-        'transparent';
       return values.map(({ key, slot }) => {
         const interactive = slot.interaction === 'tap';
         return (
@@ -372,7 +373,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
               getSlotLayoutStyle(key),
               getSlotWidthStyle(key, windowWidth),
               slot.height === undefined ? undefined : { height: slot.height },
-              { backgroundColor },
+              { backgroundColor: resolvedBackgroundColor },
             ]}
           >
             <View
@@ -385,13 +386,13 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           </HomeContainerSlot>
         );
       });
-    }, [slots, snapshot?.theme.backgroundColor, windowWidth]);
+    }, [resolvedBackgroundColor, slots, windowWidth]);
 
     return (
       <HomeContainerSurface style={style} testID={testID}>
         <HomeContainerHost
           initialSnapshotJson=""
-          backgroundColor={snapshot?.theme.backgroundColor ?? '#FFFFFF'}
+          backgroundColor={resolvedBackgroundColor}
           debugOverlayEnabled={debugOverlayEnabled}
           style={styles.engine}
           onAction={onActionCallback}

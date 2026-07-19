@@ -3,13 +3,15 @@ import path from 'path';
 
 import {
   type INativeHomeBalanceAuthority,
+  NATIVE_HOME_BALANCE_SCOPE_CACHE_LIMIT,
   getNativeHomeLastConfirmedBalance,
   hasNativeHomeNonZeroWorth,
   hasNativeHomePortfolioHoldings,
   resolveNativeHomeBalanceState,
+  resolveNativeHomeConfirmedBalanceIsPositive,
   resolveNativeHomeFundedHoldings,
   resolveNativeHomeHeaderActionPresentation,
-  resolveNativeHomeWalletScopedBalanceState,
+  resolveNativeHomeScopeCachedBalanceState,
 } from './nativeHomeBalanceAuthority';
 
 const currentScopeKey = 'wallet-b__account-b__network-b';
@@ -77,6 +79,30 @@ describe('resolveNativeHomeBalanceState', () => {
     ).toBe('zero');
   });
 
+  it('keeps invalid exact-owner cache unknown while preserving valid zero', () => {
+    const loadingAuthority: INativeHomeBalanceAuthority = {
+      generation: 2,
+      scopeKey: currentScopeKey,
+      status: 'loading',
+    };
+    expect(resolveNativeHomeConfirmedBalanceIsPositive('--')).toBeUndefined();
+    expect(
+      resolve({
+        lastConfirmedBalanceIsPositive:
+          resolveNativeHomeConfirmedBalanceIsPositive('--'),
+        portfolioAuthority: loadingAuthority,
+      }),
+    ).toBe('unknown');
+    expect(resolveNativeHomeConfirmedBalanceIsPositive('0')).toBe(false);
+    expect(
+      resolve({
+        lastConfirmedBalanceIsPositive:
+          resolveNativeHomeConfirmedBalanceIsPositive('0'),
+        portfolioAuthority: loadingAuthority,
+      }),
+    ).toBe('zero');
+  });
+
   it('promotes any current known-positive signal before authority errors', () => {
     expect(
       resolve({
@@ -114,9 +140,9 @@ describe('resolveNativeHomeBalanceState', () => {
       }),
     ).toBe('unknown');
     expect(resolveNativeHomeHeaderActionPresentation('unknown')).toEqual({
-      actionLayout: 'standard',
-      rowHeight: 62,
-      slotKind: 'positive',
+      actionLayout: 'loading',
+      rowHeight: 82,
+      slotKind: 'loading',
     });
   });
 
@@ -140,6 +166,40 @@ describe('Native Home balance source ownership', () => {
 
     expect(source).not.toContain('useAccountWorthAtom');
     expect(source).not.toContain('liveOverviewBalanceIsPositive');
+  });
+
+  it('renders loading balance and action slots as neutral non-interactive content', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, 'NativeHomePage.native.tsx'),
+      'utf8',
+    );
+    const balanceLoadingBlock = source.slice(
+      source.indexOf(
+        "if (headerBalanceAmountPresentation.status === 'loading')",
+      ),
+      source.indexOf(
+        "interaction: 'tap' as const",
+        source.indexOf('const balanceSlot'),
+      ),
+    );
+    const actionSlotStart = source.indexOf(
+      "if (headerActionPresentation.slotKind === 'loading')",
+      source.indexOf('const headerActionRowSlot'),
+    );
+    const actionLoadingBlock = source.slice(
+      actionSlotStart,
+      source.indexOf(
+        "if (headerActionPresentation.slotKind === 'zero')",
+        actionSlotStart,
+      ),
+    );
+    expect(balanceLoadingBlock).toContain("interaction: 'none' as const");
+    expect(balanceLoadingBlock).toContain('<Skeleton.Heading5Xl');
+    expect(balanceLoadingBlock).not.toContain('onPress=');
+    expect(actionLoadingBlock).toContain("interaction: 'none' as const");
+    expect(actionLoadingBlock).toContain('<Skeleton');
+    expect(actionLoadingBlock).not.toContain('onPress=');
+    expect(actionLoadingBlock).not.toContain('testID=');
   });
 });
 
@@ -204,32 +264,65 @@ describe('Native Home funded holdings', () => {
   });
 });
 
-describe('Native Home wallet-scoped sticky state', () => {
-  it('bridges unknown owners inside one wallet', () => {
-    const positive = resolveNativeHomeWalletScopedBalanceState({
+describe('Native Home exact-scope balance cache', () => {
+  it('reuses known state only for the exact home balance scope', () => {
+    const positive = resolveNativeHomeScopeCachedBalanceState({
       computed: 'positive',
-      previous: { state: 'unknown', walletId: undefined },
-      walletId: 'wallet-a',
+      previous: { entries: [] },
+      scopeKey: 'wallet-a__account-a__network-a',
     });
     expect(
-      resolveNativeHomeWalletScopedBalanceState({
+      resolveNativeHomeScopeCachedBalanceState({
         computed: 'unknown',
-        previous: positive.sticky,
-        walletId: 'wallet-a',
+        previous: positive.cache,
+        scopeKey: 'wallet-a__account-a__network-a',
       }).state,
     ).toBe('positive');
+    expect(
+      resolveNativeHomeScopeCachedBalanceState({
+        computed: 'unknown',
+        previous: positive.cache,
+        scopeKey: 'wallet-a__account-b__network-a',
+      }).state,
+    ).toBe('unknown');
   });
 
-  it('does not leak a sticky positive state across wallets', () => {
+  it('keeps error or retry unknown when the exact scope has no cache', () => {
     expect(
-      resolveNativeHomeWalletScopedBalanceState({
+      resolveNativeHomeScopeCachedBalanceState({
         computed: 'unknown',
-        previous: { state: 'positive', walletId: 'wallet-a' },
-        walletId: 'wallet-b',
-      }),
-    ).toEqual({
-      state: 'unknown',
-      sticky: { state: 'unknown', walletId: 'wallet-b' },
-    });
+        previous: {
+          entries: [
+            {
+              scopeKey: 'wallet-a__account-a__network-a',
+              state: 'positive',
+            },
+          ],
+        },
+        scopeKey: 'wallet-a__account-b__network-a',
+      }).state,
+    ).toBe('unknown');
+  });
+
+  it('bounds the per-view cache while retaining the newest exact scopes', () => {
+    let cache: Parameters<
+      typeof resolveNativeHomeScopeCachedBalanceState
+    >[0]['previous'] = { entries: [] };
+    for (
+      let index = 0;
+      index <= NATIVE_HOME_BALANCE_SCOPE_CACHE_LIMIT;
+      index += 1
+    ) {
+      cache = resolveNativeHomeScopeCachedBalanceState({
+        computed: index % 2 === 0 ? 'positive' : 'zero',
+        previous: cache,
+        scopeKey: `wallet__account-${index}__network`,
+      }).cache;
+    }
+    expect(cache.entries).toHaveLength(NATIVE_HOME_BALANCE_SCOPE_CACHE_LIMIT);
+    expect(cache.entries[0]?.scopeKey).toBe('wallet__account-1__network');
+    expect(cache.entries.at(-1)?.scopeKey).toBe(
+      `wallet__account-${NATIVE_HOME_BALANCE_SCOPE_CACHE_LIMIT}__network`,
+    );
   });
 });

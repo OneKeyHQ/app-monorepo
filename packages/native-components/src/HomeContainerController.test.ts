@@ -362,3 +362,92 @@ describe('iOS HomeContainer tab automation identifiers', () => {
     expect(source).toContain('self?.onSelect?(tab.id)');
   });
 });
+
+describe('native HomeContainer background authority', () => {
+  const iosSource = fs.readFileSync(
+    path.join(__dirname, '../ios/HomeContainerView.swift'),
+    'utf8',
+  );
+  const androidSource = fs.readFileSync(
+    path.join(
+      __dirname,
+      '../android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt',
+    ),
+    'utf8',
+  );
+
+  it('keeps an iOS snapshot authoritative over a late fallback setter', () => {
+    const fallbackBlock = iosSource.slice(
+      iosSource.indexOf('func setFallbackBackgroundColor'),
+      iosSource.indexOf('func setDebugOverlayEnabled'),
+    );
+    expect(fallbackBlock).toContain(
+      'guard let self, self.snapshot == nil else { return }',
+    );
+    expect(fallbackBlock).toContain('self.backgroundColor = color');
+    expect(fallbackBlock).toContain('self.pager.backgroundColor = color');
+    expect(iosSource).toMatch(
+      /snapshot = next[\s\S]*?backgroundColor = UIColor\([\s\S]*?next\.theme\.backgroundColor[\s\S]*?pager\.backgroundColor = backgroundColor/,
+    );
+  });
+
+  it('keeps an Android snapshot authoritative over a late fallback setter', () => {
+    const fallbackBlock = androidSource.slice(
+      androidSource.indexOf('fun setFallbackBackgroundColor'),
+      androidSource.indexOf('fun setDebugOverlayEnabled'),
+    );
+    expect(fallbackBlock).toContain('if (snapshot == null)');
+    expect(fallbackBlock).toContain('setBackgroundColor(color)');
+    expect(androidSource).toContain(
+      'private var fallbackBackgroundColor = Color.WHITE',
+    );
+    expect(androidSource).toMatch(
+      /snapshot = next[\s\S]*?setBackgroundColor\(parseHomeContainerColor\(next\.theme\.backgroundColor, Color\.WHITE\)\)/,
+    );
+  });
+});
+
+describe('native HomeContainer loading action-row geometry', () => {
+  const iosSource = fs.readFileSync(
+    path.join(__dirname, '../ios/HomeContainerView.swift'),
+    'utf8',
+  );
+  const androidSource = fs.readFileSync(
+    path.join(
+      __dirname,
+      '../android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt',
+    ),
+    'utf8',
+  );
+  const typesSource = fs.readFileSync(
+    path.join(__dirname, 'HomeContainer.types.ts'),
+    'utf8',
+  );
+
+  it('keeps the iOS loading slot mounted with zero-balance geometry', () => {
+    expect(typesSource).toMatch(
+      /IHomeContainerHeaderActionLayout[\s\S]*?'loading'[\s\S]*?'standard'[\s\S]*?'zeroBalance'/,
+    );
+    expect(iosSource).toContain(
+      'header.actions.isEmpty && header.actionLayout != "loading"',
+    );
+    expect(iosSource).toContain(
+      'header.actionLayout == "zeroBalance" || header.actionLayout == "loading"',
+    );
+    expect(iosSource).toContain(
+      'HomeContainerMetrics.legacyABZeroBalanceActionTrailingCompaction',
+    );
+  });
+
+  it('keeps the Android loading slot mounted with zero-balance geometry', () => {
+    expect(androidSource).toContain(
+      'header.actions.isEmpty() && header.actionLayout != "loading"',
+    );
+    expect(androidSource).toContain(
+      'header.actionLayout != "zeroBalance" && header.actionLayout != "loading"',
+    );
+    expect(androidSource).toContain(
+      'return (actionHeightDelta - 14).coerceAtLeast(0)',
+    );
+  });
+});

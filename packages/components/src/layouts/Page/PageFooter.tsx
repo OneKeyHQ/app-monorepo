@@ -50,7 +50,6 @@ function PageFooterContext(props: IPageFooterProps) {
   const { footerRef } = useContext(PageContext);
   useMemo(() => {
     footerRef.current.props = props;
-    footerRef.current.notifyUpdate?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

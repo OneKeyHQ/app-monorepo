@@ -17,6 +17,14 @@ import type { IPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUti
 import { mapSnapshotToPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import {
+  type IPerpsHomeAsyncScope,
+  type IPerpsHomePortfolioResult,
+  isPerpsHomeAsyncScopeCurrent,
+  resolvePerpsHomeAmountAuthority,
+  selectCurrentPerpsHomePortfolioResult,
+} from './perpsHomePortfolioAuthority';
+
 const DEPOSIT_CONFIRMATION_RETRY_MAX_ATTEMPTS = 5;
 const DEPOSIT_CONFIRMATION_RETRY_INTERVAL_MS =
   PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS;
@@ -145,15 +153,13 @@ function isPendingDepositRetryScopeCurrent({
   );
 }
 
-interface IPerpsHomePortfolioResult {
-  address: string;
-  view: IPerpsHomeView | undefined;
-  requestResolved: boolean;
-}
-
 export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
   viewState: 'ready' | 'loading' | 'empty';
   view: IPerpsHomeView | undefined;
+  amountAuthority: {
+    scopeKey: string | undefined;
+    status: 'loading' | 'success';
+  };
   canDeposit: boolean;
   isDepositDisabled: boolean;
   refresh: () => Promise<void>;
@@ -167,6 +173,8 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
     accountId,
     indexedAccountId,
   });
+  const liveAccountScopeKeyRef = useRef(currentAccountScopeKey);
+  liveAccountScopeKeyRef.current = currentAccountScopeKey;
   // Home tabs stay mounted while frozen, so gate polling on the Perps tab being active.
   const { isFocused: contextIsTabFocused } = useTabIsRefreshingFocused();
   const isTabFocused = options?.isTabFocused ?? contextIsTabFocused;
@@ -188,58 +196,92 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
     },
   );
 
-  const { result, run, setResult } =
-    usePromiseResult<IPerpsHomePortfolioResult>(
-      async () => {
-        if (!accountId && !indexedAccountId) {
-          return { address: '', view: undefined, requestResolved: true };
-        }
-        if (!perpsDeriveType) {
-          return { address: '', view: undefined, requestResolved: false };
-        }
-        let address = '';
-        try {
-          const acc = await backgroundApiProxy.serviceAccount.getNetworkAccount(
-            {
-              accountId: indexedAccountId ? undefined : accountId,
-              indexedAccountId,
-              deriveType: perpsDeriveType,
-              networkId: PERPS_NETWORK_ID,
-            },
-          );
-          address = acc?.addressDetail?.normalizedAddress || acc?.address || '';
-        } catch {
-          // account has no Arbitrum derivation, so there is no HL address to query
-          return { address: '', view: undefined, requestResolved: true };
-        }
-        if (!address) {
-          return { address: '', view: undefined, requestResolved: true };
-        }
-        const snapshot =
-          await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
-            { address },
-          );
-        if (!snapshot) {
-          return { address, view: undefined, requestResolved: false };
-        }
+  const { result, run, setResult } = usePromiseResult<
+    IPerpsHomePortfolioResult<IPerpsHomeView>
+  >(
+    async () => {
+      const requestScopeKey = currentAccountScopeKey;
+      if (!accountId && !indexedAccountId) {
         return {
-          address,
-          view: mapSnapshotToPerpsHomeView(snapshot),
+          address: '',
+          scopeKey: requestScopeKey,
+          view: undefined,
           requestResolved: true,
         };
-      },
-      [accountId, indexedAccountId, perpsDeriveType],
-      {
-        // Account + derive type scoped so result swaps synchronously on identity changes.
-        swrKey: perpsDeriveType
-          ? `perps-home:${indexedAccountId ?? accountId ?? ''}:${perpsDeriveType}`
-          : undefined,
-        // Poll at the active cadence, while the bg snapshot cache keeps real HL
-        // network reads to active=15s / idle-or-empty=1m unless forced.
-        pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
-        overrideIsFocused: (isPageFocused) => isPageFocused && isTabFocused,
-      },
-    );
+      }
+      if (!perpsDeriveType) {
+        return {
+          address: '',
+          scopeKey: requestScopeKey,
+          view: undefined,
+          requestResolved: false,
+        };
+      }
+      let address = '';
+      try {
+        const acc = await backgroundApiProxy.serviceAccount.getNetworkAccount({
+          accountId: indexedAccountId ? undefined : accountId,
+          indexedAccountId,
+          deriveType: perpsDeriveType,
+          networkId: PERPS_NETWORK_ID,
+        });
+        address = acc?.addressDetail?.normalizedAddress || acc?.address || '';
+      } catch {
+        // account has no Arbitrum derivation, so there is no HL address to query
+        return {
+          address: '',
+          scopeKey: requestScopeKey,
+          view: undefined,
+          requestResolved: true,
+        };
+      }
+      if (!address) {
+        return {
+          address: '',
+          scopeKey: requestScopeKey,
+          view: undefined,
+          requestResolved: true,
+        };
+      }
+      const snapshot =
+        await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+          { address },
+        );
+      if (liveAccountScopeKeyRef.current !== requestScopeKey) {
+        return {
+          address,
+          scopeKey: requestScopeKey,
+          view: undefined,
+          requestResolved: false,
+        };
+      }
+      if (!snapshot) {
+        return {
+          address,
+          scopeKey: requestScopeKey,
+          view: undefined,
+          requestResolved: false,
+        };
+      }
+      return {
+        address,
+        scopeKey: requestScopeKey,
+        view: mapSnapshotToPerpsHomeView(snapshot),
+        requestResolved: true,
+      };
+    },
+    [accountId, currentAccountScopeKey, indexedAccountId, perpsDeriveType],
+    {
+      // Account + derive type scoped so result swaps synchronously on identity changes.
+      swrKey: perpsDeriveType
+        ? `perps-home:${indexedAccountId ?? accountId ?? ''}:${perpsDeriveType}`
+        : undefined,
+      // Poll at the active cadence, while the bg snapshot cache keeps real HL
+      // network reads to active=15s / idle-or-empty=1m unless forced.
+      pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isTabFocused,
+    },
+  );
   const depositRetryTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
@@ -252,8 +294,33 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
   const pendingDepositRetryScopeRef = useRef<
     IPendingDepositRetryScope | undefined
   >(undefined);
-  const latestAddressRef = useRef<string | undefined>(result?.address);
-  latestAddressRef.current = result?.address;
+  const acceptedResultRef = useRef<
+    IPerpsHomePortfolioResult<IPerpsHomeView> | undefined
+  >(undefined);
+  const previousAccountScopeKeyRef = useRef(currentAccountScopeKey);
+  if (previousAccountScopeKeyRef.current !== currentAccountScopeKey) {
+    previousAccountScopeKeyRef.current = currentAccountScopeKey;
+    focusRefreshNonceRef.current += 1;
+    depositRetryNonceRef.current += 1;
+    activeDepositRetryScopeRef.current = undefined;
+    pendingDepositRetryScopeRef.current = undefined;
+  }
+  const currentResult = selectCurrentPerpsHomePortfolioResult({
+    currentScopeKey: currentAccountScopeKey,
+    incoming: result,
+    previous: acceptedResultRef.current,
+  });
+  acceptedResultRef.current = currentResult;
+  const latestAddressRef = useRef<string | undefined>(currentResult?.address);
+  latestAddressRef.current = currentResult?.address;
+  const liveAsyncScopeRef = useRef<IPerpsHomeAsyncScope>({
+    address: currentResult?.address,
+    scopeKey: currentAccountScopeKey,
+  });
+  liveAsyncScopeRef.current = {
+    address: currentResult?.address,
+    scopeKey: currentAccountScopeKey,
+  };
 
   useEffect(() => {
     const wasTabFocused = wasTabFocusedRef.current;
@@ -268,6 +335,10 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
     }
     focusRefreshNonceRef.current += 1;
     const nonce = focusRefreshNonceRef.current;
+    const capturedScope = {
+      address,
+      scopeKey: currentAccountScopeKey,
+    };
     void (async () => {
       const snapshot =
         await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
@@ -276,17 +347,21 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
       if (
         focusRefreshNonceRef.current !== nonce ||
         !isTabFocusedRef.current ||
-        normalizePerpsAddress(latestAddressRef.current) !== address
+        !isPerpsHomeAsyncScopeCurrent({
+          captured: capturedScope,
+          live: liveAsyncScopeRef.current,
+        })
       ) {
         return;
       }
       setResult({
         address,
+        scopeKey: capturedScope.scopeKey,
         view: snapshot ? mapSnapshotToPerpsHomeView(snapshot) : undefined,
         requestResolved: Boolean(snapshot),
       });
     })();
-  }, [isTabFocused, run, setResult]);
+  }, [currentAccountScopeKey, isTabFocused, run, setResult]);
 
   useEffect(() => {
     const onGlobalDeriveTypeUpdate = () => {
@@ -377,7 +452,13 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
         );
       if (
         depositRetryNonceRef.current !== nonce ||
-        normalizePerpsAddress(latestAddressRef.current) !== address
+        !isPerpsHomeAsyncScopeCurrent({
+          captured: {
+            address,
+            scopeKey: scope.accountScopeKey,
+          },
+          live: liveAsyncScopeRef.current,
+        })
       ) {
         return;
       }
@@ -388,6 +469,7 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
       if (snapshot) {
         setResult({
           address,
+          scopeKey: scope.accountScopeKey,
           view: mapSnapshotToPerpsHomeView(snapshot),
           requestResolved: true,
         });
@@ -535,25 +617,36 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
     setResult,
   ]);
 
-  const view = result?.view;
+  const view = currentResult?.view;
   const isDepositDisabled = accountUtils.isWatchingAccount({
     accountId: accountId ?? '',
   });
   const viewState = useMemo<'ready' | 'loading' | 'empty'>(() => {
     // result is undefined until a fetch resolves for the current account key (swrKey
     // resets it synchronously on switch), so an unresolved key reads as loading, not empty.
-    if (result === undefined || !result.requestResolved) {
+    if (currentResult === undefined || !currentResult.requestResolved) {
       return 'loading';
     }
     return view && !view.isEmpty ? 'ready' : 'empty';
-  }, [result, view]);
+  }, [currentResult, view]);
 
-  const canDeposit = Boolean(result?.address);
+  const canDeposit = Boolean(currentResult?.address);
+  const amountAuthority = useMemo(
+    () => resolvePerpsHomeAmountAuthority(currentResult),
+    [currentResult],
+  );
   const refresh = useCallback(async () => {
     await run({ alwaysSetState: true });
   }, [run]);
   return useMemo(
-    () => ({ viewState, view, canDeposit, isDepositDisabled, refresh }),
-    [canDeposit, isDepositDisabled, refresh, viewState, view],
+    () => ({
+      viewState,
+      view,
+      amountAuthority,
+      canDeposit,
+      isDepositDisabled,
+      refresh,
+    }),
+    [amountAuthority, canDeposit, isDepositDisabled, refresh, viewState, view],
   );
 }
