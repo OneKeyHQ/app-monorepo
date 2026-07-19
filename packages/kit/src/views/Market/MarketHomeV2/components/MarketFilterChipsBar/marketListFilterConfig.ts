@@ -29,12 +29,12 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
     // No server-side age filter exists yet (PRD-confirmed); local demo only.
     localField: 'firstTradeTime',
     isAge: true,
-    options: [30 * M, H, 6 * H, 24 * H, 48 * H].map((value) => {
+    options: [5 * M, 30 * M, H, 6 * H, 24 * H, 48 * H].map((value) => {
       const text = value >= H ? `${value / H}h` : `${value / M}m`;
       return {
         id: `under-${text}`,
-        label: `Under ${text}`,
-        chipLabel: `< ${text}`,
+        label: `≤ ${text}`,
+        chipLabel: `≤ ${text}`,
         max: value,
       };
     }),
@@ -48,21 +48,21 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
     options: [
       {
         id: 'micro',
-        label: '0–$100K',
-        chipLabel: '0–$100K',
+        label: '0-$100K',
+        chipLabel: '0-$100K',
         max: 100_000,
       },
       {
         id: 'small',
-        label: '$100K–1M',
-        chipLabel: '$100K–1M',
+        label: '$100K-1M',
+        chipLabel: '$100K-1M',
         min: 100_000,
         max: 1_000_000,
       },
       {
         id: 'mid',
-        label: '$1M–10M',
-        chipLabel: '$1M–10M',
+        label: '$1M-10M',
+        chipLabel: '$1M-10M',
         min: 1_000_000,
         max: 10_000_000,
       },

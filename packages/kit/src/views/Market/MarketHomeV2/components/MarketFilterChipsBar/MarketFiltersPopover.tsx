@@ -43,6 +43,65 @@ const AUDIT_ROWS = [
 // hoverStyle/pressStyle to animate against (mirrors MarketFilterChipsBar.tsx).
 const noop = () => undefined;
 
+const TIER_GRID_COLUMNS = 3;
+
+function chunkRows<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    rows.push(items.slice(i, i + size));
+  }
+  return rows;
+}
+
+// Equal-width tier grid; rows that come from a multi-row set get invisible
+// spacers so every pill column stays aligned across rows.
+function TierGrid({
+  items,
+  columns = TIER_GRID_COLUMNS,
+}: {
+  items: {
+    key: string;
+    label: string;
+    selected?: boolean;
+    disabled?: boolean;
+    onPress?: () => void;
+    testID?: string;
+  }[];
+  columns?: number;
+}) {
+  const isMultiRow = items.length > columns;
+  return (
+    <YStack gap="$2">
+      {chunkRows(items, columns).map((row) => (
+        <XStack key={row[0].key} gap="$2">
+          {row.map((item) => (
+            <TierPill
+              key={item.key}
+              grow
+              label={item.label}
+              selected={item.selected}
+              disabled={item.disabled}
+              onPress={item.onPress}
+              testID={item.testID}
+            />
+          ))}
+          {isMultiRow && row.length < columns
+            ? Array.from({ length: columns - row.length }).map((_, index) => (
+                <XStack
+                  // eslint-disable-next-line react/no-array-index-key
+                  key={`spacer-${index}`}
+                  flexGrow={1}
+                  flexBasis={0}
+                  minWidth={72}
+                />
+              ))
+            : null}
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
+
 function DimensionRow({
   dimension,
   selectedOptionId,
@@ -55,7 +114,7 @@ function DimensionRow({
   return (
     <YStack py="$2" gap="$2">
       <XStack alignItems="center" justifyContent="space-between" gap="$2">
-        <SizableText size="$bodyMd" flexShrink={0}>
+        <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
           {dimension.label}
         </SizableText>
         {dimension.note ? (
@@ -64,19 +123,16 @@ function DimensionRow({
           </SizableText>
         ) : null}
       </XStack>
-      <XStack gap="$2" flexWrap="wrap">
-        {dimension.options.map((option) => (
-          <TierPill
-            key={option.id}
-            label={option.label}
-            selected={option.id === selectedOptionId}
-            onPress={() =>
-              onSelect(option.id === selectedOptionId ? undefined : option.id)
-            }
-            testID={`market-filters-popover-field-${dimension.id}-${option.id}`}
-          />
-        ))}
-      </XStack>
+      <TierGrid
+        items={dimension.options.map((option) => ({
+          key: option.id,
+          label: option.label,
+          selected: option.id === selectedOptionId,
+          onPress: () =>
+            onSelect(option.id === selectedOptionId ? undefined : option.id),
+          testID: `market-filters-popover-field-${dimension.id}-${option.id}`,
+        }))}
+      />
     </YStack>
   );
 }
@@ -90,17 +146,17 @@ function AuditPlaceholderRow({
 }) {
   return (
     <YStack py="$2" gap="$2">
-      <SizableText size="$bodyMd">{label}</SizableText>
-      <XStack gap="$2" flexWrap="wrap">
-        {AUDIT_TIER_LABELS.map((tierLabel) => (
-          <TierPill
-            key={tierLabel}
-            disabled
-            label={tierLabel}
-            testID={`market-filters-popover-audit-${testId}-${tierLabel}`}
-          />
-        ))}
-      </XStack>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {label}
+      </SizableText>
+      <TierGrid
+        items={AUDIT_TIER_LABELS.map((tierLabel) => ({
+          key: tierLabel,
+          label: tierLabel,
+          disabled: true,
+          testID: `market-filters-popover-audit-${testId}-${tierLabel}`,
+        }))}
+      />
     </YStack>
   );
 }
@@ -154,6 +210,11 @@ export function MarketFiltersPopover({
       title="Filters"
       open={isOpen}
       onOpenChange={setIsOpen}
+      placement="bottom-end"
+      // The Popover positions "end" alignment against an assumed 384px panel
+      // (POPOVER_MIN_WIDTH); match it exactly so the panel hugs the trigger's
+      // right edge instead of overflowing the viewport.
+      floatingPanelProps={{ width: 384, minWidth: 384, maxWidth: 384 }}
       renderTrigger={
         <XStack
           alignItems="center"
@@ -194,41 +255,44 @@ export function MarketFiltersPopover({
       }
       renderContent={
         <YStack p="$4" gap="$3" width="100%">
-          <SegmentControl
-            value={tabIndex}
-            onChange={(v) => setTabIndex(v as number)}
-            options={[
-              {
-                label: 'Metrics',
-                value: 0,
-                testID: 'market-filters-popover-tab-metrics',
-              },
-              {
-                label: 'Audit',
-                value: 1,
-                testID: 'market-filters-popover-tab-audit',
-              },
-            ]}
-          />
           <ScrollView
             maxHeight={MARKET_FILTERS_POPOVER_CONTENT_MAX_HEIGHT}
             showsVerticalScrollIndicator={false}
           >
+            <YStack pb="$3">
+              <SegmentControl
+                value={tabIndex}
+                onChange={(v) => setTabIndex(v as number)}
+                options={[
+                  {
+                    label: 'Metrics',
+                    value: 0,
+                    testID: 'market-filters-popover-tab-metrics',
+                  },
+                  {
+                    label: 'Audit',
+                    value: 1,
+                    testID: 'market-filters-popover-tab-audit',
+                  },
+                ]}
+              />
+            </YStack>
             {tabIndex === 0 ? (
               <YStack>
                 <YStack py="$2" gap="$2">
-                  <SizableText size="$bodyMd">Time range</SizableText>
-                  <XStack gap="$2" flexWrap="wrap">
-                    {TIME_RANGE_OPTIONS.map((option) => (
-                      <TierPill
-                        key={option}
-                        label={option}
-                        selected={option === timeRange}
-                        onPress={() => onTimeRangeChange(option)}
-                        testID={`market-filters-popover-time-range-${option}`}
-                      />
-                    ))}
-                  </XStack>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    Time range
+                  </SizableText>
+                  <TierGrid
+                    columns={4}
+                    items={TIME_RANGE_OPTIONS.map((option) => ({
+                      key: option,
+                      label: option,
+                      selected: option === timeRange,
+                      onPress: () => onTimeRangeChange(option),
+                      testID: `market-filters-popover-time-range-${option}`,
+                    }))}
+                  />
                 </YStack>
                 {primaryDimensions.map((dimension) => (
                   <DimensionRow
