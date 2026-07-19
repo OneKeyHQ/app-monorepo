@@ -168,7 +168,9 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
 
 export const MARKET_FILTER_GROUP_LABELS: Record<EMarketFilterGroup, string> = {
   [EMarketFilterGroup.Metrics]: 'Metrics',
-  [EMarketFilterGroup.Audit]: 'Audit',
+  // Names the metric these rows measure, so the rows themselves can stay
+  // short enough to fit the label column ("Top 10 %", "Dev %", ...).
+  [EMarketFilterGroup.Audit]: 'Holdings audit',
 };
 
 // Metrics first: those are the conditions the demo can actually apply; the
