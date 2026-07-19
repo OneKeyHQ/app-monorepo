@@ -50,6 +50,7 @@ import {
   useSwapLimitPriceUseRateAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
+  useSwapQuoteCurrentEventProviderKeysAtom,
   useSwapQuoteCurrentEventReceivedCountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventCompletedAtom,
@@ -71,11 +72,13 @@ import {
   SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
   getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
+  hasSwapQuoteEventTotalCount,
   isSwapNoProviderSupportsTrade,
   isSwapQuoteEventFetching,
   isSwapQuoteInputAmountMatched,
   isSwapZeroProviderQuoteCompleted,
   selectSwapPreviousActionableQuote,
+  shouldOfferSwapQuoteRefresh,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
 import { shouldAllowSwapNoConnectWalletWarning } from '../utils/swapNoWalletWarningGuard';
@@ -243,6 +246,7 @@ export function useSwapQuoteProgressState() {
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
+  const [currentEventProviderKeys] = useSwapQuoteCurrentEventProviderKeysAtom();
 
   const scopedPreviousQuoteList = useMemo(() => {
     const list = quoteList.filter((quote) => {
@@ -317,10 +321,12 @@ export function useSwapQuoteProgressState() {
       selectSwapPreviousActionableQuote({
         quotes: scopedPreviousQuoteList,
         quoteEventTotalCount,
+        currentEventProviderKeys,
         quoteLoading,
         quoteEventFetching,
       }),
     [
+      currentEventProviderKeys,
       quoteEventFetching,
       quoteEventTotalCount,
       quoteLoading,
@@ -494,12 +500,14 @@ export function useSwapActionState() {
   );
   const quoteResultNoMatch = useMemo(
     () =>
-      quoteResultPairNoMatch ||
-      quoteInputAmountNoMatch ||
-      (quoteCurrentSelect?.protocol !== EProtocolOfExchange.LIMIT &&
-        quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
-        quoteCurrentSelect?.allowanceResult &&
-        quoteCurrentSelect.allowanceResult.amount !== fromTokenAmount.value),
+      Boolean(
+        quoteResultPairNoMatch ||
+        quoteInputAmountNoMatch ||
+        (quoteCurrentSelect?.protocol !== EProtocolOfExchange.LIMIT &&
+          quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
+          quoteCurrentSelect?.allowanceResult &&
+          quoteCurrentSelect.allowanceResult.amount !== fromTokenAmount.value),
+      ),
     [
       fromTokenAmount,
       quoteCurrentSelect,
@@ -508,6 +516,24 @@ export function useSwapActionState() {
     ],
   );
   const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 10);
+  const canRefreshQuoteFromAction = shouldOfferSwapQuoteRefresh({
+    isRefreshQuote,
+    quoteResultNoMatch,
+    quoteResultNoMatchDebounced: quoteResultNoMatchDebounce,
+    quoteLoading,
+    quoteEventFetching,
+  });
+  const isQuoteEventSettlingForAction =
+    (swapTypeSwitchValue === ESwapTabSwitchType.SWAP ||
+      swapTypeSwitchValue === ESwapTabSwitchType.BRIDGE) &&
+    !quoteEventCompleted &&
+    (quoteLoading ||
+      quoteEventFetching ||
+      Boolean(quoteCurrentSelect) ||
+      hasSwapQuoteEventTotalCount({
+        quoteEventTotalCount,
+        quoteEventCompleted,
+      }));
   const isWaitingAutoSlippage = useMemo(
     () =>
       swapSlippagePercentageMode === ESwapSlippageSegmentKey.AUTO &&
@@ -581,6 +607,7 @@ export function useSwapActionState() {
     }
     if (
       isWaitingActionableQuote ||
+      isQuoteEventSettlingForAction ||
       isWaitingAutoSlippage ||
       swapApprovingMatchLoading ||
       buildTxFetching
@@ -672,10 +699,7 @@ export function useSwapActionState() {
       // supports the current pair. stepState.isRefreshQuote excludes this
       // state too, which keeps the rate-line refresh (auto interval + manual
       // tap) alive as the recovery path. (OK-57545)
-      if (
-        (isRefreshQuote || quoteResultNoMatchDebounce) &&
-        !noProviderSupportsTrade
-      ) {
+      if (canRefreshQuoteFromAction && !noProviderSupportsTrade) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_refresh_quotes,
         });
@@ -699,16 +723,17 @@ export function useSwapActionState() {
     fromTokenAmount.value,
     quoteInputAmountNoMatch,
     swapTypeSwitchValue,
+    canRefreshQuoteFromAction,
     isRefreshQuote,
     toTokenAmount.value,
     isWaitingActionableQuote,
+    isQuoteEventSettlingForAction,
     isWaitingAutoSlippage,
     swapApprovingMatchLoading,
     buildTxFetching,
     selectedFromTokenBalance,
     fromToken,
     toToken,
-    quoteResultNoMatchDebounce,
     swapUseLimitPrice.rate,
     noProviderSupportsTrade,
   ]);
@@ -720,6 +745,7 @@ export function useSwapActionState() {
     disabled:
       actionInfo.disable ||
       isWaitingActionableQuote ||
+      isQuoteEventSettlingForAction ||
       isWaitingAutoSlippage ||
       swapApprovingMatchLoading,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
@@ -731,11 +757,7 @@ export function useSwapActionState() {
     // Excluded for noProviderSupportsTrade so SwapRefreshButton keeps its
     // auto interval and manual tap alive while the action button stays
     // disabled with "no provider supports trade". (OK-57545)
-    isRefreshQuote:
-      (isRefreshQuote || quoteResultNoMatchDebounce) &&
-      !quoteLoading &&
-      !quoteEventFetching &&
-      !noProviderSupportsTrade,
+    isRefreshQuote: canRefreshQuoteFromAction && !noProviderSupportsTrade,
     isWaitingAutoSlippage,
   };
   return stepState;

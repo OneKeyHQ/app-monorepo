@@ -16,8 +16,10 @@ import {
   isSwapQuoteFromCurrentEvent,
   isSwapQuoteInputAmountMatched,
   isSwapZeroProviderQuoteCompleted,
+  resolveSwapQuoteForDisplay,
   selectSwapCurrentQuote,
   selectSwapPreviousActionableQuote,
+  shouldOfferSwapQuoteRefresh,
 } from './quoteProgress';
 
 function buildQuote({
@@ -305,10 +307,10 @@ describe('swap quote progress', () => {
     expect(state.phase).toBe(ESwapQuoteUiPhase.StaleRefreshing);
     expect(state.displayQuote).toBe(previousQuote);
     expect(state.isWaitingActionableQuote).toBe(true);
-    expect(state.isInputQuoteLoading).toBe(false);
+    expect(state.isQuotePresentationLoading).toBe(false);
   });
 
-  it('loads the input only while waiting without a previous quote', () => {
+  it('shows quote loading only while waiting without a previous quote', () => {
     const state = getSwapQuoteProgressState({
       quoteLoading: true,
       quoteEventFetching: false,
@@ -319,7 +321,65 @@ describe('swap quote progress', () => {
     expect(state.phase).toBe(ESwapQuoteUiPhase.Waiting);
     expect(state.displayQuote).toBeUndefined();
     expect(state.isWaitingActionableQuote).toBe(true);
-    expect(state.isInputQuoteLoading).toBe(true);
+    expect(state.isQuotePresentationLoading).toBe(true);
+  });
+
+  it('keeps the compatible display quote during stale refresh', () => {
+    const previousQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'previous',
+    });
+    const currentErrorQuote = buildQuote({
+      eventId: 'event-2',
+      provider: 'current-error',
+      toAmount: '0',
+      errorMessage: 'Provider error',
+    });
+
+    expect(
+      resolveSwapQuoteForDisplay({
+        quoteResult: currentErrorQuote,
+        displayQuote: previousQuote,
+        phase: ESwapQuoteUiPhase.StaleRefreshing,
+      }),
+    ).toBe(previousQuote);
+    expect(
+      resolveSwapQuoteForDisplay({
+        quoteResult: currentErrorQuote,
+        displayQuote: previousQuote,
+        phase: ESwapQuoteUiPhase.HasQuote,
+      }),
+    ).toBe(currentErrorQuote);
+  });
+
+  it('offers refresh only after quote mismatch and request state settle', () => {
+    expect(
+      shouldOfferSwapQuoteRefresh({
+        isRefreshQuote: false,
+        quoteResultNoMatch: false,
+        quoteResultNoMatchDebounced: true,
+        quoteLoading: false,
+        quoteEventFetching: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOfferSwapQuoteRefresh({
+        isRefreshQuote: false,
+        quoteResultNoMatch: true,
+        quoteResultNoMatchDebounced: true,
+        quoteLoading: false,
+        quoteEventFetching: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOfferSwapQuoteRefresh({
+        isRefreshQuote: false,
+        quoteResultNoMatch: true,
+        quoteResultNoMatchDebounced: true,
+        quoteLoading: false,
+        quoteEventFetching: false,
+      }),
+    ).toBe(true);
   });
 
   it('keeps a previous actionable quote while the current event is still waiting', () => {
@@ -331,6 +391,7 @@ describe('swap quote progress', () => {
     const selectedPreviousQuote = selectSwapPreviousActionableQuote({
       quotes: [previousQuote],
       quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+      currentEventProviderKeys: [],
       quoteLoading: false,
       quoteEventFetching: true,
     });
@@ -346,6 +407,35 @@ describe('swap quote progress', () => {
     expect(state.phase).toBe(ESwapQuoteUiPhase.StaleRefreshing);
     expect(state.displayQuote).toBe(previousQuote);
     expect(state.hasPreviousActionableQuote).toBe(true);
+  });
+
+  it('keeps a retagged provider quote display-only until that provider responds', () => {
+    const retainedQuote = buildQuote({
+      eventId: 'event-2',
+      provider: 'retained-provider',
+    });
+
+    expect(
+      selectSwapPreviousActionableQuote({
+        quotes: [retainedQuote],
+        quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+        currentEventProviderKeys: ['returned-error-provider'],
+        quoteLoading: false,
+        quoteEventFetching: true,
+      }),
+    ).toBe(retainedQuote);
+    expect(
+      selectSwapPreviousActionableQuote({
+        quotes: [retainedQuote],
+        quoteEventTotalCount: { eventId: 'event-2', count: 2 },
+        currentEventProviderKeys: [
+          buildSwapQuoteProviderKey(retainedQuote),
+          'returned-error-provider',
+        ],
+        quoteLoading: false,
+        quoteEventFetching: true,
+      }),
+    ).toBeUndefined();
   });
 
   it('moves to hasQuote when the current event quote arrives', () => {

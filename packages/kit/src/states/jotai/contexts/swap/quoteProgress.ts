@@ -32,7 +32,7 @@ type ISwapQuoteProgressState = {
   hasActionableQuote: boolean;
   hasPreviousActionableQuote: boolean;
   isWaitingActionableQuote: boolean;
-  isInputQuoteLoading: boolean;
+  isQuotePresentationLoading: boolean;
   phase: ESwapQuoteUiPhase;
   displayQuote?: IFetchQuoteResult;
   previousQuote?: IFetchQuoteResult;
@@ -70,6 +70,7 @@ type ISwapCurrentQuoteInput = {
 type ISwapPreviousQuoteInput = {
   quotes: IFetchQuoteResult[];
   quoteEventTotalCount: ISwapQuoteEventTotalCount;
+  currentEventProviderKeys: string[];
   quoteLoading: boolean;
   quoteEventFetching: boolean;
 };
@@ -210,6 +211,25 @@ export function isSwapQuoteActionable(
   return new BigNumber(quoteCurrentSelect?.toAmount ?? 0).gt(0);
 }
 
+export function resolveSwapQuoteForDisplay({
+  quoteResult,
+  displayQuote,
+  phase,
+}: {
+  quoteResult?: IFetchQuoteResult;
+  displayQuote?: IFetchQuoteResult;
+  phase: ESwapQuoteUiPhase;
+}) {
+  if (
+    phase === ESwapQuoteUiPhase.StaleRefreshing &&
+    isSwapQuoteActionable(displayQuote)
+  ) {
+    return displayQuote;
+  }
+
+  return quoteResult ?? displayQuote;
+}
+
 export function isSwapQuoteInputAmountMatched({
   quote,
   fromAmount,
@@ -226,6 +246,26 @@ export function isSwapQuoteInputAmountMatched({
     return quote.toAmount === toAmount;
   }
   return quote.fromAmount === fromAmount;
+}
+
+export function shouldOfferSwapQuoteRefresh({
+  isRefreshQuote,
+  quoteResultNoMatch,
+  quoteResultNoMatchDebounced,
+  quoteLoading,
+  quoteEventFetching,
+}: {
+  isRefreshQuote: boolean;
+  quoteResultNoMatch: boolean;
+  quoteResultNoMatchDebounced: boolean;
+  quoteLoading: boolean;
+  quoteEventFetching: boolean;
+}) {
+  return (
+    !quoteLoading &&
+    !quoteEventFetching &&
+    (isRefreshQuote || (quoteResultNoMatch && quoteResultNoMatchDebounced))
+  );
 }
 
 export function isSwapQuoteFromCurrentEvent({
@@ -251,19 +291,35 @@ export function isSwapQuoteFromCurrentEvent({
 export function selectSwapPreviousActionableQuote({
   quotes,
   quoteEventTotalCount,
+  currentEventProviderKeys,
   quoteLoading,
   quoteEventFetching,
 }: ISwapPreviousQuoteInput) {
-  const previousQuotes = quotes.filter(
-    (quote) =>
-      isSwapQuoteActionable(quote) &&
-      !isSwapQuoteFromCurrentEvent({
-        quote,
-        quoteEventTotalCount,
-        quoteLoading,
-        quoteEventFetching,
-      }),
-  );
+  const isQuoteRequesting = quoteLoading || quoteEventFetching;
+  const previousQuotes = quotes.filter((quote) => {
+    if (!isSwapQuoteActionable(quote)) {
+      return false;
+    }
+
+    const isCurrentEventQuote = isSwapQuoteFromCurrentEvent({
+      quote,
+      quoteEventTotalCount,
+      quoteLoading,
+      quoteEventFetching,
+    });
+    if (!isCurrentEventQuote) {
+      return true;
+    }
+
+    // Re-quote keeps compatible provider results by assigning the new event
+    // id. Until that provider responds, the retained result remains display-only
+    // and must not disappear when another provider returns first.
+    return (
+      isQuoteRequesting &&
+      Boolean(quoteEventTotalCount.eventId) &&
+      !hasSwapCurrentEventProvider(quote, currentEventProviderKeys)
+    );
+  });
 
   return selectBestQuote(previousQuotes);
 }
@@ -391,7 +447,7 @@ export function getSwapQuoteProgressState({
     hasActionableQuote,
     hasPreviousActionableQuote,
     isWaitingActionableQuote: isQuoteRequesting && !hasActionableQuote,
-    isInputQuoteLoading: phase === ESwapQuoteUiPhase.Waiting,
+    isQuotePresentationLoading: phase === ESwapQuoteUiPhase.Waiting,
     phase,
     displayQuote,
     previousQuote: displayPreviousQuote,
