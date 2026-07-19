@@ -5,15 +5,17 @@ export {
   useMarketListFilter,
 } from './MarketListFilterContext';
 export {
-  MARKET_FILTER_FIELD_CONFIGS,
-  MARKET_FILTER_FIELD_CONFIG_MAP,
+  MARKET_FILTER_DIMENSIONS,
+  MARKET_FILTER_DIMENSION_MAP,
   MARKET_FILTER_PRESETS,
+  buildHotTokenFilterParams,
+  getMarketFilterOption,
 } from './marketListFilterConfig';
-export { EMarketFilterField } from './marketListFilterTypes';
+export { EMarketFilterDimension } from './marketListFilterTypes';
 export type {
-  IMarketFilterFieldConfig,
+  IMarketFilterDimensionConfig,
+  IMarketFilterOption,
   IMarketFilterPreset,
-  IMarketFilterTier,
   IMarketListFilterConditions,
   IMarketListFilterContextValue,
   IMarketListFilterState,

@@ -13,13 +13,14 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
-  MARKET_FILTER_FIELD_CONFIG_MAP,
+  MARKET_FILTER_DIMENSION_MAP,
   MARKET_FILTER_PRESETS,
+  getMarketFilterOption,
 } from './marketListFilterConfig';
 import { useMarketListFilter } from './MarketListFilterContext';
 import { TierPill } from './TierPill';
 
-import type { EMarketFilterField } from './marketListFilterTypes';
+import type { EMarketFilterDimension } from './marketListFilterTypes';
 import type { IMarketTimeRangeValue } from '../../types';
 
 const TIME_RANGE_OPTIONS: IMarketTimeRangeValue[] = ['5m', '1h', '4h', '24h'];
@@ -104,56 +105,80 @@ function SmallRoundIconButton({
   );
 }
 
-// Figma tier popover: 240 wide, wrap grid of pill buttons (min-w 72, px 11,
-// py 5, bodyMd-medium); selected = bg active + active border. Header row is
-// the field label plus a broom "Clear" action.
+// Figma 25053-6035: text-button whose hover state recolors the label and
+// broom icon (no background), with a pointer cursor.
+function ClearTextButton({
+  onPress,
+  testID,
+}: {
+  onPress: () => void;
+  testID?: string;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  return (
+    <XStack
+      alignItems="center"
+      gap="$1"
+      p="$0.5"
+      cursor="pointer"
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
+      onPress={onPress}
+      role="button"
+      testID={testID}
+    >
+      <Icon
+        name="BroomOutline"
+        size="$4"
+        color={isHovered ? '$icon' : '$iconSubdued'}
+      />
+      <SizableText
+        size="$bodySmMedium"
+        color={isHovered ? '$text' : '$textSubdued'}
+      >
+        Clear
+      </SizableText>
+    </XStack>
+  );
+}
+
+// Figma tier popover (25053-6035): 240 wide, two-column grid of pills
+// (min-w 72, grow), header = dimension label + Clear text button.
 function TierPopoverContent({
-  field,
-  value,
+  dimensionId,
+  selectedOptionId,
   onSelect,
   onClear,
 }: {
-  field: EMarketFilterField;
-  value: number;
-  onSelect: (tierValue: number) => void;
+  dimensionId: EMarketFilterDimension;
+  selectedOptionId: string;
+  onSelect: (optionId: string) => void;
   onClear: () => void;
 }) {
-  const config = MARKET_FILTER_FIELD_CONFIG_MAP.get(field);
-  if (!config) {
+  const dimension = MARKET_FILTER_DIMENSION_MAP.get(dimensionId);
+  if (!dimension) {
     return null;
   }
   return (
-    <YStack pt="$3" pb={14} px={14} gap="$3" width={240}>
+    <YStack pt="$3" pb={14} px={14} gap="$3">
       <XStack alignItems="center" justifyContent="space-between" pr="$1">
         <SizableText size="$bodySm" color="$textSubdued">
-          {config.label}
+          {dimension.label}
         </SizableText>
-        <XStack
-          alignItems="center"
-          gap="$1"
-          p="$0.5"
-          borderRadius="$full"
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
+        <ClearTextButton
           onPress={onClear}
-          role="button"
-          testID={`market-filter-tier-${field}-clear`}
-        >
-          <Icon name="BroomOutline" size="$4" color="$iconSubdued" />
-          <SizableText size="$bodySmMedium" color="$textSubdued">
-            Clear
-          </SizableText>
-        </XStack>
+          testID={`market-filter-tier-${dimensionId}-clear`}
+        />
       </XStack>
       <XStack flexWrap="wrap" gap="$2">
-        {config.tiers.map((tier) => (
+        {dimension.options.map((option) => (
           <TierPill
-            key={tier.value}
+            key={option.id}
             grow
-            label={tier.label}
-            selected={tier.value === value}
-            onPress={() => onSelect(tier.value)}
-            testID={`market-filter-tier-${field}-${tier.value}`}
+            label={option.label}
+            selected={option.id === selectedOptionId}
+            onPress={() => onSelect(option.id)}
+            testID={`market-filter-tier-${dimensionId}-${option.id}`}
           />
         ))}
       </XStack>
@@ -163,32 +188,34 @@ function TierPopoverContent({
 
 // Condition chip: bg-strong pill whose body opens the tier popover. Per the
 // design there is no per-chip remove; removal happens via the popover Clear
-// or the trailing group ✕. Label pairs a regular-weight field name with a
-// medium-weight value.
+// or the trailing group ✕. Label pairs a regular-weight dimension name with
+// a medium-weight tier value.
 function ConditionChip({
-  field,
-  value,
+  dimensionId,
+  optionId,
   isOpen,
   onOpenChange,
-  onSelectTier,
-  onClearField,
+  onSelectOption,
+  onClearDimension,
 }: {
-  field: EMarketFilterField;
-  value: number;
+  dimensionId: EMarketFilterDimension;
+  optionId: string;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelectTier: (tierValue: number) => void;
-  onClearField: () => void;
+  onSelectOption: (optionId: string) => void;
+  onClearDimension: () => void;
 }) {
-  const config = MARKET_FILTER_FIELD_CONFIG_MAP.get(field);
-  if (!config) {
+  const dimension = MARKET_FILTER_DIMENSION_MAP.get(dimensionId);
+  const option = getMarketFilterOption(dimensionId, optionId);
+  if (!dimension || !option) {
     return null;
   }
   return (
     <Popover
-      title={config.label}
+      title={dimension.label}
       open={isOpen}
       onOpenChange={onOpenChange}
+      floatingPanelProps={{ width: 240, minWidth: 240, maxWidth: 240 }}
       renderTrigger={
         <XStack
           alignItems="center"
@@ -202,22 +229,22 @@ function ConditionChip({
           userSelect="none"
           onPress={noop}
           role="button"
-          testID={`market-filter-chip-${field}`}
+          testID={`market-filter-chip-${dimensionId}`}
         >
           <SizableText size="$bodySm" color="$textSubdued">
-            {config.label}
+            {dimension.label}
           </SizableText>
           <SizableText size="$bodySmMedium" color="$textSubdued">
-            {config.formatValue(value)}
+            {option.chipLabel}
           </SizableText>
         </XStack>
       }
       renderContent={
         <TierPopoverContent
-          field={field}
-          value={value}
-          onSelect={onSelectTier}
-          onClear={onClearField}
+          dimensionId={dimensionId}
+          selectedOptionId={optionId}
+          onSelect={onSelectOption}
+          onClear={onClearDimension}
         />
       }
     />
@@ -235,10 +262,12 @@ export function MarketFilterChipsBar({
   filtersTrigger?: ReactNode;
 }) {
   const { filterState, setFilterState } = useMarketListFilter();
-  const [openField, setOpenField] = useState<EMarketFilterField | undefined>();
+  const [openDimension, setOpenDimension] = useState<
+    EMarketFilterDimension | undefined
+  >();
   const conditionEntries = Object.entries(filterState.conditions) as [
-    EMarketFilterField,
-    number,
+    EMarketFilterDimension,
+    string,
   ][];
   const hasConditions =
     conditionEntries.length > 0 || Boolean(filterState.activePresetId);
@@ -246,13 +275,13 @@ export function MarketFilterChipsBar({
     (preset) => preset.id === filterState.activePresetId,
   );
 
-  const removeField = (field: EMarketFilterField) => {
+  const removeDimension = (dimensionId: EMarketFilterDimension) => {
     defaultLogger.dex.list.dexFilterChip({
       action: 'conditionRemove',
-      field,
+      field: dimensionId,
     });
     const nextConditions = { ...filterState.conditions };
-    delete nextConditions[field];
+    delete nextConditions[dimensionId];
     setFilterState({
       conditions: nextConditions,
       activePresetId:
@@ -269,6 +298,10 @@ export function MarketFilterChipsBar({
       pt="$3"
       pb={10}
       height={48}
+      // The sticky-portal container pads 16px while the tab-bar controls above
+      // pad 20px; this extra 4px keeps the Filters pill right-aligned with the
+      // network selector above it.
+      pr="$1"
     >
       {/* Fixed row height so swapping presets <-> condition chips (different
           intrinsic pill heights) never shifts the toolbar/table below. */}
@@ -318,33 +351,33 @@ export function MarketFilterChipsBar({
               />
             </XStack>
             <XStack gap="$0.5" alignItems="center">
-              {conditionEntries.map(([field, value]) => (
+              {conditionEntries.map(([dimensionId, optionId]) => (
                 <ConditionChip
-                  key={field}
-                  field={field}
-                  value={value}
-                  isOpen={openField === field}
+                  key={dimensionId}
+                  dimensionId={dimensionId}
+                  optionId={optionId}
+                  isOpen={openDimension === dimensionId}
                   onOpenChange={(open) =>
-                    setOpenField(open ? field : undefined)
+                    setOpenDimension(open ? dimensionId : undefined)
                   }
-                  onSelectTier={(tierValue) => {
+                  onSelectOption={(nextOptionId) => {
                     defaultLogger.dex.list.dexFilterChip({
                       action: 'conditionChange',
-                      field,
-                      value: tierValue,
+                      field: dimensionId,
+                      value: nextOptionId,
                     });
                     setFilterState({
                       ...filterState,
                       conditions: {
                         ...filterState.conditions,
-                        [field]: tierValue,
+                        [dimensionId]: nextOptionId,
                       },
                     });
-                    setOpenField(undefined);
+                    setOpenDimension(undefined);
                   }}
-                  onClearField={() => {
-                    removeField(field);
-                    setOpenField(undefined);
+                  onClearDimension={() => {
+                    removeDimension(dimensionId);
+                    setOpenDimension(undefined);
                   }}
                 />
               ))}

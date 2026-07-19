@@ -1,136 +1,222 @@
-import { EMarketFilterField } from './marketListFilterTypes';
+import { EMarketFilterDimension } from './marketListFilterTypes';
 
 import type {
-  IMarketFilterFieldConfig,
+  IMarketFilterDimensionConfig,
   IMarketFilterPreset,
+  IMarketListFilterConditions,
 } from './marketListFilterTypes';
 
 const H = 60 * 60 * 1000;
 const M = 60 * 1000;
 
-const fmtUsd = (v: number) => {
-  if (v >= 1_000_000_000) return `$${v / 1_000_000_000}B`;
-  if (v >= 1_000_000) return `$${v / 1_000_000}M`;
-  if (v >= 1000) return `$${v / 1000}K`;
-  return `$${v}`;
-};
-const fmtCount = (v: number) => (v >= 1000 ? `${v / 1000}K` : `${v}`);
-// Keep hour units up to 48h to match the design copy (e.g. "≤ 48h", not "≤ 2d").
-const fmtAge = (v: number) => {
-  if (v > 48 * H) return `${v / (24 * H)}d`;
-  if (v >= H) return `${v / H}h`;
-  return `${v / M}m`;
-};
-const fmtPercent = (v: number) => `${v}%`;
-
-// Demo tier values follow competitor conventions; PM finalizes here in one
-// place. Param names track hot-token v6 so the passthrough swap is mechanical.
-export const MARKET_FILTER_FIELD_CONFIGS: IMarketFilterFieldConfig[] = [
+// Tier design rationale (2026-07-19 UX review):
+// - Floor dimensions (liquidity/turnover/holders/txns/traders/inflow) only
+//   ever mean "at least X" to users, so they get min-only tiers labeled with
+//   a "+" suffix — no comparison symbols to parse.
+// - Market cap is a positioning dimension: users hunt a LAYER (early micro
+//   caps vs established majors), so it uses named range buckets (OKX
+//   screener convention) instead of a one-sided threshold.
+// - Token age keeps ceiling semantics ("everything newer than X") since new
+//   listings are the hunt target; copy reads "Under X" so the whole column
+//   shares one direction.
+// - 3-4 tiers per row for quick scanning; token age keeps 5 (launch cadence
+//   is meaningful at 30m/1h/6h/24h/48h). Values stay centralized here for
+//   PM tuning. Param names track hot-token v6 for the passthrough swap.
+export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
-    field: EMarketFilterField.TokenAgeMax,
-    label: 'Token Age',
-    direction: 'lte',
-    tiers: [5 * M, 30 * M, H, 6 * H, 24 * H, 48 * H].map((value) => ({
-      value,
-      label: `≤ ${fmtAge(value)}`,
-    })),
+    id: EMarketFilterDimension.TokenAge,
+    label: 'Token age',
+    // No server-side age filter exists yet (PRD-confirmed); local demo only.
     localField: 'firstTradeTime',
-    formatValue: (v) => `≤ ${fmtAge(v)}`,
+    isAge: true,
+    options: [30 * M, H, 6 * H, 24 * H, 48 * H].map((value) => {
+      const text = value >= H ? `${value / H}h` : `${value / M}m`;
+      return {
+        id: `under-${text}`,
+        label: `Under ${text}`,
+        chipLabel: `< ${text}`,
+        max: value,
+      };
+    }),
   },
   {
-    field: EMarketFilterField.MarketCapMin,
+    id: EMarketFilterDimension.MarketCap,
     label: 'Market cap',
-    direction: 'gte',
-    tiers: [100_000, 1_000_000, 10_000_000, 100_000_000].map((value) => ({
-      value,
-      label: `≥ ${fmtUsd(value)}`,
-    })),
+    minParam: 'marketCapMin',
+    maxParam: 'marketCapMax',
     localField: 'marketCap',
-    formatValue: (v) => `≥ ${fmtUsd(v)}`,
+    options: [
+      {
+        id: 'micro',
+        label: '0–$100K',
+        chipLabel: '0–$100K',
+        max: 100_000,
+      },
+      {
+        id: 'small',
+        label: '$100K–1M',
+        chipLabel: '$100K–1M',
+        min: 100_000,
+        max: 1_000_000,
+      },
+      {
+        id: 'mid',
+        label: '$1M–10M',
+        chipLabel: '$1M–10M',
+        min: 1_000_000,
+        max: 10_000_000,
+      },
+      {
+        id: 'large',
+        label: '$10M+',
+        chipLabel: '$10M+',
+        min: 10_000_000,
+      },
+    ],
   },
   {
-    field: EMarketFilterField.LiquidityMin,
+    id: EMarketFilterDimension.Liquidity,
     label: 'Liquidity',
-    direction: 'gte',
-    tiers: [5000, 50_000, 500_000, 5_000_000].map((value) => ({
-      value,
-      label: `≥ ${fmtUsd(value)}`,
-    })),
+    minParam: 'liquidityMin',
+    maxParam: 'liquidityMax',
     localField: 'liquidity',
-    formatValue: (v) => `≥ ${fmtUsd(v)}`,
+    options: [5000, 50_000, 500_000].map((value) => ({
+      id: `min-${value}`,
+      label: `$${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
+      chipLabel: `$${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
+      min: value,
+    })),
   },
   {
-    field: EMarketFilterField.TurnoverMin,
+    id: EMarketFilterDimension.Turnover,
     label: 'Turnover',
-    direction: 'gte',
-    tiers: [10_000, 100_000, 1_000_000, 10_000_000].map((value) => ({
-      value,
-      label: `≥ ${fmtUsd(value)}`,
-    })),
+    minParam: 'volumeMin',
+    maxParam: 'volumeMax',
     localField: 'turnover',
-    formatValue: (v) => `≥ ${fmtUsd(v)}`,
+    options: [10_000, 100_000, 1_000_000].map((value) => ({
+      id: `min-${value}`,
+      label: `$${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
+      chipLabel: `$${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
+      min: value,
+    })),
   },
   {
-    field: EMarketFilterField.HoldersMin,
+    id: EMarketFilterDimension.Holders,
     label: 'Holders',
-    direction: 'gte',
-    tiers: [100, 1000, 10_000, 100_000].map((value) => ({
-      value,
-      label: `≥ ${fmtCount(value)}`,
-    })),
+    minParam: 'holdersMin',
+    maxParam: 'holdersMax',
     localField: 'holders',
-    formatValue: (v) => `≥ ${fmtCount(v)}`,
+    advanced: true,
+    options: [100, 1000, 10_000].map((value) => ({
+      id: `min-${value}`,
+      label: `${value >= 1000 ? `${value / 1000}K` : value}+`,
+      chipLabel: `${value >= 1000 ? `${value / 1000}K` : value}+`,
+      min: value,
+    })),
   },
   {
-    field: EMarketFilterField.ChangePercentMin,
+    id: EMarketFilterDimension.Change,
     label: 'Change',
-    direction: 'gte',
-    tiers: [5, 10, 50, 100].map((value) => ({
-      value,
-      label: `≥ ${fmtPercent(value)}`,
-    })),
+    minParam: 'priceChangePercentMin',
+    maxParam: 'priceChangePercentMax',
     localField: 'change24h',
-    formatValue: (v) => `≥ ${fmtPercent(v)}`,
+    advanced: true,
+    options: [10, 50, 100].map((value) => ({
+      id: `min-${value}`,
+      label: `+${value}%+`,
+      chipLabel: `+${value}%+`,
+      min: value,
+    })),
   },
   {
-    field: EMarketFilterField.TxnsMin,
+    id: EMarketFilterDimension.Txns,
     label: 'Txns',
-    direction: 'gte',
-    tiers: [100, 1000, 10_000, 50_000].map((value) => ({
-      value,
-      label: `≥ ${fmtCount(value)}`,
-    })),
+    minParam: 'txsMin',
+    maxParam: 'txsMax',
     localField: 'transactions',
-    formatValue: (v) => `≥ ${fmtCount(v)}`,
+    advanced: true,
+    options: [100, 1000, 10_000].map((value) => ({
+      id: `min-${value}`,
+      label: `${value >= 1000 ? `${value / 1000}K` : value}+`,
+      chipLabel: `${value >= 1000 ? `${value / 1000}K` : value}+`,
+      min: value,
+    })),
   },
   {
-    field: EMarketFilterField.TradersMin,
+    id: EMarketFilterDimension.Traders,
     label: 'Traders',
-    direction: 'gte',
-    tiers: [100, 1000, 10_000, 50_000].map((value) => ({
-      value,
-      label: `≥ ${fmtCount(value)}`,
-    })),
+    minParam: 'uniqueTraderMin',
+    maxParam: 'uniqueTraderMax',
     localField: 'uniqueTraders',
-    formatValue: (v) => `≥ ${fmtCount(v)}`,
+    advanced: true,
+    options: [100, 1000].map((value) => ({
+      id: `min-${value}`,
+      label: `${value >= 1000 ? `${value / 1000}K` : value}+`,
+      chipLabel: `${value >= 1000 ? `${value / 1000}K` : value}+`,
+      min: value,
+    })),
   },
   {
-    field: EMarketFilterField.InflowUsdMin,
+    id: EMarketFilterDimension.Inflow,
     label: 'Net inflow',
-    direction: 'gte',
-    tiers: [1000, 10_000, 100_000, 1_000_000].map((value) => ({
-      value,
-      label: `≥ ${fmtUsd(value)}`,
-    })),
+    minParam: 'inflowUsdMin',
+    maxParam: 'inflowUsdMax',
     // No local data source in the list response today; local demo skips it.
     localField: undefined,
-    formatValue: (v) => `≥ ${fmtUsd(v)}`,
+    advanced: true,
+    note: 'Local demo: no data source yet',
+    options: [1000, 10_000, 100_000].map((value) => ({
+      id: `min-${value}`,
+      label: `$${value / 1000}K+`,
+      chipLabel: `$${value / 1000}K+`,
+      min: value,
+    })),
   },
 ];
 
-export const MARKET_FILTER_FIELD_CONFIG_MAP = new Map(
-  MARKET_FILTER_FIELD_CONFIGS.map((config) => [config.field, config]),
+export const MARKET_FILTER_DIMENSION_MAP = new Map(
+  MARKET_FILTER_DIMENSIONS.map((dimension) => [dimension.id, dimension]),
 );
+
+export function getMarketFilterOption(
+  dimensionId: EMarketFilterDimension,
+  optionId: string | undefined,
+) {
+  if (!optionId) {
+    return undefined;
+  }
+  return MARKET_FILTER_DIMENSION_MAP.get(dimensionId)?.options.find(
+    (option) => option.id === optionId,
+  );
+}
+
+// Expands selected options into the flat hot-token v6 param object the
+// future server passthrough will send. Kept here so the passthrough swap
+// stays mechanical even while the demo filters locally.
+export function buildHotTokenFilterParams(
+  conditions: IMarketListFilterConditions,
+): Record<string, number> {
+  const params: Record<string, number> = {};
+  Object.entries(conditions).forEach(([dimensionId, optionId]) => {
+    const dimension = MARKET_FILTER_DIMENSION_MAP.get(
+      dimensionId as EMarketFilterDimension,
+    );
+    const option = getMarketFilterOption(
+      dimensionId as EMarketFilterDimension,
+      optionId,
+    );
+    if (!dimension || !option) {
+      return;
+    }
+    if (dimension.minParam && option.min !== undefined) {
+      params[dimension.minParam] = option.min;
+    }
+    if (dimension.maxParam && option.max !== undefined) {
+      params[dimension.maxParam] = option.max;
+    }
+  });
+  return params;
+}
 
 export const MARKET_FILTER_PRESETS: IMarketFilterPreset[] = [
   {
@@ -146,9 +232,9 @@ export const MARKET_FILTER_PRESETS: IMarketFilterPreset[] = [
     label: 'Early tokens',
     icon: 'GrowthOutline',
     conditions: {
-      [EMarketFilterField.TokenAgeMax]: 48 * H,
-      [EMarketFilterField.LiquidityMin]: 5000,
-      [EMarketFilterField.MarketCapMin]: 100_000,
+      [EMarketFilterDimension.TokenAge]: 'under-48h',
+      [EMarketFilterDimension.Liquidity]: 'min-5000',
+      [EMarketFilterDimension.MarketCap]: 'small',
     },
   },
   {
@@ -156,7 +242,7 @@ export const MARKET_FILTER_PRESETS: IMarketFilterPreset[] = [
     label: 'Large-cap tokens',
     icon: 'GalaxyOutline',
     conditions: {
-      [EMarketFilterField.MarketCapMin]: 100_000_000,
+      [EMarketFilterDimension.MarketCap]: 'large',
     },
   },
 ];

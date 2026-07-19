@@ -141,7 +141,8 @@ export interface IDexFilterChipParams {
     | 'popoverConfirm';
   presetId?: string;
   field?: string;
-  value?: number;
+  // Tier value: numeric threshold or named option id.
+  value?: number | string;
   conditionCount?: number;
 }
 

@@ -1,5 +1,6 @@
 import { applyMarketListLocalFilter } from './applyMarketListLocalFilter';
-import { EMarketFilterField } from './marketListFilterTypes';
+import { buildHotTokenFilterParams } from './marketListFilterConfig';
+import { EMarketFilterDimension } from './marketListFilterTypes';
 
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
 
@@ -7,13 +8,13 @@ const now = 1_800_000_000_000;
 const hours = (n: number) => n * 60 * 60 * 1000;
 const tokens = [
   {
-    id: 'young-big',
+    id: 'young-small',
     firstTradeTime: now - hours(10),
-    marketCap: 5_000_000,
+    marketCap: 500_000,
     liquidity: 100_000,
   },
   {
-    id: 'old-big',
+    id: 'old-large',
     firstTradeTime: now - hours(1000),
     marketCap: 200_000_000,
     liquidity: 900_000,
@@ -26,36 +27,79 @@ describe('applyMarketListLocalFilter', () => {
     expect(applyMarketListLocalFilter(tokens, {}, now)).toBe(tokens);
   });
 
-  it('applies gte condition', () => {
+  it('applies min-only threshold tiers', () => {
     expect(
       applyMarketListLocalFilter(
         tokens,
-        { [EMarketFilterField.MarketCapMin]: 100_000_000 },
+        { [EMarketFilterDimension.Liquidity]: 'min-500000' },
         now,
       ).map((t) => t.id),
-    ).toEqual(['old-big']);
+    ).toEqual(['old-large']);
   });
 
-  it('applies lte token age and drops rows missing the field', () => {
+  it('applies bucket ranges with both bounds', () => {
     expect(
       applyMarketListLocalFilter(
         tokens,
-        { [EMarketFilterField.TokenAgeMax]: hours(48) },
+        { [EMarketFilterDimension.MarketCap]: 'small' },
         now,
       ).map((t) => t.id),
-    ).toEqual(['young-big']);
+    ).toEqual(['young-small']);
   });
 
-  it('ANDs multiple conditions and skips fields without local data source', () => {
+  it('applies age ceilings and drops rows missing the field', () => {
+    expect(
+      applyMarketListLocalFilter(
+        tokens,
+        { [EMarketFilterDimension.TokenAge]: 'under-48h' },
+        now,
+      ).map((t) => t.id),
+    ).toEqual(['young-small']);
+  });
+
+  it('ANDs conditions and skips dimensions without local data source', () => {
     expect(
       applyMarketListLocalFilter(
         tokens,
         {
-          [EMarketFilterField.MarketCapMin]: 1_000_000,
-          [EMarketFilterField.InflowUsdMin]: 1000,
+          [EMarketFilterDimension.MarketCap]: 'large',
+          [EMarketFilterDimension.Inflow]: 'min-1000',
         },
         now,
       ).map((t) => t.id),
-    ).toEqual(['young-big', 'old-big']);
+    ).toEqual(['old-large']);
+  });
+
+  it('ignores unknown option ids', () => {
+    expect(
+      applyMarketListLocalFilter(
+        tokens,
+        { [EMarketFilterDimension.MarketCap]: 'nope' },
+        now,
+      ).map((t) => t.id),
+    ).toEqual(['young-small', 'old-large', 'no-age']);
+  });
+});
+
+describe('buildHotTokenFilterParams', () => {
+  it('expands buckets into min/max hot-token params', () => {
+    expect(
+      buildHotTokenFilterParams({
+        [EMarketFilterDimension.MarketCap]: 'small',
+        [EMarketFilterDimension.Liquidity]: 'min-5000',
+      }),
+    ).toEqual({
+      marketCapMin: 100_000,
+      marketCapMax: 1_000_000,
+      liquidityMin: 5000,
+    });
+  });
+
+  it('emits nothing for dimensions without server params', () => {
+    expect(
+      buildHotTokenFilterParams({
+        [EMarketFilterDimension.TokenAge]: 'under-48h',
+      }),
+    ).toEqual({});
   });
 });

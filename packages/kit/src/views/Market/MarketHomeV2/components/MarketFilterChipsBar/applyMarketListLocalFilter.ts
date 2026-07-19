@@ -1,7 +1,12 @@
-import { MARKET_FILTER_FIELD_CONFIG_MAP } from './marketListFilterConfig';
-import { EMarketFilterField } from './marketListFilterTypes';
+import {
+  MARKET_FILTER_DIMENSION_MAP,
+  getMarketFilterOption,
+} from './marketListFilterConfig';
 
-import type { IMarketListFilterConditions } from './marketListFilterTypes';
+import type {
+  EMarketFilterDimension,
+  IMarketListFilterConditions,
+} from './marketListFilterTypes';
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
 
 export function applyMarketListLocalFilter(
@@ -9,28 +14,36 @@ export function applyMarketListLocalFilter(
   conditions: IMarketListFilterConditions,
   nowMs: number = Date.now(),
 ): IMarketToken[] {
-  const entries = Object.entries(conditions).filter(
-    ([field]) =>
-      MARKET_FILTER_FIELD_CONFIG_MAP.get(field as EMarketFilterField)
-        ?.localField !== undefined,
-  ) as [EMarketFilterField, number][];
+  const entries = Object.entries(conditions).filter(([dimensionId]) => {
+    const dimension = MARKET_FILTER_DIMENSION_MAP.get(
+      dimensionId as EMarketFilterDimension,
+    );
+    return dimension?.localField !== undefined;
+  }) as [EMarketFilterDimension, string][];
   if (entries.length === 0) {
     return tokens;
   }
   return tokens.filter((token) =>
-    entries.every(([field, value]) => {
-      const config = MARKET_FILTER_FIELD_CONFIG_MAP.get(field);
-      if (!config?.localField) return true;
-      const raw = token[config.localField] as number | undefined;
+    entries.every(([dimensionId, optionId]) => {
+      const dimension = MARKET_FILTER_DIMENSION_MAP.get(dimensionId);
+      const option = getMarketFilterOption(dimensionId, optionId);
+      if (!dimension?.localField || !option) {
+        return true;
+      }
+      const raw = token[dimension.localField] as number | undefined;
       if (raw === undefined || raw === null || Number.isNaN(raw)) {
         return false;
       }
-      if (field === EMarketFilterField.TokenAgeMax) {
-        // firstTradeTime is a ms epoch timestamp (same as Date.now()); convert
-        // to age before comparing against the ms tier value.
-        return nowMs - raw <= value;
+      // Age dimensions store a ms epoch timestamp (same clock as Date.now());
+      // convert to an age before comparing against the option range.
+      const value = dimension.isAge ? nowMs - raw : raw;
+      if (option.min !== undefined && value < option.min) {
+        return false;
       }
-      return config.direction === 'gte' ? raw >= value : raw <= value;
+      if (option.max !== undefined && value > option.max) {
+        return false;
+      }
+      return true;
     }),
   );
 }
