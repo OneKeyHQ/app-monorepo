@@ -33,7 +33,10 @@ export interface IHomeContainerSlot {
   interaction?: IHomeContainerSlotInteraction;
 }
 
-export type IHomeContainerHeaderActionLayout = 'standard' | 'zeroBalance';
+export type IHomeContainerHeaderActionLayout =
+  | 'loading'
+  | 'standard'
+  | 'zeroBalance';
 
 export type IHomeContainerItemRenderer =
   | 'action'

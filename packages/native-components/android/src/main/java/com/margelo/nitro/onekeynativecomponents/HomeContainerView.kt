@@ -51,6 +51,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   private val tabsView = HomeTabsView(context)
   private val refreshPages = mutableMapOf<String, HomePageView>()
   private var snapshot: HomeContainerSnapshot? = null
+  private var fallbackBackgroundColor = Color.WHITE
   private var selectedTabId = ""
   private var suppressPageCallback = false
   private var refreshEnabled = false
@@ -309,7 +310,13 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   }
 
   fun setFallbackBackgroundColor(value: String) {
-    post { setBackgroundColor(parseHomeContainerColor(value, Color.WHITE)) }
+    val color = parseHomeContainerColor(value, Color.WHITE)
+    post {
+      fallbackBackgroundColor = color
+      if (snapshot == null) {
+        setBackgroundColor(color)
+      }
+    }
   }
 
   fun setDebugOverlayEnabled(enabled: Boolean) {
@@ -318,7 +325,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
         GradientDrawable().apply {
           color = android.content.res.ColorStateList.valueOf(
             snapshot?.theme?.backgroundColor?.let { parseHomeContainerColor(it, Color.WHITE) }
-              ?: Color.WHITE,
+              ?: fallbackBackgroundColor,
           )
           setStroke(dp(1), Color.MAGENTA)
         }
@@ -328,7 +335,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       if (!enabled) {
         setBackgroundColor(
           snapshot?.theme?.backgroundColor?.let { parseHomeContainerColor(it, Color.WHITE) }
-            ?: Color.WHITE,
+            ?: fallbackBackgroundColor,
         )
       }
     }
@@ -1188,12 +1195,25 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     updateBalanceActions(header.balanceActions, theme)
     updateActions(header.actions, theme)
     updateBanners(header.banners, theme)
-    actionsScroll.visibility = if (header.actions.isEmpty()) GONE else VISIBLE
+    actionsScroll.layoutParams = actionsScroll.layoutParams.apply {
+      height = dp(header.actionRowHeight.coerceAtLeast(0))
+    }
+    actionsScroll.visibility =
+      if (header.actions.isEmpty() && header.actionLayout != "loading") GONE else VISIBLE
     bannersScroll.visibility = if (header.banners.isEmpty()) GONE else VISIBLE
     preferredHeight = dp(
       (if (header.banners.isEmpty()) 216 else 310) +
-        (if (header.balanceActions.isEmpty()) 0 else 38),
+        (if (header.balanceActions.isEmpty()) 0 else 38) +
+        preferredHeightAdjustment(header),
     )
+  }
+
+  private fun preferredHeightAdjustment(header: HomeContainerHeader): Int {
+    val actionHeightDelta = (header.actionRowHeight - 62).coerceAtLeast(0)
+    if (header.actionLayout != "zeroBalance" && header.actionLayout != "loading") {
+      return actionHeightDelta
+    }
+    return (actionHeightDelta - 14).coerceAtLeast(0)
   }
 
   fun slotTarget(key: String): View? = when (key) {

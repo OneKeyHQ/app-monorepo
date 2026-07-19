@@ -868,7 +868,10 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   func setFallbackBackgroundColor(_ value: String) {
     DispatchQueue.main.async { [weak self] in
-      self?.backgroundColor = UIColor(homeContainerColor: value, fallback: .systemBackground)
+      guard let self, self.snapshot == nil else { return }
+      let color = UIColor(homeContainerColor: value, fallback: .systemBackground)
+      self.backgroundColor = color
+      self.pager.backgroundColor = color
     }
   }
 
@@ -2202,7 +2205,7 @@ private final class HomeContainerHeaderView: UIView {
     updateBanners(header.banners, theme: theme)
     let actionRowHeight = max(0, header.actionRowHeight ?? 62)
     actionsScrollHeightConstraint.constant = HomeContainerMetrics.scaledHeight(actionRowHeight)
-    actionsScroll.isHidden = header.actions.isEmpty
+    actionsScroll.isHidden = header.actions.isEmpty && header.actionLayout != "loading"
     bannersScroll.isHidden = header.banners.isEmpty
     let balanceActionsHeight: CGFloat = (header.balanceActions ?? []).isEmpty ? 0 : 38
     let actionHeightAdjustment = preferredHeightAdjustment(for: header)
@@ -2237,7 +2240,9 @@ private final class HomeContainerHeaderView: UIView {
     let actionHeightDelta = HomeContainerMetrics.scaledHeight(
       max(0, (header.actionRowHeight ?? 62) - 62)
     )
-    guard header.actionLayout == "zeroBalance" else { return actionHeightDelta }
+    guard header.actionLayout == "zeroBalance" || header.actionLayout == "loading" else {
+      return actionHeightDelta
+    }
     return max(
       0,
       actionHeightDelta -

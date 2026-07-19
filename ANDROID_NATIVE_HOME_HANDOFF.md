@@ -2297,3 +2297,78 @@ Polygon 的完整 Tab 结果：Spot 使用当前 POL rows，并在 `50-polygon-s
 - **bg runtime：** wallet/account/address 与 capability 权威状态，以及 portfolio、Market、History、NFT、DeFi、Perps service 数据。main/bg 是独立 Hermes heap、独立初始化；DTO 经 proxy 序列化/反序列化并在两边各有 JS 副本，main ready 不能替代 bg ready，也不能假设 bg 先 ready。
 - DB/MMKV/file handles、图片/字体 cache 和部分 Native singleton 是进程级共享 Native 资源；controller JS owner/epoch/generation 属于 main heap，cell constraint、diffable snapshot/cell、represented image signature、request cancellation、pressed/hover/selected、selector drag cancellation 与 scroll offset 是 per-view 状态。共享图片或 DB cache 命中不能证明某个 view 的 revision、复用或手势状态正确。
 - 本轮继续固定职责：writer subagent 只编写被分配的产品代码/测试，并在结论稳定后更新本 handoff；独立 reviewer subagent 不参与编写，负责源码、owner/race、类型、lint 和聚焦测试 Pass/Fail；独立 UI verifier subagent 只用标准 Debug 包执行真实截图、逐帧、录屏、identifier 点击和 gesture 验收；主 agent 只负责拆分、汇总结论、保护 dirty files，以及按用户要求精确 stage/commit/push，不直接写产品代码，也不自行替代 reviewer/verifier。
+
+## 2026-07-19/20 iOS Debug：首次空账户与有钱账户 authority、PageFooter warning 最终验收
+
+本节接续上一节六单链验收，完整保留两项修复前真实 Fail、每轮独立 reviewer 退回原因和最终 Debug 证据。最终 Pass 只针对 iPhone 17 Pro / iOS 26.5、当前已备份多链钱包内新建的空 Account #8、已有正余额 Account #1，以及 Account #1 的 All Networks/六个单链切换；不能外推到 fresh install、首次 onboarding、未备份正余额钱包、真正单链有钱钱包或其它 wallet type。
+
+### 初始问题一：新 owner 首帧仍使用旧 owner 状态，root/slot 背景与 Native snapshot 不同权威
+
+- 修复前创建 Account #7 后，account selector 已经进入新 account，Native Home 首帧却仍可能显示上一个有钱 owner 的 funded action family；这不是允许的 loading，也不是选择器关闭动画。权威证据位于 `.tmp/ui/native-home-new-account-dark-final-20260719/`：`11-account7-first.png` 至 `22-account7-video-20s.png`、`24-account7-transition-contact.png`、`30-account7-transition-close-contact.png` 和 `account7-full-create.mp4`。该轮按真实 UI **Fail**，不能用 `25-account7-settled-clean.png` 的最终空账户帧覆盖首帧错误。
+- 同一轮还暴露两套独立 authority：RN host/root 会在 controller snapshot 尚未接管时读取 fallback background，mounted slot 又读取 snapshot/slot color；account/network props 已经切到新 owner 时，复用的 Native controller/view 仍可能保留旧 scope snapshot。结果是 root/slot 背景在过渡期不一致，同时 Header/选择器属于新 scope、actions/body 仍属于旧 scope。图片/字体等共享 Native cache 与此无关；这是 main runtime 的 per-view snapshot/controller owner 问题。
+- 背景修复统一由 `resolveHomeContainerBackgroundColor` 决定 host 与所有 mounted slot 的颜色：controller-owned snapshot theme 优先，只有 snapshot 缺失时才读 slot fallback，最后才使用白色兜底；iOS/Android Native view 也拒绝迟到 fallback 覆盖当前 snapshot。Dark loading/zero root 因此保持同一背景，不再出现 host/slot 白灰边缘。
+- scope 修复将 controller owner 提升到条件页面外并在 account/network scope 改变时原子 `replaceSnapshot`；Header、tabs、body、theme 使用同一个 current-scope snapshot 和单调 revision。旧 scope 的异步 section patch、controller cleanup 或 late attach 不能再写入新 scope。该逻辑只属于 main runtime；bg 仍独立提供序列化数据，不能用 main ready 推断 bg ready。
+- 原先按 wallet 粘住 positive/zero 的状态会在同钱包切 account 时把 funded state 传播给新 account。修复后改为有界 8 项的 exact home scope cache，key 同时包含 wallet/account/network；未知新 scope 没有 exact cache 时必须保持 `unknown`，不得从同钱包其它 account、indexed account 或全局 `latest` 借状态。
+- `unknown` 的 Native/RN presentation 固定为中性不可交互 loading：balance Skeleton、action Skeleton、空 action list 和无 action identifier；action layout/row height 使用 `loading / 82pt`。最终 zero 仍为 `zeroBalance / 82pt`，因此 loading -> zero 不改变 Header 下方几何。正余额才使用 `standard / 62pt`。元素存在或 action 文案最终正确不够，首帧必须没有旧 funded actions、Add money 或旧资产 rows。
+
+### Account #8 空账户：exact-scope loading/zero 最终证据
+
+- 第一轮 Account #7 Fail 后没有回滚或删除账户；后续由独立 UI verifier 在同一钱包安全创建 Account #8，未输入 passcode、未执行备份、未删除账户，也没有创建 Account #9。连续录屏 `.tmp/ui/native-home-new-account-loading-final-20260719/account8-full-create.mp4` 从点击前覆盖 selector spinner、Home 首次接触、loading、zero 和 25 秒 settled。
+- 权威逐帧为 `04-account8-video-first.png` 至 `10-account8-video-20s.png`、`13-account8-transition-8fps-contact.png`、`14-account8-ui-first.png` 至 `19-account8-ui-5s.png` 和 `20-account8-authoritative-ui-contact.png`。新 scope 未知期只有中性 balance/action/body Skeleton；没有 Send、Receive、Buy & Sell、Add money、banner 或旧资产 row。随后一次进入 `$0.00 / Add money / More` 和空账户终态。
+- `22-account8-loading-zero-ab-402.png` 证明 loading 与 zero 的 tabs 和 `Tokens` heading y 坐标差均为 `0pt`；两态 root 实测均为 RGB `(13,13,13)`。Add money frame 为 `x=20–322, y=282–332`，More 为 `x=332–382, y=282–332`，完整无裁切。`22-account8-legacy-zero-ab-402.png` 只用作同状态 Legacy 几何基线；最终 Native loading/zero Pass 不能外推到未备份/fresh 钱包。
+- 这轮关闭了“新 account 首帧旧 funded actions”和“unknown 被误判 zero”两个门禁；它没有关闭有钱账户 amount progressive 问题。后者在切回 Account #1 时被新的连续录屏单独捕获，因此验收立即停止并进入第二项修复。
+
+### 初始问题二：Funded Account #1 显示 `$0 -> partial -> final`
+
+- 从 Account #8 切回已有资产 Account #1 时，selector 显示 exact-owner 历史 `$43.71`，最终 Home 为 `$54.59`；修复前 Account #1 第一张完整 Home 帧却显示 `$0.00`，随后依次出现 `$10.26 -> $33.92 -> $47.17 -> $54.59`。此时 funded 四 action 已正确，因此真实问题不是 action family，也不是旧 Account #8 的关闭动画，而是把当前 All Networks progressive live sum 当成最终 Header amount。
+- 修复前证据为 `.tmp/ui/native-home-new-account-loading-final-20260719/account1-funded-switch-verified.mp4`、`27-account1-funded-switch-contact.png`、`30-account1-funded-switch-verified-contact.png`、`32-account1-zero-flash.png`、`33-account1-actions-zero-balance.png`、`34-account1-balance-10.png`、`35-account1-balance-33.png` 和 `37-account1-funded-fail-contact.png`。`29-account1-funded-settled-verified.png` 只证明最终值，不得把本轮判为 Pass。
+- 根因是 Native 只把 existing `lastConfirmedOverviewBalance.byOwner[accountId__networkId]` 用作 positive/zero boolean，Header amount 仍无条件求和当前 `portfolio.map + deFi.protocolMap + perps`。All Networks fan-out 每完成一部分都会 patch live map，因此 amount 连续增长；这不是旧 scope row 泄漏，而是缺少独立 amount presentation authority。
+
+### Amount authority、币种迁移、invalid cache 与 Perps stale completion 修复
+
+- 新 amount resolver 与 action resolver 完全独立。当前 exact owner 有 confirmed amount、任一实际纳入来源尚未 fully ready 时，Header 保持 confirmed amount；当前 owner 没有有效 confirmed amount 时显示不可交互 Skeleton，即使 funded signal 已让 actions 进入 standard 也不能显示 `$0` 或 partial。只有 current scope 的 Portfolio、实际显示的 DeFi 和实际纳入的 Perps 全部 `success` 后，才一次切换到 final live USD 并允许写 cache。
+- DeFi amount 必须同时满足 `deFi.balanceAuthority.scopeKey === current homeBalanceScopeKey`；旧 owner `protocolMap` 不参与求和。Perps result、focus revalidation 和 deposit retry 都捕获 account scope/address，scope render 变化同步 invalidate focus/deposit nonce；await completion 写入前再次比对 live `{scopeKey,address}`。同地址的旧 Account A completion 即使晚于 Account B success，也只能被丢弃，不能覆盖 B 或把 B 的 amount authority退回 loading。
+- exact cache 只读 `byOwner[currentOwnerKey]`，不使用全局 `latest` 跨 owner填充，不用 fixed delay/debounce，也不靠 remount/revision隐藏 progressive。fully ready 前和 error 时不写 cache；error 有 exact valid cache继续显示 cache，无 cache保持 Skeleton，禁止把 partial/0 写成 confirmed。
+- atom 的 `currency` 是整张 `byOwner` map 的统一标签。写 final USD 前，先以 `previous.currency ?? currentDisplayCurrency` 将所有 finite owner amount 一次性归一到 USD，再覆盖 current owner、更新 `latest` 并设置 `currency='usd'`；其它 owner不得丢失。重复 commit 因 source 已为 USD，不会二次换算或漂移。测试覆盖 A=`12 EUR` 在 rate 0.8 时迁移为 `15 USD`、B=`54.59 USD`，切回 A 读取 `15` 且不产生额外 commit；legacy 缺 currency 按当时 display currency兼容。
+- 旧 cache 的 `--`、`NaN`、`Infinity` 等非 finite sentinel 保留原 `byOwner` 字符串，但不得成为展示/action authority：amount 读取返回 absent，未 fully ready时继续 Skeleton；action signal返回 `undefined/unknown`，不能显示 `NaN`，也不能误判 zero/Add money。finite `0` 仍是合法 exact zero。
+- 独立 reviewer 共四轮。第一轮确认 core amount resolver正确但以 Perps focus/deposit late completion为 Fail；第二轮确认 Perps gate修复但发现整张 `byOwner` 的 currency被错误重标为 USD；第三轮确认全表迁移后发现 invalid sentinel仍可能走 `NaN/zero`；第四轮在上述修正及测试补齐后明确 **Pass**。Writer 最终相关回归为 12 suites / 85 tests Pass；reviewer 最终 targeted 为 3 suites / 34 tests Pass，type-aware oxlint、oxfmt、`git diff --check` 均 Pass。任何前一轮 Fail 都没有被作者自测覆盖。
+
+### 2026-07-20 最终双向 account/scope/滚动 UI
+
+- amount 修复后的独立 verifier 再次执行标准 `yarn app:ios` 更新安装 Debug 包。Account #8 -> Account #1 连续证据为 `.tmp/ui/native-home-authority-final-20260720/account8-to-account1-funded.mp4`、`04-account8-to-account1-5fps-contact.png` 和 `05-account8-to-account1-dense-contact.png`：Account #1 第一张完整 Home 帧直接为 `$54.59` 和四个 funded actions，没有 `$0`、10.26、33.92、47.17 或 action family 翻转；token body按允许路径从 Skeleton一次进入 final。
+- Account #1 -> Account #8 的 `account1-to-account8-zero.mp4` 与 `07-account1-to-account8-5fps-contact.png` 第一张完整 Account #8 帧直接为 `$0.00 / Add money / More / No address`，没有 funded amount、旧 actions 或旧列表回闪。
+- 402px 几何证据为 `08-account1-first-complete-402.png`、`09-account1-funded-final-402.png`、`10-account8-zero-final-402.png`、`11-account1-first-final-ab-402.png`、`12-account1-first-final-diff-402.png` 与 `12-account1-first-final-diff-metric.txt`。Account #1 first/final 的 balance、actions、banner、tabs、Tokens heading 差异像素为 0，正文差异从 `y=583` 才开始；不再用肉眼或最终元素存在代替首帧判定。
+- 当前 Account #1 scope 矩阵真实结果：All Networks 为 Spot/Perps/DeFi/NFT/History 5 tabs；Bitcoin 为 Spot/History 2 tabs并显示 BTC row；Ethereum 为 5 tabs并显示 ETH/USDT/USDC/cUSD/GHO 等当前 rows；Solana 为 Spot/NFT/History 3 tabs并显示 JupSOL/SOL/PYUSD；Polygon 为 5 tabs并显示 USDC/WETH/POL/USDT；TRON 为 Spot/History 2 tabs并显示 TRX/USDT/USDC 与 collapsed risk assets。对应证据为 `20-scope-bitcoin.png`、`22-scope-ethereum.png`、`23-scope-solana.png`、`24-scope-polygon.png`、`26-scope-polygon-confirmed.png`、`30-scope-tron.png` 和 `32-all-networks-restored.png`。
+- TON 仍受当前 Account #1 没有 TON address/account限制，只显示 `No address / Create address`，证据为 `28-scope-ton.png`；本轮没有创建地址，因此不得宣称 TON 普通 tabs/list 或真正 TON 有钱账户已通过。
+- `33-all-networks-bidirectional-fling.mp4`、gesture telemetry、`34-after-fling-up.png`、`35-after-fling-down.png` 和 `36-bidirectional-fling-contact.png` 证明向上、向下松手后均继续 decelerate。`38-all-networks-to-bottom.mp4`、`37-all-networks-bottom.png`、`39-all-networks-bottom-manual.png` 和 `40-bottom-after-extra-fling.png` 证明 Support hub、Support、Help center 完整位于浮动底栏上方；触底后额外 fling 前后 diff pixels 为 0，content offset 已稳定在真实底部。
+
+### Single network -> All Networks PageFooter render-phase warning
+
+- 上述 authority UI 的 scope 恢复中，`31-picker-all-networks-restore.png` 捕获 Debug error toast：`Cannot update a component ('BasicPageFoo...')`。关闭 toast 后 selector 的 Done 可以恢复 All Networks，但真实 React warning 是明确 **Fail**，不能因 Home 最终可用而忽略。
+- 根因不在 Native controller或 selector service。`PageFooterContext` 在 mount-time `useMemo` 的 render phase 同时写 `footerRef.current.props` 并调用 `notifyUpdate`；后者会让已挂载的 `BasicPageFooter` 执行 `setCount`，形成“渲染 PageFooterContext 时更新 BasicPageFooter”的跨组件 render-phase update。Single/All selector footer条件挂载使该路径稳定暴露。
+- 最小修复只删除 mount-time `useMemo` 内的 `notifyUpdate`，保留同步 `footerRef.current.props = props` seed，使同一 Page render中后渲染的 `BasicPageFooter` 仍能拿到首挂 footer。props更新和 unmount clear/notify仍由既有 `useEffect` 在 commit后执行。没有为修 warning 改 Native scope/controller或重构 Unified selector。
+- Page harness 在 StrictMode 下验证初次有 footer时同帧显示，`false -> true -> false` 时显示/消失，且 `console.error` 不包含 `Cannot update a component`。Writer 与独立 reviewer 均为 1 suite / 2 tests Pass；reviewer确认 StrictMode double render、effect cleanup/setup、prop update和unmount路径无新的 render-phase setState。
+- 修复后第三次标准 `yarn app:ios` Debug 的最终证据位于 `.tmp/ui/native-home-pagefooter-final-20260720/`。`10-three-valid-rounds-network-ab.mp4` 与 `11` 至 `19` 覆盖多轮 Single/All；`20-three-slow-valid-rounds.mp4` 与 `21` 至 `31` 覆盖较慢三轮确认/Done/恢复；最终 verifier报告三轮 Debug UI 与 device log 中该 React warning出现次数均为 0。`32-latest-quick-account-ab.mp4`、`34-latest-account8-zero.png`、`35-latest-account1-funded.png` 复验双向账户；`36-latest-quick-fling-bottom.mp4`、`37-latest-up-fling-motion.png`、`38-latest-down-fling-motion.png`、`39-latest-bottom.png` 复验惯性和触底。
+- PageFooter修复后没有重新切 `nativeHomeFeatureFlag.native.ts=false` 采集一轮新 Legacy selector录像；因此“warning消失”是修复后 Native Debug三轮+device log=0与 shared PageFooter harness/code review结论，不得表述为新的 Legacy/Native视觉 A/B。此前同状态 Legacy截图仍可作布局背景，不是本轮 warning交互Pass证据。
+
+### 三次标准 Debug、最终 runtime 与数据安全
+
+- 本闭环明确执行了三次标准 `yarn app:ios` Debug：第一次用于新 account authority/Account #7/#8，第二次用于 funded amount authority 与完整 account/scope/fling/bottom矩阵，第三次用于 PageFooter warning修复后三轮 Single/All和快速回归。三次都由命令负责 Debug build、Metro、更新安装并启动 `so.onekey.wallet`；没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`。
+- 最后一轮权威 runtime：main ready/jsReady=`1784481615092`，`uiVisible=1784481618186`；独立 bg `bootId=1784481616810-vyzgfmh0`，bg ready=`1784481617151`。main/bg都确认ready，main ready从未替代bg ready；应用持续存活，钱包数据正常，最终 Account #1 funded与Account #8 zero均可往返。
+- 全程没有执行独立 uninstall/reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据；`yarn app:ios` 的受控更新安装不是被禁止的手工 reinstall。没有回滚、reset、checkout、clean或stash其它 dirty files，也没有为绿色结果改 Discovery、Swap、TradingView、Firmware或Performance文件。
+
+### Runtime topology、共享资源、per-view 状态与长期工作方式
+
+- **main runtime：** Native Home UI、account/network/Tab选择、balance/action/amount authority、exact-scope cache、controller snapshot/revision、section patch、PageFooter/selector React tree、UIKit height/offset和所有per-view交互状态。
+- **bg runtime：** wallet/account/network/capability权威，以及 Portfolio、DeFi、Market、History、NFT、Perps service数据。iOS main/bg为独立Hermes heap、独立初始化；DTO经proxy序列化/反序列化，两边各持JS副本，不能共享JS对象或假设bg先ready。
+- DB/MMKV/file handles、图片/字体cache和部分Native singleton是进程级共享资源；controller/owner/nonce属于main heap；cell constraint、diffable snapshot/cell、represented image signature、request cancellation、pressed/hover/selected、selector drag cancellation和scroll offset属于per-view状态。共享cache命中不证明当前view的scope、复用、手势或图片signature正确。
+- 本轮再次证明主要工作方式必须是：主agent拆分和保护scope；writer subagent只写分配的产品/测试；独立code reviewer逐轮给出可定位PASS/FAIL并要求同一writer修正；独立UI verifier只用标准Debug保留首帧、逐帧、截图、录屏、gesture telemetry和log；writer/reviewer与UI verifier角色分离。失败证据必须写入handoff，不能被最终Pass覆盖。主agent只汇总、维护handoff和精确协调commit/push，不直接替代writer或验收者。
+- 当前可以声明本节列出的Account #8 zero、Account #1 funded amount、六scope矩阵、双向fling、触底和PageFooter warning在最新Debug现场通过；仍不能宣称整个Native Home完成。fresh onboarding、未备份正余额、真正单链有钱钱包、其它wallet type、TON创建地址后普通内容、非空NFT/History/DeFi完整矩阵、Light/Dynamic Type、iOS 17.4以下和Android Debug仍需各自真实fixture与独立证据。
+
+### 本轮最终本地检查与已知无关阻断
+
+- `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift` Pass。
+- 最小聚焦 Jest 为 4 suites / 36 tests Pass：PageFooter mount/update/unmount、amount authority/currency/invalid、Perps main/focus/deposit stale scope 和 exact-scope balance/action state。
+- 18 个相关 TS/TSX 文件的 type-aware oxlint 与 oxfmt Pass；handoff、iOS/Android Native view、Native Home adapter/controller/type 和 PageFooter 的指定 `git diff --check` Pass。
+- `yarn agent:check --profile commit` 的 `lint-worktree-js`、`lint-worktree-ts`、`format-worktree`、`agent-context` 和 `lint-staged` 全部 Pass；只有 `tsc-staged` Fail。日志目录为 `node_modules/.cache/agent-checks/2026-07-19T17-51-23-787Z/`。
+- `tsc-staged` 仅报告两个共享工作区既有且不属于本轮 Native Home/PageFooter 的错误：`apps/desktop/web-build/static/js-sdk/data/config.ts` 缺少 `./config.perfReady`，`packages/kit/src/views/Home/NativeHomePageView.native.tsx` 引用了 `MDHeader` 未导出的 `HOME_HEADER_SEARCH_ROW_HEIGHT`。没有回滚或修改这些无关 owner 来制造绿色结果。

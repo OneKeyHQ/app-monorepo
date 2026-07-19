@@ -99,7 +99,11 @@ describe('Native Home portfolio scope contracts', () => {
     expect(guardSource).toContain(
       'controllerOwnerRef = useRef<INativeHomeContainerControllerOwner>({})',
     );
-    expect(pageSource).toContain('acquireNativeHomeContainerController({');
+    expect(pageSource).toContain('useNativeHomeContainerScopeController({');
+    expect(pageSource).not.toContain(
+      'controllerOwnerRef.current.scopeKey = expectedPortfolioScopeKey',
+    );
+    expect(pageSource).toContain('scopeSnapshot: currentScopeSnapshot');
     expect(pageSource).toContain(
       'controller.detach(attachedControllerTargetRef.current)',
     );
