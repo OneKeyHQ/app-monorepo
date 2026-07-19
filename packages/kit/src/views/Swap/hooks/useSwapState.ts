@@ -79,6 +79,7 @@ import {
   isSwapZeroProviderQuoteCompleted,
   selectSwapPreviousActionableQuote,
   shouldOfferSwapQuoteRefresh,
+  shouldShowSwapQuoteActionLoading,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
 import { shouldAllowSwapNoConnectWalletWarning } from '../utils/swapNoWalletWarningGuard';
@@ -551,6 +552,11 @@ export function useSwapActionState() {
       swapSlippagePercentageMode,
     ],
   );
+  const isQuoteActionLoading = shouldShowSwapQuoteActionLoading({
+    isWaitingActionableQuote,
+    isQuoteEventSettlingForAction,
+    isWaitingAutoSlippage,
+  });
   // "The CURRENT pair's quote round completed and no provider supports it."
   // The veto must be pair-identity based only: provider-error quotes carry
   // no amount fields, so the amount-aware quoteResultNoMatch would
@@ -605,13 +611,7 @@ export function useSwapActionState() {
     ) {
       infoRes.disable = true;
     }
-    if (
-      isWaitingActionableQuote ||
-      isQuoteEventSettlingForAction ||
-      isWaitingAutoSlippage ||
-      swapApprovingMatchLoading ||
-      buildTxFetching
-    ) {
+    if (isQuoteActionLoading || swapApprovingMatchLoading || buildTxFetching) {
       infoRes.disable = true;
     } else {
       if (noProviderSupportsTrade) {
@@ -726,9 +726,7 @@ export function useSwapActionState() {
     canRefreshQuoteFromAction,
     isRefreshQuote,
     toTokenAmount.value,
-    isWaitingActionableQuote,
-    isQuoteEventSettlingForAction,
-    isWaitingAutoSlippage,
+    isQuoteActionLoading,
     swapApprovingMatchLoading,
     buildTxFetching,
     selectedFromTokenBalance,
@@ -740,14 +738,11 @@ export function useSwapActionState() {
   const stepState: ISwapState = {
     label: actionInfo.label,
     isLoading: buildTxFetching,
+    isQuoteActionLoading,
     approving: swapApprovingMatchLoading,
     noConnectWallet: actionInfo.noConnectWallet,
     disabled:
-      actionInfo.disable ||
-      isWaitingActionableQuote ||
-      isQuoteEventSettlingForAction ||
-      isWaitingAutoSlippage ||
-      swapApprovingMatchLoading,
+      actionInfo.disable || isQuoteActionLoading || swapApprovingMatchLoading,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,

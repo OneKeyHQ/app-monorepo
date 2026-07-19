@@ -747,6 +747,7 @@ export enum ESwapFetchCancelCause {
 export interface ISwapState {
   label: string;
   isLoading: boolean;
+  isQuoteActionLoading: boolean;
   approving: boolean;
   isWrapped?: boolean;
   isApprove?: boolean;

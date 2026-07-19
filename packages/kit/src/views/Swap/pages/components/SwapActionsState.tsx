@@ -121,8 +121,7 @@ const SwapActionsState = ({
     setSettings,
   ] = useSettingsAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const { quoteLoading, quoteEventFetching, isQuotePresentationLoading } =
-    useSwapQuoteProgressState();
+  const { quoteLoading, quoteEventFetching } = useSwapQuoteProgressState();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
@@ -812,7 +811,7 @@ const SwapActionsState = ({
 
   const actionButtonChildren = useMemo(
     () =>
-      isQuotePresentationLoading ? (
+      swapActionState.isQuoteActionLoading ? (
         <LottieView
           source={
             themeVariant === 'light'
@@ -839,7 +838,7 @@ const SwapActionsState = ({
           {swapActionState.label}
         </SizableText>
       ),
-    [isQuotePresentationLoading, swapActionState.label, themeVariant],
+    [swapActionState.isQuoteActionLoading, swapActionState.label, themeVariant],
   );
 
   const actionRowComponent = useMemo(

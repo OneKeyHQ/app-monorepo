@@ -20,6 +20,7 @@ import {
   selectSwapCurrentQuote,
   selectSwapPreviousActionableQuote,
   shouldOfferSwapQuoteRefresh,
+  shouldShowSwapQuoteActionLoading,
 } from './quoteProgress';
 
 function buildQuote({
@@ -380,6 +381,37 @@ describe('swap quote progress', () => {
         quoteEventFetching: false,
       }),
     ).toBe(true);
+  });
+
+  it('shows action loading for every quote-readiness gate', () => {
+    expect(
+      shouldShowSwapQuoteActionLoading({
+        isWaitingActionableQuote: true,
+        isQuoteEventSettlingForAction: false,
+        isWaitingAutoSlippage: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapQuoteActionLoading({
+        isWaitingActionableQuote: false,
+        isQuoteEventSettlingForAction: true,
+        isWaitingAutoSlippage: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapQuoteActionLoading({
+        isWaitingActionableQuote: false,
+        isQuoteEventSettlingForAction: false,
+        isWaitingAutoSlippage: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapQuoteActionLoading({
+        isWaitingActionableQuote: false,
+        isQuoteEventSettlingForAction: false,
+        isWaitingAutoSlippage: false,
+      }),
+    ).toBe(false);
   });
 
   it('keeps a previous actionable quote while the current event is still waiting', () => {

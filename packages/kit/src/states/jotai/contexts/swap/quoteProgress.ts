@@ -268,6 +268,22 @@ export function shouldOfferSwapQuoteRefresh({
   );
 }
 
+export function shouldShowSwapQuoteActionLoading({
+  isWaitingActionableQuote,
+  isQuoteEventSettlingForAction,
+  isWaitingAutoSlippage,
+}: {
+  isWaitingActionableQuote: boolean;
+  isQuoteEventSettlingForAction: boolean;
+  isWaitingAutoSlippage: boolean;
+}) {
+  return (
+    isWaitingActionableQuote ||
+    isQuoteEventSettlingForAction ||
+    isWaitingAutoSlippage
+  );
+}
+
 export function isSwapQuoteFromCurrentEvent({
   quote,
   quoteEventTotalCount,
