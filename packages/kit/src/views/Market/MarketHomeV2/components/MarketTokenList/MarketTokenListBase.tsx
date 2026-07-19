@@ -72,9 +72,14 @@ const MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS = 120;
 const MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG = 'rgba(255, 72, 72, 0.12)';
 const MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT = 4;
 const MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT = 12;
+const REDESIGN_ROW_HEIGHT = 68;
 const MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE = {
   contentVisibility: 'auto',
   containIntrinsicSize: '60px',
+} satisfies CSSProperties;
+const MARKET_HOME_WEB_REDESIGN_ROW_CONTENT_VISIBILITY_STYLE = {
+  contentVisibility: 'auto',
+  containIntrinsicSize: `${REDESIGN_ROW_HEIGHT}px`,
 } satisfies CSSProperties;
 // Watchlist mode: only these 3 columns are sortable (server-side sort)
 const SORTABLE_COLUMNS = {
@@ -171,9 +176,11 @@ function getLimitedSubscriptionRange({
 function getMarketHomeVisibleSubscriptionRange({
   rootElement,
   tokenCount,
+  rowHeight,
 }: {
   rootElement: HTMLElement | null;
   tokenCount: number;
+  rowHeight: number;
 }): IMarketHomeSubscriptionRange {
   if (tokenCount <= 0) {
     return { start: 0, end: 0 };
@@ -209,8 +216,8 @@ function getMarketHomeVisibleSubscriptionRange({
 
   return getLimitedSubscriptionRange({
     tokenCount,
-    visibleStartIndex: Math.floor(visibleTop / MARKET_HOME_WS_ROW_HEIGHT_PX),
-    visibleEndIndex: Math.ceil(visibleBottom / MARKET_HOME_WS_ROW_HEIGHT_PX),
+    visibleStartIndex: Math.floor(visibleTop / rowHeight),
+    visibleEndIndex: Math.ceil(visibleBottom / rowHeight),
   });
 }
 
@@ -370,13 +377,16 @@ function MarketTokenListBase({
       ? getMarketHomeVisibleSubscriptionRange({
           rootElement: listRootRef.current,
           tokenCount: orderedData.length,
+          rowHeight: redesignEnabled
+            ? REDESIGN_ROW_HEIGHT
+            : MARKET_HOME_WS_ROW_HEIGHT_PX,
         })
       : { start: 0, end: 0 };
 
     setSubscriptionRange((prev) =>
       isSameSubscriptionRange(prev, nextRange) ? prev : nextRange,
     );
-  }, [orderedData.length, webSocketEnabled]);
+  }, [orderedData.length, redesignEnabled, webSocketEnabled]);
 
   useEffect(() => {
     updateSubscriptionRange();
@@ -792,7 +802,9 @@ function MarketTokenListBase({
     if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
-        <YStack bg="$bgApp" px="$4">
+        {/* Bottom padding keeps the first row clear of the pinned header once
+            the list scrolls under it. */}
+        <YStack bg="$bgApp" px="$4" pb="$2">
           {toolbar ? (
             <Stack width="100%" mb="$3">
               {toolbar}
@@ -844,16 +856,22 @@ function MarketTokenListBase({
   );
   const tableRowProps = useMemo<IXStackProps | undefined>(() => {
     const hasWebRowStyle = platformEnv.isWeb && webTabIntegrated;
-    if (!rowBg && !hasWebRowStyle) {
+    if (!rowBg && !hasWebRowStyle && !redesignEnabled) {
       return undefined;
     }
     return {
       ...(rowBg ? { bg: rowBg } : undefined),
+      // Figma: 12px vertical padding around a 44px identity block = 68px rows.
+      ...(redesignEnabled ? { minHeight: REDESIGN_ROW_HEIGHT } : undefined),
       ...(hasWebRowStyle
-        ? { style: MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE }
+        ? {
+            style: redesignEnabled
+              ? MARKET_HOME_WEB_REDESIGN_ROW_CONTENT_VISIBILITY_STYLE
+              : MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE,
+          }
         : undefined),
     };
-  }, [rowBg, webTabIntegrated]);
+  }, [redesignEnabled, rowBg, webTabIntegrated]);
 
   return (
     <Stack ref={listRootRef as any} flex={1} width="100%" testID={testID}>
@@ -909,7 +927,7 @@ function MarketTokenListBase({
               onHeaderRow={stableHandleHeaderRow}
               TableEmptyComponent={TableEmptyComponent}
               TableFooterComponent={TableFooterComponent}
-              estimatedItemSize={60}
+              estimatedItemSize={redesignEnabled ? REDESIGN_ROW_HEIGHT : 60}
               onRow={stableOnRow}
               rowProps={tableRowProps}
             />
