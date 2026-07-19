@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { computeNonZeroIds } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import type { IHomeContainerSection } from '@onekeyhq/native-components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -18,7 +19,12 @@ import type {
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  ICustomTokenItem,
+  IHomeDefaultToken,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 import {
   EApproveType,
   EDecodedTxActionType,
@@ -114,6 +120,8 @@ export function buildNativePortfolioSections({
   tokenMap,
   initialized,
   hideZeroBalanceTokens = false,
+  homeDefaultTokenMap,
+  customTokens,
   sectionTitle,
   stateLabels,
   formatters,
@@ -126,6 +134,8 @@ export function buildNativePortfolioSections({
   tokenMap: Record<string, ITokenFiat>;
   initialized: boolean;
   hideZeroBalanceTokens?: boolean;
+  homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
+  customTokens?: ICustomTokenItem[];
   sectionTitle?: string;
   stateLabels: INativeHomeListStateLabels;
   formatters: INativeHomeValueFormatters;
@@ -147,14 +157,23 @@ export function buildNativePortfolioSections({
     riskAssetsCount: number;
   };
 }): IHomeContainerSection[] {
+  const tokenById = new Map(tokens.map((token) => [token.$key, token]));
+  const visibleTokenIds = hideZeroBalanceTokens
+    ? new Set(
+        computeNonZeroIds({
+          ids: tokens.map((token) => token.$key),
+          getFiat: (key) => tokenMap[key],
+          getMeta: (key) => tokenById.get(key),
+          keepDefault: true,
+          homeDefaultTokenMap,
+          customTokens,
+        }),
+      )
+    : undefined;
   const filteredTokens = sortTokensByFiatValue({
-    tokens: tokens.filter((token) => {
-      if (!hideZeroBalanceTokens) {
-        return true;
-      }
-      const fiat = tokenMap[token.$key];
-      return new BigNumber(fiat?.balanceParsed || fiat?.balance || 0).gt(0);
-    }),
+    tokens: visibleTokenIds
+      ? tokens.filter((token) => visibleTokenIds.has(token.$key))
+      : tokens,
     map: tokenMap,
   });
   const hasOverflow = filteredTokens.length > limit;

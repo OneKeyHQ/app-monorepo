@@ -59,6 +59,8 @@ struct HomeContainerHeader: Decodable {
   let balanceSecondary: String?
   let balanceActionId: String?
   let balanceActions: [HomeContainerAction]?
+  let actionLayout: String?
+  let actionRowHeight: CGFloat?
   let actions: [HomeContainerAction]
   let banners: [HomeContainerBanner]
 }

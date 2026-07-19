@@ -15,6 +15,21 @@ import { useListStructureAtom } from '../states/jotai/contexts/tokenList';
 
 export type IHomeBalanceState = 'unknown' | 'zero' | 'positive';
 
+export function resolveHomeBalanceState({
+  hasWallet,
+  hasHoldings,
+  balanceIsPositive,
+}: {
+  hasWallet: boolean;
+  hasHoldings: boolean;
+  balanceIsPositive: boolean | undefined;
+}): IHomeBalanceState {
+  if (!hasWallet) return 'unknown';
+  if (hasHoldings) return 'positive';
+  if (balanceIsPositive === undefined) return 'unknown';
+  return balanceIsPositive ? 'positive' : 'zero';
+}
+
 // Module-scoped so every hook instance shares one latch — WalletActions
 // remounts when a wallet's backup state flips, and a per-instance latch
 // would let the header (still latched) and a freshly mounted action row
@@ -153,15 +168,18 @@ export function useHomeBalanceState(): IHomeBalanceState {
     hasHoldingsNow ||
     (!!holdingsOwnerKey && fundedOwners.has(holdingsOwnerKey));
 
-  const computed = useMemo<IHomeBalanceState>(() => {
-    if (!wallet) return 'unknown';
-    if (hasHoldings) return 'positive';
-    if (cached !== undefined) {
-      return new BigNumber(cached).isZero() ? 'zero' : 'positive';
-    }
-    if (liveIsPositive === undefined) return 'unknown';
-    return liveIsPositive ? 'positive' : 'zero';
-  }, [wallet, hasHoldings, cached, liveIsPositive]);
+  const computed = useMemo<IHomeBalanceState>(
+    () =>
+      resolveHomeBalanceState({
+        hasWallet: Boolean(wallet),
+        hasHoldings,
+        balanceIsPositive:
+          cached !== undefined
+            ? !new BigNumber(cached).isZero()
+            : liveIsPositive,
+      }),
+    [wallet, hasHoldings, cached, liveIsPositive],
+  );
 
   // Sticky must be wallet-scoped. Without the key check, switching from a
   // funded wallet to a freshly-imported $0 wallet keeps reporting 'positive'

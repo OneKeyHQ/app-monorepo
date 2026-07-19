@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import { POLLING_INTERVAL_FOR_TOKEN } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -15,12 +15,36 @@ import { buildTokenSelectorDappTokenFilterParams } from '@onekeyhq/shared/src/ut
 import { getMergedDeriveTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IAccountToken,
+  ICustomTokenItem,
   IFetchAccountTokensResp,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
 import { useAllNetworkRequests } from '../../hooks/useAllNetwork';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+
+import {
+  createNativeHomeAllNetworkRequestOutcome,
+  filterNativeHomeAllNetworkAuthoritativeResponses,
+  recordNativeHomeAllNetworkFailure,
+  recordNativeHomeAllNetworkResponse,
+  resolveNativeHomeAllNetworkAuthorityStatus,
+} from './nativeHomeAllNetworkAuthority';
+import {
+  type INativeHomeAllNetworkTokenResponse,
+  buildNativeHomeAllNetworkPortfolioProjection,
+} from './nativeHomeAllNetworkPortfolioProjection';
+import {
+  type INativeHomeBalanceAuthority,
+  type INativeHomeBalanceAuthorityToken,
+  buildNativeHomeBalanceScopeKey,
+  useNativeHomeBalanceAuthorityOwner,
+} from './nativeHomeBalanceAuthority';
+import {
+  type INativeHomeCustomTokenScope,
+  commitNativeHomeSnapshotAfterProjection,
+  projectNativeHomeCustomTokens,
+} from './nativeHomeCustomTokenProjection';
 
 interface INativeHomeTokenSlice {
   map: Record<string, ITokenFiat>;
@@ -32,10 +56,14 @@ interface INativeHomeTokenSlice {
 }
 
 interface INativeHomeNetworkTokenSlice extends INativeHomeTokenSlice {
+  accountId: string;
+  mergeDeriveAssets: boolean;
   networkId: string;
 }
 
 export interface INativeHomePortfolioData extends INativeHomeTokenSlice {
+  balanceAuthority: INativeHomeBalanceAuthority;
+  customTokens: ICustomTokenItem[];
   errorCode: string | undefined;
   initialized: boolean;
   isEmptyAccount: boolean;
@@ -74,38 +102,20 @@ function pickTokenMap(
   return result;
 }
 
-function mergeTokenSlices(
-  slices: INativeHomeTokenSlice[],
-): INativeHomeTokenSlice {
-  const mergeCategory = (
-    tokenKey: 'riskTokens' | 'smallBalanceTokens' | 'tokens',
-    mapKey: 'map' | 'riskMap' | 'smallBalanceMap',
-  ) => {
-    const tokens = new Map<string, IAccountToken>();
-    const map: Record<string, ITokenFiat> = {};
-    slices.forEach((slice) => {
-      slice[tokenKey].forEach((token) => tokens.set(token.$key, token));
-      Object.assign(map, slice[mapKey]);
-    });
-    return {
-      map,
-      tokens: Array.from(tokens.values()).toSorted((left, right) =>
-        new BigNumber(map[right.$key]?.fiatValue ?? 0).comparedTo(
-          new BigNumber(map[left.$key]?.fiatValue ?? 0),
-        ),
-      ),
-    };
-  };
-  const regular = mergeCategory('tokens', 'map');
-  const risk = mergeCategory('riskTokens', 'riskMap');
-  const smallBalance = mergeCategory('smallBalanceTokens', 'smallBalanceMap');
+function tokenSliceToResponse(
+  slice: INativeHomeNetworkTokenSlice,
+): INativeHomeAllNetworkTokenResponse {
   return {
-    map: regular.map,
-    tokens: regular.tokens,
-    riskMap: risk.map,
-    riskTokens: risk.tokens,
-    smallBalanceMap: smallBalance.map,
-    smallBalanceTokens: smallBalance.tokens,
+    accountId: slice.accountId,
+    mergeDeriveAssets: slice.mergeDeriveAssets,
+    networkId: slice.networkId,
+    tokens: { data: slice.tokens, keys: '', map: slice.map },
+    riskTokens: { data: slice.riskTokens, keys: '', map: slice.riskMap },
+    smallBalanceTokens: {
+      data: slice.smallBalanceTokens,
+      keys: '',
+      map: slice.smallBalanceMap,
+    },
   };
 }
 
@@ -137,6 +147,7 @@ export function useNativeHomePortfolioData({
   const [initialized, setInitialized] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorCode, setErrorCode] = useState<string>();
+  const [customTokens, setCustomTokens] = useState<ICustomTokenItem[]>([]);
   const requestIdRef = useRef(0);
   const allNetworkGenerationRef = useRef(0);
   const customTokensRawDataRef =
@@ -153,18 +164,100 @@ export function useNativeHomePortfolioData({
         >
       >
     >(undefined);
-  const allNetworkSlicesRef = useRef(
-    new Map<string, INativeHomeNetworkTokenSlice>(),
+  const aggregateTokenRawDataRef =
+    useRef<
+      Awaited<
+        ReturnType<typeof backgroundApiProxy.simpleDb.aggregateToken.getRawData>
+      >
+    >(undefined);
+  const allNetworkResponsesRef = useRef(
+    new Map<string, INativeHomeAllNetworkTokenResponse>(),
+  );
+  const allNetworkCustomTokenScopesRef = useRef<INativeHomeCustomTokenScope[]>(
+    [],
   );
   const accountId = account?.id;
   const networkId = network?.id;
   const walletId = wallet?.id;
   const indexedAccountId = indexedAccount?.id;
   const isAllNetworks = Boolean(network?.isAllNetworks);
+  const balanceScopeKey = buildNativeHomeBalanceScopeKey({
+    accountId,
+    networkId,
+    walletId,
+  });
+  const {
+    authority: balanceAuthority,
+    begin: beginBalanceAuthority,
+    settle: settleBalanceAuthority,
+  } = useNativeHomeBalanceAuthorityOwner(balanceScopeKey);
+  const allNetworkAuthorityTokenRef = useRef<
+    INativeHomeBalanceAuthorityToken | undefined
+  >(undefined);
+  const allNetworkRequestOutcomeRef = useRef(
+    createNativeHomeAllNetworkRequestOutcome(),
+  );
+  const allNetworkExpectedRequestCountRef = useRef(0);
+  const allNetworkEmptyAccountsResolvedRef = useRef(false);
+  const allNetworkStartedSucceededRef = useRef(false);
   const mergeDerive =
     Boolean(vaultSettings?.mergeDeriveAssetsEnabled) &&
     !accountUtils.isOthersWallet({ walletId: walletId ?? '' }) &&
     deriveInfoItems.length > 1;
+
+  const aggregateCustomTokenScope = useMemo<INativeHomeCustomTokenScope>(
+    () => ({
+      accountXpubOrAddress: indexedAccountId ?? accountId ?? '',
+      networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+    }),
+    [accountId, indexedAccountId],
+  );
+  const applyCustomTokenProjection = useCallback(
+    ({
+      rawData,
+      scopes,
+    }: {
+      rawData: Awaited<
+        ReturnType<typeof backgroundApiProxy.simpleDb.customTokens.getRawData>
+      >;
+      scopes: INativeHomeCustomTokenScope[];
+    }) => {
+      setCustomTokens(
+        projectNativeHomeCustomTokens({
+          rawData,
+          scopes: [...scopes, aggregateCustomTokenScope],
+        }),
+      );
+    },
+    [aggregateCustomTokenScope],
+  );
+
+  const loadSingleCustomTokenProjection = useCallback(async () => {
+    if (!accountId || !networkId) {
+      return [];
+    }
+    try {
+      const [rawData, accountXpubOrAddress] = await Promise.all([
+        backgroundApiProxy.simpleDb.customTokens.getRawData(),
+        backgroundApiProxy.serviceAccount.getAccountXpubOrAddress({
+          accountId,
+          networkId,
+        }),
+      ]);
+      return projectNativeHomeCustomTokens({
+        rawData,
+        scopes: [
+          {
+            accountXpubOrAddress: accountXpubOrAddress ?? '',
+            networkId,
+          },
+          aggregateCustomTokenScope,
+        ],
+      });
+    } catch {
+      return [];
+    }
+  }, [accountId, aggregateCustomTokenScope, networkId]);
 
   const applySlice = useCallback((slice: INativeHomeTokenSlice) => {
     setTokens(slice.tokens);
@@ -196,6 +289,8 @@ export function useNativeHomePortfolioData({
     }
     requestIdRef.current += 1;
     const requestId = requestIdRef.current;
+    const authorityToken = beginBalanceAuthority();
+    const customTokensTask = loadSingleCustomTokenProjection();
     setIsRefreshing(true);
     setErrorCode(undefined);
     try {
@@ -237,13 +332,22 @@ export function useNativeHomePortfolioData({
       } else {
         slice = getResponseSlice(await fetchSingleNetwork(accountId));
       }
-      if (requestIdRef.current === requestId) {
-        applySlice(slice);
-      }
+      await commitNativeHomeSnapshotAfterProjection({
+        commit: ({ projection, snapshot }) => {
+          setCustomTokens(projection);
+          applySlice(snapshot);
+          settleBalanceAuthority(authorityToken, 'success');
+        },
+        getCurrentGeneration: () => requestIdRef.current,
+        generation: requestId,
+        projectionTask: customTokensTask,
+        snapshot: slice,
+      });
     } catch {
       if (requestIdRef.current === requestId) {
         setErrorCode('portfolio_fetch_failed');
         setInitialized(true);
+        settleBalanceAuthority(authorityToken, 'error');
       }
     } finally {
       if (requestIdRef.current === requestId) {
@@ -253,12 +357,15 @@ export function useNativeHomePortfolioData({
   }, [
     accountId,
     applySlice,
+    beginBalanceAuthority,
     enabled,
     fetchSingleNetwork,
     indexedAccountId,
     isAllNetworks,
+    loadSingleCustomTokenProjection,
     mergeDerive,
     networkId,
+    settleBalanceAuthority,
   ]);
 
   const fetchAllNetwork = useCallback(
@@ -270,24 +377,50 @@ export function useNativeHomePortfolioData({
       accountId: string;
       networkId: string;
       dbAccount?: IDBAccount;
-    }) =>
-      backgroundApiProxy.serviceToken.fetchAccountTokens({
-        accountId: childAccountId,
-        indexedAccountId,
-        networkId: childNetworkId,
-        dbAccount,
-        flag: 'home-token-list',
-        isAllNetworks: true,
-        allNetworksAccountId: accountId,
-        allNetworksNetworkId: networkId,
-        saveToLocal: true,
-        ...walletTokenFilterParams,
-        customTokensRawData: customTokensRawDataRef.current ?? undefined,
-        blockedTokensRawData:
-          riskTokenManagementRawDataRef.current?.blockedTokens,
-        unblockedTokensRawData:
-          riskTokenManagementRawDataRef.current?.unblockedTokens,
-      }),
+    }) => {
+      try {
+        const [response, tokenVaultSettings] = await Promise.all([
+          backgroundApiProxy.serviceToken.fetchAccountTokens({
+            accountId: childAccountId,
+            indexedAccountId,
+            networkId: childNetworkId,
+            dbAccount,
+            flag: 'home-token-list',
+            isAllNetworks: true,
+            allNetworksAccountId: accountId,
+            allNetworksNetworkId: networkId,
+            saveToLocal: true,
+            ...walletTokenFilterParams,
+            customTokensRawData: customTokensRawDataRef.current ?? undefined,
+            blockedTokensRawData:
+              riskTokenManagementRawDataRef.current?.blockedTokens,
+            unblockedTokensRawData:
+              riskTokenManagementRawDataRef.current?.unblockedTokens,
+          }),
+          backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId: childNetworkId,
+          }),
+        ]);
+        const normalizedResponse = {
+          ...response,
+          accountId: response.accountId ?? childAccountId,
+          mergeDeriveAssets:
+            tokenVaultSettings?.mergeDeriveAssetsEnabled ?? false,
+          networkId: response.networkId ?? childNetworkId,
+        } satisfies INativeHomeAllNetworkTokenResponse;
+        allNetworkRequestOutcomeRef.current =
+          recordNativeHomeAllNetworkResponse(
+            allNetworkRequestOutcomeRef.current,
+            normalizedResponse,
+          );
+        return normalizedResponse;
+      } catch (error) {
+        allNetworkRequestOutcomeRef.current = recordNativeHomeAllNetworkFailure(
+          allNetworkRequestOutcomeRef.current,
+        );
+        throw error;
+      }
+    },
     [accountId, indexedAccountId, networkId],
   );
 
@@ -303,17 +436,24 @@ export function useNativeHomePortfolioData({
       accountAddress: string;
       xpub?: string;
     }) => {
-      const cached =
-        await backgroundApiProxy.serviceToken.getAccountLocalTokens({
+      const [cached, tokenVaultSettings] = await Promise.all([
+        backgroundApiProxy.serviceToken.getAccountLocalTokens({
           accountId: childAccountId,
           networkId: childNetworkId,
           accountAddress,
           xpub,
-        });
+        }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId: childNetworkId,
+        }),
+      ]);
       if (!cached.hasCache) {
         return undefined;
       }
       return {
+        accountId: childAccountId,
+        mergeDeriveAssets:
+          tokenVaultSettings?.mergeDeriveAssetsEnabled ?? false,
         networkId: childNetworkId,
         tokens: cached.tokenList,
         map: pickTokenMap(cached.tokenList, cached.tokenListMap),
@@ -329,17 +469,27 @@ export function useNativeHomePortfolioData({
   const applyAllNetworkCache = useCallback(
     async ({ data: cached }: { data: INativeHomeNetworkTokenSlice[] }) => {
       if (cached.length > 0) {
-        allNetworkSlicesRef.current = new Map(
-          cached.map((slice) => [slice.networkId, slice]),
+        const cachedResponses = cached.map(tokenSliceToResponse);
+        allNetworkResponsesRef.current = new Map(
+          cachedResponses.map((response) => [
+            `${response.networkId ?? ''}:${response.accountId ?? ''}`,
+            response,
+          ]),
         );
-        applySlice(mergeTokenSlices(cached));
+        applySlice(
+          buildNativeHomeAllNetworkPortfolioProjection({
+            responses: cachedResponses,
+            aggregateTokenConfigMapRawData:
+              aggregateTokenRawDataRef.current?.aggregateTokenConfigMap,
+          }),
+        );
       }
     },
     [applySlice],
   );
 
   const handleAllNetworkSettled = useCallback(
-    (response: IFetchAccountTokensResp, generation: number) => {
+    (response: INativeHomeAllNetworkTokenResponse, generation: number) => {
       if (response.isSameAllNetworksAccountData === false) {
         return;
       }
@@ -347,18 +497,19 @@ export function useNativeHomePortfolioData({
         return;
       }
       allNetworkGenerationRef.current = generation;
-      const slice = getResponseSlice(response);
       const responseNetworkId =
-        response.networkId ?? slice.tokens[0]?.networkId ?? '';
+        response.networkId ?? response.tokens.data[0]?.networkId ?? '';
       if (!responseNetworkId) {
         return;
       }
-      allNetworkSlicesRef.current.set(responseNetworkId, {
-        ...slice,
-        networkId: responseNetworkId,
-      });
+      const responseKey = `${responseNetworkId}:${response.accountId ?? ''}`;
+      allNetworkResponsesRef.current.set(responseKey, response);
       applySlice(
-        mergeTokenSlices(Array.from(allNetworkSlicesRef.current.values())),
+        buildNativeHomeAllNetworkPortfolioProjection({
+          responses: Array.from(allNetworkResponsesRef.current.values()),
+          aggregateTokenConfigMapRawData:
+            aggregateTokenRawDataRef.current?.aggregateTokenConfigMap,
+        }),
       );
     },
     [applySlice],
@@ -372,33 +523,80 @@ export function useNativeHomePortfolioData({
     setSmallBalanceMap({});
   }, []);
   const handleAllNetworkStarted = useCallback(async () => {
+    allNetworkAuthorityTokenRef.current = beginBalanceAuthority();
+    allNetworkRequestOutcomeRef.current =
+      createNativeHomeAllNetworkRequestOutcome();
+    allNetworkExpectedRequestCountRef.current = 0;
+    allNetworkEmptyAccountsResolvedRef.current = false;
+    allNetworkStartedSucceededRef.current = false;
     setIsRefreshing(true);
     setErrorCode(undefined);
-    const [customTokensRawData, riskTokenManagementRawData] = await Promise.all(
-      [
-        backgroundApiProxy.simpleDb.customTokens.getRawData(),
-        backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
-        accountId && networkId
-          ? backgroundApiProxy.serviceToken.updateCurrentAccount({
-              accountId,
-              networkId,
-            })
-          : Promise.resolve(),
-      ],
-    );
+    const [
+      customTokensRawData,
+      riskTokenManagementRawData,
+      initialAggregateTokenRawData,
+    ] = await Promise.all([
+      backgroundApiProxy.simpleDb.customTokens.getRawData(),
+      backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
+      backgroundApiProxy.simpleDb.aggregateToken.getRawData(),
+      accountId && networkId
+        ? backgroundApiProxy.serviceToken.updateCurrentAccount({
+            accountId,
+            networkId,
+          })
+        : Promise.resolve(),
+    ]);
+    let aggregateTokenRawData = initialAggregateTokenRawData;
+    if (!aggregateTokenRawData?.aggregateTokenConfigMap) {
+      await backgroundApiProxy.serviceSetting.syncWalletConfig();
+      aggregateTokenRawData =
+        await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
+    }
     customTokensRawDataRef.current = customTokensRawData;
     riskTokenManagementRawDataRef.current = riskTokenManagementRawData;
-  }, [accountId, networkId]);
+    aggregateTokenRawDataRef.current = aggregateTokenRawData;
+    applyCustomTokenProjection({
+      rawData: customTokensRawData,
+      scopes: allNetworkCustomTokenScopesRef.current,
+    });
+    allNetworkStartedSucceededRef.current = true;
+  }, [accountId, applyCustomTokenProjection, beginBalanceAuthority, networkId]);
+  const handleAllNetworkAccountsData = useCallback(
+    ({ accounts }: { accounts: IAllNetworkAccountInfo[] }) => {
+      allNetworkExpectedRequestCountRef.current = accounts.length;
+      allNetworkCustomTokenScopesRef.current = accounts.map((item) => ({
+        accountXpubOrAddress: item.accountXpub ?? item.apiAddress.toLowerCase(),
+        networkId: item.networkId,
+      }));
+      applyCustomTokenProjection({
+        rawData: customTokensRawDataRef.current,
+        scopes: allNetworkCustomTokenScopesRef.current,
+      });
+      if (accounts.length === 0) {
+        allNetworkEmptyAccountsResolvedRef.current = true;
+      }
+    },
+    [applyCustomTokenProjection],
+  );
   const handleAllNetworkFinished = useCallback(async () => {
+    settleBalanceAuthority(
+      allNetworkAuthorityTokenRef.current,
+      resolveNativeHomeAllNetworkAuthorityStatus({
+        emptyAccountsResolved: allNetworkEmptyAccountsResolvedRef.current,
+        expectedRequestCount: allNetworkExpectedRequestCountRef.current,
+        outcome: allNetworkRequestOutcomeRef.current,
+        startedSucceeded: allNetworkStartedSucceededRef.current,
+      }),
+    );
     setIsRefreshing(false);
     setInitialized(true);
-  }, []);
+  }, [settleBalanceAuthority]);
 
   const {
     run: runAllNetwork,
     result: allNetworkResult,
     isEmptyAccount,
-  } = useAllNetworkRequests<IFetchAccountTokensResp>({
+  } = useAllNetworkRequests<INativeHomeAllNetworkTokenResponse>({
     accountId,
     networkId,
     walletId,
@@ -406,6 +604,7 @@ export function useNativeHomePortfolioData({
     allNetworkRequests: fetchAllNetwork,
     allNetworkCacheRequests: readAllNetworkCache,
     allNetworkCacheData: applyAllNetworkCache,
+    allNetworkAccountsData: handleAllNetworkAccountsData,
     clearAllNetworkData,
     disabled: !enabled,
     onRequestSettled: handleAllNetworkSettled,
@@ -415,33 +614,39 @@ export function useNativeHomePortfolioData({
 
   useEffect(() => {
     if (allNetworkResult) {
-      allNetworkSlicesRef.current = new Map(
-        allNetworkResult.map((response, index) => {
-          const slice = getResponseSlice(response);
-          const responseNetworkId =
-            response.networkId ??
-            slice.tokens[0]?.networkId ??
-            `unknown:${index}`;
-          return [
-            responseNetworkId,
-            { ...slice, networkId: responseNetworkId },
-          ];
+      const authoritativeResponses =
+        filterNativeHomeAllNetworkAuthoritativeResponses(allNetworkResult);
+      if (authoritativeResponses.length === 0) {
+        return;
+      }
+      allNetworkResponsesRef.current = new Map(
+        authoritativeResponses.map((response, index) => [
+          `${response.networkId ?? 'unknown'}:${response.accountId ?? index}`,
+          response,
+        ]),
+      );
+      applySlice(
+        buildNativeHomeAllNetworkPortfolioProjection({
+          responses: authoritativeResponses,
+          aggregateTokenConfigMapRawData:
+            aggregateTokenRawDataRef.current?.aggregateTokenConfigMap,
         }),
       );
-      applySlice(mergeTokenSlices(allNetworkResult.map(getResponseSlice)));
     }
   }, [allNetworkResult, applySlice]);
 
   useEffect(() => {
     requestIdRef.current += 1;
     allNetworkGenerationRef.current = 0;
-    allNetworkSlicesRef.current.clear();
+    allNetworkResponsesRef.current.clear();
+    allNetworkCustomTokenScopesRef.current = [];
     setTokens([]);
     setMap({});
     setRiskTokens([]);
     setRiskMap({});
     setSmallBalanceTokens([]);
     setSmallBalanceMap({});
+    setCustomTokens([]);
     setInitialized(false);
     setErrorCode(undefined);
     if (!enabled || !accountId || !networkId || !walletId || isAllNetworks) {
@@ -526,6 +731,8 @@ export function useNativeHomePortfolioData({
 
   return useMemo(
     () => ({
+      balanceAuthority,
+      customTokens,
       errorCode,
       initialized,
       isEmptyAccount,
@@ -539,6 +746,8 @@ export function useNativeHomePortfolioData({
       tokens,
     }),
     [
+      balanceAuthority,
+      customTokens,
       errorCode,
       initialized,
       isEmptyAccount,

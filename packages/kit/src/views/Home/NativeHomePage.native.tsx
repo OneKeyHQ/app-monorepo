@@ -112,6 +112,7 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { useBlockExplorerNavigation } from '../../hooks/useBlockExplorerNavigation';
 import { useCopyAddressWithDeriveType } from '../../hooks/useCopyAccountAddress';
 import { useManageToken } from '../../hooks/useManageToken';
+import { useLastConfirmedOverviewBalanceAtom } from '../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 import { convertFiat } from '../../utils/fiatConvert';
@@ -140,11 +141,23 @@ import { SupportHub } from './components/SupportHub';
 import { Upgrade } from './components/Upgrade';
 import { ActionItem } from './components/WalletActions/RawActions';
 import { useShowWalletActionMore } from './components/WalletActions/WalletActionMore';
+import { NativeHomeZeroBalanceWalletActions } from './components/WalletActions/ZeroBalanceWalletActions';
 import {
   buildHomeWalletAtomicTabState,
   buildHomeWalletCapabilityTabModel,
 } from './homeWalletCapabilityTabModel';
 import { useHomeWalletTabSupport } from './hooks/useHomeWalletTabSupport';
+import {
+  type INativeHomeBalanceStickyState,
+  buildNativeHomeBalanceScopeKey,
+  getNativeHomeLastConfirmedBalance,
+  hasNativeHomeNonZeroWorth,
+  hasNativeHomePortfolioHoldings,
+  resolveNativeHomeBalanceState,
+  resolveNativeHomeFundedHoldings,
+  resolveNativeHomeHeaderActionPresentation,
+  resolveNativeHomeWalletScopedBalanceState,
+} from './nativeHomeBalanceAuthority';
 import {
   NATIVE_HOME_ACTION_IDS,
   buildNativeDeFiSections,
@@ -159,6 +172,10 @@ import {
 } from './pages/PerpsContainer';
 import { usePerpsHomePortfolio } from './pages/usePerpsHomePortfolio';
 import { useNativeHomeBannersData } from './useNativeHomeBannersData';
+import {
+  resolveNativeHomeDefaultTokenProjection,
+  useNativeHomeDefaultTokenMap,
+} from './useNativeHomeDefaultTokenMap';
 import { useNativeHomeDeFiData } from './useNativeHomeDeFiData';
 import { useNativeHomeHistoryData } from './useNativeHomeHistoryData';
 import { useNativeHomeLpTokenData } from './useNativeHomeLpTokenData';
@@ -266,6 +283,8 @@ export function NativeHomePage({
   const [settings, setSettings] = useSettingsPersistAtom();
   const [{ hideValue }, setSettingsValue] = useSettingsValuePersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const [{ byOwner: lastConfirmedBalanceByOwner }] =
+    useLastConfirmedOverviewBalanceAtom();
   const {
     activeAccount: {
       account,
@@ -390,6 +409,11 @@ export function NativeHomePage({
   const perpsScopeKey = indexedAccount?.id ?? account?.id ?? '';
 
   const portfolio = useNativeHomePortfolioData({ enabled: true });
+  const { map: homeDefaultTokenMap, status: homeDefaultTokenMapStatus } =
+    useNativeHomeDefaultTokenMap();
+  const homeDefaultTokenProjection = resolveNativeHomeDefaultTokenProjection(
+    homeDefaultTokenMapStatus,
+  );
   const lpTokens = useNativeHomeLpTokenData();
   const banners = useNativeHomeBannersData();
   const supplemental = useNativeHomeSupplementalData({
@@ -519,7 +543,8 @@ export function NativeHomePage({
     : portfolio.map;
   const visiblePortfolioInitialized = lpTokens.showLpTokensOnly
     ? lpTokens.initialized
-    : portfolio.initialized;
+    : portfolio.initialized &&
+      (!network?.isAllNetworks || homeDefaultTokenProjection.initialized);
   const smallBalanceValue = useMemo(() => {
     const total = portfolio.smallBalanceTokens.reduce(
       (value, token) =>
@@ -556,7 +581,11 @@ export function NativeHomePage({
         tokenMap: visiblePortfolioTokenMap,
         initialized: visiblePortfolioInitialized,
         hideZeroBalanceTokens:
-          !lpTokens.showLpTokensOnly && Boolean(network?.isAllNetworks),
+          !lpTokens.showLpTokensOnly &&
+          Boolean(network?.isAllNetworks) &&
+          homeDefaultTokenProjection.hideZeroBalanceTokens,
+        homeDefaultTokenMap,
+        customTokens: portfolio.customTokens,
         stateLabels,
         formatters,
         networkImageById: network?.isAllNetworks
@@ -599,11 +628,14 @@ export function NativeHomePage({
       }),
     [
       formatters,
+      homeDefaultTokenProjection.hideZeroBalanceTokens,
       intl,
       lpTokens.showLpTokensOnly,
       manageTokenEnabled,
+      homeDefaultTokenMap,
       network?.isAllNetworks,
       portfolio.riskTokens.length,
+      portfolio.customTokens,
       portfolio.smallBalanceTokens.length,
       portfolioAssetsExpanded,
       smallBalanceValue,
@@ -1027,7 +1059,104 @@ export function NativeHomePage({
     ],
   );
 
-  const headerActions = useMemo<IHomeContainerAction[]>(
+  const headerBalanceValue = useMemo(() => {
+    let total = new BigNumber(0);
+    Object.values(portfolio.map).forEach((fiat) => {
+      total = total.plus(
+        convertFiat({
+          value: fiat.fiatValue || 0,
+          sourceCurrency: fiat.currency ?? settings.currencyInfo.id,
+          targetCurrency: settings.currencyInfo.id,
+          currencyMap,
+        }),
+      );
+    });
+    Object.values(deFi.protocolMap).forEach((protocol) => {
+      total = total.plus(protocol.netWorth || 0);
+    });
+    if (isPerpsSupported && perps.view) {
+      total = total.plus(
+        convertFiat({
+          value: perps.view.accountValueUsd,
+          sourceCurrency: 'usd',
+          targetCurrency: settings.currencyInfo.id,
+          currencyMap,
+        }),
+      );
+    }
+    return total;
+  }, [
+    currencyMap,
+    deFi.protocolMap,
+    isPerpsSupported,
+    perps.view,
+    portfolio.map,
+    settings.currencyInfo.id,
+  ]);
+  const homeBalanceScopeKey = buildNativeHomeBalanceScopeKey({
+    accountId: account?.id,
+    networkId: network?.id,
+    walletId: wallet?.id,
+  });
+  const hasNativeHomeHoldingsNow = useMemo(
+    () =>
+      hasNativeHomePortfolioHoldings({
+        map: portfolio.map,
+        riskMap: portfolio.riskMap,
+        smallBalanceMap: portfolio.smallBalanceMap,
+      }),
+    [portfolio.map, portfolio.riskMap, portfolio.smallBalanceMap],
+  );
+  const hasCurrentNativeHomeHoldings =
+    portfolio.balanceAuthority.scopeKey === homeBalanceScopeKey &&
+    resolveNativeHomeFundedHoldings({
+      accountId: account?.id,
+      hasHoldingsNow: hasNativeHomeHoldingsNow,
+      networkId: network?.id,
+    });
+  const lastConfirmedBalance = getNativeHomeLastConfirmedBalance({
+    accountId: account?.id,
+    byOwner: lastConfirmedBalanceByOwner,
+    networkId: network?.id,
+  });
+  const lastConfirmedBalanceIsPositive =
+    lastConfirmedBalance === undefined
+      ? undefined
+      : hasNativeHomeNonZeroWorth([lastConfirmedBalance]);
+  const currentDeFiBalanceIsPositive =
+    deFi.balanceAuthority.scopeKey === homeBalanceScopeKey &&
+    hasNativeHomeNonZeroWorth(
+      Object.values(deFi.protocolMap).map((protocol) => protocol.netWorth),
+    );
+  const currentPerpsBalanceIsPositive =
+    perps.viewState === 'ready' &&
+    hasNativeHomeNonZeroWorth([perps.view?.accountValueUsd]);
+  const computedHomeBalanceState = resolveNativeHomeBalanceState({
+    currentScopeKey: homeBalanceScopeKey,
+    hasCurrentPositiveBalance:
+      currentDeFiBalanceIsPositive || currentPerpsBalanceIsPositive,
+    hasHoldings: hasCurrentNativeHomeHoldings,
+    hasWallet: Boolean(wallet),
+    lastConfirmedBalanceIsPositive,
+    portfolioAuthority: portfolio.balanceAuthority,
+  });
+  const homeBalanceStickyRef = useRef<INativeHomeBalanceStickyState>({
+    state: 'unknown',
+    walletId: undefined,
+  });
+  const homeBalanceResolution = resolveNativeHomeWalletScopedBalanceState({
+    computed: computedHomeBalanceState,
+    previous: homeBalanceStickyRef.current,
+    walletId: wallet?.id,
+  });
+  homeBalanceStickyRef.current = homeBalanceResolution.sticky;
+  const homeBalanceState = homeBalanceResolution.state;
+  const headerActionPresentation = useMemo(
+    () => resolveNativeHomeHeaderActionPresentation(homeBalanceState),
+    [homeBalanceState],
+  );
+
+  const positiveHeaderActions = useMemo<IHomeContainerAction[]>(
     () => [
       {
         id: 'send',
@@ -1056,6 +1185,21 @@ export function NativeHomePage({
     ],
     [intl],
   );
+  const headerActions = useMemo<IHomeContainerAction[]>(() => {
+    if (homeBalanceState === 'zero') {
+      return [
+        {
+          id: 'add-money',
+          title: intl.formatMessage({ id: ETranslations.global_add_money }),
+          icon: 'receive',
+          actionId: 'home.header.receive',
+        },
+      ];
+    }
+    return positiveHeaderActions;
+  }, [homeBalanceState, intl, positiveHeaderActions]);
+  const headerActionLayout = headerActionPresentation.actionLayout;
+  const headerActionRowHeight = headerActionPresentation.rowHeight;
 
   const headerBalanceActions = useMemo<IHomeContainerAction[]>(() => {
     const actions: IHomeContainerAction[] = [];
@@ -1071,42 +1215,11 @@ export function NativeHomePage({
     return actions;
   }, [intl, vaultSettings]);
 
-  const headerBalance = useMemo(() => {
-    let total = new BigNumber(0);
-    Object.values(portfolio.map).forEach((fiat) => {
-      total = total.plus(
-        convertFiat({
-          value: fiat.fiatValue || 0,
-          sourceCurrency: fiat.currency ?? settings.currencyInfo.id,
-          targetCurrency: settings.currencyInfo.id,
-          currencyMap,
-        }),
-      );
-    });
-    Object.values(deFi.protocolMap).forEach((protocol) => {
-      total = total.plus(protocol.netWorth || 0);
-    });
-    if (isPerpsSupported && perps.view) {
-      total = total.plus(
-        convertFiat({
-          value: perps.view.accountValueUsd,
-          sourceCurrency: 'usd',
-          targetCurrency: settings.currencyInfo.id,
-          currencyMap,
-        }),
-      );
-    }
-    return hideValue ? '••••' : formatters.formatFiat(total.toFixed());
-  }, [
-    currencyMap,
-    deFi.protocolMap,
-    formatters,
-    hideValue,
-    isPerpsSupported,
-    perps.view,
-    portfolio.map,
-    settings.currencyInfo.id,
-  ]);
+  const headerBalance = useMemo(
+    () =>
+      hideValue ? '••••' : formatters.formatFiat(headerBalanceValue.toFixed()),
+    [formatters, headerBalanceValue, hideValue],
+  );
   const headerBalanceParts = useMemo(() => {
     if (hideValue) {
       return { balance: headerBalance, balanceSecondary: undefined };
@@ -1119,15 +1232,19 @@ export function NativeHomePage({
 
   const headerBanners = useMemo(
     () =>
-      banners.banners.map((banner) => ({
-        id: banner.id,
-        title: banner.title,
-        subtitle: banner.description,
-        imageUrl: banner.src,
-        actionId: 'home.banner.open',
-        dismissActionId: banner.closeable ? 'home.banner.dismiss' : undefined,
-      })),
-    [banners.banners],
+      homeBalanceState === 'positive'
+        ? banners.banners.map((banner) => ({
+            id: banner.id,
+            title: banner.title,
+            subtitle: banner.description,
+            imageUrl: banner.src,
+            actionId: 'home.banner.open',
+            dismissActionId: banner.closeable
+              ? 'home.banner.dismiss'
+              : undefined,
+          }))
+        : [],
+    [banners.banners, homeBalanceState],
   );
 
   const tabShells = useMemo<IHomeContainerTab[]>(() => {
@@ -1424,6 +1541,18 @@ export function NativeHomePage({
   const headerActionRowSlot = useMemo<
     IHomeContainerSlots['headerActionRow']
   >(() => {
+    if (headerActionPresentation.slotKind === 'zero') {
+      return {
+        height: 82,
+        interaction: 'tap' as const,
+        content: (
+          <NativeHomeZeroBalanceWalletActions
+            accountId={account?.id ?? ''}
+            flex={1}
+          />
+        ),
+      };
+    }
     const iconById = {
       buy: 'CurrencyDollarOutline',
       more: 'DotHorOutline',
@@ -1432,6 +1561,7 @@ export function NativeHomePage({
     } as const;
     return {
       interaction: 'tap' as const,
+      height: 62,
       content: (
         <XStack flex={1} gap="$2.5">
           {headerActions.map((action) => (
@@ -1451,7 +1581,7 @@ export function NativeHomePage({
         </XStack>
       ),
     };
-  }, [activeTabId, headerActions]);
+  }, [account?.id, activeTabId, headerActionPresentation, headerActions]);
   const tabAccessorySlots = useMemo<
     NonNullable<IHomeContainerSlots['tabAccessories']>
   >(
@@ -1808,6 +1938,8 @@ export function NativeHomePage({
           balanceSecondary: headerBalanceParts.balanceSecondary,
           balanceActionId: 'home.header.balance',
           balanceActions: headerBalanceActions,
+          actionLayout: headerActionLayout,
+          actionRowHeight: headerActionRowHeight,
           actions: headerActions,
           banners: headerBanners,
         },
@@ -1836,6 +1968,8 @@ export function NativeHomePage({
       balanceSecondary: headerBalanceParts.balanceSecondary,
       balanceActionId: 'home.header.balance',
       balanceActions: headerBalanceActions,
+      actionLayout: headerActionLayout,
+      actionRowHeight: headerActionRowHeight,
       actions: headerActions,
       banners: headerBanners,
     });
@@ -1844,6 +1978,8 @@ export function NativeHomePage({
     accountImageUrl,
     accountName,
     controller,
+    headerActionLayout,
+    headerActionRowHeight,
     headerActions,
     headerBalanceActions,
     headerBalanceParts.balance,
