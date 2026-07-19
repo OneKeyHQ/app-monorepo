@@ -14,3 +14,12 @@ export function buildHyperliquidModifyOrder(
     ...(params.cloid ? { c: params.cloid } : {}),
   };
 }
+
+export function buildHyperliquidBatchModifyRequest(params: {
+  oid: number;
+  order: IOrderParams;
+}) {
+  return {
+    modifies: [params],
+  };
+}

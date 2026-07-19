@@ -232,7 +232,7 @@ export class HyperLiquidScene extends BaseScene {
   @LogToServer()
   public modifyOrder(
     params: IHyperLiquidLogParams<
-      { oid: number; order: IOrderParams },
+      { modifies: Array<{ oid: number; order: IOrderParams }> },
       IModifyResponse | IApiErrorResponse
     >,
   ) {

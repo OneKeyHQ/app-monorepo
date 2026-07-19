@@ -1,4 +1,7 @@
-import { buildHyperliquidModifyOrder } from './orderAmend';
+import {
+  buildHyperliquidBatchModifyRequest,
+  buildHyperliquidModifyOrder,
+} from './orderAmend';
 
 const baseParams = {
   oid: 123,
@@ -62,5 +65,33 @@ describe('buildHyperliquidModifyOrder', () => {
         cloid: null,
       }),
     ).not.toHaveProperty('c');
+  });
+});
+
+describe('buildHyperliquidBatchModifyRequest', () => {
+  it('uses the canonical batchModify envelope for a single amendment', () => {
+    expect(
+      buildHyperliquidBatchModifyRequest({
+        oid: baseParams.oid,
+        order: buildHyperliquidModifyOrder({
+          ...baseParams,
+          orderType: { limit: { tif: 'Gtc' } },
+        }),
+      }),
+    ).toEqual({
+      modifies: [
+        {
+          oid: baseParams.oid,
+          order: {
+            a: baseParams.assetId,
+            b: baseParams.isBuy,
+            p: baseParams.price,
+            s: baseParams.sz,
+            r: baseParams.reduceOnly,
+            t: { limit: { tif: 'Gtc' } },
+          },
+        },
+      ],
+    });
   });
 });

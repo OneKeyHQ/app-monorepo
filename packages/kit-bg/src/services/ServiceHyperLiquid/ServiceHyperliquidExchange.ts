@@ -96,7 +96,10 @@ import {
   getOrderOpenGrouping,
 } from './utils/coinScopedOrder';
 import { createLoggedHyperLiquidClient } from './utils/logHyperLiquidApiFailure';
-import { buildHyperliquidModifyOrder } from './utils/orderAmend';
+import {
+  buildHyperliquidBatchModifyRequest,
+  buildHyperliquidModifyOrder,
+} from './utils/orderAmend';
 
 import type {
   WalletHyperliquidOnekey,
@@ -1314,13 +1317,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     );
 
     const client = await this.getExchangeClientForTrading();
-    const requestPayload = { oid: params.oid, order: formattedOrder };
+    const requestPayload = buildHyperliquidBatchModifyRequest({
+      oid: params.oid,
+      order: formattedOrder,
+    });
     const context = await this._buildLogContext();
     const extra = { originalParams: params };
 
     try {
       const response = await convertHyperLiquidResponse(() =>
-        client.modify({ oid: params.oid, order: formattedOrder }),
+        client.batchModify(requestPayload),
       );
       defaultLogger.perp.hyperliquid.modifyOrder({
         ...context,
