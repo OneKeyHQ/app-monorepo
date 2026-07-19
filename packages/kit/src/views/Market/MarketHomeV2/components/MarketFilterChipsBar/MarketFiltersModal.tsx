@@ -52,11 +52,14 @@ function getTierColumns(optionCount: number) {
 
 const AUDIT_TIER_LABELS = ['≤ 10%', '≤ 30%', '≤ 50%'];
 
+// Short labels: the row's label column is ~104px wide, so the full
+// "... holding %" wording wrapped onto a second line. The Audit group header
+// already supplies the "holding" context. Final copy lands with Spike A#8.
 const AUDIT_ROWS = [
-  { label: 'Top10 holding %', testId: 'top10-holding' },
-  { label: 'Dev holding %', testId: 'dev-holding' },
-  { label: 'Suspicious holding %', testId: 'suspicious-holding' },
-  { label: 'Bundle holding %', testId: 'bundle-holding' },
+  { label: 'Top 10 %', testId: 'top10-holding' },
+  { label: 'Dev %', testId: 'dev-holding' },
+  { label: 'Suspicious %', testId: 'suspicious-holding' },
+  { label: 'Bundler %', testId: 'bundle-holding' },
 ];
 
 // Equal-width pills laid out on a fixed column grid so every row lines up.
