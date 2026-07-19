@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import { type IntlShape, useIntl } from 'react-intl';
@@ -11,12 +11,14 @@ import type {
 } from '@onekeyhq/components';
 import {
   Icon,
+  NATIVE_HIT_SLOP,
   NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
   XStack,
   YStack,
+  useClipboard,
   useMedia,
 } from '@onekeyhq/components';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
@@ -31,6 +33,7 @@ import {
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   ECopyFrom,
   EWatchlistFrom,
@@ -48,6 +51,7 @@ import {
 } from '../../utils/tokenListHelpers';
 
 import type { IMarketToken } from '../../MarketTokenData';
+import type { GestureResponderEvent } from 'react-native';
 
 const TOKEN_AGE_TRANSLATION_MAP = {
   hour: ETranslations.dexmarket_token_age_h,
@@ -83,11 +87,11 @@ const REDESIGN_HEADER_TOOLTIPS: Record<string, string> = {
 };
 
 // Figma (24967-41343): the fixed left block pairs a 40px star cell (row px 8 +
-// button px 4 + 16px icon + px 4) with the name cell. 208px leaves 154px for
+// button px 4 + 16px icon + px 4) with the name cell. 240px leaves 186px for
 // the text block after the 40px token and its 14px gap - enough for the
 // age/address subtitle, with long symbols truncated by ellipsis.
 const REDESIGN_STAR_COLUMN_WIDTH = 40;
-const REDESIGN_NAME_COLUMN_WIDTH = 208;
+const REDESIGN_NAME_COLUMN_WIDTH = 240;
 const REDESIGN_STAR_ICON_SIZE = '$4';
 
 // Figma: 14px sort glyph sitting 2px after the label. Rendered here (rather
@@ -189,10 +193,68 @@ function buildRedesignShortAddress(record: IMarketToken) {
     : '';
 }
 
+// Figma (24967-41343): the address pairs with a 14px copy glyph 2px after it;
+// the pair is one hover/press target with a pointer cursor.
+const REDESIGN_COPY_ICON_SIZE = '$3.5';
+
+function RedesignAddressWithCopy({
+  address,
+  shortAddress,
+  copyFrom,
+}: {
+  address: string;
+  shortAddress: string;
+  copyFrom: ECopyFrom;
+}) {
+  const { copyText } = useClipboard();
+  const handleCopy = useCallback(
+    (e: GestureResponderEvent) => {
+      // The row itself navigates to the detail page; copying must not.
+      e.stopPropagation();
+      copyText(address);
+      defaultLogger.dex.actions.dexCopyCA({
+        copyFrom,
+        copiedContent: address,
+      });
+    },
+    [address, copyFrom, copyText],
+  );
+
+  return (
+    <XStack
+      alignItems="center"
+      gap={2}
+      minWidth={0}
+      cursor="pointer"
+      hoverStyle={{ opacity: 0.75 }}
+      pressStyle={{ opacity: 0.6 }}
+      hitSlop={NATIVE_HIT_SLOP}
+      onPress={handleCopy}
+      role="button"
+    >
+      <SizableText
+        size="$bodySm"
+        color="$textDisabled"
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
+        {shortAddress}
+      </SizableText>
+      <Icon
+        name="Copy3Outline"
+        size={REDESIGN_COPY_ICON_SIZE}
+        color="$iconDisabled"
+        flexShrink={0}
+      />
+    </XStack>
+  );
+}
+
 function renderRedesignTokenIdentity(
   record: IMarketToken,
   intl: IntlShape,
   showReasonTag: boolean,
+  copyFrom: ECopyFrom,
 ) {
   const ageLabel = formatTokenAgeLabel(intl, record.firstTradeTime);
   const shortAddress = buildRedesignShortAddress(record);
@@ -251,14 +313,11 @@ function renderRedesignTokenIdentity(
             </SizableText>
           ) : null}
           {shortAddress ? (
-            <SizableText
-              size="$bodySm"
-              color="$textDisabled"
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {shortAddress}
-            </SizableText>
+            <RedesignAddressWithCopy
+              address={record.address}
+              shortAddress={shortAddress}
+              copyFrom={copyFrom}
+            />
           ) : null}
         </XStack>
       </YStack>
@@ -444,7 +503,12 @@ export const useColumnsDesktop = (
           }
 
           if (redesignEnabled && !record.perpsCoin) {
-            return renderRedesignTokenIdentity(record, intl, gtXl);
+            return renderRedesignTokenIdentity(
+              record,
+              intl,
+              gtXl,
+              copyFrom || ECopyFrom.Homepage,
+            );
           }
 
           return record.perpsCoin ? (
