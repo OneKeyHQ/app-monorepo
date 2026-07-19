@@ -42,33 +42,37 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.MarketCap,
     label: 'Market cap',
+    // Unit is appended to the popover row title (Binance convention) so tier
+    // pills stay short enough to fit four per row; toolbar chips keep the
+    // unit inside their own value text instead.
+    unit: '$',
     minParam: 'marketCapMin',
     maxParam: 'marketCapMax',
     localField: 'marketCap',
     options: [
       {
         id: 'micro',
-        label: '0-$100K',
+        label: '0-100K',
         chipLabel: '0-$100K',
         max: 100_000,
       },
       {
         id: 'small',
-        label: '$100K-1M',
+        label: '100K-1M',
         chipLabel: '$100K-1M',
         min: 100_000,
         max: 1_000_000,
       },
       {
         id: 'mid',
-        label: '$1M-10M',
+        label: '1M-10M',
         chipLabel: '$1M-10M',
         min: 1_000_000,
         max: 10_000_000,
       },
       {
         id: 'large',
-        label: '$10M+',
+        label: '10M+',
         chipLabel: '$10M+',
         min: 10_000_000,
       },
@@ -77,12 +81,13 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.Liquidity,
     label: 'Liquidity',
+    unit: '$',
     minParam: 'liquidityMin',
     maxParam: 'liquidityMax',
     localField: 'liquidity',
     options: [5000, 50_000, 500_000].map((value) => ({
       id: `min-${value}`,
-      label: `$${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
+      label: `${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
       chipLabel: `$${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
       min: value,
     })),
@@ -90,12 +95,13 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.Turnover,
     label: 'Turnover',
+    unit: '$',
     minParam: 'volumeMin',
     maxParam: 'volumeMax',
     localField: 'turnover',
     options: [10_000, 100_000, 1_000_000].map((value) => ({
       id: `min-${value}`,
-      label: `$${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
+      label: `${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
       chipLabel: `$${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
       min: value,
     })),

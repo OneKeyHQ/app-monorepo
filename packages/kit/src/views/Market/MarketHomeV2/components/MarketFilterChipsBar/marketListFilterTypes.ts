@@ -30,6 +30,8 @@ export type IMarketFilterOption = {
 export type IMarketFilterDimensionConfig = {
   id: EMarketFilterDimension;
   label: string; // hardcoded EN copy, demo only
+  // Optional unit shown after the label in the Filters popover row title.
+  unit?: string;
   // hot-token v6 param names backing the future server passthrough.
   minParam?: string;
   maxParam?: string;

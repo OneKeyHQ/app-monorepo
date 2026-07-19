@@ -24,10 +24,9 @@ import type { IMarketTimeRangeValue } from '../../types';
 
 const TIME_RANGE_OPTIONS: IMarketTimeRangeValue[] = ['5m', '1h', '4h', '24h'];
 
-// Keeps the SegmentControl tabs and Reset/Confirm footer always visible by
-// capping only the scrollable tier-rows section.
-// Keep tabs and footer reachable even in short windows (~450px viewport).
-const MARKET_FILTERS_POPOVER_CONTENT_MAX_HEIGHT = 300;
+// Caps only the scrollable section so the Reset/Confirm footer stays
+// reachable; sized so a 800px-tall window shows most rows without scrolling.
+const MARKET_FILTERS_POPOVER_CONTENT_MAX_HEIGHT = 380;
 
 const AUDIT_TIER_LABELS = ['Under 10%', 'Under 30%', 'Under 50%'];
 
@@ -44,9 +43,9 @@ const AUDIT_ROWS = [
 const noop = () => undefined;
 
 // Uniform pill width: rows wrap naturally and leave trailing space instead
-// of stretching to fill (per design). 102px fits the widest tier label
-// ("$100K-1M") and packs three per row inside the 384px panel.
-const TIER_PILL_WIDTH = 102;
+// of stretching to fill (per design). 96px fits the widest tier label
+// ("100K-1M") and packs four per row inside the 440px panel.
+const TIER_PILL_WIDTH = 96;
 
 // Uniform fixed-width tier pills that wrap with trailing space; identical
 // widths keep every row's columns aligned without stretching.
@@ -92,7 +91,9 @@ function DimensionRow({
     <YStack py="$2" gap="$2">
       <XStack alignItems="center" justifyContent="space-between" gap="$2">
         <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
-          {dimension.label}
+          {dimension.unit
+            ? `${dimension.label} (${dimension.unit})`
+            : dimension.label}
         </SizableText>
         {dimension.note ? (
           <SizableText size="$bodySm" color="$textSubdued">
@@ -188,10 +189,7 @@ export function MarketFiltersPopover({
       open={isOpen}
       onOpenChange={setIsOpen}
       placement="bottom-end"
-      // The Popover positions "end" alignment against an assumed 384px panel
-      // (POPOVER_MIN_WIDTH); match it exactly so the panel hugs the trigger's
-      // right edge instead of overflowing the viewport.
-      floatingPanelProps={{ width: 384, minWidth: 384, maxWidth: 384 }}
+      floatingPanelProps={{ width: 440, minWidth: 440, maxWidth: 440 }}
       renderTrigger={
         <XStack
           alignItems="center"
