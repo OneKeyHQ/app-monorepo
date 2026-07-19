@@ -44,6 +44,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProEnableCurrentSymbolAtom,
+  useSwapQuoteActionLockAtom,
+  useSwapQuoteEventCompletedAtom,
   useSwapQuoteEventErrorAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -128,7 +130,11 @@ import {
   getSwapMarketPendingHistoryList,
   isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
-import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
+import {
+  getStockQuoteTradeControl,
+  isQuoteRequestForStockTrade,
+  isQuoteResultForStockTrade,
+} from '../../utils/swapStockTradeControl';
 import {
   getSwapKLineWalletChartDays,
   normalizeSwapKLineWalletChartData,
@@ -152,6 +158,8 @@ import {
   getStockChartDisplayState,
   getStockDisabledActionButtonProps,
   isStockMarketPanelLoadingStage,
+  shouldShowStockMarketHeaderSkeleton,
+  shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
 import { isCurrentStockQuoteEventError } from './SwapStockTradeAlertUtils';
@@ -743,12 +751,14 @@ function StockEstimatedReceive({
 function StockActionGate({
   alerts,
   stockChannel,
+  quoteResult,
   onPreSwap,
   onToAnotherAddressModal,
   onSelectPercentageStage,
 }: {
   alerts: ISwapStockDesktopContainerProps['alerts'];
   stockChannel: IUseSwapStockChannelReturn;
+  quoteResult?: IFetchQuoteResult;
   onPreSwap: () => void;
   onToAnotherAddressModal: () => void;
   onSelectPercentageStage: (stage: number) => void;
@@ -758,6 +768,9 @@ function StockActionGate({
   const isModalPage = useIsOverlayPage();
   const { md } = useMedia();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
+  const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const accountInfo = swapFromAddressInfo.accountInfo;
   const isDesktopModalPage = isModalPage && !md;
   const isWebDappModeWithNoWallet = Boolean(
@@ -823,6 +836,24 @@ function StockActionGate({
     stockChannel.marketStatusStatus ===
       ESwapStockChannelAsyncStatus.Initializing ||
     stockChannel.payTokenStatus === ESwapStockChannelAsyncStatus.Initializing;
+  const forceQuoteActionLoading = shouldShowStockQuoteActionLoading({
+    inputAmount: fromTokenAmount.value,
+    quoteEventCompleted,
+    quoteMatchesStockTrade:
+      quoteResult?.protocol === EProtocolOfExchange.STOCK &&
+      isQuoteResultForStockTrade({
+        quoteResult,
+        receiveToken: stockChannel.toToken,
+        sendAmount: fromTokenAmount.value,
+        sendToken: stockChannel.fromToken,
+      }),
+    quoteRequestMatchesStockTrade: isQuoteRequestForStockTrade({
+      quoteRequest: quoteActionLock,
+      receiveToken: stockChannel.toToken,
+      sendAmount: fromTokenAmount.value,
+      sendToken: stockChannel.fromToken,
+    }),
+  });
   const disabledLabel = useMemo(() => {
     switch (stockChannel.channelStage) {
       case ESwapStockChannelStage.MissingStock:
@@ -860,6 +891,7 @@ function StockActionGate({
   if (stockChannel.readyForQuote) {
     return (
       <SwapActionsState
+        forceQuoteActionLoading={forceQuoteActionLoading}
         onPreSwap={onPreSwap}
         onOpenRecipientAddress={onToAnotherAddressModal}
         onSelectPercentageStage={onSelectPercentageStage}
@@ -1225,6 +1257,7 @@ function StockTradeTicket({
       <StockActionGate
         alerts={alerts}
         stockChannel={stockChannel}
+        quoteResult={quoteResult}
         onPreSwap={onPreSwap}
         onToAnotherAddressModal={onToAnotherAddressModal}
         onSelectPercentageStage={amountInputState.onSelectPercentageStage}
@@ -1312,11 +1345,11 @@ function StockMarketHeaderSkeleton({ proAligned }: { proAligned?: boolean }) {
 }
 
 function StockMarketTokenHeader({
-  loading,
+  channelStage,
   storeName,
   proAligned,
 }: {
-  loading?: boolean;
+  channelStage: ESwapStockChannelStage;
   storeName: EJotaiContextStoreNames;
   // The mobile layout passes true so the header visually matches Pro mode's
   // token selector (see SwapProTokenSelect): symbol at $headingLg with a
@@ -1330,9 +1363,9 @@ function StockMarketTokenHeader({
   const { currentStockToken, tokenDetail, networkId } =
     useCurrentStockMarketDetail();
   const stockTokenNetworkId =
-    tokenDetail?.networkId ?? currentStockToken?.networkId ?? networkId;
+    currentStockToken?.networkId ?? tokenDetail?.networkId ?? networkId;
   const effectiveNetworkLogoUri = useNetworkLogoUri({
-    logoUri: undefined,
+    logoUri: currentStockToken?.networkLogoURI,
     networkId: stockTokenNetworkId,
   });
   const stock = tokenDetail?.stock;
@@ -1351,15 +1384,22 @@ function StockMarketTokenHeader({
     storeName,
   });
 
-  if (!tokenDetail && loading) {
+  if (
+    shouldShowStockMarketHeaderSkeleton({
+      channelStage,
+      hasStockIdentity: Boolean(currentStockToken),
+    })
+  ) {
     return <StockMarketHeaderSkeleton proAligned={proAligned} />;
   }
 
   const tokenIcon = (
     <Token
       size="md"
-      tokenImageUri={tokenDetail?.logoUrl ?? currentStockToken?.logoURI}
-      tokenImageUris={tokenDetail?.logoUrls}
+      tokenImageUri={currentStockToken?.logoURI ?? tokenDetail?.logoUrl}
+      tokenImageUris={
+        currentStockToken?.logoURI ? undefined : tokenDetail?.logoUrls
+      }
       networkImageUri={effectiveNetworkLogoUri}
       showNetworkIconBorder={false}
       bg="$transparent"
@@ -2037,7 +2077,7 @@ function StockMarketContextPanel({
     >
       <StockMarketTokenHeader
         storeName={storeName}
-        loading={marketPanelLoading}
+        channelStage={stockChannel.channelStage}
       />
 
       <Stack mt="$6">{chartContent}</Stack>
@@ -2298,9 +2338,6 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const stockChannel = useSwapStockTradeContext();
-  const marketPanelLoading = isStockMarketPanelLoadingStage(
-    stockChannel.channelStage,
-  );
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
   // The desktop trade modal reuses this mobile content; positions/order-history
   // don't belong in that compact modal, so hide them there (native/web tabs keep
@@ -2347,7 +2384,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
       >
         <StockMarketTokenHeader
           storeName={props.storeName}
-          loading={marketPanelLoading}
+          channelStage={stockChannel.channelStage}
           proAligned
         />
         <StockTradeTicket

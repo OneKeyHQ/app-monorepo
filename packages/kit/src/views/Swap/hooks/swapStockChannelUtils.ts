@@ -107,6 +107,38 @@ export function shouldLoadDefaultStockToken({
   return !selectedStockTokenKey;
 }
 
+export function resolveSwapStockDefaultTokenStatus({
+  hasSelectableToken,
+  isLoading,
+  requestReady,
+  requestScope,
+  resultScope,
+  shouldLoad,
+}: {
+  hasSelectableToken: boolean;
+  isLoading?: boolean;
+  requestReady: boolean;
+  requestScope: string;
+  resultScope: string;
+  shouldLoad: boolean;
+}) {
+  if (!shouldLoad) {
+    return ESwapStockChannelAsyncStatus.Idle;
+  }
+
+  if (
+    !requestReady ||
+    isLoading !== false ||
+    !requestScope ||
+    resultScope !== requestScope ||
+    hasSelectableToken
+  ) {
+    return ESwapStockChannelAsyncStatus.Initializing;
+  }
+
+  return ESwapStockChannelAsyncStatus.Empty;
+}
+
 export function getMarketListTokenKey(token?: IMarketTokenListItem) {
   const networkId = token?.networkId ?? token?.chainId ?? '';
   if (!networkId || !token) {

@@ -442,8 +442,8 @@ export function useSwapStockChannel() {
 
   const {
     defaultStockTokenLoading,
+    defaultStockTokenStatus,
     shouldLoadDefaultStockToken,
-    stockCategoryType,
   } = useSwapStockDefaultToken({
     selectStockSwapToken,
     selectedStockTokenKey,
@@ -598,19 +598,11 @@ export function useSwapStockChannel() {
     if (currentStockToken) {
       return ESwapStockChannelAsyncStatus.Ready;
     }
-    if (shouldLoadDefaultStockToken && defaultStockTokenLoading) {
-      return ESwapStockChannelAsyncStatus.Initializing;
-    }
-    if (!stockCategoryType) {
-      return ESwapStockChannelAsyncStatus.Initializing;
+    if (shouldLoadDefaultStockToken) {
+      return defaultStockTokenStatus;
     }
     return ESwapStockChannelAsyncStatus.Empty;
-  }, [
-    currentStockToken,
-    defaultStockTokenLoading,
-    shouldLoadDefaultStockToken,
-    stockCategoryType,
-  ]);
+  }, [currentStockToken, defaultStockTokenStatus, shouldLoadDefaultStockToken]);
 
   const marketStatusStatus = useMemo(() => {
     if (!currentStockTokenKey) {

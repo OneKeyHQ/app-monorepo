@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import {
@@ -50,6 +52,41 @@ export function isStockMarketPanelLoadingStage(
     channelStage === ESwapStockChannelStage.InitializingStock ||
     channelStage === ESwapStockChannelStage.CheckingMarketStatus
   );
+}
+
+export function shouldShowStockMarketHeaderSkeleton({
+  channelStage,
+  hasStockIdentity,
+}: {
+  channelStage: ESwapStockChannelStage;
+  hasStockIdentity: boolean;
+}) {
+  return (
+    !hasStockIdentity &&
+    channelStage === ESwapStockChannelStage.InitializingStock
+  );
+}
+
+export function shouldShowStockQuoteActionLoading({
+  inputAmount,
+  quoteEventCompleted,
+  quoteMatchesStockTrade,
+  quoteRequestMatchesStockTrade,
+}: {
+  inputAmount: string;
+  quoteEventCompleted: boolean;
+  quoteMatchesStockTrade: boolean;
+  quoteRequestMatchesStockTrade: boolean;
+}) {
+  if (!new BigNumber(inputAmount || 0).gt(0)) {
+    return false;
+  }
+
+  if (!quoteEventCompleted) {
+    return true;
+  }
+
+  return !quoteMatchesStockTrade && !quoteRequestMatchesStockTrade;
 }
 
 export function mergeStockChartRealtimePoint({

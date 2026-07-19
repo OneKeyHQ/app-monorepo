@@ -13,6 +13,8 @@ import {
   getStockDisabledActionButtonProps,
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
+  shouldShowStockMarketHeaderSkeleton,
+  shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
 
 describe('SwapStockDesktopContainer utils', () => {
@@ -57,7 +59,7 @@ describe('SwapStockDesktopContainer utils', () => {
     );
   });
 
-  it('shows market skeletons only while Stock identity is initializing', () => {
+  it('shows market panel skeletons while Stock identity or detail initializes', () => {
     expect(
       isStockMarketPanelLoadingStage(ESwapStockChannelStage.InitializingStock),
     ).toBe(true);
@@ -71,6 +73,92 @@ describe('SwapStockDesktopContainer utils', () => {
     ).toBe(false);
     expect(
       isStockMarketPanelLoadingStage(ESwapStockChannelStage.MarketUnavailable),
+    ).toBe(false);
+  });
+
+  it('keeps the Stock header mounted while only market detail is loading', () => {
+    expect(
+      shouldShowStockMarketHeaderSkeleton({
+        channelStage: ESwapStockChannelStage.InitializingStock,
+        hasStockIdentity: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowStockMarketHeaderSkeleton({
+        channelStage: ESwapStockChannelStage.CheckingMarketStatus,
+        hasStockIdentity: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowStockMarketHeaderSkeleton({
+        channelStage: ESwapStockChannelStage.MissingStock,
+        hasStockIdentity: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('shows Stock action loading until the current quote event settles', () => {
+    const baseParams = {
+      inputAmount: '100',
+      quoteEventCompleted: false,
+      quoteMatchesStockTrade: true,
+      quoteRequestMatchesStockTrade: true,
+    };
+
+    expect(shouldShowStockQuoteActionLoading(baseParams)).toBe(true);
+    expect(
+      shouldShowStockQuoteActionLoading({
+        ...baseParams,
+        quoteMatchesStockTrade: false,
+        quoteRequestMatchesStockTrade: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowStockQuoteActionLoading({
+        ...baseParams,
+        quoteEventCompleted: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps a stale Stock quote in loading instead of disabled Review', () => {
+    expect(
+      shouldShowStockQuoteActionLoading({
+        inputAmount: '100',
+        quoteEventCompleted: true,
+        quoteMatchesStockTrade: false,
+        quoteRequestMatchesStockTrade: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps a new Stock input loading before its quote request starts', () => {
+    expect(
+      shouldShowStockQuoteActionLoading({
+        inputAmount: '100',
+        quoteEventCompleted: true,
+        quoteMatchesStockTrade: false,
+        quoteRequestMatchesStockTrade: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not turn current terminal or empty-input states into loading', () => {
+    expect(
+      shouldShowStockQuoteActionLoading({
+        inputAmount: '100',
+        quoteEventCompleted: true,
+        quoteMatchesStockTrade: false,
+        quoteRequestMatchesStockTrade: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowStockQuoteActionLoading({
+        inputAmount: '',
+        quoteEventCompleted: false,
+        quoteMatchesStockTrade: false,
+        quoteRequestMatchesStockTrade: false,
+      }),
     ).toBe(false);
   });
 
