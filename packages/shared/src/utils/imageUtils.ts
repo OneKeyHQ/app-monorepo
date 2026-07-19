@@ -896,28 +896,26 @@ export async function readAsStringAsync(
     throw new OneKeyLocalError('Failed to resolve file source');
   }
 
-  try {
-    return await ExpoFSReadAsStringAsync(uri, options);
-  } catch (error) {
-    // `require('./image.png')` returns a numeric Metro asset ID on React
-    // Native. In Android release builds, `resolveAssetSource()` maps that ID
-    // to the compiled drawable resource name (for example,
-    // `packages_shared_src_assets_blank`) instead of a file URI. There is no
-    // full path we can construct here: the image lives in the APK resource
-    // table and the resolved value intentionally has no URI scheme.
-    //
-    // In expo-file-system's legacy Android implementation, the Base64 branch
-    // of `readAsStringAsync` uses its URI `getInputStream` path, which cannot
-    // resolve a drawable identifier with a null scheme. `copyAsync` uses the
-    // resource-aware `openResourceInputStream` path and can resolve the same
-    // packaged drawable. Therefore only this exact source shape should fall
-    // back to a copy. Requiring a numeric source prevents arbitrary
-    // scheme-less user paths from being mistaken for drawable resources.
-    const isAndroidBundledResource =
-      platformEnv.isNativeAndroid && isNumber(source) && !uri.includes(':');
-    if (!isAndroidBundledResource) {
-      throw error;
-    }
+  // `require('./image.png')` returns a numeric Metro asset ID on React
+  // Native. In Android release builds, `resolveAssetSource()` maps that ID to
+  // a compiled drawable resource name without a URI scheme. There is no full
+  // path to construct because the image lives in the APK resource table.
+  //
+  // expo-file-system's legacy Android implementation already handles such
+  // resource names for non-Base64 reads through `openResourceInputStream`.
+  // Its Base64 branch instead uses `getInputStream`, which rejects a null
+  // scheme. Detect that known limitation before calling into native code so
+  // an expected exception is not used as normal control flow. Requiring a
+  // numeric source also prevents arbitrary scheme-less paths from being
+  // mistaken for packaged drawable resources.
+  const shouldCopyAndroidBundledResource =
+    platformEnv.isNativeAndroid &&
+    isNumber(source) &&
+    !uri.includes(':') &&
+    options?.encoding === 'base64';
+
+  if (!shouldCopyAndroidBundledResource) {
+    return ExpoFSReadAsStringAsync(uri, options);
   }
 
   const cacheDir = await getNativeCacheDirectory();
