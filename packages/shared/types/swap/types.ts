@@ -756,6 +756,7 @@ export interface ISwapState {
   noConnectWallet?: boolean;
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
+  isQuoteActionLoading?: boolean;
   isWaitingAutoSlippage?: boolean;
 }
 

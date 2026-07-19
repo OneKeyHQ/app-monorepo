@@ -1,9 +1,12 @@
 import BigNumber from 'bignumber.js';
 
 import { selectBestQuote } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapQuoteKind,
+  type ESwapTabSwitchType,
   type IFetchQuoteResult,
+  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 type ISwapActionableQuote = Pick<IFetchQuoteResult, 'toAmount'>;
@@ -226,6 +229,110 @@ export function isSwapQuoteInputAmountMatched({
     return quote.toAmount === toAmount;
   }
   return quote.fromAmount === fromAmount;
+}
+
+export function isSameSwapQuoteAmountValue({
+  currentAmount,
+  requestAmount,
+}: {
+  currentAmount?: string;
+  requestAmount?: string;
+}) {
+  if (requestAmount === undefined) {
+    return true;
+  }
+  const normalizedCurrentAmount = currentAmount ?? '';
+  if (!requestAmount && !normalizedCurrentAmount) {
+    return true;
+  }
+  const requestAmountBN = new BigNumber(requestAmount);
+  const currentAmountBN = new BigNumber(normalizedCurrentAmount);
+  if (
+    requestAmountBN.isFinite() &&
+    !requestAmountBN.isNaN() &&
+    currentAmountBN.isFinite() &&
+    !currentAmountBN.isNaN()
+  ) {
+    return requestAmountBN.eq(currentAmountBN);
+  }
+  return requestAmount === normalizedCurrentAmount;
+}
+
+export function isSwapQuoteRequestForCurrentInput({
+  currentSwapType,
+  fromAmount,
+  fromToken,
+  quoteKind,
+  quoteRequest,
+  toAmount,
+  toToken,
+}: {
+  currentSwapType: ESwapTabSwitchType;
+  fromAmount: string;
+  fromToken?: ISwapToken;
+  quoteKind: ESwapQuoteKind;
+  quoteRequest?: {
+    type?: ESwapTabSwitchType;
+    fromToken?: ISwapToken;
+    toToken?: ISwapToken;
+    fromTokenAmount?: string;
+    toTokenAmount?: string;
+    kind?: ESwapQuoteKind;
+  };
+  toAmount: string;
+  toToken?: ISwapToken;
+}) {
+  if (
+    quoteRequest?.type !== currentSwapType ||
+    (quoteRequest.kind ?? ESwapQuoteKind.SELL) !== quoteKind ||
+    !equalTokenNoCaseSensitive({
+      token1: quoteRequest.fromToken,
+      token2: fromToken,
+    }) ||
+    !equalTokenNoCaseSensitive({
+      token1: quoteRequest.toToken,
+      token2: toToken,
+    })
+  ) {
+    return false;
+  }
+
+  const requestAmount =
+    quoteKind === ESwapQuoteKind.BUY
+      ? quoteRequest.toTokenAmount
+      : quoteRequest.fromTokenAmount;
+  if (requestAmount === undefined) {
+    return false;
+  }
+  return isSameSwapQuoteAmountValue({
+    currentAmount: quoteKind === ESwapQuoteKind.BUY ? toAmount : fromAmount,
+    requestAmount,
+  });
+}
+
+export function shouldShowSwapQuoteActionLoading({
+  hasCurrentActionableQuote,
+  hasValidInput,
+  isQuoteRequestStarting,
+  quoteEventCompleted,
+  quoteRequestMatchesInput,
+}: {
+  hasCurrentActionableQuote: boolean;
+  hasValidInput: boolean;
+  isQuoteRequestStarting: boolean;
+  quoteEventCompleted: boolean;
+  quoteRequestMatchesInput: boolean;
+}) {
+  if (!hasValidInput) {
+    return false;
+  }
+  if (isQuoteRequestStarting) {
+    return true;
+  }
+  if (hasCurrentActionableQuote) {
+    return false;
+  }
+  return !(quoteRequestMatchesInput && quoteEventCompleted);
 }
 
 export function isSwapQuoteFromCurrentEvent({

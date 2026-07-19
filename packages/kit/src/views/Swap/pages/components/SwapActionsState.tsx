@@ -816,6 +816,7 @@ const SwapActionsState = ({
   const actionButtonChildren = useMemo(
     () =>
       isWaitingActionableQuote ||
+      swapActionState.isQuoteActionLoading ||
       swapActionState.isWaitingAutoSlippage ||
       forceQuoteActionLoading ? (
         <LottieView
@@ -847,6 +848,7 @@ const SwapActionsState = ({
     [
       isWaitingActionableQuote,
       forceQuoteActionLoading,
+      swapActionState.isQuoteActionLoading,
       swapActionState.isWaitingAutoSlippage,
       swapActionState.label,
       themeVariant,
