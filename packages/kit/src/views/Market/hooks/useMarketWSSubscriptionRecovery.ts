@@ -13,6 +13,7 @@ interface IUseMarketWSSubscriptionRecoveryParams {
   enabled?: boolean;
   networkId: string;
   tokenAddress: string;
+  symbol?: string;
   channel: IMarketWSChannel;
   currency?: string;
   chartType?: string;
@@ -38,17 +39,19 @@ export function useMarketWSSubscriptionRecovery({
   enabled = true,
   networkId,
   tokenAddress,
+  symbol,
   channel,
   currency = 'usd',
   chartType,
   selfHealInterval = MARKET_WS_SUBSCRIPTION_SELF_HEAL_INTERVAL,
   onRestored,
 }: IUseMarketWSSubscriptionRecoveryParams): IMarketWSSubscriptionRecoveryResult {
-  const canRestore = Boolean(enabled && networkId && tokenAddress);
+  const canRestore = Boolean(enabled && networkId && (tokenAddress || symbol));
   const subscriptionIdentity = [
     channel,
     networkId,
     tokenAddress,
+    symbol ?? '',
     currency,
     chartType ?? '',
   ].join(':');
@@ -110,6 +113,7 @@ export function useMarketWSSubscriptionRecovery({
       await backgroundApiProxy.serviceMarketWS.ensureSubscription({
         networkId,
         tokenAddress,
+        ...(symbol ? { symbol } : {}),
         currency,
         chartType,
         channel,
@@ -122,6 +126,7 @@ export function useMarketWSSubscriptionRecovery({
   }, [
     networkId,
     tokenAddress,
+    symbol,
     currency,
     chartType,
     channel,

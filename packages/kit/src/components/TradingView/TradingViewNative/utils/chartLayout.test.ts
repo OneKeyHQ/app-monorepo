@@ -4,6 +4,7 @@ import {
   formatTradingViewNativePriceTick,
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceLayout,
   getTradingViewNativePriceTransform,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
@@ -106,6 +107,48 @@ describe('TradingViewNative chart layout', () => {
     });
 
     expect(54 * transform.scaleY + transform.translateY).toBeCloseTo(74);
+  });
+
+  it('positions the current price line and keeps its label inside the price axis', () => {
+    expect(
+      getTradingViewNativeCurrentPriceLayout({
+        labelHeight: 20,
+        maxPrice: 10,
+        minPrice: 0,
+        price: 7,
+        priceChartHeight: 100,
+      }),
+    ).toEqual({ labelTop: 44, lineY: 54 });
+    expect(
+      getTradingViewNativeCurrentPriceLayout({
+        labelHeight: 20,
+        maxPrice: 10,
+        minPrice: 0,
+        price: 10,
+        priceChartHeight: 100,
+      }),
+    ).toEqual({ labelTop: 24, lineY: 24 });
+    expect(
+      getTradingViewNativeCurrentPriceLayout({
+        labelHeight: 20,
+        maxPrice: 10,
+        minPrice: 0,
+        price: 0,
+        priceChartHeight: 100,
+      }),
+    ).toEqual({ labelTop: 104, lineY: 124 });
+  });
+
+  it('hides the current price line when its value is outside the visible range', () => {
+    expect(
+      getTradingViewNativeCurrentPriceLayout({
+        labelHeight: 20,
+        maxPrice: 10,
+        minPrice: 5,
+        price: 11,
+        priceChartHeight: 100,
+      }),
+    ).toBeNull();
   });
 
   it('uses minute ticks for an intraday visible range', () => {

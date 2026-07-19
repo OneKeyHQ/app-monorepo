@@ -41,9 +41,15 @@ export interface ITradingViewNativePriceTransform {
   translateY: number;
 }
 
+export interface ITradingViewNativeCurrentPriceLayout {
+  labelTop: number;
+  lineY: number;
+}
+
 export interface ITradingViewNativeChartLayout {
   maxPrice: number;
   maxVolume: number;
+  minPrice: number;
   priceAxisX: number;
   priceChartHeight: number;
   priceRange: number;
@@ -380,6 +386,7 @@ export function getTradingViewNativeChartLayout({
   return {
     maxPrice,
     maxVolume,
+    minPrice,
     priceAxisX,
     priceChartHeight,
     priceRange,
@@ -402,10 +409,61 @@ export function getTradingViewNativePriceY(
     'maxPrice' | 'priceChartHeight' | 'priceRange'
   >,
 ) {
+  'worklet';
+
   return priceRange === 0
     ? TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING + priceChartHeight / 2
     : TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING +
         ((maxPrice - price) / priceRange) * priceChartHeight;
+}
+
+export function getTradingViewNativeCurrentPriceLayout({
+  labelHeight,
+  maxPrice,
+  minPrice,
+  price,
+  priceChartHeight,
+}: {
+  labelHeight: number;
+  maxPrice: number;
+  minPrice: number;
+  price: number;
+  priceChartHeight: number;
+}): ITradingViewNativeCurrentPriceLayout | null {
+  'worklet';
+
+  if (
+    !Number.isFinite(labelHeight) ||
+    !Number.isFinite(maxPrice) ||
+    !Number.isFinite(minPrice) ||
+    !Number.isFinite(price) ||
+    !Number.isFinite(priceChartHeight) ||
+    labelHeight <= 0 ||
+    maxPrice < minPrice ||
+    priceChartHeight <= 0
+  ) {
+    return null;
+  }
+
+  const chartTop = TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING;
+  const chartBottom = chartTop + priceChartHeight;
+  const lineY = getTradingViewNativePriceY(price, {
+    maxPrice,
+    priceChartHeight,
+    priceRange: maxPrice - minPrice,
+  });
+  if (lineY < chartTop || lineY > chartBottom) {
+    return null;
+  }
+
+  const maximumLabelTop = Math.max(chartBottom - labelHeight, chartTop);
+  return {
+    labelTop: Math.min(
+      Math.max(lineY - labelHeight / 2, chartTop),
+      maximumLabelTop,
+    ),
+    lineY,
+  };
 }
 
 export function getTradingViewNativePriceTransform({

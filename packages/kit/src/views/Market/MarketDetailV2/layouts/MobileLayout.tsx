@@ -224,6 +224,7 @@ export function MobileLayout({
     tokenDetail,
     isNative,
     websocketConfig,
+    perpsInfo,
     isStockToken,
   } = useTokenDetail();
   const useTradingViewNative = useTradingViewNativeInMarketDetail();
@@ -253,6 +254,17 @@ export function MobileLayout({
     : MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT;
   const intl = useIntl();
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
+  const nativeHyperliquidCoin =
+    isBTCMainnet && isNative ? (perpsInfo?.hlTicker ?? '') : '';
+  let nativeTradingViewDataSource: ComponentProps<
+    typeof TradingViewNative
+  >['dataSource'] =
+    marketTradingViewParams?.dataSource === 'websocket'
+      ? 'market-websocket'
+      : 'market-polling';
+  if (nativeHyperliquidCoin) {
+    nativeTradingViewDataSource = 'hyperliquid';
+  }
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
 
@@ -544,7 +556,9 @@ export function MobileLayout({
                       tokenAddress={tokenAddress}
                       networkId={networkId}
                       symbol={tokenSymbol ?? ''}
+                      hyperliquidCoin={nativeHyperliquidCoin}
                       decimal={tokenDetail?.decimals ?? 8}
+                      dataSource={nativeTradingViewDataSource}
                       nativeControlsLayoutMode="mobile"
                       onNativeSubIndicatorCountChange={
                         handleNativeSubIndicatorCountChange
@@ -620,6 +634,8 @@ export function MobileLayout({
     marketTradingViewKey,
     marketTradingViewParams,
     nativeIndicatorQuickBar,
+    nativeHyperliquidCoin,
+    nativeTradingViewDataSource,
     networkId,
     tokenAddress,
     tokenDetail?.decimals,

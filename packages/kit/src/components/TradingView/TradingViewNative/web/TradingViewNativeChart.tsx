@@ -16,6 +16,11 @@ import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING as CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CHART_UP_COLOR as CHART_UP_COLOR,
   TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING as CHART_VERTICAL_PADDING,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HEIGHT as CURRENT_PRICE_LABEL_HEIGHT,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING as CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_TEXT_COLOR as CURRENT_PRICE_LABEL_TEXT_COLOR,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_GAP as CURRENT_PRICE_LINE_DASH_GAP,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_LENGTH as CURRENT_PRICE_LINE_DASH_LENGTH,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT as TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
@@ -28,13 +33,17 @@ import {
   formatTradingViewNativePriceTick,
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceLayout,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
 } from '../utils/chartLayout';
+import { isTradingViewNativePriceUp } from '../utils/chartStyle';
 import {
   clampTradingViewNativePanOffset,
   clampTradingViewNativeZoomScale,
+  getTradingViewNativeAppendedPointCount,
   getTradingViewNativeCandleX,
+  getTradingViewNativePanOffsetAfterDataUpdate,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
 } from '../utils/chartViewport';
@@ -61,13 +70,11 @@ interface ITradingViewNativeChartProps {
 
 interface IChartViewportState {
   offset: number;
-  points: IMarketTokenKLineDataPoint[];
   zoomScale: number;
 }
 
 interface IPointerDragState {
   pointerId: number;
-  points: IMarketTokenKLineDataPoint[];
   startClientX: number;
   startOffset: number;
   zoomScale: number;
@@ -166,7 +173,10 @@ function drawKLineChart({
   }
   const {
     maxVolume,
+    maxPrice,
+    minPrice,
     priceAxisX,
+    priceChartHeight,
     priceTicks,
     timeAxisY,
     timeTicks,
@@ -239,7 +249,7 @@ function drawKLineChart({
   context.clip();
 
   points.forEach((point, index) => {
-    const color = point.c >= point.o ? colors.up : colors.down;
+    const color = isTradingViewNativePriceUp(point) ? colors.up : colors.down;
     const x = getPointX(index);
     const openY = toY(point.o);
     const highY = toY(point.h);
@@ -273,6 +283,49 @@ function drawKLineChart({
     }
   });
   context.restore();
+
+  const latestPoint = points[points.length - 1];
+  const currentPriceLayout = getTradingViewNativeCurrentPriceLayout({
+    labelHeight: CURRENT_PRICE_LABEL_HEIGHT,
+    maxPrice,
+    minPrice,
+    price: latestPoint.c,
+    priceChartHeight,
+  });
+  if (currentPriceLayout) {
+    const color = isTradingViewNativePriceUp(latestPoint)
+      ? colors.up
+      : colors.down;
+    context.save();
+    context.strokeStyle = color;
+    context.lineWidth = 1;
+    context.setLineDash([
+      CURRENT_PRICE_LINE_DASH_LENGTH,
+      CURRENT_PRICE_LINE_DASH_GAP,
+    ]);
+    context.beginPath();
+    context.moveTo(CHART_HORIZONTAL_PADDING, currentPriceLayout.lineY);
+    context.lineTo(priceAxisX, currentPriceLayout.lineY);
+    context.stroke();
+
+    context.fillStyle = color;
+    context.fillRect(
+      priceAxisX,
+      currentPriceLayout.labelTop,
+      width - priceAxisX,
+      CURRENT_PRICE_LABEL_HEIGHT,
+    );
+    context.fillStyle = CURRENT_PRICE_LABEL_TEXT_COLOR;
+    context.font = '11px sans-serif';
+    context.textAlign = 'right';
+    context.textBaseline = 'middle';
+    context.fillText(
+      formatTradingViewNativePriceTick(latestPoint.c),
+      width - CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
+      currentPriceLayout.labelTop + CURRENT_PRICE_LABEL_HEIGHT / 2,
+    );
+    context.restore();
+  }
 }
 
 export const TradingViewNativeChart = memo(
@@ -287,15 +340,13 @@ export const TradingViewNativeChart = memo(
     const [viewportState, setViewportState] = useState<IChartViewportState>(
       () => ({
         offset: 0,
-        points,
         zoomScale: TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
       }),
     );
-    const isCurrentViewport = viewportState.points === points;
-    const panOffset = isCurrentViewport ? viewportState.offset : 0;
-    const zoomScale = isCurrentViewport
-      ? viewportState.zoomScale
-      : TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE;
+    const panOffset = viewportState.offset;
+    const zoomScale = viewportState.zoomScale;
+    const pointCount = points.length;
+    const previousLatestTimestampRef = useRef(points[pointCount - 1]?.t);
     const theme = useTheme();
     const background = theme.bgApp.val;
     const grid = theme.borderSubdued.val;
@@ -325,6 +376,42 @@ export const TradingViewNativeChart = memo(
       },
       [axisText, background, candleIntervalSeconds, grid, points],
     );
+
+    useLayoutEffect(() => {
+      const appendedPointCount = getTradingViewNativeAppendedPointCount({
+        points,
+        previousLatestTimestamp: previousLatestTimestampRef.current,
+      });
+      previousLatestTimestampRef.current = points[pointCount - 1]?.t;
+
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        return;
+      }
+      const chartWidth = getCanvasChartWidth(canvas);
+      const dragState = pointerDragStateRef.current;
+      if (dragState) {
+        dragState.startOffset = getTradingViewNativePanOffsetAfterDataUpdate({
+          appendedPointCount,
+          chartWidth,
+          currentOffset: dragState.startOffset,
+          pointCount,
+          zoomScale: dragState.zoomScale,
+        });
+      }
+      setViewportState((currentState) => {
+        const nextOffset = getTradingViewNativePanOffsetAfterDataUpdate({
+          appendedPointCount,
+          chartWidth,
+          currentOffset: currentState.offset,
+          pointCount,
+          zoomScale: currentState.zoomScale,
+        });
+        return currentState.offset === nextOffset
+          ? currentState
+          : { ...currentState, offset: nextOffset };
+      });
+    }, [pointCount, points]);
 
     useLayoutEffect(() => {
       const canvas = canvasRef.current;
@@ -358,28 +445,23 @@ export const TradingViewNativeChart = memo(
         const chartWidth = getCanvasChartWidth(event.currentTarget);
         pointerDragStateRef.current = {
           pointerId: event.pointerId,
-          points,
           startClientX: event.clientX,
           startOffset: clampTradingViewNativePanOffset({
             chartWidth,
             offset: panOffset,
-            pointCount: points.length,
+            pointCount,
             zoomScale,
           }),
           zoomScale,
         };
       },
-      [panOffset, points, zoomScale],
+      [panOffset, pointCount, zoomScale],
     );
 
     const handlePointerMove = useCallback(
       (event: ReactPointerEvent<HTMLCanvasElement>) => {
         const dragState = pointerDragStateRef.current;
-        if (
-          !dragState ||
-          dragState.pointerId !== event.pointerId ||
-          dragState.points !== points
-        ) {
+        if (!dragState || dragState.pointerId !== event.pointerId) {
           return;
         }
 
@@ -389,23 +471,21 @@ export const TradingViewNativeChart = memo(
           chartWidth,
           offset:
             dragState.startOffset + event.clientX - dragState.startClientX,
-          pointCount: points.length,
+          pointCount,
           zoomScale: dragState.zoomScale,
         });
         renderChart(nextOffset, dragState.zoomScale);
         setViewportState((currentState) =>
-          currentState.points === points &&
           currentState.offset === nextOffset &&
           currentState.zoomScale === dragState.zoomScale
             ? currentState
             : {
                 offset: nextOffset,
-                points,
                 zoomScale: dragState.zoomScale,
               },
         );
       },
-      [points, renderChart],
+      [pointCount, renderChart],
     );
 
     const finishPointerDrag = useCallback(
@@ -435,34 +515,26 @@ export const TradingViewNativeChart = memo(
         const anchorX =
           event.clientX - canvasRect.left - CHART_HORIZONTAL_PADDING;
         setViewportState((currentState) => {
-          const hasCurrentPoints = currentState.points === points;
-          const currentOffset = hasCurrentPoints ? currentState.offset : 0;
-          const currentZoomScale = hasCurrentPoints
-            ? currentState.zoomScale
-            : TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE;
           const nextViewport = getTradingViewNativeZoomedViewport({
             anchorX,
             chartWidth,
-            currentOffset,
-            currentZoomScale,
+            currentOffset: currentState.offset,
+            currentZoomScale: currentState.zoomScale,
             nextZoomScale:
-              currentZoomScale * Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY),
-            pointCount: points.length,
+              currentState.zoomScale *
+              Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY),
+            pointCount,
           });
           if (
-            hasCurrentPoints &&
             currentState.offset === nextViewport.offset &&
             currentState.zoomScale === nextViewport.zoomScale
           ) {
             return currentState;
           }
-          return {
-            ...nextViewport,
-            points,
-          };
+          return nextViewport;
         });
       },
-      [points],
+      [pointCount],
     );
 
     useEffect(() => {

@@ -9,8 +9,11 @@ import {
 import {
   clampTradingViewNativePanOffset,
   clampTradingViewNativeZoomScale,
+  getTradingViewNativeAppendedPointCount,
   getTradingViewNativeCandleX,
+  getTradingViewNativeGestureStartOffsetAfterDataUpdate,
   getTradingViewNativeMaxPanOffset,
+  getTradingViewNativePanOffsetAfterDataUpdate,
   getTradingViewNativePriceRange,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
@@ -95,6 +98,82 @@ describe('TradingViewNative chart viewport', () => {
     expect(clampTradingViewNativeZoomScale(10)).toBe(
       TRADING_VIEW_NATIVE_MAX_ZOOM_SCALE,
     );
+  });
+
+  it('detects candles appended after the previous latest candle', () => {
+    expect(
+      getTradingViewNativeAppendedPointCount({
+        points: [buildPoint(1, 2, 1), buildPoint(1, 2, 2)],
+        previousLatestTimestamp: 2,
+      }),
+    ).toBe(0);
+    expect(
+      getTradingViewNativeAppendedPointCount({
+        points: [buildPoint(1, 2, 1), buildPoint(1, 2, 2), buildPoint(1, 2, 3)],
+        previousLatestTimestamp: 2,
+      }),
+    ).toBe(1);
+    expect(
+      getTradingViewNativeAppendedPointCount({
+        points: [buildPoint(1, 2, 2), buildPoint(1, 2, 3), buildPoint(1, 2, 4)],
+        previousLatestTimestamp: 3,
+      }),
+    ).toBe(1);
+  });
+
+  it('does not infer appended candles from unrelated history', () => {
+    expect(
+      getTradingViewNativeAppendedPointCount({
+        points: [buildPoint(1, 2, 10), buildPoint(1, 2, 11)],
+        previousLatestTimestamp: 2,
+      }),
+    ).toBe(0);
+    expect(
+      getTradingViewNativeAppendedPointCount({
+        points: [buildPoint(1, 2, 10)],
+        previousLatestTimestamp: undefined,
+      }),
+    ).toBe(0);
+  });
+
+  it('keeps a historical candle stationary when a new candle is appended', () => {
+    expect(
+      getTradingViewNativePanOffsetAfterDataUpdate({
+        appendedPointCount: 1,
+        chartWidth: 100,
+        currentOffset: 40,
+        pointCount: 21,
+        zoomScale: 1,
+      }),
+    ).toBe(48);
+    expect(
+      getTradingViewNativePanOffsetAfterDataUpdate({
+        appendedPointCount: 1,
+        chartWidth: 100,
+        currentOffset: 0,
+        pointCount: 21,
+        zoomScale: 1,
+      }),
+    ).toBe(0);
+  });
+
+  it('keeps active pan and pinch gesture baselines aligned after appending', () => {
+    expect(
+      getTradingViewNativeGestureStartOffsetAfterDataUpdate({
+        currentZoomScale: 1,
+        offsetDelta: 8,
+        startOffset: 20,
+        startZoomScale: 1,
+      }),
+    ).toBe(28);
+    expect(
+      getTradingViewNativeGestureStartOffsetAfterDataUpdate({
+        currentZoomScale: 2,
+        offsetDelta: 16,
+        startOffset: 20,
+        startZoomScale: 1,
+      }),
+    ).toBe(28);
   });
 
   it('derives the price range from visible candles only', () => {

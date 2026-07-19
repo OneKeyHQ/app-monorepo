@@ -9,10 +9,12 @@ import {
 
 import {
   Canvas,
+  DashPathEffect,
   Group,
   Line,
   Paint,
   Picture,
+  Rect,
   type SkFont,
   type SkPicture,
   Skia,
@@ -39,6 +41,11 @@ import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING as CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CHART_UP_COLOR as CHART_UP_COLOR,
   TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING as CHART_VERTICAL_PADDING,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HEIGHT as CURRENT_PRICE_LABEL_HEIGHT,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING as CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_TEXT_COLOR as CURRENT_PRICE_LABEL_TEXT_COLOR,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_GAP as CURRENT_PRICE_LINE_DASH_GAP,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_LENGTH as CURRENT_PRICE_LINE_DASH_LENGTH,
   TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH as PRICE_AXIS_WIDTH,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT as TIME_AXIS_HEIGHT,
@@ -52,16 +59,21 @@ import {
   formatTradingViewNativePriceTick,
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceLayout,
   getTradingViewNativePriceTransform,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
 } from '../utils/chartLayout';
+import { isTradingViewNativePriceUp } from '../utils/chartStyle';
 import {
   type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
+  getTradingViewNativeAppendedPointCount,
   getTradingViewNativeCandleX,
+  getTradingViewNativeGestureStartOffsetAfterDataUpdate,
   getTradingViewNativeMaxPanOffset,
+  getTradingViewNativePanOffsetAfterDataUpdate,
   getTradingViewNativePriceRange,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
@@ -111,7 +123,6 @@ interface ITradingViewNativeChartProps {
 interface IVisiblePointRangeState extends ITradingViewNativeVisiblePointRange {
   chartWidth: number;
   minimumTimeTickIndexSpacing: number;
-  points: IMarketTokenKLineDataPoint[];
 }
 
 function createKLineChartPictures({
@@ -209,7 +220,7 @@ function createKLineChartPictures({
     const toY = (price: number) => getTradingViewNativePriceY(price, layout);
 
     points.forEach((point, index) => {
-      const color = point.c >= point.o ? colors.up : colors.down;
+      const color = isTradingViewNativePriceUp(point) ? colors.up : colors.down;
       const skColor = Skia.Color(color);
       const x = getTradingViewNativeCandleX({
         candleGap: NATIVE_CANDLE_GAP,
@@ -387,6 +398,86 @@ function TradingViewNativePriceTick({
   );
 }
 
+function TradingViewNativeCurrentPrice({
+  chartOpacity,
+  color,
+  font,
+  maxPrice,
+  minPrice,
+  price,
+  priceAxisX,
+  priceChartHeight,
+  width,
+}: {
+  chartOpacity: number;
+  color: string;
+  font: SkFont;
+  maxPrice: SharedValue<number>;
+  minPrice: SharedValue<number>;
+  price: number;
+  priceAxisX: number;
+  priceChartHeight: number;
+  width: number;
+}) {
+  const text = formatTradingViewNativePriceTick(price);
+  const textX =
+    width -
+    CURRENT_PRICE_LABEL_HORIZONTAL_PADDING -
+    font.measureText(text).width;
+  const layout = useDerivedValue(() =>
+    getTradingViewNativeCurrentPriceLayout({
+      labelHeight: CURRENT_PRICE_LABEL_HEIGHT,
+      maxPrice: maxPrice.value,
+      minPrice: minPrice.value,
+      price,
+      priceChartHeight,
+    }),
+  );
+  const lineTransform = useDerivedValue(() => [
+    { translateY: layout.value?.lineY ?? 0 },
+  ]);
+  const labelTransform = useDerivedValue(() => [
+    { translateY: layout.value?.labelTop ?? 0 },
+  ]);
+  const opacity = useDerivedValue(() => (layout.value ? chartOpacity : 0));
+
+  return (
+    <Group opacity={opacity}>
+      <Group transform={lineTransform}>
+        <Line
+          color={color}
+          p1={{ x: CHART_HORIZONTAL_PADDING, y: 0 }}
+          p2={{ x: priceAxisX, y: 0 }}
+          strokeWidth={1}
+        >
+          <DashPathEffect
+            intervals={[
+              CURRENT_PRICE_LINE_DASH_LENGTH,
+              CURRENT_PRICE_LINE_DASH_GAP,
+            ]}
+          />
+        </Line>
+      </Group>
+      <Group transform={labelTransform}>
+        <Rect
+          color={color}
+          height={CURRENT_PRICE_LABEL_HEIGHT}
+          width={width - priceAxisX}
+          x={priceAxisX}
+          y={0}
+        />
+        <Text
+          color={CURRENT_PRICE_LABEL_TEXT_COLOR}
+          font={font}
+          text={text}
+          x={textX}
+          y={CURRENT_PRICE_LABEL_HEIGHT / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET}
+        />
+      </Group>
+    </Group>
+  );
+}
+
 export const TradingViewNativeChart = memo(
   ({
     candleIntervalSeconds,
@@ -410,7 +501,7 @@ export const TradingViewNativeChart = memo(
     const priceTranslateY = useSharedValue(0);
     const visibleMaxPrice = useSharedValue(Number.NaN);
     const visibleMinPrice = useSharedValue(Number.NaN);
-    const previousPointsRef = useRef(points);
+    const hasInitializedViewportRef = useRef(false);
     const theme = useTheme();
     const background = theme.bgApp.val;
     const grid = theme.borderSubdued.val;
@@ -428,6 +519,9 @@ export const TradingViewNativeChart = memo(
     const priceAxisX = chartSize.width - PRICE_AXIS_WIDTH;
     const chartWidth = getTradingViewNativeChartWidth(chartSize.width);
     const pointCount = points.length;
+    const latestPoint = points[pointCount - 1];
+    const previousLatestTimestampRef = useRef(latestPoint?.t);
+    const previousViewportBoundsRef = useRef({ chartWidth, pointCount });
     const chartPictureData = useMemo(
       () =>
         createKLineChartPictures({
@@ -451,7 +545,6 @@ export const TradingViewNativeChart = memo(
           getTradingViewNativeTimeTickMinimumIndexSpacing(
             NATIVE_CANDLE_STEP * TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
           ),
-        points,
         startIndex: 0,
       }));
     const defaultVisiblePointRange = useMemo(
@@ -474,8 +567,8 @@ export const TradingViewNativeChart = memo(
       [defaultVisiblePointRange, points],
     );
     const hasCurrentVisiblePointRange =
-      visiblePointRangeState.points === points &&
-      visiblePointRangeState.chartWidth === chartWidth;
+      visiblePointRangeState.chartWidth === chartWidth &&
+      (pointCount === 0 || visiblePointRangeState.endIndex > 0);
     const visiblePointRange: ITradingViewNativeVisiblePointRange =
       hasCurrentVisiblePointRange
         ? visiblePointRangeState
@@ -523,7 +616,6 @@ export const TradingViewNativeChart = memo(
         nextMinimumTimeTickIndexSpacing: number,
       ) => {
         setVisiblePointRangeState((currentState) =>
-          currentState.points === points &&
           currentState.chartWidth === chartWidth &&
           currentState.startIndex === startIndex &&
           currentState.endIndex === endIndex &&
@@ -534,12 +626,11 @@ export const TradingViewNativeChart = memo(
                 chartWidth,
                 endIndex,
                 minimumTimeTickIndexSpacing: nextMinimumTimeTickIndexSpacing,
-                points,
                 startIndex,
               },
         );
       },
-      [chartWidth, points],
+      [chartWidth],
     );
 
     const baseMaxPrice = chartPictureData?.baseMaxPrice ?? 0;
@@ -618,13 +709,38 @@ export const TradingViewNativeChart = memo(
     );
 
     useLayoutEffect(() => {
-      const shouldResetViewport = previousPointsRef.current !== points;
-      previousPointsRef.current = points;
+      const appendedPointCount = getTradingViewNativeAppendedPointCount({
+        points,
+        previousLatestTimestamp: previousLatestTimestampRef.current,
+      });
+      const previousViewportBounds = previousViewportBoundsRef.current;
+      const shouldClampViewport =
+        previousViewportBounds.chartWidth !== chartWidth ||
+        previousViewportBounds.pointCount !== pointCount;
+      const shouldInitializeViewport =
+        !hasInitializedViewportRef.current &&
+        chartWidth > 0 &&
+        pointCount > 0 &&
+        Boolean(chartPictureData && defaultVisiblePriceRange);
+
+      previousLatestTimestampRef.current = latestPoint?.t;
+      previousViewportBoundsRef.current = { chartWidth, pointCount };
+      if (shouldInitializeViewport) {
+        hasInitializedViewportRef.current = true;
+      }
+      if (
+        !shouldInitializeViewport &&
+        !shouldClampViewport &&
+        appendedPointCount === 0
+      ) {
+        return;
+      }
+
       scheduleOnUI(() => {
         'worklet';
 
-        cancelAnimation(panOffset);
-        if (shouldResetViewport) {
+        if (shouldInitializeViewport) {
+          cancelAnimation(panOffset);
           panOffset.value = 0;
           priceScaleY.value = defaultPriceTransform.scaleY;
           priceTranslateY.value = defaultPriceTransform.translateY;
@@ -635,21 +751,45 @@ export const TradingViewNativeChart = memo(
           zoomScale.value = TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE;
           return;
         }
-        panOffset.value = clampTradingViewNativePanOffset({
+
+        const previousPanOffset = panOffset.value;
+        const nextPanOffset = getTradingViewNativePanOffsetAfterDataUpdate({
+          appendedPointCount,
           candleGap: NATIVE_CANDLE_GAP,
           chartWidth,
-          offset: panOffset.value,
+          currentOffset: previousPanOffset,
           pointCount,
           zoomScale: zoomScale.value,
         });
+        const offsetDelta = nextPanOffset - previousPanOffset;
+        panOffset.value = nextPanOffset;
+        if (offsetDelta !== 0) {
+          panStartOffset.value =
+            getTradingViewNativeGestureStartOffsetAfterDataUpdate({
+              currentZoomScale: zoomScale.value,
+              offsetDelta,
+              startOffset: panStartOffset.value,
+              startZoomScale: zoomScale.value,
+            });
+          pinchStartOffset.value =
+            getTradingViewNativeGestureStartOffsetAfterDataUpdate({
+              currentZoomScale: zoomScale.value,
+              offsetDelta,
+              startOffset: pinchStartOffset.value,
+              startZoomScale: pinchStartZoomScale.value,
+            });
+        }
       });
     }, [
       chartWidth,
+      chartPictureData,
       defaultPriceTransform.scaleY,
       defaultPriceTransform.translateY,
-      defaultVisiblePriceRange?.maxPrice,
-      defaultVisiblePriceRange?.minPrice,
+      defaultVisiblePriceRange,
       panOffset,
+      panStartOffset,
+      pinchStartOffset,
+      pinchStartZoomScale,
       pointCount,
       points,
       priceScaleY,
@@ -657,6 +797,7 @@ export const TradingViewNativeChart = memo(
       visibleMaxPrice,
       visibleMinPrice,
       zoomScale,
+      latestPoint?.t,
     ]);
 
     const chartTransform = useDerivedValue(() => [
@@ -833,6 +974,23 @@ export const TradingViewNativeChart = memo(
                   width={chartSize.width}
                 />
               ))}
+              {latestPoint && Number.isFinite(latestPoint.c) ? (
+                <TradingViewNativeCurrentPrice
+                  chartOpacity={chartOpacity}
+                  color={
+                    isTradingViewNativePriceUp(latestPoint)
+                      ? CHART_UP_COLOR
+                      : CHART_DOWN_COLOR
+                  }
+                  font={timeAxisFont}
+                  maxPrice={visibleMaxPrice}
+                  minPrice={visibleMinPrice}
+                  price={latestPoint.c}
+                  priceAxisX={priceAxisX}
+                  priceChartHeight={chartPictureData.priceChartHeight}
+                  width={chartSize.width}
+                />
+              ) : null}
             </Canvas>
           </GestureDetector>
         ) : null}

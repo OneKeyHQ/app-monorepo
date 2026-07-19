@@ -164,6 +164,7 @@ export function DesktopLayout({
     tokenDetail,
     isNative,
     websocketConfig,
+    perpsInfo,
     isStockToken,
   } = useTokenDetail();
   const useTradingViewNative = useTradingViewNativeInMarketDetail();
@@ -182,6 +183,8 @@ export function DesktopLayout({
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
+  const nativeHyperliquidCoin =
+    isBTCMainnet && isNative ? (perpsInfo?.hlTicker ?? '') : '';
 
   const swapToken = useMemo(
     () => ({
@@ -228,6 +231,15 @@ export function DesktopLayout({
     isNative,
     websocketConfig,
   });
+  let nativeTradingViewDataSource: ComponentProps<
+    typeof TradingViewNative
+  >['dataSource'] =
+    marketTradingViewParams?.dataSource === 'websocket'
+      ? 'market-websocket'
+      : 'market-polling';
+  if (nativeHyperliquidCoin) {
+    nativeTradingViewDataSource = 'hyperliquid';
+  }
   const marketTradingView = useMemo(() => {
     if (useTradingViewNative) {
       return networkId ? (
@@ -236,7 +248,9 @@ export function DesktopLayout({
           networkId={networkId}
           tokenAddress={tokenAddress}
           symbol={tokenDetail?.symbol ?? ''}
+          hyperliquidCoin={nativeHyperliquidCoin}
           decimal={tokenDetail?.decimals ?? 8}
+          dataSource={nativeTradingViewDataSource}
           nativeControlsLayoutMode="desktop"
         />
       ) : null;
@@ -269,6 +283,8 @@ export function DesktopLayout({
     handleTradingViewTouchScroll,
     isChartFullscreen,
     marketTradingViewParams,
+    nativeHyperliquidCoin,
+    nativeTradingViewDataSource,
     networkId,
     tokenAddress,
     tokenDetail?.decimals,

@@ -2,8 +2,8 @@ import { memo, useEffect } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 
+import { useTradingViewNativeKLine } from '../data/useTradingViewNativeKLine';
 import { TradingViewNativeChartControlsContainer } from '../TradingViewNativeChartControlsContainer';
-import { useTradingViewNativeKLine } from '../useTradingViewNativeKLine';
 
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 
@@ -14,16 +14,26 @@ export const TradingViewNative = memo(
     testID,
     networkId = '',
     tokenAddress = '',
+    symbol = '',
+    hyperliquidCoin = '',
+    dataSource = 'market-polling',
     nativeControlsLayoutMode,
     onNativeSubIndicatorCountChange,
   }: ITradingViewNativeProps) => {
     const {
       candleIntervalSeconds,
+      dataProviderKey,
       points,
       intervalConfig,
       isSwitchingInterval,
       handleIntervalChange,
-    } = useTradingViewNativeKLine({ networkId, tokenAddress });
+    } = useTradingViewNativeKLine({
+      networkId,
+      tokenAddress,
+      symbol,
+      hyperliquidCoin,
+      dataSource,
+    });
 
     useEffect(() => {
       onNativeSubIndicatorCountChange?.(0);
@@ -37,6 +47,7 @@ export const TradingViewNative = memo(
           onIntervalChange={handleIntervalChange}
         />
         <TradingViewNativeChart
+          key={`${dataProviderKey}:${candleIntervalSeconds}`}
           candleIntervalSeconds={candleIntervalSeconds}
           isSwitchingInterval={isSwitchingInterval}
           points={points}
