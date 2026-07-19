@@ -8,6 +8,7 @@ export function TierPill({
   selected,
   disabled,
   grow,
+  width,
   onPress,
   testID,
 }: {
@@ -16,12 +17,15 @@ export function TierPill({
   disabled?: boolean;
   // Stretch to share the row width evenly (tier popover grid layout).
   grow?: boolean;
+  // Fixed width so pills stay uniform with trailing space (Filters popover).
+  width?: number;
   onPress?: () => void;
   testID?: string;
 }) {
   return (
     <XStack
       {...(grow ? { flexGrow: 1, flexBasis: 0, minWidth: 72 } : null)}
+      {...(width ? { width } : null)}
       alignItems="center"
       justifyContent="center"
       px={11}

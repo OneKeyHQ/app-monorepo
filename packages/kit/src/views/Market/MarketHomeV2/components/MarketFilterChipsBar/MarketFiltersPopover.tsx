@@ -43,21 +43,15 @@ const AUDIT_ROWS = [
 // hoverStyle/pressStyle to animate against (mirrors MarketFilterChipsBar.tsx).
 const noop = () => undefined;
 
-const TIER_GRID_COLUMNS = 3;
+// Uniform pill width: rows wrap naturally and leave trailing space instead
+// of stretching to fill (per design). 102px fits the widest tier label
+// ("$100K-1M") and packs three per row inside the 384px panel.
+const TIER_PILL_WIDTH = 102;
 
-function chunkRows<T>(items: T[], size: number): T[][] {
-  const rows: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    rows.push(items.slice(i, i + size));
-  }
-  return rows;
-}
-
-// Equal-width tier grid; rows that come from a multi-row set get invisible
-// spacers so every pill column stays aligned across rows.
+// Uniform fixed-width tier pills that wrap with trailing space; identical
+// widths keep every row's columns aligned without stretching.
 function TierGrid({
   items,
-  columns = TIER_GRID_COLUMNS,
 }: {
   items: {
     key: string;
@@ -67,38 +61,21 @@ function TierGrid({
     onPress?: () => void;
     testID?: string;
   }[];
-  columns?: number;
 }) {
-  const isMultiRow = items.length > columns;
   return (
-    <YStack gap="$2">
-      {chunkRows(items, columns).map((row) => (
-        <XStack key={row[0].key} gap="$2">
-          {row.map((item) => (
-            <TierPill
-              key={item.key}
-              grow
-              label={item.label}
-              selected={item.selected}
-              disabled={item.disabled}
-              onPress={item.onPress}
-              testID={item.testID}
-            />
-          ))}
-          {isMultiRow && row.length < columns
-            ? Array.from({ length: columns - row.length }).map((_, index) => (
-                <XStack
-                  // eslint-disable-next-line react/no-array-index-key
-                  key={`spacer-${index}`}
-                  flexGrow={1}
-                  flexBasis={0}
-                  minWidth={72}
-                />
-              ))
-            : null}
-        </XStack>
+    <XStack gap="$2" flexWrap="wrap">
+      {items.map((item) => (
+        <TierPill
+          key={item.key}
+          width={TIER_PILL_WIDTH}
+          label={item.label}
+          selected={item.selected}
+          disabled={item.disabled}
+          onPress={item.onPress}
+          testID={item.testID}
+        />
       ))}
-    </YStack>
+    </XStack>
   );
 }
 
@@ -284,7 +261,6 @@ export function MarketFiltersPopover({
                     Time range
                   </SizableText>
                   <TierGrid
-                    columns={4}
                     items={TIME_RANGE_OPTIONS.map((option) => ({
                       key: option,
                       label: option,

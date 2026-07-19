@@ -142,36 +142,10 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
       min: value,
     })),
   },
-  {
-    id: EMarketFilterDimension.Traders,
-    label: 'Traders',
-    minParam: 'uniqueTraderMin',
-    maxParam: 'uniqueTraderMax',
-    localField: 'uniqueTraders',
-    advanced: true,
-    options: [100, 1000].map((value) => ({
-      id: `min-${value}`,
-      label: `${value >= 1000 ? `${value / 1000}K` : value}+`,
-      chipLabel: `${value >= 1000 ? `${value / 1000}K` : value}+`,
-      min: value,
-    })),
-  },
-  {
-    id: EMarketFilterDimension.Inflow,
-    label: 'Net inflow',
-    minParam: 'inflowUsdMin',
-    maxParam: 'inflowUsdMax',
-    // No local data source in the list response today; local demo skips it.
-    localField: undefined,
-    advanced: true,
-    note: 'Local demo: no data source yet',
-    options: [1000, 10_000, 100_000].map((value) => ({
-      id: `min-${value}`,
-      label: `$${value / 1000}K+`,
-      chipLabel: `$${value / 1000}K+`,
-      min: value,
-    })),
-  },
+  // Traders (uniqueTraderMin/Max) and Net inflow (inflowUsdMin/Max) are
+  // intentionally absent: the redesigned table no longer shows a Traders
+  // column and inflow has no list column or local data source — filters
+  // must not reference metrics the user cannot see in the table.
 ];
 
 export const MARKET_FILTER_DIMENSION_MAP = new Map(

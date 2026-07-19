@@ -57,13 +57,13 @@ describe('applyMarketListLocalFilter', () => {
     ).toEqual(['young-small']);
   });
 
-  it('ANDs conditions and skips dimensions without local data source', () => {
+  it('ANDs multiple conditions', () => {
     expect(
       applyMarketListLocalFilter(
         tokens,
         {
           [EMarketFilterDimension.MarketCap]: 'large',
-          [EMarketFilterDimension.Inflow]: 'min-1000',
+          [EMarketFilterDimension.Liquidity]: 'min-500000',
         },
         now,
       ).map((t) => t.id),

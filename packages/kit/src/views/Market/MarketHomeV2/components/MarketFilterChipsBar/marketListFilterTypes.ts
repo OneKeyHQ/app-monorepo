@@ -12,8 +12,6 @@ export enum EMarketFilterDimension {
   Holders = 'holders',
   Change = 'change',
   Txns = 'txns',
-  Traders = 'traders',
-  Inflow = 'inflow',
 }
 
 // A selectable tier. Threshold dimensions use only `min` (floor semantics,
