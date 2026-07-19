@@ -27,6 +27,9 @@ import type {
   IMarketListFilterConditions,
   IMarketListFilterState,
 } from './marketListFilterTypes';
+import type { IMarketTimeRangeValue } from '../../types';
+
+const TIME_RANGE_OPTIONS: IMarketTimeRangeValue[] = ['5m', '1h', '4h', '24h'];
 
 // Figma 25060-6052: label takes the remaining width on the left, controls sit
 // in a fixed 232px column that wraps. Three pills per row (min 72px each);
@@ -34,6 +37,8 @@ import type {
 const CONTROL_COLUMN_WIDTH = 232;
 const ROW_LABEL_HEIGHT = 30;
 const TIER_GAP = 6;
+const TIME_RANGE_GAP = 4;
+const TIME_RANGE_PILL_MIN_WIDTH = 40;
 const TIER_COLUMNS_DEFAULT = 3;
 const TIER_COLUMNS_FOR_FOUR_OPTIONS = 2;
 const TIER_MIN_WIDTH_DEFAULT = 72;
@@ -184,16 +189,25 @@ function GroupHeader({ label }: { label: string }) {
 // subtree, so context would resolve to the empty default there.
 function MarketFiltersModalContent({
   initialConditions,
+  initialTimeRange,
   onApply,
+  onApplyTimeRange,
   onClose,
 }: {
   initialConditions: IMarketListFilterConditions;
+  initialTimeRange: IMarketTimeRangeValue;
   onApply: (next: IMarketListFilterState) => void;
+  onApplyTimeRange: (v: IMarketTimeRangeValue) => void;
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState<IMarketListFilterConditions>({
     ...initialConditions,
   });
+  // Time frame is drafted alongside the conditions: Dialog.show snapshots its
+  // props, so local state is what keeps the selection visibly in sync, and
+  // committing on Confirm matches how every other row in this modal behaves.
+  const [draftTimeRange, setDraftTimeRange] =
+    useState<IMarketTimeRangeValue>(initialTimeRange);
 
   const handleSelect = (
     dimension: IMarketFilterDimensionConfig,
@@ -225,6 +239,28 @@ function MarketFiltersModalContent({
                 {groupIndex > 0 ? <Divider mb="$2" /> : null}
                 <GroupHeader label={MARKET_FILTER_GROUP_LABELS[group]} />
                 <YStack gap="$6">
+                  {group === EMarketFilterGroup.Metrics ? (
+                    <FilterRow label="Time frame">
+                      <XStack
+                        width={CONTROL_COLUMN_WIDTH}
+                        gap={TIME_RANGE_GAP}
+                        flexShrink={0}
+                      >
+                        {TIME_RANGE_OPTIONS.map((option) => (
+                          <TierPill
+                            key={option}
+                            grow
+                            variant="plain"
+                            minWidth={TIME_RANGE_PILL_MIN_WIDTH}
+                            label={option}
+                            selected={option === draftTimeRange}
+                            onPress={() => setDraftTimeRange(option)}
+                            testID={`market-filters-modal-time-range-${option}`}
+                          />
+                        ))}
+                      </XStack>
+                    </FilterRow>
+                  ) : null}
                   {group === EMarketFilterGroup.Audit
                     ? AUDIT_ROWS.map((row) => (
                         <FilterRow key={row.testId} label={row.label}>
@@ -280,6 +316,9 @@ function MarketFiltersModalContent({
               action: 'popoverConfirm',
               conditionCount: Object.keys(draft).length,
             });
+            if (draftTimeRange !== initialTimeRange) {
+              onApplyTimeRange(draftTimeRange);
+            }
             onApply({ conditions: draft, activePresetId: undefined });
             onClose();
           }}
@@ -294,7 +333,13 @@ function MarketFiltersModalContent({
 
 // Filters entry pill; opens the filter conditions modal. Lives inside the
 // Market provider subtree, so it snapshots state/setters for the dialog.
-export function MarketFiltersTrigger() {
+export function MarketFiltersTrigger({
+  timeRange,
+  onTimeRangeChange,
+}: {
+  timeRange: IMarketTimeRangeValue;
+  onTimeRangeChange: (v: IMarketTimeRangeValue) => void;
+}) {
   const { filterState, setFilterState, activeConditionCount } =
     useMarketListFilter();
 
@@ -305,7 +350,9 @@ export function MarketFiltersTrigger() {
       renderContent: (
         <MarketFiltersModalContent
           initialConditions={filterState.conditions}
+          initialTimeRange={timeRange}
           onApply={setFilterState}
+          onApplyTimeRange={onTimeRangeChange}
           onClose={() => {
             void dialog.close();
           }}

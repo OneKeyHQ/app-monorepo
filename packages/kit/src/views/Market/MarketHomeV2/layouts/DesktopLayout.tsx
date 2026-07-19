@@ -349,7 +349,12 @@ export function DesktopLayout({
           <MarketFilterChipsBar
             timeRange={filterBarProps.timeRange}
             onTimeRangeChange={filterBarProps.onTimeRangeChange}
-            filtersTrigger={<MarketFiltersTrigger />}
+            filtersTrigger={
+              <MarketFiltersTrigger
+                timeRange={filterBarProps.timeRange}
+                onTimeRangeChange={filterBarProps.onTimeRangeChange}
+              />
+            }
           />
         );
       } else if (isStockCategoryTab) {
