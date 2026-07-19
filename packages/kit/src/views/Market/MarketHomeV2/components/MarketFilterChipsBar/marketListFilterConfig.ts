@@ -22,27 +22,15 @@ const M = 60 * 1000;
 // - Token age keeps ceiling semantics ("everything newer than X") since new
 //   listings are the hunt target; copy reads "Under X" so the whole column
 //   shares one direction.
-// - 3-4 tiers per row for quick scanning; token age keeps 5 (launch cadence
-//   is meaningful at 30m/1h/6h/24h/48h). Values stay centralized here for
+// - 3-4 tiers per row for quick scanning; token age keeps 6 (launch cadence
+//   is meaningful at 5m/30m/1h/6h/24h/48h). Values stay centralized here for
 //   PM tuning. Param names track hot-token v6 for the passthrough swap.
+// Row order borrows the OKX screener's split between stock metrics and the
+// ones the time frame rewrites, inverted for our trust-first positioning:
+// the "is this substantial?" levers (market cap / liquidity / holders) lead,
+// then the time-frame-driven metrics (turnover / change / txns) stay grouped,
+// then token age, which serves the secondary new-launch hunt.
 export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
-  {
-    id: EMarketFilterDimension.TokenAge,
-    label: 'Token age',
-    group: EMarketFilterGroup.Metrics,
-    // No server-side age filter exists yet (PRD-confirmed); local demo only.
-    localField: 'firstTradeTime',
-    isAge: true,
-    options: [5 * M, 30 * M, H, 6 * H, 24 * H, 48 * H].map((value) => {
-      const text = value >= H ? `${value / H}h` : `${value / M}m`;
-      return {
-        id: `under-${text}`,
-        label: `≤ ${text}`,
-        chipLabel: `≤ ${text}`,
-        max: value,
-      };
-    }),
-  },
   {
     id: EMarketFilterDimension.MarketCap,
     group: EMarketFilterGroup.Metrics,
@@ -99,6 +87,20 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
     })),
   },
   {
+    id: EMarketFilterDimension.Holders,
+    label: 'Holders',
+    group: EMarketFilterGroup.Metrics,
+    minParam: 'holdersMin',
+    maxParam: 'holdersMax',
+    localField: 'holders',
+    options: [100, 1000, 10_000].map((value) => ({
+      id: `min-${value}`,
+      label: `${value >= 1000 ? `${value / 1000}K` : value}+`,
+      chipLabel: `${value >= 1000 ? `${value / 1000}K` : value}+`,
+      min: value,
+    })),
+  },
+  {
     id: EMarketFilterDimension.Turnover,
     label: 'Turnover',
     group: EMarketFilterGroup.Metrics,
@@ -110,20 +112,6 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
       id: `min-${value}`,
       label: `${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
       chipLabel: `$${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
-      min: value,
-    })),
-  },
-  {
-    id: EMarketFilterDimension.Holders,
-    label: 'Holders',
-    group: EMarketFilterGroup.Metrics,
-    minParam: 'holdersMin',
-    maxParam: 'holdersMax',
-    localField: 'holders',
-    options: [100, 1000, 10_000].map((value) => ({
-      id: `min-${value}`,
-      label: `${value >= 1000 ? `${value / 1000}K` : value}+`,
-      chipLabel: `${value >= 1000 ? `${value / 1000}K` : value}+`,
       min: value,
     })),
   },
@@ -154,6 +142,23 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
       chipLabel: `${value >= 1000 ? `${value / 1000}K` : value}+`,
       min: value,
     })),
+  },
+  {
+    id: EMarketFilterDimension.TokenAge,
+    label: 'Token age',
+    group: EMarketFilterGroup.Metrics,
+    // No server-side age filter exists yet (PRD-confirmed); local demo only.
+    localField: 'firstTradeTime',
+    isAge: true,
+    options: [5 * M, 30 * M, H, 6 * H, 24 * H, 48 * H].map((value) => {
+      const text = value >= H ? `${value / H}h` : `${value / M}m`;
+      return {
+        id: `under-${text}`,
+        label: `≤ ${text}`,
+        chipLabel: `≤ ${text}`,
+        max: value,
+      };
+    }),
   },
   // Traders (uniqueTraderMin/Max) and Net inflow (inflowUsdMin/Max) are
   // intentionally absent: the redesigned table no longer shows a Traders
