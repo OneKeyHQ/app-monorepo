@@ -17,6 +17,7 @@ import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { NetworkAvatarBase } from '../NetworkAvatar';
 
 import { useUnifiedNetworkSelectorTrigger } from './hooks/useUnifiedNetworkSelectorTrigger';
+import { NativeNetworkSelectorPressable } from './NativeNetworkSelectorPressable';
 
 const MAX_DISPLAY_NETWORKS = 2;
 
@@ -128,15 +129,19 @@ function AllNetworksManagerTrigger({
     return <Stack h={36} />;
   }
 
-  return (
+  const renderTriggerContent = ({
+    nestedInNativePressable,
+    pressed,
+  }: {
+    nestedInNativePressable: boolean;
+    pressed: boolean;
+  }) => (
     <XStack
+      pointerEvents={nestedInNativePressable ? 'none' : undefined}
+      bg={pressed ? '$bgActive' : undefined}
       borderRadius="$2"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
+      hoverStyle={nestedInNativePressable ? undefined : { bg: '$bgHover' }}
+      pressStyle={nestedInNativePressable ? undefined : { bg: '$bgActive' }}
       focusable
       focusVisibleStyle={{
         outlineWidth: 2,
@@ -144,7 +149,7 @@ function AllNetworksManagerTrigger({
         outlineStyle: 'solid',
       }}
       userSelect="none"
-      onPress={handleOnPress}
+      onPress={nestedInNativePressable ? undefined : handleOnPress}
       alignItems="center"
     >
       <XStack alignItems="center">
@@ -220,6 +225,26 @@ function AllNetworksManagerTrigger({
       ) : null}
     </XStack>
   );
+
+  if (platformEnv.isNativeIOS) {
+    return (
+      <NativeNetworkSelectorPressable
+        accessibilityLabel={network?.name}
+        accessibilityRole="button"
+        onPress={handleOnPress}
+        testID="account-network-trigger-button"
+      >
+        {({ pressed }) =>
+          renderTriggerContent({ nestedInNativePressable: true, pressed })
+        }
+      </NativeNetworkSelectorPressable>
+    );
+  }
+
+  return renderTriggerContent({
+    nestedInNativePressable: false,
+    pressed: false,
+  });
 }
 
 export { AllNetworksManagerTrigger };

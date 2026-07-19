@@ -2,6 +2,7 @@ import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 
 import {
   commitNativeHomeSnapshotAfterProjection,
+  commitNativeHomeSnapshotBeforeProjection,
   projectNativeHomeCustomTokens,
 } from './nativeHomeCustomTokenProjection';
 
@@ -119,5 +120,33 @@ describe('projectNativeHomeCustomTokens', () => {
 
     await expect(commitTask).resolves.toBe(false);
     expect(commit).not.toHaveBeenCalled();
+  });
+
+  it('commits token rows without waiting for custom-token projection', async () => {
+    let resolveProjection: (value: string[]) => void = () => undefined;
+    const projectionTask = new Promise<string[]>((resolve) => {
+      resolveProjection = resolve;
+    });
+    const commitSnapshot = jest.fn();
+    const commitProjection = jest.fn();
+    let current = true;
+
+    expect(
+      commitNativeHomeSnapshotBeforeProjection({
+        commitProjection,
+        commitSnapshot,
+        isCurrent: () => current,
+        projectionTask,
+        snapshot: ['live-token'],
+      }),
+    ).toBe(true);
+    expect(commitSnapshot).toHaveBeenCalledWith(['live-token']);
+    expect(commitProjection).not.toHaveBeenCalled();
+
+    current = false;
+    resolveProjection(['stale-custom-token']);
+    await projectionTask;
+    await Promise.resolve();
+    expect(commitProjection).not.toHaveBeenCalled();
   });
 });

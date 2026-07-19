@@ -7,8 +7,6 @@ import type {
 } from 'react';
 import { isValidElement, useCallback, useEffect, useState } from 'react';
 
-import { Pressable } from 'react-native';
-
 import {
   Divider,
   Icon,
@@ -40,6 +38,10 @@ import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { useStatefulAction } from '../../hooks/useStatefulAction';
 import { AccountAvatar } from '../AccountAvatar';
+import {
+  NativeNetworkSelectorPressable,
+  resolveNativeNetworkSelectorPressableTestIDs,
+} from '../AccountSelector/NativeNetworkSelectorPressable';
 
 import type { IAccountAvatarProps } from '../AccountAvatar';
 import type { StyleProp, ViewStyle } from 'react-native';
@@ -278,6 +280,8 @@ export type IListItemProps = PropsWithChildren<
     childrenBefore?: ComponentType | ReactNode;
     disabled?: boolean;
     testID?: string;
+    /** Stable identifier for the actual iOS Pressable leaf. */
+    nativePressableTestID?: string;
     /** Style for the native Pressable wrapper. Only effective on native platforms. */
     nativePressableStyle?: StyleProp<ViewStyle>;
   } & IStackProps
@@ -324,6 +328,8 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       titleMatch,
       subTitleMatch,
       nativePressableStyle,
+      nativePressableTestID,
+      testID,
       ...rest
     } = props;
 
@@ -339,8 +345,15 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     // automatically cancelling the press when a scroll gesture takes over.
     // This prevents accidental onPress triggers while scrolling in nested
     // PagerView + ScrollView layouts.
-    const useNativePressable = platformEnv.isNative && hasPressHandler;
-    const useWebPress = !platformEnv.isNative && hasPressHandler;
+    const useNativePressable = Boolean(platformEnv.isNative && hasPressHandler);
+    const useWebPress = Boolean(!platformEnv.isNative && hasPressHandler);
+    const { clickableLeafTestID: nativeClickableLeafTestID, contentTestID } =
+      resolveNativeNetworkSelectorPressableTestIDs({
+        isNativeIOS: Boolean(platformEnv.isNativeIOS),
+        legacyTestID: testID,
+        nativePressableTestID,
+        useNativePressable,
+      });
 
     // Track native press state for visual feedback. Pressable's onPressIn/
     // onPressOut drive this state, which applies bg='$bgActive' on the Stack.
@@ -390,6 +403,7 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
         mx="$2"
         borderRadius="$3"
         borderCurve="continuous"
+        testID={contentTestID}
         onPress={useWebPress ? handleItemPress : undefined}
         {...(props.disabled && {
           opacity: 0.5,
@@ -429,14 +443,14 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
             primaryTextProps: {
               ...(props.onPress && { userSelect: 'none' }),
               ...titleProps,
-              testID: `select-item-${rest.testID || ''}`,
+              testID: `select-item-${testID || ''}`,
             },
             secondary: subtitle,
             secondaryMatch: subTitleMatch,
             secondaryTextProps: {
               ...(props.onPress && { userSelect: 'none' }),
               ...subtitleProps,
-              testID: `select-item-subtitle-${rest.testID || ''}`,
+              testID: `select-item-subtitle-${testID || ''}`,
             },
           },
           renderItemText,
@@ -454,16 +468,24 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       // unstable_pressDelay delays onPressIn so the bg highlight doesn't
       // briefly flash when the user starts a scroll gesture on a list item.
       return (
-        <Pressable
+        <NativeNetworkSelectorPressable
+          cancelable
           onPress={handleItemPress}
+          accessibilityLabel={
+            nativeClickableLeafTestID && typeof title === 'string'
+              ? title
+              : undefined
+          }
+          accessibilityRole={nativeClickableLeafTestID ? 'button' : undefined}
           onLongPress={nativeLongPress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           unstable_pressDelay={50}
           style={nativePressableStyle ?? { flex: 1 }}
+          testID={nativeClickableLeafTestID}
         >
           {content}
-        </Pressable>
+        </NativeNetworkSelectorPressable>
       );
     }
 
