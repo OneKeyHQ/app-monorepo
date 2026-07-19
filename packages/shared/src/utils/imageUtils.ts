@@ -1,5 +1,7 @@
 /* eslint-disable no-plusplus */
 import {
+  copyAsync as ExpoFSCopyAsync,
+  deleteAsync as ExpoFSDeleteAsync,
   downloadAsync as ExpoFSDownloadAsync,
   getInfoAsync as ExpoFSGetInfoAsync,
   makeDirectoryAsync as ExpoFSMakeDirectoryAsync,
@@ -24,6 +26,7 @@ import platformEnv from '../platformEnv';
 import bufferUtils from './bufferUtils';
 import { getImageEmbedBridge } from './imageUtils.embedBridge';
 
+import type { ReadingOptions } from 'expo-file-system/legacy';
 import type {
   Action as ExpoImageManipulatorAction,
   ImageResult,
@@ -551,7 +554,7 @@ function detectFileFormatFromUri(uri: string): {
 }
 
 async function getRNLocalImageBase64({
-  nativeModuleId: _nativeModuleId,
+  nativeModuleId,
   uri,
   logFn,
 }: {
@@ -564,14 +567,13 @@ async function getRNLocalImageBase64({
   let downloadedUri1: string | undefined | null;
   let downloadedUri2: string | undefined | null;
   let base64a: string | undefined;
-  let base64a1: string | undefined;
   let base64b: string | undefined;
   let base64c: string | undefined;
   let base64d: string | undefined;
 
   // **** use expo-file-system
   try {
-    base64a = await ExpoFSReadAsStringAsync(uri, {
+    base64a = await readAsStringAsync(nativeModuleId ?? uri, {
       encoding: 'base64',
     });
   } catch (error) {
@@ -642,13 +644,12 @@ async function getRNLocalImageBase64({
   logFn?.(
     'getRNLocalImageBase64 base64',
     base64a || '',
-    base64a1 || '',
     base64b || '',
     base64c || '',
     base64d || '',
   );
 
-  const base64 = base64a || base64a1 || base64b || base64c || base64d;
+  const base64 = base64a || base64b || base64c || base64d;
   if (!base64) {
     throw new OneKeyLocalError('getRNLocalImageBase64 failed');
   }
@@ -911,6 +912,49 @@ async function getUriFromRequiredImageSource(
   return source?.uri;
 }
 
+/**
+ * Read a URI or a React Native `require()` asset as a string.
+ *
+ * Android release bundles resolve `require()` assets to drawable resource
+ * identifiers without a URI scheme. Expo FileSystem can copy those resources,
+ * but its Base64 reader only accepts URI-backed input streams.
+ */
+export async function readAsStringAsync(
+  source: ImageSourcePropType | string,
+  options?: ReadingOptions,
+): Promise<string> {
+  const uri = await getUriFromRequiredImageSource(source);
+  if (!uri) {
+    throw new OneKeyLocalError('Failed to resolve file source');
+  }
+
+  try {
+    return await ExpoFSReadAsStringAsync(uri, options);
+  } catch (error) {
+    const isAndroidBundledResource =
+      platformEnv.isNativeAndroid && isNumber(source) && !uri.includes(':');
+    if (!isAndroidBundledResource) {
+      throw error;
+    }
+  }
+
+  const cacheDir = await getNativeCacheDirectory();
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 10_000);
+  const copiedUri = `${cacheDir}bundled-resource-${source}-${timestamp}-${random}`;
+
+  try {
+    await ExpoFSCopyAsync({ from: uri, to: copiedUri });
+    return await ExpoFSReadAsStringAsync(copiedUri, options);
+  } finally {
+    try {
+      await ExpoFSDeleteAsync(copiedUri, { idempotent: true });
+    } catch {
+      // Best-effort cleanup must not hide the read result or its error.
+    }
+  }
+}
+
 async function getBase64FromRequiredImageSource(
   source: ImageSourcePropType | string | undefined,
   logFn?: ICommonImageLogFn,
@@ -1149,6 +1193,7 @@ export default {
   stripBase64UriPrefix,
   convertToBlackAndWhiteImageBase64,
   getUriFromRequiredImageSource,
+  readAsStringAsync,
   getBase64FromRequiredImageSource,
   getBase64FromImageUri,
   base64ImageToBitmap,
