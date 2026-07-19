@@ -2081,3 +2081,75 @@ adb shell dumpsys gfxinfo so.onekey.app.wallet
 - Round5只覆盖iPhone 17 Pro / iOS 26.5 / Dark mode / 当前已备份All Networks `$0` HD钱包。Light、Dynamic Type Large/XXXL、Android真实Debug、fresh/no-wallet、单链有钱、正余额未备份、Keyless/imported/hardware以及其它服务错误矩阵仍不能声明通过。
 - Native目前只读既有 exact-owner `lastConfirmedOverviewBalance.byOwner`，没有新增 Native-only fully-confirmed combined-total writer。无cache时可靠依赖current Portfolio authority；DeFi-only/Perps-only且失败child隐藏真实资产时，zero判定按本轮真实Legacy parity而不是更严格全资产authority。未来若新增writer，必须只在current-owner fully confirmed后按USD写入，partial failure不得覆盖旧positive。
 - 标准launch约5秒曾出现一次自行消失的Debug-only toast（`OneKeyLocalError: screen component-Navi...`/debugger warning），20秒消失，Add money/More交互未再次触发；本轮未把它归为zero-home产品阻断，但继续保留在Round3证据中。
+
+## 2026-07-19 iOS Debug：Perps Support 与空态 Tab 首帧连续性最终验收
+
+本节继续使用上一节同一个 iPhone 17 Pro / iOS 26.5、同一个已备份 All Networks `Account #1 / $0.00` 现场，专门处理用户报告的四项问题，并补齐修复后独立 code review 与真实 Debug UI verifier 证据。本轮仍由编写 subagent 写代码、独立 reviewer 验代码、独立 UI verifier 跑设备；主 agent 只负责范围、dirty 文件、证据和提交协调，不自行把作者自测判为 Pass。
+
+### 用户四项问题、Round3 有效复现与无效证据排除
+
+1. **Perps 下方 Support hub 只剩两条线：真实复现。** Native Round3 的 `$0` Perps 空态向下滚动后，Upgrade/Prime 可见，但 `Support hub` 下只有两条 separator，没有 promo、Support 和 Trading Guide。稳定证据为 `.tmp/ui/native-home-four-issues-before-20260719-round3/01-perps-support-first.png`、`01-perps-support-3s.png`、`01-perps-support-10s.png` 和同目录 `native-four-issues-round3.mp4`。
+2. **DeFi 一直 loading：没有复现“永久 loading”，但复现了更精确的首帧缺口。** 有效点击后的 Native DeFi first 是整块空白，约 100ms 后直接出现 `$0.00 / Start earning` terminal empty；3s、10s、30s 均稳定，不是永久 skeleton。`02-defi-valid-first.png` 到 `02-defi-valid-30s.png` 是有效序列；早先受错误坐标或仍在旧页面影响的帧不作为证据。
+3. **NFT 一直 loading：同样没有复现“永久 loading”，但复现了首帧整块 blank。** `03-nft-valid-first.png` 是空白，100ms 后出现 `No NFTs`，之后到 30s 稳定。问题应归类为 state slot 首帧未挂载，而不是服务永久 loading。
+4. **History 底部每次切换跳变：空钱包现场复现为 3/3 次 first blank -> 100ms terminal empty 整块插入。** 三次不同来源切入 History 都先空白，随后一次性插入 `No activity yet / Block explorer`；没有观察到 terminal empty 已经出现后再发生第二次 y jump。因此修复目标是 first-frame 连续性与稳定行高，不是人为增加 animation 或固定延时。
+
+本轮明确排除误点和旧 session stale：DeFi/Earn 等异步 section 会改变顶层 Tab y，延迟复用旧坐标曾命中 Search、Spot 或其他页面；`.tmp/ui/native-home-four-issues-after-20260719/02-hit-spot-y180.png` 到 `02-hit-spot-y220.png`、`02-return-home-after-coordinate-miss.png` 只记录误点排查，不参与 Pass/Fail。旧 agent-device session 的 accessibility snapshot 没有新 ID 时也不能证明控件不存在；最终 ID 结论只采用重建 fresh session 后的文本证据。
+
+### 同状态 Legacy false A/B 与主要走查方式
+
+- 编写前临时把 `nativeHomeFeatureFlag.native.ts` 切到 `false`，用标准 Debug 流程采相同 `$0` 钱包、相同 Dark theme、相同服务 config 和同类切换序列。Legacy 基线位于 `.tmp/ui/native-home-four-issues-legacy-20260719/`，包括 `legacy-four-issues.mp4`（362.46s）以及 Perps、DeFi、NFT、History 的 first/100ms/300ms/3s 帧。
+- Legacy Perps 空态完整显示 Upgrade、Prime、Support hub promo、Support 和 Trading Guide；Native Round3 只剩 header 与两条线。Legacy DeFi/NFT/History 切换时 first 已是 skeleton、cache 或 terminal content，没有 Native 的全块 blank；这证明原版代码仍可作为真实合同，而不是凭设计尺寸猜测。
+- A/B 完成后 feature flag 已恢复默认 Native `true` 路径；`git diff -- packages/kit/src/views/Home/nativeHomeFeatureFlag.native.ts` 为零。没有用退回旧首页规避 Native 问题。
+- 这一流程再次证明有效：同钱包同状态先采 Native first/100ms/300ms/settled，再临时切 Legacy 采同路径，并配合录屏、OCR、fresh accessibility ID 和像素/几何对照，可以迅速区分“服务一直 loading”“首帧 slot 未挂载”“坐标误点”和“真实组件缺失”。后续继续把自动 A/B 作为 Native Home 的主要走查方式；每次仍必须恢复 flag 并重新 Debug 验证。
+
+### 精确根因
+
+- **Perps footer ownership 错误：** `$0` Perps 的 `viewState=empty` state slot 内部又内联了 Upgrade 与没有 `nativeSlot` 的 `SupportHub`。UIKit state row DTO 预留约 1100pt，而 Fabric state slot 仍按约 320pt 的默认合同承载；footer 被塞进 state row 后既出现 Native/Fabric 高度不一致，也绕过了 Spot/DeFi 已使用的稳定 `content.footer.<tab>` native slot owner，最终只渲染出 Support header/separator。
+- **首帧 blank：** `contentStateSlots` 只为 `activeTabId` 创建。UIKit 先切 selected page，React 收到 callback 后才创建目标 Empty/Loading child，所以 DeFi/NFT/History 的 state row 已经在 snapshot 中，但对应 Fabric surface 尚未 parked/mounted；首帧只能看到空白，随后整块插入 terminal state。Legacy 的 skeleton/cache 是长期存在的，因而没有相同空窗。
+- **loading -> empty identity 与动态高度：** 原 state row id 把 `loading/empty` 写进 id，状态收敛会换 row/cell；即使改为同 id，320/760 等高度变化也需要 UIKit 主动失效行高，但不能替换已经挂载的 slot-host cell，否则会重新引入 parking blank 或滚动手感突变。
+
+### 最终修复设计与 reviewer 阻断
+
+- `buildStateSection` 统一使用稳定 `${id}:state`，Loading 与 Empty 共用同一 diffable identity。`resolveNativeHomeListStateSlot()` 从实际 `empty/loading` DTO 读取 `displayHeight`，Fabric slot 与 UIKit row 共用同一个高度来源；没有 state row 时返回 `content/height=undefined`。
+- 所有已经 committed 的 Spot/Perps/DeFi/NFT/History 都保留稳定 `content.state.<tab>` shell，不再只创建 active Tab；但 child 使用 lazy factory，仅当对应 section 真有 Empty/Loading state item 且有 `displayHeight` 时才挂载。真实 DeFi/NFT/History/Perps rows 不会在隐藏 Tab 额外挂空态 React 子树。
+- Perps state row 只负责 `$0` state 与 Hot Markets，empty 高度从包含 footer 的 1100 收敛到 560；Upgrade/Support 移到稳定 `content.footer.perps`，empty 与 ready 都复用同一 footer owner，loading 暂不显示。Support 使用 `nativeSlot`，Trading Guide 链接保持原版合同，避免 state 内重复渲染。
+- iOS diffable 更新保持稳定 state row 与同一 slot-host cell；检测同 id state item 的 `displayHeight` 变化后，在 snapshot completion 中以 `performWithoutAnimation + beginUpdates/endUpdates` 失效行高，再 refresh visible slot hosts。该设计避免 reload/reparent 引起白屏，也把动态高度变化的滚动风险限制在无动画 layout 更新。
+- 第一轮独立 reviewer 拦截了一个重要 hidden bg owner 回归：如果为所有 committed Tab 无条件 mount child，History 即使已有真实 rows 仍会隐藏挂载 `EmptyHistory`，其 `useAccountData` 会经 proxy 发 bg RPC；Perps empty recommendation 也有 30s poller。最终 lazy resolver 的参数化测试锁定“真实 rows 不调用 factory”；parked History 的 `useAccountData.options.overrideIsFocused` 直接接 `isActive` gate，hidden 时不 mount 内部高副作用 `AddressTypeSelector`，重新激活后补跑；Perps recommendation poller同样以 active Tab 覆盖 focus。审计确认 EmptyDeFi/EmptyNFT 只有 intl/navigation/纯视图，Perps Loading 是纯 skeleton，因此没有添加无意义 gate。
+- 第二轮 reviewer 又发现 Jest/oxlint 捕捉不到的 TypeScript assignability：resolver 的运行时条件不能把 `perps.viewState` 从 `ready | loading | empty` 缩窄到组件要求的 `loading | empty`。最终 factory 内显式 `if (perps.viewState === 'ready') return null`；Legacy `PerpsEmptyRecommendSection` 使用可选 `isActive=true` 保持原行为，Native 显式传 gate。
+- 为了让自动走查不再依赖漂移坐标，iOS 顶层 Tab 增加稳定 `native-home-tab-spot/perps/defi/nft/history` identifier，保留产品 title 作为 label，并用 accessibility `.selected` trait 表达选中，不调用会改变 UIKit 样式的 `UIButton.isSelected`。
+
+本轮产品与聚焦测试文件为：
+
+- `packages/kit/src/components/Empty/EmptyHistory.tsx`
+- `packages/kit/src/views/Home/NativeHomePage.native.tsx`
+- `packages/kit/src/views/Home/nativeHomeDataAdapters.ts`
+- `packages/kit/src/views/Home/nativeHomeDataAdapters.test.ts`
+- `packages/kit/src/views/Home/nativeHomeSlotLifecycle.test.ts`
+- `packages/kit/src/views/Home/pages/PerpsContainer.tsx`
+- `packages/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList.ts`
+- `packages/native-components/ios/HomeContainerView.swift`
+- `packages/native-components/src/HomeContainerController.test.ts`
+
+### 编写与独立 reviewer 检查
+
+- 聚焦 Jest 为 3 suites / 43 tests，覆盖 adapter stable state id/Perps height、all committed stable shells、真实 rows 不调用 hidden child factory、History/Perps active gate、Swift stable row height invalidation、slot-host cell 与 accessibility ID/selected trait。
+- `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift`、`oxfmt --check`、type-aware `oxlint --deny-warnings` 和指定文件 `git diff --check` 均通过。独立 reviewer 在 hidden owner 与 Perps type narrowing 两次阻断修正后最终给出 code Pass。
+- 项目级 `yarn tsc:only --pretty false` 不再报告本轮文件，只剩共享工作区两个既有无关错误：`apps/desktop/web-build/static/js-sdk/data/config.ts:2` 缺 `./config.perfReady`；`packages/kit/src/views/Home/NativeHomePageView.native.tsx:15` 引用未 export 的 `HOME_HEADER_SEARCH_ROW_HEIGHT`。不得修改无关 owner 只为制造全量绿色。
+
+### 最终标准 Debug 更新与 UI verifier Pass
+
+- 独立 UI verifier 从仓库根目录执行标准 `yarn app:ios`；Debug Build Succeeded（0 errors / 13 warnings），由该命令完成 Metro、更新安装并启动 `so.onekey.wallet`。应用持续存活，仍显示 `Account #1 / $0.00`，钱包数据正常；main transport ready，独立 bg `bootId=1784438894142-5k07k6ek`、`status=ready`。证据为 `.tmp/ui/native-home-four-issues-after-20260719/runtime-probe.json` 和 `00-native-ready-clean.png`。
+- 没有使用 Release、自定义 `xcodebuild` 或 `CODE_SIGNING_ALLOWED=NO`；没有单独执行 uninstall/reinstall/erase/clear data，没有删除 app container、钱包数据库或持久化文件。
+- 最终证据目录 `.tmp/ui/native-home-four-issues-after-20260719/` 共 129 个索引文件，完整清单在 `evidence-files.txt`。`05-perps-valid-bottom.png` 与最终录屏显示 Perps 空态的 Prime、完整 promo、Support、Trading Guide，已不再是两条线。
+- DeFi、NFT、History 各从三个不同来源切入，共 9 组 before/first/100ms/300ms/3s：所有 first 已直接显示 `$0.00 / Start earning`、`No NFTs` 或 `No activity yet / Block explorer`，没有 blank、`rows -> empty -> rows` 或 section 高度二次跳变。对应文件为 `03-defi-r1..r3-*`、`03-nft-r1..r3-*`、`03-history-r1..r3-*`。
+- `08-history-block-explorer-ocr.txt` 对三次 History settled 帧识别出的 Block explorer logical top/bottom 都为约 `715.63 / 735.53`，证明当前空态 CTA 几何稳定。当前 `$0` 钱包没有 History records，因此本轮不能覆盖“有记录列表底部的 Only recent transactions / Block explorer footer”；这里只能声明空 History terminal 通过。
+- 动态 state height 与惯性作为修复风险专项单独验证，不属于用户原始第四项。`dynamic-height-inertia-valid.mp4` 为 191.966667s，配套 telemetry 包含中间位置双向快速 fling；手指离开后仍有连续位移，没有因 state row 320/760 等高度切换丢失上下任一方向惯性。iOS 17.4 以下仍未测试，继续使用旧 fallback，不能外推体验。
+- stable ID 只采用 fresh session 结果：`06-native-home-tab-ids-after-session-rebuild.txt` 逐一点击五个 identifier，每次只有目标 Tab `selected=true`；`06-spot-selected-no-blue.png` 证明 accessibility selected 没有触发错误蓝色 UIButton style。旧 session stale snapshot、partial AX tree 和坐标误点均被明确排除。
+- 最终 `native-final-verification.mp4`（882.958333s）覆盖 Perps、首帧序列、History、回切与滚动；`dynamic-height-inertia-valid.mp4` 是聚焦惯性证据。独立 UI verifier 的可见 UI 结论为 Pass。hidden polling 已由代码合同与 focus gate 测试覆盖，但无法仅凭可见 UI/log 在本轮绝对证明“永不发生一次隐藏 RPC”，因此保留为 code-reviewed boundary，而不是夸大为 UI 可观测 Pass。
+
+### Runtime scope、资源所有权与职责固化
+
+- **main runtime：** Native Home state/footer slot、UIKit snapshot/section patch、selected Tab、first-frame cache/shell、行高失效、scroll/content offset、pressed/selected/accessibility 与 per-view request state。
+- **bg runtime：** wallet/account 权威数据、History/NFT/DeFi/Perps/Market service、Perps recommendation 请求、watchlist 与持久化。History/Perps hidden gate 控制 main 中的 hook 是否经 proxy 启动 bg RPC，但不会把 service owner 移到 main。
+- iOS main/bg 是独立 Hermes heap、独立初始化；DTO 经 proxy 序列化/反序列化，在两个 runtime 各有 JS 副本。main ready 不能替代 bg ready，也不能假设 bg 先 ready。DB/MMKV/file handles、图片/字体 cache 和部分 Native singleton 是进程级共享资源；cell constraint、diffable row/cell、mounted slot host、represented image signature、request cancellation、pressed/hover、selected 与 scroll offset 是 per-view/main 状态，共享 Native cache 不等于共享 JS 对象。
+- 后续继续执行职责分离：编写 subagent 只写被分配产品代码；独立 reviewer subagent 负责源码、类型和测试 Pass/Fail；独立 UI verifier subagent 负责标准 Debug、真实截图/录屏、A/B 与交互；主 agent 不直接写产品代码，也不自行验收。每轮完成后由 writer 更新本 handoff，再由主 agent按用户要求精确 stage/commit/push，禁止夹带无关 dirty 文件。

@@ -20,6 +20,7 @@ interface IEmptyHistoryProps {
   indexedAccountId?: string;
   showViewInExplorer?: boolean;
   isSingleAccount?: boolean;
+  isActive?: boolean;
   tokenMap?: Record<string, ITokenFiat>;
 }
 
@@ -28,6 +29,7 @@ function EmptyHistory({
   accountId,
   networkId,
   indexedAccountId,
+  isActive = true,
   isSingleAccount,
   tokenMap,
   showViewInExplorer,
@@ -36,6 +38,9 @@ function EmptyHistory({
   const { account, network, vaultSettings } = useAccountData({
     accountId,
     networkId,
+    options: {
+      overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
+    },
   });
   const { requiresNetworkSelection, openExplorer } = useBlockExplorerNavigation(
     network,
@@ -66,7 +71,8 @@ function EmptyHistory({
       return null;
     }
 
-    return !isSingleAccount &&
+    return isActive &&
+      !isSingleAccount &&
       !accountUtils.isOthersWallet({ walletId: walletId ?? '' }) &&
       vaultSettings?.mergeDeriveAssetsEnabled ? (
       <AddressTypeSelector
@@ -112,6 +118,7 @@ function EmptyHistory({
     vaultSettings?.mergeDeriveAssetsEnabled,
     network?.isAllNetworks,
     network?.id,
+    isActive,
     isSingleAccount,
     walletId,
     networkId,

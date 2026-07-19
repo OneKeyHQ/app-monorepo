@@ -593,13 +593,18 @@ function PerpsLoadingState() {
   );
 }
 
-function PerpsEmptyRecommendSection() {
+function PerpsEmptyRecommendSection({
+  isActive = true,
+}: {
+  isActive?: boolean;
+}) {
   const intl = useIntl();
   const media = useMedia();
   const openPerp = useOpenPerpAsset();
   const navigateToMarketTab = useNavigateToMarketTab();
   const { tokens, isLoading } = useMarketPerpsTokenList({
     selectedCategoryId: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+    isActive,
   });
 
   const displayTokens = useMemo(
@@ -1061,13 +1066,13 @@ export function PerpsHomeStateSlot({
   viewState,
   canDeposit,
   isDepositDisabled,
+  isActive,
 }: {
   viewState: 'loading' | 'empty';
   canDeposit: boolean;
   isDepositDisabled: boolean;
+  isActive: boolean;
 }) {
-  const intl = useIntl();
-
   return (
     <YStack px="$5" py="$3" pb="$4" gap="$2">
       {viewState === 'loading' ? <PerpsLoadingState /> : null}
@@ -1077,16 +1082,7 @@ export function PerpsHomeStateSlot({
             canDeposit={canDeposit}
             isDepositDisabled={isDepositDisabled}
           />
-          <PerpsEmptyRecommendSection />
-          <YStack gap="$6" mx="$-5">
-            <Upgrade />
-            <SupportHub
-              helpCenterTitle={intl.formatMessage({
-                id: ETranslations.perp_guide_title,
-              })}
-              helpCenterLink={HOME_PERPS_GUIDE_URL}
-            />
-          </YStack>
+          <PerpsEmptyRecommendSection isActive={isActive} />
         </>
       ) : null}
     </YStack>

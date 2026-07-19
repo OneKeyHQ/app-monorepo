@@ -76,6 +76,24 @@ interface INativeHomeListStateLabels {
   loading: string;
 }
 
+export function resolveNativeHomeListStateSlot<T>(
+  sections: IHomeContainerSection[],
+  createContent: () => T,
+): { content: T | undefined; height: number | undefined } {
+  for (const section of sections) {
+    const stateItem = section.items.find(
+      (item) => item.renderer === 'empty' || item.renderer === 'loading',
+    );
+    if (stateItem?.displayHeight !== undefined) {
+      return {
+        content: createContent(),
+        height: stateItem.displayHeight,
+      };
+    }
+  }
+  return { content: undefined, height: undefined };
+}
+
 function getPerpsPnlColor(
   pnlUsd: number | undefined,
   colors?: { negative: string; positive: string },
@@ -105,7 +123,7 @@ function buildStateSection({
       id,
       items: [
         {
-          id: `${id}:${initialized ? 'empty' : 'loading'}`,
+          id: `${id}:state`,
           renderer: initialized ? 'empty' : 'loading',
           title: initialized ? labels.empty : labels.loading,
           displayHeight,
@@ -333,7 +351,7 @@ export function buildNativePerpsSections({
     initialized,
     itemCount,
     labels: stateLabels,
-    displayHeight: initialized ? 1100 : 440,
+    displayHeight: initialized ? 560 : 440,
   });
   if (stateSection || !view) {
     return stateSection ?? [];
