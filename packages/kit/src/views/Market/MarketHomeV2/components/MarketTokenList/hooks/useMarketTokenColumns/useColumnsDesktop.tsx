@@ -82,12 +82,12 @@ const REDESIGN_HEADER_TOOLTIPS: Record<string, string> = {
   turnover: 'Trading volume in the selected time range.',
 };
 
-// Figma (24967-41343): the fixed left block is 240px wide - a 40px star cell
-// (row px 8 + button px 4 + 16px icon + px 4) plus a 200px name cell. The name
-// cell is widened past the reference so long symbol + reason tag + age/address
-// rows stop clipping (OKX-style roomy first column).
+// Figma (24967-41343): the fixed left block pairs a 40px star cell (row px 8 +
+// button px 4 + 16px icon + px 4) with the name cell. 208px leaves 154px for
+// the text block after the 40px token and its 14px gap - enough for the
+// age/address subtitle, with long symbols truncated by ellipsis.
 const REDESIGN_STAR_COLUMN_WIDTH = 40;
-const REDESIGN_NAME_COLUMN_WIDTH = 260;
+const REDESIGN_NAME_COLUMN_WIDTH = 208;
 const REDESIGN_STAR_ICON_SIZE = '$4';
 
 // Figma: 14px sort glyph sitting 2px after the label. Rendered here (rather
