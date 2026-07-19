@@ -20,6 +20,18 @@ import { shouldUseStockMetadataColumnsForTokens } from './utils/tokenListHelpers
 import type { IMarketTokenListLiveOverride } from './MarketTokenListBase';
 import type { IMarketTimeRangeValue } from '../../types';
 
+// Redesign headers per Figma: every column except Price carries a sort
+// affordance (Name sorts by token age via clientSortFieldMapOverride).
+const REDESIGN_SORTABLE_COLUMNS = [
+  'name',
+  'change24h',
+  'marketCap',
+  'liquidity',
+  'transactions',
+  'holders',
+  'turnover',
+] as const;
+
 type IMarketNormalTokenListProps = {
   networkId?: string;
   selectedCategory?: string;
@@ -163,6 +175,9 @@ function MarketNormalTokenList({
       clientSort={clientSortEnabled}
       clientSortFieldMapOverride={
         redesignActive ? { name: 'firstTradeTime' } : undefined
+      }
+      clientSortableColumns={
+        redesignActive ? REDESIGN_SORTABLE_COLUMNS : undefined
       }
       redesignEnabled={redesignActive}
       showEndReachedIndicator

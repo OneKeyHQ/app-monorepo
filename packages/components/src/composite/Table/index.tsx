@@ -810,5 +810,9 @@ export const Table = withStaticProperties(BasicTable, {
 });
 
 // Export types
-export type { ITableProps, ITableColumn } from './types';
+export type {
+  ITableProps,
+  ITableColumn,
+  ITableColumnSortContext,
+} from './types';
 export { ETableSortType } from './types';

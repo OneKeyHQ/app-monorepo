@@ -1,8 +1,14 @@
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { type IntlShape, useIntl } from 'react-intl';
 
-import type { ITableColumn } from '@onekeyhq/components';
+import type {
+  ETableSortType,
+  IKeyOfIcons,
+  ITableColumn,
+  ITableColumnSortContext,
+} from '@onekeyhq/components';
 import {
   Icon,
   NumberSizeableText,
@@ -76,25 +82,77 @@ const REDESIGN_HEADER_TOOLTIPS: Record<string, string> = {
   turnover: 'Trading volume in the selected time range.',
 };
 
-function renderRedesignHeaderTitle(label: string, tooltip: string) {
+// Figma (24967-41343): the fixed left block is 240px wide - a 40px star cell
+// (row px 8 + button px 4 + 16px icon + px 4) plus a 200px name cell. The name
+// cell is widened past the reference so long symbol + reason tag + age/address
+// rows stop clipping (OKX-style roomy first column).
+const REDESIGN_STAR_COLUMN_WIDTH = 40;
+const REDESIGN_NAME_COLUMN_WIDTH = 260;
+const REDESIGN_STAR_ICON_SIZE = '$4';
+
+// Figma: 14px sort glyph sitting 2px after the label. Rendered here (rather
+// than by Column) so the label and the icon form a single hit target.
+const REDESIGN_SORT_ICON_SIZE = 14;
+
+function renderRedesignSortIcon(order: ETableSortType | undefined) {
+  let iconName: IKeyOfIcons = 'ChevronGrabberVerOutline';
+  if (order === 'desc') {
+    iconName = 'ChevronDownSmallOutline';
+  } else if (order === 'asc') {
+    iconName = 'ChevronTopSmallOutline';
+  }
+  return (
+    <Icon
+      name={iconName}
+      size={REDESIGN_SORT_ICON_SIZE}
+      color={order ? '$iconActive' : '$iconSubdued'}
+    />
+  );
+}
+
+function renderRedesignHeaderTitle({
+  label,
+  tooltip,
+  sortContext,
+}: {
+  label: string;
+  tooltip?: string;
+  sortContext: ITableColumnSortContext;
+}) {
+  const { order, onSortPress } = sortContext;
+  const titleRow = (
+    <XStack alignItems="center" gap={2} userSelect="none">
+      <SizableText
+        size="$bodySmMedium"
+        color="$textSubdued"
+        {...(tooltip
+          ? {
+              textDecorationLine: 'underline' as const,
+              style: {
+                textDecorationStyle: 'dotted',
+                textUnderlinePosition: 'from-font',
+              } as any,
+            }
+          : null)}
+      >
+        {label}
+      </SizableText>
+      {onSortPress ? renderRedesignSortIcon(order) : null}
+    </XStack>
+  );
+
+  if (!tooltip) {
+    return titleRow;
+  }
+
+  // Tooltip wraps the whole row: hovering anywhere on it explains the metric,
+  // and pressing anywhere on it sorts (the Tooltip trigger owns the press, so
+  // the handler must be forwarded here rather than left to the Column).
   return (
     <LazyTooltip
       placement="top"
-      renderTrigger={
-        <SizableText
-          size="$bodySmMedium"
-          color="$textSubdued"
-          textDecorationLine="underline"
-          style={
-            {
-              textDecorationStyle: 'dotted',
-              textUnderlinePosition: 'from-font',
-            } as any
-          }
-        >
-          {label}
-        </SizableText>
-      }
+      onPress={onSortPress}
+      renderTrigger={titleRow}
       renderContent={tooltip}
     />
   );
@@ -331,18 +389,18 @@ export const useColumnsDesktop = (
           </SizableText>
         ) as any,
         dataIndex: 'star',
-        columnWidth: 50,
+        columnWidth: redesignEnabled ? REDESIGN_STAR_COLUMN_WIDTH : 50,
         render: (_: unknown, record: IMarketToken, index?: number) => {
           if (!shouldRenderRichCell(index)) {
             return (
-              <Stack pl="$2">
+              <Stack pl={redesignEnabled ? '$3' : '$2'}>
                 <Stack width={24} height={24} />
               </Stack>
             );
           }
 
           return (
-            <Stack pl="$2">
+            <Stack pl={redesignEnabled ? '$3' : '$2'}>
               {record.perpsCoin ? (
                 <MarketPerpsStarV2 perpsCoin={record.perpsCoin} size="small" />
               ) : (
@@ -352,6 +410,9 @@ export const useColumnsDesktop = (
                   from={watchlistFrom || EWatchlistFrom.Homepage}
                   tokenSymbol={record.symbol}
                   size="small"
+                  customIconSize={
+                    redesignEnabled ? REDESIGN_STAR_ICON_SIZE : undefined
+                  }
                   isNative={record.isNative}
                 />
               )}
@@ -371,6 +432,7 @@ export const useColumnsDesktop = (
         dataIndex: 'name',
         columnWidth: (() => {
           if (isWatchlistMode) return watchlistNameWidth;
+          if (redesignEnabled) return REDESIGN_NAME_COLUMN_WIDTH;
           if (hasStock && showStockSubtitle) return 240;
           return 200;
         })(),
@@ -683,13 +745,18 @@ export const useColumnsDesktop = (
         )
           .filter((c): c is NonNullable<typeof c> => Boolean(c))
           .map((column) => {
-            const tooltip = REDESIGN_HEADER_TOOLTIPS[String(column.dataIndex)];
-            if (!tooltip || typeof column.title !== 'string') {
+            const dataIndex = String(column.dataIndex);
+            if (dataIndex === 'star' || typeof column.title !== 'string') {
               return column;
             }
+            const label = column.title;
+            const tooltip = REDESIGN_HEADER_TOOLTIPS[dataIndex];
             return {
               ...column,
-              title: renderRedesignHeaderTitle(column.title, tooltip),
+              renderTitle: (
+                _sortIcon: ReactNode,
+                sortContext: ITableColumnSortContext,
+              ) => renderRedesignHeaderTitle({ label, tooltip, sortContext }),
             };
           })
       : columns;

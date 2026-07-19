@@ -91,7 +91,12 @@ function HeaderColumn<T>({
 
   let titleContent;
   if (renderTitle) {
-    titleContent = renderTitle(renderInlineSortIcon());
+    titleContent = renderTitle(renderInlineSortIcon(), {
+      order: currentSortOrder,
+      onSortPress: enableSortType
+        ? (handleColumnPress as () => void)
+        : undefined,
+    });
   } else if (typeof title === 'string') {
     titleContent = (
       <SizableText

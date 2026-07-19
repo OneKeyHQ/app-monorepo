@@ -9,11 +9,21 @@ export enum ETableSortType {
   DESC = 'desc',
 }
 
+// Sort state handed to renderTitle so a custom header can draw its own sort
+// affordance and make the whole title (text + icon) the click target.
+export interface ITableColumnSortContext {
+  order?: ETableSortType;
+  onSortPress?: () => void;
+}
+
 export interface ITableColumn<T> {
   title: ReactNode;
   // When provided, renders the title with an inline sort icon instead of
   // the default external sort icon rendered by Column.
-  renderTitle?: (sortIcon: ReactNode) => ReactNode;
+  renderTitle?: (
+    sortIcon: ReactNode,
+    sortContext: ITableColumnSortContext,
+  ) => ReactNode;
   dataIndex: string;
   titleProps?: ISizableTextProps;
   columnProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;

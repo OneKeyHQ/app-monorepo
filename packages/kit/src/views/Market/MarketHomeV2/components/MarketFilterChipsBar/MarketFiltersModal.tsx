@@ -29,7 +29,9 @@ import type {
 
 // Uniform pill width: rows wrap naturally and leave trailing space instead
 // of stretching to fill (per design); identical widths keep columns aligned.
-const TIER_PILL_WIDTH = 96;
+// 84px is the widest value that still fits four pills plus gaps inside the
+// dialog's 400px content frame.
+const TIER_PILL_WIDTH = 84;
 
 const AUDIT_TIER_LABELS = ['≤ 10%', '≤ 30%', '≤ 50%'];
 
