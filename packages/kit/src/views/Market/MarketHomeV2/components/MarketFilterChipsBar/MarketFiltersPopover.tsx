@@ -15,6 +15,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { MARKET_FILTER_FIELD_CONFIGS } from './marketListFilterConfig';
 import { useMarketListFilter } from './MarketListFilterContext';
 import { EMarketFilterField } from './marketListFilterTypes';
+import { TierPill } from './TierPill';
 
 import type {
   IMarketFilterTier,
@@ -73,32 +74,32 @@ function FieldTierRow({
   testIDPrefix: string;
 }) {
   return (
-    <XStack alignItems="center" justifyContent="space-between" py="$2" gap="$2">
-      <SizableText size="$bodyMd" w={110}>
-        {label}
-      </SizableText>
-      <XStack gap="$1" flexWrap="wrap" flex={1} justifyContent="flex-end">
-        {tiers.map((tier) => (
-          <Button
-            key={tier.value}
-            size="small"
-            disabled={disabled}
-            variant={tier.value === selectedValue ? 'primary' : 'tertiary'}
-            onPress={() =>
-              onSelect?.(tier.value === selectedValue ? undefined : tier.value)
-            }
-            testID={`${testIDPrefix}-${tier.value}`}
-          >
-            {tier.label}
-          </Button>
-        ))}
+    <YStack py="$2" gap="$2">
+      <XStack alignItems="center" justifyContent="space-between" gap="$2">
+        <SizableText size="$bodyMd" flexShrink={0}>
+          {label}
+        </SizableText>
         {trailing ? (
           <SizableText size="$bodySm" color="$textSubdued">
             {trailing}
           </SizableText>
         ) : null}
       </XStack>
-    </XStack>
+      <XStack gap="$2" flexWrap="wrap">
+        {tiers.map((tier) => (
+          <TierPill
+            key={tier.value}
+            label={tier.label}
+            selected={tier.value === selectedValue}
+            disabled={disabled}
+            onPress={() =>
+              onSelect?.(tier.value === selectedValue ? undefined : tier.value)
+            }
+            testID={`${testIDPrefix}-${tier.value}`}
+          />
+        ))}
+      </XStack>
+    </YStack>
   );
 }
 
@@ -136,7 +137,7 @@ export function MarketFiltersPopover({
           gap="$1"
           minWidth={32}
           px={7}
-          py={5}
+          height={26}
           borderRadius="$full"
           hoverStyle={{ bg: '$bgHover' }}
           pressStyle={{ bg: '$bgActive' }}
@@ -191,30 +192,21 @@ export function MarketFiltersPopover({
           >
             {tabIndex === 0 ? (
               <YStack>
-                <XStack
-                  alignItems="center"
-                  justifyContent="space-between"
-                  py="$2"
-                  flexWrap="wrap"
-                  gap="$2"
-                >
-                  <SizableText size="$bodyMd" w={110}>
-                    Time range
-                  </SizableText>
-                  <XStack gap="$1" flexWrap="wrap">
+                <YStack py="$2" gap="$2">
+                  <SizableText size="$bodyMd">Time range</SizableText>
+                  <XStack gap="$2" flexWrap="wrap">
                     {TIME_RANGE_OPTIONS.map((option) => (
-                      <Button
+                      <TierPill
                         key={option}
-                        size="small"
-                        variant={option === timeRange ? 'primary' : 'tertiary'}
+                        grow
+                        label={option}
+                        selected={option === timeRange}
                         onPress={() => onTimeRangeChange(option)}
                         testID={`market-filters-popover-time-range-${option}`}
-                      >
-                        {option}
-                      </Button>
+                      />
                     ))}
                   </XStack>
-                </XStack>
+                </YStack>
                 {MARKET_FILTER_FIELD_CONFIGS.map((config) => (
                   <FieldTierRow
                     key={config.field}

@@ -17,6 +17,7 @@ import {
   MARKET_FILTER_PRESETS,
 } from './marketListFilterConfig';
 import { useMarketListFilter } from './MarketListFilterContext';
+import { TierPill } from './TierPill';
 
 import type { EMarketFilterField } from './marketListFilterTypes';
 import type { IMarketTimeRangeValue } from '../../types';
@@ -145,35 +146,16 @@ function TierPopoverContent({
         </XStack>
       </XStack>
       <XStack flexWrap="wrap" gap="$2">
-        {config.tiers.map((tier) => {
-          const isSelected = tier.value === value;
-          return (
-            <XStack
-              key={tier.value}
-              flexGrow={1}
-              flexBasis={0}
-              minWidth={72}
-              alignItems="center"
-              justifyContent="center"
-              px={11}
-              py={5}
-              borderRadius="$full"
-              borderWidth={1}
-              borderColor={isSelected ? '$borderActive' : '$transparent'}
-              bg={isSelected ? '$bgActive' : '$bgStrong'}
-              hoverStyle={{ bg: '$bgStrongHover' }}
-              pressStyle={{ bg: '$bgStrongActive' }}
-              userSelect="none"
-              onPress={() => onSelect(tier.value)}
-              role="button"
-              testID={`market-filter-tier-${field}-${tier.value}`}
-            >
-              <SizableText size="$bodyMdMedium" color="$text">
-                {tier.label}
-              </SizableText>
-            </XStack>
-          );
-        })}
+        {config.tiers.map((tier) => (
+          <TierPill
+            key={tier.value}
+            grow
+            label={tier.label}
+            selected={tier.value === value}
+            onPress={() => onSelect(tier.value)}
+            testID={`market-filter-tier-${field}-${tier.value}`}
+          />
+        ))}
       </XStack>
     </YStack>
   );
@@ -212,7 +194,7 @@ function ConditionChip({
           alignItems="center"
           gap="$1"
           px={9}
-          py={3}
+          height={26}
           borderRadius="$full"
           bg="$bgStrong"
           hoverStyle={{ bg: '$bgStrongHover' }}
@@ -281,8 +263,16 @@ export function MarketFilterChipsBar({
   };
 
   return (
-    <XStack alignItems="center" justifyContent="space-between" pt="$3" pb={10}>
-      <XStack alignItems="center" gap={10}>
+    <XStack
+      alignItems="center"
+      justifyContent="space-between"
+      pt="$3"
+      pb={10}
+      height={48}
+    >
+      {/* Fixed row height so swapping presets <-> condition chips (different
+          intrinsic pill heights) never shifts the toolbar/table below. */}
+      <XStack alignItems="center" gap={10} height={26}>
         <XStack gap="$0.5">
           {TIME_RANGE_OPTIONS.map((option) => (
             <MarketToolbarPill
@@ -359,7 +349,7 @@ export function MarketFilterChipsBar({
                 />
               ))}
             </XStack>
-            <XStack p="$1" alignItems="center">
+            <XStack alignItems="center">
               <SmallRoundIconButton
                 icon="CrossedSmallOutline"
                 onPress={() => {
