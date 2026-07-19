@@ -31,12 +31,18 @@ import type { IMarketTimeRangeValue } from '../../types';
 
 const TIME_RANGE_OPTIONS: IMarketTimeRangeValue[] = ['5m', '1h', '4h', '24h'];
 
-// Row layout: a fixed label column on the left, tier pills filling the rest
-// (reference layout). Three pills fit comfortably; a four-option dimension
-// wraps to 2x2 so the pills stay readable instead of being squeezed.
-const ROW_LABEL_WIDTH = 104;
+// Figma 25060-6052: label takes the remaining width on the left, controls sit
+// in a fixed 232px column that wraps. Three pills per row (min 72px each);
+// a four-option dimension wraps to 2x2 with wider pills.
+const CONTROL_COLUMN_WIDTH = 232;
+const ROW_LABEL_HEIGHT = 30;
+const TIER_GAP = 6;
+const TIME_RANGE_GAP = 4;
+const TIME_RANGE_PILL_WIDTH = 40;
 const TIER_COLUMNS_DEFAULT = 3;
 const TIER_COLUMNS_FOR_FOUR_OPTIONS = 2;
+const TIER_MIN_WIDTH_DEFAULT = 72;
+const TIER_MIN_WIDTH_WIDE = 80;
 
 function getTierColumns(optionCount: number) {
   return optionCount === 4
@@ -72,14 +78,19 @@ function TierGrid({
   for (let i = 0; i < items.length; i += columns) {
     rows.push(items.slice(i, i + columns));
   }
+  const minWidth =
+    columns === TIER_COLUMNS_FOR_FOUR_OPTIONS
+      ? TIER_MIN_WIDTH_WIDE
+      : TIER_MIN_WIDTH_DEFAULT;
   return (
-    <YStack flex={1} gap="$2">
+    <YStack width={CONTROL_COLUMN_WIDTH} gap={TIER_GAP} flexShrink={0}>
       {rows.map((row) => (
-        <XStack key={row[0].key} gap="$2">
+        <XStack key={row[0].key} gap={TIER_GAP}>
           {row.map((item) => (
             <TierPill
               key={item.key}
               grow
+              minWidth={minWidth}
               label={item.label}
               selected={item.selected}
               disabled={item.disabled}
@@ -103,7 +114,7 @@ function TierGrid({
   );
 }
 
-// Label on the left, controls on the right (reference layout).
+// Label on the left, controls in the fixed-width column on the right.
 function FilterRow({
   label,
   note,
@@ -114,8 +125,14 @@ function FilterRow({
   children: ReactNode;
 }) {
   return (
-    <XStack py="$2" gap="$2" alignItems="flex-start">
-      <YStack width={ROW_LABEL_WIDTH} py="$1.5" flexShrink={0}>
+    <XStack gap="$3" alignItems="flex-start" width="100%">
+      <YStack
+        flex={1}
+        minWidth={0}
+        minHeight={ROW_LABEL_HEIGHT}
+        pr="$1"
+        jc="center"
+      >
         <SizableText size="$bodyMd" color="$textSubdued">
           {label}
         </SizableText>
@@ -164,11 +181,7 @@ function DimensionRow({
 }
 
 function GroupHeader({ label }: { label: string }) {
-  return (
-    <SizableText size="$headingSm" pt="$3">
-      {label}
-    </SizableText>
-  );
+  return <SizableText size="$headingSm">{label}</SizableText>;
 }
 
 // Modal body. Receives the committed state as a snapshot instead of reading
@@ -207,94 +220,107 @@ function MarketFiltersModalContent({
   };
 
   return (
-    <YStack gap="$2">
+    <YStack gap="$5">
       {/* The Dialog frame has no built-in scroll; cap the section list so
           long group stacks scroll internally and the footer stays pinned. */}
       <ScrollView maxHeight={460} showsVerticalScrollIndicator={false}>
-        {MARKET_FILTER_GROUP_ORDER.map((group, groupIndex) => {
-          const dimensions = MARKET_FILTER_DIMENSIONS.filter(
-            (dimension) => dimension.group === group,
-          );
-          return (
-            <YStack key={group} gap="$2">
-              {groupIndex > 0 ? <Divider mt="$3" /> : null}
-              <GroupHeader label={MARKET_FILTER_GROUP_LABELS[group]} />
-              {group === EMarketFilterGroup.Metrics ? (
-                // Timeframe drives the whole list (not a filter condition), so
-                // it applies immediately and mirrors the toolbar segment.
-                <FilterRow label="Timeframe">
-                  <TierGrid
-                    columns={getTierColumns(TIME_RANGE_OPTIONS.length)}
-                    items={TIME_RANGE_OPTIONS.map((option) => ({
-                      key: option,
-                      label: option,
-                      selected: option === timeRange,
-                      onPress: () => onTimeRangeChange(option),
-                      testID: `market-filters-modal-time-range-${option}`,
-                    }))}
-                  />
-                </FilterRow>
-              ) : null}
-              {group === EMarketFilterGroup.Audit ? (
-                <YStack>
-                  {AUDIT_ROWS.map((row) => (
-                    <FilterRow key={row.testId} label={row.label}>
-                      <TierGrid
-                        columns={getTierColumns(AUDIT_TIER_LABELS.length)}
-                        items={AUDIT_TIER_LABELS.map((tierLabel) => ({
-                          key: tierLabel,
-                          label: tierLabel,
-                          disabled: true,
-                          testID: `market-filters-modal-audit-${row.testId}-${tierLabel}`,
-                        }))}
-                      />
+        <YStack gap="$6">
+          {MARKET_FILTER_GROUP_ORDER.map((group, groupIndex) => {
+            const dimensions = MARKET_FILTER_DIMENSIONS.filter(
+              (dimension) => dimension.group === group,
+            );
+            return (
+              <YStack key={group} gap="$4">
+                {groupIndex > 0 ? <Divider mb="$2" /> : null}
+                <GroupHeader label={MARKET_FILTER_GROUP_LABELS[group]} />
+                <YStack gap="$6">
+                  {group === EMarketFilterGroup.Metrics ? (
+                    // Timeframe drives the whole list (not a filter condition),
+                    // so it applies immediately and mirrors the toolbar segment
+                    // - hence the plain (transparent) pill treatment.
+                    <FilterRow label="Time frame">
+                      <XStack
+                        width={CONTROL_COLUMN_WIDTH}
+                        gap={TIME_RANGE_GAP}
+                        flexShrink={0}
+                      >
+                        {TIME_RANGE_OPTIONS.map((option) => (
+                          <TierPill
+                            key={option}
+                            variant="plain"
+                            minWidth={TIME_RANGE_PILL_WIDTH}
+                            grow
+                            label={option}
+                            selected={option === timeRange}
+                            onPress={() => onTimeRangeChange(option)}
+                            testID={`market-filters-modal-time-range-${option}`}
+                          />
+                        ))}
+                      </XStack>
                     </FilterRow>
-                  ))}
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    Pending Spike A#8 boolean-direction verification
-                  </SizableText>
+                  ) : null}
+                  {group === EMarketFilterGroup.Audit
+                    ? AUDIT_ROWS.map((row) => (
+                        <FilterRow key={row.testId} label={row.label}>
+                          <TierGrid
+                            columns={getTierColumns(AUDIT_TIER_LABELS.length)}
+                            items={AUDIT_TIER_LABELS.map((tierLabel) => ({
+                              key: tierLabel,
+                              label: tierLabel,
+                              disabled: true,
+                              testID: `market-filters-modal-audit-${row.testId}-${tierLabel}`,
+                            }))}
+                          />
+                        </FilterRow>
+                      ))
+                    : dimensions.map((dimension) => (
+                        <DimensionRow
+                          key={dimension.id}
+                          dimension={dimension}
+                          selectedOptionId={draft[dimension.id]}
+                          onSelect={(optionId) =>
+                            handleSelect(dimension, optionId)
+                          }
+                        />
+                      ))}
+                  {group === EMarketFilterGroup.Audit ? (
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      Pending Spike A#8 boolean-direction verification
+                    </SizableText>
+                  ) : null}
                 </YStack>
-              ) : (
-                dimensions.map((dimension) => (
-                  <DimensionRow
-                    key={dimension.id}
-                    dimension={dimension}
-                    selectedOptionId={draft[dimension.id]}
-                    onSelect={(optionId) => handleSelect(dimension, optionId)}
-                  />
-                ))
-              )}
-            </YStack>
-          );
-        })}
+              </YStack>
+            );
+          })}
+        </YStack>
       </ScrollView>
-      <XStack gap="$3" pt="$5" alignItems="center">
+      {/* Figma footer: two equal-width actions, secondary Reset + primary
+          Confirm (the dialog's own close button covers dismissal). */}
+      <XStack gap="$2.5">
         <Button
-          variant="tertiary"
+          flex={1}
+          size="medium"
           onPress={() => setDraft({})}
           testID="market-filters-modal-reset"
         >
           Reset
         </Button>
-        <XStack flex={1} justifyContent="flex-end" gap="$3">
-          <Button onPress={onClose} testID="market-filters-modal-cancel">
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onPress={() => {
-              defaultLogger.dex.list.dexFilterChip({
-                action: 'popoverConfirm',
-                conditionCount: Object.keys(draft).length,
-              });
-              onApply({ conditions: draft, activePresetId: undefined });
-              onClose();
-            }}
-            testID="market-filters-modal-apply"
-          >
-            Apply
-          </Button>
-        </XStack>
+        <Button
+          flex={1}
+          size="medium"
+          variant="primary"
+          onPress={() => {
+            defaultLogger.dex.list.dexFilterChip({
+              action: 'popoverConfirm',
+              conditionCount: Object.keys(draft).length,
+            });
+            onApply({ conditions: draft, activePresetId: undefined });
+            onClose();
+          }}
+          testID="market-filters-modal-apply"
+        >
+          Confirm
+        </Button>
       </XStack>
     </YStack>
   );
