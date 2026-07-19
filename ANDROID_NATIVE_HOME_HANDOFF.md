@@ -2423,3 +2423,52 @@ Polygon 的完整 Tab 结果：Spot 使用当前 POL rows，并在 `50-polygon-s
 - Behavior Oracle 复用今天已经留存的 Account #1/#8、六 scope、五 Tab、Market、History、滚动、theme/font/image 与 PageFooter 历史截图、录屏、逐帧和日志证据作为预期来源；不得重新解释 Fail 或用最终 settled frame 覆盖首帧证据。fresh/no-wallet、真正单链有钱、正余额未备份、其它 wallet type、Android Debug、iOS 17.4 以下等仍为 **Blocked/未覆盖**，不能编造 expected Pass。
 - 独立 reviewer 已复核本章节的授权边界、待确认措辞、职责与安全约束，当前结论为 **Pass**；该 Pass 只针对 handoff/准备性审计质量，不表示 Section 28 或 Phase 0A 已获用户批准。
 - 本轮 `yarn agent:check --profile commit` 日志目录为 `node_modules/.cache/agent-checks/2026-07-19T18-16-05-230Z/`：除 `tsc-staged` 的两个既有无关错误外其余检查均 Pass。两个阻断仍是 Desktop `config.ts` 缺少 `./config.perfReady`，以及 `NativeHomePageView.native.tsx` 引用了 `MDHeader` 未导出的 `HOME_HEADER_SEARCH_ROW_HEIGHT`；不得修改这些无关 owner 只为制造绿色结果。
+
+## 2026-07-20 Home State Model Phase 0A 行为 Oracle 收口
+
+用户已于 2026-07-20 明确批准 `HOME_STATE_MODEL_REFACTOR_PLAN.md` Section 28 的八项启动门槛，以及首个 test-only Phase 0A。该批准只覆盖本节记录的行为 Oracle 基线，不自动授权 Phase 1、产品实现、Native protocol-v2 或 renderer 迁移。
+
+### 精确文件范围与产物
+
+Phase 0A 实施阶段严格只新增以下两个文件，没有修改任何现有测试、产品、配置、导出、Native 或 service 文件：
+
+- `/Users/huhuanming/Project/app-monorepo/packages/kit/src/views/Home/model/tests/fixtures/homeBehaviorOracleFixtures.ts`
+- `/Users/huhuanming/Project/app-monorepo/packages/kit/src/views/Home/model/tests/homeBehaviorOracle.test.ts`
+
+本 handoff 的追加只用于 Phase 0A 完成后的交接收口，不扩大上述实施 allow-list。最终 Oracle 固化 21 个 required behavior vectors，其中 15 个通过现有 exported pure resolver 执行，6 个明确为 observation-only；独立 UI coverage manifest 共 43 项。全部 fixture、observation、evidence 和 manifest entry 的 `currentRun` 均为 `notRun`。引用的 `.tmp/ui` 截图、录屏与 contact sheet 全部标记为 `historicalUI`；它们是既有历史基线，不是 Phase 0A 当天重新运行得到的 fresh UI，也不能证明今天仍存在同一 fixture、服务端 config 或设备状态。
+
+`newUnbackedWallet` 保留计划要求的稳定 ID，但描述明确为“已有未备份 HD 钱包的 safety surface”，不等同于 fresh onboarding、首次启动或首次创建空钱包。`backedZeroWallet` 使用 complete-zero normalized input；对应 executable probe 使用 current successful authority，并让 Portfolio、DeFi、Perps 的同 scope source 全部 success，最终提交 live/confirmed `$0`，不再用 loading + cached zero 冒充 complete zero。
+
+### 四轮独立 reviewer 闭环
+
+Phase 0A 按 writer、独立 code reviewer、独立 UI/evidence reviewer 分离的方式完成四轮闭环。前三轮 reviewer 均明确给出 Fail，writer 只在上述两个 allow-list 文件内修正；第四轮 code reviewer 与 UI reviewer 最终均给出 Pass。最终 Pass 不覆盖或抹去前三轮发现：
+
+- 第一轮补齐证据 provenance、platform、fixture/date 与显式 `currentRun: notRun`，并加入 Account、scope、Tab、Market、History、滚动、appearance、image、PageFooter 和 blocked fixture 的 UI coverage manifest。
+- 第二轮删除 Phase 0A 不可能成立的 `currentUI` provenance；Legacy/Native observation 必须显式声明 provenance，禁止从 `observed` 和无 UI evidence 自动推断 `executableTest`。Native-only test 不能证明 Legacy；test 侧使用独立 authoritative UI ID array，避免 fixture 常量自证。pressed、hover、focus 被拆为独立 coverage item。
+- 第三轮把缺少双侧真实证据的 `fundedAllNetworks`、`scopeSwitchWithExactCache`、`partialPortfolioResponse`、`staleDefiResponse`、`historyEmpty`、`capabilityChanged` 和 `sameScopeRequestTwoFinishesBeforeOne` 分类收窄为 `openDecision`。只有两侧 observation 都有绑定证据时才允许 `historicalDrift`。`nativeRevisionGap`、`snapshotSlotOwnerMismatch`、`staleNativeIntent` 补充了 `HomeContainer.types.ts`、`HomeContainer.native.tsx`、Swift 与 Kotlin 的直接 code evidence；contract 强制每个 `observed + codeInspection` 必须存在同平台或 shared 的 `codeInspection` evidence，不能拿无关 test 冒充。
+- UI evidence 最终改用真实匹配的 Light Market 图；AXXXL evidence 同时绑定 AXXXL 与恢复 Large 帧，并明确披露 AXXXL 截图底部存在 `fail to format invalid number: Unlimited...` error toast，因此只能证明当前 Market 几何/可读性，不能证明整页无错误或无 toast。PageFooter 结论收窄为录屏可见范围内没有 visible warning/error toast，不再从录屏外推 device log warning count。History footer/incoming、Star toggle、Add 4 tokens 也分别绑定对应真实历史录屏或首帧/settled 帧及其真实日期。
+
+### 检查结果与零产品变化边界
+
+- Phase 0A Oracle：1 suite / 87 tests Pass。
+- 与现有 Home resolver 的独立直接依赖回归：8 suites / 94 tests Pass。该数字来自 reviewer 对指定 dependency test group 的精确重跑；Oracle 的 87 tests 已在上一条独立报告，不与该数字叠加。
+- 两个 allow-list 文件的 type-aware `oxlint --deny-warnings`、`oxfmt --check` 与 `git diff --check` 均 Pass。依赖回归仅输出既有 `react-test-renderer is deprecated` warning，没有测试失败。
+- Phase 0A 没有改变 UI、cache、DTO、protocol、request lifecycle、Native bridge、feature flag、renderer、authority 或持久化逻辑；没有执行 `yarn app:ios`，没有构建、更新安装或操作 simulator/device，也没有读取、创建、删除或修改钱包状态。
+- 没有执行 uninstall、reinstall、erase、clear data，没有删除 app container、钱包数据库或持久化数据；没有执行 reset、checkout、clean、stash，也没有 stage、commit 或 push。
+
+### Blocked、Open 与历史覆盖边界
+
+- **Blocked：** fresh onboarding、no-wallet first launch、first-created empty wallet、真正 single-network funded wallet、positive unbacked wallet、其它 wallet types（keyless/imported/watching/external/hardware/QR）、Android Debug、iOS 17.4 以下，以及 iPhone Simulator 无法提供的真实 pointer hover。不得复用 Account #8、All Networks 下的单链 scope 或源码存在性冒充这些 fixture 的真实通过。
+- **Open / 本轮未运行：** 独立 pressed-state matrix 与 keyboard/assistive focus-state matrix；Market loading-without-exact-cache、NFT error、runtime capability removal，以及其它 manifest 中标记为 open/notObserved 的状态。pressed/focus 不能由 control 存在或源码审计直接升级为 UI Pass；hover 在当前 iPhone Simulator 条件下保持 Blocked。
+- **Historical only：** Account #1/#8 双向、六 scope、五顶部 Tab、Market Favorites/Trending/Stocks/条件式 Perps、Star、Add 4、History、双向惯性/触底、Dark/Light、当前 Dynamic Type、图片成功/全失败及 PageFooter 等现有证据只作为历史 baseline。所有这些 entry 仍是 `currentRun: notRun`，Phase 0A 没有 fresh Debug 复验。
+
+### Runtime scope 与资源所有权
+
+- **main runtime：** Phase 0A 测试描述和未来模型计划中的 Home session、scope/source/request acceptance、semantic selection、confirmed cache commit、Tab intent、Surface projection、Native snapshot/patch/intent 与 UI/per-view 状态均属于 main 侧职责；本阶段只记录现状，没有新增或移动 owner。
+- **bg runtime：** wallet/account/network/capability 权威、Portfolio/DeFi/Perps/Market/History/NFT service、既有 domain cache 与持久化仍属于 bg；Phase 0A 没有改变 bg service、producer identity 或请求时序。
+- iOS、Android 与 Extension 的 main/bg 是独立 runtime、独立 Hermes JS heap并独立初始化；跨 runtime DTO 经 proxy 序列化/反序列化，双方持有独立 JS 副本。main ready 不代表 bg ready，也不能假设 bg 先 ready。Desktop/Web 为 single runtime，但仍需执行相同 owner/source/request identity 检查。
+- DB/MMKV/file handles、图片/字体 cache 与部分 Native singleton 是进程级共享 Native 资源；cell constraint、diffable snapshot/cell、represented image signature、request cancellation、pressed/hover/focus/selected、scroll offset 与 mounted slot host 是 per-view/main 状态。共享 Native cache 命中不能证明某个 JS runtime、scope、cell reuse 或 UI 状态正确。
+
+### 下一阶段硬门禁
+
+Phase 1 不得自动开始。主 agent 必须先基于已批准的 Section 28 方向，列出 Phase 1 的精确 allow-list、明确行为目标、Do not modify、rollback 边界、pure/model contract 测试矩阵，以及 Legacy/Native 同状态 Debug UI 验证矩阵，再交由用户明确确认。未获得该次确认前，任何 agent 都不得创建 Phase 1 authority/shadow coordinator、修改 production renderer/cache/DTO/protocol/request lifecycle/Native bridge，或以 Phase 0A reviewer Pass 作为继续实施的默认授权。
