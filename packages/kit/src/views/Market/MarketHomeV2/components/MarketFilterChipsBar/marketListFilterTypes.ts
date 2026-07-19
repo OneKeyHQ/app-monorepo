@@ -1,3 +1,5 @@
+import type { IKeyOfIcons } from '@onekeyhq/components';
+
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
 
 export enum EMarketFilterField {
@@ -39,6 +41,8 @@ export type IMarketFilterFieldConfig = {
 export type IMarketFilterPreset = {
   id: string;
   label: string;
+  // Leading icon; also reused as the group anchor icon in the applied state.
+  icon: IKeyOfIcons;
   conditions: IMarketListFilterConditions;
 };
 

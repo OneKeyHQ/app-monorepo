@@ -4,6 +4,7 @@ import { type IntlShape, useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
 import {
+  Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -12,7 +13,9 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
   MarketPerpsStarV2,
   MarketStarV2,
@@ -63,6 +66,40 @@ const REDESIGN_COLUMN_ORDER = [
   'turnover',
 ];
 
+// Figma: these headers carry a dotted underline plus an explainer tooltip.
+// Demo copy is hardcoded English (P1-2 finalizes wording via i18n later).
+const REDESIGN_HEADER_TOOLTIPS: Record<string, string> = {
+  marketCap: 'Circulating market value of the token.',
+  liquidity: 'Total liquidity available in pools.',
+  transactions: 'Buy and sell transactions in the selected time range.',
+  holders: 'Number of addresses holding the token.',
+  turnover: 'Trading volume in the selected time range.',
+};
+
+function renderRedesignHeaderTitle(label: string, tooltip: string) {
+  return (
+    <LazyTooltip
+      placement="top"
+      renderTrigger={
+        <SizableText
+          size="$bodySmMedium"
+          color="$textSubdued"
+          textDecorationLine="underline"
+          style={
+            {
+              textDecorationStyle: 'dotted',
+              textUnderlinePosition: 'from-font',
+            } as any
+          }
+        >
+          {label}
+        </SizableText>
+      }
+      renderContent={tooltip}
+    />
+  );
+}
+
 function getDefaultMarketValue(text: number) {
   return text === 0 ? EMPTY_MARKET_VALUE : text;
 }
@@ -83,21 +120,14 @@ function formatTokenAgeLabel(
   );
 }
 
-function buildRedesignNameSubtitle(intl: IntlShape, record: IMarketToken) {
-  const ageLabel = formatTokenAgeLabel(intl, record.firstTradeTime);
-  const shortAddress = record.address
+function buildRedesignShortAddress(record: IMarketToken) {
+  return record.address
     ? accountUtils.shortenAddress({
         address: record.address,
         leadingLength: 6,
         trailingLength: 4,
       })
     : '';
-
-  if (!ageLabel) {
-    return shortAddress;
-  }
-
-  return shortAddress ? `${ageLabel} · ${shortAddress}` : ageLabel;
 }
 
 function renderRedesignTokenIdentity(
@@ -105,23 +135,25 @@ function renderRedesignTokenIdentity(
   intl: IntlShape,
   showReasonTag: boolean,
 ) {
+  const ageLabel = formatTokenAgeLabel(intl, record.firstTradeTime);
+  const shortAddress = buildRedesignShortAddress(record);
   return (
     <XStack
       alignItems="center"
-      gap="$3"
+      gap={14}
       userSelect="none"
       minWidth={0}
       overflow="hidden"
     >
       <Token
-        size="md"
+        size="lg"
         borderRadius="$full"
         tokenImageUri={record.tokenImageUri}
         tokenImageUris={record.tokenImageUris}
         networkImageUri={record.networkLogoUri}
         fallbackIcon="CryptoCoinOutline"
       />
-      <Stack flex={1} minWidth={0}>
+      <YStack flex={1} minWidth={0} gap="$1">
         <XStack alignItems="center" gap="$1" minWidth={0}>
           <SizableText
             size="$bodyLgMedium"
@@ -132,31 +164,45 @@ function renderRedesignTokenIdentity(
           >
             {record.symbol}
           </SizableText>
-          {showReasonTag ? (
-            // Mock reason tag placeholder (P1-3 scope wires real data later).
-            <XStack
-              alignItems="center"
-              gap="$0.5"
-              px="$1"
-              borderRadius="$1"
-              bg="$bgSubdued"
-              flexShrink={0}
+          <XStack alignItems="center" gap={6} flexShrink={0}>
+            {record.communityRecognized ? <CommunityRecognizedBadge /> : null}
+            {showReasonTag ? (
+              // Mock reason tag placeholder (P1-3 scope wires real data later).
+              <XStack
+                alignItems="center"
+                gap="$1"
+                minWidth={27}
+                px="$1"
+                py="$0.5"
+                borderRadius="$1"
+                bg="$bgHover"
+              >
+                <Icon name="Xbrand" size="$3" color="$iconSubdued" />
+                <SizableText size="$bodyXs" color="$textSubdued">
+                  #1
+                </SizableText>
+              </XStack>
+            ) : null}
+          </XStack>
+        </XStack>
+        <XStack alignItems="center" gap="$1" minWidth={0}>
+          {ageLabel ? (
+            <SizableText size="$bodySmMedium" color="$text" flexShrink={0}>
+              {ageLabel}
+            </SizableText>
+          ) : null}
+          {shortAddress ? (
+            <SizableText
+              size="$bodySm"
+              color="$textDisabled"
+              numberOfLines={1}
+              ellipsizeMode="tail"
             >
-              <SizableText size="$bodySmMedium" color="$textSubdued">
-                𝕏 #1
-              </SizableText>
-            </XStack>
+              {shortAddress}
+            </SizableText>
           ) : null}
         </XStack>
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {buildRedesignNameSubtitle(intl, record)}
-        </SizableText>
-      </Stack>
+      </YStack>
     </XStack>
   );
 }
@@ -634,7 +680,18 @@ export const useColumnsDesktop = (
     const orderedColumns = redesignEnabled
       ? REDESIGN_COLUMN_ORDER.map((key) =>
           columns.find((c) => String(c.dataIndex) === key),
-        ).filter((c): c is NonNullable<typeof c> => Boolean(c))
+        )
+          .filter((c): c is NonNullable<typeof c> => Boolean(c))
+          .map((column) => {
+            const tooltip = REDESIGN_HEADER_TOOLTIPS[String(column.dataIndex)];
+            if (!tooltip || typeof column.title !== 'string') {
+              return column;
+            }
+            return {
+              ...column,
+              title: renderRedesignHeaderTitle(column.title, tooltip),
+            };
+          })
       : columns;
 
     if (!hiddenDesktopColumns?.length) {

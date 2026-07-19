@@ -15,8 +15,9 @@ const fmtUsd = (v: number) => {
   return `$${v}`;
 };
 const fmtCount = (v: number) => (v >= 1000 ? `${v / 1000}K` : `${v}`);
+// Keep hour units up to 48h to match the design copy (e.g. "≤ 48h", not "≤ 2d").
 const fmtAge = (v: number) => {
-  if (v >= 24 * H) return `${v / (24 * H)}d`;
+  if (v > 48 * H) return `${v / (24 * H)}d`;
   if (v >= H) return `${v / H}h`;
   return `${v / M}m`;
 };
@@ -137,11 +138,13 @@ export const MARKET_FILTER_PRESETS: IMarketFilterPreset[] = [
     // turnover sort; PM decides keep/drop at handoff.
     id: 'topTurnover',
     label: 'Top turnover',
+    icon: 'ChartColumnarOutline',
     conditions: {},
   },
   {
     id: 'earlyTokens',
     label: 'Early tokens',
+    icon: 'GrowthOutline',
     conditions: {
       [EMarketFilterField.TokenAgeMax]: 48 * H,
       [EMarketFilterField.LiquidityMin]: 5000,
@@ -151,6 +154,7 @@ export const MARKET_FILTER_PRESETS: IMarketFilterPreset[] = [
   {
     id: 'largeCap',
     label: 'Large-cap tokens',
+    icon: 'GalaxyOutline',
     conditions: {
       [EMarketFilterField.MarketCapMin]: 100_000_000,
     },

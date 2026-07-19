@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 
 import {
-  Badge,
   Button,
   Icon,
   Popover,
@@ -133,24 +132,37 @@ export function MarketFiltersPopover({
       renderTrigger={
         <XStack
           alignItems="center"
+          justifyContent="center"
           gap="$1"
-          px="$2.5"
-          py="$1.5"
+          minWidth={32}
+          px={7}
+          py={5}
           borderRadius="$full"
-          bg={activeConditionCount > 0 ? '$bgStrong' : undefined}
-          hoverStyle={{ bg: '$bgStrongHover' }}
-          pressStyle={{ bg: '$bgStrongActive' }}
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          userSelect="none"
           onPress={noop}
           role="button"
           testID="market-filters-popover-trigger"
         >
-          <SizableText size="$bodySmMedium" color="$text">
+          <Icon name="Filter1Outline" size="$4" color="$iconSubdued" />
+          <SizableText size="$bodySmMedium" color="$textSubdued">
             Filters
           </SizableText>
           {activeConditionCount > 0 ? (
-            <Badge badgeType="default" badgeSize="sm">
-              <Badge.Text>{activeConditionCount}</Badge.Text>
-            </Badge>
+            <XStack
+              minWidth={18}
+              px="$1"
+              py={1}
+              borderRadius="$full"
+              bg="$bgStrong"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                {activeConditionCount}
+              </SizableText>
+            </XStack>
           ) : null}
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         </XStack>
