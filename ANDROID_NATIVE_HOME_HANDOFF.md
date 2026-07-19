@@ -2372,3 +2372,54 @@ Polygon 的完整 Tab 结果：Spot 使用当前 POL rows，并在 `50-polygon-s
 - 18 个相关 TS/TSX 文件的 type-aware oxlint 与 oxfmt Pass；handoff、iOS/Android Native view、Native Home adapter/controller/type 和 PageFooter 的指定 `git diff --check` Pass。
 - `yarn agent:check --profile commit` 的 `lint-worktree-js`、`lint-worktree-ts`、`format-worktree`、`agent-context` 和 `lint-staged` 全部 Pass；只有 `tsc-staged` Fail。日志目录为 `node_modules/.cache/agent-checks/2026-07-19T17-51-23-787Z/`。
 - `tsc-staged` 仅报告两个共享工作区既有且不属于本轮 Native Home/PageFooter 的错误：`apps/desktop/web-build/static/js-sdk/data/config.ts` 缺少 `./config.perfReady`，`packages/kit/src/views/Home/NativeHomePageView.native.tsx` 引用了 `MDHeader` 未导出的 `HOME_HEADER_SEARCH_ROW_HEIGHT`。没有回滚或修改这些无关 owner 来制造绿色结果。
+
+## 2026-07-20 Home State Model 重构启动约束与 Phase 0 行为 Oracle
+
+当前工作区中的 `HOME_STATE_MODEL_REFACTOR_PLAN.md` 提出了一套待确认的首页状态模型重构方向。计划目标不是把 Native Home 变成新的业务权威，也不是一次性替换现有首页；Legacy React Home 与 iOS/Android Native Home 最终消费同一套 `HomeSemanticModel`，Native 只负责把已确定的语义和 Surface contract 渲染出来，不再从 raw balance、account、network、server config 或 capability 重算 zero/funded、actions、Tab、section 和 fallback。Web、Desktop、Extension 与 Mobile React Native 也通过各自 runtime adapter 复用同一语义规则，但迁移保持兼容路径和可回滚边界，禁止 big-bang。上述内容均为计划提案，不代表用户已逐项批准。
+
+### 计划提出、待用户逐项确认的目标架构方向
+
+- 只定义两类 temporal async state machine：每个 Home scope incarnation 一个 `HomeSessionMachine`，以及按适用 source 实例化的通用 `ScopedResourceMachine<T>`。backup、balance presentation、capability 和 section presentation 不各自复制机器。
+- 只使用两个小型 pure reducer：`ConfirmedCacheReducer` 管理 exact confirmed records 与淘汰；`TabIntentReducer` 管理用户 Tab intent 和集中、确定性的 selected fallback。zero/funded、actions、banner、capability matrix、section state、cache eligibility 等保持 pure selector/decision table。
+- identity 必须分层：`HomeOwnerScope/scopeKey` 只表达 wallet、account、All Networks 或 single network；每次 scope 激活生成新的 `sessionId`；source 使用包含参数、schema、quote basis 的 `HomeSourceKey`；每个请求使用包含 main client、session、source、sequence 的 `HomeRequestToken`。A -> B -> A、同 scope request 2 -> 1、bg producer restart 和迟到 Native intent 都必须依靠完整 identity 拒绝 stale completion，不能依靠 cancellation、delay 或 renderer remount 猜测正确性。
+- confirmed cache 只能 exact `HomeSourceKey` 命中，保留 live/confirmed provenance，使用有界 LRU/TTL；只允许 current accepted complete success/empty 写入。partial total 不是 exact header total，不能写 confirmed cache，也不能冒充 `$0`；有可靠 positive evidence 时最多进入 `fundedPendingTotal`，总额仍保持 Skeleton。不同币种不能只改 label，必须把 quote basis/revision 纳入 identity 或做权威换算。
+- main runtime 拥有 active Home session、`sessionId`、accepted source snapshots、aggregation completeness、selected intent、confirmed Home cache commit command、SemanticStore、Surface projection 和 typed intent dispatcher；bg 只负责数据获取、既有 domain cache、DB/Native service 和带 producer identity 的 JSON-safe source response，不能产出 `HomeSemanticModel`、决定 zero/funded 或选择 Tab。iOS、Android、Extension 为 split runtime、独立 JS heap 与独立初始化；Desktop/Web 为 single runtime，但仍执行相同 owner/source/request stale validation。DB/MMKV/file handles、图片/字体 cache 和 Native singleton 可能是进程级共享资源，不能据此假设 JS 对象或 ready 状态共享。
+- Native transport 按 protocol-v2 方向演进：snapshot/typed patch 都携带 protocol/schema、owner、revision，patch 额外携带 `baseRevision`；Swift/Kotlin 在临时副本上校验后原子 apply，gap、owner mismatch 或 invariant failure 请求 full snapshot，不再自行选择第一个 Tab 充当业务 fallback。Native intent 和 RN slot bundle 同样携带 owner/revision；slot 与 snapshot owner 不一致时只能显示当前 owner placeholder 或 resync，不能混合旧 owner UI。协议 v1 compatibility adapter 在 v2 真实证明前保留。
+- 迁移固定按计划 Phase 0 到 Phase 7 渐进执行：Phase 0 行为 oracle；Phase 1 owner/source/request authority shadow；Phase 2 HomeFacts/SemanticStore shadow comparison；Phase 3 Native protocol-v2 transport；Phase 4 balance/header/actions/banner；Phase 5 capability/navigation；Phase 6 按 Spot/Perps/DeFi/NFT/History/Market 顺序逐 section；Phase 7 SurfacePolicy、性能、architecture guard 和通过门禁后的兼容逻辑清理。每个 phase 都必须列出 exact permitted file scope、Do not modify、rollback、测试和 UI acceptance，不能把候选文件清单当作一次性授权。
+
+### Section 28：产品实现前必须明确确认的八项启动门槛
+
+以下八项必须逐项获得用户确认，不能因为计划文件存在或当前开始准备性审计就默认全部通过：
+
+1. 两机器架构：`HomeSessionMachine` 与通用 `ScopedResourceMachine<T>`；
+2. package boundary：pure model 位于 `packages/kit/src/views/Home/model/`，Home feature `contextAtom` 位于 `packages/kit/src/states/jotai/contexts/home/`，只有 JSON-safe main/bg transport contract 可按依赖层级放入 `packages/shared`；
+3. owner/session/source/request identity 合同；
+4. balance aggregation complete coverage 与 required-set revision 规则；
+5. split-runtime / single-runtime adapter 合同；
+6. Native protocol-v2 的 owner/revision/baseRevision/ack/resync 方向；
+7. Phase 0 到 Phase 7 的迁移顺序；
+8. 首个实施 phase 及其精确允许修改文件范围。
+
+当前仅授权推进 **Phase 0 的准备性现状审计、行为 oracle/golden vector 盘点和 exact file-scope proposal**。这项工作要把现有 Legacy/Native 差异分类为 intentional、historical drift 或 defect，并保留当前真实截图/录屏为 baseline；它不等于八项门槛已经全部确认。门槛和 exact permitted files 未确认前，不修改 production renderer、业务 authority、cache owner、Native bridge、feature selection 或其它产品代码；如 Phase 0 需要新增测试/fixture，也必须先由主 agent 提交精确文件范围并获得确认。
+
+### 重构后的自动真实 UI 回归门禁
+
+- 每个影响可见语义或 Native transport 的 phase 完成后，由未参与编写的独立 UI verifier 使用标准 `yarn app:ios` Debug 包重走当天已经建立的全部真实用例，而不是以 compile、unit test、元素存在或最终 settled frame代替验收。
+- 回归至少覆盖：Account #8 空账户与 Account #1 有钱账户双向切换首帧；无旧 owner actions/rows；无 `$0 -> partial -> final`；All Networks 与 BTC/ETH/SOL/Polygon/TON/TRON scope 和 capability Tab矩阵；TON no-address 限制；Tab/section 首帧无白屏、无 `rows -> empty -> rows`、无高度/content-offset 跳变；Single/All selector 与 PageFooter warning；双向 fling、真实触底；Dark Mode、Dynamic Type、pressed/hover/focus、图片全部候选失败态，以及对应 Legacy/Native 同状态 A/B。没有可用 fixture 的状态必须明确标记未覆盖，禁止写死数据制造 Pass。
+- UI verifier 必须保留 first/100ms/300ms/settled 多帧、402px 对照/diff、完整录屏、gesture telemetry、稳定 accessibility identifier 与 main/bg runtime 日志。每轮同时确认应用持续存活、钱包数据正常、main 与 bg 分别 ready；main ready 不能替代 bg ready。
+
+### Subagent 职责、每轮交接与安全约束
+
+- 主 agent 只负责拆分 phase、保护 scope、汇总证据和精确协调提交；writer subagent 只写获准文件并补测试；未参与编写的 code reviewer subagent 审计 architecture、race、identity、类型和测试并给出可定位 Pass/Fail；独立 UI verifier subagent 只负责标准 Debug 真实交互与视觉证据。writer、reviewer、UI verifier 不互相替代，主 agent 不直接编写产品代码或自行宣布验收通过。
+- 每轮按“writer -> independent reviewer -> Debug UI verifier（适用时）-> handoff”闭环；失败与限制不得被后续 Pass 覆盖。完成一轮后先更新本 handoff，再由主 agent 按用户要求只 stage 本轮获准文件，执行风险相称检查，使用 `type: short description` commit 并 push 当前分支。任何 subagent 都不得自行扩大提交范围；本轮 documentation writer 不 stage、commit 或 push。
+- 保留所有用户和其它任务 dirty files；禁止 reset、checkout、clean、stash、覆盖或回滚无关代码。UI 阶段固定使用 `yarn app:ios` 负责 Debug build、Metro、更新安装和启动；禁止 Release、自定义 Release `xcodebuild`、`CODE_SIGNING_ALLOWED=NO`，禁止单独 uninstall/reinstall、erase、clear data，禁止删除 simulator app container、钱包数据库或持久化数据。除非对应 phase 明确授权，不得混入 Discovery、Swap、TradingView、Firmware、Performance 或其它无关模块。
+- `HOME_STATE_MODEL_REFACTOR_PLAN.md` 是当前工作区中的 **untracked architecture proposal**，仅作为待确认审计输入；不得修改、stage 或误入本轮 handoff/产品提交。每次提交前必须用精确 pathspec 和 `git diff --cached --name-only` 再确认提交边界。
+
+### 独立准备性审计结果
+
+- Section 28 的八项启动门槛当前为 **8/8 待用户逐项确认**，因此产品实现结论为 **NO-GO**。准备性审计、推荐方案和文件清单都不构成用户批准，不得据此修改产品代码。
+- 推荐的首个阶段为 **Phase 0A：test-only Behavior Oracle**。只有用户确认后，精确 allow-list 才是 `packages/kit/src/views/Home/model/tests/fixtures/homeBehaviorOracleFixtures.ts` 与 `packages/kit/src/views/Home/model/tests/homeBehaviorOracle.test.ts`；完成并经独立 reviewer 复核后，结果可另行追加到本 handoff。不得顺带创建或修改其它 model、adapter、renderer、atom、Native 或 service 文件。
+- Phase 0A 只固化现有行为和差异分类，承诺 UI、cache、DTO、protocol、request lifecycle、Native bridge **零变化**，也不运行 `yarn app:ios`。它不能提前引入新 authority、shadow coordinator、protocol-v2 或 renderer 迁移。
+- Behavior Oracle 复用今天已经留存的 Account #1/#8、六 scope、五 Tab、Market、History、滚动、theme/font/image 与 PageFooter 历史截图、录屏、逐帧和日志证据作为预期来源；不得重新解释 Fail 或用最终 settled frame 覆盖首帧证据。fresh/no-wallet、真正单链有钱、正余额未备份、其它 wallet type、Android Debug、iOS 17.4 以下等仍为 **Blocked/未覆盖**，不能编造 expected Pass。
+- 独立 reviewer 已复核本章节的授权边界、待确认措辞、职责与安全约束，当前结论为 **Pass**；该 Pass 只针对 handoff/准备性审计质量，不表示 Section 28 或 Phase 0A 已获用户批准。
+- 本轮 `yarn agent:check --profile commit` 日志目录为 `node_modules/.cache/agent-checks/2026-07-19T18-16-05-230Z/`：除 `tsc-staged` 的两个既有无关错误外其余检查均 Pass。两个阻断仍是 Desktop `config.ts` 缺少 `./config.perfReady`，以及 `NativeHomePageView.native.tsx` 引用了 `MDHeader` 未导出的 `HOME_HEADER_SEARCH_ROW_HEIGHT`；不得修改这些无关 owner 只为制造绿色结果。
