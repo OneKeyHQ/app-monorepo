@@ -70,6 +70,7 @@ import {
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
   useSwapProSupportNetworksTokenListAtom,
+  useSwapProTokenMarketDetailInfoAtom,
   useSwapProTokenSupportLimitAtom,
   useSwapProTokenTransactionPriceAtom,
   useSwapProTradeTypeAtom,
@@ -105,6 +106,7 @@ import {
   getSwapProDefaultTokens,
 } from '../utils/swapTypeUtils';
 
+import { backfillSwapProTokenStockIdentity } from './swapStockChannelUtils';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
 type ISwapProSearchTokenListItem = IMarketSearchV2Token & {
@@ -630,7 +632,8 @@ export function useSwapProTokenInfoSync() {
 }
 
 export function useSwapProTokenInit() {
-  const { setSwapProSelectToken } = useSwapActions().current;
+  const { setSwapProSelectToken, cancelSpeedQuote, cleanSpeedQuote } =
+    useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProTokenSupportLimit] = useSwapProTokenSupportLimitAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
@@ -639,8 +642,10 @@ export function useSwapProTokenInit() {
     useSwapProSellToTokenAtom();
   const [swapProUseSelectBuyTokenAtom, setSwapProUseSelectBuyTokenAtom] =
     useSwapProUseSelectBuyTokenAtom();
-  const [swapProInputAmount] = useSwapProInputAmountAtom();
-  const [swapFromInputAmount] = useSwapFromTokenAmountAtom();
+  const [swapProInputAmount, setSwapProInputAmount] =
+    useSwapProInputAmountAtom();
+  const [swapFromInputAmount, setSwapFromInputAmount] =
+    useSwapFromTokenAmountAtom();
 
   const {
     defaultTokens,
@@ -700,10 +705,17 @@ export function useSwapProTokenInit() {
       tokens: defaultTokensFromType,
       isStockPair: !!swapProSelectToken?.isStock,
     });
-    // A misconfigured pool (e.g. native-only defaults for a stock pair) has
-    // nothing valid to select; keep the previous selection instead of
-    // writing undefined and killing quotes.
+    // Fail closed: with no whitelist candidate a stock pair must never keep
+    // trading against the previously selected counterparty. Drop the
+    // selection, its amount and any in-flight quote — the action button
+    // stays disabled until the config provides valid candidates.
     if (candidateTokens.length === 0) {
+      if (swapProUseSelectBuyTokenAtom) {
+        setSwapProUseSelectBuyTokenAtom(undefined);
+        setSwapProInputAmount('');
+        cancelSpeedQuote();
+        void cleanSpeedQuote();
+      }
       return;
     }
     if (
@@ -759,6 +771,9 @@ export function useSwapProTokenInit() {
     swapProSelectToken?.isStock,
     swapProUseSelectBuyTokenAtom,
     setSwapProUseSelectBuyTokenAtom,
+    setSwapProInputAmount,
+    cancelSpeedQuote,
+    cleanSpeedQuote,
     defaultTokensFromType,
     findPreferredToken,
   ]);
@@ -800,8 +815,16 @@ export function useSwapProTokenInit() {
       tokens: defaultTokensFromType,
       isStockPair: !!swapProSelectToken?.isStock,
     });
-    // Same misconfigured-pool guard as the BUY init above.
+    // Same fail-closed rule as the BUY init above: clear the SELL
+    // counterparty (and the sell amount, which denominates in the traded
+    // token but must not quote against a stale receive token).
     if (sellCandidateTokens.length === 0) {
+      if (swapProSellToToken) {
+        setSwapProSellToToken(undefined);
+        setSwapFromInputAmount({ value: '', isInput: true });
+        cancelSpeedQuote();
+        void cleanSpeedQuote();
+      }
       return;
     }
     if (
@@ -902,6 +925,9 @@ export function useSwapProTokenInit() {
   }, [
     defaultTokensFromType,
     setSwapProSellToToken,
+    setSwapFromInputAmount,
+    cancelSpeedQuote,
+    cleanSpeedQuote,
     swapProSelectToken?.networkId,
     swapProSelectToken?.contractAddress,
     swapProSelectToken?.isStock,
@@ -1233,8 +1259,23 @@ export function useSwapProTokenSearch(
 }
 
 export function useSwapProTokenDetailInfo() {
-  const { swapProTokenMarketDetailFetchAction } = useSwapActions().current;
+  const { swapProTokenMarketDetailFetchAction, setSwapProSelectToken } =
+    useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
+  // Tokens persisted before the isStock field existed restore without it and
+  // would bypass the stock stable-coin rules; once the authoritative market
+  // detail for the selected token arrives, backfill the flag and re-persist
+  // so the migration sticks.
+  useEffect(() => {
+    const backfilled = backfillSwapProTokenStockIdentity({
+      token: swapProSelectToken,
+      tokenDetail: proTokenDetail,
+    });
+    if (backfilled && backfilled !== swapProSelectToken) {
+      void setSwapProSelectToken(backfilled);
+    }
+  }, [proTokenDetail, swapProSelectToken, setSwapProSelectToken]);
   const fetchTokenMarketDetailInfo = useCallback(async () => {
     if (swapProSelectToken?.networkId) {
       void swapProTokenMarketDetailFetchAction(
