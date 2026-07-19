@@ -563,9 +563,6 @@ async function getRNLocalImageBase64({
   logFn?: ICommonImageLogFn;
 }) {
   const errors: string[] = [];
-  let downloadedUri: string | undefined | null;
-  let downloadedUri1: string | undefined | null;
-  let downloadedUri2: string | undefined | null;
   let base64a: string | undefined;
   let base64b: string | undefined;
   let base64c: string | undefined;
@@ -582,32 +579,6 @@ async function getRNLocalImageBase64({
       (error as Error)?.message || '',
     );
   }
-
-  // **** use expo-asset
-  // https://stackoverflow.com/a/77425150
-  //
-  // if (isNumber(nativeModuleId)) {
-  //   try {
-  //     const loadAsyncResult = await Asset.loadAsync(nativeModuleId);
-  //     downloadedUri = loadAsyncResult?.[0]?.localUri;
-  //     downloadedUri1 = (loadAsyncResult || [])
-  //       .map((item) => item?.uri || '')
-  //       .join(',');
-  //     downloadedUri2 = (loadAsyncResult || [])
-  //       .map((item) => item?.localUri || '')
-  //       .join(',');
-  //     if (downloadedUri) {
-  //       base64a1 = await ExpoFSReadAsStringAsync(downloadedUri, {
-  //         encoding: 'base64',
-  //       });
-  //     }
-  //   } catch (error) {
-  //     errors.push(
-  //       'ExpoFSReadAsStringAsync downloadedUri error',
-  //       (error as Error)?.message || '',
-  //     );
-  //   }
-  // }
 
   // **** use react-native-image-base64
   // import RNImgToBase64 from 'react-native-image-base64';
@@ -637,10 +608,7 @@ async function getRNLocalImageBase64({
   // }
 
   logFn?.('getRNLocalImageBase64 errors', errors.join('  |||   '));
-  logFn?.('getRNLocalImageBase64 uris', uri, downloadedUri || '', uri2 || '');
-  logFn?.('getRNLocalImageBase64 downloadedUri', downloadedUri || '');
-  logFn?.('getRNLocalImageBase64 downloadedUri1', downloadedUri1 || '');
-  logFn?.('getRNLocalImageBase64 downloadedUri2', downloadedUri2 || '');
+  logFn?.('getRNLocalImageBase64 uris', uri, uri2 || '');
   logFn?.(
     'getRNLocalImageBase64 base64',
     base64a || '',
