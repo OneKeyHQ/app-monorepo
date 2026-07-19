@@ -63,7 +63,7 @@ function HeadlessBuyTokenSelectorPage() {
 
   return (
     <Page>
-      <Page.Header title="選擇資產" />
+      <Page.Header title="Select asset" />
       <Page.Body>
         <TokenDataContainer
           networkId={networkId}

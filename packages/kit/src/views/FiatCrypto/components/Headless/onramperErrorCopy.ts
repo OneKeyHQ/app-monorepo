@@ -2,46 +2,48 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Readable copy for every SDK error code that can surface inline on the buy
 // page (quote stage and checkout events). The raw SDK messages are technical
-// English and must never reach the user. Placeholder Chinese literals pending
-// the i18n pass, same as the rest of the Headless UI. Codes mirror the SDK's
+// and must never reach the user. Hardcoded English pending the i18n pass,
+// same as the rest of the Headless UI. Codes mirror the SDK's
 // `OnramperErrorCode` union (1.1.0).
 const ERROR_COPY: Record<string, string> = {
   // User-fixable input errors. `quoteUnavailable` (backend 40003) also covers
   // below-minimum amounts — Onramper doesn't expose the limits at quote time,
   // so the copy points at the amount as the actionable lever.
-  amountOutOfRange: '金額超出供應商限額，請調整金額',
-  quoteUnavailable: '此金額暫無可用報價，可能超出供應商限額，請調整金額後重試',
+  amountOutOfRange: 'Amount is outside the provider limits. Adjust the amount',
+  quoteUnavailable:
+    'No quote available for this amount. It may be outside the provider limits — adjust the amount and try again',
   // Transient environment errors.
-  networkError: '網路連線異常，請檢查網路後重試',
-  timeout: '請求逾時，請重試',
-  temporaryFailure: '服務暫時不可用，請稍後重試',
-  invalidRequest: '暫時無法處理此請求，請稍後重試',
-  decodingError: '資料解析失敗，請重試',
+  networkError: 'Network error. Check your connection and try again',
+  timeout: 'Request timed out. Try again',
+  temporaryFailure: 'Service temporarily unavailable. Try again later',
+  invalidRequest: 'Unable to process this request right now. Try again later',
+  decodingError: 'Failed to parse the response. Try again',
   // Stale page / intent state.
-  notInitialized: '頁面狀態已過期，請重試',
-  initializationFailed: '初始化失敗，請重試',
-  invalidState: '頁面狀態已過期，請重試',
-  invalidStateTransition: '頁面狀態已過期，請重試',
-  intentInvalidated: '報價已過期，請重試',
-  intentAlreadyConsumed: '報價已使用，請重新報價',
-  requirementNotSatisfied: '尚有未完成的驗證步驟，請重試',
+  notInitialized: 'This page has expired. Try again',
+  initializationFailed: 'Initialization failed. Try again',
+  invalidState: 'This page has expired. Try again',
+  invalidStateTransition: 'This page has expired. Try again',
+  intentInvalidated: 'The quote has expired. Try again',
+  intentAlreadyConsumed: 'The quote was already used. Get a new quote',
+  requirementNotSatisfied: 'A verification step is incomplete. Try again',
   // Login / session state.
-  userTokenInvalid: '登入狀態已過期，請重試',
-  userTokenRefreshFailed: '登入狀態已過期，請重試',
-  sessionExpirationHandlerFailed: '會話已過期，請重試',
-  oidcFlowCancelled: '已取消身分驗證',
-  oidcFlowFailed: '身分驗證失敗，請重試',
-  oidcTokenExchangeFailed: '身分驗證失敗，請重試',
+  userTokenInvalid: 'Your login has expired. Try again',
+  userTokenRefreshFailed: 'Your login has expired. Try again',
+  sessionExpirationHandlerFailed: 'The session has expired. Try again',
+  oidcFlowCancelled: 'Identity verification canceled',
+  oidcFlowFailed: 'Identity verification failed. Try again',
+  oidcTokenExchangeFailed: 'Identity verification failed. Try again',
   // Payment surface.
-  webviewLoadFailed: '無法開啟支付頁面，請重試',
-  deepLinkFailed: '無法開啟支付頁面，請重試',
+  webviewLoadFailed: 'Unable to open the payment page. Try again',
+  deepLinkFailed: 'Unable to open the payment page. Try again',
   // Device security (retry copy; genuinely blocked devices surface structural
   // codes and go to the web fallback instead).
-  securityStorageFailed: '裝置安全檢查未通過，請重試',
-  securityTrustFailed: '裝置安全檢查未通過，請重試',
+  securityStorageFailed: 'Device security check failed. Try again',
+  securityTrustFailed: 'Device security check failed. Try again',
 };
 
-const DEFAULT_ERROR_COPY = '暫時無法完成購買，請稍後重試';
+const DEFAULT_ERROR_COPY =
+  'Unable to complete the purchase right now. Try again later';
 
 function toAmountText(value: unknown): string | undefined {
   const n = Number(value);
@@ -62,11 +64,11 @@ export function getOnramperErrorMessage(err: {
   const min = toAmountText(err?.info?.min);
   const max = toAmountText(err?.info?.max);
   if (min !== undefined && max !== undefined) {
-    copy = `請輸入 $${min} – $${max} 之間的金額`;
+    copy = `Enter an amount between $${min} and $${max}`;
   } else if (min !== undefined) {
-    copy = `最低購買金額為 $${min}，請調整金額`;
+    copy = `The minimum purchase is $${min}. Adjust the amount`;
   } else if (max !== undefined) {
-    copy = `最高購買金額為 $${max}，請調整金額`;
+    copy = `The maximum purchase is $${max}. Adjust the amount`;
   }
   // Dev builds append the raw code so on-device QA screenshots map back to the
   // SDK error without a log capture.

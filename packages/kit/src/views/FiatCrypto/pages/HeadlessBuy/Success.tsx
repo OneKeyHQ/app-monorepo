@@ -27,7 +27,7 @@ import {
 
 import type { RouteProp } from '@react-navigation/core';
 
-// 中: post-payment result page. One centered group — the success landing
+// Post-payment result page. One centered group — the success landing
 // animation (the same Lottie the Swap/DeFi results use), title/description,
 // and the order details in a compact card (no dividers). Reached via
 // CommonActions.reset — the buy flow behind it no longer exists in the stack,
@@ -60,7 +60,7 @@ function HeadlessBuySuccessPage() {
 
   return (
     <Page>
-      <Page.Header title="訂單已提交" headerLeft={() => null} />
+      <Page.Header title="Order submitted" headerLeft={() => null} />
       <Page.Body px="$5" pb="$3">
         <Stack flex={1} jc="center">
           <YStack ai="center" gap="$6">
@@ -74,24 +74,25 @@ function HeadlessBuySuccessPage() {
             />
             <YStack ai="center" gap="$2">
               <SizableText size="$headingXl" textAlign="center">
-                支付成功
+                Payment successful
               </SizableText>
               <SizableText
                 size="$bodyLg"
                 color="$textSubdued"
                 textAlign="center"
               >
-                訂單已提交，{tokenSymbol} 將於稍後發送至你的地址
+                Order submitted — {tokenSymbol} will be sent to your address
+                shortly
               </SizableText>
             </YStack>
             <YStack bg="$bgSubdued" borderRadius="$3" p="$4" w="100%" gap="$3">
-              <DetailRow label="支付金額">
+              <DetailRow label="Amount paid">
                 <SizableText size="$bodyMdMedium">
                   {formatPrice(fiatAmount)}
                 </SizableText>
               </DetailRow>
               {payout !== undefined ? (
-                <DetailRow label="預估到賬">
+                <DetailRow label="Est. receive">
                   <NumberSizeableText
                     size="$bodyMdMedium"
                     formatter="balance"
@@ -102,7 +103,7 @@ function HeadlessBuySuccessPage() {
                 </DetailRow>
               ) : null}
               {providerName ? (
-                <DetailRow label="供應商">
+                <DetailRow label="Provider">
                   <XStack ai="center" gap="$1.5">
                     <ProviderLogo provider={providerName} />
                     <SizableText size="$bodyMdMedium">
@@ -111,7 +112,7 @@ function HeadlessBuySuccessPage() {
                   </XStack>
                 </DetailRow>
               ) : null}
-              <DetailRow label="網路">
+              <DetailRow label="Network">
                 <XStack ai="center" gap="$1.5">
                   <NetworkAvatar networkId={networkId} size="$5" />
                   <SizableText size="$bodyMdMedium">
@@ -120,14 +121,14 @@ function HeadlessBuySuccessPage() {
                 </XStack>
               </DetailRow>
               {address ? (
-                <DetailRow label="收款地址">
+                <DetailRow label="Receiving address">
                   <SizableText size="$bodyMdMedium">
                     {accountUtils.shortenAddress({ address })}
                   </SizableText>
                 </DetailRow>
               ) : null}
               {checkoutId ? (
-                <DetailRow label="訂單編號">
+                <DetailRow label="Order ID">
                   <SizableText size="$bodyMdMedium">
                     {accountUtils.shortenAddress({ address: checkoutId })}
                   </SizableText>
@@ -137,7 +138,7 @@ function HeadlessBuySuccessPage() {
           </YStack>
         </Stack>
       </Page.Body>
-      <Page.Footer onConfirm={handleDone} onConfirmText="完成" />
+      <Page.Footer onConfirm={handleDone} onConfirmText="Done" />
     </Page>
   );
 }

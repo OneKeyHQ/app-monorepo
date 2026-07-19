@@ -148,7 +148,8 @@ function HeadlessBuyPage() {
   }, []);
 
   // Preset tap = one-step buy entry: fill the amount AND jump straight to
-  // review (the quote debounce runs there; the zone shows 詢價中 meanwhile).
+  // review (the quote debounce runs there; the zone shows its quoting state
+  // meanwhile).
   const handlePresetSelect = useCallback(
     (value: string) => {
       handleAmountChange(value);
@@ -470,12 +471,12 @@ function HeadlessBuyPage() {
 
   const handleSelectProvider = useCallback(() => {
     ActionList.show({
-      title: '選擇供應商',
+      title: 'Select provider',
       sections: [
         {
           items: [
             {
-              label: '自動（推薦）',
+              label: 'Auto (recommended)',
               onPress: () => setSelectedProvider(undefined),
             },
             ...providerOptions.map((slug) => ({
@@ -500,8 +501,8 @@ function HeadlessBuyPage() {
           onPress={async () => {
             await signOut();
             Toast.success({
-              title: '已登出 OnramperID',
-              message: '下次購買將重新驗證郵箱和手機號',
+              title: 'Signed out of OnramperID',
+              message: 'The next purchase will re-verify email and phone',
             });
           }}
         />
@@ -514,7 +515,7 @@ function HeadlessBuyPage() {
       {/* In review the close button returns to input via the beforeRemove
           interception above. */}
       <Page.Header
-        title={activeToken?.symbol ? `購買 ${activeToken.symbol}` : '購買'}
+        title={activeToken?.symbol ? `Buy ${activeToken.symbol}` : 'Buy'}
         headerRight={renderDevSignOutButton}
       />
       <Page.Body>
@@ -629,7 +630,7 @@ function HeadlessBuyPage() {
                     variant="primary"
                     onPress={enterReview}
                   >
-                    預覽訂單
+                    Preview order
                   </Button>
                 ) : (
                   <PresetRow onSelect={handlePresetSelect} />

@@ -23,7 +23,8 @@ const ZONE_MIN_HEIGHT = 56;
 // Mock-preview only: the real SDK button renders its own consent sentence
 // (with document links) under the native Buy button; the mock mimics that
 // structure so the reserved slot reads the same in the Gallery.
-const MOCK_TOS_TEXT = '點擊即表示同意 Onramper 的服務條款與隱私政策';
+const MOCK_TOS_TEXT =
+  'By continuing you agree to the Onramper Terms of Service and Privacy Policy';
 
 type IProps = {
   state: EBuyActionState;
@@ -68,7 +69,7 @@ export function BuyActionZone({
           variant="primary"
           onPress={onWebFallback}
         >
-          改用網頁版購買
+          Buy via web instead
         </Button>
       </YStack>
     );
@@ -81,7 +82,7 @@ export function BuyActionZone({
         variant="primary"
         onPress={onRetry}
       >
-        重試
+        Retry
       </Button>
     );
   } else if (
@@ -97,7 +98,7 @@ export function BuyActionZone({
         disabled
         loading={state === EBuyActionState.Preparing}
       >
-        {state === EBuyActionState.Preparing ? '詢價中…' : '購買'}
+        {state === EBuyActionState.Preparing ? 'Getting quote…' : 'Buy'}
       </Button>
     );
   } else {
@@ -129,7 +130,7 @@ export function BuyActionZone({
               variant="primary"
               onPress={onMockPay}
             >
-              用 Apple Pay 購買
+              Buy with Apple Pay
             </Button>
             <SizableText size="$bodySm" color="$textSubdued" ta="center">
               {MOCK_TOS_TEXT}

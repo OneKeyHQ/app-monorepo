@@ -11,7 +11,7 @@ import { toOnramperNetworkCode } from './onramperCodes';
 // TEMPORARY(onramper-demo): the backend `headlessSupported` flags (OK-58060)
 // haven't shipped, so production entries can't route headless yet. Dev builds
 // treat the staging-tested native coins as supported so the flow can be
-// demoed from the REAL entries (Home → 買入 → pick a token) instead of the
+// demoed from the REAL entries (Home → Buy → pick a token) instead of the
 // Gallery. Remove when the backend flag lands. Keys are OneKey network ids;
 // values are lowercase token addresses ('' = the chain's native coin).
 const DEV_HEADLESS_ALLOWLIST: Record<string, Set<string>> = {

@@ -55,7 +55,7 @@ type IProps = {
   onSelectProvider?: () => void;
 };
 
-// 中: the review breakdown — a flat list of label/value rows with a divider
+// The review breakdown — a flat list of label/value rows with a divider
 // between every adjacent pair. Rows render conditionally, so they are
 // collected first and the dividers interleaved; each bundle fades in/out on
 // appearance. No height animation here by design: the hero container above
@@ -86,7 +86,7 @@ export function CheckoutInfoCard({
   rows.push({
     key: 'payout',
     node: (
-      <DetailRow label="預估到賬" py="$2">
+      <DetailRow label="Est. receive" py="$2">
         {payout !== undefined ? (
           <XStack ai="center" gap="$1">
             <NumberSizeableText
@@ -113,12 +113,12 @@ export function CheckoutInfoCard({
     rows.push({
       key: 'fee',
       node: (
-        <DetailRow label="費用" py="$2">
+        <DetailRow label="Fees" py="$2">
           {!hasFee ? (
             <Skeleton.BodyMd />
           ) : (
             <Popover
-              title="費用"
+              title="Fees"
               renderTrigger={
                 <XStack ai="center" gap="$1" cursor="pointer">
                   <NumberSizeableText
@@ -139,13 +139,13 @@ export function CheckoutInfoCard({
                 <YStack p="$5" gap="$3">
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {networkName
-                      ? `費用由 ${networkName} 網路費與手續費構成。`
-                      : '費用由網路費與手續費構成。'}
+                      ? `Fees consist of the ${networkName} network fee and the transaction fee.`
+                      : 'Fees consist of the network fee and the transaction fee.'}
                   </SizableText>
                   {networkFee !== undefined ? (
                     <XStack jc="space-between" ai="center">
                       <SizableText size="$bodyMd" color="$textSubdued">
-                        網路費
+                        Network fee
                       </SizableText>
                       <SizableText size="$bodyMd">
                         {formatPrice(networkFee)}
@@ -155,7 +155,7 @@ export function CheckoutInfoCard({
                   {transactionFee !== undefined ? (
                     <XStack jc="space-between" ai="center">
                       <SizableText size="$bodyMd" color="$textSubdued">
-                        手續費
+                        Transaction fee
                       </SizableText>
                       <SizableText size="$bodyMd">
                         {formatPrice(transactionFee)}
@@ -174,11 +174,11 @@ export function CheckoutInfoCard({
     rows.push({
       key: 'provider',
       node: !providerName ? (
-        <DetailRow label="供應商" py="$2">
+        <DetailRow label="Provider" py="$2">
           <Skeleton.BodyMd />
         </DetailRow>
       ) : (
-        <DetailRow label="供應商" py="$2" onPress={onSelectProvider}>
+        <DetailRow label="Provider" py="$2" onPress={onSelectProvider}>
           <XStack ai="center" gap="$1.5">
             <ProviderLogo provider={providerName} />
             <SizableText size="$bodyMd">
@@ -200,7 +200,7 @@ export function CheckoutInfoCard({
     rows.push({
       key: 'network',
       node: (
-        <DetailRow label="網路" py="$2">
+        <DetailRow label="Network" py="$2">
           <XStack ai="center" gap="$1.5">
             {networkId ? (
               <NetworkAvatar networkId={networkId} size="$5" />
@@ -215,7 +215,7 @@ export function CheckoutInfoCard({
     rows.push({
       key: 'address',
       node: (
-        <DetailRow label="收款地址" py="$2">
+        <DetailRow label="Receiving address" py="$2">
           <SizableText size="$bodyMd">
             {accountUtils.shortenAddress({ address })}
           </SizableText>
