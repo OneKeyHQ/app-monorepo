@@ -92,7 +92,8 @@ const REDESIGN_STAR_ICON_SIZE = '$4';
 
 // Figma: 14px sort glyph sitting 2px after the label. Rendered here (rather
 // than by Column) so the label and the icon form a single hit target.
-const REDESIGN_SORT_ICON_SIZE = 14;
+// Must be a size token — Icon ignores raw numbers and falls back to 24px.
+const REDESIGN_SORT_ICON_SIZE = '$3.5';
 
 function renderRedesignSortIcon(order: ETableSortType | undefined) {
   let iconName: IKeyOfIcons = 'ChevronGrabberVerOutline';
