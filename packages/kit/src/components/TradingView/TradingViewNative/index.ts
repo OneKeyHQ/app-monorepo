@@ -1,2 +1,6 @@
 export { TradingViewNative } from './TradingViewNative';
-export type { ITradingViewNativeProps } from './types';
+export type {
+  ITradingViewNativeDataState,
+  ITradingViewNativeProps,
+  ITradingViewNativeSource,
+} from './types';

@@ -41,6 +41,7 @@ import type {
 import type { EHardwareVendor } from '../../types/device';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
+import type { IMarketWsDataUpdatePayload } from '../../types/marketV2';
 import type {
   INotificationPushMessageInfo,
   INotificationViewDialogPayload,
@@ -511,15 +512,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.UnlockApp]: undefined;
   [EAppEventBusNames.LockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;
-  [EAppEventBusNames.MarketWSDataUpdate]: {
-    channel: string;
-    tokenAddress: string;
-    networkId?: string;
-    isSubscriptionAmbiguous?: boolean;
-    messageType?: string;
-    data: any;
-    originalData?: any;
-  };
+  [EAppEventBusNames.MarketWSDataUpdate]: IMarketWsDataUpdatePayload;
   [EAppEventBusNames.MarketWatchlistOnlyChanged]: {
     showWatchlistOnly: boolean;
   };

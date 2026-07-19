@@ -1,9 +1,7 @@
 import type { ICandle } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import {
-  getHyperliquidCandleInterval,
-  normalizeHyperliquidCandle,
-} from './hyperliquidCandleUtils';
+import { normalizeHyperliquidCandle } from './hyperliquidCandleUtils';
+import { getTradingViewNativeKLineInterval } from './tradingViewNativeIntervals';
 
 function buildCandle(overrides: Partial<ICandle> = {}): ICandle {
   return {
@@ -32,7 +30,9 @@ describe('TradingViewNative Hyperliquid candle utilities', () => {
     ['1D', '1d'],
     ['1W', '1w'],
   ] as const)('maps chart interval %s to %s', (chartInterval, expected) => {
-    expect(getHyperliquidCandleInterval(chartInterval)).toBe(expected);
+    expect(
+      getTradingViewNativeKLineInterval(chartInterval)?.hyperliquidValue,
+    ).toBe(expected);
   });
 
   it('normalizes millisecond timestamps and numeric strings', () => {

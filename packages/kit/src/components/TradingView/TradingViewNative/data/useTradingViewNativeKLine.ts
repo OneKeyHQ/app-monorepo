@@ -1,65 +1,55 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { fetchMarketKLineDataWithSlicing } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
+import {
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
+} from '@onekeyhq/components/src/hooks/useVisibilityChange';
+import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
-import { fetchTradingViewNativeHyperliquidKLine } from './fetchTradingViewNativeHyperliquidKLine';
-import { useTradingViewNativeHyperliquidWebSocket } from './useTradingViewNativeHyperliquidWebSocket';
-import { useTradingViewNativeMarketWebSocket } from './useTradingViewNativeMarketWebSocket';
+import { createTradingViewNativeDataProvider } from './createTradingViewNativeDataProvider';
+import { logTradingViewNativeDataError } from './tradingViewNativeDataLogger';
+import {
+  DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL,
+  TRADING_VIEW_NATIVE_KLINE_INTERVALS,
+  getTradingViewNativeKLineInterval,
+} from './tradingViewNativeIntervals';
 
-import type { ITradingViewIntervalOption } from '../../TradingViewChartControls/types';
-import type { ITradingViewNativeDataSource } from '../types';
+import type { ITradingViewNativeRealtimeSubscription } from './tradingViewNativeDataProviderTypes';
+import type { ITradingViewNativeChartInterval } from './tradingViewNativeIntervals';
+import type {
+  ITradingViewNativeDataState,
+  ITradingViewNativeSource,
+} from '../types';
 
-const DEFAULT_KLINE_INTERVAL = '60';
 const MAX_VISIBLE_CANDLES = 160;
+const HISTORY_RETRY_DELAYS = [1000, 3000] as const;
+const REALTIME_SELF_HEAL_INTERVAL = 30_000;
+const REALTIME_STALE_THRESHOLD = 60_000;
 
-type IKLineInterval = ITradingViewIntervalOption & { seconds: number };
-
-export const TRADING_VIEW_NATIVE_KLINE_INTERVALS: IKLineInterval[] = [
-  { label: '1m', value: '1', seconds: 60 },
-  { label: '5m', value: '5', seconds: 5 * 60 },
-  { label: '15m', value: '15', seconds: 15 * 60 },
-  { label: '30m', value: '30', seconds: 30 * 60 },
-  { label: '1H', value: '60', seconds: 60 * 60 },
-  { label: '4H', value: '240', seconds: 4 * 60 * 60 },
-  { label: '1D', value: '1D', seconds: 24 * 60 * 60 },
-  { label: '1W', value: '1W', seconds: 7 * 24 * 60 * 60 },
-];
-
-function getKLineIntervalOption(interval: string) {
-  return (
-    TRADING_VIEW_NATIVE_KLINE_INTERVALS.find(
-      (option) => option.value === interval,
-    ) ?? TRADING_VIEW_NATIVE_KLINE_INTERVALS[4]
-  );
-}
+let realtimeSubscriberSequence = 0;
 
 interface IChartData {
-  interval: string;
+  interval: ITradingViewNativeChartInterval;
   seriesKey: string;
   points: IMarketTokenKLineDataPoint[];
 }
 
-interface IRealtimePoint {
-  interval: string;
+interface IHistoryState {
+  error?: unknown;
+  interval: ITradingViewNativeChartInterval;
+  lastUpdatedAt?: number;
   seriesKey: string;
-  point: IMarketTokenKLineDataPoint;
+  status: 'idle' | 'loading' | 'ready' | 'error';
 }
 
-function buildSeriesKey({
-  dataProvider,
-  hyperliquidCoin,
-  networkId,
-  tokenAddress,
-}: {
-  dataProvider: 'hyperliquid' | 'market';
-  hyperliquidCoin: string;
-  networkId: string;
-  tokenAddress: string;
-}) {
-  return dataProvider === 'hyperliquid'
-    ? `hyperliquid:${hyperliquidCoin}`
-    : `market:${networkId}:${tokenAddress}`;
+interface IRealtimeState {
+  error?: unknown;
+  interval: ITradingViewNativeChartInterval;
+  lastUpdatedAt?: number;
+  seriesKey: string;
+  status: 'idle' | 'connecting' | 'live' | 'reconnecting' | 'error';
 }
 
 function normalizeKLinePoints(points: IMarketTokenKLineDataPoint[]) {
@@ -138,34 +128,162 @@ function mergeRealtimePointBuffer(
   return normalizeKLinePoints([...pointsByTimestamp.values()]);
 }
 
-export function useTradingViewNativeKLine({
-  networkId,
-  tokenAddress,
-  symbol = '',
-  hyperliquidCoin = '',
-  dataSource = 'market-polling',
-}: {
-  networkId: string;
-  tokenAddress: string;
-  symbol?: string;
-  hyperliquidCoin?: string;
-  dataSource?: ITradingViewNativeDataSource;
-}) {
-  const dataProvider = dataSource === 'hyperliquid' ? 'hyperliquid' : 'market';
-  const seriesKey = buildSeriesKey({
-    dataProvider,
-    hyperliquidCoin,
-    networkId,
-    tokenAddress,
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+function waitForHistoryRetry(delay: number, signal: AbortSignal) {
+  if (signal.aborted) {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve) => {
+    const timeoutState: { timer?: ReturnType<typeof setTimeout> } = {};
+    const finish = () => {
+      if (timeoutState.timer !== undefined) {
+        clearTimeout(timeoutState.timer);
+      }
+      signal.removeEventListener('abort', finish);
+      resolve();
+    };
+    timeoutState.timer = setTimeout(finish, delay);
+    signal.addEventListener('abort', finish, { once: true });
   });
+}
+
+function getLatestTimestamp(...timestamps: (number | undefined)[]) {
+  const validTimestamps = timestamps.filter(
+    (timestamp): timestamp is number => timestamp !== undefined,
+  );
+  return validTimestamps.length ? Math.max(...validTimestamps) : undefined;
+}
+
+function getDataState({
+  hasPoints,
+  historyState,
+  isVisible,
+  providerIsReady,
+  realtimeState,
+  supportsRealtime,
+}: {
+  hasPoints: boolean;
+  historyState: IHistoryState;
+  isVisible: boolean;
+  providerIsReady: boolean;
+  realtimeState: IRealtimeState;
+  supportsRealtime: boolean;
+}): ITradingViewNativeDataState {
+  const lastUpdatedAt = getLatestTimestamp(
+    historyState.lastUpdatedAt,
+    realtimeState.lastUpdatedAt,
+  );
+  const error = realtimeState.error ?? historyState.error;
+
+  if (!providerIsReady) {
+    return { status: 'idle' };
+  }
+  if (!hasPoints && historyState.status === 'loading') {
+    return { status: 'loading', lastUpdatedAt };
+  }
+  if (historyState.status === 'error' || realtimeState.status === 'error') {
+    return {
+      status: hasPoints ? 'stale' : 'error',
+      error,
+      lastUpdatedAt,
+    };
+  }
+  if (
+    realtimeState.status === 'connecting' ||
+    realtimeState.status === 'reconnecting'
+  ) {
+    return { status: 'reconnecting', lastUpdatedAt };
+  }
+  if (!hasPoints) {
+    return { status: 'idle', lastUpdatedAt };
+  }
+  if (!supportsRealtime || !isVisible) {
+    return { status: 'stale', lastUpdatedAt };
+  }
+  return {
+    status: realtimeState.status === 'live' ? 'live' : 'reconnecting',
+    lastUpdatedAt,
+  };
+}
+
+export function useTradingViewNativeKLine({
+  source,
+}: {
+  source: ITradingViewNativeSource;
+}) {
+  const sourceKind = source.kind;
+  const hyperliquidCoin = source.kind === 'hyperliquid' ? source.coin : '';
+  const hyperliquidEnvironment =
+    source.kind === 'hyperliquid' ? source.environment : 'mainnet';
+  const marketNetworkId = source.kind === 'market' ? source.networkId : '';
+  const marketTokenAddress =
+    source.kind === 'market' ? source.tokenAddress : '';
+  const marketSymbol = source.kind === 'market' ? source.symbol : '';
+  const marketRealtime =
+    source.kind === 'market' ? source.realtime : 'disabled';
+  const provider = useMemo(
+    () =>
+      sourceKind === 'hyperliquid'
+        ? createTradingViewNativeDataProvider({
+            kind: 'hyperliquid',
+            coin: hyperliquidCoin,
+            environment: hyperliquidEnvironment,
+          })
+        : createTradingViewNativeDataProvider({
+            kind: 'market',
+            networkId: marketNetworkId,
+            tokenAddress: marketTokenAddress,
+            symbol: marketSymbol,
+            realtime: marketRealtime,
+          }),
+    [
+      hyperliquidCoin,
+      hyperliquidEnvironment,
+      marketNetworkId,
+      marketRealtime,
+      marketSymbol,
+      marketTokenAddress,
+      sourceKind,
+    ],
+  );
+  const seriesKey = provider.key;
   const latestRequestIdRef = useRef(0);
   const skipNextRequestRef = useRef<{
-    interval: string;
+    interval: ITradingViewNativeChartInterval;
     seriesKey: string;
   } | null>(null);
   const chartDataRef = useRef<IChartData | null>(null);
+  const realtimeSubscriptionRef =
+    useRef<ITradingViewNativeRealtimeSubscription | null>(null);
+  const lastRealtimeActivityAtRef = useRef(Date.now());
+  const lastRealtimePointAtRef = useRef<number | undefined>(undefined);
   const [chartData, setChartData] = useState<IChartData | null>(null);
-  const [activeInterval, setActiveInterval] = useState(DEFAULT_KLINE_INTERVAL);
+  const [activeInterval, setActiveInterval] =
+    useState<ITradingViewNativeChartInterval>(
+      DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL,
+    );
+  const [historyState, setHistoryState] = useState<IHistoryState>({
+    interval: activeInterval,
+    seriesKey,
+    status: 'idle',
+  });
+  const [realtimeState, setRealtimeState] = useState<IRealtimeState>({
+    interval: activeInterval,
+    seriesKey,
+    status: 'idle',
+  });
+  const [isVisible, setIsVisible] = useState(() => getCurrentVisibilityState());
+  const isVisibleRef = useRef(isVisible);
+  const [historyRefreshRevision, setHistoryRefreshRevision] = useState(0);
+  const [realtimeRetryRevision, setRealtimeRetryRevision] = useState(0);
+  const [subscriberId] = useState(() => {
+    realtimeSubscriberSequence += 1;
+    return `trading-view-native-${realtimeSubscriberSequence}`;
+  });
   const realtimePointBufferRef = useRef(
     new Map<number, IMarketTokenKLineDataPoint>(),
   );
@@ -173,8 +291,24 @@ export function useTradingViewNativeKLine({
   chartDataRef.current = chartData;
 
   useEffect(() => {
+    const currentVisibility = getCurrentVisibilityState();
+    isVisibleRef.current = currentVisibility;
+    setIsVisible(currentVisibility);
+    return onVisibilityStateChange((nextVisibility) => {
+      const wasVisible = isVisibleRef.current;
+      isVisibleRef.current = nextVisibility;
+      setIsVisible(nextVisibility);
+      if (!wasVisible && nextVisibility) {
+        setHistoryRefreshRevision((current) => current + 1);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
     realtimeScopeRef.current = { interval: activeInterval, seriesKey };
     realtimePointBufferRef.current.clear();
+    lastRealtimeActivityAtRef.current = Date.now();
+    lastRealtimePointAtRef.current = undefined;
   }, [activeInterval, seriesKey]);
 
   const visibleChartData =
@@ -182,9 +316,10 @@ export function useTradingViewNativeKLine({
   const isSwitchingInterval = Boolean(
     visibleChartData && visibleChartData.interval !== activeInterval,
   );
-  const candleIntervalSeconds = getKLineIntervalOption(
-    visibleChartData?.interval ?? activeInterval,
-  ).seconds;
+  const displayedInterval =
+    getTradingViewNativeKLineInterval(
+      visibleChartData?.interval ?? activeInterval,
+    ) ?? TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
   const intervalConfig = useMemo(
     () => ({
       intervals: TRADING_VIEW_NATIVE_KLINE_INTERVALS,
@@ -194,42 +329,49 @@ export function useTradingViewNativeKLine({
   );
 
   const handleIntervalChange = useCallback((interval: string) => {
-    if (
-      TRADING_VIEW_NATIVE_KLINE_INTERVALS.some(
-        (option) => option.value === interval,
-      )
-    ) {
-      setActiveInterval(interval);
+    const nextInterval = getTradingViewNativeKLineInterval(interval);
+    if (nextInterval) {
+      setActiveInterval(nextInterval.value);
     }
   }, []);
 
   const handleRealtimePoint = useCallback(
     (point: IMarketTokenKLineDataPoint) => {
-      const realtimePoint: IRealtimePoint = {
-        interval: activeInterval,
-        seriesKey,
-        point,
-      };
       const realtimeScope = realtimeScopeRef.current;
       if (
-        realtimeScope.seriesKey !== realtimePoint.seriesKey ||
-        realtimeScope.interval !== realtimePoint.interval
+        realtimeScope.seriesKey !== seriesKey ||
+        realtimeScope.interval !== activeInterval
       ) {
         return;
       }
-      bufferRealtimePoint(realtimePointBufferRef.current, realtimePoint.point);
+
+      const updatedAt = Date.now();
+      lastRealtimeActivityAtRef.current = updatedAt;
+      lastRealtimePointAtRef.current = updatedAt;
+      setRealtimeState({
+        interval: activeInterval,
+        lastUpdatedAt: updatedAt,
+        seriesKey,
+        status: 'live',
+      });
+      bufferRealtimePoint(realtimePointBufferRef.current, point);
       setChartData((currentChartData) => {
         if (
-          currentChartData?.seriesKey !== realtimePoint.seriesKey ||
-          currentChartData.interval !== realtimePoint.interval
+          currentChartData?.seriesKey === seriesKey &&
+          currentChartData.interval !== activeInterval
         ) {
           return currentChartData;
         }
 
-        const points = mergeRealtimePoint(
-          currentChartData.points,
-          realtimePoint.point,
-        );
+        if (!currentChartData || currentChartData.seriesKey !== seriesKey) {
+          return {
+            interval: activeInterval,
+            seriesKey,
+            points: [point],
+          };
+        }
+
+        const points = mergeRealtimePoint(currentChartData.points, point);
         return points === currentChartData.points
           ? currentChartData
           : { ...currentChartData, points };
@@ -238,21 +380,173 @@ export function useTradingViewNativeKLine({
     [activeInterval, seriesKey],
   );
 
-  useTradingViewNativeMarketWebSocket({
-    enabled: dataSource === 'market-websocket',
-    networkId,
-    tokenAddress,
-    symbol,
-    chartType: activeInterval,
-    onKLineUpdate: handleRealtimePoint,
-  });
+  useEffect(() => {
+    if (!provider.isReady || !provider.supportsRealtime || !isVisible) {
+      realtimeSubscriptionRef.current = null;
+      setRealtimeState((current) => ({
+        interval: activeInterval,
+        lastUpdatedAt:
+          current.seriesKey === seriesKey ? current.lastUpdatedAt : undefined,
+        seriesKey,
+        status: 'idle',
+      }));
+      return;
+    }
 
-  useTradingViewNativeHyperliquidWebSocket({
-    enabled: dataProvider === 'hyperliquid',
-    coin: hyperliquidCoin,
-    chartInterval: activeInterval,
-    onKLineUpdate: handleRealtimePoint,
-  });
+    let isCancelled = false;
+    const abortController = new AbortController();
+    let ownedSubscription: ITradingViewNativeRealtimeSubscription | null = null;
+    const hasCurrentPoints = Boolean(
+      chartDataRef.current?.seriesKey === seriesKey &&
+      chartDataRef.current.points.length,
+    );
+    setRealtimeState((current) => ({
+      interval: activeInterval,
+      lastUpdatedAt:
+        current.seriesKey === seriesKey ? current.lastUpdatedAt : undefined,
+      seriesKey,
+      status: hasCurrentPoints ? 'reconnecting' : 'connecting',
+    }));
+
+    const subscribe = async () => {
+      try {
+        const nextSubscription = await provider.subscribeRealtime({
+          interval:
+            getTradingViewNativeKLineInterval(activeInterval) ??
+            TRADING_VIEW_NATIVE_KLINE_INTERVALS[4],
+          onPoint: handleRealtimePoint,
+          signal: abortController.signal,
+          subscriberId,
+        });
+        if (isCancelled) {
+          await nextSubscription?.unsubscribe();
+          return;
+        }
+
+        ownedSubscription = nextSubscription;
+        realtimeSubscriptionRef.current = nextSubscription;
+        setRealtimeState((current) => {
+          let status: IRealtimeState['status'] = 'idle';
+          if (nextSubscription) {
+            status =
+              current.seriesKey === seriesKey && current.status === 'live'
+                ? 'live'
+                : 'reconnecting';
+          }
+          return {
+            interval: activeInterval,
+            lastUpdatedAt:
+              current.seriesKey === seriesKey
+                ? current.lastUpdatedAt
+                : undefined,
+            seriesKey,
+            status,
+          };
+        });
+        lastRealtimeActivityAtRef.current = Date.now();
+      } catch (error) {
+        if (isCancelled) {
+          return;
+        }
+        logTradingViewNativeDataError(
+          'Failed to subscribe to native TradingView realtime data',
+          error,
+        );
+        setRealtimeState((current) => ({
+          error,
+          interval: activeInterval,
+          lastUpdatedAt:
+            current.seriesKey === seriesKey ? current.lastUpdatedAt : undefined,
+          seriesKey,
+          status: 'error',
+        }));
+      }
+    };
+    void subscribe();
+
+    return () => {
+      isCancelled = true;
+      abortController.abort();
+      if (realtimeSubscriptionRef.current === ownedSubscription) {
+        realtimeSubscriptionRef.current = null;
+      }
+      if (ownedSubscription) {
+        void ownedSubscription.unsubscribe().catch((error: unknown) => {
+          logTradingViewNativeDataError(
+            'Failed to unsubscribe from native TradingView realtime data',
+            error,
+          );
+        });
+      }
+    };
+  }, [
+    activeInterval,
+    handleRealtimePoint,
+    isVisible,
+    provider,
+    realtimeRetryRevision,
+    seriesKey,
+    subscriberId,
+  ]);
+
+  useInterval(
+    () => {
+      if (
+        Date.now() - lastRealtimeActivityAtRef.current <
+        REALTIME_STALE_THRESHOLD
+      ) {
+        return;
+      }
+
+      lastRealtimeActivityAtRef.current = Date.now();
+      const subscription = realtimeSubscriptionRef.current;
+      if (!subscription) {
+        setRealtimeRetryRevision((current) => current + 1);
+        return;
+      }
+
+      const lastPointAtRecoveryStart = lastRealtimePointAtRef.current;
+
+      setRealtimeState((current) => ({
+        ...current,
+        error: undefined,
+        status: 'reconnecting',
+      }));
+      void subscription
+        .ensure()
+        .then(() => {
+          if (realtimeSubscriptionRef.current !== subscription) {
+            return;
+          }
+          lastRealtimeActivityAtRef.current = Date.now();
+          setRealtimeState((current) => ({
+            ...current,
+            error: undefined,
+            status:
+              lastRealtimePointAtRef.current !== lastPointAtRecoveryStart
+                ? 'live'
+                : 'reconnecting',
+          }));
+        })
+        .catch((error: unknown) => {
+          if (realtimeSubscriptionRef.current !== subscription) {
+            return;
+          }
+          logTradingViewNativeDataError(
+            'Failed to recover native TradingView realtime data',
+            error,
+          );
+          setRealtimeState((current) => ({
+            ...current,
+            error,
+            status: 'error',
+          }));
+        });
+    },
+    provider.isReady && provider.supportsRealtime && isVisible
+      ? REALTIME_SELF_HEAL_INTERVAL
+      : null,
+  );
 
   useEffect(() => {
     const skippedRequest = skipNextRequestRef.current;
@@ -266,106 +560,177 @@ export function useTradingViewNativeKLine({
 
     const requestId = latestRequestIdRef.current + 1;
     latestRequestIdRef.current = requestId;
-
-    if (
-      (dataProvider === 'market' && !networkId) ||
-      (dataProvider === 'hyperliquid' && !hyperliquidCoin)
-    ) {
+    if (!provider.isReady) {
+      setHistoryState({
+        interval: activeInterval,
+        seriesKey,
+        status: 'idle',
+      });
       return;
     }
 
     let isCancelled = false;
     const abortController = new AbortController();
-
-    const requestedInterval = getKLineIntervalOption(activeInterval);
+    const requestedInterval =
+      getTradingViewNativeKLineInterval(activeInterval) ??
+      TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
     const timeTo = Math.floor(Date.now() / 1000);
     const timeFrom = timeTo - requestedInterval.seconds * MAX_VISIBLE_CANDLES;
+    setHistoryState((current) => ({
+      interval: activeInterval,
+      lastUpdatedAt:
+        current.seriesKey === seriesKey ? current.lastUpdatedAt : undefined,
+      seriesKey,
+      status: 'loading',
+    }));
 
-    const rollbackInterval = () => {
+    const rollbackInterval = (error: unknown) => {
       if (isCancelled || latestRequestIdRef.current !== requestId) {
         return;
       }
       const currentChartData = chartDataRef.current;
-      if (currentChartData?.seriesKey === seriesKey) {
+      if (
+        currentChartData?.seriesKey === seriesKey &&
+        currentChartData.interval !== requestedInterval.value
+      ) {
         skipNextRequestRef.current = {
           interval: currentChartData.interval,
           seriesKey,
         };
+        setHistoryState((current) => ({
+          interval: currentChartData.interval,
+          lastUpdatedAt:
+            current.seriesKey === seriesKey ? current.lastUpdatedAt : undefined,
+          seriesKey,
+          status: 'ready',
+        }));
         setActiveInterval((currentInterval) =>
           currentInterval === requestedInterval.value
             ? currentChartData.interval
             : currentInterval,
         );
+      } else {
+        setHistoryState({
+          error,
+          interval: requestedInterval.value,
+          seriesKey,
+          status: 'error',
+        });
       }
     };
 
-    const request =
-      dataProvider === 'hyperliquid'
-        ? fetchTradingViewNativeHyperliquidKLine({
-            coin: hyperliquidCoin,
-            interval: requestedInterval.value,
-            timeFrom,
-            timeTo,
+    const fetchHistory = async () => {
+      let lastError: unknown;
+      for (
+        let attempt = 0;
+        attempt <= HISTORY_RETRY_DELAYS.length;
+        attempt += 1
+      ) {
+        try {
+          const data = await provider.fetchHistory({
+            interval: requestedInterval,
             signal: abortController.signal,
-          })
-        : fetchMarketKLineDataWithSlicing({
-            tokenAddress,
-            networkId,
-            interval: requestedInterval.label,
             timeFrom,
             timeTo,
-            autoHandleError: false,
           });
-
-    void request
-      .then((data) => {
-        if (isCancelled || latestRequestIdRef.current !== requestId) {
-          return;
-        }
-        let points = normalizeKLinePoints(data?.points ?? []);
-        if (!points.length) {
-          rollbackInterval();
-          return;
-        }
-        const realtimeScope = realtimeScopeRef.current;
-        if (
-          realtimeScope.seriesKey === seriesKey &&
-          realtimeScope.interval === requestedInterval.value &&
-          realtimePointBufferRef.current.size > 0
-        ) {
-          points = mergeRealtimePointBuffer(
+          if (isCancelled || latestRequestIdRef.current !== requestId) {
+            return;
+          }
+          let points = normalizeKLinePoints(data?.points ?? []);
+          if (!points.length) {
+            throw new OneKeyLocalError('No candle data is available');
+          }
+          const realtimeScope = realtimeScopeRef.current;
+          if (
+            realtimeScope.seriesKey === seriesKey &&
+            realtimeScope.interval === requestedInterval.value &&
+            realtimePointBufferRef.current.size > 0
+          ) {
+            points = mergeRealtimePointBuffer(
+              points,
+              realtimePointBufferRef.current.values(),
+            );
+            realtimePointBufferRef.current.clear();
+          }
+          const updatedAt = Date.now();
+          setChartData({
+            interval: requestedInterval.value,
+            seriesKey,
             points,
-            realtimePointBufferRef.current.values(),
-          );
-          realtimePointBufferRef.current.clear();
+          });
+          setHistoryState({
+            interval: requestedInterval.value,
+            lastUpdatedAt: updatedAt,
+            seriesKey,
+            status: 'ready',
+          });
+          return;
+        } catch (error) {
+          if (isCancelled || isAbortError(error)) {
+            return;
+          }
+          lastError = error;
+          const retryDelay = HISTORY_RETRY_DELAYS[attempt];
+          if (retryDelay === undefined) {
+            break;
+          }
+          await waitForHistoryRetry(retryDelay, abortController.signal);
+          if (isCancelled || abortController.signal.aborted) {
+            return;
+          }
         }
-        setChartData({
-          interval: requestedInterval.value,
-          seriesKey,
-          points,
-        });
-      })
-      .catch(() => rollbackInterval());
+      }
+
+      const error =
+        lastError ?? new OneKeyLocalError('No candle data is available');
+      logTradingViewNativeDataError(
+        'Failed to fetch native TradingView candle history',
+        error,
+      );
+      rollbackInterval(error);
+    };
+    void fetchHistory();
 
     return () => {
       isCancelled = true;
       abortController.abort();
     };
-  }, [
-    activeInterval,
-    dataProvider,
-    hyperliquidCoin,
-    networkId,
-    seriesKey,
-    tokenAddress,
-  ]);
+  }, [activeInterval, historyRefreshRevision, provider, seriesKey]);
 
+  const dataState = useMemo(
+    () =>
+      getDataState({
+        hasPoints: Boolean(visibleChartData?.points.length),
+        historyState:
+          historyState.seriesKey === seriesKey
+            ? historyState
+            : { interval: activeInterval, seriesKey, status: 'idle' },
+        isVisible,
+        providerIsReady: provider.isReady,
+        realtimeState:
+          realtimeState.seriesKey === seriesKey
+            ? realtimeState
+            : { interval: activeInterval, seriesKey, status: 'idle' },
+        supportsRealtime: provider.supportsRealtime,
+      }),
+    [
+      activeInterval,
+      historyState,
+      isVisible,
+      provider.isReady,
+      provider.supportsRealtime,
+      realtimeState,
+      seriesKey,
+      visibleChartData?.points.length,
+    ],
+  );
   return {
-    candleIntervalSeconds,
+    candleIntervalSeconds: displayedInterval.seconds,
     dataProviderKey: seriesKey,
-    points: visibleChartData?.points ?? [],
+    dataState,
+    handleIntervalChange,
     intervalConfig,
     isSwitchingInterval,
-    handleIntervalChange,
+    points: visibleChartData?.points ?? [],
   };
 }

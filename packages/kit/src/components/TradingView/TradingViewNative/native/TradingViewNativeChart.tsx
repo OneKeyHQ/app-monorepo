@@ -69,12 +69,12 @@ import { isTradingViewNativePriceUp } from '../utils/chartStyle';
 import {
   type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
-  getTradingViewNativeAppendedPointCount,
   getTradingViewNativeCandleX,
+  getTradingViewNativeDataUpdateMetadata,
   getTradingViewNativeGestureStartOffsetAfterDataUpdate,
   getTradingViewNativeMaxPanOffset,
-  getTradingViewNativePanOffsetAfterDataUpdate,
   getTradingViewNativePriceRange,
+  getTradingViewNativeViewportOffsetTransition,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
 } from '../utils/chartViewport';
@@ -520,7 +520,9 @@ export const TradingViewNativeChart = memo(
     const chartWidth = getTradingViewNativeChartWidth(chartSize.width);
     const pointCount = points.length;
     const latestPoint = points[pointCount - 1];
-    const previousLatestTimestampRef = useRef(latestPoint?.t);
+    const previousLatestTimestampRef = useRef<number | undefined>(
+      latestPoint?.t,
+    );
     const previousViewportBoundsRef = useRef({ chartWidth, pointCount });
     const chartPictureData = useMemo(
       () =>
@@ -709,7 +711,7 @@ export const TradingViewNativeChart = memo(
     );
 
     useLayoutEffect(() => {
-      const appendedPointCount = getTradingViewNativeAppendedPointCount({
+      const dataUpdateMetadata = getTradingViewNativeDataUpdateMetadata({
         points,
         previousLatestTimestamp: previousLatestTimestampRef.current,
       });
@@ -723,7 +725,7 @@ export const TradingViewNativeChart = memo(
         pointCount > 0 &&
         Boolean(chartPictureData && defaultVisiblePriceRange);
 
-      previousLatestTimestampRef.current = latestPoint?.t;
+      previousLatestTimestampRef.current = dataUpdateMetadata.latestTimestamp;
       previousViewportBoundsRef.current = { chartWidth, pointCount };
       if (shouldInitializeViewport) {
         hasInitializedViewportRef.current = true;
@@ -731,7 +733,7 @@ export const TradingViewNativeChart = memo(
       if (
         !shouldInitializeViewport &&
         !shouldClampViewport &&
-        appendedPointCount === 0
+        dataUpdateMetadata.appendedPointCount === 0
       ) {
         return;
       }
@@ -753,15 +755,15 @@ export const TradingViewNativeChart = memo(
         }
 
         const previousPanOffset = panOffset.value;
-        const nextPanOffset = getTradingViewNativePanOffsetAfterDataUpdate({
-          appendedPointCount,
-          candleGap: NATIVE_CANDLE_GAP,
-          chartWidth,
-          currentOffset: previousPanOffset,
-          pointCount,
-          zoomScale: zoomScale.value,
-        });
-        const offsetDelta = nextPanOffset - previousPanOffset;
+        const { nextOffset: nextPanOffset, offsetDelta } =
+          getTradingViewNativeViewportOffsetTransition({
+            appendedPointCount: dataUpdateMetadata.appendedPointCount,
+            candleGap: NATIVE_CANDLE_GAP,
+            chartWidth,
+            currentOffset: previousPanOffset,
+            pointCount,
+            zoomScale: zoomScale.value,
+          });
         panOffset.value = nextPanOffset;
         if (offsetDelta !== 0) {
           panStartOffset.value =

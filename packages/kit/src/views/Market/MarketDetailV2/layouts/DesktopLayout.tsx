@@ -33,6 +33,7 @@ import {
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { useTradingViewNativeInMarketDetail } from '../hooks/useTradingViewNativeInMarketDetail';
+import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
@@ -231,26 +232,29 @@ export function DesktopLayout({
     isNative,
     websocketConfig,
   });
-  let nativeTradingViewDataSource: ComponentProps<
-    typeof TradingViewNative
-  >['dataSource'] =
-    marketTradingViewParams?.dataSource === 'websocket'
-      ? 'market-websocket'
-      : 'market-polling';
-  if (nativeHyperliquidCoin) {
-    nativeTradingViewDataSource = 'hyperliquid';
-  }
+  const tradingViewNativeSource = useMemo(
+    () =>
+      getMarketDetailTradingViewNativeSource({
+        hyperliquidCoin: nativeHyperliquidCoin,
+        marketDataSource: marketTradingViewParams?.dataSource,
+        networkId,
+        symbol: tokenDetail?.symbol ?? '',
+        tokenAddress,
+      }),
+    [
+      marketTradingViewParams?.dataSource,
+      nativeHyperliquidCoin,
+      networkId,
+      tokenAddress,
+      tokenDetail?.symbol,
+    ],
+  );
   const marketTradingView = useMemo(() => {
     if (useTradingViewNative) {
       return networkId ? (
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
-          networkId={networkId}
-          tokenAddress={tokenAddress}
-          symbol={tokenDetail?.symbol ?? ''}
-          hyperliquidCoin={nativeHyperliquidCoin}
-          decimal={tokenDetail?.decimals ?? 8}
-          dataSource={nativeTradingViewDataSource}
+          source={tradingViewNativeSource}
           nativeControlsLayoutMode="desktop"
         />
       ) : null;
@@ -283,12 +287,8 @@ export function DesktopLayout({
     handleTradingViewTouchScroll,
     isChartFullscreen,
     marketTradingViewParams,
-    nativeHyperliquidCoin,
-    nativeTradingViewDataSource,
     networkId,
-    tokenAddress,
-    tokenDetail?.decimals,
-    tokenDetail?.symbol,
+    tradingViewNativeSource,
     useTradingViewNative,
   ]);
   return (

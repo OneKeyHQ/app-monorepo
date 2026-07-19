@@ -41,9 +41,9 @@ import { isTradingViewNativePriceUp } from '../utils/chartStyle';
 import {
   clampTradingViewNativePanOffset,
   clampTradingViewNativeZoomScale,
-  getTradingViewNativeAppendedPointCount,
   getTradingViewNativeCandleX,
-  getTradingViewNativePanOffsetAfterDataUpdate,
+  getTradingViewNativeDataUpdateMetadata,
+  getTradingViewNativeViewportOffsetTransition,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
 } from '../utils/chartViewport';
@@ -346,7 +346,9 @@ export const TradingViewNativeChart = memo(
     const panOffset = viewportState.offset;
     const zoomScale = viewportState.zoomScale;
     const pointCount = points.length;
-    const previousLatestTimestampRef = useRef(points[pointCount - 1]?.t);
+    const previousLatestTimestampRef = useRef<number | undefined>(
+      points[pointCount - 1]?.t,
+    );
     const theme = useTheme();
     const background = theme.bgApp.val;
     const grid = theme.borderSubdued.val;
@@ -378,11 +380,11 @@ export const TradingViewNativeChart = memo(
     );
 
     useLayoutEffect(() => {
-      const appendedPointCount = getTradingViewNativeAppendedPointCount({
+      const dataUpdateMetadata = getTradingViewNativeDataUpdateMetadata({
         points,
         previousLatestTimestamp: previousLatestTimestampRef.current,
       });
-      previousLatestTimestampRef.current = points[pointCount - 1]?.t;
+      previousLatestTimestampRef.current = dataUpdateMetadata.latestTimestamp;
 
       const canvas = canvasRef.current;
       if (!canvas) {
@@ -391,17 +393,17 @@ export const TradingViewNativeChart = memo(
       const chartWidth = getCanvasChartWidth(canvas);
       const dragState = pointerDragStateRef.current;
       if (dragState) {
-        dragState.startOffset = getTradingViewNativePanOffsetAfterDataUpdate({
-          appendedPointCount,
+        dragState.startOffset = getTradingViewNativeViewportOffsetTransition({
+          appendedPointCount: dataUpdateMetadata.appendedPointCount,
           chartWidth,
           currentOffset: dragState.startOffset,
           pointCount,
           zoomScale: dragState.zoomScale,
-        });
+        }).nextOffset;
       }
       setViewportState((currentState) => {
-        const nextOffset = getTradingViewNativePanOffsetAfterDataUpdate({
-          appendedPointCount,
+        const { nextOffset } = getTradingViewNativeViewportOffsetTransition({
+          appendedPointCount: dataUpdateMetadata.appendedPointCount,
           chartWidth,
           currentOffset: currentState.offset,
           pointCount,

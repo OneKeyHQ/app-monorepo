@@ -11,10 +11,12 @@ import {
   clampTradingViewNativeZoomScale,
   getTradingViewNativeAppendedPointCount,
   getTradingViewNativeCandleX,
+  getTradingViewNativeDataUpdateMetadata,
   getTradingViewNativeGestureStartOffsetAfterDataUpdate,
   getTradingViewNativeMaxPanOffset,
   getTradingViewNativePanOffsetAfterDataUpdate,
   getTradingViewNativePriceRange,
+  getTradingViewNativeViewportOffsetTransition,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
 } from './chartViewport';
@@ -119,6 +121,29 @@ describe('TradingViewNative chart viewport', () => {
         previousLatestTimestamp: 3,
       }),
     ).toBe(1);
+  });
+
+  it('uses one data-update contract for the latest candle and viewport delta', () => {
+    const points = [
+      buildPoint(1, 2, 1),
+      buildPoint(1, 2, 2),
+      buildPoint(1, 2, 3),
+    ];
+    const metadata = getTradingViewNativeDataUpdateMetadata({
+      points,
+      previousLatestTimestamp: 2,
+    });
+
+    expect(metadata).toEqual({ appendedPointCount: 1, latestTimestamp: 3 });
+    expect(
+      getTradingViewNativeViewportOffsetTransition({
+        appendedPointCount: metadata.appendedPointCount,
+        chartWidth: 100,
+        currentOffset: 40,
+        pointCount: 21,
+        zoomScale: 1,
+      }),
+    ).toEqual({ nextOffset: 48, offsetDelta: 8 });
   });
 
   it('does not infer appended candles from unrelated history', () => {

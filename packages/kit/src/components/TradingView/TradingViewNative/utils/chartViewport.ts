@@ -17,6 +17,16 @@ export interface ITradingViewNativePriceRange {
   minPrice: number;
 }
 
+export interface ITradingViewNativeDataUpdateMetadata {
+  appendedPointCount: number;
+  latestTimestamp: number | undefined;
+}
+
+export interface ITradingViewNativeViewportOffsetTransition {
+  nextOffset: number;
+  offsetDelta: number;
+}
+
 export function clampTradingViewNativeZoomScale(scale: number) {
   'worklet';
 
@@ -103,6 +113,22 @@ export function getTradingViewNativeAppendedPointCount({
   return Math.max(points.length - previousLatestPointIndex - 1, 0);
 }
 
+export function getTradingViewNativeDataUpdateMetadata({
+  points,
+  previousLatestTimestamp,
+}: {
+  points: IMarketTokenKLineDataPoint[];
+  previousLatestTimestamp: number | undefined;
+}): ITradingViewNativeDataUpdateMetadata {
+  return {
+    appendedPointCount: getTradingViewNativeAppendedPointCount({
+      points,
+      previousLatestTimestamp,
+    }),
+    latestTimestamp: points[points.length - 1]?.t,
+  };
+}
+
 export function getTradingViewNativePanOffsetAfterDataUpdate({
   appendedPointCount,
   candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
@@ -144,6 +170,37 @@ export function getTradingViewNativePanOffsetAfterDataUpdate({
     pointCount,
     zoomScale,
   });
+}
+
+export function getTradingViewNativeViewportOffsetTransition({
+  appendedPointCount,
+  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  chartWidth,
+  currentOffset,
+  pointCount,
+  zoomScale,
+}: {
+  appendedPointCount: number;
+  candleGap?: number;
+  chartWidth: number;
+  currentOffset: number;
+  pointCount: number;
+  zoomScale: number;
+}): ITradingViewNativeViewportOffsetTransition {
+  'worklet';
+
+  const nextOffset = getTradingViewNativePanOffsetAfterDataUpdate({
+    appendedPointCount,
+    candleGap,
+    chartWidth,
+    currentOffset,
+    pointCount,
+    zoomScale,
+  });
+  return {
+    nextOffset,
+    offsetDelta: nextOffset - currentOffset,
+  };
 }
 
 export function getTradingViewNativeGestureStartOffsetAfterDataUpdate({
