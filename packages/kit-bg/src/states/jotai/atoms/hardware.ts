@@ -31,6 +31,9 @@ export type IHardwareUiPayload = {
   // request passphrase
   passphraseState?: string; // use passphrase, REQUEST_PASSPHRASE_ON_DEVICE only
   existsAttachPinUser?: boolean; // use attach pin, REQUEST_PASSPHRASE_ON_DEVICE only
+  source?: 'wallet-session-coordinator';
+  reason?: 'open-wallet' | 'session-recovery';
+  expectedPassphraseState?: string;
   // firmware update tip
   firmwareTipData?: {
     message: EFirmwareUpdateTipMessages | string;

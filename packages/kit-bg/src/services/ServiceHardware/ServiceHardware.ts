@@ -78,6 +78,7 @@ import ServiceBase from '../ServiceBase';
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
+import { copyWalletSessionUiMetadata } from './hardwareUiPayloadUtils';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type {
@@ -629,7 +630,7 @@ class ServiceHardware extends ServiceBase {
     }
 
     if (originEvent.type === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
-      newPayload.existsAttachPinUser = originEvent.payload.existsAttachPinUser;
+      copyWalletSessionUiMetadata(newPayload, originEvent.payload);
     }
 
     return {
