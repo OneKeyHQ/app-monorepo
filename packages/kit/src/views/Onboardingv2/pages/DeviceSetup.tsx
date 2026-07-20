@@ -92,6 +92,15 @@ function DeviceSetupPage({
   // path; cleared on unmount so a back-press mid-flash cannot navigate after
   // this page is gone.
   const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Clearing the timer above only covers a back-press AFTER it was scheduled.
+  // The device read takes at least 1.2s, so the far more likely case is a
+  // back-press while it is still in flight — the continuation would then resume
+  // on a dead page and schedule a fresh jump into FinalizeWalletSetup, which
+  // starts real wallet creation on mount. These two guards stop a run that has
+  // lost its claim: the page unmounted, or a newer run (Done/retry) superseded
+  // it. Nothing can cancel the in-flight SDK call itself.
+  const isMountedRef = useRef(true);
+  const checkRunIdRef = useRef(0);
 
   const { getActiveDevice } = useDeviceConnect({ setCurrentDevice });
 
@@ -181,10 +190,21 @@ function DeviceSetupPage({
   }, [intl, currentDevice]);
 
   const checkDeviceInitialized = useCallback(async () => {
+    const runId = checkRunIdRef.current + 1;
+    checkRunIdRef.current = runId;
+    // This run has lost its claim once the page is gone or a later run (Done /
+    // retry) started. Re-checked after every await so a resumed continuation
+    // cannot update state or navigate on the page's behalf.
+    const isStale = () =>
+      !isMountedRef.current || checkRunIdRef.current !== runId;
+
     setErrorMessage(undefined);
     setSetupState(EDeviceSetupState.Checking);
     try {
       await ensureTransportType();
+      if (isStale()) {
+        return;
+      }
       const baseDevice =
         getActiveDevice() ??
         currentDevice ??
@@ -204,9 +224,15 @@ function DeviceSetupPage({
             setTimeout(resolve, 1200);
           }),
         ]);
+        if (isStale()) {
+          return;
+        }
         const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
           features,
         });
+        if (isStale()) {
+          return;
+        }
         if (deviceMode === EOneKeyDeviceMode.notInitialized) {
           setSetupState(EDeviceSetupState.NeedSetup);
           return;
@@ -219,7 +245,13 @@ function DeviceSetupPage({
       // A failed status read falls back to the on-device setup instructions
       // (the user can re-trigger via Done once the device responds). Hard
       // connection/permission errors surface separately via useConnectDeviceError.
+      if (isStale()) {
+        return;
+      }
       setSetupState(EDeviceSetupState.NeedSetup);
+      return;
+    }
+    if (isStale()) {
       return;
     }
     setSetupState(EDeviceSetupState.Success);
@@ -248,6 +280,16 @@ function DeviceSetupPage({
   const handleDeviceSetupDone = useCallback(() => {
     void checkDeviceInitialized();
   }, [checkDeviceInitialized]);
+
+  // Owns the mounted flag on its own so it is registered on every path — the
+  // check effect below returns early for the device-driven mock and would
+  // otherwise never install a cleanup.
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Run the real device-status check on mount — only for the real-device path.
   // The device-driven (mock Pro 2) path is driven by the dev panel instead.
