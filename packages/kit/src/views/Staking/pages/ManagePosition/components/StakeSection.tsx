@@ -444,6 +444,13 @@ export const StakeSection = ({
       ) {
         return undefined;
       }
+      // While a protocol switch is in flight (confirm button force-loading),
+      // networkId is already the new chain but token/spender still come from
+      // the previous protocol's stale data — skip to avoid a mismatched
+      // allowance request. Re-runs automatically once fresh data lands.
+      if (footerActionOverride?.loading) {
+        return undefined;
+      }
       const { allowanceParsed } =
         await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
           accountId,
@@ -465,6 +472,7 @@ export const StakeSection = ({
       effectiveApproveType,
       effectiveStakeTokenInfo?.token?.isNative,
       effectiveStakeTokenInfo?.token.address,
+      footerActionOverride?.loading,
     ],
     {
       watchLoading: true,

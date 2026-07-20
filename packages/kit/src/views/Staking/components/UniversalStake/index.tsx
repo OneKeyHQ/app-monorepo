@@ -2078,6 +2078,25 @@ export function UniversalStake({
     (!shouldShowPlatformBonus && tradeOrBuyContent),
   );
 
+  // The "Est. annual rewards" summary depends on a second request
+  // (getTransactionConfirmation) that resolves after managePageData. Without a
+  // placeholder it pops in on the second stage and shoves the rest of the card
+  // down. While that quote is still pending — and we don't yet have any summary
+  // content — reserve its space with a skeleton so the layout stays stable.
+  const summaryPending =
+    !hasSummarySection &&
+    !isPendleLikeLayout &&
+    !protocolSwitchConfig &&
+    !isDisabled &&
+    (quoteLoading || !transactionConfirmation);
+
+  const summaryLoadingContent = summaryPending ? (
+    <YStack gap="$1.5">
+      <Skeleton.BodyMd w={96} />
+      <Skeleton.BodyLg w={140} />
+    </YStack>
+  ) : null;
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
@@ -2102,6 +2121,10 @@ export function UniversalStake({
               balanceProps={{
                 value: balance,
                 onPress: onMax,
+                // During a protocol switch the on-screen balance still belongs
+                // to the previous protocol/network — show the built-in balance
+                // skeleton instead of a stale value that jumps on load.
+                loading: Boolean(footerActionOverride?.loading),
               }}
               inputProps={{
                 placeholder: '0',
@@ -2209,7 +2232,17 @@ export function UniversalStake({
       (!protocolSwitchConfig || summaryCardHasBodyContent) ? (
         <YStack
           p="$3.5"
-          pt="$5"
+          // The larger top padding exists to breathe above the summary heading
+          // (est. rewards / APY / validator). When the card only holds the
+          // trade-or-buy row (trending entry), keep the padding symmetric.
+          pt={
+            (showApyHeader && apyDetail && !protocolSwitchConfig) ||
+            summaryContent ||
+            summaryLoadingContent ||
+            ongoingValidator
+              ? '$5'
+              : '$3.5'
+          }
           borderRadius="$3"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
@@ -2228,7 +2261,10 @@ export function UniversalStake({
             </XStack>
           ) : null}
           {summaryContent}
-          {summaryContent ? <Divider my="$5" /> : null}
+          {summaryLoadingContent}
+          {summaryContent || summaryLoadingContent ? (
+            <Divider my="$5" />
+          ) : null}
           <YStack gap="$5">
             {ongoingValidator ? (
               <EarnValidatorSelect

@@ -45,6 +45,23 @@ export const useManagePage = ({
   revalidateOnFocus?: boolean;
   undefinedResultIfReRun?: boolean;
 }) => {
+  // Fingerprint of the request params. Stamped onto each result so callers can
+  // tell — synchronously, during render — whether the data on screen belongs to
+  // the currently requested protocol. This closes the effect-ordering race on
+  // protocol switch: child effects (e.g. allowance fetch) run before this
+  // hook's own reload effect flips isLoading, so isLoading alone can't guard
+  // the first render where fresh params meet stale data.
+  const requestKey = [
+    accountId,
+    networkId,
+    symbol,
+    provider,
+    vault ?? '',
+    type,
+    reserveAddress ?? '',
+    marketAddress ?? '',
+  ].join('|');
+
   const {
     result,
     isLoading = true,
@@ -81,7 +98,12 @@ export const useManagePage = ({
             type: type as 'supply' | 'withdraw' | 'borrow' | 'repay',
           });
 
-        return { managePageData, protocolList: undefined, earnAccount };
+        return {
+          managePageData,
+          protocolList: undefined,
+          earnAccount,
+          requestKey,
+        };
       }
 
       const [managePageData, protocolList] = await Promise.all([
@@ -105,7 +127,7 @@ export const useManagePage = ({
         }),
       ]);
 
-      return { managePageData, protocolList, earnAccount };
+      return { managePageData, protocolList, earnAccount, requestKey };
     },
     [
       networkId,
@@ -122,6 +144,10 @@ export const useManagePage = ({
   );
 
   const { managePageData, protocolList, earnAccount } = result || {};
+
+  // True while the data on screen was fetched for different params (protocol
+  // switch in flight). Computed during render — no effect-timing dependence.
+  const isStaleData = !!result && result.requestKey !== requestKey;
 
   const resolvedProtocolVault = useMemo(() => {
     if (!earnUtils.shouldSendEarnProtocolVault({ providerName: provider })) {
@@ -404,6 +430,7 @@ export const useManagePage = ({
   return {
     managePageData,
     isLoading,
+    isStaleData,
     run,
     tokenInfo,
     earnAccount,
