@@ -69,7 +69,7 @@ function BulkExportHistoryTaskCreated() {
       />
       <Page.Body pt="$10">
         <Empty
-          icon="TxStatusSuccessCircleIllus"
+          illustration="TxStatusSuccessCircle"
           title={intl.formatMessage({
             id: ETranslations.export_task_created__title,
           })}
