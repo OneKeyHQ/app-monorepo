@@ -589,10 +589,7 @@ export default class ServiceSwap extends ServiceBase {
   async cancelFetchQuoteEvents({
     quoteEventSessionId,
   }: { quoteEventSessionId?: string } = {}) {
-    if (
-      quoteEventSessionId &&
-      quoteEventSessionId !== this._quoteEventSourceSessionId
-    ) {
+    if (quoteEventSessionId !== this._quoteEventSourceSessionId) {
       return;
     }
     if (this._quoteEventSource) {

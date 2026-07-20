@@ -39,4 +39,28 @@ describe('ServiceSwap quote event source ownership', () => {
     expect(close).toHaveBeenCalledTimes(1);
     expect(state._quoteEventSourceSessionId).toBeUndefined();
   });
+
+  it('does not let a legacy caller cancel a session-owned quote stream', async () => {
+    const close = jest.fn();
+    const service = new ServiceSwap({ backgroundApi: {} });
+    const state = service as unknown as IServiceSwapQuoteEventSourceState;
+    state._quoteEventSource = { close };
+    state._quoteEventSourceSessionId = 'current-session';
+
+    await service.cancelFetchQuoteEvents();
+
+    expect(close).not.toHaveBeenCalled();
+    expect(state._quoteEventSourceSessionId).toBe('current-session');
+  });
+
+  it('lets a legacy caller cancel an unowned quote stream', async () => {
+    const close = jest.fn();
+    const service = new ServiceSwap({ backgroundApi: {} });
+    const state = service as unknown as IServiceSwapQuoteEventSourceState;
+    state._quoteEventSource = { close };
+
+    await service.cancelFetchQuoteEvents();
+
+    expect(close).toHaveBeenCalledTimes(1);
+  });
 });
