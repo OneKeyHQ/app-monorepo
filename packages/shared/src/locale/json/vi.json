@@ -2069,6 +2069,7 @@
   "limit.fill_at": "Lấp đầy tại",
   "limit.fill_at_popover": "Đơn hàng cần nhiều hơn một chút so với giá giới hạn của bạn để thực hiện nhằm trang trải phí.",
   "limit.history_fill_sold": "{num1} {token1} đã bán với tổng số tiền là {num2} {token2}",
+  "limit.marketable_fill_tip": "Giá thị trường tốt hơn giá giới hạn của bạn — lệnh này có thể được thực hiện ngay lập tức ở giá thị trường",
   "limit.network_cost_dialog_content": "Phí mạng cho đơn hàng này tương đối cao so với tổng số tiền đơn hàng. Đơn hàng này có khả năng sẽ không được thực hiện hoặc giá thực hiện có thể khác nhiều so với giá giới hạn của bạn.",
   "limit.price_trigger": "Khoảng cách kích hoạt",
   "limit.price_trigger_des_down": "Giá này thấp hơn {num} so với giá thị trường hiện tại. Bạn có thể bị lỗ! Nhấp vào \"Giá thị trường\" để đặt giá giới hạn của bạn theo giá thị trường hiện tại.",

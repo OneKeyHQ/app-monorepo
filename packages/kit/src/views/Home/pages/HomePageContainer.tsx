@@ -18,7 +18,6 @@ import {
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import { NotificationRegisterDaily } from '../../Notifications/components/NotificationRegisterDaily';
 import { OnboardingOnMount } from '../../Onboarding/components';
-import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
 import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
 
 import { HomePageView } from './HomePageView';
@@ -88,7 +87,6 @@ function HomePageContainer() {
           <OnboardingOnMount />
           <ExtOneKeyIdAuthOnMount />
           <NotificationRegisterDaily />
-          <KYTIntroOnMount />
           <BTCFreshAddressProvider />
           {/* <UrlAccountAutoReplaceHistory num={0} /> */}
 

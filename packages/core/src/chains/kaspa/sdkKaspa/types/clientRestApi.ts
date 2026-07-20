@@ -59,7 +59,10 @@ export interface IKaspaGetTransactionResponse {
   is_accepted: boolean;
   accepting_block_hash: string;
   accepting_block_blue_score: number;
-  inputs: IKaspaGetTransactionInput[];
+  version: number;
+  payload: string | null;
+  // null for coinbase transactions
+  inputs: IKaspaGetTransactionInput[] | null;
   outputs: IKaspaGetTransactionOutput[];
 }
 

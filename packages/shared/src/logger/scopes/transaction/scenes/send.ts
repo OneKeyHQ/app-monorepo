@@ -444,4 +444,18 @@ export class SendScene extends BaseScene {
       retriesLeft,
     };
   }
+
+  @LogToLocal()
+  public refTxFetchFailed({
+    network,
+    error,
+  }: {
+    network: string | undefined;
+    error: string;
+  }) {
+    return {
+      network,
+      error,
+    };
+  }
 }

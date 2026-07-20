@@ -2069,6 +2069,7 @@
   "limit.fill_at": "Mengisi di",
   "limit.fill_at_popover": "Pesanan membutuhkan sedikit lebih dari harga batas Anda untuk dieksekusi agar dapat menutupi biaya.",
   "limit.history_fill_sold": "{num1} {token1} terjual dengan total harga {num2} {token2}",
+  "limit.marketable_fill_tip": "Harga pasar lebih baik dari batas Anda — pesanan ini mungkin akan terisi pada harga pasar secara instan",
   "limit.network_cost_dialog_content": "Biaya jaringan untuk pesanan ini relatif tinggi dibandingkan dengan jumlah total pesanan. Pesanan ini kemungkinan tidak akan terpenuhi atau harga eksekusi mungkin sangat berbeda dari harga batas Anda.",
   "limit.price_trigger": "Jarak pemicu",
   "limit.price_trigger_des_down": "Harga ini {num} lebih rendah dari harga pasar saat ini. Anda bisa mengalami kerugian! Klik \"Harga pasar\" untuk menetapkan harga batas Anda ke harga pasar saat ini.",
