@@ -19,6 +19,7 @@ import {
   SegmentControl,
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
   XStack,
   YStack,
@@ -944,9 +945,17 @@ function StockActionGate({
         size={isDesktopModalPage ? 'medium' : 'large'}
         variant="primary"
         disabled
-        loading
         borderRadius="$full"
-      />,
+        childrenAsText={false}
+      >
+        <Spinner
+          h="$6"
+          alignItems="center"
+          justifyContent="center"
+          size="small"
+          color="$iconInverse"
+        />
+      </Button>,
     );
   }
 
