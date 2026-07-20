@@ -1,13 +1,19 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useEffect } from 'react';
 
-import { Button, Input, Stack, Toast } from '@onekeyhq/components';
+import {
+  Button,
+  Input,
+  ListView,
+  SizableText,
+  Stack,
+  Toast,
+} from '@onekeyhq/components';
 import type { IModalScreenProps } from '@onekeyhq/components/src/layouts/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderButtonGroup';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator/ModalFlowNavigator';
 
-import IconGallery from '../../Icon';
 import { Layout } from '../../utils/Layout';
 import { NavigationFocusTools } from '../../utils/NavigationTools';
 import { FreezeProbe } from '../../utils/RenderTools';
@@ -233,6 +239,29 @@ function DemoCreateOptionsModal({
   );
 }
 
+const BIG_LIST_DATA = Array.from(
+  { length: 500 },
+  (_, index) => `Row ${index + 1}`,
+);
+
+// Big scrolling list to exercise list virtualization inside a modal
+// (previously reused the Icon gallery page, now covered by CSF stories).
+function DemoBigListModal() {
+  return (
+    <ListView
+      flex={1}
+      estimatedItemSize="$11"
+      data={BIG_LIST_DATA}
+      renderItem={({ item }) => (
+        <Stack px="$5" py="$3">
+          <SizableText>{item}</SizableText>
+        </Stack>
+      )}
+      keyExtractor={(item) => item}
+    />
+  );
+}
+
 export const CreateModalStack: IModalFlowNavigatorConfig<
   EDemoCreateModalRoutes,
   IDemoCreateModalParamList
@@ -254,7 +283,7 @@ export const CreateModalStack: IModalFlowNavigatorConfig<
   },
   {
     name: EDemoCreateModalRoutes.DemoBigListModal,
-    component: IconGallery,
+    component: DemoBigListModal,
     translationId: 'Big List Demo Modal',
   },
 ];
