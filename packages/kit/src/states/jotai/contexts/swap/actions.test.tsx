@@ -859,12 +859,14 @@ describe('useSwapActions', () => {
     );
   });
 
-  it('keeps previous Stock provider quotes when amount formatting is normalized', async () => {
+  it('keeps previous Stock provider quotes display-only when amount formatting is normalized', async () => {
     const oldQuote = {
       quoteId: 'old-stock-provider-quote',
       eventId: 'previous-event',
       fromAmount: '1000',
-      toAmount: '10',
+      // Keep the previous quote more attractive so the test proves that it
+      // cannot become executable merely because it is retained for display.
+      toAmount: '99',
       kind: ESwapQuoteKind.SELL,
       protocol: EProtocolOfExchange.STOCK,
       fromTokenInfo: usdcToken,
@@ -910,24 +912,26 @@ describe('useSwapActions', () => {
         ],
       }),
     } as ISwapQuoteEvent;
+    const quoteParams: IFetchQuotesParams = {
+      fromNetworkId: usdcToken.networkId,
+      fromTokenAddress: usdcToken.contractAddress,
+      fromTokenAmount: '1000.0',
+      protocol: EProtocolOfExchange.STOCK,
+      slippagePercentage: 0.5,
+      toNetworkId: appleStockToken.networkId,
+      toTokenAddress: appleStockToken.contractAddress,
+    };
+    const tokenPairs = {
+      fromToken: usdcToken,
+      toToken: appleStockToken,
+    };
 
     await act(async () => {
       result.current.quoteEventHandler({
         event: quoteEvent,
         type: 'message',
-        params: {
-          fromNetworkId: usdcToken.networkId,
-          fromTokenAddress: usdcToken.contractAddress,
-          fromTokenAmount: '1000.0',
-          protocol: EProtocolOfExchange.STOCK,
-          slippagePercentage: 0.5,
-          toNetworkId: appleStockToken.networkId,
-          toTokenAddress: appleStockToken.contractAddress,
-        },
-        tokenPairs: {
-          fromToken: usdcToken,
-          toToken: appleStockToken,
-        },
+        params: quoteParams,
+        tokenPairs,
       });
     });
 
@@ -942,6 +946,27 @@ describe('useSwapActions', () => {
           quoteId: 'new-stock-provider-quote',
         }),
       ]),
+    );
+    expect(store.get(swapQuoteCurrentEventProviderKeysAtom())).toEqual([
+      'new-provider-New Provider',
+    ]);
+    expect(store.get(swapQuoteCurrentEventReceivedCountAtom())).toBe(1);
+    expect(store.get(swapQuoteCurrentSelectAtom())?.quoteId).toBe(
+      'new-stock-provider-quote',
+    );
+
+    await act(async () => {
+      result.current.quoteEventHandler({
+        event: {} as ISwapQuoteEvent,
+        type: 'done',
+        params: quoteParams,
+        tokenPairs,
+      });
+    });
+
+    expect(store.get(swapQuoteEventCompletedAtom())).toBe(true);
+    expect(store.get(swapQuoteCurrentSelectAtom())?.quoteId).toBe(
+      'new-stock-provider-quote',
     );
   });
 

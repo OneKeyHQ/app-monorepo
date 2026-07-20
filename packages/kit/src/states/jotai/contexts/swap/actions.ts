@@ -1078,11 +1078,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   );
                 set(swapQuoteListAtom(), [...newQuoteList]);
                 const currentEventProviderKeys = [
-                  ...new Set(
-                    newQuoteList.map((quote) =>
+                  ...new Set([
+                    ...get(swapQuoteCurrentEventProviderKeysAtom()),
+                    ...quoteResults.map((quote) =>
                       buildSwapQuoteProviderKey(quote),
                     ),
-                  ),
+                  ]),
                 ];
                 set(
                   swapQuoteCurrentEventProviderKeysAtom(),

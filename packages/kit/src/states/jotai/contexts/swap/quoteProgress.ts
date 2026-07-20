@@ -4,7 +4,7 @@ import { selectBestQuote } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapQuoteKind,
-  type ESwapTabSwitchType,
+  ESwapTabSwitchType,
   type IFetchQuoteResult,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -366,20 +366,29 @@ export function isSwapQuoteRequestForCurrentInput({
   });
 }
 
+export function isSwapOrBridgeQuoteType(swapType: ESwapTabSwitchType) {
+  return (
+    swapType === ESwapTabSwitchType.SWAP ||
+    swapType === ESwapTabSwitchType.BRIDGE
+  );
+}
+
 export function shouldShowSwapQuoteRequestLoading({
+  swapType,
   hasCurrentActionableQuote,
   hasValidInput,
   isQuoteRequestStarting,
   quoteEventCompleted,
   quoteRequestMatchesInput,
 }: {
+  swapType: ESwapTabSwitchType;
   hasCurrentActionableQuote: boolean;
   hasValidInput: boolean;
   isQuoteRequestStarting: boolean;
   quoteEventCompleted: boolean;
   quoteRequestMatchesInput: boolean;
 }) {
-  if (!hasValidInput) {
+  if (!isSwapOrBridgeQuoteType(swapType) || !hasValidInput) {
     return false;
   }
   if (isQuoteRequestStarting) {

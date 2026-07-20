@@ -75,6 +75,7 @@ import {
   getSwapQuoteProgressState,
   hasSwapQuoteEventTotalCount,
   isSwapNoProviderSupportsTrade,
+  isSwapOrBridgeQuoteType,
   isSwapQuoteEventFetching,
   isSwapQuoteInputAmountMatched,
   isSwapQuoteRequestForCurrentInput,
@@ -532,9 +533,9 @@ export function useSwapActionState() {
     quoteLoading,
     quoteEventFetching,
   });
+  const isSwapOrBridgeQuote = isSwapOrBridgeQuoteType(swapTypeSwitchValue);
   const isQuoteEventSettlingForAction =
-    (swapTypeSwitchValue === ESwapTabSwitchType.SWAP ||
-      swapTypeSwitchValue === ESwapTabSwitchType.BRIDGE) &&
+    isSwapOrBridgeQuote &&
     !quoteEventCompleted &&
     (quoteLoading ||
       quoteEventFetching ||
@@ -599,32 +600,34 @@ export function useSwapActionState() {
       toTokenAmount.value,
     ],
   );
-  const hasValidSwapInput = useMemo(() => {
+  const hasValidQuoteInput = useMemo(() => {
     const amount = new BigNumber(fromTokenAmount.value);
     return Boolean(
-      swapTypeSwitchValue === ESwapTabSwitchType.SWAP &&
       fromTokenAmount.isInput &&
       fromToken &&
       toToken &&
       amount.isFinite() &&
       amount.gt(0),
     );
-  }, [fromToken, fromTokenAmount, swapTypeSwitchValue, toToken]);
+  }, [fromToken, fromTokenAmount, toToken]);
   const isQuoteRequestStarting = Boolean(
     quoteRequestMatchesCurrentInput &&
     quoteActionLock.actionLock &&
     !quoteEventTotalCount.eventId,
   );
   const isQuoteRequestLoading = Boolean(
-    swapTypeSwitchValue === ESwapTabSwitchType.SWAP &&
-    (shouldShowSwapQuoteRequestLoading({
+    shouldShowSwapQuoteRequestLoading({
+      swapType: swapTypeSwitchValue,
       hasCurrentActionableQuote: hasActionableQuote && !quoteResultNoMatch,
-      hasValidInput: hasValidSwapInput,
+      hasValidInput: hasValidQuoteInput,
       isQuoteRequestStarting,
       quoteEventCompleted,
       quoteRequestMatchesInput: quoteRequestMatchesCurrentInput,
     }) ||
-      (hasValidSwapInput && quoteResultNoMatch && !quoteResultNoMatchDebounce)),
+    (isSwapOrBridgeQuote &&
+      hasValidQuoteInput &&
+      quoteResultNoMatch &&
+      !quoteResultNoMatchDebounce),
   );
   const isQuoteActionLoading = Boolean(
     !noConnectWallet &&

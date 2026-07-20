@@ -105,6 +105,7 @@ describe('swap quote progress', () => {
   it('keeps a new input round loading until its current quote is actionable', () => {
     expect(
       shouldShowSwapQuoteRequestLoading({
+        swapType: ESwapTabSwitchType.SWAP,
         hasCurrentActionableQuote: false,
         hasValidInput: true,
         isQuoteRequestStarting: false,
@@ -114,6 +115,7 @@ describe('swap quote progress', () => {
     ).toBe(true);
     expect(
       shouldShowSwapQuoteRequestLoading({
+        swapType: ESwapTabSwitchType.SWAP,
         hasCurrentActionableQuote: false,
         hasValidInput: true,
         isQuoteRequestStarting: true,
@@ -123,6 +125,7 @@ describe('swap quote progress', () => {
     ).toBe(true);
     expect(
       shouldShowSwapQuoteRequestLoading({
+        swapType: ESwapTabSwitchType.SWAP,
         hasCurrentActionableQuote: true,
         hasValidInput: true,
         isQuoteRequestStarting: false,
@@ -135,6 +138,7 @@ describe('swap quote progress', () => {
   it('leaves current terminal and empty-input states out of quote loading', () => {
     expect(
       shouldShowSwapQuoteRequestLoading({
+        swapType: ESwapTabSwitchType.SWAP,
         hasCurrentActionableQuote: false,
         hasValidInput: true,
         isQuoteRequestStarting: false,
@@ -144,11 +148,35 @@ describe('swap quote progress', () => {
     ).toBe(false);
     expect(
       shouldShowSwapQuoteRequestLoading({
+        swapType: ESwapTabSwitchType.SWAP,
         hasCurrentActionableQuote: false,
         hasValidInput: false,
         isQuoteRequestStarting: false,
         quoteEventCompleted: false,
         quoteRequestMatchesInput: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps Bridge in the same request-start loading contract as Swap', () => {
+    const requestState = {
+      hasCurrentActionableQuote: false,
+      hasValidInput: true,
+      isQuoteRequestStarting: false,
+      quoteEventCompleted: true,
+      quoteRequestMatchesInput: false,
+    };
+
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        ...requestState,
+        swapType: ESwapTabSwitchType.BRIDGE,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        ...requestState,
+        swapType: ESwapTabSwitchType.LIMIT,
       }),
     ).toBe(false);
   });

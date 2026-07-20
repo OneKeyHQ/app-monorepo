@@ -117,6 +117,8 @@ export function LightweightChart({
   const lastPointPositionUpdaterRef = useRef<(() => void) | undefined>(
     undefined,
   );
+  const lastPointPositionGenerationRef = useRef(0);
+  const canPublishLastPointPositionRef = useRef(false);
   const hasSecondaryLineData =
     Array.isArray(chartConfig.secondaryLineData) &&
     chartConfig.secondaryLineData.length > 0;
@@ -136,7 +138,10 @@ export function LightweightChart({
     let lastPointPositionUpdater: (() => void) | undefined;
     let lastPointRafId: number | undefined;
     let resizeRafId: number | undefined;
-    let canPublishLastPointPosition = false;
+    const lastPointPositionGeneration =
+      lastPointPositionGenerationRef.current + 1;
+    lastPointPositionGenerationRef.current = lastPointPositionGeneration;
+    canPublishLastPointPositionRef.current = false;
 
     // Capture container for cleanup
     const container = chartContainerRef.current;
@@ -248,7 +253,7 @@ export function LightweightChart({
         const updateLastPointPosition = () => {
           // Guard against the teardown window: a range-change event firing during
           // chart.remove() must not setState on the unmounting component.
-          if (cancelled || !canPublishLastPointPosition) return;
+          if (cancelled || !canPublishLastPointPositionRef.current) return;
           const currentChart = chartRef.current;
           const currentSeries = seriesRef.current;
           if (!currentChart || !currentSeries) return;
@@ -282,8 +287,14 @@ export function LightweightChart({
         // frame. Keep the overlay hidden until then so it never paints with the
         // temporary full-width/unscaled coordinates.
         lastPointRafId = requestAnimationFrame(() => {
-          if (cancelled) return;
-          canPublishLastPointPosition = true;
+          if (
+            cancelled ||
+            lastPointPositionGenerationRef.current !==
+              lastPointPositionGeneration
+          ) {
+            return;
+          }
+          canPublishLastPointPositionRef.current = true;
           updateLastPointPosition();
         });
 
@@ -359,6 +370,8 @@ export function LightweightChart({
 
     return () => {
       cancelled = true;
+      lastPointPositionGenerationRef.current += 1;
+      canPublishLastPointPositionRef.current = false;
       // Cleanup in correct order
       if (lastPointRafId !== undefined) {
         cancelAnimationFrame(lastPointRafId);
@@ -418,17 +431,34 @@ export function LightweightChart({
       return undefined;
     }
 
+    const lastPointPositionGeneration =
+      lastPointPositionGenerationRef.current + 1;
+    lastPointPositionGenerationRef.current = lastPointPositionGeneration;
+    canPublishLastPointPositionRef.current = false;
+    setLastPointPosition(null);
+
     currentSeries.setData(chartConfig.data);
     secondarySeriesRef.current?.setData(chartConfig.secondaryLineData ?? []);
     currentChart.timeScale().fitContent();
-    lastPointPositionUpdaterRef.current?.();
 
     const lastPointRafId = requestAnimationFrame(() => {
+      if (
+        lastPointPositionGenerationRef.current !== lastPointPositionGeneration
+      ) {
+        return;
+      }
+      canPublishLastPointPositionRef.current = true;
       lastPointPositionUpdaterRef.current?.();
     });
 
     return () => {
       cancelAnimationFrame(lastPointRafId);
+      if (
+        lastPointPositionGenerationRef.current === lastPointPositionGeneration
+      ) {
+        lastPointPositionGenerationRef.current += 1;
+        canPublishLastPointPositionRef.current = false;
+      }
     };
   }, [
     chartConfig.data,
