@@ -6,6 +6,7 @@ import { parseColdStartSnapshotRaw } from '@onekeyhq/shared/src/utils/coldStartC
 import {
   getSwapColdStartSelectedTokensFromSnapshot,
   isSwapColdStartAllNetworkContextNetworkId,
+  normalizeSwapColdStartCacheSnapshot,
 } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
@@ -117,6 +118,14 @@ function hasSwapSelectedTokenSnapshot(snapshot: Record<string, unknown>) {
   );
 }
 
+function hasSwapStockSelectedTokenSnapshot(snapshot: Record<string, unknown>) {
+  return Object.keys(snapshot).some((key) =>
+    key.endsWith(
+      `::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom}`,
+    ),
+  );
+}
+
 function hasHomeSelectedAccountSnapshot(snapshot: Record<string, unknown>) {
   return Boolean(
     getSelectedAccountFromSnapshot({
@@ -138,6 +147,7 @@ function getColdStartSnapshotCandidatesFromGlobal() {
     if (
       isSnapshotRecord(snapshot) &&
       (hasSwapSelectedTokenSnapshot(snapshot) ||
+        hasSwapStockSelectedTokenSnapshot(snapshot) ||
         hasHomeSelectedAccountSnapshot(snapshot))
     ) {
       snapshots.push(snapshot);
@@ -145,6 +155,7 @@ function getColdStartSnapshotCandidatesFromGlobal() {
   } else if (
     isSnapshotRecord(rawSnapshot) &&
     (hasSwapSelectedTokenSnapshot(rawSnapshot) ||
+      hasSwapStockSelectedTokenSnapshot(rawSnapshot) ||
       hasHomeSelectedAccountSnapshot(rawSnapshot))
   ) {
     snapshots.push(rawSnapshot);
@@ -153,12 +164,34 @@ function getColdStartSnapshotCandidatesFromGlobal() {
   if (
     isSnapshotRecord(globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__) &&
     (hasSwapSelectedTokenSnapshot(globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__) ||
+      hasSwapStockSelectedTokenSnapshot(
+        globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__,
+      ) ||
       hasHomeSelectedAccountSnapshot(globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__))
   ) {
     snapshots.push(globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__);
   }
 
   return snapshots;
+}
+
+export function getSwapStockColdStartDisplayTokenFromGlobalSnapshot() {
+  for (const snapshot of getColdStartSnapshotCandidatesFromGlobal()) {
+    const normalizedSnapshot = normalizeSwapColdStartCacheSnapshot({
+      ...snapshot,
+    });
+    const stockToken = getSnapshotValue<ISwapToken>({
+      snapshot: normalizedSnapshot,
+      coldStartScopeKey: SWAP_STORE_SCOPE_KEY,
+      coldStartCacheKey:
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+    });
+    if (stockToken?.isStock) {
+      return stockToken;
+    }
+  }
+
+  return undefined;
 }
 
 function shouldUseRawSwapSelectedTokens(snapshot: Record<string, unknown>) {

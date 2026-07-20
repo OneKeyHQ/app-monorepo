@@ -25,9 +25,9 @@ import {
 import {
   ESwapStockChannelAsyncStatus,
   filterStockPayTokenCandidates,
-  findDefaultStockPayToken,
   findTokenFromCandidates,
   getTokenIdentityKey,
+  resolveStockPayTokenDisplaySeed,
 } from './swapStockChannelUtils';
 import { markStockUsdPriceCurrency } from './swapStockFiatValueUtils';
 import {
@@ -419,6 +419,22 @@ export function useSwapStockPayTokens({
   const payTokenBalances = payTokenDetailsReady
     ? payTokenDetailsState.balances
     : undefined;
+  const displayPayTokenCandidate = useMemo(
+    () =>
+      resolveStockPayTokenDisplaySeed({
+        balances: payTokenBalances,
+        candidates: selectablePayTokens,
+        persistedTokenKey: persistedStockPayTokenKey,
+        selectedToken: payToken,
+      }),
+    [
+      payToken,
+      payTokenBalances,
+      persistedStockPayTokenKey,
+      selectablePayTokens,
+    ],
+  );
+  const displayPayToken = displayPayTokenCandidate as ISwapToken | undefined;
 
   useEffect(() => {
     if (!shouldLoadPayTokenDetails) {
@@ -505,17 +521,7 @@ export function useSwapStockPayTokens({
       return;
     }
 
-    const persistedToken = persistedStockPayTokenKey
-      ? selectablePayTokens.find(
-          (candidate) =>
-            getTokenIdentityKey(candidate) === persistedStockPayTokenKey,
-        )
-      : undefined;
-    const preferredToken = findDefaultStockPayToken({
-      candidates: selectablePayTokens,
-      balances: payTokenBalances,
-    });
-    const nextPayToken = persistedToken ?? preferredToken;
+    const nextPayToken = displayPayTokenCandidate;
     if (!nextPayToken) {
       return;
     }
@@ -534,11 +540,10 @@ export function useSwapStockPayTokens({
     selectPayToken(nextPayToken, false);
   }, [
     activeSelectablePayToken,
+    displayPayTokenCandidate,
     manualStockPayTokenKeyRef,
     payToken,
     payTokenDetailsReady,
-    payTokenBalances,
-    persistedStockPayTokenKey,
     selectablePayTokens,
     selectPayToken,
     speedConfigReady,
@@ -587,6 +592,7 @@ export function useSwapStockPayTokens({
       (!payTokenDetailsReady || payTokenDetailsBlockingLoading));
 
   return {
+    displayPayToken,
     payTokenStatus,
     payTokenOptionsLoading: !!stockPayTokenOptionsLoading,
     payTokens,
