@@ -20,12 +20,19 @@ import { getNativeUnifoldBeginDeposit } from './unifoldNativeBridge';
 import type { DepositConfig } from '@unifold/connect-react-native';
 
 // Hard fuse: @unifold/connect-react-native 0.1.57 (latest as of 2026-07-19)
-// does not support the HyperCore destination at all (chain 1337 is absent from
-// its chain mapping — the sheet silently closes), and its deposit sheet can
-// freeze the whole app behind a transparent Modal when a request hangs.
-// Keep native on the existing OneKey flow until a Unifold RN SDK release
-// supports HyperCore, then flip this to false and gate rollout via the
-// perp-config remote switch (Task 9).
+// is not production-ready in this app:
+// 1. It has no HyperCore support (chain 1337 is absent from its chain
+//    mapping, so the deposit sheet silently closes).
+// 2. Even with a supported destination, its sheet renders stuck offscreen
+//    (visible:true but the entrance spring never lands), leaving a
+//    transparent full-screen root that freezes all touches. Environment
+//    exonerated by isolated repros: network probes pass, worklet compilation
+//    verified in the bundle, and a byte-for-byte replica of the sheet's
+//    Modal + gate + withSpring entrance pattern works fine here — the defect
+//    is internal to the SDK (reported to Unifold with the evidence).
+// Keep native on the existing OneKey flow until a fixed SDK release, then
+// flip this to false and gate rollout via the perp-config remote switch
+// (Task 9).
 const NATIVE_UNIFOLD_DISABLED = true;
 
 // RN SDK 0.1.57 has no exchange screens, and Cash App is iOS-only per the
