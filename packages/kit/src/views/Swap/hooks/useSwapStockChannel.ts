@@ -125,7 +125,8 @@ export function useSwapStockChannel() {
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const { selectStockExecutionTokens } = useSwapActions().current;
-  const { spotCategories } = useMarketBasicConfig();
+  const { spotCategories, isLoading: marketBasicConfigLoading } =
+    useMarketBasicConfig();
   const [tradeSideState, setTradeSideState] = useState<
     ESwapStockTradeSide | undefined
   >(undefined);
@@ -454,6 +455,7 @@ export function useSwapStockChannel() {
     defaultStockTokenStatus,
     shouldLoadDefaultStockToken,
   } = useSwapStockDefaultToken({
+    marketBasicConfigLoading,
     selectStockSwapToken,
     selectedStockTokenKey,
     spotCategories,

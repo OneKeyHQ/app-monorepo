@@ -112,15 +112,17 @@ export function shouldLoadDefaultStockToken({
 
 export function resolveSwapStockDefaultTokenStatus({
   hasSelectableToken,
+  hasStockCategory,
   isLoading,
-  requestReady,
+  marketBasicConfigLoading,
   requestScope,
   resultScope,
   shouldLoad,
 }: {
   hasSelectableToken: boolean;
+  hasStockCategory: boolean;
   isLoading?: boolean;
-  requestReady: boolean;
+  marketBasicConfigLoading?: boolean;
   requestScope: string;
   resultScope: string;
   shouldLoad: boolean;
@@ -129,8 +131,15 @@ export function resolveSwapStockDefaultTokenStatus({
     return ESwapStockChannelAsyncStatus.Idle;
   }
 
+  if (marketBasicConfigLoading !== false) {
+    return ESwapStockChannelAsyncStatus.Initializing;
+  }
+
+  if (!hasStockCategory) {
+    return ESwapStockChannelAsyncStatus.Empty;
+  }
+
   if (
-    !requestReady ||
     isLoading !== false ||
     !requestScope ||
     resultScope !== requestScope ||

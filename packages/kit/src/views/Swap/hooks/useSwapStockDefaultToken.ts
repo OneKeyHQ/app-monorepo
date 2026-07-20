@@ -14,10 +14,12 @@ import {
 } from './swapStockChannelUtils';
 
 export function useSwapStockDefaultToken({
+  marketBasicConfigLoading,
   selectStockSwapToken,
   selectedStockTokenKey,
   spotCategories,
 }: {
+  marketBasicConfigLoading?: boolean;
   selectStockSwapToken: (token: ISwapToken) => void;
   selectedStockTokenKey: string;
   spotCategories: {
@@ -94,8 +96,9 @@ export function useSwapStockDefaultToken({
   const defaultStockTokenKey = getMarketListTokenKey(defaultStockToken);
   const defaultStockTokenStatus = resolveSwapStockDefaultTokenStatus({
     hasSelectableToken: Boolean(defaultStockTokenKey),
+    hasStockCategory: Boolean(stockCategoryType),
     isLoading: defaultStockTokenLoading,
-    requestReady: Boolean(stockCategoryType),
+    marketBasicConfigLoading,
     requestScope: defaultStockTokenScope,
     resultScope: defaultStockTokenState.scope,
     shouldLoad: shouldLoadDefaultStockTokenValue,

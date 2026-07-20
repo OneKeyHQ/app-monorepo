@@ -84,10 +84,11 @@ describe('swapStockChannelUtils', () => {
     ).toBe(false);
   });
 
-  it('keeps default Stock selection pending until the current scope is settled', () => {
+  it('keeps default Stock selection pending while config or token scope is unsettled', () => {
     const baseParams = {
       hasSelectableToken: false,
-      requestReady: true,
+      hasStockCategory: true,
+      marketBasicConfigLoading: false,
       requestScope: '1:stocks',
       resultScope: '1:stocks',
       shouldLoad: true,
@@ -95,8 +96,13 @@ describe('swapStockChannelUtils', () => {
     const coldStartStatuses = [
       resolveSwapStockDefaultTokenStatus({
         ...baseParams,
-        isLoading: undefined,
-        requestReady: false,
+        marketBasicConfigLoading: undefined,
+        requestScope: '1:',
+        resultScope: '',
+      }),
+      resolveSwapStockDefaultTokenStatus({
+        ...baseParams,
+        marketBasicConfigLoading: true,
         requestScope: '1:',
         resultScope: '',
       }),
@@ -121,16 +127,32 @@ describe('swapStockChannelUtils', () => {
       ESwapStockChannelAsyncStatus.Initializing,
       ESwapStockChannelAsyncStatus.Initializing,
       ESwapStockChannelAsyncStatus.Initializing,
+      ESwapStockChannelAsyncStatus.Initializing,
     ]);
     expect(coldStartStatuses).not.toContain(ESwapStockChannelAsyncStatus.Empty);
+  });
+
+  it('settles when Market config finishes without a Stock category', () => {
+    expect(
+      resolveSwapStockDefaultTokenStatus({
+        hasSelectableToken: false,
+        hasStockCategory: false,
+        isLoading: false,
+        marketBasicConfigLoading: false,
+        requestScope: '1:',
+        resultScope: '1:',
+        shouldLoad: true,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Empty);
   });
 
   it('settles default Stock selection only for the current empty scope', () => {
     expect(
       resolveSwapStockDefaultTokenStatus({
         hasSelectableToken: false,
+        hasStockCategory: true,
         isLoading: false,
-        requestReady: true,
+        marketBasicConfigLoading: false,
         requestScope: '1:stocks',
         resultScope: '1:stocks',
         shouldLoad: true,
@@ -139,8 +161,9 @@ describe('swapStockChannelUtils', () => {
     expect(
       resolveSwapStockDefaultTokenStatus({
         hasSelectableToken: false,
+        hasStockCategory: true,
         isLoading: false,
-        requestReady: true,
+        marketBasicConfigLoading: false,
         requestScope: '0:stocks',
         resultScope: '1:stocks',
         shouldLoad: false,
