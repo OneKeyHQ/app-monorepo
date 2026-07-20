@@ -20,6 +20,10 @@ const mockMigrationAtom = {
   get: jest.fn(),
   set: jest.fn(),
 };
+const mockDevSettingsAtom = {
+  get: jest.fn(),
+  set: jest.fn(),
+};
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -79,10 +83,7 @@ jest.mock('../../states/jotai/atoms', () => ({
 }));
 
 jest.mock('../../states/jotai/atoms/devSettings', () => ({
-  devSettingsPersistAtom: {
-    get: jest.fn(async () => ({ enabled: false, settings: {} })),
-    set: jest.fn(),
-  },
+  devSettingsPersistAtom: mockDevSettingsAtom,
 }));
 
 jest.mock('../../endpoints', () => ({
@@ -326,6 +327,55 @@ function mockResetPinHappyPath(
 
   return resetBackendShareData;
 }
+
+beforeEach(() => {
+  mockDevSettingsAtom.get.mockResolvedValue({
+    enabled: false,
+    settings: {},
+  });
+});
+
+describe('ServiceKeylessWallet.apiResetKeylessBackendShare', () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+  });
+
+  test('requires the destructive Keyless reset developer setting', async () => {
+    const { service } = createService();
+
+    mockDevSettingsAtom.get.mockResolvedValue({
+      enabled: true,
+      settings: { allowDeleteKeylessKey: false },
+    });
+
+    await expect(
+      service.apiResetKeylessBackendShare({ token: TOKEN }),
+    ).rejects.toThrow('Keyless wallet reset is not allowed');
+  });
+
+  test('resets with the temporary OAuth token when explicitly allowed', async () => {
+    const { service, serviceAny } = createService();
+    const post = jest.fn(async () => ({
+      data: { code: 0, message: 'success' },
+    }));
+
+    mockDevSettingsAtom.get.mockResolvedValue({
+      enabled: true,
+      settings: { allowDeleteKeylessKey: true },
+    });
+    serviceAny.getClient = jest.fn(async () => ({ post }));
+    serviceAny.apiGetPinConfirmStatus = jest.fn(async () => undefined);
+
+    await expect(
+      service.apiResetKeylessBackendShare({ token: TOKEN }),
+    ).resolves.toEqual({ ok: true });
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/keyless-wallet/resetKeylessBackendShare',
+      { token: TOKEN },
+    );
+  });
+});
 
 describe('ServiceKeylessWallet passive backend share v2 migration', () => {
   beforeEach(() => {

@@ -109,6 +109,7 @@ describe('useKeylessLocalExistenceLogin', () => {
 
     expect(mockSignInWithSocialLogin).toHaveBeenCalledWith(
       EOAuthSocialLoginProvider.Google,
+      { persistSession: false },
     );
     expect(mockValidateTokenMatchesKeylessWallet).not.toHaveBeenCalled();
     expect(
