@@ -153,11 +153,13 @@ function TokenDetailsView() {
   } = usePromiseResult(
     async () => {
       if (tokenInfo.isAggregateToken) {
-        const aggregateTokenRawData =
-          await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
-
-        const allAggregateTokenMap =
-          aggregateTokenRawData?.allAggregateTokenMap ?? {};
+        // getAllAggregateTokenInfo() filters members by getListedNetworkMap()
+        // (bundled preset networks only): a stale aggregate-token cache
+        // persisted by an older app version may still reference delisted
+        // networks, and getNetworkSafe() cannot detect them because the
+        // server/custom network caches may still mark them as LISTED.
+        const { allAggregateTokenMap } =
+          await backgroundApiProxy.serviceToken.getAllAggregateTokenInfo();
         const aggregateTokens: IAccountToken[] = [];
 
         const { unavailableItems } =
@@ -190,9 +192,8 @@ function TokenDetailsView() {
               }),
             ]);
 
-            // Skip networks this build no longer bundles: a stale
-            // aggregate-token cache persisted by an older app version may
-            // still reference delisted networks.
+            // Null-safety only: delisted-network members are already
+            // filtered out by getAllAggregateTokenInfo() above.
             if (tokenNetwork) {
               if (!accountUtils.isOthersWallet({ walletId })) {
                 try {
