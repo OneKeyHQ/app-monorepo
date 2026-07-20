@@ -45,6 +45,7 @@ export interface ITradingViewNativeDataState {
 
 export interface ITradingViewNativePriceUpdateData {
   price: number;
+  receivedAt: number;
   source: 'history' | 'realtime';
   timestamp: number;
 }

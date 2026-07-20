@@ -10,9 +10,11 @@ import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2
 
 import { TradingViewNativeContainer } from './TradingViewNativeContainer';
 
+import type { ITradingViewNativeDataState } from './types';
+
 const mockHandleRetry = jest.fn();
 let mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
-let mockDataState: { error?: Error; status: string };
+let mockDataState: ITradingViewNativeDataState;
 let mockPoints: IMarketTokenKLineDataPoint[];
 let mockRealtimePointListener:
   | ((point: IMarketTokenKLineDataPoint) => void)
@@ -93,6 +95,10 @@ describe('TradingViewNativeContainer', () => {
     mockRealtimePointListener = undefined;
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('renders a retryable error state when history has no points', () => {
     render(
       <TradingViewNativeContainer
@@ -130,7 +136,8 @@ describe('TradingViewNativeContainer', () => {
       t: 2000,
     };
     const handlePriceUpdate = jest.fn();
-    mockDataState = { status: 'stale' };
+    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(1500);
+    mockDataState = { status: 'stale', lastUpdatedAt: 1500 };
     mockPoints = [historyPoint];
 
     const renderChart = () => (
@@ -149,14 +156,16 @@ describe('TradingViewNativeContainer', () => {
 
     expect(handlePriceUpdate).toHaveBeenLastCalledWith({
       price: historyPoint.c,
+      receivedAt: 1500,
       source: 'history',
       timestamp: historyPoint.t,
     });
 
     handlePriceUpdate.mockClear();
+    dateNowSpy.mockReturnValue(2500);
     act(() => {
       mockRealtimePointListener?.(realtimePoint);
-      mockDataState = { status: 'live' };
+      mockDataState = { status: 'live', lastUpdatedAt: 2500 };
       mockPoints = [historyPoint, realtimePoint];
     });
     rerender(renderChart());
@@ -164,6 +173,23 @@ describe('TradingViewNativeContainer', () => {
     expect(handlePriceUpdate).toHaveBeenCalledTimes(1);
     expect(handlePriceUpdate).toHaveBeenLastCalledWith({
       price: realtimePoint.c,
+      receivedAt: 2500,
+      source: 'realtime',
+      timestamp: realtimePoint.t,
+    });
+
+    handlePriceUpdate.mockClear();
+    dateNowSpy.mockReturnValue(3000);
+    act(() => {
+      mockRealtimePointListener?.(realtimePoint);
+      mockDataState = { status: 'live', lastUpdatedAt: 3000 };
+    });
+    rerender(renderChart());
+
+    expect(handlePriceUpdate).toHaveBeenCalledTimes(1);
+    expect(handlePriceUpdate).toHaveBeenLastCalledWith({
+      price: realtimePoint.c,
+      receivedAt: 3000,
       source: 'realtime',
       timestamp: realtimePoint.t,
     });

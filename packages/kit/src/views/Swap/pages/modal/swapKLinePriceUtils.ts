@@ -3,11 +3,14 @@ import type { ITradingViewPriceUpdateData } from '@onekeyhq/kit/src/components/T
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
+export const SWAP_KLINE_CHART_PRICE_FRESHNESS_MS = 10_000;
+
 export type ISwapKLineChartPrice = {
   source: ITradingViewNativePriceUpdateData['source'];
   sourceKey: string;
   tokenKey: string;
   price: string;
+  receivedAt: number;
   updatedAt: number;
 };
 
@@ -100,6 +103,7 @@ export function getSwapKLineDisplayPrice({
   chartPrice,
   chartSourceKey,
   chartTokenKey,
+  now = Date.now(),
 }: {
   tokenMarketDetail?: IMarketTokenDetail;
   tokenMarketDetailUpdatedAt?: number;
@@ -108,14 +112,26 @@ export function getSwapKLineDisplayPrice({
   chartPrice?: ISwapKLineChartPrice;
   chartSourceKey: string;
   chartTokenKey: string;
+  now?: number;
 }) {
-  const normalizedChartPrice = getNormalizedSwapKLinePrice(
+  const matchingChartPrice =
     chartPrice?.tokenKey === chartTokenKey &&
-      chartPrice.sourceKey === chartSourceKey
-      ? chartPrice.price
-      : undefined,
+    chartPrice.sourceKey === chartSourceKey
+      ? chartPrice
+      : undefined;
+  const normalizedChartPrice = getNormalizedSwapKLinePrice(
+    matchingChartPrice?.price,
   );
-  if (normalizedChartPrice) {
+  const chartPriceReceivedAt = matchingChartPrice?.receivedAt;
+  const hasFreshRealtimeChartPrice = Boolean(
+    normalizedChartPrice &&
+    matchingChartPrice?.source === 'realtime' &&
+    typeof chartPriceReceivedAt === 'number' &&
+    Number.isFinite(chartPriceReceivedAt) &&
+    chartPriceReceivedAt <= now &&
+    now - chartPriceReceivedAt < SWAP_KLINE_CHART_PRICE_FRESHNESS_MS,
+  );
+  if (hasFreshRealtimeChartPrice) {
     return normalizedChartPrice;
   }
 
@@ -127,6 +143,10 @@ export function getSwapKLineDisplayPrice({
     {
       price: getNormalizedSwapKLinePrice(tokenUsdFallbackPrice),
       updatedAt: tokenUsdFallbackPriceUpdatedAt ?? 0,
+    },
+    {
+      price: normalizedChartPrice,
+      updatedAt: matchingChartPrice?.updatedAt ?? 0,
     },
   ].filter((item): item is { price: string; updatedAt: number } =>
     Boolean(item.price),

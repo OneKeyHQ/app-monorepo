@@ -708,6 +708,10 @@ function useSwapKLineContentState(): ISwapKLineContentState {
         sourceKey: tradingViewNativeSourceKey,
         tokenKey: selectedTokenKey,
         price,
+        receivedAt: normalizeSwapKLineChartUpdateTimestamp(
+          data.receivedAt,
+          Date.now(),
+        ),
         updatedAt: normalizeSwapKLineChartUpdateTimestamp(
           data.timestamp,
           Date.now(),

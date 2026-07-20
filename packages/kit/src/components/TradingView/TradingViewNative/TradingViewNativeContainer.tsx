@@ -23,12 +23,20 @@ export const TradingViewNativeContainer = memo(
     onPriceUpdate,
   }: ITradingViewNativeProps) => {
     const intl = useIntl();
+    const onPriceUpdateRef = useRef(onPriceUpdate);
     const realtimePointRef = useRef<{ c: number; t: number } | undefined>(
       undefined,
     );
+    onPriceUpdateRef.current = onPriceUpdate;
     const handleRealtimePoint = useCallback(
       (point: { c: number; t: number }) => {
         realtimePointRef.current = point;
+        onPriceUpdateRef.current?.({
+          price: point.c,
+          receivedAt: Date.now(),
+          source: 'realtime',
+          timestamp: point.t,
+        });
       },
       [],
     );
@@ -60,13 +68,16 @@ export const TradingViewNativeContainer = memo(
       }
 
       const realtimePoint = realtimePointRef.current;
+      if (
+        realtimePoint?.c === latestPrice &&
+        realtimePoint.t === latestPriceTimestamp
+      ) {
+        return;
+      }
       onPriceUpdate?.({
         price: latestPrice,
-        source:
-          realtimePoint?.c === latestPrice &&
-          realtimePoint.t === latestPriceTimestamp
-            ? 'realtime'
-            : 'history',
+        receivedAt: Date.now(),
+        source: 'history',
         timestamp: latestPriceTimestamp,
       });
     }, [latestPrice, latestPriceTimestamp, onPriceUpdate]);
