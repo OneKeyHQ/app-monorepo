@@ -473,6 +473,14 @@ export interface IAppEventBusPayload {
     authSessionSource: EPrimeAuthSessionSource;
     callerName: string;
   };
+  [EAppEventBusNames.PrimeSubscriptionPurchaseSuccess]: {
+    // UI-local event: use emitToSelf so multiple Extension surfaces cannot race
+    // to show the same post-purchase dialog.
+    onekeyUserId: string;
+    // A purchase flow reserves this BG-owned claim before refreshing Prime
+    // state, preventing another Extension Home runtime from winning the race.
+    claimId?: string;
+  };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: undefined;
   [EAppEventBusNames.PrimeMasterPasswordInvalid]: undefined;

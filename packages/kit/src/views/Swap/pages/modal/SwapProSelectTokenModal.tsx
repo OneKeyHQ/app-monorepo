@@ -69,6 +69,7 @@ const SwapProSelectTokenPage = ({
       name: token.name,
       isNative: token.isNative,
       price: token.price?.toString(),
+      isStock: Boolean(token.stock),
     });
   };
   const handleSearchTokenSelect = (
@@ -85,6 +86,7 @@ const SwapProSelectTokenPage = ({
       name: token.name,
       isNative: token.isNative,
       price: token.price?.toString(),
+      isStock: Boolean(token.stock),
     });
   };
   return (

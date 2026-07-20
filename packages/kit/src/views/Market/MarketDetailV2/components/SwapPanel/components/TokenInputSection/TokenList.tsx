@@ -30,6 +30,9 @@ interface ITokenListProps {
   disabledOnSwitchToTrade?: boolean;
   currentSelectToken?: ISwapToken;
   disableNativeToken?: boolean;
+  // Caller-owned selection rule (e.g. the stock stable-coin whitelist): a
+  // token it returns true for renders grayed out and cannot be selected.
+  isTokenDisabled?: (token: IToken) => boolean;
   disableInternalTokenDetailFetch?: boolean;
   tokenDetailsLoading?: boolean;
   sortTokensByValue?: boolean;
@@ -42,6 +45,7 @@ export function TokenList({
   disabledOnSwitchToTrade,
   currentSelectToken,
   disableNativeToken,
+  isTokenDisabled,
   disableInternalTokenDetailFetch,
   tokenDetailsLoading,
   sortTokensByValue = true,
@@ -166,7 +170,8 @@ export function TokenList({
                 token1: currentSelectToken,
                 token2: token,
               })) ||
-            (disableNativeToken && token.isNative),
+            (disableNativeToken && token.isNative) ||
+            isTokenDisabled?.(token),
           );
           const onPress = () => {
             if (isDisabled) return;

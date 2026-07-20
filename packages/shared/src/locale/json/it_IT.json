@@ -2069,6 +2069,7 @@
   "limit.fill_at": "Riempi a",
   "limit.fill_at_popover": "L'ordine necessita di un po' più del tuo prezzo limite per essere eseguito in modo da coprire la commissione.",
   "limit.history_fill_sold": "{num1} {token1} venduti per un totale di {num2} {token2}",
+  "limit.marketable_fill_tip": "Il prezzo di mercato è migliore del tuo limite — questo ordine potrebbe essere eseguito immediatamente al prezzo di mercato",
   "limit.network_cost_dialog_content": "La commissione di rete per questo ordine è relativamente alta rispetto all'importo totale dell'ordine. È improbabile che questo ordine venga eseguito o il prezzo di esecuzione potrebbe differire molto dal tuo prezzo limite.",
   "limit.price_trigger": "Distanza di attivazione",
   "limit.price_trigger_des_down": "Questo prezzo è {num} inferiore al prezzo di mercato attuale. Potresti subire una perdita! Clicca su \"Prezzo di mercato\" per impostare il tuo prezzo limite al prezzo di mercato attuale.",

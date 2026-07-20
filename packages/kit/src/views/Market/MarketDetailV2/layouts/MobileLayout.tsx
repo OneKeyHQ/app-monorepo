@@ -706,6 +706,8 @@ export function MobileLayout({
       decimals: tokenDetail?.decimals || 0,
       logoURI: tokenDetail?.logoUrl,
       price: tokenDetail?.price,
+      isNative: tokenDetail?.isNative,
+      isStock: isStockToken,
     };
   }, [
     networkId,
@@ -714,6 +716,8 @@ export function MobileLayout({
     tokenDetail?.logoUrl,
     tokenDetail?.price,
     tokenDetail?.symbol,
+    tokenDetail?.isNative,
+    isStockToken,
   ]);
 
   const showSwapDialog = (swapToken?: ISwapToken) => {

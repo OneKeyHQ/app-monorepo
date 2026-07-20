@@ -2,11 +2,12 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { Icon, SizableText, Skeleton, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useSwapProAccount } from '../../hooks/useSwapPro';
+import { ESwapProAccountStatus } from '../../utils/swapProAccountUtils';
 
 interface ISwapProAccountSelectProps {
   onSelectAccountClick: () => void;
@@ -17,6 +18,10 @@ const SwapProAccountSelect = ({
 }: ISwapProAccountSelectProps) => {
   const intl = useIntl();
   const netAccountRes = useSwapProAccount();
+  // A connected account being resolved for the current network must not flash
+  // as "Select wallet" — that state is reserved for truly missing accounts.
+  const isAccountPending =
+    netAccountRes?.accountStatus === ESwapProAccountStatus.PENDING;
   const accountValue = useMemo(() => {
     if (!netAccountRes?.result?.address) {
       return intl.formatMessage({ id: ETranslations.global_select_wallet });
@@ -40,9 +45,13 @@ const SwapProAccountSelect = ({
         </SizableText>
       </XStack>
       <XStack>
-        <SizableText size="$bodySm" numberOfLines={1} flexShrink={1}>
-          {accountValue}
-        </SizableText>
+        {isAccountPending ? (
+          <Skeleton width="$20" height="$4" borderRadius="$full" />
+        ) : (
+          <SizableText size="$bodySm" numberOfLines={1} flexShrink={1}>
+            {accountValue}
+          </SizableText>
+        )}
         <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
       </XStack>
     </XStack>
