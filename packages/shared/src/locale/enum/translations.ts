@@ -2074,6 +2074,7 @@ export enum ETranslations {
   limit_fill_at = 'limit.fill_at',
   limit_fill_at_popover = 'limit.fill_at_popover',
   limit_history_fill_sold = 'limit.history_fill_sold',
+  limit_marketable_fill_tip = 'limit.marketable_fill_tip',
   limit_network_cost_dialog_content = 'limit.network_cost_dialog_content',
   limit_price_trigger = 'limit.price_trigger',
   limit_price_trigger_des_down = 'limit.price_trigger_des_down',

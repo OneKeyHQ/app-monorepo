@@ -2069,6 +2069,7 @@
   "limit.fill_at": "充填は",
   "limit.fill_at_popover": "手数料をカバーするため、注文の実行には指値価格を少し上回る金額が必要です。",
   "limit.history_fill_sold": "{num1} {token1}合計{num2}の{token2}で販売されました",
+  "limit.marketable_fill_tip": "市場価格はあなたの指値よりも良いです — この注文は市場価格で即座に埋まる可能性があります",
   "limit.network_cost_dialog_content": "この注文のネットワーク手数料は、合計注文金額と比較して比較的高いです。この注文が成立する可能性は低いか、実行価格があなたの指値価格と大きく異なる可能性があります。",
   "limit.price_trigger": "トリガー距離",
   "limit.price_trigger_des_down": "この価格は現在の市場価格よりも{num}低いです。損失を被る可能性があります！「市場価格」をクリックして、現在の市場価格に制限価格を設定してください。",

@@ -2069,6 +2069,7 @@
   "limit.fill_at": "Preenchimentos em",
   "limit.fill_at_popover": "A ordem precisa de um pouco mais do que o seu preço limite para ser executada, de modo a cobrir a taxa.",
   "limit.history_fill_sold": "{num1} {token1} vendido por um total de {num2} {token2}",
+  "limit.marketable_fill_tip": "O preço de mercado é melhor do que o seu limite — este pedido pode ser preenchido instantaneamente ao preço de mercado",
   "limit.network_cost_dialog_content": "A taxa de rede para este pedido é relativamente alta em comparação com o valor total do pedido. É improvável que este pedido seja atendido ou o preço de execução pode diferir muito do seu preço limite.",
   "limit.price_trigger": "Distância de disparo",
   "limit.price_trigger_des_down": "Este preço é {num} mais baixo do que o preço de mercado atual. Você pode estar em prejuízo! Clique em \"Preço de mercado\" para definir seu preço limite para o preço de mercado atual.",
