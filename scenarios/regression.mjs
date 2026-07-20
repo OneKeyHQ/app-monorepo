@@ -636,27 +636,22 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
   // cold-start failure this first phase is meant to catch.
   await defiTab.click({ force: true });
 
-  const content = page
-    .locator(
-      '.onekey-tabs-scroll-view:visible, [data-testid="home-defi-tab-content"]:visible',
-    )
+  const defiContent = page
+    .locator('[data-testid="home-defi-tab-content"]:visible')
     .first();
-  await content.waitFor({ state: 'visible', timeout: 30_000 });
+  await defiContent.waitFor({ state: 'visible', timeout: 30_000 });
   await waitForCondition(
     'scrollable Tabs.ScrollView content',
     () =>
-      page.evaluate(() => {
-        const element = [
-          ...document.querySelectorAll(
-            '.onekey-tabs-scroll-view, [data-testid="home-defi-tab-content"]',
-          ),
-        ].find(
-          (candidate) =>
-            candidate instanceof HTMLElement &&
-            candidate.getBoundingClientRect().height > 0,
+      defiContent.evaluate((tabContent) => {
+        if (!(tabContent instanceof HTMLElement)) return false;
+        const scrollViewRoot = tabContent.closest('.onekey-tabs-scroll-view');
+        const scroller = scrollViewRoot?.closest('.onekey-tabs-container');
+        return (
+          scrollViewRoot instanceof HTMLElement &&
+          scroller instanceof HTMLElement &&
+          scrollViewRoot.scrollHeight > window.innerHeight
         );
-        if (!(element instanceof HTMLElement)) return false;
-        return element.scrollHeight > window.innerHeight;
       }),
     45_000,
   );
@@ -668,21 +663,14 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
   // requiring the business tab to report its own height.
   await sleep(1200);
   const getMetrics = () =>
-    page.evaluate(() => {
-      const scroller = document.querySelector('.onekey-tabs-container');
-      const visibleElement = (selector) =>
-        [...document.querySelectorAll(selector)].find(
-          (candidate) =>
-            candidate instanceof HTMLElement &&
-            candidate.getBoundingClientRect().height > 0,
-        );
-      const scrollViewRoot = visibleElement('.onekey-tabs-scroll-view');
-      const tabContent =
-        visibleElement('[data-testid="home-defi-tab-content"]') ??
-        scrollViewRoot;
+    defiContent.evaluate((tabContent) => {
+      if (!(tabContent instanceof HTMLElement)) return null;
+      const scrollViewRoot = tabContent.closest('.onekey-tabs-scroll-view');
+      const scroller = scrollViewRoot?.closest('.onekey-tabs-container');
       if (
+        !(scrollViewRoot instanceof HTMLElement) ||
         !(scroller instanceof HTMLElement) ||
-        !(tabContent instanceof HTMLElement)
+        !scroller.contains(tabContent)
       ) {
         return null;
       }
@@ -690,10 +678,7 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
       // and the shared horizontal list container. The latter is the nearest
       // ancestor with an imperative inline height; asserting that height
       // changes prevents overflow from masking a stale Tabs measurement.
-      let listContainer =
-        scrollViewRoot instanceof HTMLElement
-          ? scrollViewRoot.parentElement
-          : null;
+      let listContainer = scrollViewRoot.parentElement;
       while (
         listContainer &&
         listContainer !== scroller &&
@@ -721,16 +706,9 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
             ? listContainer.getBoundingClientRect().height
             : 0,
         maxScrollTop,
-        scrollViewHeight:
-          scrollViewRoot instanceof HTMLElement
-            ? scrollViewRoot.getBoundingClientRect().height
-            : 0,
-        scrollViewScrollHeight:
-          scrollViewRoot instanceof HTMLElement
-            ? scrollViewRoot.scrollHeight
-            : 0,
+        scrollViewHeight: scrollViewRoot.getBoundingClientRect().height,
+        scrollViewScrollHeight: scrollViewRoot.scrollHeight,
         unmeasuredScrollViewOverflow:
-          scrollViewRoot instanceof HTMLElement &&
           listContainer instanceof HTMLElement
             ? Math.max(
                 0,
@@ -836,41 +814,46 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
     throw new Error('Could not establish the Tabs pre-growth scroll bottom');
   }
 
-  const insertedGrowthProbe = await page.evaluate((testId) => {
-    document.querySelector(`[data-testid="${testId}"]`)?.remove();
-    const element = [
-      ...document.querySelectorAll('[data-testid="home-defi-tab-content"]'),
-    ].find(
-      (candidate) =>
-        candidate instanceof HTMLElement &&
-        candidate.getBoundingClientRect().height > 0,
-    );
-    if (!(element instanceof HTMLElement)) return false;
-    const scrollViewRoot = element.closest('.onekey-tabs-scroll-view');
-    if (!(scrollViewRoot instanceof HTMLElement)) return false;
-    const properties = ['height', 'min-height', 'max-height', 'flex'];
-    scrollViewRoot.dataset.tabsScrollExtentOriginalStyle = JSON.stringify(
-      properties.map((property) => [
-        property,
-        scrollViewRoot.style.getPropertyValue(property),
-        scrollViewRoot.style.getPropertyPriority(property),
-      ]),
-    );
-    const lockedHeight = scrollViewRoot.getBoundingClientRect().height;
-    scrollViewRoot.style.setProperty('height', `${lockedHeight}px`);
-    scrollViewRoot.style.setProperty('min-height', `${lockedHeight}px`);
-    scrollViewRoot.style.setProperty('max-height', `${lockedHeight}px`);
-    scrollViewRoot.style.setProperty('flex', 'none');
-    const probe = document.createElement('div');
-    probe.setAttribute('data-testid', testId);
-    probe.style.cssText =
-      'display:block;flex:none;width:100%;height:96px;min-height:96px;';
-    // Add a new direct content node. The previous implementation observed a
-    // one-time child snapshot, so a cold-start skeleton/data replacement left
-    // the new node unobserved while the root border box stayed pinned.
-    scrollViewRoot.append(probe);
-    return true;
-  }, growthProbeTestId);
+  const insertedGrowthProbe = await defiContent.evaluate(
+    (tabContent, testId) => {
+      if (!(tabContent instanceof HTMLElement)) return false;
+      const scrollViewRoot = tabContent.closest('.onekey-tabs-scroll-view');
+      const scroller = scrollViewRoot?.closest('.onekey-tabs-container');
+      if (
+        !(scrollViewRoot instanceof HTMLElement) ||
+        !(scroller instanceof HTMLElement)
+      ) {
+        return false;
+      }
+      const existingProbe = scrollViewRoot.querySelector(
+        `[data-testid="${testId}"]`,
+      );
+      existingProbe?.remove();
+      const properties = ['height', 'min-height', 'max-height', 'flex'];
+      scrollViewRoot.dataset.tabsScrollExtentOriginalStyle = JSON.stringify(
+        properties.map((property) => [
+          property,
+          scrollViewRoot.style.getPropertyValue(property),
+          scrollViewRoot.style.getPropertyPriority(property),
+        ]),
+      );
+      const lockedHeight = scrollViewRoot.getBoundingClientRect().height;
+      scrollViewRoot.style.setProperty('height', `${lockedHeight}px`);
+      scrollViewRoot.style.setProperty('min-height', `${lockedHeight}px`);
+      scrollViewRoot.style.setProperty('max-height', `${lockedHeight}px`);
+      scrollViewRoot.style.setProperty('flex', 'none');
+      const probe = document.createElement('div');
+      probe.setAttribute('data-testid', testId);
+      probe.style.cssText =
+        'display:block;flex:none;width:100%;height:96px;min-height:96px;';
+      // Add a new direct content node. The previous implementation observed a
+      // one-time child snapshot, so a cold-start skeleton/data replacement left
+      // the new node unobserved while the root border box stayed pinned.
+      scrollViewRoot.append(probe);
+      return true;
+    },
+    growthProbeTestId,
+  );
   if (!insertedGrowthProbe) {
     throw new Error('Could not insert the Tabs.ScrollView growth probe');
   }
@@ -919,16 +902,12 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
     log(`evidence -> ${screenshotPath}`);
   }
 
-  await page.evaluate((testId) => {
-    document.querySelector(`[data-testid="${testId}"]`)?.remove();
-    const scrollViewRoot = [
-      ...document.querySelectorAll('.onekey-tabs-scroll-view'),
-    ].find(
-      (candidate) =>
-        candidate instanceof HTMLElement &&
-        candidate.dataset.tabsScrollExtentOriginalStyle,
-    );
+  await defiContent.evaluate((tabContent, testId) => {
+    if (!(tabContent instanceof HTMLElement)) return;
+    const scrollViewRoot = tabContent.closest('.onekey-tabs-scroll-view');
     if (scrollViewRoot instanceof HTMLElement) {
+      const probe = scrollViewRoot.querySelector(`[data-testid="${testId}"]`);
+      probe?.remove();
       const snapshot = JSON.parse(
         scrollViewRoot.dataset.tabsScrollExtentOriginalStyle ?? '[]',
       );
