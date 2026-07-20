@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   buildOverviewOwnerKey,
@@ -222,6 +223,9 @@ export function useHomeBalancePresentation(): IHomeBalancePresentation {
   return resolveHomeBalancePresentation({
     legacyState,
     ownerToken: facts?.ownerToken ?? shadowFacts?.ownerToken,
+    // Non-native Home pages keep their established renderer while the shared
+    // state model runs as an authority/semantic shadow.
+    semanticPresentationEnabled: platformEnv.isNative,
     shadowFactsPresent: Boolean(shadowFacts),
     shell,
   });
