@@ -11,6 +11,7 @@ export type INetworkShortCode =
   | 'onekeyall'
   | 'eth'
   | 'goerli'
+  | 'etc'
   | 'arbitrum'
   | 'optimism'
   | 'avalanche'
