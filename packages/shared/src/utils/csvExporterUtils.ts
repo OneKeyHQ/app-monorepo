@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
+import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
 function convertToCSV(data: any[]) {
@@ -48,7 +49,7 @@ async function exportCSVExpo(
         : convertToCSV(data as any[]);
 
     if (!csvString) {
-      console.error('no data to export');
+      defaultLogger.app.error.log('exportCSV: no data to export');
       return false;
     }
 
@@ -58,13 +59,15 @@ async function exportCSVExpo(
     if (!(await Sharing.isAvailableAsync())) {
       // Without a share sheet the file stays in the sandboxed cache directory,
       // which the user cannot reach — treat it as a failure.
-      console.error(`sharing unavailable, file saved to: ${fileUri}`);
+      defaultLogger.app.error.log(
+        `exportCSV: sharing unavailable, file saved to: ${fileUri}`,
+      );
       return false;
     }
     await Sharing.shareAsync(fileUri);
     return true;
   } catch (error) {
-    console.error('export CSV failed:', error);
+    defaultLogger.app.error.log(`exportCSV failed: ${String(error)}`);
     return false;
   }
 }
@@ -82,7 +85,7 @@ function exportCSVWeb(
         : convertToCSV(data as any[]);
 
     if (!csvString) {
-      console.error('no data to export');
+      defaultLogger.app.error.log('exportCSV: no data to export');
       return false;
     }
 
@@ -97,7 +100,7 @@ function exportCSVWeb(
     URL.revokeObjectURL(url);
     return true;
   } catch (error) {
-    console.error('export CSV failed:', error);
+    defaultLogger.app.error.log(`exportCSV failed: ${String(error)}`);
     return false;
   }
 }

@@ -87,6 +87,21 @@ jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
           use: jest.fn(),
         },
         response: {
+          use: jest.fn(),
+        },
+      },
+      get: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+    })),
+    // ServiceBase.getOneKeyIdClient registers the auth/prime interceptors on
+    // this dedicated client (not on the shared plain client above).
+    getOneKeyIdAuthClient: jest.fn(async () => ({
+      interceptors: {
+        request: {
+          use: jest.fn(),
+        },
+        response: {
           use: jest.fn(
             (
               _onFulfilled: unknown,
