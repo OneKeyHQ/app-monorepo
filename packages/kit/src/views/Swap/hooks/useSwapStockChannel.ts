@@ -32,7 +32,10 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSelectTokenSource } from '@onekeyhq/shared/types/swap/types';
 
-import { isStockTokenDetailStateLanded } from '../utils/stockTokenDetailFreshness';
+import {
+  getStockTokenDetailDisplaySeed,
+  isStockTokenDetailStateLanded,
+} from '../utils/stockTokenDetailFreshness';
 import {
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_DEFAULT,
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
@@ -328,6 +331,12 @@ export function useSwapStockChannel() {
       enabled: !!currentStockTokenKey,
       tokenDetail: stockTokenDetail,
     });
+  const cachedStockTokenDetail = getStockTokenDetailDisplaySeed({
+    state: stockTokenDetailState,
+    scope: stockTokenDetailScope,
+  });
+  const displayStockTokenDetail =
+    activeStockTokenDetail ?? cachedStockTokenDetail;
   const disableNativePayToken = isOndoStockSource(
     activeStockTokenDetail?.stock?.source,
   );
@@ -442,8 +451,8 @@ export function useSwapStockChannel() {
 
   const {
     defaultStockTokenLoading,
+    defaultStockTokenStatus,
     shouldLoadDefaultStockToken,
-    stockCategoryType,
   } = useSwapStockDefaultToken({
     selectStockSwapToken,
     selectedStockTokenKey,
@@ -598,19 +607,11 @@ export function useSwapStockChannel() {
     if (currentStockToken) {
       return ESwapStockChannelAsyncStatus.Ready;
     }
-    if (shouldLoadDefaultStockToken && defaultStockTokenLoading) {
-      return ESwapStockChannelAsyncStatus.Initializing;
-    }
-    if (!stockCategoryType) {
-      return ESwapStockChannelAsyncStatus.Initializing;
+    if (shouldLoadDefaultStockToken) {
+      return defaultStockTokenStatus;
     }
     return ESwapStockChannelAsyncStatus.Empty;
-  }, [
-    currentStockToken,
-    defaultStockTokenLoading,
-    shouldLoadDefaultStockToken,
-    stockCategoryType,
-  ]);
+  }, [currentStockToken, defaultStockTokenStatus, shouldLoadDefaultStockToken]);
 
   const marketStatusStatus = useMemo(() => {
     if (!currentStockTokenKey) {
@@ -735,6 +736,7 @@ export function useSwapStockChannel() {
       stockMarketStatus,
       stockPerpsInfo,
       activeStockTokenDetail,
+      displayStockTokenDetail,
       realtimeChartPoint,
       currentStockToken,
       payToken,
@@ -772,6 +774,7 @@ export function useSwapStockChannel() {
       switchTradeSide,
       speedConfigReady,
       activeStockTokenDetail,
+      displayStockTokenDetail,
       stockMarketStatus,
       stockNetworkId,
       stockPerpsInfo,

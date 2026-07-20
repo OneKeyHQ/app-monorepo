@@ -2,6 +2,7 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
   ESwapQuoteKind,
+  ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -15,12 +16,14 @@ import {
   isSwapQuoteEventFetching,
   isSwapQuoteFromCurrentEvent,
   isSwapQuoteInputAmountMatched,
+  isSwapQuoteRequestForCurrentInput,
   isSwapZeroProviderQuoteCompleted,
   resolveSwapQuoteForDisplay,
   selectSwapCurrentQuote,
   selectSwapPreviousActionableQuote,
   shouldOfferSwapQuoteRefresh,
   shouldShowSwapQuoteActionLoading,
+  shouldShowSwapQuoteRequestLoading,
 } from './quoteProgress';
 
 function buildQuote({
@@ -52,6 +55,104 @@ function buildQuote({
 }
 
 describe('swap quote progress', () => {
+  it('matches the quote request to the current Swap input scope', () => {
+    const fromToken = {
+      networkId: 'evm--56',
+      contractAddress: '0xfrom',
+      decimals: 6,
+      isNative: false,
+      symbol: 'FROM',
+    };
+    const toToken = {
+      networkId: 'evm--56',
+      contractAddress: '0xto',
+      decimals: 6,
+      isNative: false,
+      symbol: 'TO',
+    };
+    const quoteRequest = {
+      type: ESwapTabSwitchType.SWAP,
+      fromToken,
+      toToken,
+      fromTokenAmount: '1.0',
+      kind: ESwapQuoteKind.SELL,
+    };
+
+    expect(
+      isSwapQuoteRequestForCurrentInput({
+        currentSwapType: ESwapTabSwitchType.SWAP,
+        fromAmount: '1',
+        fromToken,
+        quoteKind: ESwapQuoteKind.SELL,
+        quoteRequest,
+        toAmount: '',
+        toToken,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapQuoteRequestForCurrentInput({
+        currentSwapType: ESwapTabSwitchType.SWAP,
+        fromAmount: '10',
+        fromToken,
+        quoteKind: ESwapQuoteKind.SELL,
+        quoteRequest,
+        toAmount: '',
+        toToken,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps a new input round loading until its current quote is actionable', () => {
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        hasCurrentActionableQuote: false,
+        hasValidInput: true,
+        isQuoteRequestStarting: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesInput: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        hasCurrentActionableQuote: false,
+        hasValidInput: true,
+        isQuoteRequestStarting: true,
+        quoteEventCompleted: false,
+        quoteRequestMatchesInput: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        hasCurrentActionableQuote: true,
+        hasValidInput: true,
+        isQuoteRequestStarting: false,
+        quoteEventCompleted: false,
+        quoteRequestMatchesInput: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('leaves current terminal and empty-input states out of quote loading', () => {
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        hasCurrentActionableQuote: false,
+        hasValidInput: true,
+        isQuoteRequestStarting: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesInput: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        hasCurrentActionableQuote: false,
+        hasValidInput: false,
+        isQuoteRequestStarting: false,
+        quoteEventCompleted: false,
+        quoteRequestMatchesInput: false,
+      }),
+    ).toBe(false);
+  });
+
   it('caps quote event total count for scoped provider flows', () => {
     expect(
       getSwapQuoteEventProgressTotalCount({

@@ -79,6 +79,7 @@ import { SwapIncognitoRecipientInput } from './SwapIncognitoRecipientInput';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 
 interface ISwapActionsStateProps {
+  forceQuoteActionLoading?: boolean;
   onPreSwap: () => void;
   onOpenRecipientAddress: () => void;
   onSelectPercentageStage?: (stage: number) => void;
@@ -87,6 +88,7 @@ interface ISwapActionsStateProps {
 // cspell:ignore ellipsize
 
 const SwapActionsState = ({
+  forceQuoteActionLoading,
   onPreSwap,
   onOpenRecipientAddress,
   onSelectPercentageStage,
@@ -281,6 +283,7 @@ const SwapActionsState = ({
   const isActionDisabled =
     swapActionState.disabled ||
     swapActionState.isLoading ||
+    forceQuoteActionLoading ||
     shouldBlockIncognitoRecipientAction;
 
   const onActionHandlerBefore = useCallback(async () => {
@@ -811,7 +814,7 @@ const SwapActionsState = ({
 
   const actionButtonChildren = useMemo(
     () =>
-      swapActionState.isQuoteActionLoading ? (
+      swapActionState.isQuoteActionLoading || forceQuoteActionLoading ? (
         <LottieView
           source={
             themeVariant === 'light'
@@ -838,7 +841,12 @@ const SwapActionsState = ({
           {swapActionState.label}
         </SizableText>
       ),
-    [swapActionState.isQuoteActionLoading, swapActionState.label, themeVariant],
+    [
+      forceQuoteActionLoading,
+      swapActionState.isQuoteActionLoading,
+      swapActionState.label,
+      themeVariant,
+    ],
   );
 
   const actionRowComponent = useMemo(

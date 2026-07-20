@@ -43,6 +43,7 @@ import {
   swapQuoteEventCompletedAtom,
   swapQuoteEventErrorAtom,
   swapQuoteEventTotalCountAtom,
+  swapQuoteFetchingAtom,
   swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
@@ -1321,6 +1322,235 @@ describe('useSwapActions', () => {
       }),
     );
   });
+
+  it('accepts the current Swap quote before total and ignores stale input events', async () => {
+    const staleQuote = {
+      quoteId: 'stale-swap-quote',
+      eventId: 'stale-swap-event',
+      info: {
+        provider: 'stale-provider',
+        providerName: 'Stale Provider',
+      },
+      fromAmount: '2',
+      fromTokenInfo: usdcToken,
+      toAmount: '1',
+      toTokenInfo: usdtToken,
+      protocol: EProtocolOfExchange.SWAP,
+      kind: ESwapQuoteKind.SELL,
+    } as IFetchQuoteResult;
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+      storeInstance.set(swapSelectToTokenAtom(), usdtToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '21',
+        isInput: true,
+      });
+      storeInstance.set(swapQuoteListAtom(), [staleQuote]);
+      storeInstance.set(swapQuoteEventTotalCountAtom(), { count: 0 });
+      storeInstance.set(swapQuoteFetchingAtom(), true);
+      storeInstance.set(swapQuoteActionLockAtom(), {
+        actionLock: true,
+        type: ESwapTabSwitchType.SWAP,
+        fromToken: usdcToken,
+        toToken: usdtToken,
+        fromTokenAmount: '21',
+        toTokenAmount: '',
+        kind: ESwapQuoteKind.SELL,
+      });
+    });
+    const { result } = renderHook(
+      () => ({ actions: useSwapActions().current }),
+      { wrapper: Wrapper },
+    );
+    const staleParams: IFetchQuotesParams = {
+      fromNetworkId: usdcToken.networkId,
+      fromTokenAddress: usdcToken.contractAddress,
+      fromTokenAmount: '2',
+      protocol: EProtocolOfExchange.SWAP,
+      slippagePercentage: 0.5,
+      toNetworkId: usdtToken.networkId,
+      toTokenAddress: usdtToken.contractAddress,
+    };
+
+    await act(async () => {
+      result.current.actions.quoteEventHandler({
+        event: {} as ISwapQuoteEvent,
+        type: 'done',
+        params: staleParams,
+        tokenPairs: { fromToken: usdcToken, toToken: usdtToken },
+      });
+    });
+
+    expect(store.get(swapQuoteEventCompletedAtom())).toBe(false);
+    expect(store.get(swapQuoteFetchingAtom())).toBe(true);
+    expect(store.get(swapQuoteActionLockAtom()).actionLock).toBe(true);
+
+    const currentQuoteEvent = {
+      data: JSON.stringify({
+        data: [
+          {
+            quoteId: 'current-swap-quote',
+            eventId: 'current-swap-event',
+            info: {
+              provider: 'current-provider',
+              providerName: 'Current Provider',
+            },
+            fromAmount: '21',
+            fromTokenInfo: usdcToken,
+            toAmount: '10',
+            toTokenInfo: usdtToken,
+            protocol: EProtocolOfExchange.SWAP,
+            kind: ESwapQuoteKind.SELL,
+          },
+        ],
+      }),
+    } as ISwapQuoteEvent;
+    const currentParams: IFetchQuotesParams = {
+      ...staleParams,
+      fromTokenAmount: '21',
+    };
+
+    await act(async () => {
+      result.current.actions.quoteEventHandler({
+        event: currentQuoteEvent,
+        type: 'message',
+        params: currentParams,
+        tokenPairs: { fromToken: usdcToken, toToken: usdtToken },
+      });
+    });
+
+    expect(store.get(swapQuoteEventTotalCountAtom())).toEqual({
+      eventId: 'current-swap-event',
+      count: 1,
+      totalQuoteCountReceived: false,
+    });
+    expect(store.get(swapQuoteCurrentEventProviderKeysAtom())).toEqual([
+      'current-provider-Current Provider',
+    ]);
+    expect(store.get(swapQuoteCurrentEventReceivedCountAtom())).toBe(1);
+    expect(store.get(swapQuoteCurrentSelectAtom())).toEqual(
+      expect.objectContaining({
+        eventId: 'current-swap-event',
+        fromAmount: '21',
+        quoteId: 'current-swap-quote',
+      }),
+    );
+    expect(store.get(swapQuoteFetchingAtom())).toBe(false);
+    expect(store.get(swapQuoteEventCompletedAtom())).toBe(false);
+  });
+
+  it.each([
+    {
+      caseName: 'Limit rejects a Swap completion',
+      currentSwapType: ESwapTabSwitchType.LIMIT,
+      eventProtocol: EProtocolOfExchange.SWAP,
+      fromToken: usdcToken,
+      toToken: usdtToken,
+      inputKind: ESwapQuoteKind.BUY,
+      currentFromAmount: '5',
+      currentToAmount: '21',
+      requestFromAmount: '5',
+      requestToAmount: '21',
+      shouldAccept: false,
+    },
+    {
+      caseName: 'Swap rejects a Limit completion',
+      currentSwapType: ESwapTabSwitchType.SWAP,
+      eventProtocol: EProtocolOfExchange.LIMIT,
+      fromToken: usdcToken,
+      toToken: usdtToken,
+      inputKind: ESwapQuoteKind.SELL,
+      currentFromAmount: '21',
+      currentToAmount: '5',
+      requestFromAmount: '21',
+      requestToAmount: '5',
+      shouldAccept: false,
+    },
+    {
+      caseName: 'Bridge rejects a stale input completion',
+      currentSwapType: ESwapTabSwitchType.BRIDGE,
+      eventProtocol: EProtocolOfExchange.SWAP,
+      fromToken: ethToken,
+      toToken: bnbToken,
+      inputKind: ESwapQuoteKind.SELL,
+      currentFromAmount: '21',
+      currentToAmount: '5',
+      requestFromAmount: '2',
+      requestToAmount: '5',
+      shouldAccept: false,
+    },
+    {
+      caseName: 'Limit accepts the current BUY input completion',
+      currentSwapType: ESwapTabSwitchType.LIMIT,
+      eventProtocol: EProtocolOfExchange.LIMIT,
+      fromToken: usdcToken,
+      toToken: usdtToken,
+      inputKind: ESwapQuoteKind.BUY,
+      currentFromAmount: '999',
+      currentToAmount: '21',
+      requestFromAmount: '5',
+      requestToAmount: '21',
+      shouldAccept: true,
+    },
+  ])(
+    '$caseName',
+    async ({
+      currentSwapType,
+      eventProtocol,
+      fromToken,
+      toToken,
+      inputKind,
+      currentFromAmount,
+      currentToAmount,
+      requestFromAmount,
+      requestToAmount,
+      shouldAccept,
+    }) => {
+      const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+        storeInstance.set(swapTypeSwitchAtom(), currentSwapType);
+        storeInstance.set(swapSelectFromTokenAtom(), fromToken);
+        storeInstance.set(swapSelectToTokenAtom(), toToken);
+        storeInstance.set(swapFromTokenAmountAtom(), {
+          value: currentFromAmount,
+          isInput: inputKind === ESwapQuoteKind.SELL,
+        });
+        storeInstance.set(swapToTokenAmountAtom(), {
+          value: currentToAmount,
+          isInput: inputKind === ESwapQuoteKind.BUY,
+        });
+        storeInstance.set(swapQuoteEventCompletedAtom(), false);
+        storeInstance.set(swapQuoteFetchingAtom(), true);
+      });
+      const { result } = renderHook(
+        () => ({ actions: useSwapActions().current }),
+        { wrapper: Wrapper },
+      );
+      const params: IFetchQuotesParams = {
+        fromNetworkId: fromToken.networkId,
+        fromTokenAddress: fromToken.contractAddress,
+        fromTokenAmount: requestFromAmount,
+        protocol: eventProtocol,
+        slippagePercentage: 0.5,
+        toNetworkId: toToken.networkId,
+        toTokenAddress: toToken.contractAddress,
+        toTokenAmount: requestToAmount,
+        kind: inputKind,
+      };
+
+      await act(async () => {
+        result.current.actions.quoteEventHandler({
+          event: {} as ISwapQuoteEvent,
+          type: 'done',
+          params,
+          tokenPairs: { fromToken, toToken },
+        });
+      });
+
+      expect(store.get(swapQuoteEventCompletedAtom())).toBe(shouldAccept);
+      expect(store.get(swapQuoteFetchingAtom())).toBe(!shouldAccept);
+    },
+  );
 
   it('accepts Stock quote event results before the total count event arrives', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {

@@ -26,6 +26,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { selectSwapHistoryPreviewItems } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import {
   EProtocolOfExchange,
   ESwapTabSwitchType,
@@ -68,7 +69,7 @@ const SwapPendingHistoryListComponent = ({
       // Sync-read the cached list on (re)mount so returning to this surface
       // (e.g. from the Stock/Limit tab, which unmounts this component) shows
       // the rows immediately instead of flashing empty before the async fetch.
-      swrKey: 'swapHistoryPreviewList',
+      swrKey: swrKeys.swapHistoryPreviewList(),
       // Keep re-fetching even while the Swap tab is blurred, so archiving on
       // leave (mark-all-read) is reflected before the user returns instead of
       // briefly showing the stale rows and removing them on refocus.

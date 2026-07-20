@@ -49,6 +49,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
   useSwapProTradeTypeAtom,
+  useSwapQuoteActionLockAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentEventProviderKeysAtom,
   useSwapQuoteCurrentEventReceivedCountAtom,
@@ -76,10 +77,12 @@ import {
   isSwapNoProviderSupportsTrade,
   isSwapQuoteEventFetching,
   isSwapQuoteInputAmountMatched,
+  isSwapQuoteRequestForCurrentInput,
   isSwapZeroProviderQuoteCompleted,
   selectSwapPreviousActionableQuote,
   shouldOfferSwapQuoteRefresh,
   shouldShowSwapQuoteActionLoading,
+  shouldShowSwapQuoteRequestLoading,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
 import { shouldAllowSwapNoConnectWalletWarning } from '../utils/swapNoWalletWarningGuard';
@@ -393,9 +396,14 @@ export function useSwapBatchTransferType(
 
 export function useSwapActionState() {
   const intl = useIntl();
-  const { quoteLoading, quoteEventFetching, isWaitingActionableQuote } =
-    useSwapQuoteProgressState();
+  const {
+    hasActionableQuote,
+    quoteLoading,
+    quoteEventFetching,
+    isWaitingActionableQuote,
+  } = useSwapQuoteProgressState();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [buildTxFetching] = useSwapBuildTxFetchingAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -552,7 +560,7 @@ export function useSwapActionState() {
       swapSlippagePercentageMode,
     ],
   );
-  const isQuoteActionLoading = shouldShowSwapQuoteActionLoading({
+  const isQuoteReadinessLoading = shouldShowSwapQuoteActionLoading({
     isWaitingActionableQuote,
     isQuoteEventSettlingForAction,
     isWaitingAutoSlippage,
@@ -570,10 +578,68 @@ export function useSwapActionState() {
       }),
     [isZeroProviderQuoteCompleted, quoteCurrentSelect, quoteResultPairNoMatch],
   );
+  const noConnectWallet = alerts.states.some((item) => item.noConnectWallet);
+  const quoteRequestMatchesCurrentInput = useMemo(
+    () =>
+      isSwapQuoteRequestForCurrentInput({
+        currentSwapType: swapTypeSwitchValue,
+        fromAmount: fromTokenAmount.value,
+        fromToken,
+        quoteKind: ESwapQuoteKind.SELL,
+        quoteRequest: quoteActionLock,
+        toAmount: toTokenAmount.value,
+        toToken,
+      }),
+    [
+      fromToken,
+      fromTokenAmount.value,
+      quoteActionLock,
+      swapTypeSwitchValue,
+      toToken,
+      toTokenAmount.value,
+    ],
+  );
+  const hasValidSwapInput = useMemo(() => {
+    const amount = new BigNumber(fromTokenAmount.value);
+    return Boolean(
+      swapTypeSwitchValue === ESwapTabSwitchType.SWAP &&
+      fromTokenAmount.isInput &&
+      fromToken &&
+      toToken &&
+      amount.isFinite() &&
+      amount.gt(0),
+    );
+  }, [fromToken, fromTokenAmount, swapTypeSwitchValue, toToken]);
+  const isQuoteRequestStarting = Boolean(
+    quoteRequestMatchesCurrentInput &&
+    quoteActionLock.actionLock &&
+    !quoteEventTotalCount.eventId,
+  );
+  const isQuoteRequestLoading = Boolean(
+    swapTypeSwitchValue === ESwapTabSwitchType.SWAP &&
+    (shouldShowSwapQuoteRequestLoading({
+      hasCurrentActionableQuote: hasActionableQuote && !quoteResultNoMatch,
+      hasValidInput: hasValidSwapInput,
+      isQuoteRequestStarting,
+      quoteEventCompleted,
+      quoteRequestMatchesInput: quoteRequestMatchesCurrentInput,
+    }) ||
+      (hasValidSwapInput && quoteResultNoMatch && !quoteResultNoMatchDebounce)),
+  );
+  const isQuoteActionLoading = Boolean(
+    !noConnectWallet &&
+    !hasError &&
+    !noProviderSupportsTrade &&
+    (isQuoteReadinessLoading || isQuoteRequestLoading),
+  );
+  const shouldOfferQuoteRefreshAction =
+    canRefreshQuoteFromAction &&
+    !isQuoteActionLoading &&
+    !noProviderSupportsTrade;
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
-      noConnectWallet: alerts.states.some((item) => item.noConnectWallet),
+      noConnectWallet,
       label: intl.formatMessage({ id: ETranslations.global_review }),
     };
     if (
@@ -699,7 +765,7 @@ export function useSwapActionState() {
       // supports the current pair. stepState.isRefreshQuote excludes this
       // state too, which keeps the rate-line refresh (auto interval + manual
       // tap) alive as the recovery path. (OK-57545)
-      if (canRefreshQuoteFromAction && !noProviderSupportsTrade) {
+      if (shouldOfferQuoteRefreshAction) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_refresh_quotes,
         });
@@ -717,16 +783,17 @@ export function useSwapActionState() {
     hasError,
     quoteCurrentSelect,
     alerts.states,
+    noConnectWallet,
     intl,
     swapFromAddressInfo.address,
     swapToAddressInfo.address,
     fromTokenAmount.value,
     quoteInputAmountNoMatch,
     swapTypeSwitchValue,
-    canRefreshQuoteFromAction,
     isRefreshQuote,
     toTokenAmount.value,
     isQuoteActionLoading,
+    shouldOfferQuoteRefreshAction,
     swapApprovingMatchLoading,
     buildTxFetching,
     selectedFromTokenBalance,
@@ -752,7 +819,7 @@ export function useSwapActionState() {
     // Excluded for noProviderSupportsTrade so SwapRefreshButton keeps its
     // auto interval and manual tap alive while the action button stays
     // disabled with "no provider supports trade". (OK-57545)
-    isRefreshQuote: canRefreshQuoteFromAction && !noProviderSupportsTrade,
+    isRefreshQuote: shouldOfferQuoteRefreshAction,
     isWaitingAutoSlippage,
   };
   return stepState;

@@ -65,6 +65,7 @@ export function LightweightChart({
   showHorzGridLines,
   priceScaleMargins,
   priceScaleEntireTextOnly,
+  priceScaleMinimumWidth,
   priceFormatter,
   fontSize,
   seriesType,
@@ -135,9 +136,11 @@ export function LightweightChart({
     let lastPointPositionUpdater: (() => void) | undefined;
     let lastPointRafId: number | undefined;
     let resizeRafId: number | undefined;
+    let canPublishLastPointPosition = false;
 
     // Capture container for cleanup
     const container = chartContainerRef.current;
+    setLastPointPosition(null);
 
     void getChartLib().then(
       ({ AreaSeries, BaselineSeries, LineSeries, createChart }) => {
@@ -152,6 +155,7 @@ export function LightweightChart({
           currentChartConfig.showTimeScale,
           currentChartConfig.priceScaleEntireTextOnly,
           currentChartConfig.useTimeScaleTickMarkWithoutUnit,
+          priceScaleMinimumWidth,
         );
         const gridOptions = {
           vertLines: { visible: false },
@@ -244,7 +248,7 @@ export function LightweightChart({
         const updateLastPointPosition = () => {
           // Guard against the teardown window: a range-change event firing during
           // chart.remove() must not setState on the unmounting component.
-          if (cancelled) return;
+          if (cancelled || !canPublishLastPointPosition) return;
           const currentChart = chartRef.current;
           const currentSeries = seriesRef.current;
           if (!currentChart || !currentSeries) return;
@@ -274,11 +278,12 @@ export function LightweightChart({
 
         chart.timeScale().fitContent();
 
-        // The first paint can leave coordinates unresolved, so recompute now and
-        // again on the next frame as a fallback.
-        updateLastPointPosition();
+        // Price autoscaling and axis label measurement settle on the next chart
+        // frame. Keep the overlay hidden until then so it never paints with the
+        // temporary full-width/unscaled coordinates.
         lastPointRafId = requestAnimationFrame(() => {
           if (cancelled) return;
+          canPublishLastPointPosition = true;
           updateLastPointPosition();
         });
 
@@ -397,6 +402,7 @@ export function LightweightChart({
     height,
     onHover,
     preserveChartInstanceOnDataChange,
+    priceScaleMinimumWidth,
     secondaryLineDataCreateDependency,
     showLastValue,
   ]);

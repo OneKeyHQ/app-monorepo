@@ -12,6 +12,7 @@ import {
   resolveStockBalanceSnapshot,
   resolveStockChannelSwapPair,
   resolveStockKLineToken,
+  resolveSwapStockDefaultTokenStatus,
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
   shouldResetStockTradeReceiveAmount,
@@ -80,6 +81,70 @@ describe('swapStockChannelUtils', () => {
         selectedStockTokenKey: appleStockToken.contractAddress ?? '',
       }),
     ).toBe(false);
+  });
+
+  it('keeps default Stock selection pending until the current scope is settled', () => {
+    const baseParams = {
+      hasSelectableToken: false,
+      requestReady: true,
+      requestScope: '1:stocks',
+      resultScope: '1:stocks',
+      shouldLoad: true,
+    };
+    const coldStartStatuses = [
+      resolveSwapStockDefaultTokenStatus({
+        ...baseParams,
+        isLoading: undefined,
+        requestReady: false,
+        requestScope: '1:',
+        resultScope: '',
+      }),
+      resolveSwapStockDefaultTokenStatus({
+        ...baseParams,
+        isLoading: false,
+        resultScope: '1:',
+      }),
+      resolveSwapStockDefaultTokenStatus({
+        ...baseParams,
+        isLoading: true,
+      }),
+      resolveSwapStockDefaultTokenStatus({
+        ...baseParams,
+        hasSelectableToken: true,
+        isLoading: false,
+      }),
+    ];
+
+    expect(coldStartStatuses).toEqual([
+      ESwapStockChannelAsyncStatus.Initializing,
+      ESwapStockChannelAsyncStatus.Initializing,
+      ESwapStockChannelAsyncStatus.Initializing,
+      ESwapStockChannelAsyncStatus.Initializing,
+    ]);
+    expect(coldStartStatuses).not.toContain(ESwapStockChannelAsyncStatus.Empty);
+  });
+
+  it('settles default Stock selection only for the current empty scope', () => {
+    expect(
+      resolveSwapStockDefaultTokenStatus({
+        hasSelectableToken: false,
+        isLoading: false,
+        requestReady: true,
+        requestScope: '1:stocks',
+        resultScope: '1:stocks',
+        shouldLoad: true,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Empty);
+    expect(
+      resolveSwapStockDefaultTokenStatus({
+        hasSelectableToken: false,
+        isLoading: false,
+        requestReady: true,
+        requestScope: '0:stocks',
+        resultScope: '1:stocks',
+        shouldLoad: false,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Idle);
   });
 
   it('filters stock pay token candidates to USDC and USDT only', () => {

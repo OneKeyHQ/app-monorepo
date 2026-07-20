@@ -149,6 +149,8 @@ import {
   getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
   hasSwapZeroProviderQuoteEvent,
+  isSameSwapQuoteAmountValue,
+  isSwapQuoteActionable,
   isSwapQuoteEventFetching,
 } from './quoteProgress';
 
@@ -211,6 +213,38 @@ function isStockProtocol(protocol?: string) {
   );
 }
 
+function isQuoteEventProtocolForCurrentSwapType({
+  currentSwapType,
+  protocol,
+}: {
+  currentSwapType: ESwapTabSwitchType;
+  protocol?: string;
+}) {
+  switch (currentSwapType) {
+    case ESwapTabSwitchType.LIMIT:
+      return (
+        protocol === ESwapTabSwitchType.LIMIT ||
+        protocol === EProtocolOfExchange.LIMIT
+      );
+    case ESwapTabSwitchType.PRIVATE_SEND:
+      return (
+        protocol === ESwapTabSwitchType.PRIVATE_SEND ||
+        protocol === EProtocolOfExchange.PRIVATE_SEND
+      );
+    case ESwapTabSwitchType.STOCK:
+      return isStockProtocol(protocol);
+    case ESwapTabSwitchType.BRIDGE:
+    case ESwapTabSwitchType.SWAP:
+      return (
+        protocol === ESwapTabSwitchType.BRIDGE ||
+        protocol === ESwapTabSwitchType.SWAP ||
+        protocol === EProtocolOfExchange.SWAP
+      );
+    default:
+      return false;
+  }
+}
+
 function isQuoteEventErrorSelectedTokenPair({
   fromTokenAmount,
   quoteEventError,
@@ -235,46 +269,20 @@ function isQuoteEventErrorSelectedTokenPair({
       token2: toToken,
     }) &&
     (!quoteEventError.isStock ||
-      isSameSwapAmountValue({
+      isSameSwapQuoteAmountValue({
         currentAmount: fromTokenAmount,
-        eventAmount: quoteEventError.fromTokenAmount,
+        requestAmount: quoteEventError.fromTokenAmount,
       })),
   );
 }
 
-function isSameSwapAmountValue({
-  currentAmount,
-  eventAmount,
-}: {
-  currentAmount?: string;
-  eventAmount?: string;
-}) {
-  if (eventAmount === undefined) {
-    return true;
-  }
-  const normalizedCurrentAmount = currentAmount ?? '';
-  if (!eventAmount && !normalizedCurrentAmount) {
-    return true;
-  }
-  const eventAmountBN = new BigNumber(eventAmount);
-  const currentAmountBN = new BigNumber(normalizedCurrentAmount);
-  if (
-    eventAmountBN.isFinite() &&
-    !eventAmountBN.isNaN() &&
-    currentAmountBN.isFinite() &&
-    !currentAmountBN.isNaN()
-  ) {
-    return eventAmountBN.eq(currentAmountBN);
-  }
-  return eventAmount === normalizedCurrentAmount;
-}
-
-function isCurrentStockQuoteEventParams({
+function isCurrentQuoteEventParams({
   currentSwapType,
   fromToken,
   fromTokenAmount,
   params,
   toToken,
+  toTokenAmount,
   tokenPairs,
 }: {
   currentSwapType: ESwapTabSwitchType;
@@ -282,11 +290,13 @@ function isCurrentStockQuoteEventParams({
   fromTokenAmount?: string;
   params: IFetchQuotesParams;
   toToken?: ISwapToken;
+  toTokenAmount?: string;
   tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
 }) {
-  if (!isStockProtocol(params.protocol)) {
-    return true;
-  }
+  const isExpectedProtocol = isQuoteEventProtocolForCurrentSwapType({
+    currentSwapType,
+    protocol: params.protocol,
+  });
   const isSameTokenPair =
     equalTokenNoCaseSensitive({
       token1: tokenPairs.fromToken,
@@ -296,15 +306,19 @@ function isCurrentStockQuoteEventParams({
       token1: tokenPairs.toToken,
       token2: toToken,
     });
-  const isSameFromAmount = isSameSwapAmountValue({
-    currentAmount: fromTokenAmount,
-    eventAmount: params.fromTokenAmount,
-  });
-  return (
-    currentSwapType === ESwapTabSwitchType.STOCK &&
-    isSameTokenPair &&
-    isSameFromAmount
-  );
+  const quoteKind = params.kind ?? ESwapQuoteKind.SELL;
+  const requestAmount =
+    quoteKind === ESwapQuoteKind.BUY
+      ? params.toTokenAmount
+      : params.fromTokenAmount;
+  const isSameInputAmount =
+    requestAmount !== undefined &&
+    isSameSwapQuoteAmountValue({
+      currentAmount:
+        quoteKind === ESwapQuoteKind.BUY ? toTokenAmount : fromTokenAmount,
+      requestAmount,
+    });
+  return isExpectedProtocol && isSameTokenPair && isSameInputAmount;
 }
 
 function isStockExecutionTokensReady({
@@ -795,12 +809,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       },
     ) => {
       if (
-        !isCurrentStockQuoteEventParams({
+        !isCurrentQuoteEventParams({
           currentSwapType: get(swapTypeSwitchAtom()),
           fromToken: get(swapSelectFromTokenAtom()),
           fromTokenAmount: get(swapFromTokenAmountAtom()).value,
           params: event.params,
           toToken: get(swapSelectToTokenAtom()),
+          toTokenAmount: get(swapToTokenAmountAtom()).value,
           tokenPairs: event.tokenPairs,
         })
       ) {
@@ -916,6 +931,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 count: totalQuoteCount,
                 totalQuoteCountReceived: true,
               });
+              const currentEventProviderKeys = get(
+                swapQuoteCurrentEventProviderKeysAtom(),
+              );
+              set(
+                swapQuoteCurrentEventReceivedCountAtom(),
+                Math.min(totalQuoteCount, currentEventProviderKeys.length),
+              );
               const isZeroProviderQuoteEvent = hasSwapZeroProviderQuoteEvent({
                 quoteEventTotalCount: {
                   eventId,
@@ -944,19 +966,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               );
               const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
               const quoteResultEventId = quoteResultData.data?.[0]?.eventId;
-              const shouldSeedStockQuoteEventFromResult =
-                isStockProtocol(event.params.protocol) &&
+              const shouldSeedQuoteEventFromResult =
+                (isStockProtocol(event.params.protocol) ||
+                  get(swapTypeSwitchAtom()) === ESwapTabSwitchType.SWAP) &&
                 Boolean(quoteResultEventId) &&
                 !quoteEventTotalCount.eventId;
               const activeQuoteEventTotalCount =
-                shouldSeedStockQuoteEventFromResult && quoteResultEventId
+                shouldSeedQuoteEventFromResult && quoteResultEventId
                   ? {
                       eventId: quoteResultEventId,
                       count: quoteResultData.data.length,
                       totalQuoteCountReceived: false,
                     }
                   : quoteEventTotalCount;
-              if (shouldSeedStockQuoteEventFromResult && quoteResultEventId) {
+              if (shouldSeedQuoteEventFromResult && quoteResultEventId) {
                 set(swapQuoteEventTotalCountAtom(), activeQuoteEventTotalCount);
               }
               if (
@@ -1009,9 +1032,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   // 实现再次询价时保留旧报价、只更新部分渠道商报价的效果
                   if (
                     (isStockProtocol(event.params.protocol)
-                      ? isSameSwapAmountValue({
+                      ? isSameSwapQuoteAmountValue({
                           currentAmount: oldQuoteRes.fromAmount,
-                          eventAmount: event.params.fromTokenAmount,
+                          requestAmount: event.params.fromTokenAmount,
                         })
                       : oldQuoteRes.fromAmount ===
                         event.params.fromTokenAmount) &&
@@ -1054,22 +1077,34 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       activeQuoteEventTotalCount.eventId === q.eventId,
                   );
                 set(swapQuoteListAtom(), [...newQuoteList]);
-                set(swapQuoteCurrentEventProviderKeysAtom(), (keys) => [
-                  ...new Set([
-                    ...keys,
-                    ...quoteResults.map((quote) =>
+                const currentEventProviderKeys = [
+                  ...new Set(
+                    newQuoteList.map((quote) =>
                       buildSwapQuoteProviderKey(quote),
                     ),
-                  ]),
-                ]);
-                set(swapQuoteCurrentEventReceivedCountAtom(), (count) =>
+                  ),
+                ];
+                set(
+                  swapQuoteCurrentEventProviderKeysAtom(),
+                  currentEventProviderKeys,
+                );
+                set(
+                  swapQuoteCurrentEventReceivedCountAtom(),
                   Math.min(
                     activeQuoteEventTotalCount.count,
-                    count + quoteResultData.data.length,
+                    currentEventProviderKeys.length,
                   ),
                 );
+                const selectedQuote = get(swapQuoteCurrentSelectAtom());
+                const shouldEndQuoteStartup =
+                  get(swapTypeSwitchAtom()) !== ESwapTabSwitchType.SWAP ||
+                  (isSwapQuoteActionable(selectedQuote) &&
+                    selectedQuote?.eventId ===
+                      activeQuoteEventTotalCount.eventId);
+                if (shouldEndQuoteStartup) {
+                  set(swapQuoteFetchingAtom(), false);
+                }
               }
-              set(swapQuoteFetchingAtom(), false);
             }
           }
           break;
@@ -1078,9 +1113,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           this.reconcileManualSelectQuoteProviders.call(set);
           set(swapQuoteEventCompletedAtom(), true);
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-          if (platformEnv.isExtension) {
-            set(swapQuoteFetchingAtom(), false);
-          }
+          set(swapQuoteFetchingAtom(), false);
           this.closeQuoteEvent();
           break;
         }
@@ -1751,9 +1784,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             fromToken: latestFromToken,
             toToken: latestToToken,
           }) &&
-            isSameSwapAmountValue({
+            isSameSwapQuoteAmountValue({
               currentAmount: latestFromTokenAmount.value,
-              eventAmount: quoteResult.fromAmount,
+              requestAmount: quoteResult.fromAmount,
             }));
         const isLatestStockQuoteEventError =
           !quoteEventError ||
