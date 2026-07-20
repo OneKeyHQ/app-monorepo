@@ -8,8 +8,8 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { getPerpsOrderBookTickOptionsWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import {
-  analyzeOrderBookPrecision,
   getDisplayPriceScaleDecimals,
+  resolveOrderBookSizeDecimals,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IPerpOrderBookTickOptionPersist } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -163,14 +163,13 @@ export function useTickOptions({
     topBidPrice,
   ]);
 
-  // Calculate size decimals separately as it may need to update more frequently
   const sizeDecimals = useMemo(() => {
-    const { sizeDecimals: calculatedSizeDecimals } = analyzeOrderBookPrecision(
+    return resolveOrderBookSizeDecimals({
       bids,
       asks,
-    );
-    return calculatedSizeDecimals;
-  }, [bids, asks]);
+      szDecimals,
+    });
+  }, [asks, bids, szDecimals]);
 
   const baseTickOptionsData = useMemo(() => {
     // Fallback when no data available
