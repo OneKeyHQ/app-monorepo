@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
@@ -5,6 +7,8 @@ import {
   canOpenDeviceManagementDetails,
   canShowTrezorBleBinding,
   getTrezorAutoLockOptionsMs,
+  shouldShowDeviceInteractiveSections,
+  shouldSubscribeToHardwareFeaturesUpdate,
 } from './utils';
 
 describe('DeviceDetailsModal utils', () => {
@@ -44,6 +48,28 @@ describe('DeviceDetailsModal utils', () => {
       showPassphraseSettings: false,
       showDeviceConnection: true,
     });
+  });
+
+  it('does not subscribe Pro2 details to hardware feature updates', () => {
+    expect(shouldSubscribeToHardwareFeaturesUpdate(EDeviceType.Pro2)).toBe(
+      false,
+    );
+    expect(shouldSubscribeToHardwareFeaturesUpdate(EDeviceType.Classic1s)).toBe(
+      true,
+    );
+    expect(shouldSubscribeToHardwareFeaturesUpdate(undefined)).toBe(true);
+  });
+
+  it('waits for the initial Pro2 status before showing interactive settings', () => {
+    expect(shouldShowDeviceInteractiveSections(EDeviceType.Pro2, false)).toBe(
+      false,
+    );
+    expect(shouldShowDeviceInteractiveSections(EDeviceType.Pro2, true)).toBe(
+      true,
+    );
+    expect(
+      shouldShowDeviceInteractiveSections(EDeviceType.Classic1s, false),
+    ).toBe(true);
   });
 
   it('shows Trezor BLE binding on BLE capable models, including re-binding when already bound', () => {

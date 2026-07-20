@@ -10,6 +10,7 @@ import {
   ProviderJotaiContextDeviceDetails,
   useDeviceAtom,
   useDeviceDetailsActions,
+  useDeviceMetaStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -43,7 +44,11 @@ import DeviceSectionSecurity from './DeviceSectionSecurity';
 import DeviceSectionSupport from './DeviceSectionSupport';
 import DeviceSectionTrezorDebug from './DeviceSectionTrezorDebug';
 import { DeviceUpdateAlert } from './DeviceUpdateAlert';
-import { buildDeviceDetailsVisibility } from './utils';
+import {
+  buildDeviceDetailsVisibility,
+  shouldShowDeviceInteractiveSections,
+  shouldSubscribeToHardwareFeaturesUpdate,
+} from './utils';
 
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
@@ -76,12 +81,19 @@ function DeviceDetailsModalV2Cmp({
 
   const isQrWallet = accountUtils.isQrWallet({ walletId });
   const [device] = useDeviceAtom();
+  const [deviceMetaState] = useDeviceMetaStateAtom();
   const [devSettings] = useDevSettingsPersistAtom();
   const deviceVendor = device?.vendor ?? initialDeviceVendor;
   // DEV-ONLY Trezor THP debug tools, shown only in developer mode.
   const showTrezorDebug =
     devSettings.enabled && deviceVendor === EHardwareVendor.trezor;
   const hasLoadedDevice = isQrWallet || Boolean(device);
+  const shouldSubscribeHardwareFeatures =
+    shouldSubscribeToHardwareFeaturesUpdate(device?.deviceType);
+  const showInteractiveSections = shouldShowDeviceInteractiveSections(
+    device?.deviceType,
+    deviceMetaState.isReady,
+  );
   const {
     vendorProfile,
     showFirmwareActions,
@@ -114,26 +126,35 @@ function DeviceDetailsModalV2Cmp({
       await refresh(walletId, { refreshPro2Info: true });
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, refreshCurrentDevice);
-    appEventBus.on(
-      EAppEventBusNames.HardwareFeaturesUpdate,
-      refreshCurrentDevice,
-    );
+    if (shouldSubscribeHardwareFeatures) {
+      appEventBus.on(
+        EAppEventBusNames.HardwareFeaturesUpdate,
+        refreshCurrentDevice,
+      );
+    }
     appEventBus.on(
       EAppEventBusNames.FinishFirmwareUpdate,
       refreshAfterFirmwareUpdate,
     );
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, refreshCurrentDevice);
-      appEventBus.off(
-        EAppEventBusNames.HardwareFeaturesUpdate,
-        refreshCurrentDevice,
-      );
+      if (shouldSubscribeHardwareFeatures) {
+        appEventBus.off(
+          EAppEventBusNames.HardwareFeaturesUpdate,
+          refreshCurrentDevice,
+        );
+      }
       appEventBus.off(
         EAppEventBusNames.FinishFirmwareUpdate,
         refreshAfterFirmwareUpdate,
       );
     };
-  }, [refresh, refreshCurrentDevice, walletId]);
+  }, [
+    refresh,
+    refreshCurrentDevice,
+    shouldSubscribeHardwareFeatures,
+    walletId,
+  ]);
 
   const actions = useFirmwareUpdateActions();
   const localActions = useDeviceDetailsActions();
@@ -193,7 +214,7 @@ function DeviceDetailsModalV2Cmp({
                   )}
                 />
               ) : null}
-              {showDeviceSettings ? (
+              {showDeviceSettings && showInteractiveSections ? (
                 <>
                   <DeviceSectionGeneral />
                   <DeviceSectionSecurity />
@@ -206,11 +227,15 @@ function DeviceDetailsModalV2Cmp({
                   )}
                 </>
               ) : null}
-              {showPassphraseSettings ? <DeviceSectionAdvance /> : null}
+              {showPassphraseSettings && showInteractiveSections ? (
+                <DeviceSectionAdvance />
+              ) : null}
               {showDeviceConnection ? <DeviceSectionDeviceConnect /> : null}
               {showTrezorDebug ? <DeviceSectionTrezorDebug /> : null}
             </YStack>
-            <DeviceGetStartedLayout visible={showDeviceSettings} />
+            <DeviceGetStartedLayout
+              visible={showDeviceSettings && showInteractiveSections}
+            />
           </XStack>
         </Page.Container>
       </Page.Body>

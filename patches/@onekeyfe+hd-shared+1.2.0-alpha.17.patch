@@ -1,0 +1,77 @@
+diff --git a/node_modules/@onekeyfe/hd-shared/dist/HardwareError.d.ts b/node_modules/@onekeyfe/hd-shared/dist/HardwareError.d.ts
+index 3cd1a45..58c0402 100644
+--- a/node_modules/@onekeyfe/hd-shared/dist/HardwareError.d.ts
++++ b/node_modules/@onekeyfe/hd-shared/dist/HardwareError.d.ts
+@@ -116,6 +116,7 @@ export declare const HardwareErrorCode: {
+     readonly TooManyInputs: 827;
+     readonly PinMismatch: 828;
+     readonly DeviceLocked: 829;
++    readonly KaspaPrevTxIdMismatch: 830;
+     readonly LowlevelTrasnportConnectError: 900;
+     readonly WebDeviceNotFoundOrNeedsPermission: 901;
+     readonly WebDevicePromptAccessError: 902;
+diff --git a/node_modules/@onekeyfe/hd-shared/dist/HardwareError.d.ts.map b/node_modules/@onekeyfe/hd-shared/dist/HardwareError.d.ts.map
+index a6d0084..54eb362 100644
+--- a/node_modules/@onekeyfe/hd-shared/dist/HardwareError.d.ts.map
++++ b/node_modules/@onekeyfe/hd-shared/dist/HardwareError.d.ts.map
+@@ -1 +1 @@
+-{"version":3,"file":"HardwareError.d.ts","sourceRoot":"","sources":["../src/HardwareError.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,aAAa,EAAE,MAAM,gBAAgB,CAAC;AAE/C,MAAM,WAAW,cAAc;IAC7B,SAAS,EAAE,OAAO,CAAC,OAAO,iBAAiB,CAAC,CAAC;IAC7C,OAAO,CAAC,EAAE,MAAM,CAAC;IACjB,MAAM,CAAC,EAAE,GAAG,CAAC;CACd;AAED,KAAK,OAAO,CAAC,CAAC,SAAS,MAAM,IAAI,CAAC,CAAC,MAAM,CAAC,CAAC,CAAC;AAE5C,KAAK,+BAA+B,GAAG;KAAG,CAAC,IAAI,OAAO,CAAC,OAAO,iBAAiB,CAAC,GAAG,MAAM;CAAE,CAAC;AAE5F,KAAK,cAAc,GAAG,OAAO,CAAC,OAAO,iBAAiB,CAAC,CAAC;AAsCxD,qBAAa,aAAc,SAAQ,KAAK;IACtC,SAAS,EAAE,cAAc,CAAkC;IAE3D,OAAO,SAAM;IAEb,MAAM,EAAE,GAAG,CAAM;gBAEL,aAAa,EAAE,cAAc,GAAG,MAAM;CAmBnD;AAED,eAAO,MAAM,iBAAiB;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;CA4apB,CAAC;AAEX,eAAO,MAAM,wBAAwB,EAAE,+BAiJ7B,CAAC;AAEX,eAAO,MAAM,UAAU,kBACN,cAAc,GAAG,MAAM,YAC5B,MAAM,WACP,GAAG,kBAMb,CAAC;AAEF,eAAO,MAAM,cAAc,YAAa,GAAG,QAe1C,CAAC;AAEF,eAAO,MAAM,oBAAoB,YAAa,MAAM,KAAG,aAOtD,CAAC;AAGF,eAAO,MAAM,gCAAgC,QAAS,MAAM,KAAG,aAQ9D,CAAC;AAEF,QAAA,MAAM,uCAAuC;oBAM3B,MAAM;oBACN,MAAM;;;mBAcvB,CAAC;AAEF,QAAA,MAAM,sCAAsC;oBAM1B,MAAM;oBACN,MAAM;;;mBAcvB,CAAC;AAEF,QAAA,MAAM,yCAAyC,cAClC,MAAM,GAAG,SAAS,YACnB,MAAM,GAAG,SAAS,iBACb,CAAC,UAAU,GAAG,KAAK,CAAC,EAAE,oBACnB;IAChB,QAAQ,CAAC,EAAE,MAAM,CAAC;IAClB,GAAG,CAAC,EAAE,MAAM,CAAC;CACd,kBAsBF,CAAC;AAEF,QAAA,MAAM,6BAA6B,mBACjB,MAAM,qBACH,MAAM,eACZ,MAAM,kBAQpB,CAAC;AAEF,QAAA,MAAM,4BAA4B,aACtB,MAAM,aACL,MAAM,cACL,MAAM,cACN,MAAM,aACP,MAAM,kBAWlB,CAAC;AAEF,QAAA,MAAM,iCAAiC,eAAgB,MAAM,gBAAgB,aAAa,kBAItF,CAAC;AAEL,OAAO,EACL,uCAAuC,EACvC,sCAAsC,EACtC,yCAAyC,EACzC,6BAA6B,EAC7B,4BAA4B,EAC5B,iCAAiC,GAClC,CAAC"}
+\ No newline at end of file
++{"version":3,"file":"HardwareError.d.ts","sourceRoot":"","sources":["../src/HardwareError.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,aAAa,EAAE,MAAM,gBAAgB,CAAC;AAE/C,MAAM,WAAW,cAAc;IAC7B,SAAS,EAAE,OAAO,CAAC,OAAO,iBAAiB,CAAC,CAAC;IAC7C,OAAO,CAAC,EAAE,MAAM,CAAC;IACjB,MAAM,CAAC,EAAE,GAAG,CAAC;CACd;AAED,KAAK,OAAO,CAAC,CAAC,SAAS,MAAM,IAAI,CAAC,CAAC,MAAM,CAAC,CAAC,CAAC;AAE5C,KAAK,+BAA+B,GAAG;KAAG,CAAC,IAAI,OAAO,CAAC,OAAO,iBAAiB,CAAC,GAAG,MAAM;CAAE,CAAC;AAE5F,KAAK,cAAc,GAAG,OAAO,CAAC,OAAO,iBAAiB,CAAC,CAAC;AAsCxD,qBAAa,aAAc,SAAQ,KAAK;IACtC,SAAS,EAAE,cAAc,CAAkC;IAE3D,OAAO,SAAM;IAEb,MAAM,EAAE,GAAG,CAAM;gBAEL,aAAa,EAAE,cAAc,GAAG,MAAM;CAmBnD;AAED,eAAO,MAAM,iBAAiB;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;CAibpB,CAAC;AAEX,eAAO,MAAM,wBAAwB,EAAE,+BAkJ7B,CAAC;AAEX,eAAO,MAAM,UAAU,kBACN,cAAc,GAAG,MAAM,YAC5B,MAAM,WACP,GAAG,kBAMb,CAAC;AAEF,eAAO,MAAM,cAAc,YAAa,GAAG,QAe1C,CAAC;AAEF,eAAO,MAAM,oBAAoB,YAAa,MAAM,KAAG,aAOtD,CAAC;AAGF,eAAO,MAAM,gCAAgC,QAAS,MAAM,KAAG,aAQ9D,CAAC;AAEF,QAAA,MAAM,uCAAuC;oBAM3B,MAAM;oBACN,MAAM;;;mBAcvB,CAAC;AAEF,QAAA,MAAM,sCAAsC;oBAM1B,MAAM;oBACN,MAAM;;;mBAcvB,CAAC;AAEF,QAAA,MAAM,yCAAyC,cAClC,MAAM,GAAG,SAAS,YACnB,MAAM,GAAG,SAAS,iBACb,CAAC,UAAU,GAAG,KAAK,CAAC,EAAE,oBACnB;IAChB,QAAQ,CAAC,EAAE,MAAM,CAAC;IAClB,GAAG,CAAC,EAAE,MAAM,CAAC;CACd,kBAsBF,CAAC;AAEF,QAAA,MAAM,6BAA6B,mBACjB,MAAM,qBACH,MAAM,eACZ,MAAM,kBAQpB,CAAC;AAEF,QAAA,MAAM,4BAA4B,aACtB,MAAM,aACL,MAAM,cACL,MAAM,cACN,MAAM,aACP,MAAM,kBAWlB,CAAC;AAEF,QAAA,MAAM,iCAAiC,eAAgB,MAAM,gBAAgB,aAAa,kBAItF,CAAC;AAEL,OAAO,EACL,uCAAuC,EACvC,sCAAsC,EACtC,yCAAyC,EACzC,6BAA6B,EAC7B,4BAA4B,EAC5B,iCAAiC,GAClC,CAAC"}
+\ No newline at end of file
+diff --git a/node_modules/@onekeyfe/hd-shared/dist/index.d.ts b/node_modules/@onekeyfe/hd-shared/dist/index.d.ts
+index 7b36b31..951ef37 100644
+--- a/node_modules/@onekeyfe/hd-shared/dist/index.d.ts
++++ b/node_modules/@onekeyfe/hd-shared/dist/index.d.ts
+@@ -176,6 +176,7 @@ declare const HardwareErrorCode: {
+     readonly TooManyInputs: 827;
+     readonly PinMismatch: 828;
+     readonly DeviceLocked: 829;
++    readonly KaspaPrevTxIdMismatch: 830;
+     readonly LowlevelTrasnportConnectError: 900;
+     readonly WebDeviceNotFoundOrNeedsPermission: 901;
+     readonly WebDevicePromptAccessError: 902;
+diff --git a/node_modules/@onekeyfe/hd-shared/dist/index.js b/node_modules/@onekeyfe/hd-shared/dist/index.js
+index 85a03a0..356bd94 100644
+--- a/node_modules/@onekeyfe/hd-shared/dist/index.js
++++ b/node_modules/@onekeyfe/hd-shared/dist/index.js
+@@ -165,6 +165,7 @@ const HardwareErrorCode = {
+     TooManyInputs: 827,
+     PinMismatch: 828,
+     DeviceLocked: 829,
++    KaspaPrevTxIdMismatch: 830,
+     LowlevelTrasnportConnectError: 900,
+     WebDeviceNotFoundOrNeedsPermission: 901,
+     WebDevicePromptAccessError: 902,
+@@ -270,6 +271,7 @@ const HardwareErrorCodeMessage = {
+     [HardwareErrorCode.TooManyInputs]: 'Too many inputs',
+     [HardwareErrorCode.PinMismatch]: 'PIN mismatch',
+     [HardwareErrorCode.DeviceLocked]: 'Device locked',
++    [HardwareErrorCode.KaspaPrevTxIdMismatch]: 'Kaspa previous transaction id mismatch',
+     [HardwareErrorCode.LowlevelTrasnportConnectError]: 'Lowlevel transport connect error',
+     [HardwareErrorCode.WebDeviceNotFoundOrNeedsPermission]: 'Web-USB or Web-Bluetooth device not found or needs permission',
+     [HardwareErrorCode.WebDevicePromptAccessError]: 'Web-USB or Web-Bluetooth device prompt access error',
+diff --git a/node_modules/@onekeyfe/hd-shared/src/HardwareError.ts b/node_modules/@onekeyfe/hd-shared/src/HardwareError.ts
+index 43ab8da..9007724 100644
+--- a/node_modules/@onekeyfe/hd-shared/src/HardwareError.ts
++++ b/node_modules/@onekeyfe/hd-shared/src/HardwareError.ts
+@@ -490,6 +490,11 @@ export const HardwareErrorCode = {
+    */
+   DeviceLocked: 829,
+ 
++  /**
++   * Device refused to sign because refTxs do not match the spent outpoint.
++   */
++  KaspaPrevTxIdMismatch: 830,
++
+   /**
+    * Lowlevel transport connect error
+    */
+@@ -642,6 +647,7 @@ export const HardwareErrorCodeMessage: HardwareErrorCodeMessageMapping = {
+   [HardwareErrorCode.TooManyInputs]: 'Too many inputs',
+   [HardwareErrorCode.PinMismatch]: 'PIN mismatch',
+   [HardwareErrorCode.DeviceLocked]: 'Device locked',
++  [HardwareErrorCode.KaspaPrevTxIdMismatch]: 'Kaspa previous transaction id mismatch',
+ 
+   /**
+    * Lowlevel transport

@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
@@ -61,6 +63,19 @@ export function buildDeviceDetailsVisibility({
       Boolean(profile?.supportsPassphraseSetting) && hasLoadedDevice,
     showDeviceConnection: !isQrWallet && hasLoadedDevice,
   };
+}
+
+export function shouldSubscribeToHardwareFeaturesUpdate(
+  deviceType: EDeviceType | undefined,
+) {
+  return deviceType !== EDeviceType.Pro2;
+}
+
+export function shouldShowDeviceInteractiveSections(
+  deviceType: EDeviceType | undefined,
+  deviceStateReady: boolean,
+) {
+  return deviceType !== EDeviceType.Pro2 || deviceStateReady;
 }
 
 export function canShowTrezorBleBinding(
