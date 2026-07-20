@@ -1257,6 +1257,7 @@
   "global.approve": "অনুমোদন করুন",
   "global.apy": "APY",
   "global.asset": "সম্পত্তি",
+  "global.asset_allocation": "সম্পদ বণ্টন",
   "global.at_least_variable_characters": "কমপক্ষে {variable} অক্ষর",
   "global.auto": "অটো",
   "global.auto_lock": "স্বয়ংক্রিয় লক",

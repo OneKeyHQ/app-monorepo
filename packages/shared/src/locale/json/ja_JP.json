@@ -1257,6 +1257,7 @@
   "global.approve": "承認",
   "global.apy": "APY",
   "global.asset": "資産",
+  "global.asset_allocation": "資産配分",
   "global.at_least_variable_characters": "少なくとも{variable}文字",
   "global.auto": "自動",
   "global.auto_lock": "自動ロック",

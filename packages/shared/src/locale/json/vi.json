@@ -1257,6 +1257,7 @@
   "global.approve": "Chấp nhận",
   "global.apy": "APY",
   "global.asset": "Tài sản",
+  "global.asset_allocation": "Phân bổ tài sản",
   "global.at_least_variable_characters": "Ít nhất {variable} ký tự",
   "global.auto": "Tự động",
   "global.auto_lock": "Tự động khóa",

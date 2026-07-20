@@ -1257,6 +1257,7 @@
   "global.approve": "Genehmigen",
   "global.apy": "APY",
   "global.asset": "Vermögen",
+  "global.asset_allocation": "Vermögensallokation",
   "global.at_least_variable_characters": "Mindestens {variable} Zeichen",
   "global.auto": "Auto",
   "global.auto_lock": "Automatische Sperre",

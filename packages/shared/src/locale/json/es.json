@@ -1257,6 +1257,7 @@
   "global.approve": "Aprobar",
   "global.apy": "APY",
   "global.asset": "Activo",
+  "global.asset_allocation": "Asignación de activos",
   "global.at_least_variable_characters": "Al menos {variable} caracteres",
   "global.auto": "Auto",
   "global.auto_lock": "Bloqueo automático",

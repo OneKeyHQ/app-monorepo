@@ -1262,6 +1262,7 @@ export enum ETranslations {
   global_approve = 'global.approve',
   global_apy = 'global.apy',
   global_asset = 'global.asset',
+  global_asset_allocation = 'global.asset_allocation',
   global_at_least_variable_characters = 'global.at_least_variable_characters',
   global_auto = 'global.auto',
   global_auto_lock = 'global.auto_lock',

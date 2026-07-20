@@ -1257,6 +1257,7 @@
   "global.approve": "Утвердить",
   "global.apy": "АПИ",
   "global.asset": "Актив",
+  "global.asset_allocation": "Распределение активов",
   "global.at_least_variable_characters": "Не менее {variable} символов",
   "global.auto": "Авто",
   "global.auto_lock": "Автоблокировка",

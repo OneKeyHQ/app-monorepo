@@ -1257,6 +1257,7 @@
   "global.approve": "승인",
   "global.apy": "APY",
   "global.asset": "자산",
+  "global.asset_allocation": "자산 배분",
   "global.at_least_variable_characters": "최소 {variable}자",
   "global.auto": "자동",
   "global.auto_lock": "자동 잠금",

@@ -1257,6 +1257,7 @@
   "global.approve": "อนุมัติ",
   "global.apy": "APY",
   "global.asset": "สินทรัพย์",
+  "global.asset_allocation": "การจัดสรรสินทรัพย์",
   "global.at_least_variable_characters": "อย่างน้อย {variable} อักขระ",
   "global.auto": "อัตโนมัติ",
   "global.auto_lock": "ล็อกอัตโนมัติ",
