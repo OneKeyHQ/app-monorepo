@@ -16,6 +16,17 @@ function buildSnapshotKey(scope: string, key: string) {
 const swapScope = 'store:swap';
 const homeScope = 'store:accountSelector@home';
 const swapAccountSelectorScope = 'store:accountSelector@swap';
+const stockDisplaySeedSnapshotKey = buildSnapshotKey(
+  swapScope,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+);
+const validStockDisplaySeed = {
+  networkId: 'evm--56',
+  contractAddress: '0xaapl',
+  symbol: 'AAPL',
+  decimals: 18,
+  isStock: true,
+};
 
 function buildActiveAccount({
   networkId = 'btc--0',
@@ -40,6 +51,7 @@ function buildSwapSnapshot({
   snapshotSwapType = ESwapTabSwitchType.BRIDGE,
   fromTokenNetworkId = 'btc--0',
   toTokenNetworkId = 'evm--1',
+  stockDisplaySeed = validStockDisplaySeed,
 }: {
   contextNetworkId?: string;
   activeNetworkId?: string;
@@ -50,6 +62,7 @@ function buildSwapSnapshot({
   snapshotSwapType?: ESwapTabSwitchType;
   fromTokenNetworkId?: string;
   toTokenNetworkId?: string;
+  stockDisplaySeed?: unknown;
 } = {}) {
   const activeAccount = buildActiveAccount({
     networkId: activeNetworkId,
@@ -83,6 +96,7 @@ function buildSwapSnapshot({
       swapScope,
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
     )]: { networkId: toTokenNetworkId, symbol: 'ETH' },
+    [stockDisplaySeedSnapshotKey]: stockDisplaySeed,
   };
   if (swapActiveNetworkId) {
     snapshot[
@@ -244,6 +258,9 @@ describe('swapColdStartCacheSnapshotUtils', () => {
         )
       ],
     ).toBeUndefined();
+    expect(snapshot[stockDisplaySeedSnapshotKey]).toEqual(
+      validStockDisplaySeed,
+    );
   });
 
   it('keeps all-network cache when from token is on a concrete chain', () => {
@@ -433,6 +450,9 @@ describe('swapColdStartCacheSnapshotUtils', () => {
         )
       ],
     ).toBeUndefined();
+    expect(snapshot[stockDisplaySeedSnapshotKey]).toEqual(
+      validStockDisplaySeed,
+    );
   });
 
   it('extracts normalized selected tokens from a same-account all-network snapshot without context', () => {
@@ -558,6 +578,29 @@ describe('swapColdStartCacheSnapshotUtils', () => {
         )
       ],
     ).toBeUndefined();
+    expect(snapshot[stockDisplaySeedSnapshotKey]).toEqual(
+      validStockDisplaySeed,
+    );
+  });
+
+  it.each([
+    ['non-stock', { ...validStockDisplaySeed, isStock: false }],
+    ['missing-address', { ...validStockDisplaySeed, contractAddress: '' }],
+    ['non-object', null],
+  ])('drops a malformed %s Stock display seed', (_label, stockDisplaySeed) => {
+    const snapshot = buildSwapSnapshot({ stockDisplaySeed });
+
+    normalizeSwapColdStartCacheSnapshot(snapshot);
+
+    expect(snapshot[stockDisplaySeedSnapshotKey]).toBeUndefined();
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+        )
+      ],
+    ).toEqual({ networkId: 'btc--0', symbol: 'BTC' });
   });
 
   it('drops swap type and token snapshot when home account changes', () => {

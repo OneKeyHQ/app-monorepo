@@ -8,7 +8,10 @@ import type {
   ISwapToken,
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapQuoteKind } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapQuoteKind,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import type { IntlShape } from 'react-intl';
 
@@ -85,6 +88,54 @@ export function isQuoteResultForStockTrade({
 
   return isSameStockTradeAmount({
     left: quoteResult.fromAmount,
+    right: sendAmount,
+  });
+}
+
+export function isQuoteRequestForStockTrade({
+  currentAccountId,
+  currentAddress,
+  currentReceivingAddress,
+  quoteRequest,
+  receiveToken,
+  sendAmount,
+  sendToken,
+}: {
+  currentAccountId?: string;
+  currentAddress?: string;
+  currentReceivingAddress?: string;
+  quoteRequest?: {
+    type?: ESwapTabSwitchType;
+    fromToken?: ISwapToken;
+    toToken?: ISwapToken;
+    fromTokenAmount?: string;
+    accountId?: string;
+    address?: string;
+    receivingAddress?: string;
+  };
+  receiveToken?: ISwapTokenBase;
+  sendAmount?: string;
+  sendToken?: ISwapToken;
+}) {
+  if (
+    quoteRequest?.type !== ESwapTabSwitchType.STOCK ||
+    quoteRequest.accountId !== currentAccountId ||
+    quoteRequest.address !== currentAddress ||
+    quoteRequest.receivingAddress !== currentReceivingAddress ||
+    !equalTokenNoCaseSensitive({
+      token1: quoteRequest.fromToken,
+      token2: sendToken,
+    }) ||
+    !equalTokenNoCaseSensitive({
+      token1: quoteRequest.toToken,
+      token2: receiveToken,
+    })
+  ) {
+    return false;
+  }
+
+  return isSameStockTradeAmount({
+    left: quoteRequest.fromTokenAmount,
     right: sendAmount,
   });
 }
