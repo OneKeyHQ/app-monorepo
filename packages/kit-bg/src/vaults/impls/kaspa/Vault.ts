@@ -825,11 +825,26 @@ export default class Vault extends VaultBase {
         outputIndex: Number(input.previous_outpoint_index),
         sequenceNumber: 0,
       })),
-      outputs: tx.outputs.map((output) => ({
-        satoshis: Number(output.amount),
-        script: output.script_public_key,
-        scriptVersion: 0,
-      })),
+      outputs: tx.outputs.map((output) => {
+        // The proxy JSON-parses amount into a JS number, so a sompi value beyond
+        // 2^53 (reachable on kaspa: supply ~2.9e18) is already rounded before we
+        // see it — BigNumber can't recover what the parse lost. Bail so the
+        // caller blind-signs rather than stream a refTx whose recomputed txid
+        // would silently be wrong.
+        const satoshis = new BigNumber(String(output.amount));
+        if (!satoshis.isInteger() || satoshis.gt(Number.MAX_SAFE_INTEGER)) {
+          throw new OneKeyLocalError(
+            `kaspa refTx: output amount ${String(
+              output.amount,
+            )} exceeds safe integer range`,
+          );
+        }
+        return {
+          satoshis: satoshis.toFixed(),
+          script: output.script_public_key,
+          scriptVersion: 0,
+        };
+      }),
       lockTime: 0,
       subNetworkID: tx.subnetwork_id,
       gas: 0,
