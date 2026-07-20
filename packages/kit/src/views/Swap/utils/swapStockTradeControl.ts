@@ -93,16 +93,25 @@ export function isQuoteResultForStockTrade({
 }
 
 export function isQuoteRequestForStockTrade({
+  currentAccountId,
+  currentAddress,
+  currentReceivingAddress,
   quoteRequest,
   receiveToken,
   sendAmount,
   sendToken,
 }: {
+  currentAccountId?: string;
+  currentAddress?: string;
+  currentReceivingAddress?: string;
   quoteRequest?: {
     type?: ESwapTabSwitchType;
     fromToken?: ISwapToken;
     toToken?: ISwapToken;
     fromTokenAmount?: string;
+    accountId?: string;
+    address?: string;
+    receivingAddress?: string;
   };
   receiveToken?: ISwapTokenBase;
   sendAmount?: string;
@@ -110,6 +119,9 @@ export function isQuoteRequestForStockTrade({
 }) {
   if (
     quoteRequest?.type !== ESwapTabSwitchType.STOCK ||
+    quoteRequest.accountId !== currentAccountId ||
+    quoteRequest.address !== currentAddress ||
+    quoteRequest.receivingAddress !== currentReceivingAddress ||
     !equalTokenNoCaseSensitive({
       token1: quoteRequest.fromToken,
       token2: sendToken,

@@ -86,12 +86,10 @@ export function shouldShowStockMarketHeaderSkeleton({
 export function shouldShowStockQuoteActionLoading({
   inputAmount,
   quoteEventCompleted,
-  quoteMatchesStockTrade,
   quoteRequestMatchesStockTrade,
 }: {
   inputAmount: string;
   quoteEventCompleted: boolean;
-  quoteMatchesStockTrade: boolean;
   quoteRequestMatchesStockTrade: boolean;
 }) {
   if (!new BigNumber(inputAmount || 0).gt(0)) {
@@ -102,7 +100,7 @@ export function shouldShowStockQuoteActionLoading({
     return true;
   }
 
-  return !quoteMatchesStockTrade && !quoteRequestMatchesStockTrade;
+  return !quoteRequestMatchesStockTrade;
 }
 
 export function mergeStockChartRealtimePoint({

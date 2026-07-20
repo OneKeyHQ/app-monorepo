@@ -138,7 +138,6 @@ import {
 import {
   getStockQuoteTradeControl,
   isQuoteRequestForStockTrade,
-  isQuoteResultForStockTrade,
 } from '../../utils/swapStockTradeControl';
 import {
   getSwapKLineWalletChartDays,
@@ -791,14 +790,12 @@ function StockEstimatedReceive({
 function StockActionGate({
   alerts,
   stockChannel,
-  quoteResult,
   onPreSwap,
   onToAnotherAddressModal,
   onSelectPercentageStage,
 }: {
   alerts: ISwapStockDesktopContainerProps['alerts'];
   stockChannel: IUseSwapStockChannelReturn;
-  quoteResult?: IFetchQuoteResult;
   onPreSwap: () => void;
   onToAnotherAddressModal: () => void;
   onSelectPercentageStage: (stage: number) => void;
@@ -808,6 +805,7 @@ function StockActionGate({
   const isModalPage = useIsOverlayPage();
   const { md } = useMedia();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
@@ -879,15 +877,10 @@ function StockActionGate({
   const forceQuoteActionLoading = shouldShowStockQuoteActionLoading({
     inputAmount: fromTokenAmount.value,
     quoteEventCompleted,
-    quoteMatchesStockTrade:
-      quoteResult?.protocol === EProtocolOfExchange.STOCK &&
-      isQuoteResultForStockTrade({
-        quoteResult,
-        receiveToken: stockChannel.toToken,
-        sendAmount: fromTokenAmount.value,
-        sendToken: stockChannel.fromToken,
-      }),
     quoteRequestMatchesStockTrade: isQuoteRequestForStockTrade({
+      currentAccountId: swapFromAddressInfo.accountInfo?.account?.id,
+      currentAddress: swapFromAddressInfo.address,
+      currentReceivingAddress: swapToAddressInfo.address,
       quoteRequest: quoteActionLock,
       receiveToken: stockChannel.toToken,
       sendAmount: fromTokenAmount.value,
@@ -1305,7 +1298,6 @@ function StockTradeTicket({
       <StockActionGate
         alerts={alerts}
         stockChannel={stockChannel}
-        quoteResult={quoteResult}
         onPreSwap={onPreSwap}
         onToAnotherAddressModal={onToAnotherAddressModal}
         onSelectPercentageStage={amountInputState.onSelectPercentageStage}

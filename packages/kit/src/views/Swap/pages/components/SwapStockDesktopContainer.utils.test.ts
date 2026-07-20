@@ -119,7 +119,6 @@ describe('SwapStockDesktopContainer utils', () => {
     const baseParams = {
       inputAmount: '100',
       quoteEventCompleted: false,
-      quoteMatchesStockTrade: true,
       quoteRequestMatchesStockTrade: true,
     };
 
@@ -127,7 +126,6 @@ describe('SwapStockDesktopContainer utils', () => {
     expect(
       shouldShowStockQuoteActionLoading({
         ...baseParams,
-        quoteMatchesStockTrade: false,
         quoteRequestMatchesStockTrade: false,
       }),
     ).toBe(true);
@@ -144,7 +142,6 @@ describe('SwapStockDesktopContainer utils', () => {
       shouldShowStockQuoteActionLoading({
         inputAmount: '100',
         quoteEventCompleted: true,
-        quoteMatchesStockTrade: false,
         quoteRequestMatchesStockTrade: false,
       }),
     ).toBe(true);
@@ -155,7 +152,6 @@ describe('SwapStockDesktopContainer utils', () => {
       shouldShowStockQuoteActionLoading({
         inputAmount: '100',
         quoteEventCompleted: true,
-        quoteMatchesStockTrade: false,
         quoteRequestMatchesStockTrade: false,
       }),
     ).toBe(true);
@@ -166,7 +162,6 @@ describe('SwapStockDesktopContainer utils', () => {
       shouldShowStockQuoteActionLoading({
         inputAmount: '100',
         quoteEventCompleted: true,
-        quoteMatchesStockTrade: false,
         quoteRequestMatchesStockTrade: true,
       }),
     ).toBe(false);
@@ -174,7 +169,6 @@ describe('SwapStockDesktopContainer utils', () => {
       shouldShowStockQuoteActionLoading({
         inputAmount: '',
         quoteEventCompleted: false,
-        quoteMatchesStockTrade: false,
         quoteRequestMatchesStockTrade: false,
       }),
     ).toBe(false);
