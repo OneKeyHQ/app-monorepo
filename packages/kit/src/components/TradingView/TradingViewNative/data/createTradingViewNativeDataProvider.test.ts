@@ -16,6 +16,7 @@ interface IProviderMockBag {
     subscribeOHLCV: jest.Mock;
     unsubscribeOHLCV: jest.Mock;
   };
+  marketFetchHistory: jest.Mock;
   hyperliquidFetchCandles: jest.Mock;
   hyperliquidSubscribeCandle: jest.Mock;
 }
@@ -40,6 +41,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
     eventOff: jest.fn(),
     eventOn: jest.fn(),
     marketService,
+    marketFetchHistory: jest.fn(),
     hyperliquidFetchCandles: jest.fn(),
     hyperliquidSubscribeCandle: jest.fn(),
   };
@@ -48,6 +50,16 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
     default: { serviceMarketWS: marketService },
   };
 });
+
+jest.mock(
+  '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData',
+  () => ({
+    fetchMarketKLineData: (...args: unknown[]): unknown =>
+      globalMockBag.__tradingViewNativeProviderMocks?.marketFetchHistory(
+        ...args,
+      ) as unknown,
+  }),
+);
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: { MarketWSDataUpdate: 'MarketWSDataUpdate' },
@@ -111,6 +123,51 @@ describe('TradingViewNative data providers', () => {
     mocks?.marketService.unsubscribeOHLCV.mockResolvedValue(undefined);
     mocks?.marketService.ensureSubscription.mockResolvedValue(undefined);
     mocks?.marketService.clearDataCount.mockResolvedValue(undefined);
+    mocks?.marketFetchHistory.mockResolvedValue({ points: [], total: 0 });
+  });
+
+  it('forwards Market history windows through the direct API adapter', async () => {
+    const provider = createTradingViewNativeDataProvider({
+      kind: 'market',
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      symbol: 'TOKEN',
+      realtime: 'disabled',
+    });
+
+    expect(provider.historyBatchSize).toBe(299);
+    expect(provider.historyRequestCandleCount).toBe(2000);
+
+    await provider.fetchHistory({
+      interval: getInterval('60'),
+      signal: new AbortController().signal,
+      timeFrom: 100,
+      timeTo: 200,
+    });
+
+    expect(
+      globalMockBag.__tradingViewNativeProviderMocks?.marketFetchHistory,
+    ).toHaveBeenCalledWith({
+      tokenAddress: '0xabc',
+      networkId: 'evm--1',
+      interval: '1H',
+      timeFrom: 100,
+      timeTo: 200,
+      autoHandleError: false,
+    });
+  });
+
+  it('uses the same API history batch for native Market tokens', () => {
+    const provider = createTradingViewNativeDataProvider({
+      kind: 'market',
+      networkId: 'btc--0',
+      tokenAddress: '',
+      symbol: 'BTC',
+      realtime: 'disabled',
+    });
+
+    expect(provider.historyBatchSize).toBe(299);
+    expect(provider.historyRequestCandleCount).toBe(2000);
   });
 
   it('adapts validated Market WS candles and owns subscription cleanup', async () => {
@@ -258,6 +315,8 @@ describe('TradingViewNative data providers', () => {
       coin: 'BTC',
       environment: 'testnet',
     });
+    expect(provider.historyBatchSize).toBe(5000);
+    expect(provider.historyRequestCandleCount).toBe(5000);
     const interval = getInterval('240');
     const abortController = new AbortController();
 

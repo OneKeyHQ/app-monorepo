@@ -1,5 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { fetchMarketKLineDataWithSlicing } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
+import { fetchMarketKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -21,6 +21,10 @@ import type {
 import type { ITradingViewNativeSource } from '../types';
 
 const MARKET_WS_CURRENCY = 'usd';
+// A wider interval window fills the API's 299-point page for sparse Market series.
+const MARKET_HISTORY_BATCH_SIZE = 299;
+const MARKET_HISTORY_REQUEST_CANDLE_COUNT = 2000;
+const HYPERLIQUID_HISTORY_BATCH_SIZE = 5000;
 
 function normalizeSymbol(symbol: string) {
   return symbol.trim().toUpperCase();
@@ -37,6 +41,8 @@ function createMarketDataProvider(
   };
 
   return {
+    historyBatchSize: MARKET_HISTORY_BATCH_SIZE,
+    historyRequestCandleCount: MARKET_HISTORY_REQUEST_CANDLE_COUNT,
     isReady: Boolean(
       source.networkId && (source.tokenAddress || source.symbol),
     ),
@@ -45,7 +51,7 @@ function createMarketDataProvider(
     )}`,
     supportsRealtime: source.realtime === 'websocket',
     fetchHistory: async ({ interval, timeFrom, timeTo }) =>
-      fetchMarketKLineDataWithSlicing({
+      fetchMarketKLineData({
         tokenAddress: source.tokenAddress,
         networkId: source.networkId,
         interval: interval.label,
@@ -200,6 +206,8 @@ function createHyperliquidDataProvider(
   source: Extract<ITradingViewNativeSource, { kind: 'hyperliquid' }>,
 ): ITradingViewNativeDataProvider {
   return {
+    historyBatchSize: HYPERLIQUID_HISTORY_BATCH_SIZE,
+    historyRequestCandleCount: HYPERLIQUID_HISTORY_BATCH_SIZE,
     isReady: Boolean(source.coin),
     key: `hyperliquid:${source.environment}:${source.coin}`,
     supportsRealtime: true,

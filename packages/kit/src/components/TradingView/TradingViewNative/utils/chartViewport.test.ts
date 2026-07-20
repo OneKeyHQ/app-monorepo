@@ -182,6 +182,25 @@ describe('TradingViewNative chart viewport', () => {
     ).toBe(0);
   });
 
+  it('keeps existing candles stationary when older history is prepended', () => {
+    const currentX = getTradingViewNativeCandleX({
+      index: 2,
+      offset: 40,
+      pointCount: 5,
+      priceAxisX: 100,
+      zoomScale: 1,
+    });
+    const nextX = getTradingViewNativeCandleX({
+      index: 4,
+      offset: 40,
+      pointCount: 7,
+      priceAxisX: 100,
+      zoomScale: 1,
+    });
+
+    expect(nextX).toBe(currentX);
+  });
+
   it('keeps active pan and pinch gesture baselines aligned after appending', () => {
     expect(
       getTradingViewNativeGestureStartOffsetAfterDataUpdate({

@@ -24,6 +24,7 @@ export const TradingViewNativeContainer = memo(
       intervalConfig,
       isSwitchingInterval,
       handleIntervalChange,
+      handleVisiblePointRangeChange,
     } = useTradingViewNativeKLine({ source });
 
     useEffect(() => {
@@ -45,6 +46,7 @@ export const TradingViewNativeContainer = memo(
           key={`${dataProviderKey}:${candleIntervalSeconds}`}
           candleIntervalSeconds={candleIntervalSeconds}
           isSwitchingInterval={isSwitchingInterval}
+          onVisiblePointRangeChange={handleVisiblePointRangeChange}
           points={points}
           testID={testID}
         />

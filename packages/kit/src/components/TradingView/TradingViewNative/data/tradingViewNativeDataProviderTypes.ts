@@ -25,6 +25,8 @@ export interface ITradingViewNativeRealtimeSubscriptionRequest {
 }
 
 export interface ITradingViewNativeDataProvider {
+  historyBatchSize: number;
+  historyRequestCandleCount: number;
   isReady: boolean;
   key: string;
   supportsRealtime: boolean;

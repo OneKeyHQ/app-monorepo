@@ -116,6 +116,9 @@ interface IChartPictureData {
 interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
   isSwitchingInterval: boolean;
+  onVisiblePointRangeChange?: (
+    range: ITradingViewNativeVisiblePointRange,
+  ) => void;
   points: IMarketTokenKLineDataPoint[];
   testID?: string;
 }
@@ -482,6 +485,7 @@ export const TradingViewNativeChart = memo(
   ({
     candleIntervalSeconds,
     isSwitchingInterval,
+    onVisiblePointRangeChange,
     points,
     testID,
   }: ITradingViewNativeChartProps) => {
@@ -617,6 +621,7 @@ export const TradingViewNativeChart = memo(
         endIndex: number,
         nextMinimumTimeTickIndexSpacing: number,
       ) => {
+        onVisiblePointRangeChange?.({ endIndex, startIndex });
         setVisiblePointRangeState((currentState) =>
           currentState.chartWidth === chartWidth &&
           currentState.startIndex === startIndex &&
@@ -632,7 +637,7 @@ export const TradingViewNativeChart = memo(
               },
         );
       },
-      [chartWidth],
+      [chartWidth, onVisiblePointRangeChange],
     );
 
     const baseMaxPrice = chartPictureData?.baseMaxPrice ?? 0;

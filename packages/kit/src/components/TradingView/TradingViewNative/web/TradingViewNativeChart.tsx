@@ -39,6 +39,7 @@ import {
 } from '../utils/chartLayout';
 import { isTradingViewNativePriceUp } from '../utils/chartStyle';
 import {
+  type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
   clampTradingViewNativeZoomScale,
   getTradingViewNativeCandleX,
@@ -64,6 +65,9 @@ interface IChartColors {
 interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
   isSwitchingInterval: boolean;
+  onVisiblePointRangeChange?: (
+    range: ITradingViewNativeVisiblePointRange,
+  ) => void;
   points: IMarketTokenKLineDataPoint[];
   testID?: string;
 }
@@ -248,7 +252,12 @@ function drawKLineChart({
   context.rect(CHART_HORIZONTAL_PADDING, 0, chartWidth, timeAxisY);
   context.clip();
 
-  points.forEach((point, index) => {
+  for (
+    let index = visiblePointRange.startIndex;
+    index < visiblePointRange.endIndex;
+    index += 1
+  ) {
+    const point = points[index];
     const color = isTradingViewNativePriceUp(point) ? colors.up : colors.down;
     const x = getPointX(index);
     const openY = toY(point.o);
@@ -281,7 +290,7 @@ function drawKLineChart({
       );
       context.globalAlpha = 1;
     }
-  });
+  }
   context.restore();
 
   const latestPoint = points[points.length - 1];
@@ -332,11 +341,13 @@ export const TradingViewNativeChart = memo(
   ({
     candleIntervalSeconds,
     isSwitchingInterval,
+    onVisiblePointRangeChange,
     points,
     testID,
   }: ITradingViewNativeChartProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const pointerDragStateRef = useRef<IPointerDragState | null>(null);
+    const [measuredChartWidth, setMeasuredChartWidth] = useState(0);
     const [viewportState, setViewportState] = useState<IChartViewportState>(
       () => ({
         offset: 0,
@@ -421,7 +432,13 @@ export const TradingViewNativeChart = memo(
         return undefined;
       }
 
-      const renderCurrentChart = () => renderChart(panOffset, zoomScale);
+      const renderCurrentChart = () => {
+        renderChart(panOffset, zoomScale);
+        const nextChartWidth = getCanvasChartWidth(canvas);
+        setMeasuredChartWidth((currentWidth) =>
+          currentWidth === nextChartWidth ? currentWidth : nextChartWidth,
+        );
+      };
       renderCurrentChart();
 
       const resizeObserver = new ResizeObserver(renderCurrentChart);
@@ -431,6 +448,26 @@ export const TradingViewNativeChart = memo(
         resizeObserver.disconnect();
       };
     }, [panOffset, renderChart, zoomScale]);
+
+    useEffect(() => {
+      if (measuredChartWidth <= 0 || pointCount <= 0) {
+        return;
+      }
+      onVisiblePointRangeChange?.(
+        getTradingViewNativeVisiblePointRange({
+          chartWidth: measuredChartWidth,
+          offset: panOffset,
+          pointCount,
+          zoomScale,
+        }),
+      );
+    }, [
+      measuredChartWidth,
+      onVisiblePointRangeChange,
+      panOffset,
+      pointCount,
+      zoomScale,
+    ]);
 
     const handlePointerDown = useCallback(
       (event: ReactPointerEvent<HTMLCanvasElement>) => {

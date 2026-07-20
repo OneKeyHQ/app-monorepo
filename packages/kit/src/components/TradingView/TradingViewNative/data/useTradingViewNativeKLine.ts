@@ -23,8 +23,9 @@ import type {
   ITradingViewNativeSource,
 } from '../types';
 
-const MAX_VISIBLE_CANDLES = 160;
+const HISTORY_LOAD_MORE_THRESHOLD = 20;
 const HISTORY_RETRY_DELAYS = [1000, 3000] as const;
+const MAX_REALTIME_BUFFER_CANDLES = 160;
 const REALTIME_SELF_HEAL_INTERVAL = 30_000;
 const REALTIME_STALE_THRESHOLD = 60_000;
 
@@ -52,6 +53,15 @@ interface IRealtimeState {
   status: 'idle' | 'connecting' | 'live' | 'reconnecting' | 'error';
 }
 
+interface IHistoryPaginationState {
+  abortController?: AbortController;
+  earliestTimestamp?: number;
+  hasMore: boolean;
+  interval: ITradingViewNativeChartInterval;
+  isLoading: boolean;
+  seriesKey: string;
+}
+
 function normalizeKLinePoints(points: IMarketTokenKLineDataPoint[]) {
   return points
     .filter(
@@ -63,8 +73,19 @@ function normalizeKLinePoints(points: IMarketTokenKLineDataPoint[]) {
         Number.isFinite(point.t) &&
         point.h >= point.l,
     )
-    .toSorted((a, b) => a.t - b.t)
-    .slice(-MAX_VISIBLE_CANDLES);
+    .toSorted((a, b) => a.t - b.t);
+}
+
+function mergeKLinePoints(
+  points: IMarketTokenKLineDataPoint[],
+  incomingPoints: Iterable<IMarketTokenKLineDataPoint>,
+) {
+  const pointsByTimestamp = new Map<number, IMarketTokenKLineDataPoint>();
+  points.forEach((point) => pointsByTimestamp.set(point.t, point));
+  for (const incomingPoint of incomingPoints) {
+    pointsByTimestamp.set(incomingPoint.t, incomingPoint);
+  }
+  return normalizeKLinePoints([...pointsByTimestamp.values()]);
 }
 
 function areKLinePointsEqual(
@@ -105,7 +126,7 @@ function bufferRealtimePoint(
   point: IMarketTokenKLineDataPoint,
 ) {
   buffer.set(point.t, point);
-  if (buffer.size <= MAX_VISIBLE_CANDLES) {
+  if (buffer.size <= MAX_REALTIME_BUFFER_CANDLES) {
     return;
   }
 
@@ -120,12 +141,7 @@ function mergeRealtimePointBuffer(
   points: IMarketTokenKLineDataPoint[],
   realtimePoints: Iterable<IMarketTokenKLineDataPoint>,
 ) {
-  const pointsByTimestamp = new Map<number, IMarketTokenKLineDataPoint>();
-  points.forEach((point) => pointsByTimestamp.set(point.t, point));
-  for (const realtimePoint of realtimePoints) {
-    pointsByTimestamp.set(realtimePoint.t, realtimePoint);
-  }
-  return normalizeKLinePoints([...pointsByTimestamp.values()]);
+  return mergeKLinePoints(points, realtimePoints);
 }
 
 function isAbortError(error: unknown) {
@@ -156,6 +172,18 @@ function getLatestTimestamp(...timestamps: (number | undefined)[]) {
     (timestamp): timestamp is number => timestamp !== undefined,
   );
   return validTimestamps.length ? Math.max(...validTimestamps) : undefined;
+}
+
+function getHistoryTimeFrom({
+  candleCount,
+  intervalSeconds,
+  timeTo,
+}: {
+  candleCount: number;
+  intervalSeconds: number;
+  timeTo: number;
+}) {
+  return Math.max(timeTo - intervalSeconds * candleCount, 0);
 }
 
 function getDataState({
@@ -288,6 +316,12 @@ export function useTradingViewNativeKLine({
     new Map<number, IMarketTokenKLineDataPoint>(),
   );
   const realtimeScopeRef = useRef({ interval: activeInterval, seriesKey });
+  const historyPaginationRef = useRef<IHistoryPaginationState>({
+    hasMore: true,
+    interval: activeInterval,
+    isLoading: false,
+    seriesKey,
+  });
   chartDataRef.current = chartData;
 
   useEffect(() => {
@@ -309,6 +343,32 @@ export function useTradingViewNativeKLine({
     realtimePointBufferRef.current.clear();
     lastRealtimeActivityAtRef.current = Date.now();
     lastRealtimePointAtRef.current = undefined;
+  }, [activeInterval, seriesKey]);
+
+  useEffect(() => {
+    historyPaginationRef.current.abortController?.abort();
+    const currentChartData = chartDataRef.current;
+    historyPaginationRef.current = {
+      earliestTimestamp:
+        currentChartData?.seriesKey === seriesKey &&
+        currentChartData.interval === activeInterval
+          ? currentChartData.points[0]?.t
+          : undefined,
+      hasMore: true,
+      interval: activeInterval,
+      isLoading: false,
+      seriesKey,
+    };
+
+    return () => {
+      const pagination = historyPaginationRef.current;
+      if (
+        pagination.seriesKey === seriesKey &&
+        pagination.interval === activeInterval
+      ) {
+        pagination.abortController?.abort();
+      }
+    };
   }, [activeInterval, seriesKey]);
 
   const visibleChartData =
@@ -334,6 +394,143 @@ export function useTradingViewNativeKLine({
       setActiveInterval(nextInterval.value);
     }
   }, []);
+
+  const handleVisiblePointRangeChange = useCallback(
+    ({ startIndex }: { startIndex: number }) => {
+      if (startIndex > HISTORY_LOAD_MORE_THRESHOLD) {
+        return;
+      }
+
+      const pagination = historyPaginationRef.current;
+      const currentChartData = chartDataRef.current;
+      if (
+        pagination.seriesKey !== seriesKey ||
+        pagination.interval !== activeInterval ||
+        pagination.isLoading ||
+        !pagination.hasMore ||
+        currentChartData?.seriesKey !== seriesKey ||
+        currentChartData.interval !== activeInterval
+      ) {
+        return;
+      }
+
+      const interval =
+        getTradingViewNativeKLineInterval(activeInterval) ??
+        TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
+      const earliestTimestamp =
+        pagination.earliestTimestamp ?? currentChartData.points[0]?.t;
+      if (
+        earliestTimestamp === undefined ||
+        !Number.isFinite(earliestTimestamp) ||
+        earliestTimestamp <= 0
+      ) {
+        pagination.hasMore = false;
+        return;
+      }
+
+      const timeTo = earliestTimestamp - 1;
+      const timeFrom = getHistoryTimeFrom({
+        candleCount: provider.historyRequestCandleCount,
+        intervalSeconds: interval.seconds,
+        timeTo,
+      });
+      if (timeFrom >= timeTo) {
+        pagination.hasMore = false;
+        return;
+      }
+
+      const abortController = new AbortController();
+      pagination.abortController = abortController;
+      pagination.isLoading = true;
+
+      const loadOlderHistory = async () => {
+        let lastError: unknown;
+        try {
+          for (
+            let attempt = 0;
+            attempt <= HISTORY_RETRY_DELAYS.length;
+            attempt += 1
+          ) {
+            try {
+              const data = await provider.fetchHistory({
+                interval,
+                signal: abortController.signal,
+                timeFrom,
+                timeTo,
+              });
+              if (
+                abortController.signal.aborted ||
+                historyPaginationRef.current !== pagination
+              ) {
+                return;
+              }
+              if (!data) {
+                throw new OneKeyLocalError(
+                  'No older candle history response is available',
+                );
+              }
+
+              const olderPoints = normalizeKLinePoints(data.points).filter(
+                (point) => point.t < earliestTimestamp,
+              );
+              if (!olderPoints.length) {
+                pagination.hasMore = false;
+                return;
+              }
+
+              pagination.earliestTimestamp = olderPoints[0].t;
+              pagination.hasMore =
+                olderPoints.length >= provider.historyBatchSize;
+              setChartData((currentData) => {
+                if (
+                  currentData?.seriesKey !== seriesKey ||
+                  currentData.interval !== activeInterval
+                ) {
+                  return currentData;
+                }
+                return {
+                  ...currentData,
+                  points: mergeKLinePoints(currentData.points, olderPoints),
+                };
+              });
+              return;
+            } catch (error) {
+              if (abortController.signal.aborted || isAbortError(error)) {
+                return;
+              }
+              lastError = error;
+              const retryDelay = HISTORY_RETRY_DELAYS[attempt];
+              if (retryDelay === undefined) {
+                break;
+              }
+              await waitForHistoryRetry(retryDelay, abortController.signal);
+              if (abortController.signal.aborted) {
+                return;
+              }
+            }
+          }
+
+          logTradingViewNativeDataError(
+            'Failed to fetch older native TradingView candle history',
+            lastError ??
+              new OneKeyLocalError(
+                'No older candle history response is available',
+              ),
+          );
+        } finally {
+          if (
+            historyPaginationRef.current === pagination &&
+            pagination.abortController === abortController
+          ) {
+            pagination.abortController = undefined;
+            pagination.isLoading = false;
+          }
+        }
+      };
+      void loadOlderHistory();
+    },
+    [activeInterval, provider, seriesKey],
+  );
 
   const handleRealtimePoint = useCallback(
     (point: IMarketTokenKLineDataPoint) => {
@@ -575,7 +772,11 @@ export function useTradingViewNativeKLine({
       getTradingViewNativeKLineInterval(activeInterval) ??
       TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
     const timeTo = Math.floor(Date.now() / 1000);
-    const timeFrom = timeTo - requestedInterval.seconds * MAX_VISIBLE_CANDLES;
+    const timeFrom = getHistoryTimeFrom({
+      candleCount: provider.historyRequestCandleCount,
+      intervalSeconds: requestedInterval.seconds,
+      timeTo,
+    });
     setHistoryState((current) => ({
       interval: activeInterval,
       lastUpdatedAt:
@@ -640,6 +841,7 @@ export function useTradingViewNativeKLine({
           if (!points.length) {
             throw new OneKeyLocalError('No candle data is available');
           }
+          const receivedHistoryPointCount = points.length;
           const realtimeScope = realtimeScopeRef.current;
           if (
             realtimeScope.seriesKey === seriesKey &&
@@ -653,11 +855,32 @@ export function useTradingViewNativeKLine({
             realtimePointBufferRef.current.clear();
           }
           const updatedAt = Date.now();
-          setChartData({
+          const currentChartData = chartDataRef.current;
+          const nextPoints =
+            currentChartData?.seriesKey === seriesKey &&
+            currentChartData.interval === requestedInterval.value
+              ? mergeKLinePoints(currentChartData.points, points)
+              : points;
+          const pagination = historyPaginationRef.current;
+          if (
+            pagination.seriesKey === seriesKey &&
+            pagination.interval === requestedInterval.value
+          ) {
+            if (pagination.earliestTimestamp === undefined) {
+              pagination.hasMore =
+                receivedHistoryPointCount >= provider.historyBatchSize;
+            }
+            pagination.earliestTimestamp = nextPoints[0]?.t;
+          }
+          setChartData((currentData) => ({
             interval: requestedInterval.value,
             seriesKey,
-            points,
-          });
+            points:
+              currentData?.seriesKey === seriesKey &&
+              currentData.interval === requestedInterval.value
+                ? mergeKLinePoints(currentData.points, points)
+                : points,
+          }));
           setHistoryState({
             interval: requestedInterval.value,
             lastUpdatedAt: updatedAt,
@@ -729,6 +952,7 @@ export function useTradingViewNativeKLine({
     dataProviderKey: seriesKey,
     dataState,
     handleIntervalChange,
+    handleVisiblePointRangeChange,
     intervalConfig,
     isSwitchingInterval,
     points: visibleChartData?.points ?? [],

@@ -34,6 +34,8 @@ let realtimePointListener:
   | undefined;
 let mockCurrentVisibility = true;
 let mockVisibilityListener: ((isVisible: boolean) => void) | undefined;
+let mockHistoryBatchSize = 1;
+let mockHistoryRequestCandleCount = 1;
 
 jest.mock('@onekeyhq/components/src/hooks/useVisibilityChange', () => ({
   getCurrentVisibilityState: () => mockCurrentVisibility,
@@ -81,6 +83,39 @@ function buildResponse(
   };
 }
 
+function buildMultiPointResponse(
+  candles: { close: number; timestamp: number }[],
+): IMarketTokenKLineResponse {
+  return {
+    points: candles.map(({ close, timestamp }) => ({
+      o: close,
+      h: close + 1,
+      l: close - 1,
+      c: close,
+      v: 10,
+      t: timestamp,
+    })),
+    total: candles.length,
+  };
+}
+
+function buildSequentialResponse({
+  count,
+  firstTimestamp,
+  startingClose = 1,
+}: {
+  count: number;
+  firstTimestamp: number;
+  startingClose?: number;
+}) {
+  return buildMultiPointResponse(
+    Array.from({ length: count }, (_, index) => ({
+      close: startingClose + index,
+      timestamp: firstTimestamp + index * 3600,
+    })),
+  );
+}
+
 function createDeferred<T>() {
   let resolve: (value: T) => void = () => undefined;
   let reject: (reason: unknown) => void = () => undefined;
@@ -126,6 +161,8 @@ describe('TradingViewNative K-line data state machine', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFetchHistory.mockReset();
+    mockHistoryBatchSize = 1;
+    mockHistoryRequestCandleCount = 1;
     mockCurrentVisibility = true;
     mockVisibilityListener = undefined;
     realtimePointListener = undefined;
@@ -139,6 +176,8 @@ describe('TradingViewNative K-line data state machine', () => {
       };
     });
     mockCreateTradingViewNativeDataProvider.mockImplementation((source) => ({
+      historyBatchSize: mockHistoryBatchSize,
+      historyRequestCandleCount: mockHistoryRequestCandleCount,
       isReady: true,
       key: buildProviderKey(source),
       supportsRealtime:
@@ -150,6 +189,48 @@ describe('TradingViewNative K-line data state machine', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('requests the full provider batch on the initial history load', async () => {
+    mockHistoryBatchSize = 3;
+    mockHistoryRequestCandleCount = 3;
+    jest.spyOn(Date, 'now').mockReturnValue(100_000_000);
+    mockFetchHistory.mockResolvedValue(
+      buildMultiPointResponse([
+        { close: 90, timestamp: 92_800 },
+        { close: 100, timestamp: 96_400 },
+        { close: 110, timestamp: 100_000 },
+      ]),
+    );
+
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(3));
+    expect(mockFetchHistory.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        timeFrom: 89_200,
+        timeTo: 100_000,
+      }),
+    );
+  });
+
+  it('does not paginate when the initial batch is shorter than requested', async () => {
+    mockHistoryBatchSize = 299;
+    mockHistoryRequestCandleCount = 2000;
+    mockFetchHistory.mockResolvedValue(
+      buildSequentialResponse({ count: 298, firstTimestamp: 1_000_000 }),
+    );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(298));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+
+    expect(mockFetchHistory).toHaveBeenCalledTimes(1);
   });
 
   it('keeps previous candles until a non-empty interval response arrives', async () => {
@@ -258,6 +339,195 @@ describe('TradingViewNative K-line data state machine', () => {
     });
 
     await waitFor(() => expect(result.current.points[0]?.c).toBe(105));
+  });
+
+  it('loads and prepends one older page near the left boundary', async () => {
+    mockHistoryBatchSize = 2;
+    mockHistoryRequestCandleCount = 2;
+    const olderHistoryRequest =
+      createDeferred<IMarketTokenKLineResponse | null>();
+    mockFetchHistory
+      .mockResolvedValueOnce(
+        buildMultiPointResponse([
+          { close: 100, timestamp: 1_000_000 },
+          { close: 110, timestamp: 1_003_600 },
+        ]),
+      )
+      .mockReturnValueOnce(olderHistoryRequest.promise)
+      .mockResolvedValueOnce(
+        buildMultiPointResponse([
+          { close: 110, timestamp: 1_003_600 },
+          { close: 120, timestamp: 1_007_200 },
+        ]),
+      );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(2));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 21 }));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.handleVisiblePointRangeChange({ startIndex: 20 });
+      result.current.handleVisiblePointRangeChange({ startIndex: 0 });
+    });
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+    expect(mockFetchHistory.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({
+        interval: expect.objectContaining({ value: '60' }),
+        timeFrom: 992_799,
+        timeTo: 999_999,
+      }),
+    );
+
+    await act(async () => {
+      olderHistoryRequest.resolve(
+        buildMultiPointResponse([
+          { close: 80, timestamp: 992_800 },
+          { close: 90, timestamp: 996_400 },
+        ]),
+      );
+      await olderHistoryRequest.promise;
+    });
+    await waitFor(() =>
+      expect(result.current.points.map((point) => point.c)).toEqual([
+        80, 90, 100, 110,
+      ]),
+    );
+
+    updateVisibility(false);
+    updateVisibility(true);
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(3));
+    await waitFor(() =>
+      expect(result.current.points.map((point) => point.c)).toEqual([
+        80, 90, 100, 110, 120,
+      ]),
+    );
+  });
+
+  it('follows the Market API 2000-slot window and 299-point page contract', async () => {
+    mockHistoryBatchSize = 299;
+    mockHistoryRequestCandleCount = 2000;
+    mockFetchHistory
+      .mockResolvedValueOnce(
+        buildSequentialResponse({
+          count: 299,
+          firstTimestamp: 10_000_000,
+          startingClose: 1000,
+        }),
+      )
+      .mockResolvedValueOnce(
+        buildSequentialResponse({
+          count: 299,
+          firstTimestamp: 8_923_600,
+          startingClose: 700,
+        }),
+      )
+      .mockResolvedValueOnce(
+        buildSequentialResponse({
+          count: 298,
+          firstTimestamp: 7_850_800,
+          startingClose: 400,
+        }),
+      );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(299));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+    expect(mockFetchHistory.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({
+        timeFrom: 2_799_999,
+        timeTo: 9_999_999,
+      }),
+    );
+    await waitFor(() => expect(result.current.points).toHaveLength(598));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(3));
+    expect(mockFetchHistory.mock.calls[2]?.[0]).toEqual(
+      expect.objectContaining({
+        timeFrom: 1_723_599,
+        timeTo: 8_923_599,
+      }),
+    );
+    await waitFor(() => expect(result.current.points).toHaveLength(896));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(3);
+  });
+
+  it('loads older history through the Hyperliquid provider path', async () => {
+    mockHistoryBatchSize = 2;
+    mockHistoryRequestCandleCount = 2;
+    mockFetchHistory
+      .mockResolvedValueOnce(
+        buildMultiPointResponse([
+          { close: 63_000, timestamp: 1_000_000 },
+          { close: 64_000, timestamp: 1_003_600 },
+        ]),
+      )
+      .mockResolvedValueOnce(buildResponse(62_000, 996_400));
+    const source: ITradingViewNativeSource = {
+      kind: 'hyperliquid',
+      coin: 'BTC',
+      environment: 'mainnet',
+    };
+    const { result } = renderHook(() => useTradingViewNativeKLine({ source }));
+
+    await waitFor(() => expect(result.current.points).toHaveLength(2));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+    expect(mockFetchHistory.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({
+        interval: expect.objectContaining({
+          hyperliquidValue: '1h',
+          value: '60',
+        }),
+        timeFrom: 992_799,
+        timeTo: 999_999,
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.points.map((point) => point.c)).toEqual([
+        62_000, 63_000, 64_000,
+      ]),
+    );
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(2);
+  });
+
+  it('aborts an obsolete older page when the series changes', async () => {
+    const olderHistoryRequest =
+      createDeferred<IMarketTokenKLineResponse | null>();
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, 1_000_000))
+      .mockReturnValueOnce(olderHistoryRequest.promise)
+      .mockResolvedValueOnce(buildResponse(200, 2_000_000));
+    const { result, rerender } = renderHook(
+      ({ tokenAddress }: { tokenAddress: string }) =>
+        useTradingViewNativeKLine({
+          source: buildMarketSource({ tokenAddress }),
+        }),
+      { initialProps: { tokenAddress: '0x123' } },
+    );
+
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+    const obsoleteRequest = mockFetchHistory.mock.calls[1]?.[0];
+
+    rerender({ tokenAddress: '0x456' });
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(200));
+    expect(obsoleteRequest?.signal.aborted).toBe(true);
+
+    await act(async () => {
+      olderHistoryRequest.resolve(buildResponse(90, 996_400));
+      await olderHistoryRequest.promise;
+    });
+    expect(result.current.points.map((point) => point.c)).toEqual([200]);
   });
 
   it('routes Hyperliquid through the provider boundary', async () => {
