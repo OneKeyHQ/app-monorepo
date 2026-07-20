@@ -498,6 +498,8 @@ export default class ServiceSwap extends ServiceBase {
 
   private _quoteEventSourcePolyfill?: EventSourcePolyfill;
 
+  private _quoteEventSourceSessionId?: string;
+
   private _tokenDetailAbortControllerMap: Record<
     ESwapDirectionType,
     AbortController | undefined
@@ -584,7 +586,15 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cancelFetchQuoteEvents() {
+  async cancelFetchQuoteEvents({
+    quoteEventSessionId,
+  }: { quoteEventSessionId?: string } = {}) {
+    if (
+      quoteEventSessionId &&
+      quoteEventSessionId !== this._quoteEventSourceSessionId
+    ) {
+      return;
+    }
     if (this._quoteEventSource) {
       this._quoteEventSource.close();
       this._quoteEventSource = undefined;
@@ -593,6 +603,7 @@ export default class ServiceSwap extends ServiceBase {
       this._quoteEventSourcePolyfill.close();
       this._quoteEventSourcePolyfill = undefined;
     }
+    this._quoteEventSourceSessionId = undefined;
   }
 
   @backgroundMethod()
@@ -975,6 +986,7 @@ export default class ServiceSwap extends ServiceBase {
   async fetchQuotesEvents({
     fromToken,
     toToken,
+    quoteEventSessionId,
     fromTokenAmount,
     userAddress,
     slippagePercentage,
@@ -990,6 +1002,7 @@ export default class ServiceSwap extends ServiceBase {
     toTokenAmount,
     userMarketPriceRate,
   }: IFetchSwapQuoteParams) {
+    this._quoteEventSourceSessionId = quoteEventSessionId;
     await this.removeQuoteEventSourceListeners();
     const denyCrossChainProvider = await this.getDenyCrossChainProvider(
       fromToken.networkId,
@@ -1048,6 +1061,9 @@ export default class ServiceSwap extends ServiceBase {
       swapEventUrl,
       headers as Record<string, string>,
     );
+    if (this._quoteEventSourceSessionId !== quoteEventSessionId) {
+      return;
+    }
     if (platformEnv.isExtension) {
       if (this._quoteEventSourcePolyfill) {
         this._quoteEventSourcePolyfill.close();
@@ -1065,6 +1081,7 @@ export default class ServiceSwap extends ServiceBase {
             lastEventId: null,
             url: swapEventUrl,
           },
+          quoteEventSessionId,
           params,
           tokenPairs: { fromToken, toToken },
           accountId,
@@ -1080,6 +1097,7 @@ export default class ServiceSwap extends ServiceBase {
           appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
             type: 'done',
             event: { type: 'done' },
+            quoteEventSessionId,
             params,
             accountId,
             tokenPairs: { fromToken, toToken },
@@ -1093,17 +1111,19 @@ export default class ServiceSwap extends ServiceBase {
               xhrState: this._quoteEventSourcePolyfill?.readyState ?? 0,
               xhrStatus: this._quoteEventSourcePolyfill?.readyState ?? 0,
             },
+            quoteEventSessionId,
             params,
             accountId,
             tokenPairs: { fromToken, toToken },
           });
         }
-        await this.cancelFetchQuoteEvents();
+        await this.cancelFetchQuoteEvents({ quoteEventSessionId });
       };
       this._quoteEventSourcePolyfill.onopen = () => {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'open',
           event: { type: 'open' },
+          quoteEventSessionId,
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
@@ -1124,6 +1144,7 @@ export default class ServiceSwap extends ServiceBase {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'open',
           event,
+          quoteEventSessionId,
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
@@ -1133,6 +1154,7 @@ export default class ServiceSwap extends ServiceBase {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'message',
           event,
+          quoteEventSessionId,
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
@@ -1142,6 +1164,7 @@ export default class ServiceSwap extends ServiceBase {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'done',
           event,
+          quoteEventSessionId,
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
@@ -1151,6 +1174,7 @@ export default class ServiceSwap extends ServiceBase {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'close',
           event,
+          quoteEventSessionId,
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
@@ -1160,6 +1184,7 @@ export default class ServiceSwap extends ServiceBase {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'error',
           event,
+          quoteEventSessionId,
           params,
           accountId,
           tokenPairs: { fromToken, toToken },

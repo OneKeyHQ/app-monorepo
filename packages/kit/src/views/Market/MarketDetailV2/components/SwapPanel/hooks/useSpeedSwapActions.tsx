@@ -55,6 +55,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   buildSwapHistoryNetworkFromServer,
   buildSwapHistoryNetworkPlaceholder,
@@ -1021,11 +1022,13 @@ export function useSpeedSwapActions(props: {
       }
 
       const accountId = netAccountRes.result.id;
+      const quoteEventSessionId = stringUtils.generateUUID();
       const quoteResultFromServer = await waitForMarketWrappedQuote({
         request: {
           accountId,
           fromToken: fromTokenFinal,
           toToken: toTokenFinal,
+          quoteEventSessionId,
           fromTokenAmount: amount,
           slippagePercentage: slippage,
         },
@@ -1039,6 +1042,7 @@ export function useSpeedSwapActions(props: {
           backgroundApiProxy.serviceSwap.fetchQuotesEvents({
             fromToken: fromTokenFinal,
             toToken: toTokenFinal,
+            quoteEventSessionId,
             fromTokenAmount: amount,
             userAddress,
             receivingAddress: userAddress,
@@ -1048,7 +1052,10 @@ export function useSpeedSwapActions(props: {
             protocol: ESwapTabSwitchType.SWAP,
             kind: ESwapQuoteKind.SELL,
           }),
-        cancel: () => backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents(),
+        cancel: () =>
+          backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents({
+            quoteEventSessionId,
+          }),
       });
       const quoteResult: IFetchQuoteResult = {
         ...quoteResultFromServer,

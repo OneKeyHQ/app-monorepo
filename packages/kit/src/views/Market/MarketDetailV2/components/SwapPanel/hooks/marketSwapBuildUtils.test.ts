@@ -4,9 +4,9 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  type IMarketWrappedQuoteRequest,
   buildDefaultMarketSpeedCheckState,
   buildMarketReviewShouldFallback,
-  type IMarketWrappedQuoteRequest,
   mergeMarketBuildResultWithQuote,
   pickMarketQuoteResultByProvider,
   shouldFetchMarketQuoteFallbackData,
@@ -76,6 +76,7 @@ describe('marketSwapBuildUtils', () => {
       decimals: 18,
       isNative: false,
     },
+    quoteEventSessionId: 'market-session-1',
     fromTokenAmount: '1',
     slippagePercentage: 0.5,
   };
@@ -83,9 +84,11 @@ describe('marketSwapBuildUtils', () => {
   function createQuoteEvent({
     data,
     fromTokenAmount = wrappedQuoteRequest.fromTokenAmount,
+    quoteEventSessionId = wrappedQuoteRequest.quoteEventSessionId,
   }: {
     data: unknown;
     fromTokenAmount?: string;
+    quoteEventSessionId?: string;
   }) {
     return {
       type: 'message' as const,
@@ -101,6 +104,7 @@ describe('marketSwapBuildUtils', () => {
         fromTokenAmount,
         slippagePercentage: wrappedQuoteRequest.slippagePercentage,
       },
+      quoteEventSessionId,
       tokenPairs: {
         fromToken: wrappedQuoteRequest.fromToken,
         toToken: wrappedQuoteRequest.toToken,
@@ -273,7 +277,7 @@ describe('marketSwapBuildUtils', () => {
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 
-  it('ignores stale amount and event ids before accepting the active quote', async () => {
+  it('ignores stale sessions, amounts, and event ids before accepting the active quote', async () => {
     let listener: ((event: never) => void) | undefined;
     const activeQuote = createQuoteResult({
       quoteId: 'quote-active',
@@ -294,6 +298,15 @@ describe('marketSwapBuildUtils', () => {
       start: async () => {
         listener?.(
           createQuoteEvent({
+            quoteEventSessionId: 'market-session-stale',
+            data: {
+              eventId: 'event-stale-session',
+              errorMessage: 'stale session error',
+            },
+          }),
+        );
+        listener?.(
+          createQuoteEvent({
             fromTokenAmount: '2',
             data: {
               totalQuoteCount: 1,
@@ -306,6 +319,22 @@ describe('marketSwapBuildUtils', () => {
             data: {
               totalQuoteCount: 1,
               eventId: 'event-active',
+            },
+          }),
+        );
+        listener?.(
+          createQuoteEvent({
+            data: {
+              totalQuoteCount: 1,
+              eventId: 'event-stale',
+            },
+          }),
+        );
+        listener?.(
+          createQuoteEvent({
+            data: {
+              eventId: 'event-stale',
+              errorMessage: 'stale event error',
             },
           }),
         );

@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import type { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchBuildTxResponse,
@@ -23,6 +23,7 @@ export type IMarketWrappedQuoteRequest = {
   accountId: string;
   fromToken: ISwapToken;
   toToken: ISwapToken;
+  quoteEventSessionId: string;
   fromTokenAmount: string;
   slippagePercentage: number;
 };
@@ -36,6 +37,7 @@ export function isMatchingMarketWrappedQuoteEvent({
 }) {
   return (
     event.accountId === request.accountId &&
+    event.quoteEventSessionId === request.quoteEventSessionId &&
     event.params.fromTokenAmount === request.fromTokenAmount &&
     event.params.slippagePercentage === request.slippagePercentage &&
     event.params.fromNetworkId === request.fromToken.networkId &&
@@ -67,12 +69,14 @@ export function waitForMarketWrappedQuote({
   return new Promise((resolve, reject) => {
     let activeEventId: string | undefined;
     let settled = false;
-    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const timeoutRef: {
+      current?: ReturnType<typeof setTimeout>;
+    } = {};
     let unsubscribe: () => void = () => undefined;
 
     const cleanup = () => {
-      if (timeout) {
-        clearTimeout(timeout);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
       unsubscribe();
       void cancel().catch(() => undefined);
@@ -96,6 +100,17 @@ export function waitForMarketWrappedQuote({
       }
     };
 
+    const maybeSetActiveEventId = (eventId?: string) => {
+      if (!eventId) {
+        return true;
+      }
+      if (activeEventId && activeEventId !== eventId) {
+        return false;
+      }
+      activeEventId = eventId;
+      return true;
+    };
+
     const listener = (event: IMarketSwapQuoteEvent) => {
       if (!isMatchingMarketWrappedQuoteEvent({ event, request })) {
         return;
@@ -116,13 +131,18 @@ export function waitForMarketWrappedQuote({
 
         const errorData = parsedData as ISwapQuoteEventError;
         if (errorData.errorMessage) {
+          if (!maybeSetActiveEventId(errorData.eventId)) {
+            return;
+          }
           finish(undefined, new OneKeyLocalError(errorData.errorMessage));
           return;
         }
 
         const eventInfo = parsedData as ISwapQuoteEventInfo;
         if (typeof eventInfo.totalQuoteCount === 'number') {
-          activeEventId = eventInfo.eventId;
+          if (!maybeSetActiveEventId(eventInfo.eventId)) {
+            return;
+          }
           if (eventInfo.totalQuoteCount === 0) {
             finish();
           }
@@ -133,11 +153,11 @@ export function waitForMarketWrappedQuote({
         const wrappedQuote = quoteData.data?.find(
           (quote) =>
             quote.isWrapped &&
-            quote.eventId === activeEventId &&
+            (!activeEventId || quote.eventId === activeEventId) &&
             Boolean(quote.fromAmount) &&
             Boolean(quote.toAmount),
         );
-        if (wrappedQuote) {
+        if (wrappedQuote && maybeSetActiveEventId(wrappedQuote.eventId)) {
           finish(wrappedQuote);
         }
         return;
@@ -153,7 +173,7 @@ export function waitForMarketWrappedQuote({
     };
 
     unsubscribe = subscribe(listener);
-    timeout = setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       finish(
         undefined,
         new OneKeyLocalError('Market wrapped quote request timed out.'),
