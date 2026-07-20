@@ -19,22 +19,16 @@ import { getNativeUnifoldBeginDeposit } from './unifoldNativeBridge';
 
 import type { DepositConfig } from '@unifold/connect-react-native';
 
-// Rollout gate — NOT a "broken SDK" fuse. The native flow is verified working:
-// with @unifold/connect-react-native 0.1.57 the HyperCore (chain 1337) deposit
-// sheet renders, funds route to the Perp destination, and it closes cleanly.
-// The SDK's one blocker — its bottom-sheet entrance never lands under
-// react-native-reanimated 4 (the sheet's useAnimatedStyle callbacks aren't
-// compiled as worklets, so the spring never drives translateY and the sheet
-// parks offscreen, leaving a transparent full-screen root that swallows
-// touches) — is fixed locally in
-// patches/@unifold+connect-react-native+0.1.57.patch
-// (translateY pinned to 0). We patch UI defects ourselves rather than block on
-// a vendor release.
-// This stays true until: (1) a real-money native deposit is confirmed
-// end-to-end, (2) Android device QA passes (the same patch covers it), and
-// (3) the perp-config remote kill switch lands (Task 9). Flip to false to
-// enable, gated by that remote switch.
-const NATIVE_UNIFOLD_DISABLED = true;
+// Native Unifold is intentionally enabled on this branch. SDK 0.1.57's
+// bottom sheet can leave a transparent native Modal surface intercepting every
+// touch while its content is not visible. The patch-package fix keeps only the
+// root Deposit sheet inline while preserving the SDK animation. Nested iOS
+// sheets use a full-window overlay instead of creating a Modal surface inside
+// another native overlay; Android keeps the SDK Modal behavior. The native
+// host mounts the root sheet in OneKey's full-window overlay portal. Keep this
+// fuse as the immediate fallback if a future SDK update invalidates either
+// side of that integration.
+const NATIVE_UNIFOLD_DISABLED = false;
 
 // RN SDK 0.1.57 has no exchange screens, and Cash App is iOS-only per the
 // Unifold platform matrix, so those menu entries are hidden on native.
@@ -105,6 +99,7 @@ async function showStandaloneUnifoldDepositModal({
     defaultChainId: '42161',
     defaultTokenAddress: USDC_TOKEN_INFO.address,
     initialScreen: nativeScreen,
+    closeOnBackdropPress: true,
     onSuccess: ({ message }) => {
       Toast.success({ title: message || 'Deposit submitted' });
       // Mirror the web flow: force the ledger subscription so the credited
@@ -136,8 +131,8 @@ async function showStandaloneUnifoldDepositModal({
           return String(error);
         }
       })();
-    console.error('[unifold-native] beginDeposit rejected:', error);
     if (message && !/cancel/i.test(message)) {
+      console.error('[unifold-native] beginDeposit rejected:', error);
       const code =
         typeof errorRecord?.code === 'string' ? ` (${errorRecord.code})` : '';
       Toast.error({ title: 'Deposit failed', message: `${message}${code}` });
