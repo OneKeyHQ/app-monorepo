@@ -2069,6 +2069,7 @@
   "limit.fill_at": "Rellena en",
   "limit.fill_at_popover": "La orden necesita un poco más que su precio límite para ejecutarse y así cubrir la tarifa.",
   "limit.history_fill_sold": "{num1} {token1} vendido por un total de {num2} {token2}",
+  "limit.marketable_fill_tip": "El precio de mercado es mejor que tu límite: esta orden puede ejecutarse al precio de mercado instantáneamente",
   "limit.network_cost_dialog_content": "La tarifa de red para este pedido es relativamente alta en comparación con el monto total del pedido. Es poco probable que este pedido se complete o que el precio de ejecución difiera mucho de su precio límite.",
   "limit.price_trigger": "Distancia de activación",
   "limit.price_trigger_des_down": "Este precio es {num} más bajo que el precio de mercado actual. ¡Podrías estar en pérdida! Haz clic en \"Precio de mercado\" para establecer tu precio límite al precio de mercado actual.",

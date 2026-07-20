@@ -2069,6 +2069,7 @@
   "limit.fill_at": "預估成交價",
   "limit.fill_at_popover": "訂單成交價格需要比您的下單限價高一些才能成交，以便涵蓋費用",
   "limit.history_fill_sold": "總計賣出 {num1} {token1}，換得 {num2} {token2}",
+  "limit.marketable_fill_tip": "市價優於您的限價，此訂單可能會以市價成交",
   "limit.network_cost_dialog_content": "這筆訂單的網路費用相對於訂單總金額來說較高。此訂單可能無法成交，或者成交價格可能與您的限價有較大差異",
   "limit.price_trigger": "觸發距離",
   "limit.price_trigger_des_down": "設定的價格比當前市場價格低 {num}，您可能會虧損！點擊「市價」將限價設定為當前市場價格。",
