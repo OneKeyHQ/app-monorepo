@@ -37,7 +37,7 @@ const SwapQuoteInput = ({
 }: ISwapQuoteInputProps) => {
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [toInputAmount, setToInputAmount] = useSwapToTokenAmountAtom();
-  const { isInputQuoteLoading } = useSwapQuoteProgressState();
+  const { isQuotePresentationLoading } = useSwapQuoteProgressState();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
@@ -62,7 +62,7 @@ const SwapQuoteInput = ({
       <SwapInputContainer
         token={fromToken}
         direction={ESwapDirectionType.FROM}
-        inputLoading={isInputQuoteLoading}
+        inputLoading={isQuotePresentationLoading}
         selectTokenLoading={selectLoading}
         onAmountChange={(value) => {
           if (validateAmountInput(value, fromToken?.decimals)) {
@@ -110,7 +110,7 @@ const SwapQuoteInput = ({
       </Stack>
       <SwapInputContainer
         token={toToken}
-        inputLoading={isInputQuoteLoading}
+        inputLoading={isQuotePresentationLoading}
         selectTokenLoading={selectLoading}
         direction={ESwapDirectionType.TO}
         onAmountChange={(value) => {

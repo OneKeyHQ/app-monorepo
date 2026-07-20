@@ -29,6 +29,7 @@ import {
   useSwapActions,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSupportReceiveAddressAtom,
+  useSwapQuoteActionLockAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
@@ -79,6 +80,7 @@ import { SwapIncognitoRecipientInput } from './SwapIncognitoRecipientInput';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 
 interface ISwapActionsStateProps {
+  forceQuoteActionLoading?: boolean;
   onPreSwap: () => void;
   onOpenRecipientAddress: () => void;
   onSelectPercentageStage?: (stage: number) => void;
@@ -87,6 +89,7 @@ interface ISwapActionsStateProps {
 // cspell:ignore ellipsize
 
 const SwapActionsState = ({
+  forceQuoteActionLoading,
   onPreSwap,
   onOpenRecipientAddress,
   onSelectPercentageStage,
@@ -96,6 +99,7 @@ const SwapActionsState = ({
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [, setSwapManualSelectQuoteProvider] =
     useSwapManualSelectQuoteProvidersAtom();
   const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
@@ -121,8 +125,7 @@ const SwapActionsState = ({
     setSettings,
   ] = useSettingsAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const { quoteLoading, quoteEventFetching, isWaitingActionableQuote } =
-    useSwapQuoteProgressState();
+  const { quoteLoading, quoteEventFetching } = useSwapQuoteProgressState();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
@@ -282,6 +285,7 @@ const SwapActionsState = ({
   const isActionDisabled =
     swapActionState.disabled ||
     swapActionState.isLoading ||
+    forceQuoteActionLoading ||
     shouldBlockIncognitoRecipientAction;
 
   const onActionHandlerBefore = useCallback(async () => {
@@ -394,7 +398,7 @@ const SwapActionsState = ({
       );
 
       cleanQuoteInterval();
-      closeQuoteEvent();
+      closeQuoteEvent(quoteActionLock.quoteRequestId);
       setSwapManualSelectQuoteProvider(undefined);
       setSwapQuoteEventTotalCount({ count: 0 });
       setSwapQuoteList([]);
@@ -423,6 +427,7 @@ const SwapActionsState = ({
       closeQuoteEvent,
       currentQuoteRes?.kind,
       quoteAction,
+      quoteActionLock.quoteRequestId,
       setSettings,
       setSwapManualSelectQuoteProvider,
       setSwapQuoteEventTotalCount,
@@ -812,7 +817,7 @@ const SwapActionsState = ({
 
   const actionButtonChildren = useMemo(
     () =>
-      isWaitingActionableQuote || swapActionState.isWaitingAutoSlippage ? (
+      swapActionState.isQuoteActionLoading || forceQuoteActionLoading ? (
         <LottieView
           source={
             themeVariant === 'light'
@@ -840,8 +845,8 @@ const SwapActionsState = ({
         </SizableText>
       ),
     [
-      isWaitingActionableQuote,
-      swapActionState.isWaitingAutoSlippage,
+      forceQuoteActionLoading,
+      swapActionState.isQuoteActionLoading,
       swapActionState.label,
       themeVariant,
     ],
