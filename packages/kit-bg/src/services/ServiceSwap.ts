@@ -134,6 +134,7 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 import {
+  buildPerpDepositOrderStatusRequestParams,
   buildSwapRequestErrorToastPayload,
   normalizeSwapTokenListCurrency,
 } from './ServiceSwap.utils';
@@ -3477,6 +3478,7 @@ export default class ServiceSwap extends ServiceBase {
     isArbUSDCToken: boolean;
     toPerpDepositTokenAddress?: string;
     receivingAddress: string;
+    orderId?: string;
   }) {
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -3484,13 +3486,7 @@ export default class ServiceSwap extends ServiceBase {
       const { data } = await client.get<
         IFetchResponse<IFetchSwapTxHistoryStatusResponse>
       >('/swap/v1/perp-deposit-order-status', {
-        params: {
-          networkId: params.networkId,
-          txId: params.txId,
-          isArbUSDCToken: params.isArbUSDCToken,
-          toPerpDepositTokenAddress: params.toPerpDepositTokenAddress,
-          receivedAddress: params.receivingAddress,
-        },
+        params: buildPerpDepositOrderStatusRequestParams(params),
       });
       if (data?.data) {
         const now = Date.now();
@@ -3630,6 +3626,7 @@ export default class ServiceSwap extends ServiceBase {
             isArbUSDCToken,
             toPerpDepositTokenAddress: HYPERLIQUID_DEPOSIT_ADDRESS,
             receivingAddress: receivingAddressInfo.addressDetail.address,
+            orderId: item.orderId,
           });
         }),
       );
