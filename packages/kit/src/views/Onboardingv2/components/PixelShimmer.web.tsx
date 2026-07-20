@@ -113,6 +113,18 @@ class Pixel {
   appear() {
     this.isIdle = false;
 
+    // prefers-reduced-motion zeroes `speed`. Skip the entrance entirely and
+    // paint the final state in one frame, then retire: `sizeStep` is not
+    // derived from `speed`, so growing normally would still animate — and the
+    // slowest pixel needs tens of thousands of frames to arrive, keeping a
+    // full-canvas repaint alive for minutes with nothing to show for it.
+    if (this.speed === 0) {
+      this.size = this.maxSize;
+      this.isIdle = true;
+      this.draw();
+      return;
+    }
+
     // Centre-out spread: nearer-the-centre pixels have a smaller delay, so they
     // start growing first.
     if (this.counter <= this.delay) {
@@ -142,6 +154,11 @@ class Pixel {
       return;
     }
 
+    // A pixel retired by appear() (reduced motion) is still fully drawn, so it
+    // must un-idle to drain — otherwise the grid reads as idle on the very
+    // first mouse-leave frame and the loop cancels with the shimmer still
+    // painted. No-op under normal motion, where appear() clears this each frame.
+    this.isIdle = false;
     this.size -= 0.1;
     this.draw();
   }
@@ -339,7 +356,13 @@ class PixelShimmerController {
     // recover.
     if (this.pixels.length > 0 && this.pixels.every((pixel) => pixel.isIdle)) {
       cancelAnimationFrame(this.rafId);
-      this.activeAnimation = null;
+      // Only 'disappear' actually ends the effect. An 'appear' run that retires
+      // (reduced motion, above) must KEEP activeAnimation so init()'s resume
+      // check still fires on the next ResizeObserver rebuild — otherwise the
+      // fresh size-0 grid would never be drawn and the card would go blank.
+      if (fnName === 'disappear') {
+        this.activeAnimation = null;
+      }
     }
   }
 
