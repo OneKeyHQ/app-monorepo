@@ -1,11 +1,9 @@
-import { useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Button, XStack, useMedia } from '@onekeyhq/components';
+import { canShareImageToSystem } from '@onekeyhq/kit/src/utils/shareUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { canShareImageToSystem } from '../../../RookieGuide/components/RookieShare/useShareActions';
 import { ReceiveTestIDs } from '../../testIDs';
 
 interface IControlPanelProps {
@@ -26,7 +24,7 @@ export function ControlPanel({
   const buttonSize = media.gtMd ? 'medium' : 'large';
   // without a real system share surface the button would just duplicate
   // "save", so render "save" alone (OK-58192)
-  const showShareEntry = useMemo(() => canShareImageToSystem(), []);
+  const showShareEntry = canShareImageToSystem();
 
   return (
     <XStack gap="$2.5" mb={isMobile ? '$4' : undefined}>

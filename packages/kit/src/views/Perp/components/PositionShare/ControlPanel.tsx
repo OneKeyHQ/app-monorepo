@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,9 +9,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { canShareImageToSystem } from '@onekeyhq/kit/src/utils/shareUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import { canShareImageToSystem } from '../../../RookieGuide/components/RookieShare/useShareActions';
 
 import type { IPnlDisplayMode, IShareConfig } from './types';
 
@@ -39,10 +38,7 @@ export function ControlPanel({
   const intl = useIntl();
   // besides mobile, desktop shows the share entry when a real system share
   // surface exists (macOS ShareMenu); elsewhere it would duplicate "save"
-  const showShareEntry = useMemo(
-    () => isMobile || canShareImageToSystem(),
-    [isMobile],
-  );
+  const showShareEntry = isMobile || canShareImageToSystem();
 
   const handlePnlDisplayModeChange = useCallback(
     (mode: IPnlDisplayMode) => {
