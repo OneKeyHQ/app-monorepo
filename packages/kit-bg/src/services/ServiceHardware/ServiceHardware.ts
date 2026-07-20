@@ -77,8 +77,8 @@ import ServiceBase from '../ServiceBase';
 
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
-import { HardwareVerifyManager } from './HardwareVerifyManager';
 import { copyWalletSessionUiMetadata } from './hardwareUiPayloadUtils';
+import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type {
