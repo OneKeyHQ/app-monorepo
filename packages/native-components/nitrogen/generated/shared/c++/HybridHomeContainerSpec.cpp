@@ -28,6 +28,10 @@ namespace margelo::nitro::onekeynativecomponents {
       prototype.registerHybridSetter("onVisibleTabChange", &HybridHomeContainerSpec::setOnVisibleTabChange);
       prototype.registerHybridGetter("onRenderError", &HybridHomeContainerSpec::getOnRenderError);
       prototype.registerHybridSetter("onRenderError", &HybridHomeContainerSpec::setOnRenderError);
+      prototype.registerHybridGetter("onIntent", &HybridHomeContainerSpec::getOnIntent);
+      prototype.registerHybridSetter("onIntent", &HybridHomeContainerSpec::setOnIntent);
+      prototype.registerHybridGetter("onTransportResult", &HybridHomeContainerSpec::getOnTransportResult);
+      prototype.registerHybridSetter("onTransportResult", &HybridHomeContainerSpec::setOnTransportResult);
       prototype.registerHybridMethod("setSnapshot", &HybridHomeContainerSpec::setSnapshot);
       prototype.registerHybridMethod("applyPatch", &HybridHomeContainerSpec::applyPatch);
       prototype.registerHybridMethod("completeRefresh", &HybridHomeContainerSpec::completeRefresh);

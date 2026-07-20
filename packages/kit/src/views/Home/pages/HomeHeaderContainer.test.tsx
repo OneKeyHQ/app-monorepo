@@ -4,6 +4,8 @@ import { type ReactTestRenderer, act, create } from 'react-test-renderer';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 
+import type { IHomeBalancePresentation } from '../../../hooks/useHomeBalanceState';
+
 const mockTestGlobal = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean;
 };
@@ -26,7 +28,7 @@ jest.mock('@onekeyhq/components', () => {
     Stack: ({ children, ...props }: { children?: ReactNode }) =>
       React.createElement('View', props, children),
     YStack: ({ children, ...props }: { children?: ReactNode }) =>
-      React.createElement('View', props, children),
+      React.createElement('YStack', props, children),
   };
 });
 
@@ -41,12 +43,24 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isNative: true },
 }));
 
+let mockBalancePresentation: IHomeBalancePresentation = {
+  balanceState: 'zero',
+  correlated: {
+    kind: 'ready',
+    balance: { amount: '0', currency: 'usd' },
+    balanceState: 'zero',
+    revision: 'revision-zero',
+    showPositiveBanner: false,
+  },
+};
+let mockBanners: unknown[] = [];
+
 jest.mock('../../../hooks/useHomeBalanceState', () => ({
-  useHomeBalanceState: () => 'zero',
+  useHomeBalancePresentation: () => mockBalancePresentation,
 }));
 
 jest.mock('../../../states/jotai/contexts/accountOverview', () => ({
-  useWalletTopBannersAtom: () => [{ banners: [] }],
+  useWalletTopBannersAtom: () => [{ banners: mockBanners }],
 }));
 
 jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
@@ -76,18 +90,58 @@ const { onHomePageRefresh: mockOnHomePageRefresh } = jest.requireMock<{
   onHomePageRefresh: jest.Mock;
 }>('../components/PullToRefresh');
 
-jest.mock('../components/WalletActions', () => ({
-  WalletActions: () => null,
-}));
+jest.mock('../components/WalletActions', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    WalletActions: ({
+      balancePresentation,
+    }: {
+      balancePresentation: IHomeBalancePresentation;
+    }) =>
+      React.createElement('View', {
+        balancePresentation,
+        testID: 'wallet-actions',
+      }),
+  };
+});
 
-jest.mock('../components/WalletBanner', () => () => null);
+jest.mock('../components/WalletBanner', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return ({ hidden }: { hidden: boolean }) =>
+    React.createElement('View', { hidden, testID: 'wallet-banner' });
+});
 
-jest.mock('./HomeOverviewContainer', () => ({
-  HomeOverviewContainer: () => null,
-}));
+jest.mock('./HomeOverviewContainer', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HomeOverviewContainer: ({
+      balancePresentation,
+    }: {
+      balancePresentation?: IHomeBalancePresentation['correlated'];
+    }) =>
+      React.createElement('View', {
+        balancePresentation,
+        testID: 'home-overview',
+      }),
+  };
+});
 
 beforeAll(() => {
   mockTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+});
+
+afterEach(() => {
+  mockBalancePresentation = {
+    balanceState: 'zero',
+    correlated: {
+      kind: 'ready',
+      balance: { amount: '0', currency: 'usd' },
+      balanceState: 'zero',
+      revision: 'revision-zero',
+      showPositiveBanner: false,
+    },
+  };
+  mockBanners = [];
 });
 
 afterAll(() => {
@@ -103,6 +157,10 @@ describe('HomeHeaderContainer refresh ownership', () => {
     expect(
       view.root.findAllByProps({ testID: 'header-scroll-gesture' }),
     ).toHaveLength(0);
+    expect(
+      view.root.findByProps({ testID: 'home-overview' }).props
+        .balancePresentation,
+    ).toBeUndefined();
 
     act(() => {
       view.update(<HomeHeaderContainer variant="normal" />);
@@ -114,5 +172,56 @@ describe('HomeHeaderContainer refresh ownership', () => {
     normalRefreshOwners.forEach((owner) => {
       expect(owner.props.onRefresh).toBe(mockOnHomePageRefresh);
     });
+  });
+
+  it('passes one correlated balance decision to actions, banner, and height', () => {
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(<HomeHeaderContainer variant="normal" />);
+    });
+    expect(
+      view.root.findByProps({ testID: 'wallet-actions' }).props
+        .balancePresentation,
+    ).toBe(mockBalancePresentation);
+    expect(
+      view.root.findByProps({ testID: 'home-overview' }).props
+        .balancePresentation,
+    ).toBe(mockBalancePresentation.correlated);
+    expect(view.root.findByProps({ testID: 'wallet-banner' }).props).toEqual(
+      expect.objectContaining({ hidden: true }),
+    );
+    expect(view.root.findAllByProps({ minHeight: 182 }).length).toBeGreaterThan(
+      0,
+    );
+
+    mockBalancePresentation = {
+      balanceState: 'positive',
+      correlated: {
+        kind: 'ready',
+        balance: { amount: '12', currency: 'usd' },
+        balanceState: 'positive',
+        revision: 'revision-funded',
+        showPositiveBanner: true,
+      },
+    };
+    mockBanners = [{ id: 'banner-1' }];
+    act(() => {
+      view.unmount();
+      view = create(<HomeHeaderContainer variant="normal" />);
+    });
+    expect(
+      view.root.findByProps({ testID: 'wallet-actions' }).props
+        .balancePresentation,
+    ).toBe(mockBalancePresentation);
+    expect(
+      view.root.findByProps({ testID: 'home-overview' }).props
+        .balancePresentation,
+    ).toBe(mockBalancePresentation.correlated);
+    expect(view.root.findByProps({ testID: 'wallet-banner' }).props).toEqual(
+      expect.objectContaining({ hidden: false }),
+    );
+    expect(view.root.findAllByProps({ minHeight: 292 }).length).toBeGreaterThan(
+      0,
+    );
   });
 });

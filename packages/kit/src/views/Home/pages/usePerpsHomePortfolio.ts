@@ -1,9 +1,32 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useHomeActions } from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
+import { adaptHomeLegacyPerpsSection } from '@onekeyhq/kit/src/views/Home/model/compatibility/homeLegacyPerpsSectionAdapter';
+import {
+  useHomeFactsShadow,
+  useHomeSectionSemantic,
+} from '@onekeyhq/kit/src/views/Home/model/react/homeSemanticHooks';
+import { HomeSectionCoordinator } from '@onekeyhq/kit/src/views/Home/model/sections/homeSectionCoordinator';
+import {
+  buildHomePerpsCoverage,
+  projectHomePerpsSectionSource,
+} from '@onekeyhq/kit/src/views/Home/model/sections/perps/homePerpsSectionPolicy';
+import {
+  adaptHomePerpsSourceSnapshot,
+  createHomePerpsSourceIdentity,
+} from '@onekeyhq/kit/src/views/Home/model/sections/perps/homePerpsSourceAdapter';
+import type { IHomePerpsLegacyPayload } from '@onekeyhq/kit/src/views/Home/model/sections/perps/homePerpsSourceAdapter';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
@@ -21,6 +44,7 @@ import {
   type IPerpsHomeAsyncScope,
   type IPerpsHomePortfolioResult,
   isPerpsHomeAsyncScopeCurrent,
+  projectPerpsHomePortfolioEvidence,
   resolvePerpsHomeAmountAuthority,
   selectCurrentPerpsHomePortfolioResult,
 } from './perpsHomePortfolioAuthority';
@@ -28,6 +52,9 @@ import {
 const DEPOSIT_CONFIRMATION_RETRY_MAX_ATTEMPTS = 5;
 const DEPOSIT_CONFIRMATION_RETRY_INTERVAL_MS =
   PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS;
+
+const createPerpsHomePortfolioProducerInstanceId = () =>
+  `perps-home-portfolio:${Date.now()}:${Math.random()}`;
 
 type ILocalPendingTxConfirmedPayload =
   IAppEventBusPayload[EAppEventBusNames.LocalPendingTxConfirmed];
@@ -160,19 +187,31 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
     scopeKey: string | undefined;
     status: 'loading' | 'success';
   };
+  sectionState: ReturnType<typeof adaptHomeLegacyPerpsSection>;
   canDeposit: boolean;
   isDepositDisabled: boolean;
   refresh: () => Promise<void>;
 } {
   const {
-    activeAccount: { account },
+    activeAccount: { account, wallet },
   } = useActiveAccount({ num: 0 });
+  const homeFactsShadow = useHomeFactsShadow();
+  const homePerpsSemantic = useHomeSectionSemantic('perps');
+  const { clearSemanticSection, publishSemanticSection } =
+    useHomeActions().current;
   const accountId = account?.id;
   const indexedAccountId = account?.indexedAccountId;
+  const walletId = wallet?.id;
   const currentAccountScopeKey = getAccountScopeKey({
     accountId,
     indexedAccountId,
   });
+  const homeFactsOwnerMatches =
+    homeFactsShadow?.owner.walletId === walletId &&
+    homeFactsShadow?.owner.accountId === accountId;
+  const [perpsProducerInstanceId] = useState(
+    createPerpsHomePortfolioProducerInstanceId,
+  );
   const liveAccountScopeKeyRef = useRef(currentAccountScopeKey);
   liveAccountScopeKeyRef.current = currentAccountScopeKey;
   // Home tabs stay mounted while frozen, so gate polling on the Perps tab being active.
@@ -243,10 +282,25 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
           requestResolved: true,
         };
       }
-      const snapshot =
-        await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
-          { address },
-        );
+      let snapshot: Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot
+        >
+      >;
+      try {
+        snapshot =
+          await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+            { address },
+          );
+      } catch {
+        return {
+          address,
+          scopeKey: requestScopeKey,
+          view: undefined,
+          requestResolved: true,
+          errorKind: 'source',
+        };
+      }
       if (liveAccountScopeKeyRef.current !== requestScopeKey) {
         return {
           address,
@@ -311,6 +365,146 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
     previous: acceptedResultRef.current,
   });
   acceptedResultRef.current = currentResult;
+  const perpsSourceIdentity = useMemo(() => {
+    if (
+      !homeFactsShadow ||
+      !homeFactsOwnerMatches ||
+      !currentAccountScopeKey ||
+      !perpsDeriveType
+    ) {
+      return undefined;
+    }
+    return createHomePerpsSourceIdentity({
+      owner: homeFactsShadow.ownerToken,
+      params: {
+        accountScopeKey: currentAccountScopeKey,
+        accountId: accountId ?? '',
+        deriveType: String(perpsDeriveType),
+        indexedAccountId: indexedAccountId ?? '',
+        networkId: PERPS_NETWORK_ID,
+      },
+      producerInstanceId: perpsProducerInstanceId,
+    });
+  }, [
+    accountId,
+    currentAccountScopeKey,
+    homeFactsOwnerMatches,
+    homeFactsShadow,
+    indexedAccountId,
+    perpsDeriveType,
+    perpsProducerInstanceId,
+  ]);
+  const perpsSourceIdentityKey = useMemo(
+    () =>
+      perpsSourceIdentity
+        ? `${perpsSourceIdentity.owner.scopeKey}:${perpsSourceIdentity.owner.sessionId}:${perpsSourceIdentity.sourceKeyIdentity}`
+        : undefined,
+    [perpsSourceIdentity],
+  );
+  const perpsCoordinatorRef = useRef<
+    HomeSectionCoordinator<IHomePerpsLegacyPayload> | undefined
+  >(undefined);
+  const perpsSemanticRevisionRef = useRef(0);
+  useLayoutEffect(() => {
+    perpsSemanticRevisionRef.current = Math.max(
+      perpsSemanticRevisionRef.current,
+      homePerpsSemantic?.revision ?? 0,
+    );
+  }, [homePerpsSemantic?.revision]);
+  const [perpsCoordinatorResolution, setPerpsCoordinatorResolution] = useState<{
+    identityKey: string;
+    resolution: ReturnType<
+      HomeSectionCoordinator<IHomePerpsLegacyPayload>['getSnapshot']
+    >;
+  }>();
+  const perpsRequestSeqRef = useRef(0);
+  const activePerpsIdentityKeyRef = useRef<string | undefined>(undefined);
+  const previousPerpsSnapshotRef = useRef<object | undefined>(undefined);
+  useEffect(() => {
+    const nextRevision = () => {
+      perpsSemanticRevisionRef.current += 1;
+      return perpsSemanticRevisionRef.current;
+    };
+    if (!perpsSourceIdentity || !perpsSourceIdentityKey) {
+      activePerpsIdentityKeyRef.current = undefined;
+      previousPerpsSnapshotRef.current = undefined;
+      setPerpsCoordinatorResolution(undefined);
+      if (homeFactsShadow) {
+        clearSemanticSection({
+          owner: homeFactsShadow.ownerToken,
+          revision: nextRevision(),
+          sectionId: 'perps',
+        });
+      }
+      return;
+    }
+    if (activePerpsIdentityKeyRef.current !== perpsSourceIdentityKey) {
+      activePerpsIdentityKeyRef.current = perpsSourceIdentityKey;
+      previousPerpsSnapshotRef.current = undefined;
+      perpsRequestSeqRef.current = 0;
+    }
+    perpsRequestSeqRef.current += 1;
+    const requestSeq = perpsRequestSeqRef.current;
+    const evidence = projectPerpsHomePortfolioEvidence(currentResult);
+    const snapshot = projectHomePerpsSectionSource({
+      authorityReady: true,
+      evidence:
+        evidence.kind === 'complete'
+          ? {
+              ...evidence,
+              coverageFingerprint: buildHomePerpsCoverage(requestSeq),
+            }
+          : evidence,
+      requestSeq,
+      scopeMatches: currentResult?.scopeKey === currentAccountScopeKey,
+    });
+    if (previousPerpsSnapshotRef.current === snapshot) {
+      return;
+    }
+    previousPerpsSnapshotRef.current = snapshot;
+    let coordinator = perpsCoordinatorRef.current;
+    if (!coordinator) {
+      coordinator = new HomeSectionCoordinator<IHomePerpsLegacyPayload>(
+        perpsSourceIdentity,
+      );
+      perpsCoordinatorRef.current = coordinator;
+    } else {
+      coordinator.setOwner(perpsSourceIdentity);
+    }
+    const resolution = coordinator.dispatch(
+      adaptHomePerpsSourceSnapshot({
+        identity: perpsSourceIdentity,
+        snapshot,
+      }),
+    );
+    if (!resolution.accepted) {
+      return;
+    }
+    setPerpsCoordinatorResolution({
+      identityKey: perpsSourceIdentityKey,
+      resolution,
+    });
+    publishSemanticSection({
+      owner: perpsSourceIdentity.owner,
+      revision: nextRevision(),
+      sectionId: 'perps',
+      value: resolution.semantic,
+    });
+  }, [
+    clearSemanticSection,
+    currentAccountScopeKey,
+    currentResult,
+    homeFactsShadow,
+    perpsSourceIdentity,
+    perpsSourceIdentityKey,
+    publishSemanticSection,
+  ]);
+  useEffect(
+    () => () => {
+      perpsCoordinatorRef.current?.dispose();
+    },
+    [],
+  );
   const latestAddressRef = useRef<string | undefined>(currentResult?.address);
   latestAddressRef.current = currentResult?.address;
   const liveAsyncScopeRef = useRef<IPerpsHomeAsyncScope>({
@@ -340,10 +534,36 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
       scopeKey: currentAccountScopeKey,
     };
     void (async () => {
-      const snapshot =
-        await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
-          { address, force: true },
-        );
+      let snapshot: Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot
+        >
+      >;
+      try {
+        snapshot =
+          await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+            { address, force: true },
+          );
+      } catch {
+        if (
+          focusRefreshNonceRef.current !== nonce ||
+          !isTabFocusedRef.current ||
+          !isPerpsHomeAsyncScopeCurrent({
+            captured: capturedScope,
+            live: liveAsyncScopeRef.current,
+          })
+        ) {
+          return;
+        }
+        setResult({
+          address,
+          scopeKey: capturedScope.scopeKey,
+          view: undefined,
+          requestResolved: true,
+          errorKind: 'source',
+        });
+        return;
+      }
       if (
         focusRefreshNonceRef.current !== nonce ||
         !isTabFocusedRef.current ||
@@ -446,10 +666,38 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
         pauseDepositRetry(scope);
         return;
       }
-      const snapshot =
-        await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
-          { address, force: true, skipCacheWriteIfEmpty: true },
-        );
+      let snapshot: Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot
+        >
+      >;
+      try {
+        snapshot =
+          await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+            { address, force: true, skipCacheWriteIfEmpty: true },
+          );
+      } catch {
+        if (
+          depositRetryNonceRef.current === nonce &&
+          isPerpsHomeAsyncScopeCurrent({
+            captured: {
+              address,
+              scopeKey: scope.accountScopeKey,
+            },
+            live: liveAsyncScopeRef.current,
+          })
+        ) {
+          setResult({
+            address,
+            scopeKey: scope.accountScopeKey,
+            view: undefined,
+            requestResolved: true,
+            errorKind: 'source',
+          });
+        }
+        activeDepositRetryScopeRef.current = undefined;
+        return;
+      }
       if (
         depositRetryNonceRef.current !== nonce ||
         !isPerpsHomeAsyncScopeCurrent({
@@ -617,18 +865,39 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
     setResult,
   ]);
 
-  const view = currentResult?.view;
+  const semanticPerpsState = useMemo(() => {
+    if (
+      !perpsCoordinatorResolution ||
+      !perpsSourceIdentityKey ||
+      perpsCoordinatorResolution.identityKey !== perpsSourceIdentityKey
+    ) {
+      return adaptHomeLegacyPerpsSection({});
+    }
+    return adaptHomeLegacyPerpsSection({
+      resolution: perpsCoordinatorResolution.resolution,
+    });
+  }, [perpsCoordinatorResolution, perpsSourceIdentityKey]);
+  const view =
+    semanticPerpsState.kind === 'ready'
+      ? semanticPerpsState.payload.view
+      : currentResult?.view;
   const isDepositDisabled = accountUtils.isWatchingAccount({
     accountId: accountId ?? '',
   });
   const viewState = useMemo<'ready' | 'loading' | 'empty'>(() => {
+    if (semanticPerpsState.kind === 'ready') {
+      return semanticPerpsState.viewState;
+    }
+    if (semanticPerpsState.kind === 'error') {
+      return semanticPerpsState.viewState;
+    }
     // result is undefined until a fetch resolves for the current account key (swrKey
     // resets it synchronously on switch), so an unresolved key reads as loading, not empty.
     if (currentResult === undefined || !currentResult.requestResolved) {
       return 'loading';
     }
     return view && !view.isEmpty ? 'ready' : 'empty';
-  }, [currentResult, view]);
+  }, [currentResult, semanticPerpsState, view]);
 
   const canDeposit = Boolean(currentResult?.address);
   const amountAuthority = useMemo(
@@ -646,7 +915,16 @@ export function usePerpsHomePortfolio(options?: { isTabFocused?: boolean }): {
       canDeposit,
       isDepositDisabled,
       refresh,
+      sectionState: semanticPerpsState,
     }),
-    [amountAuthority, canDeposit, isDepositDisabled, refresh, viewState, view],
+    [
+      amountAuthority,
+      canDeposit,
+      isDepositDisabled,
+      refresh,
+      semanticPerpsState,
+      viewState,
+      view,
+    ],
   );
 }

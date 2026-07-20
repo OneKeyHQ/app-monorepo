@@ -80,6 +80,21 @@ jest.mock('@onekeyhq/kit/src/hooks/usePerpTabConfig', () => {
   };
 });
 
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  usePerpsCommonConfigPersistAtom: () => [{ perpConfigLoaded: true }],
+}));
+
+jest.mock('../model/react/homeSemanticHooks', () => ({
+  useHomeFactsShadow: () => undefined,
+}));
+
+jest.mock('../model/react/useHomeNavigationCoordinator', () => ({
+  useHomeNavigationCoordinator: () => ({
+    navigation: undefined,
+    selectTab: () => false,
+  }),
+}));
+
 jest.mock('../../../states/jotai/contexts/accountSelector', () => {
   const state = {
     activeAccount: {

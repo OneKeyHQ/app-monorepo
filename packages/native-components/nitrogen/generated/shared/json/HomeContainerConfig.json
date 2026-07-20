@@ -11,6 +11,8 @@
     "onRefresh": true,
     "onVisibleTabChange": true,
     "onRenderError": true,
+    "onIntent": true,
+    "onTransportResult": true,
     "hybridRef": true
   }
 }

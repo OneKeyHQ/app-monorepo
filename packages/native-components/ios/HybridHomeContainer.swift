@@ -17,6 +17,12 @@ final class HybridHomeContainer: HybridHomeContainerSpec {
     container.onRenderError = { [weak self] code, message in
       self?.onRenderError?(code, message)
     }
+    container.onIntent = { [weak self] intentJson in
+      self?.onIntent?(intentJson)
+    }
+    container.onTransportResult = { [weak self] resultJson in
+      self?.onTransportResult?(resultJson)
+    }
     return container
   }()
 
@@ -39,10 +45,14 @@ final class HybridHomeContainer: HybridHomeContainerSpec {
 
   var onAction: ((_ actionId: String, _ itemId: String, _ tabId: String) -> Void)?
   var onRefresh: ((_ tabId: String, _ requestId: String) -> Void)? {
-    didSet { containerView.setRefreshEnabled(onRefresh != nil) }
+    didSet { updateRefreshAvailability() }
   }
   var onVisibleTabChange: ((_ tabId: String) -> Void)?
   var onRenderError: ((_ code: String, _ message: String) -> Void)?
+  var onIntent: ((_ intentJson: String) -> Void)? {
+    didSet { updateRefreshAvailability() }
+  }
+  var onTransportResult: ((_ resultJson: String) -> Void)?
 
   func setSnapshot(snapshotJson: String) throws {
     containerView.submitSnapshot(snapshotJson)
@@ -61,7 +71,15 @@ final class HybridHomeContainer: HybridHomeContainerSpec {
   }
 
   func getCapabilities() throws -> String {
-    return "{\"schemaVersions\":[1],\"tabIds\":[\"portfolio\",\"perps\",\"defi\",\"nft\",\"history\"],\"supportsPatches\":true,\"supportsAtomicPatches\":true,\"supportsNativeRefresh\":true,\"supportsHorizontalPaging\":true,\"supportsSlots\":true}"
+    return "{\"schemaVersions\":[2],\"protocolVersions\":[1,2],\"preferredProtocol\":2,"
+      + "\"tabIds\":[\"portfolio\",\"perps\",\"defi\",\"nft\",\"history\"],"
+      + "\"supportsPatches\":true,\"supportsAtomicPatches\":true,"
+      + "\"supportsNativeRefresh\":true,\"supportsHorizontalPaging\":true,"
+      + "\"supportsSlots\":true}"
+  }
+
+  private func updateRefreshAvailability() {
+    containerView.setRefreshEnabled(onRefresh != nil || onIntent != nil)
   }
 
   deinit {

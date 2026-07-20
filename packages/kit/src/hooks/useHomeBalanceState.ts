@@ -11,7 +11,18 @@ import {
   useLastConfirmedOverviewBalanceAtom,
 } from '../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
+import { useHomeFactsShadowAtom } from '../states/jotai/contexts/home';
 import { useListStructureAtom } from '../states/jotai/contexts/tokenList';
+import { resolveHomeBalancePresentation } from '../views/Home/model/compatibility/homeLegacyShellAdapter';
+import { useHomeBalanceFacts } from '../views/Home/model/react/useHomeBalanceFacts';
+import { useHomeShellCoordinator } from '../views/Home/model/react/useHomeShellCoordinator';
+
+import type { IHomeBalancePresentation } from '../views/Home/model/compatibility/homeLegacyShellAdapter';
+
+export type {
+  IHomeBalancePresentation,
+  IHomeCorrelatedBalancePresentation,
+} from '../views/Home/model/compatibility/homeLegacyShellAdapter';
 
 export type IHomeBalanceState = 'unknown' | 'zero' | 'positive';
 
@@ -69,7 +80,7 @@ appEventBus.on(EAppEventBusNames.AccountRemove, () => fundedOwners.clear());
 // during account switches when neither source has data for the new owner yet.
 //
 // Requires the tokenList jotai context (HomeTokenListProviderMirror) in scope.
-export function useHomeBalanceState(): IHomeBalanceState {
+function useLegacyHomeBalanceState(): IHomeBalanceState {
   const {
     activeAccount: { wallet, account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -201,4 +212,21 @@ export function useHomeBalanceState(): IHomeBalanceState {
   }
 
   return computed === 'unknown' ? stickyRef.current.state : computed;
+}
+
+export function useHomeBalancePresentation(): IHomeBalancePresentation {
+  const [shadowFacts] = useHomeFactsShadowAtom();
+  const facts = useHomeBalanceFacts();
+  const shell = useHomeShellCoordinator(facts);
+  const legacyState = useLegacyHomeBalanceState();
+  return resolveHomeBalancePresentation({
+    legacyState,
+    ownerToken: facts?.ownerToken ?? shadowFacts?.ownerToken,
+    shadowFactsPresent: Boolean(shadowFacts),
+    shell,
+  });
+}
+
+export function useHomeBalanceState(): IHomeBalanceState {
+  return useHomeBalancePresentation().balanceState;
 }

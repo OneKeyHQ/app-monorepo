@@ -7,6 +7,7 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
@@ -19,10 +20,15 @@ import {
 import HomeContainerConfig from '../nitrogen/generated/shared/json/HomeContainerConfig.json';
 
 import {
+  HOME_CONTAINER_SLOT_CONTRACT_REVISION,
   type IHomeContainerCapabilities,
+  type IHomeContainerOwner,
   type IHomeContainerProps,
   type IHomeContainerRef,
   type IHomeContainerSlot,
+  type IHomeContainerSlots,
+  isHomeContainerTransportResultForSubmission,
+  parseHomeContainerTransportResult,
   serializeHomeContainerPayload,
 } from './HomeContainer.types';
 import { resolveHomeContainerBackgroundColor } from './HomeContainerBackground';
@@ -115,6 +121,56 @@ function parseCapabilities(
   }
 }
 
+interface IRenderedTransportIdentity {
+  owner: IHomeContainerOwner;
+  revision: number;
+}
+
+function ownersMatch(
+  left: IHomeContainerOwner,
+  right: IHomeContainerOwner,
+): boolean {
+  return left.scopeKey === right.scopeKey && left.sessionId === right.sessionId;
+}
+
+function createReservedSlot(slot: IHomeContainerSlot): IHomeContainerSlot {
+  return { ...slot, content: null, interaction: 'none' };
+}
+
+function createReservedSlots(slots: IHomeContainerSlots): IHomeContainerSlots {
+  const mapSlots = <T extends string>(
+    values: Partial<Record<T, IHomeContainerSlot>> | undefined,
+  ): Partial<Record<T, IHomeContainerSlot>> | undefined => {
+    if (!values) {
+      return undefined;
+    }
+    return Object.fromEntries(
+      Object.entries(values).flatMap(([key, slot]) =>
+        slot ? [[key, createReservedSlot(slot as IHomeContainerSlot)]] : [],
+      ),
+    ) as Partial<Record<T, IHomeContainerSlot>>;
+  };
+  return {
+    backgroundColor: slots.backgroundColor,
+    accountRow: slots.accountRow
+      ? createReservedSlot(slots.accountRow)
+      : undefined,
+    balance: slots.balance ? createReservedSlot(slots.balance) : undefined,
+    headerActionRow: slots.headerActionRow
+      ? createReservedSlot(slots.headerActionRow)
+      : undefined,
+    contentHeaders: mapSlots(slots.contentHeaders),
+    contentStates: mapSlots(slots.contentStates),
+    tabAccessories: mapSlots(slots.tabAccessories),
+    contentFooters: Object.fromEntries(
+      Object.entries(slots.contentFooters ?? {}).map(([tabId, footers]) => [
+        tabId,
+        mapSlots(footers),
+      ]),
+    ),
+  };
+}
+
 function getSlotLayoutStyle(key: string) {
   if (key === 'header.account-row') {
     return styles.accountRowSlot;
@@ -193,6 +249,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     {
       snapshot,
       slots,
+      slotBundle,
       style,
       testID,
       debugOverlayEnabled = false,
@@ -201,11 +258,18 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       onRefresh,
       onVisibleTabChange,
       onRenderError,
+      onIntent,
+      onTransportResult,
     },
     ref,
   ) => {
     const { width: windowWidth } = useWindowDimensions();
     const nativeRef = useRef<HomeContainerNativeView | null>(null);
+    const [renderedTransport, setRenderedTransport] =
+      useState<IRenderedTransportIdentity>();
+    const submittedTransportRef = useRef<
+      IRenderedTransportIdentity | undefined
+    >(undefined);
     const snapshotRef = useRef(snapshot);
     snapshotRef.current = snapshot;
 
@@ -233,6 +297,27 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
         applyPatch: (patch) => {
           nativeRef.current?.applyPatch(serializeHomeContainerPayload(patch));
         },
+        setProtocolV2Snapshot: (nextSnapshot) => {
+          submittedTransportRef.current = {
+            owner: nextSnapshot.owner,
+            revision: nextSnapshot.revision,
+          };
+          setRenderedTransport((current) =>
+            current && ownersMatch(current.owner, nextSnapshot.owner)
+              ? current
+              : undefined,
+          );
+          nativeRef.current?.setSnapshot(
+            serializeHomeContainerPayload(nextSnapshot),
+          );
+        },
+        applyProtocolV2Patch: (patch) => {
+          submittedTransportRef.current = {
+            owner: patch.owner,
+            revision: patch.revision,
+          };
+          nativeRef.current?.applyPatch(serializeHomeContainerPayload(patch));
+        },
         completeRefresh: (requestId) => {
           nativeRef.current?.completeRefresh(requestId);
         },
@@ -256,6 +341,10 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     onVisibleTabChangeRef.current = onVisibleTabChange;
     const onRenderErrorRef = useRef(onRenderError);
     onRenderErrorRef.current = onRenderError;
+    const onIntentRef = useRef(onIntent);
+    onIntentRef.current = onIntent;
+    const onTransportResultRef = useRef(onTransportResult);
+    onTransportResultRef.current = onTransportResult;
 
     const stableOnAction = useCallback(
       (actionId: string, itemId: string, tabId: string) => {
@@ -272,11 +361,41 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     const stableOnRenderError = useCallback((code: string, message: string) => {
       onRenderErrorRef.current?.(code, message);
     }, []);
+    const stableOnIntent = useCallback((intentJson: string) => {
+      onIntentRef.current?.(intentJson);
+    }, []);
+    const stableOnTransportResult = useCallback((resultJson: string) => {
+      const result = parseHomeContainerTransportResult(resultJson);
+      if (
+        result &&
+        isHomeContainerTransportResultForSubmission(
+          result,
+          submittedTransportRef.current,
+        ) &&
+        (result.kind === 'applied' || result.kind === 'duplicate')
+      ) {
+        setRenderedTransport({
+          owner: result.owner,
+          revision: result.revision,
+        });
+      } else if (
+        result?.kind === 'needSnapshot' &&
+        isHomeContainerTransportResultForSubmission(
+          result,
+          submittedTransportRef.current,
+        )
+      ) {
+        setRenderedTransport(undefined);
+      }
+      onTransportResultRef.current?.(resultJson);
+    }, []);
 
     const hasOnAction = Boolean(onAction);
     const hasOnRefresh = Boolean(onRefresh);
     const hasOnVisibleTabChange = Boolean(onVisibleTabChange);
     const hasOnRenderError = Boolean(onRenderError);
+    const hasOnIntent = Boolean(onIntent);
+    const hasOnTransportResult = Boolean(onTransportResult);
     const onActionCallback = useMemo(
       () => (hasOnAction ? nitroCallback(stableOnAction) : undefined),
       [hasOnAction, stableOnAction],
@@ -296,6 +415,17 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       () => (hasOnRenderError ? nitroCallback(stableOnRenderError) : undefined),
       [hasOnRenderError, stableOnRenderError],
     );
+    const onIntentCallback = useMemo(
+      () => (hasOnIntent ? nitroCallback(stableOnIntent) : undefined),
+      [hasOnIntent, stableOnIntent],
+    );
+    const onTransportResultCallback = useMemo(
+      () =>
+        hasOnTransportResult
+          ? nitroCallback(stableOnTransportResult)
+          : undefined,
+      [hasOnTransportResult, stableOnTransportResult],
+    );
     const stableHybridRef = useCallback(
       (nextRef: HomeContainerNativeView) => {
         nativeRef.current = nextRef;
@@ -313,37 +443,61 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     );
     const resolvedBackgroundColor = resolveHomeContainerBackgroundColor({
       snapshotBackgroundColor: snapshot?.theme.backgroundColor,
-      slotBackgroundColor: slots?.backgroundColor,
+      slotBackgroundColor:
+        slotBundle?.slots.backgroundColor ?? slots?.backgroundColor,
     });
 
+    const resolvedSlots = useMemo(() => {
+      if (!slotBundle) {
+        return slots;
+      }
+      if (
+        renderedTransport &&
+        ownersMatch(slotBundle.owner, renderedTransport.owner) &&
+        slotBundle.semanticRevision === renderedTransport.revision &&
+        slotBundle.slotContractRevision ===
+          HOME_CONTAINER_SLOT_CONTRACT_REVISION
+      ) {
+        return slotBundle.slots;
+      }
+      return createReservedSlots(slotBundle.slots);
+    }, [renderedTransport, slotBundle, slots]);
+
     const slotViews = useMemo(() => {
-      if (!slots) {
+      if (!resolvedSlots) {
         return null;
       }
       const values: Array<{ key: string; slot: IHomeContainerSlot }> = [];
-      if (slots.accountRow) {
-        values.push({ key: 'header.account-row', slot: slots.accountRow });
-      }
-      if (slots.balance) {
-        values.push({ key: 'header.balance', slot: slots.balance });
-      }
-      if (slots.headerActionRow) {
+      if (resolvedSlots.accountRow) {
         values.push({
-          key: 'header.action-row',
-          slot: slots.headerActionRow,
+          key: 'header.account-row',
+          slot: resolvedSlots.accountRow,
         });
       }
-      Object.entries(slots.contentHeaders ?? {}).forEach(([tabId, slot]) => {
-        if (slot) {
-          values.push({ key: `content.header.${tabId}`, slot });
-        }
-      });
-      Object.entries(slots.contentStates ?? {}).forEach(([tabId, slot]) => {
-        if (slot) {
-          values.push({ key: `content.state.${tabId}`, slot });
-        }
-      });
-      Object.entries(slots.contentFooters ?? {}).forEach(
+      if (resolvedSlots.balance) {
+        values.push({ key: 'header.balance', slot: resolvedSlots.balance });
+      }
+      if (resolvedSlots.headerActionRow) {
+        values.push({
+          key: 'header.action-row',
+          slot: resolvedSlots.headerActionRow,
+        });
+      }
+      Object.entries(resolvedSlots.contentHeaders ?? {}).forEach(
+        ([tabId, slot]) => {
+          if (slot) {
+            values.push({ key: `content.header.${tabId}`, slot });
+          }
+        },
+      );
+      Object.entries(resolvedSlots.contentStates ?? {}).forEach(
+        ([tabId, slot]) => {
+          if (slot) {
+            values.push({ key: `content.state.${tabId}`, slot });
+          }
+        },
+      );
+      Object.entries(resolvedSlots.contentFooters ?? {}).forEach(
         ([tabId, footerSlots]) => {
           Object.entries(footerSlots ?? {}).forEach(([footerId, slot]) => {
             if (slot) {
@@ -355,11 +509,13 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           });
         },
       );
-      Object.entries(slots.tabAccessories ?? {}).forEach(([tabId, slot]) => {
-        if (slot) {
-          values.push({ key: `tab.accessory.${tabId}`, slot });
-        }
-      });
+      Object.entries(resolvedSlots.tabAccessories ?? {}).forEach(
+        ([tabId, slot]) => {
+          if (slot) {
+            values.push({ key: `tab.accessory.${tabId}`, slot });
+          }
+        },
+      );
       return values.map(({ key, slot }) => {
         const interactive = slot.interaction === 'tap';
         return (
@@ -386,7 +542,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           </HomeContainerSlot>
         );
       });
-    }, [resolvedBackgroundColor, slots, windowWidth]);
+    }, [resolvedBackgroundColor, resolvedSlots, windowWidth]);
 
     return (
       <HomeContainerSurface style={style} testID={testID}>
@@ -399,6 +555,8 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
           onRefresh={onRefreshCallback}
           onVisibleTabChange={onVisibleTabChangeCallback}
           onRenderError={onRenderErrorCallback}
+          onIntent={onIntentCallback}
+          onTransportResult={onTransportResultCallback}
           hybridRef={hybridRefCallback}
         />
         {slotViews}

@@ -116,6 +116,34 @@ abstract class HybridHomeContainerSpec: HybridView() {
       onRenderError = value?.let { it }
     }
 
+  abstract var onIntent: ((intentJson: String) -> Unit)?
+
+  private var onIntent_cxx: Func_void_std__string?
+    @Keep
+    @DoNotStrip
+    get() {
+      return onIntent?.let { Func_void_std__string_java(it) }
+    }
+    @Keep
+    @DoNotStrip
+    set(value) {
+      onIntent = value?.let { it }
+    }
+
+  abstract var onTransportResult: ((resultJson: String) -> Unit)?
+
+  private var onTransportResult_cxx: Func_void_std__string?
+    @Keep
+    @DoNotStrip
+    get() {
+      return onTransportResult?.let { Func_void_std__string_java(it) }
+    }
+    @Keep
+    @DoNotStrip
+    set(value) {
+      onTransportResult = value?.let { it }
+    }
+
   // Methods
   @DoNotStrip
   @Keep

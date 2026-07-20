@@ -141,6 +141,40 @@ namespace margelo::nitro::onekeynativecomponents {
     static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_std__string_std__string::javaobject> /* onRenderError */)>("setOnRenderError_cxx");
     method(_javaPart, onRenderError.has_value() ? JFunc_void_std__string_std__string_cxx::fromCpp(onRenderError.value()) : nullptr);
   }
+  std::optional<std::function<void(const std::string& /* intentJson */)>> JHybridHomeContainerSpec::getOnIntent() {
+    static const auto method = javaClassStatic()->getMethod<jni::local_ref<JFunc_void_std__string::javaobject>()>("getOnIntent_cxx");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&]() -> std::function<void(const std::string& /* intentJson */)> {
+      if (__result->isInstanceOf(JFunc_void_std__string_cxx::javaClassStatic())) [[likely]] {
+        auto downcast = jni::static_ref_cast<JFunc_void_std__string_cxx::javaobject>(__result);
+        return downcast->cthis()->getFunction();
+      } else {
+        auto __resultRef = jni::make_global(__result);
+        return JNICallable<JFunc_void_std__string, void(std::string)>(std::move(__resultRef));
+      }
+    }()) : std::nullopt;
+  }
+  void JHybridHomeContainerSpec::setOnIntent(const std::optional<std::function<void(const std::string& /* intentJson */)>>& onIntent) {
+    static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_std__string::javaobject> /* onIntent */)>("setOnIntent_cxx");
+    method(_javaPart, onIntent.has_value() ? JFunc_void_std__string_cxx::fromCpp(onIntent.value()) : nullptr);
+  }
+  std::optional<std::function<void(const std::string& /* resultJson */)>> JHybridHomeContainerSpec::getOnTransportResult() {
+    static const auto method = javaClassStatic()->getMethod<jni::local_ref<JFunc_void_std__string::javaobject>()>("getOnTransportResult_cxx");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&]() -> std::function<void(const std::string& /* resultJson */)> {
+      if (__result->isInstanceOf(JFunc_void_std__string_cxx::javaClassStatic())) [[likely]] {
+        auto downcast = jni::static_ref_cast<JFunc_void_std__string_cxx::javaobject>(__result);
+        return downcast->cthis()->getFunction();
+      } else {
+        auto __resultRef = jni::make_global(__result);
+        return JNICallable<JFunc_void_std__string, void(std::string)>(std::move(__resultRef));
+      }
+    }()) : std::nullopt;
+  }
+  void JHybridHomeContainerSpec::setOnTransportResult(const std::optional<std::function<void(const std::string& /* resultJson */)>>& onTransportResult) {
+    static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_std__string::javaobject> /* onTransportResult */)>("setOnTransportResult_cxx");
+    method(_javaPart, onTransportResult.has_value() ? JFunc_void_std__string_cxx::fromCpp(onTransportResult.value()) : nullptr);
+  }
 
   // Methods
   void JHybridHomeContainerSpec::setSnapshot(const std::string& snapshotJson) {

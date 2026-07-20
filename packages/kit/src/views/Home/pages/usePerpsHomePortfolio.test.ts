@@ -4,6 +4,7 @@ import path from 'path';
 import {
   type IPerpsHomePortfolioResult,
   isPerpsHomeAsyncScopeCurrent,
+  projectPerpsHomePortfolioEvidence,
   resolvePerpsHomeAmountAuthority,
   selectCurrentPerpsHomePortfolioResult,
 } from './perpsHomePortfolioAuthority';
@@ -20,7 +21,7 @@ function result({
   address?: string;
   requestResolved?: boolean;
   scopeKey: string;
-}): IPerpsHomePortfolioResult {
+}): IPerpsHomePortfolioResult<{ isEmpty: boolean }> {
   return {
     address,
     requestResolved,
@@ -106,6 +107,88 @@ describe('Perps Home amount authority scope gates', () => {
     expect(source).toContain(
       'liveAccountScopeKeyRef.current !== requestScopeKey',
     );
-    expect(source.match(/isPerpsHomeAsyncScopeCurrent\(/g)).toHaveLength(2);
+    expect(source.match(/isPerpsHomeAsyncScopeCurrent\(/g)).toHaveLength(4);
+  });
+
+  it('projects portfolio results to loading empty success and error evidence', () => {
+    expect(projectPerpsHomePortfolioEvidence(undefined)).toEqual({
+      kind: 'loading',
+    });
+    expect(
+      projectPerpsHomePortfolioEvidence(
+        result({ requestResolved: false, scopeKey: scopeA }),
+      ),
+    ).toEqual({ kind: 'loading' });
+    expect(
+      projectPerpsHomePortfolioEvidence({
+        ...result({ scopeKey: scopeA }),
+        errorKind: 'source',
+      }),
+    ).toEqual({ kind: 'error', errorKind: 'source' });
+    expect(
+      projectPerpsHomePortfolioEvidence({
+        ...result({ scopeKey: scopeA }),
+        view: { isEmpty: true },
+      }),
+    ).toEqual({
+      kind: 'complete',
+      confirmedEmpty: true,
+      data: undefined,
+      rowIds: [],
+    });
+
+    const view = { isEmpty: false };
+    expect(
+      projectPerpsHomePortfolioEvidence({
+        ...result({ scopeKey: scopeA }),
+        view,
+      }),
+    ).toEqual({
+      kind: 'complete',
+      confirmedEmpty: false,
+      data: {
+        address: sharedAddress,
+        scopeKey: scopeA,
+        view,
+      },
+      rowIds: ['perps'],
+    });
+  });
+
+  it('keeps snapshot fetch failures as source errors instead of permanent empty', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, 'usePerpsHomePortfolio.ts'),
+      'utf8',
+    );
+    expect(source).toContain("errorKind: 'source'");
+    expect(source).toContain('requestResolved: true');
+    expect(source).toContain(
+      'projectPerpsHomePortfolioEvidence(currentResult)',
+    );
+  });
+
+  it('keeps the initial undefined coordinator resolution in semantic loading state', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, 'usePerpsHomePortfolio.ts'),
+      'utf8',
+    );
+    const semanticStateBlock = source.slice(
+      source.indexOf('const semanticPerpsState = useMemo(() => {'),
+      source.indexOf(
+        'const view =',
+        source.indexOf('const semanticPerpsState'),
+      ),
+    );
+
+    expect(semanticStateBlock).toContain('!perpsCoordinatorResolution');
+    expect(semanticStateBlock).toContain('!perpsSourceIdentityKey');
+    expect(semanticStateBlock).toContain(
+      'return adaptHomeLegacyPerpsSection({})',
+    );
+    expect(
+      semanticStateBlock.indexOf('!perpsCoordinatorResolution'),
+    ).toBeLessThan(
+      semanticStateBlock.indexOf('perpsCoordinatorResolution.resolution'),
+    );
   });
 });

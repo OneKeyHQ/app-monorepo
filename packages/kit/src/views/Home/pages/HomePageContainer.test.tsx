@@ -4,7 +4,7 @@ import { type ReactTestRenderer, act, create } from 'react-test-renderer';
 
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { HomeLaunchGatedContent } from './HomePageContainer';
+import { HomeLaunchGatedContent, HomePageContainer } from './HomePageContainer';
 
 type IMockWallet = {
   id: string;
@@ -39,6 +39,7 @@ let mockLaunchSnapshot: {
 };
 let mockAccountSelectorStorageInitDone: boolean;
 let mockActiveAccountInitDone: boolean;
+let mockShadowBridgeMounts = 0;
 const mockTestGlobal = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean;
 };
@@ -99,6 +100,11 @@ jest.mock('../../../states/jotai/contexts/accountOverview', () => ({
   }) => children,
 }));
 
+jest.mock('../../../states/jotai/contexts/home', () => ({
+  ProviderJotaiContextHome: ({ children }: { children?: ReactNode }) =>
+    children,
+}));
+
 jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
   useAccountSelectorStorageInitDoneAtom: () => [
     mockAccountSelectorStorageInitDone,
@@ -153,6 +159,13 @@ jest.mock('../components/BTCFreshAddressProvider', () => ({
 
 jest.mock('../nativeHomeFeatureFlag', () => ({
   isNativeHomeEnabled: () => true,
+}));
+
+jest.mock('../model/react/HomeAuthorityShadowBridge', () => ({
+  HomeAuthorityShadowBridge: () => {
+    mockShadowBridgeMounts += 1;
+    return null;
+  },
 }));
 
 function mockCreateSurface(name: IMockSurfaceName) {
@@ -247,6 +260,27 @@ beforeEach(() => {
   };
   mockAccountSelectorStorageInitDone = true;
   mockActiveAccountInitDone = true;
+  mockShadowBridgeMounts = 0;
+});
+
+describe('HomePageContainer shadow authority integration', () => {
+  it('mounts the inert shadow bridge without selecting a visible surface', () => {
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(<HomePageContainer />);
+    });
+    expect(mockShadowBridgeMounts).toBe(1);
+    expect(view.root.findAllByProps({ testID: 'surface-empty' })).toHaveLength(
+      0,
+    );
+    expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
+      0,
+    );
+    expect(view.root.findAllByProps({ testID: 'surface-legacy' })).toHaveLength(
+      0,
+    );
+    act(() => view.unmount());
+  });
 });
 
 beforeAll(() => {

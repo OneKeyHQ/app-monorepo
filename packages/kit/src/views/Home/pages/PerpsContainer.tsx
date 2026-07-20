@@ -1672,8 +1672,8 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
 export function PerpsContainer() {
   const intl = useIntl();
   const tabBarHeight = useScrollContentTabBarOffset();
-  const { viewState, view, canDeposit, isDepositDisabled } =
-    usePerpsHomePortfolio();
+  const perpsPortfolio = usePerpsHomePortfolio();
+  const { viewState, view, canDeposit, isDepositDisabled } = perpsPortfolio;
 
   return (
     <Stack flex={1}>

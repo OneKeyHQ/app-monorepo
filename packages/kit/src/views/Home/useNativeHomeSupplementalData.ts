@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useHomeActions } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -9,6 +10,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -34,6 +36,17 @@ import {
   mapMarketPerpsTokenToDisplay,
   mapMarketTokenToDisplay,
 } from './components/PopularTrading/utils';
+import { adaptHomeLegacyMarketSection } from './model/compatibility/homeLegacyMarketSectionAdapter';
+import { HomeSectionCoordinator } from './model/sections/homeSectionCoordinator';
+import {
+  buildHomeMarketCoverage,
+  projectHomeMarketSectionSource,
+} from './model/sections/market/homeMarketSectionPolicy';
+import {
+  adaptHomeMarketSourceSnapshot,
+  createHomeMarketSourceIdentity,
+  getHomeMarketRowIds,
+} from './model/sections/market/homeMarketSourceAdapter';
 import {
   HOME_MARKET_FAVORITES_CACHE_COUNT,
   HOME_MARKET_VISIBLE_FAVORITES_COUNT,
@@ -44,11 +57,19 @@ import {
 } from './nativeHomeMarketFavorites';
 
 import type { IFavoriteTokenDisplay } from './components/PopularTrading/types';
+import type { IHomeSectionCoordinatorResolution } from './model/sections/homeSectionCoordinator';
+import type { IHomeMarketEvidence } from './model/sections/market/homeMarketSectionPolicy';
+import type { IHomeMarketLegacyPayload } from './model/sections/market/homeMarketSourceAdapter';
 import type { IFavoriteTokensResult } from './nativeHomeMarketFavorites';
 
 const DEFERRED_FETCH_DELAY_MS = 1200;
 const REFRESH_INTERVAL = timerUtils.getTimeDurationMs({ seconds: 30 });
 const EMPTY_WATCH_LIST_ITEMS: IMarketWatchListItemV2[] = [];
+const NATIVE_HOME_MARKET_OWNER = {
+  scopeKey: 'native-home-market',
+  sessionId: 'native-home-market',
+};
+const NATIVE_HOME_MARKET_PRODUCER_INSTANCE_ID = 'native-home-market';
 
 function getNativeHomeMarketTokenKey(token: IFavoriteTokenDisplay): string {
   return token.perpsCoin
@@ -202,6 +223,8 @@ export function useNativeHomeSupplementalData({
     const timer = setTimeout(() => setEnabled(true), DEFERRED_FETCH_DELAY_MS);
     return () => clearTimeout(timer);
   }, []);
+  const { clearSemanticSection, publishSemanticSection } =
+    useHomeActions().current;
 
   const { homeTab, minLiquidity, perpsCategories, spotCategories } =
     useMarketBasicConfig();
@@ -369,6 +392,206 @@ export function useNativeHomeSupplementalData({
     (resolvedMarketCategoryId === FAVORITES_CATEGORY_ID
       ? !isCurrentFavoriteMarketResult && !hasSettledFavoriteMarketResult
       : categoryMarket.isCategoryLoading);
+  const marketSectionPayload = useMemo(
+    () => ({
+      favoriteMode:
+        favoriteMarket.result?.isRecommendation === true
+          ? ('recommendation' as const)
+          : ('favorites' as const),
+      prefetchCategoryIds: marketCategories
+        .map((category) => category.id)
+        .filter((categoryId) => categoryId !== FAVORITES_CATEGORY_ID),
+      prefetchedRowsByRequestKey: categoryMarket.tokensByRequestKey,
+      resolvedCategoryId: resolvedMarketCategoryId,
+      rows: market,
+      selectedCategoryId: selectedMarketCategoryId,
+      totalFavorites:
+        favoriteMarket.result &&
+        (isCurrentFavoriteMarketResult || hasSettledFavoriteMarketResult)
+          ? favoriteMarket.result.total
+          : 0,
+      watchListContentKey,
+    }),
+    [
+      favoriteMarket.result,
+      hasSettledFavoriteMarketResult,
+      isCurrentFavoriteMarketResult,
+      categoryMarket.tokensByRequestKey,
+      market,
+      marketCategories,
+      resolvedMarketCategoryId,
+      selectedMarketCategoryId,
+      watchListContentKey,
+    ],
+  );
+  const marketSectionRowIds = useMemo(
+    () => getHomeMarketRowIds(marketSectionPayload),
+    [marketSectionPayload],
+  );
+  const marketSectionIdentity = useMemo(
+    () =>
+      createHomeMarketSourceIdentity({
+        owner: NATIVE_HOME_MARKET_OWNER,
+        params: {
+          favoriteMode: marketSectionPayload.favoriteMode,
+          homeTabConfigKey: stringUtils.stableStringify({
+            homeTab,
+            perpsCategories,
+            spotCategories,
+          }),
+          minLiquidity,
+          perpsHotEnabled: marketCategories.some(
+            (category) => category.id === HOME_PERPS_HOT_CATEGORY_ID,
+          ),
+          prefetchCategoryIds: marketSectionPayload.prefetchCategoryIds,
+          resolvedCategoryId: resolvedMarketCategoryId,
+          selectedCategoryId: selectedMarketCategoryId,
+          watchListContentKey,
+        },
+        producerInstanceId: NATIVE_HOME_MARKET_PRODUCER_INSTANCE_ID,
+      }),
+    [
+      homeTab,
+      marketCategories,
+      marketSectionPayload.favoriteMode,
+      marketSectionPayload.prefetchCategoryIds,
+      minLiquidity,
+      perpsCategories,
+      resolvedMarketCategoryId,
+      selectedMarketCategoryId,
+      spotCategories,
+      watchListContentKey,
+    ],
+  );
+  const marketSectionCoordinatorRef = useRef(
+    new HomeSectionCoordinator<IHomeMarketLegacyPayload<IFavoriteTokenDisplay>>(
+      marketSectionIdentity,
+    ),
+  );
+  const marketSectionIdentityRef = useRef(marketSectionIdentity);
+  const marketSectionRequestSeqRef = useRef(0);
+  const marketSectionRequestKeyRef = useRef('');
+  const marketSemanticRevisionRef = useRef(0);
+  const [marketSectionResolution, setMarketSectionResolution] = useState<
+    | IHomeSectionCoordinatorResolution<
+        IHomeMarketLegacyPayload<IFavoriteTokenDisplay>
+      >
+    | undefined
+  >();
+  const marketSectionRequestKey = useMemo(
+    () =>
+      stringUtils.stableStringify({
+        enabled,
+        marketLoading,
+        payload: marketSectionPayload,
+        rowIds: marketSectionRowIds,
+        sourceKeyIdentity: marketSectionIdentity.sourceKeyIdentity,
+      }),
+    [
+      enabled,
+      marketLoading,
+      marketSectionIdentity.sourceKeyIdentity,
+      marketSectionPayload,
+      marketSectionRowIds,
+    ],
+  );
+  useEffect(() => {
+    const identityChanged =
+      marketSectionIdentityRef.current.sourceKeyIdentity !==
+        marketSectionIdentity.sourceKeyIdentity ||
+      marketSectionIdentityRef.current.sourceRevision !==
+        marketSectionIdentity.sourceRevision ||
+      marketSectionIdentityRef.current.producerInstanceId !==
+        marketSectionIdentity.producerInstanceId;
+    const requestChanged =
+      marketSectionRequestKeyRef.current !== marketSectionRequestKey;
+    if (!identityChanged && !requestChanged) {
+      return;
+    }
+    if (identityChanged) {
+      marketSectionIdentityRef.current = marketSectionIdentity;
+      marketSectionCoordinatorRef.current.setOwner(marketSectionIdentity);
+    }
+    if (requestChanged) {
+      marketSectionRequestKeyRef.current = marketSectionRequestKey;
+      marketSectionRequestSeqRef.current += 1;
+    }
+    const requestSeq = marketSectionRequestSeqRef.current;
+    let evidence: IHomeMarketEvidence<IFavoriteTokenDisplay>;
+    if (marketLoading && marketSectionRowIds.length > 0) {
+      evidence = {
+        kind: 'confirmedCache',
+        data: marketSectionPayload,
+        rowIds: marketSectionRowIds,
+        refresh: 'refreshing',
+      };
+    } else if (marketLoading) {
+      evidence = { kind: 'loading' };
+    } else {
+      evidence = {
+        kind: 'complete',
+        confirmedEmpty: marketSectionRowIds.length === 0,
+        coverageFingerprint: buildHomeMarketCoverage({
+          favoriteMode: marketSectionPayload.favoriteMode,
+          requestSeq,
+          resolvedCategoryId: resolvedMarketCategoryId,
+          rowCount: marketSectionRowIds.length,
+          selectedCategoryId: selectedMarketCategoryId,
+        }),
+        data: marketSectionPayload,
+        rowIds: marketSectionRowIds,
+      };
+    }
+    const snapshot = projectHomeMarketSectionSource({
+      authorityReady: enabled,
+      evidence,
+      requestSeq,
+      scopeMatches: true,
+    });
+    const resolution = marketSectionCoordinatorRef.current.dispatch(
+      adaptHomeMarketSourceSnapshot({
+        identity: marketSectionIdentity,
+        snapshot,
+      }),
+    );
+    setMarketSectionResolution(resolution);
+    if (!resolution.accepted) {
+      return;
+    }
+    marketSemanticRevisionRef.current += 1;
+    publishSemanticSection({
+      owner: marketSectionIdentity.owner,
+      revision: marketSemanticRevisionRef.current,
+      sectionId: 'market',
+      value: resolution.semantic,
+    });
+  }, [
+    enabled,
+    marketLoading,
+    marketSectionIdentity,
+    marketSectionPayload,
+    marketSectionRequestKey,
+    marketSectionRowIds,
+    publishSemanticSection,
+    resolvedMarketCategoryId,
+    selectedMarketCategoryId,
+  ]);
+  const marketSection = useMemo(
+    () => adaptHomeLegacyMarketSection({ resolution: marketSectionResolution }),
+    [marketSectionResolution],
+  );
+  useEffect(
+    () => () => {
+      marketSemanticRevisionRef.current += 1;
+      clearSemanticSection({
+        owner: NATIVE_HOME_MARKET_OWNER,
+        revision: marketSemanticRevisionRef.current,
+        sectionId: 'market',
+      });
+      marketSectionCoordinatorRef.current.dispose();
+    },
+    [clearSemanticSection],
+  );
   const marketIsRecommendation =
     resolvedMarketCategoryId === FAVORITES_CATEGORY_ID &&
     isCurrentFavoriteMarketResult &&
@@ -804,6 +1027,7 @@ export function useNativeHomeSupplementalData({
     market,
     marketIsRecommendation,
     marketLoading,
+    marketSection,
     marketRecommendationSelectedCount:
       selectedMarketRecommendationTokens.length,
     marketCategories,

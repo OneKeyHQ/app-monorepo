@@ -4,6 +4,8 @@ import android.graphics.Color
 import org.json.JSONArray
 import org.json.JSONObject
 
+private const val HOME_CONTAINER_MAXIMUM_SAFE_INTEGER = 9_007_199_254_740_991L
+
 internal data class HomeContainerTheme(
   val backgroundColor: String,
   val cardColor: String,
@@ -86,9 +88,22 @@ internal data class HomeContainerSection(
   val items: List<HomeContainerItem>,
 )
 
+internal enum class HomeContainerTabDestination(val wireValue: String) {
+  INLINE("inline"),
+  HANDOFF("handoff");
+
+  companion object {
+    fun fromWireValue(value: String): HomeContainerTabDestination =
+      entries.firstOrNull { it.wireValue == value }
+        ?: throw IllegalArgumentException("Unsupported HomeContainer tab destination: $value")
+  }
+}
+
 internal data class HomeContainerTab(
   val id: String,
   val title: String,
+  val destination: HomeContainerTabDestination,
+  val handoffCommandId: String?,
   val toolbarAction: HomeContainerAction?,
   val sections: List<HomeContainerSection>,
 )
@@ -113,6 +128,51 @@ internal data class HomeContainerSnapshot(
   }
 }
 
+internal fun HomeContainerSnapshot.inlineTabs(): List<HomeContainerTab> =
+  tabs.filter { it.destination == HomeContainerTabDestination.INLINE }
+
+internal fun HomeContainerSnapshot.hasValidTabInvariants(): Boolean {
+  if (
+    schemaVersion != HOME_CONTAINER_BUSINESS_SCHEMA_VERSION ||
+    revision !in 0..HOME_CONTAINER_MAXIMUM_SAFE_INTEGER
+  ) {
+    return false
+  }
+  if (tabs.isEmpty()) return false
+  val tabIds = tabs.map { it.id }
+  if (tabIds.any(String::isEmpty) || tabIds.toSet().size != tabIds.size) return false
+  val selectedTab = tabs.firstOrNull { it.id == selectedTabId }
+  if (selectedTab?.destination != HomeContainerTabDestination.INLINE) return false
+  return tabs.all { tab ->
+    val hasValidDestination = when (tab.destination) {
+      HomeContainerTabDestination.INLINE -> tab.handoffCommandId == null
+      HomeContainerTabDestination.HANDOFF ->
+        !tab.handoffCommandId.isNullOrEmpty() && tab.sections.isEmpty()
+    }
+    val sectionIds = tab.sections.map { it.id }
+    hasValidDestination &&
+      sectionIds.none(String::isEmpty) &&
+      sectionIds.toSet().size == sectionIds.size
+  }
+}
+
+internal fun HomeContainerSnapshot.applyingValidatedPatch(
+  patch: HomeContainerPatch,
+): HomeContainerSnapshot? {
+  if (
+    patch.schemaVersion != HOME_CONTAINER_BUSINESS_SCHEMA_VERSION ||
+    patch.revision !in 0..HOME_CONTAINER_MAXIMUM_SAFE_INTEGER ||
+    patch.revision < revision
+  ) {
+    return null
+  }
+  val validTabIds = inlineTabs().mapTo(mutableSetOf()) { it.id }
+  val patchedTabIds = patch.tabs.map { it.tabId }
+  if (patchedTabIds.toSet().size != patchedTabIds.size) return null
+  if (patchedTabIds.any { it !in validTabIds }) return null
+  return applying(patch).takeIf(HomeContainerSnapshot::hasValidTabInvariants)
+}
+
 internal data class HomeContainerTabPatch(
   val tabId: String,
   val sections: List<HomeContainerSection>,
@@ -135,7 +195,11 @@ internal object HomeContainerJson {
       header = parseHeader(root.getJSONObject("header")),
       tabs = root.getJSONArray("tabs").mapObjects(::parseTab),
       theme = parseTheme(root.getJSONObject("theme")),
-    )
+    ).also { snapshot ->
+      require(snapshot.hasValidTabInvariants()) {
+        "HomeContainer snapshot has invalid tab destination invariants"
+      }
+    }
   }
 
   fun parsePatch(json: String): HomeContainerPatch {
@@ -196,12 +260,32 @@ internal object HomeContainerJson {
     },
   )
 
-  private fun parseTab(value: JSONObject): HomeContainerTab = HomeContainerTab(
-    id = value.getString("id"),
-    title = value.getString("title"),
-    toolbarAction = value.optJSONObject("toolbarAction")?.let(::parseAction),
-    sections = value.getJSONArray("sections").mapObjects(::parseSection),
-  )
+  private fun parseTab(value: JSONObject): HomeContainerTab {
+    val destination = HomeContainerTabDestination.fromWireValue(value.getString("destination"))
+    val handoffCommandId = when (destination) {
+      HomeContainerTabDestination.INLINE -> {
+        require(!value.has("handoffCommandId")) {
+          "Inline HomeContainer tab must not carry handoffCommandId"
+        }
+        null
+      }
+      HomeContainerTabDestination.HANDOFF -> value.getString("handoffCommandId").also {
+        require(it.isNotEmpty()) { "Handoff HomeContainer tab requires handoffCommandId" }
+      }
+    }
+    val sections = value.getJSONArray("sections").mapObjects(::parseSection)
+    require(destination != HomeContainerTabDestination.HANDOFF || sections.isEmpty()) {
+      "Handoff HomeContainer tab must not carry sections"
+    }
+    return HomeContainerTab(
+      id = value.getString("id"),
+      title = value.getString("title"),
+      destination = destination,
+      handoffCommandId = handoffCommandId,
+      toolbarAction = value.optJSONObject("toolbarAction")?.let(::parseAction),
+      sections = sections,
+    )
+  }
 
   private fun parseSection(value: JSONObject): HomeContainerSection = HomeContainerSection(
     id = value.getString("id"),

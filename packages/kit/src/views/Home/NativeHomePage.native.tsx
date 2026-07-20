@@ -54,6 +54,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   HOME_CONTAINER_SCHEMA_VERSION,
+  HOME_CONTAINER_SLOT_CONTRACT_REVISION,
   HOME_CONTAINER_TAB_IDS,
   HomeContainer,
   type IHomeContainerAction,
@@ -66,6 +67,7 @@ import {
   type IHomeContainerTab,
   type IHomeContainerTabId,
   type IHomeContainerTheme,
+  type IHomeContainerTransportResult,
 } from '@onekeyhq/native-components';
 import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
@@ -93,7 +95,6 @@ import {
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   type IFormatDisplayNumberPart,
   formatBalance,
@@ -102,6 +103,7 @@ import {
   formatPrice,
   formatValue,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
@@ -120,6 +122,7 @@ import {
   useLastConfirmedOverviewBalanceAtom,
 } from '../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import { useHomeActions } from '../../states/jotai/contexts/home';
 import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 import { convertFiat } from '../../utils/fiatConvert';
 import {
@@ -150,9 +153,32 @@ import { useShowWalletActionMore } from './components/WalletActions/WalletAction
 import { NativeHomeZeroBalanceWalletActions } from './components/WalletActions/ZeroBalanceWalletActions';
 import {
   buildHomeWalletAtomicTabState,
-  buildHomeWalletCapabilityTabModel,
+  buildHomeWalletCapabilityNavigationModel,
 } from './homeWalletCapabilityTabModel';
 import { useHomeWalletTabSupport } from './hooks/useHomeWalletTabSupport';
+import { adaptHomeSectionRenderState } from './model/compatibility/homeSectionRenderStateAdapter';
+import {
+  adaptCurrentHomeBalanceFacts,
+  buildHomeBalanceQuoteRateIdentity,
+  resolveHomeBalanceQuoteAwareSourceStatus,
+  resolveHomeBalanceQuotedAmount,
+} from './model/facts/currentHomeBalanceFactsAdapter';
+import { adaptHomeShellToNativeHeader } from './model/native/homeNativeDTOAdapter';
+import {
+  guardHomeNativeIntent,
+  handleHomeNativeLegacyHandoff,
+} from './model/native/homeNativeIntentGuard';
+import { createHomeNativeSlotBundle } from './model/native/homeNativeSlotBundle';
+import {
+  useHomeFactsShadow,
+  useHomeSectionSemantic,
+} from './model/react/homeSemanticHooks';
+import { useHomeShellCoordinator } from './model/react/useHomeShellCoordinator';
+import { HomeSectionCoordinator } from './model/sections/homeSectionCoordinator';
+import {
+  adaptHomeSpotSourceSnapshot,
+  createHomeSpotSourceIdentity,
+} from './model/sections/spot/homeSpotSourceAdapter';
 import {
   type INativeHomeBalanceScopeCache,
   buildNativeHomeBalanceScopeKey,
@@ -172,6 +198,7 @@ import {
   buildNativeNFTSections,
   buildNativePerpsSections,
   buildNativePortfolioSections,
+  resolveNativeHomeCompatibilitySections,
   resolveNativeHomeListStateSlot,
 } from './nativeHomeDataAdapters';
 import {
@@ -184,6 +211,7 @@ import {
 } from './pages/PerpsContainer';
 import { usePerpsHomePortfolio } from './pages/usePerpsHomePortfolio';
 import {
+  adaptHomeShellToNativeBalanceAmountPresentation,
   applyNativeHomeBalanceAmountCommit,
   convertNativeHomeBalanceUsdToDisplay,
   convertNativeHomeConfirmedBalanceToUsd,
@@ -202,12 +230,21 @@ import { useNativeHomeNFTData } from './useNativeHomeNFTData';
 import { useNativeHomePortfolioData } from './useNativeHomePortfolioData';
 import { useNativeHomeSupplementalData } from './useNativeHomeSupplementalData';
 
+import type { IHomeSectionCoordinatorResolution } from './model/sections/homeSectionCoordinator';
+import type { IHomeSpotNativePayload } from './model/sections/spot/homeSpotSourceAdapter';
 import type { INativeHomeContainerControllerOwner } from './nativeHomeContainerControllerOwner';
 import type { INativeHomePageProps } from './NativeHomePage.types';
 
 const filterScamHistorySupportedNetworkIds = new Set(
   getNetworksSupportFilterScamHistory().map((item) => item.id),
 );
+
+let nativeHomeSpotProducerInstance = 0;
+
+function createNativeHomeSpotProducerInstanceId(): string {
+  nativeHomeSpotProducerInstance += 1;
+  return `native-home-spot:${nativeHomeSpotProducerInstance}`;
+}
 
 function isHomeTabId(value: string): value is IHomeContainerTabId {
   return HOME_CONTAINER_TAB_IDS.some((tabId) => tabId === value);
@@ -314,6 +351,10 @@ function NativeHomePageContent({
       wallet,
     },
   } = useActiveAccount({ num: 0 });
+  const homeFactsShadow = useHomeFactsShadow();
+  const { clearSemanticSection, publishSemanticSection } =
+    useHomeActions().current;
+  const homeSpotSemantic = useHomeSectionSemantic('portfolio');
   const { openExplorer, requiresNetworkSelection } = useBlockExplorerNavigation(
     network,
     wallet?.id,
@@ -339,25 +380,26 @@ function NativeHomePageContent({
   const showWalletActionMore = useShowWalletActionMore();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user } = useOneKeyAuth();
-  const {
-    isReady: isHomeWalletTabSupportReady,
-    isDeFiSupported,
-    isPerpsSupported,
-  } = useHomeWalletTabSupport({ network });
+  const { capabilityNavigation, selectCapabilityTab } = useHomeWalletTabSupport(
+    {
+      enableCapabilityAuthority: true,
+      network,
+      vaultSettings,
+    },
+  );
   const homeWalletCapabilityTabModel = useMemo(
-    () =>
-      buildHomeWalletCapabilityTabModel({
-        isReady: isHomeWalletTabSupportReady,
-        isDeFiSupported,
-        isPerpsSupported,
-      }),
-    [isDeFiSupported, isHomeWalletTabSupportReady, isPerpsSupported],
+    () => buildHomeWalletCapabilityNavigationModel(capabilityNavigation),
+    [capabilityNavigation],
   );
-  const isNFTEnabled = Boolean(
-    network?.isAllNetworks ||
-    (vaultSettings?.NFTEnabled &&
-      networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? '')),
-  );
+  const isDeFiSupported =
+    homeWalletCapabilityTabModel.status === 'confirmed' &&
+    homeWalletCapabilityTabModel.tabIds.includes('defi');
+  const isPerpsSupported =
+    homeWalletCapabilityTabModel.status === 'confirmed' &&
+    homeWalletCapabilityTabModel.tabIds.includes('perps');
+  const isNFTEnabled =
+    homeWalletCapabilityTabModel.status === 'confirmed' &&
+    homeWalletCapabilityTabModel.tabIds.includes('nft');
   const filterScamHistorySupported = Boolean(
     network?.isAllNetworks ||
     filterScamHistorySupportedNetworkIds.has(network?.id ?? ''),
@@ -458,6 +500,182 @@ function NativeHomePageContent({
     homeDefaultTokenMapStatus,
   );
   const lpTokens = useNativeHomeLpTokenData();
+  const [spotProducerInstanceId] = useState(
+    createNativeHomeSpotProducerInstanceId,
+  );
+  const nativeSpotIdentity = useMemo(() => {
+    const ownerMatches =
+      homeFactsShadow?.owner.walletId === wallet?.id &&
+      homeFactsShadow?.owner.accountId === account?.id &&
+      (network?.isAllNetworks
+        ? homeFactsShadow?.owner.network.kind === 'allNetworks'
+        : homeFactsShadow?.owner.network.kind === 'singleNetwork' &&
+          homeFactsShadow.owner.network.networkId === network?.id);
+    if (
+      !ownerMatches ||
+      !homeFactsShadow ||
+      !account?.id ||
+      !network?.id ||
+      !wallet?.id
+    ) {
+      return undefined;
+    }
+    const mergeDerive =
+      Boolean(vaultSettings?.mergeDeriveAssetsEnabled) &&
+      !accountUtils.isOthersWallet({ walletId: wallet.id }) &&
+      deriveInfoItems.length > 1;
+    const enabledNetworkIds = network.isAllNetworks
+      ? enabledNetworksCompatibleWithWalletId.map((item) => item.id)
+      : [network.id];
+    return createHomeSpotSourceIdentity({
+      owner: homeFactsShadow.ownerToken,
+      params: {
+        accountOwnerId: account.id,
+        defaultTokenRevision: stringUtils.stableStringify(homeDefaultTokenMap),
+        enabledNetworksRevision: stringUtils.stableStringify(
+          Array.from(new Set(enabledNetworkIds)).toSorted(),
+        ),
+        mergeDerive,
+        networkId: network.id,
+        networkMode: network.isAllNetworks ? 'allNetworks' : 'singleNetwork',
+        tokenMode: lpTokens.showLpTokensOnly ? 'lp' : 'wallet',
+      },
+      producerInstanceId: spotProducerInstanceId,
+    });
+  }, [
+    account?.id,
+    deriveInfoItems.length,
+    enabledNetworksCompatibleWithWalletId,
+    homeDefaultTokenMap,
+    homeFactsShadow,
+    lpTokens.showLpTokensOnly,
+    network?.id,
+    network?.isAllNetworks,
+    spotProducerInstanceId,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    wallet?.id,
+  ]);
+  const nativeSpotIdentityKey = useMemo(
+    () =>
+      nativeSpotIdentity
+        ? stringUtils.stableStringify(nativeSpotIdentity)
+        : undefined,
+    [nativeSpotIdentity],
+  );
+  const nativeSpotCoordinatorRef = useRef<
+    HomeSectionCoordinator<IHomeSpotNativePayload> | undefined
+  >(undefined);
+  const nativeSpotSemanticRevisionRef = useRef(0);
+  const nativeSpotDispatchedSourceRef = useRef<
+    | {
+        identityKey: string;
+        snapshot: object;
+      }
+    | undefined
+  >(undefined);
+  useLayoutEffect(() => {
+    nativeSpotSemanticRevisionRef.current = Math.max(
+      nativeSpotSemanticRevisionRef.current,
+      homeSpotSemantic?.revision ?? 0,
+    );
+  }, [homeSpotSemantic?.revision]);
+  const [nativeSpotResolution, setNativeSpotResolution] = useState<
+    | {
+        identityKey: string;
+        resolution: IHomeSectionCoordinatorResolution<IHomeSpotNativePayload>;
+      }
+    | undefined
+  >();
+  useEffect(() => {
+    const source = lpTokens.showLpTokensOnly
+      ? lpTokens.spotSectionSource
+      : portfolioSource.spotSectionSource;
+    const nextRevision = () => {
+      nativeSpotSemanticRevisionRef.current =
+        nativeSpotSemanticRevisionRef.current + 1;
+      return nativeSpotSemanticRevisionRef.current;
+    };
+    if (
+      !nativeSpotIdentity ||
+      !nativeSpotIdentityKey ||
+      !source ||
+      source.scopeKey !== expectedPortfolioScopeKey
+    ) {
+      nativeSpotDispatchedSourceRef.current = undefined;
+      setNativeSpotResolution(undefined);
+      if (homeFactsShadow) {
+        clearSemanticSection({
+          owner: homeFactsShadow.ownerToken,
+          revision: nextRevision(),
+          sectionId: 'portfolio',
+        });
+      }
+      return;
+    }
+    if (
+      nativeSpotDispatchedSourceRef.current?.identityKey ===
+        nativeSpotIdentityKey &&
+      nativeSpotDispatchedSourceRef.current.snapshot === source.snapshot
+    ) {
+      return;
+    }
+    nativeSpotDispatchedSourceRef.current = {
+      identityKey: nativeSpotIdentityKey,
+      snapshot: source.snapshot,
+    };
+    let coordinator = nativeSpotCoordinatorRef.current;
+    if (!coordinator) {
+      coordinator = new HomeSectionCoordinator<IHomeSpotNativePayload>(
+        nativeSpotIdentity,
+      );
+      nativeSpotCoordinatorRef.current = coordinator;
+    } else {
+      coordinator.setOwner(nativeSpotIdentity);
+    }
+    const resolution = coordinator.dispatch(
+      adaptHomeSpotSourceSnapshot({
+        identity: nativeSpotIdentity,
+        snapshot: source.snapshot,
+      }),
+    );
+    if (!resolution.accepted) {
+      return;
+    }
+    setNativeSpotResolution({
+      identityKey: nativeSpotIdentityKey,
+      resolution,
+    });
+    publishSemanticSection({
+      owner: nativeSpotIdentity.owner,
+      revision: nextRevision(),
+      sectionId: 'portfolio',
+      value: resolution.semantic,
+    });
+  }, [
+    clearSemanticSection,
+    expectedPortfolioScopeKey,
+    homeFactsShadow,
+    nativeSpotIdentity,
+    nativeSpotIdentityKey,
+    lpTokens.showLpTokensOnly,
+    lpTokens.spotSectionSource,
+    portfolioSource.spotSectionSource,
+    publishSemanticSection,
+  ]);
+  useEffect(
+    () => () => {
+      nativeSpotCoordinatorRef.current?.dispose();
+    },
+    [],
+  );
+  const nativeSpotRenderState = useMemo(
+    () =>
+      nativeSpotResolution &&
+      nativeSpotResolution.identityKey === nativeSpotIdentityKey
+        ? adaptHomeSectionRenderState(nativeSpotResolution.resolution)
+        : undefined,
+    [nativeSpotIdentityKey, nativeSpotResolution],
+  );
   const banners = useNativeHomeBannersData();
   const supplemental = useNativeHomeSupplementalData({
     favoritesLabel: intl.formatMessage({
@@ -578,27 +796,61 @@ function NativeHomePageContent({
     }),
     [intl],
   );
+  const portfolioSectionData = useMemo(() => {
+    if (!nativeSpotRenderState) {
+      return {
+        customTokens: portfolio.customTokens,
+        initialized: portfolio.initialized,
+        map: portfolio.map,
+        riskMap: portfolio.riskMap,
+        riskTokens: portfolio.riskTokens,
+        smallBalanceMap: portfolio.smallBalanceMap,
+        smallBalanceTokens: portfolio.smallBalanceTokens,
+        tokens: portfolio.tokens,
+      };
+    }
+    if (nativeSpotRenderState.kind === 'ready') {
+      return {
+        ...nativeSpotRenderState.data,
+        initialized: true,
+      };
+    }
+    return {
+      customTokens: [],
+      initialized: nativeSpotRenderState.kind !== 'loading',
+      map: {},
+      riskMap: {},
+      riskTokens: [],
+      smallBalanceMap: {},
+      smallBalanceTokens: [],
+      tokens: [],
+    };
+  }, [nativeSpotRenderState, portfolio]);
   const visiblePortfolioTokens = lpTokens.showLpTokensOnly
     ? lpTokens.tokens
-    : portfolio.tokens;
+    : portfolioSectionData.tokens;
   const visiblePortfolioTokenMap = lpTokens.showLpTokensOnly
     ? lpTokens.map
-    : portfolio.map;
+    : portfolioSectionData.map;
   const visiblePortfolioInitialized = lpTokens.showLpTokensOnly
     ? lpTokens.initialized
-    : portfolio.initialized &&
+    : portfolioSectionData.initialized &&
       (!network?.isAllNetworks || homeDefaultTokenProjection.initialized);
   const smallBalanceValue = useMemo(() => {
-    const total = portfolio.smallBalanceTokens.reduce(
+    const total = portfolioSectionData.smallBalanceTokens.reduce(
       (value, token) =>
-        value.plus(portfolio.smallBalanceMap[token.$key]?.fiatValue ?? 0),
+        value.plus(
+          portfolioSectionData.smallBalanceMap[token.$key]?.fiatValue ?? 0,
+        ),
       new BigNumber(0),
     );
-    const sourceCurrency = portfolio.smallBalanceTokens
-      .map((token) => portfolio.smallBalanceMap[token.$key]?.currency)
+    const sourceCurrency = portfolioSectionData.smallBalanceTokens
+      .map(
+        (token) => portfolioSectionData.smallBalanceMap[token.$key]?.currency,
+      )
       .find((value): value is string => Boolean(value));
     return formatters.formatFiat(total.toFixed(), sourceCurrency);
-  }, [formatters, portfolio.smallBalanceMap, portfolio.smallBalanceTokens]);
+  }, [formatters, portfolioSectionData]);
 
   useEffect(() => {
     setPortfolioAssetsExpanded(false);
@@ -628,7 +880,7 @@ function NativeHomePageContent({
           Boolean(network?.isAllNetworks) &&
           homeDefaultTokenProjection.hideZeroBalanceTokens,
         homeDefaultTokenMap,
-        customTokens: portfolio.customTokens,
+        customTokens: portfolioSectionData.customTokens,
         stateLabels,
         formatters,
         networkImageById: network?.isAllNetworks
@@ -651,7 +903,7 @@ function NativeHomePageContent({
               {
                 id: ETranslations.wallet_collapsed_risk_assets_number,
               },
-              { number: portfolio.riskTokens.length },
+              { number: portfolioSectionData.riskTokens.length },
             ),
             showLess: intl.formatMessage({
               id: ETranslations.global_show_less,
@@ -662,11 +914,11 @@ function NativeHomePageContent({
           },
           lowValueAssetsCount: lpTokens.showLpTokensOnly
             ? 0
-            : portfolio.smallBalanceTokens.length,
+            : portfolioSectionData.smallBalanceTokens.length,
           lowValueAssetsValue: smallBalanceValue,
           riskAssetsCount: lpTokens.showLpTokensOnly
             ? 0
-            : portfolio.riskTokens.length,
+            : portfolioSectionData.riskTokens.length,
         },
       }),
     [
@@ -677,9 +929,7 @@ function NativeHomePageContent({
       manageTokenEnabled,
       homeDefaultTokenMap,
       network?.isAllNetworks,
-      portfolio.riskTokens.length,
-      portfolio.customTokens,
-      portfolio.smallBalanceTokens.length,
+      portfolioSectionData,
       portfolioAssetsExpanded,
       smallBalanceValue,
       stateLabels,
@@ -1119,13 +1369,17 @@ function NativeHomePageContent({
     perps.amountAuthority.scopeKey === expectedPerpsAmountScopeKey,
   );
   const shouldIncludeDeFiAmount =
-    !homeWalletCapabilityTabModel.shouldCommitTabs ||
-    homeWalletCapabilityTabModel.isDeFiVisible;
+    !homeWalletCapabilityTabModel.shouldCommitTabs || isDeFiSupported;
   const shouldIncludePerpsAmount =
-    !homeWalletCapabilityTabModel.shouldCommitTabs ||
-    homeWalletCapabilityTabModel.isPerpsVisible;
-  const liveHeaderBalanceUsd = useMemo(() => {
-    let total = new BigNumber(0);
+    !homeWalletCapabilityTabModel.shouldCommitTabs || isPerpsSupported;
+  const nativeBalanceAmountsUsd = useMemo(() => {
+    let portfolioTotal = new BigNumber(0);
+    let deFiTotal = new BigNumber(0);
+    let perpsTotal = new BigNumber(0);
+    let portfolioQuoteReady = true;
+    let deFiQuoteReady = true;
+    let perpsQuoteReady = true;
+    const quoteRateIdentities = new Set<string>();
     const portfolioAmountMap =
       portfolio.balanceAuthority.scopeKey === homeBalanceScopeKey
         ? portfolio.map
@@ -1135,29 +1389,68 @@ function NativeHomePageContent({
         ? deFi.protocolMap
         : {};
     Object.values(portfolioAmountMap).forEach((fiat) => {
-      total = total.plus(
-        convertFiat({
-          value: fiat.fiatValue || 0,
-          sourceCurrency: fiat.currency ?? settings.currencyInfo.id,
-          targetCurrency: USD_CURRENCY_ID,
+      const sourceCurrency = fiat.currency ?? settings.currencyInfo.id;
+      quoteRateIdentities.add(
+        `portfolio:${buildHomeBalanceQuoteRateIdentity({
           currencyMap,
-        }),
+          sourceCurrency,
+          targetCurrency: USD_CURRENCY_ID,
+        })}`,
       );
+      const quoted = resolveHomeBalanceQuotedAmount({
+        currencyMap,
+        value: fiat.fiatValue || 0,
+        sourceCurrency,
+        targetCurrency: USD_CURRENCY_ID,
+      });
+      if (quoted) {
+        portfolioTotal = portfolioTotal.plus(quoted.amount);
+      } else {
+        portfolioQuoteReady = false;
+      }
     });
     Object.values(deFiAmountMap).forEach((protocol) => {
-      total = total.plus(
-        convertFiat({
-          value: protocol.netWorth || 0,
-          sourceCurrency: settings.currencyInfo.id,
-          targetCurrency: USD_CURRENCY_ID,
+      const sourceCurrency = settings.currencyInfo.id;
+      quoteRateIdentities.add(
+        `defi:${buildHomeBalanceQuoteRateIdentity({
           currencyMap,
-        }),
+          sourceCurrency,
+          targetCurrency: USD_CURRENCY_ID,
+        })}`,
       );
+      const quoted = resolveHomeBalanceQuotedAmount({
+        currencyMap,
+        value: protocol.netWorth || 0,
+        sourceCurrency,
+        targetCurrency: USD_CURRENCY_ID,
+      });
+      if (quoted) {
+        deFiTotal = deFiTotal.plus(quoted.amount);
+      } else {
+        deFiQuoteReady = false;
+      }
     });
     if (shouldIncludePerpsAmount && isCurrentPerpsAmount && perps.view) {
-      total = total.plus(perps.view.accountValueUsd);
+      const amount = new BigNumber(perps.view.accountValueUsd);
+      if (amount.isFinite()) {
+        perpsTotal = perpsTotal.plus(amount);
+      } else {
+        perpsQuoteReady = false;
+      }
     }
-    return total.toFixed();
+    quoteRateIdentities.add('perps:usd:identity');
+    return {
+      deFi: deFiTotal.toFixed(),
+      deFiQuoteReady,
+      perps: perpsTotal.toFixed(),
+      perpsQuoteReady,
+      portfolio: portfolioTotal.toFixed(),
+      portfolioQuoteReady,
+      pricingRevision: stringUtils.stableStringify(
+        [...quoteRateIdentities].toSorted(),
+      ),
+      total: portfolioTotal.plus(deFiTotal).plus(perpsTotal).toFixed(),
+    };
   }, [
     currencyMap,
     deFi.balanceAuthority.scopeKey,
@@ -1170,6 +1463,7 @@ function NativeHomePageContent({
     settings.currencyInfo.id,
     shouldIncludePerpsAmount,
   ]);
+  const liveHeaderBalanceUsd = nativeBalanceAmountsUsd.total;
   const lastConfirmedBalance = getNativeHomeLastConfirmedBalance({
     accountId: account?.id,
     byOwner: lastConfirmedOverviewBalance.byOwner,
@@ -1196,41 +1490,43 @@ function NativeHomePageContent({
     },
     [currencyMap, setLastConfirmedOverviewBalance, settings.currencyInfo.id],
   );
-  const headerBalanceAmountPresentation =
+  const legacyPortfolioBalanceStatus = resolveHomeBalanceQuoteAwareSourceStatus(
+    {
+      quoteReady: nativeBalanceAmountsUsd.portfolioQuoteReady,
+      status: portfolio.balanceAuthority.status,
+    },
+  );
+  const legacyDeFiBalanceStatus = resolveHomeBalanceQuoteAwareSourceStatus({
+    quoteReady: nativeBalanceAmountsUsd.deFiQuoteReady,
+    status: deFi.balanceAuthority.status,
+  });
+  const legacyPerpsBalanceStatus = resolveHomeBalanceQuoteAwareSourceStatus({
+    quoteReady: nativeBalanceAmountsUsd.perpsQuoteReady,
+    status: perps.amountAuthority.status,
+  });
+  const legacyHeaderBalanceAmountPresentation =
     useNativeHomeBalanceAmountPresentation({
       confirmedValueUsd: lastConfirmedBalanceUsd,
       deFi: {
         included: shouldIncludeDeFiAmount,
         scopeKey: deFi.balanceAuthority.scopeKey,
-        status: deFi.balanceAuthority.status,
+        status: legacyDeFiBalanceStatus,
       },
       liveValueUsd: liveHeaderBalanceUsd,
       ownerKey: overviewOwnerKey,
       perps: {
         included: shouldIncludePerpsAmount,
         scopeKey: isCurrentPerpsAmount ? homeBalanceScopeKey : undefined,
-        status: perps.amountAuthority.status,
+        status: legacyPerpsBalanceStatus,
       },
       portfolio: {
         included: true,
         scopeKey: portfolio.balanceAuthority.scopeKey,
-        status: portfolio.balanceAuthority.status,
+        status: legacyPortfolioBalanceStatus,
       },
       scopeKey: homeBalanceScopeKey,
       onCommit: commitNativeHomeBalanceAmount,
     });
-  const headerBalanceValue = useMemo(() => {
-    const displayValue = convertNativeHomeBalanceUsdToDisplay({
-      currencyMap,
-      displayCurrency: settings.currencyInfo.id,
-      valueUsd: headerBalanceAmountPresentation.valueUsd,
-    });
-    return displayValue === undefined ? undefined : new BigNumber(displayValue);
-  }, [
-    currencyMap,
-    headerBalanceAmountPresentation.valueUsd,
-    settings.currencyInfo.id,
-  ]);
   const hasNativeHomeHoldingsNow = useMemo(
     () =>
       hasNativeHomePortfolioHoldings({
@@ -1240,8 +1536,11 @@ function NativeHomePageContent({
       }),
     [portfolio.map, portfolio.riskMap, portfolio.smallBalanceMap],
   );
-  const hasCurrentNativeHomeHoldings =
+  const hasCurrentNativeHomeHoldingsNow =
     portfolio.balanceAuthority.scopeKey === homeBalanceScopeKey &&
+    hasNativeHomeHoldingsNow;
+  const hasCurrentNativeHomeHoldings =
+    hasCurrentNativeHomeHoldingsNow &&
     resolveNativeHomeFundedHoldings({
       accountId: account?.id,
       hasHoldingsNow: hasNativeHomeHoldingsNow,
@@ -1276,7 +1575,153 @@ function NativeHomePageContent({
     scopeKey: homeBalanceScopeKey,
   });
   homeBalanceScopeCacheRef.current = homeBalanceResolution.cache;
-  const homeBalanceState = homeBalanceResolution.state;
+  const legacyHomeBalanceState = homeBalanceResolution.state;
+  const nativeBalanceQuoteBasis = useMemo(
+    () => ({
+      currency: USD_CURRENCY_ID,
+      pricingRevision: nativeBalanceAmountsUsd.pricingRevision,
+    }),
+    [nativeBalanceAmountsUsd.pricingRevision],
+  );
+  const nativeBalanceRequiredSetRevision = `native-home-balance:v1:${
+    shouldIncludeDeFiAmount ? 'defi' : 'no-defi'
+  }:${shouldIncludePerpsAmount ? 'perps' : 'no-perps'}`;
+  const nativeBalanceFacts = useMemo(() => {
+    const semanticOwnerMatches =
+      homeFactsShadow?.owner.walletId === wallet?.id &&
+      homeFactsShadow?.owner.accountId === account?.id &&
+      (network?.isAllNetworks
+        ? homeFactsShadow?.owner.network.kind === 'allNetworks'
+        : homeFactsShadow?.owner.network.kind === 'singleNetwork' &&
+          homeFactsShadow.owner.network.networkId === network?.id);
+    if (!homeFactsShadow || !homeBalanceScopeKey || !semanticOwnerMatches) {
+      return undefined;
+    }
+    const portfolioAmount = new BigNumber(nativeBalanceAmountsUsd.portfolio);
+    let portfolioStatus: 'empty' | 'error' | 'loading' | 'partial' | 'success' =
+      portfolio.balanceAuthority.status;
+    if (!nativeBalanceAmountsUsd.portfolioQuoteReady) {
+      portfolioStatus = hasCurrentNativeHomeHoldingsNow ? 'partial' : 'loading';
+    } else if (portfolio.balanceAuthority.status === 'success') {
+      if (hasCurrentNativeHomeHoldingsNow && portfolioAmount.isZero()) {
+        portfolioStatus = 'partial';
+      } else {
+        portfolioStatus = portfolioAmount.isZero() ? 'empty' : 'success';
+      }
+    }
+    let deFiStatus: 'empty' | 'error' | 'loading' | 'partial' | 'success' =
+      deFi.balanceAuthority.status;
+    if (!nativeBalanceAmountsUsd.deFiQuoteReady) {
+      deFiStatus = currentDeFiBalanceIsPositive ? 'partial' : 'loading';
+    }
+    let perpsStatus: 'empty' | 'error' | 'loading' | 'partial' | 'success' =
+      perps.amountAuthority.status;
+    if (!nativeBalanceAmountsUsd.perpsQuoteReady) {
+      perpsStatus = currentPerpsBalanceIsPositive ? 'partial' : 'loading';
+    }
+    const balance = adaptCurrentHomeBalanceFacts({
+      bannerAvailable: banners.banners.length > 0,
+      compatibilityConfirmedAmount: lastConfirmedBalanceUsd,
+      contributors: [
+        {
+          amount: nativeBalanceAmountsUsd.portfolio,
+          coverageFingerprint: `portfolio:${portfolio.balanceAuthority.generation}`,
+          expectedSourceScopeKey: homeBalanceScopeKey,
+          id: 'portfolio',
+          included: true,
+          positiveEvidence: hasCurrentNativeHomeHoldingsNow,
+          sourceIdentity: 'native-portfolio:v1',
+          sourceScopeKey: portfolio.balanceAuthority.scopeKey,
+          status: portfolioStatus,
+        },
+        {
+          amount: nativeBalanceAmountsUsd.deFi,
+          coverageFingerprint: `defi:${deFi.balanceAuthority.generation}`,
+          expectedSourceScopeKey: homeBalanceScopeKey,
+          id: 'defi',
+          included: shouldIncludeDeFiAmount,
+          positiveEvidence: currentDeFiBalanceIsPositive,
+          sourceIdentity: 'native-defi:v1',
+          sourceScopeKey: deFi.balanceAuthority.scopeKey,
+          status: deFiStatus,
+        },
+        {
+          amount: nativeBalanceAmountsUsd.perps,
+          coverageFingerprint: `perps:${perps.amountAuthority.status}`,
+          expectedSourceScopeKey: homeBalanceScopeKey,
+          id: 'perps',
+          included: shouldIncludePerpsAmount,
+          positiveEvidence: currentPerpsBalanceIsPositive,
+          sourceIdentity: 'native-perps:v1',
+          sourceScopeKey: isCurrentPerpsAmount
+            ? homeBalanceScopeKey
+            : undefined,
+          status: perpsStatus,
+        },
+      ],
+      ownerToken: homeFactsShadow.ownerToken,
+      quoteBasis: nativeBalanceQuoteBasis,
+      requiredSetRevision: nativeBalanceRequiredSetRevision,
+    });
+    return { ...homeFactsShadow, balance };
+  }, [
+    account?.id,
+    banners.banners.length,
+    currentDeFiBalanceIsPositive,
+    currentPerpsBalanceIsPositive,
+    deFi.balanceAuthority.generation,
+    deFi.balanceAuthority.scopeKey,
+    deFi.balanceAuthority.status,
+    hasCurrentNativeHomeHoldingsNow,
+    homeBalanceScopeKey,
+    homeFactsShadow,
+    isCurrentPerpsAmount,
+    lastConfirmedBalanceUsd,
+    nativeBalanceAmountsUsd.deFi,
+    nativeBalanceAmountsUsd.deFiQuoteReady,
+    nativeBalanceAmountsUsd.perps,
+    nativeBalanceAmountsUsd.perpsQuoteReady,
+    nativeBalanceAmountsUsd.portfolio,
+    nativeBalanceAmountsUsd.portfolioQuoteReady,
+    nativeBalanceQuoteBasis,
+    nativeBalanceRequiredSetRevision,
+    network?.id,
+    network?.isAllNetworks,
+    perps.amountAuthority.status,
+    portfolio.balanceAuthority.generation,
+    portfolio.balanceAuthority.scopeKey,
+    portfolio.balanceAuthority.status,
+    shouldIncludeDeFiAmount,
+    shouldIncludePerpsAmount,
+    wallet?.id,
+  ]);
+  const semanticShell = useHomeShellCoordinator(nativeBalanceFacts);
+  const nativeShellPresentation = semanticShell
+    ? adaptHomeShellToNativeHeader(semanticShell)
+    : undefined;
+  const headerBalanceAmountPresentation = semanticShell
+    ? adaptHomeShellToNativeBalanceAmountPresentation(semanticShell)
+    : legacyHeaderBalanceAmountPresentation;
+  let homeBalanceState = legacyHomeBalanceState;
+  if (nativeShellPresentation?.actionFamily === 'funded') {
+    homeBalanceState = 'positive';
+  } else if (nativeShellPresentation?.actionFamily === 'zero') {
+    homeBalanceState = 'zero';
+  } else if (nativeShellPresentation) {
+    homeBalanceState = 'unknown';
+  }
+  const headerBalanceValue = useMemo(() => {
+    const displayValue = convertNativeHomeBalanceUsdToDisplay({
+      currencyMap,
+      displayCurrency: settings.currencyInfo.id,
+      valueUsd: headerBalanceAmountPresentation.valueUsd,
+    });
+    return displayValue === undefined ? undefined : new BigNumber(displayValue);
+  }, [
+    currencyMap,
+    headerBalanceAmountPresentation.valueUsd,
+    settings.currencyInfo.id,
+  ]);
   const headerActionPresentation = useMemo(
     () => resolveNativeHomeHeaderActionPresentation(homeBalanceState),
     [homeBalanceState],
@@ -1385,22 +1830,14 @@ function NativeHomePageContent({
         {
           id: 'portfolio',
           title: '',
+          destination: 'inline',
           sections: [],
         },
       ];
     }
-    return HOME_CONTAINER_TAB_IDS.filter((id) => {
-      if (id === 'perps') {
-        return homeWalletCapabilityTabModel.isPerpsVisible;
-      }
-      if (id === 'defi') {
-        return homeWalletCapabilityTabModel.isDeFiVisible;
-      }
-      if (id === 'nft') {
-        return isNFTEnabled;
-      }
-      return true;
-    }).map((id) => {
+    return HOME_CONTAINER_TAB_IDS.filter((id) =>
+      homeWalletCapabilityTabModel.tabIds.includes(id),
+    ).map((id) => {
       let toolbarAction: IHomeContainerAction | undefined;
       if (id === 'portfolio' && manageTokenEnabled) {
         toolbarAction = {
@@ -1417,28 +1854,42 @@ function NativeHomePageContent({
           actionId: 'home.history.filter',
         };
       }
-      return {
+      const tab = {
         id,
         title: tabTitles[id],
         toolbarAction,
         sections: [],
       };
+      if (
+        id === 'perps' &&
+        homeWalletCapabilityTabModel.perpsDestination === 'web'
+      ) {
+        return {
+          ...tab,
+          destination: 'handoff' as const,
+          handoffCommandId: 'home.perps.openWeb',
+        };
+      }
+      return { ...tab, destination: 'inline' as const };
     });
-  }, [
-    homeWalletCapabilityTabModel,
-    isNFTEnabled,
-    manageTokenEnabled,
-    tabTitles,
-  ]);
+  }, [homeWalletCapabilityTabModel, manageTokenEnabled, tabTitles]);
   const tabSectionsById = useMemo<
     Partial<Record<IHomeContainerTabId, IHomeContainerSection[]>>
   >(
     () => ({
-      portfolio: portfolioSections,
-      perps: perpsSections,
-      defi: deFiSections,
-      nft: nftSections,
-      history: historySections,
+      portfolio: resolveNativeHomeCompatibilitySections({
+        sections: portfolioSections,
+      }),
+      perps:
+        homeWalletCapabilityTabModel.status === 'confirmed' &&
+        homeWalletCapabilityTabModel.perpsDestination === 'inline'
+          ? resolveNativeHomeCompatibilitySections({ sections: perpsSections })
+          : undefined,
+      defi: resolveNativeHomeCompatibilitySections({ sections: deFiSections }),
+      nft: resolveNativeHomeCompatibilitySections({ sections: nftSections }),
+      history: resolveNativeHomeCompatibilitySections({
+        sections: historySections,
+      }),
     }),
     [
       deFiSections,
@@ -1446,6 +1897,7 @@ function NativeHomePageContent({
       nftSections,
       perpsSections,
       portfolioSections,
+      homeWalletCapabilityTabModel,
     ],
   );
   const latestTabSectionsRef = useRef(tabSectionsById);
@@ -1458,15 +1910,14 @@ function NativeHomePageContent({
         tabShells,
         sectionsByTab: latestTabSectionsRef.current,
         shouldCommitTabs: homeWalletCapabilityTabModel.shouldCommitTabs,
-        selectedTabId: activeTabIdRef.current,
+        selectedTabId:
+          homeWalletCapabilityTabModel.status === 'confirmed'
+            ? homeWalletCapabilityTabModel.selectedTabId
+            : 'portfolio',
       }),
       scopeKey: expectedPortfolioScopeKey,
     }),
-    [
-      expectedPortfolioScopeKey,
-      homeWalletCapabilityTabModel.shouldCommitTabs,
-      tabShells,
-    ],
+    [expectedPortfolioScopeKey, homeWalletCapabilityTabModel, tabShells],
   );
   const contentStateSlots = useMemo<
     NonNullable<IHomeContainerSlots['contentStates']>
@@ -1483,7 +1934,11 @@ function NativeHomePageContent({
         },
       };
     }
-    const committedTabIds = new Set(tabShells.map(({ id }) => id));
+    const committedTabIds = new Set(
+      tabShells
+        .filter((tab) => tab.destination === 'inline')
+        .map(({ id }) => id),
+    );
     const slots: NonNullable<IHomeContainerSlots['contentStates']> = {};
     const setSlot = (
       tabId: IHomeContainerTabId,
@@ -2166,8 +2621,13 @@ function NativeHomePageContent({
     structuralTabState: structuralAtomicTabState,
     shouldCommitTabs: homeWalletCapabilityTabModel.shouldCommitTabs,
     sectionsByTab: tabSectionsById,
+    slots: homeSlots,
     onSelectedTabIdChange: handleStructuralSelectedTabIdChange,
   });
+  const [nativeProtocolVersion, setNativeProtocolVersion] = useState<1 | 2>(1);
+  const [nativeRenderedRevision, setNativeRenderedRevision] = useState<
+    number | undefined
+  >();
   const attachedControllerTargetRef = useRef<IHomeContainerRef | undefined>(
     undefined,
   );
@@ -2185,6 +2645,8 @@ function NativeHomePageContent({
         const target = nativeRef.current;
         if (controller.attach(target, capabilities)) {
           attachedControllerTargetRef.current = target;
+          setNativeProtocolVersion(controller.getProtocolVersion());
+          setNativeRenderedRevision(controller.getRenderedRevision());
         }
       }
     },
@@ -2195,10 +2657,21 @@ function NativeHomePageContent({
       if (!isHomeTabId(value)) {
         return;
       }
+      if (
+        value === 'perps' &&
+        homeWalletCapabilityTabModel.status === 'confirmed' &&
+        homeWalletCapabilityTabModel.perpsDestination === 'web'
+      ) {
+        navigation.switchTab(ETabRoutes.WebviewPerpTrade);
+        return;
+      }
+      if (!selectCapabilityTab(value)) {
+        return;
+      }
       controller.recordSelectedTab(value);
       setActiveTabId(value);
     },
-    [controller],
+    [controller, homeWalletCapabilityTabModel, navigation, selectCapabilityTab],
   );
   const handleRefresh = useCallback(
     (value: string, requestId: string) => {
@@ -2243,6 +2716,17 @@ function NativeHomePageContent({
   const handleAction = useCallback(
     async (actionId: string, itemId: string, tabId: string) => {
       onAction?.(actionId, itemId, tabId);
+      if (actionId === 'home.perps.openWeb') {
+        handleHomeNativeLegacyHandoff({
+          commandId: actionId,
+          currentNavigation: capabilityNavigation,
+          currentSnapshot: controller.getSnapshot(),
+          onOpenPerpsWeb: () =>
+            navigation.switchTab(ETabRoutes.WebviewPerpTrade),
+          tabId: itemId,
+        });
+        return;
+      }
       if (actionId === 'home.header.account') {
         showAccountSelector();
         return;
@@ -2748,6 +3232,8 @@ function NativeHomePageContent({
     [
       account,
       banners,
+      capabilityNavigation,
+      controller,
       copyAddressWithDeriveType,
       deFi.protocolMap,
       deFi.protocols,
@@ -2796,17 +3282,117 @@ function NativeHomePageContent({
   );
   slotActionRef.current = handleAction;
 
+  const handleTransportResult = useCallback(
+    (value: string) => {
+      if (!controller.handleTransportResult(value)) {
+        return;
+      }
+      try {
+        const result = JSON.parse(value) as IHomeContainerTransportResult;
+        if (result.kind === 'applied' || result.kind === 'duplicate') {
+          const owner = controller.getOwner();
+          if (
+            result.owner.scopeKey === owner.scopeKey &&
+            result.owner.sessionId === owner.sessionId
+          ) {
+            setNativeRenderedRevision(result.revision);
+          }
+        } else {
+          setNativeRenderedRevision(undefined);
+        }
+      } catch {
+        // The controller has already rejected malformed transport results.
+      }
+    },
+    [controller],
+  );
+  const handleIntent = useCallback(
+    (value: string) => {
+      const currentRevision = controller.getRenderedRevision();
+      if (currentRevision === undefined) {
+        return;
+      }
+      const result = guardHomeNativeIntent({
+        currentNavigation: capabilityNavigation,
+        currentOwner: controller.getOwner(),
+        currentRevision,
+        currentShell: semanticShell,
+        currentSnapshot: controller.getSnapshot(),
+        value,
+      });
+      if (!result.accepted) {
+        if (result.intent?.intent.kind === 'refresh') {
+          nativeRef.current?.completeRefresh(result.intent.intent.requestId);
+        }
+        return;
+      }
+      switch (result.intent.intent.kind) {
+        case 'action':
+          void handleAction(
+            result.intent.intent.commandId,
+            result.intent.intent.itemId ?? '',
+            activeTabIdRef.current,
+          );
+          break;
+        case 'handoff':
+          if (result.intent.intent.commandId === 'home.perps.openWeb') {
+            navigation.switchTab(ETabRoutes.WebviewPerpTrade);
+          }
+          break;
+        case 'refresh':
+          handleRefresh(
+            result.intent.intent.tabId,
+            result.intent.intent.requestId,
+          );
+          break;
+        case 'selectTab':
+          handleVisibleTabChange(result.intent.intent.tabId);
+          break;
+        default:
+          break;
+      }
+    },
+    [
+      capabilityNavigation,
+      controller,
+      handleAction,
+      handleRefresh,
+      handleVisibleTabChange,
+      navigation,
+      semanticShell,
+    ],
+  );
+  const homeSlotBundle = useMemo(() => {
+    if (nativeProtocolVersion !== 2) {
+      return undefined;
+    }
+    const candidateSlotState = controller.getRenderedSlotState();
+    const renderedSlotState =
+      candidateSlotState?.revision === nativeRenderedRevision
+        ? candidateSlotState
+        : undefined;
+    return createHomeNativeSlotBundle({
+      owner: renderedSlotState?.owner ?? controller.getOwner(),
+      semanticRevision: renderedSlotState?.revision ?? -1,
+      slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
+      slots: renderedSlotState?.slots ?? homeSlots,
+    });
+  }, [controller, homeSlots, nativeProtocolVersion, nativeRenderedRevision]);
+
   return (
     <HomeContainer
       ref={nativeRef}
       style={{ flex: 1 }}
-      slots={homeSlots}
+      slots={nativeProtocolVersion === 1 ? homeSlots : undefined}
+      slotBundle={homeSlotBundle}
       debugOverlayEnabled={debugOverlayEnabled}
       onReady={handleReady}
       onAction={handleAction}
       onRefresh={handleRefresh}
       onVisibleTabChange={handleVisibleTabChange}
       onRenderError={onRenderError}
+      onIntent={handleIntent}
+      onTransportResult={handleTransportResult}
     />
   );
 }

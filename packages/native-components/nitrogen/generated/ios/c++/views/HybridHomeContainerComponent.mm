@@ -106,6 +106,16 @@ using namespace margelo::nitro::onekeynativecomponents::views;
     swiftPart.setOnRenderError(newViewProps.onRenderError.value);
     newViewProps.onRenderError.isDirty = false;
   }
+  // onIntent: optional
+  if (newViewProps.onIntent.isDirty) {
+    swiftPart.setOnIntent(newViewProps.onIntent.value);
+    newViewProps.onIntent.isDirty = false;
+  }
+  // onTransportResult: optional
+  if (newViewProps.onTransportResult.isDirty) {
+    swiftPart.setOnTransportResult(newViewProps.onTransportResult.value);
+    newViewProps.onTransportResult.isDirty = false;
+  }
 
   swiftPart.afterUpdate();
 

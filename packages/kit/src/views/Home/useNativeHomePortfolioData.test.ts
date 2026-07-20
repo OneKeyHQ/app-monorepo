@@ -5,7 +5,7 @@ import { useNativeHomePortfolioData } from './useNativeHomePortfolioData';
 interface ITestActiveAccountState {
   activeAccount: {
     account?: { id: string };
-    deriveInfoItems: [];
+    deriveInfoItems: unknown[];
     indexedAccount?: { id: string };
     network?: { id: string; isAllNetworks: boolean };
     vaultSettings: { mergeDeriveAssetsEnabled: boolean };
@@ -45,7 +45,15 @@ interface ITestResponse extends ITestFetchResponse {
 }
 
 interface ITestAllNetworkParams {
-  allNetworkAccountsData?: (value: { accounts: []; allAccounts: [] }) => void;
+  allNetworkAccountsData?: (value: {
+    accounts: Array<{
+      accountId: string;
+      accountXpub?: string;
+      apiAddress: string;
+      networkId: string;
+    }>;
+    allAccounts: [];
+  }) => void;
   allNetworkCacheData?: (value: {
     accountId: string;
     data: Array<{
@@ -87,6 +95,8 @@ interface ITestAllNetworkControl {
 
 interface ITestLocalCache {
   hasCache: boolean;
+  riskyTokenList?: ITestToken[];
+  smallBalanceTokenList?: ITestToken[];
   tokenList?: ITestToken[];
   tokenListMap?: Record<string, { fiatValue: string }>;
 }
@@ -99,6 +109,12 @@ interface ITestBackgroundControl {
   >;
   getAccountLocalTokens: jest.Mock<
     Promise<ITestLocalCache>,
+    [Record<string, unknown>]
+  >;
+  getNetworkAccounts: jest.Mock<
+    Promise<{
+      networkAccounts: Array<{ account?: { id: string } }>;
+    }>,
     [Record<string, unknown>]
   >;
   getAccountXpubOrAddress: jest.Mock<
@@ -161,6 +177,12 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
       Promise<ITestLocalCache>,
       [Record<string, unknown>]
     >(),
+    getNetworkAccounts: jest.fn<
+      Promise<{
+        networkAccounts: Array<{ account?: { id: string } }>;
+      }>,
+      [Record<string, unknown>]
+    >(),
     getAccountXpubOrAddress: jest.fn<
       Promise<string | undefined>,
       [Record<string, unknown>]
@@ -173,7 +195,8 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     default: {
       serviceAccount: {
         getAccountXpubOrAddress: control.getAccountXpubOrAddress,
-        getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes: jest.fn(),
+        getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes:
+          control.getNetworkAccounts,
       },
       serviceNetwork: {
         getVaultSettings: jest.fn(() =>
@@ -267,19 +290,23 @@ function createDeferred<T>() {
 
 function setActiveScope({
   accountId,
+  deriveInfoItems = [],
   isAllNetworks,
+  mergeDeriveAssetsEnabled = false,
   networkId,
 }: {
   accountId?: string;
+  deriveInfoItems?: unknown[];
   isAllNetworks: boolean;
+  mergeDeriveAssetsEnabled?: boolean;
   networkId: string;
 }) {
   globalControl.__nativeHomePortfolioActiveState.activeAccount = {
     account: accountId ? { id: accountId } : undefined,
-    deriveInfoItems: [],
+    deriveInfoItems,
     indexedAccount: { id: 'indexed-1' },
     network: { id: networkId, isAllNetworks },
-    vaultSettings: { mergeDeriveAssetsEnabled: false },
+    vaultSettings: { mergeDeriveAssetsEnabled },
     wallet: { id: 'wallet-1' },
   };
 }
@@ -296,6 +323,12 @@ describe('useNativeHomePortfolioData owner behavior', () => {
     background.customTokensRawData.mockResolvedValue(undefined);
     background.getAccountXpubOrAddress.mockResolvedValue('address-1');
     background.getAccountLocalTokens.mockResolvedValue({ hasCache: false });
+    background.getNetworkAccounts.mockResolvedValue({
+      networkAccounts: [
+        { account: { id: 'derive-account-1' } },
+        { account: { id: 'derive-account-2' } },
+      ],
+    });
     background.updateCurrentAccount.mockResolvedValue(undefined);
     background.fetchAccountTokens.mockResolvedValue({
       riskTokens: { data: [], map: {} },
@@ -409,6 +442,9 @@ describe('useNativeHomePortfolioData owner behavior', () => {
 
     expect(result.current.dataScopeKey).toContain('all--0');
     expect(result.current.tokens.map((token) => token.symbol)).toEqual(['BTC']);
+    expect(result.current.spotSectionSource?.snapshot).toMatchObject({
+      kind: 'partial',
+    });
   });
 
   it('blocks All fan-out until the captured owner prerequisite resolves', async () => {
@@ -511,6 +547,103 @@ describe('useNativeHomePortfolioData owner behavior', () => {
     expect(result.current.tokens.map((token) => token.symbol)).toEqual(['BTC']);
   });
 
+  it('only confirms an All Networks cache with exact account coverage', async () => {
+    const allNetwork = globalControl.__nativeHomePortfolioAllNetworkControl;
+    const btc = createToken('BTC', 'btc--0');
+    const eth = createToken('ETH', 'evm--1');
+    setActiveScope({
+      accountId: 'account-all',
+      isAllNetworks: true,
+      networkId: 'all--0',
+    });
+    const { result } = renderHook(() =>
+      useNativeHomePortfolioData({ enabled: true }),
+    );
+    const params = allNetwork.params;
+    await act(async () => {
+      await params?.onStarted?.({
+        accountId: 'account-all',
+        networkId: 'all--0',
+      });
+      params?.allNetworkAccountsData?.({
+        accounts: [
+          {
+            accountId: 'account-btc',
+            apiAddress: 'btc-address',
+            networkId: 'btc--0',
+          },
+          {
+            accountId: 'account-eth',
+            apiAddress: 'eth-address',
+            networkId: 'evm--1',
+          },
+        ],
+        allAccounts: [],
+      });
+      await params?.allNetworkCacheData?.({
+        accountId: 'account-all',
+        data: [
+          {
+            accountId: 'account-btc',
+            map: { [btc.$key]: { fiatValue: '1' } },
+            mergeDeriveAssets: false,
+            networkId: 'btc--0',
+            riskMap: {},
+            riskTokens: [],
+            smallBalanceMap: {},
+            smallBalanceTokens: [],
+            tokens: [btc],
+          },
+        ],
+        generation: 1,
+        networkId: 'all--0',
+      });
+    });
+    expect(result.current.spotSectionSource?.snapshot).toMatchObject({
+      kind: 'partial',
+    });
+
+    await act(async () => {
+      await params?.allNetworkCacheData?.({
+        accountId: 'account-all',
+        data: [
+          {
+            accountId: 'account-btc',
+            map: { [btc.$key]: { fiatValue: '1' } },
+            mergeDeriveAssets: false,
+            networkId: 'btc--0',
+            riskMap: {},
+            riskTokens: [],
+            smallBalanceMap: {},
+            smallBalanceTokens: [],
+            tokens: [btc],
+          },
+          {
+            accountId: 'account-eth',
+            map: { [eth.$key]: { fiatValue: '1' } },
+            mergeDeriveAssets: false,
+            networkId: 'evm--1',
+            riskMap: {},
+            riskTokens: [],
+            smallBalanceMap: {},
+            smallBalanceTokens: [],
+            tokens: [eth],
+          },
+        ],
+        generation: 2,
+        networkId: 'all--0',
+      });
+    });
+    const snapshot = result.current.spotSectionSource?.snapshot;
+    expect(snapshot?.kind).toBe('confirmedCache');
+    if (snapshot?.kind === 'confirmedCache') {
+      expect(snapshot.data.tokens.map((token) => token.symbol)).toEqual([
+        'BTC',
+        'ETH',
+      ]);
+    }
+  });
+
   it('settles missing-account and fetch-error states', async () => {
     const background = globalControl.__nativeHomePortfolioBackgroundControl;
     setActiveScope({
@@ -539,16 +672,18 @@ describe('useNativeHomePortfolioData owner behavior', () => {
         errorCode: 'portfolio_fetch_failed',
         initialized: true,
         isRefreshing: false,
+        spotSectionSource: {
+          snapshot: { kind: 'error', errorKind: 'source' },
+        },
       }),
     );
   });
 
   it('commits live rows while custom-token projection remains unresolved', async () => {
     const background = globalControl.__nativeHomePortfolioBackgroundControl;
+    const customTokens = createDeferred<unknown>();
     const liveToken = createToken('BTC', 'btc--0');
-    background.customTokensRawData.mockReturnValue(
-      new Promise(() => undefined),
-    );
+    background.customTokensRawData.mockReturnValue(customTokens.promise);
     background.fetchAccountTokens.mockResolvedValueOnce(
       createResponse(liveToken),
     );
@@ -561,7 +696,108 @@ describe('useNativeHomePortfolioData owner behavior', () => {
       expect(result.current.tokens.map((token) => token.symbol)).toEqual([
         'BTC',
       ]);
+      expect(result.current.spotSectionSource?.snapshot).toEqual({
+        kind: 'loading',
+        requestSeq: 1,
+      });
+    });
+
+    await act(async () => {
+      customTokens.resolve(undefined);
+      await customTokens.promise;
+    });
+    await waitFor(() => {
       expect(result.current.isRefreshing).toBe(false);
+      expect(result.current.spotSectionSource?.snapshot).toMatchObject({
+        kind: 'complete',
+        result: {
+          kind: 'success',
+          data: {
+            dataScopeKey: result.current.dataScopeKey,
+            tokens: result.current.tokens,
+          },
+          rowIds: [liveToken.$key],
+        },
+      });
+    });
+  });
+
+  it('does not publish single-network local cache before live completion', async () => {
+    const background = globalControl.__nativeHomePortfolioBackgroundControl;
+    const live = createDeferred<ITestFetchResponse>();
+    const customTokens = createDeferred<unknown>();
+    const regular = createToken('REGULAR', 'btc--0');
+    const custom = createToken('CUSTOM', 'btc--0');
+    const risky = createToken('RISKY', 'btc--0');
+    const small = createToken('SMALL', 'btc--0');
+    background.customTokensRawData.mockReturnValue(customTokens.promise);
+    background.getAccountLocalTokens.mockResolvedValueOnce({
+      hasCache: true,
+      riskyTokenList: [risky],
+      smallBalanceTokenList: [small],
+      tokenList: [regular],
+      tokenListMap: {
+        [regular.$key]: { fiatValue: '3' },
+        [risky.$key]: { fiatValue: '2' },
+        [small.$key]: { fiatValue: '1' },
+      },
+    });
+    background.fetchAccountTokens.mockReturnValueOnce(live.promise);
+    const { result } = renderHook(() =>
+      useNativeHomePortfolioData({ enabled: true }),
+    );
+
+    await waitFor(() => {
+      expect(background.fetchAccountTokens).toHaveBeenCalled();
+      expect(result.current.spotSectionSource?.snapshot).toEqual({
+        kind: 'loading',
+        requestSeq: 1,
+      });
+    });
+    expect(result.current.spotSectionSource?.snapshot?.kind).not.toBe(
+      'confirmedCache',
+    );
+
+    await act(async () => {
+      live.resolve(createResponse(regular));
+      await live.promise;
+    });
+    expect(result.current.tokens.map((token) => token.symbol)).toEqual([
+      'REGULAR',
+    ]);
+    expect(result.current.spotSectionSource?.snapshot).toEqual({
+      kind: 'loading',
+      requestSeq: 1,
+    });
+
+    await act(async () => {
+      customTokens.resolve({
+        customMap: {
+          'btc--0__account:address-1': {
+            custom: custom.symbol,
+          },
+        },
+        hiddenMap: {},
+        tokens: {
+          custom,
+        },
+      });
+      await customTokens.promise;
+    });
+    await waitFor(() => {
+      expect(result.current.spotSectionSource?.snapshot).toMatchObject({
+        kind: 'complete',
+        result: {
+          kind: 'success',
+          data: {
+            customTokens: [custom],
+            riskTokens: [],
+            smallBalanceTokens: [],
+            tokens: [regular],
+          },
+          rowIds: [regular.$key],
+        },
+      });
     });
   });
 
@@ -579,12 +815,17 @@ describe('useNativeHomePortfolioData owner behavior', () => {
       useNativeHomePortfolioData({ enabled: true }),
     );
 
-    await act(async () => {
-      await result.current.refresh();
+    await waitFor(() =>
+      expect(result.current.tokens.map((token) => token.symbol)).toEqual([
+        'LIVE',
+      ]),
+    );
+
+    let refreshTask: Promise<void> | undefined;
+    act(() => {
+      refreshTask = result.current.refresh();
     });
-    expect(result.current.tokens.map((token) => token.symbol)).toEqual([
-      'LIVE',
-    ]);
+    await waitFor(() => expect(result.current.isRefreshing).toBe(true));
 
     await act(async () => {
       cache.resolve({
@@ -600,7 +841,50 @@ describe('useNativeHomePortfolioData owner behavior', () => {
 
     await act(async () => {
       pendingFollowUp.resolve(createResponse(liveToken));
-      await Promise.resolve();
+      await refreshTask;
     });
+  });
+
+  it('does not relabel a single-account cache as an exact merge-derive seed', async () => {
+    const background = globalControl.__nativeHomePortfolioBackgroundControl;
+    const live = createDeferred<ITestFetchResponse>();
+    const liveToken = createToken('LIVE', 'btc--0');
+    const cachedToken = createToken('PARTIAL_CACHE', 'btc--0');
+    setActiveScope({
+      accountId: 'account-btc',
+      deriveInfoItems: [{}, {}],
+      isAllNetworks: false,
+      mergeDeriveAssetsEnabled: true,
+      networkId: 'btc--0',
+    });
+    background.getAccountLocalTokens.mockResolvedValueOnce({
+      hasCache: true,
+      tokenList: [cachedToken],
+      tokenListMap: { [cachedToken.$key]: { fiatValue: '1' } },
+    });
+    background.fetchAccountTokens.mockReturnValueOnce(live.promise);
+
+    const { result } = renderHook(() =>
+      useNativeHomePortfolioData({ enabled: true }),
+    );
+
+    await waitFor(() =>
+      expect(background.fetchAccountTokens).toHaveBeenCalled(),
+    );
+    expect(background.getAccountLocalTokens).not.toHaveBeenCalled();
+    expect(result.current.spotSectionSource?.snapshot).toEqual({
+      kind: 'loading',
+      requestSeq: 1,
+    });
+
+    await act(async () => {
+      live.resolve(createResponse(liveToken));
+      await live.promise;
+    });
+    await waitFor(() =>
+      expect(result.current.tokens.map((token) => token.symbol)).toEqual([
+        'LIVE',
+      ]),
+    );
   });
 });

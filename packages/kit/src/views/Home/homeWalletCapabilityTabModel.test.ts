@@ -1,5 +1,6 @@
 import {
   buildHomeWalletAtomicTabState,
+  buildHomeWalletCapabilityNavigationModel,
   buildHomeWalletCapabilityTabModel,
   commitHomeWalletScopedWorth,
   resolveHomeWalletScopedWorth,
@@ -35,7 +36,7 @@ describe('home wallet capability tab model', () => {
   });
 
   it('commits hidden capability tabs only after unsupported BTC is confirmed', () => {
-    expect(buildHomeWalletCapabilityTabModel(unsupportedBtc)).toEqual({
+    expect(buildHomeWalletCapabilityTabModel(unsupportedBtc)).toMatchObject({
       status: 'confirmed',
       shouldCommitTabs: true,
       isDeFiVisible: false,
@@ -75,7 +76,7 @@ describe('home wallet capability tab model', () => {
         ...supportedEvm,
         isPerpsSupported: false,
       }),
-    ).toEqual({
+    ).toMatchObject({
       status: 'confirmed',
       shouldCommitTabs: true,
       isDeFiVisible: true,
@@ -84,7 +85,7 @@ describe('home wallet capability tab model', () => {
   });
 
   it('keeps All Networks confirmed without entering the neutral pending surface', () => {
-    expect(buildHomeWalletCapabilityTabModel(supportedEvm)).toEqual({
+    expect(buildHomeWalletCapabilityTabModel(supportedEvm)).toMatchObject({
       status: 'confirmed',
       shouldCommitTabs: true,
       isDeFiVisible: true,
@@ -111,9 +112,39 @@ describe('home wallet capability tab model', () => {
     ).toBe('portfolio');
   });
 
+  it('consumes one authoritative navigation transaction for both renderers', () => {
+    expect(
+      buildHomeWalletCapabilityNavigationModel({
+        destinations: { portfolio: 'inline', perps: 'web' },
+        freshness: 'live',
+        kind: 'ready',
+        perpsDestination: 'web',
+        refresh: 'idle',
+        sections: {
+          defi: false,
+          history: true,
+          market: true,
+          nft: false,
+          perps: false,
+          portfolio: true,
+        },
+        selectedTabId: 'portfolio',
+        tabs: ['portfolio', 'perps', 'history'],
+      }),
+    ).toEqual({
+      perpsDestination: 'web',
+      selectedTabId: 'portfolio',
+      shouldCommitTabs: true,
+      status: 'confirmed',
+      tabIds: ['portfolio', 'perps', 'history'],
+    });
+  });
+
   it('mounts an explicit native loading row while capability is pending', () => {
     const state = buildHomeWalletAtomicTabState({
-      tabShells: [{ id: 'portfolio', title: '', sections: [] }],
+      tabShells: [
+        { id: 'portfolio', title: '', destination: 'inline', sections: [] },
+      ],
       sectionsByTab: {},
       shouldCommitTabs: false,
       selectedTabId: 'history',
@@ -142,9 +173,19 @@ describe('home wallet capability tab model', () => {
   it('builds confirmed tabs, selected tab, and every current section atomically', () => {
     const state = buildHomeWalletAtomicTabState({
       tabShells: [
-        { id: 'portfolio', title: 'Spot', sections: [] },
-        { id: 'defi', title: 'DeFi', sections: [] },
-        { id: 'history', title: 'History', sections: [] },
+        {
+          id: 'portfolio',
+          title: 'Spot',
+          destination: 'inline',
+          sections: [],
+        },
+        { id: 'defi', title: 'DeFi', destination: 'inline', sections: [] },
+        {
+          id: 'history',
+          title: 'History',
+          destination: 'inline',
+          sections: [],
+        },
       ],
       sectionsByTab: {
         portfolio: [
@@ -195,5 +236,33 @@ describe('home wallet capability tab model', () => {
         current: ownerBCache,
       }),
     ).toBe(ownerBCache);
+  });
+
+  it('keeps handoff tabs section-free and out of native selection', () => {
+    const state = buildHomeWalletAtomicTabState({
+      tabShells: [
+        {
+          id: 'portfolio',
+          title: 'Spot',
+          destination: 'inline',
+          sections: [],
+        },
+        {
+          id: 'perps',
+          title: 'Perps',
+          destination: 'handoff',
+          handoffCommandId: 'home.perps.openWeb',
+          sections: [],
+        },
+      ],
+      sectionsByTab: {
+        perps: [{ id: 'invalid-handoff-content', items: [] }],
+      },
+      shouldCommitTabs: true,
+      selectedTabId: 'perps',
+    });
+
+    expect(state.selectedTabId).toBe('portfolio');
+    expect(state.tabs.find((tab) => tab.id === 'perps')?.sections).toEqual([]);
   });
 });

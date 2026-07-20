@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 
 import type { StyleProp, ViewStyle } from 'react-native';
 
-export const HOME_CONTAINER_SCHEMA_VERSION = 1;
+export const HOME_CONTAINER_SCHEMA_VERSION = 2;
+export const HOME_CONTAINER_PROTOCOL_VERSION = 2;
+export const HOME_CONTAINER_SLOT_CONTRACT_REVISION = 1;
 
 export const HOME_CONTAINER_TAB_IDS = [
   'portfolio',
@@ -179,12 +181,21 @@ export interface IHomeContainerSection {
   items: IHomeContainerItem[];
 }
 
-export interface IHomeContainerTab {
+interface IHomeContainerTabBase {
   id: IHomeContainerTabId;
   title: string;
   toolbarAction?: IHomeContainerAction;
   sections: IHomeContainerSection[];
 }
+
+export type IHomeContainerTab = IHomeContainerTabBase &
+  (
+    | { destination: 'inline'; handoffCommandId?: never }
+    | {
+        destination: 'handoff';
+        handoffCommandId: string;
+      }
+  );
 
 export interface IHomeContainerSlots {
   backgroundColor?: string;
@@ -200,6 +211,11 @@ export interface IHomeContainerSlots {
   contentHeaders?: Partial<Record<IHomeContainerTabId, IHomeContainerSlot>>;
   contentStates?: Partial<Record<IHomeContainerTabId, IHomeContainerSlot>>;
   tabAccessories?: Partial<Record<IHomeContainerTabId, IHomeContainerSlot>>;
+}
+
+export interface IHomeContainerOwner {
+  scopeKey: string;
+  sessionId: string;
 }
 
 export interface IHomeContainerSnapshot {
@@ -223,9 +239,114 @@ export interface IHomeContainerTabPatch {
   sections: IHomeContainerSection[];
 }
 
+export type IHomeContainerNavigationTab = Omit<IHomeContainerTab, 'sections'>;
+
+export interface IHomeContainerSnapshotPayload {
+  selectedTabId: IHomeContainerTabId;
+  header: IHomeContainerHeader;
+  tabs: IHomeContainerTab[];
+  theme: IHomeContainerTheme;
+}
+
+export type IHomeContainerChange =
+  | { kind: 'replaceShell'; value: IHomeContainerHeader }
+  | {
+      kind: 'replaceNavigation';
+      value: {
+        selectedTabId: IHomeContainerTabId;
+        tabs: IHomeContainerNavigationTab[];
+      };
+    }
+  | {
+      kind: 'replaceSection';
+      tabId: IHomeContainerTabId;
+      sectionId: string;
+      index: number;
+      value: IHomeContainerSection;
+    }
+  | {
+      kind: 'removeSection';
+      tabId: IHomeContainerTabId;
+      sectionId: string;
+    }
+  | { kind: 'replaceSurface'; value: IHomeContainerTheme };
+
+export interface IHomeContainerSnapshotEnvelope {
+  kind: 'snapshot';
+  protocolVersion: typeof HOME_CONTAINER_PROTOCOL_VERSION;
+  schemaVersion: typeof HOME_CONTAINER_SCHEMA_VERSION;
+  owner: IHomeContainerOwner;
+  revision: number;
+  payload: IHomeContainerSnapshotPayload;
+}
+
+export interface IHomeContainerPatchEnvelope {
+  kind: 'patch';
+  protocolVersion: typeof HOME_CONTAINER_PROTOCOL_VERSION;
+  schemaVersion: typeof HOME_CONTAINER_SCHEMA_VERSION;
+  owner: IHomeContainerOwner;
+  baseRevision: number;
+  revision: number;
+  changes: IHomeContainerChange[];
+}
+
+export type IHomeContainerTransportPayload =
+  | IHomeContainerSnapshot
+  | IHomeContainerPatch
+  | IHomeContainerSnapshotEnvelope
+  | IHomeContainerPatchEnvelope;
+
+export type IHomeContainerTransportResult =
+  | {
+      kind: 'applied' | 'duplicate';
+      owner: IHomeContainerOwner;
+      revision: number;
+    }
+  | {
+      kind: 'needSnapshot';
+      owner?: IHomeContainerOwner;
+      currentRevision?: number;
+      reason:
+        | 'ownerMismatch'
+        | 'revisionGap'
+        | 'invalidInvariant'
+        | 'unsupportedSchema'
+        | 'unsupportedProtocol';
+    };
+
+export interface IHomeContainerTransportSubmission {
+  owner: IHomeContainerOwner;
+  revision: number;
+}
+
+export type IHomeContainerIntentPayload =
+  | { kind: 'action'; commandId: string; itemId?: string }
+  | {
+      kind: 'handoff';
+      tabId: IHomeContainerTabId;
+      commandId: string;
+    }
+  | { kind: 'refresh'; tabId: IHomeContainerTabId; requestId: string }
+  | { kind: 'selectTab'; tabId: IHomeContainerTabId };
+
+export interface IHomeContainerIntent {
+  intentId: string;
+  owner: IHomeContainerOwner;
+  renderedRevision: number;
+  intent: IHomeContainerIntentPayload;
+}
+
+export interface IHomeContainerSlotBundle {
+  owner: IHomeContainerOwner;
+  semanticRevision: number;
+  slotContractRevision: number;
+  slots: IHomeContainerSlots;
+}
+
 export interface IHomeContainerProps {
   snapshot?: IHomeContainerSnapshot;
   slots?: IHomeContainerSlots;
+  slotBundle?: IHomeContainerSlotBundle;
   style?: StyleProp<ViewStyle>;
   fallback?: ReactNode;
   testID?: string;
@@ -235,11 +356,15 @@ export interface IHomeContainerProps {
   onRefresh?: (tabId: string, requestId: string) => void;
   onVisibleTabChange?: (tabId: string) => void;
   onRenderError?: (code: string, message: string) => void;
+  onIntent?: (intentJson: string) => void;
+  onTransportResult?: (resultJson: string) => void;
 }
 
 export interface IHomeContainerRef {
   setSnapshot: (snapshot: IHomeContainerSnapshot) => void;
   applyPatch: (patch: IHomeContainerPatch) => void;
+  setProtocolV2Snapshot?: (snapshot: IHomeContainerSnapshotEnvelope) => void;
+  applyProtocolV2Patch?: (patch: IHomeContainerPatchEnvelope) => void;
   completeRefresh: (requestId: string) => void;
   selectTab: (tabId: IHomeContainerTabId, animated?: boolean) => void;
   getCapabilities: () => IHomeContainerCapabilities | undefined;
@@ -247,6 +372,8 @@ export interface IHomeContainerRef {
 
 export interface IHomeContainerCapabilities {
   schemaVersions: number[];
+  protocolVersions?: number[];
+  preferredProtocol?: number;
   tabIds: IHomeContainerTabId[];
   supportsPatches: boolean;
   supportsAtomicPatches?: boolean;
@@ -256,7 +383,101 @@ export interface IHomeContainerCapabilities {
 }
 
 export function serializeHomeContainerPayload(
-  payload: IHomeContainerSnapshot | IHomeContainerPatch,
+  payload: IHomeContainerTransportPayload,
 ): string {
   return JSON.stringify(payload);
+}
+
+export function isHomeContainerSnapshotInvariantValid(
+  snapshot: Pick<IHomeContainerSnapshot, 'selectedTabId' | 'tabs'>,
+): boolean {
+  const tabIds = new Set<IHomeContainerTabId>();
+  for (const tab of snapshot.tabs) {
+    if (tabIds.has(tab.id)) return false;
+    tabIds.add(tab.id);
+    if (tab.destination === 'handoff') {
+      if (!tab.handoffCommandId || tab.sections.length > 0) return false;
+    } else if (
+      tab.destination !== 'inline' ||
+      tab.handoffCommandId !== undefined
+    ) {
+      return false;
+    }
+  }
+  return snapshot.tabs.some(
+    (tab) => tab.id === snapshot.selectedTabId && tab.destination === 'inline',
+  );
+}
+
+function isHomeContainerOwner(value: unknown): value is IHomeContainerOwner {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const owner = value as Partial<IHomeContainerOwner>;
+  return (
+    typeof owner.scopeKey === 'string' && typeof owner.sessionId === 'string'
+  );
+}
+
+export function parseHomeContainerTransportResult(
+  value: string,
+): IHomeContainerTransportResult | undefined {
+  try {
+    const result = JSON.parse(value) as {
+      kind?: unknown;
+      owner?: unknown;
+      revision?: unknown;
+      currentRevision?: unknown;
+      reason?: unknown;
+    };
+    if (result.kind === 'applied' || result.kind === 'duplicate') {
+      return isHomeContainerOwner(result.owner) &&
+        typeof result.revision === 'number'
+        ? (result as IHomeContainerTransportResult)
+        : undefined;
+    }
+    if (result.kind !== 'needSnapshot') {
+      return undefined;
+    }
+    const reasons = [
+      'ownerMismatch',
+      'revisionGap',
+      'invalidInvariant',
+      'unsupportedSchema',
+      'unsupportedProtocol',
+    ] as const;
+    if (
+      !result.reason ||
+      !reasons.some((reason) => reason === result.reason) ||
+      (result.owner !== undefined && !isHomeContainerOwner(result.owner)) ||
+      (result.currentRevision !== undefined &&
+        typeof result.currentRevision !== 'number')
+    ) {
+      return undefined;
+    }
+    return result as IHomeContainerTransportResult;
+  } catch {
+    return undefined;
+  }
+}
+
+export function isHomeContainerTransportResultForSubmission(
+  result: IHomeContainerTransportResult,
+  submission: IHomeContainerTransportSubmission | undefined,
+): boolean {
+  if (!submission) {
+    return false;
+  }
+  if (result.kind === 'needSnapshot') {
+    return Boolean(
+      result.owner &&
+      result.owner.scopeKey === submission.owner.scopeKey &&
+      result.owner.sessionId === submission.owner.sessionId,
+    );
+  }
+  return (
+    result.revision === submission.revision &&
+    result.owner.scopeKey === submission.owner.scopeKey &&
+    result.owner.sessionId === submission.owner.sessionId
+  );
 }

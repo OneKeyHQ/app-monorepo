@@ -95,6 +95,26 @@ namespace margelo::nitro::onekeynativecomponents::views {
         throw std::runtime_error(std::string("HomeContainer.onRenderError: ") + exc.what());
       }
     }()),
+    onIntent([&]() -> CachedProp<std::optional<std::function<void(const std::string& /* intentJson */)>>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("onIntent", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.onIntent;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::function<void(const std::string& /* intentJson */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, "f"), sourceProps.onIntent);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("HomeContainer.onIntent: ") + exc.what());
+      }
+    }()),
+    onTransportResult([&]() -> CachedProp<std::optional<std::function<void(const std::string& /* resultJson */)>>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("onTransportResult", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.onTransportResult;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::function<void(const std::string& /* resultJson */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, "f"), sourceProps.onTransportResult);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("HomeContainer.onTransportResult: ") + exc.what());
+      }
+    }()),
     hybridRef([&]() -> CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridHomeContainerSpec>& /* ref */)>>> {
       try {
         const react::RawValue* rawValue = rawProps.at("hybridRef", nullptr, nullptr);
@@ -115,6 +135,8 @@ namespace margelo::nitro::onekeynativecomponents::views {
     onRefresh(other.onRefresh),
     onVisibleTabChange(other.onVisibleTabChange),
     onRenderError(other.onRenderError),
+    onIntent(other.onIntent),
+    onTransportResult(other.onTransportResult),
     hybridRef(other.hybridRef) { }
 
   bool HybridHomeContainerProps::filterObjectKeys(const std::string& propName) {
@@ -126,6 +148,8 @@ namespace margelo::nitro::onekeynativecomponents::views {
       case hashString("onRefresh"): return true;
       case hashString("onVisibleTabChange"): return true;
       case hashString("onRenderError"): return true;
+      case hashString("onIntent"): return true;
+      case hashString("onTransportResult"): return true;
       case hashString("hybridRef"): return true;
       default: return false;
     }

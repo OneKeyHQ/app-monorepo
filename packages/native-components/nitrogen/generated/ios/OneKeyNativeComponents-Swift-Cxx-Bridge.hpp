@@ -156,6 +156,36 @@ namespace margelo::nitro::onekeynativecomponents::bridge::swift {
     return *optional;
   }
 
+  // pragma MARK: std::optional<std::function<void(const std::string& /* intentJson */)>>
+  /**
+   * Specialized version of `std::optional<std::function<void(const std::string& / * intentJson * /)>>`.
+   */
+  using std__optional_std__function_void_const_std__string_____intentJson______ = std::optional<std::function<void(const std::string& /* intentJson */)>>;
+  inline std::optional<std::function<void(const std::string& /* intentJson */)>> create_std__optional_std__function_void_const_std__string_____intentJson______(const std::function<void(const std::string& /* intentJson */)>& value) noexcept {
+    return std::optional<std::function<void(const std::string& /* intentJson */)>>(value);
+  }
+  inline bool has_value_std__optional_std__function_void_const_std__string_____intentJson______(const std::optional<std::function<void(const std::string& /* intentJson */)>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::function<void(const std::string& /* intentJson */)> get_std__optional_std__function_void_const_std__string_____intentJson______(const std::optional<std::function<void(const std::string& /* intentJson */)>>& optional) noexcept {
+    return *optional;
+  }
+
+  // pragma MARK: std::optional<std::function<void(const std::string& /* resultJson */)>>
+  /**
+   * Specialized version of `std::optional<std::function<void(const std::string& / * resultJson * /)>>`.
+   */
+  using std__optional_std__function_void_const_std__string_____resultJson______ = std::optional<std::function<void(const std::string& /* resultJson */)>>;
+  inline std::optional<std::function<void(const std::string& /* resultJson */)>> create_std__optional_std__function_void_const_std__string_____resultJson______(const std::function<void(const std::string& /* resultJson */)>& value) noexcept {
+    return std::optional<std::function<void(const std::string& /* resultJson */)>>(value);
+  }
+  inline bool has_value_std__optional_std__function_void_const_std__string_____resultJson______(const std::optional<std::function<void(const std::string& /* resultJson */)>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::function<void(const std::string& /* resultJson */)> get_std__optional_std__function_void_const_std__string_____resultJson______(const std::optional<std::function<void(const std::string& /* resultJson */)>>& optional) noexcept {
+    return *optional;
+  }
+
   // pragma MARK: std::shared_ptr<HybridHomeContainerSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridHomeContainerSpec>`.

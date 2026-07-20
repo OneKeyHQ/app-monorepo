@@ -50,6 +50,8 @@ namespace margelo::nitro::onekeynativecomponents::views {
     CachedProp<std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>>> onRefresh;
     CachedProp<std::optional<std::function<void(const std::string& /* tabId */)>>> onVisibleTabChange;
     CachedProp<std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>>> onRenderError;
+    CachedProp<std::optional<std::function<void(const std::string& /* intentJson */)>>> onIntent;
+    CachedProp<std::optional<std::function<void(const std::string& /* resultJson */)>>> onTransportResult;
     CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridHomeContainerSpec>& /* ref */)>>> hybridRef;
 
   private:

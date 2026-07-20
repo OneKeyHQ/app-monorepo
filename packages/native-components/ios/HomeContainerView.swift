@@ -603,6 +603,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   var onRefresh: ((String, String) -> Void)?
   var onVisibleTabChange: ((String) -> Void)?
   var onRenderError: ((String, String) -> Void)?
+  var onIntent: ((String) -> Void)?
+  var onTransportResult: ((String) -> Void)?
   @objc dynamic var slotLayoutDidChange: (() -> Void)?
 
   private let outerScrollView = HomeContainerNestedScrollView()
@@ -615,8 +617,11 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     qos: .userInitiated
   )
   private let decoder = JSONDecoder()
+  private let encoder = JSONEncoder()
   private let lifecycleLock = NSLock()
   private var snapshot: HomeContainerSnapshot?
+  private var protocolV2State: HomeContainerProtocolV2State?
+  private var lastNeedSnapshotResultKey: String?
   private var pages: [HomeContainerPageView] = []
   private var refreshRequestIds = Set<String>()
   private var selectedTabId = ""
@@ -669,14 +674,14 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     outerScrollView.addSubview(tabsView)
     headerView.onAction = { [weak self] actionId, itemId in
       guard let self else { return }
-      self.onAction?(actionId, itemId, self.selectedTabId)
+      self.emitAction(actionId: actionId, itemId: itemId, tabId: self.selectedTabId)
     }
     tabsView.onSelect = { [weak self] tabId in
       self?.moveToTab(tabId, animated: true, notify: true)
     }
     tabsView.onAction = { [weak self] actionId, itemId in
       guard let self else { return }
-      self.onAction?(actionId, itemId, self.selectedTabId)
+      self.emitAction(actionId: actionId, itemId: itemId, tabId: self.selectedTabId)
     }
     headerView.onSlotLayoutChange = { [weak self] in
       self?.slotLayoutDidChange?()
@@ -772,23 +777,86 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   func submitSnapshot(_ json: String) {
     parsingQueue.async { [weak self] in
       guard let self, !self.isDisposed() else { return }
+      let data = Data(json.utf8)
       do {
+        let probe = try? self.decoder.decode(HomeContainerTransportProbe.self, from: data)
+        if probe?.protocolVersion != nil || probe?.kind == "snapshot" {
+          guard probe?.protocolVersion == homeContainerProtocolVersion else {
+            DispatchQueue.main.async { [weak self] in
+              self?.emitNeedSnapshot(
+                owner: probe?.owner,
+                currentRevision: self?.protocolV2State?.revision,
+                reason: .unsupportedProtocol
+              )
+            }
+            return
+          }
+          guard probe?.schemaVersion == homeContainerBusinessSchemaVersion else {
+            DispatchQueue.main.async { [weak self] in
+              self?.emitNeedSnapshot(
+                owner: probe?.owner,
+                currentRevision: self?.protocolV2State?.revision,
+                reason: .unsupportedSchema
+              )
+            }
+            return
+          }
+          let envelope = try self.decoder.decode(
+            HomeContainerProtocolV2SnapshotEnvelope.self,
+            from: data
+          )
+          DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.handleProtocolV2Outcome(
+              HomeContainerProtocolV2Transaction.apply(
+                snapshot: envelope,
+                current: self.protocolV2State
+              )
+            )
+          }
+          return
+        }
         let next = try self.decoder.decode(
           HomeContainerSnapshot.self,
-          from: Data(json.utf8)
+          from: data
         )
-        guard next.schemaVersion == 1 else {
+        guard next.schemaVersion == homeContainerBusinessSchemaVersion else {
           self.reportError(
             code: "unsupported_schema",
             message: "HomeContainer schema \(next.schemaVersion) is not supported"
           )
           return
         }
+        guard homeContainerValidatesBusinessInvariants(next) else {
+          self.reportError(
+            code: "invalid_snapshot",
+            message: "HomeContainer snapshot violates business invariants"
+          )
+          return
+        }
         DispatchQueue.main.async { [weak self] in
-          self?.applySnapshot(next)
+          guard let self else { return }
+          self.protocolV2State = nil
+          self.lastNeedSnapshotResultKey = nil
+          self.applySnapshot(
+            next,
+            allowsMissingSelectedTabFallback: true,
+            enforcesMonotonicRevision: true
+          )
         }
       } catch {
-        self.reportError(code: "snapshot_decode_failed", message: error.localizedDescription)
+        let probe = try? self.decoder.decode(HomeContainerTransportProbe.self, from: data)
+        if probe?.protocolVersion != nil || probe?.kind == "snapshot" {
+          DispatchQueue.main.async { [weak self] in
+            self?.emitNeedSnapshot(
+              owner: nil,
+              currentRevision: self?.protocolV2State?.revision,
+              reason: .invalidInvariant
+            )
+          }
+        } else {
+          self.reportError(code: "snapshot_decode_failed", message: error.localizedDescription)
+        }
       }
     }
   }
@@ -796,12 +864,50 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   func submitPatch(_ json: String) {
     parsingQueue.async { [weak self] in
       guard let self, !self.isDisposed() else { return }
+      let data = Data(json.utf8)
       do {
+        let probe = try? self.decoder.decode(HomeContainerTransportProbe.self, from: data)
+        if probe?.protocolVersion != nil || probe?.kind == "patch" {
+          guard probe?.protocolVersion == homeContainerProtocolVersion else {
+            DispatchQueue.main.async { [weak self] in
+              self?.emitNeedSnapshot(
+                owner: probe?.owner,
+                currentRevision: self?.protocolV2State?.revision,
+                reason: .unsupportedProtocol
+              )
+            }
+            return
+          }
+          guard probe?.schemaVersion == homeContainerBusinessSchemaVersion else {
+            DispatchQueue.main.async { [weak self] in
+              self?.emitNeedSnapshot(
+                owner: probe?.owner,
+                currentRevision: self?.protocolV2State?.revision,
+                reason: .unsupportedSchema
+              )
+            }
+            return
+          }
+          let patch = try self.decoder.decode(
+            HomeContainerProtocolV2PatchEnvelope.self,
+            from: data
+          )
+          DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.handleProtocolV2Outcome(
+              HomeContainerProtocolV2Transaction.apply(
+                patch: patch,
+                current: self.protocolV2State
+              )
+            )
+          }
+          return
+        }
         let patch = try self.decoder.decode(
           HomeContainerPatch.self,
-          from: Data(json.utf8)
+          from: data
         )
-        guard patch.schemaVersion == 1 else {
+        guard patch.schemaVersion == homeContainerBusinessSchemaVersion else {
           self.reportError(
             code: "unsupported_schema",
             message: "HomeContainer patch schema \(patch.schemaVersion) is not supported"
@@ -812,7 +918,18 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
           self?.applyPatch(patch)
         }
       } catch {
-        self.reportError(code: "patch_decode_failed", message: error.localizedDescription)
+        let probe = try? self.decoder.decode(HomeContainerTransportProbe.self, from: data)
+        if probe?.protocolVersion != nil || probe?.kind == "patch" {
+          DispatchQueue.main.async { [weak self] in
+            self?.emitNeedSnapshot(
+              owner: nil,
+              currentRevision: self?.protocolV2State?.revision,
+              reason: .invalidInvariant
+            )
+          }
+        } else {
+          self.reportError(code: "patch_decode_failed", message: error.localizedDescription)
+        }
       }
     }
   }
@@ -899,9 +1016,20 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     lifecycleLock.unlock()
   }
 
-  private func applySnapshot(_ next: HomeContainerSnapshot) {
+  private func applySnapshot(
+    _ next: HomeContainerSnapshot,
+    allowsMissingSelectedTabFallback: Bool,
+    enforcesMonotonicRevision: Bool
+  ) {
     guard !isDisposed() else { return }
-    if let current = snapshot, next.revision < current.revision {
+    guard homeContainerValidatesBusinessInvariants(next) else { return }
+    if enforcesMonotonicRevision,
+       let current = snapshot,
+       next.revision < current.revision {
+      return
+    }
+    if !allowsMissingSelectedTabFallback,
+       !next.tabs.contains(where: { $0.id == next.selectedTabId }) {
       return
     }
 
@@ -921,7 +1049,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       oldPages[page.tabId] = page
     }
     var nextPages: [HomeContainerPageView] = []
-    for tab in next.tabs {
+    let inlineTabs = next.tabs.filter { $0.destination == .inline }
+    for tab in inlineTabs {
       let page = oldPages[tab.id] ?? makePage(tabId: tab.id)
       page.apply(
         tab: tab,
@@ -939,9 +1068,14 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     }
     pages = nextPages
 
-    let requestedTab = next.tabs.contains(where: { $0.id == next.selectedTabId })
-      ? next.selectedTabId
-      : (next.tabs.first?.id ?? "")
+    let requestedTab: String
+    if inlineTabs.contains(where: { $0.id == next.selectedTabId }) {
+      requestedTab = next.selectedTabId
+    } else if allowsMissingSelectedTabFallback {
+      requestedTab = inlineTabs.first?.id ?? ""
+    } else {
+      return
+    }
     selectedTabId = requestedTab
     updateSelectedTab(requestedTab)
     homeContainerEnableDynamicTypeRecursively()
@@ -953,10 +1087,15 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     guard let current = snapshot, patch.revision >= current.revision else {
       return
     }
-    let validTabIds = Set(current.tabs.map(\.id))
-    guard patch.tabs.allSatisfy({ validTabIds.contains($0.tabId) }) else { return }
+    let validTabIds = Set(
+      current.tabs.lazy.filter { $0.destination == .inline }.map(\.id)
+    )
+    let patchedTabIds = patch.tabs.map(\.tabId)
+    guard Set(patchedTabIds).count == patchedTabIds.count,
+          patch.tabs.allSatisfy({ validTabIds.contains($0.tabId) }) else { return }
 
     let next = current.applying(patch)
+    guard homeContainerValidatesBusinessInvariants(next) else { return }
     snapshot = next
     if let header = patch.header {
       let previousHeaderHeight = headerHeight
@@ -979,7 +1118,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     page.requirePagerPanToFail(pager.panGestureRecognizer)
     page.setMountedSlotKeys(mountedSlotKeys)
     page.onAction = { [weak self] actionId, itemId, sourceTabId in
-      self?.onAction?(actionId, itemId, sourceTabId)
+      self?.emitAction(actionId: actionId, itemId: itemId, tabId: sourceTabId)
     }
     if !usesUnifiedVerticalDriver {
       page.onContentOffsetChange = { [weak self] source in
@@ -1006,6 +1145,11 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   private func moveToTab(_ tabId: String, animated: Bool, notify: Bool) {
+    guard let tab = snapshot?.tabs.first(where: { $0.id == tabId }) else { return }
+    if tab.destination == .handoff {
+      emitHandoff(tab: tab)
+      return
+    }
     guard let index = pages.firstIndex(where: { $0.tabId == tabId }) else { return }
     guard pagerTransitionState == .idle else { return }
     let targetPage = pages[index]
@@ -1105,7 +1249,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     }
     slotLayoutDidChange?()
     if notify, didChangeTab {
-      onVisibleTabChange?(nextTabId)
+      emitTabSelection(tabId: nextTabId)
     }
   }
 
@@ -1301,7 +1445,139 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     }
     let requestId = UUID().uuidString
     refreshRequestIds.insert(requestId)
-    onRefresh?(selectedTabId, requestId)
+    emitRefresh(tabId: selectedTabId, requestId: requestId)
+  }
+
+  private func handleProtocolV2Outcome(_ outcome: HomeContainerProtocolV2ApplyOutcome) {
+    guard !isDisposed() else { return }
+    switch outcome {
+    case .applied(let state):
+      protocolV2State = state
+      lastNeedSnapshotResultKey = nil
+      applySnapshot(
+        state.snapshot,
+        allowsMissingSelectedTabFallback: false,
+        enforcesMonotonicRevision: false
+      )
+      emitTransportResult(.applied(owner: state.owner, revision: state.revision))
+    case let .duplicate(owner, revision):
+      emitTransportResult(.duplicate(owner: owner, revision: revision))
+    case let .needSnapshot(owner, currentRevision, reason):
+      emitNeedSnapshot(
+        owner: owner,
+        currentRevision: currentRevision,
+        reason: reason
+      )
+    }
+  }
+
+  private func emitAction(actionId: String, itemId: String, tabId: String) {
+    guard let state = protocolV2State else {
+      onAction?(actionId, itemId, tabId)
+      return
+    }
+    emitIntent(
+      state: state,
+      payload: .action(commandId: actionId, itemId: itemId)
+    )
+  }
+
+  private func emitRefresh(tabId: String, requestId: String) {
+    guard let state = protocolV2State else {
+      onRefresh?(tabId, requestId)
+      return
+    }
+    emitIntent(
+      state: state,
+      payload: .refresh(tabId: tabId, requestId: requestId)
+    )
+  }
+
+  private func emitTabSelection(tabId: String) {
+    guard let currentState = protocolV2State else {
+      onVisibleTabChange?(tabId)
+      return
+    }
+    guard currentState.snapshot.tabs.contains(where: {
+      $0.id == tabId && $0.destination == .inline
+    }) else {
+      return
+    }
+    let selectedSnapshot = HomeContainerSnapshot(
+      schemaVersion: currentState.snapshot.schemaVersion,
+      revision: currentState.snapshot.revision,
+      selectedTabId: tabId,
+      header: currentState.snapshot.header,
+      tabs: currentState.snapshot.tabs,
+      theme: currentState.snapshot.theme
+    )
+    let selectedState = HomeContainerProtocolV2State(
+      owner: currentState.owner,
+      revision: currentState.revision,
+      snapshot: selectedSnapshot
+    )
+    snapshot = selectedSnapshot
+    protocolV2State = selectedState
+    emitIntent(state: selectedState, payload: .selectTab(tabId: tabId))
+  }
+
+  private func emitHandoff(tab: HomeContainerTab) {
+    guard tab.destination == .handoff,
+          let commandId = tab.handoffCommandId,
+          !commandId.isEmpty else { return }
+    guard let state = protocolV2State else {
+      onAction?(commandId, tab.id, selectedTabId)
+      return
+    }
+    emitIntent(
+      state: state,
+      payload: .handoff(tabId: tab.id, commandId: commandId)
+    )
+  }
+
+  private func emitIntent(
+    state: HomeContainerProtocolV2State,
+    payload: HomeContainerProtocolV2Intent.Payload
+  ) {
+    let intent = HomeContainerProtocolV2Intent(
+      intentId: UUID().uuidString,
+      owner: state.owner,
+      renderedRevision: state.revision,
+      intent: payload
+    )
+    guard let data = try? encoder.encode(intent),
+          let json = String(data: data, encoding: .utf8) else {
+      reportError(code: "intent_encode_failed", message: "Unable to encode native intent")
+      return
+    }
+    onIntent?(json)
+  }
+
+  private func emitNeedSnapshot(
+    owner: HomeContainerProtocolV2Owner?,
+    currentRevision: Int?,
+    reason: HomeContainerProtocolV2NeedSnapshotReason
+  ) {
+    let result = HomeContainerProtocolV2TransportResult.needSnapshot(
+      owner: owner,
+      currentRevision: currentRevision,
+      reason: reason
+    )
+    guard result.coalescingKey != lastNeedSnapshotResultKey else { return }
+    lastNeedSnapshotResultKey = result.coalescingKey
+    emitTransportResult(result)
+  }
+
+  private func emitTransportResult(_ result: HomeContainerProtocolV2TransportResult) {
+    guard let data = try? encoder.encode(result),
+          let json = String(data: data, encoding: .utf8) else {
+      reportError(
+        code: "transport_result_encode_failed",
+        message: "Unable to encode native transport result"
+      )
+      return
+    }
+    onTransportResult?(json)
   }
 
   private func reportError(code: String, message: String) {

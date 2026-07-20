@@ -64,10 +64,7 @@ import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDeta
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
-import {
-  buildHomeWalletCapabilityTabModel,
-  resolveHomeWalletSelectedTab,
-} from '../homeWalletCapabilityTabModel';
+import { buildHomeWalletCapabilityNavigationModel } from '../homeWalletCapabilityTabModel';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
@@ -331,27 +328,20 @@ export function HomePageView({
   // fallback to avoid tab config change on first render.
   const vaultSettings = fetchedVaultSettings ?? cachedVaultSettings;
 
-  const isNFTEnabled =
-    // All Networks always supports NFT; for single network check vaultSettings
-    network?.isAllNetworks ||
-    (vaultSettings?.NFTEnabled &&
-      networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? ''));
-
-  const {
-    isReady: isHomeWalletTabSupportReady,
-    isDeFiSupported: isDeFiEnabled,
-    isPerpsSupported: isPerpsEnabled,
-    perpTabShowWeb,
-  } = useHomeWalletTabSupport({ network });
-  const homeWalletCapabilityTabModel = useMemo(
-    () =>
-      buildHomeWalletCapabilityTabModel({
-        isReady: isHomeWalletTabSupportReady,
-        isDeFiSupported: isDeFiEnabled,
-        isPerpsSupported: isPerpsEnabled,
-      }),
-    [isDeFiEnabled, isHomeWalletTabSupportReady, isPerpsEnabled],
+  const { capabilityNavigation, selectCapabilityTab } = useHomeWalletTabSupport(
+    {
+      enableCapabilityAuthority: true,
+      network,
+      vaultSettings,
+    },
   );
+  const homeWalletCapabilityTabModel = useMemo(
+    () => buildHomeWalletCapabilityNavigationModel(capabilityNavigation),
+    [capabilityNavigation],
+  );
+  const perpTabShowWeb =
+    homeWalletCapabilityTabModel.status === 'confirmed' &&
+    homeWalletCapabilityTabModel.perpsDestination === 'web';
 
   const isBulkRevokeApprovalEnabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING) {
@@ -501,7 +491,8 @@ export function HomePageView({
         testID: HomeTestIDs.tabPortfolio,
         component: <PortfolioContainerWithProvider />,
       },
-      homeWalletCapabilityTabModel.isPerpsVisible
+      homeWalletCapabilityTabModel.status === 'confirmed' &&
+      homeWalletCapabilityTabModel.tabIds.includes('perps')
         ? {
             id: EHomeWalletTab.Perps,
             name: intl.formatMessage({
@@ -515,7 +506,8 @@ export function HomePageView({
             ),
           }
         : undefined,
-      homeWalletCapabilityTabModel.isDeFiVisible
+      homeWalletCapabilityTabModel.status === 'confirmed' &&
+      homeWalletCapabilityTabModel.tabIds.includes('defi')
         ? {
             id: EHomeWalletTab.DeFi,
             name: intl.formatMessage({
@@ -525,7 +517,8 @@ export function HomePageView({
             component: <DeFiContainerWithProvider />,
           }
         : undefined,
-      isNFTEnabled
+      homeWalletCapabilityTabModel.status === 'confirmed' &&
+      homeWalletCapabilityTabModel.tabIds.includes('nft')
         ? {
             id: EHomeWalletTab.NFT,
             name: intl.formatMessage({
@@ -539,20 +532,23 @@ export function HomePageView({
             ),
           }
         : undefined,
-      {
-        id: EHomeWalletTab.History,
-        name: intl.formatMessage({
-          id: ETranslations.global_history,
-        }),
-        testID: HomeTestIDs.tabHistory,
-        component: (
-          <HomeTabContentMaxWidth>
-            <TxHistoryListContainerWithProvider />
-          </HomeTabContentMaxWidth>
-        ),
-      },
+      homeWalletCapabilityTabModel.status === 'confirmed' &&
+      homeWalletCapabilityTabModel.tabIds.includes('history')
+        ? {
+            id: EHomeWalletTab.History,
+            name: intl.formatMessage({
+              id: ETranslations.global_history,
+            }),
+            testID: HomeTestIDs.tabHistory,
+            component: (
+              <HomeTabContentMaxWidth>
+                <TxHistoryListContainerWithProvider />
+              </HomeTabContentMaxWidth>
+            ),
+          }
+        : undefined,
     ].filter(Boolean);
-  }, [homeWalletCapabilityTabModel, intl, isNFTEnabled]);
+  }, [homeWalletCapabilityTabModel, intl]);
 
   const pagerTabConfigs = useMemo(
     () =>
@@ -590,11 +586,20 @@ export function HomePageView({
           switchToPerpsWebTab();
           return;
         }
+        if (nextTab?.id && !selectCapabilityTab(nextTab.id)) {
+          return;
+        }
         props.onPress(name);
       };
       return <TabBarItem {...props} testID={testID} onPress={handlePress} />;
     },
-    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, tabTestIDMap],
+    [
+      perpTabShowWeb,
+      selectCapabilityTab,
+      switchToPerpsWebTab,
+      tabConfigs,
+      tabTestIDMap,
+    ],
   );
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
@@ -626,12 +631,7 @@ export function HomePageView({
     if (!homeWalletCapabilityTabModel.shouldCommitTabs) {
       return;
     }
-    const visibleTabIds = pagerTabConfigs.map((tab) => tab.id);
-    const nextActiveTabId = resolveHomeWalletSelectedTab({
-      selectedTabId: activeTabId,
-      visibleTabIds,
-      fallbackTabId: pagerTabConfigs[0]?.id,
-    });
+    const nextActiveTabId = homeWalletCapabilityTabModel.selectedTabId;
     if (nextActiveTabId !== activeTabId) {
       const nextActiveTab = pagerTabConfigs.find(
         (tab) => tab.id === nextActiveTabId,
@@ -640,23 +640,13 @@ export function HomePageView({
         tabsRef.current?.jumpToTab(nextActiveTab.name);
       }
     }
-    setActiveTabName((prev) =>
-      pagerTabConfigs.some((tab) => tab.name === prev)
-        ? prev
-        : (pagerTabConfigs[0]?.name ?? ''),
+    const selectedTab = pagerTabConfigs.find(
+      (tab) => tab.id === nextActiveTabId,
     );
-    setActiveTabId(nextActiveTabId);
-    const lastDisplayableTab = pagerTabConfigs.find(
-      (tab) => tab.name === lastDisplayableTabNameRef.current,
-    );
-    if (!lastDisplayableTab) {
-      lastDisplayableTabNameRef.current = pagerTabConfigs[0]?.name ?? '';
-    }
-  }, [
-    activeTabId,
-    homeWalletCapabilityTabModel.shouldCommitTabs,
-    pagerTabConfigs,
-  ]);
+    setActiveTabName(selectedTab?.name ?? '');
+    setActiveTabId(nextActiveTabId as EHomeWalletTab);
+    lastDisplayableTabNameRef.current = selectedTab?.name ?? '';
+  }, [activeTabId, homeWalletCapabilityTabModel, pagerTabConfigs]);
 
   useEffect(() => {
     if (!perpTabShowWeb || activeTabId !== EHomeWalletTab.Perps) {
@@ -705,7 +695,12 @@ export function HomePageView({
           return;
         }
         setActiveTabName(nextTab?.name ?? name);
-        setActiveTabId(nextTab?.id);
+        if (nextTab?.id) {
+          if (!selectCapabilityTab(nextTab.id)) {
+            return;
+          }
+          setActiveTabId(nextTab.id);
+        }
         lastDisplayableTabNameRef.current = nextTab?.name ?? name;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         tabBarProps.onTabPress?.(name);
@@ -771,10 +766,11 @@ export function HomePageView({
       renderToolbar,
       switchToPerpsWebTab,
       perpTabShowWeb,
+      selectCapabilityTab,
       isSmallScreen,
       tabConfigs,
       tabBarTabNames,
-      homeWalletCapabilityTabModel.shouldCommitTabs,
+      homeWalletCapabilityTabModel,
     ],
   );
 
@@ -794,13 +790,27 @@ export function HomePageView({
         return;
       }
       setActiveTabName(nextTab?.name ?? data.tabName);
-      setActiveTabId(nextTab?.id);
+      if (nextTab?.id) {
+        if (!selectCapabilityTab(nextTab.id)) {
+          const selectedTab = pagerTabConfigs.find(
+            (tab) =>
+              homeWalletCapabilityTabModel.status === 'confirmed' &&
+              tab.id === homeWalletCapabilityTabModel.selectedTabId,
+          );
+          if (selectedTab) {
+            tabsRef.current?.jumpToTab(selectedTab.name);
+          }
+          return;
+        }
+        setActiveTabId(nextTab.id);
+      }
       lastDisplayableTabNameRef.current = nextTab?.name ?? data.tabName;
     },
     [
-      homeWalletCapabilityTabModel.shouldCommitTabs,
+      homeWalletCapabilityTabModel,
       pagerTabConfigs,
       perpTabShowWeb,
+      selectCapabilityTab,
       switchToPerpsWebTab,
       tabConfigs,
     ],
@@ -947,13 +957,14 @@ export function HomePageView({
         return;
       }
       const name = tabConfigs.find((i) => i.id === payload.id)?.name;
-      if (name) {
+      if (name && selectCapabilityTab(payload.id)) {
         tabsRef.current?.jumpToTab(name);
       }
     },
     [
       homeWalletCapabilityTabModel.shouldCommitTabs,
       perpTabShowWeb,
+      selectCapabilityTab,
       switchToPerpsWebTab,
       tabConfigs,
     ],

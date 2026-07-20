@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { CanceledError } from 'axios';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
@@ -24,6 +26,11 @@ import { useAllNetworkRequests } from '../../hooks/useAllNetwork';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 
 import {
+  buildHomeSpotAllCoverage,
+  buildHomeSpotSingleCoverage,
+  projectHomeSpotSectionSource,
+} from './model/sections/spot/homeSpotSectionPolicy';
+import {
   createNativeHomeAllNetworkRequestOutcome,
   filterNativeHomeAllNetworkAuthoritativeResponses,
   recordNativeHomeAllNetworkFailure,
@@ -42,7 +49,6 @@ import {
 } from './nativeHomeBalanceAuthority';
 import {
   type INativeHomeCustomTokenScope,
-  commitNativeHomeSnapshotBeforeProjection,
   projectNativeHomeCustomTokens,
 } from './nativeHomeCustomTokenProjection';
 import {
@@ -54,6 +60,12 @@ import {
   isNativeHomePortfolioOwnerCurrent,
   isNativeHomePortfolioRequestCurrent,
 } from './nativeHomePortfolioRequestLifecycle';
+
+import type { IHomeSpotEvidence } from './model/sections/spot/homeSpotSectionPolicy';
+import type {
+  IHomeSpotNativePayload,
+  IHomeSpotSourceSnapshot,
+} from './model/sections/spot/homeSpotSourceAdapter';
 
 interface INativeHomeTokenSlice {
   map: Record<string, ITokenFiat>;
@@ -79,6 +91,12 @@ export interface INativeHomePortfolioData extends INativeHomeTokenSlice {
   isEmptyAccount: boolean;
   isRefreshing: boolean;
   refresh: () => Promise<void>;
+  spotSectionSource:
+    | {
+        scopeKey: string;
+        snapshot: IHomeSpotSourceSnapshot<IHomeSpotNativePayload>;
+      }
+    | undefined;
 }
 
 type INativeHomeOwnedAllNetworkTokenResponse =
@@ -136,6 +154,16 @@ function tokenSliceToResponse(
   };
 }
 
+function buildAllNetworkCacheKey({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}): string {
+  return `${networkId}:${accountId}`;
+}
+
 export function useNativeHomePortfolioData({
   enabled,
 }: {
@@ -167,7 +195,20 @@ export function useNativeHomePortfolioData({
   const [errorCode, setErrorCode] = useState<string>();
   const [customTokens, setCustomTokens] = useState<ICustomTokenItem[]>([]);
   const [dataScopeKey, setDataScopeKey] = useState('');
+  const [spotSectionSource, setSpotSectionSource] =
+    useState<INativeHomePortfolioData['spotSectionSource']>();
   const requestIdRef = useRef(0);
+  const spotRequestSeqRef = useRef(0);
+  const allNetworkCanceledCountRef = useRef(0);
+  const allNetworkExpectedCacheKeysRef = useRef(new Set<string>());
+  const customTokensRef = useRef<ICustomTokenItem[]>([]);
+  const singleConfirmedCacheRef = useRef<
+    | {
+        ownerScopeKey: string;
+        payload: IHomeSpotNativePayload;
+      }
+    | undefined
+  >(undefined);
   const allNetworkGenerationRef = useRef(0);
   const customTokensRawDataRef =
     useRef<
@@ -255,6 +296,50 @@ export function useNativeHomePortfolioData({
     Boolean(vaultSettings?.mergeDeriveAssetsEnabled) &&
     !accountUtils.isOthersWallet({ walletId: walletId ?? '' }) &&
     deriveInfoItems.length > 1;
+  const publishSpotEvidence = useCallback(
+    ({
+      evidence,
+      owner,
+      requestSeq,
+    }: {
+      evidence: IHomeSpotEvidence<IHomeSpotNativePayload>;
+      owner: INativeHomePortfolioOwner;
+      requestSeq: number;
+    }) => {
+      if (!isOwnerCurrent(owner)) {
+        return;
+      }
+      setSpotSectionSource({
+        scopeKey: owner.scopeKey,
+        snapshot: projectHomeSpotSectionSource({
+          authorityReady: Boolean(
+            enabled && accountId && networkId && walletId,
+          ),
+          evidence,
+          requestSeq,
+          scopeMatches: true,
+        }),
+      });
+    },
+    [accountId, enabled, isOwnerCurrent, networkId, walletId],
+  );
+  const buildSpotPayload = useCallback(
+    ({
+      isEmpty,
+      owner,
+      slice,
+    }: {
+      isEmpty: boolean;
+      owner: INativeHomePortfolioOwner;
+      slice: INativeHomeTokenSlice;
+    }): IHomeSpotNativePayload => ({
+      ...slice,
+      customTokens: customTokensRef.current,
+      dataScopeKey: owner.scopeKey,
+      isEmptyAccount: isEmpty,
+    }),
+    [],
+  );
 
   const aggregateCustomTokenScope = useMemo<INativeHomeCustomTokenScope>(
     () => ({
@@ -278,12 +363,12 @@ export function useNativeHomePortfolioData({
       if (!isOwnerCurrent(owner)) {
         return;
       }
-      setCustomTokens(
-        projectNativeHomeCustomTokens({
-          rawData,
-          scopes: [...scopes, aggregateCustomTokenScope],
-        }),
-      );
+      const projection = projectNativeHomeCustomTokens({
+        rawData,
+        scopes: [...scopes, aggregateCustomTokenScope],
+      });
+      customTokensRef.current = projection;
+      setCustomTokens(projection);
     },
     [aggregateCustomTokenScope, isOwnerCurrent],
   );
@@ -363,6 +448,8 @@ export function useNativeHomePortfolioData({
       ...owner,
       generation: requestIdRef.current,
     };
+    spotRequestSeqRef.current += 1;
+    const spotRequestSeq = spotRequestSeqRef.current;
     const isRequestCurrent = () =>
       isNativeHomePortfolioRequestCurrent({
         currentGeneration: requestIdRef.current,
@@ -374,6 +461,25 @@ export function useNativeHomePortfolioData({
     if (isRequestCurrent()) {
       setIsRefreshing(true);
       setErrorCode(undefined);
+      const confirmedCache = singleConfirmedCacheRef.current;
+      if (confirmedCache?.ownerScopeKey === owner.scopeKey) {
+        publishSpotEvidence({
+          owner,
+          requestSeq: spotRequestSeq,
+          evidence: {
+            kind: 'confirmedCache',
+            data: confirmedCache.payload,
+            rowIds: confirmedCache.payload.tokens.map((token) => token.$key),
+            refresh: 'refreshing',
+          },
+        });
+      } else {
+        publishSpotEvidence({
+          owner,
+          requestSeq: spotRequestSeq,
+          evidence: { kind: 'loading' },
+        });
+      }
     }
     try {
       let slice: INativeHomeTokenSlice;
@@ -414,25 +520,50 @@ export function useNativeHomePortfolioData({
       } else {
         slice = getResponseSlice(await fetchSingleNetwork(accountId));
       }
-      commitNativeHomeSnapshotBeforeProjection({
-        commitProjection: (projection) => {
-          setCustomTokens(projection);
-        },
-        commitSnapshot: (snapshot) => {
-          if (applySlice(snapshot, owner)) {
-            settleBalanceAuthority(authorityToken, 'success');
-          }
-        },
-        isCurrent: isRequestCurrent,
-        projectionTask: customTokensTask,
-        snapshot: slice,
+      if (!isRequestCurrent() || !applySlice(slice, owner)) {
+        return;
+      }
+      const projection = await customTokensTask;
+      if (!isRequestCurrent()) {
+        return;
+      }
+      customTokensRef.current = projection;
+      setCustomTokens(projection);
+      settleBalanceAuthority(authorityToken, 'success');
+      const payload = buildSpotPayload({
+        isEmpty:
+          slice.tokens.length === 0 &&
+          slice.riskTokens.length === 0 &&
+          slice.smallBalanceTokens.length === 0,
+        owner,
+        slice,
       });
-    } catch {
+      publishSpotEvidence({
+        owner,
+        requestSeq: spotRequestSeq,
+        evidence: {
+          kind: 'complete',
+          confirmedEmpty: payload.isEmptyAccount,
+          coverageFingerprint: buildHomeSpotSingleCoverage(spotRequestSeq),
+          data: payload,
+          rowIds: payload.tokens.map((token) => token.$key),
+        },
+      });
+      singleConfirmedCacheRef.current = undefined;
+    } catch (error) {
       if (isRequestCurrent()) {
+        if (error instanceof CanceledError) {
+          return;
+        }
         setErrorCode('portfolio_fetch_failed');
         setDataScopeKey(owner.scopeKey);
         setInitialized(true);
         settleBalanceAuthority(authorityToken, 'error');
+        publishSpotEvidence({
+          owner,
+          requestSeq: spotRequestSeq,
+          evidence: { kind: 'error', errorKind: 'source' },
+        });
       }
     } finally {
       if (isRequestCurrent()) {
@@ -443,6 +574,7 @@ export function useNativeHomePortfolioData({
     accountId,
     applySlice,
     beginBalanceAuthority,
+    buildSpotPayload,
     enabled,
     fetchSingleNetwork,
     indexedAccountId,
@@ -451,6 +583,7 @@ export function useNativeHomePortfolioData({
     loadSingleCustomTokenProjection,
     mergeDerive,
     networkId,
+    publishSpotEvidence,
     renderOwner,
     settleBalanceAuthority,
   ]);
@@ -515,10 +648,14 @@ export function useNativeHomePortfolioData({
         return normalizedResponse;
       } catch (error) {
         if (isOwnerCurrent(owner)) {
-          allNetworkRequestOutcomeRef.current =
-            recordNativeHomeAllNetworkFailure(
-              allNetworkRequestOutcomeRef.current,
-            );
+          if (error instanceof CanceledError) {
+            allNetworkCanceledCountRef.current += 1;
+          } else {
+            allNetworkRequestOutcomeRef.current =
+              recordNativeHomeAllNetworkFailure(
+                allNetworkRequestOutcomeRef.current,
+              );
+          }
         }
         throw error;
       }
@@ -559,10 +696,13 @@ export function useNativeHomePortfolioData({
         networkId: childNetworkId,
         tokens: cached.tokenList,
         map: pickTokenMap(cached.tokenList, cached.tokenListMap),
-        riskTokens: [],
-        riskMap: {},
-        smallBalanceTokens: [],
-        smallBalanceMap: {},
+        riskTokens: cached.riskyTokenList,
+        riskMap: pickTokenMap(cached.riskyTokenList, cached.tokenListMap),
+        smallBalanceTokens: cached.smallBalanceTokenList,
+        smallBalanceMap: pickTokenMap(
+          cached.smallBalanceTokenList,
+          cached.tokenListMap,
+        ),
       } satisfies INativeHomeNetworkTokenSlice;
     },
     [],
@@ -602,17 +742,54 @@ export function useNativeHomePortfolioData({
             response,
           ]),
         );
-        applySlice(
-          buildNativeHomeAllNetworkPortfolioProjection({
-            responses: cachedResponses,
-            aggregateTokenConfigMapRawData:
-              aggregateTokenRawDataRef.current?.aggregateTokenConfigMap,
-          }),
-          renderOwner,
-        );
+        const projection = buildNativeHomeAllNetworkPortfolioProjection({
+          responses: cachedResponses,
+          aggregateTokenConfigMapRawData:
+            aggregateTokenRawDataRef.current?.aggregateTokenConfigMap,
+        });
+        if (applySlice(projection, renderOwner)) {
+          const cachedKeys = new Set(
+            cached.map((slice) => buildAllNetworkCacheKey(slice)),
+          );
+          const expectedKeys = allNetworkExpectedCacheKeysRef.current;
+          const isExactCacheCoverage =
+            cachedKeys.size === expectedKeys.size &&
+            Array.from(expectedKeys).every((key) => cachedKeys.has(key));
+          const payload = buildSpotPayload({
+            isEmpty: false,
+            owner: renderOwner,
+            slice: projection,
+          });
+          if (isExactCacheCoverage) {
+            publishSpotEvidence({
+              owner: renderOwner,
+              requestSeq: spotRequestSeqRef.current,
+              evidence: {
+                kind: 'confirmedCache',
+                data: payload,
+                rowIds: payload.tokens.map((token) => token.$key),
+                refresh: 'refreshing',
+              },
+            });
+          } else {
+            publishSpotEvidence({
+              owner: renderOwner,
+              requestSeq: spotRequestSeqRef.current,
+              evidence: {
+                kind: 'partial',
+                coverageFingerprint: buildHomeSpotAllCoverage({
+                  expected: expectedKeys.size,
+                  failed: 0,
+                  requestSeq: spotRequestSeqRef.current,
+                  settled: cachedKeys.size,
+                }),
+              },
+            });
+          }
+        }
       }
     },
-    [applySlice, renderOwner],
+    [applySlice, buildSpotPayload, publishSpotEvidence, renderOwner],
   );
 
   const handleAllNetworkSettled = useCallback(
@@ -652,8 +829,22 @@ export function useNativeHomePortfolioData({
         }),
         renderOwner,
       );
+      const outcome = allNetworkRequestOutcomeRef.current;
+      publishSpotEvidence({
+        owner: renderOwner,
+        requestSeq: spotRequestSeqRef.current,
+        evidence: {
+          kind: 'partial',
+          coverageFingerprint: buildHomeSpotAllCoverage({
+            expected: allNetworkExpectedRequestCountRef.current,
+            failed: outcome.failureCount,
+            requestSeq: spotRequestSeqRef.current,
+            settled: outcome.attemptCount,
+          }),
+        },
+      });
     },
-    [applySlice, renderOwner],
+    [applySlice, publishSpotEvidence, renderOwner],
   );
   const clearAllNetworkData = useCallback(() => {
     if (!isOwnerCurrent(renderOwner)) {
@@ -682,9 +873,17 @@ export function useNativeHomePortfolioData({
       allNetworkAuthorityTokenRef.current = beginBalanceAuthority();
       allNetworkRequestOutcomeRef.current =
         createNativeHomeAllNetworkRequestOutcome();
+      allNetworkCanceledCountRef.current = 0;
+      allNetworkExpectedCacheKeysRef.current = new Set();
       allNetworkExpectedRequestCountRef.current = 0;
       allNetworkEmptyAccountsResolvedRef.current = false;
       allNetworkStartedSucceededRef.current = false;
+      spotRequestSeqRef.current += 1;
+      publishSpotEvidence({
+        owner,
+        requestSeq: spotRequestSeqRef.current,
+        evidence: { kind: 'loading' },
+      });
       setIsRefreshing(true);
       setErrorCode(undefined);
       const [
@@ -726,6 +925,7 @@ export function useNativeHomePortfolioData({
       applyCustomTokenProjection,
       beginBalanceAuthority,
       isOwnerCurrent,
+      publishSpotEvidence,
       renderOwner,
     ],
   );
@@ -735,6 +935,15 @@ export function useNativeHomePortfolioData({
         return;
       }
       allNetworkExpectedRequestCountRef.current = accounts.length;
+      allNetworkExpectedCacheKeysRef.current = new Set(
+        accounts.map(
+          ({ accountId: childAccountId, networkId: childNetworkId }) =>
+            buildAllNetworkCacheKey({
+              accountId: childAccountId,
+              networkId: childNetworkId,
+            }),
+        ),
+      );
       allNetworkCustomTokenScopesRef.current = accounts.map((item) => ({
         accountXpubOrAddress: item.accountXpub ?? item.apiAddress.toLowerCase(),
         networkId: item.networkId,
@@ -762,19 +971,72 @@ export function useNativeHomePortfolioData({
     if (!isOwnerCurrent(renderOwner)) {
       return;
     }
+    const expected = allNetworkExpectedRequestCountRef.current;
+    const outcome = allNetworkRequestOutcomeRef.current;
+    const requestSeq = spotRequestSeqRef.current;
+    const authorityStatus = resolveNativeHomeAllNetworkAuthorityStatus({
+      emptyAccountsResolved: allNetworkEmptyAccountsResolvedRef.current,
+      expectedRequestCount: expected,
+      outcome,
+      startedSucceeded: allNetworkStartedSucceededRef.current,
+    });
     settleBalanceAuthority(
       allNetworkAuthorityTokenRef.current,
-      resolveNativeHomeAllNetworkAuthorityStatus({
-        emptyAccountsResolved: allNetworkEmptyAccountsResolvedRef.current,
-        expectedRequestCount: allNetworkExpectedRequestCountRef.current,
-        outcome: allNetworkRequestOutcomeRef.current,
-        startedSucceeded: allNetworkStartedSucceededRef.current,
-      }),
+      authorityStatus,
     );
+    const coverageFingerprint = buildHomeSpotAllCoverage({
+      expected,
+      failed: outcome.failureCount,
+      requestSeq,
+      settled: outcome.attemptCount,
+    });
+    if (allNetworkCanceledCountRef.current > 0) {
+      publishSpotEvidence({
+        owner: renderOwner,
+        requestSeq,
+        evidence: { kind: 'partial', coverageFingerprint },
+      });
+    } else if (authorityStatus === 'error') {
+      publishSpotEvidence({
+        owner: renderOwner,
+        requestSeq,
+        evidence: { kind: 'error', errorKind: 'source' },
+      });
+    } else {
+      const projection = buildNativeHomeAllNetworkPortfolioProjection({
+        responses: Array.from(allNetworkResponsesRef.current.values()),
+        aggregateTokenConfigMapRawData:
+          aggregateTokenRawDataRef.current?.aggregateTokenConfigMap,
+      });
+      const payload = buildSpotPayload({
+        isEmpty:
+          allNetworkEmptyAccountsResolvedRef.current ||
+          projection.tokens.length === 0,
+        owner: renderOwner,
+        slice: projection,
+      });
+      publishSpotEvidence({
+        owner: renderOwner,
+        requestSeq,
+        evidence: {
+          kind: 'complete',
+          confirmedEmpty: payload.isEmptyAccount,
+          coverageFingerprint,
+          data: payload,
+          rowIds: payload.tokens.map((token) => token.$key),
+        },
+      });
+    }
     setIsRefreshing(false);
     setDataScopeKey(renderOwner.scopeKey);
     setInitialized(true);
-  }, [isOwnerCurrent, renderOwner, settleBalanceAuthority]);
+  }, [
+    buildSpotPayload,
+    isOwnerCurrent,
+    publishSpotEvidence,
+    renderOwner,
+    settleBalanceAuthority,
+  ]);
 
   const { run: runAllNetwork, result: allNetworkResult } =
     useAllNetworkRequests<INativeHomeOwnedAllNetworkTokenResponse>({
@@ -832,6 +1094,7 @@ export function useNativeHomePortfolioData({
       return;
     }
     requestIdRef.current += 1;
+    spotRequestSeqRef.current = 0;
     allNetworkResponsesRef.current.clear();
     allNetworkCustomTokenScopesRef.current = [];
     setTokens([]);
@@ -840,12 +1103,19 @@ export function useNativeHomePortfolioData({
     setRiskMap({});
     setSmallBalanceTokens([]);
     setSmallBalanceMap({});
+    customTokensRef.current = [];
+    singleConfirmedCacheRef.current = undefined;
     setCustomTokens([]);
     setDataScopeKey(owner.scopeKey);
     setIsEmptyAccount(false);
     setInitialized(false);
     setIsRefreshing(false);
     setErrorCode(undefined);
+    publishSpotEvidence({
+      owner,
+      requestSeq: 0,
+      evidence: { kind: 'loading' },
+    });
     if (!enabled || !accountId || !networkId || !walletId) {
       setInitialized(true);
       return;
@@ -853,46 +1123,19 @@ export function useNativeHomePortfolioData({
     if (isAllNetworks) {
       return;
     }
-    const hydrationGeneration = requestIdRef.current;
     void (async () => {
-      try {
-        const cached =
-          await backgroundApiProxy.serviceToken.getAccountLocalTokens({
-            accountId,
-            networkId,
-          });
-        if (
-          isOwnerCurrent(owner) &&
-          requestIdRef.current === hydrationGeneration &&
-          cached.hasCache
-        ) {
-          applySlice(
-            {
-              tokens: cached.tokenList,
-              map: pickTokenMap(cached.tokenList, cached.tokenListMap),
-              riskTokens: [],
-              riskMap: {},
-              smallBalanceTokens: [],
-              smallBalanceMap: {},
-            },
-            owner,
-          );
-        }
-      } catch {
-        // The live request below remains authoritative when cache hydration fails.
-      }
       if (isOwnerCurrent(owner)) {
         await loadSingle();
       }
     })();
   }, [
     accountId,
-    applySlice,
     enabled,
     isAllNetworks,
     isOwnerCurrent,
     loadSingle,
     networkId,
+    publishSpotEvidence,
     renderOwner,
     walletId,
   ]);
@@ -971,6 +1214,7 @@ export function useNativeHomePortfolioData({
       refresh,
       smallBalanceMap,
       smallBalanceTokens,
+      spotSectionSource,
       tokens,
     }),
     [
@@ -987,6 +1231,7 @@ export function useNativeHomePortfolioData({
       riskTokens,
       smallBalanceMap,
       smallBalanceTokens,
+      spotSectionSource,
       tokens,
     ],
   );
