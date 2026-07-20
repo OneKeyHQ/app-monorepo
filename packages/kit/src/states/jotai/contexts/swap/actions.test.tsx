@@ -1599,6 +1599,61 @@ describe('useSwapActions', () => {
     },
   );
 
+  it('accepts native Pro LIMIT events using the dispatched request tokens', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+      storeInstance.set(swapSelectFromTokenAtom(), ethToken);
+      storeInstance.set(swapSelectToTokenAtom(), bnbToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '999',
+        isInput: false,
+      });
+      storeInstance.set(swapToTokenAmountAtom(), {
+        value: '999',
+        isInput: false,
+      });
+      storeInstance.set(swapQuoteEventCompletedAtom(), false);
+      storeInstance.set(swapQuoteFetchingAtom(), true);
+      storeInstance.set(swapQuoteActionLockAtom(), {
+        actionLock: true,
+        quoteRequestId: 'pro-limit-request',
+        type: ESwapTabSwitchType.LIMIT,
+        fromToken: usdcToken,
+        toToken: usdtToken,
+        fromTokenAmount: '5',
+        toTokenAmount: '21',
+        kind: ESwapQuoteKind.BUY,
+      });
+    });
+    const { result } = renderHook(
+      () => ({ actions: useSwapActions().current }),
+      { wrapper: Wrapper },
+    );
+
+    await act(async () => {
+      result.current.actions.quoteEventHandler({
+        event: {} as ISwapQuoteEvent,
+        type: 'done',
+        params: {
+          fromNetworkId: usdcToken.networkId,
+          fromTokenAddress: usdcToken.contractAddress,
+          fromTokenAmount: '5',
+          protocol: EProtocolOfExchange.LIMIT,
+          slippagePercentage: 0.5,
+          toNetworkId: usdtToken.networkId,
+          toTokenAddress: usdtToken.contractAddress,
+          toTokenAmount: '21',
+          kind: ESwapQuoteKind.BUY,
+        },
+        quoteRequestId: 'pro-limit-request',
+        tokenPairs: { fromToken: usdcToken, toToken: usdtToken },
+      });
+    });
+
+    expect(store.get(swapQuoteEventCompletedAtom())).toBe(true);
+    expect(store.get(swapQuoteFetchingAtom())).toBe(false);
+  });
+
   it('accepts Stock quote event results before the total count event arrives', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
       storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);

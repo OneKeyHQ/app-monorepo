@@ -816,13 +816,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         !isCurrentQuoteEventParams({
           currentQuoteRequestId: quoteActionLock.quoteRequestId,
           currentSwapType: get(swapTypeSwitchAtom()),
-          fromToken: get(swapSelectFromTokenAtom()),
-          fromTokenAmount: get(swapFromTokenAmountAtom()).value,
+          fromToken:
+            quoteActionLock.fromToken ?? get(swapSelectFromTokenAtom()),
+          fromTokenAmount:
+            quoteActionLock.fromTokenAmount ??
+            get(swapFromTokenAmountAtom()).value,
           params: event.params,
           quoteRequestActive: quoteActionLock.actionLock,
           quoteRequestId: event.quoteRequestId,
-          toToken: get(swapSelectToTokenAtom()),
-          toTokenAmount: get(swapToTokenAmountAtom()).value,
+          toToken: quoteActionLock.toToken ?? get(swapSelectToTokenAtom()),
+          toTokenAmount:
+            quoteActionLock.toTokenAmount ?? get(swapToTokenAmountAtom()).value,
           tokenPairs: event.tokenPairs,
         })
       ) {
