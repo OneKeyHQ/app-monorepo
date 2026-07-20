@@ -11,6 +11,7 @@ import {
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
   getStockChartDisplayState,
   getStockDisabledActionButtonProps,
+  getStockNetworkLogoUri,
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
   shouldShowStockMarketHeaderSkeleton,
@@ -35,6 +36,23 @@ describe('SwapStockDesktopContainer utils', () => {
       pt: '$8',
       pb: '$4',
     });
+  });
+
+  it('resolves the preset Stock network logo before async network data arrives', () => {
+    expect(
+      getStockNetworkLogoUri({
+        networkId: 'evm--56',
+      }),
+    ).toBe('https://uni.onekey-asset.com/static/chain/bsc.png');
+  });
+
+  it('keeps the token-provided Stock network logo when available', () => {
+    expect(
+      getStockNetworkLogoUri({
+        networkId: 'evm--56',
+        networkLogoUri: 'https://example.com/custom-network.png',
+      }),
+    ).toBe('https://example.com/custom-network.png');
   });
 
   it('keeps disabled buy actions in the buy color family', () => {

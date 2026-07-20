@@ -162,6 +162,7 @@ import {
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
   getStockChartDisplayState,
   getStockDisabledActionButtonProps,
+  getStockNetworkLogoUri,
   isStockMarketPanelLoadingStage,
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockQuoteActionLoading,
@@ -1411,8 +1412,16 @@ function StockMarketTokenHeader({
     useCurrentStockMarketDetail();
   const stockTokenNetworkId =
     currentStockToken?.networkId ?? tokenDetail?.networkId ?? networkId;
+  const stockTokenNetworkLogoUri = useMemo(
+    () =>
+      getStockNetworkLogoUri({
+        networkId: stockTokenNetworkId,
+        networkLogoUri: currentStockToken?.networkLogoURI,
+      }),
+    [currentStockToken?.networkLogoURI, stockTokenNetworkId],
+  );
   const effectiveNetworkLogoUri = useNetworkLogoUri({
-    logoUri: currentStockToken?.networkLogoURI,
+    logoUri: stockTokenNetworkLogoUri,
     networkId: stockTokenNetworkId,
   });
   const stock = tokenDetail?.stock;
@@ -1426,6 +1435,7 @@ function StockMarketTokenHeader({
     tokenDetail?.name ?? currentStockToken?.name ?? tokenSymbol ?? '';
   const tokenSubtitle =
     stock?.subtitle ?? (tokenDetail ? undefined : currentStockToken?.name);
+  const tokenImageUri = currentStockToken?.logoURI ?? tokenDetail?.logoUrl;
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockTokenNetworkId,
     storeName,
@@ -1443,10 +1453,11 @@ function StockMarketTokenHeader({
   const tokenIcon = (
     <Token
       size="md"
-      tokenImageUri={currentStockToken?.logoURI ?? tokenDetail?.logoUrl}
+      tokenImageUri={tokenImageUri}
       tokenImageUris={
         currentStockToken?.logoURI ? undefined : tokenDetail?.logoUrls
       }
+      recyclingKey={tokenImageUri}
       networkImageUri={effectiveNetworkLogoUri}
       showNetworkIconBorder={false}
       bg="$transparent"
