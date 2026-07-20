@@ -1,10 +1,12 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  formatTradingViewNativeCrosshairTime,
   formatTradingViewNativePriceTick,
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
   getTradingViewNativeCurrentPriceLayout,
+  getTradingViewNativePriceAtY,
   getTradingViewNativePriceTransform,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
@@ -20,8 +22,9 @@ function getLocalTimestamp(
   month: number,
   day: number,
   hour = 12,
+  minute = 0,
 ) {
-  return new Date(year, month, day, hour).getTime() / 1000;
+  return new Date(year, month, day, hour, minute).getTime() / 1000;
 }
 
 function buildPoints({
@@ -49,6 +52,24 @@ describe('TradingViewNative chart layout', () => {
     expect(formatTradingViewNativePriceTick(1)).toBe('1');
   });
 
+  it('formats crosshair time labels for intraday and daily candles', () => {
+    const timestamp = getLocalTimestamp(2025, 0, 15, 13, 5);
+    expect(
+      formatTradingViewNativeCrosshairTime(timestamp, SECONDS_PER_HOUR),
+    ).toBe('2025-01-15 13:05');
+    expect(
+      formatTradingViewNativeCrosshairTime(timestamp, SECONDS_PER_DAY),
+    ).toBe('2025-01-15');
+  });
+
+  it('maps crosshair height to a visible price', () => {
+    const range = { maxPrice: 10, minPrice: 0, priceChartHeight: 100 };
+    expect(getTradingViewNativePriceAtY({ ...range, y: 8 })).toBe(10);
+    expect(getTradingViewNativePriceAtY({ ...range, y: 58 })).toBe(5);
+    expect(getTradingViewNativePriceAtY({ ...range, y: 108 })).toBe(0);
+    expect(getTradingViewNativePriceAtY({ ...range, y: 109 })).toBeNull();
+  });
+
   it('builds the shared rendering layout for native and web charts', () => {
     const points = buildPoints({
       count: 5,
@@ -71,13 +92,14 @@ describe('TradingViewNative chart layout', () => {
     if (!layout) {
       return;
     }
-    expect(getTradingViewNativeChartWidth(width)).toBe(322);
+    expect(getTradingViewNativeChartWidth(width)).toBe(338);
     expect(layout).toMatchObject({
       maxPrice: 2,
       maxVolume: 10,
-      priceAxisX: 322,
+      priceAxisX: 338,
       timeAxisY: 276,
       volumeBottom: 276,
+      volumeTop: 222.4,
     });
     expect(layout.priceTicks).toHaveLength(7);
     expect(layout.timeTicks.length).toBeGreaterThan(0);

@@ -71,6 +71,7 @@ export interface ITradingViewNativeChartLayout {
   timeTicks: ITradingViewNativeTimeTick[];
   volumeBottom: number;
   volumeHeight: number;
+  volumeTop: number;
 }
 
 interface ITimeAxisInterval {
@@ -164,6 +165,25 @@ export function getTradingViewNativeWatermarkLayout({
 
 function padTimeAxisValue(value: number) {
   return value.toString().padStart(2, '0');
+}
+
+export function formatTradingViewNativeCrosshairTime(
+  timestamp: number,
+  candleIntervalSeconds: number,
+) {
+  const date = new Date(timestamp * 1000);
+  const year = date.getFullYear();
+  const month = padTimeAxisValue(date.getMonth() + 1);
+  const day = padTimeAxisValue(date.getDate());
+  const dateLabel = `${year}-${month}-${day}`;
+
+  if (candleIntervalSeconds >= SECONDS_PER_DAY) {
+    return dateLabel;
+  }
+
+  const hour = padTimeAxisValue(date.getHours());
+  const minute = padTimeAxisValue(date.getMinutes());
+  return `${dateLabel} ${hour}:${minute}`;
 }
 
 function formatTradingViewNativeTimeTick(
@@ -404,6 +424,7 @@ export function getTradingViewNativeChartLayout({
   const priceChartHeight =
     contentHeight * (1 - VOLUME_HEIGHT_RATIO - PRICE_VOLUME_GAP_RATIO);
   const volumeBottom = timeAxisY - TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING;
+  const volumeTop = volumeBottom - volumeHeight;
   const { maxPrice, minPrice } = visiblePriceRange;
   const priceRange = maxPrice - minPrice;
   const priceTickCount =
@@ -447,6 +468,7 @@ export function getTradingViewNativeChartLayout({
     timeTicks,
     volumeBottom,
     volumeHeight,
+    volumeTop,
   };
 }
 
@@ -467,6 +489,40 @@ export function getTradingViewNativePriceY(
     ? TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight / 2
     : TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
         ((maxPrice - price) / priceRange) * priceChartHeight;
+}
+
+export function getTradingViewNativePriceAtY({
+  maxPrice,
+  minPrice,
+  priceChartHeight,
+  y,
+}: {
+  maxPrice: number;
+  minPrice: number;
+  priceChartHeight: number;
+  y: number;
+}) {
+  'worklet';
+
+  const chartBottom = TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight;
+  if (
+    !Number.isFinite(maxPrice) ||
+    !Number.isFinite(minPrice) ||
+    !Number.isFinite(y) ||
+    priceChartHeight <= 0 ||
+    y < TRADING_VIEW_NATIVE_CHART_TOP_PADDING ||
+    y > chartBottom
+  ) {
+    return null;
+  }
+
+  if (maxPrice === minPrice) {
+    return maxPrice;
+  }
+
+  const progress =
+    (y - TRADING_VIEW_NATIVE_CHART_TOP_PADDING) / priceChartHeight;
+  return maxPrice - (maxPrice - minPrice) * progress;
 }
 
 export function getTradingViewNativeCurrentPriceLayout({

@@ -315,6 +315,46 @@ export function getTradingViewNativeCandleX({
   );
 }
 
+export function getTradingViewNativePointIndexAtX({
+  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  offset,
+  pointCount,
+  priceAxisX,
+  x,
+  zoomScale,
+}: {
+  candleGap?: number;
+  offset: number;
+  pointCount: number;
+  priceAxisX: number;
+  x: number;
+  zoomScale: number;
+}) {
+  'worklet';
+
+  if (
+    pointCount <= 0 ||
+    priceAxisX <= 0 ||
+    !Number.isFinite(x) ||
+    x < 0 ||
+    x > priceAxisX
+  ) {
+    return null;
+  }
+
+  const clampedZoomScale = clampTradingViewNativeZoomScale(zoomScale);
+  const candleStep =
+    (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + candleGap) * clampedZoomScale;
+  const lastCandleCenter =
+    priceAxisX -
+    (candleGap + TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2) * clampedZoomScale +
+    offset;
+  const distanceFromNewest = Math.round((lastCandleCenter - x) / candleStep);
+  const index = pointCount - distanceFromNewest - 1;
+
+  return index >= 0 && index < pointCount ? index : null;
+}
+
 export function getTradingViewNativePriceRange({
   endIndex,
   points,

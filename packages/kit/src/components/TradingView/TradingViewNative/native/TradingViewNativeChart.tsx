@@ -43,36 +43,60 @@ import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING as CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING as CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_CHART_UP_COLOR as CHART_UP_COLOR,
+  TRADING_VIEW_NATIVE_CROSSHAIR_LABEL_BACKGROUND_COLOR as CROSSHAIR_LABEL_BACKGROUND_COLOR,
+  TRADING_VIEW_NATIVE_CROSSHAIR_LABEL_HEIGHT as CROSSHAIR_LABEL_HEIGHT,
+  TRADING_VIEW_NATIVE_CROSSHAIR_LABEL_HORIZONTAL_PADDING as CROSSHAIR_LABEL_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_CROSSHAIR_LABEL_TEXT_COLOR as CROSSHAIR_LABEL_TEXT_COLOR,
+  TRADING_VIEW_NATIVE_CROSSHAIR_LINE_DASH_GAP as CROSSHAIR_LINE_DASH_GAP,
+  TRADING_VIEW_NATIVE_CROSSHAIR_LINE_DASH_LENGTH as CROSSHAIR_LINE_DASH_LENGTH,
+  TRADING_VIEW_NATIVE_CROSSHAIR_LINE_OPACITY as CROSSHAIR_LINE_OPACITY,
+  TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION as CROSSHAIR_LONG_PRESS_DURATION,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HEIGHT as CURRENT_PRICE_LABEL_HEIGHT,
-  TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING as CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_TEXT_COLOR as CURRENT_PRICE_LABEL_TEXT_COLOR,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_GAP as CURRENT_PRICE_LINE_DASH_GAP,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_LENGTH as CURRENT_PRICE_LINE_DASH_LENGTH,
   TRADING_VIEW_NATIVE_GRID_LINE_DASH_GAP as GRID_LINE_DASH_GAP,
   TRADING_VIEW_NATIVE_GRID_LINE_DASH_LENGTH as GRID_LINE_DASH_LENGTH,
+  TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_HORIZONTAL_PADDING as LEGEND_BACKGROUND_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_OPACITY as LEGEND_BACKGROUND_OPACITY,
+  TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING as LEGEND_BACKGROUND_VERTICAL_PADDING,
+  TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE as LEGEND_FONT_SIZE,
+  TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING as LEGEND_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_LEGEND_ITEM_GAP as LEGEND_ITEM_GAP,
+  TRADING_VIEW_NATIVE_LEGEND_LABEL_VALUE_GAP as LEGEND_LABEL_VALUE_GAP,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING as PRICE_AXIS_LABEL_RIGHT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT as PRICE_AXIS_TICK_COUNT,
   TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH as PRICE_AXIS_WIDTH,
+  TRADING_VIEW_NATIVE_PRICE_LEGEND_TOP as PRICE_LEGEND_TOP,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT as TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
+  TRADING_VIEW_NATIVE_CANDLE_GAP,
   TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+  TRADING_VIEW_NATIVE_VOLUME_LEGEND_TOP_PADDING as VOLUME_LEGEND_TOP_PADDING,
   TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
 import {
   type ITradingViewNativeTimeTick,
+  formatTradingViewNativeCrosshairTime,
   formatTradingViewNativePriceTick,
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
   getTradingViewNativeCurrentPriceLayout,
+  getTradingViewNativePriceAtY,
   getTradingViewNativePriceTransform,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
   getTradingViewNativeWatermarkLayout,
 } from '../utils/chartLayout';
+import {
+  type ITradingViewNativeLegendItem,
+  getTradingViewNativeChartLegend,
+} from '../utils/chartLegend';
 import { isTradingViewNativePriceUp } from '../utils/chartStyle';
 import {
   type ITradingViewNativeVisiblePointRange,
@@ -81,6 +105,7 @@ import {
   getTradingViewNativeDataUpdateMetadata,
   getTradingViewNativeGestureStartOffsetAfterDataUpdate,
   getTradingViewNativeMaxPanOffset,
+  getTradingViewNativePointIndexAtX,
   getTradingViewNativePriceRange,
   getTradingViewNativeViewportOffsetTransition,
   getTradingViewNativeVisiblePointRange,
@@ -96,7 +121,7 @@ const PRICE_AXIS_TICK_PROGRESS = Array.from(
 const TIME_AXIS_FONT_SIZE = 12;
 const TIME_AXIS_TEXT_BASELINE_OFFSET =
   (TIME_AXIS_HEIGHT + TIME_AXIS_FONT_SIZE) / 2;
-const NATIVE_CANDLE_GAP = 1;
+const NATIVE_CANDLE_GAP = TRADING_VIEW_NATIVE_CANDLE_GAP;
 const NATIVE_CANDLE_STEP =
   TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + NATIVE_CANDLE_GAP;
 const PAN_DRAG_RATIO = 1.1;
@@ -124,6 +149,7 @@ interface IChartPictureData {
   priceChartHeight: number;
   pricePicture: SkPicture;
   volumePicture: SkPicture;
+  volumeTop: number;
 }
 
 interface ITradingViewNativeChartProps {
@@ -303,6 +329,7 @@ function createKLineChartPictures({
     priceChartHeight: layout?.priceChartHeight ?? 0,
     pricePicture,
     volumePicture,
+    volumeTop: layout?.volumeTop ?? 0,
   };
 }
 
@@ -391,7 +418,12 @@ function TradingViewNativePriceTick({
       maxPrice.value - (maxPrice.value - minPrice.value) * progress,
     );
   });
-  const x = useDerivedValue(() => width - font.measureText(text.value).width);
+  const x = useDerivedValue(
+    () =>
+      width -
+      PRICE_AXIS_LABEL_RIGHT_PADDING -
+      font.measureText(text.value).width,
+  );
   const opacity = useDerivedValue(() => {
     if (!Number.isFinite(maxPrice.value) || !Number.isFinite(minPrice.value)) {
       return 0;
@@ -414,6 +446,274 @@ function TradingViewNativePriceTick({
         PRICE_AXIS_TEXT_BASELINE_OFFSET
       }
     />
+  );
+}
+
+function TradingViewNativeChartLegendRow({
+  backgroundColor,
+  font,
+  items,
+  labelColor,
+  maxX,
+  top,
+  valueColor,
+}: {
+  backgroundColor: string;
+  font: SkFont;
+  items: ITradingViewNativeLegendItem[];
+  labelColor: string;
+  maxX: number;
+  top: number;
+  valueColor: string;
+}) {
+  const backgroundLeft = Math.max(
+    LEGEND_HORIZONTAL_PADDING - LEGEND_BACKGROUND_HORIZONTAL_PADDING,
+    CHART_HORIZONTAL_PADDING,
+  );
+  const backgroundTop = Math.max(top - LEGEND_BACKGROUND_VERTICAL_PADDING, 0);
+  const clipWidth = Math.max(maxX - backgroundLeft, 0);
+  if (!items.length || clipWidth <= 0) {
+    return null;
+  }
+
+  let x = LEGEND_HORIZONTAL_PADDING;
+  const baselineY = top + LEGEND_FONT_SIZE;
+  const segments = items.map((item, index) => {
+    const labelX = x;
+    const valueX =
+      labelX + font.measureText(item.label).width + LEGEND_LABEL_VALUE_GAP;
+    x = valueX + font.measureText(item.value).width + LEGEND_ITEM_GAP;
+
+    return (
+      <Group key={`${item.label}-${index}`}>
+        <Text
+          color={labelColor}
+          font={font}
+          text={item.label}
+          x={labelX}
+          y={baselineY}
+        />
+        <Text
+          color={valueColor}
+          font={font}
+          text={item.value}
+          x={valueX}
+          y={baselineY}
+        />
+      </Group>
+    );
+  });
+  const contentRight = Math.max(x - LEGEND_ITEM_GAP, LEGEND_HORIZONTAL_PADDING);
+  const backgroundWidth = Math.min(
+    contentRight -
+      LEGEND_HORIZONTAL_PADDING +
+      LEGEND_BACKGROUND_HORIZONTAL_PADDING * 2,
+    clipWidth,
+  );
+
+  return (
+    <Group
+      clip={Skia.XYWHRect(
+        backgroundLeft,
+        backgroundTop,
+        clipWidth,
+        LEGEND_FONT_SIZE + LEGEND_BACKGROUND_VERTICAL_PADDING * 2,
+      )}
+    >
+      <Rect
+        color={backgroundColor}
+        height={LEGEND_FONT_SIZE + LEGEND_BACKGROUND_VERTICAL_PADDING * 2}
+        opacity={LEGEND_BACKGROUND_OPACITY}
+        width={backgroundWidth}
+        x={backgroundLeft}
+        y={backgroundTop}
+      />
+      {segments}
+    </Group>
+  );
+}
+
+function TradingViewNativeCrosshair({
+  chartOpacity,
+  color,
+  priceAxisX,
+  timeAxisY,
+  visible,
+  x,
+  y,
+}: {
+  chartOpacity: number;
+  color: string;
+  priceAxisX: number;
+  timeAxisY: number;
+  visible: SharedValue<number>;
+  x: SharedValue<number>;
+  y: SharedValue<number>;
+}) {
+  const opacity = useDerivedValue(() =>
+    visible.value ? chartOpacity * CROSSHAIR_LINE_OPACITY : 0,
+  );
+  const verticalTransform = useDerivedValue(() => [{ translateX: x.value }]);
+  const horizontalTransform = useDerivedValue(() => [{ translateY: y.value }]);
+
+  return (
+    <Group
+      clip={Skia.XYWHRect(
+        CHART_HORIZONTAL_PADDING,
+        0,
+        Math.max(priceAxisX - CHART_HORIZONTAL_PADDING, 0),
+        Math.max(timeAxisY, 0),
+      )}
+      opacity={opacity}
+    >
+      <Group transform={verticalTransform}>
+        <Line
+          color={color}
+          p1={{ x: 0, y: 0 }}
+          p2={{ x: 0, y: timeAxisY }}
+          strokeWidth={1}
+        >
+          <DashPathEffect
+            intervals={[CROSSHAIR_LINE_DASH_LENGTH, CROSSHAIR_LINE_DASH_GAP]}
+          />
+        </Line>
+      </Group>
+      <Group transform={horizontalTransform}>
+        <Line
+          color={color}
+          p1={{ x: CHART_HORIZONTAL_PADDING, y: 0 }}
+          p2={{ x: priceAxisX, y: 0 }}
+          strokeWidth={1}
+        >
+          <DashPathEffect
+            intervals={[CROSSHAIR_LINE_DASH_LENGTH, CROSSHAIR_LINE_DASH_GAP]}
+          />
+        </Line>
+      </Group>
+    </Group>
+  );
+}
+
+function TradingViewNativeCrosshairAxisLabels({
+  candleIntervalSeconds,
+  chartOpacity,
+  font,
+  maxPrice,
+  minPrice,
+  point,
+  priceAxisX,
+  priceChartHeight,
+  timeAxisY,
+  visible,
+  width,
+  x,
+  y,
+}: {
+  candleIntervalSeconds: number;
+  chartOpacity: number;
+  font: SkFont;
+  maxPrice: SharedValue<number>;
+  minPrice: SharedValue<number>;
+  point: IMarketTokenKLineDataPoint | undefined;
+  priceAxisX: number;
+  priceChartHeight: number;
+  timeAxisY: number;
+  visible: SharedValue<number>;
+  width: number;
+  x: SharedValue<number>;
+  y: SharedValue<number>;
+}) {
+  const price = useDerivedValue(() =>
+    getTradingViewNativePriceAtY({
+      maxPrice: maxPrice.value,
+      minPrice: minPrice.value,
+      priceChartHeight,
+      y: y.value,
+    }),
+  );
+  const priceText = useDerivedValue(() =>
+    price.value === null ? '' : formatTradingViewNativePriceTick(price.value),
+  );
+  const priceTextX = useDerivedValue(
+    () =>
+      width -
+      PRICE_AXIS_LABEL_RIGHT_PADDING -
+      font.measureText(priceText.value).width,
+  );
+  const priceLabelTransform = useDerivedValue(() => [
+    {
+      translateY: Math.min(
+        Math.max(y.value - CROSSHAIR_LABEL_HEIGHT / 2, 0),
+        timeAxisY - CROSSHAIR_LABEL_HEIGHT,
+      ),
+    },
+  ]);
+  const priceLabelOpacity = useDerivedValue(() =>
+    visible.value && price.value !== null ? chartOpacity : 0,
+  );
+
+  const timeText = point
+    ? formatTradingViewNativeCrosshairTime(point.t, candleIntervalSeconds)
+    : '';
+  const timeTextWidth = font.measureText(timeText).width;
+  const timeLabelWidth = Math.min(
+    timeTextWidth + CROSSHAIR_LABEL_HORIZONTAL_PADDING * 2,
+    Math.max(priceAxisX - CHART_HORIZONTAL_PADDING, 0),
+  );
+  const hasTimeLabel = Boolean(point && timeLabelWidth > 0);
+  const timeLabelTransform = useDerivedValue(() => [
+    {
+      translateX: Math.min(
+        Math.max(x.value - timeLabelWidth / 2, CHART_HORIZONTAL_PADDING),
+        Math.max(priceAxisX - timeLabelWidth, CHART_HORIZONTAL_PADDING),
+      ),
+    },
+  ]);
+  const timeLabelOpacity = useDerivedValue(() =>
+    visible.value && hasTimeLabel ? chartOpacity : 0,
+  );
+  const timeLabelTop =
+    timeAxisY + (TIME_AXIS_HEIGHT - CROSSHAIR_LABEL_HEIGHT) / 2;
+
+  return (
+    <>
+      <Group opacity={priceLabelOpacity} transform={priceLabelTransform}>
+        <Rect
+          color={CROSSHAIR_LABEL_BACKGROUND_COLOR}
+          height={CROSSHAIR_LABEL_HEIGHT}
+          width={width - priceAxisX}
+          x={priceAxisX}
+          y={0}
+        />
+        <Text
+          color={CROSSHAIR_LABEL_TEXT_COLOR}
+          font={font}
+          text={priceText}
+          x={priceTextX}
+          y={CROSSHAIR_LABEL_HEIGHT / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET}
+        />
+      </Group>
+      <Group opacity={timeLabelOpacity} transform={timeLabelTransform}>
+        <Rect
+          color={CROSSHAIR_LABEL_BACKGROUND_COLOR}
+          height={CROSSHAIR_LABEL_HEIGHT}
+          width={timeLabelWidth}
+          x={0}
+          y={timeLabelTop}
+        />
+        <Text
+          color={CROSSHAIR_LABEL_TEXT_COLOR}
+          font={font}
+          text={timeText}
+          x={(timeLabelWidth - timeTextWidth) / 2}
+          y={
+            timeLabelTop +
+            CROSSHAIR_LABEL_HEIGHT / 2 +
+            PRICE_AXIS_TEXT_BASELINE_OFFSET
+          }
+        />
+      </Group>
+    </>
   );
 }
 
@@ -440,9 +740,7 @@ function TradingViewNativeCurrentPrice({
 }) {
   const text = formatTradingViewNativePriceTick(price);
   const textX =
-    width -
-    CURRENT_PRICE_LABEL_HORIZONTAL_PADDING -
-    font.measureText(text).width;
+    width - PRICE_AXIS_LABEL_RIGHT_PADDING - font.measureText(text).width;
   const layout = useDerivedValue(() =>
     getTradingViewNativeCurrentPriceLayout({
       labelHeight: CURRENT_PRICE_LABEL_HEIGHT,
@@ -509,6 +807,13 @@ export const TradingViewNativeChart = memo(
       height: 0,
       width: 0,
     });
+    const [crosshairPointIndex, setCrosshairPointIndex] = useState<
+      number | null
+    >(null);
+    const crosshairPointIndexValue = useSharedValue(-1);
+    const crosshairVisible = useSharedValue(0);
+    const crosshairX = useSharedValue(0);
+    const crosshairY = useSharedValue(0);
     const panOffset = useSharedValue(0);
     const zoomScale = useSharedValue(TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE);
     const panStartOffset = useSharedValue(0);
@@ -537,13 +842,36 @@ export const TradingViewNativeChart = memo(
         }),
       [],
     );
+    const legendFont = useMemo(
+      () =>
+        matchFont({
+          fontFamily: 'System',
+          fontSize: LEGEND_FONT_SIZE,
+          fontWeight: '400',
+        }),
+      [],
+    );
     const chartOpacity = isSwitchingInterval ? SWITCHING_INTERVAL_OPACITY : 1;
     const watermarkOpacity =
       themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
     const priceAxisX = chartSize.width - PRICE_AXIS_WIDTH;
+    const timeAxisY = chartSize.height - TIME_AXIS_HEIGHT;
     const chartWidth = getTradingViewNativeChartWidth(chartSize.width);
     const pointCount = points.length;
     const latestPoint = points[pointCount - 1];
+    const crosshairPoint =
+      crosshairPointIndex === null ? undefined : points[crosshairPointIndex];
+    const legendPoint = crosshairPoint ?? latestPoint;
+    const chartLegend = legendPoint
+      ? getTradingViewNativeChartLegend(legendPoint)
+      : null;
+    const legendPointColor = chartLegend?.isUp
+      ? CHART_UP_COLOR
+      : CHART_DOWN_COLOR;
+    const latestPointColor =
+      latestPoint && isTradingViewNativePriceUp(latestPoint)
+        ? CHART_UP_COLOR
+        : CHART_DOWN_COLOR;
     const watermarkLayout = useMemo(
       () => getTradingViewNativeWatermarkLayout(chartSize),
       [chartSize],
@@ -840,7 +1168,74 @@ export const TradingViewNativeChart = memo(
       { scaleY: priceScaleY.value },
     ]);
 
+    const handleCrosshairPointIndexChange = useCallback(
+      (index: number | null) => {
+        setCrosshairPointIndex(index);
+      },
+      [],
+    );
+
     const chartGestures = useMemo(() => {
+      const updateCrosshair = (nextX: number, nextY: number) => {
+        'worklet';
+
+        const index = getTradingViewNativePointIndexAtX({
+          candleGap: NATIVE_CANDLE_GAP,
+          offset: panOffset.value,
+          pointCount,
+          priceAxisX,
+          x: nextX,
+          zoomScale: zoomScale.value,
+        });
+        if (index === null) {
+          crosshairVisible.value = 0;
+          if (crosshairPointIndexValue.value !== -1) {
+            crosshairPointIndexValue.value = -1;
+            scheduleOnRN(handleCrosshairPointIndexChange, null);
+          }
+          return;
+        }
+
+        crosshairVisible.value = 1;
+        crosshairX.value = getTradingViewNativeCandleX({
+          candleGap: NATIVE_CANDLE_GAP,
+          index,
+          offset: panOffset.value,
+          pointCount,
+          priceAxisX,
+          zoomScale: zoomScale.value,
+        });
+        crosshairY.value = Math.min(Math.max(nextY, 0), timeAxisY);
+        if (crosshairPointIndexValue.value !== index) {
+          crosshairPointIndexValue.value = index;
+          scheduleOnRN(handleCrosshairPointIndexChange, index);
+        }
+      };
+
+      const crosshairGesture = Gesture.Pan()
+        .activateAfterLongPress(CROSSHAIR_LONG_PRESS_DURATION)
+        .maxPointers(1)
+        .onStart((event) => {
+          'worklet';
+
+          cancelAnimation(panOffset);
+          updateCrosshair(event.x, event.y);
+        })
+        .onUpdate((event) => {
+          'worklet';
+
+          updateCrosshair(event.x, event.y);
+        })
+        .onFinalize(() => {
+          'worklet';
+
+          crosshairVisible.value = 0;
+          if (crosshairPointIndexValue.value !== -1) {
+            crosshairPointIndexValue.value = -1;
+            scheduleOnRN(handleCrosshairPointIndexChange, null);
+          }
+        });
+
       const panGesture = Gesture.Pan()
         .onBegin(() => {
           'worklet';
@@ -926,15 +1321,25 @@ export const TradingViewNativeChart = memo(
           zoomScale.value = nextViewport.zoomScale;
         });
 
-      return Gesture.Race(panGesture, pinchGesture);
+      return Gesture.Exclusive(
+        crosshairGesture,
+        Gesture.Race(panGesture, pinchGesture),
+      );
     }, [
       chartWidth,
+      crosshairPointIndexValue,
+      crosshairVisible,
+      crosshairX,
+      crosshairY,
+      handleCrosshairPointIndexChange,
       panOffset,
       panStartOffset,
       pinchAnchorX,
       pinchStartOffset,
       pinchStartZoomScale,
       pointCount,
+      priceAxisX,
+      timeAxisY,
       zoomScale,
     ]);
 
@@ -1007,6 +1412,15 @@ export const TradingViewNativeChart = memo(
                   </Group>
                 </Group>
               </Group>
+              <TradingViewNativeCrosshair
+                chartOpacity={chartOpacity}
+                color={axisText}
+                priceAxisX={priceAxisX}
+                timeAxisY={timeAxisY}
+                visible={crosshairVisible}
+                x={crosshairX}
+                y={crosshairY}
+              />
               {PRICE_AXIS_TICK_PROGRESS.map((progress) => (
                 <TradingViewNativePriceTick
                   key={progress}
@@ -1020,14 +1434,32 @@ export const TradingViewNativeChart = memo(
                   width={chartSize.width}
                 />
               ))}
+              {chartLegend ? (
+                <Group opacity={chartOpacity}>
+                  <TradingViewNativeChartLegendRow
+                    backgroundColor={background}
+                    font={legendFont}
+                    items={chartLegend.priceItems}
+                    labelColor={axisText}
+                    maxX={priceAxisX}
+                    top={PRICE_LEGEND_TOP}
+                    valueColor={legendPointColor}
+                  />
+                  <TradingViewNativeChartLegendRow
+                    backgroundColor={background}
+                    font={legendFont}
+                    items={[chartLegend.volumeItem]}
+                    labelColor={axisText}
+                    maxX={priceAxisX}
+                    top={chartPictureData.volumeTop + VOLUME_LEGEND_TOP_PADDING}
+                    valueColor={legendPointColor}
+                  />
+                </Group>
+              ) : null}
               {latestPoint && Number.isFinite(latestPoint.c) ? (
                 <TradingViewNativeCurrentPrice
                   chartOpacity={chartOpacity}
-                  color={
-                    isTradingViewNativePriceUp(latestPoint)
-                      ? CHART_UP_COLOR
-                      : CHART_DOWN_COLOR
-                  }
+                  color={latestPointColor}
                   font={timeAxisFont}
                   maxPrice={visibleMaxPrice}
                   minPrice={visibleMinPrice}
@@ -1037,6 +1469,21 @@ export const TradingViewNativeChart = memo(
                   width={chartSize.width}
                 />
               ) : null}
+              <TradingViewNativeCrosshairAxisLabels
+                candleIntervalSeconds={candleIntervalSeconds}
+                chartOpacity={chartOpacity}
+                font={timeAxisFont}
+                maxPrice={visibleMaxPrice}
+                minPrice={visibleMinPrice}
+                point={crosshairPoint}
+                priceAxisX={priceAxisX}
+                priceChartHeight={chartPictureData.priceChartHeight}
+                timeAxisY={timeAxisY}
+                visible={crosshairVisible}
+                width={chartSize.width}
+                x={crosshairX}
+                y={crosshairY}
+              />
             </Canvas>
           </GestureDetector>
         ) : null}
