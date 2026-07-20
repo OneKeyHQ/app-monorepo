@@ -4,8 +4,10 @@ export {
   getTradingViewNativeSourceKey,
 } from './data/getTradingViewNativeSource';
 export type {
+  ITradingViewNativeCoinGeckoHistorySource,
   ITradingViewNativeDataState,
   ITradingViewNativeIntervalChangeData,
+  ITradingViewNativeMarketHistorySource,
   ITradingViewNativePriceUpdateData,
   ITradingViewNativeProps,
   ITradingViewNativeSource,

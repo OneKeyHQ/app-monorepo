@@ -20,6 +20,7 @@ import type { ITradingViewNativeRealtimeSubscription } from './tradingViewNative
 import type { ITradingViewNativeChartInterval } from './tradingViewNativeIntervals';
 import type {
   ITradingViewNativeDataState,
+  ITradingViewNativeMarketHistorySource,
   ITradingViewNativeSource,
 } from '../types';
 
@@ -264,6 +265,16 @@ export function useTradingViewNativeKLine({
   const marketSymbol = source.kind === 'market' ? source.symbol : '';
   const marketRealtime =
     source.kind === 'market' ? source.realtime : 'disabled';
+  const marketHistoryProvider =
+    source.kind === 'market' ? source.history?.provider : undefined;
+  const marketCoinGeckoId =
+    source.kind === 'market' && source.history?.provider === 'coinGecko'
+      ? source.history.coinGeckoId
+      : '';
+  const marketFallbackCoinGeckoId =
+    source.kind === 'market' && source.history?.provider === 'market'
+      ? (source.history.fallback?.coinGeckoId ?? '')
+      : '';
   const provider = useMemo(() => {
     if (sourceKind === 'hyperliquid') {
       return createTradingViewNativeDataProvider({
@@ -273,16 +284,35 @@ export function useTradingViewNativeKLine({
       });
     }
 
+    let history: ITradingViewNativeMarketHistorySource | undefined;
+    if (marketHistoryProvider === 'coinGecko') {
+      history = {
+        provider: 'coinGecko',
+        coinGeckoId: marketCoinGeckoId,
+      };
+    } else if (marketFallbackCoinGeckoId) {
+      history = {
+        provider: 'market',
+        fallback: {
+          provider: 'coinGecko',
+          coinGeckoId: marketFallbackCoinGeckoId,
+        },
+      };
+    }
     return createTradingViewNativeDataProvider({
       kind: 'market',
       networkId: marketNetworkId,
       tokenAddress: marketTokenAddress,
       symbol: marketSymbol,
       realtime: marketRealtime,
+      ...(history ? { history } : {}),
     });
   }, [
     hyperliquidCoin,
     hyperliquidEnvironment,
+    marketCoinGeckoId,
+    marketFallbackCoinGeckoId,
+    marketHistoryProvider,
     marketNetworkId,
     marketRealtime,
     marketSymbol,

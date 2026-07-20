@@ -58,8 +58,40 @@ describe('Swap K-line TradingViewNative source', () => {
     });
   });
 
-  it('uses Market history for stock tokens', () => {
+  it('adds CoinGecko as a fallback for ordinary Market history', () => {
     const source = getSwapKLineTradingViewNativeSource({
+      coinGeckoId: 'ethereum',
+      token: buildToken({
+        contractAddress: '0xAbC',
+        isNative: false,
+        networkId: 'evm--1',
+        symbol: 'eth',
+      }),
+    });
+
+    expect(source).toEqual({
+      kind: 'market',
+      networkId: 'evm--1',
+      tokenAddress: '0xAbC',
+      symbol: 'eth',
+      realtime: 'disabled',
+      history: {
+        provider: 'market',
+        fallback: {
+          provider: 'coinGecko',
+          coinGeckoId: 'ethereum',
+        },
+      },
+    });
+    expect(getSwapKLineTradingViewNativeSourceKey(source)).toBe(
+      'market:evm--1:0xabc:ETH',
+    );
+  });
+
+  it('uses CoinGecko-only history for stock tokens', () => {
+    const source = getSwapKLineTradingViewNativeSource({
+      coinGeckoId: 'apple',
+      preferCoinGecko: true,
       token: buildToken({
         contractAddress: 'stock-aapl',
         isNative: false,
@@ -75,13 +107,31 @@ describe('Swap K-line TradingViewNative source', () => {
       tokenAddress: 'stock-aapl',
       symbol: 'AAPL',
       realtime: 'disabled',
+      history: {
+        provider: 'coinGecko',
+        coinGeckoId: 'apple',
+      },
     });
     expect(getSwapKLineTradingViewNativeSourceKey(source)).toBe(
-      'market:stock--0:stock-aapl:AAPL',
+      'market:stock--0:stock-aapl:AAPL:history:coinGecko:apple',
     );
   });
 
-  it('uses Market history when realtime is unavailable', () => {
+  it('does not fall through to Market history while stock metadata is unavailable', () => {
+    expect(
+      getSwapKLineTradingViewNativeSource({
+        preferCoinGecko: true,
+        token: buildToken({
+          isNative: false,
+          isStock: true,
+          networkId: 'stock--0',
+          symbol: 'AAPL',
+        }),
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps a Market history-only fallback when realtime is unavailable', () => {
     expect(
       getSwapKLineTradingViewNativeSource({
         token: buildToken({

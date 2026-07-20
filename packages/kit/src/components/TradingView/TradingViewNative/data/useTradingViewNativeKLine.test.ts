@@ -496,6 +496,39 @@ describe('TradingViewNative K-line data state machine', () => {
     expect(mockFetchHistory).toHaveBeenCalledTimes(3);
   });
 
+  it('continues native Market pagination after a full 200-point page', async () => {
+    mockHistoryBatchSize = 200;
+    mockHistoryRequestCandleCount = 2000;
+    mockFetchHistory
+      .mockResolvedValueOnce(
+        buildSequentialResponse({
+          count: 200,
+          firstTimestamp: 10_000_000,
+          startingClose: 1000,
+        }),
+      )
+      .mockResolvedValueOnce(
+        buildSequentialResponse({
+          count: 199,
+          firstTimestamp: 9_283_600,
+          startingClose: 800,
+        }),
+      );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: buildMarketSource({ tokenAddress: '' }),
+      }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(200));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.points).toHaveLength(399));
+
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(2);
+  });
+
   it('loads older history through the Hyperliquid provider path', async () => {
     mockHistoryBatchSize = 2;
     mockHistoryRequestCandleCount = 2;

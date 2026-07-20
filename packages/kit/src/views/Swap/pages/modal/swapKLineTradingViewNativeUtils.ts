@@ -2,7 +2,10 @@ import {
   getTradingViewNativeSource,
   getTradingViewNativeSourceKey,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/getTradingViewNativeSource';
-import type { ITradingViewNativeSource } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
+import type {
+  ITradingViewNativeMarketHistorySource,
+  ITradingViewNativeSource,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IMarketPerpsInfo,
@@ -74,12 +77,28 @@ export function resolveSwapKLineTokenMarketInfo({
   };
 }
 
+export function isSwapKLineStockToken({
+  token,
+  tokenMarketDetail,
+}: {
+  token?: ISwapToken;
+  tokenMarketDetail?: IMarketTokenDetail;
+}) {
+  return Boolean(
+    token?.isStock || tokenMarketDetail?.stock?.underlyingAssetTicker,
+  );
+}
+
 export function getSwapKLineTradingViewNativeSource({
+  coinGeckoId,
   perpsInfo,
+  preferCoinGecko,
   token,
   websocketConfig,
 }: {
+  coinGeckoId?: string;
   perpsInfo?: IMarketPerpsInfo;
+  preferCoinGecko?: boolean;
   token?: ISwapToken;
   websocketConfig?: IMarketTokenDetailWebsocket;
 }): ITradingViewNativeSource | undefined {
@@ -91,10 +110,31 @@ export function getSwapKLineTradingViewNativeSource({
     token.isNative && networkUtils.isBTCMainnet(token.networkId)
       ? (perpsInfo?.hlTicker ?? '')
       : '';
+  const normalizedCoinGeckoId = coinGeckoId?.trim();
+  if (preferCoinGecko && !normalizedCoinGeckoId && !hyperliquidCoin) {
+    return undefined;
+  }
+
+  let marketHistory: ITradingViewNativeMarketHistorySource | undefined;
+  if (normalizedCoinGeckoId) {
+    marketHistory = preferCoinGecko
+      ? {
+          provider: 'coinGecko',
+          coinGeckoId: normalizedCoinGeckoId,
+        }
+      : {
+          provider: 'market',
+          fallback: {
+            provider: 'coinGecko',
+            coinGeckoId: normalizedCoinGeckoId,
+          },
+        };
+  }
 
   return getTradingViewNativeSource({
     hyperliquidCoin,
     marketDataSource: websocketConfig?.kline ? 'websocket' : 'polling',
+    marketHistory,
     networkId: token.networkId,
     symbol: token.symbol,
     tokenAddress: token.contractAddress ?? '',

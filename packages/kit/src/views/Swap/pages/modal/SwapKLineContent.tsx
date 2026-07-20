@@ -73,6 +73,8 @@ import {
   type ISwapKLineTokenMarketInfoSuccess,
   getSwapKLineTradingViewNativeSource,
   getSwapKLineTradingViewNativeSourceKey,
+  isSwapKLineIdentityRequestPending,
+  isSwapKLineStockToken,
   resolveSwapKLineTokenMarketInfo,
 } from './swapKLineTradingViewNativeUtils';
 
@@ -80,7 +82,13 @@ const SWAP_KLINE_DEFAULT_PERIOD = '60';
 const SWAP_KLINE_TOKEN_DETAIL_POLLING_INTERVAL = 6000;
 
 type ISwapKLineWalletMarketInfo = {
+  coinGeckoId?: string;
   priceChange24hPercent?: string;
+};
+
+type ISwapKLineWalletMarketInfoResult = {
+  isLoading: boolean;
+  walletMarketInfo?: ISwapKLineWalletMarketInfo;
 };
 
 type ISwapKLineWalletMarketInfoRequestResult =
@@ -245,20 +253,24 @@ function useSwapKLineTokenUsdFallbackPrice(
 function buildSwapKLineWalletMarketInfo(
   tokenInfo?: IFetchTokenDetailItem,
 ): ISwapKLineWalletMarketInfo | undefined {
+  const coinGeckoId = tokenInfo?.info?.coingeckoId?.trim();
   const priceChange24hPercent = getNormalizedSwapKLinePercent(
     tokenInfo?.price24h,
   );
 
-  if (!priceChange24hPercent) {
+  if (!coinGeckoId && !priceChange24hPercent) {
     return undefined;
   }
 
   return {
+    coinGeckoId,
     priceChange24hPercent,
   };
 }
 
-function useSwapKLineWalletMarketInfo(token?: ISwapToken) {
+function useSwapKLineWalletMarketInfo(
+  token?: ISwapToken,
+): ISwapKLineWalletMarketInfoResult {
   const tokenAddress = token?.contractAddress ?? '';
   const networkId = token?.networkId ?? '';
   const tokenKey = getSwapKLineTokenKey(token);
@@ -289,12 +301,18 @@ function useSwapKLineWalletMarketInfo(token?: ISwapToken) {
   return useMemo(() => {
     const currentResult = result?.tokenKey === tokenKey ? result : undefined;
     return {
+      isLoading: isSwapKLineIdentityRequestPending({
+        enabled: true,
+        networkId,
+        requestTokenKey: currentResult?.tokenKey,
+        tokenKey,
+      }),
       walletMarketInfo:
         currentResult?.status === 'success'
           ? buildSwapKLineWalletMarketInfo(currentResult.tokenInfo)
           : undefined,
     };
-  }, [result, tokenKey]);
+  }, [networkId, result, tokenKey]);
 }
 
 function useSwapKLineNetworkName(networkId?: string) {
@@ -597,7 +615,8 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       : toToken;
   }, [fromToken, resolvedSelectedSide, toToken]);
   const selectedTokenKey = getSwapKLineTokenKey(selectedToken);
-  const { walletMarketInfo } = useSwapKLineWalletMarketInfo(selectedToken);
+  const { isLoading: isWalletMarketInfoLoading, walletMarketInfo } =
+    useSwapKLineWalletMarketInfo(selectedToken);
   const {
     isLoading: isTokenMarketInfoLoading,
     perpsInfo,
@@ -605,22 +624,33 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     updatedAt: tokenMarketDetailUpdatedAt,
     websocketConfig,
   } = useSwapKLineTokenMarketInfo(selectedToken);
+  const preferCoinGeckoKLineData = isSwapKLineStockToken({
+    token: selectedToken,
+    tokenMarketDetail,
+  });
   const shouldForceEmptyKLineData =
     isKnownSwapKLineUnsupportedToken(selectedToken);
   const tradingViewNativeSource = useMemo(
     () =>
-      isTokenMarketInfoLoading || shouldForceEmptyKLineData
+      isTokenMarketInfoLoading ||
+      (preferCoinGeckoKLineData && isWalletMarketInfoLoading) ||
+      shouldForceEmptyKLineData
         ? undefined
         : getSwapKLineTradingViewNativeSource({
+            coinGeckoId: walletMarketInfo?.coinGeckoId,
             perpsInfo,
+            preferCoinGecko: preferCoinGeckoKLineData,
             token: selectedToken,
             websocketConfig,
           }),
     [
       isTokenMarketInfoLoading,
+      isWalletMarketInfoLoading,
       perpsInfo,
+      preferCoinGeckoKLineData,
       selectedToken,
       shouldForceEmptyKLineData,
+      walletMarketInfo?.coinGeckoId,
       websocketConfig,
     ],
   );
@@ -645,7 +675,10 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     !selectedToken && (fromToken || toToken) && isStableTokenCheckLoading,
   );
   const isResolvingChartSource = Boolean(
-    selectedToken && isTokenMarketInfoLoading && !shouldForceEmptyKLineData,
+    selectedToken &&
+    (isTokenMarketInfoLoading ||
+      (preferCoinGeckoKLineData && isWalletMarketInfoLoading)) &&
+    !shouldForceEmptyKLineData,
   );
 
   useEffect(() => {
