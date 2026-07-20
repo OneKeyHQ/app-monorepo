@@ -31,7 +31,12 @@ const Index = () => {
     .filter((item) => item.toLowerCase().includes(searchQuery.toLowerCase()))
     .toSorted((a, b) => natsort({ insensitive: true })(a, b));
 
-  if (galleryLastRoute) {
+  // The persisted pin may reference a gallery page that has since been
+  // removed in favor of CSF stories.
+  if (
+    galleryLastRoute &&
+    Object.values(EGalleryRoutes).includes(galleryLastRoute)
+  ) {
     filteredComponents.unshift(galleryLastRoute);
   }
 
