@@ -47,6 +47,9 @@ export const OnboardingTestIDs = {
   iCloudBackupPage: 'onboarding-icloud-backup-page',
   iCloudBackupViewOlderBackupsBtn:
     'onboarding-icloud-backup-view-older-backups-btn',
+  iCloudBackupKeylessWalletHint: 'onboarding-icloud-backup-keyless-wallet-hint',
+  iCloudBackupKeylessWalletDialog:
+    'onboarding-icloud-backup-keyless-wallet-dialog',
   iCloudBackupDevMockEmptyBtn: 'onboarding-icloud-backup-dev-mock-empty-btn',
   iCloudBackupDevClearPasswordBtn:
     'onboarding-icloud-backup-dev-clear-password-btn',
