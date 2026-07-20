@@ -1,7 +1,11 @@
-import { memo, useEffect } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
 
+import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { getTradingViewNativeKLineInterval } from './data/tradingViewNativeIntervals';
 import { useTradingViewNativeKLine } from './data/useTradingViewNativeKLine';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
@@ -14,8 +18,20 @@ export const TradingViewNativeContainer = memo(
     source,
     nativeControlsLayoutMode,
     onDataStateChange,
+    onIntervalChange,
     onNativeSubIndicatorCountChange,
+    onPriceUpdate,
   }: ITradingViewNativeProps) => {
+    const intl = useIntl();
+    const realtimePointRef = useRef<{ c: number; t: number } | undefined>(
+      undefined,
+    );
+    const handleRealtimePoint = useCallback(
+      (point: { c: number; t: number }) => {
+        realtimePointRef.current = point;
+      },
+      [],
+    );
     const {
       candleIntervalSeconds,
       dataProviderKey,
@@ -24,8 +40,53 @@ export const TradingViewNativeContainer = memo(
       intervalConfig,
       isSwitchingInterval,
       handleIntervalChange,
+      handleRetry,
       handleVisiblePointRangeChange,
-    } = useTradingViewNativeKLine({ source });
+    } = useTradingViewNativeKLine({
+      onRealtimePoint: handleRealtimePoint,
+      source,
+    });
+    const latestPoint = points[points.length - 1];
+    const latestPrice = latestPoint?.c;
+    const latestPriceTimestamp = latestPoint?.t;
+
+    useEffect(() => {
+      realtimePointRef.current = undefined;
+    }, [candleIntervalSeconds, dataProviderKey]);
+
+    useEffect(() => {
+      if (latestPrice === undefined || latestPriceTimestamp === undefined) {
+        return;
+      }
+
+      const realtimePoint = realtimePointRef.current;
+      onPriceUpdate?.({
+        price: latestPrice,
+        source:
+          realtimePoint?.c === latestPrice &&
+          realtimePoint.t === latestPriceTimestamp
+            ? 'realtime'
+            : 'history',
+        timestamp: latestPriceTimestamp,
+      });
+    }, [latestPrice, latestPriceTimestamp, onPriceUpdate]);
+
+    const handleChartIntervalChange = useCallback(
+      (interval: string) => {
+        const nextInterval = getTradingViewNativeKLineInterval(interval);
+        const fromInterval = intervalConfig.activeInterval;
+        if (!nextInterval || nextInterval.value === fromInterval) {
+          return;
+        }
+
+        handleIntervalChange(nextInterval.value);
+        onIntervalChange?.({
+          fromInterval,
+          toInterval: nextInterval.value,
+        });
+      },
+      [handleIntervalChange, intervalConfig.activeInterval, onIntervalChange],
+    );
 
     useEffect(() => {
       onDataStateChange?.(dataState);
@@ -40,16 +101,44 @@ export const TradingViewNativeContainer = memo(
         <TradingViewNativeChartControlsContainer
           intervalConfig={intervalConfig}
           layoutMode={nativeControlsLayoutMode}
-          onIntervalChange={handleIntervalChange}
+          onIntervalChange={handleChartIntervalChange}
         />
-        <TradingViewNativeChart
-          key={`${dataProviderKey}:${candleIntervalSeconds}`}
-          candleIntervalSeconds={candleIntervalSeconds}
-          isSwitchingInterval={isSwitchingInterval}
-          onVisiblePointRangeChange={handleVisiblePointRangeChange}
-          points={points}
-          testID={testID}
-        />
+        <Stack flex={1} position="relative">
+          <TradingViewNativeChart
+            key={`${dataProviderKey}:${candleIntervalSeconds}`}
+            candleIntervalSeconds={candleIntervalSeconds}
+            isSwitchingInterval={isSwitchingInterval}
+            onVisiblePointRangeChange={handleVisiblePointRangeChange}
+            points={points}
+            testID={testID}
+          />
+          {dataState.status === 'error' && points.length === 0 ? (
+            <YStack
+              position="absolute"
+              top={0}
+              right={0}
+              bottom={0}
+              left={0}
+              ai="center"
+              jc="center"
+              gap="$3"
+              bg="$bgApp"
+              testID={testID ? `${testID}-error` : undefined}
+            >
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.global_no_data })}
+              </SizableText>
+              <Button
+                size="small"
+                variant="secondary"
+                onPress={handleRetry}
+                testID={testID ? `${testID}-retry` : undefined}
+              >
+                {intl.formatMessage({ id: ETranslations.global_retry })}
+              </Button>
+            </YStack>
+          ) : null}
+        </Stack>
       </Stack>
     );
   },

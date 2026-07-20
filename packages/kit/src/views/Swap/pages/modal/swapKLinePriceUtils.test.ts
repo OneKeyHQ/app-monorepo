@@ -3,7 +3,6 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
-  SWAP_KLINE_CHART_PRICE_FRESHNESS_MS,
   getNormalizedSwapKLinePrice,
   getSwapKLineDisplayPrice,
   isSwapKLineChartPriceUpdateForToken,
@@ -30,25 +29,27 @@ const createSwapToken = (overrides: Partial<ISwapToken> = {}): ISwapToken => ({
 
 describe('swapKLinePriceUtils', () => {
   describe('getSwapKLineDisplayPrice', () => {
-    it('keeps a fresh chart price authoritative over later polling completion time', () => {
+    it('keeps the rendered chart price authoritative over later polling completion time', () => {
       const now = 100_000;
 
       expect(
         getSwapKLineDisplayPrice({
           tokenMarketDetail: createMarketTokenDetail('100'),
           tokenMarketDetailUpdatedAt: now - 100,
-          chartRealtimePrice: {
+          chartPrice: {
+            source: 'realtime',
+            sourceKey: 'market:evm--1:0xabc:ONE',
             tokenKey: 'evm--1:0xabc:contract',
             price: '101',
             updatedAt: now - 5000,
-            receivedAt: now - 5000,
           },
-          now,
+          chartSourceKey: 'market:evm--1:0xabc:ONE',
+          chartTokenKey: 'evm--1:0xabc:contract',
         }),
       ).toBe('101');
     });
 
-    it('allows REST or fallback prices to take over after the chart price is stale', () => {
+    it('does not let a polling result replace the price still rendered by the chart', () => {
       const now = 100_000;
 
       expect(
@@ -57,15 +58,17 @@ describe('swapKLinePriceUtils', () => {
           tokenMarketDetailUpdatedAt: now - 100,
           tokenUsdFallbackPrice: '99',
           tokenUsdFallbackPriceUpdatedAt: now - 200,
-          chartRealtimePrice: {
+          chartPrice: {
+            source: 'history',
+            sourceKey: 'market:evm--1:0xabc:ONE',
             tokenKey: 'evm--1:0xabc:contract',
             price: '101',
-            updatedAt: now - SWAP_KLINE_CHART_PRICE_FRESHNESS_MS - 1,
-            receivedAt: now - SWAP_KLINE_CHART_PRICE_FRESHNESS_MS - 1,
+            updatedAt: 1,
           },
-          now,
+          chartSourceKey: 'market:evm--1:0xabc:ONE',
+          chartTokenKey: 'evm--1:0xabc:contract',
         }),
-      ).toBe('100');
+      ).toBe('101');
     });
 
     it('ignores invalid chart prices and falls back to normalized REST price', () => {
@@ -75,16 +78,48 @@ describe('swapKLinePriceUtils', () => {
         getSwapKLineDisplayPrice({
           tokenMarketDetail: createMarketTokenDetail('100'),
           tokenMarketDetailUpdatedAt: now - 100,
-          chartRealtimePrice: {
+          chartPrice: {
+            source: 'realtime',
+            sourceKey: 'market:evm--1:0xabc:ONE',
             tokenKey: 'evm--1:0xabc:contract',
             price: '0',
             updatedAt: now,
-            receivedAt: now,
           },
-          now,
+          chartSourceKey: 'market:evm--1:0xabc:ONE',
+          chartTokenKey: 'evm--1:0xabc:contract',
         }),
       ).toBe('100');
     });
+
+    it.each([
+      {
+        chartSourceKey: 'market:evm--1:0xdef:ONE',
+        chartTokenKey: 'evm--1:0xabc:contract',
+      },
+      {
+        chartSourceKey: 'market:evm--1:0xabc:ONE',
+        chartTokenKey: 'evm--1:0xdef:contract',
+      },
+    ])(
+      'rejects a chart price from a stale token or source identity',
+      ({ chartSourceKey, chartTokenKey }) => {
+        expect(
+          getSwapKLineDisplayPrice({
+            tokenMarketDetail: createMarketTokenDetail('100'),
+            tokenMarketDetailUpdatedAt: 200,
+            chartPrice: {
+              source: 'realtime',
+              sourceKey: 'market:evm--1:0xabc:ONE',
+              tokenKey: 'evm--1:0xabc:contract',
+              price: '101',
+              updatedAt: 300,
+            },
+            chartSourceKey,
+            chartTokenKey,
+          }),
+        ).toBe('100');
+      },
+    );
   });
 
   describe('isSwapKLineChartPriceUpdateForToken', () => {

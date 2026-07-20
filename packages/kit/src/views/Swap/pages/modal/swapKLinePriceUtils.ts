@@ -1,14 +1,14 @@
+import type { ITradingViewNativePriceUpdateData } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import type { ITradingViewPriceUpdateData } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-export const SWAP_KLINE_CHART_PRICE_FRESHNESS_MS = 10_000;
-
-export type ISwapKLineChartRealtimePrice = {
+export type ISwapKLineChartPrice = {
+  source: ITradingViewNativePriceUpdateData['source'];
+  sourceKey: string;
   tokenKey: string;
   price: string;
   updatedAt: number;
-  receivedAt: number;
 };
 
 export function getNormalizedSwapKLineValueText(
@@ -97,26 +97,26 @@ export function getSwapKLineDisplayPrice({
   tokenMarketDetailUpdatedAt,
   tokenUsdFallbackPrice,
   tokenUsdFallbackPriceUpdatedAt,
-  chartRealtimePrice,
-  now = Date.now(),
+  chartPrice,
+  chartSourceKey,
+  chartTokenKey,
 }: {
   tokenMarketDetail?: IMarketTokenDetail;
   tokenMarketDetailUpdatedAt?: number;
   tokenUsdFallbackPrice?: string;
   tokenUsdFallbackPriceUpdatedAt?: number;
-  chartRealtimePrice?: ISwapKLineChartRealtimePrice;
-  now?: number;
+  chartPrice?: ISwapKLineChartPrice;
+  chartSourceKey: string;
+  chartTokenKey: string;
 }) {
-  const chartPrice = getNormalizedSwapKLinePrice(chartRealtimePrice?.price);
-  const chartPriceReceivedAt = chartRealtimePrice?.receivedAt;
-  const hasFreshChartPrice =
-    chartPrice &&
-    typeof chartPriceReceivedAt === 'number' &&
-    Number.isFinite(chartPriceReceivedAt) &&
-    now - chartPriceReceivedAt < SWAP_KLINE_CHART_PRICE_FRESHNESS_MS;
-
-  if (hasFreshChartPrice) {
-    return chartPrice;
+  const normalizedChartPrice = getNormalizedSwapKLinePrice(
+    chartPrice?.tokenKey === chartTokenKey &&
+      chartPrice.sourceKey === chartSourceKey
+      ? chartPrice.price
+      : undefined,
+  );
+  if (normalizedChartPrice) {
+    return normalizedChartPrice;
   }
 
   const candidates = [
@@ -127,10 +127,6 @@ export function getSwapKLineDisplayPrice({
     {
       price: getNormalizedSwapKLinePrice(tokenUsdFallbackPrice),
       updatedAt: tokenUsdFallbackPriceUpdatedAt ?? 0,
-    },
-    {
-      price: chartPrice,
-      updatedAt: chartRealtimePrice?.updatedAt ?? 0,
     },
   ].filter((item): item is { price: string; updatedAt: number } =>
     Boolean(item.price),

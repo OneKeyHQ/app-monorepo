@@ -16,6 +16,7 @@ interface IProviderMockBag {
     subscribeOHLCV: jest.Mock;
     unsubscribeOHLCV: jest.Mock;
   };
+  coinGeckoFetchChart: jest.Mock;
   marketFetchHistory: jest.Mock;
   hyperliquidFetchCandles: jest.Mock;
   hyperliquidSubscribeCandle: jest.Mock;
@@ -33,6 +34,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
     subscribeOHLCV: jest.fn().mockResolvedValue(undefined),
     unsubscribeOHLCV: jest.fn().mockResolvedValue(undefined),
   };
+  const coinGeckoFetchChart = jest.fn();
   (
     globalThis as typeof globalThis & {
       __tradingViewNativeProviderMocks?: IProviderMockBag;
@@ -41,13 +43,17 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
     eventOff: jest.fn(),
     eventOn: jest.fn(),
     marketService,
+    coinGeckoFetchChart,
     marketFetchHistory: jest.fn(),
     hyperliquidFetchCandles: jest.fn(),
     hyperliquidSubscribeCandle: jest.fn(),
   };
   return {
     __esModule: true,
-    default: { serviceMarketWS: marketService },
+    default: {
+      serviceMarket: { fetchTokenChart: coinGeckoFetchChart },
+      serviceMarketWS: marketService,
+    },
   };
 });
 
@@ -123,6 +129,7 @@ describe('TradingViewNative data providers', () => {
     mocks?.marketService.unsubscribeOHLCV.mockResolvedValue(undefined);
     mocks?.marketService.ensureSubscription.mockResolvedValue(undefined);
     mocks?.marketService.clearDataCount.mockResolvedValue(undefined);
+    mocks?.coinGeckoFetchChart.mockResolvedValue([]);
     mocks?.marketFetchHistory.mockResolvedValue({ points: [], total: 0 });
   });
 
@@ -168,6 +175,121 @@ describe('TradingViewNative data providers', () => {
 
     expect(provider.historyBatchSize).toBe(299);
     expect(provider.historyRequestCandleCount).toBe(2000);
+  });
+
+  it('uses CoinGecko directly for a CoinGecko-only history source', async () => {
+    const mocks = globalMockBag.__tradingViewNativeProviderMocks;
+    mocks?.coinGeckoFetchChart.mockResolvedValue([[150, 10]]);
+    const provider = createTradingViewNativeDataProvider({
+      kind: 'market',
+      networkId: 'stock--0',
+      tokenAddress: 'stock-aapl',
+      symbol: 'AAPL',
+      realtime: 'disabled',
+      history: {
+        provider: 'coinGecko',
+        coinGeckoId: 'apple',
+      },
+    });
+
+    expect(provider.historyBatchSize).toBe(1);
+    expect(provider.key).toBe(
+      'market:stock--0:stock-aapl:AAPL:history:coinGecko:apple',
+    );
+    await expect(
+      provider.fetchHistory({
+        interval: getInterval('60'),
+        signal: new AbortController().signal,
+        timeFrom: 100,
+        timeTo: 200,
+      }),
+    ).resolves.toEqual({
+      points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 150 }],
+      total: 1,
+    });
+    expect(mocks?.marketFetchHistory).not.toHaveBeenCalled();
+    expect(mocks?.coinGeckoFetchChart).toHaveBeenCalledWith('apple', 'max', {
+      requestCurrency: 'usd',
+    });
+  });
+
+  it('provides CoinGecko fallback to Market history and paginates until empty', async () => {
+    const mocks = globalMockBag.__tradingViewNativeProviderMocks;
+    mocks?.coinGeckoFetchChart.mockResolvedValue([[150, 10]]);
+    mocks?.marketFetchHistory.mockImplementationOnce(
+      async ({
+        kLineDataFallback,
+        onPrimaryKLineDataUnavailable,
+      }: {
+        kLineDataFallback: (params: {
+          tokenAddress: string;
+          networkId: string;
+          interval: string;
+          timeFrom: number;
+          timeTo: number;
+        }) => Promise<unknown>;
+        onPrimaryKLineDataUnavailable: () => void;
+      }) => {
+        onPrimaryKLineDataUnavailable();
+        return kLineDataFallback({
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+          interval: '1H',
+          timeFrom: 100,
+          timeTo: 200,
+        });
+      },
+    );
+    const provider = createTradingViewNativeDataProvider({
+      kind: 'market',
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      symbol: 'TOKEN',
+      realtime: 'disabled',
+      history: {
+        provider: 'market',
+        fallback: {
+          provider: 'coinGecko',
+          coinGeckoId: 'token',
+        },
+      },
+    });
+
+    expect(provider.historyBatchSize).toBe(1);
+    await expect(
+      provider.fetchHistory({
+        interval: getInterval('60'),
+        signal: new AbortController().signal,
+        timeFrom: 100,
+        timeTo: 200,
+      }),
+    ).resolves.toEqual({
+      points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 150 }],
+      total: 1,
+    });
+    expect(mocks?.marketFetchHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        interval: '1H',
+        kLineDataFallback: expect.any(Function),
+        primaryKLineDataUnavailable: false,
+      }),
+    );
+    expect(mocks?.coinGeckoFetchChart).toHaveBeenCalledWith('token', 'max', {
+      requestCurrency: 'usd',
+    });
+
+    await provider.fetchHistory({
+      interval: getInterval('60'),
+      signal: new AbortController().signal,
+      timeFrom: 1,
+      timeTo: 99,
+    });
+    expect(mocks?.marketFetchHistory).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ primaryKLineDataUnavailable: true }),
+    );
   });
 
   it('adapts validated Market WS candles and owns subscription cleanup', async () => {

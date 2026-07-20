@@ -10,6 +10,7 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 
 import { createTradingViewNativeDataProvider } from './createTradingViewNativeDataProvider';
+import { getTradingViewNativeSourceKey } from './getTradingViewNativeSource';
 import { useTradingViewNativeKLine } from './useTradingViewNativeKLine';
 
 import type {
@@ -127,9 +128,7 @@ function createDeferred<T>() {
 }
 
 function buildProviderKey(source: ITradingViewNativeSource) {
-  return source.kind === 'hyperliquid'
-    ? `hyperliquid:${source.environment}:${source.coin}`
-    : `market:${source.networkId}:${source.tokenAddress}:${source.symbol}`;
+  return getTradingViewNativeSourceKey(source);
 }
 
 function buildMarketSource({
@@ -304,9 +303,11 @@ describe('TradingViewNative K-line data state machine', () => {
   });
 
   it('merges replacement and appended realtime candles', async () => {
+    const handleRealtimePoint = jest.fn();
     mockFetchHistory.mockResolvedValue(buildResponse(100));
     const { result } = renderHook(() =>
       useTradingViewNativeKLine({
+        onRealtimePoint: handleRealtimePoint,
         source: buildMarketSource({ realtime: 'websocket' }),
       }),
     );
@@ -319,6 +320,22 @@ describe('TradingViewNative K-line data state machine', () => {
 
     expect(result.current.points.map((point) => point.c)).toEqual([105, 110]);
     expect(result.current.dataState.status).toBe('live');
+    expect(handleRealtimePoint).toHaveBeenNthCalledWith(1, {
+      o: 100,
+      h: 106,
+      l: 99,
+      c: 105,
+      v: 12,
+      t: 100,
+    });
+    expect(handleRealtimePoint).toHaveBeenNthCalledWith(2, {
+      o: 105,
+      h: 111,
+      l: 104,
+      c: 110,
+      v: 8,
+      t: 200,
+    });
   });
 
   it('buffers realtime candles while history is loading', async () => {
@@ -647,5 +664,30 @@ describe('TradingViewNative K-line data state machine', () => {
       await Promise.resolve();
     });
     expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries history on demand after the automatic retries are exhausted', async () => {
+    jest.useFakeTimers();
+    mockFetchHistory.mockRejectedValue(new Error('history unavailable'));
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await jest.advanceTimersByTimeAsync(4001);
+    });
+    expect(result.current.dataState.status).toBe('error');
+    expect(mockFetchHistory).toHaveBeenCalledTimes(3);
+
+    mockFetchHistory.mockReset();
+    mockFetchHistory.mockResolvedValue(buildResponse(100));
+    act(() => result.current.handleRetry());
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.points[0]?.c).toBe(100);
+    expect(mockFetchHistory).toHaveBeenCalledTimes(1);
   });
 });

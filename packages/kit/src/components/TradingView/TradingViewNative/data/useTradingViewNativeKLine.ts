@@ -20,6 +20,7 @@ import type { ITradingViewNativeRealtimeSubscription } from './tradingViewNative
 import type { ITradingViewNativeChartInterval } from './tradingViewNativeIntervals';
 import type {
   ITradingViewNativeDataState,
+  ITradingViewNativeMarketHistorySource,
   ITradingViewNativeSource,
 } from '../types';
 
@@ -239,8 +240,10 @@ function getDataState({
 }
 
 export function useTradingViewNativeKLine({
+  onRealtimePoint,
   source,
 }: {
+  onRealtimePoint?: (point: IMarketTokenKLineDataPoint) => void;
   source: ITradingViewNativeSource;
 }) {
   const sourceKind = source.kind;
@@ -253,33 +256,63 @@ export function useTradingViewNativeKLine({
   const marketSymbol = source.kind === 'market' ? source.symbol : '';
   const marketRealtime =
     source.kind === 'market' ? source.realtime : 'disabled';
-  const provider = useMemo(
-    () =>
-      sourceKind === 'hyperliquid'
-        ? createTradingViewNativeDataProvider({
-            kind: 'hyperliquid',
-            coin: hyperliquidCoin,
-            environment: hyperliquidEnvironment,
-          })
-        : createTradingViewNativeDataProvider({
-            kind: 'market',
-            networkId: marketNetworkId,
-            tokenAddress: marketTokenAddress,
-            symbol: marketSymbol,
-            realtime: marketRealtime,
-          }),
-    [
-      hyperliquidCoin,
-      hyperliquidEnvironment,
-      marketNetworkId,
-      marketRealtime,
-      marketSymbol,
-      marketTokenAddress,
-      sourceKind,
-    ],
-  );
+  const marketHistoryProvider =
+    source.kind === 'market' ? source.history?.provider : undefined;
+  const marketCoinGeckoId =
+    source.kind === 'market' && source.history?.provider === 'coinGecko'
+      ? source.history.coinGeckoId
+      : '';
+  const marketFallbackCoinGeckoId =
+    source.kind === 'market' && source.history?.provider === 'market'
+      ? (source.history.fallback?.coinGeckoId ?? '')
+      : '';
+  const provider = useMemo(() => {
+    if (sourceKind === 'hyperliquid') {
+      return createTradingViewNativeDataProvider({
+        kind: 'hyperliquid',
+        coin: hyperliquidCoin,
+        environment: hyperliquidEnvironment,
+      });
+    }
+
+    let history: ITradingViewNativeMarketHistorySource | undefined;
+    if (marketHistoryProvider === 'coinGecko') {
+      history = {
+        provider: 'coinGecko',
+        coinGeckoId: marketCoinGeckoId,
+      };
+    } else if (marketFallbackCoinGeckoId) {
+      history = {
+        provider: 'market',
+        fallback: {
+          provider: 'coinGecko',
+          coinGeckoId: marketFallbackCoinGeckoId,
+        },
+      };
+    }
+    return createTradingViewNativeDataProvider({
+      kind: 'market',
+      networkId: marketNetworkId,
+      tokenAddress: marketTokenAddress,
+      symbol: marketSymbol,
+      realtime: marketRealtime,
+      ...(history ? { history } : {}),
+    });
+  }, [
+    hyperliquidCoin,
+    hyperliquidEnvironment,
+    marketCoinGeckoId,
+    marketFallbackCoinGeckoId,
+    marketHistoryProvider,
+    marketNetworkId,
+    marketRealtime,
+    marketSymbol,
+    marketTokenAddress,
+    sourceKind,
+  ]);
   const seriesKey = provider.key;
   const latestRequestIdRef = useRef(0);
+  const onRealtimePointRef = useRef(onRealtimePoint);
   const skipNextRequestRef = useRef<{
     interval: ITradingViewNativeChartInterval;
     seriesKey: string;
@@ -322,6 +355,7 @@ export function useTradingViewNativeKLine({
     isLoading: false,
     seriesKey,
   });
+  onRealtimePointRef.current = onRealtimePoint;
   chartDataRef.current = chartData;
 
   useEffect(() => {
@@ -393,6 +427,11 @@ export function useTradingViewNativeKLine({
     if (nextInterval) {
       setActiveInterval(nextInterval.value);
     }
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setHistoryRefreshRevision((current) => current + 1);
+    setRealtimeRetryRevision((current) => current + 1);
   }, []);
 
   const handleVisiblePointRangeChange = useCallback(
@@ -542,6 +581,7 @@ export function useTradingViewNativeKLine({
         return;
       }
 
+      onRealtimePointRef.current?.(point);
       const updatedAt = Date.now();
       lastRealtimeActivityAtRef.current = updatedAt;
       lastRealtimePointAtRef.current = updatedAt;
@@ -952,6 +992,7 @@ export function useTradingViewNativeKLine({
     dataProviderKey: seriesKey,
     dataState,
     handleIntervalChange,
+    handleRetry,
     handleVisiblePointRangeChange,
     intervalConfig,
     isSwitchingInterval,
