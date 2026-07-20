@@ -28,9 +28,8 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
-  IFetchQuotesParams,
   ISwapApproveTransaction,
-  ISwapQuoteEvent,
+  ISwapQuoteEventPayload,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -826,13 +825,7 @@ export function useSwapQuote() {
   );
 
   const swapQuoteMixEvent = useCallback(
-    async (event: {
-      event: ISwapQuoteEvent;
-      type: 'done' | 'close' | 'error' | 'message' | 'open';
-      params: IFetchQuotesParams;
-      tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-      accountId?: string;
-    }) => {
+    async (event: ISwapQuoteEventPayload) => {
       if (event?.type === 'error') {
         swapQuoteMixEventAction(JSON.stringify(event.event));
       }
@@ -916,7 +909,7 @@ export function useSwapQuote() {
                 fromTokenAmount: fromTokenAmountRef.current,
                 toTokenAmount: toTokenAmountRef.current,
               });
-            closeQuoteEvent();
+            closeQuoteEvent(swapQuoteActionLockRef.current.quoteRequestId);
             setSwapQuoteEventTotalCount({
               count: 0,
             });

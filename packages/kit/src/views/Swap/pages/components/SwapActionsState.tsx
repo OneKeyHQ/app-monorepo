@@ -29,6 +29,7 @@ import {
   useSwapActions,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSupportReceiveAddressAtom,
+  useSwapQuoteActionLockAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
@@ -98,6 +99,7 @@ const SwapActionsState = ({
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [, setSwapManualSelectQuoteProvider] =
     useSwapManualSelectQuoteProvidersAtom();
   const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
@@ -396,7 +398,7 @@ const SwapActionsState = ({
       );
 
       cleanQuoteInterval();
-      closeQuoteEvent();
+      closeQuoteEvent(quoteActionLock.quoteRequestId);
       setSwapManualSelectQuoteProvider(undefined);
       setSwapQuoteEventTotalCount({ count: 0 });
       setSwapQuoteList([]);
@@ -425,6 +427,7 @@ const SwapActionsState = ({
       closeQuoteEvent,
       currentQuoteRes?.kind,
       quoteAction,
+      quoteActionLock.quoteRequestId,
       setSettings,
       setSwapManualSelectQuoteProvider,
       setSwapQuoteEventTotalCount,

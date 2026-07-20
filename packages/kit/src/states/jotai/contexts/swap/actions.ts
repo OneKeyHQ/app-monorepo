@@ -30,6 +30,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -56,11 +57,11 @@ import type {
   ISwapLimitPriceInfo,
   ISwapNetwork,
   ISwapPreSwapData,
-  ISwapQuoteEvent,
   ISwapQuoteEventAutoSlippage,
   ISwapQuoteEventData,
   ISwapQuoteEventError,
   ISwapQuoteEventInfo,
+  ISwapQuoteEventPayload,
   ISwapQuoteEventQuoteResult,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -277,18 +278,24 @@ function isQuoteEventErrorSelectedTokenPair({
 }
 
 function isCurrentQuoteEventParams({
+  currentQuoteRequestId,
   currentSwapType,
   fromToken,
   fromTokenAmount,
   params,
+  quoteRequestActive,
+  quoteRequestId,
   toToken,
   toTokenAmount,
   tokenPairs,
 }: {
+  currentQuoteRequestId?: string;
   currentSwapType: ESwapTabSwitchType;
   fromToken?: ISwapToken;
   fromTokenAmount?: string;
   params: IFetchQuotesParams;
+  quoteRequestActive: boolean;
+  quoteRequestId: string;
   toToken?: ISwapToken;
   toTokenAmount?: string;
   tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
@@ -318,7 +325,13 @@ function isCurrentQuoteEventParams({
         quoteKind === ESwapQuoteKind.BUY ? toTokenAmount : fromTokenAmount,
       requestAmount,
     });
-  return isExpectedProtocol && isSameTokenPair && isSameInputAmount;
+  return Boolean(
+    quoteRequestActive &&
+    currentQuoteRequestId === quoteRequestId &&
+    isExpectedProtocol &&
+    isSameTokenPair &&
+    isSameInputAmount,
+  );
 }
 
 function isStockExecutionTokensReady({
@@ -797,23 +810,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   );
 
   quoteEventHandler = contextAtomMethod(
-    (
-      get,
-      set,
-      event: {
-        event: ISwapQuoteEvent;
-        type: 'done' | 'close' | 'error' | 'message' | 'open';
-        params: IFetchQuotesParams;
-        tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-        accountId?: string;
-      },
-    ) => {
+    (get, set, event: ISwapQuoteEventPayload) => {
+      const quoteActionLock = get(swapQuoteActionLockAtom());
       if (
         !isCurrentQuoteEventParams({
+          currentQuoteRequestId: quoteActionLock.quoteRequestId,
           currentSwapType: get(swapTypeSwitchAtom()),
           fromToken: get(swapSelectFromTokenAtom()),
           fromTokenAmount: get(swapFromTokenAmountAtom()).value,
           params: event.params,
+          quoteRequestActive: quoteActionLock.actionLock,
+          quoteRequestId: event.quoteRequestId,
           toToken: get(swapSelectToTokenAtom()),
           toTokenAmount: get(swapToTokenAmountAtom()).value,
           tokenPairs: event.tokenPairs,
@@ -865,7 +872,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 ...v,
                 actionLock: false,
               }));
-              this.closeQuoteEvent();
+              this.closeQuoteEvent(event.quoteRequestId);
               break;
             }
             const autoSlippageData = dataJson as ISwapQuoteEventAutoSlippage;
@@ -955,7 +962,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   ...v,
                   actionLock: false,
                 }));
-                this.closeQuoteEvent();
+                this.closeQuoteEvent(event.quoteRequestId);
                 break;
               }
               set(swapQuoteEventCompletedAtom(), false);
@@ -1115,7 +1122,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteEventCompletedAtom(), true);
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
           set(swapQuoteFetchingAtom(), false);
-          this.closeQuoteEvent();
+          this.closeQuoteEvent(event.quoteRequestId);
           break;
         }
         case 'error': {
@@ -1123,7 +1130,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteEventCompletedAtom(), true);
           set(swapQuoteFetchingAtom(), false);
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-          this.closeQuoteEvent();
+          this.closeQuoteEvent(event.quoteRequestId);
           break;
         }
         case 'close': {
@@ -1153,6 +1160,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       toTokenAmount?: string,
       receivingAddress?: string,
       incognito?: boolean,
+      quoteRequestId?: string,
     ) => {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       const protocol = get(swapTypeSwitchAtom());
@@ -1196,6 +1204,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         receivingAddress,
         incognito: incognitoEnabled,
         userMarketPriceRate,
+        quoteRequestId,
         ...(protocol === ESwapTabSwitchType.LIMIT
           ? {
               expirationTime: Number(expirationTime.value),
@@ -1316,7 +1325,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             toTokenAmountNumber > 0));
 
       this.cleanQuoteInterval();
-      this.closeQuoteEvent();
+      this.closeQuoteEvent(get(swapQuoteActionLockAtom()).quoteRequestId);
       if (!unResetCount) {
         set(swapQuoteIntervalCountAtom(), 0);
       }
@@ -1345,6 +1354,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
 
       // check limit zero
+      const quoteRequestId = generateUUID();
       set(swapQuoteActionLockAtom(), (v) => ({
         ...v,
         type: swapTabSwitchType,
@@ -1357,6 +1367,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         accountId,
         address,
         receivingAddress,
+        quoteRequestId,
       }));
       void this.runQuoteEvent.call(
         set,
@@ -1372,6 +1383,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         toTokenAmount.value,
         receivingAddress,
         incognito,
+        quoteRequestId,
       );
     },
   );
@@ -1478,8 +1490,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     }
   };
 
-  closeQuoteEvent = () => {
-    void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
+  closeQuoteEvent = (quoteRequestId?: string) => {
+    void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents(quoteRequestId);
   };
 
   cancelSpeedQuote = () => {

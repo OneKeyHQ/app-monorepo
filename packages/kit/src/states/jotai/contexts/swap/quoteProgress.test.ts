@@ -76,10 +76,16 @@ describe('swap quote progress', () => {
       toToken,
       fromTokenAmount: '1.0',
       kind: ESwapQuoteKind.SELL,
+      accountId: 'account-1',
+      address: '0xsender-1',
+      receivingAddress: '0xreceiver-1',
     };
 
     expect(
       isSwapQuoteRequestForCurrentInput({
+        currentAccountId: 'account-1',
+        currentAddress: '0xsender-1',
+        currentReceivingAddress: '0xreceiver-1',
         currentSwapType: ESwapTabSwitchType.SWAP,
         fromAmount: '1',
         fromToken,
@@ -91,6 +97,9 @@ describe('swap quote progress', () => {
     ).toBe(true);
     expect(
       isSwapQuoteRequestForCurrentInput({
+        currentAccountId: 'account-1',
+        currentAddress: '0xsender-1',
+        currentReceivingAddress: '0xreceiver-1',
         currentSwapType: ESwapTabSwitchType.SWAP,
         fromAmount: '10',
         fromToken,
@@ -100,6 +109,36 @@ describe('swap quote progress', () => {
         toToken,
       }),
     ).toBe(false);
+    [
+      {
+        currentAccountId: 'account-2',
+        currentAddress: '0xsender-1',
+        currentReceivingAddress: '0xreceiver-1',
+      },
+      {
+        currentAccountId: 'account-1',
+        currentAddress: '0xsender-2',
+        currentReceivingAddress: '0xreceiver-1',
+      },
+      {
+        currentAccountId: 'account-1',
+        currentAddress: '0xsender-1',
+        currentReceivingAddress: '0xreceiver-2',
+      },
+    ].forEach((currentExecutionScope) => {
+      expect(
+        isSwapQuoteRequestForCurrentInput({
+          ...currentExecutionScope,
+          currentSwapType: ESwapTabSwitchType.SWAP,
+          fromAmount: '1',
+          fromToken,
+          quoteKind: ESwapQuoteKind.SELL,
+          quoteRequest,
+          toAmount: '',
+          toToken,
+        }),
+      ).toBe(false);
+    });
   });
 
   it('keeps a new input round loading until its current quote is actionable', () => {
@@ -133,6 +172,16 @@ describe('swap quote progress', () => {
         quoteRequestMatchesInput: true,
       }),
     ).toBe(false);
+    expect(
+      shouldShowSwapQuoteRequestLoading({
+        swapType: ESwapTabSwitchType.SWAP,
+        hasCurrentActionableQuote: true,
+        hasValidInput: true,
+        isQuoteRequestStarting: false,
+        quoteEventCompleted: true,
+        quoteRequestMatchesInput: false,
+      }),
+    ).toBe(true);
   });
 
   it('leaves current terminal and empty-input states out of quote loading', () => {

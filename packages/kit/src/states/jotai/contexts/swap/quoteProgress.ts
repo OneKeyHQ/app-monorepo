@@ -317,6 +317,9 @@ export function isSameSwapQuoteAmountValue({
 }
 
 export function isSwapQuoteRequestForCurrentInput({
+  currentAccountId,
+  currentAddress,
+  currentReceivingAddress,
   currentSwapType,
   fromAmount,
   fromToken,
@@ -325,6 +328,9 @@ export function isSwapQuoteRequestForCurrentInput({
   toAmount,
   toToken,
 }: {
+  currentAccountId?: string;
+  currentAddress?: string;
+  currentReceivingAddress?: string;
   currentSwapType: ESwapTabSwitchType;
   fromAmount: string;
   fromToken?: ISwapToken;
@@ -336,6 +342,9 @@ export function isSwapQuoteRequestForCurrentInput({
     fromTokenAmount?: string;
     toTokenAmount?: string;
     kind?: ESwapQuoteKind;
+    accountId?: string;
+    address?: string;
+    receivingAddress?: string;
   };
   toAmount: string;
   toToken?: ISwapToken;
@@ -343,6 +352,9 @@ export function isSwapQuoteRequestForCurrentInput({
   if (
     quoteRequest?.type !== currentSwapType ||
     (quoteRequest.kind ?? ESwapQuoteKind.SELL) !== quoteKind ||
+    quoteRequest.accountId !== currentAccountId ||
+    quoteRequest.address !== currentAddress ||
+    quoteRequest.receivingAddress !== currentReceivingAddress ||
     !equalTokenNoCaseSensitive({
       token1: quoteRequest.fromToken,
       token2: fromToken,
@@ -396,10 +408,13 @@ export function shouldShowSwapQuoteRequestLoading({
   if (isQuoteRequestStarting) {
     return true;
   }
+  if (!quoteRequestMatchesInput) {
+    return true;
+  }
   if (hasCurrentActionableQuote) {
     return false;
   }
-  return !(quoteRequestMatchesInput && quoteEventCompleted);
+  return !quoteEventCompleted;
 }
 
 export function isSwapQuoteFromCurrentEvent({

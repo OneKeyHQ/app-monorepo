@@ -584,6 +584,9 @@ export function useSwapActionState() {
   const quoteRequestMatchesCurrentInput = useMemo(
     () =>
       isSwapQuoteRequestForCurrentInput({
+        currentAccountId: swapFromAddressInfo.accountInfo?.account?.id,
+        currentAddress: swapFromAddressInfo.address,
+        currentReceivingAddress: swapToAddressInfo.address,
         currentSwapType: swapTypeSwitchValue,
         fromAmount: fromTokenAmount.value,
         fromToken,
@@ -596,7 +599,10 @@ export function useSwapActionState() {
       fromToken,
       fromTokenAmount.value,
       quoteActionLock,
+      swapFromAddressInfo.accountInfo?.account?.id,
+      swapFromAddressInfo.address,
       swapTypeSwitchValue,
+      swapToAddressInfo.address,
       toToken,
       toTokenAmount.value,
     ],

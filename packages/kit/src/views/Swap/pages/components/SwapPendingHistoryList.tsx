@@ -69,7 +69,9 @@ const SwapPendingHistoryListComponent = ({
       // Sync-read the cached list on (re)mount so returning to this surface
       // (e.g. from the Stock/Limit tab, which unmounts this component) shows
       // the rows immediately instead of flashing empty before the async fetch.
-      swrKey: swrKeys.swapHistoryPreviewList(),
+      swrKey: shouldShowSwapLocalData
+        ? swrKeys.swapHistoryPreviewList()
+        : undefined,
       // Keep re-fetching even while the Swap tab is blurred, so archiving on
       // leave (mark-all-read) is reflected before the user returns instead of
       // briefly showing the stale rows and removing them on refocus.

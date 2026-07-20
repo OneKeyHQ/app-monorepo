@@ -328,6 +328,7 @@ export const {
   kind?: ESwapQuoteKind;
   address?: string;
   receivingAddress?: string;
+  quoteRequestId?: string;
 }>({ actionLock: false });
 
 export const {

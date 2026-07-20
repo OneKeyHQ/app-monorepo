@@ -80,8 +80,9 @@ const mockFetchQuotesEvents: jest.MockedFunction<
   (params: unknown) => Promise<void>
 > = jest.fn();
 const mockCloseApproving: jest.MockedFunction<() => Promise<void>> = jest.fn();
-const mockCancelFetchQuoteEvents: jest.MockedFunction<() => Promise<void>> =
-  jest.fn();
+const mockCancelFetchQuoteEvents: jest.MockedFunction<
+  (quoteRequestId?: string) => Promise<void>
+> = jest.fn();
 const mockSetSwapNetworksSortRawData: jest.MockedFunction<
   (params: { data: unknown[] }) => Promise<void>
 > = jest.fn();
@@ -94,7 +95,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockFetchSwapTokenDetails(params),
       fetchQuotesEvents: (params: unknown) => mockFetchQuotesEvents(params),
       closeApproving: () => mockCloseApproving(),
-      cancelFetchQuoteEvents: () => mockCancelFetchQuoteEvents(),
+      cancelFetchQuoteEvents: (quoteRequestId?: string) =>
+        mockCancelFetchQuoteEvents(quoteRequestId),
     },
     simpleDb: {
       swapNetworksSort: {
@@ -888,6 +890,10 @@ describe('useSwapActions', () => {
         eventId: 'normalized-event',
         count: 2,
       });
+      storeInstance.set(swapQuoteActionLockAtom(), {
+        actionLock: true,
+        quoteRequestId: 'normalized-request',
+      });
       storeInstance.set(swapQuoteListAtom(), [oldQuote]);
     });
     const { result } = renderHook(() => useSwapActions().current, {
@@ -931,6 +937,7 @@ describe('useSwapActions', () => {
         event: quoteEvent,
         type: 'message',
         params: quoteParams,
+        quoteRequestId: 'normalized-request',
         tokenPairs,
       });
     });
@@ -960,6 +967,7 @@ describe('useSwapActions', () => {
         event: {} as ISwapQuoteEvent,
         type: 'done',
         params: quoteParams,
+        quoteRequestId: 'normalized-request',
         tokenPairs,
       });
     });
@@ -1252,11 +1260,13 @@ describe('useSwapActions', () => {
         fromToken: usdcToken,
         fromTokenAmount: '1',
         kind: ESwapQuoteKind.SELL,
+        quoteRequestId: expect.any(String),
         toToken: stockTokenA,
         toTokenAmount: '',
         type: ESwapTabSwitchType.STOCK,
       }),
     );
+    const quoteRequestId = store.get(swapQuoteActionLockAtom()).quoteRequestId;
 
     await waitFor(() =>
       expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
@@ -1267,6 +1277,7 @@ describe('useSwapActions', () => {
           fromTokenAmount: '1',
           incognito: false,
           protocol: ESwapTabSwitchType.STOCK,
+          quoteRequestId,
           slippagePercentage: 0.5,
           toToken: stockTokenA,
           userAddress: '0xabc',
@@ -1287,6 +1298,10 @@ describe('useSwapActions', () => {
       storeInstance.set(swapQuoteEventTotalCountAtom(), {
         eventId: 'event-1',
         count: 1,
+      });
+      storeInstance.set(swapQuoteActionLockAtom(), {
+        actionLock: true,
+        quoteRequestId: 'event-1-request',
       });
     });
     const { result } = renderHook(
@@ -1334,6 +1349,7 @@ describe('useSwapActions', () => {
         event: quoteEvent,
         type: 'message',
         params: quoteParams,
+        quoteRequestId: 'event-1-request',
         tokenPairs: {
           fromToken: usdcToken,
           toToken: stockTokenA,
@@ -1348,7 +1364,7 @@ describe('useSwapActions', () => {
     );
   });
 
-  it('accepts the current Swap quote before total and ignores stale input events', async () => {
+  it('accepts the current Swap quote before total and ignores stale request events', async () => {
     const staleQuote = {
       quoteId: 'stale-swap-quote',
       eventId: 'stale-swap-event',
@@ -1382,6 +1398,7 @@ describe('useSwapActions', () => {
         fromTokenAmount: '21',
         toTokenAmount: '',
         kind: ESwapQuoteKind.SELL,
+        quoteRequestId: 'current-swap-request',
       });
     });
     const { result } = renderHook(
@@ -1391,7 +1408,7 @@ describe('useSwapActions', () => {
     const staleParams: IFetchQuotesParams = {
       fromNetworkId: usdcToken.networkId,
       fromTokenAddress: usdcToken.contractAddress,
-      fromTokenAmount: '2',
+      fromTokenAmount: '21',
       protocol: EProtocolOfExchange.SWAP,
       slippagePercentage: 0.5,
       toNetworkId: usdtToken.networkId,
@@ -1403,6 +1420,7 @@ describe('useSwapActions', () => {
         event: {} as ISwapQuoteEvent,
         type: 'done',
         params: staleParams,
+        quoteRequestId: 'stale-swap-request',
         tokenPairs: { fromToken: usdcToken, toToken: usdtToken },
       });
     });
@@ -1410,6 +1428,7 @@ describe('useSwapActions', () => {
     expect(store.get(swapQuoteEventCompletedAtom())).toBe(false);
     expect(store.get(swapQuoteFetchingAtom())).toBe(true);
     expect(store.get(swapQuoteActionLockAtom()).actionLock).toBe(true);
+    expect(mockCancelFetchQuoteEvents).not.toHaveBeenCalled();
 
     const currentQuoteEvent = {
       data: JSON.stringify({
@@ -1431,16 +1450,14 @@ describe('useSwapActions', () => {
         ],
       }),
     } as ISwapQuoteEvent;
-    const currentParams: IFetchQuotesParams = {
-      ...staleParams,
-      fromTokenAmount: '21',
-    };
+    const currentParams: IFetchQuotesParams = staleParams;
 
     await act(async () => {
       result.current.actions.quoteEventHandler({
         event: currentQuoteEvent,
         type: 'message',
         params: currentParams,
+        quoteRequestId: 'current-swap-request',
         tokenPairs: { fromToken: usdcToken, toToken: usdtToken },
       });
     });
@@ -1546,6 +1563,10 @@ describe('useSwapActions', () => {
         });
         storeInstance.set(swapQuoteEventCompletedAtom(), false);
         storeInstance.set(swapQuoteFetchingAtom(), true);
+        storeInstance.set(swapQuoteActionLockAtom(), {
+          actionLock: true,
+          quoteRequestId: 'completion-request',
+        });
       });
       const { result } = renderHook(
         () => ({ actions: useSwapActions().current }),
@@ -1568,6 +1589,7 @@ describe('useSwapActions', () => {
           event: {} as ISwapQuoteEvent,
           type: 'done',
           params,
+          quoteRequestId: 'completion-request',
           tokenPairs: { fromToken, toToken },
         });
       });
@@ -1585,6 +1607,10 @@ describe('useSwapActions', () => {
       storeInstance.set(swapFromTokenAmountAtom(), {
         value: '21',
         isInput: true,
+      });
+      storeInstance.set(swapQuoteActionLockAtom(), {
+        actionLock: true,
+        quoteRequestId: 'early-stock-request',
       });
     });
     const { result } = renderHook(
@@ -1633,6 +1659,7 @@ describe('useSwapActions', () => {
         event: quoteEvent,
         type: 'message',
         params: quoteParams,
+        quoteRequestId: 'early-stock-request',
         tokenPairs: {
           fromToken: usdcToken,
           toToken: stockTokenA,
@@ -1672,6 +1699,7 @@ describe('useSwapActions', () => {
         event: totalCountEvent,
         type: 'message',
         params: quoteParams,
+        quoteRequestId: 'early-stock-request',
         tokenPairs: {
           fromToken: usdcToken,
           toToken: stockTokenA,
@@ -1712,6 +1740,7 @@ describe('useSwapActions', () => {
         event: secondProviderQuoteEvent,
         type: 'message',
         params: quoteParams,
+        quoteRequestId: 'early-stock-request',
         tokenPairs: {
           fromToken: usdcToken,
           toToken: stockTokenA,
@@ -1740,6 +1769,10 @@ describe('useSwapActions', () => {
       storeInstance.set(swapQuoteEventTotalCountAtom(), {
         eventId: 'stale-event',
         count: 1,
+      });
+      storeInstance.set(swapQuoteActionLockAtom(), {
+        actionLock: true,
+        quoteRequestId: 'stale-stock-result-request',
       });
     });
     const { result } = renderHook(
@@ -1786,6 +1819,7 @@ describe('useSwapActions', () => {
         event: quoteEvent,
         type: 'message',
         params: quoteParams,
+        quoteRequestId: 'stale-stock-result-request',
         tokenPairs: {
           fromToken: usdcToken,
           toToken: stockTokenA,
@@ -1804,6 +1838,10 @@ describe('useSwapActions', () => {
       storeInstance.set(swapFromTokenAmountAtom(), {
         value: '21',
         isInput: true,
+      });
+      storeInstance.set(swapQuoteActionLockAtom(), {
+        actionLock: true,
+        quoteRequestId: 'stale-stock-error-request',
       });
     });
     const { result } = renderHook(
@@ -1839,6 +1877,7 @@ describe('useSwapActions', () => {
         event: quoteEvent,
         type: 'message',
         params: quoteParams,
+        quoteRequestId: 'stale-stock-error-request',
         tokenPairs: {
           fromToken: usdcToken,
           toToken: stockTokenA,
@@ -1861,6 +1900,10 @@ describe('useSwapActions', () => {
       storeInstance.set(swapFromTokenAmountAtom(), {
         value: '21',
         isInput: true,
+      });
+      storeInstance.set(swapQuoteActionLockAtom(), {
+        actionLock: true,
+        quoteRequestId: 'current-stock-error-request',
       });
     });
     const { result } = renderHook(
@@ -1897,6 +1940,7 @@ describe('useSwapActions', () => {
         event: quoteEvent,
         type: 'message',
         params: quoteParams,
+        quoteRequestId: 'current-stock-error-request',
         tokenPairs: {
           fromToken: usdcToken,
           toToken: stockTokenA,
@@ -1919,6 +1963,9 @@ describe('useSwapActions', () => {
       quoteId: '',
       states: [],
     });
+    expect(mockCancelFetchQuoteEvents).toHaveBeenCalledWith(
+      'current-stock-error-request',
+    );
   });
 
   it('does not keep noConnectWallet warning when native wallet readiness is not proven', async () => {

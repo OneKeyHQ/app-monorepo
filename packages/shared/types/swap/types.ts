@@ -364,6 +364,15 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   denySingleSwapProvider?: string;
   walletDeviceType?: IDeviceType;
 }
+
+export interface ISwapQuoteEventPayload {
+  event: ISwapQuoteEvent;
+  type: 'done' | 'close' | 'error' | 'message' | 'open';
+  params: IFetchQuotesParams;
+  tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
+  accountId?: string;
+  quoteRequestId: string;
+}
 interface ISocketAsset {
   address: string;
   chainId: number;
@@ -604,6 +613,7 @@ export interface IFetchSwapQuoteParams {
   kind?: ESwapQuoteKind;
   toTokenAmount?: string;
   userMarketPriceRate?: string;
+  quoteRequestId?: string;
 }
 
 export interface IFetchQuoteResult {

@@ -2183,7 +2183,9 @@ function useSwapStockRecentTokenPairs() {
       // Share the persisted history snapshot used by ordinary Swap. Stock can
       // derive its own protocol-filtered pairs synchronously on every remount,
       // then refresh the full history list in the background.
-      swrKey: swrKeys.swapHistoryPreviewList(),
+      swrKey: shouldShowSwapLocalData
+        ? swrKeys.swapHistoryPreviewList()
+        : undefined,
     },
   );
 
