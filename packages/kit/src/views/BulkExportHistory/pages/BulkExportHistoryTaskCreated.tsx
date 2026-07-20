@@ -4,7 +4,14 @@ import { StackActions } from '@react-navigation/native';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Alert, Empty, Page, Stack } from '@onekeyhq/components';
+import {
+  Alert,
+  LottieView,
+  Page,
+  SizableText,
+  Stack,
+  YStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -68,20 +75,36 @@ function BulkExportHistoryTaskCreated() {
         })}
       />
       <Page.Body pt="$10">
-        <Empty
-          illustration="TxStatusSuccessCircle"
-          title={intl.formatMessage({
-            id: ETranslations.export_task_created__title,
-          })}
-          description={intl.formatMessage({
-            // Only promise "we'll notify you" when notifications can actually
-            // deliver; otherwise point to Export History and let the reminder
-            // banner below own the enable-notifications ask.
-            id: isNotificationReady
-              ? ETranslations.export_started__desc
-              : ETranslations.export_started_track_progress__desc,
-          })}
-        />
+        <YStack p="$5" alignItems="center" justifyContent="center" gap="$5">
+          {/* The illus set has no success hero asset (only XMark/QuestionMark),
+              and TxStatusSuccessCircle is a 56px status badge that falls apart
+              at hero size, so reuse the generic done-tick animation from the
+              swap result page until design ships a CheckMark illustration. */}
+          <LottieView
+            source={require('@onekeyhq/kit/assets/animations/lottie-swap-done.json')}
+            width={120}
+            height={120}
+            autoPlay
+            loop={false}
+          />
+          <YStack alignItems="center" maxWidth="$64">
+            <SizableText size="$headingXl" textAlign="center" mb="$2">
+              {intl.formatMessage({
+                id: ETranslations.export_task_created__title,
+              })}
+            </SizableText>
+            <SizableText size="$bodyLg" textAlign="center" color="$textSubdued">
+              {intl.formatMessage({
+                // Only promise "we'll notify you" when notifications can
+                // actually deliver; otherwise point to Export History and let
+                // the reminder banner below own the enable-notifications ask.
+                id: isNotificationReady
+                  ? ETranslations.export_started__desc
+                  : ETranslations.export_started_track_progress__desc,
+              })}
+            </SizableText>
+          </YStack>
+        </YStack>
         {isNotificationReady ? null : (
           <Stack px="$5" pt="$5">
             <Alert
