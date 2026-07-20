@@ -97,8 +97,8 @@ import {
 } from './utils/coinScopedOrder';
 import { createLoggedHyperLiquidClient } from './utils/logHyperLiquidApiFailure';
 import {
-  buildHyperliquidBatchModifyRequest,
   buildHyperliquidModifyOrder,
+  buildHyperliquidModifyRequest,
 } from './utils/orderAmend';
 
 import type {
@@ -1317,16 +1317,17 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     );
 
     const client = await this.getExchangeClientForTrading();
-    const requestPayload = buildHyperliquidBatchModifyRequest({
+    const requestPayload = buildHyperliquidModifyRequest({
       oid: params.oid,
       order: formattedOrder,
+      alwaysPlace: params.alwaysPlace,
     });
     const context = await this._buildLogContext();
     const extra = { originalParams: params };
 
     try {
       const response = await convertHyperLiquidResponse(() =>
-        client.batchModify(requestPayload),
+        client.modify(requestPayload),
       );
       defaultLogger.perp.hyperliquid.modifyOrder({
         ...context,
@@ -1600,6 +1601,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     amendKind: IOrderAmendKind;
     cloid?: IHex | null;
     slippage?: number;
+    alwaysPlace?: true;
   }): Promise<IModifyResponse> {
     const symbolMeta =
       await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
@@ -1645,6 +1647,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         cloid: params.cloid,
         // Position TP/SL rests with sz "0"; keep it so HL preserves isPositionTpsl.
         allowZeroSize: new BigNumber(params.size).isZero(),
+        alwaysPlace: params.alwaysPlace,
       });
     }
 
@@ -1657,6 +1660,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       reduceOnly: params.reduceOnly,
       orderType: { limit: { tif: params.amendKind.tif } },
       cloid: params.cloid,
+      alwaysPlace: params.alwaysPlace,
     });
   }
 

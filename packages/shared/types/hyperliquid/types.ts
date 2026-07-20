@@ -147,6 +147,8 @@ export interface IModifyOrderParams {
   cloid?: IHex | null;
   // Position TP/SL orders rest with sz "0"; allow it through size formatting on modify.
   allowZeroSize?: boolean;
+  // Hyperliquid otherwise treats executable GTC modifications as ALO.
+  alwaysPlace?: true;
 }
 
 export type IOrderAmendKind =

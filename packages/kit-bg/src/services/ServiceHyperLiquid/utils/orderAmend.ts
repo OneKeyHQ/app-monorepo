@@ -15,11 +15,14 @@ export function buildHyperliquidModifyOrder(
   };
 }
 
-export function buildHyperliquidBatchModifyRequest(params: {
+export function buildHyperliquidModifyRequest(params: {
   oid: number;
   order: IOrderParams;
+  alwaysPlace?: true;
 }) {
   return {
-    modifies: [params],
+    oid: params.oid,
+    order: params.order,
+    ...(params.alwaysPlace ? { a: true as const } : {}),
   };
 }

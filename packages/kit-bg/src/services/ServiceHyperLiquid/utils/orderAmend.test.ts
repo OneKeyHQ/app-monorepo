@@ -1,6 +1,6 @@
 import {
-  buildHyperliquidBatchModifyRequest,
   buildHyperliquidModifyOrder,
+  buildHyperliquidModifyRequest,
 } from './orderAmend';
 
 const baseParams = {
@@ -68,30 +68,35 @@ describe('buildHyperliquidModifyOrder', () => {
   });
 });
 
-describe('buildHyperliquidBatchModifyRequest', () => {
-  it('uses the canonical batchModify envelope for a single amendment', () => {
+describe('buildHyperliquidModifyRequest', () => {
+  const order = buildHyperliquidModifyOrder({
+    ...baseParams,
+    orderType: { limit: { tif: 'Gtc' } },
+  });
+
+  it('omits always_place for ordinary amendments', () => {
     expect(
-      buildHyperliquidBatchModifyRequest({
+      buildHyperliquidModifyRequest({
         oid: baseParams.oid,
-        order: buildHyperliquidModifyOrder({
-          ...baseParams,
-          orderType: { limit: { tif: 'Gtc' } },
-        }),
+        order,
       }),
     ).toEqual({
-      modifies: [
-        {
-          oid: baseParams.oid,
-          order: {
-            a: baseParams.assetId,
-            b: baseParams.isBuy,
-            p: baseParams.price,
-            s: baseParams.sz,
-            r: baseParams.reduceOnly,
-            t: { limit: { tif: 'Gtc' } },
-          },
-        },
-      ],
+      oid: baseParams.oid,
+      order,
+    });
+  });
+
+  it('sets always_place only when explicitly requested', () => {
+    expect(
+      buildHyperliquidModifyRequest({
+        oid: baseParams.oid,
+        order,
+        alwaysPlace: true,
+      }),
+    ).toEqual({
+      oid: baseParams.oid,
+      order,
+      a: true,
     });
   });
 });

@@ -3252,6 +3252,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               reduceOnly: existing.reduceOnly,
               amendKind,
               cloid: existing.cloid,
+              alwaysPlace: true,
             },
           );
         },
