@@ -358,6 +358,65 @@ mod win {
         std::mem::forget(handler);
     }
 
+    /// Find this device's ASSOCIATION ENDPOINT among the system's unpaired BLE
+    /// AEPs — the same object the Windows Settings pairing wizard pairs.
+    ///
+    /// This is the one structural difference left between Settings (pairs fine
+    /// on this machine) and us (link never forms): we have been pairing the
+    /// DeviceInformation hanging off `BluetoothLEDevice.FromBluetoothAddressAsync`,
+    /// which is a DeviceInterface-kind object. Settings pairs the
+    /// AssociationEndpoint-kind DeviceInformation produced by discovery, and
+    /// Microsoft's own DeviceEnumerationAndPairing sample does the same. The two
+    /// kinds do not behave identically under PairAsync.
+    ///
+    /// Retries a few times because the AEP list is refreshed by discovery and the
+    /// entry can lag a freshly-rotated RPA by a second or two.
+    async fn find_unpaired_aep(addr: u64) -> Option<DeviceInformation> {
+        let mac = {
+            let b: [u8; 6] = [
+                ((addr >> 40) & 0xff) as u8,
+                ((addr >> 32) & 0xff) as u8,
+                ((addr >> 24) & 0xff) as u8,
+                ((addr >> 16) & 0xff) as u8,
+                ((addr >> 8) & 0xff) as u8,
+                (addr & 0xff) as u8,
+            ];
+            format!(
+                "-{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+                b[0], b[1], b[2], b[3], b[4], b[5]
+            )
+        };
+        let selector = BluetoothLEDevice::GetDeviceSelectorFromPairingState(false).ok()?;
+        for attempt in 0..6u32 {
+            if attempt > 0 {
+                std::thread::sleep(std::time::Duration::from_millis(800));
+            }
+            let list = match DeviceInformation::FindAllAsyncAqsFilter(&selector) {
+                Ok(op) => match op.await {
+                    Ok(l) => l,
+                    Err(_) => continue,
+                },
+                Err(_) => continue,
+            };
+            let size = list.Size().unwrap_or(0);
+            for i in 0..size {
+                if let Ok(info) = list.GetAt(i) {
+                    let id = info
+                        .Id()
+                        .map(|v| v.to_string().to_lowercase())
+                        .unwrap_or_default();
+                    if id.ends_with(&mac) {
+                        diag(&format!(
+                            "found unpaired AEP on attempt {attempt}: id='{id}'"
+                        ));
+                        return Some(info);
+                    }
+                }
+            }
+        }
+        None
+    }
+
     pub async fn run_pair(address: Option<String>, keep_link: bool) -> Result<(), String> {
         let addr = super::require_address(address)?;
         diag(&format!("run_pair keepLink={keep_link}"));
@@ -377,7 +436,20 @@ mod win {
             return Err("device reports CanPair = false".into());
         }
 
-        let custom = pairing.Custom().map_err(we)?;
+        // Settings-style pairing: prefer the AEP; fall back to the old
+        // device-interface pairing only if the AEP cannot be found.
+        let ceremony_pairing: DeviceInformationPairing = match find_unpaired_aep(addr).await {
+            Some(info) => {
+                diag("pairing via AEP DeviceInformation (settings-style)");
+                info.Pairing().map_err(we)?
+            }
+            None => {
+                diag("AEP not found; falling back to device-interface pairing (legacy path)");
+                pairing.clone()
+            }
+        };
+
+        let custom = ceremony_pairing.Custom().map_err(we)?;
 
         // Accept EVERY pairing kind, not just ConfirmPinMatch.
         //
@@ -601,7 +673,8 @@ mod win {
                 // (the "device disappears" dead-end). Unpair so the next attempt
                 // starts clean. Ignore errors — we're already failing.
                 diag(&format!("failed status {status:?}, unpairing to clean up"));
-                if let Ok(op) = pairing.UnpairAsync() {
+                // Clean up on the same object the ceremony ran on.
+                if let Ok(op) = ceremony_pairing.UnpairAsync() {
                     match op.await {
                         Ok(r) => diag(&format!(
                             "cleanup unpair status={:?}",
