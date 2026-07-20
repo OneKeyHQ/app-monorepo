@@ -9,6 +9,7 @@ import {
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
+  getTradingViewNativeWatermarkLayout,
 } from './chartLayout';
 
 const SECONDS_PER_HOUR = 60 * 60;
@@ -76,11 +77,11 @@ describe('TradingViewNative chart layout', () => {
       maxVolume: 10,
       priceAxisX: 322,
       timeAxisY: 276,
-      volumeBottom: 252,
+      volumeBottom: 276,
     });
-    expect(layout.priceTicks).toHaveLength(5);
+    expect(layout.priceTicks).toHaveLength(7);
     expect(layout.timeTicks.length).toBeGreaterThan(0);
-    expect(getTradingViewNativePriceY(layout.maxPrice, layout)).toBe(24);
+    expect(getTradingViewNativePriceY(layout.maxPrice, layout)).toBe(8);
   });
 
   it('maps a static price picture into the visible price range', () => {
@@ -93,8 +94,8 @@ describe('TradingViewNative chart layout', () => {
     });
     const mapY = (y: number) => y * transform.scaleY + transform.translateY;
 
-    expect(mapY(44)).toBeCloseTo(24);
-    expect(mapY(84)).toBeCloseTo(124);
+    expect(mapY(28)).toBeCloseTo(8);
+    expect(mapY(68)).toBeCloseTo(108);
   });
 
   it('centers a flat visible price range', () => {
@@ -106,7 +107,28 @@ describe('TradingViewNative chart layout', () => {
       targetPriceRange: 0,
     });
 
-    expect(54 * transform.scaleY + transform.translateY).toBeCloseTo(74);
+    expect(38 * transform.scaleY + transform.translateY).toBeCloseTo(58);
+  });
+
+  it('centers the watermark and keeps it inside small canvases', () => {
+    const regularLayout = getTradingViewNativeWatermarkLayout({
+      height: 300,
+      width: 640,
+    });
+    expect(regularLayout).toMatchObject({ width: 150, x: 245 });
+    expect(regularLayout?.height).toBeCloseTo(45.7317);
+    expect(regularLayout?.y).toBeCloseTo(127.1341);
+
+    const smallLayout = getTradingViewNativeWatermarkLayout({
+      height: 50,
+      width: 100,
+    });
+    expect(smallLayout).toMatchObject({ width: 100, x: 0 });
+    expect(smallLayout?.height).toBeCloseTo(30.4878);
+    expect(smallLayout?.y).toBeCloseTo(9.7561);
+    expect(
+      getTradingViewNativeWatermarkLayout({ height: 0, width: 100 }),
+    ).toBeNull();
   });
 
   it('positions the current price line and keeps its label inside the price axis', () => {
@@ -118,7 +140,7 @@ describe('TradingViewNative chart layout', () => {
         price: 7,
         priceChartHeight: 100,
       }),
-    ).toEqual({ labelTop: 44, lineY: 54 });
+    ).toEqual({ labelTop: 28, lineY: 38 });
     expect(
       getTradingViewNativeCurrentPriceLayout({
         labelHeight: 20,
@@ -127,7 +149,7 @@ describe('TradingViewNative chart layout', () => {
         price: 10,
         priceChartHeight: 100,
       }),
-    ).toEqual({ labelTop: 24, lineY: 24 });
+    ).toEqual({ labelTop: 8, lineY: 8 });
     expect(
       getTradingViewNativeCurrentPriceLayout({
         labelHeight: 20,
@@ -136,7 +158,7 @@ describe('TradingViewNative chart layout', () => {
         price: 0,
         priceChartHeight: 100,
       }),
-    ).toEqual({ labelTop: 104, lineY: 124 });
+    ).toEqual({ labelTop: 88, lineY: 108 });
   });
 
   it('hides the current price line when its value is outside the visible range', () => {

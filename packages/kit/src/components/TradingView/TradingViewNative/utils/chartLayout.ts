@@ -1,11 +1,17 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING,
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
-  TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING,
+  TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT,
   TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_TIME_AXIS_MIN_TICK_SPACING,
+  TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
+  TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
+  TRADING_VIEW_NATIVE_WATERMARK_MIN_WIDTH,
+  TRADING_VIEW_NATIVE_WATERMARK_WIDTH_RATIO,
 } from '../chartConstants';
 
 import {
@@ -46,6 +52,13 @@ export interface ITradingViewNativeCurrentPriceLayout {
   lineY: number;
 }
 
+export interface ITradingViewNativeWatermarkLayout {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}
+
 export interface ITradingViewNativeChartLayout {
   maxPrice: number;
   maxVolume: number;
@@ -71,7 +84,6 @@ const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 const VOLUME_HEIGHT_RATIO = 0.2;
 const PRICE_VOLUME_GAP_RATIO = 0.04;
-const PRICE_AXIS_TICK_COUNT = 5;
 const TIME_AXIS_INTERVALS: ITimeAxisInterval[] = [
   { approximateSeconds: SECONDS_PER_MINUTE, step: 1, unit: 'minute' },
   { approximateSeconds: 5 * SECONDS_PER_MINUTE, step: 5, unit: 'minute' },
@@ -109,6 +121,45 @@ export function getTradingViewNativeChartWidth(width: number) {
       TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
     0,
   );
+}
+
+export function getTradingViewNativeWatermarkLayout({
+  height,
+  width,
+}: {
+  height: number;
+  width: number;
+}): ITradingViewNativeWatermarkLayout | null {
+  if (
+    !Number.isFinite(height) ||
+    !Number.isFinite(width) ||
+    height <= 0 ||
+    width <= 0
+  ) {
+    return null;
+  }
+
+  const preferredWidth = Math.min(
+    Math.max(
+      width * TRADING_VIEW_NATIVE_WATERMARK_WIDTH_RATIO,
+      TRADING_VIEW_NATIVE_WATERMARK_MIN_WIDTH,
+    ),
+    TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
+  );
+  const watermarkWidth = Math.min(
+    preferredWidth,
+    width,
+    height * TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
+  );
+  const watermarkHeight =
+    watermarkWidth / TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO;
+
+  return {
+    height: watermarkHeight,
+    width: watermarkWidth,
+    x: (width - watermarkWidth) / 2,
+    y: (height - watermarkHeight) / 2,
+  };
 }
 
 function padTimeAxisValue(value: number) {
@@ -334,7 +385,9 @@ export function getTradingViewNativeChartLayout({
   const chartWidth = getTradingViewNativeChartWidth(width);
   const timeAxisY = height - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
   const contentHeight =
-    timeAxisY - TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING * 2;
+    timeAxisY -
+    TRADING_VIEW_NATIVE_CHART_TOP_PADDING -
+    TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING;
   if (!points.length || chartWidth <= 0 || contentHeight <= 0) {
     return null;
   }
@@ -350,10 +403,11 @@ export function getTradingViewNativeChartLayout({
   const volumeHeight = contentHeight * VOLUME_HEIGHT_RATIO;
   const priceChartHeight =
     contentHeight * (1 - VOLUME_HEIGHT_RATIO - PRICE_VOLUME_GAP_RATIO);
-  const volumeBottom = timeAxisY - TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING;
+  const volumeBottom = timeAxisY - TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING;
   const { maxPrice, minPrice } = visiblePriceRange;
   const priceRange = maxPrice - minPrice;
-  const priceTickCount = priceRange === 0 ? 1 : PRICE_AXIS_TICK_COUNT;
+  const priceTickCount =
+    priceRange === 0 ? 1 : TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT;
   const priceTicks = Array.from(
     { length: priceTickCount },
     (_, index): ITradingViewNativePriceTick => {
@@ -361,9 +415,7 @@ export function getTradingViewNativeChartLayout({
         priceTickCount === 1 ? 0.5 : index / (priceTickCount - 1);
       return {
         price: maxPrice - priceRange * progress,
-        y:
-          TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING +
-          priceChartHeight * progress,
+        y: TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight * progress,
       };
     },
   );
@@ -412,8 +464,8 @@ export function getTradingViewNativePriceY(
   'worklet';
 
   return priceRange === 0
-    ? TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING + priceChartHeight / 2
-    : TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING +
+    ? TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight / 2
+    : TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
         ((maxPrice - price) / priceRange) * priceChartHeight;
 }
 
@@ -445,7 +497,7 @@ export function getTradingViewNativeCurrentPriceLayout({
     return null;
   }
 
-  const chartTop = TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING;
+  const chartTop = TRADING_VIEW_NATIVE_CHART_TOP_PADDING;
   const chartBottom = chartTop + priceChartHeight;
   const lineY = getTradingViewNativePriceY(price, {
     maxPrice,
@@ -496,14 +548,12 @@ export function getTradingViewNativePriceTransform({
 
   if (targetPriceRange === 0) {
     const baseY =
-      TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING +
+      TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
       ((baseMaxPrice - targetMaxPrice) / basePriceRange) * priceChartHeight;
     return {
       scaleY: 1,
       translateY:
-        TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING +
-        priceChartHeight / 2 -
-        baseY,
+        TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight / 2 - baseY,
     };
   }
 
@@ -511,8 +561,8 @@ export function getTradingViewNativePriceTransform({
   return {
     scaleY,
     translateY:
-      TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING +
+      TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
       ((targetMaxPrice - baseMaxPrice) / targetPriceRange) * priceChartHeight -
-      scaleY * TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING,
+      scaleY * TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   };
 }

@@ -8,19 +8,20 @@ import {
 } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
-import { Stack, useTheme } from '@onekeyhq/components';
+import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
   TRADING_VIEW_NATIVE_CHART_DOWN_COLOR as CHART_DOWN_COLOR,
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING as CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CHART_UP_COLOR as CHART_UP_COLOR,
-  TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING as CHART_VERTICAL_PADDING,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HEIGHT as CURRENT_PRICE_LABEL_HEIGHT,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING as CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_TEXT_COLOR as CURRENT_PRICE_LABEL_TEXT_COLOR,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_GAP as CURRENT_PRICE_LINE_DASH_GAP,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_LENGTH as CURRENT_PRICE_LINE_DASH_LENGTH,
+  TRADING_VIEW_NATIVE_GRID_LINE_DASH_GAP as GRID_LINE_DASH_GAP,
+  TRADING_VIEW_NATIVE_GRID_LINE_DASH_LENGTH as GRID_LINE_DASH_LENGTH,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT as TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
@@ -28,6 +29,8 @@ import {
   TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
   TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
+  TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
+  TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
 import {
   formatTradingViewNativePriceTick,
@@ -36,6 +39,7 @@ import {
   getTradingViewNativeCurrentPriceLayout,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
+  getTradingViewNativeWatermarkLayout,
 } from '../utils/chartLayout';
 import { isTradingViewNativePriceUp } from '../utils/chartStyle';
 import {
@@ -53,6 +57,14 @@ const WHEEL_ZOOM_SENSITIVITY = 0.0015;
 const WHEEL_DELTA_MODE_LINE = 1;
 const WHEEL_DELTA_MODE_PAGE = 2;
 const WHEEL_DELTA_LINE_HEIGHT = 16;
+const ONEKEY_WATERMARK_ASSET =
+  require('@onekeyhq/components/svg/illus/logo.svg') as
+    | string
+    | { default: string };
+const ONEKEY_WATERMARK_URI =
+  typeof ONEKEY_WATERMARK_ASSET === 'string'
+    ? ONEKEY_WATERMARK_ASSET
+    : ONEKEY_WATERMARK_ASSET.default;
 
 interface IChartColors {
   axisText: string;
@@ -90,6 +102,8 @@ interface IDrawKLineChartOptions {
   colors: IChartColors;
   panOffset: number;
   points: IMarketTokenKLineDataPoint[];
+  watermarkImage: HTMLImageElement | null;
+  watermarkOpacity: number;
   zoomScale: number;
 }
 
@@ -113,6 +127,8 @@ function drawKLineChart({
   colors,
   panOffset,
   points,
+  watermarkImage,
+  watermarkOpacity,
   zoomScale,
 }: IDrawKLineChartOptions) {
   const context = canvas.getContext('2d');
@@ -138,6 +154,23 @@ function drawKLineChart({
   context.clearRect(0, 0, width, height);
   context.fillStyle = colors.background;
   context.fillRect(0, 0, width, height);
+
+  const watermarkLayout = getTradingViewNativeWatermarkLayout({
+    height,
+    width,
+  });
+  if (watermarkImage && watermarkLayout) {
+    context.save();
+    context.globalAlpha = watermarkOpacity;
+    context.drawImage(
+      watermarkImage,
+      watermarkLayout.x,
+      watermarkLayout.y,
+      watermarkLayout.width,
+      watermarkLayout.height,
+    );
+    context.restore();
+  }
 
   if (!points.length) {
     return;
@@ -198,15 +231,18 @@ function drawKLineChart({
 
   context.strokeStyle = colors.grid;
   context.lineWidth = 1;
+  context.setLineDash([]);
   context.beginPath();
-  context.moveTo(priceAxisX, CHART_VERTICAL_PADDING);
-  context.lineTo(priceAxisX, timeAxisY);
   context.moveTo(CHART_HORIZONTAL_PADDING, timeAxisY);
   context.lineTo(priceAxisX, timeAxisY);
+  context.stroke();
+
+  context.setLineDash([GRID_LINE_DASH_LENGTH, GRID_LINE_DASH_GAP]);
+  context.beginPath();
   for (const tick of timeTicks) {
     const x = getPointX(tick.index);
     if (x >= CHART_HORIZONTAL_PADDING && x <= priceAxisX) {
-      context.moveTo(x, CHART_VERTICAL_PADDING);
+      context.moveTo(x, 0);
       context.lineTo(x, timeAxisY);
     }
   }
@@ -347,6 +383,8 @@ export const TradingViewNativeChart = memo(
   }: ITradingViewNativeChartProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const pointerDragStateRef = useRef<IPointerDragState | null>(null);
+    const [watermarkImage, setWatermarkImage] =
+      useState<HTMLImageElement | null>(null);
     const [measuredChartWidth, setMeasuredChartWidth] = useState(0);
     const [viewportState, setViewportState] = useState<IChartViewportState>(
       () => ({
@@ -361,9 +399,27 @@ export const TradingViewNativeChart = memo(
       points[pointCount - 1]?.t,
     );
     const theme = useTheme();
+    const themeName = useThemeName();
     const background = theme.bgApp.val;
     const grid = theme.borderSubdued.val;
     const axisText = theme.textSubdued.val;
+    const watermarkOpacity =
+      themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
+
+    useEffect(() => {
+      const image = new Image();
+      let isActive = true;
+      image.onload = () => {
+        if (isActive) {
+          setWatermarkImage(image);
+        }
+      };
+      image.src = ONEKEY_WATERMARK_URI;
+      return () => {
+        isActive = false;
+        image.onload = null;
+      };
+    }, []);
 
     const renderChart = useCallback(
       (nextPanOffset: number, nextZoomScale: number) => {
@@ -384,10 +440,20 @@ export const TradingViewNativeChart = memo(
           },
           panOffset: nextPanOffset,
           points,
+          watermarkImage,
+          watermarkOpacity,
           zoomScale: nextZoomScale,
         });
       },
-      [axisText, background, candleIntervalSeconds, grid, points],
+      [
+        axisText,
+        background,
+        candleIntervalSeconds,
+        grid,
+        points,
+        watermarkImage,
+        watermarkOpacity,
+      ],
     );
 
     useLayoutEffect(() => {

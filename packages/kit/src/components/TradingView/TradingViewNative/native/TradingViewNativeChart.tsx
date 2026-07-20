@@ -11,6 +11,7 @@ import {
   Canvas,
   DashPathEffect,
   Group,
+  ImageSVG,
   Line,
   Paint,
   Picture,
@@ -20,6 +21,7 @@ import {
   Skia,
   Text,
   matchFont,
+  useSVG,
 } from '@shopify/react-native-skia';
 import { type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -33,19 +35,22 @@ import {
 } from 'react-native-reanimated';
 import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 
-import { Stack, useTheme } from '@onekeyhq/components';
+import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
   TRADING_VIEW_NATIVE_CHART_DOWN_COLOR as CHART_DOWN_COLOR,
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING as CHART_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_CHART_TOP_PADDING as CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_CHART_UP_COLOR as CHART_UP_COLOR,
-  TRADING_VIEW_NATIVE_CHART_VERTICAL_PADDING as CHART_VERTICAL_PADDING,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HEIGHT as CURRENT_PRICE_LABEL_HEIGHT,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING as CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_TEXT_COLOR as CURRENT_PRICE_LABEL_TEXT_COLOR,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_GAP as CURRENT_PRICE_LINE_DASH_GAP,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_LENGTH as CURRENT_PRICE_LINE_DASH_LENGTH,
+  TRADING_VIEW_NATIVE_GRID_LINE_DASH_GAP as GRID_LINE_DASH_GAP,
+  TRADING_VIEW_NATIVE_GRID_LINE_DASH_LENGTH as GRID_LINE_DASH_LENGTH,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT as PRICE_AXIS_TICK_COUNT,
   TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH as PRICE_AXIS_WIDTH,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT as TIME_AXIS_HEIGHT,
@@ -53,6 +58,8 @@ import {
   TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
   TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
+  TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
+  TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
 import {
   type ITradingViewNativeTimeTick,
@@ -64,6 +71,7 @@ import {
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
+  getTradingViewNativeWatermarkLayout,
 } from '../utils/chartLayout';
 import { isTradingViewNativePriceUp } from '../utils/chartStyle';
 import {
@@ -81,7 +89,10 @@ import {
 
 const PRICE_AXIS_FONT_SIZE = 12;
 const PRICE_AXIS_TEXT_BASELINE_OFFSET = PRICE_AXIS_FONT_SIZE / 2 - 1;
-const PRICE_AXIS_TICK_PROGRESS = [0, 0.25, 0.5, 0.75, 1] as const;
+const PRICE_AXIS_TICK_PROGRESS = Array.from(
+  { length: PRICE_AXIS_TICK_COUNT },
+  (_, index) => index / (PRICE_AXIS_TICK_COUNT - 1),
+);
 const TIME_AXIS_FONT_SIZE = 12;
 const TIME_AXIS_TEXT_BASELINE_OFFSET =
   (TIME_AXIS_HEIGHT + TIME_AXIS_FONT_SIZE) / 2;
@@ -91,6 +102,8 @@ const NATIVE_CANDLE_STEP =
 const PAN_DRAG_RATIO = 1.1;
 const PAN_DECELERATION = 0.9982;
 const MIN_FLING_VELOCITY = 100;
+const ONEKEY_WATERMARK_SOURCE =
+  require('@onekeyhq/components/svg/illus/logo.svg') as number;
 
 interface IChartSize {
   height: number;
@@ -188,6 +201,10 @@ function createKLineChartPictures({
     gridPaint.setAntiAlias(true);
     gridPaint.setColor(Skia.Color(colors.grid));
     gridPaint.setStrokeWidth(1);
+    const gridPathEffect = Skia.PathEffect.MakeDash(
+      [GRID_LINE_DASH_LENGTH, GRID_LINE_DASH_GAP],
+      0,
+    );
 
     const candlePaint = Skia.Paint();
     candlePaint.setAntiAlias(true);
@@ -196,13 +213,6 @@ function createKLineChartPictures({
     volumePaint.setAntiAlias(true);
 
     gridCanvas.drawLine(
-      priceAxisX,
-      CHART_VERTICAL_PADDING,
-      priceAxisX,
-      timeAxisY,
-      gridPaint,
-    );
-    gridCanvas.drawLine(
       CHART_HORIZONTAL_PADDING,
       timeAxisY,
       priceAxisX,
@@ -210,6 +220,7 @@ function createKLineChartPictures({
       gridPaint,
     );
 
+    gridPaint.setPathEffect(gridPathEffect);
     for (const { y } of priceTicks) {
       gridCanvas.drawLine(
         CHART_HORIZONTAL_PADDING,
@@ -272,6 +283,7 @@ function createKLineChartPictures({
     });
 
     gridPaint.dispose();
+    gridPathEffect.dispose();
     candlePaint.dispose();
     volumePaint.dispose();
   }
@@ -333,10 +345,14 @@ function TradingViewNativeTimeTick({
     <Group transform={transform}>
       <Line
         color={gridColor}
-        p1={{ x: 0, y: CHART_VERTICAL_PADDING }}
+        p1={{ x: 0, y: 0 }}
         p2={{ x: 0, y: timeAxisY }}
         strokeWidth={1}
-      />
+      >
+        <DashPathEffect
+          intervals={[GRID_LINE_DASH_LENGTH, GRID_LINE_DASH_GAP]}
+        />
+      </Line>
       <Text
         color={textColor}
         font={font}
@@ -393,7 +409,7 @@ function TradingViewNativePriceTick({
       text={text}
       x={x}
       y={
-        CHART_VERTICAL_PADDING +
+        CHART_TOP_PADDING +
         priceChartHeight * progress +
         PRICE_AXIS_TEXT_BASELINE_OFFSET
       }
@@ -507,6 +523,8 @@ export const TradingViewNativeChart = memo(
     const visibleMinPrice = useSharedValue(Number.NaN);
     const hasInitializedViewportRef = useRef(false);
     const theme = useTheme();
+    const themeName = useThemeName();
+    const watermarkSvg = useSVG(ONEKEY_WATERMARK_SOURCE);
     const background = theme.bgApp.val;
     const grid = theme.borderSubdued.val;
     const axisText = theme.textSubdued.val;
@@ -520,10 +538,16 @@ export const TradingViewNativeChart = memo(
       [],
     );
     const chartOpacity = isSwitchingInterval ? SWITCHING_INTERVAL_OPACITY : 1;
+    const watermarkOpacity =
+      themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
     const priceAxisX = chartSize.width - PRICE_AXIS_WIDTH;
     const chartWidth = getTradingViewNativeChartWidth(chartSize.width);
     const pointCount = points.length;
     const latestPoint = points[pointCount - 1];
+    const watermarkLayout = useMemo(
+      () => getTradingViewNativeWatermarkLayout(chartSize),
+      [chartSize],
+    );
     const previousLatestTimestampRef = useRef<number | undefined>(
       latestPoint?.t,
     );
@@ -935,6 +959,21 @@ export const TradingViewNativeChart = memo(
             <Canvas testID={testID} style={{ flex: 1 }}>
               <Group layer={<Paint opacity={chartOpacity} />}>
                 <Picture picture={chartPictureData.gridPicture} />
+                {watermarkLayout ? (
+                  <Group
+                    layer={<Paint opacity={watermarkOpacity} />}
+                    transform={[
+                      { translateX: watermarkLayout.x },
+                      { translateY: watermarkLayout.y },
+                    ]}
+                  >
+                    <ImageSVG
+                      height={watermarkLayout.height}
+                      svg={watermarkSvg}
+                      width={watermarkLayout.width}
+                    />
+                  </Group>
+                ) : null}
                 <Group
                   clip={Skia.XYWHRect(
                     CHART_HORIZONTAL_PADDING,
