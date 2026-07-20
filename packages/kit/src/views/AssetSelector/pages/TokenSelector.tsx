@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
+import { uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -722,11 +723,19 @@ function TokenSelector() {
           allAggregateTokenMap?.[token.$key]?.tokens ?? [];
         const aggregateTokenList =
           selectorAggregateTokenListMap[token.$key]?.tokens ?? [];
-        if (
-          aggregateTokenList.length === 1 &&
-          allAggregateTokenList.length === 0
-        ) {
-          await executeOnSelect(aggregateTokenList[0]);
+        // Merge owned members with global config members before branching:
+        // a stale cache filtered by listed networks can leave a single
+        // survivor in either list (e.g. one global member with no owned
+        // copy), and neither per-list length check would catch it — the tap
+        // would fall through and keep the `aggregate--0` descriptor for
+        // account lookup and onSelect. Dedupe by networkId with owned tokens
+        // first, matching AggregateTokenSelector's merge.
+        const mergedAggregateTokenList = uniqBy(
+          [...aggregateTokenList, ...allAggregateTokenList],
+          (t) => t.networkId,
+        );
+        if (mergedAggregateTokenList.length === 1) {
+          await executeOnSelect(mergedAggregateTokenList[0]);
           return;
         }
 
@@ -747,7 +756,7 @@ function TokenSelector() {
           return;
         }
 
-        if (aggregateTokenList.length > 1 || allAggregateTokenList.length > 1) {
+        if (mergedAggregateTokenList.length > 1) {
           // Delay navigation to let the current CA transaction finish rendering
           // SVG icons, avoiding EXC_BAD_ACCESS in InstanceHandle::getTag when
           // Reanimated intercepts layout events from unmounting SVG views.

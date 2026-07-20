@@ -664,6 +664,18 @@
       }
     },
     {
+      // Component CSF stories + Storybook playground config — dev workbench, not user-facing UI
+      "files": [
+        "packages/components/src/**/*.stories.tsx",
+        "packages/components/src/**/*.stories.ts",
+        "apps/playground/.storybook/**/*.tsx",
+        "apps/playground/.storybook/**/*.ts"
+      ],
+      "rules": {
+        "onekey/require-testid": "off"
+      }
+    },
+    {
       // Non-UI packages — no interactive components, testID rule doesn't apply
       "files": [
         "packages/shared/src/**/*.ts",
@@ -752,6 +764,7 @@
     "packages/core/src/chains/xmr/sdkXmr/moneroCore/moneroCore.js",
     "packages/shared/src/locale/enum/translations.ts",
     "packages/shared/src/locale/localeJsonMap.ts",
+    "apps/mobile/.rnstorybook/storybook.requires.ts",
     "packages/shared/src/locale/json/*",
     "node_modules/**",
     ".history/**",
