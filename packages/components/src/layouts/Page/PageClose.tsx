@@ -3,6 +3,8 @@ import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Trigger } from '../../actions';
 import { useSafeAreaInsets } from '../../hooks';
 import { Stack } from '../../primitives';
@@ -48,7 +50,12 @@ function PageCloseButtonBase({ children }: PropsWithChildren) {
   const { top } = useSafeAreaInsets();
 
   return (
-    <Stack position="absolute" left="$5" top={top || '$5'} zIndex="$5">
+    <Stack
+      position="absolute"
+      left="$5"
+      top={platformEnv.isNative ? top : top || '$5'}
+      zIndex="$5"
+    >
       <PageClose>{children}</PageClose>
     </Stack>
   );

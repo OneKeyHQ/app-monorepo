@@ -9,6 +9,8 @@ import android.os.Bundle;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 
 import com.backgroundthread.BackgroundThreadManager;
 import com.margelo.nitro.nativelogger.OneKeyLog;
@@ -119,6 +121,13 @@ public class MainActivity extends ReactActivity {
         Log.e("MainActivity", "Failed to register SplashScreenManager", e);
         // Continue without splash screen manager if it fails
       }
+    }
+    if (BuildConfig.IS_EDGE_TO_EDGE_ENABLED) {
+      // Splash/theme setup can restore decor fitting after ReactActivityDelegate
+      // enables edge-to-edge. Re-apply it after every splash path so the React
+      // root owns the full window and JS safe-area insets stay authoritative.
+      WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+      ViewCompat.requestApplyInsets(getWindow().getDecorView());
     }
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);

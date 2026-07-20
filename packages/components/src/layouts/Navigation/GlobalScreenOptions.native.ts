@@ -17,6 +17,9 @@ export function clearStackNavigatorOptions(options?: {
   return {
     headerShown: false,
     animation: 'none',
+    ...(options?.bgColor
+      ? { contentStyle: { backgroundColor: options.bgColor } }
+      : undefined),
   };
 }
 
@@ -186,13 +189,20 @@ export function makeFullScreenOptions(): IStackNavigationOptions {
   };
 }
 
-export function makeOnboardingScreenOptions(): IStackNavigationOptions {
+export function makeOnboardingScreenOptions({
+  bgColor,
+}: {
+  isVerticalLayout?: boolean;
+  optionsInfo: IScreenOptionsInfo<any>;
+  bgColor?: string;
+}): IStackNavigationOptions {
   const options: IStackNavigationOptions = {
     headerShown: false,
     presentation: 'card',
     gestureEnabled: platformEnv.isNativeIOS,
     gestureDirection: 'horizontal',
     animation: 'slide_from_right',
+    ...(bgColor ? { contentStyle: { backgroundColor: bgColor } } : undefined),
   };
   if (platformEnv.isNativeAndroid) {
     options.animation = 'none';

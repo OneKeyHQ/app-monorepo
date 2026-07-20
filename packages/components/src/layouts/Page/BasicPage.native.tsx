@@ -1,15 +1,18 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { Dimensions, StatusBar } from 'react-native';
 
 import {
   AnimatePresence,
+  useTheme,
   useThemeName,
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsModalPage, useIsOverlayPage } from '../../hocs';
+import { useSystemUIAppearanceOverride } from '../../hooks/useSystemUI';
 import { Spinner, Stack, View, YStack } from '../../primitives';
 import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
 
@@ -63,9 +66,24 @@ const useMinHeight = (isFullPage: boolean) => {
  *
  * Uses a light content style for dark themes or modal pages, and a dark content style otherwise.
  */
-function PageStatusBar() {
+function PageSystemUI() {
   const isModalPage = useIsModalPage();
+  const isFocused = useIsFocused();
+  const theme = useTheme();
   const themeName: 'light' | 'dark' = useThemeName();
+
+  // Android system bars and the decor background belong to the Activity, not
+  // to a nested Tamagui Theme. Let only the focused page own that Window state;
+  // frozen/covered pages remain mounted but must not overwrite the foreground.
+  useSystemUIAppearanceOverride({
+    enabled: platformEnv.isNativeAndroid && isFocused,
+    themeVariant: themeName,
+    backgroundColor: theme.bgApp.val,
+  });
+
+  if (!platformEnv.isNativeIOS) {
+    return null;
+  }
 
   if (themeName === 'dark') {
     return <StatusBar animated barStyle="light-content" />;
@@ -163,7 +181,7 @@ export function BasicPage({
   const content = useMemo(() => {
     return (
       <Stack bg="$bgApp" flex={1} testID={testID}>
-        {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
+        {platformEnv.isNative ? <PageSystemUI /> : undefined}
         {lazyLoad ? (
           <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
         ) : (

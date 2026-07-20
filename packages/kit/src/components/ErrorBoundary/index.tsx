@@ -1,7 +1,8 @@
 /* eslint-disable react/destructuring-assignment, react/state-in-constructor, max-classes-per-file */
 import { PureComponent } from 'react';
 
-import { SafeAreaView, Text } from 'react-native';
+import { Text } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   LogLevel,
@@ -13,6 +14,14 @@ type IErrorBoundaryProps = {
   onError?: (error: Error, componentStack: string | null) => void;
 };
 type IErrorBoundaryState = { error: Error | null };
+
+function ErrorSafeArea({ children }: { children: React.ReactNode }) {
+  return (
+    <SafeAreaProvider>
+      <SafeAreaView style={{ flex: 1 }}>{children}</SafeAreaView>
+    </SafeAreaProvider>
+  );
+}
 
 class ErrorBoundaryBase extends PureComponent<
   IErrorBoundaryProps,
@@ -52,9 +61,9 @@ class ErrorBoundarySimple extends ErrorBoundaryBase {
   override render() {
     if (this.state.error) {
       return (
-        <SafeAreaView>
+        <ErrorSafeArea>
           <Text>{this.state.error.message}</Text>
-        </SafeAreaView>
+        </ErrorSafeArea>
       );
     }
     return this.props.children;
@@ -70,12 +79,12 @@ function SentryErrorBoundaryFallback({
   resetError(): void;
 }) {
   return (
-    <SafeAreaView>
+    <ErrorSafeArea>
       <Text>
         {(error as Error | undefined)?.message ||
           'unknown error by error boundary'}
       </Text>
-    </SafeAreaView>
+    </ErrorSafeArea>
   );
 }
 

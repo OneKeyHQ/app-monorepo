@@ -4,10 +4,13 @@ import { useIsFocused } from '@react-navigation/native';
 
 import {
   EPageType,
+  Stack,
   Theme,
+  getTokenValue,
   setGlassHeaderUIStyle,
   useThemeName,
 } from '@onekeyhq/components';
+import { useSystemUIAppearanceOverride } from '@onekeyhq/components/src/hooks/useSystemUI';
 import { RootModalNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -59,6 +62,12 @@ export function OnboardingNavigator() {
   // onboarding-replaced-by-main case where we never blur first.
   const appThemeName = useThemeName();
   const isFocused = useIsFocused();
+  const onboardingBackgroundColor = getTokenValue('$bgAppDark', 'color');
+  useSystemUIAppearanceOverride({
+    enabled: platformEnv.isNativeAndroid && isFocused,
+    themeVariant: 'dark',
+    backgroundColor: onboardingBackgroundColor,
+  });
   const appGlassStyle = appThemeName === 'dark' ? 'dark' : 'light';
   if (platformEnv.isNativeIOS26Plus) {
     setGlassHeaderUIStyle(isFocused ? 'dark' : appGlassStyle);
@@ -82,10 +91,12 @@ export function OnboardingNavigator() {
   }, []);
   return (
     <Theme name="dark">
-      <RootModalNavigator<EOnboardingV2Routes>
-        config={onboardingRouterV2Config}
-        pageType={EPageType.onboarding}
-      />
+      <Stack flex={1} bg="$bgApp">
+        <RootModalNavigator<EOnboardingV2Routes>
+          config={onboardingRouterV2Config}
+          pageType={EPageType.onboarding}
+        />
+      </Stack>
     </Theme>
   );
 }

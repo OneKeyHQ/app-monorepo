@@ -23,6 +23,7 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
+import com.facebook.react.views.view.WindowUtilKt;
 import com.facebook.react.soloader.OpenSourceMergedSoMapping;
 import com.facebook.soloader.SoLoader;
 
@@ -330,6 +331,11 @@ public class MainApplication extends Application implements ReactApplication {
     );
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       DefaultNewArchitectureEntryPoint.load();
+    }
+    if (BuildConfig.IS_EDGE_TO_EDGE_ENABLED) {
+      // This application performs the generated RN entry-point work manually,
+      // so mirror its edge-to-edge feature flag initialization as well.
+      WindowUtilKt.setEdgeToEdgeFeatureFlagOn();
     }
     long tAfterNewArch = System.currentTimeMillis();
     OneKeyLog.info(

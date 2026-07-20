@@ -98,7 +98,7 @@ export function ConfigProvider({
     [],
   );
 
-  useAppearanceTheme(theme);
+  useAppearanceTheme(theme, themeSetting);
   return (
     <AppIntlProvider locale={locale} onLocaleChange={onLocaleChange}>
       <FontProvider>

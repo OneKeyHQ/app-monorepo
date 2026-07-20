@@ -371,7 +371,12 @@ export default function PrimeDashboard({
   return (
     <>
       <Theme name="dark">
-        <Stack position="absolute" left="$5" top={top || '$5'} zIndex="$5">
+        <Stack
+          position="absolute"
+          left="$5"
+          top={platformEnv.isNative ? top : top || '$5'}
+          zIndex="$5"
+        >
           <NavCloseButton onPress={() => navigation.popStack()} />
         </Stack>
         <Page scrollEnabled>

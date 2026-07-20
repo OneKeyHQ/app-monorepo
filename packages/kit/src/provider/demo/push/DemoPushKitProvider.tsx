@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 
 import { openSettings as linkingOpenSettings } from 'expo-linking';
-import { Button, SafeAreaView, View } from 'react-native';
+import { Button, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import UUID from 'react-native-uuid';
 
 import sdk from './expoNotificationSdk';
@@ -19,28 +20,32 @@ export function DemoPushKitProvider() {
     void jpush.init();
   }, []);
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Button
-          testID="provider-demo-push-kit-provider-btn"
-          title="打开权限设置"
-          onPress={() => {
-            void linkingOpenSettings();
-          }}
-        />
-        <Button
-          testID="provider-demo-push-kit-provider-btn"
-          title="显示本地通知"
-          onPress={async () => {
-            const uuid = UUID.v4() as string;
-            await sdk.showNotification({
-              title: 'hello',
-              content: `world: ${Date.now()}`,
-              uuid,
-            });
-          }}
-        />
-      </View>
-    </SafeAreaView>
+    <SafeAreaProvider>
+      <SafeAreaView style={{ flex: 1 }}>
+        <View
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+        >
+          <Button
+            testID="provider-demo-push-kit-provider-btn"
+            title="打开权限设置"
+            onPress={() => {
+              void linkingOpenSettings();
+            }}
+          />
+          <Button
+            testID="provider-demo-push-kit-provider-btn"
+            title="显示本地通知"
+            onPress={async () => {
+              const uuid = UUID.v4() as string;
+              await sdk.showNotification({
+                title: 'hello',
+                content: `world: ${Date.now()}`,
+                uuid,
+              });
+            }}
+          />
+        </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }

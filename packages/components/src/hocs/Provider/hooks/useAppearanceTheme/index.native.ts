@@ -1,42 +1,22 @@
 import { useLayoutEffect } from 'react';
 
-import {
-  setBackgroundColorAsync,
-  setButtonStyleAsync,
-} from 'expo-navigation-bar';
-import { StatusBar } from 'react-native';
-
+import { setSystemUIBaseAppearance } from '@onekeyhq/components/src/hooks/useSystemUI';
 import { getTokenValue } from '@onekeyhq/components/src/shared/tamagui';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IUseAppearanceTheme } from './type';
 
-const setDarkContent = (isAnimated = true) => {
-  StatusBar.setBarStyle('light-content', isAnimated);
-  if (platformEnv.isNativeAndroid) {
-    const color = getTokenValue('$bgAppDark', 'color');
-    StatusBar.setBackgroundColor(color, isAnimated);
-    void setBackgroundColorAsync(color);
-    void setButtonStyleAsync('light');
-  }
-};
-
-const setLightContent = (isAnimated = true) => {
-  StatusBar.setBarStyle('dark-content', isAnimated);
-  if (platformEnv.isNativeAndroid) {
-    const color = getTokenValue('$bgAppLight', 'color');
-    StatusBar.setBackgroundColor(color, isAnimated);
-    void setBackgroundColorAsync(color);
-    void setButtonStyleAsync('dark');
-  }
-};
-
-export const useAppearanceTheme: IUseAppearanceTheme = (themeVariant) => {
+export const useAppearanceTheme: IUseAppearanceTheme = (
+  themeVariant,
+  themeSetting,
+) => {
   useLayoutEffect(() => {
-    if (themeVariant === 'light') {
-      setLightContent();
-    } else if (themeVariant === 'dark') {
-      setDarkContent();
-    }
-  }, [themeVariant]);
+    setSystemUIBaseAppearance({
+      themeVariant,
+      themeSetting,
+      backgroundColor: getTokenValue(
+        themeVariant === 'dark' ? '$bgAppDark' : '$bgAppLight',
+        'color',
+      ),
+    });
+  }, [themeSetting, themeVariant]);
 };

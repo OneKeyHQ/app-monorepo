@@ -11,6 +11,8 @@
 
   <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
     <item name="android:navigationBarColor" tools:targetApi="21">@color/navigationBarColor</item>
+    <item name="android:windowLightStatusBar" tools:targetApi="23">@bool/window_light_system_bars</item>
+    <item name="android:windowLightNavigationBar" tools:targetApi="26">@bool/window_light_system_bars</item>
     <item name="android:textColor">@android:color/black</item>
     <item name="android:textColorHighlight">@color/textSelectionHighlight</item>
     <item name="android:editTextStyle">@style/ResetEditText</item>
@@ -46,5 +48,7 @@
     <item name="android:windowBackground">#FF0F0F0F</item>
     <item name="android:statusBarColor" tools:targetApi="21">#FF0F0F0F</item>
     <item name="android:navigationBarColor" tools:targetApi="21">#FF0F0F0F</item>
+    <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+    <item name="android:windowLightNavigationBar" tools:targetApi="26">false</item>
   </style>
 </resources>

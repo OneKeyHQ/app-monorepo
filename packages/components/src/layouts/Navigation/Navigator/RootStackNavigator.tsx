@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { useMedia, useTheme } from '@onekeyhq/components/src/hooks/useStyle';
+import { getTokenValue } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -62,7 +63,8 @@ export function RootStackNavigator<
   );
 
   const theme = useTheme();
-  const bgColor = theme.bg.val;
+  const bgColor = theme.bgApp.val;
+  const onboardingBgColor = getTokenValue('$bgAppDark', 'color');
   const isVerticalLayout = useMedia().md;
   const presetScreenOptions = clearStackNavigatorOptions({
     bgColor,
@@ -83,15 +85,23 @@ export function RootStackNavigator<
             ? makeFullScreenOptions()
             : makeModalScreenOptions({ isVerticalLayout, optionsInfo });
         case 'fullScreenPush':
+          return makeOnboardingScreenOptions({
+            isVerticalLayout,
+            optionsInfo,
+          });
         case 'onboarding':
-          return makeOnboardingScreenOptions({ isVerticalLayout, optionsInfo });
+          return makeOnboardingScreenOptions({
+            isVerticalLayout,
+            optionsInfo,
+            bgColor: onboardingBgColor,
+          });
         case 'webView':
           return makeWebviewScreenOptions({ isVerticalLayout, optionsInfo });
         default:
           return {};
       }
     },
-    [isVerticalLayout],
+    [isVerticalLayout, onboardingBgColor],
   );
 
   const renderedScreens = useMemo(

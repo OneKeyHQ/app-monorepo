@@ -1,0 +1,3 @@
+<resources>
+  <bool name="window_light_system_bars">true</bool>
+</resources>
