@@ -43,6 +43,7 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
+  useSwapActiveSelectedFromTokenBalanceAtom,
   useSwapAlertsAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
@@ -59,7 +60,6 @@ import {
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
   useSwapSlippageOverrideAtom,
@@ -96,7 +96,7 @@ function useSwapWarningCheck() {
   const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+  const [fromTokenBalance] = useSwapActiveSelectedFromTokenBalanceAtom();
   const { checkSwapWarning } = useSwapActions().current;
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [accountSelectorStorageInitDone] =
@@ -402,7 +402,8 @@ export function useSwapActionState() {
     useSwapQuoteApproveAllowanceUnLimitAtom();
   useSwapWarningCheck();
   const [alerts] = useSwapAlertsAtom();
-  const [selectedFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+  const [selectedFromTokenBalance] =
+    useSwapActiveSelectedFromTokenBalanceAtom();
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
@@ -471,28 +472,39 @@ export function useSwapActionState() {
     swapTypeSwitchValue,
     toTokenAmount.value,
   ]);
+  // Pair identity must match the quote ingestion path, which accepts quotes
+  // via equalTokenNoCaseSensitive (e.g. checksum vs lowercase EVM contract
+  // addresses); a raw !== compare would flag those quotes as a stale pair.
+  const quoteResultPairNoMatch = useMemo(
+    () =>
+      Boolean(
+        quoteCurrentSelect &&
+        !(
+          equalTokenNoCaseSensitive({
+            token1: quoteCurrentSelect.fromTokenInfo,
+            token2: fromToken,
+          }) &&
+          equalTokenNoCaseSensitive({
+            token1: quoteCurrentSelect.toTokenInfo,
+            token2: toToken,
+          })
+        ),
+      ),
+    [fromToken, quoteCurrentSelect, toToken],
+  );
   const quoteResultNoMatch = useMemo(
     () =>
-      (quoteCurrentSelect &&
-        (quoteCurrentSelect.fromTokenInfo.networkId !== fromToken?.networkId ||
-          quoteCurrentSelect.toTokenInfo.networkId !== toToken?.networkId ||
-          quoteCurrentSelect.fromTokenInfo.contractAddress !==
-            fromToken?.contractAddress ||
-          quoteCurrentSelect.toTokenInfo.contractAddress !==
-            toToken?.contractAddress)) ||
+      quoteResultPairNoMatch ||
       quoteInputAmountNoMatch ||
       (quoteCurrentSelect?.protocol !== EProtocolOfExchange.LIMIT &&
         quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
         quoteCurrentSelect?.allowanceResult &&
         quoteCurrentSelect.allowanceResult.amount !== fromTokenAmount.value),
     [
-      fromToken?.contractAddress,
-      fromToken?.networkId,
       fromTokenAmount,
       quoteCurrentSelect,
       quoteInputAmountNoMatch,
-      toToken?.contractAddress,
-      toToken?.networkId,
+      quoteResultPairNoMatch,
     ],
   );
   const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 10);
@@ -514,19 +526,17 @@ export function useSwapActionState() {
     ],
   );
   // "The CURRENT pair's quote round completed and no provider supports it."
-  // A stale mismatched quote must not count — see isSwapNoProviderSupportsTrade.
+  // The veto must be pair-identity based only: provider-error quotes carry
+  // no amount fields, so the amount-aware quoteResultNoMatch would
+  // permanently veto the genuine no-provider verdict. (OK-57545)
   const noProviderSupportsTrade = useMemo(
     () =>
       isSwapNoProviderSupportsTrade({
         zeroProviderQuoteCompleted: isZeroProviderQuoteCompleted,
         quote: quoteCurrentSelect,
-        quoteResultNoMatch: Boolean(quoteResultNoMatchDebounce),
+        quoteResultPairNoMatch,
       }),
-    [
-      isZeroProviderQuoteCompleted,
-      quoteCurrentSelect,
-      quoteResultNoMatchDebounce,
-    ],
+    [isZeroProviderQuoteCompleted, quoteCurrentSelect, quoteResultPairNoMatch],
   );
   const actionInfo = useMemo(() => {
     const infoRes = {

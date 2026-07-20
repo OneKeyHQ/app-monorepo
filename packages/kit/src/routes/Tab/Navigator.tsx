@@ -229,9 +229,9 @@ export function TabNavigator() {
       <TabStackNavigator<ETabRoutes>
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
-        showTabBar={
-          !(isTabletDetailView && isLandscape) && !shouldHideExtTabBar
-        }
+        showTabBar={Boolean(
+          !(isTabletDetailView && isLandscape) && !shouldHideExtTabBar,
+        )}
         bottomMenu={<BottomMenu />}
         webPageTabBar={<WebPageTabBar />}
       />

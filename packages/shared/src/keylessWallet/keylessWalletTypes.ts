@@ -1,3 +1,4 @@
+import type { EOAuthSocialLoginProvider } from '../consts/authConsts';
 import type { JWTPayload } from 'jose';
 
 export type IKeylessWalletShare = string; // base64 string
@@ -5,6 +6,31 @@ export type IKeylessWalletShare = string; // base64 string
 export type IKeylessWalletUserInfo = {
   onekeyIdEmail: string;
   onekeyIdUserId: string;
+};
+
+export enum EKeylessCreateWithOneKeyIdPrepareStatus {
+  LocalKeylessExists = 'local_keyless_exists',
+  NeedOneKeyIdOAuthLogin = 'need_onekey_id_oauth_login',
+  NeedLegacyOAuthBind = 'need_legacy_oauth_bind',
+  ContinueCreate = 'continue_create',
+  ContinueRestore = 'continue_restore',
+}
+
+export type IKeylessCreateWithOneKeyIdPrepareResult = {
+  status: EKeylessCreateWithOneKeyIdPrepareStatus;
+  token?: string;
+  displayEmail?: string;
+};
+
+export enum EOneKeyIdLoginWithLocalKeylessPrepareStatus {
+  NoLocalKeyless = 'no_local_keyless',
+  ContinueWithKeyless = 'continue_with_keyless',
+  NeedOAuthLogin = 'need_oauth_login',
+}
+
+export type IOneKeyIdLoginWithLocalKeylessPrepareResult = {
+  status: EOneKeyIdLoginWithLocalKeylessPrepareStatus;
+  provider?: EOAuthSocialLoginProvider;
 };
 
 export type IKeylessBackendShare = {

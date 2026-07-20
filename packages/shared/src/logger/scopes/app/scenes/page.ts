@@ -47,6 +47,12 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
+  public openExternalUrl(params: { host: string; method: 'inApp' | 'system' }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
   public notificationItemClicked(
     notificationId: string,
     type: ENotificationPushTopicTypes | 'unknown',

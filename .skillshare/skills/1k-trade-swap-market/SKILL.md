@@ -1,6 +1,6 @@
 ---
 name: 1k-trade-swap-market
-description: App-side OneKey Trade/Swap/Market guide for Swap core, Swap Pro, Wallet Home and Home Token entries, Send/Earn/Market/Buy handoffs, native/mobile host differences, K-line/chart, token selectors, cold-start frame-by-frame validation, quote/build/send flows, history/status, provider channels, PrivateSend-like channels, stock-trading channels, limit/order flows, fees, slippage, ETA, and cross-module funding handoffs.
+description: OneKey app Trade/Swap/Market development for entry handoffs, native hosts, quotes, transactions, orders, history, charts, providers, fees, slippage, and funding flows.
 ---
 
 # Trade, Swap, Market
@@ -71,10 +71,12 @@ Run the readiness check first:
 node .skillshare/skills/1k-trade-swap-market/scripts/check-readiness.mjs
 ```
 
-The check intentionally fails when reviewed domain anchors drift. Refresh the
-code map and reviewed ref from current source before continuing; do not bypass
-the failure. Use [runtime-boundaries.md](references/runtime-boundaries.md) for
-every cross-runtime, persistence, cold-start, background, or restart path and
+The check intentionally fails when current stable anchors or required eval
+assets are missing, or when pre-existing uncommitted domain code makes intake
+ambiguous. Reconcile the current checkout, code map, and tests before
+continuing; do not bypass the failure. Use
+[runtime-boundaries.md](references/runtime-boundaries.md) for every
+cross-runtime, persistence, cold-start, background, or restart path and
 [test-map.md](references/test-map.md) for exact validation lanes.
 
 Autonomy does not authorize inventing product behavior, resolving conflicting
@@ -175,8 +177,8 @@ If a drill cannot be completed from the references, update the abstraction inste
 - Do not edit generated locale files directly; use the repository i18n workflow.
 - Do not create a new abstraction, hook, or state owner until the closest
   existing repo pattern and its semantic mismatch have been named.
-- Do not continue from a failing readiness drift check. Reconcile current code,
-  actual PR scope, anchors, tests, and the reviewed ref first.
+- Do not continue from a failing readiness check. Reconcile current code,
+  actual PR scope, anchors, tests, and pre-existing worktree changes first.
 - Do not ask the user to supply Jira, Slack, Git, client, or accessible server
   context that current tools can retrieve.
 - Do not leave route/provider/listener/quote/history side effects inside one

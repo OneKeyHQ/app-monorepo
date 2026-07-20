@@ -875,7 +875,7 @@ function ProtocolLendingActionDefiContent({
   );
   const feedbackNode = showFeedbackRegion ? (
     <LendingActionAlerts
-      showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
+      showLiquidationWarning={Boolean(hasDebts && isWithdraw)}
       errorMessage={inlineErrorMessage}
     />
   ) : null;
@@ -1786,7 +1786,7 @@ function ProtocolLendingActionBorrowContent({
   );
   const feedbackNode = showFeedbackRegion ? (
     <LendingActionAlerts
-      showLiquidationWarning={Boolean(hasDebts) && isWithdraw}
+      showLiquidationWarning={Boolean(hasDebts && isWithdraw)}
       errorMessage={inlineErrorMessage}
       checkAmountAlerts={checkAmountAlerts}
       riskOfLiquidationAlert={actionResult.riskOfLiquidationAlert}

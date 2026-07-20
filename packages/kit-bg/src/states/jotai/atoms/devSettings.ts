@@ -79,6 +79,8 @@ export interface IDevSettings {
   showPerformanceMonitorV2?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
+  // use the data-only native chart in Market Detail
+  useTradingViewNativeInMarketDetail?: boolean;
   showPerpsRenderStats?: boolean;
   mockTradingViewKLineEmptyEnabled?: boolean;
   mockTradingViewKLineEmptyIntervals?: ITradingViewKLineMockEmptyInterval[];
@@ -109,6 +111,9 @@ export interface IDevSettings {
   disableCustomUA?: boolean;
   // Allow Discovery browser to load local development URLs.
   allowLocalhostUrlInDAppBrowser?: boolean;
+  // Open external links in the system browser instead of the native in-app
+  // browser (SFSafariViewController / Chrome Custom Tabs). Native only.
+  useSystemBrowserForExternalLinks?: boolean;
   // Force react-native-fast-pbkdf2 instead of the default quick-crypto backend
   // for native PBKDF2 calls (debug only).
   useFastPbkdf2NativeBackend?: boolean;
@@ -160,6 +165,7 @@ export const {
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
+      useTradingViewNativeInMarketDetail: false,
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,

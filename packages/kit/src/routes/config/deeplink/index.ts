@@ -39,6 +39,7 @@ import {
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
@@ -516,6 +517,9 @@ const processDeepLinkUrl = memoizee(
     if (!url) return;
 
     try {
+      // An open SFSafariViewController would cover any navigation this deep
+      // link triggers; close it first (iOS-only, no-op elsewhere).
+      dismissNativeInAppBrowser();
       console.log('processDeepLinkUrl: >>>>> ', url);
       captureAndReportLoggerUtmParamsFromUrl(url);
       if (await handleReferralLandingUrl({ url })) {
