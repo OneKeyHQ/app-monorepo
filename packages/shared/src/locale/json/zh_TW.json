@@ -1067,6 +1067,7 @@
   "export_history_time_zone__title": "時區",
   "export_history_transaction_limit__title": "交易筆數上限",
   "export_history_transactions_count__desc": "{count, plural, other {# 筆交易}}",
+  "export_notification_reminder__desc": "Turn on notifications to get notified as soon as your export is ready.",
   "export_range_multiple_networks__desc": "選擇多個網路時，可用日期範圍取決於其中交易紀錄最短的網路。",
   "export_range_up_to_months__desc": "{count, plural, other {最多 # 個月}}",
   "export_selected_networks_missing_address__msg": "此帳戶在以下網路上沒有地址：{networks}。請先建立相應地址後再試。",

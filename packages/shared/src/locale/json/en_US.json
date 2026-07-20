@@ -1067,6 +1067,7 @@
   "export_history_time_zone__title": "Time Zone",
   "export_history_transaction_limit__title": "Transaction Limit",
   "export_history_transactions_count__desc": "{count, plural, one {# transaction} other {# transactions}}",
+  "export_notification_reminder__desc": "Turn on notifications to get notified as soon as your export is ready.",
   "export_range_multiple_networks__desc": "For multiple networks, the available date range is based on the network with the shortest history.",
   "export_range_up_to_months__desc": "{count, plural, one {Up to # month} other {Up to # months}}",
   "export_selected_networks_missing_address__msg": "This account has no address on: {networks}. Create the missing addresses and try again.",

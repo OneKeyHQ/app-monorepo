@@ -1067,6 +1067,7 @@
   "export_history_time_zone__title": "时区",
   "export_history_transaction_limit__title": "交易数量上限",
   "export_history_transactions_count__desc": "{count, plural, other {# 笔交易}}",
+  "export_notification_reminder__desc": "开启通知，导出完成后第一时间收到提醒。",
   "export_range_multiple_networks__desc": "选择多个网络时，可用日期范围取决于其中历史记录最短的网络。",
   "export_range_up_to_months__desc": "{count, plural, other {最多 # 个月}}",
   "export_selected_networks_missing_address__msg": "该账户在以下网络上没有地址：{networks}。请先创建相应地址后再试。",

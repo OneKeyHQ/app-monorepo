@@ -1067,6 +1067,7 @@
   "export_history_time_zone__title": "समय क्षेत्र",
   "export_history_transaction_limit__title": "लेन-देन सीमा",
   "export_history_transactions_count__desc": "{count, plural, one {# लेनदेन} other {# लेनदेन}}",
+  "export_notification_reminder__desc": "Turn on notifications to get notified as soon as your export is ready.",
   "export_range_multiple_networks__desc": "कई नेटवर्क चुनने पर उपलब्ध तारीख सीमा सबसे कम इतिहास वाले नेटवर्क के आधार पर तय होती है।",
   "export_range_up_to_months__desc": "{count, plural, one {अधिकतम # महीना} other {अधिकतम # महीने}}",
   "export_selected_networks_missing_address__msg": "इस खाते के पास इन नेटवर्क पर कोई पता नहीं है: {networks}। अनुपलब्ध पते बनाकर फिर से कोशिश करें।",

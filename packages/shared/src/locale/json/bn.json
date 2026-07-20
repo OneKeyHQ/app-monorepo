@@ -1067,6 +1067,7 @@
   "export_history_time_zone__title": "সময় অঞ্চল",
   "export_history_transaction_limit__title": "লেনদেনের সীমা",
   "export_history_transactions_count__desc": "{count, plural, one {#টি লেনদেন} other {#টি লেনদেন}}",
+  "export_notification_reminder__desc": "Turn on notifications to get notified as soon as your export is ready.",
   "export_range_multiple_networks__desc": "একাধিক নেটওয়ার্কের ক্ষেত্রে, উপলভ্য তারিখের সীমা সবচেয়ে কম ইতিহাস থাকা নেটওয়ার্ক অনুযায়ী নির্ধারিত হয়।",
   "export_range_up_to_months__desc": "{count, plural, one {সর্বোচ্চ # মাস} other {সর্বোচ্চ # মাস}}",
   "export_selected_networks_missing_address__msg": "এই অ্যাকাউন্টে নিম্নলিখিত নেটওয়ার্কগুলোর ঠিকানা নেই: {networks}। অনুপস্থিত ঠিকানাগুলো তৈরি করে আবার চেষ্টা করুন।",

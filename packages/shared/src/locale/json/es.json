@@ -1067,6 +1067,7 @@
   "export_history_time_zone__title": "Zona horaria",
   "export_history_transaction_limit__title": "Límite de transacciones",
   "export_history_transactions_count__desc": "{count, plural, one {# transacción} other {# transacciones}}",
+  "export_notification_reminder__desc": "Turn on notifications to get notified as soon as your export is ready.",
   "export_range_multiple_networks__desc": "Si seleccionas varias redes, el intervalo de fechas disponible se basa en la red con el historial más corto.",
   "export_range_up_to_months__desc": "{count, plural, one {Hasta # mes} other {Hasta # meses}}",
   "export_selected_networks_missing_address__msg": "Esta cuenta no tiene dirección en: {networks}. Crea las direcciones que faltan e inténtalo de nuevo.",

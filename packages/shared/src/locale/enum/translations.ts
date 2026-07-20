@@ -1072,6 +1072,7 @@ export enum ETranslations {
   export_history_time_zone__title = 'export_history_time_zone__title',
   export_history_transaction_limit__title = 'export_history_transaction_limit__title',
   export_history_transactions_count__desc = 'export_history_transactions_count__desc',
+  export_notification_reminder__desc = 'export_notification_reminder__desc',
   export_range_multiple_networks__desc = 'export_range_multiple_networks__desc',
   export_range_up_to_months__desc = 'export_range_up_to_months__desc',
   export_selected_networks_missing_address__msg = 'export_selected_networks_missing_address__msg',

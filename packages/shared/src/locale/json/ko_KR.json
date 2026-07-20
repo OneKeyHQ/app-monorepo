@@ -1067,6 +1067,7 @@
   "export_history_time_zone__title": "시간대",
   "export_history_transaction_limit__title": "거래 한도",
   "export_history_transactions_count__desc": "{count, plural, one {#건의 거래} other {#건의 거래}}",
+  "export_notification_reminder__desc": "Turn on notifications to get notified as soon as your export is ready.",
   "export_range_multiple_networks__desc": "여러 네트워크를 선택하면 사용 가능한 날짜 범위는 거래 내역이 가장 짧은 네트워크를 기준으로 합니다.",
   "export_range_up_to_months__desc": "{count, plural, other {최대 #개월}}",
   "export_selected_networks_missing_address__msg": "이 계정에는 다음 네트워크의 주소가 없습니다: {networks}. 누락된 주소를 만든 후 다시 시도하세요.",
