@@ -289,6 +289,13 @@ describe('KYTIntroOnMount', () => {
     expect(mockIntroShownLog).toHaveBeenCalledWith(
       expect.objectContaining({ entryPoint: 'primeSubscribeSuccess' }),
     );
+    // "shown" persists at presentation time so a runtime destroyed mid-display
+    // (dead lease owner) cannot suppress other surfaces or re-pop the intro.
+    await waitFor(() =>
+      expect(mockCompleteClaim).toHaveBeenCalledWith({
+        onekeyUserId: 'user-a',
+      }),
+    );
   });
 
   it('keeps the Home fallback behind its existing readiness gates', async () => {
@@ -453,7 +460,9 @@ describe('KYTIntroOnMount', () => {
     expect(close).not.toHaveBeenCalled();
     expect(mockToastError).toHaveBeenCalledTimes(1);
     expect(mockPromptNotificationPermission).not.toHaveBeenCalled();
-    expect(mockCompleteClaim).not.toHaveBeenCalled();
+    // "shown" was already persisted at presentation time; the failed enable
+    // only keeps the dialog open for an in-session retry.
+    expect(mockCompleteClaim).toHaveBeenCalledTimes(1);
 
     // A retry from the still-open dialog succeeds and completes normally.
     await act(async () => {

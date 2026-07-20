@@ -335,9 +335,10 @@ function useKYTIntroDialog() {
           await promptKytNotificationPermissionIfNeeded({ navigation, intl });
         },
         onClose: (extra) => {
-          // Mark "shown" only after the dialog is genuinely closed by the user
-          // (confirm or dismiss), never before showing it — so an intro that gets
-          // preempted/covered before the user sees it can still re-pop later.
+          // Idempotent fallback: "shown" is already persisted at presentation
+          // time (see attemptShow) so a runtime destroyed mid-display cannot
+          // re-pop the intro; repeating completion here only covers a failed
+          // post-presentation completion RPC.
           void backgroundApiProxy.serviceSetting
             .completeKytIntroClaim({ onekeyUserId: targetUserId })
             .catch((error) => {
@@ -663,6 +664,21 @@ function useKYTIntroDialog() {
         }
         activeClaim.isPresented = true;
         dialogShownRef.current = true;
+        // Persist "shown" the moment the dialog is actually on screen instead
+        // of waiting for onClose: a runtime destroyed mid-display (extension
+        // popup closed, process reclaimed, crash) would otherwise leave a
+        // presented lease owned by a dead nodeId — suppressing other surfaces
+        // for up to 30 minutes and re-popping the intro once it expires.
+        // complete() also drops the lease atomically with the "shown" write;
+        // onClose repeats it as an idempotent fallback.
+        void backgroundApiProxy.serviceSetting
+          .completeKytIntroClaim({ onekeyUserId: requestUserId })
+          .catch((error) => {
+            defaultLogger.prime.usage.primeReceiveKytIntroFlowFailed({
+              stage: 'claimComplete',
+              errorMessage: getErrorMessage(error),
+            });
+          });
         if (pendingPurchaseRef.current?.userId === requestUserId) {
           pendingPurchaseRef.current = undefined;
         }
