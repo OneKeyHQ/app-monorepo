@@ -198,6 +198,15 @@ function DeviceSetupPage({
     const isStale = () =>
       !isMountedRef.current || checkRunIdRef.current !== runId;
 
+    // An earlier run may already have a navigation timer pending: it succeeded,
+    // then an error event flipped the card and the user hit retry inside the
+    // 1.2s window. Drop it now, otherwise it fires against this run — and
+    // overwriting the ref below would lose its id, leaving two pending pushes.
+    if (navigateTimeoutRef.current) {
+      clearTimeout(navigateTimeoutRef.current);
+      navigateTimeoutRef.current = null;
+    }
+
     setErrorMessage(undefined);
     setSetupState(EDeviceSetupState.Checking);
     try {
@@ -260,6 +269,11 @@ function DeviceSetupPage({
       currentDevice ??
       (deviceData?.device as SearchDevice | undefined);
     navigateTimeoutRef.current = setTimeout(() => {
+      // Re-check at fire time, not just at schedule time: the card can flip to
+      // Error (a hardware UI event) and be retried inside this 1.2s window.
+      if (isStale()) {
+        return;
+      }
       navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
         deviceData: {
           ...deviceData,
