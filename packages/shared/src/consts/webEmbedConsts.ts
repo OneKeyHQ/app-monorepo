@@ -6,6 +6,7 @@ export enum EWebEmbedRoutePath {
 
 export enum EWebEmbedPrivateRequestMethod {
   closeWebViewModal = 'webembedPrivateRequest_closeWebViewModal',
+  closeWebViewModalAfterPrimePurchaseSuccess = 'webembedPrivateRequest_closeWebViewModalAfterPrimePurchaseSuccess',
   showToast = 'webembedPrivateRequest_showToast',
   showDebugMessageDialog = 'webembedPrivateRequest_showDebugMessageDialog',
 }
