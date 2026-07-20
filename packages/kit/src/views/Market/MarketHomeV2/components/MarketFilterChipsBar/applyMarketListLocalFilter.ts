@@ -5,7 +5,6 @@ import {
 
 import type {
   EMarketFilterDimension,
-  IMarketFilterSelection,
   IMarketListFilterConditions,
 } from './marketListFilterTypes';
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
@@ -20,14 +19,14 @@ export function applyMarketListLocalFilter(
       dimensionId as EMarketFilterDimension,
     );
     return dimension?.localField !== undefined;
-  }) as [EMarketFilterDimension, IMarketFilterSelection][];
+  }) as [EMarketFilterDimension, string][];
   if (entries.length === 0) {
     return tokens;
   }
   return tokens.filter((token) =>
-    entries.every(([dimensionId, selection]) => {
+    entries.every(([dimensionId, optionId]) => {
       const dimension = MARKET_FILTER_DIMENSION_MAP.get(dimensionId);
-      const option = getMarketFilterOption(dimensionId, selection);
+      const option = getMarketFilterOption(dimensionId, optionId);
       if (!dimension?.localField || !option) {
         return true;
       }

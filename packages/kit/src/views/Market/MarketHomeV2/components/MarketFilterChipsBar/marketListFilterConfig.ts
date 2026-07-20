@@ -1,5 +1,4 @@
 import {
-  EMarketChipKind,
   EMarketFilterDimension,
   EMarketFilterGroup,
 } from './marketListFilterTypes';
@@ -8,71 +7,67 @@ import type {
   IMarketFilterChip,
   IMarketFilterDimensionConfig,
   IMarketFilterOption,
-  IMarketFilterSelection,
   IMarketListFilterConditions,
+  IMarketListSortState,
 } from './marketListFilterTypes';
 
 const H = 60 * 60 * 1000;
-const M = 60 * 1000;
+const D = 24 * H;
 
-// Tier design rationale (2026-07-19 UX review):
-// - Floor dimensions (liquidity/turnover/holders/txns/traders/inflow) only
-//   ever mean "at least X" to users, so they get min-only tiers labeled with
-//   a "+" suffix — no comparison symbols to parse.
-// - Market cap is a positioning dimension: users hunt a LAYER (early micro
-//   caps vs established majors), so it uses named range buckets (OKX
-//   screener convention) instead of a one-sided threshold.
-// - Token age keeps ceiling semantics ("everything newer than X") since new
-//   listings are the hunt target; copy reads "Under X" so the whole column
-//   shares one direction.
-// - 3-4 tiers per row for quick scanning; token age keeps 6 (launch cadence
-//   is meaningful at 5m/30m/1h/6h/24h/48h). Values stay centralized here for
-//   PM tuning. Param names track hot-token v6 for the passthrough swap.
+function formatUsd(value: number) {
+  if (value >= 1_000_000) {
+    return `${value / 1_000_000}M`;
+  }
+  return `${value / 1000}K`;
+}
+
+function formatCount(value: number) {
+  return value >= 1000 ? `${value / 1000}K` : `${value}`;
+}
+
+// Floor tiers ("at least X"). The popover row title carries the unit, so the
+// pill stays short; the toolbar chip has no row title and repeats it.
+function usdFloors(values: number[]): IMarketFilterOption[] {
+  return values.map((value) => ({
+    id: `min-${value}`,
+    label: `${formatUsd(value)}+`,
+    chipLabel: `$${formatUsd(value)}+`,
+    min: value,
+  }));
+}
+
+function countFloors(values: number[]): IMarketFilterOption[] {
+  return values.map((value) => ({
+    id: `min-${value}`,
+    label: `${formatCount(value)}+`,
+    chipLabel: `${formatCount(value)}+`,
+    min: value,
+  }));
+}
+
+// Tier values are the frozen P2-9 table (2026-07-21), calibrated against a
+// single-day rankBy=15 pool snapshot: each tier had to move the view enough to
+// be worth a tap, so tiers whose in-pool retention was ~90+/100 (barely a
+// change) or near 0 (a dead button) were cut. Values stay centralized here
+// because the PRD expects them to become server-configurable and to be
+// calibrated again once P1-11 lands. Param names track hot-token v6.
+//
 // Row order borrows the OKX screener's split between stock metrics and the
 // ones the time frame rewrites, inverted for our trust-first positioning:
 // the "is this substantial?" levers (market cap / liquidity / holders) lead,
-// then the time-frame-driven metrics (turnover / change / txns) stay grouped,
-// then token age, which serves the secondary new-launch hunt.
+// then the time-frame-driven metrics (turnover / change / txns), then token
+// age, which serves the secondary new-launch hunt.
 export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.MarketCap,
     group: EMarketFilterGroup.Metrics,
     label: 'Market cap',
-    // Unit is appended to the popover row title (Binance convention) so tier
-    // pills stay short enough to fit four per row; toolbar chips keep the
-    // unit inside their own value text instead.
     unit: '$',
     minParam: 'marketCapMin',
     maxParam: 'marketCapMax',
     localField: 'marketCap',
-    options: [
-      {
-        id: 'micro',
-        label: '0-100K',
-        chipLabel: '0-$100K',
-        max: 100_000,
-      },
-      {
-        id: 'small',
-        label: '100K-1M',
-        chipLabel: '$100K-1M',
-        min: 100_000,
-        max: 1_000_000,
-      },
-      {
-        id: 'mid',
-        label: '1M-10M',
-        chipLabel: '$1M-10M',
-        min: 1_000_000,
-        max: 10_000_000,
-      },
-      {
-        id: 'large',
-        label: '10M+',
-        chipLabel: '$10M+',
-        min: 10_000_000,
-      },
-    ],
+    // 88/82/55/~30 retention; 100K cut as redundant (93 = view barely moves).
+    options: usdFloors([500_000, 1_000_000, 10_000_000, 100_000_000]),
   },
   {
     id: EMarketFilterDimension.Liquidity,
@@ -82,12 +77,8 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
     minParam: 'liquidityMin',
     maxParam: 'liquidityMax',
     localField: 'liquidity',
-    options: [5000, 50_000, 500_000].map((value) => ({
-      id: `min-${value}`,
-      label: `${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
-      chipLabel: `$${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
-      min: value,
-    })),
+    // 99/88/66/~22; 10K is the Mid-cap chip anchor, 5K cut.
+    options: usdFloors([10_000, 50_000, 500_000, 5_000_000]),
   },
   {
     id: EMarketFilterDimension.Holders,
@@ -96,12 +87,8 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
     minParam: 'holdersMin',
     maxParam: 'holdersMax',
     localField: 'holders',
-    options: [100, 1000, 10_000].map((value) => ({
-      id: `min-${value}`,
-      label: `${value >= 1000 ? `${value / 1000}K` : value}+`,
-      chipLabel: `${value >= 1000 ? `${value / 1000}K` : value}+`,
-      min: value,
-    })),
+    // 91/71/~15; the 1K floor doubles as the fake-market-cap defense.
+    options: countFloors([1000, 10_000, 100_000]),
   },
   {
     id: EMarketFilterDimension.Turnover,
@@ -111,12 +98,9 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
     minParam: 'volumeMin',
     maxParam: 'volumeMax',
     localField: 'turnover',
-    options: [10_000, 100_000, 1_000_000].map((value) => ({
-      id: `min-${value}`,
-      label: `${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
-      chipLabel: `$${value >= 1_000_000 ? `${value / 1_000_000}M` : `${value / 1000}K`}+`,
-      min: value,
-    })),
+    // 69/36/25/4 at 1h. Window-sensitive: the first three tiers stop
+    // discriminating at 24h (per-window tiers = PRD open question 8).
+    options: usdFloors([10_000, 50_000, 100_000, 1_000_000]),
   },
   {
     id: EMarketFilterDimension.Change,
@@ -125,6 +109,8 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
     minParam: 'priceChangePercentMin',
     maxParam: 'priceChangePercentMax',
     localField: 'change24h',
+    // Kept deliberately: self-serve filtering is the user's call, unlike the
+    // curated chips. Expect in-pool meme spikes; the copy stays honest.
     options: [10, 50, 100].map((value) => ({
       id: `min-${value}`,
       label: `${value}%+`,
@@ -139,29 +125,27 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
     minParam: 'txsMin',
     maxParam: 'txsMax',
     localField: 'transactions',
-    options: [100, 1000, 10_000].map((value) => ({
-      id: `min-${value}`,
-      label: `${value >= 1000 ? `${value / 1000}K` : value}+`,
-      chipLabel: `${value >= 1000 ? `${value / 1000}K` : value}+`,
-      min: value,
-    })),
+    // 72/~35/~10; 10K cut on quality, not reach — it returned 14 rows topped
+    // by a wash-trading token's transaction count.
+    options: countFloors([100, 500, 2000]),
   },
   {
     id: EMarketFilterDimension.TokenAge,
     label: 'Token age',
     group: EMarketFilterGroup.Metrics,
-    // No server-side age filter exists yet (PRD-confirmed); local demo only.
+    // No server-side age param exists, so this row filters the slice already
+    // fetched instead of the upstream pool — the only row that does, hence the
+    // separate marking in the popover.
     localField: 'firstTradeTime',
     isAge: true,
-    options: [5 * M, 30 * M, H, 6 * H, 24 * H, 48 * H].map((value) => {
-      const text = value >= H ? `${value / H}h` : `${value / M}m`;
-      return {
-        id: `under-${text}`,
-        label: `≤ ${text}`,
-        chipLabel: `≤ ${text}`,
-        max: value,
-      };
-    }),
+    isLocalOnly: true,
+    // Finer tiers (≤5m…≤24h) are dead in every pool: tokens take ≥24h to
+    // enter the hot list at all.
+    options: [
+      { id: 'under-48h', label: '≤ 48h', chipLabel: '≤ 48h', max: 2 * D },
+      { id: 'under-7d', label: '≤ 7d', chipLabel: '≤ 7d', max: 7 * D },
+      { id: 'under-30d', label: '≤ 30d', chipLabel: '≤ 30d', max: 30 * D },
+    ],
   },
   // Traders (uniqueTraderMin/Max) and Net inflow (inflowUsdMin/Max) are
   // intentionally absent: the redesigned table no longer shows a Traders
@@ -187,21 +171,15 @@ export const MARKET_FILTER_DIMENSION_MAP = new Map(
   MARKET_FILTER_DIMENSIONS.map((dimension) => [dimension.id, dimension]),
 );
 
-// Resolves a condition selection to a concrete option. Chip-applied selections
-// are already inline option objects; popover selections are tier ids that need
-// a lookup in the dimension config.
 export function getMarketFilterOption(
   dimensionId: EMarketFilterDimension,
-  selection: IMarketFilterSelection | undefined,
+  optionId: string | undefined,
 ): IMarketFilterOption | undefined {
-  if (!selection) {
+  if (!optionId) {
     return undefined;
   }
-  if (typeof selection !== 'string') {
-    return selection;
-  }
   return MARKET_FILTER_DIMENSION_MAP.get(dimensionId)?.options.find(
-    (option) => option.id === selection,
+    (option) => option.id === optionId,
   );
 }
 
@@ -212,13 +190,13 @@ export function buildHotTokenFilterParams(
   conditions: IMarketListFilterConditions,
 ): Record<string, number> {
   const params: Record<string, number> = {};
-  Object.entries(conditions).forEach(([dimensionId, selection]) => {
+  Object.entries(conditions).forEach(([dimensionId, optionId]) => {
     const dimension = MARKET_FILTER_DIMENSION_MAP.get(
       dimensionId as EMarketFilterDimension,
     );
     const option = getMarketFilterOption(
       dimensionId as EMarketFilterDimension,
-      selection as IMarketFilterSelection,
+      optionId,
     );
     if (!dimension || !option) {
       return;
@@ -233,71 +211,89 @@ export function buildHotTokenFilterParams(
   return params;
 }
 
-// Inline chip thresholds. These come from the P2-9 experiment round, not from
-// the popover tiers, so they are spelled out here rather than reusing tier ids.
-function chipFloor(chipLabel: string, min: number): IMarketFilterOption {
-  return { id: `chip-min-${min}`, label: chipLabel, chipLabel, min };
-}
-
-// P2-9 chip roster (✅ 定案 2026-07-19). Every chip anchors the time frame to
-// 1h; the popover stays unanchored so users keep free choice there.
+// P2-9 chip roster (frozen 2026-07-21). Three chips; Early tokens moved to
+// P2-12 because a view switch was judged too heavy for the first wave.
+// Every chip anchors the time frame to 1h — the popover stays unanchored so
+// self-serve filtering keeps free choice.
 export const MARKET_FILTER_CHIPS: IMarketFilterChip[] = [
   {
-    // Rule one, state unification: this dispatches the existing turnover
-    // column sort. No new state, no request — clicking the chip is literally
-    // clicking that header, so the header arrow and the chip share one truth.
-    // (rankBy=5 passthrough was rejected: WETH structurally occupies the top
-    // and the increment was a wash-trading segment.)
+    // Variant B: a quality floor passed upstream PLUS an in-pool turnover
+    // sort. The sort half runs through the P1-10 header state machine, so the
+    // chip and the column arrow are one state, and the expanded form shows
+    // both halves rather than hiding the floor.
     id: 'topTurnover',
-    kind: EMarketChipKind.Sort,
     label: 'Top turnover',
     icon: 'ChartColumnarOutline',
-    sortBy: 'turnover',
-    timeRange: '1h',
-    tooltip: 'Sorts the hot list by turnover, highest first',
-  },
-  {
-    // Real behavior = rankBy=12 (social heat) view + in-pool ≤48h age filter.
-    // The view axis needs a backend rankBy switch that does not exist in this
-    // demo, so only the age half runs locally.
-    id: 'earlyTokens',
-    kind: EMarketChipKind.Filter,
-    label: 'Early tokens',
-    icon: 'GrowthOutline',
-    timeRange: '1h',
     conditions: {
-      [EMarketFilterDimension.TokenAge]: 'under-48h',
+      [EMarketFilterDimension.Holders]: 'min-1000',
     },
-    tooltip: 'Tokens launched within 48h on the social-heat board',
-    demoNote: 'Demo filters the current board; the social-heat view is pending',
+    sort: { sortBy: 'turnover', sortType: 'desc' },
+    timeRange: '1h',
+    tooltip: 'Current hot list sorted by turnover',
   },
   {
     id: 'midCap',
-    kind: EMarketChipKind.Filter,
-    label: 'Mid cap',
-    icon: 'CoinsOutline',
-    timeRange: '1h',
+    label: 'Mid-cap tokens',
+    icon: 'GalaxyOutline',
     conditions: {
-      [EMarketFilterDimension.MarketCap]: chipFloor('$500K+', 500_000),
-      [EMarketFilterDimension.Liquidity]: chipFloor('$10K+', 10_000),
-      [EMarketFilterDimension.Turnover]: chipFloor('$50K+', 50_000),
+      [EMarketFilterDimension.MarketCap]: 'min-500000',
+      [EMarketFilterDimension.Liquidity]: 'min-10000',
+      [EMarketFilterDimension.Turnover]: 'min-50000',
     },
-    tooltip: 'Hot tokens matching mid-cap size, liquidity and turnover',
+    timeRange: '1h',
+    tooltip: 'Hot tokens matching these conditions',
   },
   {
-    // holdersMin=1000 clears fake-market-cap tokens: the experiment round
-    // found billion-dollar "caps" backed by only a few hundred holders.
+    // The holders floor is the PRD's optional note (open question 5), kept on
+    // because it is what clears fake market caps from the top.
     id: 'largeCap',
-    kind: EMarketChipKind.Filter,
-    label: 'Large cap',
-    icon: 'GalaxyOutline',
-    timeRange: '1h',
+    label: 'Large-cap tokens',
+    icon: 'WorldOutline',
     conditions: {
-      [EMarketFilterDimension.MarketCap]: chipFloor('$1M+', 1_000_000),
-      [EMarketFilterDimension.Liquidity]: chipFloor('$50K+', 50_000),
-      [EMarketFilterDimension.Turnover]: chipFloor('$100K+', 100_000),
-      [EMarketFilterDimension.Holders]: chipFloor('1K+', 1000),
+      [EMarketFilterDimension.MarketCap]: 'min-1000000',
+      [EMarketFilterDimension.Liquidity]: 'min-50000',
+      [EMarketFilterDimension.Turnover]: 'min-100000',
+      [EMarketFilterDimension.Holders]: 'min-1000',
     },
-    tooltip: 'Hot tokens matching large-cap size, liquidity and turnover',
+    timeRange: '1h',
+    tooltip: 'Hot tokens matching these conditions',
   },
 ];
+
+function sameConditions(
+  a: IMarketListFilterConditions,
+  b: IMarketListFilterConditions,
+) {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) {
+    return false;
+  }
+  return aKeys.every(
+    (key) =>
+      a[key as EMarketFilterDimension] === b[key as EMarketFilterDimension],
+  );
+}
+
+// Chip selection is DERIVED, never stored: a chip is lit exactly when the
+// live condition set (plus sort, for the sort-bearing chip) equals what that
+// chip applies. So assembling the same combination by hand in the popover
+// lights the chip, and nudging any tier dissolves the preset back into plain
+// conditions — one truth, four presentations.
+export function findActiveMarketFilterChip(
+  conditions: IMarketListFilterConditions,
+  sortState: IMarketListSortState,
+): IMarketFilterChip | undefined {
+  return MARKET_FILTER_CHIPS.find((chip) => {
+    if (!sameConditions(chip.conditions, conditions)) {
+      return false;
+    }
+    if (!chip.sort) {
+      return true;
+    }
+    return (
+      chip.sort.sortBy === sortState.sortBy &&
+      chip.sort.sortType === sortState.sortType
+    );
+  });
+}

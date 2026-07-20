@@ -18,13 +18,13 @@ export enum EMarketFilterDimension {
 }
 
 // A selectable tier. Threshold dimensions use only `min` (floor semantics,
-// label like "$5K+"); bucket dimensions use min+max ranges; token age uses
-// only `max` interpreted as an age ceiling ("Under 48h").
+// label like "$5K+"); token age uses only `max`, read as an age ceiling.
 export type IMarketFilterOption = {
   id: string;
-  // Copy shown inside the tier pill (e.g. "$100K–$1M", "Under 1h", "$5K+").
+  // Copy shown inside the tier pill (e.g. "500K+", "≤ 48h").
   label: string;
-  // Compressed copy for the condition chip in the toolbar (e.g. "< 1h").
+  // Copy for the condition chip in the toolbar, which carries no row title
+  // and so has to spell out the unit (e.g. "$500K+").
   chipLabel: string;
   min?: number;
   max?: number;
@@ -46,74 +46,62 @@ export type IMarketFilterDimensionConfig = {
   minParam?: string;
   maxParam?: string;
   // IMarketToken field backing the local demo filter; undefined = the
-  // dimension is selectable but has no local data source (e.g. inflow) and
-  // is skipped by applyMarketListLocalFilter.
+  // dimension is selectable but has no local data source and is skipped by
+  // applyMarketListLocalFilter.
   localField?: keyof IMarketToken;
   // firstTradeTime is a timestamp; compare (now - value) against min/max.
   isAge?: boolean;
+  // Filters the slice already in hand rather than the upstream pool. Token age
+  // is the only such row (no server-side age param exists), and the PRD
+  // requires the popover to mark it as behaving differently.
+  isLocalOnly?: boolean;
   group: EMarketFilterGroup;
   // Extra note rendered next to the row (demo caveats).
   note?: string;
   options: IMarketFilterOption[];
 };
 
-// A dimension's selection: either a tier option id from the config, or an
-// inline option. Chips carry inline options because their thresholds are
-// curated from experiments (see P2-9) and deliberately do not have to line up
-// with the popover's user-facing tiers.
-export type IMarketFilterSelection = string | IMarketFilterOption;
-
+// Selected tier option id per dimension. Chip conditions must be expressible
+// here too ("chip 值 ⊆ 檔位集"): a chip whose threshold has no tier could not
+// stay in sync with the popover, so every chip value exists in the tier table.
 export type IMarketListFilterConditions = Partial<
-  Record<EMarketFilterDimension, IMarketFilterSelection>
+  Record<EMarketFilterDimension, string>
 >;
 
 export type IMarketListFilterState = {
   conditions: IMarketListFilterConditions;
-  activeChipId?: string;
 };
 
-// Chip kinds share one row and one visual form on purpose; the difference is
-// disclosed honestly in the tooltip rather than encoded in the styling.
-export enum EMarketChipKind {
-  // Dispatches an existing column sort — zero new state, zero API.
-  Sort = 'sort',
-  // Applies filter conditions (server passthrough once Spike A#8 lands).
-  Filter = 'filter',
-}
-
-export type IMarketFilterChip = {
-  id: string;
-  label: string;
-  kind: EMarketChipKind;
-  // Leading icon; also reused as the group anchor icon in the applied state.
-  icon: IKeyOfIcons;
-  // Honest disclosure of what the chip actually does to the list.
-  tooltip: string;
-  // Sort chips: the column this chip sorts by (dataIndex), always descending.
-  sortBy?: string;
-  // Filter chips: the conditions applied.
-  conditions?: IMarketListFilterConditions;
-  // Every quick chip anchors the time frame (P2-9 定案).
-  timeRange?: IMarketTimeRangeValue;
-  // Demo caveat surfaced in the tooltip when the real behavior needs backend
-  // work that does not exist yet (e.g. rankBy view switching).
-  demoNote?: string;
-};
-
-// Sort lives next to the filter state because the chip row and the table
-// header are two views of ONE sort action: a sort chip dispatches exactly what
-// clicking that column header dispatches, so both read the same store and stay
-// in sync (chip lights up on header click, and dims when another column wins).
 export type IMarketListSortState = {
   sortBy?: string;
   sortType?: 'asc' | 'desc';
 };
 
+export type IMarketFilterChip = {
+  id: string;
+  label: string;
+  // Leading icon; also reused as the group anchor icon once expanded.
+  icon: IKeyOfIcons;
+  // Honest disclosure of what the chip does to the list (P1-2 wording).
+  tooltip: string;
+  // Conditions the chip applies. Every value is a tier option id.
+  conditions: IMarketListFilterConditions;
+  // Sort the chip dispatches, if any. Same state machine as the column header
+  // (P1-10), so the header arrow and the chip can never disagree.
+  sort?: IMarketListSortState;
+  // Quick chips anchor the time frame; the popover stays free (P2-9).
+  timeRange?: IMarketTimeRangeValue;
+};
+
 export type IMarketListFilterContextValue = {
   filterState: IMarketListFilterState;
-  setFilterState: (next: IMarketListFilterState) => void;
   sortState: IMarketListSortState;
-  // Accepts the updater form so consecutive sortBy/sortType writes merge.
+  // Applies conditions. Sort resets unless `sort` is given, because switching
+  // the filtered slice invalidates the previous ordering (P2-9 × P1-10).
+  applyConditions: (
+    conditions: IMarketListFilterConditions,
+    options?: { sort?: IMarketListSortState },
+  ) => void;
   setSortState: Dispatch<SetStateAction<IMarketListSortState>>;
   activeConditionCount: number;
 };

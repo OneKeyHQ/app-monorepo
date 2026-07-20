@@ -1,12 +1,14 @@
 import {
   type PropsWithChildren,
   createContext,
+  useCallback,
   useContext,
   useMemo,
   useState,
 } from 'react';
 
 import type {
+  IMarketListFilterConditions,
   IMarketListFilterContextValue,
   IMarketListFilterState,
   IMarketListSortState,
@@ -17,8 +19,8 @@ const EMPTY_SORT: IMarketListSortState = {};
 
 const EMPTY_CONTEXT: IMarketListFilterContextValue = {
   filterState: EMPTY_STATE,
-  setFilterState: () => undefined,
   sortState: EMPTY_SORT,
+  applyConditions: () => undefined,
   setSortState: () => undefined,
   activeConditionCount: 0,
 };
@@ -26,23 +28,38 @@ const EMPTY_CONTEXT: IMarketListFilterContextValue = {
 const MarketListFilterContext =
   createContext<IMarketListFilterContextValue>(EMPTY_CONTEXT);
 
-// Owns both halves of "how you want to see this table". Sort is deliberately
-// NOT reset when conditions change: sort chips and filter chips share one row
-// as peers, so filtering must not silently undo the user's sort.
+// The single source of truth for "how you want to see this table". Chip
+// selection, the chip row's condition chips, the popover's tier selection and
+// the Filters badge are all read off this one state — none of them keeps a
+// copy, so they cannot drift apart.
 export function MarketListFilterProvider({ children }: PropsWithChildren) {
   const [filterState, setFilterState] =
     useState<IMarketListFilterState>(EMPTY_STATE);
   const [sortState, setSortState] = useState<IMarketListSortState>(EMPTY_SORT);
 
+  const applyConditions = useCallback(
+    (
+      conditions: IMarketListFilterConditions,
+      options?: { sort?: IMarketListSortState },
+    ) => {
+      setFilterState({ conditions });
+      // Changing the filtered slice invalidates the ordering computed over the
+      // previous one, so sort resets — unless the caller is applying both at
+      // once (a chip that carries its own sort).
+      setSortState(options?.sort ?? EMPTY_SORT);
+    },
+    [],
+  );
+
   const value = useMemo<IMarketListFilterContextValue>(
     () => ({
       filterState,
-      setFilterState,
       sortState,
+      applyConditions,
       setSortState,
       activeConditionCount: Object.keys(filterState.conditions).length,
     }),
-    [filterState, sortState],
+    [filterState, sortState, applyConditions],
   );
 
   return (

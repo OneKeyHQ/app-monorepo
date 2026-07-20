@@ -17,7 +17,6 @@ import {
   MARKET_FILTER_DIMENSIONS,
   MARKET_FILTER_GROUP_LABELS,
   MARKET_FILTER_GROUP_ORDER,
-  getMarketFilterOption,
 } from './marketListFilterConfig';
 import { useMarketListFilter } from './MarketListFilterContext';
 import { EMarketFilterGroup } from './marketListFilterTypes';
@@ -26,7 +25,6 @@ import { TierPill } from './TierPill';
 import type {
   IMarketFilterDimensionConfig,
   IMarketListFilterConditions,
-  IMarketListFilterState,
 } from './marketListFilterTypes';
 import type { IMarketTimeRangeValue } from '../../types';
 
@@ -167,7 +165,9 @@ function DimensionRow({
           ? `${dimension.label} (${dimension.unit})`
           : dimension.label
       }
-      note={dimension.note}
+      // Token age is the one row that narrows the rows already fetched rather
+      // than the upstream pool, so it says so instead of looking like a peer.
+      note={dimension.isLocalOnly ? 'Filters loaded rows only' : dimension.note}
     >
       <TierGrid
         columns={getTierColumns(dimension.options.length)}
@@ -200,7 +200,7 @@ function MarketFiltersModalContent({
 }: {
   initialConditions: IMarketListFilterConditions;
   initialTimeRange: IMarketTimeRangeValue;
-  onApply: (next: IMarketListFilterState) => void;
+  onApply: (next: IMarketListFilterConditions) => void;
   onApplyTimeRange: (v: IMarketTimeRangeValue) => void;
   onClose: () => void;
 }) {
@@ -283,12 +283,7 @@ function MarketFiltersModalContent({
                         <DimensionRow
                           key={dimension.id}
                           dimension={dimension}
-                          selectedOptionId={
-                            getMarketFilterOption(
-                              dimension.id,
-                              draft[dimension.id],
-                            )?.id
-                          }
+                          selectedOptionId={draft[dimension.id]}
                           onSelect={(optionId) =>
                             handleSelect(dimension, optionId)
                           }
@@ -328,7 +323,7 @@ function MarketFiltersModalContent({
             if (draftTimeRange !== initialTimeRange) {
               onApplyTimeRange(draftTimeRange);
             }
-            onApply({ conditions: draft, activeChipId: undefined });
+            onApply(draft);
             onClose();
           }}
           testID="market-filters-modal-apply"
@@ -349,7 +344,7 @@ export function MarketFiltersTrigger({
   timeRange: IMarketTimeRangeValue;
   onTimeRangeChange: (v: IMarketTimeRangeValue) => void;
 }) {
-  const { filterState, setFilterState, activeConditionCount } =
+  const { filterState, applyConditions, activeConditionCount } =
     useMarketListFilter();
 
   const handlePress = () => {
@@ -360,7 +355,7 @@ export function MarketFiltersTrigger({
         <MarketFiltersModalContent
           initialConditions={filterState.conditions}
           initialTimeRange={timeRange}
-          onApply={setFilterState}
+          onApply={applyConditions}
           onApplyTimeRange={onTimeRangeChange}
           onClose={() => {
             void dialog.close();
