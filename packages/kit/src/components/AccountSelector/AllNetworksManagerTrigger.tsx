@@ -51,6 +51,7 @@ function AllNetworksManagerTrigger({
   const {
     enabledNetworksCompatibleWithWalletId,
     enabledNetworksWithoutAccount,
+    isReady: isCompatQueryReady,
     run,
   } = useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
     walletId: compatQueryWalletId,
@@ -122,10 +123,45 @@ function AllNetworksManagerTrigger({
 
   if (
     showSkeleton ||
-    !enabledNetworksCompatibleWithWalletId ||
-    enabledNetworksCompatibleWithWalletId.length === 0
+    !isCompatQueryReady ||
+    !enabledNetworksCompatibleWithWalletId
   ) {
     return <Stack h={36} />;
+  }
+
+  if (enabledNetworksCompatibleWithWalletId.length === 0) {
+    // Dead-end escape hatch: none of the enabled All Networks chains is
+    // compatible with this wallet, so there are no network avatars to show.
+    // Keep the trigger pressable so the user can still open the network
+    // selector and switch to a single chain (or enable a compatible one).
+    return (
+      <XStack
+        borderRadius="$2"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        focusable
+        focusVisibleStyle={{
+          outlineWidth: 2,
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+        }}
+        userSelect="none"
+        onPress={handleOnPress}
+        alignItems="center"
+      >
+        <NetworkAvatarBase
+          logoURI={network?.logoURI ?? ''}
+          size="$6"
+          networkName={network?.name}
+          isAllNetworks={network?.isAllNetworks}
+        />
+        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+      </XStack>
+    );
   }
 
   return (
