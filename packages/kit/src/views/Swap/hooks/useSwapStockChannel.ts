@@ -33,6 +33,7 @@ import type {
 import { ESwapSelectTokenSource } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  type IStockTokenDetailFetchState,
   getStockTokenDetailDisplaySeed,
   isStockTokenDetailStateLanded,
 } from '../utils/stockTokenDetailFreshness';
@@ -54,11 +55,13 @@ import {
   resolveStockChannelSwapPair,
   shouldResetStockTradeReceiveAmount,
 } from './swapStockChannelUtils';
+import {
+  getSwapColdStartDisplayTokensFromGlobalSnapshot,
+  getSwapStockColdStartDisplayTokenFromGlobalSnapshot,
+} from './useSwapColdStartDisplayTokens';
 import { useSwapStockDefaultToken } from './useSwapStockDefaultToken';
 import { useSwapStockMarketWebSocket } from './useSwapStockMarketWebSocket';
 import { useSwapStockPayTokens } from './useSwapStockPayTokens';
-
-import type { IStockTokenDetailFetchState } from '../utils/stockTokenDetailFreshness';
 
 export {
   ESwapStockChannelAsyncStatus,
@@ -156,6 +159,40 @@ export function useSwapStockChannel() {
       }),
     [stockExecutionTokens?.fromToken, stockExecutionTokens?.toToken],
   );
+  const coldStartStockPairRef = useRef<
+    | {
+        payToken?: ISwapToken;
+        stockToken?: ISwapToken;
+        tradeSide?: ESwapStockTradeSide;
+      }
+    | undefined
+  >(undefined);
+  if (!coldStartStockPairRef.current) {
+    const coldStartDisplayTokens =
+      getSwapColdStartDisplayTokensFromGlobalSnapshot();
+    const coldStartExecutionPair = resolveStockChannelSwapPair({
+      fromToken: coldStartDisplayTokens.fromToken,
+      toToken: coldStartDisplayTokens.toToken,
+    });
+    const coldStartStockToken =
+      getSwapStockColdStartDisplayTokenFromGlobalSnapshot() ??
+      coldStartExecutionPair.stockToken;
+    const isExecutionPairForDisplayToken = Boolean(
+      !coldStartStockToken ||
+      getTokenIdentityKey(coldStartStockToken) ===
+        getTokenIdentityKey(coldStartExecutionPair.stockToken),
+    );
+    coldStartStockPairRef.current = {
+      payToken: isExecutionPairForDisplayToken
+        ? coldStartExecutionPair.payToken
+        : undefined,
+      stockToken: coldStartStockToken,
+      tradeSide: isExecutionPairForDisplayToken
+        ? coldStartExecutionPair.tradeSide
+        : undefined,
+    };
+  }
+  const coldStartStockPair = coldStartStockPairRef.current;
   const hasStockExecutionPair = Boolean(
     executionTokensStockPair.stockToken ?? executionTokensStockPair.payToken,
   );
@@ -163,14 +200,20 @@ export function useSwapStockChannel() {
     ? executionTokensStockPair
     : selectedTokensStockPair;
   const tradeSide =
-    tradeSideState ?? stockPair.tradeSide ?? ESwapStockTradeSide.Buy;
+    tradeSideState ??
+    stockPair.tradeSide ??
+    coldStartStockPair.tradeSide ??
+    ESwapStockTradeSide.Buy;
   const isBuySide = tradeSide === ESwapStockTradeSide.Buy;
   const swapPairPayToken = isBuySide ? fromToken : toToken;
   const persistedStockSelectedToken = stockSelectedToken?.isStock
     ? stockSelectedToken
     : undefined;
   const selectedStockToken =
-    stockTokenState ?? persistedStockSelectedToken ?? stockPair.stockToken;
+    stockTokenState ??
+    persistedStockSelectedToken ??
+    stockPair.stockToken ??
+    coldStartStockPair.stockToken;
   const selectedStockTokenKey = getTokenIdentityKey(selectedStockToken);
   const currentStockToken = selectedStockToken;
   const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
@@ -183,7 +226,15 @@ export function useSwapStockChannel() {
   );
   const stockPairPayToken =
     stockPair.tradeSide === tradeSide ? stockPair.payToken : undefined;
-  const payToken = payTokenState ?? stockPairPayToken ?? swapPairStockPayToken;
+  const coldStartStockPairPayToken =
+    coldStartStockPair.tradeSide === tradeSide
+      ? coldStartStockPair.payToken
+      : undefined;
+  const selectedPayToken =
+    payTokenState ??
+    stockPairPayToken ??
+    swapPairStockPayToken ??
+    coldStartStockPairPayToken;
   const stockNetworkId = currentStockToken?.networkId ?? '';
   const stockTokenDetailScope = currentStockTokenKey;
   const lastGoodStockTokenDetailRef =
@@ -346,7 +397,7 @@ export function useSwapStockChannel() {
     async ({
       nextTradeSide = tradeSide,
       stockToken = stockTokenSnapshotRef.current ?? currentStockToken,
-      payToken: nextPayToken = payTokenSnapshotRef.current ?? payToken,
+      payToken: nextPayToken = payTokenSnapshotRef.current ?? selectedPayToken,
     }: {
       nextTradeSide?: ESwapStockTradeSide;
       stockToken?: ISwapToken;
@@ -376,7 +427,12 @@ export function useSwapStockChannel() {
         syncId: nextStockExecutionTokenSyncId(),
       });
     },
-    [currentStockToken, payToken, selectStockExecutionTokens, tradeSide],
+    [
+      currentStockToken,
+      selectStockExecutionTokens,
+      selectedPayToken,
+      tradeSide,
+    ],
   );
 
   useEffect(() => {
@@ -386,10 +442,20 @@ export function useSwapStockChannel() {
   }, [currentStockToken]);
 
   useEffect(() => {
-    if (payToken) {
-      payTokenSnapshotRef.current = payToken;
+    if (!stockSelectedToken && coldStartStockPair.stockToken) {
+      setStockSelectedToken(coldStartStockPair.stockToken);
     }
-  }, [payToken]);
+  }, [
+    coldStartStockPair.stockToken,
+    setStockSelectedToken,
+    stockSelectedToken,
+  ]);
+
+  useEffect(() => {
+    if (selectedPayToken) {
+      payTokenSnapshotRef.current = selectedPayToken;
+    }
+  }, [selectedPayToken]);
 
   const resetStockTradeAmounts = useCallback(() => {
     setFromTokenAmount({ value: '', isInput: false });
@@ -511,6 +577,7 @@ export function useSwapStockChannel() {
   }, []);
 
   const {
+    displayPayToken,
     payTokenStatus,
     payTokenOptionsLoading,
     payTokens,
@@ -521,11 +588,12 @@ export function useSwapStockChannel() {
     currentStockTokenKey,
     disableNativePayToken,
     manualStockPayTokenKeyRef,
-    payToken,
+    payToken: selectedPayToken,
     selectPayToken,
     stockNetworkId,
     syncPayTokenDetail,
   });
+  const payToken = displayPayToken ?? selectedPayToken;
 
   const selectStockToken = useCallback(
     (token: IMarketToken) => {

@@ -7,6 +7,7 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import {
   getSwapColdStartDisplayTokensFromGlobalSnapshot,
   getSwapDefaultSelectedTokensFromGlobalHomeSnapshot,
+  getSwapStockColdStartDisplayTokenFromGlobalSnapshot,
 } from './useSwapColdStartDisplayTokens';
 
 const SWAP_STORE_SCOPE_KEY = 'store:swap';
@@ -208,5 +209,77 @@ describe('getSwapColdStartDisplayTokensFromGlobalSnapshot', () => {
         symbol: 'USDC',
       }),
     });
+  });
+});
+
+describe('getSwapStockColdStartDisplayTokenFromGlobalSnapshot', () => {
+  const stockToken = {
+    networkId: 'evm--56',
+    contractAddress: '0xstock',
+    decimals: 18,
+    isNative: false,
+    isStock: true,
+    symbol: 'AAPLon',
+  } satisfies Partial<ISwapToken>;
+
+  afterEach(() => {
+    clearGlobalSnapshot();
+  });
+
+  it('reads a persisted display seed after the boot snapshot was cleaned up', () => {
+    setGlobalSnapshot({
+      [scopedKey(
+        SWAP_STORE_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+      )]: stockToken,
+    });
+
+    expect(getSwapStockColdStartDisplayTokenFromGlobalSnapshot()).toEqual(
+      stockToken,
+    );
+  });
+
+  it('keeps the display-only stock seed when execution context is stale', () => {
+    setGlobalSnapshot({
+      [scopedKey(
+        ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+      )]: {
+        0: buildHomeSelectedAccount('sol--101'),
+      },
+      [scopedKey(
+        SWAP_STORE_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+      )]: {
+        accountKey: 'wallet-1|indexed-account-1|default',
+        networkId: 'evm--1',
+        swapType: ESwapTabSwitchType.SWAP,
+        updatedAt: 1,
+      } satisfies ISwapSelectedTokensColdStartContext,
+      [scopedKey(
+        SWAP_STORE_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+      )]: stockToken,
+    });
+
+    expect(getSwapStockColdStartDisplayTokenFromGlobalSnapshot()).toEqual(
+      stockToken,
+    );
+  });
+
+  it('rejects an invalid stock display seed', () => {
+    setGlobalSnapshot({
+      [scopedKey(
+        SWAP_STORE_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+      )]: {
+        ...stockToken,
+        isStock: false,
+      },
+    });
+
+    expect(
+      getSwapStockColdStartDisplayTokenFromGlobalSnapshot(),
+    ).toBeUndefined();
   });
 });

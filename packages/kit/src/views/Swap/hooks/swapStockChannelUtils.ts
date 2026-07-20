@@ -468,3 +468,36 @@ export function findDefaultStockPayToken({
   }
   return preferredCandidates[0];
 }
+
+export function resolveStockPayTokenDisplaySeed({
+  balances,
+  candidates,
+  persistedTokenKey,
+  selectedToken,
+}: {
+  balances?: Record<string, string | undefined>;
+  candidates: IToken[];
+  persistedTokenKey?: string;
+  selectedToken?: Partial<ISwapTokenBase>;
+}) {
+  const selectedCandidate = findTokenFromCandidates({
+    candidates,
+    token: selectedToken,
+  });
+  if (selectedCandidate) {
+    return selectedCandidate;
+  }
+
+  const persistedCandidate = persistedTokenKey
+    ? candidates.find(
+        (candidate) => getTokenIdentityKey(candidate) === persistedTokenKey,
+      )
+    : undefined;
+  return (
+    persistedCandidate ??
+    findDefaultStockPayToken({
+      candidates,
+      balances,
+    })
+  );
+}

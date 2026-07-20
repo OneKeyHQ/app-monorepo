@@ -13,6 +13,7 @@ import {
   resolveStockBalanceSnapshot,
   resolveStockChannelSwapPair,
   resolveStockKLineToken,
+  resolveStockPayTokenDisplaySeed,
   resolveSwapStockDefaultTokenStatus,
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
@@ -181,6 +182,25 @@ describe('swapStockChannelUtils', () => {
 
   it('fails closed when the speed config has no USDC or USDT pay token', () => {
     expect(filterStockPayTokenCandidates([ethToken])).toEqual([]);
+  });
+
+  it('restores the persisted pay token as a display seed before execution state is ready', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        candidates: [usdcPayToken, usdtPayToken],
+        persistedTokenKey: 'evm--56:0xusdt:token',
+      }),
+    ).toBe(usdtPayToken);
+  });
+
+  it('keeps the selected pay token ahead of the persisted display preference', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        candidates: [usdcPayToken, usdtPayToken],
+        persistedTokenKey: 'evm--56:0xusdt:token',
+        selectedToken: usdcToken,
+      }),
+    ).toBe(usdcPayToken);
   });
 
   it('resolves a buy-side stock execution pair from swap selected tokens', () => {

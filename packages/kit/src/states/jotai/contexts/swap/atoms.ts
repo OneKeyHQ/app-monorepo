@@ -207,6 +207,8 @@ export const {
   atom: swapStockSelectedTokenAtom,
   use: useSwapStockSelectedTokenAtom,
 } = contextAtom<ISwapToken | undefined>(undefined, {
+  // Display-only Stock identity. Ordinary Swap execution resets must not clear
+  // it; realtime market/pay-token readiness still gates quote and execution.
   coldStartCache: true,
   coldStartCacheKey:
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
