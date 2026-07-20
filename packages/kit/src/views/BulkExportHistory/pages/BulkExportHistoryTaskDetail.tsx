@@ -111,12 +111,17 @@ function BulkExportHistoryTaskDetail({
     selectedNetworkIds: fallbackSelectedNetworkIds,
     accountSelectorSceneUrl,
   } = route.params;
+  // Push-notification payloads can deliver taskId as a string (JPush extras
+  // stringify values on native); coerce before matching numeric task ids.
+  const normalizedTaskId = Number(taskId);
 
   const { result, isLoading, run, tasks } = useBulkExportHistoryTasks();
   const task = useMemo(
     () =>
-      result ? (tasks.find((item) => item.id === taskId) ?? null) : undefined,
-    [result, taskId, tasks],
+      result
+        ? (tasks.find((item) => item.id === normalizedTaskId) ?? null)
+        : undefined,
+    [result, normalizedTaskId, tasks],
   );
 
   const statusMeta = useMemo(
