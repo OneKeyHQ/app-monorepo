@@ -1074,6 +1074,7 @@
   "export_single_network_range__desc": "{count, plural, other {คุณสามารถส่งออกประวัติธุรกรรมย้อนหลังได้สูงสุด # เดือนสำหรับเครือข่ายนี้}}",
   "export_started__desc": "กำลังเตรียมไฟล์ CSV ของคุณ เราจะแจ้งให้ทราบเมื่อไฟล์พร้อม หรือคุณสามารถติดตามความคืบหน้าได้ในประวัติการส่งออก",
   "export_started__title": "เริ่มส่งออกแล้ว",
+  "export_started_track_progress__desc": "Your CSV is being prepared. You can check its progress in Export History.",
   "export_task_created__title": "สร้างงานส่งออกแล้ว",
   "export_transaction_history__desc": "ส่งออกประวัติธุรกรรมของคุณเป็นไฟล์ CSV",
   "extension.disk_full": "พื้นที่ดิสก์เหลือน้อย",

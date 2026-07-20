@@ -1074,6 +1074,7 @@
   "export_single_network_range__desc": "{count, plural, one {এই নেটওয়ার্কের সর্বশেষ # মাসের লেনদেনের ইতিহাস এক্সপোর্ট করতে পারবেন।} other {এই নেটওয়ার্কের সর্বশেষ # মাসের লেনদেনের ইতিহাস এক্সপোর্ট করতে পারবেন।}}",
   "export_started__desc": "আপনার CSV প্রস্তুত করা হচ্ছে। প্রস্তুত হলে আমরা আপনাকে জানাব, অথবা রপ্তানির ইতিহাসে অগ্রগতি দেখতে পারেন।",
   "export_started__title": "রপ্তানি শুরু হয়েছে",
+  "export_started_track_progress__desc": "Your CSV is being prepared. You can check its progress in Export History.",
   "export_task_created__title": "রপ্তানি টাস্ক তৈরি হয়েছে",
   "export_transaction_history__desc": "আপনার লেনদেনের ইতিহাস একটি CSV ফাইল হিসেবে রপ্তানি করুন।",
   "extension.disk_full": "ডিস্কে কম জায়গা",

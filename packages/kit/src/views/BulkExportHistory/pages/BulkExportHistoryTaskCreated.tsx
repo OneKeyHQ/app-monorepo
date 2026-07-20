@@ -74,7 +74,12 @@ function BulkExportHistoryTaskCreated() {
             id: ETranslations.export_task_created__title,
           })}
           description={intl.formatMessage({
-            id: ETranslations.export_started__desc,
+            // Only promise "we'll notify you" when notifications can actually
+            // deliver; otherwise point to Export History and let the reminder
+            // banner below own the enable-notifications ask.
+            id: isNotificationReady
+              ? ETranslations.export_started__desc
+              : ETranslations.export_started_track_progress__desc,
           })}
         />
         {isNotificationReady ? null : (

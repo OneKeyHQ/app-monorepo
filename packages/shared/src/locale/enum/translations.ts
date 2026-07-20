@@ -1079,6 +1079,7 @@ export enum ETranslations {
   export_single_network_range__desc = 'export_single_network_range__desc',
   export_started__desc = 'export_started__desc',
   export_started__title = 'export_started__title',
+  export_started_track_progress__desc = 'export_started_track_progress__desc',
   export_task_created__title = 'export_task_created__title',
   export_transaction_history__desc = 'export_transaction_history__desc',
   extension_disk_full = 'extension.disk_full',

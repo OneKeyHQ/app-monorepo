@@ -1074,6 +1074,7 @@
   "export_single_network_range__desc": "{count, plural, other {最多可匯出此網路過去 # 個月的交易紀錄。}}",
   "export_started__desc": "CSV 正在產生。完成後我們會通知你，你也可以在匯出紀錄中查看進度。",
   "export_started__title": "已開始匯出",
+  "export_started_track_progress__desc": "Your CSV is being prepared. You can check its progress in Export History.",
   "export_task_created__title": "匯出任務已建立",
   "export_transaction_history__desc": "將交易紀錄匯出為 CSV 檔案。",
   "extension.disk_full": "磁碟空間不足",

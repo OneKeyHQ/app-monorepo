@@ -1074,6 +1074,7 @@
   "export_single_network_range__desc": "{count, plural, other {Anda dapat mengekspor riwayat transaksi hingga # bulan terakhir untuk jaringan ini.}}",
   "export_started__desc": "CSV Anda sedang disiapkan. Kami akan memberi tahu saat sudah siap, atau Anda dapat memantau progresnya di Riwayat Ekspor.",
   "export_started__title": "Ekspor Dimulai",
+  "export_started_track_progress__desc": "Your CSV is being prepared. You can check its progress in Export History.",
   "export_task_created__title": "Tugas ekspor dibuat",
   "export_transaction_history__desc": "Ekspor riwayat transaksi Anda sebagai file CSV.",
   "extension.disk_full": "Ruang disk hampir habis",

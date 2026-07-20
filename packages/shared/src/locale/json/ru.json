@@ -1074,6 +1074,7 @@
   "export_single_network_range__desc": "{count, plural, one {Для этой сети можно экспортировать историю транзакций за период до # месяца.} few {Для этой сети можно экспортировать историю транзакций за период до # месяцев.} many {Для этой сети можно экспортировать историю транзакций за период до # месяцев.} other {Для этой сети можно экспортировать историю транзакций за период до # месяца.}}",
   "export_started__desc": "CSV-файл готовится. Мы уведомим вас, когда он будет готов. Следить за ходом экспорта также можно в истории экспорта.",
   "export_started__title": "Экспорт начат",
+  "export_started_track_progress__desc": "Your CSV is being prepared. You can check its progress in Export History.",
   "export_task_created__title": "Задача экспорта создана",
   "export_transaction_history__desc": "Экспортируйте историю транзакций в CSV-файл.",
   "extension.disk_full": "Мало места на диске",

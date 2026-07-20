@@ -1074,6 +1074,7 @@
   "export_single_network_range__desc": "{count, plural, other {Bạn có thể xuất tối đa # tháng lịch sử giao dịch của mạng này.}}",
   "export_started__desc": "Tệp CSV của bạn đang được chuẩn bị. Chúng tôi sẽ thông báo khi tệp sẵn sàng, hoặc bạn có thể theo dõi tiến trình trong Lịch sử xuất.",
   "export_started__title": "Đã bắt đầu xuất",
+  "export_started_track_progress__desc": "Your CSV is being prepared. You can check its progress in Export History.",
   "export_task_created__title": "Đã tạo tác vụ xuất",
   "export_transaction_history__desc": "Xuất lịch sử giao dịch của bạn thành tệp CSV.",
   "extension.disk_full": "Dung lượng ổ đĩa thấp",

@@ -1074,6 +1074,7 @@
   "export_single_network_range__desc": "{count, plural, one {Für dieses Netzwerk kann der Transaktionsverlauf von bis zu # Monat exportiert werden.} other {Für dieses Netzwerk kann der Transaktionsverlauf von bis zu # Monaten exportiert werden.}}",
   "export_started__desc": "Ihre CSV-Datei wird vorbereitet. Wir benachrichtigen Sie, sobald sie bereit ist. Den Fortschritt können Sie auch im Exportverlauf verfolgen.",
   "export_started__title": "Export gestartet",
+  "export_started_track_progress__desc": "Your CSV is being prepared. You can check its progress in Export History.",
   "export_task_created__title": "Exportauftrag erstellt",
   "export_transaction_history__desc": "Exportieren Sie Ihren Transaktionsverlauf als CSV-Datei.",
   "extension.disk_full": "Wenig Speicherplatz",

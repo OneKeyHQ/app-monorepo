@@ -1074,6 +1074,7 @@
   "export_single_network_range__desc": "{count, plural, other {このネットワークでは、過去最大 # か月分の取引履歴をエクスポートできます。}}",
   "export_started__desc": "CSVを準備しています。完了すると通知されます。エクスポート履歴でも進行状況を確認できます。",
   "export_started__title": "エクスポートを開始しました",
+  "export_started_track_progress__desc": "Your CSV is being prepared. You can check its progress in Export History.",
   "export_task_created__title": "エクスポートタスクを作成しました",
   "export_transaction_history__desc": "取引履歴をCSVファイルとしてエクスポートします。",
   "extension.disk_full": "ディスクの空き容量が少なくなっています",
