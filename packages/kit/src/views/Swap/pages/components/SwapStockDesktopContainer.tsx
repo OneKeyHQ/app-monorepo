@@ -205,7 +205,13 @@ type IStockMarketDataRow = {
 
 const STOCK_CHART_VISIBLE_HEIGHT = 174;
 const STOCK_CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
+const STOCK_CHART_PRICE_SCALE_MINIMUM_WIDTH = 64;
 const STOCK_CHART_HOVER_TOOLTIP_WIDTH = 112;
+const STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT = 24;
+const STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT = 20;
+const STOCK_ESTIMATED_RECEIVE_CONTENT_HEIGHT =
+  STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT +
+  STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT;
 const STOCK_TRADE_SIDE_SWITCH_WIDTH = 176;
 const STOCK_DESKTOP_CONTENT_MAX_WIDTH = 1140;
 const STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES = [ESwapTabSwitchType.STOCK] as const;
@@ -610,6 +616,7 @@ function StockEstimatedReceive({
   });
   const receiveTokenDisplay = shouldShowReceiveToken ? (
     <XStack
+      h={STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT}
       alignItems="center"
       justifyContent="flex-end"
       gap="$1"
@@ -665,14 +672,20 @@ function StockEstimatedReceive({
     </XStack>
   ) : null;
   let receiveTokenContent: ReactNode = (
-    <SizableText
-      size="$bodyMdMedium"
-      color="$text"
-      numberOfLines={1}
-      textAlign="right"
+    <XStack
+      h={STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT}
+      alignItems="center"
+      justifyContent="flex-end"
     >
-      --
-    </SizableText>
+      <SizableText
+        size="$bodyMdMedium"
+        color="$text"
+        numberOfLines={1}
+        textAlign="right"
+      >
+        --
+      </SizableText>
+    </XStack>
   );
   if (shouldShowReceiveToken) {
     receiveTokenContent = canSelectReceiveToken ? (
@@ -715,16 +728,35 @@ function StockEstimatedReceive({
           {labelText}
         </SizableText>
       </XStack>
-      <YStack flex={1} maxWidth={360} alignItems="flex-end" minWidth={0}>
+      <YStack
+        h={STOCK_ESTIMATED_RECEIVE_CONTENT_HEIGHT}
+        flex={1}
+        maxWidth={360}
+        alignItems="flex-end"
+        minWidth={0}
+      >
         {isLoading ? (
           <>
-            <Skeleton h="$4" w="$20" />
-            <Skeleton mt="$1" h="$4" w="$16" />
+            <XStack
+              h={STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT}
+              alignItems="center"
+              justifyContent="flex-end"
+            >
+              <Skeleton h="$5" w="$20" />
+            </XStack>
+            <XStack
+              h={STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT}
+              alignItems="center"
+              justifyContent="flex-end"
+            >
+              <Skeleton h="$5" w="$16" />
+            </XStack>
           </>
         ) : (
           <>
             {receiveTokenContent}
             <XStack
+              h={STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT}
               alignItems="center"
               justifyContent="flex-end"
               gap="$1"
@@ -1838,6 +1870,7 @@ function StockPriceChart({
           showTimeScale
           priceScaleMargins={STOCK_CHART_PRICE_SCALE_MARGINS}
           priceScaleEntireTextOnly
+          priceScaleMinimumWidth={STOCK_CHART_PRICE_SCALE_MINIMUM_WIDTH}
           priceFormatter={priceFormatter}
           fontSize={11}
           useTimeScaleTickMarkWithoutUnit
