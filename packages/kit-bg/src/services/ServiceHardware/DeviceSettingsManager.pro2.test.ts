@@ -158,7 +158,7 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
     jest.spyOn(localDb, 'getDevice').mockResolvedValue(device);
     const deviceUploadWallpaper = jest.fn(async () => ({
       success: true as const,
-      payload: { message: 'Success', path: 'vol0:/wallpapers/user/custom.bin' },
+      payload: { message: 'Success', path: 'vol1:/wallpapers/custom.bin' },
     }));
     const manager = new DeviceSettingsManager({
       backgroundApi: {

@@ -302,7 +302,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       bytesLength: portfolioJsonBytes.byteLength,
       contentHash,
       tokenCount: artifacts.portfolio.tokens.length,
-      totalTokenCount: artifacts.portfolio.tokenCount,
+      totalTokenCount:
+        artifacts.portfolio.tokenCount + artifacts.portfolio.otherTokens.count,
     });
 
     // The App only submits portfolio.json. The server validates, normalizes,

@@ -368,6 +368,8 @@ export interface IAppEventBusPayload {
     networkId?: string;
     ownerAccountId?: string;
     ownerNetworkId?: string;
+    totalFiat: string;
+    totalTokenCount: number;
     tokenMap: Record<string, ITokenFiat>;
     tokens: IAccountToken[];
     walletId?: string;

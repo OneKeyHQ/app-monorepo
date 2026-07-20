@@ -1832,6 +1832,18 @@ function TokenListBlock({
       const flattenedAggregateTokenMap = flattenAggregateTokensMap(
         snapshot.aggregateTokenMap,
       );
+      const portfolioTokenMap = {
+        ...snapshot.mergeTokenListMap,
+        ...flattenedAggregateTokenMap,
+      };
+      const portfolioTokens = [
+        ...snapshot.orderedTokens,
+        ...snapshot.smallBalanceTokens,
+      ].filter((token) =>
+        new BigNumber(
+          portfolioTokenMap[token.$key]?.balanceParsed ?? 0,
+        ).isGreaterThan(0),
+      );
 
       appEventBus.emit(EAppEventBusNames.AllNetworksTokenListSettled, {
         accountAddress: account?.address,
@@ -1846,12 +1858,14 @@ function TokenListBlock({
         networkId: network?.id,
         ownerAccountId: allNetworksResult[0].ownerAccountId,
         ownerNetworkId: allNetworksResult[0].ownerNetworkId,
+        totalFiat: snapshot.createAtNetworkWorth,
+        totalTokenCount: portfolioTokens.length,
         tokenMap: {
           ...snapshot.mergeTokenListMap,
           ...snapshot.riskyTokenListMap,
           ...flattenedAggregateTokenMap,
         },
-        tokens: snapshot.orderedTokens,
+        tokens: portfolioTokens,
         walletId: wallet?.id,
         walletType: wallet?.type,
       });

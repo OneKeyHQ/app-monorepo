@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import appCrypto from '../appCrypto';
 
 import bufferUtils from './bufferUtils';
+import { countLeadingZeroDecimals } from './numberUtils';
 import {
   type IPortfolioTokenIconName,
   normalizePortfolioTokenContractAddress,
@@ -41,9 +42,13 @@ export type IPortfolioPayload = {
     label: string;
     addressMasked: string;
   };
-  totalFiat: string | null;
+  totalFiat: string;
   tokenCount: number;
   tokens: IPortfolioPayloadToken[];
+  otherTokens: {
+    count: number;
+    fiat: string;
+  };
 };
 
 export type IBuildPortfolioPayloadParams = {
@@ -51,6 +56,8 @@ export type IBuildPortfolioPayloadParams = {
   aggregateTokenMap?: Record<string, ITokenFiat>;
   currencyMap: Record<string, ICurrencyItem>;
   displayCurrency: IPortfolioDisplayCurrency;
+  totalFiat: string;
+  totalTokenCount: number;
   timestamp: number;
   tokenMap: Record<string, ITokenFiat>;
   tokens: IAccountToken[];
@@ -62,6 +69,33 @@ type IConvertFiatStrictResult = {
 };
 
 const PORTFOLIO_NATIVE_TOKEN_CONTRACT_NETWORK_IMPLS = new Set(['aptos', 'sui']);
+const PORTFOLIO_TOKEN_LIMIT = 5;
+const PORTFOLIO_FIAT_DECIMAL_PLACES = 2;
+const PORTFOLIO_BALANCE_DECIMAL_PLACES = 4;
+
+function formatPortfolioFiat(value: BigNumber.Value): string {
+  const valueBn = new BigNumber(value);
+  if (!valueBn.isFinite() || valueBn.isNegative()) {
+    return '0.00';
+  }
+  return valueBn.toFixed(
+    PORTFOLIO_FIAT_DECIMAL_PLACES,
+    BigNumber.ROUND_HALF_UP,
+  );
+}
+
+function formatPortfolioBalance(value: BigNumber.Value): string {
+  const valueBn = new BigNumber(value);
+  if (!valueBn.isFinite() || valueBn.isNegative()) {
+    return '0';
+  }
+  const decimalPlaces = valueBn.abs().gte(1)
+    ? PORTFOLIO_BALANCE_DECIMAL_PLACES
+    : PORTFOLIO_BALANCE_DECIMAL_PLACES + countLeadingZeroDecimals(valueBn);
+  return valueBn
+    .decimalPlaces(decimalPlaces, BigNumber.ROUND_HALF_UP)
+    .toFixed();
+}
 
 function isUsableRate(rate: BigNumber): boolean {
   return rate.isFinite() && !rate.isZero();
@@ -192,13 +226,14 @@ export function buildPortfolioPayload({
   aggregateTokenMap,
   currencyMap,
   displayCurrency,
+  totalFiat: rawTotalFiat,
+  totalTokenCount,
   timestamp,
   tokenMap,
   tokens,
 }: IBuildPortfolioPayloadParams): IPortfolioPayload {
-  const topTokens = tokens.slice(0, 10);
-  let hasNullTopFiat = false;
-  let totalFiat = new BigNumber(0);
+  const topTokens = tokens.slice(0, PORTFOLIO_TOKEN_LIMIT);
+  let topTokensFiat = new BigNumber(0);
 
   const payloadTokens = topTokens.map((token) => {
     const isAllNetworks = Boolean(token.isAggregateToken);
@@ -219,16 +254,17 @@ export function buildPortfolioPayload({
       targetCurrency: displayCurrency.id,
       value: fiat?.fiatValue,
     });
-    const fiatValue = convertedFiat.value;
+    const fiatValue =
+      convertedFiat.value === null
+        ? null
+        : formatPortfolioFiat(convertedFiat.value);
 
-    if (fiatValue === null) {
-      hasNullTopFiat = true;
-    } else {
-      totalFiat = totalFiat.plus(fiatValue);
+    if (fiatValue !== null) {
+      topTokensFiat = topTokensFiat.plus(fiatValue);
     }
 
     return {
-      balance: fiat?.balanceParsed ?? '0',
+      balance: formatPortfolioBalance(fiat?.balanceParsed ?? '0'),
       change24h: fiat?.price24h ?? null,
       contractAddress,
       fiatValue,
@@ -253,13 +289,23 @@ export function buildPortfolioPayload({
     };
   });
 
+  const totalFiat = formatPortfolioFiat(rawTotalFiat);
+  const otherTokensFiat = BigNumber.maximum(
+    new BigNumber(totalFiat).minus(topTokensFiat),
+    0,
+  ).toFixed(PORTFOLIO_FIAT_DECIMAL_PLACES);
+
   return {
     account,
     currency: displayCurrency.id,
     currencySymbol: displayCurrency.symbol,
     tokenCount: payloadTokens.length,
     tokens: payloadTokens,
-    totalFiat: hasNullTopFiat ? null : totalFiat.toFixed(),
+    otherTokens: {
+      count: Math.max(Math.trunc(totalTokenCount) - payloadTokens.length, 0),
+      fiat: otherTokensFiat,
+    },
+    totalFiat,
     ts: timestamp,
     v: 1,
   };

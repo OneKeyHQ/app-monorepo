@@ -130,6 +130,8 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         networkId: 'all--networks',
         ownerAccountId: 'evm--1',
         ownerNetworkId: 'all--networks',
+        totalFiat: '2500.555',
+        totalTokenCount: 8,
         tokenMap: {
           eth: buildFiat({ fiatValue: '100', price: 100 }),
           'fake-usdt': buildFiat({ fiatValue: '99', price: 1 }),
@@ -174,6 +176,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     const portfolio = JSON.parse(portfolioJson) as {
       account: { addressMasked: string; label: string };
       currency: string;
+      otherTokens: { count: number; fiat: string };
       totalFiat: string;
       tokens: {
         contractAddress: string;
@@ -191,11 +194,12 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         label: 'Account #1',
       },
       currency: 'cny',
-      totalFiat: '2079',
+      otherTokens: { count: 5, fiat: '421.56' },
+      totalFiat: '2500.56',
       tokens: [
         {
           contractAddress: '',
-          fiatValue: '700',
+          fiatValue: '700.00',
           iconName: null,
           isAllNetworks: false,
           isNative: true,
@@ -203,7 +207,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         },
         {
           contractAddress: '0x0000000000000000000000000000000000000001',
-          fiatValue: '693',
+          fiatValue: '693.00',
           iconName: null,
           isAllNetworks: false,
           isNative: false,
@@ -211,7 +215,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         },
         {
           contractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
-          fiatValue: '686',
+          fiatValue: '686.00',
           iconName: null,
           isAllNetworks: false,
           isNative: false,
@@ -257,6 +261,8 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         networkId: 'all--networks',
         ownerAccountId: 'evm--1',
         ownerNetworkId: 'all--networks',
+        totalFiat: '100',
+        totalTokenCount: 1,
         tokenMap: {
           eth: buildFiat({ fiatValue: '100', price: 100 }),
         },

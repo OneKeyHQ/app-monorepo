@@ -365,7 +365,7 @@ index 49ca3a5..2f0ce40 100644
 -export { AccountAddress, AccountAddresses, AlephiumAddress, AlephiumGetAddressParams, AlephiumSignMessageParams, AlephiumSignTransactionParams, AlephiumSignedTx, AlgoAddress, AlgoGetAddressParams, AlgoSignTransactionParams, AlgoSignedTx, AllFirmwareRelease, AllNetworkAddressParams, AllNetworkGetAddressParams, AptosAddress, AptosGetAddressParams, AptosGetPublicKeyParams, AptosMessageSignature, AptosPublicKey, AptosSignInMessageParams, AptosSignInMessageSignature, AptosSignMessageParams, AptosSignTransactionParams, AptosSignedTx, AssetsMap, BTCAddress, BTCGetAddressParams, BTCGetPublicKeyParams, BTCPublicKey, BTCSignMessageParams, BTCSignTransactionParams, BTCVerifyMessageParams, BenfenAddress, BenfenGetAddressParams, BenfenGetPublicKeyParams, BenfenPublicKey, BenfenSignMessageParams, BenfenSignTransactionParams, BenfenSignedTx, BleReleaseInfoEvent, BleReleaseInfoPayload, CORE_EVENT, CallMethod, CallMethodAnyResponse, CallMethodKeys, CallMethodPayload, CallMethodResponse, CallMethodUnion, CardanoAddress, CardanoGetAddressMethodParams, CardanoGetAddressParams, CardanoSignMessageMethodParams, CardanoSignMessageParams, CardanoSignTransaction, CardanoSignedTxData, CipheredKeyValue, CipheredKeyValueParams, ClearSessionCacheParams, ClearSessionCachePayload, CommonParams, ConfluxAddress, ConfluxGetAddressParams, ConfluxSignMessageCIP23Params, ConfluxSignMessageParams, ConfluxSignTransactionParams, ConfluxSignedTx, ConfluxTransaction, ConnectSettings, Core, CoreApi, CoreMessage, CosmosAddress, CosmosGetAddressParams, CosmosGetPublicKeyParams, CosmosPublicKey, CosmosSignTransactionParams, CosmosSignedTx, DEFAULT_PRIORITY, DEVICE, DEVICE_EVENT, DataManager, Device, DeviceButtonRequest, DeviceButtonRequestPayload, DeviceChangePinParams, DeviceConnnectRequest, DeviceDisconnnectRequest, DeviceEvent, DeviceEventListenerFn, DeviceEventMessage, DeviceFeaturesMode, DeviceFeaturesPayload, DeviceFeaturesProtocol, DeviceFeaturesRaw, DeviceFeaturesVerify, DeviceFirmwareRange, DeviceFlagsParams, DeviceInfoMode, DeviceInfoProtocol, DeviceInfoScope, DeviceInfoSource, DeviceInfoStatus, DeviceModelToTypes, DeviceProfile, DeviceProfileRaw, DeviceProfileVerify, DeviceProfileVersions, DeviceProgress, DeviceRecoveryParams, DeviceResetParams, DeviceSendFeatures, DeviceSendSupportFeatures, DeviceSettingsParams, DeviceStatus, DeviceSupportFeatures, DeviceSupportFeaturesPayload, DeviceTypeMap, DeviceTypeToModels, DeviceUploadResourceParams, DeviceUploadResourceResponse, DeviceVerifyParams, DeviceVerifySignature, DnxAddress, DnxGetAddressParams, DnxSignTransactionParams, DnxSignature, DnxTxKey, EOneKeyDeviceMode, EVMAccessList, EVMAddress, EVMAuthorization, EVMAuthorizationSignature, EVMGetAddressParams, EVMGetPublicKeyParams, EVMPublicKey, EVMSignMessageEIP712Params, EVMSignMessageParams, EVMSignTransactionParams, EVMSignTypedDataParams, EVMSignedTx, EVMTransaction, EVMTransactionEIP1559, EVMTransactionEIP7702, EVMVerifyMessageParams, EthereumSignTypedDataMessage, EthereumSignTypedDataTypeProperty, EthereumSignTypedDataTypes, FIRMWARE, FIRMWARE_EVENT, Features, FilecoinAddress, FilecoinGetAddressParams, FilecoinSignTransactionParams, FilecoinSignedTx, FirmwareEvent, FirmwareMessage, FirmwareProcessing, FirmwareProgress, FirmwareRange, FirmwareRelease, FirmwareTip, FirmwareUpdateBinaryParams, FirmwareUpdateParams, FirmwareUpdateTipMessage, FirmwareUpdateV3Params, FirmwareUpdateV4Params, GetDeviceInfoParams, GetPassphraseStateParams, HardwareSDKLowLevel, HardwareTopLevelSdk, IBLEFirmwareReleaseInfo, IDeviceBLEFirmwareStatus, IDeviceFirmwareStatus, IDeviceModel, IDeviceType, IFRAME, IFirmwareField, IFirmwareReleaseInfo, IFirmwareUpdateProgressType, IFirmwareUpdateTipMessage, IFrameBridge, IFrameCallMessage, IFrameCallback, IFrameCallbackMessage, IFrameCancelMessage, IFrameCancelOperationMessage, IFrameEvent, IFrameEventMessage, IFrameInit, IFrameSwitchTransport, IFrameSwitchTransportMessage, ILocale, IProtocolV2FirmwareComponent, IProtocolV2FirmwareComponentTarget, IProtocolV2ResourceBundle, ITransportStatus, IVersionArray, IVersionRange, KaspaAddress, KaspaGetAddressParams, KaspaSignInputParams, KaspaSignOutputParams, KaspaSignTransactionParams, KaspaSignature, KnownDevice, LOG, LOG_EVENT, LogBlockEvent, LogEvent, LogEventMessage, LogOutput, LoggerNames, LowLevelCoreApi, LowLevelInjectApi, MajorVersion, MethodResponseMessage, NEMAddress, NEMAggregateModificationTransaction, NEMGetAddressParams, NEMImportanceTransaction, NEMMosaic, NEMMosaicCreationTransaction, NEMMultisigTransaction, NEMProvisionNamespaceTransaction, NEMSignTransactionParams, NEMSupplyChangeTransaction, NEMTransaction, NEMTransferTransaction, NearAddress, NearGetAddressParams, NearSignTransactionParams, NervosAddress, NervosGetAddressParams, NervosSignTransactionParams, NervosSignedTx, NexaAddress, NexaGetAddressParams, NexaSignInputParams, NexaSignOutputParams, NexaSignTransactionParams, NexaSignature, NormalizedFeatures, OnekeyFeatures, PRO2_WALLPAPER_HEIGHT, PRO2_WALLPAPER_WIDTH, Params, PassphraseRequestPayload, PolkadotAddress, PolkadotGetAddressParams, PolkadotSignTransactionParams, PolkadotSignedTx, PostMessageEvent, PreviousAddressResult, Pro2WallpaperColorFormat, RESPONSE_EVENT, RefTransaction, ReleaseInfo, ReleaseInfoEvent, ReleaseInfoPayload, RemoteConfigResponse, RequestContext, Response, ScdoAddress, ScdoGetAddressParams, ScdoSignMessageParams, ScdoSignTransactionParams, ScdoSignedTx, SdkTracingContext, SearchDevice, SignedTransaction, SolSignMessageParams, SolSignMessageResponse, SolSignOffchainMessageParams, SolSignOffchainMessageResponse, SolanaAddress, SolanaGetAddressParams, SolanaSignTransactionParams, SolanaSignedTx, StarcoinAddress, StarcoinGetAddressParams, StarcoinGetPublicKeyParams, StarcoinPublicKey, StarcoinSignMessageParams, StarcoinSignTransactionParams, StarcoinVerifyMessageParams, StellarAddress, StellarAsset, StellarGetAddressParams, StellarOperation, StellarSignTransactionParams, StellarTransaction, StrictFeatures, Success, SuiAddress, SuiGetAddressParams, SuiGetPublicKeyParams, SuiPublicKey, SuiSignMessageParams, SuiSignTransactionParams, SuiSignedTx, SupportFeatureType, SupportFeatures, TonAddress, TonGetAddressParams, TonSignDataParams, TonSignMessageParams, TonSignProofParams, TopLevelInjectApi, TransactionOptions, TransportReleaseStatus, TronAddress, TronDelegateResourceContract, TronFreezeBalanceV2Contract, TronGetAddressParams, TronSignMessageParams, TronSignTransactionParams, TronTransaction, TronTransactionContract, TronTransferContract, TronTriggerSmartContract, TronUnDelegateResourceContract, TronUnfreezeBalanceV2Contract, TronWithdrawBalanceContract, TronWithdrawExpireUnfreezeContract, UI_EVENT, UI_REQUEST, UI_RESPONSE, UiEvent, UiEventMessage, UiPromise, UiPromiseResponse, UiRequestButton, UiRequestDeviceAction, UiRequestFirmwareProgressing, UiRequestPassphrase, UiRequestPassphraseOnDevice, UiRequestSelectDeviceForSwitchFirmwareWebDevice, UiRequestSelectDeviceInBootloaderForWebDevice, UiRequestWithoutPayload, UiResponseEvent, UiResponseMessage, UiResponsePassphrase, UiResponsePin, UiResponseSelectDeviceForSwitchFirmwareWebDevice, UiResponseSelectDeviceInBootloaderForWebDevice, UnavailableCapabilities, UnavailableCapability, Unsuccessful, VersionArray, checkNeedUpdateBootForClassicAndMini, checkNeedUpdateBootForTouch, cleanupCallback, cleanupSdkInstance, completeRequestContext, corsValidator, createDeviceMessage, createErrorMessage, createFirmwareMessage, createIFrameMessage, createLogMessage, createRequestContext, createResponseMessage, createSdkTracingContext, createUiMessage, createUiResponse, HardwareSdk as default, enableLog, encodePro2Wallpaper, executeCallback, formatRequestContext, generateInstanceId, generateSdkInstanceId, getActiveRequestsByDeviceInstance, getAutoLockOptions, getAutoShutDownOptions, getDeviceBLEFirmwareVersion, getDeviceBleName, getDeviceBoardloaderVersion, getDeviceBootloaderVersion, getDeviceFirmwareVersion, getDeviceLabel, getDeviceType, getDeviceTypeByBleName, getDeviceUUID, getEnv, getFirmwareType, getFirmwareUpdateField, getFirmwareUpdateFieldArray, getHDPath, getHomeScreenDefaultList, getHomeScreenHex, getHomeScreenSize, getLanguageConfig, getLog, getLogBlockLabel, getLogger, getMethodVersionRange, getOutputScriptType, getSDKVersion, getScriptType, getTimeStamp, httpRequest, init$1 as initCore, isBleConnect, isMethodVersionRangeUnsupported, isValidVersionArray, isValidVersionString, normalizeVersionArray, parseConnectSettings, parseMessage, patchFeatures, preloadSessionCache, safeThrowError, setLoggerPostMessage, supportInputPinOnSoftware, switchTransport, transportEnv, updateRequestContext, versionCompare, versionSplit, wait, whitelist, whitelistExtension };
 +export { AccountAddress, AccountAddresses, AlephiumAddress, AlephiumGetAddressParams, AlephiumSignMessageParams, AlephiumSignTransactionParams, AlephiumSignedTx, AlgoAddress, AlgoGetAddressParams, AlgoSignTransactionParams, AlgoSignedTx, AllFirmwareRelease, AllNetworkAddressParams, AllNetworkGetAddressParams, AptosAddress, AptosGetAddressParams, AptosGetPublicKeyParams, AptosMessageSignature, AptosPublicKey, AptosSignInMessageParams, AptosSignInMessageSignature, AptosSignMessageParams, AptosSignTransactionParams, AptosSignedTx, AssetsMap, BTCAddress, BTCGetAddressParams, BTCGetPublicKeyParams, BTCPublicKey, BTCSignMessageParams, BTCSignTransactionParams, BTCVerifyMessageParams, BenfenAddress, BenfenGetAddressParams, BenfenGetPublicKeyParams, BenfenPublicKey, BenfenSignMessageParams, BenfenSignTransactionParams, BenfenSignedTx, BleReleaseInfoEvent, BleReleaseInfoPayload, CORE_EVENT, CallMethod, CallMethodAnyResponse, CallMethodKeys, CallMethodPayload, CallMethodResponse, CallMethodUnion, CardanoAddress, CardanoGetAddressMethodParams, CardanoGetAddressParams, CardanoSignMessageMethodParams, CardanoSignMessageParams, CardanoSignTransaction, CardanoSignedTxData, CipheredKeyValue, CipheredKeyValueParams, ClearSessionCacheParams, ClearSessionCachePayload, CommonParams, ConfluxAddress, ConfluxGetAddressParams, ConfluxSignMessageCIP23Params, ConfluxSignMessageParams, ConfluxSignTransactionParams, ConfluxSignedTx, ConfluxTransaction, ConnectSettings, Core, CoreApi, CoreMessage, CosmosAddress, CosmosGetAddressParams, CosmosGetPublicKeyParams, CosmosPublicKey, CosmosSignTransactionParams, CosmosSignedTx, DEFAULT_PRIORITY, DEVICE, DEVICE_EVENT, DataManager, Device, DeviceButtonRequest, DeviceButtonRequestPayload, DeviceChangePinParams, DeviceConnnectRequest, DeviceDisconnnectRequest, DeviceEvent, DeviceEventListenerFn, DeviceEventMessage, DeviceFeaturesMode, DeviceFeaturesPayload, DeviceFeaturesProtocol, DeviceFeaturesRaw, DeviceFeaturesVerify, DeviceFirmwareRange, DeviceFlagsParams, DeviceInfoMode, DeviceInfoProtocol, DeviceInfoScope, DeviceInfoSource, DeviceInfoStatus, DeviceModelToTypes, DeviceProfile, DeviceProfileRaw, DeviceProfileVerify, DeviceProfileVersions, DeviceProgress, DeviceRecoveryParams, DeviceResetParams, DeviceSendFeatures, DeviceSendSupportFeatures, DeviceSettingsParams, DeviceStatus, DeviceSupportFeatures, DeviceSupportFeaturesPayload, DeviceTypeMap, DeviceTypeToModels, DeviceUploadResourceParams, DeviceUploadResourceResponse, DeviceVerifyParams, DeviceVerifySignature, DnxAddress, DnxGetAddressParams, DnxSignTransactionParams, DnxSignature, DnxTxKey, EOneKeyDeviceMode, EVMAccessList, EVMAddress, EVMAuthorization, EVMAuthorizationSignature, EVMGetAddressParams, EVMGetPublicKeyParams, EVMPublicKey, EVMSignMessageEIP712Params, EVMSignMessageParams, EVMSignTransactionParams, EVMSignTypedDataParams, EVMSignedTx, EVMTransaction, EVMTransactionEIP1559, EVMTransactionEIP7702, EVMVerifyMessageParams, EthereumSignTypedDataMessage, EthereumSignTypedDataTypeProperty, EthereumSignTypedDataTypes, FIRMWARE, FIRMWARE_EVENT, Features, FilecoinAddress, FilecoinGetAddressParams, FilecoinSignTransactionParams, FilecoinSignedTx, FirmwareEvent, FirmwareMessage, FirmwareProcessing, FirmwareProgress, FirmwareRange, FirmwareRelease, FirmwareTip, FirmwareUpdateBinaryParams, FirmwareUpdateParams, FirmwareUpdateTipMessage, FirmwareUpdateV3Params, FirmwareUpdateV4Params, GetDeviceInfoParams, GetPassphraseStateParams, HardwareSDKLowLevel, HardwareTopLevelSdk, IBLEFirmwareReleaseInfo, IDeviceBLEFirmwareStatus, IDeviceFirmwareStatus, IDeviceModel, IDeviceType, IFRAME, IFirmwareField, IFirmwareReleaseInfo, IFirmwareUpdateProgressType, IFirmwareUpdateTipMessage, IFrameBridge, IFrameCallMessage, IFrameCallback, IFrameCallbackMessage, IFrameCancelMessage, IFrameCancelOperationMessage, IFrameEvent, IFrameEventMessage, IFrameInit, IFrameSwitchTransport, IFrameSwitchTransportMessage, ILocale, IProtocolV2FirmwareComponent, IProtocolV2FirmwareComponentTarget, IProtocolV2ResourceBundle, ITransportStatus, IVersionArray, IVersionRange, KaspaAddress, KaspaGetAddressParams, KaspaSignInputParams, KaspaSignOutputParams, KaspaSignTransactionParams, KaspaSignature, KnownDevice, LOG, LOG_EVENT, LogBlockEvent, LogEvent, LogEventMessage, LogOutput, LoggerNames, LowLevelCoreApi, LowLevelInjectApi, MajorVersion, MethodResponseMessage, NEMAddress, NEMAggregateModificationTransaction, NEMGetAddressParams, NEMImportanceTransaction, NEMMosaic, NEMMosaicCreationTransaction, NEMMultisigTransaction, NEMProvisionNamespaceTransaction, NEMSignTransactionParams, NEMSupplyChangeTransaction, NEMTransaction, NEMTransferTransaction, NearAddress, NearGetAddressParams, NearSignTransactionParams, NervosAddress, NervosGetAddressParams, NervosSignTransactionParams, NervosSignedTx, NexaAddress, NexaGetAddressParams, NexaSignInputParams, NexaSignOutputParams, NexaSignTransactionParams, NexaSignature, OnekeyFeatures, PRO2_WALLPAPER_HEIGHT, PRO2_WALLPAPER_WIDTH, Params, PassphraseRequestPayload, PolkadotAddress, PolkadotGetAddressParams, PolkadotSignTransactionParams, PolkadotSignedTx, PostMessageEvent, PreviousAddressResult, Pro2WallpaperColorFormat, RESPONSE_EVENT, RefTransaction, ReleaseInfo, ReleaseInfoEvent, ReleaseInfoPayload, RemoteConfigResponse, RequestContext, Response, ScdoAddress, ScdoGetAddressParams, ScdoSignMessageParams, ScdoSignTransactionParams, ScdoSignedTx, SdkTracingContext, SearchDevice, SignedTransaction, SolSignMessageParams, SolSignMessageResponse, SolSignOffchainMessageParams, SolSignOffchainMessageResponse, SolanaAddress, SolanaGetAddressParams, SolanaSignTransactionParams, SolanaSignedTx, StarcoinAddress, StarcoinGetAddressParams, StarcoinGetPublicKeyParams, StarcoinPublicKey, StarcoinSignMessageParams, StarcoinSignTransactionParams, StarcoinVerifyMessageParams, StellarAddress, StellarAsset, StellarGetAddressParams, StellarOperation, StellarSignTransactionParams, StellarTransaction, StrictFeatures, Success, SuiAddress, SuiGetAddressParams, SuiGetPublicKeyParams, SuiPublicKey, SuiSignMessageParams, SuiSignTransactionParams, SuiSignedTx, SupportFeatureType, SupportFeatures, TonAddress, TonGetAddressParams, TonSignDataParams, TonSignMessageParams, TonSignProofParams, TopLevelInjectApi, TransactionOptions, TransportReleaseStatus, TronAddress, TronDelegateResourceContract, TronFreezeBalanceV2Contract, TronGetAddressParams, TronSignMessageParams, TronSignTransactionParams, TronTransaction, TronTransactionContract, TronTransferContract, TronTriggerSmartContract, TronUnDelegateResourceContract, TronUnfreezeBalanceV2Contract, TronWithdrawBalanceContract, TronWithdrawExpireUnfreezeContract, UI_EVENT, UI_REQUEST, UI_RESPONSE, UiEvent, UiEventMessage, UiPromise, UiPromiseResponse, UiRequestButton, UiRequestDeviceAction, UiRequestFirmwareProgressing, UiRequestPassphrase, UiRequestPassphraseOnDevice, UiRequestSelectDeviceForSwitchFirmwareWebDevice, UiRequestSelectDeviceInBootloaderForWebDevice, UiRequestWithoutPayload, UiResponseEvent, UiResponseMessage, UiResponsePassphrase, UiResponsePin, UiResponseSelectDeviceForSwitchFirmwareWebDevice, UiResponseSelectDeviceInBootloaderForWebDevice, UnavailableCapabilities, UnavailableCapability, Unsuccessful, VersionArray, checkNeedUpdateBootForClassicAndMini, checkNeedUpdateBootForTouch, cleanupCallback, cleanupSdkInstance, completeRequestContext, corsValidator, createDeviceMessage, createErrorMessage, createFirmwareMessage, createIFrameMessage, createLogMessage, createRequestContext, createResponseMessage, createSdkTracingContext, createUiMessage, createUiResponse, HardwareSdk as default, enableLog, encodePro2Wallpaper, executeCallback, formatRequestContext, generateInstanceId, generateSdkInstanceId, getActiveRequestsByDeviceInstance, getAutoLockOptions, getAutoShutDownOptions, getDeviceBLEFirmwareVersion, getDeviceBleName, getDeviceBoardloaderVersion, getDeviceBootloaderVersion, getDeviceFirmwareVersion, getDeviceLabel, getDeviceType, getDeviceTypeByBleName, getDeviceUUID, getEnv, getFirmwareType, getFirmwareUpdateField, getFirmwareUpdateFieldArray, getHDPath, getHomeScreenDefaultList, getHomeScreenHex, getHomeScreenSize, getLanguageConfig, getLog, getLogBlockLabel, getLogger, getMethodVersionRange, getOutputScriptType, getSDKVersion, getScriptType, getTimeStamp, httpRequest, init$1 as initCore, isBleConnect, isMethodVersionRangeUnsupported, isValidVersionArray, isValidVersionString, normalizeVersionArray, parseConnectSettings, parseMessage, patchFeatures, preloadSessionCache, safeThrowError, setLoggerPostMessage, supportInputPinOnSoftware, switchTransport, transportEnv, updateRequestContext, versionCompare, versionSplit, wait, whitelist, whitelistExtension };
 diff --git a/node_modules/@onekeyfe/hd-core/dist/index.js b/node_modules/@onekeyfe/hd-core/dist/index.js
-index 4adc3aa..86401c2 100644
+index 4adc3aa..03632f9 100644
 --- a/node_modules/@onekeyfe/hd-core/dist/index.js
 +++ b/node_modules/@onekeyfe/hd-core/dist/index.js
 @@ -1264,10 +1264,7 @@ const getDeviceBleName = (features) => {
@@ -1112,7 +1112,19 @@ index 4adc3aa..86401c2 100644
              chunks += 1;
              const elapsedMs = Date.now() - startTime;
              const transferredBytes = Math.min(written, dataLength);
-@@ -48205,11 +48483,6 @@ class DeviceUploadWallpaper extends BaseMethod {
+@@ -48133,8 +48411,9 @@ function writeProtocolV2File(options) {
+         return Object.assign(Object.assign({}, lastMessage), { path: options.path, offset: startOffset, total_size: totalSize, processed_byte: startOffset + written, chunks });
+     });
+ }
+-
+-const WALLPAPER_DIRECTORY = 'vol0:/wallpapers/user';
++// OneKey patch: Pro2 user wallpapers are stored on the user volume.
++// const WALLPAPER_DIRECTORY = 'vol0:/wallpapers/user';
++const WALLPAPER_DIRECTORY = 'vol1:/wallpapers';
+ const SAFE_FILE_NAME = /^[A-Za-z0-9_-]+(?:\.bin)?$/;
+ function normalizeFileName(fileName, data) {
+     if (fileName !== undefined && (!fileName || !SAFE_FILE_NAME.test(fileName))) {
+@@ -48205,11 +48484,6 @@ class DeviceUploadWallpaper extends BaseMethod {
                  overwrite: true,
                  append: false,
                  throwIfAborted: () => this.throwIfAborted(),
@@ -1124,7 +1136,7 @@ index 4adc3aa..86401c2 100644
              });
              this.uploaded = true;
          });
-@@ -48399,7 +48672,7 @@ class FileRead extends BaseMethod {
+@@ -48399,7 +48673,7 @@ class FileRead extends BaseMethod {
  
  class FileWrite extends BaseMethod {
      init() {
@@ -1133,7 +1145,7 @@ index 4adc3aa..86401c2 100644
          this.requireProtocolV2 = true;
          this.skipForceUpdateCheck = true;
          this.useDevicePassphraseState = false;
-@@ -48415,7 +48688,6 @@ class FileWrite extends BaseMethod {
+@@ -48415,7 +48689,6 @@ class FileWrite extends BaseMethod {
              chunkLen: validateOptionalNonNegativeInteger(this.payload.chunkLen, 'chunkLen'),
              overwrite: (_a = this.payload.overwrite) !== null && _a !== void 0 ? _a : offset === 0,
              append: (_b = this.payload.append) !== null && _b !== void 0 ? _b : false,
@@ -1141,7 +1153,7 @@ index 4adc3aa..86401c2 100644
              uiPercentage: validateOptionalPercentage(this.payload.uiPercentage, 'uiPercentage'),
              timeoutMs: validateOptionalNonNegativeInteger(this.payload.timeoutMs, 'timeoutMs'),
          };
-@@ -48436,7 +48708,7 @@ class FileWrite extends BaseMethod {
+@@ -48436,7 +48709,7 @@ class FileWrite extends BaseMethod {
                  timeoutMs: this.params.timeoutMs === undefined ? undefined : Number(this.params.timeoutMs),
                  throwIfAborted: () => this.throwIfAborted(),
                  onProgress: payload => {
@@ -1150,7 +1162,7 @@ index 4adc3aa..86401c2 100644
                          this.postMessage(createUiMessage(UI_REQUEST.DEVICE_PROGRESS, payload));
                      }
                  },
-@@ -48540,14 +48812,13 @@ class PathInfo extends BaseMethod {
+@@ -48540,14 +48813,13 @@ class PathInfo extends BaseMethod {
      }
  }
  
@@ -1167,7 +1179,7 @@ index 4adc3aa..86401c2 100644
      }
      run() {
          const _super = Object.create(null, {
-@@ -55064,7 +55335,7 @@ class CardanoSignMessage extends BaseMethod {
+@@ -55064,7 +55336,7 @@ class CardanoSignMessage extends BaseMethod {
      init() {
          this.checkDeviceId = true;
          this.allowDeviceMode = [...this.allowDeviceMode, UI_REQUEST.NOT_INITIALIZE];
@@ -1176,7 +1188,7 @@ index 4adc3aa..86401c2 100644
          const { payload } = this;
          validateParams(payload, [
              { name: 'path', type: 'string', required: true },
-@@ -55729,6 +56000,9 @@ function getSigOpCountsHash(transaction, sighashType) {
+@@ -55729,6 +56001,9 @@ function getSigOpCountsHash(transaction, sighashType) {
  function hashTxOut(hashWriter, output) {
      hashWriter.writeUInt64LE(output.satoshis);
      hashWriter.writeUInt16LE(0);
@@ -1186,7 +1198,7 @@ index 4adc3aa..86401c2 100644
      hashWriter.writeVarBytes(Buffer.from(output.script, 'hex'));
  }
  function getOutputsHash(transaction, inputNumber, sighashType) {
-@@ -55756,6 +56030,9 @@ function serialize(transaction, inputNumber) {
+@@ -55756,6 +56031,9 @@ function serialize(transaction, inputNumber) {
      const input = transaction.inputs[inputNumber];
      hashOutpoint(hashWriter, input);
      hashWriter.writeUInt16LE(0);
@@ -1196,7 +1208,7 @@ index 4adc3aa..86401c2 100644
      hashWriter.writeVarBytes(Buffer.from(input.output.script, 'hex'));
      hashWriter.writeUInt64LE(input.output.satoshis);
      hashWriter.writeUInt64LE(input.sequenceNumber);
-@@ -55772,25 +56049,31 @@ function serialize(transaction, inputNumber) {
+@@ -55772,25 +56050,31 @@ function serialize(transaction, inputNumber) {
      };
  }
  
@@ -1230,7 +1242,7 @@ index 4adc3aa..86401c2 100644
              { name: 'useTweak', type: 'boolean' },
          ]);
          const inputs = payload.inputs.map(input => {
-@@ -55801,20 +56084,47 @@ class KaspaSignTransaction extends BaseMethod {
+@@ -55801,20 +56085,47 @@ class KaspaSignTransaction extends BaseMethod {
                  { name: 'outputIndex', type: 'number', required: true },
                  { name: 'sequenceNumber', required: true },
              ]);
@@ -1281,7 +1293,7 @@ index 4adc3aa..86401c2 100644
      }
      getVersionRange() {
          return {
-@@ -55863,23 +56173,197 @@ class KaspaSignTransaction extends BaseMethod {
+@@ -55863,23 +56174,197 @@ class KaspaSignTransaction extends BaseMethod {
              return signature;
          });
      }
@@ -1490,7 +1502,7 @@ index 4adc3aa..86401c2 100644
          });
      }
  }
-@@ -58169,14 +58653,6 @@ class RequestQueue {
+@@ -58169,14 +58654,6 @@ class RequestQueue {
      }
  }
  
@@ -1505,7 +1517,7 @@ index 4adc3aa..86401c2 100644
  const getMutex = () => {
      const DEFAULT_ID = Symbol();
      const locks = {};
-@@ -58200,6 +58676,12 @@ const getSynchronize = (mutex) => {
+@@ -58200,6 +58677,12 @@ const getSynchronize = (mutex) => {
  };
  
  const Log$1 = getLogger(exports.LoggerNames.Core);
@@ -1518,7 +1530,7 @@ index 4adc3aa..86401c2 100644
  function runMethodWithUnlockRetry(method, device) {
      return __awaiter(this, void 0, void 0, function* () {
          try {
-@@ -58453,14 +58935,10 @@ const onCallDevice = (context, message, method) => __awaiter(void 0, void 0, voi
+@@ -58453,14 +58936,10 @@ const onCallDevice = (context, message, method) => __awaiter(void 0, void 0, voi
      if (activeRequests.length > 0) {
          Log.warn(`[${method.instanceId}] Device ${device.instanceId} has ${activeRequests.length} active requests:`, activeRequests.map(formatRequestContext));
      }
@@ -2213,6 +2225,24 @@ index da87a7d..c940772 100644
    hashWriter.writeVarBytes(Buffer.from(input.output.script, 'hex'));
    hashWriter.writeUInt64LE(input.output.satoshis);
    hashWriter.writeUInt64LE(input.sequenceNumber);
+diff --git a/node_modules/@onekeyfe/hd-core/src/api/protocol-v2/DeviceUploadWallpaper.ts b/node_modules/@onekeyfe/hd-core/src/api/protocol-v2/DeviceUploadWallpaper.ts
+index b51f035..8f28d24 100644
+--- a/node_modules/@onekeyfe/hd-core/src/api/protocol-v2/DeviceUploadWallpaper.ts
++++ b/node_modules/@onekeyfe/hd-core/src/api/protocol-v2/DeviceUploadWallpaper.ts
+@@ -26,10 +26,10 @@ export type DeviceUploadWallpaperResponse = {
+   colorFormat: Pro2WallpaperColorFormat;
+   message?: string;
+ };
+-
+-const WALLPAPER_DIRECTORY = 'vol0:/wallpapers/user';
++// OneKey patch: Pro2 user wallpapers are stored on the user volume.
++// const WALLPAPER_DIRECTORY = 'vol0:/wallpapers/user';
++const WALLPAPER_DIRECTORY = 'vol1:/wallpapers';
+ const SAFE_FILE_NAME = /^[A-Za-z0-9_-]+(?:\.bin)?$/;
+-
+ function normalizeFileName(fileName: string | undefined, data: Uint8Array): string {
+   if (fileName !== undefined && (!fileName || !SAFE_FILE_NAME.test(fileName))) {
+     throw invalidParameter(
 diff --git a/node_modules/@onekeyfe/hd-core/src/data/messages/messages-protocol-v2.json b/node_modules/@onekeyfe/hd-core/src/data/messages/messages-protocol-v2.json
 index 6b417ad..435de41 100644
 --- a/node_modules/@onekeyfe/hd-core/src/data/messages/messages-protocol-v2.json

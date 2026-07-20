@@ -66,6 +66,8 @@ describe('buildPortfolioPayload', () => {
       aggregateTokenMap: {},
       currencyMap,
       displayCurrency: { id: 'cny', symbol: '¥' },
+      totalFiat: '707.004',
+      totalTokenCount: 2,
       timestamp: 1_780_900_000,
       tokenMap: {
         low: buildFiat({ fiatValue: '1', price: 1 }),
@@ -80,7 +82,7 @@ describe('buildPortfolioPayload', () => {
     ]);
     expect(payload.tokens[0]).toMatchObject({
       contractAddress: '',
-      fiatValue: '7',
+      fiatValue: '7.00',
       iconName: null,
       isAllNetworks: false,
       isNative: true,
@@ -88,14 +90,15 @@ describe('buildPortfolioPayload', () => {
     });
     expect(payload.tokens[1]).toMatchObject({
       contractAddress: '',
-      fiatValue: '700',
+      fiatValue: '700.00',
       iconName: null,
       isAllNetworks: false,
       isNative: true,
       price: 700,
     });
     expect(payload.tokens[0]).not.toHaveProperty('icon');
-    expect(payload.totalFiat).toBe('707');
+    expect(payload.totalFiat).toBe('707.00');
+    expect(payload.otherTokens).toEqual({ count: 0, fiat: '0.00' });
     expect(payload.currency).toBe('cny');
     expect(payload.currencySymbol).toBe('¥');
   });
@@ -134,6 +137,8 @@ describe('buildPortfolioPayload', () => {
       aggregateTokenMap: {},
       currencyMap,
       displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '297',
+      totalTokenCount: 3,
       timestamp: 1_780_900_000,
       tokenMap: {
         eth: buildFiat({ fiatValue: '100', price: 100 }),
@@ -188,6 +193,8 @@ describe('buildPortfolioPayload', () => {
       aggregateTokenMap: {},
       currencyMap,
       displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '199',
+      totalTokenCount: 2,
       timestamp: 1_780_900_000,
       tokenMap: {
         apt: buildFiat({ fiatValue: '100', price: 100 }),
@@ -233,6 +240,8 @@ describe('buildPortfolioPayload', () => {
       },
       currencyMap,
       displayCurrency: { id: 'cny', symbol: '¥' },
+      totalFiat: '1400',
+      totalTokenCount: 1,
       timestamp: 1_780_900_000,
       tokenMap: {},
       tokens: [aggregate],
@@ -242,7 +251,7 @@ describe('buildPortfolioPayload', () => {
     expect(payload.tokens[0]).toMatchObject({
       balance: '2',
       contractAddress: '',
-      fiatValue: '1400',
+      fiatValue: '1400.00',
       iconName: 'ETH',
       isAllNetworks: true,
       isNative: false,
@@ -251,7 +260,7 @@ describe('buildPortfolioPayload', () => {
     });
   });
 
-  test('keeps UI position but emits null fiat and null total when a rate is missing', () => {
+  test('keeps UI position and the App total when a token rate is missing', () => {
     const first = buildToken({ $key: 'first', symbol: 'FIRST' });
     const missingRate = buildToken({ $key: 'missing', symbol: 'MISS' });
 
@@ -263,6 +272,8 @@ describe('buildPortfolioPayload', () => {
       aggregateTokenMap: {},
       currencyMap,
       displayCurrency: { id: 'eur', symbol: '€' },
+      totalFiat: '101',
+      totalTokenCount: 2,
       timestamp: 1_780_900_000,
       tokenMap: {
         first: buildFiat({ fiatValue: '1', price: 1, currency: undefined }),
@@ -275,13 +286,13 @@ describe('buildPortfolioPayload', () => {
       'FIRST',
       'MISS',
     ]);
-    expect(payload.tokens[0].fiatValue).toBe('1');
+    expect(payload.tokens[0].fiatValue).toBe('1.00');
     expect(payload.tokens[1].fiatValue).toBeNull();
     expect(payload.tokens[1].price).toBeNull();
-    expect(payload.totalFiat).toBeNull();
+    expect(payload.totalFiat).toBe('101.00');
   });
 
-  test('limits the payload to ten tokens and keeps tokenCount aligned', () => {
+  test('limits the payload to five tokens and summarizes the remainder', () => {
     const tokens = Array.from({ length: 12 }, (_, index) =>
       buildToken({
         $key: `token-${index}`,
@@ -304,16 +315,76 @@ describe('buildPortfolioPayload', () => {
       aggregateTokenMap: {},
       currencyMap,
       displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '1134',
+      totalTokenCount: 12,
       timestamp: 1_780_900_000,
       tokenMap,
       tokens,
     });
 
-    expect(payload.tokens).toHaveLength(10);
-    expect(payload.tokenCount).toBe(10);
+    expect(payload.tokens).toHaveLength(5);
+    expect(payload.tokenCount).toBe(5);
     expect(payload.tokens.map((token) => token.symbol)).toEqual(
-      tokens.slice(0, 10).map((token) => token.symbol),
+      tokens.slice(0, 5).map((token) => token.symbol),
     );
+    expect(payload.otherTokens).toEqual({ count: 7, fiat: '644.00' });
+  });
+
+  test('formats fiat and balance precision consistently with the App', () => {
+    const token = buildToken({ $key: 'btc', symbol: 'BTC' });
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '27112.105',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        btc: buildFiat({
+          balanceParsed: '0.41308123',
+          fiatValue: '27112.105',
+          price: 65_631.11,
+        }),
+      },
+      tokens: [token],
+    });
+
+    expect(payload.totalFiat).toBe('27112.11');
+    expect(payload.tokens[0]).toMatchObject({
+      balance: '0.4131',
+      fiatValue: '27112.11',
+    });
+    expect(payload.otherTokens).toEqual({ count: 0, fiat: '0.00' });
+  });
+
+  test('keeps four meaningful balance decimals after leading zeros', () => {
+    const token = buildToken({ $key: 'small', symbol: 'SMALL' });
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '0.01',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        small: buildFiat({
+          balanceParsed: '0.00001234567',
+          fiatValue: '0.01',
+          price: 1,
+        }),
+      },
+      tokens: [token],
+    });
+
+    expect(payload.tokens[0].balance).toBe('0.00001235');
   });
 
   test('content hash excludes ts but includes portfolio content', () => {
@@ -326,6 +397,8 @@ describe('buildPortfolioPayload', () => {
       aggregateTokenMap: {},
       currencyMap,
       displayCurrency: { id: 'cny', symbol: '¥' },
+      totalFiat: '700',
+      totalTokenCount: 1,
       timestamp: 1_780_900_000,
       tokenMap: {
         eth: buildFiat({ fiatValue: '100', price: 100 }),
