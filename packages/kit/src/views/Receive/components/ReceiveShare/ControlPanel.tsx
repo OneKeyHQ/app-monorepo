@@ -1,8 +1,11 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Button, XStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { canShareImageToSystem } from '../../../RookieGuide/components/RookieShare/useShareActions';
 import { ReceiveTestIDs } from '../../testIDs';
 
 interface IControlPanelProps {
@@ -21,6 +24,9 @@ export function ControlPanel({
   const intl = useIntl();
   const media = useMedia();
   const buttonSize = media.gtMd ? 'medium' : 'large';
+  // without a real system share surface the button would just duplicate
+  // "save", so render "save" alone (OK-58192)
+  const showShareEntry = useMemo(() => canShareImageToSystem(), []);
 
   return (
     <XStack gap="$2.5" mb={isMobile ? '$4' : undefined}>
@@ -35,17 +41,19 @@ export function ControlPanel({
       >
         {intl.formatMessage({ id: ETranslations.action_save })}
       </Button>
-      <Button
-        testID={ReceiveTestIDs.ShareMoreButton}
-        flex={1}
-        size={buttonSize}
-        variant="secondary"
-        icon="DotHorOutline"
-        disabled={isLoading}
-        onPress={onShareImage}
-      >
-        {intl.formatMessage({ id: ETranslations.global_more })}
-      </Button>
+      {showShareEntry ? (
+        <Button
+          testID={ReceiveTestIDs.ShareMoreButton}
+          flex={1}
+          size={buttonSize}
+          variant="secondary"
+          icon="DotHorOutline"
+          disabled={isLoading}
+          onPress={onShareImage}
+        >
+          {intl.formatMessage({ id: ETranslations.global_more })}
+        </Button>
+      ) : null}
     </XStack>
   );
 }

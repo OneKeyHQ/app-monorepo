@@ -18,6 +18,38 @@ export type ISaveImageResult = {
 
 const buildShareFileName = () => `onekey-share-${Date.now()}.png`;
 
+// Whether a real system share surface exists on this platform. When false,
+// share would silently duplicate "save", so callers should hide the entry.
+export function canShareImageToSystem(): boolean {
+  if (platformEnv.isNative) {
+    return true;
+  }
+  if (platformEnv.isDesktop) {
+    // Electron only implements the system share picker (ShareMenu) on macOS
+    return !!platformEnv.isDesktopMac;
+  }
+  try {
+    const probe = new File([''], 'probe.png', { type: 'image/png' });
+    return !!navigator.share && !!navigator.canShare?.({ files: [probe] });
+  } catch {
+    return false;
+  }
+}
+
+const downloadImageFile = async (base64Image: string) => {
+  const blob = await fetch(base64Image).then((r) => r.blob());
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = buildShareFileName();
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+};
+
 export function useShareActions(referralUrl?: string) {
   const { copyText } = useClipboard();
   const intl = useIntl();
@@ -105,17 +137,7 @@ export function useShareActions(referralUrl?: string) {
           return { success: true };
         }
 
-        const blob = await fetch(base64Image).then((r) => r.blob());
-        const url = URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = buildShareFileName();
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        URL.revokeObjectURL(url);
+        await downloadImageFile(base64Image);
 
         Toast.success({
           title: intl.formatMessage({
@@ -160,6 +182,18 @@ export function useShareActions(referralUrl?: string) {
         } finally {
           await RNFS.unlink(filepath).catch(() => {});
         }
+      } else if (platformEnv.isDesktop) {
+        // Electron has no navigator.share; on macOS the main process pops the
+        // native share picker (ShareMenu). Other desktop platforms have no
+        // system share — the entry is hidden via canShareImageToSystem(), and
+        // saving the file stays as the last-resort fallback.
+        const shared: boolean =
+          await globalThis.desktopApiProxy.system.shareImageFile({
+            base64Image,
+          });
+        if (!shared) {
+          await downloadImageFile(base64Image);
+        }
       } else {
         const blob = await fetch(base64Image).then((r) => r.blob());
         const file = new File([blob], buildShareFileName(), {
@@ -173,14 +207,7 @@ export function useShareActions(referralUrl?: string) {
           });
         } else {
           // Fallback: download
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = buildShareFileName();
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
+          await downloadImageFile(base64Image);
         }
       }
     } catch (error) {

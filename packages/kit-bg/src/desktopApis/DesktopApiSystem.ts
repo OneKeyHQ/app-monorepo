@@ -5,7 +5,7 @@ import path from 'path';
 import { promisify } from 'util';
 
 import * as Sentry from '@sentry/electron/main';
-import { Menu, app, shell, systemPreferences } from 'electron';
+import { Menu, ShareMenu, app, shell, systemPreferences } from 'electron';
 import logger from 'electron-log/main';
 import si from 'systeminformation';
 
@@ -311,6 +311,50 @@ class DesktopApiSystem {
     await shell.openExternal(
       'x-apple.systempreferences:com.apple.preference.security?Privacy',
     );
+  }
+
+  // Electron only implements the system share picker (ShareMenu) on macOS;
+  // a false return means "no system share on this platform" and callers are
+  // expected to hide their share entry or fall back to saving the file.
+  async shareImageFile(params: { base64Image: string }): Promise<boolean> {
+    if (process.platform !== 'darwin') {
+      return false;
+    }
+    const base64Data = params.base64Image.replace(
+      /^data:image\/\w+;base64,/,
+      '',
+    );
+    if (!base64Data) {
+      return false;
+    }
+    const shareDir = path.join(app.getPath('temp'), 'onekey-image-share');
+    await fs.mkdir(shareDir, { recursive: true });
+    // Share extensions (AirDrop, Messages…) read the file after the picker
+    // closes, so the fresh file must outlive this call; only purge leftovers
+    // from earlier shares.
+    const staleMs = 60 * 60 * 1000;
+    try {
+      const entries = await fs.readdir(shareDir);
+      const now = Date.now();
+      await Promise.all(
+        entries.map(async (entry) => {
+          const entryPath = path.join(shareDir, entry);
+          const stat = await fs.stat(entryPath);
+          if (now - stat.mtimeMs > staleMs) {
+            await fs.unlink(entryPath);
+          }
+        }),
+      );
+    } catch {
+      // best-effort cleanup only
+    }
+    // filename is built here, never taken from the renderer, so IPC input
+    // cannot influence the write path
+    const filePath = path.join(shareDir, `onekey-share-${Date.now()}.png`);
+    await fs.writeFile(filePath, base64Data, 'base64');
+    const shareMenu = new ShareMenu({ filePaths: [filePath] });
+    shareMenu.popup();
+    return true;
   }
 
   async getMediaAccessStatus(

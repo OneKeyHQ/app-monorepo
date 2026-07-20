@@ -164,6 +164,25 @@ export function useShareActions(referralQrCodeUrl?: string) {
         });
 
         await RNFS.unlink(filepath);
+      } else if (platformEnv.isDesktop) {
+        // Electron has no navigator.share; on macOS the main process pops the
+        // native share picker (ShareMenu). Other desktop platforms have no
+        // system share, so fall back to saving the file.
+        const shared: boolean =
+          await globalThis.desktopApiProxy.system.shareImageFile({
+            base64Image,
+          });
+        if (!shared) {
+          const blob = await fetch(base64Image).then((r) => r.blob());
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `onekey-position-${Date.now()}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
       } else {
         // Web: Use Web Share API if available
         const byteString = atob(base64Image.split(',')[1]);
