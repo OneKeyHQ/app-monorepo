@@ -23,7 +23,8 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'approvalPopup'
       | 'primePage'
       | 'walletEdit'
-      | 'browserTranslate';
+      | 'browserTranslate'
+      | 'historySettings';
     isPrimeActive: boolean;
   }) {
     return {
