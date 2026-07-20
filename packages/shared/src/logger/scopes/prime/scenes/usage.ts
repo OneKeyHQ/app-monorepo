@@ -12,7 +12,12 @@ import type {
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
-import type { IPrimeAddressRiskCheckEntryPoint } from '../types';
+import type {
+  IExportHistoryAccountType,
+  IExportHistoryDownloadEntryPoint,
+  IExportHistoryRangeType,
+  IPrimeAddressRiskCheckEntryPoint,
+} from '../types';
 
 type IReceiveKytFeatureName = EPrimeFeatures.ReceiveRiskMonitoring;
 
@@ -142,6 +147,37 @@ export class PrimeUsageScene extends BaseScene {
     entryPoint: IReceiveKytIntroEntryPoint;
     isPrimeActive: true;
     action: 'enable' | 'dismiss' | 'learnMore';
+  }) {
+    return params;
+  }
+
+  /**
+   * Export transaction history usage
+   * Triggered when a Prime user successfully creates an async export task.
+   */
+  @LogToServer()
+  public exportHistoryTaskCreateSuccess(params: {
+    networkCount: number;
+    networks: string[];
+    rangeType: IExportHistoryRangeType;
+    rangeDays: number;
+    excludeRisky: boolean;
+    accountType: IExportHistoryAccountType;
+  }) {
+    return params;
+  }
+
+  /**
+   * Export transaction history CSV delivery
+   * Triggered when an exported CSV is successfully saved (desktop/web/ext) or
+   * shared (native) on the device.
+   */
+  @LogToServer()
+  public exportHistoryCsvDownloadSuccess(params: {
+    entryPoint: IExportHistoryDownloadEntryPoint;
+    networkCount: number;
+    transactionCount: number;
+    isPartial: boolean;
   }) {
     return params;
   }
