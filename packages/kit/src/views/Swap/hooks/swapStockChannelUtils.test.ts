@@ -3,6 +3,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapStockChannelAsyncStatus,
   ESwapStockTradeSide,
+  backfillSwapProTokenStockIdentity,
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
   isStockBalanceInitializing,
@@ -543,5 +544,80 @@ describe('swapStockChannelUtils', () => {
         },
       })?.isStock,
     ).toBe(true);
+  });
+});
+
+describe('backfillSwapProTokenStockIdentity', () => {
+  const stockDetail = {
+    networkId: 'evm--56',
+    address: '0xstock',
+    stock: {
+      subtitle: 'Stock',
+      sourceLogoUri: '',
+      underlyingAssetTicker: 'AAPL',
+    },
+  } as unknown as Parameters<
+    typeof backfillSwapProTokenStockIdentity
+  >[0]['tokenDetail'];
+  const legacyStockToken: ISwapToken = {
+    // Persisted before the isStock field existed — no isStock key at all.
+    networkId: 'evm--56',
+    contractAddress: '0xstock',
+    symbol: 'AAPLX',
+    decimals: 18,
+  };
+
+  it('backfills a legacy record without isStock from the matching detail', () => {
+    const result = backfillSwapProTokenStockIdentity({
+      token: legacyStockToken,
+      tokenDetail: stockDetail,
+    });
+    expect(result).not.toBe(legacyStockToken);
+    expect(result?.isStock).toBe(true);
+  });
+
+  it('writes an explicit false once for legacy non-stock records', () => {
+    const detailWithoutStock = {
+      networkId: 'evm--56',
+      address: '0xstock',
+    } as unknown as Parameters<
+      typeof backfillSwapProTokenStockIdentity
+    >[0]['tokenDetail'];
+    const result = backfillSwapProTokenStockIdentity({
+      token: legacyStockToken,
+      tokenDetail: detailWithoutStock,
+    });
+    expect(result).not.toBe(legacyStockToken);
+    expect(result?.isStock).toBe(false);
+  });
+
+  it('ignores a stale detail describing another token', () => {
+    const result = backfillSwapProTokenStockIdentity({
+      token: { ...legacyStockToken, contractAddress: '0xother' },
+      tokenDetail: stockDetail,
+    });
+    expect(result?.isStock).toBeUndefined();
+  });
+
+  it('returns the same reference when the flag is already explicit and correct', () => {
+    const migratedToken: ISwapToken = {
+      ...legacyStockToken,
+      isStock: true,
+    };
+    expect(
+      backfillSwapProTokenStockIdentity({
+        token: migratedToken,
+        tokenDetail: stockDetail,
+      }),
+    ).toBe(migratedToken);
+  });
+
+  it('passes tokens through untouched while the detail has not loaded', () => {
+    expect(
+      backfillSwapProTokenStockIdentity({
+        token: legacyStockToken,
+        tokenDetail: undefined,
+      }),
+    ).toBe(legacyStockToken);
   });
 });

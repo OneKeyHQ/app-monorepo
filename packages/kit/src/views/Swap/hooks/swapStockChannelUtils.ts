@@ -5,7 +5,10 @@ import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/c
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenDetail,
+  IMarketTokenListItem,
+} from '@onekeyhq/shared/types/marketV2';
 import type {
   ISwapToken,
   ISwapTokenBase,
@@ -190,6 +193,41 @@ export function filterStockPayTokenCandidates<
   return candidates.filter((candidate) =>
     STOCK_DEFAULT_PAY_SYMBOLS.has(candidate.symbol?.toUpperCase() ?? ''),
   );
+}
+
+// Pro select tokens persisted before the isStock field existed restore with
+// the flag missing, which would silently bypass every stock stable-coin rule.
+// Backfill the identity from the authoritative market detail once it matches
+// the token (stale/late details for another token are ignored); returns the
+// original reference when nothing needs to change so callers can cheaply
+// detect the migration case.
+export function backfillSwapProTokenStockIdentity<T extends ISwapTokenBase>({
+  token,
+  tokenDetail,
+}: {
+  token?: T;
+  tokenDetail?: IMarketTokenDetail;
+}): T | undefined {
+  if (!token || !tokenDetail) {
+    return token;
+  }
+  const detailMatchesToken = equalTokenNoCaseSensitive({
+    token1: {
+      networkId: tokenDetail.networkId,
+      contractAddress: tokenDetail.address,
+    },
+    token2: token,
+  });
+  if (!detailMatchesToken) {
+    return token;
+  }
+  const isStock = Boolean(tokenDetail.stock);
+  // A missing field still gets the explicit flag written once, so the
+  // migration persists instead of re-deriving forever.
+  if (token.isStock !== undefined && Boolean(token.isStock) === isStock) {
+    return token;
+  }
+  return { ...token, isStock };
 }
 
 export function resolveStockChannelSwapPair({

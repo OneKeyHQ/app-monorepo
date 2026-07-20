@@ -39,6 +39,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import {
+  SWAP_QUOTE_INPUT_DEBOUNCE_MS,
   swapSlippageDecimal,
   swapSlippageWillAheadMinValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -227,9 +228,13 @@ const SwapQuoteResult = ({
     }
   }, []);
 
-  const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
-    leading: true,
-  });
+  const fromAmountDebounce = useDebounce(
+    fromTokenAmount,
+    SWAP_QUOTE_INPUT_DEBOUNCE_MS,
+    {
+      leading: true,
+    },
+  );
   if (
     !fromToken ||
     !toToken ||
