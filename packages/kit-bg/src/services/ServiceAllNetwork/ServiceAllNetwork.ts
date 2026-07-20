@@ -20,6 +20,7 @@ import perfUtils, {
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import ServiceBase from '../ServiceBase';
@@ -790,6 +791,74 @@ class ServiceAllNetwork extends ServiceBase {
     const allNetworksState =
       await this.backgroundApi.simpleDb.allNetworks.getAllNetworksState();
     return allNetworksState;
+  }
+
+  @backgroundMethod()
+  async getEnabledNetworksCompatibleWithWalletId({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<IServerNetwork[]> {
+    // Mirrors useEnabledNetworksCompatibleWithWalletIdInAllNetworks (kit):
+    // the mainnet networks the All Networks view actually aggregates for
+    // this wallet. An empty result means All Networks is a dead end for
+    // the wallet (e.g. QR wallet with only QR-unsupported networks enabled).
+    const [{ enabledNetworks, disabledNetworks }, { networks }] =
+      await Promise.all([
+        this.getAllNetworksState(),
+        this.backgroundApi.serviceNetwork.getAllNetworks({
+          excludeTestNetwork: true,
+          excludeAllNetworkItem: true,
+        }),
+      ]);
+    const enabledNetworkIds = networks
+      .filter((n) =>
+        isEnabledNetworksInAllNetworks({
+          networkId: n.id,
+          disabledNetworks,
+          enabledNetworks,
+          isTestnet: n.isTestnet,
+        }),
+      )
+      .map((n) => n.id);
+    if (enabledNetworkIds.length === 0) {
+      // getChainSelectorNetworksCompatibleWithAccountId treats an empty
+      // networkIds list as "all networks", so return early here.
+      return [];
+    }
+    const { mainnetItems } =
+      await this.backgroundApi.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+        {
+          walletId,
+          networkIds: enabledNetworkIds,
+        },
+      );
+    return mainnetItems;
+  }
+
+  @backgroundMethod()
+  async getAllNetworksFallbackNetworkId({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<string | undefined> {
+    // Returns undefined when the All Networks view is usable for this wallet
+    // (at least one enabled network is compatible); otherwise returns the
+    // first wallet-compatible mainnet as the single-chain fallback.
+    const compatibleEnabledNetworks =
+      await this.getEnabledNetworksCompatibleWithWalletId({
+        walletId,
+      });
+    if (compatibleEnabledNetworks.length > 0) {
+      return undefined;
+    }
+    const { mainnetItems } =
+      await this.backgroundApi.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+        {
+          walletId,
+        },
+      );
+    return mainnetItems?.[0]?.id;
   }
 
   @backgroundMethod()
