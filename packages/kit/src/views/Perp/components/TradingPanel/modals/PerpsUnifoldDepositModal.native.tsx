@@ -19,20 +19,21 @@ import { getNativeUnifoldBeginDeposit } from './unifoldNativeBridge';
 
 import type { DepositConfig } from '@unifold/connect-react-native';
 
-// Hard fuse: @unifold/connect-react-native 0.1.57 (latest as of 2026-07-19)
-// is not production-ready in this app:
-// 1. It has no HyperCore support (chain 1337 is absent from its chain
-//    mapping, so the deposit sheet silently closes).
-// 2. Even with a supported destination, its sheet renders stuck offscreen
-//    (visible:true but the entrance spring never lands), leaving a
-//    transparent full-screen root that freezes all touches. Environment
-//    exonerated by isolated repros: network probes pass, worklet compilation
-//    verified in the bundle, and a byte-for-byte replica of the sheet's
-//    Modal + gate + withSpring entrance pattern works fine here — the defect
-//    is internal to the SDK (reported to Unifold with the evidence).
-// Keep native on the existing OneKey flow until a fixed SDK release, then
-// flip this to false and gate rollout via the perp-config remote switch
-// (Task 9).
+// Rollout gate — NOT a "broken SDK" fuse. The native flow is verified working:
+// with @unifold/connect-react-native 0.1.57 the HyperCore (chain 1337) deposit
+// sheet renders, funds route to the Perp destination, and it closes cleanly.
+// The SDK's one blocker — its bottom-sheet entrance never lands under
+// react-native-reanimated 4 (the sheet's useAnimatedStyle callbacks aren't
+// compiled as worklets, so the spring never drives translateY and the sheet
+// parks offscreen, leaving a transparent full-screen root that swallows
+// touches) — is fixed locally in
+// patches/@unifold+connect-react-native+0.1.57.patch
+// (translateY pinned to 0). We patch UI defects ourselves rather than block on
+// a vendor release.
+// This stays true until: (1) a real-money native deposit is confirmed
+// end-to-end, (2) Android device QA passes (the same patch covers it), and
+// (3) the perp-config remote kill switch lands (Task 9). Flip to false to
+// enable, gated by that remote switch.
 const NATIVE_UNIFOLD_DISABLED = true;
 
 // RN SDK 0.1.57 has no exchange screens, and Cash App is iOS-only per the
