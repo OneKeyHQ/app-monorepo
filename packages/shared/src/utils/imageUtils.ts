@@ -880,6 +880,8 @@ async function getUriFromRequiredImageSource(
   return source?.uri;
 }
 
+let androidBundledResourceCopySequence = 0;
+
 /**
  * Read a URI or a React Native `require()` asset as a string.
  *
@@ -919,12 +921,16 @@ export async function readAsStringAsync(
   }
 
   const cacheDir = await getNativeCacheDirectory();
+  androidBundledResourceCopySequence += 1;
   const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 10_000);
-  // Main and background JS runtimes share the native cache directory. A
-  // per-call name avoids one runtime deleting or overwriting another one's
-  // temporary resource while it is still being read.
-  const copiedUri = `${cacheDir}bundled-resource-${source}-${timestamp}-${random}`;
+  const random = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+  // The sequence makes concurrent calls unique within one JS runtime, even if
+  // their timestamp and random value happen to match. Android main and bg use
+  // isolated JS runtimes, so their counters are not shared; the timestamp and
+  // wide random component make collisions across those runtimes negligible.
+  // This matters because both runtimes share the native cache directory: a
+  // collision could let one call overwrite or delete another call's file.
+  const copiedUri = `${cacheDir}bundled-resource-${source}-${timestamp}-${random}-${androidBundledResourceCopySequence}`;
 
   try {
     // Materialize the APK drawable as a regular file URI, which the Base64
