@@ -24,6 +24,7 @@ import {
 import {
   buildPro2DeviceMetaState,
   getPro2DeviceMetaStaticOverrides,
+  shouldRefreshDeviceSettingsAfterUpdate,
 } from './pro2DeviceManagement';
 
 import type { IDeviceMetaState, IDeviceMetaStatic } from './atoms';
@@ -254,6 +255,19 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
     return get(deviceMetaStateAtom());
   });
 
+  refreshAfterDeviceSettingUpdate = contextAtomMethod(async (get, set) => {
+    const deviceType = get(deviceMetaStaticAtom()).deviceType;
+    const unlocked = Boolean(get(deviceMetaStateAtom()).unlocked);
+    if (
+      shouldRefreshDeviceSettingsAfterUpdate({
+        isPro2: deviceType === EDeviceType.Pro2,
+        unlocked,
+      })
+    ) {
+      await this.refresh.call(set);
+    }
+  });
+
   updateLanguage = contextAtomMethod(async (get, set, value: string) => {
     const walletId = get(currentWalletIdAtom());
     if (!walletId) return;
@@ -262,7 +276,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       walletId,
       language: value,
     });
-    await this.refresh.call(set);
+    await this.refreshAfterDeviceSettingUpdate.call(set);
   });
 
   updateBrightness = contextAtomMethod(async (get, set, value?: number) => {
@@ -274,7 +288,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       brightness: value,
     });
     if (typeof value === 'number') {
-      await this.refresh.call(set);
+      await this.refreshAfterDeviceSettingUpdate.call(set);
     }
   });
 
@@ -286,7 +300,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       walletId,
       hapticFeedback: value,
     });
-    await this.refresh.call(set);
+    await this.refreshAfterDeviceSettingUpdate.call(set);
   });
 
   updateAutoLockDelayMs = contextAtomMethod(async (get, set, value: number) => {
@@ -297,7 +311,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       walletId,
       autoLockDelayMs: value,
     });
-    await this.refresh.call(set);
+    await this.refreshAfterDeviceSettingUpdate.call(set);
   });
 
   updateAutoShutDownDelayMs = contextAtomMethod(
@@ -309,7 +323,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
         walletId,
         autoShutdownDelayMs: value,
       });
-      await this.refresh.call(set);
+      await this.refreshAfterDeviceSettingUpdate.call(set);
     },
   );
 

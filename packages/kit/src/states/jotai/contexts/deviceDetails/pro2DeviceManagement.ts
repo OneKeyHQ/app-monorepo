@@ -11,6 +11,26 @@ export type IPro2DeviceManagementSnapshot = {
   settings?: DeviceSettings;
 };
 
+export function canEditPro2DeviceWideSettings({
+  unlocked: _unlocked,
+}: {
+  unlocked: boolean;
+}) {
+  // DeviceSettingsSet accepts device-wide preferences while locked. Reading
+  // DeviceSettings still requires unlock, but that must not disable editing.
+  return true;
+}
+
+export function shouldRefreshDeviceSettingsAfterUpdate({
+  isPro2,
+  unlocked,
+}: {
+  isPro2: boolean;
+  unlocked: boolean;
+}) {
+  return !isPro2 || unlocked;
+}
+
 export function getPro2DeviceMetaStaticOverrides(
   snapshot: IPro2DeviceManagementSnapshot,
 ) {

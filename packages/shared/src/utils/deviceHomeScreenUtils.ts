@@ -243,15 +243,21 @@ async function buildCustomScreenHex({
     }
   }
 
-  if (!isUserUpload && hasConvertType) {
+  // TODO: Remove the Pro2-specific conversion after Dashboard provides native
+  // 604x1024 Pro2 wallpaper assets instead of the current 480x800 Pro assets.
+  const shouldResizeFullScreen =
+    deviceType === EDeviceType.Pro2 || (!isUserUpload && hasConvertType);
+
+  if (shouldResizeFullScreen) {
+    const shouldDetectOriginSize = deviceType === EDeviceType.Pro2;
     const imgScreen = await imageUtils.resizeImage({
       uri: base64Uri,
 
       width: config.size?.width,
       height: config.size?.height,
 
-      originW: config.size?.width,
-      originH: config.size?.height,
+      originW: shouldDetectOriginSize ? 0 : config.size?.width,
+      originH: shouldDetectOriginSize ? 0 : config.size?.height,
       isMonochrome: false,
       compress,
       cornerRadius: config.size?.radius ?? 0,

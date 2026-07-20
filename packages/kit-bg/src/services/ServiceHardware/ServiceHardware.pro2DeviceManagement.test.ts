@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import ServiceHardware from './ServiceHardware';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -226,6 +228,54 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
     ]);
 
     expect(deviceStatusGet).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServiceHardware.fetchHardwareHomeScreen', () => {
+  it('uses Pro as the server device type for Pro 2', async () => {
+    const get = jest.fn().mockResolvedValue({
+      data: {
+        data: [
+          {
+            id: 'pro-wallpaper',
+            wallpaperType: 'default',
+            resType: 'system',
+            url: 'https://example.com/pro-wallpaper.png',
+            deviceTypes: [EDeviceType.Pro],
+          },
+        ],
+      },
+    });
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    Object.defineProperty(service, 'getClient', {
+      value: jest.fn().mockResolvedValue({ get }),
+    });
+
+    await expect(
+      service.fetchHardwareHomeScreen({
+        deviceType: EDeviceType.Pro2,
+        serialNumber: 'PR9999999999',
+        firmwareVersion: '1.0.0',
+      }),
+    ).resolves.toEqual([
+      {
+        id: 'pro-wallpaper',
+        wallpaperType: 'default',
+        resType: 'system',
+        url: 'https://example.com/pro-wallpaper.png',
+        screenHex: undefined,
+        nameHex: undefined,
+      },
+    ]);
+    expect(get).toHaveBeenCalledWith('/utility/v1/wallet-homescreen/list', {
+      params: {
+        deviceType: EDeviceType.Pro,
+        serialNumber: 'PR9999999999',
+        firmwareVersion: '1.0.0',
+      },
+    });
   });
 });
 

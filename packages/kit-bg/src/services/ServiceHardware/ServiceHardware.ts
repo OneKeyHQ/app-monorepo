@@ -2134,10 +2134,19 @@ class ServiceHardware extends ServiceBase {
       homeScreenType,
       thumbnail: false,
     });
-    const thumbnailSize = getHomeScreenSize({
+    const thumbnailSize =
+      getHomeScreenSize({
+        deviceType: device.deviceType,
+        homeScreenType,
+        thumbnail: true,
+      }) ??
+      serviceHardwareUtils.getPro2HomeScreenSizeFallback({
+        deviceType: device.deviceType,
+        thumbnail: true,
+      });
+    size ??= serviceHardwareUtils.getPro2HomeScreenSizeFallback({
       deviceType: device.deviceType,
-      homeScreenType,
-      thumbnail: true,
+      thumbnail: false,
     });
     if (!size && isT1Model) {
       size = DEFAULT_T1_HOME_SCREEN_INFORMATION;
@@ -3215,18 +3224,20 @@ class ServiceHardware extends ServiceBase {
     firmwareVersion: string;
   }): Promise<IHardwareHomeScreenData[]> {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const serverDeviceType =
+      serviceHardwareUtils.getHomeScreenServerDeviceType(deviceType);
     const response = await client.get<{
       data: IHardwareHomeScreenResponse[];
     }>('/utility/v1/wallet-homescreen/list', {
       params: {
-        deviceType,
+        deviceType: serverDeviceType,
         serialNumber,
         firmwareVersion,
       },
     });
     const { data } = response.data;
     return data
-      .filter((item) => item.deviceTypes.includes(deviceType))
+      .filter((item) => item.deviceTypes.includes(serverDeviceType))
       .filter(
         (item) =>
           item.resType === 'system' ||

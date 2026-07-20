@@ -10,6 +10,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useStatefulAction } from '@onekeyhq/kit/src/hooks/useStatefulAction';
 import {
+  canEditPro2DeviceWideSettings,
   useDeviceAtom,
   useDeviceAutoLockDelayMsAtom,
   useDeviceAutoShutDownDelayMsAtom,
@@ -407,6 +408,12 @@ function DeviceSectionGeneral() {
   const [deviceSettingsAccessible] = useDeviceSettingsAccessibleAtom();
   const [device] = useDeviceAtom();
   const isTrezor = device?.vendor === EHardwareVendor.trezor;
+  const generalSettingsDisabled =
+    deviceType === EDeviceType.Pro2
+      ? !canEditPro2DeviceWideSettings({
+          unlocked: Boolean(deviceSettingsAccessible),
+        })
+      : !deviceSettingsAccessible;
   const trezorFeatures = useMemo(
     () => (device?.featuresInfo ?? {}) as Record<string, unknown>,
     [device?.featuresInfo],
@@ -628,7 +635,7 @@ function DeviceSectionGeneral() {
 
   const brightnessItem =
     deviceType === EDeviceType.Pro2 ? (
-      <Pro2BrightnessListItem disabled={!deviceSettingsAccessible} />
+      <Pro2BrightnessListItem disabled={generalSettingsDisabled} />
     ) : (
       <ListItem
         key="changeBrightness"
@@ -653,7 +660,7 @@ function DeviceSectionGeneral() {
       {showLanguage ? (
         <LanguageListItem
           languageOptions={languageOptions}
-          disabled={!deviceSettingsAccessible}
+          disabled={generalSettingsDisabled}
         />
       ) : null}
       {showWallpaper ? (
@@ -672,17 +679,17 @@ function DeviceSectionGeneral() {
       {showAutoLock ? (
         <AutoLockListItem
           autoLockOptions={autoLockOptions}
-          disabled={!deviceSettingsAccessible}
+          disabled={generalSettingsDisabled}
         />
       ) : null}
       {showAutoShutDown ? (
         <AutoShutDownListItem
           autoShutDownOptions={autoShutDownOptions}
-          disabled={!deviceSettingsAccessible}
+          disabled={generalSettingsDisabled}
         />
       ) : null}
       {showHapticFeedback ? (
-        <HapticFeedbackListItem disabled={!deviceSettingsAccessible} />
+        <HapticFeedbackListItem disabled={generalSettingsDisabled} />
       ) : null}
     </ListItemGroup>
   );
