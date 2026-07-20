@@ -4,6 +4,11 @@ import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import { memoizee } from '../../utils/cacheUtils';
+import {
+  createIpTableAvailabilityTiming,
+  getAvailabilityErrorCode,
+  reportIpTableAvailabilityResult,
+} from '../availabilityMetrics';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
@@ -720,6 +725,7 @@ export function createIpTableAdapter(
     debugLog(
       `[IpTableAdapter] Using IP direct connection: ${hostname} -> ${selectedIp}`,
     );
+    const availabilityTiming = createIpTableAvailabilityTiming({ hostname });
 
     // Construct full path for SNI request
     let fullPath = url;
@@ -807,12 +813,32 @@ export function createIpTableAdapter(
           });
         }
         // Fallback to domain (isFallback = true, so domain failure won't be counted)
-        return await callOriginalAdapter({
-          config,
-          isFallback: true,
-          hostname,
-          rootDomain,
-        });
+        try {
+          const fallbackResponse = await callOriginalAdapter({
+            config,
+            isFallback: true,
+            hostname,
+            rootDomain,
+          });
+          reportIpTableAvailabilityResult({
+            fallbackStatus: 'success',
+            sniErrorCode: 'null_response',
+            sniStatus: 'null',
+            status: 'success',
+            timing: availabilityTiming,
+          });
+          return fallbackResponse;
+        } catch (fallbackError) {
+          reportIpTableAvailabilityResult({
+            errorCode: getAvailabilityErrorCode(fallbackError),
+            fallbackStatus: 'failed',
+            sniErrorCode: 'null_response',
+            sniStatus: 'null',
+            status: 'failed',
+            timing: availabilityTiming,
+          });
+          throw fallbackError;
+        }
       }
 
       // Convert SNI response to Axios response format
@@ -847,6 +873,13 @@ export function createIpTableAdapter(
 
       debugLog('[IpTableAdapter] Response data:', responseData);
 
+      reportIpTableAvailabilityResult({
+        fallbackStatus: 'not_attempted',
+        sniStatus: 'success',
+        status: 'success',
+        timing: availabilityTiming,
+      });
+
       return {
         data: responseData,
         status: sniResponse.statusCode ?? sniResponse.status ?? 0,
@@ -865,6 +898,14 @@ export function createIpTableAdapter(
           code: getErrorCode(error),
           messageClass: error instanceof Error ? error.name : typeof error,
           decision: 'throw_no_fallback',
+        });
+        reportIpTableAvailabilityResult({
+          errorCode: getAvailabilityErrorCode(error),
+          fallbackStatus: 'not_attempted',
+          sniErrorCode: getAvailabilityErrorCode(error),
+          sniStatus: 'fail_closed',
+          status: 'failed',
+          timing: availabilityTiming,
         });
         throw error;
       }
@@ -892,12 +933,32 @@ export function createIpTableAdapter(
         ),
       });
       // Fallback to domain (isFallback = true, so domain failure won't be counted)
-      return callOriginalAdapter({
-        config,
-        isFallback: true,
-        hostname,
-        rootDomain,
-      });
+      try {
+        const fallbackResponse = await callOriginalAdapter({
+          config,
+          isFallback: true,
+          hostname,
+          rootDomain,
+        });
+        reportIpTableAvailabilityResult({
+          fallbackStatus: 'success',
+          sniErrorCode: getAvailabilityErrorCode(error),
+          sniStatus: 'failed',
+          status: 'success',
+          timing: availabilityTiming,
+        });
+        return fallbackResponse;
+      } catch (fallbackError) {
+        reportIpTableAvailabilityResult({
+          errorCode: getAvailabilityErrorCode(fallbackError),
+          fallbackStatus: 'failed',
+          sniErrorCode: getAvailabilityErrorCode(error),
+          sniStatus: 'failed',
+          status: 'failed',
+          timing: availabilityTiming,
+        });
+        throw fallbackError;
+      }
     }
   };
 }

@@ -14,7 +14,13 @@ import type {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { ICloudBackupAvailabilityContext } from '@onekeyhq/shared/src/logger/scopes/cloudBackup/scenes/availability';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  getAvailabilityErrorCode,
+  getAvailabilityFailureStatus,
+} from '@onekeyhq/shared/src/request/availabilityMetrics';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -83,6 +89,43 @@ class ServiceCloudBackupV2 extends ServiceBase {
       this._backupProvider = new OneKeyBackupProvider(this.backgroundApi);
     }
     return this._backupProvider;
+  }
+
+  private getAvailabilityProvider(): ICloudBackupAvailabilityContext['provider'] {
+    if (platformEnv.isNativeAndroid) return 'google_drive';
+    if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) return 'icloud';
+    return 'unsupported';
+  }
+
+  private createAvailabilityContext(
+    operation: ICloudBackupAvailabilityContext['operation'],
+  ): ICloudBackupAvailabilityContext {
+    return {
+      attemptId: stringUtils.generateUUID(),
+      operation,
+      provider: this.getAvailabilityProvider(),
+    };
+  }
+
+  private reportAvailabilityFailure({
+    context,
+    error,
+    startedAt,
+  }: {
+    context: ICloudBackupAvailabilityContext;
+    error: unknown;
+    startedAt: number;
+  }) {
+    const failureStatus = getAvailabilityFailureStatus(error);
+    defaultLogger.cloudBackup.availability.operationResult({
+      ...context,
+      durationMs: Math.max(0, Date.now() - startedAt),
+      errorCode: getAvailabilityErrorCode(error),
+      status:
+        failureStatus === 'cancelled' || failureStatus === 'timeout'
+          ? failureStatus
+          : 'failed',
+    });
   }
 
   @backgroundMethod()
@@ -213,6 +256,28 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async backup(params: {
+    data: IPrimeTransferData;
+    password: string;
+  }): Promise<{ recordID: string; content: string }> {
+    const context = this.createAvailabilityContext('backup');
+    const startedAt = Date.now();
+    defaultLogger.cloudBackup.availability.operationAttempt(context);
+    try {
+      const result = await this._backup(params);
+      defaultLogger.cloudBackup.availability.operationResult({
+        ...context,
+        durationMs: Math.max(0, Date.now() - startedAt),
+        errorCode: 'unknown',
+        status: 'success',
+      });
+      return result;
+    } catch (error) {
+      this.reportAvailabilityFailure({ context, error, startedAt });
+      throw error;
+    }
+  }
+
+  private async _backup(params: {
     data: IPrimeTransferData;
     password: string;
   }): Promise<{ recordID: string; content: string }> {
@@ -371,6 +436,29 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async restore(params: {
+    payload: IBackupDataEncryptedPayload | undefined;
+    password: string;
+  }) {
+    const context = this.createAvailabilityContext('restore');
+    const startedAt = Date.now();
+    defaultLogger.cloudBackup.availability.operationAttempt(context);
+    try {
+      const result = await this._restore(params);
+      const isPartial = !result.success || result.errorsInfo.length > 0;
+      defaultLogger.cloudBackup.availability.operationResult({
+        ...context,
+        durationMs: Math.max(0, Date.now() - startedAt),
+        errorCode: isPartial ? 'partial_restore' : 'unknown',
+        status: isPartial ? 'partial' : 'success',
+      });
+      return result;
+    } catch (error) {
+      this.reportAvailabilityFailure({ context, error, startedAt });
+      throw error;
+    }
+  }
+
+  private async _restore(params: {
     payload: IBackupDataEncryptedPayload | undefined;
     password: string;
   }) {

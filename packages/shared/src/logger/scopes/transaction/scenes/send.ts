@@ -59,6 +59,21 @@ interface ISendPrivateOrderFinalStatusParams {
   duration: number | undefined;
 }
 
+export type ISendTransactionAvailabilityContext = {
+  attemptId: string;
+  isBatch: boolean;
+  isPrivateSend: boolean;
+  network: string;
+  signOnly: boolean | undefined;
+};
+
+type ISendTransactionResultParams = ISendTransactionAvailabilityContext & {
+  durationMs: number;
+  errorCode: string;
+  finalityLevel: 'client_signed' | 'client_submitted' | 'none';
+  status: 'cancelled' | 'failed' | 'success' | 'timeout';
+};
+
 export class SendScene extends BaseScene {
   private _sendFlowId: string | undefined;
 
@@ -77,6 +92,18 @@ export class SendScene extends BaseScene {
   clearFlow() {
     this._sendFlowId = undefined;
     this._addressInputMethod = undefined;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public sendTransactionAttempt(params: ISendTransactionAvailabilityContext) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public sendTransactionResult(params: ISendTransactionResultParams) {
+    return params;
   }
 
   @LogToLocal()

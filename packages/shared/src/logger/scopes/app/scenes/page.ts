@@ -1,9 +1,12 @@
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { ENotificationPushTopicTypes } from '@onekeyhq/shared/types/notification';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class PageScene extends BaseScene {
+  private readonly startupAttemptId = generateUUID();
+
   @LogToServer()
   @LogToLocal()
   public pageView(pageName: string) {
@@ -23,7 +26,12 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
-  public appStart() {}
+  public appStart() {
+    return {
+      startupAttemptId: this.startupAttemptId,
+      status: 'started' as const,
+    };
+  }
 
   @LogToLocal()
   public jsVersion(params: {
@@ -72,6 +80,9 @@ export class PageScene extends BaseScene {
   public jsReadyTime(duration: number) {
     return {
       duration,
+      durationMs: duration,
+      startupAttemptId: this.startupAttemptId,
+      status: 'success' as const,
     };
   }
 
@@ -80,6 +91,9 @@ export class PageScene extends BaseScene {
   public uiVisibleTime(duration: number) {
     return {
       duration,
+      durationMs: duration,
+      startupAttemptId: this.startupAttemptId,
+      status: 'success' as const,
     };
   }
 

@@ -30,6 +30,11 @@ import {
 import systemTimeUtils from '../utils/systemTimeUtils';
 
 import {
+  createApiAvailabilityTiming,
+  getAvailabilityFailureStatus,
+  reportApiAvailabilityResult,
+} from './availabilityMetrics';
+import {
   HEADER_REQUEST_ID_KEY,
   checkRequestIsOneKeyDomain,
   getRequestHeaders,
@@ -281,6 +286,7 @@ function logNetworkThrottleRequestTiming({
 }
 
 axios.interceptors.request.use(async (config) => {
+  config.$oneKeyAvailabilityTiming = createApiAvailabilityTiming(config);
   await ensureNativeNetworkThrottleSyncedBeforeRequest().catch(() => undefined);
 
   if (config.timeout === undefined) {
@@ -330,6 +336,12 @@ axios.interceptors.response.use(
   async (response) => {
     // Guard: if request was aborted, convert to CanceledError regardless of response
     if (response.config?.signal?.aborted) {
+      reportApiAvailabilityResult({
+        errorCode: axios.AxiosError.ERR_CANCELED,
+        method: response.config.method,
+        status: 'cancelled',
+        timing: response.config.$oneKeyAvailabilityTiming,
+      });
       throw new axios.CanceledError('canceled');
     }
     const { config } = response;
@@ -359,12 +371,28 @@ axios.interceptors.response.use(
           statusCode: response.status,
           responseCode: response.data?.code,
         });
+        reportApiAvailabilityResult({
+          httpStatusCode: response.status,
+          method: config.method,
+          responseCode: response.data?.code,
+          status:
+            response.data?.code === undefined || response.data?.code === 0
+              ? 'success'
+              : 'api_error',
+          timing: config.$oneKeyAvailabilityTiming,
+        });
         return response;
       }
     } catch (_e) {
       logNetworkThrottleRequestTiming({
         config,
         statusCode: response.status,
+      });
+      reportApiAvailabilityResult({
+        httpStatusCode: response.status,
+        method: config.method,
+        status: 'success',
+        timing: config.$oneKeyAvailabilityTiming,
       });
       return response;
     }
@@ -375,6 +403,13 @@ axios.interceptors.response.use(
       config,
       statusCode: response.status,
       responseCode: data.code,
+    });
+    reportApiAvailabilityResult({
+      httpStatusCode: response.status,
+      method: config.method,
+      responseCode: data.code,
+      status: data.code === 0 ? 'success' : 'api_error',
+      timing: config.$oneKeyAvailabilityTiming,
     });
 
     if ((config as any).autoHandleError !== false && data.code !== 0) {
@@ -443,9 +478,26 @@ axios.interceptors.response.use(
   async (error) => {
     // Guard: if request was aborted, convert to CanceledError regardless of error type
     if (error?.config?.signal?.aborted) {
+      reportApiAvailabilityResult({
+        errorCode: axios.AxiosError.ERR_CANCELED,
+        method: error.config.method,
+        status: 'cancelled',
+        timing: error.config.$oneKeyAvailabilityTiming,
+      });
       throw new axios.CanceledError('canceled');
     }
     const { response } = error;
+
+    reportApiAvailabilityResult({
+      errorCode: error?.code,
+      httpStatusCode: response?.status,
+      method: error?.config?.method,
+      responseCode: response?.data?.code,
+      status: response?.status
+        ? 'http_error'
+        : getAvailabilityFailureStatus(error),
+      timing: error?.config?.$oneKeyAvailabilityTiming,
+    });
 
     if (response?.status && response?.config) {
       const config = response.config;

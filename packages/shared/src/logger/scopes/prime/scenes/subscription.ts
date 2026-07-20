@@ -5,7 +5,36 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+export type IOneKeyIdLoginAvailabilityContext = {
+  attemptId: string;
+  method: 'keyless_oauth' | 'legacy_email';
+};
+
+type IOneKeyIdLoginResultParams = IOneKeyIdLoginAvailabilityContext & {
+  durationMs: number;
+  errorCode: string;
+  failureStage:
+    | 'local_commit'
+    | 'none'
+    | 'post_commit_cleanup'
+    | 'server_login'
+    | 'session_guard';
+  status: 'failed' | 'success' | 'timeout';
+};
+
 export class PrimeSubscriptionScene extends BaseScene {
+  @LogToServer()
+  @LogToLocal()
+  public onekeyIdLoginAttempt(params: IOneKeyIdLoginAvailabilityContext) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public onekeyIdLoginResult(params: IOneKeyIdLoginResultParams) {
+    return params;
+  }
+
   /**
    * Prime feature entry click
    * Triggered when a user clicks on any Prime feature entry point.

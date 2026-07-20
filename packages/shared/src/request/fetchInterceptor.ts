@@ -4,6 +4,11 @@ import { defaultLogger } from '../logger/logger';
 import { isEnableLogNetwork } from '../logger/scopes/app/scenes/networkFilter';
 import systemTimeUtils from '../utils/systemTimeUtils';
 
+import {
+  createApiAvailabilityTiming,
+  getAvailabilityFailureStatus,
+  reportApiAvailabilityResult,
+} from './availabilityMetrics';
 import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
 import requestHelper from './requestHelper';
 
@@ -54,6 +59,7 @@ const newFetch = async function (
   }
 
   const url = getUrlFromResource(resource);
+  const availabilityTiming = createApiAvailabilityTiming({ url });
   const isOneKeyDomain = await requestHelper.checkIsOneKeyDomain(url);
   let requestId: string | undefined;
   if (isOneKeyDomain) {
@@ -100,9 +106,22 @@ const newFetch = async function (
             requestId,
           });
         }
+        reportApiAvailabilityResult({
+          httpStatusCode: res.status,
+          method: options?.method,
+          status: res.ok ? 'success' : 'http_error',
+          timing: availabilityTiming,
+        });
         return res.clone();
       })
       .catch((e: unknown) => {
+        reportApiAvailabilityResult({
+          errorCode:
+            typeof e === 'object' && e && 'code' in e ? e.code : undefined,
+          method: options?.method,
+          status: getAvailabilityFailureStatus(e),
+          timing: availabilityTiming,
+        });
         if (e) {
           defaultLogger.app.network.error({
             requestType: 'fetch',

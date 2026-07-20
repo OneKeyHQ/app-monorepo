@@ -39,6 +39,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  getAvailabilityErrorCode,
+  getAvailabilityFailureStatus,
+} from '@onekeyhq/shared/src/request/availabilityMetrics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -602,6 +606,48 @@ class ServiceSend extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   public async batchSignAndSendTransaction(
+    params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
+  ) {
+    const context = {
+      attemptId: generateUUID(),
+      isBatch: params.unsignedTxs.length > 1,
+      isPrivateSend: params.transferPayload?.isPrivateSend === true,
+      network: params.networkId,
+      signOnly: params.signOnly,
+    };
+    const startedAt = Date.now();
+    defaultLogger.transaction.send.sendTransactionAttempt(context);
+
+    try {
+      const result = await this._batchSignAndSendTransaction(params);
+      defaultLogger.transaction.send.sendTransactionResult({
+        ...context,
+        durationMs: Date.now() - startedAt,
+        errorCode: 'none',
+        finalityLevel: params.signOnly ? 'client_signed' : 'client_submitted',
+        status: 'success',
+      });
+      return result;
+    } catch (error) {
+      const failureStatus = getAvailabilityFailureStatus(error);
+      let status: 'cancelled' | 'failed' | 'timeout' = 'failed';
+      if (isGasAccountSubmitCancelledError(error)) {
+        status = 'cancelled';
+      } else if (failureStatus === 'timeout') {
+        status = 'timeout';
+      }
+      defaultLogger.transaction.send.sendTransactionResult({
+        ...context,
+        durationMs: Date.now() - startedAt,
+        errorCode: getAvailabilityErrorCode(error),
+        finalityLevel: 'none',
+        status,
+      });
+      throw error;
+    }
+  }
+
+  private async _batchSignAndSendTransaction(
     params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
   ) {
     const {

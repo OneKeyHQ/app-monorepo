@@ -121,6 +121,10 @@ export class Analytics {
       this.deviceInfo.platform = headerPlatform;
       this.deviceInfo.appBuildNumber = platformEnv.buildNumber;
       this.deviceInfo.appVersion = platformEnv.version;
+      this.deviceInfo.runtimeScope =
+        platformEnv.runtimeRole === 'background'
+          ? 'bg'
+          : platformEnv.runtimeRole;
     }
     this.deviceInfo.pageName = this.basicInfo.pageName;
     return this.deviceInfo;
