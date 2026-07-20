@@ -6,6 +6,7 @@ import {
   Dialog,
   Icon,
   SizableText,
+  Toast,
   XStack,
   YStack,
   getDialogInstances,
@@ -33,7 +34,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  ERootRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IReceiveKytIntroEntryPoint } from '@onekeyhq/shared/types/kyt';
@@ -151,7 +156,28 @@ function isKytPurchaseSurfaceOpen() {
     return true;
   }
   const top = rootState.routes[rootState.index ?? 0];
-  return top?.name === ERootRoutes.WebView;
+  if (top?.name === ERootRoutes.WebView) {
+    return true;
+  }
+  // The Prime purchase WebView mounts as Modal -> WebViewModal
+  // (openUrlByWebviewPro), not under ERootRoutes.WebView. Right after
+  // navigate the nested state may not be materialized yet, so fall back to
+  // the pending params screen.
+  if (top?.name === ERootRoutes.Modal) {
+    const nestedRoutes = (
+      top.state as { routes?: { name: string }[] } | undefined
+    )?.routes;
+    if (nestedRoutes) {
+      return nestedRoutes.some(
+        (route) => route.name === EModalRoutes.WebViewModal,
+      );
+    }
+    return (
+      (top.params as { screen?: string } | undefined)?.screen ===
+      EModalRoutes.WebViewModal
+    );
+  }
+  return false;
 }
 
 function isKytHomeTabActuallyFocused() {
@@ -289,6 +315,18 @@ function useKYTIntroDialog() {
             onekeyUserIdRef.current !== targetUserId
           ) {
             await dialogInstance.close({ flag: 'accountChanged' });
+            return;
+          }
+          if (!result.kytEnabled) {
+            // The server acknowledged the request but left KYT disabled. Keep
+            // the dialog open so the user can retry instead of permanently
+            // marking the intro as shown for a feature that never turned on.
+            dialogInstance.preventClose();
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
             return;
           }
           await dialogInstance.close({ flag: 'confirm' });

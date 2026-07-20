@@ -63,13 +63,16 @@ const mockSetKytEnabled = jest.fn<
     applied: boolean;
     accountChanged: boolean;
     onekeyUserId: string;
+    kytEnabled?: boolean;
   }>,
   [{ enabled: boolean; onekeyUserId: string }]
 >(async ({ onekeyUserId }) => ({
   applied: true,
   accountChanged: false,
+  kytEnabled: true,
   onekeyUserId,
 }));
+const mockToastError = jest.fn<void, [unknown]>();
 const mockIntroFlowFailedLog = jest.fn();
 const mockPromptNotificationPermission = jest.fn<Promise<void>, [unknown]>(
   async () => undefined,
@@ -103,6 +106,9 @@ jest.mock('@onekeyhq/components', () => ({
   },
   Icon: () => null,
   SizableText: () => null,
+  Toast: {
+    error: (params: unknown) => mockToastError(params),
+  },
   XStack: () => null,
   YStack: () => null,
   getDialogInstances: () =>
@@ -218,6 +224,7 @@ type IDialogOptions = {
   onClose: (extra?: { flag?: string }) => void;
   onConfirm: (instance: {
     close: (extra?: { flag?: string }) => Promise<void>;
+    preventClose?: () => void;
   }) => Promise<void>;
 };
 
@@ -256,6 +263,7 @@ describe('KYTIntroOnMount', () => {
     mockSetKytEnabled.mockImplementation(async ({ onekeyUserId: userId }) => ({
       applied: true,
       accountChanged: false,
+      kytEnabled: true,
       onekeyUserId: userId,
     }));
   });
@@ -417,6 +425,42 @@ describe('KYTIntroOnMount', () => {
       onekeyUserId: 'user-a',
     });
     expect(mockDialogShow).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the dialog retryable when the server leaves KYT disabled', async () => {
+    mockSetKytEnabled.mockImplementationOnce(
+      async ({ onekeyUserId: userId }) => ({
+        applied: true,
+        accountChanged: false,
+        kytEnabled: false,
+        onekeyUserId: userId,
+      }),
+    );
+    render(<KYTIntroOnMount />);
+    act(() => {
+      emitPurchaseSuccess();
+    });
+    await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
+
+    const options = mockDialogShow.mock.calls[0][0] as IDialogOptions;
+    const close = jest.fn(async () => undefined);
+    const preventClose = jest.fn();
+    await act(async () => {
+      await options.onConfirm({ close, preventClose });
+    });
+
+    expect(preventClose).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
+    expect(mockToastError).toHaveBeenCalledTimes(1);
+    expect(mockPromptNotificationPermission).not.toHaveBeenCalled();
+    expect(mockCompleteClaim).not.toHaveBeenCalled();
+
+    // A retry from the still-open dialog succeeds and completes normally.
+    await act(async () => {
+      await options.onConfirm({ close, preventClose });
+    });
+    expect(close).toHaveBeenCalledWith({ flag: 'confirm' });
+    expect(mockPromptNotificationPermission).toHaveBeenCalledTimes(1);
   });
 
   it('retries a rejected eligibility claim without an unhandled rejection', async () => {

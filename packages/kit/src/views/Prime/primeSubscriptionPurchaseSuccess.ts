@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export type IPrimeSubscriptionPurchaseSuccessPayload =
   IAppEventBusPayload[EAppEventBusNames.PrimeSubscriptionPurchaseSuccess];
@@ -110,6 +111,13 @@ export function handlePrimePurchaseSuccessCloseRequest({
     preparePrimeSubscriptionPurchaseSuccess(onekeyUserId);
   pop();
   void (async () => {
-    await finishPrimeSubscriptionPurchaseSuccess(await preparePayloadPromise);
+    const payload = await preparePayloadPromise;
+    // Navigation state drops the modal route the moment pop() dispatches, so
+    // route checks cannot see the close animation. Hold the success event
+    // until the animation has finished to keep the KYT intro from mounting
+    // over the unmounting WebView modal (relevant when claim/refresh settle
+    // instantly, e.g. an immediate refresh failure).
+    await timerUtils.wait(350);
+    await finishPrimeSubscriptionPurchaseSuccess(payload);
   })();
 }

@@ -15,6 +15,7 @@ import {
   Spinner,
   Stack,
   Switch,
+  Toast,
   YStack,
   startViewTransition,
   useInModalDialog,
@@ -111,6 +112,17 @@ const SettingProtectionModal = () => {
           result.accountChanged ||
           onekeyUserIdRef.current !== targetUserId
         ) {
+          return;
+        }
+        if (value && !result.kytEnabled) {
+          // The server acknowledged the request but left KYT disabled — the
+          // switch stays off (the persisted map holds the server value), so
+          // surface the failure instead of continuing silently.
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
           return;
         }
         // Only prompt to enable notifications when turning KYT on; disabling
