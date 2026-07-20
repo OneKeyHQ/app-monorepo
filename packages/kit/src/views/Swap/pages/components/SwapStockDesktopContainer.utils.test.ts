@@ -195,6 +195,24 @@ describe('SwapStockDesktopContainer utils', () => {
     });
   });
 
+  it('keeps a cached current-scope chart visible while revalidating', () => {
+    const cachedChartData: IMarketTokenChart = [
+      [1_725_000_000, 310],
+      [1_725_003_600, 311],
+    ];
+
+    expect(
+      getStockChartDisplayState({
+        baseChartData: cachedChartData,
+        isChartStateForCurrentScope: true,
+        isLoading: true,
+      }),
+    ).toEqual({
+      chartData: cachedChartData,
+      shouldShowChartLoading: false,
+    });
+  });
+
   it('merges realtime stock points only after chart data matches the active range', () => {
     expect(
       getStockChartDisplayState({

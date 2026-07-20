@@ -85,6 +85,10 @@ import {
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type {
@@ -425,7 +429,9 @@ function useCurrentStockMarketDetail() {
 
   return {
     stockChannel,
-    tokenDetail: stockChannel.activeStockTokenDetail,
+    // Display may use the scope-safe SWR seed immediately; quote/action state
+    // continues to use activeStockTokenDetail and the fresh channel stage.
+    tokenDetail: stockChannel.displayStockTokenDetail,
     currentStockToken,
     tokenAddress: currentStockToken?.contractAddress,
     networkId: currentStockToken?.networkId,
@@ -1562,8 +1568,20 @@ function StockPriceChart({
   );
   const chartAssetScope = `${networkId ?? ''}:${tokenAddress ?? ''}:${
     isNative ? 'native' : 'token'
-  }:${normalizedCoinGeckoId ?? ''}`;
-  const chartScope = `${chartAssetScope}:${range}`;
+  }`;
+  const chartScope = swrKeys.swapStockChart({
+    networkId: networkId ?? '',
+    tokenAddress: tokenAddress ?? '',
+    isNative,
+    range,
+    requestCurrency: 'usd',
+  });
+  const chartCacheReady = Boolean(
+    networkId && (tokenAddress || isNative) && activeRange,
+  );
+  const chartRequestReady = Boolean(
+    chartCacheReady && normalizedCoinGeckoId && activeRange,
+  );
   const [visibleChartState, setVisibleChartState] = useState<IStockChartState>({
     assetScope: '',
     data: [],
@@ -1575,18 +1593,17 @@ function StockPriceChart({
   }, [chartScope]);
   const { result: chartState, isLoading } = usePromiseResult(
     async () => {
-      if (
-        !networkId ||
-        !normalizedCoinGeckoId ||
-        (!tokenAddress && !isNative) ||
-        !activeRange
-      ) {
-        return {
-          scope: chartScope,
-          assetScope: chartAssetScope,
-          range,
-          data: [] as IMarketTokenChart,
-        };
+      if (!chartRequestReady || !activeRange || !normalizedCoinGeckoId) {
+        return (
+          (chartCacheReady
+            ? swrCacheUtils.get<IStockChartState>(chartScope)
+            : undefined) ?? {
+            scope: chartScope,
+            assetScope: chartAssetScope,
+            range,
+            data: [] as IMarketTokenChart,
+          }
+        );
       }
       const timeTo = Math.floor(Date.now() / 1000);
       const timeFrom = timeTo - activeRange.seconds;
@@ -1610,12 +1627,11 @@ function StockPriceChart({
     [
       activeRange,
       chartAssetScope,
+      chartCacheReady,
+      chartRequestReady,
       chartScope,
-      isNative,
-      networkId,
       normalizedCoinGeckoId,
       range,
-      tokenAddress,
     ],
     {
       initResult: {
@@ -1624,28 +1640,39 @@ function StockPriceChart({
         range,
         data: [] as IMarketTokenChart,
       },
+      swrKey: chartCacheReady ? chartScope : undefined,
+      // A missing CoinGecko lookup id is a request-readiness gap, not a real
+      // empty chart response. Keep the existing display snapshot untouched
+      // until the request can actually run.
+      swrShouldPersist: () => chartRequestReady,
       watchLoading: true,
     },
   );
+  const chartStateMatchesCurrentScope =
+    chartState.scope === chartScope &&
+    chartState.assetScope === chartAssetScope;
   useEffect(() => {
-    if (
-      chartState.scope === chartScope &&
-      chartState.assetScope === chartAssetScope
-    ) {
+    if (chartStateMatchesCurrentScope) {
       setVisibleChartState(chartState);
     }
-  }, [chartAssetScope, chartScope, chartState]);
+  }, [chartState, chartStateMatchesCurrentScope]);
+  // A matching SWR snapshot is available during render. Prefer it directly so
+  // remounting Stock does not spend one painted frame on the local empty state
+  // while the effect mirrors the cached result.
+  const displayChartState = chartStateMatchesCurrentScope
+    ? chartState
+    : visibleChartState;
   const isVisibleChartStateForCurrentAsset =
-    visibleChartState.assetScope === chartAssetScope;
+    displayChartState.assetScope === chartAssetScope;
   const isVisibleChartStateForCurrentScope =
     isVisibleChartStateForCurrentAsset &&
-    visibleChartState.scope === chartScope;
+    displayChartState.scope === chartScope;
   const visibleRange = isVisibleChartStateForCurrentAsset
-    ? visibleChartState.range
+    ? displayChartState.range
     : range;
   const baseChartData = useMemo<IMarketTokenChart>(
-    () => (isVisibleChartStateForCurrentAsset ? visibleChartState.data : []),
-    [isVisibleChartStateForCurrentAsset, visibleChartState.data],
+    () => (isVisibleChartStateForCurrentAsset ? displayChartState.data : []),
+    [displayChartState.data, isVisibleChartStateForCurrentAsset],
   );
   const { chartData, shouldShowChartLoading } = useMemo(
     () =>
@@ -2099,24 +2126,34 @@ function useSwapStockRecentTokenPairs() {
       ),
     [swapHistoryPendingList],
   );
-  const { result: swapTxHistoryList } = usePromiseResult(async () => {
+  const { result: swapTxHistoryList } = usePromiseResult(
+    async () => {
+      if (!shouldShowSwapLocalData) {
+        return [];
+      }
+      const histories =
+        await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
+      return histories;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stockPendingKey, shouldShowSwapLocalData],
+    {
+      // Share the persisted history snapshot used by ordinary Swap. Stock can
+      // derive its own protocol-filtered pairs synchronously on every remount,
+      // then refresh the full history list in the background.
+      swrKey: swrKeys.swapHistoryPreviewList(),
+    },
+  );
+
+  return useMemo(() => {
     if (!shouldShowSwapLocalData) {
       return [];
     }
-    const histories =
-      await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
-    return histories;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stockPendingKey, shouldShowSwapLocalData]);
-
-  return useMemo(
-    () =>
-      buildSwapRecentTokenPairsFromHistory({
-        items: swapTxHistoryList ?? [],
-        protocol: EProtocolOfExchange.STOCK,
-      }),
-    [swapTxHistoryList],
-  );
+    return buildSwapRecentTokenPairsFromHistory({
+      items: swapTxHistoryList ?? [],
+      protocol: EProtocolOfExchange.STOCK,
+    });
+  }, [shouldShowSwapLocalData, swapTxHistoryList]);
 }
 
 function SwapStockDesktopContent({

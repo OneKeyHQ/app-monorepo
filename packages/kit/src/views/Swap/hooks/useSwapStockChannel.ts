@@ -32,7 +32,10 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSelectTokenSource } from '@onekeyhq/shared/types/swap/types';
 
-import { isStockTokenDetailStateLanded } from '../utils/stockTokenDetailFreshness';
+import {
+  getStockTokenDetailDisplaySeed,
+  isStockTokenDetailStateLanded,
+} from '../utils/stockTokenDetailFreshness';
 import {
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_DEFAULT,
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
@@ -328,6 +331,12 @@ export function useSwapStockChannel() {
       enabled: !!currentStockTokenKey,
       tokenDetail: stockTokenDetail,
     });
+  const cachedStockTokenDetail = getStockTokenDetailDisplaySeed({
+    state: stockTokenDetailState,
+    scope: stockTokenDetailScope,
+  });
+  const displayStockTokenDetail =
+    activeStockTokenDetail ?? cachedStockTokenDetail;
   const disableNativePayToken = isOndoStockSource(
     activeStockTokenDetail?.stock?.source,
   );
@@ -727,6 +736,7 @@ export function useSwapStockChannel() {
       stockMarketStatus,
       stockPerpsInfo,
       activeStockTokenDetail,
+      displayStockTokenDetail,
       realtimeChartPoint,
       currentStockToken,
       payToken,
@@ -764,6 +774,7 @@ export function useSwapStockChannel() {
       switchTradeSide,
       speedConfigReady,
       activeStockTokenDetail,
+      displayStockTokenDetail,
       stockMarketStatus,
       stockNetworkId,
       stockPerpsInfo,
