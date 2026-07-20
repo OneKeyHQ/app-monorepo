@@ -110,12 +110,12 @@ import {
 import type {
   IFetchQuoteInfo,
   IFetchQuoteResult,
-  IFetchQuotesParams,
   ISwapQuoteEvent,
   ISwapQuoteEventAutoSlippage,
   ISwapQuoteEventData,
   ISwapQuoteEventError,
   ISwapQuoteEventInfo,
+  ISwapQuoteEventPayload,
   ISwapQuoteEventQuoteResult,
   ISwapToken,
   ISwapTxHistory,
@@ -220,13 +220,7 @@ type IPrivateSendBuildCtx = {
   payinAddress?: unknown;
 };
 
-type IPrivateSendQuoteEvent = {
-  type: 'message' | 'done' | 'error' | 'close' | 'open';
-  event: ISwapQuoteEvent;
-  params: IFetchQuotesParams;
-  accountId?: string;
-  tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-};
+type IPrivateSendQuoteEvent = ISwapQuoteEventPayload;
 
 type IPrivateSendQuoteEventRequest = {
   fromToken: ISwapToken;

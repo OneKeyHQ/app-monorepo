@@ -494,6 +494,10 @@ export default class ServiceSwap extends ServiceBase {
 
   private _quoteEventSourcePolyfill?: EventSourcePolyfill;
 
+  private _activeQuoteEventRequestId?: string;
+
+  private _quoteEventRequestSequence = 0;
+
   private _tokenDetailAbortControllerMap: Record<
     ESwapDirectionType,
     AbortController | undefined
@@ -577,10 +581,19 @@ export default class ServiceSwap extends ServiceBase {
     if (this._quoteEventSource) {
       this._quoteEventSource.removeAllEventListeners();
     }
+    if (this._quoteEventSourcePolyfill) {
+      this._quoteEventSourcePolyfill.onmessage = null;
+      this._quoteEventSourcePolyfill.onerror = null;
+      this._quoteEventSourcePolyfill.onopen = null;
+    }
   }
 
   @backgroundMethod()
-  async cancelFetchQuoteEvents() {
+  async cancelFetchQuoteEvents(quoteRequestId?: string) {
+    if (quoteRequestId && quoteRequestId !== this._activeQuoteEventRequestId) {
+      return;
+    }
+    this._activeQuoteEventRequestId = undefined;
     if (this._quoteEventSource) {
       this._quoteEventSource.close();
       this._quoteEventSource = undefined;
@@ -985,7 +998,12 @@ export default class ServiceSwap extends ServiceBase {
     kind,
     toTokenAmount,
     userMarketPriceRate,
+    quoteRequestId: inputQuoteRequestId,
   }: IFetchSwapQuoteParams) {
+    const quoteRequestId =
+      inputQuoteRequestId ??
+      `service-quote-${Date.now()}-${(this._quoteEventRequestSequence += 1)}`;
+    this._activeQuoteEventRequestId = quoteRequestId;
     await this.removeQuoteEventSourceListeners();
     const denyCrossChainProvider = await this.getDenyCrossChainProvider(
       fromToken.networkId,
@@ -1044,15 +1062,19 @@ export default class ServiceSwap extends ServiceBase {
       swapEventUrl,
       headers as Record<string, string>,
     );
+    if (this._activeQuoteEventRequestId !== quoteRequestId) {
+      return;
+    }
     if (platformEnv.isExtension) {
       if (this._quoteEventSourcePolyfill) {
         this._quoteEventSourcePolyfill.close();
         this._quoteEventSourcePolyfill = undefined;
       }
-      this._quoteEventSourcePolyfill = new EventSourcePolyfill(swapEventUrl, {
+      const quoteEventSourcePolyfill = new EventSourcePolyfill(swapEventUrl, {
         headers: headers as Record<string, string>,
       });
-      this._quoteEventSourcePolyfill.onmessage = (event) => {
+      this._quoteEventSourcePolyfill = quoteEventSourcePolyfill;
+      quoteEventSourcePolyfill.onmessage = (event) => {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'message',
           event: {
@@ -1064,9 +1086,10 @@ export default class ServiceSwap extends ServiceBase {
           params,
           tokenPairs: { fromToken, toToken },
           accountId,
+          quoteRequestId,
         });
       };
-      this._quoteEventSourcePolyfill.onerror = async (event) => {
+      quoteEventSourcePolyfill.onerror = async (event) => {
         const errorEvent = event as {
           error?: string;
           type: string;
@@ -1079,6 +1102,7 @@ export default class ServiceSwap extends ServiceBase {
             params,
             accountId,
             tokenPairs: { fromToken, toToken },
+            quoteRequestId,
           });
         } else {
           appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
@@ -1086,23 +1110,25 @@ export default class ServiceSwap extends ServiceBase {
             event: {
               type: 'error',
               message: errorEvent.error,
-              xhrState: this._quoteEventSourcePolyfill?.readyState ?? 0,
-              xhrStatus: this._quoteEventSourcePolyfill?.readyState ?? 0,
+              xhrState: quoteEventSourcePolyfill.readyState,
+              xhrStatus: quoteEventSourcePolyfill.readyState,
             },
             params,
             accountId,
             tokenPairs: { fromToken, toToken },
+            quoteRequestId,
           });
         }
-        await this.cancelFetchQuoteEvents();
+        await this.cancelFetchQuoteEvents(quoteRequestId);
       };
-      this._quoteEventSourcePolyfill.onopen = () => {
+      quoteEventSourcePolyfill.onopen = () => {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'open',
           event: { type: 'open' },
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
+          quoteRequestId,
         });
       };
     } else {
@@ -1123,6 +1149,7 @@ export default class ServiceSwap extends ServiceBase {
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
+          quoteRequestId,
         });
       });
       this._quoteEventSource.addEventListener('message', (event) => {
@@ -1132,6 +1159,7 @@ export default class ServiceSwap extends ServiceBase {
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
+          quoteRequestId,
         });
       });
       this._quoteEventSource.addEventListener('done', (event) => {
@@ -1141,6 +1169,7 @@ export default class ServiceSwap extends ServiceBase {
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
+          quoteRequestId,
         });
       });
       this._quoteEventSource.addEventListener('close', (event) => {
@@ -1150,6 +1179,7 @@ export default class ServiceSwap extends ServiceBase {
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
+          quoteRequestId,
         });
       });
       this._quoteEventSource.addEventListener('error', (event) => {
@@ -1159,6 +1189,7 @@ export default class ServiceSwap extends ServiceBase {
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
+          quoteRequestId,
         });
       });
     }
