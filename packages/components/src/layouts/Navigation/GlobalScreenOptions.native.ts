@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import type { VariableVal } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  type VariableVal,
+  getTokenValue,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EPageType } from '../../hocs';
@@ -17,7 +20,7 @@ export function clearStackNavigatorOptions(options?: {
   return {
     headerShown: false,
     animation: 'none',
-    ...(options?.bgColor
+    ...(platformEnv.isNativeAndroid && options?.bgColor
       ? { contentStyle: { backgroundColor: options.bgColor } }
       : undefined),
   };
@@ -190,11 +193,11 @@ export function makeFullScreenOptions(): IStackNavigationOptions {
 }
 
 export function makeOnboardingScreenOptions({
-  bgColor,
+  hasDarkBackground,
 }: {
   isVerticalLayout?: boolean;
   optionsInfo: IScreenOptionsInfo<any>;
-  bgColor?: string;
+  hasDarkBackground?: boolean;
 }): IStackNavigationOptions {
   const options: IStackNavigationOptions = {
     headerShown: false,
@@ -202,10 +205,14 @@ export function makeOnboardingScreenOptions({
     gestureEnabled: platformEnv.isNativeIOS,
     gestureDirection: 'horizontal',
     animation: 'slide_from_right',
-    ...(bgColor ? { contentStyle: { backgroundColor: bgColor } } : undefined),
   };
   if (platformEnv.isNativeAndroid) {
     options.animation = 'none';
+    if (hasDarkBackground) {
+      options.contentStyle = {
+        backgroundColor: getTokenValue('$bgAppDark', 'color'),
+      };
+    }
   }
   return options;
 }

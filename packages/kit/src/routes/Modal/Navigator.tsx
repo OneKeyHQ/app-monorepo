@@ -83,14 +83,21 @@ export function OnboardingNavigator() {
       setGlassHeaderUIStyle(appGlassStyleRef.current);
     };
   }, []);
+  const navigator = (
+    <RootModalNavigator<EOnboardingV2Routes>
+      config={onboardingRouterV2Config}
+      pageType={EPageType.onboarding}
+    />
+  );
   return (
     <Theme name="dark">
-      <Stack flex={1} bg="$bgApp">
-        <RootModalNavigator<EOnboardingV2Routes>
-          config={onboardingRouterV2Config}
-          pageType={EPageType.onboarding}
-        />
-      </Stack>
+      {platformEnv.isNativeAndroid ? (
+        <Stack flex={1} bg="$bgApp">
+          {navigator}
+        </Stack>
+      ) : (
+        navigator
+      )}
     </Theme>
   );
 }

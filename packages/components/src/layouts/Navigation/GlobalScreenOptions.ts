@@ -140,7 +140,7 @@ export function makeModalScreenOptions(info: {
 export function makeOnboardingScreenOptions(info: {
   isVerticalLayout?: boolean;
   optionsInfo: IScreenOptionsInfo<any>;
-  bgColor?: string;
+  hasDarkBackground?: boolean;
 }): StackNavigationOptions {
   return {
     detachPreviousScreen: false,

@@ -77,10 +77,9 @@ const useUpdateRootViewBackgroundColor = (
   themeSetting?: 'light' | 'dark' | 'system',
 ) => {
   useEffect(() => {
-    // Native decor/system-bar background ownership is centralized in
-    // useSystemUI so focused route overrides cannot race this app-level write.
-    // Web/desktop still use this path for meta theme-color and host chrome.
-    if (!platformEnv.isNative) {
+    // Android decor/system-bar ownership is centralized in useSystemUI so
+    // focused route overrides cannot race this app-level write.
+    if (!platformEnv.isNativeAndroid) {
       updateRootViewBackgroundColor(color, themeVariant, themeSetting);
     }
   }, [color, themeVariant, themeSetting]);

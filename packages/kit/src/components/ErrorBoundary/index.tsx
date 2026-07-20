@@ -22,15 +22,8 @@ type IErrorBoundaryProps = {
 type IErrorBoundaryState = { error: Error | null };
 
 const errorSafeAreaStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-  },
   androidContent: {
+    flex: 1,
     paddingTop: StatusBar.currentHeight ?? 24,
     // Keep the crash fallback independent from native safe-area components.
     // 48dp covers Android's largest standard three-button navigation inset,
@@ -41,18 +34,10 @@ const errorSafeAreaStyles = StyleSheet.create({
 });
 
 function ErrorSafeArea({ children }: { children: React.ReactNode }) {
-  return (
-    <SafeAreaView style={errorSafeAreaStyles.container}>
-      <View
-        style={[
-          errorSafeAreaStyles.content,
-          Platform.OS === 'android' && errorSafeAreaStyles.androidContent,
-        ]}
-      >
-        {children}
-      </View>
-    </SafeAreaView>
-  );
+  if (Platform.OS === 'android') {
+    return <View style={errorSafeAreaStyles.androidContent}>{children}</View>;
+  }
+  return <SafeAreaView>{children}</SafeAreaView>;
 }
 
 class ErrorBoundaryBase extends PureComponent<
