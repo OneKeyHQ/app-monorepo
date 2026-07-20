@@ -99,6 +99,7 @@ interface IChartColors {
 
 interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
+  chartPictureVersion: number;
   isSwitchingInterval: boolean;
   onVisiblePointRangeChange?: (
     range: ITradingViewNativeVisiblePointRange,

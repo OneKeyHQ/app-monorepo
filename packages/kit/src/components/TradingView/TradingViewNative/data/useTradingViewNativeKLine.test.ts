@@ -317,9 +317,11 @@ describe('TradingViewNative K-line data state machine', () => {
     await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
     expect(result.current.dataState.status).toBe('live');
     pushRealtimePoint({ o: 100, h: 106, l: 99, c: 105, v: 12, t: 100 });
+    expect(result.current.chartPictureVersion).toBe(0);
     pushRealtimePoint({ o: 105, h: 111, l: 104, c: 110, v: 8, t: 200 });
 
     expect(result.current.points.map((point) => point.c)).toEqual([105, 110]);
+    expect(result.current.chartPictureVersion).toBe(1);
     expect(result.current.dataState.status).toBe('live');
     expect(handleRealtimePoint).toHaveBeenNthCalledWith(1, {
       o: 100,

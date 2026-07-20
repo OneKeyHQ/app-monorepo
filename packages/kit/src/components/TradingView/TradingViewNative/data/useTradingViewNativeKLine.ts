@@ -20,7 +20,6 @@ import type { ITradingViewNativeRealtimeSubscription } from './tradingViewNative
 import type { ITradingViewNativeChartInterval } from './tradingViewNativeIntervals';
 import type {
   ITradingViewNativeDataState,
-  ITradingViewNativeMarketHistorySource,
   ITradingViewNativeSource,
 } from '../types';
 
@@ -33,6 +32,7 @@ const REALTIME_STALE_THRESHOLD = 60_000;
 let realtimeSubscriberSequence = 0;
 
 interface IChartData {
+  chartPictureVersion: number;
   interval: ITradingViewNativeChartInterval;
   seriesKey: string;
   points: IMarketTokenKLineDataPoint[];
@@ -107,19 +107,27 @@ function mergeRealtimePoint(
   points: IMarketTokenKLineDataPoint[],
   realtimePoint: IMarketTokenKLineDataPoint,
 ) {
-  const existingPointIndex = points.findIndex(
-    (point) => point.t === realtimePoint.t,
-  );
+  const latestPointIndex = points.length - 1;
+  const existingPointIndex =
+    points[latestPointIndex]?.t === realtimePoint.t
+      ? latestPointIndex
+      : points.findIndex((point) => point.t === realtimePoint.t);
   if (existingPointIndex === -1) {
-    return normalizeKLinePoints([...points, realtimePoint]);
+    return {
+      didChangeHistoricalPoints: true,
+      points: normalizeKLinePoints([...points, realtimePoint]),
+    };
   }
   if (areKLinePointsEqual(points[existingPointIndex], realtimePoint)) {
-    return points;
+    return { didChangeHistoricalPoints: false, points };
   }
 
   const nextPoints = [...points];
   nextPoints[existingPointIndex] = realtimePoint;
-  return nextPoints;
+  return {
+    didChangeHistoricalPoints: existingPointIndex !== latestPointIndex,
+    points: nextPoints,
+  };
 }
 
 function bufferRealtimePoint(
@@ -256,16 +264,6 @@ export function useTradingViewNativeKLine({
   const marketSymbol = source.kind === 'market' ? source.symbol : '';
   const marketRealtime =
     source.kind === 'market' ? source.realtime : 'disabled';
-  const marketHistoryProvider =
-    source.kind === 'market' ? source.history?.provider : undefined;
-  const marketCoinGeckoId =
-    source.kind === 'market' && source.history?.provider === 'coinGecko'
-      ? source.history.coinGeckoId
-      : '';
-  const marketFallbackCoinGeckoId =
-    source.kind === 'market' && source.history?.provider === 'market'
-      ? (source.history.fallback?.coinGeckoId ?? '')
-      : '';
   const provider = useMemo(() => {
     if (sourceKind === 'hyperliquid') {
       return createTradingViewNativeDataProvider({
@@ -275,35 +273,16 @@ export function useTradingViewNativeKLine({
       });
     }
 
-    let history: ITradingViewNativeMarketHistorySource | undefined;
-    if (marketHistoryProvider === 'coinGecko') {
-      history = {
-        provider: 'coinGecko',
-        coinGeckoId: marketCoinGeckoId,
-      };
-    } else if (marketFallbackCoinGeckoId) {
-      history = {
-        provider: 'market',
-        fallback: {
-          provider: 'coinGecko',
-          coinGeckoId: marketFallbackCoinGeckoId,
-        },
-      };
-    }
     return createTradingViewNativeDataProvider({
       kind: 'market',
       networkId: marketNetworkId,
       tokenAddress: marketTokenAddress,
       symbol: marketSymbol,
       realtime: marketRealtime,
-      ...(history ? { history } : {}),
     });
   }, [
     hyperliquidCoin,
     hyperliquidEnvironment,
-    marketCoinGeckoId,
-    marketFallbackCoinGeckoId,
-    marketHistoryProvider,
     marketNetworkId,
     marketRealtime,
     marketSymbol,
@@ -529,6 +508,7 @@ export function useTradingViewNativeKLine({
                 }
                 return {
                   ...currentData,
+                  chartPictureVersion: currentData.chartPictureVersion + 1,
                   points: mergeKLinePoints(currentData.points, olderPoints),
                 };
               });
@@ -601,16 +581,23 @@ export function useTradingViewNativeKLine({
 
         if (!currentChartData || currentChartData.seriesKey !== seriesKey) {
           return {
+            chartPictureVersion: 0,
             interval: activeInterval,
             seriesKey,
             points: [point],
           };
         }
 
-        const points = mergeRealtimePoint(currentChartData.points, point);
-        return points === currentChartData.points
+        const mergeResult = mergeRealtimePoint(currentChartData.points, point);
+        return mergeResult.points === currentChartData.points
           ? currentChartData
-          : { ...currentChartData, points };
+          : {
+              ...currentChartData,
+              chartPictureVersion:
+                currentChartData.chartPictureVersion +
+                (mergeResult.didChangeHistoricalPoints ? 1 : 0),
+              points: mergeResult.points,
+            };
       });
     },
     [activeInterval, seriesKey],
@@ -902,6 +889,11 @@ export function useTradingViewNativeKLine({
             pagination.earliestTimestamp = nextPoints[0]?.t;
           }
           setChartData((currentData) => ({
+            chartPictureVersion:
+              currentData?.seriesKey === seriesKey &&
+              currentData.interval === requestedInterval.value
+                ? currentData.chartPictureVersion + 1
+                : 0,
             interval: requestedInterval.value,
             seriesKey,
             points:
@@ -978,6 +970,7 @@ export function useTradingViewNativeKLine({
   );
   return {
     candleIntervalSeconds: displayedInterval.seconds,
+    chartPictureVersion: visibleChartData?.chartPictureVersion ?? 0,
     dataProviderKey: seriesKey,
     dataState,
     handleIntervalChange,

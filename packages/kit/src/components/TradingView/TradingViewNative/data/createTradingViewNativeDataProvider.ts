@@ -10,8 +10,6 @@ import {
 } from '@onekeyhq/shared/src/utils/marketWsUtils';
 import type { IMarketWsDataUpdatePayload } from '@onekeyhq/shared/types/marketV2';
 
-import { createCoinGeckoKLineDataFetcher } from './coinGeckoKLineData';
-import { getCoinGeckoHistoryRequestCandleCount } from './coinGeckoKLineUtils';
 import { getTradingViewNativeSourceKey } from './getTradingViewNativeSource';
 import { logTradingViewNativeDataError } from './tradingViewNativeDataLogger';
 import { tradingViewNativeHyperliquidGateway } from './tradingViewNativeHyperliquidGateway';
@@ -36,19 +34,6 @@ function normalizeMarketWsSymbol(symbol: string) {
 function createMarketDataProvider(
   source: Extract<ITradingViewNativeSource, { kind: 'market' }>,
 ): ITradingViewNativeDataProvider {
-  const historySource = source.history ?? { provider: 'market' as const };
-  const coinGeckoHistorySource =
-    historySource.provider === 'coinGecko'
-      ? historySource
-      : historySource.fallback;
-  const normalizedCoinGeckoId =
-    coinGeckoHistorySource?.coinGeckoId.trim() ?? '';
-  const fetchCoinGeckoHistory = normalizedCoinGeckoId
-    ? createCoinGeckoKLineDataFetcher(normalizedCoinGeckoId)
-    : undefined;
-  let primaryHistoryUnavailable = false;
-  const isCoinGeckoHistoryActive = () =>
-    historySource.provider === 'coinGecko' || primaryHistoryUnavailable;
   const subscriptionBase = {
     networkId: source.networkId,
     tokenAddress: source.tokenAddress,
@@ -57,26 +42,16 @@ function createMarketDataProvider(
   };
 
   return {
-    getHistoryRequestCandleCount: (interval) =>
-      isCoinGeckoHistoryActive()
-        ? getCoinGeckoHistoryRequestCandleCount(interval)
-        : MARKET_HISTORY_REQUEST_CANDLE_COUNT,
+    getHistoryRequestCandleCount: () => MARKET_HISTORY_REQUEST_CANDLE_COUNT,
     hasMoreHistory: ({ receivedPointCount }) =>
-      !isCoinGeckoHistoryActive() &&
       receivedPointCount >= MARKET_HISTORY_BATCH_SIZE,
     isReady: Boolean(
-      source.networkId &&
-      (source.tokenAddress || source.symbol) &&
-      (historySource.provider !== 'coinGecko' || fetchCoinGeckoHistory),
+      source.networkId && (source.tokenAddress || source.symbol),
     ),
     key: getTradingViewNativeSourceKey(source),
     supportsRealtime: source.realtime === 'websocket',
     fetchHistory: async (request) => {
-      if (historySource.provider === 'coinGecko') {
-        return fetchCoinGeckoHistory?.(request) ?? null;
-      }
-
-      const { interval, signal, timeFrom, timeTo } = request;
+      const { interval, timeFrom, timeTo } = request;
       return fetchMarketKLineData({
         tokenAddress: source.tokenAddress,
         networkId: source.networkId,
@@ -84,24 +59,6 @@ function createMarketDataProvider(
         timeFrom,
         timeTo,
         autoHandleError: false,
-        ...(fetchCoinGeckoHistory
-          ? {
-              kLineDataFallback: (fallbackRequest: {
-                timeFrom: number;
-                timeTo: number;
-              }) =>
-                fetchCoinGeckoHistory({
-                  interval,
-                  signal,
-                  timeFrom: fallbackRequest.timeFrom,
-                  timeTo: fallbackRequest.timeTo,
-                }),
-              onPrimaryKLineDataUnavailable: () => {
-                primaryHistoryUnavailable = true;
-              },
-              primaryKLineDataUnavailable: primaryHistoryUnavailable,
-            }
-          : {}),
       });
     },
     subscribeRealtime: async ({

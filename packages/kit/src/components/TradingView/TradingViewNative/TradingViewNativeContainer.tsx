@@ -42,6 +42,7 @@ export const TradingViewNativeContainer = memo(
     );
     const {
       candleIntervalSeconds,
+      chartPictureVersion,
       dataProviderKey,
       dataState,
       points,
@@ -118,6 +119,7 @@ export const TradingViewNativeContainer = memo(
           <TradingViewNativeChart
             key={`${dataProviderKey}:${candleIntervalSeconds}`}
             candleIntervalSeconds={candleIntervalSeconds}
+            chartPictureVersion={chartPictureVersion}
             isSwitchingInterval={isSwitchingInterval}
             onVisiblePointRangeChange={handleVisiblePointRangeChange}
             points={points}

@@ -12,6 +12,7 @@ import {
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
+  getTradingViewNativeVolumeBarHeight,
   getTradingViewNativeVolumeScale,
   getTradingViewNativeWatermarkLayout,
 } from './chartLayout';
@@ -144,6 +145,24 @@ describe('TradingViewNative chart layout', () => {
         visibleMaxVolume: 0,
       }),
     ).toBe(1);
+  });
+
+  it('preserves small volume ratios before applying the visible scale', () => {
+    const baseMaxVolume = 1000;
+    const visibleScale = getTradingViewNativeVolumeScale({
+      baseMaxVolume,
+      visibleMaxVolume: 10,
+    });
+    const scaledHeights = [1, 5, 10].map(
+      (volume) =>
+        getTradingViewNativeVolumeBarHeight({
+          maxVolume: baseMaxVolume,
+          volume,
+          volumeHeight: 100,
+        }) * visibleScale,
+    );
+
+    expect(scaledHeights).toEqual([10, 50, 100]);
   });
 
   it('maps a static price picture into the visible price range', () => {

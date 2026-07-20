@@ -202,6 +202,22 @@ export function getTradingViewNativeVolumeScale({
     : 1;
 }
 
+export function getTradingViewNativeVolumeBarHeight({
+  maxVolume,
+  volume,
+  volumeHeight,
+}: {
+  maxVolume: number;
+  volume: number;
+  volumeHeight: number;
+}) {
+  'worklet';
+
+  return maxVolume > 0 && volume > 0 && volumeHeight > 0
+    ? (volume / maxVolume) * volumeHeight
+    : 0;
+}
+
 function padTimeAxisValue(value: number) {
   return value.toString().padStart(2, '0');
 }

@@ -28,6 +28,7 @@ const mockUseTradingViewNativeKLine = jest.fn(
     mockRealtimePointListener = onRealtimePoint;
     return {
       candleIntervalSeconds: 3600,
+      chartPictureVersion: 0,
       dataProviderKey: mockDataProviderKey,
       dataState: mockDataState,
       handleIntervalChange: jest.fn(),
