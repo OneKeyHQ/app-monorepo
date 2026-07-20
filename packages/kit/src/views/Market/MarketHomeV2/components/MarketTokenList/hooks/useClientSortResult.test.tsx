@@ -35,17 +35,37 @@ describe('useClientSortResult', () => {
     expect(result.current.initialSortType).toBeUndefined();
   });
 
-  it('clears sort state when resetKey changes', () => {
-    const { result, rerender } = renderHook(
-      ({ resetKey }) => useClientSortResult(baseResult, { resetKey }),
-      { initialProps: { resetKey: 0 } },
+  it('reads sort from the external store when one is supplied', () => {
+    const { result } = renderHook(() =>
+      useClientSortResult(baseResult, {
+        externalSort: {
+          sortBy: 'turnover',
+          sortType: 'desc',
+          onChange: jest.fn(),
+        },
+      }),
+    );
+    expect(result.current.currentSortBy).toBe('turnover');
+    expect(result.current.currentSortType).toBe('desc');
+  });
+
+  // Guards the chip<->header sync: the header writes sortBy and sortType in
+  // two consecutive calls, so the second must merge onto the first rather than
+  // overwrite it from a stale render snapshot.
+  it('merges consecutive external sort writes', () => {
+    let store: { sortBy?: string; sortType?: 'asc' | 'desc' } = {};
+    const onChange = jest.fn(
+      (updater: (prev: typeof store) => typeof store) => {
+        store = updater(store);
+      },
+    );
+    const { result } = renderHook(() =>
+      useClientSortResult(baseResult, { externalSort: { ...store, onChange } }),
     );
     act(() => {
-      result.current.setSortBy('price');
+      result.current.setSortBy('marketCap');
       result.current.setSortType('asc');
     });
-    rerender({ resetKey: 1 });
-    expect(result.current.currentSortBy).toBeUndefined();
-    expect(result.current.currentSortType).toBeUndefined();
+    expect(store).toEqual({ sortBy: 'marketCap', sortType: 'asc' });
   });
 });

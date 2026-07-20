@@ -7,15 +7,19 @@ export {
 export {
   MARKET_FILTER_DIMENSIONS,
   MARKET_FILTER_DIMENSION_MAP,
-  MARKET_FILTER_PRESETS,
+  MARKET_FILTER_CHIPS,
   buildHotTokenFilterParams,
   getMarketFilterOption,
 } from './marketListFilterConfig';
-export { EMarketFilterDimension } from './marketListFilterTypes';
+export {
+  EMarketChipKind,
+  EMarketFilterDimension,
+} from './marketListFilterTypes';
 export type {
+  IMarketFilterChip,
   IMarketFilterDimensionConfig,
   IMarketFilterOption,
-  IMarketFilterPreset,
+  IMarketFilterSelection,
   IMarketListFilterConditions,
   IMarketListFilterContextValue,
   IMarketListFilterState,

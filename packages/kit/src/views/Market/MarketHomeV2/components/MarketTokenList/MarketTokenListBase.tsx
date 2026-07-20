@@ -23,6 +23,7 @@ import {
 import type {
   ETableSortType,
   ITableColumn,
+  ITableControlledSort,
   IXStackProps,
 } from '@onekeyhq/components';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
@@ -798,6 +799,17 @@ function MarketTokenListBase({
   const stickyPortalTarget = stickyHeaderCtx?.portalTarget ?? null;
   const useDesktopPortal = webTabIntegrated && !!stickyPortalTarget && !md;
 
+  // Client-sort mode hands the header its order from our own state, so a sort
+  // triggered outside the table (the Top turnover chip) still moves the arrow.
+  const controlledSort = useMemo<ITableControlledSort | undefined>(() => {
+    if (!clientSort) {
+      return undefined;
+    }
+    return currentSortBy && currentSortType
+      ? { dataIndex: currentSortBy, order: currentSortType as ETableSortType }
+      : null;
+  }, [clientSort, currentSortBy, currentSortType]);
+
   const portalContent = useMemo(() => {
     if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
     return (
@@ -813,6 +825,7 @@ function MarketTokenListBase({
           <Table.HeaderRow
             columns={marketTokenColumns}
             onHeaderRow={stableHandleHeaderRow}
+            controlledSort={controlledSort}
           />
         </YStack>
       </StickyHeaderPortal>
@@ -824,6 +837,7 @@ function MarketTokenListBase({
     toolbar,
     marketTokenColumns,
     stableHandleHeaderRow,
+    controlledSort,
   ]);
 
   let integratedContentPaddingBottom = tabBarHeight;
@@ -925,6 +939,7 @@ function MarketTokenListBase({
               keyExtractor={(item) => item.id}
               extraData={networkId}
               onHeaderRow={stableHandleHeaderRow}
+              controlledSort={controlledSort}
               TableEmptyComponent={TableEmptyComponent}
               TableFooterComponent={TableFooterComponent}
               estimatedItemSize={redesignEnabled ? REDESIGN_ROW_HEIGHT : 60}

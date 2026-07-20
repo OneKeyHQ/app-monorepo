@@ -10,17 +10,23 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
+  MARKET_FILTER_CHIPS,
   MARKET_FILTER_DIMENSION_MAP,
-  MARKET_FILTER_PRESETS,
   getMarketFilterOption,
 } from './marketListFilterConfig';
 import { useMarketListFilter } from './MarketListFilterContext';
+import { EMarketChipKind } from './marketListFilterTypes';
 import { TierPill } from './TierPill';
 
-import type { EMarketFilterDimension } from './marketListFilterTypes';
+import type {
+  EMarketFilterDimension,
+  IMarketFilterChip,
+  IMarketFilterSelection,
+} from './marketListFilterTypes';
 import type { IMarketTimeRangeValue } from '../../types';
 
 const TIME_RANGE_OPTIONS: IMarketTimeRangeValue[] = ['5m', '1h', '4h', '24h'];
@@ -192,21 +198,21 @@ function TierPopoverContent({
 // a medium-weight tier value.
 function ConditionChip({
   dimensionId,
-  optionId,
+  selection,
   isOpen,
   onOpenChange,
   onSelectOption,
   onClearDimension,
 }: {
   dimensionId: EMarketFilterDimension;
-  optionId: string;
+  selection: IMarketFilterSelection;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectOption: (optionId: string) => void;
   onClearDimension: () => void;
 }) {
   const dimension = MARKET_FILTER_DIMENSION_MAP.get(dimensionId);
-  const option = getMarketFilterOption(dimensionId, optionId);
+  const option = getMarketFilterOption(dimensionId, selection);
   if (!dimension || !option) {
     return null;
   }
@@ -242,10 +248,40 @@ function ConditionChip({
       renderContent={
         <TierPopoverContent
           dimensionId={dimensionId}
-          selectedOptionId={optionId}
+          selectedOptionId={option.id}
           onSelect={onSelectOption}
           onClear={onClearDimension}
         />
+      }
+    />
+  );
+}
+
+// Quick chips and filter chips look identical by design; what they do to the
+// list is disclosed in the tooltip instead of in the styling.
+function QuickChip({
+  chip,
+  selected,
+  onPress,
+}: {
+  chip: IMarketFilterChip;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <LazyTooltip
+      placement="top"
+      onPress={onPress}
+      renderTrigger={
+        <MarketToolbarPill
+          label={chip.label}
+          icon={chip.icon}
+          selected={selected}
+          testID={`market-filter-chip-quick-${chip.id}`}
+        />
+      }
+      renderContent={
+        chip.demoNote ? `${chip.tooltip} · ${chip.demoNote}` : chip.tooltip
       }
     />
   );
@@ -261,19 +297,57 @@ export function MarketFilterChipsBar({
   // Filters popover trigger slot rendered at the right edge (Task 8 wires it).
   filtersTrigger?: ReactNode;
 }) {
-  const { filterState, setFilterState } = useMarketListFilter();
+  const { filterState, setFilterState, sortState, setSortState } =
+    useMarketListFilter();
   const [openDimension, setOpenDimension] = useState<
     EMarketFilterDimension | undefined
   >();
   const conditionEntries = Object.entries(filterState.conditions) as [
     EMarketFilterDimension,
-    string,
+    IMarketFilterSelection,
   ][];
-  const hasConditions =
-    conditionEntries.length > 0 || Boolean(filterState.activePresetId);
-  const activePreset = MARKET_FILTER_PRESETS.find(
-    (preset) => preset.id === filterState.activePresetId,
+  const hasConditions = conditionEntries.length > 0;
+  const activeChip = MARKET_FILTER_CHIPS.find(
+    (chip) => chip.id === filterState.activeChipId,
   );
+  const sortChips = MARKET_FILTER_CHIPS.filter(
+    (chip) => chip.kind === EMarketChipKind.Sort,
+  );
+  const filterChips = MARKET_FILTER_CHIPS.filter(
+    (chip) => chip.kind === EMarketChipKind.Filter,
+  );
+
+  // A sort chip is lit exactly when the list is sorted the way that chip sorts
+  // it — which is what makes header clicks and chip clicks one state: sorting
+  // another column via the header dims the chip with no extra bookkeeping.
+  const isSortChipActive = (chip: IMarketFilterChip) =>
+    sortState.sortBy === chip.sortBy && sortState.sortType === 'desc';
+
+  const handleQuickChipPress = (chip: IMarketFilterChip) => {
+    // Every quick chip anchors the time frame (P2-9 定案).
+    if (chip.timeRange && chip.timeRange !== timeRange) {
+      onTimeRangeChange(chip.timeRange);
+    }
+    if (chip.kind === EMarketChipKind.Sort) {
+      const active = isSortChipActive(chip);
+      defaultLogger.dex.list.dexFilterChip({
+        action: 'sortChipClick',
+        presetId: chip.id,
+      });
+      // Toggling off returns to the board's own order, same as cycling the
+      // header past descending.
+      setSortState(active ? {} : { sortBy: chip.sortBy, sortType: 'desc' });
+      return;
+    }
+    defaultLogger.dex.list.dexFilterChip({
+      action: 'presetClick',
+      presetId: chip.id,
+    });
+    setFilterState({
+      conditions: chip.conditions ?? {},
+      activeChipId: chip.id,
+    });
+  };
 
   const removeDimension = (dimensionId: EMarketFilterDimension) => {
     defaultLogger.dex.list.dexFilterChip({
@@ -284,9 +358,9 @@ export function MarketFilterChipsBar({
     delete nextConditions[dimensionId];
     setFilterState({
       conditions: nextConditions,
-      activePresetId:
+      activeChipId:
         Object.keys(nextConditions).length > 0
-          ? filterState.activePresetId
+          ? filterState.activeChipId
           : undefined,
     });
   };
@@ -318,24 +392,26 @@ export function MarketFilterChipsBar({
           ))}
         </XStack>
         <Divider vertical h="$4" />
+        {/* Sort chips stay put while filters come and go: they are a view of
+            the table's sort state, not a filter that can be "applied". */}
+        <XStack gap="$0.5">
+          {sortChips.map((chip) => (
+            <QuickChip
+              key={chip.id}
+              chip={chip}
+              selected={isSortChipActive(chip)}
+              onPress={() => handleQuickChipPress(chip)}
+            />
+          ))}
+        </XStack>
         {!hasConditions ? (
           <XStack gap="$0.5">
-            {MARKET_FILTER_PRESETS.map((preset) => (
-              <MarketToolbarPill
-                key={preset.id}
-                label={preset.label}
-                icon={preset.icon}
-                onPress={() => {
-                  defaultLogger.dex.list.dexFilterChip({
-                    action: 'presetClick',
-                    presetId: preset.id,
-                  });
-                  setFilterState({
-                    conditions: preset.conditions,
-                    activePresetId: preset.id,
-                  });
-                }}
-                testID={`market-filter-preset-${preset.id}`}
+            {filterChips.map((chip) => (
+              <QuickChip
+                key={chip.id}
+                chip={chip}
+                selected={chip.id === filterState.activeChipId}
+                onPress={() => handleQuickChipPress(chip)}
               />
             ))}
           </XStack>
@@ -345,17 +421,17 @@ export function MarketFilterChipsBar({
                 glyph when conditions came from the Filters popover. */}
             <XStack p="$1" alignItems="center">
               <Icon
-                name={activePreset?.icon ?? 'Filter1Outline'}
+                name={activeChip?.icon ?? 'Filter1Outline'}
                 size="$4"
                 color="$iconSubdued"
               />
             </XStack>
             <XStack gap="$0.5" alignItems="center">
-              {conditionEntries.map(([dimensionId, optionId]) => (
+              {conditionEntries.map(([dimensionId, selection]) => (
                 <ConditionChip
                   key={dimensionId}
                   dimensionId={dimensionId}
-                  optionId={optionId}
+                  selection={selection}
                   isOpen={openDimension === dimensionId}
                   onOpenChange={(open) =>
                     setOpenDimension(open ? dimensionId : undefined)
@@ -389,7 +465,7 @@ export function MarketFilterChipsBar({
                   defaultLogger.dex.list.dexFilterChip({
                     action: 'clearAll',
                   });
-                  setFilterState({ conditions: {}, activePresetId: undefined });
+                  setFilterState({ conditions: {}, activeChipId: undefined });
                 }}
                 testID="market-filter-chips-clear-all"
               />

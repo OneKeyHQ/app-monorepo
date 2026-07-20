@@ -15,6 +15,10 @@ interface IHeaderColumnProps<T> {
   selectedColumnName: string;
   onChangeSelectedName: (columnName: string) => void;
   onHeaderRow?: ITableProps<T>['onHeaderRow'];
+  // Controlled mode: the order comes from the parent and no internal sort
+  // state is kept, so external sort actions stay reflected in the arrows.
+  isSortControlled?: boolean;
+  controlledOrder?: ETableSortType;
 }
 
 function HeaderColumn<T>({
@@ -23,6 +27,8 @@ function HeaderColumn<T>({
   onHeaderRow,
   selectedColumnName,
   onChangeSelectedName,
+  isSortControlled,
+  controlledOrder,
 }: IHeaderColumnProps<T>) {
   const {
     title,
@@ -39,11 +45,21 @@ function HeaderColumn<T>({
     events?.initialSortOrder,
   );
 
+  let currentSortOrder: ETableSortType | undefined;
+  if (isSortControlled) {
+    currentSortOrder = controlledOrder;
+  } else if (dataIndex === selectedColumnName) {
+    currentSortOrder = sortOrder;
+  }
+
   useEffect(() => {
+    if (isSortControlled) {
+      return;
+    }
     if (selectedColumnName !== dataIndex) {
       setSortOrder(undefined);
     }
-  }, [dataIndex, selectedColumnName]);
+  }, [dataIndex, selectedColumnName, isSortControlled]);
 
   const handleColumnPress = useCallback(() => {
     events?.onPress?.();
@@ -51,7 +67,14 @@ function HeaderColumn<T>({
       return;
     }
     const disabledSorts = events?.disableSort || [];
-    const order = getNextSortOrder(sortOrder, disabledSorts);
+    const order = getNextSortOrder(currentSortOrder, disabledSorts);
+
+    // Controlled mode owns no local state: just report the next order and let
+    // the parent's re-render drive the arrow.
+    if (isSortControlled) {
+      events?.onSortTypeChange?.(order);
+      return;
+    }
 
     // When resetting to undefined, clear the selected column to allow default sorting
     if (order === undefined) {
@@ -68,12 +91,17 @@ function HeaderColumn<T>({
     setTimeout(() => {
       events?.onSortTypeChange?.(order);
     });
-  }, [dataIndex, enableSortType, events, onChangeSelectedName, sortOrder]);
+  }, [
+    dataIndex,
+    enableSortType,
+    events,
+    onChangeSelectedName,
+    currentSortOrder,
+    isSortControlled,
+  ]);
 
   const cursor = enableSortType ? 'pointer' : undefined;
   const showSortIcon = enableSortType && !renderTitle;
-  const currentSortOrder =
-    dataIndex === selectedColumnName ? sortOrder : undefined;
 
   const { renderSortIcon: renderInlineSortIcon } = useSortIcon({
     showSortIcon: enableSortType && !!renderTitle,

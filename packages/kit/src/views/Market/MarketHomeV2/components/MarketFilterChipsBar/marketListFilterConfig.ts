@@ -1,11 +1,14 @@
 import {
+  EMarketChipKind,
   EMarketFilterDimension,
   EMarketFilterGroup,
 } from './marketListFilterTypes';
 
 import type {
+  IMarketFilterChip,
   IMarketFilterDimensionConfig,
-  IMarketFilterPreset,
+  IMarketFilterOption,
+  IMarketFilterSelection,
   IMarketListFilterConditions,
 } from './marketListFilterTypes';
 
@@ -184,15 +187,21 @@ export const MARKET_FILTER_DIMENSION_MAP = new Map(
   MARKET_FILTER_DIMENSIONS.map((dimension) => [dimension.id, dimension]),
 );
 
+// Resolves a condition selection to a concrete option. Chip-applied selections
+// are already inline option objects; popover selections are tier ids that need
+// a lookup in the dimension config.
 export function getMarketFilterOption(
   dimensionId: EMarketFilterDimension,
-  optionId: string | undefined,
-) {
-  if (!optionId) {
+  selection: IMarketFilterSelection | undefined,
+): IMarketFilterOption | undefined {
+  if (!selection) {
     return undefined;
   }
+  if (typeof selection !== 'string') {
+    return selection;
+  }
   return MARKET_FILTER_DIMENSION_MAP.get(dimensionId)?.options.find(
-    (option) => option.id === optionId,
+    (option) => option.id === selection,
   );
 }
 
@@ -203,13 +212,13 @@ export function buildHotTokenFilterParams(
   conditions: IMarketListFilterConditions,
 ): Record<string, number> {
   const params: Record<string, number> = {};
-  Object.entries(conditions).forEach(([dimensionId, optionId]) => {
+  Object.entries(conditions).forEach(([dimensionId, selection]) => {
     const dimension = MARKET_FILTER_DIMENSION_MAP.get(
       dimensionId as EMarketFilterDimension,
     );
     const option = getMarketFilterOption(
       dimensionId as EMarketFilterDimension,
-      optionId,
+      selection as IMarketFilterSelection,
     );
     if (!dimension || !option) {
       return;
@@ -224,31 +233,71 @@ export function buildHotTokenFilterParams(
   return params;
 }
 
-export const MARKET_FILTER_PRESETS: IMarketFilterPreset[] = [
+// Inline chip thresholds. These come from the P2-9 experiment round, not from
+// the popover tiers, so they are spelled out here rather than reusing tier ids.
+function chipFloor(chipLabel: string, min: number): IMarketFilterOption {
+  return { id: `chip-min-${min}`, label: chipLabel, chipLabel, min };
+}
+
+// P2-9 chip roster (✅ 定案 2026-07-19). Every chip anchors the time frame to
+// 1h; the popover stays unanchored so users keep free choice there.
+export const MARKET_FILTER_CHIPS: IMarketFilterChip[] = [
   {
-    // rankBy-passthrough view (P2-2 scope). Demo simulates locally by
-    // turnover sort; PM decides keep/drop at handoff.
+    // Rule one, state unification: this dispatches the existing turnover
+    // column sort. No new state, no request — clicking the chip is literally
+    // clicking that header, so the header arrow and the chip share one truth.
+    // (rankBy=5 passthrough was rejected: WETH structurally occupies the top
+    // and the increment was a wash-trading segment.)
     id: 'topTurnover',
+    kind: EMarketChipKind.Sort,
     label: 'Top turnover',
     icon: 'ChartColumnarOutline',
-    conditions: {},
+    sortBy: 'turnover',
+    timeRange: '1h',
+    tooltip: 'Sorts the hot list by turnover, highest first',
   },
   {
+    // Real behavior = rankBy=12 (social heat) view + in-pool ≤48h age filter.
+    // The view axis needs a backend rankBy switch that does not exist in this
+    // demo, so only the age half runs locally.
     id: 'earlyTokens',
+    kind: EMarketChipKind.Filter,
     label: 'Early tokens',
     icon: 'GrowthOutline',
+    timeRange: '1h',
     conditions: {
       [EMarketFilterDimension.TokenAge]: 'under-48h',
-      [EMarketFilterDimension.Liquidity]: 'min-5000',
-      [EMarketFilterDimension.MarketCap]: 'small',
     },
+    tooltip: 'Tokens launched within 48h on the social-heat board',
+    demoNote: 'Demo filters the current board; the social-heat view is pending',
   },
   {
-    id: 'largeCap',
-    label: 'Large-cap tokens',
-    icon: 'GalaxyOutline',
+    id: 'midCap',
+    kind: EMarketChipKind.Filter,
+    label: 'Mid cap',
+    icon: 'CoinsOutline',
+    timeRange: '1h',
     conditions: {
-      [EMarketFilterDimension.MarketCap]: 'large',
+      [EMarketFilterDimension.MarketCap]: chipFloor('$500K+', 500_000),
+      [EMarketFilterDimension.Liquidity]: chipFloor('$10K+', 10_000),
+      [EMarketFilterDimension.Turnover]: chipFloor('$50K+', 50_000),
     },
+    tooltip: 'Hot tokens matching mid-cap size, liquidity and turnover',
+  },
+  {
+    // holdersMin=1000 clears fake-market-cap tokens: the experiment round
+    // found billion-dollar "caps" backed by only a few hundred holders.
+    id: 'largeCap',
+    kind: EMarketChipKind.Filter,
+    label: 'Large cap',
+    icon: 'GalaxyOutline',
+    timeRange: '1h',
+    conditions: {
+      [EMarketFilterDimension.MarketCap]: chipFloor('$1M+', 1_000_000),
+      [EMarketFilterDimension.Liquidity]: chipFloor('$50K+', 50_000),
+      [EMarketFilterDimension.Turnover]: chipFloor('$100K+', 100_000),
+      [EMarketFilterDimension.Holders]: chipFloor('1K+', 1000),
+    },
+    tooltip: 'Hot tokens matching large-cap size, liquidity and turnover',
   },
 ];

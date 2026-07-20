@@ -14,7 +14,6 @@ import { useClientSortResult } from './hooks/useClientSortResult';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { type IMarketToken } from './MarketTokenData';
 import { MarketTokenListBase } from './MarketTokenListBase';
-import { sortMarketTokensClient } from './utils/marketListClientSort';
 import { shouldUseStockMetadataColumnsForTokens } from './utils/tokenListHelpers';
 
 import type { IMarketTokenListLiveOverride } from './MarketTokenListBase';
@@ -85,7 +84,7 @@ function MarketNormalTokenList({
     [normalResult.data],
   );
 
-  const { filterState, filterRevision } = useMarketListFilter();
+  const { filterState, sortState, setSortState } = useMarketListFilter();
 
   // Redesign features (local filter, client sort overrides, columns) apply only
   // to trending; stocks keep server-driven behavior.
@@ -98,31 +97,27 @@ function MarketNormalTokenList({
     if (!redesignActive) {
       return normalResult.data;
     }
-    let next = applyMarketListLocalFilter(
+    return applyMarketListLocalFilter(
       normalResult.data,
       filterState.conditions,
     );
-    // Local simulation of the rankBy-passthrough "Top turnover" view (P2-2
-    // scope, PM decides keep/drop at handoff).
-    if (filterState.activePresetId === 'topTurnover') {
-      next = sortMarketTokensClient(next, 'turnover', 'desc');
-    }
-    return next;
-  }, [
-    redesignActive,
-    normalResult.data,
-    filterState.conditions,
-    filterState.activePresetId,
-  ]);
+  }, [redesignActive, normalResult.data, filterState.conditions]);
 
   // Stocks keep server-driven behavior; trending gets full-pool client sort.
   const clientSortEnabled = selectedCategory === 'trending' && !stockCategory;
+  // Only the redesigned trending view has a chip row to stay in sync with;
+  // everywhere else the hook keeps its own private sort state.
+  const externalSort = useMemo(
+    () =>
+      redesignActive ? { ...sortState, onChange: setSortState } : undefined,
+    [redesignActive, sortState, setSortState],
+  );
   const clientSortResult = useClientSortResult(
     useMemo(
       () => ({ ...normalResult, data: filteredData }),
       [normalResult, filteredData],
     ),
-    { resetKey: filterRevision },
+    { externalSort },
   );
   const listResult = clientSortEnabled ? clientSortResult : normalResult;
 

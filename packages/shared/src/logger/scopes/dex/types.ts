@@ -135,6 +135,9 @@ export interface IDexSortParams {
 export interface IDexFilterChipParams {
   action:
     | 'presetClick'
+    // Sort shortcut chip: dispatches an existing column sort, so it is tracked
+    // separately from the filter chips that change the result set.
+    | 'sortChipClick'
     | 'conditionChange'
     | 'conditionRemove'
     | 'clearAll'

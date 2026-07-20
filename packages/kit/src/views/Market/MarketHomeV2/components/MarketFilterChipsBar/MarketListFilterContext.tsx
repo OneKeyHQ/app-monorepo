@@ -3,45 +3,46 @@ import {
   createContext,
   useContext,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 
 import type {
   IMarketListFilterContextValue,
   IMarketListFilterState,
+  IMarketListSortState,
 } from './marketListFilterTypes';
 
 const EMPTY_STATE: IMarketListFilterState = { conditions: {} };
+const EMPTY_SORT: IMarketListSortState = {};
 
 const EMPTY_CONTEXT: IMarketListFilterContextValue = {
   filterState: EMPTY_STATE,
   setFilterState: () => undefined,
-  filterRevision: 0,
+  sortState: EMPTY_SORT,
+  setSortState: () => undefined,
   activeConditionCount: 0,
 };
 
 const MarketListFilterContext =
   createContext<IMarketListFilterContextValue>(EMPTY_CONTEXT);
 
+// Owns both halves of "how you want to see this table". Sort is deliberately
+// NOT reset when conditions change: sort chips and filter chips share one row
+// as peers, so filtering must not silently undo the user's sort.
 export function MarketListFilterProvider({ children }: PropsWithChildren) {
-  const [filterState, setFilterStateRaw] =
+  const [filterState, setFilterState] =
     useState<IMarketListFilterState>(EMPTY_STATE);
-  const revisionRef = useRef(0);
-  const [filterRevision, setFilterRevision] = useState(0);
+  const [sortState, setSortState] = useState<IMarketListSortState>(EMPTY_SORT);
 
   const value = useMemo<IMarketListFilterContextValue>(
     () => ({
       filterState,
-      setFilterState: (next) => {
-        revisionRef.current += 1;
-        setFilterRevision(revisionRef.current);
-        setFilterStateRaw(next);
-      },
-      filterRevision,
+      setFilterState,
+      sortState,
+      setSortState,
       activeConditionCount: Object.keys(filterState.conditions).length,
     }),
-    [filterState, filterRevision],
+    [filterState, sortState],
   );
 
   return (

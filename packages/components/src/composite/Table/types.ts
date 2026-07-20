@@ -16,6 +16,15 @@ export interface ITableColumnSortContext {
   onSortPress?: () => void;
 }
 
+// Externally-owned sort state. `null` means "nothing sorted". Passing this
+// switches the header from its internal per-column state to controlled mode,
+// which is what lets an outside control (e.g. a sort shortcut chip) and the
+// header arrows stay on one source of truth.
+export type ITableControlledSort = {
+  dataIndex: string;
+  order: ETableSortType;
+} | null;
+
 export interface ITableColumn<T> {
   title: ReactNode;
   // When provided, renders the title with an inline sort icon instead of
@@ -65,6 +74,8 @@ export interface ITableProps<T> {
   onDragBegin?: ISortableListViewProps<T>['onDragBegin'];
   onDragEnd?: ISortableListViewProps<T>['onDragEnd'];
   keyExtractor: (item: T, index: number) => string;
+  // Opt into controlled header sort; omit to keep the internal state behavior.
+  controlledSort?: ITableControlledSort;
   onHeaderRow?: (
     column: ITableColumn<T>,
     index: number,

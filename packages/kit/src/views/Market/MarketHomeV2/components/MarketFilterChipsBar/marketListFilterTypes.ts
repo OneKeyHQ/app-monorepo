@@ -1,5 +1,8 @@
+import type { Dispatch, SetStateAction } from 'react';
+
 import type { IKeyOfIcons } from '@onekeyhq/components';
 
+import type { IMarketTimeRangeValue } from '../../types';
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
 
 // Filter dimensions shown to the user. Each dimension maps to a pair of
@@ -54,28 +57,63 @@ export type IMarketFilterDimensionConfig = {
   options: IMarketFilterOption[];
 };
 
-// Selected option id per dimension.
+// A dimension's selection: either a tier option id from the config, or an
+// inline option. Chips carry inline options because their thresholds are
+// curated from experiments (see P2-9) and deliberately do not have to line up
+// with the popover's user-facing tiers.
+export type IMarketFilterSelection = string | IMarketFilterOption;
+
 export type IMarketListFilterConditions = Partial<
-  Record<EMarketFilterDimension, string>
+  Record<EMarketFilterDimension, IMarketFilterSelection>
 >;
 
 export type IMarketListFilterState = {
   conditions: IMarketListFilterConditions;
-  activePresetId?: string;
+  activeChipId?: string;
 };
 
-export type IMarketFilterPreset = {
+// Chip kinds share one row and one visual form on purpose; the difference is
+// disclosed honestly in the tooltip rather than encoded in the styling.
+export enum EMarketChipKind {
+  // Dispatches an existing column sort — zero new state, zero API.
+  Sort = 'sort',
+  // Applies filter conditions (server passthrough once Spike A#8 lands).
+  Filter = 'filter',
+}
+
+export type IMarketFilterChip = {
   id: string;
   label: string;
+  kind: EMarketChipKind;
   // Leading icon; also reused as the group anchor icon in the applied state.
   icon: IKeyOfIcons;
-  conditions: IMarketListFilterConditions;
+  // Honest disclosure of what the chip actually does to the list.
+  tooltip: string;
+  // Sort chips: the column this chip sorts by (dataIndex), always descending.
+  sortBy?: string;
+  // Filter chips: the conditions applied.
+  conditions?: IMarketListFilterConditions;
+  // Every quick chip anchors the time frame (P2-9 定案).
+  timeRange?: IMarketTimeRangeValue;
+  // Demo caveat surfaced in the tooltip when the real behavior needs backend
+  // work that does not exist yet (e.g. rankBy view switching).
+  demoNote?: string;
+};
+
+// Sort lives next to the filter state because the chip row and the table
+// header are two views of ONE sort action: a sort chip dispatches exactly what
+// clicking that column header dispatches, so both read the same store and stay
+// in sync (chip lights up on header click, and dims when another column wins).
+export type IMarketListSortState = {
+  sortBy?: string;
+  sortType?: 'asc' | 'desc';
 };
 
 export type IMarketListFilterContextValue = {
   filterState: IMarketListFilterState;
   setFilterState: (next: IMarketListFilterState) => void;
-  // Bumped on every conditions change; consumers use it to reset sort state.
-  filterRevision: number;
+  sortState: IMarketListSortState;
+  // Accepts the updater form so consecutive sortBy/sortType writes merge.
+  setSortState: Dispatch<SetStateAction<IMarketListSortState>>;
   activeConditionCount: number;
 };

@@ -17,6 +17,7 @@ import {
   MARKET_FILTER_DIMENSIONS,
   MARKET_FILTER_GROUP_LABELS,
   MARKET_FILTER_GROUP_ORDER,
+  getMarketFilterOption,
 } from './marketListFilterConfig';
 import { useMarketListFilter } from './MarketListFilterContext';
 import { EMarketFilterGroup } from './marketListFilterTypes';
@@ -282,7 +283,12 @@ function MarketFiltersModalContent({
                         <DimensionRow
                           key={dimension.id}
                           dimension={dimension}
-                          selectedOptionId={draft[dimension.id]}
+                          selectedOptionId={
+                            getMarketFilterOption(
+                              dimension.id,
+                              draft[dimension.id],
+                            )?.id
+                          }
                           onSelect={(optionId) =>
                             handleSelect(dimension, optionId)
                           }
@@ -322,7 +328,7 @@ function MarketFiltersModalContent({
             if (draftTimeRange !== initialTimeRange) {
               onApplyTimeRange(draftTimeRange);
             }
-            onApply({ conditions: draft, activePresetId: undefined });
+            onApply({ conditions: draft, activeChipId: undefined });
             onClose();
           }}
           testID="market-filters-modal-apply"

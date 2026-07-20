@@ -306,12 +306,15 @@ function TableHeaderRow<T>({
   onHeaderRow,
   rowProps,
   headerRowProps,
+  controlledSort,
 }: {
   columns: ITableProps<T>['columns'];
   onHeaderRow?: ITableProps<T>['onHeaderRow'];
   rowProps?: ITableProps<T>['rowProps'];
   headerRowProps?: ITableProps<T>['headerRowProps'];
+  controlledSort?: ITableProps<T>['controlledSort'];
 }) {
+  const isSortControlled = controlledSort !== undefined;
   const initialSelectedColumn = useMemo(() => {
     if (!onHeaderRow) return '';
     for (let i = 0; i < columns.length; i += 1) {
@@ -328,6 +331,9 @@ function TableHeaderRow<T>({
   const [selectedColumnName, setSelectedColumnName] = useState(
     initialSelectedColumn,
   );
+  const activeColumnName = isSortControlled
+    ? (controlledSort?.dataIndex ?? '')
+    : selectedColumnName;
   return (
     <XStack
       {...(rowProps as IXStackProps)}
@@ -337,11 +343,17 @@ function TableHeaderRow<T>({
         column ? (
           <MemoHeaderColumn
             key={column.dataIndex}
-            selectedColumnName={selectedColumnName}
+            selectedColumnName={activeColumnName}
             onChangeSelectedName={setSelectedColumnName}
             column={column as any}
             index={index}
             onHeaderRow={onHeaderRow}
+            isSortControlled={isSortControlled}
+            controlledOrder={
+              controlledSort?.dataIndex === column.dataIndex
+                ? controlledSort.order
+                : undefined
+            }
           />
         ) : null,
       )}
@@ -358,6 +370,7 @@ function BasicTable<T>({
   TableFooterComponent,
   TableEmptyComponent,
   onHeaderRow,
+  controlledSort,
   onRow,
   rowProps,
   keyExtractor,
@@ -445,9 +458,17 @@ function BasicTable<T>({
           rowProps={rowProps}
           headerRowProps={headerRowProps}
           onHeaderRow={onHeaderRow}
+          controlledSort={controlledSort}
         />
       ) : null,
-    [columns, headerRowProps, onHeaderRow, rowProps, showHeader],
+    [
+      columns,
+      headerRowProps,
+      onHeaderRow,
+      controlledSort,
+      rowProps,
+      showHeader,
+    ],
   );
 
   const renderPlaceholder = useCallback(
@@ -814,5 +835,6 @@ export type {
   ITableProps,
   ITableColumn,
   ITableColumnSortContext,
+  ITableControlledSort,
 } from './types';
 export { ETableSortType } from './types';
