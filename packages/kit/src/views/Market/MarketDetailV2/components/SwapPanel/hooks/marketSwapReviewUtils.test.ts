@@ -18,7 +18,6 @@ import {
   attachMarketOneInchFusionSignature,
   buildMarketApproveInfos,
   buildMarketSwapApprovingTransaction,
-  buildWrappedMarketQuoteResult,
   canReuseMarketSigningQuoteResult,
   extractMarketSwapSuccessResult,
   normalizeMarketReviewQuoteResult,
@@ -401,22 +400,6 @@ describe('marketSwapReviewUtils', () => {
     });
 
     expect(result.swapType).toBe(ESwapTabSwitchType.BRIDGE);
-  });
-
-  it('builds a wrapped quote result for wrap review flows', () => {
-    const result = buildWrappedMarketQuoteResult({
-      fromToken,
-      toToken,
-      amount: '2',
-      providerLogo: 'wrapped-logo',
-    });
-
-    expect(result.isWrapped).toBe(true);
-    expect(result.toAmount).toBe('2');
-    expect(result.instantRate).toBe('1');
-    expect(result.info.providerName).toBe('Wrap Contract');
-    expect(result.info.providerLogo).toBe('wrapped-logo');
-    expect(result.fee).toEqual({ percentageFee: 0 });
   });
 
   it('extracts the final swap transaction from batched send results', () => {

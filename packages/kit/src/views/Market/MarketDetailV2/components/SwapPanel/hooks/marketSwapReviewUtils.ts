@@ -6,7 +6,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IFetchQuoteResult,
   ISwapApproveTransaction,
-  ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
@@ -14,9 +13,6 @@ import {
   ESwapQuoteKind,
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
-
-const WRAPPED_PROVIDER_NAME = 'Wrap Contract';
-const WRAPPED_INSTANT_RATE = '1';
 
 export function assertMarketReviewQuoteResult(
   quoteResult?: IFetchQuoteResult,
@@ -187,36 +183,6 @@ export function normalizeMarketReviewQuoteResult({
       allowanceTarget: spenderAddress,
       amount: quoteResult.fromAmount ?? amount,
       ...(shouldResetApprove ? { shouldResetApprove: true } : undefined),
-    },
-  };
-}
-
-export function buildWrappedMarketQuoteResult({
-  fromToken,
-  toToken,
-  amount,
-  providerLogo,
-}: {
-  fromToken: ISwapTokenBase;
-  toToken: ISwapTokenBase;
-  amount: string;
-  providerLogo?: string;
-}): IFetchQuoteResult {
-  return {
-    protocol: EProtocolOfExchange.SWAP,
-    info: {
-      provider: 'wrapped',
-      providerName: WRAPPED_PROVIDER_NAME,
-      providerLogo,
-    },
-    fromTokenInfo: fromToken,
-    toTokenInfo: toToken,
-    fromAmount: amount,
-    toAmount: amount,
-    instantRate: WRAPPED_INSTANT_RATE,
-    isWrapped: true,
-    fee: {
-      percentageFee: 0,
     },
   };
 }

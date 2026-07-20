@@ -55,7 +55,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   buildSwapHistoryNetworkFromServer,
   buildSwapHistoryNetworkPlaceholder,
@@ -69,7 +68,6 @@ import {
   EMessageTypesEth,
   ESigningScheme,
 } from '@onekeyhq/shared/types/message';
-import { wrappedTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
@@ -117,6 +115,7 @@ import {
   mergeMarketBuildResultWithQuote,
   pickMarketQuoteResultByProvider,
   shouldFetchMarketQuoteFallbackData,
+  waitForMarketWrappedQuote,
 } from './marketSwapBuildUtils';
 import {
   areMarketApproveAmountsEqual,
@@ -126,7 +125,6 @@ import {
   attachMarketOneInchFusionSignature,
   buildMarketApproveInfos,
   buildMarketSwapApprovingTransaction,
-  buildWrappedMarketQuoteResult,
   canReuseMarketSigningQuoteResult,
   extractMarketSwapSuccessResult,
   normalizeMarketReviewQuoteResult,
@@ -1002,7 +1000,7 @@ export function useSpeedSwapActions(props: {
   );
 
   const buildWrappedSwapData = useCallback(
-    ({
+    async ({
       fromAmount,
       fromToken: currentFromToken,
       toToken: currentToToken,
@@ -1022,6 +1020,43 @@ export function useSpeedSwapActions(props: {
         );
       }
 
+      const accountId = netAccountRes.result.id;
+      const quoteResultFromServer = await waitForMarketWrappedQuote({
+        request: {
+          accountId,
+          fromToken: fromTokenFinal,
+          toToken: toTokenFinal,
+          fromTokenAmount: amount,
+          slippagePercentage: slippage,
+        },
+        subscribe: (listener) => {
+          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, listener);
+          return () => {
+            appEventBus.off(EAppEventBusNames.SwapQuoteEvent, listener);
+          };
+        },
+        start: () =>
+          backgroundApiProxy.serviceSwap.fetchQuotesEvents({
+            fromToken: fromTokenFinal,
+            toToken: toTokenFinal,
+            fromTokenAmount: amount,
+            userAddress,
+            receivingAddress: userAddress,
+            slippagePercentage: slippage,
+            autoSlippage: false,
+            accountId,
+            protocol: ESwapTabSwitchType.SWAP,
+            kind: ESwapQuoteKind.SELL,
+          }),
+        cancel: () => backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents(),
+      });
+      const quoteResult: IFetchQuoteResult = {
+        ...quoteResultFromServer,
+        protocol: quoteResultFromServer.protocol ?? EProtocolOfExchange.SWAP,
+        fromTokenInfo: fromTokenFinal,
+        toTokenInfo: toTokenFinal,
+      };
+
       const wrappedType = fromTokenFinal.isNative
         ? EWrappedType.DEPOSIT
         : EWrappedType.WITHDRAW;
@@ -1032,38 +1067,30 @@ export function useSpeedSwapActions(props: {
           wrappedType === EWrappedType.WITHDRAW
             ? fromTokenFinal.contractAddress
             : toTokenFinal.contractAddress,
-        amount,
+        amount: quoteResult.fromAmount ?? amount,
       };
-      const quoteResult = buildWrappedMarketQuoteResult({
-        fromToken: fromTokenFinal,
-        toToken: toTokenFinal,
-        amount,
-        providerLogo: wrappedTokens.find(
-          (item) => item.networkId === fromTokenFinal.networkId,
-        )?.logo,
-      });
       const swapInfo: ISwapTxInfo = {
-        protocol: EProtocolOfExchange.SWAP,
+        protocol: quoteResult.protocol ?? EProtocolOfExchange.SWAP,
         sender: {
-          amount,
+          amount: quoteResult.fromAmount ?? amount,
           token: fromTokenFinal,
           accountInfo: {
-            accountId: netAccountRes.result.id,
+            accountId,
             networkId: fromTokenFinal.networkId,
           },
         },
         receiver: {
-          amount,
+          amount: quoteResult.toAmount ?? amount,
           token: toTokenFinal,
           accountInfo: {
-            accountId: netAccountRes.result.id,
+            accountId,
             networkId: toTokenFinal.networkId,
           },
         },
         accountAddress: userAddress,
         receivingAddress: userAddress,
         swapBuildResData: {
-          orderId: stringUtils.generateUUID(),
+          orderId: quoteResult.quoteId ?? '',
           result: quoteResult,
         },
       };
@@ -1079,6 +1106,7 @@ export function useSpeedSwapActions(props: {
       fromToken,
       netAccountRes.result?.addressDetail.address,
       netAccountRes.result?.id,
+      slippage,
       toToken,
     ],
   );
@@ -1370,7 +1398,7 @@ export function useSpeedSwapActions(props: {
           quoteResult: wrappedQuoteResult,
           wrappedInfo,
           swapInfo,
-        } = buildWrappedSwapData({
+        } = await buildWrappedSwapData({
           fromAmount: amount,
           fromToken: reviewFromToken,
           toToken: reviewToToken,
