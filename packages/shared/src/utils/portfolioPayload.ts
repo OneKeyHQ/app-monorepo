@@ -27,9 +27,9 @@ export type IPortfolioPayloadToken = {
   isAllNetworks: boolean;
   isNative: boolean;
   balance: string;
-  fiatValue: string | null;
-  price: number | null;
-  change24h: number | null;
+  fiatValue: string;
+  price: number;
+  change24h: number;
   networkId: string;
 };
 
@@ -97,6 +97,17 @@ function formatPortfolioBalance(value: BigNumber.Value): string {
     .toFixed();
 }
 
+function formatPortfolioNumber(
+  value: BigNumber.Value | null | undefined,
+  { allowNegative = false }: { allowNegative?: boolean } = {},
+): number {
+  const valueBn = new BigNumber(value ?? NaN);
+  if (!valueBn.isFinite() || (!allowNegative && valueBn.isNegative())) {
+    return 0;
+  }
+  return valueBn.toNumber();
+}
+
 function isUsableRate(rate: BigNumber): boolean {
   return rate.isFinite() && !rate.isZero();
 }
@@ -144,16 +155,14 @@ function convertPriceStrictToDisplayCurrency({
   sourceCurrency?: string;
   targetCurrency: string;
   value: BigNumber.Value | null | undefined;
-}): number | null {
+}): number {
   const converted = convertFiatStrictToDisplayCurrency({
     currencyMap,
     sourceCurrency,
     targetCurrency,
     value,
   });
-  return converted.value === null
-    ? null
-    : new BigNumber(converted.value).toNumber();
+  return formatPortfolioNumber(converted.value);
 }
 
 function getTokenFiat({
@@ -254,18 +263,14 @@ export function buildPortfolioPayload({
       targetCurrency: displayCurrency.id,
       value: fiat?.fiatValue,
     });
-    const fiatValue =
-      convertedFiat.value === null
-        ? null
-        : formatPortfolioFiat(convertedFiat.value);
-
-    if (fiatValue !== null) {
-      topTokensFiat = topTokensFiat.plus(fiatValue);
-    }
+    const fiatValue = formatPortfolioFiat(convertedFiat.value ?? 0);
+    topTokensFiat = topTokensFiat.plus(fiatValue);
 
     return {
       balance: formatPortfolioBalance(fiat?.balanceParsed ?? '0'),
-      change24h: fiat?.price24h ?? null,
+      change24h: formatPortfolioNumber(fiat?.price24h, {
+        allowNegative: true,
+      }),
       contractAddress,
       fiatValue,
       iconName: resolvePortfolioTokenIconName({

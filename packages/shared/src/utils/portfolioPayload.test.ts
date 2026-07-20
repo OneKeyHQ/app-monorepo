@@ -260,7 +260,7 @@ describe('buildPortfolioPayload', () => {
     });
   });
 
-  test('keeps UI position and the App total when a token rate is missing', () => {
+  test('uses protocol zero values when token market data is missing', () => {
     const first = buildToken({ $key: 'first', symbol: 'FIRST' });
     const missingRate = buildToken({ $key: 'missing', symbol: 'MISS' });
 
@@ -287,8 +287,11 @@ describe('buildPortfolioPayload', () => {
       'MISS',
     ]);
     expect(payload.tokens[0].fiatValue).toBe('1.00');
-    expect(payload.tokens[1].fiatValue).toBeNull();
-    expect(payload.tokens[1].price).toBeNull();
+    expect(payload.tokens[1]).toMatchObject({
+      change24h: 0,
+      fiatValue: '0.00',
+      price: 0,
+    });
     expect(payload.totalFiat).toBe('101.00');
   });
 
