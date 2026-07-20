@@ -7,8 +7,12 @@ export function canShareImageToSystem(): boolean {
     return true;
   }
   if (platformEnv.isDesktop) {
-    // Electron only implements the system share picker (ShareMenu) on macOS
-    return !!platformEnv.isDesktopMac;
+    // Electron only implements the system share picker (ShareMenu) on macOS,
+    // and the flag ships with the BINARY (preload/main): a hot-updated JS
+    // bundle running on an older binary without the shareImageFile IPC reads
+    // undefined here and hides the entry instead of showing a button that
+    // degrades into a duplicate of "save".
+    return !!globalThis.desktopApi?.supportsShareImageFile;
   }
   try {
     const probe = new File([''], 'probe.png', { type: 'image/png' });
