@@ -8,7 +8,10 @@ import {
 describe('Pro 2 onboarding test mode', () => {
   const enabledDevSettings = {
     enabled: true,
-    settings: { enablePro2TestMode: true },
+    settings: {
+      enablePro2OnboardingDev: true,
+      enablePro2TestMode: true,
+    },
   } as const;
 
   it('shows the Pro 2 entry only while its explicit test mode is enabled', () => {
@@ -16,7 +19,16 @@ describe('Pro 2 onboarding test mode', () => {
     expect(
       shouldShowPro2OnboardingEntry({
         enabled: true,
-        settings: { enablePro2TestMode: false },
+        settings: {
+          enablePro2OnboardingDev: true,
+          enablePro2TestMode: false,
+        },
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowPro2OnboardingEntry({
+        enabled: true,
+        settings: { enablePro2TestMode: true },
       }),
     ).toBe(false);
   });
@@ -39,7 +51,10 @@ describe('Pro 2 onboarding test mode', () => {
         deviceTypeItems: [EDeviceType.Pro2],
         devSettings: {
           enabled: true,
-          settings: { enablePro2TestMode: false },
+          settings: {
+            enablePro2OnboardingDev: true,
+            enablePro2TestMode: false,
+          },
         },
       }),
     ).toBeUndefined();

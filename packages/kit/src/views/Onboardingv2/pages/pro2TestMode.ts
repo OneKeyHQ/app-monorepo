@@ -2,7 +2,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import {
   type IDevSettingsPersistAtom,
-  isPro2TestModeEnabled,
+  isPro2DebugModuleEnabled,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 
 import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
@@ -10,7 +10,7 @@ import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 export function shouldShowPro2OnboardingEntry(
   devSettings: IDevSettingsPersistAtom,
 ): boolean {
-  return isPro2TestModeEnabled(devSettings);
+  return isPro2DebugModuleEnabled(devSettings, 'onboarding');
 }
 
 export function getOnboardingConnectProtocol({
@@ -21,7 +21,7 @@ export function getOnboardingConnectProtocol({
   devSettings: IDevSettingsPersistAtom;
 }): HardwareConnectProtocol | undefined {
   if (
-    isPro2TestModeEnabled(devSettings) &&
+    isPro2DebugModuleEnabled(devSettings, 'onboarding') &&
     deviceTypeItems.length === 1 &&
     deviceTypeItems[0] === EDeviceType.Pro2
   ) {

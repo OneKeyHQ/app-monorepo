@@ -56,7 +56,7 @@ function buildFiat(params: Partial<ITokenFiat>): ITokenFiat {
 }
 
 describe('serviceHardwarePortfolioSyncUtils', () => {
-  test('requires Pro 2 test mode before enabling the local portfolio flow', () => {
+  test('requires both the Pro 2 master switch and explicit portfolio switch', () => {
     expect(
       isPortfolioSyncDevEnabled({
         devSettings: {
@@ -66,7 +66,6 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
             enablePro2TestMode: false,
           },
         },
-        runtimeDevEnabled: true,
       }),
     ).toBe(false);
 
@@ -79,9 +78,19 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
             enablePro2TestMode: true,
           },
         },
-        runtimeDevEnabled: false,
       }),
     ).toBe(true);
+
+    expect(
+      isPortfolioSyncDevEnabled({
+        devSettings: {
+          enabled: true,
+          settings: {
+            enablePro2TestMode: true,
+          },
+        },
+      }),
+    ).toBe(false);
   });
 
   test('calculates the 20s hardware transfer cooldown window', () => {

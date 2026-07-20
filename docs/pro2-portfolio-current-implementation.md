@@ -70,7 +70,7 @@ Portfolio 同步用于把 App 中的账户资产摘要发送到 OneKey Pro 2，�
 
 1. 开发设置处于启用状态。
 2. Pro 2 Test Mode 已开启。
-3. `enablePortfolioSyncDev` 明确开启，或者当前运行环境是开发/E2E 环境并使用默认值。
+3. `enablePortfolioSyncDev` 已明确开启。开发或 E2E 环境不会隐式启用该模块。
 
 如果没有开启 Pro 2 Test Mode，Portfolio 同步直接返回 `disabled`，不会构造数据、请求服务端或上传硬件。
 

@@ -10,7 +10,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -242,7 +241,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     const devSettings = await devSettingsPersistAtom.get();
     return isPortfolioSyncDevEnabled({
       devSettings,
-      runtimeDevEnabled: Boolean(platformEnv.isDev || platformEnv.isE2E),
     });
   }
 

@@ -14,7 +14,7 @@ import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 
 import {
   type IDevSettingsPersistAtom,
-  isPro2TestModeEnabled,
+  isPro2DebugModuleEnabled,
 } from '../../../states/jotai/atoms/devSettings';
 
 export type IPortfolioSyncSettledPayload =
@@ -50,15 +50,10 @@ export function getPortfolioSyncCooldownRemainingMs({
 
 export function isPortfolioSyncDevEnabled({
   devSettings,
-  runtimeDevEnabled,
 }: {
   devSettings: IDevSettingsPersistAtom;
-  runtimeDevEnabled: boolean;
 }): boolean {
-  if (!isPro2TestModeEnabled(devSettings)) {
-    return false;
-  }
-  return devSettings.settings?.enablePortfolioSyncDev ?? runtimeDevEnabled;
+  return isPro2DebugModuleEnabled(devSettings, 'portfolio');
 }
 
 function buildServerSubmitPortfolio(

@@ -116,6 +116,7 @@ import { IpTableSelector } from './IpTableSelector';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { NotificationPayloadTest } from './NotificationPayloadTest';
+import { Pro2DebugDevSettings } from './Pro2DebugDevSettings';
 import { ReferralCodeDebugPanel } from './ReferralCodeDebugPanel';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
@@ -1158,27 +1159,7 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
-                      <SectionFieldItem
-                        icon="OnekeyDeviceCustom"
-                        name="enablePro2TestMode"
-                        title="Enable Pro 2 Test Mode"
-                        subtitle="Enable Pro 2 onboarding, direct Protocol V2 connection, and development features"
-                        testID="enable-pro2-test-mode"
-                        searchKeywords="Pro2 onboarding portfolio protocol v2 hardware testing"
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
-
-                      <SectionFieldItem
-                        icon="OnekeyDeviceCustom"
-                        name="enablePortfolioSyncDev"
-                        title="Enable Portfolio Sync"
-                        subtitle="Enable Pro 2 portfolio package synchronization"
-                        testID="enable-portfolio-sync"
-                        searchKeywords="Pro2 portfolio hardware sync package"
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
+                      <Pro2DebugDevSettings />
 
                       {platformEnv.isDesktop ? (
                         <SectionPressItem

@@ -123,6 +123,8 @@ export interface IDevSettings {
   // Build App -> Pro 2 portfolio artifacts locally in dev. Production must use
   // server-packed archive responses and must not upload client-packed archives.
   enablePortfolioSyncDev?: boolean;
+  // Expose the Pro 2 onboarding entry and its Protocol V2 connection flow.
+  enablePro2OnboardingDev?: boolean;
   // Expose Pro 2 development entry points and allow explicit Protocol V2
   // sessions without changing the default protocol for existing devices.
   enablePro2TestMode?: boolean;
@@ -143,6 +145,23 @@ export function isPro2TestModeEnabled(
   return Boolean(
     devSettings.enabled && devSettings.settings?.enablePro2TestMode,
   );
+}
+
+export type IPro2DebugModule = 'onboarding' | 'portfolio';
+
+export function isPro2DebugModuleEnabled(
+  devSettings: IDevSettingsPersistAtom,
+  module: IPro2DebugModule,
+): boolean {
+  if (!isPro2TestModeEnabled(devSettings)) {
+    return false;
+  }
+
+  if (module === 'onboarding') {
+    return Boolean(devSettings.settings?.enablePro2OnboardingDev);
+  }
+
+  return Boolean(devSettings.settings?.enablePortfolioSyncDev);
 }
 
 export function getDevSettingsNetworkThrottleEnabled(
@@ -193,6 +212,9 @@ export const {
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
       useFastPbkdf2NativeBackend: false,
+      enablePortfolioSyncDev: false,
+      enablePro2OnboardingDev: false,
+      enablePro2TestMode: false,
     },
   },
 });
