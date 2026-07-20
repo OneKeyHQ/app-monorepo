@@ -33,12 +33,12 @@ import {
   YStack,
 } from '../../primitives';
 import { useSharedPress } from '../../primitives/Button/useEvent';
-import { Popover } from '../Popover';
+import { LazyPopover } from '../LazyPopover';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
 
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
-import type { IPopoverProps } from '../Popover';
+import type { IPopoverProps } from '../LazyPopover';
 
 export interface IActionListItemProps {
   icon?: IKeyOfIcons;
@@ -441,7 +441,7 @@ function BasicActionList({
   );
 
   return (
-    <Popover
+    <LazyPopover
       title={title || intl.formatMessage({ id: ETranslations.explore_options })}
       open={isOpen}
       onOpenChange={handleOpenStatusChange}

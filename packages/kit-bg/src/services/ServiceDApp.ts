@@ -1,4 +1,5 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { Semaphore } from 'async-mutex';
 import { debounce, isEqual, pick } from 'lodash';
 
@@ -12,7 +13,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import {
+  getNetworkImplsFromDappScope,
+  getScopeFromImpl,
+} from '@onekeyhq/shared/src/background/backgroundUtils';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import {
@@ -60,6 +64,7 @@ import {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import { providerApiLoaders } from '../providers/backgroundProviders';
 import { settingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
@@ -68,7 +73,6 @@ import ServiceBase from './ServiceBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type { IDBAccount } from '../dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '../dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ProviderApiEthereum from '../providers/ProviderApiEthereum';
 import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereum';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
@@ -125,6 +129,11 @@ class ServiceDApp extends ServiceBase {
 
   private existingWindowId: number | null | undefined = null;
 
+  // Origin of the request the pending approval window belongs to; focusing is
+  // restricted to same-origin repeats so DApp B's connect click never surfaces
+  // DApp A's approval window.
+  private existingWindowOrigin: string | null = null;
+
   private isAlignPrimaryAccountProcessing = false;
 
   // Temporary store for sensitive clipboard text to avoid logging through
@@ -169,7 +178,7 @@ class ServiceDApp extends ServiceBase {
       params,
     });
     // Try to open an existing window anyway in the extension
-    this.tryOpenExistingExtensionWindow();
+    this.tryOpenExistingExtensionWindow({ origin: request.origin });
 
     return this.semaphore.runExclusive(async () => {
       try {
@@ -208,6 +217,8 @@ class ServiceDApp extends ServiceBase {
             walletConnectVerifyContext,
           };
 
+          this.existingWindowOrigin = request.origin;
+
           const routeParams = {
             // stringify required, nested object not working with Ext route linking
             query: JSON.stringify(
@@ -237,6 +248,7 @@ class ServiceDApp extends ServiceBase {
         });
       } finally {
         this.existingWindowId = null;
+        this.existingWindowOrigin = null;
       }
     });
   }
@@ -293,8 +305,20 @@ class ServiceDApp extends ServiceBase {
     },
   );
 
-  private tryOpenExistingExtensionWindow() {
-    if (platformEnv.isExtension && this.existingWindowId) {
+  // Public so provider APIs that queue connect requests on their own
+  // semaphore (e.g. eth_requestAccounts) can surface the pending approval
+  // window before the queued call ever reaches openModal. Focusing requires
+  // the caller's origin to own the pending window — surfacing DApp A's
+  // approval window on DApp B's connect click invites approving the wrong
+  // origin; cross-origin requests just stay queued until their own modal
+  // window is created.
+  tryOpenExistingExtensionWindow({ origin }: { origin?: string | null } = {}) {
+    if (
+      platformEnv.isExtension &&
+      this.existingWindowId &&
+      origin &&
+      origin === this.existingWindowOrigin
+    ) {
       extUtils.focusExistWindow({ windowId: this.existingWindowId });
     }
   }
@@ -1239,6 +1263,38 @@ class ServiceDApp extends ServiceBase {
     return Object.values(rawData.data.injectedProvider);
   }
 
+  // ext MV3: the background service worker can be evicted and restarted while a
+  // dapp tab stays alive. On restart `backgroundApi.providers` is reset to just
+  // `$private` (per-chain ProviderApis are lazy-loaded on demand), so a
+  // wallet-initiated notifyDAppAccountsChanged/notifyDAppChainChanged could miss
+  // a chain whose provider hasn't been re-loaded yet. Warm up the providers of
+  // already-connected chains so notifications can reach them without waiting for
+  // the dapp's next inbound RPC. Loading is deduped by providerApiLoadingCache,
+  // so this never double-constructs against concurrent dapp traffic.
+  @backgroundMethod()
+  async warmupConnectedDappProviders() {
+    const connectedList = await this.getInjectProviderConnectedList();
+    const connectedImpls = new Set<string>();
+    for (const item of connectedList) {
+      Object.keys(item.networkImplMap ?? {}).forEach((impl) =>
+        connectedImpls.add(impl),
+      );
+    }
+    const scopesToWarmup = new Set<IInjectedProviderNames>();
+    connectedImpls.forEach((impl) => {
+      getScopeFromImpl({ impl }).forEach((scope) => {
+        if (providerApiLoaders[scope as IInjectedProviderNames]) {
+          scopesToWarmup.add(scope as IInjectedProviderNames);
+        }
+      });
+    });
+    await Promise.all(
+      Array.from(scopesToWarmup).map((scope) =>
+        this.backgroundApi.getProviderApi(scope).catch(() => undefined),
+      ),
+    );
+  }
+
   @backgroundMethod()
   async removeDappConnectionAfterWalletRemove(params: { walletId: string }) {
     return this.backgroundApi.simpleDb.dappConnection.removeWallet(params);
@@ -1255,31 +1311,35 @@ class ServiceDApp extends ServiceBase {
   // notification
   @backgroundMethod()
   async notifyDAppAccountsChanged(targetOrigin: string) {
-    Object.values(this.backgroundApi.providers).forEach(
-      (provider: ProviderApiBase) => {
-        provider.notifyDappAccountsChanged({
-          send: this.backgroundApi.sendForProvider(provider.providerName),
-          targetOrigin,
-        });
-      },
-    );
+    // Only providers already loaded (a dapp has used that chain) need notifying;
+    // un-loaded chains have no connected dapp session to update.
+    Object.values(this.backgroundApi.providers).forEach((provider) => {
+      if (!provider) {
+        return;
+      }
+      provider.notifyDappAccountsChanged({
+        send: this.backgroundApi.sendForProvider(provider.providerName),
+        targetOrigin,
+      });
+    });
     return Promise.resolve();
   }
 
   @backgroundMethod()
   async notifyDAppChainChanged(targetOrigin: string) {
-    Object.values(this.backgroundApi.providers).forEach(
-      (provider: ProviderApiBase) => {
-        try {
-          provider.notifyDappChainChanged({
-            send: this.backgroundApi.sendForProvider(provider.providerName),
-            targetOrigin,
-          });
-        } catch {
-          // ignore error
-        }
-      },
-    );
+    Object.values(this.backgroundApi.providers).forEach((provider) => {
+      if (!provider) {
+        return;
+      }
+      try {
+        provider.notifyDappChainChanged({
+          send: this.backgroundApi.sendForProvider(provider.providerName),
+          targetOrigin,
+        });
+      } catch {
+        // ignore error
+      }
+    });
     return Promise.resolve();
   }
 
@@ -1335,8 +1395,9 @@ class ServiceDApp extends ServiceBase {
     hyperliquidMaxBuilderFee: number | undefined;
   }) {
     // use ethereum provider to send message to dapp
-    const ethereumProvider = this.backgroundApi.providers
-      .ethereum as ProviderApiEthereum;
+    const ethereumProvider = (await this.backgroundApi.getProviderApi(
+      IInjectedProviderNames.ethereum,
+    )) as ProviderApiEthereum;
     await ethereumProvider.notifyHyperliquidPerpConfigChanged(
       {
         // use ethereum provider to send message to dapp

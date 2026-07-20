@@ -13,10 +13,12 @@ export type IAutoSizeInputProps = {
   maxFontSize: number;
   minFontSize: number;
   availableInlineWidth: number;
+  inlineTextAlignMode?: 'auto' | 'center';
   currencyLabel?: string;
   inlineTokenSymbol?: string;
   inlinePrefixGapPx: number;
   inlineSuffixGapPx: number;
+  fontFamily: string;
   // Shared selection color for web/native text cursor and selection.
   selectionColor: string;
   onChangeText: (text: string) => void;

@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
+  type IAppEventBusPayload,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -30,6 +31,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -40,18 +42,43 @@ import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
+import {
+  getTokensTabLastState,
+  runAfterTokensDone,
+} from '../../../hooks/useRunAfterTokensDone';
 import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   ProviderJotaiContextHistoryList,
   useHistoryListActions,
 } from '../../../states/jotai/contexts/historyList';
-import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
 import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendHistory';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
+import { buildTokenRefreshPlanAfterHistory } from './historyTokenRefreshGate';
+import {
+  FrozenTopHistoryScrollObserver,
+  useFrozenTopHistoryData,
+} from './hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from './hooks/useHistoryListLoadMore';
+
+type ITokenRefreshAccount = {
+  accountId: string;
+  networkId: string;
+};
+
+type IPendingTokenRefreshAfterTokensDone = {
+  accounts: ITokenRefreshAccount[];
+  accountId: string;
+  networkId: string;
+  matchNetworkId: boolean;
+  cleanup?: () => void;
+};
+
+const getTokenRefreshAccountKey = (account: ITokenRefreshAccount) =>
+  `${account.accountId}::${account.networkId}`;
 
 function TxHistoryListContainer(
   params:
@@ -82,7 +109,10 @@ function TxHistoryListContainer(
   } = useHistoryListActions().current;
   const { updateAllNetworksState } = useAccountOverviewActions().current;
 
-  const [allTokenListMap] = useAllTokenListMapAtom();
+  // Full home fiat map (PULLed from the BG VM, refreshed on each home structure
+  // frame). Feeds ONLY the empty-history-state receive action (B2: not the
+  // history rows). Replaces the deleted `allTokenListMapAtom`.
+  const { map: allTokenListMap } = useHomeTokenListSnapshot();
 
   const [historyData, setHistoryData] = useState<IAccountHistoryTx[]>([]);
 
@@ -217,6 +247,89 @@ function TxHistoryListContainer(
   );
 
   const isManualRefresh = useRef(false);
+  // App resume should force the backend history fetch without joining the
+  // AccountDataUpdate token refresh cycle.
+  const forceHistoryRefresh = useRef(false);
+  const pendingTokenRefreshAfterTokensDoneRef = useRef<
+    IPendingTokenRefreshAfterTokensDone | undefined
+  >(undefined);
+  const emitRefreshTokenList = useCallback(
+    (accounts: ITokenRefreshAccount[]) => {
+      if (accounts.length > 0) {
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+          accounts,
+        });
+      }
+    },
+    [],
+  );
+  const stopPendingTokenRefreshAfterTokensDone = useCallback(
+    ({ clearAccounts }: { clearAccounts: boolean }) => {
+      const pending = pendingTokenRefreshAfterTokensDoneRef.current;
+      pending?.cleanup?.();
+      if (!pending) return;
+      if (clearAccounts) {
+        pendingTokenRefreshAfterTokensDoneRef.current = undefined;
+      } else {
+        pending.cleanup = undefined;
+      }
+    },
+    [],
+  );
+  const clearPendingTokenRefreshAfterTokensDone = useCallback(() => {
+    stopPendingTokenRefreshAfterTokensDone({ clearAccounts: true });
+  }, [stopPendingTokenRefreshAfterTokensDone]);
+  const suspendPendingTokenRefreshAfterTokensDone = useCallback(() => {
+    stopPendingTokenRefreshAfterTokensDone({ clearAccounts: false });
+  }, [stopPendingTokenRefreshAfterTokensDone]);
+  const registerPendingTokenRefreshAfterTokensDone = useCallback(
+    ({
+      accounts,
+      accountId,
+      networkId,
+    }: {
+      accounts: ITokenRefreshAccount[];
+      accountId: string;
+      networkId: string;
+    }) => {
+      if (accounts.length === 0) return;
+      pendingTokenRefreshAfterTokensDoneRef.current?.cleanup?.();
+      const pending: IPendingTokenRefreshAfterTokensDone = {
+        accounts,
+        accountId,
+        networkId,
+        matchNetworkId: !networkUtils.isAllNetwork({
+          networkId,
+        }),
+      };
+      pending.cleanup = runAfterTokensDone({
+        accountId,
+        networkId,
+        matchAccountId: true,
+        matchNetworkId: pending.matchNetworkId,
+        fallbackDelayMs: POLLING_DEBOUNCE_INTERVAL,
+        retryDelayMs: POLLING_DEBOUNCE_INTERVAL,
+        deferWhileRefreshing: true,
+        onRun: () => {
+          if (pendingTokenRefreshAfterTokensDoneRef.current === pending) {
+            pendingTokenRefreshAfterTokensDoneRef.current = undefined;
+          }
+          emitRefreshTokenList(pending.accounts);
+        },
+      });
+      pendingTokenRefreshAfterTokensDoneRef.current = pending;
+    },
+    [emitRefreshTokenList],
+  );
+  const rearmPendingTokenRefreshAfterTokensDone = useCallback(() => {
+    const pending = pendingTokenRefreshAfterTokensDoneRef.current;
+    if (!pending || pending.cleanup) return;
+    registerPendingTokenRefreshAfterTokensDone({
+      accounts: pending.accounts,
+      accountId: pending.accountId,
+      networkId: pending.networkId,
+    });
+  }, [registerPendingTokenRefreshAfterTokensDone]);
 
   // Stable identity tuple shared by the init guard and request-id effect so
   // they can't drift on what counts as an identity change.
@@ -246,6 +359,10 @@ function TxHistoryListContainer(
     async () => {
       fetchRequestIdRef.current += 1;
       const requestId = fetchRequestIdRef.current;
+      suspendPendingTokenRefreshAfterTokensDone();
+      const isManualRefreshForThisRun = isManualRefresh.current;
+      const forceHistoryRefreshForThisRun =
+        isManualRefreshForThisRun || forceHistoryRefresh.current;
       const isCurrentRequest = () => fetchRequestIdRef.current === requestId;
 
       let emittedTrue = false;
@@ -271,6 +388,10 @@ function TxHistoryListContainer(
             accountId: string;
             networkId: string;
           }[];
+          accountsWithCompletedDeFiPortfolioTxs: {
+            accountId: string;
+            networkId: string;
+          }[];
           addressMap?: Record<string, IAddressBadge>;
           hasMoreOnChainHistory?: boolean;
           next?: string;
@@ -279,6 +400,7 @@ function TxHistoryListContainer(
           allAccounts: [],
           txs: [],
           accountsWithChangedTxs: [],
+          accountsWithCompletedDeFiPortfolioTxs: [],
           addressMap: {},
           hasMoreOnChainHistory: false,
           next: undefined,
@@ -304,7 +426,7 @@ function TxHistoryListContainer(
               {
                 indexedAccountId: indexedAccount?.id ?? '',
                 networkId: network.id,
-                isManualRefresh: isManualRefresh.current,
+                isManualRefresh: forceHistoryRefreshForThisRun,
                 filterScam: settings.isFilterScamHistoryEnabled,
                 filterLowValue: settings.isFilterLowValueHistoryEnabled,
                 excludeTestNetwork: true,
@@ -318,7 +440,7 @@ function TxHistoryListContainer(
           r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
             accountId,
             networkId: network.id,
-            isManualRefresh: isManualRefresh.current,
+            isManualRefresh: forceHistoryRefreshForThisRun,
             filterScam: settings.isFilterScamHistoryEnabled,
             filterLowValue: settings.isFilterLowValueHistoryEnabled,
             excludeTestNetwork: true,
@@ -339,6 +461,7 @@ function TxHistoryListContainer(
           data: r.addressMap ?? {},
         });
         onFirstPageResponse({
+          txs: r.txs,
           next: r.next,
           hasMore: aggregatedHasMoreOnChainHistory,
           isIndexer: r.isIndexer,
@@ -354,15 +477,58 @@ function TxHistoryListContainer(
         });
         updateHistoryData(r.txs);
 
-        if (r.accountsWithChangedTxs.length > 0) {
-          appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-            accounts: r.accountsWithChangedTxs,
+        const accountsToPlanTokenRefresh = uniqBy(
+          [
+            ...(pendingTokenRefreshAfterTokensDoneRef.current?.accounts ?? []),
+            ...r.accountsWithChangedTxs,
+          ],
+          getTokenRefreshAccountKey,
+        );
+        clearPendingTokenRefreshAfterTokensDone();
+        const tokenRefreshPlan = buildTokenRefreshPlanAfterHistory({
+          accounts: accountsToPlanTokenRefresh,
+          lastTokensTabState: getTokensTabLastState(),
+          tokenRefreshScope: {
+            accountId: refreshAccountId,
+            networkId: refreshNetworkId,
+            includesAllAccountsInNetwork: !!mergeDeriveAddressData,
+          },
+        });
+
+        emitRefreshTokenList(tokenRefreshPlan.accountsToRefreshNow);
+
+        if (tokenRefreshPlan.accountsToRefreshAfterTokensDone.length > 0) {
+          const tokensDoneScope = tokenRefreshPlan.tokensDoneScope ?? {
+            accountId: refreshAccountId,
+            networkId: refreshNetworkId,
+          };
+          registerPendingTokenRefreshAfterTokensDone({
+            accounts: tokenRefreshPlan.accountsToRefreshAfterTokensDone,
+            accountId: tokensDoneScope.accountId,
+            networkId: tokensDoneScope.networkId,
           });
+        }
+        if (r.accountsWithCompletedDeFiPortfolioTxs.length > 0) {
+          void Promise.all(
+            r.accountsWithCompletedDeFiPortfolioTxs.map(
+              ({
+                accountId: completedAccountId,
+                networkId: completedNetworkId,
+              }) =>
+                backgroundApiProxy.serviceDeFi.refreshAccountDeFiPositionsAfterAction(
+                  {
+                    accountId: completedAccountId,
+                    networkId: completedNetworkId,
+                  },
+                ),
+            ),
+          ).catch(console.error);
         }
       } finally {
         // Must clear unconditionally — otherwise the next polling tick would
         // be wrongly treated as a manual refresh.
         isManualRefresh.current = false;
+        forceHistoryRefresh.current = false;
         if (emittedTrue) {
           appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
             isRefreshing: false,
@@ -372,6 +538,7 @@ function TxHistoryListContainer(
           });
         }
         if (isCurrentRequest()) {
+          rearmPendingTokenRefreshAfterTokensDone();
           setIsHeaderRefreshing(false);
         }
       }
@@ -391,6 +558,11 @@ function TxHistoryListContainer(
       limit,
       updateHistoryData,
       onFirstPageResponse,
+      clearPendingTokenRefreshAfterTokensDone,
+      emitRefreshTokenList,
+      registerPendingTokenRefreshAfterTokensDone,
+      rearmPendingTokenRefreshAfterTokensDone,
+      suspendPendingTokenRefreshAfterTokensDone,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -532,7 +704,13 @@ function TxHistoryListContainer(
   // ~1s `usePromiseResult` debounce window where the runner-body bump can't.
   useEffect(() => {
     fetchRequestIdRef.current += 1;
-  }, [identityKey]);
+    clearPendingTokenRefreshAfterTokensDone();
+  }, [clearPendingTokenRefreshAfterTokensDone, identityKey]);
+
+  useEffect(
+    () => () => clearPendingTokenRefreshAfterTokensDone(),
+    [clearPendingTokenRefreshAfterTokensDone],
+  );
 
   useEffect(() => {
     if (isHeaderRefreshing) {
@@ -563,6 +741,38 @@ function TxHistoryListContainer(
     [historyData, appendedTxs],
   );
 
+  // OK-57070: freeze top-of-list growth while the user is scrolled away from
+  // the top. A background refresh that prepends new rows would otherwise shift
+  // the viewport and make the native SectionList jitter (it has no exact
+  // item layout). Held rows merge in automatically once the user scrolls back
+  // near the top. Pass-through on web/desktop and for preview / plain lists.
+  // The tab scenario (full wallet-history tab, not RecentHistory's
+  // plainMode+limit preview) also gates the scroll observer mount below.
+  const isFrozenTopTabScenario = !plainMode && !limit;
+  const frozenTopEnabled =
+    isFocused && isRouteFocused && isFrozenTopTabScenario;
+  // Freeze identity: the shared `identityKey` tuple plus the history filter
+  // toggles (which swap the visible row set with heavy id overlap). When it
+  // changes the hook drops its frozen baseline so the new stream renders live.
+  const frozenTopIdentityKey = useMemo(
+    () =>
+      [
+        identityKey,
+        settings.isFilterScamHistoryEnabled ? '1' : '0',
+        settings.isFilterLowValueHistoryEnabled ? '1' : '0',
+      ].join('|'),
+    [
+      identityKey,
+      settings.isFilterScamHistoryEnabled,
+      settings.isFilterLowValueHistoryEnabled,
+    ],
+  );
+  const { displayedHistoryData, onAwayFromTopChange } = useFrozenTopHistoryData(
+    combinedHistoryData,
+    frozenTopEnabled,
+    frozenTopIdentityKey,
+  );
+
   const lastVisibilityRefreshAtRef = useRef(0);
   const handleRefreshOnVisibilityActive = useCallback(() => {
     const now = Date.now();
@@ -573,7 +783,7 @@ function TxHistoryListContainer(
       return;
     }
     lastVisibilityRefreshAtRef.current = now;
-    isManualRefresh.current = true;
+    forceHistoryRefresh.current = true;
     void run({ alwaysSetState: true });
   }, [run]);
 
@@ -587,9 +797,13 @@ function TxHistoryListContainer(
   }, [handleRefreshOnVisibilityActive, isFocused, isRouteFocused]);
 
   useEffect(() => {
-    const refresh = () => {
+    const refresh = (
+      payload?: IAppEventBusPayload[EAppEventBusNames.AccountDataUpdate],
+    ) => {
       if (isFocused) {
-        isManualRefresh.current = true;
+        if (payload?.isManualRefresh) {
+          isManualRefresh.current = true;
+        }
         void run();
       }
     };
@@ -640,37 +854,45 @@ function TxHistoryListContainer(
   );
 
   return (
-    <TxHistoryListView
-      plainMode={plainMode}
-      isTabFocused={isFocused}
-      showIcon
-      inTabList
-      hideValue
-      onRefresh={onHomePageRefresh}
-      data={combinedHistoryData}
-      onPressHistory={handleHistoryItemPress}
-      showHeader
-      showFooter
-      walletId={wallet?.id}
-      accountId={account?.id}
-      networkId={network?.id}
-      indexedAccountId={indexedAccount?.id}
-      initialized={historyState.initialized}
-      tableLayout={tableLayout ?? media.gtMd}
-      listViewStyleProps={{
-        contentContainerStyle: {
-          mt: '$3',
-          pb: tabBarHeight,
-        },
-      }}
-      tokenMap={allTokenListMap}
-      emptyTitle={emptyTitle}
-      emptyDescription={emptyDescription}
-      ListHeaderComponent={listHeaderComponent}
-      onEndReached={loadMoreEnabled ? loadMore : undefined}
-      isLoadingMore={isLoadingMore}
-      hasMore={loadMoreHasMore}
-    />
+    <>
+      {isFrozenTopTabScenario ? (
+        <FrozenTopHistoryScrollObserver
+          enabled={frozenTopEnabled}
+          onAwayFromTopChange={onAwayFromTopChange}
+        />
+      ) : null}
+      <TxHistoryListView
+        plainMode={plainMode}
+        isTabFocused={isFocused}
+        showIcon
+        inTabList
+        hideValue
+        onRefresh={onHomePageRefresh}
+        data={displayedHistoryData}
+        onPressHistory={handleHistoryItemPress}
+        showHeader
+        showFooter
+        walletId={wallet?.id}
+        accountId={account?.id}
+        networkId={network?.id}
+        indexedAccountId={indexedAccount?.id}
+        initialized={historyState.initialized}
+        tableLayout={tableLayout ?? media.gtMd}
+        listViewStyleProps={{
+          contentContainerStyle: {
+            mt: '$3',
+            pb: tabBarHeight,
+          },
+        }}
+        tokenMap={allTokenListMap}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+        ListHeaderComponent={listHeaderComponent}
+        onEndReached={loadMoreEnabled ? loadMore : undefined}
+        isLoadingMore={isLoadingMore}
+        hasMore={loadMoreHasMore}
+      />
+    </>
   );
 }
 

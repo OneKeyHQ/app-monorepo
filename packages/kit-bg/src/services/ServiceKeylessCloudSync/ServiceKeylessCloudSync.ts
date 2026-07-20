@@ -8,6 +8,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -550,8 +552,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   async repairKeylessSyncCredentialIfNeeded({
     password,
+    throwOnLocalSecretEnvelopeUnavailable,
   }: {
     password: string;
+    throwOnLocalSecretEnvelopeUnavailable?: boolean;
   }): Promise<void> {
     await this.repairCredentialMutex.runExclusive(async () => {
       const walletId = await this.getCurrentCloudSyncKeylessWalletId();
@@ -568,7 +572,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
       }
       // Credential missing — re-derive from seed while password is available
       try {
-        const credentialRecord = await localDb.getCredential(walletId);
+        const credentialRecord = await localDb.getCredentialInner({
+          credentialId: walletId,
+        });
         if (!credentialRecord?.credential) {
           return;
         }
@@ -592,6 +598,15 @@ class ServiceKeylessCloudSync extends ServiceBase {
           '[ServiceKeylessCloudSync] Failed to repair credential:',
           error,
         );
+        if (
+          throwOnLocalSecretEnvelopeUnavailable &&
+          errorUtils.isErrorByClassName({
+            error,
+            className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+          })
+        ) {
+          throw error;
+        }
       }
     });
   }
@@ -673,15 +688,19 @@ class ServiceKeylessCloudSync extends ServiceBase {
     enabled,
     silentEnable = false,
     forceEnable = false,
+    handleLocalSecretEnvelopeUnavailable = !silentEnable,
   }: {
     enabled: boolean;
     silentEnable?: boolean;
     forceEnable?: boolean;
+    handleLocalSecretEnvelopeUnavailable?: boolean;
   }) {
     try {
       if (enabled) {
         const { success } = await this.prepareCloudSyncKeyless({
           silentEnable,
+          throwOnLocalSecretEnvelopeUnavailable:
+            handleLocalSecretEnvelopeUnavailable,
         });
         const shouldEnable = success || forceEnable;
         await this.setCloudSyncEnabledKeyless(shouldEnable);
@@ -720,10 +739,24 @@ class ServiceKeylessCloudSync extends ServiceBase {
         await this.setCloudSyncEnabledKeyless(false);
       }
     } catch (error) {
-      if (enabled && forceEnable) {
+      const shouldHandleLocalSecretEnvelopeUnavailable =
+        enabled &&
+        handleLocalSecretEnvelopeUnavailable &&
+        errorUtils.isErrorByClassName({
+          error,
+          className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+        });
+      if (
+        enabled &&
+        forceEnable &&
+        !shouldHandleLocalSecretEnvelopeUnavailable
+      ) {
         await this.setCloudSyncEnabledKeyless(true);
       } else {
         await this.setCloudSyncEnabledKeyless(false);
+      }
+      if (shouldHandleLocalSecretEnvelopeUnavailable) {
+        errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error);
       }
       throw error;
     } finally {
@@ -735,9 +768,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
   async enableKeylessCloudSyncWithMigrationIfNeeded({
     showLoading = false,
     ignorePreMigrationSyncError = false,
+    handleLocalSecretEnvelopeUnavailable = false,
   }: {
     showLoading?: boolean;
     ignorePreMigrationSyncError?: boolean;
+    handleLocalSecretEnvelopeUnavailable?: boolean;
   } = {}) {
     const runMigration = async () => {
       const { isCloudSyncEnabled } = await primeCloudSyncPersistAtom.get();
@@ -760,6 +795,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         enabled: true,
         silentEnable: true,
         forceEnable: true,
+        handleLocalSecretEnvelopeUnavailable,
       });
       await this.backgroundApi.servicePrimeCloudSync.updateLastSyncTime({
         syncMode: ECloudSyncMode.Keyless,
@@ -831,8 +867,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   async prepareCloudSyncKeyless({
     silentEnable = false,
+    throwOnLocalSecretEnvelopeUnavailable = !silentEnable,
   }: {
     silentEnable?: boolean;
+    throwOnLocalSecretEnvelopeUnavailable?: boolean;
   } = {}): Promise<{
     success: boolean;
   }> {
@@ -863,7 +901,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
       await this.backgroundApi.servicePassword.promptPasswordVerify();
 
     // Ensure credential exists before proceeding (auto-repair if missing)
-    await this.repairKeylessSyncCredentialIfNeeded({ password });
+    await this.repairKeylessSyncCredentialIfNeeded({
+      password,
+      throwOnLocalSecretEnvelopeUnavailable,
+    });
 
     const keylessCredential = await this.getKeylessCloudSyncCredential();
     if (!keylessCredential) {

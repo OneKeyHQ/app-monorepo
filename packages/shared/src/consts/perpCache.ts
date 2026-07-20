@@ -58,3 +58,23 @@ export const PERPS_ACCOUNT_DISPLAY_CACHE_WRITE_INTERVAL_MS =
 export const PERPS_ACCOUNT_DISPLAY_CACHE_MAX_ENTRIES = 16;
 
 export const PERPS_ACCOUNT_DISPLAY_SNAPSHOT_MAX_ENTRIES = 8;
+
+export const PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_ENTRIES = 16;
+
+export const PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_AGE_MS =
+  timerUtils.getTimeDurationMs({
+    minute: 1,
+  });
+
+// Open positions are marked to market, so refresh them faster than idle accounts.
+export const PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS =
+  timerUtils.getTimeDurationMs({
+    seconds: 15,
+  });
+
+// Serving a stale snapshot while a background refresh runs keeps account
+// switches from blocking on the network; beyond this age show loading instead.
+export const PERPS_HL_PORTFOLIO_STALE_SERVE_MAX_AGE_MS =
+  timerUtils.getTimeDurationMs({
+    hour: 24,
+  });

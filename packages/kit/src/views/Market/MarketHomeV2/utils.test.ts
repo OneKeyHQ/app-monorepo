@@ -1,3 +1,4 @@
+import { TIME_RANGE_TO_API_MAP } from './types';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
   isMarketStockCategory,
@@ -405,5 +406,11 @@ describe('Market Stock Category Detection Tests', () => {
     expect(isMarketStockCategoryById(categories, 'trending')).toBe(false);
     expect(isMarketStockCategoryById(categories, 'missing')).toBe(false);
     expect(isMarketStockCategoryById(undefined, 'stock')).toBe(false);
+  });
+});
+
+describe('Market Home API Defaults', () => {
+  test('maps the default one-hour range to the seed-compatible API timeframe', () => {
+    expect(TIME_RANGE_TO_API_MAP['1h']).toBe('2');
   });
 });

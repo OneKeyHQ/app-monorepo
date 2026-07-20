@@ -1,7 +1,6 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { performance } from 'node:perf_hooks';
 
 // eslint-disable-next-line jest/no-mocks-import
 import { createKeychainStorageMock } from '../../../__mocks__/keychain-storage.mock';
@@ -24,14 +23,6 @@ const tempDirs: string[] = [];
 const MASTER_KEY = Buffer.alloc(32, 0xbb);
 const LOCK_WAIT_STRESS_CLIENTS = 5;
 const LOCK_WAIT_STRESS_MUTATIONS_PER_CLIENT = 50;
-// Tail-latency ratio (p95 / median wait), not absolute ms — absolute
-// wall-clock thresholds flake on noisy CI runners (issue: PR #11612). With
-// fair FIFO queueing of N=5 clients, p95 sits near the upper end of a
-// roughly uniform [0, (N-1)·per_op_time] distribution and the median sits
-// near the middle, so the theoretical ratio is ~1.9x; we allow 8x to
-// absorb GC / scheduler jitter while still catching pathological lock
-// starvation (which pushes the ratio to 50x+).
-const LOCK_WAIT_P95_TO_MEDIAN_RATIO = 8;
 
 async function delay(ms: number): Promise<void> {
   if (ms <= 0) {
@@ -217,28 +208,16 @@ describe('VaultClient lost-update protection', () => {
     );
   });
 
-  // Perf: lock-wait fairness check using a tail-latency RATIO (p95/median),
-  // not an absolute ms threshold — the absolute form flaked on slow CI
-  // runners (see LOCK_WAIT_P95_TO_MEDIAN_RATIO comment above). This still
-  // catches the pathological cases we actually care about (lock starvation,
-  // unfair queueing) because those push the ratio far past 8x; it just
-  // stops failing when the runner is merely slow rather than broken.
-  it('keeps p95 lock wait bounded relative to median (fair queueing)', async () => {
+  // Fairness: verify balanced lock acquisition order instead of wall-clock
+  // latency. CI runner scheduler and filesystem noise can skew p95/median
+  // timing even when FIFO queueing is working correctly.
+  it('keeps lock acquisition balanced while clients re-contend', async () => {
     const paths = await createPaths();
     await writeVault(paths, createVault());
-    const waits: number[] = [];
-    const acquireLock = async (
-      lockPaths: IVaultClientPaths,
-    ): Promise<IVaultLockRelease> => {
-      const startedAt = performance.now();
-      const release = await acquireVaultLock({
-        vaultDir: lockPaths.vaultDir,
-        vaultFile: lockPaths.vaultFile,
-        vaultLock: lockPaths.vaultLock,
-      });
-      waits.push(performance.now() - startedAt);
-      return release;
-    };
+    const acquiredCounts = Array.from(
+      { length: LOCK_WAIT_STRESS_CLIENTS },
+      () => 0,
+    );
     const keychainStorage = createKeychainStorageMock();
     await createMasterKey({
       keychainStorage,
@@ -247,7 +226,23 @@ describe('VaultClient lost-update protection', () => {
     });
     const clients = Array.from(
       { length: LOCK_WAIT_STRESS_CLIENTS },
-      () => new VaultClient({ keychainStorage, paths, acquireLock }),
+      (_unused, clientIndex) => {
+        const acquireLock = async (
+          lockPaths: IVaultClientPaths,
+        ): Promise<IVaultLockRelease> => {
+          const release = await acquireVaultLock({
+            vaultDir: lockPaths.vaultDir,
+            vaultFile: lockPaths.vaultFile,
+            vaultLock: lockPaths.vaultLock,
+          });
+          acquiredCounts[clientIndex] += 1;
+          const countSpread =
+            Math.max(...acquiredCounts) - Math.min(...acquiredCounts);
+          expect(countSpread).toBeLessThanOrEqual(1);
+          return release;
+        };
+        return new VaultClient({ keychainStorage, paths, acquireLock });
+      },
     );
 
     await Promise.all(
@@ -267,13 +262,11 @@ describe('VaultClient lost-update protection', () => {
       ),
     );
 
-    const sortedWaits = [...waits].toSorted((left, right) => left - right);
-    const median = sortedWaits[Math.floor(sortedWaits.length / 2)] ?? 0;
-    const p95 = sortedWaits[Math.floor((sortedWaits.length - 1) * 0.95)] ?? 0;
-    // Floor median at 1ms before dividing: a near-zero median (possible if
-    // file system calls happen to coalesce) would otherwise turn any
-    // nonzero p95 into an infinity-flavored ratio.
-    const ratio = p95 / Math.max(median, 1);
-    expect(ratio).toBeLessThan(LOCK_WAIT_P95_TO_MEDIAN_RATIO);
+    expect(acquiredCounts).toEqual(
+      Array.from(
+        { length: LOCK_WAIT_STRESS_CLIENTS },
+        () => LOCK_WAIT_STRESS_MUTATIONS_PER_CLIENT,
+      ),
+    );
   });
 });

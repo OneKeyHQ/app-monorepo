@@ -11,13 +11,22 @@ import {
   useIsOverlayPage,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  StockMarketStatusAlert,
+  getStockMarketClosedDescription,
+  isStockMarketClosed,
+  resolveStockMarketStatusCase,
+} from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapNetworkFeeLevel,
@@ -54,9 +63,11 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     tokenAddress,
     isNative: currentMarketTokenIsNative,
     tokenDetail,
+    perpsInfo,
     isReady,
   } = useTokenDetail();
   const intl = useIntl();
+  const currencyInfo = useCurrency();
   const isModalPage = useIsOverlayPage();
   const inPageDialog = useInPageDialog(
     isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
@@ -149,34 +160,25 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
     }
-    let actionTranslationId;
-    let actionToken: ISwapToken | undefined;
-    let actionOtherToken: ISwapToken | undefined;
-    if (!speedSwapEnabled) {
-      actionTranslationId = onlySupportCrossChain
-        ? ETranslations.promode_swap_unsupported_message_btc
-        : ETranslations.promode_swap_unsupported_message_regular;
-      actionToken = {
-        networkId: networkId || '',
-        contractAddress: tokenDetail?.address || '',
-        symbol: tokenDetail?.symbol || '',
-        decimals: tokenDetail?.decimals || 0,
-        logoURI: tokenDetail?.logoUrl || '',
-        isNative: !!tokenDetail?.isNative,
-      };
-      actionOtherToken = {
-        networkId: paymentToken?.networkId || '',
-        contractAddress: paymentToken?.contractAddress || '',
-        symbol: paymentToken?.symbol || '',
-        decimals: paymentToken?.decimals || 0,
-        logoURI: paymentToken?.logoURI || '',
-        isNative: paymentToken?.isNative || false,
-      };
-    }
+    const actionToken: ISwapToken | undefined = {
+      networkId: networkId || '',
+      contractAddress: tokenDetail?.address || '',
+      symbol: tokenDetail?.symbol || '',
+      decimals: tokenDetail?.decimals || 0,
+      logoURI: tokenDetail?.logoUrl || '',
+      isNative: !!tokenDetail?.isNative,
+    };
+    const actionOtherToken: ISwapToken | undefined = {
+      networkId: paymentToken?.networkId || '',
+      contractAddress: paymentToken?.contractAddress || '',
+      symbol: paymentToken?.symbol || '',
+      decimals: paymentToken?.decimals || 0,
+      logoURI: paymentToken?.logoURI || '',
+      isNative: paymentToken?.isNative || false,
+    };
     return {
       enabled: isEnabled,
       warningMessage,
-      actionTranslationId,
       actionToken,
       actionOtherToken,
       onlySupportCrossChain,
@@ -211,6 +213,14 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const effectiveCustomPriorityFee = marketPresetSettings.enabled
     ? marketPresetSettings.selectedPriorityFeeOverride
     : undefined;
+  const shouldUseConvertedMarketPrice =
+    currencyInfo.id !== 'usd' && Boolean(tokenDetail?.priceConverted);
+  const marketTokenPrice = shouldUseConvertedMarketPrice
+    ? tokenDetail?.priceConverted
+    : tokenDetail?.price;
+  const marketTokenCurrency = shouldUseConvertedMarketPrice
+    ? currencyInfo.id
+    : 'usd';
   const currentFromTokenAmount =
     tradeType === ESwapDirection.BUY
       ? paymentAmount.toFixed()
@@ -224,7 +234,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       symbol: tokenDetail?.symbol || '',
       decimals: tokenDetail?.decimals || 0,
       logoURI: tokenDetail?.logoUrl || '',
-      price: tokenDetail?.priceConverted || tokenDetail?.price || '',
+      price: marketTokenPrice || '',
+      currency: marketTokenCurrency,
       isNative: !!tokenDetail?.isNative,
     },
     tradeToken: {
@@ -234,6 +245,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       decimals: paymentToken?.decimals || 0,
       logoURI: paymentToken?.logoURI || '',
       price: paymentToken?.price || '',
+      currency: paymentToken?.currency,
       isNative: paymentToken?.isNative || false,
     },
     provider,
@@ -648,6 +660,40 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     [swapPanel, handleUserPaymentTokenChange],
   );
 
+  // Stock market-closed alert (reuses the shared StockMarketStatusAlert): when
+  // the underlying stock's market is closed, show the standard alert + optional
+  // Perps handoff and disable the trade button (handled in SwapPanelContent).
+  // Other (non-closed) backend errors keep the generic speedCheckError text.
+  const { navigateToPerps } = usePerpsNavigation(
+    EPerpPageEnterSource.MarketStockClosed,
+  );
+  const stockHlTicker = perpsInfo?.hlTicker;
+  const stockHasPerps = Boolean(stockHlTicker);
+  const stockClosedTimeText = getStockMarketClosedDescription(
+    tokenDetail?.stock?.description,
+  );
+  const stockMarketClosedAlert = isStockMarketClosed(tokenDetail?.stock) ? (
+    <StockMarketStatusAlert
+      statusCase={resolveStockMarketStatusCase({
+        isOpen: false,
+        hasOpenTime: Boolean(stockClosedTimeText),
+        hasPerps: stockHasPerps,
+      })}
+      timeText={stockClosedTimeText}
+      onTradePerps={
+        stockHlTicker
+          ? () => {
+              // SwapPanelWrap can be hosted in an in-page dialog (mobile Market
+              // Detail). Close it first so the old swap dialog doesn't linger
+              // above the Perps tab or race with overlay cleanup.
+              onCloseDialog?.();
+              navigateToPerps(stockHlTicker);
+            }
+          : undefined
+      }
+    />
+  ) : null;
+
   return (
     <SwapPanelContent
       activeAccount={activeAccount}
@@ -678,6 +724,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
       speedCheckError={speedCheckError}
+      stockMarketClosedAlert={stockMarketClosedAlert}
       disableNativeToken={disableNativeToken}
       marketPresetSettings={marketPresetSettings}
       estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}

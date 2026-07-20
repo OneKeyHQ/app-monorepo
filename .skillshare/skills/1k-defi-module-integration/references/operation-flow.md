@@ -29,6 +29,23 @@ Do not merge setup and business actions into one opaque function. Name the seque
 
 If a step is provider-managed, still represent it in App state as loading, unavailable, pending, failed, success, or unknown.
 
+## Order Tracking And Duplicate-Submit Guard
+
+When the build transaction response includes `orderId`, treat it as part of the
+operation contract:
+
+1. Preserve `orderId` with the setup or business transaction that produced it.
+2. After broadcast succeeds, attach the actual transaction hash to that order.
+3. Poll or receive final chain status, then update the order status again.
+4. Refresh the affected portfolio, protocol detail, borrow reserve, and history
+   surfaces according to the operation scope.
+5. Keep this tracking non-blocking only when a visible confirming sheet or
+   equivalent UX already protects the user from double submit.
+
+If the operation can be re-entered before the first tx finalizes, define the
+disable/retry state explicitly. Do not rely on a toast or a local loading flag
+as the only duplicate-submit guard.
+
 ## ABI-Backed Operations
 
 For ABI-backed protocols, verify:

@@ -36,6 +36,24 @@ export const SettingTestIDs = {
   eraseDataInput: 'erase-data-input', // preserve existing
   eraseDataConfirm: 'erase-data-confirm', // preserve existing
   confirmButton: 'confirm-button', // preserve existing
+  localSecretEnvelopeSelfTestButton:
+    'setting-local-secret-envelope-self-test-button',
+  localSecretEnvelopeSelfTestConfirm:
+    'setting-local-secret-envelope-self-test-confirm',
+  localSecretEnvelopeRestoreSelfTestButton:
+    'setting-local-secret-envelope-restore-self-test-button',
+  localSecretEnvelopeRestoreSelfTestConfirm:
+    'setting-local-secret-envelope-restore-self-test-confirm',
+  localSecretEnvelopeMigrationDiagnosticButton:
+    'setting-local-secret-envelope-migration-diagnostic-button',
+  localSecretEnvelopeMigrationDiagnosticConfirm:
+    'setting-local-secret-envelope-migration-diagnostic-confirm',
+  localSecretEnvelopeSimulateKeyLossButton:
+    'setting-local-secret-envelope-simulate-key-loss-button',
+  localSecretEnvelopeSimulateKeyLossConfirm:
+    'setting-local-secret-envelope-simulate-key-loss-confirm',
+  localSecretEnvelopeSelfTestCopyRaw:
+    'setting-local-secret-envelope-self-test-copy-raw',
 
   // Tab custom elements (desktop tab settings)
   tabMenuBarTraySwitch: 'setting-tab-menu-bar-tray-switch',

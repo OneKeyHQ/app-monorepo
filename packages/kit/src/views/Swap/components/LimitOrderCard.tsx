@@ -24,9 +24,12 @@ import {
   ESwapLimitOrderStatus,
   ESwapQuoteKind,
   type IFetchLimitOrderRes,
-  LIMIT_PRICE_DEFAULT_DECIMALS,
 } from '@onekeyhq/shared/types/swap/types';
 
+import {
+  getLimitOrderDisplayAmounts,
+  getLimitOrderDisplayPrice,
+} from './LimitOrderCard.utils';
 import { SwapTxHistoryAvatar } from './SwapTxHistoryListCell';
 
 const LimitOrderCard = ({
@@ -38,6 +41,7 @@ const LimitOrderCard = ({
   onCancel,
   hiddenHoverBg = false,
   cancelLoading = false,
+  testID,
 }: {
   item: IFetchLimitOrderRes;
   hiddenCreateTime?: boolean;
@@ -47,6 +51,7 @@ const LimitOrderCard = ({
   onCancel?: () => void;
   cancelLoading?: boolean;
   hiddenHoverBg?: boolean;
+  testID?: string;
 }) => {
   const { fromTokenInfo, toTokenInfo, fromAmount, toAmount } = item;
   const intl = useIntl();
@@ -134,8 +139,22 @@ const LimitOrderCard = ({
       toAmount: new BigNumber(item?.toAmount ?? '0').shiftedBy(
         -(item?.toTokenInfo?.decimals ?? 0),
       ),
+      ...getLimitOrderDisplayAmounts({
+        executedBuyAmount: item.executedBuyAmount,
+        executedSellAmount: item.executedSellAmount,
+        fromAmount: item.fromAmount,
+        fromTokenInfo: {
+          decimals: item.fromTokenInfo?.decimals ?? 0,
+        },
+        toAmount: item.toAmount,
+        toTokenInfo: {
+          decimals: item.toTokenInfo?.decimals ?? 0,
+        },
+      }),
     }),
     [
+      item?.executedBuyAmount,
+      item?.executedSellAmount,
       item?.fromAmount,
       item?.fromTokenInfo?.decimals,
       item?.toAmount,
@@ -145,23 +164,13 @@ const LimitOrderCard = ({
 
   const [limitPriceReverse, setLimitPriceReverse] = useState(false);
   const limitPrice = useMemo(() => {
-    const fromAmountNum = decimalsAmount.fromAmount;
-    const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = limitPriceReverse
-      ? fromAmountNum
-          .div(toAmountNum)
-          .decimalPlaces(
-            Number(toTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
-            BigNumber.ROUND_HALF_UP,
-          )
-          .toFixed()
-      : toAmountNum
-          .div(fromAmountNum)
-          .decimalPlaces(
-            Number(fromTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
-            BigNumber.ROUND_HALF_UP,
-          )
-          .toFixed();
+    const calculateLimitPrice = getLimitOrderDisplayPrice({
+      fromAmount: decimalsAmount.fromAmount,
+      toAmount: decimalsAmount.toAmount,
+      fromTokenDecimals: fromTokenInfo?.decimals,
+      toTokenDecimals: toTokenInfo?.decimals,
+      reverse: limitPriceReverse,
+    }).toFixed();
     const limitPriceFormat = formatBalance(calculateLimitPrice);
     return limitPriceFormat.formattedValue;
   }, [
@@ -178,9 +187,11 @@ const LimitOrderCard = ({
 
   const renderAmount = useCallback(() => {
     const fromAmountFormatted = formatBalance(
-      decimalsAmount.fromAmount.toFixed(),
+      decimalsAmount.displayFromAmount.toFixed(),
     );
-    const toAmountFormatted = formatBalance(decimalsAmount.toAmount.toFixed());
+    const toAmountFormatted = formatBalance(
+      decimalsAmount.displayToAmount.toFixed(),
+    );
 
     return (
       <YStack gap="$1.5" w={gtMd ? 200 : 240} justifyContent="flex-start">
@@ -344,6 +355,7 @@ const LimitOrderCard = ({
 
   return (
     <YStack
+      testID={testID}
       flex={1}
       userSelect="none"
       {...(!hiddenHoverBg && {

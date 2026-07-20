@@ -1,4 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
@@ -7,7 +13,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
   appUpdatePersistAtom,
@@ -20,7 +26,10 @@ import {
   getUpdateFileType,
   isAllowedFeaturedHref,
 } from '@onekeyhq/shared/src/appUpdate';
-import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate';
+import type {
+  IFeaturedChangelog,
+  IFeaturedItem,
+} from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -35,9 +44,31 @@ import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
 import { FeaturedFooter } from '../components/FeaturedFooter';
 
+// Injected payload for the ops-only Featured Changelog preview page.
+// `featuredChangelog` drives the carousel in both modes; `latestVersion` is the
+// target version (feeds only the inert pre-install CTA label). Deliberately
+// carries NO storeUrl/downloadUrl/updateStrategy — those would come from a
+// different (online) version and must never mix into the previewed version. When
+// present, the dialog renders ENTIRELY from this object (never
+// appUpdatePersistAtom) and every production side effect is neutralized —
+// download, store open, DownloadVerify, force-lock, and the onClose refetch —
+// EXCEPT the already-upgraded CTA's configured jump, which stays live because
+// verifying that target is the whole point of the preview.
+export interface IFeaturedChangelogPreviewData {
+  featuredChangelog: IFeaturedChangelog;
+  latestVersion?: string;
+}
+
 export interface IShowFeaturedChangelogDialogParams {
   isPreInstall?: boolean;
+  previewData?: IFeaturedChangelogPreviewData;
 }
+
+// Set only while the ops preview renders; readers fall back to the atom when it
+// is undefined (the production path).
+const FeaturedChangelogPreviewContext = createContext<
+  IFeaturedChangelogPreviewData | undefined
+>(undefined);
 
 function dispatchFeatureCta(activeFeature: IFeaturedItem | undefined) {
   if (!activeFeature) return;
@@ -77,18 +108,29 @@ function useFeaturedCta({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const preview = useContext(FeaturedChangelogPreviewContext);
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const { downloadPackage } = useDownloadPackage();
 
-  const { storeUrl, downloadUrl, jsBundle, status } = appUpdateInfo;
+  // In preview mode the CTA is inert (see onCtaPress), so the real update
+  // fields are intentionally absent — only `latestVersion` (the target) feeds
+  // the label. Never read the persisted atom while previewing.
+  const storeUrl = preview ? undefined : appUpdateInfo.storeUrl;
+  const downloadUrl = preview ? undefined : appUpdateInfo.downloadUrl;
+  const jsBundle = preview ? undefined : appUpdateInfo.jsBundle;
+  const status = preview ? undefined : appUpdateInfo.status;
+  const latestVersion = preview
+    ? preview.latestVersion
+    : appUpdateInfo.latestVersion;
+  const jsBundleVersion = preview ? undefined : appUpdateInfo.jsBundleVersion;
 
   const updateFileType = useMemo(
     () =>
       getUpdateFileType({
-        latestVersion: appUpdateInfo.latestVersion,
-        jsBundleVersion: appUpdateInfo.jsBundleVersion,
+        latestVersion,
+        jsBundleVersion,
       }),
-    [appUpdateInfo.latestVersion, appUpdateInfo.jsBundleVersion],
+    [latestVersion, jsBundleVersion],
   );
   const shouldOpenStore =
     isPreInstall && updateFileType === EUpdateFileType.appShell && !!storeUrl;
@@ -103,6 +145,23 @@ function useFeaturedCta({
       intl.formatMessage({ id: ETranslations.global_done }));
 
   const onCtaPress = useCallback(async () => {
+    // Ops preview: the pre-install CTA must not start a real download / open
+    // the store / push DownloadVerify on a production device. The
+    // already-upgraded CTA (dispatchFeatureCta) stays LIVE — jumping to the
+    // configured target is exactly what ops needs to verify.
+    if (preview) {
+      await closeDialog();
+      if (!isPreInstall) {
+        setTimeout(() => dispatchFeatureCta(activeFeature), 300);
+      } else {
+        Toast.success({
+          title: 'Preview mode',
+          message: 'In production this starts the real update flow.',
+        });
+      }
+      return;
+    }
+
     // Keep the dialog as the force-update blocker when there's no follow-on
     // route to take over (store / no-action). The download branch closes
     // because DownloadVerify takes over the blocker.
@@ -110,7 +169,9 @@ function useFeaturedCta({
 
     if (isPreInstall) {
       if (shouldOpenStore && storeUrl) {
-        openUrlExternal(storeUrl);
+        // Server-driven store URL must reach the store app via the system
+        // browser; in-app browsers never trigger universal links.
+        openUrlExternal(storeUrl, { useSystemBrowser: true });
         await closeIfUnlocked();
         return;
       }
@@ -134,6 +195,7 @@ function useFeaturedCta({
     await closeDialog();
     setTimeout(() => dispatchFeatureCta(activeFeature), 300);
   }, [
+    preview,
     isPreInstall,
     isLocked,
     shouldOpenStore,
@@ -151,12 +213,17 @@ function useFeaturedCta({
 }
 
 function useFeatures(): IFeaturedItem[] {
+  const preview = useContext(FeaturedChangelogPreviewContext);
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   // Memoize so a fresh `?? []` reference doesn't ripple through downstream
-  // effects on every unrelated atom-field change.
+  // effects on every unrelated atom-field change. Preview payload wins so the
+  // carousel renders the previewed changelog, not the persisted one.
   return useMemo(
-    () => appUpdateInfo.featuredChangelog?.features ?? [],
-    [appUpdateInfo.featuredChangelog?.features],
+    () =>
+      preview
+        ? preview.featuredChangelog.features
+        : (appUpdateInfo.featuredChangelog?.features ?? []),
+    [preview, appUpdateInfo.featuredChangelog?.features],
   );
 }
 
@@ -170,6 +237,7 @@ function FeaturedChangelogContent({
   closeDialog: () => Promise<void>;
 }) {
   const intl = useIntl();
+  const isPreview = useContext(FeaturedChangelogPreviewContext) !== undefined;
   const features = useFeatures();
 
   const [activeFeature, setActiveFeature] = useState<IFeaturedItem | undefined>(
@@ -232,7 +300,7 @@ function FeaturedChangelogContent({
       <FeaturedFooter
         ctaText={ctaText}
         onCtaPress={() => void onCtaPress()}
-        showFullChangelog={!isLocked}
+        showFullChangelog={Boolean(!isLocked && !isPreview)}
         isPreInstall={isPreInstall}
         closeDialog={closeDialog}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
@@ -244,16 +312,26 @@ function FeaturedChangelogContent({
 export function showFeaturedChangelogDialog(
   params: IShowFeaturedChangelogDialogParams = {},
 ): IDialogInstance | undefined {
-  const { isPreInstall = false } = params;
+  const { isPreInstall = false, previewData } = params;
 
-  // Synchronous atom read — safe because jotaiDefaultStore is always available
-  // on the JS thread after app init.
-  const info = jotaiDefaultStore.get(appUpdatePersistAtom.atom());
-  const features = info.featuredChangelog?.features ?? [];
+  // Preview renders from the injected payload and never touches the atom; the
+  // production path reads the persisted atom synchronously (safe because
+  // jotaiDefaultStore is always available on the JS thread after app init).
+  const atomInfo = previewData
+    ? undefined
+    : jotaiDefaultStore.get(appUpdatePersistAtom.atom());
+  const features = previewData
+    ? previewData.featuredChangelog.features
+    : (atomInfo?.featuredChangelog?.features ?? []);
   if (features.length === 0) return undefined;
 
-  // Prevent dismissal when a force-update is pending pre-install
-  const isLocked = isForceUpdateStrategy(info.updateStrategy) && isPreInstall;
+  // Prevent dismissal when a force-update is pending pre-install. Never lock
+  // the operator into a preview.
+  const isLocked = previewData
+    ? false
+    : !!atomInfo &&
+      isForceUpdateStrategy(atomInfo.updateStrategy) &&
+      isPreInstall;
 
   const mountTime = Date.now();
 
@@ -273,20 +351,29 @@ export function showFeaturedChangelogDialog(
     disableSystemClose: isLocked,
     floatingPanelProps: { width: 480, overflow: 'hidden' },
     renderContent: (
-      <FeaturedChangelogContent
-        isPreInstall={isPreInstall}
-        isLocked={isLocked}
-        closeDialog={closeDialog}
-      />
+      <FeaturedChangelogPreviewContext.Provider value={previewData}>
+        <FeaturedChangelogContent
+          isPreInstall={isPreInstall}
+          isLocked={isLocked}
+          closeDialog={closeDialog}
+        />
+      </FeaturedChangelogPreviewContext.Provider>
     ),
     onClose: async () => {
-      defaultLogger.app.appUpdate.whatsNewClosed({
-        durationMs: Date.now() - mountTime,
-      });
-      if (!isPreInstall) {
-        setTimeout(() => {
-          void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
-        }, 250);
+      // Preview mode must stay side-effect-free: whatsNewClosed is
+      // @LogToServer (a real analytics event), so skipping it keeps ops
+      // verification sessions out of the production What's-New metrics. The
+      // refetch is likewise skipped for both preview modes so closing the
+      // preview never kicks off a live update fetch.
+      if (!previewData) {
+        defaultLogger.app.appUpdate.whatsNewClosed({
+          durationMs: Date.now() - mountTime,
+        });
+        if (!isPreInstall) {
+          setTimeout(() => {
+            void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
+          }, 250);
+        }
       }
     },
   });

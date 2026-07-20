@@ -3,7 +3,10 @@ import { Linking } from 'react-native';
 
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  OneKeyWalletConnectModalCloseError,
+} from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -41,6 +44,14 @@ import { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBExternalAccount } from '../../dbs/local/types';
+
+type IWalletConnectConnectAttempt = {
+  attemptId: number;
+  cancelError?: OneKeyWalletConnectModalCloseError;
+  provider?: WalletConnectDappSideProvider;
+  rejectCancellation?: (error: OneKeyWalletConnectModalCloseError) => void;
+  uri?: string;
+};
 
 // https://github.com/WalletConnect/walletconnect-test-wallet
 
@@ -361,16 +372,17 @@ export class WalletConnectDappSide {
     }, delay);
   }
 
-  openModal({ uri }: { uri: string }) {
+  openModal({ uri, attemptId }: { uri: string; attemptId?: number }) {
     // emit event
     appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, {
       uri,
+      attemptId,
     });
   }
 
-  closeModal() {
-    // emit event
-    appEventBus.emit(EAppEventBusNames.WalletConnectCloseModal, undefined);
+  closeModal(params?: { attemptId?: number }) {
+    // emit event; omitting attemptId means a wildcard close
+    appEventBus.emit(EAppEventBusNames.WalletConnectCloseModal, params);
   }
 
   async activateSession({ topic }: { topic: string }) {
@@ -380,76 +392,153 @@ export class WalletConnectDappSide {
 
   lastConnectToWalletProvider: WalletConnectDappSideProvider | undefined;
 
+  activeConnectAttempt: IWalletConnectConnectAttempt | undefined;
+
+  async abortConnectPairing({ uri }: { uri: string }) {
+    const attempt = this.activeConnectAttempt;
+    if (!attempt) return false;
+
+    const activeUri = attempt.uri || attempt.provider?.uri;
+    if (uri && activeUri !== uri) return false;
+
+    if (!attempt.cancelError) {
+      attempt.cancelError = new OneKeyWalletConnectModalCloseError({
+        autoToast: false,
+      });
+      attempt.rejectCancellation?.(attempt.cancelError);
+    }
+
+    this.closeModal({ attemptId: attempt.attemptId });
+    try {
+      // best-effort SDK-side cleanup; the attempt is already rejected above,
+      // so a provider failure here must not reject the abort call itself
+      await attempt.provider?.abortConnectPairing();
+    } catch (error) {
+      console.error('abortConnectPairing provider error: ', error);
+    }
+    return true;
+  }
+
+  connectToWalletGeneration = 0;
+
   async connectToWallet({ impl }: IWalletConnectConnectToWalletParams) {
     console.log('WalletConnectDappSide connectToWallet111');
 
-    this.closeModal();
+    // Serialize the supersede transition: every call claims a generation
+    // synchronously; after any await, only the latest generation may install
+    // its attempt, so concurrent retries cannot leave two attempts running.
+    this.connectToWalletGeneration += 1;
+    const generation = this.connectToWalletGeneration;
 
-    const chains = await this.backgroundApi.serviceWalletConnect.getAllChains();
-
-    // https://docs.walletconnect.com/advanced/multichain/chain-list
-    // const allChains = chains.map((item) => item.wcChain);
-
-    // const cosmosChains = chains
-    //   .filter((item) => item.wcNamespace === EWalletConnectNamespaceType.cosmos)
-    //   .map((item) => item.wcChain);
-
-    // https://github.com/WalletConnect/web-examples/tree/main/advanced/wallets/react-wallet-v2/src/data
-    // https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L6
-    const evmChains = chains
-      .filter((item) => item.wcNamespace === EWalletConnectNamespaceType.evm)
-      .map((item) => item.wcChain);
-
-    const evmMethods = WC_DAPP_SIDE_METHODS_EVM;
-    const evmEvents = WC_DAPP_SIDE_EVENTS_EVM;
-
-    const createNewProvider = async () =>
-      this.getOrCreateProvider({
-        // use undefined read last session as default
-        topic: undefined,
-        createNewTopic: true,
-        updateDB: true,
-      });
-
-    let provider = await createNewProvider();
-
-    // disconnect previous session
-    if (DAPP_SIDE_SINGLE_WALLET_MODE) {
+    // Cancel any superseded attempt before replacing it, so its pending
+    // connect() cannot re-emit display_uri or tear down this newer
+    // attempt's modal when it finally settles.
+    if (this.activeConnectAttempt) {
       try {
-        const { accounts } =
-          await this.backgroundApi.serviceAccount.getWalletConnectDBAccounts({
-            topic: undefined, // find all walletconnect accounts
-          });
-        for (const account of accounts) {
-          await this.backgroundApi.serviceAccount.removeAccount({ account });
-        }
+        await this.abortConnectPairing({ uri: '' });
       } catch (error) {
-        console.error(error);
-      } finally {
-        provider = await createNewProvider();
+        console.error('abort superseded connect attempt error: ', error);
       }
     }
+    if (generation !== this.connectToWalletGeneration) {
+      // A newer connectToWallet call arrived while awaiting the abort;
+      // yield to it instead of racing two live attempts.
+      throw new OneKeyWalletConnectModalCloseError({ autoToast: false });
+    }
 
-    const displayUriHandler = async (uri: string) => {
-      console.log('uri', uri);
-      this.openModal({ uri });
+    const attempt: IWalletConnectConnectAttempt = {
+      attemptId: generation,
     };
+    this.activeConnectAttempt = attempt;
+    this.closeModal();
 
-    const sessionDeleteHandler = async (
-      p: IWalletConnectEventSessionDeleteParams,
-    ) => {
-      this.closeModal();
-      await this.handleSessionDelete(p);
+    let provider: WalletConnectDappSideProvider | undefined;
+    let displayUriHandler: ((uri: string) => Promise<void>) | undefined;
+    let sessionDeleteHandler:
+      | ((p: IWalletConnectEventSessionDeleteParams) => Promise<void>)
+      | undefined;
+
+    const throwIfCancelled = () => {
+      if (attempt.cancelError) {
+        throw attempt.cancelError;
+      }
     };
-
-    // https://docs.walletconnect.com/advanced/providers/universal#events
-    provider.once(EWalletConnectSessionEvents.display_uri, displayUriHandler);
-    provider.once(
-      EWalletConnectSessionEvents.session_delete,
-      sessionDeleteHandler,
-    );
 
     try {
+      const chains =
+        await this.backgroundApi.serviceWalletConnect.getAllChains();
+      throwIfCancelled();
+
+      // https://docs.walletconnect.com/advanced/multichain/chain-list
+      // const allChains = chains.map((item) => item.wcChain);
+
+      // const cosmosChains = chains
+      //   .filter((item) => item.wcNamespace === EWalletConnectNamespaceType.cosmos)
+      //   .map((item) => item.wcChain);
+
+      // https://github.com/WalletConnect/web-examples/tree/main/advanced/wallets/react-wallet-v2/src/data
+      // https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L6
+      const evmChains = chains
+        .filter((item) => item.wcNamespace === EWalletConnectNamespaceType.evm)
+        .map((item) => item.wcChain);
+
+      const evmMethods = WC_DAPP_SIDE_METHODS_EVM;
+      const evmEvents = WC_DAPP_SIDE_EVENTS_EVM;
+
+      const createNewProvider = async () =>
+        this.getOrCreateProvider({
+          // use undefined read last session as default
+          topic: undefined,
+          createNewTopic: true,
+          updateDB: true,
+        });
+
+      provider = await createNewProvider();
+      throwIfCancelled();
+
+      // disconnect previous session
+      if (DAPP_SIDE_SINGLE_WALLET_MODE) {
+        try {
+          const { accounts } =
+            await this.backgroundApi.serviceAccount.getWalletConnectDBAccounts({
+              topic: undefined, // find all walletconnect accounts
+            });
+          throwIfCancelled();
+          for (const account of accounts) {
+            await this.backgroundApi.serviceAccount.removeAccount({ account });
+            throwIfCancelled();
+          }
+        } catch (error) {
+          throwIfCancelled();
+          console.error(error);
+        }
+        provider = await createNewProvider();
+        throwIfCancelled();
+      }
+
+      attempt.provider = provider;
+      displayUriHandler = async (uri: string) => {
+        // the pairing uri query carries the symKey, never log it
+        console.log('uri', uri.split('?')[0]);
+        if (attempt.cancelError) return;
+        attempt.uri = uri;
+        this.openModal({ uri, attemptId: attempt.attemptId });
+      };
+
+      sessionDeleteHandler = async (
+        p: IWalletConnectEventSessionDeleteParams,
+      ) => {
+        this.closeModal();
+        await this.handleSessionDelete(p);
+      };
+
+      // https://docs.walletconnect.com/advanced/providers/universal#events
+      provider.once(EWalletConnectSessionEvents.display_uri, displayUriHandler);
+      provider.once(
+        EWalletConnectSessionEvents.session_delete,
+        sessionDeleteHandler,
+      );
+
       const connectParams: IWalletConnectConnectParams = {
         optionalNamespaces: {},
       };
@@ -486,8 +575,34 @@ export class WalletConnectDappSide {
       }
       console.log('WalletConnectDappSide connectToWallet', connectParams);
       this.lastConnectToWalletProvider = provider;
+
+      const cancellationPromise = new Promise<never>((_, reject) => {
+        attempt.rejectCancellation = reject;
+      });
+      throwIfCancelled();
       // call connect() to create new session
-      await provider.connect(connectParams);
+      const connectPromise = provider.connect(connectParams);
+      try {
+        await Promise.race([connectPromise, cancellationPromise]);
+      } catch (error) {
+        if (attempt.cancelError && error === attempt.cancelError) {
+          // connect() keeps running inside the SDK after cancellation; if the
+          // wallet approves later, disconnect the session nobody consumes
+          // instead of leaving it alive until the next cold start cleanup.
+          const orphanProvider = provider;
+          void connectPromise
+            .then(async () => {
+              const topic = orphanProvider?.session?.topic;
+              if (topic) {
+                await this.disconnectProvider({ topic });
+              }
+            })
+            .catch(() => undefined);
+        }
+        throw error;
+      }
+      attempt.rejectCancellation = undefined;
+      throwIfCancelled();
       if (!provider.session || !provider.isWalletConnect) {
         throw new OneKeyLocalError(
           'WalletConnect ERROR: Connect to wallet failed',
@@ -495,22 +610,43 @@ export class WalletConnectDappSide {
       }
       appEventBus.emit(EAppEventBusNames.WalletConnectConnectSuccess, {
         session: provider.session,
+        attemptId: attempt.attemptId,
       });
       return provider.session;
     } catch (error) {
       console.error('connectToWallet error: ', error);
       appEventBus.emit(EAppEventBusNames.WalletConnectConnectError, {
         error: errorUtils.toPlainErrorObject(error),
+        attemptId: attempt.attemptId,
       });
       throw error;
     } finally {
-      this.closeModal();
-      this.lastConnectToWalletProvider = undefined;
-      provider.off(EWalletConnectSessionEvents.display_uri, displayUriHandler);
-      provider.off(
-        EWalletConnectSessionEvents.session_delete,
-        sessionDeleteHandler,
-      );
+      attempt.rejectCancellation = undefined;
+      const isCurrentAttempt = this.activeConnectAttempt === attempt;
+      if (isCurrentAttempt) {
+        this.activeConnectAttempt = undefined;
+      }
+      if (this.lastConnectToWalletProvider === provider) {
+        this.lastConnectToWalletProvider = undefined;
+      }
+      if (provider && displayUriHandler) {
+        provider.off(
+          EWalletConnectSessionEvents.display_uri,
+          displayUriHandler,
+        );
+      }
+      if (provider && sessionDeleteHandler) {
+        provider.off(
+          EWalletConnectSessionEvents.session_delete,
+          sessionDeleteHandler,
+        );
+      }
+      // Only the attempt that still owns the modal may close it; a superseded
+      // attempt settling late (e.g. proposal expiry minutes later) must not
+      // tear down the newer attempt's modal and main-runtime payload store.
+      if (isCurrentAttempt) {
+        this.closeModal({ attemptId: attempt.attemptId });
+      }
     }
   }
 

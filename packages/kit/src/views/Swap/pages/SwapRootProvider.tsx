@@ -7,6 +7,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ProviderJotaiContextSwap,
@@ -14,12 +15,14 @@ import {
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectedTokensColdStartContextAtom,
+  swapStockSelectedTokenAtom,
   swapTypeSwitchAtom,
   useSwapFromTokenAmountAtom,
   useSwapInitialSelectedTokensSyncedAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedTokensColdStartContextAtom,
+  useSwapStockSelectedTokenAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -32,10 +35,11 @@ import {
   shouldPreserveSwapUserInputAmountOnAccountSwitch,
   shouldPreserveSwapUserInputOnAccountSwitch,
 } from '../utils/swapColdStartTokenCacheUtils';
+import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
 
 type ISwapContextStore = ReturnType<typeof useJotaiContextRootStore>;
 
-export function hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot(
+export function hydrateSwapDefaultTokensFromGlobalHomeSnapshot(
   store: ISwapContextStore,
 ) {
   const hasSelectedTokens = Boolean(
@@ -46,7 +50,6 @@ export function hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot(
   }
 
   const defaultTokens = getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
-    allNetworksOnly: true,
     swapType: store.get(swapTypeSwitchAtom()),
   });
   if (!defaultTokens) {
@@ -55,8 +58,13 @@ export function hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot(
 
   store.set(swapSelectFromTokenAtom(), defaultTokens.fromToken);
   store.set(swapSelectToTokenAtom(), defaultTokens.toToken);
+  store.set(swapStockSelectedTokenAtom(), undefined);
   store.set(swapSelectedTokensColdStartContextAtom(), defaultTokens.context);
-  store.set(swapTypeSwitchAtom(), defaultTokens.swapType);
+  store.set(
+    swapTypeSwitchAtom(),
+    getVisibleSwapTabSwitchType(defaultTokens.swapType) ??
+      defaultTokens.swapType,
+  );
   return true;
 }
 
@@ -64,6 +72,7 @@ function SwapColdStartCacheSync() {
   const [swapTypeSwitch, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapFromToken, setSwapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken, setSwapToToken] = useSwapSelectToTokenAtom();
+  const [, setSwapStockSelectedToken] = useSwapStockSelectedTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [initialSelectedTokensSynced, setInitialSelectedTokensSynced] =
@@ -99,6 +108,7 @@ function SwapColdStartCacheSync() {
     const clearSelectedTokens = () => {
       setSwapFromToken(undefined);
       setSwapToToken(undefined);
+      setSwapStockSelectedToken(undefined);
       setSelectedTokensColdStartContext(undefined);
       markInitialSelectedTokensSynced();
     };
@@ -116,8 +126,12 @@ function SwapColdStartCacheSync() {
 
       setSwapFromToken(defaultTokens.fromToken);
       setSwapToToken(defaultTokens.toToken);
+      setSwapStockSelectedToken(undefined);
       setSelectedTokensColdStartContext(defaultTokens.context);
-      setSwapTypeSwitch(defaultTokens.swapType);
+      setSwapTypeSwitch(
+        getVisibleSwapTabSwitchType(defaultTokens.swapType) ??
+          defaultTokens.swapType,
+      );
       return true;
     };
 
@@ -163,6 +177,10 @@ function SwapColdStartCacheSync() {
           initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
         })
       ) {
+        if (swapTypeSwitchRef.current === ESwapTabSwitchType.STOCK) {
+          markInitialSelectedTokensSynced();
+          return;
+        }
         if (
           !setDefaultSelectedTokensFromHomeAccount(eventPayload.selectedAccount)
         ) {
@@ -185,6 +203,7 @@ function SwapColdStartCacheSync() {
     setInitialSelectedTokensSynced,
     setSelectedTokensColdStartContext,
     setSwapFromToken,
+    setSwapStockSelectedToken,
     setSwapToToken,
     setSwapTypeSwitch,
   ]);
@@ -207,10 +226,10 @@ export function useSwapContextStoreInitData(
 export const SwapRootProvider = memo(() => {
   const data = useSwapContextStoreInitData(EJotaiContextStoreNames.swap);
   const store = useJotaiContextRootStore(data);
-  const hasHydratedAllNetworkDefaultsRef = useRef(false);
-  if (!hasHydratedAllNetworkDefaultsRef.current) {
-    hasHydratedAllNetworkDefaultsRef.current = true;
-    hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot(store);
+  const hasHydratedDefaultsRef = useRef(false);
+  if (!hasHydratedDefaultsRef.current) {
+    hasHydratedDefaultsRef.current = true;
+    hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store);
   }
   return (
     <ProviderJotaiContextSwap store={store}>

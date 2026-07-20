@@ -29,12 +29,12 @@ type INetworkAccountMeta = {
 //
 // `pollingIntervalsByNetwork` is the raw `Record<networkId, seconds>` map
 // (NOT the min) so each hook instance computes the min over its own
-// `effectiveNetworkIds` subset — necessary because Earn and Borrow may
-// pick different subsets of the union.
+// account-backed subset — necessary because Earn and Borrow may pick
+// different pending-capable networks.
 //
-// All three fields are keyed by the union of the parent-resolved networks;
-// hook instances pick their subset. When a key is missing the hook falls
-// back to its own resolution path for the affected resolution only.
+// All three fields are keyed by the parent-resolved networks that have an
+// account. Hook instances pick their subset. When a key is missing the hook
+// falls back to its own resolution path for the affected resolution only.
 export type IStakingPendingTxsPrecomputed = {
   networkAccountMap?: Record<string, string>;
   pollingIntervalsByNetwork?: Record<string, number>;
@@ -232,13 +232,14 @@ export const useStakingPendingTxsByInfo = ({
     const targets: { networkId: string; stakeTag: IStakeTag }[] = [];
 
     availableAssets.forEach((asset) => {
-      asset.protocols?.forEach(({ networkId, provider }) => {
+      asset.protocols?.forEach(({ networkId, provider, vault }) => {
         if (!networkId || !provider) {
           return;
         }
         const stakeTag = buildLocalTxStatusSyncId({
           providerName: provider,
           tokenSymbol: asset.symbol,
+          protocolVault: vault,
         });
         const key = `${networkId}-${stakeTag}`;
         if (seen.has(key)) {
@@ -275,34 +276,6 @@ export const useStakingPendingTxsByInfo = ({
     }
     return derivedNetworkIds;
   }, [derivedNetworkIds, networkIds]);
-
-  // Get the minimum polling interval across all networks. One batched
-  // bridge call instead of N — the legacy `.map(networkId => RPC)` pattern
-  // was the 10+/s freeze amplifier called out in the OK-perp/swap trace.
-  const { result: pollingInterval } = usePromiseResult(
-    async () => {
-      if (effectiveNetworkIds.length === 0) return DEFAULT_POLLING_INTERVAL;
-      const shared = precomputed?.pollingIntervalsByNetwork;
-      // Use shared map when the parent has resolved every network we need;
-      // otherwise fall back to a batched RPC for the full set (avoid a
-      // partial-cache-miss split that would still cost a bridge call).
-      const haveAll =
-        shared !== undefined &&
-        effectiveNetworkIds.every((nid) => shared[nid] !== undefined);
-      const intervalsMap = haveAll
-        ? shared
-        : await backgroundApiProxy.serviceStaking.getFetchHistoryPollingIntervalsBatch(
-            { networkIds: effectiveNetworkIds },
-          );
-      const intervals = effectiveNetworkIds.map(
-        (networkId) => intervalsMap[networkId] ?? 30,
-      );
-      const minInterval = intervals.length > 0 ? Math.min(...intervals) : 30;
-      return timerUtils.getTimeDurationMs({ seconds: minInterval });
-    },
-    [effectiveNetworkIds, precomputed?.pollingIntervalsByNetwork],
-    { initResult: DEFAULT_POLLING_INTERVAL },
-  );
 
   // Resolve network-specific accountIds for the active indexed account.
   // Short-circuit to the parent-precomputed union map when present —
@@ -411,6 +384,39 @@ export const useStakingPendingTxsByInfo = ({
       precomputed?.networkAccountMap,
     ],
     { initResult: {} },
+  );
+
+  const pendingNetworkIds = useMemo(
+    () => Object.keys(networkAccountMap).sort(),
+    [networkAccountMap],
+  );
+
+  // Get the minimum polling interval only for networks that have a resolved
+  // account. Pending/history is account-scoped; probing vault settings for
+  // every Earn-supported network on an empty cold start loads heavy chain
+  // capability chunks with no pending txs to poll.
+  const { result: pollingInterval } = usePromiseResult(
+    async () => {
+      if (pendingNetworkIds.length === 0) return DEFAULT_POLLING_INTERVAL;
+      const shared = precomputed?.pollingIntervalsByNetwork;
+      // Use shared map when the parent has resolved every network we need;
+      // otherwise fall back to a batched RPC for the account-backed set only.
+      const haveAll =
+        shared !== undefined &&
+        pendingNetworkIds.every((nid) => shared[nid] !== undefined);
+      const intervalsMap = haveAll
+        ? shared
+        : await backgroundApiProxy.serviceStaking.getFetchHistoryPollingIntervalsBatch(
+            { networkIds: pendingNetworkIds },
+          );
+      const intervals = pendingNetworkIds.map(
+        (networkId) => intervalsMap[networkId] ?? 30,
+      );
+      const minInterval = intervals.length > 0 ? Math.min(...intervals) : 30;
+      return timerUtils.getTimeDurationMs({ seconds: minInterval });
+    },
+    [pendingNetworkIds, precomputed?.pollingIntervalsByNetwork],
+    { initResult: DEFAULT_POLLING_INTERVAL },
   );
 
   // Resolve xpub + accountAddress for every (accountId, networkId) pair.
@@ -809,12 +815,13 @@ export const useEarnPendingTxsSharedMeta = ({
     Record<string, number>
   >(
     async () => {
-      if (unionNetworkIds.length === 0) return {};
+      const networkIds = Object.keys(networkAccountMap);
+      if (networkIds.length === 0) return {};
       return backgroundApiProxy.serviceStaking.getFetchHistoryPollingIntervalsBatch(
-        { networkIds: unionNetworkIds },
+        { networkIds },
       );
     },
-    [unionNetworkIds],
+    [networkAccountMap],
     { initResult: {} as Record<string, number> },
   );
 

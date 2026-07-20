@@ -113,7 +113,9 @@ export function DiscoveryItemCard({
             }
           />
           <InnerStroke borderRadius="$3" />
-          {isAd ? <AdCornerBadge badgeSize="sm" /> : null}
+          {isAd ? (
+            <AdCornerBadge badgeSize="sm" placement="bottom-right" />
+          ) : null}
         </Stack>
         <SizableText
           px="$2"

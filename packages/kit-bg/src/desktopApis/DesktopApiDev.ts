@@ -10,12 +10,19 @@ import logger from 'electron-log/main';
 import fetch from 'node-fetch';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import {
+  getDesktopNetworkThrottleConfig,
+  setDesktopNetworkThrottleConfig,
+} from '@onekeyhq/desktop/app/libs/networkThrottle';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { flushDesktopDedup } from '@onekeyhq/desktop/app/logger';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
-import type { IDesktopMainProcessDevOnlyApiParams } from '@onekeyhq/shared/types/desktop';
+import type {
+  IDesktopMainProcessDevOnlyApiParams,
+  IDesktopStoreNetworkThrottle,
+} from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
@@ -334,6 +341,16 @@ class DesktopApiDev {
   async changeDevTools(isOpen: boolean): Promise<void> {
     store.setDevTools(isOpen);
     globalThis.$desktopMainAppFunctions?.refreshMenu?.();
+  }
+
+  async getNetworkThrottle(): Promise<IDesktopStoreNetworkThrottle> {
+    return getDesktopNetworkThrottleConfig();
+  }
+
+  async setNetworkThrottle(
+    config: IDesktopStoreNetworkThrottle,
+  ): Promise<IDesktopStoreNetworkThrottle> {
+    return setDesktopNetworkThrottleConfig(config);
   }
 
   // not working, use globalThis.desktopApi.testCrash(); instead

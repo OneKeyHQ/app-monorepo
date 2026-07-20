@@ -7,23 +7,24 @@ import type {
   IAllNetworkAccountInfo,
   IAllNetworkAccountsInfoResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import { promiseAllSettledSlidingWindow } from '@onekeyhq/shared/src/utils/promiseAllSettledSlidingWindow';
 import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
@@ -35,6 +36,9 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { perfTokenListView } from '../components/TokenListView/perfTokenListView';
 
+import { makeColdRequestFactory } from './makeColdRequestFactory';
+import { reorderNetworksByCachePriority } from './reorderNetworksByCachePriority';
+import { shouldSkipRedundantAllNetworkRun } from './shouldSkipRedundantAllNetworkRun';
 import { usePromiseResult } from './usePromiseResult';
 
 // Native keeps a strict cap to avoid Hermes memory spikes.
@@ -43,9 +47,21 @@ const getAllNetworkTaskConcurrencyLimit = (taskCount: number) =>
   platformEnv.isNative
     ? PROMISE_CONCURRENCY_LIMIT
     : Math.max(taskCount, PROMISE_CONCURRENCY_LIMIT);
-// useRef not working as expected, so use a global object
-const currentRequestsUUID = { current: '' };
 
+// L4b: the token-list LIVE fan-out gets a dedicated, wider native cap so its
+// bounded waves drain faster. iOS has the memory headroom for 16; low-end
+// Android keeps the shared PROMISE_CONCURRENCY_LIMIT Hermes-OOM guard (#9986).
+// Web keeps the full uncapped fan-out. NEVER bump the shared
+// PROMISE_CONCURRENCY_LIMIT — it also gates history/market/search/staking/discovery.
+const TOKEN_LIST_FAN_OUT_CONCURRENCY_LIMIT_IOS = 16;
+const getTokenListFanOutConcurrencyLimit = (taskCount: number) => {
+  if (!platformEnv.isNative) {
+    return Math.max(taskCount, PROMISE_CONCURRENCY_LIMIT);
+  }
+  return platformEnv.isNativeIOS
+    ? TOKEN_LIST_FAN_OUT_CONCURRENCY_LIMIT_IOS
+    : PROMISE_CONCURRENCY_LIMIT;
+};
 type IAllNetworkAccountsBaseCacheKey = string;
 type IAllNetworkAccountsBaseCacheEntry = {
   createdAt: number;
@@ -267,10 +283,15 @@ function useAllNetworkRequests<T>(params: {
     data,
     accountId,
     networkId,
+    generation,
   }: {
     data: any;
     accountId: string;
     networkId: string;
+    // Monotonic run generation (see runGenerationRef). Threaded into the LWW
+    // materialized view's `seedFloor` so a stale earlier run's cache seed can
+    // never clobber a newer run's live result.
+    generation: number;
   }) => Promise<void>;
   allNetworkAccountsData?: ({
     accounts,
@@ -284,7 +305,6 @@ function useAllNetworkRequests<T>(params: {
   isNFTRequests?: boolean;
   isDeFiRequests?: boolean;
   disabled?: boolean;
-  interval?: number;
   shouldAlwaysFetch?: boolean;
   onStarted?: ({
     accountId,
@@ -311,11 +331,14 @@ function useAllNetworkRequests<T>(params: {
     networkId?: string;
     hasCache: boolean;
   }) => Promise<void> | void;
+  // Fires once per network as its live fetch settles (only on the steady-state
+  // sliding-window branch). Lets the consumer paint progressively (L2) instead
+  // of waiting for the whole fan-out. The monotonic run `generation` lets the
+  // consumer's LWW materialized view reject a stale earlier run's settle.
+  onRequestSettled?: (result: T, generation: number) => void;
   revalidateOnFocus?: boolean;
 }) {
   type IAllNetworkRequestsRunConfig = {
-    triggerByDeps?: boolean;
-    pollingNonce?: number;
     alwaysSetState?: boolean;
     skipAccountsCache?: boolean;
     ignoreDisabled?: boolean;
@@ -338,11 +361,17 @@ function useAllNetworkRequests<T>(params: {
     onStarted,
     onFinished,
     onCacheChecked,
+    onRequestSettled,
     revalidateOnFocus = false,
   } = params;
   const allNetworkDataInit = useRef(false);
   const isFetching = useRef(false);
   const runCountRef = useRef(0);
+  // Monotonic run generation for the consumer's LWW materialized view. Unlike
+  // `runCountRef` (reset to 0 on owner/enabled-network change), this is NEVER
+  // reset — it must stay monotonic across same-owner re-runs so the LWW
+  // generation guard (out-of-order/stale-write rejection) holds.
+  const runGenerationRef = useRef(0);
   const [isEmptyAccount, setIsEmptyAccount] = useState(false);
   const [isLocked] = useAppIsLockedAtom();
   const [enabledNetworksChangedNonce, setEnabledNetworksChangedNonce] =
@@ -360,6 +389,11 @@ function useAllNetworkRequests<T>(params: {
   // inside the runner.
   const skipAccountsCacheRef = useRef(false);
   const ignoreDisabledRef = useRef(false);
+  // L5: relay `alwaysSetState` into the runner body (like skipAccountsCacheRef)
+  // so the redundant-run gate can exempt every explicit refresh.
+  // `lastRunSignatureRef` is the owner identity of the last run that proceeded.
+  const alwaysSetStateRef = useRef(false);
+  const lastRunSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
     const onEnabledNetworksChanged = () => {
@@ -370,7 +404,9 @@ function useAllNetworkRequests<T>(params: {
       allNetworkDataInit.current = false;
       runCountRef.current = 0;
       setEnabledNetworksChangedNonce((v) => v + 1);
-      void runWithQueueRef.current?.({ triggerByDeps: true });
+      // owner intentionally omitted (this appEventBus-listener effect must not
+      // depend on the owner); it appears on the following `allnet.run` line.
+      void runWithQueueRef.current?.();
     };
     appEventBus.on(
       EAppEventBusNames.EnabledNetworksChanged,
@@ -408,6 +444,7 @@ function useAllNetworkRequests<T>(params: {
       // check, otherwise the refresh is dropped when the consuming tab
       // (e.g. DeFi) is mounted but not the active tab during the HW connect
       // batch — the cache would be cleared but no fetch would actually run.
+      // owner intentionally omitted (see enabledNetworks trigger above).
       void runWithQueueRef.current?.({
         skipAccountsCache: true,
         alwaysSetState: true,
@@ -462,8 +499,6 @@ function useAllNetworkRequests<T>(params: {
 
       perfTokenListView.markStart('useAllNetworkRequestsRun');
 
-      const requestsUUID = generateUUID();
-
       if (effectiveDisabled) return;
       if (isFetching.current) {
         rerunAfterCurrentRef.current = true;
@@ -471,8 +506,57 @@ function useAllNetworkRequests<T>(params: {
       }
       if (!currentAccountId || !currentNetworkId || !currentWalletId) return;
       if (!isAllNetworks) return;
+
+      // L5: drop redundant same-owner re-fires (usePromiseResult dep-identity
+      // churn during/after a switch). Read+reset the relayed alwaysSetState
+      // here; with skipAccountsCache / ignoreDisabled it marks every explicit
+      // refresh as must-run, and owner/enabled-network changes reset
+      // `allNetworkDataInit` — so neither is ever skipped.
+      const alwaysSetStateForThisRun = alwaysSetStateRef.current;
+      alwaysSetStateRef.current = false;
+      const currentRunSignature = `${currentAccountId}|${currentNetworkId}|${currentWalletId}|${
+        isNFTRequests ? 1 : 0
+      }|${isDeFiRequests ? 1 : 0}`;
+      const isMustRun =
+        alwaysSetStateForThisRun ||
+        skipAccountsCacheRef.current ||
+        ignoreDisabledForThisRun;
+      let requestKind = 'token';
+      if (isNFTRequests) {
+        requestKind = 'nft';
+      } else if (isDeFiRequests) {
+        requestKind = 'defi';
+      }
+      if (
+        shouldSkipRedundantAllNetworkRun({
+          isMustRun,
+          allNetworkDataInit: allNetworkDataInit.current,
+          currentSignature: currentRunSignature,
+          lastSignature: lastRunSignatureRef.current,
+        })
+      ) {
+        return;
+      }
+      lastRunSignatureRef.current = currentRunSignature;
+
       runCountRef.current += 1;
+      runGenerationRef.current += 1;
+      // Capture the generation for THIS run — threaded into the cache-seed
+      // (`allNetworkCacheData`) and the per-network settle (`onRequestSettled`)
+      // so the consumer's LWW materialized view rejects a stale earlier run.
+      const runGeneration = runGenerationRef.current;
       isFetching.current = true;
+
+      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+        runtime: 'main',
+        phase: 'all-network-hook-run-start',
+        networkId: currentNetworkId,
+        isAllNetworks: true,
+        allNetworkDataInit: allNetworkDataInit.current,
+        isMustRun,
+        ownerPresent: !!currentAccountId,
+        reason: requestKind,
+      });
 
       let onStartedError: unknown;
       let onStartedTask: Promise<void> | undefined;
@@ -552,6 +636,18 @@ function useAllNetworkRequests<T>(params: {
           allAccountsInfo,
         } = accountsInfoResult;
         perf.markEnd('getAllNetworkAccountsWithEnabledNetworks');
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'all-network-accounts-resolved',
+          networkId: currentNetworkId,
+          isAllNetworks: true,
+          accountsCount: accountsInfo?.length ?? 0,
+          backendIndexedCount: accountsInfoBackendIndexed?.length ?? 0,
+          backendNotIndexedCount: accountsInfoBackendNotIndexed?.length ?? 0,
+          allAccountsCount: allAccountsInfo?.length ?? 0,
+          ownerPresent: !!currentAccountId,
+          reason: requestKind,
+        });
         perfMark('AllNet:getAllNetworkAccounts:done', {
           duration: Date.now() - allNetAccountsStart,
           counts: {
@@ -593,6 +689,10 @@ function useAllNetworkRequests<T>(params: {
           }
         }
 
+        // L3: networks whose local cache is non-empty (likely funded). Populated
+        // by the cache probe below, consumed to prioritize the live fan-out so
+        // the first concurrency wave fetches the user's real holdings first.
+        const cachePriorityNetworkIds = new Set<string>();
         if (!allNetworkDataInit.current) {
           let cacheHasData = false;
           try {
@@ -628,9 +728,32 @@ function useAllNetworkRequests<T>(params: {
             ).filter(Boolean);
             perf.markEnd('allNetworkCacheRequests');
 
+            // `cachedData` is already filtered to non-null results — i.e. only
+            // networks that returned cached (non-empty) tokens. Remember them
+            // (L3) so the live fan-out fetches funded networks in the first wave.
+            cachedData.forEach((d) => {
+              const priorityNetworkId = (d as { networkId?: string } | null)
+                ?.networkId;
+              if (priorityNetworkId) {
+                cachePriorityNetworkIds.add(priorityNetworkId);
+              }
+            });
+
             if (cachedData && !isEmpty(cachedData)) {
               cacheHasData = true;
               allNetworkDataInit.current = true;
+              defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
+                {
+                  runtime: 'main',
+                  phase: 'all-network-cache-probe',
+                  networkId: currentNetworkId,
+                  isAllNetworks: true,
+                  hasCache: true,
+                  cacheCount: cachedData.length,
+                  ownerPresent: !!currentAccountId,
+                  reason: requestKind,
+                },
+              );
               perf.done();
               perfTokenListView.markEnd(
                 'useAllNetworkRequestsRun',
@@ -640,11 +763,26 @@ function useAllNetworkRequests<T>(params: {
                 data: cachedData,
                 accountId: currentAccountId,
                 networkId: currentNetworkId,
+                generation: runGeneration,
               });
             }
           } catch (e) {
             console.error(e);
           } finally {
+            if (!cacheHasData) {
+              defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
+                {
+                  runtime: 'main',
+                  phase: 'all-network-cache-probe',
+                  networkId: currentNetworkId,
+                  isAllNetworks: true,
+                  hasCache: false,
+                  cacheCount: 0,
+                  ownerPresent: !!currentAccountId,
+                  reason: requestKind,
+                },
+              );
+            }
             try {
               await onCacheChecked?.({
                 accountId: currentAccountId,
@@ -657,13 +795,11 @@ function useAllNetworkRequests<T>(params: {
           }
         }
 
-        currentRequestsUUID.current = requestsUUID;
-        // console.log(
-        //   'currentRequestsUUID set: =====>>>>>: ',
-        //   currentRequestsUUID.current,
-        // );
         if (allNetworkDataInit.current) {
-          const allNetworks = accountsInfo;
+          const allNetworks = reorderNetworksByCachePriority(
+            accountsInfo,
+            cachePriorityNetworkIds,
+          );
           const requestFactories = allNetworks.map((networkDataString) => {
             const { accountId, networkId, dbAccount } = networkDataString;
             return () =>
@@ -676,12 +812,25 @@ function useAllNetworkRequests<T>(params: {
           });
 
           try {
+            // L4a: sliding-window executor (worker-pool) replaces the
+            // batch-barrier so a slow network no longer idles the rest of its
+            // wave — the next network starts the instant a slot frees.
+            // L4b: a dedicated native cap (iOS 16 / Android 8) drains the waves
+            // faster on iOS without touching the shared PROMISE_CONCURRENCY_LIMIT.
             resp = (
-              await promiseAllSettledEnhanced(requestFactories, {
+              await promiseAllSettledSlidingWindow(requestFactories, {
                 continueOnError: true,
-                concurrency: getAllNetworkTaskConcurrencyLimit(
+                concurrency: getTokenListFanOutConcurrencyLimit(
                   requestFactories.length,
                 ),
+                // L2: hand each network's result to the consumer the instant it
+                // settles, so it can paint progressively instead of waiting for
+                // the whole fan-out.
+                onSettled: (settledResult) => {
+                  if (settledResult) {
+                    onRequestSettled?.(settledResult, runGeneration);
+                  }
+                },
               })
             ).filter(Boolean);
           } catch (e) {
@@ -691,18 +840,22 @@ function useAllNetworkRequests<T>(params: {
           }
         } else {
           const respTemp: Array<T> = [];
+          // Fix A: the COLD path must feed the progressive-paint pipeline the
+          // same way the WARM path does via `onSettled`. `promiseAllSettledEnhanced`
+          // has no `onSettled`, so each factory calls `onRequestSettled` itself
+          // when it resolves (see `makeColdRequestFactory` for the full rationale
+          // + the placeholder filter — extracted there so it is unit-tested).
+          const makeColdFactory = (networkDataString: IAllNetworkAccountInfo) =>
+            makeColdRequestFactory<T>({
+              networkInfo: networkDataString,
+              allNetworkRequests,
+              onRequestSettled,
+              runGeneration,
+              getAllNetworkDataInit: () => allNetworkDataInit.current,
+            });
           try {
             const factories = Array.from(accountsInfoBackendIndexed).map(
-              (networkDataString) => {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { accountId, networkId, apiAddress } = networkDataString;
-                return () =>
-                  allNetworkRequests({
-                    accountId,
-                    networkId,
-                    allNetworkDataInit: allNetworkDataInit.current,
-                  });
-              },
+              makeColdFactory,
             );
             const r = (
               await promiseAllSettledEnhanced(factories, {
@@ -720,16 +873,7 @@ function useAllNetworkRequests<T>(params: {
 
           try {
             const factories = Array.from(accountsInfoBackendNotIndexed).map(
-              (networkDataString) => {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { accountId, networkId, apiAddress } = networkDataString;
-                return () =>
-                  allNetworkRequests({
-                    accountId,
-                    networkId,
-                    allNetworkDataInit: allNetworkDataInit.current,
-                  });
-              },
+              makeColdFactory,
             );
             const r = (
               await promiseAllSettledEnhanced(factories, {
@@ -745,41 +889,22 @@ function useAllNetworkRequests<T>(params: {
             // pass
           }
           resp = respTemp.length ? respTemp : null;
-
-          // // 处理顺序请求的网络
-          // await (async (uuid: string) => {
-          // for (const networkDataString of sequentialNetworks) {
-          //   console.log(
-          //     'currentRequestsUUID for: =====>>>>>: ',
-          //     currentRequestsUUID.current,
-          //     uuid,
-          //     networkDataString.networkId,
-          //     networkDataString.apiAddress,
-          //   );
-          //   if (
-          //     currentRequestsUUID.current &&
-          //     currentRequestsUUID.current !== uuid
-          //   ) {
-          //     break;
-          //   }
-          //   const { accountId, networkId } = networkDataString;
-          //   try {
-          //     await allNetworkRequests({
-          //       accountId,
-          //       networkId,
-          //       allNetworkDataInit: allNetworkDataInit.current,
-          //     });
-          //   } catch (e) {
-          //     console.error(e);
-          //     // pass
-          //   }
-          //   await waitAsync(interval);
-          // }
-          // })(requestsUUID);
         }
         if (accountsInfo.length && accountsInfo.length > 0) {
           allNetworkDataInit.current = true;
         }
+
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'all-network-hook-run-finished',
+          networkId: currentNetworkId,
+          isAllNetworks: true,
+          allNetworkDataInit: allNetworkDataInit.current,
+          resultCount: resp?.length ?? 0,
+          accountsCount: accountsInfo.length,
+          ownerPresent: !!currentAccountId,
+          reason: requestKind,
+        });
 
         return resp;
       } finally {
@@ -834,6 +959,7 @@ function useAllNetworkRequests<T>(params: {
       allNetworkCacheRequests,
       allNetworkCacheData,
       allNetworkRequests,
+      onRequestSettled,
     ],
     {
       revalidateOnFocus,
@@ -865,6 +991,9 @@ function useAllNetworkRequests<T>(params: {
       if (config?.skipAccountsCache) {
         skipAccountsCacheRef.current = true;
       }
+      if (config?.alwaysSetState) {
+        alwaysSetStateRef.current = true;
+      }
       if (config?.ignoreDisabled) {
         ignoreDisabledRef.current = true;
       }
@@ -879,7 +1008,6 @@ function useAllNetworkRequests<T>(params: {
     run: runWithQueue,
     result,
     isEmptyAccount,
-    allNetworkDataInit,
   };
 }
 
@@ -1108,6 +1236,10 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
     networkInfoMap: result?.networkInfoMap ?? {},
     enabledNetworksCompatibleWithWalletId,
     enabledNetworksWithoutAccount,
+    // usePromiseResult resets result to the memoized initResult reference on
+    // scope (swrKey) change, so identity tells "not resolved for this scope
+    // yet" apart from a resolved-but-empty compatible set.
+    isReady: result !== initResult,
     run,
   };
 }

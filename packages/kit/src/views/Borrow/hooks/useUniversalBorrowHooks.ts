@@ -10,9 +10,9 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type {
-  IRepayWithCollateralQuote,
-  IStakingInfo,
+import {
+  type IRepayWithCollateralQuote,
+  type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -21,27 +21,16 @@ import {
   getBorrowLutFinalizationErrorTranslation,
   mapBorrowLutFinalizationToTxStatus,
 } from './borrowLutFinalization';
+import {
+  type IBorrowBuildTxParams,
+  attachBorrowOrderId,
+  handleBorrowSuccess,
+  parseBorrowEncodedTx,
+  useUniversalBorrowRepay,
+  useUniversalBorrowWithdraw,
+} from './useUniversalBorrowWithdrawRepayHooks';
 
-function parseBorrowEncodedTx(tx: string): IEncodedTx {
-  try {
-    const parsed = JSON.parse(tx) as unknown;
-    if (parsed && typeof parsed === 'object') {
-      return parsed as IEncodedTx;
-    }
-  } catch {
-    // Ignore parsing errors and fallback to raw string
-  }
-  return tx;
-}
-
-const attachBorrowOrderId = ({
-  stakingInfo,
-  orderId,
-}: {
-  stakingInfo?: IStakingInfo;
-  orderId?: string;
-}): IStakingInfo | undefined =>
-  stakingInfo ? { ...stakingInfo, orderId } : undefined;
+export { useUniversalBorrowRepay, useUniversalBorrowWithdraw };
 
 const attachRepayWithCollateralAmount = ({
   stakingInfo,
@@ -142,53 +131,8 @@ const syncBorrowOrder = async ({
   });
 };
 
-const handleBorrowSuccess = async ({
-  data,
-  orderId,
-  networkId,
-  stakingInfo,
-  onSuccess,
-}: {
-  data: ISendTxOnSuccessData[];
-  orderId?: string;
-  networkId: string;
-  stakingInfo?: IStakingInfo;
-  onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
-}) => {
-  const latestTxId =
-    Array.isArray(data) && data.length > 0 ? getLatestTxId(data) : undefined;
-
-  if (orderId && latestTxId) {
-    await backgroundApiProxy.serviceStaking.addEarnOrder({
-      orderId,
-      networkId,
-      txId: latestTxId,
-      status: data[data.length - 1]?.decodedTx.status,
-      ...getEarnOrderTrackingInfo(stakingInfo),
-    });
-  }
-  onSuccess?.(data);
-};
-
 // Buffer after RPC finalization to allow all RPC nodes to sync the LUT state
 const LUT_PROPAGATION_BUFFER_MS = 5000;
-
-type IBorrowBuildTxParams = {
-  amount: string;
-  provider: string;
-  marketAddress: string;
-  reserveAddress: string;
-  collateralReserveAddress?: string;
-  withdrawAll?: boolean;
-  repayAll?: boolean;
-  needsSetupLut?: boolean;
-  slippageBps?: number;
-  routeKey?: string;
-  stakingInfo?: IStakingInfo;
-  onSetupLutReadyForRepay?: () => void;
-  onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
-  onFail?: IModalSendParamList['SendConfirm']['onFail'];
-};
 
 export function useUniversalBorrowSupply({
   networkId,
@@ -235,64 +179,7 @@ export function useUniversalBorrowSupply({
             data,
             orderId: resp.orderId,
             networkId,
-            stakingInfo: stakingInfoWithOrderId,
-            onSuccess,
-          });
-        },
-        onFail,
-      });
-    },
-    [accountId, networkId, navigationToTxConfirm],
-  );
-}
-
-export function useUniversalBorrowWithdraw({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) {
-  const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId,
-    networkId,
-  });
-
-  return useCallback(
-    async ({
-      amount,
-      provider,
-      marketAddress,
-      reserveAddress,
-      withdrawAll,
-      stakingInfo,
-      onSuccess,
-      onFail,
-    }: IBorrowBuildTxParams) => {
-      const resp =
-        await backgroundApiProxy.serviceStaking.borrowBuildWithdrawTransaction({
-          networkId,
-          accountId,
-          provider,
-          marketAddress,
-          reserveAddress,
-          amount,
-          withdrawAll,
-        });
-
-      const stakingInfoWithOrderId = attachBorrowOrderId({
-        stakingInfo,
-        orderId: resp.orderId,
-      });
-
-      await navigationToTxConfirm({
-        encodedTx: parseBorrowEncodedTx(resp.tx),
-        stakingInfo: stakingInfoWithOrderId,
-        onSuccess: async (data) => {
-          await handleBorrowSuccess({
-            data,
-            orderId: resp.orderId,
-            networkId,
+            accountId,
             stakingInfo: stakingInfoWithOrderId,
             onSuccess,
           });
@@ -349,64 +236,7 @@ export function useUniversalBorrowBorrow({
             data,
             orderId: resp.orderId,
             networkId,
-            stakingInfo: stakingInfoWithOrderId,
-            onSuccess,
-          });
-        },
-        onFail,
-      });
-    },
-    [accountId, networkId, navigationToTxConfirm],
-  );
-}
-
-export function useUniversalBorrowRepay({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) {
-  const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId,
-    networkId,
-  });
-
-  return useCallback(
-    async ({
-      amount,
-      provider,
-      marketAddress,
-      reserveAddress,
-      repayAll,
-      stakingInfo,
-      onSuccess,
-      onFail,
-    }: IBorrowBuildTxParams) => {
-      const resp =
-        await backgroundApiProxy.serviceStaking.borrowBuildRepayTransaction({
-          networkId,
-          accountId,
-          provider,
-          marketAddress,
-          reserveAddress,
-          amount,
-          repayAll,
-        });
-
-      const stakingInfoWithOrderId = attachBorrowOrderId({
-        stakingInfo,
-        orderId: resp.orderId,
-      });
-
-      await navigationToTxConfirm({
-        encodedTx: parseBorrowEncodedTx(resp.tx),
-        stakingInfo: stakingInfoWithOrderId,
-        onSuccess: async (data) => {
-          await handleBorrowSuccess({
-            data,
-            orderId: resp.orderId,
-            networkId,
+            accountId,
             stakingInfo: stakingInfoWithOrderId,
             onSuccess,
           });
@@ -637,6 +467,7 @@ export function useUniversalBorrowRepayWithCollateral({
           data: repayConfirmResult.data,
           orderId: resp.orderId,
           networkId,
+          accountId,
           stakingInfo: stakingInfoWithOrderId,
           onSuccess,
         });
@@ -710,6 +541,7 @@ export function useUniversalBorrowClaim({
             data,
             orderId: resp.orderId,
             networkId,
+            accountId,
             stakingInfo: stakingInfoWithOrderId,
             onSuccess,
           });

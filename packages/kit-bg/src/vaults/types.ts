@@ -469,6 +469,18 @@ export type IHwAllNetworkPrepareAccountsItem =
       address?: string;
       path?: string;
       rootFingerprint?: number;
+      deviceIdentity?:
+        | {
+            vendor: 'ledger';
+            type: 'chainFingerprint';
+            chain: ChainForFingerprint;
+            value: string;
+          }
+        | {
+            vendor: 'trezor';
+            type: 'deviceId';
+            value: string;
+          };
       chainFingerprint?: string;
       chainFingerprintChain?: ChainForFingerprint;
 
@@ -572,6 +584,12 @@ export type ITransferPayload = {
   amountToSend: string;
   isMaxSend: boolean;
   isNFT: boolean;
+  // utxo coin-control: total amount (in token units) of the user-selected
+  // UTXOs backing this tx. When present the tx can only spend these UTXOs,
+  // so confirm-page balance checks must use it as the spendable balance
+  // instead of the account-level balance — find-address claimed UTXOs are
+  // excluded from balance aggregation and would otherwise read as 0.
+  selectedUtxoTotalAmount?: string;
   isPrivateSend?: boolean;
   privateSend?: {
     orderId?: string;
@@ -612,6 +630,9 @@ export type IUtxoInfo = {
   address: string;
   path: string;
   blockTime?: number;
+  // btc find-address feature: UTXO of a user-claimed off-gap address,
+  // only used for coin-control display and gating, never balance aggregation
+  isCustomClaimed?: boolean;
   // Use for Cardano UTXO info
   txIndex?: number;
   amount?: IAdaAmount[];

@@ -39,12 +39,16 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { getBorrowTxTitle } from '../../../Borrow/borrowUtils';
 import { DAppSiteMark } from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
+import DeFiActionInfo from '../../components/DeFiActionInfo';
 import { TxConfirmActions } from '../../components/SignatureConfirmActions';
 import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import { TxConfirmAlert } from '../../components/SignatureConfirmAlert';
 import { TxConfirmDetails } from '../../components/SignatureConfirmDetails';
 import { TxConfirmExtraInfo } from '../../components/SignatureConfirmExtraInfo';
-import { TxConfirmHeaderRight } from '../../components/SignatureConfirmHeader';
+import {
+  TxConfirmHeaderRight,
+  getTxConfirmMevProtectionProvider,
+} from '../../components/SignatureConfirmHeader';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import StakingInfo from '../../components/StakingInfo';
@@ -214,7 +218,13 @@ function TxConfirm() {
       withFrozenBalance: true,
       withCheckInscription,
     });
-    const balance = tokenResp?.[0]?.balanceParsed;
+    // Coin-control txs can only spend the user-selected UTXOs, so treat the
+    // selected subtotal as the spendable balance. The account-level balance
+    // fetched above excludes find-address claimed UTXOs (never aggregated),
+    // which would otherwise read as 0 and falsely trip the insufficient
+    // native balance checks.
+    const balance =
+      transferPayload?.selectedUtxoTotalAmount ?? tokenResp?.[0]?.balanceParsed;
     updateNativeTokenInfo({
       isLoading: false,
       balance,
@@ -226,6 +236,7 @@ function TxConfirm() {
     accountId,
     networkId,
     settings.inscriptionProtection,
+    transferPayload?.selectedUtxoTotalAmount,
   ]);
 
   usePromiseResult(
@@ -421,6 +432,7 @@ function TxConfirm() {
           networkId={networkId}
           unsignedTxs={unsignedTxs}
         />
+        <DeFiActionInfo unsignedTxs={unsignedTxs} />
         {swapInfo ? <SwapInfo data={swapInfo} /> : null}
         {stakingInfo ? <StakingInfo data={stakingInfo} /> : null}
         <TxAdvancedSettings accountId={accountId} networkId={networkId} />
@@ -447,17 +459,39 @@ function TxConfirm() {
     return <TaskQueueController taskQueue={unsignedTxQueue} />;
   }, [isQueueMode, unsignedTxQueue]);
 
-  const renderHeaderRight = useCallback(
-    () => (
+  const shouldRenderHeaderRight = useMemo(
+    () =>
+      Boolean(
+        getTxConfirmMevProtectionProvider({
+          decodedTxs,
+          unsignedTxs,
+          effectiveFeePayer,
+          txFeeInfoInit,
+        }),
+      ),
+    [decodedTxs, unsignedTxs, effectiveFeePayer, txFeeInfoInit],
+  );
+
+  const renderHeaderRight = useCallback(() => {
+    if (!shouldRenderHeaderRight) {
+      return null;
+    }
+
+    return (
       <TxConfirmHeaderRight
         decodedTxs={decodedTxs}
         unsignedTxs={unsignedTxs}
         effectiveFeePayer={effectiveFeePayer}
         txFeeInfoInit={txFeeInfoInit}
       />
-    ),
-    [decodedTxs, unsignedTxs, effectiveFeePayer, txFeeInfoInit],
-  );
+    );
+  }, [
+    decodedTxs,
+    unsignedTxs,
+    effectiveFeePayer,
+    txFeeInfoInit,
+    shouldRenderHeaderRight,
+  ]);
 
   return (
     <Page
@@ -466,7 +500,11 @@ function TxConfirm() {
       safeAreaEnabled
       testID={SignatureConfirmTestIDs.TxConfirmPage}
     >
-      <Page.Header title={txConfirmTitle} headerRight={renderHeaderRight} />
+      <Page.Header
+        title={txConfirmTitle}
+        headerRight={shouldRenderHeaderRight ? renderHeaderRight : undefined}
+        unstable_headerRightItems={undefined}
+      />
       <Page.Body testID={SignatureConfirmTestIDs.TxConfirmBody} px="$5">
         {renderTxQueueController()}
         {renderTxConfirmContent()}

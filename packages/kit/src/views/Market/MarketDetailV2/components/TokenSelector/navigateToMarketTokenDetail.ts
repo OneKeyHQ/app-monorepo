@@ -7,14 +7,21 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
+
+import { prewarmMarketTokenDetailPreviewImages } from '../../utils/marketDetailImagePreload';
 
 export function navigateToMarketTokenDetail(
   token: { address: string; networkId: string; isNative?: boolean },
   opts: {
     tokenDetailActions: ReturnType<typeof useTokenDetailActions>;
     beforeNavigate?: () => void;
+    showFavoriteButton?: boolean;
+    tokenDetailPreview?: IMarketTokenDetailPreview;
   },
 ) {
+  prewarmMarketTokenDetailPreviewImages(opts.tokenDetailPreview);
+
   const shortCode = networkUtils.getNetworkShortCode({
     networkId: token.networkId,
   });
@@ -23,6 +30,7 @@ export function navigateToMarketTokenDetail(
     tokenAddress: token.address,
     networkId: token.networkId,
     isNative: token.isNative ?? false,
+    tokenDetailPreview: opts.tokenDetailPreview,
   });
 
   opts.beforeNavigate?.();
@@ -34,6 +42,9 @@ export function navigateToMarketTokenDetail(
     tokenAddress: token.address,
     network: shortCode || token.networkId,
     isNative: token.isNative,
+    ...(typeof opts.showFavoriteButton === 'boolean'
+      ? { showFavoriteButton: opts.showFavoriteButton }
+      : undefined),
   };
   setTimeout(() => {
     rootNavigationRef.current?.navigate(ERootRoutes.Main, {

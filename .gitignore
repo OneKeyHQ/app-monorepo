@@ -104,6 +104,7 @@ coverage/
 /packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.text-js
 /packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.js.LICENSE.txt
 /packages/kit/src/components/WebView/translateInject.text-js
+/packages/kit/src/components/LightweightChart/utils/lightweightChartsStandalone.text-js
 /packages/shared/src/web/index.html
 /mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy/jpush
 apps/mobile/android/.kotlin/
@@ -157,3 +158,7 @@ apps/mobile/android/app/src/main/assets/modules.json
 /_bmad/
 /_bmad-output/
 /.skillshare/skills/bmad-*
+
+# Local Windows perf remote config (host-specific, do not commit)
+development/scripts/.windows-perf.env
+/apps/web/out-dir-analysis

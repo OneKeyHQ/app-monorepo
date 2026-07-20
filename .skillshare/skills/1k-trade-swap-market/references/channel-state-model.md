@@ -32,7 +32,8 @@ Define what the user should see, not only what the chain recorded:
 - setup, activation, or auxiliary asset rows that should display separately
   from the main business transfer
 - progress steps and final labels
-- which ordinary Swap/Bridge/Market lists must include or exclude the channel
+- which visible Swap & Bridge, internal Bridge/history, Market, and
+  channel-specific lists must include or exclude the channel
 
 PrivateSend-like flows prove why semantic receiver and provider settlement
 address must stay separate. Stock/order flows will need the same separation for
@@ -63,7 +64,8 @@ Define the App-side row created after submit:
 - provider raw context preserved for later status lookup
 - typed display context when base swap fields cannot represent all semantic
   rows, fees, or receiver fields
-- pending-list filters for Swap, Bridge, Market, and channel-specific lists
+- pending-list filters for visible Swap & Bridge, internal Bridge/history,
+  Market, and channel-specific lists
 
 Send success without the correct local history row is not a complete channel
 implementation. For order-backed channels, the history row should preserve

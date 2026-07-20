@@ -45,7 +45,6 @@ const SwapProBuySellInfo = ({
       <NumberSizeableText
         size="$bodySm"
         color="$textSuccess"
-        fontFamily="$monoRegular"
         formatter={isAboveThreshold ? 'marketCap' : 'value'}
         formatterOptions={{ currency: '$' }}
       >
@@ -69,7 +68,6 @@ const SwapProBuySellInfo = ({
       <NumberSizeableText
         size="$bodySm"
         color="$textCritical"
-        fontFamily="$monoRegular"
         formatter={isAboveThreshold ? 'marketCap' : 'value'}
         formatterOptions={{ currency: '$' }}
       >
@@ -103,7 +101,9 @@ const SwapProBuySellInfo = ({
       .toNumber();
   }, [sellVolume, totalVolume]);
   return (
-    <YStack gap="$2" mt="$2" flex={1}>
+    // No own top margin: the panel column gap owns the spacing above, keeping
+    // it visually equal to the internal $2 gap below the ratio bar.
+    <YStack gap="$2" flex={1}>
       <XStack position="relative" borderRadius="$1" overflow="hidden">
         <Stack
           position="absolute"
@@ -145,12 +145,7 @@ const SwapProBuySellInfo = ({
               B
             </SizableText>
           </Stack>
-          <SizableText
-            size="$bodyXs"
-            color="$textSuccess"
-            ml="$0.5"
-            fontFamily="$monoRegular"
-          >
+          <SizableText size="$bodyXs" color="$textSuccess" ml="$0.5">
             {!supportSpeedSwap ? '--' : buyPercentage.toFixed(2)}%
           </SizableText>
         </XStack>
@@ -161,12 +156,7 @@ const SwapProBuySellInfo = ({
           position="relative"
           zIndex={1}
         >
-          <SizableText
-            size="$bodyXs"
-            color="$textCritical"
-            mr="$0.5"
-            fontFamily="$monoRegular"
-          >
+          <SizableText size="$bodyXs" color="$textCritical" mr="$0.5">
             {!supportSpeedSwap ? '--' : sellPercentage.toFixed(2)}%
           </SizableText>
           <Stack

@@ -74,11 +74,18 @@ export interface IDevSettings {
   customApiEndpoints?: IApiEndpointConfig[];
   // show performance monitor
   showPerformanceMonitor?: boolean;
+  // show performance monitor, replacing legacy showPerformanceMonitor which
+  // was default-on in older dev builds.
+  showPerformanceMonitorV2?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
+  // use the data-only native chart in Market Detail
+  useTradingViewNativeInMarketDetail?: boolean;
   showPerpsRenderStats?: boolean;
   mockTradingViewKLineEmptyEnabled?: boolean;
   mockTradingViewKLineEmptyIntervals?: ITradingViewKLineMockEmptyInterval[];
+  // Show Market Home websocket subscription debug overlay and row highlight.
+  showMarketHomeWsDebug?: boolean;
 
   usbCommunicationMode?: 'webusb' | 'bridge';
 
@@ -104,9 +111,16 @@ export interface IDevSettings {
   disableCustomUA?: boolean;
   // Allow Discovery browser to load local development URLs.
   allowLocalhostUrlInDAppBrowser?: boolean;
+  // Open external links in the system browser instead of the native in-app
+  // browser (SFSafariViewController / Chrome Custom Tabs). Native only.
+  useSystemBrowserForExternalLinks?: boolean;
   // Force react-native-fast-pbkdf2 instead of the default quick-crypto backend
   // for native PBKDF2 calls (debug only).
   useFastPbkdf2NativeBackend?: boolean;
+  // Enable Slow 4G throttling on platforms with a supported backend.
+  networkThrottleEnabled?: boolean;
+  // Force kaspa refTx fetch to fail, so QA can verify the blind-sign fallback.
+  mockKaspaRefTxFetchFailed?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -115,6 +129,16 @@ export type IDevSettingsPersistAtom = {
   enabled: boolean;
   settings?: IDevSettings;
 };
+
+export function getDevSettingsNetworkThrottleEnabled(
+  devSettings: IDevSettingsPersistAtom,
+  defaultEnabled: boolean,
+) {
+  if (!devSettings.enabled) {
+    return false;
+  }
+  return devSettings.settings?.networkThrottleEnabled ?? defaultEnabled;
+}
 export const {
   target: devSettingsPersistAtom,
   use: useDevSettingsPersistAtom,
@@ -136,17 +160,21 @@ export const {
       enableBotWalletFeature: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
-      showPerformanceMonitor: true,
+      showPerformanceMonitor: false,
+      showPerformanceMonitorV2: false,
       autoNavigation: {
         enabled: false,
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
+      useTradingViewNativeInMarketDetail: false,
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
+      showMarketHomeWsDebug: false,
+      networkThrottleEnabled: !!platformEnv.isDesktop || !!platformEnv.isNative,
       allowLocalhostUrlInDAppBrowser: false,
-      // Linux Desktop use Bridge，avoiding WebUSB permission problem
-      usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
+      // Linux Desktop uses WebUSB; host udev rules are requested when needed.
+      usbCommunicationMode: 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
       useFastPbkdf2NativeBackend: false,

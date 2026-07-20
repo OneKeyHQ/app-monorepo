@@ -19,6 +19,7 @@ import type {
 } from '@onekeyhq/shared/src/eventSource';
 
 import type {
+  IEstimateGasResp,
   IFeeAlgo,
   IFeeCkb,
   IFeeDot,
@@ -26,8 +27,10 @@ import type {
   IFeeSui,
   IFeeTron,
   IFeeUTXO,
+  IGasAccountQuote,
   IGasEIP1559,
   IGasLegacy,
+  IGasPayer,
 } from '../fee';
 import type { EMessageTypesEth } from '../message';
 import type { IToken } from '../token';
@@ -44,6 +47,7 @@ export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
   LIMIT = 'Limit', // TODO
   PRIVATE_SEND = 'PrivateSend',
+  STOCK = 'Stock',
   ALL = 'All',
 }
 
@@ -52,6 +56,7 @@ export enum ESwapTabSwitchType {
   BRIDGE = 'bridge',
   LIMIT = 'limit',
   PRIVATE_SEND = 'privateSend',
+  STOCK = 'stock',
 }
 
 export enum ESwapDirectionType {
@@ -87,6 +92,30 @@ export enum ESwapSource {
   TAB = 'tab',
   APPROVING_SUCCESS = 'approving_success',
   PERP = 'perp',
+}
+
+export enum ESwapAnalyticsCategory {
+  SWAP = 'Swap',
+  BRIDGE = 'Bridge',
+  LIMIT = 'Limit',
+  STOCK = 'Stock',
+}
+
+export enum ESwapAnalyticsEnterFrom {
+  HOME_TAB = 'homeTab',
+  TOKEN_DETAIL = 'tokenDetail',
+  MARKET = 'market',
+  EARN = 'earn',
+  OTHERS = 'others',
+}
+
+export enum EStockTradeAlertType {
+  MIN_AMOUNT = 'minAmount',
+  MAX_AMOUNT = 'maxAmount',
+  REGION_RESTRICTED = 'regionRestricted',
+  MARKET_CLOSED = 'marketClosed',
+  UNKNOWN = 'unknown',
+  OTHER = 'other',
 }
 
 export enum ESwapSelectTokenSource {
@@ -139,6 +168,7 @@ export interface ISwapNetworkBase {
   supportSingleSwap?: boolean;
   supportLimit?: boolean;
   supportPrivateSend?: boolean;
+  supportStock?: boolean;
 }
 
 export interface ISwapNetwork extends ISwapNetworkBase {
@@ -155,6 +185,7 @@ export interface ISwapTokenBase {
   fiatValue?: string;
   balanceParsed?: string;
   price?: string;
+  currency?: string;
   networkId: string;
   contractAddress: string;
   isNative?: boolean;
@@ -164,6 +195,7 @@ export interface ISwapTokenBase {
   logoURI?: string;
   speedSwapDefaultAmount?: number[];
   supportProtocol?: boolean;
+  isStock?: boolean;
 }
 
 export interface IFreeFeeTokenItem {
@@ -219,6 +251,7 @@ export interface IFetchTokensParams {
   onlyAccountTokens?: boolean;
   isAllNetworkFetchAccountTokens?: boolean;
   lpToken?: boolean;
+  currency?: string;
 }
 
 export interface IFetchTokenListParams {
@@ -504,6 +537,13 @@ export interface ISwapGasInfo {
   feeAlgo?: IFeeAlgo;
   feeDot?: IFeeDot;
   feeBudget?: IFeeSui;
+  // Gas Account sponsorship result carried over from the estimate-fee response,
+  // so the preview UI (sponsored badge) and the send path (broadcast quoteId)
+  // can read it from the same gasInfo snapshot.
+  megafuelEligible?: IEstimateGasResp['megafuelEligible'];
+  payer?: IGasPayer;
+  gasAccountEligible?: boolean;
+  gasAccountQuote?: IGasAccountQuote;
 }
 export interface ISwapPreSwapData {
   fromToken?: ISwapToken;
@@ -538,7 +578,11 @@ export interface ISwapPreSwapData {
   supportPreBuild?: boolean;
   allowanceResult?: IAllowanceResult;
   netWorkFee?: {
-    gasInfos?: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[];
+    gasInfos?: {
+      encodeTx: IEncodedTx;
+      gasInfo: ISwapGasInfo;
+      txSize?: number;
+    }[];
     gasFeeFiatValue?: string;
   };
 }
@@ -593,6 +637,12 @@ export interface IFetchQuoteResult {
   unSupportSlippage?: boolean;
   fromTokenInfo: ISwapTokenBase;
   toTokenInfo: ISwapTokenBase;
+  // Backend hint (returned in both quote and build-tx responses) that this
+  // provider/route is a candidate for OneKey Gas Account sponsorship. It is a
+  // pre-check only: the client forwards it as `gasAccountEnabled` to
+  // estimate-fee, and the real eligibility is decided by estimate-fee's
+  // `gasAccountEligible` response.
+  gasAccountEnabled?: boolean;
   quoteResultCtx?: any;
   cowSwapQuoteResult?: any;
   kind?: ESwapQuoteKind;
@@ -989,6 +1039,10 @@ export interface ISwapTxHistory {
   swapOrderHash?: ISwapOrderHash;
   ctx?: any;
   currency?: string;
+  currencyId?: string;
+  // Timestamp at which this item was archived ("read") by the Swap history
+  // preview module. Presence = read; absence = unread. Value is never compared.
+  previewReadAt?: number;
   accountInfo: {
     sender: {
       accountId?: string;

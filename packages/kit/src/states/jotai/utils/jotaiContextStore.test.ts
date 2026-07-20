@@ -4,12 +4,19 @@ import type { ReactNode } from 'react';
 import { Component, createElement } from 'react';
 
 import { render, waitFor } from '@testing-library/react';
+import { type Atom, type WritableAtom, createStore } from 'jotai';
 
 import {
   EJotaiContextStoreNames,
   getJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IJotaiSetAtom } from '@onekeyhq/kit-bg/src/states/jotai/types';
+import {
+  contextAtomBase,
+  contextAtomSnapshotRegistry,
+  hydrateContextColdStartCacheForProvider,
+} from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -316,11 +323,13 @@ describe('jotaiContextStore reset flow', () => {
       expect(getJotaiContextTrackerMap()[perpsStoreId]?.count).toBe(1);
     });
 
-    expect(queryAllByTestId('swap-root-provider')).toHaveLength(1);
-    expect(queryAllByTestId('perps-root-provider')).toHaveLength(1);
+    await waitFor(() => {
+      expect(queryAllByTestId('swap-root-provider')).toHaveLength(1);
+      expect(queryAllByTestId('perps-root-provider')).toHaveLength(1);
+    });
   });
 
-  it('mounts the perps cold-start root when only the L2 book cache snapshot exists', () => {
+  it('mounts the perps cold-start root when only the L2 book cache snapshot exists', async () => {
     const globalCache = globalThis as IGlobalColdStartSnapshot;
     globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
       [`store:${EJotaiContextStoreNames.perps}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsL2BookColdCacheAtom}`]:
@@ -337,6 +346,114 @@ describe('jotaiContextStore reset flow', () => {
       createElement(JotaiContextRootProvidersAutoMount),
     );
 
-    expect(queryAllByTestId('perps-root-provider')).toHaveLength(1);
+    await waitFor(() => {
+      expect(queryAllByTestId('perps-root-provider')).toHaveLength(1);
+    });
+  });
+
+  it('removes runtime snapshot values when a cold-start atom is cleared through the normal setter path', () => {
+    const coldStartScopeKey = 'test:runtime-snapshot';
+    const scopedKey = `${coldStartScopeKey}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom}`;
+    let currentAtomValue: Record<string, string> | undefined = {
+      symbol: 'AAPL',
+    };
+    const globalCache = globalThis as IGlobalColdStartSnapshot;
+    globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [scopedKey]: currentAtomValue,
+    };
+    const setAtom = jest.fn() as unknown as IJotaiSetAtom<unknown[], unknown>;
+    const coldStartAtom = contextAtomBase<Record<string, string> | undefined>({
+      initialValue: undefined,
+      coldStartCache: true,
+      coldStartCacheKey:
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+      useColdStartScopeKey: () => coldStartScopeKey,
+      useContextAtom: <Value2, Args extends unknown[], Result>() => [
+        currentAtomValue as Awaited<Value2>,
+        setAtom as unknown as IJotaiSetAtom<Args, Result>,
+      ],
+    });
+    function ColdStartAtomConsumer() {
+      coldStartAtom.use();
+      return null;
+    }
+
+    const { rerender } = render(createElement(ColdStartAtomConsumer));
+
+    expect(globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__?.[scopedKey]).toEqual({
+      symbol: 'AAPL',
+    });
+
+    currentAtomValue = undefined;
+    rerender(createElement(ColdStartAtomConsumer));
+
+    expect(
+      globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__?.[scopedKey],
+    ).toBeUndefined();
+  });
+
+  it('does not hydrate discover account selector state from generic scoped snapshots', () => {
+    const coldStartCacheKey =
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom;
+    const originalRegistryEntry =
+      contextAtomSnapshotRegistry.get(coldStartCacheKey);
+    const coldStartScopeKey = `store:accountSelector@${EAccountSelectorSceneName.discover}--https://1inch.com`;
+    const scopedKey = `${coldStartScopeKey}::${coldStartCacheKey}`;
+    const initialValue = {
+      0: {
+        walletId: 'hd-current',
+      },
+    };
+    const staleSnapshotValue = {
+      0: {
+        walletId: 'hd-stale',
+      },
+    };
+    const globalCache = globalThis as IGlobalColdStartSnapshot;
+    globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [scopedKey]: staleSnapshotValue,
+    };
+    const coldStartAtom = contextAtomBase<typeof initialValue>({
+      initialValue,
+      coldStartCache: true,
+      coldStartCacheKey,
+      useColdStartScopeKey: () => coldStartScopeKey,
+      useContextAtom: <Value2, Args extends unknown[], Result>(
+        _atomInstance: WritableAtom<Value2, Args, Result>,
+      ) =>
+        [
+          initialValue as Awaited<Value2>,
+          jest.fn() as unknown as IJotaiSetAtom<Args, Result>,
+        ] as [Awaited<Value2>, IJotaiSetAtom<Args, Result>],
+    });
+    const store = createStore();
+    const hydrationStore = {
+      get: (atomInstance: unknown) => store.get(atomInstance as Atom<unknown>),
+      set: (atomInstance: unknown, value: unknown) => {
+        store.set(
+          atomInstance as WritableAtom<unknown, [unknown], unknown>,
+          value,
+        );
+      },
+    };
+    const atomInstance = coldStartAtom.atom();
+
+    try {
+      hydrateContextColdStartCacheForProvider({
+        store: hydrationStore,
+        coldStartScopeKey,
+      });
+
+      expect(store.get(atomInstance)).toEqual(initialValue);
+    } finally {
+      if (originalRegistryEntry) {
+        contextAtomSnapshotRegistry.set(
+          coldStartCacheKey,
+          originalRegistryEntry,
+        );
+      } else {
+        contextAtomSnapshotRegistry.delete(coldStartCacheKey);
+      }
+    }
   });
 });

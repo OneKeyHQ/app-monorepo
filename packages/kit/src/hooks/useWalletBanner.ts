@@ -16,7 +16,7 @@ import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { EarnNavigation } from '../views/Earn/earnUtils';
-import useParseQRCode from '../views/ScanQrCode/hooks/useParseQRCode';
+import useParseQRCodeLazy from '../views/ScanQrCode/hooks/useParseQRCodeLazy';
 
 import useAppNavigation from './useAppNavigation';
 
@@ -30,7 +30,7 @@ function useWalletBanner({
   wallet: IDBWallet | undefined;
 }) {
   const navigation = useAppNavigation();
-  const parseQRCode = useParseQRCode();
+  const parseQRCode = useParseQRCodeLazy();
 
   const handleBannerOnPress = useCallback(
     async (item: IWalletBanner) => {
@@ -100,7 +100,11 @@ function useWalletBanner({
           ],
           qrWalletScene: false,
           autoExecuteParsedAction: true,
-          defaultHandler: openUrlExternal,
+          // The backend flag promises the OS browser, not the in-app one.
+          defaultHandler: (url: string) =>
+            openUrlExternal(url, {
+              useSystemBrowser: item.useSystemBrowser,
+            }),
           account,
           network,
           wallet,

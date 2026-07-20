@@ -1,4 +1,5 @@
-import { EConnectorInteraction, UI_REQUEST } from '@onekeyfe/hwk-adapter-core';
+import { EConnectorInteraction } from '@onekeyfe/hwk-adapter-core';
+import { UI_REQUEST } from '@onekeyfe/hwk-adapter-core/ui-events';
 
 import {
   EThirdPartyHardwareUiAction,
@@ -266,7 +267,7 @@ export class LedgerAdapter
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Ledger] connectDevice threw: ${
-          (error as Error)?.message ?? String(error)
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       void thirdPartyHardwareUiStateAtom.set(undefined);

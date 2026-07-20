@@ -1,6 +1,6 @@
 name: build-desktop-renderer
 
-# Reusable workflow: builds the desktop renderer (webpack) once on ubuntu,
+# Reusable workflow: builds the desktop renderer (Rspack) once on Ubuntu,
 # then uploads the artifact for downstream platform-specific packaging jobs.
 
 on:
@@ -18,6 +18,11 @@ on:
         default: ''
       build_bundle_version:
         description: "Bundle version from upstream CI. Auto-generated if not provided."
+        required: false
+        type: string
+        default: ''
+      source_ref_name:
+        description: "Original source ref name to use for build metadata when running from a temporary CI tag."
         required: false
         type: string
         default: ''
@@ -83,6 +88,7 @@ jobs:
         uses: ./.github/actions/shared-env
         with:
           env_file_name: '.env'
+          source_ref_name: ${{ inputs.source_ref_name }}
           sentry_project: 'desktop'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
@@ -128,10 +134,61 @@ jobs:
       - name: Build Renderer
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
+          SENTRY_UPLOAD_BY_CLI: 'true'
         run: |
           cd apps/desktop
           npx cross-env NODE_ENV=production yarn clean:build
-          npx cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 webpack build
+          yarn run -T cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti
+
+      # Desktop Rspack builds with SRI enabled, so upload sourcemaps after the
+      # build without mutating emitted JS files. Sentry failures should not block
+      # renderer artifact creation; failed uploads are archived separately before
+      # sourcemaps are stripped from the packaged renderer artifact.
+      - name: Upload Desktop Sourcemaps to Sentry
+        id: upload_desktop_sourcemaps
+        continue-on-error: true
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+          SENTRY_ORG: onekey-bb
+          SENTRY_PROJECT: desktop
+          BUILD_APP_VERSION: ${{ env.BUILD_APP_VERSION }}
+          BUILD_NUMBER: ${{ env.BUILD_NUMBER }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "No SENTRY_AUTH_TOKEN - skipping desktop sourcemap upload."
+            echo "uploaded=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          RELEASE="$BUILD_APP_VERSION ($BUILD_NUMBER)"
+          npx sentry-cli releases new "$RELEASE" || true
+          if npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "~/" ./apps/desktop/web-build; then
+            npx sentry-cli releases finalize "$RELEASE" || true
+            echo "uploaded=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Desktop Sentry sourcemap upload failed; archiving sourcemaps before stripping them from renderer artifact."
+            echo "uploaded=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload Desktop Sourcemap Diagnostic Artifact
+        if: always() && steps.upload_desktop_sourcemaps.outputs.uploaded != 'true'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-sourcemaps-${{ github.sha }}
+          path: |
+            ./apps/desktop/web-build/**/*.js.map
+            ./apps/desktop/web-build/**/*.css.map
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Finalize Desktop Production Assets
+        if: always()
+        run: node ./apps/desktop/scripts/finalize-production-assets.js --strip-only
+
+      - name: Finalize Renderer Assets
+        run: |
+          cd apps/desktop
           node scripts/finalize-renderer-assets.js
 
       - name: Export build metadata

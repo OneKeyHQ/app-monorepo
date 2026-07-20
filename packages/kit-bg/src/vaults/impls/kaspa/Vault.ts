@@ -7,6 +7,7 @@ import {
   CONFIRMATION_COUNT,
   DEFAULT_FEE_RATE,
   DUST_AMOUNT,
+  KRC20_REVEAL_FEE_RATE_BUFFER,
   MAX_BLOCK_SIZE,
   MAX_ORPHAN_TX_MASS,
   MAX_UTXO_SIZE,
@@ -16,8 +17,9 @@ import {
   selectUTXOs,
   toTransaction,
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
-import { RestAPIClient as ClientKaspa } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
+import { RestAPIClient } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
 import sdk from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
+import type { IKaspaGetTransactionResponse } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/types';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
 import {
@@ -30,6 +32,7 @@ import {
   type IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import {
+  LowerTransactionAmountError,
   NotImplemented,
   OneKeyInternalError,
   OneKeyLocalError,
@@ -67,6 +70,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { ClientKaspa } from './sdkKaspa/ClientKaspa';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -82,6 +86,23 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
+
+// hd-core defines this internally but doesn't export it; derive from the params.
+export type IKaspaRefTransaction = NonNullable<
+  KaspaSignTransactionParams['refTxs']
+>[number];
+
+// Minimum spendable KAS required to fund a KRC20 commit transaction, surfaced to
+// the user via Toast when their balance is too low (instead of the generic
+// "insufficient balance / no UTXO" errors that don't tell the user to top up KAS).
+//
+// The hard minimum is ~1.5 KAS = 1.3 (BASE_KAS_TO_P2SH_ADDRESS, the fixed P2SH
+// commit output) + 0.2 (DUST_AMOUNT, the change floor coin selection requires);
+// the network fee is negligible (~0.001 KAS) and absorbed by the 0.2 dust
+// buffer. We advise 2 KAS to leave comfortable headroom above that minimum.
+// Most of the 1.3 KAS is returned once the reveal tx confirms.
+const KRC20_MIN_KAS_TO_SEND = '2';
 
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
@@ -129,12 +150,25 @@ export default class Vault extends VaultBase {
 
     let encodedTx: IEncodedTxKaspa;
 
-    const dbAccount = await this.getAccount();
-    const confirmUtxos = await this._collectUTXOsInfoByApi({
-      address: dbAccount.address,
-    });
-
     const isKRC20 = transferInfo.tokenInfo && !transferInfo.tokenInfo.isNative;
+
+    const dbAccount = await this.getAccount();
+    let confirmUtxos: IKaspaUnspentOutputInfo[];
+    try {
+      confirmUtxos = await this._collectUTXOsInfoByApi({
+        address: dbAccount.address,
+      });
+    } catch (e) {
+      // A KRC20 commit must be funded with KAS. When the account has no spendable
+      // KAS UTXOs, surface a clear "top up KAS" hint instead of the generic
+      // "no available UTXO" error.
+      if (isKRC20) {
+        throw this._createInsufficientKasForKRC20Error(
+          transferInfo.tokenInfo?.symbol,
+        );
+      }
+      throw e;
+    }
 
     // KRC20
     if (isKRC20) {
@@ -207,6 +241,50 @@ export default class Vault extends VaultBase {
         encodedTx.feeInfo.limit = massAndSize.mass.toString();
       }
       encodedTx.mass = massAndSize.mass;
+    }
+
+    // KRC20 commit storage-mass guard.
+    // The commit pays a fixed 1.3 KAS into the P2SH output and returns the rest
+    // as change. A small change output makes the KIP-0009 storage mass explode
+    // (storage_mass ≈ STORAGE_MASS_PARAMETER / change_value), so the node
+    // rejects the commit as non-standard ("storage mass ... is larger than max
+    // allowed"). Under KRC20 load the elevated fee rate shrinks the change into
+    // this danger zone. Since the commit only needs to fund the P2SH output,
+    // fold a sub-dust change into the fee so the tx carries a single output and
+    // its storage mass collapses to ~0.
+    if (isKRC20) {
+      // Price the guard on the transaction's ACTUAL fee. toTransaction() bases
+      // the fee on the COMPUTE mass (capped via Math.min), never on the inflated
+      // KIP-0009 storage mass that encodedTx.mass carries. Multiplying price by
+      // encodedTx.mass would overestimate the fee, drive changeValue negative and
+      // stop the guard from ever firing at elevated fee rates — the exact case
+      // this guard exists to catch. txn already holds the built transaction.
+      const feeValue = new BigNumber(txn.getFee());
+      const sumInputs = encodedTx.inputs.reduce(
+        (acc, input) => acc.plus(input.satoshis),
+        new BigNumber(0),
+      );
+      const sendValue = new BigNumber(encodedTx.outputs[0]?.value ?? 0);
+      const changeValue = sumInputs.minus(sendValue).minus(feeValue);
+
+      if (changeValue.isGreaterThan(0) && changeValue.isLessThan(DUST_AMOUNT)) {
+        encodedTx.dropChangeToFee = true;
+        const foldedTxn = toTransaction(encodedTx);
+        const massAndSize = foldedTxn.getMassAndSize();
+        if (encodedTx.feeInfo) {
+          encodedTx.feeInfo.limit = massAndSize.mass.toString();
+        }
+        encodedTx.mass = massAndSize.mass;
+      }
+
+      // Defense in depth: if the storage mass is still over the limit (driven by
+      // the inputs, which folding the change cannot fix), fail loudly instead of
+      // broadcasting a commit the node will reject.
+      if (encodedTx.mass > MAX_ORPHAN_TX_MASS) {
+        throw new OneKeyLocalError(
+          'Kaspa KRC20 commit transaction exceeds the maximum storage mass. Please consolidate your KAS UTXOs and try again.',
+        );
+      }
     }
 
     return encodedTx;
@@ -342,6 +420,31 @@ export default class Vault extends VaultBase {
       });
     }
 
+    // When dropChangeToFee folds a sub-dust change into the fee, the tx carries
+    // no change output, so the real on-chain fee is the full input/output
+    // surplus (sum(inputs) - sum(outputs)). The compute-mass relay fee that
+    // feeInfo.limit × price reflects would under-report it by up to DUST_AMOUNT,
+    // showing a misleadingly small fee on the confirmation screen.
+    let totalFeeInNative: string;
+    if (encodedTx.dropChangeToFee) {
+      const sumInputs = encodedTx.inputs.reduce(
+        (acc, input) => acc.plus(input.satoshis),
+        new BigNumber(0),
+      );
+      const sumOutputs = encodedTx.outputs.reduce(
+        (acc, output) => acc.plus(output.value),
+        new BigNumber(0),
+      );
+      totalFeeInNative = sumInputs
+        .minus(sumOutputs)
+        .shiftedBy(-network.decimals)
+        .toFixed();
+    } else {
+      totalFeeInNative = new BigNumber(encodedTx.feeInfo?.limit ?? '0')
+        .multipliedBy(feeInfo?.price ?? '0.00000001')
+        .toFixed();
+    }
+
     return {
       txid: '',
       owner: account.address,
@@ -353,9 +456,7 @@ export default class Vault extends VaultBase {
       accountId: this.accountId,
       extraInfo: null,
       encodedTx,
-      totalFeeInNative: new BigNumber(encodedTx.feeInfo?.limit ?? '0')
-        .multipliedBy(feeInfo?.price ?? '0.00000001')
-        .toFixed(),
+      totalFeeInNative,
       nativeAmount: sendNativeTokenAmountBN.toFixed(),
       nativeAmountValue: sendNativeTokenAmountValueBN.toFixed(),
     };
@@ -682,7 +783,7 @@ export default class Vault extends VaultBase {
   override async getCustomRpcEndpointStatus(
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
-    const client = new ClientKaspa(params.rpcUrl);
+    const client = new RestAPIClient(params.rpcUrl);
     const start = performance.now();
     const { virtualDaaScore: blockNumber } = await client.getNetworkInfo();
     const bestBlockNumber = parseInt(blockNumber, 10);
@@ -700,7 +801,7 @@ export default class Vault extends VaultBase {
     if (!rpcUrl) {
       throw new OneKeyInternalError('Invalid rpc url');
     }
-    const client = new ClientKaspa(rpcUrl);
+    const client = new RestAPIClient(rpcUrl);
     const txId = await client.sendRawTransaction(signedTx.rawTx);
     console.log('broadcastTransaction END:', {
       txid: txId,
@@ -710,6 +811,64 @@ export default class Vault extends VaultBase {
       ...params.signedTx,
       txid: txId,
     };
+  }
+
+  // Map a REST tx to the refTx shape the device recomputes the txid from. The REST
+  // API doesn't return lockTime/gas/sequenceNumber/scriptVersion; they are 0 on the
+  // v0 txs this is gated to below.
+  buildPrevTx(tx: IKaspaGetTransactionResponse): IKaspaRefTransaction {
+    return {
+      txId: tx.transaction_id,
+      version: tx.version,
+      inputs: (tx.inputs ?? []).map((input) => ({
+        prevTxId: input.previous_outpoint_hash,
+        outputIndex: Number(input.previous_outpoint_index),
+        sequenceNumber: 0,
+      })),
+      outputs: tx.outputs.map((output) => {
+        // The proxy JSON-parses amount into a JS number, so a sompi value beyond
+        // 2^53 (reachable on kaspa: supply ~2.9e18) is already rounded before we
+        // see it — BigNumber can't recover what the parse lost. Bail so the
+        // caller blind-signs rather than stream a refTx whose recomputed txid
+        // would silently be wrong.
+        const satoshis = new BigNumber(String(output.amount));
+        if (!satoshis.isInteger() || satoshis.gt(Number.MAX_SAFE_INTEGER)) {
+          throw new OneKeyLocalError(
+            `kaspa refTx: output amount ${String(
+              output.amount,
+            )} exceeds safe integer range`,
+          );
+        }
+        return {
+          satoshis: satoshis.toFixed(),
+          script: output.script_public_key,
+          scriptVersion: 0,
+        };
+      }),
+      lockTime: 0,
+      subNetworkID: tx.subnetwork_id,
+      gas: 0,
+      payload: tx.payload ?? '',
+    };
+  }
+
+  // Fetch previous transactions as refTxs for on-device input verification.
+  async collectRefTxsByApi(txids: string[]): Promise<IKaspaRefTransaction[]> {
+    const client = new ClientKaspa({
+      networkId: this.networkId,
+      backgroundApi: this.backgroundApi,
+    });
+    const prevTxs = await client.getTransactions(txids);
+    const refTxs = prevTxs
+      .filter((tx) => tx?.transaction_id)
+      .map((tx) => this.buildPrevTx(tx));
+    // Only trust version-0 txs: the REST API returns bad fields for non-standard
+    // txs (a v1 tx's subnetwork_id mirrors its txid prefix), which would make the
+    // device hard-reject. Bail → caller blind-signs. TODO: handle v1 via wasm SDK.
+    if (refTxs.some((tx) => tx.version !== 0)) {
+      throw new OneKeyLocalError('kaspa refTx: unsupported non-v0 prev tx');
+    }
+    return refTxs;
   }
 
   // -------------------KRC20-----------------------------------------
@@ -728,9 +887,18 @@ export default class Vault extends VaultBase {
     // wait unit commit tx is confirmed
     await this._waitForCommitTxConfirmation(txid);
 
+    // Re-price the reveal at the CURRENT network fee rate. The reveal is only
+    // broadcast after the commit confirms (seconds–minutes later); under KRC20
+    // load the node's minimum relay fee rate can rise during that wait, so
+    // reusing the commit-time rate underpays the reveal and the node rejects it
+    // as non-standard ("... under the required amount ..."). The reveal MUST land
+    // or the commit's KAS stays locked in the P2SH output.
+    const revealFeeInfo = await this._getKRC20RevealFeeInfo({ commitTx });
+
     const revealTx = await this._createKRC20RevealTransaction({
       submittedTxId: txid,
       commitTx,
+      feeInfo: revealFeeInfo,
     });
 
     await this.backgroundApi.serviceSend.signAndSendTransaction({
@@ -746,17 +914,14 @@ export default class Vault extends VaultBase {
   }
 
   async _waitForCommitTxConfirmation(txid: string) {
-    let confirmed = false;
+    // Throw after 2 minutes. The timeout must be raised from within this async
+    // function so the rejection propagates to the caller; a `throw` inside a
+    // setTimeout callback would only surface as an unhandled exception while
+    // this method resolves normally, letting the reveal proceed on an
+    // unconfirmed commit.
+    const timeoutAt = Date.now() + 2 * 60 * 1000;
 
-    // throw error after 2 minutes
-    const timeout = setTimeout(
-      () => {
-        confirmed = true;
-        throw new OneKeyLocalError('Commit transaction timeout');
-      },
-      2 * 60 * 1000,
-    );
-    while (!confirmed) {
+    for (;;) {
       const tx = await this.backgroundApi.serviceHistory.fetchTxDetails({
         networkId: this.networkId,
         accountId: this.accountId,
@@ -764,13 +929,31 @@ export default class Vault extends VaultBase {
       });
 
       if (tx?.data.status === EOnChainHistoryTxStatus.Success) {
-        confirmed = true;
+        return;
+      }
+
+      if (Date.now() > timeoutAt) {
+        throw new OneKeyLocalError('Commit transaction timeout');
       }
 
       // wait and check every 500ms
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    clearTimeout(timeout);
+  }
+
+  _createInsufficientKasForKRC20Error(tokenSymbol?: string) {
+    return new OneKeyLocalError(
+      appLocale.intl.formatMessage(
+        {
+          id: ETranslations.send_insufficient_native_token_for_token_send__msg,
+        },
+        {
+          symbol: 'KAS',
+          amount: KRC20_MIN_KAS_TO_SEND,
+          token: tokenSymbol || 'KRC20',
+        },
+      ),
+    );
   }
 
   _createKRC20TransferData({
@@ -831,16 +1014,27 @@ export default class Vault extends VaultBase {
       throw new OneKeyLocalError('Invalid P2SH commitAddress address');
     }
 
-    const encodedTx: IEncodedTxKaspa = await this.prepareAndBuildTx({
-      confirmUtxos,
-      transferInfo: {
-        from: '',
-        amount: BASE_KAS_TO_P2SH_ADDRESS,
-        to: commitAddress,
-      },
-      priority,
-      specifiedFeeRate,
-    });
+    let encodedTx: IEncodedTxKaspa;
+    try {
+      encodedTx = await this.prepareAndBuildTx({
+        confirmUtxos,
+        transferInfo: {
+          from: '',
+          amount: BASE_KAS_TO_P2SH_ADDRESS,
+          to: commitAddress,
+        },
+        priority,
+        specifiedFeeRate,
+      });
+    } catch (e) {
+      // The commit needs ~BASE_KAS_TO_P2SH_ADDRESS KAS plus a network fee. When
+      // UTXO selection can't cover it, translate the generic insufficient-balance
+      // error into a clear "top up KAS" hint.
+      if (e instanceof LowerTransactionAmountError) {
+        throw this._createInsufficientKasForKRC20Error(tokenInfo.symbol);
+      }
+      throw e;
+    }
 
     encodedTx.commitScriptPubKey = commitScriptPubKey;
     encodedTx.commitAddress = commitAddress;
@@ -850,12 +1044,58 @@ export default class Vault extends VaultBase {
     return encodedTx;
   }
 
+  async _getKRC20RevealFeeInfo({
+    commitTx,
+  }: {
+    commitTx: IEncodedTxKaspa;
+  }): Promise<IEncodedTxKaspa['feeInfo']> {
+    const commitRate = new BigNumber(
+      commitTx.feeInfo?.price ?? DEFAULT_FEE_RATE,
+    );
+
+    let freshRate = new BigNumber(0);
+    try {
+      const network = await this.getNetwork();
+      const accountAddress = await this.getAccountAddress();
+      const feeResp = await this.backgroundApi.serviceGas.estimateFee({
+        networkId: this.networkId,
+        accountId: this.accountId,
+        accountAddress,
+        encodedTx: commitTx,
+      });
+      // Kaspa returns legacy gas buckets (slow/normal/fast). Use the fastest one
+      // to maximize the chance the reveal lands. gasPrice is in native units per
+      // gram (KAS/gram); convert to sompi/gram the same way updateUnsignedTx does.
+      const gasList = feeResp.gas ?? [];
+      const fastestGasPrice = gasList[gasList.length - 1]?.gasPrice;
+      if (fastestGasPrice) {
+        freshRate = new BigNumber(fastestGasPrice).shiftedBy(
+          network.feeMeta.decimals,
+        );
+      }
+    } catch {
+      // best-effort: if re-estimation fails, fall back to the commit-time rate
+    }
+
+    const price = BigNumber.max(freshRate, commitRate)
+      .multipliedBy(KRC20_REVEAL_FEE_RATE_BUFFER)
+      .integerValue(BigNumber.ROUND_CEIL)
+      .toFixed();
+
+    return {
+      price,
+      limit: commitTx.feeInfo?.limit ?? '0',
+    };
+  }
+
   async _createKRC20RevealTransaction({
     submittedTxId,
     commitTx,
+    feeInfo,
   }: {
     submittedTxId: string;
     commitTx: IEncodedTxKaspa;
+    feeInfo?: IEncodedTxKaspa['feeInfo'];
   }) {
     if (!commitTx.commitAddress || !commitTx.commitScriptPubKey) {
       throw new OneKeyLocalError(
@@ -884,7 +1124,7 @@ export default class Vault extends VaultBase {
       changeAddress: await this.getAccountAddress(),
     };
 
-    revealTx.feeInfo = commitTx.feeInfo;
+    revealTx.feeInfo = feeInfo ?? commitTx.feeInfo;
     revealTx.mass = commitTx.mass;
     revealTx.commitScriptHex = commitTx.commitScriptHex;
 

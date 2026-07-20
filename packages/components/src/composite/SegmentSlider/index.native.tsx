@@ -23,16 +23,20 @@ const DEFAULT_TRACK_HEIGHT = 4;
 // uncontrolled) native view imperatively via `setValue`.
 type ISegmentSliderHybridRef = HybridRef<
   SegmentSliderProps,
-  SegmentSliderMethods
+  SegmentSliderMethods & {
+    setValue(value: number): void;
+  }
 >;
 
 // The module wrapper types its props as `SegmentSliderProps & ViewProps`, which
 // omits the Nitro-injected `hybridRef`. Re-add it so we can grab the ref. (It
 // must be wrapped with `callback(...)` to cross the JSI boundary.)
-type ISegmentSliderNativeViewProps = ComponentProps<
-  typeof SegmentSliderView
+type ISegmentSliderNativeViewProps = Omit<
+  ComponentProps<typeof SegmentSliderView>,
+  'value' | 'epoch'
 > & {
   hybridRef?: NitroViewWrappedCallback<(ref: ISegmentSliderHybridRef) => void>;
+  defaultValue?: number;
 };
 
 const SegmentSliderNativeView =
@@ -153,18 +157,27 @@ function SegmentSliderComponent({
   const hybridRef = useMemo(
     () =>
       callback((node: ISegmentSliderHybridRef) => {
-        sliderRef.current = node;
-        // Catch-up: the native view's `defaultValue` only captures the FIRST
-        // value. If `value` advanced before this ref attached (async native view
-        // creation), the value-sync effect's setValue was a no-op against a null
-        // ref — push the latest value now so it isn't lost.
-        if (
-          !draggingRef.current &&
-          latestValueRef.current !== lastValueRef.current
-        ) {
-          lastValueRef.current = latestValueRef.current;
-          node.setValue(latestValueRef.current);
+        // Android's generated Nitro updater never clears hybridRef.isDirty,
+        // so this callback re-fires on EVERY props commit there (iOS fires it
+        // only on real attach). Nitro caches the JS wrapper per native view,
+        // so a same-node re-fire must be a no-op — resetting draggingRef or
+        // pushing setValue here mid-drag would kill the live gesture.
+        if (sliderRef.current === node) {
+          return;
         }
+        sliderRef.current = node;
+        // A freshly attached native view cannot be mid-drag, but a teardown
+        // during a drag never delivers onSlideComplete, so clear the flag
+        // here or it stays stuck and blocks every future value sync.
+        draggingRef.current = false;
+        // Catch-up: the native view's `defaultValue` only captures the FIRST
+        // value, and on a native view rebuild (unmount/remount of the host
+        // tree, Fabric recycling) the fresh view can sit at a stale position
+        // while the JS refs still believe it is in sync. Push the latest value
+        // unconditionally — `setValue` is idempotent, so a redundant push is
+        // harmless while a skipped one strands the thumb.
+        lastValueRef.current = latestValueRef.current;
+        node.setValue(latestValueRef.current);
       }),
     [],
   );

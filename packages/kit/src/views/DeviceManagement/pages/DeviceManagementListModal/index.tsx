@@ -36,6 +36,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -73,9 +74,11 @@ function DeviceListItem({
   isConnected: boolean;
 }) {
   const { gtMd } = useMedia();
-  const isThirdParty = getVendorProfile(
+  const vendorProfile = getVendorProfile(
     item.device?.vendor ?? EHardwareVendor.onekey,
-  ).isThirdParty;
+  );
+  const isThirdParty = vendorProfile.isThirdParty;
+  const canShowFirmwareVersion = vendorProfile.supportsFirmwareVersionDisplay;
   const canOpenDetails = canOpenDeviceManagementDetails(item.device?.vendor);
   const walletAvatarProps: IWalletAvatarProps = {
     img: item.wallet.avatarInfo?.img,
@@ -264,7 +267,7 @@ function DeviceListItem({
       drillIn={canOpenDetails}
       testID={DeviceManagementTestIDs.deviceListItem}
     >
-      {isThirdParty ? null : renderItemText}
+      {canShowFirmwareVersion ? renderItemText : null}
     </ListItem>
   );
 }
@@ -318,23 +321,41 @@ function DeviceManagementV2ListWeb() {
         const vendorProfile = getVendorProfile(
           item.device?.vendor ?? EHardwareVendor.onekey,
         );
-        if (vendorProfile.isThirdParty) {
+        if (!vendorProfile.supportsFirmwareVersionDisplay) {
           // eslint-disable-next-line no-continue
           continue;
         }
 
-        const firmwareTypeBadge = await deviceUtils.getFirmwareType({
-          features: item.device?.featuresInfo,
-        });
-        const deviceVersion = await deviceUtils.getDeviceVersion({
-          device: item.device,
-          features: item.device?.featuresInfo,
-        });
+        const firmwareTypeBadge = vendorProfile.isThirdParty
+          ? thirdPartyDeviceUtils.getFirmwareType({
+              features: item.device?.featuresInfo,
+            })
+          : await deviceUtils.getFirmwareType({
+              features: item.device?.featuresInfo,
+            });
+        const deviceVersion = vendorProfile.isThirdParty
+          ? thirdPartyDeviceUtils.getDeviceVersion({
+              device: item.device,
+              features: item.device?.featuresInfo,
+            })
+          : await deviceUtils.getDeviceVersion({
+              device: item.device,
+              features: item.device?.featuresInfo,
+            });
         const deviceDetectStatus = detectStatus?.[item.device?.connectId ?? ''];
-        const shouldUpdate = deviceDetectStatus?.hasUpgrade;
-        const updateVersionDisplay = deviceDetectStatus?.toVersion;
+        const shouldUpdate = vendorProfile.supportsFirmwareUpdate
+          ? deviceDetectStatus?.hasUpgrade
+          : false;
+        const updateVersionDisplay = vendorProfile.supportsFirmwareUpdate
+          ? deviceDetectStatus?.toVersion
+          : undefined;
         item.firmwareTypeBadge = firmwareTypeBadge;
-        item.firmwareVersionDisplay = `v${
+        const firmwareTypeLabel =
+          deviceUtils.getFirmwareTypeLabelByFirmwareType({
+            firmwareType: firmwareTypeBadge,
+            displayFormat: 'withSpace',
+          });
+        item.firmwareVersionDisplay = `${firmwareTypeLabel}v${
           deviceVersion.firmwareVersion ?? '-'
         }`;
         item.shouldUpdate = shouldUpdate;

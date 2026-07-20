@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import {
-  useActiveTradeInstrumentAtom,
-  usePerpsActiveOpenOrdersAtom,
-  usePerpsActivePositionAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsAccountScopedActivePositions } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsAccountScopedOpenOrdersByCoin } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsAccountScopedOpenOrdersByCoin';
 import {
   usePerpsCustomSettingsAtom,
   useSpotActiveOpenOrdersAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { SPOT_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { MESSAGE_TYPES } from '../constants/messageTypes';
 import { buildAllLinesForSymbol } from '../utils/lineBuilder';
@@ -133,10 +132,8 @@ export function useChartLines({
   isReady,
 }: IUseChartLinesParams): IUseChartLinesReturn {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const [{ activePositions, accountAddress: positionsAccountAddress }] =
-    usePerpsActivePositionAtom();
-  const [{ openOrdersByCoin, accountAddress: ordersAccountAddress }] =
-    usePerpsActiveOpenOrdersAtom();
+  const perpsPositions = usePerpsAccountScopedActivePositions();
+  const perpsOpenOrders = usePerpsAccountScopedOpenOrdersByCoin(symbol);
   const [
     { openOrders: spotOpenOrders, accountAddress: spotOrdersAccountAddress },
   ] = useSpotActiveOpenOrdersAtom();
@@ -177,15 +174,12 @@ export function useChartLines({
   }, []);
 
   const currentPositions = useMemo(() => {
-    if (
-      !normalizedUserAddress ||
-      normalizeAddress(positionsAccountAddress) !== normalizedUserAddress
-    ) {
+    if (!normalizedUserAddress) {
       return [];
     }
 
-    return activePositions;
-  }, [activePositions, normalizedUserAddress, positionsAccountAddress]);
+    return perpsPositions;
+  }, [normalizedUserAddress, perpsPositions]);
 
   // Get orders for current symbol
   const currentOrders = useMemo(() => {
@@ -199,19 +193,31 @@ export function useChartLines({
       ) {
         return [];
       }
-      return spotOpenOrders.filter((order) => order.coin === symbol);
+      // Match against the chart `symbol`; only trust activeTradeInstrument's
+      // `@index`/pair aliases while it still points at this chart's symbol, so a
+      // drifted panel asset can't draw another pair's lines here (OK-56900).
+      const aliases = new Set<string>([symbol]);
+      if (activeTradeInstrument.coin === symbol) {
+        if (activeTradeInstrument.universe?.name) {
+          aliases.add(activeTradeInstrument.universe.name);
+        }
+        if (typeof activeTradeInstrument.assetId === 'number') {
+          aliases.add(
+            `@${activeTradeInstrument.assetId - SPOT_ASSET_ID_OFFSET}`,
+          );
+        }
+      }
+      return spotOpenOrders.filter((order) => aliases.has(order.coin));
     }
 
-    if (normalizeAddress(ordersAccountAddress) !== normalizedUserAddress) {
-      return [];
-    }
-
-    return openOrdersByCoin[symbol] || [];
+    return perpsOpenOrders;
   }, [
     activeTradeInstrument.mode,
+    activeTradeInstrument.coin,
+    activeTradeInstrument.assetId,
+    activeTradeInstrument.universe,
     normalizedUserAddress,
-    openOrdersByCoin,
-    ordersAccountAddress,
+    perpsOpenOrders,
     spotOpenOrders,
     spotOrdersAccountAddress,
     symbol,

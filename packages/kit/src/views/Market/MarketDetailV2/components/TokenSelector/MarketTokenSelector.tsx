@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -17,16 +18,31 @@ import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { IMarketCategoryItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
+
+import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
+import { buildMarketTokenDetailPreview } from '../../utils/marketDetailPreview';
 
 import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
 import { MarketTokenSelectorList } from './MarketTokenSelectorList';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
+
+type IMarketTokenSelectorItem = IMarketToken & {
+  tokenDetailPreview?: IMarketTokenDetailPreview;
+};
+
+function normalizeRouteBooleanParam(value: boolean | string | undefined) {
+  if (typeof value === 'string') {
+    return value === 'true';
+  }
+  return value;
+}
 
 // Reuse perps-style underline tab
 const SelectorTabItem = memo(
@@ -66,9 +82,16 @@ SelectorTabItem.displayName = 'SelectorTabItem';
 
 function BaseMarketTokenSelectorContent() {
   const intl = useIntl();
+  const route = useRoute();
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
+  const routeParams = route.params as
+    | { showFavoriteButton?: boolean | string }
+    | undefined;
+  const showFavoriteButton = normalizeRouteBooleanParam(
+    routeParams?.showFavoriteButton,
+  );
 
   const [selectorConfig, setSelectorConfig] =
     useMarketTokenSelectorConfigAtom();
@@ -129,6 +152,7 @@ function BaseMarketTokenSelectorContent() {
       networkId: string;
       isNative?: boolean;
       perpsCoin?: string;
+      tokenDetailPreview?: IMarketTokenDetailPreview;
     }) => {
       if (token.perpsCoin) {
         void closePopover?.();
@@ -139,14 +163,20 @@ function BaseMarketTokenSelectorContent() {
       navigateToMarketTokenDetail(token, {
         tokenDetailActions,
         beforeNavigate: () => void closePopover?.(),
+        showFavoriteButton,
+        tokenDetailPreview: token.tokenDetailPreview,
       });
     },
-    [tokenDetailActions, closePopover, navigateToPerps],
+    [tokenDetailActions, closePopover, navigateToPerps, showFavoriteButton],
   );
 
   const handleSelectToken = useCallback(
-    (item: IMarketToken) => {
-      navigateToTokenDetail(item);
+    (item: IMarketTokenSelectorItem) => {
+      navigateToTokenDetail({
+        ...item,
+        tokenDetailPreview:
+          item.tokenDetailPreview ?? buildMarketTokenDetailPreview(item),
+      });
     },
     [navigateToTokenDetail],
   );
@@ -225,17 +255,26 @@ function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
 
 const MarketTokenSelectorContentMemo = memo(MarketTokenSelectorContent);
 
-function BaseMarketTokenSelector() {
+function BaseMarketTokenSelector({
+  showAddress = false,
+}: {
+  showAddress?: boolean;
+}) {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
-  const { tokenDetail, networkId } = useTokenDetail();
+  const { tokenDetail, networkId } = useMarketDetailHeaderDisplayData();
 
   const effectiveNetworkLogoUri = useNetworkLogoUri({
     logoUri: undefined,
     networkId,
   });
 
-  const { symbol = '', logoUrl = '', logoUrls } = tokenDetail || {};
+  const {
+    symbol = '',
+    address = '',
+    logoUrl = '',
+    logoUrls,
+  } = tokenDetail || {};
   const logoUrlsCacheKey = useMemo(() => logoUrls?.join('|') ?? '', [logoUrls]);
   const stableLogoUrlsRef = useRef(logoUrls);
   const stableLogoUrlsKeyRef = useRef(logoUrlsCacheKey);
@@ -279,21 +318,59 @@ function BaseMarketTokenSelector() {
               networkImageUri={effectiveNetworkLogoUri}
               fallbackIcon="CryptoCoinOutline"
             />
-            <SizableText
-              size="$heading2xl"
-              color="$text"
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              maxWidth="$48"
-              flexShrink={1}
-            >
-              {symbol}
-            </SizableText>
-            <Icon
-              name="ChevronDownSmallOutline"
-              size="$5"
-              color="$iconSubdued"
-            />
+            {showAddress ? (
+              <YStack minWidth={0} flexShrink={1}>
+                <XStack alignItems="center" gap="$1">
+                  <SizableText
+                    size="$headingLg"
+                    color="$text"
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    maxWidth="$48"
+                    flexShrink={1}
+                  >
+                    {symbol}
+                  </SizableText>
+                  <Icon
+                    name="ChevronDownSmallOutline"
+                    size="$5"
+                    color="$iconSubdued"
+                  />
+                </XStack>
+                {address ? (
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                    pr="$1"
+                  >
+                    {accountUtils.shortenAddress({
+                      address,
+                      leadingLength: 6,
+                      trailingLength: 4,
+                    })}
+                  </SizableText>
+                ) : null}
+              </YStack>
+            ) : (
+              <>
+                <SizableText
+                  size="$heading2xl"
+                  color="$text"
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  maxWidth="$48"
+                  flexShrink={1}
+                >
+                  {symbol}
+                </SizableText>
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  size="$5"
+                  color="$iconSubdued"
+                />
+              </>
+            )}
           </XStack>
         }
         renderContent={({ isOpen: isOpenProp }) => (
@@ -301,7 +378,16 @@ function BaseMarketTokenSelector() {
         )}
       />
     ),
-    [isOpen, symbol, logoUrl, stableLogoUrls, effectiveNetworkLogoUri, intl],
+    [
+      address,
+      effectiveNetworkLogoUri,
+      intl,
+      isOpen,
+      logoUrl,
+      showAddress,
+      stableLogoUrls,
+      symbol,
+    ],
   );
 
   return content;

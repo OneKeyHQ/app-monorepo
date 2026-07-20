@@ -4,7 +4,6 @@ import {
   Dialog,
   DialogContainer,
   Image,
-  SizableText,
   Theme,
   YStack,
   useDialogInstance,
@@ -50,17 +49,22 @@ function OtherDevicesDialogContent() {
           }}
         />
         <ListItem
-          disabled
           renderAvatar={
             <Image w="$10" h="$10" borderRadius="$2" source={trezorLogo} />
           }
           title="Trezor"
-        >
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.coming_soon })}
-          </SizableText>
-          <ListItem.DrillIn />
-        </ListItem>
+          drillIn
+          onPress={async () => {
+            await dialog.close();
+            defaultLogger.onboarding.page.pickYourDevice(
+              EHardwareVendor.trezor,
+            );
+            navigation.push(EOnboardingPagesV2.ConnectYourDevice, {
+              deviceType: [],
+              vendor: EHardwareVendor.trezor,
+            });
+          }}
+        />
       </YStack>
     </YStack>
   );

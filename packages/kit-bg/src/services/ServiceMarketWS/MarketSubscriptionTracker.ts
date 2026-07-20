@@ -6,10 +6,19 @@ export type ISubscription = {
   address: string;
   type: ISubscriptionType;
   networkId: string;
+  symbol?: string;
   chartType?: string;
   currency?: string;
   connectionCount: number;
   dataCount: number;
+};
+
+type ISubscriptionQuery = {
+  address: string;
+  type: ISubscriptionType;
+  networkId?: string;
+  chartType?: string;
+  currency?: string;
 };
 
 export class MarketSubscriptionTracker {
@@ -17,16 +26,31 @@ export class MarketSubscriptionTracker {
 
   private static readonly DATA_COUNT_THRESHOLD = 100;
 
+  private matchesSubscription(
+    sub: ISubscription,
+    { address, type, networkId, chartType, currency }: ISubscriptionQuery,
+  ) {
+    return (
+      sub.address === address &&
+      sub.type === type &&
+      (networkId === undefined || sub.networkId === networkId) &&
+      (chartType === undefined || sub.chartType === chartType) &&
+      (currency === undefined || sub.currency === currency)
+    );
+  }
+
   addSubscription({
     address,
     type,
     networkId,
+    symbol,
     chartType,
     currency,
   }: {
     address: string;
     type: ISubscriptionType;
     networkId: string;
+    symbol?: string;
     chartType?: string;
     currency?: string;
   }) {
@@ -40,11 +64,13 @@ export class MarketSubscriptionTracker {
     );
     if (existing) {
       existing.connectionCount += 1;
+      existing.symbol = symbol ?? existing.symbol;
     } else {
       this.subscriptions.push({
         address,
         type,
         networkId,
+        symbol,
         chartType,
         currency,
         connectionCount: 1,
@@ -91,15 +117,15 @@ export class MarketSubscriptionTracker {
     return this.subscriptions.filter((sub) => sub.type === type);
   }
 
-  hasSubscription({
-    address,
-    type,
-  }: {
-    address: string;
-    type: ISubscriptionType;
-  }): boolean {
-    return this.subscriptions.some(
-      (sub) => sub.address === address && sub.type === type,
+  getSubscriptionsByParams(params: ISubscriptionQuery): ISubscription[] {
+    return this.subscriptions.filter((sub) =>
+      this.matchesSubscription(sub, params),
+    );
+  }
+
+  hasSubscription(params: ISubscriptionQuery): boolean {
+    return this.subscriptions.some((sub) =>
+      this.matchesSubscription(sub, params),
     );
   }
 
@@ -126,28 +152,14 @@ export class MarketSubscriptionTracker {
     );
   }
 
-  getSubscription({
-    address,
-    type,
-  }: {
-    address: string;
-    type: ISubscriptionType;
-  }): ISubscription | undefined {
-    return this.subscriptions.find(
-      (sub) => sub.address === address && sub.type === type,
+  getSubscription(params: ISubscriptionQuery): ISubscription | undefined {
+    return this.subscriptions.find((sub) =>
+      this.matchesSubscription(sub, params),
     );
   }
 
-  clearDataCount({
-    address,
-    type,
-  }: {
-    address: string;
-    type: ISubscriptionType;
-  }): boolean {
-    const existing = this.subscriptions.find(
-      (sub) => sub.address === address && sub.type === type,
-    );
+  clearDataCount(params: ISubscriptionQuery): boolean {
+    const existing = this.getSubscription(params);
     if (existing) {
       existing.dataCount = 0;
       return true;
@@ -155,16 +167,8 @@ export class MarketSubscriptionTracker {
     return false;
   }
 
-  incrementDataCount({
-    address,
-    type,
-  }: {
-    address: string;
-    type: ISubscriptionType;
-  }): number {
-    const existing = this.subscriptions.find(
-      (sub) => sub.address === address && sub.type === type,
-    );
+  incrementDataCount(params: ISubscriptionQuery): number {
+    const existing = this.getSubscription(params);
     if (existing) {
       existing.dataCount += 1;
       return existing.dataCount;
@@ -172,44 +176,55 @@ export class MarketSubscriptionTracker {
     return 0;
   }
 
-  getDataCount({
-    address,
-    type,
-  }: {
-    address: string;
-    type: ISubscriptionType;
-  }): number {
-    const existing = this.subscriptions.find(
-      (sub) => sub.address === address && sub.type === type,
-    );
+  getDataCount(params: ISubscriptionQuery): number {
+    const existing = this.getSubscription(params);
     return existing ? existing.dataCount : 0;
   }
 
   shouldUnsubscribe({
     address,
     type,
+    networkId,
+    chartType,
+    currency,
     threshold,
   }: {
     address: string;
     type: ISubscriptionType;
+    networkId?: string;
+    chartType?: string;
+    currency?: string;
     threshold: number;
   }): boolean {
-    const existing = this.subscriptions.find(
-      (sub) => sub.address === address && sub.type === type,
-    );
+    const existing = this.getSubscription({
+      address,
+      type,
+      networkId,
+      chartType,
+      currency,
+    });
     return existing ? existing.dataCount >= threshold : false;
   }
 
   shouldUnsubscribeWithDefaultThreshold({
     address,
     type,
+    networkId,
+    chartType,
+    currency,
   }: {
     address: string;
     type: ISubscriptionType;
+    networkId?: string;
+    chartType?: string;
+    currency?: string;
   }): boolean {
     return this.shouldUnsubscribe({
       address,
       type,
+      networkId,
+      chartType,
+      currency,
       threshold: MarketSubscriptionTracker.DATA_COUNT_THRESHOLD,
     });
   }

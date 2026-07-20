@@ -1,4 +1,4 @@
-import type { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import type { ESwapAnalyticsCategory } from '@onekeyhq/shared/types/swap/types';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -30,11 +30,14 @@ export class SwapQuoteScene extends BaseScene {
     providerQuoteResult,
     fromAddress,
     toAddress,
+    tradeSide,
+    stockTokenSymbol,
+    stockTokenAddress,
   }: {
     walletType: string;
     status: ESwapEventAPIStatus;
     message?: string;
-    quoteType: ESwapTabSwitchType;
+    quoteType: ESwapAnalyticsCategory;
     providerQuoteResult: ISwapQuoteProvideResult[];
     slippageSetting?: 'auto' | 'custom';
     sourceChain: string;
@@ -45,6 +48,9 @@ export class SwapQuoteScene extends BaseScene {
     isSmartMode: boolean;
     fromAddress: string;
     toAddress: string;
+    tradeSide?: string;
+    stockTokenSymbol?: string;
+    stockTokenAddress?: string;
   }) {
     void fromAddress;
     void toAddress;
@@ -61,6 +67,9 @@ export class SwapQuoteScene extends BaseScene {
       isAddReceiveAddress,
       isSmartMode,
       providerQuoteResult,
+      tradeSide,
+      stockTokenSymbol,
+      stockTokenAddress,
     };
   }
 }

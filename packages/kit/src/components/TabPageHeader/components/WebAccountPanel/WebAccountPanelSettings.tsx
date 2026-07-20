@@ -22,7 +22,7 @@ import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickSt
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useLanguageSelector } from '@onekeyhq/kit/src/views/Setting/hooks';
+import { useLanguageSelector } from '@onekeyhq/kit/src/views/Setting/hooks/useLanguageSelector';
 import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,

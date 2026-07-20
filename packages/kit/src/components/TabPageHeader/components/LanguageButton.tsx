@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import { Select } from '@onekeyhq/components';
 import type { IIconButtonProps } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { useLanguageSelector } from '@onekeyhq/kit/src/views/Setting/hooks';
+import { useLanguageSelector } from '@onekeyhq/kit/src/views/Setting/hooks/useLanguageSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export interface ILanguageButtonProps {

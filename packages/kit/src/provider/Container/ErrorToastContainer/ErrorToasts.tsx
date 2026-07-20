@@ -10,6 +10,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   ECustomCloudSyncError,
@@ -27,7 +28,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 interface IErrorActionParams {
-  errorCode?: number;
+  errorCode?: number | string;
   requestId?: string;
   diagnosticText?: string;
   i18nKey?: ETranslations;
@@ -144,7 +145,7 @@ function NeedFirmwareUpgradeFromWebButton() {
       testID="provider-intl-btn"
       size="small"
       onPress={() => {
-        openUrlExternal('https://firmware.onekey.so/');
+        openUrlExternal(FIRMWARE_UPDATE_WEB_TOOLS_URL);
       }}
     >
       {intl.formatMessage({ id: ETranslations.update_update_now })}

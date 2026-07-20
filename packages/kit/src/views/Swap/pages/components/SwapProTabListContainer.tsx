@@ -23,6 +23,7 @@ import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 
 import LimitOrderList from './LimitOrderList';
+import SwapHistoryClearButton from './SwapHistoryClearButton';
 import SwapMarketHistoryList from './SwapMarketHistoryList';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
@@ -93,18 +94,21 @@ const SwapProTabListContainer = memo(
       swapToToken,
       swapProTokenSelect,
     ]);
-    const openOrdersTabName = useMemo(() => {
-      return focusSwapPro
-        ? ETabName.SwapProOpenOrders
-        : ETabName.SwapOrderHistory;
-    }, [focusSwapPro]);
     const shouldRenderListContent = shouldRenderLists || disableDelayRender;
     const shouldRenderPositionsContent =
       shouldRenderListContent || hasCachedPositionTokenList;
 
     const changeTabToLimitOrderList = useCallback(() => {
-      setActiveTab(openOrdersTabName);
-    }, [setActiveTab, openOrdersTabName]);
+      setActiveTab(ETabName.SwapProOpenOrders);
+    }, [setActiveTab]);
+
+    // The Open orders tab only exists in limit (Pro) mode; if the mode switches
+    // away while it is active, fall back to Positions so a valid tab stays shown.
+    useEffect(() => {
+      if (!focusSwapPro && activeTab === ETabName.SwapProOpenOrders) {
+        setActiveTab(ETabName.Positions);
+      }
+    }, [focusSwapPro, activeTab]);
 
     useEffect(() => {
       appEventBus.off(
@@ -121,7 +125,7 @@ const SwapProTabListContainer = memo(
           changeTabToLimitOrderList,
         );
       };
-    }, [changeTabToLimitOrderList, openOrdersTabName]);
+    }, [changeTabToLimitOrderList]);
 
     // Delay rendering heavy list components after initial render
     useEffect(() => {
@@ -148,9 +152,16 @@ const SwapProTabListContainer = memo(
               isFocused={activeTab === ETabName.Positions}
               onPress={setActiveTab}
             />
+            {focusSwapPro ? (
+              <TabBarItem
+                name={ETabName.SwapProOpenOrders}
+                isFocused={activeTab === ETabName.SwapProOpenOrders}
+                onPress={setActiveTab}
+              />
+            ) : null}
             <TabBarItem
-              name={openOrdersTabName}
-              isFocused={activeTab === openOrdersTabName}
+              name={ETabName.SwapOrderHistory}
+              isFocused={activeTab === ETabName.SwapOrderHistory}
               onPress={setActiveTab}
             />
           </XStack>
@@ -160,7 +171,7 @@ const SwapProTabListContainer = memo(
             display={activeTab === ETabName.Positions ? 'flex' : 'none'}
             flex={1}
           >
-            <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
+            <SwapProCurrentSymbolEnable />
             {shouldRenderPositionsContent ? (
               <SwapProPositionsList
                 onTokenPress={onTokenPress}
@@ -173,33 +184,46 @@ const SwapProTabListContainer = memo(
               <SwapProTabListSkeleton />
             )}
           </YStack>
+          {focusSwapPro ? (
+            <YStack
+              display={
+                activeTab === ETabName.SwapProOpenOrders ? 'flex' : 'none'
+              }
+              flex={1}
+            >
+              <SwapProCurrentSymbolEnable />
+              {shouldRenderListContent ? (
+                <LimitOrderList
+                  onClickCell={onOpenOrdersClick}
+                  type="open"
+                  filterToken={filterToken}
+                />
+              ) : (
+                <SwapProTabListSkeleton />
+              )}
+            </YStack>
+          ) : null}
           <YStack
-            display={activeTab === openOrdersTabName ? 'flex' : 'none'}
+            display={activeTab === ETabName.SwapOrderHistory ? 'flex' : 'none'}
             flex={1}
           >
-            <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
+            {/* Order history is not scoped to the current token: no
+                "Current tokens" toggle here, and the list shows every order
+                regardless of the shared current-symbol filter. Swap & Bridge
+                and Pro share this surface, so they clear the same (non-stock)
+                dataset. */}
             {shouldRenderListContent ? (
-              <>
-                {focusSwapPro ? (
-                  <LimitOrderList
-                    onClickCell={onOpenOrdersClick}
-                    type="open"
-                    filterToken={filterToken}
-                  />
-                ) : (
-                  <XStack mx="$-6">
-                    <SwapMarketHistoryList
-                      showType={
-                        swapTypeSwitch === ESwapTabSwitchType.SWAP
-                          ? 'swap'
-                          : 'bridge'
-                      }
-                      filterToken={filterToken}
-                      isPushModal
+              <XStack mx="$-6">
+                <SwapMarketHistoryList
+                  isPushModal
+                  firstSectionRightAction={
+                    <SwapHistoryClearButton
+                      scope="swap"
+                      triggerVariant="icon"
                     />
-                  </XStack>
-                )}
-              </>
+                  }
+                />
+              </XStack>
             ) : (
               <SwapProTabListSkeleton />
             )}

@@ -12,6 +12,12 @@ import {
   LazyLoadPage,
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
+import { RootTabLoadingFallback } from '../../../routes/Tab/RootTabLoadingFallback';
+import {
+  getLoadedPerpsDepositSelectTokenModal,
+  loadPerpsDepositSelectTokenModal,
+} from '../utils/preloadPerpsDepositSelectTokenModal';
+import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
 import {
   getLoadedPerpsMobileTokenSelectorPage,
   loadPerpsMobileTokenSelectorPage,
@@ -22,7 +28,8 @@ const PerpTradersHistoryList = LazyLoadPage(
 );
 
 const PagePerp = LazyLoadRootTabPage(
-  () => import(/* webpackPrefetch: true */ '../pages/Perp'),
+  () => import('../pages/Perp'),
+  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Perp }),
 );
 const MobilePerpMarketPage = LazyLoadPage(
   () => import('../pages/MobilePerpMarket'),
@@ -44,9 +51,19 @@ const MobileSetTpslModal = LazyLoadPage(
   () => import('../components/OrderInfoPanel/SetTpslModal'),
 );
 
-const MobileDepositWithdrawModal = LazyLoadPage(
-  () => import('../components/TradingPanel/modals/DepositWithdrawModal'),
+const MobileDepositWithdrawModal = LazyLoadPage(loadPerpsDepositWithdrawModal);
+
+const MobileDepositSelectTokenLazyModal = LazyLoadPage(
+  loadPerpsDepositSelectTokenModal,
 );
+
+function MobileDepositSelectTokenModal() {
+  const LoadedMobileDepositSelectTokenModal =
+    getLoadedPerpsDepositSelectTokenModal()?.default;
+  return createElement(
+    LoadedMobileDepositSelectTokenModal ?? MobileDepositSelectTokenLazyModal,
+  );
+}
 
 const PerpsInviteeRewardModal = LazyLoadPage(
   () => import('../components/InviteeReward/InviteeRewardModal'),
@@ -81,6 +98,10 @@ export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: EModalPerpRoutes.MobileDepositWithdrawModal,
     component: MobileDepositWithdrawModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileDepositSelectToken,
+    component: MobileDepositSelectTokenModal,
   },
   {
     name: EModalPerpRoutes.PerpsInviteeRewardModal,
@@ -120,6 +141,10 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.MobileDepositWithdrawModal,
     component: MobileDepositWithdrawModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileDepositSelectToken,
+    component: MobileDepositSelectTokenModal,
   },
   {
     name: EModalPerpRoutes.PerpsInviteeRewardModal,

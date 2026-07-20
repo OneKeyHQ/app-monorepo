@@ -204,7 +204,9 @@ export function useAppUpdateForegroundEffects(enabled = true) {
               params?.storeUrl &&
               fileType === EUpdateFileType.appShell
             ) {
-              openUrlExternal(params.storeUrl);
+              // Server-driven store URL must reach the store app via the
+              // system browser; in-app browsers never trigger universal links.
+              openUrlExternal(params.storeUrl, { useSystemBrowser: true });
             } else {
               setTimeout(async () => {
                 const updateInfo =

@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -81,7 +82,10 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           }}
         >
           <SizableText flex={1} size="$headingSm">
-            {user?.email}
+            {getDisplayEmailOrUnknown({
+              intl,
+              displayEmail: user?.displayEmail,
+            })}
           </SizableText>
         </MultipleClickStack>
       </XStack>
@@ -104,7 +108,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
     <>
       {userInfoView}
 
-      {/* 
+      {/*
        Sometimes, the local payment is successful (for example, sandbox payment), but the server status is incorrect, so even if the subscriptionManageUrl exists, you need to expose the management subscription entry to allow the user to cancel the subscription
       */}
       {isPrime && subscriptionManageUrl ? (

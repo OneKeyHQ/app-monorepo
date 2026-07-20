@@ -21,9 +21,11 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import type { IInputProps, IStackProps } from '@onekeyhq/components';
+import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { sanitizeAmountInputText } from './amountInputTextUtils';
 import { AutoSizeInput } from './AutoSizeInput';
 
 import type { IAutoSizeInputRef } from './AutoSizeInput.types';
@@ -34,6 +36,9 @@ const WRAPPED_SYMBOL_MIN_FONT_SIZE = 14;
 const WRAPPED_SYMBOL_MAX_FONT_SIZE = 24;
 const WRAPPED_SYMBOL_HORIZONTAL_PADDING_PX = 16;
 const WRAPPED_SYMBOL_BREAK_CHARS = new Set([' ', '-', '_', '/', '.']);
+const AMOUNT_FONT_FAMILY = platformEnv.isNative
+  ? 'Roobert-Medium'
+  : webFontFamily;
 // iOS-only hidden marker used to force a native prop delta without visible UI change.
 const IOS_FORCE_WRITE_BACK_MARKER = '\u200B';
 
@@ -139,40 +144,6 @@ const formatWrappedTokenSymbol = ({
   return lines.join('\n');
 };
 
-const sanitizeAmountInputText = (text: string): string => {
-  let sanitizedText = text.replace(/\s/g, '').replace(/[。,，,]/g, '.');
-
-  // Auto-prepend "0" for ".5" style input.
-  if (sanitizedText.startsWith('.')) {
-    sanitizedText = `0${sanitizedText}`;
-  }
-
-  // Keep "0" / "0.xxx", trim redundant leading zeros like "0012" -> "12".
-  if (sanitizedText.length > 1 && sanitizedText.startsWith('0')) {
-    if (!sanitizedText.startsWith('0.')) {
-      sanitizedText = sanitizedText.replace(/^0+/, '') || '0';
-      if (sanitizedText.startsWith('.')) {
-        sanitizedText = `0${sanitizedText}`;
-      }
-    }
-  }
-
-  // Keep only digits and decimal separator.
-  sanitizedText = sanitizedText.replace(/[^\d.]/g, '');
-
-  // Keep only the first decimal separator.
-  const firstDecimalIndex = sanitizedText.indexOf('.');
-  if (firstDecimalIndex !== -1) {
-    const integerPart = sanitizedText.slice(0, firstDecimalIndex + 1);
-    const decimalPart = sanitizedText
-      .slice(firstDecimalIndex + 1)
-      .replace(/\./g, '');
-    sanitizedText = `${integerPart}${decimalPart}`;
-  }
-
-  return sanitizedText;
-};
-
 const normalizeAutoSizeNativeColor = (color?: string): string | undefined => {
   if (!color || !platformEnv.isNativeAndroid) {
     return color;
@@ -199,8 +170,13 @@ export type ISendAmountAutoSizeInputRef = {
 type ISendAmountAutoSizeInputProps = {
   value?: string;
   onChange?: (value: string) => void;
+  validator?: (value: string) => boolean;
   reversible?: boolean;
   tokenSymbol?: string;
+  inlineTextAlignMode?: 'auto' | 'center';
+  // Cap the display font (in px). Defaults to the full 56*scale ramp; pass a
+  // smaller value to line the amount up with a sibling hero.
+  maxFontSize?: number;
   inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'> & {
     loading?: boolean;
   };
@@ -223,9 +199,12 @@ function SendAutoSizeAmountInputComponent(
     inputProps,
     reversible,
     onChange,
+    validator,
     value: controlledValue,
     valueProps,
     tokenSymbol,
+    inlineTextAlignMode,
+    maxFontSize: maxFontSizeProp,
     extraContent,
     onLayout,
     ...rest
@@ -288,27 +267,47 @@ function SendAutoSizeAmountInputComponent(
     });
   }, [inputValue]);
 
+  const forceNativeTextWriteBack = useCallback(
+    (nextText: string, keepOverride = true) => {
+      clearForceWriteBackTimer();
+      const pulseText = makeIOSForceWriteBackPulseText(nextText);
+      setForcedNativeText(pulseText);
+      forceWriteBackTimerRef.current = setTimeout(() => {
+        setForcedNativeText(keepOverride ? nextText : null);
+        forceWriteBackTimerRef.current = null;
+      }, 0);
+    },
+    [clearForceWriteBackTimer],
+  );
+
   const handleChangeText = useCallback(
     (text: string) => {
       const sanitizedText = sanitizeAmountInputText(text);
+      if (validator && !validator(sanitizedText)) {
+        if (platformEnv.isNativeIOS) {
+          forceNativeTextWriteBack(inputValue, false);
+        }
+        return;
+      }
+
       onChange?.(sanitizedText);
 
       // iOS native input can keep stale text when parent value does not change.
       // Force a pulse write-back so native receives a prop change every time.
       if (platformEnv.isNativeIOS && sanitizedText !== text) {
-        clearForceWriteBackTimer();
-        const pulseText = makeIOSForceWriteBackPulseText(sanitizedText);
-        setForcedNativeText(pulseText);
-        forceWriteBackTimerRef.current = setTimeout(() => {
-          setForcedNativeText(sanitizedText);
-          forceWriteBackTimerRef.current = null;
-        }, 0);
+        forceNativeTextWriteBack(sanitizedText);
       } else {
         clearForceWriteBackTimer();
         setForcedNativeText((prev) => (prev === null ? prev : null));
       }
     },
-    [clearForceWriteBackTimer, onChange],
+    [
+      clearForceWriteBackTimer,
+      forceNativeTextWriteBack,
+      inputValue,
+      onChange,
+      validator,
+    ],
   );
 
   const handleInputLayout = useCallback(
@@ -347,9 +346,11 @@ function SendAutoSizeAmountInputComponent(
   const returnKeyType = inputProps?.returnKeyType;
   const onFocus = inputProps?.onFocus;
   const onBlur = inputProps?.onBlur;
-  const fontSize = getAmountFontSize(
-    effectiveValue?.length || 0,
-    fontSizeScale,
+  // Default keeps the original full-size ramp; callers can cap it (maxFontSizeProp).
+  const maxFontSize = maxFontSizeProp ?? Math.round(56 * fontSizeScale);
+  const fontSize = Math.min(
+    getAmountFontSize(effectiveValue?.length || 0, fontSizeScale),
+    maxFontSize,
   );
   const availableInlineWidth = Math.max(
     Math.floor(layoutWidth || windowWidth || 0),
@@ -357,9 +358,9 @@ function SendAutoSizeAmountInputComponent(
   );
   const isCompactInlineWidth =
     md && availableInlineWidth > 0 && availableInlineWidth < 360;
-  const maxFontSize = Math.round(56 * fontSizeScale);
-  const minFontSize = Math.round(
-    (isCompactInlineWidth ? 12 : 14) * fontSizeScale,
+  const minFontSize = Math.min(
+    Math.round((isCompactInlineWidth ? 12 : 14) * fontSizeScale),
+    maxFontSize,
   );
   const wrappedSymbolFontSize = Math.max(
     WRAPPED_SYMBOL_MIN_FONT_SIZE,
@@ -411,10 +412,12 @@ function SendAutoSizeAmountInputComponent(
       maxFontSize={maxFontSize}
       minFontSize={minFontSize}
       availableInlineWidth={availableInlineWidth}
+      inlineTextAlignMode={inlineTextAlignMode}
       currencyLabel={currencyLabel}
       inlineTokenSymbol={inlineTokenSymbol}
       inlinePrefixGapPx={inlinePrefixGapPx}
       inlineSuffixGapPx={inlineSuffixGapPx}
+      fontFamily={AMOUNT_FONT_FAMILY}
       selectionColor={selectionColor}
       onChangeText={handleChangeText}
       placeholder={placeholder}
@@ -446,7 +449,10 @@ function SendAutoSizeAmountInputComponent(
           maxWidth={wrappedTokenSymbolMaxWidthPx || (md ? '92%' : '96%')}
           mt="$1"
           lineHeight={Math.ceil(wrappedSymbolFontSize * 1.2)}
-          style={{ fontSize: wrappedSymbolFontSize }}
+          style={{
+            fontFamily: AMOUNT_FONT_FAMILY,
+            fontSize: wrappedSymbolFontSize,
+          }}
         >
           {wrappedTokenSymbol}
         </SizableText>
@@ -459,6 +465,9 @@ function SendAutoSizeAmountInputComponent(
           px="$1"
           borderRadius="$2"
           alignSelf="center"
+          maxWidth="100%"
+          minWidth={0}
+          overflow="hidden"
           disabled={valueProps?.loading}
           onPress={valueProps?.onPress}
           {...(reversible && {
@@ -483,6 +492,10 @@ function SendAutoSizeAmountInputComponent(
                 }}
                 size="$headingLg"
                 color={valueProps?.color ?? '$textSubdued'}
+                numberOfLines={1}
+                flexShrink={1}
+                minWidth={0}
+                maxWidth="100%"
               >
                 {valueProps?.value || '0.00'}
               </NumberSizeableText>

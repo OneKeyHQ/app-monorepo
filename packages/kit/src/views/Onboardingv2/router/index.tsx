@@ -1,5 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
@@ -131,18 +132,6 @@ const ImportKeyTag = LazyLoadPage(
   false,
   legacyLayoutFallback,
 );
-const KeylessWalletRecovery = LazyLoadPage(
-  () => import('../pages/KeylessWalletRecovery'),
-  undefined,
-  false,
-  legacyLayoutFallback,
-);
-const KeylessWalletCreation = LazyLoadPage(
-  () => import('../pages/KeylessWalletCreation'),
-  undefined,
-  false,
-  legacyLayoutFallback,
-);
 const OneKeyIDLogin = LazyLoadPage(
   () => import('../pages/OneKeyIDLoginPage'),
   undefined,
@@ -188,6 +177,12 @@ const NewPinCreated = LazyLoadPage(
 
 const hiddenHeaderOptions = {
   headerShown: false,
+};
+// iOS 26: show the native nav bar from the first frame so the OnboardingPage
+// shell renders its Liquid Glass header without the bar animating in. Other
+// platforms / iOS < 26 keep the self-drawn LayoutHeader (headerShown: false).
+const nativeHeaderOptions = {
+  headerShown: platformEnv.isNativeIOS26Plus,
 };
 export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   EOnboardingPagesV2,
@@ -297,16 +292,6 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
     options: hiddenHeaderOptions,
   },
   {
-    name: EOnboardingPagesV2.KeylessWalletRecovery,
-    component: KeylessWalletRecovery,
-    options: hiddenHeaderOptions,
-  },
-  {
-    name: EOnboardingPagesV2.KeylessWalletCreation,
-    component: KeylessWalletCreation,
-    options: hiddenHeaderOptions,
-  },
-  {
     name: EOnboardingPagesV2.OneKeyIDLogin,
     component: OneKeyIDLogin,
     options: hiddenHeaderOptions,
@@ -341,4 +326,13 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
     component: NewPinCreated,
     options: hiddenHeaderOptions,
   },
-];
+].map((screen) => ({
+  ...screen,
+  // Override the per-screen options above: every onboarding screen now hosts a
+  // native (iOS 26 Liquid Glass) header, except the intentionally header-less
+  // FinalizeWalletSetup, which keeps its self-drawn (hidden) header.
+  options:
+    screen.name === EOnboardingPagesV2.FinalizeWalletSetup
+      ? hiddenHeaderOptions
+      : nativeHeaderOptions,
+}));

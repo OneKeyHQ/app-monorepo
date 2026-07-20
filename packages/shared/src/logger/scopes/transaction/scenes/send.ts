@@ -4,6 +4,61 @@ import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+type ISendMode = 'public' | 'private';
+type IPrivateSendQuoteStatus = 'success' | 'failed';
+type IPrivateSendFinalStatus = 'done' | 'failed';
+
+interface ISendModeSwitchParams {
+  fromMode: ISendMode;
+  toMode: ISendMode;
+  network: string | undefined;
+  tokenSymbol: string | undefined;
+}
+
+interface ISendPrivateQuoteParams {
+  status: IPrivateSendQuoteStatus;
+  provider: string | undefined;
+  network: string | undefined;
+  tokenSymbol: string | undefined;
+  receivedTokenSymbol: string | undefined;
+  sendAmount: string | undefined;
+  estimatedReceived: string | undefined;
+  arrivalEta: string | number | undefined;
+  message: string | undefined;
+}
+
+interface ISendPrivateValueDropWarningParams {
+  dropPercent: number | undefined;
+  provider: string | undefined;
+  network: string | undefined;
+  tokenSymbol: string | undefined;
+  receivedTokenSymbol: string | undefined;
+}
+
+interface ISendPrivateCreateOrderParams {
+  walletType: string | undefined;
+  provider: string | undefined;
+  network: string | undefined;
+  tokenSymbol: string | undefined;
+  receivedTokenSymbol: string | undefined;
+  sendAmount: string | undefined;
+  sendValue: string | undefined;
+  estimatedReceived: string | undefined;
+}
+
+interface ISendPrivateOrderFinalStatusParams {
+  orderId: string | undefined;
+  finalStatus: IPrivateSendFinalStatus;
+  failedReason: string | undefined;
+  provider: string | undefined;
+  network: string | undefined;
+  tokenSymbol: string | undefined;
+  receivedTokenSymbol: string | undefined;
+  sendAmount: string | undefined;
+  receivedAmount: string | undefined;
+  duration: number | undefined;
+}
+
 export class SendScene extends BaseScene {
   private _sendFlowId: string | undefined;
 
@@ -13,8 +68,8 @@ export class SendScene extends BaseScene {
     return this._sendFlowId;
   }
 
-  startNewFlow() {
-    this._sendFlowId = generateUUID();
+  startNewFlow(sendFlowId = generateUUID()) {
+    this._sendFlowId = sendFlowId;
     this._addressInputMethod = undefined;
     return this._sendFlowId;
   }
@@ -258,6 +313,35 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
+  public sendModeSwitch(params: ISendModeSwitchParams) {
+    return params;
+  }
+
+  @LogToServer()
+  public sendPrivateQuote(params: ISendPrivateQuoteParams) {
+    return params;
+  }
+
+  @LogToServer()
+  public sendPrivateValueDropWarning(
+    params: ISendPrivateValueDropWarningParams,
+  ) {
+    return params;
+  }
+
+  @LogToServer()
+  public sendPrivateCreateOrder(params: ISendPrivateCreateOrderParams) {
+    return params;
+  }
+
+  @LogToServer()
+  public sendPrivateOrderFinalStatus(
+    params: ISendPrivateOrderFinalStatusParams,
+  ) {
+    return params;
+  }
+
+  @LogToServer()
   @LogToLocal()
   public quickSelectSearchNoResult({
     network,
@@ -331,6 +415,20 @@ export class SendScene extends BaseScene {
       error,
       attemptNumber,
       retriesLeft,
+    };
+  }
+
+  @LogToLocal()
+  public refTxFetchFailed({
+    network,
+    error,
+  }: {
+    network: string | undefined;
+    error: string;
+  }) {
+    return {
+      network,
+      error,
     };
   }
 }

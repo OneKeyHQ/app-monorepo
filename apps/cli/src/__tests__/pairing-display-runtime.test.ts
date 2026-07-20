@@ -27,7 +27,7 @@ function makePairingResult(): AppTransferLoginResult {
     expiresAt: '2026-04-06T07:05:00.000Z',
     pairingPayload: {
       roomId: 'ABCDEFGH123',
-      transferType: EPrimeTransferDataType.keylessWallet,
+      transferType: EPrimeTransferDataType.allWallet,
       serverType: EPrimeTransferServerType.OFFICIAL,
       websocketEndpoint: 'wss://transfer.onekeytest.com',
       uri: 'onekey-wallet://cross-device-transfer/?code=ABCDEFGH123-ABCDE-FGHIJ-KLMNP-QRSTU-VWXYZ-12345-6789A',

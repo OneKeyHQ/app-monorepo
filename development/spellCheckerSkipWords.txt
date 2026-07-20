@@ -20,11 +20,13 @@ skillshare
 bitrefill
 Bitrefill
 BITREFILL
+Bitway
 worktree
 googleusercontent
 0xf7ad23226db5c1c00ca0ca1468fd49c8f8bbc1489bc1c382de5adc557a69c229
 0xffffffffffffffffn
 reown
+Reown
 cloudfs
 morelink
 worktrees
@@ -56,6 +58,14 @@ wui
 deeplinks
 minmov
 appkit
+AppKit
+alephium
+jsbi
+JSBI
+lockdown
+Lockdown
+LOCKDOWN
+unpermitted
 wcm
 perp
 hyperliquid
@@ -206,6 +216,7 @@ buf
 Buf
 bufs
 bundler
+bypassable
 bytesize
 bytify
 cacheable
@@ -235,6 +246,7 @@ checkbox
 Checkbox
 checksum
 Checksum
+chokepoint
 cip
 ciphertext
 ckb
@@ -398,6 +410,7 @@ focusable
 Formatjs
 formatter
 frontend
+frontmost
 fs
 fucntion
 func
@@ -470,6 +483,7 @@ integrations
 Integrations
 Interpolator
 ints
+inversifyjs
 invoker
 ipc
 Ipc
@@ -827,6 +841,7 @@ terra
 terra2
 testnet
 Testnet
+devnet
 textarea
 textgroup
 Themeable
@@ -1021,6 +1036,8 @@ multiline
 recrypt
 Lista
 customizable
+cutover
+coldstart
 ledgerbounds
 testid
 closeable
@@ -1386,6 +1403,7 @@ avd
 AVD
 oxlint
 oxlintrc
+oxfmt
 serviceworker
 newtab
 hrstart
@@ -1488,3 +1506,58 @@ symbolicated
 ivar
 RCTJS
 retryably
+unpair
+
+# TokenList native temp debug log tag (home token-list repro)
+TLNATIVE
+
+# TokenList SLC / cells refactor vocabulary + token symbols
+allnet
+coldpath
+concats
+CRDT
+desync
+fanout
+ified
+KHYPE
+ONLYUSDH
+reprojected
+tokenlist
+UBTC
+undefineds
+unparseable
+unsub
+
+# iOS 26 Liquid Glass header vocabulary
+bareify
+subview
+headerless
+
+# OCDS desktop concurrent download conformance tests
+OCDS
+byteranges
+singlestream
+selfsigned
+pems
+Reqs
+unparseable
+unsalvageable
+# Desktop main-bundle slim perf tooling
+openpgp
+whatwg
+IDNA
+heapstats
+minidump
+footgun
+jank
+hotspot
+
+# @mysten/sui 2.x package name
+mysten
+
+# web service worker / workbox (rspack migration) comments + cache names
+precaches
+navigations
+
+# OpenType tabular-figures feature tag
+tnum

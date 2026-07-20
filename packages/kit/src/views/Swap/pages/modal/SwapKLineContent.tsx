@@ -26,11 +26,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   type ITradingViewDisabledFeature,
+  type ITradingViewKLineDataReadyData,
+  type ITradingViewKLineLoadErrorData,
+  type ITradingViewKLinePeriodChangeData,
   type ITradingViewPriceUpdateData,
+  type ITradingViewV2KLineDataFallback,
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
-import type { ITradingViewV2KLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/hooks/useTradingViewV2';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ProviderJotaiContextMarketV2 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
@@ -67,11 +70,13 @@ import {
   getResolvableDefaultSwapKLineSide,
   getSwapKLineStableTokenKey,
   getSwapKLineStableTokenStatusFromMap,
+  haveSameSwapKLineTokenSymbol,
   isKnownSwapKLineUnsupportedToken,
 } from './swapKLineTokenUtils';
 
 const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE = 'swap-kline';
 const SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES = [
+  TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
   TRADING_VIEW_DISABLED_FEATURES.TIME_SCALE,
   TRADING_VIEW_DISABLED_FEATURES.PRICE_SCALE,
   TRADING_VIEW_DISABLED_FEATURES.PRICE_MARKET_CAP_TOGGLE,
@@ -81,11 +86,9 @@ const SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES = [
   TRADING_VIEW_DISABLED_FEATURES.FULLSCREEN,
   TRADING_VIEW_DISABLED_FEATURES.LAYOUT_TOGGLE,
   TRADING_VIEW_DISABLED_FEATURES.DRAWING_TOOLBAR,
-  TRADING_VIEW_DISABLED_FEATURES.VOLUME,
 ] as const satisfies readonly ITradingViewDisabledFeature[];
 
 const SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES = [
-  TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
   ...SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES,
 ] as const satisfies readonly ITradingViewDisabledFeature[];
 const SWAP_KLINE_TOKEN_DETAIL_POLLING_INTERVAL = 6000;
@@ -104,6 +107,18 @@ type ISwapKLineTokenUsdFallbackPriceResult = {
   tokenUsdFallbackPrice?: string;
   updatedAt?: number;
 };
+
+function isSwapKLineStockToken({
+  token,
+  tokenMarketDetail,
+}: {
+  token?: ISwapToken;
+  tokenMarketDetail?: IMarketTokenDetail;
+}) {
+  return Boolean(
+    token?.isStock || tokenMarketDetail?.stock?.underlyingAssetTicker,
+  );
+}
 
 function getSwapKLineTokenKey(token?: ISwapToken) {
   if (!token?.networkId) {
@@ -285,17 +300,20 @@ function useSwapKLineWalletMarketInfo(
 function useSwapKLineChartDataSource({
   token,
   coinGeckoId,
+  useCoinGeckoOnly,
 }: {
   token?: ISwapToken;
   coinGeckoId?: string;
+  useCoinGeckoOnly?: boolean;
 }) {
   const tokenKey = getSwapKLineTokenKey(token);
+  const shouldUseCoinGeckoOnly = Boolean(useCoinGeckoOnly);
   const chartDataCacheRef = useRef(
     new Map<string, Promise<IMarketTokenChart>>(),
   );
   const [primaryUnavailableTokenKeys, setPrimaryUnavailableTokenKeys] =
     useState<ReadonlySet<string>>(() => new Set());
-  const kLineDataFallback = useMemo<
+  const coinGeckoKLineDataSource = useMemo<
     ITradingViewV2KLineDataFallback | undefined
   >(() => {
     if (!coinGeckoId) {
@@ -327,10 +345,17 @@ function useSwapKLineChartDataSource({
     };
   }, [coinGeckoId]);
   const primaryKLineDataUnavailable = Boolean(
-    tokenKey && primaryUnavailableTokenKeys.has(tokenKey),
+    (shouldUseCoinGeckoOnly && coinGeckoId) ||
+    (tokenKey && primaryUnavailableTokenKeys.has(tokenKey)),
   );
+  const isCoinGeckoDataSourcePending = Boolean(
+    shouldUseCoinGeckoOnly && !coinGeckoId,
+  );
+  const chartDataSourceKey = shouldUseCoinGeckoOnly
+    ? `coingecko:${coinGeckoId ?? 'pending'}`
+    : `market:${tokenKey}`;
   const handlePrimaryKLineDataUnavailable = useCallback(() => {
-    if (!tokenKey) {
+    if (!tokenKey || shouldUseCoinGeckoOnly) {
       return;
     }
 
@@ -343,17 +368,21 @@ function useSwapKLineChartDataSource({
       next.add(tokenKey);
       return next;
     });
-  }, [tokenKey]);
+  }, [shouldUseCoinGeckoOnly, tokenKey]);
 
   return useMemo(
     () => ({
-      kLineDataFallback,
+      chartDataSourceKey,
+      coinGeckoKLineDataSource,
+      isCoinGeckoDataSourcePending,
       primaryKLineDataUnavailable,
       handlePrimaryKLineDataUnavailable,
     }),
     [
+      chartDataSourceKey,
+      coinGeckoKLineDataSource,
       handlePrimaryKLineDataUnavailable,
-      kLineDataFallback,
+      isCoinGeckoDataSourcePending,
       primaryKLineDataUnavailable,
     ],
   );
@@ -480,6 +509,10 @@ function SwapKLineTokenSwitch({
   toToken?: ISwapToken;
   compact?: boolean;
 }) {
+  const tokensHaveSameSymbol = haveSameSwapKLineTokenSymbol({
+    fromToken,
+    toToken,
+  });
   const tokenSize = compact ? 'xxs' : 'xs';
   const labelSize = compact ? '$bodySmMedium' : '$bodyMdMedium';
   const labelGap = compact ? '$1' : '$1.5';
@@ -558,7 +591,7 @@ function SwapKLineTokenSwitch({
     [onChange],
   );
 
-  if (options.length <= 1) {
+  if (tokensHaveSameSymbol || options.length <= 1) {
     return null;
   }
 
@@ -594,7 +627,8 @@ type ISwapKLineContentState = {
   toToken?: ISwapToken;
   selectedToken?: ISwapToken;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
-  kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  chartDataSourceKey: string;
+  coinGeckoKLineDataSource?: ITradingViewV2KLineDataFallback;
   primaryKLineDataUnavailable: boolean;
   resolvedSelectedSide?: ESwapDirectionType;
   shouldForceEmptyKLineData: boolean;
@@ -604,6 +638,9 @@ type ISwapKLineContentState = {
   tokenUsdFallbackPrice?: string;
   handlePrimaryKLineDataUnavailable: () => void;
   handleChartPriceUpdate: (data: ITradingViewPriceUpdateData) => void;
+  handleKLineDataReady: (data: ITradingViewKLineDataReadyData) => void;
+  handleKLineLoadError: (data: ITradingViewKLineLoadErrorData) => void;
+  handleKLinePeriodChange: (data: ITradingViewKLinePeriodChangeData) => void;
   handleSelectedSideChange: (side: ESwapDirectionType) => void;
 };
 
@@ -627,8 +664,14 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   const [chartRealtimePrice, setChartRealtimePrice] =
     useState<ISwapKLineChartRealtimePrice>();
   const hasTrackedOpenRef = useRef(false);
+  const lastKLineUserPeriodRef = useRef<string | undefined>(undefined);
+  const reportedKLineLoadErrorKeysRef = useRef(new Set<string>());
+  const kLineFallbackChainRef = useRef<string[]>([]);
 
   const resolvedSelectedSide = useMemo(() => {
+    if (haveSameSwapKLineTokenSymbol({ fromToken, toToken })) {
+      return defaultSide;
+    }
     if (selectedSide) {
       const selectedToken =
         selectedSide === ESwapDirectionType.FROM ? fromToken : toToken;
@@ -652,16 +695,24 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   const walletMarketInfo = useSwapKLineWalletMarketInfo(selectedToken);
   const { tokenMarketDetail, updatedAt: tokenMarketDetailUpdatedAt } =
     useSwapKLineTokenMarketInfo(selectedToken);
+  const preferCoinGeckoKLineData = isSwapKLineStockToken({
+    token: selectedToken,
+    tokenMarketDetail,
+  });
   const {
-    kLineDataFallback,
+    chartDataSourceKey,
+    coinGeckoKLineDataSource,
+    isCoinGeckoDataSourcePending,
     primaryKLineDataUnavailable,
     handlePrimaryKLineDataUnavailable,
   } = useSwapKLineChartDataSource({
     token: selectedToken,
     coinGeckoId: walletMarketInfo?.coinGeckoId,
+    useCoinGeckoOnly: preferCoinGeckoKLineData,
   });
   const shouldForceEmptyKLineData =
-    isKnownSwapKLineUnsupportedToken(selectedToken);
+    isKnownSwapKLineUnsupportedToken(selectedToken) ||
+    isCoinGeckoDataSourcePending;
   const { tokenUsdFallbackPrice, updatedAt: tokenUsdFallbackPriceUpdatedAt } =
     useSwapKLineTokenUsdFallbackPrice(
       selectedToken,
@@ -686,22 +737,10 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     setChartRealtimePrice((prev) =>
       prev?.tokenKey === selectedTokenKey ? prev : undefined,
     );
+    lastKLineUserPeriodRef.current = undefined;
+    reportedKLineLoadErrorKeysRef.current.clear();
+    kLineFallbackChainRef.current = [];
   }, [selectedTokenKey]);
-
-  useEffect(() => {
-    if (hasTrackedOpenRef.current || !selectedToken || !resolvedSelectedSide) {
-      return;
-    }
-
-    hasTrackedOpenRef.current = true;
-    defaultLogger.swap.swapKline.swapKlineOpen({
-      defaultSide: resolvedSelectedSide,
-      tokenSymbol: selectedToken.symbol,
-      network: selectedToken.networkId,
-      fromTokenSymbol: fromToken?.symbol,
-      toTokenSymbol: toToken?.symbol,
-    });
-  }, [fromToken?.symbol, resolvedSelectedSide, selectedToken, toToken?.symbol]);
 
   const handleChartPriceUpdate = useCallback(
     (data: ITradingViewPriceUpdateData) => {
@@ -737,6 +776,106 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     [selectedToken, selectedTokenKey],
   );
 
+  const trackKLineOpenOnce = useCallback(
+    ({
+      initialPeriod,
+      fallbackTriggered,
+    }: {
+      initialPeriod?: string;
+      fallbackTriggered?: 'yes' | 'no';
+    }) => {
+      if (
+        hasTrackedOpenRef.current ||
+        !selectedToken ||
+        !resolvedSelectedSide
+      ) {
+        return;
+      }
+
+      hasTrackedOpenRef.current = true;
+      defaultLogger.swap.swapKline.swapKlineOpen({
+        defaultSide: resolvedSelectedSide,
+        tokenSymbol: selectedToken.symbol,
+        network: selectedToken.networkId,
+        fromTokenSymbol: fromToken?.symbol,
+        toTokenSymbol: toToken?.symbol,
+        initialPeriod,
+        fallbackTriggered,
+      });
+    },
+    [fromToken?.symbol, resolvedSelectedSide, selectedToken, toToken?.symbol],
+  );
+
+  const handleKLineDataReady = useCallback(
+    (data: ITradingViewKLineDataReadyData) => {
+      lastKLineUserPeriodRef.current = data.period;
+      trackKLineOpenOnce({
+        initialPeriod: data.period,
+        fallbackTriggered:
+          kLineFallbackChainRef.current.length > 0 ? 'yes' : 'no',
+      });
+    },
+    [trackKLineOpenOnce],
+  );
+
+  const handleKLineLoadError = useCallback(
+    (data: ITradingViewKLineLoadErrorData) => {
+      if (!selectedToken) {
+        return;
+      }
+      const fallbackSegment = `${data.period}->${data.status}`;
+      if (
+        kLineFallbackChainRef.current[
+          kLineFallbackChainRef.current.length - 1
+        ] !== fallbackSegment
+      ) {
+        kLineFallbackChainRef.current.push(fallbackSegment);
+      }
+      trackKLineOpenOnce({
+        initialPeriod: data.period,
+        fallbackTriggered:
+          data.status === 'empty' || kLineFallbackChainRef.current.length > 1
+            ? 'yes'
+            : 'no',
+      });
+      const errorKey = `${selectedTokenKey}:${data.period}`;
+      if (reportedKLineLoadErrorKeysRef.current.has(errorKey)) {
+        return;
+      }
+      reportedKLineLoadErrorKeysRef.current.add(errorKey);
+      defaultLogger.swap.swapKline.swapKlineLoadError({
+        status: data.status,
+        tokenSymbol: selectedToken.symbol,
+        network: selectedToken.networkId,
+        period: data.period,
+        message: data.status === 'failed' ? data.message : undefined,
+      });
+    },
+    [selectedToken, selectedTokenKey, trackKLineOpenOnce],
+  );
+
+  const handleKLinePeriodChange = useCallback(
+    (data: ITradingViewKLinePeriodChangeData) => {
+      if (!selectedToken) {
+        return;
+      }
+      const fromPeriod =
+        data.fromPeriod === data.toPeriod
+          ? (lastKLineUserPeriodRef.current ?? data.fromPeriod)
+          : data.fromPeriod;
+      if (fromPeriod === data.toPeriod) {
+        return;
+      }
+      lastKLineUserPeriodRef.current = data.toPeriod;
+      defaultLogger.swap.swapKline.swapKlinePeriodChange({
+        fromPeriod,
+        toPeriod: data.toPeriod,
+        tokenSymbol: selectedToken.symbol,
+      });
+    },
+    [selectedToken],
+  );
+
   const handleSelectedSideChange = useCallback(
     (side: ESwapDirectionType) => {
       if (side === resolvedSelectedSide) {
@@ -763,7 +902,8 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       toToken,
       selectedToken,
       walletMarketInfo,
-      kLineDataFallback,
+      chartDataSourceKey,
+      coinGeckoKLineDataSource,
       isResolvingSelectedToken,
       primaryKLineDataUnavailable,
       resolvedSelectedSide,
@@ -773,16 +913,23 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       tokenUsdFallbackPrice,
       handlePrimaryKLineDataUnavailable,
       handleChartPriceUpdate,
+      handleKLineDataReady,
+      handleKLineLoadError,
+      handleKLinePeriodChange,
       handleSelectedSideChange,
     }),
     [
       displayPrice,
       fromToken,
+      chartDataSourceKey,
       handleChartPriceUpdate,
+      handleKLineDataReady,
+      handleKLineLoadError,
+      handleKLinePeriodChange,
       handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
       isResolvingSelectedToken,
-      kLineDataFallback,
+      coinGeckoKLineDataSource,
       primaryKLineDataUnavailable,
       resolvedSelectedSide,
       selectedToken,
@@ -848,7 +995,6 @@ function SwapKLineTokenPriceInfo({
       {price ? (
         <NumberSizeableText
           size={compact ? '$bodyMdMedium' : '$bodyLgMedium'}
-          fontFamily="$monoMedium"
           formatter="price"
           formatterOptions={{ currency: '$' }}
           numberOfLines={1}
@@ -860,7 +1006,6 @@ function SwapKLineTokenPriceInfo({
         <SizableText
           size={compact ? '$bodyMdMedium' : '$bodyLgMedium'}
           color="$textSubdued"
-          fontFamily="$monoMedium"
           numberOfLines={1}
         >
           --
@@ -869,7 +1014,6 @@ function SwapKLineTokenPriceInfo({
       {priceChange ? (
         <PriceChangePercentage
           size={compact ? '$bodyXsMedium' : '$bodySmMedium'}
-          fontFamily="$monoMedium"
           numberOfLines={1}
         >
           {priceChange}
@@ -878,7 +1022,6 @@ function SwapKLineTokenPriceInfo({
         <SizableText
           size="$bodySmMedium"
           color="$textSubdued"
-          fontFamily="$monoMedium"
           numberOfLines={1}
         >
           --
@@ -937,11 +1080,17 @@ function SwapKLineTokenInfoRow({
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {token.symbol}
           </SizableText>
-          {networkName ? (
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {networkName}
-            </SizableText>
-          ) : null}
+          <Stack minHeight="$5">
+            {networkName ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {networkName}
+              </SizableText>
+            ) : null}
+          </Stack>
         </YStack>
         <SwapKLineTokenPriceInfo
           tokenMarketDetail={tokenMarketDetail}
@@ -956,49 +1105,109 @@ function SwapKLineTokenInfoRow({
   );
 }
 
+function SwapKLineTokenInfoRowSkeleton({
+  compact,
+  headerRight,
+}: {
+  compact?: boolean;
+  headerRight?: ReactNode;
+}) {
+  return (
+    <XStack
+      ai="center"
+      jc="space-between"
+      gap={compact ? '$2.5' : '$3'}
+      minHeight={compact ? '$11' : '$10'}
+      width="100%"
+    >
+      <XStack
+        ai="center"
+        gap={compact ? '$2.5' : '$3'}
+        flex={compact ? 1 : undefined}
+        flexShrink={1}
+        minWidth={0}
+      >
+        <Skeleton
+          w={compact ? '$8' : '$10'}
+          h={compact ? '$8' : '$10'}
+          radius="round"
+          flexShrink={0}
+        />
+        <YStack
+          minWidth={0}
+          flex={compact ? 1 : undefined}
+          maxWidth={compact ? undefined : '$28'}
+          gap="$0.5"
+        >
+          <Skeleton h="$6" w="$16" />
+          <Skeleton h="$5" w="$24" />
+        </YStack>
+        <YStack
+          ai="flex-end"
+          gap={compact ? '$0' : '$0.5'}
+          minWidth={compact ? '$24' : '$14'}
+          maxWidth={compact ? '$30' : '$28'}
+        >
+          <Skeleton h={compact ? '$5' : '$6'} w="$16" />
+          <Skeleton h="$4" w="$10" />
+        </YStack>
+      </XStack>
+      {headerRight ? <Stack flexShrink={0}>{headerRight}</Stack> : null}
+    </XStack>
+  );
+}
+
 function SwapKLineResolvingTokenContent({
   chartMinHeight,
+  compact,
+  showHeaderRight,
   showSeparateChartDivider,
 }: {
   chartMinHeight: number;
+  compact?: boolean;
+  showHeaderRight?: boolean;
   showSeparateChartDivider?: boolean;
 }) {
-  const chartSkeleton = (
-    <Skeleton
-      flex={1}
-      minHeight={chartMinHeight}
-      borderRadius="$2"
-      borderTopWidth={showSeparateChartDivider ? undefined : '$px'}
-      borderTopColor={showSeparateChartDivider ? undefined : '$borderSubdued'}
+  const headerRightSkeleton = showHeaderRight ? (
+    <Skeleton h={compact ? '$7' : '$9'} w="$32" borderRadius="$full" />
+  ) : undefined;
+  const tokenInfoRowSkeleton = (
+    <SwapKLineTokenInfoRowSkeleton
+      compact={compact}
+      headerRight={compact ? undefined : headerRightSkeleton}
     />
   );
-  const chartSectionSkeleton = showSeparateChartDivider ? (
-    <YStack flex={1} gap="$5">
-      <Stack h="$px" bg="$borderSubdued" />
-      {chartSkeleton}
+  const tokenInfoSkeleton = compact ? (
+    <YStack gap={headerRightSkeleton ? '$4' : undefined}>
+      {headerRightSkeleton ? (
+        <XStack jc="flex-end" width="100%">
+          {headerRightSkeleton}
+        </XStack>
+      ) : null}
+      {tokenInfoRowSkeleton}
     </YStack>
   ) : (
-    chartSkeleton
+    tokenInfoRowSkeleton
+  );
+  const chartSectionSkeleton = (
+    <YStack
+      flex={1}
+      minHeight={showSeparateChartDivider ? undefined : chartMinHeight}
+    >
+      <Stack h="$px" bg="$borderSubdued" />
+      <YStack
+        flex={1}
+        minHeight={showSeparateChartDivider ? chartMinHeight : undefined}
+        pt="$2"
+      >
+        <Skeleton flex={1} borderRadius="$2" />
+      </YStack>
+    </YStack>
   );
 
   return (
     <>
-      <XStack
-        ai="center"
-        jc="space-between"
-        gap="$3"
-        minHeight="$10"
-        width="100%"
-      >
-        <XStack ai="center" gap="$3" flexShrink={1} minWidth={0}>
-          <Skeleton w="$10" h="$10" radius="round" />
-          <YStack gap="$1">
-            <Skeleton h="$4" w="$16" />
-            <Skeleton h="$3" w="$24" />
-          </YStack>
-        </XStack>
-        <Skeleton h="$8" w="$32" borderRadius="$full" />
-      </XStack>
+      {tokenInfoSkeleton}
       {chartSectionSkeleton}
     </>
   );
@@ -1028,34 +1237,41 @@ function SwapKLineContentBody({
     ? SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES
     : SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES;
   const showSeparateChartDivider = separateChartDivider && gtMd;
+  const showHeaderRight = Boolean(
+    headerRight &&
+    state.fromToken &&
+    state.toToken &&
+    !haveSameSwapKLineTokenSymbol({
+      fromToken: state.fromToken,
+      toToken: state.toToken,
+    }),
+  );
 
   let tokenInfoContent: ReactNode = null;
   if (selectedToken) {
-    tokenInfoContent =
-      !gtMd && headerRight ? (
-        <YStack gap="$4">
+    const tokenInfoRow = (
+      <SwapKLineTokenInfoRow
+        token={selectedToken}
+        tokenMarketDetail={state.tokenMarketDetail}
+        walletMarketInfo={state.walletMarketInfo}
+        displayPrice={state.displayPrice}
+        fallbackUsdPrice={state.tokenUsdFallbackPrice}
+        headerRight={gtMd && showHeaderRight ? headerRight : undefined}
+        compact={!gtMd}
+      />
+    );
+    tokenInfoContent = gtMd ? (
+      tokenInfoRow
+    ) : (
+      <YStack gap={showHeaderRight ? '$4' : undefined}>
+        {showHeaderRight ? (
           <XStack jc="flex-end" width="100%">
             {headerRight}
           </XStack>
-          <SwapKLineTokenInfoRow
-            token={selectedToken}
-            tokenMarketDetail={state.tokenMarketDetail}
-            walletMarketInfo={state.walletMarketInfo}
-            displayPrice={state.displayPrice}
-            fallbackUsdPrice={state.tokenUsdFallbackPrice}
-            compact
-          />
-        </YStack>
-      ) : (
-        <SwapKLineTokenInfoRow
-          token={selectedToken}
-          tokenMarketDetail={state.tokenMarketDetail}
-          walletMarketInfo={state.walletMarketInfo}
-          displayPrice={state.displayPrice}
-          fallbackUsdPrice={state.tokenUsdFallbackPrice}
-          headerRight={headerRight}
-        />
-      );
+        ) : null}
+        {tokenInfoRow}
+      </YStack>
+    );
   }
 
   const chartContent = (
@@ -1069,27 +1285,31 @@ function SwapKLineContentBody({
       <TradingViewV2
         key={`${chartNetworkId}:${chartTokenAddress}:${
           selectedToken?.symbol ?? ''
-        }`}
+        }:${state.chartDataSourceKey}`}
         symbol={selectedToken?.symbol ?? ''}
         tokenAddress={chartTokenAddress}
         networkId={chartNetworkId}
         decimal={selectedToken?.decimals ?? 0}
         dataSource="polling"
         disabledFeatures={disabledTradingViewFeatures}
+        enableNativeChartControls
         storageNamespace={SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE}
         forceEmptyKLineData={state.shouldForceEmptyKLineData}
         emptyKLineDataOnError
-        kLineDataFallback={state.kLineDataFallback}
+        kLineDataFallback={state.coinGeckoKLineDataSource}
         primaryKLineDataUnavailable={state.primaryKLineDataUnavailable}
         onPrimaryKLineDataUnavailable={state.handlePrimaryKLineDataUnavailable}
         onPriceUpdate={state.handleChartPriceUpdate}
+        onKLineDataReady={state.handleKLineDataReady}
+        onKLineLoadError={state.handleKLineLoadError}
+        onKLinePeriodChange={state.handleKLinePeriodChange}
         w="100%"
         h="100%"
       />
     </Stack>
   );
   const chartSectionContent = showSeparateChartDivider ? (
-    <YStack flex={1} gap="$5">
+    <YStack flex={1}>
       <Stack h="$px" bg="$borderSubdued" />
       {chartContent}
     </YStack>
@@ -1109,6 +1329,8 @@ function SwapKLineContentBody({
       <YStack flex={1} px={px} pt={pt} pb={pb} gap={gap}>
         <SwapKLineResolvingTokenContent
           chartMinHeight={chartMinHeight}
+          compact={!gtMd}
+          showHeaderRight={showHeaderRight}
           showSeparateChartDivider={showSeparateChartDivider}
         />
       </YStack>

@@ -34,7 +34,10 @@ import type {
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  clampLimitRateDecimals,
+  formatBalance,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { limitOrderEstimationFeePercent } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -50,7 +53,12 @@ import {
   InfoItem,
   InfoItemGroup,
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
+import {
+  getLimitOrderDisplayAmounts,
+  getLimitOrderDisplayPrice,
+} from '../../components/LimitOrderCard.utils';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
+import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import LimitOrderCancelDialog from '../components/LimitOrderCancelDialog';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -64,22 +72,35 @@ const LimitOrderDetailModal = () => {
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { orderId, orderItem } = route.params ?? {};
   const [cancelLoading, setCancelLoading] = useState(false);
-  const [{ swapLimitOrders }] = useInAppNotificationAtom();
+  const [{ swapLimitOrders, swapLimitOrdersAccountIdKey }] =
+    useInAppNotificationAtom();
+  const { shouldShowSwapLimitOrders } = useSwapLimitOrdersLocalDataVisibility(
+    swapLimitOrdersAccountIdKey,
+  );
   const [orderItemState, setOrderItemState] = useState(orderItem);
   const limitOrderUpdate = useMemo(
-    () => swapLimitOrders?.find((item) => item.orderId === orderId),
-    [swapLimitOrders, orderId],
+    () =>
+      shouldShowSwapLimitOrders
+        ? swapLimitOrders?.find((item) => item.orderId === orderId)
+        : undefined,
+    [shouldShowSwapLimitOrders, swapLimitOrders, orderId],
   );
   const { gtMd } = useMedia();
   const intl = useIntl();
   useEffect(() => {
+    if (!shouldShowSwapLimitOrders) {
+      if (orderItemState) {
+        setOrderItemState(undefined);
+      }
+      return;
+    }
     if (
       limitOrderUpdate &&
       JSON.stringify(limitOrderUpdate) !== JSON.stringify(orderItemState)
     ) {
       setOrderItemState(limitOrderUpdate);
     }
-  }, [limitOrderUpdate, orderItem, orderItemState]);
+  }, [limitOrderUpdate, orderItemState, shouldShowSwapLimitOrders]);
 
   const decimalsAmount = useMemo(
     () => ({
@@ -89,8 +110,22 @@ const LimitOrderDetailModal = () => {
       toAmount: new BigNumber(orderItemState?.toAmount ?? '0').shiftedBy(
         -(orderItemState?.toTokenInfo?.decimals ?? 0),
       ),
+      ...getLimitOrderDisplayAmounts({
+        executedBuyAmount: orderItemState?.executedBuyAmount,
+        executedSellAmount: orderItemState?.executedSellAmount,
+        fromAmount: orderItemState?.fromAmount,
+        fromTokenInfo: {
+          decimals: orderItemState?.fromTokenInfo?.decimals ?? 0,
+        },
+        toAmount: orderItemState?.toAmount,
+        toTokenInfo: {
+          decimals: orderItemState?.toTokenInfo?.decimals ?? 0,
+        },
+      }),
     }),
     [
+      orderItemState?.executedBuyAmount,
+      orderItemState?.executedSellAmount,
       orderItemState?.fromAmount,
       orderItemState?.fromTokenInfo?.decimals,
       orderItemState?.toAmount,
@@ -99,20 +134,18 @@ const LimitOrderDetailModal = () => {
   );
 
   const limitPrice = useMemo(() => {
-    const fromAmountNum = decimalsAmount.fromAmount;
-    const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = toAmountNum
-      .div(fromAmountNum)
-      .decimalPlaces(
-        Number(orderItemState?.toTokenInfo.decimals ?? 0),
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
+    const calculateLimitPrice = getLimitOrderDisplayPrice({
+      fromAmount: decimalsAmount.fromAmount,
+      toAmount: decimalsAmount.toAmount,
+      fromTokenDecimals: orderItemState?.fromTokenInfo.decimals,
+      toTokenDecimals: orderItemState?.toTokenInfo.decimals,
+    }).toFixed();
     const limitPriceFormat = formatBalance(calculateLimitPrice);
     return limitPriceFormat.formattedValue;
   }, [
     decimalsAmount.fromAmount,
     decimalsAmount.toAmount,
+    orderItemState?.fromTokenInfo.decimals,
     orderItemState?.toTokenInfo.decimals,
   ]);
 
@@ -134,8 +167,8 @@ const LimitOrderDetailModal = () => {
       isNative: !!orderItemState?.toTokenInfo.isNative,
       price: orderItemState?.toTokenInfo?.price ?? '0',
     };
-    const fromAmount = decimalsAmount.fromAmount.toFixed();
-    const toAmount = decimalsAmount.toAmount.toFixed();
+    const fromAmount = decimalsAmount.displayFromAmount.toFixed();
+    const toAmount = decimalsAmount.displayToAmount.toFixed();
     return (
       <>
         <AssetItem
@@ -167,8 +200,8 @@ const LimitOrderDetailModal = () => {
       </>
     );
   }, [
-    decimalsAmount.fromAmount,
-    decimalsAmount.toAmount,
+    decimalsAmount.displayFromAmount,
+    decimalsAmount.displayToAmount,
     orderItemState?.fromTokenInfo.isNative,
     orderItemState?.fromTokenInfo.logoURI,
     orderItemState?.fromTokenInfo.name,
@@ -227,6 +260,9 @@ const LimitOrderDetailModal = () => {
   );
 
   const renderLimitOrderStatus = useCallback(() => {
+    if (!shouldShowSwapLimitOrders) {
+      return null;
+    }
     const { status } = orderItemState ?? {};
     let label = intl.formatMessage({
       id: ETranslations.Limit_order_status_open,
@@ -294,7 +330,13 @@ const LimitOrderDetailModal = () => {
       );
     }
     return null;
-  }, [intl, orderItemState, cancelLoading, onCancel]);
+  }, [
+    intl,
+    orderItemState,
+    cancelLoading,
+    onCancel,
+    shouldShowSwapLimitOrders,
+  ]);
 
   const renderLimitOrderExpiry = useCallback(() => {
     const { createdAt, expiredAt } = orderItemState ?? {};
@@ -383,49 +425,46 @@ const LimitOrderDetailModal = () => {
     ).multipliedBy(new BigNumber(limitOrderEstimationFeePercent));
     let estimationRunPrice;
     let difValuePercentLabel = '0%';
-    const fromAmountNum = decimalsAmount.fromAmount;
-    const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = toAmountNum
-      .div(fromAmountNum)
-      .decimalPlaces(
-        Number(orderItemState?.toTokenInfo.decimals ?? 0),
-        BigNumber.ROUND_HALF_UP,
-      );
+    const calculateLimitPrice = getLimitOrderDisplayPrice({
+      fromAmount: decimalsAmount.fromAmount,
+      toAmount: decimalsAmount.toAmount,
+      fromTokenDecimals: orderItemState?.fromTokenInfo.decimals,
+      toTokenDecimals: orderItemState?.toTokenInfo.decimals,
+    });
+    // The estimated fill price only differs from the limit price by how the
+    // fee is folded in; both branches share the toToken-denominated clamp and
+    // the percent label, which guards degenerate zero/non-finite prices.
+    let rawRunPrice;
     if (kind === ESwapQuoteKind.SELL) {
-      const estimationToAmountBN = new BigNumber(decimalsAmount.toAmount).plus(
-        feeAmountWithPercentBN,
+      rawRunPrice = decimalsAmount.toAmount
+        .plus(feeAmountWithPercentBN)
+        .dividedBy(decimalsAmount.fromAmount);
+    } else if (kind === ESwapQuoteKind.BUY) {
+      rawRunPrice = decimalsAmount.toAmount.dividedBy(
+        decimalsAmount.fromAmount.minus(feeAmountWithPercentBN),
       );
-      estimationRunPrice = estimationToAmountBN
-        .dividedBy(decimalsAmount.fromAmount)
-        .decimalPlaces(
-          Number(orderItemState?.toTokenInfo.decimals ?? 0),
-          BigNumber.ROUND_HALF_UP,
-        );
-      const difValue = estimationRunPrice.minus(calculateLimitPrice);
-      const difValuePercent = difValue
-        .dividedBy(calculateLimitPrice)
-        .multipliedBy(100)
-        .toFixed(2);
-      difValuePercentLabel = `${difValuePercent}%`;
     }
-    if (kind === ESwapQuoteKind.BUY) {
-      const estimationFromAmountBN = new BigNumber(
-        decimalsAmount.fromAmount,
-      ).minus(feeAmountWithPercentBN);
-      estimationRunPrice = decimalsAmount.toAmount
-        .dividedBy(estimationFromAmountBN)
-        .decimalPlaces(
-          Number(orderItemState?.toTokenInfo.decimals ?? 0),
-          BigNumber.ROUND_HALF_UP,
-        );
-      const difValue = estimationRunPrice.minus(calculateLimitPrice);
-      const difValuePercent = difValue
-        .dividedBy(calculateLimitPrice)
-        .multipliedBy(100)
-        .toFixed(2);
-      difValuePercentLabel = `${difValuePercent}%`;
+    if (rawRunPrice) {
+      estimationRunPrice = clampLimitRateDecimals(
+        rawRunPrice,
+        orderItemState?.toTokenInfo.decimals,
+      );
+      if (
+        estimationRunPrice.isFinite() &&
+        calculateLimitPrice.gt(0) &&
+        calculateLimitPrice.isFinite()
+      ) {
+        const difValuePercent = estimationRunPrice
+          .minus(calculateLimitPrice)
+          .dividedBy(calculateLimitPrice)
+          .multipliedBy(100)
+          .toFixed(2);
+        difValuePercentLabel = `${difValuePercent}%`;
+      }
     }
-    if (estimationRunPrice) {
+    // A degenerate order (zero side / fee >= amount) yields a non-finite or
+    // non-positive estimation — hide the row instead of rendering "Infinity".
+    if (estimationRunPrice?.isFinite() && estimationRunPrice.gt(0)) {
       const estimationRunPriceFormat = formatBalance(
         estimationRunPrice.toFixed(),
       );
@@ -552,6 +591,9 @@ const LimitOrderDetailModal = () => {
 
   const getPayAddressAccountInfos = usePromiseResult(
     async () => {
+      if (!shouldShowSwapLimitOrders) {
+        return undefined;
+      }
       if (orderItemState?.networkId && orderItemState?.payAddress) {
         const res =
           await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
@@ -563,12 +605,19 @@ const LimitOrderDetailModal = () => {
         }
       }
     },
-    [orderItemState?.networkId, orderItemState?.payAddress],
+    [
+      orderItemState?.networkId,
+      orderItemState?.payAddress,
+      shouldShowSwapLimitOrders,
+    ],
     {},
   );
 
   const getReceiveAddressAccountInfos = usePromiseResult(
     async () => {
+      if (!shouldShowSwapLimitOrders) {
+        return undefined;
+      }
       if (orderItemState?.networkId && orderItemState?.receiveAddress) {
         const res =
           await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
@@ -580,12 +629,16 @@ const LimitOrderDetailModal = () => {
         }
       }
     },
-    [orderItemState?.networkId, orderItemState?.receiveAddress],
+    [
+      orderItemState?.networkId,
+      orderItemState?.receiveAddress,
+      shouldShowSwapLimitOrders,
+    ],
     {},
   );
 
   const renderLimitOrderDetails = useCallback(() => {
-    if (!orderItemState) {
+    if (!shouldShowSwapLimitOrders || !orderItemState) {
       return null;
     }
     return (
@@ -703,6 +756,7 @@ const LimitOrderDetailModal = () => {
     surplus,
     getPayAddressAccountInfos.result?.accountId,
     getReceiveAddressAccountInfos.result?.accountId,
+    shouldShowSwapLimitOrders,
   ]);
 
   return (

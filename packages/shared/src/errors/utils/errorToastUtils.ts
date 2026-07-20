@@ -8,6 +8,12 @@ import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { getInstanceId } from '../../modules3rdParty/intercom/utils';
 import { EOneKeyErrorClassNames, type IOneKeyError } from '../types/errorTypes';
 
+import {
+  type ILocalSecretEnvelopeCredentialErrorData,
+  LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
+  LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
+} from './localSecretEnvelopeErrorData';
+
 async function buildDiagnosticText(err: IOneKeyError): Promise<string> {
   const parts: string[] = [];
 
@@ -50,35 +56,105 @@ function fixAxiosAbortCancelError(error: unknown) {
   }
 }
 
+// Errors caused by a user-initiated cancellation/abort — no error toast
+// should surface for these.
+const USER_CANCEL_STYLE_ERROR_CLASS_NAMES: Set<EOneKeyErrorClassNames> =
+  new Set([
+    EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
+    EOneKeyErrorClassNames.PrimeLoginDialogCancelError,
+    EOneKeyErrorClassNames.OAuthLoginCancelError,
+    EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
+    EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+    EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
+    EOneKeyErrorClassNames.FirmwareUpdateExit,
+    EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
+    EOneKeyErrorClassNames.AxiosAbortCancelError,
+  ]);
+
+// Errors whose feedback is handled by other UI, so the auto toast is
+// suppressed. Unlike the list above, these are NOT user cancellations.
+const AUTO_TOAST_HANDLED_BY_OTHER_UI_ERROR_CLASS_NAMES: Set<EOneKeyErrorClassNames> =
+  new Set([
+    EOneKeyErrorClassNames.WebDeviceNotFoundOrNeedsPermission,
+    EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
+    EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
+    // use Dialog instead of Toast, check GlobalErrorHandlerContainer
+    EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
+    EOneKeyErrorClassNames.DeviceNotFound,
+    // IncorrectPinError is handled inline in VerifyPinPage
+    EOneKeyErrorClassNames.IncorrectPinError,
+  ]);
+
+// True if the global auto toast has already been shown for this error
+// instance (marker set by showToastOfError).
+function wasAutoToastShown(error: unknown): boolean {
+  const err = error as IOneKeyError | undefined;
+  return err?.$$autoToastErrorTriggered === true;
+}
+
+// True if the error represents a user-initiated cancellation/abort
+// (including aborted axios requests) — callers should not surface any
+// error feedback for these.
+function isUserCancelStyleError(error: unknown): boolean {
+  fixAxiosAbortCancelError(error);
+  const err = error as IOneKeyError | undefined;
+  return Boolean(
+    err?.className && USER_CANCEL_STYLE_ERROR_CLASS_NAMES.has(err.className),
+  );
+}
+
 let lastToastErrorInstance: IOneKeyError | undefined;
 let lastToastErrorCode: number | string | undefined;
 let lastToastTimestamp = 0;
 const TOAST_DEDUPLICATE_WINDOW_MS = 5000;
-function showToastOfError(error: IOneKeyError | unknown | undefined) {
+
+function isCredentialLocalSecretEnvelopeUnavailableError(
+  err: IOneKeyError | undefined,
+) {
+  const isLocalSecretEnvelopeUnavailable =
+    err?.className === EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable ||
+    err?.name === EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable;
+  return (
+    isLocalSecretEnvelopeUnavailable &&
+    (
+      err.data as Partial<ILocalSecretEnvelopeCredentialErrorData> | undefined
+    )?.[LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD] ===
+      LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE
+  );
+}
+
+function showLocalSecretEnvelopeErrorDialogIfNeeded(
+  error: IOneKeyError | unknown | undefined,
+) {
   fixAxiosAbortCancelError(error);
   const err = error as IOneKeyError | undefined;
   if (
-    err?.className &&
-    [
-      // ignore auto toast errors
-      EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
-      EOneKeyErrorClassNames.PrimeLoginDialogCancelError,
-      EOneKeyErrorClassNames.OAuthLoginCancelError,
-      EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
-      EOneKeyErrorClassNames.PasswordPromptDialogCancel,
-      EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
-      EOneKeyErrorClassNames.FirmwareUpdateExit,
-      EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
-      EOneKeyErrorClassNames.WebDeviceNotFoundOrNeedsPermission,
-      EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
-      EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
-      EOneKeyErrorClassNames.AxiosAbortCancelError,
-      // use Dialog instead of Toast, check GlobalErrorHandlerContainer
-      EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
-      EOneKeyErrorClassNames.DeviceNotFound,
-      // IncorrectPinError is handled inline in VerifyPinPage
-      EOneKeyErrorClassNames.IncorrectPinError,
-    ].includes(err?.className)
+    err?.autoToast &&
+    !err?.$$autoToastErrorTriggered &&
+    isCredentialLocalSecretEnvelopeUnavailableError(err)
+  ) {
+    appEventBus.emit(EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog, {
+      technicalMessage:
+        err.message ||
+        err.className ||
+        EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+    });
+    return true;
+  }
+  return false;
+}
+
+function showToastOfError(error: IOneKeyError | unknown | undefined) {
+  fixAxiosAbortCancelError(error);
+  // Product requirement: keep the existing auto-toast path after showing the
+  // LSE recovery dialog, so credential key loss surfaces both the detailed
+  // recovery guidance and the original operation-level error.
+  showLocalSecretEnvelopeErrorDialogIfNeeded(error);
+  const err = error as IOneKeyError | undefined;
+  if (
+    isUserCancelStyleError(err) ||
+    (err?.className &&
+      AUTO_TOAST_HANDLED_BY_OTHER_UI_ERROR_CLASS_NAMES.has(err.className))
   ) {
     return;
   }
@@ -93,7 +169,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   ) {
     shouldMuteToast = true;
   }
-  const isTriggered = err?.$$autoToastErrorTriggered;
+  const isTriggered = wasAutoToastShown(err);
   const isSameError = lastToastErrorInstance === err;
   // Deduplicate by errorCode within a time window — collapse parallel requests
   // hitting the same error, but allow legitimate recurring errors after the window expires
@@ -136,15 +212,19 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
         }
       }
 
-      appEventBus.emit(EAppEventBusNames.ShowToast, {
+      const toastPayload = {
         errorCode: err?.code,
+        errorClassName: err?.className,
+        errorName: err?.name,
         httpStatusCode,
         method: 'error' as const,
         title: err?.message ?? 'Error',
         requestId: err?.requestId,
         diagnosticText,
         i18nKey: err?.key as ETranslations | undefined,
-      });
+      };
+
+      appEventBus.emit(EAppEventBusNames.ShowToast, toastPayload);
     })();
   }
 }
@@ -202,5 +282,8 @@ export default {
   toastIfError,
   toastIfErrorDisable,
   showToastOfError,
+  showLocalSecretEnvelopeErrorDialogIfNeeded,
   withErrorAutoToast,
+  wasAutoToastShown,
+  isUserCancelStyleError,
 };

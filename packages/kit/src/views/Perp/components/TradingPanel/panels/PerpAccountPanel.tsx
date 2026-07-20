@@ -106,6 +106,9 @@ function PerpAccountPanel() {
   const intl = useIntl();
   const { copyText } = useClipboard();
   const { showPortfolio } = useShowPortfolio();
+  const isDepositDisabled = accountUtils.isWatchingAccount({
+    accountId: selectedAccount.accountId || '',
+  });
 
   const unrealizedPnlInfo = useMemo(() => {
     const pnlBn = new BigNumber(accountSummary?.totalUnrealizedPnl || '0');
@@ -271,13 +274,17 @@ function PerpAccountPanel() {
             size="medium"
             h={36}
             variant="secondary"
+            disabled={isDepositDisabled}
             onPress={() =>
-              showDepositWithdrawDialog(
-                {
-                  actionType: 'deposit',
-                },
-                dialogInTab,
-              )
+              isDepositDisabled
+                ? undefined
+                : showDepositWithdrawDialog(
+                    {
+                      actionType: 'deposit',
+                    },
+                    dialogInTab,
+                    intl,
+                  )
             }
             alignItems="center"
             justifyContent="center"
@@ -305,6 +312,7 @@ function PerpAccountPanel() {
                   actionType: 'withdraw',
                 },
                 dialogInTab,
+                intl,
               )
             }
           />

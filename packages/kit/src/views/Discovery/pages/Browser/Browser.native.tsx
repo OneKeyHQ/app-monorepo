@@ -3,7 +3,14 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
-import { BackHandler, type LayoutChangeEvent, View } from 'react-native';
+import {
+  BackHandler,
+  type LayoutChangeEvent,
+  type StyleProp,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 
 import {
@@ -12,6 +19,7 @@ import {
   Stack,
   XStack,
   YStack,
+  isLiquidGlassAvailable,
   rootNavigationRef,
   useIsSplitView,
   useSafeAreaInsets,
@@ -61,6 +69,7 @@ import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebu
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
+import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 // import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
@@ -94,6 +103,17 @@ function getExploreTabName(tab: ETranslations): IExploreTabName {
   }
   return 'browser';
 }
+
+const styles = StyleSheet.create({
+  webPageLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 3,
+  },
+  webPageRootLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 3,
+  },
+});
 
 const useAndroidHardwareBack = platformEnv.isNativeAndroid
   ? ({
@@ -205,6 +225,10 @@ function MobileBrowser() {
   }, [selectedHeaderTab]);
   const outerPageScrollPosition = useSharedValue(initialPageIndex);
 
+  // Under the Browser tab the universal search defaults to the Dapps tab so its
+  // results show dapp content first, while keeping the full search scope so the
+  // Market/Perp/Wallet tabs are still available to switch to (OK-56756). Do NOT
+  // narrow the search scope here — that would drop those tabs entirely.
   const searchInitialTab = useMemo(() => {
     if (selectedHeaderTab === ETranslations.global_market) {
       return 'market' as const;
@@ -239,6 +263,8 @@ function MobileBrowser() {
     }
     return displayHomePage;
   }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
+  const isBrowserWebPageVisible =
+    selectedHeaderTab === ETranslations.global_browser && !showDiscoveryPage;
 
   useEffect(() => {
     if (!tabs?.length) {
@@ -303,6 +329,7 @@ function MobileBrowser() {
     const listener = async (event: {
       tab: ETranslations;
       openUrl?: boolean;
+      showWebPage?: boolean;
       switchType?: IExploreTabSwitchType;
     }) => {
       exploreTabSwitchTypeRef.current = event.switchType ?? 'default';
@@ -313,6 +340,9 @@ function MobileBrowser() {
       // If the target is Browser itself, do NOT collapse the WebView.
       if (!displayHomePage && event.tab !== ETranslations.global_browser) {
         setDisplayHomePage(true);
+      }
+      if (event.tab === ETranslations.global_browser && event.showWebPage) {
+        setDisplayHomePage(false);
       }
 
       await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(event.tab);
@@ -342,9 +372,14 @@ function MobileBrowser() {
   const content = useMemo(
     () =>
       tabs.map((t) => (
-        <MobileBrowserContent id={t.id} key={t.id} onScroll={handleScroll} />
+        <MobileBrowserContent
+          id={t.id}
+          key={t.id}
+          isBrowserContentVisible={isBrowserWebPageVisible}
+          onScroll={handleScroll}
+        />
       )),
-    [tabs, handleScroll],
+    [tabs, handleScroll, isBrowserWebPageVisible],
   );
 
   useNotifyTabBarDisplay(
@@ -369,7 +404,19 @@ function MobileBrowser() {
     [tabs, navigation, activeTabId],
   );
 
-  const { top } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
+  // iOS 26: the Discover search bar opts into the Liquid Glass capsule (so it
+  // matches the Wallet header's glass search bar) and is nudged down so its
+  // center vertically aligns with the Wallet search bar — which sits centered in
+  // a 56pt row, i.e. ~6pt lower than this bar's safe-area-top anchor. Off iOS 26
+  // / Android nothing changes.
+  const searchGlassActive = isLiquidGlassAvailable();
+  let discoverSearchTop = top;
+  if (platformEnv.isNativeAndroid) {
+    discoverSearchTop = top + 5;
+  } else if (searchGlassActive) {
+    discoverSearchTop = top + 6;
+  }
   const takeScreenshot = useTakeScreenshot(activeTabId);
 
   const handleGoBackHome = useCallback(async () => {
@@ -466,6 +513,14 @@ function MobileBrowser() {
   }
 
   const displayBottomBar = !showDiscoveryPage;
+  const shouldShowRootWebPageLayer = useOuterPager && isBrowserWebPageVisible;
+  const rootWebPageLayerStyle: StyleProp<ViewStyle> = [
+    styles.webPageRootLayer,
+    {
+      bottom: BROWSER_BOTTOM_BAR_HEIGHT + bottom,
+      display: shouldShowRootWebPageLayer ? 'flex' : 'none',
+    },
+  ];
 
   return (
     <Page fullPage>
@@ -493,64 +548,76 @@ function MobileBrowser() {
         {/* HandleRebuildBrowserData must mount early regardless of active tab */}
         <HandleRebuildBrowserData />
         {useOuterPager ? (
-          <OuterTabPagerView
-            selectedHeaderTab={selectedHeaderTab}
-            showDiscoveryPage={showDiscoveryPage}
-            onPageSelectedBySwipe={handleExploreTabSwipe}
-            pageScrollPosition={outerPageScrollPosition}
-            marketTabsRef={marketTabsRef}
-            earnTabsRef={earnTabsRef}
-            earnBorrowPagerRef={earnBorrowPagerRef}
-            marketContent={
-              <MarketHomeWithProvider
-                isFocused={selectedHeaderTab === ETranslations.global_market}
-                nestedPager={useOuterPager}
-                tabsRef={marketTabsRef}
-              />
-            }
-            earnContent={
-              <EarnHomeWithProvider
-                showHeader={false}
-                showContent={selectedHeaderTab === ETranslations.global_earn}
-                defaultTab={earnTab}
-                tabsRef={earnTabsRef}
-                useSwipePager={useOuterPager}
-                earnBorrowPagerRef={earnBorrowPagerRef}
-              />
-            }
-            browserContent={
-              <Stack flex={1} zIndex={3}>
-                <Stack flex={1}>
-                  <View
-                    style={{
-                      display: showDiscoveryPage ? 'flex' : 'none',
-                      flex: showDiscoveryPage ? 1 : undefined,
-                    }}
-                  >
-                    <DashboardContent onScroll={handleScroll} />
-                  </View>
-                  <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+          <>
+            <OuterTabPagerView
+              selectedHeaderTab={selectedHeaderTab}
+              showDiscoveryPage={showDiscoveryPage}
+              onPageSelectedBySwipe={handleExploreTabSwipe}
+              pageScrollPosition={outerPageScrollPosition}
+              marketTabsRef={marketTabsRef}
+              earnTabsRef={earnTabsRef}
+              earnBorrowPagerRef={earnBorrowPagerRef}
+              marketContent={
+                <MarketHomeWithProvider
+                  isFocused={selectedHeaderTab === ETranslations.global_market}
+                  nestedPager={useOuterPager}
+                  tabsRef={marketTabsRef}
+                />
+              }
+              earnContent={
+                <EarnHomeWithProvider
+                  showHeader={false}
+                  showContent={selectedHeaderTab === ETranslations.global_earn}
+                  defaultTab={earnTab}
+                  tabsRef={earnTabsRef}
+                  useSwipePager={useOuterPager}
+                  earnBorrowPagerRef={earnBorrowPagerRef}
+                />
+              }
+              browserContent={
+                <Stack flex={1} zIndex={3}>
+                  <Stack flex={1}>
+                    <View
+                      style={{
+                        display: showDiscoveryPage ? 'flex' : 'none',
+                        flex: showDiscoveryPage ? 1 : undefined,
+                      }}
+                    >
+                      <DashboardContent onScroll={handleScroll} />
+                    </View>
+                  </Stack>
+                  <Freeze freeze={!displayBottomBar}>
+                    <Animated.View
+                      style={[
+                        toolbarAnimatedStyle,
+                        {
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                        },
+                      ]}
+                    >
+                      <MobileBrowserBottomBar
+                        id={activeTabId ?? ''}
+                        onGoBackHomePage={handleGoBackHome}
+                      />
+                    </Animated.View>
+                  </Freeze>
                 </Stack>
-                <Freeze freeze={!displayBottomBar}>
-                  <Animated.View
-                    style={[
-                      toolbarAnimatedStyle,
-                      {
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                      },
-                    ]}
-                  >
-                    <MobileBrowserBottomBar
-                      id={activeTabId ?? ''}
-                      onGoBackHomePage={handleGoBackHome}
-                    />
-                  </Animated.View>
-                </Freeze>
-              </Stack>
-            }
-          />
+              }
+            />
+            <View
+              collapsable={false}
+              pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
+              accessibilityElementsHidden={!shouldShowRootWebPageLayer}
+              importantForAccessibility={
+                shouldShowRootWebPageLayer ? 'auto' : 'no-hide-descendants'
+              }
+              style={rootWebPageLayerStyle}
+            >
+              {content}
+            </View>
+          </>
         ) : (
           <>
             {/* Tablet / DualScreen: keep legacy display:none/flex switching */}
@@ -588,7 +655,20 @@ function MobileBrowser() {
                   <DashboardContent onScroll={handleScroll} />
                 </View>
                 {!isTabletMainView ? (
-                  <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+                  <View
+                    collapsable={false}
+                    pointerEvents={showDiscoveryPage ? 'none' : 'auto'}
+                    accessibilityElementsHidden={showDiscoveryPage}
+                    importantForAccessibility={
+                      showDiscoveryPage ? 'no-hide-descendants' : 'auto'
+                    }
+                    style={[
+                      styles.webPageLayer,
+                      { display: showDiscoveryPage ? 'none' : 'flex' },
+                    ]}
+                  >
+                    {content}
+                  </View>
                 ) : null}
               </Stack>
               <Freeze freeze={!displayBottomBar}>
@@ -635,17 +715,27 @@ function MobileBrowser() {
           top={0}
           left={0}
           bg="$bgApp"
-          pt="$12"
+          // iOS 26: the search bar grew (40->44) and shifted down +6 for Wallet
+          // alignment, which ate the gap to the segment row (Market/DeFi/Browser)
+          // below it. Push that row down so the gap matches the original ~8pt
+          // (6 shift + 44 bar + 8 gap = 58). Off iOS 26 keep the original $12.
+          pt={searchGlassActive ? 58 : '$12'}
           width="100%"
           onLayout={handleTabPageLayout}
         >
           <Stack
             position="absolute"
-            top={platformEnv.isNativeAndroid ? top + 5 : top}
+            top={discoverSearchTop}
             px="$5"
+            // iOS 26: the glass search bar fills its width via flex, which
+            // collapses to 0 inside this shrink-to-fit absolute container — pin
+            // left/right so it spans the header width. Off iOS 26 the Stack
+            // keeps its original content width (unchanged).
+            {...(searchGlassActive && { left: 0, right: 0 })}
           >
             <LegacyUniversalSearchInput
               size="medium"
+              glass
               initialTab={searchInitialTab}
             />
           </Stack>

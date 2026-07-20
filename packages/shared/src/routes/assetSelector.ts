@@ -84,6 +84,12 @@ export type IAggregateTokenSelectorParams = {
   accountId: string;
   indexedAccountId?: string;
   aggregateToken: IAccountToken;
+  // The owned sub-tokens for this `aggregateToken.$key`, passed by TokenSelector
+  // when navigating in so AggregateTokenSelector no longer reads
+  // `aggregateTokensListMapAtom` (tokenList cells full-delete plan, PR-3).
+  // Optional to preserve type-compat for existing callers and as a defensive
+  // fallback for any future direct entry.
+  aggregateSubTokenList?: IAccountToken[];
   allAggregateTokenList?: IAccountToken[];
   onSelect: (token: IAccountToken) => void | Promise<void>;
   closeAfterSelect?: boolean;

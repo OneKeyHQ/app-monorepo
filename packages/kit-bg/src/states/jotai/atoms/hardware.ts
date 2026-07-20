@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import type { EHardwareUiStateAction } from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
@@ -12,13 +11,14 @@ import type {
   IFirmwareUpdateInfo,
   IFirmwareUpdatesDetectStatus,
 } from '@onekeyhq/shared/types/device';
+import type { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
-export { EHardwareUiStateAction } from '@onekeyhq/shared/src/utils/deviceUtils';
+export { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 export type IHardwareUiPayload = {
   uiRequestType: string; // EHardwareUiStateAction
   eventType: string;
@@ -149,6 +149,20 @@ export enum EThirdPartyHardwareUiAction {
   requestDeviceNotFound = 'request-ledger-device-not-found',
   // Ledger BTC requires explicit user approval before using index >= 100.
   requestBtcHighIndexConfirm = 'request-ledger-btc-high-index-confirm',
+  // Trezor THP: device showed a pairing code, host needs to input it.
+  // Different from confirmOnDevice (passive toast) because the user types
+  // back into the app, not just acts on hardware.
+  requestTrezorThpPairing = 'request-trezor-thp-pairing',
+  // Trezor hidden wallet: host must collect passphrase or request on-device
+  // entry. Standard-wallet calls keep using auto-empty passphrase.
+  requestTrezorPassphrase = 'request-trezor-passphrase',
+  // Trezor old button devices: host collects the PIN as a matrix position
+  // string (touchscreen devices enter on-device via REQUEST_BUTTON instead).
+  requestTrezorPin = 'request-trezor-pin',
+  // Trezor transport fallback: USB is unavailable and this DB device has not
+  // yet learned its BLE connectId. UI scans BLE candidates, binds the matching
+  // device_id, then resolves the waiting hardware call.
+  requestTrezorBleBinding = 'request-trezor-ble-binding',
   // Non-blocking notifications — UI shows status.
   openApp = 'ui-event-ledger-open-app',
   confirmOnDevice = 'ui-event-ledger-confirm-on-device',
@@ -156,7 +170,7 @@ export enum EThirdPartyHardwareUiAction {
   connecting = 'ui-event-ledger-connecting',
   processing = 'ui-event-ledger-processing',
   done = 'ui-event-ledger-done',
-  // Toast only; DMK keeps polling until the device is unlocked.
+  // Toast only — "device locked". Shared by Ledger (DMK polling) and Trezor THP.
   unlockDevice = 'ui-event-ledger-unlock-device',
   error = 'ui-event-ledger-error',
 }
@@ -166,6 +180,9 @@ const TOAST_ACTIONS = new Set<string>([
   EThirdPartyHardwareUiAction.confirmOnDevice,
   EThirdPartyHardwareUiAction.openApp,
   EThirdPartyHardwareUiAction.searching,
+  EThirdPartyHardwareUiAction.connecting,
+  EThirdPartyHardwareUiAction.processing,
+  EThirdPartyHardwareUiAction.done,
   EThirdPartyHardwareUiAction.unlockDevice,
 ]);
 
@@ -193,6 +210,24 @@ export type IThirdPartyHardwareUiState = {
     path?: string;
     /** Account index parsed from the path (e.g. requestBtcHighIndexConfirm). */
     accountIndex?: number;
+    /** Trezor request: connect id of the device asking for user input. */
+    connectId?: string;
+    /** Trezor THP pairing: pairing methods the device offered (CodeEntry/QrCode/NFC/SkipPairing). */
+    availableMethods?: number[];
+    /** Trezor THP pairing: method we picked (the host always selects pairingMethods[0]). */
+    selectedMethod?: number;
+    /** Trezor THP pairing: optional NFC payload — hex-encoded when method is NFC. */
+    nfcData?: string;
+    /** Trezor passphrase: expected hidden wallet identity in verify mode. */
+    passphraseState?: string;
+    /** Trezor BLE binding: USB-side connect id of the DB device. */
+    usbConnectId?: string;
+    /** Trezor BLE binding: stable device_id read from Trezor features. */
+    featuresDeviceId?: string;
+    /** Trezor BLE binding: servicePromise id resolved with the fallback connectId. */
+    promiseId?: number;
+    /** Trezor BLE binding mode. */
+    trezorBleBindingMode?: 'manual-binding' | 'auto-fallback';
   };
 };
 

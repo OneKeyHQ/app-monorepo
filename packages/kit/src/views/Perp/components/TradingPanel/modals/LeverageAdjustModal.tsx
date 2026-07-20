@@ -217,7 +217,7 @@ const LeverageContent = memo(
               </SizableText>
             </XStack>
           </YStack>
-          <YStack gap="$3" pb="$4">
+          <YStack gap="$3">
             <XStack
               gap="$1"
               alignItems="center"
@@ -343,8 +343,10 @@ export const LeverageAdjustModal = memo(
         bg={isMobile ? '$bgSubdued' : '$bgStrong'}
         onPress={showLeverageDialog}
         px="$3.5"
+        width="100%"
         h={isMobile ? 32 : 30}
         alignItems="center"
+        justifyContent="center"
         cursor="default"
         hoverStyle={{
           bg: '$bgStrongHover',
@@ -354,13 +356,6 @@ export const LeverageAdjustModal = memo(
         }}
         gap="$1"
       >
-        {isMobile ? null : (
-          <SizableText size="$bodyMdMedium">
-            {intl.formatMessage({
-              id: ETranslations.perp_leverage,
-            })}
-          </SizableText>
-        )}
         <SizableText size="$bodyMdMedium">{displayLeverage}x</SizableText>
       </Badge>
     );

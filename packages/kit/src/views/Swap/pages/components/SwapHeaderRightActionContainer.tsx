@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -12,6 +13,7 @@ import {
   Dialog,
   Divider,
   EPageType,
+  GlassButtonCapsule,
   HeightTransition,
   Icon,
   ScrollView,
@@ -34,9 +36,13 @@ import {
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  useSwapActions,
+  useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapStockExecutionTokensAtom,
+  useSwapStockSelectedTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -48,11 +54,12 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
-import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   swapSlippageCustomDefaultList,
   swapSlippageItems,
@@ -63,7 +70,6 @@ import {
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
-  ESwapLimitOrderStatus,
   ESwapProTradeType,
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
@@ -71,9 +77,15 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
+import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
+import {
+  filterSwapMarketHistoryItems,
+  getSwapLimitOpenOrderCount,
+} from '../../utils/swapMarketHistory';
 import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -289,6 +301,8 @@ const SwapSettingsDialogContent = ({
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const { cleanQuoteInterval, closeQuoteEvent, resetQuoteAction } =
+    useSwapActions().current;
   const keyboardHeight = useKeyboardHeight();
   const { top: safeAreaTop } = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -362,6 +376,12 @@ const SwapSettingsDialogContent = ({
     [intl, setNoPersistSettings, slippageItem.key],
   );
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+  const handleProviderManagerSaved = useCallback(() => {
+    cleanQuoteInterval();
+    closeQuoteEvent();
+    void resetQuoteAction();
+    void dialogRef.current?.close();
+  }, [cleanQuoteInterval, closeQuoteEvent, resetQuoteAction]);
   return (
     <ScrollView
       mx="$-5"
@@ -424,7 +444,8 @@ const SwapSettingsDialogContent = ({
             }}
           />
         )}
-        {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
+        {swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+        swapTypeSwitch !== ESwapTabSwitchType.STOCK ? (
           <>
             <SwapProviderSettingItem
               title={intl.formatMessage({
@@ -438,10 +459,8 @@ const SwapSettingsDialogContent = ({
                   disableDrag: true,
                   renderContent: (
                     <ProviderManageContainer
-                      onSaved={() => {
-                        void dialogRef.current?.close();
-                      }}
-                      isBridge={false}
+                      mode="singleSwap"
+                      onSaved={handleProviderManagerSaved}
                     />
                   ),
                   showConfirmButton: false,
@@ -461,10 +480,8 @@ const SwapSettingsDialogContent = ({
                   disableDrag: true,
                   renderContent: (
                     <ProviderManageContainer
-                      onSaved={() => {
-                        void dialogRef.current?.close();
-                      }}
-                      isBridge
+                      mode="crossChain"
+                      onSaved={handleProviderManagerSaved}
                     />
                   ),
                   showConfirmButton: false,
@@ -479,57 +496,157 @@ const SwapSettingsDialogContent = ({
   );
 };
 
-const SwapHeaderRightActionContainer = ({
-  pageType,
+const StockKLineHeaderButton = ({
   iconSize,
   iconColor,
-  compact,
-  marketPresetSettings,
+  buttonSize,
 }: {
+  iconSize: number | `$${string}`;
+  iconColor?: ColorTokens;
+  buttonSize: 'small' | 'medium';
+}) => {
+  const navigation = useAppNavigation();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const [stockExecutionTokens] = useSwapStockExecutionTokensAtom();
+  const [stockSelectedToken] = useSwapStockSelectedTokenAtom();
+  const stockToken = useMemo(() => {
+    return resolveStockKLineToken({
+      stockSelectedToken,
+      executionFromToken: stockExecutionTokens?.fromToken,
+      executionToToken: stockExecutionTokens?.toToken,
+      fromToken,
+      toToken,
+    });
+  }, [
+    fromToken,
+    stockExecutionTokens?.fromToken,
+    stockExecutionTokens?.toToken,
+    stockSelectedToken,
+    toToken,
+  ]);
+  const isNative = stockToken?.isNative;
+  const networkId = stockToken?.networkId ?? '';
+  const tokenAddress = stockToken?.contractAddress ?? '';
+  const network = useMemo(
+    () =>
+      networkUtils.getNetworkShortCode({
+        networkId,
+      }) || networkId,
+    [networkId],
+  );
+  const disabled =
+    !stockToken?.symbol || !networkId || (!tokenAddress && !isNative);
+
+  const onOpenStockMarketDetail = useCallback(() => {
+    if (disabled) {
+      return;
+    }
+
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProMarketDetail,
+      params: {
+        tokenAddress,
+        network,
+        isNative,
+        from: EEnterWay.SwapPro,
+        disableTrade: true,
+        showFavoriteButton: false,
+      },
+    });
+  }, [disabled, isNative, navigation, network, tokenAddress]);
+
+  return (
+    <HeaderIconButton
+      testID={SwapTestIDs.kLineButton}
+      icon="TradingViewCandlesOutline"
+      onPress={onOpenStockMarketDetail}
+      disabled={disabled}
+      iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
+      size={buttonSize}
+    />
+  );
+};
+
+// Mobile Swap Pro: the candlestick button lives in the top capsule (consistent
+// with the Swap & Bridge / Stocks tabs). It opens the Pro market detail for the
+// currently selected Pro token — same destination as the old in-body button.
+const SwapProKLineHeaderButton = ({
+  iconSize,
+  iconColor,
+  buttonSize,
+}: {
+  iconSize: number | `$${string}`;
+  iconColor?: ColorTokens;
+  buttonSize: 'small' | 'medium';
+}) => {
+  const navigation = useAppNavigation();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const disabled =
+    !swapProSelectToken?.networkId ||
+    (!swapProSelectToken?.contractAddress && !swapProSelectToken?.isNative);
+
+  const onOpenProMarketDetail = useCallback(() => {
+    if (disabled) {
+      return;
+    }
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProMarketDetail,
+      params: {
+        tokenAddress: swapProSelectToken?.contractAddress ?? '',
+        network: swapProSelectToken?.networkId ?? '',
+        isNative: swapProSelectToken?.isNative,
+        from: EEnterWay.SwapPro,
+        disableTrade: true,
+        showFavoriteButton: false,
+      },
+    });
+  }, [
+    disabled,
+    navigation,
+    swapProSelectToken?.contractAddress,
+    swapProSelectToken?.networkId,
+    swapProSelectToken?.isNative,
+  ]);
+
+  return (
+    <HeaderIconButton
+      testID={SwapTestIDs.kLineButton}
+      icon="TradingViewCandlesOutline"
+      onPress={onOpenProMarketDetail}
+      disabled={disabled}
+      iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
+      size={buttonSize}
+    />
+  );
+};
+
+type ISwapSettingsHeaderButtonProps = {
   pageType?: EPageType;
   iconSize?: number | `$${string}`;
   iconColor?: ColorTokens;
   compact?: boolean;
+  showCustomSlippageValue?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
-}) => {
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const [{ swapHistoryPendingList, swapLimitOrders }] =
-    useInAppNotificationAtom();
+};
+
+export function SwapSettingsHeaderButton({
+  pageType,
+  iconSize,
+  iconColor,
+  compact,
+  showCustomSlippageValue,
+  marketPresetSettings,
+}: ISwapSettingsHeaderButtonProps) {
   const intl = useIntl();
-  const { gtLg } = useMedia();
-  const InTabDialog = useInTabDialog();
-  const InModalDialog = useInModalDialog();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const [fromToken] = useSwapSelectFromTokenAtom();
-  const [toToken] = useSwapSelectToTokenAtom();
   const swapStoreName =
     pageType === EPageType.modal
       ? EJotaiContextStoreNames.swapModal
       : EJotaiContextStoreNames.swap;
-  const swapPendingStatusList = useMemo(
-    () =>
-      filterSwapHistoryPendingList(swapHistoryPendingList).filter(
-        (i) =>
-          !isPrivateSendSwapHistoryItem(i) &&
-          (i.status === ESwapTxHistoryStatus.PENDING ||
-            i.status === ESwapTxHistoryStatus.CANCELING),
-      ),
-    [swapHistoryPendingList],
-  );
-  const limitOpenStatusList = useMemo(
-    () =>
-      swapLimitOrders.filter(
-        (i) =>
-          i.status === ESwapLimitOrderStatus.OPEN ||
-          i.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
-      ),
-    [swapLimitOrders],
-  );
-  const historyBadgeCount =
-    swapPendingStatusList.length + limitOpenStatusList.length;
   const focusSwapPro =
     platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const showSwapProSlippageSetting =
@@ -537,8 +654,11 @@ const SwapHeaderRightActionContainer = ({
     (!marketPresetSettings ||
       (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
   const showHeaderSlippageValue =
-    !compact &&
-    (swapTypeSwitch !== ESwapTabSwitchType.LIMIT || showSwapProSlippageSetting);
+    showCustomSlippageValue ||
+    (!compact &&
+      ((swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+        swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
+        showSwapProSlippageSetting));
   const slippageTitle = useMemo(() => {
     if (!showHeaderSlippageValue) {
       return null;
@@ -559,26 +679,155 @@ const SwapHeaderRightActionContainer = ({
   }, [showHeaderSlippageValue, slippageItem.key, slippageItem.value]);
   const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
   const resolvedButtonSize = compact ? 'small' : 'medium';
+  const onOpenSwapSettings = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.swap_page_settings,
+      }),
+      disableDrag: true,
+      renderContent: (
+        <SwapProviderMirror storeName={swapStoreName}>
+          <SwapSettingsDialogContent
+            marketPresetSettings={marketPresetSettings}
+          />
+        </SwapProviderMirror>
+      ),
+      showConfirmButton: false,
+      showCancelButton: true,
+      onCancelText: intl.formatMessage({
+        id: ETranslations.global_close,
+      }),
+      showFooter: true,
+    });
+  }, [intl, marketPresetSettings, swapStoreName]);
+
+  if (slippageTitle) {
+    return (
+      <XStack
+        testID={SwapTestIDs.settingsButton}
+        onPress={onOpenSwapSettings}
+        borderRadius="$3"
+        bg="$bgSubdued"
+        cursor="pointer"
+        px={compact ? '$1.5' : '$2'}
+        py="$1"
+        gap={compact ? '$0.5' : '$1'}
+        alignItems="center"
+        justifyContent="center"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+      >
+        {slippageTitle}
+        <Icon
+          name="SliderHorOutline"
+          size={resolvedIconSize}
+          color={iconColor ?? '$icon'}
+        />
+      </XStack>
+    );
+  }
+
+  return (
+    <HeaderIconButton
+      testID={SwapTestIDs.settingsButton}
+      icon="SliderHorOutline"
+      onPress={onOpenSwapSettings}
+      iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
+      size={resolvedButtonSize}
+    />
+  );
+}
+
+const SwapHeaderRightActionContainer = ({
+  pageType,
+  iconSize,
+  iconColor,
+  compact,
+  marketPresetSettings,
+}: {
+  pageType?: EPageType;
+  iconSize?: number | `$${string}`;
+  iconColor?: ColorTokens;
+  compact?: boolean;
+  marketPresetSettings?: IMarketPresetSettingsState;
+}) => {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const [
+    { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
+  ] = useInAppNotificationAtom();
+  const intl = useIntl();
+  const { gtLg } = useMedia();
+  const InTabDialog = useInTabDialog();
+  const InModalDialog = useInModalDialog();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
+    useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
+  const swapStoreName =
+    pageType === EPageType.modal
+      ? EJotaiContextStoreNames.swapModal
+      : EJotaiContextStoreNames.swap;
+  const historyProtocolType = useMemo(() => {
+    if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+      return EProtocolOfExchange.STOCK;
+    }
+    if (
+      swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
+      (platformEnv.isNative && swapProTradeType === ESwapProTradeType.MARKET)
+    ) {
+      return EProtocolOfExchange.SWAP;
+    }
+    return EProtocolOfExchange.LIMIT;
+  }, [swapProTradeType, swapTypeSwitch]);
+  const swapPendingStatusList = useMemo(
+    () =>
+      filterSwapMarketHistoryItems({
+        items: filterSwapHistoryPendingList(swapHistoryPendingList),
+        protocol: historyProtocolType,
+      }).filter(
+        (i) =>
+          i.status === ESwapTxHistoryStatus.PENDING ||
+          i.status === ESwapTxHistoryStatus.CANCELING,
+      ),
+    [historyProtocolType, swapHistoryPendingList],
+  );
+  const limitOpenOrderCount = useMemo(
+    () =>
+      shouldShowSwapLimitOrders
+        ? getSwapLimitOpenOrderCount(swapLimitOrders)
+        : 0,
+    [shouldShowSwapLimitOrders, swapLimitOrders],
+  );
+  const historyBadgeCount = shouldShowSwapLocalData
+    ? swapPendingStatusList.length + limitOpenOrderCount
+    : 0;
+  const focusSwapPro =
+    platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+  const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
+  const resolvedButtonSize = compact ? 'small' : 'medium';
+  const isStockType = swapTypeSwitch === ESwapTabSwitchType.STOCK;
   const onOpenHistoryListModal = useCallback(() => {
     dismissKeyboard();
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
       params: {
-        type:
-          swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
-          (platformEnv.isNative &&
-            swapProTradeType === ESwapProTradeType.MARKET)
-            ? EProtocolOfExchange.SWAP
-            : EProtocolOfExchange.LIMIT,
+        type: historyProtocolType,
         storeName: swapStoreName,
       },
     });
-  }, [navigation, swapProTradeType, swapStoreName, swapTypeSwitch]);
+  }, [historyProtocolType, navigation, swapStoreName]);
 
   const showKLineButton =
     swapTypeSwitch === ESwapTabSwitchType.SWAP ||
-    swapTypeSwitch === ESwapTabSwitchType.BRIDGE ||
-    (swapTypeSwitch === ESwapTabSwitchType.LIMIT && !focusSwapPro);
+    swapTypeSwitch === ESwapTabSwitchType.STOCK ||
+    swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const isKLineDisabled = !fromToken && !toToken;
   const showKLineAsDialog =
     platformEnv.isNative || (platformEnv.isExtension && !gtLg);
@@ -641,29 +890,26 @@ const SwapHeaderRightActionContainer = ({
     swapStoreName,
   ]);
 
-  const onOpenSwapSettings = useCallback(() => {
-    Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.swap_page_settings,
-      }),
-      renderContent: (
-        <SwapProviderMirror storeName={swapStoreName}>
-          <SwapSettingsDialogContent
-            marketPresetSettings={marketPresetSettings}
-          />
-        </SwapProviderMirror>
-      ),
-      showConfirmButton: false,
-      showCancelButton: true,
-      onCancelText: intl.formatMessage({
-        id: ETranslations.global_close,
-      }),
-      showFooter: true,
-    });
-  }, [intl, marketPresetSettings, swapStoreName]);
-  return (
-    <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
-      {showKLineButton ? (
+  let kLineButton: ReactNode = null;
+  if (showKLineButton) {
+    if (isStockType) {
+      kLineButton = (
+        <StockKLineHeaderButton
+          iconSize={resolvedIconSize}
+          iconColor={iconColor}
+          buttonSize={resolvedButtonSize}
+        />
+      );
+    } else if (focusSwapPro) {
+      kLineButton = (
+        <SwapProKLineHeaderButton
+          iconSize={resolvedIconSize}
+          iconColor={iconColor}
+          buttonSize={resolvedButtonSize}
+        />
+      );
+    } else {
+      kLineButton = (
         <HeaderIconButton
           testID={SwapTestIDs.kLineButton}
           icon="TradingViewCandlesOutline"
@@ -672,82 +918,71 @@ const SwapHeaderRightActionContainer = ({
           iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
           size={resolvedButtonSize}
         />
-      ) : null}
+      );
+    }
+  }
 
-      {slippageTitle ? (
-        <XStack
-          testID={SwapTestIDs.settingsButton}
-          onPress={onOpenSwapSettings}
-          borderRadius="$3"
-          bg="$bgSubdued"
-          cursor="pointer"
-          px={compact ? '$1.5' : '$2'}
-          py="$1"
-          gap={compact ? '$0.5' : '$1'}
-          alignItems="center"
-          justifyContent="center"
-          hoverStyle={{
-            bg: '$bgHover',
-          }}
-          pressStyle={{
-            bg: '$bgActive',
-          }}
-        >
-          {slippageTitle}
-          <Icon
-            name="SliderHorOutline"
-            size={resolvedIconSize}
-            color={iconColor ?? '$icon'}
-          />
-        </XStack>
-      ) : (
-        <HeaderIconButton
-          testID={SwapTestIDs.settingsButton}
-          icon="SliderHorOutline"
-          onPress={onOpenSwapSettings}
-          iconProps={{ size: resolvedIconSize, color: iconColor }}
-          size={resolvedButtonSize}
+  return (
+    // iOS 26: the three actions share one Liquid Glass capsule (like the Wallet
+    // header's notification/menu capsule). Passthrough off iOS 26 / non-native.
+    <GlassButtonCapsule>
+      <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
+        {kLineButton}
+        <SwapSettingsHeaderButton
+          pageType={pageType}
+          iconSize={iconSize}
+          iconColor={iconColor}
+          compact={compact}
+          marketPresetSettings={marketPresetSettings}
         />
-      )}
 
-      {historyBadgeCount > 0 ? (
-        <Stack
-          m={compact ? '$0' : '$0.5'}
-          w="$5"
-          h="$5"
-          userSelect="none"
-          borderRadius="$full"
-          borderColor="$icon"
-          borderWidth={1.2}
-          alignItems="center"
-          justifyContent="center"
-          hoverStyle={{
-            bg: '$bgHover',
-          }}
-          pressStyle={{
-            bg: '$bgActive',
-          }}
-          focusVisibleStyle={{
-            outlineColor: '$focusRing',
-            outlineWidth: 2,
-            outlineStyle: 'solid',
-            outlineOffset: 0,
-          }}
-          onPress={onOpenHistoryListModal}
-        >
-          <SizableText color="$text" size="$bodySm">
-            {`${historyBadgeCount}`}
-          </SizableText>
-        </Stack>
-      ) : (
-        <HeaderIconButton
-          icon="ClockTimeHistoryOutline"
-          onPress={onOpenHistoryListModal}
-          iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
-          size={resolvedButtonSize}
-        />
-      )}
-    </HeaderButtonGroup>
+        {/* On mobile every tab has its own Order History list, so the global
+            history button is hidden there; keep it on desktop / web / ext. */}
+        {!platformEnv.isNative &&
+          (historyBadgeCount > 0 ? (
+            <Stack
+              testID={SwapTestIDs.historyButton}
+              m={compact ? '$0' : '$0.5'}
+              w="$5"
+              h="$5"
+              userSelect="none"
+              borderRadius="$full"
+              borderColor="$icon"
+              borderWidth={1.2}
+              alignItems="center"
+              justifyContent="center"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              focusVisibleStyle={{
+                outlineColor: '$focusRing',
+                outlineWidth: 2,
+                outlineStyle: 'solid',
+                outlineOffset: 0,
+              }}
+              onPress={onOpenHistoryListModal}
+            >
+              <SizableText color="$text" size="$bodySm">
+                {`${historyBadgeCount}`}
+              </SizableText>
+            </Stack>
+          ) : (
+            <HeaderIconButton
+              testID={SwapTestIDs.historyButton}
+              icon="ClockTimeHistoryOutline"
+              onPress={onOpenHistoryListModal}
+              iconProps={{
+                size: resolvedIconSize,
+                color: iconColor ?? '$icon',
+              }}
+              size={resolvedButtonSize}
+            />
+          ))}
+      </HeaderButtonGroup>
+    </GlassButtonCapsule>
   );
 };
 

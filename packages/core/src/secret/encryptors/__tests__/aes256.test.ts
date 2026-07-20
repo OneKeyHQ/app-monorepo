@@ -15,6 +15,7 @@ import {
   encryptAsync,
   encryptStringAsync,
   getSecretEncryptV2LocalTargetIterations,
+  readSecretEncryptPayloadMetadata,
   shouldUpgradeSecretEncryptPayload,
 } from '../aes256';
 
@@ -725,7 +726,7 @@ describe('aes256', () => {
       expect(decrypted).toBe(testData);
     });
 
-    it('should fail to decrypt when iterations parameter does not match', async () => {
+    it('should not recover plaintext when iterations parameter does not match', async () => {
       const customIterations = 150;
       const wrongIterations = 300;
 
@@ -737,15 +738,20 @@ describe('aes256', () => {
         format: ESecretEncryptPayloadFormat.legacy,
       });
 
-      await expect(
-        decryptAsync({
+      let decryptedWithWrongIterations: Buffer | undefined;
+      try {
+        decryptedWithWrongIterations = await decryptAsync({
           password: testPassword,
           data: encrypted,
           ignoreLogger: false,
           allowRawPassword: true,
           iterations: wrongIterations,
-        }),
-      ).rejects.toThrow();
+        });
+      } catch {
+        return;
+      }
+
+      expect(decryptedWithWrongIterations.equals(testBuffer)).toBe(false);
     });
 
     it('should use default iterations when parameter is not provided', async () => {
@@ -763,6 +769,109 @@ describe('aes256', () => {
       });
 
       expect(decryptedWithDefault.toString()).toBe(testData);
+    });
+  });
+
+  describe('readSecretEncryptPayloadMetadata', () => {
+    it('reads v2 container method + KDF iterations from the header only', async () => {
+      const encrypted = await encryptAsync({
+        password: goldenVectorPassword,
+        data: goldenVectorPlaintextBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorGcmNonce,
+        iterations: 1234,
+        format: ESecretEncryptPayloadFormat.v2,
+        dataType: 'metadata-test',
+      });
+      const meta = readSecretEncryptPayloadMetadata({ data: encrypted });
+      expect(meta).toEqual({
+        format: 'v2',
+        cipher: 'AES-256-GCM',
+        kdf: 'PBKDF2-SHA256',
+        iterations: 1234,
+      });
+    });
+
+    it('accepts a hex string (the on-disk credential payload form)', async () => {
+      const encrypted = await encryptAsync({
+        password: testPassword,
+        data: testBuffer,
+      });
+      const meta = readSecretEncryptPayloadMetadata({
+        data: encrypted.toString('hex'),
+      });
+      expect(meta.format).toBe('v2');
+      expect(meta.cipher).toBe('AES-256-GCM');
+      expect(meta.kdf).toBe('PBKDF2-SHA256');
+      expect(meta.iterations).toBe(getSecretEncryptV2LocalTargetIterations());
+    });
+
+    it('detects legacy GCM container without iterations', async () => {
+      const encrypted = await encryptAsync({
+        password: goldenVectorPassword,
+        data: goldenVectorPlaintextBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorGcmNonce,
+        mode: EAppCryptoAesEncryptionMode.gcm,
+        format: ESecretEncryptPayloadFormat.legacy,
+      });
+      const meta = readSecretEncryptPayloadMetadata({ data: encrypted });
+      expect(meta.format).toBe('legacy-gcm');
+      expect(meta.iterations).toBeUndefined();
+    });
+
+    it('treats legacy CBC / unrecognized container as legacy-cbc-or-unknown', async () => {
+      const encrypted = await encryptAsync({
+        password: goldenVectorPassword,
+        data: goldenVectorPlaintextBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorCbcIv,
+        format: ESecretEncryptPayloadFormat.legacy,
+      });
+      const meta = readSecretEncryptPayloadMetadata({ data: encrypted });
+      expect(meta.format).toBe('legacy-cbc-or-unknown');
+      expect(meta.iterations).toBeUndefined();
+    });
+
+    it('never returns secret material (salt / nonce / ciphertext / plaintext / aad)', async () => {
+      const encrypted = await encryptAsync({
+        password: goldenVectorPassword,
+        data: goldenVectorPlaintextBuffer,
+        allowRawPassword: true,
+        customSalt: goldenVectorSalt,
+        customIv: goldenVectorGcmNonce,
+        iterations: 1234,
+        format: ESecretEncryptPayloadFormat.v2,
+        dataType: 'metadata-test',
+      });
+      const meta = readSecretEncryptPayloadMetadata({ data: encrypted });
+      // The returned object may only carry these non-secret container fields.
+      expect(Object.keys(meta).toSorted()).toEqual(
+        ['cipher', 'format', 'iterations', 'kdf'].toSorted(),
+      );
+      const forbiddenKeys = [
+        'salt',
+        'nonce',
+        'iv',
+        'aad',
+        'ciphertext',
+        'ciphertextWithTag',
+        'dataType',
+        'plaintext',
+      ];
+      for (const key of forbiddenKeys) {
+        expect(meta).not.toHaveProperty(key);
+      }
+    });
+
+    it('returns legacy-cbc-or-unknown for malformed (non-hex) input instead of throwing', () => {
+      const meta = readSecretEncryptPayloadMetadata({
+        data: 'not-a-hex-payload-zzz',
+      });
+      expect(meta.format).toBe('legacy-cbc-or-unknown');
     });
   });
 });

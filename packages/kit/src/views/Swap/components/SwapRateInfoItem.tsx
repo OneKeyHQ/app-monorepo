@@ -11,7 +11,7 @@ const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
 interface ISwapRateInfoItemProps {
-  rate: string;
+  rate?: string;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
 }
@@ -25,8 +25,12 @@ const SwapRateInfoItem = ({
     setRateSwitch((prev) => !prev);
   }, []);
 
+  const rateBN = useMemo(() => new BigNumber(rate ?? ''), [rate]);
+  const isValidRate = rateBN.isFinite() && rateBN.gt(0);
   const rateContent = useMemo(() => {
-    const rateBN = new BigNumber(rate ?? 0);
+    if (!isValidRate) {
+      return '--';
+    }
     const exchangeRate = new BigNumber(1).div(rateBN);
     const formatRate = numberFormat(
       rateSwitch ? exchangeRate.toFixed() : rateBN.toFixed(),
@@ -40,14 +44,14 @@ const SwapRateInfoItem = ({
     return `1 ${fromToken?.symbol ?? ''} = ${formatRate} ${
       toToken?.symbol ?? ''
     }`;
-  }, [fromToken, rate, rateSwitch, toToken]);
+  }, [fromToken, isValidRate, rateBN, rateSwitch, toToken]);
 
   return (
     <XStack
       alignItems="center"
       gap="$2"
-      cursor="pointer"
-      onPress={handleExchangeRate}
+      cursor={isValidRate ? 'pointer' : 'default'}
+      onPress={isValidRate ? handleExchangeRate : undefined}
     >
       <SizableText color="$textSubdued" size="$bodyMd">
         {rateContent}

@@ -15,6 +15,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
@@ -24,10 +25,12 @@ import {
 import EventSource from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { prunePerpsDepositHistoryConfirmationMarkers } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -36,13 +39,26 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
+  getSwapHistoryNetworkIdsToEnrich,
+  normalizeSwapHistoryNetworkInfo,
+} from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
+import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
+  isStockSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import {
+  getDenyBridgeProviderString,
+  getDenySwapProviderString,
+  hasUnifiedCrossChainSwapProviderManagers,
+  mergeDenyProviderStrings,
+} from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
+import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/swapRecentTokenPairsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
@@ -55,7 +71,6 @@ import type {
   ISwapServiceProvider,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
-  maxRecentTokenPairs,
   mevSwapNetworks,
   privateSendFallbackOrderIdPrefix,
   privateSendProvider,
@@ -113,11 +128,14 @@ import {
   filterSwapHistoryPendingList,
   inAppNotificationAtom,
   perpsDepositOrderAtom,
+  settingsPersistAtom,
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import { normalizeSwapTokenListCurrency } from './ServiceSwap.utils';
 import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
+import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
 import {
   isSwapTxHistoryStatusTerminal,
   shouldEmitSwapHistoryBalanceUpdate,
@@ -308,6 +326,13 @@ function isPrivateSendProtocol(protocol?: string) {
   );
 }
 
+function isStockProtocol(protocol?: string) {
+  return (
+    protocol === ESwapTabSwitchType.STOCK ||
+    protocol === EProtocolOfExchange.STOCK
+  );
+}
+
 function getProtocolOfExchangeFromSwapTab(
   protocol?: string,
 ): EProtocolOfExchange {
@@ -319,6 +344,9 @@ function getProtocolOfExchangeFromSwapTab(
   }
   if (isPrivateSendProtocol(protocol)) {
     return EProtocolOfExchange.PRIVATE_SEND;
+  }
+  if (isStockProtocol(protocol)) {
+    return EProtocolOfExchange.STOCK;
   }
   return EProtocolOfExchange.SWAP;
 }
@@ -381,16 +409,79 @@ function getSwapHistoryStateOrderId({
     : undefined;
 }
 
+function getPrivateSendAnalyticsFinalStatus(status: ESwapTxHistoryStatus) {
+  if (
+    status === ESwapTxHistoryStatus.SUCCESS ||
+    status === ESwapTxHistoryStatus.PARTIALLY_FILLED
+  ) {
+    return 'done';
+  }
+  return isSwapTxHistoryStatusTerminal(status) ? 'failed' : undefined;
+}
+
+function getPrivateSendHistoryDurationSeconds(swapTxHistory: ISwapTxHistory) {
+  const createdAt = swapTxHistory.date.created;
+  if (!Number.isFinite(createdAt)) {
+    return undefined;
+  }
+  return Math.max(0, Math.floor((Date.now() - createdAt) / 1000));
+}
+
+function getPrivateSendFinalFailedReason(swapTxHistory: ISwapTxHistory) {
+  const reason = swapTxHistory.extraStatus ?? swapTxHistory.stateDetail;
+  if (reason === undefined || reason === null) {
+    return undefined;
+  }
+  return String(reason);
+}
+
+function trackPrivateSendOrderFinalStatusIfNeeded({
+  isPrivateSendHistory,
+  previousSwapTxHistory,
+  currentSwapTxHistory,
+}: {
+  isPrivateSendHistory: boolean;
+  previousSwapTxHistory: ISwapTxHistory;
+  currentSwapTxHistory: ISwapTxHistory;
+}) {
+  if (
+    !isPrivateSendHistory ||
+    isSwapTxHistoryStatusTerminal(previousSwapTxHistory.status)
+  ) {
+    return;
+  }
+  const finalStatus = getPrivateSendAnalyticsFinalStatus(
+    currentSwapTxHistory.status,
+  );
+  if (!finalStatus) {
+    return;
+  }
+  defaultLogger.transaction.send.sendPrivateOrderFinalStatus({
+    orderId:
+      currentSwapTxHistory.swapInfo.orderId ??
+      currentSwapTxHistory.txInfo.orderId,
+    finalStatus,
+    failedReason:
+      finalStatus === 'failed'
+        ? getPrivateSendFinalFailedReason(currentSwapTxHistory)
+        : undefined,
+    provider: currentSwapTxHistory.swapInfo.provider.provider,
+    network:
+      currentSwapTxHistory.baseInfo.fromToken.networkId ??
+      currentSwapTxHistory.baseInfo.fromNetwork?.networkId,
+    tokenSymbol: currentSwapTxHistory.baseInfo.fromToken.symbol,
+    receivedTokenSymbol: currentSwapTxHistory.baseInfo.toToken.symbol,
+    sendAmount: currentSwapTxHistory.baseInfo.fromAmount,
+    receivedAmount:
+      finalStatus === 'done'
+        ? currentSwapTxHistory.baseInfo.toAmount
+        : undefined,
+    duration: getPrivateSendHistoryDurationSeconds(currentSwapTxHistory),
+  });
+}
+
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
-  private _quoteAbortControllerMap: Partial<
-    Record<EProtocolOfExchange, AbortController | undefined>
-  > = {
-    [EProtocolOfExchange.SWAP]: undefined,
-    [EProtocolOfExchange.LIMIT]: undefined,
-    [EProtocolOfExchange.PRIVATE_SEND]: undefined,
-  };
-
   private _speedSwapQuoteAbortController?: AbortController;
 
   private _checkTokenApproveAllowanceAbortController?: AbortController;
@@ -443,24 +534,13 @@ export default class ServiceSwap extends ServiceBase {
 
   private speedSwapApprovingIntervalCount = 0;
 
+  private _swapHistoryNetworkRepairPromise?: Promise<ISwapTxHistory[]>;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
   // --------------------- fetch
-  @backgroundMethod()
-  async cancelFetchQuotes(
-    protocol:
-      | ESwapTabSwitchType
-      | EProtocolOfExchange = ESwapTabSwitchType.SWAP,
-  ) {
-    const abortControllerKey = getProtocolOfExchangeFromSwapTab(protocol);
-    if (this._quoteAbortControllerMap[abortControllerKey]) {
-      this._quoteAbortControllerMap[abortControllerKey]?.abort();
-      this._quoteAbortControllerMap[abortControllerKey] = undefined;
-    }
-  }
-
   @backgroundMethod()
   async cancelCheckTokenApproveAllowance() {
     if (this._checkTokenApproveAllowanceAbortController) {
@@ -569,6 +649,7 @@ export default class ServiceSwap extends ServiceBase {
             supportSingleSwap: network.supportSingleSwap,
             supportLimit: network.supportLimit,
             supportPrivateSend: network.supportPrivateSend,
+            supportStock: network.supportStock,
           };
         }
         return null;
@@ -589,19 +670,19 @@ export default class ServiceSwap extends ServiceBase {
     isAllNetworkFetchAccountTokens,
     protocol,
     lpToken,
+    currency,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
     if (!isAllNetworkFetchAccountTokens) {
       await this.cancelFetchTokenList();
     }
     const targetNetworkId = networkId ?? getNetworkIdsMap().onekeyall;
+    const requestProtocol = getProtocolOfExchangeFromSwapTab(protocol);
     const params: IFetchTokenListParams = {
-      protocol: getProtocolOfExchangeFromSwapTab(protocol),
+      protocol: requestProtocol,
       networkId: targetNetworkId,
       keywords,
       limit,
-      accountAddress: !networkUtils.isAllNetwork({
-        networkId: targetNetworkId,
-      })
+      accountAddress: !networkUtils.isAllNetwork({ networkId: targetNetworkId })
         ? accountAddress
         : undefined,
       accountNetworkId,
@@ -613,7 +694,18 @@ export default class ServiceSwap extends ServiceBase {
       this._tokenListAbortController = new AbortController();
     }
     const client = await this.getClient(EServiceEndpointEnum.Swap);
-    if (accountId && accountAddress && networkId) {
+    const requestCurrency =
+      currency ??
+      (await settingsPersistAtom.get())?.currencyInfo?.id ??
+      USD_CURRENCY_ID;
+    if (
+      accountId &&
+      accountAddress &&
+      networkId &&
+      !networkUtils.isAllNetwork({
+        networkId,
+      })
+    ) {
       try {
         const accountAddressForAccountId =
           await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -631,23 +723,27 @@ export default class ServiceSwap extends ServiceBase {
           // endpoint treats accountAddress as optional and should not receive
           // another network's address.
           params.accountAddress = undefined;
+          params.accountNetworkId = undefined;
+          params.accountXpub = undefined;
         }
       } catch (e) {
         console.error(e);
       }
 
-      const inscriptionProtection =
-        await this.backgroundApi.serviceSetting.getInscriptionProtection();
-      const checkInscriptionProtectionEnabled =
-        await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
-          {
-            networkId,
-            accountId,
-          },
-        );
-      const withCheckInscription =
-        checkInscriptionProtectionEnabled && inscriptionProtection;
-      params.withCheckInscription = withCheckInscription;
+      if (requestProtocol !== EProtocolOfExchange.STOCK) {
+        const inscriptionProtection =
+          await this.backgroundApi.serviceSetting.getInscriptionProtection();
+        const checkInscriptionProtectionEnabled =
+          await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+            {
+              networkId,
+              accountId,
+            },
+          );
+        const withCheckInscription =
+          checkInscriptionProtectionEnabled && inscriptionProtection;
+        params.withCheckInscription = withCheckInscription;
+      }
     }
     try {
       const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
@@ -657,15 +753,20 @@ export default class ServiceSwap extends ServiceBase {
           signal: !isAllNetworkFetchAccountTokens
             ? this._tokenListAbortController?.signal
             : undefined,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+          headers: {
+            ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
                 accountId,
               },
-            ),
+            )),
+            'x-onekey-request-currency': requestCurrency,
+          },
         },
       );
-      return data?.data ?? [];
+      return normalizeSwapTokenListCurrency({
+        tokens: data?.data ?? [],
+        currency: requestCurrency,
+      });
     } catch (e) {
       if (axios.isCancel(e)) {
         // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
@@ -697,6 +798,7 @@ export default class ServiceSwap extends ServiceBase {
     const accountIdKey =
       indexedAccountId ?? otherWalletTypeAccountId ?? 'noAccountId';
     let swapSupportAccounts: IAllNetworkAccountInfo[] = [];
+    let supportAccountsFetchFailed = false;
     if (indexedAccountId || otherWalletTypeAccountId) {
       try {
         const allNetAccountId = indexedAccountId
@@ -764,10 +866,11 @@ export default class ServiceSwap extends ServiceBase {
           );
         });
       } catch (e) {
+        supportAccountsFetchFailed = true;
         console.error(e);
       }
     }
-    return { accountIdKey, swapSupportAccounts };
+    return { accountIdKey, swapSupportAccounts, supportAccountsFetchFailed };
   }
 
   @backgroundMethod()
@@ -861,128 +964,6 @@ export default class ServiceSwap extends ServiceBase {
       console.error(e);
       return [];
     }
-  }
-
-  @backgroundMethod()
-  async fetchQuotes({
-    fromToken,
-    toToken,
-    fromTokenAmount,
-    userAddress,
-    slippagePercentage,
-    autoSlippage,
-    blockNumber,
-    receivingAddress,
-    incognito,
-    accountId,
-    protocol,
-    expirationTime,
-    limitPartiallyFillable,
-    kind,
-    toTokenAmount,
-    userMarketPriceRate,
-  }: {
-    fromToken: ISwapToken;
-    toToken: ISwapToken;
-    fromTokenAmount?: string;
-    userAddress?: string;
-    slippagePercentage: number;
-    autoSlippage?: boolean;
-    receivingAddress?: string;
-    incognito?: boolean;
-    blockNumber?: number;
-    accountId?: string;
-    expirationTime?: number;
-    protocol: ESwapTabSwitchType;
-    limitPartiallyFillable?: boolean;
-    kind?: ESwapQuoteKind;
-    toTokenAmount?: string;
-    userMarketPriceRate?: string;
-  }): Promise<IFetchQuoteResult[]> {
-    await this.cancelFetchQuotes(protocol);
-    const denyCrossChainProvider = await this.getDenyCrossChainProvider(
-      fromToken.networkId,
-      toToken.networkId,
-    );
-    const denySingleSwapProvider = await this.getDenySingleSwapProvider(
-      fromToken.networkId,
-      toToken.networkId,
-    );
-    const walletDevice =
-      await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
-        accountId: accountId ?? '',
-      });
-    const params: IFetchQuotesParams = {
-      fromTokenAddress: fromToken.contractAddress,
-      toTokenAddress: toToken.contractAddress,
-      fromTokenAmount,
-      fromNetworkId: fromToken.networkId,
-      toNetworkId: toToken.networkId,
-      protocol: getProtocolOfExchangeFromSwapTab(protocol),
-      userAddress,
-      slippagePercentage,
-      autoSlippage,
-      blockNumber,
-      receivingAddress,
-      expirationTime,
-      limitPartiallyFillable,
-      kind,
-      toTokenAmount,
-      userMarketPriceRate,
-      denyCrossChainProvider,
-      denySingleSwapProvider,
-      walletDeviceType: walletDevice?.deviceType,
-      ...(incognito ? { incognito } : {}),
-    };
-    const quoteAbortControllerKey = getProtocolOfExchangeFromSwapTab(protocol);
-    const quoteAbortController = new AbortController();
-    this._quoteAbortControllerMap[quoteAbortControllerKey] =
-      quoteAbortController;
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const fetchUrl = '/swap/v1/quote';
-    try {
-      const { data } = await client.get<IFetchResponse<IFetchQuoteResult[]>>(
-        fetchUrl,
-        {
-          params,
-          signal: quoteAbortController.signal,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-              {
-                accountId,
-              },
-            ),
-        },
-      );
-
-      if (data?.code === 0 && data?.data?.length) {
-        return data?.data;
-      }
-    } catch (e) {
-      if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
-        throw new Error('swap fetch quote cancel', {
-          cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
-        });
-      }
-      if (isPrivateSendProtocol(protocol)) {
-        throw e;
-      }
-    } finally {
-      if (
-        this._quoteAbortControllerMap[quoteAbortControllerKey] ===
-        quoteAbortController
-      ) {
-        this._quoteAbortControllerMap[quoteAbortControllerKey] = undefined;
-      }
-    }
-    return [
-      {
-        info: { provider: '', providerName: '' },
-        fromTokenInfo: fromToken,
-        toTokenInfo: toToken,
-      },
-    ]; //  no support providers
   }
 
   @backgroundMethod()
@@ -1187,12 +1168,18 @@ export default class ServiceSwap extends ServiceBase {
     if (fromNetworkId === toNetworkId) {
       return undefined;
     }
-    const { bridgeProviderManager } = await inAppNotificationAtom.get();
-    const denyBridges = bridgeProviderManager.filter((item) => !item.enable);
-    if (!denyBridges?.length) {
-      return undefined;
-    }
-    return denyBridges.map((item) => item.providerInfo.provider).join(',');
+    const { swapProviderManager, bridgeProviderManager } =
+      await inAppNotificationAtom.get();
+    return mergeDenyProviderStrings(
+      getDenySwapProviderString({
+        providerManagers: swapProviderManager,
+        fromNetworkId,
+        toNetworkId,
+      }),
+      getDenyBridgeProviderString({
+        providerManagers: bridgeProviderManager,
+      }),
+    );
   }
 
   async getDenySingleSwapProvider(fromNetworkId: string, toNetworkId: string) {
@@ -1200,27 +1187,11 @@ export default class ServiceSwap extends ServiceBase {
       return undefined;
     }
     const { swapProviderManager } = await inAppNotificationAtom.get();
-    const denyDexs = swapProviderManager.filter((item) => !item.enable);
-    let denyDexArr = denyDexs?.map((item) => item.providerInfo.provider);
-    const denyDexNetworks = swapProviderManager.filter((item) => {
-      if (item.enable) {
-        const netDisEnable = item.disableNetworks?.find(
-          (net) => net.networkId === fromNetworkId,
-        );
-        if (netDisEnable) {
-          return true;
-        }
-        return false;
-      }
-      return false;
+    return getDenySwapProviderString({
+      providerManagers: swapProviderManager,
+      fromNetworkId,
+      toNetworkId,
     });
-    if (denyDexNetworks?.length) {
-      denyDexArr = [
-        ...(denyDexArr ?? []),
-        ...denyDexNetworks.map((item) => item.providerInfo.provider),
-      ];
-    }
-    return denyDexArr?.join(',');
   }
 
   @backgroundMethod()
@@ -1386,11 +1357,11 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async checkSupportSwap({ networkId }: { networkId: string }) {
-    return this.checkSupportSwapMemo({ networkId });
+    return this.checkSupportSwapMemo(networkId);
   }
 
   checkSupportSwapMemo = memoizee(
-    async ({ networkId }: { networkId: string }) => {
+    async (networkId: string) => {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const resp = await client.get<{
         data: ISwapCheckSupportResponse[];
@@ -1501,13 +1472,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async fetchSwapNativeTokenConfig({ networkId }: { networkId: string }) {
     try {
-      const client = await this.getClient(EServiceEndpointEnum.Swap);
-      const resp = await client.get<{
-        data: ISwapNativeTokenConfig;
-      }>(`/swap/v1/native-token-config`, {
-        params: { networkId },
-      });
-      return resp.data.data;
+      return await this.fetchSwapNativeTokenConfigMemo(networkId);
     } catch (e) {
       console.error(e);
       return {
@@ -1516,6 +1481,24 @@ export default class ServiceSwap extends ServiceBase {
       };
     }
   }
+
+  fetchSwapNativeTokenConfigMemo = memoizee(
+    async (networkId: string) => {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const resp = await client.get<{
+        data: ISwapNativeTokenConfig;
+      }>(`/swap/v1/native-token-config`, {
+        params: { networkId },
+      });
+      return resp.data.data;
+    },
+    {
+      max: 50,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      promise: true,
+      primitive: true,
+    },
+  );
 
   // swap approving transaction
   @backgroundMethod()
@@ -1583,7 +1566,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async updateSwapProviderManager(
     data: ISwapProviderManager[],
-    isBridge: boolean,
+    isBridge?: boolean,
   ) {
     if (isBridge) {
       await this.backgroundApi.simpleDb.swapConfigs.setBridgeProviderManager(
@@ -1593,15 +1576,24 @@ export default class ServiceSwap extends ServiceBase {
         ...pre,
         bridgeProviderManager: data,
       }));
-    } else {
-      await this.backgroundApi.simpleDb.swapConfigs.setSwapProviderManager(
-        data,
-      );
-      await inAppNotificationAtom.set((pre) => ({
-        ...pre,
-        swapProviderManager: data,
-      }));
+      return;
     }
+    const shouldClearLegacyBridgeProviderManager =
+      hasUnifiedCrossChainSwapProviderManagers(data);
+
+    await this.backgroundApi.simpleDb.swapConfigs.setSwapProviderManager(data);
+    if (shouldClearLegacyBridgeProviderManager) {
+      await this.backgroundApi.simpleDb.swapConfigs.setBridgeProviderManager(
+        [],
+      );
+    }
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapProviderManager: data,
+      ...(shouldClearLegacyBridgeProviderManager
+        ? { bridgeProviderManager: [] }
+        : undefined),
+    }));
   }
 
   @backgroundMethod()
@@ -1787,10 +1779,74 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   // --- swap history
+  private async fetchSwapHistoryNetworks(
+    networkIds: string[],
+  ): Promise<IServerNetwork[]> {
+    if (!networkIds.length) {
+      return [];
+    }
+    try {
+      const { networks } =
+        await this.backgroundApi.serviceNetwork.getNetworksByIds({
+          networkIds,
+        });
+      return networks;
+    } catch (_error) {
+      // History persistence must not fail when the server-network registry is
+      // temporarily unavailable. Canonical IDs are retained and retried later.
+      return [];
+    }
+  }
+
+  private async enrichSwapHistoryItemNetworkInfo(
+    item: ISwapTxHistory,
+  ): Promise<ISwapTxHistory> {
+    const networkIds = getSwapHistoryNetworkIdsToEnrich([item]);
+    if (!networkIds.length) {
+      return item;
+    }
+    const networks = await this.fetchSwapHistoryNetworks(networkIds);
+    return (
+      normalizeSwapHistoryNetworkInfo({ histories: [item], networks })
+        .histories[0] ?? item
+    );
+  }
+
+  private async repairSwapHistoryNetworkInfo(): Promise<ISwapTxHistory[]> {
+    if (this._swapHistoryNetworkRepairPromise) {
+      return this._swapHistoryNetworkRepairPromise;
+    }
+
+    const repairPromise = (async () => {
+      const histories =
+        await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+      const networkIds = getSwapHistoryNetworkIdsToEnrich(histories);
+      if (!networkIds.length) {
+        return histories;
+      }
+      const networks = await this.fetchSwapHistoryNetworks(networkIds);
+      const repaired =
+        await this.backgroundApi.simpleDb.swapHistory.repairSwapHistoryNetworkInfo(
+          networks,
+        );
+      if (repaired.changed) {
+        appEventBus.emit(EAppEventBusNames.RefreshSwapHistoryList, undefined);
+      }
+      return repaired.histories;
+    })();
+    this._swapHistoryNetworkRepairPromise = repairPromise;
+    try {
+      return await repairPromise;
+    } finally {
+      if (this._swapHistoryNetworkRepairPromise === repairPromise) {
+        this._swapHistoryNetworkRepairPromise = undefined;
+      }
+    }
+  }
+
   @backgroundMethod()
   async fetchSwapHistoryListFromSimple() {
-    const histories =
-      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+    const histories = await this.repairSwapHistoryNetworkInfo();
     return histories.toSorted((a, b) => b.date.created - a.date.created);
   }
 
@@ -1855,6 +1911,32 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async markAllSwapHistoryPreviewRead() {
+    await this.backgroundApi.simpleDb.swapHistory.markUnreadTerminalPreviewRead(
+      Date.now(),
+    );
+    // Re-derive the pending atom so subscribed UIs re-read the persisted list
+    // (newly-read terminal items drop out of the preview).
+    await this.syncSwapHistoryPendingList();
+  }
+
+  @backgroundMethod()
+  async seedSwapHistoryPreviewReadIfNeeded() {
+    await this.repairSwapHistoryNetworkInfo();
+    const seeded =
+      await this.backgroundApi.simpleDb.swapHistory.seedPreviewReadIfNeeded(
+        Date.now(),
+      );
+    if (seeded) {
+      // Re-derive the pending atom (same invalidation as
+      // markAllSwapHistoryPreviewRead) so a foreground that already read the
+      // pre-seed history re-reads it and drops the now-read legacy terminal
+      // items from the preview, instead of keeping them for the whole session.
+      await this.syncSwapHistoryPendingList();
+    }
+  }
+
+  @backgroundMethod()
   async refreshSwapHistoryPendingStatusOnce() {
     const histories = await this.fetchSwapHistoryListFromSimple();
     const pendingHistories = histories.filter((history) =>
@@ -1881,25 +1963,27 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async getSwapHistoryByTxId({ txId }: { txId: string }) {
-    const history =
-      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryByTxId(txId);
-    return history;
+    const histories = await this.repairSwapHistoryNetworkInfo();
+    return histories.find((item) => item.txInfo.txId === txId);
   }
 
   @backgroundMethod()
   async addSwapHistoryItem(item: ISwapTxHistory) {
-    await this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(item);
+    const enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
+    await this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(
+      enrichedItem,
+    );
     await inAppNotificationAtom.set((pre) => {
       const filteredList = filterSwapHistoryPendingList(
         pre.swapHistoryPendingList,
       );
       const matchFn = (i: ISwapTxHistory) =>
-        this.isSameSwapHistoryItem(i, item);
+        this.isSameSwapHistoryItem(i, enrichedItem);
       const unmatchedList = filteredList.filter((i) => !matchFn(i));
-      if (this.isSwapHistoryPendingStatus(item)) {
+      if (this.isSwapHistoryPendingStatus(enrichedItem)) {
         return {
           ...pre,
-          swapHistoryPendingList: [...unmatchedList, item],
+          swapHistoryPendingList: [...unmatchedList, enrichedItem],
         };
       }
       const matchedInPendingList = filteredList.some(matchFn);
@@ -1907,7 +1991,7 @@ export default class ServiceSwap extends ServiceBase {
         return {
           ...pre,
           swapHistoryPendingList: filteredList.map((i) =>
-            matchFn(i) ? item : i,
+            matchFn(i) ? enrichedItem : i,
           ),
         };
       }
@@ -1919,8 +2003,8 @@ export default class ServiceSwap extends ServiceBase {
       return pre;
     });
     if (
-      isPrivateSendSwapHistoryItem(item) &&
-      !this.isSwapHistoryPendingStatus(item)
+      isPrivateSendSwapHistoryItem(enrichedItem) &&
+      !this.isSwapHistoryPendingStatus(enrichedItem)
     ) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }
@@ -1942,12 +2026,12 @@ export default class ServiceSwap extends ServiceBase {
     ).find((item) => item.txInfo.txId === oldTxId);
     if (oldHistoryItem) {
       const updated = Date.now();
-      const newHistoryItem = {
+      const newHistoryItem = await this.enrichSwapHistoryItemNetworkInfo({
         ...oldHistoryItem,
         date: { ...oldHistoryItem.date, updated },
         txInfo: { ...oldHistoryItem.txInfo, txId: newTxId },
         status,
-      };
+      });
       await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
         newHistoryItem,
         oldTxId,
@@ -1986,43 +2070,46 @@ export default class ServiceSwap extends ServiceBase {
     const oldItem = filteredList.find(matchFn);
     const updated = Date.now();
     item.date = { ...item.date, updated };
+    if (
+      oldItem?.status === ESwapTxHistoryStatus.CANCELING &&
+      item.status === ESwapTxHistoryStatus.SUCCESS
+    ) {
+      // Status polling reads the caller object after this method resolves, so
+      // preserve the original in-place cancellation reconciliation contract.
+      item.status = ESwapTxHistoryStatus.CANCELED;
+    }
+    const enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
     if (oldItem) {
       if (
-        oldItem.status === ESwapTxHistoryStatus.CANCELING &&
-        item.status === ESwapTxHistoryStatus.SUCCESS
-      ) {
-        item.status = ESwapTxHistoryStatus.CANCELED;
-      }
-      if (
-        item.txInfo.receiverTransactionId &&
+        enrichedItem.txInfo.receiverTransactionId &&
         !this._crossChainReceiveTxBlockNotificationMap[
-          item.txInfo.receiverTransactionId
+          enrichedItem.txInfo.receiverTransactionId
         ]
       ) {
         void this.backgroundApi.serviceNotification.blockNotificationForTxId({
-          networkId: item.baseInfo.toToken.networkId,
-          tx: item.txInfo.receiverTransactionId,
+          networkId: enrichedItem.baseInfo.toToken.networkId,
+          tx: enrichedItem.txInfo.receiverTransactionId,
         });
         this._crossChainReceiveTxBlockNotificationMap[
-          item.txInfo.receiverTransactionId
+          enrichedItem.txInfo.receiverTransactionId
         ] = true;
       }
       await inAppNotificationAtom.set((pre) => {
         const newPendingList = filterSwapHistoryPendingList(
           pre.swapHistoryPendingList,
-        ).map((i) => (matchFn(i) ? item : i));
+        ).map((i) => (matchFn(i) ? enrichedItem : i));
         return {
           ...pre,
           swapHistoryPendingList: newPendingList,
         };
       });
-      const isPrivateSendHistory = isPrivateSendSwapHistoryItem(item);
+      const isPrivateSendHistory = isPrivateSendSwapHistoryItem(enrichedItem);
       const isSuccessStatus =
-        item.status === ESwapTxHistoryStatus.SUCCESS ||
-        item.status === ESwapTxHistoryStatus.PARTIALLY_FILLED;
+        enrichedItem.status === ESwapTxHistoryStatus.SUCCESS ||
+        enrichedItem.status === ESwapTxHistoryStatus.PARTIALLY_FILLED;
       if (
         shouldShowToast &&
-        item.status !== ESwapTxHistoryStatus.PENDING &&
+        enrichedItem.status !== ESwapTxHistoryStatus.PENDING &&
         (!isPrivateSendHistory || isSuccessStatus)
       ) {
         let toastTitleId = ETranslations.swap_page_toast_swap_failed;
@@ -2031,13 +2118,13 @@ export default class ServiceSwap extends ServiceBase {
             ? ETranslations.private_send_success
             : ETranslations.swap_page_toast_swap_successful;
         }
-        let fromAmountFinal = item.baseInfo.fromAmount;
-        if (item.swapInfo.otherFeeInfos?.length) {
-          item.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
+        let fromAmountFinal = enrichedItem.baseInfo.fromAmount;
+        if (enrichedItem.swapInfo.otherFeeInfos?.length) {
+          enrichedItem.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
             if (
               equalTokenNoCaseSensitive({
                 token1: extraFeeInfo.token,
-                token2: item.baseInfo.fromToken,
+                token2: enrichedItem.baseInfo.fromToken,
               })
             ) {
               fromAmountFinal = new BigNumber(fromAmountFinal)
@@ -2051,16 +2138,18 @@ export default class ServiceSwap extends ServiceBase {
           title: appLocale.intl.formatMessage({
             id: toastTitleId,
           }),
-          message: `${numberFormat(item.baseInfo.fromAmount, formatter)} ${
-            item.baseInfo.fromToken.symbol
-          } → ${numberFormat(item.baseInfo.toAmount, formatter)} ${
-            item.baseInfo.toToken.symbol
+          message: `${numberFormat(enrichedItem.baseInfo.fromAmount, formatter)} ${
+            enrichedItem.baseInfo.fromToken.symbol
+          } → ${numberFormat(enrichedItem.baseInfo.toAmount, formatter)} ${
+            enrichedItem.baseInfo.toToken.symbol
           }`,
         });
       }
     }
-    await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
-    if (isPrivateSendSwapHistoryItem(item)) {
+    await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+      enrichedItem,
+    );
+    if (isPrivateSendSwapHistoryItem(enrichedItem)) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }
   }
@@ -2070,6 +2159,12 @@ export default class ServiceSwap extends ServiceBase {
     statuses?: ESwapTxHistoryStatus[],
     options?: {
       excludeProtocols?: EProtocolOfExchange[];
+      // Keep stock trades (the Swap/Bridge tab hides them via the token-level
+      // isStock flag, so clearing it must not delete stock orders).
+      excludeStock?: boolean;
+      // Mirror of excludeStock for the Stock history surface: only clear stock
+      // trades, keeping everything the Swap/Bridge list owns.
+      onlyStock?: boolean;
     },
   ) {
     await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
@@ -2087,6 +2182,12 @@ export default class ServiceSwap extends ServiceBase {
             excludeProtocols: options?.excludeProtocols,
           })
         ) {
+          return false;
+        }
+        if (options?.excludeStock && isStockSwapHistoryItem(item)) {
+          return false;
+        }
+        if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
           return false;
         }
         return statuses ? statuses.includes(item.status) : true;
@@ -2107,12 +2208,22 @@ export default class ServiceSwap extends ServiceBase {
         ) {
           return true;
         }
+        if (options?.excludeStock && isStockSwapHistoryItem(item)) {
+          return true;
+        }
+        if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
+          return true;
+        }
         return statuses ? !statuses.includes(item.status) : false;
       }),
     }));
     await Promise.all(
       deleteHistoryIds.map((id) => this.cleanHistoryStateIntervals(id)),
     );
+    // The history list refreshes off the pending-status key, which does not
+    // change when only finished orders are removed. Signal list views to
+    // re-fetch so a clear is reflected immediately instead of leaving stale rows.
+    appEventBus.emit(EAppEventBusNames.RefreshSwapHistoryList, undefined);
   }
 
   @backgroundMethod()
@@ -2136,6 +2247,11 @@ export default class ServiceSwap extends ServiceBase {
       ),
     }));
     await this.cleanHistoryStateIntervals(deleteHistoryId);
+    // Deleting a finished order does not change the pending-status key the list
+    // refreshes off, so signal list views to re-fetch (same reason as the
+    // batch clean above) — otherwise the deleted row lingers until a pending
+    // order transitions.
+    appEventBus.emit(EAppEventBusNames.RefreshSwapHistoryList, undefined);
   }
 
   @backgroundMethod()
@@ -2196,10 +2312,7 @@ export default class ServiceSwap extends ServiceBase {
       isPrivateSendHistory,
     });
     return this.fetchTxState({
-      txId:
-        currentSwapTxHistory.txInfo.txId ??
-        currentSwapTxHistory.txInfo.orderId ??
-        '',
+      txId: getSwapHistoryStateTxIdParam(currentSwapTxHistory),
       provider: currentSwapTxHistory.swapInfo.provider.provider,
       protocol:
         currentSwapTxHistory.protocol ??
@@ -2348,6 +2461,11 @@ export default class ServiceSwap extends ServiceBase {
           shouldShowToast,
         });
         const finalStatus = currentSwapTxHistory.status;
+        trackPrivateSendOrderFinalStatusIfNeeded({
+          isPrivateSendHistory,
+          previousSwapTxHistory,
+          currentSwapTxHistory,
+        });
         if (
           finalStatus === ESwapTxHistoryStatus.FAILED ||
           finalStatus === ESwapTxHistoryStatus.CANCELED
@@ -2540,31 +2658,13 @@ export default class ServiceSwap extends ServiceBase {
       networkLogoURI: toToken.networkLogoURI,
       isNative: toToken.isNative,
     };
-    let newRecentTokenPairs = [
+    const newRecentTokenPairs = capRecentTokenPairsPreservingOrder([
       {
         fromToken: fromTokenBaseInfo,
         toToken: toTokenBaseInfo,
       },
       ...recentTokenPairs,
-    ];
-
-    let singleChainTokenPairs = newRecentTokenPairs.filter(
-      (t) => t.fromToken.networkId === t.toToken.networkId,
-    );
-    let crossChainTokenPairs = newRecentTokenPairs.filter(
-      (t) => t.fromToken.networkId !== t.toToken.networkId,
-    );
-
-    if (singleChainTokenPairs.length > maxRecentTokenPairs) {
-      singleChainTokenPairs = singleChainTokenPairs.slice(
-        0,
-        maxRecentTokenPairs,
-      );
-    }
-    if (crossChainTokenPairs.length > maxRecentTokenPairs) {
-      crossChainTokenPairs = crossChainTokenPairs.slice(0, maxRecentTokenPairs);
-    }
-    newRecentTokenPairs = [...singleChainTokenPairs, ...crossChainTokenPairs];
+    ]);
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapRecentTokenPairs: newRecentTokenPairs,
@@ -2730,11 +2830,27 @@ export default class ServiceSwap extends ServiceBase {
     const swapLimitSupportNetworks = swapSupportNetworks.filter(
       (item) => item.supportLimit,
     );
-    const { swapSupportAccounts } = await this.getSupportSwapAllAccounts({
-      indexedAccountId,
-      otherWalletTypeAccountId,
-      swapSupportNetworks: swapLimitSupportNetworks,
-    });
+    const { accountIdKey, swapSupportAccounts, supportAccountsFetchFailed } =
+      await this.getSupportSwapAllAccounts({
+        indexedAccountId,
+        otherWalletTypeAccountId,
+        swapSupportNetworks: swapLimitSupportNetworks,
+      });
+    if (supportAccountsFetchFailed) {
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapLimitOrdersLoading: false,
+      }));
+      this.limitOrderStateInterval = setTimeout(() => {
+        void this.swapLimitOrdersFetchLoop(
+          indexedAccountId,
+          otherWalletTypeAccountId,
+          false,
+          true,
+        );
+      }, ESwapLimitOrderUpdateInterval);
+      return;
+    }
     if (swapSupportAccounts.length > 0) {
       const { swapLimitOrders } = await inAppNotificationAtom.get();
       if (
@@ -2755,12 +2871,12 @@ export default class ServiceSwap extends ServiceBase {
       );
       let res: IFetchLimitOrderRes[] = [];
       try {
-        if (
+        const shouldFetchLimitOrders =
           !swapLimitOrders.length ||
           isFetchNewOrder ||
           !sameAccount ||
-          openOrders.length
-        ) {
+          openOrders.length;
+        if (shouldFetchLimitOrders) {
           const accounts = swapSupportAccounts.map((account) => ({
             userAddress: account.apiAddress,
             networkId: account.networkId,
@@ -2788,12 +2904,14 @@ export default class ServiceSwap extends ServiceBase {
                 ...pre,
                 swapLimitOrders: [...newList],
                 swapLimitOrdersLoading: false,
+                swapLimitOrdersAccountIdKey: accountIdKey,
               };
             }
             return {
               ...pre,
               swapLimitOrdersLoading: false,
               swapLimitOrders: [...res],
+              swapLimitOrdersAccountIdKey: accountIdKey,
             };
           });
           if (res.find((item) => item.status === ESwapLimitOrderStatus.OPEN)) {
@@ -2806,6 +2924,12 @@ export default class ServiceSwap extends ServiceBase {
               );
             }, ESwapLimitOrderUpdateInterval);
           }
+        } else {
+          await inAppNotificationAtom.set((pre) => ({
+            ...pre,
+            swapLimitOrdersLoading: false,
+            swapLimitOrdersAccountIdKey: accountIdKey,
+          }));
         }
       } catch (_error) {
         this.limitOrderStateInterval = setTimeout(() => {
@@ -2822,6 +2946,13 @@ export default class ServiceSwap extends ServiceBase {
           swapLimitOrdersLoading: false,
         }));
       }
+    } else {
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapLimitOrders: [],
+        swapLimitOrdersLoading: false,
+        swapLimitOrdersAccountIdKey: accountIdKey,
+      }));
     }
   }
 
@@ -3114,8 +3245,12 @@ export default class ServiceSwap extends ServiceBase {
       if (data?.code === 0 && data?.data?.length) {
         return data.data[0];
       }
+      if (data?.code !== 0 && data?.message) {
+        throw new OneKeyError(data.message);
+      }
     } catch (e) {
       console.error('fetchSpeedMarketQuote error', e);
+      throw e;
     }
     return undefined;
   }
@@ -3315,6 +3450,7 @@ export default class ServiceSwap extends ServiceBase {
         },
       });
       if (data?.data) {
+        const now = Date.now();
         const perpDepositOrder = await perpsDepositOrderAtom.get();
         const findTxidOrder = perpDepositOrder.orders.find(
           (item) => item.fromTxId === params.txId,
@@ -3324,9 +3460,14 @@ export default class ServiceSwap extends ServiceBase {
             (item) => item.fromTxId !== params.txId,
           );
           if (data?.data.state === ESwapTxHistoryStatus.SUCCESS) {
-            findTxidOrder.status = ESwapTxHistoryStatus.SUCCESS;
+            const successOrder = {
+              ...findTxidOrder,
+              status: ESwapTxHistoryStatus.SUCCESS,
+              time: now,
+              keepForHistoryConfirmation: true,
+            };
             if (!params.isArbUSDCToken) {
-              findTxidOrder.toTxId = data?.data.swapOrderHash?.toTxHash;
+              successOrder.toTxId = data?.data.swapOrderHash?.toTxHash;
             }
             void this.backgroundApi.serviceApp.showToast({
               method: 'success',
@@ -3345,7 +3486,10 @@ export default class ServiceSwap extends ServiceBase {
             });
             await perpsDepositOrderAtom.set((prev) => ({
               ...prev,
-              orders: [...filteredPerpDepositOrder],
+              orders: prunePerpsDepositHistoryConfirmationMarkers(
+                [...filteredPerpDepositOrder, successOrder],
+                now,
+              ),
             }));
           } else if (
             data?.data.state === ESwapTxHistoryStatus.FAILED ||
@@ -3371,7 +3515,10 @@ export default class ServiceSwap extends ServiceBase {
             });
             await perpsDepositOrderAtom.set((prev) => ({
               ...prev,
-              orders: [...filteredPerpDepositOrder],
+              orders: prunePerpsDepositHistoryConfirmationMarkers(
+                filteredPerpDepositOrder,
+                now,
+              ),
             }));
           }
         }
@@ -3392,7 +3539,18 @@ export default class ServiceSwap extends ServiceBase {
     }
     const { accountId, indexedAccountId } = params;
     const perpDepositOrder = await perpsDepositOrderAtom.get();
-    const filteredPerpDepositOrder = perpDepositOrder.orders.filter((item) => {
+    const now = Date.now();
+    const prunedPerpDepositOrders = prunePerpsDepositHistoryConfirmationMarkers(
+      perpDepositOrder.orders,
+      now,
+    );
+    if (prunedPerpDepositOrders.length !== perpDepositOrder.orders.length) {
+      await perpsDepositOrderAtom.set((prev) => ({
+        ...prev,
+        orders: prunePerpsDepositHistoryConfirmationMarkers(prev.orders, now),
+      }));
+    }
+    const filteredPerpDepositOrder = prunedPerpDepositOrders.filter((item) => {
       return (
         ((!item.accountId && !accountId) || item.accountId === accountId) &&
         ((!item.indexedAccountId && !indexedAccountId) ||
@@ -3410,10 +3568,23 @@ export default class ServiceSwap extends ServiceBase {
         });
       await Promise.all(
         filteredPerpDepositOrder.map((item) => {
+          // Self-heal legacy orders persisted with a wrong isArbUSDCOrder=false:
+          // if the order's from-token is Arb USDC, the tx is a direct deposit
+          // (no swap order on the server), so the status must be queried with
+          // isArbUSDCToken=true, otherwise it stays pending forever.
+          const isArbUSDCToken =
+            item.isArbUSDCOrder ||
+            equalTokenNoCaseSensitive({
+              token1: item.token,
+              token2: {
+                networkId: PERPS_NETWORK_ID,
+                contractAddress: USDC_TOKEN_INFO.address,
+              },
+            });
           return this.fetchPerpDepositOrderStatus({
             networkId: item.token.networkId,
             txId: item.fromTxId,
-            isArbUSDCToken: item.isArbUSDCOrder,
+            isArbUSDCToken,
             toPerpDepositTokenAddress: HYPERLIQUID_DEPOSIT_ADDRESS,
             receivingAddress: receivingAddressInfo.addressDetail.address,
           });

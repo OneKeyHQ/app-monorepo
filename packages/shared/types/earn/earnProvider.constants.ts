@@ -107,6 +107,8 @@ export const isSupportStaking = (symbol: string) =>
     'WETH',
     'CBBTC',
     'WBTC',
+    'U',
+    'BTW',
   ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds: string[] = [
@@ -173,6 +175,8 @@ export function normalizeToEarnSymbol(symbol: string): string {
     'stcusd': 'stcUSD',
     'khype': 'kHYPE',
     'lista': 'LISTA',
+    'u': 'U',
+    'btw': 'BTW',
   };
   // Known symbols get case-normalized; unknown symbols (e.g. Pendle tokens) pass through
   return symbolMap[symbol.toLowerCase()] ?? symbol;
@@ -193,6 +197,8 @@ export function normalizeToEarnProvider(
     'ethena': EEarnProviderEnum.Ethena,
     'momentum': EEarnProviderEnum.Momentum,
     'native': EEarnProviderEnum.Native,
+    'spark': EEarnProviderEnum.Spark,
+    'bitway': EEarnProviderEnum.Bitway,
     'staked': EEarnProviderEnum.Lista,
   };
   return providerMap[provider.toLowerCase()];
@@ -201,22 +207,17 @@ export function normalizeToEarnProvider(
 export function getImportFromToken({
   networkId,
   tokenAddress,
-  isSupportSwap = true,
 }: {
   networkId: string;
   tokenAddress: string;
-  isSupportSwap: boolean;
 }) {
   let importFromToken: ISwapTokenBase | undefined;
-  let swapTabSwitchType = isSupportSwap
-    ? ESwapTabSwitchType.SWAP
-    : ESwapTabSwitchType.BRIDGE;
+  const swapTabSwitchType = ESwapTabSwitchType.SWAP;
   const networkIdsMap = getNetworkIdsMap();
   switch (networkId) {
     case networkIdsMap.btc:
     case networkIdsMap.sbtc:
       importFromToken = earnTradeDefaultSetETH;
-      swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
       break;
     case networkIdsMap.eth:
     case networkIdsMap.sepolia: {
@@ -236,7 +237,6 @@ export function getImportFromToken({
       } else {
         importFromToken = earnTradeDefaultSetUSDC;
       }
-      swapTabSwitchType = ESwapTabSwitchType.SWAP;
       break;
     }
     case networkIdsMap.base: {
@@ -245,25 +245,20 @@ export function getImportFromToken({
       } else {
         importFromToken = earnTradeDefaultSetBaseUSDC;
       }
-      swapTabSwitchType = ESwapTabSwitchType.SWAP;
       break;
     }
     case networkIdsMap.sol: {
       importFromToken = earnTradeDefaultSetSOL;
-      swapTabSwitchType = ESwapTabSwitchType.SWAP;
       break;
     }
     case networkIdsMap.apt:
       importFromToken = earnTradeDefaultSetETH;
-      swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
       break;
     case networkIdsMap.sui:
       importFromToken = earnTradeDefaultSetSui;
-      swapTabSwitchType = ESwapTabSwitchType.SWAP;
       break;
     case networkIdsMap.bsc:
       importFromToken = earnTradeDefaultSetBNB;
-      swapTabSwitchType = ESwapTabSwitchType.SWAP;
       break;
     default:
       break;
@@ -316,5 +311,7 @@ export function getSymbolSupportedNetworks(): Record<
     'kHYPE': [networkIdsMap.hyperevm],
     'MORPHO': [networkIdsMap.eth],
     'LISTA': [networkIdsMap.bsc],
+    'U': [networkIdsMap.bsc],
+    'BTW': [networkIdsMap.bsc],
   };
 }

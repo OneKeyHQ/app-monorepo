@@ -81,6 +81,12 @@ describe('desktopApi contract', () => {
     expect(typeof info.deskChannel).toBe('string');
     expect(typeof info.isMas).toBe('boolean');
     expect(typeof info.isDev).toBe('boolean');
+    // `processStartAt` is required (epoch ms of process creation). In the
+    // non-Electron test env `process.getCreationTime` is undefined, so the
+    // builder falls back to `Date.now()` — still a positive number. Asserting
+    // > 0 also guards the fallback path itself.
+    expect(typeof info.processStartAt).toBe('number');
+    expect(info.processStartAt).toBeGreaterThan(0);
     // `channel` is optional — may be undefined outside Linux
     if (info.channel !== undefined) {
       expect(typeof info.channel).toBe('string');

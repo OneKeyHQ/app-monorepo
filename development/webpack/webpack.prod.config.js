@@ -3,7 +3,6 @@ const path = require('path');
 const { sentryWebpackPlugin } = require('@sentry/webpack-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
-const { RetryChunkLoadPlugin } = require('webpack-retry-chunk-load-plugin');
 
 const babelTools = require('../babelTools');
 
@@ -17,7 +16,8 @@ const FILES_TO_DELETE_AFTER_UPLOAD = [
 
 module.exports = ({ platform, basePath }) => {
   const isExt = platform === babelTools.developmentConsts.platforms.ext;
-  const isWeb = platform === babelTools.developmentConsts.platforms.web;
+  const shouldUploadSourcemapsByCli =
+    process.env.SENTRY_UPLOAD_BY_CLI === 'true';
   const rootPath = isExt
     ? path.join(basePath, 'build', utils.getOutputFolder())
     : path.join(basePath, 'web-build');
@@ -38,19 +38,8 @@ module.exports = ({ platform, basePath }) => {
           '__CURRENT_FILE_PATH__--not-available-in-production',
         ),
       }),
-      isWeb &&
-        new RetryChunkLoadPlugin({
-          // optional value to set the amount of time in milliseconds before trying to load the chunk again. Default is 0
-          // if string, value must be code to generate a delay value. Receives retryCount as argument
-          // e.g. `function(retryAttempt) { return retryAttempt * 1000 }`
-          retryDelay: 3000,
-          // optional value to set the maximum number of retries to load the chunk. Default is 1
-          maxRetries: 5,
-          // optional code to be executed in the browser context if after all retries chunk is not loaded.
-          // if not set - nothing will happen and error will be returned to the chunk loader.
-          // lastResortScript: "window.location.href='/500.html';",
-        }),
       !isExt &&
+        !shouldUploadSourcemapsByCli &&
         sentryWebpackPlugin({
           org: 'onekey-bb',
           debug: false,
@@ -97,9 +86,13 @@ module.exports = ({ platform, basePath }) => {
                 reuseExistingChunk: true,
               },
               lodashVendor: {
+                // 'initial' (not 'all'): only group lodash reachable from the
+                // initial graph. With 'all', lodash methods used solely by async
+                // route/SDK chunks were merged into this named chunk and dragged
+                // onto first paint (vendor-lodash measured ~92% unused on Home).
                 test: /[\\/]node_modules[\\/]lodash/,
                 name: 'vendor-lodash',
-                chunks: 'all',
+                chunks: 'initial',
                 priority: 30,
                 reuseExistingChunk: true,
               },

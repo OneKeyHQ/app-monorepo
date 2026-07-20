@@ -16,6 +16,12 @@ class ServiceBootstrap extends ServiceBase {
 
   public async init() {
     await this.initCritical();
+    if (platformEnv.isWeb || platformEnv.isDesktop) {
+      setTimeout(() => {
+        void this.initDeferred();
+      }, 6000);
+      return;
+    }
     void this.initDeferred();
   }
 
@@ -69,6 +75,14 @@ class ServiceBootstrap extends ServiceBase {
   public async initDeferred() {
     const deferredStart = Date.now();
 
+    // Wallet backup-status diagnostics: sample the persisted appStatus raw
+    // BEFORE any deferred task runs — several concurrent migrations below
+    // write simpleDb.appStatus, and a sample taken after their setRawData
+    // would misreport a freshly-created appStatus as pre-boot on-disk state.
+    // Synchronous kick (the read is awaited later inside
+    // migrateHdWalletsBackedUpStatus), so bootstrap is not delayed.
+    this.backgroundApi.serviceAccount.startBackupMigrationBootRawSample();
+
     const timedDeferred = async (label: string, fn: () => Promise<unknown>) => {
       const start = Date.now();
       try {
@@ -89,6 +103,9 @@ class ServiceBootstrap extends ServiceBase {
         ),
         timedDeferred('walletConnect.cleanupInactiveSessions', () =>
           this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
+        ),
+        timedDeferred('serviceSwap.seedSwapHistoryPreviewRead', () =>
+          this.backgroundApi.serviceSwap.seedSwapHistoryPreviewReadIfNeeded(),
         ),
         timedDeferred('serviceSwap.syncSwapHistoryPendingList', () =>
           this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
@@ -122,15 +139,25 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('serviceContextMenu.init', () =>
         this.backgroundApi.serviceContextMenu.init(),
       ),
+      timedDeferred('serviceDevSetting.initAnalytics', () =>
+        this.backgroundApi.serviceDevSetting.initAnalytics(),
+      ),
+      // ext MV3 only: re-warm providers of already-connected dapps after a
+      // service-worker restart so notifyDApp* can reach them. Native/desktop
+      // rebuild their webviews on restart (dapp reconnects), so no warmup
+      // is needed there and it would just cost startup work.
       ...(platformEnv.isExtension
         ? [
-            timedDeferred('serviceDevSetting.initAnalytics', () =>
-              this.backgroundApi.serviceDevSetting.initAnalytics(),
+            timedDeferred('serviceDApp.warmupConnectedDappProviders', () =>
+              this.backgroundApi.serviceDApp.warmupConnectedDappProviders(),
             ),
           ]
         : []),
       timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
         this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
+      ),
+      timedDeferred('serviceDevSetting.syncNetworkThrottleSettings', () =>
+        this.backgroundApi.serviceDevSetting.syncNetworkThrottleSettings(),
       ),
       timedDeferred('serviceDevSetting.syncCryptoSettings', () =>
         this.backgroundApi.serviceDevSetting.syncCryptoSettings(),

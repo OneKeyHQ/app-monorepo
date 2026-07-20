@@ -14,10 +14,20 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
-  useSwapProSliderValueAtom,
+  useSwapProSelectTokenAtom,
+  useSwapProTokenMarketDetailInfoAtom,
+  useSwapProTokenMarketDetailPerpsInfoAtom,
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  StockMarketStatusAlert,
+  getStockMarketClosedDescription,
+  resolveStockMarketStatusCase,
+} from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchLimitOrderRes,
@@ -26,11 +36,6 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
-import {
-  type IEstimateMarketPresetPriorityFeeFiatValues,
-  type IMarketPresetPriorityFeeFiatEstimateMap,
-  MarketPresetSelector,
-} from '../../../Market/MarketDetailV2/components/SwapPanel/components/MarketPresetSelector';
 import {
   estimateMarketPresetGasFeeFiatValues,
   resolveMarketPresetNativeTokenPrice,
@@ -44,6 +49,7 @@ import {
   useSwapProTokenInfoSync,
 } from '../../hooks/useSwapPro';
 import { SwapTestIDs } from '../../testIDs';
+import { isSelectedProStockMarketClosed } from '../../utils/swapProStockMarketClosed';
 
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapProTokenSelector from './SwapProTokenSelect';
@@ -51,6 +57,10 @@ import SwapProTradeInfoPanel from './SwapProTradeInfoPanel';
 import SwapProTradingPanel from './SwapProTradingPanel';
 import SwapTipsContainer from './SwapTipsContainer';
 
+import type {
+  IEstimateMarketPresetPriorityFeeFiatValues,
+  IMarketPresetPriorityFeeFiatEstimateMap,
+} from '../../../Market/MarketDetailV2/components/SwapPanel/components/MarketPresetSelector';
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
 interface ISwapProContainerProps {
@@ -72,7 +82,6 @@ interface ISwapProContainerProps {
     supportSpeedSwap?: boolean;
     isMEV?: boolean;
     hasEnoughBalance: boolean;
-    onlySupportCrossChain: boolean;
   };
 }
 
@@ -97,7 +106,6 @@ const SwapProContainer = ({
     isMEV,
     hasEnoughBalance,
     supportSpeedSwap,
-    onlySupportCrossChain,
   } = config;
   const [refreshing, setRefreshing] = useState(false);
   const [limitPriceUseMarketPrice, setLimitPriceUseMarketPrice] = useState({
@@ -107,11 +115,31 @@ const SwapProContainer = ({
   const [swapProInputAmount, setSwapProInputAmount] =
     useSwapProInputAmountAtom();
   const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const [, setSwapProSliderValue] = useSwapProSliderValueAtom();
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<ScrollView>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
+  // Pro-mode stock market-closed alert (reuses the shared StockMarketStatusAlert).
+  // Pro keeps its own token detail/perps atoms, so read those here. When the
+  // stock market is closed we show the standard alert instead of the generic
+  // error alert; the action button is already disabled (no valid quote).
+  const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
+  const [proPerpsInfo] = useSwapProTokenMarketDetailPerpsInfoAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const { navigateToPerps } = usePerpsNavigation(
+    EPerpPageEnterSource.SwapProStockClosed,
+  );
+  const proStockHlTicker = proPerpsInfo?.hlTicker;
+  const proStockHasPerps = Boolean(proStockHlTicker);
+  const proStockClosedTimeText = getStockMarketClosedDescription(
+    proTokenDetail?.stock?.description,
+  );
+  // Guard on the selected token so a stale Pro detail (the detail atom is not
+  // cleared on token switch) can't drive the closed alert for another token.
+  const isProStockMarketClosed = isSelectedProStockMarketClosed(
+    proTokenDetail,
+    swapProSelectToken,
+  );
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [settingsAtom] = useSettingsPersistAtom();
   const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
@@ -146,8 +174,7 @@ const SwapProContainer = ({
       value: '',
       isInput: true,
     });
-    setSwapProSliderValue(0);
-  }, [setSwapProInputAmount, setFromInputAmount, setSwapProSliderValue]);
+  }, [setSwapProInputAmount, setFromInputAmount]);
 
   const onSearchClickCallback = useCallback(() => {
     onProSelectToken(true);
@@ -272,13 +299,17 @@ const SwapProContainer = ({
           }}
           configLoading={isLoading}
         />
-        <IconButton
-          testID="swap-icon-btn"
-          icon="TradingViewCandlesOutline"
-          variant="tertiary"
-          flexShrink={0}
-          onPress={onProMarketDetail}
-        />
+        {/* On mobile this candlestick button moved up into the top header
+            capsule (SwapProKLineHeaderButton); keep it inline on desktop. */}
+        {platformEnv.isNative ? null : (
+          <IconButton
+            testID="swap-icon-btn"
+            icon="TradingViewCandlesOutline"
+            variant="tertiary"
+            flexShrink={0}
+            onPress={onProMarketDetail}
+          />
+        )}
       </XStack>
       <XStack
         mt="$2"
@@ -311,12 +342,10 @@ const SwapProContainer = ({
           {shouldRenderHeavyComponents ? (
             <SwapProTradingPanel
               supportSpeedSwap={!!supportSpeedSwap}
-              onlySupportCrossChain={onlySupportCrossChain}
               swapProConfig={speedConfig}
               configLoading={isLoading}
               balanceLoading={balanceLoading}
               limitPriceUseMarketPrice={limitPriceUseMarketPrice}
-              isMev={!!isMEV}
               onBalanceMax={onBalanceMaxPress}
               onSelectPercentageStage={onSelectPercentageStage}
               onSwapProActionClick={onSwapProActionClick}
@@ -324,6 +353,9 @@ const SwapProContainer = ({
               handleSelectAccountClick={handleSelectAccountClick}
               cleanInputAmount={cleanInputAmount}
               marketPresetSettings={marketPresetSettings}
+              showMarketPresetSelector={showMarketPresetSelector}
+              antiMEV={isMEV}
+              estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
             />
           ) : (
             <YStack gap="$6" flex={1} p="$3">
@@ -336,20 +368,26 @@ const SwapProContainer = ({
           )}
         </YStack>
       </XStack>
-      {showMarketPresetSelector && marketPresetSettings ? (
-        <YStack pb="$3">
-          <MarketPresetSelector
-            antiMEV={isMEV}
-            estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
-            presetSettings={marketPresetSettings}
-            showAutoSlippageLabel
-          />
-        </YStack>
-      ) : null}
-      <SwapProErrorAlert
-        title={swapProErrorAlert?.title}
-        message={swapProErrorAlert?.message}
-      />
+      {isProStockMarketClosed ? (
+        <StockMarketStatusAlert
+          statusCase={resolveStockMarketStatusCase({
+            isOpen: false,
+            hasOpenTime: Boolean(proStockClosedTimeText),
+            hasPerps: proStockHasPerps,
+          })}
+          timeText={proStockClosedTimeText}
+          onTradePerps={
+            proStockHlTicker
+              ? () => navigateToPerps(proStockHlTicker)
+              : undefined
+          }
+        />
+      ) : (
+        <SwapProErrorAlert
+          title={swapProErrorAlert?.title}
+          message={swapProErrorAlert?.message}
+        />
+      )}
       <SwapProTabListContainer
         onTokenPress={onTokenPressCallback}
         onOpenOrdersClick={onOpenOrdersClick}

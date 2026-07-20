@@ -172,6 +172,12 @@ const NS = {
   discoveryHomeBookmarks: 'disHomeBookmarks',
   perpsOrderBookTickOptions: 'perpsOrderBookTicks',
   perpsL2BookSnapshot: 'perpsL2Book',
+  historyTxDetail: 'historyTxDetail',
+  marketHomeTokenList: 'marketHomeTokenList',
+  tokenSelectorView: 'tokenSelectorView',
+  swapStockTokenDetail: 'swapStockTokenDetail',
+  swapStockSpeedConfig: 'swapStockSpeedConfig',
+  swapStockPayTokenDetails: 'swapStockPayTokenDetails',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
@@ -361,6 +367,96 @@ export const swrKeys = {
     ),
   perpsL2BookSnapshotLatest: ({ coin }: { coin: string }) =>
     [NS.perpsL2BookSnapshot, 'v1', coin, 'latest'].join(':'),
+  // Tx history detail response (status / confirmations / ETA). Cached so a
+  // re-open renders the last-known confirming subtitle synchronously instead
+  // of flashing the "waiting" fallback before the detail request resolves
+  // (OK-56372). Keyed by accountAddress because the response's isOwn/direction
+  // framing is viewer-specific.
+  historyTxDetail: ({
+    networkId,
+    accountAddress,
+    txid,
+  }: {
+    networkId: string;
+    accountAddress?: string;
+    txid: string;
+  }) =>
+    [NS.historyTxDetail, 'v1', networkId, accountAddress ?? '', txid].join(':'),
+  marketHomeTokenList: ({
+    networkId,
+    sortBy,
+    sortType,
+    pageSize,
+    minLiquidity,
+    type,
+    category,
+    timeFrame,
+  }: {
+    networkId: string;
+    sortBy?: string;
+    sortType?: string;
+    pageSize?: number;
+    minLiquidity?: number;
+    type?: string;
+    category?: string;
+    timeFrame?: string;
+  }) => {
+    const parts = [
+      NS.marketHomeTokenList,
+      'v1',
+      networkId,
+      sortBy ?? '',
+      sortType ?? '',
+      pageSize ?? '',
+      minLiquidity ?? '',
+      type ?? '',
+      timeFrame ?? '',
+    ];
+    if (category) {
+      parts.push(category);
+    }
+    return parts.join(':');
+  },
+  tokenSelectorView: ({
+    ownerMode,
+    filterMode,
+    accountId,
+    networkId,
+    indexedAccountId,
+    activeAccountId,
+    activeNetworkId,
+    isAllNetworks,
+    mergeDeriveAddressData,
+  }: {
+    ownerMode: 'normal' | 'active-account' | 'filtered';
+    filterMode: 'all-token' | 'wallet-token' | 'dapp-token';
+    accountId?: string;
+    networkId?: string;
+    indexedAccountId?: string;
+    activeAccountId?: string;
+    activeNetworkId?: string;
+    isAllNetworks?: boolean;
+    mergeDeriveAddressData?: boolean;
+  }) =>
+    [
+      NS.tokenSelectorView,
+      'v1',
+      ownerMode,
+      filterMode,
+      accountId ?? '',
+      networkId ?? '',
+      indexedAccountId ?? '',
+      activeAccountId ?? '',
+      activeNetworkId ?? '',
+      isAllNetworks ? '1' : '0',
+      mergeDeriveAddressData ? '1' : '0',
+    ].join(':'),
+  swapStockTokenDetail: ({ tokenScope }: { tokenScope: string }) =>
+    [NS.swapStockTokenDetail, 'v1', tokenScope].join(':'),
+  swapStockSpeedConfig: ({ networkId }: { networkId: string }) =>
+    [NS.swapStockSpeedConfig, 'v1', networkId].join(':'),
+  swapStockPayTokenDetails: ({ scope }: { scope: string }) =>
+    [NS.swapStockPayTokenDetails, 'v1', scope].join(':'),
 };
 
 function uniqueCacheKeys(keys: string[]) {

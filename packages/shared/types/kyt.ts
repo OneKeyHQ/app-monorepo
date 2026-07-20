@@ -31,6 +31,7 @@ export type IKytRiskDetail = {
   level: EKytRiskLevel;
   checkedAt: string;
   asset: {
+    networkId: string;
     symbol: string;
     tokenName?: string;
     tokenImageUri?: string;
@@ -49,6 +50,33 @@ export type IKytSupportedAsset = {
   tokenName: string;
   tokenSymbol: string;
 };
+
+export type IReceiveKytIntroEntryPoint =
+  | 'homeAutoIntro'
+  | 'primeSubscribeSuccess';
+
+export type IKytIntroClaimLease = {
+  claimId: string;
+  onekeyUserId: string;
+  ownerId: string;
+  entryPoint: IReceiveKytIntroEntryPoint;
+  expiresAt: number;
+  presentedAt?: number;
+};
+
+export type IKytIntroClaimResult =
+  | {
+      status: 'claimed';
+      claimId: string;
+      entryPoint: IReceiveKytIntroEntryPoint;
+    }
+  | {
+      status: 'claimedByOther';
+      retryAfterMs: number;
+    }
+  | {
+      status: 'shown' | 'enabled' | 'userMismatch';
+    };
 
 export type IKytHistoryAsset = {
   networkId: string;

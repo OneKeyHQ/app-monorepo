@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -20,6 +20,7 @@ import {
   Image,
   LottieView,
   NavBackButton,
+  Page,
   Popover,
   ScrollView,
   SizableText,
@@ -27,6 +28,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  glassBarItem,
   rootNavigationRef,
   useIsDesktopModeUIInTabPages,
   useIsWebHorizontalLayout,
@@ -35,14 +37,12 @@ import {
 } from '@onekeyhq/components';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
+import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import {
   useFirmwareUpdatesDetectStatusPersistAtom,
@@ -58,7 +58,10 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   ERootRoutes,
+  ESettingsTabNames,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import {
   EActionCenterPages,
@@ -80,14 +83,10 @@ import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { useBulkSendModeDialog } from '../../views/BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToBulkSend';
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
-import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
-import { PrimeUserBadge } from '../../views/Prime/components/PrimeUserBadge';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
-import { showRedemptionCenterDialog } from '../../views/Redemption/components/RedemptionCenterDialog';
-import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
-import { ESettingsTabNames } from '../../views/Setting/pages/Tab/config';
-import { AccountSelectorProviderMirror } from '../AccountSelector';
+import useScanQrCodeLazy from '../../views/ScanQrCode/hooks/useScanQrCodeLazy';
+import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 import {
   isShowAppUpdateUIWhenUpdating,
   isToolboxUpdateIndicatorRedundant,
@@ -100,6 +99,18 @@ import { WalletAvatar } from '../WalletAvatar';
 
 import type { IDeviceManagementListItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
 import type { GestureResponderEvent } from 'react-native';
+
+const LazyHomeFirmwareUpdateReminder = lazy(async () => {
+  const { HomeFirmwareUpdateReminder } =
+    await import('../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder');
+  return { default: HomeFirmwareUpdateReminder };
+});
+
+const LazyPrimeUserBadge = lazy(async () => {
+  const { PrimeUserBadge } =
+    await import('../../views/Prime/components/PrimeUserBadge');
+  return { default: PrimeUserBadge };
+});
 
 function MoreActionProvider({ children }: PropsWithChildren) {
   return (
@@ -153,9 +164,8 @@ function MoreActionContentHeader({
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
-  const scanQrCode = useScanQrCode();
+  const { tokens, keys, map } = useHomeTokenListSnapshot();
+  const scanQrCode = useScanQrCodeLazy();
   const { closePopover } = usePopoverContext();
 
   const handleScan = useCallback(async () => {
@@ -166,20 +176,12 @@ function MoreActionContentHeader({
       account,
       network,
       tokens: {
-        data: allTokens.tokens,
-        keys: allTokens.keys,
+        data: tokens,
+        keys,
         map,
       },
     });
-  }, [
-    closePopover,
-    scanQrCode,
-    account,
-    network,
-    allTokens.tokens,
-    allTokens.keys,
-    map,
-  ]);
+  }, [closePopover, scanQrCode, account, network, tokens, keys, map]);
 
   const popupMenu = useMemo(() => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
@@ -260,6 +262,48 @@ function MoreActionContentHeader({
       rootNavigationRef.current?.goBack();
     }
   }, []);
+
+  // iOS 26 page-level usage: render via the native UINavigationBar so the
+  // back chevron + right items get the system Liquid Glass material. Each
+  // right item is a OneKey SVG IconButton (custom subview) so the glyphs
+  // match the brand; iOS 26 wraps each in its own system glass capsule, and
+  // the GlassHeaderProvider lets the inner IconButton drop its self-drawn
+  // background/press. The body of MoreActionContentPage continues to render
+  // the rest of the page below the bar.
+  const buildNativeRightItems = useCallback(
+    () => [
+      glassBarItem(
+        <HeaderIconButton
+          title={intl.formatMessage({
+            id: ETranslations.settings_contact_us,
+          })}
+          icon="HelpSupportOutline"
+          onPress={handleCustomerSupport}
+        />,
+      ),
+      glassBarItem(
+        <HeaderIconButton
+          title={intl.formatMessage({
+            id: ETranslations.scan_scan_qr_code,
+          })}
+          icon="ScanOutline"
+          onPress={() => {
+            void handleScan();
+          }}
+        />,
+      ),
+    ],
+    [intl, handleCustomerSupport, handleScan],
+  );
+
+  if (platformEnv.isNativeIOS26Plus && showBackButton) {
+    return (
+      <Page.Header
+        headerShown
+        unstable_headerRightItems={buildNativeRightItems}
+      />
+    );
+  }
 
   return (
     <XStack
@@ -551,7 +595,10 @@ function MoreActionOneKeyId() {
     if (!isLoggedIn) {
       return intl.formatMessage({ id: ETranslations.prime_signup_login });
     }
-    return user?.displayEmail || 'OneKey ID';
+    return getDisplayEmailOrUnknown({
+      intl,
+      displayEmail: user?.displayEmail,
+    });
   }, [isLoggedIn, user?.displayEmail, intl]);
 
   const navigation = useAppNavigation();
@@ -657,7 +704,11 @@ function MoreActionOneKeyId() {
             >
               {displayName}
             </SizableText>
-            {isPrimeUser ? <PrimeUserBadge showFreeStatus={false} /> : null}
+            {isPrimeUser ? (
+              <Suspense fallback={null}>
+                <LazyPrimeUserBadge showFreeStatus={false} />
+              </Suspense>
+            ) : null}
           </XStack>
           <SizableText
             size="$bodyMd"
@@ -776,7 +827,9 @@ function UpdateReminders() {
   return isShowUpgradeComponents ? (
     <YStack gap="$2">
       <UpdateReminder />
-      <HomeFirmwareUpdateReminder />
+      <Suspense fallback={null}>
+        <LazyHomeFirmwareUpdateReminder />
+      </Suspense>
       <WalletXfpStatusReminder />
     </YStack>
   ) : null;
@@ -866,10 +919,9 @@ function MoreActionGeneralGrid() {
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
-  const scanQrCode = useScanQrCode();
+  const scanQrCode = useScanQrCodeLazy();
 
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
+  const { tokens, keys, map } = useHomeTokenListSnapshot();
 
   const handleScan = useCallback(async () => {
     await scanQrCode.start({
@@ -878,12 +930,12 @@ function MoreActionGeneralGrid() {
       account,
       network,
       tokens: {
-        data: allTokens.tokens,
-        keys: allTokens.keys,
+        data: tokens,
+        keys,
         map,
       },
     });
-  }, [scanQrCode, account, network, allTokens.tokens, allTokens.keys, map]);
+  }, [scanQrCode, account, network, tokens, keys, map]);
 
   const handlePrime = useCallback(() => {
     navigation.pushFullModal(EModalRoutes.PrimeModal, {
@@ -1050,6 +1102,16 @@ const MoreActionWalletGrid = () => {
     checkIsPrimeUser,
   ]);
 
+  const openAddressRiskCheckModule = useCallback(() => {
+    if (!checkIsPrimeUser(EPrimeFeatures.AddressRiskCheck)) {
+      return;
+    }
+    navigation.pushModal(EModalRoutes.AddressRiskCheckModal, {
+      screen: EModalAddressRiskCheckRoutes.AddressRiskCheckInput,
+      params: { networkId: network?.id },
+    });
+  }, [checkIsPrimeUser, navigation, network?.id]);
+
   const items = useMemo(() => {
     return [
       platformEnv.isWebDappMode
@@ -1127,6 +1189,26 @@ const MoreActionWalletGrid = () => {
             trackID: 'bulk-send-in-more-action',
             isPrimeFeature: true,
           },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({
+              id: ETranslations.address_risk_check__title,
+            }),
+            icon: 'ChecklistBoxSearchOutline' as const,
+            onPress: () => {
+              if (!isPrimeUser) {
+                defaultLogger.prime.subscription.primeEntryClick({
+                  featureName: EPrimeFeatures.AddressRiskCheck,
+                  entryPoint: 'moreActions',
+                  isPrimeActive,
+                });
+              }
+              openAddressRiskCheckModule();
+            },
+            trackID: 'address-risk-check-in-more-action',
+            isPrimeFeature: true,
+          },
     ].filter(Boolean);
   }, [
     handleAddressBook,
@@ -1139,6 +1221,7 @@ const MoreActionWalletGrid = () => {
     isPrimeUser,
     openBulkCopyAddressesModule,
     openBulkSendModule,
+    openAddressRiskCheckModule,
   ]);
   return (
     <BaseMoreActionGrid
@@ -1148,8 +1231,15 @@ const MoreActionWalletGrid = () => {
   );
 };
 
+// Ext popup/side panel hides the bottom tab bar, so the Developer tab loses its
+// only entry point there; surface it in this More menu in dev builds instead.
+const showDevModeEntryInMoreMenu =
+  platformEnv.isDev &&
+  (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel);
+
 const MoreActionMoreGrid = () => {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
   const handleHelpAndSupport = useCallback(() => {
     void showIntercom();
@@ -1162,8 +1252,15 @@ const MoreActionMoreGrid = () => {
 
   const handleRedeem = useCallback(async () => {
     await closePopover?.();
+    const { showRedemptionCenterDialog } =
+      await import('../../views/Redemption/components/RedemptionCenterDialog');
     showRedemptionCenterDialog({ source: 'more_action' });
   }, [closePopover]);
+
+  const handleDevMode = useCallback(async () => {
+    await closePopover?.();
+    navigation.switchTab(ETabRoutes.Developer);
+  }, [closePopover, navigation]);
 
   const items = useMemo(() => {
     return [
@@ -1187,6 +1284,16 @@ const MoreActionMoreGrid = () => {
         onPress: handleRedeem,
         trackID: 'wallet-redeem',
       },
+      ...(showDevModeEntryInMoreMenu
+        ? [
+            {
+              title: intl.formatMessage({ id: ETranslations.global_dev_mode }),
+              icon: 'CodeBracketsOutline' as const,
+              onPress: handleDevMode,
+              trackID: 'wallet-dev-mode',
+            },
+          ]
+        : []),
     ];
   }, [
     handleHelpAndSupport,
@@ -1194,6 +1301,7 @@ const MoreActionMoreGrid = () => {
     intl,
     themeVariant,
     handleReferFriends,
+    handleDevMode,
   ]);
   return (
     <BaseMoreActionGrid
@@ -1465,7 +1573,8 @@ function MoreButtonWithDot({
     if (isShowUpgradeDot) {
       return (
         <Dot
-          color="$blue8"
+          // Accent (brand green) to match the header "Update now" button.
+          color="$bgAccent"
           top={isDesktopMode ? 0 : '$-2'}
           right={isDesktopMode ? undefined : '$-2.5'}
         />
@@ -1481,7 +1590,9 @@ function MoreButtonWithDot({
       <Stack
         width="$3"
         height="$3"
-        bg={isShowUpgradeDot ? '$iconInfo' : '$bgCriticalStrong'}
+        // Update dot uses accent (brand green) to match the header "Update
+        // now" button; the notification (non-update) dot stays critical red.
+        bg={isShowUpgradeDot ? '$bgAccent' : '$bgCriticalStrong'}
         borderRadius="$full"
         position="absolute"
         right={-4}

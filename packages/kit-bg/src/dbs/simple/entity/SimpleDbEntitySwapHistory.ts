@@ -1,14 +1,21 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { normalizeSwapHistoryNetworkInfo } from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
+import {
+  isSwapHistoryTerminalStatus,
+  markUnreadTerminalAsRead,
+} from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
 import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
+  isStockSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   EProtocolOfExchange,
+  ESwapTxHistoryStatus,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -16,17 +23,11 @@ export const historyCircularBufferMaxSize = 300;
 
 export interface ISwapTxHistoryPersistList {
   histories: ISwapTxHistory[];
+  previewReadSeeded?: boolean;
 }
 
-const SWAP_HISTORY_TERMINAL_STATUSES = new Set<ESwapTxHistoryStatus>([
-  ESwapTxHistoryStatus.SUCCESS,
-  ESwapTxHistoryStatus.FAILED,
-  ESwapTxHistoryStatus.CANCELED,
-  ESwapTxHistoryStatus.PARTIALLY_FILLED,
-]);
-
 function isSwapHistoryTerminal(item: ISwapTxHistory) {
-  return SWAP_HISTORY_TERMINAL_STATUSES.has(item.status);
+  return isSwapHistoryTerminalStatus(item.status);
 }
 
 function isSameSwapHistoryItem(a: ISwapTxHistory, b: ISwapTxHistory) {
@@ -87,7 +88,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         })
       ) {
         histories[existingIndex] = item;
-        await this.setRawData({ histories });
+        await this.setRawData({ ...data, histories });
       }
       return;
     }
@@ -95,7 +96,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
     if (histories.length > historyCircularBufferMaxSize) {
       histories.pop();
     }
-    await this.setRawData({ histories });
+    await this.setRawData({ ...data, histories });
   }
 
   @backgroundMethod()
@@ -110,7 +111,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
     }
     if (index !== -1) {
       histories[index] = item;
-      await this.setRawData({ histories });
+      await this.setRawData({ ...data, histories });
     }
   }
 
@@ -119,6 +120,13 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
     statuses?: ESwapTxHistoryStatus[],
     options?: {
       excludeProtocols?: EProtocolOfExchange[];
+      // Keep stock trades. The Swap/Bridge list hides stock via the token-level
+      // isStock flag, so clearing it must use the same rule (protocol exclusion
+      // alone would delete stock orders the user can't see on that tab).
+      excludeStock?: boolean;
+      // Mirror of excludeStock for the Stock history surface: only clear stock
+      // trades, keeping everything the Swap/Bridge list owns.
+      onlyStock?: boolean;
     },
   ) {
     const shouldKeepHistory = (history: ISwapTxHistory) => {
@@ -130,18 +138,20 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
       ) {
         return true;
       }
+      if (options?.excludeStock && isStockSwapHistoryItem(history)) {
+        return true;
+      }
+      if (options?.onlyStock && !isStockSwapHistoryItem(history)) {
+        return true;
+      }
       return statuses ? !statuses.includes(history.status) : false;
     };
-    if (statuses) {
-      const data = await this.getRawData();
-      const histories = data?.histories ?? [];
-      const newHistories = histories.filter(shouldKeepHistory);
-      await this.setRawData({ histories: newHistories });
-    } else {
-      const data = await this.getRawData();
-      const histories = data?.histories ?? [];
-      await this.setRawData({ histories: histories.filter(shouldKeepHistory) });
-    }
+    const data = await this.getRawData();
+    const histories = data?.histories ?? [];
+    await this.setRawData({
+      ...data,
+      histories: histories.filter(shouldKeepHistory),
+    });
   }
 
   @backgroundMethod()
@@ -157,7 +167,31 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         ? i.txInfo.orderId !== txInfo.orderId
         : i.txInfo.txId !== txInfo.txId,
     );
-    await this.setRawData({ histories: newHistories });
+    await this.setRawData({ ...data, histories: newHistories });
+  }
+
+  @backgroundMethod()
+  async repairSwapHistoryNetworkInfo(networks: IServerNetwork[]) {
+    const data = await this.getRawData();
+    const histories = data?.histories ?? [];
+    const preview = normalizeSwapHistoryNetworkInfo({ histories, networks });
+    if (!preview.changed) {
+      return { histories, changed: false };
+    }
+
+    let changed = false;
+    const repairedData = await this.setRawData((currentData) => {
+      const currentHistories = currentData?.histories ?? [];
+      const repaired = normalizeSwapHistoryNetworkInfo({
+        histories: currentHistories,
+        networks,
+      });
+      changed = repaired.changed;
+      return repaired.changed
+        ? { ...currentData, histories: repaired.histories }
+        : (currentData ?? { histories: [] });
+    });
+    return { histories: repairedData.histories, changed };
   }
 
   @backgroundMethod()
@@ -170,5 +204,31 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   async getSwapHistoryByTxId(txId: string) {
     const data = await this.getRawData();
     return data?.histories?.find((i) => i.txInfo.txId === txId);
+  }
+
+  @backgroundMethod()
+  async markUnreadTerminalPreviewRead(readAt: number) {
+    const data = await this.getRawData();
+    const histories = data?.histories ?? [];
+    const next = markUnreadTerminalAsRead(histories, readAt);
+    await this.setRawData({ ...data, histories: next });
+  }
+
+  @backgroundMethod()
+  // Returns true only when it actually seeded this call, so the caller can run
+  // the invalidation path (re-derive the pending atom) just once.
+  async seedPreviewReadIfNeeded(readAt: number): Promise<boolean> {
+    const data = await this.getRawData();
+    if (data?.previewReadSeeded) {
+      return false;
+    }
+    const histories = data?.histories ?? [];
+    const next = markUnreadTerminalAsRead(histories, readAt);
+    await this.setRawData({
+      ...data,
+      histories: next,
+      previewReadSeeded: true,
+    });
+    return true;
   }
 }

@@ -48,6 +48,7 @@ const {
   readSessionMetrics,
   ensureSessionsDirWritable,
 } = require('./lib/session');
+
 function ensureDirExists(p) {
   fs.mkdirSync(p, { recursive: true });
 }
@@ -64,6 +65,7 @@ async function buildExt({ repoRoot, outputDir }) {
   const skip = process.env.PERF_SKIP_EXT_BUILD === '1';
   if (skip) return;
 
+  // Keep this key shared with Web and Desktop so large perf builds stay serial.
   const res = await withBuildLock(
     'webpack-build',
     () =>

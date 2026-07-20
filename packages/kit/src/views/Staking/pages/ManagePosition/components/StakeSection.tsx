@@ -46,7 +46,10 @@ import {
   resolveStakeTokenAddress,
 } from '../../../utils/utils';
 
-import type { IManagePositionProtocolSwitchConfig } from './ManagePositionContent';
+import type {
+  IManagePositionFooterAction,
+  IManagePositionProtocolSwitchConfig,
+} from './ManagePositionContent';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
 export const StakeSection = ({
@@ -57,6 +60,7 @@ export const StakeSection = ({
   isDisabled,
   onSuccess,
   beforeFooter,
+  footerActionOverride,
   showApyDetail,
   suppressPlatformBonus,
   isInModalContext,
@@ -82,6 +86,7 @@ export const StakeSection = ({
   isDisabled?: boolean;
   onSuccess?: () => void;
   beforeFooter?: ReactElement | null;
+  footerActionOverride?: IManagePositionFooterAction;
   showApyDetail?: boolean;
   suppressPlatformBonus?: boolean;
   isInModalContext?: boolean;
@@ -114,6 +119,17 @@ export const StakeSection = ({
     () => earnUtils.isNativeProvider({ providerName }),
     [providerName],
   );
+  const borrowProviderDisplayName = useMemo(() => {
+    if (
+      protocolInfo?.providerDetail.name &&
+      protocolInfo.providerDetail.name !== providerName
+    ) {
+      return protocolInfo.providerDetail.name;
+    }
+    return earnUtils.getEarnProviderName({
+      providerName,
+    });
+  }, [protocolInfo?.providerDetail.name, providerName]);
   const [selectedStakeAsset, setSelectedStakeAsset] = useState<
     IEarnTokenItem | undefined
   >(undefined);
@@ -459,6 +475,71 @@ export const StakeSection = ({
   const handleBorrowSupply = useUniversalBorrowSupply({ accountId, networkId });
   const handleBorrowBorrow = useUniversalBorrowBorrow({ accountId, networkId });
 
+  const borrowSupplyApproveToken = useMemo<IToken | undefined>(() => {
+    const token = tokenInfo?.token as IToken | undefined;
+    if (!token) {
+      return undefined;
+    }
+    if (protocolInfo?.approveAsset) {
+      return {
+        ...token,
+        address: protocolInfo.approveAsset,
+        isNative: false,
+        networkId,
+      };
+    }
+    return token;
+  }, [networkId, protocolInfo?.approveAsset, tokenInfo?.token]);
+
+  const borrowSupplyApproveTarget = useMemo(() => {
+    if (
+      !useBorrowApi ||
+      borrowAction !== 'supply' ||
+      !protocolInfo?.approve?.approveTarget ||
+      !borrowSupplyApproveToken ||
+      borrowSupplyApproveToken.isNative
+    ) {
+      return undefined;
+    }
+    return {
+      accountId,
+      networkId,
+      spenderAddress: protocolInfo.approve.approveTarget,
+      token: borrowSupplyApproveToken,
+    };
+  }, [
+    accountId,
+    borrowAction,
+    borrowSupplyApproveToken,
+    networkId,
+    protocolInfo?.approve?.approveTarget,
+    useBorrowApi,
+  ]);
+
+  const { result: borrowSupplyAllowanceResult } = usePromiseResult(
+    async () => {
+      if (!borrowSupplyApproveTarget) {
+        return undefined;
+      }
+      const { allowanceParsed } =
+        await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+          accountId,
+          networkId,
+          spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            approveType: EApproveType.Legacy,
+            approveSpenderAddress: borrowSupplyApproveTarget.spenderAddress,
+          }),
+          tokenAddress: borrowSupplyApproveTarget.token.address,
+        });
+
+      return { allowanceParsed };
+    },
+    [accountId, borrowSupplyApproveTarget, networkId],
+    {
+      watchLoading: true,
+    },
+  );
+
   const onConfirm = useCallback(
     async ({
       amount,
@@ -612,9 +693,7 @@ export const StakeSection = ({
           ? {
               label:
                 action === 'borrow' ? EEarnLabels.Borrow : EEarnLabels.Supply,
-              protocol: earnUtils.getEarnProviderName({
-                providerName: provider,
-              }),
+              protocol: borrowProviderDisplayName,
               protocolLogoURI: protocolInfo?.providerDetail.logoURI,
               ...(action === 'borrow'
                 ? { receive: { token, amount } }
@@ -629,6 +708,7 @@ export const StakeSection = ({
     },
     [
       borrowApiCtx,
+      borrowProviderDisplayName,
       handleBorrowBorrow,
       handleBorrowSupply,
       hasRequiredData,
@@ -681,6 +761,7 @@ export const StakeSection = ({
         }}
         isInModalContext={isInModalContext}
         beforeFooter={beforeFooter}
+        footerActionOverride={footerActionOverride}
         protocolSwitchConfig={protocolSwitchConfig}
       />
     );
@@ -703,6 +784,11 @@ export const StakeSection = ({
           tokenSymbol={tokenInfo?.token.symbol}
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
           onConfirm={onBorrowConfirm}
+          approveTarget={borrowSupplyApproveTarget}
+          currentAllowance={
+            borrowSupplyAllowanceResult?.allowanceParsed ??
+            protocolInfo?.approve?.allowance
+          }
           tokenInfo={tokenInfo}
           isDisabled={isDisabled}
           borrowMarketAddress={
@@ -756,6 +842,7 @@ export const StakeSection = ({
               : undefined
           }
           beforeFooter={beforeFooter}
+          footerActionOverride={footerActionOverride}
           showApyDetail={showApyDetail}
           suppressPlatformBonus={suppressPlatformBonus}
           isInModalContext={isInModalContext}

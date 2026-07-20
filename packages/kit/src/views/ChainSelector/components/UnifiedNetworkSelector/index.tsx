@@ -19,10 +19,8 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -830,13 +828,13 @@ function UnifiedNetworkSelector() {
               variant="primary"
               loading={isCreatingEnabledAddresses}
               disabled={isConfirmDisabled}
-              onPress={async () => {
-                try {
-                  await handlePortfolioDone();
-                } catch {
-                  // error already handled inside handlePortfolioDone
-                }
-              }}
+              // Let rejections stay unhandled so GlobalErrorHandlerContainer
+              // can surface them: DeviceNotOpenedPassphrase (hidden wallet on
+              // a passphrase-disabled device) is excluded from auto-toasts by
+              // design and only shows its "enable passphrase" dialog through
+              // the unhandled-rejection path. handlePortfolioDone resets its
+              // own loading state in a finally block.
+              onPress={handlePortfolioDone}
               testID={ChainSelectorTestIDs.unifiedPortfolioConfirmBtn}
             >
               {confirmButtonText}

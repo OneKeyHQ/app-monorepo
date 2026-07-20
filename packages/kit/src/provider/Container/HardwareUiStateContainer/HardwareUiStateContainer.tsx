@@ -24,7 +24,10 @@ import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toas
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { useBackHandler } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { DeviceNotFoundDialogContent } from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
+import {
+  DeviceNotFoundDialogContent,
+  TrezorDeviceNotFoundDialogContent,
+} from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
 import {
   usePromptWebDeviceAccess,
   useToPromptWebDeviceAccessPage,
@@ -64,6 +67,7 @@ import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
   buildBleNotifyChangeError,
+  buildBlePermissionDialogProps,
   buildBleSettingsDialogProps,
   buildWebDeviceAccessDialogProps,
 } from '../../../components/Hardware/HardwareDialog';
@@ -72,6 +76,7 @@ import {
   SHOW_CLOSE_ACTION_MIN_DURATION,
   SHOW_CLOSE_LOADING_ACTION_MIN_DURATION,
 } from './constants';
+import { isTrezorHardwareErrorDialogPayload } from './hardwareErrorDialogUtils';
 
 let globalShowDeviceProgressDialogEnabled = true;
 
@@ -762,12 +767,8 @@ function HardwareUiStateContainerCmpControlled() {
   // Handle hardware error dialog
   useEffect(() => {
     const callback = throttle(
-      ({
-        errorType,
-        payload: _payload,
-        errorCode: _errorCode,
-        errorMessage: _errorMessage,
-      }: IHardwareErrorDialogPayload) => {
+      (errorDialogPayload: IHardwareErrorDialogPayload) => {
+        const { errorType } = errorDialogPayload;
         // Only handle DeviceNotFound errors for now, can be extended for other error types
         if (errorType !== 'DeviceNotFound') {
           return;
@@ -779,15 +780,26 @@ function HardwareUiStateContainerCmpControlled() {
 
         void serviceHardwareUI.cleanHardwareUiState();
 
+        const isTrezorError =
+          isTrezorHardwareErrorDialogPayload(errorDialogPayload);
+
         hardwareErrorDialogInstanceRef.current = Dialog.show({
           title: intl.formatMessage({
-            id: ETranslations.device_not_connected,
+            id: isTrezorError
+              ? ETranslations.hardware_third_party_device_not_found_title
+              : ETranslations.device_not_connected,
           }),
           description: intl.formatMessage({
-            id: ETranslations.troubleshooting_show_helper_cta_label,
+            id: isTrezorError
+              ? ETranslations.hardware_third_party_device_not_found
+              : ETranslations.troubleshooting_show_helper_cta_label,
           }),
           showFooter: false,
-          renderContent: <DeviceNotFoundDialogContent />,
+          renderContent: isTrezorError ? (
+            <TrezorDeviceNotFoundDialogContent />
+          ) : (
+            <DeviceNotFoundDialogContent />
+          ),
         });
       },
       2500, // Same throttle duration as other hardware dialog instances
@@ -819,6 +831,11 @@ function HardwareUiStateContainerCmpControlled() {
           EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
         ) {
           dialogProps = buildBleNotifyChangeError(intl);
+        } else if (
+          uiRequestType === EHardwareUiStateAction.LOCATION_PERMISSION ||
+          uiRequestType === EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION
+        ) {
+          dialogProps = buildBlePermissionDialogProps(intl);
         } else if (
           uiRequestType ===
           EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION

@@ -23,14 +23,20 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
-import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import openUrlUtils, {
   openFiatCryptoUrl,
   openUrlExternal,
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -123,7 +129,13 @@ function ReceiveSelectorContent() {
   const networkId = route.params?.networkId ?? network?.id;
   const walletId = route.params?.walletId ?? wallet?.id;
   const indexedAccountId = route.params?.indexedAccountId ?? indexedAccount?.id;
-  const { token, onClose } = route.params ?? {};
+  const { token, onClose, showSwapEntry } = route.params ?? {};
+
+  // Exchanges cannot withdraw to Lightning invoices, so the
+  // "receive from exchange" section is hidden on Lightning networks
+  const isLightningNetwork = networkUtils.isLightningNetworkByNetworkId(
+    token?.networkId ?? networkId,
+  );
 
   const navigation = useAppNavigation();
 
@@ -186,6 +198,30 @@ function ReceiveSelectorContent() {
     },
     [token, isSupported, url],
   );
+
+  const handleSwapOnPress = useCallback(() => {
+    if (!token || !token.networkId) {
+      return;
+    }
+
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        importNetworkId: token.networkId,
+        importToToken: {
+          networkId: token.networkId,
+          contractAddress: token.address,
+          symbol: token.symbol,
+          decimals: token.decimals,
+          name: token.name,
+          logoURI: token.logoURI,
+          isNative: token.isNative,
+        },
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapSource: ESwapSource.PERP,
+      },
+    });
+  }, [navigation, token]);
 
   const handleBinancePress = useCallback(async () => {
     try {
@@ -359,11 +395,21 @@ function ReceiveSelectorContent() {
   useEffect(() => () => void onClose?.(), [onClose]);
 
   return (
-    <Page testID={ReceiveTestIDs.ReceiveSelectorPage}>
+    <Page
+      testID={ReceiveTestIDs.ReceiveSelectorPage}
+      scrollEnabled={!!showSwapEntry}
+      scrollProps={
+        showSwapEntry
+          ? {
+              keyboardShouldPersistTaps: 'handled',
+            }
+          : undefined
+      }
+    >
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />
-      <Page.Body>
+      <Page.Body pb={showSwapEntry ? '$5' : undefined}>
         <YStack gap="$5" px="$5" pt="$px">
           {showBuyAction ? (
             <WalletActionBuy
@@ -470,92 +516,112 @@ function ReceiveSelectorContent() {
               />
             )}
           />
-          <YStack
-            testID={ReceiveTestIDs.ExchangeList}
-            bg="$neutral2"
-            borderRadius="$4"
-            borderCurve="continuous"
-            overflow="hidden"
-            $platform-native={{
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: '$neutral3',
-            }}
-            $platform-web={{
-              outlineWidth: 1,
-              outlineColor: '$neutral3',
-              outlineStyle: 'solid',
-            }}
-            py="$3"
-            gap="$1"
-          >
-            <SizableText
-              size="$bodyMdMedium"
-              color="$textSubdued"
-              px="$5"
-              pt="$2"
-              pb="$1"
+          {showSwapEntry && token?.networkId ? (
+            <ReceiveOptions
+              icon="SwitchHorOutline"
+              title={intl.formatMessage({ id: ETranslations.global_trade })}
+              subtitle={intl.formatMessage(
+                {
+                  id: ETranslations.receive_trade_to_token_on_network__desc,
+                },
+                {
+                  token: token.symbol,
+                  network:
+                    networkUtils.getLocalNetworkInfo(token.networkId)?.name ??
+                    '',
+                },
+              )}
+              onPress={handleSwapOnPress}
+            />
+          ) : null}
+          {isLightningNetwork ? null : (
+            <YStack
+              testID={ReceiveTestIDs.ExchangeList}
+              bg="$neutral2"
+              borderRadius="$4"
+              borderCurve="continuous"
+              overflow="hidden"
+              $platform-native={{
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: '$neutral3',
+              }}
+              $platform-web={{
+                outlineWidth: 1,
+                outlineColor: '$neutral3',
+                outlineStyle: 'solid',
+              }}
+              py="$3"
+              gap="$1"
             >
-              {intl.formatMessage({
-                id: ETranslations.receive_from_exchange,
-              })}
-            </SizableText>
-            {sortedExchanges.map((config) => (
-              <ListItem
-                testID={ReceiveTestIDs.ExchangeItem}
-                key={config.id}
-                drillIn
-                onPress={() => handleExchangePress(config)}
-                gap="$4"
-                nativePressableStyle={{ flexShrink: 0 }}
-                userSelect="none"
+              <SizableText
+                size="$bodyMdMedium"
+                color="$textSubdued"
+                px="$5"
+                pt="$2"
+                pb="$1"
               >
-                <Image
-                  w="$10"
-                  h="$10"
-                  borderRadius="$full"
-                  source={EXCHANGE_LOGOS[config.id]}
-                />
-                <ListItem.Text flex={1} primary={config.name} />
-              </ListItem>
-            ))}
-            <WalletActionReceive
-              sameModal
-              source="receiveSelector"
-              renderTrigger={({ onPress, disabled }) => (
+                {intl.formatMessage({
+                  id: ETranslations.receive_from_exchange,
+                })}
+              </SizableText>
+              {sortedExchanges.map((config) => (
                 <ListItem
+                  testID={ReceiveTestIDs.ExchangeItem}
+                  key={config.id}
                   drillIn
-                  onPress={() => {
-                    defaultLogger.transaction.receive.clickExchangeEntry({
-                      exchangeSource: 'others',
-                      walletType: wallet?.type,
-                    });
-                    handleReceiveOnPress({ onPress });
-                  }}
-                  disabled={disabled}
+                  onPress={() => handleExchangePress(config)}
                   gap="$4"
                   nativePressableStyle={{ flexShrink: 0 }}
                   userSelect="none"
                 >
-                  <YStack
+                  <Image
                     w="$10"
                     h="$10"
                     borderRadius="$full"
-                    bg="$bgStrong"
-                    justifyContent="center"
-                    alignItems="center"
-                  >
-                    <Icon name="BankOutline" color="$iconActive" />
-                  </YStack>
-                  <ListItem.Text
-                    flex={1}
-                    primary={intl.formatMessage({
-                      id: ETranslations.receive_other_exchanges,
-                    })}
+                    source={EXCHANGE_LOGOS[config.id]}
                   />
+                  <ListItem.Text flex={1} primary={config.name} />
                 </ListItem>
-              )}
-            />
-          </YStack>
+              ))}
+              <WalletActionReceive
+                sameModal
+                source="receiveSelector"
+                renderTrigger={({ onPress, disabled }) => (
+                  <ListItem
+                    drillIn
+                    onPress={() => {
+                      defaultLogger.transaction.receive.clickExchangeEntry({
+                        exchangeSource: 'others',
+                        walletType: wallet?.type,
+                      });
+                      handleReceiveOnPress({ onPress });
+                    }}
+                    disabled={disabled}
+                    gap="$4"
+                    nativePressableStyle={{ flexShrink: 0 }}
+                    userSelect="none"
+                  >
+                    <YStack
+                      w="$10"
+                      h="$10"
+                      borderRadius="$full"
+                      bg="$bgStrong"
+                      justifyContent="center"
+                      alignItems="center"
+                    >
+                      <Icon name="BankOutline" color="$iconActive" />
+                    </YStack>
+                    <ListItem.Text
+                      flex={1}
+                      primary={intl.formatMessage({
+                        id: ETranslations.receive_other_exchanges,
+                      })}
+                    />
+                  </ListItem>
+                )}
+              />
+            </YStack>
+          )}
         </YStack>
       </Page.Body>
     </Page>

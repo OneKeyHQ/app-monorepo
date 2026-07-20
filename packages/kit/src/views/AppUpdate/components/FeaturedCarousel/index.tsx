@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -12,6 +12,7 @@ import Animated, {
 
 import { Badge, IconButton, LinearGradient, Stack } from '@onekeyhq/components';
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate/featuredChangelog';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AppUpdateTestIDs } from '../../testIDs';
 import { FeaturedMedia } from '../FeaturedMedia';
@@ -169,8 +170,36 @@ export function FeaturedCarousel({
     to: number;
   } | null>(null);
   const isJumpingJs = jumpIndices !== null;
+  // Synchronous mirror of "a jump animation is in flight", readable inside
+  // jumpTo without a stale closure. It stays true from the moment a jump starts
+  // until jumpIndices is cleared on settle, so re-entrant navigation (arrow or
+  // indicator tap) during the ~180ms jump is ignored. Without it, a second tap
+  // takes the distance<=1 branch and moves progress/activeIndex while the
+  // in-flight jump's jumpIndices still drives jump-mode rendering, briefly
+  // leaving the visible slide out of step with the footer CTA and active index.
+  const isJumpAnimatingRef = useRef(false);
 
   const heightSpring = useHeightSpring({ progress, measuredHeights });
+
+  // Web-only: cancel the browser's native drag-ghost on the media. RN-web's
+  // View doesn't forward onDragStart and the Image (expo-image) chain doesn't
+  // forward `draggable` to the underlying <img>, so we suppress the bubbled
+  // dragstart once on the shared media container — it covers every slide and
+  // both the image and video branches. The addEventListener guard makes this a
+  // no-op on native.
+  const mediaContainerRef = useRef<unknown>(null);
+  useEffect(() => {
+    const node = mediaContainerRef.current as {
+      addEventListener?: HTMLElement['addEventListener'];
+      removeEventListener?: HTMLElement['removeEventListener'];
+    } | null;
+    if (!node || typeof node.addEventListener !== 'function') {
+      return undefined;
+    }
+    const preventDrag = (event: Event) => event.preventDefault();
+    node.addEventListener('dragstart', preventDrag);
+    return () => node.removeEventListener?.('dragstart', preventDrag);
+  }, []);
 
   const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
@@ -189,11 +218,15 @@ export function FeaturedCarousel({
 
   const jumpTo = useCallback(
     (target: number) => {
+      // A jump animation is still settling — ignore re-entrant navigation until
+      // it finishes so jumpIndices, progress and activeIndex converge together.
+      if (isJumpAnimatingRef.current) return;
       const clamped = Math.max(0, Math.min(features.length - 1, target));
       const distance = Math.abs(clamped - activeIndex);
 
       if (distance > 1) {
         // Jump mode: snap progress immediately, run a short timing transition for old/new slides
+        isJumpAnimatingRef.current = true;
         jumpFromIndex.value = activeIndex;
         jumpToIndex.value = clamped;
         jumpProgress.value = 0;
@@ -258,14 +291,21 @@ export function FeaturedCarousel({
     },
   );
 
-  // Clear jumpIndices when the timing animation completes.
+  // Clears jump-mode render state and its synchronous mirror once the timing
+  // animation settles, re-enabling navigation.
+  const endJump = useCallback(() => {
+    isJumpAnimatingRef.current = false;
+    setJumpIndices(null);
+  }, []);
+
+  // Clear jump state when the timing animation completes.
   // (Entry to jump mode is set synchronously inside jumpTo to avoid a
   // 1-frame normal-mode flash; only the exit needs worklet → JS bridge.)
   useAnimatedReaction(
     () => isJumping.value,
     (current, prev) => {
       if (prev === true && current === false) {
-        runOnJS(setJumpIndices)(null);
+        runOnJS(endJump)();
       }
     },
   );
@@ -359,11 +399,76 @@ export function FeaturedCarousel({
     });
   }
 
+  // Prev / next arrows for quick feature switching (desktop-friendly). Each
+  // arrow sits over a black edge gradient so it stays legible on bright media,
+  // and is shown only when there's a slide to move to. pointerEvents="box-none"
+  // keeps the swipe gesture live everywhere except the button itself.
+  const renderArrow = (dir: 'prev' | 'next') => {
+    const isPrev = dir === 'prev';
+    const canMove = isPrev
+      ? activeIndex > 0
+      : activeIndex < features.length - 1;
+    if (!canMove) return null;
+    return (
+      <Stack
+        position="absolute"
+        top={0}
+        bottom={0}
+        left={isPrev ? 0 : undefined}
+        right={isPrev ? undefined : 0}
+        pl={isPrev ? '$3' : undefined}
+        pr={isPrev ? undefined : '$3'}
+        justifyContent="center"
+        // 'box-none' has no CSS equivalent — on web it computes to 'auto',
+        // turning this full-height strip into a solid click layer that
+        // swallowed the top-right close button. Use CSS 'none' on web (the
+        // button below restores 'auto'); keep native's real 'box-none'.
+        pointerEvents={platformEnv.isNative ? 'box-none' : 'none'}
+      >
+        <LinearGradient
+          pointerEvents="none"
+          position="absolute"
+          top={0}
+          bottom={0}
+          left={isPrev ? 0 : undefined}
+          right={isPrev ? undefined : 0}
+          width={72}
+          colors={
+            isPrev
+              ? ['rgba(0,0,0,0.5)', 'transparent']
+              : ['transparent', 'rgba(0,0,0,0.5)']
+          }
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+        />
+        <IconButton
+          testID={
+            isPrev
+              ? AppUpdateTestIDs.featuredCarouselPrevBtn
+              : AppUpdateTestIDs.featuredCarouselNextBtn
+          }
+          icon={isPrev ? 'ChevronLeftOutline' : 'ChevronRightOutline'}
+          variant="tertiary"
+          size="medium"
+          iconProps={{ color: '$whiteA12' }}
+          // Restores click handling under the web 'none' container above.
+          pointerEvents="auto"
+          onPress={() => jumpTo(activeIndex + (isPrev ? -1 : 1))}
+        />
+      </Stack>
+    );
+  };
+
   return (
     <Animated.View onLayout={onContainerLayout} style={totalHeightStyle}>
       {/* Media region: fixed height, slides absolutely positioned */}
       <GestureDetector gesture={panGesture}>
-        <Stack height={MEDIA_HEIGHT} position="relative" overflow="hidden">
+        <Stack
+          ref={mediaContainerRef as any}
+          height={MEDIA_HEIGHT}
+          position="relative"
+          overflow="hidden"
+        >
           {renderSlides('media', (feature, i) => (
             <FeaturedMedia
               feature={feature}
@@ -409,6 +514,8 @@ export function FeaturedCarousel({
               iconProps={{ color: '$whiteA10' }}
             />
           ) : null}
+          {renderArrow('prev')}
+          {renderArrow('next')}
           <FeaturedIndicator
             count={features.length}
             progress={progress}

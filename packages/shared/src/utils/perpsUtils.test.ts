@@ -5,7 +5,10 @@
 
 import BigNumber from 'bignumber.js';
 
-import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EHyperLiquidAbstractionMode,
+  EPerpsSizeInputMode,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   analyzeOrderBookPrecision,
@@ -16,6 +19,7 @@ import {
   compareSpotMarketCapValues,
   computeMaxTradeSize,
   countDecimalPlaces,
+  findTokensByAlias,
   formatHlPrice,
   formatHlSize,
   formatPriceToSignificantDigits,
@@ -28,9 +32,32 @@ import {
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getValidPriceDecimals,
+  isHyperLiquidAbstractionModeEnabled,
   isPredictionMarketInstrument,
   resolveTradingSizeBN,
 } from './perpsUtils';
+
+describe('findTokensByAlias', () => {
+  /* cspell:disable -- server-provided asset symbols */
+  const aliases = {
+    BTC: { aliases: ['Bitcoin', 'Satoshi', '比特币'] },
+    ZEC: { aliases: ['Zcash', '大零币'] },
+    SKHX: { aliases: ['SK Hynix', '海力士'] },
+    SNDK: { aliases: ['SanDisk', '闪迪'] },
+    SHIB: { aliases: ['Shiba Inu', '柴犬币'] },
+  };
+  /* cspell:enable */
+
+  test('uses prefix matching for short latin alias queries', () => {
+    expect(findTokensByAlias('sh', aliases)).toEqual(['SHIB']);
+    expect(findTokensByAlias('sk', aliases)).toEqual(['SKHX']);
+  });
+
+  test('keeps substring matching for longer latin and non-latin queries', () => {
+    expect(findTokensByAlias('disk', aliases)).toEqual(['SNDK']);
+    expect(findTokensByAlias('特币', aliases)).toEqual(['BTC']);
+  });
+});
 
 describe('getValidPriceDecimals - HyperLiquid Perp Rules', () => {
   // Rule: Integer prices are always allowed, regardless of significant figures
@@ -250,9 +277,9 @@ describe('buildPreferredSpotUniverseByBaseNameMap', () => {
       },
     ]);
 
-    expect(result['UBTC'].name).toBe('@142');
-    expect(result['KHYPE'].name).toBe('@336');
-    expect(result['ONLYUSDH'].name).toBe('@999');
+    expect(result.UBTC.name).toBe('@142');
+    expect(result.KHYPE.name).toBe('@336');
+    expect(result.ONLYUSDH.name).toBe('@999');
   });
 });
 
@@ -653,5 +680,36 @@ describe('calculateLiquidationPrice', () => {
     });
 
     expect(liquidationPrice?.toNumber()).toBeCloseTo(25.789_474, 6);
+  });
+});
+
+describe('isHyperLiquidAbstractionModeEnabled', () => {
+  // Guards against dropping PORTFOLIO_MARGIN — that would force-revert PM accounts.
+  it('accepts unified account and portfolio margin', () => {
+    expect(
+      isHyperLiquidAbstractionModeEnabled(
+        EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      ),
+    ).toBe(true);
+    expect(
+      isHyperLiquidAbstractionModeEnabled(
+        EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN,
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects disabled / default / dexAbstraction / unknown', () => {
+    expect(
+      isHyperLiquidAbstractionModeEnabled(EHyperLiquidAbstractionMode.DISABLED),
+    ).toBe(false);
+    expect(
+      isHyperLiquidAbstractionModeEnabled(EHyperLiquidAbstractionMode.DEFAULT),
+    ).toBe(false);
+    expect(
+      isHyperLiquidAbstractionModeEnabled(
+        EHyperLiquidAbstractionMode.DEX_ABSTRACTION,
+      ),
+    ).toBe(false);
+    expect(isHyperLiquidAbstractionModeEnabled(undefined)).toBe(false);
   });
 });

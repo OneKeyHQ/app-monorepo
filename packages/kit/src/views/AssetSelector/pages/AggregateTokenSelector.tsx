@@ -32,6 +32,7 @@ import {
   sortTokensCommon,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -43,20 +44,26 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
-  useAggregateTokensListMapAtom,
-  useAllTokenListMapAtom,
   useProcessingTokenStateAtom,
   useTokenListActions,
 } from '../../../states/jotai/contexts/tokenList';
+import {
+  useAggregateSubTokenFiat,
+  useAggregateSubTokenFiatMap,
+} from '../../../states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { AssetSelectorTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
+// Preset LISTED networks, available synchronously. Used to seed networkMap so the
+// list does not flash empty while the dynamic (server-fetched) networks resolve.
 const listedNetworkMap = getListedNetworkMap();
 
 function AggregateTokenListItem({
   token,
+  aggKey,
+  network,
   onPress,
   allNetworksState,
   refreshAllNetworkState,
@@ -64,6 +71,8 @@ function AggregateTokenListItem({
   hideBalanceAndValue,
 }: {
   token: IAccountToken;
+  aggKey: string;
+  network?: IServerNetwork;
   onPress: ({
     token,
     enabledInAllNetworks,
@@ -90,13 +99,13 @@ function AggregateTokenListItem({
     processingTokenKey !== null && processingTokenKey !== token.$key;
   const intl = useIntl();
 
-  const [allTokenListMapAtom] = useAllTokenListMapAtom();
-  const tokenInfo = allTokenListMapAtom[token.$key];
+  // Reactive per-row fiat from the home per-network sub-cell (red-team C-F3:
+  // read the live cell so a price tick updates the row while the modal is open,
+  // NOT a one-shot PULL that would freeze). The modal is a home store mirror.
+  const tokenInfo = useAggregateSubTokenFiat(aggKey, token.networkId);
   const {
     activeAccount: { wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
-
-  const network = listedNetworkMap[token.networkId ?? ''];
 
   const { createAddress } = useAccountSelectorCreateAddress();
 
@@ -274,6 +283,7 @@ function AggregateTokenSelector() {
   const {
     title,
     aggregateToken,
+    aggregateSubTokenList,
     searchPlaceholder,
     onSelect,
     closeAfterSelect,
@@ -287,16 +297,63 @@ function AggregateTokenSelector() {
   const intl = useIntl();
 
   const [searchKey, setSearchKey] = useState('');
-  const [allTokenListMapAtom] = useAllTokenListMapAtom();
   const navigation = useAppNavigation();
   const [processingTokenState] = useProcessingTokenStateAtom();
   const { updateProcessingTokenState } = useTokenListActions().current;
 
-  const [aggregateTokensListMapAtom] = useAggregateTokensListMapAtom();
-
+  // PR-3 (tokenList cells full-delete): the owned sub-tokens are passed in as a
+  // route param by TokenSelector (the only navigator into this screen) instead
+  // of reading `aggregateTokensListMapAtom`. Falls back to `[]` for any future
+  // direct entry / restore where the param is absent — matching the old
+  // empty-atom miss behavior. `allAggregateTokenList` (also a route param) is
+  // still merged in below, so the cross-network rows still render.
   const aggregateTokens = useMemo(() => {
-    return aggregateTokensListMapAtom[aggregateToken.$key]?.tokens ?? [];
-  }, [aggregateTokensListMapAtom, aggregateToken.$key]);
+    return aggregateSubTokenList ?? [];
+  }, [aggregateSubTokenList]);
+  const aggregateSubTokenFiatMap = useAggregateSubTokenFiatMap({
+    aggKey: aggregateToken.$key,
+    aggregateTokenList: aggregateTokens,
+    useCellSeam: true,
+    contextTokenListMap: undefined,
+  });
+
+  // Resolve the networks behind the aggregate tokens. getNetworksByIds reads the
+  // full dynamic network list (preset + server-fetched) with delisted (TRASH)
+  // networks already filtered out, so valid server-fetched networks are kept
+  // while removed ones are dropped. The preset-only listed map cannot see
+  // server-fetched networks and would wrongly drop their tokens.
+  const { result: existingNetworks } = usePromiseResult(async () => {
+    const networkIds = Array.from(
+      new Set(
+        [...aggregateTokens, ...(allAggregateTokenList ?? [])]
+          .map((token) => token.networkId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    if (!networkIds.length) {
+      return [];
+    }
+    const { networks } =
+      await backgroundApiProxy.serviceNetwork.getNetworksByIds({
+        networkIds,
+      });
+    return networks;
+  }, [aggregateTokens, allAggregateTokenList]);
+
+  // Merge the synchronously available preset LISTED networks with the resolved
+  // server-fetched networks. Seeding with the preset map keeps the list from
+  // flashing empty while getNetworksByIds resolves, and the resolved entries
+  // then add any server-fetched networks the preset map is missing.
+  const networkMap = useMemo(() => {
+    const map = new Map<string, IServerNetwork>();
+    for (const network of Object.values(listedNetworkMap)) {
+      map.set(network.id, network);
+    }
+    for (const network of existingNetworks ?? []) {
+      map.set(network.id, network);
+    }
+    return map;
+  }, [existingNetworks]);
 
   const { result: allNetworksState, run: refreshAllNetworkState } =
     usePromiseResult(
@@ -384,13 +441,13 @@ function AggregateTokenSelector() {
   const sortedAggregateTokens = useMemo(() => {
     let tokens = sortTokensCommon({
       tokens: aggregateTokens,
-      tokenListMap: allTokenListMapAtom,
+      tokenListMap: aggregateSubTokenFiatMap,
     });
 
     if (hideZeroBalanceTokens) {
       tokens = tokens.filter((token) => {
         return new BigNumber(
-          allTokenListMapAtom[token.$key]?.fiatValue ?? -1,
+          aggregateSubTokenFiatMap[token.$key]?.fiatValue ?? -1,
         ).gt(0);
       });
     }
@@ -402,6 +459,11 @@ function AggregateTokenSelector() {
       ],
       (token) => token.networkId,
     );
+
+    // Drop tokens whose network is no longer listed (delisted/removed). Their
+    // metadata is missing from networkMap, so they would otherwise render as
+    // blank rows with a broken icon and empty name.
+    result = result.filter((token) => networkMap.has(token.networkId ?? ''));
 
     if (exchangeFilter?.supportedAssets) {
       result = result.filter((token) => {
@@ -419,11 +481,12 @@ function AggregateTokenSelector() {
     return result;
   }, [
     aggregateTokens,
-    allTokenListMapAtom,
+    aggregateSubTokenFiatMap,
     allAggregateTokenList,
     hideZeroBalanceTokens,
     exchangeFilter,
     aggregateToken,
+    networkMap,
   ]);
 
   const filteredAggregateTokens = useMemo(() => {
@@ -431,7 +494,7 @@ function AggregateTokenSelector() {
       const lowerSearchKey = searchKey.toLowerCase();
 
       return sortedAggregateTokens?.filter((token) => {
-        const network = listedNetworkMap[token.networkId ?? ''];
+        const network = networkMap.get(token.networkId ?? '');
         return (
           network?.name?.toLowerCase().includes(lowerSearchKey) ||
           network?.symbol?.toLowerCase().includes(lowerSearchKey)
@@ -439,7 +502,7 @@ function AggregateTokenSelector() {
       });
     }
     return sortedAggregateTokens;
-  }, [searchKey, sortedAggregateTokens]);
+  }, [searchKey, sortedAggregateTokens, networkMap]);
 
   const processingTokenKey =
     exchangeFilter && processingTokenState.isProcessing
@@ -458,6 +521,8 @@ function AggregateTokenSelector() {
       <AggregateTokenListItem
         key={token.$key}
         token={token}
+        aggKey={aggregateToken.$key}
+        network={networkMap.get(token.networkId ?? '')}
         onPress={handleOnPressToken}
         allNetworksState={allNetworksState}
         refreshAllNetworkState={refreshAllNetworkState}
@@ -467,6 +532,8 @@ function AggregateTokenSelector() {
     ));
   }, [
     filteredAggregateTokens,
+    aggregateToken.$key,
+    networkMap,
     handleOnPressToken,
     searchKey,
     allNetworksState,

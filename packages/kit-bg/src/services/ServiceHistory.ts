@@ -24,6 +24,7 @@ import {
   isHistoryCursorAdvanced,
   sortHistoryTxsByTime,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { isHyperliquidDirectDepositTx } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
@@ -35,11 +36,13 @@ import {
   isPrivateSendSwapHistoryItem,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { collectDecodedTxInvolvedAddresses } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressBadge,
   IAddressInfo,
 } from '@onekeyhq/shared/types/address';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
+import { DEFI_PORTFOLIO_ACTION_STAKING_TAG } from '@onekeyhq/shared/types/defi';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -71,9 +74,15 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
+import { perpsDepositOrderAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import {
+  getKnownPerpsDepositOrderTxIds,
+  isPerpsDepositOrderMatchedByTxIds,
+  shouldKeepHistoryConfirmationMarker,
+} from './utils/perpsDepositHistoryUtils';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 import type { IDBAccount } from '../dbs/local/types';
@@ -151,6 +160,42 @@ function mergeNullishRecordFields<T extends Record<string, unknown>>({
     }
   });
   return result as T;
+}
+
+async function findKnownPerpsDepositOrderTx({
+  txid,
+  originalTxId,
+}: {
+  txid: string | undefined;
+  originalTxId: string | undefined;
+}) {
+  const txIds = getKnownPerpsDepositOrderTxIds({ txid, originalTxId });
+  if (txIds.size === 0) {
+    return undefined;
+  }
+  const perpsDepositOrder = await perpsDepositOrderAtom.get();
+  return perpsDepositOrder.orders.find((order) =>
+    isPerpsDepositOrderMatchedByTxIds(order, txIds),
+  );
+}
+
+async function clearHistoryConsumedPerpsDepositOrderTx({
+  txid,
+  originalTxId,
+}: {
+  txid: string | undefined;
+  originalTxId: string | undefined;
+}) {
+  const txIds = getKnownPerpsDepositOrderTxIds({ txid, originalTxId });
+  if (txIds.size === 0) {
+    return;
+  }
+  await perpsDepositOrderAtom.set((prev) => ({
+    ...prev,
+    orders: prev.orders.filter((order) =>
+      shouldKeepHistoryConfirmationMarker(order, txIds),
+    ),
+  }));
 }
 
 function mergePrivateSendPayloadFields({
@@ -1158,6 +1203,10 @@ class ServiceHistory extends ServiceBase {
         networkId: string;
       }[],
       accountsWithChangedTxs: [] as { accountId: string; networkId: string }[],
+      accountsWithCompletedDeFiPortfolioTxs: [] as {
+        accountId: string;
+        networkId: string;
+      }[],
     };
   }
 
@@ -1273,6 +1322,24 @@ class ServiceHistory extends ServiceBase {
     let confirmedTxs: IAccountHistoryTx[] = [];
     // Transactions still in pending status
     const pendingTxs: IAccountHistoryTx[] = [];
+    const accountsWithCompletedDeFiPortfolioTxs: {
+      accountId: string;
+      networkId: string;
+    }[] = [];
+    const addCompletedDeFiPortfolioTxAccount = (item: {
+      accountId: string;
+      networkId: string;
+    }) => {
+      if (
+        !accountsWithCompletedDeFiPortfolioTxs.some(
+          (account) =>
+            account.accountId === item.accountId &&
+            account.networkId === item.networkId,
+        )
+      ) {
+        accountsWithCompletedDeFiPortfolioTxs.push(item);
+      }
+    };
 
     // Fetch details of locally pending transactions
     const onChainHistoryTxsDetails = await promiseAllSettledEnhanced(
@@ -1282,6 +1349,12 @@ class ServiceHistory extends ServiceBase {
             accountId: tx.decodedTx.accountId,
             networkId: tx.decodedTx.networkId,
             txid: tx.decodedTx.txid,
+            // the locally built decoded tx carries the complete input/output
+            // set, so detail polling can narrow vault extra params to the
+            // addresses this tx actually involves
+            txInvolvedAddresses: collectDecodedTxInvolvedAddresses({
+              decodedTx: tx.decodedTx,
+            }),
           }),
       ),
       { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
@@ -1357,13 +1430,64 @@ class ServiceHistory extends ServiceBase {
         await this.backgroundApi.serviceAccount.getDBAccountSafe({
           accountId: txAccountId,
         });
+      const knownPerpsDepositOrder = await findKnownPerpsDepositOrderTx({
+        txid: tx.decodedTx.txid,
+        originalTxId: tx.decodedTx.originalTxId,
+      });
+      const isPerpsDepositTx =
+        isHyperliquidDirectDepositTx(tx.decodedTx) ||
+        Boolean(knownPerpsDepositOrder);
+      let txAccountAddress: string | undefined;
+      let txDeriveType: string | IAccountDeriveTypes | undefined;
+      if (isPerpsDepositTx) {
+        const txAccountInfo = [...accounts, ...allAccounts].find(
+          (account) =>
+            account.accountId === txAccountId &&
+            account.networkId === tx.decodedTx.networkId,
+        );
+        txAccountAddress = txAccountInfo?.apiAddress;
+        if (!txAccountAddress) {
+          try {
+            txAccountAddress =
+              await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+                accountId: txAccountId,
+                networkId: tx.decodedTx.networkId,
+              });
+          } catch {
+            txAccountAddress = undefined;
+          }
+        }
+        const parsedTxAccountId = accountUtils.parseAccountId({
+          accountId: txAccountId,
+        });
+        const normalizedTxDeriveType = accountUtils.normalizeDeriveType(
+          parsedTxAccountId.idSuffix ?? '',
+        );
+        txDeriveType =
+          txAccountInfo?.deriveType ??
+          normalizedTxDeriveType ??
+          (parsedTxAccountId.idSuffix ? undefined : 'default');
+      }
       appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
         accountId: txAccountId,
         indexedAccountId: txDBAccount?.indexedAccountId,
+        accountAddress: txAccountAddress,
+        deriveType: txDeriveType,
+        perpsAccountId: knownPerpsDepositOrder?.accountId,
+        perpsIndexedAccountId: knownPerpsDepositOrder?.indexedAccountId,
+        perpsAccountAddress: knownPerpsDepositOrder?.perpsAccountAddress,
+        perpsDeriveType: knownPerpsDepositOrder?.perpsDeriveType,
         networkId: tx.decodedTx.networkId,
         txid: tx.decodedTx.txid,
         status: tx.decodedTx.status,
+        isPerpsDepositTx,
       });
+      if (knownPerpsDepositOrder?.keepForHistoryConfirmation) {
+        await clearHistoryConsumedPerpsDepositOrderTx({
+          txid: tx.decodedTx.txid,
+          originalTxId: tx.decodedTx.originalTxId,
+        });
+      }
     }
 
     // 3. Get the locally confirmed transactions
@@ -1581,8 +1705,20 @@ class ServiceHistory extends ServiceBase {
 
     if (changedPendingTxInfos.length > 0) {
       // Check if staking transaction status has changed, if so request backend to update order status
-      await this.backgroundApi.serviceStaking.updateEarnOrder({
-        txs: changedPendingTxInfos,
+      const updatedEarnOrders =
+        await this.backgroundApi.serviceStaking.updateEarnOrder({
+          txs: changedPendingTxInfos,
+        });
+      updatedEarnOrders.forEach(({ tx, order }) => {
+        if (
+          tx.status === EDecodedTxStatus.Confirmed &&
+          order.stakingTags?.includes(DEFI_PORTFOLIO_ACTION_STAKING_TAG)
+        ) {
+          addCompletedDeFiPortfolioTxAccount({
+            accountId: tx.accountId,
+            networkId: tx.networkId,
+          });
+        }
       });
     }
 
@@ -1635,6 +1771,7 @@ class ServiceHistory extends ServiceBase {
           networkId: n,
         };
       }),
+      accountsWithCompletedDeFiPortfolioTxs,
     };
   }
 
@@ -1751,6 +1888,10 @@ class ServiceHistory extends ServiceBase {
       string,
       { accountId: string; networkId: string }
     >();
+    const deFiPortfolioByKey = new Map<
+      string,
+      { accountId: string; networkId: string }
+    >();
     const aggregatedAllAccounts: IAllNetworkAccountInfo[] = [];
     const keyOf = (i: { accountId: string; networkId: string }) =>
       `${i.accountId}_${i.networkId}`;
@@ -1767,6 +1908,9 @@ class ServiceHistory extends ServiceBase {
         }
         for (const item of response.accountsWithChangedConfirmedTxs) {
           confirmedByKey.set(keyOf(item), item);
+        }
+        for (const item of response.accountsWithCompletedDeFiPortfolioTxs) {
+          deFiPortfolioByKey.set(keyOf(item), item);
         }
         aggregatedAllAccounts.push(...response.allAccounts);
 
@@ -1824,6 +1968,9 @@ class ServiceHistory extends ServiceBase {
       accountsWithChangedPendingTxs: dedupedPending,
       accountsWithChangedConfirmedTxs: dedupedConfirmed,
       accountsWithChangedTxs: dedupedAll,
+      accountsWithCompletedDeFiPortfolioTxs: Array.from(
+        deFiPortfolioByKey.values(),
+      ),
     };
   }
 
@@ -2172,6 +2319,7 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     networkId: string;
     accountAddress: string;
+    txInvolvedAddresses?: string[];
   }) {
     const { networkId, accountId } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
@@ -2514,17 +2662,16 @@ class ServiceHistory extends ServiceBase {
         // pass
       }
 
-      const extraParams = await this.buildFetchHistoryListParams({
-        ...params,
-        accountAddress: accountAddress || '',
-      });
-
+      // the withUTXOs request deliberately carries no account context so
+      // the server returns the tx's raw full input/output breakdown; skip
+      // account-scoped vault extra params there too — the server rejects
+      // `accountAddressArray` unless `accountAddress` accompanies it, and
+      // the raw view needs no account semantics.
       const requestParams: IServerFetchAccountHistoryDetailParams = withUTXOs
         ? {
             accountId,
             networkId,
             txid,
-            ...extraParams,
           }
         : {
             accountId,
@@ -2532,7 +2679,16 @@ class ServiceHistory extends ServiceBase {
             txid,
             xpub,
             accountAddress,
-            ...extraParams,
+            // skip account-scoped vault extras when the address lookup
+            // failed: the server rejects `accountAddressArray` without an
+            // accompanying `accountAddress`, and other vault extras (e.g.
+            // lightning auth) are equally meaningless with an empty address.
+            ...(accountAddress
+              ? await this.buildFetchHistoryListParams({
+                  ...params,
+                  accountAddress,
+                })
+              : {}),
           };
       const vault = await vaultFactory.getVault({ networkId, accountId });
       const resp = await vault.fetchAccountHistoryDetail(requestParams);
@@ -3001,6 +3157,101 @@ class ServiceHistory extends ServiceBase {
   }) {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.canAccelerateTx({ encodedTx, txId });
+  }
+
+  // Authoritative check for whether a pending tx can still be replaced
+  // (speed up / cancel). Combines the local checks (pending status, replace
+  // enabled, earliest local pending nonce) with an on-chain nonce re-validation
+  // so an already-confirmed/replaced tx is not sent to the backend (which would
+  // reject the replacement with error code 40024). Runs in bg, where the
+  // localHistory and on-chain nonce are authoritative (main holds a stale copy).
+  @backgroundMethod()
+  public async checkReplaceTxAvailability({
+    accountId,
+    networkId,
+    historyTx,
+  }: {
+    accountId: string;
+    networkId: string;
+    historyTx: IAccountHistoryTx;
+  }): Promise<{
+    available: boolean;
+    reason?: 'notReplaceable' | 'notEarliestPending' | 'nonceConsumed';
+  }> {
+    const { decodedTx } = historyTx;
+    const { status, encodedTx, nonce, txid } = decodedTx;
+
+    if (status !== EDecodedTxStatus.Pending || !encodedTx) {
+      return { available: false, reason: 'notReplaceable' };
+    }
+
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    if (!vaultSettings.replaceTxEnabled) {
+      return { available: false, reason: 'notReplaceable' };
+    }
+
+    // Only the earliest local pending tx is replaceable.
+    const isEarliest = await this.canAccelerateTx({
+      accountId,
+      networkId,
+      encodedTx,
+      txId: txid,
+    });
+    if (!isEarliest) {
+      return { available: false, reason: 'notEarliestPending' };
+    }
+
+    // On-chain nonce re-validation (fail-open inside the precheck). If the
+    // target nonce has already been consumed on-chain, the original tx is
+    // confirmed/replaced and can no longer be sped up or canceled.
+    if (vaultSettings.nonceRequired && !isNil(nonce)) {
+      const { consumed } =
+        await this.backgroundApi.serviceSend.precheckReplaceTxNonceConsumed({
+          accountId,
+          networkId,
+          targetNonce: nonce,
+        });
+      if (consumed) {
+        return { available: false, reason: 'nonceConsumed' };
+      }
+    }
+
+    return { available: true };
+  }
+
+  // Remove a stale local pending tx whose nonce has already been consumed
+  // on-chain, so its speed-up / cancel buttons disappear. Emits
+  // HistoryTxStatusChanged via clearLocalHistoryPendingTxByTxId.
+  @backgroundMethod()
+  public async resolveStalePendingReplaceTx({
+    accountId,
+    networkId,
+    txid,
+    replaceHistoryId,
+  }: {
+    accountId: string;
+    networkId: string;
+    txid?: string;
+    replaceHistoryId?: string;
+  }) {
+    let targetTxid = txid;
+    if (!targetTxid && replaceHistoryId) {
+      const prevTx = await this.getLocalHistoryTxById({
+        accountId,
+        networkId,
+        historyId: replaceHistoryId,
+      });
+      targetTxid = prevTx?.decodedTx.txid;
+    }
+    if (!targetTxid) {
+      return false;
+    }
+    return this.clearLocalHistoryPendingTxByTxId({
+      accountId,
+      networkId,
+      txid: targetTxid,
+    });
   }
 
   @backgroundMethod()

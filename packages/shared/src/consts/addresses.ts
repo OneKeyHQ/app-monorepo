@@ -13,6 +13,9 @@ export const EthereumSrUSDe = '0x3d7d6fdf07EE548B939A80edbc9B2256d0cdc003';
 export const EthereumJrUSDe = '0xC58D044404d8B14e953C115E67823784dEA53d8F';
 export const EthereumCUSDO = '0xaD55aebc9b8c03FC43cd9f62260391c13c23e7c0';
 export const EthereumSENA = '0x8bE3460A480c80728a8C4D7a5D5303c85ba7B3b9';
+export const EthereumStETH = '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84';
+export const EthereumStETHWithdrawalQueue =
+  '0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1';
 export const EthereumWstETH = '0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0';
 export const EthereumStcUSD = '0x88887bE419578051FF9F4eb6C858A951921D8888';
 export const EthereumMORPHO = '0x58D97B57BB95320F9a05dC918Aef65434969c2B2';
@@ -20,6 +23,9 @@ export const ArbitrumSUSDai = '0x0B2b2B2076d95dda7817e785989fE353fe955ef9';
 export const ArbitrumWeETH = '0x35751007a407ca6FEFfE80b3cB397736D2cf4dbe';
 export const BinanceSmartChainUSDT =
   '0x55d398326f99059fF775485246999027B3197955';
+export const BinanceSmartChainU = '0xce24439f2d9c6a2289f741120fe202248b666666';
+export const BinanceSmartChainBTW =
+  '0x444045b0ee1ee319a660a5e3d604ca0ffa35acaa';
 export const BinanceSmartChainLISTA =
   '0xFceB31A79F71AC9CBDCF853519c1b12D379EdC46';
 export const BinanceSmartChainSlisBNBx =

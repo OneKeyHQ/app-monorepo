@@ -1,11 +1,14 @@
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
-import platformEnv from '../../platformEnv';
+import platformEnv, { ERuntimeRole } from '../../platformEnv';
 import cacheUtils from '../../utils/cacheUtils';
 import timerUtils from '../../utils/timerUtils';
 import appStorage from '../appStorage';
 import secureStorageInstance from '../instance/secureStorageInstance';
 
 import { SUPABASE_STORAGE_KEY_PREFIX } from './consts';
+import { buildSupabaseSealedValueCodec } from './sealedValueCodec';
+
+import type { ISupabaseSealedValueCodec } from './sealedValueCodec';
 
 const shouldUseSecureStorage = cacheUtils.memoizee(
   async () => {
@@ -38,7 +41,10 @@ const buildCacheSourceId = () =>
   `supabase-storage-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 export class SupabaseStorage {
-  constructor() {
+  constructor({
+    sealedValueCodec,
+  }: { sealedValueCodec?: ISupabaseSealedValueCodec } = {}) {
+    this.sealedValueCodec = sealedValueCodec ?? buildSupabaseSealedValueCodec();
     appEventBus.on(
       EAppEventBusNames.SupabaseStorageCacheCleared,
       ({ sourceId }) => {
@@ -52,6 +58,12 @@ export class SupabaseStorage {
 
   private readonly cacheSourceId = buildCacheSourceId();
 
+  // Device-key sealing for the non-secure-storage fallback path (ext / web /
+  // dev desktop). Wallet-recovery-scoped OAuth session material must not sit
+  // as plaintext in appStorage on disk; see ./sealedValueCodec.ts. Native and
+  // production desktop keep using OS secure storage unchanged.
+  private readonly sealedValueCodec: ISupabaseSealedValueCodec;
+
   private readonly getItemWithCache = cacheUtils.memoizee(
     async (key: string) => {
       // eslint-disable-next-line no-param-reassign
@@ -60,7 +72,26 @@ export class SupabaseStorage {
       if (await shouldUseSecureStorage()) {
         return (await secureStorageInstance.getSecureItem(key)) ?? null;
       }
-      return (await appStorage.getItem(key)) ?? null;
+      const rawValue = (await appStorage.getItem(key)) ?? null;
+      if (rawValue === null) {
+        return null;
+      }
+      if (!this.sealedValueCodec.isSealedValue(rawValue)) {
+        // Legacy plaintext value written before device-key sealing existed
+        // (or written by a runtime where WebCrypto/IndexedDB is unavailable):
+        // keep it working as-is and opportunistically rewrite it sealed.
+        this.resealLegacyPlainValue(key, rawValue);
+        return rawValue;
+      }
+      // Recognized sealed envelope: a genuine decrypt failure (device key
+      // lost, e.g. browser cleared IndexedDB) returns null — the session is
+      // unrecoverable and the user re-OAuths. A TRANSIENT device-key
+      // failure instead rejects with SupabaseStorageTransientError so
+      // callers cannot mistake a recoverable session for "no session";
+      // memoizee evicts rejected promises on the next tick (same-tick
+      // concurrent readers share the retryable rejection), so later reads
+      // retry immediately instead of serving a stale failure for maxAge.
+      return this.sealedValueCodec.unsealValue({ key, sealedValue: rawValue });
     },
     {
       promise: true,
@@ -71,6 +102,45 @@ export class SupabaseStorage {
 
   private clearLocalCache() {
     this.getItemWithCache.clear();
+  }
+
+  // Best-effort one-time migration of a legacy plaintext value to a sealed
+  // one. Restricted to the runtime that owns supabase session WRITES (ext bg
+  // service worker / native bg / standalone web+desktop — the token-refresh
+  // runtime, see supabaseClientUtils.isSupabaseTokenRefreshRuntime), so a
+  // `main` UI-runtime read can never race a concurrent bg token refresh and
+  // clobber the newer session. Both runtimes can still READ sealed values:
+  // the device key lives in origin-shared IndexedDB (one shared
+  // browser-native resource; each runtime only holds its own in-memory
+  // CryptoKey handle).
+  private resealLegacyPlainValue(prefixedKey: string, plainValue: string) {
+    if (platformEnv.runtimeRole === ERuntimeRole.Main) {
+      return;
+    }
+    void (async () => {
+      const sealedValue = await this.sealedValueCodec.sealValue({
+        key: prefixedKey,
+        value: plainValue,
+      });
+      if (sealedValue === null) {
+        return;
+      }
+      // Re-read before writing: a concurrent auth-js token refresh in this
+      // runtime (getItem -> expired -> refresh -> setItem) may have already
+      // rotated and rewritten the session while the device key was being
+      // resolved. Never clobber the newer write with the resealed OLD value
+      // — its single-use rotating refresh token is already consumed, and
+      // re-using it past the GoTrue reuse window revokes the whole token
+      // family (forced logout).
+      if ((await appStorage.getItem(prefixedKey)) !== plainValue) {
+        return;
+      }
+      await appStorage.setItem(prefixedKey, sealedValue);
+      // No cache clear: the logical value is unchanged, only its at-rest
+      // encoding.
+    })().catch(() => {
+      // Best-effort: the plaintext value keeps working until the next read.
+    });
   }
 
   clearCache({ syncRemote = true }: { syncRemote?: boolean } = {}) {
@@ -97,8 +167,25 @@ export class SupabaseStorage {
       this.clearCache();
       return result;
     }
-    const result = await appStorage.setItem(key, value);
+    // Seal with the device key when available; sealValue returns null when
+    // WebCrypto/IndexedDB is unavailable (older webviews, jest), in which
+    // case we keep the pre-sealing plaintext behavior. The plaintext
+    // fallback is deliberate even when the PREVIOUS stored value was sealed
+    // and this failure is transient: rejecting the write instead would lose
+    // a just-rotated refresh token that auth-js persists through this
+    // setItem (the old token is already consumed server-side), trading a
+    // short plaintext-at-rest window for a guaranteed forced re-login.
+    const sealedValue = await this.sealedValueCodec.sealValue({ key, value });
+    const result = await appStorage.setItem(key, sealedValue ?? value);
     this.clearCache();
+    if (sealedValue === null) {
+      // Shrink the plaintext window: retry sealing right away instead of
+      // waiting for the next read's opportunistic rewrite (the device-key
+      // resolution failure is not pinned, so a retry can succeed). The
+      // method self-guards: it no-ops in Main UI runtimes and re-reads
+      // before writing so it can never clobber a newer rotated session.
+      this.resealLegacyPlainValue(key, value);
+    }
     return result;
   }
 

@@ -20,25 +20,31 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
-  filterSwapHistoryPendingList,
   useInAppNotificationAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
-import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import { selectSwapHistoryPreviewItems } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
 import {
   EProtocolOfExchange,
   ESwapTabSwitchType,
-  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
+import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { SwapTestIDs } from '../../testIDs';
+import {
+  filterSwapMarketHistoryItems,
+  isStockSwapHistoryItem,
+} from '../../utils/swapMarketHistory';
+
 const SwapPendingHistoryListComponent = ({
   pageType,
+  protocol = EProtocolOfExchange.SWAP,
 }: {
   pageType?: EPageType;
+  protocol?: EProtocolOfExchange;
 }) => {
   const intl = useIntl();
   const navigation =
@@ -46,32 +52,60 @@ const SwapPendingHistoryListComponent = ({
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
+  const shouldShowSwapLocalData = useShouldShowSwapLocalData();
   const { result: swapTxHistoryList } = usePromiseResult(
     async () => {
+      if (!shouldShowSwapLocalData) {
+        return [];
+      }
       const histories =
         await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
       return histories;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swapHistoryPendingList],
+    [swapHistoryPendingList, shouldShowSwapLocalData],
+    {
+      // Sync-read the cached list on (re)mount so returning to this surface
+      // (e.g. from the Stock/Limit tab, which unmounts this component) shows
+      // the rows immediately instead of flashing empty before the async fetch.
+      swrKey: 'swapHistoryPreviewList',
+      // Keep re-fetching even while the Swap tab is blurred, so archiving on
+      // leave (mark-all-read) is reflected before the user returns instead of
+      // briefly showing the stale rows and removing them on refocus.
+      overrideIsFocused: () => true,
+    },
   );
-  const listData = useMemo(() => {
-    const pendingData = filterSwapHistoryPendingList(
-      swapHistoryPendingList,
-    ).filter(
-      (item) =>
-        !isPrivateSendSwapHistoryItem(item) &&
-        (item.status === ESwapTxHistoryStatus.PENDING ||
-          item.status === ESwapTxHistoryStatus.CANCELING),
-    );
-    return pendingData;
-  }, [swapHistoryPendingList]);
+  const filteredSwapTxHistoryList = useMemo(() => {
+    if (!swapTxHistoryList?.length) {
+      return undefined;
+    }
+    // Start from the full Swap/market bucket (which intentionally includes
+    // stock), then split by whether the item is a stock trade. Stock is
+    // detected via the token-level isStock flag (reliable), NOT protocol ===
+    // STOCK, which is backend-echoed and can fall back to SWAP.
+    const items = filterSwapMarketHistoryItems({
+      items: swapTxHistoryList,
+      protocol: EProtocolOfExchange.SWAP,
+    });
+    return protocol === EProtocolOfExchange.STOCK
+      ? items.filter(isStockSwapHistoryItem)
+      : items.filter((item) => !isStockSwapHistoryItem(item));
+  }, [swapTxHistoryList, protocol]);
+  const listData = useMemo(
+    () =>
+      filteredSwapTxHistoryList?.length
+        ? selectSwapHistoryPreviewItems(filteredSwapTxHistoryList, 2)
+        : [],
+    [filteredSwapTxHistoryList],
+  );
   const txHistoryListForDetail = useMemo(
-    () => (swapTxHistoryList?.length ? swapTxHistoryList : listData),
-    [listData, swapTxHistoryList],
+    () =>
+      filteredSwapTxHistoryList?.length ? filteredSwapTxHistoryList : listData,
+    [filteredSwapTxHistoryList, listData],
   );
   const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
   if (
+    !shouldShowSwapLocalData ||
     (!fromTokenAmountBN.isZero() && !fromTokenAmountBN.isNaN()) ||
     listData.length === 0 ||
     swapTabSwitchType === ESwapTabSwitchType.LIMIT
@@ -88,7 +122,7 @@ const SwapPendingHistoryListComponent = ({
       <XStack justifyContent="space-between" flex={1} alignItems="center">
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
-            id: ETranslations.swap_history_status_pending,
+            id: ETranslations.global_history,
           })}
         </SizableText>
 
@@ -102,7 +136,7 @@ const SwapPendingHistoryListComponent = ({
             navigation.pushModal(EModalRoutes.SwapModal, {
               screen: EModalSwapRoutes.SwapHistoryList,
               params: {
-                type: EProtocolOfExchange.SWAP,
+                type: protocol,
                 storeName:
                   pageType === EPageType.modal
                     ? EJotaiContextStoreNames.swapModal
@@ -134,6 +168,7 @@ const SwapPendingHistoryListComponent = ({
           <SwapTxHistoryListCell
             key={item.swapInfo.orderId}
             item={item}
+            previewMode
             onClickCell={() => {
               navigation.pushModal(EModalRoutes.SwapModal, {
                 screen: EModalSwapRoutes.SwapHistoryDetail,

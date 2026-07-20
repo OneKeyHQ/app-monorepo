@@ -2,6 +2,7 @@ import {
   Children,
   isValidElement,
   useCallback,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -32,7 +33,6 @@ import {
   useInPageDialog,
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
-import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
@@ -40,6 +40,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -48,16 +49,19 @@ import { navigateToReferralLanding } from '@onekeyhq/kit/src/routes/config/deepl
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  getDevSettingsNetworkThrottleEnabled,
+  useDevSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   isDualScreenDevice,
@@ -65,6 +69,7 @@ import {
   isSpanning,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
+import { NATIVE_SLOW_4G_LATENCY_MS } from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import {
   requestPermissionsAsync,
   setBadgeCountAsync,
@@ -93,13 +98,7 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { showApiEndpointDialog } from '../../../components/ApiEndpointDialog';
 import { SettingTestIDs } from '../../../testIDs';
-import {
-  cacheDevOnlyPassword,
-  clearCachedDevOnlyPassword,
-  getCachedDevOnlyPassword,
-} from '../../../utils/devOnlyPassword';
 
-import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { BundleCommitSearch } from './BundleCommitSearch';
 import { CpuWatchdogDevSettings } from './CpuWatchdogDevSettings';
@@ -123,63 +122,44 @@ import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
+import { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
 
-export function showDevOnlyPasswordDialog({
-  title,
-  description,
-  onConfirm,
-  confirmButtonProps,
-}: {
-  title: string;
-  description?: string;
-  onConfirm: (params: IBackgroundMethodWithDevOnlyPassword) => Promise<void>;
-  confirmButtonProps?: IDialogButtonProps;
-}) {
-  Dialog.show({
-    title,
-    description,
-    confirmButtonProps: {
-      variant: 'destructive',
-      ...confirmButtonProps,
-    },
-    renderContent: (
-      <Dialog.Form
-        formProps={{ values: { password: getCachedDevOnlyPassword() } }}
-      >
-        <Dialog.FormField
-          name="password"
-          rules={{
-            required: { value: true, message: 'password is required.' },
-          }}
-        >
-          <Input
-            testID={SettingTestIDs.devOnlyPassword}
-            placeholder="devOnlyPassword"
-          />
-        </Dialog.FormField>
-      </Dialog.Form>
-    ),
-    onConfirm: async ({ getForm }) => {
-      const form = getForm();
-      if (form) {
-        await form.trigger();
-        const { password } = (form.getValues() || {}) as {
-          password: string;
-        };
-        if (!isCorrectDevOnlyPassword(password)) {
-          clearCachedDevOnlyPassword(password);
-          return;
-        }
-        cacheDevOnlyPassword(password);
-        const params: IBackgroundMethodWithDevOnlyPassword = {
-          $$devOnlyPassword: password,
-        };
-        await onConfirm(params);
-      }
-    },
-  });
-}
+const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
+  const { NavigationDiagnosticsSection } =
+    await import('./NavigationDiagnosticsSection');
+  return { default: NavigationDiagnosticsSection };
+});
+
+// Loaded on demand so this dev-only diagnostics panel (and its bg RPC test
+// harness) stays out of the statically-imported startup graph.
+const LazyAsyncStorageDevSettings = LazyLoad(async () => {
+  const { AsyncStorageDevSettings } = await import('./AsyncStorageDevSettings');
+  return { default: AsyncStorageDevSettings };
+});
+
+export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
+
+type ILocalSecretEnvelopeSimulatedKeyLossResult = {
+  credentialCount: number;
+  deletedLayers: Array<{
+    kind: string;
+    keyRef: string;
+    recordCount: number;
+  }>;
+  lseCredentialCount: number;
+  preservedLayers: Array<{
+    kind: string;
+    keyRef: string;
+    recordCount: number;
+  }>;
+};
+
+type IServiceE2EWithLocalSecretEnvelopeDevTools = {
+  simulateLocalSecretEnvelopeCredentialKeyLoss: (
+    params: IBackgroundMethodWithDevOnlyPassword,
+  ) => Promise<ILocalSecretEnvelopeSimulatedKeyLossResult>;
+};
 
 const DevSettingsAccordionTrigger = ({
   title,
@@ -434,10 +414,11 @@ function TradingViewKLineEmptyMockIntervalsDialogContent({
 
 const BaseDevSettingsSection = () => {
   const [settings] = useSettingsPersistAtom();
-  const [devSettings] = useDevSettingsPersistAtom();
+  const [devSettings, setDevSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
+  const { loginOneKeyIdWithLegacyEmail } = useOneKeyAuth();
   const localTradingViewUrlSubtitle = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
@@ -457,14 +438,80 @@ const BaseDevSettingsSection = () => {
   const mockTradingViewKLineEmptySubtitle = mockTradingViewKLineEmptyEnabled
     ? mockTradingViewKLineEmptyIntervalsText
     : '已关闭';
+  const networkThrottleEnabled = getDevSettingsNetworkThrottleEnabled(
+    devSettings,
+    Boolean(platformEnv.isDesktop || platformEnv.isNative),
+  );
+
+  useEffect(() => {
+    if (!platformEnv.isDesktop) {
+      return;
+    }
+    void globalThis.desktopApiProxy?.dev
+      ?.getNetworkThrottle?.()
+      .then((config) => {
+        const enabled = !!config.enabled;
+        setDevSettings((prev) => {
+          if (prev.settings?.networkThrottleEnabled === enabled) {
+            return prev;
+          }
+          return {
+            ...prev,
+            settings: {
+              ...prev.settings,
+              networkThrottleEnabled: enabled,
+            },
+          };
+        });
+      })
+      .catch(() => undefined);
+  }, [setDevSettings]);
+
+  const handleNetworkThrottleChange = useCallback(
+    async (enabled: boolean) => {
+      if (!devSettings.enabled) {
+        Toast.error({
+          title: 'Enable developer mode first',
+        });
+        return;
+      }
+      try {
+        const actualEnabled = Boolean(
+          await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+            'networkThrottleEnabled',
+            enabled,
+          ),
+        );
+        Toast.success({
+          title: actualEnabled
+            ? 'Slow 4G enabled'
+            : 'Network throttle disabled',
+        });
+      } catch {
+        Toast.error({
+          title: 'Failed to update network throttle',
+        });
+      }
+    },
+    [devSettings.enabled],
+  );
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
       title: '关闭开发者模式',
-      onConfirm: () => {
-        void backgroundApiProxy.serviceDevSetting.switchDevMode(false);
-        if (platformEnv.isDesktop) {
-          void globalThis?.desktopApiProxy?.dev?.changeDevTools(false);
+      onConfirm: async () => {
+        try {
+          await backgroundApiProxy.serviceDevSetting.switchDevMode(false);
+        } catch {
+          Toast.error({
+            title: 'Failed to disable developer mode',
+          });
+        } finally {
+          if (platformEnv.isDesktop) {
+            await globalThis?.desktopApiProxy?.dev
+              ?.changeDevTools(false)
+              .catch(() => undefined);
+          }
         }
       },
     });
@@ -475,6 +522,58 @@ const BaseDevSettingsSection = () => {
       title: 'Danger Zone: Open Chrome DevTools',
       onConfirm: async () => {
         void globalThis?.desktopApiProxy?.dev?.changeDevTools(true);
+      },
+    });
+  }, []);
+
+  const handleOpenLocalSecretEnvelopeSelfTest = useCallback(() => {
+    navigation.push(
+      EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+      { testKind: 'debug' },
+    );
+  }, [navigation]);
+
+  const handleOpenLocalSecretEnvelopeRestoreSelfTest = useCallback(() => {
+    navigation.push(
+      EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+      { testKind: 'restore' },
+    );
+  }, [navigation]);
+
+  const handleOpenLocalSecretEnvelopeMigrationDiagnostic = useCallback(() => {
+    navigation.push(
+      EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+      { testKind: 'diagnostic' },
+    );
+  }, [navigation]);
+
+  const handleSimulateLocalSecretEnvelopeCredentialKeyLoss = useCallback(() => {
+    showDevOnlyPasswordDialog({
+      title: 'Danger Zone: Simulate LSE Credential Key Loss',
+      description:
+        'Deletes secure-storage / Keychain layer keys referenced by current LSE credentials when present. Falls back to CryptoKey only when there is no secure-storage layer. This simulates a migrated device missing non-portable local LSE material and may make affected wallets inaccessible until restored again.',
+      confirmButtonProps: {
+        testID: SettingTestIDs.localSecretEnvelopeSimulateKeyLossConfirm,
+      },
+      onConfirm: async (params) => {
+        const serviceE2E =
+          backgroundApiProxy.serviceE2E as unknown as IServiceE2EWithLocalSecretEnvelopeDevTools;
+        const result =
+          await serviceE2E.simulateLocalSecretEnvelopeCredentialKeyLoss(params);
+        if (result.deletedLayers.length) {
+          Toast.success({
+            title: 'LSE local keys deleted',
+            message: `${result.deletedLayers.length} key(s), ${result.lseCredentialCount} LSE credential(s) affected`,
+          });
+        } else {
+          Toast.message({
+            title: 'No LSE credential local keys found',
+            message: `${result.credentialCount} credential(s) scanned`,
+          });
+        }
+        Dialog.debugMessage({
+          debugMessage: result,
+        });
       },
     });
   }, []);
@@ -492,6 +591,15 @@ const BaseDevSettingsSection = () => {
       });
     }, 10_000);
   }, []);
+
+  const handleLegacyOneKeyIdEmailLogin = useCallback(() => {
+    void loginOneKeyIdWithLegacyEmail({
+      toOneKeyIdPageOnLoginSuccess: true,
+      // A dev tool must never wipe the shared keyless session slot — it may
+      // hold the wallet's only local credential.
+      preserveLocalKeylessAuth: true,
+    });
+  }, [loginOneKeyIdWithLegacyEmail]);
 
   const handleOpenMockTradingViewKLineEmptyIntervalsDialog = useCallback(() => {
     Dialog.show({
@@ -632,7 +740,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 禁用IP直连 强制使用IP请求 Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -647,6 +755,13 @@ const BaseDevSettingsSection = () => {
         description: '性能 崩溃 错误 单元测试',
         keywords:
           'Performance Monitor UI FPS JS FPS 性能监控 DebugRenderTracker 组件渲染高亮 Perps渲染统计 Bg Api 可序列化检测 Analytics Dev Unit Tests Show Recovery Page crash counter CPU Watchdog Burn long task unresponsive severe mild',
+      },
+      {
+        key: 'navigation',
+        title: 'Navigation Diagnostics',
+        description: 'Navigation rootState tabNavigator 排查',
+        keywords:
+          'navigation rootstate rootnavigationref tabletmainviewnavigationref tabnavigator router',
       },
       {
         key: 'data',
@@ -851,8 +966,11 @@ const BaseDevSettingsSection = () => {
                             typeof __BUNDLE_START_TIME__ !== 'undefined'
                               ? __BUNDLE_START_TIME__
                               : 0;
+                          const { getDevicePerformanceTier } =
+                            await import('@onekeyhq/shared/src/performance/devicePerformanceTier');
                           Dialog.debugMessage({
                             debugMessage: {
+                              devicePerformanceTier: getDevicePerformanceTier(),
                               startupTimeAt:
                                 await LaunchOptionsManager.getStartupTimeAt(),
                               jsReadyTimeAt:
@@ -887,6 +1005,27 @@ const BaseDevSettingsSection = () => {
                           });
                         }}
                       />
+                      {platformEnv.isNative ? (
+                        <SearchFilterItem keywords="ble bluetooth peripheral serviceUUIDs 蓝牙 已连接设备 dump">
+                          <SectionPressItem
+                            icon="CodeOutline"
+                            title="Dump connected BLE peripherals"
+                            subtitle="打印已连接设备的 serviceUUIDs(需 0.1.6 + 重新编译)"
+                            onPress={async () => {
+                              const { default: bleManager } =
+                                await import('@onekeyhq/shared/src/hardware/bleManager');
+                              const peripherals =
+                                await bleManager.getConnectedPeripheralsDebug();
+                              Dialog.debugMessage({
+                                debugMessage: {
+                                  count: peripherals.length,
+                                  peripherals,
+                                },
+                              });
+                            }}
+                          />
+                        </SearchFilterItem>
+                      ) : null}
                       <SearchFilterItem keywords="RegistrationID 推送注册">
                         <RegistrationID />
                       </SearchFilterItem>
@@ -1019,6 +1158,94 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
+                      {platformEnv.isDesktop ? (
+                        <SectionPressItem
+                          icon="SpeedLowOutline"
+                          title="Desktop Slow 4G Network Throttle"
+                          subtitle={
+                            networkThrottleEnabled
+                              ? 'Slow 4G latency enabled: 562.5ms'
+                              : 'Disabled'
+                          }
+                          drillIn={false}
+                          searchKeywords="Desktop Slow 4G Network Throttle weak network throttling 弱网 慢网"
+                        >
+                          <Switch
+                            size={ESwitchSize.small}
+                            value={networkThrottleEnabled}
+                            onChange={handleNetworkThrottleChange}
+                          />
+                        </SectionPressItem>
+                      ) : null}
+
+                      {platformEnv.isNative ? (
+                        <SectionPressItem
+                          icon="SpeedLowOutline"
+                          title="Native Slow 4G Network Throttle"
+                          subtitle={
+                            networkThrottleEnabled
+                              ? `Slow 4G latency enabled: ${NATIVE_SLOW_4G_LATENCY_MS}ms`
+                              : 'Disabled'
+                          }
+                          drillIn={false}
+                          searchKeywords="Native Slow 4G Network Throttle iOS Android latency weak network throttling 弱网 慢网"
+                        >
+                          <Switch
+                            size={ESwitchSize.small}
+                            value={networkThrottleEnabled}
+                            onChange={handleNetworkThrottleChange}
+                          />
+                        </SectionPressItem>
+                      ) : null}
+
+                      <SectionPressItem
+                        icon="ShieldKeyholeOutline"
+                        title="Local Secret Envelope Self-Test"
+                        subtitle="Per-checkpoint non-destructive LSE verification for CryptoKey / secureStorage layers"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeSelfTestButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB self-test"
+                        onPress={handleOpenLocalSecretEnvelopeSelfTest}
+                      />
+
+                      <SectionPressItem
+                        icon="CloudOutline"
+                        title="LSE Restore Self-Test"
+                        subtitle="Per-checkpoint non-destructive restore/export guard verification for Cloud Backup and Prime Transfer"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeRestoreSelfTestButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE restore Cloud Backup Prime Transfer portable credential self-test"
+                        onPress={handleOpenLocalSecretEnvelopeRestoreSelfTest}
+                      />
+
+                      <SectionPressItem
+                        icon="SearchOutline"
+                        title="LSE Migration Diagnostic"
+                        subtitle="Read-only scan: encryption method + KDF iterations (confirmed/inferred) per record, no secret exposed"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeMigrationDiagnosticButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE migration diagnostic encryption method KDF iterations scan inventory"
+                        onPress={
+                          handleOpenLocalSecretEnvelopeMigrationDiagnostic
+                        }
+                      />
+
+                      <SectionPressItem
+                        icon="DeleteOutline"
+                        title="Simulate LSE Credential Key Loss"
+                        subtitle="Prefer deleting Keychain / secure-storage LSE keys; fallback to CryptoKey only when no secure-storage layer exists"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeSimulateKeyLossButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE simulate migration new device key loss delete Keychain CryptoKey secureStorage IndexedDB credential"
+                        onPress={
+                          handleSimulateLocalSecretEnvelopeCredentialKeyLoss
+                        }
+                      />
+
                       <SectionPressItem
                         icon="SwitchHorOutline"
                         title="force RTL"
@@ -1124,7 +1351,7 @@ const BaseDevSettingsSection = () => {
                         onPress={() => {
                           Dialog.cancel({
                             title: 'Single data store test',
-                            renderContent: <AsyncStorageDevSettings />,
+                            renderContent: <LazyAsyncStorageDevSettings />,
                           });
                         }}
                       />
@@ -1296,11 +1523,11 @@ const BaseDevSettingsSection = () => {
                             isUncontrolled
                             size={ESwitchSize.small}
                             defaultChecked={
-                              !!devSettings.settings?.showPerformanceMonitor
+                              !!devSettings.settings?.showPerformanceMonitorV2
                             }
                             onChange={(v) => {
                               void backgroundApiProxy.serviceDevSetting.updateDevSetting(
-                                'showPerformanceMonitor',
+                                'showPerformanceMonitorV2',
                                 v,
                               );
                               setTimeout(() => {
@@ -1409,6 +1636,23 @@ const BaseDevSettingsSection = () => {
                         }}
                       />
 
+                      {platformEnv.isWeb ||
+                      platformEnv.isDesktop ||
+                      platformEnv.isExtension ? (
+                        <SectionPressItem
+                          icon="ShieldCheckDoneOutline"
+                          title="SES Harden Runtime Check"
+                          subtitle="Validate lockdown, harden, eval, Error, Intl, RegExp, JSON and Promise"
+                          testID="ses-harden-runtime-check-menu"
+                          searchKeywords="SES lockdown harden Object.prototype evalTaming runtime check"
+                          onPress={() => {
+                            navigation.push(
+                              EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal,
+                            );
+                          }}
+                        />
+                      ) : null}
+
                       <SearchFilterItem keywords="SentryCrashSettings Sentry Crash 崩溃">
                         <SentryCrashSettings />
                       </SearchFilterItem>
@@ -1435,6 +1679,25 @@ const BaseDevSettingsSection = () => {
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>,
+              );
+            case 'navigation':
+              return (
+                <Accordion.Item value="navigation" key="navigation">
+                  <DevSettingsAccordionTrigger
+                    title="Navigation Diagnostics"
+                    description="Navigation rootState / tabNavigator 排查"
+                    icon="LayoutWindowOutline"
+                    {...pinProps}
+                  />
+                  <Accordion.HeightAnimator animation="quick">
+                    <Accordion.Content
+                      animation="quick"
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <LazyNavigationDiagnosticsSection />
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>
               );
             case 'data':
               return wrapWithSearch(
@@ -1773,6 +2036,14 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="TradeOutline"
+                        name="useTradingViewNativeInMarketDetail"
+                        title="Use TradingViewNative in Market Detail"
+                        subtitle="关闭时继续使用 TradingViewV2"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                       <SectionPressItem
                         icon="TradeOutline"
                         title="Mock TradingView 空 K 线"
@@ -1782,6 +2053,14 @@ const BaseDevSettingsSection = () => {
                         }
                       />
                       <SectionFieldItem
+                        icon="TradeOutline"
+                        name="showMarketHomeWsDebug"
+                        title="Market Home WS Debug"
+                        subtitle="显示 Market 首页 WS 订阅数量和可视窗口高亮"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
                         icon="BrowserOutline"
                         name="allowLocalhostUrlInDAppBrowser"
                         title="Allow local URLs in DApp Browser"
@@ -1789,6 +2068,16 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      {platformEnv.isNative ? (
+                        <SectionFieldItem
+                          icon="ArrowTopRightOutline"
+                          name="useSystemBrowserForExternalLinks"
+                          title="外部链接使用系统浏览器"
+                          subtitle="跳过 in-app browser（SFSafariViewController / Custom Tabs），外链直接跳出到系统浏览器"
+                        >
+                          <Switch size={ESwitchSize.small} />
+                        </SectionFieldItem>
+                      ) : null}
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>,
@@ -2001,6 +2290,14 @@ const BaseDevSettingsSection = () => {
                       </SearchFilterItem>
 
                       <SectionPressItem
+                        icon="EmailOutline"
+                        title="Legacy OneKeyID Email Login"
+                        subtitle="旧版本 Email/OTP 登录入口"
+                        searchKeywords="OneKeyID Legacy Email OTP Login 旧版本 登录"
+                        onPress={handleLegacyOneKeyIdEmailLogin}
+                      />
+
+                      <SectionPressItem
                         icon="AppleBrand"
                         title="In-App-Purchase(Mac)"
                         subtitle="查看 Mac 内购"
@@ -2117,6 +2414,25 @@ const BaseDevSettingsSection = () => {
                             );
                           }}
                           value={devSettings.settings?.enableMockHighTxFee}
+                        />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="BezierNodesOutline"
+                        name="mockKaspaRefTxFetchFailed"
+                        title="模拟 Kaspa refTx 获取失败"
+                        subtitle="强制获取前序交易失败，验证硬件仍能回退盲签"
+                      >
+                        <Switch
+                          size={ESwitchSize.small}
+                          onChange={() => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'mockKaspaRefTxFetchFailed',
+                              !devSettings.settings?.mockKaspaRefTxFetchFailed,
+                            );
+                          }}
+                          value={
+                            devSettings.settings?.mockKaspaRefTxFetchFailed
+                          }
                         />
                       </SectionFieldItem>
                       <SectionFieldItem

@@ -2,8 +2,10 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  type ColorTokens,
   type IButtonProps,
   SegmentControl,
+  SizableText,
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -14,48 +16,86 @@ const commonButtonStyleProps: IButtonProps = {
   flex: 1,
   borderRadius: '$2',
   borderWidth: 0,
-  hoverStyle: {
-    opacity: 0.9,
-  },
-  pressStyle: {
-    opacity: 0.7,
-  },
+  cursor: 'pointer',
 };
+
+function getButtonInteractiveStyleProps(isActive: boolean): IButtonProps {
+  return {
+    ...commonButtonStyleProps,
+    hoverStyle: {
+      opacity: 0.9,
+      ...(isActive ? undefined : { bg: '$bgHover' }),
+    },
+    pressStyle: {
+      opacity: 0.7,
+      ...(isActive ? undefined : { bg: '$bgActive' }),
+    },
+  };
+}
 
 export interface ITradeTypeSelectorProps {
   value: ITradeType;
   onChange: (value: ITradeType) => void;
   size?: IButtonProps['size'];
+  buyTestID?: string;
+  sellTestID?: string;
+  preventTextWrap?: boolean;
+}
+
+function getButtonTextSize(size: IButtonProps['size']) {
+  return size === 'small' ? '$bodyMdMedium' : '$bodyLgMedium';
 }
 
 export function TradeTypeSelector({
   value,
   onChange,
   size,
+  buyTestID,
+  sellTestID,
+  preventTextWrap,
 }: ITradeTypeSelectorProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
   const isBuyActive = value === 'buy';
   const isSellActive = value === 'sell';
+  const buyTextColor: ColorTokens = isBuyActive
+    ? '$textInverse'
+    : '$textSubdued';
 
   const buttonSize = size ?? (gtMd ? 'small' : 'medium');
+  const renderButtonText = (text: string, color: ColorTokens) =>
+    preventTextWrap ? (
+      <SizableText
+        size={getButtonTextSize(buttonSize)}
+        color={color}
+        textAlign="center"
+        numberOfLines={1}
+      >
+        {text}
+      </SizableText>
+    ) : (
+      text
+    );
 
   const options = [
     {
       value: ESwapDirection.BUY,
       label: (
         <Button
-          testID="market-options-btn"
+          testID={buyTestID ?? 'market-options-btn'}
           onPress={() => {
-            console.log('onPress');
             onChange(ESwapDirection.BUY);
           }}
-          {...commonButtonStyleProps}
-          bg={isBuyActive ? '$bgSuccessStrong' : '$transparent'}
-          color={isBuyActive ? '$textOnColor' : '$textSubdued'}
+          {...getButtonInteractiveStyleProps(isBuyActive)}
+          bg={isBuyActive ? '$bgAccent' : '$transparent'}
+          color={buyTextColor}
           size={buttonSize}
+          childrenAsText={!preventTextWrap}
         >
-          {intl.formatMessage({ id: ETranslations.global_buy })}
+          {renderButtonText(
+            intl.formatMessage({ id: ETranslations.global_buy }),
+            buyTextColor,
+          )}
         </Button>
       ),
     },
@@ -63,17 +103,20 @@ export function TradeTypeSelector({
       value: ESwapDirection.SELL,
       label: (
         <Button
-          testID="market-options-btn"
+          testID={sellTestID ?? 'market-options-btn'}
           onPress={() => {
-            console.log('onPress');
             onChange(ESwapDirection.SELL);
           }}
           bg={isSellActive ? '$bgCriticalStrong' : '$transparent'}
           color={isSellActive ? '$textOnColor' : '$textSubdued'}
           size={buttonSize}
-          {...commonButtonStyleProps}
+          {...getButtonInteractiveStyleProps(isSellActive)}
+          childrenAsText={!preventTextWrap}
         >
-          {intl.formatMessage({ id: ETranslations.global_sell })}
+          {renderButtonText(
+            intl.formatMessage({ id: ETranslations.global_sell }),
+            isSellActive ? '$textOnColor' : '$textSubdued',
+          )}
         </Button>
       ),
     },

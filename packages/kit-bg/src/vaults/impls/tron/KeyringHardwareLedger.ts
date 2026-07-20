@@ -65,7 +65,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
         }
 
         const adapter =
-          await this.backgroundApi.serviceHardware.getAdapterForVendor(
+          await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
             EHardwareVendor.ledger,
           );
         if (!adapter) {
@@ -81,16 +81,11 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
             dbDevice,
             'tron',
             (deviceId) =>
-              adapter.hw.tronGetAddress(
-                dbDevice.connectId,
-                deviceId,
-                {
-                  path,
-                  showOnDevice: params.isVerifyAddressAction ?? false,
-                },
-                // per-call HW options derived from the account-creation scene
-                ledgerCommonCallParamsForCreateScene(params),
-              ),
+              adapter.hw.tronGetAddress(dbDevice.connectId, deviceId, {
+                path,
+                showOnDevice: params.isVerifyAddressAction ?? false,
+                ...ledgerCommonCallParamsForCreateScene(params),
+              }),
           );
 
           if (!result.success) {
@@ -127,7 +122,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     const encodedTx = unsignedTx.encodedTx as IEncodedTxTron;
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {
@@ -183,7 +178,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     const account = await this.vault.getAccount();
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {

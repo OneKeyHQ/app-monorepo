@@ -2,6 +2,14 @@ import { runCliEntry } from '../__test-utils__/cli-entry-runner';
 
 import { extractJson } from './test-helpers';
 
+function restoreIsTty(descriptor: PropertyDescriptor | undefined): void {
+  if (descriptor) {
+    Object.defineProperty(process.stdout, 'isTTY', descriptor);
+  } else {
+    delete (process.stdout as { isTTY?: boolean }).isTTY;
+  }
+}
+
 describe('forbidden CLI commands', () => {
   it.each([
     ['auth switch', ['auth', 'switch']],
@@ -25,4 +33,28 @@ describe('forbidden CLI commands', () => {
       });
     },
   );
+
+  it('keeps the entry runner in non-TTY JSON mode even if a previous test changed stdout', async () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      process.stdout,
+      'isTTY',
+    );
+    Object.defineProperty(process.stdout, 'isTTY', {
+      configurable: true,
+      value: true,
+    });
+
+    try {
+      const result = await runCliEntry(['auth', 'switch']);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toBe('');
+      expect(JSON.parse(extractJson(result.stdout))).toMatchObject({
+        ok: false,
+        error: { code: 'UNKNOWN_COMMAND' },
+      });
+    } finally {
+      restoreIsTty(originalDescriptor);
+    }
+  });
 });

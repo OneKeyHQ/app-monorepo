@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -155,7 +155,7 @@ function getMarketPresetLabel({
   return label ?? presetKey.toUpperCase();
 }
 
-function getPriorityFeeLabel({
+export function getPriorityFeeLabel({
   intl,
   settings,
   unit,
@@ -443,8 +443,14 @@ function parseDirectionKey(directionKey: string) {
 
 function getTradeSideActiveBackgroundColor(tradeSide: EMarketPresetTradeSide) {
   return tradeSide === EMarketPresetTradeSide.BUY
-    ? '$bgSuccessStrong'
+    ? '$bgAccent'
     : '$bgCriticalStrong';
+}
+
+function getTradeSideActiveTextColor(tradeSide: EMarketPresetTradeSide) {
+  return tradeSide === EMarketPresetTradeSide.BUY
+    ? '$textInverse'
+    : '$textOnColor';
 }
 
 function MarketPresetDialogHeader({ networkId }: { networkId?: string }) {
@@ -688,6 +694,38 @@ function MarketPresetTabBar({
       })}
     </XStack>
   );
+}
+
+// Single owner of the preset-settings dialog presentation, shared by the
+// Market panel selector and the Swap Pro preset row.
+export function showMarketPresetSettingsDialog({
+  intl,
+  antiMEV,
+  estimatePriorityFeeFiatValues,
+  presetSettings,
+}: {
+  intl: IntlShape;
+  antiMEV?: boolean;
+  estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
+  presetSettings: IMarketPresetSettingsState;
+}) {
+  const dialog = Dialog.show({
+    title: intl.formatMessage({
+      id: ETranslations.marketdex_edit_presets_title,
+    }),
+    renderContent: (
+      <MarketPresetSettingsDialog
+        close={() => {
+          void dialog.close();
+        }}
+        antiMEV={antiMEV}
+        estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
+        presetSettings={presetSettings}
+      />
+    ),
+    showFooter: false,
+  });
+  return dialog;
 }
 
 function MarketPresetSettingsDialog({
@@ -1215,7 +1253,7 @@ function MarketPresetSettingsDialog({
             activeBackgroundColor={getTradeSideActiveBackgroundColor(
               activeTradeSide,
             )}
-            activeTextColor="$textOnColor"
+            activeTextColor={getTradeSideActiveTextColor(activeTradeSide)}
             inactiveTextColor="$textSubdued"
             segmentControlItemStyleProps={{
               borderRadius: '$2',
@@ -1371,6 +1409,7 @@ function MarketPresetSettingsDialog({
                     size="$bodyMdMedium"
                     tooltip={priorityFeeTooltip}
                     tooltipTitle={priorityFeeTitle}
+                    tooltipHovering
                   >
                     {priorityFeeTitle}
                   </DashText>
@@ -1421,9 +1460,23 @@ function MarketPresetSettingsDialog({
                       size="medium"
                       error={showCurrentPriorityFeeError}
                       value={currentSettings.priorityFee.customValue ?? ''}
+                      keyboardType="decimal-pad"
                       addOns={[
                         {
-                          label: presetSettings.priorityFeeUnit,
+                          renderContent: (
+                            <XStack alignItems="center" px="$2">
+                              <DashText
+                                size="$bodyLg"
+                                color="$textSubdued"
+                                tooltip={intl.formatMessage({
+                                  id: ETranslations.market_preset_priority_fee_price_unit,
+                                })}
+                                tooltipHovering
+                              >
+                                {presetSettings.priorityFeeUnit}
+                              </DashText>
+                            </XStack>
+                          ),
                         },
                       ]}
                       placeholder={presetSettings.priorityFeeCustomPlaceholder}
@@ -1523,21 +1576,11 @@ export function MarketPresetSelector({
   );
 
   const openPresetDialog = useCallback(() => {
-    const dialog = Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.marketdex_edit_presets_title,
-      }),
-      renderContent: (
-        <MarketPresetSettingsDialog
-          close={() => {
-            void dialog.close();
-          }}
-          antiMEV={antiMEV}
-          estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
-          presetSettings={presetSettings}
-        />
-      ),
-      showFooter: false,
+    showMarketPresetSettingsDialog({
+      intl,
+      antiMEV,
+      estimatePriorityFeeFiatValues,
+      presetSettings,
     });
   }, [antiMEV, estimatePriorityFeeFiatValues, intl, presetSettings]);
 

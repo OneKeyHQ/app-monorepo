@@ -2,13 +2,8 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  Image,
-  Popover,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
+import { Icon, Image, SizableText, XStack } from '@onekeyhq/components';
+import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -104,7 +99,7 @@ function MobileNetworkDropdownImpl({
   );
 
   return (
-    <Popover
+    <LazyPopover
       title={intl.formatMessage({ id: ETranslations.global_select_network })}
       placement="bottom-start"
       floatingPanelProps={{

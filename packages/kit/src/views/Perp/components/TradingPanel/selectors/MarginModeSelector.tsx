@@ -2,12 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  SizableText,
-  XStack,
-  useInPageDialog,
-} from '@onekeyhq/components';
+import { SizableText, XStack, useInPageDialog } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   getPerpsAccountDisplaySnapshotEntry,
@@ -96,12 +91,13 @@ const MarginModeSelector = ({
       testID={PerpTestIDs.MarginModeSelector}
       onPress={handlePress}
       disabled={disabled || !isReadyForInteraction}
+      width="100%"
       height={isMobile ? 32 : 30}
       bg={isMobile ? '$bgSubdued' : '$bgStrong'}
       borderRadius="$2"
       alignItems="center"
-      justifyContent="space-between"
-      px="$3"
+      justifyContent="center"
+      px={isMobile ? '$2.5' : '$3'}
       cursor="default"
       hoverStyle={{
         bg: '$bgStrongHover',
@@ -110,9 +106,9 @@ const MarginModeSelector = ({
         bg: '$bgStrongActive',
       }}
     >
-      <SizableText size="$bodyMdMedium">{currentModeLabel}</SizableText>
-
-      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4" />
+      <SizableText size="$bodyMdMedium" numberOfLines={1}>
+        {currentModeLabel}
+      </SizableText>
     </XStack>
   );
 };

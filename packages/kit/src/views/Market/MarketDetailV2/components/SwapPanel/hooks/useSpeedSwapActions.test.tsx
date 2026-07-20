@@ -10,10 +10,16 @@ import {
 import type {
   ISwapToken,
   ISwapTokenBase,
+  ISwapTxInfo,
+} from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildMarketReviewTokens,
+  buildMarketSwapHistoryItem,
   useSpeedSwapActions,
 } from './useSpeedSwapActions';
 import { ESwapDirection } from './useTradeType';
@@ -40,6 +46,7 @@ type IUsePaymentTokenPriceResult = {
 type IUsePaymentTokenPriceMock = (
   paymentToken?: ISwapTokenBase & { price?: string },
   networkId?: string,
+  currencyId?: string,
 ) => IUsePaymentTokenPriceResult;
 
 const mockFetchSwapTokenDetails: jest.MockedFunction<
@@ -80,6 +87,10 @@ let mockInAppNotificationAtomState: {
     status?: string;
   };
 } = {};
+let mockCurrencyInfo = {
+  id: 'usd',
+  symbol: '$',
+};
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -143,10 +154,13 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   ],
   useSettingsPersistAtom: () => [
     {
-      currencyInfo: {
-        symbol: '$',
-      },
+      currencyInfo: mockCurrencyInfo,
       isFirstTimeSwap: false,
+    },
+  ],
+  useCurrencyPersistAtom: () => [
+    {
+      currencyMap: {},
     },
   ],
 }));
@@ -169,8 +183,9 @@ jest.mock('./usePaymentTokenPrice', () => ({
   usePaymentTokenPrice: (
     paymentToken?: ISwapTokenBase & { price?: string },
     networkId?: string,
+    currencyId?: string,
   ): IUsePaymentTokenPriceResult =>
-    mockUsePaymentTokenPrice(paymentToken, networkId),
+    mockUsePaymentTokenPrice(paymentToken, networkId, currencyId),
 }));
 
 function createDeferred<T>() {
@@ -248,8 +263,14 @@ const solToken: ISwapTokenBase = {
   isNative: false,
 };
 
-function getTokenKey(token?: ISwapTokenBase, networkId?: string) {
-  return `${networkId ?? token?.networkId ?? ''}:${token?.contractAddress ?? ''}`;
+function getTokenKey(
+  token?: ISwapTokenBase,
+  networkId?: string,
+  currencyId = 'usd',
+) {
+  return `${networkId ?? token?.networkId ?? ''}:${
+    token?.contractAddress ?? ''
+  }:${currencyId}`;
 }
 
 function createHookProps({
@@ -260,8 +281,14 @@ function createHookProps({
   tradeToken?: ISwapTokenBase;
 } = {}) {
   return {
-    marketToken,
-    tradeToken,
+    marketToken: {
+      ...marketToken,
+      currency: marketToken.currency ?? 'usd',
+    },
+    tradeToken: {
+      ...tradeToken,
+      currency: tradeToken.currency ?? 'usd',
+    },
     tradeType: ESwapDirection.BUY,
     fromTokenAmount: '0',
     provider: 'onekey',
@@ -287,6 +314,7 @@ describe('useSpeedSwapActions', () => {
       (
         paymentToken?: ISwapTokenBase & { price?: string },
         networkId?: string,
+        currencyId?: string,
       ) => {
         const priceValue = paymentToken?.price;
         let price: BigNumber | undefined;
@@ -299,12 +327,16 @@ describe('useSpeedSwapActions', () => {
         }
         return {
           price,
-          tokenKey: getTokenKey(paymentToken, networkId),
+          tokenKey: getTokenKey(paymentToken, networkId, currencyId),
           isLoading: false,
           refetch: jest.fn(),
         };
       },
     );
+    mockCurrencyInfo = {
+      id: 'usd',
+      symbol: '$',
+    };
     mockFetchSwapNativeTokenConfig.mockResolvedValue({
       networkId: 'evm--1',
       reserveGas: '0.01',
@@ -766,6 +798,286 @@ describe('useSpeedSwapActions', () => {
     });
 
     expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+  });
+
+  it('ignores live payment token prices from a stale currency scope', async () => {
+    mockCurrencyInfo = {
+      id: 'cny',
+      symbol: 'CNY',
+    };
+    mockNetAccountPromiseResult = {
+      result: undefined,
+      run: mockNetAccountRun,
+    };
+    mockUsePaymentTokenPrice.mockReturnValue({
+      price: new BigNumber(2),
+      tokenKey: getTokenKey(usdcToken, undefined, 'usd'),
+      isLoading: false,
+      refetch: jest.fn(),
+    });
+
+    const { result } = renderHook(() =>
+      useSpeedSwapActions(
+        createHookProps({
+          marketToken: {
+            ...tonMarketToken,
+            price: '5',
+            currency: 'cny',
+          },
+          tradeToken: {
+            ...usdcToken,
+            price: '10',
+            currency: 'cny',
+          },
+        }),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(mockUsePaymentTokenPrice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contractAddress: usdcToken.contractAddress,
+        }),
+        usdcToken.networkId,
+        'cny',
+      );
+      expect(result.current.priceRate?.rate).toBeCloseTo(2);
+    });
+
+    expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+  });
+
+  it('falls back to same-currency fetched prices when inline price currencies differ', async () => {
+    mockCurrencyInfo = {
+      id: 'cny',
+      symbol: 'CNY',
+    };
+    mockNetAccountPromiseResult = {
+      result: undefined,
+      run: mockNetAccountRun,
+    };
+    mockUsePaymentTokenPrice.mockReturnValue({
+      price: new BigNumber(10),
+      tokenKey: getTokenKey(usdcToken, undefined, 'cny'),
+      isLoading: false,
+      refetch: jest.fn(),
+    });
+    mockFetchSwapTokenDetails.mockImplementation(
+      ({
+        accountId,
+        networkId,
+        contractAddress,
+      }: IFetchSwapTokenDetailsParams) => {
+        if (accountId) {
+          return Promise.resolve([]);
+        }
+
+        const requestKey = `${networkId ?? ''}:${contractAddress ?? ''}`;
+        switch (requestKey) {
+          case `${usdcToken.networkId}:${usdcToken.contractAddress}`:
+            return Promise.resolve(
+              createTokenDetail({
+                networkId: usdcToken.networkId,
+                contractAddress: usdcToken.contractAddress,
+                symbol: usdcToken.symbol,
+                decimals: usdcToken.decimals,
+                price: '2',
+              }),
+            );
+          case `${tonMarketToken.networkId}:${tonMarketToken.contractAddress}`:
+            return Promise.resolve(
+              createTokenDetail({
+                networkId: tonMarketToken.networkId,
+                contractAddress: tonMarketToken.contractAddress,
+                symbol: tonMarketToken.symbol,
+                decimals: tonMarketToken.decimals,
+                price: '4',
+              }),
+            );
+          default:
+            return Promise.resolve([]);
+        }
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useSpeedSwapActions(
+        createHookProps({
+          marketToken: {
+            ...tonMarketToken,
+            price: '5',
+            currency: 'usd',
+          },
+          tradeToken: {
+            ...usdcToken,
+            price: '10',
+            currency: 'cny',
+          },
+        }),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.priceRate?.rate).toBeCloseTo(0.5);
+    });
+
+    expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: usdcToken.networkId,
+        contractAddress: usdcToken.contractAddress,
+        currency: 'usd',
+      }),
+    );
+    expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: tonMarketToken.networkId,
+        contractAddress: tonMarketToken.contractAddress,
+        currency: 'usd',
+      }),
+    );
+  });
+});
+
+describe('buildMarketSwapHistoryItem', () => {
+  it('includes the selected fiat currency id in market swap history', () => {
+    const swapInfo: ISwapTxInfo = {
+      protocol: EProtocolOfExchange.SWAP,
+      sender: {
+        amount: '100',
+        token: usdcToken,
+        accountInfo: {
+          accountId: 'account-1',
+          networkId: usdcToken.networkId,
+        },
+      },
+      receiver: {
+        amount: '0.001',
+        token: btcToken,
+        accountInfo: {
+          accountId: 'account-1',
+          networkId: btcToken.networkId,
+        },
+      },
+      accountAddress: '0xsender',
+      receivingAddress: '0xreceiver',
+      swapBuildResData: {
+        result: {
+          info: {
+            provider: 'onekey',
+            providerName: 'OneKey',
+          },
+          fromTokenInfo: usdcToken,
+          toTokenInfo: btcToken,
+          fromAmount: '100',
+          toAmount: '0.001',
+          instantRate: '0.00001',
+          fee: {
+            percentageFee: 0.1,
+          },
+        },
+        ctx: {
+          cowSwapOrderId: 'cow-order-1',
+        },
+      },
+    };
+
+    const { historyOrderId, swapHistoryItem } = buildMarketSwapHistoryItem({
+      swapInfo,
+      txHash: '0xswap',
+      gasFeeFiatValue: '1.23',
+      gasFeeInNative: '0.00042',
+      currency: '$',
+      currencyId: 'usd',
+      now: () => 1000,
+    });
+
+    expect(historyOrderId).toBe('cow-order-1');
+    expect(swapHistoryItem).toEqual(
+      expect.objectContaining({
+        status: ESwapTxHistoryStatus.PENDING,
+        currency: '$',
+        currencyId: 'usd',
+        date: {
+          created: 1000,
+          updated: 1000,
+        },
+      }),
+    );
+    expect(swapHistoryItem.txInfo).toEqual(
+      expect.objectContaining({
+        txId: '0xswap',
+        orderId: 'cow-order-1',
+        gasFeeFiatValue: '1.23',
+        gasFeeInNative: '0.00042',
+      }),
+    );
+    expect(swapHistoryItem.baseInfo.fromNetwork?.networkId).toBe(
+      usdcToken.networkId,
+    );
+    expect(swapHistoryItem.baseInfo.toNetwork?.networkId).toBe(
+      btcToken.networkId,
+    );
+    expect(swapHistoryItem.baseInfo.fromNetwork).toMatchObject({
+      name: 'Ethereum',
+      symbol: 'ETH',
+    });
+    expect(swapHistoryItem.baseInfo.toNetwork).toMatchObject({
+      name: 'Ethereum',
+      symbol: 'ETH',
+    });
+  });
+
+  it('keeps a dynamic network id for background history enrichment', () => {
+    const dynamicToken: ISwapToken = {
+      ...btcToken,
+      networkId: 'evm--4663',
+      networkLogoURI: 'https://example.com/robinhood.png',
+    };
+    const swapInfo: ISwapTxInfo = {
+      protocol: EProtocolOfExchange.SWAP,
+      sender: {
+        amount: '1',
+        token: dynamicToken,
+        accountInfo: {
+          networkId: dynamicToken.networkId,
+        },
+      },
+      receiver: {
+        amount: '1',
+        token: dynamicToken,
+        accountInfo: {
+          networkId: dynamicToken.networkId,
+        },
+      },
+      accountAddress: '0xsender',
+      receivingAddress: '0xreceiver',
+      swapBuildResData: {
+        result: {
+          info: {
+            provider: 'onekey',
+            providerName: 'OneKey',
+          },
+          fromTokenInfo: dynamicToken,
+          toTokenInfo: dynamicToken,
+          fromAmount: '1',
+          toAmount: '1',
+          instantRate: '1',
+        },
+      },
+    };
+
+    const { swapHistoryItem } = buildMarketSwapHistoryItem({ swapInfo });
+
+    expect(swapHistoryItem.baseInfo.fromNetwork).toEqual({
+      networkId: 'evm--4663',
+      name: '',
+      symbol: '',
+      shortcode: '',
+      logoURI: 'https://example.com/robinhood.png',
+    });
+    expect(swapHistoryItem.baseInfo.toNetwork).toEqual(
+      swapHistoryItem.baseInfo.fromNetwork,
+    );
   });
 });
 

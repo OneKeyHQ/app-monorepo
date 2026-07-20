@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { Component } from 'react';
+import { Component, useEffect, useLayoutEffect } from 'react';
 import type { ReactNode } from 'react';
 
 import LazyLoad, { MAX_LAZY_RETRIES, isRetryableLazyError } from '.';
@@ -89,6 +89,25 @@ describe('isRetryableLazyError', () => {
     expect(isRetryableLazyError(err)).toBe(true);
   });
 
+  it('is retryable for web chunk load failures', () => {
+    expect(
+      isRetryableLazyError({
+        name: 'ChunkLoadError',
+        message: 'Loading chunk 123 failed.',
+      }),
+    ).toBe(true);
+    expect(
+      isRetryableLazyError({
+        message: 'Failed to fetch dynamically imported module',
+      }),
+    ).toBe(true);
+    expect(
+      isRetryableLazyError({
+        message: 'Importing a module script failed',
+      }),
+    ).toBe(true);
+  });
+
   it('is NOT retryable for SPLIT_BUNDLE_EVAL_ERROR code', () => {
     expect(isRetryableLazyError({ code: 'SPLIT_BUNDLE_EVAL_ERROR' })).toBe(
       false,
@@ -172,6 +191,111 @@ describe('LazyLoad self-heal', () => {
     };
     return { factory, calls };
   }
+
+  it('renders synchronously after preload resolves before first render', async () => {
+    const factory = jest.fn(() =>
+      Promise.resolve({
+        default: () => <div data-testid="loaded">loaded</div>,
+      }),
+    );
+    const Lazy = LazyLoad<Record<string, never>>(
+      factory,
+      undefined,
+      <div data-testid="fallback">loading</div>,
+    );
+
+    await Lazy.preload();
+    render(<Lazy />);
+
+    expect(screen.queryByTestId('loaded')).not.toBeNull();
+    expect(screen.queryByTestId('fallback')).toBeNull();
+    expect(factory).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not remount the loaded component when props change after cold load', async () => {
+    const mountCounts = { mounted: 0, unmounted: 0 };
+    function LoadedComponent({ label }: { label: string }) {
+      useEffect(() => {
+        mountCounts.mounted += 1;
+        return () => {
+          mountCounts.unmounted += 1;
+        };
+      }, []);
+
+      return <div data-testid="loaded">{label}</div>;
+    }
+    const factory = jest.fn(() =>
+      Promise.resolve({
+        default: LoadedComponent,
+      }),
+    );
+    const Lazy = LazyLoad<{ label: string }>(
+      factory,
+      undefined,
+      <div data-testid="fallback">loading</div>,
+    );
+
+    const { rerender } = render(<Lazy label="first" />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('loaded')?.textContent).toBe('first');
+    });
+
+    rerender(<Lazy label="second" />);
+
+    expect(screen.queryByTestId('loaded')?.textContent).toBe('second');
+    expect(mountCounts).toEqual({ mounted: 1, unmounted: 0 });
+  });
+
+  it('keeps the local retry boundary active after preload resolves', async () => {
+    const err = Object.assign(new Error('timed out'), {
+      code: 'SPLIT_BUNDLE_TIMEOUT',
+    });
+    const didThrow = { value: false };
+    function RetryAfterPreloadComponent() {
+      useLayoutEffect(() => {
+        if (!didThrow.value) {
+          didThrow.value = true;
+          throw err;
+        }
+      }, []);
+      return <div data-testid="loaded">loaded</div>;
+    }
+    const factory = jest.fn(() =>
+      Promise.resolve({
+        default: RetryAfterPreloadComponent,
+      }),
+    );
+    const Lazy = LazyLoad<Record<string, never>>(
+      factory,
+      undefined,
+      <div data-testid="fallback">loading</div>,
+    );
+    const onParentCatch = jest.fn();
+
+    await Lazy.preload();
+    render(
+      <CatchBoundary onCatch={onParentCatch}>
+        <Lazy />
+      </CatchBoundary>,
+    );
+
+    await waitFor(() => {
+      expect(mockWrite).toHaveBeenCalledWith(
+        'WARNING',
+        expect.stringContaining('[LazyLoad] retryable segment error'),
+      );
+    });
+    expect(screen.queryByTestId('fallback')).not.toBeNull();
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('loaded')).not.toBeNull();
+      },
+      { timeout: 4000 },
+    );
+    expect(onParentCatch).not.toHaveBeenCalled();
+    expect(factory).toHaveBeenCalledTimes(1);
+  });
 
   it('retries a transient timeout, calls factory twice, eventually renders', async () => {
     const err = { code: 'SPLIT_BUNDLE_TIMEOUT', message: 'timed out' };

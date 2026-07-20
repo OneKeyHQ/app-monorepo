@@ -25,6 +25,8 @@ export enum EOneKeyErrorClassNames {
   UnknownHardwareError = 'UnknownHardwareError',
   OneKeyServerApiError = 'OneKeyServerApiError',
   LocalDBRecordNotFoundError = 'LocalDBRecordNotFoundError',
+  LocalDBIndexedAccountIndexConflictError = 'LocalDBIndexedAccountIndexConflictError',
+  LocalDbOpenError = 'LocalDbOpenError',
   PrimeTransferImportCancelledError = 'PrimeTransferImportCancelledError',
   RequestLimitExceededError = 'RequestLimitExceededError',
   OneKeyValidatorError = 'OneKeyValidatorError',
@@ -39,6 +41,8 @@ export enum EOneKeyErrorClassNames {
   PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
   PrimeLoginDialogCancelError = 'PrimeLoginDialogCancelError',
   PrimeSendEmailOTPCancelError = 'PrimeSendEmailOTPCancelError',
+  OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound = 'OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound',
+  OneKeyErrorOneKeyIdKeylessSessionSlotReplaced = 'OneKeyErrorOneKeyIdKeylessSessionSlotReplaced',
   OAuthLoginCancelError = 'OAuthLoginCancelError',
   OneKeyErrorPrimeMasterPasswordInvalid = 'OneKeyErrorPrimeMasterPasswordInvalid',
   VaultKeyringNotDefinedError = 'VaultKeyringNotDefinedError',
@@ -56,6 +60,9 @@ export enum EOneKeyErrorClassNames {
   DeviceNotOpenedPassphrase = 'DeviceNotOpenedPassphrase',
   DeviceNotFound = 'DeviceNotFound',
   KeylessDataCorruptedError = 'KeylessDataCorruptedError',
+  LocalSecretEnvelopeUnavailable = 'LocalSecretEnvelopeUnavailable',
+  WrongPassword = 'WrongPassword',
+  ReplaceTxNonceConsumed = 'ReplaceTxNonceConsumed',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

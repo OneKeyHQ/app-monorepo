@@ -2,6 +2,7 @@ import {
   forwardRef,
   memo,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -12,8 +13,14 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Accordion, Stack, YStack } from '@onekeyhq/components';
+import { preloadProtocolLendingActionDialog } from '@onekeyhq/kit/src/components/DeFi/ProtocolLendingActionDialog';
+import type { IProtocolPositionProviderDisplayInfo } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
+import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useDeFiListProtocolMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
+import {
+  useDeFiListProtocolMapAtom,
+  useDeFiListSupportedActionsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import {
   type IDeFiProtocolDisplayInfo,
   type ILocalizedProtocolCategoryGroup,
@@ -27,6 +34,7 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetail
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IDeFiProtocol,
+  IDeFiSupportedProtocolAction,
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
@@ -35,9 +43,14 @@ import { ProtocolHeaderRow } from './ProtocolHeaderRow';
 import { ProtocolRow } from './ProtocolRow';
 
 type IProtocolProps = {
+  accountId?: string;
+  indexedAccountId?: string;
   protocol: IDeFiProtocol;
   tableLayout?: boolean;
   isAllNetworks?: boolean;
+  onActionSuccess?: (
+    params: IProtocolPositionActionSuccessParams,
+  ) => void | Promise<void>;
 };
 
 export type IProtocolHandle = {
@@ -77,25 +90,37 @@ const ProtocolDesktopLayout = memo(
     IProtocolHandle,
     {
       protocol: IDeFiProtocol;
+      accountId?: string;
+      indexedAccountId?: string;
       protocolDisplayInfo: IDeFiProtocolDisplayInfo;
+      providerDisplayInfo?: IProtocolPositionProviderDisplayInfo;
       isAllNetworks?: boolean;
       currencySymbol: string;
       positionCountText: string;
       priceUnavailableLabel: string;
       partialPriceUnavailableLabel: string;
       categoryGroups: ILocalizedProtocolCategoryGroup[];
+      supportedActions: IDeFiSupportedProtocolAction[];
+      onActionSuccess?: (
+        params: IProtocolPositionActionSuccessParams,
+      ) => void | Promise<void>;
     }
   >(
     (
       {
         protocol,
+        accountId,
+        indexedAccountId,
         protocolDisplayInfo,
+        providerDisplayInfo,
         isAllNetworks,
         currencySymbol,
         positionCountText,
         priceUnavailableLabel,
         partialPriceUnavailableLabel,
         categoryGroups,
+        supportedActions,
+        onActionSuccess,
       },
       forwardedRef,
     ) => {
@@ -104,6 +129,15 @@ const ProtocolDesktopLayout = memo(
       const anchorRef = useRef<HTMLElement | null>(null);
       const [accordionValue, setAccordionValue] =
         useState<string>(ACCORDION_OPEN_VALUE);
+      const shouldPreloadProtocolLendingActionDialog = categoryGroups.some(
+        (group) => group.kind === 'sectioned',
+      );
+
+      useEffect(() => {
+        if (shouldPreloadProtocolLendingActionDialog) {
+          preloadProtocolLendingActionDialog();
+        }
+      }, [shouldPreloadProtocolLendingActionDialog]);
 
       useImperativeHandle(
         forwardedRef,
@@ -173,6 +207,7 @@ const ProtocolDesktopLayout = memo(
                     networkId={protocol.networkId}
                     currencySymbol={currencySymbol}
                     netWorth={protocolDisplayInfo.netWorth}
+                    protocolUrl={protocolDisplayInfo.protocolUrl}
                     isAllNetworks={isAllNetworks}
                     positionCountText={positionCountText}
                     open={open}
@@ -184,12 +219,20 @@ const ProtocolDesktopLayout = memo(
                   {categoryGroups.map((group) => (
                     <ProtocolCategoryGroup
                       key={group.groupKey}
+                      accountId={protocol.accountId ?? accountId}
+                      indexedAccountId={
+                        protocol.indexedAccountId ?? indexedAccountId
+                      }
+                      protocol={protocol}
+                      providerDisplayInfo={providerDisplayInfo}
                       group={group}
                       currencySymbol={currencySymbol}
                       priceUnavailableLabel={priceUnavailableLabel}
                       partialPriceUnavailableLabel={
                         partialPriceUnavailableLabel
                       }
+                      supportedActions={supportedActions}
+                      onActionSuccess={onActionSuccess}
                     />
                   ))}
                 </YStack>
@@ -203,11 +246,16 @@ const ProtocolDesktopLayout = memo(
 );
 ProtocolDesktopLayout.displayName = 'ProtocolDesktopLayout';
 
-function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
+function useProtocolViewModel({
+  protocol,
+  accountId,
+  indexedAccountId,
+}: Pick<IProtocolProps, 'protocol' | 'accountId' | 'indexedAccountId'>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
   const [{ protocolMap }] = useDeFiListProtocolMapAtom();
+  const [{ supportedActions }] = useDeFiListSupportedActionsAtom();
 
   const protocolInfo =
     protocolMap[
@@ -248,6 +296,17 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
       }),
     [protocol, protocolInfo],
   );
+  const providerDisplayInfo = useMemo<
+    IProtocolPositionProviderDisplayInfo | undefined
+  >(() => {
+    if (!protocolInfo?.protocolName && !protocolInfo?.protocolLogo) {
+      return undefined;
+    }
+    return {
+      providerDisplayName: protocolInfo?.protocolName || undefined,
+      providerLogoURI: protocolInfo?.protocolLogo || undefined,
+    };
+  }, [protocolInfo?.protocolLogo, protocolInfo?.protocolName]);
   const positionCountText = useMemo(
     () =>
       `${positionsLength} ${intl.formatMessage({
@@ -262,9 +321,21 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
       params: {
         protocol,
         protocolInfo,
+        accountId,
+        indexedAccountId,
+        // Hand the already-resolved actions to the detail page so its buttons
+        // render on the first paint, together with the positions.
+        supportedActions,
       },
     });
-  }, [navigation, protocol, protocolInfo]);
+  }, [
+    accountId,
+    indexedAccountId,
+    navigation,
+    protocol,
+    protocolInfo,
+    supportedActions,
+  ]);
 
   return {
     categoryGroups,
@@ -273,14 +344,30 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
     positionCountText,
     priceUnavailableLabel,
     partialPriceUnavailableLabel,
+    providerDisplayInfo,
     protocolDisplayInfo,
     protocolInfo,
+    supportedActions,
   };
 }
 
 const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
-  ({ protocol, tableLayout, isAllNetworks }: IProtocolProps, forwardedRef) => {
-    const viewModel = useProtocolViewModel({ protocol });
+  (
+    {
+      accountId,
+      indexedAccountId,
+      protocol,
+      tableLayout,
+      isAllNetworks,
+      onActionSuccess,
+    }: IProtocolProps,
+    forwardedRef,
+  ) => {
+    const viewModel = useProtocolViewModel({
+      protocol,
+      accountId,
+      indexedAccountId,
+    });
 
     if (!tableLayout) {
       // Small-screen list has no Accordion/anchor to drive. forwardedRef
@@ -300,14 +387,19 @@ const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
     return (
       <ProtocolDesktopLayout
         ref={forwardedRef}
+        accountId={accountId}
+        indexedAccountId={indexedAccountId}
         protocol={protocol}
         protocolDisplayInfo={viewModel.protocolDisplayInfo}
+        providerDisplayInfo={viewModel.providerDisplayInfo}
         isAllNetworks={isAllNetworks}
         currencySymbol={viewModel.currencySymbol}
         positionCountText={viewModel.positionCountText}
         priceUnavailableLabel={viewModel.priceUnavailableLabel}
         partialPriceUnavailableLabel={viewModel.partialPriceUnavailableLabel}
         categoryGroups={viewModel.categoryGroups}
+        supportedActions={viewModel.supportedActions}
+        onActionSuccess={onActionSuccess}
       />
     );
   },

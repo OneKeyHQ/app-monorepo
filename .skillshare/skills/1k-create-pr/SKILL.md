@@ -15,14 +15,14 @@ Automates the complete PR creation workflow for OneKey app-monorepo changes.
 | 1 | Check status | `git status`, `git branch --show-current` |
 | 2 | Determine base branch | Auto-detect or ask user |
 | 3 | Create branch (if on x or release/*) | `git checkout -b <branch-name>` |
-| 4 | Lint fix | `yarn lint --fix` |
+| 4 | Agent check | `yarn agent:check --profile commit` |
 | 5 | Stage & commit | `git add .`, `git commit -m "type: description"` |
 | 6 | Push to remote | `git push -u origin <branch-name>` |
 | 7 | Extract context | Analyze conversation for intent, decisions, risks |
 | 8 | Create PR | `gh pr create --base <base> --title "..." --body "..."` |
 | 9 | Update branch | `gh pr update-branch <number>` |
 | 10 | Enable auto-merge | `gh pr merge <number> --auto --squash` |
-| 11 | Update Jira issue | Update `1k-github-branch` and `1k-github-pr-url` fields |
+| 11 | Return PR URL | Share the PR URL with the user |
 
 ## Workflow
 
@@ -79,13 +79,15 @@ If on `x` or `release/*` directly (not a feature branch), auto-detection is ambi
 
 **If already on feature branch:** Skip branch creation, use auto-detected base
 
-### 4. Run Lint Fix
+### 4. Run Agent Check
 
 ```bash
-yarn lint --fix
+yarn agent:check --profile commit
 ```
 
-Fix any remaining lint errors before committing.
+Fix any reported lint or type errors before committing. Use lower-level
+lint/typecheck commands only when debugging the log path reported by
+`agent:check`.
 
 ### 5. Stage and Commit Changes
 
@@ -102,6 +104,12 @@ git commit -m "<type>: <description>"
 
 ```bash
 git push -u origin <branch-name>
+```
+
+After a PR exists, use the unified PR readiness check:
+
+```bash
+yarn agent:check --profile pr
 ```
 
 ### 7. Extract Context and Intent (CRITICAL)
@@ -184,43 +192,7 @@ This is equivalent to clicking "Update branch" button on GitHub PR page.
 gh pr merge <PR_NUMBER> --auto --squash
 ```
 
-### 11. Update Jira Issue (if OK-{number} exists)
-
-If a Jira issue ID (`OK-{number}`) was found in the conversation or commit message, update the Jira issue with PR and branch information.
-
-**Prerequisites:**
-1. Check if Atlassian MCP tools are available using `ToolSearch`:
-   ```
-   ToolSearch({ query: "select:mcp__plugin_atlassian_atlassian__editJiraIssue" })
-   ```
-2. If the tool is not available (MCP disconnected), skip this step and notify the user to update Jira manually.
-
-**Jira Custom Field IDs:**
-- `customfield_10241` = `1k-github-branch` (branch name)
-- `customfield_10242` = `1k-github-pr-url` (PR URL)
-
-**Using Atlassian MCP tool:**
-
-```
-mcp__plugin_atlassian_atlassian__editJiraIssue({
-  cloudId: "onekeyhq.atlassian.net",
-  issueIdOrKey: "OK-{number}",
-  fields: {
-    "customfield_10241": "<branch-name>",
-    "customfield_10242": "<pr-url>"
-  }
-})
-```
-
-**Example:**
-```
-fields: {
-  "customfield_10241": "fix/ios-browser-tab-switcher-safe-area",
-  "customfield_10242": "https://github.com/OneKeyHQ/app-monorepo/pull/11219"
-}
-```
-
-### 12. Return PR URL
+### 11. Return PR URL
 
 Display PR URL to user and open in browser:
 ```bash

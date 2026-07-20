@@ -171,55 +171,59 @@ export class OAuthPopup extends OAuthPopupBase {
               return;
             }
 
-            // Try to read the popup URL to check for callback
+            // Reading popup.location.href throws while the popup is on the
+            // provider's cross-origin domain — that is expected, so keep the
+            // try/catch NARROW around only this read. The code-exchange and
+            // session persistence below must stay OUTSIDE it: otherwise a real
+            // failure (e.g. persistKeylessOAuthSession rejecting on a WAF-blocked
+            // GET /auth/v1/user) would be swallowed as "continue polling",
+            // hanging the flow for a poll interval and retrying persistence.
+            let popupUrl: string | undefined;
             try {
-              const popupUrl = popup.location.href;
-              // PKCE flow: check for 'code' parameter in URL
-              if (popupUrl && popupUrl.includes('code=')) {
-                OAuthPopup.closePopup(popup);
-
-                // Parse authorization code from URL query string
-                const url = new URL(popupUrl);
-                const code = url.searchParams.get('code');
-                const state = url.searchParams.get('state');
-                const oneKeyState = url.searchParams.get(
-                  ONEKEY_OAUTH_STATE_KEY,
-                );
-
-                if (!code) {
-                  rejectOnce(
-                    new OneKeyLocalError('Authorization code is missing'),
-                    popup,
-                  );
-                  return;
-                }
-
-                // Validate states
-                OAuthPopup.validateOneKeyState(
-                  expectedOneKeyState,
-                  oneKeyState,
-                );
-                OAuthPopup.validateSupabaseState(expectedState, state);
-
-                // Exchange code for session
-                const { accessToken, refreshToken } =
-                  await OAuthPopup.exchangeCodeForSession(client, code);
-
-                await handleSessionPersistence({
-                  accessToken,
-                  refreshToken,
-                });
-
-                resolveOnce(
-                  {
-                    success: true,
-                    session: { accessToken, refreshToken },
-                  },
-                  popup,
-                );
-              }
+              popupUrl = popup.location.href;
             } catch {
               // Cross-origin error - popup is on different domain, continue polling
+              popupUrl = undefined;
+            }
+
+            // PKCE flow: check for 'code' parameter in URL
+            if (popupUrl && popupUrl.includes('code=')) {
+              OAuthPopup.closePopup(popup);
+
+              // Parse authorization code from URL query string
+              const url = new URL(popupUrl);
+              const code = url.searchParams.get('code');
+              const state = url.searchParams.get('state');
+              const oneKeyState = url.searchParams.get(ONEKEY_OAUTH_STATE_KEY);
+
+              if (!code) {
+                rejectOnce(
+                  new OneKeyLocalError('Authorization code is missing'),
+                  popup,
+                );
+                return;
+              }
+
+              // Validate states
+              OAuthPopup.validateOneKeyState(expectedOneKeyState, oneKeyState);
+              OAuthPopup.validateSupabaseState(expectedState, state);
+
+              // Exchange code for session
+              const { accessToken, refreshToken } =
+                await OAuthPopup.exchangeCodeForSession(client, code);
+
+              await handleSessionPersistence({
+                accessToken,
+                refreshToken,
+              });
+
+              resolveOnce(
+                {
+                  success: true,
+                  session: { accessToken, refreshToken },
+                },
+                popup,
+              );
             }
           } catch (error) {
             rejectOnce(error, popup);

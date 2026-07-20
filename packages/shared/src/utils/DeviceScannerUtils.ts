@@ -1,34 +1,53 @@
-import { createDeferred } from '@onekeyfe/hd-shared';
-
-import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { SearchDevice, Success, Unsuccessful } from '@onekeyfe/hd-core';
-import type { Deferred } from '@onekeyfe/hd-shared';
 
-const MAX_SEARCH_TRY_COUNT = 15;
+// Scan polls before auto-stop (all vendors); ~85s window for third-party.
+const MAX_SEARCH_TRY_COUNT = 20;
 const POLL_INTERVAL = 1000;
 const POLL_INTERVAL_RATE = 1.5;
+// Third-party (Trezor/Ledger) backoff cap; OneKey keeps its unbounded backoff.
+// 5s, not lower: Ledger re-scans via DMK each poll (Trezor is a cheap snapshot).
+const MAX_POLL_INTERVAL = 5000;
 
-let searchPromise: Deferred<void> | null = null;
+type ISearchResponse = Unsuccessful | Success<SearchDevice[]>;
 type IPollFn<T> = (time?: number, index?: number, rate?: number) => T;
 type IDeviceScanOptions = {
   resetSession?: boolean;
+  waitForAllTransports?: boolean;
+  transportType?: 'usb' | 'ble';
+};
+type IDeviceScannerBackgroundApi = {
+  serviceHardware: {
+    searchDevices: (params?: {
+      vendor?: EHardwareVendor;
+      resetSession?: boolean;
+      waitForAllTransports?: boolean;
+      transportType?: 'usb' | 'ble';
+    }) => Promise<ISearchResponse>;
+  };
 };
 
 export class DeviceScannerUtils {
-  constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
+  constructor({
+    backgroundApi,
+  }: {
+    backgroundApi: IDeviceScannerBackgroundApi;
+  }) {
     this.backgroundApi = backgroundApi;
   }
 
-  backgroundApi: IBackgroundApi;
+  backgroundApi: IDeviceScannerBackgroundApi;
 
   tryCount = 0;
 
   scanMap: Record<string, boolean> = {};
 
   searchIndex = 0;
+
+  currentSearchTask: Promise<ISearchResponse> | null = null;
 
   startDeviceScan(
     callback: (searchResponse: Unsuccessful | Success<SearchDevice[]>) => void,
@@ -40,29 +59,40 @@ export class DeviceScannerUtils {
     options?: IDeviceScanOptions,
   ) {
     const MaxTryCount = maxTryCount ?? MAX_SEARCH_TRY_COUNT;
+    const isThirdPartyVendor = getVendorProfile(vendor).isThirdParty;
     let shouldResetSession = options?.resetSession ?? false;
     const searchDevices = async () => {
-      // Should search Throttling
-      if (searchPromise) {
-        await searchPromise.promise;
-        return;
+      const currentSearchTask = this.currentSearchTask;
+      if (currentSearchTask) {
+        const sharedSearchResponse = await currentSearchTask;
+        shouldResetSession = false;
+        callback(sharedSearchResponse);
+        this.tryCount += 1;
+        return sharedSearchResponse;
       }
 
-      searchPromise = createDeferred();
       onSearchStateChange('start');
 
-      let searchResponse;
-      try {
-        searchResponse = await this.backgroundApi.serviceHardware.searchDevices(
+      const searchTask = this.backgroundApi.serviceHardware
+        .searchDevices(
           vendor || shouldResetSession
-            ? { vendor, resetSession: shouldResetSession }
+            ? {
+                vendor,
+                resetSession: shouldResetSession,
+                waitForAllTransports: options?.waitForAllTransports,
+                transportType: options?.transportType,
+              }
             : undefined,
-        );
-        shouldResetSession = false;
-      } finally {
-        searchPromise?.resolve();
-        searchPromise = null;
-      }
+        )
+        .finally(() => {
+          if (this.currentSearchTask === searchTask) {
+            this.currentSearchTask = null;
+          }
+        });
+      this.currentSearchTask = searchTask;
+
+      const searchResponse = await searchTask;
+      shouldResetSession = false;
 
       callback(searchResponse);
 
@@ -85,8 +115,11 @@ export class DeviceScannerUtils {
       }
 
       await searchDevices();
+      const nextTime = isThirdPartyVendor
+        ? Math.min(time * rate, MAX_POLL_INTERVAL)
+        : time * rate;
       return new Promise((resolve: (p: void) => void) =>
-        setTimeout(() => resolve(poll(time * rate, searchIndex, rate)), time),
+        setTimeout(() => resolve(poll(nextTime, searchIndex, rate)), time),
       );
     };
 
@@ -107,9 +140,8 @@ export class DeviceScannerUtils {
   }
 
   async waitForCurrentSearchToComplete() {
-    // Wait for any ongoing search promise to resolve
-    if (searchPromise) {
-      await searchPromise.promise;
+    if (this.currentSearchTask) {
+      await Promise.allSettled([this.currentSearchTask]);
     }
   }
 

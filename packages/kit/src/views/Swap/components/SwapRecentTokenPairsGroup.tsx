@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native';
 
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { maxRecentTokenPairs } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapTabSwitchType,
   type ISwapToken,
@@ -13,8 +14,10 @@ import {
 
 import { Token } from '../../../components/Token';
 import { useSwapTypeSwitchAtom } from '../../../states/jotai/contexts/swap';
+import { useShouldShowSwapLocalData } from '../hooks/useSwapLocalDataVisibility';
 
 const needFoldingMinCount = 4;
+const defaultVisibleSwapTypes = [ESwapTabSwitchType.SWAP];
 
 interface ISwapRecentTokenPairsGroupProps {
   fromTokenAmount?: string;
@@ -26,30 +29,39 @@ interface ISwapRecentTokenPairsGroupProps {
     toToken: ISwapToken;
   }) => void;
   tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
+  visibleSwapTypes?: readonly ESwapTabSwitchType[];
 }
 
 const SwapRecentTokenPairsGroup = ({
   onSelectTokenPairs,
   tokenPairs,
   fromTokenAmount,
+  visibleSwapTypes = defaultVisibleSwapTypes,
 }: ISwapRecentTokenPairsGroupProps) => {
   const intl = useIntl();
   const [openMore, setOpenMore] = useState(false);
   const [swapTypeSwitchAtom] = useSwapTypeSwitchAtom();
+  const shouldShowSwapLocalData = useShouldShowSwapLocalData();
   const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
   const tokenPairsInCurrentType = useMemo(() => {
-    if (swapTypeSwitchAtom === ESwapTabSwitchType.BRIDGE) {
-      return tokenPairs?.filter(
-        (tokens) => tokens.fromToken.networkId !== tokens.toToken.networkId,
-      );
+    if (!shouldShowSwapLocalData) {
+      return [];
     }
-    if (swapTypeSwitchAtom === ESwapTabSwitchType.SWAP) {
-      return tokenPairs?.filter(
-        (tokens) => tokens.toToken.networkId === tokens.fromToken.networkId,
-      );
+    if (visibleSwapTypes.includes(swapTypeSwitchAtom)) {
+      // The store preserves global most-recent-first order while retaining
+      // up to maxRecentTokenPairs entries PER type (single-chain +
+      // cross-chain, so up to 2x in total). Show only the most recent
+      // maxRecentTokenPairs of the mix — the type composition floats with
+      // actual usage (OK-57347).
+      return tokenPairs.slice(0, maxRecentTokenPairs);
     }
     return [];
-  }, [swapTypeSwitchAtom, tokenPairs]);
+  }, [
+    shouldShowSwapLocalData,
+    swapTypeSwitchAtom,
+    tokenPairs,
+    visibleSwapTypes,
+  ]);
   const rerenderRecentTokenPairs = useCallback(() => {
     const tokenPairsToShow =
       !openMore && tokenPairsInCurrentType.length >= needFoldingMinCount

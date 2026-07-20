@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+// cspell:ignore Actived
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -18,8 +25,8 @@ import {
   Toast,
   XStack,
   YStack,
-  useForm,
 } from '@onekeyhq/components';
+import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   TRON_SOURCE_FLAG_MAINNET,
@@ -31,6 +38,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EModalRewardCenterRoutes,
   IModalRewardCenterParamList,
@@ -51,17 +59,19 @@ import {
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { RewardCenterTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
 const networkIdsMap = getNetworkIdsMap();
 
-function RewardCenterDetails() {
+function RewardCenterDetails({
+  selectorSceneUrl,
+}: {
+  selectorSceneUrl: string;
+}) {
   const route =
     useRoute<
       RouteProp<
@@ -73,7 +83,6 @@ function RewardCenterDetails() {
   const {
     accountId,
     networkId,
-    walletId,
     onClose,
     showAccountSelector = true,
   } = route?.params ?? {};
@@ -88,7 +97,6 @@ function RewardCenterDetails() {
   });
 
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { confirmAccountSelect } = useAccountSelectorActions().current;
 
   const navigation = useAppNavigation();
 
@@ -200,6 +208,19 @@ function RewardCenterDetails() {
   const [isLoadingResourceState, setIsLoadingResourceState] = useState(false);
 
   const { account, network, isClaimResourceAvailable } = rewardState;
+  let accountSelectorLinkNetworkId: string | undefined;
+  if (networkUtils.isTronNetworkByNetworkId(network?.id)) {
+    accountSelectorLinkNetworkId = network?.id;
+  } else if (networkUtils.isTronNetworkByNetworkId(networkId)) {
+    accountSelectorLinkNetworkId = networkId;
+  } else if (showAccountSelector) {
+    // Reward Center is TRON-only. When neither the resolved reward network nor
+    // the route network is TRON — e.g. an imported/external (non-indexed)
+    // account entered from another chain, where rewardState.network never
+    // resolves to TRON — fall back to TRON mainnet so the selector still opens
+    // the TRON-scoped account list instead of an unbound one.
+    accountSelectorLinkNetworkId = networkIdsMap.trx;
+  }
 
   const [isResourceClaimed, setIsResourceClaimed] = useState(false);
   const [isResourceRedeemed, setIsResourceRedeemed] = useState(false);
@@ -231,6 +252,10 @@ function RewardCenterDetails() {
         totalReceivedLimit: number;
         remaining: number;
         isReceived: boolean;
+        monthIPLimit: number;
+        monthIPRemain: number;
+        monthLimit: number;
+        monthRemain: number;
         error?: string;
         success: boolean;
       }>({
@@ -257,6 +282,97 @@ function RewardCenterDetails() {
 
     return resp;
   }, [account, claimSource, network]);
+
+  // Detect whether the TRON account is activated on chain. An inactive account
+  // cannot claim energy, so the claim button is disabled and a top-up alert is
+  // shown. Poll (and revalidate on focus) so that if the user leaves to top up
+  // TRX and comes back, the claim button re-enables automatically once the
+  // account becomes activated.
+  const {
+    result: accountActivationResult,
+    setStopPolling: setStopActivationPolling,
+  } = usePromiseResult(
+    async () => {
+      if (!account || !network) {
+        return;
+      }
+
+      try {
+        const resp =
+          await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
+            code: number;
+            message?: string;
+            data?: {
+              isActived?: boolean;
+            };
+            success?: boolean;
+            error?: string;
+          }>({
+            networkId: network.id,
+            body: {
+              method: 'get',
+              url: '/api/account',
+              data: {
+                fromAddress: account.address,
+              },
+              params: {},
+            },
+            returnRawData: true,
+          });
+
+        if (resp.code !== 0) {
+          return undefined;
+        }
+
+        if (typeof resp.data?.isActived !== 'boolean') {
+          return undefined;
+        }
+
+        return {
+          accountId: account.id,
+          networkId: network.id,
+          isActived: resp.data.isActived,
+        };
+      } catch (_error) {
+        return undefined;
+      }
+    },
+    [account, network],
+    {
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 15 }),
+      revalidateOnFocus: true,
+      undefinedResultIfError: true,
+    },
+  );
+
+  // Ignore stale results from a previous account/network without clearing the
+  // same-account polling result while a refresh is in flight.
+  const accountActivation =
+    accountActivationResult &&
+    accountActivationResult.accountId === account?.id &&
+    accountActivationResult.networkId === network?.id
+      ? accountActivationResult
+      : undefined;
+
+  // Only treat the account as inactive once the check has definitively
+  // resolved to false, so we never flash the Receive state while loading.
+  const isAccountNotActivated = accountActivation?.isActived === false;
+  const isWatchingAccountNotClaimable =
+    !isClaimResourceAvailable &&
+    Boolean(
+      account &&
+      accountUtils.isWatchingAccount({
+        accountId: account.id,
+      }),
+    );
+
+  // Stop hammering the backend once activation is confirmed. Polling
+  // auto-resumes when deps (account/network) change to another inactive one.
+  useEffect(() => {
+    if (accountActivation?.isActived === true) {
+      setStopActivationPolling(true);
+    }
+  }, [accountActivation?.isActived, setStopActivationPolling]);
 
   const renderClaimButtonText = useCallback(() => {
     if (result?.remaining === 0 || result?.totalReceivedLimit === 0) {
@@ -399,58 +515,6 @@ function RewardCenterDetails() {
     }
   }, [account, claimSource, form, intl, network]);
 
-  useEffect(() => {
-    const initActiveAccount = async () => {
-      const [initAccount, initWallet] = await Promise.all([
-        accountId && networkId
-          ? backgroundApiProxy.serviceAccount.getAccount({
-              accountId,
-              networkId,
-            })
-          : undefined,
-        walletId
-          ? backgroundApiProxy.serviceAccount.getWallet({
-              walletId,
-            })
-          : undefined,
-      ]);
-
-      const isOthersAccount = accountUtils.isOthersAccount({
-        accountId,
-      });
-      if (isOthersAccount) {
-        let autoChangeToAccountMatchedNetworkId = networkId;
-        if (
-          networkId &&
-          networkUtils.isAllNetwork({
-            networkId,
-          })
-        ) {
-          autoChangeToAccountMatchedNetworkId = networkId;
-        }
-        await confirmAccountSelect({
-          num: 0,
-          indexedAccount: undefined,
-          othersWalletAccount: initAccount,
-          autoChangeToAccountMatchedNetworkId,
-        });
-      } else if (initWallet) {
-        const indexedAccount =
-          await backgroundApiProxy.serviceAccount.getIndexedAccountByAccount({
-            account: initAccount,
-          });
-        await confirmAccountSelect({
-          num: 0,
-          indexedAccount,
-          othersWalletAccount: undefined,
-          autoChangeToAccountMatchedNetworkId: undefined,
-        });
-      }
-    };
-
-    void initActiveAccount();
-  }, [accountId, confirmAccountSelect, networkId, walletId]);
-
   useEffect(
     () => () => void onClose?.({ isResourceClaimed, isResourceRedeemed }),
     [onClose, isResourceClaimed, isResourceRedeemed],
@@ -525,6 +589,76 @@ function RewardCenterDetails() {
     }
   }, [activeAccount, createAddress, network]);
 
+  const { result: nativeTokenResult, isLoading: isNativeTokenLoading } =
+    usePromiseResult(
+      async () => {
+        if (!account || !network) {
+          return undefined;
+        }
+        const token = await backgroundApiProxy.serviceToken.getNativeToken({
+          accountId: account.id,
+          networkId: network.id,
+        });
+
+        if (!token) {
+          return undefined;
+        }
+
+        return {
+          accountId: account.id,
+          networkId: network.id,
+          token,
+        };
+      },
+      [account, network],
+      {
+        watchLoading: true,
+        undefinedResultIfError: true,
+      },
+    );
+
+  const nativeToken =
+    nativeTokenResult &&
+    nativeTokenResult.accountId === account?.id &&
+    nativeTokenResult.networkId === network?.id
+      ? nativeTokenResult.token
+      : undefined;
+
+  // Same as the home Receive button: open the "choose receive mode" selector
+  // (ReceiveSelector), scoped to this TRON account's native TRX, so the user can
+  // top up TRX, which activates the account.
+  const handleTopUp = useCallback(() => {
+    if (!account || !network) {
+      return;
+    }
+    const accountWalletId = accountUtils.getWalletIdFromAccountId({
+      accountId: account.id,
+    });
+    if (!nativeToken) {
+      // Receiving only needs the address; do not block top-up on token metadata
+      navigation.pushModal(EModalRoutes.ReceiveModal, {
+        screen: EModalReceiveRoutes.ReceiveToken,
+        params: {
+          accountId: account.id,
+          networkId: network.id,
+          walletId: accountWalletId,
+          indexedAccountId: account.indexedAccountId,
+        },
+      });
+      return;
+    }
+    navigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.ReceiveSelector,
+      params: {
+        accountId: account.id,
+        networkId: network.id,
+        walletId: accountWalletId,
+        indexedAccountId: account.indexedAccountId,
+        token: nativeToken,
+      },
+    });
+  }, [account, network, nativeToken, navigation]);
+
   const renderClaimButton = useCallback(() => {
     if (!isClaimResourceAvailable) {
       return null;
@@ -553,13 +687,18 @@ function RewardCenterDetails() {
         size="medium"
         variant="primary"
         loading={isClaiming}
+        // Inactive account cannot claim energy; keep the label and disable the
+        // button. Activation is handled via the Top up action on the Alert.
         disabled={
           !isClaimResourceAvailable ||
           isLoadingResourceState ||
           isClaiming ||
           isClaimed ||
+          isAccountNotActivated ||
           result?.remaining === 0 ||
-          result?.totalReceivedLimit === 0
+          result?.totalReceivedLimit === 0 ||
+          result?.monthIPRemain === 0 ||
+          result?.monthRemain === 0
         }
         onPress={handleClaimResource}
       >
@@ -574,10 +713,13 @@ function RewardCenterDetails() {
     isClaimed,
     result?.remaining,
     result?.totalReceivedLimit,
+    result?.monthIPRemain,
+    result?.monthRemain,
     handleClaimResource,
     renderClaimButtonText,
     isCreatingTronAccount,
     handleCreateTronAccount,
+    isAccountNotActivated,
     intl,
   ]);
 
@@ -626,7 +768,8 @@ function RewardCenterDetails() {
                   form.formState.isSubmitting ||
                   !form.formState.isValid ||
                   isRedeeming ||
-                  !isClaimResourceAvailable
+                  !isClaimResourceAvailable ||
+                  isAccountNotActivated
                 }
               >
                 {intl.formatMessage({
@@ -646,6 +789,88 @@ function RewardCenterDetails() {
     handleRedeemCode,
     isRedeeming,
     isClaimResourceAvailable,
+    isAccountNotActivated,
+  ]);
+
+  // Top-of-page alert, by priority: unsupported account > hard claim limits >
+  // inactive account (with a Top up action). The claim button stays labelled
+  // as-is and just disabled; the reason is surfaced here.
+  const renderTopAlert = useCallback(() => {
+    if (isWatchingAccountNotClaimable) {
+      return (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          title={intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_watching_account,
+          })}
+          closable={false}
+          mb="$5"
+        />
+      );
+    }
+
+    if (result?.monthIPRemain === 0) {
+      return (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          title={intl.formatMessage({
+            id: ETranslations.tron_energy_claim_limit_ip_reached_notice,
+          })}
+          closable={false}
+          mb="$5"
+        />
+      );
+    }
+
+    if (result?.monthRemain === 0) {
+      return (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          title={intl.formatMessage({
+            id: ETranslations.tron_energy_claim_limit_reached_notice,
+          })}
+          closable={false}
+          mb="$5"
+        />
+      );
+    }
+
+    if (isAccountNotActivated && isClaimResourceAvailable) {
+      return (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          title={intl.formatMessage({
+            id: ETranslations.tron_energy_account_inactive_deposit_notice,
+          })}
+          closable={false}
+          mb="$5"
+          action={{
+            primary: intl.formatMessage({
+              id: ETranslations.global_top_up,
+            }),
+            primaryTestID: RewardCenterTestIDs.topUpBtn,
+            onPrimaryPress: handleTopUp,
+            isPrimaryLoading: isNativeTokenLoading && !nativeToken,
+          }}
+        />
+      );
+    }
+
+    return null;
+  }, [
+    isWatchingAccountNotClaimable,
+    isAccountNotActivated,
+    isClaimResourceAvailable,
+    result?.monthIPRemain,
+    result?.monthRemain,
+    intl,
+    handleTopUp,
+    isNativeTokenLoading,
+    nativeToken,
   ]);
 
   const renderHeaderRight = useCallback(() => {
@@ -657,13 +882,17 @@ function RewardCenterDetails() {
       <AccountSelectorProviderMirror
         config={{
           sceneName: EAccountSelectorSceneName.rewardCenter,
+          sceneUrl: selectorSceneUrl,
         }}
         enabledNum={[0]}
       >
-        <AccountSelectorTriggerRewardCenter num={0} />
+        <AccountSelectorTriggerRewardCenter
+          num={0}
+          linkNetworkId={accountSelectorLinkNetworkId}
+        />
       </AccountSelectorProviderMirror>
     );
-  }, [showAccountSelector]);
+  }, [accountSelectorLinkNetworkId, selectorSceneUrl, showAccountSelector]);
 
   const renderHeaderLeft = useCallback(() => {
     if (showAccountSelector) {
@@ -697,9 +926,12 @@ function RewardCenterDetails() {
               })
         }
         headerRight={renderHeaderRight}
+        headerRightNoGlass
         headerLeft={showAccountSelector ? renderHeaderLeft : undefined}
+        headerLeftNoGlass
       />
       <Page.Body px="$5">
+        {renderTopAlert()}
         <Alert
           type="info"
           icon="InfoCircleOutline"
@@ -715,15 +947,156 @@ function RewardCenterDetails() {
   );
 }
 
+function RewardCenterAccountSelectorSync({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const route =
+    useRoute<
+      RouteProp<
+        IModalRewardCenterParamList,
+        EModalRewardCenterRoutes.RewardCenter
+      >
+    >();
+
+  const {
+    accountId,
+    networkId,
+    walletId,
+    showAccountSelector = true,
+  } = route?.params ?? {};
+
+  const actions = useAccountSelectorActions();
+  const [isReady, setIsReady] = useState(!showAccountSelector);
+  const targetWalletId =
+    walletId ||
+    (accountId
+      ? accountUtils.getWalletIdFromAccountId({
+          accountId,
+        })
+      : undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncAccountSelector = async () => {
+      if (!showAccountSelector || !accountId || !networkId) {
+        setIsReady(true);
+        return;
+      }
+
+      setIsReady(false);
+      try {
+        const [initAccount, initWallet] = await Promise.all([
+          backgroundApiProxy.serviceAccount.getAccount({
+            accountId,
+            networkId,
+          }),
+          targetWalletId
+            ? backgroundApiProxy.serviceAccount.getWallet({
+                walletId: targetWalletId,
+              })
+            : undefined,
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        await actions.current.waitForAutoSelectUnlock();
+        if (cancelled) {
+          return;
+        }
+
+        if (
+          accountUtils.isOthersAccount({
+            accountId,
+          })
+        ) {
+          await actions.current.confirmAccountSelect({
+            num: 0,
+            indexedAccount: undefined,
+            othersWalletAccount: initAccount,
+            forceSelectToNetworkId: networkId,
+          });
+        } else if (initWallet) {
+          const indexedAccount =
+            await backgroundApiProxy.serviceAccount.getIndexedAccountByAccount({
+              account: initAccount,
+            });
+          if (cancelled) {
+            return;
+          }
+          await actions.current.confirmAccountSelect({
+            num: 0,
+            indexedAccount,
+            othersWalletAccount: undefined,
+            forceSelectToNetworkId: networkId,
+          });
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        if (targetWalletId) {
+          await actions.current.updateSelectedAccountFocusedWallet({
+            num: 0,
+            focusedWallet: targetWalletId,
+          });
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const selectedAccount = actions.current.getSelectedAccount({
+          num: 0,
+        });
+        await actions.current.reloadActiveAccountInfo({
+          num: 0,
+          selectedAccount,
+        });
+      } catch (_error) {
+        // ignore account selector sync errors and let the page render fallback states
+      } finally {
+        if (!cancelled) {
+          setIsReady(true);
+        }
+      }
+    };
+
+    void syncAccountSelector();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, actions, networkId, showAccountSelector, targetWalletId]);
+
+  if (!isReady) {
+    return null;
+  }
+
+  return children;
+}
+
 function RewardCenter() {
+  const selectorSceneUrlRef = useRef<string | undefined>(undefined);
+  selectorSceneUrlRef.current ??= `reward-center-${Date.now()}-${Math.random()}`;
+  const selectorSceneUrl = selectorSceneUrlRef.current;
+
   return (
     <AccountSelectorProviderMirror
       config={{
         sceneName: EAccountSelectorSceneName.rewardCenter,
+        sceneUrl: selectorSceneUrl,
       }}
       enabledNum={[0]}
     >
-      <RewardCenterDetails />
+      <RewardCenterAccountSelectorSync>
+        <RewardCenterDetails selectorSceneUrl={selectorSceneUrl} />
+      </RewardCenterAccountSelectorSync>
     </AccountSelectorProviderMirror>
   );
 }

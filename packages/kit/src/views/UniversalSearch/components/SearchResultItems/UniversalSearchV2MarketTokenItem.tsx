@@ -39,7 +39,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 
-import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
+import { MarketStarV2Deferred } from '../../../Market/components/MarketStarV2Deferred';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 import { MARKET_DATA_COLUMN_WIDTH } from '../MarketTableHeader';
@@ -294,7 +294,7 @@ export function UniversalSearchV2MarketTokenItem({
       {/* # + NAME column */}
       <XStack flex={1} minWidth={0} gap="$1" ai="center">
         <XStack w="$8" ai="center" jc="center">
-          <MarketStarV2
+          <MarketStarV2Deferred
             chainId={network}
             contractAddress={address}
             from={EWatchlistFrom.Search}

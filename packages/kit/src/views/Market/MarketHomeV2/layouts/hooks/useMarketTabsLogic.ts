@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,7 +6,10 @@ import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { useMarketSelectedTabAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { getIsMarketTabSelectionInFlight } from '../marketTabSelectionGuards';
+
 import type { IMarketCategoryItem, IMarketHomeTabValue } from '../../types';
+import type { IMarketTabWrittenSelection } from '../marketTabSelectionGuards';
 
 export interface IMarketSpotTabItem {
   categoryId: string;
@@ -23,6 +26,12 @@ export interface IMarketTabsLogicReturn {
   getSpotCategoryIdByTabName: (tabName: string) => string | undefined;
   selectedTab: string;
   selectedTabName: string;
+  /**
+   * Whether a locally-initiated tab selection is still round-tripping
+   * through the bg-synced atom. While true, `selectedTab`/`selectedTabName`
+   * may be stale and must not drive programmatic pager jumps.
+   */
+  isTabSelectionInFlight: () => boolean;
 }
 
 interface IUseMarketTabsLogicOptions {
@@ -36,8 +45,30 @@ export function useMarketTabsLogic(
   options?: IUseMarketTabsLogicOptions,
 ): IMarketTabsLogicReturn {
   const intl = useIntl();
-  const [{ tab: selectedTab }, setSelectedTabAtom] = useMarketSelectedTabAtom();
+  const [marketSelectedTab, setSelectedTabAtom] = useMarketSelectedTabAtom();
+  const { tab: selectedTab } = marketSelectedTab;
   const { perpDisabled } = usePerpTabConfig();
+
+  // Latest selection written to the bg-synced atom. On runtimes that proxy
+  // UI atom writes to bg, the UI mirror only updates after the bg round-trip
+  // echoes the value back, so the mirror stays stale until then.
+  const lastWrittenSelectionRef = useRef<
+    IMarketTabWrittenSelection | undefined
+  >(undefined);
+  const marketSelectedTabRef = useRef(marketSelectedTab);
+  marketSelectedTabRef.current = marketSelectedTab;
+
+  const isTabSelectionInFlight = useCallback(() => {
+    const inFlight = getIsMarketTabSelectionInFlight({
+      lastWrittenSelection: lastWrittenSelectionRef.current,
+      atomTab: marketSelectedTabRef.current.tab,
+      atomSpotCategoryId: marketSelectedTabRef.current.selectedSpotCategory,
+    });
+    if (!inFlight) {
+      lastWrittenSelectionRef.current = undefined;
+    }
+    return inFlight;
+  }, []);
   const showPerpsTab = !perpDisabled;
   const { spotCategories, selectedSpotCategory, onSpotCategoryChange } =
     options ?? {};
@@ -112,9 +143,11 @@ export function useMarketTabsLogic(
         onSpotCategoryChange?.(categoryId);
       }
 
+      lastWrittenSelectionRef.current = { tab: tabValue, categoryId };
       setSelectedTabAtom((prev) => ({
         ...prev,
         tab: tabValue,
+        selectedSpotCategory: categoryId ?? prev.selectedSpotCategory,
         spotCategoryToSelect: undefined,
       }));
       onTabChange(tabValue);
@@ -153,5 +186,6 @@ export function useMarketTabsLogic(
     getSpotCategoryIdByTabName,
     selectedTab,
     selectedTabName,
+    isTabSelectionInFlight,
   };
 }

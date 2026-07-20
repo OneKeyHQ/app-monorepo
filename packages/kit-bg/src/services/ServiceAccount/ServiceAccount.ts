@@ -24,6 +24,7 @@ import {
   revealableSeedFromMnemonic,
   revealableSeedFromTonMnemonic,
   tonMnemonicFromEntropy,
+  tonMnemonicToKeyPair,
   tonValidateMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
@@ -75,6 +76,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvalidMnemonic,
+  LocalSecretEnvelopeUnavailable,
   OneKeyError,
   OneKeyInternalError,
   OneKeyLocalError,
@@ -119,6 +121,7 @@ import {
   swrCacheNamespaces,
   swrCacheUtils,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -151,6 +154,10 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
+import {
+  normalizePortableCredential,
+  shouldUnwrapCredentialForPortableExport,
+} from '../../dbs/local/localSecretEnvelope';
 import {
   EIndexedDBBucketNames,
   type IDBAccount,
@@ -195,6 +202,8 @@ import {
   isDefaultBotWalletName,
   resolveBotWalletSyncItemDataTime,
 } from './botWalletCreateUtils';
+import { getHwHiddenWalletPassphraseState } from './hardwarePassphraseState';
+import { resolveHwWalletTransportType } from './resolveHwWalletTransportType';
 
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
@@ -241,6 +250,23 @@ export type IAddHDOrHWAccountsResult = {
   deriveType: IAccountDeriveTypes;
 };
 
+function normalizeTonSecretKey(secretKey: unknown): Uint8Array {
+  if (secretKey instanceof Uint8Array) {
+    return new Uint8Array(secretKey);
+  }
+  if (Array.isArray(secretKey)) {
+    return new Uint8Array(secretKey);
+  }
+  if (secretKey && typeof secretKey === 'object') {
+    return new Uint8Array(
+      Object.values(secretKey as Record<string, number>).map((value) =>
+        Number(value),
+      ),
+    );
+  }
+  throw new InvalidMnemonic();
+}
+
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
   private emitWalletUpdateForBotMetadataDebounced = debounce(() => {
@@ -248,6 +274,33 @@ class ServiceAccount extends ServiceBase {
   }, 600);
 
   private importedAccountKdfProbeIndex = 0;
+
+  private async getFirmwareTypeFromDeviceFeatures({
+    vendor,
+    features,
+  }: {
+    vendor?: EHardwareVendor;
+    features: IOneKeyDeviceFeatures | undefined;
+  }) {
+    const rawFeatureVendor =
+      features && 'vendor' in features
+        ? (features as { vendor?: unknown }).vendor
+        : undefined;
+    const featureVendor =
+      rawFeatureVendor === EHardwareVendor.ledger ||
+      rawFeatureVendor === EHardwareVendor.trezor
+        ? rawFeatureVendor
+        : undefined;
+    const resolvedVendor = vendor ?? featureVendor ?? EHardwareVendor.onekey;
+    if (getVendorProfile(resolvedVendor).isThirdParty) {
+      return thirdPartyDeviceUtils.getFirmwareType({
+        features,
+      });
+    }
+    return deviceUtils.getFirmwareType({
+      features,
+    });
+  }
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -613,10 +666,11 @@ class ServiceAccount extends ServiceBase {
     return wallet;
   }
 
-  async getAllWallets(
-    params: { refillWalletInfo?: boolean; excludeKeylessWallet?: boolean } = {},
-  ) {
-    const { excludeKeylessWallet = false } = params;
+  // getAllWallets intentionally includes keyless wallets. A keyless exclusion
+  // filter added in #9337 has been deliberately disabled since #9394 — do not
+  // re-add it here; hash-dedup paths use localDb.getWalletByHash's own
+  // excludeKeylessWallet instead.
+  async getAllWallets(params: { refillWalletInfo?: boolean } = {}) {
     let { wallets } = await localDb.getAllWallets();
     let allDevices: IDBDevice[] | undefined;
     if (params.refillWalletInfo) {
@@ -637,10 +691,6 @@ class ServiceAccount extends ServiceBase {
     await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
       wallets,
     );
-    // Filter out keyless wallets if excludeKeylessWallet is true
-    if (excludeKeylessWallet) {
-      // do nothing
-    }
     return { wallets, allDevices };
   }
 
@@ -696,7 +746,6 @@ class ServiceAccount extends ServiceBase {
 
     const { wallets, allDevices } = await this.getAllWallets({
       refillWalletInfo: true,
-      excludeKeylessWallet: true,
     });
 
     const filterQrWallet = params?.filterQrWallet ?? false;
@@ -864,13 +913,60 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async dumpCredentials() {
+  async dumpCredentials(): Promise<{
+    credentials: Record<string, string>;
+    // Credential ids skipped because the local secret envelope layer was
+    // transiently unavailable while unwrapping them (see caller handling).
+    unavailableCredentialIds: string[];
+  }> {
     const { credentials } = await this.getAllCredentials();
-    return credentials.reduce(
-      (mapping, { id, credential }) =>
-        Object.assign(mapping, { [id]: credential }),
-      {},
+    const unavailableCredentialIds: string[] = [];
+    const entries = await Promise.all(
+      credentials.map(async ({ credential: rawCredential, id }) => {
+        const rawPortableCredential = normalizePortableCredential({
+          credential: rawCredential,
+        });
+        if (rawPortableCredential) {
+          return [id, rawPortableCredential] as const;
+        }
+
+        if (!shouldUnwrapCredentialForPortableExport(rawCredential)) {
+          return undefined;
+        }
+
+        try {
+          const credential = await localDb.getCredentialInner({
+            credentialId: id,
+          });
+          const portableCredential = normalizePortableCredential({
+            credential: credential.credential,
+          });
+          if (!portableCredential) {
+            return undefined;
+          }
+          return [id, portableCredential] as const;
+        } catch (error) {
+          // Skip credentials whose local secret envelope layer is transiently
+          // unavailable (keychain busy / pre-first-unlock on native; IndexedDB
+          // CryptoKey missing or unreadable on web-ext) instead of aborting the
+          // entire export via Promise.all. Genuine ciphertext corruption and any
+          // other error still propagate so they are not silently dropped.
+          if (error instanceof LocalSecretEnvelopeUnavailable) {
+            unavailableCredentialIds.push(id);
+            return undefined;
+          }
+          throw error;
+        }
+      }),
     );
+    return {
+      credentials: Object.fromEntries(
+        entries.filter((entry): entry is readonly [string, string] =>
+          Boolean(entry),
+        ),
+      ),
+      unavailableCredentialIds,
+    };
   }
 
   @backgroundMethod()
@@ -899,7 +995,7 @@ class ServiceAccount extends ServiceBase {
     password: string;
   }) {
     ensureSensitiveTextEncoded(password);
-    const dbCredential = await localDb.getCredential(credentialId);
+    const dbCredential = await localDb.getCredentialInner({ credentialId });
     const { mnemonic, rs } = await this.getCredentialDecryptFromCredential({
       password,
       credential: dbCredential.credential,
@@ -3311,6 +3407,69 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
+  private async getFeaturesForHwWalletCreate({
+    dbDevice,
+    compatibleConnectId,
+  }: {
+    dbDevice: IDBDevice;
+    compatibleConnectId: string;
+  }): Promise<IOneKeyDeviceFeatures> {
+    let features: IOneKeyDeviceFeatures | undefined;
+    const vendorProfile = getVendorProfile(
+      dbDevice.vendor ?? EHardwareVendor.onekey,
+    );
+    if (dbDevice.vendor && vendorProfile.isThirdParty) {
+      const connected =
+        await this.backgroundApi.serviceThirdPartyHardware.connectDevice({
+          vendor: dbDevice.vendor,
+          connectId: compatibleConnectId,
+        });
+      if (connected.success) {
+        features = connected.payload.features as IOneKeyDeviceFeatures;
+      }
+    } else {
+      features = await this.backgroundApi.serviceHardware.getFeatures({
+        connectId: compatibleConnectId,
+      });
+    }
+    return features || dbDevice.featuresInfo || ({} as IOneKeyDeviceFeatures);
+  }
+
+  private async getFirstEvmAddressForHwWalletCreate({
+    compatibleConnectId,
+    deviceId,
+    passphraseState,
+    vendor,
+    isMockedStandardHwWallet,
+  }: {
+    compatibleConnectId: string;
+    deviceId: string;
+    passphraseState?: string;
+    vendor?: EHardwareVendor;
+    isMockedStandardHwWallet?: boolean;
+  }): Promise<string | null> {
+    if (isMockedStandardHwWallet) {
+      return '';
+    }
+    const vendorProfile = vendor ? getVendorProfile(vendor) : undefined;
+    if (!vendorProfile?.isThirdParty) {
+      return this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet({
+        connectId: compatibleConnectId,
+        deviceId,
+        path: FIRST_EVM_ADDRESS_PATH,
+        vendor,
+      });
+    }
+    return this.backgroundApi.serviceHardware.getEvmAddressByWalletState({
+      connectId: compatibleConnectId,
+      deviceId,
+      path: FIRST_EVM_ADDRESS_PATH,
+      vendor,
+      passphraseState: passphraseState || undefined,
+      useEmptyPassphrase: passphraseState ? undefined : true,
+    });
+  }
+
   @backgroundMethod()
   @toastIfError()
   async createHWHiddenWallet({
@@ -3335,11 +3494,14 @@ class ServiceAccount extends ServiceBase {
     // createHWHiddenWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const passphraseState =
-          await this.backgroundApi.serviceHardware.getPassphraseState({
-            connectId: compatibleConnectId,
-            forceInputPassphrase: true,
-          });
+        const passphraseState = await getHwHiddenWalletPassphraseState({
+          vendor: dbDevice.vendor,
+          connectId: compatibleConnectId,
+          dbDevice,
+          serviceHardware: this.backgroundApi.serviceHardware,
+          serviceThirdPartyHardware:
+            this.backgroundApi.serviceThirdPartyHardware,
+        });
 
         if (!passphraseState) {
           const deviceNotOpenedPassphraseError = new DeviceNotOpenedPassphrase({
@@ -3355,12 +3517,13 @@ class ServiceAccount extends ServiceBase {
         }
 
         // TODO save remember states
-        const features = await this.backgroundApi.serviceHardware.getFeatures({
-          connectId: compatibleConnectId,
+        const resolvedFeatures = await this.getFeaturesForHwWalletCreate({
+          dbDevice,
+          compatibleConnectId,
         });
         const dbWallet = await this.createHWWalletBase({
           device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
-          features: features || dbDevice.featuresInfo || ({} as any),
+          features: resolvedFeatures,
           passphraseState,
           fillingXfpByCallingSdk: true,
         });
@@ -3391,7 +3554,7 @@ class ServiceAccount extends ServiceBase {
 
         return {
           ...dbWallet,
-          isAttachPinMode: features.unlocked_attach_pin,
+          isAttachPinMode: resolvedFeatures.unlocked_attach_pin,
         };
       },
       {
@@ -3425,9 +3588,20 @@ class ServiceAccount extends ServiceBase {
     // Get forceTransportType from global atom first, otherwise fallback to current transport type setting
     const hardwareForceTransportAtomState =
       await hardwareForceTransportAtom.get();
-    const transportType =
+    const globalTransportType =
       hardwareForceTransportAtomState.forceTransportType ||
       (await this.backgroundApi.serviceSetting.getHardwareTransportType());
+
+    // Don't trust the global transport flag alone — use the picked device's
+    // actual connectionType (carried on `device.raw` for third-party devices;
+    // absent for OneKey HD, so they're unaffected).
+    const transportType = resolveHwWalletTransportType({
+      globalTransportType,
+      deviceConnectionType: (
+        params.device as { raw?: { connectionType?: 'usb' | 'ble' } }
+      ).raw?.connectionType,
+      isNative: !!platformEnv.isNative,
+    });
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
@@ -3497,9 +3671,11 @@ class ServiceAccount extends ServiceBase {
             featuresDeviceId: params.device.deviceId ?? '',
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
+
     const deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
       features,
+      isThirdParty: vendorProfile?.isThirdParty,
     });
 
     let xfp: string | undefined;
@@ -3535,19 +3711,13 @@ class ServiceAccount extends ServiceBase {
       xfp,
       passphraseState: passphraseState || '',
       getFirstEvmAddressFn: async (): Promise<string | null> => {
-        if (isMockedStandardHwWallet) {
-          return '';
-        }
-        const r: string | null =
-          await this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet(
-            {
-              connectId: compatibleConnectId,
-              deviceId,
-              path: FIRST_EVM_ADDRESS_PATH,
-              vendor,
-            },
-          );
-        return r;
+        return this.getFirstEvmAddressForHwWalletCreate({
+          compatibleConnectId,
+          deviceId,
+          passphraseState,
+          vendor,
+          isMockedStandardHwWallet,
+        });
       },
       verifySeedMatchFn:
         vendor === EHardwareVendor.ledger
@@ -3561,6 +3731,31 @@ class ServiceAccount extends ServiceBase {
       transportType,
     });
     // Third-party chain fingerprints are generated lazily by the keyring via SDK.
+
+    // Trezor: THP pairing credentials were minted while probing the device above
+    // (before this DB record existed) and buffered in the adapter. Now that the
+    // record exists, flush them into its settings so a SW restart auto-connects.
+    // Best-effort — a miss just means re-pairing on next boot, never a failure.
+    if (vendor === EHardwareVendor.trezor) {
+      try {
+        defaultLogger.hardware.sdkLog.log(
+          `[TrezorTHPTrace][serviceAccount.persist] ${JSON.stringify({
+            connectId: params.device.connectId,
+            rawDeviceId: deviceId,
+            paramsDeviceId: params.device.deviceId,
+            featuresDeviceId: features.device_id,
+          })}`,
+        );
+        await this.backgroundApi.serviceThirdPartyHardware.persistTrezorThpCredentials(
+          {
+            connectId: params.device.connectId ?? undefined,
+            deviceId,
+          },
+        );
+      } catch {
+        // ignore — credential persistence is non-critical to wallet creation.
+      }
+    }
 
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
@@ -3720,6 +3915,83 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async addTonImportedAccountByMnemonic({
+    mnemonic,
+    name,
+    shouldCheckDuplicateName,
+  }: {
+    mnemonic: string;
+    name?: string;
+    shouldCheckDuplicateName?: boolean;
+  }): Promise<{
+    networkId: string;
+    walletId: string;
+    accounts: IDBAccount[];
+    isOverrideAccounts: boolean;
+  }> {
+    ensureSensitiveTextEncoded(mnemonic);
+    const { mnemonic: realMnemonic, mnemonicType } =
+      await this.validateMnemonic(mnemonic);
+
+    if (mnemonicType !== EMnemonicType.TON) {
+      throw new OneKeyLocalError(
+        'addTonImportedAccountByMnemonic ERROR: Not a TON mnemonic',
+      );
+    }
+
+    const { servicePassword } = this.backgroundApi;
+    const { password } = await servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+    });
+    ensureSensitiveTextEncoded(password);
+
+    const keyPair = await tonMnemonicToKeyPair(realMnemonic.split(' '));
+    const secretKeyBytes = normalizeTonSecretKey(keyPair?.secretKey);
+    if (secretKeyBytes.length < 32) {
+      throw new InvalidMnemonic();
+    }
+    let privateHex = '';
+
+    try {
+      privateHex = bufferUtils.bytesToHex(secretKeyBytes.slice(0, 32));
+      const result = await this.addImportedAccountWithCredentialBase({
+        credentialRaw: privateHex,
+        password,
+        deriveType: 'default',
+        networkId: getNetworkIdsMap().ton,
+        name,
+        shouldCheckDuplicateName,
+      });
+      privateHex = '';
+
+      const accountId = result.accounts?.[0]?.id;
+      if (!accountId) {
+        throw new OneKeyLocalError(
+          'addTonImportedAccountByMnemonic ERROR: Account is required',
+        );
+      }
+
+      let rs: IBip39RevealableSeedEncryptHex | undefined;
+      try {
+        rs = await revealableSeedFromTonMnemonic(realMnemonic, password);
+      } catch {
+        throw new InvalidMnemonic();
+      }
+
+      const tonMnemonicFromRs = await tonMnemonicFromEntropy(rs, password);
+      if (realMnemonic !== tonMnemonicFromRs) {
+        throw new InvalidMnemonic();
+      }
+      await localDb.saveTonImportedAccountMnemonic({ accountId, rs });
+
+      return result;
+    } finally {
+      secretKeyBytes.fill(0);
+      privateHex = '';
+    }
+  }
+
+  @backgroundMethod()
   async saveTonImportedAccountMnemonic({
     mnemonic,
     accountId,
@@ -3806,6 +4078,10 @@ class ServiceAccount extends ServiceBase {
         excludeKeylessWallet: true,
       });
       if (existsSameHashWallet) {
+        await localDb.replaceCredentialWithLocalSecretEnvelopeIfNeeded({
+          credentialId: existsSameHashWallet.id,
+          credential: rs,
+        });
         const indexedAccounts = await this.addIndexedAccount({
           walletId: existsSameHashWallet.id,
           indexes: [0],
@@ -3887,6 +4163,21 @@ class ServiceAccount extends ServiceBase {
     if (!isInImportFlow) {
       appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     }
+
+    // Wallet backup-status diagnostics: check whether the migration flag is
+    // still present at the storage layer right after wallet creation. If it
+    // was verified after the boot-time write but is already gone here, the
+    // loss happened within this session; if it is still present here but
+    // missing at the next boot, the loss happened at the file level between
+    // launches. Gated on the migration having settled this session:
+    // migrateHdWalletsBackedUpStatus is a deferred bootstrap task, so before
+    // it settles a missing flag only means "not written yet" and logging it
+    // would read as an in-session loss. Fire-and-forget: must never delay
+    // wallet creation.
+    if (this.backupMigrationSettledThisSession) {
+      void this.logBackupMigrationFlagProbe({ stage: 'afterCreateHDWallet' });
+    }
+
     return result;
   }
 
@@ -4364,7 +4655,9 @@ class ServiceAccount extends ServiceBase {
       xfp: string;
     };
   }> {
-    const parentCredential = await localDb.getCredential(parentKeylessWalletId);
+    const parentCredential = await localDb.getCredentialInner({
+      credentialId: parentKeylessWalletId,
+    });
     let parentMnemonic: string | undefined;
     let realMnemonic: string | undefined;
 
@@ -4801,9 +5094,11 @@ class ServiceAccount extends ServiceBase {
 
     if (keylessOwnerId) {
       void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
-      void this.backgroundApi.serviceKeylessWallet.cleanupKeylessWalletStorage({
-        ownerId: keylessOwnerId,
-      });
+      await this.backgroundApi.serviceKeylessWallet.cleanupKeylessWalletStorage(
+        {
+          ownerId: keylessOwnerId,
+        },
+      );
     }
 
     if (!skipBackupWalletRemove) {
@@ -5104,7 +5399,9 @@ class ServiceAccount extends ServiceBase {
         reason,
         hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
       });
-    const credential = await localDb.getCredential(walletId);
+    const credential = await localDb.getCredentialInner({
+      credentialId: walletId,
+    });
     const mnemonicRaw = await mnemonicFromEntropy(
       credential.credential,
       password,
@@ -5128,11 +5425,11 @@ class ServiceAccount extends ServiceBase {
         accountId,
         reason: EReasonForNeedPassword.Security,
       });
-    const credential = await localDb.getCredential(
-      accountUtils.buildTonMnemonicCredentialId({
+    const credential = await localDb.getCredentialInner({
+      credentialId: accountUtils.buildTonMnemonicCredentialId({
         accountId,
       }),
-    );
+    });
     const mnemonicRaw = await tonMnemonicFromEntropy(
       credential.credential,
       password,
@@ -5147,7 +5444,7 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async hasTonImportedAccountMnemonic({ accountId }: { accountId: string }) {
     try {
-      const credential = await localDb.getCredential(
+      const credential = await localDb.getCredentialRaw(
         accountUtils.buildTonMnemonicCredentialId({
           accountId,
         }),
@@ -5994,7 +6291,6 @@ class ServiceAccount extends ServiceBase {
 
         const { wallets } = await this.getAllWallets({
           refillWalletInfo: false,
-          excludeKeylessWallet: true,
         });
         const hdWallets = wallets.filter((wallet) =>
           accountUtils.isHdWallet({ walletId: wallet.id }),
@@ -6055,7 +6351,9 @@ class ServiceAccount extends ServiceBase {
             // eslint-disable-next-line no-continue
             continue;
           }
-          const credentialInfo = await localDb.getCredential(wallet.id);
+          const credentialInfo = await localDb.getCredentialInner({
+            credentialId: wallet.id,
+          });
           if (!credentialInfo) {
             // eslint-disable-next-line no-continue
             continue;
@@ -6176,7 +6474,6 @@ class ServiceAccount extends ServiceBase {
 
     const { wallets } = await this.getAllWallets({
       refillWalletInfo: true,
-      excludeKeylessWallet: true,
     });
     const qrWallets = wallets.filter((wallet) =>
       accountUtils.isQrWallet({ walletId: wallet.id }),
@@ -6483,14 +6780,18 @@ class ServiceAccount extends ServiceBase {
     });
     const { wallets: allWallets } = await this.getAllWallets({
       refillWalletInfo: true,
-      excludeKeylessWallet: true,
     });
     const sameWalletsMap: {
       [walletHash: string]: IDBWallet[];
     } = {};
     for (const wallet of allWallets) {
       const walletHash = wallet.hash;
-      if (walletHash) {
+      // Exclude bot wallets from duplicate grouping. A bot wallet's hash can
+      // collide with a plain HD wallet (e.g. its derived mnemonic was imported
+      // separately), but bot wallets are managed by the keyless cloud-sync
+      // lifecycle: removing one as a "duplicate" would push a deletion
+      // tombstone that removes it on all devices.
+      if (walletHash && !accountUtils.isBotWallet({ walletId: wallet.id })) {
         sameWalletsMap[walletHash] = sameWalletsMap[walletHash] || [];
         sameWalletsMap[walletHash].push(wallet);
       }
@@ -6545,8 +6846,19 @@ class ServiceAccount extends ServiceBase {
             name: string;
           }[] = [];
 
-          for (let i = 0; i < sameWallet.wallets.length; i += 1) {
-            const wallet = sameWallet.wallets[i];
+          // A keyless wallet must always be the survivor of a merge group:
+          // removing it irreversibly destroys its OAuth credentials, PIN
+          // recovery data and child bot wallets, while removing a plain HD
+          // duplicate is lossless (the user holds the mnemonic and its
+          // accounts are re-added into the kept wallet below). Stable sort:
+          // keyless wallets first, existing relative order otherwise kept.
+          const walletsInGroup = sameWallet.wallets.toSorted(
+            (a, b) =>
+              Number(Boolean(b.isKeyless)) - Number(Boolean(a.isKeyless)),
+          );
+
+          for (let i = 0; i < walletsInGroup.length; i += 1) {
+            const wallet = walletsInGroup[i];
             if (i === 0) {
               walletToKeep = wallet;
             } else {
@@ -6835,10 +7147,112 @@ class ServiceAccount extends ServiceBase {
     }
   }
 
+  // Set once migrateHdWalletsBackedUpStatus has settled in this session
+  // (either skipped as already-migrated or fully executed). Gates the
+  // afterCreateHDWallet probe: the migration is a deferred bootstrap task,
+  // so before it settles a missing flag only means "not written yet" and
+  // logging it would read as an in-session loss.
+  backupMigrationSettledThisSession = false;
+
+  // Boot-time raw sample of the persisted appStatus entity. Kicked by
+  // ServiceBootstrap.initDeferred BEFORE any deferred migration can write
+  // simpleDb.appStatus (several concurrent migrations setRawData on the same
+  // entity); the storage instance serializes operations in issue order, so a
+  // sample issued first reads the pre-boot on-disk state. Sampling from
+  // within the migration itself would race those writers and could report a
+  // freshly-created appStatus as "survived from the previous session".
+  private backupMigrationBootRawSamplePromise:
+    | Promise<boolean | undefined>
+    | undefined;
+
+  startBackupMigrationBootRawSample() {
+    if (this.backupMigrationBootRawSamplePromise) {
+      return;
+    }
+    this.backupMigrationBootRawSamplePromise = (async () => {
+      try {
+        // Read from the entity's own backing storage instance (NOT the
+        // default appStorage): on web/desktop/extension simpleDb persists to
+        // a dedicated store ($webStorageSimpleDB). Single-key getItem only —
+        // no enumeration on this resident boot path.
+        const entityKey = simpleDb.appStatus.entityKey;
+        const entityStorage = simpleDb.appStatus.appStorage;
+        const raw = (await entityStorage.getItem(entityKey)) as unknown;
+        return !isNil(raw);
+      } catch {
+        // diagnostics only — undefined means "sample unavailable"
+        return undefined;
+      }
+    })();
+  }
+
+  // TODO(cleanup): temporary investigation scaffolding — remove this probe,
+  // its call sites, and the boot-time raw check in
+  // migrateHdWalletsBackedUpStatus once the backup-status flag-loss root
+  // cause is fixed.
+  // Diagnostic probe for the wallet backup-status investigation: reads the
+  // persisted appStatus entity raw from the entity's own backing storage
+  // instance — bypassing the simpleDb JS-level cache — and logs whether
+  // hdWalletsBackupMigrated is present at the storage layer. The entity's
+  // appStorage field must be used instead of the default appStorage: on
+  // web/desktop/extension simpleDb persists to a dedicated store
+  // ($webStorageSimpleDB), so reading the default store there would always
+  // report the flag as missing. Runs in the bg runtime only (this service
+  // lives in bg).
+  async logBackupMigrationFlagProbe({ stage }: { stage: string }) {
+    try {
+      const entityKey = simpleDb.appStatus.entityKey;
+      const entityStorage = simpleDb.appStatus.appStorage;
+      const raw = (await entityStorage.getItem(entityKey)) as unknown;
+      let persistedData: { hdWalletsBackupMigrated?: boolean } | undefined;
+      if (typeof raw === 'string' && raw) {
+        try {
+          const parsed = JSON.parse(raw) as {
+            data?: { hdWalletsBackupMigrated?: boolean };
+          };
+          persistedData = parsed?.data;
+        } catch {
+          // unparsable payload: rawExists is still reported below
+        }
+      } else if (raw && typeof raw === 'object') {
+        // web/desktop storage may persist the envelope as an object
+        persistedData = (
+          raw as { data?: { hdWalletsBackupMigrated?: boolean } }
+        )?.data;
+      }
+      defaultLogger.account.wallet.backupMigrationFlagProbe({
+        stage,
+        rawExists: !isNil(raw),
+        flagPresent: Boolean(persistedData?.hdWalletsBackupMigrated),
+      });
+    } catch {
+      // diagnostics must never break the business flow
+    }
+  }
+
   @backgroundMethod()
   async migrateHdWalletsBackedUpStatus() {
+    // Boot-time on-disk truth: the raw sample is issued by ServiceBootstrap
+    // before any concurrent deferred migration can write appStatus, so it
+    // reflects what actually survived on disk from the previous session. If
+    // a previous launch logged flagPresent=true on the write-back probe and
+    // this boot logs appStatusRawExists=false / migratedFlag=undefined, the
+    // flag was lost at the persistence layer between launches. The
+    // self-start below is a fallback for callers outside the bootstrap flow
+    // (e.g. tests); in that case the sample may race concurrent writers.
+    this.startBackupMigrationBootRawSample();
+    const appStatusRawExists =
+      (await this.backupMigrationBootRawSamplePromise) ?? false;
+
     const appStatus = await simpleDb.appStatus.getRawData();
     if (appStatus?.hdWalletsBackupMigrated) {
+      defaultLogger.account.wallet.backupMigrationStatusCheck({
+        migratedFlag: true,
+        appStatusRawExists,
+        hdWalletsCount: -1,
+        unbackedUpHdWalletIds: [],
+      });
+      this.backupMigrationSettledThisSession = true;
       console.log('migrateHdWalletsBackedUpStatus: already migrated');
       return;
     }
@@ -6855,7 +7269,20 @@ class ServiceAccount extends ServiceBase {
         };
       }
     }
+    defaultLogger.account.wallet.backupMigrationStatusCheck({
+      migratedFlag: appStatus?.hdWalletsBackupMigrated,
+      appStatusRawExists,
+      hdWalletsCount: wallets.filter((w) => w.type === WALLET_TYPE_HD).length,
+      unbackedUpHdWalletIds: Object.keys(walletsBackedUpStatusMap),
+    });
     await localDb.updateWalletsBackupStatus(walletsBackedUpStatusMap);
+    if (Object.keys(walletsBackedUpStatusMap).length > 0) {
+      // Smoking-gun line: these wallets were flipped to backed-up by the
+      // migration itself, not by any user backup action.
+      defaultLogger.account.wallet.backupMigrationMarkedWallets({
+        walletIds: Object.keys(walletsBackedUpStatusMap),
+      });
+    }
 
     await simpleDb.appStatus.setRawData(
       (v): ISimpleDBAppStatus => ({
@@ -6863,6 +7290,13 @@ class ServiceAccount extends ServiceBase {
         hdWalletsBackupMigrated: true,
       }),
     );
+
+    // Write-then-read-back verification: confirms the flag write reached the
+    // storage layer in THIS session before we ever rely on it at next boot.
+    await this.logBackupMigrationFlagProbe({
+      stage: 'afterMigrationFlagWrite',
+    });
+    this.backupMigrationSettledThisSession = true;
 
     if (Object.keys(walletsBackedUpStatusMap).length > 0) {
       appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
@@ -7373,7 +7807,7 @@ class ServiceAccount extends ServiceBase {
     }) => {
       let firmwareType: EFirmwareType | undefined;
       if (featuresInfo) {
-        firmwareType = await deviceUtils.getFirmwareType({
+        firmwareType = await this.getFirmwareTypeFromDeviceFeatures({
           features: featuresInfo,
         });
       } else {
@@ -7382,7 +7816,8 @@ class ServiceAccount extends ServiceBase {
             walletId,
           });
         if (walletDevice) {
-          firmwareType = await deviceUtils.getFirmwareType({
+          firmwareType = await this.getFirmwareTypeFromDeviceFeatures({
+            vendor: walletDevice.vendor,
             features: walletDevice.featuresInfo,
           });
         }
@@ -7397,7 +7832,11 @@ class ServiceAccount extends ServiceBase {
         const fwVendor = options.featuresInfo?.fw_vendor || '';
         const capabilities =
           options.featuresInfo?.capabilities?.join(',') ?? '';
-        return `${options.walletId}-${fwVendor}-${capabilities}`;
+        const unitBtcOnly = String(
+          (options.featuresInfo as { unit_btconly?: boolean } | undefined)
+            ?.unit_btconly ?? '',
+        );
+        return `${options.walletId}-${fwVendor}-${capabilities}-${unitBtcOnly}`;
       },
       maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
       max: 5,

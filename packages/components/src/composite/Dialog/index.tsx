@@ -1,4 +1,4 @@
-import type { ForwardedRef } from 'react';
+import type { ComponentProps, ForwardedRef } from 'react';
 import {
   cloneElement,
   createRef,
@@ -21,6 +21,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
@@ -29,6 +30,10 @@ import {
   TMDialog,
 } from '@onekeyhq/components/src/shared/tamagui';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  createLazyModuleComponent,
+  preloadLazyComponents,
+} from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -37,7 +42,6 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { Toast } from '../../actions/Toast';
 import { Keyboard } from '../../content/Keyboard';
 import { SheetGrabber } from '../../content/SheetGrabber';
-import { Form } from '../../forms/Form';
 import {
   EPageType,
   EPortalContainerConstantName,
@@ -61,7 +65,6 @@ import {
 
 import { Content } from './Content';
 import { DialogContext } from './context';
-import { DialogForm } from './DialogForm';
 import { addDialogInstance, removeDialogInstance } from './dialogInstances';
 import { Footer, FooterAction } from './Footer';
 import {
@@ -80,6 +83,7 @@ import type {
   IDialogCancelProps,
   IDialogConfirmProps,
   IDialogContainerProps,
+  IDialogFormProps,
   IDialogHeaderProps,
   IDialogInstance,
   IDialogProps,
@@ -90,6 +94,50 @@ import type { UseFormReturn } from '../../hooks';
 import type { IYStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
 import type { GestureResponderEvent } from 'react-native';
+
+type IDialogFormModule = typeof import('./DialogForm');
+type IDialogFormFieldProps = ComponentProps<
+  (typeof import('./DialogForm'))['DialogFormField']
+>;
+
+let loadDialogFormModulePromise: Promise<IDialogFormModule> | undefined;
+function loadDialogFormModule() {
+  if (!loadDialogFormModulePromise) {
+    loadDialogFormModulePromise = import('./DialogForm')
+      .then(async (dialogFormModule) => {
+        await dialogFormModule.preloadDialogForm();
+        return dialogFormModule;
+      })
+      .catch((error: unknown) => {
+        loadDialogFormModulePromise = undefined;
+        throw error;
+      });
+  }
+  return loadDialogFormModulePromise;
+}
+
+const LazyDialogFormFieldComponent = createLazyModuleComponent<
+  IDialogFormFieldProps,
+  IDialogFormModule
+>(loadDialogFormModule, ({ DialogFormField }) => DialogFormField);
+
+async function loadDialogFormComponentModule() {
+  const dialogFormModule = await loadDialogFormModule();
+  await LazyDialogFormFieldComponent.preload();
+  return dialogFormModule;
+}
+
+const LazyDialogFormComponent = createLazyModuleComponent<
+  IDialogFormProps,
+  IDialogFormModule
+>(loadDialogFormComponentModule, ({ DialogForm }) => DialogForm);
+
+export function preloadDialogFormComponents() {
+  return preloadLazyComponents([
+    LazyDialogFormComponent,
+    LazyDialogFormFieldComponent,
+  ]);
+}
 
 export * from './dialogInstances';
 export * from './hooks';
@@ -122,10 +170,21 @@ const DIALOG_CONTENT_VISIBILITY_HIDDEN = {
 } as any;
 const DIALOG_HIDDEN_STYLE = { contentVisibility: 'hidden' } as any;
 const EMPTY_DIALOG_STYLE = {} as const;
+const INITIAL_BOTTOM_INSET = initialWindowMetrics?.insets.bottom || 0;
 
 const DEFAULT_KEYBOARD_HEIGHT = 330;
-const useSafeKeyboardAnimationStyle = () => {
+const useSafeKeyboardAnimationStyle = ({
+  useInitialSafeAreaBottomInsetFallback = false,
+}: {
+  useInitialSafeAreaBottomInsetFallback?: boolean;
+}) => {
   const { bottom } = useSafeAreaInsets();
+  // Root-sibling portals can report zero before safe-area context propagates.
+  // Opt in only for flows that must preserve the initial window inset.
+  const safeAreaBottom =
+    useInitialSafeAreaBottomInsetFallback && bottom === 0
+      ? INITIAL_BOTTOM_INSET
+      : bottom;
   const keyboardHeightValue = useSharedValue(0);
   // Keep the dialog clear of both the home indicator and the keyboard.
   // These are two independent concerns collapsed into one paddingBottom:
@@ -134,7 +193,7 @@ const useSafeKeyboardAnimationStyle = () => {
   // They must not stack — once the keyboard is up it already covers the
   // safe area, so take the larger of the two instead of summing them.
   const animatedStyles = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(keyboardHeightValue.value, bottom),
+    paddingBottom: Math.max(keyboardHeightValue.value, safeAreaBottom),
   }));
 
   useKeyboardEventWithoutNavigation({
@@ -146,7 +205,15 @@ const useSafeKeyboardAnimationStyle = () => {
       keyboardHeightValue.value = 0;
     },
   });
-  return platformEnv.isNative ? animatedStyles : undefined;
+  // On web there is no reanimated keyboard tracking, but notched iOS
+  // Safari/PWA still reports a bottom inset via env(safe-area-inset-bottom).
+  // The frame must apply it as a static paddingBottom so bottom-sheet dialogs
+  // clear the home indicator there too — footers only carry their design
+  // padding now, and rely on the frame for the inset on every platform.
+  if (!platformEnv.isNative) {
+    return safeAreaBottom ? { paddingBottom: safeAreaBottom } : undefined;
+  }
+  return animatedStyles;
 };
 
 /**
@@ -189,6 +256,7 @@ function DialogFrame({
   isAsync,
   trackID,
   forceMount,
+  useInitialSafeAreaBottomInsetFallback = false,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -261,7 +329,9 @@ function DialogFrame({
   const media = useMedia();
 
   const zIndex = useOverlayZIndex(open, title);
-  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
+  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle({
+    useInitialSafeAreaBottomInsetFallback,
+  });
   const renderDialogContent = (
     <Animated.View style={safeKeyboardAnimationStyle}>
       {showHeader ? (
@@ -342,7 +412,11 @@ function DialogFrame({
           testID={testID}
           borderTopLeftRadius="$6"
           borderTopRightRadius="$6"
-          bg="$bg"
+          // Match the sheet frame to the content surface so the bottom
+          // safe-area inset region (applied as paddingBottom on the wrapper,
+          // below the footer) doesn't reveal the default `$bg` as a seam when a
+          // dialog overrides its content background (e.g. Prime feature intro).
+          bg={(contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg'}
           borderCurve="continuous"
           disableHideBottomOverflow
           // Fix width issue for portrait iPad mini - ensure proper dialog width
@@ -780,8 +854,9 @@ export const Dialog = {
   HyperlinkTextDescription: DialogHyperlinkTextDescription,
   Icon: DialogIcon,
   Footer: FooterAction,
-  Form: DialogForm,
-  FormField: Form.Field,
+  Form: LazyDialogFormComponent,
+  FormField: LazyDialogFormFieldComponent,
+  preloadForm: preloadDialogFormComponents,
   Loading: DialogLoadingView,
   show: dialogShow,
   confirm: dialogConfirm,

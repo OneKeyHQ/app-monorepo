@@ -32,10 +32,19 @@ import type {
   BusinessDay,
   IChartApi,
   ISeriesApi,
+  Time,
   UTCTimestamp,
 } from 'lightweight-charts';
 
 const getChartLib = createLazySdkLoader(() => import('lightweight-charts'));
+
+function getSeriesValue(seriesData: unknown): number | undefined {
+  if (seriesData && typeof seriesData === 'object' && 'value' in seriesData) {
+    const value = seriesData.value;
+    return typeof value === 'number' ? value : Number(value);
+  }
+  return undefined;
+}
 
 export function InterestRateModelChart({
   borrowCurve,
@@ -62,9 +71,9 @@ export function InterestRateModelChart({
 
   const handleCrosshairMove = useCallback(
     (param: {
-      time?: UTCTimestamp | BusinessDay;
+      time?: Time;
       point?: { x: number; y: number };
-      seriesPrices?: Map<ISeriesApi<'Area'>, number>;
+      seriesData?: Map<unknown, unknown>;
     }) => {
       if (
         param.time &&
@@ -72,8 +81,12 @@ export function InterestRateModelChart({
         supplySeriesRef.current &&
         borrowSeriesRef.current
       ) {
-        const supplyPrice = param.seriesPrices?.get(supplySeriesRef.current);
-        const borrowPrice = param.seriesPrices?.get(borrowSeriesRef.current);
+        const supplyPrice = getSeriesValue(
+          param.seriesData?.get(supplySeriesRef.current),
+        );
+        const borrowPrice = getSeriesValue(
+          param.seriesData?.get(borrowSeriesRef.current),
+        );
 
         if (supplyPrice !== undefined && borrowPrice !== undefined) {
           const timeValue =
@@ -110,13 +123,12 @@ export function InterestRateModelChart({
       bottomColor: string,
     ): ILightweightChartTheme => ({
       bgColor: 'transparent',
-      textColor: theme.text?.val || '#000000',
       textSubduedColor: theme.textSubdued?.val || '#666666',
       lineColor,
       topColor,
       bottomColor,
     }),
-    [theme.text?.val, theme.textSubdued?.val],
+    [theme.textSubdued?.val],
   );
 
   const supplyTheme = useMemo(
@@ -177,7 +189,7 @@ export function InterestRateModelChart({
 
     const container = chartContainerRef.current;
 
-    void getChartLib().then(({ createChart }) => {
+    void getChartLib().then(({ AreaSeries, createChart }) => {
       if (cancelled) return;
 
       // Create chart with custom time scale formatter and grid lines
@@ -211,14 +223,16 @@ export function InterestRateModelChart({
       });
 
       // Add supply series
-      const supplySeries = chart.addAreaSeries(
+      const supplySeries = chart.addSeries(
+        AreaSeries,
         createAreaSeriesOptions(supplyTheme, 2),
       );
       supplySeries.setData(chartData.supplyData);
       supplySeriesRef.current = supplySeries;
 
       // Add borrow series
-      const borrowSeries = chart.addAreaSeries(
+      const borrowSeries = chart.addSeries(
+        AreaSeries,
         createAreaSeriesOptions(borrowTheme, 2),
       );
       borrowSeries.setData(chartData.borrowData);
@@ -229,9 +243,7 @@ export function InterestRateModelChart({
         handleCrosshairMove({
           time: param.time,
           point: param.point,
-          seriesPrices: param.seriesPrices as
-            | Map<ISeriesApi<'Area'>, number>
-            | undefined,
+          seriesData: param.seriesData,
         });
       });
 

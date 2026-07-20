@@ -10,6 +10,7 @@ import {
   isTaprootPath,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type {
+  IBtcForkNetwork,
   IBtcInput,
   IBtcOutput,
   IEncodedTxBtc,
@@ -34,6 +35,8 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
+
+import { appendClaimedAddressPaths } from './sdkBtc/findAddressUtils';
 
 import type VaultBtc from './Vault';
 import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
@@ -91,6 +94,17 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
         signers[address] = path;
       }
     }
+
+    // btc find-address feature: inputs spending claimed off-gap addresses
+    // are not in the gap-scanned utxo pool, resolve paths from findAddresses
+    const dbAccountForClaimed =
+      (await this.vault.getAccount()) as unknown as IDBUtxoAccount;
+    appendClaimedAddressPaths({
+      addressPathMap: signers,
+      accountPath: dbAccountForClaimed.path,
+      findAddresses: dbAccountForClaimed.findAddresses,
+      filterAddresses: (address) => addresses.has(address),
+    });
 
     const prevTxids = Array.from(new Set(inputs.map((i) => i.txid))).filter(
       Boolean,
@@ -197,6 +211,83 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     };
   };
 
+  // Shared by OneKey and Ledger PSBT signing: map each PSBT address to its
+  // real derivation path/pubkey via prepareBtcSignExtraInfo (which already
+  // covers fresh and claimed find-address paths), falling back to the
+  // account-level path/pubkey for unknown addresses.
+  protected async resolvePsbtAddressDerivation({
+    unsignedTx,
+    dbAccount,
+    btcNetwork,
+    addresses,
+  }: {
+    unsignedTx: ISignTransactionParams['unsignedTx'];
+    dbAccount: IDBUtxoAccount;
+    btcNetwork: IBtcForkNetwork;
+    addresses: Array<string | undefined>;
+  }): Promise<{
+    resolvePubkeyHexByAddress: (params: {
+      address: string | undefined;
+      fallbackPubkeyHex: string;
+    }) => string;
+    resolvePathByAddress: (address: string | undefined) => string;
+  }> {
+    const vault = this.vault as VaultBtc;
+    const { btcExtraInfo } = await vault.prepareBtcSignExtraInfo({
+      unsignedTx,
+    });
+    const addressToPath = btcExtraInfo?.addressToPath ?? {};
+    const fallbackPath = `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`;
+
+    const relPathsToDerive = new Set<string>();
+    addresses.forEach((address) => {
+      const relPath = address ? addressToPath[address]?.relPath : undefined;
+      if (relPath) {
+        relPathsToDerive.add(relPath);
+      }
+    });
+
+    let derivedPublicKeys: Record<string, string> = {};
+    if (relPathsToDerive.size && dbAccount.xpub) {
+      try {
+        const { encoding } = await vault.validateAddress(dbAccount.address);
+        const xpubAddressInfo = await checkIsDefined(
+          this.coreApi,
+        ).getAddressFromXpub({
+          network: btcNetwork,
+          xpub: dbAccount.xpub,
+          relativePaths: Array.from(relPathsToDerive),
+          addressEncoding: encoding,
+        });
+        derivedPublicKeys = xpubAddressInfo.publicKeys;
+      } catch (e) {
+        // fall back to the account-level pubkey/path below. log the message
+        // only: the raw error may embed request context (addresses) that
+        // must stay out of local logs
+        console.error(
+          'resolvePsbtAddressDerivation ERROR:',
+          (e as Error | undefined)?.message,
+        );
+      }
+    }
+
+    const resolvePubkeyHexByAddress = ({
+      address,
+      fallbackPubkeyHex,
+    }: {
+      address: string | undefined;
+      fallbackPubkeyHex: string;
+    }): string => {
+      const relPath = address ? addressToPath[address]?.relPath : undefined;
+      const derivedPubkey = relPath ? derivedPublicKeys[relPath] : undefined;
+      return derivedPubkey ?? fallbackPubkeyHex;
+    };
+    const resolvePathByAddress = (address: string | undefined): string =>
+      (address ? addressToPath[address]?.fullPath : undefined) ?? fallbackPath;
+
+    return { resolvePubkeyHexByAddress, resolvePathByAddress };
+  }
+
   async signPsbt(params: ISignTransactionParams): Promise<ISignedTxPro> {
     const { unsignedTx, signOnly } = params;
     const { psbtHex, inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
@@ -243,17 +334,50 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       network: btcNetwork,
       maximumFeeRate: btcNetwork.maximumFeeRate,
     });
+
+    // Resolve per-address paths/pubkeys instead of assuming every input
+    // spends from the account's main address. Inputs from fresh or claimed
+    // (find-address) addresses would otherwise be fed the wrong derivation
+    // path and the device would produce an invalid signature.
+    const { resolvePubkeyHexByAddress, resolvePathByAddress } =
+      await this.resolvePsbtAddressDerivation({
+        unsignedTx,
+        dbAccount,
+        btcNetwork,
+        addresses: [
+          ...inputsToSign.map((input) => input.address),
+          ...psbt.txOutputs.map((output) => output.address),
+        ],
+      });
+
+    const resolveTapBip32Derivation = ({
+      address,
+      fallbackPubkeyHex,
+    }: {
+      address: string | undefined;
+      fallbackPubkeyHex: string;
+    }) => {
+      const pubkeyHex = resolvePubkeyHexByAddress({
+        address,
+        fallbackPubkeyHex,
+      });
+      return [
+        {
+          masterFingerprint: Buffer.from(fingerprint, 'hex'),
+          pubkey: Buffer.from(pubkeyHex, 'hex').subarray(1, 33),
+          path: resolvePathByAddress(address),
+          leafHashes: [],
+        },
+      ];
+    };
+
     for (let i = 0, len = inputsToSign.length; i < len; i += 1) {
       const input = inputsToSign[i];
       psbt.updateInput(input.index, {
-        tapBip32Derivation: [
-          {
-            masterFingerprint: Buffer.from(fingerprint, 'hex'),
-            pubkey: Buffer.from(input.publicKey, 'hex').subarray(1, 33),
-            path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
-            leafHashes: [],
-          },
-        ],
+        tapBip32Derivation: resolveTapBip32Derivation({
+          address: input.address,
+          fallbackPubkeyHex: input.publicKey,
+        }),
       });
     }
 
@@ -262,22 +386,16 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       try {
         // If the address is the change address
         if (output.address === dbAccount.address && len > 1) {
+          const outputPubkeyHex = resolvePubkeyHexByAddress({
+            address: output.address,
+            fallbackPubkeyHex: checkIsDefined(dbAccount.pub),
+          });
           psbt.updateOutput(i, {
-            tapInternalKey: Buffer.from(
-              checkIsDefined(dbAccount.pub),
-              'hex',
-            ).subarray(1, 33),
-            tapBip32Derivation: [
-              {
-                masterFingerprint: Buffer.from(fingerprint, 'hex'),
-                pubkey: Buffer.from(
-                  checkIsDefined(dbAccount.pub),
-                  'hex',
-                ).subarray(1, 33),
-                path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
-                leafHashes: [],
-              },
-            ],
+            tapInternalKey: Buffer.from(outputPubkeyHex, 'hex').subarray(1, 33),
+            tapBip32Derivation: resolveTapBip32Derivation({
+              address: output.address,
+              fallbackPubkeyHex: checkIsDefined(dbAccount.pub),
+            }),
           });
         }
       } catch (err) {

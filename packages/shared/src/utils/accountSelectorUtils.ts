@@ -49,6 +49,10 @@ function buildAccountSelectorSceneId({
     return `${sceneName}--${origin}`;
   }
 
+  if (sceneName === EAccountSelectorSceneName.rewardCenter && sceneUrl) {
+    return `${sceneName}--${sceneUrl}`;
+  }
+
   if (!sceneName) {
     throw new OneKeyLocalError('buildSceneId ERROR: sceneName is required');
   }
@@ -126,6 +130,7 @@ function isSceneCanPersist({
     [
       EAccountSelectorSceneName.discover,
       EAccountSelectorSceneName.addressInput,
+      EAccountSelectorSceneName.rewardCenter,
     ].includes(sceneName)
   ) {
     return false;

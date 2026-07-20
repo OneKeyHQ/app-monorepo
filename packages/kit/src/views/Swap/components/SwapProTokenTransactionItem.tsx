@@ -32,11 +32,7 @@ const SwapProTokenTransactionItem = ({
     const textColorValue =
       item.type === 'buy' ? '$textSuccess' : '$textCritical';
     let formatPriceValue = (
-      <SizableText
-        size="$bodySm"
-        color={textColorValue}
-        fontFamily="$monoRegular"
-      >
+      <SizableText size="$bodySm" color={textColorValue}>
         {FALLBACK_DISPLAY};
       </SizableText>
     );
@@ -46,7 +42,6 @@ const SwapProTokenTransactionItem = ({
         <NumberSizeableText
           size="$bodySm"
           color={textColorValue}
-          fontFamily="$monoRegular"
           formatter={isAboveThreshold ? 'marketCap' : 'price'}
           formatterOptions={{
             currency: '$',
@@ -58,11 +53,7 @@ const SwapProTokenTransactionItem = ({
     }
 
     let formatTokenValueValue = (
-      <SizableText
-        size="$bodySm"
-        color={textColorValue}
-        fontFamily="$monoRegular"
-      >
+      <SizableText size="$bodySm" color={textColorValue}>
         {FALLBACK_DISPLAY};
       </SizableText>
     );
@@ -75,7 +66,6 @@ const SwapProTokenTransactionItem = ({
         <NumberSizeableText
           size="$bodySm"
           color={textColorValue}
-          fontFamily="$monoRegular"
           formatter={isAboveThreshold ? 'marketCap' : 'value'}
           formatterOptions={{
             currency: '$',
@@ -97,7 +87,7 @@ const SwapProTokenTransactionItem = ({
     item.type,
   ]);
   return (
-    <XStack alignItems="center" justifyContent="space-between" py="$1">
+    <XStack alignItems="center" justifyContent="space-between" py={3}>
       {formatPrice}
       {formatTokenValue}
     </XStack>

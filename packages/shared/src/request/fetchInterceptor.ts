@@ -1,7 +1,7 @@
 import { forEach, isNil, isString } from 'lodash';
 
 import { defaultLogger } from '../logger/logger';
-import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
+import { isEnableLogNetwork } from '../logger/scopes/app/scenes/networkFilter';
 import systemTimeUtils from '../utils/systemTimeUtils';
 
 import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
@@ -121,6 +121,12 @@ const newFetch = async function (
       })
   );
 };
+Reflect.defineProperty(newFetch, 'isNormalizedByOneKey', {
+  configurable: false,
+  enumerable: false,
+  value: true,
+  writable: false,
+});
 console.log('fetchInterceptor.ts', fetch);
 if (
   globalThis.fetch &&

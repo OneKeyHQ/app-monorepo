@@ -16,8 +16,6 @@ import type {
 import { OVERVIEW_TILE_SHADOW } from './DeFiOverviewLayout';
 import { formatPortfolioTotal } from './formatPortfolioTotal';
 
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-
 export type IDeFiOverviewTileProps = {
   protocol: IDeFiProtocol;
   protocolInfo: IProtocolSummary | undefined;
@@ -51,10 +49,10 @@ function DeFiOverviewTile({
       flex={1}
       bg="$bgSubdued"
       borderRadius="$3"
-      px="$4"
-      py="$3.5"
+      px="$3"
+      py="$2.5"
       alignItems="center"
-      gap="$3"
+      gap="$2.5"
       cursor="pointer"
       focusable
       focusVisibleStyle={{
@@ -105,11 +103,7 @@ function DeFiOverviewTile({
         >
           {name}
         </SizableText>
-        <SizableText
-          size="$bodyLgMedium"
-          numberOfLines={1}
-          fontVariant={TABULAR_NUMS}
-        >
+        <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {formattedNetWorth}
         </SizableText>
       </YStack>

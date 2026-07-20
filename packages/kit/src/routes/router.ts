@@ -1,26 +1,47 @@
 import { useMemo } from 'react';
 
 import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
+import { OAUTH_CALLBACK_WEB_PATH } from '@onekeyhq/shared/src/consts/authConsts';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import {
-  FullScreenPushNavigator,
-  IOSFullScreenNavigator,
-  ModalNavigator,
-  OnboardingNavigator,
-} from './Modal/Navigator';
-import {
-  fullModalRouter,
-  fullScreenPushRouterConfig,
-  modalRouter,
-  onboardingRouterV2Config,
-} from './Modal/router';
+  fullModalRouterPathConfig,
+  fullScreenPushRouterPathConfig,
+  modalRouterPathConfig,
+  onboardingRouterV2PathConfig,
+  webViewRouterPathConfig,
+} from './routerPathConfig';
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
-import { WebViewNavigator } from './WebView/Navigator';
-import { webViewRouter } from './WebView/router';
+
+const ModalNavigator = LazyLoad(async () => {
+  const { ModalNavigator: Component } = await import('./Modal/Navigator');
+  return { default: Component };
+});
+
+const IOSFullScreenNavigator = LazyLoad(async () => {
+  const { IOSFullScreenNavigator: Component } =
+    await import('./Modal/Navigator');
+  return { default: Component };
+});
+
+const FullScreenPushNavigator = LazyLoad(async () => {
+  const { FullScreenPushNavigator: Component } =
+    await import('./Modal/Navigator');
+  return { default: Component };
+});
+
+const OnboardingNavigator = LazyLoad(async () => {
+  const { OnboardingNavigator: Component } = await import('./Modal/Navigator');
+  return { default: Component };
+});
+
+const WebViewNavigator = LazyLoad(async () => {
+  const { WebViewNavigator: Component } = await import('./WebView/Navigator');
+  return { default: Component };
+});
 
 const buildPermissionRouter = () => {
   const PromptWebDeviceAccessPage = LazyLoad(
@@ -33,6 +54,28 @@ const buildPermissionRouter = () => {
           name: ERootRoutes.PermissionWebDevice,
           component: PromptWebDeviceAccessPage,
           rewrite: '/permission/web-device',
+          exact: true,
+        }
+      : undefined,
+  ].filter(Boolean);
+};
+
+// Web-only real route for the OAuth popup redirect. Supabase redirects the
+// popup to `${origin}${OAUTH_CALLBACK_WEB_PATH}?code=...`; without a matching
+// route the path falls into the `NotFound: '*'` wildcard and getPathFromState
+// rewrites the URL to '/', stripping `?code=` before the opener window can
+// poll it. Keep this off extension/desktop/native to avoid widening their
+// deeplink/routing surface.
+const buildOAuthCallbackWebRouter = () => {
+  const OAuthCallbackWebPage = LazyLoad(
+    () => import('@onekeyhq/kit/src/views/OAuthCallbackWeb'),
+  );
+  return [
+    platformEnv.isWeb
+      ? {
+          name: ERootRoutes.OAuthCallbackWeb,
+          component: OAuthCallbackWebPage,
+          rewrite: OAUTH_CALLBACK_WEB_PATH,
           exact: true,
         }
       : undefined,
@@ -71,6 +114,7 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     type: 'webView',
   },
   ...buildPermissionRouter(),
+  ...buildOAuthCallbackWebRouter(),
 ];
 
 if (platformEnv.isDev) {
@@ -91,26 +135,27 @@ export const useRootRouter = () => {
       },
       {
         name: ERootRoutes.Onboarding,
-        children: onboardingRouterV2Config,
+        children: onboardingRouterV2PathConfig,
       },
       {
         name: ERootRoutes.Modal,
-        children: modalRouter,
+        children: modalRouterPathConfig,
       },
       {
         name: ERootRoutes.iOSFullScreen,
-        children: fullModalRouter,
+        children: fullModalRouterPathConfig,
       },
       {
         name: ERootRoutes.FullScreenPush,
-        children: fullScreenPushRouterConfig,
+        children: fullScreenPushRouterPathConfig,
       },
       {
         name: ERootRoutes.WebView,
-        children: webViewRouter,
+        children: webViewRouterPathConfig,
       },
 
       ...buildPermissionRouter(),
+      ...buildOAuthCallbackWebRouter(),
     ],
     [tabRouter],
   );

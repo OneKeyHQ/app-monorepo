@@ -1,0 +1,372 @@
+import type {
+  ComponentProps,
+  PropsWithChildren,
+  ReactElement,
+  ReactNode,
+} from 'react';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+} from 'react';
+
+import { Controller, FormProvider, useFormContext } from 'react-hook-form';
+import { useIntl } from 'react-intl';
+
+import {
+  TMForm,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { HeightTransition } from '../../content/HeightTransition';
+import {
+  Button,
+  Label,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '../../primitives';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
+import { Input } from '../Input';
+import { TextArea, TextAreaInput } from '../TextArea';
+
+import { Fieldset } from './Fieldset';
+import { addFormInstance, removeFormInstance } from './formInstances';
+
+import type { ISizableTextProps } from '../../primitives';
+import type { IPropsWithTestId } from '../../types';
+import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
+
+export type IFormProps = IPropsWithTestId<{
+  form: UseFormReturn<any> & {
+    submit?: () => void;
+  };
+  header?: ReactNode;
+  childrenGap?: ComponentProps<typeof YStack>['gap'];
+}>;
+
+function HiddenSubmit() {
+  return platformEnv.isNative ? null : (
+    <TMForm.Trigger asChild>
+      <Button
+        testID="form-submit-button"
+        type="submit"
+        opacity={0}
+        position="absolute"
+        pointerEvents="none"
+      />
+    </TMForm.Trigger>
+  );
+}
+
+export function FormWrapper({
+  form: formContext,
+  children,
+  childrenGap,
+}: IFormProps) {
+  useEffect(() => {
+    addFormInstance(formContext);
+
+    return () => {
+      removeFormInstance(formContext);
+    };
+  }, [formContext]);
+
+  return (
+    <FormProvider {...formContext}>
+      <TMForm onSubmit={formContext.submit} position="relative">
+        <YStack gap={childrenGap ?? '$5'}>{children}</YStack>
+        {formContext.submit ? <HiddenSubmit /> : null}
+      </TMForm>
+    </FormProvider>
+  );
+}
+
+const composeEventHandlers =
+  (prev: (value: unknown) => unknown, next: (value: unknown) => unknown) =>
+  (value: unknown) => {
+    const result = prev(value);
+    return (result as { defaultPrevented?: boolean })?.defaultPrevented
+      ? result
+      : next(result);
+  };
+
+type IAnyRef =
+  | ((instance: unknown) => void)
+  | { current: unknown }
+  | null
+  | undefined;
+
+const composeRefs =
+  (...refs: IAnyRef[]) =>
+  (instance: unknown) => {
+    for (const r of refs) {
+      if (typeof r === 'function') {
+        r(instance);
+      } else if (r) {
+        (r as { current: unknown }).current = instance;
+      }
+    }
+  };
+
+const getChildProps = (
+  child: ReactElement,
+  field: ControllerRenderProps<any, string>,
+  error: Error,
+) => {
+  const hasError = !!error;
+  const { onChange, onChangeText } = child.props as {
+    onChange?: (value: unknown) => void;
+    onChangeText?: (value: unknown) => void;
+  };
+  // Strip `disabled` from the field spread so it doesn't clobber an explicit
+  // `disabled={...}` prop the caller set on the child via cloneElement.
+  // RHF always includes `disabled` on the field object (defaults to
+  // `undefined`), which would override the caller's value. Re-add it only
+  // when RHF actually set it (e.g. `<Controller disabled>`).
+  // `onChange` is also stripped — each branch below composes its own handler.
+  // `ref` is also stripped: RHF's `field.ref` would otherwise be spread into
+  // cloneElement's second arg and silently REPLACE the caller's `ref={...}`,
+  // making external focus refs (e.g. amountInputRef) permanently null. We
+  // compose RHF's ref with the original child ref below.
+  const {
+    disabled: fieldDisabled,
+    onChange: _onChange,
+    ref: fieldRef,
+    ...restField
+  } = field;
+  const originalRef = (child as unknown as { ref?: IAnyRef }).ref;
+  const baseProps: Record<string, unknown> = {
+    ...restField,
+    error,
+    hasError,
+    ref: originalRef
+      ? composeRefs(originalRef, fieldRef as IAnyRef)
+      : (fieldRef as IAnyRef),
+    ...(fieldDisabled !== null &&
+      fieldDisabled !== undefined && { disabled: fieldDisabled }),
+  };
+  switch (child.type) {
+    case Input:
+    case TextAreaInput:
+    case TextArea: {
+      const handleChange = onChangeText
+        ? composeEventHandlers(onChangeText, field.onChange)
+        : field.onChange;
+      return {
+        ...baseProps,
+        onChange: field.onChange,
+        onChangeText: handleChange,
+      };
+    }
+    default: {
+      const handleChange = onChange
+        ? composeEventHandlers(onChange, field.onChange)
+        : field.onChange;
+      return {
+        ...baseProps,
+        onChange: handleChange,
+      };
+    }
+  }
+};
+
+const errorAnimationStyle = {
+  opacity: 0,
+  y: -6,
+};
+
+export function FieldDescription(props: ISizableTextProps) {
+  return (
+    <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued" {...props} />
+  );
+}
+
+export interface IFieldErrorProps {
+  error?: { message: string };
+  errorMessageAlign?: IFieldProps['errorMessageAlign'];
+  testID?: IFieldProps['testID'];
+}
+
+export type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
+  PropsWithChildren<{
+    testID?: string;
+    label?: string;
+    display?:
+      | 'inherit'
+      | 'none'
+      | 'inline'
+      | 'block'
+      | 'contents'
+      | 'flex'
+      | 'inline-flex';
+    description?: string | ReactNode;
+    /**
+     * Helper text rendered in the error message slot, in textSubdued color.
+     * Takes precedence over the error message when both are present.
+     */
+    hint?: string;
+    horizontal?: boolean;
+    optional?: boolean;
+    labelAddon?: string | ReactElement | ReactNode;
+    errorMessageAlign?: 'left' | 'center' | 'right';
+    renderErrorMessage?: (props: IFieldErrorProps) => ReactElement;
+  }>;
+
+function Field({
+  name,
+  label,
+  optional,
+  display,
+  errorMessageAlign,
+  description,
+  hint,
+  rules,
+  children,
+  horizontal = false,
+  testID = '',
+  labelAddon,
+  renderErrorMessage,
+}: IFieldProps) {
+  const intl = useIntl();
+  const {
+    control,
+    formState: { errors },
+  } = useFormContext();
+  const renderLabelAddon = useCallback(() => {
+    if (labelAddon) {
+      return typeof labelAddon === 'string' ? (
+        <SizableText size="$bodyMdMedium">{labelAddon}</SizableText>
+      ) : (
+        labelAddon
+      );
+    }
+    return null;
+  }, [labelAddon]);
+  const error = errors[name] as unknown as Error & {
+    translationId: ETranslations;
+  };
+
+  const descriptionElement = useMemo(() => {
+    return typeof description === 'string' ? (
+      <FieldDescription>{description}</FieldDescription>
+    ) : (
+      description
+    );
+  }, [description]);
+
+  const renderField = useCallback(
+    ({ field }: { field: ControllerRenderProps<any, string> }) => (
+      <Fieldset p="$0" m="$0" borderWidth={0} {...(display ? { display } : {})}>
+        <Stack
+          gap={horizontal ? '$1' : undefined}
+          flexDirection={horizontal ? 'row' : 'column'}
+          jc={horizontal ? 'space-between' : undefined}
+          alignItems={horizontal ? 'center' : undefined}
+          mb={horizontal ? '$1.5' : undefined}
+        >
+          <YStack flexShrink={horizontal ? 1 : undefined}>
+            {label ? (
+              <XStack
+                mb={horizontal ? undefined : '$1.5'}
+                justifyContent="space-between"
+              >
+                <XStack>
+                  <Label htmlFor={name}>{label}</Label>
+                  {optional ? (
+                    <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
+                      {`(${intl.formatMessage({
+                        id: ETranslations.form_optional_indicator,
+                      })})`}
+                    </SizableText>
+                  ) : null}
+                </XStack>
+                {renderLabelAddon()}
+              </XStack>
+            ) : null}
+            {horizontal ? descriptionElement : null}
+          </YStack>
+          {Children.map(children as ReactNode[], (child) =>
+            isValidElement(child)
+              ? cloneElement(child, getChildProps(child, field, error))
+              : child,
+          )}
+        </Stack>
+        <HeightTransition>
+          {hint || error?.message ? (
+            <SizableText
+              pt="$1.5"
+              animation="quick"
+              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+              enterStyle={errorAnimationStyle}
+              exitStyle={errorAnimationStyle}
+              textAlign={errorMessageAlign}
+            >
+              {hint ? (
+                <SizableText
+                  color="$textSubdued"
+                  size="$bodyMd"
+                  textAlign={errorMessageAlign}
+                >
+                  {hint}
+                </SizableText>
+              ) : null}
+              {!hint && renderErrorMessage
+                ? renderErrorMessage({ error })
+                : null}
+              {!hint && !renderErrorMessage ? (
+                <SizableText
+                  color="$textCritical"
+                  size="$bodyMd"
+                  textAlign={errorMessageAlign}
+                  key={error?.message}
+                  testID={`${testID}-message`}
+                >
+                  {error?.message}
+                </SizableText>
+              ) : null}
+            </SizableText>
+          ) : null}
+        </HeightTransition>
+        {horizontal ? null : descriptionElement}
+      </Fieldset>
+    ),
+    [
+      children,
+      descriptionElement,
+      display,
+      error,
+      errorMessageAlign,
+      hint,
+      horizontal,
+      intl,
+      label,
+      name,
+      optional,
+      renderErrorMessage,
+      renderLabelAddon,
+      testID,
+    ],
+  );
+
+  return (
+    <Controller
+      name={name}
+      control={control}
+      rules={rules}
+      render={renderField}
+    />
+  );
+}
+
+export const Form = withStaticProperties(FormWrapper, {
+  Field,
+  FieldDescription,
+});

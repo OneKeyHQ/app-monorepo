@@ -1,14 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { Tabs, XStack, YStack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { markMarketPerf } from '../../utils/marketPerf';
+import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
 import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
-import { MarketPerpsTokenList } from '../components/MarketPerpsList';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
-import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
+import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
@@ -18,28 +27,38 @@ import {
 
 import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
+import {
+  getDefaultMarketStockCategoryId,
+  getMarketStockCategoryRequestParam,
+} from './marketStockCategoryUtils';
 
-import type {
-  ILiquidityFilter,
-  IMarketFilterBarProps,
-  IMarketHomeTabValue,
-} from '../types';
+import type { IDesktopLayoutProps } from './DesktopLayout.types';
+import type { IMarketCategoryItem } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 const DESKTOP_STICKY_HEADER_TOP_GAP = 8;
+const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 
-interface IDesktopLayoutProps {
-  filterBarProps: IMarketFilterBarProps;
-  selectedNetworkId: string;
-  liquidityFilter?: ILiquidityFilter;
-  onTabChange: (tabId: IMarketHomeTabValue) => void;
-}
+const LazyMarketWatchlistTokenList = lazy(async () => {
+  const { MarketWatchlistTokenList } =
+    await import('../components/MarketTokenList/MarketWatchlistTokenList');
+  return { default: MarketWatchlistTokenList };
+});
+
+const LazyMarketPerpsTokenList = lazy(async () => {
+  const { MarketPerpsTokenList } =
+    await import('../components/MarketPerpsList');
+  return { default: MarketPerpsTokenList };
+});
 
 const useIsFirstFocus = () => {
   const isFirstFocusRef = useRef(false);
-  const [isFirstFocus, setIsFirstFocus] = useState(false);
+  const [isFirstFocus, setIsFirstFocus] = useState(platformEnv.isWeb);
   const isFocused = useRouteIsFocused();
   useEffect(() => {
+    if (platformEnv.isWeb) {
+      return;
+    }
     if (isFirstFocusRef.current) {
       return;
     }
@@ -56,6 +75,10 @@ export function DesktopLayout({
   selectedNetworkId,
   onTabChange,
 }: IDesktopLayoutProps) {
+  markMarketPerf('market-home-desktop-layout-render', { selectedNetworkId });
+  useMarketRenderCommitProbe('MarketHome.DesktopLayout', {
+    selectedNetworkId,
+  });
   const {
     watchlistTabName,
     spotTabItems,
@@ -96,6 +119,29 @@ export function DesktopLayout({
   const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
     Record<string, boolean>
   >({});
+  const stockCategories =
+    filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
+  const [selectedStockCategoryId, setSelectedStockCategoryId] = useState(
+    getDefaultMarketStockCategoryId(stockCategories),
+  );
+  useEffect(() => {
+    if (stockCategories.length === 0) {
+      if (selectedStockCategoryId !== 'all') {
+        setSelectedStockCategoryId('all');
+      }
+      return;
+    }
+
+    if (
+      !stockCategories.some(
+        (category) => category.id === selectedStockCategoryId,
+      )
+    ) {
+      setSelectedStockCategoryId(
+        getDefaultMarketStockCategoryId(stockCategories),
+      );
+    }
+  }, [selectedStockCategoryId, stockCategories]);
   const handleStockDataChange = useCallback(
     (categoryId: string, isStockData: boolean) => {
       setStockDataCategoryMap((prev) => {
@@ -227,12 +273,26 @@ export function DesktopLayout({
     [],
   );
 
+  const stockCategoryToolbar = useMemo(() => {
+    if (stockCategories.length === 0) {
+      return null;
+    }
+    return (
+      <MarketStockCategorySelector
+        categories={stockCategories}
+        selectedCategoryId={selectedStockCategoryId}
+        onSelectCategory={setSelectedStockCategoryId}
+      />
+    );
+  }, [selectedStockCategoryId, stockCategories]);
+
   const stickyHeaderCtx = useMemo(
     () => ({ portalTarget, activeTabName }),
     [portalTarget, activeTabName],
   );
 
   if (!isFocused) {
+    markMarketPerf('market-home-desktop-layout-focus-gated');
     return null;
   }
 
@@ -240,11 +300,14 @@ export function DesktopLayout({
     <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
       <YStack px="$4" flex={1}>
         {hasActivated(watchlistTabName) ? (
-          <MarketWatchlistTokenList
-            tabIntegrated
-            tabName={watchlistTabName}
-            listContainerProps={listContainerProps}
-          />
+          <Suspense fallback={null}>
+            <LazyMarketWatchlistTokenList
+              tabIntegrated
+              tabName={watchlistTabName}
+              listContainerProps={listContainerProps}
+              enableWebSocket={activeTabName === watchlistTabName}
+            />
+          </Suspense>
         ) : null}
       </YStack>
     </Tabs.Tab>,
@@ -255,7 +318,23 @@ export function DesktopLayout({
             <MarketNormalTokenList
               networkId={selectedNetworkId}
               selectedCategory={item.categoryId}
+              stockCategory={
+                isMarketStockCategoryById(
+                  filterBarProps.categories,
+                  item.categoryId,
+                )
+                  ? getMarketStockCategoryRequestParam(selectedStockCategoryId)
+                  : undefined
+              }
               timeRange={filterBarProps.timeRange}
+              toolbar={
+                isMarketStockCategoryById(
+                  filterBarProps.categories,
+                  item.categoryId,
+                )
+                  ? stockCategoryToolbar
+                  : undefined
+              }
               tabIntegrated
               tabName={item.tabName}
               listContainerProps={listContainerProps}
@@ -263,6 +342,7 @@ export function DesktopLayout({
                 item.categoryId,
               )}
               onStockDataChange={handleStockDataChange}
+              enableWebSocket={activeTabName === item.tabName}
             />
           ) : null}
         </YStack>
@@ -273,11 +353,13 @@ export function DesktopLayout({
           <Tabs.Tab key={perpsTabName} name={perpsTabName}>
             <YStack px="$4" flex={1}>
               {hasActivated(perpsTabName) ? (
-                <MarketPerpsTokenList
-                  tabIntegrated
-                  tabName={perpsTabName}
-                  listContainerProps={listContainerProps}
-                />
+                <Suspense fallback={null}>
+                  <LazyMarketPerpsTokenList
+                    tabIntegrated
+                    tabName={perpsTabName}
+                    listContainerProps={listContainerProps}
+                  />
+                </Suspense>
               ) : null}
             </YStack>
           </Tabs.Tab>,

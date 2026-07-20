@@ -50,6 +50,7 @@ type IMarketWatchlistTokenListProps = {
   hidePerps?: boolean;
   hiddenDesktopColumns?: readonly string[];
   liveTokenOverride?: IMarketTokenListLiveOverride;
+  enableWebSocket?: boolean;
   pollingInterval?: number;
   rowBg?: string;
 };
@@ -65,6 +66,7 @@ function MarketWatchlistTokenList({
   hidePerps,
   hiddenDesktopColumns,
   liveTokenOverride,
+  enableWebSocket,
   pollingInterval,
   rowBg,
 }: IMarketWatchlistTokenListProps) {
@@ -360,6 +362,7 @@ function MarketWatchlistTokenList({
       onItemContextMenu={handleShowContextMenu}
       onScrollBegin={activeActionItem ? dismissInlineActionBar : undefined}
       liveTokenOverride={liveTokenOverride}
+      enableWebSocket={enableWebSocket}
       rowBg={rowBg}
     />
   );

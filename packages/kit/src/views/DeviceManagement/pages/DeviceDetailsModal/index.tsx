@@ -11,11 +11,11 @@ import {
   useDeviceDetailsActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalDeviceManagementRoutes,
@@ -25,7 +25,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { useDeviceBackNavigation } from '../../hooks/useDeviceBackNavigation';
 import { useDeviceManagerModalStyle } from '../../hooks/useDeviceManagerModalStyle';
@@ -40,7 +40,9 @@ import DeviceSectionGeneral from './DeviceSectionGeneral';
 import DeviceSectionQrInfo from './DeviceSectionQrInfo';
 import DeviceSectionSecurity from './DeviceSectionSecurity';
 import DeviceSectionSupport from './DeviceSectionSupport';
+import DeviceSectionTrezorDebug from './DeviceSectionTrezorDebug';
 import { DeviceUpdateAlert } from './DeviceUpdateAlert';
+import { buildDeviceDetailsVisibility } from './utils';
 
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
@@ -73,14 +75,24 @@ function DeviceDetailsModalV2Cmp({
 
   const isQrWallet = accountUtils.isQrWallet({ walletId });
   const [device] = useDeviceAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
   const deviceVendor = device?.vendor ?? initialDeviceVendor;
-  const isThirdPartyDevice =
-    !isQrWallet && deviceVendor
-      ? getVendorProfile(deviceVendor).isThirdParty
-      : false;
-  const isOnekeyDevice = !isQrWallet && !isThirdPartyDevice;
+  // DEV-ONLY Trezor THP debug tools, shown only in developer mode.
+  const showTrezorDebug =
+    devSettings.enabled && deviceVendor === EHardwareVendor.trezor;
   const hasLoadedDevice = isQrWallet || Boolean(device);
-  const showOneKeyDeviceActions = isOnekeyDevice && hasLoadedDevice;
+  const {
+    vendorProfile,
+    showFirmwareActions,
+    showDeviceSettings,
+    showDeviceSupport,
+    showPassphraseSettings,
+    showDeviceConnection,
+  } = buildDeviceDetailsVisibility({
+    vendor: deviceVendor,
+    isQrWallet,
+    hasLoadedDevice,
+  });
 
   useEffect(() => {
     if (!walletId) return;
@@ -125,7 +137,7 @@ function DeviceDetailsModalV2Cmp({
       <DeviceCommonHeader
         title={intl.formatMessage({ id: ETranslations.global_about_device })}
       />
-      {showOneKeyDeviceActions ? <DeviceUpdateAlert type="top" /> : null}
+      {showFirmwareActions ? <DeviceUpdateAlert type="top" /> : null}
       <Page.Body
         alignItems="stretch"
         pt="$0"
@@ -136,26 +148,47 @@ function DeviceDetailsModalV2Cmp({
         <Page.Container>
           <XStack bg="$bgApp" gap="$8" alignItems="flex-start">
             <YStack gap="$8" flex={1}>
-              <DeviceBasicInfo showDeviceStatus={showOneKeyDeviceActions} />
+              {/* DeviceBasicInfo self-manages its skeleton; sections gate on
+                  their own hasLoadedDevice. */}
+              <DeviceBasicInfo
+                showFirmwareVersion={Boolean(
+                  vendorProfile?.supportsFirmwareVersionDisplay,
+                )}
+                showDeviceVerification={Boolean(
+                  vendorProfile?.supportsFirmwareVerify,
+                )}
+              />
               {isQrWallet ? <DeviceSectionQrInfo /> : null}
-              {showOneKeyDeviceActions ? (
+              {showFirmwareActions ? <DeviceUpdateAlert type="bottom" /> : null}
+              {showDeviceSupport ? (
+                <DeviceSectionSupport
+                  onPressCheckForUpdates={onPressCheckForUpdates}
+                  showFirmwareVerify={Boolean(
+                    vendorProfile?.supportsFirmwareVerify,
+                  )}
+                  showFirmwareUpdate={Boolean(
+                    vendorProfile?.supportsFirmwareUpdate,
+                  )}
+                />
+              ) : null}
+              {showDeviceSettings ? (
                 <>
-                  <DeviceUpdateAlert type="bottom" />
-                  <DeviceSectionSupport
-                    onPressCheckForUpdates={onPressCheckForUpdates}
-                  />
                   <DeviceSectionGeneral />
                   <DeviceSectionSecurity />
-                  <DeviceSectionAdvance />
-                  <DeviceSectionDeviceConnect />
-                  <DeviceSectionDangerZone
-                    onPressCheckForUpdates={onPressCheckForUpdates}
-                  />
+                  {/* Wipe device is a OneKey-SDK op; the danger zone is wipe-only
+                      for third-party (Trezor/Ledger), so hide it for them. */}
+                  {vendorProfile?.isThirdParty ? null : (
+                    <DeviceSectionDangerZone
+                      onPressCheckForUpdates={onPressCheckForUpdates}
+                    />
+                  )}
                 </>
               ) : null}
-              {isThirdPartyDevice ? <DeviceSectionDeviceConnect /> : null}
+              {showPassphraseSettings ? <DeviceSectionAdvance /> : null}
+              {showDeviceConnection ? <DeviceSectionDeviceConnect /> : null}
+              {showTrezorDebug ? <DeviceSectionTrezorDebug /> : null}
             </YStack>
-            <DeviceGetStartedLayout visible={showOneKeyDeviceActions} />
+            <DeviceGetStartedLayout visible={showDeviceSettings} />
           </XStack>
         </Page.Container>
       </Page.Body>

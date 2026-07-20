@@ -1,6 +1,15 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IKytIntroClaimLease } from '@onekeyhq/shared/types/kyt';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+
+export type IWalletAssetStatus = 'low' | 'funded';
+
+export type IWalletAssetStatusAnalyticsState = {
+  assetStatus?: IWalletAssetStatus;
+  lastStatusChangedAt?: number;
+  lastSnapshotReportedAt?: number;
+};
 
 export interface ISimpleDBAppStatus {
   // hdWalletHashGenerated?: boolean;
@@ -20,15 +29,37 @@ export interface ISimpleDBAppStatus {
   fixHardwareLtcXPubMigrated?: boolean;
   btcFreshAddressSettingMigrated?: boolean;
   removeDeviceHomeScreenMigrated?: boolean;
+  walletAssetStatusAnalytics?: IWalletAssetStatusAnalyticsState;
   // OneKey IDs (onekeyUserId) that have already seen the KYT intro dialog.
   // Scoped per Prime user so each account is prompted once.
   kytIntroShownUserIds?: string[];
+  // Short-lived cross-runtime leases prevent multiple Extension UI surfaces
+  // from showing the same KYT intro concurrently.
+  kytIntroClaimLeases?: Record<string, IKytIntroClaimLease>;
 }
 
 export class SimpleDbEntityAppStatus extends SimpleDbEntityBase<ISimpleDBAppStatus> {
   entityName = 'appStatus';
 
   override enableCache = true;
+
+  @backgroundMethod()
+  async getWalletAssetStatusAnalytics() {
+    const appStatus = await this.getRawData();
+    return appStatus?.walletAssetStatusAnalytics;
+  }
+
+  @backgroundMethod()
+  async setWalletAssetStatusAnalytics(
+    status: IWalletAssetStatusAnalyticsState,
+  ) {
+    await this.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        walletAssetStatusAnalytics: status,
+      }),
+    );
+  }
 
   @backgroundMethod()
   async clearLastDBBackupTimestamp() {

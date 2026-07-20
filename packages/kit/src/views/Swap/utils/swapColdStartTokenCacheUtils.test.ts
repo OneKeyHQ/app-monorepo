@@ -8,11 +8,12 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildSwapDefaultSelectedTokensFromHomeAccount,
+  buildSwapInitParamsConsumptionKey,
   buildSwapSelectedAccountSyncedFromHome,
   buildSwapSelectedTokensColdStartAccountKey,
   buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount,
   buildSwapSelectedTokensColdStartContext,
-  getSelectedTokensColdStartLimitSupport,
+  getSelectedTokensColdStartChannelSupport,
   getSwapSelectedTokensColdStartContextNetworkId,
   getSwapTokenSupportTypes,
   isSwapSelectedTokensColdStartContextMatched,
@@ -84,17 +85,20 @@ function buildSwapNetwork({
   supportCrossChainSwap,
   supportLimit,
   supportSingleSwap,
+  supportStock,
 }: {
   networkId: string;
   supportCrossChainSwap?: boolean;
   supportLimit?: boolean;
   supportSingleSwap?: boolean;
+  supportStock?: boolean;
 }): ISwapNetwork {
   return {
     networkId,
     supportCrossChainSwap,
     supportLimit,
     supportSingleSwap,
+    supportStock,
   } as ISwapNetwork;
 }
 
@@ -172,6 +176,27 @@ describe('swap cold-start selected token context', () => {
         currentContext,
       }),
     ).toBe(true);
+  });
+
+  it('does not match ordinary selected-token context when entering Stock', () => {
+    const activeAccount = buildActiveAccount();
+
+    expect(
+      isSwapSelectedTokensColdStartContextMatched({
+        cachedContext: buildSwapSelectedTokensColdStartContext({
+          activeAccount,
+          networkId: 'evm--56',
+          swapType: ESwapTabSwitchType.SWAP,
+          now: 1,
+        }),
+        currentContext: buildSwapSelectedTokensColdStartContext({
+          activeAccount,
+          networkId: 'evm--56',
+          swapType: ESwapTabSwitchType.STOCK,
+          now: 2,
+        }),
+      }),
+    ).toBe(false);
   });
 
   it('invalidates when the network changes', () => {
@@ -587,9 +612,21 @@ describe('swap cold-start selected token context', () => {
     });
   });
 
+  it('does not build ordinary default tokens when initializing Stock', () => {
+    expect(
+      buildSwapDefaultSelectedTokensFromHomeAccount({
+        homeSelectedAccount: buildSelectedAccount({
+          networkId: 'evm--56',
+        }),
+        swapType: ESwapTabSwitchType.STOCK,
+        now: 1,
+      }),
+    ).toBeUndefined();
+  });
+
   it('waits for runtime networks before completing a Limit cold-start token sync', () => {
     expect(
-      getSelectedTokensColdStartLimitSupport({
+      getSelectedTokensColdStartChannelSupport({
         swapType: ESwapTabSwitchType.LIMIT,
         fromToken: buildSwapToken('evm--1'),
         swapNetworks: [],
@@ -599,7 +636,7 @@ describe('swap cold-start selected token context', () => {
 
   it('clears prefilled Limit defaults when runtime support is disabled', () => {
     expect(
-      getSelectedTokensColdStartLimitSupport({
+      getSelectedTokensColdStartChannelSupport({
         swapType: ESwapTabSwitchType.LIMIT,
         fromToken: buildSwapToken('evm--1'),
         swapNetworks: [
@@ -612,9 +649,38 @@ describe('swap cold-start selected token context', () => {
     ).toBe(false);
   });
 
+  it('checks Stock runtime support from supportStock', () => {
+    expect(
+      getSelectedTokensColdStartChannelSupport({
+        swapType: ESwapTabSwitchType.STOCK,
+        fromToken: buildSwapToken('evm--1'),
+        swapNetworks: [
+          buildSwapNetwork({
+            networkId: 'evm--1',
+            supportLimit: true,
+            supportStock: false,
+          }),
+        ],
+      }),
+    ).toBe(false);
+
+    expect(
+      getSelectedTokensColdStartChannelSupport({
+        swapType: ESwapTabSwitchType.STOCK,
+        fromToken: buildSwapToken('evm--56'),
+        swapNetworks: [
+          buildSwapNetwork({
+            networkId: 'evm--56',
+            supportStock: true,
+          }),
+        ],
+      }),
+    ).toBe(true);
+  });
+
   it('keeps synced Limit tokens when the current runtime list omits their network', () => {
     expect(
-      getSelectedTokensColdStartLimitSupport({
+      getSelectedTokensColdStartChannelSupport({
         swapType: ESwapTabSwitchType.LIMIT,
         fromToken: buildSwapToken('evm--1'),
         swapNetworks: [
@@ -627,9 +693,9 @@ describe('swap cold-start selected token context', () => {
     ).toBe(true);
   });
 
-  it('does not apply Limit runtime support checks outside the Limit tab', () => {
+  it('does not apply channel runtime support checks outside Limit and Stock tabs', () => {
     expect(
-      getSelectedTokensColdStartLimitSupport({
+      getSelectedTokensColdStartChannelSupport({
         swapType: ESwapTabSwitchType.SWAP,
         fromToken: buildSwapToken('evm--1'),
         swapNetworks: [
@@ -653,6 +719,10 @@ describe('swap cold-start selected token context', () => {
         networkId: 'evm--1',
         supportLimit: true,
         supportSingleSwap: true,
+      }),
+      buildSwapNetwork({
+        networkId: 'evm--56',
+        supportStock: true,
       }),
     ];
 
@@ -682,6 +752,12 @@ describe('swap cold-start selected token context', () => {
         swapNetworks,
       }),
     ).toEqual([ESwapTabSwitchType.SWAP, ESwapTabSwitchType.LIMIT]);
+    expect(
+      getSwapTokenSupportTypes({
+        token: buildSwapToken('evm--56'),
+        swapNetworks,
+      }),
+    ).toEqual([ESwapTabSwitchType.STOCK]);
   });
 
   it('handles home network changes only before the first swap token sync completes', () => {
@@ -1435,6 +1511,62 @@ describe('swap cold-start selected token context', () => {
         initialSelectedTokensSynced: true,
       }),
     ).toBe(false);
+  });
+
+  it('builds one-shot consumption keys only for swap init handoff params', () => {
+    expect(buildSwapInitParamsConsumptionKey()).toBeUndefined();
+    expect(
+      buildSwapInitParamsConsumptionKey({
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      }),
+    ).toBeUndefined();
+
+    const solUsdc = {
+      ...buildSwapToken('sol--101'),
+      contractAddress: 'usdc',
+      symbol: 'USDC',
+    };
+    const sameSolUsdc = {
+      ...buildSwapToken('sol--101'),
+      contractAddress: 'usdc',
+      symbol: 'USDC',
+    };
+    const bnbAapl = {
+      ...buildSwapToken('evm--56'),
+      contractAddress: 'aaplon',
+      symbol: 'AAPLon',
+    };
+    const solUsdcKey = buildSwapInitParamsConsumptionKey({
+      fromAmount: '1',
+      importFromToken: solUsdc,
+      importNetworkId: 'sol--101',
+      swapTabSwitchType: ESwapTabSwitchType.SWAP,
+    });
+
+    expect(solUsdcKey).toBe(
+      buildSwapInitParamsConsumptionKey({
+        fromAmount: '1',
+        importFromToken: sameSolUsdc,
+        importNetworkId: 'sol--101',
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      }),
+    );
+    expect(solUsdcKey).not.toBe(
+      buildSwapInitParamsConsumptionKey({
+        fromAmount: '1',
+        importFromToken: bnbAapl,
+        importNetworkId: 'evm--56',
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      }),
+    );
+    expect(solUsdcKey).not.toBe(
+      buildSwapInitParamsConsumptionKey({
+        fromAmount: '2',
+        importFromToken: solUsdc,
+        importNetworkId: 'sol--101',
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      }),
+    );
   });
 
   it('does not mark restored tokens as initially synced before latest Home storage is checked', () => {

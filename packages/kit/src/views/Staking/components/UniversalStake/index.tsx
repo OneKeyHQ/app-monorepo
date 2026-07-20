@@ -114,7 +114,10 @@ import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
-import type { IManagePositionProtocolSwitchConfig } from '../../pages/ManagePosition/components/ManagePositionContent';
+import type {
+  IManagePositionFooterAction,
+  IManagePositionProtocolSwitchConfig,
+} from '../../pages/ManagePosition/components/ManagePositionContent';
 import type { FontSizeTokens } from 'tamagui';
 
 function withRewardUnit(text: string, rewardUnit: string): string {
@@ -286,14 +289,55 @@ function ProtocolSwitcher({
   protocolSwitchConfig: IManagePositionProtocolSwitchConfig;
 }) {
   const intl = useIntl();
-  const isSwitchEnabled = protocolSwitchConfig.protocols.length > 1;
+  const {
+    currentProtocol,
+    indexedAccountId,
+    isLoading,
+    onProtocolSelect,
+    protocols,
+    selectedProtocol,
+  } = protocolSwitchConfig;
+  const isSwitchEnabled = protocols.length > 1;
+  const renderProtocolListContent = useCallback(
+    ({
+      closePopover,
+      isOpen,
+    }: {
+      closePopover: () => void;
+      isOpen?: boolean;
+    }) => (
+      <ProtocolListContent
+        variant="switcher"
+        isOpen={isOpen}
+        symbol={tokenSymbol}
+        accountId={accountId}
+        indexedAccountId={indexedAccountId}
+        protocols={protocols}
+        isLoading={isLoading}
+        selectedProtocol={selectedProtocol}
+        onProtocolSelect={async (protocol) => {
+          await onProtocolSelect(protocol);
+          closePopover();
+        }}
+      />
+    ),
+    [
+      accountId,
+      indexedAccountId,
+      isLoading,
+      onProtocolSelect,
+      protocols,
+      selectedProtocol,
+      tokenSymbol,
+    ],
+  );
   const trigger = (
     <ProtocolSwitchTriggerRow
-      currentProtocol={protocolSwitchConfig.currentProtocol}
+      currentProtocol={currentProtocol}
       fallbackProviderName={fallbackProviderName}
       fallbackProviderLogoUri={fallbackProviderLogoUri}
       fallbackAprText={fallbackAprText}
-      isLoading={protocolSwitchConfig.isLoading}
+      isLoading={isLoading}
       isSwitchEnabled={isSwitchEnabled}
       onPress={() => {}}
     />
@@ -312,22 +356,7 @@ function ProtocolSwitcher({
         w: 360,
         p: '$0',
       }}
-      renderContent={({ closePopover, isOpen }) => (
-        <ProtocolListContent
-          variant="switcher"
-          isOpen={isOpen}
-          symbol={tokenSymbol}
-          accountId={accountId}
-          indexedAccountId={protocolSwitchConfig.indexedAccountId}
-          protocols={protocolSwitchConfig.protocols}
-          isLoading={protocolSwitchConfig.isLoading}
-          selectedProtocol={protocolSwitchConfig.selectedProtocol}
-          onProtocolSelect={async (protocol) => {
-            await protocolSwitchConfig.onProtocolSelect(protocol);
-            closePopover();
-          }}
-        />
-      )}
+      renderContent={renderProtocolListContent}
     />
   );
 }
@@ -371,6 +400,7 @@ type IUniversalStakeProps = {
     token?: IToken;
   };
   beforeFooter?: ReactElement | null;
+  footerActionOverride?: IManagePositionFooterAction;
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   showApyDetail?: boolean;
   suppressPlatformBonus?: boolean;
@@ -413,6 +443,7 @@ export function UniversalStake({
   postWrapApproveTarget,
   currentAllowance,
   beforeFooter,
+  footerActionOverride,
   protocolSwitchConfig,
   showApyDetail = false,
   suppressPlatformBonus = false,
@@ -485,10 +516,9 @@ export function UniversalStake({
     () => requestSymbol || tokenInfo?.token.symbol || tokenSymbol || '',
     [requestSymbol, tokenInfo?.token.symbol, tokenSymbol],
   );
-  // Only Stakefish ETH needs signature for create new validator
   const isStakefishEthStake = useMemo(
-    () => isStakefishProvider && tokenSymbol?.toUpperCase() === 'ETH',
-    [isStakefishProvider, tokenSymbol],
+    () => isStakefishProvider && actionSymbol.toUpperCase() === 'ETH',
+    [actionSymbol, isStakefishProvider],
   );
   const isStakefishCreateNewValidator = useMemo(() => {
     if (!isStakefishEthStake || !selectedValidator) {
@@ -505,6 +535,18 @@ export function UniversalStake({
   ]);
   const stakefishPermitSignatureRef = useRef<string | undefined>(undefined);
   const stakefishPermitMessageRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    stakefishPermitSignatureRef.current = undefined;
+    stakefishPermitMessageRef.current = undefined;
+  }, [
+    accountId,
+    amountValue,
+    actionSymbol,
+    networkId,
+    providerName,
+    selectedValidator,
+  ]);
 
   const useApprove = useMemo(() => !!approveType, [approveType]);
   const usePermit2Approve = approveType === EApproveType.Permit;
@@ -1149,15 +1191,15 @@ export function UniversalStake({
       }
     }
 
-    // Stakefish: get permit signature for create new validator
-    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
+    // Stakefish ETH: sign before building the staking transaction.
+    if (isStakefishEthStake && !stakefishPermitSignatureRef.current) {
       setApproving(true);
       try {
         const { signature, message } = await signPersonalMessage({
           networkId,
           accountId,
           provider: providerName,
-          symbol: tokenSymbol || '',
+          symbol: actionSymbol,
           amount: new BigNumber(amountValue).toFixed(),
           action: 'stake',
         });
@@ -1178,7 +1220,7 @@ export function UniversalStake({
     if (usePermit2Approve) {
       finalPermitSignature = permitSignatureRef.current;
       finalUnsignedMessage = permit2DataRef.current;
-    } else if (isStakefishCreateNewValidator) {
+    } else if (isStakefishEthStake) {
       finalPermitSignature = stakefishPermitSignatureRef.current;
       finalMessage = stakefishPermitMessageRef.current;
     }
@@ -1192,9 +1234,9 @@ export function UniversalStake({
         }
       : undefined;
 
-    // Stakefish specific params: validatorPubkey only for existing validator
+    // Stakefish specific params: validatorPubkey only for existing validator.
     const stakefishParams =
-      isStakefishProvider && !isStakefishCreateNewValidator
+      isStakefishProvider && !isStakefishCreateNewValidator && selectedValidator
         ? { validatorPubkey: selectedValidator }
         : undefined;
 
@@ -1295,13 +1337,14 @@ export function UniversalStake({
     showEstimateGasAlert,
     checkEstimateGasAlert,
     isStakefishProvider,
+    isStakefishEthStake,
     isPendleProvider,
     selectedValidator,
     isStakefishCreateNewValidator,
     signPersonalMessage,
     networkId,
     accountId,
-    tokenSymbol,
+    actionSymbol,
     providerName,
     onQuoteReset,
     intl,
@@ -1807,6 +1850,20 @@ export function UniversalStake({
     onSubmit,
   ]);
 
+  const effectiveOnConfirmText = footerActionOverride?.text ?? onConfirmText;
+  const effectiveConfirmOnPress =
+    footerActionOverride?.onPress ?? confirmOnPress;
+  const baseConfirmLoading = effectiveShowExpiredRefresh
+    ? quoteRefreshing
+    : loadingAllowance || approving || submitting || checkAmountLoading;
+  const baseConfirmDisabled = effectiveShowExpiredRefresh ? false : isDisable;
+  const effectiveConfirmLoading = footerActionOverride
+    ? Boolean(footerActionOverride.loading)
+    : baseConfirmLoading;
+  const effectiveConfirmDisabled = footerActionOverride
+    ? Boolean(footerActionOverride.disabled)
+    : baseConfirmDisabled;
+
   const footerContent = (
     <YStack bg="$bgApp" gap="$5">
       {isShowStakeProgress ? (
@@ -1822,7 +1879,7 @@ export function UniversalStake({
       ) : null}
       <Page.FooterActions
         p={0}
-        onConfirmText={onConfirmText}
+        onConfirmText={effectiveOnConfirmText}
         buttonContainerProps={{
           $gtMd: {
             ml: '0',
@@ -1830,11 +1887,9 @@ export function UniversalStake({
           w: '100%',
         }}
         confirmButtonProps={{
-          onPress: confirmOnPress,
-          loading: effectiveShowExpiredRefresh
-            ? quoteRefreshing
-            : loadingAllowance || approving || submitting || checkAmountLoading,
-          disabled: effectiveShowExpiredRefresh ? false : isDisable,
+          onPress: effectiveConfirmOnPress,
+          loading: effectiveConfirmLoading,
+          disabled: effectiveConfirmDisabled,
           w: '100%',
         }}
       />
@@ -2302,16 +2357,11 @@ export function UniversalStake({
             </Stack>
 
             <Page.FooterActions
-              onConfirmText={onConfirmText}
+              onConfirmText={effectiveOnConfirmText}
               confirmButtonProps={{
-                onPress: confirmOnPress,
-                loading: effectiveShowExpiredRefresh
-                  ? quoteRefreshing
-                  : loadingAllowance ||
-                    approving ||
-                    submitting ||
-                    checkAmountLoading,
-                disabled: effectiveShowExpiredRefresh ? false : isDisable,
+                onPress: effectiveConfirmOnPress,
+                loading: effectiveConfirmLoading,
+                disabled: effectiveConfirmDisabled,
               }}
             />
           </Stack>

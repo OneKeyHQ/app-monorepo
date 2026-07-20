@@ -19,10 +19,8 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
@@ -45,11 +43,26 @@ import {
 } from '../utils/swapColdStartTokenCacheUtils';
 
 import {
+  getSwapAddressAccountSelectorNum,
+  shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldUseSwapCustomRecipientAddress,
 } from './useSwapAccount.utils';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+
+function isSameSwapRecipientAddress({
+  address,
+  targetAddress,
+}: {
+  address?: string;
+  targetAddress?: string;
+}) {
+  if (!address || !targetAddress) {
+    return false;
+  }
+  return address.toLowerCase() === targetAddress.toLowerCase();
+}
 
 /**
  * Synchronizes the selected swap account networks with the currently selected swap tokens and manages the "swap to another account" state.
@@ -158,20 +171,16 @@ export function useSwapFromAccountNetworkSync() {
       }
       if (fromTokenRef.current && toTokenRef.current) {
         if (
-          // The selected toToken network is not the same as the current account network and needs to be reset
-          (swapToAnotherAccountRef.current?.networkId &&
-            toTokenRef.current?.networkId !==
-              swapToAnotherAccountRef.current?.networkId) ||
-          // The account is empty and needs to be reset
-          (!swapToAnotherAccountRef.current?.networkId &&
-            !swapToAccountRef.current?.account &&
-            swapToAccountRef.current?.wallet) ||
-          // Does not support sending to a different address of the channel provider, need to reset
-          swapProviderSupportReceiveAddressRef.current === false ||
-          // Select to account, but no confirmation, return to the swap page needs to reset
-          (!swapToAnotherAccountRef.current.address &&
-            swapToAccountRef.current.account?.id !==
-              swapFromAccountRef.current.account?.id)
+          shouldResetSwapRecipientOnAccountNetworkSync({
+            selectedRecipientAddress: swapToAnotherAccountRef.current.address,
+            selectedRecipientNetworkId:
+              swapToAnotherAccountRef.current?.networkId,
+            hasTargetWallet: Boolean(swapToAccountRef.current?.wallet),
+            targetAccountId: swapToAccountRef.current.account?.id,
+            sourceAccountId: swapFromAccountRef.current.account?.id,
+            providerSupportReceiveAddress:
+              swapProviderSupportReceiveAddressRef.current,
+          })
         ) {
           setSettings((v) => ({
             ...v,
@@ -250,10 +259,13 @@ export function useSwapFromAccountNetworkSync() {
 }
 
 export function useSwapAddressInfo(type: ESwapDirectionType) {
-  const { activeAccount } = useActiveAccount({
-    num: type === ESwapDirectionType.FROM ? 0 : 1,
-  });
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
+  const { activeAccount } = useActiveAccount({
+    num: getSwapAddressAccountSelectorNum({
+      type,
+      swapToAnotherAccountSwitchOn,
+    }),
+  });
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
@@ -441,16 +453,55 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         isAllNetwork,
       })
     ) {
+      const recipientAddress = swapToAnotherAccountAddressAtom.address ?? '';
+      const recipientNetworkId = swapToAnotherAccountAddressAtom.networkId;
+      const targetRecipientNetworkId =
+        tokenNetworkId || activeAccount.network?.id || recipientNetworkId || '';
+      const savedRecipientAccountInfo =
+        swapToAnotherAccountAddressAtom.accountInfo;
+      const targetNetworkAccountMatchesRecipient = isSameSwapRecipientAddress({
+        address: accountForTargetNetwork?.addressDetail?.address,
+        targetAddress: recipientAddress,
+      });
+      const activeAccountMatchesRecipient = isSameSwapRecipientAddress({
+        address: activeAccount.account?.addressDetail?.address,
+        targetAddress: recipientAddress,
+      });
+      const savedAccountMatchesRecipient = isSameSwapRecipientAddress({
+        address: savedRecipientAccountInfo?.account?.addressDetail?.address,
+        targetAddress: recipientAddress,
+      });
+      let recipientAccountInfo: IAccountSelectorActiveAccountInfo | undefined;
+      if (targetNetworkAccountMatchesRecipient && accountForTargetNetwork) {
+        recipientAccountInfo = {
+          ...activeAccount,
+          account: {
+            ...accountForTargetNetwork,
+          },
+        };
+      } else if (
+        activeAccountMatchesRecipient &&
+        activeAccount.network?.id === targetRecipientNetworkId
+      ) {
+        recipientAccountInfo = {
+          ...activeAccount,
+        };
+      } else if (
+        recipientNetworkId === targetRecipientNetworkId &&
+        savedAccountMatchesRecipient &&
+        savedRecipientAccountInfo
+      ) {
+        recipientAccountInfo = {
+          ...savedRecipientAccountInfo,
+        };
+      }
+
       return {
         ...res,
-        address: swapToAnotherAccountAddressAtom.address ?? '',
-        networkId: swapToAnotherAccountAddressAtom.networkId ?? '',
+        address: recipientAddress,
+        networkId: targetRecipientNetworkId,
         isAddressInfoReady: true,
-        accountInfo: swapToAnotherAccountAddressAtom.accountInfo
-          ? {
-              ...swapToAnotherAccountAddressAtom.accountInfo,
-            }
-          : undefined,
+        accountInfo: recipientAccountInfo,
         activeAccount: {
           ...activeAccount,
         },

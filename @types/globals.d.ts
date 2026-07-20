@@ -138,6 +138,10 @@ declare global {
   interface Error extends Error {
     $$autoPrintErrorIgnore?: boolean;
     $$autoToastErrorTriggered?: boolean;
+    // Invalid-token (90002/90003) cleanup was handled — or attempted — by
+    // the ServiceBase response interceptor for this error instance;
+    // downstream matchers must not run handlePrimeLoginInvalidToken again.
+    $$invalidTokenHandled?: boolean;
   }
 
   // eslint-disable-next-line @typescript-eslint/naming-convention, @typescript-eslint/no-unused-vars

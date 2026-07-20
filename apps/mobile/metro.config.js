@@ -118,6 +118,27 @@ config.resolver.unstable_enablePackageExports = false;
 
 // Manual alias for a subpath export when package exports are disabled.
 const hyperliquidSigningPath = require.resolve('@nktkas/hyperliquid/signing');
+
+// OneKey HWK SDK sub-path aliases. With
+// `unstable_enablePackageExports=false` above, Metro can't read the `exports`
+// map in the SDK packages, so each sub-path consumer apps import (e.g.
+// `@onekeyfe/hwk-adapter-core/errors`) needs an explicit redirect. We
+// `require.resolve` here in Node-land where the `exports` map IS honored, so
+// the target file path is correct.
+//
+// When the SDK adds new sub-paths (or `unstable_enablePackageExports` becomes
+// safe to enable globally), append/remove entries from this array.
+const HWK_SUBPATH_ALIASES = [
+  '@onekeyfe/hwk-adapter-core/errors',
+  '@onekeyfe/hwk-adapter-core/ui-events',
+  '@onekeyfe/hwk-trezor-connector-webusb/constants',
+];
+const hwkSubpathAliasMap = new Map(
+  HWK_SUBPATH_ALIASES.map((spec) => [spec, require.resolve(spec)]),
+);
+
+// @mysten/sui 2.x only exposes package exports; Metro package exports are disabled above.
+const MYSTEN_SUI_SUBPATH_PREFIX = '@mysten/sui/';
 // In production builds, redirect Developer/router to an empty stub so that
 // Gallery pages and all their background-only transitive dependencies
 // (core/chains, kit-bg/vaults, qr-wallet-sdk, bitcoinjs-lib, etc.) are
@@ -155,6 +176,25 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       type: 'sourceFile',
       filePath: hyperliquidSigningPath,
     };
+  }
+  // OneKey HWK SDK sub-path resolution (see HWK_SUBPATH_ALIASES above).
+  const hwkAliasPath = hwkSubpathAliasMap.get(moduleName);
+  if (hwkAliasPath) {
+    return {
+      type: 'sourceFile',
+      filePath: hwkAliasPath,
+    };
+  }
+  if (
+    moduleName.startsWith(MYSTEN_SUI_SUBPATH_PREFIX) &&
+    moduleName.split('/').length > 2
+  ) {
+    try {
+      const filePath = require.resolve(moduleName, { paths: [monorepoRoot] });
+      return { type: 'sourceFile', filePath };
+    } catch {
+      // noop
+    }
   }
   // Strip Developer/Gallery from production union builds
   if (
@@ -285,6 +325,26 @@ if (process.env.RN_HARNESS === 'true') {
 }
 
 const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
+// Metro does not include environment variables read by Babel plugins in its
+// transform cache key. Keep bundles compiled with different runtime layouts
+// in separate cache namespaces.
+config.cacheVersion = `${config.cacheVersion || 'default'}:native-bg-${
+  buildTimeEnv.enableNativeBackgroundThread ? 'enabled' : 'disabled'
+}`;
+
+if (buildTimeEnv.isDev && buildTimeEnv.enableNativeBackgroundThread) {
+  const configuredMaxWorkers = Number.parseInt(
+    process.env.NATIVE_DEV_METRO_MAX_WORKERS || '',
+    10,
+  );
+  // Native development builds the main and background graphs concurrently.
+  // Cap the transform pool so a full refresh does not exhaust host memory.
+  config.maxWorkers =
+    Number.isInteger(configuredMaxWorkers) && configuredMaxWorkers > 0
+      ? configuredMaxWorkers
+      : 2;
+}
+
 const getMetroRuntimeTarget = (context) =>
   context.customResolverOptions?.runtimeTarget ||
   process.env.METRO_RUNTIME_TARGET ||
@@ -337,12 +397,6 @@ if (buildTimeEnv.enableNativeBackgroundThread) {
 // ---------------------------------------------------------------
 
 // Ensure cache directories exist
-const fileMapCacheDirectoryPath = path.resolve(
-  projectRoot,
-  'node_modules',
-  '.cache/file-map-cache',
-);
-fs.ensureDirSync(fileMapCacheDirectoryPath);
 const cacheStoreDirectoryPath = path.resolve(
   projectRoot,
   'node_modules',
@@ -350,7 +404,6 @@ const cacheStoreDirectoryPath = path.resolve(
 );
 fs.ensureDirSync(cacheStoreDirectoryPath);
 
-config.fileMapCacheDirectory = fileMapCacheDirectoryPath;
 config.cacheStores = ({ FileStore }) => [
   new FileStore({
     root: cacheStoreDirectoryPath,

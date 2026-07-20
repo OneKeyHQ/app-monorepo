@@ -14,6 +14,9 @@ export class TokenSelectorSearchScene extends BaseScene {
     resultCount: number;
     networkId: string;
     networkName: string;
+    network?: string;
+    tokenRole?: string;
+    tokenListType?: string;
     direction: ESwapDirectionType;
     from?: ESwapTabSwitchType | 'pro';
   }) {

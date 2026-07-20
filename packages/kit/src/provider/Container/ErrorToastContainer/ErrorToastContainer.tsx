@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { Toast } from '@onekeyhq/components';
+import { Toast, globalNetInfo } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -8,6 +8,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import { getErrorAction } from './ErrorToasts';
+import {
+  getEffectiveHttpStatusCode,
+  getNetworkErrorToastSuppressReason,
+} from './offlineNetworkToastGuard';
 
 // Get deduplication ID for HTTP status codes to prevent toast spam
 // @param httpStatusCode - HTTP status code (e.g., 403, 429, 503)
@@ -38,9 +42,18 @@ export function ErrorToastContainer() {
       if (!p.title) {
         return;
       }
-      const statusCodeForDeduplicate =
-        p.httpStatusCode ??
-        (typeof p.errorCode === 'number' ? p.errorCode : undefined);
+      const isInternetReachable =
+        globalNetInfo.currentState().isInternetReachable;
+      const suppressReason = getNetworkErrorToastSuppressReason({
+        isInternetReachable,
+        payload: p,
+      });
+      const shouldSuppress = suppressReason !== null;
+      const statusCodeForDeduplicate = getEffectiveHttpStatusCode(p);
+      if (shouldSuppress) {
+        return;
+      }
+
       const deduplication = getDeduplicationId(statusCodeForDeduplicate);
       // For critical errors (403, 429, 5xx), force deduplication to prevent toast spam
       // Otherwise, respect custom toastId from caller

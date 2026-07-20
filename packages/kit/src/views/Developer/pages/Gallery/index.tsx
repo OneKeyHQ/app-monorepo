@@ -42,6 +42,10 @@ const CheckboxGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Checkbox'),
 );
+const ColorPickerGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ColorPicker'),
+);
 const DatePickerGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DatePicker'),
@@ -90,6 +94,14 @@ const LedgerAppOpsGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LedgerAppOps'),
 );
+const TrezorMultiTransportGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TrezorMultiTransport'),
+);
+const ThirdPartyHardwareActionsGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ThirdPartyHardwareActions'),
+);
 const IconGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Icon'),
@@ -125,6 +137,10 @@ const JotaiGlobalGallery = LazyLoadPage(
 const LinearGradientGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LinearGradient'),
+);
+const LightweightChartStyleGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LightweightChartStyle'),
 );
 const ListItemGallery = LazyLoadPage(
   () =>
@@ -380,11 +396,6 @@ const CloudSyncGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudSyncGallery'),
 );
 
-const KeylessWalletGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/KeylessWalletGallery'),
-);
-
 const TradingViewGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TradingView'),
@@ -597,6 +608,7 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentListItem, component: ListItemGallery },
   { name: EGalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: EGalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
+  { name: EGalleryRoutes.ComponentColorPicker, component: ColorPickerGallery },
   { name: EGalleryRoutes.ComponentActionList, component: ActionListGallery },
   { name: EGalleryRoutes.ComponentPopover, component: PopoverGallery },
   { name: EGalleryRoutes.ComponentProgress, component: ProgressGallery },
@@ -692,6 +704,10 @@ export const galleryScreenList: {
     component: LinearGradientGallery,
   },
   {
+    name: EGalleryRoutes.ComponentLightweightChartStyle,
+    component: LightweightChartStyleGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentAccountModel,
     component: AccountModelGallery,
   },
@@ -702,6 +718,14 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentLedgerAppOps,
     component: LedgerAppOpsGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentTrezorMultiTransport,
+    component: TrezorMultiTransportGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentThirdPartyHardwareActions,
+    component: ThirdPartyHardwareActionsGallery,
   },
   {
     name: EGalleryRoutes.ComponentImage,
@@ -766,10 +790,6 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCloudSync,
     component: CloudSyncGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentKeylessWallet,
-    component: KeylessWalletGallery,
   },
   {
     name: EGalleryRoutes.ComponentOrderBook,

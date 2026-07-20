@@ -1,9 +1,10 @@
-import { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, useMedia } from '@onekeyhq/components';
+import { Page, useIsModalPage, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -24,15 +25,30 @@ import { MarketTestIDs } from '../testIDs';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import { BtcMetadataProvider, useAutoRefreshTokenDetail } from './hooks';
-import { DesktopLayout } from './layouts/DesktopLayout';
-import { MobileLayout } from './layouts/MobileLayout';
+import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
+import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
+
+function normalizeRouteBooleanParam(
+  value: boolean | string | undefined,
+  defaultValue: boolean,
+) {
+  if (typeof value === 'string') {
+    return value === 'true';
+  }
+  return value ?? defaultValue;
+}
 
 function MarketDetail({
+  isChartFullscreen,
+  onChartFullscreenChange,
   route,
 }: IPageScreenProps<
   ITabMarketParamList,
   ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
->) {
+> & {
+  isChartFullscreen: boolean;
+  onChartFullscreenChange: (isFullscreen: boolean) => void;
+}) {
   const params = route.params as
     | ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
     | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
@@ -40,6 +56,10 @@ function MarketDetail({
   const network = params.network;
   const isNative = params.isNative;
   const disableTrade = params.disableTrade;
+  const showFavoriteButton = normalizeRouteBooleanParam(
+    params.showFavoriteButton,
+    true,
+  );
   // For MarketNativeDetail route, tokenAddress is undefined, use empty string
   const tokenAddress = 'tokenAddress' in params ? params.tokenAddress : '';
 
@@ -47,8 +67,7 @@ function MarketDetail({
   // network is a shortcode like 'bsc', convert it to 'evm--56'
   const networkId =
     networkUtils.getNetworkIdFromShortCode({ shortCode: network }) || network;
-  const isNativeBoolean =
-    typeof isNative === 'string' ? isNative === 'true' : (isNative ?? false);
+  const isNativeBoolean = normalizeRouteBooleanParam(isNative, false);
 
   // Track market entry analytics
   useMarketEnterAnalytics();
@@ -62,18 +81,48 @@ function MarketDetail({
   });
 
   const media = useMedia();
+  const isDesktopLayout = media.gtLg && !platformEnv.isNative;
+  // iOS 26+ root-tab headers are translucent (Liquid Glass) so the page
+  // body extends under the bar — without an explicit top inset the
+  // chart / 图表 / 概述 tabs sit clipped behind the navbar position.
+  // The modal entry (EModalMarketRoutes.MarketDetailV2) renders against
+  // an opaque non-root header where react-native-screens already lays
+  // content out below the bar; adding headerHeight there would push the
+  // body down twice and leave a blank band at the top.
+  const isModalPage = useIsModalPage();
+  const headerHeight = useHeaderHeight();
+  const bodyPaddingTop =
+    platformEnv.isNativeIOS26Plus && !isModalPage ? headerHeight : 0;
+
+  useEffect(() => {
+    preloadMarketDetailV2BodyModules({
+      layout: isDesktopLayout ? 'desktop' : 'mobile',
+      includeHeavyModules: true,
+    });
+  }, [isDesktopLayout]);
 
   return (
     <BtcMetadataProvider>
       <Page>
-        <MarketDetailHeader />
+        {isChartFullscreen ? (
+          <Page.Header headerShown={false} />
+        ) : (
+          <MarketDetailHeader showFavoriteButton={showFavoriteButton} />
+        )}
 
-        <Page.Body testID={MarketTestIDs.detailPage}>
-          {media.gtLg && !platformEnv.isNative ? (
-            <DesktopLayout />
-          ) : (
-            <MobileLayout disableTrade={disableTrade} />
-          )}
+        <Page.Body
+          pt={isChartFullscreen ? 0 : bodyPaddingTop}
+          testID={MarketTestIDs.detailPage}
+        >
+          <MarketDetailResponsiveLayout
+            isDesktopLayout={isDesktopLayout}
+            isChartFullscreen={isChartFullscreen}
+            onChartFullscreenChange={onChartFullscreenChange}
+            networkId={networkId}
+            tokenAddress={tokenAddress}
+            showFavoriteButton={showFavoriteButton}
+            disableTrade={disableTrade}
+          />
         </Page.Body>
       </Page>
     </BtcMetadataProvider>
@@ -88,6 +137,18 @@ function MarketDetailV2(
 ) {
   const { navigation } = props;
   const media = useMedia();
+  const [isChartFullscreen, setIsChartFullscreen] = useState(false);
+  const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
+  const effectiveIsChartFullscreen = isDesktopChartLayout && isChartFullscreen;
+  const handleChartFullscreenChange = useCallback((isFullscreen: boolean) => {
+    setIsChartFullscreen(isFullscreen);
+  }, []);
+
+  useEffect(() => {
+    if (!isDesktopChartLayout && isChartFullscreen) {
+      setIsChartFullscreen(false);
+    }
+  }, [isChartFullscreen, isDesktopChartLayout]);
 
   useLayoutEffect(() => {
     if (!platformEnv.isNativeIOS) {
@@ -105,7 +166,9 @@ function MarketDetailV2(
   useFocusEffect(
     useCallback(() => {
       const shouldHideTabBar =
-        platformEnv.isNative || (!platformEnv.isExtension && media.md);
+        effectiveIsChartFullscreen ||
+        platformEnv.isNative ||
+        (!platformEnv.isExtension && media.md);
 
       if (!shouldHideTabBar) {
         return;
@@ -116,7 +179,7 @@ function MarketDetailV2(
       return () => {
         appEventBus.emit(EAppEventBusNames.HideTabBar, false);
       };
-    }, [media.md]),
+    }, [effectiveIsChartFullscreen, media.md]),
   );
 
   return (
@@ -130,7 +193,11 @@ function MarketDetailV2(
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <MarketDetail {...props} />
+        <MarketDetail
+          {...props}
+          isChartFullscreen={effectiveIsChartFullscreen}
+          onChartFullscreenChange={handleChartFullscreenChange}
+        />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );

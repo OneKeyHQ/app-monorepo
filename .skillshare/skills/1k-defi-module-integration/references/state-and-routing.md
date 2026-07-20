@@ -15,6 +15,13 @@ Route params must preserve enough identity to reload the surface from a fresh ap
 
 Do not rely on volatile local state when a route can be opened by share, deep link, browser handoff, or tab restore.
 
+AssetDetails modal routes are not guaranteed to share Home tab providers.
+When a DeFi position row opens an AssetDetails modal such as
+`DeFiProtocolDetails`, pass account and indexed-account identity through typed
+route params or the protocol payload itself. Do not read Home-only account
+selector context from the modal unless the target stack mounts the matching
+provider mirror.
+
 ## Native Host Rules
 
 Native Earn is hosted under Discovery. Desktop/web use the Earn tab route.
@@ -25,6 +32,35 @@ When navigating to Earn on native:
 - avoid stack accumulation from repeated pushes
 - validate fresh native open, not only same-tab navigation
 - check modal and bottom-sheet safe areas
+
+Entry ownership rules:
+
+- Home Earn cards/lists, share links, and portfolio rows are entry surfaces.
+  They own params and analytics source, not long-term Earn data state.
+- `EarnHome` on native is a Discovery sub-tab switch, while
+  `EarnProtocols`/`EarnProtocolDetails` are stack routes under Discovery.
+- AssetDetails modal action routes must preserve account identity in route
+  params or protocol payloads; do not assume the Home account provider is
+  mounted.
+- Swap-assisted actions must stop at prefill/source context. Once Swap quote
+  starts, use `1k-trade-swap-market` for execution, pending, and Swap history.
+
+## Fresh Entry And Cold Start
+
+For fresh app state, first native open, share/deep link, notification entry, or
+tab restore, validate that the route can reload without volatile source-route
+state.
+
+- Home Earn cards/lists own entry params and analytics source only.
+- Native EarnHome is a Discovery sub-tab switch; native detail/list routes are
+  pushed under Discovery after the host is ready.
+- AssetDetails and DeFi Portfolio action routes carry account id and indexed
+  account id through params or payload.
+- Operation dialogs must show bounded loading/disabled states while account,
+  provider, position, or supported-action data is incomplete. They should not
+  expose an executable button or wrong unsupported state before readiness.
+- Swap-assisted entry can prefill Swap only once. Return refresh is DeFi-owned;
+  Swap execution readiness is not.
 
 ## Data Ownership
 

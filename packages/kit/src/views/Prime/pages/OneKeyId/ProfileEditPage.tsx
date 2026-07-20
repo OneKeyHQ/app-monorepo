@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { UseFormReturn } from '@onekeyhq/components';
 import {
   Form,
   Icon,
@@ -14,9 +13,12 @@ import {
   XStack,
   YStack,
   resetPrimeModal,
-  useForm,
   useUpdateEffect,
 } from '@onekeyhq/components';
+import {
+  type UseFormReturn,
+  useForm,
+} from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { OneKeyIdAvatar } from '@onekeyhq/kit/src/components/OneKeyIdAvatar';
@@ -207,6 +209,7 @@ function ProfileEditPage() {
                   <OneKeyIdAvatar
                     size="$20"
                     source={profileAvatar ? { uri: profileAvatar } : undefined}
+                    showSocialBadge={false}
                   />
                   <XStack
                     bg="$bg"
