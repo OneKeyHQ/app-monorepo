@@ -83,7 +83,7 @@ export interface IDisplayNumber {
   } & IFormatterOptions;
 }
 
-const countLeadingZeroDecimals = (x: BigNumber): number => {
+export const countLeadingZeroDecimals = (x: BigNumber): number => {
   // Fast path: values >= 1 never have leading zero decimals.
   // This avoids calling toFixed() on very large numbers which would
   // generate unnecessarily long strings.
@@ -94,6 +94,43 @@ const countLeadingZeroDecimals = (x: BigNumber): number => {
   const decimals = fixed.slice(dotIndex + 1);
   const trimmed = decimals.replace(/^0+/, '');
   return decimals.length - trimmed.length;
+};
+
+// Default decimals for an exchange rate whose counterparty token decimals are
+// unknown. Mirrors validateAmountInput's historical default of 6.
+const RATE_DEFAULT_DECIMALS = 6;
+
+// How many decimals a sub-1 exchange rate needs to stay meaningful: its
+// leading zeros plus at least 6 significant digits (or the counterparty
+// token's decimals when higher). Shared by clampLimitRateDecimals and the
+// limit-price input validation so the two rules cannot drift apart.
+export const countSignificantRateDecimals = (
+  rateBN: BigNumber,
+  tokenDecimals: number,
+): number => countLeadingZeroDecimals(rateBN) + Math.max(tokenDecimals, 6);
+
+// Align an exchange rate to the counterparty token's decimals WITHOUT
+// destroying sub-1 rates: selling a many-leading-zeros token for USDC yields
+// a rate below USDC's smallest unit, and a hard decimalPlaces() would either
+// wipe it to "0" or round it up to one whole smallest unit (up to +100%
+// error). Rates >= 1 clamp to the token decimals; sub-1 rates always keep
+// their significant digits past the leading zeros — the exact rule the
+// limit-price input validation uses, so a typed rate is stored unchanged.
+export const clampLimitRateDecimals = (
+  rateBN: BigNumber,
+  decimals: number | undefined,
+): BigNumber => {
+  if (!rateBN.isFinite()) {
+    return rateBN;
+  }
+  const tokenDecimals = Number(decimals ?? RATE_DEFAULT_DECIMALS);
+  if (rateBN.isZero() || rateBN.abs().gte(1)) {
+    return rateBN.decimalPlaces(tokenDecimals, BigNumber.ROUND_HALF_UP);
+  }
+  return rateBN.decimalPlaces(
+    countSignificantRateDecimals(rateBN, tokenDecimals),
+    BigNumber.ROUND_HALF_UP,
+  );
 };
 
 const stripTrailingZero = (x: string, decimalSymbol: string) =>

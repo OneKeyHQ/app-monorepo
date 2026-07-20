@@ -15,6 +15,7 @@ import {
   Spinner,
   Stack,
   Switch,
+  Toast,
   YStack,
   startViewTransition,
   useInModalDialog,
@@ -53,6 +54,8 @@ const SettingProtectionModal = () => {
   ] = useSettingsPersistAtom();
   const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
   const [{ onekeyUserId }] = usePrimePersistAtom();
+  const onekeyUserIdRef = useRef(onekeyUserId);
+  onekeyUserIdRef.current = onekeyUserId;
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const [enableProtection, setEnableProtection] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -90,13 +93,38 @@ const SettingProtectionModal = () => {
 
   const handleToggleReceiveRiskMonitoring = useCallback(
     async (value: boolean) => {
+      const targetUserId = onekeyUserIdRef.current;
+      if (!targetUserId) {
+        return;
+      }
       setIsUpdatingReceiveRiskMonitoring(true);
       try {
         // The background method persists the per-user enabled state only on success,
         // so the switch flips only after the server confirms the change.
-        await backgroundApiProxy.serviceSetting.apiSetKytEnabled({
-          enabled: value,
-        });
+        const result = await backgroundApiProxy.serviceSetting.apiSetKytEnabled(
+          {
+            enabled: value,
+            onekeyUserId: targetUserId,
+          },
+        );
+        if (
+          !result.applied ||
+          result.accountChanged ||
+          onekeyUserIdRef.current !== targetUserId
+        ) {
+          return;
+        }
+        if (value && !result.kytEnabled) {
+          // The server acknowledged the request but left KYT disabled — the
+          // switch stays off (the persisted map holds the server value), so
+          // surface the failure instead of continuing silently.
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+          return;
+        }
         // Only prompt to enable notifications when turning KYT on; disabling
         // never triggers the notification check.
         if (value) {

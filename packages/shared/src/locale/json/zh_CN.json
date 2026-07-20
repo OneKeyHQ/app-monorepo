@@ -2069,6 +2069,7 @@
   "limit.fill_at": "预估成交价",
   "limit.fill_at_popover": "订单成交价格需要比您的下单限价多一些才能执行，以便覆盖费用",
   "limit.history_fill_sold": "总计卖出 {num1} {token1}，换得 {num2} {token2}",
+  "limit.marketable_fill_tip": "市价优于您的限价，此订单可能会以市价成交",
   "limit.network_cost_dialog_content": "这笔订单的网络费用相对于订单总金额来说较高。此订单可能无法成交，或者成交价格可能与您的限价有较大差异",
   "limit.price_trigger": "触发距离",
   "limit.price_trigger_des_down": "设置的价格比当前市场价格低 {num}，您可能会亏损！点击「市价」将限价设置为当前市场价格。",
