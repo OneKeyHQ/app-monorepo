@@ -44,3 +44,4 @@ export * from './walletAddress';
 export * from './webView';
 export * from './rewardCenter';
 export * from './bulkSend';
+export * from './bulkExportHistory';

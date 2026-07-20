@@ -39,6 +39,7 @@ import {
   useSwapActions,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
+  useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapStockExecutionTokensAtom,
@@ -301,6 +302,7 @@ const SwapSettingsDialogContent = ({
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const { cleanQuoteInterval, closeQuoteEvent, resetQuoteAction } =
     useSwapActions().current;
   const keyboardHeight = useKeyboardHeight();
@@ -378,10 +380,15 @@ const SwapSettingsDialogContent = ({
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const handleProviderManagerSaved = useCallback(() => {
     cleanQuoteInterval();
-    closeQuoteEvent();
+    closeQuoteEvent(quoteActionLock.quoteRequestId);
     void resetQuoteAction();
     void dialogRef.current?.close();
-  }, [cleanQuoteInterval, closeQuoteEvent, resetQuoteAction]);
+  }, [
+    cleanQuoteInterval,
+    closeQuoteEvent,
+    quoteActionLock.quoteRequestId,
+    resetQuoteAction,
+  ]);
   return (
     <ScrollView
       mx="$-5"

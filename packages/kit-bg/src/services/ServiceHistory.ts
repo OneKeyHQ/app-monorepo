@@ -10,6 +10,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { HISTORY_TIME_RANGE_MONTHS } from '@onekeyhq/shared/src/consts/walletConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -48,8 +49,11 @@ import type {
   IAccountHistoryTx,
   IAllNetworkHistoryExtraItem,
   IChangedPendingTxInfo,
+  ICreateExportTransactionHistoryTaskParams,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
+  IFetchAccountTransactionRangeResp,
+  IFetchExportTransactionHistoryTasksResp,
   IFetchHistoryTxDetailsParams,
   IFetchMergeDeriveAccountHistoryParams,
   IFetchTransferRecipientsResp,
@@ -2324,6 +2328,76 @@ class ServiceHistory extends ServiceBase {
     const { networkId, accountId } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildFetchHistoryListParams(params);
+  }
+
+  @backgroundMethod()
+  public async fetchAccountTransactionRange() {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    // The caller renders a retryable in-page error state, so suppress the
+    // default request toast to avoid presenting the same failure twice.
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      autoHandleError: false,
+    };
+    const resp = await client.post<{
+      data: IFetchAccountTransactionRangeResp;
+    }>('/wallet/v1/account/transaction/export/range', {}, requestConfig);
+
+    // autoHandleError: false lets code !== 0 responses resolve with no data;
+    // surface them as errors so the caller can render its retryable state.
+    const range = resp.data?.data;
+    if (!range) {
+      throw new OneKeyLocalError('Failed to fetch account transaction range');
+    }
+    return range;
+  }
+
+  @backgroundMethod()
+  public async createExportTransactionHistoryTask(
+    params: ICreateExportTransactionHistoryTaskParams,
+  ) {
+    // Prime-only endpoint: use the OneKey ID authenticated client so the
+    // request carries the auth token and prime auth errors are handled.
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
+    await client.post(
+      '/wallet/v1/account/transaction/export-task/create',
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  public async fetchExportTransactionHistoryTasks() {
+    // Prime-only endpoint: use the OneKey ID authenticated client so the
+    // request carries the auth token and prime auth errors are handled.
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
+    // Errors are surfaced as an in-page error state by the caller, so suppress
+    // the default error toast to avoid a duplicate prompt.
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      autoHandleError: false,
+    };
+    const resp = await client.post<{
+      data: IFetchExportTransactionHistoryTasksResp;
+    }>('/wallet/v1/account/transaction/export-task/list', {}, requestConfig);
+
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async downloadExportTransactionHistoryTaskCsv(params: { id: number }) {
+    // Prime-only endpoint: use the OneKey ID authenticated client so the
+    // request carries the auth token and prime auth errors are handled.
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{
+      data: string;
+    }>('/wallet/v1/account/transaction/export-task/csv', params, {
+      // exported CSV files can be large
+      timeout: 30_000,
+    });
+
+    return resp.data.data;
   }
 
   @backgroundMethod()

@@ -13,6 +13,8 @@ import {
   resolveStockBalanceSnapshot,
   resolveStockChannelSwapPair,
   resolveStockKLineToken,
+  resolveStockPayTokenDisplaySeed,
+  resolveSwapStockDefaultTokenStatus,
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
   shouldResetStockTradeReceiveAmount,
@@ -83,6 +85,93 @@ describe('swapStockChannelUtils', () => {
     ).toBe(false);
   });
 
+  it('keeps default Stock selection pending while config or token scope is unsettled', () => {
+    const baseParams = {
+      hasSelectableToken: false,
+      hasStockCategory: true,
+      marketBasicConfigLoading: false,
+      requestScope: '1:stocks',
+      resultScope: '1:stocks',
+      shouldLoad: true,
+    };
+    const coldStartStatuses = [
+      resolveSwapStockDefaultTokenStatus({
+        ...baseParams,
+        marketBasicConfigLoading: undefined,
+        requestScope: '1:',
+        resultScope: '',
+      }),
+      resolveSwapStockDefaultTokenStatus({
+        ...baseParams,
+        marketBasicConfigLoading: true,
+        requestScope: '1:',
+        resultScope: '',
+      }),
+      resolveSwapStockDefaultTokenStatus({
+        ...baseParams,
+        isLoading: false,
+        resultScope: '1:',
+      }),
+      resolveSwapStockDefaultTokenStatus({
+        ...baseParams,
+        isLoading: true,
+      }),
+      resolveSwapStockDefaultTokenStatus({
+        ...baseParams,
+        hasSelectableToken: true,
+        isLoading: false,
+      }),
+    ];
+
+    expect(coldStartStatuses).toEqual([
+      ESwapStockChannelAsyncStatus.Initializing,
+      ESwapStockChannelAsyncStatus.Initializing,
+      ESwapStockChannelAsyncStatus.Initializing,
+      ESwapStockChannelAsyncStatus.Initializing,
+      ESwapStockChannelAsyncStatus.Initializing,
+    ]);
+    expect(coldStartStatuses).not.toContain(ESwapStockChannelAsyncStatus.Empty);
+  });
+
+  it('settles when Market config finishes without a Stock category', () => {
+    expect(
+      resolveSwapStockDefaultTokenStatus({
+        hasSelectableToken: false,
+        hasStockCategory: false,
+        isLoading: false,
+        marketBasicConfigLoading: false,
+        requestScope: '1:',
+        resultScope: '1:',
+        shouldLoad: true,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Empty);
+  });
+
+  it('settles default Stock selection only for the current empty scope', () => {
+    expect(
+      resolveSwapStockDefaultTokenStatus({
+        hasSelectableToken: false,
+        hasStockCategory: true,
+        isLoading: false,
+        marketBasicConfigLoading: false,
+        requestScope: '1:stocks',
+        resultScope: '1:stocks',
+        shouldLoad: true,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Empty);
+    expect(
+      resolveSwapStockDefaultTokenStatus({
+        hasSelectableToken: false,
+        hasStockCategory: true,
+        isLoading: false,
+        marketBasicConfigLoading: false,
+        requestScope: '0:stocks',
+        resultScope: '1:stocks',
+        shouldLoad: false,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Idle);
+  });
+
   it('filters stock pay token candidates to USDC and USDT only', () => {
     expect(
       filterStockPayTokenCandidates([ethToken, usdcToken, usdtToken]).map(
@@ -93,6 +182,25 @@ describe('swapStockChannelUtils', () => {
 
   it('fails closed when the speed config has no USDC or USDT pay token', () => {
     expect(filterStockPayTokenCandidates([ethToken])).toEqual([]);
+  });
+
+  it('restores the persisted pay token as a display seed before execution state is ready', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        candidates: [usdcPayToken, usdtPayToken],
+        persistedTokenKey: 'evm--56:0xusdt:token',
+      }),
+    ).toBe(usdtPayToken);
+  });
+
+  it('keeps the selected pay token ahead of the persisted display preference', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        candidates: [usdcPayToken, usdtPayToken],
+        persistedTokenKey: 'evm--56:0xusdt:token',
+        selectedToken: usdcToken,
+      }),
+    ).toBe(usdcPayToken);
   });
 
   it('resolves a buy-side stock execution pair from swap selected tokens', () => {

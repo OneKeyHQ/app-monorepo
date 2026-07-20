@@ -110,6 +110,47 @@ export function shouldLoadDefaultStockToken({
   return !selectedStockTokenKey;
 }
 
+export function resolveSwapStockDefaultTokenStatus({
+  hasSelectableToken,
+  hasStockCategory,
+  isLoading,
+  marketBasicConfigLoading,
+  requestScope,
+  resultScope,
+  shouldLoad,
+}: {
+  hasSelectableToken: boolean;
+  hasStockCategory: boolean;
+  isLoading?: boolean;
+  marketBasicConfigLoading?: boolean;
+  requestScope: string;
+  resultScope: string;
+  shouldLoad: boolean;
+}) {
+  if (!shouldLoad) {
+    return ESwapStockChannelAsyncStatus.Idle;
+  }
+
+  if (marketBasicConfigLoading !== false) {
+    return ESwapStockChannelAsyncStatus.Initializing;
+  }
+
+  if (!hasStockCategory) {
+    return ESwapStockChannelAsyncStatus.Empty;
+  }
+
+  if (
+    isLoading !== false ||
+    !requestScope ||
+    resultScope !== requestScope ||
+    hasSelectableToken
+  ) {
+    return ESwapStockChannelAsyncStatus.Initializing;
+  }
+
+  return ESwapStockChannelAsyncStatus.Empty;
+}
+
 export function getMarketListTokenKey(token?: IMarketTokenListItem) {
   const networkId = token?.networkId ?? token?.chainId ?? '';
   if (!networkId || !token) {
@@ -426,4 +467,37 @@ export function findDefaultStockPayToken({
     }
   }
   return preferredCandidates[0];
+}
+
+export function resolveStockPayTokenDisplaySeed({
+  balances,
+  candidates,
+  persistedTokenKey,
+  selectedToken,
+}: {
+  balances?: Record<string, string | undefined>;
+  candidates: IToken[];
+  persistedTokenKey?: string;
+  selectedToken?: Partial<ISwapTokenBase>;
+}) {
+  const selectedCandidate = findTokenFromCandidates({
+    candidates,
+    token: selectedToken,
+  });
+  if (selectedCandidate) {
+    return selectedCandidate;
+  }
+
+  const persistedCandidate = persistedTokenKey
+    ? candidates.find(
+        (candidate) => getTokenIdentityKey(candidate) === persistedTokenKey,
+      )
+    : undefined;
+  return (
+    persistedCandidate ??
+    findDefaultStockPayToken({
+      candidates,
+      balances,
+    })
+  );
 }
