@@ -23,6 +23,7 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
 import { showOneKeyIdLegacyOAuthBindDialogForLocalKeylessUpgrade } from '../components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 
 import { usePrimePaymentMethods } from './usePrimePaymentMethods';
@@ -354,11 +355,12 @@ function PrimeGlobalEffectView() {
     };
   }, []);
 
-  if (isReady) {
-    return <PrimeGlobalEffectAfterAuthReady />;
-  }
-
-  return null;
+  return (
+    <>
+      <KYTIntroOnMount />
+      {isReady ? <PrimeGlobalEffectAfterAuthReady /> : null}
+    </>
+  );
 }
 
 export function PrimeGlobalEffect() {

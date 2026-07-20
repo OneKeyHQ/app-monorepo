@@ -30,6 +30,7 @@ import type {
   IMarketTokenTransaction,
 } from '@onekeyhq/shared/types/marketV2';
 import {
+  SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
   swapProPositionsListMaxCount,
   swapProPositionsListMinValue,
   swapProStockPositionsListMinValue,
@@ -69,6 +70,7 @@ import {
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
   useSwapProSupportNetworksTokenListAtom,
+  useSwapProTokenMarketDetailInfoAtom,
   useSwapProTokenSupportLimitAtom,
   useSwapProTokenTransactionPriceAtom,
   useSwapProTradeTypeAtom,
@@ -99,7 +101,12 @@ import {
   getSwapAnalyticsTokenListType,
   getSwapAnalyticsTokenRole,
 } from '../utils/swapStockAnalytics';
+import {
+  filterSwapProCounterpartyTokens,
+  getSwapProDefaultTokens,
+} from '../utils/swapTypeUtils';
 
+import { backfillSwapProTokenStockIdentity } from './swapStockChannelUtils';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
 type ISwapProSearchTokenListItem = IMarketSearchV2Token & {
@@ -625,7 +632,8 @@ export function useSwapProTokenInfoSync() {
 }
 
 export function useSwapProTokenInit() {
-  const { setSwapProSelectToken } = useSwapActions().current;
+  const { setSwapProSelectToken, cancelSpeedQuote, cleanSpeedQuote } =
+    useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProTokenSupportLimit] = useSwapProTokenSupportLimitAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
@@ -634,8 +642,10 @@ export function useSwapProTokenInit() {
     useSwapProSellToTokenAtom();
   const [swapProUseSelectBuyTokenAtom, setSwapProUseSelectBuyTokenAtom] =
     useSwapProUseSelectBuyTokenAtom();
-  const [swapProInputAmount] = useSwapProInputAmountAtom();
-  const [swapFromInputAmount] = useSwapFromTokenAmountAtom();
+  const [swapProInputAmount, setSwapProInputAmount] =
+    useSwapProInputAmountAtom();
+  const [swapFromInputAmount, setSwapFromInputAmount] =
+    useSwapFromTokenAmountAtom();
 
   const {
     defaultTokens,
@@ -649,12 +659,15 @@ export function useSwapProTokenInit() {
     onlySupportCrossChain,
   } = useSpeedSwapInit(swapProSelectToken?.networkId || '');
 
-  const defaultTokensFromType = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return defaultTokens;
-    }
-    return defaultLimitTokens;
-  }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
+  const defaultTokensFromType = useMemo(
+    () =>
+      getSwapProDefaultTokens({
+        tradeType: swapProTradeType,
+        defaultTokens,
+        defaultLimitTokens,
+      }),
+    [swapProTradeType, defaultTokens, defaultLimitTokens],
+  );
 
   // Read persisted token preference (shared with Instant Mode) via simpledb
   const { result: savedPreference } = usePromiseResult(
@@ -671,18 +684,43 @@ export function useSwapProTokenInit() {
   const findPreferredToken = useCallback((): ISwapTokenBase | undefined => {
     if (!savedPreference || defaultTokensFromType.length === 0)
       return undefined;
-    return defaultTokensFromType.find(
+    // Search within the stock-safe pool so a persisted preference can never
+    // resurrect a token the counterparty rule excludes.
+    return filterSwapProCounterpartyTokens({
+      tokens: defaultTokensFromType,
+      isStockPair: !!swapProSelectToken?.isStock,
+    }).find(
       (t) =>
         t.networkId === savedPreference.networkId &&
         t.contractAddress.toLowerCase() ===
           savedPreference.contractAddress.toLowerCase(),
     );
-  }, [savedPreference, defaultTokensFromType]);
+  }, [savedPreference, defaultTokensFromType, swapProSelectToken?.isStock]);
 
   useEffect(() => {
+    // Stock tokens must be paid with stable coins: drop the native coin from
+    // the candidate pool so a previously selected native coin is forced back
+    // to a stable coin.
+    const candidateTokens = filterSwapProCounterpartyTokens({
+      tokens: defaultTokensFromType,
+      isStockPair: !!swapProSelectToken?.isStock,
+    });
+    // Fail closed: with no whitelist candidate a stock pair must never keep
+    // trading against the previously selected counterparty. Drop the
+    // selection, its amount and any in-flight quote — the action button
+    // stays disabled until the config provides valid candidates.
+    if (candidateTokens.length === 0) {
+      if (swapProUseSelectBuyTokenAtom) {
+        setSwapProUseSelectBuyTokenAtom(undefined);
+        setSwapProInputAmount('');
+        cancelSpeedQuote();
+        void cleanSpeedQuote();
+      }
+      return;
+    }
     if (
-      (!swapProUseSelectBuyTokenAtom && defaultTokensFromType.length > 0) ||
-      !defaultTokensFromType.some((item) =>
+      (!swapProUseSelectBuyTokenAtom && candidateTokens.length > 0) ||
+      !candidateTokens.some((item) =>
         equalTokenNoCaseSensitive({
           token1: item,
           token2: swapProUseSelectBuyTokenAtom,
@@ -692,8 +730,7 @@ export function useSwapProTokenInit() {
       // Prefer persisted preference, fallback to first default token
       const preferred = findPreferredToken();
       let selectedDefaultToken =
-        (preferred as (typeof defaultTokensFromType)[0]) ??
-        defaultTokensFromType[0];
+        (preferred as (typeof defaultTokensFromType)[0]) ?? candidateTokens[0];
       if (
         equalTokenNoCaseSensitive({
           token1: selectedDefaultToken,
@@ -703,13 +740,12 @@ export function useSwapProTokenInit() {
           },
         })
       ) {
-        selectedDefaultToken =
-          defaultTokensFromType[1] ?? defaultTokensFromType[0];
+        selectedDefaultToken = candidateTokens[1] ?? candidateTokens[0];
       }
       setSwapProUseSelectBuyTokenAtom(selectedDefaultToken);
     } else if (
       swapProUseSelectBuyTokenAtom &&
-      defaultTokensFromType.length > 0 &&
+      candidateTokens.length > 0 &&
       equalTokenNoCaseSensitive({
         token1: swapProUseSelectBuyTokenAtom,
         token2: {
@@ -718,7 +754,7 @@ export function useSwapProTokenInit() {
         },
       })
     ) {
-      const noEqualToken = defaultTokensFromType.find(
+      const noEqualToken = candidateTokens.find(
         (item) =>
           !equalTokenNoCaseSensitive({
             token1: item,
@@ -732,8 +768,12 @@ export function useSwapProTokenInit() {
   }, [
     swapProSelectToken?.contractAddress,
     swapProSelectToken?.networkId,
+    swapProSelectToken?.isStock,
     swapProUseSelectBuyTokenAtom,
     setSwapProUseSelectBuyTokenAtom,
+    setSwapProInputAmount,
+    cancelSpeedQuote,
+    cleanSpeedQuote,
     defaultTokensFromType,
     findPreferredToken,
   ]);
@@ -769,9 +809,27 @@ export function useSwapProTokenInit() {
   ]);
 
   useEffect(() => {
+    // Stock tokens must trade against stable coins in BOTH directions, so the
+    // SELL counterparty pool drops the native coin too.
+    const sellCandidateTokens = filterSwapProCounterpartyTokens({
+      tokens: defaultTokensFromType,
+      isStockPair: !!swapProSelectToken?.isStock,
+    });
+    // Same fail-closed rule as the BUY init above: clear the SELL
+    // counterparty (and the sell amount, which denominates in the traded
+    // token but must not quote against a stale receive token).
+    if (sellCandidateTokens.length === 0) {
+      if (swapProSellToToken) {
+        setSwapProSellToToken(undefined);
+        setSwapFromInputAmount({ value: '', isInput: true });
+        cancelSpeedQuote();
+        void cleanSpeedQuote();
+      }
+      return;
+    }
     if (
-      (!swapProSellToToken && defaultTokensFromType.length > 0) ||
-      !defaultTokensFromType.some((item) =>
+      (!swapProSellToToken && sellCandidateTokens.length > 0) ||
+      !sellCandidateTokens.some((item) =>
         equalTokenNoCaseSensitive({
           token1: item,
           token2: swapProSellToToken,
@@ -780,9 +838,9 @@ export function useSwapProTokenInit() {
     ) {
       // Prefer persisted preference for sell-to token
       const preferred = findPreferredToken();
-      let selectedDefaultToken = defaultTokensFromType[0];
-      const nativeToken = defaultTokensFromType.find((item) => item.isNative);
-      const wrappedToken = defaultTokensFromType.find((item) =>
+      let selectedDefaultToken = sellCandidateTokens[0];
+      const nativeToken = sellCandidateTokens.find((item) => item.isNative);
+      const wrappedToken = sellCandidateTokens.find((item) =>
         wrappedTokens.some(
           (wrapped) =>
             wrapped.address.toLowerCase() ===
@@ -808,7 +866,7 @@ export function useSwapProTokenInit() {
               },
             })
           ) {
-            const noWrappedToken = defaultTokensFromType.find(
+            const noWrappedToken = sellCandidateTokens.find(
               (item) =>
                 !wrappedTokens.find(
                   (wrapped) =>
@@ -825,7 +883,7 @@ export function useSwapProTokenInit() {
           }
         }
       } else {
-        const defaultTokenZero = defaultTokensFromType[0];
+        const defaultTokenZero = sellCandidateTokens[0];
         if (
           equalTokenNoCaseSensitive({
             token1: defaultTokenZero,
@@ -835,13 +893,13 @@ export function useSwapProTokenInit() {
             },
           })
         ) {
-          selectedDefaultToken = defaultTokensFromType[1] ?? defaultTokenZero;
+          selectedDefaultToken = sellCandidateTokens[1] ?? defaultTokenZero;
         }
       }
       setSwapProSellToToken(selectedDefaultToken);
     } else if (
       swapProSellToToken &&
-      defaultTokensFromType.length > 0 &&
+      sellCandidateTokens.length > 0 &&
       equalTokenNoCaseSensitive({
         token1: swapProSellToToken,
         token2: {
@@ -850,7 +908,7 @@ export function useSwapProTokenInit() {
         },
       })
     ) {
-      const noEqualToken = defaultTokensFromType.find(
+      const noEqualToken = sellCandidateTokens.find(
         (item) =>
           !equalTokenNoCaseSensitive({
             token1: item,
@@ -867,8 +925,12 @@ export function useSwapProTokenInit() {
   }, [
     defaultTokensFromType,
     setSwapProSellToToken,
+    setSwapFromInputAmount,
+    cancelSpeedQuote,
+    cleanSpeedQuote,
     swapProSelectToken?.networkId,
     swapProSelectToken?.contractAddress,
+    swapProSelectToken?.isStock,
     swapProSellToToken,
     swapProTradeType,
     findPreferredToken,
@@ -1197,8 +1259,23 @@ export function useSwapProTokenSearch(
 }
 
 export function useSwapProTokenDetailInfo() {
-  const { swapProTokenMarketDetailFetchAction } = useSwapActions().current;
+  const { swapProTokenMarketDetailFetchAction, setSwapProSelectToken } =
+    useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
+  // Tokens persisted before the isStock field existed restore without it and
+  // would bypass the stock stable-coin rules; once the authoritative market
+  // detail for the selected token arrives, backfill the flag and re-persist
+  // so the migration sticks.
+  useEffect(() => {
+    const backfilled = backfillSwapProTokenStockIdentity({
+      token: swapProSelectToken,
+      tokenDetail: proTokenDetail,
+    });
+    if (backfilled && backfilled !== swapProSelectToken) {
+      void setSwapProSelectToken(backfilled);
+    }
+  }, [proTokenDetail, swapProSelectToken, setSwapProSelectToken]);
   const fetchTokenMarketDetailInfo = useCallback(async () => {
     if (swapProSelectToken?.networkId) {
       void swapProTokenMarketDetailFetchAction(
@@ -1673,9 +1750,13 @@ export function useSwapProActionsQuote() {
   const [swapTradeType] = useSwapProTradeTypeAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
     useSwapProInputAmountAtom();
-  const debounceInputAmount = useDebounce(swapProInputAmount, 300, {
-    leading: true,
-  });
+  const debounceInputAmount = useDebounce(
+    swapProInputAmount,
+    SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
+    {
+      leading: true,
+    },
+  );
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProUseSelectBuyTokenAtom] = useSwapProUseSelectBuyTokenAtom();
