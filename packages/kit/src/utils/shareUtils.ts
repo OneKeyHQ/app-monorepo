@@ -47,10 +47,15 @@ export async function shareImageOnDesktop(
   base64Image: string,
   filename: string,
 ): Promise<void> {
-  const shared: boolean =
-    await globalThis.desktopApiProxy.system.shareImageFile({
+  let shared = false;
+  try {
+    shared = await globalThis.desktopApiProxy.system.shareImageFile({
       base64Image,
     });
+  } catch {
+    // the installed main process may predate this API (the JS bundle updates
+    // independently of the binary) or reject the payload — degrade to download
+  }
   if (!shared) {
     await downloadImageFile(base64Image, filename);
   }
