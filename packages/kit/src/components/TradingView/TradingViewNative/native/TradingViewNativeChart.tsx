@@ -86,11 +86,13 @@ import {
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
   getTradingViewNativeCurrentPriceLayout,
+  getTradingViewNativeMaxVolume,
   getTradingViewNativePriceAtY,
   getTradingViewNativePriceTransform,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
+  getTradingViewNativeVolumeScale,
   getTradingViewNativeWatermarkLayout,
 } from '../utils/chartLayout';
 import {
@@ -144,10 +146,13 @@ interface IChartColors {
 
 interface IChartPictureData {
   baseMaxPrice: number;
+  baseMaxVolume: number;
   basePriceRange: number;
   gridPicture: SkPicture;
   priceChartHeight: number;
   pricePicture: SkPicture;
+  volumeBottom: number;
+  volumeHeight: number;
   volumePicture: SkPicture;
   volumeTop: number;
 }
@@ -324,10 +329,13 @@ function createKLineChartPictures({
 
   return {
     baseMaxPrice: layout?.maxPrice ?? 0,
+    baseMaxVolume: layout?.maxVolume ?? 0,
     basePriceRange: layout?.priceRange ?? 0,
     gridPicture,
     priceChartHeight: layout?.priceChartHeight ?? 0,
     pricePicture,
+    volumeBottom: layout?.volumeBottom ?? 0,
+    volumeHeight: layout?.volumeHeight ?? 0,
     volumePicture,
     volumeTop: layout?.volumeTop ?? 0,
   };
@@ -824,6 +832,7 @@ export const TradingViewNativeChart = memo(
     const pinchAnchorX = useSharedValue(0);
     const priceScaleY = useSharedValue(1);
     const priceTranslateY = useSharedValue(0);
+    const volumeScaleY = useSharedValue(1);
     const visibleMaxPrice = useSharedValue(Number.NaN);
     const visibleMinPrice = useSharedValue(Number.NaN);
     const hasInitializedViewportRef = useRef(false);
@@ -924,6 +933,14 @@ export const TradingViewNativeChart = memo(
         }),
       [defaultVisiblePointRange, points],
     );
+    const defaultVisibleMaxVolume = useMemo(
+      () =>
+        getTradingViewNativeMaxVolume({
+          ...defaultVisiblePointRange,
+          points,
+        }),
+      [defaultVisiblePointRange, points],
+    );
     const hasCurrentVisiblePointRange =
       visiblePointRangeState.chartWidth === chartWidth &&
       (pointCount === 0 || visiblePointRangeState.endIndex > 0);
@@ -966,6 +983,14 @@ export const TradingViewNativeChart = memo(
           defaultVisiblePriceRange.maxPrice - defaultVisiblePriceRange.minPrice,
       });
     }, [chartPictureData, defaultVisiblePriceRange]);
+    const defaultVolumeScale = useMemo(
+      () =>
+        getTradingViewNativeVolumeScale({
+          baseMaxVolume: chartPictureData?.baseMaxVolume ?? 0,
+          visibleMaxVolume: defaultVisibleMaxVolume,
+        }),
+      [chartPictureData?.baseMaxVolume, defaultVisibleMaxVolume],
+    );
 
     const handleVisiblePointRangeChange = useCallback(
       (
@@ -993,6 +1018,7 @@ export const TradingViewNativeChart = memo(
     );
 
     const baseMaxPrice = chartPictureData?.baseMaxPrice ?? 0;
+    const baseMaxVolume = chartPictureData?.baseMaxVolume ?? 0;
     const basePriceRange = chartPictureData?.basePriceRange ?? 0;
     const priceChartHeight = chartPictureData?.priceChartHeight ?? 0;
 
@@ -1006,6 +1032,10 @@ export const TradingViewNativeChart = memo(
           zoomScale: zoomScale.value,
         });
         const visiblePriceRange = getTradingViewNativePriceRange({
+          ...range,
+          points,
+        });
+        const visibleMaxVolume = getTradingViewNativeMaxVolume({
           ...range,
           points,
         });
@@ -1029,6 +1059,10 @@ export const TradingViewNativeChart = memo(
             ),
           targetScaleY: targetTransform.scaleY,
           targetTranslateY: targetTransform.translateY,
+          targetVolumeScaleY: getTradingViewNativeVolumeScale({
+            baseMaxVolume,
+            visibleMaxVolume,
+          }),
           ...range,
         };
       },
@@ -1056,6 +1090,11 @@ export const TradingViewNativeChart = memo(
         ) {
           priceScaleY.value = currentRange.targetScaleY;
           priceTranslateY.value = currentRange.targetTranslateY;
+        }
+        if (
+          currentRange.targetVolumeScaleY !== previousRange?.targetVolumeScaleY
+        ) {
+          volumeScaleY.value = currentRange.targetVolumeScaleY;
         }
         if (
           currentRange.maxPrice !== previousRange?.maxPrice ||
@@ -1103,6 +1142,7 @@ export const TradingViewNativeChart = memo(
           panOffset.value = 0;
           priceScaleY.value = defaultPriceTransform.scaleY;
           priceTranslateY.value = defaultPriceTransform.translateY;
+          volumeScaleY.value = defaultVolumeScale;
           visibleMaxPrice.value =
             defaultVisiblePriceRange?.maxPrice ?? Number.NaN;
           visibleMinPrice.value =
@@ -1145,6 +1185,7 @@ export const TradingViewNativeChart = memo(
       defaultPriceTransform.scaleY,
       defaultPriceTransform.translateY,
       defaultVisiblePriceRange,
+      defaultVolumeScale,
       panOffset,
       panStartOffset,
       pinchStartOffset,
@@ -1155,6 +1196,7 @@ export const TradingViewNativeChart = memo(
       priceTranslateY,
       visibleMaxPrice,
       visibleMinPrice,
+      volumeScaleY,
       zoomScale,
       latestPoint?.t,
     ]);
@@ -1166,6 +1208,9 @@ export const TradingViewNativeChart = memo(
     const priceTransform = useDerivedValue(() => [
       { translateY: priceTranslateY.value },
       { scaleY: priceScaleY.value },
+    ]);
+    const volumeTransform = useDerivedValue(() => [
+      { scaleY: volumeScaleY.value },
     ]);
 
     const handleCrosshairPointIndexChange = useCallback(
@@ -1408,7 +1453,26 @@ export const TradingViewNativeChart = memo(
                     <Group transform={priceTransform}>
                       <Picture picture={chartPictureData.pricePicture} />
                     </Group>
-                    <Picture picture={chartPictureData.volumePicture} />
+                  </Group>
+                  <Group
+                    clip={Skia.XYWHRect(
+                      CHART_HORIZONTAL_PADDING,
+                      chartPictureData.volumeTop,
+                      chartWidth,
+                      chartPictureData.volumeHeight,
+                    )}
+                  >
+                    <Group
+                      origin={{ x: priceAxisX, y: 0 }}
+                      transform={chartTransform}
+                    >
+                      <Group
+                        origin={{ x: 0, y: chartPictureData.volumeBottom }}
+                        transform={volumeTransform}
+                      >
+                        <Picture picture={chartPictureData.volumePicture} />
+                      </Group>
+                    </Group>
                   </Group>
                 </Group>
               </Group>

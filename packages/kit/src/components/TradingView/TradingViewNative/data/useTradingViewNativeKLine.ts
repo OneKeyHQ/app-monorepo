@@ -321,7 +321,6 @@ export function useTradingViewNativeKLine({
   const realtimeSubscriptionRef =
     useRef<ITradingViewNativeRealtimeSubscription | null>(null);
   const lastRealtimeActivityAtRef = useRef(Date.now());
-  const lastRealtimePointAtRef = useRef<number | undefined>(undefined);
   const [chartData, setChartData] = useState<IChartData | null>(null);
   const [activeInterval, setActiveInterval] =
     useState<ITradingViewNativeChartInterval>(
@@ -376,7 +375,6 @@ export function useTradingViewNativeKLine({
     realtimeScopeRef.current = { interval: activeInterval, seriesKey };
     realtimePointBufferRef.current.clear();
     lastRealtimeActivityAtRef.current = Date.now();
-    lastRealtimePointAtRef.current = undefined;
   }, [activeInterval, seriesKey]);
 
   useEffect(() => {
@@ -469,7 +467,7 @@ export function useTradingViewNativeKLine({
 
       const timeTo = earliestTimestamp - 1;
       const timeFrom = getHistoryTimeFrom({
-        candleCount: provider.historyRequestCandleCount,
+        candleCount: provider.getHistoryRequestCandleCount(interval),
         intervalSeconds: interval.seconds,
         timeTo,
       });
@@ -518,8 +516,10 @@ export function useTradingViewNativeKLine({
               }
 
               pagination.earliestTimestamp = olderPoints[0].t;
-              pagination.hasMore =
-                olderPoints.length >= provider.historyBatchSize;
+              pagination.hasMore = provider.hasMoreHistory({
+                interval,
+                receivedPointCount: olderPoints.length,
+              });
               setChartData((currentData) => {
                 if (
                   currentData?.seriesKey !== seriesKey ||
@@ -584,7 +584,6 @@ export function useTradingViewNativeKLine({
       onRealtimePointRef.current?.(point);
       const updatedAt = Date.now();
       lastRealtimeActivityAtRef.current = updatedAt;
-      lastRealtimePointAtRef.current = updatedAt;
       setRealtimeState({
         interval: activeInterval,
         lastUpdatedAt: updatedAt,
@@ -663,13 +662,6 @@ export function useTradingViewNativeKLine({
         ownedSubscription = nextSubscription;
         realtimeSubscriptionRef.current = nextSubscription;
         setRealtimeState((current) => {
-          let status: IRealtimeState['status'] = 'idle';
-          if (nextSubscription) {
-            status =
-              current.seriesKey === seriesKey && current.status === 'live'
-                ? 'live'
-                : 'reconnecting';
-          }
           return {
             interval: activeInterval,
             lastUpdatedAt:
@@ -677,7 +669,7 @@ export function useTradingViewNativeKLine({
                 ? current.lastUpdatedAt
                 : undefined,
             seriesKey,
-            status,
+            status: nextSubscription ? 'live' : 'idle',
           };
         });
         lastRealtimeActivityAtRef.current = Date.now();
@@ -742,8 +734,6 @@ export function useTradingViewNativeKLine({
         return;
       }
 
-      const lastPointAtRecoveryStart = lastRealtimePointAtRef.current;
-
       setRealtimeState((current) => ({
         ...current,
         error: undefined,
@@ -759,10 +749,7 @@ export function useTradingViewNativeKLine({
           setRealtimeState((current) => ({
             ...current,
             error: undefined,
-            status:
-              lastRealtimePointAtRef.current !== lastPointAtRecoveryStart
-                ? 'live'
-                : 'reconnecting',
+            status: 'live',
           }));
         })
         .catch((error: unknown) => {
@@ -813,7 +800,7 @@ export function useTradingViewNativeKLine({
       TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
     const timeTo = Math.floor(Date.now() / 1000);
     const timeFrom = getHistoryTimeFrom({
-      candleCount: provider.historyRequestCandleCount,
+      candleCount: provider.getHistoryRequestCandleCount(requestedInterval),
       intervalSeconds: requestedInterval.seconds,
       timeTo,
     });
@@ -907,8 +894,10 @@ export function useTradingViewNativeKLine({
             pagination.interval === requestedInterval.value
           ) {
             if (pagination.earliestTimestamp === undefined) {
-              pagination.hasMore =
-                receivedHistoryPointCount >= provider.historyBatchSize;
+              pagination.hasMore = provider.hasMoreHistory({
+                interval: requestedInterval,
+                receivedPointCount: receivedHistoryPointCount,
+              });
             }
             pagination.earliestTimestamp = nextPoints[0]?.t;
           }

@@ -11,6 +11,7 @@ import {
 import type { IMarketWsDataUpdatePayload } from '@onekeyhq/shared/types/marketV2';
 
 import { createCoinGeckoKLineDataFetcher } from './coinGeckoKLineData';
+import { getCoinGeckoHistoryRequestCandleCount } from './coinGeckoKLineUtils';
 import { getTradingViewNativeSourceKey } from './getTradingViewNativeSource';
 import { logTradingViewNativeDataError } from './tradingViewNativeDataLogger';
 import { tradingViewNativeHyperliquidGateway } from './tradingViewNativeHyperliquidGateway';
@@ -46,6 +47,8 @@ function createMarketDataProvider(
     ? createCoinGeckoKLineDataFetcher(normalizedCoinGeckoId)
     : undefined;
   let primaryHistoryUnavailable = false;
+  const isCoinGeckoHistoryActive = () =>
+    historySource.provider === 'coinGecko' || primaryHistoryUnavailable;
   const subscriptionBase = {
     networkId: source.networkId,
     tokenAddress: source.tokenAddress,
@@ -54,10 +57,13 @@ function createMarketDataProvider(
   };
 
   return {
-    // CoinGecko does not expose a stable page size. Continue until an older
-    // request returns no points instead of treating a short response as EOF.
-    historyBatchSize: fetchCoinGeckoHistory ? 1 : MARKET_HISTORY_BATCH_SIZE,
-    historyRequestCandleCount: MARKET_HISTORY_REQUEST_CANDLE_COUNT,
+    getHistoryRequestCandleCount: (interval) =>
+      isCoinGeckoHistoryActive()
+        ? getCoinGeckoHistoryRequestCandleCount(interval)
+        : MARKET_HISTORY_REQUEST_CANDLE_COUNT,
+    hasMoreHistory: ({ receivedPointCount }) =>
+      !isCoinGeckoHistoryActive() &&
+      receivedPointCount >= MARKET_HISTORY_BATCH_SIZE,
     isReady: Boolean(
       source.networkId &&
       (source.tokenAddress || source.symbol) &&
@@ -245,8 +251,9 @@ function createHyperliquidDataProvider(
   source: Extract<ITradingViewNativeSource, { kind: 'hyperliquid' }>,
 ): ITradingViewNativeDataProvider {
   return {
-    historyBatchSize: HYPERLIQUID_HISTORY_BATCH_SIZE,
-    historyRequestCandleCount: HYPERLIQUID_HISTORY_BATCH_SIZE,
+    getHistoryRequestCandleCount: () => HYPERLIQUID_HISTORY_BATCH_SIZE,
+    hasMoreHistory: ({ receivedPointCount }) =>
+      receivedPointCount >= HYPERLIQUID_HISTORY_BATCH_SIZE,
     isReady: Boolean(source.coin),
     key: getTradingViewNativeSourceKey(source),
     supportsRealtime: true,

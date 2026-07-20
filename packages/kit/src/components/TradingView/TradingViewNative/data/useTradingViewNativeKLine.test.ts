@@ -175,8 +175,9 @@ describe('TradingViewNative K-line data state machine', () => {
       };
     });
     mockCreateTradingViewNativeDataProvider.mockImplementation((source) => ({
-      historyBatchSize: mockHistoryBatchSize,
-      historyRequestCandleCount: mockHistoryRequestCandleCount,
+      getHistoryRequestCandleCount: () => mockHistoryRequestCandleCount,
+      hasMoreHistory: ({ receivedPointCount }) =>
+        receivedPointCount >= mockHistoryBatchSize,
       isReady: true,
       key: buildProviderKey(source),
       supportsRealtime:
@@ -314,7 +315,7 @@ describe('TradingViewNative K-line data state machine', () => {
 
     await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
     await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
-    expect(result.current.dataState.status).toBe('reconnecting');
+    expect(result.current.dataState.status).toBe('live');
     pushRealtimePoint({ o: 100, h: 106, l: 99, c: 105, v: 12, t: 100 });
     pushRealtimePoint({ o: 105, h: 111, l: 104, c: 110, v: 8, t: 200 });
 
@@ -421,6 +422,24 @@ describe('TradingViewNative K-line data state machine', () => {
         80, 90, 100, 110, 120,
       ]),
     );
+  });
+
+  it('treats an empty older page as history EOF without retrying', async () => {
+    mockHistoryBatchSize = 1;
+    mockHistoryRequestCandleCount = 1;
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, 1_000_000))
+      .mockResolvedValueOnce({ points: [], total: 0 });
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(1));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(2);
   });
 
   it('follows the Market API 2000-slot window and 299-point page contract', async () => {
@@ -610,7 +629,7 @@ describe('TradingViewNative K-line data state machine', () => {
     );
   });
 
-  it('does not report live or advance realtime freshness without a candle', async () => {
+  it('keeps a quiet healthy subscription live without advancing price freshness', async () => {
     jest.useFakeTimers();
     mockFetchHistory.mockResolvedValue(buildResponse(100));
     const { result } = renderHook(() =>
@@ -620,9 +639,7 @@ describe('TradingViewNative K-line data state machine', () => {
     );
 
     await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
-    await waitFor(() =>
-      expect(result.current.dataState.status).toBe('reconnecting'),
-    );
+    await waitFor(() => expect(result.current.dataState.status).toBe('live'));
     const historyUpdatedAt = result.current.dataState.lastUpdatedAt;
 
     await act(async () => {
@@ -630,7 +647,7 @@ describe('TradingViewNative K-line data state machine', () => {
     });
 
     expect(mockEnsure).toHaveBeenCalledTimes(1);
-    expect(result.current.dataState.status).toBe('reconnecting');
+    expect(result.current.dataState.status).toBe('live');
     expect(result.current.dataState.lastUpdatedAt).toBe(historyUpdatedAt);
 
     pushRealtimePoint({ o: 100, h: 106, l: 99, c: 105, v: 12, t: 100 });

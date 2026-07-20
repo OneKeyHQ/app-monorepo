@@ -163,6 +163,45 @@ export function getTradingViewNativeWatermarkLayout({
   };
 }
 
+export function getTradingViewNativeMaxVolume({
+  endIndex,
+  points,
+  startIndex,
+}: ITradingViewNativeVisiblePointRange & {
+  points: IMarketTokenKLineDataPoint[];
+}) {
+  'worklet';
+
+  const normalizedStartIndex = Math.max(Math.floor(startIndex), 0);
+  const normalizedEndIndex = Math.min(Math.ceil(endIndex), points.length);
+  let maxVolume = 0;
+  for (
+    let index = normalizedStartIndex;
+    index < normalizedEndIndex;
+    index += 1
+  ) {
+    const volume = points[index]?.v;
+    if (Number.isFinite(volume)) {
+      maxVolume = Math.max(maxVolume, volume ?? 0);
+    }
+  }
+  return maxVolume;
+}
+
+export function getTradingViewNativeVolumeScale({
+  baseMaxVolume,
+  visibleMaxVolume,
+}: {
+  baseMaxVolume: number;
+  visibleMaxVolume: number;
+}) {
+  'worklet';
+
+  return baseMaxVolume > 0 && visibleMaxVolume > 0
+    ? baseMaxVolume / visibleMaxVolume
+    : 1;
+}
+
 function padTimeAxisValue(value: number) {
   return value.toString().padStart(2, '0');
 }
@@ -440,13 +479,10 @@ export function getTradingViewNativeChartLayout({
       };
     },
   );
-  let maxVolume = 0;
-
-  for (const point of points) {
-    if (Number.isFinite(point.v)) {
-      maxVolume = Math.max(maxVolume, point.v);
-    }
-  }
+  const maxVolume = getTradingViewNativeMaxVolume({
+    ...visiblePointRange,
+    points,
+  });
 
   const timeTicks = getTradingViewNativeTimeAxisLayout({
     candleIntervalSeconds,

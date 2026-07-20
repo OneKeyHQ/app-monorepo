@@ -112,9 +112,9 @@ function getInterval(value: string) {
   return interval;
 }
 
-function createDeferred() {
-  let resolve: () => void = () => undefined;
-  const promise = new Promise<void>((promiseResolve) => {
+function createDeferred<T = void>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((promiseResolve) => {
     resolve = promiseResolve;
   });
   return { promise, resolve };
@@ -142,8 +142,13 @@ describe('TradingViewNative data providers', () => {
       realtime: 'disabled',
     });
 
-    expect(provider.historyBatchSize).toBe(299);
-    expect(provider.historyRequestCandleCount).toBe(2000);
+    expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(2000);
+    expect(
+      provider.hasMoreHistory({
+        interval: getInterval('60'),
+        receivedPointCount: 299,
+      }),
+    ).toBe(true);
 
     await provider.fetchHistory({
       interval: getInterval('60'),
@@ -173,13 +178,12 @@ describe('TradingViewNative data providers', () => {
       realtime: 'disabled',
     });
 
-    expect(provider.historyBatchSize).toBe(299);
-    expect(provider.historyRequestCandleCount).toBe(2000);
+    expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(2000);
   });
 
   it('uses CoinGecko directly for a CoinGecko-only history source', async () => {
     const mocks = globalMockBag.__tradingViewNativeProviderMocks;
-    mocks?.coinGeckoFetchChart.mockResolvedValue([[150, 10]]);
+    mocks?.coinGeckoFetchChart.mockResolvedValue([[7200, 10]]);
     const provider = createTradingViewNativeDataProvider({
       kind: 'market',
       networkId: 'stock--0',
@@ -192,7 +196,18 @@ describe('TradingViewNative data providers', () => {
       },
     });
 
-    expect(provider.historyBatchSize).toBe(1);
+    expect(provider.getHistoryRequestCandleCount(getInterval('5'))).toBe(288);
+    expect(provider.getHistoryRequestCandleCount(getInterval('15'))).toBe(96);
+    expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(720);
+    expect(provider.getHistoryRequestCandleCount(getInterval('1D'))).toBe(
+      36_500,
+    );
+    expect(
+      provider.hasMoreHistory({
+        interval: getInterval('60'),
+        receivedPointCount: 500,
+      }),
+    ).toBe(false);
     expect(provider.key).toBe(
       'market:stock--0:stock-aapl:AAPL:history:coinGecko:apple',
     );
@@ -200,22 +215,54 @@ describe('TradingViewNative data providers', () => {
       provider.fetchHistory({
         interval: getInterval('60'),
         signal: new AbortController().signal,
-        timeFrom: 100,
-        timeTo: 200,
+        timeFrom: 3600,
+        timeTo: 10_800,
       }),
     ).resolves.toEqual({
-      points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 150 }],
+      points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 7200 }],
       total: 1,
     });
     expect(mocks?.marketFetchHistory).not.toHaveBeenCalled();
-    expect(mocks?.coinGeckoFetchChart).toHaveBeenCalledWith('apple', 'max', {
+    expect(mocks?.coinGeckoFetchChart).toHaveBeenCalledWith('apple', '30', {
       requestCurrency: 'usd',
     });
   });
 
-  it('provides CoinGecko fallback to Market history and paginates until empty', async () => {
+  it('deduplicates only in-flight CoinGecko requests', async () => {
     const mocks = globalMockBag.__tradingViewNativeProviderMocks;
-    mocks?.coinGeckoFetchChart.mockResolvedValue([[150, 10]]);
+    const chartRequest = createDeferred<[number, number][]>();
+    mocks?.coinGeckoFetchChart.mockReturnValueOnce(chartRequest.promise);
+    const provider = createTradingViewNativeDataProvider({
+      kind: 'market',
+      networkId: 'stock--0',
+      tokenAddress: 'stock-aapl',
+      symbol: 'AAPL',
+      realtime: 'disabled',
+      history: { provider: 'coinGecko', coinGeckoId: 'apple' },
+    });
+    const request = {
+      interval: getInterval('60'),
+      signal: new AbortController().signal,
+      timeFrom: 3600,
+      timeTo: 10_800,
+    };
+
+    const firstRequest = provider.fetchHistory(request);
+    const secondRequest = provider.fetchHistory(request);
+    expect(mocks?.coinGeckoFetchChart).toHaveBeenCalledTimes(1);
+
+    chartRequest.resolve([[7200, 10]]);
+    await Promise.all([firstRequest, secondRequest]);
+    await expect(provider.fetchHistory(request)).resolves.toEqual({
+      points: [],
+      total: 0,
+    });
+    expect(mocks?.coinGeckoFetchChart).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops Market pagination after switching to CoinGecko fallback', async () => {
+    const mocks = globalMockBag.__tradingViewNativeProviderMocks;
+    mocks?.coinGeckoFetchChart.mockResolvedValue([[7200, 10]]);
     mocks?.marketFetchHistory.mockImplementationOnce(
       async ({
         kLineDataFallback,
@@ -235,8 +282,8 @@ describe('TradingViewNative data providers', () => {
           tokenAddress: '0xabc',
           networkId: 'evm--1',
           interval: '1H',
-          timeFrom: 100,
-          timeTo: 200,
+          timeFrom: 3600,
+          timeTo: 10_800,
         });
       },
     );
@@ -255,16 +302,16 @@ describe('TradingViewNative data providers', () => {
       },
     });
 
-    expect(provider.historyBatchSize).toBe(1);
+    expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(2000);
     await expect(
       provider.fetchHistory({
         interval: getInterval('60'),
         signal: new AbortController().signal,
-        timeFrom: 100,
-        timeTo: 200,
+        timeFrom: 3600,
+        timeTo: 10_800,
       }),
     ).resolves.toEqual({
-      points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 150 }],
+      points: [{ o: 10, h: 10, l: 10, c: 10, v: 0, t: 7200 }],
       total: 1,
     });
     expect(mocks?.marketFetchHistory).toHaveBeenCalledWith(
@@ -276,9 +323,16 @@ describe('TradingViewNative data providers', () => {
         primaryKLineDataUnavailable: false,
       }),
     );
-    expect(mocks?.coinGeckoFetchChart).toHaveBeenCalledWith('token', 'max', {
+    expect(mocks?.coinGeckoFetchChart).toHaveBeenCalledWith('token', '30', {
       requestCurrency: 'usd',
     });
+    expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(720);
+    expect(
+      provider.hasMoreHistory({
+        interval: getInterval('60'),
+        receivedPointCount: 500,
+      }),
+    ).toBe(false);
 
     await provider.fetchHistory({
       interval: getInterval('60'),
@@ -437,9 +491,11 @@ describe('TradingViewNative data providers', () => {
       coin: 'BTC',
       environment: 'testnet',
     });
-    expect(provider.historyBatchSize).toBe(5000);
-    expect(provider.historyRequestCandleCount).toBe(5000);
     const interval = getInterval('240');
+    expect(provider.getHistoryRequestCandleCount(interval)).toBe(5000);
+    expect(
+      provider.hasMoreHistory({ interval, receivedPointCount: 5000 }),
+    ).toBe(true);
     const abortController = new AbortController();
 
     await provider.fetchHistory({

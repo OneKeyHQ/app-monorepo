@@ -318,14 +318,28 @@ export class TradingViewNativeHyperliquidGateway {
     let isClosed = false;
     return {
       ensure: async () => {
-        const currentChannel = this.connections
-          .get(environment)
-          ?.channels.get(channelKey);
+        const currentConnection = this.connections.get(environment);
+        const currentChannel = currentConnection?.channels.get(channelKey);
         if (
-          !isClosed &&
-          currentChannel?.listeners.get(subscriberId) === registration
+          isClosed ||
+          !currentConnection ||
+          currentChannel?.listeners.get(subscriberId) !== registration
         ) {
-          await this.restartConnection(environment);
+          return;
+        }
+
+        try {
+          await currentConnection.transport.ready();
+        } catch {
+          const latestConnection = this.connections.get(environment);
+          const latestChannel = latestConnection?.channels.get(channelKey);
+          if (
+            !isClosed &&
+            latestConnection === currentConnection &&
+            latestChannel?.listeners.get(subscriberId) === registration
+          ) {
+            await this.restartConnection(environment);
+          }
         }
       },
       unsubscribe: async () => {

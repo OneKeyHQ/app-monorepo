@@ -6,11 +6,13 @@ import {
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
   getTradingViewNativeCurrentPriceLayout,
+  getTradingViewNativeMaxVolume,
   getTradingViewNativePriceAtY,
   getTradingViewNativePriceTransform,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
+  getTradingViewNativeVolumeScale,
   getTradingViewNativeWatermarkLayout,
 } from './chartLayout';
 
@@ -104,6 +106,44 @@ describe('TradingViewNative chart layout', () => {
     expect(layout.priceTicks).toHaveLength(7);
     expect(layout.timeTicks.length).toBeGreaterThan(0);
     expect(getTradingViewNativePriceY(layout.maxPrice, layout)).toBe(8);
+  });
+
+  it('scales volume against the currently visible candles', () => {
+    const points = buildPoints({
+      count: 4,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    points[0].v = 1000;
+    points[1].v = 5;
+    points[2].v = 10;
+    points[3].v = 2;
+    const visiblePointRange = { endIndex: 3, startIndex: 1 };
+    const layout = getTradingViewNativeChartLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      height: 300,
+      minimumTimeTickIndexSpacing: 1,
+      points,
+      visiblePointRange,
+      width: 402,
+    });
+
+    expect(
+      getTradingViewNativeMaxVolume({ ...visiblePointRange, points }),
+    ).toBe(10);
+    expect(layout?.maxVolume).toBe(10);
+    expect(
+      getTradingViewNativeVolumeScale({
+        baseMaxVolume: 1000,
+        visibleMaxVolume: 10,
+      }),
+    ).toBe(100);
+    expect(
+      getTradingViewNativeVolumeScale({
+        baseMaxVolume: 1000,
+        visibleMaxVolume: 0,
+      }),
+    ).toBe(1);
   });
 
   it('maps a static price picture into the visible price range', () => {

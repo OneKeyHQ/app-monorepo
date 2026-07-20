@@ -9,6 +9,7 @@ interface IHyperliquidMockBag {
   candleListeners: ICandleListener[];
   candleSnapshot: jest.Mock;
   closeFunctions: jest.Mock[];
+  readyFunctions: jest.Mock[];
   unsubscribeFunctions: jest.Mock[];
 }
 
@@ -22,6 +23,7 @@ jest.mock('@nktkas/hyperliquid', () => {
     candleListeners: [],
     candleSnapshot: jest.fn(),
     closeFunctions: [],
+    readyFunctions: [],
     unsubscribeFunctions: [],
   };
   bag.candle.mockImplementation(
@@ -44,8 +46,10 @@ jest.mock('@nktkas/hyperliquid', () => {
     SubscriptionClient: jest.fn(() => ({ candle: bag.candle })),
     WebSocketTransport: jest.fn(() => {
       const close = jest.fn().mockResolvedValue(undefined);
+      const ready = jest.fn().mockResolvedValue(undefined);
       bag.closeFunctions.push(close);
-      return { close };
+      bag.readyFunctions.push(ready);
+      return { close, ready };
     }),
   };
 });
@@ -87,6 +91,7 @@ describe('TradingViewNative Hyperliquid gateway', () => {
     if (mocks) {
       mocks.candleListeners.length = 0;
       mocks.closeFunctions.length = 0;
+      mocks.readyFunctions.length = 0;
       mocks.unsubscribeFunctions.length = 0;
       mocks.candleSnapshot.mockResolvedValue([]);
     }
@@ -157,7 +162,7 @@ describe('TradingViewNative Hyperliquid gateway', () => {
     expect(mocks?.unsubscribeFunctions[0]).toHaveBeenCalledTimes(1);
   });
 
-  it('restarts one shared connection and resubscribes active channels', async () => {
+  it('keeps a healthy shared connection open while ensuring a quiet channel', async () => {
     const gateway = new TradingViewNativeHyperliquidGateway();
     const listener = jest.fn();
     const subscription = await gateway.subscribeCandle({
@@ -168,6 +173,33 @@ describe('TradingViewNative Hyperliquid gateway', () => {
       subscriberId: 'chart',
     });
     const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
+
+    await subscription.ensure();
+    expect(mocks?.readyFunctions[0]).toHaveBeenCalledTimes(1);
+    expect(mocks?.closeFunctions[0]).not.toHaveBeenCalled();
+    expect(mocks?.candle).toHaveBeenCalledTimes(1);
+    mocks?.candleListeners[0]?.(buildCandle());
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    await subscription.unsubscribe();
+    expect(mocks?.unsubscribeFunctions[0]).toHaveBeenCalledTimes(1);
+    expect(mocks?.closeFunctions[0]).toHaveBeenCalledTimes(1);
+  });
+
+  it('restarts a shared connection only after transport readiness fails', async () => {
+    const gateway = new TradingViewNativeHyperliquidGateway();
+    const listener = jest.fn();
+    const subscription = await gateway.subscribeCandle({
+      coin: 'BTC',
+      environment: 'mainnet',
+      interval: '1h',
+      listener,
+      subscriberId: 'chart',
+    });
+    const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
+    mocks?.readyFunctions[0]?.mockRejectedValueOnce(
+      new Error('transport terminated'),
+    );
 
     await subscription.ensure();
     expect(mocks?.closeFunctions[0]).toHaveBeenCalledTimes(1);
@@ -192,11 +224,17 @@ describe('TradingViewNative Hyperliquid gateway', () => {
     });
     const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
     const closeRequest = createDeferred();
-    mocks?.closeFunctions[0]?.mockReturnValueOnce(closeRequest.promise);
+    const closeStarted = createDeferred();
+    mocks?.readyFunctions[0]?.mockRejectedValueOnce(
+      new Error('transport terminated'),
+    );
+    mocks?.closeFunctions[0]?.mockImplementationOnce(() => {
+      closeStarted.resolve();
+      return closeRequest.promise;
+    });
 
     const ensureRequest = subscription.ensure();
-    await Promise.resolve();
-    await Promise.resolve();
+    await closeStarted.promise;
     expect(mocks?.closeFunctions[0]).toHaveBeenCalledTimes(1);
     const unsubscribeRequest = subscription.unsubscribe();
 
@@ -224,11 +262,17 @@ describe('TradingViewNative Hyperliquid gateway', () => {
     });
     const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
     const closeRequest = createDeferred();
-    mocks?.closeFunctions[0]?.mockReturnValueOnce(closeRequest.promise);
+    const closeStarted = createDeferred();
+    mocks?.readyFunctions[0]?.mockRejectedValueOnce(
+      new Error('transport terminated'),
+    );
+    mocks?.closeFunctions[0]?.mockImplementationOnce(() => {
+      closeStarted.resolve();
+      return closeRequest.promise;
+    });
 
     const ensureRequest = firstSubscription.ensure();
-    await Promise.resolve();
-    await Promise.resolve();
+    await closeStarted.promise;
     expect(mocks?.closeFunctions[0]).toHaveBeenCalledTimes(1);
     const secondSubscriptionRequest = gateway.subscribeCandle({
       coin: 'BTC',

@@ -24,9 +24,16 @@ export interface ITradingViewNativeRealtimeSubscriptionRequest {
   subscriberId: string;
 }
 
+export interface ITradingViewNativeHistoryPageInfo {
+  interval: ITradingViewNativeKLineInterval;
+  receivedPointCount: number;
+}
+
 export interface ITradingViewNativeDataProvider {
-  historyBatchSize: number;
-  historyRequestCandleCount: number;
+  getHistoryRequestCandleCount: (
+    interval: ITradingViewNativeKLineInterval,
+  ) => number;
+  hasMoreHistory: (page: ITradingViewNativeHistoryPageInfo) => boolean;
   isReady: boolean;
   key: string;
   supportsRealtime: boolean;

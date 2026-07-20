@@ -4,15 +4,16 @@ import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2'
 
 import {
   convertCoinGeckoChartToKLineResponse,
-  getCoinGeckoChartDays,
+  getCoinGeckoChartDaysForInterval,
 } from './coinGeckoKLineUtils';
 
 import type { ITradingViewNativeHistoryRequest } from './tradingViewNativeDataProviderTypes';
 
 export function createCoinGeckoKLineDataFetcher(coinGeckoId: string) {
-  const chartDataCache = new Map<string, Promise<IMarketTokenChart>>();
+  const chartDataRequests = new Map<string, Promise<IMarketTokenChart>>();
 
   return async ({
+    interval,
     signal,
     timeFrom,
     timeTo,
@@ -21,20 +22,21 @@ export function createCoinGeckoKLineDataFetcher(coinGeckoId: string) {
       return null;
     }
 
-    const days = getCoinGeckoChartDays({ timeFrom, timeTo });
-    let chartDataPromise = chartDataCache.get(days);
+    const days = getCoinGeckoChartDaysForInterval(interval);
+    let chartDataPromise = chartDataRequests.get(days);
     if (!chartDataPromise) {
       chartDataPromise = backgroundApiProxy.serviceMarket.fetchTokenChart(
         coinGeckoId,
         days,
         { requestCurrency: 'usd' },
       );
-      chartDataCache.set(days, chartDataPromise);
+      chartDataRequests.set(days, chartDataPromise);
     }
 
-    const chartData = await chartDataPromise.catch((error) => {
-      chartDataCache.delete(days);
-      throw error;
+    const chartData = await chartDataPromise.finally(() => {
+      if (chartDataRequests.get(days) === chartDataPromise) {
+        chartDataRequests.delete(days);
+      }
     });
     if (signal.aborted) {
       return null;
@@ -42,6 +44,7 @@ export function createCoinGeckoKLineDataFetcher(coinGeckoId: string) {
 
     return convertCoinGeckoChartToKLineResponse({
       chartData,
+      intervalSeconds: interval.seconds,
       timeFrom,
       timeTo,
     });
