@@ -198,4 +198,26 @@ describe('home shell compatibility adapters', () => {
       }),
     ).toEqual({ balanceState: 'positive' });
   });
+
+  it('keeps a non-native Legacy renderer independent from semantic shadow loading', () => {
+    expect(
+      resolveHomeBalancePresentation({
+        legacyState: 'positive',
+        semanticPresentationEnabled: false,
+        shadowFactsPresent: true,
+        shell: {
+          kind: 'portfolio',
+          presentation: {
+            kind: 'fundedPendingTotal',
+            header: { kind: 'loading' },
+            actions: {
+              kind: 'funded',
+              items: ['send', 'receive', 'buySell', 'swap'],
+            },
+            banner: { kind: 'positive' },
+          },
+        },
+      }),
+    ).toEqual({ balanceState: 'positive' });
+  });
 });

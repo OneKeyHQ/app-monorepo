@@ -2189,6 +2189,7 @@ function TokenListBlock({
     onFinished: handleAllNetworkRequestsFinished,
     onCacheChecked: handleAllNetworkCacheChecked,
     onRequestSettled: handleAllNetworkRequestSettled,
+    runIdentityKey: legacySpotIdentityKey,
     shouldAlwaysFetch,
   });
 

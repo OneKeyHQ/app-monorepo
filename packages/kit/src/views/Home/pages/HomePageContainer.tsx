@@ -121,11 +121,16 @@ export function HomeLaunchGatedContent({
   const walletListWallet = walletListResult?.wallets.find(
     (item) => item.id === wallet?.id,
   );
+  const shouldGateHome = platformEnv.isNative;
+  // Non-native runtimes do not initialize the native onboarding launch gate.
+  const surfaceLaunchDecision = shouldGateHome
+    ? launchSnapshot.decision
+    : 'main';
   const previousPageSurfaceRef = useRef<
     IHomeWalletPageSurfaceState | undefined
   >(undefined);
   const pageSurface = resolveHomeWalletPageSurface({
-    launchDecision: launchSnapshot.decision,
+    launchDecision: surfaceLaunchDecision,
     walletContentReadiness,
     activeWallet: wallet,
     walletListWallet,
@@ -143,7 +148,6 @@ export function HomeLaunchGatedContent({
     walletListReady: !walletListPending,
     activeWalletReady: pageSurface.surface !== 'pending',
   });
-  const shouldGateHome = platformEnv.isNative;
   const currentGenerationReady =
     launchSnapshot.readyHomeGeneration >= launchSnapshot.requiredHomeGeneration;
   const isHomeVisible =

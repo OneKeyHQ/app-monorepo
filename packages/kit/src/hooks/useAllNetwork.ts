@@ -306,6 +306,8 @@ function useAllNetworkRequests<T, TRunContext = void>(params: {
   isDeFiRequests?: boolean;
   disabled?: boolean;
   shouldAlwaysFetch?: boolean;
+  // Consumer source authority can change while wallet/account/network stay fixed.
+  runIdentityKey?: string;
   onStarted?: ({
     accountId,
     networkId,
@@ -360,6 +362,7 @@ function useAllNetworkRequests<T, TRunContext = void>(params: {
     isDeFiRequests,
     disabled,
     shouldAlwaysFetch,
+    runIdentityKey,
     onStarted,
     onFinished,
     onCacheChecked,
@@ -518,7 +521,7 @@ function useAllNetworkRequests<T, TRunContext = void>(params: {
       alwaysSetStateRef.current = false;
       const currentRunSignature = `${currentAccountId}|${currentNetworkId}|${currentWalletId}|${
         isNFTRequests ? 1 : 0
-      }|${isDeFiRequests ? 1 : 0}`;
+      }|${isDeFiRequests ? 1 : 0}|${runIdentityKey ?? ''}`;
       const isMustRun =
         alwaysSetStateForThisRun ||
         skipAccountsCacheRef.current ||
@@ -972,6 +975,7 @@ function useAllNetworkRequests<T, TRunContext = void>(params: {
       allNetworkCacheData,
       allNetworkRequests,
       onRequestSettled,
+      runIdentityKey,
     ],
     {
       revalidateOnFocus,

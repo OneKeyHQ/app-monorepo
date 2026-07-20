@@ -109,14 +109,19 @@ function resolveHomeLegacyBalanceState({
 function resolveHomeBalancePresentation({
   legacyState,
   ownerToken,
+  semanticPresentationEnabled = true,
   shadowFactsPresent,
   shell,
 }: {
   legacyState: 'unknown' | 'zero' | 'positive';
   ownerToken?: IHomeRuntimeOwnerToken;
+  semanticPresentationEnabled?: boolean;
   shadowFactsPresent: boolean;
   shell?: IHomeShellSemanticModel;
 }): IHomeBalancePresentation {
+  if (!semanticPresentationEnabled) {
+    return { balanceState: legacyState };
+  }
   if (shell) {
     const legacyPresentation = adaptHomeShellToLegacy(shell);
     const revision = stringUtils.stableStringify({ ownerToken, shell });

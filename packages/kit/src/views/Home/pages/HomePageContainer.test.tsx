@@ -40,6 +40,7 @@ let mockLaunchSnapshot: {
 let mockAccountSelectorStorageInitDone: boolean;
 let mockActiveAccountInitDone: boolean;
 let mockShadowBridgeMounts = 0;
+let mockIsNative = true;
 const mockTestGlobal = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean;
 };
@@ -64,7 +65,11 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: true },
+  default: {
+    get isNative() {
+      return mockIsNative;
+    },
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
@@ -261,6 +266,7 @@ beforeEach(() => {
   mockAccountSelectorStorageInitDone = true;
   mockActiveAccountInitDone = true;
   mockShadowBridgeMounts = 0;
+  mockIsNative = true;
 });
 
 describe('HomePageContainer shadow authority integration', () => {
@@ -292,6 +298,24 @@ afterAll(() => {
 });
 
 describe('HomeLaunchGatedContent surface ownership', () => {
+  it('does not gate non-native legacy Home on the native launch decision', () => {
+    mockIsNative = false;
+    mockLaunchSnapshot.decision = 'unknown';
+    const backedUp = hdWallet(true);
+    setWalletState({ activeWallet: backedUp, walletListWallet: backedUp });
+
+    let view!: ReactTestRenderer;
+    act(() => {
+      view = create(renderOwner(false));
+    });
+
+    expect(view.root.findAllByProps({ testID: 'surface-legacy' })).toHaveLength(
+      1,
+    );
+    expect(mockSurfaceLifecycle.native.mounts).toBe(0);
+    act(() => view.unmount());
+  });
+
   it('keeps one Empty page through same-wallet refetch and switches once after backup', () => {
     let view!: ReactTestRenderer;
     act(() => {
