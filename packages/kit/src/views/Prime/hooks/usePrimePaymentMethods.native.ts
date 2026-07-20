@@ -23,6 +23,11 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import {
+  emitPrimeSubscriptionPurchaseSuccess,
+  preparePrimeSubscriptionPurchaseSuccess,
+  refreshPrimeUserInfoAfterPurchase,
+} from '../primeSubscriptionPurchaseSuccess';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
@@ -270,6 +275,11 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       subscriptionPeriod: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
     }) => {
+      // This hook is the single owner of the post-purchase refresh for native
+      // IAP: the success path runs claim -> refresh -> emit below, and the
+      // finally block covers failed/cancelled purchases exactly once. Callers
+      // must not add their own refresh.
+      let isPurchaseSuccessful = false;
       try {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth native not ready!');
@@ -292,6 +302,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           throw new OneKeyLocalError('Offering not found');
         }
 
+        const purchaseUserId = user.onekeyUserId;
+        if (!purchaseUserId) {
+          throw new OneKeyLocalError('User not logged in');
+        }
         const makePurchaseResult =
           await PurchasesReactNative.purchasePackage(offering);
 
@@ -299,6 +313,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           makePurchaseResult?.customerInfo?.entitlements?.active?.Prime
             ?.isActive
         ) {
+          isPurchaseSuccessful = true;
+          const purchaseSuccessPayload =
+            await preparePrimeSubscriptionPurchaseSuccess(purchaseUserId);
           // Set subscriptionManageUrl immediately from purchase result,
           // because the server may not yet have it (RevenueCat webhook delay).
           setPrimePersistAtom(
@@ -311,7 +328,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
                   '',
               }),
           );
-          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+          await refreshPrimeUserInfoAfterPurchase();
 
           const rawPrice =
             subscriptionPeriod === 'P1Y'
@@ -339,6 +356,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
             onConfirmText: intl.formatMessage({
               id: ETranslations.global_ok,
             }),
+            onClose: () => {
+              emitPrimeSubscriptionPurchaseSuccess(purchaseSuccessPayload);
+            },
           });
         }
         return makePurchaseResult;
@@ -350,9 +370,14 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         throw error;
       } finally {
         await backgroundApiProxy.serviceApp.hideDialogLoading();
+        if (!isPurchaseSuccessful) {
+          // Defensive single refresh after a failed/cancelled purchase, in
+          // case the store transaction went further than the SDK reported.
+          await refreshPrimeUserInfoAfterPurchase();
+        }
       }
     },
-    [isReady, intl, loginPurchasesSdk, setPrimePersistAtom],
+    [isReady, intl, loginPurchasesSdk, setPrimePersistAtom, user.onekeyUserId],
   );
 
   return {
