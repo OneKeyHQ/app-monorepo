@@ -93,7 +93,7 @@ index b1aa15af67..6d5be881e1 100644
                  )
              }
          } catch (e: Exception) {
-@@ -213,14 +199,14 @@ CaptureProtectionModuleSpec(reactContext), LifecycleEventListener {
+@@ -213,19 +199,20 @@ CaptureProtectionModuleSpec(reactContext), LifecycleEventListener {
              CaptureProtectionModule.unregisterScreenCaptureCallback?.let { method ->
                  method.invoke(
                          reactCurrentActivity,
@@ -110,6 +110,12 @@ index b1aa15af67..6d5be881e1 100644
                      displayManager.unregisterDisplayListener(it)
                  }
              } catch (_: Exception) {
+                 // nothing
+             }
++            removeScreenCaptureListener()
+             eventJob?.cancel()
+             screens.clear()
+         }
 @@ -295,10 +281,10 @@ CaptureProtectionModuleSpec(reactContext), LifecycleEventListener {
          reflectionCallback()
  
