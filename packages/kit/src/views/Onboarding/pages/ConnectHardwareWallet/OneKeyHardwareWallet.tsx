@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 
 import {
   EPageType,
@@ -23,6 +23,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 /**
  * Displays a full-screen promotional page for the OneKey hardware wallet with a video background, localized text, and a button to purchase the device.
@@ -33,16 +34,8 @@ export function OneKeyHardwareWallet() {
   const { bottom, top } = useSafeAreaInsets();
   const intl = useIntl();
 
-  const handleBuyButtonPress = useCallback(async () => {
-    const url = ONEKEY_BUY_HARDWARE_URL;
-
-    const supported = await Linking.canOpenURL(url);
-
-    if (supported) {
-      await Linking.openURL(url);
-    } else {
-      alert(`Don't know how to open this URL: ${url}`);
-    }
+  const handleBuyButtonPress = useCallback(() => {
+    openUrlExternal(ONEKEY_BUY_HARDWARE_URL);
   }, []);
 
   const { width } = useWindowDimensions();

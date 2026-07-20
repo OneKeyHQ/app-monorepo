@@ -10,6 +10,7 @@ import {
   rootNavigationRef,
   useRouterEventsRef,
 } from '@onekeyhq/components';
+import { OAUTH_CALLBACK_WEB_PATH } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
@@ -25,6 +26,10 @@ import { rootRouter, useRootRouter } from '../router';
 import { registerDeepLinking } from './deeplink';
 import { getStateFromPath } from './getStateFromPath';
 import { captureAndReportLoggerUtmParamsFromUrl } from './loggerUtmParams';
+import {
+  getWebDappAllowListRule,
+  getWebDappUrlFallback,
+} from './webDappUrlFallback';
 
 import type { LinkingOptions } from '@react-navigation/native';
 
@@ -66,6 +71,18 @@ const MODAL_PATH = `/${ERootRoutes.Modal}`;
 const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
 const FULL_SCREEN_PUSH_PATH = `/${ERootRoutes.FullScreenPush}`;
 
+// Compare ignoring trailing slashes: the Supabase redirect lands on
+// '/oauth_callback_web/?code=...' while getPathFromState later re-syncs the
+// URL without the trailing slash.
+const OAUTH_CALLBACK_WEB_PATH_NORMALIZED = OAUTH_CALLBACK_WEB_PATH.replace(
+  /\/+$/,
+  '',
+);
+const isOAuthCallbackWebPath = (path: string) => {
+  const pathPart = path.split('?')[0] || '';
+  return pathPart.replace(/\/+$/, '') === OAUTH_CALLBACK_WEB_PATH_NORMALIZED;
+};
+
 const onGetStateFromPath = (path: string, options?: any) => {
   captureAndReportLoggerUtmParamsFromUrl(path);
   if (platformEnv.isWeb) {
@@ -73,6 +90,13 @@ const onGetStateFromPath = (path: string, options?: any) => {
   }
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('getStateFromPath', `path="${path}"`);
+  }
+  // OAuth popup callback (web): resolve the path as-is so the redirect query
+  // (?code=...&onekey_oauth_state=...) is never touched by the referral `?r=`
+  // or WebDappMode landing rewrites below — the opener window polls
+  // popup.location.href to read the authorization code.
+  if (platformEnv.isWeb && isOAuthCallbackWebPath(path)) {
+    return getStateFromPath(path, options);
   }
   // Web platform: rewrite ?r= referral parameter to /r/{code}/app/{page} format
   if (platformEnv.isWeb) {
@@ -138,21 +162,30 @@ const useBuildLinking = (): LinkingOptions<any> => {
        * Only change url at whitelist routes, or return home page
        */
       getPathFromState(state, options) {
+        // OAuth popup callback (web): while the popup sits on
+        // OAUTH_CALLBACK_WEB_PATH with a `?code=` query, never let any
+        // navigation-state change (e.g. an auto-opened modal) rewrite the
+        // browser URL — the opener window polls popup.location.href to read
+        // the authorization code and closes the popup itself. The normal case
+        // is already covered by the OAuthCallbackWeb allowList rule; this is
+        // a guard against unrelated state changes racing the poller.
+        if (
+          platformEnv.isWeb &&
+          isOAuthCallbackWebPath(globalThis.location?.pathname || '') &&
+          (globalThis.location?.search || '').includes('code=')
+        ) {
+          return `${globalThis.location.pathname}${globalThis.location.search}`;
+        }
         const defaultPath = getPathFromStateDefault(state, options);
         const defaultPathWithoutQuery = (defaultPath.split('?')[0] || '')
           .replace(FULL_SCREEN_MODAL_PATH, MODAL_PATH)
           .replace(FULL_SCREEN_PUSH_PATH, MODAL_PATH);
 
-        let rule = allowList[defaultPathWithoutQuery];
-
-        if (!rule) {
-          const key = allowListKeys.find((k) =>
-            new RegExp(k).test(defaultPath),
-          );
-          if (key) {
-            rule = allowList[key];
-          }
-        }
+        const rule = getWebDappAllowListRule({
+          allowList,
+          allowListKeys,
+          path: defaultPathWithoutQuery,
+        });
 
         if (process.env.NODE_ENV !== 'production') {
           const mainRoute = state?.routes?.[state?.index ?? 0];
@@ -172,9 +205,13 @@ const useBuildLinking = (): LinkingOptions<any> => {
         }
 
         if (!rule?.showUrl) {
-          // WebDappMode: fallback to /market instead of / to avoid URL bounce
           if (platformEnv.isWebDappMode) {
-            return '/market';
+            return getWebDappUrlFallback({
+              allowList,
+              allowListKeys,
+              currentPath: globalThis.location?.pathname,
+              currentSearch: globalThis.location?.search,
+            });
           }
           return ROOT_PATH;
         }

@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { OneKeyIdAvatar } from '@onekeyhq/kit/src/components/OneKeyIdAvatar';
@@ -39,6 +40,7 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { OneKeyIdLegacyOAuthBindPrompt } from '../../components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 import { PrimeUserBadge } from '../../components/PrimeUserBadge';
 import { usePrimeAvailable } from '../../hooks/usePrimeAvailable';
 import { PrimeTestIDs } from '../../testIDs';
@@ -233,8 +235,12 @@ function OneKeyIdProfilePanel({
   const intl = useIntl();
   const media = useMedia();
   const { user } = useOneKeyAuth();
-  const displayName = user?.nickname || user?.displayEmail || ONEKEY_ID_TITLE;
-  const email = user?.displayEmail || user?.email || ONEKEY_ID_TITLE;
+  const displayEmail = getDisplayEmailOrUnknown({
+    intl,
+    displayEmail: user?.displayEmail,
+  });
+  const displayName = user?.nickname || displayEmail;
+  const email = displayEmail;
   const avatarSize = media.gtMd ? '$20' : '$12';
   const nameTextSize = media.gtMd ? '$headingMd' : '$headingLg';
   const emailTextSize = '$bodyMd';
@@ -554,7 +560,7 @@ function OneKeyIdPage() {
           <YStack
             px="$5"
             pt="$0"
-            pb="$4"
+            pb="$8"
             gap="$4"
             flex={1}
             $gtMd={{
@@ -604,6 +610,11 @@ function OneKeyIdPage() {
                   onDeleteAccount={handleDeleteAccount}
                 />
               </OneKeyIdSection>
+
+              <OneKeyIdLegacyOAuthBindPrompt
+                isLoggedIn={Boolean(isLoggedIn)}
+                isFocused={isFocused}
+              />
             </YStack>
           </YStack>
         </ScrollView>

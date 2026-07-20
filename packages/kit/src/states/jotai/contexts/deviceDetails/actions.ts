@@ -133,7 +133,7 @@ async function buildDeviceMetaState(
     isVerified,
     unlocked: features.unlocked !== false,
     initialized: features.initialized !== false,
-    backupRequired: Boolean(features.needs_backup),
+    backupRequired: Boolean(features.backupRequired),
     unlockedByAttachToPin: false,
     passphraseEnabled: Boolean(features?.passphraseProtection),
     pinOnAppEnabled: Boolean(device.settings?.inputPinOnSoftware),

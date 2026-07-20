@@ -450,22 +450,13 @@ function FinalizeWalletSetupPage({
                   if (!keylessDetailsInfo?.keylessOwnerId) {
                     return;
                   }
-                  const refreshResult =
-                    await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
-                      {
-                        ownerId: keylessDetailsInfo?.keylessOwnerId,
-                        forceRefresh: true,
-                      },
-                    );
-                  if (
-                    !refreshResult?.accessToken ||
-                    !refreshResult?.refreshToken
-                  ) {
+                  const token =
+                    await backgroundApiProxy.serviceKeylessWallet.getActiveKeylessOAuthAccessTokenForLocalWallet();
+                  if (!token) {
                     return;
                   }
-                  const { accessToken: token, refreshToken } = refreshResult;
                   const pin = await getKeylessOnboardingPin();
-                  if (!token || !pin || !refreshToken) {
+                  if (!pin) {
                     console.error(
                       'Skip keyless auto reset pin: missing onboarding token or pin.',
                     );
@@ -475,7 +466,6 @@ function FinalizeWalletSetupPage({
                   await backgroundApiProxy.serviceKeylessWallet.autoResetKeylessWalletPinAfterRestoreForSameEmailAccount(
                     {
                       token,
-                      refreshToken: refreshToken || undefined,
                       pin,
                     },
                   );
@@ -484,6 +474,18 @@ function FinalizeWalletSetupPage({
                     'autoResetKeylessWalletPinAfterRestoreForSameEmailAccount error:',
                     autoResetError,
                   );
+                  // A swallowed failure here leaves the server share under
+                  // the old provider/PIN while the UI reports success —
+                  // an inconsistent keyless wallet state. Mirror the reason
+                  // into exported logs so it stays diagnosable in production
+                  // (the bg-side @toastIfError decorator already surfaces a
+                  // toast for this rejected background call).
+                  defaultLogger.wallet.keyless.dataCorruptedError({
+                    reason: `autoResetKeylessWalletPinAfterRestoreForSameEmailAccount failed: ${
+                      (autoResetError as Error | undefined)?.message ||
+                      String(autoResetError)
+                    }`,
+                  });
                 }
               })();
             }

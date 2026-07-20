@@ -19,6 +19,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { prepareSwapProEntry } from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ESwapProJumpTokenDirection,
@@ -35,8 +36,17 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
 
+import { ESwapDirection } from './hooks/useTradeType';
 import SwapPanelFooterButtons from './SwapPanelFooterButtons';
 import { SwapPanelWrap } from './SwapPanelWrap';
+
+const SWAP_PRO_ENTRY_DIRECTION_MAP: Record<
+  ESwapProJumpTokenDirection,
+  ESwapDirection
+> = {
+  [ESwapProJumpTokenDirection.BUY]: ESwapDirection.BUY,
+  [ESwapProJumpTokenDirection.SELL]: ESwapDirection.SELL,
+};
 
 function LgTradeButton({
   swapToken,
@@ -129,14 +139,19 @@ export function SwapPanel({
   const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
 
   const handleTrade = useCallback(() => {
+    const direction = ESwapProJumpTokenDirection.BUY;
     setSwapProJumpTokenAtom({
       token: swapToken,
-      direction: ESwapProJumpTokenDirection.BUY,
+      direction,
       marketPresetToken: {
         networkId: swapToken.networkId,
         contractAddress: swapToken.contractAddress,
         isNative: swapToken.isNative,
       },
+    });
+    prepareSwapProEntry({
+      direction: SWAP_PRO_ENTRY_DIRECTION_MAP[direction],
+      token: swapToken,
     });
     navigation.pop();
     navigation.switchTab(ETabRoutes.Swap);

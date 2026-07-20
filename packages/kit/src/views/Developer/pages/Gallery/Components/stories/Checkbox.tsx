@@ -21,14 +21,13 @@ function CheckboxDemo({ ...props }: ICheckboxProps) {
 
 function CheckboxGroupDemo() {
   const [val, setVal] = useState<ICheckedState[]>([false, true, false]);
+  const listStyle = {
+    // height: 200,
+  };
   return (
     <Checkbox.Group
       label="All"
-      listStyle={
-        {
-          // height: 200,
-        }
-      }
+      listStyle={listStyle}
       options={[
         { label: 'Apple' },
         { label: 'Banana' },

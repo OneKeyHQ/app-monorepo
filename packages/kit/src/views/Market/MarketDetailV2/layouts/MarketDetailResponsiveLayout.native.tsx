@@ -4,6 +4,14 @@ import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiv
 
 export function MarketDetailResponsiveLayout({
   disableTrade,
+  networkId,
+  tokenAddress,
 }: IMarketDetailResponsiveLayoutProps) {
-  return <MobileLayout disableTrade={disableTrade} />;
+  return (
+    <MobileLayout
+      disableTrade={disableTrade}
+      networkId={networkId}
+      tokenAddress={tokenAddress}
+    />
+  );
 }

@@ -1,0 +1,68 @@
+diff --git a/node_modules/@onekeyfe/hd-shared/dist/HardwareError.d.ts b/node_modules/@onekeyfe/hd-shared/dist/HardwareError.d.ts
+index 3cd1a45..1359aae 100644
+--- a/node_modules/@onekeyfe/hd-shared/dist/HardwareError.d.ts
++++ b/node_modules/@onekeyfe/hd-shared/dist/HardwareError.d.ts
+@@ -116,6 +116,7 @@ export declare const HardwareErrorCode: {
+     readonly TooManyInputs: 827;
+     readonly PinMismatch: 828;
+     readonly DeviceLocked: 829;
++    readonly KaspaPrevTxIdMismatch: 830;
+     readonly LowlevelTrasnportConnectError: 900;
+     readonly WebDeviceNotFoundOrNeedsPermission: 901;
+     readonly WebDevicePromptAccessError: 902;
+diff --git a/node_modules/@onekeyfe/hd-shared/dist/index.d.ts b/node_modules/@onekeyfe/hd-shared/dist/index.d.ts
+index 7b36b31..951ef37 100644
+--- a/node_modules/@onekeyfe/hd-shared/dist/index.d.ts
++++ b/node_modules/@onekeyfe/hd-shared/dist/index.d.ts
+@@ -176,6 +176,7 @@ declare const HardwareErrorCode: {
+     readonly TooManyInputs: 827;
+     readonly PinMismatch: 828;
+     readonly DeviceLocked: 829;
++    readonly KaspaPrevTxIdMismatch: 830;
+     readonly LowlevelTrasnportConnectError: 900;
+     readonly WebDeviceNotFoundOrNeedsPermission: 901;
+     readonly WebDevicePromptAccessError: 902;
+diff --git a/node_modules/@onekeyfe/hd-shared/dist/index.js b/node_modules/@onekeyfe/hd-shared/dist/index.js
+index 85a03a0..356bd94 100644
+--- a/node_modules/@onekeyfe/hd-shared/dist/index.js
++++ b/node_modules/@onekeyfe/hd-shared/dist/index.js
+@@ -165,6 +165,7 @@ const HardwareErrorCode = {
+     TooManyInputs: 827,
+     PinMismatch: 828,
+     DeviceLocked: 829,
++    KaspaPrevTxIdMismatch: 830,
+     LowlevelTrasnportConnectError: 900,
+     WebDeviceNotFoundOrNeedsPermission: 901,
+     WebDevicePromptAccessError: 902,
+@@ -270,6 +271,7 @@ const HardwareErrorCodeMessage = {
+     [HardwareErrorCode.TooManyInputs]: 'Too many inputs',
+     [HardwareErrorCode.PinMismatch]: 'PIN mismatch',
+     [HardwareErrorCode.DeviceLocked]: 'Device locked',
++    [HardwareErrorCode.KaspaPrevTxIdMismatch]: 'Kaspa previous transaction id mismatch',
+     [HardwareErrorCode.LowlevelTrasnportConnectError]: 'Lowlevel transport connect error',
+     [HardwareErrorCode.WebDeviceNotFoundOrNeedsPermission]: 'Web-USB or Web-Bluetooth device not found or needs permission',
+     [HardwareErrorCode.WebDevicePromptAccessError]: 'Web-USB or Web-Bluetooth device prompt access error',
+diff --git a/node_modules/@onekeyfe/hd-shared/src/HardwareError.ts b/node_modules/@onekeyfe/hd-shared/src/HardwareError.ts
+index 43ab8da..9007724 100644
+--- a/node_modules/@onekeyfe/hd-shared/src/HardwareError.ts
++++ b/node_modules/@onekeyfe/hd-shared/src/HardwareError.ts
+@@ -490,6 +490,11 @@ export const HardwareErrorCode = {
+    */
+   DeviceLocked: 829,
+ 
++  /**
++   * Device refused to sign because refTxs do not match the spent outpoint.
++   */
++  KaspaPrevTxIdMismatch: 830,
++
+   /**
+    * Lowlevel transport connect error
+    */
+@@ -642,6 +647,7 @@ export const HardwareErrorCodeMessage: HardwareErrorCodeMessageMapping = {
+   [HardwareErrorCode.TooManyInputs]: 'Too many inputs',
+   [HardwareErrorCode.PinMismatch]: 'PIN mismatch',
+   [HardwareErrorCode.DeviceLocked]: 'Device locked',
++  [HardwareErrorCode.KaspaPrevTxIdMismatch]: 'Kaspa previous transaction id mismatch',
+ 
+   /**
+    * Lowlevel transport

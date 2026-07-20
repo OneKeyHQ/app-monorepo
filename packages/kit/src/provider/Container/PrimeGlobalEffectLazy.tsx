@@ -5,6 +5,12 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+
+type IPrimeLoginInvalidTokenPayload =
+  IAppEventBusPayload[EAppEventBusNames.PrimeLoginInvalidToken];
+type IPrimeSubscriptionPurchaseSuccessPayload =
+  IAppEventBusPayload[EAppEventBusNames.PrimeSubscriptionPurchaseSuccess];
 
 const PRIME_GLOBAL_EFFECT_DELAY_MS = 1500;
 
@@ -16,7 +22,11 @@ function PrimeGlobalEffectLazyCmp() {
   const [ContainerImpl, setContainerImpl] =
     useState<IPrimeGlobalEffectComponent | null>(null);
   const containerLoadedRef = useRef(false);
-  const hasPendingInvalidTokenEventRef = useRef(false);
+  // Events that arrived before the lazy container mounted, buffered as replay
+  // closures keyed by event name (latest payload wins per event). Each closure
+  // captures its own re-emit form: invalid-token replays via `emit`, purchase
+  // success via `emitToSelf` (it must stay UI-local).
+  const pendingReplaysRef = useRef(new Map<EAppEventBusNames, () => void>());
   const replayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -38,11 +48,49 @@ function PrimeGlobalEffectLazyCmp() {
   }, [requestMount]);
 
   useEffect(() => {
-    const handleInvalidToken = () => {
+    const handlePurchaseSuccess = (
+      payload: IPrimeSubscriptionPurchaseSuccessPayload,
+    ) => {
       if (containerLoadedRef.current) {
         return;
       }
-      hasPendingInvalidTokenEventRef.current = true;
+      pendingReplaysRef.current.set(
+        EAppEventBusNames.PrimeSubscriptionPurchaseSuccess,
+        () =>
+          appEventBus.emitToSelf({
+            type: EAppEventBusNames.PrimeSubscriptionPurchaseSuccess,
+            payload,
+            isRemote: false,
+          }),
+      );
+      requestMount();
+    };
+    appEventBus.on(
+      EAppEventBusNames.PrimeSubscriptionPurchaseSuccess,
+      handlePurchaseSuccess,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.PrimeSubscriptionPurchaseSuccess,
+        handlePurchaseSuccess,
+      );
+    };
+  }, [requestMount]);
+
+  useEffect(() => {
+    const handleInvalidToken = (payload: IPrimeLoginInvalidTokenPayload) => {
+      if (containerLoadedRef.current) {
+        return;
+      }
+      // Capture the payload so the replay keeps the source-aware cleanup
+      // information (authSessionSource / clearedByBackground) — a payload
+      // dropped to undefined would send the handler down the payload-less
+      // legacy fallback branch instead of the keyless sign-out.
+      pendingReplaysRef.current.set(
+        EAppEventBusNames.PrimeLoginInvalidToken,
+        () =>
+          appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, payload),
+      );
       requestMount();
     };
     appEventBus.on(
@@ -77,12 +125,13 @@ function PrimeGlobalEffectLazyCmp() {
   }, [ContainerImpl, loadRequestSeq, shouldMount]);
 
   useEffect(() => {
-    if (!ContainerImpl || !hasPendingInvalidTokenEventRef.current) {
+    if (!ContainerImpl || !pendingReplaysRef.current.size) {
       return;
     }
-    hasPendingInvalidTokenEventRef.current = false;
+    const replays = Array.from(pendingReplaysRef.current.values());
+    pendingReplaysRef.current.clear();
     replayTimerRef.current = setTimeout(() => {
-      appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
+      replays.forEach((replay) => replay());
     }, 0);
     return () => {
       if (replayTimerRef.current) {

@@ -176,7 +176,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
     usePromiseResult: (fn: () => unknown) => {
       React.useEffect(() => {
         void fn();
-      });
+      }, [fn]);
     },
   };
 });

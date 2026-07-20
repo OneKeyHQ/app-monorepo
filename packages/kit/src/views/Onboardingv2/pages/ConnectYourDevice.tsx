@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { get, isString } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -61,6 +61,7 @@ import {
   getDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorSceneName,
@@ -280,7 +281,7 @@ function useDeviceConnection({
               onConfirmText: intl.formatMessage({
                 id: ETranslations.global_download_and_install,
               }),
-              onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
+              onConfirm: () => openUrlExternal(HARDWARE_BRIDGE_DOWNLOAD_URL),
             });
 
             deviceScanner.stopScan();
@@ -446,7 +447,7 @@ function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
               testID={OnboardingTestIDs.connectYourDeviceTroubleshootingBtn}
               icon="OpenOutline"
               onPress={() => {
-                void Linking.openURL(HARDWARE_TROUBLESHOOTING_URL);
+                openUrlExternal(HARDWARE_TROUBLESHOOTING_URL);
               }}
             >
               {intl.formatMessage({ id: ETranslations.self_troubleshooting })}

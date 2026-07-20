@@ -16,6 +16,10 @@ import {
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  clampLimitRateDecimals,
+  countSignificantRateDecimals,
+} from '@onekeyhq/shared/src/utils/numberUtils';
+import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -23,6 +27,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapProTradeType,
   ESwapTabSwitchType,
+  LIMIT_PRICE_DEFAULT_DECIMALS,
   LimitMarketUpPercentages,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -149,15 +154,37 @@ export const useSwapLimitRate = () => {
   }
   const onLimitRateChange = useCallback(
     (text: string) => {
-      const isValidate = validateAmountInput(
-        text,
-        limitPriceSetReverse
+      // Sub-1 rates may legitimately carry more decimals than the
+      // counterparty token (leading zeros + digits), so widen the validation
+      // limit with the same formula clampLimitRateDecimals uses instead of
+      // rejecting them. Unknown decimals fall back to 6 (validateAmountInput's
+      // own historical default), not 0.
+      const rateDecimalsLimit = Number(
+        (limitPriceSetReverse
           ? limitPriceMarketPrice.fromToken?.decimals
-          : limitPriceMarketPrice.toToken?.decimals,
+          : limitPriceMarketPrice.toToken?.decimals) ??
+          LIMIT_PRICE_DEFAULT_DECIMALS,
       );
+      const textBN = new BigNumber(text || '0');
+      // While the user is still typing the leading zeros of a sub-unit rate
+      // ("0.0000000…"), the numeric value is exactly 0 and the significant-
+      // digits widening can't see it yet — accept the typed zeros themselves
+      // and let the significant rule take over at the first non-zero digit.
+      const typedDecimals = text.includes('.')
+        ? text.length - text.indexOf('.') - 1
+        : 0;
+      let effectiveDecimalsLimit = rateDecimalsLimit;
+      if (textBN.gt(0) && textBN.lt(1)) {
+        effectiveDecimalsLimit = countSignificantRateDecimals(
+          textBN,
+          rateDecimalsLimit,
+        );
+      } else if (textBN.isZero() && typedDecimals > rateDecimalsLimit) {
+        effectiveDecimalsLimit = typedDecimals;
+      }
+      const isValidate = validateAmountInput(text, effectiveDecimalsLimit);
       if (isValidate) {
-        const inputRate = new BigNumber(text);
-        if (text === '' || inputRate.isNaN() || inputRate.isZero()) {
+        if (textBN.isNaN() || textBN.isZero()) {
           setLimitPriceUseRate((v) => ({
             ...v,
             rate: '0',
@@ -165,25 +192,20 @@ export const useSwapLimitRate = () => {
             inputRate: text,
           }));
         } else {
-          const inputBN = new BigNumber(inputRate);
           const newRate = limitPriceSetReverse
-            ? new BigNumber(1).div(inputBN)
-            : inputBN;
+            ? new BigNumber(1).div(textBN)
+            : textBN;
           const newReverseRate = limitPriceSetReverse
-            ? inputBN
-            : new BigNumber(1).div(inputBN);
-          const newReverseRateValue = newReverseRate
-            .decimalPlaces(
-              Number(limitPriceMarketPrice.fromToken?.decimals ?? 0),
-              BigNumber.ROUND_HALF_UP,
-            )
-            .toFixed();
-          const newRateValue = newRate
-            .decimalPlaces(
-              Number(limitPriceMarketPrice.toToken?.decimals ?? 0),
-              BigNumber.ROUND_HALF_UP,
-            )
-            .toFixed();
+            ? textBN
+            : new BigNumber(1).div(textBN);
+          const newReverseRateValue = clampLimitRateDecimals(
+            newReverseRate,
+            limitPriceMarketPrice.fromToken?.decimals,
+          ).toFixed();
+          const newRateValue = clampLimitRateDecimals(
+            newRate,
+            limitPriceMarketPrice.toToken?.decimals,
+          ).toFixed();
           setLimitPriceUseRate((v) => ({
             ...v,
             rate: newRateValue,
@@ -239,9 +261,9 @@ export const useSwapLimitRate = () => {
       const priceMarketBN = new BigNumber(limitPriceMarketPrice.rate ?? '0');
       const useRateBN = new BigNumber(limitPriceUseRate.rate ?? '0');
       const rateBN = priceMarketBN.multipliedBy(percentageBN);
-      const formatRate = rateBN.decimalPlaces(
-        Number(limitPriceMarketPrice.toToken?.decimals ?? 0),
-        BigNumber.ROUND_HALF_UP,
+      const formatRate = clampLimitRateDecimals(
+        rateBN,
+        limitPriceMarketPrice.toToken?.decimals,
       );
       const limitPriceEqualMarket = useRateBN.eq(formatRate);
       return {
@@ -271,13 +293,13 @@ export const useSwapLimitRate = () => {
       const reverseRateBN = rateBN.isZero()
         ? new BigNumber(0)
         : new BigNumber(1).div(rateBN);
-      const formatRate = rateBN.decimalPlaces(
-        Number(limitPriceMarketPrice.toToken?.decimals ?? 0),
-        BigNumber.ROUND_HALF_UP,
+      const formatRate = clampLimitRateDecimals(
+        rateBN,
+        limitPriceMarketPrice.toToken?.decimals,
       );
-      const formatReverseRate = reverseRateBN.decimalPlaces(
-        Number(limitPriceMarketPrice.fromToken?.decimals ?? 0),
-        BigNumber.ROUND_HALF_UP,
+      const formatReverseRate = clampLimitRateDecimals(
+        reverseRateBN,
+        limitPriceMarketPrice.fromToken?.decimals,
       );
       setLimitPriceUseRate((v) => ({
         ...v,

@@ -57,6 +57,10 @@ import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/sce
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
+  buildSwapHistoryNetworkFromServer,
+  buildSwapHistoryNetworkPlaceholder,
+} from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
+import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -65,7 +69,10 @@ import {
   EMessageTypesEth,
   ESigningScheme,
 } from '@onekeyhq/shared/types/message';
-import { wrappedTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
+  wrappedTokens,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
@@ -214,6 +221,15 @@ type IMarketSwapBuildCtx = {
   changeHeroOrderId?: string;
 };
 
+function buildMarketSwapHistoryNetwork(token: ISwapToken) {
+  const presetNetwork = Object.values(presetNetworksMap).find(
+    (network) => network.id === token.networkId,
+  );
+  return presetNetwork
+    ? buildSwapHistoryNetworkFromServer({ network: presetNetwork, token })
+    : buildSwapHistoryNetworkPlaceholder(token);
+}
+
 export function buildMarketSwapHistoryItem({
   swapInfo,
   txHash,
@@ -247,12 +263,6 @@ export function buildMarketSwapHistoryItem({
         buildCtx?.cowSwapOrderId ??
         buildCtx?.oneInchFusionOrderHash ??
         buildCtx?.changeHeroOrderId));
-  const fromNetworkPreset = Object.values(presetNetworksMap).find(
-    (item) => item.id === swapInfo.sender.token.networkId,
-  );
-  const toNetworkPreset = Object.values(presetNetworksMap).find(
-    (item) => item.id === swapInfo.receiver.token.networkId,
-  );
   const useOrderId = Boolean(
     (!txHash && historyOrderId) ||
     buildCtx?.cowSwapOrderId ||
@@ -278,20 +288,8 @@ export function buildMarketSwapHistoryItem({
       fromAmount: swapInfo.sender.amount,
       fromToken: swapInfo.sender.token,
       toToken: swapInfo.receiver.token,
-      fromNetwork: {
-        networkId: fromNetworkPreset?.id ?? '',
-        name: fromNetworkPreset?.name ?? '',
-        symbol: fromNetworkPreset?.symbol ?? '',
-        logoURI: fromNetworkPreset?.logoURI ?? '',
-        shortcode: fromNetworkPreset?.shortcode ?? '',
-      },
-      toNetwork: {
-        networkId: toNetworkPreset?.id ?? '',
-        name: toNetworkPreset?.name ?? '',
-        symbol: toNetworkPreset?.symbol ?? '',
-        logoURI: toNetworkPreset?.logoURI ?? '',
-        shortcode: toNetworkPreset?.shortcode ?? '',
-      },
+      fromNetwork: buildMarketSwapHistoryNetwork(swapInfo.sender.token),
+      toNetwork: buildMarketSwapHistoryNetwork(swapInfo.receiver.token),
     },
     txInfo: {
       txId: txHash,
@@ -541,9 +539,13 @@ export function useSpeedSwapActions(props: {
     };
   }, [netAccountRes]);
 
-  const fromTokenAmountDebounced = useDebounce(fromTokenAmount, 300, {
-    leading: true,
-  });
+  const fromTokenAmountDebounced = useDebounce(
+    fromTokenAmount,
+    SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
+    {
+      leading: true,
+    },
+  );
 
   const buildReviewStepTexts = useCallback(
     (providerName?: string): ISwapReviewStepTexts => ({

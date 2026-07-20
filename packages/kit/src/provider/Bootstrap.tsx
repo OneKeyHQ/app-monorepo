@@ -71,6 +71,7 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
 import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import { setForceSystemBrowserForDebug } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -844,6 +845,15 @@ export function Bootstrap() {
       })
       .catch(() => undefined);
   }, [devSettings.enabled, networkThrottleEnabled]);
+
+  // Push the dev-settings escape hatch into the shared module flag on
+  // startup and whenever it changes (shared cannot read kit-bg atoms).
+  const useSystemBrowserForExternalLinks =
+    !!devSettings.enabled &&
+    !!devSettings.settings?.useSystemBrowserForExternalLinks;
+  useEffect(() => {
+    setForceSystemBrowserForDebug(useSystemBrowserForExternalLinks);
+  }, [useSystemBrowserForExternalLinks]);
 
   useEffect(() => {
     if (
