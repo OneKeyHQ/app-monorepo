@@ -814,115 +814,125 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
     throw new Error('Could not establish the Tabs pre-growth scroll bottom');
   }
 
-  const insertedGrowthProbe = await defiContent.evaluate(
-    (tabContent, testId) => {
-      if (!(tabContent instanceof HTMLElement)) return false;
+  const cleanupGrowthProbe = () =>
+    defiContent.evaluate((tabContent, testId) => {
+      if (!(tabContent instanceof HTMLElement)) return;
       const scrollViewRoot = tabContent.closest('.onekey-tabs-scroll-view');
-      const scroller = scrollViewRoot?.closest('.onekey-tabs-container');
-      if (
-        !(scrollViewRoot instanceof HTMLElement) ||
-        !(scroller instanceof HTMLElement)
-      ) {
-        return false;
-      }
-      const existingProbe = scrollViewRoot.querySelector(
-        `[data-testid="${testId}"]`,
-      );
-      existingProbe?.remove();
-      const properties = ['height', 'min-height', 'max-height', 'flex'];
-      scrollViewRoot.dataset.tabsScrollExtentOriginalStyle = JSON.stringify(
-        properties.map((property) => [
-          property,
-          scrollViewRoot.style.getPropertyValue(property),
-          scrollViewRoot.style.getPropertyPriority(property),
-        ]),
-      );
-      const lockedHeight = scrollViewRoot.getBoundingClientRect().height;
-      scrollViewRoot.style.setProperty('height', `${lockedHeight}px`);
-      scrollViewRoot.style.setProperty('min-height', `${lockedHeight}px`);
-      scrollViewRoot.style.setProperty('max-height', `${lockedHeight}px`);
-      scrollViewRoot.style.setProperty('flex', 'none');
-      const probe = document.createElement('div');
-      probe.setAttribute('data-testid', testId);
-      probe.style.cssText =
-        'display:block;flex:none;width:100%;height:96px;min-height:96px;';
-      // Add a new direct content node. The previous implementation observed a
-      // one-time child snapshot, so a cold-start skeleton/data replacement left
-      // the new node unobserved while the root border box stayed pinned.
-      scrollViewRoot.append(probe);
-      return true;
-    },
-    growthProbeTestId,
-  );
-  if (!insertedGrowthProbe) {
-    throw new Error('Could not insert the Tabs.ScrollView growth probe');
-  }
-  await sleep(300);
-
-  await wheelToBottom();
-  await sleep(300);
-
-  const metrics = await getMetrics();
-  if (!metrics) throw new Error('Tabs scroll metrics are unavailable');
-  const extentGrowth = metrics.maxScrollTop - beforeGrowthMetrics.maxScrollTop;
-  const listContainerGrowth =
-    metrics.listContainerHeight - beforeGrowthMetrics.listContainerHeight;
-  const reproduced =
-    coldStartClipped ||
-    tabRoundTripFailures > 0 ||
-    extentGrowth < 90 ||
-    listContainerGrowth < 90 ||
-    !metrics.atBottom ||
-    metrics.hiddenBelowScroller > 2 ||
-    metrics.unmeasuredScrollViewOverflow > 2;
-  log(
-    `Tabs extent coldStartClipped=${coldStartClipped} roundTripFailures=${tabRoundTripFailures}/${tabSwitchRounds} oldMax=${beforeGrowthMetrics.maxScrollTop.toFixed(
-      1,
-    )} scrollTop=${metrics.scrollTop.toFixed(1)}/${metrics.maxScrollTop.toFixed(
-      1,
-    )} container=${beforeGrowthMetrics.listContainerHeight.toFixed(
-      1,
-    )}->${metrics.listContainerHeight.toFixed(
-      1,
-    )} scrollView=${metrics.scrollViewHeight.toFixed(
-      1,
-    )}/${metrics.scrollViewScrollHeight}px content=${metrics.contentScrollHeight}px hidden=${metrics.hiddenBelowScroller.toFixed(
-      1,
-    )}px unmeasured=${metrics.unmeasuredScrollViewOverflow.toFixed(
-      1,
-    )}px viewport=${metrics.viewportWidth}x${metrics.viewportHeight}`,
-  );
-
-  if (reproduced) {
-    const screenshotPath = path.resolve(
-      '.tmp/ui/tabs-scroll-extent-desktop.png',
-    );
-    fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
-    await page.screenshot({ path: screenshotPath });
-    log(`evidence -> ${screenshotPath}`);
-  }
-
-  await defiContent.evaluate((tabContent, testId) => {
-    if (!(tabContent instanceof HTMLElement)) return;
-    const scrollViewRoot = tabContent.closest('.onekey-tabs-scroll-view');
-    if (scrollViewRoot instanceof HTMLElement) {
-      const probe = scrollViewRoot.querySelector(`[data-testid="${testId}"]`);
-      probe?.remove();
-      const snapshot = JSON.parse(
-        scrollViewRoot.dataset.tabsScrollExtentOriginalStyle ?? '[]',
-      );
-      for (const [property, value, priority] of snapshot) {
-        if (value) {
-          scrollViewRoot.style.setProperty(property, value, priority);
-        } else {
-          scrollViewRoot.style.removeProperty(property);
+      if (scrollViewRoot instanceof HTMLElement) {
+        const probe = scrollViewRoot.querySelector(`[data-testid="${testId}"]`);
+        probe?.remove();
+        const snapshot = JSON.parse(
+          scrollViewRoot.dataset.tabsScrollExtentOriginalStyle ?? '[]',
+        );
+        for (const [property, value, priority] of snapshot) {
+          if (value) {
+            scrollViewRoot.style.setProperty(property, value, priority);
+          } else {
+            scrollViewRoot.style.removeProperty(property);
+          }
         }
+        delete scrollViewRoot.dataset.tabsScrollExtentOriginalStyle;
       }
-      delete scrollViewRoot.dataset.tabsScrollExtentOriginalStyle;
-    }
-  }, growthProbeTestId);
+    }, growthProbeTestId);
 
-  return report('tabs-scroll-extent-desktop', reproduced ? 1 : 0, 1, 0, 0, '');
+  await cleanupGrowthProbe();
+  try {
+    const insertedGrowthProbe = await defiContent.evaluate(
+      (tabContent, testId) => {
+        if (!(tabContent instanceof HTMLElement)) return false;
+        const scrollViewRoot = tabContent.closest('.onekey-tabs-scroll-view');
+        const scroller = scrollViewRoot?.closest('.onekey-tabs-container');
+        if (
+          !(scrollViewRoot instanceof HTMLElement) ||
+          !(scroller instanceof HTMLElement)
+        ) {
+          return false;
+        }
+        const properties = ['height', 'min-height', 'max-height', 'flex'];
+        scrollViewRoot.dataset.tabsScrollExtentOriginalStyle = JSON.stringify(
+          properties.map((property) => [
+            property,
+            scrollViewRoot.style.getPropertyValue(property),
+            scrollViewRoot.style.getPropertyPriority(property),
+          ]),
+        );
+        const lockedHeight = scrollViewRoot.getBoundingClientRect().height;
+        scrollViewRoot.style.setProperty('height', `${lockedHeight}px`);
+        scrollViewRoot.style.setProperty('min-height', `${lockedHeight}px`);
+        scrollViewRoot.style.setProperty('max-height', `${lockedHeight}px`);
+        scrollViewRoot.style.setProperty('flex', 'none');
+        const probe = document.createElement('div');
+        probe.setAttribute('data-testid', testId);
+        probe.style.cssText =
+          'display:block;flex:none;width:100%;height:96px;min-height:96px;';
+        // Add a new direct content node. The previous implementation observed a
+        // one-time child snapshot, so a cold-start skeleton/data replacement left
+        // the new node unobserved while the root border box stayed pinned.
+        scrollViewRoot.append(probe);
+        return true;
+      },
+      growthProbeTestId,
+    );
+    if (!insertedGrowthProbe) {
+      throw new Error('Could not insert the Tabs.ScrollView growth probe');
+    }
+    await sleep(300);
+
+    await wheelToBottom();
+    await sleep(300);
+
+    const metrics = await getMetrics();
+    if (!metrics) throw new Error('Tabs scroll metrics are unavailable');
+    const extentGrowth =
+      metrics.maxScrollTop - beforeGrowthMetrics.maxScrollTop;
+    const listContainerGrowth =
+      metrics.listContainerHeight - beforeGrowthMetrics.listContainerHeight;
+    const reproduced =
+      coldStartClipped ||
+      tabRoundTripFailures > 0 ||
+      extentGrowth < 90 ||
+      listContainerGrowth < 90 ||
+      !metrics.atBottom ||
+      metrics.hiddenBelowScroller > 2 ||
+      metrics.unmeasuredScrollViewOverflow > 2;
+    log(
+      `Tabs extent coldStartClipped=${coldStartClipped} roundTripFailures=${tabRoundTripFailures}/${tabSwitchRounds} oldMax=${beforeGrowthMetrics.maxScrollTop.toFixed(
+        1,
+      )} scrollTop=${metrics.scrollTop.toFixed(1)}/${metrics.maxScrollTop.toFixed(
+        1,
+      )} container=${beforeGrowthMetrics.listContainerHeight.toFixed(
+        1,
+      )}->${metrics.listContainerHeight.toFixed(
+        1,
+      )} scrollView=${metrics.scrollViewHeight.toFixed(
+        1,
+      )}/${metrics.scrollViewScrollHeight}px content=${metrics.contentScrollHeight}px hidden=${metrics.hiddenBelowScroller.toFixed(
+        1,
+      )}px unmeasured=${metrics.unmeasuredScrollViewOverflow.toFixed(
+        1,
+      )}px viewport=${metrics.viewportWidth}x${metrics.viewportHeight}`,
+    );
+
+    if (reproduced) {
+      const screenshotPath = path.resolve(
+        '.tmp/ui/tabs-scroll-extent-desktop.png',
+      );
+      fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
+      await page.screenshot({ path: screenshotPath });
+      log(`evidence -> ${screenshotPath}`);
+    }
+
+    return report(
+      'tabs-scroll-extent-desktop',
+      reproduced ? 1 : 0,
+      1,
+      0,
+      0,
+      '',
+    );
+  } finally {
+    await cleanupGrowthProbe();
+  }
 }
 
 // Ported from the former cdp-repro-gift-storm.mjs. The detection

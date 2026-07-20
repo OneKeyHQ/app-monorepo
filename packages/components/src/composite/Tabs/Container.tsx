@@ -358,6 +358,8 @@ export function Container({
       tabIndex >= 0 ? listContainerRef.current.children.item(tabIndex) : null;
     const element = (registeredElement ??
       fallbackElement) as HTMLElement | null;
+    const isRegisteredScrollView =
+      registeredElement?.classList.contains('onekey-tabs-scroll-view') ?? false;
     // Fallback-measured tabs (no registered Tabs.List/ScrollView element)
     // observe the page div, but that div is a flex item stretched to the
     // pinned container height — its border box never resizes when inner
@@ -379,7 +381,7 @@ export function Container({
       element
         ? [
             observedElement,
-            ...(registeredElement?.classList.contains('onekey-tabs-scroll-view')
+            ...(isRegisteredScrollView && registeredElement
               ? Array.from(registeredElement.children).filter(
                   (child): child is HTMLElement => child instanceof HTMLElement,
                 )
@@ -437,8 +439,13 @@ export function Container({
       observedElements.every(
         (candidate, index) => candidate === observedElementsRef.current[index],
       );
-    // Same measurement source and signal elements -> nothing to re-attach.
-    if (element && isObservingSameElements) {
+    const canReuseObservers =
+      resizeObserverRef.current !== null &&
+      isObservingSameElements &&
+      (!isRegisteredScrollView || mutationObserverRef.current !== null);
+    // Same measurement source, signal elements, and required observers ->
+    // nothing to re-attach.
+    if (element && canReuseObservers) {
       apply(element);
       return;
     }
@@ -468,10 +475,7 @@ export function Container({
     // set follows the live children and remeasure the registered root. This is
     // intentionally generic to Tabs.ScrollView; business tabs do not need to
     // report their loading phases or schedule delayed retries.
-    if (
-      registeredElement?.classList.contains('onekey-tabs-scroll-view') &&
-      typeof MutationObserver !== 'undefined'
-    ) {
+    if (isRegisteredScrollView && typeof MutationObserver !== 'undefined') {
       const mo = new MutationObserver(() => {
         if (
           !isEffectValid.current ||
