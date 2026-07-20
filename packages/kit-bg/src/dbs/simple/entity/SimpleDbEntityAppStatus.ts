@@ -1,4 +1,5 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IKytIntroClaimLease } from '@onekeyhq/shared/types/kyt';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -32,6 +33,9 @@ export interface ISimpleDBAppStatus {
   // OneKey IDs (onekeyUserId) that have already seen the KYT intro dialog.
   // Scoped per Prime user so each account is prompted once.
   kytIntroShownUserIds?: string[];
+  // Short-lived cross-runtime leases prevent multiple Extension UI surfaces
+  // from showing the same KYT intro concurrently.
+  kytIntroClaimLeases?: Record<string, IKytIntroClaimLease>;
 }
 
 export class SimpleDbEntityAppStatus extends SimpleDbEntityBase<ISimpleDBAppStatus> {
