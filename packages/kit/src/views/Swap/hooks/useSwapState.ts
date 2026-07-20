@@ -562,6 +562,7 @@ export function useSwapActionState() {
     ],
   );
   const isQuoteReadinessLoading = shouldShowSwapQuoteActionLoading({
+    hasActionableQuote,
     isWaitingActionableQuote,
     isQuoteEventSettlingForAction,
     isWaitingAutoSlippage,

@@ -512,9 +512,10 @@ describe('swap quote progress', () => {
     ).toBe(true);
   });
 
-  it('shows action loading for every quote-readiness gate', () => {
+  it('stops action loading when the first actionable quote arrives', () => {
     expect(
       shouldShowSwapQuoteActionLoading({
+        hasActionableQuote: false,
         isWaitingActionableQuote: true,
         isQuoteEventSettlingForAction: false,
         isWaitingAutoSlippage: false,
@@ -522,6 +523,7 @@ describe('swap quote progress', () => {
     ).toBe(true);
     expect(
       shouldShowSwapQuoteActionLoading({
+        hasActionableQuote: false,
         isWaitingActionableQuote: false,
         isQuoteEventSettlingForAction: true,
         isWaitingAutoSlippage: false,
@@ -529,6 +531,7 @@ describe('swap quote progress', () => {
     ).toBe(true);
     expect(
       shouldShowSwapQuoteActionLoading({
+        hasActionableQuote: true,
         isWaitingActionableQuote: false,
         isQuoteEventSettlingForAction: false,
         isWaitingAutoSlippage: true,
@@ -536,8 +539,17 @@ describe('swap quote progress', () => {
     ).toBe(true);
     expect(
       shouldShowSwapQuoteActionLoading({
+        hasActionableQuote: false,
         isWaitingActionableQuote: false,
         isQuoteEventSettlingForAction: false,
+        isWaitingAutoSlippage: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSwapQuoteActionLoading({
+        hasActionableQuote: true,
+        isWaitingActionableQuote: false,
+        isQuoteEventSettlingForAction: true,
         isWaitingAutoSlippage: false,
       }),
     ).toBe(false);

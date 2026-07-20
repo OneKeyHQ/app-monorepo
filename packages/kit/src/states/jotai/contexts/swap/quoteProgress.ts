@@ -272,17 +272,19 @@ export function shouldOfferSwapQuoteRefresh({
 }
 
 export function shouldShowSwapQuoteActionLoading({
+  hasActionableQuote,
   isWaitingActionableQuote,
   isQuoteEventSettlingForAction,
   isWaitingAutoSlippage,
 }: {
+  hasActionableQuote: boolean;
   isWaitingActionableQuote: boolean;
   isQuoteEventSettlingForAction: boolean;
   isWaitingAutoSlippage: boolean;
 }) {
   return (
     isWaitingActionableQuote ||
-    isQuoteEventSettlingForAction ||
+    (!hasActionableQuote && isQuoteEventSettlingForAction) ||
     isWaitingAutoSlippage
   );
 }
