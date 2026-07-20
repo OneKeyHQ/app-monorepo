@@ -21,7 +21,6 @@ import { usePrimePayment } from '../../hooks/usePrimePayment';
 import {
   finishPrimeSubscriptionPurchaseSuccess,
   preparePrimeSubscriptionPurchaseSuccess,
-  refreshPrimeUserInfoAfterPurchase,
 } from '../../primeSubscriptionPurchaseSuccess';
 
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
@@ -49,15 +48,14 @@ export function usePrimePurchaseCallback({
       selectedSubscriptionPeriod: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
     }) => {
-      try {
-        const result = await purchasePackageNative?.({
-          subscriptionPeriod: selectedSubscriptionPeriod,
-          featureName,
-        });
-        console.log('purchasePackageNative result >>>>>>', result);
-      } finally {
-        await refreshPrimeUserInfoAfterPurchase();
-      }
+      // purchasePackageNative owns the post-purchase refresh for both
+      // outcomes (claim -> refresh -> emit on success, one defensive refresh
+      // on failure); refreshing here again would duplicate it.
+      const result = await purchasePackageNative?.({
+        subscriptionPeriod: selectedSubscriptionPeriod,
+        featureName,
+      });
+      console.log('purchasePackageNative result >>>>>>', result);
     },
     [purchasePackageNative],
   );
@@ -73,71 +71,75 @@ export function usePrimePurchaseCallback({
       currency?: string;
       featureName?: EPrimeFeatures;
     }) => {
+      onPurchase?.();
+
+      defaultLogger.prime.subscription.primeSubscribeIntent({
+        subscriptionPeriod: selectedSubscriptionPeriod,
+        featureName,
+        currency,
+      });
+
+      // The native and webview branches below own their own refresh/emit
+      // sequencing (native IAP hook, WebView modal close handler); only the
+      // web checkout at the bottom runs the claim -> refresh -> emit tail
+      // in this layer.
+      if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
+        void purchaseByNative({
+          selectedSubscriptionPeriod,
+          featureName,
+        });
+        return;
+      }
+
+      if (platformEnv.isNativeAndroid) {
+        const isGooglePlayServiceAvailable =
+          await googlePlayService.isAvailable();
+        if (isGooglePlayServiceAvailable) {
+          ActionList.show({
+            title: intl.formatMessage({
+              id: ETranslations.prime_subscribe,
+            }),
+            onClose: () => {},
+            sections: [
+              {
+                items: [
+                  {
+                    label: 'Purchase by GooglePlay',
+                    onPress: () => {
+                      void purchaseByNative({
+                        selectedSubscriptionPeriod,
+                        featureName,
+                      });
+                    },
+                  },
+                  {
+                    label: 'Purchase by Webview',
+                    onPress: () => {
+                      void purchaseByWebview({
+                        selectedSubscriptionPeriod,
+                        currency,
+                        featureName,
+                      });
+                    },
+                  },
+                ],
+              },
+            ],
+          });
+        } else {
+          void purchaseByWebview({
+            selectedSubscriptionPeriod,
+            currency,
+            featureName,
+          });
+        }
+        return;
+      }
+
       let successfulPurchase:
         | IPrimeSubscriptionPurchaseSuccessPayload
         | undefined;
       try {
-        onPurchase?.();
-
-        defaultLogger.prime.subscription.primeSubscribeIntent({
-          subscriptionPeriod: selectedSubscriptionPeriod,
-          featureName,
-          currency,
-        });
-
-        if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
-          void purchaseByNative({
-            selectedSubscriptionPeriod,
-            featureName,
-          });
-          return;
-        }
-
-        if (platformEnv.isNativeAndroid) {
-          const isGooglePlayServiceAvailable =
-            await googlePlayService.isAvailable();
-          if (isGooglePlayServiceAvailable) {
-            ActionList.show({
-              title: intl.formatMessage({
-                id: ETranslations.prime_subscribe,
-              }),
-              onClose: () => {},
-              sections: [
-                {
-                  items: [
-                    {
-                      label: 'Purchase by GooglePlay',
-                      onPress: () => {
-                        void purchaseByNative({
-                          selectedSubscriptionPeriod,
-                          featureName,
-                        });
-                      },
-                    },
-                    {
-                      label: 'Purchase by Webview',
-                      onPress: () => {
-                        void purchaseByWebview({
-                          selectedSubscriptionPeriod,
-                          currency,
-                          featureName,
-                        });
-                      },
-                    },
-                  ],
-                },
-              ],
-            });
-          } else {
-            void purchaseByWebview({
-              selectedSubscriptionPeriod,
-              currency,
-              featureName,
-            });
-          }
-          return;
-        }
-
         if (selectedSubscriptionPeriod) {
           const purchaseUserId = user?.onekeyUserId;
           const purchaseResult = await purchasePackageWeb?.({

@@ -267,6 +267,8 @@ describe('usePrimePaymentMethods native purchase', () => {
       expect(mockTryClaimKytIntro.mock.invocationCallOrder[0]).toBeLessThan(
         mockFetchPrimeUserInfo.mock.invocationCallOrder[0],
       );
+      // The hook is the single refresh owner: exactly one refresh per purchase.
+      expect(mockFetchPrimeUserInfo).toHaveBeenCalledTimes(1);
       if (isNativeAndroid) {
         expect(mockIsGooglePlayAvailable).toHaveBeenCalledTimes(1);
       } else {
@@ -290,6 +292,8 @@ describe('usePrimePaymentMethods native purchase', () => {
 
     expect(mockDialogConfirm).not.toHaveBeenCalled();
     expect(mockPurchaseSuccessListener).not.toHaveBeenCalled();
+    // Failed purchases still refresh the server projection exactly once.
+    expect(mockFetchPrimeUserInfo).toHaveBeenCalledTimes(1);
   });
 
   it('does not show success or emit when native purchase is cancelled', async () => {
@@ -307,5 +311,11 @@ describe('usePrimePaymentMethods native purchase', () => {
 
     expect(mockDialogConfirm).not.toHaveBeenCalled();
     expect(mockPurchaseSuccessListener).not.toHaveBeenCalled();
+    // A cancelled purchase refreshes the server projection exactly once. The
+    // rejection surfaces before the finally block's async tail settles, so
+    // poll instead of asserting synchronously.
+    await waitFor(() =>
+      expect(mockFetchPrimeUserInfo).toHaveBeenCalledTimes(1),
+    );
   });
 });

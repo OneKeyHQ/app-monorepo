@@ -275,6 +275,11 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       subscriptionPeriod: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
     }) => {
+      // This hook is the single owner of the post-purchase refresh for native
+      // IAP: the success path runs claim -> refresh -> emit below, and the
+      // finally block covers failed/cancelled purchases exactly once. Callers
+      // must not add their own refresh.
+      let isPurchaseSuccessful = false;
       try {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth native not ready!');
@@ -308,6 +313,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           makePurchaseResult?.customerInfo?.entitlements?.active?.Prime
             ?.isActive
         ) {
+          isPurchaseSuccessful = true;
           const purchaseSuccessPayload =
             await preparePrimeSubscriptionPurchaseSuccess(purchaseUserId);
           // Set subscriptionManageUrl immediately from purchase result,
@@ -364,6 +370,11 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         throw error;
       } finally {
         await backgroundApiProxy.serviceApp.hideDialogLoading();
+        if (!isPurchaseSuccessful) {
+          // Defensive single refresh after a failed/cancelled purchase, in
+          // case the store transaction went further than the SDK reported.
+          await refreshPrimeUserInfoAfterPurchase();
+        }
       }
     },
     [isReady, intl, loginPurchasesSdk, setPrimePersistAtom, user.onekeyUserId],
