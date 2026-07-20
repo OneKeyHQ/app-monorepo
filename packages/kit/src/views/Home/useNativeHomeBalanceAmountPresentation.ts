@@ -5,8 +5,9 @@ import BigNumber from 'bignumber.js';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import type { ICurrencyItem } from '@onekeyhq/shared/types';
 
-import { convertFiat } from '../../utils/fiatConvert';
+import { resolveHomeBalanceQuotedAmount } from './model/facts/currentHomeBalanceFactsAdapter';
 
+import type { IHomeShellSemanticModel } from './model/semantic/homeSemanticTypes';
 import type { INativeHomeBalanceAuthorityStatus } from './nativeHomeBalanceAuthority';
 
 interface INativeHomeAmountSourceAuthority {
@@ -72,12 +73,12 @@ function convertNativeHomeConfirmedBalanceToUsd({
   ) {
     return undefined;
   }
-  return convertFiat({
+  return resolveHomeBalanceQuotedAmount({
     value: confirmedValue,
     sourceCurrency: confirmedCurrency ?? displayCurrency,
     targetCurrency: USD_CURRENCY_ID,
     currencyMap,
-  });
+  })?.amount;
 }
 
 function convertNativeHomeBalanceUsdToDisplay({
@@ -91,12 +92,12 @@ function convertNativeHomeBalanceUsdToDisplay({
 }) {
   return valueUsd === undefined
     ? undefined
-    : convertFiat({
+    : resolveHomeBalanceQuotedAmount({
         value: valueUsd,
         sourceCurrency: USD_CURRENCY_ID,
         targetCurrency: displayCurrency,
         currencyMap,
-      });
+      })?.amount;
 }
 
 function applyNativeHomeBalanceAmountCommit(
@@ -112,17 +113,18 @@ function applyNativeHomeBalanceAmountCommit(
 ): INativeHomeConfirmedBalanceCache {
   const sourceCurrency = previous.currency ?? displayCurrency;
   const normalizedByOwner = Object.fromEntries(
-    Object.entries(previous.byOwner).map(([ownerKey, value]) => [
-      ownerKey,
-      new BigNumber(value).isFinite()
-        ? convertFiat({
-            value,
-            sourceCurrency,
-            targetCurrency: USD_CURRENCY_ID,
-            currencyMap,
-          })
-        : value,
-    ]),
+    Object.entries(previous.byOwner).flatMap(([ownerKey, value]) => {
+      if (!new BigNumber(value).isFinite()) {
+        return [[ownerKey, value]];
+      }
+      const quoted = resolveHomeBalanceQuotedAmount({
+        value,
+        sourceCurrency,
+        targetCurrency: USD_CURRENCY_ID,
+        currencyMap,
+      });
+      return quoted ? [[ownerKey, quoted.amount]] : [];
+    }),
   );
   return {
     latest: commit.valueUsd,
@@ -171,6 +173,32 @@ function resolveNativeHomeBalanceAmountPresentation({
   };
 }
 
+function adaptHomeShellToNativeBalanceAmountPresentation(
+  shell: IHomeShellSemanticModel,
+): INativeHomeBalanceAmountPresentation {
+  if (shell.kind !== 'portfolio') {
+    return { status: 'loading', valueUsd: undefined };
+  }
+  const { presentation } = shell;
+  if (presentation.kind === 'zero') {
+    return {
+      status:
+        presentation.freshness === 'confirmedCache' ? 'confirmed' : 'final',
+      valueUsd: presentation.header.balance.amount,
+    };
+  }
+  if (presentation.kind === 'funded') {
+    return {
+      status:
+        presentation.header.authority === 'confirmedCache'
+          ? 'confirmed'
+          : 'final',
+      valueUsd: presentation.header.balance.amount,
+    };
+  }
+  return { status: 'loading', valueUsd: undefined };
+}
+
 function useNativeHomeBalanceAmountPresentation({
   onCommit,
   ...options
@@ -213,6 +241,7 @@ function useNativeHomeBalanceAmountPresentation({
 }
 
 export {
+  adaptHomeShellToNativeBalanceAmountPresentation,
   applyNativeHomeBalanceAmountCommit,
   convertNativeHomeBalanceUsdToDisplay,
   convertNativeHomeConfirmedBalanceToUsd,

@@ -23,7 +23,8 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
-import { EmptyAccount } from '@onekeyhq/kit/src/components/Empty';
+import { EmptyAccount, EmptyToken } from '@onekeyhq/kit/src/components/Empty';
+import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
@@ -47,6 +48,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useHomeActions } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import {
   useListStructureAtom,
   useTokenListActions,
@@ -104,6 +106,7 @@ import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   buildTokenSelectorDappTokenFilterParams,
   isTokenSelectorDappTokenFilterSupportedNetwork,
@@ -125,6 +128,21 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import { adaptHomeLegacySpotSection } from '../../model/compatibility/homeLegacySpotSectionAdapter';
+import {
+  useHomeFactsShadow,
+  useHomeSectionSemantic,
+} from '../../model/react/homeSemanticHooks';
+import { HomeSectionCoordinator } from '../../model/sections/homeSectionCoordinator';
+import {
+  buildHomeSpotAllCoverage,
+  buildHomeSpotSingleCoverage,
+  projectHomeSpotSectionSource,
+} from '../../model/sections/spot/homeSpotSectionPolicy';
+import {
+  adaptHomeSpotSourceSnapshot,
+  createHomeSpotSourceIdentity,
+} from '../../model/sections/spot/homeSpotSourceAdapter';
 import { RichBlock } from '../RichBlock/RichBlock';
 
 import {
@@ -143,7 +161,17 @@ import {
 import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIngestRound';
 import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
 
+import type { IHomeSectionCoordinatorResolution } from '../../model/sections/homeSectionCoordinator';
+import type { IHomeSpotLegacyPayload } from '../../model/sections/spot/homeSpotSourceAdapter';
+
 const networkIdsMap = getNetworkIdsMap();
+
+let legacyHomeSpotProducerInstance = 0;
+
+function createLegacyHomeSpotProducerInstanceId(): string {
+  legacyHomeSpotProducerInstance += 1;
+  return `legacy-home-spot:${legacyHomeSpotProducerInstance}`;
+}
 
 /**
  * TokenList cells Phase-2 BG — `ingestRound` kill-switch (design §5 step 2, D5).
@@ -166,8 +194,26 @@ type IAllNetworkTokenListResp = IFetchAccountTokensResp & {
   // includes owner switches, where the result still belongs to the PREVIOUS
   // owner (usePromiseResult keeps the last resolved value). These fields let
   // it refuse to stamp the new owner over another owner's data.
+  legacySpotIdentityKey?: string;
+  legacySpotRunToken?: number;
   ownerAccountId?: string;
   ownerNetworkId?: string;
+};
+
+type ILegacyAllNetworkOutcome = {
+  accountsResolved: boolean;
+  canceled: number;
+  expected: number;
+  failed: number;
+  identityKey: string | undefined;
+  runToken: number;
+  settled: number;
+  started: boolean;
+  succeeded: number;
+};
+
+type ILegacyAllNetworkRunContext = {
+  outcome: ILegacyAllNetworkOutcome;
 };
 
 type IAggregateTokenListMapWithCommonToken = Record<
@@ -251,6 +297,13 @@ function TokenListBlock({
       vaultSettings,
     },
   } = useActiveAccount({ num: 0 });
+  const homeFactsShadow = useHomeFactsShadow();
+  const homeSpotSemantic = useHomeSectionSemantic('portfolio');
+  const { clearSemanticSection, publishSemanticSection } =
+    useHomeActions().current;
+  const [legacySpotProducerInstanceId] = useState(
+    createLegacyHomeSpotProducerInstanceId,
+  );
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
   // TokenList cells Phase-2 BG `ingestRound` inputs (design §5 step 2). The owner
   // key + hideZero inputs are computed later in the body (`cellsOwnerKey` /
@@ -489,6 +542,13 @@ function TokenListBlock({
     return r;
   }, []);
 
+  const legacySingleTerminalRef = useRef<
+    'complete' | 'error' | 'partial' | undefined
+  >(undefined);
+  const legacyLpTerminalRef = useRef<
+    'complete' | 'error' | 'partial' | undefined
+  >(undefined);
+
   const { run } = usePromiseResult(
     async () => {
       let accountId = account?.id ?? '';
@@ -515,6 +575,8 @@ function TokenListBlock({
         }
 
         if (network.isAllNetworks) return;
+
+        legacySingleTerminalRef.current = undefined;
 
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: true,
@@ -715,13 +777,16 @@ function TokenListBlock({
           initialized: true,
           isRefreshing: false,
         });
+        legacySingleTerminalRef.current = 'complete';
 
         endTokenListRefreshEvent();
       } catch (e) {
         endTokenListRefreshEvent();
         if (e instanceof CanceledError) {
+          legacySingleTerminalRef.current = 'partial';
           console.log('fetchAccountTokens canceled');
         } else {
+          legacySingleTerminalRef.current = 'error';
           throw e;
         }
       } finally {
@@ -781,6 +846,8 @@ function TokenListBlock({
         return;
       }
 
+      legacyLpTerminalRef.current = undefined;
+
       // Keep the rendered DeFi-token list during focus revalidation. Owner or
       // mode changes already clear the scoped list above; clearing it here makes
       // Tabs remeasure the page height when returning from token details.
@@ -812,10 +879,17 @@ function TokenListBlock({
 
         setScopedLpTokenList(tokenList);
         setScopedLpTokenListMap(tokenListMap);
+        legacyLpTerminalRef.current = 'complete';
       } catch (e) {
         if (e instanceof CanceledError) {
+          if (isLatestRequest()) {
+            legacyLpTerminalRef.current = 'partial';
+          }
           console.log('fetchFilteredTokenSelectorTokens canceled');
         } else {
+          if (isLatestRequest()) {
+            legacyLpTerminalRef.current = 'error';
+          }
           console.error(e);
         }
       } finally {
@@ -924,11 +998,226 @@ function TokenListBlock({
   // this currency and the T0 hydrate gates re-use against it (spec §7, §3#3).
   const [{ currencyInfo }] = useSettingsPersistAtom();
   const cellsCurrencyId = currencyInfo?.id ?? '';
+  const legacySpotIdentity = useMemo(() => {
+    const ownerMatches =
+      homeFactsShadow?.owner.walletId === wallet?.id &&
+      homeFactsShadow?.owner.accountId === account?.id &&
+      (network?.isAllNetworks
+        ? homeFactsShadow?.owner.network.kind === 'allNetworks'
+        : homeFactsShadow?.owner.network.kind === 'singleNetwork' &&
+          homeFactsShadow.owner.network.networkId === network?.id);
+    if (!ownerMatches || !homeFactsShadow || !cellsOwnerKey || !network?.id) {
+      return undefined;
+    }
+    const enabledNetworkIds = network.isAllNetworks
+      ? (allNetworkAccounts ?? []).map((item) => item.networkId)
+      : [network.id];
+    return createHomeSpotSourceIdentity({
+      owner: homeFactsShadow.ownerToken,
+      params: {
+        accountOwnerId: account?.id ?? '',
+        defaultTokenRevision: stringUtils.stableStringify(
+          homeDefaultTokenMap ?? {},
+        ),
+        enabledNetworksRevision: stringUtils.stableStringify(
+          Array.from(new Set(enabledNetworkIds)).toSorted(),
+        ),
+        mergeDerive: Boolean(mergeDeriveAddressData),
+        networkId: network.id,
+        networkMode: network.isAllNetworks ? 'allNetworks' : 'singleNetwork',
+        tokenMode: showLpTokensOnly ? 'lp' : 'wallet',
+      },
+      producerInstanceId: legacySpotProducerInstanceId,
+    });
+  }, [
+    allNetworkAccounts,
+    cellsOwnerKey,
+    homeDefaultTokenMap,
+    homeFactsShadow,
+    legacySpotProducerInstanceId,
+    mergeDeriveAddressData,
+    network?.id,
+    network?.isAllNetworks,
+    showLpTokensOnly,
+    wallet?.id,
+    account?.id,
+  ]);
+  const legacySpotIdentityKey = useMemo(
+    () =>
+      legacySpotIdentity
+        ? stringUtils.stableStringify(legacySpotIdentity)
+        : undefined,
+    [legacySpotIdentity],
+  );
+  const legacySpotPayload = useMemo<IHomeSpotLegacyPayload>(
+    () => ({
+      displayIds: showLpTokensOnly
+        ? scopedLpTokenList.tokens.map((token) => token.$key)
+        : listStructure.orderedIds,
+      generation: listStructure.generation,
+      ownerKey: cellsOwnerKey,
+    }),
+    [
+      cellsOwnerKey,
+      listStructure.generation,
+      listStructure.orderedIds,
+      scopedLpTokenList.tokens,
+      showLpTokensOnly,
+    ],
+  );
+  const legacySpotCoordinatorRef = useRef<
+    HomeSectionCoordinator<IHomeSpotLegacyPayload> | undefined
+  >(undefined);
+  const legacySpotRequestSeqRef = useRef(0);
+  const legacySpotSemanticRevisionRef = useRef(0);
+  useLayoutEffect(() => {
+    legacySpotSemanticRevisionRef.current = Math.max(
+      legacySpotSemanticRevisionRef.current,
+      homeSpotSemantic?.revision ?? 0,
+    );
+  }, [homeSpotSemantic?.revision]);
+  const [legacySpotResolution, setLegacySpotResolution] = useState<
+    | {
+        identityKey: string;
+        resolution: IHomeSectionCoordinatorResolution<IHomeSpotLegacyPayload>;
+      }
+    | undefined
+  >();
+  const legacySpotActiveIdentityKeyRef = useRef<string | undefined>(undefined);
+  const publishLegacySpotEvidence = useCallback(
+    (
+      evidence: Parameters<
+        typeof projectHomeSpotSectionSource<IHomeSpotLegacyPayload>
+      >[0]['evidence'],
+    ) => {
+      if (!legacySpotIdentity || !legacySpotIdentityKey) {
+        return;
+      }
+      let coordinator = legacySpotCoordinatorRef.current;
+      if (!coordinator) {
+        coordinator = new HomeSectionCoordinator<IHomeSpotLegacyPayload>(
+          legacySpotIdentity,
+        );
+        legacySpotCoordinatorRef.current = coordinator;
+      } else {
+        coordinator.setOwner(legacySpotIdentity);
+      }
+      const resolution = coordinator.dispatch(
+        adaptHomeSpotSourceSnapshot({
+          identity: legacySpotIdentity,
+          snapshot: projectHomeSpotSectionSource({
+            authorityReady: true,
+            evidence,
+            requestSeq: legacySpotRequestSeqRef.current,
+            scopeMatches: legacySpotPayload.ownerKey === cellsOwnerKey,
+          }),
+        }),
+      );
+      if (!resolution.accepted) {
+        return;
+      }
+      setLegacySpotResolution({
+        identityKey: legacySpotIdentityKey,
+        resolution,
+      });
+      legacySpotSemanticRevisionRef.current += 1;
+      publishSemanticSection({
+        owner: legacySpotIdentity.owner,
+        revision: legacySpotSemanticRevisionRef.current,
+        sectionId: 'portfolio',
+        value: resolution.semantic,
+      });
+    },
+    [
+      cellsOwnerKey,
+      legacySpotIdentity,
+      legacySpotIdentityKey,
+      legacySpotPayload.ownerKey,
+      publishSemanticSection,
+    ],
+  );
+  useEffect(() => {
+    if (!legacySpotIdentity || !legacySpotIdentityKey) {
+      legacySpotActiveIdentityKeyRef.current = undefined;
+      setLegacySpotResolution(undefined);
+      if (homeFactsShadow) {
+        legacySpotSemanticRevisionRef.current += 1;
+        clearSemanticSection({
+          owner: homeFactsShadow.ownerToken,
+          revision: legacySpotSemanticRevisionRef.current,
+          sectionId: 'portfolio',
+        });
+      }
+      return;
+    }
+    if (legacySpotActiveIdentityKeyRef.current === legacySpotIdentityKey) {
+      return;
+    }
+    legacySpotActiveIdentityKeyRef.current = legacySpotIdentityKey;
+    legacySpotRequestSeqRef.current = 0;
+    legacySingleTerminalRef.current = undefined;
+    legacyLpTerminalRef.current = undefined;
+    publishLegacySpotEvidence({ kind: 'loading' });
+  }, [
+    clearSemanticSection,
+    homeFactsShadow,
+    legacySpotIdentity,
+    legacySpotIdentityKey,
+    publishLegacySpotEvidence,
+  ]);
+  useEffect(
+    () => () => {
+      legacySpotCoordinatorRef.current?.dispose();
+    },
+    [],
+  );
+  const [legacySpotConfirmedSeedOwner, setLegacySpotConfirmedSeedOwner] =
+    useState<string>();
+  const handleLegacySpotColdHydrate = useCallback(
+    ({ ownerKey, painted }: { ownerKey: string; painted: boolean }) => {
+      if (painted && (!network?.isAllNetworks || showLpTokensOnly)) {
+        setLegacySpotConfirmedSeedOwner(ownerKey);
+      }
+    },
+    [network?.isAllNetworks, showLpTokensOnly],
+  );
   // T0 cold-start fan-out hydrate (spec §7). Runs eagerly, once per owner,
   // before the async fetch — paints rows + price + name/icon at cold start via
   // the SAME apply contract the producer uses; also schedules the one-time
   // version-flag purge of the OLD persisted cold-start key on HomePageReady.
-  useTokenListCellsColdStartHydrate(cellsOwnerKey, cellsCurrencyId);
+  useTokenListCellsColdStartHydrate(
+    cellsOwnerKey,
+    cellsCurrencyId,
+    handleLegacySpotColdHydrate,
+  );
+  useEffect(() => {
+    if (
+      legacySpotConfirmedSeedOwner &&
+      legacySpotConfirmedSeedOwner !== cellsOwnerKey
+    ) {
+      setLegacySpotConfirmedSeedOwner(undefined);
+      return;
+    }
+    if (
+      legacySpotConfirmedSeedOwner !== cellsOwnerKey ||
+      legacySpotPayload.ownerKey !== cellsOwnerKey
+    ) {
+      return;
+    }
+    publishLegacySpotEvidence({
+      kind: 'confirmedCache',
+      data: legacySpotPayload,
+      rowIds: legacySpotPayload.displayIds,
+      refresh: tokenListState.isRefreshing ? 'refreshing' : 'idle',
+    });
+    setLegacySpotConfirmedSeedOwner(undefined);
+  }, [
+    cellsOwnerKey,
+    legacySpotConfirmedSeedOwner,
+    legacySpotPayload,
+    publishLegacySpotEvidence,
+    tokenListState.isRefreshing,
+  ]);
   // Resolve the parsed customTokens for the cells producer's hideZero
   // `nonZeroIds` authority (spec §8#2, PR-S Step 3). Mirrors the
   // `useTokenManagement` call inside TokenListViewCmp (deferred on all-networks
@@ -954,6 +1243,114 @@ function TokenListBlock({
   );
   useTokenListCellsProducer(cellsOwnerKey, cellsCurrencyId);
 
+  const legacySpotRefreshing = showLpTokensOnly
+    ? scopedLpTokenListState.isRefreshing
+    : isHeaderRefreshing || tokenListState.isRefreshing;
+  const legacySpotInitialized = showLpTokensOnly
+    ? scopedLpTokenListState.initialized
+    : tokenListState.initialized;
+  const legacyAllNetworkRunTokenRef = useRef(0);
+  const legacyAllNetworkExpectedCacheKeysRef = useRef(new Set<string>());
+  const legacyAllNetworkOutcomeRef = useRef<ILegacyAllNetworkOutcome>({
+    accountsResolved: false,
+    canceled: 0,
+    expected: 0,
+    failed: 0,
+    identityKey: undefined,
+    runToken: 0,
+    settled: 0,
+    started: false,
+    succeeded: 0,
+  });
+  const legacyAllNetworkTerminalRef = useRef<
+    'complete' | 'error' | 'partial' | undefined
+  >(undefined);
+  const previousLegacySpotRefreshRef = useRef<{
+    identityKey: string | undefined;
+    refreshing: boolean;
+  }>({ identityKey: undefined, refreshing: false });
+  useEffect(() => {
+    const previous = previousLegacySpotRefreshRef.current;
+    if (previous.identityKey !== legacySpotIdentityKey) {
+      previousLegacySpotRefreshRef.current = {
+        identityKey: legacySpotIdentityKey,
+        refreshing: legacySpotRefreshing,
+      };
+      return;
+    }
+    if (!previous.refreshing && legacySpotRefreshing) {
+      legacySpotRequestSeqRef.current += 1;
+      publishLegacySpotEvidence({ kind: 'loading' });
+    } else if (
+      previous.refreshing &&
+      !legacySpotRefreshing &&
+      legacySpotInitialized
+    ) {
+      const requestSeq = legacySpotRequestSeqRef.current;
+      if (network?.isAllNetworks) {
+        const outcome = legacyAllNetworkOutcomeRef.current;
+        const coverageFingerprint = buildHomeSpotAllCoverage({
+          expected: outcome.expected,
+          failed: outcome.failed,
+          requestSeq,
+          settled: outcome.settled,
+        });
+        const terminal = legacyAllNetworkTerminalRef.current;
+        legacyAllNetworkTerminalRef.current = undefined;
+        if (terminal === 'complete') {
+          publishLegacySpotEvidence({
+            kind: 'complete',
+            confirmedEmpty: legacySpotPayload.displayIds.length === 0,
+            coverageFingerprint,
+            data: legacySpotPayload,
+            rowIds: legacySpotPayload.displayIds,
+          });
+        } else if (terminal === 'error') {
+          publishLegacySpotEvidence({ kind: 'error', errorKind: 'source' });
+        } else {
+          publishLegacySpotEvidence({
+            kind: 'partial',
+            coverageFingerprint,
+          });
+        }
+      } else {
+        const terminalRef = showLpTokensOnly
+          ? legacyLpTerminalRef
+          : legacySingleTerminalRef;
+        const terminal = terminalRef.current;
+        terminalRef.current = undefined;
+        if (terminal === 'complete') {
+          publishLegacySpotEvidence({
+            kind: 'complete',
+            confirmedEmpty: legacySpotPayload.displayIds.length === 0,
+            coverageFingerprint: buildHomeSpotSingleCoverage(requestSeq),
+            data: legacySpotPayload,
+            rowIds: legacySpotPayload.displayIds,
+          });
+        } else if (terminal === 'error') {
+          publishLegacySpotEvidence({ kind: 'error', errorKind: 'source' });
+        } else {
+          publishLegacySpotEvidence({
+            kind: 'partial',
+            coverageFingerprint: buildHomeSpotSingleCoverage(requestSeq),
+          });
+        }
+      }
+    }
+    previousLegacySpotRefreshRef.current = {
+      identityKey: legacySpotIdentityKey,
+      refreshing: legacySpotRefreshing,
+    };
+  }, [
+    legacySpotIdentityKey,
+    legacySpotInitialized,
+    legacySpotPayload,
+    legacySpotRefreshing,
+    network?.isAllNetworks,
+    publishLegacySpotEvidence,
+    showLpTokensOnly,
+  ]);
+
   // Keep the BG `ingestRound` inputs ref current so the refresh callbacks can
   // hand the right owner + hideZero inputs to `serviceTokenViewModel.ingestRound`
   // (design §5 step 2).
@@ -975,220 +1372,264 @@ function TokenListBlock({
       allNetworkDataInit?: boolean;
       isSingleRequest?: boolean;
     }) => {
-      const response = await backgroundApiProxy.serviceToken.fetchAccountTokens(
-        {
-          dbAccount,
-          networkId,
-          accountId,
-          indexedAccountId: indexedAccount?.id,
-          flag: 'home-token-list',
-          isAllNetworks: true,
-          isManualRefresh: isAllNetworkManualRefresh.current,
-          allNetworksAccountId: account?.id,
-          allNetworksNetworkId: network?.id,
-          saveToLocal: true,
-          ...walletTokenFilterParams,
-          customTokensRawData: customTokensRawData.current,
-          blockedTokensRawData:
-            riskTokenManagementRawData.current.blockedTokens,
-          unblockedTokensRawData:
-            riskTokenManagementRawData.current.unblockedTokens,
-        },
-      );
-      const r: IAllNetworkTokenListResp = {
-        ...response,
-        tokenSelectorFilterMode: 'wallet-token',
-        syncTokenFilterToOverview,
-        // Closure values — this callback is recreated per owner, so these are
-        // the owner this request was issued for.
-        ownerAccountId: account?.id,
-        ownerNetworkId: network?.id,
-      };
+      const outcome = legacyAllNetworkOutcomeRef.current;
+      const runIdentityKey = legacySpotIdentityKey;
+      const runToken = outcome.runToken;
+      const isCurrentSpotRun = () =>
+        outcome === legacyAllNetworkOutcomeRef.current &&
+        outcome.identityKey === runIdentityKey &&
+        outcome.runToken === runToken &&
+        (!runIdentityKey ||
+          legacySpotActiveIdentityKeyRef.current === runIdentityKey);
+      try {
+        const response =
+          await backgroundApiProxy.serviceToken.fetchAccountTokens({
+            dbAccount,
+            networkId,
+            accountId,
+            indexedAccountId: indexedAccount?.id,
+            flag: 'home-token-list',
+            isAllNetworks: true,
+            isManualRefresh: isAllNetworkManualRefresh.current,
+            allNetworksAccountId: account?.id,
+            allNetworksNetworkId: network?.id,
+            saveToLocal: true,
+            ...walletTokenFilterParams,
+            customTokensRawData: customTokensRawData.current,
+            blockedTokensRawData:
+              riskTokenManagementRawData.current.blockedTokens,
+            unblockedTokensRawData:
+              riskTokenManagementRawData.current.unblockedTokens,
+          });
+        const r: IAllNetworkTokenListResp = {
+          ...response,
+          tokenSelectorFilterMode: 'wallet-token',
+          syncTokenFilterToOverview,
+          // Closure values — this callback is recreated per owner, so these are
+          // the owner this request was issued for.
+          ownerAccountId: account?.id,
+          ownerNetworkId: network?.id,
+          legacySpotIdentityKey: runIdentityKey,
+          legacySpotRunToken: runToken,
+        };
 
-      const aggregateTokenConfigMapRawData =
-        aggregateTokenRawData.current?.aggregateTokenConfigMap;
+        const aggregateTokenConfigMapRawData =
+          aggregateTokenRawData.current?.aggregateTokenConfigMap;
 
-      let aggregateTokenListMap: Record<
-        string,
-        {
-          commonToken: IAccountToken;
-          tokens: IAccountToken[];
+        let aggregateTokenListMap: Record<
+          string,
+          {
+            commonToken: IAccountToken;
+            tokens: IAccountToken[];
+          }
+        > = {};
+        let aggregateTokenMap: Record<string, ITokenFiat> = {};
+
+        const [tokenNetwork, tokenVaultSettings] = await Promise.all([
+          backgroundApiProxy.serviceNetwork.getNetwork({
+            networkId,
+          }),
+          backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          }),
+        ]);
+
+        if (aggregateTokenConfigMapRawData) {
+          r.tokens.data = r.tokens.data
+            .map((token) => {
+              const data = buildAggregateTokenListData({
+                networkId,
+                accountId,
+                token,
+                tokenMap: r.tokens.map,
+                aggregateTokenListMap,
+                aggregateTokenMap,
+                aggregateTokenConfigMapRawData,
+                networkName: tokenNetwork?.name ?? '',
+              });
+
+              if (data.isAggregateToken) {
+                aggregateTokenListMap = data.aggregateTokenListMap;
+                aggregateTokenMap = data.aggregateTokenMap;
+                return null;
+              }
+
+              return token;
+            })
+            .filter(Boolean);
+
+          r.smallBalanceTokens.data = r.smallBalanceTokens.data
+            .map((token) => {
+              const data = buildAggregateTokenListData({
+                networkId,
+                accountId,
+                token,
+                tokenMap: r.smallBalanceTokens.map,
+                aggregateTokenListMap,
+                aggregateTokenMap,
+                aggregateTokenConfigMapRawData,
+                networkName: tokenNetwork?.name ?? '',
+              });
+
+              if (data.isAggregateToken) {
+                aggregateTokenListMap = data.aggregateTokenListMap;
+                aggregateTokenMap = data.aggregateTokenMap;
+                return null;
+              }
+
+              return token;
+            })
+            .filter(Boolean);
+
+          const aggregateTokenList = Object.values(aggregateTokenListMap).map(
+            (item) => item.commonToken,
+          );
+
+          r.tokens.data = [...r.tokens.data, ...aggregateTokenList];
+          r.aggregateTokenListMap = aggregateTokenListMap;
+          r.aggregateTokenMap = aggregateTokenMap;
         }
-      > = {};
-      let aggregateTokenMap: Record<string, ITokenFiat> = {};
 
-      const [tokenNetwork, tokenVaultSettings] = await Promise.all([
-        backgroundApiProxy.serviceNetwork.getNetwork({
-          networkId,
-        }),
-        backgroundApiProxy.serviceNetwork.getVaultSettings({
-          networkId,
-        }),
-      ]);
+        const { tokens, riskTokens, smallBalanceTokens } = r;
 
-      if (aggregateTokenConfigMapRawData) {
-        r.tokens.data = r.tokens.data
-          .map((token) => {
-            const data = buildAggregateTokenListData({
-              networkId,
-              accountId,
-              token,
-              tokenMap: r.tokens.map,
-              aggregateTokenListMap,
-              aggregateTokenMap,
-              aggregateTokenConfigMapRawData,
-              networkName: tokenNetwork?.name ?? '',
-            });
-
-            if (data.isAggregateToken) {
-              aggregateTokenListMap = data.aggregateTokenListMap;
-              aggregateTokenMap = data.aggregateTokenMap;
-              return null;
-            }
-
-            return token;
-          })
-          .filter(Boolean);
-
-        r.smallBalanceTokens.data = r.smallBalanceTokens.data
-          .map((token) => {
-            const data = buildAggregateTokenListData({
-              networkId,
-              accountId,
-              token,
-              tokenMap: r.smallBalanceTokens.map,
-              aggregateTokenListMap,
-              aggregateTokenMap,
-              aggregateTokenConfigMapRawData,
-              networkName: tokenNetwork?.name ?? '',
-            });
-
-            if (data.isAggregateToken) {
-              aggregateTokenListMap = data.aggregateTokenListMap;
-              aggregateTokenMap = data.aggregateTokenMap;
-              return null;
-            }
-
-            return token;
-          })
-          .filter(Boolean);
-
-        const aggregateTokenList = Object.values(aggregateTokenListMap).map(
-          (item) => item.commonToken,
-        );
-
-        r.tokens.data = [...r.tokens.data, ...aggregateTokenList];
-        r.aggregateTokenListMap = aggregateTokenListMap;
-        r.aggregateTokenMap = aggregateTokenMap;
-      }
-
-      const { tokens, riskTokens, smallBalanceTokens } = r;
-
-      const { allTokens } = getMergedTokenData({
-        tokens,
-        riskTokens,
-        smallBalanceTokens,
-      });
-
-      if (allTokens) {
-        allTokens.data = allTokens.data.map((token) => ({
-          ...token,
-          accountId,
-          networkId,
-          networkName: tokenNetwork?.name,
-          mergeAssets: tokenVaultSettings.mergeDeriveAssetsEnabled,
-        }));
-      }
-      r.allTokens = allTokens;
-
-      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-        runtime: 'main',
-        phase: 'all-network-fetch-settled',
-        networkId,
-        isAllNetworks: true,
-        allNetworkDataInit,
-        tokenCount: r.tokens.data.length,
-        smallBalanceCount: r.smallBalanceTokens.data.length,
-        riskyCount: r.riskTokens.data.length,
-        aggregateCount: Object.keys(r.aggregateTokenListMap ?? {}).length,
-        ownerPresent: !!account?.id,
-        indexedAccountPresent: !!indexedAccount?.id,
-      });
-
-      // The active owner may have changed during the awaits above (detached
-      // history-loop refresh, un-aborted fetch from a previous owner). Writing
-      // would land this owner's data on atoms already cleared and re-stamped
-      // for the new owner — and the next same-owner stamp write would then
-      // vouch for it.
-      const isStaleOwnerRequest = () =>
-        activeOwnerRef.current.accountId !== account?.id ||
-        activeOwnerRef.current.networkId !== network?.id;
-
-      if (
-        !allNetworkDataInit &&
-        r.isSameAllNetworksAccountData &&
-        !isStaleOwnerRequest()
-      ) {
-        const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
-        let createAtNetworkWorth = '0';
-
-        perfTokenListView.markEnd('tokenListRefreshing_allNetworkRequests');
-        updateTokenListState({
-          initialized: true,
-          isRefreshing: false,
+        const { allTokens } = getMergedTokenData({
+          tokens,
+          riskTokens,
+          smallBalanceTokens,
         });
 
-        if (syncTokenFilterToOverview) {
-          updateAccountOverviewState({
-            isRefreshing: false,
+        if (allTokens) {
+          allTokens.data = allTokens.data.map((token) => ({
+            ...token,
+            accountId,
+            networkId,
+            networkName: tokenNetwork?.name,
+            mergeAssets: tokenVaultSettings.mergeDeriveAssetsEnabled,
+          }));
+        }
+        r.allTokens = allTokens;
+
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'all-network-fetch-settled',
+          networkId,
+          isAllNetworks: true,
+          allNetworkDataInit,
+          tokenCount: r.tokens.data.length,
+          smallBalanceCount: r.smallBalanceTokens.data.length,
+          riskyCount: r.riskTokens.data.length,
+          aggregateCount: Object.keys(r.aggregateTokenListMap ?? {}).length,
+          ownerPresent: !!account?.id,
+          indexedAccountPresent: !!indexedAccount?.id,
+        });
+
+        // The active owner may have changed during the awaits above (detached
+        // history-loop refresh, un-aborted fetch from a previous owner). Writing
+        // would land this owner's data on atoms already cleared and re-stamped
+        // for the new owner — and the next same-owner stamp write would then
+        // vouch for it.
+        const isStaleOwnerRequest = () =>
+          !isCurrentSpotRun() ||
+          activeOwnerRef.current.accountId !== account?.id ||
+          activeOwnerRef.current.networkId !== network?.id;
+
+        if (
+          !allNetworkDataInit &&
+          r.isSameAllNetworksAccountData &&
+          !isStaleOwnerRequest()
+        ) {
+          const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
+          let createAtNetworkWorth = '0';
+
+          perfTokenListView.markEnd('tokenListRefreshing_allNetworkRequests');
+          updateTokenListState({
             initialized: true,
+            isRefreshing: false,
           });
 
-          if (
-            account?.id &&
-            (!accountUtils.isOthersAccount({ accountId: account.id }) ||
-              (accountUtils.isOthersAccount({ accountId: account.id }) &&
-                account?.createAtNetwork &&
-                account.createAtNetwork === networkId))
-          ) {
-            createAtNetworkWorth = accountWorth;
+          if (syncTokenFilterToOverview) {
+            updateAccountOverviewState({
+              isRefreshing: false,
+              initialized: true,
+            });
+
+            if (
+              account?.id &&
+              (!accountUtils.isOthersAccount({ accountId: account.id }) ||
+                (accountUtils.isOthersAccount({ accountId: account.id }) &&
+                  account?.createAtNetwork &&
+                  account.createAtNetwork === networkId))
+            ) {
+              createAtNetworkWorth = accountWorth;
+            }
+
+            updateAccountWorth({
+              accountId: mergeDeriveAddressData
+                ? (indexedAccount?.id ?? '')
+                : (account?.id ?? ''),
+              initialized: true,
+              worth: {
+                [accountUtils.buildAccountValueKey({
+                  accountId,
+                  networkId,
+                })]: accountWorth,
+              },
+              createAtNetworkWorth,
+              merge: true,
+            });
           }
 
-          updateAccountWorth({
-            accountId: mergeDeriveAddressData
-              ? (indexedAccount?.id ?? '')
-              : (account?.id ?? ''),
-            initialized: true,
-            worth: {
-              [accountUtils.buildAccountValueKey({
-                accountId,
-                networkId,
-              })]: accountWorth,
-            },
-            createAtNetworkWorth,
-            merge: true,
-          });
+          // Re-check the owner — it can switch mid-flight.
+          if (isStaleOwnerRequest()) {
+            outcome.canceled += 1;
+            isAllNetworkManualRefresh.current = false;
+            return r;
+          }
+
+          // TokenList cells Phase-2 BG cutover (design §5 PR-2 step 1). There is
+          // no per-round all-network ingestRound here: this round's
+          // `r.tokens.data` is ONE incremental slice, NOT the coherent full list,
+          // so feeding it would make the BG structure frame reflect a partial
+          // round. The progressive paint now flows through the LWW materialized
+          // view (`progressiveViewRef`): each settled round is ingested by key and
+          // the throttled flush materializes the merged snapshot. The authoritative
+          // feed still happens at the tail of the `allNetworksResult` consuming
+          // effect.
         }
 
-        // Re-check the owner — it can switch mid-flight.
-        if (isStaleOwnerRequest()) {
+        if (!isCurrentSpotRun()) {
+          outcome.canceled += 1;
           isAllNetworkManualRefresh.current = false;
           return r;
         }
-
-        // TokenList cells Phase-2 BG cutover (design §5 PR-2 step 1). There is
-        // no per-round all-network ingestRound here: this round's
-        // `r.tokens.data` is ONE incremental slice, NOT the coherent full list,
-        // so feeding it would make the BG structure frame reflect a partial
-        // round. The progressive paint now flows through the LWW materialized
-        // view (`progressiveViewRef`): each settled round is ingested by key and
-        // the throttled flush materializes the merged snapshot. The authoritative
-        // feed still happens at the tail of the `allNetworksResult` consuming
-        // effect.
+        if (r.isSameAllNetworksAccountData === false) {
+          outcome.failed += 1;
+        } else {
+          outcome.succeeded += 1;
+        }
+        isAllNetworkManualRefresh.current = false;
+        return r;
+      } catch (error) {
+        if (error instanceof CanceledError) {
+          outcome.canceled += 1;
+        } else {
+          outcome.failed += 1;
+        }
+        throw error;
+      } finally {
+        outcome.settled += 1;
+        if (isCurrentSpotRun()) {
+          publishLegacySpotEvidence({
+            kind: 'partial',
+            coverageFingerprint: buildHomeSpotAllCoverage({
+              expected: outcome.expected,
+              failed: outcome.failed,
+              requestSeq: legacySpotRequestSeqRef.current,
+              settled: outcome.settled,
+            }),
+          });
+        }
       }
-
-      isAllNetworkManualRefresh.current = false;
-      return r;
     },
     [
       account?.createAtNetwork,
@@ -1196,6 +1637,8 @@ function TokenListBlock({
       indexedAccount?.id,
       mergeDeriveAddressData,
       network?.id,
+      legacySpotIdentityKey,
+      publishLegacySpotEvidence,
       updateAccountOverviewState,
       updateAccountWorth,
       updateTokenListState,
@@ -1214,10 +1657,40 @@ function TokenListBlock({
     async ({
       accountId,
       networkId,
+      runContext,
     }: {
       accountId?: string;
       networkId?: string;
+      runContext?: ILegacyAllNetworkRunContext;
     }) => {
+      const outcome = runContext?.outcome;
+      if (!outcome || legacyAllNetworkOutcomeRef.current !== outcome) {
+        return;
+      }
+      const isCurrentRun =
+        legacyAllNetworkOutcomeRef.current === outcome &&
+        outcome.identityKey === legacySpotIdentityKey &&
+        outcome.runToken === legacyAllNetworkRunTokenRef.current &&
+        (!legacySpotIdentityKey ||
+          legacySpotActiveIdentityKeyRef.current === legacySpotIdentityKey) &&
+        activeOwnerRef.current.accountId === account?.id &&
+        activeOwnerRef.current.networkId === network?.id;
+      if (!isCurrentRun) {
+        return;
+      }
+      if (outcome.canceled > 0) {
+        legacyAllNetworkTerminalRef.current = 'partial';
+      } else if (
+        !outcome.started ||
+        !outcome.accountsResolved ||
+        outcome.failed > 0 ||
+        outcome.settled !== outcome.expected ||
+        outcome.succeeded !== outcome.expected
+      ) {
+        legacyAllNetworkTerminalRef.current = 'error';
+      } else {
+        legacyAllNetworkTerminalRef.current = 'complete';
+      }
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.TOKENS,
@@ -1225,7 +1698,7 @@ function TokenListBlock({
         networkId: networkId ?? '',
       });
     },
-    [],
+    [account?.id, legacySpotIdentityKey, network?.id],
   );
 
   const handleAllNetworkCacheChecked = useCallback(
@@ -1258,7 +1731,27 @@ function TokenListBlock({
       accountId?: string;
       networkId?: string;
       allNetworkDataInit?: boolean;
-    }) => {
+    }): Promise<ILegacyAllNetworkRunContext> => {
+      legacyAllNetworkRunTokenRef.current += 1;
+      const outcome = {
+        accountsResolved: false,
+        canceled: 0,
+        expected: 0,
+        failed: 0,
+        identityKey: legacySpotIdentityKey,
+        runToken: legacyAllNetworkRunTokenRef.current,
+        settled: 0,
+        started: false,
+        succeeded: 0,
+      };
+      const runContext = { outcome };
+      legacyAllNetworkOutcomeRef.current = outcome;
+      legacyAllNetworkExpectedCacheKeysRef.current = new Set();
+      legacyAllNetworkTerminalRef.current = undefined;
+      const isCurrentRun = () =>
+        legacyAllNetworkOutcomeRef.current === outcome &&
+        (!outcome.identityKey ||
+          legacySpotActiveIdentityKeyRef.current === outcome.identityKey);
       const updateCurrentAccountTask =
         accountId && networkId
           ? backgroundApiProxy.serviceToken.updateCurrentAccount({
@@ -1277,12 +1770,18 @@ function TokenListBlock({
         backgroundApiProxy.simpleDb.aggregateToken.getRawData(),
         updateCurrentAccountTask,
       ]);
+      if (!isCurrentRun()) {
+        return runContext;
+      }
 
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
 
       if (!a?.aggregateTokenConfigMap) {
         await backgroundApiProxy.serviceSetting.syncWalletConfig();
         a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
+        if (!isCurrentRun()) {
+          return runContext;
+        }
       }
 
       customTokensRawData.current = c ?? undefined;
@@ -1316,10 +1815,15 @@ function TokenListBlock({
           hasCache: undefined,
         });
       }
+      if (isCurrentRun()) {
+        outcome.started = true;
+      }
+      return runContext;
     },
     [
       account?.id,
       indexedAccount?.id,
+      legacySpotIdentityKey,
       network?.id,
       setOverviewTokenCacheState,
       syncTokenFilterToOverview,
@@ -1455,6 +1959,15 @@ function TokenListBlock({
       generation: number;
     }) => {
       perfTokenListView.markStart('handleAllNetworkCacheData');
+      const outcome = legacyAllNetworkOutcomeRef.current;
+      const isCurrentRun = () =>
+        outcome === legacyAllNetworkOutcomeRef.current &&
+        outcome.identityKey === legacySpotIdentityKey &&
+        (!legacySpotIdentityKey ||
+          legacySpotActiveIdentityKeyRef.current === legacySpotIdentityKey);
+      if (!isCurrentRun()) {
+        return;
+      }
 
       // Refresh the shared cached aggregate raw data (consumed by the
       // single-network aggregate-build path). The
@@ -1465,10 +1978,23 @@ function TokenListBlock({
       aggregateTokenRawData.current =
         (await backgroundApiProxy.simpleDb.aggregateToken.getRawData()) ??
         undefined;
+      if (!isCurrentRun()) {
+        return;
+      }
 
       // Per-account worth map for the overview update below.
       let tokenListValue: Record<string, string> = {};
       const hasAnyCache = data.some((item) => item.hasCache);
+      const cachedKeys = new Set(
+        data
+          .filter((item) => item.hasCache)
+          .map((item) => `${item.networkId}:${item.accountId}`),
+      );
+      const expectedKeys = legacyAllNetworkExpectedCacheKeysRef.current;
+      const hasExactCacheCoverage =
+        outcome.accountsResolved &&
+        cachedKeys.size === expectedKeys.size &&
+        Array.from(expectedKeys).every((key) => cachedKeys.has(key));
       data.forEach((item) => {
         tokenListValue = {
           ...tokenListValue,
@@ -1549,6 +2075,9 @@ function TokenListBlock({
           networkId,
           generation,
         });
+        if (isCurrentRun() && hasExactCacheCoverage) {
+          setLegacySpotConfirmedSeedOwner(cellsOwnerKey);
+        }
 
         perfTokenListView.markEnd('tokenListRefreshing_allNetworkCacheData');
         updateTokenListState({
@@ -1562,9 +2091,12 @@ function TokenListBlock({
     [
       account?.createAtNetwork,
       account?.id,
+      cellsOwnerKey,
       indexedAccount?.id,
       mergeDeriveAddressData,
+      legacySpotIdentityKey,
       seedAndFlushCache,
+      setLegacySpotConfirmedSeedOwner,
       setOverviewTokenCacheState,
       syncTokenFilterToOverview,
       updateAccountOverviewState,
@@ -1581,6 +2113,19 @@ function TokenListBlock({
       accounts: IAllNetworkAccountInfo[];
       allAccounts: IAllNetworkAccountInfo[];
     }) => {
+      const outcome = legacyAllNetworkOutcomeRef.current;
+      if (
+        outcome.identityKey !== legacySpotIdentityKey ||
+        (legacySpotIdentityKey &&
+          legacySpotActiveIdentityKeyRef.current !== legacySpotIdentityKey)
+      ) {
+        return;
+      }
+      outcome.accountsResolved = true;
+      outcome.expected = accounts.length;
+      legacyAllNetworkExpectedCacheKeysRef.current = new Set(
+        accounts.map((item) => `${item.networkId}:${item.accountId}`),
+      );
       updateAllNetworksState({
         visibleCount: uniqBy(allAccounts, 'networkId').length,
       });
@@ -1591,13 +2136,22 @@ function TokenListBlock({
       setPipelineEnabledKeys(accounts);
       setAllNetworkAccounts(accounts);
     },
-    [setPipelineEnabledKeys, updateAllNetworksState],
+    [legacySpotIdentityKey, setPipelineEnabledKeys, updateAllNetworksState],
   );
 
   // L2: LWW-ingest a settled live round + schedule a throttled flush — owner
   // guard + ingest + throttle all live in the facade now (design §2).
   const handleAllNetworkRequestSettled = useCallback(
     (result: IAllNetworkTokenListResp, generation: number) => {
+      const outcome = legacyAllNetworkOutcomeRef.current;
+      if (
+        result.legacySpotIdentityKey !== outcome.identityKey ||
+        result.legacySpotRunToken !== outcome.runToken ||
+        (outcome.identityKey &&
+          legacySpotActiveIdentityKeyRef.current !== outcome.identityKey)
+      ) {
+        return;
+      }
       defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
         runtime: 'main',
         phase: 'all-network-progressive-settled',
@@ -1618,7 +2172,10 @@ function TokenListBlock({
     run: runAllNetworksRequests,
     result: allNetworksResult,
     isEmptyAccount,
-  } = useAllNetworkRequests<IAllNetworkTokenListResp>({
+  } = useAllNetworkRequests<
+    IAllNetworkTokenListResp,
+    ILegacyAllNetworkRunContext
+  >({
     accountId: account?.id,
     networkId: network?.id,
     walletId: wallet?.id,
@@ -1637,6 +2194,18 @@ function TokenListBlock({
 
   const updateAllNetworksTokenList = useCallback(async () => {
     if (!allNetworksResult?.length) {
+      return;
+    }
+    const outcome = legacyAllNetworkOutcomeRef.current;
+    if (
+      allNetworksResult.some(
+        (result) =>
+          result.legacySpotIdentityKey !== outcome.identityKey ||
+          result.legacySpotRunToken !== outcome.runToken,
+      ) ||
+      (outcome.identityKey &&
+        legacySpotActiveIdentityKeyRef.current !== outcome.identityKey)
+    ) {
       return;
     }
     const resultTokenSelectorFilterMode =
@@ -2067,12 +2636,12 @@ function TokenListBlock({
         indexedAccountPresent: !!indexedAccount?.id,
       });
 
-      const ingestSingleNetworkCache = ({
+      const ingestSingleNetworkCache = async ({
         source,
       }: {
         source: 'singleCacheSeed' | 'singleEmptyCacheSeed';
       }) => {
-        void backgroundApiProxy.serviceTokenViewModel.ingestRound(
+        await backgroundApiProxy.serviceTokenViewModel.ingestRound(
           buildHomeTokenListCacheIngestRound({
             ownerKey: cellsIngestInputsRef.current.ownerKey,
             accountId: account?.id,
@@ -2129,7 +2698,8 @@ function TokenListBlock({
           handleClearAllNetworkData();
           // Stamp the empty cached owner into the cell VM so an empty cached
           // target renders the empty state instead of a previous-owner skeleton.
-          ingestSingleNetworkCache({ source: 'singleEmptyCacheSeed' });
+          await ingestSingleNetworkCache({ source: 'singleEmptyCacheSeed' });
+          if (cancelled) return;
           updateAccountOverviewState({
             isRefreshing: false,
             initialized: true,
@@ -2178,7 +2748,8 @@ function TokenListBlock({
           initialized: true,
         });
 
-        ingestSingleNetworkCache({ source: 'singleCacheSeed' });
+        await ingestSingleNetworkCache({ source: 'singleCacheSeed' });
+        if (cancelled) return;
         perfTokenListView.markEnd('tokenListRefreshing_initTokenListData');
         updateTokenListState({
           initialized: true,
@@ -2206,6 +2777,7 @@ function TokenListBlock({
     account?.xpub,
     // @ts-expect-error
     account?.xpubSegwit,
+    cellsOwnerKey,
     handleClearAllNetworkData,
     indexedAccount?.id,
     mergeDeriveAddressData,
@@ -2807,6 +3379,47 @@ function TokenListBlock({
     showLpTokensOnly,
   ]);
 
+  const legacySpotContent = renderContent();
+  const legacySpotSection = adaptHomeLegacySpotSection({
+    content: legacySpotContent,
+    enabled: Boolean(legacySpotIdentityKey),
+    resolution:
+      legacySpotResolution &&
+      legacySpotResolution.identityKey === legacySpotIdentityKey
+        ? legacySpotResolution.resolution
+        : undefined,
+  });
+  let resolvedLegacySpotContent = <EmptyToken />;
+  if (
+    legacySpotSection.kind === 'legacy' ||
+    legacySpotSection.kind === 'ready'
+  ) {
+    resolvedLegacySpotContent = legacySpotSection.content;
+  } else if (legacySpotSection.kind === 'loading') {
+    resolvedLegacySpotContent = (
+      <Stack py="$3">
+        <ListLoading listCount={6} />
+      </Stack>
+    );
+  } else if (legacySpotSection.kind === 'empty' && isAllNetworkEmptyAccount) {
+    resolvedLegacySpotContent = (
+      <Stack py="$20">
+        <EmptyAccount
+          createAllDeriveTypes
+          createAllEnabledNetworks
+          autoCreateAddress={false}
+          name={accountName}
+          chain={network?.name ?? ''}
+          type={
+            (deriveInfo?.labelKey
+              ? intl.formatMessage({ id: deriveInfo.labelKey })
+              : deriveInfo?.label) ?? ''
+          }
+        />
+      </Stack>
+    );
+  }
+
   return (
     <RichBlock
       withTitleSeparator
@@ -2816,7 +3429,7 @@ function TokenListBlock({
       subTitle={renderSubTitle()}
       headerActions={renderHeaderActions()}
       headerContainerProps={{ px: '$pagePadding' }}
-      content={renderContent()}
+      content={resolvedLegacySpotContent}
       plainContentContainer
     />
   );

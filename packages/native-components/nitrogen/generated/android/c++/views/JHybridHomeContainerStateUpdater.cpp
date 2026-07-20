@@ -64,6 +64,14 @@ void JHybridHomeContainerStateUpdater::updateViewProps(jni::alias_ref<jni::JClas
     view->setOnRenderError(props.onRenderError.value);
     // TODO: Set isDirty = false
   }
+  if (props.onIntent.isDirty) {
+    view->setOnIntent(props.onIntent.value);
+    // TODO: Set isDirty = false
+  }
+  if (props.onTransportResult.isDirty) {
+    view->setOnTransportResult(props.onTransportResult.value);
+    // TODO: Set isDirty = false
+  }
 
   // Update hybridRef if it changed
   if (props.hybridRef.isDirty) {

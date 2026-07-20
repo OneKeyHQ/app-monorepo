@@ -2472,3 +2472,507 @@ Phase 0A 按 writer、独立 code reviewer、独立 UI/evidence reviewer 分离�
 ### 下一阶段硬门禁
 
 Phase 1 不得自动开始。主 agent 必须先基于已批准的 Section 28 方向，列出 Phase 1 的精确 allow-list、明确行为目标、Do not modify、rollback 边界、pure/model contract 测试矩阵，以及 Legacy/Native 同状态 Debug UI 验证矩阵，再交由用户明确确认。未获得该次确认前，任何 agent 都不得创建 Phase 1 authority/shadow coordinator、修改 production renderer/cache/DTO/protocol/request lifecycle/Native bridge，或以 Phase 0A reviewer Pass 作为继续实施的默认授权。
+
+## 2026-07-20 用户追加授权：Phase 1–7 连续实施、最终统一 UI 验收
+
+用户随后明确要求“全部改完，一次验证”，因此从该条指令开始，上一节“每个下一 Phase 必须再次等待用户确认”的门禁被本次更晚授权取代。当前授权覆盖 `HOME_STATE_MODEL_REFACTOR_PLAN.md` 已定义的 Phase 1 到 Phase 7 连续实施；主 agent 不需要在 Phase 之间反复暂停并向用户重新申请同一范围的实施许可。该授权不等于允许一次性无边界修改，也不改变 Section 28 已批准的 architecture、identity、runtime 和 migration 方向。
+
+### 连续实施的内部 phase/batch 门禁
+
+- Architecture planner 必须先给出 Phase 1–7 的精确 allow-list、每个 phase/batch 的行为目标、Do not modify、依赖顺序、rollback checkpoint、pure/model contract 测试与最终 Debug matrix。planner 结果到达前不写产品代码；本 handoff 更新本身不构成产品文件 allow-list。
+- Writer subagent 仍只能修改分配给自己的精确文件；每个 phase/batch 完成后运行风险相称的 unit/type/lint/parse 检查，并保留可独立回退的 checkpoint。checkpoint 用于限制回归半径和定位失败，不是一次最终 UI 验收，也不能据此宣布可见行为或性能通过。
+- 未参与编写的 code reviewer 必须逐 batch 审计 architecture boundary、owner/source/request identity、race/stale rejection、cache provenance、protocol compatibility、类型和测试；任何 Fail 都返回原 writer 修正并再次复核。连续授权不允许跳过 reviewer，不能把最后一次集中 UI 验收当成源码审计替代品。
+- 主 agent 继续只负责拆分、保护 scope、协调 writer/reviewer、记录 checkpoint 与汇总；不直接编写产品代码，也不自行承担 code/UI 验收。handoff 必须保留每个 batch 的变更范围、检查、Fail/Pass 和已知限制，后续 Pass 不覆盖先前失败证据。
+
+### 最终一次完整 Debug UI / interaction / performance matrix
+
+- Phase 1–7 产品实现和所有内部 code review 都完成后，才由未参与编写的独立 UI verifier 执行一次完整标准 `yarn app:ios` Debug matrix。中间 batch 不重复跑全量真实 UI/性能矩阵；compile、unit test、元素存在、snapshot DTO 或单个 settled frame 均不算最终可见验收。
+- 最终统一矩阵必须覆盖 handoff 已列全部可用真实 fixture：Account #1/#8 双向首帧和 settled、All Networks 与六单链 scope、capability/Tab、Spot/Perps/DeFi/NFT/History/Market、cache/loading/error/stale/rollback、无 `rows -> empty -> rows`、高度与 content offset、双向惯性和真实触底、Dark/Light、Dynamic Type、pressed/focus、图片成功/全候选失败、PageFooter，以及同状态 Legacy/Native A/B。仍不可用的 fresh onboarding、首次创建空钱包、真正单链有钱、其它 wallet type、Android、iOS 17.4 以下和真实 pointer hover必须如实标记 Blocked，禁止写死数据制造 Pass。
+- UI verifier 必须使用真实截图、first/100ms/300ms/settled 多帧、402px A/B/diff、连续交互录屏、gesture telemetry、runtime/device log 和性能数据；同时确认应用持续存活、钱包数据正常、main 与 bg 分别 ready。只有这一轮完整矩阵完成后，才能汇总可见 UI、交互和性能结论；任何失败继续回到对应 writer/reviewer，修正后重新执行受影响矩阵及必要全量门禁。
+
+### 持续有效的安全与工作区边界
+
+- 继续固定使用标准 `yarn app:ios` 负责 Debug build、Metro、更新安装和启动；禁止 Release、自定义 Release `xcodebuild`、`CODE_SIGNING_ALLOWED=NO`，禁止独立 uninstall/reinstall、erase、clear data，禁止删除 simulator app container、钱包数据库或持久化数据。
+- 保留所有用户和其它任务 dirty files；禁止 reset、checkout、clean、stash、覆盖或回滚无关代码。只允许按 architecture planner 的 exact allow-list 修改和最终精确 stage；不得把 Discovery、Swap、TradingView、Firmware、Performance 或其它无关 owner 混入 Home State Model 重构。
+- `HOME_STATE_MODEL_REFACTOR_PLAN.md` 继续是只读 architecture 输入，不得修改、stage 或顺带提交。Phase 1–7 连续授权不允许改写计划来扩大范围，也不允许把 untracked proposal 或其它 dirty 文件误入 commit。
+- Writer、code reviewer、UI verifier职责继续分离；任何 agent 都不得自行 stage、commit 或 push。完成全部实施、最终统一验证和 handoff 后，再由主 agent按用户要求核对精确 pathspec、commit 并 push 当前分支。
+
+## 2026-07-20 Home State Model Phase 1 checkpoint
+
+Phase 1 已按 architecture planner 的精确范围完成 owner/source/request authority shadow：新增 JSON-safe `homeRuntime` transport contract、bg `ServiceBootstrap` per-boot producer handshake、single/split runtime adapter、owner/session/source/request identity、`HomeSessionMachine` / 通用 `ScopedResourceMachine<T>`、有界 stale trace、非持久 Home `contextAtom` 和返回 `null` 的 `HomeAuthorityShadowBridge`。`HomePageContainer` 只挂载 shadow Provider/Bridge；现有 surface resolver、renderer、confirmed cache、Native DTO、业务请求、feature selection 和可见 UI 均未迁移或改权威。Bridge 的 split 路径只调用 `serviceBootstrap.getHomeRuntimeHandshake()`，single 路径直接建立本地 producer identity；没有新增 Portfolio、DeFi、Perps、NFT、History 或 Market 请求。
+
+作者检查为 6 suites / 21 tests Pass，覆盖 JSON round-trip、bg boot identity、single/split conformance、A -> B -> A fresh session、same-scope stable、request 2 -> 1、producer restart、stale rejection、真实 Home context shadow 发布和 HomePage inert mount；21 个 Phase 1 文件的 type-aware oxlint、`oxfmt --check`、`git diff --check` 均 Pass。未参与编写的独立 reviewer 最终结论为 **Pass，无 P0-P3 finding**。Reviewer 的 residual risk 是本阶段按门禁没有运行 App/UI；真实 proxy 暴露和启动时序留给后续集成验证，但当前 shadow state 没有业务消费者，因此不构成可见行为证明或变更。
+
+本 checkpoint 的 UI/evidence 状态明确为 `currentRun: notRun`：没有执行 `yarn app:ios`，没有构建、更新安装、启动或操作 simulator/device，不能用作者测试或 reviewer Pass 宣称 UI、交互或性能通过。没有 uninstall、reinstall、erase、clear data，没有删除 app container、钱包数据库或持久化数据；没有 stage、commit 或 push。
+
+Runtime scope：main 拥有 shadow Home session、owner/session/source/request acceptance、SemanticStore 的未来接入点和 Home context；bg 只新增 JSON-safe producer handshake，仍负责既有 service/data fetch。iOS、Android、Extension 的 main/bg 独立 heap、独立初始化，握手经 proxy 序列化/反序列化，不共享 JS 对象且不假设 bg 先 ready；Desktop/Web 走 single runtime adapter，但仍执行同一 token validation。DB/MMKV/file handles、图片/字体 cache 和 Native singleton 仍可能为进程级共享资源；本阶段没有改变其 owner。Rollback 边界是移除 Home shadow Provider/Bridge、Home context、model shadow 文件和 handshake；当前 UI/业务路径保持原权威，不需要回滚 renderer/cache/DTO。
+
+## 2026-07-20 Home State Model Phase 2 checkpoint
+
+Phase 2 已在 Phase 1 authority 之上完成 facts、policy、capability、semantic store/projector、shadow comparator、Jotai shadow slice 与只读 hooks。当前仍是严格 shadow-only：现有 Legacy/Native renderer、confirmed UI cache、Native DTO/protocol、业务 service 请求与可见 surface 都没有消费新 semantic state；Bridge 只读取现有 active account metadata 和 Phase 1 producer handshake。metadata 变化只重新 publish shadow，不调用 `connectCurrent()`，因此没有新增 polling、重复 producer handshake 或 Portfolio、DeFi、Perps、NFT、History、Market 请求。
+
+Semantic contract 使用精确 comparison status `equal | classifiedDifference | unclassifiedDifference | notComparable`、12 个 mismatch reason code 和 4 个 not-comparable reason code；Phase 0 的 `intentional | historicalDrift | defect | openDecision` 仍是独立分类，没有绑定分类的 mismatch 必须是 `unclassifiedDifference`。Trace 只包含 owner/session hash、vector/source/reason/status/duration，不记录明文 owner、session、余额、row payload 或其它敏感事实。`HomeSemanticStore` 以 owner/session 为原子 reset 边界，保持未变化 slice 的结构共享和独立 revision；partial positive 加 confirmed zero 不会投影成 zero，只有 complete coverage 才能确认 zero。Market 仍是 section，不是顶部 Tab；capability 的 Tab 集合、顺序与 selected fallback 在同一次 projection 中提交。
+
+独立 reviewer 第一轮给出 Fail，并保留两类真实发现：特殊 shell `loading / backupRequired / missingNetworkAccount` 曾只隐藏 navigation、仍可能投影普通 sections；current facts adapter 曾在 capability 未 ready 时把 History/Market 猜为支持，并把真实硬件钱包持久类型 `WALLET_TYPE_HW = 'hw'` 错当成未知类型。Writer 随后让三类特殊 shell 同时隐藏 navigation 和全部六个 sections；未知 capability 的 server/product flags 全部保持 false、unknown wallet backup 保持 unknown、Bridge 使用实际 `Boolean(account)`；wallet type 映射改为复用 shared `WALLET_TYPE_*` 常量并把 `hw` 映射为 semantic `hardware`。新增测试覆盖三类独占 shell、unknown facts 与真实硬件钱包映射；同一独立 reviewer 最终结论为 **Pass，当前无剩余 P0-P3 finding**。后续 Pass 不覆盖第一轮 Fail 及其修正记录。
+
+最终作者检查为 Phase 1+2 聚焦 11 suites / 42 tests Pass；Phase 2 exact 21 个 TS/TSX 文件的 type-aware `oxlint --type-check --deny-warnings` 为 0 diagnostics，`oxfmt --check`、`git diff --check` 和 trailing-whitespace audit 均 Pass。测试日志仅包含现有 `react-test-renderer is deprecated` warning，没有测试失败。本 checkpoint 的 UI/evidence 状态仍明确为 `currentRun: notRun`：没有执行 `yarn app:ios`，没有构建、更新安装、启动或操作 simulator/device，不能据此声明真实 UI、交互或性能通过。
+
+Runtime scope：main 拥有 facts adapter、policy/capability projection、SemanticStore、comparison、Jotai shadow state 和 per-view/semantic selection；bg 仍只提供既有 wallet/account/network/capability/service 权威与 Phase 1 handshake。本阶段没有移动 service owner。iOS、Android、Extension 的 main/bg 独立 JS heap、独立初始化，proxy 数据会分别序列化/反序列化，main ready 不代表 bg ready；Desktop/Web 为 single runtime，但仍使用相同 owner/token validation。DB/MMKV/file handles、图片/字体 cache 和部分 Native singleton 仍可能是进程级共享资源；scroll offset、cell constraint、represented image signature、request cancellation、pressed/hover/focus/selected 与 mounted slot 继续是 per-view/main 状态。
+
+本阶段没有 uninstall、reinstall、erase、clear data，没有删除 app container、钱包数据库或持久化数据；没有 reset、checkout、clean、stash，没有 stage、commit 或 push。Rollback 边界仍是移除 Phase 2 facts/policy/capability/semantic shadow 文件和 Bridge/context 的 semantic publish；由于 renderer/cache/DTO/业务请求尚未迁移，不需要回滚任何可见 UI owner。Phase 3 只能在 architecture planner 的 exact allow-list 内继续 source reducer、confirmed cache provenance 与 request acceptance，不得借本 checkpoint 扩大到 renderer 或 Native protocol。
+
+## 2026-07-20 Home State Model Phase 3 checkpoint
+
+Phase 3 已完成 HomeContainer business schema v1 / transport protocol v2 的 owner-scoped transaction、typed snapshot/patch/result/intent、slot bundle 与双端 Native apply contract。TypeScript controller 只允许一个 v2 transaction in flight，ack 后合并后续变更；patch 绑定 owner、base revision、revision，section replace 同时带 stable section ID 与 index。Native 返回 `applied / duplicate / needSnapshot`，owner/revision 不匹配、malformed payload、unsafe integer 和空 ID 都会拒绝；`needSnapshot` 触发有界 full resync。v1 capability negotiation、snapshot/patch setter 与 React-only slots 继续兼容，缺少 protocol versions 的旧 Native 默认协商 v1；v2 不再用 first-tab 或旧 slots 隐式兜底。
+
+Kit main 侧新增 DTO adapter、stale intent guard 和 owner/revision/slot-contract 绑定的 slot bundle。Native wrapper 只接受与最后一次提交 owner/revision 相符的 transport result；refresh intent 即使因 stale/rejected 被拒绝也会按 request ID complete，避免刷新控件悬挂。Scope 切换时 existing controller 的 acquisition 在 render 明确使用 `deferScopeCommit`，owner/snapshot 只在 committed passive effect 首项切换，随后 structural navigation、theme、header、各 Tab sections 和 slots 在同一 effect batch coalesce。`replaceOwner` 会清除旧 `currentSlots`，transaction 只捕获提交当时的 slots，旧 owner slot 不会泄漏进新 owner。main 侧 semantic/transport/intent/slot owner 已建立，但当前可见 renderer 迁移与最终 UI 行为仍留给后续 Phase；本 checkpoint 不是 UI 完成声明。
+
+Native 双端都先在临时 candidate 上完整 decode/validate/apply，全部成功后才原子替换当前 snapshot；same-revision duplicate 也必须先验证完整 payload，不能让 malformed duplicate 绕过校验。Swift 与 Kotlin 对 non-empty owner/tab/section ID、JS safe integer、navigation 不携带 sections、section ID/index、base revision、owner/session 和 duplicate ordering 保持一致。iOS `HomeContainerView` / `HybridHomeContainer` 与 Android `HomeContainerView` / `HybridHomeContainer` 均接入单字符串 Nitro `onIntent` / `onTransportResult` callback，避免跨独立 runtime 共享 JS 对象的假设。
+
+### Codegen allow-list 修正
+
+按官方命令 `yarn workspace @onekeyhq/native-components codegen` 生成 Nitro bridge。首次因本机 npm cache 的 ENOENT 失败，执行只修复本地依赖缓存的 `npm cache verify` 后，原命令成功；没有手工伪造 generated bridge。Architecture 计划预估 13 个 generated 文件，但 callback props 会额外生成 iOS/Android view glue，实际且经主 agent 明确批准的 generated allow-list 为 15 个：Android C++/Kotlin 4 个，iOS bridge/C++/Swift 6 个，shared C++/view/JSON 5 个。最终 `git status --short packages/native-components/nitrogen/generated` 精确为这 15 个文件，没有其它 generated 漂移。计划 13 -> 实际 15 是 generator 对新增 callback view state updater/component glue 的确定性输出修正，不是扩大产品范围。
+
+### 四轮独立 reviewer 闭环
+
+前三轮独立 reviewer 的 Fail 结论保留，不由最终 Pass 覆盖。第一轮发现最新 `homeSlots` 会被错误标到旧 ack revision、被拒 refresh 不 complete、wrapper 可接受 stale ack、Swift/Kotlin invariant 不一致；writer 分别改为 transaction-time slot capture、rejected refresh 携带解析后的 intent 并完成 request、last-submission correlation 与双端 strict parity。第二轮发现 `controller.updateSlots(homeSlots)` 在 React render 中写 controller，以及 Android duplicate 在完整 validation 前短路；writer 把 slots 移到业务 effects 之后的 passive effect，并让 Android candidate 先完整验证。第三轮发现 existing controller 的 scope switch 仍可由 render acquisition 触发，abandoned render 可能发送错误 owner/snapshot 并捕获旧 slots；writer 加入 deferred committed scope switch、owner switch 清 slots 及对应回归。
+
+第四轮由未参与编写的同一 reviewer 完整复扫后给出 **Pass，无 P0/P1/P2 finding**：确认 render acquisition 不切 owner，scope commit 与 structural/theme/header/sections/slots 同批 coalesce，旧 owner slots 不进入新 transaction，Android duplicate ordering 与 Swift 对齐；同时复核 ack slot capture、slot-only v2、v1 no-op、rejected refresh completion、wrapper submission filter、strict ID/safe integer、atomic patch 和 v1 compatibility 均无 actionable finding。
+
+### 作者检查、UI 状态与安全边界
+
+- 聚焦 Jest：5 suites / 46 tests Pass，覆盖 controller v1/v2 negotiation、one-inflight/ack/coalesce/resync、owner/revision、slots、intent、DTO、wrapper identity 与 mounted scope rerender/remount。
+- 15 个 Phase 3 TS/TSX 文件的 type-aware `oxlint --deny-warnings`、`oxfmt --check` 均 Pass；指定 Phase 3 source `git diff --check` Pass。`@onekeyhq/native-components` TypeScript Pass。
+- `@onekeyhq/kit` TypeScript 仅剩共享工作区已有的两项无关错误：Desktop `config.perfReady` side-effect module 缺失、旧 `HOME_HEADER_SEARCH_ROW_HEIGHT` export 缺失；没有回滚或混修这些文件制造绿色结果。
+- iOS `swiftc -parse` Pass；iPhone 17 Pro / iOS 26.5 simulator 上 protocol fixture contract 进程退出码 0。Android 使用 JDK 17，`HomeContainerProtocolV2Test` 13/13 Pass，`:onekeyhq_native-components:compileDebugKotlin` Pass。
+- 本 checkpoint 的 UI/evidence 状态明确为 `currentRun: notRun`：没有执行 `yarn app:ios`，没有构建、更新安装、启动或操作 App/simulator，也没有产生新的截图、录屏、A/B 或 interaction/performance 证据。不能把 protocol contract、compile 或 reviewer Pass 宣称为可见 UI 已通过。
+- 没有 uninstall、reinstall、erase、clear data，没有删除 app container、钱包数据库或持久化数据；没有 reset、checkout、clean、stash，没有 stage、commit 或 push。
+
+Runtime scope：main 拥有 HomeContainer semantic snapshot/patch controller、owner/session/revision、intent guard、slot bundle 与 per-view mounted slot identity；bg 仍负责 wallet/account/network/capability 和 Portfolio/DeFi/Perps/Market/History/NFT service 权威，本阶段没有移动或复制业务请求 owner。iOS、Android、Extension 的 main/bg 是独立 Hermes heap、独立初始化，DTO/intent/result 经 proxy/Nitro string 序列化和反序列化，各 runtime 各有 JS 副本；main ready 不代表 bg ready，也不能假设 bg 先 ready。Desktop/Web 为 single runtime，但仍执行同一 owner/revision contract。DB/MMKV/file handles、图片/字体 cache 与部分 Native singleton 可能是进程级共享资源；cell constraint、diffable snapshot/cell、represented image signature、request cancellation、pressed/hover/focus/selected、scroll offset 与 mounted slot host 继续是 per-view/main 状态。
+
+Rollback 边界是移除 Phase 3 v2 DTO/intent/slot adapters、controller/wrapper protocol v2 路径、双端 protocol v2 apply contract 与对应 15 个 codegen 输出；v1 transport、现有 Legacy/Native renderer 和既有业务请求仍保留，可独立恢复到 Phase 2 shadow checkpoint。后续 Phase 不得以本 checkpoint 自动删除 v1 compatibility，也不得在最终统一 Debug matrix 前声称首次启动、fresh empty wallet、真正单链有钱钱包或可见 UI 已完成。
+
+## 2026-07-20 Home State Model Phase 4 checkpoint
+
+Phase 4 已在 Phase 1–3 的 authority、facts、semantic 和 transport 基础上完成 balance contributor aggregation、exact confirmed cache、correlated shell 与 Legacy/Native balance presentation 迁移。Portfolio、DeFi、Perps 只有在 owner/session、required contributor set、source identity、scope 和 quote basis 全部一致且完整时才发布 exact total；loading/partial 不会把少算总额伪装成 final，zero 只由完整覆盖确认，signed DeFi net worth 允许参与资产减负债聚合，任意有限非零最终总额仍属于 funded family。main runtime 的 confirmed balance cache 是不持久化、exact owner/source/quote key 的 8-entry LRU；semantic shell publish effect 排在 cache commit effect 之前，避免新 cache 先于同 revision shell 暴露。
+
+Legacy Header 现在只调用一次 `useHomeBalancePresentation()`，同一个带 revision 的 correlated presentation 驱动可见金额、WalletActions、banner 和 native header height；semantic loading 会压住旧 Legacy 金额，authoritative zero/funded 金额精确覆盖旧 cache，只有 semantic facts 完全缺失时才完整 rollback 到原 Legacy amount/action/banner 路径。`notBackedUp / backupRequired` 仍是明确保留的例外：该页面不接收 correlated amount override，继续使用原版 HomeOverview balance renderer；本阶段没有改变其请求、轮询、refresh、lastConfirmed persistence、HomePageReady、analytics、format 或 layout。Native 新旧 presentation 都使用安全 quote；缺失或非法汇率会把对应 included source 降为 loading/partial/error，不能把原币金额重标为 USD，也不能让 raw authority success 把 token-only、少算总额或 0 写入旧 `lastConfirmedOverviewBalance`。pricing revision 绑定实际 source/target rate identity，rate 变化不会误命中旧 exact cache。
+
+### 两轮独立 reviewer Fail 与最终闭环
+
+第一轮独立 reviewer 给出 **Fail，无 P0，2 个 P1、2 个 P2**，后续 Pass 不覆盖这些历史发现：同 account 从 single network A 切 B 时曾把 A 的整个 worth map 重新标为 B scope；汇率缺失时 `convertFiat` fallback 曾把原币金额直接标为 USD，Native pricing revision 还是固定字符串；负 DeFi net worth 曾被 contributor/aggregate/cache 拒绝；Legacy 实际金额仍由 `HomeOverviewContainer` 的旧独立 authority 渲染，而 actions/banner/height 已消费 semantic shell。Writer 随后把 single-network selection 收紧为 exact `currentWorthKey`，缺 key 保持 loading/source mismatch；引入安全 quote 与动态 rate identity；允许有限 signed contributor、aggregate 和 cache；并经独立审计批准把原 29-path allow-list 最小扩为 31 paths，只新增修改 `HomeOverviewContainer.tsx` 和新增 `HomeOverviewContainer.balance.test.tsx`，完成 optional correlated amount presentation。禁止修改 Overview 请求、轮询、refresh、lastConfirmed persistence、HomePageReady、analytics、format 和 layout 的边界保持不变。
+
+第二轮同一 reviewer 仍给出 **Fail，1 个 P1、1 个 P2**：Native semantic contributor 虽已在缺率时降级，旧 compatibility amount hook 仍收到 raw success，可能提交少算总额污染 `lastConfirmedOverviewBalance`；`backupRequired` 被映射为 semantic loading 后，`notBackedUp` 页面也收到 correlated override，可能永久显示 skeleton。Writer 随后让旧 Native hook 同样消费 quote-aware status，任一 included source 缺率都不能 final/commit；并让 not-backed-up Overview 明确传 `undefined`，完整保留原余额展示，新增回归验证 raw-success+quote-failure 不能进入 final family以及 not-backed-up 不接收 correlated override。
+
+第三轮由未参与编写的原 reviewer 复扫后给出 **Pass，当前无 P0/P1/P2/P3 finding**。Reviewer 确认 6 项历史问题全部关闭：single-network 旧 worth 误归属、缺 quote 误标 USD、signed DeFi 被拒、Legacy amount 与 shell 不同权威、Native quote 缺失时 raw success 污染旧 lastConfirmed、notBackedUp 被 correlated loading 永久 skeleton；同时确认 Header/Actions/Banner/Overview 共享一次 presentation/同一 shell、main-only exact LRU 与 effect ordering 正确，bg 没有取得 UI semantic/cache owner。
+
+### 作者检查、UI 状态、安全与 runtime 边界
+
+- 最终聚焦 Jest 为 10 suites / 65 tests Pass，覆盖 exact current-network worth、safe quote/rate identity、quote-aware legacy status、signed aggregation/cache/authority、loading/zero/funded/error、same-wallet A -> B pending、correlated Header/Overview、not-backed-up rollback、Native exact scope amount/cache 和旧兼容路径。
+- Phase 4 最终 31 个 TS/TSX 文件 `oxfmt --check` Pass、`oxlint` 0 diagnostics、指定 `git diff --check` Pass。Kit TypeScript 只剩共享工作区已有的两个无关错误：Desktop `config.perfReady` side-effect module 缺失、旧 `HOME_HEADER_SEARCH_ROW_HEIGHT` export 缺失；本轮新增 TypeScript error 已清零，没有回滚或混修无关 owner 制造绿色结果。
+- UI/evidence 状态明确为 `currentRun: notRun`：本阶段没有执行 `yarn app:ios`，没有构建、更新安装、启动或操作 App/simulator，没有产生新的截图、first/100ms/300ms/settled、多帧、录屏、A/B、interaction 或 performance 证据。Reviewer Pass 与 65 个单测不能替代最终统一 Debug 中 loading/zero/funded/error、首次启动、首次创建空钱包、真正单链有钱钱包和其它既定矩阵；不得据此声称可见 UI 或 Native Home 已完成。
+- 没有 uninstall、reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据；没有 reset、checkout、clean、stash，没有 stage、commit 或 push。当前大量用户和其它任务 dirty files均保留。
+
+Runtime scope：main 拥有 balance facts adapter、required-set aggregation、safe quote identity、main-only confirmed LRU、correlated shell、Legacy/Native presentation、revision 与 per-view renderer selection；bg 仍只提供既有 wallet/account/network/capability、Portfolio/DeFi/Perps 等 service facts，不持有 UI semantic store 或 confirmed LRU。iOS、Android、Extension 的 main/bg 是独立 Hermes heap、独立初始化；facts/DTO 经 proxy 序列化和反序列化后各 runtime 各有 JS 副本，main ready 不代表 bg ready，也不能假设 bg 先 ready。Desktop/Web 为 single runtime，但仍执行相同 owner/source/quote identity。DB/MMKV/file handles、图片/字体 cache 与部分 Native singleton 仍可能是进程级共享资源；balance presentation、cell constraint、represented image signature、request cancellation、pressed/hover/focus/selected、scroll offset 与 mounted slot 是 main/per-view 状态。
+
+Rollback 边界是移除 Phase 4 balance facts/aggregation/policy/cache/coordinator、Header/Overview correlated presentation 与 Native safe-quote接线，恢复 Phase 3 shadow/transport checkpoint；Legacy amount renderer、原请求/轮询/persistence 和 Native v1/v2 compatibility 仍保留，因此不需要删除原版 Home 代码。Phase 5 只能进入 architecture planner 已批准的 exact allow-list，不得借 balance Pass 修改 renderer 之外的业务请求或提前执行最终 UI 验收。
+
+## 2026-07-20 Home State Model Phase 5 checkpoint
+
+Phase 5 已完成 capability/navigation authority、exact confirmed capability cache、集中 Tab intent 与 Legacy/Native destination adapter，并把 Native Home 的业务 schema 从 1 升到 2；transport protocol 仍为 2。unknown capability 没有 exact owner/source record 时保持 pending，不猜测 Tab；main-only confirmed capability cache 使用精确 wallet/account/network/capability source identity 和 8-entry LRU。用户 selected intent 只允许 inline destination，owner 变化或已选 Tab 被移除时由同一个 reducer 确定性回退到第一个 inline Tab，Tab 后续恢复不会自动复活旧选择。Perps destination 是 `inline | web | unavailable`：web Perps 在 Legacy 直接 handoff，在 Native tab strip 中仍可见但不创建 page，不成为 selected，不接收 sections、refresh 或 inline select。
+
+### 初始三项 P1 Fail 与 capability authority 修正
+
+独立 reviewer 第一轮明确给出三个 P1，后续 Pass 不覆盖这些失败记录。第一项是 scope/cache contamination：旧 capability support/result、旧 owner facts 和当前 network/account identity 曾可能被组合并重新标成当前 live scope。Writer 随后把 capability scope、wallet/account/network owner 和 source revision 纳入同一 source identity；只有 raw bg result 的 scope 与当前 scope 精确一致且 ready 时才是 live，旧 support map 不再被重新标为当前 live，active owner/facts/result 必须三重匹配。第二项是 Perps config readiness 曾阻塞整张 navigation：`perpConfigLoaded=false` 会让 Portfolio、History、NFT、DeFi 也一起 pending。修正后 Perps config 不再进入 capability request key 或 bg DeFi request 依赖，未知 config 只把 Perps server config/destination 保持 unknown/unavailable，其余有明确证据的 Tabs 立即 ready；聚焦测试锁定“only Perps unknown, unrelated tabs ready”。第三项是 schema 1 无法表达 web-only handoff：Native 只能把 Perps 当 page 或隐藏，无法与 Legacy 保持同一 Tab 集合和 destination 语义。该项触发下面经主 agent 明确批准的 schema 2 最小扩展。
+
+同轮 P2/P3 还指出多处 authority writer、stale local selection 和 optional semantic destination 可能让两个 renderer 各自猜测。最终只有顶层 Legacy `HomePageView` 与 Native `NativeHomePage` 显式启用 capability authority；旧 `HomeOverview` consumer 不再 publish。authoritative ready semantic 现在强制携带 destinations、freshness、Perps destination、refresh、sections、tabs 和 selected，缺字段直接 pending，adapter 不再使用 `?? unavailable` 猜值。NFT 计算集中在 capability hook，Legacy History 消费同一 authoritative tabIds；stale select 返回 false 后不会更新 local active/jump。
+
+### Schema 2 的 22-file 最小 Native 扩展
+
+主 agent 在原 Phase 5 32-path capability/navigation allow-list 之外，只批准以下 22 个 Native handoff 文件；business schema 1 -> 2，protocol 保持 2，不修改 Nitro spec、`HomeContainer.native.tsx`、`HomeContainer.nitro.ts`、`nitro.json` 或 generated bridge，也不运行 Phase 5 codegen：
+
+- Kit 6 paths：`NativeHomePage.native.tsx`、`useNativeHomeContainerScopeController.ts`、`model/native/homeNativeDTOAdapter.ts`、`model/native/homeNativeIntentGuard.ts`、`model/tests/homeNativeDTOAdapter.test.ts`、`model/tests/homeNativeIntentAndSlot.test.ts`；
+- Native TypeScript/fixtures 7 paths：`HomeContainer.types.ts`、`index.ts`、`HomeContainerController.ts`、`HomeContainerController.test.ts`、`HomeContainerProtocolV2.test.ts`、`tests/fixtures/home-container-v2.snapshot.json`、`tests/fixtures/home-container-v2.patch.json`；
+- iOS 4 paths：`HomeContainerModels.swift`、`HomeContainerProtocolV2.swift`、`HomeContainerView.swift`、`HybridHomeContainer.swift`；
+- Android 5 paths：`HomeContainerModels.kt`、`HomeContainerProtocolV2.kt`、`HomeContainerView.kt`、`HybridHomeContainer.kt`、`HomeContainerProtocolV2Test.kt`。
+
+required `destination` 造成既有 fixture 类型连锁后，主 agent 另批准 1 个机械扩展 `nativeHomeContainerControllerOwner.test.ts`，只给现有 inline fixture 补 `destination: 'inline'`，没有改变 owner 测试语义。schema 2 强制每个 Tab 声明 `destination: inline | handoff`；inline 禁止出现 `handoffCommandId`，handoff 要求非空 command 且 `sections=[]`，`selectedTabId` 必须指向 inline。snapshot、legacy patch 和 protocol-v2 patch 均在临时 candidate 上完整 decode/validate 后才提交；invalid candidate 保持 current owner/snapshot/revision/page 不变。iOS/Android tab strip 渲染全量 Tabs，pager/pages 只使用 inline Tabs；handoff tap 和原生 programmatic select 都在任何 selected/page/content offset 写入前发 typed intent 并 return。v1 fallback 继续通过 legacy `onAction`，没有删除原兼容路径。
+
+### 后续 reviewer Fail、修复与最终三端闭环
+
+schema 2 首轮实现后，独立 reviewer 继续发现并逐项关闭以下真实问题：
+
+1. `HomeContainerController.replaceOwner` 曾先切 owner 并清 ack，再验证 next snapshot；invalid candidate 可能留下“新 owner + 旧 snapshot”。修正为完整验证通过后才原子切 owner/snapshot/slots，并新增 invalid owner replacement 不污染 current 的回归。
+2. `updateTabs` 从有 sections 的 inline Perps 切到 handoff 时曾仍生成 `removeSection`；双端会正确拒绝对 handoff 的 section change 并请求 snapshot。修正为 pending section diff 只收集 next inline tabs，change builder 再次防御性跳过 handoff；回归确认 inline -> handoff patch 只携带合法 navigation、不发送 Perps section change。atomic tab builder 也强制 handoff 永远无 sections 且不能 selected。
+3. protocol-v1 handoff fallback 曾是死链：iOS/Android 会发 `home.perps.openWeb` legacy action，但 `NativeHomePage` 没有处理。新增可单测的 legacy handoff guard/dispatcher；只有当前 semantic ready、`destinations.perps=web`，且 controller 当前 snapshot 仍含精确 Perps handoff command 时才切到 `WebviewPerpTrade`，removed command、inline destination、旧 snapshot 和错误 target 均拒绝。v2 typed owner/revision intent 路径保持不变。
+4. Android v1 business invariant 曾只检查 Tabs，未像 iOS 一样检查 schema 和 revision，unsafe high revision 可能锁住后续正常 revision。Android 现在要求 schema=2、revision 在 `0...Number.MAX_SAFE_INTEGER`，legacy patch 通过临时 candidate gate；测试覆盖 snapshot/patch 的 `-1` 与 `2^53` 拒绝且 current state 不变。
+5. typed `selectTab`/`refresh` 曾只校验 owner 和 availability，没有校验 rendered revision；迟到 select 可能让 main active tab 与 Native pager 分叉。现在 action、handoff、selectTab、refresh 全部要求 exact rendered revision；rejected refresh 仍保留解析后的 requestId 并 complete，避免刷新控件悬挂。
+
+同一独立 reviewer 最终进行三端只读复扫并给出 **Pass，P0/P1/P2/P3 均无剩余代码问题**。Reviewer 确认 schema2/protocol2、destination 判别约束、全量 tab strip/inline-only pager、handoff 不改变 selection/page/offset、v1 guarded fallback、v2 owner/revision intent、candidate atomic rollback 和 inline-only section changes 在 TypeScript、Swift、Kotlin 之间一致。该 Pass 是代码、单测和 parse 验收，不是模拟器或真机 UI 验收。
+
+### Generated side effect 与精确归属
+
+reviewer 第一次执行 Android 聚焦 Gradle 测试时，RN Gradle 依赖触发/触碰了 `packages/native-components/nitrogen/generated/**`。该 reviewer 没有在任务开始前记录 generated baseline，因此不能单独证明内容是否由该命令首次产生，也没有执行任何 reset/checkout/revert。主 agent 随后使用 Phase 3 pre-Phase5 baseline 做精确白名单审计：工作树仍只有 Phase 3 已记录的同 15 个 generated paths，stat 仍为 271 additions/41 deletions，没有第 16 个文件、没有新增路径或额外 content diff。它们继续归属 Phase 3 codegen，不属于 Phase 5，Phase 5 不得 stage 或重复生成。Android 最终复测显式排除 native-components codegen tasks；日志中第三方 nitro module codegen 仅为 `UP-TO-DATE`。该工具副作用和归属必须保留，不能把 generated dirty 误算成 Phase 5 产品修改。
+
+### 最终检查、UI 状态、安全与 runtime 边界
+
+- 最终 Phase 5 broad Jest 为 29 suites / 267 tests Pass，覆盖 capability facts/matrix/cache、Tab intent/coordinator/adapters/conformance、hook lifecycle 与 scope race、Native DTO/intent/slot、controller v1/v2、owner switch 和 schema2 fixtures；最后两处格式修正后的聚焦复测为 2 suites / 33 tests Pass。测试只出现既有 `react-test-renderer is deprecated` warning。
+- Phase 5 exact TypeScript type-aware oxlint 为 0 diagnostics；oxfmt 最终 Pass，指定 Kit/Native/iOS/Android/fixtures `git diff --check` Pass。`yarn _tsc` 没有 Phase 5 新增错误，只剩共享工作区既有的 Desktop `config.perfReady` module 缺失和 `NativeHomePageView.native.tsx` 引用未导出的 `HOME_HEADER_SEARCH_ROW_HEIGHT`；没有混修无关 owner 制造绿色结果。
+- iOS 四个指定 Swift 文件 `swiftc -parse` Pass，Models + Protocol 在 simulator SDK 下 typecheck Pass；完整 View 裸 typecheck 只因独立命令缺少 SDWebImage module search path 受阻，不是本次 Swift 诊断。Android 使用 JDK17，最终 targeted 16/16 Pass，`compileDebugKotlin` Pass，diff-check Pass。
+- UI/evidence 状态明确为 `currentRun: notRun`：本 Phase 没有执行 `yarn app:ios`，没有构建、更新安装、启动或操作 App/simulator/device，没有新截图、录屏、A/B、首帧、连续 Tab 切换、pressed/hover、scroll 或 performance 证据。首次启动、首次创建空钱包、真正单链有钱钱包以及既有完整 UI 矩阵仍必须在后续统一 Debug 由独立 UI verifier 真实验收；不得把 schema、compile、Jest 或 reviewer Pass 表述为 UI 通过或 Native Home 完成。
+- 本 Phase 没有 uninstall、reinstall、erase、clear data，没有删除 app container、钱包数据库或持久化数据；没有 reset、checkout、clean、stash，没有 stage、commit 或 push。大量用户与其它任务 dirty files 均保留，未把 Discovery、Swap、TradingView、Firmware、Performance 或 Phase 3 generated 混入 Phase 5。
+
+Runtime scope：main 拥有 current capability facts adapter、exact confirmed capability LRU、authority/coordinator、Tab intent、Legacy/Native destination adapters、HomeContainer snapshot/controller、intent guard 与 per-view selected/page/offset；bg 仍负责 wallet/account/network、enabled networks、server capability/config 和既有 service data fetch。iOS、Android、Extension 的 main/bg 为独立 Hermes heap、独立初始化；capability facts 经 proxy 序列化/反序列化后各 runtime 各有 JS 副本，main ready 不代表 bg ready，不能假设 bg 先 ready。Desktop/Web 为 single runtime，但仍执行相同 owner/source/revision 合同。DB/MMKV/file handles、图片/字体 cache 和部分 Native singleton 可能是进程级共享资源；tab button、pager page、cell constraint、represented image signature、request cancellation、pressed/hover/focus/selected、content offset 与 mounted slot 仍是 per-view/main 状态。共享 Native 资源命中不能证明当前 scope、selection 或 view state 正确。
+
+Rollback 必须作为一个 schema-locked 单元执行：同时移除 Phase 5 capability authority/cache/intent/adapters、schema2 DTO/controller/fixtures 和 Swift/Kotlin handoff 实现，恢复 Phase 4/Phase 3 的 schema1 compatibility checkpoint；不能只回滚 TypeScript 或单端 Native 造成 business schema skew。原版 Legacy Home、v1 transport 和既有 service 请求均未删除，仍是明确兼容/回滚边界。Phase 6 只能按新一轮 architecture planner 批准的 exact section scope 推进，不得借本 checkpoint 清理 v1、扩大到未批准 renderer/service，或在没有真实 Debug 矩阵前声明 UI 完成。
+
+## 2026-07-20 Home State Model Phase 6 Common checkpoint
+
+Phase 6 Common 已建立逐 section 迁移所需的 pure source adapter、main-owned coordinator、semantic slice publication 和 Legacy/Native compatibility seam，但没有接入任何具体 Portfolio、Perps、DeFi、NFT、History 或 Market source，也没有改变可见 section。`HomeSectionCoordinator<T>` 持有权威 payload，按完整 owner/session、section、source/source key、producer、source revision、request sequence 接受事件；idle/loading/partial 投影为 loading，complete empty 投影为 empty，complete success 投影为 ready/live，error 只有 exact `{sectionId, sourceKeyIdentity}` 的已确认 8-entry cache 命中时才投影为 ready/confirmedCache + refresh failed，否则为 error。rowIds 只用于 semantic trace；ready 缺少 live/confirmedCache payload 时 compatibility adapter 必须安全降为 loading，禁止由 rowIds 伪造空 rows。
+
+Jotai 只保存 section semantic slice 与 monotonic revision metadata，不保存业务 payload。same-owner shadow publish 逐 section 比较 revision，保留更新的 slice 和 clear tombstone；owner 变化才允许全量替换。copy-on-write 保证无语义变化时返回 current sections/revisions 原引用，避免整张 map 无谓重发。Native Common 只增加 `compatibilitySections ?? sections` 的 same-reference seam 和 typed `replaceSection` DTO helper；当前 NativePage 传入 undefined compatibility，返回原 sections exact reference，没有订阅 section shadow、没有发送新的 snapshot/patch，也没有可见 UI 变化。
+
+### 独立 reviewer Fail、修复与最终闭环
+
+独立 reviewer 共三轮明确给出 Fail，最终 Pass 不覆盖这些历史发现：
+
+1. 第一轮 P1：全量 `publishSemanticShadow` 可用旧 revision 覆盖或复活已由 fine-grained publish/clear 更新的 section。修正为 same-owner per-section monotonic merge，并用 tombstone revision 拒绝旧 shadow；new owner 才整表替换。
+2. 第二轮两个 P1：同一 request 的 terminal -> terminal 仍可互相覆盖；authoritative empty 未淘汰旧 exact success cache，后续 error 会复活过期 rows。修正为同 request 接受第一个 terminal 后拒绝所有后续 phase/terminal，stale dispatch 不改变当前 snapshot；accepted empty 删除 exact cache，后续 error 不再回退旧 rows。
+3. 第二轮 P2：`setOwner` 可把同 identity live 状态重置为 loading，且 dispose 后可被重新激活。修正为 same identity no-op，dispose 为终态，不同 identity 的 setOwner 也不能复活 disposed coordinator。
+4. 第三轮 P2：same-owner no-op merge 仍创建新 map，可能令所有 section consumer 重渲染。修正为 copy-on-write；完全 no-op 返回 current sections/revisions exact references，new owner 的 sections 直接复用 incoming reference。
+
+同一未参与编写的 reviewer 最终只读复核给出 **Pass，P0/P1/P2/P3 均为 0**。独立重跑 6 suites / 32 tests Pass，13 个 Common 文件 `oxfmt --check` Pass，13 个 Common 文件 type-aware `oxlint --deny-warnings` 为 0 diagnostics。作者侧聚焦检查同样通过；`yarn tsc:only` 仍只报告两个共享工作区既有且与 Common 无关的错误：Desktop `config.perfReady` module 缺失，以及 `NativeHomePageView.native.tsx` 引用了 `MDHeader` 未导出的 `HOME_HEADER_SEARCH_ROW_HEIGHT`。没有修改这些无关 owner 制造绿色结果。
+
+### UI、安全、runtime 与 rollback
+
+- UI/evidence 明确为 `currentRun: notRun`：Common 没有执行 `yarn app:ios`，没有 build、更新安装、启动或操作 App/simulator/device，没有产生截图、录屏、A/B、首帧、多帧、交互或性能证据。代码 reviewer Pass 不能替代最终统一 Debug UI 验收，也不能声明 section 或 Native Home 已完成。
+- 没有 uninstall、reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据；没有 reset、checkout、clean、stash，没有 stage、commit 或 push。大量用户和其它任务 dirty files全部保留。
+- main runtime 拥有 active section coordinator、accepted payload、exact confirmed cache、semantic slice/revision 和 compatibility resolution；bg 仍只负责既有 service/domain data 与带 producer identity 的 source response，不持有 section semantic 或 main LRU。iOS、Android、Extension 的 main/bg 是独立 JS heap、独立初始化；DTO 经 proxy 序列化和反序列化后各 runtime 各有副本，main ready 不代表 bg ready，也不能假设 bg 先 ready。Desktop/Web 为 single runtime，但执行相同 identity guard。
+- DB/MMKV/file handles、图片/字体 cache 和部分 Native singleton 仍可能是进程级共享资源；coordinator、semantic slice、cell constraint、represented image signature、request cancellation、pressed/hover/focus/selected、scroll offset 与 mounted slot 属于 main/per-view 状态。
+- rollback 边界是删除 Common 的 section source/coordinator/render adapters、section authority publication/revision metadata、typed section DTO helper和 same-reference compatibility seam，恢复 Phase 5 checkpoint；具体 section fetch/cache pipeline、Legacy/Native renderer、v1/v2 transport 和原版 Home 均未删除。后续必须严格按 Spot -> Perps -> DeFi -> NFT -> History -> Market 波次逐一执行 writer -> independent reviewer gate；Common Pass 不授权跨 section 修改或提前运行统一 UI。
+
+### Spot 前置的 Common `seedConfirmed` 最小扩展
+
+Spot 的既有 local/cells 冷缓存已经属于当前 exact owner/source，但不能伪装成 live complete；因此主 agent 在 Spot 写入前单独批准 Common 5-file 最小扩展：`homeSectionCoordinator.ts`、`homeSectionSourceAdapter.ts`、`homeSectionRenderStateAdapter.ts` 与两份 Common tests。main-owned coordinator 的泛型 payload `T` 不再要求 `IHomeRuntimeJsonValue`，避免 Native/Legacy main domain payload 被有损归一化；既有 `ScopedResourceMachine`/transport source adapter 仍保留 JSON-safe 约束，split-runtime proxy 边界没有放宽。
+
+新增 `seedConfirmed` 事件必须先通过 exact owner/session/section/source/source-key/producer/revision/request validation，accepted 后才写入 8-entry exact cache，并发布 ready/confirmedCache。loading/partial 在 exact cache 存在时保持 ready/confirmedCache + refreshing，且不能以 partial payload替换权威 payload；无 cache 时仍为 loading。render adapter 保留 `idle | refreshing | failed`，rejected seed 不污染 cache，accepted empty 仍删除 exact cache，同 request terminal、stale、dispose 与 same-identity setOwner 不变量保持不变。
+
+独立 reviewer 首轮明确给出一个 P1：最初把 `seedConfirmed` 排为 phase 1，合法的 `seedConfirmed(refresh: idle, requestSeq: 1) -> loading(requestSeq: 1)` 会被误判 request stale，导致 cached shell 保持 idle 而不进入 refreshing。Writer 修正为 seed 只写 cache metadata、phase 保持 0，不推进 source request phase；新增同 request loading accepted、confirmedCache/refreshing、payload exact same-reference 回归。原 reviewer 最终给出 **Pass，P0/P1/P2/P3 均为 0**；独立 Jest 2 suites / 22 tests Pass，5 个文件 `oxfmt --check` Pass、type-aware `oxlint` 0 diagnostics。该增量仍为 `currentRun: notRun`，没有 App/UI、build、安装、截图、录屏、stage、commit 或 push；Common 的安全、runtime、资源所有权与 rollback 边界不变。
+
+## 2026-07-20 Home State Model Phase 6 Spot checkpoint
+
+Phase 6 Spot 已完成 Portfolio/Spot section authority 的第一波迁移：Native 与 Legacy 的 wallet token / LP token source 现在都通过 `HomeSectionCoordinator<IHomeSpot*>` 发布 section semantic，并由 compatibility adapter 决定 outer `loading / partial / empty / ready / error`。ready 仍保留现有 Native section builder 与 Legacy `TokenListView` 渲染；本阶段没有删除原版 Home、没有改 service fetch owner，也没有改变最终 UI 截图验收状态。
+
+### Scope 与批准扩展
+
+原 Spot scope 为 `homeSpotSourceAdapter.ts`、`homeSpotSectionPolicy.ts`、`homeLegacySpotSectionAdapter.ts`、`homeSpotSection.test.ts`、`useNativeHomePortfolioData.ts`、`useNativeHomePortfolioData.test.ts`、`TokenListBlock.tsx`。实现过程中 reviewer 发现 LP Native 仍 gate-off，主 agent 批准最小扩展 `useNativeHomeLpTokenData.ts` 与 NativePage 接线，使 LP-only 也使用 `tokenMode: 'lp'` 的 Spot source identity；reviewer 后续又发现 Legacy All `onFinished` 无法仅靠 `TokenListBlock` 区分旧 run，因此批准最小扩展 `useAllNetwork.ts`，让 `onStarted` 可返回 per-run context 并原样传给同一 run 的 `onFinished`。该扩展保持 `onStarted` 同步/异步/void 返回兼容，没有改变 fetch/cache 行为。
+
+### 修复内容
+
+- Native All Networks cache seed 只有 cached key set 与 expected accounts 精确一致时才发布 `confirmedCache`；partial cache 发布 `partial`，不伪装 exact ready。
+- `coldStart` hydrate 在 fan-out 前校验 slim bundle `ownerKey` 与 currency；owner mismatch 不 paint、不 seed。
+- Native single-network local seed 保守禁用；live complete 之前发布 loading/refreshing，避免 regular token-only local cache 丢失 risky/small/custom slices。
+- Native single complete 等待 custom token projection 完成后再发布完整 payload，避免先 complete 空 custom 后静默变更。
+- Native LP-only 不再 gate-off；`useNativeHomeLpTokenData` 产出 Spot source snapshot，NativePage 按 `tokenMode: 'lp'` 接入同一 section authority。
+- Legacy All Networks 的 T0 slim cold hydrate 不再直接设置 confirmed seed；All Networks 只能在 accounts resolved 且 cache key set 精确覆盖 expected keys 后进入 confirmed cache。
+- Legacy single/LP falling edge 不再 unconditional complete；complete/error/canceled/stale 由 terminal refs 决定，unknown/canceled/stale 走 partial。
+- Legacy All A -> B -> A stale finish 改为 `useAllNetworkRequests` per-run context：old run 的 `onFinished` 只能拿到 old outcome，若 `legacyAllNetworkOutcomeRef.current !== outcome` 或 runToken/identity 不匹配就 drop，不能污染新 A run terminal。
+- Legacy `accountOwnerId` 使用实际 account id，`cellsOwnerKey` 只作为 legacy payload ownerKey。
+
+### 独立 review 闭环
+
+Native/coldStart/LP reviewer 结论为 **Pass**：Native All exact coverage、coldStart owner gate、single local seed disabled、custom projection before complete、LP `tokenMode: 'lp'` source authority 均通过。该 reviewer 同时指出旧 portfolio test 仍期待 single local `confirmedCache`；随后测试语义已更新为 live 前 loading。
+
+Legacy reviewer 第一轮为 **Fail**：All Networks T0 slim cold hydrate 仍可能把 partial cache 升级为 confirmedCache；All A -> B -> A 的 stale `onFinished` 只读共享 current outcome，旧 finish 可能污染新 run。Writer 修正后 TokenListBlock-only reviewer 第二轮确认 cold hydrate 与 exact cache coverage 通过，但指出共享 mutable outcome 仍不足以区分 old/new finish。最终通过 `useAllNetworkRequests` per-run context 修正；r5 reviewer 给出 **Pass**，确认同步/异步/void `onStarted` 兼容、context 为本 run 局部变量、TokenListBlock 只使用 `runContext?.outcome` 并执行 exact equality + runToken + identity guard、All Networks cold hydrate 不直接 confirmed。
+
+### 检查结果
+
+- `yarn jest packages/kit/src/views/Home/useNativeHomePortfolioData.test.ts --runInBand`：Pass，1 suite / 9 tests。
+- `yarn jest packages/kit/src/states/jotai/contexts/tokenList/__tests__/coldStart.test.ts --runInBand`：Pass，1 suite / 9 tests。
+- Spot 相关 `oxfmt --check`：Pass，覆盖 `useAllNetwork.ts`、`TokenListBlock.tsx`、`useNativeHomePortfolioData.ts`、`useNativeHomeLpTokenData.ts`、`NativeHomePage.native.tsx`、`coldStart.ts`、`coldStart.test.ts`、`useNativeHomePortfolioData.test.ts`。
+- Spot 相关 `git diff --check`：Pass，同上 pathspec。
+- `npx oxlint --tsconfig ./tsconfig.json --type-aware packages/kit/src/hooks/useAllNetwork.ts --deny-warnings`：Pass。
+
+### UI、安全、runtime 与 rollback
+
+本 checkpoint 的 UI/evidence 仍是 `currentRun: notRun`：没有执行 `yarn app:ios`，没有 build、更新安装、启动或操作 simulator/device，没有截图、录屏、A/B、多帧、滚动、pressed/hover、Dark/Light、Dynamic Type 或性能证据。代码 reviewer Pass 不能声明 Native Home UI 完成，最终仍需 Phase 1-7 全部完成后由独立 UI verifier 统一跑 Debug matrix。
+
+没有 uninstall、reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据；没有 reset、checkout、clean、stash，没有 stage、commit 或 push。`HOME_STATE_MODEL_REFACTOR_PLAN.md` 仍只读未 stage；大量用户和其它任务 dirty files 保留。
+
+Runtime scope：main runtime 拥有 Spot section coordinator、confirmed cache provenance、Legacy/Native source identity、LP/wallet token mode、custom projection completion、per-run finish context 和 semantic publication；bg runtime 仍负责现有 token/LP fetch、all-network account discovery、custom token DB/raw data 与 service cache。iOS、Android、Extension 的 main/bg 独立 JS heap、独立初始化，proxy 数据序列化/反序列化后不共享 JS 对象；Desktop/Web 为 single runtime，但仍使用同一 owner/source/request identity。DB/MMKV/file handles、图片/字体 cache 与 Native singleton 仍可能是进程级共享资源；coordinator、request cancellation、represented image signature、pressed/hover/focus、selected/content offset 与 mounted slot host 仍是 main/per-view 状态。
+
+Rollback 必须同时撤回 Spot source adapters、portfolio/LP authority接线、Legacy semantic outer-state接线和 `useAllNetworkRequests` runContext 扩展，恢复 Phase 6 Common checkpoint；不能只回滚 `useAllNetwork.ts` 或单侧 renderer，避免 callback contract 与 section authority skew。
+
+## 2026-07-20 Home State Model Phase 6 Perps checkpoint
+
+Phase 6 Perps 已完成 Perps Home portfolio section authority 迁移。新增 Perps source adapter、policy、Legacy compatibility adapter 和 model tests；`usePerpsHomePortfolio` 现在在现有 fetch/poll/focus/deposit retry 逻辑外层发布 `perps` semantic section，`PerpsContainer` 继续使用原有 Perps UI renderer。ready 仍保留现有 `IPerpsHomeView` payload；loading、empty、error 外层状态由 semantic compatibility resolution 驱动。
+
+### Scope 与实现边界
+
+本 wave 原批准新增 `model/sections/perps/homePerpsSourceAdapter.ts`、`homePerpsSectionPolicy.ts`、`model/compatibility/homeLegacyPerpsSectionAdapter.ts`、`model/tests/homePerpsSection.test.ts`，修改 `pages/usePerpsHomePortfolio.ts`、`pages/usePerpsHomePortfolio.test.ts`、`pages/PerpsContainer.tsx`。实现过程中为避免 fetch failure 被误投影为 permanent empty，主 agent 批准最小扩展 `pages/perpsHomePortfolioAuthority.ts`，增加 typed `errorKind` 与 evidence projection helper。
+
+没有修改 Perps service owner、route、deposit action、market handoff、polling interval 或 Hyperliquid provider 行为。`serviceHyperliquid.getHyperliquidPortfolioSnapshot` 仍是数据来源；focus refresh 与 deposit confirmation retry 的 scope/nonce guard 保留。
+
+### 修复内容
+
+- Perps source identity 使用 owner token、account scope、account/indexed account、derive type、network id、producer instance 和 source revision 构造；coordinator 负责 owner/source/producer/revision/request validation。
+- `usePerpsHomePortfolio` 在 identity unavailable 时 clear `perps` semantic section；accepted coordinator resolution 后 publish semantic section。
+- main request、focus refresh 和 deposit retry 的失败结果投影为 `errorKind: 'source'`，不再把异常永久解释为空状态；真实 resolved no view/empty 仍投影 empty。
+- A -> B -> A stale 路径继续依赖 existing swrKey/nonce/scope guard，并由 section identity/coordinator 防止旧 owner/source terminal 覆盖当前 owner。
+- Legacy Perps adapter 将 semantic loading/empty/error/ready 映射为 `viewState`；ready 使用 payload view，保持原 Perps UI；error 当前落到 empty-compatible UI + failed refresh metadata，不渲染 stale ready 内容。
+
+### 独立 review 与检查
+
+Perps model-only reviewer 给出 **Pass**，确认 identity 稳定、authority/scope mismatch loading、confirmed cache payload reference、empty/success/error、cached rows during refresh、stale request/owner rejection 与 terminal finality 测试覆盖有效，并独立运行 `homePerpsSection.test.ts` 10/10 Pass。
+
+Perps hook-only reviewer 给出 **Pass**，确认 owner/facts/source identity exactness、publish/clear 行为、A -> B -> A stale drop、errorKind 不变 permanent empty、outer viewState 由 semantic adapter 控制且 ready 保留 view、未误改 service/route/deposit/polling，并独立运行 `usePerpsHomePortfolio.test.ts` 7/7 Pass。
+
+主 agent 复跑检查结果：
+
+- `yarn jest packages/kit/src/views/Home/model/tests/homePerpsSection.test.ts --runInBand`：Pass，1 suite / 10 tests。
+- `yarn jest packages/kit/src/views/Home/pages/usePerpsHomePortfolio.test.ts --runInBand`：Pass，1 suite / 7 tests。
+- Perps 8 files `oxfmt --check`：Pass。
+- Perps 8 files `git diff --check`：Pass。
+
+### UI、安全、runtime 与 rollback
+
+本 checkpoint 的 UI/evidence 仍为 `currentRun: notRun`：没有执行 `yarn app:ios`，没有 build、更新安装、启动或操作 simulator/device，没有真实截图、录屏、A/B、多帧、scroll、pressed/hover、Dark/Light、Dynamic Type 或性能证据。Perps 代码 reviewer Pass 不能声明 Perps UI 或 Native Home 完成，最终仍需 Phase 1-7 完成后统一 Debug matrix。
+
+没有 uninstall、reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据；没有 reset、checkout、clean、stash，没有 stage、commit 或 push。`HOME_STATE_MODEL_REFACTOR_PLAN.md` 仍只读未 stage；无关 dirty files 保留。
+
+Runtime scope：main runtime 拥有 Perps section coordinator、semantic projection、focus/deposit retry result acceptance、error/empty/ready outer state 与 compatibility adapter；bg runtime 仍负责 Perps derive/account lookup、Hyperliquid snapshot service 和现有 service cache。iOS、Android、Extension 的 main/bg 独立 JS heap、独立初始化，proxy 数据序列化/反序列化后不共享 JS 对象；Desktop/Web 为 single runtime，但仍使用同一 owner/source/request identity。DB/MMKV/file handles、图片/字体 cache 与 Native singleton 仍可能是进程级共享资源；coordinator、request cancellation、pressed/hover/focus、selected/content offset 和 mounted slot host 仍是 main/per-view 状态。
+
+Rollback 边界是删除 Perps source adapter/policy/legacy adapter/tests，撤回 `usePerpsHomePortfolio` semantic publish 与 `perpsHomePortfolioAuthority` evidence helper，恢复 PerpsContainer 只读原 hook `viewState` 的 Phase 6 Common/Spot checkpoint；不能只撤回 model 或 hook 单侧，避免 semantic section contract 与 renderer状态不一致。
+
+## 2026-07-20 Home State Model Phase 6 DeFi checkpoint
+
+Phase 6 DeFi 已完成 Native DeFi hook 的 section authority 接入：新增 DeFi source adapter、policy、Legacy-compatible render adapter 与 model tests；`useNativeHomeDeFiData` 现在发布 `defi` semantic section。`DeFiContainer.tsx` 本 wave 未修改，独立 reviewer 判定不是 blocker：当前 scoped diff 是 Native hook-only DeFi wave，Legacy DeFiContainer 继续走旧路径，后续如需迁移 Legacy DeFi 大组件必须单独批准并复核。
+
+### Scope 与实现边界
+
+本 wave 新增 `model/sections/defi/homeDeFiSourceAdapter.ts`、`homeDeFiSectionPolicy.ts`、`model/compatibility/homeLegacyDeFiSectionAdapter.ts`、`model/tests/homeDeFiSection.test.ts`，修改 `useNativeHomeDeFiData.ts`。未改 `DeFiContainer.tsx`、`DeFiListBlock` internals、DeFi service owner、route、polling、sticky portal 或 analytics；readiness 曾因既有无关 dirty `packages/kit/src/views/Discovery/utils/debugWebViewLifecycle.ts` 阻断，已记录且未处理无关文件。
+
+### 修复内容
+
+- DeFi source identity 使用 owner token、wallet/account/network、network mode、source/target currency、producer instance 和 source revision 构造；coordinator 执行 owner/source/producer/revision/request validation。
+- `useNativeHomeDeFiData` 在 identity unavailable 时 clear `defi` semantic section；start/reset 发布 loading，single/all-network success 发布 complete，error 发布 source error。
+- single-network fetch error 不再被当作 permanent empty；all-network partial/progress 只发布 partial evidence，不升级 exact ready。
+- all-network final 根据真实 expected/outcome/rowIds 决定 complete empty / complete success / error；不制造 fake row 或 fake protocol。
+- authoritative payload 使用真实 `protocols`、`protocolMap` 和 `supportedActions`；ready 缺 rowIds/data 会降为 loading，confirmed empty 只来自 terminal empty evidence。
+
+### 独立 review 与检查
+
+DeFi reviewer 给出 **Pass**：确认 `DeFiContainer.tsx` 未改不是当前 blocker；source identity 与 coordinator guard 有效；single error 发布 error、不写 fake empty；all-network aggregate 基于真实 outcome/rowIds；partial 只发 partial；semantic publish/clear 带 owner；未发现 import hierarchy/cross-platform 问题。Reviewer 独立运行 `homeDeFiSection.test.ts` 7/7 Pass。
+
+主 agent 复跑检查结果：
+
+- `yarn jest packages/kit/src/views/Home/model/tests/homeDeFiSection.test.ts --runInBand`：Pass，1 suite / 7 tests。
+- DeFi 5 files `oxfmt --check`：Pass。
+- DeFi 5 files `git diff --check`：Pass。
+- `npx oxlint --tsconfig ./tsconfig.json --type-aware` on DeFi changed files：Pass。
+
+### UI、安全、runtime 与 rollback
+
+本 checkpoint 的 UI/evidence 仍为 `currentRun: notRun`：没有执行 `yarn app:ios`，没有 build、更新安装、启动或操作 simulator/device，没有真实截图、录屏、A/B、多帧、scroll、pressed/hover、Dark/Light、Dynamic Type 或性能证据。DeFi code reviewer Pass 不能声明 DeFi UI 或 Native Home 完成，最终仍需 Phase 1-7 完成后统一 Debug matrix。
+
+没有 uninstall、reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据；没有 reset、checkout、clean、stash，没有 stage、commit 或 push。`HOME_STATE_MODEL_REFACTOR_PLAN.md` 仍只读未 stage；无关 dirty files 保留。
+
+Runtime scope：main runtime 拥有 DeFi section coordinator、semantic projection、Native DeFi payload acceptance、all-network outcome aggregation、error/empty/ready outer state 与 compatibility adapter；bg runtime 仍负责 DeFi positions fetch、supported protocol fetch、simpleDb DeFi raw data 与现有 service cache。iOS、Android、Extension 的 main/bg 独立 JS heap、独立初始化，proxy 数据序列化/反序列化后不共享 JS 对象；Desktop/Web 为 single runtime，但仍使用同一 owner/source/request identity。DB/MMKV/file handles、图片/字体 cache 与 Native singleton 仍可能是进程级共享资源；coordinator、request cancellation、pressed/hover/focus、selected/content offset 和 mounted slot host 仍是 main/per-view 状态。
+
+Rollback 边界是删除 DeFi source adapter/policy/legacy adapter/tests，并撤回 `useNativeHomeDeFiData` 的 semantic publish/clear/evidence 接线，恢复 Phase 6 Perps checkpoint；Legacy DeFiContainer 未迁移，无需回滚其 renderer。
+
+## 2026-07-20 Home State Model Phase 6 NFT checkpoint
+
+Phase 6 NFT 已完成 Native NFT hook 的 section authority 接入：新增 NFT source adapter、policy、Legacy-compatible render adapter 与 model tests；`useNativeHomeNFTData` 现在发布 `nft` semantic section。`NFTListContainer.tsx` 本 wave 未修改，独立 reviewer 判定不是 blocker：当前 scoped diff 是 Native hook-only NFT wave，NativeHomePage 已通过 `useNativeHomeNFTData` 消费并构建 Native sections；Legacy `NFTListContainer` 继续走原 provider 路径。
+
+### Scope 与实现边界
+
+本 wave 新增 `model/sections/nft/homeNFTSourceAdapter.ts`、`homeNFTSectionPolicy.ts`、`model/compatibility/homeLegacyNFTSectionAdapter.ts`、`model/tests/homeNFTSection.test.ts`，修改 `useNativeHomeNFTData.ts`。未改 `NFTListContainer.tsx`、`NFTListView` item renderer、NFT service owner、routes 或其它 DeFi/History/Market owner。
+
+### 修复内容
+
+- NFT source identity 使用 owner token、wallet/account/network、network mode、producer instance 和 source revision 构造；hook 侧先校验 Home facts owner 再创建 identity。
+- `useNativeHomeNFTData` 在 identity unavailable 时 clear `nft` semantic section；reset/start 发布 loading，single cache/live/all-network cache/progress/final 分层发布 evidence。
+- single request 使用 request id 拦截 stale response；all-network 使用 source identity/generation guard 拦截非当前 owner/run。
+- complete success 使用真实 NFT row ids：`networkId + collectionAddress + itemId`；complete without data/rowIds 降为 loading；confirmed empty 只来自 terminal empty evidence。
+- error evidence 投影为 semantic error；有 confirmed cache 时 coordinator 保留 confirmed cache + failed/refresh metadata，不把 error 永久写成 empty；不制造 fake NFT。
+
+### 独立 review 与检查
+
+NFT reviewer 给出 **Pass**：确认 `NFTListContainer.tsx` 未改不是 blocker；owner/source/request identity、A -> B -> A stale drop、single/all-network cache/progress/final、partial cache 不升级 exact ready、error 不 permanent empty、真实 row id、semantic publish/clear owner 和测试覆盖均通过。
+
+主 agent 复跑检查结果：
+
+- `yarn jest packages/kit/src/views/Home/model/tests/homeNFTSection.test.ts --runInBand`：Pass，1 suite / 11 tests。
+- NFT 5 files `oxfmt --check`：Pass。
+- NFT 5 files `git diff --check`：Pass。
+- `npx oxlint --tsconfig ./tsconfig.json --type-aware` on NFT changed files：Pass。
+
+### UI、安全、runtime 与 rollback
+
+本 checkpoint 的 UI/evidence 仍为 `currentRun: notRun`：没有执行 `yarn app:ios`，没有 build、更新安装、启动或操作 simulator/device，没有真实截图、录屏、A/B、多帧、scroll、pressed/hover、Dark/Light、Dynamic Type 或性能证据。NFT code reviewer Pass 不能声明 NFT UI 或 Native Home 完成，最终仍需 Phase 1-7 完成后统一 Debug matrix。
+
+没有 uninstall、reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据；没有 reset、checkout、clean、stash，没有 stage、commit 或 push。`HOME_STATE_MODEL_REFACTOR_PLAN.md` 仍只读未 stage；无关 dirty files 保留。
+
+Runtime scope：main runtime 拥有 NFT section coordinator、semantic projection、Native NFT payload acceptance、all-network outcome aggregation、error/empty/ready outer state 与 compatibility adapter；bg runtime 仍负责 NFT fetch/local cache 与现有 service cache。iOS、Android、Extension 的 main/bg 独立 JS heap、独立初始化，proxy 数据序列化/反序列化后不共享 JS 对象；Desktop/Web 为 single runtime，但仍使用同一 owner/source/request identity。DB/MMKV/file handles、图片/字体 cache 与 Native singleton 仍可能是进程级共享资源；coordinator、request cancellation、pressed/hover/focus、selected/content offset 和 mounted slot host 仍是 main/per-view 状态。
+
+Rollback 边界是删除 NFT source adapter/policy/legacy adapter/tests，并撤回 `useNativeHomeNFTData` 的 semantic publish/clear/evidence 接线，恢复 Phase 6 DeFi checkpoint；Legacy NFTListContainer 未迁移，无需回滚其 renderer。
+
+
+## 2026-07-20 Home State Model Phase 6 History checkpoint
+
+Phase 6 History 已完成 Native History hook 的 section authority 接入：新增 History source adapter、policy、Legacy-compatible render adapter 与 model tests；`useNativeHomeHistoryData` 现在发布 `history` semantic section。`TxHistoryContainer.tsx` 本 wave 未修改：当前 scoped diff 是 Native hook-only History wave，保留现有 History renderer、load-more hook、polling 和 refresh 语义。
+
+### Scope 与实现边界
+
+本 wave 新增 `model/sections/history/homeHistorySourceAdapter.ts`、`homeHistorySectionPolicy.ts`、`model/compatibility/homeLegacyHistorySectionAdapter.ts`、`model/tests/homeHistorySection.test.ts`，修改 `useNativeHomeHistoryData.ts`。未改 `TxHistoryContainer.tsx`、`useHistoryListLoadMore` internals、History service owner、route、token refresh gate、frozen-top hook 或其它 DeFi/NFT/Market owner。
+
+### 修复内容
+
+- History source identity 使用 owner token、wallet/account/network、indexedAccount、filter flags、currency、mergeDerive、network mode、producer instance 和 source revision 构造；All Networks 与 single network source identity 分离。
+- `useNativeHomeHistoryData` 在 identity unavailable 时 clear `history` semantic section；reset/start 发布 loading，success 发布 complete，error 发布 source error。
+- rowIds 只来自真实 `tx.id`；没有 fake tx 或占位 row。
+- complete empty 只来自 terminal empty evidence；complete success 必须带真实 payload 与 rowIds；complete without data/rowIds 降为 loading。
+- stale request 继续由递增 `requestIdRef` 丢弃，并由 section coordinator 的 owner/source/request validation 防止 A -> B -> A 污染。
+- 保留现有 `refresh`、polling、event bus refresh、`loadMore`、`onFirstPageResponse` 行为；confirmed cache/authoritative payload 回填 legacy hook state，用于降低 rows -> empty -> rows 和 History 底部跳变风险。
+
+### 独立 review 与检查
+
+History reviewer 给出 **Pass**：确认 `sectionId/sourceId=history`，Native hook 已接入 identity/coordinator/semantic publish/clear；source params 覆盖 account/network/wallet/indexedAccount/filter/currency/mergeDerive/networkMode；rowIds 来自真实 `tx.id`；loading、confirmed cache、complete empty/success、error policy 覆盖有效；未改 `TxHistoryContainer` 或 load-more 内部逻辑。
+
+主 agent 复跑检查结果：
+
+- `yarn jest packages/kit/src/views/Home/model/tests/homeHistorySection.test.ts --runInBand`：Pass，1 suite / 11 tests。
+- History 5 files `oxfmt --check`：Pass。
+- History 5 files `git diff --check`：Pass。
+- `npx oxlint --tsconfig ./tsconfig.json --type-aware` on History changed files：Pass。
+
+### UI、安全、runtime 与 rollback
+
+本 checkpoint 的 UI/evidence 仍为 `currentRun: notRun`：没有执行 `yarn app:ios`，没有 build、更新安装、启动或操作 simulator/device，没有真实截图、录屏、A/B、多帧、scroll、pressed/hover、Dark/Light、Dynamic Type 或性能证据。History code reviewer Pass 不能声明 History UI 或 Native Home 完成，最终仍需 Phase 1-7 完成后统一 Debug matrix。
+
+没有 uninstall、reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据；没有 reset、checkout、clean、stash，没有 stage、commit 或 push。`HOME_STATE_MODEL_REFACTOR_PLAN.md` 仍只读未 stage；无关 dirty files 保留。
+
+Runtime scope：main runtime 拥有 History section coordinator、semantic projection、Native History payload acceptance、error/empty/ready outer state、load-more first-page bridge 与 compatibility adapter；bg runtime 仍负责 History fetch、merge-derive history fetch、address map 和现有 service cache。iOS、Android、Extension 的 main/bg 独立 JS heap、独立初始化，proxy 数据序列化/反序列化后不共享 JS 对象；Desktop/Web 为 single runtime，但仍使用同一 owner/source/request identity。DB/MMKV/file handles、图片/字体 cache 与 Native singleton 仍可能是进程级共享资源；coordinator、request cancellation、pressed/hover/focus、selected/content offset 和 mounted slot host 仍是 main/per-view 状态。
+
+Rollback 边界是删除 History source adapter/policy/legacy adapter/tests，并撤回 `useNativeHomeHistoryData` 的 semantic publish/clear/evidence 接线，恢复 Phase 6 NFT checkpoint；Legacy TxHistoryContainer 与 load-more internals 未迁移，无需回滚其 renderer。
+
+## 2026-07-20 Home State Model Phase 6 Market checkpoint
+
+Phase 6 Market 已完成 Native Market supplemental data 的 section authority 接入：新增 Market source adapter、policy、Legacy-compatible render adapter 与 model tests；`useNativeHomeSupplementalData` 现在发布 `market` semantic section。Native Swift/Android UI 本 wave 未修改；`PopularTrading.tsx` 未修改，Legacy PopularTrading 继续使用原实现。
+
+### Scope 与实现边界
+
+本 wave 新增 `model/sections/market/homeMarketSourceAdapter.ts`、`homeMarketSectionPolicy.ts`、`model/compatibility/homeLegacyMarketSectionAdapter.ts`、`model/tests/homeMarketSection.test.ts`，修改 `useNativeHomeSupplementalData.ts` 与 `components/PopularTrading/useHomeMarketCategoryTokens.ts`。未改 `PopularTrading.tsx`、Native Swift/Android renderer、Market service owner、routes、Stocks logo mapping、BTC volume display rule 或 Perps hot config source。
+
+### 修复内容
+
+- Market source identity 区分 selected/resolved category、prefetch category set、minLiquidity、watchlist content key、homeTab/spot/perps config、Perps hot enabled、producer instance 和 source revision。
+- `useNativeHomeSupplementalData` 在 commit 后 effect 内执行 coordinator `setOwner`、requestSeq 自增、dispatch 和 semantic publish；unmount cleanup 执行 `clearSemanticSection` 与 coordinator `dispose()`。
+- 修复 reviewer 发现的 render-phase side effect：不再在 render/useMemo 阶段 mutate coordinator/requestSeq 或 dispatch。
+- `useHomeMarketCategoryTokens` 导出的 `tokensByRequestKey` 改为读取 ref cache snapshot，避免 `initResult: {}` 遮住 incremental category commit，保留 category 切换 confirmed cache/prefetch 语义。
+- rowIds 只来自真实 token key：spot 使用 chain/native/contract，perps 使用 perpsCoin；不制造 fake row、fake token、fake volume 或 fake logo。
+- Perps hot 仍只在服务端 config 包含 `HOME_PERPS_HOT_REQUEST_CATEGORY_ID` 时加入；当前无 hot config 的环境仍不显示 Perps。
+- BTC volume falsey 时仍沿用原版隐藏逻辑；Stocks logoUrl/logoUrls/stock fallback 候选未改。
+- Favorites/recommendation、Add tokens、star optimistic add/remove、失败 rollback 和最终 reconcile 保持现有逻辑。
+
+### 独立 review 与检查
+
+Market reviewer 第一轮给出 **Fail**：缺少 `publishSemanticSection` / `clearSemanticSection`。已最小修复。
+
+Market reviewer 第二轮给出 **Fail**：semantic publish 已在 effect，但 render/useMemo 阶段仍有 coordinator/requestSeq mutation 与 dispatch。已改为 effect 驱动。
+
+Market reviewer 第三轮给出 **Fail**：`tokensByRequestKey` 被 `initResult: {}` 遮住，incremental cache commit 后可能未导出 prefetched rows。已改为直接返回 cache ref snapshot。
+
+Market reviewer 第四轮给出 **Pass**：确认 semantic publish/clear、effect-only coordinator dispatch、incremental cache export、identity 区分、confirmedCache、Favorites optimistic、Perps hot config gating、no fake rows/volume/logo、error not permanent empty、typing/import hierarchy 均通过。
+
+主 agent 复跑检查结果：
+
+- `yarn jest packages/kit/src/views/Home/model/tests/homeMarketSection.test.ts --runInBand`：Pass，1 suite / 5 tests。
+- Market 6 files `oxfmt --check`：Pass。
+- Market 6 files `git diff --check`：Pass。
+- `npx oxlint --tsconfig ./tsconfig.json --type-aware` on Market changed files：Pass。
+
+### UI、安全、runtime 与 rollback
+
+本 checkpoint 的 UI/evidence 仍为 `currentRun: notRun`：没有执行 `yarn app:ios`，没有 build、更新安装、启动或操作 simulator/device，没有真实截图、录屏、A/B、多帧、scroll、pressed/hover、Dark/Light、Dynamic Type 或性能证据。Market code reviewer Pass 不能声明 Market UI 或 Native Home 完成，最终仍需 Phase 1-7 完成后统一 Debug matrix。
+
+没有 uninstall、reinstall、erase、clear data，没有删除 simulator app container、钱包数据库或持久化数据；没有 reset、checkout、clean、stash，没有 stage、commit 或 push。`HOME_STATE_MODEL_REFACTOR_PLAN.md` 仍只读未 stage；无关 dirty files 保留。
+
+Runtime scope：main runtime 拥有 Market section coordinator、semantic projection、Native Market supplemental payload、category prefetch cache、favorite/recommendation optimistic state、error/empty/ready outer state 与 compatibility adapter；bg runtime 仍负责 Market basic config、watchlist、spot/perps token list、Hyperliquid aliases 和现有 service cache。iOS、Android、Extension 的 main/bg 独立 JS heap、独立初始化，proxy 数据序列化/反序列化后不共享 JS 对象；Desktop/Web 为 single runtime，但仍使用同一 owner/source/request identity。DB/MMKV/file handles、图片/字体 cache 与 Native singleton 仍可能是进程级共享资源；coordinator、request cancellation、represented image signature、pressed/hover/focus、selected/content offset 和 mounted slot host 仍是 main/per-view 状态。
+
+Rollback 边界是删除 Market source adapter/policy/legacy adapter/tests，并撤回 `useNativeHomeSupplementalData` 的 semantic publish/clear/evidence 接线与 `useHomeMarketCategoryTokens` cache snapshot export，恢复 Phase 6 History checkpoint；Native Swift/Android renderer 与 Legacy PopularTrading 未迁移，无需回滚其 UI renderer。
+
+## 2026-07-20 Home State Model Phase 7 Debug build checkpoint
+
+Phase 7 统一 Debug 包验证已推进到“可启动但 UI matrix 未完成”状态。按本轮约束使用 `yarn app:ios`，没有使用 Release 构建、没有传 `CODE_SIGNING_ALLOWED=NO`，没有 uninstall/reinstall/erase/clear data，没有删除 simulator app container、钱包数据库或持久化数据。
+
+### Debug build 与 runtime 状态
+
+- 第一次 `yarn app:ios` 失败：新增 `HomeContainerProtocolV2.swift` 被 Swift parse 通过，但未进入现有 Pods project Sources，导致 `HomeContainerView.swift` 编译找不到 `HomeContainerProtocolV2State` 等类型。
+- 修复方式：删除独立 `HomeContainerProtocolV2.swift`，把 protocol v2 Swift model 合并到已在 target 内的 `HomeContainerModels.swift`。没有执行 pod install、没有改用 Release xcodebuild。
+- 第二次 `yarn app:ios` Build Succeeded，成功安装并启动 Debug 包，但截图 `.tmp/ui/phase7-debug-current.png` 显示 Perps 初始 render error：`Cannot read property 'resolution' of undefined`。
+- 修复方式：`usePerpsHomePortfolio.ts` 在 `semanticPerpsState` 读取 coordinator resolution 前显式判断 `perpsCoordinatorResolution`、`perpsSourceIdentityKey` 和 identity mismatch；新增测试覆盖 “initial undefined coordinator resolution”。
+- 第三次 `yarn app:ios` Build Succeeded，成功安装并启动 Debug 包，截图 `.tmp/ui/phase7-debug-current-after-perps-fix.png` / `.tmp/ui/phase7-debug-current-after-perps-fix-402.png` 显示 Native Home 已渲染并且钱包数据正常显示（余额 `$53.36`、Spot token rows 可见），不再红屏。
+- 当前截图底部仍有 Debug LogBox/toast：`Open debugger to view warnings.` 和 `OneKeyLocalError: screen component-Navi...` 的截断提示。simulator system log 未抓到完整 JS 文本。该项不能作为 UI 完成证据，需要后续用可读 JS log/Dev menu 或 agent-device 继续定位。
+- main runtime 已能渲染 Native Home UI、Spot 列表和 Debug toast；bg runtime 已通过 `wallet.onekeytest.com/wallet/v1/account/token/list` 请求持续返回 200 间接证明 service 数据通路存活，但本 checkpoint 尚未拿到明确 “main runtime ready / bg runtime ready” 文本日志。后续最终 UI matrix 必须补齐 ready 证据；main ready 不能替代 bg ready。
+
+### 本 checkpoint 修复
+
+- iOS protocol v2 model 合并到 `HomeContainerModels.swift`，避免新增 Swift 文件未被 Pods Sources 收录导致 Debug build 失败。
+- 修复 generated Nitro 文件 trailing whitespace，使 scoped `git diff --check` 通过。
+- 修复 Perps 初始 `perpsCoordinatorResolution` 为 undefined 时的 render error，避免 Debug 包启动后红屏。
+- 修复 TypeScript strict ref typing 与测试 typing：
+  - 允许后续清空的 `useRef` 改为 `T | undefined` 并显式初始化。
+  - Perps fixture `accountValueUsd` 改为 number。
+  - Spot tests 为 source projector 指定 payload 泛型并修复 authoritative narrowing。
+  - 移除 `TokenListBlock.tsx` 未使用的 `hasExactLocalTokenCache` 临时变量。
+
+### 已执行检查
+
+- `yarn app:ios`：Pass，Debug build/install/launch 成功；未使用 Release 包。
+- `xcrun swiftc -parse packages/native-components/ios/HomeContainerView.swift packages/native-components/ios/HomeContainerModels.swift`：Pass。
+- scoped `git diff --check`（handoff、iOS Swift、native protocol/controller、NativeHome、Home model、generated Nitro whitespace 等相关文件）：Pass。
+- `npx oxlint --tsconfig ./tsconfig.json --type-aware --deny-warnings` on 本轮 TS 修复相关文件：Pass。
+- `yarn jest packages/kit/src/views/Home/pages/usePerpsHomePortfolio.test.ts packages/kit/src/views/Home/model/tests/homePerpsSection.test.ts packages/kit/src/views/Home/model/tests/homeSpotSection.test.ts packages/kit/src/views/Home/useNativeHomePortfolioData.test.ts packages/kit/src/states/jotai/contexts/tokenList/__tests__/coldStart.test.ts --runInBand`：Pass，5 suites / 44 tests。
+- 早前 Phase 7 聚焦 Jest：`homeMarketSection`、`homeHistorySection`、`homePerpsSection`、`usePerpsHomePortfolio`、`useNativeHomePortfolioData`、`coldStart`：Pass，6 suites / 52 tests。
+- `yarn agent:check --profile commit`：Fail，但本轮相关 lint/format/context/lint-staged 已全部 Pass；剩余 `tsc-staged` 失败为无关 baseline：
+  - `apps/desktop/web-build/static/js-sdk/data/config.ts` 缺少 `./config.perfReady`。
+  - `packages/kit/src/views/Home/NativeHomePageView.native.tsx` 引用不存在的 `HOME_HEADER_SEARCH_ROW_HEIGHT`。
+  这两个文件当前没有本轮 diff，按“保留无关 dirty/不混入 Native Home”的规则未修。
+
+### UI 证据与未完成项
+
+- 已生成 Debug 当前截图：
+  - `.tmp/ui/phase7-debug-current-after-perps-fix.png`
+  - `.tmp/ui/phase7-debug-current-after-perps-fix-402.png`
+- 该截图只能证明 Debug 包启动、新首页渲染、钱包数据可见和 Perps 红屏已消失；不能证明 Market、空钱包、单链、多链、Dark/Light、Dynamic Type、pressed/hover、scroll inertia、连续 tab/category 切换、Stocks 图片 fallback、BTC volume 或 History 底部状态完成。
+- Subagent UI verifier 已生成新的 Market 三张 required screenshots：
+  - `.tmp/ui/handoff-ui-market-favorites-after-debug.png`
+  - `.tmp/ui/handoff-ui-market-favorites-after-debug-402.png`
+  - `.tmp/ui/handoff-ui-market-trending-after-debug.png`
+  - `.tmp/ui/handoff-ui-market-trending-after-debug-402.png`
+  - `.tmp/ui/handoff-ui-market-stocks-after-debug.png`
+  - `.tmp/ui/handoff-ui-market-stocks-after-debug-402.png`
+- Subagent UI verifier 最终判定 **FAIL**，不能声明 Native Home UI 完成：
+  - Home baseline 存活：Pass，`.tmp/ui/phase7-ui-baseline.png`。
+  - Home top tabs 切换录屏：`.tmp/ui/phase7-home-top-tabs-corrected.mp4`。
+  - Perps 首帧：Pass，`.tmp/ui/phase7-home-tab-perps-first-frame.png`。
+  - DeFi：Fail，首帧与等待后仍为 skeleton/loading，`.tmp/ui/phase7-home-tab-defi-first-frame.png`、`.tmp/ui/phase7-home-defi-after-load-wait.png`。
+  - NFT：Fail/未可靠覆盖，坐标命中和状态停留不稳定，`.tmp/ui/phase7-home-tab-nft-first-frame.png`。
+  - History/Spot 切换：Fail，出现系统蓝色 `Refreshing...` 状态栏覆盖顶部，`.tmp/ui/phase7-home-tab-history-first-frame.png`、`.tmp/ui/phase7-home-tab-spot-return-first-frame.png`。
+  - 滚动惯性/底部遮挡：Fail/未可靠覆盖，History 滚动录屏误打开交易详情 sheet，后续又进入全局 Perps 交易页，不能作为通过证据；证据为 `.tmp/ui/phase7-history-scroll-bottom.mp4`、`.tmp/ui/phase7-history-scroll-bottom-after-debug.png`、`.tmp/ui/phase7-history-scroll-down-command.png`。
+  - 额外发现：进入 Market/Trade 过程中出现 RN Console Error 红屏，内容为图片加载超时，位置 `ImageV2.native.tsx:79:20`；证据 `.tmp/ui/phase7-back-to-wallet.png`。
+- 后续必须继续用 Debug 包和真实截图/录屏，不允许用编译通过、元素存在或旧截图声明 UI 完成。
+
+### Runtime scope 与资源边界
+
+iOS Native Home 当前仍是 split-runtime：main runtime 拥有 Native Home UI、Home state model coordinator、semantic projection、section patch、Market selection/cache/snapshot、Spot/Perps/DeFi/NFT/History render state 和 per-view 状态；bg runtime 拥有 Market config/category/watchlist、token list、history、DeFi/NFT/perps service 数据和 service cache。main/bg 是独立 Hermes JS heap，独立初始化，数据通过 proxy 序列化/反序列化，不共享 JS 对象。图片 cache、字体 cache、DB/MMKV/file handles 与 Native singleton 可能是进程级共享 Native 资源；cell constraint、represented image signature、request cancellation、pressed/hover/focus、selection、content offset、slot mount 状态属于 main/per-view 状态。
+
+### 下一步
+
+1. 先定位 Debug LogBox `OneKeyLocalError: screen component-Navi...` 的完整来源；如果影响 Native Home UI matrix，先修复。
+2. 继续使用 `yarn app:ios` 更新 Debug 包，不切 Release。
+3. 补全 main/bg ready 明确信号。
+4. 用真实截图/录屏重走今天 UI matrix：多链有钱钱包、空钱包未备份、空钱包已备份、单链 BTC/ETH/Solana/Polygon/TON/TRON、Market Favorites/Trending/Stocks、History/NFT/DeFi/Perps、Dark mode、动态字体、pressed/hover、图片全候选失败态、scroll inertia、tab/category 连续切换无白屏/无跳变。
+5. 提交时只 stage Native Home/refactor/handoff 相关文件；不要 stage `HOME_STATE_MODEL_REFACTOR_PLAN.md`、app-update、Discovery、TradingView、device-performance、outputs、docs 等无关 dirty。

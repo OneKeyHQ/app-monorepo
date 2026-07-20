@@ -94,6 +94,16 @@ export function resolveNativeHomeListStateSlot<T>(
   return { content: undefined, height: undefined };
 }
 
+export function resolveNativeHomeCompatibilitySections({
+  compatibilitySections,
+  sections,
+}: {
+  compatibilitySections?: IHomeContainerSection[];
+  sections: IHomeContainerSection[];
+}): IHomeContainerSection[] {
+  return compatibilitySections ?? sections;
+}
+
 function getPerpsPnlColor(
   pnlUsd: number | undefined,
   colors?: { negative: string; positive: string },

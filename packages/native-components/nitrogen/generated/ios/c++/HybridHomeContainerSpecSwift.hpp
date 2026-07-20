@@ -106,6 +106,20 @@ namespace margelo::nitro::onekeynativecomponents {
     inline void setOnRenderError(const std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>>& onRenderError) noexcept override {
       _swiftPart.setOnRenderError(onRenderError);
     }
+    inline std::optional<std::function<void(const std::string& /* intentJson */)>> getOnIntent() noexcept override {
+      auto __result = _swiftPart.getOnIntent();
+      return __result;
+    }
+    inline void setOnIntent(const std::optional<std::function<void(const std::string& /* intentJson */)>>& onIntent) noexcept override {
+      _swiftPart.setOnIntent(onIntent);
+    }
+    inline std::optional<std::function<void(const std::string& /* resultJson */)>> getOnTransportResult() noexcept override {
+      auto __result = _swiftPart.getOnTransportResult();
+      return __result;
+    }
+    inline void setOnTransportResult(const std::optional<std::function<void(const std::string& /* resultJson */)>>& onTransportResult) noexcept override {
+      _swiftPart.setOnTransportResult(onTransportResult);
+    }
 
   public:
     // Methods

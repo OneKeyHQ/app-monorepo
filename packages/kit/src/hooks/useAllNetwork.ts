@@ -250,7 +250,7 @@ const getEmptyEnabledNetworksResult = (): IEnabledNetworksCompatResult => ({
 //   return [...priorityItems, ...normalItems];
 // };
 
-function useAllNetworkRequests<T>(params: {
+function useAllNetworkRequests<T, TRunContext = void>(params: {
   accountId: string | undefined;
   networkId: string | undefined;
   walletId: string | undefined;
@@ -314,13 +314,15 @@ function useAllNetworkRequests<T>(params: {
     accountId?: string;
     networkId?: string;
     allNetworkDataInit?: boolean;
-  }) => Promise<void>;
+  }) => TRunContext | void | Promise<TRunContext | void>;
   onFinished?: ({
     accountId,
     networkId,
+    runContext,
   }: {
     accountId?: string;
     networkId?: string;
+    runContext?: TRunContext;
   }) => Promise<void>;
   onCacheChecked?: ({
     accountId,
@@ -559,6 +561,7 @@ function useAllNetworkRequests<T>(params: {
       });
 
       let onStartedError: unknown;
+      let onStartedRunContext: TRunContext | undefined;
       let onStartedTask: Promise<void> | undefined;
 
       try {
@@ -575,13 +578,21 @@ function useAllNetworkRequests<T>(params: {
         });
 
         if (onStarted) {
-          onStartedTask = onStarted({
-            accountId: currentAccountId,
-            networkId: currentNetworkId,
-            allNetworkDataInit: allNetworkDataInit.current,
-          }).catch((err) => {
-            onStartedError = err;
-          });
+          onStartedTask = Promise.resolve(
+            onStarted({
+              accountId: currentAccountId,
+              networkId: currentNetworkId,
+              allNetworkDataInit: allNetworkDataInit.current,
+            }),
+          )
+            .then((runContext) => {
+              if (runContext !== undefined) {
+                onStartedRunContext = runContext;
+              }
+            })
+            .catch((err) => {
+              onStartedError = err;
+            });
         }
 
         perf.markStart('getAllNetworkAccountsWithEnabledNetworks');
@@ -928,6 +939,7 @@ function useAllNetworkRequests<T>(params: {
           await onFinished?.({
             accountId: currentAccountId,
             networkId: currentNetworkId,
+            runContext: onStartedRunContext,
           });
         } catch (e) {
           console.error(e);

@@ -455,32 +455,36 @@ export function fanOutSlimToApply(params: {
 
 /**
  * T0 fan-out hydrate (spec §7). Reads the slim bundle for the store, gates on
- * currency via shared `shouldUseSlim` (a currency mismatch / absent bundle is a
- * MISS — no paint, skeleton until fetch, spec §3#3, §11.4), then fans it out
- * through `fanOutSlimToApply`. Returns true when it painted, false on a miss.
+ * exact owner provenance and currency via shared `shouldUseSlim` (an owner or
+ * currency mismatch / absent bundle is a MISS — no paint, skeleton until
+ * fetch, spec §3#3, §11.4), then fans it out through `fanOutSlimToApply`.
+ * Returns true when it painted, false on a miss.
  */
 export function hydrateCellsFromColdStart(params: {
   store: IJotaiContextStore;
   projection: IStoreProjection;
   deps: IApplyDeps;
+  expectedOwnerKey: string;
   currentCurrency: string;
 }): boolean {
-  const { store, projection, deps, currentCurrency } = params;
+  const { store, projection, deps, expectedOwnerKey, currentCurrency } = params;
 
   const slim = readSlimColdCache(store);
-  // Merge gate (spec §11.4): currency mismatch / absent -> miss, do not paint.
-  if (!shouldUseSlim(slim, currentCurrency)) {
+  // Merge gate (spec §11.4): owner/currency mismatch or absent -> no paint.
+  if (
+    !slim ||
+    slim.ownerKey !== expectedOwnerKey ||
+    !shouldUseSlim(slim, currentCurrency)
+  ) {
     return false;
   }
-  // shouldUseSlim returning true guarantees `slim` is defined.
-  const bundle = slim as ITokenListSlimColdCache;
 
   const storeData = resolveStoreData(store);
   if (!storeData) {
     return false;
   }
 
-  fanOutSlimToApply({ store, projection, deps, bundle, storeData });
+  fanOutSlimToApply({ store, projection, deps, bundle: slim, storeData });
   return true;
 }
 
@@ -585,6 +589,7 @@ function scheduleColdStartCleanupOnce(): void {
 export function useTokenListCellsColdStartHydrate(
   ownerKey: string,
   currencyId: string,
+  onHydrateResult?: (result: { ownerKey: string; painted: boolean }) => void,
 ): void {
   const { store } = useTokenListContextData();
 
@@ -621,11 +626,13 @@ export function useTokenListCellsColdStartHydrate(
     }
     hydratedKeyRef.current = guardKey;
     const projection = ensureStoreProjection(store);
-    hydrateCellsFromColdStart({
+    const painted = hydrateCellsFromColdStart({
       store,
       projection,
       deps,
+      expectedOwnerKey: ownerKey,
       currentCurrency: currencyId,
     });
-  }, [store, deps, ownerKey, currencyId]);
+    onHydrateResult?.({ ownerKey, painted });
+  }, [store, deps, ownerKey, currencyId, onHydrateResult]);
 }

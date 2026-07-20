@@ -1,0 +1,61 @@
+{
+  "kind": "snapshot",
+  "protocolVersion": 2,
+  "schemaVersion": 2,
+  "owner": {
+    "scopeKey": "wallet-1:account-1:all",
+    "sessionId": "session-1"
+  },
+  "revision": 7,
+  "payload": {
+    "selectedTabId": "portfolio",
+    "header": {
+      "accountName": "Account 1",
+      "balance": "$100.00",
+      "actions": [],
+      "banners": []
+    },
+    "tabs": [
+      {
+        "id": "portfolio",
+        "title": "Spot",
+        "destination": "inline",
+        "sections": [
+          {
+            "id": "tokens",
+            "title": "Tokens",
+            "items": []
+          }
+        ]
+      },
+      {
+        "id": "perps",
+        "title": "Perps",
+        "destination": "handoff",
+        "handoffCommandId": "home.perps.openWeb",
+        "sections": []
+      },
+      {
+        "id": "history",
+        "title": "History",
+        "destination": "inline",
+        "sections": [
+          {
+            "id": "history",
+            "items": []
+          }
+        ]
+      }
+    ],
+    "theme": {
+      "backgroundColor": "#FFFFFF",
+      "cardColor": "#F5F5F5",
+      "dividerColor": "#E5E5E5",
+      "primaryTextColor": "#111111",
+      "secondaryTextColor": "#666666",
+      "accentColor": "#5B5BD6",
+      "positiveColor": "#087A55",
+      "negativeColor": "#D92D20"
+    }
+  }
+}

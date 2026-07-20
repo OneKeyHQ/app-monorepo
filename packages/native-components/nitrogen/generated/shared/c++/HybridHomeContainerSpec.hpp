@@ -60,6 +60,10 @@ namespace margelo::nitro::onekeynativecomponents {
       virtual void setOnVisibleTabChange(const std::optional<std::function<void(const std::string& /* tabId */)>>& onVisibleTabChange) = 0;
       virtual std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>> getOnRenderError() = 0;
       virtual void setOnRenderError(const std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>>& onRenderError) = 0;
+      virtual std::optional<std::function<void(const std::string& /* intentJson */)>> getOnIntent() = 0;
+      virtual void setOnIntent(const std::optional<std::function<void(const std::string& /* intentJson */)>>& onIntent) = 0;
+      virtual std::optional<std::function<void(const std::string& /* resultJson */)>> getOnTransportResult() = 0;
+      virtual void setOnTransportResult(const std::optional<std::function<void(const std::string& /* resultJson */)>>& onTransportResult) = 0;
 
     public:
       // Methods

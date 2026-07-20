@@ -1,6 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHomeActions } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   useCurrencyPersistAtom,
@@ -13,6 +21,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   IDeFiProtocol,
   IDeFiSupportedProtocolAction,
@@ -22,6 +31,20 @@ import type {
 import { useAllNetworkRequests } from '../../hooks/useAllNetwork';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 
+import {
+  useHomeFactsShadow,
+  useHomeSectionSemantic,
+} from './model/react/homeSemanticHooks';
+import {
+  buildHomeDeFiCoverage,
+  projectHomeDeFiSectionSource,
+} from './model/sections/defi/homeDeFiSectionPolicy';
+import {
+  adaptHomeDeFiSourceSnapshot,
+  createHomeDeFiSourceIdentity,
+  getHomeDeFiProtocolRowIds,
+} from './model/sections/defi/homeDeFiSourceAdapter';
+import { HomeSectionCoordinator } from './model/sections/homeSectionCoordinator';
 import {
   createNativeHomeAllNetworkRequestOutcome,
   filterNativeHomeAllNetworkAuthoritativeResponses,
@@ -36,9 +59,23 @@ import {
   useNativeHomeBalanceAuthorityOwner,
 } from './nativeHomeBalanceAuthority';
 
+import type { IHomeDeFiEvidence } from './model/sections/defi/homeDeFiSectionPolicy';
+import type {
+  IHomeDeFiLegacyPayload,
+  IHomeDeFiSourceParams,
+} from './model/sections/defi/homeDeFiSourceAdapter';
+import type { IHomeSectionCoordinatorResolution } from './model/sections/homeSectionCoordinator';
+
 type INativeHomeDeFiResponse = Awaited<
   ReturnType<typeof backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions>
 >;
+
+let nativeHomeDeFiProducerInstance = 0;
+
+function createNativeHomeDeFiProducerInstanceId() {
+  nativeHomeDeFiProducerInstance += 1;
+  return `native-home-defi:${nativeHomeDeFiProducerInstance}`;
+}
 
 export interface INativeHomeDeFiData {
   balanceAuthority: INativeHomeBalanceAuthority;
@@ -56,6 +93,20 @@ const getProtocolKey = (protocol: IDeFiProtocol) =>
     networkId: protocol.networkId,
     protocol: protocol.protocol,
   });
+
+const getAllNetworkResponseKey = (
+  response: INativeHomeDeFiResponse,
+  fallbackIndex: number,
+) => {
+  const rowIds = getHomeDeFiProtocolRowIds({
+    protocolMap: response.protocolMap,
+    protocols: response.protocols,
+    supportedActions: [],
+  });
+  return rowIds.length
+    ? stringUtils.stableStringify(rowIds)
+    : `empty:${fallbackIndex}`;
+};
 
 export function useNativeHomeDeFiData({
   enabled,
@@ -106,8 +157,211 @@ export function useNativeHomeDeFiData({
   const allNetworkExpectedRequestCountRef = useRef(0);
   const allNetworkEmptyAccountsResolvedRef = useRef(false);
   const allNetworkStartedSucceededRef = useRef(false);
+  const allNetworkSourceIdentityKeyRef = useRef<string | undefined>(undefined);
+  const allNetworkResponsesRef = useRef(
+    new Map<string, INativeHomeDeFiResponse>(),
+  );
   const sourceCurrencyInfo = currencyMap[settings.currencyInfo.id];
   const targetCurrencyInfo = currencyMap.usd;
+  const homeFactsShadow = useHomeFactsShadow();
+  const homeDeFiSemantic = useHomeSectionSemantic('defi');
+  const { clearSemanticSection, publishSemanticSection } =
+    useHomeActions().current;
+  const [deFiProducerInstanceId] = useState(
+    createNativeHomeDeFiProducerInstanceId,
+  );
+  const deFiSourceIdentity = useMemo(() => {
+    const ownerMatches =
+      homeFactsShadow?.owner.walletId === walletId &&
+      homeFactsShadow?.owner.accountId === accountId &&
+      (isAllNetworks
+        ? homeFactsShadow?.owner.network.kind === 'allNetworks'
+        : homeFactsShadow?.owner.network.kind === 'singleNetwork' &&
+          homeFactsShadow.owner.network.networkId === networkId);
+    if (
+      !enabled ||
+      !ownerMatches ||
+      !homeFactsShadow ||
+      !accountId ||
+      !networkId ||
+      !walletId
+    ) {
+      return undefined;
+    }
+    const params: IHomeDeFiSourceParams = {
+      accountId,
+      indexedAccountId,
+      networkId,
+      walletId,
+      networkMode: isAllNetworks ? 'allNetworks' : 'singleNetwork',
+      sourceCurrencyId: sourceCurrencyInfo?.id,
+      targetCurrencyId: targetCurrencyInfo?.id,
+    };
+    return createHomeDeFiSourceIdentity({
+      owner: homeFactsShadow.ownerToken,
+      params,
+      producerInstanceId: deFiProducerInstanceId,
+    });
+  }, [
+    accountId,
+    deFiProducerInstanceId,
+    enabled,
+    homeFactsShadow,
+    indexedAccountId,
+    isAllNetworks,
+    networkId,
+    sourceCurrencyInfo?.id,
+    targetCurrencyInfo?.id,
+    walletId,
+  ]);
+  const deFiSourceIdentityKey = useMemo(
+    () =>
+      deFiSourceIdentity
+        ? stringUtils.stableStringify(deFiSourceIdentity)
+        : undefined,
+    [deFiSourceIdentity],
+  );
+  const deFiCoordinatorRef = useRef<
+    HomeSectionCoordinator<IHomeDeFiLegacyPayload> | undefined
+  >(undefined);
+  const deFiSemanticRevisionRef = useRef(0);
+  const allNetworkSectionRequestSeqRef = useRef(0);
+
+  useLayoutEffect(() => {
+    deFiSemanticRevisionRef.current = Math.max(
+      deFiSemanticRevisionRef.current,
+      homeDeFiSemantic?.revision ?? 0,
+    );
+  }, [homeDeFiSemantic?.revision]);
+
+  const applyAuthoritativeDeFiPayload = useCallback(
+    (resolution: IHomeSectionCoordinatorResolution<IHomeDeFiLegacyPayload>) => {
+      if (resolution.authoritative.kind === 'none') {
+        return;
+      }
+      setProtocols(resolution.authoritative.data.protocols);
+      setProtocolMap(resolution.authoritative.data.protocolMap);
+      setInitialized(true);
+    },
+    [],
+  );
+
+  const publishDeFiEvidence = useCallback(
+    ({
+      evidence,
+      requestSeq,
+    }: {
+      evidence: IHomeDeFiEvidence;
+      requestSeq: number;
+    }) => {
+      if (!deFiSourceIdentity || !deFiSourceIdentityKey) {
+        return undefined;
+      }
+      let coordinator = deFiCoordinatorRef.current;
+      if (!coordinator) {
+        coordinator = new HomeSectionCoordinator<IHomeDeFiLegacyPayload>(
+          deFiSourceIdentity,
+        );
+        deFiCoordinatorRef.current = coordinator;
+      } else {
+        coordinator.setOwner(deFiSourceIdentity);
+      }
+      const resolution = coordinator.dispatch(
+        adaptHomeDeFiSourceSnapshot({
+          identity: deFiSourceIdentity,
+          snapshot: projectHomeDeFiSectionSource({
+            authorityReady: true,
+            evidence,
+            requestSeq,
+            scopeMatches: Boolean(balanceScopeKey),
+          }),
+        }),
+      );
+      if (!resolution.accepted) {
+        return resolution;
+      }
+      deFiSemanticRevisionRef.current += 1;
+      publishSemanticSection({
+        owner: deFiSourceIdentity.owner,
+        revision: deFiSemanticRevisionRef.current,
+        sectionId: 'defi',
+        value: resolution.semantic,
+      });
+      applyAuthoritativeDeFiPayload(resolution);
+      return resolution;
+    },
+    [
+      applyAuthoritativeDeFiPayload,
+      balanceScopeKey,
+      deFiSourceIdentity,
+      deFiSourceIdentityKey,
+      publishSemanticSection,
+    ],
+  );
+
+  const buildDeFiPayload = useCallback(
+    ({
+      nextProtocolMap,
+      nextProtocols,
+    }: {
+      nextProtocolMap: Record<string, IProtocolSummary>;
+      nextProtocols: IDeFiProtocol[];
+    }): IHomeDeFiLegacyPayload => ({
+      protocolMap: nextProtocolMap,
+      protocols: nextProtocols,
+      supportedActions,
+    }),
+    [supportedActions],
+  );
+
+  const buildAllNetworkPayload = useCallback((): IHomeDeFiLegacyPayload => {
+    const nextProtocols = new Map<string, IDeFiProtocol>();
+    const nextProtocolMap: Record<string, IProtocolSummary> = {};
+    Array.from(allNetworkResponsesRef.current.values()).forEach((response) => {
+      response.protocols.forEach((item) => {
+        nextProtocols.set(getProtocolKey(item), item);
+      });
+      Object.assign(nextProtocolMap, response.protocolMap);
+    });
+    return buildDeFiPayload({
+      nextProtocolMap,
+      nextProtocols: Array.from(nextProtocols.values()),
+    });
+  }, [buildDeFiPayload]);
+
+  const isAllNetworkSourceCurrent = useCallback(
+    () =>
+      Boolean(deFiSourceIdentityKey) &&
+      allNetworkSourceIdentityKeyRef.current === deFiSourceIdentityKey,
+    [deFiSourceIdentityKey],
+  );
+
+  useEffect(() => {
+    if (deFiSourceIdentity && deFiSourceIdentityKey) {
+      return;
+    }
+    deFiCoordinatorRef.current = undefined;
+    if (homeFactsShadow) {
+      deFiSemanticRevisionRef.current += 1;
+      clearSemanticSection({
+        owner: homeFactsShadow.ownerToken,
+        revision: deFiSemanticRevisionRef.current,
+        sectionId: 'defi',
+      });
+    }
+  }, [
+    clearSemanticSection,
+    deFiSourceIdentity,
+    deFiSourceIdentityKey,
+    homeFactsShadow,
+  ]);
+
+  useEffect(
+    () => () => {
+      deFiCoordinatorRef.current?.dispose();
+    },
+    [],
+  );
 
   const applyResponse = useCallback((response: INativeHomeDeFiResponse) => {
     setProtocols((previous) => {
@@ -133,6 +387,10 @@ export function useNativeHomeDeFiData({
       const authorityToken = beginBalanceAuthority();
       setIsRefreshing(true);
       setErrorCode(undefined);
+      publishDeFiEvidence({
+        requestSeq: requestId,
+        evidence: { kind: 'loading' },
+      });
       try {
         const response =
           await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
@@ -150,12 +408,35 @@ export function useNativeHomeDeFiData({
           setProtocolMap(response.protocolMap);
           setInitialized(true);
           settleBalanceAuthority(authorityToken, 'success');
+          const payload = buildDeFiPayload({
+            nextProtocolMap: response.protocolMap,
+            nextProtocols: response.protocols,
+          });
+          const rowIds = getHomeDeFiProtocolRowIds(payload);
+          publishDeFiEvidence({
+            requestSeq: requestId,
+            evidence: {
+              kind: 'complete',
+              confirmedEmpty: response.protocols.length === 0,
+              coverageFingerprint: buildHomeDeFiCoverage({
+                requestSeq: requestId,
+                rowCount: rowIds.length,
+                source: 'singleNetwork',
+              }),
+              data: payload,
+              rowIds,
+            },
+          });
         }
       } catch {
         if (requestIdRef.current === requestId) {
           setErrorCode('defi_fetch_failed');
           setInitialized(true);
           settleBalanceAuthority(authorityToken, 'error');
+          publishDeFiEvidence({
+            requestSeq: requestId,
+            evidence: { kind: 'error', errorKind: 'source' },
+          });
         }
       } finally {
         if (requestIdRef.current === requestId) {
@@ -166,10 +447,12 @@ export function useNativeHomeDeFiData({
     [
       accountId,
       beginBalanceAuthority,
+      buildDeFiPayload,
       enabled,
       indexedAccountId,
       isAllNetworks,
       networkId,
+      publishDeFiEvidence,
       sourceCurrencyInfo,
       settleBalanceAuthority,
       targetCurrencyInfo,
@@ -232,10 +515,36 @@ export function useNativeHomeDeFiData({
       if (generation < allNetworkGenerationRef.current) {
         return;
       }
+      if (!isAllNetworkSourceCurrent()) {
+        return;
+      }
       allNetworkGenerationRef.current = generation;
+      allNetworkResponsesRef.current.set(
+        getAllNetworkResponseKey(response, allNetworkResponsesRef.current.size),
+        response,
+      );
       applyResponse(response);
+      const payload = buildAllNetworkPayload();
+      publishDeFiEvidence({
+        requestSeq: allNetworkSectionRequestSeqRef.current,
+        evidence: {
+          kind: 'partial',
+          coverageFingerprint: `defi:allNetworks:${
+            allNetworkSectionRequestSeqRef.current
+          }:settled:${
+            allNetworkRequestOutcomeRef.current.attemptCount
+          }:expected:${
+            allNetworkExpectedRequestCountRef.current
+          }:rows:${getHomeDeFiProtocolRowIds(payload).length}:partial`,
+        },
+      });
     },
-    [applyResponse],
+    [
+      applyResponse,
+      buildAllNetworkPayload,
+      isAllNetworkSourceCurrent,
+      publishDeFiEvidence,
+    ],
   );
   const clearAllNetworkData = useCallback(() => {
     setProtocols([]);
@@ -255,8 +564,16 @@ export function useNativeHomeDeFiData({
       allNetworkExpectedRequestCountRef.current = 0;
       allNetworkEmptyAccountsResolvedRef.current = false;
       allNetworkStartedSucceededRef.current = false;
+      allNetworkSourceIdentityKeyRef.current = deFiSourceIdentityKey;
+      allNetworkResponsesRef.current.clear();
+      allNetworkSectionRequestSeqRef.current += 1;
+      const requestSeq = allNetworkSectionRequestSeqRef.current;
       setIsRefreshing(true);
       setErrorCode(undefined);
+      publishDeFiEvidence({
+        requestSeq,
+        evidence: { kind: 'loading' },
+      });
       if (ownerAccountId && ownerNetworkId) {
         await backgroundApiProxy.serviceDeFi.updateCurrentAccount({
           accountId: ownerAccountId,
@@ -265,7 +582,7 @@ export function useNativeHomeDeFiData({
       }
       allNetworkStartedSucceededRef.current = true;
     },
-    [beginBalanceAuthority],
+    [beginBalanceAuthority, deFiSourceIdentityKey, publishDeFiEvidence],
   );
   const handleAllNetworkAccountsData = useCallback(
     ({ accounts }: { accounts: IAllNetworkAccountInfo[] }) => {
@@ -277,19 +594,69 @@ export function useNativeHomeDeFiData({
     [],
   );
   const handleAllNetworkFinished = useCallback(async () => {
+    if (!isAllNetworkSourceCurrent()) {
+      return;
+    }
+    const expectedRequestCount = allNetworkExpectedRequestCountRef.current;
+    const outcome = allNetworkRequestOutcomeRef.current;
+    const requestSeq = allNetworkSectionRequestSeqRef.current;
+    const authorityStatus = resolveNativeHomeAllNetworkAuthorityStatus({
+      emptyAccountsResolved: allNetworkEmptyAccountsResolvedRef.current,
+      expectedRequestCount,
+      outcome,
+      startedSucceeded: allNetworkStartedSucceededRef.current,
+    });
     settleBalanceAuthority(
       allNetworkAuthorityTokenRef.current,
-      resolveNativeHomeAllNetworkAuthorityStatus({
-        emptyAccountsResolved: allNetworkEmptyAccountsResolvedRef.current,
-        expectedRequestCount: allNetworkExpectedRequestCountRef.current,
-        outcome: allNetworkRequestOutcomeRef.current,
-        startedSucceeded: allNetworkStartedSucceededRef.current,
-      }),
+      authorityStatus,
     );
+    const payload = buildAllNetworkPayload();
+    const rowIds = getHomeDeFiProtocolRowIds(payload);
+    if (allNetworkEmptyAccountsResolvedRef.current) {
+      publishDeFiEvidence({
+        requestSeq,
+        evidence: {
+          kind: 'complete',
+          confirmedEmpty: true,
+          coverageFingerprint: buildHomeDeFiCoverage({
+            requestSeq,
+            rowCount: 0,
+            source: 'allNetworks',
+          }),
+          data: undefined,
+          rowIds: [],
+        },
+      });
+    } else if (authorityStatus === 'error') {
+      publishDeFiEvidence({
+        requestSeq,
+        evidence: { kind: 'error', errorKind: 'source' },
+      });
+    } else {
+      publishDeFiEvidence({
+        requestSeq,
+        evidence: {
+          kind: 'complete',
+          confirmedEmpty: rowIds.length === 0,
+          coverageFingerprint: buildHomeDeFiCoverage({
+            requestSeq,
+            rowCount: rowIds.length,
+            source: 'allNetworks',
+          }),
+          data: payload,
+          rowIds,
+        },
+      });
+    }
     allNetworkForceRefreshRef.current = false;
     setIsRefreshing(false);
     setInitialized(true);
-  }, [settleBalanceAuthority]);
+  }, [
+    buildAllNetworkPayload,
+    isAllNetworkSourceCurrent,
+    publishDeFiEvidence,
+    settleBalanceAuthority,
+  ]);
 
   const {
     run: runAllNetwork,

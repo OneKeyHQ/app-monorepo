@@ -60,6 +60,7 @@ function buildSnapshot({
       {
         id: 'portfolio',
         title: 'Spot',
+        destination: 'inline',
         sections: [
           {
             id: `assets-${networkName}`,

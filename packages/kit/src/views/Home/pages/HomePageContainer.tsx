@@ -26,6 +26,7 @@ import {
   useSelectedAccount,
   useSelectedAccountsAtom,
 } from '../../../states/jotai/contexts/accountSelector';
+import { ProviderJotaiContextHome } from '../../../states/jotai/contexts/home';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import { NotificationRegisterDaily } from '../../Notifications/components/NotificationRegisterDaily';
 import {
@@ -35,6 +36,7 @@ import {
 } from '../../Onboarding/components/onboardingLaunchGate';
 import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
 import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
+import { HomeAuthorityShadowBridge } from '../model/react/HomeAuthorityShadowBridge';
 import { isNativeHomeEnabled } from '../nativeHomeFeatureFlag';
 import { NativeHomePageView } from '../NativeHomePageView';
 
@@ -212,7 +214,7 @@ export function HomeLaunchGatedContent({
   );
 }
 
-function HomePageContainer() {
+export function HomePageContainer() {
   const [isHide, setIsHide] = useState(false);
   const isDesktopModeUI = useIsDesktopModeUIInTabPages();
   const nativeHomeEnabled = isNativeHomeEnabled();
@@ -233,21 +235,24 @@ function HomePageContainer() {
         className="HomeRootTabPageContainer"
         bg={isDesktopModeUI ? '$bgSubdued' : '$bgApp'}
       >
-        <AccountSelectorProviderMirror
-          config={{
-            sceneName,
-            sceneUrl: '',
-          }}
-          enabledNum={[0]}
-        >
-          <HomeWalletListProvider>
-            <HomeLaunchGatedContent
-              nativeHomeEnabled={nativeHomeEnabled}
-              sceneName={sceneName}
-              onPressHide={handlePressHide}
-            />
-          </HomeWalletListProvider>
-        </AccountSelectorProviderMirror>
+        <ProviderJotaiContextHome>
+          <AccountSelectorProviderMirror
+            config={{
+              sceneName,
+              sceneUrl: '',
+            }}
+            enabledNum={[0]}
+          >
+            <HomeAuthorityShadowBridge />
+            <HomeWalletListProvider>
+              <HomeLaunchGatedContent
+                nativeHomeEnabled={nativeHomeEnabled}
+                sceneName={sceneName}
+                onPressHide={handlePressHide}
+              />
+            </HomeWalletListProvider>
+          </AccountSelectorProviderMirror>
+        </ProviderJotaiContextHome>
       </Stack>
     </TabletHomeContainer>
   );

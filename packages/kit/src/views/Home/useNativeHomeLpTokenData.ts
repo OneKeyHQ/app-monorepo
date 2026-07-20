@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { CanceledError } from 'axios';
+
 import {
   buildScopedActiveTokenListFromResponses,
   fetchFilteredTokenSelectorTokens,
@@ -21,6 +23,19 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 
+import {
+  buildHomeSpotAllCoverage,
+  buildHomeSpotSingleCoverage,
+  projectHomeSpotSectionSource,
+} from './model/sections/spot/homeSpotSectionPolicy';
+import {
+  type IHomeSpotNativePayload,
+  type IHomeSpotSourceSnapshot,
+} from './model/sections/spot/homeSpotSourceAdapter';
+import { buildNativeHomePortfolioScopeKey } from './nativeHomePortfolioRequestLifecycle';
+
+import type { IHomeSpotEvidence } from './model/sections/spot/homeSpotSectionPolicy';
+
 export interface INativeHomeLpTokenData {
   errorCode: string | undefined;
   initialized: boolean;
@@ -30,6 +45,12 @@ export interface INativeHomeLpTokenData {
   setShowLpTokensOnly: (value: boolean) => void;
   showLpTokenFilterSwitch: boolean;
   showLpTokensOnly: boolean;
+  spotSectionSource:
+    | {
+        scopeKey: string;
+        snapshot: IHomeSpotSourceSnapshot<IHomeSpotNativePayload>;
+      }
+    | undefined;
   tokens: IAccountToken[];
 }
 
@@ -65,14 +86,62 @@ export function useNativeHomeLpTokenData(): INativeHomeLpTokenData {
   const [isLoading, setIsLoading] = useState(false);
   const [errorCode, setErrorCode] = useState<string>();
   const requestIdRef = useRef(0);
+  const spotRequestSeqRef = useRef(0);
   const accountId = account?.id;
   const indexedAccountId = indexedAccount?.id;
   const networkId = network?.id;
+  const walletId = wallet?.id;
   const isAllNetworks = Boolean(network?.isAllNetworks);
+  const scopeKey = buildNativeHomePortfolioScopeKey({
+    accountId,
+    enabled: showLpTokensOnly,
+    isAllNetworks,
+    networkId,
+    walletId,
+  });
   const mergeDeriveAddressData =
     Boolean(vaultSettings?.mergeDeriveAssetsEnabled) &&
-    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
+    !accountUtils.isOthersWallet({ walletId: walletId ?? '' }) &&
     deriveInfoItems.length > 1;
+  const [spotSectionSource, setSpotSectionSource] =
+    useState<INativeHomeLpTokenData['spotSectionSource']>();
+
+  const publishSpotEvidence = useCallback(
+    ({
+      evidence,
+      requestSeq,
+    }: {
+      evidence: IHomeSpotEvidence<IHomeSpotNativePayload>;
+      requestSeq: number;
+    }) => {
+      if (!scopeKey) {
+        return;
+      }
+      setSpotSectionSource({
+        scopeKey,
+        snapshot: projectHomeSpotSectionSource({
+          authorityReady: Boolean(
+            showLpTokensOnly &&
+            showLpTokenFilterSwitch &&
+            accountId &&
+            networkId &&
+            walletId,
+          ),
+          evidence,
+          requestSeq,
+          scopeMatches: true,
+        }),
+      });
+    },
+    [
+      accountId,
+      networkId,
+      scopeKey,
+      showLpTokenFilterSwitch,
+      showLpTokensOnly,
+      walletId,
+    ],
+  );
 
   const refresh = useCallback(async () => {
     if (
@@ -85,8 +154,14 @@ export function useNativeHomeLpTokenData(): INativeHomeLpTokenData {
     }
     requestIdRef.current += 1;
     const requestId = requestIdRef.current;
+    spotRequestSeqRef.current += 1;
+    const requestSeq = spotRequestSeqRef.current;
     setIsLoading(true);
     setErrorCode(undefined);
+    publishSpotEvidence({
+      evidence: { kind: 'loading' },
+      requestSeq,
+    });
     try {
       const { responses } = await fetchFilteredTokenSelectorTokens({
         accountId,
@@ -107,10 +182,62 @@ export function useNativeHomeLpTokenData(): INativeHomeLpTokenData {
       setTokens(result.tokenList.tokens);
       setMap(result.tokenListMap);
       setInitialized(true);
-    } catch {
+      const payload: IHomeSpotNativePayload = {
+        customTokens: [],
+        dataScopeKey: scopeKey,
+        isEmptyAccount: result.tokenList.tokens.length === 0,
+        map: result.tokenListMap,
+        riskMap: {},
+        riskTokens: [],
+        smallBalanceMap: {},
+        smallBalanceTokens: [],
+        tokens: result.tokenList.tokens,
+      };
+      publishSpotEvidence({
+        evidence: {
+          kind: 'complete',
+          confirmedEmpty: payload.isEmptyAccount,
+          coverageFingerprint: isAllNetworks
+            ? buildHomeSpotAllCoverage({
+                expected: responses.length,
+                failed: 0,
+                requestSeq,
+                settled: responses.length,
+              })
+            : buildHomeSpotSingleCoverage(requestSeq),
+          data: payload,
+          rowIds: payload.tokens.map((token) => token.$key),
+        },
+        requestSeq,
+      });
+    } catch (error) {
       if (requestIdRef.current === requestId) {
+        if (error instanceof CanceledError) {
+          publishSpotEvidence({
+            evidence: {
+              kind: 'partial',
+              coverageFingerprint: isAllNetworks
+                ? buildHomeSpotAllCoverage({
+                    expected: 1,
+                    failed: 0,
+                    requestSeq,
+                    settled: 0,
+                  })
+                : buildHomeSpotSingleCoverage(requestSeq),
+            },
+            requestSeq,
+          });
+          return;
+        }
         setErrorCode('lp_token_fetch_failed');
         setInitialized(true);
+        publishSpotEvidence({
+          evidence: {
+            kind: 'error',
+            errorKind: 'source',
+          },
+          requestSeq,
+        });
       }
     } finally {
       if (requestIdRef.current === requestId) {
@@ -123,8 +250,10 @@ export function useNativeHomeLpTokenData(): INativeHomeLpTokenData {
     isAllNetworks,
     mergeDeriveAddressData,
     networkId,
+    publishSpotEvidence,
     showLpTokenFilterSwitch,
     showLpTokensOnly,
+    scopeKey,
   ]);
 
   useEffect(() => {
@@ -134,13 +263,22 @@ export function useNativeHomeLpTokenData(): INativeHomeLpTokenData {
     setErrorCode(undefined);
     setInitialized(!showLpTokensOnly);
     setIsLoading(showLpTokensOnly);
+    spotRequestSeqRef.current = 0;
+    if (showLpTokensOnly && scopeKey) {
+      setSpotSectionSource({
+        scopeKey,
+        snapshot: { kind: 'loading', requestSeq: 0 },
+      });
+    } else {
+      setSpotSectionSource(undefined);
+    }
     if (showLpTokensOnly) {
       void refresh();
     }
     return () => {
       requestIdRef.current += 1;
     };
-  }, [accountId, networkId, refresh, showLpTokensOnly]);
+  }, [accountId, networkId, refresh, scopeKey, showLpTokensOnly]);
 
   useEffect(() => {
     if (!showLpTokensOnly) {
@@ -192,6 +330,7 @@ export function useNativeHomeLpTokenData(): INativeHomeLpTokenData {
       setShowLpTokensOnly,
       showLpTokenFilterSwitch,
       showLpTokensOnly,
+      spotSectionSource,
       tokens,
     }),
     [
@@ -203,6 +342,7 @@ export function useNativeHomeLpTokenData(): INativeHomeLpTokenData {
       setShowLpTokensOnly,
       showLpTokenFilterSwitch,
       showLpTokensOnly,
+      spotSectionSource,
       tokens,
     ],
   );

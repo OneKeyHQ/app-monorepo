@@ -275,6 +275,70 @@ open class HybridHomeContainerSpec_cxx {
     }
   }
 
+  public final var onIntent: bridge.std__optional_std__function_void_const_std__string_____intentJson______ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__function_void_const_std__string_____intentJson______ in
+        if let __unwrappedValue = self.__implementation.onIntent {
+          return bridge.create_std__optional_std__function_void_const_std__string_____intentJson______({ () -> bridge.Func_void_std__string in
+            let __closureWrapper = Func_void_std__string(__unwrappedValue)
+            return bridge.create_Func_void_std__string(__closureWrapper.toUnsafe())
+          }())
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.onIntent = { () -> ((_ intentJson: String) -> Void)? in
+        if bridge.has_value_std__optional_std__function_void_const_std__string_____intentJson______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_void_const_std__string_____intentJson______(newValue)
+          return { () -> (String) -> Void in
+            let __wrappedFunction = bridge.wrap_Func_void_std__string(__unwrapped)
+            return { (__intentJson: String) -> Void in
+              __wrappedFunction.call(std.string(__intentJson))
+            }
+          }()
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
+
+  public final var onTransportResult: bridge.std__optional_std__function_void_const_std__string_____resultJson______ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__function_void_const_std__string_____resultJson______ in
+        if let __unwrappedValue = self.__implementation.onTransportResult {
+          return bridge.create_std__optional_std__function_void_const_std__string_____resultJson______({ () -> bridge.Func_void_std__string in
+            let __closureWrapper = Func_void_std__string(__unwrappedValue)
+            return bridge.create_Func_void_std__string(__closureWrapper.toUnsafe())
+          }())
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.onTransportResult = { () -> ((_ resultJson: String) -> Void)? in
+        if bridge.has_value_std__optional_std__function_void_const_std__string_____resultJson______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_void_const_std__string_____resultJson______(newValue)
+          return { () -> (String) -> Void in
+            let __wrappedFunction = bridge.wrap_Func_void_std__string(__unwrapped)
+            return { (__resultJson: String) -> Void in
+              __wrappedFunction.call(std.string(__resultJson))
+            }
+          }()
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
+
   // Methods
   @inline(__always)
   public final func setSnapshot(snapshotJson: std.string) -> bridge.Result_void_ {

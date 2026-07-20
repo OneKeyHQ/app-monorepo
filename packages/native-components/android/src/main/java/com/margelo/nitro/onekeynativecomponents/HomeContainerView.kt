@@ -41,6 +41,8 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   var onRefresh: ((String, String) -> Unit)? = null
   var onVisibleTabChange: ((String) -> Unit)? = null
   var onRenderError: ((String, String) -> Unit)? = null
+  var onIntent: ((String) -> Unit)? = null
+  var onTransportResult: ((String) -> Unit)? = null
   var onSlotLayoutChange: (() -> Unit)? = null
 
   private val parser = Executors.newSingleThreadExecutor()
@@ -51,6 +53,8 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   private val tabsView = HomeTabsView(context)
   private val refreshPages = mutableMapOf<String, HomePageView>()
   private var snapshot: HomeContainerSnapshot? = null
+  private var protocolV2State: HomeContainerProtocolV2State? = null
+  private var lastNeedSnapshotResultKey: String? = null
   private var fallbackBackgroundColor = Color.WHITE
   private var selectedTabId = ""
   private var suppressPageCallback = false
@@ -76,10 +80,10 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     addView(headerView, LayoutParams(LayoutParams.MATCH_PARENT, 0))
     addView(tabsView, LayoutParams(LayoutParams.MATCH_PARENT, dp(TAB_HEIGHT_DP)))
     headerView.onAction = { actionId, itemId ->
-      onAction?.invoke(actionId, itemId, selectedTabId)
+      emitAction(actionId, itemId, selectedTabId)
     }
     tabsView.onAction = { actionId, itemId ->
-      onAction?.invoke(actionId, itemId, selectedTabId)
+      emitAction(actionId, itemId, selectedTabId)
     }
     tabsView.onSelect = { tabId ->
       moveToTab(tabId, true, true)
@@ -89,7 +93,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
       override fun onPageSelected(position: Int) {
         if (suppressPageCallback) return
-        val tab = snapshot?.tabs?.getOrNull(position) ?: return
+        val tab = adapter.tabAt(position) ?: return
         val source = adapter.pageForTab(selectedTabId)
         val target = adapter.pageForTab(tab.id)
         if (source != null && target != null) {
@@ -102,7 +106,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
           collapseOffset = target?.collapseOffset ?: 0
           refreshPullOffset = target?.refreshPullOffset ?: 0
           updateSharedChromePosition()
-          onVisibleTabChange?.invoke(tab.id)
+          emitTabSelection(tab.id)
         }
       }
     })
@@ -111,6 +115,14 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   fun submitSnapshot(json: String) {
     parser.execute {
       if (disposed.get()) return@execute
+      if (HomeContainerProtocolV2Transaction.isProtocolPayload(json, "snapshot")) {
+        post {
+          handleProtocolV2Outcome(
+            HomeContainerProtocolV2Transaction.applySnapshot(json, protocolV2State),
+          )
+        }
+        return@execute
+      }
       try {
         val next = HomeContainerJson.parseSnapshot(json)
         if (next.schemaVersion != SCHEMA_VERSION) {
@@ -120,7 +132,11 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
           )
           return@execute
         }
-        post { applySnapshot(next) }
+        post {
+          protocolV2State = null
+          lastNeedSnapshotResultKey = null
+          applySnapshot(next)
+        }
       } catch (error: Exception) {
         reportError("snapshot_decode_failed", error.message ?: error.javaClass.simpleName)
       }
@@ -203,6 +219,14 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   fun submitPatch(json: String) {
     parser.execute {
       if (disposed.get()) return@execute
+      if (HomeContainerProtocolV2Transaction.isProtocolPayload(json, "patch")) {
+        post {
+          handleProtocolV2Outcome(
+            HomeContainerProtocolV2Transaction.applyPatch(json, protocolV2State),
+          )
+        }
+        return@execute
+      }
       try {
         val patch = HomeContainerJson.parsePatch(json)
         if (patch.schemaVersion != SCHEMA_VERSION) {
@@ -357,39 +381,53 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     }
   }
 
-  private fun applySnapshot(next: HomeContainerSnapshot) {
+  private fun applySnapshot(
+    next: HomeContainerSnapshot,
+    allowsMissingSelectedTabFallback: Boolean = true,
+    enforcesMonotonicRevision: Boolean = true,
+  ) {
     if (disposed.get()) return
     val current = snapshot
-    if (current != null && next.revision < current.revision) return
+    if (enforcesMonotonicRevision && current != null && next.revision < current.revision) return
+    if (!next.hasValidTabInvariants()) return
+    if (
+      !allowsMissingSelectedTabFallback &&
+      next.tabs.none {
+        it.id == next.selectedTabId && it.destination == HomeContainerTabDestination.INLINE
+      }
+    ) {
+      return
+    }
     snapshot = next
     setBackgroundColor(parseHomeContainerColor(next.theme.backgroundColor, Color.WHITE))
     headerView.bind(next.header, next.theme)
     headerHeight = headerView.preferredHeight
     tabsView.bind(next.tabs, next.selectedTabId, next.theme)
     updateSharedChromeLayout()
-    adapter.bind(next)
-    pager.offscreenPageLimit = next.tabs.size.coerceAtLeast(1)
-    val requestedTab = next.tabs.firstOrNull { it.id == next.selectedTabId }
-      ?: next.tabs.firstOrNull()
-    if (requestedTab != null) {
-      selectedTabId = requestedTab.id
-      adapter.setSelectedTab(requestedTab.id)
-      tabsView.setSelectedTab(requestedTab.id)
-      val index = next.tabs.indexOfFirst { it.id == requestedTab.id }
-      if (index >= 0 && pager.currentItem != index) {
-        suppressPageCallback = true
-        pager.setCurrentItem(index, false)
-        suppressPageCallback = false
+    suppressPageCallback = true
+    try {
+      adapter.bind(next)
+      pager.offscreenPageLimit = next.inlineTabs().size.coerceAtLeast(1)
+      val requestedTab = next.tabs.firstOrNull {
+        it.id == next.selectedTabId && it.destination == HomeContainerTabDestination.INLINE
+      } ?: if (allowsMissingSelectedTabFallback) next.inlineTabs().firstOrNull() else null
+      if (requestedTab != null) {
+        selectedTabId = requestedTab.id
+        adapter.setSelectedTab(requestedTab.id)
+        tabsView.setSelectedTab(requestedTab.id)
+        val index = adapter.positionForTab(requestedTab.id)
+        if (index >= 0 && pager.currentItem != index) {
+          pager.setCurrentItem(index, false)
+        }
       }
+    } finally {
+      suppressPageCallback = false
     }
   }
 
   private fun applyPatch(patch: HomeContainerPatch) {
     val current = snapshot ?: return
-    if (patch.revision < current.revision) return
-    val validTabIds = current.tabs.mapTo(mutableSetOf()) { it.id }
-    if (patch.tabs.any { it.tabId !in validTabIds }) return
-    val next = current.applying(patch)
+    val next = current.applyingValidatedPatch(patch) ?: return
     snapshot = next
     patch.header?.let { header ->
       val previousHeaderHeight = headerHeight
@@ -405,7 +443,12 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
 
   private fun moveToTab(tabId: String, animated: Boolean, notify: Boolean) {
     val tabs = snapshot?.tabs ?: return
-    val index = tabs.indexOfFirst { it.id == tabId }
+    val tab = tabs.firstOrNull { it.id == tabId } ?: return
+    if (tab.destination == HomeContainerTabDestination.HANDOFF) {
+      emitHandoff(tab)
+      return
+    }
+    val index = adapter.positionForTab(tabId)
     if (index < 0) return
     val source = adapter.pageForTab(selectedTabId)
     val target = adapter.pageForTab(tabId)
@@ -419,7 +462,115 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     refreshPullOffset = target?.refreshPullOffset ?: 0
     updateSharedChromePosition()
     pager.setCurrentItem(index, animated)
-    if (notify) onVisibleTabChange?.invoke(tabId)
+    if (notify) emitTabSelection(tabId)
+  }
+
+  private fun handleProtocolV2Outcome(outcome: HomeContainerProtocolV2ApplyOutcome) {
+    if (disposed.get()) return
+    when (outcome) {
+      is HomeContainerProtocolV2ApplyOutcome.Applied -> {
+        protocolV2State = outcome.state
+        lastNeedSnapshotResultKey = null
+        applySnapshot(
+          next = outcome.state.snapshot,
+          allowsMissingSelectedTabFallback = false,
+          enforcesMonotonicRevision = false,
+        )
+        emitTransportResult(outcome.toTransportResultJson())
+      }
+      is HomeContainerProtocolV2ApplyOutcome.Duplicate -> {
+        emitTransportResult(outcome.toTransportResultJson())
+      }
+      is HomeContainerProtocolV2ApplyOutcome.NeedSnapshot -> emitNeedSnapshot(outcome)
+    }
+  }
+
+  private fun emitAction(actionId: String, itemId: String, tabId: String) {
+    val state = protocolV2State
+    if (state == null) {
+      onAction?.invoke(actionId, itemId, tabId)
+      return
+    }
+    emitIntent(
+      HomeContainerProtocolV2Intent.action(
+        owner = state.owner,
+        renderedRevision = state.revision,
+        commandId = actionId,
+        itemId = itemId,
+      ),
+    )
+  }
+
+  private fun emitRefresh(tabId: String, requestId: String) {
+    val state = protocolV2State
+    if (state == null) {
+      onRefresh?.invoke(tabId, requestId)
+      return
+    }
+    emitIntent(
+      HomeContainerProtocolV2Intent.refresh(
+        owner = state.owner,
+        renderedRevision = state.revision,
+        tabId = tabId,
+        requestId = requestId,
+      ),
+    )
+  }
+
+  private fun emitTabSelection(tabId: String) {
+    val currentState = protocolV2State
+    if (currentState == null) {
+      onVisibleTabChange?.invoke(tabId)
+      return
+    }
+    if (
+      currentState.snapshot.tabs.none {
+        it.id == tabId && it.destination == HomeContainerTabDestination.INLINE
+      }
+    ) {
+      return
+    }
+    val selectedState = currentState.selectingTab(tabId) ?: return
+    snapshot = selectedState.snapshot
+    protocolV2State = selectedState
+    emitIntent(
+      HomeContainerProtocolV2Intent.selectTab(
+        owner = selectedState.owner,
+        renderedRevision = selectedState.revision,
+        tabId = tabId,
+      ),
+    )
+  }
+
+  private fun emitHandoff(tab: HomeContainerTab) {
+    val commandId = tab.handoffCommandId ?: return
+    val state = protocolV2State
+    if (state == null) {
+      onAction?.invoke(commandId, tab.id, selectedTabId)
+      return
+    }
+    emitIntent(
+      HomeContainerProtocolV2Intent.handoff(
+        owner = state.owner,
+        renderedRevision = state.revision,
+        tabId = tab.id,
+        commandId = commandId,
+      ),
+    )
+  }
+
+  private fun emitIntent(json: String) {
+    onIntent?.invoke(json)
+  }
+
+  private fun emitNeedSnapshot(result: HomeContainerProtocolV2ApplyOutcome.NeedSnapshot) {
+    if (lastNeedSnapshotResultKey == result.coalescingKey) return
+    lastNeedSnapshotResultKey = result.coalescingKey
+    emitTransportResult(result.toTransportResultJson())
+  }
+
+  private fun emitTransportResult(json: String) {
+    onTransportResult?.invoke(json)
   }
 
   private fun reportError(code: String, message: String) {
@@ -428,6 +579,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
 
   private inner class HomePagerAdapter : RecyclerView.Adapter<HomePageHolder>() {
     private var value: HomeContainerSnapshot? = null
+    private var inlineTabs = emptyList<HomeContainerTab>()
     private val pages = mutableMapOf<String, HomePageView>()
     private var selectedId = ""
     private var refreshEnabled = false
@@ -437,10 +589,10 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
     }
 
     fun bind(next: HomeContainerSnapshot) {
-      val previous = value
-      val previousTabs = previous?.tabs.orEmpty()
-      val nextTabs = next.tabs
-      val diff = if (previous == null) {
+      val isInitial = value == null
+      val previousTabs = inlineTabs
+      val nextTabs = next.inlineTabs()
+      val diff = if (isInitial) {
         null
       } else {
         DiffUtil.calculateDiff(object : DiffUtil.Callback() {
@@ -456,15 +608,16 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
         })
       }
       value = next
-      val validIds = next.tabs.mapTo(mutableSetOf()) { it.id }
+      inlineTabs = nextTabs
+      val validIds = nextTabs.mapTo(mutableSetOf()) { it.id }
       pages.keys.retainAll(validIds)
-      if (previous == null) {
+      if (isInitial) {
         if (nextTabs.isNotEmpty()) notifyItemRangeInserted(0, nextTabs.size)
       } else {
         diff?.dispatchUpdatesTo(this)
       }
       pages.forEach { (tabId, page) ->
-        val tab = next.tabs.firstOrNull { it.id == tabId } ?: return@forEach
+        val tab = nextTabs.firstOrNull { it.id == tabId } ?: return@forEach
         bindPage(page, tab, next)
       }
     }
@@ -491,12 +644,16 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
 
     fun pageForTab(tabId: String): HomePageView? = pages[tabId]
 
+    fun positionForTab(tabId: String): Int = inlineTabs.indexOfFirst { it.id == tabId }
+
+    fun tabAt(position: Int): HomeContainerTab? = inlineTabs.getOrNull(position)
+
     fun pages(): Collection<HomePageView> = pages.values
 
     override fun getItemId(position: Int): Long =
-      value?.tabs?.getOrNull(position)?.id?.hashCode()?.toLong() ?: RecyclerView.NO_ID
+      inlineTabs.getOrNull(position)?.id?.hashCode()?.toLong() ?: RecyclerView.NO_ID
 
-    override fun getItemCount(): Int = value?.tabs?.size ?: 0
+    override fun getItemCount(): Int = inlineTabs.size
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): HomePageHolder =
       HomePageHolder(
@@ -510,7 +667,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
 
     override fun onBindViewHolder(holder: HomePageHolder, position: Int) {
       val next = value ?: return
-      val tab = next.tabs[position]
+      val tab = inlineTabs[position]
       pages[tab.id] = holder.page
       bindPage(holder.page, tab, next)
     }
@@ -530,12 +687,12 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
       page.setRefreshEnabled(refreshEnabled)
       page.setMountedSlotKeys(mountedSlotKeys)
       page.onAction = { actionId, itemId, tabId ->
-        this@HomeContainerView.onAction?.invoke(actionId, itemId, tabId)
+        this@HomeContainerView.emitAction(actionId, itemId, tabId)
       }
       page.onRefresh = { sourcePage, tabId ->
         val requestId = UUID.randomUUID().toString()
         refreshPages[requestId] = sourcePage
-        this@HomeContainerView.onRefresh?.invoke(tabId, requestId)
+        this@HomeContainerView.emitRefresh(tabId, requestId)
       }
       page.onCollapseOffsetChange = { sourcePage, offset ->
         if (sourcePage.tabId == selectedTabId) {
@@ -585,7 +742,7 @@ internal class HomeContainerView(context: Context) : FrameLayout(context) {
   private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
   companion object {
-    private const val SCHEMA_VERSION = 1
+    private const val SCHEMA_VERSION = HOME_CONTAINER_BUSINESS_SCHEMA_VERSION
     private const val TAB_HEIGHT_DP = 52
   }
 }

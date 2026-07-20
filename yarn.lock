@@ -9924,6 +9924,13 @@ __metadata:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.33.2
+  peerDependenciesMeta:
+    react:
+      optional: true
+    react-native:
+      optional: true
+    react-native-nitro-modules:
+      optional: true
   languageName: unknown
   linkType: soft
 

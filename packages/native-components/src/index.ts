@@ -3,8 +3,13 @@ export { HomeContainerController } from './HomeContainerController';
 export type { IHomeContainerControllerOptions } from './HomeContainerController';
 export {
   HOME_CONTAINER_SCHEMA_VERSION,
+  HOME_CONTAINER_PROTOCOL_VERSION,
+  HOME_CONTAINER_SLOT_CONTRACT_REVISION,
   HOME_CONTAINER_TAB_IDS,
   serializeHomeContainerPayload,
+  parseHomeContainerTransportResult,
+  isHomeContainerTransportResultForSubmission,
+  isHomeContainerSnapshotInvariantValid,
 } from './HomeContainer.types';
 
 export type {
@@ -15,17 +20,29 @@ export type {
   IHomeContainerHeader,
   IHomeContainerItem,
   IHomeContainerItemRenderer,
+  IHomeContainerChange,
+  IHomeContainerIntent,
+  IHomeContainerIntentPayload,
+  IHomeContainerNavigationTab,
+  IHomeContainerOwner,
   IHomeContainerPatch,
+  IHomeContainerPatchEnvelope,
   IHomeContainerProps,
   IHomeContainerRef,
   IHomeContainerSection,
   IHomeContainerSlot,
+  IHomeContainerSlotBundle,
   IHomeContainerSlotInteraction,
   IHomeContainerSlotKey,
   IHomeContainerSlots,
   IHomeContainerSnapshot,
+  IHomeContainerSnapshotEnvelope,
+  IHomeContainerSnapshotPayload,
   IHomeContainerTab,
   IHomeContainerTabPatch,
   IHomeContainerTabId,
   IHomeContainerTheme,
+  IHomeContainerTransportPayload,
+  IHomeContainerTransportResult,
+  IHomeContainerTransportSubmission,
 } from './HomeContainer.types';

@@ -5,6 +5,7 @@ import {
   HOME_CONTAINER_SCHEMA_VERSION,
   type IHomeContainerCapabilities,
   type IHomeContainerRef,
+  type IHomeContainerSlots,
   type IHomeContainerSnapshot,
 } from './HomeContainer.types';
 import { HomeContainerController } from './HomeContainerController';
@@ -16,6 +17,12 @@ const capabilities: IHomeContainerCapabilities = {
   supportsAtomicPatches: true,
   supportsNativeRefresh: true,
   supportsHorizontalPaging: true,
+};
+
+const protocolV2Capabilities: IHomeContainerCapabilities = {
+  ...capabilities,
+  protocolVersions: [1, 2],
+  preferredProtocol: 2,
 };
 
 function buildSnapshot(): IHomeContainerSnapshot {
@@ -30,11 +37,21 @@ function buildSnapshot(): IHomeContainerSnapshot {
       banners: [],
     },
     tabs: [
-      { id: 'portfolio', title: 'Portfolio', sections: [] },
-      { id: 'perps', title: 'Perps', sections: [] },
-      { id: 'defi', title: 'DeFi', sections: [] },
-      { id: 'nft', title: 'NFT', sections: [] },
-      { id: 'history', title: 'History', sections: [] },
+      {
+        id: 'portfolio',
+        title: 'Portfolio',
+        destination: 'inline',
+        sections: [],
+      },
+      { id: 'perps', title: 'Perps', destination: 'inline', sections: [] },
+      { id: 'defi', title: 'DeFi', destination: 'inline', sections: [] },
+      { id: 'nft', title: 'NFT', destination: 'inline', sections: [] },
+      {
+        id: 'history',
+        title: 'History',
+        destination: 'inline',
+        sections: [],
+      },
     ],
     theme: {
       backgroundColor: '#FFFFFF',
@@ -49,10 +66,30 @@ function buildSnapshot(): IHomeContainerSnapshot {
   };
 }
 
+function buildHandoffSnapshot(): IHomeContainerSnapshot {
+  const snapshot = buildSnapshot();
+  return {
+    ...snapshot,
+    tabs: snapshot.tabs.map((tab) =>
+      tab.id === 'perps'
+        ? {
+            id: tab.id,
+            title: tab.title,
+            destination: 'handoff',
+            handoffCommandId: 'home.perps.openWeb',
+            sections: [],
+          }
+        : tab,
+    ),
+  };
+}
+
 function buildTarget() {
   const target: jest.Mocked<IHomeContainerRef> = {
     setSnapshot: jest.fn(),
     applyPatch: jest.fn(),
+    setProtocolV2Snapshot: jest.fn(),
+    applyProtocolV2Patch: jest.fn(),
     completeRefresh: jest.fn(),
     selectTab: jest.fn(),
     getCapabilities: jest.fn(() => capabilities),
@@ -250,6 +287,23 @@ describe('HomeContainerController', () => {
     expect(target.setSnapshot).toHaveBeenCalledTimes(1);
   });
 
+  it('does not send protocol v1 transport updates for React-only slots', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    const controller = new HomeContainerController({
+      initialSnapshot: buildSnapshot(),
+      schedule: (flush) => scheduled.push(flush),
+    });
+    controller.attach(target);
+    target.setSnapshot.mockClear();
+
+    controller.updateSlots({ balance: { content: 'slot' } });
+
+    expect(scheduled).toHaveLength(0);
+    expect(target.setSnapshot).not.toHaveBeenCalled();
+    expect(target.applyPatch).not.toHaveBeenCalled();
+  });
+
   it('rejects a native target that cannot render the complete snapshot', () => {
     const target = buildTarget();
     target.getCapabilities.mockReturnValue({
@@ -274,6 +328,319 @@ describe('HomeContainerController', () => {
     expect(controller.recordSelectedTab('history')).toBe(true);
     expect(controller.getSnapshot().selectedTabId).toBe('history');
     expect(target.selectTab).not.toHaveBeenCalled();
+  });
+
+  it('keeps handoff tabs out of inline selection and section updates', () => {
+    const target = buildTarget();
+    const controller = new HomeContainerController({
+      initialSnapshot: buildHandoffSnapshot(),
+    });
+    controller.attach(target);
+
+    expect(controller.selectTab('perps')).toBe(false);
+    expect(controller.recordSelectedTab('perps')).toBe(false);
+    expect(controller.updateTabSections('perps', [])).toBe(false);
+    expect(controller.getSnapshot().selectedTabId).toBe('portfolio');
+  });
+
+  it('rejects snapshots that select a handoff tab or give it sections', () => {
+    const target = buildTarget();
+    const handoffSnapshot = buildHandoffSnapshot();
+    const selectedHandoff = {
+      ...handoffSnapshot,
+      selectedTabId: 'perps' as const,
+    };
+    const handoffWithSections = {
+      ...handoffSnapshot,
+      tabs: handoffSnapshot.tabs.map((tab) =>
+        tab.id === 'perps'
+          ? { ...tab, sections: [{ id: 'invalid', items: [] }] }
+          : tab,
+      ),
+    };
+
+    expect(
+      new HomeContainerController({ initialSnapshot: selectedHandoff }).attach(
+        target,
+      ),
+    ).toBe(false);
+    expect(
+      new HomeContainerController({
+        initialSnapshot: handoffWithSections,
+      }).attach(target),
+    ).toBe(false);
+  });
+
+  it('keeps the current owner and snapshot when an owner replacement is invalid', () => {
+    const ownerA = { scopeKey: 'scope-a', sessionId: 'session-a' };
+    const controller = new HomeContainerController({
+      initialOwner: ownerA,
+      initialSnapshot: buildSnapshot(),
+    });
+    const currentSnapshot = controller.getSnapshot();
+    const invalidSnapshot = {
+      ...buildHandoffSnapshot(),
+      selectedTabId: 'perps' as const,
+    };
+
+    controller.replaceOwner(
+      { scopeKey: 'scope-b', sessionId: 'session-b' },
+      invalidSnapshot,
+    );
+
+    expect(controller.getOwner()).toEqual(ownerA);
+    expect(controller.getSnapshot()).toBe(currentSnapshot);
+  });
+
+  it('negotiates protocol v1 when protocolVersions is absent', () => {
+    const target = buildTarget();
+    const controller = new HomeContainerController({
+      initialSnapshot: buildSnapshot(),
+    });
+
+    controller.attach(target);
+
+    expect(controller.getProtocolVersion()).toBe(1);
+    expect(target.setSnapshot).toHaveBeenCalledWith(
+      expect.not.objectContaining({ protocolVersion: 2 }),
+    );
+  });
+
+  it('falls back to protocol v1 when preferred v2 is unavailable', () => {
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue({
+      ...capabilities,
+      protocolVersions: [1],
+      preferredProtocol: 2,
+    });
+    const controller = new HomeContainerController({
+      initialSnapshot: buildSnapshot(),
+    });
+
+    expect(controller.attach(target)).toBe(true);
+    expect(controller.getProtocolVersion()).toBe(1);
+  });
+
+  it('allows only one protocol v2 transaction in flight and coalesces pending changes', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+    const controller = new HomeContainerController({
+      initialOwner: { scopeKey: 'scope-1', sessionId: 'session-1' },
+      initialSnapshot: buildSnapshot(),
+      schedule: (flush) => scheduled.push(flush),
+    });
+
+    controller.attach(target);
+    expect(target.setProtocolV2Snapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'snapshot',
+        protocolVersion: 2,
+        schemaVersion: 2,
+        revision: 5,
+      }),
+    );
+
+    controller.updateHeader({
+      accountName: 'Account 2',
+      balance: '$200',
+      actions: [],
+      banners: [],
+    });
+    controller.updateTabSections('portfolio', [{ id: 'assets', items: [] }]);
+    expect(scheduled).toHaveLength(0);
+    expect(target.applyProtocolV2Patch).not.toHaveBeenCalled();
+
+    expect(
+      controller.handleTransportResult({
+        kind: 'applied',
+        owner: { scopeKey: 'scope-1', sessionId: 'session-1' },
+        revision: 5,
+      }),
+    ).toBe(true);
+    expect(scheduled).toHaveLength(1);
+    scheduled[0]();
+
+    expect(target.applyProtocolV2Patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'patch',
+        baseRevision: 5,
+        revision: 6,
+        changes: expect.arrayContaining([
+          expect.objectContaining({ kind: 'replaceShell' }),
+          expect.objectContaining({
+            kind: 'replaceSection',
+            tabId: 'portfolio',
+            sectionId: 'assets',
+            index: 0,
+          }),
+        ]),
+      }),
+    );
+  });
+
+  it('changes an inline tab to handoff without emitting rejected section changes', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+    const owner = { scopeKey: 'scope-1', sessionId: 'session-1' };
+    const initialSnapshot = buildSnapshot();
+    initialSnapshot.tabs = initialSnapshot.tabs.map((tab) =>
+      tab.id === 'perps'
+        ? { ...tab, sections: [{ id: 'positions', items: [] }] }
+        : tab,
+    );
+    const controller = new HomeContainerController({
+      initialOwner: owner,
+      initialSnapshot,
+      schedule: (flush) => scheduled.push(flush),
+    });
+    controller.attach(target);
+
+    controller.updateTabs(buildHandoffSnapshot().tabs);
+    controller.handleTransportResult({ kind: 'applied', owner, revision: 5 });
+    scheduled.shift()?.();
+
+    const patch = jest.mocked(target.applyProtocolV2Patch!).mock.calls[0]?.[0];
+    expect(patch?.changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'replaceNavigation' }),
+      ]),
+    );
+    expect(
+      patch?.changes.some(
+        (change) =>
+          'tabId' in change &&
+          change.tabId === 'perps' &&
+          (change.kind === 'replaceSection' || change.kind === 'removeSection'),
+      ),
+    ).toBe(false);
+  });
+
+  it('requests a bounded full resync after needSnapshot', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+    const owner = { scopeKey: 'scope-1', sessionId: 'session-1' };
+    const controller = new HomeContainerController({
+      initialOwner: owner,
+      initialSnapshot: buildSnapshot(),
+      schedule: (flush) => scheduled.push(flush),
+    });
+    controller.attach(target);
+    jest.mocked(target.setProtocolV2Snapshot!).mockClear();
+
+    expect(
+      controller.handleTransportResult({
+        kind: 'needSnapshot',
+        owner,
+        currentRevision: 4,
+        reason: 'revisionGap',
+      }),
+    ).toBe(true);
+    expect(scheduled).toHaveLength(1);
+    scheduled[0]();
+
+    expect(target.setProtocolV2Snapshot).toHaveBeenCalledTimes(1);
+    expect(target.applyProtocolV2Patch).not.toHaveBeenCalled();
+  });
+
+  it('publishes only the slots captured by an acknowledged transaction', () => {
+    const scheduled: (() => void)[] = [];
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+    const owner = { scopeKey: 'scope-1', sessionId: 'session-1' };
+    const firstSlots: IHomeContainerSlots = {
+      balance: { content: 'first', height: 58 },
+    };
+    const secondSlots: IHomeContainerSlots = {
+      balance: { content: 'second', height: 58 },
+    };
+    const controller = new HomeContainerController({
+      initialOwner: owner,
+      initialSnapshot: buildSnapshot(),
+      schedule: (flush) => scheduled.push(flush),
+    });
+    controller.updateSlots(firstSlots);
+    controller.attach(target);
+    controller.handleTransportResult({ kind: 'applied', owner, revision: 5 });
+    expect(controller.getRenderedSlotState()).toEqual({
+      owner,
+      revision: 5,
+      slots: firstSlots,
+    });
+
+    controller.updateSlots(secondSlots);
+    expect(controller.getRenderedSlotState()?.slots).toBe(firstSlots);
+    scheduled.shift()?.();
+    expect(controller.getRenderedSlotState()?.slots).toBe(firstSlots);
+
+    controller.handleTransportResult({ kind: 'applied', owner, revision: 6 });
+    expect(controller.getRenderedSlotState()).toEqual({
+      owner,
+      revision: 6,
+      slots: secondSlots,
+    });
+  });
+
+  it('never captures the previous owner slots after an owner switch', () => {
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+    const ownerA = { scopeKey: 'scope-a', sessionId: 'session-a' };
+    const ownerB = { scopeKey: 'scope-b', sessionId: 'session-b' };
+    const controller = new HomeContainerController({
+      initialOwner: ownerA,
+      initialSnapshot: buildSnapshot(),
+    });
+    controller.updateSlots({ balance: { content: 'owner-a' } });
+    controller.attach(target);
+    controller.handleTransportResult({
+      kind: 'applied',
+      owner: ownerA,
+      revision: 5,
+    });
+    expect(controller.getRenderedSlotState()?.owner).toEqual(ownerA);
+
+    controller.replaceOwner(ownerB, buildSnapshot());
+    controller.flushNow();
+    controller.handleTransportResult({
+      kind: 'applied',
+      owner: ownerB,
+      revision: 6,
+    });
+
+    expect(controller.getRenderedSlotState()).toBeUndefined();
+  });
+
+  it('ignores stale acknowledgements from another owner', () => {
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+    const controller = new HomeContainerController({
+      initialOwner: { scopeKey: 'scope-1', sessionId: 'session-1' },
+      initialSnapshot: buildSnapshot(),
+    });
+    controller.attach(target);
+
+    expect(
+      controller.handleTransportResult({
+        kind: 'applied',
+        owner: { scopeKey: 'scope-1', sessionId: 'old-session' },
+        revision: 5,
+      }),
+    ).toBe(false);
+  });
+
+  it('rejects malformed transport results without throwing', () => {
+    const target = buildTarget();
+    target.getCapabilities.mockReturnValue(protocolV2Capabilities);
+    const controller = new HomeContainerController({
+      initialOwner: { scopeKey: 'scope-1', sessionId: 'session-1' },
+      initialSnapshot: buildSnapshot(),
+    });
+    controller.attach(target);
+
+    expect(controller.handleTransportResult('{"kind":"applied"}')).toBe(false);
+    expect(controller.handleTransportResult('not-json')).toBe(false);
   });
 });
 

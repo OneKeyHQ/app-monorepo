@@ -4,6 +4,8 @@ import type {
   IHomeContainerTabId,
 } from '@onekeyhq/native-components';
 
+import type { IHomeNavigationSemanticModel } from './model/semantic/homeSemanticTypes';
+
 export type IHomeWalletCapabilityTabModel =
   | {
       status: 'pending';
@@ -16,6 +18,19 @@ export type IHomeWalletCapabilityTabModel =
       shouldCommitTabs: true;
       isDeFiVisible: boolean;
       isPerpsVisible: boolean;
+    };
+
+export type IHomeWalletCapabilityNavigationModel =
+  | {
+      status: 'pending';
+      shouldCommitTabs: false;
+    }
+  | {
+      status: 'confirmed';
+      shouldCommitTabs: true;
+      perpsDestination: 'inline' | 'web' | 'unavailable';
+      selectedTabId: IHomeContainerTabId;
+      tabIds: readonly IHomeContainerTabId[];
     };
 
 export function buildHomeWalletCapabilityTabModel({
@@ -41,6 +56,26 @@ export function buildHomeWalletCapabilityTabModel({
     shouldCommitTabs: true,
     isDeFiVisible: isDeFiSupported,
     isPerpsVisible: isPerpsSupported,
+  };
+}
+
+export function buildHomeWalletCapabilityNavigationModel(
+  navigation: IHomeNavigationSemanticModel | undefined,
+): IHomeWalletCapabilityNavigationModel {
+  if (
+    navigation?.kind !== 'ready' ||
+    !navigation.destinations ||
+    !navigation.perpsDestination ||
+    !navigation.sections
+  ) {
+    return { status: 'pending', shouldCommitTabs: false };
+  }
+  return {
+    status: 'confirmed',
+    shouldCommitTabs: true,
+    perpsDestination: navigation.perpsDestination,
+    selectedTabId: navigation.selectedTabId,
+    tabIds: navigation.tabs,
   };
 }
 
@@ -88,19 +123,22 @@ export function buildHomeWalletAtomicTabState({
   tabs: IHomeContainerTab[];
   selectedTabId: IHomeContainerTabId;
 } {
-  const fallbackTabId = tabShells[0]?.id ?? 'portfolio';
-  const nextSelectedTabId = shouldCommitTabs
-    ? resolveHomeWalletSelectedTab({
-        selectedTabId,
-        visibleTabIds: tabShells.map((tab) => tab.id),
-        fallbackTabId,
-      })
-    : 'portfolio';
+  const firstInlineTabId = tabShells.find(
+    (tab) => tab.destination === 'inline',
+  )?.id;
+  const selectedTabIsInline = tabShells.some(
+    (tab) => tab.id === selectedTabId && tab.destination === 'inline',
+  );
+  const nextSelectedTabId =
+    shouldCommitTabs && selectedTabId && selectedTabIsInline
+      ? selectedTabId
+      : (firstInlineTabId ?? 'portfolio');
 
   return {
-    selectedTabId: nextSelectedTabId ?? fallbackTabId,
+    selectedTabId: nextSelectedTabId,
     tabs: tabShells.map((tab) => {
-      let sections = sectionsByTab[tab.id] ?? [];
+      let sections =
+        tab.destination === 'inline' ? (sectionsByTab[tab.id] ?? []) : [];
       if (!shouldCommitTabs) {
         sections =
           tab.id === 'portfolio' ? HOME_WALLET_CAPABILITY_PENDING_SECTIONS : [];

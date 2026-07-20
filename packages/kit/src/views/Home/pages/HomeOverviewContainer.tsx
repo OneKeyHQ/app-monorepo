@@ -64,7 +64,11 @@ import {
   resolveHomeWalletScopedWorth,
 } from '../homeWalletCapabilityTabModel';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
+import { resolveHomeOverviewBalanceRenderDecision } from '../model/compatibility/homeLegacyShellAdapter';
+import { resolveHomeBalanceQuotedAmount } from '../model/facts/currentHomeBalanceFactsAdapter';
 import { HomeTestIDs } from '../testIDs';
+
+import type { IHomeCorrelatedBalancePresentation } from '../model/compatibility/homeLegacyShellAdapter';
 
 // Grace period (ms) after an account switch during which the previous
 // balance is shown as a placeholder to avoid a skeleton flash.
@@ -85,7 +89,11 @@ function isHomeOverviewRefreshTab(
   return HOME_OVERVIEW_REFRESH_TABS.includes(type as IHomeOverviewRefreshTab);
 }
 
-function HomeOverviewContainer() {
+function HomeOverviewContainer({
+  balancePresentation,
+}: {
+  balancePresentation?: IHomeCorrelatedBalancePresentation;
+} = {}) {
   const num = 0;
   const { activeAccount } = useActiveAccount({ num });
   const { account, network, wallet, deriveInfoItems, vaultSettings } =
@@ -983,6 +991,24 @@ function HomeOverviewContainer() {
     });
   }, [renderedBalanceString, settings.currencyInfo.id, currencyMap]);
 
+  const semanticBalanceStringDisplay = useMemo(() => {
+    if (balancePresentation?.kind !== 'ready') {
+      return undefined;
+    }
+    return resolveHomeBalanceQuotedAmount({
+      currencyMap,
+      value: balancePresentation.balance.amount,
+      sourceCurrency: balancePresentation.balance.currency,
+      targetCurrency: settings.currencyInfo.id,
+    })?.amount;
+  }, [balancePresentation, currencyMap, settings.currencyInfo.id]);
+  const balanceRenderDecision = resolveHomeOverviewBalanceRenderDecision({
+    balancePresentation,
+    legacyAmount: renderedBalanceStringDisplay ?? undefined,
+    legacyShowSkeleton: showSkeleton,
+    semanticDisplayAmount: semanticBalanceStringDisplay,
+  });
+
   // Track when balance is first displayed
   const balanceReady =
     !showSkeleton &&
@@ -1047,7 +1073,7 @@ function HomeOverviewContainer() {
       testID={HomeTestIDs.walletOverview}
     >
       <YStack w="100%" gap="$2">
-        {showSkeleton ? (
+        {balanceRenderDecision.showSkeleton ? (
           <Skeleton.Heading5Xl />
         ) : (
           <XStack alignItems="center" gap="$3" h={48}>
@@ -1088,7 +1114,7 @@ function HomeOverviewContainer() {
                 fontVariant={PROPORTIONAL_NUMS}
                 {...numberFormatter}
               >
-                {renderedBalanceStringDisplay ?? '0'}
+                {balanceRenderDecision.amount ?? '0'}
               </NumberSizeableTextWrapper>
             </XStack>
             {refreshButton}

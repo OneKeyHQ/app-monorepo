@@ -9,7 +9,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useHomeBalanceState } from '../../../hooks/useHomeBalanceState';
+import { useHomeBalancePresentation } from '../../../hooks/useHomeBalanceState';
 import { useWalletTopBannersAtom } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -49,11 +49,13 @@ function BaseHomeHeaderContainer({
   // confirmed positive. Treating 'unknown' as hidden avoids the show→hide
   // flicker that previously occurred when the page mounted with the banner
   // visible and then collapsed once the first balance fetch came back zero.
-  const homeBalanceState = useHomeBalanceState();
+  const balancePresentation = useHomeBalancePresentation();
+  const homeBalanceState = balancePresentation.balanceState;
   const shouldShowBanner =
     !isWalletNotBackedUp &&
-    hasWalletBannerContent &&
-    homeBalanceState === 'positive';
+    (balancePresentation.correlated
+      ? balancePresentation.correlated.showPositiveBanner
+      : hasWalletBannerContent && homeBalanceState === 'positive');
 
   // Reserve the taller native header (292pt) only when the banner band will
   // actually render; otherwise collapse to the shorter layout so we don't
@@ -109,18 +111,22 @@ function BaseHomeHeaderContainer({
       >
         {isWalletNotBackedUp ? (
           <Stack gap="$2.5">
-            <HomeOverviewContainer />
+            {/* Backup-required is a separate shell; keep its existing balance
+                renderer until that surface is migrated explicitly. */}
+            <HomeOverviewContainer balancePresentation={undefined} />
           </Stack>
         ) : (
           <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
             <Stack gap="$2.5">
-              <HomeOverviewContainer />
+              <HomeOverviewContainer
+                balancePresentation={balancePresentation.correlated}
+              />
             </Stack>
           </HeaderScrollGestureWrapper>
         )}
         {isWalletNotBackedUp ? null : (
           <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
-            <WalletActions />
+            <WalletActions balancePresentation={balancePresentation} />
           </HeaderScrollGestureWrapper>
         )}
       </Stack>
@@ -134,7 +140,7 @@ function BaseHomeHeaderContainer({
 }
 
 // The provider mirror must wrap the component (not live inside its return):
-// `useHomeBalanceState` reads tokenList context atoms, so the hook call in
+// `useHomeBalancePresentation` reads tokenList context atoms, so the hook call in
 // `BaseHomeHeaderContainer`'s body has to sit inside the provider.
 // Note: on the URL-account page (which reuses HomePageView) the token list is
 // written to the separate urlAccountHomeTokenList store, not this mirror's

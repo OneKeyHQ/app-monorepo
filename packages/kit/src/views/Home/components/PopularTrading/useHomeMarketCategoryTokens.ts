@@ -167,6 +167,9 @@ function useHomeMarketCategoryTokens({
     categoryTokens: selectedCategoryTokens ?? EMPTY_DISPLAY_TOKENS,
     isCategoryLoading:
       hasSelectedMarketCategory && selectedCategoryTokens === undefined,
+    requestKey,
+    selectedRequestKey,
+    tokensByRequestKey: tokensCacheRef.current.getSnapshot(),
     refresh,
   };
 }
