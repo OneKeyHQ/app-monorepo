@@ -14,8 +14,11 @@ const SwapProTradeInfoPanel = ({
   supportSpeedSwap,
 }: ISwapProTradeInfoPanelProps) => {
   return (
-    <YStack gap="$2.5" flex={1} justifyContent="space-between">
-      <YStack gap="$3">
+    // The info block flexes so any residual column height sits between it and
+    // the buy/sell group, pinning the group (and the 24H selector) to the
+    // column bottom — flush with the action button in the trading column.
+    <YStack gap="$2.5" flex={1}>
+      <YStack gap="$3" flex={1}>
         <SwapProTokenDetailGroup />
         <SwapProPriceInfo onPricePress={onPricePress} />
         <SwapProTokenTransactionList supportSpeedSwap={supportSpeedSwap} />

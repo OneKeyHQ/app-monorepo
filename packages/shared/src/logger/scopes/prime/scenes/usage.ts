@@ -4,10 +4,13 @@ import type {
   ETranslateDisplayMode,
   ETranslateEngine,
 } from '@onekeyhq/shared/types/discovery';
-import type { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
+import type {
+  EKytRiskLevel,
+  IReceiveKytIntroEntryPoint,
+} from '@onekeyhq/shared/types/kyt';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToServer } from '../../../base/decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 import type {
   IExportHistoryAccountType,
@@ -19,6 +22,20 @@ import type {
 type IReceiveKytFeatureName = EPrimeFeatures.ReceiveRiskMonitoring;
 
 export class PrimeUsageScene extends BaseScene {
+  @LogToLocal({ level: 'error' })
+  public primeReceiveKytIntroFlowFailed(params: {
+    stage:
+      | 'purchaseClaim'
+      | 'eligibility'
+      | 'claimPresented'
+      | 'claimComplete'
+      | 'claimRelease'
+      | 'primeUserRefresh';
+    errorMessage: string;
+  }) {
+    return params;
+  }
+
   /**
    * 使用 OneKey Cloud
    * 触发时机: Prime 用户点击 OneKey Cloud 的开关时触发
@@ -115,7 +132,7 @@ export class PrimeUsageScene extends BaseScene {
   @LogToServer()
   public primeReceiveKytIntroShown(params: {
     featureName: IReceiveKytFeatureName;
-    entryPoint: 'homeAutoIntro';
+    entryPoint: IReceiveKytIntroEntryPoint;
     isPrimeActive: true;
   }) {
     return params;
@@ -127,7 +144,7 @@ export class PrimeUsageScene extends BaseScene {
   @LogToServer()
   public primeReceiveKytIntroAction(params: {
     featureName: IReceiveKytFeatureName;
-    entryPoint: 'homeAutoIntro';
+    entryPoint: IReceiveKytIntroEntryPoint;
     isPrimeActive: true;
     action: 'enable' | 'dismiss' | 'learnMore';
   }) {

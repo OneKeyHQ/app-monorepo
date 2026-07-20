@@ -69,7 +69,10 @@ import {
   EMessageTypesEth,
   ESigningScheme,
 } from '@onekeyhq/shared/types/message';
-import { wrappedTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
+  wrappedTokens,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
@@ -536,9 +539,13 @@ export function useSpeedSwapActions(props: {
     };
   }, [netAccountRes]);
 
-  const fromTokenAmountDebounced = useDebounce(fromTokenAmount, 300, {
-    leading: true,
-  });
+  const fromTokenAmountDebounced = useDebounce(
+    fromTokenAmount,
+    SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
+    {
+      leading: true,
+    },
+  );
 
   const buildReviewStepTexts = useCallback(
     (providerName?: string): ISwapReviewStepTexts => ({
