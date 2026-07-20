@@ -2036,6 +2036,14 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="TradeOutline"
+                        name="useTradingViewNativeInMarketDetail"
+                        title="Use TradingViewNative in Market Detail"
+                        subtitle="关闭时继续使用 TradingViewV2"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                       <SectionPressItem
                         icon="TradeOutline"
                         title="Mock TradingView 空 K 线"

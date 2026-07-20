@@ -123,7 +123,9 @@ export function preloadMarketDetailV2BodyModules({
     return;
   }
 
-  preloadMarketDetailV2TradingView();
+  if (layout === 'mobile') {
+    preloadMarketDetailV2TradingView();
+  }
   preloadMarketDetailV2SwapPanel(layout);
   preloadMarketDetailV2InfoPanel(layout);
 }

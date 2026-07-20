@@ -2069,6 +2069,7 @@
   "limit.fill_at": "Remplit à",
   "limit.fill_at_popover": "La commande nécessite un peu plus que votre prix limite pour être exécutée afin de couvrir les frais.",
   "limit.history_fill_sold": "{num1} {token1} vendu pour un total de {num2} {token2}",
+  "limit.marketable_fill_tip": "Le prix du marché est meilleur que votre limite — cette commande peut être exécutée instantanément au prix du marché",
   "limit.network_cost_dialog_content": "Les frais de réseau pour cette commande sont relativement élevés par rapport au montant total de la commande. Il est peu probable que cette commande soit exécutée ou le prix d'exécution peut différer beaucoup de votre prix limite.",
   "limit.price_trigger": "Distance de déclenchement",
   "limit.price_trigger_des_down": "Ce prix est {num} inférieur au prix du marché actuel. Vous pourriez subir une perte ! Cliquez sur \"Prix du marché\" pour définir votre prix limite au prix du marché actuel.",

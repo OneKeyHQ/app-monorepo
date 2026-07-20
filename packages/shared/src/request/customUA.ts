@@ -53,7 +53,7 @@ export async function buildCustomUA(): Promise<string | null> {
   const runtime = detectRuntime();
   if (!runtime) return null;
   if (await isDisabledByDevSetting()) return null;
-  // CLI's platformEnv.version is undefined at runtime (tsup does not
+  // CLI's platformEnv.version is undefined at runtime (the bundle does not
   // substitute process.env.VERSION), so it naturally falls through to '1'.
   // App targets get the build-time substituted version.
   const version = platformEnv.version ?? '1';
