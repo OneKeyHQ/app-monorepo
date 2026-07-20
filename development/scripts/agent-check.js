@@ -11,6 +11,7 @@ const {
   rootComment,
   threadComments,
 } = require('./agent-github-review');
+const { splitArgumentsByLength } = require('./command-batches');
 
 const SCHEMA_VERSION = 1;
 const VALID_PROFILES = new Set(['commit', 'pr', 'ci']);
@@ -122,6 +123,63 @@ function relativeLogPath(logPath) {
   return path.relative(process.cwd(), logPath);
 }
 
+function resolvePackageBinary(packageName) {
+  const manifestPath = require.resolve(`${packageName}/package.json`, {
+    paths: [process.cwd()],
+  });
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const relativeBinPath =
+    typeof manifest.bin === 'string'
+      ? manifest.bin
+      : manifest.bin &&
+        (manifest.bin[packageName] || Object.values(manifest.bin)[0]);
+
+  if (!relativeBinPath) {
+    throw new Error(`Unable to resolve binary for package: ${packageName}`);
+  }
+
+  return path.resolve(path.dirname(manifestPath), relativeBinPath);
+}
+
+function resolveYarnCli() {
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'),
+  );
+  const match = /^yarn@(.+)$/u.exec(manifest.packageManager || '');
+
+  if (!match) {
+    throw new Error('Unable to resolve the repository Yarn version.');
+  }
+
+  return path.join(process.cwd(), '.yarn', 'releases', `yarn-${match[1]}.cjs`);
+}
+
+function resolveCommand(command, args) {
+  if (process.platform !== 'win32') {
+    return { command, args };
+  }
+
+  if (command === 'npx.cmd') {
+    const [packageName, ...packageArgs] = args;
+    if (!packageName) {
+      throw new Error('npx.cmd requires a package binary name.');
+    }
+    return {
+      command: process.execPath,
+      args: [resolvePackageBinary(packageName), ...packageArgs],
+    };
+  }
+
+  if (command === 'yarn') {
+    return {
+      command: process.execPath,
+      args: [resolveYarnCli(), ...args],
+    };
+  }
+
+  return { command, args };
+}
+
 function writeCommandLog(logDir, name, command, args, result, durationMs) {
   const fileName = `${name.replace(/[^a-zA-Z0-9._-]/g, '_')}.log`;
   const logPath = path.join(logDir, fileName);
@@ -129,6 +187,7 @@ function writeCommandLog(logDir, name, command, args, result, durationMs) {
     `$ ${[command, ...args].join(' ')}`,
     `exitCode: ${String(result.status)}`,
     `signal: ${result.signal || ''}`,
+    `spawnError: ${result.error ? result.error.message : ''}`,
     `duration: ${formatDuration(durationMs)}`,
     '',
     '--- stdout ---',
@@ -157,7 +216,8 @@ function compactCommandResult(result) {
 
 function runCommand(logDir, name, command, args) {
   const startedAt = Date.now();
-  const result = spawnSync(command, args, {
+  const resolved = resolveCommand(command, args);
+  const result = spawnSync(resolved.command, resolved.args, {
     cwd: process.cwd(),
     encoding: 'utf8',
     maxBuffer: 1024 * 1024 * 50,
@@ -191,6 +251,24 @@ function runCommand(logDir, name, command, args) {
     stdout: result.stdout || '',
     stderr: result.stderr || '',
   };
+}
+
+function runCommandInBatches(logDir, name, command, fixedArgs, files) {
+  const resolved = resolveCommand(command, fixedArgs);
+  const batches = splitArgumentsByLength({
+    command: resolved.command,
+    fixedArgs: resolved.args,
+    values: files,
+  });
+
+  return batches.map((batch, index) =>
+    runCommand(
+      logDir,
+      batches.length === 1 ? name : `${name}-${index + 1}-of-${batches.length}`,
+      command,
+      [...fixedArgs, ...batch],
+    ),
+  );
 }
 
 function runJsonCommand(logDir, name, command, args) {
@@ -284,35 +362,43 @@ function runWorktreeLintChecks(logDir) {
 
   if (js.length) {
     results.push(
-      runCommand(logDir, 'lint-worktree-js', npx, [
-        'oxlint',
-        '--fix',
-        '--deny-warnings',
-        ...js,
-      ]),
+      ...runCommandInBatches(
+        logDir,
+        'lint-worktree-js',
+        npx,
+        ['oxlint', '--fix', '--deny-warnings'],
+        js,
+      ),
     );
   }
 
   if (ts.length) {
     results.push(
-      runCommand(logDir, 'lint-worktree-ts', npx, [
-        'oxlint',
-        '--tsconfig',
-        './tsconfig.json',
-        '--type-aware',
-        '--fix',
-        '--deny-warnings',
-        ...ts,
-      ]),
+      ...runCommandInBatches(
+        logDir,
+        'lint-worktree-ts',
+        npx,
+        [
+          'oxlint',
+          '--tsconfig',
+          './tsconfig.json',
+          '--type-aware',
+          '--fix',
+          '--deny-warnings',
+        ],
+        ts,
+      ),
     );
   }
 
   results.push(
-    runCommand(logDir, 'format-worktree', npx, [
-      'oxfmt',
-      '--no-error-on-unmatched-pattern',
-      ...files,
-    ]),
+    ...runCommandInBatches(
+      logDir,
+      'format-worktree',
+      npx,
+      ['oxfmt', '--no-error-on-unmatched-pattern'],
+      files,
+    ),
   );
 
   return results;

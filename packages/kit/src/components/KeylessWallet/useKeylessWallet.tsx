@@ -31,6 +31,7 @@ import {
   type IKeylessCreateWithOneKeyIdPrepareResult,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
@@ -46,6 +47,10 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { showOneKeyIdLegacyOAuthBindDialog } from '../../views/Prime/components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
+import {
+  markOneKeyIdFailureServerLogged,
+  showOneKeyIdLoginFailedToast,
+} from '../../views/Prime/components/oneKeyIdLoginToastUtils';
 import { shouldRunOneKeyIdAuthInExtExpandTab } from '../OneKeyAuth/extOneKeyIdAuthExpandTab';
 import { getDisplayEmailOrUnknown } from '../OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
@@ -103,6 +108,10 @@ async function keylessOnboardingCacheSet(key: string, value: string) {
 
 async function cacheKeylessOnboardingToken({ token }: { token: string }) {
   await keylessOnboardingCacheSet('socialLoginToken', token);
+}
+
+function clearKeylessOnboardingToken() {
+  keylessOnboardingCache.delete('socialLoginToken');
 }
 
 async function getKeylessOnboardingToken() {
@@ -277,6 +286,20 @@ export function useKeylessWallet() {
   enableKeylessWalletLoadingRef.current = enableKeylessWalletLoading;
 
   const handleKeylessOnboardingTimeout = useCallback(() => {
+    // Dialog also invokes user onClose after a confirm-close, so onConfirm
+    // and onClose would both fire for a single "Got it" tap and pop the
+    // stack twice (~300ms apart), dismissing an unrelated screen below.
+    // Guard with a closure flag so cleanup + popStack run at most once
+    // across the three callbacks.
+    let handled = false;
+    const handleDialogDismiss = () => {
+      if (handled) {
+        return;
+      }
+      handled = true;
+      keylessOnboardingCache.clear();
+      navigation.popStack();
+    };
     Dialog.show({
       title: intl.formatMessage({
         id: ETranslations.create_keyless_wallet_session_expired,
@@ -288,18 +311,9 @@ export function useKeylessWallet() {
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_got_it,
       }),
-      onCancel: () => {
-        keylessOnboardingCache.clear();
-        navigation.popStack();
-      },
-      onClose: () => {
-        keylessOnboardingCache.clear();
-        navigation.popStack();
-      },
-      onConfirm: () => {
-        keylessOnboardingCache.clear();
-        navigation.popStack();
-      },
+      onCancel: handleDialogDismiss,
+      onClose: handleDialogDismiss,
+      onConfirm: handleDialogDismiss,
     });
     throw new OneKeyLocalError('Keyless Wallet onboarding timed out');
   }, [intl, navigation]);
@@ -321,13 +335,18 @@ export function useKeylessWallet() {
         handleKeylessOnboardingTimeout();
         return;
       }
-      await cacheKeylessOnboardingToken({ token });
-      await cacheKeylessOnboardingPinConfirmStatusUpdated({ updated: false });
-
       // ResetPin or VerifyPinOnly: validate token matches local keyless wallet
       const isKeylessIdentityVerifyMode =
         mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin ||
         mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly;
+      // In identity-verify modes the token is cached only AFTER it passes
+      // validateTokenMatchesKeylessWallet below; caching a wrong-account
+      // OAuth token here would keep it alive for the whole cache TTL and
+      // break a correct-account retry.
+      if (!isKeylessIdentityVerifyMode) {
+        await cacheKeylessOnboardingToken({ token });
+        await cacheKeylessOnboardingPinConfirmStatusUpdated({ updated: false });
+      }
       const checkLoginMatchedKeylessWallet = async () => {
         if (isKeylessIdentityVerifyMode) {
           const { isValid } =
@@ -335,6 +354,15 @@ export function useKeylessWallet() {
               { token },
             );
           if (!isValid) {
+            // Drop any previously cached onboarding token (e.g. from an
+            // earlier flow still within the cache TTL): the account that
+            // just OAuth'd does not match the local keyless wallet, and a
+            // stale token must not survive as "the onboarding token" when
+            // the user retries with the correct account. Other cache
+            // entries (pin, same-email status) are unrelated to this token
+            // and left intact.
+            clearKeylessOnboardingToken();
+
             // When refreshToken is provided, the mismatched session came from
             // a fresh OAuth sign-in that was never persisted, so the
             // currently persisted keyless session (which may back the active
@@ -379,6 +407,11 @@ export function useKeylessWallet() {
       };
       await checkLoginMatchedKeylessWallet();
       if (isKeylessIdentityVerifyMode) {
+        // The token matches the local keyless wallet, so it is now safe to
+        // cache as the onboarding token for downstream consumers
+        // (VerifyPin page, finalize/reset-pin flow).
+        await cacheKeylessOnboardingToken({ token });
+        await cacheKeylessOnboardingPinConfirmStatusUpdated({ updated: false });
         if (refreshToken) {
           // The fresh session matches the local keyless wallet, but it may
           // still belong to a DIFFERENT account than the one backing the
@@ -432,6 +465,19 @@ export function useKeylessWallet() {
             'Failed to auto login OneKey ID after Keyless identity verification:',
             error,
           );
+          // Best-effort login: keyless identity verification already
+          // succeeded, so the wallet flow must continue even when this
+          // fails. Log the reason at the source (the deduped fallback toast
+          // below is skipped for user-cancel / already-auto-toasted errors)
+          // and mark the error so the toast does not emit a second server
+          // event for the same failure.
+          defaultLogger.prime.subscription.onekeyIdLoginFailedToast({
+            reason: `Auto OneKey ID login after keyless identity verification failed: ${
+              (error as Error | undefined)?.message || 'unknown'
+            }`,
+          });
+          markOneKeyIdFailureServerLogged(error);
+          showOneKeyIdLoginFailedToast({ error, intl });
         }
       }
       await cacheKeylessOnboardingSameEmailAccountStatus({
@@ -607,7 +653,17 @@ export function useKeylessWallet() {
         // directly and don't depend on the Prime login, and keeping the
         // session lets the next attempt reuse it instead of forcing a fresh
         // Google/Apple OAuth round-trip.
-        if (!isTransientNetworkLikeError(error)) {
+        if (
+          !isTransientNetworkLikeError(error) &&
+          // Slot-replaced is definitive for THIS flow, but the shared
+          // keyless slot now holds ANOTHER account's valid session —
+          // tearing it down would fail the winning login too.
+          !errorUtils.isErrorByClassName({
+            error,
+            className:
+              EOneKeyErrorClassNames.OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
+          })
+        ) {
           await logout();
           await backgroundApiProxy.simpleDb.prime.clearLocalAuthSession();
         }
