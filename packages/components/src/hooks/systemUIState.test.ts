@@ -1,4 +1,4 @@
-import { SystemUIAppearanceRegistry } from './systemUIState';
+import { SystemUIAppearanceState } from './systemUIState';
 
 const lightAppearance = {
   themeVariant: 'light' as const,
@@ -9,48 +9,46 @@ const darkAppearance = {
   backgroundColor: '#0f0f0f',
 };
 
-describe('SystemUIAppearanceRegistry', () => {
-  it('uses the app appearance when no route owns the window', () => {
-    const registry = new SystemUIAppearanceRegistry();
-
-    registry.setBaseAppearance(lightAppearance);
-
-    expect(registry.getEffectiveAppearance()).toBe(lightAppearance);
-  });
-
-  it('keeps the latest route override above app theme changes', () => {
-    const registry = new SystemUIAppearanceRegistry();
-    const owner = Symbol('onboarding');
-    registry.setBaseAppearance(lightAppearance);
-    registry.setOverride(owner, darkAppearance);
-
-    registry.setBaseAppearance({
-      ...lightAppearance,
-      backgroundColor: '#f5f5f5',
-    });
-
-    expect(registry.getEffectiveAppearance()).toBe(darkAppearance);
-  });
-
-  it('restores the previous owner and then the latest app appearance', () => {
-    const registry = new SystemUIAppearanceRegistry();
-    const firstOwner = Symbol('first-modal');
-    const secondOwner = Symbol('second-modal');
+describe('SystemUIAppearanceState', () => {
+  it('resolves the app theme and multiple fixed-dark owners', () => {
+    const state = new SystemUIAppearanceState();
+    state.setBaseAppearance(lightAppearance);
+    expect(state.getEffectiveAppearance(darkAppearance)).toBe(lightAppearance);
+    const firstOwner = Symbol('onboarding');
+    const secondOwner = Symbol('prime');
     const updatedLightAppearance = {
       ...lightAppearance,
       backgroundColor: '#f5f5f5',
     };
-    registry.setBaseAppearance(lightAppearance);
-    registry.setOverride(firstOwner, darkAppearance);
-    registry.setOverride(secondOwner, lightAppearance);
-    registry.setBaseAppearance(updatedLightAppearance);
+    state.addDarkOverride(firstOwner);
+    state.addDarkOverride(secondOwner);
+    state.setBaseAppearance(updatedLightAppearance);
+    expect(state.getEffectiveAppearance(darkAppearance)).toBe(darkAppearance);
+    state.deleteDarkOverride(firstOwner);
+    expect(state.getEffectiveAppearance(darkAppearance)).toBe(darkAppearance);
+    state.deleteDarkOverride(secondOwner);
+    expect(state.getEffectiveAppearance(darkAppearance)).toBe(
+      updatedLightAppearance,
+    );
+  });
 
-    expect(registry.getEffectiveAppearance()).toBe(lightAppearance);
+  it('does not restore the app theme between fixed-dark routes', async () => {
+    const state = new SystemUIAppearanceState();
+    const firstOwner = Symbol('dashboard');
+    const secondOwner = Symbol('features');
+    const onRestore = jest.fn();
+    state.addDarkOverride(firstOwner);
 
-    registry.deleteOverride(secondOwner);
-    expect(registry.getEffectiveAppearance()).toBe(darkAppearance);
+    state.deleteDarkOverride(firstOwner);
+    state.scheduleBaseRestore(onRestore);
+    state.addDarkOverride(secondOwner);
+    await Promise.resolve();
 
-    registry.deleteOverride(firstOwner);
-    expect(registry.getEffectiveAppearance()).toBe(updatedLightAppearance);
+    expect(onRestore).not.toHaveBeenCalled();
+
+    state.deleteDarkOverride(secondOwner);
+    state.scheduleBaseRestore(onRestore);
+    await Promise.resolve();
+    expect(onRestore).toHaveBeenCalledTimes(1);
   });
 });

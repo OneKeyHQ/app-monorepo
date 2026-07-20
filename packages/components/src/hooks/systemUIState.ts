@@ -6,47 +6,44 @@ export type ISystemUIAppearance = {
   themeSetting?: 'light' | 'dark' | 'system';
 };
 
-type IOverrideEntry = {
-  appearance: ISystemUIAppearance;
-  sequence: number;
-};
-
 /**
- * Resolves the single Activity/Window appearance from an app-level base and
- * focused route overrides. This state intentionally lives outside React: the
- * Android system bars and decor background are Window-owned singleton state,
- * while several React Navigation trees can remain mounted at the same time.
+ * The app theme owns the Window by default. A fixed-dark route owns it while
+ * focused; multiple owners are reference-counted because they all request the
+ * same appearance.
  */
-export class SystemUIAppearanceRegistry {
+export class SystemUIAppearanceState {
   private baseAppearance: ISystemUIAppearance | undefined;
 
-  private readonly overrides = new Map<symbol, IOverrideEntry>();
+  private readonly darkOverrideOwners = new Set<symbol>();
 
-  private sequence = 0;
+  private revision = 0;
 
   setBaseAppearance(appearance: ISystemUIAppearance) {
     this.baseAppearance = appearance;
   }
 
-  setOverride(owner: symbol, appearance: ISystemUIAppearance) {
-    this.sequence += 1;
-    this.overrides.set(owner, {
-      appearance,
-      sequence: this.sequence,
-    });
+  addDarkOverride(owner: symbol) {
+    this.darkOverrideOwners.add(owner);
+    this.revision += 1;
   }
 
-  deleteOverride(owner: symbol) {
-    this.overrides.delete(owner);
+  deleteDarkOverride(owner: symbol) {
+    this.darkOverrideOwners.delete(owner);
   }
 
-  getEffectiveAppearance(): ISystemUIAppearance | undefined {
-    let latestOverride: IOverrideEntry | undefined;
-    this.overrides.forEach((entry) => {
-      if (!latestOverride || entry.sequence > latestOverride.sequence) {
-        latestOverride = entry;
+  scheduleBaseRestore(onRestore: () => void) {
+    this.revision += 1;
+    const revision = this.revision;
+    void Promise.resolve().then(() => {
+      if (revision === this.revision && this.darkOverrideOwners.size === 0) {
+        onRestore();
       }
     });
-    return latestOverride?.appearance ?? this.baseAppearance;
+  }
+
+  getEffectiveAppearance(darkAppearance: ISystemUIAppearance) {
+    return this.darkOverrideOwners.size > 0
+      ? darkAppearance
+      : this.baseAppearance;
   }
 }

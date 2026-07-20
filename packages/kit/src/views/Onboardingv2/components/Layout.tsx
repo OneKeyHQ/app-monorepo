@@ -49,7 +49,10 @@ export const LayoutHeader = memo(
   ({ children, style, ...rest }: IXStackProps) => {
     const { top } = useSafeAreaInsets();
     return (
-      <YStack pt={platformEnv.isNative ? top : top || '$12'} style={DRAG_STYLE}>
+      <YStack
+        pt={platformEnv.isNativeAndroid ? top : top || '$12'}
+        style={DRAG_STYLE}
+      >
         <XStack
           h={52}
           px="$5"

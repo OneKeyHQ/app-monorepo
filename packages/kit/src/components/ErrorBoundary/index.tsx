@@ -1,8 +1,14 @@
 /* eslint-disable react/destructuring-assignment, react/state-in-constructor, max-classes-per-file */
 import { PureComponent } from 'react';
 
-import { Text } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import {
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import {
   LogLevel,
@@ -15,11 +21,37 @@ type IErrorBoundaryProps = {
 };
 type IErrorBoundaryState = { error: Error | null };
 
+const errorSafeAreaStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  androidContent: {
+    paddingTop: StatusBar.currentHeight ?? 24,
+    // Keep the crash fallback independent from native safe-area components.
+    // 48dp covers Android's largest standard three-button navigation inset,
+    // including a side-mounted bar after rotation.
+    paddingHorizontal: 48,
+    paddingBottom: 48,
+  },
+});
+
 function ErrorSafeArea({ children }: { children: React.ReactNode }) {
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={{ flex: 1 }}>{children}</SafeAreaView>
-    </SafeAreaProvider>
+    <SafeAreaView style={errorSafeAreaStyles.container}>
+      <View
+        style={[
+          errorSafeAreaStyles.content,
+          Platform.OS === 'android' && errorSafeAreaStyles.androidContent,
+        ]}
+      >
+        {children}
+      </View>
+    </SafeAreaView>
   );
 }
 

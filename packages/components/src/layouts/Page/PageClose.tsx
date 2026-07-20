@@ -53,7 +53,7 @@ function PageCloseButtonBase({ children }: PropsWithChildren) {
     <Stack
       position="absolute"
       left="$5"
-      top={platformEnv.isNative ? top : top || '$5'}
+      top={platformEnv.isNativeAndroid ? top : top || '$5'}
       zIndex="$5"
     >
       <PageClose>{children}</PageClose>

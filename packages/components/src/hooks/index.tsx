@@ -16,7 +16,6 @@ export * from './usePreventRemove';
 export * from './useShare';
 export * from './useShortcuts';
 export * from './useStyle';
-export * from './useSystemUI';
 export * from './useUpdateEffect';
 export * from './useVisibilityChange';
 export * from './useSplitView';

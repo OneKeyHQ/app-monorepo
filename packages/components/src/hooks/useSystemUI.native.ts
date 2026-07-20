@@ -1,41 +1,33 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
+import { useFocusEffect } from '@react-navigation/native';
 import { setButtonStyleAsync } from 'expo-navigation-bar';
 import { StatusBar } from 'react-native';
 
 import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { getTokenValue } from '../shared/tamagui';
+
 import {
   type ISystemUIAppearance,
-  SystemUIAppearanceRegistry,
+  SystemUIAppearanceState,
 } from './systemUIState';
 
-export type ISystemUIAppearanceOverride = ISystemUIAppearance & {
-  enabled?: boolean;
-};
-
-const registry = new SystemUIAppearanceRegistry();
-
-let appliedAppearance: ISystemUIAppearance | undefined;
-
-const isSameAppearance = (
-  first: ISystemUIAppearance | undefined,
-  second: ISystemUIAppearance,
-) =>
-  first?.themeVariant === second.themeVariant &&
-  first?.backgroundColor === second.backgroundColor &&
-  first?.themeSetting === second.themeSetting;
+const systemUIState = new SystemUIAppearanceState();
+let navigationBarAppearanceUpdate = Promise.resolve();
 
 const applyEffectiveAppearance = () => {
   if (!platformEnv.isNativeMainThread) {
     return;
   }
-  const appearance = registry.getEffectiveAppearance();
-  if (!appearance || isSameAppearance(appliedAppearance, appearance)) {
+  const appearance = systemUIState.getEffectiveAppearance({
+    themeVariant: 'dark',
+    backgroundColor: getTokenValue('$bgAppDark', 'color'),
+  });
+  if (!appearance) {
     return;
   }
-  appliedAppearance = appearance;
 
   const useLightContent = appearance.themeVariant === 'dark';
   StatusBar.setBarStyle(
@@ -46,9 +38,9 @@ const applyEffectiveAppearance = () => {
   if (platformEnv.isNativeAndroid) {
     // In edge-to-edge mode the app draws the background below transparent
     // system bars. Only foreground icon appearance remains Window-owned.
-    void setButtonStyleAsync(useLightContent ? 'light' : 'dark').catch(
-      () => undefined,
-    );
+    navigationBarAppearanceUpdate = navigationBarAppearanceUpdate
+      .then(() => setButtonStyleAsync(useLightContent ? 'light' : 'dark'))
+      .catch(() => undefined);
   }
 
   updateRootViewBackgroundColor(
@@ -61,42 +53,31 @@ const applyEffectiveAppearance = () => {
 export const setSystemUIBaseAppearance: (
   appearance: ISystemUIAppearance,
 ) => void = (appearance) => {
-  registry.setBaseAppearance(appearance);
+  systemUIState.setBaseAppearance(appearance);
   applyEffectiveAppearance();
 };
 
 /**
- * Temporarily owns the native Activity/Window appearance while a route is in
- * the foreground. Removing the owner restores the next visible route, or the
- * resolved app theme when no override remains.
+ * Fixed-dark Android routes own the Activity/Window while focused. Navigation
+ * events still fire when react-freeze suspends a blurred screen.
  */
-export const useSystemUIAppearanceOverride: (
-  override: ISystemUIAppearanceOverride,
-) => void = ({
-  enabled = true,
-  themeVariant,
-  backgroundColor,
-  themeSetting,
-}) => {
+export const useAndroidDarkSystemUIOverride = () => {
   const ownerRef = useRef(Symbol('system-ui-owner'));
 
-  useLayoutEffect(() => {
-    if (!enabled || !platformEnv.isNativeMainThread) {
-      return undefined;
-    }
-    const owner = ownerRef.current;
-    registry.setOverride(owner, {
-      themeVariant,
-      backgroundColor,
-      themeSetting,
-    });
-    applyEffectiveAppearance();
-
-    return () => {
-      registry.deleteOverride(owner);
+  useFocusEffect(
+    useCallback(() => {
+      if (!platformEnv.isNativeAndroid || !platformEnv.isNativeMainThread) {
+        return undefined;
+      }
+      const owner = ownerRef.current;
+      systemUIState.addDarkOverride(owner);
       applyEffectiveAppearance();
-    };
-  }, [backgroundColor, enabled, themeSetting, themeVariant]);
+      return () => {
+        systemUIState.deleteDarkOverride(owner);
+        systemUIState.scheduleBaseRestore(applyEffectiveAppearance);
+      };
+    }, []),
+  );
 };
 
 export type {

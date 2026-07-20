@@ -1,4 +1,5 @@
 import { Page, Theme, XStack } from '@onekeyhq/components';
+import { useAndroidDarkSystemUIOverride } from '@onekeyhq/components/src/hooks/useSystemUI';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -18,6 +19,7 @@ const primeFeatureBackButtonPressStyle = { bg: '$blackA5' } as const;
 export default function PagePrimeFeatures() {
   const navigation = useAppNavigation();
   const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeFeatures>();
+  useAndroidDarkSystemUIOverride();
 
   return (
     <>

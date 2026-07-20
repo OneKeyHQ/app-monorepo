@@ -18,6 +18,7 @@ import {
   useSafeAreaInsets,
   useTheme,
 } from '@onekeyhq/components';
+import { useAndroidDarkSystemUIOverride } from '@onekeyhq/components/src/hooks/useSystemUI';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -93,6 +94,7 @@ export default function PrimeDashboard({
   route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
 }) {
   const intl = useIntl();
+  useAndroidDarkSystemUIOverride();
   const { fromFeature } = route.params || {};
   // const isReady = false;
   const {
@@ -374,7 +376,7 @@ export default function PrimeDashboard({
         <Stack
           position="absolute"
           left="$5"
-          top={platformEnv.isNative ? top : top || '$5'}
+          top={platformEnv.isNativeAndroid ? top : top || '$5'}
           zIndex="$5"
         >
           <NavCloseButton onPress={() => navigation.popStack()} />
