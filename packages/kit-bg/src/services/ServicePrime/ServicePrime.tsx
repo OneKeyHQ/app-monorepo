@@ -6,6 +6,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID } from '@onekeyhq/shared/src/consts/primeConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
@@ -29,6 +30,11 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  getOneKeyIdOAuthProviderFromSocialLoginProvider,
+  isOneKeyIdOAuthIdentityBound,
+  isOneKeyIdOAuthProviderBound,
+} from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -1013,6 +1019,42 @@ class ServicePrime extends ServiceBase {
       throw new OneKeyLocalError('apiFetchOneKeyIdProfile ERROR: Empty data');
     }
     return data;
+  }
+
+  @backgroundMethod()
+  async isOAuthProviderBoundToCurrentOneKeyId({
+    provider,
+  }: {
+    provider: EOAuthSocialLoginProvider;
+  }): Promise<boolean> {
+    const profile = await this.apiFetchOneKeyIdProfile();
+    return isOneKeyIdOAuthProviderBound({
+      account: profile.onekeyAccount,
+      provider: getOneKeyIdOAuthProviderFromSocialLoginProvider(provider),
+    });
+  }
+
+  @backgroundMethod()
+  async isOAuthIdentityBoundToCurrentOneKeyId({
+    oauthAccessToken,
+    provider,
+  }: {
+    oauthAccessToken: string;
+    provider: EOAuthSocialLoginProvider;
+  }): Promise<boolean> {
+    const decodedToken = stringUtils.decodeJWT(
+      oauthAccessToken,
+    ) as ISupabaseJWTPayload | null;
+    const oauthSubject = decodedToken?.user_metadata?.sub || '';
+    if (!oauthSubject) {
+      return false;
+    }
+    const profile = await this.apiFetchOneKeyIdProfile();
+    return isOneKeyIdOAuthIdentityBound({
+      account: profile.onekeyAccount,
+      provider: getOneKeyIdOAuthProviderFromSocialLoginProvider(provider),
+      subject: oauthSubject,
+    });
   }
 
   @backgroundMethod()
