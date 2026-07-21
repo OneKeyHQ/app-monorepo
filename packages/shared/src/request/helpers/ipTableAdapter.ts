@@ -354,11 +354,12 @@ function deactivateFailover(lookupDomain: string, cause: string): void {
       action: 'deactivated',
     });
   }
-  // Reset counters but PRESERVE each hostname's lastOutcomeSequence watermark:
-  // clearing entries would let failures from requests started before the
-  // recovery re-apply on fresh entries and reopen a circuit that the link
-  // already proved healthy.
+  // Reset unresolved failures but preserve each hostname's latest success
+  // sequence: clearing entries would let failures from requests started
+  // before recovery re-apply on fresh entries and reopen a circuit that the
+  // link already proved healthy.
   state.hostFailures.forEach((entry) => {
+    entry.failureSequences.clear();
     entry.consecutiveFailures = 0;
   });
   state.failOpenUntil = 0;
@@ -387,13 +388,31 @@ async function recordDomainRequestOutcome(options: {
   const state = getFailoverState(lookupDomain);
 
   // Both success and failure go through the same request-sequence-ordered
-  // ledger: a success records its order even on a fresh entry (so an older
-  // failure arriving later is recognized as stale), and a failure whose
-  // request predates the newest applied outcome never counts.
+  // ledger. A success removes all failures no later than itself while keeping
+  // later-request failures, so completion order cannot change the count.
   const ledger = getHostOutcomeLedger(state, hostname);
 
   if (ok) {
     const applied = applyOutcome(ledger, { ok: true, requestSequence });
+    // A success may arrive after later failures and reveal that the failures
+    // which opened the circuit were not actually consecutive in request
+    // order. Retract that provisional activation once every activating host
+    // falls below the threshold; this is ordering reconciliation, not a claim
+    // that an older request proves present-time recovery.
+    const activationWasInvalidated =
+      applied === 'applied' &&
+      state.failOpenUntil > Date.now() &&
+      state.activatedHostnames.has(hostname) &&
+      ledger.consecutiveFailures < IP_TABLE_DOMAIN_FAILOVER_THRESHOLD &&
+      [...state.activatedHostnames].every(
+        (activatedHostname) =>
+          (state.hostFailures.get(activatedHostname)?.consecutiveFailures ??
+            0) < IP_TABLE_DOMAIN_FAILOVER_THRESHOLD,
+      );
+    if (activationWasInvalidated) {
+      deactivateFailover(lookupDomain, 'failure_sequence_reconciled');
+      return;
+    }
     // A success only proves the path that was exercised: it may close the
     // circuit only when it comes from a hostname that opened it AND started
     // after activation (a long-in-flight request resolving late says

@@ -68,12 +68,10 @@ interface IEndpointHealth {
   consecutiveFailures: number;
   /** Timestamp of last failure */
   lastFailureTime: number;
-  /**
-   * Runtime-local request sequence of the newest outcome applied to this
-   * endpoint. Success/failure reports race through async callbacks; an older
-   * request sequence is stale and ignored even when Date.now() tied.
-   */
-  lastOutcomeSequence: number;
+  /** Runtime-local request sequence of the latest successful request */
+  latestSuccessSequence: number;
+  /** Failure request sequences newer than latestSuccessSequence */
+  failureSequences: Set<number>;
 }
 
 /**
@@ -179,7 +177,8 @@ class ServiceIpTable extends ServiceBase {
         failureCount: 0,
         consecutiveFailures: 0,
         lastFailureTime: 0,
-        lastOutcomeSequence: 0,
+        latestSuccessSequence: 0,
+        failureSequences: new Set(),
       };
       bucket.set(target, endpointHealth);
     }
@@ -874,44 +873,6 @@ class ServiceIpTable extends ServiceBase {
         .filter(([, latency]) => latency !== Infinity)
         .toSorted((a, b) => a[1] - b[1])[0]?.[0];
 
-      // The signed config may have been replaced while the probes were
-      // running. Re-read it immediately before persisting any result: an IP
-      // removed by the new envelope must never be resurrected as lastBestIp
-      // or selection by an old round. Queue exactly one fresh round against
-      // the current config instead.
-      const latestConfigWithRuntime = await this.getConfig();
-      const latestDomainConfig = latestConfigWithRuntime.config.domains[domain];
-      const latestConfigHash = computeIpTableConfigHash(
-        latestConfigWithRuntime.config,
-      );
-      const latestEndpointIps = new Set(
-        latestDomainConfig?.endpoints.map((endpoint) => endpoint.ip) ?? [],
-      );
-      const measuredEndpointRemoved = [...ipResults.keys()].some(
-        (ip) => !latestEndpointIps.has(ip),
-      );
-      const selectedCandidateRemoved =
-        decision.action === 'select_ip' && !latestEndpointIps.has(decision.ip);
-      if (
-        latestConfigWithRuntime.config.version !== startConfigVersion ||
-        latestConfigHash !== startConfigHash ||
-        measuredEndpointRemoved ||
-        selectedCandidateRemoved
-      ) {
-        this.pendingConfigChangeRerun.set(domain, opts?.trigger ?? 'periodic');
-        defaultLogger.ipTable.request.warn({
-          info: `[IpTable] Discarding stale speed test result for ${domain}: signed config changed while probing (v${startConfigVersion}/${startConfigHash} -> v${latestConfigWithRuntime.config.version}/${latestConfigHash}); queueing fresh round`,
-        });
-        return;
-      }
-
-      if (bestMeasuredIp) {
-        await this.backgroundApi.simpleDb.ipTable.updateLastBestIp(
-          domain,
-          bestMeasuredIp,
-        );
-      }
-
       defaultLogger.ipTable.request.info({
         info: `[IpTable] Endpoint decision for ${domain}: ${decision.action} (${
           decision.reason
@@ -935,8 +896,30 @@ class ServiceIpTable extends ServiceBase {
         return;
       }
 
+      let selection: string | undefined;
       if (decision.action === 'select_ip') {
-        await this.applySelection(domain, decision.ip);
+        selection = decision.ip;
+      } else if (decision.action === 'select_domain') {
+        selection = '';
+      }
+      const commitResult =
+        await this.backgroundApi.simpleDb.ipTable.commitSpeedTestResult({
+          domain,
+          expectedConfigHash: startConfigHash,
+          measuredEndpointIps: [...ipResults.keys()],
+          lastBestIp: bestMeasuredIp,
+          selection,
+        });
+      if (commitResult === 'stale_config') {
+        this.pendingConfigChangeRerun.set(domain, opts?.trigger ?? 'periodic');
+        defaultLogger.ipTable.request.warn({
+          info: `[IpTable] Discarding stale speed test result for ${domain}: signed config changed after probing (expected v${startConfigVersion}/${startConfigHash}); queueing fresh round`,
+        });
+        return;
+      }
+
+      if (decision.action === 'select_ip') {
+        this.bumpSelectionGeneration(domain);
         if ((currentSelection ?? '') === '') {
           defaultLogger.ipTable.metrics.endpointSwitched({
             domain,
@@ -947,7 +930,7 @@ class ServiceIpTable extends ServiceBase {
           });
         }
       } else if (decision.action === 'select_domain') {
-        await this.applySelection(domain, '');
+        this.bumpSelectionGeneration(domain);
         if (currentSelection) {
           defaultLogger.ipTable.metrics.endpointSwitched({
             domain,
@@ -1041,7 +1024,7 @@ class ServiceIpTable extends ServiceBase {
       }) === 'stale'
     ) {
       defaultLogger.ipTable.request.info({
-        info: `[IpTable] Ignoring stale ${requestType} failure for ${domain} (${target}): request predates the newest applied outcome`,
+        info: `[IpTable] Ignoring stale ${requestType} failure for ${domain} (${target}): request predates the latest success`,
       });
       return;
     }
@@ -1114,9 +1097,11 @@ class ServiceIpTable extends ServiceBase {
     // Reset all consecutive failure counters for this domain (they'll be recounted after speed test)
     stats.directHosts.forEach((health) => {
       health.consecutiveFailures = 0;
+      health.failureSequences.clear();
     });
     stats.ipEndpoints.forEach((health) => {
       health.consecutiveFailures = 0;
+      health.failureSequences.clear();
     });
 
     // Trigger speed test to find and switch to better endpoint

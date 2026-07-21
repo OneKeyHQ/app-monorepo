@@ -17,7 +17,8 @@ describe('ipTableOutcomeLedger', () => {
       'stale',
     );
     expect(entry.consecutiveFailures).toBe(0);
-    expect(entry.lastOutcomeSequence).toBe(5);
+    expect(entry.latestSuccessSequence).toBe(5);
+    expect(entry.failureSequences).toEqual(new Set());
   });
 
   it('old failure processed first is overridden by a newer success', () => {
@@ -44,14 +45,29 @@ describe('ipTableOutcomeLedger', () => {
     expect(a).toEqual(b);
   });
 
-  it('consecutive failures accumulate only for non-stale outcomes', () => {
+  it('keeps only failures after a late-arriving success in request order', () => {
+    // Request order is failure 1, success 2, failure 3, but completion order
+    // is failure 1, failure 3, success 2. The success must still cut off the
+    // first failure while preserving the third.
+    const entry = createOutcomeLedgerEntry();
+    applyOutcome(entry, { ok: false, requestSequence: 1 });
+    applyOutcome(entry, { ok: false, requestSequence: 3 });
+    expect(applyOutcome(entry, { ok: true, requestSequence: 2 })).toBe(
+      'applied',
+    );
+    expect(entry.consecutiveFailures).toBe(1);
+  });
+
+  it('accumulates unresolved failures regardless of completion order', () => {
     const entry = createOutcomeLedgerEntry();
     applyOutcome(entry, { ok: false, requestSequence: 10 });
     applyOutcome(entry, { ok: false, requestSequence: 11 });
-    // stale failure from before the first one
+    // This request completed last but is still an unresolved failure: without
+    // a later success in request order, it must remain in the set.
     applyOutcome(entry, { ok: false, requestSequence: 5 });
-    expect(entry.consecutiveFailures).toBe(2);
-    expect(entry.lastOutcomeSequence).toBe(11);
+    expect(entry.consecutiveFailures).toBe(3);
+    expect(entry.latestSuccessSequence).toBe(0);
+    expect(entry.failureSequences).toEqual(new Set([10, 11, 5]));
   });
 
   it('orders requests that start in the same wall-clock millisecond', () => {

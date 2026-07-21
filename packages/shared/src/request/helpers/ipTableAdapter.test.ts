@@ -694,6 +694,79 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
     expect(mockedSniRequest).not.toHaveBeenCalled();
   });
 
+  test('a late middle success retracts a fail-open based on non-consecutive failures', async () => {
+    // Request order: fail 1, success 2, fail 3, fail 4. Completion order:
+    // fail 1, fail 3, fail 4, success 2. The first three completions can open
+    // the circuit provisionally, but success 2 later cuts off failure 1 and
+    // leaves only failures 3 and 4, below the threshold.
+    let releaseLateSuccess: (() => void) | undefined;
+    const lateSuccessGate = new Promise<void>((resolve) => {
+      releaseLateSuccess = resolve;
+    });
+    fallbackAdapter.mockImplementation(async (config) => {
+      if (config.url?.includes('late-success')) {
+        await lateSuccessGate;
+        return {
+          data: { lateSuccess: true },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          request: {},
+        };
+      }
+      if (config.url?.includes('direct-ok')) {
+        return {
+          data: { direct: true },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          request: {},
+        };
+      }
+      throw networkError();
+    });
+
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/fail-1'),
+      ),
+    ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    const lateSuccess = createIpTableAdapter({})(
+      buildConfig('https://wallet.onekeycn.com/wallet/v1/late-success'),
+    );
+    await Promise.resolve();
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/fail-3'),
+      ),
+    ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/fail-4'),
+      ),
+    ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+
+    releaseLateSuccess?.();
+    await expect(lateSuccess).resolves.toMatchObject({
+      data: { lateSuccess: true },
+    });
+
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"sni":true}',
+    });
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/direct-ok'),
+      ),
+    ).resolves.toMatchObject({ data: { direct: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
   test('after recovery closes the circuit, old failures landing later stay stale', async () => {
     // Three slow requests start BEFORE anything goes wrong. The circuit then
     // opens, recovers (which must preserve the per-hostname watermark), and

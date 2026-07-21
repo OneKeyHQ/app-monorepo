@@ -91,6 +91,7 @@ function buildConfig(ip: string, version = 1): IIpTableRemoteConfig {
 function createService() {
   const ipTableDb = {
     getConfig: jest.fn(),
+    commitSpeedTestResult: jest.fn(async () => 'applied'),
     updateLastBestIp: jest.fn(async () => undefined),
     updateSelection: jest.fn(async () => undefined),
   };
@@ -125,22 +126,20 @@ describe('ServiceIpTable review regressions', () => {
     },
   );
 
-  it('discards and queues a rerun when the signed config changes during a speed test', async () => {
+  it('discards and queues a rerun when the atomic commit sees a new signed config', async () => {
     const { service, ipTableDb } = createService();
     const originalConfig = buildConfig('1.1.1.1', 1);
-    // Keep the numeric version unchanged: the signed payload hash and the
-    // currently endorsed endpoint set must still invalidate the old round.
-    const replacementConfig = buildConfig('2.2.2.2', 1);
 
     jest.spyOn(service as any, 'isIpTableEnabled').mockResolvedValue(true);
     jest
       .spyOn(service as any, 'testMultipleTimes')
       .mockResolvedValueOnce(100)
       .mockResolvedValueOnce(20);
-    jest
-      .spyOn(service, 'getConfig')
-      .mockResolvedValueOnce({ config: originalConfig, runtime: undefined })
-      .mockResolvedValueOnce({ config: replacementConfig, runtime: undefined });
+    jest.spyOn(service, 'getConfig').mockResolvedValueOnce({
+      config: originalConfig,
+      runtime: undefined,
+    });
+    ipTableDb.commitSpeedTestResult.mockResolvedValueOnce('stale_config');
 
     await (service as any).selectBestEndpointForDomainInternal(DOMAIN, {
       trigger: 'periodic',
@@ -148,6 +147,14 @@ describe('ServiceIpTable review regressions', () => {
 
     expect(ipTableDb.updateLastBestIp).not.toHaveBeenCalled();
     expect(ipTableDb.updateSelection).not.toHaveBeenCalled();
+    expect(ipTableDb.commitSpeedTestResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        domain: DOMAIN,
+        measuredEndpointIps: ['1.1.1.1'],
+        lastBestIp: '1.1.1.1',
+        selection: '1.1.1.1',
+      }),
+    );
     expect((service as any).pendingConfigChangeRerun.get(DOMAIN)).toBe(
       'periodic',
     );

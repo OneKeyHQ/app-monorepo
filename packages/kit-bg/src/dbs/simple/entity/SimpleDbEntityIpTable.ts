@@ -5,9 +5,14 @@ import type {
   IIpTableRemoteConfig,
   IIpTableRuntime,
 } from '@onekeyhq/shared/src/request/types/ipTable';
-import { pruneIpTableRuntimeSelections } from '@onekeyhq/shared/src/utils/ipTableUtils';
+import {
+  computeIpTableConfigHash,
+  pruneIpTableRuntimeSelections,
+} from '@onekeyhq/shared/src/utils/ipTableUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+
+const STALE_SPEED_TEST_CONFIG = new Error('stale_speed_test_config');
 
 /**
  * IP Table SimpleDB storage structure
@@ -162,6 +167,85 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
         version: data?.version ?? 1,
       };
     });
+  }
+
+  /**
+   * Atomically validate a speed-test result against the currently persisted
+   * signed config and commit its runtime state. Sharing setRawData's mutex
+   * with saveConfig prevents a config replacement/prune from landing between
+   * validation and the last-best/selection writes.
+   */
+  @backgroundMethod()
+  async commitSpeedTestResult(options: {
+    domain: string;
+    expectedConfigHash: string;
+    measuredEndpointIps: string[];
+    lastBestIp?: string;
+    /** undefined keeps the current selection; empty string selects domain */
+    selection?: string;
+  }): Promise<'applied' | 'stale_config'> {
+    try {
+      await this.setRawData((data) => {
+        const currentConfig = data?.config ?? DEFAULT_IP_TABLE_CONFIG;
+        const currentEndpoints = new Set(
+          currentConfig.domains[options.domain]?.endpoints.map(
+            (endpoint) => endpoint.ip,
+          ) ?? [],
+        );
+        const candidateIps = new Set(options.measuredEndpointIps);
+        if (options.lastBestIp) {
+          candidateIps.add(options.lastBestIp);
+        }
+        if (options.selection) {
+          candidateIps.add(options.selection);
+        }
+        if (
+          computeIpTableConfigHash(currentConfig) !==
+            options.expectedConfigHash ||
+          [...candidateIps].some((ip) => !currentEndpoints.has(ip))
+        ) {
+          throw STALE_SPEED_TEST_CONFIG;
+        }
+
+        const runtime = data?.runtime ?? {
+          enabled: true,
+          lastUpdated: 0,
+          lastRegionCheck: 0,
+          selections: {},
+        };
+        return {
+          ...data,
+          config: data?.config ?? null,
+          currentRegion: data?.currentRegion ?? 'AUTO',
+          runtime: {
+            ...runtime,
+            ...(options.lastBestIp
+              ? {
+                  lastBestIp: {
+                    ...runtime.lastBestIp,
+                    [options.domain]: options.lastBestIp,
+                  },
+                }
+              : {}),
+            ...(options.selection !== undefined
+              ? {
+                  selections: {
+                    ...runtime.selections,
+                    [options.domain]: options.selection,
+                  },
+                }
+              : {}),
+          },
+          version: data?.version ?? 1,
+        };
+      });
+      return 'applied';
+    } catch (error) {
+      if (error === STALE_SPEED_TEST_CONFIG) {
+        return 'stale_config';
+      }
+      throw error;
+    }
   }
 
   @backgroundMethod()

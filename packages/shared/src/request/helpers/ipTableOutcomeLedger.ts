@@ -7,18 +7,25 @@
  * succeeds first. `Date.now()` is not a sufficient ordering key because two
  * transports can start in the same millisecond. Every runtime therefore
  * assigns a strictly increasing request sequence at transport hand-off;
- * ordering by that sequence — never by completion/processing time — makes
- * every interleaving converge to the same state.
+ * ordering by that sequence — never by completion/processing time — lets a
+ * success remove every failure at or before its request position while
+ * retaining failures from later requests, regardless of arrival order.
  */
 export interface IIpTableOutcomeLedgerEntry {
-  /** Consecutive failure count; reset to 0 by an applied success */
+  /** Number of unresolved failures after the latest success */
   consecutiveFailures: number;
-  /** Runtime-local request sequence of the newest applied outcome */
-  lastOutcomeSequence: number;
+  /** Runtime-local request sequence of the latest successful request */
+  latestSuccessSequence: number;
+  /** Failure request sequences newer than latestSuccessSequence */
+  failureSequences: Set<number>;
 }
 
 export function createOutcomeLedgerEntry(): IIpTableOutcomeLedgerEntry {
-  return { consecutiveFailures: 0, lastOutcomeSequence: 0 };
+  return {
+    consecutiveFailures: 0,
+    latestSuccessSequence: 0,
+    failureSequences: new Set(),
+  };
 }
 
 let ipTableRequestSequence = 0;
@@ -33,14 +40,27 @@ export function applyOutcome(
   entry: IIpTableOutcomeLedgerEntry,
   outcome: { ok: boolean; requestSequence: number },
 ): 'applied' | 'stale' {
-  if (outcome.requestSequence < entry.lastOutcomeSequence) {
+  if (outcome.ok) {
+    if (outcome.requestSequence <= entry.latestSuccessSequence) {
+      return 'stale';
+    }
+    entry.latestSuccessSequence = outcome.requestSequence;
+    entry.failureSequences.forEach((failureSequence) => {
+      if (failureSequence <= outcome.requestSequence) {
+        entry.failureSequences.delete(failureSequence);
+      }
+    });
+    entry.consecutiveFailures = entry.failureSequences.size;
+    return 'applied';
+  }
+
+  if (
+    outcome.requestSequence <= entry.latestSuccessSequence ||
+    entry.failureSequences.has(outcome.requestSequence)
+  ) {
     return 'stale';
   }
-  entry.lastOutcomeSequence = outcome.requestSequence;
-  if (outcome.ok) {
-    entry.consecutiveFailures = 0;
-  } else {
-    entry.consecutiveFailures += 1;
-  }
+  entry.failureSequences.add(outcome.requestSequence);
+  entry.consecutiveFailures = entry.failureSequences.size;
   return 'applied';
 }
