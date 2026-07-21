@@ -65,12 +65,6 @@ export function buildDeviceDetailsVisibility({
   };
 }
 
-export function shouldSubscribeToHardwareFeaturesUpdate(
-  _deviceType: EDeviceType | undefined,
-) {
-  return true;
-}
-
 export function shouldShowDeviceInteractiveSections(
   deviceType: EDeviceType | undefined,
   deviceStateReady: boolean,

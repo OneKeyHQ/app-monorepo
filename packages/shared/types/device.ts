@@ -22,7 +22,19 @@ import type { ImageSourcePropType } from 'react-native';
 
 export type IOneKeyDeviceType = IDeviceType;
 
-export type IOneKeyDeviceFeatures = FeaturesCore;
+export type IOneKeyDeviceFeatures = FeaturesCore & {
+  autoShutdownDelayMs?: number | null;
+  wallpaperPath?: string | null;
+  brightness?: number | null;
+  animationEnabled?: boolean | null;
+  tapToWake?: boolean | null;
+  hapticFeedback?: boolean | null;
+  deviceNameDisplayEnabled?: boolean | null;
+  airgapMode?: boolean | null;
+  fidoEnabled?: boolean | null;
+  usbLockEnabled?: boolean | null;
+  randomKeypad?: boolean | null;
+};
 export type IOneKeyDeviceFeaturesCore = FeaturesCore;
 export type IOneKeyDeviceFeaturesWithAppParams = IOneKeyDeviceFeatures & {
   $app_firmware_type?: EFirmwareType;

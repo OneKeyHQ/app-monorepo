@@ -8,10 +8,7 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
-import {
-  EHardwareVendor,
-  type IOneKeyDeviceFeatures,
-} from '@onekeyhq/shared/types/device';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
   contextAtomMethod,
@@ -111,7 +108,6 @@ async function buildDeviceMetaStatic(
 
 async function buildDeviceMetaState(
   walletWithDevice?: IHwQrWalletWithDevice,
-  pro2Snapshot?: IPro2DeviceManagementSnapshot,
 ): Promise<IDeviceMetaState | undefined> {
   if (!walletWithDevice?.device?.featuresInfo) {
     return undefined;
@@ -123,21 +119,15 @@ async function buildDeviceMetaState(
     return undefined;
   }
   const isVerified = Boolean(device.verifiedAtVersion);
-  if (device.deviceType === EDeviceType.Pro2 && pro2Snapshot) {
+  if (device.deviceType === EDeviceType.Pro2) {
     return buildPro2DeviceMetaState({
       isVerified,
-      snapshot: pro2Snapshot,
+      features,
     });
   }
   const autoLockDelayMs = features.autoLockDelayMs ?? 0;
   const autoShutDownDelayMs =
-    (
-      features as IOneKeyDeviceFeatures & {
-        autoShutdownDelayMs?: number;
-      }
-    ).autoShutdownDelayMs ??
-    features.autoLockDelayMs ??
-    0;
+    features.autoShutdownDelayMs ?? features.autoLockDelayMs ?? 0;
   const language = features.language ?? undefined;
   const hapticFeedback = false;
 
@@ -177,10 +167,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
   updateDeviceMetaState = contextAtomMethod(
     async (get, set, walletId?: string) => {
       const data = get(walletWithDeviceStateAtom());
-      const metaState = await buildDeviceMetaState(
-        data,
-        get(pro2DeviceManagementSnapshotAtom()),
-      );
+      const metaState = await buildDeviceMetaState(data);
       if (walletId && get(currentWalletIdAtom()) !== walletId) return;
       if (metaState) {
         set(deviceMetaStateAtom(), metaState);

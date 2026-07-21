@@ -135,11 +135,7 @@ import type {
   UiEvent,
 } from '@onekeyfe/hd-core';
 import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
-import type {
-  ProtocolV2DeviceInfo,
-  DeviceSettings as ProtocolV2DeviceSettings,
-  DeviceStatus as ProtocolV2DeviceStatus,
-} from '@onekeyfe/hd-transport';
+import type { ProtocolV2DeviceInfo } from '@onekeyfe/hd-transport';
 
 const DEVICE_PIN_ON_DEVICE_TYPES = new Set<IDeviceType>([
   EDeviceType.Touch,
@@ -171,8 +167,6 @@ export type IDeviceGetInfoOptions = Omit<
 
 export type IPro2DeviceManagementSnapshot = {
   info?: ProtocolV2DeviceInfo;
-  status: ProtocolV2DeviceStatus;
-  settings?: ProtocolV2DeviceSettings;
 };
 
 export type IPro2DeviceSettingsPage =
@@ -182,20 +176,6 @@ export type IPro2DeviceSettingsPage =
   | 'DeviceAirgap';
 
 const nullableToUndefined = (value?: string | null) => value ?? undefined;
-
-function buildProtocolV2StatusFromFeatures(
-  features?: IOneKeyDeviceFeatures,
-): ProtocolV2DeviceStatus {
-  return {
-    device_id: features?.deviceId ?? undefined,
-    unlocked: features?.unlocked ?? undefined,
-    init_states: features?.initialized ?? undefined,
-    backup_required: features?.backupRequired ?? undefined,
-    passphrase_enabled: features?.passphraseProtection ?? undefined,
-    attach_to_pin_enabled: features?.attachToPinEnabled ?? undefined,
-    unlocked_by_attach_to_pin: features?.unlockedAttachPin ?? undefined,
-  };
-}
 
 function buildOnekeyFeaturesFromDeviceInfo(
   deviceInfo: DeviceProfile,
@@ -748,6 +728,11 @@ class ServiceHardware extends ServiceBase {
           connectId,
           payload: newPayload,
         });
+      });
+
+      instance.on(DEVICE.FEATURES, (features: Features) => {
+        serviceHardwareUtils.hardwareLog('features update', features);
+        void localDb.updateDevice({ features });
       });
 
       instance.on(
@@ -1367,11 +1352,11 @@ class ServiceHardware extends ServiceBase {
       const dbDevice = await localDb.getDeviceByQuery({
         connectId: compatibleConnectId,
       });
-      const status = buildProtocolV2StatusFromFeatures(dbDevice?.featuresInfo);
+      const features = dbDevice?.featuresInfo;
       const deviceChanged = Boolean(
         cachedEntry?.deviceId &&
-        status.device_id &&
-        cachedEntry.deviceId !== status.device_id,
+        features?.deviceId &&
+        cachedEntry.deviceId !== features.deviceId,
       );
       const info =
         cachedEntry && !deviceChanged
@@ -1399,22 +1384,20 @@ class ServiceHardware extends ServiceBase {
       if (!cachedEntry || deviceChanged) {
         this.pro2DeviceInfoCache.set(compatibleConnectId, {
           info,
-          deviceId: status.device_id,
+          deviceId: features?.deviceId ?? undefined,
         });
       }
 
-      const settings = status.unlocked
-        ? await convertDeviceResponse(() =>
-            hardwareSDK.deviceSettingsGet(compatibleConnectId, {
-              connectProtocol: 'V2',
-            }),
-          )
-        : undefined;
+      if (features?.unlocked) {
+        await convertDeviceResponse(() =>
+          hardwareSDK.deviceSettingsGet(compatibleConnectId, {
+            connectProtocol: 'V2',
+          }),
+        );
+      }
 
       return {
         info,
-        status,
-        ...(settings ? { settings } : {}),
       };
     })();
     this.pro2DeviceManagementSnapshotInFlight.set(compatibleConnectId, request);
@@ -1429,53 +1412,6 @@ class ServiceHardware extends ServiceBase {
         this.pro2DeviceManagementSnapshotInFlight.delete(compatibleConnectId);
       }
     }
-  }
-
-  @backgroundMethod()
-  async getPro2DeviceSettings({ connectId }: { connectId: string }) {
-    const hardwareCallContext =
-      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
-    const compatibleConnectId = await this.getCompatibleConnectId({
-      connectId,
-      hardwareCallContext,
-    });
-    const hardwareSDK = await this.getSDKInstance({
-      connectId: compatibleConnectId,
-      hardwareCallContext,
-    });
-    return convertDeviceResponse(() =>
-      hardwareSDK.deviceSettingsGet(compatibleConnectId, {
-        connectProtocol: 'V2',
-      }),
-    );
-  }
-
-  @backgroundMethod()
-  async setPro2DeviceSettings({
-    connectId,
-    settings,
-  }: {
-    connectId: string;
-    settings: Omit<
-      ProtocolV2DeviceSettings,
-      'passphrase_enable' | 'airgap_mode'
-    >;
-  }) {
-    const hardwareCallContext = EHardwareCallContext.USER_INTERACTION;
-    const compatibleConnectId = await this.getCompatibleConnectId({
-      connectId,
-      hardwareCallContext,
-    });
-    const hardwareSDK = await this.getSDKInstance({
-      connectId: compatibleConnectId,
-      hardwareCallContext,
-    });
-    return convertDeviceResponse(() =>
-      hardwareSDK.deviceSettingsSet(compatibleConnectId, {
-        connectProtocol: 'V2',
-        settings,
-      }),
-    );
   }
 
   @backgroundMethod()
@@ -2003,32 +1939,7 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setPassphraseEnabled(p: ISetPassphraseEnabledParams) {
-    const result = await this.deviceSettingsManager.setPassphraseEnabled(p);
-    if (result.message) {
-      let dbDeviceId: string | undefined;
-      if (p.walletId) {
-        const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
-          walletId: p.walletId,
-        });
-        dbDeviceId = wallet?.associatedDevice;
-      } else {
-        const device = await localDb.getDeviceByQuery({
-          connectId: p.connectId,
-          featuresDeviceId: p.featuresDeviceId,
-        });
-        dbDeviceId = device?.id;
-      }
-      if (dbDeviceId) {
-        const dbDevice = await localDb.getDevice(dbDeviceId);
-        if (dbDevice.deviceType !== EDeviceType.Pro2) {
-          await localDb.updateDeviceFeaturesPassphraseProtection({
-            dbDeviceId,
-            passphraseProtection: p.passphraseEnabled,
-          });
-        }
-      }
-    }
-    return result;
+    return this.deviceSettingsManager.setPassphraseEnabled(p);
   }
 
   @backgroundMethod()
@@ -2059,17 +1970,7 @@ class ServiceHardware extends ServiceBase {
       const walletName = wallet?.name;
       const dbDeviceId = wallet?.associatedDevice;
       if (dbDeviceId) {
-        // update db features label
-        await localDb.updateDeviceFeaturesLabel({
-          dbDeviceId,
-          label: p.label,
-        });
-        // After device label is updated, notify UI/hardware interaction layer to refresh cached device info,
-        // otherwise the hardware interaction dialog may keep showing the old name until app restart.
-        appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
-          deviceId: dbDeviceId,
-        });
-        // update db wallet name
+        // Features 持久化和 HardwareFeaturesUpdate 由 SDK DEVICE.FEATURES 统一驱动。
         appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
           walletId: p.walletId,
           dbDeviceId,

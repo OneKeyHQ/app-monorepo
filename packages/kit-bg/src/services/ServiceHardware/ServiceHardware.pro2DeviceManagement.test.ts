@@ -1,5 +1,10 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
 import localDb from '../../dbs/local/localDb';
 
 import ServiceHardware from './ServiceHardware';
@@ -20,7 +25,10 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
-  EAppEventBusNames: {},
+  EAppEventBusNames: {
+    HardwareFeaturesUpdate: 'HardwareFeaturesUpdate',
+    SyncDeviceLabelToWalletName: 'SyncDeviceLabelToWalletName',
+  },
   appEventBus: {
     on: jest.fn(),
     off: jest.fn(),
@@ -48,6 +56,7 @@ jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     getDeviceByQuery: jest.fn(),
+    updateDevice: jest.fn(),
   },
 }));
 
@@ -71,6 +80,7 @@ const createService = ({ unlocked }: { unlocked: boolean }) => {
     attachToPinEnabled: false,
     unlockedAttachPin: false,
   };
+  // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
   jest.mocked(localDb.getDeviceByQuery).mockResolvedValue({
     id: 'db-device-1',
     connectId: 'PRO2_USB',
@@ -99,10 +109,6 @@ const createService = ({ unlocked }: { unlocked: boolean }) => {
       language: 'en-US',
     },
   });
-  const deviceSettingsSet = jest.fn().mockResolvedValue({
-    success: true,
-    payload: { message: 'Success' },
-  });
   const deviceSettingsPageShow = jest.fn().mockResolvedValue({
     success: true,
     payload: { message: 'Success' },
@@ -115,7 +121,6 @@ const createService = ({ unlocked }: { unlocked: boolean }) => {
     deviceInfoGet,
     deviceStatusGet,
     deviceSettingsGet,
-    deviceSettingsSet,
     deviceSettingsPageShow,
   } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
 
@@ -124,14 +129,13 @@ const createService = ({ unlocked }: { unlocked: boolean }) => {
     deviceInfoGet,
     deviceStatusGet,
     deviceSettingsGet,
-    deviceSettingsSet,
     deviceSettingsPageShow,
     cachedFeatures,
   };
 };
 
 describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
-  it('caches DeviceInfo and reads settings from cached Features without polling DeviceStatus', async () => {
+  it('returns only static DeviceInfo and hydrates SDK Features without polling DeviceStatus', async () => {
     const {
       service,
       deviceInfoGet,
@@ -142,16 +146,10 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
 
     await expect(
       service.getPro2DeviceManagementSnapshot({ connectId: 'ORIGINAL_ID' }),
-    ).resolves.toMatchObject({
+    ).resolves.toEqual({
       info: {
         device_id: 'PRO2_DEVICE_ID',
         serial_number: 'PRO2_SERIAL',
-      },
-      status: {
-        device_id: 'PRO2_DEVICE_ID',
-        unlocked: false,
-        init_states: true,
-        backup_required: false,
       },
     });
 
@@ -181,20 +179,10 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
 
     await expect(
       service.getPro2DeviceManagementSnapshot({ connectId: 'ORIGINAL_ID' }),
-    ).resolves.toMatchObject({
+    ).resolves.toEqual({
       info: {
         device_id: 'PRO2_DEVICE_ID',
         serial_number: 'PRO2_SERIAL',
-      },
-      status: {
-        device_id: 'PRO2_DEVICE_ID',
-        unlocked: true,
-        init_states: true,
-        backup_required: false,
-      },
-      settings: {
-        label: 'OneKey Pro 2',
-        language: 'en-US',
       },
     });
 
@@ -227,6 +215,64 @@ describe('ServiceHardware.getPro2DeviceManagementSnapshot', () => {
 
     expect(deviceInfoGet).toHaveBeenCalledTimes(1);
     expect(deviceStatusGet).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceHardware SDK Features synchronization', () => {
+  it('persists normalized SDK Features events into the device database', async () => {
+    const listeners = new Map<string, (payload: unknown) => void>();
+    const instance = {
+      on: jest.fn((event: string, listener: (payload: unknown) => void) => {
+        listeners.set(event, listener);
+      }),
+    };
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents(instance as never);
+
+    const features = {
+      protocol: 'V2',
+      serialNo: 'PRO2_SERIAL',
+      label: 'Renamed Pro 2',
+    };
+    listeners.get('features')?.(features);
+
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    expect(localDb.updateDevice).toHaveBeenCalledWith({ features });
+  });
+
+  it('does not duplicate label persistence after the SDK Features event', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceAccount: {
+          getWalletSafe: jest.fn().mockResolvedValue({
+            associatedDevice: 'db-device-1',
+            name: 'Wallet',
+          }),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.deviceSettingsManager.setDeviceLabel = jest
+      .fn()
+      .mockResolvedValue({ message: 'Success' });
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    jest.mocked(appEventBus.emit).mockClear();
+    await service.setDeviceLabel({
+      walletId: 'wallet-1',
+      label: 'Renamed Pro 2',
+    });
+
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    expect(appEventBus.emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareFeaturesUpdate,
+      expect.anything(),
+    );
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.SyncDeviceLabelToWalletName,
+      expect.objectContaining({ label: 'Renamed Pro 2' }),
+    );
   });
 });
 
@@ -279,49 +325,6 @@ describe('ServiceHardware.fetchHardwareHomeScreen', () => {
 });
 
 describe('ServiceHardware Pro 2 settings API', () => {
-  it('gets and sets raw Protocol V2 settings', async () => {
-    const { service, deviceSettingsGet, deviceSettingsSet } = createService({
-      unlocked: true,
-    });
-
-    await expect(
-      service.getPro2DeviceSettings({ connectId: 'ORIGINAL_ID' }),
-    ).resolves.toEqual({
-      label: 'OneKey Pro 2',
-      language: 'en-US',
-    });
-    await service.setPro2DeviceSettings({
-      connectId: 'ORIGINAL_ID',
-      settings: {
-        bt_enable: true,
-        animation_enable: false,
-        tap_to_wake: true,
-        device_name_display_enabled: true,
-        fido_enabled: true,
-        experimental_features: false,
-        usb_lock_enable: true,
-        random_keypad: true,
-      },
-    });
-
-    expect(deviceSettingsGet).toHaveBeenCalledWith('PRO2_USB', {
-      connectProtocol: 'V2',
-    });
-    expect(deviceSettingsSet).toHaveBeenCalledWith('PRO2_USB', {
-      connectProtocol: 'V2',
-      settings: {
-        bt_enable: true,
-        animation_enable: false,
-        tap_to_wake: true,
-        device_name_display_enabled: true,
-        fido_enabled: true,
-        experimental_features: false,
-        usb_lock_enable: true,
-        random_keypad: true,
-      },
-    });
-  });
-
   it('opens every firmware-supported settings page', async () => {
     const { service, deviceSettingsPageShow } = createService({
       unlocked: true,

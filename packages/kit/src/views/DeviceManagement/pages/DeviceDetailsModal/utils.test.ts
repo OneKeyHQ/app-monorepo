@@ -8,7 +8,6 @@ import {
   canShowTrezorBleBinding,
   getTrezorAutoLockOptionsMs,
   shouldShowDeviceInteractiveSections,
-  shouldSubscribeToHardwareFeaturesUpdate,
 } from './utils';
 
 describe('DeviceDetailsModal utils', () => {
@@ -48,16 +47,6 @@ describe('DeviceDetailsModal utils', () => {
       showPassphraseSettings: false,
       showDeviceConnection: true,
     });
-  });
-
-  it('subscribes Pro2 details to confirmed hardware feature updates', () => {
-    expect(shouldSubscribeToHardwareFeaturesUpdate(EDeviceType.Pro2)).toBe(
-      true,
-    );
-    expect(shouldSubscribeToHardwareFeaturesUpdate(EDeviceType.Classic1s)).toBe(
-      true,
-    );
-    expect(shouldSubscribeToHardwareFeaturesUpdate(undefined)).toBe(true);
   });
 
   it('waits for the initial Pro2 status before showing interactive settings', () => {

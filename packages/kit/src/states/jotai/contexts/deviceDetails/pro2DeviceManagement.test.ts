@@ -32,28 +32,22 @@ describe('shouldRefreshDeviceSettingsAfterUpdate', () => {
 });
 
 describe('buildPro2DeviceMetaState', () => {
-  it('uses DeviceStatus for session state and DeviceSettings for preferences', () => {
+  it('uses normalized Features for session state and preferences', () => {
     expect(
       buildPro2DeviceMetaState({
         isVerified: true,
-        snapshot: {
-          status: {
-            unlocked: true,
-            init_states: true,
-            backup_required: true,
-            passphrase_enabled: true,
-            attach_to_pin_enabled: true,
-            unlocked_by_attach_to_pin: true,
-          },
-          settings: {
-            language: 'ja-JP',
-            brightness: 60,
-            // cspell:disable-next-line
-            autolock_delay_ms: 60_000,
-            // cspell:disable-next-line
-            autoshutdown_delay_ms: 300_000,
-            haptic_feedback: true,
-          },
+        features: {
+          unlocked: true,
+          initialized: true,
+          backupRequired: true,
+          passphraseProtection: true,
+          attachToPinEnabled: true,
+          unlockedAttachPin: true,
+          language: 'ja-JP',
+          brightness: 60,
+          autoLockDelayMs: 60_000,
+          autoShutdownDelayMs: 300_000,
+          hapticFeedback: true,
         },
       }),
     ).toEqual({
@@ -77,12 +71,10 @@ describe('buildPro2DeviceMetaState', () => {
     expect(
       buildPro2DeviceMetaState({
         isVerified: false,
-        snapshot: {
-          status: {
-            unlocked: false,
-            passphrase_enabled: false,
-            attach_to_pin_enabled: false,
-          },
+        features: {
+          unlocked: false,
+          passphraseProtection: false,
+          attachToPinEnabled: false,
         },
       }),
     ).toEqual({
@@ -107,7 +99,6 @@ describe('getPro2DeviceMetaStaticOverrides', () => {
   it('uses DeviceInfo only for immutable firmware metadata', () => {
     expect(
       getPro2DeviceMetaStaticOverrides({
-        status: {},
         info: {
           protocol_version: 1,
           fw: { application: { version: '2.1.0' } },

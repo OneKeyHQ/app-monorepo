@@ -47,7 +47,6 @@ import { DeviceUpdateAlert } from './DeviceUpdateAlert';
 import {
   buildDeviceDetailsVisibility,
   shouldShowDeviceInteractiveSections,
-  shouldSubscribeToHardwareFeaturesUpdate,
 } from './utils';
 
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
@@ -88,8 +87,6 @@ function DeviceDetailsModalV2Cmp({
   const showTrezorDebug =
     devSettings.enabled && deviceVendor === EHardwareVendor.trezor;
   const hasLoadedDevice = isQrWallet || Boolean(device);
-  const shouldSubscribeHardwareFeatures =
-    shouldSubscribeToHardwareFeaturesUpdate(device?.deviceType);
   const showInteractiveSections = shouldShowDeviceInteractiveSections(
     device?.deviceType,
     deviceMetaState.isReady,
@@ -131,36 +128,26 @@ function DeviceDetailsModalV2Cmp({
       await refresh(walletId, { refreshPro2Info: true });
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, refreshCurrentDevice);
-    if (shouldSubscribeHardwareFeatures) {
-      appEventBus.on(
-        EAppEventBusNames.HardwareFeaturesUpdate,
-        refreshConfirmedFeatures,
-      );
-    }
+    appEventBus.on(
+      EAppEventBusNames.HardwareFeaturesUpdate,
+      refreshConfirmedFeatures,
+    );
     appEventBus.on(
       EAppEventBusNames.FinishFirmwareUpdate,
       refreshAfterFirmwareUpdate,
     );
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, refreshCurrentDevice);
-      if (shouldSubscribeHardwareFeatures) {
-        appEventBus.off(
-          EAppEventBusNames.HardwareFeaturesUpdate,
-          refreshConfirmedFeatures,
-        );
-      }
+      appEventBus.off(
+        EAppEventBusNames.HardwareFeaturesUpdate,
+        refreshConfirmedFeatures,
+      );
       appEventBus.off(
         EAppEventBusNames.FinishFirmwareUpdate,
         refreshAfterFirmwareUpdate,
       );
     };
-  }, [
-    refresh,
-    refreshConfirmedFeatures,
-    refreshCurrentDevice,
-    shouldSubscribeHardwareFeatures,
-    walletId,
-  ]);
+  }, [refresh, refreshConfirmedFeatures, refreshCurrentDevice, walletId]);
 
   const actions = useFirmwareUpdateActions();
   const localActions = useDeviceDetailsActions();

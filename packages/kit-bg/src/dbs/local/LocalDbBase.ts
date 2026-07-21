@@ -5034,54 +5034,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async updateDeviceFeaturesLabel({
-    dbDeviceId,
-    label,
-  }: {
-    dbDeviceId: string;
-    label: string;
-  }) {
-    const device = await this.getDevice(dbDeviceId);
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txUpdateRecords({
-        tx,
-        name: ELocalDBStoreNames.Device,
-        ids: [dbDeviceId],
-        updater: async (item) => {
-          item.features = JSON.stringify({
-            ...device.featuresInfo,
-            label,
-          });
-          return item;
-        },
-      });
-    });
-  }
-
-  async updateDeviceFeaturesPassphraseProtection({
-    dbDeviceId,
-    passphraseProtection,
-  }: {
-    dbDeviceId: string;
-    passphraseProtection: boolean;
-  }) {
-    const device = await this.getDevice(dbDeviceId);
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txUpdateRecords({
-        tx,
-        name: ELocalDBStoreNames.Device,
-        ids: [dbDeviceId],
-        updater: async (item) => {
-          item.features = JSON.stringify({
-            ...device.featuresInfo,
-            passphraseProtection,
-          });
-          return item;
-        },
-      });
-    });
-  }
-
   async updateDeviceVersionInfo({
     dbDeviceId,
     versionCacheInfo,

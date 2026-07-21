@@ -139,7 +139,7 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
     });
   });
 
-  test('persists auto shutdown independently from auto lock', async () => {
+  test('relies on the SDK Features event instead of manually patching the database', async () => {
     const deviceSettings = jest.fn(async () => ({
       success: true as const,
       payload: { message: 'Success' },
@@ -152,6 +152,8 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
     const manager = buildManager(device, {
       deviceSettings,
     } as unknown as CoreApi);
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    jest.mocked(localDb.updateDevice).mockClear();
 
     await manager.setAutoShutDownDelayMs({
       connectId: 'PRO2_CONNECT_ID',
@@ -159,13 +161,7 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
     });
 
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
-    expect(localDb.updateDevice).toHaveBeenCalledWith(
-      expect.objectContaining({
-        preciseUpdateFields: {
-          autoShutdownDelayMs: 300_000,
-        },
-      }),
-    );
+    expect(localDb.updateDevice).not.toHaveBeenCalled();
   });
 
   test.each([

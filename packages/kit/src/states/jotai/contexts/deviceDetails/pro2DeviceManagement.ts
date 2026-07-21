@@ -1,14 +1,10 @@
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
+
 import type { IDeviceMetaState } from './atoms';
-import type {
-  DeviceSettings,
-  DeviceStatus,
-  ProtocolV2DeviceInfo,
-} from '@onekeyfe/hd-transport';
+import type { ProtocolV2DeviceInfo } from '@onekeyfe/hd-transport';
 
 export type IPro2DeviceManagementSnapshot = {
   info?: ProtocolV2DeviceInfo;
-  status: DeviceStatus;
-  settings?: DeviceSettings;
 };
 
 export function canEditPro2DeviceWideSettings({
@@ -41,27 +37,24 @@ export function getPro2DeviceMetaStaticOverrides(
 
 export function buildPro2DeviceMetaState({
   isVerified,
-  snapshot,
+  features,
 }: {
   isVerified: boolean;
-  snapshot: IPro2DeviceManagementSnapshot;
+  features: Partial<IOneKeyDeviceFeatures>;
 }): IDeviceMetaState {
-  const { status, settings } = snapshot;
   return {
     isVerified,
-    unlocked: Boolean(status.unlocked),
-    initialized: Boolean(status.init_states),
-    backupRequired: Boolean(status.backup_required),
-    unlockedByAttachToPin: Boolean(status.unlocked_by_attach_to_pin),
-    passphraseEnabled: Boolean(status.passphrase_enabled),
-    pinOnAppEnabled: Boolean(status.attach_to_pin_enabled),
-    // cspell:disable-next-line
-    autoLockDelayMs: settings?.autolock_delay_ms,
-    // cspell:disable-next-line
-    autoShutDownDelayMs: settings?.autoshutdown_delay_ms,
-    language: settings?.language,
-    brightness: settings?.brightness,
-    hapticFeedback: Boolean(settings?.haptic_feedback),
+    unlocked: Boolean(features.unlocked),
+    initialized: Boolean(features.initialized),
+    backupRequired: Boolean(features.backupRequired),
+    unlockedByAttachToPin: Boolean(features.unlockedAttachPin),
+    passphraseEnabled: Boolean(features.passphraseProtection),
+    pinOnAppEnabled: Boolean(features.attachToPinEnabled),
+    autoLockDelayMs: features.autoLockDelayMs ?? undefined,
+    autoShutDownDelayMs: features.autoShutdownDelayMs ?? undefined,
+    language: features.language ?? undefined,
+    brightness: features.brightness ?? undefined,
+    hapticFeedback: Boolean(features.hapticFeedback),
     isReady: true,
   };
 }

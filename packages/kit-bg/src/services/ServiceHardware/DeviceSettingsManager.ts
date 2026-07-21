@@ -715,22 +715,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setPassphraseEnabled',
-      action: async (sdk, compatibleConnectId, targetDevice) =>
-        sdk
-          .deviceSettings(compatibleConnectId, {
-            usePassphrase: passphraseEnabled,
-          })
-          .then(async (res) => {
-            if (res.success && targetDevice.featuresInfo) {
-              await localDb.updateDevice({
-                features: targetDevice.featuresInfo,
-                preciseUpdateFields: {
-                  passphraseProtection: passphraseEnabled,
-                },
-              });
-            }
-            return res;
-          }),
+      action: async (sdk, compatibleConnectId) =>
+        sdk.deviceSettings(compatibleConnectId, {
+          usePassphrase: passphraseEnabled,
+        }),
     });
   }
 
@@ -765,22 +753,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setAutoLockDelayMs',
-      action: async (sdk, compatibleConnectId, targetDevice) =>
-        sdk
-          .deviceSettings(compatibleConnectId, {
-            autoLockDelayMs,
-          })
-          .then(async (res) => {
-            if (res.success && targetDevice.featuresInfo) {
-              await localDb.updateDevice({
-                features: targetDevice.featuresInfo,
-                preciseUpdateFields: {
-                  autoLockDelayMs,
-                },
-              });
-            }
-            return res;
-          }),
+      action: async (sdk, compatibleConnectId) =>
+        sdk.deviceSettings(compatibleConnectId, {
+          autoLockDelayMs,
+        }),
     });
   }
 
@@ -805,22 +781,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setAutoShutDownDelayMs',
-      action: async (sdk, compatibleConnectId, targetDevice) =>
-        sdk
-          .deviceSettings(compatibleConnectId, {
-            autoShutdownDelayMs,
-          })
-          .then(async (res) => {
-            if (res.success && targetDevice.featuresInfo) {
-              await localDb.updateDevice({
-                features: targetDevice.featuresInfo,
-                preciseUpdateFields: {
-                  autoShutdownDelayMs,
-                } as Partial<IOneKeyDeviceFeatures>,
-              });
-            }
-            return res;
-          }),
+      action: async (sdk, compatibleConnectId) =>
+        sdk.deviceSettings(compatibleConnectId, {
+          autoShutdownDelayMs,
+        }),
     });
   }
 
@@ -855,22 +819,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setLanguage',
-      action: async (sdk, compatibleConnectId, targetDevice) =>
-        sdk
-          .deviceSettings(compatibleConnectId, {
-            language,
-          })
-          .then(async (res) => {
-            if (res.success && targetDevice.featuresInfo) {
-              await localDb.updateDevice({
-                features: targetDevice.featuresInfo,
-                preciseUpdateFields: {
-                  language,
-                },
-              });
-            }
-            return res;
-          }),
+      action: async (sdk, compatibleConnectId) =>
+        sdk.deviceSettings(compatibleConnectId, {
+          language,
+        }),
     });
   }
 
@@ -951,19 +903,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setHapticFeedback',
-      action: async (sdk, compatibleConnectId, targetDevice) =>
-        sdk
-          .deviceSettings(compatibleConnectId, {
-            hapticFeedback,
-          })
-          .then(async (res) => {
-            if (res.success && targetDevice.featuresInfo) {
-              await localDb.updateDevice({
-                features: targetDevice.featuresInfo,
-              });
-            }
-            return res;
-          }),
+      action: async (sdk, compatibleConnectId) =>
+        sdk.deviceSettings(compatibleConnectId, {
+          hapticFeedback,
+        }),
     });
   }
 
