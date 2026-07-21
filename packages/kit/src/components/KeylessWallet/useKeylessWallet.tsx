@@ -98,6 +98,23 @@ async function keylessOnboardingCacheGet(key: string) {
   });
 }
 
+async function redirectKeylessOneKeyIdAuthToExtExpandTab({
+  mode,
+  provider,
+}: {
+  mode: EOnboardingV2OneKeyIDLoginMode;
+  provider?: EOAuthSocialLoginProvider;
+}) {
+  const params: Record<string, string> = { mode };
+  if (provider) {
+    params.provider = provider;
+  }
+  await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+    path: `/onboarding/${EOnboardingPagesV2.OneKeyIDLogin}`,
+    params,
+  });
+}
+
 async function keylessOnboardingCacheSet(key: string, value: string) {
   keylessOnboardingCache.set(
     key,
@@ -686,6 +703,17 @@ export function useKeylessWallet() {
 
   const reauthenticateLegacyOneKeyIdWithOAuthProvider = useCallback(
     async ({ provider }: { provider: EOAuthSocialLoginProvider }) => {
+      // Chrome destroys the extension action popup as soon as the OAuth
+      // window takes focus. Resume from the provider-specific onboarding
+      // page in the expand tab before starting the OAuth round-trip.
+      if (shouldRunOneKeyIdAuthInExtExpandTab()) {
+        await redirectKeylessOneKeyIdAuthToExtExpandTab({
+          mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+          provider,
+        });
+        return;
+      }
+
       let accessToken = '';
       let refreshToken = '';
 
@@ -993,13 +1021,9 @@ export function useKeylessWallet() {
       // focus loss). Open the page in the expand tab instead of navigating
       // inside the popup.
       if (shouldRunOneKeyIdAuthInExtExpandTab()) {
-        const expandTabParams: Record<string, string> = { mode };
-        if (keylessProvider) {
-          expandTabParams.provider = keylessProvider;
-        }
-        await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-          path: `/onboarding/${EOnboardingPagesV2.OneKeyIDLogin}`,
-          params: expandTabParams,
+        await redirectKeylessOneKeyIdAuthToExtExpandTab({
+          mode,
+          provider: keylessProvider,
         });
         return;
       }
