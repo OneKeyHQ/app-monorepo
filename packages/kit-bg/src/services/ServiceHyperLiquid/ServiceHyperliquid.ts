@@ -2440,12 +2440,21 @@ export default class ServiceHyperliquid extends ServiceBase {
   }): Promise<IPerpsActiveAccountAtom | undefined> {
     const requestId = this.beginActivePerpsAccountChange();
     const { indexedAccountId, accountId, deriveType } = params;
+    const walletType =
+      await this.backgroundApi.serviceAccountProfile._getRequestWalletType({
+        walletId: params.walletId ?? undefined,
+        accountId: accountId ?? undefined,
+      });
+    if (!this.isLatestActivePerpsAccountChange(requestId)) {
+      return undefined;
+    }
 
     const perpsAccount: IPerpsActiveAccountAtom = {
       indexedAccountId: indexedAccountId || null,
       accountId: null,
       accountAddress: null,
       deriveType: deriveType || 'default',
+      walletType,
     };
 
     try {

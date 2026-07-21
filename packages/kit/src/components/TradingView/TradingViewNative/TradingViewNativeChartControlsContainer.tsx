@@ -38,7 +38,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         chartTypeToggleIcon="TradingViewCandlesOutline"
         chartTypes={[]}
         hasVisibleControls
-        hasVisibleIndicators
+        hasVisibleIndicators={false}
         hasVisibleIntervalSelector
         indicators={[]}
         indicatorsTitle={intl.formatMessage({
@@ -46,9 +46,9 @@ export const TradingViewNativeChartControlsContainer = memo(
         })}
         nextChartTypeLabel={chartStyleTitle}
         priceMarketCap={undefined}
-        settingsEnabled
+        settingsEnabled={false}
         showChartTypeSelect={false}
-        showChartTypeToggle
+        showChartTypeToggle={false}
         showIndicatorPopover={false}
         showPriceMarketCapSelect={false}
         isControlsReady

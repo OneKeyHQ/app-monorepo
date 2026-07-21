@@ -51,6 +51,7 @@ import {
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { useTradingViewNativeInMarketDetail } from '../hooks/useTradingViewNativeInMarketDetail';
+import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 
 import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
 import type { SwapPanel } from '../components/SwapPanel/SwapPanel';
@@ -224,6 +225,7 @@ export function MobileLayout({
     tokenDetail,
     isNative,
     websocketConfig,
+    perpsInfo,
     isStockToken,
   } = useTokenDetail();
   const useTradingViewNative = useTradingViewNativeInMarketDetail();
@@ -253,6 +255,25 @@ export function MobileLayout({
     : MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT;
   const intl = useIntl();
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
+  const nativeHyperliquidCoin =
+    isBTCMainnet && isNative ? (perpsInfo?.hlTicker ?? '') : '';
+  const tradingViewNativeSource = useMemo(
+    () =>
+      getMarketDetailTradingViewNativeSource({
+        hyperliquidCoin: nativeHyperliquidCoin,
+        marketDataSource: marketTradingViewParams?.dataSource,
+        networkId,
+        symbol: tokenSymbol ?? '',
+        tokenAddress,
+      }),
+    [
+      marketTradingViewParams?.dataSource,
+      nativeHyperliquidCoin,
+      networkId,
+      tokenAddress,
+      tokenSymbol,
+    ],
+  );
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
 
@@ -541,10 +562,7 @@ export function MobileLayout({
                     <TradingViewNative
                       key={marketTradingViewKey}
                       testID={MarketTestIDs.detailChart}
-                      tokenAddress={tokenAddress}
-                      networkId={networkId}
-                      symbol={tokenSymbol ?? ''}
-                      decimal={tokenDetail?.decimals ?? 8}
+                      source={tradingViewNativeSource}
                       nativeControlsLayoutMode="mobile"
                       onNativeSubIndicatorCountChange={
                         handleNativeSubIndicatorCountChange
@@ -621,9 +639,7 @@ export function MobileLayout({
     marketTradingViewParams,
     nativeIndicatorQuickBar,
     networkId,
-    tokenAddress,
-    tokenDetail?.decimals,
-    tokenSymbol,
+    tradingViewNativeSource,
     tradingViewChartHeight,
     useTradingViewNative,
   ]);

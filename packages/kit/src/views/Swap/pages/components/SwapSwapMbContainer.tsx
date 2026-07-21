@@ -24,6 +24,7 @@ import SwapAlertContainer from './SwapAlertContainer';
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
+import { SwapQuoteStockMarketStatusAlert } from './SwapQuoteStockMarketStatusAlert';
 import SwapTipsContainer from './SwapTipsContainer';
 
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
@@ -139,6 +140,7 @@ const SwapSwapMbContainer = ({
           onOpenProviderList={onOpenProviderList}
           quoteResult={quoteResult}
         />
+        <SwapQuoteStockMarketStatusAlert />
         {alerts.states.length > 0 &&
         !quoteLoading &&
         !quoteEventFetching &&
