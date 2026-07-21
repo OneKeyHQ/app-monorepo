@@ -8,6 +8,7 @@ import {
   getSwapColdStartDisplayTokensFromGlobalSnapshot,
   getSwapDefaultSelectedTokensFromGlobalHomeSnapshot,
   getSwapStockColdStartDisplayTokenFromGlobalSnapshot,
+  resolveSwapDisplayToken,
 } from './useSwapColdStartDisplayTokens';
 
 const SWAP_STORE_SCOPE_KEY = 'store:swap';
@@ -281,5 +282,131 @@ describe('getSwapStockColdStartDisplayTokenFromGlobalSnapshot', () => {
     expect(
       getSwapStockColdStartDisplayTokenFromGlobalSnapshot(),
     ).toBeUndefined();
+  });
+});
+
+describe('resolveSwapDisplayToken', () => {
+  const cachedEthToken = {
+    networkId: 'evm--1',
+    contractAddress: '',
+    decimals: 18,
+    isNative: true,
+    symbol: 'ETH',
+    logoURI: 'https://example.com/eth.png',
+  } satisfies ISwapToken;
+
+  it('keeps presentation fields while the same token is rehydrated', () => {
+    expect(
+      resolveSwapDisplayToken({
+        allowFallback: false,
+        currentToken: {
+          networkId: 'evm--1',
+          contractAddress: '',
+          decimals: 18,
+          isNative: true,
+          symbol: 'ETH',
+        },
+        previousDisplayToken: cachedEthToken,
+      }),
+    ).toEqual(cachedEthToken);
+  });
+
+  it('fills missing presentation fields from the matching cold-start token', () => {
+    expect(
+      resolveSwapDisplayToken({
+        allowFallback: false,
+        currentToken: {
+          networkId: 'evm--1',
+          contractAddress: '',
+          decimals: 18,
+          isNative: true,
+          symbol: 'ETH',
+          logoURI: '',
+        },
+        fallbackToken: cachedEthToken,
+      }),
+    ).toEqual(cachedEthToken);
+  });
+
+  it('keeps the cached token visible across the initial selection gap', () => {
+    expect(
+      resolveSwapDisplayToken({
+        allowFallback: true,
+        fallbackToken: cachedEthToken,
+        previousDisplayToken: cachedEthToken,
+      }),
+    ).toEqual(cachedEthToken);
+  });
+
+  it('keeps the previous display token when no global fallback is available', () => {
+    expect(
+      resolveSwapDisplayToken({
+        allowFallback: true,
+        previousDisplayToken: cachedEthToken,
+      }),
+    ).toEqual(cachedEthToken);
+  });
+
+  it('drops the cached token after initial selection has settled', () => {
+    expect(
+      resolveSwapDisplayToken({
+        allowFallback: false,
+        fallbackToken: cachedEthToken,
+        previousDisplayToken: cachedEthToken,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('does not leak presentation fields into a different token', () => {
+    const solToken = {
+      networkId: 'sol--101',
+      contractAddress: '',
+      decimals: 9,
+      isNative: true,
+      symbol: 'SOL',
+    } satisfies ISwapToken;
+
+    expect(
+      resolveSwapDisplayToken({
+        allowFallback: false,
+        currentToken: solToken,
+        previousDisplayToken: cachedEthToken,
+      }),
+    ).toEqual(solToken);
+  });
+
+  it('keeps the modal display token when the global fallback belongs to another store', () => {
+    const btcToken = {
+      networkId: 'btc--0',
+      contractAddress: '',
+      decimals: 8,
+      isNative: true,
+      symbol: 'BTC',
+    } satisfies ISwapToken;
+
+    expect(
+      resolveSwapDisplayToken({
+        allowFallback: true,
+        fallbackToken: btcToken,
+        previousDisplayToken: cachedEthToken,
+      }),
+    ).toEqual(cachedEthToken);
+  });
+
+  it('uses the global fallback before the current surface has rendered a token', () => {
+    const btcToken = {
+      networkId: 'btc--0',
+      contractAddress: '',
+      decimals: 8,
+      isNative: true,
+      symbol: 'BTC',
+    } satisfies ISwapToken;
+
+    expect(
+      resolveSwapDisplayToken({
+        allowFallback: true,
+        fallbackToken: btcToken,
+      }),
+    ).toEqual(btcToken);
   });
 });

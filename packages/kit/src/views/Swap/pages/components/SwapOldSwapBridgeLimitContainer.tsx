@@ -41,6 +41,7 @@ import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
+import { SwapQuoteStockMarketStatusAlert } from './SwapQuoteStockMarketStatusAlert';
 import SwapTipsContainer from './SwapTipsContainer';
 
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
@@ -252,6 +253,7 @@ const SwapOldSwapBridgeLimitContainer = ({
         }
         quoteResult={quoteResult}
       />
+      <SwapQuoteStockMarketStatusAlert />
       {alerts.states.length > 0 &&
       !quoteLoading &&
       !quoteEventFetching &&
@@ -312,6 +314,7 @@ const SwapOldSwapBridgeLimitContainer = ({
           onOpenProviderList={undefined}
           quoteResult={quoteResult}
         />
+        <SwapQuoteStockMarketStatusAlert />
         {alerts.states.length > 0 &&
         !quoteLoading &&
         !quoteEventFetching &&
@@ -416,6 +419,7 @@ const SwapOldSwapBridgeLimitContainer = ({
               onOpenProviderList={undefined}
               quoteResult={quoteResult}
             />
+            <SwapQuoteStockMarketStatusAlert />
             {alerts.states.length > 0 &&
             !quoteLoading &&
             !quoteEventFetching &&

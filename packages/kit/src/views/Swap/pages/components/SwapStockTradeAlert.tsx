@@ -34,6 +34,7 @@ import SwapAlertContainer from './SwapAlertContainer';
 import {
   getStockErrorAlertLevel,
   getStockTradeAlertType,
+  isCurrentStockMarketClosedQuoteEventError,
   isCurrentStockQuoteEventError,
   isSameAlertMessage,
 } from './SwapStockTradeAlertUtils';
@@ -135,11 +136,12 @@ function BasicSwapStockTradeAlert({
 
   const isStockMarketClosed =
     stockChannel.channelStage === ESwapStockChannelStage.MarketClosed ||
-    Boolean(
-      quoteEventError?.isStock &&
-      quoteEventError.isMarketOpen === false &&
-      currentStockQuoteEventError,
-    );
+    isCurrentStockMarketClosedQuoteEventError({
+      fromToken: stockChannel.fromToken,
+      fromTokenAmount: fromTokenAmount.value,
+      quoteEventError,
+      toToken: stockChannel.toToken,
+    });
 
   const stockEventAlert = useMemo<ISwapAlertState | undefined>(() => {
     if (
