@@ -2,16 +2,13 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import {
-  type LayoutChangeEvent,
-  RefreshControl,
-  ScrollView,
-} from 'react-native';
+import { type LayoutChangeEvent, ScrollView } from 'react-native';
 
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import {
   DebugRenderTracker,
   IconButton,
+  RefreshControl,
   SizableText,
   XStack,
   YStack,
