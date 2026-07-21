@@ -7,6 +7,7 @@ import {
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import type { ISwapPairStockMarketStatus } from '@onekeyhq/kit/src/views/Swap/utils/usMarketStatusUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -21,6 +22,7 @@ import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGrou
 
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
+import { SwapPairStockMarketStatusAlert } from './SwapPairStockMarketStatusAlert';
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
@@ -58,6 +60,7 @@ interface ISwapSwapMbContainerProps {
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   supportNetworksList: ISwapNetwork[];
+  stockMarketStatus?: ISwapPairStockMarketStatus;
 }
 
 const SwapSwapMbContainer = ({
@@ -81,8 +84,10 @@ const SwapSwapMbContainer = ({
   fromTokenAmountValue,
   swapRecentTokenPairs,
   supportNetworksList,
+  stockMarketStatus,
 }: ISwapSwapMbContainerProps) => {
   const tabBarHeight = useScrollContentTabBarOffset();
+  const stockMarketClosed = Boolean(stockMarketStatus?.closedStock);
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
   const onSearchClickCallback = useCallback(() => {
@@ -130,6 +135,7 @@ const SwapSwapMbContainer = ({
           onBalanceMaxPress={onBalanceMaxPress}
         />
         <SwapActionsState
+          stockMarketClosed={stockMarketClosed}
           onPreSwap={onPreSwap}
           onOpenRecipientAddress={onToAnotherAddressModal}
           onSelectPercentageStage={onSelectPercentageStage}
@@ -139,6 +145,7 @@ const SwapSwapMbContainer = ({
           onOpenProviderList={onOpenProviderList}
           quoteResult={quoteResult}
         />
+        <SwapPairStockMarketStatusAlert status={stockMarketStatus} />
         {alerts.states.length > 0 &&
         !quoteLoading &&
         !quoteEventFetching &&

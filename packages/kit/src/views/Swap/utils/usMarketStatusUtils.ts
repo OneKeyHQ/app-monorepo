@@ -1,38 +1,138 @@
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
-  ISwapAlertState,
-  ISwapToken,
-} from '@onekeyhq/shared/types/swap/types';
+  IMarketPerpsInfo,
+  IMarketStockInfo,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/marketV2';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
-import { isOndoStockSource } from '../../Market/components/utils/stockSource';
+export type ISwapTokenMarketDetailState = {
+  unavailable: boolean;
+  token?: IMarketTokenDetail;
+  perpsInfo?: IMarketPerpsInfo;
+};
 
-export function isUSMarketStatusStockTokenSource(source?: string) {
-  return isOndoStockSource(source);
+export type ISwapPairClosedStock = {
+  stock: IMarketStockInfo;
+  perpsInfo?: IMarketPerpsInfo;
+};
+
+export type ISwapPairStockMarketStatus = {
+  scope: string;
+  hasStockToken: boolean;
+  unavailable: boolean;
+  closedStock?: ISwapPairClosedStock;
+};
+
+function getSwapTokenMarketStatusScope(token?: ISwapToken) {
+  if (!token?.networkId) {
+    return '';
+  }
+
+  const contractAddress = normalizeTokenContractAddress({
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+  });
+  return `${token.networkId}:${
+    token.isNative ? 'native' : (contractAddress ?? '')
+  }`;
 }
 
-export function shouldCheckSwapWarningUSMarketClosed({
-  alerts,
+export function getSwapPairMarketStatusScope({
   swapTypeSwitch,
   fromToken,
   toToken,
-  accountReady,
-  isWaitingActionableQuote,
-  hasFromAccountWallet,
 }: {
-  alerts: ISwapAlertState[];
   swapTypeSwitch: ESwapTabSwitchType;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
-  accountReady?: boolean;
-  isWaitingActionableQuote: boolean;
-  hasFromAccountWallet: boolean;
 }) {
-  return (
-    !alerts.length &&
-    swapTypeSwitch === ESwapTabSwitchType.SWAP &&
-    Boolean(fromToken && toToken) &&
-    accountReady === true &&
-    !isWaitingActionableQuote &&
-    hasFromAccountWallet
+  if (
+    swapTypeSwitch !== ESwapTabSwitchType.SWAP &&
+    swapTypeSwitch !== ESwapTabSwitchType.BRIDGE
+  ) {
+    return '';
+  }
+  const fromTokenScope = getSwapTokenMarketStatusScope(fromToken);
+  const toTokenScope = getSwapTokenMarketStatusScope(toToken);
+  if (!fromTokenScope || !toTokenScope) {
+    return '';
+  }
+
+  return `swap-bridge:${fromTokenScope}->${toTokenScope}`;
+}
+
+export function resolveSwapPairStockMarketStatus({
+  scope,
+  fromTokenDetail,
+  toTokenDetail,
+}: {
+  scope: string;
+  fromTokenDetail: ISwapTokenMarketDetailState;
+  toTokenDetail: ISwapTokenMarketDetailState;
+}): ISwapPairStockMarketStatus {
+  const tokenDetails = [fromTokenDetail, toTokenDetail];
+  const stockTokenDetails = tokenDetails.filter((item) => item.token?.stock);
+  const closedStockTokenDetail = stockTokenDetails.find(
+    (item) => item.token?.stock?.isOpen === false,
   );
+
+  return {
+    scope,
+    hasStockToken: stockTokenDetails.length > 0,
+    unavailable: tokenDetails.some((item) => item.unavailable),
+    closedStock: closedStockTokenDetail?.token?.stock
+      ? {
+          stock: closedStockTokenDetail.token.stock,
+          perpsInfo: closedStockTokenDetail.perpsInfo,
+        }
+      : undefined,
+  };
+}
+
+export function getCurrentSwapPairStockMarketStatus({
+  scope,
+  result,
+}: {
+  scope: string;
+  result?: ISwapPairStockMarketStatus;
+}) {
+  if (!scope || result?.scope !== scope) {
+    return undefined;
+  }
+  return result;
+}
+
+export function isSwapPairStockMarketClosed({
+  status,
+  swapTypeSwitch,
+  fromToken,
+  toToken,
+}: {
+  status?: ISwapPairStockMarketStatus;
+  swapTypeSwitch: ESwapTabSwitchType;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+}) {
+  const scope = getSwapPairMarketStatusScope({
+    swapTypeSwitch,
+    fromToken,
+    toToken,
+  });
+  return Boolean(
+    getCurrentSwapPairStockMarketStatus({ scope, result: status })?.closedStock,
+  );
+}
+
+export function shouldBlockSwapTradeSubmissionForMarketClosed({
+  isMarketClosed,
+  noConnectWallet,
+  isRefreshQuote,
+}: {
+  isMarketClosed: boolean;
+  noConnectWallet: boolean;
+  isRefreshQuote: boolean;
+}) {
+  return isMarketClosed && !noConnectWallet && !isRefreshQuote;
 }
