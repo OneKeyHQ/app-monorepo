@@ -52,9 +52,8 @@ import type { IRookieShareData } from '../../types/rookieGuide';
 import type {
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
-  IFetchQuotesParams,
   ISwapApproveTransaction,
-  ISwapQuoteEvent,
+  ISwapQuoteEventPayload,
   ISwapToken,
   ISwapTokenBase,
 } from '../../types/swap/types';
@@ -410,13 +409,7 @@ export interface IAppEventBusPayload {
           errorMessage?: string;
         };
       };
-  [EAppEventBusNames.SwapQuoteEvent]: {
-    type: 'message' | 'done' | 'error' | 'close' | 'open';
-    event: ISwapQuoteEvent;
-    params: IFetchQuotesParams;
-    accountId?: string;
-    tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-  };
+  [EAppEventBusNames.SwapQuoteEvent]: ISwapQuoteEventPayload;
   [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
   [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {

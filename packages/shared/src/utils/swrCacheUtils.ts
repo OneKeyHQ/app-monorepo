@@ -175,6 +175,8 @@ const NS = {
   historyTxDetail: 'historyTxDetail',
   marketHomeTokenList: 'marketHomeTokenList',
   tokenSelectorView: 'tokenSelectorView',
+  swapHistoryPreviewList: 'swapHistoryPreviewList',
+  swapStockChart: 'swapStockChart',
   swapStockTokenDetail: 'swapStockTokenDetail',
   swapStockSpeedConfig: 'swapStockSpeedConfig',
   swapStockPayTokenDetails: 'swapStockPayTokenDetails',
@@ -453,6 +455,31 @@ export const swrKeys = {
     ].join(':'),
   swapStockTokenDetail: ({ tokenScope }: { tokenScope: string }) =>
     [NS.swapStockTokenDetail, 'v1', tokenScope].join(':'),
+  // Keep the existing unversioned key stable so users retain the history
+  // snapshot that already powers the ordinary Swap first frame.
+  swapHistoryPreviewList: () => NS.swapHistoryPreviewList,
+  swapStockChart: ({
+    networkId,
+    tokenAddress,
+    isNative,
+    range,
+    requestCurrency,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+    isNative?: boolean;
+    range: string;
+    requestCurrency: string;
+  }) =>
+    [
+      NS.swapStockChart,
+      'v1',
+      networkId,
+      tokenAddress,
+      isNative ? 'native' : 'token',
+      range,
+      requestCurrency,
+    ].join(':'),
   swapStockSpeedConfig: ({ networkId }: { networkId: string }) =>
     [NS.swapStockSpeedConfig, 'v1', networkId].join(':'),
   swapStockPayTokenDetails: ({ scope }: { scope: string }) =>

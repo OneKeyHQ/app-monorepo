@@ -37,6 +37,7 @@ import { CloudAccountBar } from '../components/CloudAccountBar';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 import { CloudBackupDetailsEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
+import { KeylessWalletBackupInfo } from '../components/KeylessWalletBackupInfo';
 import { OnboardingPage } from '../components/Layout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 import { OnboardingTestIDs } from '../testIDs';
@@ -334,7 +335,10 @@ export default function ICloudBackupDetails({
           </YStack>
         }
       />
-      <YStack {...(!gtMd && { mt: 'auto' })}>{actionButtons}</YStack>
+      <YStack {...(!gtMd && { mt: 'auto' })} gap="$3">
+        <KeylessWalletBackupInfo />
+        {actionButtons}
+      </YStack>
     </OnboardingPage>
   );
 }
