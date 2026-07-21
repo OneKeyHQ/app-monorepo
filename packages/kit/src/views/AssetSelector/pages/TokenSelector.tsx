@@ -717,7 +717,8 @@ function TokenSelector() {
   );
 
   const handleTokenOnPress = useCallback(
-    async (token: IAccountToken) => {
+    async (pressedToken: IAccountToken) => {
+      let token = pressedToken;
       if (token.isAggregateToken) {
         const allAggregateTokenList =
           allAggregateTokenMap?.[token.$key]?.tokens ?? [];
@@ -735,49 +736,63 @@ function TokenSelector() {
           (t) => t.networkId,
         );
         if (mergedAggregateTokenList.length === 1) {
-          await executeOnSelect(mergedAggregateTokenList[0]);
-          return;
-        }
-
-        const { tokenHasBalance, tokenHasBalanceCount } =
-          checkIsOnlyOneTokenHasBalance({
-            // The selector self-fetches its per-row fiat map (`r.tokens.map` ∪
-            // `r.smallBalanceTokens.map`), which is keyed by the per-network
-            // sub-token `$key` — exactly what `checkIsOnlyOneTokenHasBalance`
-            // iterates (red-team C-F2: NOT the summed aggregate map). Replaces
-            // the deleted home `allTokenListMapAtom` read.
-            tokenMap: selectorTokenListMap,
-            aggregateTokenList,
-            allAggregateTokenList,
-          });
-
-        if (tokenHasBalance && tokenHasBalanceCount === 1) {
-          await executeOnSelect(tokenHasBalance);
-          return;
-        }
-
-        if (mergedAggregateTokenList.length > 1) {
-          // Delay navigation to let the current CA transaction finish rendering
-          // SVG icons, avoiding EXC_BAD_ACCESS in InstanceHandle::getTag when
-          // Reanimated intercepts layout events from unmounting SVG views.
-          await timerUtils.wait(0);
-          navigation.push(
-            aggregateTokenSelectorScreen ??
-              EAssetSelectorRoutes.AggregateTokenSelector,
-            {
-              accountId,
-              indexedAccountId,
-              aggregateToken: token,
-              aggregateSubTokenList: aggregateTokenList,
-              onSelect,
+          const singleAggregateToken = mergedAggregateTokenList[0];
+          // An owned survivor already carries its accountId.
+          if (singleAggregateToken.accountId) {
+            await executeOnSelect(singleAggregateToken);
+            return;
+          }
+          // A lone survivor sourced from the global wallet config has no
+          // owned copy and thus no accountId: selecting it directly would
+          // leak an accountId-less token to onSelect (Receive would fall
+          // back to the All-Networks account and skip address creation).
+          // Fall through to the account-resolution path below with the real
+          // member so the target-network account is matched or created
+          // first, mirroring AggregateTokenSelector's row behavior.
+          token = singleAggregateToken;
+        } else {
+          const { tokenHasBalance, tokenHasBalanceCount } =
+            checkIsOnlyOneTokenHasBalance({
+              // The selector self-fetches its per-row fiat map (`r.tokens.map`
+              // ∪ `r.smallBalanceTokens.map`), which is keyed by the
+              // per-network sub-token `$key` — exactly what
+              // `checkIsOnlyOneTokenHasBalance` iterates (red-team C-F2: NOT
+              // the summed aggregate map). Replaces the deleted home
+              // `allTokenListMapAtom` read.
+              tokenMap: selectorTokenListMap,
+              aggregateTokenList,
               allAggregateTokenList,
-              enableNetworkAfterSelect,
-              hideZeroBalanceTokens,
-              exchangeFilter,
-              hideBalanceAndValue,
-            },
-          );
-          return;
+            });
+
+          if (tokenHasBalance && tokenHasBalanceCount === 1) {
+            await executeOnSelect(tokenHasBalance);
+            return;
+          }
+
+          if (mergedAggregateTokenList.length > 1) {
+            // Delay navigation to let the current CA transaction finish
+            // rendering SVG icons, avoiding EXC_BAD_ACCESS in
+            // InstanceHandle::getTag when Reanimated intercepts layout events
+            // from unmounting SVG views.
+            await timerUtils.wait(0);
+            navigation.push(
+              aggregateTokenSelectorScreen ??
+                EAssetSelectorRoutes.AggregateTokenSelector,
+              {
+                accountId,
+                indexedAccountId,
+                aggregateToken: token,
+                aggregateSubTokenList: aggregateTokenList,
+                onSelect,
+                allAggregateTokenList,
+                enableNetworkAfterSelect,
+                hideZeroBalanceTokens,
+                exchangeFilter,
+                hideBalanceAndValue,
+              },
+            );
+            return;
+          }
         }
       }
 
@@ -851,9 +866,13 @@ function TokenSelector() {
             accountId: matchedAccount.accountId,
           });
         } else if (account) {
+          // Key the creating-address indicator to the pressed row: for the
+          // aggregate fall-through above, `token` is the member while the
+          // rendered row (CreateAccountView matches by $key/networkId) is the
+          // aggregate descriptor.
           updateCreateAccountState({
             isCreating: true,
-            token,
+            token: pressedToken,
           });
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: account.id,
