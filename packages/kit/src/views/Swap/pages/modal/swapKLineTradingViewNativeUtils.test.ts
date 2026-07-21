@@ -58,9 +58,36 @@ describe('Swap K-line TradingViewNative source', () => {
     });
   });
 
-  it('adds CoinGecko as a fallback for ordinary Market history', () => {
+  it('does not wait for token detail before mounting an ordinary Market source', () => {
+    expect(
+      getSwapKLineTradingViewNativeSource({
+        isTokenMarketInfoLoading: true,
+        token: buildToken({
+          contractAddress: '',
+          networkId: 'hype--mainnet',
+          symbol: 'HYPE',
+        }),
+      }),
+    ).toEqual({
+      kind: 'market',
+      networkId: 'hype--mainnet',
+      tokenAddress: '',
+      symbol: 'HYPE',
+      realtime: 'disabled',
+    });
+  });
+
+  it('waits for native BTC metadata before choosing its provider', () => {
+    expect(
+      getSwapKLineTradingViewNativeSource({
+        isTokenMarketInfoLoading: true,
+        token: buildToken(),
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps chart fallback ownership out of the Swap source', () => {
     const source = getSwapKLineTradingViewNativeSource({
-      coinGeckoId: 'ethereum',
       token: buildToken({
         contractAddress: '0xAbC',
         isNative: false,
@@ -75,63 +102,33 @@ describe('Swap K-line TradingViewNative source', () => {
       tokenAddress: '0xAbC',
       symbol: 'eth',
       realtime: 'disabled',
-      history: {
-        provider: 'market',
-        fallback: {
-          provider: 'coinGecko',
-          coinGeckoId: 'ethereum',
-        },
-      },
     });
     expect(getSwapKLineTradingViewNativeSourceKey(source)).toBe(
       'market:evm--1:0xabc:ETH',
     );
   });
 
-  it('uses CoinGecko-only history for stock tokens', () => {
-    const source = getSwapKLineTradingViewNativeSource({
-      coinGeckoId: 'apple',
-      preferCoinGecko: true,
-      token: buildToken({
-        contractAddress: 'stock-aapl',
-        isNative: false,
-        isStock: true,
-        networkId: 'stock--0',
-        symbol: 'AAPL',
-      }),
-    });
-
-    expect(source).toEqual({
-      kind: 'market',
-      networkId: 'stock--0',
-      tokenAddress: 'stock-aapl',
-      symbol: 'AAPL',
-      realtime: 'disabled',
-      history: {
-        provider: 'coinGecko',
-        coinGeckoId: 'apple',
-      },
-    });
-    expect(getSwapKLineTradingViewNativeSourceKey(source)).toBe(
-      'market:stock--0:stock-aapl:AAPL:history:coinGecko:apple',
-    );
-  });
-
-  it('does not fall through to Market history while stock metadata is unavailable', () => {
+  it('passes stock token identity through the shared Market provider', () => {
     expect(
       getSwapKLineTradingViewNativeSource({
-        preferCoinGecko: true,
         token: buildToken({
+          contractAddress: 'stock-aapl',
           isNative: false,
           isStock: true,
           networkId: 'stock--0',
           symbol: 'AAPL',
         }),
       }),
-    ).toBeUndefined();
+    ).toEqual({
+      kind: 'market',
+      networkId: 'stock--0',
+      tokenAddress: 'stock-aapl',
+      symbol: 'AAPL',
+      realtime: 'disabled',
+    });
   });
 
-  it('keeps a Market history-only fallback when realtime is unavailable', () => {
+  it('keeps Market history available when realtime is unavailable', () => {
     expect(
       getSwapKLineTradingViewNativeSource({
         token: buildToken({

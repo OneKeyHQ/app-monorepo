@@ -10,9 +10,15 @@ import {
 } from '@onekeyhq/shared/src/utils/marketWsUtils';
 import type { IMarketWsDataUpdatePayload } from '@onekeyhq/shared/types/marketV2';
 
-import { createCoinGeckoKLineDataFetcher } from './coinGeckoKLineData';
+import {
+  clearCoinGeckoKLineDataCache,
+  createCoinGeckoKLineDataFetcher,
+} from './coinGeckoKLineData';
 import { getCoinGeckoHistoryRequestCandleCount } from './coinGeckoKLineUtils';
-import { getTradingViewNativeSourceKey } from './getTradingViewNativeSource';
+import {
+  getTradingViewNativeMarketTokenKey,
+  getTradingViewNativeSourceKey,
+} from './getTradingViewNativeSource';
 import { logTradingViewNativeDataError } from './tradingViewNativeDataLogger';
 import { tradingViewNativeHyperliquidGateway } from './tradingViewNativeHyperliquidGateway';
 
@@ -27,7 +33,34 @@ const MARKET_WS_CURRENCY = 'usd';
 const MARKET_CONTRACT_HISTORY_PAGE_SIZE = 299;
 const MARKET_NATIVE_HISTORY_PAGE_SIZE = 200;
 const MARKET_HISTORY_REQUEST_CANDLE_COUNT = 2000;
+const MARKET_HISTORY_SOURCE_CACHE_MAX_SIZE = 100;
 const HYPERLIQUID_HISTORY_BATCH_SIZE = 5000;
+
+// This main-runtime cache survives chart remounts and resets with the UI runtime.
+const unavailableMarketHistoryTokenKeys = new Set<string>();
+
+function cacheUnavailableMarketHistoryTokenKey(tokenKey: string) {
+  unavailableMarketHistoryTokenKeys.delete(tokenKey);
+  unavailableMarketHistoryTokenKeys.add(tokenKey);
+  if (
+    unavailableMarketHistoryTokenKeys.size <=
+    MARKET_HISTORY_SOURCE_CACHE_MAX_SIZE
+  ) {
+    return;
+  }
+
+  const oldestTokenKey = unavailableMarketHistoryTokenKeys
+    .values()
+    .next().value;
+  if (oldestTokenKey) {
+    unavailableMarketHistoryTokenKeys.delete(oldestTokenKey);
+  }
+}
+
+export function clearTradingViewNativeDataProviderCache() {
+  unavailableMarketHistoryTokenKeys.clear();
+  clearCoinGeckoKLineDataCache();
+}
 
 function normalizeMarketWsSymbol(symbol: string) {
   return symbol.trim().toUpperCase();
@@ -36,19 +69,14 @@ function normalizeMarketWsSymbol(symbol: string) {
 function createMarketDataProvider(
   source: Extract<ITradingViewNativeSource, { kind: 'market' }>,
 ): ITradingViewNativeDataProvider {
-  const historySource = source.history ?? { provider: 'market' as const };
-  const coinGeckoHistorySource =
-    historySource.provider === 'coinGecko'
-      ? historySource
-      : historySource.fallback;
-  const normalizedCoinGeckoId =
-    coinGeckoHistorySource?.coinGeckoId.trim() ?? '';
-  const fetchCoinGeckoHistory = normalizedCoinGeckoId
-    ? createCoinGeckoKLineDataFetcher(normalizedCoinGeckoId)
-    : undefined;
-  let primaryHistoryUnavailable = false;
-  const isCoinGeckoHistoryActive = () =>
-    historySource.provider === 'coinGecko' || primaryHistoryUnavailable;
+  const marketTokenKey = getTradingViewNativeMarketTokenKey(source);
+  const fetchCoinGeckoHistory = createCoinGeckoKLineDataFetcher({
+    networkId: source.networkId,
+    tokenAddress: source.tokenAddress,
+    tokenKey: marketTokenKey,
+  });
+  let primaryHistoryUnavailable =
+    unavailableMarketHistoryTokenKeys.has(marketTokenKey);
   const marketHistoryPageSize = source.tokenAddress.trim()
     ? MARKET_CONTRACT_HISTORY_PAGE_SIZE
     : MARKET_NATIVE_HISTORY_PAGE_SIZE;
@@ -61,24 +89,17 @@ function createMarketDataProvider(
 
   return {
     getHistoryRequestCandleCount: (interval) =>
-      isCoinGeckoHistoryActive()
+      primaryHistoryUnavailable
         ? getCoinGeckoHistoryRequestCandleCount(interval)
         : MARKET_HISTORY_REQUEST_CANDLE_COUNT,
     hasMoreHistory: ({ receivedPointCount }) =>
-      !isCoinGeckoHistoryActive() &&
-      receivedPointCount >= marketHistoryPageSize,
+      !primaryHistoryUnavailable && receivedPointCount >= marketHistoryPageSize,
     isReady: Boolean(
-      source.networkId &&
-      (source.tokenAddress || source.symbol) &&
-      (historySource.provider !== 'coinGecko' || fetchCoinGeckoHistory),
+      source.networkId && (source.tokenAddress || source.symbol),
     ),
     key: getTradingViewNativeSourceKey(source),
     supportsRealtime: source.realtime === 'websocket',
     fetchHistory: async (request) => {
-      if (historySource.provider === 'coinGecko') {
-        return fetchCoinGeckoHistory?.(request) ?? null;
-      }
-
       const { interval, signal, timeFrom, timeTo } = request;
       return fetchMarketKLineData({
         tokenAddress: source.tokenAddress,
@@ -87,24 +108,29 @@ function createMarketDataProvider(
         timeFrom,
         timeTo,
         autoHandleError: false,
-        ...(fetchCoinGeckoHistory
-          ? {
-              kLineDataFallback: (fallbackRequest: {
-                timeFrom: number;
-                timeTo: number;
-              }) =>
-                fetchCoinGeckoHistory({
-                  interval,
-                  signal,
-                  timeFrom: fallbackRequest.timeFrom,
-                  timeTo: fallbackRequest.timeTo,
-                }),
-              onPrimaryKLineDataUnavailable: () => {
-                primaryHistoryUnavailable = true;
-              },
-              primaryKLineDataUnavailable: primaryHistoryUnavailable,
-            }
-          : {}),
+        kLineDataFallback: async (fallbackRequest: {
+          timeFrom: number;
+          timeTo: number;
+        }) => {
+          const coinGeckoTimeFrom = Math.max(
+            fallbackRequest.timeTo -
+              interval.seconds *
+                getCoinGeckoHistoryRequestCandleCount(interval),
+            0,
+          );
+          const fallbackData = await fetchCoinGeckoHistory({
+            interval,
+            signal,
+            timeFrom: Math.min(fallbackRequest.timeFrom, coinGeckoTimeFrom),
+            timeTo: fallbackRequest.timeTo,
+          });
+          if (fallbackData?.points.length) {
+            primaryHistoryUnavailable = true;
+            cacheUnavailableMarketHistoryTokenKey(marketTokenKey);
+          }
+          return fallbackData;
+        },
+        primaryKLineDataUnavailable: primaryHistoryUnavailable,
       });
     },
     subscribeRealtime: async ({

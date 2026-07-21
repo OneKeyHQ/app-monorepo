@@ -1,7 +1,4 @@
-import type {
-  ITradingViewNativeMarketHistorySource,
-  ITradingViewNativeSource,
-} from '../types';
+import type { ITradingViewNativeSource } from '../types';
 
 function normalizeMarketTokenAddress(tokenAddress: string) {
   const normalizedTokenAddress = tokenAddress.trim();
@@ -14,6 +11,18 @@ function normalizeMarketSymbol(symbol: string) {
   return symbol.trim().toUpperCase();
 }
 
+export function getTradingViewNativeMarketTokenKey({
+  networkId,
+  tokenAddress,
+}: Pick<
+  Extract<ITradingViewNativeSource, { kind: 'market' }>,
+  'networkId' | 'tokenAddress'
+>) {
+  return `market:${networkId.trim()}:${normalizeMarketTokenAddress(
+    tokenAddress,
+  )}`;
+}
+
 export function getTradingViewNativeSourceKey(
   source: ITradingViewNativeSource,
 ) {
@@ -21,30 +30,20 @@ export function getTradingViewNativeSourceKey(
     return `hyperliquid:${source.environment}:${source.coin.trim()}`;
   }
 
-  const marketKey = `market:${source.networkId.trim()}:${normalizeMarketTokenAddress(
-    source.tokenAddress,
+  return `${getTradingViewNativeMarketTokenKey(
+    source,
   )}:${normalizeMarketSymbol(source.symbol)}`;
-  if (source.history?.provider === 'coinGecko') {
-    return `${marketKey}:history:coinGecko:${source.history.coinGeckoId
-      .trim()
-      .toLowerCase()}`;
-  }
-  // Adding a Market fallback upgrades history capability without changing the
-  // asset series, so it must not reset the chart viewport.
-  return marketKey;
 }
 
 export function getTradingViewNativeSource({
   hyperliquidCoin,
   marketDataSource,
-  marketHistory,
   networkId,
   symbol,
   tokenAddress,
 }: {
   hyperliquidCoin: string;
   marketDataSource: 'polling' | 'websocket' | undefined;
-  marketHistory?: ITradingViewNativeMarketHistorySource;
   networkId: string;
   symbol: string;
   tokenAddress: string;
@@ -64,6 +63,5 @@ export function getTradingViewNativeSource({
     tokenAddress,
     symbol,
     realtime: marketDataSource === 'websocket' ? 'websocket' : 'disabled',
-    ...(marketHistory ? { history: marketHistory } : {}),
   };
 }

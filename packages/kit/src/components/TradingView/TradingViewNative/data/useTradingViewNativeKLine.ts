@@ -20,7 +20,6 @@ import type { ITradingViewNativeRealtimeSubscription } from './tradingViewNative
 import type { ITradingViewNativeChartInterval } from './tradingViewNativeIntervals';
 import type {
   ITradingViewNativeDataState,
-  ITradingViewNativeMarketHistorySource,
   ITradingViewNativeSource,
 } from '../types';
 
@@ -265,17 +264,7 @@ export function useTradingViewNativeKLine({
   const marketSymbol = source.kind === 'market' ? source.symbol : '';
   const marketRealtime =
     source.kind === 'market' ? source.realtime : 'disabled';
-  const marketHistoryProvider =
-    source.kind === 'market' ? source.history?.provider : undefined;
-  const marketCoinGeckoId =
-    source.kind === 'market' && source.history?.provider === 'coinGecko'
-      ? source.history.coinGeckoId
-      : '';
-  const marketFallbackCoinGeckoId =
-    source.kind === 'market' && source.history?.provider === 'market'
-      ? (source.history.fallback?.coinGeckoId ?? '')
-      : '';
-  const provider = useMemo(() => {
+  const historyProvider = useMemo(() => {
     if (sourceKind === 'hyperliquid') {
       return createTradingViewNativeDataProvider({
         kind: 'hyperliquid',
@@ -284,42 +273,49 @@ export function useTradingViewNativeKLine({
       });
     }
 
-    let history: ITradingViewNativeMarketHistorySource | undefined;
-    if (marketHistoryProvider === 'coinGecko') {
-      history = {
-        provider: 'coinGecko',
-        coinGeckoId: marketCoinGeckoId,
-      };
-    } else if (marketFallbackCoinGeckoId) {
-      history = {
-        provider: 'market',
-        fallback: {
-          provider: 'coinGecko',
-          coinGeckoId: marketFallbackCoinGeckoId,
-        },
-      };
-    }
     return createTradingViewNativeDataProvider({
       kind: 'market',
       networkId: marketNetworkId,
       tokenAddress: marketTokenAddress,
       symbol: marketSymbol,
-      realtime: marketRealtime,
-      ...(history ? { history } : {}),
+      realtime: 'disabled',
     });
   }, [
     hyperliquidCoin,
     hyperliquidEnvironment,
-    marketCoinGeckoId,
-    marketFallbackCoinGeckoId,
-    marketHistoryProvider,
+    marketNetworkId,
+    marketSymbol,
+    marketTokenAddress,
+    sourceKind,
+  ]);
+  const realtimeProvider = useMemo(() => {
+    if (sourceKind === 'hyperliquid') {
+      return historyProvider;
+    }
+    if (marketRealtime !== 'websocket') {
+      return null;
+    }
+
+    return createTradingViewNativeDataProvider({
+      kind: 'market',
+      networkId: marketNetworkId,
+      tokenAddress: marketTokenAddress,
+      symbol: marketSymbol,
+      realtime: 'websocket',
+    });
+  }, [
+    historyProvider,
     marketNetworkId,
     marketRealtime,
     marketSymbol,
     marketTokenAddress,
     sourceKind,
   ]);
-  const seriesKey = provider.key;
+  const providerIsReady = historyProvider.isReady;
+  const supportsRealtime = Boolean(
+    realtimeProvider?.isReady && realtimeProvider.supportsRealtime,
+  );
+  const seriesKey = historyProvider.key;
   const latestRequestIdRef = useRef(0);
   const onRealtimePointRef = useRef(onRealtimePoint);
   const skipNextRequestRef = useRef<{
@@ -476,7 +472,7 @@ export function useTradingViewNativeKLine({
 
       const timeTo = earliestTimestamp - 1;
       const timeFrom = getHistoryTimeFrom({
-        candleCount: provider.getHistoryRequestCandleCount(interval),
+        candleCount: historyProvider.getHistoryRequestCandleCount(interval),
         intervalSeconds: interval.seconds,
         timeTo,
       });
@@ -498,7 +494,7 @@ export function useTradingViewNativeKLine({
             attempt += 1
           ) {
             try {
-              const data = await provider.fetchHistory({
+              const data = await historyProvider.fetchHistory({
                 interval,
                 signal: abortController.signal,
                 timeFrom,
@@ -525,7 +521,7 @@ export function useTradingViewNativeKLine({
               }
 
               pagination.earliestTimestamp = olderPoints[0].t;
-              pagination.hasMore = provider.hasMoreHistory({
+              pagination.hasMore = historyProvider.hasMoreHistory({
                 interval,
                 receivedPointCount: olderPoints.length,
               });
@@ -578,7 +574,7 @@ export function useTradingViewNativeKLine({
       };
       void loadOlderHistory();
     },
-    [activeInterval, provider, seriesKey],
+    [activeInterval, historyProvider, seriesKey],
   );
 
   const handleRealtimePoint = useCallback(
@@ -634,7 +630,7 @@ export function useTradingViewNativeKLine({
   );
 
   useEffect(() => {
-    if (!provider.isReady || !provider.supportsRealtime || !isVisible) {
+    if (!realtimeProvider || !supportsRealtime || !isVisible) {
       realtimeSubscriptionRef.current = null;
       setRealtimeState((current) => ({
         interval: activeInterval,
@@ -663,7 +659,7 @@ export function useTradingViewNativeKLine({
 
     const subscribe = async () => {
       try {
-        const nextSubscription = await provider.subscribeRealtime({
+        const nextSubscription = await realtimeProvider.subscribeRealtime({
           interval:
             getTradingViewNativeKLineInterval(activeInterval) ??
             TRADING_VIEW_NATIVE_KLINE_INTERVALS[4],
@@ -729,10 +725,11 @@ export function useTradingViewNativeKLine({
     activeInterval,
     handleRealtimePoint,
     isVisible,
-    provider,
+    realtimeProvider,
     realtimeRetryRevision,
     seriesKey,
     subscriberId,
+    supportsRealtime,
   ]);
 
   useInterval(
@@ -784,9 +781,7 @@ export function useTradingViewNativeKLine({
           }));
         });
     },
-    provider.isReady && provider.supportsRealtime && isVisible
-      ? REALTIME_SELF_HEAL_INTERVAL
-      : null,
+    supportsRealtime && isVisible ? REALTIME_SELF_HEAL_INTERVAL : null,
   );
 
   useEffect(() => {
@@ -801,7 +796,7 @@ export function useTradingViewNativeKLine({
 
     const requestId = latestRequestIdRef.current + 1;
     latestRequestIdRef.current = requestId;
-    if (!provider.isReady) {
+    if (!providerIsReady) {
       setHistoryState({
         interval: activeInterval,
         seriesKey,
@@ -817,7 +812,8 @@ export function useTradingViewNativeKLine({
       TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
     const timeTo = Math.floor(Date.now() / 1000);
     const timeFrom = getHistoryTimeFrom({
-      candleCount: provider.getHistoryRequestCandleCount(requestedInterval),
+      candleCount:
+        historyProvider.getHistoryRequestCandleCount(requestedInterval),
       intervalSeconds: requestedInterval.seconds,
       timeTo,
     });
@@ -872,7 +868,7 @@ export function useTradingViewNativeKLine({
         attempt += 1
       ) {
         try {
-          const data = await provider.fetchHistory({
+          const data = await historyProvider.fetchHistory({
             interval: requestedInterval,
             signal: abortController.signal,
             timeFrom,
@@ -911,7 +907,7 @@ export function useTradingViewNativeKLine({
             pagination.interval === requestedInterval.value
           ) {
             if (pagination.earliestTimestamp === undefined) {
-              pagination.hasMore = provider.hasMoreHistory({
+              pagination.hasMore = historyProvider.hasMoreHistory({
                 interval: requestedInterval,
                 receivedPointCount: receivedHistoryPointCount,
               });
@@ -969,7 +965,13 @@ export function useTradingViewNativeKLine({
       isCancelled = true;
       abortController.abort();
     };
-  }, [activeInterval, historyRefreshRevision, provider, seriesKey]);
+  }, [
+    activeInterval,
+    historyProvider,
+    historyRefreshRevision,
+    providerIsReady,
+    seriesKey,
+  ]);
 
   const dataState = useMemo(
     () =>
@@ -980,21 +982,21 @@ export function useTradingViewNativeKLine({
             ? historyState
             : { interval: activeInterval, seriesKey, status: 'idle' },
         isVisible,
-        providerIsReady: provider.isReady,
+        providerIsReady,
         realtimeState:
           realtimeState.seriesKey === seriesKey
             ? realtimeState
             : { interval: activeInterval, seriesKey, status: 'idle' },
-        supportsRealtime: provider.supportsRealtime,
+        supportsRealtime,
       }),
     [
       activeInterval,
       historyState,
       isVisible,
-      provider.isReady,
-      provider.supportsRealtime,
+      providerIsReady,
       realtimeState,
       seriesKey,
+      supportsRealtime,
       visibleChartData?.points.length,
     ],
   );

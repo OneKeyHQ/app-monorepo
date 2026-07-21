@@ -2,18 +2,6 @@ import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIn
 
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
 
-export type ITradingViewNativeCoinGeckoHistorySource = {
-  provider: 'coinGecko';
-  coinGeckoId: string;
-};
-
-export type ITradingViewNativeMarketHistorySource =
-  | ITradingViewNativeCoinGeckoHistorySource
-  | {
-      provider: 'market';
-      fallback?: ITradingViewNativeCoinGeckoHistorySource;
-    };
-
 export type ITradingViewNativeSource =
   | {
       kind: 'hyperliquid';
@@ -26,7 +14,6 @@ export type ITradingViewNativeSource =
       tokenAddress: string;
       symbol: string;
       realtime: 'disabled' | 'websocket';
-      history?: ITradingViewNativeMarketHistorySource;
     };
 
 export type ITradingViewNativeDataStatus =

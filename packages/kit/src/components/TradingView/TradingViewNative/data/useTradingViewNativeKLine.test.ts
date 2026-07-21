@@ -303,6 +303,38 @@ describe('TradingViewNative K-line data state machine', () => {
     expect(result.current.points[0]?.c).toBe(200);
   });
 
+  it('enables Market realtime without restarting in-flight history', async () => {
+    const historyRequest = createDeferred<IMarketTokenKLineResponse | null>();
+    mockFetchHistory.mockReturnValue(historyRequest.promise);
+    const { result, rerender } = renderHook(
+      ({ realtime }: { realtime: 'disabled' | 'websocket' }) =>
+        useTradingViewNativeKLine({
+          source: buildMarketSource({ realtime }),
+        }),
+      {
+        initialProps: {
+          realtime: 'disabled' as 'disabled' | 'websocket',
+        },
+      },
+    );
+
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(1));
+    const initialHistorySignal = mockFetchHistory.mock.calls[0]?.[0].signal;
+    expect(mockSubscribeRealtime).not.toHaveBeenCalled();
+
+    rerender({ realtime: 'websocket' });
+    await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalledTimes(1));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(1);
+    expect(initialHistorySignal?.aborted).toBe(false);
+
+    await act(async () => {
+      historyRequest.resolve(buildResponse(100));
+      await historyRequest.promise;
+    });
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(1);
+  });
+
   it('merges replacement and appended realtime candles', async () => {
     const handleRealtimePoint = jest.fn();
     mockFetchHistory.mockResolvedValue(buildResponse(100));

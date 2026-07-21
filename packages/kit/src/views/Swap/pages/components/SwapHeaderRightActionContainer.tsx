@@ -87,6 +87,7 @@ import {
   getSwapLimitOpenOrderCount,
 } from '../../utils/swapMarketHistory';
 import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
+import { prefetchSwapKLineMetadata } from '../modal/swapKLineTokenUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
@@ -832,6 +833,13 @@ const SwapHeaderRightActionContainer = ({
   const showKLineAsDialog =
     platformEnv.isNative || (platformEnv.isExtension && !gtLg);
   const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+  const onSwapKLinePressIn = useCallback(() => {
+    if (isKLineDisabled) {
+      return;
+    }
+
+    void prefetchSwapKLineMetadata([fromToken, toToken]);
+  }, [fromToken, isKLineDisabled, toToken]);
   const onOpenSwapKLineModal = useCallback(() => {
     if (isKLineDisabled) {
       return;
@@ -913,6 +921,7 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           testID={SwapTestIDs.kLineButton}
           icon="TradingViewCandlesOutline"
+          onPressIn={onSwapKLinePressIn}
           onPress={onOpenSwapKLineModal}
           disabled={isKLineDisabled}
           iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
