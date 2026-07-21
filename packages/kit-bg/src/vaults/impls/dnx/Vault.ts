@@ -13,9 +13,9 @@ import { coinSelect } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import {
   InsufficientBalance,
   NotImplemented,
-  OneKeyError,
   OneKeyInternalError,
   OneKeyLocalError,
+  TooManyTransactionInputs,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -250,11 +250,12 @@ export default class Vault extends VaultBase {
     // Fail fast before the device-side check so the user gets an actionable
     // message instead of a raw firmware error after entering the PIN.
     if ((inputsFromCoinSelect?.length ?? 0) > MAX_TX_INPUTS_COUNT) {
-      throw new OneKeyError(
-        `This amount requires ${
-          inputsFromCoinSelect?.length ?? 0
-        } inputs (max ${MAX_TX_INPUTS_COUNT}). Please split into smaller transfers.`,
-      );
+      throw new TooManyTransactionInputs({
+        info: {
+          number: inputsFromCoinSelect?.length ?? 0,
+          max: MAX_TX_INPUTS_COUNT,
+        },
+      });
     }
 
     return {
