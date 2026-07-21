@@ -1,4 +1,5 @@
 import {
+  IP_TABLE_OUTCOME_LEDGER_FAILURE_CAP,
   applyOutcome,
   createOutcomeLedgerEntry,
   nextIpTableRequestSequence,
@@ -83,5 +84,52 @@ describe('ipTableOutcomeLedger', () => {
       applyOutcome(entry, { ok: false, requestSequence: earlierSequence }),
     ).toBe('stale');
     expect(entry.consecutiveFailures).toBe(0);
+  });
+
+  it('bounds retained failures while keeping the greatest request sequences', () => {
+    const entry = createOutcomeLedgerEntry();
+    const highestSequence = IP_TABLE_OUTCOME_LEDGER_FAILURE_CAP + 5;
+    // Insert the greatest sequence first so insertion-order eviction would
+    // incorrectly discard it. Retention must be based on request order.
+    const completionOrder = [
+      highestSequence,
+      ...Array.from({ length: highestSequence - 1 }, (_, index) => index + 1),
+    ];
+    completionOrder.forEach((requestSequence) => {
+      applyOutcome(entry, { ok: false, requestSequence });
+    });
+
+    expect(entry.failureSequences.size).toBe(
+      IP_TABLE_OUTCOME_LEDGER_FAILURE_CAP,
+    );
+    expect([...entry.failureSequences].toSorted((a, b) => a - b)).toEqual(
+      Array.from(
+        { length: IP_TABLE_OUTCOME_LEDGER_FAILURE_CAP },
+        (_, index) => index + 6,
+      ),
+    );
+    expect(entry.consecutiveFailures).toBe(IP_TABLE_OUTCOME_LEDGER_FAILURE_CAP);
+  });
+
+  it('keeps an exact below-threshold count after pruning with a late success', () => {
+    const entry = createOutcomeLedgerEntry();
+    const highestSequence = IP_TABLE_OUTCOME_LEDGER_FAILURE_CAP + 5;
+    for (
+      let requestSequence = 1;
+      requestSequence <= highestSequence;
+      requestSequence += 1
+    ) {
+      applyOutcome(entry, { ok: false, requestSequence });
+    }
+
+    applyOutcome(entry, {
+      ok: true,
+      requestSequence: highestSequence - 2,
+    });
+
+    expect(entry.failureSequences).toEqual(
+      new Set([highestSequence - 1, highestSequence]),
+    );
+    expect(entry.consecutiveFailures).toBe(2);
   });
 });

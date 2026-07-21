@@ -1,3 +1,8 @@
+import {
+  IP_TABLE_DOMAIN_FAILOVER_THRESHOLD,
+  IP_TABLE_SNI_FAILURE_THRESHOLD,
+} from '../constants/ipTableDefaults';
+
 /**
  * Outcome ledger shared by the adapter's per-hostname fail-open tracking and
  * the service's per-endpoint health stats.
@@ -11,12 +16,16 @@
  * success remove every failure at or before its request position while
  * retaining failures from later requests, regardless of arrival order.
  */
+export const IP_TABLE_OUTCOME_LEDGER_FAILURE_CAP =
+  Math.max(IP_TABLE_DOMAIN_FAILOVER_THRESHOLD, IP_TABLE_SNI_FAILURE_THRESHOLD) *
+  4;
+
 export interface IIpTableOutcomeLedgerEntry {
-  /** Number of unresolved failures after the latest success */
+  /** Capped number of unresolved failures after the latest success */
   consecutiveFailures: number;
   /** Runtime-local request sequence of the latest successful request */
   latestSuccessSequence: number;
-  /** Failure request sequences newer than latestSuccessSequence */
+  /** Greatest retained failure sequences newer than latestSuccessSequence */
   failureSequences: Set<number>;
 }
 
@@ -34,6 +43,24 @@ let ipTableRequestSequence = 0;
 export function nextIpTableRequestSequence(): number {
   ipTableRequestSequence += 1;
   return ipTableRequestSequence;
+}
+
+function capFailureSequences(entry: IIpTableOutcomeLedgerEntry): void {
+  while (entry.failureSequences.size > IP_TABLE_OUTCOME_LEDGER_FAILURE_CAP) {
+    let smallestSequence: number | undefined;
+    entry.failureSequences.forEach((failureSequence) => {
+      if (
+        smallestSequence === undefined ||
+        failureSequence < smallestSequence
+      ) {
+        smallestSequence = failureSequence;
+      }
+    });
+    if (smallestSequence === undefined) {
+      break;
+    }
+    entry.failureSequences.delete(smallestSequence);
+  }
 }
 
 export function applyOutcome(
@@ -61,6 +88,11 @@ export function applyOutcome(
     return 'stale';
   }
   entry.failureSequences.add(outcome.requestSequence);
+  // Only threshold comparisons consume this count. Keeping the greatest
+  // request sequences preserves those comparisons under any later success:
+  // discarded sequences are older than every retained one, so they can never
+  // be the difference between below-threshold and at/above-threshold.
+  capFailureSequences(entry);
   entry.consecutiveFailures = entry.failureSequences.size;
   return 'applied';
 }
