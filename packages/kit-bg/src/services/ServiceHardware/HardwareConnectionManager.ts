@@ -260,17 +260,6 @@ export class HardwareConnectionManager {
     }
   }
 
-  // [BLE-TRACE] Last logged transport decision; the decision runs before
-  // (potentially) every SDK call, so only CHANGES are logged — a webusb-vs-ble
-  // misroute still shows up, steady state stays silent.
-  private lastLoggedTransportDecision?: string;
-
-  private logTransportDecision(detail: string) {
-    if (detail === this.lastLoggedTransportDecision) return;
-    this.lastLoggedTransportDecision = detail;
-    console.log(`[BLE-TRACE] app transport.decision ${detail}`);
-  }
-
   async determineOptimalTransportType(
     hardwareCallContext?: IHardwareCallContext,
   ): Promise<EHardwareTransportType> {
@@ -281,32 +270,21 @@ export class HardwareConnectionManager {
       const mode = await this.getDesktopUsbSetting();
       const webUsbAvailable = await this.detectUSBDeviceAvailability();
       if (webUsbAvailable) {
-        const targetType =
-          mode === 'bridge'
-            ? EHardwareTransportType.Bridge
-            : EHardwareTransportType.WEBUSB;
-        this.logTransportDecision(
-          `{target: ${targetType}, usbAvailable: true}`,
-        );
-        return targetType;
+        return mode === 'bridge'
+          ? EHardwareTransportType.Bridge
+          : EHardwareTransportType.WEBUSB;
       }
 
       // No USB devices, check if Bluetooth is available before fallback
       const bluetoothAvailable =
         await this.detectBluetoothAvailability(hardwareCallContext);
       if (bluetoothAvailable) {
-        this.logTransportDecision('{target: DesktopWebBle}');
         return EHardwareTransportType.DesktopWebBle;
       }
 
-      const fallbackType =
-        mode === 'bridge'
-          ? EHardwareTransportType.Bridge
-          : EHardwareTransportType.WEBUSB;
-      this.logTransportDecision(
-        `{target: ${fallbackType}, note: neither-usb-nor-ble-available}`,
-      );
-      return fallbackType;
+      return mode === 'bridge'
+        ? EHardwareTransportType.Bridge
+        : EHardwareTransportType.WEBUSB;
     }
 
     return currentSettingType;
