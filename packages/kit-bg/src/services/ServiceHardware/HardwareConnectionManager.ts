@@ -260,27 +260,33 @@ export class HardwareConnectionManager {
     }
   }
 
+  // [BLE-TRACE] Last logged transport decision; the decision runs before
+  // (potentially) every SDK call, so only CHANGES are logged — a webusb-vs-ble
+  // misroute still shows up, steady state stays silent.
+  private lastLoggedTransportDecision?: string;
+
+  private logTransportDecision(detail: string) {
+    if (detail === this.lastLoggedTransportDecision) return;
+    this.lastLoggedTransportDecision = detail;
+    console.log(`[BLE-TRACE] app transport.decision ${detail}`);
+  }
+
   async determineOptimalTransportType(
     hardwareCallContext?: IHardwareCallContext,
   ): Promise<EHardwareTransportType> {
-    // [BLE-TRACE] Per-step timing for the transport decision that runs before
-    // (potentially) every SDK call. Same console filter keyword as the SDK/main
-    // process BLE events — this is where a webusb-vs-ble misroute shows up.
-    const startedAt = Date.now();
     const currentSettingType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
 
     if (platformEnv.isSupportDesktopBle) {
       const mode = await this.getDesktopUsbSetting();
       const webUsbAvailable = await this.detectUSBDeviceAvailability();
-      const usbDetectMs = Date.now() - startedAt;
       if (webUsbAvailable) {
         const targetType =
           mode === 'bridge'
             ? EHardwareTransportType.Bridge
             : EHardwareTransportType.WEBUSB;
-        console.log(
-          `[BLE-TRACE] app transport.decision {target: ${targetType}, usbDetectMs: ${usbDetectMs}, usbAvailable: true}`,
+        this.logTransportDecision(
+          `{target: ${targetType}, usbAvailable: true}`,
         );
         return targetType;
       }
@@ -288,11 +294,8 @@ export class HardwareConnectionManager {
       // No USB devices, check if Bluetooth is available before fallback
       const bluetoothAvailable =
         await this.detectBluetoothAvailability(hardwareCallContext);
-      const totalMs = Date.now() - startedAt;
       if (bluetoothAvailable) {
-        console.log(
-          `[BLE-TRACE] app transport.decision {target: DesktopWebBle, usbDetectMs: ${usbDetectMs}, totalMs: ${totalMs}}`,
-        );
+        this.logTransportDecision('{target: DesktopWebBle}');
         return EHardwareTransportType.DesktopWebBle;
       }
 
@@ -300,8 +303,8 @@ export class HardwareConnectionManager {
         mode === 'bridge'
           ? EHardwareTransportType.Bridge
           : EHardwareTransportType.WEBUSB;
-      console.log(
-        `[BLE-TRACE] app transport.decision {target: ${fallbackType}, usbDetectMs: ${usbDetectMs}, totalMs: ${totalMs}, note: neither-usb-nor-ble-available}`,
+      this.logTransportDecision(
+        `{target: ${fallbackType}, note: neither-usb-nor-ble-available}`,
       );
       return fallbackType;
     }
