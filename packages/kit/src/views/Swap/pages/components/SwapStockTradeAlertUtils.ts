@@ -10,6 +10,7 @@ import { isSameStockTradeAmount } from '../../utils/swapStockTradeControl';
 export type ISwapStockQuoteEventErrorForAlert = {
   fromToken?: ISwapToken;
   fromTokenAmount?: string;
+  isMarketOpen?: boolean;
   isStock?: boolean;
   message?: string;
   toToken?: ISwapToken;
@@ -106,4 +107,27 @@ export function isCurrentStockQuoteEventError({
     left: quoteEventError.fromTokenAmount,
     right: fromTokenAmount,
   });
+}
+
+export function isCurrentStockMarketClosedQuoteEventError({
+  fromToken,
+  fromTokenAmount,
+  quoteEventError,
+  toToken,
+}: {
+  fromToken?: ISwapToken;
+  fromTokenAmount?: string;
+  quoteEventError?: ISwapStockQuoteEventErrorForAlert;
+  toToken?: ISwapToken;
+}) {
+  return Boolean(
+    quoteEventError?.isStock &&
+    quoteEventError.isMarketOpen === false &&
+    isCurrentStockQuoteEventError({
+      fromToken,
+      fromTokenAmount,
+      quoteEventError,
+      toToken,
+    }),
+  );
 }
