@@ -4,31 +4,39 @@
  *
  * Request outcomes arrive through async callbacks with no ordering guarantee:
  * an early-started request can fail slowly while a later-started request
- * succeeds first. Ordering by transport start time (`startedAtMs`) — never by
- * completion/processing time — makes every interleaving converge to the same
- * state: an outcome whose request started before the newest applied outcome
- * is stale and rejected, and both success and failure record their order even
- * when the entry was previously empty.
+ * succeeds first. `Date.now()` is not a sufficient ordering key because two
+ * transports can start in the same millisecond. Every runtime therefore
+ * assigns a strictly increasing request sequence at transport hand-off;
+ * ordering by that sequence — never by completion/processing time — makes
+ * every interleaving converge to the same state.
  */
 export interface IIpTableOutcomeLedgerEntry {
   /** Consecutive failure count; reset to 0 by an applied success */
   consecutiveFailures: number;
-  /** Transport start time (Date.now) of the newest applied outcome */
-  lastOutcomeAt: number;
+  /** Runtime-local request sequence of the newest applied outcome */
+  lastOutcomeSequence: number;
 }
 
 export function createOutcomeLedgerEntry(): IIpTableOutcomeLedgerEntry {
-  return { consecutiveFailures: 0, lastOutcomeAt: 0 };
+  return { consecutiveFailures: 0, lastOutcomeSequence: 0 };
+}
+
+let ipTableRequestSequence = 0;
+
+/** Allocate at transport hand-off, before awaiting any network work. */
+export function nextIpTableRequestSequence(): number {
+  ipTableRequestSequence += 1;
+  return ipTableRequestSequence;
 }
 
 export function applyOutcome(
   entry: IIpTableOutcomeLedgerEntry,
-  outcome: { ok: boolean; startedAtMs: number },
+  outcome: { ok: boolean; requestSequence: number },
 ): 'applied' | 'stale' {
-  if (outcome.startedAtMs < entry.lastOutcomeAt) {
+  if (outcome.requestSequence < entry.lastOutcomeSequence) {
     return 'stale';
   }
-  entry.lastOutcomeAt = outcome.startedAtMs;
+  entry.lastOutcomeSequence = outcome.requestSequence;
   if (outcome.ok) {
     entry.consecutiveFailures = 0;
   } else {

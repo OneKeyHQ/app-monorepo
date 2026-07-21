@@ -12,7 +12,11 @@ import {
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
-import { applyOutcome, createOutcomeLedgerEntry } from './ipTableOutcomeLedger';
+import {
+  applyOutcome,
+  createOutcomeLedgerEntry,
+  nextIpTableRequestSequence,
+} from './ipTableOutcomeLedger';
 import { isSniFailClosedError } from './sniFailClosedError';
 import { redactIpLiterals, safeSniLogValue } from './sniLogRedaction';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
@@ -107,12 +111,8 @@ interface IRequestFailureParams {
   target: string;
   /** Error message */
   error: string;
-  /**
-   * Date.now() captured when the request was handed to the transport.
-   * Outcomes race through async callbacks; consumers order them by request
-   * start time instead of processing time.
-   */
-  startedAtMs: number;
+  /** Runtime-local sequence allocated when handed to the transport */
+  requestSequence: number;
 }
 
 let reportRequestFailureCallback:
@@ -128,8 +128,8 @@ interface IRequestSuccessParams {
   domain: string;
   requestType: 'ip' | 'domain';
   target: string;
-  /** Date.now() captured when the request was handed to the transport */
-  startedAtMs: number;
+  /** Runtime-local sequence allocated when handed to the transport */
+  requestSequence: number;
 }
 
 let reportRequestSuccessCallback:
@@ -243,13 +243,14 @@ const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
 interface IAdapterFailoverState {
   /**
    * Per-hostname outcome ledger (consecutive transport failures + newest
-   * applied outcome ordered by transport start time). Entries persist across
+   * applied outcome ordered by runtime request sequence). Entries persist across
    * successes so a late-arriving old failure can always be recognized as
    * stale — deleting them would lose the ordering mark.
    */
   hostFailures: Map<string, IIpTableOutcomeLedgerEntry>;
   failOpenUntil: number;
-  activatedAt: number;
+  /** Sequence of the failure request that opened the circuit */
+  activatedRequestSequence: number;
   /** Hostnames whose failures opened the circuit; only they may close it early */
   activatedHostnames: Set<string>;
   /** Rotates across activations so a dead builtin endpoint is not retried forever */
@@ -324,7 +325,7 @@ function getFailoverState(lookupDomain: string): IAdapterFailoverState {
     state = {
       hostFailures: new Map(),
       failOpenUntil: 0,
-      activatedAt: 0,
+      activatedRequestSequence: 0,
       activatedHostnames: new Set(),
       fallbackIpIndex: 0,
     };
@@ -353,7 +354,7 @@ function deactivateFailover(lookupDomain: string, cause: string): void {
       action: 'deactivated',
     });
   }
-  // Reset counters but PRESERVE each hostname's lastOutcomeAt watermark:
+  // Reset counters but PRESERVE each hostname's lastOutcomeSequence watermark:
   // clearing entries would let failures from requests started before the
   // recovery re-apply on fresh entries and reopen a circuit that the link
   // already proved healthy.
@@ -361,7 +362,7 @@ function deactivateFailover(lookupDomain: string, cause: string): void {
     entry.consecutiveFailures = 0;
   });
   state.failOpenUntil = 0;
-  state.activatedAt = 0;
+  state.activatedRequestSequence = 0;
   state.activatedHostnames.clear();
   getSelectedIpForHost.clear();
 }
@@ -377,22 +378,22 @@ async function recordDomainRequestOutcome(options: {
   rootDomain: string;
   hostname: string;
   ok: boolean;
-  /** Date.now() captured when the request was handed to the transport */
-  startedAtMs: number;
+  /** Runtime-local sequence allocated when handed to the transport */
+  requestSequence: number;
   error?: unknown;
 }): Promise<void> {
-  const { rootDomain, hostname, ok, startedAtMs, error } = options;
+  const { rootDomain, hostname, ok, requestSequence, error } = options;
   const lookupDomain = await resolveFailoverLookupDomain(rootDomain);
   const state = getFailoverState(lookupDomain);
 
-  // Both success and failure go through the same start-time-ordered ledger:
-  // a success records its order even on a fresh entry (so an older failure
-  // arriving later is recognized as stale), and a failure whose request
-  // started before the newest applied outcome never counts.
+  // Both success and failure go through the same request-sequence-ordered
+  // ledger: a success records its order even on a fresh entry (so an older
+  // failure arriving later is recognized as stale), and a failure whose
+  // request predates the newest applied outcome never counts.
   const ledger = getHostOutcomeLedger(state, hostname);
 
   if (ok) {
-    const applied = applyOutcome(ledger, { ok: true, startedAtMs });
+    const applied = applyOutcome(ledger, { ok: true, requestSequence });
     // A success only proves the path that was exercised: it may close the
     // circuit only when it comes from a hostname that opened it AND started
     // after activation (a long-in-flight request resolving late says
@@ -401,7 +402,7 @@ async function recordDomainRequestOutcome(options: {
       applied === 'applied' &&
       state.failOpenUntil > Date.now() &&
       state.activatedHostnames.has(hostname) &&
-      startedAtMs >= state.activatedAt
+      requestSequence > state.activatedRequestSequence
     ) {
       deactivateFailover(lookupDomain, 'domain_recovered');
     }
@@ -415,7 +416,7 @@ async function recordDomainRequestOutcome(options: {
     return;
   }
 
-  if (applyOutcome(ledger, { ok: false, startedAtMs }) === 'stale') {
+  if (applyOutcome(ledger, { ok: false, requestSequence }) === 'stale') {
     return;
   }
 
@@ -424,7 +425,7 @@ async function recordDomainRequestOutcome(options: {
     state.activatedHostnames.add(hostname);
     if (state.failOpenUntil <= now) {
       state.failOpenUntil = now + IP_TABLE_ADAPTER_FAILOVER_TTL_MS;
-      state.activatedAt = now;
+      state.activatedRequestSequence = requestSequence;
       state.fallbackIpIndex += 1;
       getSelectedIpForHost.clear();
       logIpTableEvent('warn', 'adapter_failover_activated', {
@@ -836,7 +837,7 @@ export function createIpTableAdapter(
     rootDomain?: string;
   }): Promise<AxiosResponse> => {
     const { config, isFallback = false, hostname, rootDomain } = options;
-    const startedAtMs = Date.now();
+    const requestSequence = nextIpTableRequestSequence();
     debugLog('[IpTableAdapter] About to call original adapter...');
     debugLog(
       '[IpTableAdapter] Original adapter type:',
@@ -901,14 +902,14 @@ export function createIpTableAdapter(
           rootDomain,
           hostname,
           ok: true,
-          startedAtMs,
+          requestSequence,
         });
         if (reportRequestSuccessCallback) {
           reportRequestSuccessCallback({
             domain: rootDomain,
             requestType: 'domain',
             target: hostname,
-            startedAtMs,
+            requestSequence,
           });
         }
       }
@@ -933,14 +934,14 @@ export function createIpTableAdapter(
             rootDomain,
             hostname,
             ok: true,
-            startedAtMs,
+            requestSequence,
           });
           if (reportRequestSuccessCallback) {
             reportRequestSuccessCallback({
               domain: rootDomain,
               requestType: 'domain',
               target: hostname,
-              startedAtMs,
+              requestSequence,
             });
           }
         } else {
@@ -951,7 +952,7 @@ export function createIpTableAdapter(
             rootDomain,
             hostname,
             ok: false,
-            startedAtMs,
+            requestSequence,
             error,
           });
         }
@@ -976,7 +977,7 @@ export function createIpTableAdapter(
           requestType: 'domain',
           target: hostname,
           error: error instanceof Error ? error.message : String(error),
-          startedAtMs,
+          requestSequence,
         });
       }
 
@@ -1222,7 +1223,7 @@ export function createIpTableAdapter(
       requestBody ? requestBody.substring(0, 200) : 'null',
     );
 
-    const sniStartedAtMs = Date.now();
+    const sniRequestSequence = nextIpTableRequestSequence();
     // One SNI attempt must produce at most one ip-failure report: the
     // null-response branch throws for non-idempotent requests and that
     // throw lands in the same catch below, which would otherwise report the
@@ -1238,7 +1239,7 @@ export function createIpTableAdapter(
         requestType: 'ip',
         target: selectedIp,
         error: errorMessage,
-        startedAtMs: sniStartedAtMs,
+        requestSequence: sniRequestSequence,
       });
     };
 
@@ -1291,7 +1292,7 @@ export function createIpTableAdapter(
           domain: rootDomain,
           requestType: 'ip',
           target: selectedIp,
-          startedAtMs: sniStartedAtMs,
+          requestSequence: sniRequestSequence,
         });
       }
 

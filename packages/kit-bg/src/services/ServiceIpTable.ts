@@ -32,7 +32,10 @@ import {
   testIpSpeed,
 } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
 import { decideEndpoint } from '@onekeyhq/shared/src/request/helpers/ipTableEndpointDecision';
-import { applyOutcome } from '@onekeyhq/shared/src/request/helpers/ipTableOutcomeLedger';
+import {
+  applyOutcome,
+  nextIpTableRequestSequence,
+} from '@onekeyhq/shared/src/request/helpers/ipTableOutcomeLedger';
 import {
   isProxyActiveForUrl,
   isSniSupported,
@@ -66,11 +69,11 @@ interface IEndpointHealth {
   /** Timestamp of last failure */
   lastFailureTime: number;
   /**
-   * Transport start time (Date.now) of the newest outcome applied to this
-   * endpoint. Success/failure reports race through async callbacks; an
-   * outcome whose request started before this point is stale and ignored.
+   * Runtime-local request sequence of the newest outcome applied to this
+   * endpoint. Success/failure reports race through async callbacks; an older
+   * request sequence is stale and ignored even when Date.now() tied.
    */
-  lastOutcomeAt: number;
+  lastOutcomeSequence: number;
 }
 
 /**
@@ -176,7 +179,7 @@ class ServiceIpTable extends ServiceBase {
         failureCount: 0,
         consecutiveFailures: 0,
         lastFailureTime: 0,
-        lastOutcomeAt: 0,
+        lastOutcomeSequence: 0,
       };
       bucket.set(target, endpointHealth);
     }
@@ -350,7 +353,7 @@ class ServiceIpTable extends ServiceBase {
         defaultLogger.ipTable.request.error({
           info: '[IpTable] CDN returned empty config',
         });
-        return null;
+        return this.fetchRemoteConfigViaSniFallback();
       }
 
       // A misconfigured CDN edge can return HTML or a truncated body that
@@ -360,7 +363,7 @@ class ServiceIpTable extends ServiceBase {
         defaultLogger.ipTable.request.error({
           info: '[IpTable] Skipping CDN config update: invalid config shape (delivery-layer problem)',
         });
-        return null;
+        return this.fetchRemoteConfigViaSniFallback();
       }
 
       defaultLogger.ipTable.request.info({
@@ -696,6 +699,14 @@ class ServiceIpTable extends ServiceBase {
   // so the reachability-first escalation is never silently coalesced away.
   private pendingDomainFailureRerun = new Set<string>();
 
+  // A signed config can change while a probing round is in flight. Keep the
+  // original trigger so the completed stale round can be discarded and one
+  // fresh round can run against the newly endorsed endpoint set.
+  private pendingConfigChangeRerun = new Map<
+    string,
+    'domain_failure' | 'ip_failure' | 'periodic'
+  >();
+
   @backgroundMethod()
   async selectBestEndpointForDomain(
     domain: string,
@@ -743,9 +754,15 @@ class ServiceIpTable extends ServiceBase {
       opts,
     ).finally(() => {
       this.speedTestInFlight.delete(domain);
+      const configChangeTrigger = this.pendingConfigChangeRerun.get(domain);
+      this.pendingConfigChangeRerun.delete(domain);
       if (this.pendingDomainFailureRerun.delete(domain)) {
         void this.selectBestEndpointForDomain(domain, {
           trigger: 'domain_failure',
+        });
+      } else if (configChangeTrigger) {
+        void this.selectBestEndpointForDomain(domain, {
+          trigger: configChangeTrigger,
         });
       }
     });
@@ -778,6 +795,9 @@ class ServiceIpTable extends ServiceBase {
       });
       return;
     }
+
+    const startConfigVersion = configWithRuntime.config.version;
+    const startConfigHash = computeIpTableConfigHash(configWithRuntime.config);
 
     // A probing round can take tens of seconds; capture the selection
     // generation so a stale result cannot overwrite a fast failover that
@@ -853,6 +873,38 @@ class ServiceIpTable extends ServiceBase {
       const bestMeasuredIp = Object.entries(ipLatencies)
         .filter(([, latency]) => latency !== Infinity)
         .toSorted((a, b) => a[1] - b[1])[0]?.[0];
+
+      // The signed config may have been replaced while the probes were
+      // running. Re-read it immediately before persisting any result: an IP
+      // removed by the new envelope must never be resurrected as lastBestIp
+      // or selection by an old round. Queue exactly one fresh round against
+      // the current config instead.
+      const latestConfigWithRuntime = await this.getConfig();
+      const latestDomainConfig = latestConfigWithRuntime.config.domains[domain];
+      const latestConfigHash = computeIpTableConfigHash(
+        latestConfigWithRuntime.config,
+      );
+      const latestEndpointIps = new Set(
+        latestDomainConfig?.endpoints.map((endpoint) => endpoint.ip) ?? [],
+      );
+      const measuredEndpointRemoved = [...ipResults.keys()].some(
+        (ip) => !latestEndpointIps.has(ip),
+      );
+      const selectedCandidateRemoved =
+        decision.action === 'select_ip' && !latestEndpointIps.has(decision.ip);
+      if (
+        latestConfigWithRuntime.config.version !== startConfigVersion ||
+        latestConfigHash !== startConfigHash ||
+        measuredEndpointRemoved ||
+        selectedCandidateRemoved
+      ) {
+        this.pendingConfigChangeRerun.set(domain, opts?.trigger ?? 'periodic');
+        defaultLogger.ipTable.request.warn({
+          info: `[IpTable] Discarding stale speed test result for ${domain}: signed config changed while probing (v${startConfigVersion}/${startConfigHash} -> v${latestConfigWithRuntime.config.version}/${latestConfigHash}); queueing fresh round`,
+        });
+        return;
+      }
+
       if (bestMeasuredIp) {
         await this.backgroundApi.simpleDb.ipTable.updateLastBestIp(
           domain,
@@ -962,7 +1014,7 @@ class ServiceIpTable extends ServiceBase {
     domain: string,
     requestType: 'ip' | 'domain',
     target: string,
-    startedAtMs?: number,
+    requestSequence?: number,
   ): Promise<void> {
     // Check if IP Table is enabled
     if (!(await this.isIpTableEnabled())) {
@@ -970,7 +1022,7 @@ class ServiceIpTable extends ServiceBase {
     }
 
     const now = Date.now();
-    const outcomeAt = startedAtMs ?? now;
+    const outcomeSequence = requestSequence ?? nextIpTableRequestSequence();
 
     // Get or initialize domain health stats
     const stats = this.getDomainHealth(domain);
@@ -979,12 +1031,14 @@ class ServiceIpTable extends ServiceBase {
     const endpointHealth = this.getEndpointHealth(stats, requestType, target);
 
     // Outcomes arrive through async callbacks with no ordering guarantee:
-    // the shared ledger orders them by transport start time, so a failure
-    // whose request predates the newest applied outcome (e.g. a success
-    // that landed first) never re-increments the counter.
+    // the shared ledger orders them by a monotonic sequence allocated at
+    // transport hand-off, so a failure whose request predates the newest
+    // applied outcome never re-increments the counter, even within one ms.
     if (
-      applyOutcome(endpointHealth, { ok: false, startedAtMs: outcomeAt }) ===
-      'stale'
+      applyOutcome(endpointHealth, {
+        ok: false,
+        requestSequence: outcomeSequence,
+      }) === 'stale'
     ) {
       defaultLogger.ipTable.request.info({
         info: `[IpTable] Ignoring stale ${requestType} failure for ${domain} (${target}): request predates the newest applied outcome`,
@@ -1124,12 +1178,12 @@ class ServiceIpTable extends ServiceBase {
 
     // Register request failure callback (handles both IP and domain failures)
     setReportRequestFailureCallback(
-      ({ domain, requestType, target, startedAtMs }) => {
+      ({ domain, requestType, target, requestSequence }) => {
         void this.reportRequestFailure(
           domain,
           requestType,
           target,
-          startedAtMs,
+          requestSequence,
         );
       },
     );
@@ -1141,14 +1195,14 @@ class ServiceIpTable extends ServiceBase {
     // the old failure would create the entry afterwards and count against a
     // link that already proved healthy.
     setReportRequestSuccessCallback(
-      ({ domain, requestType, target, startedAtMs }) => {
+      ({ domain, requestType, target, requestSequence }) => {
         const stats = this.getDomainHealth(domain);
         const endpointHealth = this.getEndpointHealth(
           stats,
           requestType,
           target,
         );
-        applyOutcome(endpointHealth, { ok: true, startedAtMs });
+        applyOutcome(endpointHealth, { ok: true, requestSequence });
       },
     );
 

@@ -622,6 +622,9 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
   });
 
   test('a late failure from a request started before a newer success does not count', async () => {
+    // Both transports start in the same wall-clock millisecond. Ordering must
+    // come from the runtime request sequence, not Date.now().
+    jest.spyOn(Date, 'now').mockReturnValue(1000);
     // Request A starts first and fails slowly; request B starts later and
     // succeeds before A's failure lands. B's success must leave its ledger
     // mark even though no failure entry existed yet, making A's late
@@ -999,7 +1002,7 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
         expect.objectContaining({
           requestType: 'ip',
           target: '93.184.216.34',
-          startedAtMs: expect.any(Number),
+          requestSequence: expect.any(Number),
         }),
       );
     } finally {
