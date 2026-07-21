@@ -35,23 +35,59 @@ describe('SimpleDbEntityPrime.getEffectiveAuthSessionSource', () => {
     expect(persist).not.toHaveBeenCalled();
   });
 
-  test('self-heals a source-less legacy session by persisting LegacyEmailSupabase', async () => {
+  test('self-heals a source-less legacy session by persisting LegacyEmailSupabase without bumping the generation', async () => {
     const entity = new SimpleDbEntityPrime();
     jest.spyOn(entity, 'getAuthSessionSource').mockResolvedValue(undefined);
     jest
       .spyOn(entity, 'getSupabaseAuthToken')
       .mockResolvedValue('legacy-token');
-    const persist = jest
-      .spyOn(entity, 'setAuthSessionSource')
-      .mockResolvedValue(undefined);
+    let persisted: Record<string, unknown> = { authStateGeneration: 7 };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: Record<string, unknown>) => Record<string, unknown>,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
 
     await expect(entity.getEffectiveAuthSessionSource()).resolves.toBe(
       EPrimeAuthSessionSource.LegacyEmailSupabase,
     );
-    expect(persist).toHaveBeenCalledTimes(1);
-    expect(persist).toHaveBeenCalledWith(
+    expect(persisted.authSessionSource).toBe(
       EPrimeAuthSessionSource.LegacyEmailSupabase,
     );
+    // Self-heal is a migration of an already-established login, not a login
+    // commit — it must never advance the generation gate.
+    expect(persisted.authStateGeneration).toBe(7);
+  });
+
+  test('self-heal keeps a source committed during the resolve window (never clobbers a concurrent keyless login)', async () => {
+    const entity = new SimpleDbEntityPrime();
+    // The entry read observed no source (stale), but a KeylessOAuth login
+    // committed while getSupabaseAuthToken() was resolving — the
+    // compare-and-set inside setRawData must observe the committed source and
+    // never overwrite it with Legacy, nor advance the generation.
+    jest.spyOn(entity, 'getAuthSessionSource').mockResolvedValue(undefined);
+    jest
+      .spyOn(entity, 'getSupabaseAuthToken')
+      .mockResolvedValue('legacy-token');
+    let persisted: Record<string, unknown> = {
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      authStateGeneration: 9,
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: Record<string, unknown>) => Record<string, unknown>,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(entity.getEffectiveAuthSessionSource()).resolves.toBe(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    expect(persisted.authSessionSource).toBe(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    expect(persisted.authStateGeneration).toBe(9);
   });
 
   test('never infers or persists KeylessOAuth for a source-less session', async () => {
