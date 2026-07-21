@@ -30,13 +30,13 @@
     "root": {
       "resourceCount": 240,
       "scriptCount": 175,
-      "jsDecodedBytes": 17616077,
+      "jsDecodedBytes": 17825792,
       "longTaskTotalMs": 2000
     },
     "market": {
       "resourceCount": 240,
       "scriptCount": 175,
-      "jsDecodedBytes": 17616077,
+      "jsDecodedBytes": 17825792,
       "longTaskTotalMs": 1900,
       "businessReadyMs": 4000,
       "marketListReadyMs": 4000
