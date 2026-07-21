@@ -597,10 +597,14 @@ export const ShareImageGenerator = memo(
       useImperativeHandle(ref, () => ({ generate }));
 
       return (
+        // top must also be offscreen: an absolute box hanging below the fold
+        // (top: 0 + tall canvas) extends the scrollable overflow area of the
+        // Page ScrollView, adding phantom scroll distance (OK-58185). Overflow
+        // above/left of the origin is unreachable and adds none.
         <Stack
           position="absolute"
           left={-9999}
-          top={0}
+          top={-9999}
           opacity={0}
           pointerEvents="none"
           zIndex={-1}

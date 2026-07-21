@@ -119,6 +119,8 @@ export interface IDevSettings {
   useFastPbkdf2NativeBackend?: boolean;
   // Enable Slow 4G throttling on platforms with a supported backend.
   networkThrottleEnabled?: boolean;
+  // Force kaspa refTx fetch to fail, so QA can verify the blind-sign fallback.
+  mockKaspaRefTxFetchFailed?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

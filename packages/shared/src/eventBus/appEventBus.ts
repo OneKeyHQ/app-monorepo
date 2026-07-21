@@ -51,9 +51,8 @@ import type { IRookieShareData } from '../../types/rookieGuide';
 import type {
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
-  IFetchQuotesParams,
   ISwapApproveTransaction,
-  ISwapQuoteEvent,
+  ISwapQuoteEventPayload,
   ISwapToken,
   ISwapTokenBase,
 } from '../../types/swap/types';
@@ -409,13 +408,7 @@ export interface IAppEventBusPayload {
           errorMessage?: string;
         };
       };
-  [EAppEventBusNames.SwapQuoteEvent]: {
-    type: 'message' | 'done' | 'error' | 'close' | 'open';
-    event: ISwapQuoteEvent;
-    params: IFetchQuotesParams;
-    accountId?: string;
-    tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-  };
+  [EAppEventBusNames.SwapQuoteEvent]: ISwapQuoteEventPayload;
   [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
   [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
@@ -471,6 +464,14 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.PrimeAuthSessionSourceCommitted]: {
     authSessionSource: EPrimeAuthSessionSource;
     callerName: string;
+  };
+  [EAppEventBusNames.PrimeSubscriptionPurchaseSuccess]: {
+    // UI-local event: use emitToSelf so multiple Extension surfaces cannot race
+    // to show the same post-purchase dialog.
+    onekeyUserId: string;
+    // A purchase flow reserves this BG-owned claim before refreshing Prime
+    // state, preventing another Extension Home runtime from winning the race.
+    claimId?: string;
   };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: undefined;
