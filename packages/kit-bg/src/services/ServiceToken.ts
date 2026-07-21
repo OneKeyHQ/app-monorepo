@@ -772,6 +772,8 @@ class ServiceToken extends ServiceBase {
     {
       promise: true,
       primitive: true,
+      normalizer: ([params]: [{ networkId: string; tokenAddress: string }]) =>
+        `${params.networkId}:${params.tokenAddress}`,
       maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
       max: 10,
     },

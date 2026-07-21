@@ -1,3 +1,6 @@
+import BigNumber from 'bignumber.js';
+
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import {
@@ -28,6 +31,21 @@ export const STOCK_CHART_RANGE_ITEMS: {
   { label: '1Y', interval: '1D', seconds: 365 * 24 * 60 * 60 },
 ];
 
+export function getStockNetworkLogoUri({
+  networkId,
+  networkLogoUri,
+}: {
+  networkId?: string;
+  networkLogoUri?: string;
+}) {
+  if (networkLogoUri) {
+    return networkLogoUri;
+  }
+  return networkId
+    ? networkUtils.getLocalNetworkInfo(networkId)?.logoURI
+    : undefined;
+}
+
 export function getStockDisabledActionButtonProps(
   tradeSide: ESwapStockTradeSide,
 ) {
@@ -50,6 +68,39 @@ export function isStockMarketPanelLoadingStage(
     channelStage === ESwapStockChannelStage.InitializingStock ||
     channelStage === ESwapStockChannelStage.CheckingMarketStatus
   );
+}
+
+export function shouldShowStockMarketHeaderSkeleton({
+  channelStage,
+  hasStockIdentity,
+}: {
+  channelStage: ESwapStockChannelStage;
+  hasStockIdentity: boolean;
+}) {
+  return (
+    !hasStockIdentity &&
+    channelStage === ESwapStockChannelStage.InitializingStock
+  );
+}
+
+export function shouldShowStockQuoteActionLoading({
+  inputAmount,
+  quoteEventCompleted,
+  quoteRequestMatchesStockTrade,
+}: {
+  inputAmount: string;
+  quoteEventCompleted: boolean;
+  quoteRequestMatchesStockTrade: boolean;
+}) {
+  if (!new BigNumber(inputAmount || 0).gt(0)) {
+    return false;
+  }
+
+  if (!quoteEventCompleted) {
+    return true;
+  }
+
+  return !quoteRequestMatchesStockTrade;
 }
 
 export function mergeStockChartRealtimePoint({

@@ -1,9 +1,12 @@
 import BigNumber from 'bignumber.js';
 
 import { selectBestQuote } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapQuoteKind,
+  ESwapTabSwitchType,
   type IFetchQuoteResult,
+  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 type ISwapActionableQuote = Pick<IFetchQuoteResult, 'toAmount'>;
@@ -32,7 +35,7 @@ type ISwapQuoteProgressState = {
   hasActionableQuote: boolean;
   hasPreviousActionableQuote: boolean;
   isWaitingActionableQuote: boolean;
-  isInputQuoteLoading: boolean;
+  isQuotePresentationLoading: boolean;
   phase: ESwapQuoteUiPhase;
   displayQuote?: IFetchQuoteResult;
   previousQuote?: IFetchQuoteResult;
@@ -70,6 +73,7 @@ type ISwapCurrentQuoteInput = {
 type ISwapPreviousQuoteInput = {
   quotes: IFetchQuoteResult[];
   quoteEventTotalCount: ISwapQuoteEventTotalCount;
+  currentEventProviderKeys: string[];
   quoteLoading: boolean;
   quoteEventFetching: boolean;
 };
@@ -210,6 +214,25 @@ export function isSwapQuoteActionable(
   return new BigNumber(quoteCurrentSelect?.toAmount ?? 0).gt(0);
 }
 
+export function resolveSwapQuoteForDisplay({
+  quoteResult,
+  displayQuote,
+  phase,
+}: {
+  quoteResult?: IFetchQuoteResult;
+  displayQuote?: IFetchQuoteResult;
+  phase: ESwapQuoteUiPhase;
+}) {
+  if (
+    phase === ESwapQuoteUiPhase.StaleRefreshing &&
+    isSwapQuoteActionable(displayQuote)
+  ) {
+    return displayQuote;
+  }
+
+  return quoteResult ?? displayQuote;
+}
+
 export function isSwapQuoteInputAmountMatched({
   quote,
   fromAmount,
@@ -226,6 +249,172 @@ export function isSwapQuoteInputAmountMatched({
     return quote.toAmount === toAmount;
   }
   return quote.fromAmount === fromAmount;
+}
+
+export function shouldOfferSwapQuoteRefresh({
+  isRefreshQuote,
+  quoteResultNoMatch,
+  quoteResultNoMatchDebounced,
+  quoteLoading,
+  quoteEventFetching,
+}: {
+  isRefreshQuote: boolean;
+  quoteResultNoMatch: boolean;
+  quoteResultNoMatchDebounced: boolean;
+  quoteLoading: boolean;
+  quoteEventFetching: boolean;
+}) {
+  return (
+    !quoteLoading &&
+    !quoteEventFetching &&
+    (isRefreshQuote || (quoteResultNoMatch && quoteResultNoMatchDebounced))
+  );
+}
+
+export function shouldShowSwapQuoteActionLoading({
+  hasActionableQuote,
+  isWaitingActionableQuote,
+  isQuoteEventSettlingForAction,
+  isWaitingAutoSlippage,
+}: {
+  hasActionableQuote: boolean;
+  isWaitingActionableQuote: boolean;
+  isQuoteEventSettlingForAction: boolean;
+  isWaitingAutoSlippage: boolean;
+}) {
+  return (
+    isWaitingActionableQuote ||
+    (!hasActionableQuote && isQuoteEventSettlingForAction) ||
+    isWaitingAutoSlippage
+  );
+}
+
+export function isSameSwapQuoteAmountValue({
+  currentAmount,
+  requestAmount,
+}: {
+  currentAmount?: string;
+  requestAmount?: string;
+}) {
+  if (requestAmount === undefined) {
+    return true;
+  }
+  const normalizedCurrentAmount = currentAmount ?? '';
+  if (!requestAmount && !normalizedCurrentAmount) {
+    return true;
+  }
+  const requestAmountBN = new BigNumber(requestAmount);
+  const currentAmountBN = new BigNumber(normalizedCurrentAmount);
+  if (
+    requestAmountBN.isFinite() &&
+    !requestAmountBN.isNaN() &&
+    currentAmountBN.isFinite() &&
+    !currentAmountBN.isNaN()
+  ) {
+    return requestAmountBN.eq(currentAmountBN);
+  }
+  return requestAmount === normalizedCurrentAmount;
+}
+
+export function isSwapQuoteRequestForCurrentInput({
+  currentAccountId,
+  currentAddress,
+  currentReceivingAddress,
+  currentSwapType,
+  fromAmount,
+  fromToken,
+  quoteKind,
+  quoteRequest,
+  toAmount,
+  toToken,
+}: {
+  currentAccountId?: string;
+  currentAddress?: string;
+  currentReceivingAddress?: string;
+  currentSwapType: ESwapTabSwitchType;
+  fromAmount: string;
+  fromToken?: ISwapToken;
+  quoteKind: ESwapQuoteKind;
+  quoteRequest?: {
+    type?: ESwapTabSwitchType;
+    fromToken?: ISwapToken;
+    toToken?: ISwapToken;
+    fromTokenAmount?: string;
+    toTokenAmount?: string;
+    kind?: ESwapQuoteKind;
+    accountId?: string;
+    address?: string;
+    receivingAddress?: string;
+  };
+  toAmount: string;
+  toToken?: ISwapToken;
+}) {
+  if (
+    quoteRequest?.type !== currentSwapType ||
+    (quoteRequest.kind ?? ESwapQuoteKind.SELL) !== quoteKind ||
+    quoteRequest.accountId !== currentAccountId ||
+    quoteRequest.address !== currentAddress ||
+    quoteRequest.receivingAddress !== currentReceivingAddress ||
+    !equalTokenNoCaseSensitive({
+      token1: quoteRequest.fromToken,
+      token2: fromToken,
+    }) ||
+    !equalTokenNoCaseSensitive({
+      token1: quoteRequest.toToken,
+      token2: toToken,
+    })
+  ) {
+    return false;
+  }
+
+  const requestAmount =
+    quoteKind === ESwapQuoteKind.BUY
+      ? quoteRequest.toTokenAmount
+      : quoteRequest.fromTokenAmount;
+  if (requestAmount === undefined) {
+    return false;
+  }
+  return isSameSwapQuoteAmountValue({
+    currentAmount: quoteKind === ESwapQuoteKind.BUY ? toAmount : fromAmount,
+    requestAmount,
+  });
+}
+
+export function isSwapOrBridgeQuoteType(swapType: ESwapTabSwitchType) {
+  return (
+    swapType === ESwapTabSwitchType.SWAP ||
+    swapType === ESwapTabSwitchType.BRIDGE
+  );
+}
+
+export function shouldShowSwapQuoteRequestLoading({
+  swapType,
+  hasCurrentActionableQuote,
+  hasValidInput,
+  isQuoteRequestStarting,
+  quoteEventCompleted,
+  quoteRequestMatchesInput,
+}: {
+  swapType: ESwapTabSwitchType;
+  hasCurrentActionableQuote: boolean;
+  hasValidInput: boolean;
+  isQuoteRequestStarting: boolean;
+  quoteEventCompleted: boolean;
+  quoteRequestMatchesInput: boolean;
+}) {
+  if (!isSwapOrBridgeQuoteType(swapType) || !hasValidInput) {
+    return false;
+  }
+  if (isQuoteRequestStarting) {
+    return true;
+  }
+  if (!quoteRequestMatchesInput) {
+    return true;
+  }
+  if (hasCurrentActionableQuote) {
+    return false;
+  }
+  return !quoteEventCompleted;
 }
 
 export function isSwapQuoteFromCurrentEvent({
@@ -251,19 +440,35 @@ export function isSwapQuoteFromCurrentEvent({
 export function selectSwapPreviousActionableQuote({
   quotes,
   quoteEventTotalCount,
+  currentEventProviderKeys,
   quoteLoading,
   quoteEventFetching,
 }: ISwapPreviousQuoteInput) {
-  const previousQuotes = quotes.filter(
-    (quote) =>
-      isSwapQuoteActionable(quote) &&
-      !isSwapQuoteFromCurrentEvent({
-        quote,
-        quoteEventTotalCount,
-        quoteLoading,
-        quoteEventFetching,
-      }),
-  );
+  const isQuoteRequesting = quoteLoading || quoteEventFetching;
+  const previousQuotes = quotes.filter((quote) => {
+    if (!isSwapQuoteActionable(quote)) {
+      return false;
+    }
+
+    const isCurrentEventQuote = isSwapQuoteFromCurrentEvent({
+      quote,
+      quoteEventTotalCount,
+      quoteLoading,
+      quoteEventFetching,
+    });
+    if (!isCurrentEventQuote) {
+      return true;
+    }
+
+    // Re-quote keeps compatible provider results by assigning the new event
+    // id. Until that provider responds, the retained result remains display-only
+    // and must not disappear when another provider returns first.
+    return (
+      isQuoteRequesting &&
+      Boolean(quoteEventTotalCount.eventId) &&
+      !hasSwapCurrentEventProvider(quote, currentEventProviderKeys)
+    );
+  });
 
   return selectBestQuote(previousQuotes);
 }
@@ -391,7 +596,7 @@ export function getSwapQuoteProgressState({
     hasActionableQuote,
     hasPreviousActionableQuote,
     isWaitingActionableQuote: isQuoteRequesting && !hasActionableQuote,
-    isInputQuoteLoading: phase === ESwapQuoteUiPhase.Waiting,
+    isQuotePresentationLoading: phase === ESwapQuoteUiPhase.Waiting,
     phase,
     displayQuote,
     previousQuote: displayPreviousQuote,
