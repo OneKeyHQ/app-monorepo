@@ -28,6 +28,10 @@ import { EOneKeyIdLoginWithLocalKeylessPrepareStatus } from '@onekeyhq/shared/sr
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  getAvailabilityErrorCode,
+  getAvailabilityFailureStatus,
+} from '@onekeyhq/shared/src/request/availabilityMetrics';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -89,6 +93,12 @@ type ICompleteOneKeyIdProfileResponse = IPrimeServerUserInfo & {
 type IPrimeApiClientResponse<T> = IApiClientResponse<T> & {
   messageId?: string;
 };
+
+type IOneKeyIdLoginFailureStage =
+  | 'local_commit'
+  | 'post_commit_cleanup'
+  | 'server_login'
+  | 'session_guard';
 
 class ServicePrime extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -731,6 +741,55 @@ class ServicePrime extends ServiceBase {
     accessToken: string;
     authSessionSource?: EPrimeAuthSessionSource;
   }) {
+    if (!accessToken) {
+      return;
+    }
+
+    const context = {
+      attemptId: stringUtils.generateUUID(),
+      method: 'legacy_email' as const,
+    };
+    const startedAt = Date.now();
+    let failureStage: IOneKeyIdLoginFailureStage = 'server_login';
+    defaultLogger.prime.subscription.onekeyIdLoginAttempt(context);
+
+    try {
+      await this._apiLogin(
+        { accessToken, authSessionSource },
+        (stage) => (failureStage = stage),
+      );
+      defaultLogger.prime.subscription.onekeyIdLoginResult({
+        ...context,
+        durationMs: Date.now() - startedAt,
+        errorCode: 'none',
+        failureStage: 'none',
+        status: 'success',
+      });
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdLoginResult({
+        ...context,
+        durationMs: Date.now() - startedAt,
+        errorCode: getAvailabilityErrorCode(error),
+        failureStage,
+        status:
+          getAvailabilityFailureStatus(error) === 'timeout'
+            ? 'timeout'
+            : 'failed',
+      });
+      throw error;
+    }
+  }
+
+  private async _apiLogin(
+    {
+      accessToken,
+      authSessionSource,
+    }: {
+      accessToken: string;
+      authSessionSource?: EPrimeAuthSessionSource;
+    },
+    setFailureStage: (stage: IOneKeyIdLoginFailureStage) => void,
+  ) {
     await this.loginMutex.runExclusive(async () => {
       if (!accessToken) {
         return;
@@ -752,6 +811,7 @@ class ServicePrime extends ServiceBase {
       await this.backgroundApi.simpleDb.prime.clearCachedAuthToken();
       const client = await this.getPrimeClient();
       try {
+        setFailureStage('server_login');
         const response = await client.post<{
           data: IPrimeServerUserInfo;
         }>(
@@ -769,6 +829,7 @@ class ServicePrime extends ServiceBase {
         // observe — and wipe — a half-committed login, and any commit
         // failure rolls the pair back. The network POST above stays outside
         // this lock; it is held only for the few-ms local commit.
+        setFailureStage('local_commit');
         await this.authStateWriteMutex.runExclusive(async () => {
           await this.commitAuthSessionSourceAndPrimeAtom({
             authSessionSource: nextAuthSessionSource,
@@ -914,6 +975,45 @@ class ServicePrime extends ServiceBase {
   }: {
     accessToken: string;
   }): Promise<IOneKeyIdOAuthLoginResponse> {
+    const context = {
+      attemptId: stringUtils.generateUUID(),
+      method: 'keyless_oauth' as const,
+    };
+    const startedAt = Date.now();
+    let failureStage: IOneKeyIdLoginFailureStage = 'session_guard';
+    defaultLogger.prime.subscription.onekeyIdLoginAttempt(context);
+
+    try {
+      const result = await this._apiOAuthLogin({ accessToken }, (stage) => {
+        failureStage = stage;
+      });
+      defaultLogger.prime.subscription.onekeyIdLoginResult({
+        ...context,
+        durationMs: Date.now() - startedAt,
+        errorCode: 'none',
+        failureStage: 'none',
+        status: 'success',
+      });
+      return result;
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdLoginResult({
+        ...context,
+        durationMs: Date.now() - startedAt,
+        errorCode: getAvailabilityErrorCode(error),
+        failureStage,
+        status:
+          getAvailabilityFailureStatus(error) === 'timeout'
+            ? 'timeout'
+            : 'failed',
+      });
+      throw error;
+    }
+  }
+
+  private async _apiOAuthLogin(
+    { accessToken }: { accessToken: string },
+    setFailureStage: (stage: IOneKeyIdLoginFailureStage) => void,
+  ): Promise<IOneKeyIdOAuthLoginResponse> {
     return this.loginMutex.runExclusive(async () => {
       if (!accessToken) {
         throw new OneKeyLocalError('apiOAuthLogin ERROR: Invalid accessToken');
@@ -940,6 +1040,7 @@ class ServicePrime extends ServiceBase {
           callerName: 'ServicePrime.apiOAuthLogin',
         });
       const client = await this.getPrimeClient();
+      setFailureStage('server_login');
       const result = await client.post<
         IApiClientResponse<IOneKeyIdOAuthLoginResponse>
       >(
@@ -959,6 +1060,7 @@ class ServicePrime extends ServiceBase {
       // atom written as one atomic (local-only, rollback-on-failure) pair —
       // see apiLogin. The POST above and the legacy-session cleanup below
       // (Supabase signOut, network-capable) stay outside the lock.
+      setFailureStage('local_commit');
       await this.authStateWriteMutex.runExclusive(async () => {
         await this.commitAuthSessionSourceAndPrimeAtom({
           authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
@@ -977,6 +1079,7 @@ class ServicePrime extends ServiceBase {
       // would tear down the just-validated OAuth session and show a login
       // failure for a login that succeeded. Leftovers are re-cleaned by the
       // next login/bind/logout.
+      setFailureStage('post_commit_cleanup');
       try {
         await this.backgroundApi.simpleDb.prime.clearLegacyAuthSession();
       } catch (cleanupError) {

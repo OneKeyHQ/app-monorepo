@@ -7,6 +7,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  getAvailabilityErrorCode,
+  getAvailabilityFailureStatus,
+  normalizeAvailabilityErrorCode,
+} from '@onekeyhq/shared/src/request/availabilityMetrics';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   INotificationPushMessageAckParams,
@@ -35,6 +41,21 @@ import type { IPushProviderBaseProps } from './PushProviderBase';
 import type { INotificationStatusAtomData } from '../../../states/jotai/atoms/notifications';
 import type { Socket } from 'socket.io-client';
 
+type IConnectionAttempt = {
+  attemptId: string;
+  startedAt: number;
+  trigger: 'initial' | 'reconnect';
+};
+
+function normalizeDisconnectReason(reason: Socket.DisconnectReason) {
+  if (reason === 'io client disconnect') return 'client_disconnect' as const;
+  if (reason === 'io server disconnect') return 'server_disconnect' as const;
+  if (reason === 'ping timeout') return 'ping_timeout' as const;
+  if (reason === 'transport close') return 'transport_close' as const;
+  if (reason === 'transport error') return 'transport_error' as const;
+  return 'unknown' as const;
+}
+
 export class PushProviderWebSocket extends PushProviderBase {
   constructor(props: IPushProviderBaseProps) {
     super(props);
@@ -42,6 +63,44 @@ export class PushProviderWebSocket extends PushProviderBase {
   }
 
   private socket: Socket | null = null;
+
+  private connectionAttempt: IConnectionAttempt | null = null;
+
+  private connectedAt: number | null = null;
+
+  private startConnectionAttempt(trigger: IConnectionAttempt['trigger']) {
+    const connectionAttempt = {
+      attemptId: generateUUID(),
+      startedAt: Date.now(),
+      trigger,
+    };
+    this.connectionAttempt = connectionAttempt;
+    defaultLogger.app.network.webSocketConnectionAttempt({
+      attemptId: connectionAttempt.attemptId,
+      transport: 'notification_market',
+      trigger,
+    });
+  }
+
+  private finishConnectionAttempt({
+    errorCode,
+    status,
+  }: {
+    errorCode?: unknown;
+    status: 'failed' | 'success' | 'timeout';
+  }) {
+    const connectionAttempt = this.connectionAttempt;
+    if (!connectionAttempt) return;
+    this.connectionAttempt = null;
+    defaultLogger.app.network.webSocketConnectionResult({
+      attemptId: connectionAttempt.attemptId,
+      durationMs: Math.max(0, Date.now() - connectionAttempt.startedAt),
+      errorCode: normalizeAvailabilityErrorCode(errorCode),
+      status,
+      transport: 'notification_market',
+      trigger: connectionAttempt.trigger,
+    });
+  }
 
   async ping(payload: any) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -86,6 +145,7 @@ export class PushProviderWebSocket extends PushProviderBase {
     );
     const env = endpoint.includes('onekeytest') ? 'test' : 'prod';
     // TODO init timeout
+    this.startConnectionAttempt('initial');
     this.socket = io(endpoint, {
       transports: ['websocket', 'polling'],
       extraHeaders: {
@@ -97,6 +157,8 @@ export class PushProviderWebSocket extends PushProviderBase {
       reconnectionDelayMax: 30_000,
     });
     this.socket.on('connect', () => {
+      this.finishConnectionAttempt({ status: 'success' });
+      this.connectedAt = Date.now();
       // 获取 socketId
       defaultLogger.notification.websocket.consoleLog(
         'WebSocket 连接成功',
@@ -114,6 +176,13 @@ export class PushProviderWebSocket extends PushProviderBase {
       );
     });
     this.socket.on('connect_error', (error) => {
+      this.finishConnectionAttempt({
+        errorCode: getAvailabilityErrorCode(error),
+        status:
+          getAvailabilityFailureStatus(error) === 'timeout'
+            ? 'timeout'
+            : 'failed',
+      });
       defaultLogger.notification.websocket.consoleLog(
         'WebSocket 连接错误:',
         error,
@@ -122,10 +191,27 @@ export class PushProviderWebSocket extends PushProviderBase {
     this.socket.on('error', (error) => {
       defaultLogger.notification.websocket.consoleLog('WebSocket 错误:', error);
     });
-    this.socket.on('reconnect', (_payload) => {
+    this.socket.io.on('reconnect_attempt', () => {
+      if (!this.connectionAttempt) {
+        this.startConnectionAttempt('reconnect');
+      }
+    });
+    this.socket.io.on('reconnect', (_payload) => {
       defaultLogger.notification.websocket.consoleLog('WebSocket 重新连接成功');
     });
-    this.socket.on('disconnect', (reason) => {
+    this.socket.on('disconnect', (reason: Socket.DisconnectReason) => {
+      const connectedDurationMs = this.connectedAt
+        ? Math.max(0, Date.now() - this.connectedAt)
+        : 0;
+      this.connectedAt = null;
+      defaultLogger.app.network.webSocketConnectionClosed({
+        connectedDurationMs,
+        reason: normalizeDisconnectReason(reason),
+        transport: 'notification_market',
+        willReconnect:
+          reason !== 'io client disconnect' &&
+          reason !== 'io server disconnect',
+      });
       defaultLogger.notification.websocket.consoleLog(
         'WebSocket 连接断开',
         reason,

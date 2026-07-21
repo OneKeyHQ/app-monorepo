@@ -19,6 +19,11 @@ import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
+import {
+  createWebViewAvailabilityTiming,
+  reportWebViewAvailabilityResult,
+} from '@onekeyhq/shared/src/request/availabilityMetrics';
+import type { IWebViewAvailabilityTiming } from '@onekeyhq/shared/src/request/availabilityMetrics';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   checkOneKeyCardGoogleOauthUrl,
@@ -159,6 +164,9 @@ const DesktopWebView = forwardRef(
       | undefined
     >(undefined);
     const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const availabilityTimingRef = useRef<
+      IWebViewAvailabilityTiming | undefined
+    >(undefined);
 
     const clearLoadTimeout = useCallback(() => {
       if (loadTimeoutRef.current) {
@@ -171,6 +179,10 @@ const DesktopWebView = forwardRef(
       clearLoadTimeout();
       loadTimeoutRef.current = setTimeout(() => {
         if (!isUnmountingRef.current) {
+          reportWebViewAvailabilityResult({
+            status: 'timeout',
+            timing: availabilityTimingRef.current,
+          });
           setDesktopLoadError(true);
           setDesktopLoadErrorCode(undefined);
         }
@@ -265,6 +277,11 @@ const DesktopWebView = forwardRef(
           const failedUrl = event?.validatedURL ?? event?.url;
           if (event.isMainFrame) {
             clearLoadTimeout();
+            reportWebViewAvailabilityResult({
+              errorCode: event.errorCode,
+              status: event.errorCode === -3 ? 'cancelled' : 'network_error',
+              timing: availabilityTimingRef.current,
+            });
           }
           if (event.errorCode !== -3) {
             // TODO iframe error also show ErrorView
@@ -301,6 +318,10 @@ const DesktopWebView = forwardRef(
             setDesktopLoadError(false);
             setDesktopLoadErrorCode(undefined);
             updateIsDomReady(false);
+            availabilityTimingRef.current = createWebViewAvailabilityTiming({
+              attemptId: stringUtils.generateUUID(),
+              url,
+            });
             startLoadTimeout();
           }
           checkGoogleOauth(url);
@@ -310,6 +331,10 @@ const DesktopWebView = forwardRef(
 
         const didFinishLoad = (e: any) => {
           clearLoadTimeout();
+          reportWebViewAvailabilityResult({
+            status: 'success',
+            timing: availabilityTimingRef.current,
+          });
           if (!lastMainFrameLoadErrorRef.current) {
             setDesktopLoadError(false);
             setDesktopLoadErrorCode(undefined);
@@ -320,6 +345,10 @@ const DesktopWebView = forwardRef(
 
         const innerHandleDidStopLoading = () => {
           clearLoadTimeout();
+          reportWebViewAvailabilityResult({
+            status: 'cancelled',
+            timing: availabilityTimingRef.current,
+          });
           onDidStopLoading?.();
         };
 
@@ -421,6 +450,10 @@ const DesktopWebView = forwardRef(
       () => () => {
         isUnmountingRef.current = true;
         clearLoadTimeout();
+        reportWebViewAvailabilityResult({
+          status: 'cancelled',
+          timing: availabilityTimingRef.current,
+        });
         // not working, ref is null after unmount
         webviewRef.current?.closeDevTools();
       },

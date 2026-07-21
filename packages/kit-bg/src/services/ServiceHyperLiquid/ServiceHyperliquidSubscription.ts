@@ -19,8 +19,13 @@ import {
   markPerpsColdStartPerfOnce,
 } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  getAvailabilityErrorCode,
+  normalizeAvailabilityErrorCode,
+} from '@onekeyhq/shared/src/request/availabilityMetrics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isAppVisible } from '@onekeyhq/shared/src/utils/appVisibility';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   clearTrackedInterval,
   trackedSetInterval,
@@ -151,6 +156,51 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _client: IHyperliquidWsClient | null = null;
 
   private _clientInitPromise: Promise<IHyperliquidWsClient> | null = null;
+
+  private _webSocketAvailabilityAttempt: {
+    attemptId: string;
+    startedAt: number;
+    trigger: 'initial' | 'reconnect';
+  } | null = null;
+
+  private _webSocketConnectedAt: number | null = null;
+
+  private _isClosingWebSocket = false;
+
+  private _startWebSocketAvailabilityAttempt(trigger: 'initial' | 'reconnect') {
+    if (this._webSocketAvailabilityAttempt) return;
+    const attempt = {
+      attemptId: generateUUID(),
+      startedAt: Date.now(),
+      trigger,
+    };
+    this._webSocketAvailabilityAttempt = attempt;
+    defaultLogger.app.network.webSocketConnectionAttempt({
+      attemptId: attempt.attemptId,
+      transport: 'perps',
+      trigger,
+    });
+  }
+
+  private _finishWebSocketAvailabilityAttempt({
+    errorCode,
+    status,
+  }: {
+    errorCode?: unknown;
+    status: 'failed' | 'success' | 'timeout';
+  }) {
+    const attempt = this._webSocketAvailabilityAttempt;
+    if (!attempt) return;
+    this._webSocketAvailabilityAttempt = null;
+    defaultLogger.app.network.webSocketConnectionResult({
+      attemptId: attempt.attemptId,
+      durationMs: Math.max(0, Date.now() - attempt.startedAt),
+      errorCode: normalizeAvailabilityErrorCode(errorCode),
+      status,
+      transport: 'perps',
+      trigger: attempt.trigger,
+    });
+  }
 
   private _currentState: ISubscriptionState = {
     currentUser: null,
@@ -1154,6 +1204,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const readyState = socket?.readyState;
     this._lastReadyState = readyState;
     void perpsWebSocketReadyStateAtom.set({ readyState });
+    this._finishWebSocketAvailabilityAttempt({
+      errorCode: getAvailabilityErrorCode(event),
+      status: 'failed',
+    });
     // WS error event — readyState tracked via perpsWebSocketReadyStateAtom
   };
 
@@ -1165,6 +1219,24 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const readyState = socket?.readyState;
     this._lastReadyState = readyState;
     void perpsWebSocketReadyStateAtom.set({ readyState });
+    this._finishWebSocketAvailabilityAttempt({
+      errorCode: event.code,
+      status: 'failed',
+    });
+    defaultLogger.app.network.webSocketConnectionClosed({
+      connectedDurationMs: this._webSocketConnectedAt
+        ? Math.max(0, Date.now() - this._webSocketConnectedAt)
+        : 0,
+      reason: this._isClosingWebSocket
+        ? 'client_disconnect'
+        : 'transport_close',
+      transport: 'perps',
+      willReconnect: !this._isClosingWebSocket,
+    });
+    this._webSocketConnectedAt = null;
+    if (!this._isClosingWebSocket) {
+      this._startWebSocketAvailabilityAttempt('reconnect');
+    }
     // WS close event — readyState tracked via perpsWebSocketReadyStateAtom
     this._activeSubscriptions.clear();
     this._clearPostOpenDataCheck();
@@ -1189,6 +1261,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // Catch-all here keeps the WS lifecycle robust regardless of which atom
     // write or update fails.
     try {
+      this._finishWebSocketAvailabilityAttempt({ status: 'success' });
+      this._webSocketConnectedAt = Date.now();
       markPerpsColdStartPerfOnce('service_ws_open_first');
       const socket = event.target as WebSocket | undefined;
       const readyState = socket?.readyState;
@@ -1293,7 +1367,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         },
         /* spell-checker:enable */
       };
-      const transport = new WebSocketTransport(transportOptions);
+      this._startWebSocketAvailabilityAttempt('initial');
+      let transport: WebSocketTransport;
+      try {
+        transport = new WebSocketTransport(transportOptions);
+      } catch (error) {
+        this._finishWebSocketAvailabilityAttempt({
+          errorCode: getAvailabilityErrorCode(error),
+          status: 'failed',
+        });
+        throw error;
+      }
       // transport.socket.readyState
       const removeAllSocketEventListeners = () => {
         transport?.socket?.removeEventListener(
@@ -1479,6 +1563,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private async _closeClient(): Promise<void> {
     this._unwatchSubscriptionAtoms();
     if (this._client) {
+      this._isClosingWebSocket = true;
       try {
         // TODO remove all eventListeners
         await this._client.dispose();
@@ -1487,6 +1572,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           '[ServiceHyperliquidSubscription.closeClient] Failed to close client:',
           error,
         );
+      } finally {
+        this._isClosingWebSocket = false;
       }
 
       this._client = null;

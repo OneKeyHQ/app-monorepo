@@ -34,6 +34,10 @@ import {
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  getAvailabilityErrorCode,
+  getAvailabilityFailureStatus,
+} from '@onekeyhq/shared/src/request/availabilityMetrics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -146,6 +150,12 @@ export type IDeviceGetFeaturesOptions = {
 type IHandleLinuxWebUsbAccessDeniedErrorParams = {
   error?: unknown;
 };
+
+function getHardwareAvailabilityFailureStatus(error: unknown) {
+  const status = getAvailabilityFailureStatus(error);
+  if (status === 'cancelled' || status === 'timeout') return status;
+  return 'failed' as const;
+}
 
 // skip events
 const SKIPPED_EVENTS = new Set([
@@ -781,6 +791,52 @@ class ServiceHardware extends ServiceBase {
     waitForAllTransports?: boolean;
     transportType?: 'usb' | 'ble';
   }) {
+    const availabilityContext = {
+      attemptId: stringUtils.generateUUID(),
+      operation: 'search' as const,
+      transport: params?.transportType ?? ('unknown' as const),
+      vendor: params?.vendor ?? EHardwareVendor.onekey,
+    };
+    const startedAt = Date.now();
+    defaultLogger.hardware.connection.hardwareOperationAttempt(
+      availabilityContext,
+    );
+    try {
+      const response = await this._searchDevices(params);
+      const responseDetails = response as
+        | { payload?: unknown; success?: boolean }
+        | undefined;
+      defaultLogger.hardware.connection.hardwareOperationResult({
+        ...availabilityContext,
+        deviceCount: Array.isArray(responseDetails?.payload)
+          ? responseDetails.payload.length
+          : 0,
+        durationMs: Math.max(0, Date.now() - startedAt),
+        errorCode:
+          responseDetails?.success === false
+            ? getAvailabilityErrorCode(responseDetails.payload)
+            : 'unknown',
+        status: responseDetails?.success === false ? 'failed' : 'success',
+      });
+      return response;
+    } catch (error) {
+      defaultLogger.hardware.connection.hardwareOperationResult({
+        ...availabilityContext,
+        deviceCount: 0,
+        durationMs: Math.max(0, Date.now() - startedAt),
+        errorCode: getAvailabilityErrorCode(error),
+        status: getHardwareAvailabilityFailureStatus(error),
+      });
+      throw error;
+    }
+  }
+
+  private async _searchDevices(params?: {
+    vendor?: EHardwareVendor;
+    resetSession?: boolean;
+    waitForAllTransports?: boolean;
+    transportType?: 'usb' | 'ble';
+  }) {
     const vendorProfile = params?.vendor
       ? getVendorProfile(params.vendor)
       : undefined;
@@ -1101,6 +1157,47 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async connect({
+    device,
+    hardwareCallContext,
+  }: {
+    device: SearchDevice;
+    hardwareCallContext?: EHardwareCallContext;
+  }): Promise<Features | undefined> {
+    const deviceVendor = (device as SearchDevice & { vendor?: EHardwareVendor })
+      .vendor;
+    const availabilityContext = {
+      attemptId: stringUtils.generateUUID(),
+      operation: 'connect' as const,
+      transport: 'unknown' as const,
+      vendor: deviceVendor ?? EHardwareVendor.onekey,
+    };
+    const startedAt = Date.now();
+    defaultLogger.hardware.connection.hardwareOperationAttempt(
+      availabilityContext,
+    );
+    try {
+      const features = await this._connect({ device, hardwareCallContext });
+      defaultLogger.hardware.connection.hardwareOperationResult({
+        ...availabilityContext,
+        deviceCount: features ? 1 : 0,
+        durationMs: Math.max(0, Date.now() - startedAt),
+        errorCode: features ? 'unknown' : 'empty_result',
+        status: features ? 'success' : 'failed',
+      });
+      return features;
+    } catch (error) {
+      defaultLogger.hardware.connection.hardwareOperationResult({
+        ...availabilityContext,
+        deviceCount: 0,
+        durationMs: Math.max(0, Date.now() - startedAt),
+        errorCode: getAvailabilityErrorCode(error),
+        status: getHardwareAvailabilityFailureStatus(error),
+      });
+      throw error;
+    }
+  }
+
+  private async _connect({
     device,
     hardwareCallContext,
   }: {

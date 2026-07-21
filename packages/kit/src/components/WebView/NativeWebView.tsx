@@ -19,6 +19,12 @@ import { Stack } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import GeckoView from '@onekeyhq/shared/src/modules3rdParty/geckoview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  createWebViewAvailabilityTiming,
+  reportWebViewAvailabilityResult,
+} from '@onekeyhq/shared/src/request/availabilityMetrics';
+import type { IWebViewAvailabilityTiming } from '@onekeyhq/shared/src/request/availabilityMetrics';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import uriUtils, {
   checkOneKeyCardGoogleOauthUrl,
@@ -30,7 +36,11 @@ import { WEBVIEW_LOAD_TIMEOUT_MS, createMessageInjectedScript } from './utils';
 import type { IInpageProviderWebViewProps, IWebViewRef } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
-import type { WebViewRenderProcessGoneEvent } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  WebViewErrorEvent,
+  WebViewHttpErrorEvent,
+  WebViewRenderProcessGoneEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 
 export type INativeWebViewProps = WebViewProps & IInpageProviderWebViewProps;
 
@@ -52,6 +62,8 @@ const NativeWebView = forwardRef(
       onLoadStart,
       onLoad,
       onLoadEnd,
+      onError,
+      onHttpError,
       onScroll,
       style,
       containerStyle,
@@ -71,6 +83,9 @@ const NativeWebView = forwardRef(
     const [webViewKey, setWebViewKey] = useState(0);
     const [loadTimeoutError, setLoadTimeoutError] = useState(false);
     const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const availabilityTimingRef = useRef<
+      IWebViewAvailabilityTiming | undefined
+    >(undefined);
 
     const clearLoadTimeout = useCallback(() => {
       if (loadTimeoutRef.current) {
@@ -83,6 +98,10 @@ const NativeWebView = forwardRef(
       clearLoadTimeout();
       loadTimeoutRef.current = setTimeout(() => {
         if (!isUnmountingRef.current) {
+          reportWebViewAvailabilityResult({
+            status: 'timeout',
+            timing: availabilityTimingRef.current,
+          });
           setLoadTimeoutError(true);
         }
       }, WEBVIEW_LOAD_TIMEOUT_MS);
@@ -101,6 +120,10 @@ const NativeWebView = forwardRef(
       return () => {
         isUnmountingRef.current = true;
         clearLoadTimeout();
+        reportWebViewAvailabilityResult({
+          status: 'cancelled',
+          timing: availabilityTimingRef.current,
+        });
 
         try {
           // Stop WebView loading before component unmounts
@@ -173,6 +196,10 @@ const NativeWebView = forwardRef(
 
         // eslint-disable-next-line no-unsafe-optional-chaining, @typescript-eslint/no-unsafe-member-access
         const { url } = syntheticEvent?.nativeEvent;
+        availabilityTimingRef.current = createWebViewAvailabilityTiming({
+          attemptId: generateUUID(),
+          url,
+        });
         try {
           if (checkOneKeyCardGoogleOauthUrl({ url })) {
             // Google OAuth rejects embedded browser UAs (disallowed_useragent).
@@ -234,6 +261,10 @@ const NativeWebView = forwardRef(
         if (isUnmountingRef.current) return;
         clearLoadTimeout();
         setLoadTimeoutError(false);
+        reportWebViewAvailabilityResult({
+          status: 'success',
+          timing: availabilityTimingRef.current,
+        });
         onLoad?.(event);
       },
       [clearLoadTimeout, onLoad],
@@ -244,9 +275,42 @@ const NativeWebView = forwardRef(
         if (isUnmountingRef.current) return;
         clearLoadTimeout();
         setLoadTimeoutError(false);
+        reportWebViewAvailabilityResult({
+          status: 'success',
+          timing: availabilityTimingRef.current,
+        });
         onLoadEnd?.(event);
       },
       [clearLoadTimeout, onLoadEnd],
+    );
+
+    const safeOnError = useCallback(
+      (event: WebViewErrorEvent) => {
+        if (isUnmountingRef.current) return;
+        reportWebViewAvailabilityResult({
+          errorCode: event.nativeEvent.code,
+          status: 'network_error',
+          timing: availabilityTimingRef.current,
+        });
+        onError?.(event);
+      },
+      [onError],
+    );
+
+    const safeOnHttpError = useCallback(
+      (event: WebViewHttpErrorEvent) => {
+        if (isUnmountingRef.current) return;
+        const availabilityTiming = availabilityTimingRef.current;
+        if (event.nativeEvent.url === availabilityTiming?.url) {
+          reportWebViewAvailabilityResult({
+            errorCode: event.nativeEvent.statusCode,
+            status: 'http_error',
+            timing: availabilityTiming,
+          });
+        }
+        onHttpError?.(event);
+      },
+      [onHttpError],
     );
 
     const safeOnScroll = useCallback(
@@ -285,6 +349,11 @@ const NativeWebView = forwardRef(
         console.warn(
           `WebView render process gone (didCrash: ${didCrash}), recreating WebView`,
         );
+        reportWebViewAvailabilityResult({
+          errorCode: didCrash ? 'crashed' : 'terminated',
+          status: 'render_process_gone',
+          timing: availabilityTimingRef.current,
+        });
         // Bump key to force React to unmount the dead WebView and mount a fresh one
         setWebViewKey((prev) => prev + 1);
       },
@@ -354,6 +423,8 @@ const NativeWebView = forwardRef(
           onLoadStart={webViewOnLoadStart}
           onLoad={safeOnLoad}
           onLoadEnd={safeOnLoadEnd}
+          onError={safeOnError}
+          onHttpError={safeOnHttpError}
           renderError={renderError}
           renderLoading={renderLoading}
           pullToRefreshEnabled={pullToRefreshEnabled}
@@ -371,6 +442,8 @@ const NativeWebView = forwardRef(
       safeOnLoad,
       safeOnLoadEnd,
       safeOnLoadProgress,
+      safeOnError,
+      safeOnHttpError,
       safeOnScroll,
       style,
       containerStyle,
